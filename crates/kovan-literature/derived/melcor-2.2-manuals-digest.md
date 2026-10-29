@@ -160,7 +160,7 @@ section, equation or table, and page label.
 | `oxidation_min_k` 1000 K \[A\] | TOXMIN 1100 K | Yes. **[inferred]** the 1000–1100 K band adds under 1 % of the H2 |
 | `zr_melt_k` 2100 K: the whole node slumps to the lower plenum | 2098 K melting, but cladding holds to 2400 K, fuel stands to 2500 or 3100 K or time-at-temperature, and debris is held in-core by the support | **Partly.** Same melting point; different consequence |
 | `oxidation_heat_j_per_kg_zr` 6.763 MJ/kg (298 K standard, OFFBEAT) | 5,797 kJ/kg at MELCOR's references, temperature-corrected | **No** (different reference). Ours is now booked by Hess's law at the node, gh:#1046 |
-| No gaseous-diffusion limit; no oxidation of relocated Zr | Both present | Gaps |
+| ~~No gaseous-diffusion limit;~~ no oxidation of relocated Zr | Both present | Gap (relocated Zr). **The diffusion limit is implemented, 2026-10-29** (`core::diffusion_limited_rate`): it binds only at steam mole fractions under about 3 %, yet H2 at 25 h rose 1.7 % |
 
 ---
 
@@ -524,6 +524,10 @@ movements and predictions are in `docs/fukushima-melcor-gap-plan.md` §2a.
    - Effect: drywell peak **up** once the pool nears saturation.
 10. **MCCI gas, `c_v(T)`, mixture choked flow, oxidation cutoff 1100 K, a
     gaseous-diffusion limit.** Each is smaller.
+    - **Implemented 2026-10-29:** mixture choked flow; N2/H2 `c_v(T)`
+      (drywell peak +1.5e-5 relative); the gaseous-diffusion limit (H2
+      +1.7 %, lower head 0.024 h earlier; the sign on H2 was missed).
+      Open: MCCI gas (needs literature) and the 1100 K cutoff.
 
 **Acknowledgement.** Model descriptions are from Sandia National
 Laboratories' MELCOR Computer Code Manuals, Vols. 1 and 2 (SAND2017-0455 O;

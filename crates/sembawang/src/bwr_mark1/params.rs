@@ -295,8 +295,10 @@ pub const NP239_DECAY_PER_S: f64 = 3.41e-6;
 // privately, not public as was assumed): COR package §2.5.4, Table 2-6 gives
 // exactly these six numbers, and its Eq. 2-174 is this interpolation, linear
 // in T between the two branches. [P]. Not adopted from it: its lower limit
-// Tmin = 1100 K for steam (see OXIDATION_MIN_K) and its gaseous-diffusion
-// limit on the rate (Eq. 2-168; this model limits only by steam supply).
+// Tmin = 1100 K for steam (see OXIDATION_MIN_K) ~~and its gaseous-diffusion
+// limit on the rate (Eq. 2-168; this model limits only by steam supply)~~
+// (the gaseous-diffusion limit is in since 2026-10-29: H2O_H2_DIFFUSIVITY_A,
+// `core::diffusion_limited_rate`).
 pub const UH_LOW_A: f64 = 29.6;
 pub const UH_LOW_B_K: f64 = 16_820.0;
 pub const UH_HIGH_A: f64 = 87.9;
@@ -305,6 +307,12 @@ pub const UH_LOW_MAX_K: f64 = 1853.0;
 pub const UH_HIGH_MIN_K: f64 = 1873.0;
 /// Below this the oxidation is negligible on the accident's time scale. \[A\]
 pub const OXIDATION_MIN_K: f64 = 1000.0;
+/// Binary diffusion coefficient of steam in hydrogen, `D = a T^b / p`
+/// (m^2/s, T in K, p in Pa): MELCOR 2.2 Vol. 2 (SAND2023-10994 O), NCG/H2O
+/// package §6.1, Eq 6-2, which takes it from the MARCH 2 code's reference.
+/// At 1000 K and 1 atm it gives 7.2e-4 m^2/s. \[P\]
+pub const H2O_H2_DIFFUSIVITY_A: f64 = 6.60639e-4;
+pub const H2O_H2_DIFFUSIVITY_B: f64 = 1.68;
 /// Zr + 2 H2O(g) -> ZrO2 + 2 H2: heat released per kg Zr, J/kg.
 /// ~~\[U\] about 586 kJ/mol, 6.45 MJ/kg Zr~~ (`6.45e6`; also inconsistent with
 /// itself: 586 kJ/mol / 91.224 g/mol is 6.42 MJ/kg). **CORRECTED 2026-10-29
@@ -534,6 +542,8 @@ params! {
     uh_low_max_k = UH_LOW_MAX_K, P,
     uh_high_min_k = UH_HIGH_MIN_K, P,
     oxidation_min_k = OXIDATION_MIN_K, A,
+    h2o_h2_diffusivity_a = H2O_H2_DIFFUSIVITY_A, P,
+    h2o_h2_diffusivity_b = H2O_H2_DIFFUSIVITY_B, P,
     oxidation_heat_j_per_kg_zr = OXIDATION_HEAT_J_PER_KG_ZR, P,
     drywell_volume_m3 = DRYWELL_VOLUME_M3, U,
     wetwell_gas_m3 = WETWELL_GAS_M3, P,
@@ -643,7 +653,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 106);
+        assert_eq!(Params::INPUTS.len(), 108);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

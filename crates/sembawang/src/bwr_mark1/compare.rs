@@ -166,6 +166,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without actinide decay", all.without_actinide_decay()),
         ("without mixture choking", all.without_mixture_choking()),
         ("without gas c_v(T)", all.without_gas_cv_t()),
+        ("without diffusion limit", all.without_diffusion_limit()),
     ]
 }
 
@@ -448,6 +449,19 @@ mod tests {
     /// the previous fixture byte for byte (checked by running it as the
     /// default), and both drywell values are pinned below.
     ///
+    /// **Moved again 2026-10-29** (MELCOR's gaseous-diffusion limit on Zr
+    /// oxidation, COR Eq 2-168, [`super::core::diffusion_limited_rate`]):
+    /// lower head 4.5089 -> 4.4844 h, H2 287.47 -> 292.44 kg, drywell
+    /// 0.56293 -> 0.56407 MPa, vent unchanged. Predicted: binds only near
+    /// steam starvation, H2 slightly *down* (under 1 %), the rest about
+    /// unchanged. **Where it binds was right** (555 node-steps in 30 h, all
+    /// with the steam mole fraction under about 3 %); **the sign on H2 was
+    /// wrong**: the steam a starved node no longer takes passes up the ring,
+    /// and the small redistribution moves the run's timing (the regime
+    /// fragility above; H2 at 25 h is not smooth in the inputs).
+    /// `without_diffusion_limit` reproduces the previous baseline exactly
+    /// (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -455,26 +469,31 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 4.5089, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 4.5089, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 287.47).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.5629).abs() < 0.0001, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.56293122).abs() < 1e-8, "{m:?}");
-        let gc = measure(Mechanisms::default().without_gas_cv_t());
+        assert!(near(m.lower_head_h, 4.4844, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.4844, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 292.44).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.56407062).abs() < 1e-8, "{m:?}");
+        // Without the diffusion limit: the previous baseline, exactly.
+        let dl = measure(Mechanisms::default().without_diffusion_limit());
+        assert!(near(dl.lower_head_h, 4.5089, 0.001), "{dl:?}");
+        assert!((dl.h2_25h_kg - 287.47).abs() < 0.01, "{dl:?}");
+        assert!((dl.p_dw_peak_mpa - 0.56293122).abs() < 1e-8, "{dl:?}");
+        // And constant gas c_v as well: the one before that.
+        let gc = measure(Mechanisms::default().without_diffusion_limit().without_gas_cv_t());
         assert!((gc.p_dw_peak_mpa - 0.56292285).abs() < 1e-8, "{gc:?}");
-        assert_eq!((gc.lower_head_h, gc.h2_25h_kg, gc.vent_h), (m.lower_head_h, m.h2_25h_kg, m.vent_h));
+        assert_eq!((gc.lower_head_h, gc.h2_25h_kg, gc.vent_h), (dl.lower_head_h, dl.h2_25h_kg, dl.vent_h));
         // ~~No vent, no explosion~~: since gh:#1036 the wetwell vent flows,
         // at ~~25.12 h~~ 23.73 h since gh:#1041 (BSAF: 23.5-24.68 h, Tier A).
         assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
         // The steam-only choking ablation is the model before the mixture
         // correction, exactly.
-        let mc = measure(Mechanisms::default().without_mixture_choking().without_gas_cv_t());
+        let mc = measure(Mechanisms::default().without_mixture_choking().without_gas_cv_t().without_diffusion_limit());
         assert!(near(mc.lower_head_h, 4.5092, 0.001), "{mc:?}");
         assert!((mc.h2_25h_kg - 286.63).abs() < 0.01, "{mc:?}");
         assert!((mc.p_dw_peak_mpa - 0.5622).abs() < 0.0001, "{mc:?}");
         // All three decay switches off (with steam-only choking) is the
         // decay heat before gh:#1041, so the model before it, exactly.
-        let od = measure(Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking().without_gas_cv_t());
+        let od = measure(Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking().without_gas_cv_t().without_diffusion_limit());
         assert!(near(od.lower_head_h, 4.6678, 0.001), "{od:?}");
         assert!((od.h2_25h_kg - 283.76).abs() < 0.01, "{od:?}");
         assert!(near(od.vent_h, 25.1231, 0.001), "{od:?}");
@@ -487,10 +506,13 @@ mod tests {
         assert!((ns.p_dw_peak_mpa - 0.5341).abs() < 0.0001, "{ns:?}");
         // The no-radiation ablation. ~~The model before gh:#1037, exactly
         // (5.3953 h, 216.06 kg, 0.5319 MPa).~~ Since gh:#1036 it carries
-        // the swell too, so it isolates radiation.
+        // the swell too, so it isolates radiation. Since the diffusion
+        // limit (2026-10-29) it flips into the early regime: 4.973 ->
+        // 4.600 h, 245.33 -> 274.33 kg, vent at 23.96 h (the no-swell,
+        // no-collapse and constant-c_p ablations did not move).
         let nr = measure(Mechanisms::default().without_core_radiation());
-        assert!(near(nr.lower_head_h, 4.973, 0.001), "{nr:?}");
-        assert!((nr.h2_25h_kg - 245.33).abs() < 0.01, "{nr:?}");
+        assert!(near(nr.lower_head_h, 4.600, 0.001), "{nr:?}");
+        assert!((nr.h2_25h_kg - 274.33).abs() < 0.01, "{nr:?}");
         assert!((nr.p_dw_peak_mpa - 0.5608).abs() < 0.0001, "{nr:?}");
         // The no-collapse ablation. ~~The model before gh:#1035's collapse
         // step, exactly (5.4125 h, 180.57 kg, 0.5080 MPa).~~ Since
@@ -501,10 +523,11 @@ mod tests {
         assert!((nc.p_dw_peak_mpa - 0.5094).abs() < 0.0001, "{nc:?}");
         // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
         // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
-        // carries that too, so it isolates the wall alone.
+        // carries that too, so it isolates the wall alone. Since the
+        // diffusion limit: 4.331 -> 4.327 h, 286.97 -> 288.98 kg.
         let nw = measure(Mechanisms::default().without_lower_head_wall());
-        assert!(near(nw.lower_head_h, 4.331, 0.001), "{nw:?}");
-        assert!((nw.h2_25h_kg - 286.97).abs() < 0.01, "{nw:?}");
+        assert!(near(nw.lower_head_h, 4.327, 0.001), "{nw:?}");
+        assert!((nw.h2_25h_kg - 288.98).abs() < 0.01, "{nw:?}");
         assert!((nw.p_dw_peak_mpa - 0.5608).abs() < 0.0001, "{nw:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
@@ -542,7 +565,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 13);
+        assert_eq!(runs.len(), 14);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -564,6 +587,7 @@ mod tests {
         assert!(!ablations()[10].1.actinide_decay && ablations()[10].1.decay_mix);
         assert!(!ablations()[11].1.mixture_choking && ablations()[11].1.actinide_decay);
         assert!(!ablations()[12].1.gas_cv_t && ablations()[12].1.mixture_choking);
+        assert!(!ablations()[13].1.diffusion_limit && ablations()[13].1.gas_cv_t);
     }
 
     /// The verdict reads a value against its band.

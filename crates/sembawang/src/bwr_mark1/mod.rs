@@ -117,6 +117,10 @@ pub struct Mechanisms {
     /// MELCOR's temperature-dependent `c_v` for the containment's N2 and H2
     /// ([`gas`], 2026-10-29); off is the constant 20.8 / 20.5 J/(mol K).
     pub gas_cv_t: bool,
+    /// MELCOR's gaseous-diffusion limit on Zr oxidation
+    /// ([`core::diffusion_limited_rate`], 2026-10-29); off is the parabolic
+    /// rate limited only by the steam supply.
+    pub diffusion_limit: bool,
 }
 
 impl Default for Mechanisms {
@@ -134,6 +138,7 @@ impl Default for Mechanisms {
             actinide_decay: true,
             mixture_choking: true,
             gas_cv_t: true,
+            diffusion_limit: true,
         }
     }
 }
@@ -210,6 +215,13 @@ impl Mechanisms {
     /// K)): the model before 2026-10-29.
     pub fn without_gas_cv_t(mut self) -> Self {
         self.gas_cv_t = false;
+        self
+    }
+
+    /// No gaseous-diffusion limit on oxidation: the model before
+    /// 2026-10-29.
+    pub fn without_diffusion_limit(mut self) -> Self {
+        self.diffusion_limit = false;
         self
     }
 
@@ -725,7 +737,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),

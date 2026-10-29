@@ -3473,7 +3473,8 @@ Zircaloy (cladding plus its share of the channel boxes), with
   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
 - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
   into the cladding, limited by the steam that reaches the node (steam
-  starvation); the steam it uses and the hydrogen it makes travel up.
+  starvation) and, since 2026-10-29, by MELCOR's gaseous diffusion of
+  that steam through the hydrogen (`diffusion_limited_rate`); the steam it uses and the hydrogen it makes travel up.
   The heat is Hess's law at the node (gh:#1046): the 298 K heat of
   reaction, plus the consumed steam's enthalpy above 298 K vapour, minus
   heating the new hydrogen to the stream, which then carries it (steam
@@ -3530,6 +3531,7 @@ pub struct CoreSnapshot {
     pub lower_head_wall: bool,
     pub rod_collapse: bool,
     pub core_radiation: bool,
+    pub diffusion_limit: bool,
     pub prm: Params,
 }
 ```
@@ -3549,6 +3551,7 @@ pub struct CoreSnapshot {
 | `lower_head_wall` | `bool` | The lower-head wall on (the default) or the debris-temperature<br>ablation (`Mechanisms`). |
 | `rod_collapse` | `bool` | MELCOR's rod-collapse criteria (the default) or the 2100 K<br>whole-node slump (`Mechanisms`). |
 | `core_radiation` | `bool` | In-core radiation and the shroud (the default) or none<br>(`Mechanisms`). |
+| `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on oxidation (the default) or the<br>parabolic rate limited only by steam supply (`Mechanisms`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4007,6 +4010,34 @@ Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
 
 ```rust
 pub fn oxidation_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `diffusion_limited_rate`
+
+MELCOR's gaseous-diffusion limit on Zr oxidation, kg Zr/(m^2 s) (Vol. 2,
+SAND2023-10994 O, COR §2.5.3, Eq 2-168; Vol. 1, SAND2017-0455 O,
+C1003; no source used): steam diffusing through the hydrogen to the
+surface,
+
+```text
+dW/dt = M_Zr k_c p_ox / (n R T_f),   n = 2 mol H2O per mol Zr
+```
+
+(`M_Zr/(n R)` is MELCOR's C1003(1), 0.00548 kg K/(Pa m^3), here derived
+from the molar masses). `p_ox` is the steam's partial pressure in the
+ring's gas (the surface's taken as zero, the limit), `T_f` the film
+temperature, and `k_c = Sh D / D_h` by the heat-mass analogy on this
+model's own convection correlation (`steam_htc`: Dittus-Boelter with the
+Schmidt number for the Prandtl, laminar floor Sh = 4.36; MELCOR's
+developing-flow factor is 1 at its 1000 m entrance length and is left
+out). `D` is steam in hydrogen ([`Params::h2o_h2_diffusivity_a`]).
+Simplification: the Reynolds number and the viscosity are the steam's,
+as in `steam_htc`; the density in the Schmidt number is the mixture's.
+MELCOR uses this rate when it is below the parabolic one, which is how
+the caller applies it.
+
+```rust
+pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64, p_pa: f64) -> f64 { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -4724,6 +4755,8 @@ pub struct Params {
     pub uh_low_max_k: f64,
     pub uh_high_min_k: f64,
     pub oxidation_min_k: f64,
+    pub h2o_h2_diffusivity_a: f64,
+    pub h2o_h2_diffusivity_b: f64,
     pub oxidation_heat_j_per_kg_zr: f64,
     pub drywell_volume_m3: f64,
     pub wetwell_gas_m3: f64,
@@ -4838,6 +4871,8 @@ pub struct Params {
 | `uh_low_max_k` | `f64` |  |
 | `uh_high_min_k` | `f64` |  |
 | `oxidation_min_k` | `f64` |  |
+| `h2o_h2_diffusivity_a` | `f64` |  |
+| `h2o_h2_diffusivity_b` | `f64` |  |
 | `oxidation_heat_j_per_kg_zr` | `f64` |  |
 | `drywell_volume_m3` | `f64` |  |
 | `wetwell_gas_m3` | `f64` |  |
@@ -5757,6 +5792,23 @@ Below this the oxidation is negligible on the accident's time scale. \[A\]
 
 ```rust
 pub const OXIDATION_MIN_K: f64 = 1000.0;
+```
+
+#### Constant `H2O_H2_DIFFUSIVITY_A`
+
+Binary diffusion coefficient of steam in hydrogen, `D = a T^b / p`
+(m^2/s, T in K, p in Pa): MELCOR 2.2 Vol. 2 (SAND2023-10994 O), NCG/H2O
+package §6.1, Eq 6-2, which takes it from the MARCH 2 code's reference.
+At 1000 K and 1 atm it gives 7.2e-4 m^2/s. \[P\]
+
+```rust
+pub const H2O_H2_DIFFUSIVITY_A: f64 = 6.60639e-4;
+```
+
+#### Constant `H2O_H2_DIFFUSIVITY_B`
+
+```rust
+pub const H2O_H2_DIFFUSIVITY_B: f64 = 1.68;
 ```
 
 #### Constant `OXIDATION_HEAT_J_PER_KG_ZR`
@@ -6750,6 +6802,7 @@ pub struct Mechanisms {
     pub actinide_decay: bool,
     pub mixture_choking: bool,
     pub gas_cv_t: bool,
+    pub diffusion_limit: bool,
 }
 ```
 
@@ -6769,6 +6822,7 @@ pub struct Mechanisms {
 | `actinide_decay` | `bool` | U-239 and Np-239 decay heat (gh:#1041). |
 | `mixture_choking` | `bool` | Choked flow of the vessel's hydrogen-steam gas from its own molar<br>mass (gh:#1037); off is the steam-only flux for any gas. |
 | `gas_cv_t` | `bool` | MELCOR's temperature-dependent `c_v` for the containment's N2 and H2<br>([`gas`], 2026-10-29); off is the constant 20.8 / 20.5 J/(mol K). |
+| `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on Zr oxidation<br>([`core::diffusion_limited_rate`], 2026-10-29); off is the parabolic<br>rate limited only by the steam supply. |
 
 ##### Implementations
 
@@ -6828,6 +6882,11 @@ pub struct Mechanisms {
   pub fn without_gas_cv_t(self: Self) -> Self { /* ... */ }
   ```
   Constant `c_v` for the containment's N2 (20.8) and H2 (20.5 J/(mol
+
+- ```rust
+  pub fn without_diffusion_limit(self: Self) -> Self { /* ... */ }
+  ```
+  No gaseous-diffusion limit on oxidation: the model before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

@@ -28,7 +28,8 @@
 //!   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
 //! - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
 //!   into the cladding, limited by the steam that reaches the node (steam
-//!   starvation); the steam it uses and the hydrogen it makes travel up.
+//!   starvation) and, since 2026-10-29, by MELCOR's gaseous diffusion of
+//!   that steam through the hydrogen (`diffusion_limited_rate`); the steam it uses and the hydrogen it makes travel up.
 //!   The heat is Hess's law at the node (gh:#1046): the 298 K heat of
 //!   reaction, plus the consumed steam's enthalpy above 298 K vapour, minus
 //!   heating the new hydrogen to the stream, which then carries it (steam
@@ -112,6 +113,9 @@ pub struct CoreSnapshot {
     /// In-core radiation and the shroud (the default) or none
     /// (`Mechanisms`).
     pub core_radiation: bool,
+    /// MELCOR's gaseous-diffusion limit on oxidation (the default) or the
+    /// parabolic rate limited only by steam supply (`Mechanisms`).
+    pub diffusion_limit: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -580,6 +584,46 @@ pub fn oxidation_rate(prm: &Params, t_k: f64) -> f64 {
     }
 }
 
+/// MELCOR's gaseous-diffusion limit on Zr oxidation, kg Zr/(m^2 s) (Vol. 2,
+/// SAND2023-10994 O, COR §2.5.3, Eq 2-168; Vol. 1, SAND2017-0455 O,
+/// C1003; no source used): steam diffusing through the hydrogen to the
+/// surface,
+///
+/// ```text
+/// dW/dt = M_Zr k_c p_ox / (n R T_f),   n = 2 mol H2O per mol Zr
+/// ```
+///
+/// (`M_Zr/(n R)` is MELCOR's C1003(1), 0.00548 kg K/(Pa m^3), here derived
+/// from the molar masses). `p_ox` is the steam's partial pressure in the
+/// ring's gas (the surface's taken as zero, the limit), `T_f` the film
+/// temperature, and `k_c = Sh D / D_h` by the heat-mass analogy on this
+/// model's own convection correlation (`steam_htc`: Dittus-Boelter with the
+/// Schmidt number for the Prandtl, laminar floor Sh = 4.36; MELCOR's
+/// developing-flow factor is 1 at its 1000 m entrance length and is left
+/// out). `D` is steam in hydrogen ([`Params::h2o_h2_diffusivity_a`]).
+/// Simplification: the Reynolds number and the viscosity are the steam's,
+/// as in `steam_htc`; the density in the Schmidt number is the mixture's.
+/// MELCOR uses this rate when it is below the parabolic one, which is how
+/// the caller applies it.
+pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64, p_pa: f64) -> f64 {
+    let (n_s, n_h) = (w_steam / M_H2O, w_h2 / M_H2);
+    if n_s <= 0.0 {
+        return 0.0;
+    }
+    let x_steam = n_s / (n_s + n_h);
+    let m_mix = (w_steam + w_h2) / (n_s + n_h);
+    let t = ThermodynamicTemperature::new::<kelvin>(t_film.clamp(300.0, 2200.0));
+    let mu = mu_tp_eqm_single_phase(t, Pressure::new::<pascal>(p_pa)).get::<pascal_second>();
+    let d = prm.h2o_h2_diffusivity_a * t_film.r_powf(prm.h2o_h2_diffusivity_b) / p_pa;
+    let rho = p_pa * m_mix / (R_GAS * t_film);
+    let dh = prm.hydraulic_diameter_m();
+    let re = (w_steam / (prm.core_flow_area_m2() / RINGS as f64)) * dh / mu;
+    let sc = mu / (rho * d);
+    let sh = (0.023 * re.r_powf(0.8) * sc.r_powf(0.4)).max(4.36);
+    let k_c = sh * d / dh;
+    M_ZR / (2.0 * R_GAS) * k_c * x_steam * p_pa / t_film
+}
+
 /// Dittus-Boelter heat transfer coefficient for steam at `t_film` and `p`,
 /// for a ring's steam flow `w` (kg/s) through its share of the flow area.
 fn steam_htc(prm: &Params, w: f64, t_film: f64, p_pa: f64) -> (f64, f64) {
@@ -739,6 +783,10 @@ impl Core {
                         let w_max = g.zr_kg / g.a_zr;
                         let w_new = (node.w_ox * node.w_ox + k * dt).sqrt().min(w_max);
                         let mut dzr = (w_new - node.w_ox) * g.a_zr;
+                        if s.diffusion_limit {
+                            let rate = diffusion_limited_rate(prm, w_steam, w_h2, 0.5 * (node.t_clad + t_steam), s.p_pa);
+                            dzr = dzr.min(rate * g.a_zr * dt);
+                        }
                         let steam_per_zr = 2.0 * M_H2O / M_ZR;
                         let dzr_steam = w_steam * dt / steam_per_zr;
                         dzr = dzr.min(dzr_steam);
@@ -965,6 +1013,7 @@ impl CoreSnapshot {
             if self.lower_head_wall { 1.0 } else { 0.0 },
             if self.rod_collapse { 1.0 } else { 0.0 },
             if self.core_radiation { 1.0 } else { 0.0 },
+            if self.diffusion_limit { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -981,6 +1030,7 @@ impl CoreSnapshot {
             lower_head_wall: r.f() != 0.0,
             rod_collapse: r.f() != 0.0,
             core_radiation: r.f() != 0.0,
+            diffusion_limit: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1033,6 +1083,29 @@ impl CoreResult {
 mod tests {
     use super::*;
 
+    /// The gaseous-diffusion limit (MELCOR COR Eq 2-168) against hand
+    /// values, in the laminar floor (a small steam flow, Sh = 4.36):
+    /// - `M_Zr/(2R)` is MELCOR's C1003(1), 0.00548 kg K/(Pa m^3);
+    /// - pure steam at 1500 K film and 7 MPa: `D = 6.60639e-4 x 1500^1.68 /
+    ///   7e6 = 2.044e-5 m^2/s`, so the rate is `0.005486 x 4.36 D / D_h x
+    ///   7e6 / 1500`;
+    /// - it does not depend on pressure there (`D ~ 1/p`, `p_ox ~ p`), and
+    ///   it halves at equal moles of steam and hydrogen; no steam, no rate.
+    #[test]
+    fn the_diffusion_limit_follows_melcors_equation() {
+        let prm = Params::default();
+        assert!((M_ZR / (2.0 * R_GAS) - 0.00548).abs() < 0.00001);
+        let w = 1e-6;
+        let r = diffusion_limited_rate(&prm, w, 0.0, 1500.0, 7.0e6);
+        let d = 2.044e-5;
+        let hand = 0.005486 * 4.36 * d / prm.hydraulic_diameter_m() * 7.0e6 / 1500.0;
+        assert!((r / hand - 1.0).abs() < 1e-3, "{r} vs {hand}");
+        assert!((diffusion_limited_rate(&prm, w, 0.0, 1500.0, 0.5e6) / r - 1.0).abs() < 1e-12);
+        let half = diffusion_limited_rate(&prm, w, w * M_H2 / M_H2O, 1500.0, 7.0e6);
+        assert!((half / r - 0.5).abs() < 1e-12, "{half} vs {r}");
+        assert_eq!(diffusion_limited_rate(&prm, 0.0, 1.0, 1500.0, 7.0e6), 0.0);
+    }
+
     /// The axial shape sums to one and peaks mid-core.
     #[test]
     fn the_axial_shape_is_normalised_and_peaked() {
@@ -1047,7 +1120,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1073,7 +1146,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1102,7 +1175,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
