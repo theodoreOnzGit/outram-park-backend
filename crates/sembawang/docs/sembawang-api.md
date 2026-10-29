@@ -2251,13 +2251,19 @@ This uses the open-literature semi-implicit, volume-conserving sectional
 scheme of Jacobson, Turco, Jensen and Toon (1994, *Atmos. Environ.* 28,
 1327), with representative volumes in a fixed ratio of at least 2 (the
 analogue of MAEROS's constraint `m_(i+1)/m_i > 2`, Eq 2-37). As in that
-scheme, particles that outgrow the top section stay in it; MELCOR's
-fallout of particles above the largest size is not built (stated).
+scheme, ~~particles that outgrow the top section stay in it; MELCOR's
+fallout of particles above the largest size is not built (stated)~~
+particles that outgrow the top section fall out, as in MELCOR (RN
+§2.4.1): the scheme sends them to a virtual section above the top, and
+that volume is booked as fallout.
 
-**Settling** (RN §2.4.2.2) removes each section at `v_grav A/V`, the
-Stokes velocity with the slip correction over the volume's floor area.
-Brownian diffusion to walls, thermophoresis and diffusiophoresis are not
-built yet.
+**Deposition** (RN §2.4.2.2) onto floors, walls and ceilings (a pool
+surface counts as a floor): gravitational settling (floors positive,
+ceilings negative), Brownian diffusion across a boundary layer (Eq
+2-42), thermophoresis (Eq 2-43) and diffusiophoresis with the Stefan flow
+(Eqs 2-45, 2-46), summed per surface as MELCOR's table says and floored
+at zero, then applied as exact exponential decay at `sum A v / V`.
+Turbulent deposition in pipes and bends is not built.
 
 ```rust
 pub mod aerosol { /* ... */ }
@@ -2281,6 +2287,9 @@ pub struct Medium {
     pub sticking: f64,
     pub slip: f64,
     pub dissipation: f64,
+    pub k_ratio: f64,
+    pub accommodation: f64,
+    pub boundary_layer_m: f64,
 }
 ```
 
@@ -2298,6 +2307,9 @@ pub struct Medium {
 | `sticking` | `f64` |  |
 | `slip` | `f64` |  |
 | `dissipation` | `f64` |  |
+| `k_ratio` | `f64` | Gas-to-particle conductivity ratio, thermal accommodation constant,<br>diffusion boundary-layer thickness, m (MELCOR's RN1_MS01 defaults:<br>0.05, 2.25, 1e-5). |
+| `accommodation` | `f64` |  |
+| `boundary_layer_m` | `f64` |  |
 
 ##### Implementations
 
@@ -2327,6 +2339,16 @@ pub struct Medium {
   pub fn settling_velocity(self: &Self, d: f64) -> f64 { /* ... */ }
   ```
   Stokes terminal velocity with slip, m/s (Eq B-14, and the settling
+
+- ```rust
+  pub fn diffusion_velocity(self: &Self, d: f64) -> f64 { /* ... */ }
+  ```
+  Brownian diffusion deposition velocity, m/s (Eq 2-42).
+
+- ```rust
+  pub fn thermophoretic_velocity(self: &Self, d: f64, grad_t: f64, t_wall: f64) -> f64 { /* ... */ }
+  ```
+  Thermophoretic velocity toward a surface, m/s, for a gas
 
 - ```rust
   pub fn brownian(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
@@ -2459,6 +2481,287 @@ pub struct Medium {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `Facing`
+
+How a deposition surface faces (RN §2.4.2.2).
+
+```rust
+pub enum Facing {
+    Floor,
+    Wall,
+    Ceiling,
+}
+```
+
+##### Variants
+
+###### `Floor`
+
+Upward-facing: floors and pool surfaces.
+
+###### `Wall`
+
+###### `Ceiling`
+
+Downward-facing.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Surface`
+
+A deposition surface: area, m^2, facing, and the phoretic velocities it
+drives, m/s, given per section by the caller (thermophoresis from its
+heat flux, diffusiophoresis from its condensation; zero for none).
+
+```rust
+pub struct Surface {
+    pub area: f64,
+    pub facing: Facing,
+    pub phoretic: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `area` | `f64` |  |
+| `facing` | `Facing` |  |
+| `phoretic` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Sections`
 
 A sectional size distribution in one well-mixed volume: representative
@@ -2469,6 +2772,7 @@ concentration in each, m^3 of particle per m^3 of gas.
 pub struct Sections {
     pub v: Vec<f64>,
     pub conc: Vec<f64>,
+    pub fallout: f64,
 }
 ```
 
@@ -2478,6 +2782,7 @@ pub struct Sections {
 |------|------|---------------|
 | `v` | `Vec<f64>` |  |
 | `conc` | `Vec<f64>` |  |
+| `fallout` | `f64` | Particle volume that outgrew the top section, m^3 per m^3 of gas,<br>accumulated. |
 
 ##### Implementations
 
@@ -2501,6 +2806,11 @@ pub struct Sections {
   pub fn coagulate<F: Fn(usize, usize) -> f64>(self: &mut Self, dt: f64, beta: F) { /* ... */ }
   ```
   One semi-implicit coagulation step of `dt` s with the kernel
+
+- ```rust
+  pub fn deposit(self: &mut Self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64) -> Vec<f64> { /* ... */ }
+  ```
+  Deposition for `dt` s onto `surfaces` of a volume of `volume` m^3:
 
 - ```rust
   pub fn settle(self: &mut Self, medium: &Medium, area: f64, volume: f64, dt: f64) -> f64 { /* ... */ }
@@ -2617,6 +2927,20 @@ pub struct Sections {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+### Functions
+
+#### Function `diffusiophoretic_velocity`
+
+Diffusiophoretic velocity toward a surface, m/s, with the Stefan flow
+(Eqs 2-45, 2-46): `w_cond` the steam condensation flux onto it,
+kg/(m^2 s) (negative evaporating), `x_steam` the bulk steam mole
+fraction, `m_steam`, `m_nc` molar masses (any one unit), `rho_bulk` the
+bulk gas density and `rho_sat` the saturated vapour density, kg/m^3.
+
+```rust
+pub fn diffusiophoretic_velocity(w_cond: f64, x_steam: f64, m_steam: f64, m_nc: f64, rho_bulk: f64, rho_sat: f64) -> f64 { /* ... */ }
+```
+
 ## Module `compare`
 
 The Unit 1 comparison against BSAF Phase II, and the ablation table

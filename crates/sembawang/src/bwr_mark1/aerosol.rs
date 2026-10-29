@@ -28,13 +28,19 @@
 //! scheme of Jacobson, Turco, Jensen and Toon (1994, *Atmos. Environ.* 28,
 //! 1327), with representative volumes in a fixed ratio of at least 2 (the
 //! analogue of MAEROS's constraint `m_(i+1)/m_i > 2`, Eq 2-37). As in that
-//! scheme, particles that outgrow the top section stay in it; MELCOR's
-//! fallout of particles above the largest size is not built (stated).
+//! scheme, ~~particles that outgrow the top section stay in it; MELCOR's
+//! fallout of particles above the largest size is not built (stated)~~
+//! particles that outgrow the top section fall out, as in MELCOR (RN
+//! §2.4.1): the scheme sends them to a virtual section above the top, and
+//! that volume is booked as fallout.
 //!
-//! **Settling** (RN §2.4.2.2) removes each section at `v_grav A/V`, the
-//! Stokes velocity with the slip correction over the volume's floor area.
-//! Brownian diffusion to walls, thermophoresis and diffusiophoresis are not
-//! built yet.
+//! **Deposition** (RN §2.4.2.2) onto floors, walls and ceilings (a pool
+//! surface counts as a floor): gravitational settling (floors positive,
+//! ceilings negative), Brownian diffusion across a boundary layer (Eq
+//! 2-42), thermophoresis (Eq 2-43) and diffusiophoresis with the Stefan flow
+//! (Eqs 2-45, 2-46), summed per surface as MELCOR's table says and floored
+//! at zero, then applied as exact exponential decay at `sum A v / V`.
+//! Turbulent deposition in pipes and bends is not built.
 
 use petir::mathf::RealMath;
 
@@ -60,12 +66,32 @@ pub struct Medium {
     pub sticking: f64,
     pub slip: f64,
     pub dissipation: f64,
+    /// Gas-to-particle conductivity ratio, thermal accommodation constant,
+    /// diffusion boundary-layer thickness, m (MELCOR's RN1_MS01 defaults:
+    /// 0.05, 2.25, 1e-5).
+    pub k_ratio: f64,
+    pub accommodation: f64,
+    pub boundary_layer_m: f64,
 }
 
 impl Medium {
     /// Air at `t_k` and `p_pa`, with MELCOR's default aerosol constants.
     pub fn air(t_k: f64, p_pa: f64, mu_pa_s: f64) -> Self {
-        Self { t_k, p_pa, molar_mass_g: 28.97, mu_pa_s, rho_p: 1000.0, gamma: 1.0, chi: 1.0, sticking: 1.0, slip: 1.257, dissipation: 0.001 }
+        Self {
+            t_k,
+            p_pa,
+            molar_mass_g: 28.97,
+            mu_pa_s,
+            rho_p: 1000.0,
+            gamma: 1.0,
+            chi: 1.0,
+            sticking: 1.0,
+            slip: 1.257,
+            dissipation: 0.001,
+            k_ratio: 0.05,
+            accommodation: 2.25,
+            boundary_layer_m: 1.0e-5,
+        }
     }
     /// Gas density, kg/m^3 (Eq B-12).
     pub fn rho_gas(&self) -> f64 {
@@ -88,6 +114,21 @@ impl Medium {
     /// velocity of RN §2.4.2.2).
     pub fn settling_velocity(&self, d: f64) -> f64 {
         self.rho_p * G * d * d * self.slip_correction(d) / (18.0 * self.mu_pa_s * self.chi)
+    }
+
+    /// Brownian diffusion deposition velocity, m/s (Eq 2-42).
+    pub fn diffusion_velocity(&self, d: f64) -> f64 {
+        K_B * self.t_k * self.slip_correction(d) / (3.0 * std::f64::consts::PI * self.mu_pa_s * self.chi * d * self.boundary_layer_m)
+    }
+
+    /// Thermophoretic velocity toward a surface, m/s, for a gas
+    /// temperature gradient `grad_t` toward it (K/m, positive when the gas
+    /// cools toward the surface) at wall temperature `t_wall` (Eq 2-43).
+    pub fn thermophoretic_velocity(&self, d: f64, grad_t: f64, t_wall: f64) -> f64 {
+        let kn = 2.0 * self.mean_free_path() / d;
+        let (ct, kr) = (self.accommodation, self.k_ratio);
+        3.0 * self.mu_pa_s * self.slip_correction(d) * (ct * kn + kr) * grad_t
+            / (2.0 * self.chi * self.rho_gas() * t_wall * (1.0 + 3.0 * self.slip * kn) * (1.0 + 2.0 * ct * kn + kr))
     }
 
     /// Brownian kernel, m^3/s (Fuchs; Eqs B-1 to B-10).
@@ -131,6 +172,39 @@ impl Medium {
     }
 }
 
+/// Diffusiophoretic velocity toward a surface, m/s, with the Stefan flow
+/// (Eqs 2-45, 2-46): `w_cond` the steam condensation flux onto it,
+/// kg/(m^2 s) (negative evaporating), `x_steam` the bulk steam mole
+/// fraction, `m_steam`, `m_nc` molar masses (any one unit), `rho_bulk` the
+/// bulk gas density and `rho_sat` the saturated vapour density, kg/m^3.
+pub fn diffusiophoretic_velocity(w_cond: f64, x_steam: f64, m_steam: f64, m_nc: f64, rho_bulk: f64, rho_sat: f64) -> f64 {
+    if w_cond >= 0.0 {
+        m_steam / (x_steam * m_steam + (1.0 - x_steam) * m_nc) * w_cond / rho_bulk
+    } else {
+        w_cond / rho_sat
+    }
+}
+
+/// How a deposition surface faces (RN §2.4.2.2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Facing {
+    /// Upward-facing: floors and pool surfaces.
+    Floor,
+    Wall,
+    /// Downward-facing.
+    Ceiling,
+}
+
+/// A deposition surface: area, m^2, facing, and the phoretic velocities it
+/// drives, m/s, given per section by the caller (thermophoresis from its
+/// heat flux, diffusiophoresis from its condensation; zero for none).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Surface {
+    pub area: f64,
+    pub facing: Facing,
+    pub phoretic: Vec<f64>,
+}
+
 /// A sectional size distribution in one well-mixed volume: representative
 /// particle volumes `v_k` (fixed ratio), and the aerosol volume
 /// concentration in each, m^3 of particle per m^3 of gas.
@@ -138,6 +212,9 @@ impl Medium {
 pub struct Sections {
     pub v: Vec<f64>,
     pub conc: Vec<f64>,
+    /// Particle volume that outgrew the top section, m^3 per m^3 of gas,
+    /// accumulated.
+    pub fallout: f64,
 }
 
 impl Sections {
@@ -147,7 +224,7 @@ impl Sections {
         assert!(ratio >= 2.0, "the volume ratio must be at least 2 (Eq 2-37's analogue)");
         let v0 = std::f64::consts::PI / 6.0 * d_min.r_powi(3);
         let v = (0..n).map(|k| v0 * ratio.r_powi(k as i32)).collect();
-        Self { v, conc: vec![0.0; n] }
+        Self { v, conc: vec![0.0; n], fallout: 0.0 }
     }
     pub fn diameter(&self, k: usize) -> f64 {
         (6.0 * self.v[k] / std::f64::consts::PI).r_powf(1.0 / 3.0)
@@ -158,14 +235,14 @@ impl Sections {
     }
 
     /// Jacobson et al.'s volume fraction of a coagulated particle of volume
-    /// `vij` assigned to section `k`.
-    fn fraction(&self, vij: f64, k: usize) -> f64 {
-        let n = self.v.len();
-        let v = &self.v;
+    /// `vij` assigned to section `k` of `v`, the sections extended by one
+    /// virtual section above the top (the fallout).
+    fn fraction(v: &[f64], vij: f64, k: usize) -> f64 {
+        let n = v.len();
         if k + 1 < n && vij >= v[k] && vij < v[k + 1] {
             (v[k + 1] - vij) / (v[k + 1] - v[k]) * v[k] / vij
         } else if k > 0 && vij > v[k - 1] && vij < v[k] {
-            1.0 - self.fraction(vij, k - 1)
+            1.0 - Self::fraction(v, vij, k - 1)
         } else if k + 1 == n && vij >= v[k] {
             1.0
         } else {
@@ -178,6 +255,9 @@ impl Sections {
     /// conserved to round-off and the step is stable for any `dt`.
     pub fn coagulate<F: Fn(usize, usize) -> f64>(&mut self, dt: f64, beta: F) {
         let n = self.v.len();
+        let mut ext = self.v.clone();
+        ext.push(self.v[n - 1] * self.v[n - 1] / self.v[n - 2]);
+        let old: f64 = self.conc.iter().sum();
         let n_old: Vec<f64> = (0..n).map(|k| self.number(k)).collect();
         let b: Vec<Vec<f64>> = (0..n).map(|i| (0..n).map(|j| beta(i, j)).collect()).collect();
         let mut new = vec![0.0; n];
@@ -185,7 +265,7 @@ impl Sections {
             let mut gain = 0.0;
             for j in 0..=k {
                 for i in 0..k {
-                    let f = self.fraction(self.v[i] + self.v[j], k);
+                    let f = Self::fraction(&ext, self.v[i] + self.v[j], k);
                     if f > 0.0 {
                         gain += f * b[i][j] * new[i] * n_old[j];
                     }
@@ -193,11 +273,48 @@ impl Sections {
             }
             let mut loss = 0.0;
             for j in 0..n {
-                loss += (1.0 - self.fraction(self.v[k] + self.v[j], k)) * b[k][j] * n_old[j];
+                loss += (1.0 - Self::fraction(&ext, self.v[k] + self.v[j], k)) * b[k][j] * n_old[j];
             }
             new[k] = (self.conc[k] + dt * gain) / (1.0 + dt * loss);
         }
+        // What left the real sections went to the virtual one: fallout.
+        self.fallout += old - new.iter().sum::<f64>();
         self.conc = new;
+    }
+
+    /// Deposition for `dt` s onto `surfaces` of a volume of `volume` m^3:
+    /// per section, the sum over surfaces of area times the net velocity
+    /// (gravitational by facing, Brownian diffusion, the surface's
+    /// phoretic velocity), each surface's net floored at zero, applied
+    /// exactly. Returns the particle volume deposited on each surface, m^3
+    /// per m^3 of gas.
+    pub fn deposit(&mut self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64) -> Vec<f64> {
+        let mut out = vec![0.0; surfaces.len()];
+        for k in 0..self.v.len() {
+            let d = self.diameter(k);
+            let (vg, vd) = (medium.settling_velocity(d), medium.diffusion_velocity(d));
+            let rates: Vec<f64> = surfaces
+                .iter()
+                .map(|s| {
+                    let grav = match s.facing {
+                        Facing::Floor => vg,
+                        Facing::Wall => 0.0,
+                        Facing::Ceiling => -vg,
+                    };
+                    s.area * (grav + vd + s.phoretic[k]).max(0.0) / volume
+                })
+                .collect();
+            let total: f64 = rates.iter().sum();
+            if total <= 0.0 {
+                continue;
+            }
+            let gone = self.conc[k] * (1.0 - (-total * dt).r_exp());
+            for (o, r) in out.iter_mut().zip(&rates) {
+                *o += gone * r / total;
+            }
+            self.conc[k] -= gone;
+        }
+        out
     }
 
     /// Gravitational settling for `dt` s onto a floor of `area` m^2 under a
@@ -290,5 +407,47 @@ mod tests {
             assert!((t.conc[i] - exact).abs() < 1e-12);
         }
         assert!((out + t.conc.iter().sum::<f64>() - 3.0).abs() < 1e-12);
+    }
+
+    /// Fallout and the deposition terms:
+    /// - with three sections and a large constant kernel, volume in the
+    ///   sections plus fallout is conserved to 1e-12, and fallout is
+    ///   positive;
+    /// - Brownian diffusion velocity for 0.1 um in air with a 10 um layer:
+    ///   `kT C/(3 pi mu d Delta)` = 4.116e-21 x 2.895 / 1.734e-16 = 6.87e-5
+    ///   m/s by hand (first written as 2.0e-5, an arithmetic slip caught by
+    ///   this test);
+    /// - thermophoresis is zero with no gradient and scales with it;
+    /// - diffusiophoresis in pure steam condensing at 1e-3 kg/(m^2 s) into
+    ///   0.6 kg/m^3 gas is `w/rho` = 1.67e-3 m/s;
+    /// - a ceiling takes nothing from large particles (gravity beats
+    ///   diffusion), a floor takes more than a wall, and the volume
+    ///   deposited plus what remains is conserved.
+    #[test]
+    fn fallout_and_deposition_follow_melcor() {
+        let mut s = Sections::new(1e-6, 3, 2.0);
+        s.conc = vec![1e-6, 1e-6, 1e-6];
+        for _ in 0..50 {
+            s.coagulate(1.0, |_, _| 1e-6);
+        }
+        assert!(s.fallout > 0.0 && (s.conc.iter().sum::<f64>() + s.fallout - 3e-6).abs() < 1e-18, "{s:?}");
+        let m = air();
+        let vd = m.diffusion_velocity(0.1e-6);
+        let hand = K_B * m.t_k * m.slip_correction(0.1e-6) / (3.0 * std::f64::consts::PI * m.mu_pa_s * 0.1e-6 * 1e-5);
+        assert!((vd - hand).abs() < 1e-15 && (vd - 6.87e-5).abs() < 0.02e-5, "{vd} {}", m.slip_correction(0.1e-6));
+        assert_eq!(m.thermophoretic_velocity(1e-6, 0.0, 400.0), 0.0);
+        let t1 = m.thermophoretic_velocity(1e-6, 100.0, 400.0);
+        assert!(t1 > 0.0 && (m.thermophoretic_velocity(1e-6, 200.0, 400.0) / t1 - 2.0).abs() < 1e-12);
+        assert!((diffusiophoretic_velocity(1e-3, 1.0, 18.0, 28.0, 0.6, 0.5) - 1e-3 / 0.6).abs() < 1e-15);
+        let mut big = Sections::new(10e-6, 1, 2.0);
+        big.conc = vec![1.0];
+        let surfaces = [
+            Surface { area: 10.0, facing: Facing::Floor, phoretic: vec![0.0] },
+            Surface { area: 10.0, facing: Facing::Wall, phoretic: vec![0.0] },
+            Surface { area: 10.0, facing: Facing::Ceiling, phoretic: vec![0.0] },
+        ];
+        let out = big.deposit(&m, &surfaces, 100.0, 60.0);
+        assert!(out[2] == 0.0 && out[0] > out[1] && out[1] > 0.0, "{out:?}");
+        assert!((out.iter().sum::<f64>() + big.conc[0] - 1.0).abs() < 1e-12);
     }
 }
