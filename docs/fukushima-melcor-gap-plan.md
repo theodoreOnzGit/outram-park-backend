@@ -160,11 +160,11 @@ All are sub-issues of #1028, filed 2026-10-28.
 | Item | Issue | Priority |
 |---|---|---|
 | Literature and copyright tiers (§4) | #1031 | P1 |
-| F1 comparison harness and ablations | #1032 | P1 |
-| F2 move into `sembawang` (~~needs go-ahead~~ approved 2026-10-29) | #1033 | P2 |
+| F1 comparison harness and ablations | #1032 (closed 2026-10-29) | P1 |
+| F2 move into `sembawang` (~~needs go-ahead~~ approved 2026-10-29) | #1033 (closed 2026-10-29) | P2 |
 | F3 lower head | #1034 | P1 |
 | F4 candling, oxidation, core plate | #1035 | P1 |
-| F5 mixture level | #1036 | P2 |
+| F5 mixture level | #1036 (closed 2026-10-29; fractional coverage left as a refinement) | P2 |
 | F6 RPV heat structures, radiation, MSL creep | #1037 | P2 |
 | F7 properties from OFFBEAT; reaction heat | #1038 | P2 (`bug` for the 6.45 vs 6.763 MJ/kg disagreement; ~~open~~ resolved 2026-10-29: the derived 6.763 is used) |
 | F8 multi-NCG and MCCI gas | #1039 | P2 |
