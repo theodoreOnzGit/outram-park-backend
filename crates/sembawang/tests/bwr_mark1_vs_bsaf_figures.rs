@@ -516,10 +516,13 @@ fn read_release(code: &str) -> Vec<(f64, f64)> {
 /// Predicted 0.1-1.3 PBq and 20-60 %: **both missed**, low. Nearly all
 /// of it leaves in the vent's first hours; after that the wetwell pool
 /// holds the cesium (97 % of it is there at 26 h) and nothing more
-/// leaves, where the codes go on releasing for days: revaporisation from
-/// the vessel and the drywell, the reactor building's leaks, and the
-/// late-phase leakage F12 has not built. A missed match recorded, not
-/// tuned.
+/// leaves, where the codes go on releasing for days: the reactor
+/// building's leaks, the late-phase leakage F12 has not built, and
+/// revaporisation carried out of the vessel by flows through it (here
+/// revaporisation is modelled, `vapour::condense`, but the 19.4 kg on the
+/// 812 K internals leaves only as fast as gas leaves the failed vessel:
+/// CsOH at about 17 Pa, about 0.1 kg in its 292 m^3). A missed match
+/// recorded, not tuned.
 #[test]
 fn cesium_137_release_against_fig_5_1() {
     const SHARE: f64 = 0.316_659;
