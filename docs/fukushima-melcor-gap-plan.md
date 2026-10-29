@@ -143,6 +143,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Thermophoresis and diffusiophoresis onto the drywell structures (MELCOR defaults; output only) | F9, #1047 | 4.469 | 295.45 | held: more Cs on dw structures while a deposit exists; inside the Fig 2.6a envelope 39 % (was 33 %) |
 | Swarm-rise scrubbing of I2 vapour at the downcomers (SPARC-90 App. F; output only) | F9, #1047 | 4.469 | 295.45 | held: I in pool 7.79 -> 9.41 kg, vented 1.79 -> 0.16 kg; Fig 2.6d inside 53 % (was 55 %): further above the highest code |
 | Aerosol dynamics in the vessel (sectional volume, internals and floor as surfaces; output only) | F9, #1047 | 4.469 | 295.45 | missed: predicted retention in the vessel, but the in-vessel aerosol takes the CsOH vapour and carries it out; internals hold 0.05 kg at 26 h (was 11.3); Cs in pool 114 kg (was 102); Fig 2.6a inside 41 % (was 39 %) |
+| Condensed Cs and I add to their aerosol section's mass (MELCOR RN §2.5.2; output only) | F9, #1047 | 4.469 | 295.45 | mostly held: vessel keeps 5.8 kg, vented Cs 8.8 -> 0.4 kg, dw structures 60 kg at 12 h (overshoot); pool up (missed); Fig 2.6a inside 23 % (was 41 %) |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

@@ -100,6 +100,14 @@ pub struct RnVolume {
     /// the aerosol's volume before every operation, which is the lumped
     /// model before 2026-10-29 to round-off.
     pub lumped: bool,
+    /// Whether a class's mass condensed on (or evaporated from) the aerosol
+    /// adds to (or takes from) its section's particle volume, at the
+    /// aerosol density, as MELCOR's sectional mass does (RN §2.5.2: the
+    /// condensed mass on an aerosol section is that section's aerosol mass,
+    /// and its area follows the section's mass). Not state; set by the
+    /// owner before each use. False is the condensate riding on the
+    /// particles weightless (the model before 2026-10-29).
+    pub condensate_mass: bool,
     /// Per surface: each class on it, kg (by deposition and by
     /// condensation), and aerosol deposited on it, kg.
     pub on_surface_kg: Vec<PerClass>,
@@ -115,6 +123,7 @@ impl RnVolume {
             vapour_kg: [0.0; 2],
             on_aerosol_kg: [vec![0.0; n], vec![0.0; n]],
             lumped: false,
+            condensate_mass: false,
             on_surface_kg: vec![[0.0; 2]; n_surfaces],
             aerosol_on_surface_kg: vec![0.0; n_surfaces],
         }
@@ -303,7 +312,12 @@ impl RnVolume {
                     s.mass = 0.0;
                 }
             }
-            self.spread(c, lumped[0].mass - held, &ak);
+            let d = self.spread(c, lumped[0].mass - held, &ak);
+            if self.condensate_mass {
+                for (x, dk) in self.sections.conc.iter_mut().zip(&d) {
+                    *x = (*x + dk / (medium.rho_p * v)).max(0.0);
+                }
+            }
             for (held, s) in self.on_surface_kg.iter_mut().zip(&lumped[1..]) {
                 held[c] = s.mass;
             }
@@ -343,10 +357,13 @@ impl RnVolume {
     /// or take it away (evaporation) in the same proportion, limited to
     /// what each section holds, the rest from the others in proportion to
     /// what they hold.
-    fn spread(&mut self, c: usize, delta: f64, ak: &[f64]) {
+    /// Returns the change in each section, kg.
+    fn spread(&mut self, c: usize, delta: f64, ak: &[f64]) -> Vec<f64> {
         let total_ak: f64 = ak.iter().sum();
+        let before = self.on_aerosol_kg[c].clone();
+        let change = |held: &Vec<f64>| held.iter().zip(&before).map(|(a, b)| a - b).collect::<Vec<f64>>();
         if delta == 0.0 {
-            return;
+            return vec![0.0; ak.len()];
         }
         let held = &mut self.on_aerosol_kg[c];
         if delta > 0.0 || total_ak <= 0.0 {
@@ -359,7 +376,7 @@ impl RnVolume {
                 // gives delta = 0); kept for completeness.
                 held[0] += delta;
             }
-            return;
+            return change(held);
         }
         let want = -delta;
         let mut taken = 0.0;
@@ -376,6 +393,7 @@ impl RnVolume {
                 *x -= *x * f;
             }
         }
+        change(held)
     }
 }
 
@@ -475,5 +493,27 @@ mod tests {
         }
         assert!((ratios[0] / 1024.0 - 1.0).abs() < 0.02, "{ratios:?}");
         assert!((ratios[1] - 1.0).abs() < 1e-9, "{ratios:?}");
+    }
+
+    /// With `condensate_mass`, cesium condensed on the aerosol adds to
+    /// the particles' mass exactly, section by section, and leaves it
+    /// again on evaporation (2026-10-29): the particle mass less the cesium
+    /// on it stays the UO2 put in, to 1e-12.
+    #[test]
+    fn condensate_adds_to_the_particles() {
+        let cold = Medium::air(400.0, 3.0e5, 2.3e-5);
+        let hot = Medium::air(1500.0, 3.0e5, 5.5e-5);
+        let gases = [(BulkGas::Steam, 0.5), (BulkGas::N2, 0.5)];
+        let mut vol = RnVolume::new(100.0, Sections::new(0.1e-6, 16, 2.0), 0);
+        vol.condensate_mass = true;
+        vol.sections.conc[3] = 1e-9;
+        let uo2 = vol.aerosol_kg(cold.rho_p);
+        vol.vapour_kg = [1e-4, 0.0];
+        vol.step(&cold, &gases, &[], 1e-3);
+        let on = vol.on_aerosol(CS);
+        assert!(on > 1e-8, "{on}");
+        assert!((vol.aerosol_kg(cold.rho_p) - on - uo2).abs() < 1e-12 * uo2.max(on), "{} {on} {uo2}", vol.aerosol_kg(cold.rho_p));
+        vol.step(&hot, &gases, &[], 1e-3);
+        assert!(vol.on_aerosol(CS) < 1e-15 && (vol.aerosol_kg(hot.rho_p) - uo2).abs() < 1e-12 * uo2.max(on), "{}", vol.aerosol_kg(hot.rho_p));
     }
 }

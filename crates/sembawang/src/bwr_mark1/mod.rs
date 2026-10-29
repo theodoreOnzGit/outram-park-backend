@@ -214,6 +214,12 @@ pub struct Mechanisms {
     /// into the containment. Off is the aerosol passing straight through
     /// and the vapour condensing on the internals alone.
     pub vessel_aerosol: bool,
+    /// Cesium and iodine condensed on the aerosol add to their section's
+    /// particle mass, as MELCOR's sectional mass does (RN §2.5.2; the area,
+    /// the agglomeration and the deposition follow the section's total;
+    /// 2026-10-29). Off is the condensate riding weightless on the UO2
+    /// particles.
+    pub condensate_mass: bool,
 }
 
 impl Default for Mechanisms {
@@ -248,6 +254,7 @@ impl Default for Mechanisms {
             phoresis: true,
             iodine_swarm: true,
             vessel_aerosol: true,
+            condensate_mass: true,
         }
     }
 }
@@ -440,6 +447,13 @@ impl Mechanisms {
     /// No aerosol dynamics in the vessel: the model before 2026-10-29.
     pub fn without_vessel_aerosol(mut self) -> Self {
         self.vessel_aerosol = false;
+        self
+    }
+
+    /// Condensate weightless on the particles: the model before
+    /// 2026-10-29.
+    pub fn without_condensate_mass(mut self) -> Self {
+        self.condensate_mass = false;
         self
     }
 
@@ -1109,6 +1123,7 @@ impl Plant {
                 mixture_vent: self.mechanisms.mixture_vent,
                 phoresis: self.mechanisms.phoresis,
                 iodine_swarm: self.mechanisms.iodine_swarm,
+                condensate_mass: self.mechanisms.condensate_mass,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -1132,6 +1147,7 @@ impl Plant {
         let gas_m3 = v.gas_m3.max(1.0);
         let rho_p = aerosol::Medium::air(300.0, 1.013e5, 1.8e-5).rho_p;
         self.vessel_rn.set_volume(gas_m3);
+        self.vessel_rn.condensate_mass = self.mechanisms.condensate_mass;
         let new = core.fp_volatile_released - self.fp_seen;
         self.vessel_rn.add(core.uo2_released_kg - self.uo2_seen_kg, rho_p, [new * prm.cs_inventory_kg, new * prm.i_inventory_kg]);
         self.vessel_rn_clock_s += DT_S;
@@ -1164,7 +1180,10 @@ impl Plant {
         let r = &self.vessel_rn;
         self.cs_vessel_kg = r.vapour_kg[rn_volume::CS] + r.on_aerosol(rn_volume::CS);
         self.i_vessel_kg = r.vapour_kg[rn_volume::IODINE] + r.on_aerosol(rn_volume::IODINE);
-        self.uo2_vessel_kg = r.aerosol_kg(rho_p);
+        // The particles' mass less the condensed classes on them (zero
+        // without `condensate_mass`, the condensate being weightless).
+        let condensed = if r.condensate_mass { r.on_aerosol(rn_volume::CS) + r.on_aerosol(rn_volume::IODINE) } else { 0.0 };
+        self.uo2_vessel_kg = (r.aerosol_kg(rho_p) - condensed).max(0.0);
         self.on_internals_kg = [0, 1].map(|c| r.on_surface_kg.iter().map(|x| x[c]).sum::<f64>());
     }
 

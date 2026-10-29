@@ -4036,6 +4036,7 @@ pub struct ContainmentSnapshot {
     pub iodine_swarm: bool,
     pub rn_relief: super::rn_volume::RnFlow,
     pub rn_leak: super::rn_volume::RnFlow,
+    pub condensate_mass: bool,
     pub prm: Params,
 }
 ```
@@ -4074,6 +4075,7 @@ pub struct ContainmentSnapshot {
 | `iodine_swarm` | `bool` | The swarm rise's scrubbing of I2 vapour (`Mechanisms::iodine_swarm`). |
 | `rn_relief` | `super::rn_volume::RnFlow` | The vessel's aerosol and fission products leaving this step through<br>the relief valves and the leaks, by section (`Mechanisms::<br>vessel_aerosol`); empty, the scalar `*_relief_kg` and `*_leak_kg`<br>above carry them instead. |
 | `rn_leak` | `super::rn_volume::RnFlow` |  |
+| `condensate_mass` | `bool` | Condensed classes add to their aerosol section's mass<br>(`Mechanisms::condensate_mass`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -8462,6 +8464,7 @@ pub struct RnVolume {
     pub vapour_kg: PerClass,
     pub on_aerosol_kg: PerClassSection,
     pub lumped: bool,
+    pub condensate_mass: bool,
     pub on_surface_kg: Vec<PerClass>,
     pub aerosol_on_surface_kg: Vec<f64>,
 }
@@ -8476,6 +8479,7 @@ pub struct RnVolume {
 | `vapour_kg` | `PerClass` | Each class in the gas as vapour, and on the airborne aerosol, kg. |
 | `on_aerosol_kg` | `PerClassSection` |  |
 | `lumped` | `bool` | The ablation (not state; set by the owner before each use): each<br>class on the aerosol is spread over the sections in proportion to<br>the aerosol's volume before every operation, which is the lumped<br>model before 2026-10-29 to round-off. |
+| `condensate_mass` | `bool` | Whether a class's mass condensed on (or evaporated from) the aerosol<br>adds to (or takes from) its section's particle volume, at the<br>aerosol density, as MELCOR's sectional mass does (RN §2.5.2: the<br>condensed mass on an aerosol section is that section's aerosol mass,<br>and its area follows the section's mass). Not state; set by the<br>owner before each use. False is the condensate riding on the<br>particles weightless (the model before 2026-10-29). |
 | `on_surface_kg` | `Vec<PerClass>` | Per surface: each class on it, kg (by deposition and by<br>condensation), and aerosol deposited on it, kg. |
 | `aerosol_on_surface_kg` | `Vec<f64>` |  |
 
@@ -10696,6 +10700,7 @@ pub struct Mechanisms {
     pub phoresis: bool,
     pub iodine_swarm: bool,
     pub vessel_aerosol: bool,
+    pub condensate_mass: bool,
 }
 ```
 
@@ -10732,6 +10737,7 @@ pub struct Mechanisms {
 | `phoresis` | `bool` | Thermophoresis (from the walls' heat flux) and diffusiophoresis<br>(from the steam condensing on them) onto the drywell's structures,<br>MELCOR's defaults (RN §2.4.2.2; 2026-10-29). Off is gravity and<br>Brownian diffusion alone. |
 | `iodine_swarm` | `bool` | The swarm rise past the downcomers scrubs I2 vapour by diffusion to<br>the bubbles' walls, limited by the pool's partition (MELCOR Appendix<br>F; [`sparc::iodine_pass`]; 2026-10-29). Off is iodine vapour scrubbed<br>by condensation alone. |
 | `vessel_aerosol` | `bool` | The vessel's gas as a sectional aerosol volume (`rn_volume`;<br>2026-10-29): the released aerosol and vapour agglomerate, condense<br>and deposit on the dome internals (at their temperature, with<br>thermophoresis from their heat flux) and settle on a floor of the<br>vessel's cross-section; what leaves carries its size distribution<br>into the containment. Off is the aerosol passing straight through<br>and the vapour condensing on the internals alone. |
+| `condensate_mass` | `bool` | Cesium and iodine condensed on the aerosol add to their section's<br>particle mass, as MELCOR's sectional mass does (RN §2.5.2; the area,<br>the agglomeration and the deposition follow the section's total;<br>2026-10-29). Off is the condensate riding weightless on the UO2<br>particles. |
 
 ##### Implementations
 
@@ -10876,6 +10882,11 @@ pub struct Mechanisms {
   pub fn without_vessel_aerosol(self: Self) -> Self { /* ... */ }
   ```
   No aerosol dynamics in the vessel: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_condensate_mass(self: Self) -> Self { /* ... */ }
+  ```
+  Condensate weightless on the particles: the model before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

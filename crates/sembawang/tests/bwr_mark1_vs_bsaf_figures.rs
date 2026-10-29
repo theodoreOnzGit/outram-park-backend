@@ -275,7 +275,20 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// 11.3). Cs in the pool at 26 h is 101.95 -> 114.23 kg, vented 7.95 ->
 /// 8.76 kg. A stated limit bears on it: the condensed cesium does not
 /// grow the particles, which in MELCOR would cut their area and speed
-/// their settling.
+/// their settling. ~~(that limit)~~ **Revisited the same day:** MELCOR
+/// does not grow particles across sections by vapour condensation; the
+/// condensed mass becomes its section's aerosol mass, so area, number and
+/// agglomeration follow the total (RN §2.5.2), which is what was missing.
+///
+/// **Moved 2026-10-29 by the condensate's mass** (`condensate_mass`):
+/// Cs on drywell structures inside **41.3 % -> 22.7 %**, S/C water
+/// unchanged. With about 100 kg of CsOH on 2.6 kg of UO2, the aerosol
+/// agglomerates and settles far faster. Predicted: more kept in the vessel
+/// (held, internals 0.05 -> 5.78 kg at 26 h), more on the drywell
+/// structures (held, 8.6 -> 60.2 kg at 12 h, which overshoots the codes
+/// and lowers the score; the deposit then re-evaporates by 16 h as the
+/// drywell heats), less vented (held, 8.76 -> 0.37 kg), less in the pool
+/// (**missed**: 114.2 -> 116.9 kg).
 ///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
@@ -288,11 +301,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.4133).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.2267).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass(),
         Params::default(),
         60.0,
         26.0 * 3600.0,

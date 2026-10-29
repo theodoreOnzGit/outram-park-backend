@@ -120,6 +120,9 @@ pub struct ContainmentSnapshot {
     /// above carry them instead.
     pub rn_relief: RnFlow,
     pub rn_leak: RnFlow,
+    /// Condensed classes add to their aerosol section's mass
+    /// (`Mechanisms::condensate_mass`).
+    pub condensate_mass: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -329,6 +332,8 @@ impl Containment {
         self.iodine_swarm_age_s += dt;
         self.dw_rn.lumped = !s.sectional_classes;
         self.ww_rn.lumped = !s.sectional_classes;
+        self.dw_rn.condensate_mass = s.condensate_mass;
+        self.ww_rn.condensate_mass = s.condensate_mass;
         // 1. Relief valves into the pool.
         let m = s.srv_steam_kg_s * dt;
         let e = self.pool_energy() + m * s.srv_h;
@@ -1018,6 +1023,7 @@ impl ContainmentSnapshot {
             b(self.mixture_vent),
             b(self.phoresis),
             b(self.iodine_swarm),
+            b(self.condensate_mass),
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1053,6 +1059,7 @@ impl ContainmentSnapshot {
             mixture_vent: r.f() != 0.0,
             phoresis: r.f() != 0.0,
             iodine_swarm: r.f() != 0.0,
+            condensate_mass: r.f() != 0.0,
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),
