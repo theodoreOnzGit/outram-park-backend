@@ -188,10 +188,10 @@ mod tests {
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | ~~5.39 h~~ 5.41 h | 7.45-17.16 h (B) | early |
-    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ 5.41 h | 5-12 h (A) | inside, for the wrong reason |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ 124.15 kg | 400-1310 kg (C) | low |
-    /// | drywell peak 0-25 h | ~~0.477 MPa~~ 0.476 MPa | 0.8-1.0 MPa (C) | low |
+    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ 5.39 h | 7.45-17.16 h (B) | early |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ 5.39 h | 5-12 h (A) | inside, for the wrong reason |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ 122.31 kg | 400-1310 kg (C) | low |
+    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ 0.475 MPa | 0.8-1.0 MPa (C) | low |
     /// | wetwell vent | never | ~24 h (A) | missed |
     /// | building explosion | never | 24.83 h (A) | missed |
     ///
@@ -214,6 +214,16 @@ mod tests {
     /// `without_temperature_dependent_properties` ablation still reproduces
     /// exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29 by gh:#1038** (the Zr-steam reaction heat:
+    /// ~~6.45 MJ/kg, `[U]`~~ -> 6.763 MJ/kg, OFFBEAT's value derived from
+    /// standard formation enthalpies): lower head 5.409 -> 5.386 h, H2
+    /// 124.15 -> 122.31 kg, drywell peak 0.4761 -> 0.4749 MPa. Predicted
+    /// before the run: +4.9 % reaction heat, lower head earlier by under
+    /// 0.1 h, H2 within 5 % of either sign. Measured: earlier by 0.023 h, H2
+    /// -1.5 %. An input correction, not a mechanism, so it has no ablation;
+    /// the constant-`c_p` ablation below now carries the new reaction heat
+    /// too, so it no longer reproduces the pre-gh:#1038 model.
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -221,16 +231,18 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.409, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 5.409, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 124.15).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.4761).abs() < 0.0001, "{m:?}");
+        assert!(near(m.lower_head_h, 5.386, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 5.386, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 122.31).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.4749).abs() < 0.0001, "{m:?}");
         assert_eq!((m.vent_h, m.explosion_h), (None, None), "{m:?}");
-        // The constant-c_p ablation is the model before gh:#1038, exactly.
-        let old = measure(Mechanisms::default().without_temperature_dependent_properties());
-        assert!(near(old.lower_head_h, 5.391, 0.001), "{old:?}");
-        assert!((old.h2_25h_kg - 126.62).abs() < 0.01, "{old:?}");
-        assert!((old.p_dw_peak_mpa - 0.4767).abs() < 0.0001, "{old:?}");
+        // The constant-c_p ablation. ~~The model before gh:#1038, exactly
+        // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
+        // correction it carries 6.763 MJ/kg too, so it isolates c_p alone.
+        let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
+        assert!(near(cp.lower_head_h, 5.371, 0.001), "{cp:?}");
+        assert!((cp.h2_25h_kg - 122.96).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.4753).abs() < 0.0001, "{cp:?}");
     }
 
     /// Each ablation runs, differs from the baseline in the mechanism it

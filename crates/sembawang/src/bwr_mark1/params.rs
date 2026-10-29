@@ -174,9 +174,19 @@ pub const UH_LOW_MAX_K: f64 = 1853.0;
 pub const UH_HIGH_MIN_K: f64 = 1873.0;
 /// Below this the oxidation is negligible on the accident's time scale. \[A\]
 pub const OXIDATION_MIN_K: f64 = 1000.0;
-/// Zr + 2 H2O -> ZrO2 + 2 H2: heat released per kg Zr, J/kg. \[U\] about
-/// 586 kJ/mol, 6.45 MJ/kg Zr.
-pub const OXIDATION_HEAT_J_PER_KG_ZR: f64 = 6.45e6;
+/// Zr + 2 H2O(g) -> ZrO2 + 2 H2: heat released per kg Zr, J/kg.
+/// ~~\[U\] about 586 kJ/mol, 6.45 MJ/kg Zr~~ (`6.45e6`; also inconsistent with
+/// itself: 586 kJ/mol / 91.224 g/mol is 6.42 MJ/kg). **CORRECTED 2026-10-29
+/// (gh:#1038):** OFFBEAT's
+/// `corrosion::exotherm::ENERGY_PER_KG_ZIRCONIUM`, reused, derived from the
+/// standard formation enthalpies of monoclinic ZrO2 (-1100.6 kJ/mol) and
+/// water vapour (-241.826 kJ/mol) at 298.15 K: 616.95 kJ/mol, **6.763 MJ/kg**.
+/// \[P\] for the formation enthalpies; the derivation is that module's, not
+/// fitted to anything. Not modelled: the drift of the reaction enthalpy with
+/// temperature (Kirchhoff), which that module puts at a few per cent over
+/// 300-2000 K (not measured here).
+pub const OXIDATION_HEAT_J_PER_KG_ZR: f64 =
+    outram_park_fork_offbeat::corrosion::exotherm::ENERGY_PER_KG_ZIRCONIUM;
 /// Molar masses, kg/mol.
 pub const M_ZR: f64 = 0.091_224;
 pub const M_H2O: f64 = 0.018_015;

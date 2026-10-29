@@ -109,7 +109,7 @@ All are sub-issues of #1028, filed 2026-10-28.
 | F4 candling, oxidation, core plate | #1035 | P1 |
 | F5 mixture level | #1036 | P2 |
 | F6 RPV heat structures, radiation, MSL creep | #1037 | P2 |
-| F7 properties from OFFBEAT; reaction heat | #1038 | P2 (`bug` for the 6.45 vs 6.763 MJ/kg disagreement) |
+| F7 properties from OFFBEAT; reaction heat | #1038 | P2 (`bug` for the 6.45 vs 6.763 MJ/kg disagreement; ~~open~~ resolved 2026-10-29: the derived 6.763 is used) |
 | F8 multi-NCG and MCCI gas | #1039 | P2 |
 | F9 fission products to `changi` | #1040 | P2 |
 | F10 decay heat | #1041 | P3 |
