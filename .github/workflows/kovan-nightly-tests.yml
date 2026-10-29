@@ -1,0 +1,191 @@
+# kovan nightly tests: `kovan-cli test` over the whole workspace on `develop`,
+# its result committed into the `kovan.toml` files, then the Pages site
+# republished. Maintainer request, 2026-10-29: "every day or so, at 12am
+# Singapore time, the kovan-cli test and webpage publish should be run so
+# that stamps don't show as (awaiting workspace tests) on kovan web".
+#
+# WHY IT EXISTS. A stamp whose function is otherwise valid shows as
+# "pending workspace test" (`StateKind::PendingWorkspaceTest`,
+# kovan-common/src/review/state.rs) until a FULL workspace run at the current
+# `Cargo.lock` is recorded in the committed `kovan.toml` `[test_run]` tables
+# (`full_run_at_current_lock`, kovan-common/src/review/engine.rs). Only
+# `kovan-cli test` writes that record, and nothing ran it on a schedule, so
+# every `Cargo.lock` change left the site's stamps pending until someone ran
+# the multi-hour suite by hand.
+#
+# ── What it runs ─────────────────────────────────────────────────────────────
+#
+# 1. `kovan-cli test` on `develop`'s tip: `cargo test --workspace --lib
+#    --tests --release --no-fail-fast`, long tests included. It refuses a
+#    dirty tree, so nothing is edited before it runs. A full, clean run is
+#    written into every code folder's `kovan.toml` (`[test_run]`: commit,
+#    Cargo.lock hash, passed and failed tests); the raw record is uploaded as
+#    an artifact either way.
+# 2. The changed `kovan.toml` files are committed by github-actions[bot] and
+#    pushed to `develop`, rebased onto whatever landed during the run. If the
+#    rebase conflicts the job fails and nothing is pushed; the artifact keeps
+#    the record.
+# 3. `pages.yml` is dispatched on `develop`. A push made with the workflow's
+#    own token does not start other workflows, so the push in step 2 would
+#    not republish the site on its own; a `workflow_dispatch` does.
+#
+# Failing tests do not stop steps 2 and 3: they are part of the record (a
+# failing reaching test blocks its stamp), and the job is marked failed at
+# the end so the failures are not missed.
+#
+# ── Needs, once, from the maintainer ─────────────────────────────────────────
+#
+# The `develop` ruleset requires a pull request, and github-actions[bot] is
+# not on its bypass list (AGENTS.md, checked 2026-10-16). Until "GitHub
+# Actions" is added as a bypass actor of "protection for develop"
+# (Settings → Rules → Rulesets), step 2's push is rejected: the run fails
+# there, says so, and the site is not republished.
+#
+# ── When it runs ─────────────────────────────────────────────────────────────
+#
+# 16:00 UTC = 00:00 in Singapore, daily. `schedule` and `workflow_dispatch`
+# use the copy of this file on `main` (the default branch), so the schedule
+# starts only once this file is on `main`; it then tests `develop`. Before
+# that, push a tree to a `ci-kovan-nightly/**` branch to run this file from
+# the pushed ref (it still tests, commits to and publishes `develop`):
+#
+#     git push -f origin develop:ci-kovan-nightly/develop
+#
+# RUNTIME IS NOT YET MEASURED on a GitHub runner. The suite took about 2.5 h
+# on the maintainer's machine (kovan/src/commands/test_evidence.rs); the
+# runner's job limit is 6 h. The one full-suite CI run on record
+# (manual-tests.yml, 2026-09-20) failed after 77 min, before finishing.
+# Replace this paragraph with the measured time after the first runs.
+#
+# RELEASE MODE, as everywhere in this workspace.
+
+name: kovan nightly tests
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - "ci-kovan-nightly/**"
+
+permissions:
+  contents: write # push the kovan.toml record to develop
+  actions: write # dispatch pages.yml
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+  KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+
+# One run at a time; a second start waits rather than cancelling a run that
+# may be hours in.
+concurrency:
+  group: kovan-nightly-tests
+  cancel-in-progress: false
+
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          # Full history: the stamp checks ask git about the commits each
+          # stamp and the recorded run certify.
+          fetch-depth: 0
+          # reference-data/ace (ACE tables) and the literature corpus: the
+          # long tests read them.
+          submodules: recursive
+
+      # The workspace's pinned toolchain, with rust-analyzer: kovan's SCIP and
+      # call-graph tests look for it on PATH, and rustup's automatic install
+      # of the pin does not include it (kovan-daily.yml, run 39684921124).
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          components: rust-analyzer
+
+      - name: Toolchain and rust-analyzer versions
+        run: |
+          rustc --version
+          rust-analyzer --version
+
+      # A release build of the whole workspace with its tests does not fit in
+      # the runner's free disk by default.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      # BLAS for outram-foam-basic-lib's matrix_bench (root CLAUDE.md).
+      - name: System BLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: kovan-nightly-tests
+          cache-on-failure: true
+
+      - name: Build kovan-cli
+        run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli
+
+      - name: Run kovan-cli test (full workspace suite)
+        id: test
+        run: |
+          set +e
+          start=$(date +%s)
+          target/release/kovan-cli test
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          mins=$(( ($(date +%s) - start) / 60 ))
+          echo "kovan-cli test exited $code after $mins min" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload the raw test record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kovan-test-evidence-${{ github.run_id }}
+          path: target/kovan/test_evidence_last.toml
+          if-no-files-found: warn
+
+      - name: Commit the record and push it to develop
+        id: push
+        run: |
+          set -euo pipefail
+          tested=$(git rev-parse --short HEAD)
+          if git diff --quiet -- ':(glob)**/kovan.toml'; then
+            echo "No kovan.toml changed: the run was not counted (see the log above)." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- ':(glob)**/kovan.toml'
+          git commit -q -m "kovan nightly: record the workspace test run at $tested" \
+            -m "kovan-cli test on develop $tested, written into each folder's kovan.toml [test_run] (.github/workflows/kovan-nightly-tests.yml, run ${{ github.run_id }})."
+          git fetch -q origin develop
+          if ! git rebase origin/develop; then
+            git rebase --abort
+            echo "::error title=kovan nightly::rebasing the record onto develop conflicted; nothing pushed (the artifact keeps the record)"
+            exit 1
+          fi
+          if ! git push origin HEAD:develop; then
+            echo "::error title=kovan nightly::push to develop rejected; add GitHub Actions to the develop ruleset's bypass list (see this file's header)"
+            exit 1
+          fi
+          echo "Pushed the record to develop: $(git rev-parse --short HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Republish Pages from develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref develop
+
+      - name: Fail the job if tests failed
+        if: steps.test.outputs.code != '0'
+        run: |
+          echo "::error title=kovan nightly::kovan-cli test exited ${{ steps.test.outputs.code }}; the record above lists the failures"
+          exit 1

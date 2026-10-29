@@ -36,10 +36,12 @@
 # ── When it runs ─────────────────────────────────────────────────────────────
 #
 # `schedule` and `workflow_dispatch` fire only for a workflow file on the
-# DEFAULT branch (`main`). `main` has no `.github/workflows/` (checked
-# 2026-10-11), so THE DAILY RUN DOES NOT START until this file is on `main`.
-# Until then, start it by pushing a tree to a `ci-kovan/**` branch, which
-# runs this file from the pushed ref:
+# DEFAULT branch (`main`). ~~`main` has no `.github/workflows/` (checked
+# 2026-10-11), so THE DAILY RUN DOES NOT START until this file is on `main`.~~
+# CORRECTED 2026-10-29: this file is on `main` since 2026-10-21 and the
+# schedule runs (scheduled runs 9-11, 2026-10-26 to 28). To run this file
+# from another ref, push a tree to a `ci-kovan/**` branch, which runs this
+# file from the pushed ref:
 #
 #     git push -f origin develop:ci-kovan/develop
 #
