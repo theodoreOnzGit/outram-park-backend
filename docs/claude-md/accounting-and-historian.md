@@ -68,6 +68,19 @@ the token hooks legitimately show *no token data* — that is correct, not a gap
 **Commit the generated report alongside the `develop`→`main` merge**, so each
 release carries its own accounting. Do not hand-edit the generated markdown.
 
+## A full `kovan-cli test` run before every merge to `main` (mandatory)
+
+**Maintainer direction, 2026-10-29: "Full runs only when merging to main".**
+Day to day, stamps pending a workspace test are cleared by the targeted run
+of their reaching tests: `kovan-cli test --pending-stamps` (GitHub #1052),
+nightly on `develop` (`.github/workflows/kovan-nightly-tests.yml`) or the
+"Run pending stamps' tests" button in kovan's Code Review. **The full
+suite is run when `develop` is merged into `main`:** run `kovan-cli test`
+(or Code Review's "Run workspace test") on the `develop` commit being
+merged, commit the `[test_run]` it writes into the `kovan.toml` files to
+`develop`, and merge that commit. A full run also clears what a targeted
+run cannot: stamps on functions no test reaches.
+
 > Full opt-in policy, the historian's replacement history and the reasoning:
 > [`docs/claude-md-rationale/accounting-and-no-python.md`](../claude-md-rationale/accounting-and-no-python.md).
 

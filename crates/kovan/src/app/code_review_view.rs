@@ -69,6 +69,15 @@
 //! auto-lock and exports or imports the key (`super::key_window`, logic
 //! [`crate::stamping::key_panel`]).
 //!
+//! **Run workspace test (2026-10-29).** The strip's "Run workspace test"
+//! runs `kovan-cli test` on a thread (`super::workspace_test`), so the
+//! "pending workspace test" a `Cargo.lock` change leaves on every stamp
+//! clears without a terminal; the states are recomputed when it finishes.
+//! Beside it, "Run pending stamps' tests" runs `kovan-cli test
+//! --pending-stamps` (GitHub #1052): only the pending stamps' reaching
+//! tests, the quick way to clear them; the full run is for merges to
+//! `main`.
+//!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** Checking and building the data
 //! (cargo metadata, reading the SCIP index, resolving every call, writing)
 //! run on a worker thread; the UI thread takes the result with `try_write`
@@ -159,6 +168,8 @@ pub(crate) struct CodeReviewView {
     review_mode: super::review_mode_panel::ReviewModePanel,
     /// "Sync down": pull the code repository, then rebuild (2026-10-12).
     sync: super::code_sync::CodeSync,
+    /// "Run workspace test": `kovan-cli test` on a thread (2026-10-29).
+    workspace_test: super::workspace_test::WorkspaceTest,
     /// A reviewed function's "Add connection" window, while open (#839).
     connection: Option<super::connection_picker::ConnectionPicker>,
     /// The app's key session (GitHub #1020): kept across a change of
@@ -524,6 +535,11 @@ impl CodeReviewView {
             self.need_you.dirty = true;
             self.load_states();
         }
+        if self.workspace_test.poll() {
+            // A counted run clears "pending workspace test".
+            self.need_you.dirty = true;
+            self.load_states();
+        }
         if self.sync.poll() {
             // Pulled: the stamps and the code may both have moved. The same
             // as pressing "Rebuild data" after a `git pull`.
@@ -535,6 +551,7 @@ impl CodeReviewView {
         let mut open_key = false;
         let mut lock_now = false;
         let mut sync_now = false;
+        let mut test_now: Option<super::workspace_test::TestKind> = None;
         let mut refresh_now = false;
         // Review mode (#770): its workspace and keystore, and the function
         // selected on the embedded map, which [Review >] starts from.
@@ -582,6 +599,7 @@ impl CodeReviewView {
                 if self.workspace.is_some() {
                     let free = self.job.is_none()
                         && !self.sync.busy()
+                        && !self.workspace_test.busy()
                         && self.dialog.is_none()
                         && self.review_mode.active.is_none();
                     if ui
@@ -592,7 +610,7 @@ impl CodeReviewView {
                              disagree you are asked before anything is forced.",
                         )
                         .on_disabled_hover_text(
-                            "Wait for the running job, and close the stamp dialog or review mode",
+                            "Wait for the running job or workspace test, and close the stamp dialog or review mode",
                         )
                         .clicked()
                     {
@@ -603,6 +621,50 @@ impl CodeReviewView {
                         ui.weak(w);
                     }
                     match &self.sync.message {
+                        Some(Ok(t)) => {
+                            ui.weak(t);
+                        }
+                        Some(Err(e)) => {
+                            ui.colored_label(ui.visuals().error_fg_color, e);
+                        }
+                        None => {}
+                    }
+                    if self.workspace_test.busy() {
+                        ui.spinner();
+                        ui.weak(self.workspace_test.latest().unwrap_or("workspace test starting\u{2026}"));
+                        if ui.small_button("Cancel test").clicked() {
+                            self.workspace_test.cancel();
+                        }
+                    } else {
+                        if ui
+                            .add_enabled(!self.sync.busy(), egui::Button::new("Run pending stamps' tests"))
+                            .on_hover_text(
+                                "kovan-cli test --pending-stamps (GitHub #1052): only the reaching \
+                                 tests of the stamps pending a workspace test. It clears a pending \
+                                 stamp when every reaching test of the function ran and none \
+                                 failed; a function no test reaches needs the full run. Refused \
+                                 while .rs, Cargo.toml or Cargo.lock edits are uncommitted.",
+                            )
+                            .on_disabled_hover_text("Wait for Sync down")
+                            .clicked()
+                        {
+                            test_now = Some(super::workspace_test::TestKind::PendingStamps);
+                        }
+                        if ui
+                            .add_enabled(!self.sync.busy(), egui::Button::new("Run workspace test"))
+                            .on_hover_text(
+                                "kovan-cli test: the full release suite at this commit (hours); \
+                                 run it before a merge to main. A counted run clears \
+                                 \"pending workspace test\" after a Cargo.lock change. Refused \
+                                 while .rs, Cargo.toml or Cargo.lock edits are uncommitted.",
+                            )
+                            .on_disabled_hover_text("Wait for Sync down")
+                            .clicked()
+                        {
+                            test_now = Some(super::workspace_test::TestKind::Full);
+                        }
+                    }
+                    match &self.workspace_test.message {
                         Some(Ok(t)) => {
                             ui.weak(t);
                         }
@@ -694,12 +756,17 @@ impl CodeReviewView {
         if refresh_now {
             self.load_states();
         }
+        if let Some(kind) = test_now {
+            if let Some(dir) = self.workspace.clone() {
+                self.workspace_test.start(dir, kind);
+            }
+        }
         if sync_now {
             if let Some(dir) = self.workspace.clone() {
                 self.sync.start(dir);
             }
         }
-        if self.sync.working().is_some() {
+        if self.sync.working().is_some() || self.workspace_test.busy() {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(200));
         }

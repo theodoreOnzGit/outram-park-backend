@@ -28,17 +28,18 @@
 //! `<workspace>/target/kovan/test_evidence_last.toml` (`--out` overrides
 //! it), so a partial, dirty or incomplete run never touches `kovan.toml`.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-
-use std::collections::{BTreeMap, BTreeSet};
 
 use kovan_common::review::evidence::args::{plan, Plan};
 use kovan_common::review::index::FolderIndex;
 use kovan_common::review::state::StateKind;
 use kovan_common::review::evidence::output::{LineKind, OutputParser};
 use kovan_common::review::evidence::{dirty_build_inputs, TestEvidence};
+
+use super::index_control::{RunControl, CANCELLED};
 
 fn capture(root: &Path, program: &str, args: &[&str]) -> Result<String, String> {
     let out = Command::new(program)
@@ -129,15 +130,37 @@ fn cargo_command(args: &[String], root: &Path) -> Command {
 }
 
 /// Run `kovan-cli test` in workspace `root` with the user's `extra` cargo
-/// arguments.
+/// arguments, echoing to stdout.
 pub fn run(
     root: &Path,
     extra: &[String],
     allow_dirty: bool,
     out: Option<PathBuf>,
 ) -> Result<(), String> {
+    run_with(root, extra, allow_dirty, out, &RunControl::default(), print_line)
+}
+
+/// [`run`], with every line it would print handed to `say` (the CLI prints
+/// it; Code Review's "Run workspace test" logs it, `app::workspace_test`).
+/// Cancel on `ctl` kills cargo at its next output line and records
+/// nothing: a cancelled run is not evidence.
+pub fn run_with<F: FnMut(&str)>(
+    root: &Path,
+    extra: &[String],
+    allow_dirty: bool,
+    out: Option<PathBuf>,
+    ctl: &RunControl,
+    mut say: F,
+) -> Result<(), String> {
     let pl = plan(extra).map_err(|e| e.to_string())?;
-    execute(root, pl, None, allow_dirty, out)
+    execute(root, pl, None, allow_dirty, out, ctl, &mut say)
+}
+
+/// Prints a line to stdout (the CLI's `say`).
+fn print_line(l: &str) {
+    let mut o = std::io::stdout().lock();
+    let _ = writeln!(o, "{l}");
+    let _ = o.flush();
 }
 
 /// `kovan-cli test --pending-stamps` (GitHub #1052): evaluate the
@@ -149,6 +172,20 @@ pub fn run_pending_stamps(
     extra: &[String],
     allow_dirty: bool,
     out: Option<PathBuf>,
+) -> Result<(), String> {
+    run_pending_stamps_with(root, extra, allow_dirty, out, &RunControl::default(), print_line)
+}
+
+/// [`run_pending_stamps`], with every line handed to `say` and cancel on
+/// `ctl`, as [`run_with`] (Code Review's "Run pending stamps' tests",
+/// `app::workspace_test`).
+pub fn run_pending_stamps_with<F: FnMut(&str)>(
+    root: &Path,
+    extra: &[String],
+    allow_dirty: bool,
+    out: Option<PathBuf>,
+    ctl: &RunControl,
+    mut say: F,
 ) -> Result<(), String> {
     if !extra.is_empty() {
         return Err(format!(
@@ -170,22 +207,20 @@ pub fn run_pending_stamps(
         .map(|f| f.id.clone())
         .collect();
     let Some(tp) = targeted_plan(&ws.indexes, &pending) else {
-        println!(
-            "kovan-cli test --pending-stamps: no stamp is pending a workspace test with a reaching test; nothing to run"
-        );
+        say("kovan-cli test --pending-stamps: no stamp is pending a workspace test with a reaching test; nothing to run");
         return Ok(());
     };
-    println!(
+    say(&format!(
         "kovan-cli test --pending-stamps: {} pending function(s), {} reaching test(s) in {} package(s)",
         pending.len(),
         tp.targets.len(),
         tp.packages.len()
-    );
+    ));
     let pl = Plan {
         args: tp.args(),
         partial_reasons: Vec::new(),
     };
-    execute(root, pl, Some(tp.targets), allow_dirty, out)
+    execute(root, pl, Some(tp.targets), allow_dirty, out, ctl, &mut say)
 }
 
 /// What a targeted run runs (GitHub #1052): the test ids to cover, the
@@ -266,12 +301,14 @@ pub fn targeted_plan(indexes: &[FolderIndex], pending: &BTreeSet<String>) -> Opt
 
 /// Run the planned `cargo test` and record it (module doc); `targets` makes
 /// it a targeted run (GitHub #1052).
-fn execute(
+fn execute<F: FnMut(&str)>(
     root: &Path,
     pl: Plan,
     targets: Option<Vec<String>>,
     allow_dirty: bool,
     out: Option<PathBuf>,
+    ctl: &RunControl,
+    say: &mut F,
 ) -> Result<(), String> {
     let mut dirty_paths = dirty(root)?;
     if !dirty_paths.is_empty() && !allow_dirty {
@@ -296,7 +333,7 @@ fn execute(
     } else {
         format!("PARTIAL ({})", pl.partial_reasons.join(", "))
     };
-    println!("kovan-cli test: {} [{scope}]", command.join(" "));
+    say(&format!("kovan-cli test: {} [{scope}]", command.join(" ")));
 
     // cargo's stderr (`Running …`) and the test binaries' stdout must reach
     // the parser in order, so both get the same pipe.
@@ -316,13 +353,15 @@ fn execute(
     // The parent's copies of the write end are moved into `Command` and
     // dropped with it, so the reader sees EOF when cargo exits.
     let mut parser = OutputParser::new(&abs_root.to_string_lossy());
-    let stdout = std::io::stdout();
     for line in BufReader::new(reader).lines() {
         let line = line.map_err(|e| format!("reading cargo output: {e}"))?;
+        if ctl.cancelled() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(CANCELLED.to_string());
+        }
         if parser.feed(&line) == LineKind::Text {
-            let mut o = stdout.lock();
-            let _ = writeln!(o, "{line}");
-            let _ = o.flush();
+            say(&line);
         }
     }
     let status = child.wait().map_err(|e| format!("cargo: {e}"))?;
@@ -358,7 +397,7 @@ fn execute(
     std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
 
     let t = evidence.totals;
-    println!(
+    say(&format!(
         "kovan-cli test: {} binaries, {} passed, {} failed, {} ignored at {} (Cargo.lock {})",
         evidence.binaries.len(),
         t.passed,
@@ -366,29 +405,29 @@ fn execute(
         t.ignored,
         &evidence.commit[..evidence.commit.len().min(10)],
         &evidence.cargo_lock[..evidence.cargo_lock.len().min(19)],
-    );
+    ));
     match evidence.counted() {
         Ok(()) => {
-            println!(
+            say(&format!(
                 "kovan-cli test: COUNTED as {} evidence",
                 if evidence.targets.is_empty() { "full-suite" } else { "targeted" }
-            );
+            ));
             let n = write_into_kovan_tomls(root, &evidence)?;
             if n == 0 {
-                println!(
+                say(&format!(
                     "kovan-cli test: no code-folder kovan.toml found to record it in: run \
                      `kovan-cli index` first; the raw record is in {}",
                     path.display()
-                );
+                ));
             }
         }
         Err(why) => {
             for w in why {
-                println!("kovan-cli test: NOT counted: {w}");
+                say(&format!("kovan-cli test: NOT counted: {w}"));
             }
         }
     }
-    println!("kovan-cli test: wrote {}", path.display());
+    say(&format!("kovan-cli test: wrote {}", path.display()));
     if status.success() {
         Ok(())
     } else {
