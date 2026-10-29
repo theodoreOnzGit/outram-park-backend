@@ -250,6 +250,20 @@ pub struct Mechanisms {
     /// Lipinski's dryout flux (COR §2.3.8; 2026-10-29). Off is the excess
     /// heat released over a 120 s time constant \[A\].
     pub debris_quench: bool,
+    /// The lower head takes heat from the debris that touches it while the
+    /// plenum holds water, and can fail then (as MELCOR's head conducts
+    /// from the debris in contact; 2026-10-29). Off is the head boiling
+    /// against the plenum's water while there is any.
+    pub wet_head_contact: bool,
+    /// The penetrations take the debris's heat over the part of their
+    /// height it covers (MELCOR's `dz_d / dz_1`, COR §6.1), the rest
+    /// cooled by the plenum's water while there is any (2026-10-29). Off is
+    /// the penetration heated by the debris over all of it.
+    pub penetration_coverage: bool,
+    /// A failed vessel's water drains through the breach into the
+    /// pedestal (2026-10-29; MELCOR opens a lower-plenum flow path at
+    /// failure). Off is the water kept in the failed vessel.
+    pub failed_vessel_drain: bool,
 }
 
 impl Default for Mechanisms {
@@ -290,6 +304,9 @@ impl Default for Mechanisms {
             debris_oxidation: true,
             candling: true,
             debris_quench: true,
+            wet_head_contact: true,
+            penetration_coverage: true,
+            failed_vessel_drain: true,
         }
     }
 }
@@ -519,6 +536,26 @@ impl Mechanisms {
     /// The 120 s quench: the model before 2026-10-29.
     pub fn without_debris_quench(mut self) -> Self {
         self.debris_quench = false;
+        self
+    }
+
+    /// The head boils against the water while there is any: the model
+    /// before 2026-10-29.
+    pub fn without_wet_head_contact(mut self) -> Self {
+        self.wet_head_contact = false;
+        self
+    }
+
+    /// The penetration fully covered by any debris: the model before
+    /// 2026-10-29.
+    pub fn without_penetration_coverage(mut self) -> Self {
+        self.penetration_coverage = false;
+        self
+    }
+
+    /// A failed vessel keeps its water: the model before 2026-10-29.
+    pub fn without_failed_vessel_drain(mut self) -> Self {
+        self.failed_vessel_drain = false;
         self
     }
 
@@ -848,6 +885,9 @@ struct Pending {
     /// Decay heat of the fission products the vessel holds, W
     /// (`fp_decay_follows`).
     vessel_fp_w: f64,
+    /// Water draining through a failed lower head, kg/s
+    /// (`failed_vessel_drain`).
+    w_drain: f64,
 }
 
 /// The core and containment snapshots of one step.
@@ -1126,6 +1166,19 @@ impl Plant {
         let decay_w = self.decay.power_w() - released * (q_noble_w + q_alkali_w + q_halogen_w + q_chalcogen_w);
         // The vessel's own share: its gas's noble gas, and the cesium and
         // iodine in its gas and on its internals.
+        // A failed vessel's water drains through the breach into the
+        // pedestal (`failed_vessel_drain`): an orifice of `breach_diameter_m`
+        // under the vessel's own (solved) pressure over the drywell's plus
+        // the liquid's own head, at most the liquid there is.
+        let w_drain = if self.mechanisms.failed_vessel_drain && self.last_core.lower_head_failed && !v.dry {
+            let m_l = ((1.0 - v.x) * self.m).max(0.0);
+            let rho_l = 1.0 / v.sat.v_f;
+            let head = (self.p_solved - p_dw).max(0.0) + rho_l * 9.81 * (v.level_m + prm.baf_m).max(0.0);
+            let area = 0.25 * std::f64::consts::PI * prm.breach_diameter_m * prm.breach_diameter_m;
+            (prm.discharge_coefficient * area * (2.0 * rho_l * head).sqrt()).min(m_l / DT_S)
+        } else {
+            0.0
+        };
         let vessel_fp_w = self.xe_vessel * q_noble_w
             + (self.cs_vessel_kg + self.on_internals_kg[0]) / prm.cs_inventory_kg * q_alkali_w
             + (self.i_vessel_kg + self.on_internals_kg[1]) / prm.i_inventory_kg * q_halogen_w
@@ -1155,6 +1208,7 @@ impl Plant {
             w_inj,
             h2_out: (w_relief + w_leak) * h2_share,
             vessel_fp_w,
+            w_drain,
             // The gas leaving takes the noble gas in its share of the gas
             // space (well mixed): that share by mass is the share by
             // moles, the composition being uniform.
@@ -1185,7 +1239,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -1198,6 +1252,8 @@ impl Plant {
                 vent_ordered: self.controls.vent_ordered,
                 ex_vessel_w: self.last_core.ex_vessel_w,
                 pedestal_inflow_kg_s: if self.last_core.lower_head_failed { w_inj } else { 0.0 },
+                vessel_drain_kg_s: self.pending.w_drain,
+                vessel_drain_k: v.sat.t_k,
                 gas_cv_t: self.mechanisms.gas_cv_t,
                 xe_relief: self.pending.xe_relief,
                 xe_leak: self.pending.xe_leak,
@@ -1299,7 +1355,7 @@ impl Plant {
         // After the lower head fails the injected water pours through the
         // breach onto the drywell floor (the containment's pedestal).
         let w_inj_rpv = if self.last_core.lower_head_failed { 0.0 } else { d.w_inj };
-        self.m += (w_inj_rpv - steam_out - core.steam_used_kg_s) * DT_S;
+        self.m += (w_inj_rpv - steam_out - core.steam_used_kg_s - d.w_drain) * DT_S;
         // Hydrogen leaving takes the enthalpy above 298 K that the core's
         // gas stream gave it, which reached the water through `q_fluid_w`
         // (gh:#1046): at saturation through the relief valves, at the core
@@ -1308,7 +1364,7 @@ impl Plant {
         // path's share is not delivered there (stated limitation).
         let to_relief = if gas_out > 0.0 { d.w_relief / gas_out } else { 0.0 };
         let h2_enthalpy_out = h2_exit_enthalpy(d.h2_out, to_relief, v.sat.t_k, self.gas_out_k(), self.mechanisms.hydrogen_cp_t);
-        self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out) * DT_S;
+        self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out - d.w_drain * v.sat.h_f) * DT_S;
         // The dome internals take heat from (or give it back to) the gas
         // leaving the core, out of the vessel's energy.
         if self.mechanisms.dome_internals {
@@ -1911,8 +1967,9 @@ mod tests {
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
-        // 0.9911 since candling; 0.9978 since MELCOR's quench.)
-        assert!((k.xe_vented - 0.9978).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // 0.9911 since candling; 0.9978 since MELCOR's quench; 0.9955
+        // since the head's wet contact.)
+        assert!((k.xe_vented - 0.9955).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

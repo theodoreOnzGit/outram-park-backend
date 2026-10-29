@@ -4017,6 +4017,8 @@ pub struct ContainmentSnapshot {
     pub vent_ordered: bool,
     pub ex_vessel_w: f64,
     pub pedestal_inflow_kg_s: f64,
+    pub vessel_drain_kg_s: f64,
+    pub vessel_drain_k: f64,
     pub gas_cv_t: bool,
     pub xe_relief: f64,
     pub xe_leak: f64,
@@ -4060,6 +4062,8 @@ pub struct ContainmentSnapshot {
 | `vent_ordered` | `bool` | Operators' order to open the wetwell vent (the disk must still burst). |
 | `ex_vessel_w` | `f64` | After the lower head fails: the debris's decay power on the drywell<br>floor, W, and the injected water that now pours through, kg/s (at<br>the injection temperature). |
 | `pedestal_inflow_kg_s` | `f64` |  |
+| `vessel_drain_kg_s` | `f64` | Water draining from a failed vessel into the pedestal, kg/s, and its<br>temperature, K (`Mechanisms::failed_vessel_drain`). |
+| `vessel_drain_k` | `f64` |  |
 | `gas_cv_t` | `bool` | MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the<br>constant `c_v` ablation. |
 | `xe_relief` | `f64` | Noble gas (Xe) arriving this step through the relief valves (into<br>the wetwell gas) and through the leaks (into the drywell), as<br>fractions of the core inventory (gh:#1040). |
 | `xe_leak` | `f64` |  |
@@ -4668,6 +4672,8 @@ pub struct CoreSnapshot {
     pub debris_oxidation: bool,
     pub candling: bool,
     pub debris_quench: bool,
+    pub wet_head_contact: bool,
+    pub penetration_coverage: bool,
     pub prm: Params,
 }
 ```
@@ -4693,6 +4699,8 @@ pub struct CoreSnapshot {
 | `debris_oxidation` | `bool` | Oxidation of the lower-plenum debris (`Mechanisms::debris_oxidation`). |
 | `candling` | `bool` | Molten Zr candles down the rods (`Mechanisms::candling`). |
 | `debris_quench` | `bool` | MELCOR's falling-debris quench and dryout limit<br>(`Mechanisms::debris_quench`). |
+| `wet_head_contact` | `bool` | The lower head takes heat from the debris under water too<br>(`Mechanisms::wet_head_contact`). |
+| `penetration_coverage` | `bool` | The penetration heated over the debris-covered part of its height<br>only, the rest cooled by the fluid (`Mechanisms::penetration_coverage`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -6961,6 +6969,8 @@ pub struct Params {
     pub creep_fail_strain: f64,
     pub debris_porosity: f64,
     pub debris_particle_m: f64,
+    pub lp_bottom_level_m: f64,
+    pub breach_diameter_m: f64,
     pub zr_melt_k: f64,
     pub clad_breach_k: f64,
     pub min_metal_m: f64,
@@ -7105,6 +7115,8 @@ pub struct Params {
 | `creep_fail_strain` | `f64` |  |
 | `debris_porosity` | `f64` |  |
 | `debris_particle_m` | `f64` |  |
+| `lp_bottom_level_m` | `f64` |  |
+| `breach_diameter_m` | `f64` |  |
 | `zr_melt_k` | `f64` |  |
 | `clad_breach_k` | `f64` |  |
 | `min_metal_m` | `f64` |  |
@@ -7993,6 +8005,28 @@ DHYPD is required input); 1 cm, the order of a pellet.
 
 ```rust
 pub const DEBRIS_PARTICLE_M: f64 = 0.01;
+```
+
+#### Constant `LP_BOTTOM_LEVEL_M`
+
+Height of the lower plenum's bottom axial level, m: the penetrations'
+height over which MELCOR scales the debris contact (`dz_d / dz_1`, COR
+§6.1). \[A\] no Unit 1 nodalization held; half a metre, the order of a
+lower-plenum cell.
+
+```rust
+pub const LP_BOTTOM_LEVEL_M: f64 = 0.5;
+```
+
+#### Constant `BREACH_DIAMETER_M`
+
+Diameter of the lower head's failure opening, m, through which a failed
+vessel's water drains (`failed_vessel_drain`). \[A\] MELCOR has no
+default (COR_PEN DFLPN, and the lower-plenum flow path, are user input);
+0.1 m, a few failed penetrations.
+
+```rust
+pub const BREACH_DIAMETER_M: f64 = 0.1;
 ```
 
 #### Constant `DEBRIS_QUENCH_S`
@@ -11158,6 +11192,9 @@ pub struct Mechanisms {
     pub debris_oxidation: bool,
     pub candling: bool,
     pub debris_quench: bool,
+    pub wet_head_contact: bool,
+    pub penetration_coverage: bool,
+    pub failed_vessel_drain: bool,
 }
 ```
 
@@ -11200,6 +11237,9 @@ pub struct Mechanisms {
 | `debris_oxidation` | `bool` | The lower-plenum debris oxidises while it is quenched, by the<br>parabolic law over MELCOR's particulate area (COR §3.2.1,<br>2026-10-29). Off is debris that never oxidises. |
 | `candling` | `bool` | Molten Zr candles down the rods once the oxide shell breaches and<br>refreezes in the first cooler node below, or reaches the debris<br>(MELCOR COR §3.1, simplified; 2026-10-29). Off is the metal staying<br>in its node until the rod falls. |
 | `debris_quench` | `bool` | MELCOR's falling-debris quench: the debris in the wet lower plenum<br>gives the water `h A_p (T - T_sat)` at COR_LP's 100 W/(m^2 K) over<br>its particle area, with the decay factor, and is then limited by<br>Lipinski's dryout flux (COR §2.3.8; 2026-10-29). Off is the excess<br>heat released over a 120 s time constant \[A\]. |
+| `wet_head_contact` | `bool` | The lower head takes heat from the debris that touches it while the<br>plenum holds water, and can fail then (as MELCOR's head conducts<br>from the debris in contact; 2026-10-29). Off is the head boiling<br>against the plenum's water while there is any. |
+| `penetration_coverage` | `bool` | The penetrations take the debris's heat over the part of their<br>height it covers (MELCOR's `dz_d / dz_1`, COR §6.1), the rest<br>cooled by the plenum's water while there is any (2026-10-29). Off is<br>the penetration heated by the debris over all of it. |
+| `failed_vessel_drain` | `bool` | A failed vessel's water drains through the breach into the<br>pedestal (2026-10-29; MELCOR opens a lower-plenum flow path at<br>failure). Off is the water kept in the failed vessel. |
 
 ##### Implementations
 
@@ -11374,6 +11414,21 @@ pub struct Mechanisms {
   pub fn without_debris_quench(self: Self) -> Self { /* ... */ }
   ```
   The 120 s quench: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_wet_head_contact(self: Self) -> Self { /* ... */ }
+  ```
+  The head boils against the water while there is any: the model
+
+- ```rust
+  pub fn without_penetration_coverage(self: Self) -> Self { /* ... */ }
+  ```
+  The penetration fully covered by any debris: the model before
+
+- ```rust
+  pub fn without_failed_vessel_drain(self: Self) -> Self { /* ... */ }
+  ```
+  A failed vessel keeps its water: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

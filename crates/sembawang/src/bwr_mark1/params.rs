@@ -264,6 +264,16 @@ pub const DEBRIS_POROSITY: f64 = 0.4;
 /// (MELCOR COR §3.2.1, Eq 3-28). \[A\] MELCOR has no default (COR_EDR
 /// DHYPD is required input); 1 cm, the order of a pellet.
 pub const DEBRIS_PARTICLE_M: f64 = 0.01;
+/// Height of the lower plenum's bottom axial level, m: the penetrations'
+/// height over which MELCOR scales the debris contact (`dz_d / dz_1`, COR
+/// §6.1). \[A\] no Unit 1 nodalization held; half a metre, the order of a
+/// lower-plenum cell.
+pub const LP_BOTTOM_LEVEL_M: f64 = 0.5;
+/// Diameter of the lower head's failure opening, m, through which a failed
+/// vessel's water drains (`failed_vessel_drain`). \[A\] MELCOR has no
+/// default (COR_PEN DFLPN, and the lower-plenum flow path, are user input);
+/// 0.1 m, a few failed penetrations.
+pub const BREACH_DIAMETER_M: f64 = 0.1;
 
 /// Time over which debris in a wet lower plenum gives up its stored heat,
 /// s. \[A\] (quench of a debris bed takes minutes).
@@ -640,6 +650,8 @@ params! {
     creep_fail_strain = CREEP_FAIL_STRAIN, P,
     debris_porosity = DEBRIS_POROSITY, A,
     debris_particle_m = DEBRIS_PARTICLE_M, A,
+    lp_bottom_level_m = LP_BOTTOM_LEVEL_M, A,
+    breach_diameter_m = BREACH_DIAMETER_M, A,
     zr_melt_k = ZR_MELT_K, U,
     clad_breach_k = CLAD_BREACH_K, A,
     min_metal_m = MIN_METAL_M, A,
@@ -788,7 +800,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 136);
+        assert_eq!(Params::INPUTS.len(), 138);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

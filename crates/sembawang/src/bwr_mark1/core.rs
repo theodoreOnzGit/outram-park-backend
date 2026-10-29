@@ -133,6 +133,12 @@ pub struct CoreSnapshot {
     /// MELCOR's falling-debris quench and dryout limit
     /// (`Mechanisms::debris_quench`).
     pub debris_quench: bool,
+    /// The lower head takes heat from the debris under water too
+    /// (`Mechanisms::wet_head_contact`).
+    pub wet_head_contact: bool,
+    /// The penetration heated over the debris-covered part of its height
+    /// only, the rest cooled by the fluid (`Mechanisms::penetration_coverage`).
+    pub penetration_coverage: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -333,6 +339,16 @@ impl HeadWall {
     /// medium at `t_in` through `h_in`, W/(m^2 K), over `area`; returns the
     /// heat taken from that medium, W.
     fn step(&mut self, prm: &Params, t_in: f64, h_in: f64, area: f64, dt: f64) -> f64 {
+        self.step_with(prm, t_in, h_in, area, dt, None)
+    }
+
+    /// [`Self::step`] with the penetration's own boundary (MELCOR COR §6.1,
+    /// `penetration_coverage`): `Some((cover, t_w, h_w))` heats it from the
+    /// medium over the fraction `cover` of its height that the debris
+    /// covers (MELCOR's `dz_d / dz_1`) and cools the rest to the fluid at
+    /// `t_w` through `h_w` (zero for a dry plenum). `None` is the medium
+    /// over all of it.
+    fn step_with(&mut self, prm: &Params, t_in: f64, h_in: f64, area: f64, dt: f64, pen: Option<(f64, f64, f64)>) -> f64 {
         let dx = prm.lower_head_thickness_m / (WALL_NODES - 1) as f64;
         let rho = steel_rho();
         let q_in = h_in * (t_in - self.t_k[0]);
@@ -354,8 +370,17 @@ impl HeadWall {
         // the penetrations' area is small beside the head's (stated).
         let m_pen = rho * prm.penetration_wall_m;
         let c_pen = m_pen * (steel_h(self.pen_k + 0.5) - steel_h(self.pen_k - 0.5));
-        let t_new = (c_pen * self.pen_k + dt * h_in * t_in) / (c_pen + dt * h_in);
-        self.pen_k = steel_t(steel_h(self.pen_k) + h_in * (t_in - t_new) * dt / m_pen);
+        match pen {
+            None => {
+                let t_new = (c_pen * self.pen_k + dt * h_in * t_in) / (c_pen + dt * h_in);
+                self.pen_k = steel_t(steel_h(self.pen_k) + h_in * (t_in - t_new) * dt / m_pen);
+            }
+            Some((cover, t_w, h_w)) => {
+                let (a, b) = (cover.clamp(0.0, 1.0) * h_in, (1.0 - cover.clamp(0.0, 1.0)) * h_w);
+                let t_new = (c_pen * self.pen_k + dt * (a * t_in + b * t_w)) / (c_pen + dt * (a + b));
+                self.pen_k = steel_t(steel_h(self.pen_k) + (a * (t_in - t_new) + b * (t_w - t_new)) * dt / m_pen);
+            }
+        }
         q_in * area
     }
 
@@ -878,7 +903,20 @@ impl Core {
                         debris_h2 += made;
                     }
                 }
-                if s.lower_head_wall {
+                if s.lower_head_wall && s.wet_head_contact {
+                    // The debris sits on the wall under water too: the wall
+                    // takes heat from the debris it touches (as dry), and can
+                    // fail with water in the plenum (MELCOR's lower head
+                    // conducts from the debris in contact with it).
+                    let (area, height, rho_bed) = debris_cap(prm, self.debris_mf, self.debris_mc);
+                    let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
+                    let pen = s.penetration_coverage.then(|| ((height / prm.lp_bottom_level_m).min(1.0), s.t_sat_k, prm.boiling_h));
+                    self.debris_h -= self.head.step_with(prm, t_d, prm.debris_to_head_w_m2_k, area, dt, pen) * dt;
+                    let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
+                    if self.head.failed(prm, dp, dt, s.penetrations) {
+                        self.lower_head_failed = true;
+                    }
+                } else if s.lower_head_wall {
                     // Under water the wall boils against the plenum.
                     let (area, _, _) = debris_cap(prm, self.debris_mf, self.debris_mc);
                     q_quench -= self.head.step(prm, s.t_sat_k, prm.boiling_h, area, dt);
@@ -888,7 +926,8 @@ impl Core {
                 if s.lower_head_wall {
                     let (area, height, rho_bed) = debris_cap(prm, self.debris_mf, self.debris_mc);
                     let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
-                    self.debris_h -= self.head.step(prm, t_d, prm.debris_to_head_w_m2_k, area, dt) * dt;
+                    let pen = s.penetration_coverage.then(|| ((height / prm.lp_bottom_level_m).min(1.0), t_d, 0.0));
+                    self.debris_h -= self.head.step_with(prm, t_d, prm.debris_to_head_w_m2_k, area, dt, pen) * dt;
                     let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
                     if self.head.failed(prm, dp, dt, s.penetrations) {
                         self.lower_head_failed = true;
@@ -1035,7 +1074,12 @@ impl Core {
                 let (tf, tc) = if tdp {
                     let ef = g.m_fuel * uo2_enthalpy().at(n.t_fuel) + dt * (q - gfc * (tf - tc));
                     let ec = n.zr_kg * zr_enthalpy().at(n.t_clad) + dt * (gfc * (tf - tc) - q_out + q_ox + q_rad[idx]);
-                    (uo2_enthalpy().temperature(ef / g.m_fuel), zr_enthalpy().temperature(ec / n.zr_kg))
+                    // A node whose cladding has all candled away (no oxide
+                    // grew on it) has no clad lump to invert: the solve's
+                    // temperature, at zero heat capacity, is its value
+                    // (found 2026-10-29 as a 0/0 after the head failed dry).
+                    let tc = if n.zr_kg > 0.0 { zr_enthalpy().temperature(ec / n.zr_kg) } else { tc };
+                    (uo2_enthalpy().temperature(ef / g.m_fuel), tc)
                 } else {
                     (tf, tc)
                 };
@@ -1311,6 +1355,8 @@ impl CoreSnapshot {
             if self.debris_oxidation { 1.0 } else { 0.0 },
             if self.candling { 1.0 } else { 0.0 },
             if self.debris_quench { 1.0 } else { 0.0 },
+            if self.wet_head_contact { 1.0 } else { 0.0 },
+            if self.penetration_coverage { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1333,6 +1379,8 @@ impl CoreSnapshot {
             debris_oxidation: r.f() != 0.0,
             candling: r.f() != 0.0,
             debris_quench: r.f() != 0.0,
+            wet_head_contact: r.f() != 0.0,
+            penetration_coverage: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1450,7 +1498,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1476,7 +1524,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1505,7 +1553,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }

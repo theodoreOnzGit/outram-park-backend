@@ -76,6 +76,10 @@ pub struct ContainmentSnapshot {
     /// the injection temperature).
     pub ex_vessel_w: f64,
     pub pedestal_inflow_kg_s: f64,
+    /// Water draining from a failed vessel into the pedestal, kg/s, and its
+    /// temperature, K (`Mechanisms::failed_vessel_drain`).
+    pub vessel_drain_kg_s: f64,
+    pub vessel_drain_k: f64,
     /// MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the
     /// constant `c_v` ablation.
     pub gas_cv_t: bool,
@@ -441,6 +445,12 @@ impl Containment {
         if s.pedestal_inflow_kg_s > 0.0 {
             let m_in = s.pedestal_inflow_kg_s * dt;
             let e = self.pedestal_kg * self.pedestal_t + m_in * prm.injection_temperature_k;
+            self.pedestal_kg += m_in;
+            self.pedestal_t = e / self.pedestal_kg;
+        }
+        if s.vessel_drain_kg_s > 0.0 {
+            let m_in = s.vessel_drain_kg_s * dt;
+            let e = self.pedestal_kg * self.pedestal_t + m_in * s.vessel_drain_k;
             self.pedestal_kg += m_in;
             self.pedestal_t = e / self.pedestal_kg;
         }
@@ -1053,6 +1063,8 @@ impl ContainmentSnapshot {
             b(self.vent_ordered),
             self.ex_vessel_w,
             self.pedestal_inflow_kg_s,
+            self.vessel_drain_kg_s,
+            self.vessel_drain_k,
             b(self.gas_cv_t),
             self.xe_relief,
             self.xe_leak,
@@ -1093,6 +1105,8 @@ impl ContainmentSnapshot {
             vent_ordered: r.f() != 0.0,
             ex_vessel_w: r.f(),
             pedestal_inflow_kg_s: r.f(),
+            vessel_drain_kg_s: r.f(),
+            vessel_drain_k: r.f(),
             gas_cv_t: r.f() != 0.0,
             xe_relief: r.f(),
             xe_leak: r.f(),

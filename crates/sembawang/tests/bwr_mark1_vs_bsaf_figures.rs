@@ -131,6 +131,16 @@ fn model() -> Histories {
 /// drywell 26.4 -> 48.4 %, H2 98.9 -> 18.4 % (H2 at 25 h is now just
 /// below its band), Xe 89.6 -> 83.3 %, I 91.7 % (same).
 ///
+/// **Moved 2026-10-29 by the lower head under water** (`wet_head_contact`,
+/// `penetration_coverage` and `failed_vessel_drain`, measured together):
+/// drywell 0.158/0.332 -> **0.263/0.391 MPa (worse)**; RPV 3.468/6.558 ->
+/// 3.533/6.626 MPa; envelopes RPV 35.2 -> 4.4 %, drywell 48.4 -> 26.4 %,
+/// H2 18.4 -> 9.2 % (253 kg at 25 h, further below its band), Xe 83.3 %
+/// (same), I 91.7 -> 87.5 %. Kept: the head conducting from the debris it
+/// touches under water is MELCOR's model, and the fit is not a reason to
+/// leave it out. The head now fails earlier (4.56 h) with less H2 made,
+/// and leans on the missing core-plate holdup (L4).
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
@@ -148,10 +158,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // Pinned to the first run: a change to the model moves these, and the
     // move is then recorded here with its old and new value.
     assert_eq!((rpv.n, dw.n), (2, 33));
-    assert!((rpv.mean_abs - 3.4683).abs() < 1e-3 && (rpv.max_abs - 6.5580).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.1583).abs() < 1e-3 && (dw.max_abs - 0.3317).abs() < 1e-3, "{dw:?}");
+    assert!((rpv.mean_abs - 3.5326).abs() < 1e-3 && (rpv.max_abs - 6.6260).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.2626).abs() < 1e-3 && (dw.max_abs - 0.3914).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.3516) && near(e_dw, 0.4835) && near(e_h2, 0.1839) && near(e_xe, 0.8333) && near(e_i, 0.9167));
+    assert!(near(e_rpv, 0.0440) && near(e_dw, 0.2637) && near(e_h2, 0.0920) && near(e_xe, 0.8333) && near(e_i, 0.8750));
 }
 
 
@@ -196,8 +206,9 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     println!("0-500 h drywell against Fig 2.3a: {a:?}");
     assert_eq!(a.n, 94);
     // Max 0.6265 -> 0.6212 with tellurium transport, and mean 0.1670 ->
-    // 0.1660, max 0.6219 with candling (2026-10-29).
-    assert!((a.mean_abs - 0.1660).abs() < 1e-3 && (a.max_abs - 0.6219).abs() < 1e-3, "{a:?}");
+    // 0.1660, max 0.6219 with candling; mean 0.1672, max 0.6224 with the
+    // lower head under water (2026-10-29).
+    assert!((a.mean_abs - 0.1672).abs() < 1e-3 && (a.max_abs - 0.6224).abs() < 1e-3, "{a:?}");
 }
 
 
@@ -328,7 +339,8 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// inside **37.3 % -> 50.7 %**, S/C water unchanged. Then by debris
 /// oxidation: 50.7 % -> 49.3 %. Then by candling: **49.3 % -> 80.0 %**,
 /// S/C water 96.6 -> 94.4 %. Then by MELCOR's quench: S/C water 94.4 ->
-/// 95.5 %, structures unchanged.
+/// 95.5 %, structures unchanged. Then by the lower head under water: S/C
+/// water 95.5 -> 96.6 %, structures unchanged.
 ///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
@@ -341,11 +353,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.8000).abs() < 1e-3 && (c.0 - 0.9551).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.8000).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -404,6 +416,9 @@ fn cesium_against_fig_2_6() {
 /// The fit worsens and is recorded, not tuned: the scrubbing is MELCOR's,
 /// and the gap is iodine's chemistry (MELCOR releases it as I2 by
 /// default; CsI and pool re-evolution are not modelled).
+///
+/// **Moved 2026-10-29 by the lower head under water**: inside 4.5 % ->
+/// 6.7 %.
 #[test]
 fn iodine_against_fig_2_6() {
     let m = model();
@@ -412,9 +427,9 @@ fn iodine_against_fig_2_6() {
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
-    assert!((d.0 - 0.0449).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    assert!((d.0 - 0.0674).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
