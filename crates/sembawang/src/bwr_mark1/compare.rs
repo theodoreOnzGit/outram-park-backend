@@ -300,6 +300,10 @@ pub struct Histories {
     pub p_dw_mpa: Vec<f64>,
     pub h2_kg: Vec<f64>,
     pub fp_released: Vec<f64>,
+    /// Cesium on the drywell's structures and in the wetwell pool,
+    /// fractions of the inventory (gh:#1047).
+    pub cs_dw_structures: Vec<f64>,
+    pub cs_sc_water: Vec<f64>,
 }
 
 pub fn histories(mechanisms: Mechanisms, prm: Params, every_s: f64, end_s: f64) -> Histories {
@@ -317,6 +321,8 @@ pub fn histories(mechanisms: Mechanisms, prm: Params, every_s: f64, end_s: f64) 
             h.p_dw_mpa.push(f.containment.p_dw_pa / 1e6);
             h.h2_kg.push(f.core.h2_total_kg);
             h.fp_released.push(f.core.fp_volatile_released);
+            h.cs_dw_structures.push(f.containment.cs_dw_structures_kg / prm.cs_inventory_kg);
+            h.cs_sc_water.push(f.containment.cs_ww_pool_kg / prm.cs_inventory_kg);
         }
     }
     h

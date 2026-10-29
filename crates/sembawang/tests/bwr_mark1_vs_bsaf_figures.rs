@@ -144,3 +144,39 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     assert_eq!(a.n, 94);
     assert!((a.mean_abs - 0.6539).abs() < 1e-3 && (a.max_abs - 0.9145).abs() < 1e-3, "{a:?}");
 }
+
+
+/// **Cesium against Fig 2.6** (gh:#1047; the envelope instrument fixed
+/// before any curve was seen). Methodology: cesium released by CORSOR-M
+/// (154.0 kg inventory, the benchmark specification's), carried as vapour
+/// with the UO2 seed aerosol out of the vessel (no in-vessel deposition,
+/// stated), through the containment by the sectional aerosol and
+/// TRAP-MELT2 condensation (`rn_volume`); no pool scrubbing (SPARC-90 not
+/// built; MELCOR's default with pool interaction off), so the S/C water's
+/// cesium is what settles onto the pool surface. Fractions of the
+/// inventory against the nine codes' envelope, 0-25 h in 0.25 h steps.
+///
+/// Results, 2026-10-29:
+/// - **Cs in the S/C water (Fig 2.6c): inside the envelope 85.4 % of 89
+///   times.** 0.064 at 10 h, 0.706 at 20 h, 0.807 at 26 h, just above the
+///   highest code at the end (JAEA 0.787; IBRAE 0.000, SNL 0.33). Predicted
+///   before the run: at or above the top late on, so mostly outside.
+///   **Missed**: inside most of the time, crossing the top only late.
+/// - **Cs on drywell structures (Fig 2.6a): inside 46.7 % of 75 times.**
+///   0.081 at 10 h, then 0.000 by 20 h: the deposit re-evaporates as the
+///   drywell structures heat (the ex-vessel debris's heat goes into them),
+///   which five of BSAF's nine codes also show as remobilisation.
+///
+/// These are a differential test against codes, not a validation. The
+/// result rests on \[A\] areas (drywell floor, pool surface) and on the
+/// missing in-vessel deposition and pool scrubbing.
+#[test]
+fn cesium_against_fig_2_6() {
+    let m = model();
+    let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
+    let a = inside_envelope(&m.t_h, &m.cs_dw_structures, &family("2.6a"), &grid);
+    let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
+    println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
+    assert_eq!((a.1, c.1), (75, 89));
+    assert!((a.0 - 0.4667).abs() < 1e-3 && (c.0 - 0.8539).abs() < 1e-3, "{a:?} {c:?}");
+}

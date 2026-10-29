@@ -174,6 +174,18 @@ pub const INTERNALS_KG: f64 = 5.0e4;
 pub const INTERNALS_AREA_M2: f64 = 2500.0;
 pub const INTERNALS_H: f64 = 10.0;
 
+/// Unit 1's cesium inventory, kg: the BSAF Phase II benchmark specification's
+/// value (OECD/NEA No. 7525, 2021, p.20-21: "154.0 kg" Cs and 11.98 kg I,
+/// "specified by the benchmark co-ordinator"). \[P\]
+pub const CS_INVENTORY_KG: f64 = 154.0;
+/// Deposition areas not otherwise in the model: the drywell floor, m^2,
+/// and the torus pool's free surface, m^2. \[A\] both: not in a held source.
+/// The floor is about a third of a 3410 m^3 light-bulb drywell's footprint;
+/// the pool surface is a torus of about 15 m major radius filled about 40 %
+/// (the pool's 1750 of 4370 m^3), so about 8 m wide.
+pub const DW_FLOOR_M2: f64 = 200.0;
+pub const WW_POOL_SURFACE_M2: f64 = 750.0;
+
 /// CORSOR-M release of the volatile fission products (Xe, Cs, I), MELCOR's
 /// default row for those classes (Vol. 2, SAND2023-10994 O, RN §2.3.1,
 /// C7102): `k0`, per minute, and `Q`, kcal/mol. \[P\]
@@ -581,6 +593,9 @@ params! {
     corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
     corsor_uo2_k0_per_min = CORSOR_UO2_K0_PER_MIN, P,
     corsor_uo2_q_kcal_per_mol = CORSOR_UO2_Q_KCAL_PER_MOL, P,
+    cs_inventory_kg = CS_INVENTORY_KG, P,
+    dw_floor_m2 = DW_FLOOR_M2, A,
+    ww_pool_surface_m2 = WW_POOL_SURFACE_M2, A,
     head_failure_wall_k = HEAD_FAILURE_WALL_K, A,
     lm_p0 = LM_P0, P,
     lm_slope = LM_SLOPE, P,
@@ -734,7 +749,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 126);
+        assert_eq!(Params::INPUTS.len(), 129);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

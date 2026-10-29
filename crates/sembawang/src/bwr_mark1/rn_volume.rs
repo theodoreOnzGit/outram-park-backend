@@ -19,6 +19,7 @@
 //! step does not limit it; the excess returns to the vapour).
 
 use super::aerosol::{Medium, Sections, Surface};
+use super::wire::{Reader, Writer};
 use super::vapour::{condense, BulkGas, CondensingSurface, FpClass};
 
 /// A deposition surface as this volume sees it: the aerosol surface (area,
@@ -95,6 +96,31 @@ impl RnVolume {
         self.cs_on_aerosol_kg += cs_on_aerosol_kg;
     }
 
+    /// Write the state (the section volumes are fixed by construction).
+    pub fn write(&self, w: &mut Writer) {
+        w.f(&[self.volume_m3]);
+        w.f(&self.sections.conc);
+        w.f(&[self.sections.fallout, self.cs_vapour_kg, self.cs_on_aerosol_kg]);
+        w.f(&self.cs_on_surface_kg);
+        w.f(&self.aerosol_on_surface_kg);
+    }
+    /// Read the state into a volume built like this one.
+    pub fn read_into(&mut self, r: &mut Reader) {
+        self.volume_m3 = r.f();
+        for c in self.sections.conc.iter_mut() {
+            *c = r.f();
+        }
+        self.sections.fallout = r.f();
+        self.cs_vapour_kg = r.f();
+        self.cs_on_aerosol_kg = r.f();
+        for x in self.cs_on_surface_kg.iter_mut() {
+            *x = r.f();
+        }
+        for x in self.aerosol_on_surface_kg.iter_mut() {
+            *x = r.f();
+        }
+    }
+
     /// One step of `dt` s: condensation, agglomeration, deposition.
     pub fn step(&mut self, medium: &Medium, gases: &[(BulkGas, f64)], surfaces: &[RnSurface], dt: f64) {
         let v = self.volume_m3;
@@ -132,7 +158,10 @@ impl RnVolume {
         let d: Vec<f64> = (0..n).map(|k| self.sections.diameter(k)).collect();
         let before: f64 = self.sections.conc.iter().sum();
         let fallout_before = self.sections.fallout;
-        self.sections.coagulate(dt, |i, j| medium.kernel(d[i], d[j]));
+        if before > 0.0 {
+            let table = medium.kernel_table(&d);
+            self.sections.coagulate(dt, |i, j| table[i][j]);
+        }
         // 3. Deposition, and the fallout onto the first floor.
         let surf: Vec<Surface> = surfaces.iter().map(|s| s.surface.clone()).collect();
         let deposited = self.sections.deposit(medium, &surf, v, dt);

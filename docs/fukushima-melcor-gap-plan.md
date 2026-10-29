@@ -129,6 +129,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Volatile fission-product release, CORSOR-M (output only) | F9, #1040 | 5.452 | 215.36 | in-vessel release 0.85 at 25 h; predicted 0.4-0.7, missed high (BSAF: most codes > 0.8) |
 | Noble-gas (Xe) transport, fuel to stack (output only) | F9, #1040 | 5.452 | 215.36 | conserved to 1e-12 every step; all 0.85 in the wetwell gas at 26 h (no vent or flange leak opens) |
 | A failed vessel's gas leaves through the breach | — | **5.452** | **215.36** | drywell +1.5e-5 MPa; predicted +0.01 from post-failure H2, missed: almost no H2 is made after failure |
+| Cesium and aerosol through the containment (sectional aerosol, TRAP-MELT2; output only) | F9, #1047 | 5.452 | 215.36 | conserved to 1e-9; Cs in S/C water inside the 9-code envelope 85 % of the time, on drywell structures 47 % (deposit re-evaporates) |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

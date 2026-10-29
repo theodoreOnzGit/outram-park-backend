@@ -2370,6 +2370,11 @@ pub struct Medium {
   ```
   The total kernel (Eq 2-40).
 
+- ```rust
+  pub fn kernel_table(self: &Self, d: &[f64]) -> Vec<Vec<f64>> { /* ... */ }
+  ```
+  The total kernel for every pair of the diameters `d`, m^3/s: the
+
 ###### Trait Implementations
 
 - **Any**
@@ -3575,6 +3580,8 @@ pub struct Histories {
     pub p_dw_mpa: Vec<f64>,
     pub h2_kg: Vec<f64>,
     pub fp_released: Vec<f64>,
+    pub cs_dw_structures: Vec<f64>,
+    pub cs_sc_water: Vec<f64>,
 }
 ```
 
@@ -3587,6 +3594,8 @@ pub struct Histories {
 | `p_dw_mpa` | `Vec<f64>` |  |
 | `h2_kg` | `Vec<f64>` |  |
 | `fp_released` | `Vec<f64>` |  |
+| `cs_dw_structures` | `Vec<f64>` | Cesium on the drywell's structures and in the wetwell pool,<br>fractions of the inventory (gh:#1047). |
+| `cs_sc_water` | `Vec<f64>` |  |
 
 ##### Implementations
 
@@ -3997,6 +4006,10 @@ pub struct ContainmentSnapshot {
     pub gas_cv_t: bool,
     pub xe_relief: f64,
     pub xe_leak: f64,
+    pub cs_relief_kg: f64,
+    pub cs_leak_kg: f64,
+    pub uo2_relief_kg: f64,
+    pub uo2_leak_kg: f64,
     pub prm: Params,
 }
 ```
@@ -4019,6 +4032,10 @@ pub struct ContainmentSnapshot {
 | `gas_cv_t` | `bool` | MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the<br>constant `c_v` ablation. |
 | `xe_relief` | `f64` | Noble gas (Xe) arriving this step through the relief valves (into<br>the wetwell gas) and through the leaks (into the drywell), as<br>fractions of the core inventory (gh:#1040). |
 | `xe_leak` | `f64` |  |
+| `cs_relief_kg` | `f64` | Cesium (as vapour) and UO2 aerosol arriving this step through the<br>relief valves and the leaks, kg (gh:#1047). |
+| `cs_leak_kg` | `f64` |  |
+| `uo2_relief_kg` | `f64` |  |
+| `uo2_leak_kg` | `f64` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4170,6 +4187,11 @@ pub struct ContainmentResult {
     pub xe_ww: f64,
     pub xe_vented: f64,
     pub xe_building: f64,
+    pub cs_dw_structures_kg: f64,
+    pub cs_ww_pool_kg: f64,
+    pub cs_airborne_kg: f64,
+    pub cs_vented_kg: f64,
+    pub cs_building_kg: f64,
 }
 ```
 
@@ -4194,6 +4216,11 @@ pub struct ContainmentResult {
 | `xe_ww` | `f64` |  |
 | `xe_vented` | `f64` |  |
 | `xe_building` | `f64` |  |
+| `cs_dw_structures_kg` | `f64` | Cesium (gh:#1047), kg: on the drywell's structures, in the wetwell<br>pool (deposited on its surface), airborne in both, vented, and<br>leaked to the building. |
+| `cs_ww_pool_kg` | `f64` |  |
+| `cs_airborne_kg` | `f64` |  |
+| `cs_vented_kg` | `f64` |  |
+| `cs_building_kg` | `f64` |  |
 
 ##### Implementations
 
@@ -6220,6 +6247,9 @@ pub struct Params {
     pub corsor_q_kcal_per_mol: f64,
     pub corsor_uo2_k0_per_min: f64,
     pub corsor_uo2_q_kcal_per_mol: f64,
+    pub cs_inventory_kg: f64,
+    pub dw_floor_m2: f64,
+    pub ww_pool_surface_m2: f64,
     pub head_failure_wall_k: f64,
     pub lm_p0: f64,
     pub lm_slope: f64,
@@ -6354,6 +6384,9 @@ pub struct Params {
 | `corsor_q_kcal_per_mol` | `f64` |  |
 | `corsor_uo2_k0_per_min` | `f64` |  |
 | `corsor_uo2_q_kcal_per_mol` | `f64` |  |
+| `cs_inventory_kg` | `f64` |  |
+| `dw_floor_m2` | `f64` |  |
+| `ww_pool_surface_m2` | `f64` |  |
 | `head_failure_wall_k` | `f64` |  |
 | `lm_p0` | `f64` |  |
 | `lm_slope` | `f64` |  |
@@ -7031,6 +7064,34 @@ pub const INTERNALS_AREA_M2: f64 = 2500.0;
 
 ```rust
 pub const INTERNALS_H: f64 = 10.0;
+```
+
+#### Constant `CS_INVENTORY_KG`
+
+Unit 1's cesium inventory, kg: the BSAF Phase II benchmark specification's
+value (OECD/NEA No. 7525, 2021, p.20-21: "154.0 kg" Cs and 11.98 kg I,
+"specified by the benchmark co-ordinator"). \[P\]
+
+```rust
+pub const CS_INVENTORY_KG: f64 = 154.0;
+```
+
+#### Constant `DW_FLOOR_M2`
+
+Deposition areas not otherwise in the model: the drywell floor, m^2,
+and the torus pool's free surface, m^2. \[A\] both: not in a held source.
+The floor is about a third of a 3410 m^3 light-bulb drywell's footprint;
+the pool surface is a torus of about 15 m major radius filled about 40 %
+(the pool's 1750 of 4370 m^3), so about 8 m wide.
+
+```rust
+pub const DW_FLOOR_M2: f64 = 200.0;
+```
+
+#### Constant `WW_POOL_SURFACE_M2`
+
+```rust
+pub const WW_POOL_SURFACE_M2: f64 = 750.0;
 ```
 
 #### Constant `CORSOR_K0_PER_MIN`
@@ -7913,6 +7974,16 @@ pub struct RnVolume {
   pub fn receive(self: &mut Self, moved: &[f64], cs_vapour_kg: f64, cs_on_aerosol_kg: f64) { /* ... */ }
   ```
   Receive what `take` returned from another volume (same sections).
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+  Write the state (the section volumes are fixed by construction).
+
+- ```rust
+  pub fn read_into(self: &mut Self, r: &mut Reader<''_>) { /* ... */ }
+  ```
+  Read the state into a volume built like this one.
 
 - ```rust
   pub fn step(self: &mut Self, medium: &Medium, gases: &[(BulkGas, f64)], surfaces: &[RnSurface], dt: f64) { /* ... */ }
@@ -10192,6 +10263,7 @@ pub struct Frame {
     pub internals_k: f64,
     pub dome_gas_k: f64,
     pub xe_vessel: f64,
+    pub cs_vessel_kg: f64,
     pub core: self::core::CoreResult,
     pub containment: containment::ContainmentResult,
 }
@@ -10221,6 +10293,7 @@ pub struct Frame {
 | `internals_k` | `f64` | The dome internals' temperature and the gas leaving them, K. |
 | `dome_gas_k` | `f64` |  |
 | `xe_vessel` | `f64` | Noble gas (Xe) in the vessel's gas, fraction of inventory (the<br>containment's shares are in `containment`). |
+| `cs_vessel_kg` | `f64` | Cesium in the vessel's gas, kg (gh:#1047). |
 | `core` | `self::core::CoreResult` |  |
 | `containment` | `containment::ContainmentResult` |  |
 

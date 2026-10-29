@@ -170,6 +170,60 @@ impl Medium {
     pub fn kernel(&self, di: f64, dj: f64) -> f64 {
         self.brownian(di, dj) + self.gravitational(di, dj) + self.turbulent(di, dj)
     }
+
+    /// The total kernel for every pair of the diameters `d`, m^3/s: the
+    /// same equations as [`Medium::kernel`], with each particle's own
+    /// quantities (slip, diffusivity, speed, Fuchs' `g`, terminal velocity)
+    /// computed once instead of once per pair.
+    pub fn kernel_table(&self, d: &[f64]) -> Vec<Vec<f64>> {
+        let pi = std::f64::consts::PI;
+        let lambda = self.mean_free_path();
+        let rho_g = self.rho_gas();
+        struct P {
+            dif: f64,
+            v: f64,
+            g: f64,
+            vt: f64,
+            a: f64,
+        }
+        let props: Vec<P> = d
+            .iter()
+            .map(|&di| {
+                let kn = 2.0 * lambda / di;
+                let c = 1.0 + kn * (self.slip + 0.4 * (-1.1 / kn).r_exp());
+                let dif = K_B * self.t_k / (3.0 * pi * di * self.mu_pa_s * self.chi) * c;
+                let v = (8.0 * K_B * self.t_k / (pi * self.rho_p * pi * di * di * di / 6.0)).sqrt();
+                let l = 8.0 * dif / (pi * v);
+                let g = ((di + l).r_powi(3) - (di * di + l * l).r_powf(1.5)) / (3.0 * di * l) - di;
+                let vt = self.rho_p * G * di * di * c / (18.0 * self.mu_pa_s * self.chi);
+                let a = self.rho_p * c * di * di / self.chi;
+                P { dif, v, g, vt, a }
+            })
+            .collect();
+        let e = self.dissipation;
+        let t1 = (pi * e * rho_g / (120.0 * self.mu_pa_s)).sqrt();
+        let t2 = 0.04029 * rho_g.r_powf(0.25) * e.r_powf(0.75) / self.mu_pa_s.r_powf(1.25);
+        (0..d.len())
+            .map(|i| {
+                (0..d.len())
+                    .map(|j| {
+                        let (pi_, pj) = (&props[i], &props[j]);
+                        let s = d[i] + d[j];
+                        let gs = self.gamma * d[i] + self.gamma * d[j];
+                        let g_ij = (pi_.g * pi_.g + pj.g * pj.g).sqrt();
+                        let v_ij = (pi_.v * pi_.v + pj.v * pj.v).sqrt();
+                        let bracket = s / (s + 2.0 * g_ij) + 8.0 * (pi_.dif + pj.dif) / (v_ij * s * self.sticking);
+                        let brown = 2.0 * pi * (pi_.dif + pj.dif) * gs / bracket;
+                        let eps = 1.5 * d[i].min(d[j]).r_powi(2) / s.r_powi(2);
+                        let grav = eps * pi / 4.0 * self.sticking * (self.gamma * s).r_powi(2) * (pi_.vt - pj.vt).abs();
+                        let b1 = t1 * gs.r_powi(3);
+                        let b2 = t2 * gs.r_powi(2) * (pi_.a - pj.a).abs();
+                        brown + grav + self.sticking * (b1 * b1 + b2 * b2).sqrt()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
 }
 
 /// Diffusiophoretic velocity toward a surface, m/s, with the Stefan flow
@@ -260,17 +314,29 @@ impl Sections {
         let old: f64 = self.conc.iter().sum();
         let n_old: Vec<f64> = (0..n).map(|k| self.number(k)).collect();
         let b: Vec<Vec<f64>> = (0..n).map(|i| (0..n).map(|j| beta(i, j)).collect()).collect();
-        let mut new = vec![0.0; n];
-        for k in 0..n {
-            let mut gain = 0.0;
-            for j in 0..=k {
-                for i in 0..k {
-                    let f = Self::fraction(&ext, self.v[i] + self.v[j], k);
-                    if f > 0.0 {
-                        gain += f * b[i][j] * new[i] * n_old[j];
+        // A coagulated pair (i, j) lands only in the two sections around
+        // v_i + v_j (the fractions vanish elsewhere), so bucket each pair's
+        // gain by its target: O(n^2) instead of looping over every (i, j,
+        // k). The terms and their order of use are Jacobson et al.'s.
+        let mut gains: Vec<Vec<(usize, usize, f64)>> = vec![Vec::new(); n];
+        for i in 0..n {
+            for j in 0..n {
+                let vij = self.v[i] + self.v[j];
+                let lo = ext.partition_point(|&x| x <= vij).saturating_sub(1);
+                for k in [lo, lo + 1] {
+                    // Jacobson's sums run over j <= k and i < k.
+                    if k < n && j <= k && i < k {
+                        let f = Self::fraction(&ext, vij, k);
+                        if f > 0.0 {
+                            gains[k].push((i, j, f));
+                        }
                     }
                 }
             }
+        }
+        let mut new = vec![0.0; n];
+        for k in 0..n {
+            let gain: f64 = gains[k].iter().map(|&(i, j, f)| f * b[i][j] * new[i] * n_old[j]).sum();
             let mut loss = 0.0;
             for j in 0..n {
                 loss += (1.0 - Self::fraction(&ext, self.v[k] + self.v[j], k)) * b[k][j] * n_old[j];
@@ -369,6 +435,13 @@ mod tests {
         assert!((m.brownian(d, d) / fm - 1.0).abs() < 0.005, "{} vs {fm}", m.brownian(d, d));
         assert_eq!(m.gravitational(3e-6, 3e-6), 0.0);
         assert!((m.gravitational(1e-6, 5e-6) - m.gravitational(5e-6, 1e-6)).abs() < 1e-30);
+        let ds = [0.1e-6, 1e-6, 7e-6];
+        let table = m.kernel_table(&ds);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!((table[i][j] / m.kernel(ds[i], ds[j]) - 1.0).abs() < 1e-12, "{i} {j}");
+            }
+        }
         let vs = m.settling_velocity(10e-6);
         assert!((vs - 3.0e-3).abs() < 0.15e-3, "{vs}");
     }

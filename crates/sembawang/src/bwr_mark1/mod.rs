@@ -423,6 +423,8 @@ pub struct Frame {
     /// Noble gas (Xe) in the vessel's gas, fraction of inventory (the
     /// containment's shares are in `containment`).
     pub xe_vessel: f64,
+    /// Cesium in the vessel's gas, kg (gh:#1047).
+    pub cs_vessel_kg: f64,
     pub core: CoreResult,
     pub containment: ContainmentResult,
 }
@@ -570,6 +572,13 @@ pub struct Plant {
     /// and the core's released fraction at the last step (gh:#1040).
     xe_vessel: f64,
     fp_seen: f64,
+    /// Cesium (vapour) and UO2 aerosol in the vessel's gas, kg, and the
+    /// core's UO2 released at the last step, kg (gh:#1047). No in-vessel
+    /// deposition (stated: this overestimates what reaches the
+    /// containment).
+    cs_vessel_kg: f64,
+    uo2_vessel_kg: f64,
+    uo2_seen_kg: f64,
     /// The vessel's own solved pressure, Pa, before a failed head pins the
     /// shown pressure to the drywell's.
     p_solved: f64,
@@ -595,6 +604,10 @@ struct Pending {
     /// leaks, fractions of the core inventory.
     xe_relief: f64,
     xe_leak: f64,
+    /// The shares of the vessel's gas leaving through the relief valves
+    /// and the leaks this step (what carries every trace species).
+    share_relief: f64,
+    share_leak: f64,
 }
 
 /// The core and containment snapshots of one step.
@@ -654,6 +667,9 @@ impl Plant {
             q_internals_w: 0.0,
             xe_vessel: 0.0,
             fp_seen: 0.0,
+            cs_vessel_kg: 0.0,
+            uo2_vessel_kg: 0.0,
+            uo2_seen_kg: 0.0,
             p_solved: 0.0,
             injected_kg: 0.0,
             vessel: Vessel::default(),
@@ -857,6 +873,15 @@ impl Plant {
         } else {
             0.0
         };
+        // The shares of the vessel's gas leaving this step (well mixed: by
+        // mass equals by moles, the composition being uniform). Once the
+        // lower head has failed the vessel is open to the drywell, so its
+        // trace species pass to the drywell each step.
+        let (share_relief, share_leak) = if self.last_core.lower_head_failed {
+            (0.0, 1.0)
+        } else {
+            ((w_relief * DT_S / (steam_gas + self.h2)).min(1.0), (w_leak * DT_S / (steam_gas + self.h2)).min(1.0))
+        };
         self.pending = Pending {
             w_bypass,
             q_ic_w: q_ic_train.iter().sum(),
@@ -871,12 +896,10 @@ impl Plant {
             // Once the lower head has failed the vessel is open to the
             // drywell (its pressure is the drywell's, with no flow model),
             // so its noble gas passes to the drywell each step.
-            xe_relief: if self.last_core.lower_head_failed { 0.0 } else { self.xe_vessel * (w_relief * DT_S / (steam_gas + self.h2)).min(1.0) },
-            xe_leak: if self.last_core.lower_head_failed {
-                self.xe_vessel
-            } else {
-                self.xe_vessel * (w_leak * DT_S / (steam_gas + self.h2)).min(1.0)
-            },
+            xe_relief: self.xe_vessel * share_relief,
+            xe_leak: self.xe_vessel * share_leak,
+            share_relief,
+            share_leak,
         };
         let h_gas = v.sat.h_g;
         // The level the core sees (gh:#1036): swollen by the vapour the last
@@ -903,6 +926,10 @@ impl Plant {
                 gas_cv_t: self.mechanisms.gas_cv_t,
                 xe_relief: self.pending.xe_relief,
                 xe_leak: self.pending.xe_leak,
+                cs_relief_kg: self.cs_vessel_kg * self.pending.share_relief,
+                cs_leak_kg: self.cs_vessel_kg * self.pending.share_leak,
+                uo2_relief_kg: self.uo2_vessel_kg * self.pending.share_relief,
+                uo2_leak_kg: self.uo2_vessel_kg * self.pending.share_leak,
                 prm,
             },
         }
@@ -941,6 +968,10 @@ impl Plant {
         }
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         // Noble gas: out with the gas, in from the fuel.
+        let out = (d.share_relief + d.share_leak).min(1.0);
+        self.cs_vessel_kg = self.cs_vessel_kg * (1.0 - out) + (core.fp_volatile_released - self.fp_seen) * prm.cs_inventory_kg;
+        self.uo2_vessel_kg = self.uo2_vessel_kg * (1.0 - out) + (core.uo2_released_kg - self.uo2_seen_kg);
+        self.uo2_seen_kg = core.uo2_released_kg;
         self.xe_vessel = (self.xe_vessel - d.xe_relief - d.xe_leak).max(0.0) + (core.fp_volatile_released - self.fp_seen);
         self.fp_seen = core.fp_volatile_released;
         self.injected_kg += d.w_inj * DT_S;
@@ -1031,6 +1062,7 @@ impl Plant {
             internals_k: self.internals.t_k,
             dome_gas_k: self.gas_out_k(),
             xe_vessel: self.xe_vessel,
+            cs_vessel_kg: self.cs_vessel_kg,
             core: self.last_core.clone(),
             containment: self.last_containment,
         }
@@ -1082,6 +1114,7 @@ impl Frame {
             self.internals_k,
             self.dome_gas_k,
             self.xe_vessel,
+            self.cs_vessel_kg,
         ]);
         self.core.write(w);
         self.containment.write(w);
@@ -1114,6 +1147,7 @@ impl Frame {
             internals_k: r.f(),
             dome_gas_k: r.f(),
             xe_vessel: r.f(),
+            cs_vessel_kg: r.f(),
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
         }
@@ -1452,6 +1486,31 @@ mod tests {
         let k = &f.containment;
         assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-6 && k.xe_vented == 0.0 && k.xe_building == 0.0, "{f:?}");
         assert!((k.xe_ww - 0.8505).abs() < 1e-4 && (peak_ww - k.xe_ww).abs() < 1e-9, "{k:?}");
+    }
+
+    /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
+    /// every step of 26 h, the vessel's, the containment's airborne, on the
+    /// drywell's structures, in the wetwell pool, vented and leaked to the
+    /// building add up to the released fraction times the inventory, to
+    /// 1e-9 of it.
+    #[test]
+    fn cesium_is_conserved_from_fuel_to_stack() {
+        let mut p = Plant::new(Mode::Historical);
+        let (mut c, mut k) = p.parts();
+        for _ in 0..(26 * 3600) {
+            p.step_inline(&mut c, &mut k);
+            let f = p.frame();
+            let k = &f.containment;
+            let total = f.cs_vessel_kg + k.cs_airborne_kg + k.cs_dw_structures_kg + k.cs_ww_pool_kg + k.cs_vented_kg + k.cs_building_kg;
+            let released = f.core.fp_volatile_released * CS_INVENTORY_KG;
+            assert!((total - released).abs() < 1e-9 * CS_INVENTORY_KG, "{total} vs {released} at {}", f.t_s);
+        }
+        let f = p.frame();
+        let k = &f.containment;
+        println!(
+            "CS 26h vessel {:.2} airborne {:.2} dw structures {:.2} ww pool {:.2} vented {:.2} building {:.2} of released {:.2} kg",
+            f.cs_vessel_kg, k.cs_airborne_kg, k.cs_dw_structures_kg, k.cs_ww_pool_kg, k.cs_vented_kg, k.cs_building_kg, f.core.fp_volatile_released * CS_INVENTORY_KG
+        );
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J

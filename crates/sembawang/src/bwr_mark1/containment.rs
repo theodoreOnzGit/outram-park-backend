@@ -34,7 +34,10 @@
 //! itself (the explosion is a threshold, not a calculation).
 
 use super::params::*;
+use super::aerosol::{Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
+use super::rn_volume::{RnSurface, RnVolume};
+use super::vapour::BulkGas;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
 
@@ -79,6 +82,12 @@ pub struct ContainmentSnapshot {
     /// fractions of the core inventory (gh:#1040).
     pub xe_relief: f64,
     pub xe_leak: f64,
+    /// Cesium (as vapour) and UO2 aerosol arriving this step through the
+    /// relief valves and the leaks, kg (gh:#1047).
+    pub cs_relief_kg: f64,
+    pub cs_leak_kg: f64,
+    pub uo2_relief_kg: f64,
+    pub uo2_leak_kg: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -105,6 +114,14 @@ pub struct ContainmentResult {
     pub xe_ww: f64,
     pub xe_vented: f64,
     pub xe_building: f64,
+    /// Cesium (gh:#1047), kg: on the drywell's structures, in the wetwell
+    /// pool (deposited on its surface), airborne in both, vented, and
+    /// leaked to the building.
+    pub cs_dw_structures_kg: f64,
+    pub cs_ww_pool_kg: f64,
+    pub cs_airborne_kg: f64,
+    pub cs_vented_kg: f64,
+    pub cs_building_kg: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -131,6 +148,14 @@ pub struct Containment {
     xe_ww: f64,
     xe_vented: f64,
     xe_building: f64,
+    /// Fission products and aerosol in the drywell and the wetwell gas
+    /// (gh:#1047), the time since their last aerosol step, s, and cesium
+    /// vented and leaked to the building, kg.
+    dw_rn: RnVolume,
+    ww_rn: RnVolume,
+    rn_clock_s: f64,
+    cs_vented_kg: f64,
+    cs_building_kg: f64,
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -178,6 +203,11 @@ impl Containment {
             xe_ww: 0.0,
             xe_vented: 0.0,
             xe_building: 0.0,
+            dw_rn: RnVolume::new(prm.drywell_volume_m3, rn_sections(), 2),
+            ww_rn: RnVolume::new(prm.wetwell_gas_m3, rn_sections(), 1),
+            rn_clock_s: 0.0,
+            cs_vented_kg: 0.0,
+            cs_building_kg: 0.0,
         }
     }
 
@@ -237,6 +267,12 @@ impl Containment {
         // path below (gh:#1040).
         self.xe_ww += s.xe_relief;
         self.xe_dw += s.xe_leak;
+        // Cesium and aerosol likewise: the relief flow's into the wetwell
+        // gas (MELCOR's default with pool interaction off: gas below a pool
+        // surface passes unchanged), the leaks' into the drywell.
+        let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
+        self.ww_rn.add(s.uo2_relief_kg, rho_p, s.cs_relief_kg);
+        self.dw_rn.add(s.uo2_leak_kg, rho_p, s.cs_leak_kg);
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
         let nh = s.leak_h2_kg_s * dt / M_H2;
@@ -318,6 +354,8 @@ impl Containment {
             let dxe = self.xe_dw * f;
             self.xe_dw -= dxe;
             self.xe_ww += dxe;
+            let (moved, cv, ca) = self.dw_rn.take(f);
+            self.ww_rn.receive(&moved, cv, ca);
             let e_dw = self.dw_energy(tv);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
@@ -345,6 +383,8 @@ impl Containment {
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
             self.xe_dw += dxe;
+            let (moved, cv, ca) = self.ww_rn.take(f);
+            self.dw_rn.receive(&moved, cv, ca);
             self.ww_n2 -= dn2;
             self.ww_h2 -= dh2;
             let e = self.dw_energy(tv) + ncg_u(dn2, dh2, self.pool_t, tv);
@@ -373,6 +413,8 @@ impl Containment {
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
             self.xe_vented += dxe;
+            let (_, cv, ca) = self.ww_rn.take(f);
+            self.cs_vented_kg += cv + ca;
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2) / dt;
             self.ww_n2 -= self.ww_n2 * f;
@@ -404,6 +446,8 @@ impl Containment {
             let dxe = self.xe_dw * f;
             self.xe_dw -= dxe;
             self.xe_building += dxe;
+            let (_, cv, ca) = self.dw_rn.take(f);
+            self.cs_building_kg += cv + ca;
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= self.dw_steam_kg * f;
@@ -415,6 +459,15 @@ impl Containment {
                 let y = self.rb_h2 / n_rb;
                 self.rb_h2 += dh2 - y * (dh2 + dn2);
             }
+        }
+        // 8. Fission products and aerosol: condensation, agglomeration and
+        //    deposition, every 10 s of accumulated time (transport above
+        //    moves them every step).
+        self.rn_clock_s += dt;
+        if self.rn_clock_s >= RN_STEP_S {
+            let h = self.rn_clock_s;
+            self.rn_clock_s = 0.0;
+            self.step_rn(prm, h);
         }
         let n_rb = P_ATM * prm.reactor_building_m3 / (R_GAS * T_RB);
         let y_rb = self.rb_h2 / n_rb;
@@ -440,7 +493,75 @@ impl Containment {
             xe_ww: self.xe_ww,
             xe_vented: self.xe_vented,
             xe_building: self.xe_building,
+            cs_dw_structures_kg: self.dw_rn.cs_on_surface_kg.iter().sum(),
+            cs_ww_pool_kg: self.ww_rn.cs_on_surface_kg[0],
+            cs_airborne_kg: self.dw_rn.cs_vapour_kg + self.dw_rn.cs_on_aerosol_kg + self.ww_rn.cs_vapour_kg + self.ww_rn.cs_on_aerosol_kg,
+            cs_vented_kg: self.cs_vented_kg,
+            cs_building_kg: self.cs_building_kg,
         }
+    }
+}
+
+/// Aerosol step, s (the transport steps every plant step).
+const RN_STEP_S: f64 = 10.0;
+
+/// MELCOR's default aerosol size range, 0.1 to 50 um (RN1_ASP), as 27
+/// sections of particle-volume ratio 2 (0.1 to 40 um, the fallout section
+/// at 50 um).
+fn rn_sections() -> Sections {
+    Sections::new(0.1e-6, 27, 2.0)
+}
+
+/// Air's viscosity, Pa s, by Sutherland's law (1.458e-6 T^1.5/(T + 110.4),
+/// the standard constants): MELCOR evaluates its aerosol coefficients with
+/// air's properties (Vol. 2, RN §2.4.2.3, constraint c).
+fn air_viscosity(t_k: f64) -> f64 {
+    1.458e-6 * t_k * t_k.sqrt() / (t_k + 110.4)
+}
+
+/// Specific heats for the heat-mass analogy, J/(kg K): steam, N2, H2. \[A\]
+/// constant values near 400-500 K.
+const CP_STEAM_GAS: f64 = 2000.0;
+const CP_N2_GAS: f64 = 1040.0;
+const CP_H2_GAS: f64 = 14_300.0;
+
+impl Containment {
+    /// The fission-product and aerosol step of both volumes (gh:#1047).
+    /// Drywell: its floor and its structures (the wall heat sink's area and
+    /// temperature), the vapour's mass-transfer coefficient from the
+    /// sink's heat-transfer coefficient by the heat-mass analogy,
+    /// `k = h/(rho c_p)` (Lewis number about 1, stated). Wetwell: the pool
+    /// surface (a floor, at the pool temperature); its shell is not a
+    /// deposition surface yet (stated). No phoretic deposition yet.
+    fn step_rn(&mut self, prm: &Params, dt: f64) {
+        let n = self.dw_rn.sections.v.len();
+        // Drywell gas.
+        let n_s = self.dw_steam_kg / M_H2O;
+        let n_tot = (self.dw_n2 + self.dw_h2 + n_s).max(1e-30);
+        let gases_dw = [(BulkGas::Steam, n_s / n_tot), (BulkGas::N2, self.dw_n2 / n_tot), (BulkGas::H2, self.dw_h2 / n_tot)];
+        let p_dw = self.p_dw(prm);
+        let m_dw = Medium::air(self.dw_t, p_dw, air_viscosity(self.dw_t));
+        let mass = self.dw_steam_kg + self.dw_n2 * M_N2 + self.dw_h2 * M_H2;
+        let cp = (self.dw_steam_kg * CP_STEAM_GAS + self.dw_n2 * M_N2 * CP_N2_GAS + self.dw_h2 * M_H2 * CP_H2_GAS) / mass.max(1e-30);
+        let rho = mass / prm.drywell_volume_m3;
+        let k_w = prm.dw_wall_h / (rho * cp);
+        let dw_surfaces = [
+            RnSurface { surface: Surface { area: prm.dw_floor_m2, facing: Facing::Floor, phoretic: vec![0.0; n] }, t_k: self.dw_wall_t, k_vapour: k_w },
+            RnSurface { surface: Surface { area: prm.dw_wall_area_m2, facing: Facing::Wall, phoretic: vec![0.0; n] }, t_k: self.dw_wall_t, k_vapour: k_w },
+        ];
+        self.dw_rn.step(&m_dw, &gases_dw, &dw_surfaces, dt);
+        // Wetwell gas, saturated with steam at the pool temperature.
+        let p_ww = self.p_ww(prm);
+        let x_s = (p_sat_pa(self.pool_t) / p_ww).min(1.0);
+        let n_nc = (self.ww_n2 + self.ww_h2).max(1e-30);
+        let gases_ww = [(BulkGas::Steam, x_s), (BulkGas::N2, (1.0 - x_s) * self.ww_n2 / n_nc), (BulkGas::H2, (1.0 - x_s) * self.ww_h2 / n_nc)];
+        let m_ww = Medium::air(self.pool_t, p_ww, air_viscosity(self.pool_t));
+        let ww_surfaces = [RnSurface {
+            surface: Surface { area: prm.ww_pool_surface_m2, facing: Facing::Floor, phoretic: vec![0.0; n] },
+            t_k: self.pool_t,
+            k_vapour: k_w,
+        }];
+        self.ww_rn.step(&m_ww, &gases_ww, &ww_surfaces, dt);
     }
 }
 
@@ -480,10 +601,15 @@ impl Containment {
             self.xe_ww,
             self.xe_vented,
             self.xe_building,
+            self.rn_clock_s,
+            self.cs_vented_kg,
+            self.cs_building_kg,
         ]);
+        self.dw_rn.write(w);
+        self.ww_rn.write(w);
     }
     pub fn read_state(r: &mut Reader) -> Self {
-        Self {
+        let mut c = Self {
             dw_n2: r.f(),
             dw_h2: r.f(),
             dw_steam_kg: r.f(),
@@ -504,7 +630,15 @@ impl Containment {
             xe_ww: r.f(),
             xe_vented: r.f(),
             xe_building: r.f(),
-        }
+            dw_rn: RnVolume::new(0.0, rn_sections(), 2),
+            ww_rn: RnVolume::new(0.0, rn_sections(), 1),
+            rn_clock_s: r.f(),
+            cs_vented_kg: r.f(),
+            cs_building_kg: r.f(),
+        };
+        c.dw_rn.read_into(r);
+        c.ww_rn.read_into(r);
+        c
     }
 }
 
@@ -526,6 +660,10 @@ impl ContainmentSnapshot {
             b(self.gas_cv_t),
             self.xe_relief,
             self.xe_leak,
+            self.cs_relief_kg,
+            self.cs_leak_kg,
+            self.uo2_relief_kg,
+            self.uo2_leak_kg,
         ]);
         self.prm.write(w);
     }
@@ -545,6 +683,10 @@ impl ContainmentSnapshot {
             gas_cv_t: r.f() != 0.0,
             xe_relief: r.f(),
             xe_leak: r.f(),
+            cs_relief_kg: r.f(),
+            cs_leak_kg: r.f(),
+            uo2_relief_kg: r.f(),
+            uo2_leak_kg: r.f(),
             prm: Params::read(r),
         }
     }
@@ -570,6 +712,11 @@ impl ContainmentResult {
             self.xe_ww,
             self.xe_vented,
             self.xe_building,
+            self.cs_dw_structures_kg,
+            self.cs_ww_pool_kg,
+            self.cs_airborne_kg,
+            self.cs_vented_kg,
+            self.cs_building_kg,
         ]);
     }
     pub fn read(r: &mut Reader) -> Self {
@@ -591,6 +738,11 @@ impl ContainmentResult {
             xe_ww: r.f(),
             xe_vented: r.f(),
             xe_building: r.f(),
+            cs_dw_structures_kg: r.f(),
+            cs_ww_pool_kg: r.f(),
+            cs_airborne_kg: r.f(),
+            cs_vented_kg: r.f(),
+            cs_building_kg: r.f(),
         }
     }
 }
