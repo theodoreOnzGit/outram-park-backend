@@ -3271,6 +3271,8 @@ pub struct ContainmentSnapshot {
     pub ex_vessel_w: f64,
     pub pedestal_inflow_kg_s: f64,
     pub gas_cv_t: bool,
+    pub xe_relief: f64,
+    pub xe_leak: f64,
     pub prm: Params,
 }
 ```
@@ -3291,6 +3293,8 @@ pub struct ContainmentSnapshot {
 | `ex_vessel_w` | `f64` | After the lower head fails: the debris's decay power on the drywell<br>floor, W, and the injected water that now pours through, kg/s (at<br>the injection temperature). |
 | `pedestal_inflow_kg_s` | `f64` |  |
 | `gas_cv_t` | `bool` | MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the<br>constant `c_v` ablation. |
+| `xe_relief` | `f64` | Noble gas (Xe) arriving this step through the relief valves (into<br>the wetwell gas) and through the leaks (into the drywell), as<br>fractions of the core inventory (gh:#1040). |
+| `xe_leak` | `f64` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -3438,6 +3442,10 @@ pub struct ContainmentResult {
     pub rb_exploded: bool,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
+    pub xe_dw: f64,
+    pub xe_ww: f64,
+    pub xe_vented: f64,
+    pub xe_building: f64,
 }
 ```
 
@@ -3458,6 +3466,10 @@ pub struct ContainmentResult {
 | `rb_exploded` | `bool` |  |
 | `vented_h2_kg` | `f64` |  |
 | `vented_kg_s` | `f64` |  |
+| `xe_dw` | `f64` | Noble gas (Xe) in the drywell and the wetwell gas, vented to the<br>stack and leaked to the reactor building, fractions of the core<br>inventory (gh:#1040). |
+| `xe_ww` | `f64` |  |
+| `xe_vented` | `f64` |  |
+| `xe_building` | `f64` |  |
 
 ##### Implementations
 
@@ -8572,6 +8584,7 @@ pub struct Frame {
     pub msl: msl::SteamLine,
     pub internals_k: f64,
     pub dome_gas_k: f64,
+    pub xe_vessel: f64,
     pub core: self::core::CoreResult,
     pub containment: containment::ContainmentResult,
 }
@@ -8600,6 +8613,7 @@ pub struct Frame {
 | `msl` | `msl::SteamLine` | The main steam line's wall temperature, K, creep damage, and whether<br>it has ruptured. |
 | `internals_k` | `f64` | The dome internals' temperature and the gas leaving them, K. |
 | `dome_gas_k` | `f64` |  |
+| `xe_vessel` | `f64` | Noble gas (Xe) in the vessel's gas, fraction of inventory (the<br>containment's shares are in `containment`). |
 | `core` | `self::core::CoreResult` |  |
 | `containment` | `containment::ContainmentResult` |  |
 

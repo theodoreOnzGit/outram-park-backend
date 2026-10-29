@@ -74,6 +74,11 @@ pub struct ContainmentSnapshot {
     /// MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the
     /// constant `c_v` ablation.
     pub gas_cv_t: bool,
+    /// Noble gas (Xe) arriving this step through the relief valves (into
+    /// the wetwell gas) and through the leaks (into the drywell), as
+    /// fractions of the core inventory (gh:#1040).
+    pub xe_relief: f64,
+    pub xe_leak: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -93,6 +98,13 @@ pub struct ContainmentResult {
     pub rb_exploded: bool,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
+    /// Noble gas (Xe) in the drywell and the wetwell gas, vented to the
+    /// stack and leaked to the reactor building, fractions of the core
+    /// inventory (gh:#1040).
+    pub xe_dw: f64,
+    pub xe_ww: f64,
+    pub xe_vented: f64,
+    pub xe_building: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -114,6 +126,11 @@ pub struct Containment {
     /// Water on the drywell floor (pedestal), kg, and its temperature, K.
     pedestal_kg: f64,
     pedestal_t: f64,
+    /// Noble gas (Xe), as in [`ContainmentResult`].
+    xe_dw: f64,
+    xe_ww: f64,
+    xe_vented: f64,
+    xe_building: f64,
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -157,6 +174,10 @@ impl Containment {
             vented_h2_kg: 0.0,
             pedestal_kg: 0.0,
             pedestal_t: prm.initial_drywell_k,
+            xe_dw: 0.0,
+            xe_ww: 0.0,
+            xe_vented: 0.0,
+            xe_building: 0.0,
         }
     }
 
@@ -211,6 +232,11 @@ impl Containment {
         self.pool_kg += m;
         self.set_pool_energy(e);
         self.ww_h2 += s.srv_h2_kg_s * dt / M_H2;
+        // Noble gas is a trace non-condensable: it rides with the gas it
+        // arrives in and moves in the same fraction as N2 and H2 on every
+        // path below (gh:#1040).
+        self.xe_ww += s.xe_relief;
+        self.xe_dw += s.xe_leak;
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
         let nh = s.leak_h2_kg_s * dt / M_H2;
@@ -289,6 +315,9 @@ impl Containment {
             let n = orifice.min(n_dw * push / p_dw);
             let f = n / n_dw;
             let (dn2, dh2, dsteam) = (self.dw_n2 * f, self.dw_h2 * f, self.dw_steam_kg * f);
+            let dxe = self.xe_dw * f;
+            self.xe_dw -= dxe;
+            self.xe_ww += dxe;
             let e_dw = self.dw_energy(tv);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
@@ -313,6 +342,9 @@ impl Containment {
             let n = orifice.min(n_ww * suck / p_ww);
             let f = (n / n_ww).min(1.0);
             let (dn2, dh2) = (self.ww_n2 * f, self.ww_h2 * f);
+            let dxe = self.xe_ww * f;
+            self.xe_ww -= dxe;
+            self.xe_dw += dxe;
             self.ww_n2 -= dn2;
             self.ww_h2 -= dh2;
             let e = self.dw_energy(tv) + ncg_u(dn2, dh2, self.pool_t, tv);
@@ -338,6 +370,9 @@ impl Containment {
             let n = orifice.min(n_g * ((p_ww - P_ATM) / p_nc).min(1.0));
             let f = n / n_g;
             let dh2 = self.ww_h2 * f;
+            let dxe = self.xe_ww * f;
+            self.xe_ww -= dxe;
+            self.xe_vented += dxe;
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2) / dt;
             self.ww_n2 -= self.ww_n2 * f;
@@ -366,6 +401,9 @@ impl Containment {
             let f = n / n_dw;
             let dh2 = self.dw_h2 * f;
             let dn2 = self.dw_n2 * f;
+            let dxe = self.xe_dw * f;
+            self.xe_dw -= dxe;
+            self.xe_building += dxe;
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= self.dw_steam_kg * f;
@@ -398,6 +436,10 @@ impl Containment {
             rb_exploded: self.exploded,
             vented_h2_kg: self.vented_h2_kg,
             vented_kg_s,
+            xe_dw: self.xe_dw,
+            xe_ww: self.xe_ww,
+            xe_vented: self.xe_vented,
+            xe_building: self.xe_building,
         }
     }
 }
@@ -434,6 +476,10 @@ impl Containment {
             self.vented_h2_kg,
             self.pedestal_kg,
             self.pedestal_t,
+            self.xe_dw,
+            self.xe_ww,
+            self.xe_vented,
+            self.xe_building,
         ]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
@@ -454,6 +500,10 @@ impl Containment {
             vented_h2_kg: r.f(),
             pedestal_kg: r.f(),
             pedestal_t: r.f(),
+            xe_dw: r.f(),
+            xe_ww: r.f(),
+            xe_vented: r.f(),
+            xe_building: r.f(),
         }
     }
 }
@@ -474,6 +524,8 @@ impl ContainmentSnapshot {
             self.ex_vessel_w,
             self.pedestal_inflow_kg_s,
             b(self.gas_cv_t),
+            self.xe_relief,
+            self.xe_leak,
         ]);
         self.prm.write(w);
     }
@@ -491,6 +543,8 @@ impl ContainmentSnapshot {
             ex_vessel_w: r.f(),
             pedestal_inflow_kg_s: r.f(),
             gas_cv_t: r.f() != 0.0,
+            xe_relief: r.f(),
+            xe_leak: r.f(),
             prm: Params::read(r),
         }
     }
@@ -512,6 +566,10 @@ impl ContainmentResult {
             b(self.rb_exploded),
             self.vented_h2_kg,
             self.vented_kg_s,
+            self.xe_dw,
+            self.xe_ww,
+            self.xe_vented,
+            self.xe_building,
         ]);
     }
     pub fn read(r: &mut Reader) -> Self {
@@ -529,6 +587,10 @@ impl ContainmentResult {
             rb_exploded: r.f() != 0.0,
             vented_h2_kg: r.f(),
             vented_kg_s: r.f(),
+            xe_dw: r.f(),
+            xe_ww: r.f(),
+            xe_vented: r.f(),
+            xe_building: r.f(),
         }
     }
 }

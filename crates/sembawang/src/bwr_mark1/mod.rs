@@ -404,6 +404,9 @@ pub struct Frame {
     /// The dome internals' temperature and the gas leaving them, K.
     pub internals_k: f64,
     pub dome_gas_k: f64,
+    /// Noble gas (Xe) in the vessel's gas, fraction of inventory (the
+    /// containment's shares are in `containment`).
+    pub xe_vessel: f64,
     pub core: CoreResult,
     pub containment: ContainmentResult,
 }
@@ -547,6 +550,10 @@ pub struct Plant {
     /// in the last step, W.
     dome_gas_k: f64,
     q_internals_w: f64,
+    /// Noble gas (Xe) in the vessel's gas, fraction of the core inventory,
+    /// and the core's released fraction at the last step (gh:#1040).
+    xe_vessel: f64,
+    fp_seen: f64,
     injected_kg: f64,
     vessel: Vessel,
     last_core: CoreResult,
@@ -565,6 +572,10 @@ struct Pending {
     w_leak: f64,
     w_inj: f64,
     h2_out: f64,
+    /// Noble gas leaving this step through the relief valves and the
+    /// leaks, fractions of the core inventory.
+    xe_relief: f64,
+    xe_leak: f64,
 }
 
 /// The core and containment snapshots of one step.
@@ -622,6 +633,8 @@ impl Plant {
             internals: internals::DomeInternals::new(s.t_k),
             dome_gas_k: s.t_k,
             q_internals_w: 0.0,
+            xe_vessel: 0.0,
+            fp_seen: 0.0,
             injected_kg: 0.0,
             vessel: Vessel::default(),
             last_core: CoreResult::default(),
@@ -824,6 +837,18 @@ impl Plant {
             w_leak,
             w_inj,
             h2_out: (w_relief + w_leak) * h2_share,
+            // The gas leaving takes the noble gas in its share of the gas
+            // space (well mixed): that share by mass is the share by
+            // moles, the composition being uniform.
+            // Once the lower head has failed the vessel is open to the
+            // drywell (its pressure is the drywell's, with no flow model),
+            // so its noble gas passes to the drywell each step.
+            xe_relief: if self.last_core.lower_head_failed { 0.0 } else { self.xe_vessel * (w_relief * DT_S / (steam_gas + self.h2)).min(1.0) },
+            xe_leak: if self.last_core.lower_head_failed {
+                self.xe_vessel
+            } else {
+                self.xe_vessel * (w_leak * DT_S / (steam_gas + self.h2)).min(1.0)
+            },
         };
         let h_gas = v.sat.h_g;
         // The level the core sees (gh:#1036): swollen by the vapour the last
@@ -848,6 +873,8 @@ impl Plant {
                 ex_vessel_w: self.last_core.ex_vessel_w,
                 pedestal_inflow_kg_s: if self.last_core.lower_head_failed { w_inj } else { 0.0 },
                 gas_cv_t: self.mechanisms.gas_cv_t,
+                xe_relief: self.pending.xe_relief,
+                xe_leak: self.pending.xe_leak,
                 prm,
             },
         }
@@ -885,6 +912,9 @@ impl Plant {
             self.u -= q * DT_S;
         }
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
+        // Noble gas: out with the gas, in from the fuel.
+        self.xe_vessel = (self.xe_vessel - d.xe_relief - d.xe_leak).max(0.0) + (core.fp_volatile_released - self.fp_seen);
+        self.fp_seen = core.fp_volatile_released;
         self.injected_kg += d.w_inj * DT_S;
         for i in 0..IC_TRAINS {
             let q = d.q_ic_train[i] * DT_S;
@@ -966,6 +996,7 @@ impl Plant {
             msl: self.msl,
             internals_k: self.internals.t_k,
             dome_gas_k: self.gas_out_k(),
+            xe_vessel: self.xe_vessel,
             core: self.last_core.clone(),
             containment: self.last_containment,
         }
@@ -1016,6 +1047,7 @@ impl Frame {
             b(self.msl.failed),
             self.internals_k,
             self.dome_gas_k,
+            self.xe_vessel,
         ]);
         self.core.write(w);
         self.containment.write(w);
@@ -1047,6 +1079,7 @@ impl Frame {
             msl: msl::SteamLine { wall_k: r.f(), damage: r.f(), failed: r.f() != 0.0 },
             internals_k: r.f(),
             dome_gas_k: r.f(),
+            xe_vessel: r.f(),
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
         }
@@ -1354,6 +1387,37 @@ mod tests {
             p.step_inline(&mut c, &mut k);
             assert!(p.vessel.p_pa.is_finite() && p.vessel.p_pa <= p0 * (1.0 + 1e-9), "{} vs {p0}", p.vessel.p_pa);
         }
+    }
+
+    /// Noble gas is conserved from the fuel to wherever it goes (gh:#1040):
+    /// at every step of the 26 h sequence, the Xe in the vessel's gas, the
+    /// drywell, the wetwell gas, vented and leaked to the building adds up
+    /// to what the fuel has released, to 1e-12 of the inventory (the
+    /// containment's share lags the vessel's by its one-step hand-over;
+    /// once the lower head has failed the vessel's noble gas passes to the
+    /// drywell, the vessel being open to it).
+    #[test]
+    fn noble_gas_is_conserved_from_fuel_to_stack() {
+        let mut p = Plant::new(Mode::Historical);
+        let (mut c, mut k) = p.parts();
+        let mut peak_ww = 0.0f64;
+        for _ in 0..(26 * 3600) {
+            p.step_inline(&mut c, &mut k);
+            let f = p.frame();
+            let k = &f.containment;
+            let total = f.xe_vessel + k.xe_dw + k.xe_ww + k.xe_vented + k.xe_building;
+            assert!((total - f.core.fp_volatile_released).abs() < 1e-12, "{} vs {} at {}", total, f.core.fp_volatile_released, f.t_s);
+            peak_ww = peak_ww.max(k.xe_ww);
+        }
+        // And it does move: most of it ends up in the wetwell gas.
+        // Where it is at 26 h (2026-10-29): all 0.8505 in the wetwell gas,
+        // carried there by the downcomers; nothing vented and nothing in the
+        // building, as neither the vent nor the flange leak opens in this
+        // run; the wetwell peaks at the end.
+        let f = p.frame();
+        let k = &f.containment;
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-6 && k.xe_vented == 0.0 && k.xe_building == 0.0, "{f:?}");
+        assert!((k.xe_ww - 0.8505).abs() < 1e-4 && (peak_ww - k.xe_ww).abs() < 1e-9, "{k:?}");
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J
