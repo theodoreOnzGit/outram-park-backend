@@ -472,3 +472,79 @@ fn iodine_against_fig_2_6() {
     );
     assert_eq!(inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid), (0.0, 89));
 }
+
+/// One BSAF Fig 5.1 series (`time_day,release_rate_bq_per_hr`) as `(t_h,
+/// Bq/hr)`.
+fn read_release(code: &str) -> Vec<(f64, f64)> {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../kovan-literature/derived/nea7525-bsaf-cs137-release-rates");
+    let text = std::fs::read_to_string(dir.join(format!("fig5.1-{code}.csv"))).unwrap_or_else(|e| panic!("{code}: {e}"));
+    text.lines()
+        .skip(1)
+        .map(|l| {
+            let mut c = l.split(',');
+            (c.next().unwrap().parse::<f64>().unwrap() * 24.0, c.next().unwrap().parse().unwrap())
+        })
+        .collect()
+}
+
+/// **The Unit 1 Cs-137 release against BSAF Fig 5.1** (gh:#1040, the F9
+/// "done when"): five codes' release rates to the atmosphere, Bq/hr over
+/// 20 days (CIEMAT, IAE, IRSN, KAERI, SNL), and Table 5.1's integrals
+/// (codes 0.1-18.9 PBq; GRS's backward reconstruction 0.79 PBq, the
+/// closest thing to an observation, though BSAF grades per-unit splits
+/// weakly). Differential against codes, with one reconstruction.
+///
+/// **Methodology.** The model's cesium released to the environment (vented
+/// to the stack plus leaked to the building, whose own retention is not
+/// modelled) as a fraction of its 154 kg inventory, times the Cs-137 share
+/// of the cesium mass at the scram from the model's ENDF/B-VIII summation
+/// (`fp_decay`: 0.3167), times Cs-137's specific activity, 3.212e15 Bq/kg
+/// (`ln 2 / 30.08 y` times `N_A / 0.13691 kg`); the isotopes are taken to
+/// move together. **The share is biased low**: the summation has no
+/// neutron capture during irradiation, so Xe-135 is not burned and Cs-135
+/// (33 kg) outweighs Cs-133 (32 kg); stated, not corrected. The rate is the
+/// central difference of the cumulative release on the run's 600 s
+/// samples; the envelope test is in `log10` of Bq/hr over 24-480 h hourly
+/// (a zero rate counts as `1 Bq/hr`), each code interpolated where it has
+/// points. The run is the 0-500 h one of Fig 2.3a.
+///
+/// **Results (2026-10-29):** 0.0795 PBq of Cs-137 reaches the environment
+/// by 26 h, 0.0797 by 100 h and by 500 h (5.1e-4 of the 1.57e17 Bq
+/// inventory this share implies): below every code (IRSN 0.1, SNL 2.8,
+/// IAE 4.4, CIEMAT 5.6, KAERI 18.9 PBq) and a tenth of GRS's 0.79 PBq. The
+/// rate is inside the codes' envelope at 7.3 % of 454 counted hours.
+/// Predicted 0.1-1.3 PBq and 20-60 %: **both missed**, low. Nearly all
+/// of it leaves in the vent's first hours; after that the wetwell pool
+/// holds the cesium (97 % of it is there at 26 h) and nothing more
+/// leaves, where the codes go on releasing for days: revaporisation from
+/// the vessel and the drywell, the reactor building's leaks, and the
+/// late-phase leakage F12 has not built. A missed match recorded, not
+/// tuned.
+#[test]
+fn cesium_137_release_against_fig_5_1() {
+    const SHARE: f64 = 0.316_659;
+    const BQ_PER_KG: f64 = 3.212e15;
+    let prm = Params::default();
+    let m = histories(Mechanisms::default(), prm, 600.0, 500.0 * 3600.0);
+    let bq: Vec<f64> = m.cs_released.iter().map(|f| f * prm.cs_inventory_kg * SHARE * BQ_PER_KG).collect();
+    let n = bq.len();
+    let rate: Vec<f64> = (0..n)
+        .map(|i| {
+            let (a, b) = (i.saturating_sub(1), (i + 1).min(n - 1));
+            ((bq[b] - bq[a]) / (m.t_h[b] - m.t_h[a])).max(1.0).log10()
+        })
+        .collect();
+    let codes: Vec<Vec<(f64, f64)>> = ["ciemat-melcor", "iae-sampson", "irsn-astec", "kaeri-melcor", "snl-melcor"]
+        .iter()
+        .map(|c| read_release(c).into_iter().map(|(t, r)| (t, r.max(1.0).log10())).collect())
+        .collect();
+    let grid: Vec<f64> = (24..=480).map(|h| h as f64).collect();
+    let env = inside_envelope(&m.t_h, &rate, &codes, &grid);
+    let total_pbq = bq[n - 1] / 1e15;
+    let at = |h: f64| bq[m.t_h.partition_point(|&t| t < h).min(n - 1)] / 1e15;
+    println!("Cs-137 to the environment: {:.4} PBq at 26 h, {:.4} PBq at 100 h, {total_pbq:.4} PBq at 500 h; rate inside the Fig 5.1 envelope {env:?}", at(26.0), at(100.0));
+    // Pinned to the first run (2026-10-29); a model change moves these and
+    // records the move here.
+    assert!((total_pbq - 0.0797).abs() < 1e-3 && (at(26.0) - 0.0795).abs() < 1e-3, "{total_pbq}");
+    assert!((env.0 - 0.0727).abs() < 1e-3 && env.1 == 454, "{env:?}");
+}

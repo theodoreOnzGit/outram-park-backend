@@ -3594,6 +3594,7 @@ pub struct Histories {
     pub cs_sc_water: Vec<f64>,
     pub i_dw_structures: Vec<f64>,
     pub i_sc_water: Vec<f64>,
+    pub cs_released: Vec<f64>,
 }
 ```
 
@@ -3610,6 +3611,7 @@ pub struct Histories {
 | `cs_sc_water` | `Vec<f64>` |  |
 | `i_dw_structures` | `Vec<f64>` | Iodine likewise. |
 | `i_sc_water` | `Vec<f64>` |  |
+| `cs_released` | `Vec<f64>` | Cesium released to the environment (vented to the stack and leaked<br>to the reactor building), fraction of the inventory. |
 
 ##### Implementations
 
@@ -5695,6 +5697,7 @@ atoms are then, stable isotopes included).
 pub struct Summation {
     pub heat_w: Vec<Vec<f64>>,
     pub mass_kg: Vec<f64>,
+    pub nuclide_kg: Vec<(String, f64)>,
 }
 ```
 
@@ -5704,8 +5707,21 @@ pub struct Summation {
 |------|------|---------------|
 | `heat_w` | `Vec<Vec<f64>>` |  |
 | `mass_kg` | `Vec<f64>` |  |
+| `nuclide_kg` | `Vec<(String, f64)>` | Each nuclide's mass at the scram, kg, by its ENDF name (`Cs137`). |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn nuclide_mass_kg(self: &Self, name: &str) -> f64 { /* ... */ }
+  ```
+  One nuclide's mass at the scram, kg (0 if absent).
+
+- ```rust
+  pub fn element_mass_kg(self: &Self, symbol: &str) -> f64 { /* ... */ }
+  ```
+  One element's mass at the scram, kg (0 if absent).
 
 ###### Trait Implementations
 

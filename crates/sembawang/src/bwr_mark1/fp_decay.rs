@@ -234,6 +234,19 @@ pub fn table_times() -> Vec<f64> {
 pub struct Summation {
     pub heat_w: Vec<Vec<f64>>,
     pub mass_kg: Vec<f64>,
+    /// Each nuclide's mass at the scram, kg, by its ENDF name (`Cs137`).
+    pub nuclide_kg: Vec<(String, f64)>,
+}
+
+impl Summation {
+    /// One nuclide's mass at the scram, kg (0 if absent).
+    pub fn nuclide_mass_kg(&self, name: &str) -> f64 {
+        self.nuclide_kg.iter().find(|(n, _)| n == name).map_or(0.0, |x| x.1)
+    }
+    /// One element's mass at the scram, kg (0 if absent).
+    pub fn element_mass_kg(&self, symbol: &str) -> f64 {
+        ELEMENTS.iter().position(|e| e.1 == symbol).map_or(0.0, |i| self.mass_kg[i])
+    }
 }
 
 /// The summation (see the module doc).
@@ -281,8 +294,11 @@ pub fn compute(prm: &Params) -> Summation {
         t_prev = t;
     }
     let mut mass_kg = vec![0.0; ne];
+    let mut nuclide_kg = Vec::with_capacity(n);
     for (i, nu) in nucs.iter().enumerate() {
-        mass_kg[nu.element] += atoms[i].iter().sum::<f64>() * nu.a as f64 * 1.66053907e-27;
+        let kg = atoms[i].iter().sum::<f64>() * nu.a as f64 * 1.66053907e-27;
+        mass_kg[nu.element] += kg;
+        nuclide_kg.push((nu.name.clone(), kg));
     }
     // Decay: 10 sub-steps between table times, from the scram.
     let heat = |atoms: &Vec<Vec<f64>>| (0..ne).map(|e| nucs.iter().enumerate().map(|(i, nu)| nu.lambda * nu.energy_j * atoms[i][e]).sum()).collect::<Vec<f64>>();
@@ -303,7 +319,7 @@ pub fn compute(prm: &Params) -> Summation {
         t = tt;
         out.push(heat(&atoms));
     }
-    Summation { heat_w: out, mass_kg }
+    Summation { heat_w: out, mass_kg, nuclide_kg }
 }
 
 /// The committed table as CSV text: a header of element symbols, then per
@@ -407,6 +423,23 @@ mod tests {
             assert!(nu.branches.iter().all(|&(j, _)| j > i), "{}", nu.name);
         }
         assert!(g.len() > 1000, "{}", g.len());
+    }
+
+    /// Cesium-137's share of the cesium mass at the scram, from the
+    /// summation (for the Cs-137 release against BSAF Fig 5.1, gh:#1040).
+    /// Results (2026-10-29): Cs-137 30.09 kg of 95.01 kg, a share of
+    /// 0.3167; Cs-133 31.82 kg, Cs-135 33.09 kg, Cs-134 0.0008 kg.
+    /// Predicted 0.35-0.45: **missed**, low. With no neutron capture in
+    /// the summation (stated in the module doc) Xe-135 is not burned out,
+    /// so Cs-135 outweighs Cs-133, and Cs-134 (made by capture on Cs-133)
+    /// is nearly absent; the share is biased low by that.
+    #[test]
+    fn the_cesium_137_share_is_the_summations() {
+        let sum = compute(&Params::default());
+        let (cs137, cs) = (sum.nuclide_mass_kg("Cs137"), sum.element_mass_kg("Cs"));
+        assert!((cs137 - 30.085).abs() < 0.01 && (cs - 95.008).abs() < 0.01, "{cs137} {cs}");
+        assert!((cs137 / cs - 0.316_659).abs() < 1e-5 && (sum.nuclide_mass_kg("Cs135") - 33.095).abs() < 0.01);
+        assert_eq!(sum.nuclide_mass_kg("NotANuclide"), 0.0);
     }
 
     /// The committed table is what the summation computes (regenerated
