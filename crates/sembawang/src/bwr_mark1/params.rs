@@ -142,6 +142,27 @@ pub const FIRE_ENGINE_SHUTOFF_PA: f64 = 1.0e6;
 pub const FIRE_ENGINE_MAX_KG_S: f64 = 4.0;
 pub const INJECTION_TEMPERATURE_K: f64 = 293.15;
 
+/// Main steam lines (gh:#1037, `msl.rs`): number, inner radius, wall
+/// thickness, m. \[A\] all three: Unit 1's line size is not in a held
+/// source. The radius is sized for its rated steam flow, about 667 kg/s
+/// over two lines at about 45 m/s and 36.5 kg/m^3 (inner diameter about
+/// 0.51 m). The wall is the ASME thickness `p D / (2 S)` at 8.6 MPa design
+/// pressure and S about 120 MPa (18 mm), plus allowances.
+pub const MSL_LINES: f64 = 2.0;
+pub const MSL_INNER_RADIUS_M: f64 = 0.254;
+pub const MSL_WALL_M: f64 = 0.025;
+/// Insulation conductance to the drywell, W/(m^2 K). \[A\] about 0.05 W/(m
+/// K) through 0.1 m of insulation is 0.5; 1 is used.
+pub const MSL_INSULATION_H: f64 = 1.0;
+/// Larson-Miller coefficients of the line's steel: MELCOR's default for
+/// A-508, "class 2 carbon steel" (Vol. 1, SAND2017-0455 O, CF Table 1;
+/// stress in Pa, T in K, time in s): a1 K, b1 K, C. The coefficients are
+/// \[P\]; the choice of A-508 for Unit 1's line is an assumption (its grade
+/// is not in a held source).
+pub const MSL_LM_A1: f64 = -5335.0;
+pub const MSL_LM_B1: f64 = 62291.3;
+pub const MSL_LM_C: f64 = 16.44;
+
 /// RPV leak to the drywell once the core-exit gas is hot (instrument lines,
 /// SRV gaskets; the BSAF Unit 1 analyses needed such a path). \[A\] Opens above
 /// [`HOT_LEAK_GAS_K`] with throat [`HOT_LEAK_M2`].
@@ -503,6 +524,13 @@ params! {
     injection_temperature_k = INJECTION_TEMPERATURE_K, A,
     hot_leak_gas_k = HOT_LEAK_GAS_K, A,
     hot_leak_m2 = HOT_LEAK_M2, A,
+    msl_lines = MSL_LINES, A,
+    msl_inner_radius_m = MSL_INNER_RADIUS_M, A,
+    msl_wall_m = MSL_WALL_M, A,
+    msl_insulation_h = MSL_INSULATION_H, A,
+    msl_lm_a1 = MSL_LM_A1, P,
+    msl_lm_b1 = MSL_LM_B1, P,
+    msl_lm_c = MSL_LM_C, P,
     lower_head_failure_k = LOWER_HEAD_FAILURE_K, A,
     breach_m2 = BREACH_M2, A,
     debris_quench_s = DEBRIS_QUENCH_S, A,
@@ -658,7 +686,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 108);
+        assert_eq!(Params::INPUTS.len(), 115);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

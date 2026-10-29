@@ -41,6 +41,7 @@ pub mod containment;
 pub mod core;
 pub mod decay;
 pub mod gas;
+pub mod msl;
 pub mod params;
 pub mod steam;
 pub mod wire;
@@ -135,6 +136,10 @@ pub struct Mechanisms {
     /// Hydrogen's `c_p(T)` in the core and the vessel (MELCOR's fit,
     /// [`gas`], 2026-10-29); off is the constant `core::CP_H2_J_PER_KG_K`.
     pub hydrogen_cp_t: bool,
+    /// Creep rupture of a main steam line under the relief flow's hot gas
+    /// ([`msl`], MELCOR's PIPE-STR and LM-CREEP, 2026-10-29); off is no
+    /// steam-line failure.
+    pub msl_creep: bool,
 }
 
 impl Default for Mechanisms {
@@ -154,6 +159,7 @@ impl Default for Mechanisms {
             gas_cv_t: true,
             diffusion_limit: true,
             hydrogen_cp_t: true,
+            msl_creep: true,
         }
     }
 }
@@ -244,6 +250,12 @@ impl Mechanisms {
     /// before 2026-10-29.
     pub fn without_hydrogen_cp_t(mut self) -> Self {
         self.hydrogen_cp_t = false;
+        self
+    }
+
+    /// No main-steam-line creep rupture: the model before 2026-10-29.
+    pub fn without_msl_creep(mut self) -> Self {
+        self.msl_creep = false;
         self
     }
 
@@ -362,6 +374,9 @@ pub struct Frame {
     pub injected_kg: f64,
     pub rpv_h2_kg: f64,
     pub hot_leak_open: bool,
+    /// The main steam line's wall temperature, K, creep damage, and whether
+    /// it has ruptured.
+    pub msl: msl::SteamLine,
     pub core: CoreResult,
     pub containment: ContainmentResult,
 }
@@ -499,6 +514,7 @@ pub struct Plant {
     ic_a_cycling: bool,
     relief_open: bool,
     hot_leak_open: bool,
+    msl: msl::SteamLine,
     injected_kg: f64,
     vessel: Vessel,
     last_core: CoreResult,
@@ -570,6 +586,7 @@ impl Plant {
             ic_a_cycling: false,
             relief_open: false,
             hot_leak_open: false,
+            msl: msl::SteamLine::new(s.t_k),
             injected_kg: 0.0,
             vessel: Vessel::default(),
             last_core: CoreResult::default(),
@@ -719,7 +736,19 @@ impl Plant {
         if self.mechanisms.hot_leak && self.last_core.exit_gas_k >= prm.hot_leak_gas_k {
             self.hot_leak_open = true;
         }
-        let leak_area = if self.hot_leak_open { prm.hot_leak_m2 } else { 0.0 } + if self.last_core.lower_head_failed { prm.breach_m2 } else { 0.0 };
+        if self.mechanisms.msl_creep {
+            // Before the first containment step its result is the default.
+            let (p_dw_now, t_dw) = if self.last_containment.t_dw_k > 0.0 {
+                (p_dw, self.last_containment.t_dw_k)
+            } else {
+                (prm.initial_containment_pa, prm.initial_drywell_k)
+            };
+            let t_gas = if self.last_core.exit_gas_k > 0.0 { self.last_core.exit_gas_k } else { v.sat.t_k };
+            self.msl.step(&prm, w_relief, t_gas, p, p_dw_now, t_dw, DT_S);
+        }
+        let leak_area = if self.hot_leak_open { prm.hot_leak_m2 } else { 0.0 }
+            + if self.last_core.lower_head_failed { prm.breach_m2 } else { 0.0 }
+            + if self.msl.failed { msl::SteamLine::break_area_m2(&prm) } else { 0.0 };
         let w_leak = if p > p_dw { flux * leak_area } else { 0.0 };
         let w_inj = if self.controls.injection && p < prm.fire_engine_shutoff_pa {
             prm.fire_engine_max_kg_s * (1.0 - (p - P_ATM).max(0.0) / (prm.fire_engine_shutoff_pa - P_ATM)).sqrt()
@@ -856,6 +885,7 @@ impl Plant {
             injected_kg: self.injected_kg,
             rpv_h2_kg: self.h2,
             hot_leak_open: self.hot_leak_open,
+            msl: self.msl,
             core: self.last_core.clone(),
             containment: self.last_containment,
         }
@@ -901,6 +931,9 @@ impl Frame {
             self.injected_kg,
             self.rpv_h2_kg,
             b(self.hot_leak_open),
+            self.msl.wall_k,
+            self.msl.damage,
+            b(self.msl.failed),
         ]);
         self.core.write(w);
         self.containment.write(w);
@@ -929,6 +962,7 @@ impl Frame {
             injected_kg: r.f(),
             rpv_h2_kg: r.f(),
             hot_leak_open: r.f() != 0.0,
+            msl: msl::SteamLine { wall_k: r.f(), damage: r.f(), failed: r.f() != 0.0 },
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
         }
@@ -949,7 +983,8 @@ pub fn csv_row(f: &Frame) -> String {
         | (f.core.lower_head_failed as u32) << 7
         | (f.containment.flange_leaking as u32) << 8
         | (f.containment.rb_exploded as u32) << 9
-        | (f.vessel.dry as u32) << 10;
+        | (f.vessel.dry as u32) << 10
+        | (f.msl.failed as u32) << 11;
     format!(
         "{:.0},{:.6},{:.4},{:.4},{:.4},{:.3},{:.3},{:.2},{:.2},{:.3},{:.4},{:.6},{:.6},{:.3},{:.5},{}",
         f.t_s,

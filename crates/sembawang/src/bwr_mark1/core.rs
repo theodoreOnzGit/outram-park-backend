@@ -228,11 +228,11 @@ struct HeadWall {
     strain: f64,
 }
 
-fn steel_h(t_k: f64) -> f64 {
+pub(crate) fn steel_h(t_k: f64) -> f64 {
     ss304::steel_304_l_high_temp_specific_enthalpy_kim(ThermodynamicTemperature::new::<kelvin>(t_k)).get::<joule_per_kilogram>()
 }
 
-fn steel_t(h: f64) -> f64 {
+pub(crate) fn steel_t(h: f64) -> f64 {
     ss304::steel_304_l_high_temp_temp_from_specific_enthalpy_kim(AvailableEnergy::new::<joule_per_kilogram>(h)).get::<kelvin>()
 }
 
@@ -244,7 +244,7 @@ fn steel_k(t_k: f64) -> f64 {
 }
 
 /// Density at 300 K, kg/m^3: the wall's mass is fixed at it.
-fn steel_rho() -> f64 {
+pub(crate) fn steel_rho() -> f64 {
     ss304::steel_304_l_high_temp_density_kim(ThermodynamicTemperature::new::<kelvin>(300.0)).map_or(f64::NAN, |r| r.get::<kilogram_per_cubic_meter>())
 }
 

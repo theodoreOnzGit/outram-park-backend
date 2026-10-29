@@ -261,8 +261,11 @@ a yes/no per node at its midpoint.
 
 **Against `bwr_mark1`**
 - No in-core radiation and no RPV-wall or internals heat structures.
-- The steam-line leak is an \[A\] area opening at an \[A\] gas temperature,
-  not creep.
+- ~~The steam-line leak is an \[A\] area opening at an \[A\] gas temperature,
+  not creep.~~ **Since 2026-10-29** a main steam line fails by PIPE-STR plus
+  LM-CREEP (A-508), its wall heated by the relief flow (`msl.rs`): it
+  ruptures at 4.36 h and depressurises the vessel. The \[A\] hot leak is
+  still there beside it.
 - The choked flux is steam-only, applied to the H2-steam gas. **[inferred]**
   So the model over-vents a hydrogen-rich vessel.
 

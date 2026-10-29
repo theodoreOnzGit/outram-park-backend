@@ -4491,6 +4491,222 @@ pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 { /* ... */ }
 pub fn h2_enthalpy_above_298(t: f64) -> f64 { /* ... */ }
 ```
 
+## Module `msl`
+
+Creep rupture of a main steam line (gh:#1037, plan item F6).
+
+The relief valves sit on the main steam lines inside the drywell, so the
+gas they pass flows through the lines first. When the core's exit gas is
+hot, it heats the line's wall. Under the vessel's pressure the wall
+creeps and, if damage reaches 1, one line ruptures and opens its flow
+area to the drywell. The failure model is MELCOR's pair of control
+functions for exactly this (no source used; Vol. 1, SAND2017-0455 O, CF
+§2.1.9, §2.1.10, §7.8):
+
+```text
+PIPE-STR:  sigma = ((R_o^2 + R_i^2) P_i - 2 R_o^2 P_o) / ((R_o + R_i)(R_o - R_i))
+LM-CREEP:  t_R = 10^(P_LM/T - C),  P_LM = a1 log10(sigma) + b1,
+           damage = sum dt / t_R,  failure at 1
+```
+
+MELCOR has no built-in steam-line model; its users build this from the
+two functions and a heat structure, as here. The wall is one lumped node
+per metre of line (the length cancels):
+
+- inside, forced convection from the relief flow at the core's exit gas
+  temperature, Dittus-Boelter on the line's diameter with a laminar
+  floor Nu = 4.36 when the valves are shut. The gas temperature is an
+  **upper bound**: the steam dome's separators and dryers would cool it,
+  and those heat structures are not modelled (the other half of F6);
+- outside, insulation to the drywell gas (`msl_insulation_h`, \[A\]);
+- the wall's enthalpy is 304L stainless steel's (`core::steel_h`), a
+  stated substitution: no carbon-steel property set exists in the
+  workspace, and carbon steel's magnetic transition near 1033 K (a `c_p`
+  peak) is missed.
+
+The ablation, [`Mechanisms::without_msl_creep`](super::Mechanisms), is
+the model before 2026-10-29: no steam-line failure.
+
+```rust
+pub mod msl { /* ... */ }
+```
+
+### Types
+
+#### Struct `SteamLine`
+
+One main steam line's wall: temperature, accumulated creep damage, and
+whether it has ruptured.
+
+```rust
+pub struct SteamLine {
+    pub wall_k: f64,
+    pub damage: f64,
+    pub failed: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `wall_k` | `f64` |  |
+| `damage` | `f64` |  |
+| `failed` | `bool` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(t_k: f64) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn step(self: &mut Self, prm: &Params, w_relief: f64, t_gas: f64, p: f64, p_dw: f64, t_dw: f64, dt: f64) { /* ... */ }
+  ```
+  Advance by `dt` s: relief flow `w_relief` (kg/s, shared by the
+
+- ```rust
+  pub fn break_area_m2(prm: &Params) -> f64 { /* ... */ }
+  ```
+  The ruptured line's flow area, m^2 (one line).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `pipe_stress`
+
+MELCOR's PIPE-STR: the inner-surface stress of a thick-walled pipe, Pa.
+
+```rust
+pub fn pipe_stress(r_i: f64, r_o: f64, p_in: f64, p_out: f64) -> f64 { /* ... */ }
+```
+
+#### Function `rupture_time_s`
+
+MELCOR's LM-CREEP time to rupture, s, at stress `sigma` (Pa) and wall
+temperature `t` (K), with the material's `a1`, `b1`, `c`.
+
+```rust
+pub fn rupture_time_s(prm: &super::params::Params, sigma: f64, t: f64) -> f64 { /* ... */ }
+```
+
 ## Module `params`
 
 Fukushima Daiichi Unit 1 (GE BWR/3, Mark I containment): every number the
@@ -4729,6 +4945,13 @@ pub struct Params {
     pub injection_temperature_k: f64,
     pub hot_leak_gas_k: f64,
     pub hot_leak_m2: f64,
+    pub msl_lines: f64,
+    pub msl_inner_radius_m: f64,
+    pub msl_wall_m: f64,
+    pub msl_insulation_h: f64,
+    pub msl_lm_a1: f64,
+    pub msl_lm_b1: f64,
+    pub msl_lm_c: f64,
     pub lower_head_failure_k: f64,
     pub breach_m2: f64,
     pub debris_quench_s: f64,
@@ -4845,6 +5068,13 @@ pub struct Params {
 | `injection_temperature_k` | `f64` |  |
 | `hot_leak_gas_k` | `f64` |  |
 | `hot_leak_m2` | `f64` |  |
+| `msl_lines` | `f64` |  |
+| `msl_inner_radius_m` | `f64` |  |
+| `msl_wall_m` | `f64` |  |
+| `msl_insulation_h` | `f64` |  |
+| `msl_lm_a1` | `f64` |  |
+| `msl_lm_b1` | `f64` |  |
+| `msl_lm_c` | `f64` |  |
 | `lower_head_failure_k` | `f64` |  |
 | `breach_m2` | `f64` |  |
 | `debris_quench_s` | `f64` |  |
@@ -5440,6 +5670,64 @@ pub const FIRE_ENGINE_MAX_KG_S: f64 = 4.0;
 
 ```rust
 pub const INJECTION_TEMPERATURE_K: f64 = 293.15;
+```
+
+#### Constant `MSL_LINES`
+
+Main steam lines (gh:#1037, `msl.rs`): number, inner radius, wall
+thickness, m. \[A\] all three: Unit 1's line size is not in a held
+source. The radius is sized for its rated steam flow, about 667 kg/s
+over two lines at about 45 m/s and 36.5 kg/m^3 (inner diameter about
+0.51 m). The wall is the ASME thickness `p D / (2 S)` at 8.6 MPa design
+pressure and S about 120 MPa (18 mm), plus allowances.
+
+```rust
+pub const MSL_LINES: f64 = 2.0;
+```
+
+#### Constant `MSL_INNER_RADIUS_M`
+
+```rust
+pub const MSL_INNER_RADIUS_M: f64 = 0.254;
+```
+
+#### Constant `MSL_WALL_M`
+
+```rust
+pub const MSL_WALL_M: f64 = 0.025;
+```
+
+#### Constant `MSL_INSULATION_H`
+
+Insulation conductance to the drywell, W/(m^2 K). \[A\] about 0.05 W/(m
+K) through 0.1 m of insulation is 0.5; 1 is used.
+
+```rust
+pub const MSL_INSULATION_H: f64 = 1.0;
+```
+
+#### Constant `MSL_LM_A1`
+
+Larson-Miller coefficients of the line's steel: MELCOR's default for
+A-508, "class 2 carbon steel" (Vol. 1, SAND2017-0455 O, CF Table 1;
+stress in Pa, T in K, time in s): a1 K, b1 K, C. The coefficients are
+\[P\]; the choice of A-508 for Unit 1's line is an assumption (its grade
+is not in a held source).
+
+```rust
+pub const MSL_LM_A1: f64 = -5335.0;
+```
+
+#### Constant `MSL_LM_B1`
+
+```rust
+pub const MSL_LM_B1: f64 = 62291.3;
+```
+
+#### Constant `MSL_LM_C`
+
+```rust
+pub const MSL_LM_C: f64 = 16.44;
 ```
 
 #### Constant `HOT_LEAK_GAS_K`
@@ -6827,6 +7115,7 @@ pub struct Mechanisms {
     pub gas_cv_t: bool,
     pub diffusion_limit: bool,
     pub hydrogen_cp_t: bool,
+    pub msl_creep: bool,
 }
 ```
 
@@ -6848,6 +7137,7 @@ pub struct Mechanisms {
 | `gas_cv_t` | `bool` | MELCOR's temperature-dependent `c_v` for the containment's N2 and H2<br>([`gas`], 2026-10-29); off is the constant 20.8 / 20.5 J/(mol K). |
 | `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on Zr oxidation<br>([`core::diffusion_limited_rate`], 2026-10-29); off is the parabolic<br>rate limited only by the steam supply. |
 | `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` in the core and the vessel (MELCOR's fit,<br>[`gas`], 2026-10-29); off is the constant `core::CP_H2_J_PER_KG_K`. |
+| `msl_creep` | `bool` | Creep rupture of a main steam line under the relief flow's hot gas<br>([`msl`], MELCOR's PIPE-STR and LM-CREEP, 2026-10-29); off is no<br>steam-line failure. |
 
 ##### Implementations
 
@@ -6917,6 +7207,11 @@ pub struct Mechanisms {
   pub fn without_hydrogen_cp_t(self: Self) -> Self { /* ... */ }
   ```
   Hydrogen at the constant `c_p` in the core and the vessel: the model
+
+- ```rust
+  pub fn without_msl_creep(self: Self) -> Self { /* ... */ }
+  ```
+  No main-steam-line creep rupture: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
@@ -7657,6 +7952,7 @@ pub struct Frame {
     pub injected_kg: f64,
     pub rpv_h2_kg: f64,
     pub hot_leak_open: bool,
+    pub msl: msl::SteamLine,
     pub core: self::core::CoreResult,
     pub containment: containment::ContainmentResult,
 }
@@ -7682,6 +7978,7 @@ pub struct Frame {
 | `injected_kg` | `f64` |  |
 | `rpv_h2_kg` | `f64` |  |
 | `hot_leak_open` | `bool` |  |
+| `msl` | `msl::SteamLine` | The main steam line's wall temperature, K, creep damage, and whether<br>it has ruptured. |
 | `core` | `self::core::CoreResult` |  |
 | `containment` | `containment::ContainmentResult` |  |
 
