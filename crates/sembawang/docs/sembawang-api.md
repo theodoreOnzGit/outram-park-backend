@@ -10544,13 +10544,157 @@ release to changi"): the hand-off the offsite chain consumes, as
   decayed from the scram to the window's middle (the release is taken as
   uniform within a window, as `changi` treats it).
 
-Not done here: the dispersion run itself, which needs the Fukushima
-meteorology (not held).
+~~Not done here: the dispersion run itself, which needs the Fukushima
+meteorology (not held).~~ **CORRECTED 2026-10-29:** [`near_field`] runs
+it, under a stated, assumed [`Weather`] (the meteorology is still not
+held): the source term padded by [`crate::chain::pad_for_dispersion`],
+`changi`'s puff train for the dilution factors, and `changi`'s survey for
+the time-integrated air concentration and dry deposition on the plume's
+centreline. An illustrative chain demonstration within the puff model's
+few-km reach, not a reconstruction of the 2011 plume, and no dose.
 
 ```rust
 pub mod source { /* ... */ }
 ```
 
+### Types
+
+#### Struct `Weather`
+
+The weather a [`near_field`] run assumes: one wind speed, held toward
+the receptors for the whole run, one Pasquill class, and the height the
+release leaves at.
+
+```rust
+pub struct Weather {
+    pub wind: uom::si::f64::Velocity,
+    pub class: changi::puff::stability::StabilityClass,
+    pub release_height: uom::si::f64::Length,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `wind` | `uom::si::f64::Velocity` |  |
+| `class` | `changi::puff::stability::StabilityClass` |  |
+| `release_height` | `uom::si::f64::Length` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn assumed() -> Self { /* ... */ }
+  ```
+  The assumed default, every value \[A\]: 3 m/s, Pasquill D (neutral,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `inventory_bq`
@@ -10576,6 +10720,41 @@ If the histories are empty, or a nuclide is missing from `boon-lay`.
 
 ```rust
 pub fn source_term(h: &super::compare::Histories, prm: &super::params::Params, sum: &super::fp_decay::Summation, window_s: f64) -> changi::activity::source::SourceTerm { /* ... */ }
+```
+
+#### Function `near_field`
+
+The Unit 1 release carried downwind under `weather` (gh:#1040, F9): the
+time-integrated air concentration at 1.5 m and the dry deposition at
+each of `distances` on the plume's centreline. `changi`'s Gaussian puff
+(a port of `puff` 0.1.1, Pasquill-Gifford sigmas over about 0.1-10 km)
+with its uncited order-of-magnitude deposition velocities. Research,
+education and V&V only: no dose, and the weather is assumed, not 2011's.
+
+# Panics
+If every distance is beyond the puff model's reach (`changi` refuses an
+all-zero result).
+
+```rust
+pub fn near_field(term: &changi::activity::source::SourceTerm, weather: &Weather, distances: &[uom::si::f64::Length]) -> changi::activity::survey::SiteSurvey { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `NEAR_FIELD_STEP_S`
+
+Puffs are emitted and moved every `NEAR_FIELD_STEP_S`, and dropped at
+`NEAR_FIELD_PUFF_S` (the puff model's reach is this times the wind: 6 km
+at 3 m/s).
+
+```rust
+pub const NEAR_FIELD_STEP_S: f64 = 10.0;
+```
+
+#### Constant `NEAR_FIELD_PUFF_S`
+
+```rust
+pub const NEAR_FIELD_PUFF_S: f64 = 2000.0;
 ```
 
 ## Module `sparc`

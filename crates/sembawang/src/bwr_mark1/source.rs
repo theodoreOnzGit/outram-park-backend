@@ -25,8 +25,14 @@
 //!   decayed from the scram to the window's middle (the release is taken as
 //!   uniform within a window, as `changi` treats it).
 //!
-//! Not done here: the dispersion run itself, which needs the Fukushima
-//! meteorology (not held).
+//! ~~Not done here: the dispersion run itself, which needs the Fukushima
+//! meteorology (not held).~~ **CORRECTED 2026-10-29:** [`near_field`] runs
+//! it, under a stated, assumed [`Weather`] (the meteorology is still not
+//! held): the source term padded by [`crate::chain::pad_for_dispersion`],
+//! `changi`'s puff train for the dilution factors, and `changi`'s survey for
+//! the time-integrated air concentration and dry deposition on the plume's
+//! centreline. An illustrative chain demonstration within the puff model's
+//! few-km reach, not a reconstruction of the 2011 plume, and no dose.
 
 use super::compare::Histories;
 use super::fp_decay::Summation;
@@ -34,8 +40,14 @@ use super::params::Params;
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
+use changi::activity::chi_over_q::{dilution_factors, StabilitySource};
+use changi::activity::survey::{survey, DepositionVelocities, SiteSurvey};
+use changi::puff::simulate::{constant_wind, AdvectionPolicy, EmissionPolicy, Receptor, RunConfig, Source};
+use changi::puff::stability::StabilityClass;
 use petir::mathf::RealMath;
-use uom::si::f64::{Radioactivity, Time};
+use uom::si::f64::{Length, Radioactivity, Time, Velocity};
+use uom::si::length::meter;
+use uom::si::velocity::meter_per_second;
 use uom::si::frequency::hertz;
 use uom::si::radioactivity::becquerel;
 use uom::si::time::second;
@@ -92,6 +104,74 @@ pub fn source_term(h: &Histories, prm: &Params, sum: &Summation, window_s: f64) 
         })
         .collect();
     SourceTerm::new(windows, releases)
+}
+
+/// The weather a [`near_field`] run assumes: one wind speed, held toward
+/// the receptors for the whole run, one Pasquill class, and the height the
+/// release leaves at.
+#[derive(Debug, Clone, Copy)]
+pub struct Weather {
+    pub wind: Velocity,
+    pub class: StabilityClass,
+    pub release_height: Length,
+}
+
+impl Weather {
+    /// The assumed default, every value \[A\]: 3 m/s, Pasquill D (neutral,
+    /// the common overcast or windy case), released at 120 m, the top of the
+    /// stack Units 1 and 2 share \[U\] (the vent's route; the building's
+    /// leak, which left lower, is released there too, stated). Held toward the
+    /// receptors for the whole release, which the real wind was not: an upper
+    /// bound along one direction.
+    pub fn assumed() -> Self {
+        Self {
+            wind: Velocity::new::<meter_per_second>(3.0),
+            class: StabilityClass::D,
+            release_height: Length::new::<meter>(120.0),
+        }
+    }
+}
+
+/// Puffs are emitted and moved every `NEAR_FIELD_STEP_S`, and dropped at
+/// `NEAR_FIELD_PUFF_S` (the puff model's reach is this times the wind: 6 km
+/// at 3 m/s).
+pub const NEAR_FIELD_STEP_S: f64 = 10.0;
+pub const NEAR_FIELD_PUFF_S: f64 = 2000.0;
+
+/// The Unit 1 release carried downwind under `weather` (gh:#1040, F9): the
+/// time-integrated air concentration at 1.5 m and the dry deposition at
+/// each of `distances` on the plume's centreline. `changi`'s Gaussian puff
+/// (a port of `puff` 0.1.1, Pasquill-Gifford sigmas over about 0.1-10 km)
+/// with its uncited order-of-magnitude deposition velocities. Research,
+/// education and V&V only: no dose, and the weather is assumed, not 2011's.
+///
+/// # Panics
+/// If every distance is beyond the puff model's reach (`changi` refuses an
+/// all-zero result).
+pub fn near_field(term: &SourceTerm, weather: &Weather, distances: &[Length]) -> SiteSurvey {
+    let step = Time::new::<second>(NEAR_FIELD_STEP_S);
+    let term = crate::chain::pad_for_dispersion(term, Time::new::<second>(NEAR_FIELD_PUFF_S));
+    let run = term.end();
+    let n_steps = (run.get::<second>() / NEAR_FIELD_STEP_S) as usize + 1;
+    let config = RunConfig {
+        sim_dt: step,
+        puff_dt: step,
+        output_dt: step,
+        duration: run,
+        puff_duration: Time::new::<second>(NEAR_FIELD_PUFF_S),
+        start_hour: 12,
+        emission_policy: EmissionPolicy::OnePuffPerEmission,
+        advection: AdvectionPolicy::default(),
+    };
+    let source = Source { x: Length::new::<meter>(0.0), y: Length::new::<meter>(0.0), height: weather.release_height };
+    let wind = constant_wind(weather.wind, Velocity::new::<meter_per_second>(0.0), n_steps);
+    let bounds = term.segment_boundaries();
+    let factors = |z: f64| {
+        let receptors: Vec<Receptor> =
+            distances.iter().map(|d| Receptor { x: *d, y: Length::new::<meter>(0.0), z: Length::new::<meter>(z) }).collect();
+        dilution_factors(&[source], &bounds, &wind, &receptors, &config, StabilitySource::Fixed(weather.class))
+    };
+    survey(&term, &factors(1.5), &factors(0.0), &DepositionVelocities::order_of_magnitude_placeholder())
 }
 
 #[cfg(test)]
@@ -166,5 +246,51 @@ mod tests {
         // Xe-133 2.533e18 -> 2.521e18 Bq with the bottom of the core's
         // radiation (2026-10-29).
         assert!((total(&st, 2) / 2.521e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
+    }
+
+    /// The near-field dispersion run (`near_field`) under the assumed
+    /// weather (3 m/s, Pasquill D, 120 m release, held toward the receptors
+    /// for 30 h). Methodology: the model's 0-30 h release (the pins above),
+    /// on the centreline at 1-5 km. Predicted before the run by hand
+    /// Gaussian (PG class D, ground reflection): chi/Q about 4e-8 s/m^3 at
+    /// 1 km and 2e-6 at 3-5 km, so time-integrated air at 3-5 km of about
+    /// 5e12 (Xe-133), 5e10 (I-131) and 1.5e8 (Cs-137) Bq s/m^3, a factor 3
+    /// either way, and about 50x lower at 1 km.
+    ///
+    /// Results (2026-10-29), pinned below. Time-integrated air, Bq s/m^3,
+    /// Cs-137 / I-131 / Xe-133: 1 km 3.97e6 / 1.31e9 / 1.29e11; 3 km
+    /// 1.26e8 / 4.15e10 / 4.07e12; 4 km (the peak) 1.34e8 / 4.43e10 /
+    /// 4.34e12, chi/Q 1.72e-6 s/m^3; 5 km 1.27e8 / 4.19e10 / 4.11e12.
+    /// Deposited at 4 km: Cs-137 1.34e5, I-131 4.43e8 Bq/m^2 (the placeholder
+    /// velocities, 1e-3 and 1e-2 m/s). Every predicted number held within
+    /// its factor of 3 (at 1 km 32x below 3 km, against the 50x predicted).
+    /// No
+    /// comparison with measurement is made: the weather is assumed and the
+    /// puff model reaches only about 6 km. Also checked: the noble gas
+    /// deposits nothing, and every nuclide's air integral is its release
+    /// times one shared chi/Q but for decay in transit (Xe-133's 5.2 d and
+    /// I-131's 8 d against at most 2000 s of travel: within 0.5 %).
+    #[test]
+    fn the_release_carried_downwind() {
+        let prm = Params::default();
+        let sum = compute(&prm);
+        let h = histories(Mechanisms::default(), prm, 60.0, 30.0 * 3600.0);
+        let st = source_term(&h, &prm, &sum, 3600.0);
+        let d: Vec<Length> = [1000.0, 2000.0, 3000.0, 4000.0, 5000.0].iter().map(|m| Length::new::<meter>(*m)).collect();
+        let r = near_field(&st, &Weather::assumed(), &d);
+        let air = |k: usize, n: usize| r.at(k)[n].air.becquerel_seconds_per_cubic_meter();
+        let ground = |k: usize, n: usize| r.at(k)[n].ground.becquerel_per_square_meter();
+        for k in 0..5 {
+            println!(
+                "{} m: Cs-137 {:.3e}, I-131 {:.3e}, Xe-133 {:.3e} Bq s/m3; deposited Cs-137 {:.3e}, I-131 {:.3e} Bq/m2",
+                d[k].get::<meter>(), air(k, 0), air(k, 1), air(k, 2), ground(k, 0), ground(k, 1)
+            );
+            assert_eq!(ground(k, 2), 0.0);
+            let q = |n: usize| st.nuclides[n].total_released().get::<becquerel>();
+            assert!((air(k, 0) / q(0) / (air(k, 2) / q(2)) - 1.0).abs() < 5e-3);
+            assert!((air(k, 1) / q(1) / (air(k, 2) / q(2)) - 1.0).abs() < 5e-3);
+        }
+        assert!((air(0, 2) / 1.286e11 - 1.0).abs() < 1e-3 && (air(3, 2) / 4.338e12 - 1.0).abs() < 1e-3, "{:e} {:e}", air(0, 2), air(3, 2));
+        assert!((air(3, 0) / 1.340e8 - 1.0).abs() < 1e-3 && (ground(3, 1) / 4.428e8 - 1.0).abs() < 1e-3, "{:e} {:e}", air(3, 0), ground(3, 1));
     }
 }
