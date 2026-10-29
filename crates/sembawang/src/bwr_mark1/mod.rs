@@ -308,6 +308,11 @@ pub struct Mechanisms {
     /// `rpv_wall`). Off is the internals with no heat path once the gas
     /// stops flowing past them.
     pub internals_radiation: bool,
+    /// The top of the core radiates to the dome internals above it, its
+    /// axial boundary structure (MELCOR COR RM §2.1.2, `Fcell,a` =
+    /// `axial_exchange`; 2026-10-29; needs `core_radiation`). Off is the top
+    /// of the core exchanging nothing.
+    pub core_top_radiation: bool,
 }
 
 impl Default for Mechanisms {
@@ -359,6 +364,7 @@ impl Default for Mechanisms {
             condensate_to_floor: true,
             rpv_wall: true,
             internals_radiation: true,
+            core_top_radiation: true,
         }
     }
 }
@@ -659,6 +665,12 @@ impl Mechanisms {
     /// The internals do not radiate to the wall: before 2026-10-29.
     pub fn without_internals_radiation(mut self) -> Self {
         self.internals_radiation = false;
+        self
+    }
+
+    /// The top of the core exchanging nothing: before 2026-10-29.
+    pub fn without_core_top_radiation(mut self) -> Self {
+        self.core_top_radiation = false;
         self
     }
 
@@ -1352,7 +1364,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -1539,7 +1551,7 @@ impl Plant {
             // in the step.
             if self.mechanisms.internals_radiation {
                 let (ti, tw) = (self.internals.t_k, self.rpv_wall_k);
-                let e = 1.0 / (1.0 / steel_emissivity(ti) + 1.0 / steel_emissivity(tw) - 1.0);
+                let e = 1.0 / (1.0 / core::steel_emissivity(ti) + 1.0 / core::steel_emissivity(tw) - 1.0);
                 let q = 5.670_374e-8 * e * prm.internals_envelope_m2 * (ti.r_powi(4) - tw.r_powi(4));
                 let ci = prm.internals_kg * (core::steel_h(ti + 0.5) - core::steel_h(ti - 0.5));
                 let cw = mass * (core::steel_h(tw + 0.5) - core::steel_h(tw - 0.5));
@@ -1555,6 +1567,8 @@ impl Plant {
         // first went into the vessel's fluid). The gas takes it from the
         // internals by their coupling.
         self.internals.heat(&prm, d.vessel_fp_w, DT_S);
+        // And the core's radiation up to them (`core_top_radiation`).
+        self.internals.heat(&prm, core.q_upper_w, DT_S);
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         // Noble gas: out with the gas, in from the fuel.
         let out = (d.share_relief + d.share_leak).min(1.0);
@@ -1799,12 +1813,6 @@ impl Frame {
 }
 
 /// The CSV the headless mode prints: a stable header, fixed precision.
-/// MELCOR's default emissivity of steel (COR C1102, from MELCOR 1.8.5):
-/// `0.25617 + 0.0003474 (T - 616.4833 K)`, bounded to [0.0001, 0.9999].
-fn steel_emissivity(t_k: f64) -> f64 {
-    (0.25617 + 0.000_347_4 * (t_k - 616.4833)).clamp(0.0001, 0.9999)
-}
-
 /// The RPV wall's inner area above the lower head, m^2: the cylinder and
 /// a hemispherical top head (`rpv_wall`).
 fn rpv_wall_area_m2(prm: &Params) -> f64 {
@@ -2151,10 +2159,11 @@ mod tests {
         // demand to feed it): at 26 h 9.9e-6 is still in the drywell and
         // 1.3e-5 in the wetwell gas (were under 1e-9 and 1.4e-8); with the
         // torus shell, which opens the vent 0.13 h later, 2.65e-5 and
-        // 2.39e-5.
+        // 2.39e-5; with the core-top radiation (less heat reaching the
+        // containment), 5.39e-5 and 3.55e-5.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 4e-5 && k.xe_ww < 4e-5 && k.xe_building == 0.0, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 8e-5 && k.xe_ww < 8e-5 && k.xe_building == 0.0, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;

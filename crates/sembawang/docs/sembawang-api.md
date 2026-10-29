@@ -4662,8 +4662,11 @@ Zircaloy (cladding plus its share of the channel boxes), with
 **Not in the model** (each would change the answer): ~~radiation between
 rods, to the shroud and upwards (it spreads heat across the core above
 about 1200 K);~~ (added 2026-10-29, gh:#1037: ring-to-ring, level-to-level
-and outer ring to a shroud lump; still missing: the upper-plenum
-structures, the view through emptied cells, the downcomer side of the
+and outer ring to a shroud lump; ~~still missing: the upper-plenum
+structures, the view through emptied cells,~~ since 2026-10-29 the top
+of each ring radiates to the dome internals through emptied cells,
+`core_top_radiation`; still missing: the view through emptied cells
+between rings and levels, the downcomer side of the
 shroud); the two-phase swell of the mixture level (the collapsed
 level uncovers the fuel early); ~~candling,~~ (simplified candling added
 2026-10-29) blockages, and molten-pool physics; ~~temperature-dependent fuel properties~~ (heat capacities added
@@ -4703,6 +4706,8 @@ pub struct CoreSnapshot {
     pub debris_quench: bool,
     pub wet_head_contact: bool,
     pub penetration_coverage: bool,
+    pub core_top_radiation: bool,
+    pub upper_k: f64,
     pub prm: Params,
 }
 ```
@@ -4730,6 +4735,8 @@ pub struct CoreSnapshot {
 | `debris_quench` | `bool` | MELCOR's falling-debris quench and dryout limit<br>(`Mechanisms::debris_quench`). |
 | `wet_head_contact` | `bool` | The lower head takes heat from the debris under water too<br>(`Mechanisms::wet_head_contact`). |
 | `penetration_coverage` | `bool` | The penetration heated over the debris-covered part of its height<br>only, the rest cooled by the fluid (`Mechanisms::penetration_coverage`). |
+| `core_top_radiation` | `bool` | The topmost component of each ring radiates up to the dome<br>internals at `upper_k`, K (`Mechanisms::core_top_radiation`). |
+| `upper_k` | `f64` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4884,6 +4891,7 @@ pub struct CoreResult {
     pub head_inner_k: f64,
     pub head_strain: f64,
     pub q_pool_w: f64,
+    pub q_upper_w: f64,
     pub clad_k: Vec<f64>,
 }
 ```
@@ -4910,6 +4918,7 @@ pub struct CoreResult {
 | `head_inner_k` | `f64` | The lower-head wall's inner temperature, K, and its creep strain<br>(gh:#1034; zero strain and the initial temperature until debris<br>arrives, and in the ablation). |
 | `head_strain` | `f64` |  |
 | `q_pool_w` | `f64` | Heat into the water this step, W: covered nodes and the debris<br>quench. The vapour it raises inside the pool sets the swell of the<br>mixture level (gh:#1036). |
+| `q_upper_w` | `f64` | Radiated from the top of the core to the dome internals, W<br>(`core_top_radiation`). |
 | `clad_k` | `Vec<f64>` | Cladding temperature of every node, ring-major, bottom to top, K<br>(relocated nodes: NaN). |
 
 ##### Implementations
@@ -11943,6 +11952,7 @@ pub struct Mechanisms {
     pub condensate_to_floor: bool,
     pub rpv_wall: bool,
     pub internals_radiation: bool,
+    pub core_top_radiation: bool,
 }
 ```
 
@@ -11996,6 +12006,7 @@ pub struct Mechanisms {
 | `condensate_to_floor` | `bool` | Water condensed in the drywell (on its structures, and steam above<br>saturation) drains to the floor, the pedestal's pool, where debris<br>can boil it again (2026-10-29; MELCOR drains a structure's film to<br>its volume's pool). Off is the condensate leaving the model. |
 | `rpv_wall` | `bool` | The RPV wall (cylinder and top head, 0.16 m of steel \[A\]) as a<br>lumped heat structure: it exchanges with the vessel's saturated<br>contents while they hold water, and loses heat through its<br>insulation to the drywell (2026-10-29, gh:#1037). Off is no wall. |
 | `internals_radiation` | `bool` | The dome internals radiate to the RPV wall (MELCOR's gray pair, HS<br>RM Eq 2-96, with its default steel emissivity; 2026-10-29; needs<br>`rpv_wall`). Off is the internals with no heat path once the gas<br>stops flowing past them. |
+| `core_top_radiation` | `bool` | The top of the core radiates to the dome internals above it, its<br>axial boundary structure (MELCOR COR RM §2.1.2, `Fcell,a` =<br>`axial_exchange`; 2026-10-29; needs `core_radiation`). Off is the top<br>of the core exchanging nothing. |
 
 ##### Implementations
 
@@ -12225,6 +12236,11 @@ pub struct Mechanisms {
   pub fn without_internals_radiation(self: Self) -> Self { /* ... */ }
   ```
   The internals do not radiate to the wall: before 2026-10-29.
+
+- ```rust
+  pub fn without_core_top_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  The top of the core exchanging nothing: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
