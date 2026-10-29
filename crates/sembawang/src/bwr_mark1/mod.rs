@@ -314,6 +314,11 @@ pub struct Mechanisms {
     /// `axial_exchange`; 2026-10-29; needs `core_radiation`). Off is the top
     /// of the core exchanging nothing.
     pub core_top_radiation: bool,
+    /// The core's radiation looks through emptied cells to the next
+    /// standing component, radially (or to the shroud) and axially, as
+    /// MELCOR's does (COR RM §2.1.2; 2026-10-29). Off is no view across an
+    /// emptied cell.
+    pub see_through: bool,
 }
 
 impl Default for Mechanisms {
@@ -366,6 +371,7 @@ impl Default for Mechanisms {
             rpv_wall: true,
             internals_radiation: true,
             core_top_radiation: true,
+            see_through: true,
         }
     }
 }
@@ -672,6 +678,12 @@ impl Mechanisms {
     /// The top of the core exchanging nothing: before 2026-10-29.
     pub fn without_core_top_radiation(mut self) -> Self {
         self.core_top_radiation = false;
+        self
+    }
+
+    /// No view across an emptied cell: before 2026-10-29.
+    pub fn without_see_through(mut self) -> Self {
+        self.see_through = false;
         self
     }
 
@@ -1365,7 +1377,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),

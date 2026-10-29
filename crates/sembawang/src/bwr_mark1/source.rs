@@ -136,9 +136,10 @@ mod tests {
     ///
     /// Results (2026-10-29): inventories Cs-137 1.565e17 Bq, I-131 1.358e18
     /// Bq (0.98e15 Bq per MWt), Xe-133 2.895e18 Bq. Released by 30 h:
-    /// Cs-137 7.96e13 Bq (the BSAF test's 0.0795 PBq at 26 h), I-131 5.54e15
-    /// Bq (0.4 %), Xe-133 2.53e18 Bq (the noble gas nearly all vented, less
-    /// its decay).
+    /// Cs-137 ~~7.96e13~~ 7.84e13 Bq (the BSAF test's 0.0783 PBq at 26 h),
+    /// I-131 ~~5.54e15~~ 5.98e15 Bq (0.4 %), Xe-133 2.53e18 Bq (the noble
+    /// gas nearly all vented, less its decay). (Moved by `see_through` the
+    /// same day.)
     #[test]
     fn the_model_release_hands_off_to_changi() {
         let prm = Params::default();
@@ -157,7 +158,7 @@ mod tests {
         let f = h.cs_released[h.cs_released.len() - 1];
         assert!((total(&st, 0) / (f * cs) - 1.0).abs() < 1e-4, "{} vs {}", total(&st, 0), f * cs);
         assert!((i / 1.358e18 - 1.0).abs() < 1e-3 && (xe / 2.895e18 - 1.0).abs() < 1e-3, "{i:e} {xe:e}");
-        assert!((total(&st, 0) / 7.962e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 5.535e15 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
+        assert!((total(&st, 0) / 7.840e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 5.976e15 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
         assert!((total(&st, 2) / 2.533e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
     }
 }

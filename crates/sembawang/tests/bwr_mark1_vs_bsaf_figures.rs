@@ -393,7 +393,7 @@ fn cesium_against_fig_2_6() {
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -465,7 +465,7 @@ fn iodine_against_fig_2_6() {
     assert_eq!(b, (0.0, 76));
     assert!((d.0 - 0.0787).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -509,7 +509,8 @@ fn read_release(code: &str) -> Vec<(f64, f64)> {
 /// points. The run is the 0-500 h one of Fig 2.3a.
 ///
 /// **Results (2026-10-29):** 0.0795 PBq of Cs-137 reaches the environment
-/// by 26 h, 0.0797 by 100 h and by 500 h (5.1e-4 of the 1.57e17 Bq
+/// by 26 h, 0.0797 by 100 h and by 500 h (0.0783 and 0.0785 since
+/// `see_through`, the same day) (5.1e-4 of the 1.57e17 Bq
 /// inventory this share implies): below every code (IRSN 0.1, SNL 2.8,
 /// IAE 4.4, CIEMAT 5.6, KAERI 18.9 PBq) and a tenth of GRS's 0.79 PBq. The
 /// rate is inside the codes' envelope at 7.3 % of 454 counted hours.
@@ -548,6 +549,6 @@ fn cesium_137_release_against_fig_5_1() {
     println!("Cs-137 to the environment: {:.4} PBq at 26 h, {:.4} PBq at 100 h, {total_pbq:.4} PBq at 500 h; rate inside the Fig 5.1 envelope {env:?}", at(26.0), at(100.0));
     // Pinned to the first run (2026-10-29); a model change moves these and
     // records the move here.
-    assert!((total_pbq - 0.0797).abs() < 1e-3 && (at(26.0) - 0.0795).abs() < 1e-3, "{total_pbq}");
+    assert!((total_pbq - 0.0785).abs() < 1e-3 && (at(26.0) - 0.0783).abs() < 1e-3, "{total_pbq}");
     assert!((env.0 - 0.0727).abs() < 1e-3 && env.1 == 454, "{env:?}");
 }

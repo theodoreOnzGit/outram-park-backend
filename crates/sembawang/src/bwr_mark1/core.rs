@@ -59,8 +59,9 @@
 //! and outer ring to a shroud lump; ~~still missing: the upper-plenum
 //! structures, the view through emptied cells,~~ since 2026-10-29 the top
 //! of each ring radiates to the dome internals through emptied cells,
-//! `core_top_radiation`; still missing: the view through emptied cells
-//! between rings and levels, the downcomer side of the
+//! `core_top_radiation`; ~~still missing: the view through emptied cells
+//! between rings and levels,~~ and through emptied cells between rings and
+//! levels, `see_through`; still missing: the downcomer side of the
 //! shroud); the two-phase swell of the mixture level (the collapsed
 //! level uncovers the fuel early); ~~candling,~~ (simplified candling added
 //! 2026-10-29) blockages, and molten-pool physics; ~~temperature-dependent fuel properties~~ (heat capacities added
@@ -146,6 +147,9 @@ pub struct CoreSnapshot {
     /// internals at `upper_k`, K (`Mechanisms::core_top_radiation`).
     pub core_top_radiation: bool,
     pub upper_k: f64,
+    /// Radiation looks through emptied cells to the next standing
+    /// component, radially and axially (`Mechanisms::see_through`).
+    pub see_through: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -468,9 +472,12 @@ impl Core {
     /// level (gh:#1037). Radial between neighbouring rings across their
     /// boundary cylinder, axial between neighbouring levels across the
     /// ring's cross-section, and from the outer ring to the shroud, each
-    /// with its exchange factor. A relocated node takes no part: there is
+    /// with its exchange factor. A relocated node takes no part; ~~there is
     /// no view across an emptied cell (stated simplification; MELCOR looks
-    /// through it to the next surface). ~~The top and bottom of the core
+    /// through it to the next surface)~~ since 2026-10-29, with
+    /// `see_through`, a node looks through emptied cells to the next
+    /// standing node (or the shroud), as MELCOR does; without it there is
+    /// no view across an emptied cell. ~~The top and bottom of the core
     /// exchange nothing (no upper-plenum structure or pool surface).~~ The
     /// top radiates to the dome internals since 2026-10-29
     /// ([`Core::top_radiation`]); the bottom still exchanges nothing.
@@ -481,7 +488,7 @@ impl Core {
     /// lowest uncovered nodes are the core's coolest; about 5.5 m^2
     /// effective at 1200-1500 K against water at saturation is 0.2-0.5 MW,
     /// beside 10-20 MW of decay and oxidation heat.
-    fn radiation(&self, prm: &Params, dz: f64) -> ([f64; NODES], [f64; AXIAL_NODES]) {
+    fn radiation(&self, prm: &Params, dz: f64, see_through: bool) -> ([f64; NODES], [f64; AXIAL_NODES]) {
         let mut q = [0.0; NODES];
         let mut q_sh = [0.0; AXIAL_NODES];
         let g = geom(prm);
@@ -495,10 +502,28 @@ impl Core {
                 if a.relocated {
                     continue;
                 }
-                // Radially outward: the next ring, or the shroud.
+                // Radially outward: the next ring, or the shroud. Looking
+                // through emptied cells (`see_through`), the next standing
+                // ring outward, or the shroud if none stands.
                 let r_out = rc * ((k + 1) as f64 / RINGS as f64).sqrt();
                 let area = 2.0 * pi * r_out * dz * prm.radial_exchange;
-                if k + 1 < RINGS {
+                let next = if see_through { (k + 1..RINGS).find(|&kk| !self.nodes[kk * AXIAL_NODES + j].relocated) } else { None };
+                if see_through {
+                    match next {
+                        Some(kk) => {
+                            let b = &self.nodes[kk * AXIAL_NODES + j];
+                            let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                            q[k * AXIAL_NODES + j] -= x;
+                            q[kk * AXIAL_NODES + j] += x;
+                        }
+                        None => {
+                            let t_sh = self.shroud_k[j];
+                            let x = gray_exchange(area, eps(a), steel_emissivity(t_sh), a.t_clad, t_sh);
+                            q[k * AXIAL_NODES + j] -= x;
+                            q_sh[j] += x;
+                        }
+                    }
+                } else if k + 1 < RINGS {
                     let b = &self.nodes[(k + 1) * AXIAL_NODES + j];
                     if !b.relocated {
                         let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
@@ -511,8 +536,18 @@ impl Core {
                     q[k * AXIAL_NODES + j] -= x;
                     q_sh[j] += x;
                 }
-                // Axially upward.
-                if j + 1 < AXIAL_NODES {
+                // Axially upward (through emptied levels with `see_through`;
+                // the topmost standing node goes to the internals, in
+                // `top_radiation`).
+                if see_through {
+                    if let Some(jj) = (j + 1..AXIAL_NODES).find(|&jj| !self.nodes[k * AXIAL_NODES + jj].relocated) {
+                        let b = &self.nodes[k * AXIAL_NODES + jj];
+                        let area = pi * rc * rc / RINGS as f64 * prm.axial_exchange;
+                        let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                        q[k * AXIAL_NODES + j] -= x;
+                        q[k * AXIAL_NODES + jj] += x;
+                    }
+                } else if j + 1 < AXIAL_NODES {
                     let b = &self.nodes[k * AXIAL_NODES + j + 1];
                     if !b.relocated {
                         let area = pi * rc * rc / RINGS as f64 * prm.axial_exchange;
@@ -888,7 +923,7 @@ impl Core {
         let mut newly_relocated = Vec::new();
         // Radiation (gh:#1037), explicit from the start-of-step temperatures:
         // a source on each node's cladding, and on each shroud level.
-        let (mut q_rad, q_shroud) = if s.core_radiation { self.radiation(prm, dz) } else { ([0.0; NODES], [0.0; AXIAL_NODES]) };
+        let (mut q_rad, q_shroud) = if s.core_radiation { self.radiation(prm, dz, s.see_through) } else { ([0.0; NODES], [0.0; AXIAL_NODES]) };
         let mut q_upper_w = 0.0;
         if s.core_radiation && s.core_top_radiation {
             let (q, up) = self.top_radiation(prm, s.upper_k);
@@ -1428,6 +1463,7 @@ impl CoreSnapshot {
             if self.penetration_coverage { 1.0 } else { 0.0 },
             if self.core_top_radiation { 1.0 } else { 0.0 },
             self.upper_k,
+            if self.see_through { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1454,6 +1490,7 @@ impl CoreSnapshot {
             penetration_coverage: r.f() != 0.0,
             core_top_radiation: r.f() != 0.0,
             upper_k: r.f(),
+            see_through: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1573,7 +1610,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1599,7 +1636,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1628,7 +1665,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }

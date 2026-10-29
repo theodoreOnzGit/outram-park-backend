@@ -4671,8 +4671,9 @@ about 1200 K);~~ (added 2026-10-29, gh:#1037: ring-to-ring, level-to-level
 and outer ring to a shroud lump; ~~still missing: the upper-plenum
 structures, the view through emptied cells,~~ since 2026-10-29 the top
 of each ring radiates to the dome internals through emptied cells,
-`core_top_radiation`; still missing: the view through emptied cells
-between rings and levels, the downcomer side of the
+`core_top_radiation`; ~~still missing: the view through emptied cells
+between rings and levels,~~ and through emptied cells between rings and
+levels, `see_through`; still missing: the downcomer side of the
 shroud); the two-phase swell of the mixture level (the collapsed
 level uncovers the fuel early); ~~candling,~~ (simplified candling added
 2026-10-29) blockages, and molten-pool physics; ~~temperature-dependent fuel properties~~ (heat capacities added
@@ -4714,6 +4715,7 @@ pub struct CoreSnapshot {
     pub penetration_coverage: bool,
     pub core_top_radiation: bool,
     pub upper_k: f64,
+    pub see_through: bool,
     pub prm: Params,
 }
 ```
@@ -4743,6 +4745,7 @@ pub struct CoreSnapshot {
 | `penetration_coverage` | `bool` | The penetration heated over the debris-covered part of its height<br>only, the rest cooled by the fluid (`Mechanisms::penetration_coverage`). |
 | `core_top_radiation` | `bool` | The topmost component of each ring radiates up to the dome<br>internals at `upper_k`, K (`Mechanisms::core_top_radiation`). |
 | `upper_k` | `f64` |  |
+| `see_through` | `bool` | Radiation looks through emptied cells to the next standing<br>component, radially and axially (`Mechanisms::see_through`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -12036,6 +12039,7 @@ pub struct Mechanisms {
     pub rpv_wall: bool,
     pub internals_radiation: bool,
     pub core_top_radiation: bool,
+    pub see_through: bool,
 }
 ```
 
@@ -12090,6 +12094,7 @@ pub struct Mechanisms {
 | `rpv_wall` | `bool` | The RPV wall (cylinder and top head, 0.16 m of steel \[A\]) as a<br>lumped heat structure: it exchanges with the vessel's saturated<br>contents while they hold water, and loses heat through its<br>insulation to the drywell (2026-10-29, gh:#1037). Off is no wall. |
 | `internals_radiation` | `bool` | The dome internals radiate to the RPV wall (MELCOR's gray pair, HS<br>RM Eq 2-96, with its default steel emissivity; 2026-10-29; needs<br>`rpv_wall`). Off is the internals with no heat path once the gas<br>stops flowing past them. |
 | `core_top_radiation` | `bool` | The top of the core radiates to the dome internals above it, its<br>axial boundary structure (MELCOR COR RM §2.1.2, `Fcell,a` =<br>`axial_exchange`; 2026-10-29; needs `core_radiation`). Off is the top<br>of the core exchanging nothing. |
+| `see_through` | `bool` | The core's radiation looks through emptied cells to the next<br>standing component, radially (or to the shroud) and axially, as<br>MELCOR's does (COR RM §2.1.2; 2026-10-29). Off is no view across an<br>emptied cell. |
 
 ##### Implementations
 
@@ -12324,6 +12329,11 @@ pub struct Mechanisms {
   pub fn without_core_top_radiation(self: Self) -> Self { /* ... */ }
   ```
   The top of the core exchanging nothing: before 2026-10-29.
+
+- ```rust
+  pub fn without_see_through(self: Self) -> Self { /* ... */ }
+  ```
+  No view across an emptied cell: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
