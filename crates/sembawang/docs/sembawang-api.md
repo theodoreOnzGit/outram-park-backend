@@ -3595,6 +3595,8 @@ pub struct Histories {
     pub i_dw_structures: Vec<f64>,
     pub i_sc_water: Vec<f64>,
     pub cs_released: Vec<f64>,
+    pub i_released: Vec<f64>,
+    pub xe_released: Vec<f64>,
 }
 ```
 
@@ -3612,6 +3614,8 @@ pub struct Histories {
 | `i_dw_structures` | `Vec<f64>` | Iodine likewise. |
 | `i_sc_water` | `Vec<f64>` |  |
 | `cs_released` | `Vec<f64>` | Cesium released to the environment (vented to the stack and leaked<br>to the reactor building), fraction of the inventory. |
+| `i_released` | `Vec<f64>` | Iodine likewise, and the noble gas (fractions of the core<br>inventory). |
+| `xe_released` | `Vec<f64>` |  |
 
 ##### Implementations
 
@@ -9924,6 +9928,69 @@ pub const IODINE: usize = 1;
 
 ```rust
 pub const TE: usize = 2;
+```
+
+## Module `source`
+
+The Unit 1 release as a `changi` source term (gh:#1040, F9's "wire the
+release to changi"): the hand-off the offsite chain consumes, as
+[`crate::chain::pad_for_dispersion`] expects it.
+
+- **What leaves**: the model's cumulative releases to the environment
+  (vented to the stack plus leaked to the reactor building, whose own
+  retention is not modelled), as fractions of each class's inventory
+  ([`super::compare::Histories`]).
+- **Inventories**: each nuclide's activity at the scram, `lambda N`, from
+  the model's ENDF/B-VIII summation ([`super::fp_decay`]). Cs-137, which
+  builds up through the irradiation, is scaled to the BSAF
+  specification's cesium mass (the summation's 95.0 kg against the
+  specified 154.0 kg: its 584-day irradiation is MELCOR's default, not
+  Unit 1's history). I-131 and Xe-133 are not scaled: at 8 and 5 days
+  they stand at equilibrium with the power whatever the history, and an
+  element mass (stable I-127 and long-lived I-129 for iodine) says
+  nothing about them. The summation has no neutron capture (stated
+  there), which biases the Cs-137 share of cesium low.
+- **Nuclides**: Cs-137 (aerosol), I-131 (halogen) and Xe-133 (noble gas),
+  their classes' isotopes taken to move together. Decay constants from
+  `boon-lay` (`changi`'s rule), deposition groups by atomic number
+  ([`DepositionGroup::from_atomic_number`]).
+- **Windows**: the histories' samples grouped into windows of
+  `window_s`; each window's activity is its share of the inventory
+  decayed from the scram to the window's middle (the release is taken as
+  uniform within a window, as `changi` treats it).
+
+Not done here: the dispersion run itself, which needs the Fukushima
+meteorology (not held).
+
+```rust
+pub mod source { /* ... */ }
+```
+
+### Functions
+
+#### Function `inventory_bq`
+
+One nuclide's activity at the scram, Bq, from the summation: `lambda N`
+with `N` the nuclide's mass over `A u`, scaled by `scale`.
+
+```rust
+pub fn inventory_bq(sum: &super::fp_decay::Summation, endf_name: &str, boon_lay_name: &str, scale: f64) -> f64 { /* ... */ }
+```
+
+#### Function `source_term`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The release in `h` as a source term of windows `window_s` long (the
+first starting at the scram), with Cs-137, I-131 and Xe-133.
+
+# Panics
+If the histories are empty, or a nuclide is missing from `boon-lay`.
+
+```rust
+pub fn source_term(h: &super::compare::Histories, prm: &super::params::Params, sum: &super::fp_decay::Summation, window_s: f64) -> changi::activity::source::SourceTerm { /* ... */ }
 ```
 
 ## Module `sparc`

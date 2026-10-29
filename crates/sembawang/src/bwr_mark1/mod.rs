@@ -49,6 +49,7 @@ pub mod msl;
 pub mod params;
 pub mod pool_surface;
 pub mod rn_volume;
+pub mod source;
 pub mod sparc;
 pub mod steam;
 pub mod vapour;

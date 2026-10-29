@@ -339,6 +339,10 @@ pub struct Histories {
     /// Cesium released to the environment (vented to the stack and leaked
     /// to the reactor building), fraction of the inventory.
     pub cs_released: Vec<f64>,
+    /// Iodine likewise, and the noble gas (fractions of the core
+    /// inventory).
+    pub i_released: Vec<f64>,
+    pub xe_released: Vec<f64>,
 }
 
 pub fn histories(mechanisms: Mechanisms, prm: Params, every_s: f64, end_s: f64) -> Histories {
@@ -361,6 +365,8 @@ pub fn histories(mechanisms: Mechanisms, prm: Params, every_s: f64, end_s: f64) 
             h.i_dw_structures.push(f.containment.i_dw_structures_kg / prm.i_inventory_kg);
             h.i_sc_water.push(f.containment.i_ww_pool_kg / prm.i_inventory_kg);
             h.cs_released.push((f.containment.cs_vented_kg + f.containment.cs_building_kg) / prm.cs_inventory_kg);
+            h.i_released.push((f.containment.i_vented_kg + f.containment.i_building_kg) / prm.i_inventory_kg);
+            h.xe_released.push(f.containment.xe_vented + f.containment.xe_building);
         }
     }
     h
