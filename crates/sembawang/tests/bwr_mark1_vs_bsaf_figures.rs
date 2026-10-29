@@ -71,7 +71,9 @@ fn model() -> Histories {
 ///   MPa.** Its main steam line has already ruptured by creep (4.78 h),
 ///   so the measurement contradicts the rupture's timing. The rupture
 ///   rests on \[A\] inputs (line size and steel, the dome internals) and
-///   on an upper-bound gas temperature. For context only, not adopted:
+///   on ~~an upper-bound gas temperature~~ the gas temperature after the
+///   dome internals (CORRECTED 2026-10-29: the internals heat structure
+///   was in place by then; the "upper bound" was the line's gas before it). For context only, not adopted:
 ///   with `without_msl_creep` the model is at 4.25 MPa at 5.34 h (mean
 ///   1.63 MPa over the two points), still low, because the \[A\] hot
 ///   leak depressurises it. Both leak paths need plant sources (F13).

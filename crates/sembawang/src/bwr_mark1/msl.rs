@@ -18,11 +18,15 @@
 //! two functions and a heat structure, as here. The wall is one lumped node
 //! per metre of line (the length cancels):
 //!
-//! - inside, forced convection from the relief flow at the core's exit gas
-//!   temperature, Dittus-Boelter on the line's diameter with a laminar
-//!   floor Nu = 4.36 when the valves are shut. The gas temperature is an
+//! - inside, forced convection from the relief flow, Dittus-Boelter on the
+//!   line's diameter with a laminar floor Nu = 4.36 when the valves are
+//!   shut, at ~~the core's exit gas temperature. The gas temperature is an
 //!   **upper bound**: the steam dome's separators and dryers would cool it,
-//!   and those heat structures are not modelled (the other half of F6);
+//!   and those heat structures are not modelled (the other half of F6);~~
+//!   **CORRECTED 2026-10-29:** the temperature of the gas after the steam
+//!   dome's internals (`Plant::gas_out_k`; the internals heat structure,
+//!   `Mechanisms::dome_internals`, on by default), the core's exit gas only
+//!   with that mechanism ablated;
 //! - outside, insulation to the drywell gas (`msl_insulation_h`, \[A\]);
 //! - the wall's enthalpy is 304L stainless steel's (`core::steel_h`), a
 //!   stated substitution: no carbon-steel property set exists in the
