@@ -107,6 +107,8 @@ pub struct ContainmentSnapshot {
     /// The iodine partition limit on the condensation scrubbing
     /// (`Mechanisms::iodine_partition`).
     pub iodine_partition: bool,
+    /// The wetwell vent passes the gas mixture (`Mechanisms::mixture_vent`).
+    pub mixture_vent: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -499,7 +501,61 @@ impl Containment {
         }
         let mut vented_kg_s = 0.0;
         let vent_flowing = s.vent_ordered && self.disk_burst && p_ww > P_ATM;
-        if vent_flowing {
+        if vent_flowing && s.mixture_vent {
+            // The vent passes the wetwell gas as it is, steam and
+            // non-condensables, through its orifice at the mixture's
+            // density, split by mole fraction; the pool boils to supply the
+            // steam (gh:#1053). Before, the orifice was sized for the
+            // non-condensables alone and steam added at x_s / (1 - x_s)
+            // times that: about 20 times the orifice's capacity once the
+            // wetwell is mostly steam, and nothing at all once the
+            // non-condensables were gone.
+            let n_g = self.ww_n2 + self.ww_h2;
+            let v = prm.wetwell_gas_m3;
+            let p_s = p_sat_pa(self.pool_t).min(p_ww);
+            let x_s = p_s / p_ww;
+            let n_sv = p_s * v / (R_GAS * self.pool_t);
+            let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + n_sv * M_H2O) / (n_g + n_sv);
+            let rho = p_ww * molar / (R_GAS * self.pool_t);
+            let n_flow = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            // Non-condensables: their share, at most the equalising amount.
+            let p_nc = p_ww - p_s;
+            let n_nc = if n_g > 0.0 { (n_flow * (1.0 - x_s)).min(n_g * ((p_ww - P_ATM) / p_nc).min(1.0)) } else { 0.0 };
+            let f = if n_g > 0.0 { n_nc / n_g } else { 0.0 };
+            // Steam: its share, at most what boiling can give before the
+            // pool's saturation pressure plus the remaining non-condensables
+            // fall to the atmosphere's.
+            let p_floor = (P_ATM - p_nc * (1.0 - f)).max(1.0e3);
+            let h_fg = 2.257e6;
+            let m_req = n_flow * x_s * M_H2O;
+            // The cap binds only if the pool, having given `m_req`, would
+            // be below the floor: one saturation pressure decides it, the
+            // inverse (`t_sat`, a bisection) only when it binds.
+            let t_after = self.pool_t - m_req * h_fg / (self.pool_kg * CP_WATER);
+            let m_s = if p_sat_pa(t_after.max(280.0)) >= p_floor {
+                m_req
+            } else {
+                m_req.min((self.pool_kg * CP_WATER * (self.pool_t - t_sat(p_floor)) / h_fg).max(0.0))
+            };
+            // The gas volume that left, for what rides in it.
+            let f_gas = ((n_nc + m_s / M_H2O) / (n_g + n_sv)).min(1.0);
+            let dh2 = self.ww_h2 * f;
+            let dxe = self.xe_ww * f;
+            self.xe_ww -= dxe;
+            self.xe_vented += dxe;
+            let (_, cv, ca) = self.ww_rn.take(f_gas);
+            self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
+            self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
+            self.vented_h2_kg += dh2 * M_H2;
+            vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2 + m_s) / dt;
+            self.ww_n2 -= self.ww_n2 * f;
+            self.ww_h2 -= dh2;
+            // The boiled-off water leaves with its sensible heat as well as
+            // its latent heat (before, only the latent heat left the pool).
+            let e = self.pool_energy() - m_s * (CP_WATER * (self.pool_t - 273.15) + h_fg);
+            self.pool_kg -= m_s;
+            self.set_pool_energy(e);
+        } else if vent_flowing {
             let n_g = self.ww_n2 + self.ww_h2;
             let p_nc = n_g * R_GAS * self.pool_t / prm.wetwell_gas_m3;
             let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2) / n_g.max(1e-30);
@@ -849,6 +905,7 @@ impl ContainmentSnapshot {
             b(self.swarm_scrubbing),
             b(self.sectional_classes),
             b(self.iodine_partition),
+            b(self.mixture_vent),
         ]);
         self.prm.write(w);
     }
@@ -879,6 +936,7 @@ impl ContainmentSnapshot {
             swarm_scrubbing: r.f() != 0.0,
             sectional_classes: r.f() != 0.0,
             iodine_partition: r.f() != 0.0,
+            mixture_vent: r.f() != 0.0,
             prm: Params::read(r),
         }
     }

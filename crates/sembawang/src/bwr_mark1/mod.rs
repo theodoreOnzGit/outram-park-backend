@@ -190,6 +190,12 @@ pub struct Mechanisms {
     /// with the pool's dissolved CsOH (MELCOR Eq D-7, Appendix F; [`iodine`];
     /// 2026-10-29). Off is iodine vapour scrubbed like the gas.
     pub iodine_partition: bool,
+    /// The wetwell vent passes the wetwell's gas mixture through its
+    /// orifice, the pool boiling to supply the steam, and the boiled-off
+    /// water takes its sensible heat too (gh:#1053; 2026-10-29). Off is the
+    /// vent sized for the non-condensables alone, with steam added in
+    /// proportion and only latent heat leaving the pool.
+    pub mixture_vent: bool,
 }
 
 impl Default for Mechanisms {
@@ -220,6 +226,7 @@ impl Default for Mechanisms {
             swarm_scrubbing: true,
             sectional_classes: true,
             iodine_partition: true,
+            mixture_vent: true,
         }
     }
 }
@@ -386,6 +393,13 @@ impl Mechanisms {
     /// before 2026-10-29.
     pub fn without_iodine_partition(mut self) -> Self {
         self.iodine_partition = false;
+        self
+    }
+
+    /// The vent sized for the non-condensables alone: the model before
+    /// 2026-10-29.
+    pub fn without_mixture_vent(mut self) -> Self {
+        self.mixture_vent = false;
         self
     }
 
@@ -1036,6 +1050,7 @@ impl Plant {
                 swarm_scrubbing: self.mechanisms.swarm_scrubbing,
                 sectional_classes: self.mechanisms.sectional_classes,
                 iodine_partition: self.mechanisms.iodine_partition,
+                mixture_vent: self.mechanisms.mixture_vent,
                 prm,
             },
         }
@@ -1645,10 +1660,13 @@ mod tests {
         // run~~ (true until the internals heat loss, 2026-10-29, flipped the
         // run into the early regime, where the vent flows at 23.73 h): all
         // 0.7989 released is vented to the stack, through the wetwell gas,
-        // where it peaked before the vent opened.
+        // where it peaked before the vent opened. Since the mixture vent
+        // (gh:#1053), which no longer passes about 20 times its orifice's
+        // capacity, 1.4e-8 is still in the wetwell gas at 26 h (was under
+        // 1e-9).
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-9 && k.xe_ww < 1e-9 && k.xe_building == 0.0, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-9 && k.xe_ww < 1e-7 && k.xe_building == 0.0, "{f:?}");
         assert!((k.xe_vented - 0.7989).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 

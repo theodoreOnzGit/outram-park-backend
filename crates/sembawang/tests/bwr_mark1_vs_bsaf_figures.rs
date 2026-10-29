@@ -135,13 +135,23 @@ fn the_model_against_the_digitised_bsaf_figures() {
 /// baseline). Results, 2026-10-29: 94 measured points, mean 0.653 MPa, max
 /// ~~0.818~~ ~~0.915~~ 0.835 MPa (since the failed vessel's gas leaves to the
 /// drywell, the same day: mean 0.6535 -> 0.6539; since the internals heat
-/// loss: mean 0.6539 -> 0.6616, max 0.915 -> 0.835). The model's drywell, vented on the recorded order near 24 h,
-/// falls to 0.16 MPa at 30 h, then with no long-term leak path rises to a
-/// 0.97 MPa plateau held from about 100 h to 500 h; the plant fell to 0.15
-/// MPa by about 257 h. Every BSAF code followed the measurement by
-/// imposing a variable-area containment leak from 50 h (NEA No. 7525,
-/// p.19); that leak, and the injection that bypasses the core, are F12,
-/// and imposing an area to follow the curve would be fitting it.
+/// loss: mean 0.6539 -> 0.6616, max 0.915 -> 0.835). ~~The model's drywell,
+/// vented on the recorded order near 24 h, falls to 0.16 MPa at 30 h, then
+/// with no long-term leak path rises to a 0.97 MPa plateau held from about
+/// 100 h to 500 h~~ **CORRECTED 2026-10-29:** the rise to 0.97 MPa was not
+/// a missing leak path. It was the vent defect below (gh:#1053): with no
+/// non-condensable left, the vent carried no steam, so the pool heated to
+/// 466 K under a "vented" wetwell. With the mixture vent, the drywell
+/// holds 0.113-0.119 MPa from 30 h to 500 h, the vent open throughout:
+/// mean **0.6616 -> 0.1670 MPa**, max **0.835 -> 0.626**. The model is now
+/// low where it was high: the plant re-pressurised to about 0.6 MPa from
+/// 45 to 56 h (0.5955 MPa at 54.0 h; 93 of the 94 points are after 30 h).
+/// The plant fell to 0.15 MPa by about 257 h.
+/// Every BSAF code followed the measurement by imposing a variable-area
+/// containment leak from 50 h (NEA No. 7525, p.19); that leak, and the
+/// injection that bypasses the core, are F12, and imposing an area to
+/// follow the curve would be fitting it. The model's vent never closes;
+/// the plant's line-up after 24 h is not modelled.
 ///
 /// **A defect underneath, found 2026-10-29 (gh:#1047 work):** the wetwell's
 /// pressure went NaN at 73.48 h. The vent had taken all of its
@@ -151,14 +161,15 @@ fn the_model_against_the_digitised_bsaf_figures() {
 /// level with the drywell, so no downcomer would have flowed either way. A
 /// pool that hot under a vented wetwell is itself a gap: with no
 /// non-condensable left, the vent carries no steam, because its steam is
-/// tied to the gas it carries (gh:#1053, with F12).
+/// tied to the gas it carries (gh:#1053, with F12). **Fixed the same day**
+/// by the mixture vent (`Mechanisms::mixture_vent`; above).
 #[test]
 fn the_model_beyond_its_window_against_fig_2_3a() {
     let m = histories(Mechanisms::default(), Params::default(), 600.0, 500.0 * 3600.0);
     let a = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.3a-measurement.csv"));
     println!("0-500 h drywell against Fig 2.3a: {a:?}");
     assert_eq!(a.n, 94);
-    assert!((a.mean_abs - 0.6616).abs() < 1e-3 && (a.max_abs - 0.8350).abs() < 1e-3, "{a:?}");
+    assert!((a.mean_abs - 0.1670).abs() < 1e-3 && (a.max_abs - 0.6265).abs() < 1e-3, "{a:?}");
 }
 
 
