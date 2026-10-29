@@ -285,9 +285,131 @@ pub fn report(runs: &[(&str, Metrics)]) -> String {
     out
 }
 
+/// The model's histories of the quantities BSAF plots for Unit 1, sampled
+/// every `every_s` seconds to `end_s`: time h, RPV pressure MPa, drywell
+/// pressure MPa, in-vessel H2 kg, volatile fission products released from
+/// fuel (fraction). For comparison with the digitised figures.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Histories {
+    pub t_h: Vec<f64>,
+    pub p_rpv_mpa: Vec<f64>,
+    pub p_dw_mpa: Vec<f64>,
+    pub h2_kg: Vec<f64>,
+    pub fp_released: Vec<f64>,
+}
+
+pub fn histories(mechanisms: Mechanisms, prm: Params, every_s: f64, end_s: f64) -> Histories {
+    let mut plant = Plant::with_params(Mode::Historical, mechanisms, prm);
+    let (mut core, mut cont) = plant.parts();
+    let mut h = Histories::default();
+    let every = (every_s / DT_S).round().max(1.0) as usize;
+    let steps = (end_s / DT_S).round() as usize;
+    for i in 1..=steps {
+        plant.step_inline(&mut core, &mut cont);
+        if i % every == 0 {
+            let f = plant.frame();
+            h.t_h.push(f.t_s / 3600.0);
+            h.p_rpv_mpa.push(f.vessel.p_pa / 1e6);
+            h.p_dw_mpa.push(f.containment.p_dw_pa / 1e6);
+            h.h2_kg.push(f.core.h2_total_kg);
+            h.fp_released.push(f.core.fp_volatile_released);
+        }
+    }
+    h
+}
+
+/// Linear interpolation of a sampled series at `t` (None outside it).
+fn interpolate(t_s: &[f64], v: &[f64], t: f64) -> Option<f64> {
+    if t_s.is_empty() || t < t_s[0] || t > t_s[t_s.len() - 1] {
+        return None;
+    }
+    let i = t_s.partition_point(|&x| x < t);
+    if i == 0 {
+        return Some(v[0]);
+    }
+    let w = (t - t_s[i - 1]) / (t_s[i] - t_s[i - 1]);
+    Some(v[i - 1] + w * (v[i] - v[i - 1]))
+}
+
+/// The model against one measured series (the instrument fixed before any
+/// digitised curve was seen, 2026-10-29): the model interpolated at each
+/// reference time inside the run, then the mean and the largest absolute
+/// difference, in the series' own units, and how many points counted.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AgainstMeasured {
+    pub n: usize,
+    pub mean_abs: f64,
+    pub max_abs: f64,
+}
+
+pub fn against_measured(t_model: &[f64], v_model: &[f64], reference: &[(f64, f64)]) -> AgainstMeasured {
+    let d: Vec<f64> = reference.iter().filter_map(|&(t, r)| interpolate(t_model, v_model, t).map(|m| (m - r).abs())).collect();
+    let n = d.len();
+    let mean_abs = if n > 0 { d.iter().sum::<f64>() / n as f64 } else { f64::NAN };
+    AgainstMeasured { n, mean_abs, max_abs: d.iter().copied().fold(0.0, f64::max) }
+}
+
+/// The model against a family of code predictions (no measurement): at
+/// each time of `grid_h`, whether the model lies within the codes'
+/// envelope (each code interpolated; only codes that cover the time
+/// count, and at least two must). Returns the fraction of counted times
+/// inside, and how many counted.
+pub fn inside_envelope(t_model: &[f64], v_model: &[f64], codes: &[Vec<(f64, f64)>], grid_h: &[f64]) -> (f64, usize) {
+    let (mut inside, mut counted) = (0usize, 0usize);
+    for &t in grid_h {
+        let Some(m) = interpolate(t_model, v_model, t) else { continue };
+        let vals: Vec<f64> = codes
+            .iter()
+            .filter_map(|c| {
+                let (ts, vs): (Vec<f64>, Vec<f64>) = c.iter().copied().unzip();
+                interpolate(&ts, &vs, t)
+            })
+            .collect();
+        if vals.len() < 2 {
+            continue;
+        }
+        let lo = vals.iter().copied().fold(f64::INFINITY, f64::min);
+        let hi = vals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        counted += 1;
+        if m >= lo && m <= hi {
+            inside += 1;
+        }
+    }
+    (if counted > 0 { inside as f64 / counted as f64 } else { f64::NAN }, counted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The comparison instruments on hand-made series: a model `v = t`
+    /// against references at t = 0.5, 1.5 (inside) and 5 (outside the run)
+    /// differing by 0.1 and 0.3 gives n = 2, mean 0.2, max 0.3; a model
+    /// between two codes is inside, one above both is not, and a time
+    /// covered by one code alone does not count. The histories sample where
+    /// asked.
+    #[test]
+    fn the_curve_comparisons_measure_what_they_say() {
+        let t = [0.0, 1.0, 2.0];
+        let v = [0.0, 1.0, 2.0];
+        let a = against_measured(&t, &v, &[(0.5, 0.6), (1.5, 1.2), (5.0, 9.0)]);
+        assert_eq!(a.n, 2);
+        assert!((a.mean_abs - 0.2).abs() < 1e-12 && (a.max_abs - 0.3).abs() < 1e-12, "{a:?}");
+        let lo = vec![(0.0, -1.0), (2.0, 1.0)];
+        let hi = vec![(0.0, 1.0), (1.0, 3.0)];
+        let (frac, n) = inside_envelope(&t, &v, &[lo, hi], &[0.5, 1.0, 1.5]);
+        // 0.5: codes -0.5..2, model 0.5 inside; 1.0: codes 0..3, inside;
+        // 1.5: only the first code covers it, not counted.
+        assert_eq!((frac, n), (1.0, 2));
+        let (frac, _) = inside_envelope(&t, &[5.0, 5.0, 5.0], &[vec![(0.0, 0.0), (2.0, 1.0)], vec![(0.0, 1.0), (2.0, 2.0)]], &[1.0]);
+        assert_eq!(frac, 0.0);
+        let h = histories(Mechanisms::default(), Params::default(), 600.0, 3600.0);
+        assert_eq!(h.t_h.len(), 6);
+        // The isolation condensers pull the vessel to about 3.7 MPa in the
+        // first 10 minutes; stopped at 17 min, it re-pressurises past 7 MPa
+        // by 1 h.
+        assert!((h.t_h[5] - 1.0).abs() < 1e-12 && h.p_rpv_mpa[0] < 5.0 && h.p_rpv_mpa[5] > 7.0, "{h:?}");
+    }
 
     /// **The uncalibrated baseline, pinned.** Methodology: run the recorded
     /// Unit 1 sequence to 26 h with every mechanism on and measure the six
