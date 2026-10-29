@@ -148,7 +148,15 @@ the wetwell, whose 344 K pool (about 100 K subcooled) condenses all steam, so
 the pressure is the non-condensable gas alone; a heat sink a tenth the size
 moves it 0.02–0.03 MPa; about 6e5 mol of non-condensable gas is missing, the
 size of the MCCI gas BSAF's codes relied on (p.19). **F8 (MCCI) is therefore
-the lever on the drywell**, and it stays blocked on Unit 1's concrete. H2
+the lever on the drywell**, and it stays blocked on Unit 1's concrete. What exactly
+is missing, checked 2026-10-29: MELCOR's manuals do tabulate the standard
+concretes (Vol. 1, CAV Tables 2.1 and 2.2: compositions, density, solidus,
+liquidus, ablation temperature), but (1) **the type decides the gas** — CO2
+is 1.5 % of CORCON basaltic against 35.7 % of limestone/common sand — so
+choosing one without a Unit 1 source would be choosing the drywell answer,
+which rule 1 forbids; and (2) **the heat of ablation is computed internally**
+from the species' thermochemistry, not given as a number. Needed: Unit 1's
+concrete type (or composition) from a plant or BSAF-specification source. H2
 is below all nine codes from about 5 h; fuel release is inside the iodine
 envelope 94 % of the time.
 
