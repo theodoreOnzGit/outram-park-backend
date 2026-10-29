@@ -142,6 +142,9 @@ pub struct CoreResult {
     /// Steam leaving the top of the core, kg/s (with the hydrogen,
     /// `h2_kg_s`, at `exit_gas_k`).
     pub exit_steam_kg_s: f64,
+    /// Volatile fission products (Xe, Cs, I) released from the fuel so
+    /// far, fraction of the core inventory (gh:#1040).
+    pub fp_volatile_released: f64,
     /// Zirconium oxidised so far, kg; hydrogen made so far, kg.
     pub zr_oxidised_kg: f64,
     pub h2_total_kg: f64,
@@ -175,6 +178,9 @@ struct Node {
     relocated: bool,
     /// Time-at-temperature damage of the rod, `sum dt/L` (gh:#1035).
     damage: f64,
+    /// Fraction of the node's volatile fission products (Xe, Cs, I) still
+    /// in its fuel (gh:#1040, `volatile_release_rate`).
+    fp_left: f64,
 }
 
 /// Constants of one node (every node in a ring is the same size).
@@ -208,6 +214,11 @@ pub struct Core {
     head: HeadWall,
     /// The core shroud, one steel lump per axial level, K (gh:#1037).
     shroud_k: [f64; AXIAL_NODES],
+    /// Volatile fission products in the lower-plenum debris, and released
+    /// from the fuel so far, as fractions of the core's inventory
+    /// (gh:#1040).
+    debris_fp: f64,
+    fp_released: f64,
 }
 
 /// Through-wall nodes of the lower-head wall (inner face first).
@@ -655,6 +666,18 @@ pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64
     M_ZR / (2.0 * R_GAS) * k_c * x_steam * p_pa / t_film
 }
 
+/// Fractional release rate of the volatile fission products (Xe, Cs, I)
+/// from fuel at `t_k`, 1/s: MELCOR's CORSOR-M (Vol. 2, SAND2023-10994 O, RN
+/// §2.3.1, Eq 2-11, C7102; no source used), `k0 exp(-Q / (R T))` per
+/// minute. Xe, Cs, I2 and Te share one row of its table, so one fraction
+/// serves the three tracked here; Te's retention by unoxidised cladding is
+/// not modelled and Te is not tracked. Not modelled either: the gap
+/// inventory's burst release at cladding failure (RN1_GAP00).
+pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 {
+    const CAL: f64 = 4.184;
+    prm.corsor_k0_per_min / 60.0 * (-prm.corsor_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()
+}
+
 /// Dittus-Boelter heat transfer coefficient for steam at `t_film` and `p`,
 /// for a ring's steam flow `w` (kg/s) through its share of the flow area.
 fn steam_htc(prm: &Params, w: f64, t_film: f64, p_pa: f64) -> (f64, f64) {
@@ -683,7 +706,7 @@ impl Core {
             for j in 0..AXIAL_NODES {
                 let q = prm.thermal_power_w / RINGS as f64 * prm.ring_factors[ring] * axial[j];
                 let t_clad = t_sat_k + q / (prm.boiling_h * g.a_rod);
-                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0 });
+                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0, fp_left: 1.0 });
             }
         }
         Self {
@@ -699,6 +722,8 @@ impl Core {
             h2_total_kg: 0.0,
             head: HeadWall::new(t_sat_k),
             shroud_k: [t_sat_k; AXIAL_NODES],
+            debris_fp: 0.0,
+            fp_released: 0.0,
         }
     }
 
@@ -950,6 +975,10 @@ impl Core {
                 self.debris_e += g.c_fuel * n.t_fuel + g.c_clad * n.t_clad;
             }
             self.debris_power_share += share;
+            // Its fission products go with it (inventory taken as
+            // proportional to power, [A]).
+            self.debris_fp += share * n.fp_left;
+            n.fp_left = 0.0;
         }
         let debris_k = if tdp && self.debris_mf + self.debris_mc > 0.0 {
             debris_temperature(self.debris_mf, self.debris_mc, self.debris_h)
@@ -958,6 +987,33 @@ impl Core {
         } else {
             s.t_sat_k
         };
+        // Volatile fission-product release, CORSOR-M at the fuel's (or the
+        // in-vessel debris's) temperature (gh:#1040). An output only:
+        // nothing in the model reads it yet.
+        let k_rel = |t: f64| volatile_release_rate(prm, t);
+        let axial_r = axial_shape(prm);
+        for ring in 0..RINGS {
+            for j in 0..AXIAL_NODES {
+                let n = &mut self.nodes[ring * AXIAL_NODES + j];
+                if n.relocated {
+                    continue;
+                }
+                let keep = (-k_rel(n.t_fuel) * dt).r_exp();
+                let share = prm.ring_factors[ring] / RINGS as f64 * axial_r[j];
+                self.fp_released += share * n.fp_left * (1.0 - keep);
+                n.fp_left *= keep;
+            }
+        }
+        // In-vessel only: once the lower head fails the debris is on the
+        // drywell floor, where MELCOR releases by its cavity model (VANESA),
+        // not CORSOR; that is not built, so ex-vessel debris releases
+        // nothing here (stated). Its temperature is not followed there
+        // either.
+        if self.debris_fp > 0.0 && !self.lower_head_failed {
+            let keep = (-k_rel(debris_k) * dt).r_exp();
+            self.fp_released += self.debris_fp * (1.0 - keep);
+            self.debris_fp *= keep;
+        }
         // The shroud: held at saturation where the collapsed level covers it
         // (water on both faces), otherwise heated by the outer ring's
         // radiation, its outer face adiabatic (stated).
@@ -982,6 +1038,7 @@ impl Core {
             peak_clad_k: peak,
             exit_gas_k: if exit_w > 0.0 { exit_sum / exit_w } else { s.t_sat_k },
             exit_steam_kg_s: exit_w,
+            fp_volatile_released: self.fp_released,
             zr_oxidised_kg: self.zr_oxidised_kg,
             h2_total_kg: self.h2_total_kg,
             relocated,
@@ -1001,7 +1058,7 @@ impl Core {
     /// The whole state, for a stateless worker to step.
     pub fn write_state(&self, w: &mut Writer) {
         for n in &self.nodes {
-            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage]);
+            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage, n.fp_left]);
         }
         w.f(&[
             self.debris_c,
@@ -1017,9 +1074,10 @@ impl Core {
         w.f(&self.head.t_k);
         w.f(&[self.head.strain, self.head.pen_k]);
         w.f(&self.shroud_k);
+        w.f(&[self.debris_fp, self.fp_released]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
-        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f() }).collect();
+        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f() }).collect();
         Self {
             nodes,
             debris_c: r.f(),
@@ -1033,6 +1091,8 @@ impl Core {
             h2_total_kg: r.f(),
             head: HeadWall { t_k: std::array::from_fn(|_| r.f()), strain: r.f(), pen_k: r.f() },
             shroud_k: std::array::from_fn(|_| r.f()),
+            debris_fp: r.f(),
+            fp_released: r.f(),
         }
     }
 }
@@ -1089,6 +1149,7 @@ impl CoreResult {
             self.peak_clad_k,
             self.exit_gas_k,
             self.exit_steam_kg_s,
+            self.fp_volatile_released,
             self.zr_oxidised_kg,
             self.h2_total_kg,
             self.relocated,
@@ -1110,6 +1171,7 @@ impl CoreResult {
             peak_clad_k: r.f(),
             exit_gas_k: r.f(),
             exit_steam_kg_s: r.f(),
+            fp_volatile_released: r.f(),
             zr_oxidised_kg: r.f(),
             h2_total_kg: r.f(),
             relocated: r.f(),
@@ -1127,6 +1189,19 @@ impl CoreResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// CORSOR-M's volatile release rate against hand values: Q = 63.8 x
+    /// 4184 = 266.9 kJ/mol, so at 2400 K `exp(-13.378) = 1.548e-6` times
+    /// 2e5/60 gives 5.16e-3 /s (half released in about 2 min), and at
+    /// 1000 K 3.8e-11 /s (nothing on the accident's time scale).
+    #[test]
+    fn volatile_release_follows_corsor_m() {
+        let prm = Params::default();
+        let k = volatile_release_rate(&prm, 2400.0);
+        assert!((k / 5.16e-3 - 1.0).abs() < 2e-3, "{k}");
+        let cold = volatile_release_rate(&prm, 1000.0);
+        assert!((cold / 3.8e-11 - 1.0).abs() < 0.02, "{cold}");
+    }
 
     /// The gaseous-diffusion limit (MELCOR COR Eq 2-168) against hand
     /// values, in the laminar floor (a small steam flow, Sh = 4.36):

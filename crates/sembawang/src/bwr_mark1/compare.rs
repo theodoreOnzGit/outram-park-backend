@@ -83,6 +83,11 @@ pub struct Metrics {
     pub p_dw_peak_mpa: f64,
     pub vent_h: Option<f64>,
     pub explosion_h: Option<f64>,
+    /// Volatile fission products (Xe, Cs, I) released from the fuel by
+    /// 25 h, fraction of inventory (gh:#1040). Not a BSAF band: BSAF
+    /// reports only that most codes' releases reached an asymptote above
+    /// 0.8 (code-to-code, figure-read; NEA No. 7525 §2, Fig. 2.5).
+    pub fp_released_25h: f64,
 }
 
 impl Metrics {
@@ -124,6 +129,7 @@ pub fn measure_with(mechanisms: Mechanisms, prm: Params) -> Metrics {
         if h <= 25.0 {
             m.h2_25h_kg = f.core.h2_total_kg;
             m.p_dw_peak_mpa = m.p_dw_peak_mpa.max(f.containment.p_dw_pa / 1e6);
+            m.fp_released_25h = f.core.fp_volatile_released;
         }
         if f.containment.vent_flowing && m.vent_h.is_none() {
             m.vent_h = Some(h);
@@ -586,6 +592,15 @@ mod tests {
         assert!(near(m.depressurised_h, 4.7769, 0.001), "{m:?}");
         assert!((m.h2_25h_kg - 215.36).abs() < 0.01, "{m:?}");
         assert!((m.p_dw_peak_mpa - 0.55678708).abs() < 1e-8, "{m:?}");
+        // Volatile fission products released from the fuel, in-vessel
+        // (CORSOR-M, gh:#1040; output only, the fixture did not move):
+        // 0.8505 by 25 h, released in steps with the core's degradation
+        // (0.26 at 4.5 h, 0.67 at 6 h, 0.85 by 8 h). Predicted before the
+        // run, once the ex-vessel artefact was removed: 0.4-0.7. **Missed,
+        // high**: the nodes left in the core heat and release before they
+        // fall. BSAF reports only that most codes exceeded 0.8 (Fig. 2.5,
+        // code-to-code), which this is consistent with.
+        assert!((m.fp_released_25h - 0.8505).abs() < 1e-4, "{m:?}");
         // No penetrations: the previous baseline, exactly.
         let np = measure(Mechanisms::default().without_penetrations());
         assert!(near(np.lower_head_h, 5.6392, 0.001) && near(np.depressurised_h, 4.7769, 0.001), "{np:?}");

@@ -417,7 +417,12 @@ a yes/no per node at its midpoint.
 - Deposited: 50/25/25.
 
 **Against `bwr_mark1`**
-- No fission products are tracked.
+- ~~No fission products are tracked.~~ **Since 2026-10-29** the volatile
+  fission products (Xe, Cs, I; one CORSOR-M row) are released from each
+  core node and from in-vessel debris (`core::volatile_release_rate`), as
+  an output only: 0.85 of inventory by 25 h. Not yet: gap release,
+  transport, pool scrubbing, the decay heat they carry (the class decay
+  heat tables are not in a held document), ex-vessel release.
 - Reusable pieces in this workspace:
   - `boon_lay` Booth-sphere release;
   - `changi::flexpart::aerosol`, the same Cunningham constants;

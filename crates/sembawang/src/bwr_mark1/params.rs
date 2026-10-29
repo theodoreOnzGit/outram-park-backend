@@ -174,6 +174,12 @@ pub const INTERNALS_KG: f64 = 5.0e4;
 pub const INTERNALS_AREA_M2: f64 = 2500.0;
 pub const INTERNALS_H: f64 = 10.0;
 
+/// CORSOR-M release of the volatile fission products (Xe, Cs, I), MELCOR's
+/// default row for those classes (Vol. 2, SAND2023-10994 O, RN §2.3.1,
+/// C7102): `k0`, per minute, and `Q`, kcal/mol. \[P\]
+pub const CORSOR_K0_PER_MIN: f64 = 2.0e5;
+pub const CORSOR_Q_KCAL_PER_MOL: f64 = 63.8;
+
 /// RPV leak to the drywell once the core-exit gas is hot (instrument lines,
 /// SRV gaskets; the BSAF Unit 1 analyses needed such a path). \[A\] Opens above
 /// [`HOT_LEAK_GAS_K`] with throat [`HOT_LEAK_M2`].
@@ -558,6 +564,8 @@ params! {
     lower_head_thickness_m = LOWER_HEAD_THICKNESS_M, A,
     debris_to_head_w_m2_k = DEBRIS_TO_HEAD_W_M2_K, A,
     penetration_wall_m = PENETRATION_WALL_M, A,
+    corsor_k0_per_min = CORSOR_K0_PER_MIN, P,
+    corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
     head_failure_wall_k = HEAD_FAILURE_WALL_K, A,
     lm_p0 = LM_P0, P,
     lm_slope = LM_SLOPE, P,
@@ -708,7 +716,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 119);
+        assert_eq!(Params::INPUTS.len(), 121);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

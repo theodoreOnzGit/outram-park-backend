@@ -2539,6 +2539,7 @@ pub struct Metrics {
     pub p_dw_peak_mpa: f64,
     pub vent_h: Option<f64>,
     pub explosion_h: Option<f64>,
+    pub fp_released_25h: f64,
 }
 ```
 
@@ -2552,6 +2553,7 @@ pub struct Metrics {
 | `p_dw_peak_mpa` | `f64` |  |
 | `vent_h` | `Option<f64>` |  |
 | `explosion_h` | `Option<f64>` |  |
+| `fp_released_25h` | `f64` | Volatile fission products (Xe, Cs, I) released from the fuel by<br>25 h, fraction of inventory (gh:#1040). Not a BSAF band: BSAF<br>reports only that most codes' releases reached an asymptote above<br>0.8 (code-to-code, figure-read; NEA No. 7525 §2, Fig. 2.5). |
 
 ##### Implementations
 
@@ -3699,6 +3701,7 @@ pub struct CoreResult {
     pub peak_clad_k: f64,
     pub exit_gas_k: f64,
     pub exit_steam_kg_s: f64,
+    pub fp_volatile_released: f64,
     pub zr_oxidised_kg: f64,
     pub h2_total_kg: f64,
     pub relocated: f64,
@@ -3723,6 +3726,7 @@ pub struct CoreResult {
 | `peak_clad_k` | `f64` |  |
 | `exit_gas_k` | `f64` |  |
 | `exit_steam_kg_s` | `f64` | Steam leaving the top of the core, kg/s (with the hydrogen,<br>`h2_kg_s`, at `exit_gas_k`). |
+| `fp_volatile_released` | `f64` | Volatile fission products (Xe, Cs, I) released from the fuel so<br>far, fraction of the core inventory (gh:#1040). |
 | `zr_oxidised_kg` | `f64` | Zirconium oxidised so far, kg; hydrogen made so far, kg. |
 | `h2_total_kg` | `f64` |  |
 | `relocated` | `f64` | Fraction of the core's nodes relocated, and debris temperature. |
@@ -4044,6 +4048,20 @@ the caller applies it.
 
 ```rust
 pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64, p_pa: f64) -> f64 { /* ... */ }
+```
+
+#### Function `volatile_release_rate`
+
+Fractional release rate of the volatile fission products (Xe, Cs, I)
+from fuel at `t_k`, 1/s: MELCOR's CORSOR-M (Vol. 2, SAND2023-10994 O, RN
+§2.3.1, Eq 2-11, C7102; no source used), `k0 exp(-Q / (R T))` per
+minute. Xe, Cs, I2 and Te share one row of its table, so one fraction
+serves the three tracked here; Te's retention by unoxidised cladding is
+not modelled and Te is not tracked. Not modelled either: the gap
+inventory's burst release at cladding failure (RN1_GAP00).
+
+```rust
+pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -5145,6 +5163,8 @@ pub struct Params {
     pub lower_head_thickness_m: f64,
     pub debris_to_head_w_m2_k: f64,
     pub penetration_wall_m: f64,
+    pub corsor_k0_per_min: f64,
+    pub corsor_q_kcal_per_mol: f64,
     pub head_failure_wall_k: f64,
     pub lm_p0: f64,
     pub lm_slope: f64,
@@ -5272,6 +5292,8 @@ pub struct Params {
 | `lower_head_thickness_m` | `f64` |  |
 | `debris_to_head_w_m2_k` | `f64` |  |
 | `penetration_wall_m` | `f64` |  |
+| `corsor_k0_per_min` | `f64` |  |
+| `corsor_q_kcal_per_mol` | `f64` |  |
 | `head_failure_wall_k` | `f64` |  |
 | `lm_p0` | `f64` |  |
 | `lm_slope` | `f64` |  |
@@ -5946,6 +5968,22 @@ pub const INTERNALS_AREA_M2: f64 = 2500.0;
 
 ```rust
 pub const INTERNALS_H: f64 = 10.0;
+```
+
+#### Constant `CORSOR_K0_PER_MIN`
+
+CORSOR-M release of the volatile fission products (Xe, Cs, I), MELCOR's
+default row for those classes (Vol. 2, SAND2023-10994 O, RN §2.3.1,
+C7102): `k0`, per minute, and `Q`, kcal/mol. \[P\]
+
+```rust
+pub const CORSOR_K0_PER_MIN: f64 = 2.0e5;
+```
+
+#### Constant `CORSOR_Q_KCAL_PER_MOL`
+
+```rust
+pub const CORSOR_Q_KCAL_PER_MOL: f64 = 63.8;
 ```
 
 #### Constant `HOT_LEAK_GAS_K`
