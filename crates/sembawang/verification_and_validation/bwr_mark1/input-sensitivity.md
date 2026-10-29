@@ -1,10 +1,12 @@
 # `bwr_mark1`: input sensitivity, to rank F13's checks (gh:#1044, #1033)
 
-> **Two runs are recorded.** The first is on the 2026-10-29 morning model
-> (MATPRO c_p, physics of `07f478da8`). The second, at the end, is on the
-> model after F3–F7 and F10 (physics of `e082fc843`). The second supersedes
-> the first's ranking; the first is kept because its method and its
-> smoothness finding still hold.
+> ~~**Two runs are recorded.**~~ **Three runs are recorded** (third added
+> 2026-10-29). The first is on the 2026-10-29 morning model (MATPRO c_p,
+> physics of `07f478da8`). The second is on the model after F3–F7 and F10
+> (physics of `e082fc843`). The third, at the end, is on the model of
+> `7accdaa7a` (163 inputs, every mechanism through the bottom of the core's
+> radiation). Each later run supersedes the earlier ranking; the earlier ones
+> are kept because their method and findings still hold.
 
 > Research, education and V&V only. AI draft, not reviewed. This is a
 > **ranking instrument**, not an uncertainty analysis and not a calibration.
@@ -454,3 +456,233 @@ Relative step: 0.01
 | `vent_area_m2` | A | 7.000000e-2 | +0.000 | +0.000 | +0.000 | no |
 | `zr_cp` | A | 3.500000e2 | +0.000 | +0.000 | +0.000 | no |
 | `zr_melt_k` | U | 2.100000e3 | +0.000 | +0.000 | +0.000 | no |
+
+## Third run (2026-10-29, physics of `7accdaa7a`)
+
+**What changed.** Since the second run the model gained the containment
+heat structures, the wetwell atmosphere, MCCI, the core plate and the core's
+radiation to its axial boundaries, top and bottom (plan rows in
+`docs/fukushima-melcor-gap-plan.md`); there are now 163 inputs. The method
+is unchanged: ±1 %, central difference, every mechanism on, run with
+`cargo run --release -p sembawang --example bwr_mark1_sensitivity` on 4
+threads. Baseline: lower head 5.983 h, depressurised 5.242 h (main steam
+line creep), H2 296.36 kg, drywell peak 0.5608 MPa, vent 24.16 h.
+
+**Why it was run.** Adding the bottom of the core's radiation (about 0.2 MW,
+a small term) moved the lower head 5.00 -> 5.98 h and H2 184 -> 296 kg. A
+trace showed the two runs agreeing to 18000 s and the head's failure at
+5.00 h being decided within one relief-valve cycle. The question was how
+many inputs sit as close to that edge.
+
+### Predictions (written before the run)
+
+1. A branch flip shows as a lower-head elasticity of order ±8 to ±17.
+2. At least 20 % of the 163 inputs flip the branch on one side.
+3. H2 elasticities of order 15–20 for the same inputs.
+4. Inputs with no route into the in-vessel phase (cavity, concrete, wetwell
+   shell, the drywell's outer heat path) do not flip it.
+
+### Results
+
+**22 of 163 inputs (13.5 %) flip the branch at ±1 %**: lower-head
+elasticity ±5.8–8.9, H2 ±14–21. Prediction 2 missed (13.5 %, not ≥20 %);
+1 partly (the magnitudes are ±5.8–8.9, the low end of the range); 3 and 4
+held (every cavity, concrete, wetwell and outer-drywell input is below
+±0.07). The same sign on the lower-head and H2 columns marks one side
+flipping to the early branch (head at the plate's failure, about 5.0 h, H2
+about 185 kg); `safety_close_pa` alone has opposite signs, and its
+drywell-peak elasticity of −21 marks a different change.
+
+The 22, in the order of the table: `safety_close_pa` (U),
+`normal_level_above_taf_m` (U), `uh_low_b_k` (P), `thermal_power_w` (P),
+`hot_leak_gas_k` (A), `rods_per_assembly` (U), `baf_m` (A), `pellet_r_m` (U),
+`lower_plenum_free` (A), `upper_free` (A), `gap_h` (A), `boiling_h` (A),
+`max_pool_void` (A), `assembly_pitch_m` (U), `rod_collapse_k` (A),
+`uh_high_b_k` (P), `u239_per_fission` (A), `uh_low_max_k` (P), `hot_leak_m2`
+(A), `initial_pressure_pa` (P), `oxidation_heat_j_per_kg_zr` (P),
+`head_failure_wall_k` (A).
+
+**Interpretation.** These are not derivatives but jumps between two
+branches, as in the second run, and now the set is wider: published inputs
+(thermal power, the fuel's enthalpy constants, the oxidation heat) flip it
+as readily as assumed ones. A 1 % change in a published thermal power is
+inside that input's own uncertainty. So **this model does not resolve the
+lower-head failure time better than about 1 h, nor the in-vessel H2 better
+than about 110 kg**, and the baseline's 5.98 h and 296 kg are one branch
+of two, not a converged answer. Ranking F13's checks by these elasticities
+says little; what it calls for is reporting the head time and H2 as a
+spread over the inputs' uncertainties, not as one number. Below the 22, the
+largest are `uo2_k` (head +3.5, H2 −12), then the RPV's height and radius,
+the safety-valve opening pressure and the relief valves (head ±1–3, H2
+±3–8); the rest are below ±3 on both.
+
+### Full table, third run
+
+Baseline: Metrics { lower_head_h: Some(5.982777777777778), depressurised_h: Some(5.241944444444444), h2_25h_kg: 296.3635673378943, p_dw_peak_mpa: 0.56079567411332, vent_h: Some(24.163055555555555), explosion_h: None, fp_released_25h: 0.9965694160417494, uo2_released_25h_kg: 2.846744940305036 }
+Relative step: 0.01
+
+| Input | Tag | Default | lower-head time | H2 at 25 h | drywell peak | vent or explosion changes |
+|---|---|---|---|---|---|---|
+| `safety_close_pa` | U | 7.900000e6 | +8.696 | -8.839 | -21.444 | no |
+| `normal_level_above_taf_m` | U | 4.400000e0 | +7.180 | +20.936 | -9.346 | no |
+| `uh_low_b_k` | P | 1.682000e4 | -7.324 | -20.699 | +8.900 | no |
+| `thermal_power_w` | P | 1.380000e9 | +5.764 | +20.144 | -7.185 | no |
+| `hot_leak_gas_k` | A | 1.000000e3 | +7.426 | +19.621 | -9.013 | no |
+| `rods_per_assembly` | U | 6.200000e1 | -7.104 | -19.267 | +8.758 | no |
+| `baf_m` | A | 5.000000e0 | +8.153 | +18.733 | -7.668 | no |
+| `pellet_r_m` | U | 5.200000e-3 | -6.783 | -18.469 | +9.003 | no |
+| `lower_plenum_free` | A | 7.500000e-1 | +8.107 | +18.419 | -7.684 | no |
+| `upper_free` | A | 8.500000e-1 | -8.406 | -18.306 | +6.802 | no |
+| `gap_h` | A | 5.000000e3 | +8.062 | +18.234 | -7.693 | no |
+| `boiling_h` | A | 2.000000e4 | +8.155 | +18.129 | -6.960 | no |
+| `max_pool_void` | A | 4.000000e-1 | +8.199 | +17.778 | -9.127 | no |
+| `assembly_pitch_m` | U | 1.524000e-1 | -8.081 | -17.449 | +9.111 | no |
+| `rod_collapse_k` | A | 2.500000e3 | -7.394 | -17.414 | +9.177 | no |
+| `uh_high_b_k` | P | 1.661000e4 | +8.889 | +17.393 | -9.284 | no |
+| `u239_per_fission` | A | 5.260000e-1 | -8.320 | -17.164 | +7.371 | no |
+| `uh_low_max_k` | P | 1.853000e3 | -8.281 | -16.781 | +9.182 | no |
+| `hot_leak_m2` | A | 3.000000e-4 | -8.009 | -16.240 | +9.421 | no |
+| `initial_pressure_pa` | P | 7.030000e6 | +7.984 | +15.850 | -9.448 | no |
+| `oxidation_heat_j_per_kg_zr` | P | 6.763001e6 | +8.030 | +15.189 | -9.206 | no |
+| `head_failure_wall_k` | A | 1.273150e3 | +8.202 | +14.361 | -11.246 | no |
+| `uo2_k` | A | 3.000000e0 | +3.545 | -12.003 | -4.060 | no |
+| `rpv_height_m` | U | 2.000000e1 | -2.616 | +7.910 | +2.738 | no |
+| `rpv_radius_m` | U | 2.400000e0 | +1.168 | +3.911 | +1.926 | no |
+| `safety_open_pa` | U | 8.300000e6 | -1.263 | +3.805 | +1.379 | no |
+| `relief_valves` | U | 4.000000e0 | -1.460 | +3.305 | +1.202 | no |
+| `relief_throat_m2` | A | 8.100000e-3 | -1.472 | +3.263 | +1.186 | no |
+| `active_length_m` | U | 3.660000e0 | +0.522 | -3.038 | -2.648 | no |
+| `core_other_area_m2` | A | 1.000000e0 | -0.854 | +2.539 | +0.774 | no |
+| `h2o_h2_diffusivity_b` | P | 1.680000e0 | -0.016 | -1.696 | -0.432 | no |
+| `q_u235_mev` | A | 1.990000e2 | +1.418 | +0.409 | -0.055 | no |
+| `msl_lm_a1` | P | -5.335000e3 | -1.351 | -0.764 | -0.000 | no |
+| `zr_density` | P | 6.550000e3 | +0.093 | -1.304 | -0.117 | no |
+| `clad_breach_k` | A | 2.400000e3 | -0.297 | +0.722 | -1.202 | no |
+| `msl_lm_b1` | P | 6.229130e4 | +0.980 | +1.190 | +0.001 | no |
+| `ic_autostart_pa` | P | 7.231300e6 | -0.149 | +1.188 | +0.000 | no |
+| `channel_inner_width_m` | U | 1.340000e-1 | -0.128 | -1.003 | -0.000 | no |
+| `vent_rupture_disk_pa` | A | 5.490000e5 | +0.000 | -0.001 | +0.811 | no |
+| `clad_outer_r_m` | U | 6.135000e-3 | +0.799 | -0.128 | -0.488 | no |
+| `channel_length_m` | U | 4.200000e0 | +0.039 | +0.789 | +0.001 | no |
+| `internals_kg` | A | 5.000000e4 | +0.715 | -0.773 | -0.059 | no |
+| `initial_pool_k` | A | 3.031500e2 | -0.274 | -0.049 | +0.754 | no |
+| `msl_lm_c` | P | 1.644000e1 | -0.441 | -0.675 | -0.001 | no |
+| `corsor_q_kcal_per_mol` | P | 6.380000e1 | -0.631 | -0.119 | -0.000 | no |
+| `q_pu239_mev` | A | 2.102000e2 | +0.618 | -0.002 | -0.001 | no |
+| `uo2_density` | A | 1.041200e4 | +0.156 | +0.525 | -0.339 | no |
+| `channel_wall_m` | U | 2.032000e-3 | -0.135 | +0.479 | +0.000 | no |
+| `quench_h` | P | 1.000000e2 | +0.095 | -0.468 | -0.001 | no |
+| `debris_particle_m` | A | 1.000000e-2 | -0.098 | +0.457 | +0.000 | no |
+| `quench_tau_s` | P | 3.600000e2 | -0.260 | -0.453 | +0.000 | no |
+| `internals_h` | A | 1.000000e1 | +0.399 | +0.448 | -0.001 | no |
+| `e_np239_mev` | P | 4.190000e-1 | -0.441 | -0.356 | +0.001 | no |
+| `oxidation_min_k` | P | 1.100000e3 | -0.346 | -0.432 | -0.000 | no |
+| `core_plate_m` | A | 5.000000e-2 | -0.084 | -0.427 | +0.001 | no |
+| `uh_high_a` | P | 8.790000e1 | -0.413 | -0.406 | -0.001 | no |
+| `rpv_wall_m` | A | 1.600000e-1 | -0.265 | -0.374 | +0.001 | no |
+| `fission_share_pu239` | A | 3.106205e-1 | +0.283 | +0.362 | +0.001 | no |
+| `zr_melt_k` | U | 2.100000e3 | +0.033 | +0.361 | -0.080 | no |
+| `msl_inner_radius_m` | A | 2.540000e-1 | +0.232 | +0.355 | +0.000 | no |
+| `msl_wall_m` | A | 2.500000e-2 | +0.237 | +0.353 | +0.000 | no |
+| `assemblies` | P | 4.000000e2 | +0.351 | -0.037 | -0.200 | no |
+| `uh_high_min_k` | P | 1.873000e3 | +0.351 | -0.303 | -0.000 | no |
+| `clad_wall_m` | U | 8.100000e-4 | -0.228 | +0.284 | +0.000 | no |
+| `bubble_rise_m_s` | A | 3.000000e-1 | +0.253 | +0.199 | -0.000 | no |
+| `ic_ua_w_per_k` | A | 2.300000e5 | +0.234 | +0.046 | -0.000 | no |
+| `cosine_extrapolation` | A | 1.300000e0 | +0.149 | -0.225 | +0.171 | no |
+| `bypass_gain_kg_s_pa` | A | 1.000000e-3 | +0.023 | -0.199 | -0.001 | no |
+| `axial_exchange` | A | 1.000000e-1 | +0.030 | -0.190 | -0.001 | no |
+| `operating_time_s` | A | 5.050000e7 | +0.181 | +0.170 | +0.002 | no |
+| `internals_area_m2` | A | 2.500000e3 | +0.169 | +0.158 | +0.001 | no |
+| `h2o_h2_diffusivity_a` | P | 6.606390e-4 | -0.160 | -0.059 | -0.001 | no |
+| `uh_low_a` | P | 2.960000e1 | +0.012 | +0.159 | -0.001 | no |
+| `q_u238_mev` | A | 1.993000e2 | +0.156 | +0.015 | +0.001 | no |
+| `msl_lines` | A | 2.000000e0 | +0.130 | +0.143 | +0.000 | no |
+| `internals_loss_h` | A | 5.000000e0 | +0.104 | -0.023 | +0.000 | no |
+| `internals_envelope_m2` | A | 7.840000e1 | -0.088 | +0.025 | +0.001 | no |
+| `fission_share_u235` | A | 6.472890e-1 | -0.081 | -0.020 | -0.001 | no |
+| `flpup` | P | 2.500000e-1 | -0.021 | +0.077 | -0.000 | no |
+| `te_inventory_kg` | A | 1.541205e1 | -0.021 | -0.067 | -0.000 | no |
+| `corsor_k0_per_min` | P | 2.000000e5 | +0.067 | +0.014 | +0.001 | no |
+| `concrete_k` | A | 1.400000e0 | -0.026 | -0.061 | +0.000 | no |
+| `dw_gap_emissivity` | A | 8.000000e-1 | -0.060 | +0.020 | -0.000 | no |
+| `dw_concrete_m` | A | 1.500000e0 | +0.058 | -0.001 | -0.000 | no |
+| `dw_gap_m` | A | 5.000000e-2 | +0.056 | +0.023 | -0.000 | no |
+| `shroud_thickness_m` | A | 5.000000e-2 | -0.049 | -0.013 | -0.000 | no |
+| `corsor_uo2_k0_per_min` | P | 1.460000e7 | +0.005 | -0.048 | +0.001 | no |
+| `ww_pool_surface_m2` | A | 7.500000e2 | +0.021 | +0.048 | -0.000 | no |
+| `drywell_volume_m3` | U | 3.410000e3 | -0.046 | -0.038 | +0.000 | no |
+| `debris_porosity` | A | 4.000000e-1 | +0.016 | -0.046 | -0.001 | no |
+| `initial_containment_pa` | A | 1.050000e5 | +0.035 | +0.043 | +0.001 | no |
+| `debris_to_head_w_m2_k` | A | 1.000000e3 | +0.042 | +0.025 | +0.001 | no |
+| `initial_drywell_k` | A | 3.231500e2 | -0.042 | +0.017 | +0.002 | no |
+| `zro2_density` | P | 5.600000e3 | -0.026 | +0.041 | -0.000 | no |
+| `ic_shell_water_kg` | A | 1.000000e5 | +0.039 | -0.018 | +0.000 | no |
+| `downcomer_count` | A | 9.600000e1 | -0.005 | +0.039 | -0.000 | no |
+| `wetwell_gas_m3` | P | 2.620000e3 | +0.035 | -0.024 | -0.001 | no |
+| `water_emissivity` | A | 9.500000e-1 | -0.009 | +0.035 | +0.000 | no |
+| `rb_wall_h` | A | 5.000000e0 | -0.005 | +0.031 | +0.002 | no |
+| `ww_shell_c` | A | 7.960000e7 | -0.030 | -0.026 | +0.000 | no |
+| `lower_head_thickness_m` | A | 2.200000e-1 | +0.007 | -0.029 | +0.000 | no |
+| `fissions_per_fissile_atom` | A | 7.130000e-1 | -0.019 | -0.029 | +0.000 | no |
+| `dw_wall_area_m2` | A | 4.000000e3 | +0.028 | +0.017 | -0.001 | no |
+| `concrete_cp` | A | 1.000000e3 | -0.002 | -0.027 | +0.001 | no |
+| `concrete_density` | P | 2.340000e3 | -0.002 | -0.027 | -0.000 | no |
+| `cs_inventory_kg` | P | 1.540000e2 | -0.026 | +0.027 | -0.001 | no |
+| `radial_exchange` | A | 1.000000e-1 | +0.023 | -0.023 | +0.000 | no |
+| `dw_wall_c` | A | 5.000000e8 | +0.023 | -0.021 | -0.001 | no |
+| `vent_submergence_pa` | A | 1.180000e4 | -0.016 | -0.002 | +0.023 | no |
+| `dw_floor_m2` | A | 2.000000e2 | +0.021 | +0.012 | +0.000 | no |
+| `e_u239_mev` | P | 4.740000e-1 | -0.019 | +0.018 | -0.000 | no |
+| `vacuum_breaker_pa` | A | 3.400000e3 | -0.005 | -0.017 | +0.001 | no |
+| `ww_shell_area_m2` | A | 1.353000e3 | -0.005 | +0.014 | -0.001 | no |
+| `np239_decay_per_s` | P | 3.410000e-6 | +0.014 | -0.003 | +0.000 | no |
+| `u239_decay_per_s` | P | 4.910000e-4 | +0.014 | +0.011 | +0.000 | no |
+| `ww_shell_height_m` | A | 5.000000e0 | -0.014 | +0.008 | +0.001 | no |
+| `dw_wall_height_m` | A | 2.000000e1 | +0.014 | +0.009 | +0.000 | no |
+| `msl_insulation_h` | A | 1.000000e0 | +0.012 | +0.001 | +0.001 | no |
+| `corsor_uo2_q_kcal_per_mol` | P | 1.431000e2 | -0.002 | -0.010 | +0.001 | no |
+| `pool_water_m3` | P | 1.750000e3 | +0.005 | +0.008 | +0.000 | no |
+| `penetration_wall_m` | A | 1.000000e-2 | +0.005 | -0.000 | -0.001 | no |
+| `discharge_coefficient` | A | 6.000000e-1 | +0.000 | +0.000 | -0.001 | no |
+| `vacuum_breaker_m2` | A | 5.000000e-1 | +0.000 | +0.000 | -0.001 | no |
+| `cavity_emissivity` | P | 9.000000e-1 | +0.000 | -0.000 | -0.001 | no |
+| `cavity_area_m2` | A | 2.120000e1 | +0.000 | -0.000 | +0.001 | no |
+| `injection_temperature_k` | A | 2.931500e2 | +0.000 | +0.000 | -0.001 | no |
+| `concrete_ablation_k` | P | 1.450000e3 | +0.000 | -0.000 | -0.001 | no |
+| `fire_engine_max_kg_s` | A | 4.000000e0 | +0.000 | -0.000 | +0.001 | no |
+| `downcomer_area_m2` | A | 2.000000e1 | +0.000 | +0.000 | +0.001 | no |
+| `fire_engine_shutoff_pa` | A | 1.000000e6 | +0.000 | -0.000 | -0.001 | no |
+| `zr_cp` | A | 3.500000e2 | +0.000 | +0.000 | +0.001 | no |
+| `i_inventory_kg` | P | 1.198000e1 | +0.000 | -0.000 | +0.001 | no |
+| `cavity_h` | A | 1.000000e3 | +0.000 | -0.000 | -0.001 | no |
+| `concrete_ablation_j_per_kg` | A | 1.816000e6 | +0.000 | +0.000 | -0.000 | no |
+| `damage_b` | P | 7.000000e-3 | +0.000 | -0.000 | -0.000 | no |
+| `uo2_cp` | A | 3.300000e2 | +0.000 | +0.000 | -0.000 | no |
+| `concrete_h2o_fraction` | P | 5.860000e-2 | +0.000 | -0.000 | -0.000 | no |
+| `damage_a` | P | 2.160000e-11 | +0.000 | -0.000 | -0.000 | no |
+| `concrete_co2_fraction` | P | 1.500000e-2 | +0.000 | +0.000 | -0.000 | no |
+| `zr_co2_heat_j_per_kg` | P | 5.860738e6 | +0.000 | -0.000 | +0.000 | no |
+| `vent_area_m2` | A | 7.000000e-2 | +0.000 | +0.000 | +0.000 | no |
+| `breach_m2` | A | 1.000000e-2 | +0.000 | +0.000 | +0.000 | no |
+| `breach_diameter_m` | A | 1.000000e-1 | +0.000 | -0.000 | +0.000 | no |
+| `containment_design_pa` | P | 5.313000e5 | +0.000 | +0.000 | +0.000 | no |
+| `core_plate_beam_m` | A | 3.000000e-1 | +0.000 | +0.000 | +0.000 | no |
+| `creep_fail_strain` | P | 1.800000e-1 | +0.000 | +0.000 | +0.000 | no |
+| `debris_quench_s` | A | 1.200000e2 | +0.000 | +0.000 | +0.000 | no |
+| `dw_wall_h` | A | 2.000000e1 | +0.000 | +0.000 | +0.000 | no |
+| `flange_leak_m2` | A | 5.000000e-4 | +0.000 | +0.000 | +0.000 | no |
+| `flange_leak_pa` | A | 7.500000e5 | +0.000 | +0.000 | +0.000 | no |
+| `h2_explosion` | A | 8.000000e-2 | +0.000 | +0.000 | +0.000 | no |
+| `h2_flammable` | P | 4.000000e-2 | +0.000 | +0.000 | +0.000 | no |
+| `lm_c` | P | 7.042000e0 | +0.000 | +0.000 | +0.000 | no |
+| `lm_p0` | P | 4.812000e4 | +0.000 | +0.000 | +0.000 | no |
+| `lm_slope` | P | 4.725000e3 | +0.000 | +0.000 | +0.000 | no |
+| `lower_head_failure_k` | A | 1.500000e3 | +0.000 | +0.000 | +0.000 | no |
+| `lp_bottom_level_m` | A | 5.000000e-1 | +0.000 | +0.000 | +0.000 | no |
+| `min_metal_m` | A | 1.000000e-4 | +0.000 | +0.000 | +0.000 | no |
+| `msiv_closure_s` | U | 6.000000e1 | +0.000 | +0.000 | +0.000 | no |
+| `reactor_building_m3` | A | 2.600000e4 | +0.000 | +0.000 | +0.000 | no |
+| `relief_close_pa` | U | 7.101300e6 | +0.000 | +0.000 | +0.000 | no |
+| `relief_open_pa` | U | 7.471300e6 | +0.000 | +0.000 | +0.000 | no |
+| `rod_collapse_max_k` | A | 3.100000e3 | +0.000 | +0.000 | +0.000 | no |
