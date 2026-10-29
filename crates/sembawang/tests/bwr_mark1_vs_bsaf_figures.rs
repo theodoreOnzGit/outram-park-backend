@@ -196,6 +196,20 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// flip): the internals now keep 11.3 kg of cesium at 26 h; Cs in the S/C
 /// water inside 64.0 % -> 97.8 %, on drywell structures 46.7 % -> 36.0 %.
 ///
+/// **Unmoved 2026-10-29 by `X_o` and the swarm rise** (to the 1e-3 of
+/// these fractions), though both move the amounts: at 26 h, cesium in the
+/// pool 106.22 kg (neither) -> 103.96 (swarm only) and 105.98 (`X_o`
+/// only) -> 103.52 (both); vented at 23.7 h 3.67 -> 5.93, 3.91 -> 6.37.
+/// **The swarm's sign on the vented cesium is a miss** (predicted: less
+/// aerosol into the wetwell, so less vented). It removes more at the
+/// downcomers (pool 53.85 against 50.01 kg at 12 h), but by 23 h more is
+/// airborne (6.95 against 4.50 kg). The leading hypothesis, untested: the
+/// cesium on aerosol is not tracked by section but lumped, so it leaves
+/// the wetwell gas at the aerosol's *mass-weighted* settling rate. Without
+/// the swarm, the large particles kept that rate high; once they are
+/// scrubbed at the vent, the rate falls and the lumped cesium stays
+/// airborne. Tracking each class by section, as MELCOR does, is the test.
+///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
@@ -241,6 +255,14 @@ fn cesium_against_fig_2_6() {
 /// before the run: rising to 0.3-0.6, inside much of the time: held,
 /// roughly. Drywell structures still 0 %. `without_pool_scrubbing`
 /// reproduces 0 % (pinned).
+///
+/// **Moved 2026-10-29 by MELCOR's `X_o`** (the condensation scrubbing stops
+/// where the pool is near saturation, Eq D-6; `scrubbing_saturation`):
+/// inside **53.9 % -> 55.1 %**; iodine in the pool at 26 h 7.937 -> 7.785
+/// kg, vented 1.634 -> 1.786 kg. Predicted: less scrubbing, so less in the
+/// pool and more vented: held. The swarm rise (`swarm_scrubbing`) moves no
+/// iodine: it is all vapour, and the vapour's swarm scrubbing (MELCOR
+/// Appendix F) is not built.
 #[test]
 fn iodine_against_fig_2_6() {
     let m = model();
@@ -249,7 +271,7 @@ fn iodine_against_fig_2_6() {
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
-    assert!((d.0 - 0.5393).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    assert!((d.0 - 0.5506).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
         Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss(),
         Params::default(),

@@ -435,6 +435,11 @@ pub const INITIAL_POOL_K: f64 = 303.15;
 /// water), total flow area, m^2, and discharge coefficient. \[A\]
 pub const VENT_SUBMERGENCE_PA: f64 = 11_800.0;
 pub const DOWNCOMER_AREA_M2: f64 = 20.0;
+/// Number of downcomers sharing that area. \[A\] the Mark I layout of 96
+/// (not found for Unit 1 in the held sources; each is then 0.515 m across).
+/// Sets each downcomer's flow and diameter in the swarm-rise scrubbing
+/// (`sparc`).
+pub const DOWNCOMER_COUNT: f64 = 96.0;
 pub const DISCHARGE_COEFFICIENT: f64 = 0.6;
 /// Wetwell-to-drywell vacuum breakers: opening differential, Pa, and area,
 /// m^2. \[A\]
@@ -659,6 +664,7 @@ params! {
     initial_pool_k = INITIAL_POOL_K, A,
     vent_submergence_pa = VENT_SUBMERGENCE_PA, A,
     downcomer_area_m2 = DOWNCOMER_AREA_M2, A,
+    downcomer_count = DOWNCOMER_COUNT, A,
     discharge_coefficient = DISCHARGE_COEFFICIENT, A,
     vacuum_breaker_pa = VACUUM_BREAKER_PA, A,
     vacuum_breaker_m2 = VACUUM_BREAKER_M2, A,
@@ -758,7 +764,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 131);
+        assert_eq!(Params::INPUTS.len(), 132);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

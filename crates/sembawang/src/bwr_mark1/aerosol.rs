@@ -107,7 +107,7 @@ impl Medium {
         1.0 + kn * (self.slip + 0.4 * (-1.1 / kn).r_exp())
     }
     /// Particle diffusion coefficient, m^2/s (Eq B-2).
-    fn diffusivity(&self, d: f64) -> f64 {
+    pub(crate) fn diffusivity(&self, d: f64) -> f64 {
         K_B * self.t_k / (3.0 * std::f64::consts::PI * d * self.mu_pa_s * self.chi) * self.slip_correction(d)
     }
     /// Stokes terminal velocity with slip, m/s (Eq B-14, and the settling

@@ -4017,6 +4017,8 @@ pub struct ContainmentSnapshot {
     pub i_relief_kg: f64,
     pub i_leak_kg: f64,
     pub pool_scrubbing: bool,
+    pub scrubbing_saturation: bool,
+    pub swarm_scrubbing: bool,
     pub prm: Params,
 }
 ```
@@ -4046,6 +4048,8 @@ pub struct ContainmentSnapshot {
 | `i_relief_kg` | `f64` | Iodine (as I2 vapour) likewise, kg. |
 | `i_leak_kg` | `f64` |  |
 | `pool_scrubbing` | `bool` | Pool scrubbing by steam condensation at the vent exits (SPARC-90's<br>DF_EC; `Mechanisms::pool_scrubbing`). |
+| `scrubbing_saturation` | `bool` | MELCOR's `X_o` in that scrubbing, and the impaction and swarm-rise<br>factors past the downcomers (`Mechanisms::scrubbing_saturation`,<br>`Mechanisms::swarm_scrubbing`). |
+| `swarm_scrubbing` | `bool` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -6336,6 +6340,7 @@ pub struct Params {
     pub initial_pool_k: f64,
     pub vent_submergence_pa: f64,
     pub downcomer_area_m2: f64,
+    pub downcomer_count: f64,
     pub discharge_coefficient: f64,
     pub vacuum_breaker_pa: f64,
     pub vacuum_breaker_m2: f64,
@@ -6475,6 +6480,7 @@ pub struct Params {
 | `initial_pool_k` | `f64` |  |
 | `vent_submergence_pa` | `f64` |  |
 | `downcomer_area_m2` | `f64` |  |
+| `downcomer_count` | `f64` |  |
 | `discharge_coefficient` | `f64` |  |
 | `vacuum_breaker_pa` | `f64` |  |
 | `vacuum_breaker_m2` | `f64` |  |
@@ -7725,6 +7731,17 @@ pub const VENT_SUBMERGENCE_PA: f64 = 11_800.0;
 pub const DOWNCOMER_AREA_M2: f64 = 20.0;
 ```
 
+#### Constant `DOWNCOMER_COUNT`
+
+Number of downcomers sharing that area. \[A\] the Mark I layout of 96
+(not found for Unit 1 in the held sources; each is then 0.515 m across).
+Sets each downcomer's flow and diameter in the swarm-rise scrubbing
+(`sparc`).
+
+```rust
+pub const DOWNCOMER_COUNT: f64 = 96.0;
+```
+
 #### Constant `DISCHARGE_COEFFICIENT`
 
 ```rust
@@ -8188,6 +8205,553 @@ pub const CS: usize = 0;
 
 ```rust
 pub const IODINE: usize = 1;
+```
+
+## Module `sparc`
+
+Pool scrubbing past the vent exit: SPARC-90's inertial impaction and
+swarm-rise removal, as MELCOR describes them (gh:#1047; no source used;
+MELCOR 2.2 Vol. 2, SAND2023-10994 O, RN §2.7.1 Eqs 2-112 and 2-113,
+Appendices D and E).
+
+MELCOR's overall decontamination factor for each particle size is
+
+```text
+DF_OV,i = DF_EC . DF_II,i . DF_ER,i . DF_SR,i                (2-113)
+```
+
+`DF_EC`, removal in proportion to the gas volume the steam's condensation
+takes away, is in `containment.rs`. This module gives the next two:
+
+- **`DF_II`, inertial impaction** into the front of the decelerating
+  globule at the vent exit (Eqs D-8 to D-11), from the Stokes number of
+  the particle at the vent's exit velocity.
+- **`DF_SR`, the swarm rise** (Eq 2-112, Appendix E). The injected gas
+  forms a globule (Eqs D-1 to D-4) that breaks into a swarm of bubbles
+  over twelve of its diameters. The rise from the vent exit to the pool
+  surface is marched in `N_RISE` steps; in each, the part of the gas
+  already in bubbles loses particles to the bubble wall by centrifugal
+  and Brownian deposition and by settling (Eqs E.12 to E.25), the part
+  still in the globule loses none.
+
+`DF_ER` (deposition during injection) applies only to multihole vents
+(MELCOR's `MVENT=1`). The downcomers are single large pipes, so it is 1
+and is not built.
+
+**Where this departs from the manual, and why:**
+
+- **The bubble is at the pool's temperature and saturated with
+  vapour.** MELCOR iterates the bubble's heat and mass transfer through
+  each step (Eqs E.6 to E.11). The gas is taken to be already at the
+  pool's temperature when it leaves the vent exit region, which is
+  MELCOR's own assumption for that region. Two things follow. The
+  evaporation into the bubble is whatever keeps it saturated as it
+  expands under the falling static head. And the particles do not grow
+  by condensation (no supersaturation, so Eq E.10 is not needed). That
+  removes a removal mechanism MELCOR has, so this is a lower bound.
+- **The exposure time of the bubble surface** is the boundary-layer
+  value for a stretching surface (Levich): `tau_e = int r^2 V_s ds /
+  (r^2 V_s^2)`. The manual's "arc length divided by the local surface
+  velocity" is the flat-plate limit of this. Taken literally on a
+  bubble it diverges at the top stagnation point, where V_s goes to 0
+  (the integral of ds/V_s is logarithmic there). On a sphere, Levich's
+  form gives Boussinesq's Sh = (2/sqrt(pi)) Pe^(1/2) exactly; the test
+  checks it.
+- **The surface normal** is the ellipse's own normal: tan beta =
+  (b/a)^2 tan theta. The manual's Eq E.15 prints (a/b)^2. With a > b
+  (oblate), that would make the normal *less* vertical than the radius
+  on the flat top, which is geometrically wrong.
+- **The evaporation-hindrance floor** of Eq E.14 ("limited to a minimum
+  value of V_D,i") is read as the diffusion velocity actually in
+  effect, `xi V_D` of Eq E.24. Read as the unhindered `V_D`, the floor
+  would undo E.24 wherever it binds.
+- **The fraction of the gas still in the globule** is its volume
+  fraction, `(D_g / D_g,o)^3`, from the linear shrinkage of Eq D-4.
+  The manual gives the shrinkage but not the fraction.
+- **Settling** is Stokes's law with slip (Eq E.16) throughout. MELCOR
+  switches to empirical drag above about 70 um (Eqs E.17 to E.19);
+  the largest section here is 40 um.
+
+Gas properties are air's, as MELCOR evaluates every aerosol
+coefficient (RN §2.4.2.3, constraint c).
+
+```rust
+pub mod sparc { /* ... */ }
+```
+
+### Types
+
+#### Enum `Vent`
+
+The vent types of MELCOR's globule correlation `v_n = a We^b` (Eq D-1,
+C7151 defaults).
+
+```rust
+pub enum Vent {
+    MultipleHoles,
+    Downcomer,
+    Horizontal,
+}
+```
+
+##### Variants
+
+###### `MultipleHoles`
+
+###### `Downcomer`
+
+###### `Horizontal`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Pool`
+
+The pool where the gas is injected.
+
+```rust
+pub struct Pool {
+    pub t_k: f64,
+    pub p_surface_pa: f64,
+    pub depth_m: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` |  |
+| `p_surface_pa` | `f64` | Gas pressure at the pool surface, Pa. |
+| `depth_m` | `f64` | Submergence of the vent exit, m. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn submerged(t_k: f64, p_surface_pa: f64, head_pa: f64) -> Self { /* ... */ }
+  ```
+  A pool at `t_k` under gas at `p_surface_pa`, the vent exit under a
+
+- ```rust
+  pub fn x_o(self: &Self) -> f64 { /* ... */ }
+  ```
+  MELCOR's `X_o` (Eq D-6): the non-condensable mole fraction of the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Injection`
+
+The gas entering one vent: its non-condensable flow, mol/s, its total
+volumetric flow at the vent exit before equilibration, m^3/s, and the
+vent's diameter, m.
+
+```rust
+pub struct Injection {
+    pub vent: Vent,
+    pub diameter_m: f64,
+    pub nc_mol_s: f64,
+    pub q_exit_m3_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `vent` | `Vent` |  |
+| `diameter_m` | `f64` |  |
+| `nc_mol_s` | `f64` |  |
+| `q_exit_m3_s` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `bubble_axes`
+
+The bubble of the swarm, as an oblate spheroid of semi-axes `a`
+(horizontal) and `b` (vertical), m, for a non-condensable mole fraction
+`x_nc` (Eqs E.1, E.2).
+
+```rust
+pub fn bubble_axes(x_nc: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `rise_velocity`
+
+The bubble's rise velocity relative to the liquid, m/s (Eq E.3, with
+`sigma` in N/m and `rho_l` in kg/m^3 converted to the correlation's cgs).
+
+```rust
+pub fn rise_velocity(d_cm: f64, sigma: f64, rho_l: f64) -> f64 { /* ... */ }
+```
+
+#### Function `swarm_velocity`
+
+The swarm's rise velocity, m/s (Eqs E.4, E.5): the mean of the
+correlation at the vent depth and at the surface, for a total flow
+`q_l_s` (litre/s, at half depth) through one vent, at most 1.7 m/s.
+
+```rust
+pub fn swarm_velocity(q_l_s: f64, depth_m: f64) -> f64 { /* ... */ }
+```
+
+#### Function `globule_diameter`
+
+The initial globule's diameter, m (Eqs D-1 to D-3), for a gas flow
+`q` (m^3/s at the vent depth, in equilibrium with the pool).
+
+```rust
+pub fn globule_diameter(vent: Vent, d_o: f64, q: f64, sigma: f64, rho_l: f64) -> f64 { /* ... */ }
+```
+
+#### Function `impaction_df`
+
+The inertial-impaction factor `DF_II` (Eqs D-8 to D-11) for a particle
+of diameter `d` and density `rho_p`, gas viscosity `mu`, vent exit
+velocity `v_e` and vent diameter `d_o`.
+
+```rust
+pub fn impaction_df(d: f64, rho_p: f64, mu: f64, v_e: f64, d_o: f64) -> f64 { /* ... */ }
+```
+
+#### Function `pass_fractions`
+
+Pass fractions `1 / (DF_II DF_SR)` for particles of diameters `d` (m)
+and density `rho_p` injected through one vent into `pool`.
+
+```rust
+pub fn pass_fractions(pool: &Pool, inj: &Injection, d: &[f64], rho_p: f64) -> Vec<f64> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `N_RISE`
+
+Steps of the rise (MELCOR's XNRISE, C7150(1), default 10).
+
+```rust
+pub const N_RISE: usize = 10;
 ```
 
 ## Module `steam`
@@ -9498,6 +10062,8 @@ pub struct Mechanisms {
     pub pool_scrubbing: bool,
     pub in_vessel_deposition: bool,
     pub internals_heat_loss: bool,
+    pub scrubbing_saturation: bool,
+    pub swarm_scrubbing: bool,
 }
 ```
 
@@ -9526,6 +10092,8 @@ pub struct Mechanisms {
 | `pool_scrubbing` | `bool` | Pool scrubbing of aerosol and iodine where gas enters the pool (the<br>relief valves' quenchers, the downcomers), by the steam's<br>condensation: SPARC-90's DF_EC (2026-10-29). Off is MELCOR's<br>default with pool interaction off: everything passes. |
 | `in_vessel_deposition` | `bool` | Cesium and iodine vapour condensing on the dome internals in the<br>vessel (2026-10-29); off is everything leaving the core reaching the<br>containment. |
 | `internals_heat_loss` | `bool` | The dome internals lose heat to the saturated dome by natural<br>convection (2026-10-29); off is no heat loss once the flow stops. |
+| `scrubbing_saturation` | `bool` | The condensation scrubbing stops where the pool is near saturation:<br>MELCOR's `DF_EC = X_o / X_i` with `X_o` the non-condensable fraction<br>of the gas in equilibrium with the pool at the vent depth (Eqs D-5,<br>D-6; 2026-10-29). Off is `X_o = 1`: all the steam condenses. |
+| `swarm_scrubbing` | `bool` | Inertial impaction and swarm-rise scrubbing past the downcomer exits<br>(SPARC-90's `DF_II` and `DF_SR`, [`sparc`]; 2026-10-29). Off is<br>condensation scrubbing alone. |
 
 ##### Implementations
 
@@ -9630,6 +10198,16 @@ pub struct Mechanisms {
   pub fn without_internals_heat_loss(self: Self) -> Self { /* ... */ }
   ```
   The dome internals lose no heat once the flow past them stops: the
+
+- ```rust
+  pub fn without_scrubbing_saturation(self: Self) -> Self { /* ... */ }
+  ```
+  Condensation scrubbing as if all the steam condensed: the model
+
+- ```rust
+  pub fn without_swarm_scrubbing(self: Self) -> Self { /* ... */ }
+  ```
+  No impaction or swarm-rise scrubbing: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

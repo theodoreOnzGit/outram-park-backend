@@ -184,6 +184,8 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without pool scrubbing", all.without_pool_scrubbing()),
         ("without in-vessel deposition", all.without_in_vessel_deposition()),
         ("without internals heat loss", all.without_internals_heat_loss()),
+        ("without scrubbing saturation", all.without_scrubbing_saturation()),
+        ("without swarm scrubbing", all.without_swarm_scrubbing()),
     ]
 }
 
@@ -964,7 +966,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 22);
+        assert_eq!(runs.len(), 24);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -995,6 +997,8 @@ mod tests {
         assert!(!ablations()[19].1.pool_scrubbing && ablations()[19].1.failed_vessel_outflow);
         assert!(!ablations()[20].1.in_vessel_deposition && ablations()[20].1.pool_scrubbing);
         assert!(!ablations()[21].1.internals_heat_loss && ablations()[21].1.in_vessel_deposition);
+        assert!(!ablations()[22].1.scrubbing_saturation && ablations()[22].1.internals_heat_loss);
+        assert!(!ablations()[23].1.swarm_scrubbing && ablations()[23].1.scrubbing_saturation);
     }
 
     /// The verdict reads a value against its band.

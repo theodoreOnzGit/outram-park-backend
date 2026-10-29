@@ -38,6 +38,7 @@ use super::aerosol::{Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
 use super::rn_volume::{RnSurface, RnVolume, CS, IODINE};
 use super::vapour::BulkGas;
+use super::sparc;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
 
@@ -94,6 +95,11 @@ pub struct ContainmentSnapshot {
     /// Pool scrubbing by steam condensation at the vent exits (SPARC-90's
     /// DF_EC; `Mechanisms::pool_scrubbing`).
     pub pool_scrubbing: bool,
+    /// MELCOR's `X_o` in that scrubbing, and the impaction and swarm-rise
+    /// factors past the downcomers (`Mechanisms::scrubbing_saturation`,
+    /// `Mechanisms::swarm_scrubbing`).
+    pub scrubbing_saturation: bool,
+    pub swarm_scrubbing: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -170,6 +176,12 @@ pub struct Containment {
     cs_building_kg: f64,
     i_vented_kg: f64,
     i_building_kg: f64,
+    /// The swarm-rise pass fractions per section at the downcomers, and
+    /// their age, s: recomputed at most once per aerosol step (`sparc`
+    /// costs about 0.1 ms a call), from the conditions of the step that
+    /// recomputes them.
+    swarm_pass: Vec<f64>,
+    swarm_age_s: f64,
     /// Scrubbed into the pool water at the vent exits (SPARC-90's DF_EC),
     /// kg: cesium, iodine, aerosol.
     pool_scrubbed: [f64; 3],
@@ -227,6 +239,8 @@ impl Containment {
             cs_building_kg: 0.0,
             i_vented_kg: 0.0,
             i_building_kg: 0.0,
+            swarm_pass: vec![1.0; rn_sections().v.len()],
+            swarm_age_s: RN_STEP_S,
             pool_scrubbed: [0.0; 3],
         }
     }
@@ -276,6 +290,7 @@ impl Containment {
         let prm = &s.prm;
         let dt = s.dt_s;
         let tv = s.gas_cv_t;
+        self.swarm_age_s += dt;
         // 1. Relief valves into the pool.
         let m = s.srv_steam_kg_s * dt;
         let e = self.pool_energy() + m * s.srv_h;
@@ -292,13 +307,18 @@ impl Containment {
         // surface passes unchanged), the leaks' into the drywell.
         let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
         // The relief flow enters the pool at the quenchers: with scrubbing,
-        // only the non-condensable share of its volume passes (SPARC-90's
-        // DF_EC: "aerosol particles and iodine vapors are removed in
-        // proportion to the reduction in the volumetric flow rate" as the
-        // steam condenses; Vol. 2 RN §2.7.1). The other factors of its
-        // Eq 2-113 (impaction, swarm rise) are not built, so this is a
-        // lower bound on the scrubbing.
-        let pass = if s.pool_scrubbing { nc_share(s.srv_h2_kg_s / M_H2, 0.0, s.srv_steam_kg_s / M_H2O) } else { 1.0 };
+        // only the share of its volume left once the steam condenses passes
+        // (SPARC-90's DF_EC: "aerosol particles and iodine vapors are
+        // removed in proportion to the reduction in the volumetric flow
+        // rate"; Vol. 2 RN §2.7.1, Eqs D-5, D-6). The quenchers' depth is
+        // not known; the downcomers' is used. Impaction and the swarm rise
+        // are applied at the downcomers only: the quenchers' geometry is
+        // not known either, and the relief flow's aerosol, all in the
+        // smallest section, would pass the swarm almost whole (0.98 in
+        // `sparc`'s test).
+        let pool = sparc::Pool::submerged(self.pool_t, self.p_ww(prm), prm.vent_submergence_pa);
+        let x_o = if s.scrubbing_saturation { pool.x_o() } else { 1.0 };
+        let pass = if s.pool_scrubbing { condensation_pass(nc_share(s.srv_h2_kg_s / M_H2, 0.0, s.srv_steam_kg_s / M_H2O), x_o) } else { 1.0 };
         self.pool_scrubbed[0] += s.cs_relief_kg * (1.0 - pass);
         self.pool_scrubbed[1] += s.i_relief_kg * (1.0 - pass);
         self.pool_scrubbed[2] += s.uo2_relief_kg * (1.0 - pass);
@@ -386,15 +406,41 @@ impl Containment {
             self.xe_dw -= dxe;
             self.xe_ww += dxe;
             let (moved, cv, ca) = self.dw_rn.take(f);
-            // Through the downcomers into the pool: scrubbed likewise.
-            let pass = if s.pool_scrubbing { nc_share(dh2, dn2, dsteam / M_H2O) } else { 1.0 };
+            // Through the downcomers into the pool: scrubbed likewise by the
+            // condensation, then each section by impaction and the swarm
+            // rise (`sparc`). The cesium and iodine on the aerosol are not
+            // tracked by section; they are taken to sit on it in proportion
+            // to its mass, so they pass with its mass-weighted fraction.
+            let pool = sparc::Pool::submerged(self.pool_t, p_ww, prm.vent_submergence_pa);
+            let x_o = if s.scrubbing_saturation { pool.x_o() } else { 1.0 };
+            let pass = if s.pool_scrubbing { condensation_pass(nc_share(dh2, dn2, dsteam / M_H2O), x_o) } else { 1.0 };
             let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
+            let swarm: Vec<f64> = if s.pool_scrubbing && s.swarm_scrubbing && moved.iter().any(|&m| m > 0.0) {
+                if self.swarm_age_s >= RN_STEP_S {
+                    let n_v = prm.downcomer_count;
+                    let inj = sparc::Injection {
+                        vent: sparc::Vent::Downcomer,
+                        diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * std::f64::consts::PI)).sqrt(),
+                        nc_mol_s: (dn2 + dh2) / dt / n_v,
+                        q_exit_m3_s: n * R_GAS * self.dw_t / p_dw / dt / n_v,
+                    };
+                    let d: Vec<f64> = (0..moved.len()).map(|k| self.dw_rn.sections.diameter(k)).collect();
+                    self.swarm_pass = sparc::pass_fractions(&pool, &inj, &d, rho_p);
+                    self.swarm_age_s = 0.0;
+                }
+                self.swarm_pass.clone()
+            } else {
+                vec![1.0; moved.len()]
+            };
+            let total: f64 = moved.iter().sum();
+            let aer_pass = if total > 0.0 { moved.iter().zip(&swarm).map(|(m, p)| m * p).sum::<f64>() / total } else { 1.0 };
             for k in 0..2 {
-                self.pool_scrubbed[k] += (cv[k] + ca[k]) * (1.0 - pass);
+                self.pool_scrubbed[k] += (cv[k] + ca[k]) * (1.0 - pass) + ca[k] * pass * (1.0 - aer_pass);
             }
-            self.pool_scrubbed[2] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass);
-            let moved: Vec<f64> = moved.iter().map(|m| m * pass).collect();
-            self.ww_rn.receive(&moved, cv.map(|x| x * pass), ca.map(|x| x * pass));
+            self.pool_scrubbed[2] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass)
+                + moved.iter().zip(&swarm).map(|(m, p)| m * pass * (1.0 - p)).sum::<f64>() * rho_p;
+            let moved: Vec<f64> = moved.iter().zip(&swarm).map(|(m, p)| m * pass * p).collect();
+            self.ww_rn.receive(&moved, cv.map(|x| x * pass), ca.map(|x| x * pass * aer_pass));
             let e_dw = self.dw_energy(tv);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
@@ -556,6 +602,14 @@ fn nc_share(h2_mol: f64, n2_mol: f64, steam_mol: f64) -> f64 {
     if total > 0.0 { (h2_mol + n2_mol) / total } else { 1.0 }
 }
 
+/// The share of a gas's volume that passes the condensation at a vent
+/// exit: `1 / DF_EC = X_i / X_o` (Eqs D-5, D-6), `X_i` the gas's
+/// non-condensable mole fraction and `X_o` the fraction once it is in
+/// equilibrium with the pool. At most 1 (DF_EC is at least 1).
+fn condensation_pass(x_i: f64, x_o: f64) -> f64 {
+    if x_i >= x_o { 1.0 } else { x_i / x_o }
+}
+
 /// Aerosol step, s (the transport steps every plant step).
 const RN_STEP_S: f64 = 10.0;
 
@@ -660,7 +714,9 @@ impl Containment {
             self.cs_building_kg,
             self.i_vented_kg,
             self.i_building_kg,
+            self.swarm_age_s,
         ]);
+        w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
         self.dw_rn.write(w);
         self.ww_rn.write(w);
@@ -694,8 +750,11 @@ impl Containment {
             cs_building_kg: r.f(),
             i_vented_kg: r.f(),
             i_building_kg: r.f(),
+            swarm_pass: vec![],
+            swarm_age_s: r.f(),
             pool_scrubbed: [0.0; 3],
         };
+        c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = [r.f(), r.f(), r.f()];
         c.dw_rn.read_into(r);
         c.ww_rn.read_into(r);
@@ -728,6 +787,8 @@ impl ContainmentSnapshot {
             self.i_relief_kg,
             self.i_leak_kg,
             b(self.pool_scrubbing),
+            b(self.scrubbing_saturation),
+            b(self.swarm_scrubbing),
         ]);
         self.prm.write(w);
     }
@@ -754,6 +815,8 @@ impl ContainmentSnapshot {
             i_relief_kg: r.f(),
             i_leak_kg: r.f(),
             pool_scrubbing: r.f() != 0.0,
+            scrubbing_saturation: r.f() != 0.0,
+            swarm_scrubbing: r.f() != 0.0,
             prm: Params::read(r),
         }
     }

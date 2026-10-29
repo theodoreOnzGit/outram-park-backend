@@ -133,7 +133,9 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Iodine through the containment (output only) | F9, #1047 | 5.452 | 215.36 | all I2 stays airborne; inside the Fig 2.6b/d envelopes 0 % |
 | Pool scrubbing by steam condensation (SPARC-90's DF_EC; output only) | F9, #1047 | 5.452 | 215.36 | I in S/C water inside 54 % (was 0 %); Cs 61 % (was 85 %, reaching the pool earlier); predictions held |
 | In-vessel deposition of Cs and I vapour on the dome internals (output only) | F9, #1047 | 5.452 | 215.36 | holds up to 19.4 kg Cs, then re-evaporates (internals at 1005 K, no heat-loss path: stated artefact); Cs in S/C water inside 64 % (was 61 %); prediction (0.4–0.7) missed |
-| Dome internals lose heat to the wet dome (natural convection, 5 W/m²K \[A\]) | F6, #1037 | **4.469** | **295.45** | missed: regime flip to the early regime (vent flows again at 23.73 h); internals keep 11.3 kg Cs; exposed a vessel-emptying defect (filed) |
+| Dome internals lose heat to the wet dome (natural convection, 5 W/m²K \[A\]) | F6, #1037 | **4.469** | **295.45** | missed: regime flip to the early regime (vent flows again at 23.73 h); internals keep 11.3 kg Cs; ~~exposed a vessel-emptying defect (filed)~~ **corrected:** the emptying was the unguarded heat loss itself, removed by the wet-only limit (gh:#1051, pinned) |
+| Condensation scrubbing stops near saturation (MELCOR `X_o`, Eq D-6; output only) | F9, #1047 | 4.469 | 295.45 | held: less scrubbed; I in S/C water inside 55 % (was 54 %), vented I +9 % |
+| Impaction and swarm-rise scrubbing at the downcomers (SPARC-90 App. D, E; output only) | F9, #1047 | 4.469 | 295.45 | Cs fractions unmoved to 1e-3; vented Cs up 3.9 -> 6.4 kg, sign missed; hypothesis: lumped (not sectional) Cs on aerosol |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

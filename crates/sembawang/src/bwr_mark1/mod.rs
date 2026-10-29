@@ -46,6 +46,7 @@ pub mod internals;
 pub mod msl;
 pub mod params;
 pub mod rn_volume;
+pub mod sparc;
 pub mod steam;
 pub mod vapour;
 pub mod wire;
@@ -168,6 +169,15 @@ pub struct Mechanisms {
     /// The dome internals lose heat to the saturated dome by natural
     /// convection (2026-10-29); off is no heat loss once the flow stops.
     pub internals_heat_loss: bool,
+    /// The condensation scrubbing stops where the pool is near saturation:
+    /// MELCOR's `DF_EC = X_o / X_i` with `X_o` the non-condensable fraction
+    /// of the gas in equilibrium with the pool at the vent depth (Eqs D-5,
+    /// D-6; 2026-10-29). Off is `X_o = 1`: all the steam condenses.
+    pub scrubbing_saturation: bool,
+    /// Inertial impaction and swarm-rise scrubbing past the downcomer exits
+    /// (SPARC-90's `DF_II` and `DF_SR`, [`sparc`]; 2026-10-29). Off is
+    /// condensation scrubbing alone.
+    pub swarm_scrubbing: bool,
 }
 
 impl Default for Mechanisms {
@@ -194,6 +204,8 @@ impl Default for Mechanisms {
             pool_scrubbing: true,
             in_vessel_deposition: true,
             internals_heat_loss: true,
+            scrubbing_saturation: true,
+            swarm_scrubbing: true,
         }
     }
 }
@@ -332,6 +344,19 @@ impl Mechanisms {
     /// model before 2026-10-29.
     pub fn without_internals_heat_loss(mut self) -> Self {
         self.internals_heat_loss = false;
+        self
+    }
+
+    /// Condensation scrubbing as if all the steam condensed: the model
+    /// before 2026-10-29.
+    pub fn without_scrubbing_saturation(mut self) -> Self {
+        self.scrubbing_saturation = false;
+        self
+    }
+
+    /// No impaction or swarm-rise scrubbing: the model before 2026-10-29.
+    pub fn without_swarm_scrubbing(mut self) -> Self {
+        self.swarm_scrubbing = false;
         self
     }
 
@@ -978,6 +1003,8 @@ impl Plant {
                 i_relief_kg: self.i_vessel_kg * self.pending.share_relief,
                 i_leak_kg: self.i_vessel_kg * self.pending.share_leak,
                 pool_scrubbing: self.mechanisms.pool_scrubbing,
+                scrubbing_saturation: self.mechanisms.scrubbing_saturation,
+                swarm_scrubbing: self.mechanisms.swarm_scrubbing,
                 prm,
             },
         }
