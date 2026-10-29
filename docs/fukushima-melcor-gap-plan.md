@@ -138,8 +138,8 @@ Identifiers marked † are from memory and must be confirmed on retrieval.
 
 | Code | Document | Used by | Expected tier and basis |
 |---|---|---|---|
-| **L1** | MELCOR Computer Code Manuals Vol. 2, Reference Manual, SAND2017-0876 O (ADAMS ML17040A420) | F3–F9 | **public**: Sandia report for NRC, unlimited release; NRC ADAMS public |
-| **L2** | MELCOR Vol. 1, Primer and Users' Guide, SAND2017-0455 O (ML17040A429); later rev. SAND2021-0726 O (ML21042B319) | F5, executive | **public**: as L1 |
+| **L1** | MELCOR Computer Code Manuals Vol. 2, Reference Manual, SAND2017-0876 O (ADAMS ML17040A420) | F3–F9 | ~~**public**: Sandia report for NRC, unlimited release; NRC ADAMS public~~ **private**, verified on ingestion 2026-10-29: no release or licence statement (`CATALOGUE.md` `sandia2023melcorvol2`). Held edition: **SAND2023-10994 O, 2.2 r2023.0** (ML23116A100), not SAND2017-0876 O |
+| **L2** | MELCOR Vol. 1, Primer and Users' Guide, SAND2017-0455 O (ML17040A429); later rev. SAND2021-0726 O (ML21042B319) | F5, executive | ~~**public**: as L1~~ **private**, verified 2026-10-29 (`sandia2017melcorvol1`); SAND2017-0455 O held |
 | **L3** | MELCOR 1.8.5 Manuals Vol. 2 Rev. 2, NUREG/CR-6119 / SAND2000-2417 (ML010190117), incl. the COR and BH package references (ML010190222) | F3, F4, F6 | **public**: NUREG/CR, US government |
 | **L4** | Gauntt et al., *Fukushima Daiichi Accident Study (Status as of April 2012)*, SAND2012-6173 | F6, F13, F14 | **public**: Sandia, unlimited release (to verify) |
 | **L5** | INPO 11-005, *Special Report on the Nuclear Accident at the Fukushima Daiichi NPS* (2011) | F13 | **private**: © INPO |

@@ -163,10 +163,15 @@ pub const ZR_MELT_K: f64 = 2100.0;
 // ── Zirconium-steam oxidation ───────────────────────────────────────────────
 //
 // Parabolic: d(W^2)/dt = K(T), W = mass of Zr oxidised per unit area,
-// kg/m^2. Urbanic-Heidrick (1978), MELCOR's default. [U] constants as quoted
+// kg/m^2. Urbanic-Heidrick (1978), MELCOR's default. ~~[U] constants as quoted
 // by the literature search from the MELCOR COR reference manual (public SAND
-// report); check against it before quoting. Between the two branches the rate
-// is interpolated linearly in T.
+// report); check against it before quoting.~~ **CHECKED 2026-10-29** against
+// the MELCOR 2.2 Reference Manual (SAND2023-10994 O, a Sandia report held
+// privately, not public as was assumed): COR package §2.5.4, Table 2-6 gives
+// exactly these six numbers, and its Eq. 2-174 is this interpolation, linear
+// in T between the two branches. [P]. Not adopted from it: its lower limit
+// Tmin = 1100 K for steam (see OXIDATION_MIN_K) and its gaseous-diffusion
+// limit on the rate (Eq. 2-168; this model limits only by steam supply).
 pub const UH_LOW_A: f64 = 29.6;
 pub const UH_LOW_B_K: f64 = 16_820.0;
 pub const UH_HIGH_A: f64 = 87.9;
@@ -364,12 +369,12 @@ params! {
     breach_m2 = BREACH_M2, A,
     debris_quench_s = DEBRIS_QUENCH_S, A,
     zr_melt_k = ZR_MELT_K, U,
-    uh_low_a = UH_LOW_A, U,
-    uh_low_b_k = UH_LOW_B_K, U,
-    uh_high_a = UH_HIGH_A, U,
-    uh_high_b_k = UH_HIGH_B_K, U,
-    uh_low_max_k = UH_LOW_MAX_K, U,
-    uh_high_min_k = UH_HIGH_MIN_K, U,
+    uh_low_a = UH_LOW_A, P,
+    uh_low_b_k = UH_LOW_B_K, P,
+    uh_high_a = UH_HIGH_A, P,
+    uh_high_b_k = UH_HIGH_B_K, P,
+    uh_low_max_k = UH_LOW_MAX_K, P,
+    uh_high_min_k = UH_HIGH_MIN_K, P,
     oxidation_min_k = OXIDATION_MIN_K, A,
     oxidation_heat_j_per_kg_zr = OXIDATION_HEAT_J_PER_KG_ZR, P,
     drywell_volume_m3 = DRYWELL_VOLUME_M3, U,
