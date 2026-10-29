@@ -42,6 +42,41 @@ pub type PerClass = [f64; 2];
 /// Per-class masses by aerosol section, kg (`[class][section]`).
 pub type PerClassSection = [Vec<f64>; 2];
 
+/// What a flow carries from one volume to another (`RnVolume::take`):
+/// particle volume per section, m^3, each class's vapour, kg, and each
+/// class on the aerosol by section, kg. Empty when nothing is carried this
+/// way.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RnFlow {
+    pub moved: Vec<f64>,
+    pub vapour_kg: PerClass,
+    pub on_aerosol_kg: PerClassSection,
+}
+
+impl RnFlow {
+    /// The flow scaled by `f`.
+    pub fn scaled(&self, f: f64) -> Self {
+        RnFlow {
+            moved: self.moved.iter().map(|m| m * f).collect(),
+            vapour_kg: self.vapour_kg.map(|x| x * f),
+            on_aerosol_kg: [0, 1].map(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>()),
+        }
+    }
+    pub fn write(&self, w: &mut Writer) {
+        w.vec(&self.moved);
+        w.f(&self.vapour_kg);
+        w.vec(&self.on_aerosol_kg[0]);
+        w.vec(&self.on_aerosol_kg[1]);
+    }
+    pub fn read(r: &mut Reader) -> Self {
+        let moved = r.vec();
+        let vapour_kg = [r.f(), r.f()];
+        let a = r.vec();
+        let b = r.vec();
+        RnFlow { moved, vapour_kg, on_aerosol_kg: [a, b] }
+    }
+}
+
 /// A deposition surface as this volume sees it: the aerosol surface (area,
 /// facing, phoretic velocities) and, for the vapour, its temperature, K,
 /// and mass-transfer coefficient, m/s.
@@ -83,6 +118,18 @@ impl RnVolume {
             on_surface_kg: vec![[0.0; 2]; n_surfaces],
             aerosol_on_surface_kg: vec![0.0; n_surfaces],
         }
+    }
+
+    /// Resize the gas volume to `volume_m3` (a vessel's gas space as its
+    /// level moves), keeping the particles: the concentrations scale.
+    pub fn set_volume(&mut self, volume_m3: f64) {
+        if volume_m3 != self.volume_m3 && self.volume_m3 > 0.0 {
+            let r = self.volume_m3 / volume_m3;
+            for c in self.sections.conc.iter_mut() {
+                *c *= r;
+            }
+        }
+        self.volume_m3 = volume_m3;
     }
 
     /// Airborne aerosol mass, kg, at material density `rho_p`.

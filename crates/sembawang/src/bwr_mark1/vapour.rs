@@ -98,11 +98,14 @@ fn collision_integral(t_star: f64) -> f64 {
         return 0.5170 * (t_star / 100.0).r_powf(-0.155);
     }
     if t_star >= 60.0 {
-        let i = T_HI.partition_point(|&x| x <= t_star).min(4);
+        let i = T_HI.partition_point(|&x| x <= t_star).clamp(1, 4);
         let (t0, t1, o0, o1) = (T_HI[i - 1], T_HI[i], O_HI[i - 1], O_HI[i]);
         return o0 + (t_star - t0) / (t1 - t0) * (o1 - o0);
     }
-    let i = T.partition_point(|&x| x <= t_star).min(T.len() - 1);
+    // Clamped below too: a NaN `t_star` (a malformed input, as the demo's
+    // crossed-role test sends) fails every comparison above and would
+    // index T[-1].
+    let i = T.partition_point(|&x| x <= t_star).clamp(1, T.len() - 1);
     let (t0, t1, o0, o1) = (T[i - 1], T[i], O[i - 1], O[i]);
     o0 + (t_star - t0) / (t1 - t0) * (o1 - o0)
 }

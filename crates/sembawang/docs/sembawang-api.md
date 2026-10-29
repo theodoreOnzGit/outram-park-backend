@@ -4034,6 +4034,8 @@ pub struct ContainmentSnapshot {
     pub mixture_vent: bool,
     pub phoresis: bool,
     pub iodine_swarm: bool,
+    pub rn_relief: super::rn_volume::RnFlow,
+    pub rn_leak: super::rn_volume::RnFlow,
     pub prm: Params,
 }
 ```
@@ -4070,6 +4072,8 @@ pub struct ContainmentSnapshot {
 | `mixture_vent` | `bool` | The wetwell vent passes the gas mixture (`Mechanisms::mixture_vent`). |
 | `phoresis` | `bool` | Thermophoresis and diffusiophoresis onto the drywell's structures<br>(`Mechanisms::phoresis`). |
 | `iodine_swarm` | `bool` | The swarm rise's scrubbing of I2 vapour (`Mechanisms::iodine_swarm`). |
+| `rn_relief` | `super::rn_volume::RnFlow` | The vessel's aerosol and fission products leaving this step through<br>the relief valves and the leaks, by section (`Mechanisms::<br>vessel_aerosol`); empty, the scalar `*_relief_kg` and `*_leak_kg`<br>above carry them instead. |
+| `rn_leak` | `super::rn_volume::RnFlow` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4112,7 +4116,6 @@ pub struct ContainmentSnapshot {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
-- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -8159,6 +8162,161 @@ Per-class masses by aerosol section, kg (`[class][section]`).
 pub type PerClassSection = [Vec<f64>; 2];
 ```
 
+#### Struct `RnFlow`
+
+What a flow carries from one volume to another (`RnVolume::take`):
+particle volume per section, m^3, each class's vapour, kg, and each
+class on the aerosol by section, kg. Empty when nothing is carried this
+way.
+
+```rust
+pub struct RnFlow {
+    pub moved: Vec<f64>,
+    pub vapour_kg: PerClass,
+    pub on_aerosol_kg: PerClassSection,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `moved` | `Vec<f64>` |  |
+| `vapour_kg` | `PerClass` |  |
+| `on_aerosol_kg` | `PerClassSection` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn scaled(self: &Self, f: f64) -> Self { /* ... */ }
+  ```
+  The flow scaled by `f`.
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `RnSurface`
 
 A deposition surface as this volume sees it: the aerosol surface (area,
@@ -8328,6 +8486,11 @@ pub struct RnVolume {
 - ```rust
   pub fn new(volume_m3: f64, sections: Sections, n_surfaces: usize) -> Self { /* ... */ }
   ```
+
+- ```rust
+  pub fn set_volume(self: &mut Self, volume_m3: f64) { /* ... */ }
+  ```
+  Resize the gas volume to `volume_m3` (a vessel's gas space as its
 
 - ```rust
   pub fn aerosol_kg(self: &Self, rho_p: f64) -> f64 { /* ... */ }
@@ -10532,6 +10695,7 @@ pub struct Mechanisms {
     pub mixture_vent: bool,
     pub phoresis: bool,
     pub iodine_swarm: bool,
+    pub vessel_aerosol: bool,
 }
 ```
 
@@ -10567,6 +10731,7 @@ pub struct Mechanisms {
 | `mixture_vent` | `bool` | The wetwell vent passes the wetwell's gas mixture through its<br>orifice, the pool boiling to supply the steam, and the boiled-off<br>water takes its sensible heat too (gh:#1053; 2026-10-29). Off is the<br>vent sized for the non-condensables alone, with steam added in<br>proportion and only latent heat leaving the pool. |
 | `phoresis` | `bool` | Thermophoresis (from the walls' heat flux) and diffusiophoresis<br>(from the steam condensing on them) onto the drywell's structures,<br>MELCOR's defaults (RN §2.4.2.2; 2026-10-29). Off is gravity and<br>Brownian diffusion alone. |
 | `iodine_swarm` | `bool` | The swarm rise past the downcomers scrubs I2 vapour by diffusion to<br>the bubbles' walls, limited by the pool's partition (MELCOR Appendix<br>F; [`sparc::iodine_pass`]; 2026-10-29). Off is iodine vapour scrubbed<br>by condensation alone. |
+| `vessel_aerosol` | `bool` | The vessel's gas as a sectional aerosol volume (`rn_volume`;<br>2026-10-29): the released aerosol and vapour agglomerate, condense<br>and deposit on the dome internals (at their temperature, with<br>thermophoresis from their heat flux) and settle on a floor of the<br>vessel's cross-section; what leaves carries its size distribution<br>into the containment. Off is the aerosol passing straight through<br>and the vapour condensing on the internals alone. |
 
 ##### Implementations
 
@@ -10706,6 +10871,11 @@ pub struct Mechanisms {
   pub fn without_iodine_swarm(self: Self) -> Self { /* ... */ }
   ```
   No swarm scrubbing of iodine vapour: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_vessel_aerosol(self: Self) -> Self { /* ... */ }
+  ```
+  No aerosol dynamics in the vessel: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

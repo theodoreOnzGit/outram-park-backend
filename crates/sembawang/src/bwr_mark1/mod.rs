@@ -206,6 +206,14 @@ pub struct Mechanisms {
     /// F; [`sparc::iodine_pass`]; 2026-10-29). Off is iodine vapour scrubbed
     /// by condensation alone.
     pub iodine_swarm: bool,
+    /// The vessel's gas as a sectional aerosol volume (`rn_volume`;
+    /// 2026-10-29): the released aerosol and vapour agglomerate, condense
+    /// and deposit on the dome internals (at their temperature, with
+    /// thermophoresis from their heat flux) and settle on a floor of the
+    /// vessel's cross-section; what leaves carries its size distribution
+    /// into the containment. Off is the aerosol passing straight through
+    /// and the vapour condensing on the internals alone.
+    pub vessel_aerosol: bool,
 }
 
 impl Default for Mechanisms {
@@ -239,6 +247,7 @@ impl Default for Mechanisms {
             mixture_vent: true,
             phoresis: true,
             iodine_swarm: true,
+            vessel_aerosol: true,
         }
     }
 }
@@ -425,6 +434,12 @@ impl Mechanisms {
     /// No swarm scrubbing of iodine vapour: the model before 2026-10-29.
     pub fn without_iodine_swarm(mut self) -> Self {
         self.iodine_swarm = false;
+        self
+    }
+
+    /// No aerosol dynamics in the vessel: the model before 2026-10-29.
+    pub fn without_vessel_aerosol(mut self) -> Self {
+        self.vessel_aerosol = false;
         self
     }
 
@@ -714,6 +729,10 @@ pub struct Plant {
     /// Cesium and iodine condensed on the dome internals, kg
     /// (`in_vessel_deposition`).
     on_internals_kg: [f64; 2],
+    /// The vessel's gas as an aerosol volume (`vessel_aerosol`), and the
+    /// time since its last aerosol step, s.
+    vessel_rn: rn_volume::RnVolume,
+    vessel_rn_clock_s: f64,
     uo2_seen_kg: f64,
     /// The vessel's own solved pressure, Pa, before a failed head pins the
     /// shown pressure to the drywell's.
@@ -807,6 +826,8 @@ impl Plant {
             i_vessel_kg: 0.0,
             uo2_vessel_kg: 0.0,
             on_internals_kg: [0.0; 2],
+            vessel_rn: rn_volume::RnVolume::new(1.0, containment::rn_sections(), 2),
+            vessel_rn_clock_s: 0.0,
             uo2_seen_kg: 0.0,
             p_solved: 0.0,
             injected_kg: 0.0,
@@ -1039,6 +1060,16 @@ impl Plant {
             share_relief,
             share_leak,
         };
+        // The vessel's aerosol volume gives up the same shares
+        // (`vessel_aerosol`), split between the two paths.
+        let (rn_relief, rn_leak) = if self.mechanisms.vessel_aerosol {
+            let out = (share_relief + share_leak).min(1.0);
+            let (moved, vapour_kg, on_aerosol_kg) = self.vessel_rn.take(out);
+            let all = rn_volume::RnFlow { moved, vapour_kg, on_aerosol_kg };
+            if out > 0.0 { (all.scaled(share_relief / (share_relief + share_leak)), all.scaled(share_leak / (share_relief + share_leak))) } else { (all.scaled(0.0), all.scaled(0.0)) }
+        } else {
+            (rn_volume::RnFlow::default(), rn_volume::RnFlow::default())
+        };
         let h_gas = v.sat.h_g;
         // The level the core sees (gh:#1036): swollen by the vapour the last
         // step raised in the pool, or the collapsed level.
@@ -1078,9 +1109,63 @@ impl Plant {
                 mixture_vent: self.mechanisms.mixture_vent,
                 phoresis: self.mechanisms.phoresis,
                 iodine_swarm: self.mechanisms.iodine_swarm,
+                rn_relief: rn_relief.clone(),
+                rn_leak: rn_leak.clone(),
                 prm,
             },
         }
+    }
+
+    /// The vessel's aerosol volume through one plant step
+    /// (`vessel_aerosol`): resized to the gas space, the core's new release
+    /// added (aerosol into the smallest section, Cs and I as vapour), and
+    /// every aerosol step its condensation, agglomeration and deposition.
+    /// Its surfaces: a floor of the vessel's cross-section (the water
+    /// surface, or the core plate and debris once dry: settling only, at
+    /// the dome's saturation temperature or, dry, the gas's), and the dome
+    /// internals at their temperature, with the heat-mass analogy's
+    /// coefficient for vapour (as `in_vessel_deposition`) and
+    /// thermophoresis from their heat flux, `h (T_gas - T_int)`. Without
+    /// `in_vessel_deposition` the surfaces take no vapour. Its totals are
+    /// mirrored into the scalar fields the frame reports.
+    fn step_vessel_rn(&mut self, prm: &Params, v: &Vessel, core: &CoreResult) {
+        let gas_m3 = v.gas_m3.max(1.0);
+        let rho_p = aerosol::Medium::air(300.0, 1.013e5, 1.8e-5).rho_p;
+        self.vessel_rn.set_volume(gas_m3);
+        let new = core.fp_volatile_released - self.fp_seen;
+        self.vessel_rn.add(core.uo2_released_kg - self.uo2_seen_kg, rho_p, [new * prm.cs_inventory_kg, new * prm.i_inventory_kg]);
+        self.vessel_rn_clock_s += DT_S;
+        if self.vessel_rn_clock_s >= containment::RN_STEP_S {
+            let h = self.vessel_rn_clock_s;
+            self.vessel_rn_clock_s = 0.0;
+            let n = self.vessel_rn.sections.v.len();
+            let t_g = self.dome_gas_k;
+            let medium = aerosol::Medium::air(t_g, v.p_pa, containment::air_viscosity(t_g));
+            let n_s = v.x * self.m / 0.018015;
+            let n_h = self.h2 / 0.002016;
+            let n_t = (n_s + n_h).max(1e-30);
+            let gases = [(vapour::BulkGas::Steam, n_s / n_t), (vapour::BulkGas::H2, n_h / n_t)];
+            let rho = (v.x * self.m + self.h2).max(1e-9) / gas_m3;
+            let k = if self.mechanisms.in_vessel_deposition { prm.internals_h / (rho * 2000.0) } else { 0.0 };
+            let t_int = self.internals.t_k;
+            let grad_t = prm.internals_h * (t_g - t_int) / containment::air_conductivity(t_int);
+            let thermo: Vec<f64> = (0..n).map(|i| medium.thermophoretic_velocity(self.vessel_rn.sections.diameter(i), grad_t, t_int)).collect();
+            let floor_t = if v.dry { t_g } else { v.sat.t_k };
+            let surfaces = [
+                rn_volume::RnSurface {
+                    surface: aerosol::Surface { area: std::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m, facing: aerosol::Facing::Floor, phoretic: vec![0.0; n] },
+                    t_k: floor_t,
+                    k_vapour: k,
+                },
+                rn_volume::RnSurface { surface: aerosol::Surface { area: prm.internals_area_m2, facing: aerosol::Facing::Wall, phoretic: thermo }, t_k: t_int, k_vapour: k },
+            ];
+            self.vessel_rn.step(&medium, &gases, &surfaces, h);
+        }
+        let r = &self.vessel_rn;
+        self.cs_vessel_kg = r.vapour_kg[rn_volume::CS] + r.on_aerosol(rn_volume::CS);
+        self.i_vessel_kg = r.vapour_kg[rn_volume::IODINE] + r.on_aerosol(rn_volume::IODINE);
+        self.uo2_vessel_kg = r.aerosol_kg(rho_p);
+        self.on_internals_kg = [0, 1].map(|c| r.on_surface_kg.iter().map(|x| x[c]).sum::<f64>());
     }
 
     /// Finish the step with the core's and the containment's results.
@@ -1126,6 +1211,9 @@ impl Plant {
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         // Noble gas: out with the gas, in from the fuel.
         let out = (d.share_relief + d.share_leak).min(1.0);
+        if self.mechanisms.vessel_aerosol {
+            self.step_vessel_rn(&prm, &v, &core);
+        } else {
         self.cs_vessel_kg = self.cs_vessel_kg * (1.0 - out) + (core.fp_volatile_released - self.fp_seen) * prm.cs_inventory_kg;
         // Iodine shares cesium's CORSOR-M row (Xe, Cs, I2, Te: one row).
         self.i_vessel_kg = self.i_vessel_kg * (1.0 - out) + (core.fp_volatile_released - self.fp_seen) * prm.i_inventory_kg;
@@ -1166,6 +1254,7 @@ impl Plant {
                     self.i_vessel_kg = left;
                 }
             }
+        }
         }
         self.uo2_seen_kg = core.uo2_released_kg;
         self.xe_vessel = (self.xe_vessel - d.xe_relief - d.xe_leak).max(0.0) + (core.fp_volatile_released - self.fp_seen);

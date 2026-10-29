@@ -265,6 +265,18 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// 6.39); both runs re-evaporate it by 16 h as the drywell heats. S/C
 /// water unchanged.
 ///
+/// **Moved 2026-10-29 by aerosol dynamics in the vessel**
+/// (`vessel_aerosol`): Cs on drywell structures inside **38.7 % ->
+/// 41.3 %**, S/C water unchanged. Predicted: some of the release held in
+/// the vessel. **Missed, in the other direction**: the in-vessel UO2
+/// aerosol (about 1.6e5 m^2 of surface against the internals' 2500 m^2)
+/// takes the CsOH vapour, and leaves with the gas before it can deposit.
+/// The internals hold 5.5 kg at 5 h (was 21.0) and 0.05 kg at 26 h (was
+/// 11.3). Cs in the pool at 26 h is 101.95 -> 114.23 kg, vented 7.95 ->
+/// 8.76 kg. A stated limit bears on it: the condensed cesium does not
+/// grow the particles, which in MELCOR would cut their area and speed
+/// their settling.
+///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
@@ -276,11 +288,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.3867).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.4133).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol(),
         Params::default(),
         60.0,
         26.0 * 3600.0,

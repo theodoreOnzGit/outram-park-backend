@@ -36,7 +36,7 @@
 use super::params::*;
 use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
-use super::rn_volume::{RnSurface, RnVolume, CS, IODINE};
+use super::rn_volume::{RnFlow, RnSurface, RnVolume, CS, IODINE};
 use super::vapour::{BulkGas, FpClass};
 use super::iodine;
 use super::sparc;
@@ -55,7 +55,7 @@ const CP_WATER: f64 = 4186.0;
 /// `dw_wall_c`; still \[A\] placeholders).
 const T_RB: f64 = 303.15;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ContainmentSnapshot {
     pub dt_s: f64,
     /// Relief-valve discharge into the pool: steam kg/s, its enthalpy J/kg,
@@ -114,6 +114,12 @@ pub struct ContainmentSnapshot {
     pub phoresis: bool,
     /// The swarm rise's scrubbing of I2 vapour (`Mechanisms::iodine_swarm`).
     pub iodine_swarm: bool,
+    /// The vessel's aerosol and fission products leaving this step through
+    /// the relief valves and the leaks, by section (`Mechanisms::
+    /// vessel_aerosol`); empty, the scalar `*_relief_kg` and `*_leak_kg`
+    /// above carry them instead.
+    pub rn_relief: RnFlow,
+    pub rn_leak: RnFlow,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -352,12 +358,33 @@ impl Containment {
         let x_o = if s.scrubbing_saturation { pool.x_o() } else { 1.0 };
         let pass = if s.pool_scrubbing { condensation_pass(nc_share(s.srv_h2_kg_s / M_H2, 0.0, s.srv_steam_kg_s / M_H2O), x_o) } else { 1.0 };
         let relief_m3 = (s.srv_h2_kg_s / M_H2 + s.srv_steam_kg_s / M_H2O) * dt * R_GAS * self.pool_t / (self.p_ww(prm) + prm.vent_submergence_pa);
-        let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, s.i_relief_kg, relief_m3);
-        self.pool_scrubbed[0] += s.cs_relief_kg * (1.0 - pass);
-        self.pool_scrubbed[1] += s.i_relief_kg * (1.0 - pass_i);
-        self.pool_scrubbed[2] += s.uo2_relief_kg * (1.0 - pass);
-        self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass_i]);
-        self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg]);
+        if s.rn_relief.moved.is_empty() {
+            let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, s.i_relief_kg, relief_m3);
+            self.pool_scrubbed[0] += s.cs_relief_kg * (1.0 - pass);
+            self.pool_scrubbed[1] += s.i_relief_kg * (1.0 - pass_i);
+            self.pool_scrubbed[2] += s.uo2_relief_kg * (1.0 - pass);
+            self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass_i]);
+            self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg]);
+        } else {
+            // The vessel's aerosol arrives with its size distribution
+            // (`vessel_aerosol`): the relief flow's is scrubbed section by
+            // section by the condensation, its vapour likewise (iodine's
+            // within the partition limit); the leaks' enters the drywell.
+            let rf = &s.rn_relief;
+            let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, rf.vapour_kg[IODINE], relief_m3);
+            let pass_v = [pass, pass_i];
+            for k in 0..2 {
+                self.pool_scrubbed[k] += rf.vapour_kg[k] * (1.0 - pass_v[k]) + rf.on_aerosol_kg[k].iter().sum::<f64>() * (1.0 - pass);
+            }
+            self.pool_scrubbed[2] += rf.moved.iter().sum::<f64>() * rho_p * (1.0 - pass);
+            let moved: Vec<f64> = rf.moved.iter().map(|m| m * pass).collect();
+            let ca = [0, 1].map(|k| rf.on_aerosol_kg[k].iter().map(|m| m * pass).collect::<Vec<f64>>());
+            self.ww_rn.receive(&moved, [rf.vapour_kg[0] * pass, rf.vapour_kg[1] * pass_i], &ca);
+            let lk = &s.rn_leak;
+            if !lk.moved.is_empty() {
+                self.dw_rn.receive(&lk.moved, lk.vapour_kg, &lk.on_aerosol_kg);
+            }
+        }
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
         let nh = s.leak_h2_kg_s * dt / M_H2;
@@ -767,12 +794,12 @@ fn condensation_pass(x_i: f64, x_o: f64) -> f64 {
 }
 
 /// Aerosol step, s (the transport steps every plant step).
-const RN_STEP_S: f64 = 10.0;
+pub(crate) const RN_STEP_S: f64 = 10.0;
 
 /// MELCOR's default aerosol size range, 0.1 to 50 um (RN1_ASP), as 27
 /// sections of particle-volume ratio 2 (0.1 to 40 um, the fallout section
 /// at 50 um).
-fn rn_sections() -> Sections {
+pub(crate) fn rn_sections() -> Sections {
     Sections::new(0.1e-6, 27, 2.0)
 }
 
@@ -780,7 +807,7 @@ fn rn_sections() -> Sections {
 /// constants for air (k0 = 0.0241 W/(m K) at T0 = 273 K, S = 194 K; F. M.
 /// White, *Viscous Fluid Flow*, 3rd ed., Table 1-3). MELCOR evaluates
 /// thermophoresis with air's conductivity at the surface (RN §2.4.2.2).
-fn air_conductivity(t_k: f64) -> f64 {
+pub(crate) fn air_conductivity(t_k: f64) -> f64 {
     let r = t_k / 273.0;
     0.0241 * r * r.sqrt() * (273.0 + 194.0) / (t_k + 194.0)
 }
@@ -788,7 +815,7 @@ fn air_conductivity(t_k: f64) -> f64 {
 /// Air's viscosity, Pa s, by Sutherland's law (1.458e-6 T^1.5/(T + 110.4),
 /// the standard constants): MELCOR evaluates its aerosol coefficients with
 /// air's properties (Vol. 2, RN §2.4.2.3, constraint c).
-fn air_viscosity(t_k: f64) -> f64 {
+pub(crate) fn air_viscosity(t_k: f64) -> f64 {
     1.458e-6 * t_k * t_k.sqrt() / (t_k + 110.4)
 }
 
@@ -992,6 +1019,8 @@ impl ContainmentSnapshot {
             b(self.phoresis),
             b(self.iodine_swarm),
         ]);
+        self.rn_relief.write(w);
+        self.rn_leak.write(w);
         self.prm.write(w);
     }
     pub fn read(r: &mut Reader) -> Self {
@@ -1024,6 +1053,8 @@ impl ContainmentSnapshot {
             mixture_vent: r.f() != 0.0,
             phoresis: r.f() != 0.0,
             iodine_swarm: r.f() != 0.0,
+            rn_relief: RnFlow::read(r),
+            rn_leak: RnFlow::read(r),
             prm: Params::read(r),
         }
     }
