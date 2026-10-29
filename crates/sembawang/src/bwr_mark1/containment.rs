@@ -36,19 +36,19 @@ use super::params::*;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
 
-/// Ideal-gas molar heat capacities, J/(mol K). [A] constant.
+/// Ideal-gas molar heat capacities, J/(mol K). \[A\] constant.
 const CV_N2: f64 = 20.8;
 const CV_H2: f64 = 20.5;
 const CP_H2: f64 = CV_H2 + R_GAS;
 /// Steam: constant `c_v`, J/(kg K), and IF97 saturated-vapour internal
-/// energy at 373.15 K, J/kg. [A] constant `c_v`.
+/// energy at 373.15 K, J/kg. \[A\] constant `c_v`.
 const CV_STEAM: f64 = 1500.0;
 const U_STEAM_REF: f64 = 2.5060e6;
 const T_REF: f64 = 373.15;
-/// Liquid water: constant `c_p`, J/(kg K). [A]
+/// Liquid water: constant `c_p`, J/(kg K). \[A\]
 const CP_WATER: f64 = 4186.0;
 /// Drywell structures: area, m^2, convective coefficient, W/(m^2 K), heat
-/// capacity, J/K. [A] all three placeholders (steel shell, concrete, the
+/// capacity, J/K. \[A\] all three placeholders (steel shell, concrete, the
 /// pedestal); the real heat-sink inventory is in SAND2012-6173.
 const DW_WALL_AREA_M2: f64 = 4000.0;
 const DW_WALL_H: f64 = 20.0;

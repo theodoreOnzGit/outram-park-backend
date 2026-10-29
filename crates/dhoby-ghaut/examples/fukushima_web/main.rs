@@ -29,14 +29,14 @@
 //! on web demo also ... so i can see it on my phone").
 //!
 //! Research, education and V&V only. Not validated; not for operation,
-//! licensing, safety decisions or emergency response. See `physics::params`
+//! licensing, safety decisions or emergency response. See `sembawang::bwr_mark1::params`
 //! for the provenance of every number, and each physics module for what it
 //! leaves out.
 //!
 //! CLI and window glue: reached by no test (it starts an event loop or reads
 //! `std::env::args`), per the workspace exception for `main`/CLI glue. What it
-//! dispatches to is tested — `physics::headless_csv` by
-//! `physics::tests::the_headless_run_matches_the_committed_fixture`, and the
+//! dispatches to is tested — `sembawang::bwr_mark1::headless_csv` by
+//! `sembawang::bwr_mark1::tests::the_headless_run_matches_the_committed_fixture`, and the
 //! engine behind the window by `engine::tests`.
 
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -45,8 +45,12 @@
 mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
+// The plant physics. ~~`mod physics;` (this example's own folder)~~ MOVED
+// 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to sembawang"): it
+// is `sembawang::bwr_mark1`, its tests and the 30 h fixture with it; this
+// demo only draws it and steps it on its workers.
 #[cfg(not(target_os = "android"))]
-mod physics;
+use sembawang::bwr_mark1 as physics;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule: a blanked file gives "main function not found").

@@ -8,7 +8,7 @@
 //! here: the library has no BWR vessel or containment widget yet.
 //!
 //! GUI drawing code: reached by no test (needs a window), per the workspace
-//! exception for GUI code; the model it draws is tested in `physics`.
+//! exception for GUI code; the model it draws is tested in `sembawang::bwr_mark1`.
 
 use crate::engine::{decode_frame, Control, Event, Request, SAMPLE_LEN};
 use crate::physics::core::RINGS;
@@ -536,7 +536,7 @@ impl eframe::App for App {
 /// reactor building's 26 m outline in this schematic. What IS from the model
 /// is the pool's share of the tube: `water_surface` is given the fraction
 /// `POOL_WATER_M3 / (POOL_WATER_M3 + WETWELL_GAS_M3)` (1750 and 2620 m^3,
-/// `physics::params`), which the containment model holds fixed, so the drawn
+/// `sembawang::bwr_mark1::params`), which the containment model holds fixed, so the drawn
 /// level is fixed too.
 mod torus {
     /// The vent lines' angle from the vertical (maintainer, 2026-10-27), so

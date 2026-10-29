@@ -11,7 +11,9 @@
 
 ## 0. What this is for
 
-The Fukushima Unit 1 simulator, `crates/dhoby-ghaut/examples/fukushima_web/`, is
+The Fukushima Unit 1 simulator, ~~`crates/dhoby-ghaut/examples/fukushima_web/`~~
+`sembawang::bwr_mark1` (`crates/sembawang/src/bwr_mark1/`, moved 2026-10-29 by
+F2, gh:#1033; the `dhoby-ghaut` `fukushima_web` demo draws it), is
 a reduced model. Against BSAF Phase II (NEA No. 7525) it misses, uncalibrated:
 
 | | Model | BSAF Phase II, Unit 1 |
@@ -60,7 +62,7 @@ Unit 1 metrics; none is measured yet.
 | Item | What | Expected effect | Needs |
 |---|---|---|---|
 | **F1** | Unit 1 comparison harness and ablation switches | none (measures) | BSAF bands (held) |
-| **F2** | Move the Unit 1 physics into `sembawang` as library code | none intended; PETIR changes bits, re-bless with a recorded diff | maintainer go-ahead |
+| **F2** | Move the Unit 1 physics into `sembawang` as library code | none intended; PETIR changes bits, re-bless with a recorded diff | ~~maintainer go-ahead~~ approved 2026-10-29 ("Physics libraries go to sembawang") |
 | **F3** | Lower head: heat structure, debris-to-head heat transfer, penetration and creep failure | lower-head failure **later** | L1/L3, L10 |
 | **F4** | Core: candling, continued oxidation of relocating Zr, core-plate retention and support failure | H₂ **up**; failure **later** | L1/L3, L12, L13 |
 | **F5** | RPV two-phase mixture level (swell) | uncovery **later** | L1/L2, L20 |
@@ -81,8 +83,9 @@ on the two-phase multi-component control-volume EOS that `melcor-scoping.md`
 §3.1 names as the blocker for everything beyond a reduced model.
 
 F3–F12 can be prototyped in the reduced model first. That says which mechanisms
-carry the misses before the long `sembawang` programme starts. If F2 is
-approved, they land in `sembawang` directly.
+carry the misses before the long `sembawang` programme starts. ~~If F2 is
+approved, they land in `sembawang` directly.~~ F2 was approved 2026-10-29: they
+land in `sembawang::bwr_mark1` directly.
 
 ## 3. Issues
 
@@ -92,7 +95,7 @@ All are sub-issues of #1028, filed 2026-10-28.
 |---|---|---|
 | Literature and copyright tiers (§4) | #1031 | P1 |
 | F1 comparison harness and ablations | #1032 | P1 |
-| F2 move into `sembawang` (needs go-ahead) | #1033 | P2 |
+| F2 move into `sembawang` (~~needs go-ahead~~ approved 2026-10-29) | #1033 | P2 |
 | F3 lower head | #1034 | P1 |
 | F4 candling, oxidation, core plate | #1035 | P1 |
 | F5 mixture level | #1036 | P2 |

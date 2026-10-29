@@ -1,5 +1,10 @@
 //! The plant: Fukushima Daiichi Unit 1 after the earthquake's scram.
 //!
+//! A BWR/3 in a Mark I containment. This is the model the `dhoby-ghaut`
+//! `fukushima_web` demo draws and steps; it moved here from that example on
+//! 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to sembawang").
+//! Where it stands against the BSAF Unit 1 bands: [`compare`].
+//!
 //! Three parts, owned and advanced separately so they can run on three
 //! threads (three Web Workers in the browser), as the CIET Educational
 //! Simulator's browser demo runs its heat transfer and its two flow solves:
@@ -55,7 +60,7 @@ pub const SCENARIO_END_S: f64 = 30.0 * 3600.0;
 /// Who drives the operator actions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
-    /// The recorded Unit 1 sequence (INPO 11-005 timeline, [U] times).
+    /// The recorded Unit 1 sequence (INPO 11-005 timeline, \[U\] times).
     Historical,
     /// The reader's own actions.
     FreePlay,
@@ -126,7 +131,7 @@ impl Default for Controls {
 }
 
 /// One recorded moment of the Unit 1 accident, seconds after the scram
-/// (14:46 JST, 11 March 2011). [U] Times are from the INPO 11-005 timeline
+/// (14:46 JST, 11 March 2011). \[U\] Times are from the INPO 11-005 timeline
 /// as recalled, not yet checked against the report.
 ///
 /// **Partly checked 2026-10-29 (gh:#1044)** against the observed anchors in
@@ -178,7 +183,7 @@ pub const EVENTS: [Event; 9] = [
     Event { t_s: SCENARIO_END_S, label: "20:46 (12 Mar) End of the run", kind: EventKind::Explosion },
 ];
 
-/// Pressure band operators held with train A before the blackout, Pa. [A]
+/// Pressure band operators held with train A before the blackout, Pa. \[A\]
 /// (the recorded cycling kept it roughly between 6 and 7 MPa).
 const IC_A_BAND: (f64, f64) = (6.0e6, 7.0e6);
 
@@ -840,10 +845,12 @@ mod tests {
     /// 10 min) against the committed fixture, byte for byte. A regression
     /// harness, not a validation: it says the model has not changed. After a
     /// deliberate change, re-bless with
-    /// `FUKUSHIMA_BLESS=1 cargo test --release -p dhoby-ghaut --example fukushima_web`.
+    /// `FUKUSHIMA_BLESS=1 cargo test --release -p sembawang --lib bwr_mark1`
+    /// (~~`-p dhoby-ghaut --example fukushima_web`~~, before the model moved
+    /// here on 2026-10-29, gh:#1033).
     #[test]
     fn the_headless_run_matches_the_committed_fixture() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/fukushima_web/fixtures/headless_30h.csv");
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h.csv");
         let now = headless_csv(108_000, 600);
         if std::env::var("FUKUSHIMA_BLESS").is_ok() {
             std::fs::write(path, &now).expect("write the fixture");

@@ -15,7 +15,7 @@
 //! state and the result. So the run can switch between one worker (both
 //! parts stepped inline in the plant worker) and three at any time, and the
 //! two give the same numbers bit for bit
-//! (`physics::tests::three_workers_are_one_worker` checks the protocol;
+//! (`sembawang::bwr_mark1::tests::three_workers_are_one_worker` checks the protocol;
 //! `tests::the_shipped_solve_entry_point_matches_the_inline_step` checks
 //! that [`solve`] itself, the function the workers actually call, is the
 //! one that reproduces it).
@@ -593,7 +593,7 @@ mod tests {
 
     /// **The shipped worker entry point gives the inline step, bit for bit.**
     ///
-    /// `physics::tests::three_workers_are_one_worker` already checks that
+    /// `sembawang::bwr_mark1::tests::three_workers_are_one_worker` already checks that
     /// *a* correct round trip reproduces the inline step — but it does so
     /// with its own local `remote_core`/`remote_containment` helpers, which
     /// re-implement the protocol. So it proves the protocol *can* be

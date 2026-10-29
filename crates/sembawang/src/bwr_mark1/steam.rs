@@ -1,7 +1,8 @@
 //! Water and steam properties for the plant model, all from IAPWS-IF97 as
-//! `tampines-steam-tables` implements it (`tampines_steam_tables`, a
+//! `tampines-steam-tables` implements it (`tampines_steam_tables`, ~~a
 //! dev-dependency of this crate; ~~through the metacrate~~ directly since the
-//! demo moved here on 2026-10-27).
+//! demo moved here on 2026-10-27~~ a normal dependency of `sembawang` since
+//! the model moved out of the `dhoby-ghaut` demo on 2026-10-29, gh:#1033).
 //!
 //! The RPV is solved every step for the saturation pressure whose mixture
 //! matches the vessel's mass and energy, which takes a few dozen saturation
@@ -126,7 +127,7 @@ impl SatTable {
     /// Superheated steam past dry-out, continued from the saturated vapour
     /// with the same specific volume `v`: `T = T_sat + (u - u_g)/c_v`,
     /// `p = p_sat T/T_sat` (the saturated vapour's compressibility kept).
-    /// Continuous with [`SatTable::mixture`] at `x = 1`. `c_v` constant. [A]
+    /// Continuous with [`SatTable::mixture`] at `x = 1`. `c_v` constant. \[A\]
     /// Returns `(p, T)`.
     pub fn superheated(&self, v: f64, u: f64) -> (f64, f64) {
         const CV_STEAM: f64 = 1700.0;
