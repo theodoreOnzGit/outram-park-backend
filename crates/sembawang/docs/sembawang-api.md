@@ -8045,6 +8045,348 @@ every original point is unchanged bit for bit.
 pub const P_GRID_TOP_PA: f64 = 9.5e6;
 ```
 
+## Module `vapour`
+
+Fission-product vapours: vapour pressures and condensation onto surfaces
+(gh:#1047, second deliverable; not yet wired into the plant).
+
+**Vapour pressures** are MELCOR's default curves (Vol. 1, SAND2017-0455
+O, RN sensitivity coefficients 7110; no source used),
+`log10 P[mmHg] = -A/T + B + C log10 T` over temperature ranges, zero
+below the first. The classes tracked so far: Xe (always a vapour), Cs
+(released as CsOH, 7120), I2, and Te (as TeO). **One extracted
+coefficient is corrected**: the text reads Cs's first-range `A` as
+9.4E4, but the manual says these curves were adjusted to be continuous,
+and only `A = 9.4E3` meets the second range at 1553 K (log10 P = 3.570
+from both sides; 9.4E4 gives -50.9, a 54-decade miss). The continuity of every
+range boundary is pinned by a test, which is what makes the correction
+checkable.
+
+**Condensation** onto heat structures, pools and aerosol sections is
+TRAP-MELT2's, solved analytically over a step as MELCOR does (Vol. 2,
+SAND2023-10994 O, RN §2.5.2, Eqs 2-96 to 2-101): each surface `i` takes
+`A_i k_i (C_a - C_i^s)`, the atmosphere gives it up, and over the step
+`C_a` relaxes exponentially toward the area-weighted saturation
+concentration. This module does not limit evaporation to what a
+surface holds; the caller must (stated).
+
+```rust
+pub mod vapour { /* ... */ }
+```
+
+### Types
+
+#### Enum `FpClass`
+
+A fission-product vapour class (MELCOR default names).
+
+```rust
+pub enum FpClass {
+    Xe,
+    Cs,
+    I2,
+    Te,
+}
+```
+
+##### Variants
+
+###### `Xe`
+
+###### `Cs`
+
+###### `I2`
+
+###### `Te`
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn molar_mass(self: Self) -> f64 { /* ... */ }
+  ```
+  Molar mass of the released compound, kg/mol (C7120: CsOH, I2, TeO).
+
+- ```rust
+  pub fn vapour_pressure_pa(self: Self, t_k: f64) -> f64 { /* ... */ }
+  ```
+  Vapour pressure at `t_k`, Pa: infinite for a permanent gas (Xe), zero
+
+- ```rust
+  pub fn saturation_concentration(self: Self, t_k: f64) -> f64 { /* ... */ }
+  ```
+  Saturation concentration at `t_k`, kg/m^3 (ideal gas).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CondensingSurface`
+
+A surface the vapour can condense on: its `A k`, m^3/s (area times
+mass-transfer coefficient), its saturation concentration at its own
+temperature, kg/m^3, and the mass condensed on it, kg.
+
+```rust
+pub struct CondensingSurface {
+    pub ak: f64,
+    pub c_sat: f64,
+    pub mass: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ak` | `f64` |  |
+| `c_sat` | `f64` |  |
+| `mass` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `condense`
+
+TRAP-MELT2's analytic step (Eqs 2-98 to 2-101): the atmosphere's vapour
+concentration `c_a`, kg/m^3, in `volume` m^3, against `surfaces`, over
+`dt` s. Returns the new concentration and updates each surface's mass.
+Mass is conserved exactly (`c_a V + sum M`).
+
+```rust
+pub fn condense(c_a: f64, volume: f64, surfaces: &mut [CondensingSurface], dt: f64) -> f64 { /* ... */ }
+```
+
 ## Module `wire`
 
 The flat `f64` wire format snapshots and results cross worker boundaries

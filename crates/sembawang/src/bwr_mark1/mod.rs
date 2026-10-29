@@ -46,6 +46,7 @@ pub mod internals;
 pub mod msl;
 pub mod params;
 pub mod steam;
+pub mod vapour;
 pub mod wire;
 
 use petir::mathf::RealMath;
