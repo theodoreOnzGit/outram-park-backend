@@ -138,6 +138,15 @@ vent at 23.7 h), 1050–1125 K late (5.35–5.40 h, 188–193 kg, no vent), 1150
 early again. The vent's earlier agreement was a property of the regime, not
 of the vent physics.
 
+**Against the digitised figures (2026-10-29,
+`crates/sembawang/tests/bwr_mark1_vs_bsaf_figures.rs`):** the RPV was
+measured at 7.00 MPa at 5.34 h, where the model, its steam line already
+ruptured by creep at 4.78 h, is at 0.29 MPa: the measurement contradicts the
+rupture's timing, which rests on \[A\] inputs. The drywell runs 0.24–0.51 MPa
+below the 33 measured points over 10–23 h, with or without that rupture. H2
+is below all nine codes from about 5 h; fuel release is inside the iodine
+envelope 94 % of the time.
+
 **What the run showed:**
 - Three changes running, lower-head failure followed **plenum dryout**.
 - Since F5 the outcome is **regime-fragile**. A large debris slug quenching in
