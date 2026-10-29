@@ -73,6 +73,17 @@ pub enum Mode {
     FreePlay,
 }
 
+/// The enthalpy above 298 K that the hydrogen leaving the vessel takes, W:
+/// `to_relief` of it at saturation `t_sat`, the rest at the core exit gas
+/// temperature. The constant-`c_p` ablation keeps the old operation order.
+fn h2_exit_enthalpy(h2_out: f64, to_relief: f64, t_sat: f64, t_exit: f64, cp_t: bool) -> f64 {
+    if cp_t {
+        h2_out * (to_relief * gas::h2_enthalpy_above_298(t_sat) + (1.0 - to_relief) * gas::h2_enthalpy_above_298(t_exit))
+    } else {
+        h2_out * self::core::CP_H2_J_PER_KG_K * (to_relief * (t_sat - self::core::T_298_K) + (1.0 - to_relief) * (t_exit - self::core::T_298_K))
+    }
+}
+
 /// Which modelled mechanisms are on. Every one is **on by default**: the
 /// correct-physics-default rule (root `CLAUDE.md`). Turning one off is an
 /// explicit ablation through a `without_*` builder, used by [`compare`] to
@@ -121,6 +132,9 @@ pub struct Mechanisms {
     /// ([`core::diffusion_limited_rate`], 2026-10-29); off is the parabolic
     /// rate limited only by the steam supply.
     pub diffusion_limit: bool,
+    /// Hydrogen's `c_p(T)` in the core and the vessel (MELCOR's fit,
+    /// [`gas`], 2026-10-29); off is the constant `core::CP_H2_J_PER_KG_K`.
+    pub hydrogen_cp_t: bool,
 }
 
 impl Default for Mechanisms {
@@ -139,6 +153,7 @@ impl Default for Mechanisms {
             mixture_choking: true,
             gas_cv_t: true,
             diffusion_limit: true,
+            hydrogen_cp_t: true,
         }
     }
 }
@@ -222,6 +237,13 @@ impl Mechanisms {
     /// 2026-10-29.
     pub fn without_diffusion_limit(mut self) -> Self {
         self.diffusion_limit = false;
+        self
+    }
+
+    /// Hydrogen at the constant `c_p` in the core and the vessel: the model
+    /// before 2026-10-29.
+    pub fn without_hydrogen_cp_t(mut self) -> Self {
+        self.hydrogen_cp_t = false;
         self
     }
 
@@ -737,7 +759,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -776,9 +798,7 @@ impl Plant {
         // receives it). Wetwell gas has no energy equation, so the relief
         // path's share is not delivered there (stated limitation).
         let to_relief = if gas_out > 0.0 { d.w_relief / gas_out } else { 0.0 };
-        let h2_enthalpy_out = d.h2_out
-            * self::core::CP_H2_J_PER_KG_K
-            * (to_relief * (v.sat.t_k - self::core::T_298_K) + (1.0 - to_relief) * (self.last_core.exit_gas_k - self::core::T_298_K));
+        let h2_enthalpy_out = h2_exit_enthalpy(d.h2_out, to_relief, v.sat.t_k, self.last_core.exit_gas_k, self.mechanisms.hydrogen_cp_t);
         self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out) * DT_S;
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         self.injected_kg += d.w_inj * DT_S;
@@ -1146,7 +1166,11 @@ mod tests {
             let gas = d.w_relief + d.w_leak;
             let share = if gas > 0.0 { d.w_relief / gas } else { 0.0 };
             let t_sat = p.vessel.sat.t_k;
-            let h2_out = d.h2_out * self::core::CP_H2_J_PER_KG_K * (share * (t_sat - 298.15) + (1.0 - share) * (p.last_core.exit_gas_k - 298.15));
+            let h2_out = if p.mechanisms.hydrogen_cp_t {
+                d.h2_out * (share * gas::h2_enthalpy_above_298(t_sat) + (1.0 - share) * gas::h2_enthalpy_above_298(p.last_core.exit_gas_k))
+            } else {
+                d.h2_out * self::core::CP_H2_J_PER_KG_K * (share * (t_sat - 298.15) + (1.0 - share) * (p.last_core.exit_gas_k - 298.15))
+            };
             du += (cr.q_fluid_w - d.q_ic_w + w_inj * 4186.0 * (INJECTION_TEMPERATURE_K - 273.15) - steam_out * h_g - h2_out) * DT_S;
             p.finish(cr, kr);
         }

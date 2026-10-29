@@ -3532,6 +3532,7 @@ pub struct CoreSnapshot {
     pub rod_collapse: bool,
     pub core_radiation: bool,
     pub diffusion_limit: bool,
+    pub hydrogen_cp_t: bool,
     pub prm: Params,
 }
 ```
@@ -3552,6 +3553,7 @@ pub struct CoreSnapshot {
 | `rod_collapse` | `bool` | MELCOR's rod-collapse criteria (the default) or the 2100 K<br>whole-node slump (`Mechanisms`). |
 | `core_radiation` | `bool` | In-core radiation and the shroud (the default) or none<br>(`Mechanisms`). |
 | `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on oxidation (the default) or the<br>parabolic rate limited only by steam supply (`Mechanisms`). |
+| `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` from MELCOR's fit (the default) or the constant<br>[`CP_H2_J_PER_KG_K`] (`Mechanisms`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4471,6 +4473,22 @@ before: `(c_v + R) T`).
 
 ```rust
 pub fn h2_molar_enthalpy(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `cp_h2_per_kg`
+
+Hydrogen's `c_p`, J/(kg K), and its enthalpy above 298.15 K, J/kg, for
+the core and vessel (the `hydrogen_cp_t` mechanism). The ablation's
+`c_p` is the constant the core used before, `(20.5 + R)/M_H2`.
+
+```rust
+pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `h2_enthalpy_above_298`
+
+```rust
+pub fn h2_enthalpy_above_298(t: f64) -> f64 { /* ... */ }
 ```
 
 ## Module `params`
@@ -6808,6 +6826,7 @@ pub struct Mechanisms {
     pub mixture_choking: bool,
     pub gas_cv_t: bool,
     pub diffusion_limit: bool,
+    pub hydrogen_cp_t: bool,
 }
 ```
 
@@ -6828,6 +6847,7 @@ pub struct Mechanisms {
 | `mixture_choking` | `bool` | Choked flow of the vessel's hydrogen-steam gas from its own molar<br>mass (gh:#1037); off is the steam-only flux for any gas. |
 | `gas_cv_t` | `bool` | MELCOR's temperature-dependent `c_v` for the containment's N2 and H2<br>([`gas`], 2026-10-29); off is the constant 20.8 / 20.5 J/(mol K). |
 | `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on Zr oxidation<br>([`core::diffusion_limited_rate`], 2026-10-29); off is the parabolic<br>rate limited only by the steam supply. |
+| `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` in the core and the vessel (MELCOR's fit,<br>[`gas`], 2026-10-29); off is the constant `core::CP_H2_J_PER_KG_K`. |
 
 ##### Implementations
 
@@ -6892,6 +6912,11 @@ pub struct Mechanisms {
   pub fn without_diffusion_limit(self: Self) -> Self { /* ... */ }
   ```
   No gaseous-diffusion limit on oxidation: the model before
+
+- ```rust
+  pub fn without_hydrogen_cp_t(self: Self) -> Self { /* ... */ }
+  ```
+  Hydrogen at the constant `c_p` in the core and the vessel: the model
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

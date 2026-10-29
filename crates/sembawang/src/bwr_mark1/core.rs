@@ -71,6 +71,7 @@ use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database
 use uom::si::f64::AvailableEnergy;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use std::sync::OnceLock;
+use super::gas::{cp_h2_per_kg, h2_enthalpy_above_298};
 use super::wire::{Reader, Writer};
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_single_phase;
 use tampines_steam_tables::prelude::{cp_tp_eqm_single_phase, h_tp_eqm_single_phase};
@@ -116,6 +117,9 @@ pub struct CoreSnapshot {
     /// MELCOR's gaseous-diffusion limit on oxidation (the default) or the
     /// parabolic rate limited only by steam supply (`Mechanisms`).
     pub diffusion_limit: bool,
+    /// Hydrogen's `c_p(T)` from MELCOR's fit (the default) or the constant
+    /// [`CP_H2_J_PER_KG_K`] (`Mechanisms`).
+    pub hydrogen_cp_t: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -540,13 +544,15 @@ fn debris_temperature(mf: f64, mc: f64, h: f64) -> f64 {
 pub(crate) const T_298_K: f64 = 298.15;
 
 /// Hydrogen's heat capacity, J/(kg K): a constant molar `c_v` 20.5 J/(mol K)
-/// plus R. ~~the containment's constant molar `c_v`, so the two parts agree
+/// plus R. Since 2026-10-29 only the `without_hydrogen_cp_t` ablation uses
+/// it; the default is MELCOR's `c_v(T) + R` ([`super::gas`]). ~~the containment's constant molar `c_v`, so the two parts agree
 /// (`containment.rs`)~~ **CORRECTED 2026-10-29**: the containment now uses
 /// MELCOR's `c_v(T)` ([`super::gas`]), so the two parts no longer agree.
 /// MELCOR's NCG library fit gives `c_v` 20.5-21.9 J/(mol K) over 300-1000 K
 /// (Vol. 2, NCG/H2O-RM-33 to 37), so a constant is within about 5 % there,
 /// ~~.~~ but the core's gas reaches 2000 K and more, where the fit is
-/// higher still: not checked here, and a gap.
+/// higher still (about 25.9 J/(mol K) at 2000 K, +26 %): ~~not checked
+/// here, and a gap~~ closed the same day by `hydrogen_cp_t`.
 pub(crate) const CP_H2_J_PER_KG_K: f64 = (20.5 + R_GAS) / M_H2;
 
 /// Steam's enthalpy at `t_k` and `p_pa` above water vapour at 298.15 K
@@ -802,9 +808,14 @@ impl Core {
                         // of reaction, plus the enthalpy the consumed steam
                         // brings above 298 K vapour, minus heating the new
                         // hydrogen from 298 K to the stream it joins.
+                        let h2_heating = if s.hydrogen_cp_t {
+                            made * h2_enthalpy_above_298(t_steam)
+                        } else {
+                            made * CP_H2_J_PER_KG_K * (t_steam - T_298_K)
+                        };
                         q_ox = dzr * prm.oxidation_heat_j_per_kg_zr / dt
                             + used * steam_enthalpy_above_298(t_steam.max(s.t_sat_k + 0.5), s.p_pa)
-                            - made * CP_H2_J_PER_KG_K * (t_steam - T_298_K);
+                            - h2_heating;
                         w_steam -= used;
                         w_h2 += made;
                         steam_used += used;
@@ -819,7 +830,9 @@ impl Core {
                 } else if w_steam > 0.0 {
                     let (h, cp) = steam_htc(prm, w_steam, 0.5 * (node.t_clad + t_steam), s.p_pa);
                     // The stream's heat capacity rate, steam and hydrogen.
-                    let c_rate = w_steam * cp + w_h2 * CP_H2_J_PER_KG_K;
+                    // Hydrogen's c_p at the stream's inlet temperature (a
+                    // linearisation over the node; exact for the ablation).
+                    let c_rate = w_steam * cp + w_h2 * cp_h2_per_kg(t_steam, s.hydrogen_cp_t);
                     let ntu = h * g.a_rod / c_rate;
                     (c_rate * (1.0 - (-ntu).r_exp()), t_steam, c_rate)
                 } else {
@@ -1018,6 +1031,7 @@ impl CoreSnapshot {
             if self.rod_collapse { 1.0 } else { 0.0 },
             if self.core_radiation { 1.0 } else { 0.0 },
             if self.diffusion_limit { 1.0 } else { 0.0 },
+            if self.hydrogen_cp_t { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1035,6 +1049,7 @@ impl CoreSnapshot {
             rod_collapse: r.f() != 0.0,
             core_radiation: r.f() != 0.0,
             diffusion_limit: r.f() != 0.0,
+            hydrogen_cp_t: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1124,7 +1139,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1150,7 +1165,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1179,7 +1194,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }

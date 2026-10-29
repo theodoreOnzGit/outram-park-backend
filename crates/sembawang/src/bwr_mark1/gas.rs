@@ -110,6 +110,16 @@ pub fn h2_molar_enthalpy(t: f64, t_dependent: bool) -> f64 {
     if t_dependent { u_h2(t, true) + R_GAS * t } else { (CV_H2_CONST + R_GAS) * t }
 }
 
+/// Hydrogen's `c_p`, J/(kg K), and its enthalpy above 298.15 K, J/kg, for
+/// the core and vessel (the `hydrogen_cp_t` mechanism). The ablation's
+/// `c_p` is the constant the core used before, `(20.5 + R)/M_H2`.
+pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 {
+    (cv_h2(t, t_dependent) + R_GAS) / M_H2
+}
+pub fn h2_enthalpy_above_298(t: f64) -> f64 {
+    (h2_molar_enthalpy(t, true) - h2_molar_enthalpy(298.15, true)) / M_H2
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,5 +147,12 @@ mod tests {
         assert_eq!(ncg_c(2.0, 3.0, 400.0, true), 2.0 * cv_n2(400.0, true) + 3.0 * cv_h2(400.0, true));
         assert!((h2_molar_enthalpy(600.0, true) - u_h2(600.0, true) - R_GAS * 600.0).abs() < 1e-9);
         assert_eq!(h2_molar_enthalpy(600.0, false), (20.5 + R_GAS) * 600.0);
+        // c_p at 2000 K: c_v about 25.9 J/(mol K) by hand from the fit, so
+        // c_p about 34.2 J/(mol K); the enthalpy's slope is c_p.
+        assert!((cp_h2_per_kg(2000.0, true) * M_H2 - 34.2).abs() < 0.1, "{}", cp_h2_per_kg(2000.0, true) * M_H2);
+        assert_eq!(cp_h2_per_kg(2000.0, false), (20.5 + R_GAS) / M_H2);
+        let slope = h2_enthalpy_above_298(1500.5) - h2_enthalpy_above_298(1499.5);
+        assert!((slope / cp_h2_per_kg(1500.0, true) - 1.0).abs() < 1e-4);
+        assert_eq!(h2_enthalpy_above_298(298.15), 0.0);
     }
 }
