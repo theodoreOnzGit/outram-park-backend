@@ -134,12 +134,20 @@ F10.
   (`verification_and_validation/bwr_mark1/input-sensitivity.md`).
 - The Lipinski dryout cap was **checked and rejected for now**: it cannot bind
   here (`lower-head-wall.md`).
-- **Pool condensation efficiency (MELCOR's SPARC-style ε_T) was checked and
-  rejected for now.** MELCOR stops condensing only within about 5 K of
-  saturation at the vent exit. At 30 h the pool is at about 385 K against
-  about 427 K saturation at the vent exit (0.515 MPa wetwell plus the
-  submergence head), about 40 K subcooled. So ε_T = 1 throughout, and the
-  model's full condensation already equals MELCOR's.
+- **Pool condensation efficiency (MELCOR's SPARC-style ε_T): relevant only
+  after the vent opens.** ~~Checked and rejected for now: at 30 h the pool
+  is about 40 K subcooled, so ε_T = 1 throughout.~~ **CORRECTED the same day:**
+  those figures were the fixture from before F10. On the current fixture:
+  - **before the vent (to 23.7 h)** the pool is about 53 K subcooled (376 K
+    against about 429 K at 0.55 MPa). So ε_T = 1, the model equals MELCOR,
+    and the 0–25 h drywell peak is unaffected;
+  - **after the vent** the wetwell is at about 0.11 MPa, with about 378 K
+    saturation at the vent exit, against a pool at 375–377 K: only 1–3 K
+    subcooled. So ε_T ≈ 0.2–0.6, and **the model over-condenses**: MELCOR
+    would pass part of the steam into the wetwell gas.
+
+  This matters for the post-vent wetwell and vent flow and for F12 (runs to
+  500 h). It is not built yet.
 - **F11 can change nothing yet.** No hydrogen reaches the building, because
   the drywell (0.56 MPa) never reaches the flange-leak pressure (0.75 MPa \[A\]).
   The upstream lever is drywell pressure, F8 (MCCI gas). That needs a heat of
