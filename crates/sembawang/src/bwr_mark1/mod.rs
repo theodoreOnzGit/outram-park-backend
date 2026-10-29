@@ -98,11 +98,21 @@ pub struct Mechanisms {
     /// collapse at `ROD_COLLAPSE_K` or by time-at-temperature damage; off
     /// is the 2100 K whole-node slump `ZR_MELT_K`.
     pub rod_collapse: bool,
+    /// In-core radiation between rings and levels, and from the outer ring
+    /// to the shroud (gh:#1037); off is no radiation at all.
+    pub core_radiation: bool,
 }
 
 impl Default for Mechanisms {
     fn default() -> Self {
-        Self { hot_leak: true, ic_h2_blanketing: true, temperature_dependent_properties: true, lower_head_wall: true, rod_collapse: true }
+        Self {
+            hot_leak: true,
+            ic_h2_blanketing: true,
+            temperature_dependent_properties: true,
+            lower_head_wall: true,
+            rod_collapse: true,
+            core_radiation: true,
+        }
     }
 }
 
@@ -132,6 +142,13 @@ impl Mechanisms {
     /// `ZR_MELT_K` (`[U]`): the model before gh:#1035.
     pub fn without_rod_collapse(mut self) -> Self {
         self.rod_collapse = false;
+        self
+    }
+
+    /// No radiation inside the core and no shroud heat structure: the model
+    /// before gh:#1037.
+    pub fn without_core_radiation(mut self) -> Self {
+        self.core_radiation = false;
         self
     }
 
@@ -601,7 +618,7 @@ impl Plant {
         };
         let h_gas = v.sat.h_g;
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),

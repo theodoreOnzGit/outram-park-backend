@@ -49,9 +49,12 @@
 //!   wall (`HeadWall`), which fails on its inner node reaching
 //!   [`HEAD_FAILURE_WALL_K`] or by Larson-Miller creep.
 //!
-//! **Not in the model** (each would change the answer): radiation between
+//! **Not in the model** (each would change the answer): ~~radiation between
 //! rods, to the shroud and upwards (it spreads heat across the core above
-//! about 1200 K); the two-phase swell of the mixture level (the collapsed
+//! about 1200 K);~~ (added 2026-10-29, gh:#1037: ring-to-ring, level-to-level
+//! and outer ring to a shroud lump; still missing: the upper-plenum
+//! structures, the view through emptied cells, the downcomer side of the
+//! shroud); the two-phase swell of the mixture level (the collapsed
 //! level uncovers the fuel early); candling, blockages, and molten-pool
 //! physics; ~~temperature-dependent fuel properties~~ (heat capacities added
 //! 2026-10-29, gh:#1038; UO2 conductivity is still constant, waiting for a
@@ -106,6 +109,9 @@ pub struct CoreSnapshot {
     /// MELCOR's rod-collapse criteria (the default) or the 2100 K
     /// whole-node slump (`Mechanisms`).
     pub rod_collapse: bool,
+    /// In-core radiation and the shroud (the default) or none
+    /// (`Mechanisms`).
+    pub core_radiation: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -182,6 +188,8 @@ pub struct Core {
     zr_oxidised_kg: f64,
     h2_total_kg: f64,
     head: HeadWall,
+    /// The core shroud, one steel lump per axial level, K (gh:#1037).
+    shroud_k: [f64; AXIAL_NODES],
 }
 
 /// Through-wall nodes of the lower-head wall (inner face first).
@@ -297,6 +305,106 @@ impl HeadWall {
         self.t_k[0] >= prm.head_failure_wall_k || self.strain >= prm.creep_fail_strain
     }
 }
+
+/// Zircaloy emissivity against oxide thickness, after MELCOR's C1104 (Vol.
+/// 2, COR §2.1, Eqs 2-7 to 2-10): 0.325 bare, 0.808 at 3.88 um, 0.759 at
+/// 1 mm and beyond, linear between; above 1500 K multiplied by
+/// `exp((1500 - T)/300)`, no lower than 0.325. MELCOR degrades on the
+/// highest temperature the surface has reached; this uses the present one
+/// (stated simplification).
+fn zr_emissivity(oxide_m: f64, t_k: f64) -> f64 {
+    let e = if oxide_m <= 3.88e-6 {
+        0.325 + (0.808 - 0.325) * oxide_m / 3.88e-6
+    } else if oxide_m <= 1.0e-3 {
+        0.808 + (0.759 - 0.808) * (oxide_m - 3.88e-6) / (1.0e-3 - 3.88e-6)
+    } else {
+        0.759
+    };
+    let e = if t_k > 1500.0 { (e * ((1500.0 - t_k) / 300.0).r_exp()).max(0.325) } else { e };
+    e.clamp(1.0e-4, 0.9999)
+}
+
+/// Steel emissivity, after MELCOR's C1102 (Vol. 2, COR §2.1, Eq. 2-11).
+fn steel_emissivity(t_k: f64) -> f64 {
+    (0.25617 + 3.474e-4 * (t_k - 616.48)).clamp(1.0e-4, 0.9999)
+}
+
+/// Gray-body exchange between two surfaces, W: `F A sigma (T1^4 - T2^4)
+/// / (1/e1 + 1/e2 - 1)`.
+fn gray_exchange(f_a: f64, e1: f64, e2: f64, t1: f64, t2: f64) -> f64 {
+    const SIGMA: f64 = 5.670_374_419e-8;
+    f_a * SIGMA * (t1.r_powi(4) - t2.r_powi(4)) / (1.0 / e1 + 1.0 / e2 - 1.0)
+}
+
+/// The core's equivalent radius, m: the assemblies' lattice area as a
+/// circle. The rings hold equal numbers of rods, so equal areas.
+fn core_radius(prm: &Params) -> f64 {
+    (prm.assemblies * prm.assembly_pitch_m * prm.assembly_pitch_m / std::f64::consts::PI).sqrt()
+}
+
+/// Steel in one axial level of the shroud, kg (304L at 300 K, the wall's).
+fn shroud_mass_per_level(prm: &Params, dz: f64) -> f64 {
+    2.0 * std::f64::consts::PI * core_radius(prm) * dz * prm.shroud_thickness_m * steel_rho()
+}
+
+impl Core {
+    /// Radiative sources, W: on each node's cladding, and on each shroud
+    /// level (gh:#1037). Radial between neighbouring rings across their
+    /// boundary cylinder, axial between neighbouring levels across the
+    /// ring's cross-section, and from the outer ring to the shroud, each
+    /// with its exchange factor. A relocated node takes no part: there is
+    /// no view across an emptied cell (stated simplification; MELCOR looks
+    /// through it to the next surface). The top and bottom of the core
+    /// exchange nothing (no upper-plenum structure or pool surface).
+    fn radiation(&self, prm: &Params, dz: f64) -> ([f64; NODES], [f64; AXIAL_NODES]) {
+        let mut q = [0.0; NODES];
+        let mut q_sh = [0.0; AXIAL_NODES];
+        let g = geom(prm);
+        let w_max = g.zr_kg / g.a_zr;
+        let rc = core_radius(prm);
+        let oxide = |n: &Node| n.w_ox.min(w_max) * (ZRO2_PER_ZR / prm.zro2_density);
+        let eps = |n: &Node| zr_emissivity(oxide(n), n.t_clad);
+        let pi = std::f64::consts::PI;
+        for j in 0..AXIAL_NODES {
+            for k in 0..RINGS {
+                let a = &self.nodes[k * AXIAL_NODES + j];
+                if a.relocated {
+                    continue;
+                }
+                // Radially outward: the next ring, or the shroud.
+                let r_out = rc * ((k + 1) as f64 / RINGS as f64).sqrt();
+                let area = 2.0 * pi * r_out * dz * prm.radial_exchange;
+                if k + 1 < RINGS {
+                    let b = &self.nodes[(k + 1) * AXIAL_NODES + j];
+                    if !b.relocated {
+                        let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                        q[k * AXIAL_NODES + j] -= x;
+                        q[(k + 1) * AXIAL_NODES + j] += x;
+                    }
+                } else {
+                    let t_sh = self.shroud_k[j];
+                    let x = gray_exchange(area, eps(a), steel_emissivity(t_sh), a.t_clad, t_sh);
+                    q[k * AXIAL_NODES + j] -= x;
+                    q_sh[j] += x;
+                }
+                // Axially upward.
+                if j + 1 < AXIAL_NODES {
+                    let b = &self.nodes[k * AXIAL_NODES + j + 1];
+                    if !b.relocated {
+                        let area = pi * rc * rc / RINGS as f64 * prm.axial_exchange;
+                        let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                        q[k * AXIAL_NODES + j] -= x;
+                        q[k * AXIAL_NODES + j + 1] += x;
+                    }
+                }
+            }
+        }
+        (q, q_sh)
+    }
+}
+
+/// kg of ZrO2 per kg of Zr oxidised (123.22 / 91.224 g/mol).
+const ZRO2_PER_ZR: f64 = 123.222 / 91.224;
 
 fn geom(prm: &Params) -> NodeGeom {
     let n = NODES as f64;
@@ -509,6 +617,7 @@ impl Core {
             zr_oxidised_kg: 0.0,
             h2_total_kg: 0.0,
             head: HeadWall::new(t_sat_k),
+            shroud_k: [t_sat_k; AXIAL_NODES],
         }
     }
 
@@ -527,6 +636,9 @@ impl Core {
         let mut exit_sum = 0.0;
         let mut exit_w = 0.0;
         let mut newly_relocated = Vec::new();
+        // Radiation (gh:#1037), explicit from the start-of-step temperatures:
+        // a source on each node's cladding, and on each shroud level.
+        let (q_rad, q_shroud) = if s.core_radiation { self.radiation(prm, dz) } else { ([0.0; NODES], [0.0; AXIAL_NODES]) };
         // Debris in the lower plenum (relocated in earlier steps): quenched
         // while the plenum holds water, giving its stored heat over a
         // quench time and its decay power at once; the steam it raises
@@ -671,7 +783,7 @@ impl Core {
                 let b1 = cf / dt * n.t_fuel + q;
                 let a21 = -gfc;
                 let a22 = cc / dt + gfc + ha;
-                let b2 = cc / dt * n.t_clad + ha * t_cool + q_ox;
+                let b2 = cc / dt * n.t_clad + ha * t_cool + q_ox + q_rad[idx];
                 let det = a11 * a22 - a12 * a21;
                 let tf = (b1 * a22 - a12 * b2) / det;
                 let tc = (a11 * b2 - a21 * b1) / det;
@@ -688,7 +800,7 @@ impl Core {
                 // solve's temperatures are the answer.
                 let (tf, tc) = if tdp {
                     let ef = g.m_fuel * uo2_enthalpy().at(n.t_fuel) + dt * (q - gfc * (tf - tc));
-                    let ec = g.zr_kg * zr_enthalpy().at(n.t_clad) + dt * (gfc * (tf - tc) - q_out + q_ox);
+                    let ec = g.zr_kg * zr_enthalpy().at(n.t_clad) + dt * (gfc * (tf - tc) - q_out + q_ox + q_rad[idx]);
                     (uo2_enthalpy().temperature(ef / g.m_fuel), zr_enthalpy().temperature(ec / g.zr_kg))
                 } else {
                     (tf, tc)
@@ -743,6 +855,20 @@ impl Core {
         } else {
             s.t_sat_k
         };
+        // The shroud: held at saturation where the collapsed level covers it
+        // (water on both faces), otherwise heated by the outer ring's
+        // radiation, its outer face adiabatic (stated).
+        if s.core_radiation {
+            let m_level = shroud_mass_per_level(prm, dz);
+            for j in 0..AXIAL_NODES {
+                let z_mid = (j as f64 + 0.5) * dz;
+                self.shroud_k[j] = if s.level_m >= z_mid {
+                    s.t_sat_k
+                } else {
+                    steel_t(steel_h(self.shroud_k[j]) + q_shroud[j] * dt / m_level)
+                };
+            }
+        }
         self.h2_total_kg += h2 * dt;
         let relocated = self.nodes.iter().filter(|n| n.relocated).count() as f64 / NODES as f64;
         CoreResult {
@@ -785,6 +911,7 @@ impl Core {
         ]);
         w.f(&self.head.t_k);
         w.f(&[self.head.strain]);
+        w.f(&self.shroud_k);
     }
     pub fn read_state(r: &mut Reader) -> Self {
         let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f() }).collect();
@@ -800,6 +927,7 @@ impl Core {
             zr_oxidised_kg: r.f(),
             h2_total_kg: r.f(),
             head: HeadWall { t_k: std::array::from_fn(|_| r.f()), strain: r.f() },
+            shroud_k: std::array::from_fn(|_| r.f()),
         }
     }
 }
@@ -818,6 +946,7 @@ impl CoreSnapshot {
             self.p_dw_pa,
             if self.lower_head_wall { 1.0 } else { 0.0 },
             if self.rod_collapse { 1.0 } else { 0.0 },
+            if self.core_radiation { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -833,6 +962,7 @@ impl CoreSnapshot {
             p_dw_pa: r.f(),
             lower_head_wall: r.f() != 0.0,
             rod_collapse: r.f() != 0.0,
+            core_radiation: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -897,7 +1027,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -908,6 +1038,8 @@ mod tests {
 
     /// An uncovered core with no steam heats adiabatically: the energy it
     /// gains is the decay power times the time (no oxidation without steam).
+    /// Since gh:#1037 the shroud is in the balance: radiation moves heat to
+    /// it and between nodes, and creates none.
     #[test]
     fn a_dry_core_without_steam_heats_adiabatically() {
         let mut c = Core::new(560.0, &Params::default());
@@ -917,13 +1049,16 @@ mod tests {
             n.t_clad = 560.0;
         }
         let g = geom(&Params::default());
-        let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum();
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, prm: Params::default() };
+        let dz = Params::default().active_length_m / AXIAL_NODES as f64;
+        let m_sh = shroud_mass_per_level(&Params::default(), dz);
+        let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
+        let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
         }
-        let e1: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum();
+        let e1: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
         assert!(((e1 - e0) - 10.0e6 * 100.0).abs() < 1e-6 * 1e9, "{}", e1 - e0);
     }
 
@@ -940,11 +1075,14 @@ mod tests {
             n.t_clad = 560.0;
         }
         let g = geom(&Params::default());
+        let dz = Params::default().active_length_m / AXIAL_NODES as f64;
+        let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let h = |c: &Core| -> f64 {
-            c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad)).sum()
+            c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad)).sum::<f64>()
+                + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -1027,6 +1165,22 @@ mod tests {
         assert!((area - 2.0 * std::f64::consts::PI * r * h).abs() < 1e-9);
         let (full, h2, _) = debris_cap(&prm, 2.0 * mf, 2.0 * mc);
         assert!((full - 2.0 * std::f64::consts::PI * r * r).abs() < 1e-9 && h2 == r);
+    }
+
+    /// Radiation (gh:#1037): MELCOR's Zircaloy emissivity points (0.325
+    /// bare, 0.808 at 3.88 um, 0.759 at 1 mm), its degradation above 1500 K
+    /// floored at 0.325, steel's linear law at 616.48 K, and the gray-body
+    /// exchange's sign and symmetry.
+    #[test]
+    fn radiation_follows_melcors_emissivities_and_conserves() {
+        assert!((zr_emissivity(0.0, 1000.0) - 0.325).abs() < 1e-12);
+        assert!((zr_emissivity(3.88e-6, 1000.0) - 0.808).abs() < 1e-12);
+        assert!((zr_emissivity(2.0e-3, 1000.0) - 0.759).abs() < 1e-12);
+        assert!((zr_emissivity(2.0e-3, 1600.0) - 0.759 * (-1.0f64 / 3.0).exp()).abs() < 1e-9);
+        assert_eq!(zr_emissivity(2.0e-3, 3000.0), 0.325);
+        assert!((steel_emissivity(616.48) - 0.25617).abs() < 1e-12);
+        let x = gray_exchange(1.0, 0.8, 0.5, 1500.0, 1000.0);
+        assert!(x > 0.0 && (x + gray_exchange(1.0, 0.5, 0.8, 1000.0, 1500.0)).abs() < 1e-9 * x);
     }
 
     /// The steam term of Hess's law (gh:#1046): saturated steam at 7 MPa

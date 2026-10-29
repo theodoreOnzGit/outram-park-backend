@@ -3491,9 +3491,12 @@ Zircaloy (cladding plus its share of the channel boxes), with
   wall (`HeadWall`), which fails on its inner node reaching
   [`HEAD_FAILURE_WALL_K`] or by Larson-Miller creep.
 
-**Not in the model** (each would change the answer): radiation between
+**Not in the model** (each would change the answer): ~~radiation between
 rods, to the shroud and upwards (it spreads heat across the core above
-about 1200 K); the two-phase swell of the mixture level (the collapsed
+about 1200 K);~~ (added 2026-10-29, gh:#1037: ring-to-ring, level-to-level
+and outer ring to a shroud lump; still missing: the upper-plenum
+structures, the view through emptied cells, the downcomer side of the
+shroud); the two-phase swell of the mixture level (the collapsed
 level uncovers the fuel early); candling, blockages, and molten-pool
 physics; ~~temperature-dependent fuel properties~~ (heat capacities added
 2026-10-29, gh:#1038; UO2 conductivity is still constant, waiting for a
@@ -3523,6 +3526,7 @@ pub struct CoreSnapshot {
     pub p_dw_pa: f64,
     pub lower_head_wall: bool,
     pub rod_collapse: bool,
+    pub core_radiation: bool,
     pub prm: Params,
 }
 ```
@@ -3541,6 +3545,7 @@ pub struct CoreSnapshot {
 | `p_dw_pa` | `f64` | Drywell pressure, Pa: the outside of the lower head, for its creep<br>stress (gh:#1034). |
 | `lower_head_wall` | `bool` | The lower-head wall on (the default) or the debris-temperature<br>ablation (`Mechanisms`). |
 | `rod_collapse` | `bool` | MELCOR's rod-collapse criteria (the default) or the 2100 K<br>whole-node slump (`Mechanisms`). |
+| `core_radiation` | `bool` | In-core radiation and the shroud (the default) or none<br>(`Mechanisms`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4277,6 +4282,11 @@ pub struct Params {
     pub rod_collapse_max_k: f64,
     pub damage_a: f64,
     pub damage_b: f64,
+    pub assembly_pitch_m: f64,
+    pub radial_exchange: f64,
+    pub axial_exchange: f64,
+    pub shroud_thickness_m: f64,
+    pub zro2_density: f64,
     pub uh_low_a: f64,
     pub uh_low_b_k: f64,
     pub uh_high_a: f64,
@@ -4372,6 +4382,11 @@ pub struct Params {
 | `rod_collapse_max_k` | `f64` |  |
 | `damage_a` | `f64` |  |
 | `damage_b` | `f64` |  |
+| `assembly_pitch_m` | `f64` |  |
+| `radial_exchange` | `f64` |  |
+| `axial_exchange` | `f64` |  |
+| `shroud_thickness_m` | `f64` |  |
+| `zro2_density` | `f64` |  |
 | `uh_low_a` | `f64` |  |
 | `uh_low_b_k` | `f64` |  |
 | `uh_high_a` | `f64` |  |
@@ -5101,6 +5116,49 @@ pub const DAMAGE_A: f64 = 2.16e-11;
 
 ```rust
 pub const DAMAGE_B: f64 = 7.0e-3;
+```
+
+#### Constant `ASSEMBLY_PITCH_M`
+
+Fuel-assembly pitch, m: sets the core's equivalent radius, and so the ring
+boundaries' areas. \[U\] GE BWR/3-4 lattice, 6 in.
+
+```rust
+pub const ASSEMBLY_PITCH_M: f64 = 0.1524;
+```
+
+#### Constant `RADIAL_EXCHANGE`
+
+Radial (cell-to-cell, and outer ring to shroud) and axial radiative
+exchange factors. \[A\] MELCOR's 2.0 defaults FCELR and FCELA (Vol. 1,
+COR_RF; 0.25 in its 1.86 scheme).
+
+```rust
+pub const RADIAL_EXCHANGE: f64 = 0.1;
+```
+
+#### Constant `AXIAL_EXCHANGE`
+
+```rust
+pub const AXIAL_EXCHANGE: f64 = 0.1;
+```
+
+#### Constant `SHROUD_THICKNESS_M`
+
+Core shroud wall thickness, m. \[A\] MELCOR's manual describes the BWR
+shroud as "about 5 cm" (Vol. 2, COR §2.2.12); Unit 1's own value needs L4.
+
+```rust
+pub const SHROUD_THICKNESS_M: f64 = 0.05;
+```
+
+#### Constant `ZRO2_DENSITY`
+
+ZrO2 density, kg/m^3, for the oxide thickness that sets the cladding's
+emissivity. \[P\] MELCOR's MP default (Vol. 2, MP Table 6.1).
+
+```rust
+pub const ZRO2_DENSITY: f64 = 5600.0;
 ```
 
 #### Constant `UH_LOW_A`
@@ -6106,6 +6164,7 @@ pub struct Mechanisms {
     pub temperature_dependent_properties: bool,
     pub lower_head_wall: bool,
     pub rod_collapse: bool,
+    pub core_radiation: bool,
 }
 ```
 
@@ -6118,6 +6177,7 @@ pub struct Mechanisms {
 | `temperature_dependent_properties` | `bool` | MATPRO temperature-dependent fuel and cladding heat capacities<br>(OFFBEAT, gh:#1038); off is the constant `UO2_CP`/`ZR_CP` model. |
 | `lower_head_wall` | `bool` | The lower-head wall: heated by the debris, failing on its inner<br>temperature or by creep (gh:#1034); off is the debris-temperature<br>criterion `LOWER_HEAD_FAILURE_K`. |
 | `rod_collapse` | `bool` | MELCOR's rod collapse (gh:#1035): breach at `CLAD_BREACH_K`,<br>collapse at `ROD_COLLAPSE_K` or by time-at-temperature damage; off<br>is the 2100 K whole-node slump `ZR_MELT_K`. |
+| `core_radiation` | `bool` | In-core radiation between rings and levels, and from the outer ring<br>to the shroud (gh:#1037); off is no radiation at all. |
 
 ##### Implementations
 
@@ -6142,6 +6202,11 @@ pub struct Mechanisms {
   pub fn without_rod_collapse(self: Self) -> Self { /* ... */ }
   ```
   A node slumps whole to the lower plenum when its cladding reaches
+
+- ```rust
+  pub fn without_core_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  No radiation inside the core and no shroud heat structure: the model
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

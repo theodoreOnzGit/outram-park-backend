@@ -263,7 +263,7 @@ impl App {
         ui.separator();
         egui::CollapsingHeader::new("What this is, and is not").show(ui, |ui| {
             ui.label("Three lumped models stepped together each second: the pressure vessel's water and steam (IAPWS-IF97 steam tables), the core (3 rings × 12 axial nodes: heat-up, Urbanic-Heidrick zirconium oxidation, hydrogen, relocation) and the Mark I containment with the reactor building.");
-            ui.label("Not in the model: radiation inside the core, two-phase level swell, molten-pool physics, fission products, combustion. Many plant numbers are placeholders; each is marked in params.rs with what would replace it.");
+            ui.label("Not in the model: two-phase level swell, molten-pool physics and candling, fission products, combustion. In-core radiation is simplified (rings, levels and the shroud only). Many plant numbers are placeholders; each is marked in sembawang's bwr_mark1 params.rs with its tag and what would replace it.");
             ui.label("Physics runs off the page: a plant worker plus a core worker and a containment worker that step from the same start-of-step snapshot, as the CIET simulator's browser demo does. 1 and 3 workers give the same numbers bit for bit.");
         });
     }

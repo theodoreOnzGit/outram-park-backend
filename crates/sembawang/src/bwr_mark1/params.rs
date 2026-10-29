@@ -220,6 +220,26 @@ pub const ROD_COLLAPSE_MAX_K: f64 = 3100.0;
 pub const DAMAGE_A: f64 = 2.16e-11;
 pub const DAMAGE_B: f64 = 7.0e-3;
 
+// ── In-core radiation and the shroud (gh:#1037, plan item F6) ─────────────────
+//
+// After the public description of MELCOR's COR radiation model (MELCOR 2.2
+// Vol. 2, §2.1; Vol. 1, COR_RF). No MELCOR source is used.
+
+/// Fuel-assembly pitch, m: sets the core's equivalent radius, and so the ring
+/// boundaries' areas. \[U\] GE BWR/3-4 lattice, 6 in.
+pub const ASSEMBLY_PITCH_M: f64 = 0.1524;
+/// Radial (cell-to-cell, and outer ring to shroud) and axial radiative
+/// exchange factors. \[A\] MELCOR's 2.0 defaults FCELR and FCELA (Vol. 1,
+/// COR_RF; 0.25 in its 1.86 scheme).
+pub const RADIAL_EXCHANGE: f64 = 0.1;
+pub const AXIAL_EXCHANGE: f64 = 0.1;
+/// Core shroud wall thickness, m. \[A\] MELCOR's manual describes the BWR
+/// shroud as "about 5 cm" (Vol. 2, COR §2.2.12); Unit 1's own value needs L4.
+pub const SHROUD_THICKNESS_M: f64 = 0.05;
+/// ZrO2 density, kg/m^3, for the oxide thickness that sets the cladding's
+/// emissivity. \[P\] MELCOR's MP default (Vol. 2, MP Table 6.1).
+pub const ZRO2_DENSITY: f64 = 5600.0;
+
 // ── Zirconium-steam oxidation ───────────────────────────────────────────────
 //
 // Parabolic: d(W^2)/dt = K(T), W = mass of Zr oxidised per unit area,
@@ -443,6 +463,11 @@ params! {
     rod_collapse_max_k = ROD_COLLAPSE_MAX_K, A,
     damage_a = DAMAGE_A, P,
     damage_b = DAMAGE_B, P,
+    assembly_pitch_m = ASSEMBLY_PITCH_M, U,
+    radial_exchange = RADIAL_EXCHANGE, A,
+    axial_exchange = AXIAL_EXCHANGE, A,
+    shroud_thickness_m = SHROUD_THICKNESS_M, A,
+    zro2_density = ZRO2_DENSITY, P,
     uh_low_a = UH_LOW_A, P,
     uh_low_b_k = UH_LOW_B_K, P,
     uh_high_a = UH_HIGH_A, P,
@@ -559,7 +584,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 87);
+        assert_eq!(Params::INPUTS.len(), 92);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
