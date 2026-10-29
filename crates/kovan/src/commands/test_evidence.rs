@@ -36,6 +36,8 @@ use kovan_common::review::evidence::args::plan;
 use kovan_common::review::evidence::output::{LineKind, OutputParser};
 use kovan_common::review::evidence::{dirty_build_inputs, TestEvidence};
 
+use super::index_control::{RunControl, CANCELLED};
+
 fn capture(root: &Path, program: &str, args: &[&str]) -> Result<String, String> {
     let out = Command::new(program)
         .args(args)
@@ -125,12 +127,31 @@ fn cargo_command(args: &[String], root: &Path) -> Command {
 }
 
 /// Run `kovan-cli test` in workspace `root` with the user's `extra` cargo
-/// arguments.
+/// arguments, echoing to stdout.
 pub fn run(
     root: &Path,
     extra: &[String],
     allow_dirty: bool,
     out: Option<PathBuf>,
+) -> Result<(), String> {
+    run_with(root, extra, allow_dirty, out, &RunControl::default(), |l| {
+        let mut o = std::io::stdout().lock();
+        let _ = writeln!(o, "{l}");
+        let _ = o.flush();
+    })
+}
+
+/// [`run`], with every line it would print handed to `say` (the CLI prints
+/// it; Code Review's "Run workspace test" logs it, `app::workspace_test`).
+/// Cancel on `ctl` kills cargo at its next output line and records
+/// nothing: a cancelled run is not evidence.
+pub fn run_with<F: FnMut(&str)>(
+    root: &Path,
+    extra: &[String],
+    allow_dirty: bool,
+    out: Option<PathBuf>,
+    ctl: &RunControl,
+    mut say: F,
 ) -> Result<(), String> {
     let pl = plan(extra).map_err(|e| e.to_string())?;
     let mut dirty_paths = dirty(root)?;
@@ -154,7 +175,7 @@ pub fn run(
     } else {
         format!("PARTIAL ({})", pl.partial_reasons.join(", "))
     };
-    println!("kovan-cli test: {} [{scope}]", command.join(" "));
+    say(&format!("kovan-cli test: {} [{scope}]", command.join(" ")));
 
     // cargo's stderr (`Running …`) and the test binaries' stdout must reach
     // the parser in order, so both get the same pipe.
@@ -174,13 +195,15 @@ pub fn run(
     // The parent's copies of the write end are moved into `Command` and
     // dropped with it, so the reader sees EOF when cargo exits.
     let mut parser = OutputParser::new(&abs_root.to_string_lossy());
-    let stdout = std::io::stdout();
     for line in BufReader::new(reader).lines() {
         let line = line.map_err(|e| format!("reading cargo output: {e}"))?;
+        if ctl.cancelled() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(CANCELLED.to_string());
+        }
         if parser.feed(&line) == LineKind::Text {
-            let mut o = stdout.lock();
-            let _ = writeln!(o, "{line}");
-            let _ = o.flush();
+            say(&line);
         }
     }
     let status = child.wait().map_err(|e| format!("cargo: {e}"))?;
@@ -212,7 +235,7 @@ pub fn run(
     std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
 
     let t = evidence.totals;
-    println!(
+    say(&format!(
         "kovan-cli test: {} binaries, {} passed, {} failed, {} ignored at {} (Cargo.lock {})",
         evidence.binaries.len(),
         t.passed,
@@ -220,26 +243,26 @@ pub fn run(
         t.ignored,
         &evidence.commit[..evidence.commit.len().min(10)],
         &evidence.cargo_lock[..evidence.cargo_lock.len().min(19)],
-    );
+    ));
     match evidence.counted() {
         Ok(()) => {
-            println!("kovan-cli test: COUNTED as full-suite evidence");
+            say("kovan-cli test: COUNTED as full-suite evidence");
             let n = write_into_kovan_tomls(root, &evidence)?;
             if n == 0 {
-                println!(
+                say(&format!(
                     "kovan-cli test: no code-folder kovan.toml found to record it in: run \
                      `kovan-cli index` first; the raw record is in {}",
                     path.display()
-                );
+                ));
             }
         }
         Err(why) => {
             for w in why {
-                println!("kovan-cli test: NOT counted: {w}");
+                say(&format!("kovan-cli test: NOT counted: {w}"));
             }
         }
     }
-    println!("kovan-cli test: wrote {}", path.display());
+    say(&format!("kovan-cli test: wrote {}", path.display()));
     if status.success() {
         Ok(())
     } else {
