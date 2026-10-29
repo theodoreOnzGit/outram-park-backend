@@ -474,6 +474,13 @@ impl Core {
     /// exchange nothing (no upper-plenum structure or pool surface).~~ The
     /// top radiates to the dome internals since 2026-10-29
     /// ([`Core::top_radiation`]); the bottom still exchanges nothing.
+    /// **Checked and deferred 2026-10-29:** MELCOR radiates the lowest
+    /// uncovered cell to the lower-plenum pool (`Flp,up` = 0.25) or to the
+    /// lower head (`Fcell,a`) (COR RM §2.1.2), but the held manuals give no
+    /// pool emissivity, so building it needs an \[A\] value. Its size: the
+    /// lowest uncovered nodes are the core's coolest; about 5.5 m^2
+    /// effective at 1200-1500 K against water at saturation is 0.2-0.5 MW,
+    /// beside 10-20 MW of decay and oxidation heat.
     fn radiation(&self, prm: &Params, dz: f64) -> ([f64; NODES], [f64; AXIAL_NODES]) {
         let mut q = [0.0; NODES];
         let mut q_sh = [0.0; AXIAL_NODES];
