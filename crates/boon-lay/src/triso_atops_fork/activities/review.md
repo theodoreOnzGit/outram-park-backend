@@ -278,3 +278,55 @@ Numbers are unitless, f64 is ok
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit a1d3a93e1a.
+
+# Review: BQ_PER_CI (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-bq-per-ci-theodoreonzgit-672b140f"
+kind = "review"
+origin = "human"
+created = "2026-10-29T15:15:58+08:00"
+modified = "2026-10-29T15:15:58+08:00"
+target = "fn:672b140fc503762f"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/mod.rs::BQ_PER_CI"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-29"
+signed_at = "2026-10-29T15:15:58+08:00"
+commit = "8e840bfb8d3036e5587075c298ce569c4a299f8f"
+hash = "sha256:7cdec66678905becb105d95cc0922974e31363d078e8e18357228304ad8bce5f"
+doc_hash = "sha256:3a052dbf0d18b2543d7c5ab9c84831a0dc9c733134382d392f79450c31a25b3e"
+cargo_lock = "sha256:f98236dd033e5a874219475b1066e85b1068ae8fb68882c2c9732d8f6bc0f51e"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "amgIJcPeOafXDg52bBMPmY9ryCoEdWv1BhJET22kGaEsXzLEF0T+IsUHxUmbdycaL/XbaadhVLdUHsSVoDdYCQ=="
+
+[[relation]]
+target = "concept:16-nuclear-fuel-cycle/fuel-depletion/decay-data"
+kind = "implements"
+```
+
+ported from TRISO-ATOPS, also from memory, this is correct
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit 8e840bfb8d.
