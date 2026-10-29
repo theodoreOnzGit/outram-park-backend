@@ -2182,6 +2182,12 @@ A BWR/3 in a Mark I containment. This is the model the `dhoby-ghaut`
 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to sembawang").
 Where it stands against the BSAF Unit 1 bands: [`compare`].
 
+**Transcendentals go through PETIR** (`petir::mathf::RealMath`: `r_exp`,
+`r_ln`, `r_powf`, `r_powi`, `r_cos`; `sqrt` stays, being correctly rounded
+by IEEE-754), as everywhere in this crate (gh:#985), so native and wasm
+runs take one route. Converted 2026-10-29; the measured effect is in
+`verification_and_validation/bwr_mark1/petir-conversion.md`.
+
 Three parts, owned and advanced separately so they can run on three
 threads (three Web Workers in the browser), as the CIET Educational
 Simulator's browser demo runs its heat transfer and its two flow solves:

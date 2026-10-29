@@ -5,6 +5,12 @@
 //! 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to sembawang").
 //! Where it stands against the BSAF Unit 1 bands: [`compare`].
 //!
+//! **Transcendentals go through PETIR** (`petir::mathf::RealMath`: `r_exp`,
+//! `r_ln`, `r_powf`, `r_powi`, `r_cos`; `sqrt` stays, being correctly rounded
+//! by IEEE-754), as everywhere in this crate (gh:#985), so native and wasm
+//! runs take one route. Converted 2026-10-29; the measured effect is in
+//! `verification_and_validation/bwr_mark1/petir-conversion.md`.
+//!
 //! Three parts, owned and advanced separately so they can run on three
 //! threads (three Web Workers in the browser), as the CIET Educational
 //! Simulator's browser demo runs its heat transfer and its two flow solves:
@@ -37,6 +43,7 @@ pub mod params;
 pub mod steam;
 pub mod wire;
 
+use petir::mathf::RealMath;
 use containment::{Containment, ContainmentResult, ContainmentSnapshot};
 use self::core::{Core, CoreResult, CoreSnapshot};
 use tampines_steam_tables::prelude::get_choked_flow_massrate_and_state_from_stagnation_properties_and_area;
@@ -239,12 +246,12 @@ struct ChokedTable {
 impl ChokedTable {
     fn new(sat: &SatTable) -> Self {
         let n = 80;
-        let (a, b) = ((2.0e5f64).ln(), steam::P_MAX_PA.ln());
+        let (a, b) = ((2.0e5f64).r_ln(), steam::P_MAX_PA.r_ln());
         let ln_p: Vec<f64> = (0..n).map(|i| a + (b - a) * i as f64 / (n - 1) as f64).collect();
         let flux = ln_p
             .iter()
             .map(|l| {
-                let p = l.exp();
+                let p = l.r_exp();
                 let h0 = sat.at(p).h_g + 1.0e3;
                 let (m, _) = get_choked_flow_massrate_and_state_from_stagnation_properties_and_area(
                     Pressure::new::<pascal>(p),
@@ -259,9 +266,9 @@ impl ChokedTable {
     /// Mass flux at stagnation pressure `p_pa`; below the table, scaled
     /// linearly with pressure (choked flux is nearly proportional to it).
     fn at(&self, p_pa: f64) -> f64 {
-        let l = p_pa.ln();
+        let l = p_pa.r_ln();
         if l <= self.ln_p[0] {
-            return self.flux[0] * p_pa / self.ln_p[0].exp();
+            return self.flux[0] * p_pa / self.ln_p[0].r_exp();
         }
         let n = self.ln_p.len();
         let step = self.ln_p[1] - self.ln_p[0];

@@ -42,6 +42,7 @@
 //! leaves with volatile fission products; boron carbide control-blade
 //! reactions. Debris after the lower head fails leaves the model.
 
+use petir::mathf::RealMath;
 use super::params::*;
 use outram_park_fork_offbeat::materials::properties::heat_capacity::HeatCapacityModel;
 use outram_park_fork_offbeat::materials::MaterialState;
@@ -165,7 +166,7 @@ fn axial_shape() -> Vec<f64> {
     let raw: Vec<f64> = (0..AXIAL_NODES)
         .map(|j| {
             let z = (j as f64 + 0.5) / AXIAL_NODES as f64 * l;
-            (std::f64::consts::PI * (z - 0.5 * l) / le).cos()
+            (std::f64::consts::PI * (z - 0.5 * l) / le).r_cos()
         })
         .collect();
     let s: f64 = raw.iter().sum();
@@ -255,8 +256,8 @@ pub fn oxidation_rate(t_k: f64) -> f64 {
     if t_k < OXIDATION_MIN_K {
         return 0.0;
     }
-    let low = |t: f64| UH_LOW_A * (-UH_LOW_B_K / t).exp();
-    let high = |t: f64| UH_HIGH_A * (-UH_HIGH_B_K / t).exp();
+    let low = |t: f64| UH_LOW_A * (-UH_LOW_B_K / t).r_exp();
+    let high = |t: f64| UH_HIGH_A * (-UH_HIGH_B_K / t).r_exp();
     if t_k <= UH_LOW_MAX_K {
         low(t_k)
     } else if t_k >= UH_HIGH_MIN_K {
@@ -280,7 +281,7 @@ fn steam_htc(w: f64, t_film: f64, p_pa: f64) -> (f64, f64) {
     let re = (w / area) * dh / mu;
     let pr = mu * cp / k;
     // Laminar floor Nu = 4.36 (fully developed, uniform flux).
-    let nu = (0.023 * re.powf(0.8) * pr.powf(0.4)).max(4.36);
+    let nu = (0.023 * re.r_powf(0.8) * pr.r_powf(0.4)).max(4.36);
     (nu * k / dh, cp)
 }
 
@@ -341,7 +342,7 @@ impl Core {
             } else if s.level_m > -BAF_M {
                 let h_sat = self.debris_mf * uo2_enthalpy().at(s.t_sat_k) + self.debris_mc * zr_enthalpy().at(s.t_sat_k);
                 let excess = (self.debris_h - h_sat).max(0.0);
-                let release = excess * (1.0 - (-dt / DEBRIS_QUENCH_S).exp());
+                let release = excess * (1.0 - (-dt / DEBRIS_QUENCH_S).r_exp());
                 self.debris_h -= release;
                 q_quench = p_debris + release / dt;
             } else {
@@ -355,7 +356,7 @@ impl Core {
                 ex_vessel = p_debris;
             } else if s.level_m > -BAF_M {
                 let excess = (self.debris_e - self.debris_c * s.t_sat_k).max(0.0);
-                let release = excess * (1.0 - (-dt / DEBRIS_QUENCH_S).exp());
+                let release = excess * (1.0 - (-dt / DEBRIS_QUENCH_S).r_exp());
                 self.debris_e -= release;
                 q_quench = p_debris + release / dt;
             } else {
@@ -410,7 +411,7 @@ impl Core {
                 } else if w_steam > 0.0 {
                     let (h, cp) = steam_htc(w_steam, 0.5 * (node.t_clad + t_steam), s.p_pa);
                     let ntu = h * g.a_rod / (w_steam * cp);
-                    (w_steam * cp * (1.0 - (-ntu).exp()), t_steam, cp)
+                    (w_steam * cp * (1.0 - (-ntu).r_exp()), t_steam, cp)
                 } else {
                     (0.0, t_steam, 0.0)
                 };

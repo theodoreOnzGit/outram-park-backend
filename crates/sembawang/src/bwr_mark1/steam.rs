@@ -16,6 +16,7 @@
 //! below 3e-4 relative on `T_sat`, `v_f`, `v_g`, `u_f`, `u_g`, `h_f`, `h_g`
 //! at the midpoints of the table between 0.05 and 9 MPa.
 
+use petir::mathf::RealMath;
 use tampines_steam_tables::prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
@@ -67,22 +68,22 @@ pub struct SatTable {
 
 impl SatTable {
     pub fn new() -> Self {
-        let (a, b) = (P_MIN_PA.ln(), P_MAX_PA.ln());
+        let (a, b) = (P_MIN_PA.r_ln(), P_MAX_PA.r_ln());
         let ln_p: Vec<f64> = (0..N).map(|i| a + (b - a) * i as f64 / (N - 1) as f64).collect();
-        let rows = ln_p.iter().map(|l| sat_from_tables(l.exp())).collect();
+        let rows = ln_p.iter().map(|l| sat_from_tables(l.r_exp())).collect();
         Self { ln_p, rows }
     }
 
     /// Saturation properties at `p_pa`, clamped to the table's range.
     pub fn at(&self, p_pa: f64) -> Sat {
-        let l = p_pa.clamp(P_MIN_PA, P_MAX_PA).ln();
+        let l = p_pa.clamp(P_MIN_PA, P_MAX_PA).r_ln();
         let step = self.ln_p[1] - self.ln_p[0];
         let i = (((l - self.ln_p[0]) / step).floor() as usize).min(N - 2);
         let w = (l - self.ln_p[i]) / step;
         let (r0, r1) = (&self.rows[i], &self.rows[i + 1]);
         let mix = |a: f64, b: f64| a + w * (b - a);
         Sat {
-            p_pa: l.exp(),
+            p_pa: l.r_exp(),
             t_k: mix(r0.t_k, r1.t_k),
             v_f: mix(r0.v_f, r1.v_f),
             v_g: mix(r0.v_g, r1.v_g),
@@ -100,11 +101,11 @@ impl SatTable {
     /// model's limit, reported by the caller, never papered over.
     pub fn mixture(&self, v: f64, u: f64) -> Option<(Sat, f64)> {
         let resid = |l: f64| {
-            let s = self.at(l.exp());
+            let s = self.at(l.r_exp());
             let x = (v - s.v_f) / (s.v_g - s.v_f);
             (s.u_f + x * (s.u_g - s.u_f) - u, s, x)
         };
-        let (mut a, mut b) = (P_MIN_PA.ln(), P_MAX_PA.ln());
+        let (mut a, mut b) = (P_MIN_PA.r_ln(), P_MAX_PA.r_ln());
         let (fa, _, _) = resid(a);
         let (fb, _, _) = resid(b);
         if fa > 0.0 || fb < 0.0 {
@@ -131,17 +132,17 @@ impl SatTable {
     /// Returns `(p, T)`.
     pub fn superheated(&self, v: f64, u: f64) -> (f64, f64) {
         const CV_STEAM: f64 = 1700.0;
-        let (mut a, mut b) = (P_MIN_PA.ln(), P_MAX_PA.ln());
+        let (mut a, mut b) = (P_MIN_PA.r_ln(), P_MAX_PA.r_ln());
         for _ in 0..60 {
             let m = 0.5 * (a + b);
             // v_g falls with pressure.
-            if self.at(m.exp()).v_g > v {
+            if self.at(m.r_exp()).v_g > v {
                 a = m;
             } else {
                 b = m;
             }
         }
-        let s = self.at((0.5 * (a + b)).exp());
+        let s = self.at((0.5 * (a + b)).r_exp());
         let t = s.t_k + ((u - s.u_g) / CV_STEAM).max(0.0);
         (s.p_pa * t / s.t_k, t)
     }
@@ -167,7 +168,7 @@ mod tests {
         let t = SatTable::new();
         let mut worst: f64 = 0.0;
         for i in 0..N - 1 {
-            let p = (0.5 * (t.ln_p[i] + t.ln_p[i + 1])).exp();
+            let p = (0.5 * (t.ln_p[i] + t.ln_p[i + 1])).r_exp();
             if !(5.0e4..=9.0e6).contains(&p) {
                 continue;
             }

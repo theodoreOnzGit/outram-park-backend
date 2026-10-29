@@ -93,3 +93,6 @@ in the demo.
   row in `compare::ablations`.
 - **Clean room:** public manuals and literature only, never MELCOR, MAAP,
   ASTEC, RELAP5, SCDAP or FRAPCON source.
+- **Transcendentals through PETIR** (`.r_exp()` etc., gh:#985), never the
+  platform's `.exp()`; converted 2026-10-29 with the effect measured in
+  `verification_and_validation/bwr_mark1/petir-conversion.md`.

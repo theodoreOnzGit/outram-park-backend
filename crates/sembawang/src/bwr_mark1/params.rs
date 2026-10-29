@@ -20,6 +20,8 @@
 //! (the measured data, for comparison only). The OECD/NEA BSAF specification
 //! is restricted and is **not** used.
 
+use petir::mathf::RealMath;
+
 // ── Reactor ────────────────────────────────────────────────────────────────
 
 /// Rated thermal power, W. \[P\] TEPCO facility overview: 1380 MWt (460 MWe).
@@ -231,14 +233,14 @@ pub const P_ATM: f64 = 1.013e5;
 
 /// UO2 mass of the whole core, kg (from the pellet geometry).
 pub fn core_uo2_kg() -> f64 {
-    ASSEMBLIES * RODS_PER_ASSEMBLY * std::f64::consts::PI * PELLET_R_M.powi(2) * ACTIVE_LENGTH_M * UO2_DENSITY
+    ASSEMBLIES * RODS_PER_ASSEMBLY * std::f64::consts::PI * PELLET_R_M.r_powi(2) * ACTIVE_LENGTH_M * UO2_DENSITY
 }
 
 /// Zircaloy mass of the whole core (cladding over the active length plus
 /// channel boxes), kg.
 pub fn core_zr_kg() -> f64 {
     let ri = CLAD_OUTER_R_M - CLAD_WALL_M;
-    let clad = ASSEMBLIES * RODS_PER_ASSEMBLY * std::f64::consts::PI * (CLAD_OUTER_R_M.powi(2) - ri.powi(2)) * ACTIVE_LENGTH_M * ZR_DENSITY;
+    let clad = ASSEMBLIES * RODS_PER_ASSEMBLY * std::f64::consts::PI * (CLAD_OUTER_R_M.r_powi(2) - ri.r_powi(2)) * ACTIVE_LENGTH_M * ZR_DENSITY;
     let channel = ASSEMBLIES * 4.0 * (CHANNEL_INNER_WIDTH_M + CHANNEL_WALL_M) * CHANNEL_WALL_M * CHANNEL_LENGTH_M * ZR_DENSITY;
     clad + channel
 }
@@ -258,10 +260,10 @@ pub fn core_rod_area_m2() -> f64 {
 
 /// Coolant flow area inside the channels, m^2, and their hydraulic diameter, m.
 pub fn core_flow_area_m2() -> f64 {
-    ASSEMBLIES * (CHANNEL_INNER_WIDTH_M.powi(2) - RODS_PER_ASSEMBLY * std::f64::consts::PI * CLAD_OUTER_R_M.powi(2))
+    ASSEMBLIES * (CHANNEL_INNER_WIDTH_M.r_powi(2) - RODS_PER_ASSEMBLY * std::f64::consts::PI * CLAD_OUTER_R_M.r_powi(2))
 }
 pub fn hydraulic_diameter_m() -> f64 {
-    let a = CHANNEL_INNER_WIDTH_M.powi(2) - RODS_PER_ASSEMBLY * std::f64::consts::PI * CLAD_OUTER_R_M.powi(2);
+    let a = CHANNEL_INNER_WIDTH_M.r_powi(2) - RODS_PER_ASSEMBLY * std::f64::consts::PI * CLAD_OUTER_R_M.r_powi(2);
     let wet = RODS_PER_ASSEMBLY * 2.0 * std::f64::consts::PI * CLAD_OUTER_R_M + 4.0 * CHANNEL_INNER_WIDTH_M;
     4.0 * a / wet
 }
