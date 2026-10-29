@@ -39,8 +39,11 @@
 //!   gone (oxidised below [`MIN_METAL_M`], or its shell breached at
 //!   [`CLAD_BREACH_K`]) it accumulates time-at-temperature damage and falls
 //!   at [`ROD_COLLAPSE_K`] or when the damage reaches 1; any rod falls at
-//!   [`ROD_COLLAPSE_MAX_K`]. Molten Zr that MELCOR would candle downward
-//!   stays in the node and keeps oxidising (stated simplification). ~~a
+//!   [`ROD_COLLAPSE_MAX_K`]. ~~Molten Zr that MELCOR would candle downward
+//!   stays in the node and keeps oxidising (stated simplification).~~
+//!   **Since 2026-10-29** molten Zr candles: once the shell breaches it
+//!   flows down and refreezes in the first node below Zr's melting point
+//!   (`candling`; simplified, see the candling pass). ~~a
 //!   node whose cladding reaches [`ZR_MELT_K`] relocates~~ (that is the
 //!   `without_rod_collapse` ablation). A fallen node relocates: its mass, energy
 //!   and decay power move to a debris lump in the lower plenum, quenched
@@ -56,8 +59,8 @@
 //! and outer ring to a shroud lump; still missing: the upper-plenum
 //! structures, the view through emptied cells, the downcomer side of the
 //! shroud); the two-phase swell of the mixture level (the collapsed
-//! level uncovers the fuel early); candling, blockages, and molten-pool
-//! physics; ~~temperature-dependent fuel properties~~ (heat capacities added
+//! level uncovers the fuel early); ~~candling,~~ (simplified candling added
+//! 2026-10-29) blockages, and molten-pool physics; ~~temperature-dependent fuel properties~~ (heat capacities added
 //! 2026-10-29, gh:#1038; UO2 conductivity is still constant, waiting for a
 //! cited Unit 1 burnup, which MATPRO's conductivity depends on); the decay heat that
 //! leaves with volatile fission products; boron carbide control-blade
@@ -125,6 +128,8 @@ pub struct CoreSnapshot {
     pub penetrations: bool,
     /// Oxidation of the lower-plenum debris (`Mechanisms::debris_oxidation`).
     pub debris_oxidation: bool,
+    /// Molten Zr candles down the rods (`Mechanisms::candling`).
+    pub candling: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -188,6 +193,10 @@ struct Node {
     /// Fraction of the node's UO2 still in its fuel (CORSOR-M's UO2 row;
     /// the aerosol seed, gh:#1047).
     uo2_left: f64,
+    /// Zr in the node, kg, metal and oxide counted as Zr: the geometry's
+    /// share, less what has candled away, plus what has refrozen here
+    /// (`candling`).
+    zr_kg: f64,
 }
 
 /// Constants of one node (every node in a ring is the same size).
@@ -419,9 +428,8 @@ impl Core {
         let mut q = [0.0; NODES];
         let mut q_sh = [0.0; AXIAL_NODES];
         let g = geom(prm);
-        let w_max = g.zr_kg / g.a_zr;
         let rc = core_radius(prm);
-        let oxide = |n: &Node| n.w_ox.min(w_max) * (ZRO2_PER_ZR / prm.zro2_density);
+        let oxide = |n: &Node| n.w_ox.min(n.zr_kg / g.a_zr) * (ZRO2_PER_ZR / prm.zro2_density);
         let eps = |n: &Node| zr_emissivity(oxide(n), n.t_clad);
         let pi = std::f64::consts::PI;
         for j in 0..AXIAL_NODES {
@@ -730,7 +738,7 @@ impl Core {
             for j in 0..AXIAL_NODES {
                 let q = prm.thermal_power_w / RINGS as f64 * prm.ring_factors[ring] * axial[j];
                 let t_clad = t_sat_k + q / (prm.boiling_h * g.a_rod);
-                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0, fp_left: 1.0, uo2_left: 1.0 });
+                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0, fp_left: 1.0, uo2_left: 1.0, zr_kg: g.zr_kg });
             }
         }
         Self {
@@ -894,7 +902,7 @@ impl Core {
                 if !covered {
                     let k = oxidation_rate(prm, node.t_clad);
                     if k > 0.0 && w_steam > 0.0 {
-                        let w_max = g.zr_kg / g.a_zr;
+                        let w_max = node.zr_kg / g.a_zr;
                         let w_new = (node.w_ox * node.w_ox + k * dt).sqrt().min(w_max);
                         let mut dzr = (w_new - node.w_ox) * g.a_zr;
                         if s.diffusion_limit {
@@ -949,11 +957,11 @@ impl Core {
                 let (cf, cc, gfc) = if tdp {
                     (
                         g.m_fuel * cp_matpro(HeatCapacityModel::MatproUo2, n.t_fuel),
-                        g.zr_kg * cp_matpro(HeatCapacityModel::MatproZircaloy, n.t_clad),
+                        n.zr_kg * cp_matpro(HeatCapacityModel::MatproZircaloy, n.t_clad),
                         g.g_fc,
                     )
                 } else {
-                    (g.c_fuel, g.c_clad, g.g_fc)
+                    (g.c_fuel, g.c_clad * (n.zr_kg / g.zr_kg), g.g_fc)
                 };
                 let a11 = cf / dt + gfc;
                 let a12 = -gfc;
@@ -978,8 +986,8 @@ impl Core {
                 // solve's temperatures are the answer.
                 let (tf, tc) = if tdp {
                     let ef = g.m_fuel * uo2_enthalpy().at(n.t_fuel) + dt * (q - gfc * (tf - tc));
-                    let ec = g.zr_kg * zr_enthalpy().at(n.t_clad) + dt * (gfc * (tf - tc) - q_out + q_ox + q_rad[idx]);
-                    (uo2_enthalpy().temperature(ef / g.m_fuel), zr_enthalpy().temperature(ec / g.zr_kg))
+                    let ec = n.zr_kg * zr_enthalpy().at(n.t_clad) + dt * (gfc * (tf - tc) - q_out + q_ox + q_rad[idx]);
+                    (uo2_enthalpy().temperature(ef / g.m_fuel), zr_enthalpy().temperature(ec / n.zr_kg))
                 } else {
                     (tf, tc)
                 };
@@ -993,8 +1001,11 @@ impl Core {
                     // the shell breaches) accumulates time-at-temperature
                     // damage and collapses at ROD_COLLAPSE_K or when the
                     // damage reaches 1; any rod at ROD_COLLAPSE_MAX_K.
-                    let w_max = g.zr_kg / g.a_zr;
-                    let metal_m = (1.0 - m.w_ox / w_max).max(0.0) * prm.clad_wall_m;
+                    // The metal left as a thickness over the cladding's
+                    // original one (candling moves metal away).
+                    // (Written so the no-candling ablation is bit for bit.)
+                    let w_max = m.zr_kg / g.a_zr;
+                    let metal_m = (1.0 - m.w_ox / w_max).max(0.0) * prm.clad_wall_m * (m.zr_kg / g.zr_kg);
                     let bare = metal_m < prm.min_metal_m || tc >= prm.clad_breach_k;
                     if bare {
                         m.damage += dt * prm.damage_a * (prm.damage_b * tf).r_exp();
@@ -1018,6 +1029,55 @@ impl Core {
             exit_sum += w_steam * t_steam;
             exit_w += w_steam;
         }
+        // Candling (MELCOR COR §3.1, simplified; 2026-10-29): once a
+        // node's oxide shell has breached (CLAD_BREACH_K) and its metal is
+        // molten, the metal flows down the rod and refreezes in the first
+        // node below that is under Zr's melting point, taking its enthalpy
+        // with it; through the bottom it joins the lower-plenum debris.
+        // The oxide stays. Simplifications, stated: it moves within the
+        // step (MELCOR follows a candling velocity), it refreezes whole in
+        // that node (no partial refreezing or blockage), and molten UO2 is
+        // not candled.
+        if s.candling {
+            for k in 0..RINGS {
+                for j in (0..AXIAL_NODES).rev() {
+                    let src = k * AXIAL_NODES + j;
+                    let n = self.nodes[src];
+                    if n.relocated || n.t_clad < prm.clad_breach_k || n.t_clad < prm.zr_melt_k {
+                        continue;
+                    }
+                    let metal = (n.zr_kg - (n.w_ox * g.a_zr).min(n.zr_kg)).max(0.0);
+                    if metal <= 0.0 {
+                        continue;
+                    }
+                    self.nodes[src].zr_kg -= metal;
+                    let h_src = zr_enthalpy().at(n.t_clad);
+                    let target = (0..j).rev().map(|jj| k * AXIAL_NODES + jj).find(|&t| !self.nodes[t].relocated && self.nodes[t].t_clad < prm.zr_melt_k);
+                    match target {
+                        Some(t) => {
+                            let tn = &mut self.nodes[t];
+                            if tdp {
+                                let e = tn.zr_kg * zr_enthalpy().at(tn.t_clad) + metal * h_src;
+                                tn.zr_kg += metal;
+                                tn.t_clad = zr_enthalpy().temperature(e / tn.zr_kg);
+                            } else {
+                                tn.t_clad = (tn.zr_kg * tn.t_clad + metal * n.t_clad) / (tn.zr_kg + metal);
+                                tn.zr_kg += metal;
+                            }
+                        }
+                        None => {
+                            self.debris_mc += metal;
+                            if tdp {
+                                self.debris_h += metal * h_src;
+                            } else {
+                                self.debris_c += metal * prm.zr_cp;
+                                self.debris_e += metal * prm.zr_cp * n.t_clad;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         // Relocation to the lower plenum.
         for (idx, share) in newly_relocated {
             let n = &mut self.nodes[idx];
@@ -1025,13 +1085,15 @@ impl Core {
             // Masses in both property paths: the lower-head wall's bed
             // geometry needs them (gh:#1034).
             self.debris_mf += g.m_fuel;
-            self.debris_mc += g.zr_kg;
-            self.debris_zr_ox += (n.w_ox * g.a_zr).min(g.zr_kg);
+            let zr = n.zr_kg;
+            let c_clad = g.c_clad * (zr / g.zr_kg);
+            self.debris_mc += zr;
+            self.debris_zr_ox += (n.w_ox * g.a_zr).min(zr);
             if tdp {
-                self.debris_h += g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad);
+                self.debris_h += g.m_fuel * uo2_enthalpy().at(n.t_fuel) + zr * zr_enthalpy().at(n.t_clad);
             } else {
-                self.debris_c += g.c_fuel + g.c_clad;
-                self.debris_e += g.c_fuel * n.t_fuel + g.c_clad * n.t_clad;
+                self.debris_c += g.c_fuel + c_clad;
+                self.debris_e += g.c_fuel * n.t_fuel + c_clad * n.t_clad;
             }
             self.debris_power_share += share;
             // Its fission products go with it (inventory taken as
@@ -1129,7 +1191,7 @@ impl Core {
     /// The whole state, for a stateless worker to step.
     pub fn write_state(&self, w: &mut Writer) {
         for n in &self.nodes {
-            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage, n.fp_left, n.uo2_left]);
+            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage, n.fp_left, n.uo2_left, n.zr_kg]);
         }
         w.f(&[
             self.debris_c,
@@ -1148,7 +1210,7 @@ impl Core {
         w.f(&[self.debris_fp, self.fp_released, self.debris_uo2, self.uo2_released, self.debris_zr_ox]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
-        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f() }).collect();
+        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f(), zr_kg: r.f() }).collect();
         Self {
             nodes,
             debris_c: r.f(),
@@ -1190,6 +1252,7 @@ impl CoreSnapshot {
             if self.hydrogen_cp_t { 1.0 } else { 0.0 },
             if self.penetrations { 1.0 } else { 0.0 },
             if self.debris_oxidation { 1.0 } else { 0.0 },
+            if self.candling { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1210,6 +1273,7 @@ impl CoreSnapshot {
             hydrogen_cp_t: r.f() != 0.0,
             penetrations: r.f() != 0.0,
             debris_oxidation: r.f() != 0.0,
+            candling: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1327,7 +1391,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1352,13 +1416,13 @@ mod tests {
         let dz = Params::default().active_length_m / AXIAL_NODES as f64;
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
-        let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, prm: Params::default() };
+        let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
         }
-        let e1: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
+        let e1: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
         assert!(((e1 - e0) - 10.0e6 * 100.0).abs() < 1e-6 * 1e9, "{}", e1 - e0);
     }
 
@@ -1378,11 +1442,11 @@ mod tests {
         let dz = Params::default().active_length_m / AXIAL_NODES as f64;
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let h = |c: &Core| -> f64 {
-            c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad)).sum::<f64>()
+            c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + n.zr_kg * zr_enthalpy().at(n.t_clad)).sum::<f64>()
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -1524,5 +1588,29 @@ mod tests {
         let a = oxidation_rate(&Params::default(), UH_LOW_MAX_K);
         let b = oxidation_rate(&Params::default(), UH_LOW_MAX_K + 1e-9);
         assert!((a - b).abs() < 1e-9 * a);
+    }
+
+    /// Zircaloy is conserved through candling and relocation (2026-10-29):
+    /// over 8 h of the historical run (through the core's melt and
+    /// relocation), the Zr in the nodes plus the debris's is the core's
+    /// to 1e-9 at every step, and some metal has candled by then (a node
+    /// holds more than its geometric share).
+    #[test]
+    fn zircaloy_is_conserved_through_candling() {
+        use super::super::{Mode, Plant};
+        let prm = Params::default();
+        let g = geom(&prm);
+        let mut p = Plant::new(Mode::Historical);
+        let (mut c, mut k) = p.parts();
+        let total = prm.core_zr_kg();
+        let mut candled = false;
+        for _ in 0..(8 * 3600) {
+            p.step_inline(&mut c, &mut k);
+            let in_nodes: f64 = c.nodes.iter().filter(|n| !n.relocated).map(|n| n.zr_kg).sum();
+            let sum = in_nodes + c.debris_mc;
+            assert!((sum - total).abs() < 1e-9 * total, "{sum} vs {total}");
+            candled |= c.nodes.iter().any(|n| !n.relocated && n.zr_kg > g.zr_kg * (1.0 + 1e-9));
+        }
+        assert!(candled);
     }
 }

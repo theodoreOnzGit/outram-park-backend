@@ -147,6 +147,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Decay heat of released noble gases, alkali metals and halogens follows them (class shares from an ENDF/B-VIII summation, 0.96-0.99 of ANS) | F10, #1041 | **4.524** | **304.26** | lower head 0.055 h later (held); drywell peak 0.595 -> 0.613 MPa; measured drywell mean miss 0.289 -> 0.274 MPa; Fig 2.6a inside 37 % (was 23 %) |
 | Tellurium transported (MELCOR class 5, 15.4 kg \[A\] from the summation's Te/Cs ratio), its heat following it | F9/F10, #1041 | **4.517** | **305.64** | no prediction written (lapse, recorded); lower head 0.007 h earlier; drywell peak 0.613 -> 0.609 MPa; Fig 2.6a inside 51 % (was 37 %) |
 | Lower-plenum debris oxidises while quenched (MELCOR particulate area 6V/D, D = 1 cm \[A\]) | F4, #1035 | **4.483** | **313.43** | H2 +2.5 % (predicted +10-40 %, missed); lower head 0.034 h earlier (held); D sweep non-monotonic (0.5 cm 246 kg, 2 cm 305 kg): H2 at 25 h is set by timing; measured drywell mean miss 0.274 -> 0.260 MPa |
+| Candling: molten Zr flows down once the shell breaches, refreezes below (simplified MELCOR §3.1) | F4, #1035 | **5.314** | **441.97** | missed in size (predicted H2 +0-20 %, lower head within 0.2 h): H2 +41 %, now **inside its band**; lower head +0.83 h; drywell peak 0.705 MPa; measured drywell mean miss 0.260 -> 0.189 MPa; I in S/C water inside 4.5 % (was 52 %: release 0.99) |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

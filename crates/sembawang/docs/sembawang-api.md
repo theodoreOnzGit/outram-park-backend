@@ -4612,8 +4612,11 @@ Zircaloy (cladding plus its share of the channel boxes), with
   gone (oxidised below [`MIN_METAL_M`], or its shell breached at
   [`CLAD_BREACH_K`]) it accumulates time-at-temperature damage and falls
   at [`ROD_COLLAPSE_K`] or when the damage reaches 1; any rod falls at
-  [`ROD_COLLAPSE_MAX_K`]. Molten Zr that MELCOR would candle downward
-  stays in the node and keeps oxidising (stated simplification). ~~a
+  [`ROD_COLLAPSE_MAX_K`]. ~~Molten Zr that MELCOR would candle downward
+  stays in the node and keeps oxidising (stated simplification).~~
+  **Since 2026-10-29** molten Zr candles: once the shell breaches it
+  flows down and refreezes in the first node below Zr's melting point
+  (`candling`; simplified, see the candling pass). ~~a
   node whose cladding reaches [`ZR_MELT_K`] relocates~~ (that is the
   `without_rod_collapse` ablation). A fallen node relocates: its mass, energy
   and decay power move to a debris lump in the lower plenum, quenched
@@ -4629,8 +4632,8 @@ about 1200 K);~~ (added 2026-10-29, gh:#1037: ring-to-ring, level-to-level
 and outer ring to a shroud lump; still missing: the upper-plenum
 structures, the view through emptied cells, the downcomer side of the
 shroud); the two-phase swell of the mixture level (the collapsed
-level uncovers the fuel early); candling, blockages, and molten-pool
-physics; ~~temperature-dependent fuel properties~~ (heat capacities added
+level uncovers the fuel early); ~~candling,~~ (simplified candling added
+2026-10-29) blockages, and molten-pool physics; ~~temperature-dependent fuel properties~~ (heat capacities added
 2026-10-29, gh:#1038; UO2 conductivity is still constant, waiting for a
 cited Unit 1 burnup, which MATPRO's conductivity depends on); the decay heat that
 leaves with volatile fission products; boron carbide control-blade
@@ -4663,6 +4666,7 @@ pub struct CoreSnapshot {
     pub hydrogen_cp_t: bool,
     pub penetrations: bool,
     pub debris_oxidation: bool,
+    pub candling: bool,
     pub prm: Params,
 }
 ```
@@ -4686,6 +4690,7 @@ pub struct CoreSnapshot {
 | `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` from MELCOR's fit (the default) or the constant<br>[`CP_H2_J_PER_KG_K`] (`Mechanisms`). |
 | `penetrations` | `bool` | Lower-head penetration failure (the default) or the wall alone<br>(`Mechanisms`). |
 | `debris_oxidation` | `bool` | Oxidation of the lower-plenum debris (`Mechanisms::debris_oxidation`). |
+| `candling` | `bool` | Molten Zr candles down the rods (`Mechanisms::candling`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -11112,6 +11117,7 @@ pub struct Mechanisms {
     pub fp_decay_follows: bool,
     pub te_transport: bool,
     pub debris_oxidation: bool,
+    pub candling: bool,
 }
 ```
 
@@ -11152,6 +11158,7 @@ pub struct Mechanisms {
 | `fp_decay_follows` | `bool` | The decay heat of the released noble gases, alkali metals and<br>halogens leaves the core with them and heats wherever they are: the<br>vessel, the drywell's gas and structures, the pool; what is vented<br>or leaked takes its heat away (MELCOR's DCH by class, the shares from<br>`fp_decay`'s summation; 2026-10-29). Chalcogens (Te) are released but<br>not transported, so their heat stays in the core (stated). Off is all<br>decay heat in the core. |
 | `te_transport` | `bool` | Tellurium (MELCOR's chalcogen class) released with the volatiles<br>and transported like cesium and iodine, with its own vapour pressure<br>(RN 7110), its decay heat following it (2026-10-29; needs<br>`vessel_aerosol`). Off is tellurium staying in the core, heat and<br>all. |
 | `debris_oxidation` | `bool` | The lower-plenum debris oxidises while it is quenched, by the<br>parabolic law over MELCOR's particulate area (COR §3.2.1,<br>2026-10-29). Off is debris that never oxidises. |
+| `candling` | `bool` | Molten Zr candles down the rods once the oxide shell breaches and<br>refreezes in the first cooler node below, or reaches the debris<br>(MELCOR COR §3.1, simplified; 2026-10-29). Off is the metal staying<br>in its node until the rod falls. |
 
 ##### Implementations
 
@@ -11316,6 +11323,11 @@ pub struct Mechanisms {
   pub fn without_debris_oxidation(self: Self) -> Self { /* ... */ }
   ```
   Debris that never oxidises: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_candling(self: Self) -> Self { /* ... */ }
+  ```
+  No candling: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
