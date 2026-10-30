@@ -5180,6 +5180,7 @@ pub struct CoreSnapshot {
     pub blade_diffusion_limit: bool,
     pub b4c_oxidation: bool,
     pub uo2_candling: bool,
+    pub molten_pool: bool,
     pub prm: Params,
 }
 ```
@@ -5220,6 +5221,7 @@ pub struct CoreSnapshot {
 | `blade_diffusion_limit` | `bool` | The blades' steel oxidation is held to MELCOR's gaseous-diffusion<br>limit as the Zr's is (`Mechanisms::blade_diffusion_limit`). |
 | `b4c_oxidation` | `bool` | The blades' B4C reacts with steam by MELCOR's simple model<br>(`Mechanisms::b4c_oxidation`). |
 | `uo2_candling` | `bool` | Candling Zr carries UO2 by MELCOR's secondary transport<br>(`Mechanisms::uo2_candling`). |
+| `molten_pool` | `bool` | A molten plenum pool convects to the head by MELCOR's correlation<br>(`Mechanisms::molten_pool`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -6148,7 +6150,11 @@ source.
   dz)^(1/2)`, `dz` the bottom cell's height (`lp_bottom_level_m`,
   \[A\]). Above `fdi_hpme_velocity` (C4602, 10 m/s) MELCOR switches to
   high-pressure ejection, which needs user transport fractions; that
-  case is flagged and still falls as here (stated).
+  case is flagged and still falls as here, which is MELCOR's own
+  default: "If HPME model user input is absent, the HPME model will be
+  disabled, and all FDI events will be treated by the LPME model
+  irrespective of ejection conditions. No DCH will occur" without
+  records FDI_CVH and FDI_DEP (FDI UG §1).
 - **Breakup** while molten, by Chu's correlation as MELCOR modifies it
   (Eqs 2-11 to 2-14): `D(z) = D0 exp(-Z)`, `Z = (C1 We^0.254 / D0)
   (rho_c / rho_f)^(1/2) (z_pool - z)`, `C1 = 0.1232 - 0.149 (rho_c /
@@ -7589,6 +7595,14 @@ pub struct Params {
     pub fdi_surface_tension: f64,
     pub fdi_hpme_velocity: f64,
     pub candling_uo2_fraction: f64,
+    pub pool_melt_k: f64,
+    pub pool_nu_a: f64,
+    pub pool_nu_n: f64,
+    pub pool_k: f64,
+    pub pool_mu: f64,
+    pub pool_beta: f64,
+    pub pool_cp: f64,
+    pub pool_rho: f64,
     pub blade_b4c_kg: f64,
     pub b4c_rate_a: f64,
     pub b4c_rate_b: f64,
@@ -7793,6 +7807,14 @@ pub struct Params {
 | `fdi_surface_tension` | `f64` |  |
 | `fdi_hpme_velocity` | `f64` |  |
 | `candling_uo2_fraction` | `f64` |  |
+| `pool_melt_k` | `f64` |  |
+| `pool_nu_a` | `f64` |  |
+| `pool_nu_n` | `f64` |  |
+| `pool_k` | `f64` |  |
+| `pool_mu` | `f64` |  |
+| `pool_beta` | `f64` |  |
+| `pool_cp` | `f64` |  |
+| `pool_rho` | `f64` |  |
 | `blade_b4c_kg` | `f64` |  |
 | `b4c_rate_a` | `f64` |  |
 | `b4c_rate_b` | `f64` |  |
@@ -9027,6 +9049,77 @@ MTUOZR = 1 (COR RM §3.1.4, Eq 3-14). \[P\]
 
 ```rust
 pub const CANDLING_UO2_FRACTION: f64 = 0.2;
+```
+
+#### Constant `POOL_MELT_K`
+
+The lower plenum's debris is a convecting oxide pool above this, K
+(`Mechanisms::molten_pool`): the UO2-ZrO2 eutectic of MELCOR's Table
+2-12 (COR RM §2.8.2). \[P\]
+
+```rust
+pub const POOL_MELT_K: f64 = 2800.0;
+```
+
+#### Constant `POOL_NU_A`
+
+MELCOR's ACOPO correlation for an oxide pool's radial boundary, `Nu =
+A Ra_i^n` (COR RM Table 2-4, j = 1, C1280): the coefficient. \[P\]
+
+```rust
+pub const POOL_NU_A: f64 = 0.3;
+```
+
+#### Constant `POOL_NU_N`
+
+The ACOPO correlation's exponent. \[P\]
+
+```rust
+pub const POOL_NU_N: f64 = 0.22;
+```
+
+#### Constant `POOL_K`
+
+The oxidic melt's conductivity, W/(m K). \[A\] corium literature,
+about 3.
+
+```rust
+pub const POOL_K: f64 = 3.0;
+```
+
+#### Constant `POOL_MU`
+
+The oxidic melt's viscosity, Pa s. \[A\] corium literature, 4.4e-3.
+
+```rust
+pub const POOL_MU: f64 = 4.4e-3;
+```
+
+#### Constant `POOL_BETA`
+
+The oxidic melt's thermal expansion, 1/K. \[A\] corium literature,
+1.05e-4.
+
+```rust
+pub const POOL_BETA: f64 = 1.05e-4;
+```
+
+#### Constant `POOL_CP`
+
+The oxidic melt's specific heat, J/(kg K). \[A\] corium literature,
+about 500.
+
+```rust
+pub const POOL_CP: f64 = 500.0;
+```
+
+#### Constant `POOL_RHO`
+
+The oxidic melt's density, kg/m^3. \[A\] corium literature, about
+8000.
+
+```rust
+pub const POOL_RHO: f64 = 8000.0;
 ```
 
 #### Constant `BLADE_B4C_KG`
@@ -13333,6 +13426,7 @@ pub struct Mechanisms {
     pub burn_dynamics: bool,
     pub fdi_lpme: bool,
     pub uo2_candling: bool,
+    pub molten_pool: bool,
 }
 ```
 
@@ -13407,6 +13501,7 @@ pub struct Mechanisms {
 | `burn_dynamics` | `bool` | A building burn runs MELCOR's combustion completeness, flame speed<br>and rate (BUR RM §2.3 to §2.5; 2026-10-30), consuming oxygen and<br>making CO2, and reports its pressure rise as an adiabatic bound.<br>Off is the burn as one step that removes all of the building's H2<br>and CO and wrecks the building (no further inflow). |
 | `fdi_lpme` | `bool` | Debris leaving the failed vessel falls through the pedestal's water<br>by MELCOR's low-pressure melt ejection (FDI RM §2.2; 2026-10-30):<br>Chu's breakup, radiation or Bromley film boiling, all of the heat<br>boiling water. Off is debris landing at the core's temperature. |
 | `uo2_candling` | `bool` | Candling Zr carries UO2 down with it, 0.2 of its mass: MELCOR's<br>default secondary transport (COR RM §3.1.4, COR_CMT; 2026-10-30).<br>Off is the Zr candling alone. |
+| `molten_pool` | `bool` | A molten lower-plenum pool (above the UO2-ZrO2 eutectic) convects to<br>the head by MELCOR's ACOPO correlation (COR RM §2.4.2, Table 2-4;<br>2026-10-30). Off is the fixed debris-to-head coefficient. |
 
 ##### Implementations
 
@@ -13741,6 +13836,11 @@ pub struct Mechanisms {
   pub fn without_uo2_candling(self: Self) -> Self { /* ... */ }
   ```
   The Zr candling alone: before 2026-10-30.
+
+- ```rust
+  pub fn without_molten_pool(self: Self) -> Self { /* ... */ }
+  ```
+  The fixed debris-to-head coefficient for molten debris too: before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

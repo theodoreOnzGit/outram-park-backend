@@ -180,6 +180,9 @@ pub struct CoreSnapshot {
     /// Candling Zr carries UO2 by MELCOR's secondary transport
     /// (`Mechanisms::uo2_candling`).
     pub uo2_candling: bool,
+    /// A molten plenum pool convects to the head by MELCOR's correlation
+    /// (`Mechanisms::molten_pool`).
+    pub molten_pool: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -335,6 +338,9 @@ pub struct Core {
     b4c_gases_mol: [f64; 3],
     /// UO2 carried down by candling Zr, kg (`uo2_candling`).
     uo2_candled_kg: f64,
+    /// The plenum pool's heat to the head last step, W (`molten_pool`),
+    /// for the transient Rayleigh number.
+    pool_loss_w: f64,
     uo2_released: f64,
 }
 
@@ -390,6 +396,24 @@ pub(crate) fn steel_rho() -> f64 {
 /// its height, m, and its bulk density, kg/m^3. A spherical cap of radius
 /// `rpv_radius_m` holding the UO2 and Zr at their densities with
 /// `debris_porosity`; full when it would overflow the hemisphere.
+/// The plenum pool's heat-transfer coefficient to the lower head, W/(m^2
+/// K): MELCOR's convecting oxide pool (COR RM §2.4.2) by the ACOPO
+/// correlation for its radial boundary (Table 2-4, j = 1), `Nu = A
+/// Ra_i^n`, `h = Nu k / H`, the internal Rayleigh number `g beta Q H^5 /
+/// (k nu^2) Pr` (Eq 2-120) at the volumetric heat `q_vol`, W/m^3, which
+/// the caller takes as the mean of the decay power and the boundary loss
+/// (Eq 2-126, the transient form). One mean coefficient (stated: Bonnet's
+/// angular profile, Eqs 2-129 to 2-132, is not applied).
+pub(crate) fn pool_h(prm: &Params, q_vol: f64, height: f64) -> f64 {
+    if height <= 0.0 || q_vol <= 0.0 {
+        return 0.0;
+    }
+    let nu = prm.pool_mu / prm.pool_rho;
+    let pr = prm.pool_mu * prm.pool_cp / prm.pool_k;
+    let ra = 9.81 * prm.pool_beta * q_vol * height.r_powi(5) / (prm.pool_k * nu * nu) * pr;
+    prm.pool_nu_a * ra.r_powf(prm.pool_nu_n) * prm.pool_k / height
+}
+
 fn debris_cap(prm: &Params, mf: f64, mc: f64) -> (f64, f64, f64) {
     let r = prm.rpv_radius_m;
     let v = (mf / prm.uo2_density + mc / prm.zr_density) / (1.0 - prm.debris_porosity);
@@ -638,6 +662,21 @@ impl Core {
     /// UO2 carried down by candling Zr, kg (`uo2_candling`).
     pub fn uo2_candled_kg(&self) -> f64 {
         self.uo2_candled_kg
+    }
+
+    /// The debris-to-head coefficient, W/(m^2 K): MELCOR's HDBLH while the
+    /// debris is solid; with `molten_pool`, above the UO2-ZrO2 eutectic
+    /// (`pool_melt_k`) the convecting pool's [`pool_h`] at the mean of the
+    /// decay power `p_w` and last step's loss over the melt's volume (COR
+    /// RM Eq 2-126). Stated: no metallic pool, no stratification (MELCOR's
+    /// pool stratification is an option), no Stefan substrate model, and no
+    /// in-core pools.
+    fn debris_head_h(&self, prm: &Params, s: &CoreSnapshot, t_d: f64, p_w: f64, area: f64, height: f64) -> f64 {
+        if !(s.molten_pool && t_d > prm.pool_melt_k) {
+            return prm.debris_to_head_w_m2_k;
+        }
+        let v = (area * height).max(1e-9);
+        pool_h(prm, 0.5 * (p_w + self.pool_loss_w) / v, height)
     }
 
     /// Radiation from the lowest uncovered core cell of each ring down to
@@ -1214,6 +1253,7 @@ impl Core {
             lp_steel_h: 0.0,
             b4c_reacted_kg: 0.0,
             uo2_candled_kg: 0.0,
+            pool_loss_w: 0.0,
             b4c_gases_mol: [0.0; 3],
         }
     }
@@ -1335,7 +1375,12 @@ impl Core {
                     let (area, height, rho_bed) = debris_cap(prm, self.debris_mf, self.debris_mc);
                     let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
                     let pen = s.penetration_coverage.then(|| ((height / prm.lp_bottom_level_m).min(1.0), s.t_sat_k, prm.boiling_h));
-                    self.debris_h -= self.head.step_with(prm, t_d, prm.debris_to_head_w_m2_k, area, dt, pen) * dt;
+                    let h = self.debris_head_h(prm, s, t_d, p_debris, area, height);
+                    let q = self.head.step_with(prm, t_d, h, area, dt, pen);
+                    self.debris_h -= q * dt;
+                    if s.molten_pool {
+                        self.pool_loss_w = q;
+                    }
                     let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
                     if self.head.failed(prm, dp, dt, s.penetrations) {
                         self.lower_head_failed = true;
@@ -1351,7 +1396,12 @@ impl Core {
                     let (area, height, rho_bed) = debris_cap(prm, self.debris_mf, self.debris_mc);
                     let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
                     let pen = s.penetration_coverage.then(|| ((height / prm.lp_bottom_level_m).min(1.0), t_d, 0.0));
-                    self.debris_h -= self.head.step_with(prm, t_d, prm.debris_to_head_w_m2_k, area, dt, pen) * dt;
+                    let h = self.debris_head_h(prm, s, t_d, p_debris, area, height);
+                    let q = self.head.step_with(prm, t_d, h, area, dt, pen);
+                    self.debris_h -= q * dt;
+                    if s.molten_pool {
+                        self.pool_loss_w = q;
+                    }
                     let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
                     if self.head.failed(prm, dp, dt, s.penetrations) {
                         self.lower_head_failed = true;
@@ -1974,7 +2024,7 @@ impl Core {
         for p in &self.plates {
             w.f(&[p.t_k, if p.failed { 1.0 } else { 0.0 }, p.mf, p.mc, p.h, p.zr_ox, p.fp, p.uo2, p.share]);
         }
-        w.f(&[self.lp_steel_kg, self.lp_steel_h, self.b4c_reacted_kg, self.b4c_gases_mol[0], self.b4c_gases_mol[1], self.b4c_gases_mol[2], self.uo2_candled_kg]);
+        w.f(&[self.lp_steel_kg, self.lp_steel_h, self.b4c_reacted_kg, self.b4c_gases_mol[0], self.b4c_gases_mol[1], self.b4c_gases_mol[2], self.uo2_candled_kg, self.pool_loss_w]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
         let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f(), zr_kg: r.f(), blade_gone: r.f() != 0.0, ss_ox: r.f(), blade_melt: r.f(), b4c_frac: r.f(), fuel_kg: r.f(), zr_in: r.f(), fuel_in: r.f() }).collect();
@@ -2003,6 +2053,7 @@ impl Core {
             b4c_reacted_kg: r.f(),
             b4c_gases_mol: [r.f(), r.f(), r.f()],
             uo2_candled_kg: r.f(),
+            pool_loss_w: r.f(),
         }
     }
 }
@@ -2043,6 +2094,7 @@ impl CoreSnapshot {
             if self.blade_diffusion_limit { 1.0 } else { 0.0 },
             if self.b4c_oxidation { 1.0 } else { 0.0 },
             if self.uo2_candling { 1.0 } else { 0.0 },
+            if self.molten_pool { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -2080,6 +2132,7 @@ impl CoreSnapshot {
             blade_diffusion_limit: r.f() != 0.0,
             b4c_oxidation: r.f() != 0.0,
             uo2_candling: r.f() != 0.0,
+            molten_pool: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -2203,7 +2256,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, uo2_candling: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, uo2_candling: false, molten_pool: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -2229,7 +2282,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * (n.fuel_kg / g.m_fuel) * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, uo2_candling: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, uo2_candling: false, molten_pool: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -2258,7 +2311,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, uo2_candling: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, uo2_candling: false, molten_pool: false, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -2548,6 +2601,22 @@ mod tests {
         let highest = c.nodes.iter().map(|n| n.fuel_kg / g.m_fuel).fold(0.0, f64::max);
         assert!((c.uo2_candled_kg - 3982.49).abs() < 0.01, "{}", c.uo2_candled_kg);
         assert!((lowest - 0.9366).abs() < 1e-4 && (highest - 1.6176).abs() < 1e-4, "{lowest} {highest}");
+    }
+
+    /// MELCOR's convecting-pool coefficient by hand (COR RM §2.4.2, Table
+    /// 2-4 ACOPO): a 0.5 m pool at 1 MW/m^3, nu 5.5e-7 m^2/s, Pr 0.7333,
+    /// `Ra_i = 9.81 x 1.05e-4 x 1e6 x 0.5^5 / (3 x (5.5e-7)^2) x 0.7333` =
+    /// 2.601e13, `Nu = 0.3 Ra^0.22` = 268.2, `h = Nu x 3 / 0.5` = 1609 W/(m^2
+    /// K) (written in the prediction before the code, after correcting an
+    /// arithmetic slip there). Solid debris keeps MELCOR's HDBLH.
+    #[test]
+    fn the_plenum_pool_convects_as_melcor_says() {
+        let prm = Params::default();
+        assert!((pool_h(&prm, 1.0e6, 0.5) / 1609.19 - 1.0).abs() < 1e-4, "{}", pool_h(&prm, 1.0e6, 0.5));
+        assert_eq!(pool_h(&prm, 0.0, 0.5), 0.0);
+        // h rises as Q^0.22 and with depth as H^(5 x 0.22 - 1) = H^0.1.
+        assert!((pool_h(&prm, 2.0e6, 0.5) / pool_h(&prm, 1.0e6, 0.5) - 2f64.powf(0.22)).abs() < 1e-9);
+        assert!((pool_h(&prm, 1.0e6, 1.0) / pool_h(&prm, 1.0e6, 0.5) - 2f64.powf(0.1)).abs() < 1e-9);
     }
 
     /// Lipinski's dryout flux against a hand value (2026-10-29): at 0.5 MPa

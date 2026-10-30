@@ -424,6 +424,10 @@ pub struct Mechanisms {
     /// default secondary transport (COR RM §3.1.4, COR_CMT; 2026-10-30).
     /// Off is the Zr candling alone.
     pub uo2_candling: bool,
+    /// A molten lower-plenum pool (above the UO2-ZrO2 eutectic) convects to
+    /// the head by MELCOR's ACOPO correlation (COR RM §2.4.2, Table 2-4;
+    /// 2026-10-30). Off is the fixed debris-to-head coefficient.
+    pub molten_pool: bool,
 }
 
 impl Default for Mechanisms {
@@ -496,6 +500,7 @@ impl Default for Mechanisms {
             burn_dynamics: true,
             fdi_lpme: true,
             uo2_candling: true,
+            molten_pool: true,
         }
     }
 }
@@ -926,6 +931,13 @@ impl Mechanisms {
     /// The Zr candling alone: before 2026-10-30.
     pub fn without_uo2_candling(mut self) -> Self {
         self.uo2_candling = false;
+        self
+    }
+
+    /// The fixed debris-to-head coefficient for molten debris too: before
+    /// 2026-10-30.
+    pub fn without_molten_pool(mut self) -> Self {
+        self.molten_pool = false;
         self
     }
 
@@ -1619,7 +1631,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, b4c_oxidation: self.mechanisms.b4c_oxidation, uo2_candling: self.mechanisms.uo2_candling, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, b4c_oxidation: self.mechanisms.b4c_oxidation, uo2_candling: self.mechanisms.uo2_candling, molten_pool: self.mechanisms.molten_pool, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),

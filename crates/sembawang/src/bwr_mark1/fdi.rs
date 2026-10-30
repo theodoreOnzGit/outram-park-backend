@@ -9,7 +9,11 @@
 //!   dz)^(1/2)`, `dz` the bottom cell's height (`lp_bottom_level_m`,
 //!   \[A\]). Above `fdi_hpme_velocity` (C4602, 10 m/s) MELCOR switches to
 //!   high-pressure ejection, which needs user transport fractions; that
-//!   case is flagged and still falls as here (stated).
+//!   case is flagged and still falls as here, which is MELCOR's own
+//!   default: "If HPME model user input is absent, the HPME model will be
+//!   disabled, and all FDI events will be treated by the LPME model
+//!   irrespective of ejection conditions. No DCH will occur" without
+//!   records FDI_CVH and FDI_DEP (FDI UG §1).
 //! - **Breakup** while molten, by Chu's correlation as MELCOR modifies it
 //!   (Eqs 2-11 to 2-14): `D(z) = D0 exp(-Z)`, `Z = (C1 We^0.254 / D0)
 //!   (rho_c / rho_f)^(1/2) (z_pool - z)`, `C1 = 0.1232 - 0.149 (rho_c /
