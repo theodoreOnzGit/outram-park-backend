@@ -375,6 +375,12 @@ pub struct Mechanisms {
     /// the lower plenum (2026-10-30; needs `control_blades`). Off drains it
     /// at once at its solid enthalpy.
     pub blade_fusion: bool,
+    /// The cavity debris's phases (MELCOR CAV RM §3.3, §3.10; 2026-10-30;
+    /// needs `mcci`): its oxide melts over an ideal-solution pseudo-binary
+    /// range with latent heats, and its interior conducts when solid and
+    /// convects when liquid. Off is one convecting debris without phase
+    /// change.
+    pub cavity_phases: bool,
 }
 
 impl Default for Mechanisms {
@@ -438,6 +444,7 @@ impl Default for Mechanisms {
             lp_steam_consumed: true,
             control_blades: true,
             blade_fusion: true,
+            cavity_phases: true,
         }
     }
 }
@@ -811,6 +818,13 @@ impl Mechanisms {
     /// The blade drained at once at its solid enthalpy: before 2026-10-30.
     pub fn without_blade_fusion(mut self) -> Self {
         self.blade_fusion = false;
+        self
+    }
+
+    /// The cavity debris convecting without phase change: before
+    /// 2026-10-30.
+    pub fn without_cavity_phases(mut self) -> Self {
+        self.cavity_phases = false;
         self
     }
 
@@ -1552,6 +1566,7 @@ impl Plant {
                 mcci: self.mechanisms.mcci,
                 dw_wall_outer: self.mechanisms.dw_wall_outer,
                 pool_layers: self.mechanisms.pool_layers,
+                cavity_phases: self.mechanisms.cavity_phases,
                 cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
                 cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
                 cav_debris_k: self.last_core.debris_k,
@@ -2316,11 +2331,13 @@ mod tests {
         // With the plate's debris oxidising: 4.60e-3, 7.77e-4 and 8.8e-6;
         // with the plenum's oxidation steam consumed: 4.64e-3, 8.54e-4, 1.1e-5;
         // with the control blades: 1.62e-2, 2.11e-4, 2.02e-4; with the
-        // blades' heat of fusion: 1.31e-2, 1.82e-4, 1.69e-4.
+        // blades' heat of fusion: 1.31e-2, 1.82e-4, 1.69e-4; with the cavity
+        // debris's phases (MCCI gas holding the drywell at the flange's
+        // pressure from 16.7 h): 0.1120, 1.81e-3, 1.34e-3.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 1.82e-4).abs() < 1e-5 && k.xe_ww < 4e-4, "{f:?}");
-        assert!((k.xe_building - 1.309e-2).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 1.813e-3).abs() < 1e-5 && (k.xe_ww - 1.337e-3).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.11200).abs() < 1e-5, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2335,8 +2352,8 @@ mod tests {
         // with the pool in two layers; 0.9891 with the plate's debris
         // oxidising; 0.9889 with the plenum's oxidation steam consumed;
         // 0.9813 with the control blades; 0.9843 with their heat of
-        // fusion.)
-        assert!((k.xe_vented - 0.9843).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // fusion; 0.8826 with the cavity debris's phases.)
+        assert!((k.xe_vented - 0.8826).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

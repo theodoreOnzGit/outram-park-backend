@@ -2965,8 +2965,18 @@ manuals' description, never from MELCOR or CORCON source.
 
 - **One debris layer**, lumped: UO2, metallic Zr and oxides (ZrO2 and the
   ablated concrete's oxides) at one temperature, heated by its decay
-  power and by the oxidation of its Zr. No phase change, no layering
-  (MELCOR stratifies and mixes layers, §3.2), no crust (stated).
+  power and by the oxidation of its Zr. No layering (MELCOR stratifies
+  and mixes layers, §3.2). ~~No phase change, no crust (stated).~~
+  **Since 2026-10-30, with `Mechanisms::cavity_phases`:** the oxide
+  phase melts over a solidus-liquidus range from MELCOR's ideal-solution
+  pseudo-binary (§3.10: fuel, UO2 and ZrO2, the high-melting component,
+  the concrete's oxides the low-melting one), its enthalpy linear in
+  between, metallic Zr melting at MELCOR's 2098 K; and the debris's
+  interior conducts, at `6 k / H` to each face of a layer `H` deep, when
+  solid, convects at `h` when liquid, linearly by liquid fraction between
+  (§3.3: "the interior of a layer may be fluid ... while one or more of
+  its ... surfaces is covered by a solid crust, with heat transfer by
+  conduction"; stated: the crust is the whole layer below the solidus).
 - **Downward**, MELCOR's quasi-steady ablation (§3.3, 3.4): while the
   debris is above the concrete's ablation temperature, the heat to the
   concrete is `h A (T - T_a)` and it ablates `q / h_a` kg/s, the preheated
@@ -3016,6 +3026,7 @@ pub struct Cavity {
     pub ablated_kg: f64,
     pub h2_kg: f64,
     pub co_kg: f64,
+    pub zro2_kg: f64,
 }
 ```
 
@@ -3032,6 +3043,7 @@ pub struct Cavity {
 | `ablated_kg` | `f64` | Concrete ablated, kg, and the H2 and CO made, kg. |
 | `h2_kg` | `f64` |  |
 | `co_kg` | `f64` |  |
+| `zro2_kg` | `f64` | The ZrO2 formed here, kg (counted in `oxide_kg` too; the melting<br>range counts it as fuel, `cavity_phases`). |
 
 ##### Implementations
 
@@ -3043,7 +3055,7 @@ pub struct Cavity {
   Debris arriving: the core's inventory now is `uo2_kg` and `zr_kg`
 
 - ```rust
-  pub fn step(self: &mut Self, prm: &Params, q_w: f64, t_wall_k: f64, water: Option<(f64, f64)>, dt: f64) -> CavityFlows { /* ... */ }
+  pub fn step(self: &mut Self, prm: &Params, q_w: f64, t_wall_k: f64, water: Option<(f64, f64)>, dt: f64, phases: bool) -> CavityFlows { /* ... */ }
   ```
   One step of `dt` s with decay power `q_w` and the drywell's
 
@@ -4424,6 +4436,7 @@ pub struct ContainmentSnapshot {
     pub mcci: bool,
     pub dw_wall_outer: bool,
     pub pool_layers: bool,
+    pub cavity_phases: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4483,6 +4496,7 @@ pub struct ContainmentSnapshot {
 | `mcci` | `bool` | Molten core-concrete interaction on the drywell floor<br>(`Mechanisms::mcci`), and the debris there: the core's UO2 and<br>metallic Zr, kg, and their temperature, K. |
 | `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, which conducts it to the reactor building<br>(`Mechanisms::dw_wall_outer`). |
 | `pool_layers` | `bool` | The torus pool in two layers, split at the downcomers' exits<br>(`Mechanisms::pool_layers`). |
+| `cavity_phases` | `bool` | The cavity debris melts over a range and conducts when solid<br>(`Mechanisms::cavity_phases`). |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -7441,6 +7455,11 @@ pub struct Params {
     pub ss_ox_min_k: f64,
     pub ss_melt_k: f64,
     pub ss_fusion_j_per_kg: f64,
+    pub debris_k: f64,
+    pub fuel_melt_k: f64,
+    pub fuel_fusion_j_per_kg: f64,
+    pub concrete_oxide_fusion_j_per_mol: f64,
+    pub concrete_oxide_m: f64,
     pub ss_x_fe: f64,
     pub ss_x_cr: f64,
     pub ss_x_ni: f64,
@@ -7623,6 +7642,11 @@ pub struct Params {
 | `ss_ox_min_k` | `f64` |  |
 | `ss_melt_k` | `f64` |  |
 | `ss_fusion_j_per_kg` | `f64` |  |
+| `debris_k` | `f64` |  |
+| `fuel_melt_k` | `f64` |  |
+| `fuel_fusion_j_per_kg` | `f64` |  |
+| `concrete_oxide_fusion_j_per_mol` | `f64` |  |
+| `concrete_oxide_m` | `f64` |  |
 | `ss_x_fe` | `f64` |  |
 | `ss_x_cr` | `f64` |  |
 | `ss_x_ni` | `f64` |  |
@@ -8689,6 +8713,52 @@ The steel's heat of fusion, J/kg: MELCOR's default for stainless steel
 
 ```rust
 pub const SS_FUSION_J_PER_KG: f64 = 2.68e5;
+```
+
+#### Constant `DEBRIS_K`
+
+The cavity debris's phases (`Mechanisms::cavity_phases`): its thermal
+conductivity when solid, W/(m K), \[A\] UO2's at high temperature
+(about 2-3).
+
+```rust
+pub const DEBRIS_K: f64 = 2.5;
+```
+
+#### Constant `FUEL_MELT_K`
+
+The fuel component's melting point, K: MELCOR's UO2 default (MP RM §7,
+from MATPRO). \[P\]
+
+```rust
+pub const FUEL_MELT_K: f64 = 3113.0;
+```
+
+#### Constant `FUEL_FUSION_J_PER_KG`
+
+The fuel component's heat of fusion, J/kg: MELCOR's UO2 default (MP RM
+§8). \[P\]
+
+```rust
+pub const FUEL_FUSION_J_PER_KG: f64 = 2.74e5;
+```
+
+#### Constant `CONCRETE_OXIDE_FUSION_J_PER_MOL`
+
+The concrete's oxides as the low-melting component, taken as SiO2: its
+heat of fusion, J/mol, \[A\] (JANAF's about 9.6 kJ/mol), its melting
+point being the concrete's ablation temperature.
+
+```rust
+pub const CONCRETE_OXIDE_FUSION_J_PER_MOL: f64 = 9.6e3;
+```
+
+#### Constant `CONCRETE_OXIDE_M`
+
+The concrete oxides' molar mass, kg/mol, as SiO2. \[A\]
+
+```rust
+pub const CONCRETE_OXIDE_M: f64 = 0.060_08;
 ```
 
 #### Constant `SS_X_FE`
@@ -12949,6 +13019,7 @@ pub struct Mechanisms {
     pub lp_steam_consumed: bool,
     pub control_blades: bool,
     pub blade_fusion: bool,
+    pub cavity_phases: bool,
 }
 ```
 
@@ -13014,6 +13085,7 @@ pub struct Mechanisms {
 | `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses no longer rises<br>into the core (2026-10-29, a conservation defect: the core could<br>oxidise with it a second time). Off is the defect, kept as the<br>ablation that reproduces the earlier runs. |
 | `control_blades` | `bool` | The control blades, MELCOR's NS component in its BWR form (steel<br>only, 2026-10-30): their steel at each cell's cladding temperature,<br>oxidised by MELCOR's stainless-steel law (COR RM §2.5.6) in the steam<br>the Zr leaves, failing at the steel's melting temperature and<br>draining to the lower plenum, where it quenches. Their B4C is not<br>modelled (MELCOR's default BWR model caps its oxidation at 2 %).<br>Off is a core without blades. |
 | `blade_fusion` | `bool` | A control blade at the steel's melting temperature absorbs its heat<br>of fusion (MELCOR's 2.68e5 J/kg) before it drains, and carries it to<br>the lower plenum (2026-10-30; needs `control_blades`). Off drains it<br>at once at its solid enthalpy. |
+| `cavity_phases` | `bool` | The cavity debris's phases (MELCOR CAV RM §3.3, §3.10; 2026-10-30;<br>needs `mcci`): its oxide melts over an ideal-solution pseudo-binary<br>range with latent heats, and its interior conducts when solid and<br>convects when liquid. Off is one convecting debris without phase<br>change. |
 
 ##### Implementations
 
@@ -13303,6 +13375,11 @@ pub struct Mechanisms {
   pub fn without_blade_fusion(self: Self) -> Self { /* ... */ }
   ```
   The blade drained at once at its solid enthalpy: before 2026-10-30.
+
+- ```rust
+  pub fn without_cavity_phases(self: Self) -> Self { /* ... */ }
+  ```
+  The cavity debris convecting without phase change: before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

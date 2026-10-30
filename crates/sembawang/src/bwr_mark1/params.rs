@@ -320,6 +320,22 @@ pub const SS_MELT_K: f64 = 1700.0;
 /// The steel's heat of fusion, J/kg: MELCOR's default for stainless steel
 /// (MP RM §8, "Estimated"; 2.692e5 for 304). \[P\]
 pub const SS_FUSION_J_PER_KG: f64 = 2.68e5;
+/// The cavity debris's phases (`Mechanisms::cavity_phases`): its thermal
+/// conductivity when solid, W/(m K), \[A\] UO2's at high temperature
+/// (about 2-3).
+pub const DEBRIS_K: f64 = 2.5;
+/// The fuel component's melting point, K: MELCOR's UO2 default (MP RM §7,
+/// from MATPRO). \[P\]
+pub const FUEL_MELT_K: f64 = 3113.0;
+/// The fuel component's heat of fusion, J/kg: MELCOR's UO2 default (MP RM
+/// §8). \[P\]
+pub const FUEL_FUSION_J_PER_KG: f64 = 2.74e5;
+/// The concrete's oxides as the low-melting component, taken as SiO2: its
+/// heat of fusion, J/mol, \[A\] (JANAF's about 9.6 kJ/mol), its melting
+/// point being the concrete's ablation temperature.
+pub const CONCRETE_OXIDE_FUSION_J_PER_MOL: f64 = 9.6e3;
+/// The concrete oxides' molar mass, kg/mol, as SiO2. \[A\]
+pub const CONCRETE_OXIDE_M: f64 = 0.060_08;
 /// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
 /// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
 pub const SS_X_FE: f64 = 0.74;
@@ -776,6 +792,11 @@ params! {
     ss_ox_min_k = SS_OX_MIN_K, P,
     ss_melt_k = SS_MELT_K, P,
     ss_fusion_j_per_kg = SS_FUSION_J_PER_KG, P,
+    debris_k = DEBRIS_K, A,
+    fuel_melt_k = FUEL_MELT_K, P,
+    fuel_fusion_j_per_kg = FUEL_FUSION_J_PER_KG, P,
+    concrete_oxide_fusion_j_per_mol = CONCRETE_OXIDE_FUSION_J_PER_MOL, A,
+    concrete_oxide_m = CONCRETE_OXIDE_M, A,
     ss_x_fe = SS_X_FE, P,
     ss_x_cr = SS_X_CR, P,
     ss_x_ni = SS_X_NI, P,
@@ -955,7 +976,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 174);
+        assert_eq!(Params::INPUTS.len(), 179);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

@@ -191,6 +191,9 @@ pub struct ContainmentSnapshot {
     /// The torus pool in two layers, split at the downcomers' exits
     /// (`Mechanisms::pool_layers`).
     pub pool_layers: bool,
+    /// The cavity debris melts over a range and conducts when solid
+    /// (`Mechanisms::cavity_phases`).
+    pub cavity_phases: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -834,7 +837,7 @@ impl Containment {
                     let p = self.p_dw(prm);
                     (t_sat(p), p)
                 });
-                let f = self.cavity.step(prm, s.ex_vessel_w, self.dw_wall_t, water, dt);
+                let f = self.cavity.step(prm, s.ex_vessel_w, self.dw_wall_t, water, dt, s.cavity_phases);
                 if water.is_some() {
                     self.boil_pedestal(prm, tv, f.q_up_w * dt);
                 } else {
@@ -1505,6 +1508,7 @@ impl Containment {
             self.cavity.ablated_kg,
             self.cavity.h2_kg,
             self.cavity.co_kg,
+            self.cavity.zro2_kg,
         ]);
         w.f(&self.dw_slab);
         w.f(&[self.deep_kg, self.deep_t, b(self.layered)]);
@@ -1565,6 +1569,7 @@ impl Containment {
                 ablated_kg: r.f(),
                 h2_kg: r.f(),
                 co_kg: r.f(),
+                zro2_kg: r.f(),
             },
             dw_slab: [0.0; DW_SLAB_CELLS],
             deep_kg: 0.0,
@@ -1633,6 +1638,7 @@ impl ContainmentSnapshot {
             b(self.mcci),
             b(self.dw_wall_outer),
             b(self.pool_layers),
+            b(self.cavity_phases),
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1689,6 +1695,7 @@ impl ContainmentSnapshot {
             mcci: r.f() != 0.0,
             dw_wall_outer: r.f() != 0.0,
             pool_layers: r.f() != 0.0,
+            cavity_phases: r.f() != 0.0,
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
