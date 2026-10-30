@@ -46,6 +46,7 @@
 //! cargo = "cargo 1.98.0 (797e8a9bc 2026-08-05)"
 //! command = ["cargo", "test", "--lib", …]
 //! scope = "full"                # or "partial", with partial_reasons
+//! packages = ["petir"]          # only for a `-p` run (#1049): full for these
 //! exit_code = 0
 //! complete = true               # every test binary printed its summary
 //! [totals]
@@ -218,6 +219,12 @@ pub struct TestEvidence {
     pub scope: Scope,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub partial_reasons: Vec<String>,
+    /// Added 2026-10-29 (#1049, additive): the crates a `-p` run selected
+    /// ([`args::Plan::packages`]). A full-scope run with packages is
+    /// evidence for those crates only; empty (and absent in older files) is
+    /// the whole workspace.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub packages: Vec<String>,
     /// cargo's exit code; `None` when it was killed by a signal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exit_code: Option<i32>,
@@ -336,6 +343,7 @@ impl TestEvidence {
                 Scope::Partial
             },
             partial_reasons,
+            packages: Vec::new(),
             exit_code,
             complete,
             totals,

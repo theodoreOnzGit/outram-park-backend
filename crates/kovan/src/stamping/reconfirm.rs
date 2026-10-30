@@ -46,7 +46,8 @@
 //!
 //! Only this reviewer's own review can be re-confirmed, and only when the
 //! engine judges it inherited stale **by a callee change** and not blocked;
-//! bottom-up still holds (a callee without a valid stamp blocks it); the
+//! bottom-up still holds (a callee without a standing stamp, valid or
+//! pending a workspace test, blocks it); the
 //! previous answers must still pass the wizard's gate (a new question that
 //! now applies, say), else the reviewer is sent to the full wizard; and the
 //! same refusals as a stamp (no commit, uncommitted changes in the file,
@@ -152,7 +153,7 @@ pub fn prepare_reconfirm(
     if !blocked.is_empty() {
         let names: Vec<&str> = blocked.iter().map(|(_, n)| n.as_str()).collect();
         return Err(format!(
-            "bottom-up: {path} calls {} without a valid stamp; review {} first",
+            "bottom-up: {path} calls {} without a standing stamp; review {} first",
             names.join(", "),
             if names.len() == 1 { "it" } else { "them" }
         ));

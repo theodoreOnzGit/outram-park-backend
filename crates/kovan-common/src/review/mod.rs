@@ -101,6 +101,7 @@ pub mod evidence;
 pub mod hash;
 pub mod id;
 pub mod index;
+pub mod lock_scope;
 pub mod ivv;
 /// Plain-English text for rung-5 misses and registry warnings (#810).
 pub mod ivv_text;

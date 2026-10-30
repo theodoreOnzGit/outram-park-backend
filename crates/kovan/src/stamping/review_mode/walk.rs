@@ -8,18 +8,23 @@
 //!      │  Tarjan SCCs: callees before callers; mutual recursion = 1 group
 //!      v
 //!   WalkPlan { groups bottom-up, each item's state now }  ── WalkSize, huge_warning
-//!      │  [Next ▸]: the first group not done whose outside callees are valid
+//!      │  [Next ▸]: the first group not done whose outside callees are reviewed
 //!      v
 //!   Trail (stamped | needs fix | skipped), then WalkSummary + target state
 //! ```
 //!
 //! **Rules, as decided:**
 //! - bottom-up is enforced: a function cannot be stamped until every
-//!   workspace function it calls has a valid stamp ([`blockers`]); calls
+//!   workspace function it calls has a ~~valid~~ standing stamp
+//!   ([`blockers`]; **CORRECTED 2026-10-29**, maintainer: valid, or pending
+//!   only a workspace test after a `Cargo.lock` change,
+//!   [`StateKind::review_holds`], so reviewing goes on while the test
+//!   runs); calls
 //!   into std, external crates and unresolved calls are not in `kovan.toml`
 //!   callees, so they never block; mutually recursive functions are one
 //!   group and do not block each other;
-//! - a function already valid is shown with a tick and skipped;
+//! - a function already reviewed (valid, or pending a workspace test) is
+//!   shown with a tick and skipped;
 //! - the walk's size (function count, lines, needs-fix entries) is shown
 //!   before it starts; a huge walk gets a warning and the choice stays with
 //!   the maintainer: kovan never picks a smaller target ([`huge_warning`]);
@@ -60,9 +65,11 @@ pub struct WalkItem {
 }
 
 impl WalkItem {
-    /// Valid now (ticked and skipped by the walk).
+    /// Its review stands now, valid or pending only a workspace test
+    /// ([`StateKind::review_holds`]): ticked and skipped by the walk, and
+    /// never a blocker.
     pub fn valid(&self) -> bool {
-        self.state.counts()
+        self.state.review_holds()
     }
 }
 
@@ -454,6 +461,26 @@ mod tests {
         let c2 = g(&[("t", &["a", "b"]), ("a", &[]), ("b", &[])]);
         assert_eq!(blockers("t", &c2, valid), vec!["a".to_string()]);
         assert!(blockers("b", &c2, valid).is_empty());
+    }
+
+    /// Methodology: the states a callee can be in, through the predicate
+    /// `blockers_of` and the walk use ([`StateKind::review_holds`]).
+    /// Pass: a callee pending only a workspace test (a `Cargo.lock` change,
+    /// maintainer 2026-10-29) neither blocks its caller nor is walked
+    /// again; new, stale and needs-fix callees still block.
+    #[test]
+    fn a_callee_pending_a_workspace_test_does_not_block() {
+        let c = g(&[("t", &["p", "v", "n", "s", "f"]), ("p", &[]), ("v", &[]), ("n", &[]), ("s", &[]), ("f", &[])]);
+        let kind = |x: &str| match x {
+            "p" => StateKind::PendingWorkspaceTest,
+            "v" => StateKind::Valid,
+            "n" => StateKind::New,
+            "s" => StateKind::DirectlyStale,
+            _ => StateKind::NeedsFixOpen,
+        };
+        assert_eq!(blockers("t", &c, |x| kind(x).review_holds()), vec!["f", "n", "s"]);
+        assert!(item("p", &[], StateKind::PendingWorkspaceTest, 1).valid());
+        assert!(!item("n", &[], StateKind::New, 1).valid());
     }
 
     /// Methodology: a walk of four functions (one valid, one with an open

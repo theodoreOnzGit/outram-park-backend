@@ -73,6 +73,9 @@
 //! runs `kovan-cli test` on a thread (`super::workspace_test`), so the
 //! "pending workspace test" a `Cargo.lock` change leaves on every stamp
 //! clears without a terminal; the states are recomputed when it finishes.
+//! "Test changed crates" runs only the crates whose dependencies moved
+//! (#1049), and the progress line is fixed-format (#1050). The strip folds
+//! to one row (▾/▸) so it does not jump while a test runs.
 //!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** Checking and building the data
 //! (cargo metadata, reading the SCIP index, resolving every call, writing)
@@ -164,8 +167,12 @@ pub(crate) struct CodeReviewView {
     review_mode: super::review_mode_panel::ReviewModePanel,
     /// "Sync down": pull the code repository, then rebuild (2026-10-12).
     sync: super::code_sync::CodeSync,
-    /// "Run workspace test": `kovan-cli test` on a thread (2026-10-29).
+    /// "Run workspace test" / "Test changed crates": `kovan-cli test` on a
+    /// thread (2026-10-29, #1049, #1050).
     workspace_test: super::workspace_test::WorkspaceTest,
+    /// The top strip folded to one row (maintainer, 2026-10-29: the
+    /// wrapping strip made the view jump while a test ran).
+    strip_collapsed: bool,
     /// A reviewed function's "Add connection" window, while open (#839).
     connection: Option<super::connection_picker::ConnectionPicker>,
     /// The app's key session (GitHub #1020): kept across a change of
@@ -185,6 +192,29 @@ pub(crate) struct CodeReviewView {
     tab: ReviewTab,
     /// Code Review ▸ User management, once opened.
     users: Option<UserPanel>,
+}
+
+/// The test's progress (fixed width, so the strip does not re-wrap as it
+/// changes), its Cancel, and the last run's outcome, truncated with the
+/// full text on hover. GUI drawing code (exempt from the test rule): the
+/// text is `workspace_test::progress_text`, tested there.
+fn test_status(ui: &mut egui::Ui, t: &super::workspace_test::WorkspaceTest) {
+    let size = [300.0, ui.spacing().interact_size.y];
+    if let Some(line) = t.progress_line() {
+        ui.spinner();
+        ui.add_sized(size, egui::Label::new(egui::RichText::new(line).weak()).truncate())
+            .on_hover_text(t.latest().unwrap_or("starting"));
+        if ui.small_button("Cancel test").clicked() {
+            t.cancel();
+        }
+    }
+    let (text, colour) = match &t.message {
+        Some(Ok(m)) => (m, ui.visuals().weak_text_color()),
+        Some(Err(e)) => (e, ui.visuals().error_fg_color),
+        None => return,
+    };
+    ui.add_sized(size, egui::Label::new(egui::RichText::new(text).color(colour)).truncate())
+        .on_hover_text(text);
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -547,7 +577,7 @@ impl CodeReviewView {
         let mut open_key = false;
         let mut lock_now = false;
         let mut sync_now = false;
-        let mut test_now = false;
+        let mut test_now: Option<super::workspace_test::Scope> = None;
         let mut refresh_now = false;
         // Review mode (#770): its workspace and keystore, and the function
         // selected on the embedded map, which [Review >] starts from.
@@ -558,9 +588,22 @@ impl CodeReviewView {
         let mut walk_now = None;
         egui::Panel::top("code-review-strip").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
+                let fold = if self.strip_collapsed { "\u{25B8}" } else { "\u{25BE}" };
+                if ui
+                    .small_button(fold)
+                    .on_hover_text("Fold this bar to one row, or unfold it")
+                    .clicked()
+                {
+                    self.strip_collapsed = !self.strip_collapsed;
+                }
                 ui.selectable_value(&mut self.tab, ReviewTab::Map, "Code map");
                 ui.selectable_value(&mut self.tab, ReviewTab::Users, "User management")
                     .on_hover_text("Every reviewer and key, and the agents' justifications (GitHub #1019)");
+                if self.strip_collapsed {
+                    // One row: the test's progress only (#1050).
+                    test_status(ui, &self.workspace_test);
+                    return;
+                }
                 match &self.workspace {
                     Some(dir) => ui.weak(dir.display().to_string()),
                     None => ui.weak("No workspace"),
@@ -625,34 +668,36 @@ impl CodeReviewView {
                         }
                         None => {}
                     }
-                    if self.workspace_test.busy() {
-                        ui.spinner();
-                        ui.weak(self.workspace_test.latest().unwrap_or("workspace test starting\u{2026}"));
-                        if ui.small_button("Cancel test").clicked() {
-                            self.workspace_test.cancel();
+                    if !self.workspace_test.busy() {
+                        use super::workspace_test::Scope;
+                        if ui
+                            .add_enabled(!self.sync.busy(), egui::Button::new("Test changed crates"))
+                            .on_hover_text(
+                                "kovan-cli test -p, for each crate whose dependencies changed in \
+                                 Cargo.lock since its last recorded run (or that has none): clears \
+                                 those crates' \"pending workspace test\". -p resolves features \
+                                 for those crates alone, not unified across the workspace (#1049).",
+                            )
+                            .on_disabled_hover_text("Wait for Sync down")
+                            .clicked()
+                        {
+                            test_now = Some(Scope::ChangedCrates);
                         }
-                    } else if ui
-                        .add_enabled(!self.sync.busy(), egui::Button::new("Run workspace test"))
-                        .on_hover_text(
-                            "kovan-cli test: the full release suite at this commit (hours). \
-                             A counted run clears \"pending workspace test\" after a Cargo.lock \
-                             change. Refused while .rs, Cargo.toml or Cargo.lock edits are \
-                             uncommitted.",
-                        )
-                        .on_disabled_hover_text("Wait for Sync down")
-                        .clicked()
-                    {
-                        test_now = true;
+                        if ui
+                            .add_enabled(!self.sync.busy(), egui::Button::new("Run workspace test"))
+                            .on_hover_text(
+                                "kovan-cli test: the full release suite at this commit (hours). \
+                                 A counted run clears \"pending workspace test\" after a Cargo.lock \
+                                 change. Refused while .rs, Cargo.toml or Cargo.lock edits are \
+                                 uncommitted.",
+                            )
+                            .on_disabled_hover_text("Wait for Sync down")
+                            .clicked()
+                        {
+                            test_now = Some(Scope::Workspace);
+                        }
                     }
-                    match &self.workspace_test.message {
-                        Some(Ok(t)) => {
-                            ui.weak(t);
-                        }
-                        Some(Err(e)) => {
-                            ui.colored_label(ui.visuals().error_fg_color, e);
-                        }
-                        None => {}
-                    }
+                    test_status(ui, &self.workspace_test);
                 }
                 match &self.note {
                     Some(Ok(text)) => {
@@ -736,10 +781,8 @@ impl CodeReviewView {
         if refresh_now {
             self.load_states();
         }
-        if test_now {
-            if let Some(dir) = self.workspace.clone() {
-                self.workspace_test.start(dir);
-            }
+        if let (Some(scope), Some(dir)) = (test_now, self.workspace.clone()) {
+            self.workspace_test.start(dir, scope);
         }
         if sync_now {
             if let Some(dir) = self.workspace.clone() {

@@ -16,7 +16,8 @@
 //!
 //! Added 2026-10-10 (#770, decided by the main session): in
 //! [`Mode::Desktop`] Stamp is **disabled while the function is blocked
-//! bottom-up** (a callee without a valid stamp), with the blocking callees
+//! bottom-up** (a callee without a standing stamp: valid, or pending only
+//! a workspace test), with the blocking callees
 //! named on hover ([`stamp_blocked_reason`]), as desktop review mode does.
 //! Needs fix stays enabled: a concern can always be raised.
 
@@ -33,7 +34,8 @@ pub struct BarInfo {
     pub id: String,
     pub review: Review,
     pub maturity: Option<u8>,
-    /// Callees without a valid stamp, each with its state.
+    /// Callees without a standing stamp ([`crate::model::Review::holds`]),
+    /// each with its state.
     pub blocked: Vec<(String, Review)>,
     /// All workspace callees (blocked or not).
     pub callees: usize,
@@ -64,14 +66,15 @@ pub fn tone_colour(t: Tone) -> Color32 {
         Tone::Neutral => Color32::from_rgb(150, 156, 168),
         Tone::Good => Color32::from_rgb(90, 190, 110),
         Tone::Attention => Color32::from_rgb(235, 160, 60),
+        Tone::Waiting => Color32::from_rgb(90, 150, 220),
         Tone::Blocked => Color32::from_rgb(220, 80, 80),
     }
 }
 
 /// The stamp state's colour, shared with the cards. An unreviewed function
 /// is red, not the neutral grey of its state's tone, so what still needs a
-/// review stands out at a glance (maintainer, 2026-10-12); valid stays green
-/// and stale states amber.
+/// review stands out at a glance (maintainer, 2026-10-12); valid stays green,
+/// stale states amber, and pending a workspace test blue (2026-10-29).
 pub fn review_colour(r: &Review) -> Color32 {
     match r {
         Review::Unreviewed => tone_colour(Tone::Blocked),
@@ -226,6 +229,22 @@ mod tests {
     fn an_unreviewed_function_is_red() {
         assert_eq!(review_colour(&Review::Unreviewed), tone_colour(Tone::Blocked));
         assert_ne!(review_colour(&Review::Unreviewed), tone_colour(Tone::Neutral));
+    }
+
+    /// A function pending only a workspace test is blue, never the amber of
+    /// "needs a person" (maintainer, 2026-10-29): no state the ⚑ queue
+    /// holds is drawn blue, and pending is the only blue state.
+    #[test]
+    fn pending_a_workspace_test_is_not_amber() {
+        use kovan_common::review::state::StateKind;
+        let blue = tone_colour(Tone::Waiting);
+        assert_ne!(blue, tone_colour(Tone::Attention));
+        assert_eq!(tone_colour(StateKind::PendingWorkspaceTest.tone()), blue);
+        for k in StateKind::ALL {
+            let is_blue = tone_colour(k.tone()) == blue;
+            assert_eq!(is_blue, k == StateKind::PendingWorkspaceTest, "{k:?}");
+            assert!(!(k.needs_person() && is_blue), "{k:?}");
+        }
     }
 
     #[test]

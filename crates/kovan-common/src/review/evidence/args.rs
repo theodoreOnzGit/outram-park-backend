@@ -13,8 +13,7 @@
 //! `--message-format=json-render-diagnostics` only changes how cargo reports
 //! the *build* (diagnostics stay human-readable on stderr) and gives the
 //! exact package and source file of every test binary ([`super::output`]).
-//! `--workspace` is left out when a package is selected (`-p`), which makes
-//! the run partial anyway.
+//! `--workspace` is left out when a package is selected (`-p`).
 //!
 //! # Result-neutral extras (the run stays full)
 //!
@@ -30,9 +29,19 @@
 //! `--`: `--format`, `-q`/`--quiet`, `-Z`, `--list`, `--logfile`,
 //! `--nocapture`/`--no-capture` (test output interleaves with result lines).
 //!
+//! # Crate selection (the run is full for those crates)
+//!
+//! ~~`-p` makes the run partial.~~ **CORRECTED 2026-10-29** (GitHub #1049,
+//! maintainer): `-p X` / `--package X` / `--package=X` / `-pX`, repeated,
+//! give [`Plan::packages`]; the run stays full for those crates and is
+//! recorded only into their folders. **Limitation:** `cargo test -p X`
+//! resolves features for the selected crates alone, where `--workspace`
+//! unifies them across every member, so a crate can compile against a
+//! different feature set than in the workspace run.
+//!
 //! # Everything else makes the run partial
 //!
-//! `-p`, `--exclude`, `--features`, `--no-default-features` (switches the
+//! `--manifest-path`, `--exclude`, `--features`, `--no-default-features` (switches the
 //! long tests off), `--test X`, test-name filters, `--skip`, `--exact`,
 //! `--ignored`, …: recorded as `partial_reasons`, never counted. The
 //! classification is deliberately conservative: an unknown argument is
@@ -45,6 +54,9 @@ pub struct Plan {
     pub args: Vec<String>,
     /// Why the run is not the full suite; empty when it is.
     pub partial_reasons: Vec<String>,
+    /// The crates selected with `-p` (#1049); empty for the whole
+    /// workspace.
+    pub packages: Vec<String>,
 }
 
 /// Why the extra arguments cannot be run.
@@ -125,6 +137,7 @@ pub fn plan(extra: &[String]) -> Result<Plan, Refused> {
     let mut reasons = Vec::new();
     let mut user = Vec::new();
     let mut selects_package = false;
+    let mut packages: Vec<String> = Vec::new();
     let mut i = 0;
     while i < cargo_side.len() {
         let a = cargo_side[i].as_str();
@@ -162,10 +175,27 @@ pub fn plan(extra: &[String]) -> Result<Plan, Refused> {
             i += 1;
             continue;
         }
-        // `-p x`, `--package=x`, `-px`, `--manifest-path …`.
-        if matches!(flag, "-p" | "--package" | "--manifest-path")
-            || (a.starts_with("-p") && !a.starts_with("--"))
-        {
+        // `-p x`, `--package=x`, `-px` select crates (#1049).
+        let short = a.strip_prefix("-p").filter(|v| !v.is_empty() && !a.starts_with("--"));
+        if matches!(flag, "-p" | "--package") || short.is_some() {
+            let name = match (short, inline) {
+                (Some(v), _) => Some(v.to_string()),
+                (None, Some(v)) => Some(v.to_string()),
+                (None, None) => cargo_side.get(i + 1).cloned(),
+            };
+            let Some(name) = name else {
+                reasons.push(a.to_string());
+                i += 1;
+                continue;
+            };
+            selects_package = true;
+            user.push("-p".to_string());
+            user.push(name.clone());
+            packages.push(name);
+            i += if short.is_none() && inline.is_none() { 2 } else { 1 };
+            continue;
+        }
+        if flag == "--manifest-path" {
             selects_package = true;
         }
         let mut reason = a.to_string();
@@ -215,9 +245,12 @@ pub fn plan(extra: &[String]) -> Result<Plan, Refused> {
             j += 1;
         }
     }
+    packages.sort();
+    packages.dedup();
     Ok(Plan {
         args,
         partial_reasons: reasons,
+        packages,
     })
 }
 
@@ -231,7 +264,8 @@ mod tests {
 
     /// Methodology: no extras give exactly the canonical command (plus
     /// `--no-fail-fast` and the build-message format) and a full scope;
-    /// result-neutral extras keep it full; `-p`, a filter, `--skip` and
+    /// result-neutral extras keep it full; `-p` in each spelling selects
+    /// crates and stays full (#1049, 2026-10-29); `--manifest-path`, a filter, `--skip` and
     /// `--no-default-features` make it partial and drop `--workspace` only
     /// for `-p`; terse and `--nocapture` output are refused.
     ///
@@ -278,10 +312,14 @@ mod tests {
             .partial_reasons
             .is_empty());
 
-        let p = plan(&s(&["-p", "bishan", "-j", "1"])).unwrap();
-        assert_eq!(p.partial_reasons, s(&["-p bishan"]));
+        // ~~`-p` is partial~~ (corrected 2026-10-29, #1049): it selects.
+        let p = plan(&s(&["-p", "bishan", "-j", "1", "--package=petir", "-pbedok"])).unwrap();
+        assert!(p.partial_reasons.is_empty(), "{:?}", p.partial_reasons);
+        assert_eq!(p.packages, s(&["bedok", "bishan", "petir"]));
         assert!(!p.args.contains(&"--workspace".to_string()));
-        assert!(p.args.ends_with(&s(&["-p", "bishan", "-j", "1"])));
+        assert!(p.args.ends_with(&s(&["-p", "bishan", "-j", "1", "-p", "petir", "-p", "bedok"])));
+        assert_eq!(plan(&s(&["-p"])).unwrap().partial_reasons, s(&["-p"]));
+        assert_eq!(plan(&s(&["--manifest-path", "x/Cargo.toml"])).unwrap().partial_reasons, s(&["--manifest-path x/Cargo.toml"]));
 
         let p = plan(&s(&[
             "--no-default-features",

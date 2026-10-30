@@ -455,6 +455,32 @@ fn d6_cargo_lock_change_pending_until_full_pass() {
     assert_eq!(kind(&ev_at('2', &["t::ok"], &changed), F), StateKind::PendingWorkspaceTest);
 }
 
+/// #1048: a `Cargo.lock` change outside the crate's dependency closure.
+/// Methodology: the review and the run at lock 1, the tree at lock 2; the
+/// per-crate fingerprints of both locks set by hand. Pass: crate `x`'s
+/// fingerprint equal in both → valid with no new run; different → pending
+/// a workspace test; lock 1's fingerprints unknown (git no longer holds
+/// it) → pending, the whole-lock rule as before.
+#[test]
+fn d6_lock_change_outside_the_crate_keeps_the_stamp() {
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let refs: Vec<&FolderReviews> = revs.iter().collect();
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok"])])])];
+    let fps = |x: &str| BTreeMap::from([("x".to_string(), x.to_string()), ("gui".to_string(), "g".to_string())]);
+    let at = |old: Option<&str>, new: &str| {
+        let mut g = git_for(&refs);
+        g.cargo_lock = h('2');
+        g.lock_fingerprints.insert(h('2'), fps(new));
+        if let Some(o) = old {
+            g.lock_fingerprints.insert(h('1'), fps(o));
+        }
+        kind(&eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked), F)
+    };
+    assert_eq!(at(Some("same"), "same"), StateKind::Valid);
+    assert_eq!(at(Some("old"), "new"), StateKind::PendingWorkspaceTest);
+    assert_eq!(at(None, "same"), StateKind::PendingWorkspaceTest);
+}
+
 /// D6 time-bound stamps: the hash recomputed at the certified commit must
 /// match, and the stamp must arrive after it; an agent-trailer commit never
 /// counts.

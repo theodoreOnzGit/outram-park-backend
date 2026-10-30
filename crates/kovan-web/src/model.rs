@@ -484,11 +484,13 @@ impl Facts {
         v
     }
 
-    /// The functions `id` calls that lack a valid stamp: what blocks its own
-    /// stamp under the bottom-up rule (#740). UNRESOLVED calls are not
-    /// counted (they are not in `calls`).
+    /// The functions `id` calls whose review does not stand
+    /// ([`Review::holds`]: a callee pending only a workspace test does not
+    /// block, maintainer 2026-10-29): what blocks its own stamp under the
+    /// bottom-up rule (#740). UNRESOLVED calls are not counted (they are
+    /// not in `calls`).
     pub fn blocked_by(&self, map: &CodeMap, slice: &CrateSlice, id: &str) -> Vec<String> {
-        self.callees(map, slice, id).into_iter().filter(|c| !self.review(c).is_valid()).collect()
+        self.callees(map, slice, id).into_iter().filter(|c| !self.review(c).holds()).collect()
     }
 }
 

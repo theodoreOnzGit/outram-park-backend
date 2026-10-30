@@ -114,7 +114,7 @@ mod states;
 pub mod ws_cache;
 
 pub use states::{
-    evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
+    crates_needing_test, evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
     stamp_states_timed, RefreshTimings, WorkspaceEvaluation,
 };
 
@@ -582,8 +582,9 @@ fn applicability_for(
 /// indexed, uncommitted changes in its file, index hash not the hash at
 /// `HEAD`, index entry out of date, a callee with no hash), with the same
 /// messages, and (added 2026-10-10, #740: "bottom-up is an enforced rule")
-/// while a workspace callee has no valid stamp
-/// ([`review_mode::blockers_of`]; a recursion partner never blocks).
+/// while a workspace callee has no ~~valid~~ standing stamp (valid or
+/// pending a workspace test, corrected 2026-10-29;
+/// [`review_mode::blockers_of`]; a recursion partner never blocks).
 /// Reads git and runs the staleness engine; call it off the UI thread.
 pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampContext, String> {
     let ws = load_workspace(root)?;
@@ -601,7 +602,7 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
     if !blocked.is_empty() {
         let names: Vec<&str> = blocked.iter().map(|(_, n)| n.as_str()).collect();
         return Err(format!(
-            "bottom-up: {path} calls {} without a valid stamp; review {} first",
+            "bottom-up: {path} calls {} without a standing stamp; review {} first",
             names.join(", "),
             if names.len() == 1 { "it" } else { "them" }
         ));

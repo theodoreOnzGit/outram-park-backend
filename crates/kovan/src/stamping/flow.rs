@@ -19,7 +19,7 @@
 //!            Stamp ──> Preparing (worker: prepare_stamp)
 //!                            ├─ refused ──> Refused (verbatim + hint, "Try again";
 //!                            │              since 2026-10-10 also bottom-up: a callee
-//!                            │              without a valid stamp, #740)
+//!                            │              without a standing stamp, #740)
 //!                            v
 //!                         Wizard ── live stamp_gate; "Mark as Needs fix instead?" ─┐
 //!                            │ passphrase                                          │

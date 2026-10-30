@@ -94,6 +94,8 @@ pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<us
             found.push((p, fi));
         }
     }
+    // A `-p` run (#1049) rewrites only its crates' files.
+    found.retain(|(_, f)| kovan_common::code_index::test_run::in_scope(evidence, f));
     let mut folders: Vec<FolderIndex> = found.iter().map(|(_, f)| f.clone()).collect();
     let unmapped = kovan_common::code_index::test_run::write_counted(evidence, &mut folders)
         .map_err(|why| why.iter().map(|w| w.to_string()).collect::<Vec<_>>().join("; "))?;
@@ -170,10 +172,12 @@ pub fn run_with<F: FnMut(&str)>(
     let date = crate::digitiser::dataset::utc_now_iso8601();
     let mut command = vec!["cargo".to_string()];
     command.extend(pl.args.iter().cloned());
-    let scope = if pl.partial_reasons.is_empty() {
-        "full suite".to_string()
-    } else {
+    let scope = if !pl.partial_reasons.is_empty() {
         format!("PARTIAL ({})", pl.partial_reasons.join(", "))
+    } else if !pl.packages.is_empty() {
+        format!("full suite of {}", pl.packages.join(", "))
+    } else {
+        "full suite".to_string()
     };
     say(&format!("kovan-cli test: {} [{scope}]", command.join(" ")));
 
@@ -214,7 +218,7 @@ pub fn run_with<F: FnMut(&str)>(
     if lock_after != lock_before {
         dirty_paths.push("Cargo.lock (changed during the run)".into());
     }
-    let evidence = TestEvidence::new(
+    let mut evidence = TestEvidence::new(
         commit,
         dirty_paths,
         lock_after,
@@ -227,6 +231,7 @@ pub fn run_with<F: FnMut(&str)>(
         run.build_ok,
         run.binaries,
     );
+    evidence.packages = pl.packages.clone();
     let path = out.unwrap_or_else(|| root.join(evidence.destination()));
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
