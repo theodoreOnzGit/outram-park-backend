@@ -5,8 +5,12 @@
 //!
 //! - **One debris layer**, lumped: UO2, metallic Zr and oxides (ZrO2 and the
 //!   ablated concrete's oxides) at one temperature, heated by its decay
-//!   power and by the oxidation of its Zr. No layering (MELCOR stratifies
-//!   and mixes layers, §3.2). ~~No phase change, no crust (stated).~~
+//!   power and by the oxidation of its Zr. ~~No layering (MELCOR stratifies
+//!   and mixes layers, §3.2).~~ **CORRECTED 2026-10-30:** one layer is
+//!   MELCOR's default: CAV_U's MIXING defaults to enforced mixing (§3.2.1,
+//!   "the debris always considered to form a single layer", configurations
+//!   13 to 15); stratification (§3.2.2) and mechanistic mixing (§3.2.3) are
+//!   options, so not added. ~~No phase change, no crust (stated).~~
 //!   **Since 2026-10-30, with `Mechanisms::cavity_phases`:** the oxide
 //!   phase melts over a solidus-liquidus range from MELCOR's ideal-solution
 //!   pseudo-binary (§3.10: fuel, UO2 and ZrO2, the high-melting component,

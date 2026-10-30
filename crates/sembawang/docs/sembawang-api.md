@@ -2965,8 +2965,12 @@ manuals' description, never from MELCOR or CORCON source.
 
 - **One debris layer**, lumped: UO2, metallic Zr and oxides (ZrO2 and the
   ablated concrete's oxides) at one temperature, heated by its decay
-  power and by the oxidation of its Zr. No layering (MELCOR stratifies
-  and mixes layers, §3.2). ~~No phase change, no crust (stated).~~
+  power and by the oxidation of its Zr. ~~No layering (MELCOR stratifies
+  and mixes layers, §3.2).~~ **CORRECTED 2026-10-30:** one layer is
+  MELCOR's default: CAV_U's MIXING defaults to enforced mixing (§3.2.1,
+  "the debris always considered to form a single layer", configurations
+  13 to 15); stratification (§3.2.2) and mechanistic mixing (§3.2.3) are
+  options, so not added. ~~No phase change, no crust (stated).~~
   **Since 2026-10-30, with `Mechanisms::cavity_phases`:** the oxide
   phase melts over a solidus-liquidus range from MELCOR's ideal-solution
   pseudo-binary (§3.10: fuel, UO2 and ZrO2, the high-melting component,
@@ -4401,15 +4405,19 @@ fall, so it overshot the set point by about the ratio of the volumes,
 and the vacuum breaker chattered about it every step, amplifying a
 1e-9 perturbation 1.5 times a step; with
 `Mechanisms::two_sided_equalising` it counts the receiver's rise too
-(`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
-stratification, pool level and swell, pool scrubbing of aerosols (no
-fission products are tracked yet), the torus room, the reactor building's
+(`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, ~~wetwell
+stratification,~~ pool level and swell, ~~pool scrubbing of aerosols (no
+fission products are tracked yet),~~ the torus room, the reactor building's
 own heat-up and ventilation, steam in the building, and the building's
 pressure. ~~And the combustion itself (the explosion is a threshold, not
 a calculation).~~ **CORRECTED 2026-10-30:** with
 `Mechanisms::burn_dynamics` a burn runs MELCOR's completeness, flame
 speed and rate (BUR RM §2.3 to §2.5); its pressure rise is reported as
 an adiabatic bound, since the building is held at one atmosphere.
+**CORRECTED 2026-10-30** (struck above; checked in the code): the pool
+stratifies in two layers (`Mechanisms::pool_layers`), it scrubs aerosols
+(`Mechanisms::pool_scrubbing`, SPARC-90 in [`super::sparc`]), and the
+fission products are tracked ([`super::rn_volume`]).
 
 ```rust
 pub mod containment { /* ... */ }
@@ -4474,6 +4482,8 @@ pub struct ContainmentSnapshot {
     pub gas_choking: bool,
     pub two_sided_equalising: bool,
     pub burn_dynamics: bool,
+    pub fdi_lpme: bool,
+    pub vessel_p_pa: f64,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4538,6 +4548,8 @@ pub struct ContainmentSnapshot {
 | `gas_choking` | `bool` | Gas flows to the atmosphere are limited to the critical flow<br>(`Mechanisms::gas_choking`). |
 | `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts both<br>volumes (`Mechanisms::two_sided_equalising`). |
 | `burn_dynamics` | `bool` | A burn runs MELCOR's completeness, flame speed and rate<br>(`Mechanisms::burn_dynamics`). |
+| `fdi_lpme` | `bool` | Debris arriving in the pedestal falls through its water by MELCOR's<br>low-pressure melt ejection (`Mechanisms::fdi_lpme`). |
+| `vessel_p_pa` | `f64` | The vessel's pressure, Pa, for the ejection velocity. |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -4690,6 +4702,8 @@ pub struct ContainmentResult {
     pub rb_co_fraction: f64,
     pub rb_burning: bool,
     pub rb_burn_dp_pa: f64,
+    pub fdi_steam_kg: f64,
+    pub fdi_hpme: bool,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
     pub xe_dw: f64,
@@ -4735,6 +4749,8 @@ pub struct ContainmentResult {
 | `rb_co_fraction` | `f64` |  |
 | `rb_burning` | `bool` | A burn is running in the building (`burn_dynamics`). |
 | `rb_burn_dp_pa` | `f64` | The largest burn's pressure rise, Pa, as an adiabatic,<br>constant-volume bound `Q / (2.5 V)` (no venting, no heat loss; the<br>building itself is held at one atmosphere, stated). |
+| `fdi_steam_kg` | `f64` | Steam raised by debris falling through the pedestal's water, kg<br>(`fdi_lpme`), and whether an ejection was fast enough for MELCOR's<br>high-pressure model (flagged, still treated as low-pressure). |
+| `fdi_hpme` | `bool` |  |
 | `vented_h2_kg` | `f64` |  |
 | `vented_kg_s` | `f64` |  |
 | `xe_dw` | `f64` | Noble gas (Xe) in the drywell and the wetwell gas, vented to the<br>stack and leaked to the reactor building, fractions of the core<br>inventory (gh:#1040). |
@@ -6112,6 +6128,41 @@ pub struct PlantDecay {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `fdi`
+
+Debris falling through the pedestal's water: a reduced form of MELCOR's
+FDI package, low-pressure melt ejection (Vol. 2, FDI RM §2.2, the
+Corradini et al. model; 2026-10-30, `Mechanisms::fdi_lpme`). AI draft,
+clean room: written from the manual's description, never from MELCOR
+source.
+
+- **The stream** leaves the breach (`breach_diameter_m`) at MELCOR's
+  Bernoulli velocity (COR RM §6, Eq 6-34), `Cd (2 dP / rho + 2 g
+  dz)^(1/2)`, `dz` the bottom cell's height (`lp_bottom_level_m`,
+  \[A\]). Above `fdi_hpme_velocity` (C4602, 10 m/s) MELCOR switches to
+  high-pressure ejection, which needs user transport fractions; that
+  case is flagged and still falls as here (stated).
+- **Breakup** while molten, by Chu's correlation as MELCOR modifies it
+  (Eqs 2-11 to 2-14): `D(z) = D0 exp(-Z)`, `Z = (C1 We^0.254 / D0)
+  (rho_c / rho_f)^(1/2) (z_pool - z)`, `C1 = 0.1232 - 0.149 (rho_c /
+  rho_f)^(1/2)`, `We = rho_c U^2 D0 / sigma_f`; once solid (below Zr's
+  2098 K, the debris's first component to melt, \[A\]) the diameter
+  stays.
+- **Heat** by the dominant one of radiation to the coolant (unit
+  emissivity) and Bromley's film boiling (Eqs 2-15, 2-16), Eq 2-17
+  integrated over the depth.
+- **Steam**: all of it boils water, `Q / (h_g - h_pool)`, the pool's
+  temperature unchanged (Eq 2-20); capped at the pool, the debris's
+  temperature then back-calculated.
+- **Not modelled**: the time of flight inside a step (Eqs 2-1 to 2-6;
+  seconds against the hour scale, each packet lands in the step it
+  leaves), oxidation of the falling metal (MELCOR's LPME has none
+  either), and a steam explosion (nor does MELCOR).
+
+```rust
+pub mod fdi { /* ... */ }
+```
+
 ## Module `fp_decay`
 
 Fission-product decay heat by element, for decay heat that follows the
@@ -7528,6 +7579,8 @@ pub struct Params {
     pub bur_cc_y0: f64,
     pub h2_combustion_j_per_mol: f64,
     pub co_combustion_j_per_mol: f64,
+    pub fdi_surface_tension: f64,
+    pub fdi_hpme_velocity: f64,
     pub blade_b4c_kg: f64,
     pub b4c_rate_a: f64,
     pub b4c_rate_b: f64,
@@ -7729,6 +7782,8 @@ pub struct Params {
 | `bur_cc_y0` | `f64` |  |
 | `h2_combustion_j_per_mol` | `f64` |  |
 | `co_combustion_j_per_mol` | `f64` |  |
+| `fdi_surface_tension` | `f64` |  |
+| `fdi_hpme_velocity` | `f64` |  |
 | `blade_b4c_kg` | `f64` |  |
 | `b4c_rate_a` | `f64` |  |
 | `b4c_rate_b` | `f64` |  |
@@ -8933,6 +8988,26 @@ CO's heat of combustion to CO2, J/mol. \[P\] (NIST: 283.0 kJ/mol.)
 
 ```rust
 pub const CO_COMBUSTION_J_PER_MOL: f64 = 283.0e3;
+```
+
+#### Constant `FDI_SURFACE_TENSION`
+
+The ejected debris's surface tension, N/m, for its breakup in the
+pedestal's water (`Mechanisms::fdi_lpme`, FDI RM Eq 2-8). \[A\] liquid
+UO2's, about 0.45 N/m at its melting point (MATPRO).
+
+```rust
+pub const FDI_SURFACE_TENSION: f64 = 0.45;
+```
+
+#### Constant `FDI_HPME_VELOCITY`
+
+The ejection velocity above which MELCOR models a high-pressure melt
+ejection instead, m/s (FDI RM §2.3, sensitivity coefficient 4602).
+\[P\]
+
+```rust
+pub const FDI_HPME_VELOCITY: f64 = 10.0;
 ```
 
 #### Constant `BLADE_B4C_KG`
@@ -13237,6 +13312,7 @@ pub struct Mechanisms {
     pub two_sided_equalising: bool,
     pub b4c_oxidation: bool,
     pub burn_dynamics: bool,
+    pub fdi_lpme: bool,
 }
 ```
 
@@ -13309,6 +13385,7 @@ pub struct Mechanisms {
 | `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts the<br>receiving volume's pressure rise as well as the donor's fall<br>(2026-10-30, a numerical defect: the one-sided cap overshot the set<br>point, and the vacuum breaker chattered about it every step,<br>amplifying a 1e-9 perturbation 1.5 times a step). Off is the<br>one-sided cap. |
 | `b4c_oxidation` | `bool` | The control blades' B4C reacts with steam by MELCOR's simple model<br>(COR RM §2.5.9, MARCON 2.1B; at most 2 % of it; 2026-10-30; needs<br>`control_blades`). Off is inert B4C. |
 | `burn_dynamics` | `bool` | A building burn runs MELCOR's combustion completeness, flame speed<br>and rate (BUR RM §2.3 to §2.5; 2026-10-30), consuming oxygen and<br>making CO2, and reports its pressure rise as an adiabatic bound.<br>Off is the burn as one step that removes all of the building's H2<br>and CO and wrecks the building (no further inflow). |
+| `fdi_lpme` | `bool` | Debris leaving the failed vessel falls through the pedestal's water<br>by MELCOR's low-pressure melt ejection (FDI RM §2.2; 2026-10-30):<br>Chu's breakup, radiation or Bromley film boiling, all of the heat<br>boiling water. Off is debris landing at the core's temperature. |
 
 ##### Implementations
 
@@ -13633,6 +13710,11 @@ pub struct Mechanisms {
   pub fn without_burn_dynamics(self: Self) -> Self { /* ... */ }
   ```
   The burn as one step: before 2026-10-30.
+
+- ```rust
+  pub fn without_fdi_lpme(self: Self) -> Self { /* ... */ }
+  ```
+  Debris landing at the core's temperature: before 2026-10-30.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

@@ -364,6 +364,14 @@ pub const BUR_CC_Y0: f64 = 0.037_46;
 pub const H2_COMBUSTION_J_PER_MOL: f64 = 241.8e3;
 /// CO's heat of combustion to CO2, J/mol. \[P\] (NIST: 283.0 kJ/mol.)
 pub const CO_COMBUSTION_J_PER_MOL: f64 = 283.0e3;
+/// The ejected debris's surface tension, N/m, for its breakup in the
+/// pedestal's water (`Mechanisms::fdi_lpme`, FDI RM Eq 2-8). \[A\] liquid
+/// UO2's, about 0.45 N/m at its melting point (MATPRO).
+pub const FDI_SURFACE_TENSION: f64 = 0.45;
+/// The ejection velocity above which MELCOR models a high-pressure melt
+/// ejection instead, m/s (FDI RM §2.3, sensitivity coefficient 4602).
+/// \[P\]
+pub const FDI_HPME_VELOCITY: f64 = 10.0;
 /// B4C per control blade over the active height, kg (`Mechanisms::
 /// b4c_oxidation`): \[A\] the blade geometry of `BLADE_STEEL_KG`, 72 tubes of
 /// 3.6 mm bore over 3.66 m, packed at 70 % of B4C's 2520 kg/m^3: 4.7 kg.
@@ -848,6 +856,8 @@ params! {
     bur_cc_y0 = BUR_CC_Y0, P,
     h2_combustion_j_per_mol = H2_COMBUSTION_J_PER_MOL, P,
     co_combustion_j_per_mol = CO_COMBUSTION_J_PER_MOL, P,
+    fdi_surface_tension = FDI_SURFACE_TENSION, A,
+    fdi_hpme_velocity = FDI_HPME_VELOCITY, P,
     blade_b4c_kg = BLADE_B4C_KG, A,
     b4c_rate_a = B4C_RATE_A, P,
     b4c_rate_b = B4C_RATE_B, P,
@@ -1031,7 +1041,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 193);
+        assert_eq!(Params::INPUTS.len(), 195);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

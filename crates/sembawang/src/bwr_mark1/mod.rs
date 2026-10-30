@@ -42,6 +42,7 @@ pub mod compare;
 pub mod containment;
 pub mod core;
 pub mod decay;
+pub mod fdi;
 pub mod fp_decay;
 pub mod gas;
 pub mod internals;
@@ -414,6 +415,11 @@ pub struct Mechanisms {
     /// Off is the burn as one step that removes all of the building's H2
     /// and CO and wrecks the building (no further inflow).
     pub burn_dynamics: bool,
+    /// Debris leaving the failed vessel falls through the pedestal's water
+    /// by MELCOR's low-pressure melt ejection (FDI RM §2.2; 2026-10-30):
+    /// Chu's breakup, radiation or Bromley film boiling, all of the heat
+    /// boiling water. Off is debris landing at the core's temperature.
+    pub fdi_lpme: bool,
 }
 
 impl Default for Mechanisms {
@@ -484,6 +490,7 @@ impl Default for Mechanisms {
             two_sided_equalising: true,
             b4c_oxidation: true,
             burn_dynamics: true,
+            fdi_lpme: true,
         }
     }
 }
@@ -902,6 +909,12 @@ impl Mechanisms {
     /// The burn as one step: before 2026-10-30.
     pub fn without_burn_dynamics(mut self) -> Self {
         self.burn_dynamics = false;
+        self
+    }
+
+    /// Debris landing at the core's temperature: before 2026-10-30.
+    pub fn without_fdi_lpme(mut self) -> Self {
+        self.fdi_lpme = false;
         self
     }
 
@@ -1648,6 +1661,8 @@ impl Plant {
                 gas_choking: self.mechanisms.gas_choking,
                 two_sided_equalising: self.mechanisms.two_sided_equalising,
                 burn_dynamics: self.mechanisms.burn_dynamics,
+                fdi_lpme: self.mechanisms.fdi_lpme,
+                vessel_p_pa: v.sat.p_pa,
                 cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
                 cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
                 cav_debris_k: self.last_core.debris_k,
@@ -2135,6 +2150,33 @@ mod tests {
         assert!((gases[1] - 152.95).abs() < 0.01 && gases[0] < 5.0 && gases[2] < 3.5, "{gases:?}");
     }
 
+    /// Debris falling through the pedestal's water (`fdi_lpme`, MELCOR FDI
+    /// RM §2.2) over the first 8 h. Results (2026-10-30): the first debris,
+    /// 20.1 t of UO2 and 6.5 t of Zr, leaves the head at 5.344 h at 1350 K,
+    /// solid (below Zr's 2098 K), so it does not break up; at 1.49 m/s
+    /// through 0.93 m of water it cools 2 K and raises 8.6 kg of steam.
+    /// Later packets of 2.2 t arrive hotter (to 2044 K) and slower; 63.0
+    /// kg in all by 7.14 h, after which the vessel sits below the drywell
+    /// and MELCOR's Eq 6-34 gives no velocity. No ejection is fast enough
+    /// for MELCOR's high-pressure model. Predicted 0.05-0.5 t, for molten
+    /// debris near 2800 K (missed low: the debris that leaves is solid).
+    #[test]
+    fn the_debris_falls_through_the_pedestal_water() {
+        let mut plant = Plant::new(Mode::Historical);
+        let (mut core, mut cont) = plant.parts();
+        let mut first = None;
+        for i in 0..28800usize {
+            plant.step_inline(&mut core, &mut cont);
+            if first.is_none() && plant.frame().containment.fdi_steam_kg > 0.0 {
+                first = Some(((i + 1) as f64 / 3600.0, plant.frame().containment.fdi_steam_kg));
+            }
+        }
+        let (h, kg) = first.unwrap();
+        assert!((h - 5.3439).abs() < 1e-3 && (kg - 8.60).abs() < 0.01, "{h} {kg}");
+        let k = plant.frame().containment;
+        assert!((k.fdi_steam_kg - 63.04).abs() < 0.01 && !k.fdi_hpme, "{k:?}");
+    }
+
     /// The core and containment work from snapshots that cross a worker
     /// boundary as flat f64s; that gives the in-place step bit for bit.
     /// Methodology: run 2000 steps of the historical sequence in place, and
@@ -2434,11 +2476,12 @@ mod tests {
         // flange choked: 0.0218, 6.35e-4, 4.01e-4; with the blades' diffusion
         // limit: 0.0217, 6.59e-4, 4.19e-4; with the two-sided equalising:
         // 0.0283, 7.84e-4, 5.01e-4; with the blades' B4C: 0.0263, 6.47e-4,
-        // 4.61e-4.
+        // 4.61e-4; with the debris falling through the pedestal's water:
+        // 0.0263, 6.75e-4, 4.84e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 6.47e-4).abs() < 1e-5 && (k.xe_ww - 4.61e-4).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.02630).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 6.75e-4).abs() < 1e-5 && (k.xe_ww - 4.84e-4).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.02632).abs() < 1e-5, "{f:?}");
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a

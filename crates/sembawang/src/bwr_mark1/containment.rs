@@ -46,15 +46,19 @@
 //! and the vacuum breaker chattered about it every step, amplifying a
 //! 1e-9 perturbation 1.5 times a step; with
 //! `Mechanisms::two_sided_equalising` it counts the receiver's rise too
-//! (`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
-//! stratification, pool level and swell, pool scrubbing of aerosols (no
-//! fission products are tracked yet), the torus room, the reactor building's
+//! (`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, ~~wetwell
+//! stratification,~~ pool level and swell, ~~pool scrubbing of aerosols (no
+//! fission products are tracked yet),~~ the torus room, the reactor building's
 //! own heat-up and ventilation, steam in the building, and the building's
 //! pressure. ~~And the combustion itself (the explosion is a threshold, not
 //! a calculation).~~ **CORRECTED 2026-10-30:** with
 //! `Mechanisms::burn_dynamics` a burn runs MELCOR's completeness, flame
 //! speed and rate (BUR RM §2.3 to §2.5); its pressure rise is reported as
 //! an adiabatic bound, since the building is held at one atmosphere.
+//! **CORRECTED 2026-10-30** (struck above; checked in the code): the pool
+//! stratifies in two layers (`Mechanisms::pool_layers`), it scrubs aerosols
+//! (`Mechanisms::pool_scrubbing`, SPARC-90 in [`super::sparc`]), and the
+//! fission products are tracked ([`super::rn_volume`]).
 
 use super::params::*;
 use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Sections, Surface};
@@ -62,6 +66,7 @@ use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
 use super::rn_volume::{RnFlow, RnSurface, RnVolume, CS, IODINE, N_CLASSES, TE};
 use super::vapour::{BulkGas, FpClass};
 use super::iodine;
+use super::fdi;
 use super::sparc;
 use super::pool_surface;
 use super::cavity::Cavity;
@@ -216,6 +221,11 @@ pub struct ContainmentSnapshot {
     /// A burn runs MELCOR's completeness, flame speed and rate
     /// (`Mechanisms::burn_dynamics`).
     pub burn_dynamics: bool,
+    /// Debris arriving in the pedestal falls through its water by MELCOR's
+    /// low-pressure melt ejection (`Mechanisms::fdi_lpme`).
+    pub fdi_lpme: bool,
+    /// The vessel's pressure, Pa, for the ejection velocity.
+    pub vessel_p_pa: f64,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -251,6 +261,11 @@ pub struct ContainmentResult {
     /// constant-volume bound `Q / (2.5 V)` (no venting, no heat loss; the
     /// building itself is held at one atmosphere, stated).
     pub rb_burn_dp_pa: f64,
+    /// Steam raised by debris falling through the pedestal's water, kg
+    /// (`fdi_lpme`), and whether an ejection was fast enough for MELCOR's
+    /// high-pressure model (flagged, still treated as low-pressure).
+    pub fdi_steam_kg: f64,
+    pub fdi_hpme: bool,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
     /// Noble gas (Xe) in the drywell and the wetwell gas, vented to the
@@ -373,6 +388,9 @@ pub struct Containment {
     co: Tracer,
     rb_in: f64,
     burn: Burn,
+    /// As in [`ContainmentResult`].
+    fdi_steam_kg: f64,
+    fdi_hpme: bool,
 }
 
 /// The building's burn (`Mechanisms::burn_dynamics`): the time left, s
@@ -540,6 +558,8 @@ impl Containment {
             co: Tracer::default(),
             rb_in: 0.0,
             burn: Burn::default(),
+            fdi_steam_kg: 0.0,
+            fdi_hpme: false,
         }
     }
 
@@ -556,6 +576,47 @@ impl Containment {
     /// state; the building here is held at one atmosphere, so the burn's
     /// heat is reported as an adiabatic, constant-volume bound, `Q / (c_v V
     /// / R)` at `c_v = 2.5 R` (air, \[A\]).
+    /// `du` kg of UO2 and `dz` of Zr arriving at `s.cav_debris_k` fall
+    /// through the pedestal's water (MELCOR FDI RM §2.2, see [`fdi`]); the
+    /// heat they give up boils it at `h_g - h_pool` (Eq 2-20), the pool's
+    /// temperature unchanged, capped at the pool; returns the temperature
+    /// they land at, K.
+    fn lpme(&mut self, prm: &Params, s: &ContainmentSnapshot, du: f64, dz: f64, tv: bool) -> f64 {
+        let p = self.p_dw(prm);
+        let t_s = t_sat(p);
+        let rho_f = (du + dz) / (du / prm.uo2_density + dz / prm.zr_density);
+        let c_tot = du * prm.uo2_cp + dz * prm.zr_cp;
+        let rho_c = sparc::Pool::submerged(t_s, p, 0.0).rho_l();
+        let u = fdi::ejection_velocity(prm.discharge_coefficient, s.vessel_p_pa - p, rho_f, prm.lp_bottom_level_m);
+        self.fdi_hpme |= u > prm.fdi_hpme_velocity;
+        let fall = fdi::Fall {
+            rho_f,
+            c_f: c_tot / (du + dz),
+            sigma_f: prm.fdi_surface_tension,
+            rho_c,
+            t_c: self.pedestal_t,
+            t_sat: t_s,
+            p_pa: p,
+            u,
+            d0: prm.breach_diameter_m,
+        };
+        let depth = self.pedestal_kg / (rho_c * prm.cavity_area_m2);
+        let t0 = s.cav_debris_k;
+        let mut t_bot = fall.bottom_temperature(t0, depth).min(t0);
+        let dh = pool_surface::steam_h(t_s) - CP_WATER * (self.pedestal_t - 273.15);
+        let mut m = c_tot * (t0 - t_bot) / dh;
+        if m > self.pedestal_kg {
+            m = self.pedestal_kg;
+            t_bot = t0 - m * dh / c_tot;
+        }
+        self.pedestal_kg -= m;
+        let e = self.dw_energy(tv) + m * (steam_u(t_s) + R_GAS / M_H2O * t_s);
+        self.dw_steam_kg += m;
+        self.set_dw_energy(e, tv);
+        self.fdi_steam_kg += m;
+        t_bot
+    }
+
     fn step_burn(&mut self, prm: &Params, ignites: bool, n_rb: f64, x_d: f64, x_o2: f64, dt: f64) {
         let ratio = prm.bur_xh2cc / prm.bur_xcocc;
         let y = (self.rb_h2 + self.co.rb[0] * ratio) / n_rb;
@@ -998,7 +1059,14 @@ impl Containment {
             self.pedestal_t = e / self.pedestal_kg;
         }
         if s.mcci && s.ex_vessel_w > 0.0 {
-            self.cavity.arrive(prm, s.cav_uo2_kg, s.cav_zr_kg, s.cav_debris_k);
+            let du = (s.cav_uo2_kg - self.cavity.seen_uo2_kg).max(0.0);
+            let dz = (s.cav_zr_kg - self.cavity.seen_zr_kg).max(0.0);
+            let t_in = if s.fdi_lpme && self.pedestal_kg > 0.0 && du + dz > 0.0 {
+                self.lpme(prm, s, du, dz, tv)
+            } else {
+                s.cav_debris_k
+            };
+            self.cavity.arrive(prm, s.cav_uo2_kg, s.cav_zr_kg, t_in);
         }
         if s.ex_vessel_w > 0.0 {
             let q = s.ex_vessel_w * dt;
@@ -1535,6 +1603,8 @@ impl Containment {
             rb_co_fraction: x_co,
             rb_burning: self.burn.left_s > 0.0,
             rb_burn_dp_pa: self.burn.dp_max,
+            fdi_steam_kg: self.fdi_steam_kg,
+            fdi_hpme: self.fdi_hpme,
             vented_h2_kg: self.vented_h2_kg,
             vented_kg_s,
             xe_dw: self.xe_dw,
@@ -1776,6 +1846,7 @@ impl Containment {
         w.f(&[self.deep_kg, self.deep_t, b(self.layered)]);
         w.f(&[self.co.dw[0], self.co.dw[1], self.co.ww[0], self.co.ww[1], self.co.rb[0], self.co.rb[1], self.rb_in]);
         w.f(&[self.burn.left_s, self.burn.y_min, self.burn.o2_used, self.burn.q_j, self.burn.dp_max]);
+        w.f(&[self.fdi_steam_kg, b(self.fdi_hpme)]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
         self.dw_rn.write(w);
@@ -1842,6 +1913,8 @@ impl Containment {
             co: Tracer::default(),
             rb_in: 0.0,
             burn: Burn::default(),
+            fdi_steam_kg: 0.0,
+            fdi_hpme: false,
         };
         c.dw_slab = std::array::from_fn(|_| r.f());
         c.deep_kg = r.f();
@@ -1850,6 +1923,8 @@ impl Containment {
         c.co = Tracer { dw: [r.f(), r.f()], ww: [r.f(), r.f()], rb: [r.f(), r.f()] };
         c.rb_in = r.f();
         c.burn = Burn { left_s: r.f(), y_min: r.f(), o2_used: r.f(), q_j: r.f(), dp_max: r.f() };
+        c.fdi_steam_kg = r.f();
+        c.fdi_hpme = r.f() != 0.0;
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
         c.dw_rn.read_into(r);
@@ -1913,6 +1988,8 @@ impl ContainmentSnapshot {
             b(self.gas_choking),
             b(self.two_sided_equalising),
             b(self.burn_dynamics),
+            b(self.fdi_lpme),
+            self.vessel_p_pa,
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1974,6 +2051,8 @@ impl ContainmentSnapshot {
             gas_choking: r.f() != 0.0,
             two_sided_equalising: r.f() != 0.0,
             burn_dynamics: r.f() != 0.0,
+            fdi_lpme: r.f() != 0.0,
+            vessel_p_pa: r.f(),
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
@@ -2003,6 +2082,8 @@ impl ContainmentResult {
             self.rb_co_fraction,
             b(self.rb_burning),
             self.rb_burn_dp_pa,
+            self.fdi_steam_kg,
+            b(self.fdi_hpme),
             self.vented_h2_kg,
             self.vented_kg_s,
             self.xe_dw,
@@ -2045,6 +2126,8 @@ impl ContainmentResult {
             rb_co_fraction: r.f(),
             rb_burning: r.f() != 0.0,
             rb_burn_dp_pa: r.f(),
+            fdi_steam_kg: r.f(),
+            fdi_hpme: r.f() != 0.0,
             vented_h2_kg: r.f(),
             vented_kg_s: r.f(),
             xe_dw: r.f(),
