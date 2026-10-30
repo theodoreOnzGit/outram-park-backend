@@ -256,3 +256,54 @@ ablation setting for infinite series evaluation, depending on how paper is inter
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-30, commit cf2911044f.
+
+# Review: OtherMetalRelease (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-othermetalrelease-theodoreonzgit-05c53aa0"
+kind = "review"
+origin = "human"
+created = "2026-10-30T16:40:01+08:00"
+modified = "2026-10-30T16:40:01+08:00"
+target = "fn:05c53aa09e3542da"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/variant.rs::OtherMetalRelease"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-30"
+signed_at = "2026-10-30T16:40:02+08:00"
+commit = "ade4736a45217cf9543afc4731bc9552569b0ed6"
+hash = "sha256:f6c29a369d635851bb790d1b7336f39216c5421501357505c0bc5161a12597eb"
+doc_hash = "sha256:f2d4ab17583ca1e49b369905943a09896f6d70b7bf23eabf38a8b6e9588dc340"
+cargo_lock = "sha256:0e083cf7fd8d73726769677a72ca2984a8dbc520cf89e6bc31c8f95e38401b2f"
+no_concept = "upstream_structure"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "RNTZmCBCfzdjaXfofS2bYILF2DdcTrNWr34nnYEGvzneHS74zeKqEzFuP1uiRL/idd6cdm+o+dTQLW5mpIh1AQ=="
+```
+
+ablation testing utility, to to check if diffusivity or fixed release fraction is used in ATOPS calc
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-30, commit ade4736a45.
