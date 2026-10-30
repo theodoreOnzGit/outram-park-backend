@@ -174,6 +174,9 @@ pub struct CoreSnapshot {
     /// The blades' steel oxidation is held to MELCOR's gaseous-diffusion
     /// limit as the Zr's is (`Mechanisms::blade_diffusion_limit`).
     pub blade_diffusion_limit: bool,
+    /// The blades' B4C reacts with steam by MELCOR's simple model
+    /// (`Mechanisms::b4c_oxidation`).
+    pub b4c_oxidation: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -255,6 +258,8 @@ struct Node {
     /// Heat of fusion the blade has absorbed while melting, J
     /// (`blade_fusion`).
     blade_melt: f64,
+    /// The fraction of the node's B4C that has reacted (`b4c_oxidation`).
+    b4c_frac: f64,
 }
 
 /// Constants of one node (every node in a ring is the same size).
@@ -310,6 +315,11 @@ pub struct Core {
     /// enthalpy, J (`control_blades`).
     lp_steel_kg: f64,
     lp_steel_h: f64,
+    /// B4C reacted, kg, and the CO, CO2 and CH4 it made, mol
+    /// (`b4c_oxidation`; the carbon gases are tallied, not carried: about
+    /// a thousandth of the containment's gas, stated).
+    b4c_reacted_kg: f64,
+    b4c_gases_mol: [f64; 3],
     uo2_released: f64,
 }
 
@@ -605,6 +615,11 @@ impl Core {
 }
 
 impl Core {
+    /// B4C reacted, kg, and its CO, CO2 and CH4, mol (`b4c_oxidation`).
+    pub fn b4c_tally(&self) -> (f64, [f64; 3]) {
+        (self.b4c_reacted_kg, self.b4c_gases_mol)
+    }
+
     /// Radiation from the lowest uncovered core cell of each ring down to
     /// the lower plenum's water at `t_sat` (MELCOR COR RM §2.1.2: `Flp,up`
     /// over the cell's area, here `flpup` times the ring's cross-section):
@@ -836,6 +851,24 @@ fn ss_reaction(prm: &Params) -> (f64, f64, f64) {
     let mol_h2o = fe / M_FE + 1.5 * cr / M_CR + ni / M_NI;
     let heat = (-249.5 * prm.ss_x_fe + 2442.0 * prm.ss_x_cr) / (prm.ss_x_fe + prm.ss_x_cr) * 1e3;
     (mol_h2o * M_H2O, mol_h2o * M_H2, heat)
+}
+
+/// MELCOR's simple B4C model (COR RM §2.5.9): the equilibrium split of one
+/// mole of reacting B4C among B4C + 7 H2O -> 2 B2O3 + CO + 7 H2, + 8 H2O ->
+/// CO2 + 8 H2 and + 6 H2O -> CH4 + 4 H2 (Eqs 2-200 to 2-204, partial
+/// pressures in atm), and per mole of B4C the steam used and hydrogen made,
+/// mol, and the energy released, J (Eqs 2-205 to 2-207, J/kmol).
+fn b4c_reaction(t_k: f64, p_h2_atm: f64, p_h2o_atm: f64) -> ([f64; 3], f64, f64, f64) {
+    let (ph2, ph2o) = (p_h2_atm.max(1e-12), p_h2o_atm.max(1e-12));
+    let y_co2 = ph2 / ph2o * (-3605.0 / t_k + 3.427).r_exp();
+    let y_ch4 = ph2o / (ph2 * ph2 * ph2) * (-27350.0 / t_k + 30.50).r_exp();
+    let x_co = 1.0 / (1.0 + 1.0 / y_co2 + 1.0 / y_ch4);
+    let x_co2 = x_co / y_co2;
+    let x_ch4 = (1.0 - x_co - x_co2).max(0.0);
+    let steam = 7.0 * x_co + 8.0 * x_co2 + 6.0 * x_ch4;
+    let h2 = 7.0 * x_co + 8.0 * x_co2 + 4.0 * x_ch4;
+    let q = (x_co * (8.238e8 - 58380.0 * t_k) + x_co2 * (8.674e8 - 67060.0 * t_k) + x_ch4 * (1.056e8 - 61430.0 * t_k)) / 1000.0;
+    ([x_co, x_co2, x_ch4], steam, h2, q)
 }
 
 /// The steel's specific heat, J/(kg K), from its enthalpy (304L).
@@ -1134,7 +1167,7 @@ impl Core {
             for j in 0..AXIAL_NODES {
                 let q = prm.thermal_power_w / RINGS as f64 * prm.ring_factors[ring] * axial[j];
                 let t_clad = t_sat_k + q / (prm.boiling_h * g.a_rod);
-                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0, fp_left: 1.0, uo2_left: 1.0, zr_kg: g.zr_kg, blade_gone: false, ss_ox: 0.0, blade_melt: 0.0 });
+                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0, fp_left: 1.0, uo2_left: 1.0, zr_kg: g.zr_kg, blade_gone: false, ss_ox: 0.0, blade_melt: 0.0, b4c_frac: 0.0 });
             }
         }
         Self {
@@ -1159,6 +1192,8 @@ impl Core {
             plates: [Plate { t_k: t_sat_k, ..Default::default() }; RINGS],
             lp_steel_kg: 0.0,
             lp_steel_h: 0.0,
+            b4c_reacted_kg: 0.0,
+            b4c_gases_mol: [0.0; 3],
         }
     }
 
@@ -1456,6 +1491,34 @@ impl Core {
                         w_h2 += made;
                         steam_used += used;
                         h2 += made;
+                    }
+                    // The blade's B4C (`b4c_oxidation`): MELCOR's simple
+                    // model, at most `b4c_max_fraction` of it, in the steam
+                    // left; its energy to the cladding here (MELCOR gives it
+                    // to the gas, stated), its B2O3 not followed (stated).
+                    if s.b4c_oxidation && s.control_blades && tdp && !node.blade_gone && w_steam > 0.0 && node.b4c_frac < prm.b4c_max_fraction {
+                        const M_B4C: f64 = 0.055_255;
+                        let m0 = prm.control_rods * prm.blade_b4c_kg / NODES as f64;
+                        let df = (prm.b4c_rate_a * (-prm.b4c_rate_b / node.t_clad).r_exp() * dt).min(prm.b4c_max_fraction - node.b4c_frac);
+                        let n_s = w_steam / M_H2O;
+                        let n_h = w_h2 / M_H2;
+                        let p_atm = s.p_pa / 101_325.0;
+                        let (x, steam_mol, h2_mol, q_mol) = b4c_reaction(node.t_clad, p_atm * n_h / (n_s + n_h), p_atm * n_s / (n_s + n_h));
+                        let mol = (df * m0 / M_B4C).min(n_s * dt / steam_mol);
+                        if mol > 0.0 {
+                            let used = mol * steam_mol * M_H2O / dt;
+                            let made = mol * h2_mol * M_H2 / dt;
+                            q_ox += mol * q_mol / dt;
+                            self.nodes[idx].b4c_frac += mol * M_B4C / m0;
+                            self.b4c_reacted_kg += mol * M_B4C;
+                            for (g, xi) in self.b4c_gases_mol.iter_mut().zip(x) {
+                                *g += mol * xi;
+                            }
+                            w_steam -= used;
+                            w_h2 += made;
+                            steam_used += used;
+                            h2 += made;
+                        }
                     }
                 }
                 q_ox_total += q_ox;
@@ -1826,7 +1889,7 @@ impl Core {
     /// The whole state, for a stateless worker to step.
     pub fn write_state(&self, w: &mut Writer) {
         for n in &self.nodes {
-            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage, n.fp_left, n.uo2_left, n.zr_kg, if n.blade_gone { 1.0 } else { 0.0 }, n.ss_ox, n.blade_melt]);
+            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage, n.fp_left, n.uo2_left, n.zr_kg, if n.blade_gone { 1.0 } else { 0.0 }, n.ss_ox, n.blade_melt, n.b4c_frac]);
         }
         w.f(&[
             self.debris_c,
@@ -1846,10 +1909,10 @@ impl Core {
         for p in &self.plates {
             w.f(&[p.t_k, if p.failed { 1.0 } else { 0.0 }, p.mf, p.mc, p.h, p.zr_ox, p.fp, p.uo2, p.share]);
         }
-        w.f(&[self.lp_steel_kg, self.lp_steel_h]);
+        w.f(&[self.lp_steel_kg, self.lp_steel_h, self.b4c_reacted_kg, self.b4c_gases_mol[0], self.b4c_gases_mol[1], self.b4c_gases_mol[2]]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
-        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f(), zr_kg: r.f(), blade_gone: r.f() != 0.0, ss_ox: r.f(), blade_melt: r.f() }).collect();
+        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f(), zr_kg: r.f(), blade_gone: r.f() != 0.0, ss_ox: r.f(), blade_melt: r.f(), b4c_frac: r.f() }).collect();
         Self {
             nodes,
             debris_c: r.f(),
@@ -1872,6 +1935,8 @@ impl Core {
             plates: std::array::from_fn(|_| Plate { t_k: r.f(), failed: r.f() != 0.0, mf: r.f(), mc: r.f(), h: r.f(), zr_ox: r.f(), fp: r.f(), uo2: r.f(), share: r.f() }),
             lp_steel_kg: r.f(),
             lp_steel_h: r.f(),
+            b4c_reacted_kg: r.f(),
+            b4c_gases_mol: [r.f(), r.f(), r.f()],
         }
     }
 }
@@ -1910,6 +1975,7 @@ impl CoreSnapshot {
             if self.control_blades { 1.0 } else { 0.0 },
             if self.blade_fusion { 1.0 } else { 0.0 },
             if self.blade_diffusion_limit { 1.0 } else { 0.0 },
+            if self.b4c_oxidation { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1945,6 +2011,7 @@ impl CoreSnapshot {
             control_blades: r.f() != 0.0,
             blade_fusion: r.f() != 0.0,
             blade_diffusion_limit: r.f() != 0.0,
+            b4c_oxidation: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -2068,7 +2135,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -2094,7 +2161,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -2123,7 +2190,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, b4c_oxidation: false, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -2260,6 +2327,24 @@ mod tests {
         assert!((m - 161.67).abs() < 0.01 && (a - 9.70).abs() < 0.01, "{m} {a}");
         // The steel's heat capacity from its enthalpy is in the 304L range.
         assert!(steel_cp(1000.0) > 450.0 && steel_cp(1000.0) < 750.0, "{}", steel_cp(1000.0));
+    }
+
+    /// MELCOR's simple B4C model (COR RM §2.5.9) by hand at 1600 K: with
+    /// equal H2 and steam (1 atm each) `y_CO/CO2 = exp(-3605/1600 + 3.427)` =
+    /// 3.2345 and `y_CO/CH4 = exp(-27350/1600 + 30.50)` = 6.39e5, so x_CO =
+    /// 0.7638, x_CO2 = 0.2362, x_CH4 ~ 1.2e-6; steam per mole 7.236, H2 7.236;
+    /// energy `(0.7638 (8.238e8 - 58380 x 1600) + 0.2362 (8.674e8 - 67060 x
+    /// 1600)) / 1000` = 7.374e5 J/mol. The rate at 1600 K: `9.973e6/60
+    /// exp(-22647.2/1600)` = 1.18e-1 per second of the initial mass.
+    #[test]
+    fn the_b4c_reacts_as_melcor_says() {
+        let (x, steam, h2, q) = b4c_reaction(1600.0, 1.0, 1.0);
+        assert!((x[0] - 0.7638).abs() < 2e-4 && (x[1] - 0.2362).abs() < 2e-4 && x[2] < 1e-5, "{x:?}");
+        assert!((steam - 7.236).abs() < 2e-3 && (h2 - 7.236).abs() < 2e-3, "{steam} {h2}");
+        assert!((q / 7.374e5 - 1.0).abs() < 2e-3, "{q}");
+        let prm = Params::default();
+        let k = prm.b4c_rate_a * (-prm.b4c_rate_b / 1600.0).r_exp();
+        assert!((k / 0.118 - 1.0).abs() < 1e-2, "{k}");
     }
 
     /// The bottom of the core's radiation (`bottom_radiation`) by hand:

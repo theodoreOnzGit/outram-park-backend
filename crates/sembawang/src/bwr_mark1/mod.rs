@@ -404,6 +404,10 @@ pub struct Mechanisms {
     /// amplifying a 1e-9 perturbation 1.5 times a step). Off is the
     /// one-sided cap.
     pub two_sided_equalising: bool,
+    /// The control blades' B4C reacts with steam by MELCOR's simple model
+    /// (COR RM §2.5.9, MARCON 2.1B; at most 2 % of it; 2026-10-30; needs
+    /// `control_blades`). Off is inert B4C.
+    pub b4c_oxidation: bool,
 }
 
 impl Default for Mechanisms {
@@ -472,6 +476,7 @@ impl Default for Mechanisms {
             gas_choking: true,
             blade_diffusion_limit: true,
             two_sided_equalising: true,
+            b4c_oxidation: true,
         }
     }
 }
@@ -878,6 +883,12 @@ impl Mechanisms {
     /// The one-sided equalising cap: before 2026-10-30.
     pub fn without_two_sided_equalising(mut self) -> Self {
         self.two_sided_equalising = false;
+        self
+    }
+
+    /// Inert B4C: before 2026-10-30.
+    pub fn without_b4c_oxidation(mut self) -> Self {
+        self.b4c_oxidation = false;
         self
     }
 
@@ -1571,7 +1582,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, b4c_oxidation: self.mechanisms.b4c_oxidation, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -2093,6 +2104,22 @@ pub fn headless_csv(steps: usize, every: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The control blades' B4C over 6 h (`b4c_oxidation`, MELCOR COR RM
+    /// §2.5.9): 97 x 4.7 kg, capped at 2 %, so at most 9.12 kg reacts.
+    /// Results (2026-10-30): 8.862 kg, as CO 4.46, CO2 152.95 and CH4 2.98
+    /// mol (the steam-rich core favours CO2), about 2.6 kg of H2.
+    #[test]
+    fn the_blades_b4c_reacts_up_to_melcors_cap() {
+        let mut plant = Plant::new(Mode::Historical);
+        let (mut core, mut cont) = plant.parts();
+        for _ in 0..21600usize {
+            plant.step_inline(&mut core, &mut cont);
+        }
+        let (kg, gases) = core.b4c_tally();
+        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9 && (kg - 8.862).abs() < 1e-3, "{kg}");
+        assert!((gases[1] - 152.95).abs() < 0.01 && gases[0] < 5.0 && gases[2] < 3.5, "{gases:?}");
+    }
 
     /// The core and containment work from snapshots that cross a worker
     /// boundary as flat f64s; that gives the in-place step bit for bit.

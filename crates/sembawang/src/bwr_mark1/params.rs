@@ -346,6 +346,19 @@ pub const BUR_XO2IG: f64 = 0.05;
 /// The most steam and CO2 for ignition (XMSCIG default), inerting above.
 /// \[P\]
 pub const BUR_XMSCIG: f64 = 0.55;
+/// B4C per control blade over the active height, kg (`Mechanisms::
+/// b4c_oxidation`): \[A\] the blade geometry of `BLADE_STEEL_KG`, 72 tubes of
+/// 3.6 mm bore over 3.66 m, packed at 70 % of B4C's 2520 kg/m^3: 4.7 kg.
+pub const BLADE_B4C_KG: f64 = 4.7;
+/// MELCOR's simple B4C model (COR RM §2.5.9, MARCON 2.1B, Eq 2-208): the
+/// fraction of the initial B4C reacting per second is `A exp(-B/T)`,
+/// `A = 9.973e6 / 60` 1/s. \[P\]
+pub const B4C_RATE_A: f64 = 9.973e6 / 60.0;
+/// Its activation temperature, K. \[P\]
+pub const B4C_RATE_B: f64 = 22647.2;
+/// The most of the B4C that may react, MELCOR's default (C1005(2)): the
+/// blade's eutectic relocates it first. \[P\]
+pub const B4C_MAX_FRACTION: f64 = 0.02;
 /// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
 /// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
 pub const SS_X_FE: f64 = 0.74;
@@ -811,6 +824,10 @@ params! {
     bur_xcoign = BUR_XCOIGN, P,
     bur_xo2ig = BUR_XO2IG, P,
     bur_xmscig = BUR_XMSCIG, P,
+    blade_b4c_kg = BLADE_B4C_KG, A,
+    b4c_rate_a = B4C_RATE_A, P,
+    b4c_rate_b = B4C_RATE_B, P,
+    b4c_max_fraction = B4C_MAX_FRACTION, P,
     ss_x_fe = SS_X_FE, P,
     ss_x_cr = SS_X_CR, P,
     ss_x_ni = SS_X_NI, P,
@@ -990,7 +1007,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 183);
+        assert_eq!(Params::INPUTS.len(), 187);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
