@@ -5096,6 +5096,7 @@ pub struct CoreSnapshot {
     pub ring_plates: bool,
     pub plate_oxidation: bool,
     pub lp_steam_consumed: bool,
+    pub control_blades: bool,
     pub prm: Params,
 }
 ```
@@ -5131,6 +5132,7 @@ pub struct CoreSnapshot {
 | `ring_plates` | `bool` | One core plate per radial ring, each failing on its own load<br>(`Mechanisms::ring_plates`); off is one plate under the whole core. |
 | `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it<br>(`Mechanisms::plate_oxidation`). |
 | `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses is taken out of<br>the steam rising into the core (`Mechanisms::lp_steam_consumed`). |
+| `control_blades` | `bool` | The control blades: steel at each cell's cladding temperature, its<br>oxidation, and its melting (`Mechanisms::control_blades`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -7429,6 +7431,16 @@ pub struct Params {
     pub core_plate_beam_m: f64,
     pub water_emissivity: f64,
     pub flpup: f64,
+    pub control_rods: f64,
+    pub blade_steel_kg: f64,
+    pub blade_area_m2: f64,
+    pub ss_ox_a: f64,
+    pub ss_ox_b: f64,
+    pub ss_ox_min_k: f64,
+    pub ss_melt_k: f64,
+    pub ss_x_fe: f64,
+    pub ss_x_cr: f64,
+    pub ss_x_ni: f64,
     pub penetration_wall_m: f64,
     pub corsor_k0_per_min: f64,
     pub corsor_q_kcal_per_mol: f64,
@@ -7600,6 +7612,16 @@ pub struct Params {
 | `core_plate_beam_m` | `f64` |  |
 | `water_emissivity` | `f64` |  |
 | `flpup` | `f64` |  |
+| `control_rods` | `f64` |  |
+| `blade_steel_kg` | `f64` |  |
+| `blade_area_m2` | `f64` |  |
+| `ss_ox_a` | `f64` |  |
+| `ss_ox_b` | `f64` |  |
+| `ss_ox_min_k` | `f64` |  |
+| `ss_melt_k` | `f64` |  |
+| `ss_x_fe` | `f64` |  |
+| `ss_x_cr` | `f64` |  |
+| `ss_x_ni` | `f64` |  |
 | `penetration_wall_m` | `f64` |  |
 | `corsor_k0_per_min` | `f64` |  |
 | `corsor_q_kcal_per_mol` | `f64` |  |
@@ -8590,6 +8612,95 @@ That radiation's exchange factor over the cell's area: MELCOR's `FLPUP`
 
 ```rust
 pub const FLPUP: f64 = 0.25;
+```
+
+#### Constant `CONTROL_RODS`
+
+The control blades (`Mechanisms::control_blades`, MELCOR's NS
+component): Unit 1's cruciform control rods, \[U\] 97 for its 400
+assemblies (one per four).
+
+```rust
+pub const CONTROL_RODS: f64 = 97.0;
+```
+
+#### Constant `BLADE_STEEL_KG`
+
+Stainless steel per blade over the active height, kg, \[A\] from the
+common GE design: four wings 0.124 m by 3.66 m, a 1.4 mm sheath on both
+faces (41 kg) and 18 B4C tubes per wing, 4.8 mm across with 0.6 mm walls
+(17 kg), rounded up for the tie rod: 60 kg.
+
+```rust
+pub const BLADE_STEEL_KG: f64 = 60.0;
+```
+
+#### Constant `BLADE_AREA_M2`
+
+Each blade's oxidising surface, m^2: the sheath's outer faces, 4 x 2 x
+0.124 x 3.66. \[A\]
+
+```rust
+pub const BLADE_AREA_M2: f64 = 3.6;
+```
+
+#### Constant `SS_OX_A`
+
+MELCOR's stainless-steel oxidation in steam (COR RM Table 2-9):
+parabolic, `K = A exp(-B/T)` (kg/m^2)^2/s above `SS_OX_MIN_K`. \[P\]
+
+```rust
+pub const SS_OX_A: f64 = 2.42e9;
+```
+
+#### Constant `SS_OX_B`
+
+The rate's activation temperature, K. \[P\]
+
+```rust
+pub const SS_OX_B: f64 = 42400.0;
+```
+
+#### Constant `SS_OX_MIN_K`
+
+Below this the steel does not oxidise, K. \[P\]
+
+```rust
+pub const SS_OX_MIN_K: f64 = 1100.0;
+```
+
+#### Constant `SS_MELT_K`
+
+The control blades fail (melt and drain) at the steel's melting
+temperature, MELCOR's default criterion and MP value, K. \[P\]
+
+```rust
+pub const SS_MELT_K: f64 = 1700.0;
+```
+
+#### Constant `SS_X_FE`
+
+The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
+default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
+
+```rust
+pub const SS_X_FE: f64 = 0.74;
+```
+
+#### Constant `SS_X_CR`
+
+Chromium's mass fraction (MP_SS default). \[P\]
+
+```rust
+pub const SS_X_CR: f64 = 0.18;
+```
+
+#### Constant `SS_X_NI`
+
+Nickel's mass fraction (MP_SS default). \[P\]
+
+```rust
+pub const SS_X_NI: f64 = 0.08;
 ```
 
 #### Constant `PENETRATION_WALL_M`
@@ -12823,6 +12934,7 @@ pub struct Mechanisms {
     pub pool_layers: bool,
     pub plate_oxidation: bool,
     pub lp_steam_consumed: bool,
+    pub control_blades: bool,
 }
 ```
 
@@ -12886,6 +12998,7 @@ pub struct Mechanisms {
 | `pool_layers` | `bool` | The torus pool in two layers split at the downcomers' exits: the<br>downcomers (and every surface process) act on the water above them,<br>the relief valves' quenchers on the water below; the layers mix when<br>the lower is the hotter (2026-10-29; PPOOLEX, Li and Kudinov). Off is<br>one well-mixed pool. |
 | `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it,<br>which then no longer reaches its ring's core (MELCOR COR §3.2.1,<br>particulate debris; 2026-10-29; needs `core_plate` and<br>`debris_oxidation`). Off is the held debris inert. |
 | `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses no longer rises<br>into the core (2026-10-29, a conservation defect: the core could<br>oxidise with it a second time). Off is the defect, kept as the<br>ablation that reproduces the earlier runs. |
+| `control_blades` | `bool` | The control blades, MELCOR's NS component in its BWR form (steel<br>only, 2026-10-30): their steel at each cell's cladding temperature,<br>oxidised by MELCOR's stainless-steel law (COR RM §2.5.6) in the steam<br>the Zr leaves, failing at the steel's melting temperature and<br>draining to the lower plenum, where it quenches. Their B4C is not<br>modelled (MELCOR's default BWR model caps its oxidation at 2 %).<br>Off is a core without blades. |
 
 ##### Implementations
 
@@ -13165,6 +13278,11 @@ pub struct Mechanisms {
   pub fn without_lp_steam_consumed(self: Self) -> Self { /* ... */ }
   ```
   The lower plenum's oxidation steam rising into the core as well:
+
+- ```rust
+  pub fn without_control_blades(self: Self) -> Self { /* ... */ }
+  ```
+  A core without control blades: before 2026-10-30.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

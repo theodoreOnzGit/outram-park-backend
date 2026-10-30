@@ -295,6 +295,35 @@ pub const WATER_EMISSIVITY: f64 = 0.95;
 /// That radiation's exchange factor over the cell's area: MELCOR's `FLPUP`
 /// (COR UG, COR_RF default 0.25), \[P\].
 pub const FLPUP: f64 = 0.25;
+/// The control blades (`Mechanisms::control_blades`, MELCOR's NS
+/// component): Unit 1's cruciform control rods, \[U\] 97 for its 400
+/// assemblies (one per four).
+pub const CONTROL_RODS: f64 = 97.0;
+/// Stainless steel per blade over the active height, kg, \[A\] from the
+/// common GE design: four wings 0.124 m by 3.66 m, a 1.4 mm sheath on both
+/// faces (41 kg) and 18 B4C tubes per wing, 4.8 mm across with 0.6 mm walls
+/// (17 kg), rounded up for the tie rod: 60 kg.
+pub const BLADE_STEEL_KG: f64 = 60.0;
+/// Each blade's oxidising surface, m^2: the sheath's outer faces, 4 x 2 x
+/// 0.124 x 3.66. \[A\]
+pub const BLADE_AREA_M2: f64 = 3.6;
+/// MELCOR's stainless-steel oxidation in steam (COR RM Table 2-9):
+/// parabolic, `K = A exp(-B/T)` (kg/m^2)^2/s above `SS_OX_MIN_K`. \[P\]
+pub const SS_OX_A: f64 = 2.42e9;
+/// The rate's activation temperature, K. \[P\]
+pub const SS_OX_B: f64 = 42400.0;
+/// Below this the steel does not oxidise, K. \[P\]
+pub const SS_OX_MIN_K: f64 = 1100.0;
+/// The control blades fail (melt and drain) at the steel's melting
+/// temperature, MELCOR's default criterion and MP value, K. \[P\]
+pub const SS_MELT_K: f64 = 1700.0;
+/// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
+/// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
+pub const SS_X_FE: f64 = 0.74;
+/// Chromium's mass fraction (MP_SS default). \[P\]
+pub const SS_X_CR: f64 = 0.18;
+/// Nickel's mass fraction (MP_SS default). \[P\]
+pub const SS_X_NI: f64 = 0.08;
 /// Wall thickness of a lower-head penetration (instrument or control-rod
 /// drive housing), m: its steel per unit heated area. \[A\] Unit 1's
 /// housings are not in a held source. The debris heats it with
@@ -736,6 +765,16 @@ params! {
     core_plate_beam_m = CORE_PLATE_BEAM_M, A,
     water_emissivity = WATER_EMISSIVITY, A,
     flpup = FLPUP, P,
+    control_rods = CONTROL_RODS, U,
+    blade_steel_kg = BLADE_STEEL_KG, A,
+    blade_area_m2 = BLADE_AREA_M2, A,
+    ss_ox_a = SS_OX_A, P,
+    ss_ox_b = SS_OX_B, P,
+    ss_ox_min_k = SS_OX_MIN_K, P,
+    ss_melt_k = SS_MELT_K, P,
+    ss_x_fe = SS_X_FE, P,
+    ss_x_cr = SS_X_CR, P,
+    ss_x_ni = SS_X_NI, P,
     penetration_wall_m = PENETRATION_WALL_M, A,
     corsor_k0_per_min = CORSOR_K0_PER_MIN, P,
     corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
@@ -912,7 +951,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 163);
+        assert_eq!(Params::INPUTS.len(), 173);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
