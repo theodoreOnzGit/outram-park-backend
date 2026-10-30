@@ -381,6 +381,11 @@ pub struct Mechanisms {
     /// convects when liquid. Off is one convecting debris without phase
     /// change.
     pub cavity_phases: bool,
+    /// The reactor building's burn starts by MELCOR's BUR criteria for a
+    /// volume without igniters (BUR RM §2.2: Le Chatelier with CO, oxygen,
+    /// steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers
+    /// in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\].
+    pub bur_ignition: bool,
 }
 
 impl Default for Mechanisms {
@@ -445,6 +450,7 @@ impl Default for Mechanisms {
             control_blades: true,
             blade_fusion: true,
             cavity_phases: true,
+            bur_ignition: true,
         }
     }
 }
@@ -825,6 +831,12 @@ impl Mechanisms {
     /// 2026-10-30.
     pub fn without_cavity_phases(mut self) -> Self {
         self.cavity_phases = false;
+        self
+    }
+
+    /// The building exploding at 8 % hydrogen: before 2026-10-30.
+    pub fn without_bur_ignition(mut self) -> Self {
+        self.bur_ignition = false;
         self
     }
 
@@ -1567,6 +1579,7 @@ impl Plant {
                 dw_wall_outer: self.mechanisms.dw_wall_outer,
                 pool_layers: self.mechanisms.pool_layers,
                 cavity_phases: self.mechanisms.cavity_phases,
+                bur_ignition: self.mechanisms.bur_ignition,
                 cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
                 cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
                 cav_debris_k: self.last_core.debris_k,
@@ -2338,6 +2351,12 @@ mod tests {
         let k = &f.containment;
         assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 1.813e-3).abs() < 1e-5 && (k.xe_ww - 1.337e-3).abs() < 1e-5, "{f:?}");
         assert!((k.xe_building - 0.11200).abs() < 1e-5, "{f:?}");
+        // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
+        // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
+        // volume without igniters, so no burn; it passes the 0.07 of a
+        // volume with igniters between 24 and 26 h (the explosion came at
+        // 24.8 h; recorded, not adopted).
+        assert!((k.rb_burn_y - 0.0714).abs() < 1e-4 && (k.rb_co_fraction - 0.0049).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;

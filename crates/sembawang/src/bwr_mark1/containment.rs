@@ -194,6 +194,9 @@ pub struct ContainmentSnapshot {
     /// The cavity debris melts over a range and conducts when solid
     /// (`Mechanisms::cavity_phases`).
     pub cavity_phases: bool,
+    /// The building's burn starts by MELCOR's BUR criteria
+    /// (`Mechanisms::bur_ignition`).
+    pub bur_ignition: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -219,6 +222,10 @@ pub struct ContainmentResult {
     pub flange_leaking: bool,
     pub rb_flammable: bool,
     pub rb_exploded: bool,
+    /// The building's Le Chatelier combustible fraction, `X_H2 + X_CO
+    /// L_H2 / L_CO` (MELCOR BUR RM Eq 2-3), and its CO fraction.
+    pub rb_burn_y: f64,
+    pub rb_co_fraction: f64,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
     /// Noble gas (Xe) in the drywell and the wetwell gas, vented to the
@@ -334,6 +341,27 @@ pub struct Containment {
     deep_kg: f64,
     deep_t: f64,
     layered: bool,
+    /// CO and CO2 from the cavity, mol: tracers inside the nitrogen-like
+    /// inventory of each volume (they move in its fractions on every path,
+    /// as the noble gas does), and in the building with the drywell gas it
+    /// has received, mol (which displaces its air, so its oxygen).
+    co: Tracer,
+    rb_in: f64,
+}
+
+/// CO and CO2, mol, in the drywell, the wetwell gas and the building.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Tracer {
+    dw: [f64; 2],
+    ww: [f64; 2],
+    rb: [f64; 2],
+}
+
+/// MELCOR's BUR ignition test for a volume without igniters (BUR RM §2.2,
+/// Eqs 2-3 to 2-5): Le Chatelier's `X_H2 + X_CO L_H2 / L_CO >= L_H2`,
+/// oxygen at least `x_o2`, and steam and CO2 below `x_dil`.
+pub(crate) fn bur_ignites(prm: &Params, x_h2: f64, x_co: f64, x_o2: f64, x_dil: f64) -> bool {
+    x_h2 + x_co * prm.bur_xh2ign / prm.bur_xcoign >= prm.bur_xh2ign && x_o2 >= prm.bur_xo2ig && x_dil < prm.bur_xmscig
 }
 
 /// Cells of the concrete slab around the drywell (`dw_wall_outer`).
@@ -409,6 +437,8 @@ impl Containment {
             deep_kg: 0.0,
             deep_t: prm.initial_pool_k,
             layered: false,
+            co: Tracer::default(),
+            rb_in: 0.0,
         }
     }
 
@@ -853,6 +883,8 @@ impl Containment {
                 self.dw_steam_kg += f.steam_kg;
                 self.dw_h2 += f.h2_mol;
                 self.dw_n2 += n_c;
+                self.co.dw[0] += f.co_mol;
+                self.co.dw[1] += f.co2_mol;
                 self.set_dw_energy(e, tv);
             } else if self.pedestal_kg > 0.0 {
                 self.boil_pedestal(prm, tv, q);
@@ -935,6 +967,11 @@ impl Containment {
             let dxe = self.xe_dw * f;
             self.xe_dw -= dxe;
             self.xe_ww += dxe;
+            for i in 0..2 {
+                let d = self.co.dw[i] * f;
+                self.co.dw[i] -= d;
+                self.co.ww[i] += d;
+            }
             let (moved, cv, ca) = self.dw_rn.take(f);
             // Through the downcomers into the pool: scrubbed likewise by the
             // condensation, then each section by impaction and the swarm
@@ -1041,6 +1078,11 @@ impl Containment {
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
             self.xe_dw += dxe;
+            for i in 0..2 {
+                let d = self.co.ww[i] * f;
+                self.co.ww[i] -= d;
+                self.co.dw[i] += d;
+            }
             let (moved, cv, ca) = self.ww_rn.take(f);
             self.dw_rn.receive(&moved, cv, &ca);
             let e_a = self.ww_energy(tv) - e_out;
@@ -1066,6 +1108,11 @@ impl Containment {
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
             self.xe_dw += dxe;
+            for i in 0..2 {
+                let d = self.co.ww[i] * f;
+                self.co.ww[i] -= d;
+                self.co.dw[i] += d;
+            }
             let (moved, cv, ca) = self.ww_rn.take(f);
             self.dw_rn.receive(&moved, cv, &ca);
             self.ww_n2 -= dn2;
@@ -1104,6 +1151,9 @@ impl Containment {
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
             self.xe_vented += dxe;
+            for i in 0..2 {
+                self.co.ww[i] -= self.co.ww[i] * f;
+            }
             let (_, cv, ca) = self.ww_rn.take(f);
             self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
             self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
@@ -1157,6 +1207,9 @@ impl Containment {
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
             self.xe_vented += dxe;
+            for i in 0..2 {
+                self.co.ww[i] -= self.co.ww[i] * f;
+            }
             let (_, cv, ca) = self.ww_rn.take(f_gas);
             self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
             self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
@@ -1187,6 +1240,9 @@ impl Containment {
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
             self.xe_vented += dxe;
+            for i in 0..2 {
+                self.co.ww[i] -= self.co.ww[i] * f;
+            }
             let (_, cv, ca) = self.ww_rn.take(f);
             self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
             self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
@@ -1222,6 +1278,9 @@ impl Containment {
             let dxe = self.xe_dw * f;
             self.xe_dw -= dxe;
             self.xe_building += dxe;
+            let dco = [self.co.dw[0] * f, self.co.dw[1] * f];
+            self.co.dw[0] -= dco[0];
+            self.co.dw[1] -= dco[1];
             let (_, cv, ca) = self.dw_rn.take(f);
             self.cs_building_kg += cv[CS] + ca[CS].iter().sum::<f64>();
             self.i_building_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
@@ -1240,6 +1299,12 @@ impl Containment {
                 let n_rb = P_ATM * prm.reactor_building_m3 / (R_GAS * T_RB);
                 let y = self.rb_h2 / n_rb;
                 self.rb_h2 += dh2 - y * (dh2 + dn2);
+                for i in 0..2 {
+                    let y_i = self.co.rb[i] / n_rb;
+                    self.co.rb[i] += dco[i] - y_i * (dh2 + dn2);
+                }
+                let y_in = self.rb_in / n_rb;
+                self.rb_in += (dh2 + dn2) * (1.0 - y_in);
             }
         }
         // 8. Fission products and aerosol: condensation, agglomeration and
@@ -1253,9 +1318,18 @@ impl Containment {
         }
         let n_rb = P_ATM * prm.reactor_building_m3 / (R_GAS * T_RB);
         let y_rb = self.rb_h2 / n_rb;
-        if !self.exploded && y_rb >= prm.h2_explosion {
+        // The building's gas: its hydrogen, CO and CO2 fractions, and its
+        // oxygen, air's 0.2095 less what the drywell gas has displaced
+        // (its steam condensed on the cold building, stated).
+        let x_co = self.co.rb[0] / n_rb;
+        let x_co2 = self.co.rb[1] / n_rb;
+        let x_o2 = 0.2095 * (1.0 - self.rb_in / n_rb).max(0.0);
+        let ignites = if s.bur_ignition { bur_ignites(prm, y_rb, x_co, x_o2, x_co2) } else { y_rb >= prm.h2_explosion };
+        let rb_burn_y = y_rb + x_co * prm.bur_xh2ign / prm.bur_xcoign;
+        if !self.exploded && ignites {
             self.exploded = true;
             self.rb_h2 = 0.0;
+            self.co.rb[0] = 0.0;
         }
         if s.pool_layers {
             self.layer_pool(prm);
@@ -1273,6 +1347,8 @@ impl Containment {
             flange_leaking: self.flange_open,
             rb_flammable: self.rb_h2 / n_rb >= prm.h2_flammable,
             rb_exploded: self.exploded,
+            rb_burn_y,
+            rb_co_fraction: x_co,
             vented_h2_kg: self.vented_h2_kg,
             vented_kg_s,
             xe_dw: self.xe_dw,
@@ -1512,6 +1588,7 @@ impl Containment {
         ]);
         w.f(&self.dw_slab);
         w.f(&[self.deep_kg, self.deep_t, b(self.layered)]);
+        w.f(&[self.co.dw[0], self.co.dw[1], self.co.ww[0], self.co.ww[1], self.co.rb[0], self.co.rb[1], self.rb_in]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
         self.dw_rn.write(w);
@@ -1575,11 +1652,15 @@ impl Containment {
             deep_kg: 0.0,
             deep_t: 0.0,
             layered: false,
+            co: Tracer::default(),
+            rb_in: 0.0,
         };
         c.dw_slab = std::array::from_fn(|_| r.f());
         c.deep_kg = r.f();
         c.deep_t = r.f();
         c.layered = r.f() != 0.0;
+        c.co = Tracer { dw: [r.f(), r.f()], ww: [r.f(), r.f()], rb: [r.f(), r.f()] };
+        c.rb_in = r.f();
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
         c.dw_rn.read_into(r);
@@ -1639,6 +1720,7 @@ impl ContainmentSnapshot {
             b(self.dw_wall_outer),
             b(self.pool_layers),
             b(self.cavity_phases),
+            b(self.bur_ignition),
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1696,6 +1778,7 @@ impl ContainmentSnapshot {
             dw_wall_outer: r.f() != 0.0,
             pool_layers: r.f() != 0.0,
             cavity_phases: r.f() != 0.0,
+            bur_ignition: r.f() != 0.0,
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
@@ -1721,6 +1804,8 @@ impl ContainmentResult {
             b(self.flange_leaking),
             b(self.rb_flammable),
             b(self.rb_exploded),
+            self.rb_burn_y,
+            self.rb_co_fraction,
             self.vented_h2_kg,
             self.vented_kg_s,
             self.xe_dw,
@@ -1759,6 +1844,8 @@ impl ContainmentResult {
             flange_leaking: r.f() != 0.0,
             rb_flammable: r.f() != 0.0,
             rb_exploded: r.f() != 0.0,
+            rb_burn_y: r.f(),
+            rb_co_fraction: r.f(),
             vented_h2_kg: r.f(),
             vented_kg_s: r.f(),
             xe_dw: r.f(),
@@ -1788,6 +1875,20 @@ impl ContainmentResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// MELCOR's BUR ignition test (BUR RM Eqs 2-3 to 2-5) by hand: 10 %
+    /// hydrogen ignites, 9.9 % does not; 6 % H2 with 6.68 % CO is Le
+    /// Chatelier's `0.06 + 0.0668 x 0.10/0.167` = 0.10, so ignites; 4.9 %
+    /// oxygen or 55 % diluent does not.
+    #[test]
+    fn the_building_ignites_by_melcors_bur_criteria() {
+        let prm = Params::default();
+        assert!(bur_ignites(&prm, 0.10, 0.0, 0.2, 0.0));
+        assert!(!bur_ignites(&prm, 0.099, 0.0, 0.2, 0.0));
+        assert!(bur_ignites(&prm, 0.06, 0.0669, 0.2, 0.0) && !bur_ignites(&prm, 0.06, 0.0667, 0.2, 0.0));
+        assert!(!bur_ignites(&prm, 0.2, 0.0, 0.049, 0.0));
+        assert!(!bur_ignites(&prm, 0.2, 0.0, 0.2, 0.55) && bur_ignites(&prm, 0.2, 0.0, 0.2, 0.549));
+    }
 
     /// At rest the containment stays at its initial pressure.
     #[test]

@@ -4437,6 +4437,7 @@ pub struct ContainmentSnapshot {
     pub dw_wall_outer: bool,
     pub pool_layers: bool,
     pub cavity_phases: bool,
+    pub bur_ignition: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4497,6 +4498,7 @@ pub struct ContainmentSnapshot {
 | `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, which conducts it to the reactor building<br>(`Mechanisms::dw_wall_outer`). |
 | `pool_layers` | `bool` | The torus pool in two layers, split at the downcomers' exits<br>(`Mechanisms::pool_layers`). |
 | `cavity_phases` | `bool` | The cavity debris melts over a range and conducts when solid<br>(`Mechanisms::cavity_phases`). |
+| `bur_ignition` | `bool` | The building's burn starts by MELCOR's BUR criteria<br>(`Mechanisms::bur_ignition`). |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -4645,6 +4647,8 @@ pub struct ContainmentResult {
     pub flange_leaking: bool,
     pub rb_flammable: bool,
     pub rb_exploded: bool,
+    pub rb_burn_y: f64,
+    pub rb_co_fraction: f64,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
     pub xe_dw: f64,
@@ -4686,6 +4690,8 @@ pub struct ContainmentResult {
 | `flange_leaking` | `bool` |  |
 | `rb_flammable` | `bool` |  |
 | `rb_exploded` | `bool` |  |
+| `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction, `X_H2 + X_CO<br>L_H2 / L_CO` (MELCOR BUR RM Eq 2-3), and its CO fraction. |
+| `rb_co_fraction` | `f64` |  |
 | `vented_h2_kg` | `f64` |  |
 | `vented_kg_s` | `f64` |  |
 | `xe_dw` | `f64` | Noble gas (Xe) in the drywell and the wetwell gas, vented to the<br>stack and leaked to the reactor building, fractions of the core<br>inventory (gh:#1040). |
@@ -7460,6 +7466,10 @@ pub struct Params {
     pub fuel_fusion_j_per_kg: f64,
     pub concrete_oxide_fusion_j_per_mol: f64,
     pub concrete_oxide_m: f64,
+    pub bur_xh2ign: f64,
+    pub bur_xcoign: f64,
+    pub bur_xo2ig: f64,
+    pub bur_xmscig: f64,
     pub ss_x_fe: f64,
     pub ss_x_cr: f64,
     pub ss_x_ni: f64,
@@ -7647,6 +7657,10 @@ pub struct Params {
 | `fuel_fusion_j_per_kg` | `f64` |  |
 | `concrete_oxide_fusion_j_per_mol` | `f64` |  |
 | `concrete_oxide_m` | `f64` |  |
+| `bur_xh2ign` | `f64` |  |
+| `bur_xcoign` | `f64` |  |
+| `bur_xo2ig` | `f64` |  |
+| `bur_xmscig` | `f64` |  |
 | `ss_x_fe` | `f64` |  |
 | `ss_x_cr` | `f64` |  |
 | `ss_x_ni` | `f64` |  |
@@ -8759,6 +8773,40 @@ The concrete oxides' molar mass, kg/mol, as SiO2. \[A\]
 
 ```rust
 pub const CONCRETE_OXIDE_M: f64 = 0.060_08;
+```
+
+#### Constant `BUR_XH2IGN`
+
+MELCOR's BUR ignition limits for a volume without igniters (BUR RM
+§2.2, record BUR_IGN defaults): hydrogen mole fraction, \[P\].
+
+```rust
+pub const BUR_XH2IGN: f64 = 0.10;
+```
+
+#### Constant `BUR_XCOIGN`
+
+CO's ignition mole fraction (XCOIGN default). \[P\]
+
+```rust
+pub const BUR_XCOIGN: f64 = 0.167;
+```
+
+#### Constant `BUR_XO2IG`
+
+The least oxygen mole fraction for ignition (XO2IG default). \[P\]
+
+```rust
+pub const BUR_XO2IG: f64 = 0.05;
+```
+
+#### Constant `BUR_XMSCIG`
+
+The most steam and CO2 for ignition (XMSCIG default), inerting above.
+\[P\]
+
+```rust
+pub const BUR_XMSCIG: f64 = 0.55;
 ```
 
 #### Constant `SS_X_FE`
@@ -13020,6 +13068,7 @@ pub struct Mechanisms {
     pub control_blades: bool,
     pub blade_fusion: bool,
     pub cavity_phases: bool,
+    pub bur_ignition: bool,
 }
 ```
 
@@ -13086,6 +13135,7 @@ pub struct Mechanisms {
 | `control_blades` | `bool` | The control blades, MELCOR's NS component in its BWR form (steel<br>only, 2026-10-30): their steel at each cell's cladding temperature,<br>oxidised by MELCOR's stainless-steel law (COR RM §2.5.6) in the steam<br>the Zr leaves, failing at the steel's melting temperature and<br>draining to the lower plenum, where it quenches. Their B4C is not<br>modelled (MELCOR's default BWR model caps its oxidation at 2 %).<br>Off is a core without blades. |
 | `blade_fusion` | `bool` | A control blade at the steel's melting temperature absorbs its heat<br>of fusion (MELCOR's 2.68e5 J/kg) before it drains, and carries it to<br>the lower plenum (2026-10-30; needs `control_blades`). Off drains it<br>at once at its solid enthalpy. |
 | `cavity_phases` | `bool` | The cavity debris's phases (MELCOR CAV RM §3.3, §3.10; 2026-10-30;<br>needs `mcci`): its oxide melts over an ideal-solution pseudo-binary<br>range with latent heats, and its interior conducts when solid and<br>convects when liquid. Off is one convecting debris without phase<br>change. |
+| `bur_ignition` | `bool` | The reactor building's burn starts by MELCOR's BUR criteria for a<br>volume without igniters (BUR RM §2.2: Le Chatelier with CO, oxygen,<br>steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers<br>in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\]. |
 
 ##### Implementations
 
@@ -13380,6 +13430,11 @@ pub struct Mechanisms {
   pub fn without_cavity_phases(self: Self) -> Self { /* ... */ }
   ```
   The cavity debris convecting without phase change: before
+
+- ```rust
+  pub fn without_bur_ignition(self: Self) -> Self { /* ... */ }
+  ```
+  The building exploding at 8 % hydrogen: before 2026-10-30.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

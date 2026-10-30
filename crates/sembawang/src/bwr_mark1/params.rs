@@ -336,6 +336,16 @@ pub const FUEL_FUSION_J_PER_KG: f64 = 2.74e5;
 pub const CONCRETE_OXIDE_FUSION_J_PER_MOL: f64 = 9.6e3;
 /// The concrete oxides' molar mass, kg/mol, as SiO2. \[A\]
 pub const CONCRETE_OXIDE_M: f64 = 0.060_08;
+/// MELCOR's BUR ignition limits for a volume without igniters (BUR RM
+/// §2.2, record BUR_IGN defaults): hydrogen mole fraction, \[P\].
+pub const BUR_XH2IGN: f64 = 0.10;
+/// CO's ignition mole fraction (XCOIGN default). \[P\]
+pub const BUR_XCOIGN: f64 = 0.167;
+/// The least oxygen mole fraction for ignition (XO2IG default). \[P\]
+pub const BUR_XO2IG: f64 = 0.05;
+/// The most steam and CO2 for ignition (XMSCIG default), inerting above.
+/// \[P\]
+pub const BUR_XMSCIG: f64 = 0.55;
 /// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
 /// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
 pub const SS_X_FE: f64 = 0.74;
@@ -797,6 +807,10 @@ params! {
     fuel_fusion_j_per_kg = FUEL_FUSION_J_PER_KG, P,
     concrete_oxide_fusion_j_per_mol = CONCRETE_OXIDE_FUSION_J_PER_MOL, A,
     concrete_oxide_m = CONCRETE_OXIDE_M, A,
+    bur_xh2ign = BUR_XH2IGN, P,
+    bur_xcoign = BUR_XCOIGN, P,
+    bur_xo2ig = BUR_XO2IG, P,
+    bur_xmscig = BUR_XMSCIG, P,
     ss_x_fe = SS_X_FE, P,
     ss_x_cr = SS_X_CR, P,
     ss_x_ni = SS_X_NI, P,
@@ -976,7 +990,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 179);
+        assert_eq!(Params::INPUTS.len(), 183);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
