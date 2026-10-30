@@ -978,9 +978,23 @@ impl Default for Controls {
 ///   "manually vented ≈24 h" (vent closure 24.68 h, a BSAF boundary
 ///   condition this sequence does not have).
 ///
-/// The other five times (IC stop, IC cycling, station blackout, the three
+/// ~~The other five times (IC stop, IC cycling, station blackout, the three
 /// injection changes) have no BSAF anchor and stay `[U]` until checked
-/// against INPO 11-005, IAEA TV1 or the Japanese government report (#1031).
+/// against INPO 11-005, IAEA TV1 or the Japanese government report
+/// (#1031).~~ **CORRECTED 2026-10-30 (gh:#1044, F13)**: checked against the
+/// NRC's open training chapter, *Fukushima Dai-ichi Earthquake and Tsunami
+/// Event* (USNRC HRTD, GE BWR/4 Advanced Technology, ch. 7.1, Table 7.1-2;
+/// `reactor-literature/theodore-open-corpus/nrc/`):
+/// - IC stop 15:03, vent 14:30, explosion 15:36 and seawater 19:04
+///   **agree** to the minute;
+/// - fresh-water injection: the NRC's 05:46, 15 h 00 min after the scram,
+///   is the label's own time, but the event fired at 14 h 59 min (a
+///   defect, label and code disagreeing). **Fixed to 15.0 h**;
+/// - the station blackout: the NRC lists the loss of all AC and DC at about
+///   15:41 (00:55); this model keeps INPO's 15:37 as recalled. The sources
+///   disagree by 4 min, **not resolved** (INPO 11-005 is not held);
+/// - IC cycling at 15:17 and the fresh water exhausted at 14:53: not in
+///   the NRC table, still `[U]`.
 #[derive(Clone, Copy, Debug)]
 pub struct Event {
     pub t_s: f64,
@@ -1010,7 +1024,7 @@ pub const EVENTS: [Event; 9] = [
     Event { t_s: 17.0 * 60.0, label: "15:03 Operators stop both IC trains (cooldown > 55 °C/h)", kind: EventKind::IcStopped },
     Event { t_s: 31.0 * 60.0, label: "15:17 Train A cycled to hold pressure", kind: EventKind::IcCycleA },
     Event { t_s: 51.0 * 60.0, label: "15:37 Tsunami: station blackout, IC valves fail closed", kind: EventKind::StationBlackout },
-    Event { t_s: (14.0 * 60.0 + 59.0) * 60.0, label: "05:46 (12 Mar) Fresh-water injection by fire engine", kind: EventKind::InjectionOn },
+    Event { t_s: 15.0 * 3600.0, label: "05:46 (12 Mar) Fresh-water injection by fire engine", kind: EventKind::InjectionOn },
     Event { t_s: (23.0 * 60.0 + 44.0) * 60.0, label: "14:30 Wetwell vent opened", kind: EventKind::VentOpened },
     Event { t_s: (24.0 * 60.0 + 7.0) * 60.0, label: "14:53 Fresh water exhausted", kind: EventKind::InjectionOff },
     Event { t_s: (24.0 * 60.0 + 50.0) * 60.0, label: "15:36 Reactor building explosion (recorded)", kind: EventKind::Explosion },
