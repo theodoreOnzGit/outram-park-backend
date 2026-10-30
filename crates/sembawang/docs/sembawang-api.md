@@ -5095,6 +5095,7 @@ pub struct CoreSnapshot {
     pub bottom_radiation: bool,
     pub ring_plates: bool,
     pub plate_oxidation: bool,
+    pub lp_steam_consumed: bool,
     pub prm: Params,
 }
 ```
@@ -5129,6 +5130,7 @@ pub struct CoreSnapshot {
 | `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (`Mechanisms::bottom_radiation`). |
 | `ring_plates` | `bool` | One core plate per radial ring, each failing on its own load<br>(`Mechanisms::ring_plates`); off is one plate under the whole core. |
 | `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it<br>(`Mechanisms::plate_oxidation`). |
+| `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses is taken out of<br>the steam rising into the core (`Mechanisms::lp_steam_consumed`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -12820,6 +12822,7 @@ pub struct Mechanisms {
     pub ring_plates: bool,
     pub pool_layers: bool,
     pub plate_oxidation: bool,
+    pub lp_steam_consumed: bool,
 }
 ```
 
@@ -12882,6 +12885,7 @@ pub struct Mechanisms {
 | `ring_plates` | `bool` | One core plate per radial ring, each holding its ring's relocating<br>material and failing on its own load (MELCOR COR RM §5.2.3: the<br>supporting structure is a component of each ring's cell; 2026-10-29;<br>needs `core_plate`). Off is one plate under the whole core. |
 | `pool_layers` | `bool` | The torus pool in two layers split at the downcomers' exits: the<br>downcomers (and every surface process) act on the water above them,<br>the relief valves' quenchers on the water below; the layers mix when<br>the lower is the hotter (2026-10-29; PPOOLEX, Li and Kudinov). Off is<br>one well-mixed pool. |
 | `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it,<br>which then no longer reaches its ring's core (MELCOR COR §3.2.1,<br>particulate debris; 2026-10-29; needs `core_plate` and<br>`debris_oxidation`). Off is the held debris inert. |
+| `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses no longer rises<br>into the core (2026-10-29, a conservation defect: the core could<br>oxidise with it a second time). Off is the defect, kept as the<br>ablation that reproduces the earlier runs. |
 
 ##### Implementations
 
@@ -13156,6 +13160,11 @@ pub struct Mechanisms {
   pub fn without_plate_oxidation(self: Self) -> Self { /* ... */ }
   ```
   The debris on the core plate inert: before 2026-10-29.
+
+- ```rust
+  pub fn without_lp_steam_consumed(self: Self) -> Self { /* ... */ }
+  ```
+  The lower plenum's oxidation steam rising into the core as well:
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

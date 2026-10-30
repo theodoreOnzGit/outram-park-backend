@@ -162,6 +162,9 @@ pub struct CoreSnapshot {
     /// The debris held on a core plate oxidises in the steam rising past it
     /// (`Mechanisms::plate_oxidation`).
     pub plate_oxidation: bool,
+    /// The steam the lower plenum's debris oxidation uses is taken out of
+    /// the steam rising into the core (`Mechanisms::lp_steam_consumed`).
+    pub lp_steam_consumed: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -1277,9 +1280,15 @@ impl Core {
         q_quench += q_bottom_w;
         // The core plate and what it holds (`core_plate`), with
         // temperature-dependent properties only.
+        // The lower plenum's debris has used this much of the steam it raised.
+        let lp_used = debris_steam_used;
         let mut plate_taken = [0.0; RINGS];
         if s.core_plate && tdp {
-            let below = if s.level_m <= 0.0 { q_quench.max(0.0) / s.h_fg } else { 0.0 };
+            let below = if s.level_m <= 0.0 {
+                if s.lp_steam_consumed { (q_quench.max(0.0) / s.h_fg - lp_used).max(0.0) } else { q_quench.max(0.0) / s.h_fg }
+            } else {
+                0.0
+            };
             let (q, taken, h2, used) = self.plate_step(prm, s, below, dt);
             q_quench += q;
             plate_taken = taken;
@@ -1289,7 +1298,14 @@ impl Core {
         q_fluid += q_quench;
         q_pool += q_quench.max(0.0);
         // Steam from below the core, when the level is below it.
-        let w_below = if s.level_m <= 0.0 { q_quench / s.h_fg / RINGS as f64 } else { 0.0 };
+        // (With `lp_steam_consumed`, less what the lower plenum's debris
+        // oxidation used: before 2026-10-29 the core could oxidise with that
+        // steam again.)
+        let w_below = if s.level_m <= 0.0 {
+            if s.lp_steam_consumed { (q_quench / s.h_fg - lp_used) / RINGS as f64 } else { q_quench / s.h_fg / RINGS as f64 }
+        } else {
+            0.0
+        };
         for ring in 0..RINGS {
             // Steam rising in this ring: from below (less what its core
             // plate's debris used, `plate_oxidation`), plus the boil-off of
@@ -1718,6 +1734,7 @@ impl CoreSnapshot {
             if self.bottom_radiation { 1.0 } else { 0.0 },
             if self.ring_plates { 1.0 } else { 0.0 },
             if self.plate_oxidation { 1.0 } else { 0.0 },
+            if self.lp_steam_consumed { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1749,6 +1766,7 @@ impl CoreSnapshot {
             bottom_radiation: r.f() != 0.0,
             ring_plates: r.f() != 0.0,
             plate_oxidation: r.f() != 0.0,
+            lp_steam_consumed: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1872,7 +1890,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1898,7 +1916,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1927,7 +1945,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
