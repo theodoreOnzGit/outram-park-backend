@@ -291,6 +291,58 @@ pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasti
     })
 }
 
+/// One member of the perturbation ensemble (2026-10-30, after the fourth
+/// sensitivity run found the run chaotic at the 1e-9 level): every input in
+/// [`Params::INPUTS`] scaled by `1 + rel u`, `u` uniform in [-1, 1] from a
+/// SplitMix64 hash of (`seed`, `member`, the input's index), every
+/// mechanism on, then [`measure_with`]. Deterministic: the same arguments
+/// give the same run on any machine. `rel = 0` is the default run.
+pub fn ensemble_member(member: u64, rel: f64, seed: u64) -> Metrics {
+    let mix = |mut z: u64| {
+        z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    let mut p = Params::default();
+    for (i, (name, _)) in Params::INPUTS.iter().enumerate() {
+        let h = mix(seed ^ mix(member ^ mix(i as u64)));
+        let u = 2.0 * ((h >> 11) as f64 / (1u64 << 53) as f64) - 1.0;
+        if let Some(v) = p.get(name) {
+            p.set(name, v * (1.0 + rel * u));
+        }
+    }
+    measure_with(Mechanisms::default(), p)
+}
+
+/// The ensemble's distribution as Markdown: for each metric, the minimum,
+/// the quartiles by the nearest-rank rule, the median and the maximum, and
+/// how many members vented and exploded.
+pub fn ensemble_report(runs: &[Metrics]) -> String {
+    let stats = |mut v: Vec<f64>| -> String {
+        if v.is_empty() {
+            return "| - | - | - | - | - |".to_string();
+        }
+        v.sort_by(f64::total_cmp);
+        let q = |f: f64| v[((f * v.len() as f64).ceil() as usize).clamp(1, v.len()) - 1];
+        format!("| {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |", v[0], q(0.25), q(0.5), q(0.75), v[v.len() - 1])
+    };
+    let n = runs.len();
+    let mut out = format!("{n} members.\n\n| Metric | min | 25 % | median | 75 % | max |\n|---|---|---|---|---|---|\n");
+    out.push_str(&format!("| lower-head failure, h {}\n", stats(runs.iter().filter_map(|m| m.lower_head_h).collect())));
+    out.push_str(&format!("| depressurised, h {}\n", stats(runs.iter().filter_map(|m| m.depressurised_h).collect())));
+    out.push_str(&format!("| in-vessel H2 at 25 h, kg {}\n", stats(runs.iter().map(|m| m.h2_25h_kg).collect())));
+    out.push_str(&format!("| drywell peak, MPa {}\n", stats(runs.iter().map(|m| m.p_dw_peak_mpa).collect())));
+    out.push_str(&format!("| vent opens, h {}\n", stats(runs.iter().filter_map(|m| m.vent_h).collect())));
+    out.push_str(&format!(
+        "\nThe lower head failed in {} members, the vent opened in {}, the building exploded in {}.\n",
+        runs.iter().filter(|m| m.lower_head_h.is_some()).count(),
+        runs.iter().filter(|m| m.vent_h.is_some()).count(),
+        runs.iter().filter(|m| m.explosion_h.is_some()).count()
+    ));
+    out
+}
+
 /// The elasticity table as Markdown, largest effect first.
 pub fn sensitivity_report(rows: &[Elasticity]) -> String {
     let mut rows = rows.to_vec();
@@ -1215,6 +1267,18 @@ mod tests {
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
+    /// The ensemble (2026-10-30): a member with `rel = 0` is the default
+    /// run exactly; the report's nearest-rank quartiles by hand on four
+    /// members (head 1, 2, 3, 4 h: quartiles 1, 2, 3; max 4).
+    #[test]
+    fn the_ensemble_reproduces_the_default_and_reports_quartiles() {
+        assert_eq!(ensemble_member(7, 0.0, 1), measure(Mechanisms::default()));
+        let m = |h: f64| Metrics { lower_head_h: Some(h), depressurised_h: Some(h), h2_25h_kg: 10.0 * h, p_dw_peak_mpa: 0.1 * h, vent_h: None, explosion_h: None, fp_released_25h: 1.0, uo2_released_25h_kg: 1.0 };
+        let r = ensemble_report(&[m(3.0), m(1.0), m(4.0), m(2.0)]);
+        assert!(r.contains("| lower-head failure, h | 1.0000 | 1.0000 | 2.0000 | 3.0000 | 4.0000 |"), "{r}");
+        assert!(r.contains("the vent opened in 0, the building exploded in 0"), "{r}");
+    }
+
     #[test]
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());

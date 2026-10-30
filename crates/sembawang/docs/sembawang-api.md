@@ -4270,6 +4270,29 @@ name. Runs the sequence twice.
 pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> { /* ... */ }
 ```
 
+#### Function `ensemble_member`
+
+One member of the perturbation ensemble (2026-10-30, after the fourth
+sensitivity run found the run chaotic at the 1e-9 level): every input in
+[`Params::INPUTS`] scaled by `1 + rel u`, `u` uniform in [-1, 1] from a
+SplitMix64 hash of (`seed`, `member`, the input's index), every
+mechanism on, then [`measure_with`]. Deterministic: the same arguments
+give the same run on any machine. `rel = 0` is the default run.
+
+```rust
+pub fn ensemble_member(member: u64, rel: f64, seed: u64) -> Metrics { /* ... */ }
+```
+
+#### Function `ensemble_report`
+
+The ensemble's distribution as Markdown: for each metric, the minimum,
+the quartiles by the nearest-rank rule, the median and the maximum, and
+how many members vented and exploded.
+
+```rust
+pub fn ensemble_report(runs: &[Metrics]) -> String { /* ... */ }
+```
+
 #### Function `sensitivity_report`
 
 The elasticity table as Markdown, largest effect first.
