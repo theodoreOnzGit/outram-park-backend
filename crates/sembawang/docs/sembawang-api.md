@@ -4395,7 +4395,13 @@ The Mark I containment and the reactor building. This is what the
 The downcomers, the vacuum breakers and the leaks are stiff at a 1 s
 step: when an orifice could pass more than equalises the two volumes in a
 step, the transfer is the equalising amount (the implicit answer of a
-stiff path), never more. **Not in the model**: drywell spray, wetwell
+stiff path), never more. ~~(True as stated before 2026-10-30.)~~
+**CORRECTED 2026-10-30:** the cap counted only the donor's pressure
+fall, so it overshot the set point by about the ratio of the volumes,
+and the vacuum breaker chattered about it every step, amplifying a
+1e-9 perturbation 1.5 times a step; with
+`Mechanisms::two_sided_equalising` it counts the receiver's rise too
+(`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
 stratification, pool level and swell, pool scrubbing of aerosols (no
 fission products are tracked yet), the torus room, the reactor building's
 own heat-up and ventilation, steam in the building, and the combustion
@@ -4462,6 +4468,7 @@ pub struct ContainmentSnapshot {
     pub cavity_phases: bool,
     pub bur_ignition: bool,
     pub gas_choking: bool,
+    pub two_sided_equalising: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4524,6 +4531,7 @@ pub struct ContainmentSnapshot {
 | `cavity_phases` | `bool` | The cavity debris melts over a range and conducts when solid<br>(`Mechanisms::cavity_phases`). |
 | `bur_ignition` | `bool` | The building's burn starts by MELCOR's BUR criteria<br>(`Mechanisms::bur_ignition`). |
 | `gas_choking` | `bool` | Gas flows to the atmosphere are limited to the critical flow<br>(`Mechanisms::gas_choking`). |
+| `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts both<br>volumes (`Mechanisms::two_sided_equalising`). |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -13098,6 +13106,7 @@ pub struct Mechanisms {
     pub bur_ignition: bool,
     pub gas_choking: bool,
     pub blade_diffusion_limit: bool,
+    pub two_sided_equalising: bool,
 }
 ```
 
@@ -13167,6 +13176,7 @@ pub struct Mechanisms {
 | `bur_ignition` | `bool` | The reactor building's burn starts by MELCOR's BUR criteria for a<br>volume without igniters (BUR RM §2.2: Le Chatelier with CO, oxygen,<br>steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers<br>in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\]. |
 | `gas_choking` | `bool` | The wetwell vent and the drywell head flange, which discharge to the<br>atmosphere from several bar, pass at most MELCOR's critical gas flow<br>(CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the<br>incompressible orifice passing about twice it at those ratios. Off<br>is the orifice alone. |
 | `blade_diffusion_limit` | `bool` | The control blades' steel oxidation held to MELCOR's gaseous-<br>diffusion limit (COR RM §2.5.3, Eq 2-168, which binds every<br>reaction; 2026-10-30; needs `control_blades` and `diffusion_limit`).<br>Off leaves the steel's parabolic rate unlimited. |
+| `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts the<br>receiving volume's pressure rise as well as the donor's fall<br>(2026-10-30, a numerical defect: the one-sided cap overshot the set<br>point, and the vacuum breaker chattered about it every step,<br>amplifying a 1e-9 perturbation 1.5 times a step). Off is the<br>one-sided cap. |
 
 ##### Implementations
 
@@ -13476,6 +13486,11 @@ pub struct Mechanisms {
   pub fn without_blade_diffusion_limit(self: Self) -> Self { /* ... */ }
   ```
   The blades' steel oxidation without the diffusion limit: before
+
+- ```rust
+  pub fn without_two_sided_equalising(self: Self) -> Self { /* ... */ }
+  ```
+  The one-sided equalising cap: before 2026-10-30.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

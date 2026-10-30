@@ -51,6 +51,9 @@ on the code, not as the model's result.
 
 ## Results (2026-10-30, physics of `442bac1f5`, `rel` = 1e-9)
 
+> The physics has since changed (`two_sided_equalising`, a vacuum-breaker
+> chatter fixed); the re-run on the new physics is below these.
+
 | Ensemble | Metric | min | 25 % | median | 75 % | max |
 |---|---|---|---|---|---|---|
 | seed 1, 64 | lower head, h | 4.649 | 5.024 | 5.234 | 5.312 | 5.454 |

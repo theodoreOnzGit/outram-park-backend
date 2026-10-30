@@ -40,7 +40,13 @@
 //! The downcomers, the vacuum breakers and the leaks are stiff at a 1 s
 //! step: when an orifice could pass more than equalises the two volumes in a
 //! step, the transfer is the equalising amount (the implicit answer of a
-//! stiff path), never more. **Not in the model**: drywell spray, wetwell
+//! stiff path), never more. ~~(True as stated before 2026-10-30.)~~
+//! **CORRECTED 2026-10-30:** the cap counted only the donor's pressure
+//! fall, so it overshot the set point by about the ratio of the volumes,
+//! and the vacuum breaker chattered about it every step, amplifying a
+//! 1e-9 perturbation 1.5 times a step; with
+//! `Mechanisms::two_sided_equalising` it counts the receiver's rise too
+//! (`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
 //! stratification, pool level and swell, pool scrubbing of aerosols (no
 //! fission products are tracked yet), the torus room, the reactor building's
 //! own heat-up and ventilation, steam in the building, and the combustion
@@ -200,6 +206,9 @@ pub struct ContainmentSnapshot {
     /// Gas flows to the atmosphere are limited to the critical flow
     /// (`Mechanisms::gas_choking`).
     pub gas_choking: bool,
+    /// The downcomers' and vacuum breakers' equalising cap counts both
+    /// volumes (`Mechanisms::two_sided_equalising`).
+    pub two_sided_equalising: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -978,8 +987,17 @@ impl Containment {
             let molar_mass = (self.dw_n2 * M_N2 + self.dw_h2 * M_H2 + self.dw_steam_kg) / n_dw;
             let rho = p_dw * molar_mass / (R_GAS * self.dw_t);
             let orifice = prm.discharge_coefficient * prm.downcomer_area_m2 * (2.0 * rho * push).sqrt() * dt / molar_mass;
-            // Equalising amount: drywell pressure down by `push` (isothermal).
-            let n = orifice.min(n_dw * push / p_dw);
+            // Equalising amount: drywell pressure down by `push` (isothermal);
+            // with `two_sided_equalising` the wetwell's rise from the
+            // non-condensables it receives is counted too (the steam
+            // condensing in the pool, stated).
+            let n_eq = if s.two_sided_equalising && self.ww_atm {
+                let x_nc = (self.dw_n2 + self.dw_h2) / n_dw;
+                push / (p_dw / n_dw + x_nc * p_ww / self.ww_moles())
+            } else {
+                n_dw * push / p_dw
+            };
+            let n = orifice.min(n_eq);
             let f = n / n_dw;
             let (dn2, dh2, dsteam) = (self.dw_n2 * f, self.dw_h2 * f, self.dw_steam_kg * f);
             let dxe = self.xe_dw * f;
@@ -1090,7 +1108,10 @@ impl Containment {
             let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + self.ww_steam_kg) / n_ww;
             let rho = p_ww * molar / (R_GAS * self.ww_t);
             let orifice = prm.discharge_coefficient * prm.vacuum_breaker_m2 * (2.0 * rho * suck).sqrt() * dt / molar;
-            let f = (orifice / n_ww).min(suck / p_ww);
+            // Equalising: the wetwell down by `f p_ww`, and with
+            // `two_sided_equalising` the drywell up by `f n_ww p_dw / n_dw`.
+            let f_eq = if s.two_sided_equalising { suck / (p_ww + n_ww * p_dw / self.dw_moles()) } else { suck / p_ww };
+            let f = (orifice / n_ww).min(f_eq);
             let (dn2, dh2, dsteam) = (self.ww_n2 * f, self.ww_h2 * f, self.ww_steam_kg * f);
             let e_out = f * (self.ww_energy(tv) + n_ww * R_GAS * self.ww_t);
             let dxe = self.xe_ww * f;
@@ -1118,8 +1139,15 @@ impl Containment {
             let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2) / n_ww;
             let rho = p_ww * molar / (R_GAS * self.pool_t);
             let orifice = prm.discharge_coefficient * prm.vacuum_breaker_m2 * (2.0 * rho * suck).sqrt() * dt / molar;
-            // At most the isothermal equalising amount of the non-condensables.
-            let n = orifice.min(n_ww * suck / p_ww);
+            // At most the isothermal equalising amount of the non-condensables
+            // (with `two_sided_equalising`, the drywell's rise counted).
+            let n_eq = if s.two_sided_equalising && n_ww > 0.0 {
+                let p_nc = (p_ww - p_sat_pa(self.pool_t).min(p_ww)).max(1.0);
+                suck / (p_nc / n_ww + p_dw / self.dw_moles())
+            } else {
+                n_ww * suck / p_ww
+            };
+            let n = orifice.min(n_eq);
             // An empty wetwell gas moves nothing (0/0 otherwise; gh:#1047).
             let f = if n_ww > 0.0 { (n / n_ww).min(1.0) } else { 0.0 };
             let (dn2, dh2) = (self.ww_n2 * f, self.ww_h2 * f);
@@ -1754,6 +1782,7 @@ impl ContainmentSnapshot {
             b(self.cavity_phases),
             b(self.bur_ignition),
             b(self.gas_choking),
+            b(self.two_sided_equalising),
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1813,6 +1842,7 @@ impl ContainmentSnapshot {
             cavity_phases: r.f() != 0.0,
             bur_ignition: r.f() != 0.0,
             gas_choking: r.f() != 0.0,
+            two_sided_equalising: r.f() != 0.0,
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
