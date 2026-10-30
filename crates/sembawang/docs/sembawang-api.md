@@ -5179,6 +5179,7 @@ pub struct CoreSnapshot {
     pub blade_fusion: bool,
     pub blade_diffusion_limit: bool,
     pub b4c_oxidation: bool,
+    pub uo2_candling: bool,
     pub prm: Params,
 }
 ```
@@ -5218,6 +5219,7 @@ pub struct CoreSnapshot {
 | `blade_fusion` | `bool` | A blade at the steel's melting temperature absorbs its heat of<br>fusion before it drains (`Mechanisms::blade_fusion`). |
 | `blade_diffusion_limit` | `bool` | The blades' steel oxidation is held to MELCOR's gaseous-diffusion<br>limit as the Zr's is (`Mechanisms::blade_diffusion_limit`). |
 | `b4c_oxidation` | `bool` | The blades' B4C reacts with steam by MELCOR's simple model<br>(`Mechanisms::b4c_oxidation`). |
+| `uo2_candling` | `bool` | Candling Zr carries UO2 by MELCOR's secondary transport<br>(`Mechanisms::uo2_candling`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5555,6 +5557,11 @@ pub struct Core {
   pub fn b4c_tally(self: &Self) -> (f64, [f64; 3]) { /* ... */ }
   ```
   B4C reacted, kg, and its CO, CO2 and CH4, mol (`b4c_oxidation`).
+
+- ```rust
+  pub fn uo2_candled_kg(self: &Self) -> f64 { /* ... */ }
+  ```
+  UO2 carried down by candling Zr, kg (`uo2_candling`).
 
 - ```rust
   pub fn new(t_sat_k: f64, prm: &Params) -> Self { /* ... */ }
@@ -7581,6 +7588,7 @@ pub struct Params {
     pub co_combustion_j_per_mol: f64,
     pub fdi_surface_tension: f64,
     pub fdi_hpme_velocity: f64,
+    pub candling_uo2_fraction: f64,
     pub blade_b4c_kg: f64,
     pub b4c_rate_a: f64,
     pub b4c_rate_b: f64,
@@ -7784,6 +7792,7 @@ pub struct Params {
 | `co_combustion_j_per_mol` | `f64` |  |
 | `fdi_surface_tension` | `f64` |  |
 | `fdi_hpme_velocity` | `f64` |  |
+| `candling_uo2_fraction` | `f64` |  |
 | `blade_b4c_kg` | `f64` |  |
 | `b4c_rate_a` | `f64` |  |
 | `b4c_rate_b` | `f64` |  |
@@ -9008,6 +9017,16 @@ ejection instead, m/s (FDI RM §2.3, sensitivity coefficient 4602).
 
 ```rust
 pub const FDI_HPME_VELOCITY: f64 = 10.0;
+```
+
+#### Constant `CANDLING_UO2_FRACTION`
+
+UO2 carried by candling Zr, as a fraction of the molten Zr's mass
+(`Mechanisms::uo2_candling`): MELCOR's COR_CMT default FUOZR with
+MTUOZR = 1 (COR RM §3.1.4, Eq 3-14). \[P\]
+
+```rust
+pub const CANDLING_UO2_FRACTION: f64 = 0.2;
 ```
 
 #### Constant `BLADE_B4C_KG`
@@ -13313,6 +13332,7 @@ pub struct Mechanisms {
     pub b4c_oxidation: bool,
     pub burn_dynamics: bool,
     pub fdi_lpme: bool,
+    pub uo2_candling: bool,
 }
 ```
 
@@ -13386,6 +13406,7 @@ pub struct Mechanisms {
 | `b4c_oxidation` | `bool` | The control blades' B4C reacts with steam by MELCOR's simple model<br>(COR RM §2.5.9, MARCON 2.1B; at most 2 % of it; 2026-10-30; needs<br>`control_blades`). Off is inert B4C. |
 | `burn_dynamics` | `bool` | A building burn runs MELCOR's combustion completeness, flame speed<br>and rate (BUR RM §2.3 to §2.5; 2026-10-30), consuming oxygen and<br>making CO2, and reports its pressure rise as an adiabatic bound.<br>Off is the burn as one step that removes all of the building's H2<br>and CO and wrecks the building (no further inflow). |
 | `fdi_lpme` | `bool` | Debris leaving the failed vessel falls through the pedestal's water<br>by MELCOR's low-pressure melt ejection (FDI RM §2.2; 2026-10-30):<br>Chu's breakup, radiation or Bromley film boiling, all of the heat<br>boiling water. Off is debris landing at the core's temperature. |
+| `uo2_candling` | `bool` | Candling Zr carries UO2 down with it, 0.2 of its mass: MELCOR's<br>default secondary transport (COR RM §3.1.4, COR_CMT; 2026-10-30).<br>Off is the Zr candling alone. |
 
 ##### Implementations
 
@@ -13715,6 +13736,11 @@ pub struct Mechanisms {
   pub fn without_fdi_lpme(self: Self) -> Self { /* ... */ }
   ```
   Debris landing at the core's temperature: before 2026-10-30.
+
+- ```rust
+  pub fn without_uo2_candling(self: Self) -> Self { /* ... */ }
+  ```
+  The Zr candling alone: before 2026-10-30.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

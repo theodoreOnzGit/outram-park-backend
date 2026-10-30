@@ -420,6 +420,10 @@ pub struct Mechanisms {
     /// Chu's breakup, radiation or Bromley film boiling, all of the heat
     /// boiling water. Off is debris landing at the core's temperature.
     pub fdi_lpme: bool,
+    /// Candling Zr carries UO2 down with it, 0.2 of its mass: MELCOR's
+    /// default secondary transport (COR RM §3.1.4, COR_CMT; 2026-10-30).
+    /// Off is the Zr candling alone.
+    pub uo2_candling: bool,
 }
 
 impl Default for Mechanisms {
@@ -491,6 +495,7 @@ impl Default for Mechanisms {
             b4c_oxidation: true,
             burn_dynamics: true,
             fdi_lpme: true,
+            uo2_candling: true,
         }
     }
 }
@@ -915,6 +920,12 @@ impl Mechanisms {
     /// Debris landing at the core's temperature: before 2026-10-30.
     pub fn without_fdi_lpme(mut self) -> Self {
         self.fdi_lpme = false;
+        self
+    }
+
+    /// The Zr candling alone: before 2026-10-30.
+    pub fn without_uo2_candling(mut self) -> Self {
+        self.uo2_candling = false;
         self
     }
 
@@ -1608,7 +1619,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, b4c_oxidation: self.mechanisms.b4c_oxidation, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, b4c_oxidation: self.mechanisms.b4c_oxidation, uo2_candling: self.mechanisms.uo2_candling, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -2137,7 +2148,9 @@ mod tests {
     /// The control blades' B4C over 6 h (`b4c_oxidation`, MELCOR COR RM
     /// §2.5.9): 97 x 4.7 kg, capped at 2 %, so at most 9.12 kg reacts.
     /// Results (2026-10-30): 8.862 kg, as CO 4.46, CO2 152.95 and CH4 2.98
-    /// mol (the steam-rich core favours CO2), about 2.6 kg of H2.
+    /// mol (the steam-rich core favours CO2), about 2.6 kg of H2; with UO2
+    /// carried by candling Zr (the same day) 8.821 kg, CO 4.05, CO2 152.51,
+    /// CH4 3.08 mol.
     #[test]
     fn the_blades_b4c_reacts_up_to_melcors_cap() {
         let mut plant = Plant::new(Mode::Historical);
@@ -2146,8 +2159,8 @@ mod tests {
             plant.step_inline(&mut core, &mut cont);
         }
         let (kg, gases) = core.b4c_tally();
-        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9 && (kg - 8.862).abs() < 1e-3, "{kg}");
-        assert!((gases[1] - 152.95).abs() < 0.01 && gases[0] < 5.0 && gases[2] < 3.5, "{gases:?}");
+        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9 && (kg - 8.821).abs() < 1e-3, "{kg}");
+        assert!((gases[1] - 152.51).abs() < 0.01 && gases[0] < 5.0 && gases[2] < 3.5, "{gases:?}");
     }
 
     /// Debris falling through the pedestal's water (`fdi_lpme`, MELCOR FDI
@@ -2160,6 +2173,8 @@ mod tests {
     /// and MELCOR's Eq 6-34 gives no velocity. No ejection is fast enough
     /// for MELCOR's high-pressure model. Predicted 0.05-0.5 t, for molten
     /// debris near 2800 K (missed low: the debris that leaves is solid).
+    /// With UO2 carried by candling Zr (the same day) the head fails at
+    /// 5.484 h: 8.07 kg at once, 74.75 kg by 8 h.
     #[test]
     fn the_debris_falls_through_the_pedestal_water() {
         let mut plant = Plant::new(Mode::Historical);
@@ -2172,9 +2187,9 @@ mod tests {
             }
         }
         let (h, kg) = first.unwrap();
-        assert!((h - 5.3439).abs() < 1e-3 && (kg - 8.60).abs() < 0.01, "{h} {kg}");
+        assert!((h - 5.4844).abs() < 1e-3 && (kg - 8.07).abs() < 0.01, "{h} {kg}");
         let k = plant.frame().containment;
-        assert!((k.fdi_steam_kg - 63.04).abs() < 0.01 && !k.fdi_hpme, "{k:?}");
+        assert!((k.fdi_steam_kg - 74.75).abs() < 0.01 && !k.fdi_hpme, "{k:?}");
     }
 
     /// The core and containment work from snapshots that cross a worker
@@ -2477,11 +2492,12 @@ mod tests {
         // limit: 0.0217, 6.59e-4, 4.19e-4; with the two-sided equalising:
         // 0.0283, 7.84e-4, 5.01e-4; with the blades' B4C: 0.0263, 6.47e-4,
         // 4.61e-4; with the debris falling through the pedestal's water:
-        // 0.0263, 6.75e-4, 4.84e-4.
+        // 0.0263, 6.75e-4, 4.84e-4; with UO2 carried by candling Zr: 0.0231, 4.34e-4,
+        // 2.99e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 6.75e-4).abs() < 1e-5 && (k.xe_ww - 4.84e-4).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.02632).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.34e-4).abs() < 1e-5 && (k.xe_ww - 2.99e-4).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.02310).abs() < 1e-5, "{f:?}");
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a
@@ -2489,8 +2505,9 @@ mod tests {
         // 24.8 h; recorded, not adopted). With the vent and flange choked:
         // Y 0.0347, CO 0.0030 (half the gas reaches the building); 0.0345
         // with the blades' diffusion limit; 0.0416, CO 0.0036, with the
-        // two-sided equalising; 0.0329, CO 0.0028, with the blades' B4C.
-        assert!((k.rb_burn_y - 0.0329).abs() < 1e-4 && (k.rb_co_fraction - 0.0028).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
+        // two-sided equalising; 0.0329, CO 0.0028, with the blades' B4C;
+        // 0.0394, CO 0.0035, with UO2 carried by candling Zr.
+        assert!((k.rb_burn_y - 0.0394).abs() < 1e-4 && (k.rb_co_fraction - 0.0035).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2506,8 +2523,8 @@ mod tests {
         // oxidising; 0.9889 with the plenum's oxidation steam consumed;
         // 0.9813 with the control blades; 0.9843 with their heat of
         // fusion; 0.8826 with the cavity debris's phases; 0.9749 with the
-        // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C.)
-        assert!((k.xe_vented - 0.9702).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C; 0.9735 with UO2 carried by candling Zr.)
+        assert!((k.xe_vented - 0.9735).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

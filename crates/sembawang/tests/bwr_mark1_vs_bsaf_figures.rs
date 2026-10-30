@@ -237,10 +237,12 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // RPV 3.4540/6.6080, drywell 0.0670/0.2625 MPa; envelopes RPV 0.5714,
     // drywell 0.6593, Xe 0.8125. With the blades' B4C: RPV 3.4542/6.5997,
     // drywell 0.0706/0.2709 MPa; envelopes RPV 0.5165, drywell 0.7033.
-    assert!((rpv.mean_abs - 3.4542).abs() < 1e-3 && (rpv.max_abs - 6.5997).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.0706).abs() < 1e-3 && (dw.max_abs - 0.2709).abs() < 1e-3, "{dw:?}");
+    // With uo2 carried by candling zr: RPV 3.4388/6.5826, drywell 0.0670/0.2573
+    // MPa; envelopes RPV 0.6154, drywell 0.6703.
+    assert!((rpv.mean_abs - 3.4388).abs() < 1e-3 && (rpv.max_abs - 6.5826).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.0670).abs() < 1e-3 && (dw.max_abs - 0.2573).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.5165) && near(e_dw, 0.7033) && near(e_h2, 0.9885) && near(e_xe, 0.8125) && near(e_i, 0.8542));
+    assert!(near(e_rpv, 0.6154) && near(e_dw, 0.6703) && near(e_h2, 0.9885) && near(e_xe, 0.8125) && near(e_i, 0.8542));
 }
 
 
@@ -447,12 +449,12 @@ fn cesium_against_fig_2_6() {
     // the core's radiation, -> 0.8000 with a plate per ring (2026-10-29),
     // -> 0.9067 with the control blades, -> 0.9333 with their heat of
     // fusion, -> 0.9467 with the cavity debris's phases (2026-10-30), ->
-    // 0.9733 with the blades' B4C.
-    assert!((a.0 - 0.9733).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
+    // 0.9733 with the blades' B4C, -> 0.8667 with UO2 carried by candling Zr.
+    assert!((a.0 - 0.8667).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -523,10 +525,11 @@ fn iodine_against_fig_2_6() {
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
-    // 0.0787 -> 0.0674 with the bottom of the core's radiation (2026-10-29).
-    assert!((d.0 - 0.0674).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    // 0.0787 -> 0.0674 with the bottom of the core's radiation (2026-10-29);
+    // -> 0.0562 with UO2 carried by candling Zr (2026-10-30).
+    assert!((d.0 - 0.0562).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -643,7 +646,8 @@ fn cesium_137_release_against_fig_5_1() {
     // -> 0.0801, 0.0044, with their heat of fusion; -> 0.1071, 0.0088, with
     // the cavity debris's phases (the flange open from 16.7 h); -> 0.0977,
     // 0.0066, with the vent and flange choked; -> 0.0755 with the two-sided
-    // equalising; -> 0.0956 with the blades' B4C.
-    assert!((total_pbq - 0.0956).abs() < 1e-3 && (at(26.0) - 0.0956).abs() < 1e-3, "{total_pbq}");
-    assert!((env.0 - 0.0066).abs() < 1e-3 && env.1 == 454, "{env:?}");
+    // equalising; -> 0.0956 with the blades' B4C; -> 0.0748, the rate
+    // inside the envelope 0.0044, with UO2 carried by candling Zr.
+    assert!((total_pbq - 0.0748).abs() < 1e-3 && (at(26.0) - 0.0748).abs() < 1e-3, "{total_pbq}");
+    assert!((env.0 - 0.0044).abs() < 1e-3 && env.1 == 454, "{env:?}");
 }

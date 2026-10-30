@@ -372,6 +372,10 @@ pub const FDI_SURFACE_TENSION: f64 = 0.45;
 /// ejection instead, m/s (FDI RM §2.3, sensitivity coefficient 4602).
 /// \[P\]
 pub const FDI_HPME_VELOCITY: f64 = 10.0;
+/// UO2 carried by candling Zr, as a fraction of the molten Zr's mass
+/// (`Mechanisms::uo2_candling`): MELCOR's COR_CMT default FUOZR with
+/// MTUOZR = 1 (COR RM §3.1.4, Eq 3-14). \[P\]
+pub const CANDLING_UO2_FRACTION: f64 = 0.2;
 /// B4C per control blade over the active height, kg (`Mechanisms::
 /// b4c_oxidation`): \[A\] the blade geometry of `BLADE_STEEL_KG`, 72 tubes of
 /// 3.6 mm bore over 3.66 m, packed at 70 % of B4C's 2520 kg/m^3: 4.7 kg.
@@ -858,6 +862,7 @@ params! {
     co_combustion_j_per_mol = CO_COMBUSTION_J_PER_MOL, P,
     fdi_surface_tension = FDI_SURFACE_TENSION, A,
     fdi_hpme_velocity = FDI_HPME_VELOCITY, P,
+    candling_uo2_fraction = CANDLING_UO2_FRACTION, P,
     blade_b4c_kg = BLADE_B4C_KG, A,
     b4c_rate_a = B4C_RATE_A, P,
     b4c_rate_b = B4C_RATE_B, P,
@@ -1041,7 +1046,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 195);
+        assert_eq!(Params::INPUTS.len(), 196);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
