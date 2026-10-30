@@ -317,6 +317,9 @@ pub const SS_OX_MIN_K: f64 = 1100.0;
 /// The control blades fail (melt and drain) at the steel's melting
 /// temperature, MELCOR's default criterion and MP value, K. \[P\]
 pub const SS_MELT_K: f64 = 1700.0;
+/// The steel's heat of fusion, J/kg: MELCOR's default for stainless steel
+/// (MP RM §8, "Estimated"; 2.692e5 for 304). \[P\]
+pub const SS_FUSION_J_PER_KG: f64 = 2.68e5;
 /// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
 /// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
 pub const SS_X_FE: f64 = 0.74;
@@ -772,6 +775,7 @@ params! {
     ss_ox_b = SS_OX_B, P,
     ss_ox_min_k = SS_OX_MIN_K, P,
     ss_melt_k = SS_MELT_K, P,
+    ss_fusion_j_per_kg = SS_FUSION_J_PER_KG, P,
     ss_x_fe = SS_X_FE, P,
     ss_x_cr = SS_X_CR, P,
     ss_x_ni = SS_X_NI, P,
@@ -951,7 +955,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 173);
+        assert_eq!(Params::INPUTS.len(), 174);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

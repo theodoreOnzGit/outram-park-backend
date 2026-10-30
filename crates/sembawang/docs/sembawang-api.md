@@ -5097,6 +5097,7 @@ pub struct CoreSnapshot {
     pub plate_oxidation: bool,
     pub lp_steam_consumed: bool,
     pub control_blades: bool,
+    pub blade_fusion: bool,
     pub prm: Params,
 }
 ```
@@ -5133,6 +5134,7 @@ pub struct CoreSnapshot {
 | `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it<br>(`Mechanisms::plate_oxidation`). |
 | `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses is taken out of<br>the steam rising into the core (`Mechanisms::lp_steam_consumed`). |
 | `control_blades` | `bool` | The control blades: steel at each cell's cladding temperature, its<br>oxidation, and its melting (`Mechanisms::control_blades`). |
+| `blade_fusion` | `bool` | A blade at the steel's melting temperature absorbs its heat of<br>fusion before it drains (`Mechanisms::blade_fusion`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -7438,6 +7440,7 @@ pub struct Params {
     pub ss_ox_b: f64,
     pub ss_ox_min_k: f64,
     pub ss_melt_k: f64,
+    pub ss_fusion_j_per_kg: f64,
     pub ss_x_fe: f64,
     pub ss_x_cr: f64,
     pub ss_x_ni: f64,
@@ -7619,6 +7622,7 @@ pub struct Params {
 | `ss_ox_b` | `f64` |  |
 | `ss_ox_min_k` | `f64` |  |
 | `ss_melt_k` | `f64` |  |
+| `ss_fusion_j_per_kg` | `f64` |  |
 | `ss_x_fe` | `f64` |  |
 | `ss_x_cr` | `f64` |  |
 | `ss_x_ni` | `f64` |  |
@@ -8676,6 +8680,15 @@ temperature, MELCOR's default criterion and MP value, K. \[P\]
 
 ```rust
 pub const SS_MELT_K: f64 = 1700.0;
+```
+
+#### Constant `SS_FUSION_J_PER_KG`
+
+The steel's heat of fusion, J/kg: MELCOR's default for stainless steel
+(MP RM §8, "Estimated"; 2.692e5 for 304). \[P\]
+
+```rust
+pub const SS_FUSION_J_PER_KG: f64 = 2.68e5;
 ```
 
 #### Constant `SS_X_FE`
@@ -12935,6 +12948,7 @@ pub struct Mechanisms {
     pub plate_oxidation: bool,
     pub lp_steam_consumed: bool,
     pub control_blades: bool,
+    pub blade_fusion: bool,
 }
 ```
 
@@ -12999,6 +13013,7 @@ pub struct Mechanisms {
 | `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it,<br>which then no longer reaches its ring's core (MELCOR COR §3.2.1,<br>particulate debris; 2026-10-29; needs `core_plate` and<br>`debris_oxidation`). Off is the held debris inert. |
 | `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses no longer rises<br>into the core (2026-10-29, a conservation defect: the core could<br>oxidise with it a second time). Off is the defect, kept as the<br>ablation that reproduces the earlier runs. |
 | `control_blades` | `bool` | The control blades, MELCOR's NS component in its BWR form (steel<br>only, 2026-10-30): their steel at each cell's cladding temperature,<br>oxidised by MELCOR's stainless-steel law (COR RM §2.5.6) in the steam<br>the Zr leaves, failing at the steel's melting temperature and<br>draining to the lower plenum, where it quenches. Their B4C is not<br>modelled (MELCOR's default BWR model caps its oxidation at 2 %).<br>Off is a core without blades. |
+| `blade_fusion` | `bool` | A control blade at the steel's melting temperature absorbs its heat<br>of fusion (MELCOR's 2.68e5 J/kg) before it drains, and carries it to<br>the lower plenum (2026-10-30; needs `control_blades`). Off drains it<br>at once at its solid enthalpy. |
 
 ##### Implementations
 
@@ -13283,6 +13298,11 @@ pub struct Mechanisms {
   pub fn without_control_blades(self: Self) -> Self { /* ... */ }
   ```
   A core without control blades: before 2026-10-30.
+
+- ```rust
+  pub fn without_blade_fusion(self: Self) -> Self { /* ... */ }
+  ```
+  The blade drained at once at its solid enthalpy: before 2026-10-30.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

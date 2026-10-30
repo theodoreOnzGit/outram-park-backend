@@ -370,6 +370,11 @@ pub struct Mechanisms {
     /// modelled (MELCOR's default BWR model caps its oxidation at 2 %).
     /// Off is a core without blades.
     pub control_blades: bool,
+    /// A control blade at the steel's melting temperature absorbs its heat
+    /// of fusion (MELCOR's 2.68e5 J/kg) before it drains, and carries it to
+    /// the lower plenum (2026-10-30; needs `control_blades`). Off drains it
+    /// at once at its solid enthalpy.
+    pub blade_fusion: bool,
 }
 
 impl Default for Mechanisms {
@@ -432,6 +437,7 @@ impl Default for Mechanisms {
             plate_oxidation: true,
             lp_steam_consumed: true,
             control_blades: true,
+            blade_fusion: true,
         }
     }
 }
@@ -799,6 +805,12 @@ impl Mechanisms {
     /// A core without control blades: before 2026-10-30.
     pub fn without_control_blades(mut self) -> Self {
         self.control_blades = false;
+        self
+    }
+
+    /// The blade drained at once at its solid enthalpy: before 2026-10-30.
+    pub fn without_blade_fusion(mut self) -> Self {
+        self.blade_fusion = false;
         self
     }
 
@@ -1492,7 +1504,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -2303,11 +2315,12 @@ mod tests {
         // record of the earlier runs, not a bound), 9.2e-6 in the wetwell.
         // With the plate's debris oxidising: 4.60e-3, 7.77e-4 and 8.8e-6;
         // with the plenum's oxidation steam consumed: 4.64e-3, 8.54e-4, 1.1e-5;
-        // with the control blades: 1.62e-2, 2.11e-4, 2.02e-4.
+        // with the control blades: 1.62e-2, 2.11e-4, 2.02e-4; with the
+        // blades' heat of fusion: 1.31e-2, 1.82e-4, 1.69e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 2.11e-4).abs() < 1e-5 && k.xe_ww < 4e-4, "{f:?}");
-        assert!((k.xe_building - 1.617e-2).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 1.82e-4).abs() < 1e-5 && k.xe_ww < 4e-4, "{f:?}");
+        assert!((k.xe_building - 1.309e-2).abs() < 1e-5, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2321,8 +2334,9 @@ mod tests {
         // and 2.6e-4; 0.9937 with a plate per ring, the flange open; 0.9898
         // with the pool in two layers; 0.9891 with the plate's debris
         // oxidising; 0.9889 with the plenum's oxidation steam consumed;
-        // 0.9813 with the control blades.)
-        assert!((k.xe_vented - 0.9813).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // 0.9813 with the control blades; 0.9843 with their heat of
+        // fusion.)
+        assert!((k.xe_vented - 0.9843).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
