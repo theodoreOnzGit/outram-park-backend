@@ -70,6 +70,7 @@ use super::fdi;
 use super::sparc;
 use super::pool_surface;
 use super::cavity::Cavity;
+use petir::mathf::RealMath;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
 
@@ -479,7 +480,7 @@ pub(crate) fn bur_flame_speed(y_max: f64, x_d: f64) -> f64 {
 /// record BUR_BRT, CDIM = DEF): the radius of the sphere of its volume,
 /// `(3 V / 4 pi)^(1/3)`.
 pub(crate) fn bur_cdim(volume_m3: f64) -> f64 {
-    (3.0 * volume_m3 / (4.0 * std::f64::consts::PI)).cbrt()
+    (3.0 * volume_m3 / (4.0 * std::f64::consts::PI)).r_cbrt()
 }
 
 /// Cells of the concrete slab around the drywell (`dw_wall_outer`).
