@@ -81,9 +81,27 @@ early branch. The 256-member run is the one to quote.
 | 3 | peak 0.75–0.87 MPa | missed: the upper quarter reaches 0.92–0.97 MPa |
 | 4 | vent at 23.73 h in every member | held |
 
+## Re-run on the physics of `bfd9528f9` (vacuum-breaker chatter fixed)
+
+The 256-member ensemble again, seed 3, rel 1e-9:
+
+| Metric | min | 25 % | median | 75 % | max |
+|---|---|---|---|---|---|
+| lower head, h | 4.502 | 4.918 | 5.234 | 5.240 | 5.563 |
+| H2 at 25 h, kg | 307.9 | 418.4 | 448.8 | 449.4 | 481.1 |
+| drywell peak, MPa | 0.785 | 0.804 | 0.809 | 0.919 | 0.964 |
+
+In every member the vent opened at 23.73 h and the building did not
+explode. The fix moved the single run from 5.24 to 5.40 h and from 448 to
+480 kg, but it left the distribution as it was: every quartile is within
+0.005 h, 1.4 kg and 0.002 MPa of the run before the fix. **The
+single-run move was a branch change, not physics.** This is the reading
+this instrument exists for.
+
 ## What to quote, and why
 
-Quote **the 256-member distribution**, not the single run:
+Quote **the 256-member distribution** (now on `bfd9528f9`, which agrees
+with the run before it), not the single run:
 
 - **lower-head failure:** median 5.23 h, interquartile 4.91–5.24 h,
   range 4.50–5.56 h;
