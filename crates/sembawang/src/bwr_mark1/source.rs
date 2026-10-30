@@ -251,7 +251,7 @@ mod tests {
         let f = h.cs_released[h.cs_released.len() - 1];
         assert!((total(&st, 0) / (f * cs) - 1.0).abs() < 1e-4, "{} vs {}", total(&st, 0), f * cs);
         assert!((i / 1.358e18 - 1.0).abs() < 1e-3 && (xe / 2.895e18 - 1.0).abs() < 1e-3, "{i:e} {xe:e}");
-        assert!((total(&st, 0) / 7.5480e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 8.2808e16 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
+        assert!((total(&st, 0) / 9.5568e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 8.6368e16 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
         // Xe-133 2.533e18 -> 2.521e18 Bq with the bottom of the core's
         // radiation, -> 2.530e18 with a plate per ring (2026-10-29), ->
         // 2.538e18 with the control blades, -> 2.541e18 with the cavity
@@ -316,8 +316,9 @@ mod tests {
         // 1.390e9; by the vent and flange choked, Xe-133 1.295e11 and
         // 4.368e12, Cs-137 1.683e8, I-131 1.293e9; by the blades' diffusion
         // limit, Cs-137 1.672e8, I-131 1.287e9; by the two-sided
-        // equalising, 1.301e8 and 1.425e9.
+        // equalising, 1.301e8 and 1.425e9; by the blades' B4C, 1.648e8 and
+        // 1.487e9.
         assert!((air(0, 2) / 1.2954e11 - 1.0).abs() < 1e-3 && (air(3, 2) / 4.3676e12 - 1.0).abs() < 1e-3, "{:e} {:e}", air(0, 2), air(3, 2));
-        assert!((air(3, 0) / 1.3013e8 - 1.0).abs() < 1e-3 && (ground(3, 1) / 1.4254e9 - 1.0).abs() < 1e-3, "{:e} {:e}", air(3, 0), ground(3, 1));
+        assert!((air(3, 0) / 1.6476e8 - 1.0).abs() < 1e-3 && (ground(3, 1) / 1.4866e9 - 1.0).abs() < 1e-3, "{:e} {:e}", air(3, 0), ground(3, 1));
     }
 }

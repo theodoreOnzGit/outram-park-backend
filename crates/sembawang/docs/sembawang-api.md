@@ -4404,8 +4404,12 @@ and the vacuum breaker chattered about it every step, amplifying a
 (`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
 stratification, pool level and swell, pool scrubbing of aerosols (no
 fission products are tracked yet), the torus room, the reactor building's
-own heat-up and ventilation, steam in the building, and the combustion
-itself (the explosion is a threshold, not a calculation).
+own heat-up and ventilation, steam in the building, and the building's
+pressure. ~~And the combustion itself (the explosion is a threshold, not
+a calculation).~~ **CORRECTED 2026-10-30:** with
+`Mechanisms::burn_dynamics` a burn runs MELCOR's completeness, flame
+speed and rate (BUR RM §2.3 to §2.5); its pressure rise is reported as
+an adiabatic bound, since the building is held at one atmosphere.
 
 ```rust
 pub mod containment { /* ... */ }
@@ -4469,6 +4473,7 @@ pub struct ContainmentSnapshot {
     pub bur_ignition: bool,
     pub gas_choking: bool,
     pub two_sided_equalising: bool,
+    pub burn_dynamics: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4532,6 +4537,7 @@ pub struct ContainmentSnapshot {
 | `bur_ignition` | `bool` | The building's burn starts by MELCOR's BUR criteria<br>(`Mechanisms::bur_ignition`). |
 | `gas_choking` | `bool` | Gas flows to the atmosphere are limited to the critical flow<br>(`Mechanisms::gas_choking`). |
 | `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts both<br>volumes (`Mechanisms::two_sided_equalising`). |
+| `burn_dynamics` | `bool` | A burn runs MELCOR's completeness, flame speed and rate<br>(`Mechanisms::burn_dynamics`). |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -4682,6 +4688,8 @@ pub struct ContainmentResult {
     pub rb_exploded: bool,
     pub rb_burn_y: f64,
     pub rb_co_fraction: f64,
+    pub rb_burning: bool,
+    pub rb_burn_dp_pa: f64,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
     pub xe_dw: f64,
@@ -4725,6 +4733,8 @@ pub struct ContainmentResult {
 | `rb_exploded` | `bool` |  |
 | `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction, `X_H2 + X_CO<br>L_H2 / L_CO` (MELCOR BUR RM Eq 2-3), and its CO fraction. |
 | `rb_co_fraction` | `f64` |  |
+| `rb_burning` | `bool` | A burn is running in the building (`burn_dynamics`). |
+| `rb_burn_dp_pa` | `f64` | The largest burn's pressure rise, Pa, as an adiabatic,<br>constant-volume bound `Q / (2.5 V)` (no venting, no heat loss; the<br>building itself is held at one atmosphere, stated). |
 | `vented_h2_kg` | `f64` |  |
 | `vented_kg_s` | `f64` |  |
 | `xe_dw` | `f64` | Noble gas (Xe) in the drywell and the wetwell gas, vented to the<br>stack and leaked to the reactor building, fractions of the core<br>inventory (gh:#1040). |
@@ -5152,6 +5162,7 @@ pub struct CoreSnapshot {
     pub control_blades: bool,
     pub blade_fusion: bool,
     pub blade_diffusion_limit: bool,
+    pub b4c_oxidation: bool,
     pub prm: Params,
 }
 ```
@@ -5190,6 +5201,7 @@ pub struct CoreSnapshot {
 | `control_blades` | `bool` | The control blades: steel at each cell's cladding temperature, its<br>oxidation, and its melting (`Mechanisms::control_blades`). |
 | `blade_fusion` | `bool` | A blade at the steel's melting temperature absorbs its heat of<br>fusion before it drains (`Mechanisms::blade_fusion`). |
 | `blade_diffusion_limit` | `bool` | The blades' steel oxidation is held to MELCOR's gaseous-diffusion<br>limit as the Zr's is (`Mechanisms::blade_diffusion_limit`). |
+| `b4c_oxidation` | `bool` | The blades' B4C reacts with steam by MELCOR's simple model<br>(`Mechanisms::b4c_oxidation`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5522,6 +5534,11 @@ pub struct Core {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn b4c_tally(self: &Self) -> (f64, [f64; 3]) { /* ... */ }
+  ```
+  B4C reacted, kg, and its CO, CO2 and CH4, mol (`b4c_oxidation`).
 
 - ```rust
   pub fn new(t_sat_k: f64, prm: &Params) -> Self { /* ... */ }
@@ -7505,6 +7522,16 @@ pub struct Params {
     pub bur_xcoign: f64,
     pub bur_xo2ig: f64,
     pub bur_xmscig: f64,
+    pub bur_xh2cc: f64,
+    pub bur_xcocc: f64,
+    pub bur_cc_slope: f64,
+    pub bur_cc_y0: f64,
+    pub h2_combustion_j_per_mol: f64,
+    pub co_combustion_j_per_mol: f64,
+    pub blade_b4c_kg: f64,
+    pub b4c_rate_a: f64,
+    pub b4c_rate_b: f64,
+    pub b4c_max_fraction: f64,
     pub ss_x_fe: f64,
     pub ss_x_cr: f64,
     pub ss_x_ni: f64,
@@ -7696,6 +7723,16 @@ pub struct Params {
 | `bur_xcoign` | `f64` |  |
 | `bur_xo2ig` | `f64` |  |
 | `bur_xmscig` | `f64` |  |
+| `bur_xh2cc` | `f64` |  |
+| `bur_xcocc` | `f64` |  |
+| `bur_cc_slope` | `f64` |  |
+| `bur_cc_y0` | `f64` |  |
+| `h2_combustion_j_per_mol` | `f64` |  |
+| `co_combustion_j_per_mol` | `f64` |  |
+| `blade_b4c_kg` | `f64` |  |
+| `b4c_rate_a` | `f64` |  |
+| `b4c_rate_b` | `f64` |  |
+| `b4c_max_fraction` | `f64` |  |
 | `ss_x_fe` | `f64` |  |
 | `ss_x_cr` | `f64` |  |
 | `ss_x_ni` | `f64` |  |
@@ -8842,6 +8879,97 @@ The most steam and CO2 for ignition (XMSCIG default), inerting above.
 
 ```rust
 pub const BUR_XMSCIG: f64 = 0.55;
+```
+
+#### Constant `BUR_XH2CC`
+
+MELCOR's BUR combustion completeness (BUR RM §2.3, record BUR_COM
+defaults): the hydrogen mole fraction in the completeness's Le
+Chatelier formula (Eq 2-7), XH2CC. \[P\]
+
+```rust
+pub const BUR_XH2CC: f64 = 0.08;
+```
+
+#### Constant `BUR_XCOCC`
+
+CO's mole fraction in the completeness's Le Chatelier formula, XCOCC.
+\[P\]
+
+```rust
+pub const BUR_XCOCC: f64 = 0.148;
+```
+
+#### Constant `BUR_CC_SLOPE`
+
+The HECTR 1.5 completeness correlation's slope (Eq 2-9,
+sensitivity coefficients 2202). \[P\]
+
+```rust
+pub const BUR_CC_SLOPE: f64 = 23.4116;
+```
+
+#### Constant `BUR_CC_Y0`
+
+The correlation's threshold Ymax, below which nothing burns (Eq 2-8).
+\[P\]
+
+```rust
+pub const BUR_CC_Y0: f64 = 0.037_46;
+```
+
+#### Constant `H2_COMBUSTION_J_PER_MOL`
+
+Hydrogen's heat of combustion to steam (the lower heating value),
+J/mol. \[P\] (NIST: 241.8 kJ/mol.)
+
+```rust
+pub const H2_COMBUSTION_J_PER_MOL: f64 = 241.8e3;
+```
+
+#### Constant `CO_COMBUSTION_J_PER_MOL`
+
+CO's heat of combustion to CO2, J/mol. \[P\] (NIST: 283.0 kJ/mol.)
+
+```rust
+pub const CO_COMBUSTION_J_PER_MOL: f64 = 283.0e3;
+```
+
+#### Constant `BLADE_B4C_KG`
+
+B4C per control blade over the active height, kg (`Mechanisms::
+b4c_oxidation`): \[A\] the blade geometry of `BLADE_STEEL_KG`, 72 tubes of
+3.6 mm bore over 3.66 m, packed at 70 % of B4C's 2520 kg/m^3: 4.7 kg.
+
+```rust
+pub const BLADE_B4C_KG: f64 = 4.7;
+```
+
+#### Constant `B4C_RATE_A`
+
+MELCOR's simple B4C model (COR RM §2.5.9, MARCON 2.1B, Eq 2-208): the
+fraction of the initial B4C reacting per second is `A exp(-B/T)`,
+`A = 9.973e6 / 60` 1/s. \[P\]
+
+```rust
+pub const B4C_RATE_A: f64 = _;
+```
+
+#### Constant `B4C_RATE_B`
+
+Its activation temperature, K. \[P\]
+
+```rust
+pub const B4C_RATE_B: f64 = 22647.2;
+```
+
+#### Constant `B4C_MAX_FRACTION`
+
+The most of the B4C that may react, MELCOR's default (C1005(2)): the
+blade's eutectic relocates it first. \[P\]
+
+```rust
+pub const B4C_MAX_FRACTION: f64 = 0.02;
 ```
 
 #### Constant `SS_X_FE`
@@ -13107,6 +13235,8 @@ pub struct Mechanisms {
     pub gas_choking: bool,
     pub blade_diffusion_limit: bool,
     pub two_sided_equalising: bool,
+    pub b4c_oxidation: bool,
+    pub burn_dynamics: bool,
 }
 ```
 
@@ -13177,6 +13307,8 @@ pub struct Mechanisms {
 | `gas_choking` | `bool` | The wetwell vent and the drywell head flange, which discharge to the<br>atmosphere from several bar, pass at most MELCOR's critical gas flow<br>(CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the<br>incompressible orifice passing about twice it at those ratios. Off<br>is the orifice alone. |
 | `blade_diffusion_limit` | `bool` | The control blades' steel oxidation held to MELCOR's gaseous-<br>diffusion limit (COR RM §2.5.3, Eq 2-168, which binds every<br>reaction; 2026-10-30; needs `control_blades` and `diffusion_limit`).<br>Off leaves the steel's parabolic rate unlimited. |
 | `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts the<br>receiving volume's pressure rise as well as the donor's fall<br>(2026-10-30, a numerical defect: the one-sided cap overshot the set<br>point, and the vacuum breaker chattered about it every step,<br>amplifying a 1e-9 perturbation 1.5 times a step). Off is the<br>one-sided cap. |
+| `b4c_oxidation` | `bool` | The control blades' B4C reacts with steam by MELCOR's simple model<br>(COR RM §2.5.9, MARCON 2.1B; at most 2 % of it; 2026-10-30; needs<br>`control_blades`). Off is inert B4C. |
+| `burn_dynamics` | `bool` | A building burn runs MELCOR's combustion completeness, flame speed<br>and rate (BUR RM §2.3 to §2.5; 2026-10-30), consuming oxygen and<br>making CO2, and reports its pressure rise as an adiabatic bound.<br>Off is the burn as one step that removes all of the building's H2<br>and CO and wrecks the building (no further inflow). |
 
 ##### Implementations
 
@@ -13491,6 +13623,16 @@ pub struct Mechanisms {
   pub fn without_two_sided_equalising(self: Self) -> Self { /* ... */ }
   ```
   The one-sided equalising cap: before 2026-10-30.
+
+- ```rust
+  pub fn without_b4c_oxidation(self: Self) -> Self { /* ... */ }
+  ```
+  Inert B4C: before 2026-10-30.
+
+- ```rust
+  pub fn without_burn_dynamics(self: Self) -> Self { /* ... */ }
+  ```
+  The burn as one step: before 2026-10-30.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

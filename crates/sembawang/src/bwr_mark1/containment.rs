@@ -49,8 +49,12 @@
 //! (`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
 //! stratification, pool level and swell, pool scrubbing of aerosols (no
 //! fission products are tracked yet), the torus room, the reactor building's
-//! own heat-up and ventilation, steam in the building, and the combustion
-//! itself (the explosion is a threshold, not a calculation).
+//! own heat-up and ventilation, steam in the building, and the building's
+//! pressure. ~~And the combustion itself (the explosion is a threshold, not
+//! a calculation).~~ **CORRECTED 2026-10-30:** with
+//! `Mechanisms::burn_dynamics` a burn runs MELCOR's completeness, flame
+//! speed and rate (BUR RM §2.3 to §2.5); its pressure rise is reported as
+//! an adiabatic bound, since the building is held at one atmosphere.
 
 use super::params::*;
 use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Sections, Surface};
@@ -209,6 +213,9 @@ pub struct ContainmentSnapshot {
     /// The downcomers' and vacuum breakers' equalising cap counts both
     /// volumes (`Mechanisms::two_sided_equalising`).
     pub two_sided_equalising: bool,
+    /// A burn runs MELCOR's completeness, flame speed and rate
+    /// (`Mechanisms::burn_dynamics`).
+    pub burn_dynamics: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -238,6 +245,12 @@ pub struct ContainmentResult {
     /// L_H2 / L_CO` (MELCOR BUR RM Eq 2-3), and its CO fraction.
     pub rb_burn_y: f64,
     pub rb_co_fraction: f64,
+    /// A burn is running in the building (`burn_dynamics`).
+    pub rb_burning: bool,
+    /// The largest burn's pressure rise, Pa, as an adiabatic,
+    /// constant-volume bound `Q / (2.5 V)` (no venting, no heat loss; the
+    /// building itself is held at one atmosphere, stated).
+    pub rb_burn_dp_pa: f64,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
     /// Noble gas (Xe) in the drywell and the wetwell gas, vented to the
@@ -359,6 +372,20 @@ pub struct Containment {
     /// has received, mol (which displaces its air, so its oxygen).
     co: Tracer,
     rb_in: f64,
+    burn: Burn,
+}
+
+/// The building's burn (`Mechanisms::burn_dynamics`): the time left, s
+/// (zero when none is running), the Le Chatelier `Y` it ends at, the
+/// oxygen burnt, mol (a deficit that leaves with the building's gas), the
+/// running burn's heat, J, and the largest burn's pressure bound, Pa.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Burn {
+    left_s: f64,
+    y_min: f64,
+    o2_used: f64,
+    q_j: f64,
+    dp_max: f64,
 }
 
 /// CO and CO2, mol, in the drywell, the wetwell gas and the building.
@@ -389,6 +416,52 @@ pub(crate) fn critical_moles(cd: f64, area: f64, p: f64, t: f64, molar: f64, x_s
 /// oxygen at least `x_o2`, and steam and CO2 below `x_dil`.
 pub(crate) fn bur_ignites(prm: &Params, x_h2: f64, x_co: f64, x_o2: f64, x_dil: f64) -> bool {
     x_h2 + x_co * prm.bur_xh2ign / prm.bur_xcoign >= prm.bur_xh2ign && x_o2 >= prm.bur_xo2ig && x_dil < prm.bur_xmscig
+}
+
+/// MELCOR's combustion completeness (BUR RM §2.3, the HECTR 1.5
+/// correlation, Eqs 2-8 and 2-9): `23.4116 (Ymax - 0.03746)`, none below
+/// the threshold, and clipped at 1 (a complete burn: by Eq 2-6, `CC = 1 -
+/// Ymin / Ymax`, and `Ymin` cannot be negative).
+pub(crate) fn bur_completeness(prm: &Params, y_max: f64) -> f64 {
+    (prm.bur_cc_slope * (y_max - prm.bur_cc_y0)).clamp(0.0, 1.0)
+}
+
+/// MELCOR's flame speed, m/s (BUR RM §2.4, the HECTR 1.5 correlation,
+/// Eqs 2-10 to 2-19, sensitivity coefficients 2200): `Vbase(Ymax)
+/// Cdil(XD)`, `XD` the steam and CO2 fraction. Eq 2-18, printed with a
+/// misplaced parenthesis, is read as the linear blend of Eq 2-17's and Eq
+/// 2-19's `Cdil` across `0.2 < Ymax <= 0.3`.
+pub(crate) fn bur_flame_speed(y_max: f64, x_d: f64) -> f64 {
+    let v_base = if y_max <= 0.1 {
+        59.2 * y_max + 1.792
+    } else if y_max <= 0.2 {
+        172.88 * y_max - 9.576
+    } else if y_max <= 0.3 {
+        50.0 * y_max + 15.0
+    } else if y_max <= 0.4 {
+        -50.0 * y_max + 45.0
+    } else if y_max <= 0.6 {
+        -75.0 * y_max + 55.0
+    } else {
+        -64.3 * y_max + 48.58
+    };
+    let lean = (1.0 - 4.53 * x_d + 5.37 * x_d * x_d).max(0.05);
+    let rich = (1.0 - 1.29 * x_d).max(0.0);
+    let c_dil = if y_max <= 0.2 {
+        lean
+    } else if y_max <= 0.3 {
+        lean * (0.3 - y_max) / 0.1 + rich * (y_max - 0.2) / 0.1
+    } else {
+        rich
+    };
+    v_base * c_dil
+}
+
+/// MELCOR's default characteristic dimension of a volume, m (BUR UG,
+/// record BUR_BRT, CDIM = DEF): the radius of the sphere of its volume,
+/// `(3 V / 4 pi)^(1/3)`.
+pub(crate) fn bur_cdim(volume_m3: f64) -> f64 {
+    (3.0 * volume_m3 / (4.0 * std::f64::consts::PI)).cbrt()
 }
 
 /// Cells of the concrete slab around the drywell (`dw_wall_outer`).
@@ -466,7 +539,52 @@ impl Containment {
             layered: false,
             co: Tracer::default(),
             rb_in: 0.0,
+            burn: Burn::default(),
         }
+    }
+
+    /// The building's burn by MELCOR's BUR package (§2.3 to §2.5,
+    /// `Mechanisms::burn_dynamics`). A burn starts when `ignites` and none
+    /// is running: its completeness (Eqs 2-6 to 2-9) sets the `Y` it ends
+    /// at, by the completeness's Le Chatelier formula `Y = X_H2 + X_CO
+    /// XH2CC / XCOCC` (Eq 2-7), and its duration is `CDIM / V` (Eq 2-20).
+    /// Each step burns at `YRATE = (Y - Ymin) / (t0 + t_comb - t)` (Eq
+    /// 2-21), the H2 and CO in proportion (Eqs 2-22, 2-23), capped at what
+    /// is there and at the oxygen; the CO2 made joins the building's tracer
+    /// and the steam made condenses on the cold building (stated, as for the
+    /// drywell's steam). MELCOR gets the pressure rise from its equation of
+    /// state; the building here is held at one atmosphere, so the burn's
+    /// heat is reported as an adiabatic, constant-volume bound, `Q / (c_v V
+    /// / R)` at `c_v = 2.5 R` (air, \[A\]).
+    fn step_burn(&mut self, prm: &Params, ignites: bool, n_rb: f64, x_d: f64, x_o2: f64, dt: f64) {
+        let ratio = prm.bur_xh2cc / prm.bur_xcocc;
+        let y = (self.rb_h2 + self.co.rb[0] * ratio) / n_rb;
+        if self.burn.left_s <= 0.0 && ignites {
+            self.burn.y_min = (1.0 - bur_completeness(prm, y)) * y;
+            self.burn.left_s = bur_cdim(prm.reactor_building_m3) / bur_flame_speed(y, x_d);
+            self.burn.q_j = 0.0;
+            self.exploded = true;
+        }
+        if self.burn.left_s <= 0.0 || y <= 0.0 {
+            return;
+        }
+        let h = dt.min(self.burn.left_s);
+        let burnt = ((y - self.burn.y_min) / self.burn.left_s * h / y).clamp(0.0, 1.0);
+        let mut d_h2 = self.rb_h2 * burnt;
+        let mut d_co = self.co.rb[0] * burnt;
+        let o2 = x_o2.max(0.0) * n_rb;
+        if 0.5 * (d_h2 + d_co) > o2 {
+            let f = o2 / (0.5 * (d_h2 + d_co));
+            d_h2 *= f;
+            d_co *= f;
+        }
+        self.rb_h2 -= d_h2;
+        self.co.rb[0] -= d_co;
+        self.co.rb[1] += d_co;
+        self.burn.o2_used += 0.5 * (d_h2 + d_co);
+        self.burn.q_j += d_h2 * prm.h2_combustion_j_per_mol + d_co * prm.co_combustion_j_per_mol;
+        self.burn.dp_max = self.burn.dp_max.max(self.burn.q_j / (2.5 * prm.reactor_building_m3));
+        self.burn.left_s -= h;
     }
 
     fn dw_moles(&self) -> f64 {
@@ -1355,8 +1473,12 @@ impl Containment {
             // The building is well mixed at atmospheric pressure: incoming
             // non-condensables push out building air at its mixture fraction
             // (the steam condenses on the cold building).
-            if !self.exploded {
+            // (A building that has burnt stops taking gas without
+            // `burn_dynamics`, where the explosion wrecks it; MELCOR's
+            // building goes on.)
+            if !self.exploded || s.burn_dynamics {
                 let n_rb = P_ATM * prm.reactor_building_m3 / (R_GAS * T_RB);
+                self.burn.o2_used -= self.burn.o2_used / n_rb * (dh2 + dn2);
                 let y = self.rb_h2 / n_rb;
                 self.rb_h2 += dh2 - y * (dh2 + dn2);
                 for i in 0..2 {
@@ -1383,10 +1505,12 @@ impl Containment {
         // (its steam condensed on the cold building, stated).
         let x_co = self.co.rb[0] / n_rb;
         let x_co2 = self.co.rb[1] / n_rb;
-        let x_o2 = 0.2095 * (1.0 - self.rb_in / n_rb).max(0.0);
+        let x_o2 = 0.2095 * (1.0 - self.rb_in / n_rb).max(0.0) - self.burn.o2_used / n_rb;
         let ignites = if s.bur_ignition { bur_ignites(prm, y_rb, x_co, x_o2, x_co2) } else { y_rb >= prm.h2_explosion };
         let rb_burn_y = y_rb + x_co * prm.bur_xh2ign / prm.bur_xcoign;
-        if !self.exploded && ignites {
+        if s.burn_dynamics {
+            self.step_burn(prm, ignites, n_rb, x_co2, x_o2, dt);
+        } else if !self.exploded && ignites {
             self.exploded = true;
             self.rb_h2 = 0.0;
             self.co.rb[0] = 0.0;
@@ -1409,6 +1533,8 @@ impl Containment {
             rb_exploded: self.exploded,
             rb_burn_y,
             rb_co_fraction: x_co,
+            rb_burning: self.burn.left_s > 0.0,
+            rb_burn_dp_pa: self.burn.dp_max,
             vented_h2_kg: self.vented_h2_kg,
             vented_kg_s,
             xe_dw: self.xe_dw,
@@ -1649,6 +1775,7 @@ impl Containment {
         w.f(&self.dw_slab);
         w.f(&[self.deep_kg, self.deep_t, b(self.layered)]);
         w.f(&[self.co.dw[0], self.co.dw[1], self.co.ww[0], self.co.ww[1], self.co.rb[0], self.co.rb[1], self.rb_in]);
+        w.f(&[self.burn.left_s, self.burn.y_min, self.burn.o2_used, self.burn.q_j, self.burn.dp_max]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
         self.dw_rn.write(w);
@@ -1714,6 +1841,7 @@ impl Containment {
             layered: false,
             co: Tracer::default(),
             rb_in: 0.0,
+            burn: Burn::default(),
         };
         c.dw_slab = std::array::from_fn(|_| r.f());
         c.deep_kg = r.f();
@@ -1721,6 +1849,7 @@ impl Containment {
         c.layered = r.f() != 0.0;
         c.co = Tracer { dw: [r.f(), r.f()], ww: [r.f(), r.f()], rb: [r.f(), r.f()] };
         c.rb_in = r.f();
+        c.burn = Burn { left_s: r.f(), y_min: r.f(), o2_used: r.f(), q_j: r.f(), dp_max: r.f() };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
         c.dw_rn.read_into(r);
@@ -1783,6 +1912,7 @@ impl ContainmentSnapshot {
             b(self.bur_ignition),
             b(self.gas_choking),
             b(self.two_sided_equalising),
+            b(self.burn_dynamics),
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1843,6 +1973,7 @@ impl ContainmentSnapshot {
             bur_ignition: r.f() != 0.0,
             gas_choking: r.f() != 0.0,
             two_sided_equalising: r.f() != 0.0,
+            burn_dynamics: r.f() != 0.0,
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
@@ -1870,6 +2001,8 @@ impl ContainmentResult {
             b(self.rb_exploded),
             self.rb_burn_y,
             self.rb_co_fraction,
+            b(self.rb_burning),
+            self.rb_burn_dp_pa,
             self.vented_h2_kg,
             self.vented_kg_s,
             self.xe_dw,
@@ -1910,6 +2043,8 @@ impl ContainmentResult {
             rb_exploded: r.f() != 0.0,
             rb_burn_y: r.f(),
             rb_co_fraction: r.f(),
+            rb_burning: r.f() != 0.0,
+            rb_burn_dp_pa: r.f(),
             vented_h2_kg: r.f(),
             vented_kg_s: r.f(),
             xe_dw: r.f(),
@@ -1952,6 +2087,52 @@ mod tests {
         assert!(bur_ignites(&prm, 0.06, 0.0669, 0.2, 0.0) && !bur_ignites(&prm, 0.06, 0.0667, 0.2, 0.0));
         assert!(!bur_ignites(&prm, 0.2, 0.0, 0.049, 0.0));
         assert!(!bur_ignites(&prm, 0.2, 0.0, 0.2, 0.55) && bur_ignites(&prm, 0.2, 0.0, 0.2, 0.549));
+    }
+
+    /// MELCOR's burn (BUR RM §2.3 to §2.5) by hand, in the 26,000 m^3
+    /// building (1.0449e6 mol at 1 atm and 303.15 K; CDIM 18.378 m):
+    /// - 12 % H2, no diluent: `V = 172.88 x 0.12 - 9.576` = 11.170 m/s,
+    ///   `t_comb` = 1.6453 s, the completeness 1.93 clipped to 1. At a 1 s
+    ///   step it burns 1/1.6453 of the H2, then the rest; 1.2539e5 mol
+    ///   gives 3.032e10 J, a bound of `Q / (2.5 V)` = 0.4665 MPa, and uses
+    ///   6.27e4 mol of oxygen.
+    /// - 6 % H2: the completeness `23.4116 (0.06 - 0.03746)` = 0.5277, so
+    ///   it ends at 2.834 %, over `18.378 / 5.344` = 3.439 s.
+    /// - `Cdil` at 20 % diluent: `1 - 0.906 + 0.2148` = 0.3088; at 30 %
+    ///   `Y`, `1 - 1.29 x 0.2` = 0.742.
+    #[test]
+    fn the_building_burns_by_melcors_bur_rates() {
+        let prm = Params::default();
+        assert!((bur_cdim(26_000.0) - 18.378).abs() < 1e-3);
+        assert!((bur_flame_speed(0.12, 0.0) - 11.1696).abs() < 1e-9);
+        assert!((bur_flame_speed(0.12, 0.2) / 11.1696 - 0.3088).abs() < 1e-9);
+        assert!((bur_flame_speed(0.35, 0.2) / (-50.0 * 0.35 + 45.0) - 0.742).abs() < 1e-9);
+        // Eq 2-18 joins Eqs 2-17 and 2-19 at both ends.
+        let lean = bur_flame_speed(0.2, 0.2) / (172.88 * 0.2 - 9.576);
+        assert!((bur_flame_speed(0.200_000_1, 0.2) / (50.0 * 0.200_000_1 + 15.0) - lean).abs() < 1e-5);
+        assert!((bur_completeness(&prm, 0.06) - 0.5277).abs() < 1e-4 && bur_completeness(&prm, 0.03) == 0.0 && bur_completeness(&prm, 0.12) == 1.0);
+        let n_rb = P_ATM * prm.reactor_building_m3 / (R_GAS * T_RB);
+        assert!((n_rb / 1.0449e6 - 1.0).abs() < 1e-4, "{n_rb}");
+        let mut c = Containment::new(&prm);
+        c.rb_h2 = 0.12 * n_rb;
+        c.step_burn(&prm, true, n_rb, 0.0, 0.2095, 1.0);
+        assert!(c.exploded && (c.burn.left_s - 0.6453).abs() < 1e-4, "{:?}", c.burn);
+        assert!((c.rb_h2 / (0.12 * n_rb) - (1.0 - 1.0 / 1.6453)).abs() < 1e-4);
+        c.step_burn(&prm, true, n_rb, 0.0, 0.2095, 1.0);
+        assert!(c.rb_h2.abs() < 1e-6 && c.burn.left_s.abs() < 1e-12, "{} {:?}", c.rb_h2, c.burn);
+        assert!((c.burn.q_j / 3.032e10 - 1.0).abs() < 1e-3 && (c.burn.dp_max / 0.4665e6 - 1.0).abs() < 1e-3, "{:?}", c.burn);
+        assert!((c.burn.o2_used / (0.06 * n_rb) - 1.0).abs() < 1e-9);
+        // Over: a further step burns nothing, though the criterion holds.
+        let mut lean = Containment::new(&prm);
+        lean.rb_h2 = 0.06 * n_rb;
+        for _ in 0..4 {
+            lean.step_burn(&prm, true, n_rb, 0.0, 0.2095, 1.0);
+        }
+        assert!((lean.rb_h2 / n_rb - (1.0 - 0.5277) * 0.06).abs() < 1e-5, "{}", lean.rb_h2 / n_rb);
+        assert!(lean.burn.left_s == 0.0, "{:?}", lean.burn);
+        let before = lean.rb_h2;
+        lean.step_burn(&prm, false, n_rb, 0.0, 0.2095, 1.0);
+        assert_eq!(lean.rb_h2, before);
     }
 
     /// The critical flow (MELCOR Eq 6-13) by hand: nitrogen at 0.8 MPa and

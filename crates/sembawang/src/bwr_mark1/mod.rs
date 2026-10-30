@@ -408,6 +408,12 @@ pub struct Mechanisms {
     /// (COR RM §2.5.9, MARCON 2.1B; at most 2 % of it; 2026-10-30; needs
     /// `control_blades`). Off is inert B4C.
     pub b4c_oxidation: bool,
+    /// A building burn runs MELCOR's combustion completeness, flame speed
+    /// and rate (BUR RM §2.3 to §2.5; 2026-10-30), consuming oxygen and
+    /// making CO2, and reports its pressure rise as an adiabatic bound.
+    /// Off is the burn as one step that removes all of the building's H2
+    /// and CO and wrecks the building (no further inflow).
+    pub burn_dynamics: bool,
 }
 
 impl Default for Mechanisms {
@@ -477,6 +483,7 @@ impl Default for Mechanisms {
             blade_diffusion_limit: true,
             two_sided_equalising: true,
             b4c_oxidation: true,
+            burn_dynamics: true,
         }
     }
 }
@@ -889,6 +896,12 @@ impl Mechanisms {
     /// Inert B4C: before 2026-10-30.
     pub fn without_b4c_oxidation(mut self) -> Self {
         self.b4c_oxidation = false;
+        self
+    }
+
+    /// The burn as one step: before 2026-10-30.
+    pub fn without_burn_dynamics(mut self) -> Self {
+        self.burn_dynamics = false;
         self
     }
 
@@ -1634,6 +1647,7 @@ impl Plant {
                 bur_ignition: self.mechanisms.bur_ignition,
                 gas_choking: self.mechanisms.gas_choking,
                 two_sided_equalising: self.mechanisms.two_sided_equalising,
+                burn_dynamics: self.mechanisms.burn_dynamics,
                 cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
                 cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
                 cav_debris_k: self.last_core.debris_k,
@@ -2419,11 +2433,12 @@ mod tests {
         // pressure from 16.7 h): 0.1120, 1.81e-3, 1.34e-3; with the vent and
         // flange choked: 0.0218, 6.35e-4, 4.01e-4; with the blades' diffusion
         // limit: 0.0217, 6.59e-4, 4.19e-4; with the two-sided equalising:
-        // 0.0283, 7.84e-4, 5.01e-4.
+        // 0.0283, 7.84e-4, 5.01e-4; with the blades' B4C: 0.0263, 6.47e-4,
+        // 4.61e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 7.84e-4).abs() < 1e-5 && (k.xe_ww - 5.01e-4).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.02825).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 6.47e-4).abs() < 1e-5 && (k.xe_ww - 4.61e-4).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.02630).abs() < 1e-5, "{f:?}");
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a
@@ -2431,8 +2446,8 @@ mod tests {
         // 24.8 h; recorded, not adopted). With the vent and flange choked:
         // Y 0.0347, CO 0.0030 (half the gas reaches the building); 0.0345
         // with the blades' diffusion limit; 0.0416, CO 0.0036, with the
-        // two-sided equalising.
-        assert!((k.rb_burn_y - 0.0416).abs() < 1e-4 && (k.rb_co_fraction - 0.0036).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
+        // two-sided equalising; 0.0329, CO 0.0028, with the blades' B4C.
+        assert!((k.rb_burn_y - 0.0329).abs() < 1e-4 && (k.rb_co_fraction - 0.0028).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2448,8 +2463,8 @@ mod tests {
         // oxidising; 0.9889 with the plenum's oxidation steam consumed;
         // 0.9813 with the control blades; 0.9843 with their heat of
         // fusion; 0.8826 with the cavity debris's phases; 0.9749 with the
-        // vent and flange choked; 0.9682 with the two-sided equalising.)
-        assert!((k.xe_vented - 0.9682).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C.)
+        assert!((k.xe_vented - 0.9702).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
