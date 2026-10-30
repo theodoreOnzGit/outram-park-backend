@@ -2520,11 +2520,13 @@ mod tests {
         // 4.61e-4; with the debris falling through the pedestal's water:
         // 0.0263, 6.75e-4, 4.84e-4; with UO2 carried by candling Zr: 0.0231, 4.34e-4,
         // 2.99e-4; with the fresh water from 15:00 h (F13): 0.0231, 4.57e-4,
-        // 3.09e-4.
+        // 3.09e-4; with SPARC's atan and the burn's cbrt through PETIR
+        // (round-off, the run diverging from 23.8 h): 0.02318, 4.94e-4,
+        // 3.38e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.57e-4).abs() < 1e-5 && (k.xe_ww - 3.09e-4).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.02310).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.94e-4).abs() < 1e-5 && (k.xe_ww - 3.38e-4).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.02318).abs() < 1e-5, "{f:?}");
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a
@@ -2550,8 +2552,8 @@ mod tests {
         // oxidising; 0.9889 with the plenum's oxidation steam consumed;
         // 0.9813 with the control blades; 0.9843 with their heat of
         // fusion; 0.8826 with the cavity debris's phases; 0.9749 with the
-        // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C; 0.9735 with UO2 carried by candling Zr.)
-        assert!((k.xe_vented - 0.9735).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C; 0.9735 with UO2 carried by candling Zr; 0.9733 with SPARC's atan through PETIR.)
+        assert!((k.xe_vented - 0.9733).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
