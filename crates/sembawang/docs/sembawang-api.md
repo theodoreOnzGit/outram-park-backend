@@ -4438,6 +4438,7 @@ pub struct ContainmentSnapshot {
     pub pool_layers: bool,
     pub cavity_phases: bool,
     pub bur_ignition: bool,
+    pub gas_choking: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4499,6 +4500,7 @@ pub struct ContainmentSnapshot {
 | `pool_layers` | `bool` | The torus pool in two layers, split at the downcomers' exits<br>(`Mechanisms::pool_layers`). |
 | `cavity_phases` | `bool` | The cavity debris melts over a range and conducts when solid<br>(`Mechanisms::cavity_phases`). |
 | `bur_ignition` | `bool` | The building's burn starts by MELCOR's BUR criteria<br>(`Mechanisms::bur_ignition`). |
+| `gas_choking` | `bool` | Gas flows to the atmosphere are limited to the critical flow<br>(`Mechanisms::gas_choking`). |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -13069,6 +13071,7 @@ pub struct Mechanisms {
     pub blade_fusion: bool,
     pub cavity_phases: bool,
     pub bur_ignition: bool,
+    pub gas_choking: bool,
 }
 ```
 
@@ -13136,6 +13139,7 @@ pub struct Mechanisms {
 | `blade_fusion` | `bool` | A control blade at the steel's melting temperature absorbs its heat<br>of fusion (MELCOR's 2.68e5 J/kg) before it drains, and carries it to<br>the lower plenum (2026-10-30; needs `control_blades`). Off drains it<br>at once at its solid enthalpy. |
 | `cavity_phases` | `bool` | The cavity debris's phases (MELCOR CAV RM §3.3, §3.10; 2026-10-30;<br>needs `mcci`): its oxide melts over an ideal-solution pseudo-binary<br>range with latent heats, and its interior conducts when solid and<br>convects when liquid. Off is one convecting debris without phase<br>change. |
 | `bur_ignition` | `bool` | The reactor building's burn starts by MELCOR's BUR criteria for a<br>volume without igniters (BUR RM §2.2: Le Chatelier with CO, oxygen,<br>steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers<br>in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\]. |
+| `gas_choking` | `bool` | The wetwell vent and the drywell head flange, which discharge to the<br>atmosphere from several bar, pass at most MELCOR's critical gas flow<br>(CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the<br>incompressible orifice passing about twice it at those ratios. Off<br>is the orifice alone. |
 
 ##### Implementations
 
@@ -13435,6 +13439,11 @@ pub struct Mechanisms {
   pub fn without_bur_ignition(self: Self) -> Self { /* ... */ }
   ```
   The building exploding at 8 % hydrogen: before 2026-10-30.
+
+- ```rust
+  pub fn without_gas_choking(self: Self) -> Self { /* ... */ }
+  ```
+  The vent and the flange as incompressible orifices: before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

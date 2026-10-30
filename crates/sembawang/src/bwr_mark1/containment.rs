@@ -197,6 +197,9 @@ pub struct ContainmentSnapshot {
     /// The building's burn starts by MELCOR's BUR criteria
     /// (`Mechanisms::bur_ignition`).
     pub bur_ignition: bool,
+    /// Gas flows to the atmosphere are limited to the critical flow
+    /// (`Mechanisms::gas_choking`).
+    pub gas_choking: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -355,6 +358,21 @@ struct Tracer {
     dw: [f64; 2],
     ww: [f64; 2],
     rb: [f64; 2],
+}
+
+/// The critical (choked) flow of a gas through an orifice, mol/s: MELCOR's
+/// sonic flux at the donor's stagnation state (CVH/FL RM §6.3, Eq 6-13),
+/// `G = rho c_s (2/(g+1))^((g+1)/(2(g-1)))` with the multiplier at
+/// MELCOR's nominal `g = 1.4` (0.5787), times the path's discharge
+/// coefficient and area. The sound speed from the donor's own `g`:
+/// diatomic gases at `c_v = 2.5 R`, steam at `3.15 R` (stated), by mole
+/// fraction (`x_steam`); `molar` its molar mass, kg/mol.
+pub(crate) fn critical_moles(cd: f64, area: f64, p: f64, t: f64, molar: f64, x_steam: f64) -> f64 {
+    let cv = (1.0 - x_steam) * 2.5 + x_steam * 3.15;
+    let gamma = (cv + 1.0) / cv;
+    let rho = p * molar / (R_GAS * t);
+    let c_s = (gamma * R_GAS * t / molar).sqrt();
+    cd * area * rho * c_s * 0.578_7 / molar
 }
 
 /// MELCOR's BUR ignition test for a volume without igniters (BUR RM §2.2,
@@ -1145,7 +1163,11 @@ impl Containment {
             let n_all = self.ww_moles();
             let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + self.ww_steam_kg) / n_all;
             let rho = p_ww * molar / (R_GAS * self.ww_t);
-            let n_flow = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            let mut n_flow = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            if s.gas_choking {
+                let x_s = self.ww_steam_kg / M_H2O / n_all;
+                n_flow = n_flow.min(critical_moles(prm.discharge_coefficient, prm.vent_area_m2, p_ww, self.ww_t, molar, x_s) * dt);
+            }
             let f = (n_flow / n_all).min((p_ww - P_ATM) / p_ww);
             let dh2 = self.ww_h2 * f;
             let dxe = self.xe_ww * f;
@@ -1181,7 +1203,10 @@ impl Containment {
             let n_sv = p_s * v / (R_GAS * self.pool_t);
             let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + n_sv * M_H2O) / (n_g + n_sv);
             let rho = p_ww * molar / (R_GAS * self.pool_t);
-            let n_flow = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            let mut n_flow = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            if s.gas_choking {
+                n_flow = n_flow.min(critical_moles(prm.discharge_coefficient, prm.vent_area_m2, p_ww, self.pool_t, molar, x_s) * dt);
+            }
             // Non-condensables: their share, at most the equalising amount.
             let p_nc = p_ww - p_s;
             let n_nc = if n_g > 0.0 { (n_flow * (1.0 - x_s)).min(n_g * ((p_ww - P_ATM) / p_nc).min(1.0)) } else { 0.0 };
@@ -1228,7 +1253,10 @@ impl Containment {
             let p_nc = n_g * R_GAS * self.pool_t / prm.wetwell_gas_m3;
             let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2) / n_g.max(1e-30);
             let rho = p_ww * molar / (R_GAS * self.pool_t);
-            let orifice = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            let mut orifice = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            if s.gas_choking && n_g > 0.0 {
+                orifice = orifice.min(critical_moles(prm.discharge_coefficient, prm.vent_area_m2, p_ww, self.pool_t, molar, 0.0) * dt);
+            }
             // Equalising amount of non-condensables, the steam partial
             // pressure being held by the pool.
             let n = orifice.min(n_g * ((p_ww - P_ATM) / p_nc).min(1.0));
@@ -1270,7 +1298,11 @@ impl Containment {
             let n_dw = self.dw_moles();
             let molar = (self.dw_n2 * M_N2 + self.dw_h2 * M_H2 + self.dw_steam_kg) / n_dw;
             let rho = p_dw * molar / (R_GAS * self.dw_t);
-            let orifice = prm.discharge_coefficient * prm.flange_leak_m2 * (2.0 * rho * (p_dw - P_ATM)).sqrt() * dt / molar;
+            let mut orifice = prm.discharge_coefficient * prm.flange_leak_m2 * (2.0 * rho * (p_dw - P_ATM)).sqrt() * dt / molar;
+            if s.gas_choking {
+                let x_s = self.dw_steam_kg / M_H2O / n_dw;
+                orifice = orifice.min(critical_moles(prm.discharge_coefficient, prm.flange_leak_m2, p_dw, self.dw_t, molar, x_s) * dt);
+            }
             let n = orifice.min(n_dw * (p_dw - P_ATM) / p_dw);
             let f = n / n_dw;
             let dh2 = self.dw_h2 * f;
@@ -1721,6 +1753,7 @@ impl ContainmentSnapshot {
             b(self.pool_layers),
             b(self.cavity_phases),
             b(self.bur_ignition),
+            b(self.gas_choking),
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1779,6 +1812,7 @@ impl ContainmentSnapshot {
             pool_layers: r.f() != 0.0,
             cavity_phases: r.f() != 0.0,
             bur_ignition: r.f() != 0.0,
+            gas_choking: r.f() != 0.0,
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
@@ -1888,6 +1922,19 @@ mod tests {
         assert!(bur_ignites(&prm, 0.06, 0.0669, 0.2, 0.0) && !bur_ignites(&prm, 0.06, 0.0667, 0.2, 0.0));
         assert!(!bur_ignites(&prm, 0.2, 0.0, 0.049, 0.0));
         assert!(!bur_ignites(&prm, 0.2, 0.0, 0.2, 0.55) && bur_ignites(&prm, 0.2, 0.0, 0.2, 0.549));
+    }
+
+    /// The critical flow (MELCOR Eq 6-13) by hand: nitrogen at 0.8 MPa and
+    /// 450 K (rho 5.99 kg/m^3, c_s 432.4 m/s) through 5e-4 m^2 with Cd 0.6:
+    /// `0.6 x 5e-4 x 5.99 x 432.4 x 0.5787` = 0.4497 kg/s, 16.05 mol/s,
+    /// about half the incompressible orifice's 0.88 kg/s at that ratio.
+    #[test]
+    fn a_leak_to_the_atmosphere_chokes() {
+        let n = critical_moles(0.6, 5e-4, 0.8e6, 450.0, M_N2, 0.0);
+        assert!((n * M_N2 / 0.4497 - 1.0).abs() < 2e-3, "{}", n * M_N2);
+        let rho = 0.8e6 * M_N2 / (R_GAS * 450.0);
+        let incompressible = 0.6 * 5e-4 * (2.0 * rho * (0.8e6 - 1.0133e5)).sqrt();
+        assert!(incompressible / (n * M_N2) > 1.9 && incompressible / (n * M_N2) < 2.0, "{incompressible}");
     }
 
     /// At rest the containment stays at its initial pressure.

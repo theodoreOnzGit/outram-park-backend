@@ -386,6 +386,12 @@ pub struct Mechanisms {
     /// steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers
     /// in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\].
     pub bur_ignition: bool,
+    /// The wetwell vent and the drywell head flange, which discharge to the
+    /// atmosphere from several bar, pass at most MELCOR's critical gas flow
+    /// (CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the
+    /// incompressible orifice passing about twice it at those ratios. Off
+    /// is the orifice alone.
+    pub gas_choking: bool,
 }
 
 impl Default for Mechanisms {
@@ -451,6 +457,7 @@ impl Default for Mechanisms {
             blade_fusion: true,
             cavity_phases: true,
             bur_ignition: true,
+            gas_choking: true,
         }
     }
 }
@@ -837,6 +844,13 @@ impl Mechanisms {
     /// The building exploding at 8 % hydrogen: before 2026-10-30.
     pub fn without_bur_ignition(mut self) -> Self {
         self.bur_ignition = false;
+        self
+    }
+
+    /// The vent and the flange as incompressible orifices: before
+    /// 2026-10-30.
+    pub fn without_gas_choking(mut self) -> Self {
+        self.gas_choking = false;
         self
     }
 
@@ -1580,6 +1594,7 @@ impl Plant {
                 pool_layers: self.mechanisms.pool_layers,
                 cavity_phases: self.mechanisms.cavity_phases,
                 bur_ignition: self.mechanisms.bur_ignition,
+                gas_choking: self.mechanisms.gas_choking,
                 cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
                 cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
                 cav_debris_k: self.last_core.debris_k,
@@ -2346,17 +2361,19 @@ mod tests {
         // with the control blades: 1.62e-2, 2.11e-4, 2.02e-4; with the
         // blades' heat of fusion: 1.31e-2, 1.82e-4, 1.69e-4; with the cavity
         // debris's phases (MCCI gas holding the drywell at the flange's
-        // pressure from 16.7 h): 0.1120, 1.81e-3, 1.34e-3.
+        // pressure from 16.7 h): 0.1120, 1.81e-3, 1.34e-3; with the vent and
+        // flange choked: 0.0218, 6.35e-4, 4.01e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 1.813e-3).abs() < 1e-5 && (k.xe_ww - 1.337e-3).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.11200).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 6.35e-4).abs() < 1e-5 && (k.xe_ww - 4.01e-4).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.02184).abs() < 1e-5, "{f:?}");
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a
         // volume with igniters between 24 and 26 h (the explosion came at
-        // 24.8 h; recorded, not adopted).
-        assert!((k.rb_burn_y - 0.0714).abs() < 1e-4 && (k.rb_co_fraction - 0.0049).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
+        // 24.8 h; recorded, not adopted). With the vent and flange choked:
+        // Y 0.0347, CO 0.0030 (half the gas reaches the building).
+        assert!((k.rb_burn_y - 0.0347).abs() < 1e-4 && (k.rb_co_fraction - 0.0030).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2371,8 +2388,9 @@ mod tests {
         // with the pool in two layers; 0.9891 with the plate's debris
         // oxidising; 0.9889 with the plenum's oxidation steam consumed;
         // 0.9813 with the control blades; 0.9843 with their heat of
-        // fusion; 0.8826 with the cavity debris's phases.)
-        assert!((k.xe_vented - 0.8826).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // fusion; 0.8826 with the cavity debris's phases; 0.9749 with the
+        // vent and flange choked.)
+        assert!((k.xe_vented - 0.9749).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
