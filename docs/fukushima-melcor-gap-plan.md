@@ -323,7 +323,9 @@ except the control volumes"). Checked against the rows above and the code:
   source held. The BSAF full report (L9) is not held, and TEPCO data (L8)
   awaits a data-policy ruling. Picking a value to match the measured
   pressure would be calibration, so it waits on literature. F12's leak paths
-  and the 500 h run are in.
+  and the 500 h run are in. **Deferred, maintainer decision 2026-10-30**:
+  out of scope for this goal, tracked on #1043 until L8 is ruled on or L9
+  is held. No value is to be fitted in the meantime.
 - ~~**F13** (the input and event-time check) is blocked on L4-L9 (§4).~~
   **CORRECTED 2026-10-30: partly done.** The open NRC HRTD chapter 7.1
   (`theodore-open-corpus/nrc/nrc-hrtd-ge-bwr4-atm-ch7.1-fukushima.pdf`,
@@ -337,7 +339,10 @@ except the control volumes"). Checked against the rows above and the code:
   not resolved, because INPO's report is not held. The IC cycling (15:17)
   and the water running out (14:53) are still unsourced. The NRC gives the
   building as about 1.5e6 ft³ for a BWR-4 generally; noted, not adopted
-  for Unit 1. The rest of F13 (the inputs L4-L9 would give) stays blocked.
+  for Unit 1. The rest of F13 (the inputs L4-L9 would give) is **deferred,
+  maintainer decision 2026-10-30**: out of scope for this goal, tracked on
+  #1044 until that literature is held (L4 is public but its host is blocked
+  from this environment; L5-L7 and L9 are private).
 - **F14** (Units 2 and 3) needs the control-volume equation of state, which
   is excluded from this goal: the thermal hydraulics are to be partitioned
   into `tampines` and `outram-foam`.
