@@ -14130,9 +14130,23 @@ BSAF Phase II (`crates/kovan-literature/derived/nea7525-bsaf-fukushima-daiichi-b
   "manually vented ≈24 h" (vent closure 24.68 h, a BSAF boundary
   condition this sequence does not have).
 
-The other five times (IC stop, IC cycling, station blackout, the three
+~~The other five times (IC stop, IC cycling, station blackout, the three
 injection changes) have no BSAF anchor and stay `[U]` until checked
-against INPO 11-005, IAEA TV1 or the Japanese government report (#1031).
+against INPO 11-005, IAEA TV1 or the Japanese government report
+(#1031).~~ **CORRECTED 2026-10-30 (gh:#1044, F13)**: checked against the
+NRC's open training chapter, *Fukushima Dai-ichi Earthquake and Tsunami
+Event* (USNRC HRTD, GE BWR/4 Advanced Technology, ch. 7.1, Table 7.1-2;
+`reactor-literature/theodore-open-corpus/nrc/`):
+- IC stop 15:03, vent 14:30, explosion 15:36 and seawater 19:04
+  **agree** to the minute;
+- fresh-water injection: the NRC's 05:46, 15 h 00 min after the scram,
+  is the label's own time, but the event fired at 14 h 59 min (a
+  defect, label and code disagreeing). **Fixed to 15.0 h**;
+- the station blackout: the NRC lists the loss of all AC and DC at about
+  15:41 (00:55); this model keeps INPO's 15:37 as recalled. The sources
+  disagree by 4 min, **not resolved** (INPO 11-005 is not held);
+- IC cycling at 15:17 and the fresh water exhausted at 14:53: not in
+  the NRC table, still `[U]`.
 
 ```rust
 pub struct Event {

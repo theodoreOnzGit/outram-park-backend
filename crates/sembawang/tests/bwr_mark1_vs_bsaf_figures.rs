@@ -647,7 +647,9 @@ fn cesium_137_release_against_fig_5_1() {
     // the cavity debris's phases (the flange open from 16.7 h); -> 0.0977,
     // 0.0066, with the vent and flange choked; -> 0.0755 with the two-sided
     // equalising; -> 0.0956 with the blades' B4C; -> 0.0748, the rate
-    // inside the envelope 0.0044, with UO2 carried by candling Zr.
+    // inside the envelope 0.0044, with UO2 carried by candling Zr; 0.0748,
+    // the rate inside 0.0044 -> 0.0066, with the fresh water from 15:00 h
+    // (F13, the vented flow differs by a few grid hours).
     assert!((total_pbq - 0.0748).abs() < 1e-3 && (at(26.0) - 0.0748).abs() < 1e-3, "{total_pbq}");
-    assert!((env.0 - 0.0044).abs() < 1e-3 && env.1 == 454, "{env:?}");
+    assert!((env.0 - 0.0066).abs() < 1e-3 && env.1 == 454, "{env:?}");
 }

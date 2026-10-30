@@ -324,7 +324,20 @@ except the control volumes"). Checked against the rows above and the code:
   awaits a data-policy ruling. Picking a value to match the measured
   pressure would be calibration, so it waits on literature. F12's leak paths
   and the 500 h run are in.
-- **F13** (the input and event-time check) is blocked on L4-L9 (§4).
+- ~~**F13** (the input and event-time check) is blocked on L4-L9 (§4).~~
+  **CORRECTED 2026-10-30: partly done.** The open NRC HRTD chapter 7.1
+  (`theodore-open-corpus/nrc/nrc-hrtd-ge-bwr4-atm-ch7.1-fukushima.pdf`,
+  Table 7.1-2) gives the event times, 400 assemblies and 1380 MWt. Checked
+  against the `EVENTS` table: the IC stop, the vent, the explosion and the
+  seawater injection agree to the minute. The fresh-water injection began
+  at 14:59 h against its own label and the NRC's 15:00 h; fixed (the
+  pins moved by about 1e-4 MPa in peak pressure, recorded in
+  `compare::the_uncalibrated_baseline_is_pinned`). The station blackout
+  is 15:37 in the table (INPO, recalled) against about 15:41 in the NRC;
+  not resolved, because INPO's report is not held. The IC cycling (15:17)
+  and the water running out (14:53) are still unsourced. The NRC gives the
+  building as about 1.5e6 ft³ for a BWR-4 generally; noted, not adopted
+  for Unit 1. The rest of F13 (the inputs L4-L9 would give) stays blocked.
 - **F14** (Units 2 and 3) needs the control-volume equation of state, which
   is excluded from this goal: the thermal hydraulics are to be partitioned
   into `tampines` and `outram-foam`.

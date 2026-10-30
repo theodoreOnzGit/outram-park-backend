@@ -2519,10 +2519,11 @@ mod tests {
         // 0.0283, 7.84e-4, 5.01e-4; with the blades' B4C: 0.0263, 6.47e-4,
         // 4.61e-4; with the debris falling through the pedestal's water:
         // 0.0263, 6.75e-4, 4.84e-4; with UO2 carried by candling Zr: 0.0231, 4.34e-4,
-        // 2.99e-4.
+        // 2.99e-4; with the fresh water from 15:00 h (F13): 0.0231, 4.57e-4,
+        // 3.09e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.34e-4).abs() < 1e-5 && (k.xe_ww - 2.99e-4).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.57e-4).abs() < 1e-5 && (k.xe_ww - 3.09e-4).abs() < 1e-5, "{f:?}");
         assert!((k.xe_building - 0.02310).abs() < 1e-5, "{f:?}");
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a

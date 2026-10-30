@@ -1320,6 +1320,18 @@ mod tests {
     /// `molten_pool`): the plenum's debris stays below the 2800 K eutectic
     /// before the head fails, so nothing moves (predicted).
     ///
+    /// 2026-10-30, an input corrected, not a mechanism (F13, gh:#1044):
+    /// the fresh-water injection began at 14:59 h, against its own label
+    /// (05:46 on 12 March) and the NRC HRTD's Table 7.1-2, both 15:00 h
+    /// after the scram. The run is byte-identical to 15.0 h (predicted:
+    /// before 14.98 h). After it: peak 0.81307607 -> 0.81294607 MPa, head,
+    /// depressurisation, H2 and UO2 unchanged (predicted: H2 within 1 kg,
+    /// the vent unchanged; held). Every earlier model reproduced below
+    /// carries the same input, so their pins moved with it, in the same
+    /// commit: peaks by -0.0003 to +0.0004 MPa, the vent times of the
+    /// four runs that open it after 23.73 h by +0.009 to +0.011 h, one H2 by 0.02
+    /// kg. No ablation: the old time was an input error, not a model.
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -1345,122 +1357,122 @@ mod tests {
         assert!(near(m.lower_head_h, 5.4839, 0.001), "{m:?}");
         assert!(near(m.depressurised_h, 4.9578, 0.001), "{m:?}");
         assert!((m.h2_25h_kg - 470.75).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.81307607).abs() < 1e-8 && (m.uo2_released_25h_kg - 2.672).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.81294607).abs() < 1e-8 && (m.uo2_released_25h_kg - 2.672).abs() < 0.01, "{m:?}");
         // The Zr candling alone: the previous baseline, exactly.
         let uc = measure(Mechanisms::default().without_uo2_candling().without_molten_pool());
         assert!(near(uc.lower_head_h, 5.3433, 0.001) && near(uc.depressurised_h, 5.0544, 0.001) && (uc.h2_25h_kg - 459.87).abs() < 0.01, "{uc:?}");
-        assert!((uc.p_dw_peak_mpa - 0.78577510).abs() < 1e-8 && (uc.uo2_released_25h_kg - 2.684).abs() < 0.01, "{uc:?}");
+        assert!((uc.p_dw_peak_mpa - 0.78570739).abs() < 1e-8 && (uc.uo2_released_25h_kg - 2.684).abs() < 0.01, "{uc:?}");
         // Debris landing at the core's temperature: the previous baseline,
         // exactly (the burn dynamics do not act: nothing ignites).
         let fd = measure(Mechanisms::default().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(fd.lower_head_h, 5.3433, 0.001) && (fd.h2_25h_kg - 459.87).abs() < 0.01, "{fd:?}");
-        assert!((fd.p_dw_peak_mpa - 0.78578881).abs() < 1e-8 && (fd.uo2_released_25h_kg - 2.684).abs() < 0.01, "{fd:?}");
+        assert!((fd.p_dw_peak_mpa - 0.78572089).abs() < 1e-8 && (fd.uo2_released_25h_kg - 2.684).abs() < 0.01, "{fd:?}");
         // Inert B4C: the previous baseline, exactly.
         let bc = measure(Mechanisms::default().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(bc.lower_head_h, 5.4036, 0.001) && (bc.h2_25h_kg - 479.93).abs() < 0.01, "{bc:?}");
-        assert!((bc.p_dw_peak_mpa - 0.80577760).abs() < 1e-8 && (bc.uo2_released_25h_kg - 2.877).abs() < 0.01, "{bc:?}");
+        assert!((bc.p_dw_peak_mpa - 0.80564874).abs() < 1e-8 && (bc.uo2_released_25h_kg - 2.877).abs() < 0.01, "{bc:?}");
         // The one-sided equalising cap: the previous baseline, exactly.
         let eq = measure(Mechanisms::default().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(eq.lower_head_h, 5.2381, 0.001) && (eq.h2_25h_kg - 448.16).abs() < 0.01, "{eq:?}");
-        assert!((eq.p_dw_peak_mpa - 0.80291028).abs() < 1e-8 && (eq.uo2_released_25h_kg - 2.890).abs() < 0.01, "{eq:?}");
+        assert!((eq.p_dw_peak_mpa - 0.80281650).abs() < 1e-8 && (eq.uo2_released_25h_kg - 2.890).abs() < 0.01, "{eq:?}");
         // The blades' steel without the diffusion limit: the previous
         // baseline, exactly.
         let bd = measure(Mechanisms::default().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(bd.lower_head_h, 5.2403, 0.001) && (bd.h2_25h_kg - 449.03).abs() < 0.01, "{bd:?}");
-        assert!((bd.p_dw_peak_mpa - 0.80352739).abs() < 1e-8 && (bd.uo2_released_25h_kg - 2.891).abs() < 0.01, "{bd:?}");
+        assert!((bd.p_dw_peak_mpa - 0.80343209).abs() < 1e-8 && (bd.uo2_released_25h_kg - 2.891).abs() < 0.01, "{bd:?}");
         // The vent and the flange as incompressible orifices: the previous
         // baseline, exactly (the BUR ignition changes nothing in this run).
         let gc = measure(Mechanisms::default().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((gc.p_dw_peak_mpa - 0.74999700).abs() < 1e-8 && (gc.h2_25h_kg - 449.03).abs() < 0.01, "{gc:?}");
+        assert!((gc.p_dw_peak_mpa - 0.74999790).abs() < 1e-8 && (gc.h2_25h_kg - 449.03).abs() < 0.01, "{gc:?}");
         // The cavity debris convecting without phase change: the previous
         // baseline, exactly.
         let cp2 = measure(Mechanisms::default().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(cp2.lower_head_h, 5.2403, 0.001) && (cp2.h2_25h_kg - 449.03).abs() < 0.01, "{cp2:?}");
-        assert!((cp2.p_dw_peak_mpa - 0.81434262).abs() < 1e-8, "{cp2:?}");
+        assert!((cp2.p_dw_peak_mpa - 0.81414911).abs() < 1e-8, "{cp2:?}");
         // The blade drained at once at its solid enthalpy: the previous
         // baseline, exactly.
         let bf = measure(Mechanisms::default().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(bf.lower_head_h, 5.4506, 0.001) && near(bf.depressurised_h, 5.1678, 0.001), "{bf:?}");
-        assert!((bf.h2_25h_kg - 474.93).abs() < 0.01 && (bf.p_dw_peak_mpa - 0.81957198).abs() < 1e-8, "{bf:?}");
+        assert!((bf.h2_25h_kg - 474.93).abs() < 0.01 && (bf.p_dw_peak_mpa - 0.81937567).abs() < 1e-8, "{bf:?}");
         // A core without control blades: the previous baseline, exactly.
         let cb = measure(Mechanisms::default().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(cb.lower_head_h, 4.5914, 0.001) && (cb.h2_25h_kg - 247.99).abs() < 0.01, "{cb:?}");
-        assert!((cb.p_dw_peak_mpa - 0.96498045).abs() < 1e-8 && (cb.uo2_released_25h_kg - 5.052).abs() < 0.01, "{cb:?}");
+        assert!((cb.p_dw_peak_mpa - 0.96492152).abs() < 1e-8 && (cb.uo2_released_25h_kg - 5.052).abs() < 0.01, "{cb:?}");
         // The lower plenum's oxidation steam rising into the core as well
         // (the defect): the previous baseline, exactly.
         let ls = measure(Mechanisms::default().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!(near(ls.lower_head_h, 4.5914, 0.001) && (ls.h2_25h_kg - 252.87).abs() < 0.01, "{ls:?}");
-        assert!((ls.p_dw_peak_mpa - 0.96523341).abs() < 1e-8 && (ls.uo2_released_25h_kg - 4.630).abs() < 0.01, "{ls:?}");
+        assert!(near(ls.lower_head_h, 4.5914, 0.001) && (ls.h2_25h_kg - 252.89).abs() < 0.01, "{ls:?}");
+        assert!((ls.p_dw_peak_mpa - 0.96518318).abs() < 1e-8 && (ls.uo2_released_25h_kg - 4.630).abs() < 0.01, "{ls:?}");
         // The debris on the plate inert: the previous baseline, exactly.
         let po = measure(Mechanisms::default().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(po.lower_head_h, 4.5914, 0.001) && (po.h2_25h_kg - 256.41).abs() < 0.01, "{po:?}");
-        assert!((po.p_dw_peak_mpa - 0.96464924).abs() < 1e-8 && (po.uo2_released_25h_kg - 4.525).abs() < 0.01, "{po:?}");
+        assert!((po.p_dw_peak_mpa - 0.96458444).abs() < 1e-8 && (po.uo2_released_25h_kg - 4.525).abs() < 0.01, "{po:?}");
         // One well-mixed pool: the previous baseline, exactly.
         let pl = measure(Mechanisms::default().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(pl.lower_head_h, 4.5900, 0.001) && (pl.h2_25h_kg - 253.50).abs() < 0.01, "{pl:?}");
-        assert!((pl.p_dw_peak_mpa - 0.75497232).abs() < 1e-8 && (pl.uo2_released_25h_kg - 4.647).abs() < 0.01, "{pl:?}");
+        assert!((pl.p_dw_peak_mpa - 0.75526831).abs() < 1e-8 && (pl.uo2_released_25h_kg - 4.647).abs() < 0.01, "{pl:?}");
         // One plate under the whole core: the previous baseline, exactly.
         let rp = measure(Mechanisms::default().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(rp.lower_head_h, 5.9828, 0.001) && near(rp.depressurised_h, 5.2419, 0.001), "{rp:?}");
-        assert!((rp.h2_25h_kg - 296.36).abs() < 0.01 && (rp.p_dw_peak_mpa - 0.56079567).abs() < 1e-8, "{rp:?}");
-        assert!((rp.uo2_released_25h_kg - 2.847).abs() < 0.01 && near(rp.vent_h, 24.1631, 0.001), "{rp:?}");
+        assert!((rp.h2_25h_kg - 296.36).abs() < 0.01 && (rp.p_dw_peak_mpa - 0.56078474).abs() < 1e-8, "{rp:?}");
+        assert!((rp.uo2_released_25h_kg - 2.847).abs() < 0.01 && near(rp.vent_h, 24.1731, 0.001), "{rp:?}");
         // The bottom of the core exchanging nothing: the previous
         // baseline, exactly.
         let br = measure(Mechanisms::default().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(br.lower_head_h, 5.0003, 0.001) && near(br.depressurised_h, 5.0003, 0.001), "{br:?}");
-        assert!((br.h2_25h_kg - 183.59).abs() < 0.01 && (br.p_dw_peak_mpa - 0.64073627).abs() < 1e-8, "{br:?}");
+        assert!((br.h2_25h_kg - 183.59).abs() < 0.01 && (br.p_dw_peak_mpa - 0.64108335).abs() < 1e-8, "{br:?}");
         // No core-plate holdup: the previous baseline, exactly.
         let cp = measure(Mechanisms::default().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(cp.lower_head_h, 4.6225, 0.001) && (cp.h2_25h_kg - 226.71).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.68842913).abs() < 1e-8 && (cp.uo2_released_25h_kg - 6.598).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.68876900).abs() < 1e-8 && (cp.uo2_released_25h_kg - 6.598).abs() < 0.01, "{cp:?}");
         // The structures adiabatic outside: the previous baseline, exactly.
         let wo = measure(Mechanisms::default().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((wo.p_dw_peak_mpa - 0.77350757).abs() < 1e-8 && (wo.h2_25h_kg - 226.85).abs() < 0.01, "{wo:?}");
+        assert!((wo.p_dw_peak_mpa - 0.77374553).abs() < 1e-8 && (wo.h2_25h_kg - 226.85).abs() < 0.01, "{wo:?}");
         // No core-concrete interaction: the previous baseline, exactly.
         let mc = measure(Mechanisms::default().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((mc.p_dw_peak_mpa - 0.56765688).abs() < 1e-8 && (mc.uo2_released_25h_kg - 6.598).abs() < 0.01, "{mc:?}");
+        assert!((mc.p_dw_peak_mpa - 0.56752877).abs() < 1e-8 && (mc.uo2_released_25h_kg - 6.598).abs() < 0.01, "{mc:?}");
         // No view across emptied cells: the previous baseline, exactly.
         let st = measure(Mechanisms::default().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((st.h2_25h_kg - 226.81).abs() < 0.01 && (st.p_dw_peak_mpa - 0.56772094).abs() < 1e-8, "{st:?}");
+        assert!((st.h2_25h_kg - 226.81).abs() < 0.01 && (st.p_dw_peak_mpa - 0.56759273).abs() < 1e-8, "{st:?}");
         // The top of the core exchanging nothing: the previous baseline,
         // exactly.
         let tr = measure(Mechanisms::default().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((tr.h2_25h_kg - 227.86).abs() < 0.01 && (tr.p_dw_peak_mpa - 0.57458213).abs() < 1e-8, "{tr:?}");
+        assert!((tr.h2_25h_kg - 227.86).abs() < 0.01 && (tr.p_dw_peak_mpa - 0.57444118).abs() < 1e-8, "{tr:?}");
         // The internals not radiating: the previous baseline, exactly.
         let ir = measure(Mechanisms::default().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(ir.lower_head_h, 4.6236, 0.001) && (ir.h2_25h_kg - 228.61).abs() < 0.01, "{ir:?}");
-        assert!((ir.p_dw_peak_mpa - 0.57523829).abs() < 1e-8, "{ir:?}");
+        assert!((ir.p_dw_peak_mpa - 0.57509728).abs() < 1e-8, "{ir:?}");
         // No RPV wall: the previous baseline, exactly.
         let rw = measure(Mechanisms::default().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(rw.lower_head_h, 4.5558, 0.001) && (rw.h2_25h_kg - 253.13).abs() < 0.01, "{rw:?}");
-        assert!((rw.p_dw_peak_mpa - 0.58660172).abs() < 1e-8 && (rw.uo2_released_25h_kg - 4.891).abs() < 0.01, "{rw:?}");
+        assert!((rw.p_dw_peak_mpa - 0.58645924).abs() < 1e-8 && (rw.uo2_released_25h_kg - 4.891).abs() < 0.01, "{rw:?}");
         // The drywell's condensate leaving the model: the previous
         // baseline, exactly.
         let cf = measure(Mechanisms::default().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((cf.p_dw_peak_mpa - 0.56658590).abs() < 1e-8, "{cf:?}");
+        assert!((cf.p_dw_peak_mpa - 0.56644822).abs() < 1e-8, "{cf:?}");
         // The relief valves' hydrogen at the pool's temperature: the
         // previous baseline, exactly.
         let rh = measure(Mechanisms::default().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((rh.p_dw_peak_mpa - 0.56640504).abs() < 1e-8, "{rh:?}");
+        assert!((rh.p_dw_peak_mpa - 0.56626745).abs() < 1e-8, "{rh:?}");
         // Drywell outflows at internal energy: the previous baseline, exactly.
         let of = measure(Mechanisms::default().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((of.p_dw_peak_mpa - 0.56079765).abs() < 1e-8 && near(of.vent_h, 24.0133, 0.001), "{of:?}");
+        assert!((of.p_dw_peak_mpa - 0.56079842).abs() < 1e-8 && near(of.vent_h, 24.0225, 0.001), "{of:?}");
         // No torus shell: the previous baseline, exactly.
         let sh = measure(Mechanisms::default().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((sh.p_dw_peak_mpa - 0.56079836).abs() < 1e-8 && near(sh.vent_h, 23.8872, 0.001), "{sh:?}");
+        assert!((sh.p_dw_peak_mpa - 0.56079693).abs() < 1e-8 && near(sh.vent_h, 23.8961, 0.001), "{sh:?}");
         // The drywell structures with the fixed coefficient: the previous
         // baseline, exactly.
         let hs = measure(Mechanisms::default().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
-        assert!((hs.p_dw_peak_mpa - 0.56194352).abs() < 1e-8 && near(hs.vent_h, 23.7336, 0.001), "{hs:?}");
+        assert!((hs.p_dw_peak_mpa - 0.56182913).abs() < 1e-8 && near(hs.vent_h, 23.7336, 0.001), "{hs:?}");
         // The wetwell gas at the pool's temperature, saturated: the previous
         // baseline, exactly.
         let wa = measure(Mechanisms::default().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(wa.lower_head_h, 4.5558, 0.001) && (wa.h2_25h_kg - 253.13).abs() < 0.01, "{wa:?}");
-        assert!((wa.p_dw_peak_mpa - 0.58862947).abs() < 1e-8 && near(wa.vent_h, 23.7336, 0.001), "{wa:?}");
+        assert!((wa.p_dw_peak_mpa - 0.58849132).abs() < 1e-8 && near(wa.vent_h, 23.7336, 0.001), "{wa:?}");
         // The failed vessel keeping its water: the previous baseline, exactly.
         let dr = measure(Mechanisms::default().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(dr.lower_head_h, 4.5558, 0.001) && (dr.h2_25h_kg - 253.13).abs() < 0.01, "{dr:?}");
-        assert!((dr.p_dw_peak_mpa - 0.58922450).abs() < 1e-8 && (dr.fp_released_25h - 0.9955).abs() < 1e-4, "{dr:?}");
+        assert!((dr.p_dw_peak_mpa - 0.58908694).abs() < 1e-8 && (dr.fp_released_25h - 0.9955).abs() < 1e-4, "{dr:?}");
         // Vent 23.7336 -> 24.1631 h and UO2 6.487 -> 2.847 kg with the
         // bottom of the core's radiation; back to 23.7336 h, UO2 4.647 kg,
         // with a plate per ring (2026-10-29). Release 0.9977 -> 0.9973 and
@@ -1472,7 +1484,7 @@ mod tests {
         // level by the time the plenum dries).
         let wh = measure(Mechanisms::default().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(wh.lower_head_h, 4.7364, 0.001) && near(wh.depressurised_h, 4.6206, 0.001), "{wh:?}");
-        assert!((wh.h2_25h_kg - 395.54).abs() < 0.01 && (wh.p_dw_peak_mpa - 0.72921107).abs() < 1e-8, "{wh:?}");
+        assert!((wh.h2_25h_kg - 395.54).abs() < 0.01 && (wh.p_dw_peak_mpa - 0.72905529).abs() < 1e-8, "{wh:?}");
         assert!((wh.fp_released_25h - 0.9978).abs() < 1e-4 && (wh.uo2_released_25h_kg - 3.949).abs() < 0.01, "{wh:?}");
         // Wet contact without the coverage: the head fails at the first
         // debris (diagnostic on the current model, pinned: 3.5539 h and
@@ -1505,37 +1517,37 @@ mod tests {
         // MELCOR's quench off: the baseline before it, exactly.
         let dq = measure(Mechanisms::default().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(dq.lower_head_h, 5.3144, 0.001) && near(dq.depressurised_h, 4.5206, 0.001), "{dq:?}");
-        assert!((dq.h2_25h_kg - 441.97).abs() < 0.01 && (dq.p_dw_peak_mpa - 0.70450517).abs() < 1e-8, "{dq:?}");
+        assert!((dq.h2_25h_kg - 441.97).abs() < 0.01 && (dq.p_dw_peak_mpa - 0.70433624).abs() < 1e-8, "{dq:?}");
         assert!((dq.fp_released_25h - 0.9911).abs() < 1e-4 && (dq.uo2_released_25h_kg - 2.780).abs() < 0.01, "{dq:?}");
         // No candling: the baseline before it, exactly.
         let cd = measure(Mechanisms::default().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(cd.lower_head_h, 4.4831, 0.001) && near(cd.depressurised_h, 4.4489, 0.001), "{cd:?}");
-        assert!((cd.h2_25h_kg - 313.43).abs() < 0.01 && (cd.p_dw_peak_mpa - 0.62303386).abs() < 1e-8, "{cd:?}");
+        assert!((cd.h2_25h_kg - 313.43).abs() < 0.01 && (cd.p_dw_peak_mpa - 0.62286915).abs() < 1e-8, "{cd:?}");
         assert!((cd.fp_released_25h - 0.8109).abs() < 1e-4 && (cd.uo2_released_25h_kg - 3.516).abs() < 0.01, "{cd:?}");
         // No debris oxidation: the baseline before it, exactly.
         let dox = measure(Mechanisms::default().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(dox.lower_head_h, 4.5172, 0.001) && near(dox.depressurised_h, 4.4497, 0.001), "{dox:?}");
-        assert!((dox.h2_25h_kg - 305.64).abs() < 0.01 && (dox.p_dw_peak_mpa - 0.60869364).abs() < 1e-8, "{dox:?}");
+        assert!((dox.h2_25h_kg - 305.64).abs() < 0.01 && (dox.p_dw_peak_mpa - 0.60852771).abs() < 1e-8, "{dox:?}");
         assert!((dox.fp_released_25h - 0.7977).abs() < 1e-4 && (dox.uo2_released_25h_kg - 3.645).abs() < 0.01, "{dox:?}");
         // No tellurium transport: the baseline before it, exactly.
         let te = measure(Mechanisms::default().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool());
         assert!(near(te.lower_head_h, 4.5239, 0.001) && near(te.depressurised_h, 4.4361, 0.001), "{te:?}");
-        assert!((te.h2_25h_kg - 304.26).abs() < 0.01 && (te.p_dw_peak_mpa - 0.61279710).abs() < 1e-8, "{te:?}");
+        assert!((te.h2_25h_kg - 304.26).abs() < 0.01 && (te.p_dw_peak_mpa - 0.61257648).abs() < 1e-8, "{te:?}");
         assert!((te.fp_released_25h - 0.7967).abs() < 1e-4 && (te.uo2_released_25h_kg - 3.327).abs() < 0.01, "{te:?}");
         // Fission products' decay heat left in the core: the previous
         // baseline, exactly.
         let fd = measure(base);
         assert!(near(fd.lower_head_h, 4.4692, 0.001) && near(fd.depressurised_h, 4.4061, 0.001), "{fd:?}");
-        assert!((fd.h2_25h_kg - 295.45).abs() < 0.01 && (fd.p_dw_peak_mpa - 0.59492996).abs() < 1e-8, "{fd:?}");
+        assert!((fd.h2_25h_kg - 295.45).abs() < 0.01 && (fd.p_dw_peak_mpa - 0.59470632).abs() < 1e-8, "{fd:?}");
         assert!((fd.fp_released_25h - 0.7989).abs() < 1e-4 && (fd.uo2_released_25h_kg - 2.634).abs() < 0.01, "{fd:?}");
         // No internals heat loss: the previous baseline, exactly.
         let il = measure(base.without_internals_heat_loss());
         assert!(near(il.lower_head_h, 5.4517, 0.001) && near(il.depressurised_h, 4.7769, 0.001), "{il:?}");
         assert!((il.h2_25h_kg - 215.36).abs() < 0.01, "{il:?}");
-        assert!((il.p_dw_peak_mpa - 0.55680172).abs() < 1e-8, "{il:?}");
+        assert!((il.p_dw_peak_mpa - 0.55657695).abs() < 1e-8, "{il:?}");
         // No failed-vessel outflow: the previous baseline, exactly.
         let fo = measure(base.without_failed_vessel_outflow().without_internals_heat_loss());
-        assert!((fo.p_dw_peak_mpa - 0.55678708).abs() < 1e-8 && fo.lower_head_h == il.lower_head_h, "{fo:?}");
+        assert!((fo.p_dw_peak_mpa - 0.55656245).abs() < 1e-8 && fo.lower_head_h == il.lower_head_h, "{fo:?}");
         // Volatile fission products released from the fuel, in-vessel
         // (CORSOR-M, gh:#1040; output only, the fixture did not move):
         // 0.8505 by 25 h, released in steps with the core's degradation
@@ -1555,27 +1567,27 @@ mod tests {
         let np = measure(base.without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(np.lower_head_h, 5.6392, 0.001) && near(np.depressurised_h, 4.7769, 0.001), "{np:?}");
         assert!((np.h2_25h_kg - 215.36).abs() < 0.01, "{np:?}");
-        assert!((np.p_dw_peak_mpa - 0.55625090).abs() < 1e-8, "{np:?}");
+        assert!((np.p_dw_peak_mpa - 0.55602706).abs() < 1e-8, "{np:?}");
         assert!(il.vent_h.is_none() && il.explosion_h.is_none(), "{il:?}");
         // No dome internals: the previous baseline, exactly.
         let di = measure(base.without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(di.lower_head_h, 5.4492, 0.001) && near(di.depressurised_h, 4.3583, 0.001), "{di:?}");
         assert!((di.h2_25h_kg - 191.43).abs() < 0.01, "{di:?}");
-        assert!((di.p_dw_peak_mpa - 0.54684943).abs() < 1e-8, "{di:?}");
+        assert!((di.p_dw_peak_mpa - 0.54661786).abs() < 1e-8, "{di:?}");
         // No steam-line creep: the previous baseline, exactly (with the
         // dry-vessel enthalpy fix: 5.3925 -> 5.3806 h, 193.97 -> 192.59 kg,
         // 0.53474702 -> 0.53460139 MPa).
         let ml = measure(base.without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(ml.lower_head_h, 5.3806, 0.001) && near(ml.depressurised_h, 5.3806, 0.001), "{ml:?}");
         assert!((ml.h2_25h_kg - 192.59).abs() < 0.01, "{ml:?}");
-        assert!((ml.p_dw_peak_mpa - 0.53460139).abs() < 1e-8, "{ml:?}");
+        assert!((ml.p_dw_peak_mpa - 0.53437097).abs() < 1e-8, "{ml:?}");
         // Constant hydrogen c_p: the previous baseline, exactly (with the
         // dry-vessel enthalpy fix: 5.390 -> 5.3808 h, 192.11 -> 190.95 kg,
         // 0.53414290 -> 0.53396739 MPa).
         let hc = measure(base.without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(hc.lower_head_h, 5.3808, 0.001), "{hc:?}");
         assert!((hc.h2_25h_kg - 190.95).abs() < 0.01, "{hc:?}");
-        assert!((hc.p_dw_peak_mpa - 0.53396739).abs() < 1e-8, "{hc:?}");
+        assert!((hc.p_dw_peak_mpa - 0.53373678).abs() < 1e-8, "{hc:?}");
         // The 1000 K cutoff: the previous baseline, exactly. The ablations
         // pinned as "the model before" run on it.
         let mut old = Params::default();
@@ -1584,7 +1596,7 @@ mod tests {
         assert!(near(o.lower_head_h, 4.4844, 0.001), "{o:?}");
         assert!((o.h2_25h_kg - 292.44).abs() < 0.01, "{o:?}");
         // (Dry-vessel enthalpy fix: drywell 0.56407062 -> 0.56405052 MPa.)
-        assert!((o.p_dw_peak_mpa - 0.56405052).abs() < 1e-8, "{o:?}");
+        assert!((o.p_dw_peak_mpa - 0.56378686).abs() < 1e-8, "{o:?}");
         // ~~No vent, no explosion~~: since gh:#1036 the wetwell vent flows,
         // at ~~25.12 h~~ 23.73 h since gh:#1041 (BSAF: 23.5-24.68 h, Tier A);
         // since the 1100 K cutoff, not at all (above).
@@ -1595,18 +1607,18 @@ mod tests {
         // 0.56289635 MPa.)
         assert!(near(dl.lower_head_h, 4.5075, 0.001), "{dl:?}");
         assert!((dl.h2_25h_kg - 287.47).abs() < 0.01, "{dl:?}");
-        assert!((dl.p_dw_peak_mpa - 0.56289635).abs() < 1e-8, "{dl:?}");
+        assert!((dl.p_dw_peak_mpa - 0.56263269).abs() < 1e-8, "{dl:?}");
         // And constant gas c_v as well: the one before that.
         let gc = measure_with(base.without_diffusion_limit().without_gas_cv_t().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
         // (Dry-vessel enthalpy fix: 0.56292285 -> 0.56285187 MPa.)
-        assert!((gc.p_dw_peak_mpa - 0.56285187).abs() < 1e-8, "{gc:?}");
+        assert!((gc.p_dw_peak_mpa - 0.56258815).abs() < 1e-8, "{gc:?}");
         assert_eq!((gc.lower_head_h, gc.h2_25h_kg, gc.vent_h), (dl.lower_head_h, dl.h2_25h_kg, dl.vent_h));
         // The steam-only choking ablation is the model before the mixture
         // correction, exactly.
         let mc = measure_with(base.without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
         assert!(near(mc.lower_head_h, 4.5092, 0.001), "{mc:?}");
         assert!((mc.h2_25h_kg - 286.63).abs() < 0.01, "{mc:?}");
-        assert!((mc.p_dw_peak_mpa - 0.5622).abs() < 0.0001, "{mc:?}");
+        assert!((mc.p_dw_peak_mpa - 0.5619).abs() < 0.0001, "{mc:?}");
         // All three decay switches off (with steam-only choking) is the
         // decay heat before gh:#1041, so the model before it, exactly.
         let od = measure_with(
@@ -1616,7 +1628,7 @@ mod tests {
         assert!(near(od.lower_head_h, 4.6678, 0.001), "{od:?}");
         assert!((od.h2_25h_kg - 283.76).abs() < 0.01, "{od:?}");
         // (Dry-vessel enthalpy fix: vent 25.1231 -> 25.1256 h.)
-        assert!(near(od.vent_h, 25.1256, 0.001), "{od:?}");
+        assert!(near(od.vent_h, 25.1369, 0.001), "{od:?}");
         // The no-swell ablation. With the ZrO2-melting collapse (in the
         // same change) it differs from the model before gh:#1036 only if a
         // node's cladding reaches 2990 K, which it does not without swell.
@@ -1632,7 +1644,7 @@ mod tests {
         let ns = measure(base.without_level_swell());
         assert!(near(ns.lower_head_h, 5.248, 0.001), "{ns:?}");
         assert!((ns.h2_25h_kg - 175.23).abs() < 0.01, "{ns:?}");
-        assert!((ns.p_dw_peak_mpa - 0.5371).abs() < 0.0001, "{ns:?}");
+        assert!((ns.p_dw_peak_mpa - 0.5368).abs() < 0.0001, "{ns:?}");
         // The no-radiation ablation. ~~The model before gh:#1037, exactly
         // (5.3953 h, 216.06 kg, 0.5319 MPa).~~ Since gh:#1036 it carries
         // the swell too, so it isolates radiation. Since the diffusion
@@ -1665,7 +1677,7 @@ mod tests {
         let nc = measure(base.without_rod_collapse());
         assert!(near(nc.lower_head_h, 5.610, 0.001), "{nc:?}");
         assert!((nc.h2_25h_kg - 128.65).abs() < 0.01, "{nc:?}");
-        assert!((nc.p_dw_peak_mpa - 0.5146).abs() < 0.0001, "{nc:?}");
+        assert!((nc.p_dw_peak_mpa - 0.5143).abs() < 0.0001, "{nc:?}");
         // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
         // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
         // carries that too, so it isolates the wall alone. Since the
@@ -1681,7 +1693,7 @@ mod tests {
         let nw = measure(base.without_lower_head_wall());
         assert!(near(nw.lower_head_h, 4.569, 0.001), "{nw:?}");
         assert!((nw.h2_25h_kg - 297.01).abs() < 0.01, "{nw:?}");
-        assert!((nw.p_dw_peak_mpa - 0.5952).abs() < 0.0001, "{nw:?}");
+        assert!((nw.p_dw_peak_mpa - 0.5950).abs() < 0.0001, "{nw:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
         // correction it carries 6.763 MJ/kg too, so it isolates c_p alone.
@@ -1703,7 +1715,7 @@ mod tests {
         let cp = measure(base.without_temperature_dependent_properties());
         assert!(near(cp.lower_head_h, 5.506, 0.001), "{cp:?}");
         assert!((cp.h2_25h_kg - 159.56).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.5286).abs() < 0.0001, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.5284).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one
