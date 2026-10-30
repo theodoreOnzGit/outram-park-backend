@@ -124,6 +124,11 @@ pub enum Scope {
     Full,
     /// Anything narrower or different; never counted.
     Partial,
+    /// `kovan-cli test --pending-stamps` (GitHub #1052): the reaching tests
+    /// of the stamps pending a workspace test, listed in
+    /// [`TestEvidence::targets`]. Counted into `[targeted_run]`, never
+    /// `[test_run]`.
+    Targeted,
 }
 
 /// The kind of a test binary.
@@ -233,6 +238,10 @@ pub struct TestEvidence {
     pub totals: Totals,
     #[serde(default, rename = "binary", skip_serializing_if = "Vec::is_empty")]
     pub binaries: Vec<BinaryResults>,
+    /// The test ids a [`Scope::Targeted`] run set out to run; empty
+    /// otherwise (GitHub #1052).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
 }
 
 /// Why a run does not count as full-suite evidence.
@@ -348,14 +357,34 @@ impl TestEvidence {
             complete,
             totals,
             binaries,
+            targets: Vec::new(),
         }
     }
 
-    /// `Ok` when the run is full-suite evidence (module doc, What counts);
-    /// otherwise every reason it is not.
+    /// This run as a [`Scope::Targeted`] one over `targets` (GitHub #1052).
+    /// Its "N tests filtered out" notes are dropped, since filtering by name
+    /// is what a targeted run does; any other reason to be partial is kept
+    /// and keeps it from counting.
+    pub fn into_targeted(mut self, mut targets: Vec<String>) -> TestEvidence {
+        self.partial_reasons
+            .retain(|r| !r.contains(" tests filtered out of "));
+        self.scope = if self.partial_reasons.is_empty() {
+            Scope::Targeted
+        } else {
+            Scope::Partial
+        };
+        targets.sort();
+        targets.dedup();
+        self.targets = targets;
+        self
+    }
+
+    /// `Ok` when the run is full-suite evidence (module doc, What counts),
+    /// or targeted evidence ([`Scope::Targeted`], GitHub #1052) that is
+    /// otherwise clean; otherwise every reason it is not.
     pub fn counted(&self) -> Result<(), Vec<NotCounted>> {
         let mut why = Vec::new();
-        if self.scope != Scope::Full || !self.partial_reasons.is_empty() {
+        if self.scope == Scope::Partial || !self.partial_reasons.is_empty() {
             why.push(NotCounted::Partial(self.partial_reasons.clone()));
         }
         if self.dirty {

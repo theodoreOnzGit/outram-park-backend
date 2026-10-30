@@ -179,14 +179,15 @@ nee_soon = { workspace = true }
 outram-park-fork-liggghts = { workspace = true }
 # The Fukushima Daiichi Unit 1 demo (gh:#986; moved here from the
 # outram-park repository 2026-10-27 so this site can publish it): the
-# digital-twin engine's widget library for the plant drawing, IAPWS-IF97 for
-# the vessel, teh-o-prke's decay heat, tampines' correlations, and the DWSIM
-# port's property routines. All five are wasm in-scope; the demo built for
-# wasm32 against exactly these before it moved. No cycle: none of them
-# depends on dhoby-ghaut.
+# digital-twin engine's widget library for the plant drawing, tampines'
+# valve, and the DWSIM port's valve characteristic. ~~IAPWS-IF97 for the
+# vessel, teh-o-prke's decay heat~~ and OFFBEAT's MATPRO heat capacities
+# MOVED 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to
+# sembawang"): the plant physics is now `sembawang::bwr_mark1`, which
+# carries those three edges, and the demo consumes it. All wasm in-scope;
+# no cycle: none of them depends on dhoby-ghaut.
 outram-park-digital-twin-engine = { workspace = true }
-tampines-steam-tables = { workspace = true }
-teh-o-prke = { workspace = true }
+sembawang = { workspace = true }
 tampines = { workspace = true }
 outram-park-fork-dwsim-libs = { workspace = true }
 # ~~Native only (in the table below)~~ MOVED here 2026-10-27: the Fukushima

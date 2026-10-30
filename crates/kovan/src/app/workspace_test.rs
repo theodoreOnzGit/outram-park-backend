@@ -5,11 +5,19 @@
 //! the new lock is recorded; the first button runs the whole workspace,
 //! the second only those crates, with `-p` (#1049).
 //!
-//! The run is [`crate::commands::test_evidence::run_with`], the code the CLI
-//! runs, with the same refusals (uncommitted build inputs) and the same
-//! records (`[test_run]` in the code-folder `kovan.toml`s of the crates
-//! run when counted, `target/kovan/test_evidence_last.toml` always). Every
-//! line the CLI would print goes to the run's [`RunControl`] log instead.
+//! **Run pending stamps' tests (2026-10-29, GitHub #1052).** The quicker
+//! button: `kovan-cli test --pending-stamps`, only the reaching tests of the
+//! stamps pending a workspace test, recorded in `[targeted_run]`. It clears
+//! a pending stamp when every reaching test of the function ran and none
+//! failed. The full run stays for merges to `main` (maintainer,
+//! 2026-10-29).
+//!
+//! The run is [`crate::commands::test_evidence::run_with`] (or
+//! `run_pending_stamps_with`), the code the CLI runs, with the same
+//! refusals (uncommitted build inputs) and the same records (`[test_run]`,
+//! or `[targeted_run]`, in the code-folder `kovan.toml`s it speaks for when
+//! counted, `target/kovan/test_evidence_last.toml` always). Every line the
+//! CLI would print goes to the run's [`RunControl`] log instead.
 //!
 //! **Progress (#1050).** [`WorkspaceTest::progress_line`] is a short,
 //! fixed-format line (phase, test binaries started of the last run's
@@ -26,10 +34,10 @@ use std::path::{Path, PathBuf};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use kovan_common::review::evidence::TestEvidence;
+use kovan_common::review::evidence::{Scope as EvidenceScope, TestEvidence};
 
 use crate::commands::index_control::{Progress, RunControl};
-use crate::commands::test_evidence::run_with;
+use crate::commands::test_evidence::{run_pending_stamps_with, run_with};
 
 /// What a run covers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +47,9 @@ pub(crate) enum Scope {
     /// `-p` for each crate [`crate::stamping::crates_needing_test`]
     /// finds (#1049).
     ChangedCrates,
+    /// `kovan-cli test --pending-stamps` (GitHub #1052): the pending
+    /// stamps' reaching tests only.
+    PendingStamps,
 }
 
 /// The workspace test's state: at most one run.
@@ -52,11 +63,13 @@ pub(crate) struct WorkspaceTest {
 }
 
 /// The test binary count of the last recorded run in `root`, for "n of
-/// ~N"; `None` when there is none or it covered other crates.
+/// ~N"; `None` when there is none, it covered other crates or it was
+/// targeted.
 fn last_binary_count(root: &Path, packages: &[String]) -> Option<usize> {
     let text = std::fs::read_to_string(root.join("target/kovan/test_evidence_last.toml")).ok()?;
     let ev = TestEvidence::parse(&text).ok()?;
-    (ev.packages == packages && !ev.binaries.is_empty()).then_some(ev.binaries.len())
+    (ev.packages == packages && ev.scope != EvidenceScope::Targeted && !ev.binaries.is_empty())
+        .then_some(ev.binaries.len())
 }
 
 /// The body of a run, on its thread: pick the crates (for
@@ -64,7 +77,7 @@ fn last_binary_count(root: &Path, packages: &[String]) -> Option<usize> {
 /// they start into `ctl`'s progress.
 fn work(root: &Path, scope: Scope, ctl: &RunControl) -> Result<(), String> {
     let packages = match scope {
-        Scope::Workspace => Vec::new(),
+        Scope::Workspace | Scope::PendingStamps => Vec::new(),
         Scope::ChangedCrates => {
             ctl.phase("finding the crates whose dependencies changed", 0);
             let p = crate::stamping::crates_needing_test(root)?;
@@ -77,10 +90,13 @@ fn work(root: &Path, scope: Scope, ctl: &RunControl) -> Result<(), String> {
         }
     };
     let extra: Vec<String> = packages.iter().flat_map(|p| ["-p".to_string(), p.clone()]).collect();
-    let total = last_binary_count(root, &packages).unwrap_or(0);
+    let total = match scope {
+        Scope::PendingStamps => 0,
+        _ => last_binary_count(root, &packages).unwrap_or(0),
+    };
     ctl.phase("compiling", total);
     let mut started = 0;
-    run_with(root, &extra, false, None, ctl, |l| {
+    let say = |l: &str| {
         if l.trim_start().starts_with("Running ") {
             if started == 0 {
                 ctl.phase("testing", total);
@@ -89,7 +105,11 @@ fn work(root: &Path, scope: Scope, ctl: &RunControl) -> Result<(), String> {
             ctl.step(started);
         }
         ctl.say(l);
-    })
+    };
+    match scope {
+        Scope::PendingStamps => run_pending_stamps_with(root, &[], false, None, ctl, say),
+        Scope::Workspace | Scope::ChangedCrates => run_with(root, &extra, false, None, ctl, say),
+    }
 }
 
 /// `1h02m` / `4m05s` / `12s`.
@@ -169,12 +189,17 @@ impl WorkspaceTest {
             .join()
             .unwrap_or_else(|_| Err("the workspace test failed unexpectedly".into()));
         // The verdict is the run's own "COUNTED" / "NOT counted" line, or
-        // "no crate is due".
+        // "no crate is due" / "nothing to run".
         let verdict = self
             .last
             .log
             .iter()
-            .filter(|l| l.contains("COUNTED") || l.contains("NOT counted") || l.contains("no crate is due"))
+            .filter(|l| {
+                l.contains("COUNTED")
+                    || l.contains("NOT counted")
+                    || l.contains("no crate is due")
+                    || l.contains("nothing to run")
+            })
             .cloned()
             .collect::<Vec<_>>()
             .join("; ");
@@ -201,8 +226,9 @@ mod tests {
     }
 
     /// A folder that is not a git checkout fails before cargo starts, for
-    /// both scopes; the failure reaches the strip's message, the run counts
-    /// as finished, and the progress line exists only while it runs.
+    /// the two `cargo test` scopes; the failure reaches the strip's
+    /// message, the run counts as finished, and the progress line exists
+    /// only while it runs.
     #[test]
     fn a_run_outside_a_checkout_fails_and_is_reported() {
         let dir = tempfile::tempdir().unwrap();
@@ -241,5 +267,20 @@ mod tests {
         );
         p.total = 0;
         assert_eq!(progress_text(&p, Duration::from_secs(245)), "test: testing \u{b7} 37 binaries \u{b7} 4m05s");
+    }
+
+    /// The pending-stamps run (GitHub #1052) goes through the same thread
+    /// and poll: in an empty folder it finishes and leaves a message.
+    #[test]
+    fn a_pending_stamps_run_finishes_and_is_reported() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut t = WorkspaceTest::default();
+        t.start(dir.path().to_path_buf(), Scope::PendingStamps);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while !t.poll() {
+            assert!(std::time::Instant::now() < deadline, "the run never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(!t.busy() && t.message.is_some(), "{:?}", t.message);
     }
 }

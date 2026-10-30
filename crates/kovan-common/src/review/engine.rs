@@ -315,6 +315,8 @@ pub struct GitFacts {
     /// commit"). A function missing here is treated as changed: the run
     /// does not speak for it.
     pub hashes_at_test_run: BTreeMap<String, String>,
+    /// The same at the `[targeted_run]` commit (GitHub #1052).
+    pub hashes_at_targeted_run: BTreeMap<String, String>,
     pub stamps: BTreeMap<ReviewKey, StampFacts>,
     /// Function id -> the reviewer ids of the people who wrote its code.
     pub code_authors: BTreeMap<String, BTreeSet<String>>,
@@ -1459,9 +1461,20 @@ fn judge(
                 {
                     StampState::Valid
                 }
-                _ => StampState::PendingWorkspaceTest {
-                    reviewed_lock: lock.clone(),
-                    current_lock: git.cargo_lock.clone(),
+                // A targeted run of the pending stamps' reaching tests
+                // (GitHub #1052) speaks for the function only when it ran
+                // every one of them.
+                _ => match targeted_verdict(cur.f, cur.index.targeted_run.as_ref(), git) {
+                    Some(ReachVerdict::Passed { .. }) => StampState::Valid,
+                    Some(v @ ReachVerdict::Failed { .. }) => StampState::InheritedStale {
+                        cause: InheritedCause::LockTestFailed,
+                        tests: TestVerdict::Reach(v),
+                        blocked: true,
+                    },
+                    _ => StampState::PendingWorkspaceTest {
+                        reviewed_lock: lock.clone(),
+                        current_lock: git.cargo_lock.clone(),
+                    },
                 },
             };
         }
@@ -1492,6 +1505,17 @@ fn second_sign_off(reviews: &mut [ReviewReport], registry: &Registry, file: &str
 
 fn full_run_at_current_lock(krate: &str, run: Option<&TestRun>, git: &GitFacts) -> bool {
     run.is_some_and(|r| r.suite == Suite::Full && same_deps(krate, &r.cargo_lock, git))
+}
+
+/// What a `[targeted_run]` (GitHub #1052) says about `f`, or `None` when
+/// it cannot speak for it: no such run, not targeted, another `Cargo.lock`,
+/// no reaching test, a reaching test not among its targets, or `f` changed
+/// since the run's commit. Otherwise [`reach_verdict`] over that run.
+pub fn targeted_verdict(f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> Option<ReachVerdict> {
+    let run = run.filter(|r| r.suite == Suite::Targeted && r.cargo_lock == git.cargo_lock)?;
+    let covered = !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t));
+    let unchanged = git.hashes_at_targeted_run.get(&f.id) == Some(&f.hash);
+    (covered && unchanged).then(|| reach_verdict(&f.reached_by, Some(run), &git.cargo_lock))
 }
 
 fn aggregate(reviews: &[ReviewReport]) -> StampState {

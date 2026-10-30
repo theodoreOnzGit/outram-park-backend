@@ -44,9 +44,22 @@ temperature transient and core inventory go through `boon-lay`'s TRISO-ATOPS for
 (diffusion, release fractions, SiC breakthrough) and come out as a
 `changi::activity::source::SourceTerm`.
 
-**Does not exist:** severe-accident *progression* — no melt, relocation, vessel
+~~**Does not exist:** severe-accident *progression* — no melt, relocation, vessel
 failure, molten-core-concrete interaction, hydrogen or aerosol physics. The
-temperature transient is an **input**; nothing here computes it. Nor is the
+temperature transient is an **input**; nothing here computes it.~~
+**CORRECTED 2026-10-29 (gh:#1033)**: **a reduced progression model exists for one plant.**
+`src/bwr_mark1/` is Fukushima Daiichi Unit 1 (BWR/3, Mark I) after the scram:
+vessel, core heat-up, Zr-steam oxidation and hydrogen, relocation, a lower-head
+failure criterion, drywell, wetwell and reactor building. It was the
+`dhoby-ghaut` `fukushima_web` demo's physics and moved here (maintainer:
+"Physics libraries go to sembawang"); the demo now consumes it. Lumped, an AI
+draft, uncalibrated, and **outside the BSAF Unit 1 bands**: lower head ~2 h
+early, in-vessel H2 ~3x low (`bwr_mark1::compare`; `cargo run --release -p
+dhoby-ghaut --example fukushima_web -- --compare`). **Still does not exist:**
+MCCI, aerosol physics, in-plant fission-product transport, a general
+(MELCOR-class) progression engine. The TRISO release's temperature transient
+is still an **input**; `bwr_mark1` does not feed it. Regression fixture:
+`verification_and_validation/bwr_mark1/headless_30h.csv`. Nor is the
 core inventory computed (see `src/inventory.rs` for why `fission-yields-data`
 must not be used to build one).
 

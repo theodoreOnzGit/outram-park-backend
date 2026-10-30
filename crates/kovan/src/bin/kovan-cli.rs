@@ -650,6 +650,13 @@ enum Command {
         /// Write the evidence here instead.
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Run only the reaching tests of the stamps pending a workspace
+        /// test (GitHub #1052), recorded as a targeted run in each folder's
+        /// `[targeted_run]`. It clears a pending stamp when every reaching
+        /// test of the function was run and none failed. Takes no cargo
+        /// arguments.
+        #[arg(long)]
+        pending_stamps: bool,
         /// Arguments passed to `cargo test`, after kovan-cli's own flags.
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         cargo_args: Vec<String>,
@@ -1068,11 +1075,16 @@ fn run(command: Command) -> Result<(), String> {
             root,
             allow_dirty,
             out,
+            pending_stamps,
             cargo_args,
         } => {
             let (root, _) = commands::workspace::resolve(root.as_deref())
                 .map_err(|error| error.to_string())?;
-            commands::test_evidence::run(&root, &cargo_args, allow_dirty, out)
+            if pending_stamps {
+                commands::test_evidence::run_pending_stamps(&root, &cargo_args, allow_dirty, out)
+            } else {
+                commands::test_evidence::run(&root, &cargo_args, allow_dirty, out)
+            }
         }
         Command::Index {
             workspace,
@@ -1173,10 +1185,23 @@ mod tests {
                 cargo_args,
                 root,
                 out,
+                pending_stamps,
             } => {
-                assert!(allow_dirty && root.is_none() && out.is_none());
+                assert!(allow_dirty && root.is_none() && out.is_none() && !pending_stamps);
                 assert_eq!(cargo_args, vec!["-j", "1", "-p", "bishan", "--", "flash"]);
             }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_parses_pending_stamps() {
+        match parse(&["test", "--pending-stamps"]).command {
+            Command::Test {
+                pending_stamps,
+                cargo_args,
+                ..
+            } => assert!(pending_stamps && cargo_args.is_empty()),
             _ => panic!("wrong variant"),
         }
     }

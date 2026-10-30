@@ -18,6 +18,7 @@
 //! | `stamps[..].carried_forward` | only when the certified commit is not in `HEAD`'s history: the stamp's chain through the verified `kovan_carry_forward/` records ([`super::carry_forward`], #838, #1018), when it ends in a commit in history. Then `certified_in_history` is true, `hash_at_commit`, the permalink and (when the original commit is not in this clone) `tests_at_review` are read at that effective key, and `reviewed_commit_time` stays the original commit's (`None` when absent: the #783 check is not checkable) |
 //! | `stamps[..].tests_at_review` | `reached_by` of the function in the folder's `kovan.toml` **as committed at the review commit**, and for each test the messages of the commits up to it that touched the test's file (file-level: coarser than the function, so an agent commit anywhere in the file counts, the conservative side) |
 //! | `hashes_at_test_run` | every function of a folder with `[test_run]`, re-hashed at the run's commit |
+//! | `hashes_at_targeted_run` | the same for `[targeted_run]` (GitHub #1052) |
 //! | `code_authors` | for reviewed functions only: `git blame` author e-mails of the function's current lines, plus the reviewer ids they map to (the same e-mail, or `github:<user>` for a `users.noreply.github.com` address; matched case-insensitively against the registry) |
 //! | `previous_root` | `HEAD`'s `kovan_root.toml` when the working copy differs from it, else the version before the last commit that changed it |
 //! | `deleted_in`, `publish_records`, `tag_commits` | left empty: deleted functions show without a deleting commit, there is no #773 record yet, and tags show as unchecked (offline) |
@@ -457,6 +458,19 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
                 }
             }
         }
+        // The targeted run (GitHub #1052) speaks only for functions all of
+        // whose reaching tests it targeted (`targeted_verdict`), so only
+        // those are re-hashed: no extra git work for the rest.
+        if let Some(run) = &idx.targeted_run {
+            let covered = |f: &&kovan_common::review::index::FunctionIndex| {
+                !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t))
+            };
+            for (file, f) in idx.functions().filter(|(_, f)| covered(f)) {
+                if let Some(h) = fn_at(git, &run.commit, &idx.file_path(file), &f.qual) {
+                    g.hashes_at_targeted_run.insert(f.id.clone(), h.hashes.hash);
+                }
+            }
+        }
     }
     // Carry-forward records (#838, #1018), consulted only for a stamp whose
     // certified commit is not in HEAD's history.
@@ -868,6 +882,7 @@ mod needing_test_tests {
                 passed: Vec::new(),
                 failed: Vec::new(),
                 edited: Vec::new(),
+                targets: Vec::new(),
             });
             i
         };

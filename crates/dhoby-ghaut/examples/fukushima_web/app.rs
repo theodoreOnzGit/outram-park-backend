@@ -8,7 +8,7 @@
 //! here: the library has no BWR vessel or containment widget yet.
 //!
 //! GUI drawing code: reached by no test (needs a window), per the workspace
-//! exception for GUI code; the model it draws is tested in `physics`.
+//! exception for GUI code; the model it draws is tested in `sembawang::bwr_mark1`.
 
 use crate::engine::{decode_frame, Control, Event, Request, SAMPLE_LEN};
 use crate::physics::core::RINGS;
@@ -245,12 +245,16 @@ impl App {
                 row("Relief valves", format!("{} · {:.0} kg/s", if f.relief_open { "open" } else { "closed" }, f.w_relief_kg_s));
                 row("Injection", format!("{:.1} kg/s · {:.0} t so far", f.w_injection_kg_s, f.injected_kg / 1e3));
                 row("Peak cladding", format!("{:.0} K", f.core.peak_clad_k));
-                row("Zr oxidised", format!("{:.0} kg ({:.1} %)", f.core.zr_oxidised_kg, 100.0 * f.core.zr_oxidised_kg / core_zr_kg()));
+                row("Zr oxidised", format!("{:.0} kg ({:.1} %)", f.core.zr_oxidised_kg, 100.0 * f.core.zr_oxidised_kg / Params::default().core_zr_kg()));
                 row("Hydrogen made", format!("{:.0} kg", f.core.h2_total_kg));
                 row("Core relocated", format!("{:.0} %", 100.0 * f.core.relocated));
                 row("Drywell", format!("{:.3} MPa · {:.0} °C", f.containment.p_dw_pa / 1e6, f.containment.t_dw_k - 273.15));
                 row("Wetwell", format!("{:.3} MPa · pool {:.0} °C", f.containment.p_ww_pa / 1e6, f.containment.t_pool_k - 273.15));
+                row("Pool surface layer", format!("{:.0} °C (above the downcomer exits)", f.containment.t_pool_top_k - 273.15));
+                row("Leak paths", format!("steam line {} · drywell head flange {}", if f.msl.failed { "ruptured" } else { "intact" }, if f.containment.flange_leaking { "leaking" } else { "closed" }));
                 row("Building H2", format!("{:.2} %", 100.0 * f.containment.rb_h2_fraction));
+                row("Concrete ablated", format!("{:.1} t", f.containment.cav_ablated_kg / 1e3));
+                row("Cesium released", format!("{:.2} kg vented · {:.2} kg to the building", f.containment.cs_vented_kg, f.containment.cs_building_kg));
             });
             ui.separator();
             ui.heading("The recorded sequence");
@@ -262,8 +266,8 @@ impl App {
         }
         ui.separator();
         egui::CollapsingHeader::new("What this is, and is not").show(ui, |ui| {
-            ui.label("Three lumped models stepped together each second: the pressure vessel's water and steam (IAPWS-IF97 steam tables), the core (3 rings × 12 axial nodes: heat-up, Urbanic-Heidrick zirconium oxidation, hydrogen, relocation) and the Mark I containment with the reactor building.");
-            ui.label("Not in the model: radiation inside the core, two-phase level swell, molten-pool physics, fission products, combustion. Many plant numbers are placeholders; each is marked in params.rs with what would replace it.");
+            ui.label("Three lumped models stepped together each second: the pressure vessel's water and steam (IAPWS-IF97 steam tables, with the two-phase level swell), the core (3 rings × 12 axial nodes: heat-up, Urbanic-Heidrick zirconium oxidation, hydrogen, candling, rod collapse, the control blades' steel, a core plate per ring holding the relocating debris, the lower head) and the Mark I containment (drywell and torus with MELCOR's heat-structure and pool-surface models, the torus pool in two layers, fission products, core-concrete interaction) with the reactor building.");
+            ui.label("Not in the model: molten-pool physics; the burn itself (the building's ignition follows MELCOR's BUR criteria, hydrogen and CO by Le Chatelier, but the burn's pressure and heat are not computed); CO and CO2 as their own gases (they are followed as tracers); the control blades' B4C. In-core radiation is simplified (rings, levels, the shroud and the boundaries above and below). Many plant numbers are placeholders; each is marked in sembawang's bwr_mark1 params.rs with its tag and what would replace it. The head-failure time is a knife edge: inputs changed by 1 % move it by about an hour (gh:#1044).");
             ui.label("Physics runs off the page: a plant worker plus a core worker and a containment worker that step from the same start-of-step snapshot, as the CIET simulator's browser demo does. 1 and 3 workers give the same numbers bit for bit.");
         });
     }
@@ -536,7 +540,7 @@ impl eframe::App for App {
 /// reactor building's 26 m outline in this schematic. What IS from the model
 /// is the pool's share of the tube: `water_surface` is given the fraction
 /// `POOL_WATER_M3 / (POOL_WATER_M3 + WETWELL_GAS_M3)` (1750 and 2620 m^3,
-/// `physics::params`), which the containment model holds fixed, so the drawn
+/// `sembawang::bwr_mark1::params`), which the containment model holds fixed, so the drawn
 /// level is fixed too.
 mod torus {
     /// The vent lines' angle from the vertical (maintainer, 2026-10-27), so

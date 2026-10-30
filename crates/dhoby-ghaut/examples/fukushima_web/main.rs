@@ -18,6 +18,7 @@
 //! ```text
 //! cargo run --release -p dhoby-ghaut --example fukushima_web
 //! cargo run --release -p dhoby-ghaut --example fukushima_web -- --headless 108000 600
+//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --compare   # BSAF table (gh:#1032)
 //! crates/dhoby-ghaut/web/fukushima/build.sh      # the browser demo, into dist/
 //! ```
 //!
@@ -28,14 +29,14 @@
 //! on web demo also ... so i can see it on my phone").
 //!
 //! Research, education and V&V only. Not validated; not for operation,
-//! licensing, safety decisions or emergency response. See `physics::params`
+//! licensing, safety decisions or emergency response. See `sembawang::bwr_mark1::params`
 //! for the provenance of every number, and each physics module for what it
 //! leaves out.
 //!
 //! CLI and window glue: reached by no test (it starts an event loop or reads
 //! `std::env::args`), per the workspace exception for `main`/CLI glue. What it
-//! dispatches to is tested — `physics::headless_csv` by
-//! `physics::tests::the_headless_run_matches_the_committed_fixture`, and the
+//! dispatches to is tested — `sembawang::bwr_mark1::headless_csv` by
+//! `sembawang::bwr_mark1::tests::the_headless_run_matches_the_committed_fixture`, and the
 //! engine behind the window by `engine::tests`.
 
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -44,8 +45,12 @@
 mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
+// The plant physics. ~~`mod physics;` (this example's own folder)~~ MOVED
+// 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to sembawang"): it
+// is `sembawang::bwr_mark1`, its tests and the 30 h fixture with it; this
+// demo only draws it and steps it on its workers.
 #[cfg(not(target_os = "android"))]
-mod physics;
+use sembawang::bwr_mark1 as physics;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule: a blanked file gives "main function not found").
@@ -59,6 +64,12 @@ fn main() {
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn main() -> Result<(), String> {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--compare") {
+        let runs: Vec<(&str, physics::compare::Metrics)> =
+            physics::compare::ablations().into_iter().map(|(n, m)| (n, physics::compare::measure(m))).collect();
+        print!("{}", physics::compare::report(&runs));
+        return Ok(());
+    }
     if let Some(i) = args.iter().position(|a| a == "--headless") {
         let steps = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(3600);
         let every = args.get(i + 2).and_then(|s| s.parse().ok()).unwrap_or(60);

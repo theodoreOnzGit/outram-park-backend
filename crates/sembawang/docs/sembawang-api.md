@@ -2,7 +2,7 @@
 
 **Version:** 0.0.1
 
-**Format Version:** 60
+**Format Version:** 61
 
 # Module `sembawang`
 
@@ -18,7 +18,11 @@ decision 7).
 - **Its own physics:** the fission-product source term (implemented, on
   `boon-lay`'s TRISO-ATOPS fork) and severe-accident progression: melt
   behaviour, relocation, vessel failure, molten-core–concrete interaction,
-  hydrogen and aerosol release (**not implemented**).
+  hydrogen and aerosol release (~~**not implemented**~~ **CORRECTED 2026-10-29 (gh:#1033)**:
+  a reduced, lumped model for ONE plant, Fukushima Daiichi Unit 1, in
+  [`bwr_mark1`]: core heat-up, Zr-steam oxidation and hydrogen,
+  relocation, a lower-head failure criterion, and containment
+  pressurisation. MCCI and aerosols are not implemented).
 - **What it orchestrates:** [`changi`] for dispersion and deposition (wired
   in, see [`chain`]), `redhill` for ground transport (a placeholder, not
   wired), and `raffles` for uncertainty propagation (GitHub #238, not yet
@@ -55,11 +59,25 @@ from intact and defective particles under a prescribed temperature
 transient* — diffusion through the kernel and coating layers, and
 breakthrough of the SiC.
 
-**What does not exist: severe-accident progression**, which is the rest of
+~~**What does not exist: severe-accident progression**, which is the rest of
 the crate's name and the larger half. There is no melt behaviour, no
 relocation, no vessel failure, no molten-core-concrete interaction, no
 hydrogen, and no aerosol physics. The temperature transient this crate
-consumes is **prescribed by the caller**; nothing here computes it.
+consumes is **prescribed by the caller**; nothing here computes it.~~
+**CORRECTED 2026-10-29 (gh:#1033)** (maintainer: "Physics libraries go to sembawang"):
+**a reduced progression model exists for one plant.** [`bwr_mark1`] is
+Fukushima Daiichi Unit 1 (BWR/3, Mark I) after the scram: vessel, core
+heat-up with Zr-steam oxidation and hydrogen, relocation, a lower-head
+failure criterion, and the drywell, wetwell and reactor building. It was
+the `dhoby-ghaut` `fukushima_web` demo's own physics until it moved here.
+It is lumped (a few nodes), an AI draft, uncalibrated, and **outside the
+BSAF Unit 1 bands**: the lower head fails about 2 h early and in-vessel
+hydrogen is about 3x low ([`bwr_mark1::compare`], gh:#1028). Still absent
+everywhere in the crate: molten-core-concrete interaction, aerosol
+physics, fission-product transport in the plant, and any MELCOR-class
+control-volume engine. The TRISO release path still takes a
+**caller-prescribed** temperature transient; [`bwr_mark1`] does not feed
+it.
 
 So: cite this crate for a TRISO release calculation under a temperature
 history you supplied, and (since 2026-09-21) for carrying that release
@@ -68,6 +86,9 @@ original, kept because it is still true as far as it goes:
 
 > cite this crate for a TRISO release calculation under a temperature
 > history you supplied. Do **not** cite it for accident progression.
+
+(2026-10-29: [`bwr_mark1`] may be cited as a reduced, unvalidated Unit 1
+model, with its BSAF disagreement; not as a severe-accident code.)
 
 The name was already reserved in `docs/ecosystem-naming.md` and
 `GOVERNANCE.md`; this crate makes the reservation visible in the workspace
@@ -103,7 +124,9 @@ one for *release*: `boon-lay`'s TRISO-ATOPS fork, which is ported,
 `uom`-typed and code-to-code verified. That is what made the source-term
 half tractable.
 
-It still has **no engine for progression**. Severe-accident progression
+It still has **no ~~engine for progression~~ general engine for
+progression** (**CORRECTED 2026-10-29 (gh:#1033)**: [`bwr_mark1`] is a reduced
+single-plant model, not an engine). General severe-accident progression
 would need a MELCOR-class port, which is scoped in `docs/melcor-scoping.md`
 and has not been begun. Treat that scoping document as a statement of
 intent, not of progress.
@@ -295,15 +318,10 @@ pub struct PlantParameters {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlantParameters { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -316,7 +334,6 @@ pub struct PlantParameters {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -329,7 +346,6 @@ pub struct PlantParameters {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -339,7 +355,7 @@ pub struct PlantParameters {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PlantParameters) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -376,7 +392,7 @@ pub struct PlantParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -390,11 +406,6 @@ pub struct PlantParameters {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -461,15 +472,10 @@ nuclide-dependent.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PrimaryCircuitPools { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -482,7 +488,6 @@ nuclide-dependent.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -495,7 +500,6 @@ nuclide-dependent.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -505,7 +509,7 @@ nuclide-dependent.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PrimaryCircuitPools) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -542,7 +546,7 @@ nuclide-dependent.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -556,11 +560,6 @@ nuclide-dependent.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -619,15 +618,10 @@ pub struct NormalOperation {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NormalOperation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -640,7 +634,6 @@ pub struct NormalOperation {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -653,7 +646,6 @@ pub struct NormalOperation {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -663,7 +655,7 @@ pub struct NormalOperation {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NormalOperation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -700,7 +692,7 @@ pub struct NormalOperation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -714,11 +706,6 @@ pub struct NormalOperation {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -784,15 +771,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NodeTemperatures { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -805,7 +787,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -818,7 +799,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -828,7 +808,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NodeTemperatures) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -865,7 +845,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -879,11 +859,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -932,15 +907,10 @@ pub struct AccidentRelease {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AccidentRelease { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -953,7 +923,6 @@ pub struct AccidentRelease {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -966,7 +935,6 @@ pub struct AccidentRelease {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -976,7 +944,7 @@ pub struct AccidentRelease {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AccidentRelease) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1013,7 +981,7 @@ pub struct AccidentRelease {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1027,11 +995,6 @@ pub struct AccidentRelease {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1170,15 +1133,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Venting { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1191,7 +1149,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1204,7 +1161,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1214,7 +1170,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Venting) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1251,7 +1207,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1265,11 +1221,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1582,15 +1533,10 @@ pub struct VentingWindow {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VentingWindow { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1603,7 +1549,6 @@ pub struct VentingWindow {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1616,7 +1561,6 @@ pub struct VentingWindow {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1626,7 +1570,7 @@ pub struct VentingWindow {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VentingWindow) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1663,7 +1607,7 @@ pub struct VentingWindow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1677,11 +1621,6 @@ pub struct VentingWindow {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1887,15 +1826,10 @@ pub struct GroupCurve {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GroupCurve { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1908,7 +1842,6 @@ pub struct GroupCurve {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1921,7 +1854,6 @@ pub struct GroupCurve {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1931,7 +1863,7 @@ pub struct GroupCurve {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GroupCurve) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1968,7 +1900,7 @@ pub struct GroupCurve {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1982,11 +1914,6 @@ pub struct GroupCurve {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2031,15 +1958,10 @@ pub struct TotalTed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TotalTed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2052,7 +1974,6 @@ pub struct TotalTed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2065,7 +1986,6 @@ pub struct TotalTed {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2075,7 +1995,7 @@ pub struct TotalTed {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TotalTed) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2112,7 +2032,7 @@ pub struct TotalTed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2126,11 +2046,6 @@ pub struct TotalTed {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2256,6 +2171,12603 @@ the comparison was run).
 
 ```rust
 pub const GATE_TOLERANCE_DECADES: f64 = _;
+```
+
+## Module `bwr_mark1`
+
+The plant: Fukushima Daiichi Unit 1 after the earthquake's scram.
+
+A BWR/3 in a Mark I containment. This is the model the `dhoby-ghaut`
+`fukushima_web` demo draws and steps; it moved here from that example on
+2026-10-29 (gh:#1033, maintainer: "Physics libraries go to sembawang").
+Where it stands against the BSAF Unit 1 bands: [`compare`].
+
+**Transcendentals go through PETIR** (`petir::mathf::RealMath`: `r_exp`,
+`r_ln`, `r_powf`, `r_powi`, `r_cos`; `sqrt` stays, being correctly rounded
+by IEEE-754), as everywhere in this crate (gh:#985), so native and wasm
+runs take one route. Converted 2026-10-29; the measured effect is in
+`verification_and_validation/bwr_mark1/petir-conversion.md`.
+
+Three parts, owned and advanced separately so they can run on three
+threads (three Web Workers in the browser), as the CIET Educational
+Simulator's browser demo runs its heat transfer and its two flow solves:
+
+| part | owns | runs on |
+|---|---|---|
+| [`Plant`] (this module) | the reactor pressure vessel's water and steam, the isolation condensers, the relief valves, injection, decay heat, the operators' sequence | the plant worker, which also paces the run |
+| [`core::Core`] | the fuel and cladding temperatures, oxidation, hydrogen, relocation | the core worker |
+| [`containment::Containment`] | drywell, wetwell, pool, vent, reactor building | the containment worker |
+
+Each step, [`Plant::begin`] reads the vessel at the start of the step and
+hands each worker a **snapshot**; the core and the containment advance
+from it; [`Plant::finish`] takes their results and closes the vessel's
+mass and energy balance. The coupling is explicit across the step (each
+part sees the others' start-of-step state), the same splitting CIET v2
+uses for its flows. Because the snapshots and results cross as exact
+`f64`s ([`wire`]), the three-worker step is bit-for-bit the one-worker
+step ([`Plant::step_inline`]); `tests::three_workers_are_one_worker`
+holds that.
+
+**AI draft, not validated.** See [`params`] for where every number comes
+from (many are placeholders) and each module's "Not in the model" list.
+Research, education and V&V only: never for operation, licensing, safety
+decisions or emergency response.
+
+```rust
+pub mod bwr_mark1 { /* ... */ }
+```
+
+### Modules
+
+## Module `aerosol`
+
+Sectional aerosol dynamics for one well-mixed volume: agglomeration and
+gravitational settling (gh:#1047, first deliverable; not yet wired into
+the plant).
+
+**Kernels** are MELCOR's MAEROS kernels, from the description in its
+manual (Vol. 2, SAND2023-10994 O, RN §2.4.2 and Appendix B, which takes
+them from Powers, Sprung and Leigh; no source used):
+- Brownian, Fuchs' interpolation (Eqs B-1 to B-12);
+- gravitational, with the collision efficiency `1.5 d_j^2/(d_i+d_j)^2`
+  (Eqs B-13 to B-15, 2-38);
+- turbulent shear and inertial, combined in quadrature (B-16 to B-18);
+- their sum (Eq 2-40), all with MELCOR's defaults: shape factors 1,
+  sticking 1, slip 1.257, dissipation 0.001 m^2/s^3.
+
+Two lines of the extracted manual text are garbled and are pinned here
+by their limits instead of being trusted: Fuchs' factor `F` (B-4) is the
+**inverse** of its bracket, the only reading that gives the continuum
+limit `8kT/(3 mu)` for equal particles and the free-molecular limit
+`pi (d_i+d_j)^2 v_ij / 4`; and the mean free path (B-11) is
+`nu sqrt(1.89e-4 M_w / T)`, whose constant is `4 pi/(8 R 1000)` (about
+0.064 um in air at 298 K, the manual's text quoting about 0.069 um).
+The slip correction (B-3) is the form `changi::flexpart::aerosol::part0`
+also uses, computed inline there, so not reusable as a function.
+
+**Discretisation is not MAEROS's.** MAEROS uses Gelbard and Seinfeld's
+sectional coefficients, which the manual describes but does not give.
+This uses the open-literature semi-implicit, volume-conserving sectional
+scheme of Jacobson, Turco, Jensen and Toon (1994, *Atmos. Environ.* 28,
+1327), with representative volumes in a fixed ratio of at least 2 (the
+analogue of MAEROS's constraint `m_(i+1)/m_i > 2`, Eq 2-37). As in that
+scheme, ~~particles that outgrow the top section stay in it; MELCOR's
+fallout of particles above the largest size is not built (stated)~~
+particles that outgrow the top section fall out, as in MELCOR (RN
+§2.4.1): the scheme sends them to a virtual section above the top, and
+that volume is booked as fallout.
+
+**Deposition** (RN §2.4.2.2) onto floors, walls and ceilings (a pool
+surface counts as a floor): gravitational settling (floors positive,
+ceilings negative), Brownian diffusion across a boundary layer (Eq
+2-42), thermophoresis (Eq 2-43) and diffusiophoresis with the Stefan flow
+(Eqs 2-45, 2-46), summed per surface as MELCOR's table says and floored
+at zero, then applied as exact exponential decay at `sum A v / V`.
+Turbulent deposition in pipes and bends is not built.
+
+```rust
+pub mod aerosol { /* ... */ }
+```
+
+### Types
+
+#### Struct `Medium`
+
+The gas and the aerosol's material, and MELCOR's model constants.
+
+```rust
+pub struct Medium {
+    pub t_k: f64,
+    pub p_pa: f64,
+    pub molar_mass_g: f64,
+    pub mu_pa_s: f64,
+    pub rho_p: f64,
+    pub gamma: f64,
+    pub chi: f64,
+    pub sticking: f64,
+    pub slip: f64,
+    pub dissipation: f64,
+    pub k_ratio: f64,
+    pub accommodation: f64,
+    pub boundary_layer_m: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` | Gas temperature, K, pressure, Pa, molar mass, g/mol, viscosity,<br>Pa s. |
+| `p_pa` | `f64` |  |
+| `molar_mass_g` | `f64` |  |
+| `mu_pa_s` | `f64` |  |
+| `rho_p` | `f64` | Particle material density, kg/m^3 (MELCOR's RHONOM default 1000). |
+| `gamma` | `f64` | Agglomeration and dynamic shape factors, sticking coefficient,<br>slip coefficient, turbulent dissipation, m^2/s^3 (MELCOR defaults:<br>1, 1, 1, 1.257, 0.001). |
+| `chi` | `f64` |  |
+| `sticking` | `f64` |  |
+| `slip` | `f64` |  |
+| `dissipation` | `f64` |  |
+| `k_ratio` | `f64` | Gas-to-particle conductivity ratio, thermal accommodation constant,<br>diffusion boundary-layer thickness, m (MELCOR's RN1_MS01 defaults:<br>0.05, 2.25, 1e-5). |
+| `accommodation` | `f64` |  |
+| `boundary_layer_m` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn air(t_k: f64, p_pa: f64, mu_pa_s: f64) -> Self { /* ... */ }
+  ```
+  Air at `t_k` and `p_pa`, with MELCOR's default aerosol constants.
+
+- ```rust
+  pub fn rho_gas(self: &Self) -> f64 { /* ... */ }
+  ```
+  Gas density, kg/m^3 (Eq B-12).
+
+- ```rust
+  pub fn mean_free_path(self: &Self) -> f64 { /* ... */ }
+  ```
+  Mean free path, m (Eq B-11, read as `nu sqrt(1.89e-4 M/T)`).
+
+- ```rust
+  pub fn slip_correction(self: &Self, d: f64) -> f64 { /* ... */ }
+  ```
+  Slip correction of a particle of diameter `d` (Eq B-3).
+
+- ```rust
+  pub fn settling_velocity(self: &Self, d: f64) -> f64 { /* ... */ }
+  ```
+  Stokes terminal velocity with slip, m/s (Eq B-14, and the settling
+
+- ```rust
+  pub fn diffusion_velocity(self: &Self, d: f64) -> f64 { /* ... */ }
+  ```
+  Brownian diffusion deposition velocity, m/s (Eq 2-42).
+
+- ```rust
+  pub fn thermophoretic_velocity(self: &Self, d: f64, grad_t: f64, t_wall: f64) -> f64 { /* ... */ }
+  ```
+  Thermophoretic velocity toward a surface, m/s, for a gas
+
+- ```rust
+  pub fn brownian(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  Brownian kernel, m^3/s (Fuchs; Eqs B-1 to B-10).
+
+- ```rust
+  pub fn gravitational(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  Gravitational kernel, m^3/s (Eqs B-13 to B-15).
+
+- ```rust
+  pub fn turbulent(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  Turbulent kernel, shear and inertial in quadrature, m^3/s (Eqs B-16
+
+- ```rust
+  pub fn kernel(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  The total kernel (Eq 2-40).
+
+- ```rust
+  pub fn kernel_table(self: &Self, d: &[f64]) -> Vec<Vec<f64>> { /* ... */ }
+  ```
+  The total kernel for every pair of the diameters `d`, m^3/s: the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Facing`
+
+How a deposition surface faces (RN §2.4.2.2).
+
+```rust
+pub enum Facing {
+    Floor,
+    Wall,
+    Ceiling,
+}
+```
+
+##### Variants
+
+###### `Floor`
+
+Upward-facing: floors and pool surfaces.
+
+###### `Wall`
+
+###### `Ceiling`
+
+Downward-facing.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Surface`
+
+A deposition surface: area, m^2, facing, and the phoretic velocities it
+drives, m/s, given per section by the caller (thermophoresis from its
+heat flux, diffusiophoresis from its condensation; zero for none).
+
+```rust
+pub struct Surface {
+    pub area: f64,
+    pub facing: Facing,
+    pub phoretic: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `area` | `f64` |  |
+| `facing` | `Facing` |  |
+| `phoretic` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Sections`
+
+A sectional size distribution in one well-mixed volume: representative
+particle volumes `v_k` (fixed ratio), and the aerosol volume
+concentration in each, m^3 of particle per m^3 of gas.
+
+```rust
+pub struct Sections {
+    pub v: Vec<f64>,
+    pub conc: Vec<f64>,
+    pub fallout: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `v` | `Vec<f64>` |  |
+| `conc` | `Vec<f64>` |  |
+| `fallout` | `f64` | Particle volume that outgrew the top section, m^3 per m^3 of gas,<br>accumulated. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(d_min: f64, n: usize, ratio: f64) -> Self { /* ... */ }
+  ```
+  `n` sections from diameter `d_min` with particle-volume ratio
+
+- ```rust
+  pub fn diameter(self: &Self, k: usize) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn number(self: &Self, k: usize) -> f64 { /* ... */ }
+  ```
+  Number concentration in section `k`, 1/m^3.
+
+- ```rust
+  pub fn coagulate<F: Fn(usize, usize) -> f64>(self: &mut Self, dt: f64, beta: F) { /* ... */ }
+  ```
+  One semi-implicit coagulation step of `dt` s with the kernel
+
+- ```rust
+  pub fn coagulate_with<F: Fn(usize, usize) -> f64>(self: &mut Self, dt: f64, beta: F, tracers: &mut [Vec<f64>]) -> Vec<f64> { /* ... */ }
+  ```
+  [`Self::coagulate`], carrying `tracers` with the particles: each is
+
+- ```rust
+  pub fn deposit(self: &mut Self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64) -> Vec<f64> { /* ... */ }
+  ```
+  Deposition for `dt` s onto `surfaces` of a volume of `volume` m^3:
+
+- ```rust
+  pub fn deposit_with(self: &mut Self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64, tracers: &mut [Vec<f64>]) -> (Vec<f64>, Vec<Vec<f64>>) { /* ... */ }
+  ```
+  [`Self::deposit`], carrying per-section `tracers` with the
+
+- ```rust
+  pub fn settle(self: &mut Self, medium: &Medium, area: f64, volume: f64, dt: f64) -> f64 { /* ... */ }
+  ```
+  Gravitational settling for `dt` s onto a floor of `area` m^2 under a
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `diffusiophoretic_velocity`
+
+Diffusiophoretic velocity toward a surface, m/s, with the Stefan flow
+(Eqs 2-45, 2-46): `w_cond` the steam condensation flux onto it,
+kg/(m^2 s) (negative evaporating), `x_steam` the bulk steam mole
+fraction, `m_steam`, `m_nc` molar masses (any one unit), `rho_bulk` the
+bulk gas density and `rho_sat` the saturated vapour density, kg/m^3.
+
+```rust
+pub fn diffusiophoretic_velocity(w_cond: f64, x_steam: f64, m_steam: f64, m_nc: f64, rho_bulk: f64, rho_sat: f64) -> f64 { /* ... */ }
+```
+
+## Module `cavity`
+
+Molten core-concrete interaction on the drywell floor, a reduced form of
+MELCOR's CAV package (CORCON-Mod3; Vol. 2, CAV RM §3; 2026-10-29,
+`Mechanisms::mcci`, plan item F8). AI draft, clean room: written from the
+manuals' description, never from MELCOR or CORCON source.
+
+- **One debris layer**, lumped: UO2, metallic Zr and oxides (ZrO2 and the
+  ablated concrete's oxides) at one temperature, heated by its decay
+  power and by the oxidation of its Zr. No layering (MELCOR stratifies
+  and mixes layers, §3.2). ~~No phase change, no crust (stated).~~
+  **Since 2026-10-30, with `Mechanisms::cavity_phases`:** the oxide
+  phase melts over a solidus-liquidus range from MELCOR's ideal-solution
+  pseudo-binary (§3.10: fuel, UO2 and ZrO2, the high-melting component,
+  the concrete's oxides the low-melting one), its enthalpy linear in
+  between, metallic Zr melting at MELCOR's 2098 K; and the debris's
+  interior conducts, at `6 k / H` to each face of a layer `H` deep, when
+  solid, convects at `h` when liquid, linearly by liquid fraction between
+  (§3.3: "the interior of a layer may be fluid ... while one or more of
+  its ... surfaces is covered by a solid crust, with heat transfer by
+  conduction"; stated: the crust is the whole layer below the solidus).
+- **Downward**, MELCOR's quasi-steady ablation (§3.3, 3.4): while the
+  debris is above the concrete's ablation temperature, the heat to the
+  concrete is `h A (T - T_a)` and it ablates `q / h_a` kg/s, the preheated
+  region neglected, as MELCOR neglects it. `h` is \[A\]: CORCON's gas-film
+  and bubbling correlations are not held.
+- **Upward**, with no water above (§3.3: "radiation and convection in the
+  absence of overlying water"): from the debris's interior to its top
+  surface by the same `h`, and from the surface by gray radiation to the
+  drywell's structures at MELCOR's default emissivities; the surface
+  temperature from the continuity of the two fluxes.
+- **Chemistry** (§3.5): the concrete's H2O and CO2 pass through the debris
+  and oxidise its metallic Zr to H2 and CO, completely while Zr lasts
+  (equilibrium favours it; MELCOR's default suppresses coking, so no
+  condensed carbon), the reaction heat staying in the debris; the
+  concrete's other constituents join the oxides. Reduction of the
+  concrete's oxides by Zr is not modelled. The gases leave at the
+  ablation temperature (stated: MELCOR equilibrates them with the layers
+  they pass).
+
+- **Under water** (§3.3: "a complete pool boiling curve"): the top
+  surface in film boiling, Berenson's horizontal-surface correlation
+  (J. Heat Transfer 83, 1961) with the vapour's properties at the film
+  temperature, plus radiation across the vapour film to the water at
+  the debris's emissivity; the surface temperature again from the
+  continuity of the fluxes. The nucleate and transition regimes are not
+  separated (stated: the debris surface here stays far above
+  saturation). The concrete ablates beneath, as CORCON's does.
+
+```rust
+pub mod cavity { /* ... */ }
+```
+
+### Types
+
+#### Struct `Cavity`
+
+The debris on the drywell floor.
+
+```rust
+pub struct Cavity {
+    pub uo2_kg: f64,
+    pub zr_kg: f64,
+    pub oxide_kg: f64,
+    pub t_k: f64,
+    pub seen_uo2_kg: f64,
+    pub seen_zr_kg: f64,
+    pub ablated_kg: f64,
+    pub h2_kg: f64,
+    pub co_kg: f64,
+    pub zro2_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `uo2_kg` | `f64` | UO2, metallic Zr and oxides, kg, and the debris temperature, K. |
+| `zr_kg` | `f64` |  |
+| `oxide_kg` | `f64` |  |
+| `t_k` | `f64` |  |
+| `seen_uo2_kg` | `f64` | The core's debris inventory last seen (what has arrived), kg. |
+| `seen_zr_kg` | `f64` |  |
+| `ablated_kg` | `f64` | Concrete ablated, kg, and the H2 and CO made, kg. |
+| `h2_kg` | `f64` |  |
+| `co_kg` | `f64` |  |
+| `zro2_kg` | `f64` | The ZrO2 formed here, kg (counted in `oxide_kg` too; the melting<br>range counts it as fuel, `cavity_phases`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn arrive(self: &mut Self, prm: &Params, uo2_kg: f64, zr_kg: f64, t_k: f64) { /* ... */ }
+  ```
+  Debris arriving: the core's inventory now is `uo2_kg` and `zr_kg`
+
+- ```rust
+  pub fn step(self: &mut Self, prm: &Params, q_w: f64, t_wall_k: f64, water: Option<(f64, f64)>, dt: f64, phases: bool) -> CavityFlows { /* ... */ }
+  ```
+  One step of `dt` s with decay power `q_w` and the drywell's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CavityFlows`
+
+What one step of the cavity sends to the drywell.
+
+```rust
+pub struct CavityFlows {
+    pub q_up_w: f64,
+    pub steam_kg: f64,
+    pub h2_mol: f64,
+    pub co_mol: f64,
+    pub co2_mol: f64,
+    pub gas_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `q_up_w` | `f64` | Radiated up to the drywell's structures, W. |
+| `steam_kg` | `f64` | Gases released, at `gas_k`: steam kg, H2, CO and CO2 mol. |
+| `h2_mol` | `f64` |  |
+| `co_mol` | `f64` |  |
+| `co2_mol` | `f64` |  |
+| `gas_k` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `compare`
+
+The Unit 1 comparison against BSAF Phase II, and the ablation table
+(gh:#1032, plan `docs/fukushima-melcor-gap-plan.md` item F1).
+
+Runs the recorded sequence headless, measures the quantities that have a
+BSAF counterpart, and sets each beside its band **and the band's tier**,
+from `crates/kovan-literature/derived/nea7525-bsaf-fukushima-daiichi-bands.md`
+(§1 and §6). The tier says what a comparison can mean:
+
+- **A** measured: missing it means the model is wrong.
+- **B** well-constrained code consensus: a real check.
+- **C** wide code spread, read off a figure: context only. Being inside
+  proves little.
+- **D** known to be wrong: never a target (none is used here).
+
+**The bands are checks, never inputs.** Nothing in the model is tuned
+toward them (root `CLAUDE.md`, "Get the PROCESS right first"). A miss is
+a result to report, and the ablation rows say how much of it each
+modelled mechanism carries.
+
+Acknowledgement: OECD Nuclear Energy Agency, *Benchmark Study of the
+Accident at the Fukushima Daiichi Nuclear Power Plant*, NEA No. 7525,
+© OECD 2021. Facts and numbers only, cited with acknowledgement.
+
+```rust
+pub mod compare { /* ... */ }
+```
+
+### Types
+
+#### Enum `Tier`
+
+What a band can mean (see the module docs).
+
+```rust
+pub enum Tier {
+    A,
+    B,
+    C,
+}
+```
+
+##### Variants
+
+###### `A`
+
+###### `B`
+
+###### `C`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Band`
+
+One BSAF Phase II band for Unit 1.
+
+```rust
+pub struct Band {
+    pub name: &'static str,
+    pub low: f64,
+    pub high: f64,
+    pub unit: &'static str,
+    pub tier: Tier,
+    pub source: &'static str,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` |  |
+| `low` | `f64` |  |
+| `high` | `f64` |  |
+| `unit` | `&'static str` |  |
+| `tier` | `Tier` |  |
+| `source` | `&'static str` | Where it is in the derived record. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Metrics`
+
+What the model gives for each band. `None` where the event never
+happens in the run.
+
+```rust
+pub struct Metrics {
+    pub lower_head_h: Option<f64>,
+    pub depressurised_h: Option<f64>,
+    pub h2_25h_kg: f64,
+    pub p_dw_peak_mpa: f64,
+    pub vent_h: Option<f64>,
+    pub explosion_h: Option<f64>,
+    pub fp_released_25h: f64,
+    pub uo2_released_25h_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower_head_h` | `Option<f64>` |  |
+| `depressurised_h` | `Option<f64>` |  |
+| `h2_25h_kg` | `f64` |  |
+| `p_dw_peak_mpa` | `f64` |  |
+| `vent_h` | `Option<f64>` |  |
+| `explosion_h` | `Option<f64>` |  |
+| `fp_released_25h` | `f64` | Volatile fission products (Xe, Cs, I) released from the fuel by<br>25 h, fraction of inventory (gh:#1040). Not a BSAF band: BSAF<br>reports only that most codes' releases reached an asymptote above<br>0.8 (code-to-code, figure-read; NEA No. 7525 §2, Fig. 2.5). |
+| `uo2_released_25h_kg` | `f64` | UO2 released from the fuel by 25 h, kg: the seed aerosol (gh:#1047). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn values(self: &Self) -> [Option<f64>; 6] { /* ... */ }
+  ```
+  The values in the order of [`BANDS`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Elasticity`
+
+How one input moves the metrics: elasticities `(dm/m) / (dp/p)` by
+central difference, the input scaled by `1 - rel` and `1 + rel` about
+its default with every mechanism on.
+
+**A ranking instrument, not an uncertainty analysis.** It is local (a
+derivative at the defaults), and a relative step is not an input's real
+uncertainty: 1 % of an activation energy is a large change, 1 % of a
+valve area a small one. It says which unverified inputs the answer leans
+on hardest, i.e. which to check first against the sources (plan item
+F13). It is never used to choose a value (plan rule 1).
+
+```rust
+pub struct Elasticity {
+    pub name: &'static str,
+    pub tag: super::params::Tag,
+    pub default: f64,
+    pub lower_head: Option<f64>,
+    pub h2: f64,
+    pub p_dw: f64,
+    pub event_changes: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` |  |
+| `tag` | `super::params::Tag` |  |
+| `default` | `f64` |  |
+| `lower_head` | `Option<f64>` | `None` when the lower head does not fail in all three runs. |
+| `h2` | `f64` |  |
+| `p_dw` | `f64` |  |
+| `event_changes` | `bool` | Whether the vent or the explosion happens differs between a perturbed<br>run and the default one (~~appears; neither happened at the<br>defaults~~: since gh:#1036 the vent does). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn largest(self: &Self) -> f64 { /* ... */ }
+  ```
+  The largest of the three magnitudes, for ranking.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Histories`
+
+The model's histories of the quantities BSAF plots for Unit 1, sampled
+every `every_s` seconds to `end_s`: time h, RPV pressure MPa, drywell
+pressure MPa, in-vessel H2 kg, volatile fission products released from
+fuel (fraction). For comparison with the digitised figures.
+
+```rust
+pub struct Histories {
+    pub t_h: Vec<f64>,
+    pub p_rpv_mpa: Vec<f64>,
+    pub p_dw_mpa: Vec<f64>,
+    pub h2_kg: Vec<f64>,
+    pub fp_released: Vec<f64>,
+    pub cs_dw_structures: Vec<f64>,
+    pub cs_sc_water: Vec<f64>,
+    pub i_dw_structures: Vec<f64>,
+    pub i_sc_water: Vec<f64>,
+    pub cs_released: Vec<f64>,
+    pub i_released: Vec<f64>,
+    pub xe_released: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_h` | `Vec<f64>` |  |
+| `p_rpv_mpa` | `Vec<f64>` |  |
+| `p_dw_mpa` | `Vec<f64>` |  |
+| `h2_kg` | `Vec<f64>` |  |
+| `fp_released` | `Vec<f64>` |  |
+| `cs_dw_structures` | `Vec<f64>` | Cesium on the drywell's structures and in the wetwell pool,<br>fractions of the inventory (gh:#1047). |
+| `cs_sc_water` | `Vec<f64>` |  |
+| `i_dw_structures` | `Vec<f64>` | Iodine likewise. |
+| `i_sc_water` | `Vec<f64>` |  |
+| `cs_released` | `Vec<f64>` | Cesium released to the environment (vented to the stack and leaked<br>to the reactor building), fraction of the inventory. |
+| `i_released` | `Vec<f64>` | Iodine likewise, and the noble gas (fractions of the core<br>inventory). |
+| `xe_released` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AgainstMeasured`
+
+The model against one measured series (the instrument fixed before any
+digitised curve was seen, 2026-10-29): the model interpolated at each
+reference time inside the run, then the mean and the largest absolute
+difference, in the series' own units, and how many points counted.
+
+```rust
+pub struct AgainstMeasured {
+    pub n: usize,
+    pub mean_abs: f64,
+    pub max_abs: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` |  |
+| `mean_abs` | `f64` |  |
+| `max_abs` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `measure`
+
+Run the recorded sequence with `mechanisms` and measure every band's
+quantity. Deterministic, like the headless mode.
+
+```rust
+pub fn measure(mechanisms: super::Mechanisms) -> Metrics { /* ... */ }
+```
+
+#### Function `measure_with`
+
+[`measure`] with the plant's inputs set to `prm` (gh:#1033).
+
+```rust
+pub fn measure_with(mechanisms: super::Mechanisms, prm: super::params::Params) -> Metrics { /* ... */ }
+```
+
+#### Function `ablations`
+
+The ablation runs: the baseline, then each mechanism off alone.
+
+```rust
+pub fn ablations() -> Vec<(&'static str, super::Mechanisms)> { /* ... */ }
+```
+
+#### Function `elasticity`
+
+The [`Elasticity`] of the input `name` (from [`Params::INPUTS`]) for a
+relative step `rel`, given the default run `base`. `None` for an unknown
+name. Runs the sequence twice.
+
+```rust
+pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> { /* ... */ }
+```
+
+#### Function `ensemble_member`
+
+One member of the perturbation ensemble (2026-10-30, after the fourth
+sensitivity run found the run chaotic at the 1e-9 level): every input in
+[`Params::INPUTS`] scaled by `1 + rel u`, `u` uniform in [-1, 1] from a
+SplitMix64 hash of (`seed`, `member`, the input's index), every
+mechanism on, then [`measure_with`]. Deterministic: the same arguments
+give the same run on any machine. `rel = 0` is the default run.
+
+```rust
+pub fn ensemble_member(member: u64, rel: f64, seed: u64) -> Metrics { /* ... */ }
+```
+
+#### Function `ensemble_report`
+
+The ensemble's distribution as Markdown: for each metric, the minimum,
+the quartiles by the nearest-rank rule, the median and the maximum, and
+how many members vented and exploded.
+
+```rust
+pub fn ensemble_report(runs: &[Metrics]) -> String { /* ... */ }
+```
+
+#### Function `sensitivity_report`
+
+The elasticity table as Markdown, largest effect first.
+
+```rust
+pub fn sensitivity_report(rows: &[Elasticity]) -> String { /* ... */ }
+```
+
+#### Function `report`
+
+The comparison and ablation tables, as Markdown.
+
+```rust
+pub fn report(runs: &[(&str, Metrics)]) -> String { /* ... */ }
+```
+
+#### Function `histories`
+
+```rust
+pub fn histories(mechanisms: super::Mechanisms, prm: super::params::Params, every_s: f64, end_s: f64) -> Histories { /* ... */ }
+```
+
+#### Function `against_measured`
+
+```rust
+pub fn against_measured(t_model: &[f64], v_model: &[f64], reference: &[(f64, f64)]) -> AgainstMeasured { /* ... */ }
+```
+
+#### Function `inside_envelope`
+
+The model against a family of code predictions (no measurement): at
+each time of `grid_h`, whether the model lies within the codes'
+envelope (each code interpolated; only codes that cover the time
+count, and at least two must). Returns the fraction of counted times
+inside, and how many counted.
+
+```rust
+pub fn inside_envelope(t_model: &[f64], v_model: &[f64], codes: &[Vec<(f64, f64)>], grid_h: &[f64]) -> (f64, usize) { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `BANDS`
+
+The Unit 1 bands, in the order of [`Metrics::values`].
+
+```rust
+pub const BANDS: [Band; 6] = _;
+```
+
+#### Constant `COMPARE_END_S`
+
+How long the comparison runs, s: past the recorded explosion.
+
+```rust
+pub const COMPARE_END_S: f64 = _;
+```
+
+## Module `containment`
+
+The Mark I containment and the reactor building. This is what the
+**containment worker** runs.
+
+## Model (AI draft; read the limitations)
+
+- **Drywell**: nitrogen, hydrogen and steam at one temperature, ideal
+  gases (steam's energy referenced to IF97's saturated vapour at
+  100 degC with a constant `c_v`; N2 and H2 with MELCOR's `c_v(T)`
+  fits, [`super::gas`], since 2026-10-29); a lumped wall heat sink (steel and
+  concrete) takes heat by convection, **implicitly**; steam above its
+  saturation pressure at the gas temperature condenses to the sump.
+  **Since 2026-10-29** (`Mechanisms::dw_wall_hs`) the wall's coefficient
+  is MELCOR's natural convection and steam condenses on it by diffusion
+  through the non-condensables, its latent heat into the wall
+  ([`super::pool_surface::structure_surface`]); the fixed coefficient is
+  the ablation. The wall's area and heat capacity are still \[A\].
+- **Wetwell (torus)**: the pool, one temperature; ~~the gas space above it
+  at the pool temperature, saturated with steam (an equilibrium
+  assumption)~~ **since 2026-10-29** (`Mechanisms::ww_atmosphere`) the gas
+  space has its own temperature and steam, exchanging mass and energy
+  with the pool at its surface and with the bubbles leaving it
+  ([`super::pool_surface`]: MELCOR CVH/FL RM §5.1 and §6.1); the old
+  equilibrium is the ablation. ~~The torus shell is not a heat structure
+  (stated).~~ The torus shell above the pool is a heat structure on it
+  since 2026-10-29 (`Mechanisms::ww_shell`, its geometry \[A\], its outer
+  face adiabatic). Cost: the 30 h headless run 7.8 -> 11.1 s.
+- **Downcomers**: drywell gas pushed into the pool once the drywell
+  exceeds the wetwell by the submergence head; the steam condenses in the
+  pool, the nitrogen and hydrogen bubble through into the wetwell gas at
+  the pool's temperature. (With the wetwell atmosphere, by MELCOR's bubble model: below
+  about 5 K of subcooling part of the steam passes uncondensed.) **Vacuum breakers** the other way.
+- **Relief-valve discharge** goes into the pool (quenchers), its hydrogen
+  into the wetwell gas.
+- **Wetwell vent** to the stack through a rupture disk, when the operators
+  open it; **drywell head-flange leak** to the reactor building at high
+  pressure; the **reactor building** is well mixed at atmospheric pressure
+  and its hydrogen fraction is compared with the flammability limit and a
+  strong-deflagration threshold.
+
+The downcomers, the vacuum breakers and the leaks are stiff at a 1 s
+step: when an orifice could pass more than equalises the two volumes in a
+step, the transfer is the equalising amount (the implicit answer of a
+stiff path), never more. ~~(True as stated before 2026-10-30.)~~
+**CORRECTED 2026-10-30:** the cap counted only the donor's pressure
+fall, so it overshot the set point by about the ratio of the volumes,
+and the vacuum breaker chattered about it every step, amplifying a
+1e-9 perturbation 1.5 times a step; with
+`Mechanisms::two_sided_equalising` it counts the receiver's rise too
+(`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
+stratification, pool level and swell, pool scrubbing of aerosols (no
+fission products are tracked yet), the torus room, the reactor building's
+own heat-up and ventilation, steam in the building, and the combustion
+itself (the explosion is a threshold, not a calculation).
+
+```rust
+pub mod containment { /* ... */ }
+```
+
+### Types
+
+#### Struct `ContainmentSnapshot`
+
+```rust
+pub struct ContainmentSnapshot {
+    pub dt_s: f64,
+    pub srv_steam_kg_s: f64,
+    pub srv_h: f64,
+    pub srv_h2_kg_s: f64,
+    pub leak_steam_kg_s: f64,
+    pub leak_h: f64,
+    pub leak_h2_kg_s: f64,
+    pub leak_gas_k: f64,
+    pub vent_ordered: bool,
+    pub ex_vessel_w: f64,
+    pub pedestal_inflow_kg_s: f64,
+    pub vessel_drain_kg_s: f64,
+    pub vessel_drain_k: f64,
+    pub gas_cv_t: bool,
+    pub xe_relief: f64,
+    pub xe_leak: f64,
+    pub cs_relief_kg: f64,
+    pub cs_leak_kg: f64,
+    pub uo2_relief_kg: f64,
+    pub uo2_leak_kg: f64,
+    pub i_relief_kg: f64,
+    pub i_leak_kg: f64,
+    pub pool_scrubbing: bool,
+    pub scrubbing_saturation: bool,
+    pub swarm_scrubbing: bool,
+    pub sectional_classes: bool,
+    pub iodine_partition: bool,
+    pub mixture_vent: bool,
+    pub phoresis: bool,
+    pub iodine_swarm: bool,
+    pub rn_relief: super::rn_volume::RnFlow,
+    pub rn_leak: super::rn_volume::RnFlow,
+    pub condensate_mass: bool,
+    pub q_noble_w: f64,
+    pub q_alkali_w: f64,
+    pub q_halogen_w: f64,
+    pub q_chalcogen_w: f64,
+    pub ww_atmosphere: bool,
+    pub dw_wall_hs: bool,
+    pub ww_shell: bool,
+    pub outflow_enthalpy: bool,
+    pub relief_h2_enthalpy: bool,
+    pub srv_gas_k: f64,
+    pub condensate_to_floor: bool,
+    pub rpv_wall_w: f64,
+    pub mcci: bool,
+    pub dw_wall_outer: bool,
+    pub pool_layers: bool,
+    pub cavity_phases: bool,
+    pub bur_ignition: bool,
+    pub gas_choking: bool,
+    pub two_sided_equalising: bool,
+    pub cav_uo2_kg: f64,
+    pub cav_zr_kg: f64,
+    pub cav_debris_k: f64,
+    pub prm: Params,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dt_s` | `f64` |  |
+| `srv_steam_kg_s` | `f64` | Relief-valve discharge into the pool: steam kg/s, its enthalpy J/kg,<br>hydrogen kg/s. |
+| `srv_h` | `f64` |  |
+| `srv_h2_kg_s` | `f64` |  |
+| `leak_steam_kg_s` | `f64` | RPV leak (and, after lower-head failure, the breach) into the drywell:<br>steam kg/s, enthalpy J/kg, hydrogen kg/s, gas temperature K. |
+| `leak_h` | `f64` |  |
+| `leak_h2_kg_s` | `f64` |  |
+| `leak_gas_k` | `f64` |  |
+| `vent_ordered` | `bool` | Operators' order to open the wetwell vent (the disk must still burst). |
+| `ex_vessel_w` | `f64` | After the lower head fails: the debris's decay power on the drywell<br>floor, W, and the injected water that now pours through, kg/s (at<br>the injection temperature). |
+| `pedestal_inflow_kg_s` | `f64` |  |
+| `vessel_drain_kg_s` | `f64` | Water draining from a failed vessel into the pedestal, kg/s, and its<br>temperature, K (`Mechanisms::failed_vessel_drain`). |
+| `vessel_drain_k` | `f64` |  |
+| `gas_cv_t` | `bool` | MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the<br>constant `c_v` ablation. |
+| `xe_relief` | `f64` | Noble gas (Xe) arriving this step through the relief valves (into<br>the wetwell gas) and through the leaks (into the drywell), as<br>fractions of the core inventory (gh:#1040). |
+| `xe_leak` | `f64` |  |
+| `cs_relief_kg` | `f64` | Cesium (as vapour) and UO2 aerosol arriving this step through the<br>relief valves and the leaks, kg (gh:#1047). |
+| `cs_leak_kg` | `f64` |  |
+| `uo2_relief_kg` | `f64` |  |
+| `uo2_leak_kg` | `f64` |  |
+| `i_relief_kg` | `f64` | Iodine (as I2 vapour) likewise, kg. |
+| `i_leak_kg` | `f64` |  |
+| `pool_scrubbing` | `bool` | Pool scrubbing by steam condensation at the vent exits (SPARC-90's<br>DF_EC; `Mechanisms::pool_scrubbing`). |
+| `scrubbing_saturation` | `bool` | MELCOR's `X_o` in that scrubbing, and the impaction and swarm-rise<br>factors past the downcomers (`Mechanisms::scrubbing_saturation`,<br>`Mechanisms::swarm_scrubbing`). |
+| `swarm_scrubbing` | `bool` |  |
+| `sectional_classes` | `bool` | Fission-product classes on the aerosol tracked by section<br>(`Mechanisms::sectional_classes`). |
+| `iodine_partition` | `bool` | The iodine partition limit on the condensation scrubbing<br>(`Mechanisms::iodine_partition`). |
+| `mixture_vent` | `bool` | The wetwell vent passes the gas mixture (`Mechanisms::mixture_vent`). |
+| `phoresis` | `bool` | Thermophoresis and diffusiophoresis onto the drywell's structures<br>(`Mechanisms::phoresis`). |
+| `iodine_swarm` | `bool` | The swarm rise's scrubbing of I2 vapour (`Mechanisms::iodine_swarm`). |
+| `rn_relief` | `super::rn_volume::RnFlow` | The vessel's aerosol and fission products leaving this step through<br>the relief valves and the leaks, by section (`Mechanisms::<br>vessel_aerosol`); empty, the scalar `*_relief_kg` and `*_leak_kg`<br>above carry them instead. |
+| `rn_leak` | `super::rn_volume::RnFlow` |  |
+| `condensate_mass` | `bool` | Condensed classes add to their aerosol section's mass<br>(`Mechanisms::condensate_mass`). |
+| `q_noble_w` | `f64` | Decay heat of the noble-gas, alkali and halogen classes for the<br>whole core inventory, W (`fp_decay`; zero without<br>`Mechanisms::fp_decay_follows`): each location takes its share of the<br>class's inventory. |
+| `q_alkali_w` | `f64` |  |
+| `q_halogen_w` | `f64` |  |
+| `q_chalcogen_w` | `f64` | And the chalcogens' (Te/Se), when tellurium is transported<br>(`Mechanisms::te_transport`). |
+| `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam, and<br>exchanges mass and energy with the pool at its surface and with the<br>bubbles leaving the pool (`Mechanisms::ww_atmosphere`). |
+| `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface: natural<br>convection and diffusion-limited condensation (`Mechanisms::<br>dw_wall_hs`); false is the fixed coefficient `dw_wall_h`. |
+| `ww_shell` | `bool` | The torus shell above the pool as a heat structure on the wetwell<br>atmosphere (`Mechanisms::ww_shell`; needs `ww_atmosphere`). |
+| `outflow_enthalpy` | `bool` | Gas leaving the drywell (downcomers, flange leak) takes its enthalpy<br>(`Mechanisms::outflow_enthalpy`); false is its internal energy, the<br>drywell keeping its temperature. |
+| `relief_h2_enthalpy` | `bool` | The relief valves' hydrogen arrives with its enthalpy at<br>`srv_gas_k`, the vessel's saturation temperature, as the vessel gave<br>it up (`Mechanisms::relief_h2_enthalpy`; needs `ww_atmosphere`);<br>false is at the pool's temperature. |
+| `srv_gas_k` | `f64` |  |
+| `condensate_to_floor` | `bool` | Water condensed in the drywell drains to its floor, the pedestal's<br>pool (`Mechanisms::condensate_to_floor`); false is it leaving the<br>model. |
+| `rpv_wall_w` | `f64` | Heat through the RPV's insulation into the drywell gas, W<br>(`Mechanisms::rpv_wall`). |
+| `mcci` | `bool` | Molten core-concrete interaction on the drywell floor<br>(`Mechanisms::mcci`), and the debris there: the core's UO2 and<br>metallic Zr, kg, and their temperature, K. |
+| `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, which conducts it to the reactor building<br>(`Mechanisms::dw_wall_outer`). |
+| `pool_layers` | `bool` | The torus pool in two layers, split at the downcomers' exits<br>(`Mechanisms::pool_layers`). |
+| `cavity_phases` | `bool` | The cavity debris melts over a range and conducts when solid<br>(`Mechanisms::cavity_phases`). |
+| `bur_ignition` | `bool` | The building's burn starts by MELCOR's BUR criteria<br>(`Mechanisms::bur_ignition`). |
+| `gas_choking` | `bool` | Gas flows to the atmosphere are limited to the critical flow<br>(`Mechanisms::gas_choking`). |
+| `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts both<br>volumes (`Mechanisms::two_sided_equalising`). |
+| `cav_uo2_kg` | `f64` |  |
+| `cav_zr_kg` | `f64` |  |
+| `cav_debris_k` | `f64` |  |
+| `prm` | `Params` | The plant's inputs (gh:#1033). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ContainmentResult`
+
+```rust
+pub struct ContainmentResult {
+    pub p_dw_pa: f64,
+    pub p_ww_pa: f64,
+    pub t_dw_k: f64,
+    pub t_pool_k: f64,
+    pub t_pool_top_k: f64,
+    pub dw_h2_kg: f64,
+    pub ww_h2_kg: f64,
+    pub rb_h2_fraction: f64,
+    pub vent_flowing: bool,
+    pub flange_leaking: bool,
+    pub rb_flammable: bool,
+    pub rb_exploded: bool,
+    pub rb_burn_y: f64,
+    pub rb_co_fraction: f64,
+    pub vented_h2_kg: f64,
+    pub vented_kg_s: f64,
+    pub xe_dw: f64,
+    pub xe_ww: f64,
+    pub xe_vented: f64,
+    pub xe_building: f64,
+    pub cs_dw_structures_kg: f64,
+    pub cs_ww_pool_kg: f64,
+    pub cs_airborne_kg: f64,
+    pub cs_vented_kg: f64,
+    pub cs_building_kg: f64,
+    pub i_dw_structures_kg: f64,
+    pub i_ww_pool_kg: f64,
+    pub i_airborne_kg: f64,
+    pub i_vented_kg: f64,
+    pub i_building_kg: f64,
+    pub te_kg: f64,
+    pub cav_ablated_kg: f64,
+    pub cav_h2_kg: f64,
+    pub cav_co_kg: f64,
+    pub cav_debris_k: f64,
+    pub cav_zr_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p_dw_pa` | `f64` |  |
+| `p_ww_pa` | `f64` |  |
+| `t_dw_k` | `f64` |  |
+| `t_pool_k` | `f64` | The pool's temperature, K: its mean over both layers with<br>`pool_layers`. |
+| `t_pool_top_k` | `f64` | The pool's surface layer (above the downcomers' exits), K; the<br>whole pool without `pool_layers`. |
+| `dw_h2_kg` | `f64` |  |
+| `ww_h2_kg` | `f64` |  |
+| `rb_h2_fraction` | `f64` |  |
+| `vent_flowing` | `bool` |  |
+| `flange_leaking` | `bool` |  |
+| `rb_flammable` | `bool` |  |
+| `rb_exploded` | `bool` |  |
+| `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction, `X_H2 + X_CO<br>L_H2 / L_CO` (MELCOR BUR RM Eq 2-3), and its CO fraction. |
+| `rb_co_fraction` | `f64` |  |
+| `vented_h2_kg` | `f64` |  |
+| `vented_kg_s` | `f64` |  |
+| `xe_dw` | `f64` | Noble gas (Xe) in the drywell and the wetwell gas, vented to the<br>stack and leaked to the reactor building, fractions of the core<br>inventory (gh:#1040). |
+| `xe_ww` | `f64` |  |
+| `xe_vented` | `f64` |  |
+| `xe_building` | `f64` |  |
+| `cs_dw_structures_kg` | `f64` | Cesium (gh:#1047), kg: on the drywell's structures, in the wetwell<br>pool (deposited on its surface), airborne in both, vented, and<br>leaked to the building. |
+| `cs_ww_pool_kg` | `f64` |  |
+| `cs_airborne_kg` | `f64` |  |
+| `cs_vented_kg` | `f64` |  |
+| `cs_building_kg` | `f64` |  |
+| `i_dw_structures_kg` | `f64` | Iodine likewise, kg. |
+| `i_ww_pool_kg` | `f64` |  |
+| `i_airborne_kg` | `f64` |  |
+| `i_vented_kg` | `f64` |  |
+| `i_building_kg` | `f64` |  |
+| `te_kg` | `f64` | All the tellurium that has reached the containment, kg (in it,<br>vented and leaked): for its conservation check. |
+| `cav_ablated_kg` | `f64` | The cavity (`mcci`): concrete ablated, kg; H2 and CO made there, kg;<br>the debris temperature, K, and its metallic Zr, kg. |
+| `cav_h2_kg` | `f64` |  |
+| `cav_co_kg` | `f64` |  |
+| `cav_debris_k` | `f64` |  |
+| `cav_zr_kg` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Containment`
+
+```rust
+pub struct Containment {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(prm: &Params) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn p_dw(self: &Self, prm: &Params) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn p_ww(self: &Self, prm: &Params) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn step(self: &mut Self, s: &ContainmentSnapshot) -> ContainmentResult { /* ... */ }
+  ```
+  Advance one step. Pure function of `self` and `s`.
+
+- ```rust
+  pub fn write_state(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+  The whole state, for a stateless worker to step.
+
+- ```rust
+  pub fn read_state(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The containment with the default inputs ([`Params::default`]).
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `core`
+
+The core: heat-up of the fuel once the water level falls, zirconium-steam
+oxidation, hydrogen, and relocation. This is what the **core worker**
+runs (in the browser a Web Worker of its own, as CIET's flow solves are).
+
+## Model (AI draft; read the limitations)
+
+Three equal-area rings, centre outwards, times [`AXIAL_NODES`] axial
+nodes over the active length. Each node is two lumps: the UO2 and the
+Zircaloy (cladding plus its share of the channel boxes), with
+- the decay power shared by ring factor and a chopped-cosine axial shape;
+- fuel-to-clad conductance through the pellet and the gap;
+- clad-to-coolant: **covered** (below the collapsed level), nucleate
+  boiling to water at `T_sat`; **uncovered**, convection to the steam
+  rising from the boil-off below, Dittus-Boelter with IF97 steam
+  properties at the film temperature, applied in effectiveness form
+  (`q = W c_p (T_clad - T_in)(1 - e^(-NTU))`), which cannot heat the steam
+  past the cladding: the second law holds by construction, no guard;
+- both lumps advanced **implicitly** together (a 2x2 solve per node), so
+  any time step is stable;
+- **temperature-dependent heat capacities** (gh:#1038): OFFBEAT's MATPRO
+  UO2 and MATPRO Zircaloy correlations, reused, not re-entered. The 2x2
+  solve takes the heat capacities at the start of the step; each lump's
+  energy is then advanced by the heat that solve moved, and its
+  temperature found by inverting the correlation's enthalpy (which since
+  gh:#1035 includes the heats of fusion, so a node pays 225 kJ per kg of
+  Zr at 2098 K), so energy is
+  conserved exactly. `Mechanisms::without_temperature_dependent_properties`
+  is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
+- oxidation by the parabolic Urbanic-Heidrick law above ~~1000 K~~ 1100 K (MELCOR's TOXMIN), its heat
+  into the cladding, limited by the steam that reaches the node (steam
+  starvation) and, since 2026-10-29, by MELCOR's gaseous diffusion of
+  that steam through the hydrogen (`diffusion_limited_rate`); the steam it uses and the hydrogen it makes travel up.
+  The heat is Hess's law at the node (gh:#1046): the 298 K heat of
+  reaction, plus the consumed steam's enthalpy above 298 K vapour, minus
+  heating the new hydrogen to the stream, which then carries it (steam
+  plus hydrogen heat capacity). A steam-starved node does not heat the
+  hydrogen passing it;
+- a node collapses by MELCOR's criteria (gh:#1035): once its metal is
+  gone (oxidised below [`MIN_METAL_M`], or its shell breached at
+  [`CLAD_BREACH_K`]) it accumulates time-at-temperature damage and falls
+  at [`ROD_COLLAPSE_K`] or when the damage reaches 1; any rod falls at
+  [`ROD_COLLAPSE_MAX_K`]. ~~Molten Zr that MELCOR would candle downward
+  stays in the node and keeps oxidising (stated simplification).~~
+  **Since 2026-10-29** molten Zr candles: once the shell breaches it
+  flows down and refreezes in the first node below Zr's melting point
+  (`candling`; simplified, see the candling pass). ~~a
+  node whose cladding reaches [`ZR_MELT_K`] relocates~~ (that is the
+  `without_rod_collapse` ablation). A fallen node relocates: its mass, energy
+  and decay power move to a debris lump in the lower plenum, quenched
+  while water is there; ~~dry debris above [`LOWER_HEAD_FAILURE_K`] fails
+  the lower head~~ (since gh:#1034 that is only the
+  `without_lower_head_wall` ablation): dry debris heats the lower-head
+  wall (`HeadWall`), which fails on its inner node reaching
+  [`HEAD_FAILURE_WALL_K`] or by Larson-Miller creep.
+
+**Not in the model** (each would change the answer): ~~radiation between
+rods, to the shroud and upwards (it spreads heat across the core above
+about 1200 K);~~ (added 2026-10-29, gh:#1037: ring-to-ring, level-to-level
+and outer ring to a shroud lump; ~~still missing: the upper-plenum
+structures, the view through emptied cells,~~ since 2026-10-29 the top
+of each ring radiates to the dome internals through emptied cells,
+`core_top_radiation`; ~~still missing: the view through emptied cells
+between rings and levels,~~ and through emptied cells between rings and
+levels, `see_through`; still missing: the downcomer side of the
+shroud); the two-phase swell of the mixture level (the collapsed
+level uncovers the fuel early); ~~candling,~~ (simplified candling added
+2026-10-29) blockages, and molten-pool physics; ~~temperature-dependent fuel properties~~ (heat capacities added
+2026-10-29, gh:#1038; UO2 conductivity is still constant, waiting for a
+cited Unit 1 burnup, which MATPRO's conductivity depends on); the decay heat that
+leaves with volatile fission products; boron carbide control-blade
+reactions. Debris after the lower head fails leaves the model.
+
+```rust
+pub mod core { /* ... */ }
+```
+
+### Types
+
+#### Struct `CoreSnapshot`
+
+What the plant hands the core at the start of a step.
+
+```rust
+pub struct CoreSnapshot {
+    pub dt_s: f64,
+    pub p_pa: f64,
+    pub t_sat_k: f64,
+    pub h_fg: f64,
+    pub level_m: f64,
+    pub decay_w: f64,
+    pub t_dependent_props: bool,
+    pub p_dw_pa: f64,
+    pub lower_head_wall: bool,
+    pub rod_collapse: bool,
+    pub core_radiation: bool,
+    pub diffusion_limit: bool,
+    pub hydrogen_cp_t: bool,
+    pub penetrations: bool,
+    pub debris_oxidation: bool,
+    pub candling: bool,
+    pub debris_quench: bool,
+    pub wet_head_contact: bool,
+    pub penetration_coverage: bool,
+    pub core_top_radiation: bool,
+    pub upper_k: f64,
+    pub see_through: bool,
+    pub core_plate: bool,
+    pub bottom_radiation: bool,
+    pub ring_plates: bool,
+    pub plate_oxidation: bool,
+    pub lp_steam_consumed: bool,
+    pub control_blades: bool,
+    pub blade_fusion: bool,
+    pub blade_diffusion_limit: bool,
+    pub prm: Params,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dt_s` | `f64` |  |
+| `p_pa` | `f64` |  |
+| `t_sat_k` | `f64` |  |
+| `h_fg` | `f64` |  |
+| `level_m` | `f64` | Collapsed water level above the bottom of active fuel, m (negative:<br>below the core; below `-BAF_M` the lower plenum is dry). |
+| `decay_w` | `f64` | Decay power of the whole core, W. |
+| `t_dependent_props` | `bool` | Temperature-dependent heat capacities on (the default) or the<br>constant-property ablation (`Mechanisms`). |
+| `p_dw_pa` | `f64` | Drywell pressure, Pa: the outside of the lower head, for its creep<br>stress (gh:#1034). |
+| `lower_head_wall` | `bool` | The lower-head wall on (the default) or the debris-temperature<br>ablation (`Mechanisms`). |
+| `rod_collapse` | `bool` | MELCOR's rod-collapse criteria (the default) or the 2100 K<br>whole-node slump (`Mechanisms`). |
+| `core_radiation` | `bool` | In-core radiation and the shroud (the default) or none<br>(`Mechanisms`). |
+| `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on oxidation (the default) or the<br>parabolic rate limited only by steam supply (`Mechanisms`). |
+| `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` from MELCOR's fit (the default) or the constant<br>[`CP_H2_J_PER_KG_K`] (`Mechanisms`). |
+| `penetrations` | `bool` | Lower-head penetration failure (the default) or the wall alone<br>(`Mechanisms`). |
+| `debris_oxidation` | `bool` | Oxidation of the lower-plenum debris (`Mechanisms::debris_oxidation`). |
+| `candling` | `bool` | Molten Zr candles down the rods (`Mechanisms::candling`). |
+| `debris_quench` | `bool` | MELCOR's falling-debris quench and dryout limit<br>(`Mechanisms::debris_quench`). |
+| `wet_head_contact` | `bool` | The lower head takes heat from the debris under water too<br>(`Mechanisms::wet_head_contact`). |
+| `penetration_coverage` | `bool` | The penetration heated over the debris-covered part of its height<br>only, the rest cooled by the fluid (`Mechanisms::penetration_coverage`). |
+| `core_top_radiation` | `bool` | The topmost component of each ring radiates up to the dome<br>internals at `upper_k`, K (`Mechanisms::core_top_radiation`). |
+| `upper_k` | `f64` |  |
+| `see_through` | `bool` | Radiation looks through emptied cells to the next standing<br>component, radially and axially (`Mechanisms::see_through`). |
+| `core_plate` | `bool` | Relocating material is held on the core plate until the plate fails<br>(`Mechanisms::core_plate`). |
+| `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (`Mechanisms::bottom_radiation`). |
+| `ring_plates` | `bool` | One core plate per radial ring, each failing on its own load<br>(`Mechanisms::ring_plates`); off is one plate under the whole core. |
+| `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it<br>(`Mechanisms::plate_oxidation`). |
+| `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses is taken out of<br>the steam rising into the core (`Mechanisms::lp_steam_consumed`). |
+| `control_blades` | `bool` | The control blades: steel at each cell's cladding temperature, its<br>oxidation, and its melting (`Mechanisms::control_blades`). |
+| `blade_fusion` | `bool` | A blade at the steel's melting temperature absorbs its heat of<br>fusion before it drains (`Mechanisms::blade_fusion`). |
+| `blade_diffusion_limit` | `bool` | The blades' steel oxidation is held to MELCOR's gaseous-diffusion<br>limit as the Zr's is (`Mechanisms::blade_diffusion_limit`). |
+| `prm` | `Params` | The plant's inputs (gh:#1033). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CoreResult`
+
+What the core hands back.
+
+```rust
+pub struct CoreResult {
+    pub q_fluid_w: f64,
+    pub steam_used_kg_s: f64,
+    pub h2_kg_s: f64,
+    pub q_ox_w: f64,
+    pub peak_clad_k: f64,
+    pub exit_gas_k: f64,
+    pub exit_steam_kg_s: f64,
+    pub fp_volatile_released: f64,
+    pub uo2_released_kg: f64,
+    pub zr_oxidised_kg: f64,
+    pub h2_total_kg: f64,
+    pub relocated: f64,
+    pub debris_k: f64,
+    pub debris_uo2_kg: f64,
+    pub debris_zr_metal_kg: f64,
+    pub lower_head_failed: bool,
+    pub ex_vessel_w: f64,
+    pub head_inner_k: f64,
+    pub head_strain: f64,
+    pub q_pool_w: f64,
+    pub q_upper_w: f64,
+    pub clad_k: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `q_fluid_w` | `f64` | Heat into the vessel's water and steam this step, W (mean). |
+| `steam_used_kg_s` | `f64` | Steam used by oxidation, kg/s, and hydrogen made, kg/s. |
+| `h2_kg_s` | `f64` |  |
+| `q_ox_w` | `f64` | Oxidation heat, W (already inside the core's balance; for display). |
+| `peak_clad_k` | `f64` |  |
+| `exit_gas_k` | `f64` |  |
+| `exit_steam_kg_s` | `f64` | Steam leaving the top of the core, kg/s (with the hydrogen,<br>`h2_kg_s`, at `exit_gas_k`). |
+| `fp_volatile_released` | `f64` | Volatile fission products (Xe, Cs, I) released from the fuel so<br>far, fraction of the core inventory (gh:#1040). |
+| `uo2_released_kg` | `f64` | UO2 released from the fuel so far, kg: the seed aerosol (gh:#1047). |
+| `zr_oxidised_kg` | `f64` | Zirconium oxidised so far, kg; hydrogen made so far, kg. |
+| `h2_total_kg` | `f64` |  |
+| `relocated` | `f64` | Fraction of the core's nodes relocated, and debris temperature. |
+| `debris_k` | `f64` |  |
+| `debris_uo2_kg` | `f64` | The debris's UO2 and metallic Zr, kg: once the head has failed, what<br>lies on the drywell floor (`Mechanisms::mcci`). |
+| `debris_zr_metal_kg` | `f64` |  |
+| `lower_head_failed` | `bool` |  |
+| `ex_vessel_w` | `f64` | Decay power of the debris that has left through the failed lower<br>head, W: it goes to the drywell floor. |
+| `head_inner_k` | `f64` | The lower-head wall's inner temperature, K, and its creep strain<br>(gh:#1034; zero strain and the initial temperature until debris<br>arrives, and in the ablation). |
+| `head_strain` | `f64` |  |
+| `q_pool_w` | `f64` | Heat into the water this step, W: covered nodes and the debris<br>quench. The vapour it raises inside the pool sets the swell of the<br>mixture level (gh:#1036). |
+| `q_upper_w` | `f64` | Radiated from the top of the core to the dome internals, W<br>(`core_top_radiation`). |
+| `clad_k` | `Vec<f64>` | Cladding temperature of every node, ring-major, bottom to top, K<br>(relocated nodes: NaN). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Core`
+
+```rust
+pub struct Core {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(t_sat_k: f64, prm: &Params) -> Self { /* ... */ }
+  ```
+  The core just after the scram: fuel at its full-power average
+
+- ```rust
+  pub fn step(self: &mut Self, s: &CoreSnapshot) -> CoreResult { /* ... */ }
+  ```
+  Advance one step. Pure function of `self` and `s`.
+
+- ```rust
+  pub fn write_state(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+  The whole state, for a stateless worker to step.
+
+- ```rust
+  pub fn read_state(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `lipinski_dryout_flux`
+
+Lipinski's zero-dimensional dryout heat flux of a particulate bed under
+water, W/m^2 (MELCOR Vol. 2, COR §2.3.8, Eqs 2-114, 2-115; C1244: the
+constant 0.756, the nominal capillary head 0.089 m for 0.5 mm particles,
+scaled as `1/d`, and a minimum porosity of 0.15), at pressure `p_pa`
+for a bed `height` m deep.
+
+```rust
+pub fn lipinski_dryout_flux(prm: &Params, p_pa: f64, height: f64) -> f64 { /* ... */ }
+```
+
+#### Function `oxidation_rate`
+
+Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
+
+```rust
+pub fn oxidation_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `diffusion_limited_rate`
+
+MELCOR's gaseous-diffusion limit on Zr oxidation, kg Zr/(m^2 s) (Vol. 2,
+SAND2023-10994 O, COR §2.5.3, Eq 2-168; Vol. 1, SAND2017-0455 O,
+C1003; no source used): steam diffusing through the hydrogen to the
+surface,
+
+```text
+dW/dt = M_Zr k_c p_ox / (n R T_f),   n = 2 mol H2O per mol Zr
+```
+
+(`M_Zr/(n R)` is MELCOR's C1003(1), 0.00548 kg K/(Pa m^3), here derived
+from the molar masses). `p_ox` is the steam's partial pressure in the
+ring's gas (the surface's taken as zero, the limit), `T_f` the film
+temperature, and `k_c = Sh D / D_h` by the heat-mass analogy on this
+model's own convection correlation (`steam_htc`: Dittus-Boelter with the
+Schmidt number for the Prandtl, laminar floor Sh = 4.36; MELCOR's
+developing-flow factor is 1 at its 1000 m entrance length and is left
+out). `D` is steam in hydrogen ([`Params::h2o_h2_diffusivity_a`]).
+Simplification: the Reynolds number and the viscosity are the steam's,
+as in `steam_htc`; the density in the Schmidt number is the mixture's.
+MELCOR uses this rate when it is below the parabolic one, which is how
+the caller applies it.
+
+```rust
+pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64, p_pa: f64) -> f64 { /* ... */ }
+```
+
+#### Function `volatile_release_rate`
+
+Fractional release rate of the volatile fission products (Xe, Cs, I)
+from fuel at `t_k`, 1/s: MELCOR's CORSOR-M (Vol. 2, SAND2023-10994 O, RN
+§2.3.1, Eq 2-11, C7102; no source used), `k0 exp(-Q / (R T))` per
+minute. Xe, Cs, I2 and Te share one row of its table, so one fraction
+serves the three tracked here; Te's retention by unoxidised cladding is
+not modelled and Te is not tracked. Not modelled either: the gap
+inventory's burst release at cladding failure (RN1_GAP00). **Checked and
+rejected 2026-10-29:** with MELCOR's defaults it changes nothing
+measurable. The initial gap inventory defaults to zero (RN1_GAP is
+optional, NMGAP default 0; RN UG), so what remains is the fuel's release
+held in the gap until the ring's cladding fails at 1173 K (RN RM
+§2.3.2). Below 1173 K this rate releases at most 1.6e-5 of the
+inventory per hour (2.6e-7 /min at 1173 K), so the holdup moves the
+release by under 1e-5.
+
+```rust
+pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `uo2_release_rate`
+
+Fractional release rate of UO2 itself from fuel at `t_k`, 1/s: CORSOR-M's
+row for La and UO2 (Vol. 2, RN §2.3.1, C7102), `k0 exp(-Q/(R T))` per
+minute. The released UO2 is the aerosol the vapours condense on
+(gh:#1047); its inventory is the fuel's UO2.
+
+```rust
+pub fn uo2_release_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RINGS`
+
+```rust
+pub const RINGS: usize = 3;
+```
+
+#### Constant `NODES`
+
+```rust
+pub const NODES: usize = _;
+```
+
+#### Constant `WALL_NODES`
+
+Through-wall nodes of the lower-head wall (inner face first).
+
+```rust
+pub const WALL_NODES: usize = 5;
+```
+
+## Module `decay`
+
+Whole-core decay heat after the scram (gh:#1041, plan item F10).
+
+The form is that of the ANS-5.1-1979 standard, as MELCOR's DCH package
+applies it (MELCOR 2.2 Vol. 2, SAND2023-10994 O, DCH §3.2, Eqs 3-1 to 3-5
+and Table 3.1; Vol. 1, SAND2017-0455 O, DCH_FPW, DCH_OPT, DCH_NFA, 3201,
+3205). No MELCOR source is used:
+
+```text
+P(t) = G(t) sum_i P_FP,i(t) + (sum_i P_i / Q_i) [F_U239(t, T) + F_Np239(t, T)]
+```
+
+- `P_FP,i` is the fission-product decay heat of fissioning nuclide `i`
+  (U-235 thermal, Pu-239 thermal, U-238 fast) after `T` seconds at its
+  share `P_i` of the rated power. It comes from `teh-o-prke`'s 23-group
+  fit, the 1978 draft ANS standard (reused, not re-entered), integrated
+  analytically over the irradiation. MELCOR interpolates the 1979
+  standard's tables instead; the two rest on the same England et al.
+  evaluation, and the difference is not measured here.
+- `G(t)` is the neutron-capture correction. Below 1e4 s it is the
+  standard's formula (Eq 3-5). Above, it is the standard's Table 10,
+  `G_max(t)`, which is an **upper bound**, i.e. conservative, as MELCOR
+  uses it. The step at 1e4 s is the standard's own.
+- `F_U239`, `F_Np239` are the decay heat of U-239 and Np-239 (Eqs 3-3,
+  3-4).
+
+Each part is a [`Mechanisms`](super::Mechanisms) switch, default on. The
+ablation of the first is the model before gh:#1041: U-235 only, at
+equilibrium (infinite irradiation).
+
+```rust
+pub mod decay { /* ... */ }
+```
+
+### Types
+
+#### Struct `DecayParts`
+
+Which parts of the decay heat are on (from `Mechanisms`).
+
+```rust
+pub struct DecayParts {
+    pub mixed_finite: bool,
+    pub capture: bool,
+    pub actinides: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mixed_finite` | `bool` | U-235, Pu-239 and U-238 fission products after a finite irradiation;<br>off is U-235 alone at equilibrium. |
+| `capture` | `bool` | The capture correction `G(t)`. |
+| `actinides` | `bool` | U-239 and Np-239. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PlantDecay`
+
+The core's decay heat source, advanced with the plant.
+
+```rust
+pub struct PlantDecay {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(prm: &Params, parts: DecayParts) -> Self { /* ... */ }
+  ```
+  The decay source just after the scram from rated power.
+
+- ```rust
+  pub fn advance(self: &mut Self, dt_s: f64) { /* ... */ }
+  ```
+  Advance by `dt_s` seconds with no fission.
+
+- ```rust
+  pub fn t_s(self: &Self) -> f64 { /* ... */ }
+  ```
+  Time since the scram, s.
+
+- ```rust
+  pub fn fp_power_w(self: &Self) -> f64 { /* ... */ }
+  ```
+  The fission products' part of the decay power now, W: the power
+
+- ```rust
+  pub fn power_w(self: &Self) -> f64 { /* ... */ }
+  ```
+  Decay power now, W.
+
+- ```rust
+  pub fn capture_factor(self: &Self) -> f64 { /* ... */ }
+  ```
+  `G(t)`: the standard's formula below 1e4 s (MELCOR Eq 3-5), then
+
+- ```rust
+  pub fn actinide_power_w(self: &Self) -> f64 { /* ... */ }
+  ```
+  U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `fp_decay`
+
+Fission-product decay heat by element, for decay heat that follows the
+fission products out of the core (gh:#1041, plan item F10).
+
+MELCOR's DCH package gives each radionuclide class its own decay heat,
+and the package holding a class's mass gets its heat. It weights ORIGEN
+elemental decay heats into the classes (MELCOR 2.2 Vol. 2, DCH §2,
+Table 2.1). Daughters are "assumed to remain with the parents", so an
+element's heat includes its descendants'. MELCOR's elemental tables come
+from SAND reports that are not held, so they are **computed here**: a
+summation calculation on ENDF/B-VIII data already in the workspace.
+
+- **Decay data**: half-lives, mean decay energies and branches from
+  `openmc-endf-8-depletion-lib-a`/`-b` (OpenMC's ENDF/B-VIII chain), for
+  the elements Ti to Er.
+- **Yields**: ENDF/B-VIII independent fission yields
+  (`fission-yields-data`): U-235 and Pu-239 thermal (0.0253 eV), U-238
+  fast (500 keV).
+- **History**: constant power for `operating_time_s` at the fission
+  shares of `decay.rs` (MELCOR's BWR defaults), then decay.
+- **Method**: every nuclide's atoms obey `dN/dt = S + sum_p lambda_p b_p
+  N_p - lambda N`. The decay graph is acyclic, so one pass in topological
+  order per time step suffices. Each step uses the exponential
+  integrator, exact for a constant feed, with the parents' feed averaged
+  over the step. **Attribution**: each nuclide born in fission is credited
+  to its own element, and so are all its descendants, which is MELCOR's
+  daughters-stay-with-parents rule.
+
+Not modelled (stated): neutron capture on fission products during
+irradiation (the ANS standard's `G` factor covers it for the total), and
+delayed-neutron emission is followed only as far as the decay library's
+branches give it.
+
+The table is costly to compute (about 0.2 s), so it is committed:
+`verification_and_validation/bwr_mark1/fp_decay_by_element.csv`, with
+one row per time and each element's share of the fission-product decay
+heat. A test regenerates it and compares it byte for byte; re-bless with
+`FUKUSHIMA_BLESS=1`.
+
+```rust
+pub mod fp_decay { /* ... */ }
+```
+
+### Types
+
+#### Struct `Summation`
+
+The summation's results: each element's fission-product decay heat, W,
+at [`table_times`] (descendants credited to the element born in
+fission), and each element's mass at the scram, kg (by the element the
+atoms are then, stable isotopes included).
+
+```rust
+pub struct Summation {
+    pub heat_w: Vec<Vec<f64>>,
+    pub mass_kg: Vec<f64>,
+    pub nuclide_kg: Vec<(String, f64)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heat_w` | `Vec<Vec<f64>>` |  |
+| `mass_kg` | `Vec<f64>` |  |
+| `nuclide_kg` | `Vec<(String, f64)>` | Each nuclide's mass at the scram, kg, by its ENDF name (`Cs137`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn nuclide_mass_kg(self: &Self, name: &str) -> f64 { /* ... */ }
+  ```
+  One nuclide's mass at the scram, kg (0 if absent).
+
+- ```rust
+  pub fn element_mass_kg(self: &Self, symbol: &str) -> f64 { /* ... */ }
+  ```
+  One element's mass at the scram, kg (0 if absent).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ElementShares`
+
+The committed table, read: times, s, and each element's share of the
+fission-product decay heat at each.
+
+```rust
+pub struct ElementShares {
+    pub times_s: Vec<f64>,
+    pub symbols: Vec<String>,
+    pub shares: Vec<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `times_s` | `Vec<f64>` |  |
+| `symbols` | `Vec<String>` |  |
+| `shares` | `Vec<Vec<f64>>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn committed() -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn share(self: &Self, symbols: &[&str], t_s: f64) -> f64 { /* ... */ }
+  ```
+  The share of the fission-product decay heat carried by the elements
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `table_times`
+
+The times of the committed table, s after the scram: 10 s to 600 h,
+61 points evenly spaced in the logarithm.
+
+```rust
+pub fn table_times() -> Vec<f64> { /* ... */ }
+```
+
+#### Function `compute`
+
+The summation (see the module doc).
+
+```rust
+pub fn compute(prm: &super::params::Params) -> Summation { /* ... */ }
+```
+
+#### Function `table_csv`
+
+The committed table as CSV text: a header of element symbols, then per
+time its value and each element's share of the total.
+
+```rust
+pub fn table_csv(sum: &Summation) -> String { /* ... */ }
+```
+
+#### Function `inventory_csv`
+
+The element masses at the scram as CSV text: symbol, kg.
+
+```rust
+pub fn inventory_csv(sum: &Summation) -> String { /* ... */ }
+```
+
+#### Function `inventory_kg`
+
+An element's mass at the scram from the committed inventory, kg (0 if
+absent).
+
+```rust
+pub fn inventory_kg(symbol: &str) -> f64 { /* ... */ }
+```
+
+## Module `gas`
+
+Heat capacities of the non-condensable gases, N2 and H2.
+
+Each has its own `c_v(T)`, from MELCOR 2.2's NCG library fits (Vol. 2,
+SAND2023-10994 O, NCG/H2O-RM-33/34; the form is Vol. 1, SAND2017-0455 O,
+NCG-UG-2, Eq 1.1; no source used):
+
+```text
+c_v(T) = cv0 + cv1 T + cv2 T^2 + cv3 T^3 + cvsqrt/sqrt(T) + cvm1/T + cvm2/T^2
+```
+
+The coefficients are mass-specific and apply inside `T_low..=T_up`. Outside
+that range `c_v` is held at its boundary value. Internal energy is
+measured from 0 K, the containment's existing convention, so it is
+`c_v(T_low) T` below `T_low`, the integral of the fit inside the range,
+and linear in `c_v(T_up)` above `T_up`. Before 2026-10-29 these were
+constants, 20.8 (N2) and 20.5 (H2) J/(mol K), and the
+`without_gas_cv_t` ablation restores them.
+
+```rust
+pub mod gas { /* ... */ }
+```
+
+### Functions
+
+#### Function `cv_n2`
+
+Molar `c_v` of N2 and of H2, J/(mol K); `t_dependent` false is the
+constant-value ablation.
+
+```rust
+pub fn cv_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `cv_h2`
+
+```rust
+pub fn cv_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `u_n2`
+
+Molar internal energy of N2 and of H2 from 0 K, J/mol.
+
+```rust
+pub fn u_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `u_h2`
+
+```rust
+pub fn u_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `ncg_u`
+
+Internal energy of `n2` and `h2` moles at `t`, J. The ablation keeps the
+operation order of the code before 2026-10-29, so it reproduces it bit
+for bit.
+
+```rust
+pub fn ncg_u(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `ncg_c`
+
+Heat capacity of `n2` and `h2` moles at `t`, J/K.
+
+```rust
+pub fn ncg_c(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `h2_molar_enthalpy`
+
+Hydrogen's molar enthalpy from 0 K, `u + R T`, J/mol (the ablation as
+before: `(c_v + R) T`).
+
+```rust
+pub fn h2_molar_enthalpy(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `cp_h2_per_kg`
+
+Hydrogen's `c_p`, J/(kg K), and its enthalpy above 298.15 K, J/kg, for
+the core and vessel (the `hydrogen_cp_t` mechanism). The ablation's
+`c_p` is the constant the core used before, `(20.5 + R)/M_H2`.
+
+```rust
+pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `h2_enthalpy_above_298`
+
+```rust
+pub fn h2_enthalpy_above_298(t: f64) -> f64 { /* ... */ }
+```
+
+## Module `internals`
+
+The steam dome's internals as a heat structure (gh:#1037, plan item F6).
+
+The gas leaving the top of the core passes the shroud head, the steam
+separators and the dryer before it reaches the steam lines, the leak
+paths and the containment. Those structures are tens of tonnes of steel
+at saturation temperature, and they cool a superheated gas. MELCOR
+models them as heat structures in the upper-plenum and dome volumes
+(Vol. 2, SAND2023-10994 O, HS package; no source used); here they are one
+lumped node.
+
+The gas (steam and hydrogen, heat-capacity rate `C_g`) leaves at
+
+```text
+T_out = T_s + (T_in - T_s) exp(-NTU),   NTU = h A / C_g
+```
+
+and the structure takes `C_g (T_in - T_out)`, which the vessel's energy
+gives up (`Plant::finish`). When the gas is cooler than the structure,
+the same exchange gives the heat back. The structure's enthalpy is
+304L's (`core::steel_h`), as for the steam lines.
+
+With no gas flowing past them they still lose heat to the saturated dome
+by natural convection (`lose`, since 2026-10-29; before, nothing cooled
+them once the flow stopped, which kept them hot and re-evaporated the
+cesium they held).
+
+Its mass, area and heat transfer coefficients are all \[A\]
+(`params::INTERNALS_*`): Unit 1's internals are not in a held source.
+The ablation,
+[`Mechanisms::without_dome_internals`](super::Mechanisms), passes the
+core's exit gas straight through: the model before 2026-10-29.
+
+```rust
+pub mod internals { /* ... */ }
+```
+
+### Types
+
+#### Struct `DomeInternals`
+
+The internals' temperature, K.
+
+```rust
+pub struct DomeInternals {
+    pub t_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(t_k: f64) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn step(self: &mut Self, prm: &Params, w_steam: f64, w_h2: f64, cp_h2: f64, t_in: f64, p: f64, dt: f64) -> (f64, f64) { /* ... */ }
+  ```
+  Pass a gas of `w_steam` and `w_h2` kg/s at `t_in` K (vessel pressure
+
+- ```rust
+  pub fn lose(self: &mut Self, prm: &Params, t_sat: f64, dt: f64) -> f64 { /* ... */ }
+  ```
+  Natural convection from the internals to the vessel's saturated
+
+- ```rust
+  pub fn heat(self: &mut Self, prm: &Params, q_w: f64, dt: f64) { /* ... */ }
+  ```
+  Heat `q_w` W deposited in the internals for `dt` s (the decay heat
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `iodine`
+
+Iodine in the suppression pool: SPARC-90's equilibrium chemistry and
+the partition limit on its scrubbing, as MELCOR describes them (gh:#1047;
+no source used; MELCOR 2.2 Vol. 2, SAND2023-10994 O, RN §2.7.1,
+Appendix D Eq D-7 and Appendix F).
+
+The pool's dissolved iodine is in fast equilibrium among five reactions
+(Eq F.6):
+
+```text
+I2(g)          <-> I2(aq)             [I2aq] = K1 [I2g]
+I2(aq) + I-    <-> I3-                [I3-] = K2 [I2aq][I-]
+I2(aq) + H2O   <-> H+ + I- + HIO      [H+][I-][HIO] = K3 [I2aq]
+I2(aq) + H2O   <-> H2OI+ + I-         [H2OI+][I-] = K4 [I2aq]
+H2O            <-> H+ + OH-           [H+][OH-] = K5
+```
+
+with the total (Eq F.3, as I2 equivalents) `S = 0.5[I-] + 1.5[I3-] +
+[I2aq] + 0.5[HIO] + 0.5[H2OI+]` and the charge balance (Eq F.15)
+`([I-] - [I-]_p) + [I3-] - [H2OI+] - [HIO] = 0`. Here `[I-]_p` is the
+iodide of dissolved CsI and `[OH-]_p` the hydroxide of dissolved CsOH.
+The pool's partition coefficient for I2 is then `H = K1 S / [I2aq]`
+(Eq F.5).
+
+**The proton balance is derived here, not copied.** From F.16, `[HIO] =
+a / [H+]` with `a = K3 [I2aq] / [I-]`; put into F.18, `[H+]^2 -
+([HIO] - [OH-]_p)[H+] - K5 = 0`, it gives `[H+]^2 + [OH-]_p [H+] -
+(a + K5) = 0`. That is the content of the manual's F.19 to F.21, whose
+printed form did not survive extraction.
+
+**The equilibrium constants' forms are inferred.** The manual lists
+C7159's coefficients and their units (`moles^-1`, `K`, `K^2`) but not
+the functions. `K_i = a_i exp(b_i / T)`, and for water `K5 = a exp(b/T +
+c/T^2)`, reproduce the textbook values at 298 K (the test): K1 = 83.6
+(I2's water-to-gas ratio, about 80 to 90), K2 = 769 (I3- formation,
+about 700 to 770), K3 = 4.0e-13 (I2 hydrolysis, about 5e-13), and Kw =
+1.0e-14 (pKw 14.0).
+
+**Where it acts.** MELCOR limits the condensation scrubbing of iodine
+vapour by the partition (Eq D-7):
+
+```text
+DF_EC,vap = 1 + min(H rho_v / rho_l, 1) (DF_EC - 1)
+```
+
+The condensate cannot hold more iodine than the partition allows. And it
+stops vapour scrubbing altogether when the pool's own iodine, over H,
+exceeds the entering gas's (RN §2.7.1).
+
+```rust
+pub mod iodine { /* ... */ }
+```
+
+### Types
+
+#### Struct `Equilibrium`
+
+The equilibrium species, mol/L.
+
+```rust
+pub struct Equilibrium {
+    pub i2_aq: f64,
+    pub iodide: f64,
+    pub hio: f64,
+    pub h_plus: f64,
+    pub tri_iodide: f64,
+    pub h2oi: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `i2_aq` | `f64` |  |
+| `iodide` | `f64` |  |
+| `hio` | `f64` |  |
+| `h_plus` | `f64` |  |
+| `tri_iodide` | `f64` |  |
+| `h2oi` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `constants`
+
+The five equilibrium constants at `t_k` (C7159, forms inferred; see the
+module doc): K1 dimensionless, K2 L/mol, K3 mol^2/L^2, K4 mol/L, K5
+mol^2/L^2.
+
+```rust
+pub fn constants(t_k: f64) -> [f64; 5] { /* ... */ }
+```
+
+#### Function `equilibrium`
+
+The pool's equilibrium for a total dissolved iodine `s` (mol of I2
+equivalents per litre, Eq F.3), CsOH hydroxide `oh_p` and CsI iodide
+`i_p` (mol/L), at `t_k`. Solved as the manual does: for an assumed
+`[I2aq]`, the charge balance gives `[I-]`; `[I2aq]` is then adjusted
+until the total matches (both by bisection, every function monotone).
+
+```rust
+pub fn equilibrium(t_k: f64, s: f64, oh_p: f64, i_p: f64) -> Equilibrium { /* ... */ }
+```
+
+#### Function `partition`
+
+The pool's partition coefficient for I2, `H = K1 S / [I2aq]` (Eq F.5):
+dissolved iodine (all forms, as I2) per gaseous I2 at equilibrium. With
+no dissolved iodine it is the hydrolysis limit at vanishing load, taken
+at 1e-15 mol/L.
+
+```rust
+pub fn partition(t_k: f64, s: f64, oh_p: f64, i_p: f64) -> f64 { /* ... */ }
+```
+
+#### Function `vapour_condensation_df`
+
+MELCOR's Eq D-7: the condensation factor for iodine vapour, from the
+gas's `df_ec`, the partition `h` and the vapour-to-liquid density
+ratio.
+
+```rust
+pub fn vapour_condensation_df(df_ec: f64, h: f64, rho_v_over_rho_l: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `M_I2`
+
+Molar masses, kg/mol: I2, and Cs (as CsOH, one hydroxide per atom).
+
+```rust
+pub const M_I2: f64 = 0.25381;
+```
+
+#### Constant `M_CS`
+
+```rust
+pub const M_CS: f64 = 0.13291;
+```
+
+## Module `msl`
+
+Creep rupture of a main steam line (gh:#1037, plan item F6).
+
+The relief valves sit on the main steam lines inside the drywell, so the
+gas they pass flows through the lines first. When the core's exit gas is
+hot, it heats the line's wall. Under the vessel's pressure the wall
+creeps and, if damage reaches 1, one line ruptures and opens its flow
+area to the drywell. The failure model is MELCOR's pair of control
+functions for exactly this (no source used; Vol. 1, SAND2017-0455 O, CF
+§2.1.9, §2.1.10, §7.8):
+
+```text
+PIPE-STR:  sigma = ((R_o^2 + R_i^2) P_i - 2 R_o^2 P_o) / ((R_o + R_i)(R_o - R_i))
+LM-CREEP:  t_R = 10^(P_LM/T - C),  P_LM = a1 log10(sigma) + b1,
+           damage = sum dt / t_R,  failure at 1
+```
+
+MELCOR has no built-in steam-line model; its users build this from the
+two functions and a heat structure, as here. The wall is one lumped node
+per metre of line (the length cancels):
+
+- inside, forced convection from the relief flow, Dittus-Boelter on the
+  line's diameter with a laminar floor Nu = 4.36 when the valves are
+  shut, at ~~the core's exit gas temperature. The gas temperature is an
+  **upper bound**: the steam dome's separators and dryers would cool it,
+  and those heat structures are not modelled (the other half of F6);~~
+  **CORRECTED 2026-10-29:** the temperature of the gas after the steam
+  dome's internals (`Plant::gas_out_k`; the internals heat structure,
+  `Mechanisms::dome_internals`, on by default), the core's exit gas only
+  with that mechanism ablated;
+- outside, insulation to the drywell gas (`msl_insulation_h`, \[A\]);
+- the wall's enthalpy is 304L stainless steel's (`core::steel_h`), a
+  stated substitution: no carbon-steel property set exists in the
+  workspace, and carbon steel's magnetic transition near 1033 K (a `c_p`
+  peak) is missed.
+
+The ablation, [`Mechanisms::without_msl_creep`](super::Mechanisms), is
+the model before 2026-10-29: no steam-line failure.
+
+```rust
+pub mod msl { /* ... */ }
+```
+
+### Types
+
+#### Struct `SteamLine`
+
+One main steam line's wall: temperature, accumulated creep damage, and
+whether it has ruptured.
+
+```rust
+pub struct SteamLine {
+    pub wall_k: f64,
+    pub damage: f64,
+    pub failed: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `wall_k` | `f64` |  |
+| `damage` | `f64` |  |
+| `failed` | `bool` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(t_k: f64) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn step(self: &mut Self, prm: &Params, w_relief: f64, t_gas: f64, p: f64, p_dw: f64, t_dw: f64, dt: f64) { /* ... */ }
+  ```
+  Advance by `dt` s: relief flow `w_relief` (kg/s, shared by the
+
+- ```rust
+  pub fn break_area_m2(prm: &Params) -> f64 { /* ... */ }
+  ```
+  The ruptured line's flow area, m^2 (one line).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `pipe_stress`
+
+MELCOR's PIPE-STR: the inner-surface stress of a thick-walled pipe, Pa.
+
+```rust
+pub fn pipe_stress(r_i: f64, r_o: f64, p_in: f64, p_out: f64) -> f64 { /* ... */ }
+```
+
+#### Function `rupture_time_s`
+
+MELCOR's LM-CREEP time to rupture, s, at stress `sigma` (Pa) and wall
+temperature `t` (K), with the material's `a1`, `b1`, `c`.
+
+```rust
+pub fn rupture_time_s(prm: &super::params::Params, sigma: f64, t: f64) -> f64 { /* ... */ }
+```
+
+## Module `params`
+
+Fukushima Daiichi Unit 1 (GE BWR/3, Mark I containment): every number the
+model uses, with where it came from.
+
+**Read this before quoting anything the simulator shows.** This is an AI
+draft (2026-10-21). The numbers were gathered by a literature search that
+could read search-result excerpts but **not the primary PDFs**. Each is
+marked:
+
+- **\[P\]**: a published figure from a named source, not yet checked against
+  the primary document;
+- **\[U\]**: unverified (from memory, or an ambiguous excerpt);
+- **\[A\]**: an assumption or placeholder of this model's, with no source.
+  What would replace it is said at the line.
+
+The sources the design data should be checked against (all openly
+redistributable): INPO 11-005 (2011) Tables 7.3-1/7.3-2; Gauntt et al.,
+SAND2012-6173 (Sandia, MELCOR models of Units 1-3); IAEA, *The Fukushima
+Daiichi Accident*, Technical Volume 1 (2015); the Japanese government's
+June 2011 report to the IAEA, attachment 4; TEPCO's plant parameter PDFs
+(the measured data, for comparison only). The OECD/NEA BSAF specification
+is restricted and is **not** used.
+
+```rust
+pub mod params { /* ... */ }
+```
+
+### Types
+
+#### Enum `Tag`
+
+Where an input's default comes from (the module docs' marks).
+
+```rust
+pub enum Tag {
+    P,
+    U,
+    A,
+}
+```
+
+##### Variants
+
+###### `P`
+
+A published figure from a named source, not yet checked against the
+primary document.
+
+###### `U`
+
+Unverified (from memory, or an ambiguous excerpt).
+
+###### `A`
+
+An assumption or placeholder of this model's, with no source.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Params`
+
+Every scalar input of the model, as one value (gh:#1033): what a
+caller changes to run the plant with a corrected or perturbed
+input, without recompiling. [`Params::default`] is the constants
+above, field for field (`thermal_power_w` is [`THERMAL_POWER_W`],
+and so on), so their tags and sources are the defaults'. Left as
+constants: the node and train counts, which size arrays
+([`AXIAL_NODES`], [`IC_TRAINS`]), and physical constants (molar
+masses, [`R_GAS`], [`P_ATM`]).
+
+It travels whole in each part's snapshot, so a worker steps with
+the plant's inputs and one worker still equals three.
+
+```rust
+pub struct Params {
+    pub thermal_power_w: f64,
+    pub assemblies: f64,
+    pub rods_per_assembly: f64,
+    pub active_length_m: f64,
+    pub clad_outer_r_m: f64,
+    pub clad_wall_m: f64,
+    pub pellet_r_m: f64,
+    pub uo2_density: f64,
+    pub zr_density: f64,
+    pub channel_inner_width_m: f64,
+    pub channel_wall_m: f64,
+    pub channel_length_m: f64,
+    pub uo2_cp: f64,
+    pub zr_cp: f64,
+    pub uo2_k: f64,
+    pub gap_h: f64,
+    pub boiling_h: f64,
+    pub cosine_extrapolation: f64,
+    pub rpv_radius_m: f64,
+    pub rpv_height_m: f64,
+    pub rpv_wall_m: f64,
+    pub internals_envelope_m2: f64,
+    pub concrete_density: f64,
+    pub concrete_ablation_k: f64,
+    pub concrete_h2o_fraction: f64,
+    pub concrete_co2_fraction: f64,
+    pub concrete_cp: f64,
+    pub concrete_ablation_j_per_kg: f64,
+    pub cavity_area_m2: f64,
+    pub cavity_h: f64,
+    pub cavity_emissivity: f64,
+    pub zr_co2_heat_j_per_kg: f64,
+    pub baf_m: f64,
+    pub lower_plenum_free: f64,
+    pub upper_free: f64,
+    pub core_other_area_m2: f64,
+    pub normal_level_above_taf_m: f64,
+    pub initial_pressure_pa: f64,
+    pub msiv_closure_s: f64,
+    pub bypass_gain_kg_s_pa: f64,
+    pub relief_valves: f64,
+    pub relief_open_pa: f64,
+    pub relief_close_pa: f64,
+    pub safety_open_pa: f64,
+    pub safety_close_pa: f64,
+    pub relief_throat_m2: f64,
+    pub ic_autostart_pa: f64,
+    pub ic_ua_w_per_k: f64,
+    pub ic_shell_water_kg: f64,
+    pub fire_engine_shutoff_pa: f64,
+    pub fire_engine_max_kg_s: f64,
+    pub injection_temperature_k: f64,
+    pub hot_leak_gas_k: f64,
+    pub hot_leak_m2: f64,
+    pub msl_lines: f64,
+    pub msl_inner_radius_m: f64,
+    pub msl_wall_m: f64,
+    pub msl_insulation_h: f64,
+    pub msl_lm_a1: f64,
+    pub msl_lm_b1: f64,
+    pub msl_lm_c: f64,
+    pub internals_kg: f64,
+    pub internals_area_m2: f64,
+    pub internals_h: f64,
+    pub internals_loss_h: f64,
+    pub lower_head_failure_k: f64,
+    pub breach_m2: f64,
+    pub debris_quench_s: f64,
+    pub quench_h: f64,
+    pub quench_tau_s: f64,
+    pub lower_head_thickness_m: f64,
+    pub debris_to_head_w_m2_k: f64,
+    pub core_plate_m: f64,
+    pub core_plate_beam_m: f64,
+    pub water_emissivity: f64,
+    pub flpup: f64,
+    pub control_rods: f64,
+    pub blade_steel_kg: f64,
+    pub blade_area_m2: f64,
+    pub ss_ox_a: f64,
+    pub ss_ox_b: f64,
+    pub ss_ox_min_k: f64,
+    pub ss_melt_k: f64,
+    pub ss_fusion_j_per_kg: f64,
+    pub debris_k: f64,
+    pub fuel_melt_k: f64,
+    pub fuel_fusion_j_per_kg: f64,
+    pub concrete_oxide_fusion_j_per_mol: f64,
+    pub concrete_oxide_m: f64,
+    pub bur_xh2ign: f64,
+    pub bur_xcoign: f64,
+    pub bur_xo2ig: f64,
+    pub bur_xmscig: f64,
+    pub ss_x_fe: f64,
+    pub ss_x_cr: f64,
+    pub ss_x_ni: f64,
+    pub penetration_wall_m: f64,
+    pub corsor_k0_per_min: f64,
+    pub corsor_q_kcal_per_mol: f64,
+    pub corsor_uo2_k0_per_min: f64,
+    pub corsor_uo2_q_kcal_per_mol: f64,
+    pub cs_inventory_kg: f64,
+    pub i_inventory_kg: f64,
+    pub te_inventory_kg: f64,
+    pub dw_floor_m2: f64,
+    pub ww_pool_surface_m2: f64,
+    pub head_failure_wall_k: f64,
+    pub lm_p0: f64,
+    pub lm_slope: f64,
+    pub lm_c: f64,
+    pub creep_fail_strain: f64,
+    pub debris_porosity: f64,
+    pub debris_particle_m: f64,
+    pub lp_bottom_level_m: f64,
+    pub breach_diameter_m: f64,
+    pub zr_melt_k: f64,
+    pub clad_breach_k: f64,
+    pub min_metal_m: f64,
+    pub rod_collapse_k: f64,
+    pub rod_collapse_max_k: f64,
+    pub damage_a: f64,
+    pub damage_b: f64,
+    pub assembly_pitch_m: f64,
+    pub radial_exchange: f64,
+    pub axial_exchange: f64,
+    pub shroud_thickness_m: f64,
+    pub zro2_density: f64,
+    pub bubble_rise_m_s: f64,
+    pub max_pool_void: f64,
+    pub fission_share_u235: f64,
+    pub fission_share_pu239: f64,
+    pub operating_time_s: f64,
+    pub fissions_per_fissile_atom: f64,
+    pub q_u235_mev: f64,
+    pub q_pu239_mev: f64,
+    pub q_u238_mev: f64,
+    pub u239_per_fission: f64,
+    pub e_u239_mev: f64,
+    pub e_np239_mev: f64,
+    pub u239_decay_per_s: f64,
+    pub np239_decay_per_s: f64,
+    pub uh_low_a: f64,
+    pub uh_low_b_k: f64,
+    pub uh_high_a: f64,
+    pub uh_high_b_k: f64,
+    pub uh_low_max_k: f64,
+    pub uh_high_min_k: f64,
+    pub oxidation_min_k: f64,
+    pub h2o_h2_diffusivity_a: f64,
+    pub h2o_h2_diffusivity_b: f64,
+    pub oxidation_heat_j_per_kg_zr: f64,
+    pub drywell_volume_m3: f64,
+    pub dw_wall_area_m2: f64,
+    pub dw_wall_h: f64,
+    pub dw_wall_c: f64,
+    pub dw_wall_height_m: f64,
+    pub dw_gap_m: f64,
+    pub dw_gap_emissivity: f64,
+    pub dw_concrete_m: f64,
+    pub concrete_k: f64,
+    pub rb_wall_h: f64,
+    pub ww_shell_area_m2: f64,
+    pub ww_shell_c: f64,
+    pub ww_shell_height_m: f64,
+    pub wetwell_gas_m3: f64,
+    pub pool_water_m3: f64,
+    pub containment_design_pa: f64,
+    pub initial_containment_pa: f64,
+    pub initial_drywell_k: f64,
+    pub initial_pool_k: f64,
+    pub vent_submergence_pa: f64,
+    pub downcomer_area_m2: f64,
+    pub downcomer_count: f64,
+    pub discharge_coefficient: f64,
+    pub vacuum_breaker_pa: f64,
+    pub vacuum_breaker_m2: f64,
+    pub vent_rupture_disk_pa: f64,
+    pub vent_area_m2: f64,
+    pub flange_leak_pa: f64,
+    pub flange_leak_m2: f64,
+    pub reactor_building_m3: f64,
+    pub h2_flammable: f64,
+    pub h2_explosion: f64,
+    pub ring_factors: [f64; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thermal_power_w` | `f64` |  |
+| `assemblies` | `f64` |  |
+| `rods_per_assembly` | `f64` |  |
+| `active_length_m` | `f64` |  |
+| `clad_outer_r_m` | `f64` |  |
+| `clad_wall_m` | `f64` |  |
+| `pellet_r_m` | `f64` |  |
+| `uo2_density` | `f64` |  |
+| `zr_density` | `f64` |  |
+| `channel_inner_width_m` | `f64` |  |
+| `channel_wall_m` | `f64` |  |
+| `channel_length_m` | `f64` |  |
+| `uo2_cp` | `f64` |  |
+| `zr_cp` | `f64` |  |
+| `uo2_k` | `f64` |  |
+| `gap_h` | `f64` |  |
+| `boiling_h` | `f64` |  |
+| `cosine_extrapolation` | `f64` |  |
+| `rpv_radius_m` | `f64` |  |
+| `rpv_height_m` | `f64` |  |
+| `rpv_wall_m` | `f64` |  |
+| `internals_envelope_m2` | `f64` |  |
+| `concrete_density` | `f64` |  |
+| `concrete_ablation_k` | `f64` |  |
+| `concrete_h2o_fraction` | `f64` |  |
+| `concrete_co2_fraction` | `f64` |  |
+| `concrete_cp` | `f64` |  |
+| `concrete_ablation_j_per_kg` | `f64` |  |
+| `cavity_area_m2` | `f64` |  |
+| `cavity_h` | `f64` |  |
+| `cavity_emissivity` | `f64` |  |
+| `zr_co2_heat_j_per_kg` | `f64` |  |
+| `baf_m` | `f64` |  |
+| `lower_plenum_free` | `f64` |  |
+| `upper_free` | `f64` |  |
+| `core_other_area_m2` | `f64` |  |
+| `normal_level_above_taf_m` | `f64` |  |
+| `initial_pressure_pa` | `f64` |  |
+| `msiv_closure_s` | `f64` |  |
+| `bypass_gain_kg_s_pa` | `f64` |  |
+| `relief_valves` | `f64` |  |
+| `relief_open_pa` | `f64` |  |
+| `relief_close_pa` | `f64` |  |
+| `safety_open_pa` | `f64` |  |
+| `safety_close_pa` | `f64` |  |
+| `relief_throat_m2` | `f64` |  |
+| `ic_autostart_pa` | `f64` |  |
+| `ic_ua_w_per_k` | `f64` |  |
+| `ic_shell_water_kg` | `f64` |  |
+| `fire_engine_shutoff_pa` | `f64` |  |
+| `fire_engine_max_kg_s` | `f64` |  |
+| `injection_temperature_k` | `f64` |  |
+| `hot_leak_gas_k` | `f64` |  |
+| `hot_leak_m2` | `f64` |  |
+| `msl_lines` | `f64` |  |
+| `msl_inner_radius_m` | `f64` |  |
+| `msl_wall_m` | `f64` |  |
+| `msl_insulation_h` | `f64` |  |
+| `msl_lm_a1` | `f64` |  |
+| `msl_lm_b1` | `f64` |  |
+| `msl_lm_c` | `f64` |  |
+| `internals_kg` | `f64` |  |
+| `internals_area_m2` | `f64` |  |
+| `internals_h` | `f64` |  |
+| `internals_loss_h` | `f64` |  |
+| `lower_head_failure_k` | `f64` |  |
+| `breach_m2` | `f64` |  |
+| `debris_quench_s` | `f64` |  |
+| `quench_h` | `f64` |  |
+| `quench_tau_s` | `f64` |  |
+| `lower_head_thickness_m` | `f64` |  |
+| `debris_to_head_w_m2_k` | `f64` |  |
+| `core_plate_m` | `f64` |  |
+| `core_plate_beam_m` | `f64` |  |
+| `water_emissivity` | `f64` |  |
+| `flpup` | `f64` |  |
+| `control_rods` | `f64` |  |
+| `blade_steel_kg` | `f64` |  |
+| `blade_area_m2` | `f64` |  |
+| `ss_ox_a` | `f64` |  |
+| `ss_ox_b` | `f64` |  |
+| `ss_ox_min_k` | `f64` |  |
+| `ss_melt_k` | `f64` |  |
+| `ss_fusion_j_per_kg` | `f64` |  |
+| `debris_k` | `f64` |  |
+| `fuel_melt_k` | `f64` |  |
+| `fuel_fusion_j_per_kg` | `f64` |  |
+| `concrete_oxide_fusion_j_per_mol` | `f64` |  |
+| `concrete_oxide_m` | `f64` |  |
+| `bur_xh2ign` | `f64` |  |
+| `bur_xcoign` | `f64` |  |
+| `bur_xo2ig` | `f64` |  |
+| `bur_xmscig` | `f64` |  |
+| `ss_x_fe` | `f64` |  |
+| `ss_x_cr` | `f64` |  |
+| `ss_x_ni` | `f64` |  |
+| `penetration_wall_m` | `f64` |  |
+| `corsor_k0_per_min` | `f64` |  |
+| `corsor_q_kcal_per_mol` | `f64` |  |
+| `corsor_uo2_k0_per_min` | `f64` |  |
+| `corsor_uo2_q_kcal_per_mol` | `f64` |  |
+| `cs_inventory_kg` | `f64` |  |
+| `i_inventory_kg` | `f64` |  |
+| `te_inventory_kg` | `f64` |  |
+| `dw_floor_m2` | `f64` |  |
+| `ww_pool_surface_m2` | `f64` |  |
+| `head_failure_wall_k` | `f64` |  |
+| `lm_p0` | `f64` |  |
+| `lm_slope` | `f64` |  |
+| `lm_c` | `f64` |  |
+| `creep_fail_strain` | `f64` |  |
+| `debris_porosity` | `f64` |  |
+| `debris_particle_m` | `f64` |  |
+| `lp_bottom_level_m` | `f64` |  |
+| `breach_diameter_m` | `f64` |  |
+| `zr_melt_k` | `f64` |  |
+| `clad_breach_k` | `f64` |  |
+| `min_metal_m` | `f64` |  |
+| `rod_collapse_k` | `f64` |  |
+| `rod_collapse_max_k` | `f64` |  |
+| `damage_a` | `f64` |  |
+| `damage_b` | `f64` |  |
+| `assembly_pitch_m` | `f64` |  |
+| `radial_exchange` | `f64` |  |
+| `axial_exchange` | `f64` |  |
+| `shroud_thickness_m` | `f64` |  |
+| `zro2_density` | `f64` |  |
+| `bubble_rise_m_s` | `f64` |  |
+| `max_pool_void` | `f64` |  |
+| `fission_share_u235` | `f64` |  |
+| `fission_share_pu239` | `f64` |  |
+| `operating_time_s` | `f64` |  |
+| `fissions_per_fissile_atom` | `f64` |  |
+| `q_u235_mev` | `f64` |  |
+| `q_pu239_mev` | `f64` |  |
+| `q_u238_mev` | `f64` |  |
+| `u239_per_fission` | `f64` |  |
+| `e_u239_mev` | `f64` |  |
+| `e_np239_mev` | `f64` |  |
+| `u239_decay_per_s` | `f64` |  |
+| `np239_decay_per_s` | `f64` |  |
+| `uh_low_a` | `f64` |  |
+| `uh_low_b_k` | `f64` |  |
+| `uh_high_a` | `f64` |  |
+| `uh_high_b_k` | `f64` |  |
+| `uh_low_max_k` | `f64` |  |
+| `uh_high_min_k` | `f64` |  |
+| `oxidation_min_k` | `f64` |  |
+| `h2o_h2_diffusivity_a` | `f64` |  |
+| `h2o_h2_diffusivity_b` | `f64` |  |
+| `oxidation_heat_j_per_kg_zr` | `f64` |  |
+| `drywell_volume_m3` | `f64` |  |
+| `dw_wall_area_m2` | `f64` |  |
+| `dw_wall_h` | `f64` |  |
+| `dw_wall_c` | `f64` |  |
+| `dw_wall_height_m` | `f64` |  |
+| `dw_gap_m` | `f64` |  |
+| `dw_gap_emissivity` | `f64` |  |
+| `dw_concrete_m` | `f64` |  |
+| `concrete_k` | `f64` |  |
+| `rb_wall_h` | `f64` |  |
+| `ww_shell_area_m2` | `f64` |  |
+| `ww_shell_c` | `f64` |  |
+| `ww_shell_height_m` | `f64` |  |
+| `wetwell_gas_m3` | `f64` |  |
+| `pool_water_m3` | `f64` |  |
+| `containment_design_pa` | `f64` |  |
+| `initial_containment_pa` | `f64` |  |
+| `initial_drywell_k` | `f64` |  |
+| `initial_pool_k` | `f64` |  |
+| `vent_submergence_pa` | `f64` |  |
+| `downcomer_area_m2` | `f64` |  |
+| `downcomer_count` | `f64` |  |
+| `discharge_coefficient` | `f64` |  |
+| `vacuum_breaker_pa` | `f64` |  |
+| `vacuum_breaker_m2` | `f64` |  |
+| `vent_rupture_disk_pa` | `f64` |  |
+| `vent_area_m2` | `f64` |  |
+| `flange_leak_pa` | `f64` |  |
+| `flange_leak_m2` | `f64` |  |
+| `reactor_building_m3` | `f64` |  |
+| `h2_flammable` | `f64` |  |
+| `h2_explosion` | `f64` |  |
+| `ring_factors` | `[f64; 3]` | [`RING_FACTORS`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn get(self: &Self, name: &str) -> Option<f64> { /* ... */ }
+  ```
+  The input named `name` (a field name from [`Params::INPUTS`]).
+
+- ```rust
+  pub fn set(self: &mut Self, name: &str, value: f64) -> bool { /* ... */ }
+  ```
+  Sets the input named `name`; `false` if there is none.
+
+- ```rust
+  pub fn core_uo2_kg(self: &Self) -> f64 { /* ... */ }
+  ```
+  UO2 mass of the whole core, kg (from the pellet geometry).
+
+- ```rust
+  pub fn core_zr_kg(self: &Self) -> f64 { /* ... */ }
+  ```
+  Zircaloy mass of the whole core (cladding over the active length plus
+
+- ```rust
+  pub fn core_zr_area_m2(self: &Self) -> f64 { /* ... */ }
+  ```
+  Zircaloy surface exposed to steam over the active length, m^2: the rods'
+
+- ```rust
+  pub fn core_rod_area_m2(self: &Self) -> f64 { /* ... */ }
+  ```
+  Rod surface over the active length, m^2 (the heat-transfer surface).
+
+- ```rust
+  pub fn core_flow_area_m2(self: &Self) -> f64 { /* ... */ }
+  ```
+  Coolant flow area inside the channels, m^2, and their hydraulic diameter, m.
+
+- ```rust
+  pub fn hydraulic_diameter_m(self: &Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn fuel_to_clad_w_per_m_k(self: &Self) -> f64 { /* ... */ }
+  ```
+  Fuel-to-clad conductance per unit rod length, W/(m K): the pellet's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `THERMAL_POWER_W`
+
+Rated thermal power, W. \[P\] TEPCO facility overview: 1380 MWt (460 MWe).
+
+```rust
+pub const THERMAL_POWER_W: f64 = 1380.0e6;
+```
+
+#### Constant `ASSEMBLIES`
+
+Fuel assemblies in the core. \[P\] TEPCO: 400.
+
+```rust
+pub const ASSEMBLIES: f64 = 400.0;
+```
+
+#### Constant `RODS_PER_ASSEMBLY`
+
+Fuel rods per assembly: a GE 8x8 bundle with 62 fuel rods (two water
+rods). \[U\] Unit 1's 2011 core lattice is not confirmed (INPO Table 7.3).
+
+```rust
+pub const RODS_PER_ASSEMBLY: f64 = 62.0;
+```
+
+#### Constant `ACTIVE_LENGTH_M`
+
+Active fuel length, m: GE's 12 ft (144 in). \[U\] for Unit 1.
+
+```rust
+pub const ACTIVE_LENGTH_M: f64 = 3.66;
+```
+
+#### Constant `CLAD_OUTER_R_M`
+
+Clad outer radius, m (12.27 mm OD, GE 8x8). \[U\]
+
+```rust
+pub const CLAD_OUTER_R_M: f64 = 0.006135;
+```
+
+#### Constant `CLAD_WALL_M`
+
+Clad wall, m (0.81 mm). \[U\]
+
+```rust
+pub const CLAD_WALL_M: f64 = 0.00081;
+```
+
+#### Constant `PELLET_R_M`
+
+Pellet radius, m (10.4 mm diameter). \[U\]
+
+```rust
+pub const PELLET_R_M: f64 = 0.0052;
+```
+
+#### Constant `UO2_DENSITY`
+
+UO2 density, kg/m^3: 95 % of 10,960 theoretical. \[A\] typical LWR value.
+
+```rust
+pub const UO2_DENSITY: f64 = 10_412.0;
+```
+
+#### Constant `ZR_DENSITY`
+
+Zircaloy density, kg/m^3. \[P\] MATPRO, about 6550.
+
+```rust
+pub const ZR_DENSITY: f64 = 6550.0;
+```
+
+#### Constant `CHANNEL_INNER_WIDTH_M`
+
+Channel box: inner width, m (5.278 in), wall (80 mil), length (about 4.2 m).
+\[U\] GE BWR/3-4 channel; counted in the zirconium that oxidises.
+
+```rust
+pub const CHANNEL_INNER_WIDTH_M: f64 = 0.134;
+```
+
+#### Constant `CHANNEL_WALL_M`
+
+```rust
+pub const CHANNEL_WALL_M: f64 = 0.002032;
+```
+
+#### Constant `CHANNEL_LENGTH_M`
+
+```rust
+pub const CHANNEL_LENGTH_M: f64 = 4.2;
+```
+
+#### Constant `UO2_CP`
+
+Specific heats, J/(kg K), held constant. \[A\] UO2 is about 300 near 600 K
+and 450 near 2500 K, Zircaloy about 330 with a peak at its alpha-beta
+transition (MATPRO). Temperature-dependent values from the OFFBEAT port
+(`outram-park-fork-offbeat`) would replace these.
+
+```rust
+pub const UO2_CP: f64 = 330.0;
+```
+
+#### Constant `ZR_CP`
+
+```rust
+pub const ZR_CP: f64 = 350.0;
+```
+
+#### Constant `UO2_K`
+
+UO2 thermal conductivity, W/(m K), constant. \[A\] about 3 near 1000 K
+(MATPRO); replace with the OFFBEAT port's UO2 conductivity.
+
+```rust
+pub const UO2_K: f64 = 3.0;
+```
+
+#### Constant `GAP_H`
+
+Pellet-clad gap conductance, W/(m^2 K). \[A\] typical closed-gap value.
+
+```rust
+pub const GAP_H: f64 = 5000.0;
+```
+
+#### Constant `BOILING_H`
+
+Nucleate-boiling heat transfer coefficient from a covered rod to the
+water, W/(m^2 K). \[A\] Order of magnitude for pool boiling at decay-heat
+flux; at this value a covered rod sits within a few kelvin of T_sat, so
+the answer does not hinge on it. A boiling correlation (Chen, in the
+GeN-Foam closures) would replace it.
+
+```rust
+pub const BOILING_H: f64 = 2.0e4;
+```
+
+#### Constant `RING_FACTORS`
+
+Radial power factors of three equal-area rings, centre outwards, mean 1.
+\[A\] an illustrative flattened BWR shape.
+
+```rust
+pub const RING_FACTORS: [f64; 3] = _;
+```
+
+#### Constant `AXIAL_NODES`
+
+Axial nodes over the active length.
+
+```rust
+pub const AXIAL_NODES: usize = 12;
+```
+
+#### Constant `COSINE_EXTRAPOLATION`
+
+Extrapolation factor of the chopped-cosine axial shape: the cosine's
+zeros lie this many active lengths apart. \[A\]
+
+```rust
+pub const COSINE_EXTRAPOLATION: f64 = 1.3;
+```
+
+#### Constant `RPV_RADIUS_M`
+
+RPV inner radius, m (about 4.8 m ID). \[U\] SAND2012-6173 / INPO Table 7.3-2.
+
+```rust
+pub const RPV_RADIUS_M: f64 = 2.4;
+```
+
+#### Constant `RPV_HEIGHT_M`
+
+RPV inner height, m. \[U\] about 20 m.
+
+```rust
+pub const RPV_HEIGHT_M: f64 = 20.0;
+```
+
+#### Constant `RPV_WALL_M`
+
+RPV wall thickness, m, for its heat capacity (`Mechanisms::rpv_wall`).
+\[A\] about 6 in, typical of a BWR/3 shell; not in a held source.
+
+```rust
+pub const RPV_WALL_M: f64 = 0.16;
+```
+
+#### Constant `INTERNALS_ENVELOPE_M2`
+
+The dome internals' envelope facing the RPV wall, m^2, for their
+radiation to it (`Mechanisms::internals_radiation`). \[A\] a 4 m tall
+cylinder at the vessel's radius with its top: `2 pi r 4 + pi r^2`.
+
+```rust
+pub const INTERNALS_ENVELOPE_M2: f64 = 78.4;
+```
+
+#### Constant `CONCRETE_DENSITY`
+
+The concrete: MELCOR's standard CORCON basaltic aggregate concrete (CAV
+UG Tables 2.1, 2.2): density, kg/m^3, ablation temperature, K, and the
+mass fractions of water (evaporable 3.86 % plus chemically bound 2.00
+%) and of CO2 (1.50 %). That Unit 1's basemat is of this type is \[A\]
+(not in a held source; limestone/common sand, with far more CO2, is
+the alternative); the values are MELCOR's defaults, \[P\].
+
+```rust
+pub const CONCRETE_DENSITY: f64 = 2340.0;
+```
+
+#### Constant `CONCRETE_ABLATION_K`
+
+```rust
+pub const CONCRETE_ABLATION_K: f64 = 1450.0;
+```
+
+#### Constant `CONCRETE_H2O_FRACTION`
+
+```rust
+pub const CONCRETE_H2O_FRACTION: f64 = 0.0586;
+```
+
+#### Constant `CONCRETE_CO2_FRACTION`
+
+```rust
+pub const CONCRETE_CO2_FRACTION: f64 = 0.0150;
+```
+
+#### Constant `CONCRETE_CP`
+
+Concrete's heat capacity, J/(kg K), and its ablation enthalpy, J/kg:
+heating from 303 K to the ablation temperature (1.147 MJ/kg) plus
+evaporating its free water (0.0386 x 2.257 MJ/kg = 0.087), releasing its
+bound water (Ca(OH)2 -> CaO + H2O, 109 kJ/mol: 0.121), its CO2 (CaCO3 ->
+CaO + CO2, 178 kJ/mol: 0.061) and melting (0.4 MJ/kg). \[A\] the heat
+capacity and the heat of fusion, typical values; the reaction heats are
+standard thermochemistry. Derived, not fitted: 1.82 MJ/kg.
+
+```rust
+pub const CONCRETE_CP: f64 = 1000.0;
+```
+
+#### Constant `CONCRETE_ABLATION_J_PER_KG`
+
+```rust
+pub const CONCRETE_ABLATION_J_PER_KG: f64 = _;
+```
+
+#### Constant `CAVITY_AREA_M2`
+
+The cavity: the debris's contact area with the floor, m^2 (the
+pedestal, about 5.2 m across), and the heat-transfer coefficient from
+the debris's interior to its bottom and to its top surface, W/(m^2 K).
+\[A\] both. MELCOR's CORCON-Mod3 computes the coefficient from its gas-
+film and bubbling correlations (CAV RM §3.3, not held); 1000 is their
+order for an oxidic pool stirred by concrete gas.
+
+```rust
+pub const CAVITY_AREA_M2: f64 = 21.2;
+```
+
+#### Constant `CAVITY_H`
+
+```rust
+pub const CAVITY_H: f64 = 1000.0;
+```
+
+#### Constant `CAVITY_EMISSIVITY`
+
+Emissivity of the debris surface and of the drywell surroundings it
+radiates to: MELCOR's CAV defaults EMISS.OX and EMISS.SUR (0.9; CAV UG,
+the 2.0 defaults). \[P\]
+
+```rust
+pub const CAVITY_EMISSIVITY: f64 = 0.9;
+```
+
+#### Constant `ZR_CO2_HEAT_J_PER_KG`
+
+Heat of Zr + 2 CO2 -> ZrO2 + 2 CO, J per kg of Zr: -(-1100.6 + 2 x
+(-110.53) - 2 x (-393.51)) kJ/mol over 0.091224 kg/mol (NIST standard
+enthalpies of formation at 298 K). \[P\]
+
+```rust
+pub const ZR_CO2_HEAT_J_PER_KG: f64 = _;
+```
+
+#### Constant `BAF_M`
+
+Bottom of active fuel above the vessel bottom, m. \[A\]
+
+```rust
+pub const BAF_M: f64 = 5.0;
+```
+
+#### Constant `LOWER_PLENUM_FREE`
+
+Fraction of the vessel's cross-section free for water below the core
+(control-rod guide tubes, the bottom head's curvature) and above it
+(separators, dryers). \[A\]
+
+```rust
+pub const LOWER_PLENUM_FREE: f64 = 0.75;
+```
+
+#### Constant `UPPER_FREE`
+
+```rust
+pub const UPPER_FREE: f64 = 0.85;
+```
+
+#### Constant `CORE_OTHER_AREA_M2`
+
+Cross-section taken in the core region by the shroud, jet pumps and
+control blades besides the fuel rods and channels, m^2. \[A\]
+
+```rust
+pub const CORE_OTHER_AREA_M2: f64 = 1.0;
+```
+
+#### Constant `NORMAL_LEVEL_ABOVE_TAF_M`
+
+Normal water level above the top of active fuel, m. \[U\]
+
+```rust
+pub const NORMAL_LEVEL_ABOVE_TAF_M: f64 = 4.4;
+```
+
+#### Constant `INITIAL_PRESSURE_PA`
+
+Steam-dome pressure at the scram, Pa absolute. \[P\] about 7 MPa
+(6.93 MPa gauge rated).
+
+```rust
+pub const INITIAL_PRESSURE_PA: f64 = 7.03e6;
+```
+
+#### Constant `MSIV_CLOSURE_S`
+
+Main steam isolation valves close this long after the scram, s; until
+then the pressure regulator keeps passing steam to the turbine bypass and
+condenser, holding the dome at its initial pressure. \[U\] INPO 11-005:
+MSIVs closed at about 14:47 on the loss of off-site power.
+
+```rust
+pub const MSIV_CLOSURE_S: f64 = 60.0;
+```
+
+#### Constant `BYPASS_GAIN_KG_S_PA`
+
+Pressure-regulator gain while the bypass is open, kg/s per Pa above the
+initial pressure. \[A\] (any gain that holds the pressure within a few kPa).
+
+```rust
+pub const BYPASS_GAIN_KG_S_PA: f64 = 1.0e-3;
+```
+
+#### Constant `RELIEF_VALVES`
+
+Relief valves: Unit 1 has electromatic relief valves plus spring safety
+valves. \[U\] count, set points and throat. While DC power lasts the relief
+valves lift at the relief set point; after the station blackout only the
+spring safety valves act, at their higher set point.
+
+```rust
+pub const RELIEF_VALVES: f64 = 4.0;
+```
+
+#### Constant `RELIEF_OPEN_PA`
+
+```rust
+pub const RELIEF_OPEN_PA: f64 = _;
+```
+
+#### Constant `RELIEF_CLOSE_PA`
+
+```rust
+pub const RELIEF_CLOSE_PA: f64 = _;
+```
+
+#### Constant `SAFETY_OPEN_PA`
+
+```rust
+pub const SAFETY_OPEN_PA: f64 = 8.3e6;
+```
+
+#### Constant `SAFETY_CLOSE_PA`
+
+```rust
+pub const SAFETY_CLOSE_PA: f64 = 7.9e6;
+```
+
+#### Constant `RELIEF_THROAT_M2`
+
+Throat area of one relief valve, m^2. \[A\] about 87 kg/s of steam each at
+7.4 MPa through the steam tables' choked-flow solution.
+
+```rust
+pub const RELIEF_THROAT_M2: f64 = 0.0081;
+```
+
+#### Constant `IC_TRAINS`
+
+Isolation condenser trains (A and B). \[P\] TEPCO: two.
+
+```rust
+pub const IC_TRAINS: usize = 2;
+```
+
+#### Constant `IC_AUTOSTART_PA`
+
+Auto-start on high RPV pressure, Pa absolute. \[P\] TEPCO: 7.13 MPa gauge
+for 15 s.
+
+```rust
+pub const IC_AUTOSTART_PA: f64 = _;
+```
+
+#### Constant `IC_UA_W_PER_K`
+
+Heat removal of one IC train: `UA (T_sat - T_shell)`, W/K. \[A\]
+**Placeholder**: about 43 MW per train at 7 MPa against 100 degC shell
+water. The per-train rating was not found in open sources; SAND2012-6173
+or the IAEA Technical Volume 1 would replace it.
+
+```rust
+pub const IC_UA_W_PER_K: f64 = 2.3e5;
+```
+
+#### Constant `IC_SHELL_WATER_KG`
+
+Shell-side water per train, kg. \[A\] placeholder, about 100 m^3 each
+(open sources quote about 8 h of inventory for both trains).
+
+```rust
+pub const IC_SHELL_WATER_KG: f64 = 1.0e5;
+```
+
+#### Constant `FIRE_ENGINE_SHUTOFF_PA`
+
+Fire-engine injection (fresh water, later seawater): shut-off pressure,
+Pa absolute, and flow against atmospheric back-pressure, kg/s. \[A\] A pump
+curve `W = W_max sqrt(1 - (p - p_atm)/(p_shut - p_atm))`.
+
+```rust
+pub const FIRE_ENGINE_SHUTOFF_PA: f64 = 1.0e6;
+```
+
+#### Constant `FIRE_ENGINE_MAX_KG_S`
+
+```rust
+pub const FIRE_ENGINE_MAX_KG_S: f64 = 4.0;
+```
+
+#### Constant `INJECTION_TEMPERATURE_K`
+
+```rust
+pub const INJECTION_TEMPERATURE_K: f64 = 293.15;
+```
+
+#### Constant `MSL_LINES`
+
+Main steam lines (gh:#1037, `msl.rs`): number, inner radius, wall
+thickness, m. \[A\] all three: Unit 1's line size is not in a held
+source. The radius is sized for its rated steam flow, about 667 kg/s
+over two lines at about 45 m/s and 36.5 kg/m^3 (inner diameter about
+0.51 m). The wall is the ASME thickness `p D / (2 S)` at 8.6 MPa design
+pressure and S about 120 MPa (18 mm), plus allowances.
+
+```rust
+pub const MSL_LINES: f64 = 2.0;
+```
+
+#### Constant `MSL_INNER_RADIUS_M`
+
+```rust
+pub const MSL_INNER_RADIUS_M: f64 = 0.254;
+```
+
+#### Constant `MSL_WALL_M`
+
+```rust
+pub const MSL_WALL_M: f64 = 0.025;
+```
+
+#### Constant `MSL_INSULATION_H`
+
+Insulation conductance to the drywell, W/(m^2 K). \[A\] about 0.05 W/(m
+K) through 0.1 m of insulation is 0.5; 1 is used.
+
+```rust
+pub const MSL_INSULATION_H: f64 = 1.0;
+```
+
+#### Constant `MSL_LM_A1`
+
+Larson-Miller coefficients of the line's steel: MELCOR's default for
+A-508, "class 2 carbon steel" (Vol. 1, SAND2017-0455 O, CF Table 1;
+stress in Pa, T in K, time in s): a1 K, b1 K, C. The coefficients are
+\[P\]; the choice of A-508 for Unit 1's line is an assumption (its grade
+is not in a held source).
+
+```rust
+pub const MSL_LM_A1: f64 = -5335.0;
+```
+
+#### Constant `MSL_LM_B1`
+
+```rust
+pub const MSL_LM_B1: f64 = 62291.3;
+```
+
+#### Constant `MSL_LM_C`
+
+```rust
+pub const MSL_LM_C: f64 = 16.44;
+```
+
+#### Constant `INTERNALS_KG`
+
+The steam dome's internals as one heat structure (gh:#1037,
+`internals.rs`): steel mass, kg, wetted area, m^2, and gas-side heat
+transfer coefficient, W/(m^2 K). \[A\] all three: Unit 1's internals are
+not in a held source. The mass is the dryer, separators and shroud head
+scaled from public BWR/4 dryer masses (about 45 t) to a 460 MWe plant;
+the area is that steel at 3 mm (dryer vanes) to 10 mm (separators),
+both faces; h is low-velocity forced convection.
+
+```rust
+pub const INTERNALS_KG: f64 = 5.0e4;
+```
+
+#### Constant `INTERNALS_AREA_M2`
+
+```rust
+pub const INTERNALS_AREA_M2: f64 = 2500.0;
+```
+
+#### Constant `INTERNALS_H`
+
+```rust
+pub const INTERNALS_H: f64 = 10.0;
+```
+
+#### Constant `INTERNALS_LOSS_H`
+
+The internals' natural-convection coefficient to the saturated dome when
+no gas flows past them, W/(m^2 K). \[A\] an order of magnitude for
+natural convection in steam (time constant about 2000 s with the mass
+and area above).
+
+```rust
+pub const INTERNALS_LOSS_H: f64 = 5.0;
+```
+
+#### Constant `CS_INVENTORY_KG`
+
+Unit 1's cesium inventory, kg: the BSAF Phase II benchmark specification's
+value (OECD/NEA No. 7525, 2021, p.20-21: "154.0 kg" Cs and 11.98 kg I,
+"specified by the benchmark co-ordinator"). \[P\]
+
+```rust
+pub const CS_INVENTORY_KG: f64 = 154.0;
+```
+
+#### Constant `I_INVENTORY_KG`
+
+Unit 1's iodine inventory, kg (the same source: "11.98 kg"). \[P\]
+
+```rust
+pub const I_INVENTORY_KG: f64 = 11.98;
+```
+
+#### Constant `TE_INVENTORY_KG`
+
+Unit 1's tellurium inventory, kg. \[A\] derived, no published value
+held: the ENDF/B-VIII summation's Te/Cs mass ratio at the scram
+(`fp_decay`, 9.508/95.008 kg) times the specification's 154.0 kg Cs.
+The summation's own Cs is low (95 kg) because MELCOR's default 584-day
+history is shorter than Unit 1's fuel residence; the ratio is the
+part used.
+
+```rust
+pub const TE_INVENTORY_KG: f64 = _;
+```
+
+#### Constant `DW_FLOOR_M2`
+
+Deposition areas not otherwise in the model: the drywell floor, m^2,
+and the torus pool's free surface, m^2. \[A\] both: not in a held source.
+The floor is about a third of a 3410 m^3 light-bulb drywell's footprint;
+the pool surface is a torus of about 15 m major radius filled about 40 %
+(the pool's 1750 of 4370 m^3), so about 8 m wide.
+
+```rust
+pub const DW_FLOOR_M2: f64 = 200.0;
+```
+
+#### Constant `WW_POOL_SURFACE_M2`
+
+```rust
+pub const WW_POOL_SURFACE_M2: f64 = 750.0;
+```
+
+#### Constant `CORSOR_K0_PER_MIN`
+
+CORSOR-M release of the volatile fission products (Xe, Cs, I), MELCOR's
+default row for those classes (Vol. 2, SAND2023-10994 O, RN §2.3.1,
+C7102): `k0`, per minute, and `Q`, kcal/mol. \[P\]
+
+```rust
+pub const CORSOR_K0_PER_MIN: f64 = 2.0e5;
+```
+
+#### Constant `CORSOR_Q_KCAL_PER_MOL`
+
+```rust
+pub const CORSOR_Q_KCAL_PER_MOL: f64 = 63.8;
+```
+
+#### Constant `CORSOR_UO2_K0_PER_MIN`
+
+CORSOR-M's row for La and UO2 (same source): `k0`, per minute, `Q`,
+kcal/mol. \[P\]
+
+```rust
+pub const CORSOR_UO2_K0_PER_MIN: f64 = 1.46e7;
+```
+
+#### Constant `CORSOR_UO2_Q_KCAL_PER_MOL`
+
+```rust
+pub const CORSOR_UO2_Q_KCAL_PER_MOL: f64 = 143.1;
+```
+
+#### Constant `HOT_LEAK_GAS_K`
+
+RPV leak to the drywell once the core-exit gas is hot (instrument lines,
+SRV gaskets; the BSAF Unit 1 analyses needed such a path). \[A\] Opens above
+[`HOT_LEAK_GAS_K`] with throat [`HOT_LEAK_M2`].
+
+```rust
+pub const HOT_LEAK_GAS_K: f64 = 1000.0;
+```
+
+#### Constant `HOT_LEAK_M2`
+
+```rust
+pub const HOT_LEAK_M2: f64 = 3.0e-4;
+```
+
+#### Constant `LOWER_HEAD_FAILURE_K`
+
+Lower-head failure in the `without_lower_head_wall` ablation: debris in
+the dry lower plenum above this, K (a debris temperature, not MELCOR's
+wall-node TPFAIL; see `HEAD_FAILURE_WALL_K`), opens a breach of this
+throat, m^2. \[A\] both. MELCOR's default opening is 0.1 m diameter,
+7.9e-3 m^2 (MELCOR 2.2 Vol. 2, COR §6.3).
+
+```rust
+pub const LOWER_HEAD_FAILURE_K: f64 = 1500.0;
+```
+
+#### Constant `BREACH_M2`
+
+```rust
+pub const BREACH_M2: f64 = 0.01;
+```
+
+#### Constant `LOWER_HEAD_THICKNESS_M`
+
+Lower-head wall thickness, m. \[A\] MELCOR's generic BWR default DZLH
+(Vol. 1, COR_VP table), which is for a 3.34 m vessel; Unit 1's vessel is
+2.4 m, and its own value needs a plant source (plan L4).
+
+```rust
+pub const LOWER_HEAD_THICKNESS_M: f64 = 0.22;
+```
+
+#### Constant `DEBRIS_TO_HEAD_W_M2_K`
+
+Debris-to-wall heat transfer coefficient, W/(m^2 K). \[A\] MELCOR's
+default HDBLH (Vol. 1, COR_LHF), which its manual calls an
+order-of-magnitude value for sensitivity studies.
+
+```rust
+pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
+```
+
+#### Constant `CORE_PLATE_M`
+
+The BWR core plate (`Mechanisms::core_plate`, MELCOR's PLATEB): its
+thickness and the spacing of the beams that carry it, m. \[A\] both: a
+few centimetres of stainless plate on beams about two fuel-cell
+pitches apart (Unit 1's core plate is not in a held source).
+
+```rust
+pub const CORE_PLATE_M: f64 = 0.05;
+```
+
+#### Constant `CORE_PLATE_BEAM_M`
+
+```rust
+pub const CORE_PLATE_BEAM_M: f64 = 0.3;
+```
+
+#### Constant `WATER_EMISSIVITY`
+
+The lower plenum water's emissivity, for the radiation from the lowest
+uncovered core cell down to it (`Mechanisms::bottom_radiation`): the
+common infrared value (Incropera's tables give 0.95-0.96), \[A\].
+
+```rust
+pub const WATER_EMISSIVITY: f64 = 0.95;
+```
+
+#### Constant `FLPUP`
+
+That radiation's exchange factor over the cell's area: MELCOR's `FLPUP`
+(COR UG, COR_RF default 0.25), \[P\].
+
+```rust
+pub const FLPUP: f64 = 0.25;
+```
+
+#### Constant `CONTROL_RODS`
+
+The control blades (`Mechanisms::control_blades`, MELCOR's NS
+component): Unit 1's cruciform control rods, \[U\] 97 for its 400
+assemblies (one per four).
+
+```rust
+pub const CONTROL_RODS: f64 = 97.0;
+```
+
+#### Constant `BLADE_STEEL_KG`
+
+Stainless steel per blade over the active height, kg, \[A\] from the
+common GE design: four wings 0.124 m by 3.66 m, a 1.4 mm sheath on both
+faces (41 kg) and 18 B4C tubes per wing, 4.8 mm across with 0.6 mm walls
+(17 kg), rounded up for the tie rod: 60 kg.
+
+```rust
+pub const BLADE_STEEL_KG: f64 = 60.0;
+```
+
+#### Constant `BLADE_AREA_M2`
+
+Each blade's oxidising surface, m^2: the sheath's outer faces, 4 x 2 x
+0.124 x 3.66. \[A\]
+
+```rust
+pub const BLADE_AREA_M2: f64 = 3.6;
+```
+
+#### Constant `SS_OX_A`
+
+MELCOR's stainless-steel oxidation in steam (COR RM Table 2-9):
+parabolic, `K = A exp(-B/T)` (kg/m^2)^2/s above `SS_OX_MIN_K`. \[P\]
+
+```rust
+pub const SS_OX_A: f64 = 2.42e9;
+```
+
+#### Constant `SS_OX_B`
+
+The rate's activation temperature, K. \[P\]
+
+```rust
+pub const SS_OX_B: f64 = 42400.0;
+```
+
+#### Constant `SS_OX_MIN_K`
+
+Below this the steel does not oxidise, K. \[P\]
+
+```rust
+pub const SS_OX_MIN_K: f64 = 1100.0;
+```
+
+#### Constant `SS_MELT_K`
+
+The control blades fail (melt and drain) at the steel's melting
+temperature, MELCOR's default criterion and MP value, K. \[P\]
+
+```rust
+pub const SS_MELT_K: f64 = 1700.0;
+```
+
+#### Constant `SS_FUSION_J_PER_KG`
+
+The steel's heat of fusion, J/kg: MELCOR's default for stainless steel
+(MP RM §8, "Estimated"; 2.692e5 for 304). \[P\]
+
+```rust
+pub const SS_FUSION_J_PER_KG: f64 = 2.68e5;
+```
+
+#### Constant `DEBRIS_K`
+
+The cavity debris's phases (`Mechanisms::cavity_phases`): its thermal
+conductivity when solid, W/(m K), \[A\] UO2's at high temperature
+(about 2-3).
+
+```rust
+pub const DEBRIS_K: f64 = 2.5;
+```
+
+#### Constant `FUEL_MELT_K`
+
+The fuel component's melting point, K: MELCOR's UO2 default (MP RM §7,
+from MATPRO). \[P\]
+
+```rust
+pub const FUEL_MELT_K: f64 = 3113.0;
+```
+
+#### Constant `FUEL_FUSION_J_PER_KG`
+
+The fuel component's heat of fusion, J/kg: MELCOR's UO2 default (MP RM
+§8). \[P\]
+
+```rust
+pub const FUEL_FUSION_J_PER_KG: f64 = 2.74e5;
+```
+
+#### Constant `CONCRETE_OXIDE_FUSION_J_PER_MOL`
+
+The concrete's oxides as the low-melting component, taken as SiO2: its
+heat of fusion, J/mol, \[A\] (JANAF's about 9.6 kJ/mol), its melting
+point being the concrete's ablation temperature.
+
+```rust
+pub const CONCRETE_OXIDE_FUSION_J_PER_MOL: f64 = 9.6e3;
+```
+
+#### Constant `CONCRETE_OXIDE_M`
+
+The concrete oxides' molar mass, kg/mol, as SiO2. \[A\]
+
+```rust
+pub const CONCRETE_OXIDE_M: f64 = 0.060_08;
+```
+
+#### Constant `BUR_XH2IGN`
+
+MELCOR's BUR ignition limits for a volume without igniters (BUR RM
+§2.2, record BUR_IGN defaults): hydrogen mole fraction, \[P\].
+
+```rust
+pub const BUR_XH2IGN: f64 = 0.10;
+```
+
+#### Constant `BUR_XCOIGN`
+
+CO's ignition mole fraction (XCOIGN default). \[P\]
+
+```rust
+pub const BUR_XCOIGN: f64 = 0.167;
+```
+
+#### Constant `BUR_XO2IG`
+
+The least oxygen mole fraction for ignition (XO2IG default). \[P\]
+
+```rust
+pub const BUR_XO2IG: f64 = 0.05;
+```
+
+#### Constant `BUR_XMSCIG`
+
+The most steam and CO2 for ignition (XMSCIG default), inerting above.
+\[P\]
+
+```rust
+pub const BUR_XMSCIG: f64 = 0.55;
+```
+
+#### Constant `SS_X_FE`
+
+The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
+default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
+
+```rust
+pub const SS_X_FE: f64 = 0.74;
+```
+
+#### Constant `SS_X_CR`
+
+Chromium's mass fraction (MP_SS default). \[P\]
+
+```rust
+pub const SS_X_CR: f64 = 0.18;
+```
+
+#### Constant `SS_X_NI`
+
+Nickel's mass fraction (MP_SS default). \[P\]
+
+```rust
+pub const SS_X_NI: f64 = 0.08;
+```
+
+#### Constant `PENETRATION_WALL_M`
+
+Wall thickness of a lower-head penetration (instrument or control-rod
+drive housing), m: its steel per unit heated area. \[A\] Unit 1's
+housings are not in a held source. The debris heats it with
+`debris_to_head_w_m2_k` (MELCOR's HDBPN default is the same 1000
+W/(m^2 K)), and it fails at `head_failure_wall_k` (MELCOR's TPFAIL
+applies to penetrations and the inner wall node alike).
+
+```rust
+pub const PENETRATION_WALL_M: f64 = 0.01;
+```
+
+#### Constant `HEAD_FAILURE_WALL_K`
+
+Inner-wall temperature that fails the head, K. \[A\] MELCOR's default
+TPFAIL (Vol. 1, COR_LHF), described as roughly where steel turns plastic.
+
+```rust
+pub const HEAD_FAILURE_WALL_K: f64 = 1273.15;
+```
+
+#### Constant `LM_P0`
+
+Larson-Miller creep rupture of the head, SA533B1 (NUREG/CR-5582, as MELCOR
+Vol. 2, COR §6.3, Eqs 6-23 to 6-25 and C1601 give it): time to rupture
+`10^(P/T - C)` s with `P = P0 - slope log10(sigma [Pa])`; plastic strain
+grows by `fail_strain dt / t_R` and the head fails at `fail_strain`.
+\[P\] V2's slope, 4725 (Vol. 1's control-function table prints 4730).
+
+```rust
+pub const LM_P0: f64 = 4.812e4;
+```
+
+#### Constant `LM_SLOPE`
+
+```rust
+pub const LM_SLOPE: f64 = 4.725e3;
+```
+
+#### Constant `LM_C`
+
+```rust
+pub const LM_C: f64 = 7.042;
+```
+
+#### Constant `CREEP_FAIL_STRAIN`
+
+```rust
+pub const CREEP_FAIL_STRAIN: f64 = 0.18;
+```
+
+#### Constant `DEBRIS_POROSITY`
+
+Porosity of the debris bed in the lower head, which sets how high it
+stands and so the wall area it touches. \[A\]
+
+```rust
+pub const DEBRIS_POROSITY: f64 = 0.4;
+```
+
+#### Constant `DEBRIS_PARTICLE_M`
+
+Particulate debris diameter, m, for its oxidation area `6 V / D`
+(MELCOR COR §3.2.1, Eq 3-28). \[A\] MELCOR has no default (COR_EDR
+DHYPD is required input); 1 cm, the order of a pellet.
+
+```rust
+pub const DEBRIS_PARTICLE_M: f64 = 0.01;
+```
+
+#### Constant `LP_BOTTOM_LEVEL_M`
+
+Height of the lower plenum's bottom axial level, m: the penetrations'
+height over which MELCOR scales the debris contact (`dz_d / dz_1`, COR
+§6.1). \[A\] no Unit 1 nodalization held; half a metre, the order of a
+lower-plenum cell.
+
+```rust
+pub const LP_BOTTOM_LEVEL_M: f64 = 0.5;
+```
+
+#### Constant `BREACH_DIAMETER_M`
+
+Diameter of the lower head's failure opening, m, through which a failed
+vessel's water drains (`failed_vessel_drain`). \[A\] MELCOR has no
+default (COR_PEN DFLPN, and the lower-plenum flow path, are user input);
+0.1 m, a few failed penetrations.
+
+```rust
+pub const BREACH_DIAMETER_M: f64 = 0.1;
+```
+
+#### Constant `DEBRIS_QUENCH_S`
+
+Time over which debris in a wet lower plenum gives up its stored heat,
+s. \[A\] (quench of a debris bed takes minutes).
+
+```rust
+pub const DEBRIS_QUENCH_S: f64 = 120.0;
+```
+
+#### Constant `QUENCH_H`
+
+Falling-debris quench heat-transfer coefficient, W/(m^2 K). \[P\]
+MELCOR's default (Vol. 1, COR_LP HDBH2O, 100), used over the particle
+area (`debris_quench`).
+
+```rust
+pub const QUENCH_H: f64 = 100.0;
+```
+
+#### Constant `QUENCH_TAU_S`
+
+Time constant of the quench decay factor, s. \[P\] MELCOR's radial
+spreading time for solid debris (Vol. 2, COR §2.3.8 and §3.2.5: "an ad
+hoc default value of 360 s", C1020(1)). The coefficient table lists
+§3.2.5 against C1020(2) = 60 s; the text is followed (stated).
+
+```rust
+pub const QUENCH_TAU_S: f64 = 360.0;
+```
+
+#### Constant `ZR_MELT_K`
+
+Zircaloy relocation in the `without_rod_collapse` ablation: a node whose
+cladding reaches this, K, slumps whole to the lower plenum. \[U\]
+Zircaloy melts at 2098 K (MELCOR 2.2 Vol. 2, MP Table 7, citing MATPRO),
+but MELCOR does not relocate anything at it (`CLAD_BREACH_K`).
+
+```rust
+pub const ZR_MELT_K: f64 = 2100.0;
+```
+
+#### Constant `CLAD_BREACH_K`
+
+Cladding temperature at which molten Zr breaches its oxide shell, K.
+\[A\] MELCOR's default for cladding (C1131(2)).
+
+```rust
+pub const CLAD_BREACH_K: f64 = 2400.0;
+```
+
+#### Constant `MIN_METAL_M`
+
+Unoxidised metal below which a rod counts as oxidised, m. \[A\]
+MELCOR's default (DRZRMN).
+
+```rust
+pub const MIN_METAL_M: f64 = 1.0e-4;
+```
+
+#### Constant `ROD_COLLAPSE_K`
+
+An oxidised rod collapses at this fuel temperature, K, and any rod at
+the second. \[A\] MELCOR's defaults TRDFAI (2800 K in 1.8.4, lowered on
+Phebus evidence for irradiated fuel) and TRDMAX (C1132(1..2)).
+
+```rust
+pub const ROD_COLLAPSE_K: f64 = 2500.0;
+```
+
+#### Constant `ROD_COLLAPSE_MAX_K`
+
+```rust
+pub const ROD_COLLAPSE_MAX_K: f64 = 3100.0;
+```
+
+#### Constant `DAMAGE_A`
+
+Time-at-temperature damage of an oxidised rod: lifetime
+`1/L = A exp(B T)`, failure when `sum dt/L` reaches 1. \[P\] MELCOR's
+50th-percentile fit to VERCORS and the SOARCA uncertainty elicitation,
+A in 1/s, B in 1/K (Vol. 2, Eq. 3-29).
+
+```rust
+pub const DAMAGE_A: f64 = 2.16e-11;
+```
+
+#### Constant `DAMAGE_B`
+
+```rust
+pub const DAMAGE_B: f64 = 7.0e-3;
+```
+
+#### Constant `ASSEMBLY_PITCH_M`
+
+Fuel-assembly pitch, m: sets the core's equivalent radius, and so the ring
+boundaries' areas. \[U\] GE BWR/3-4 lattice, 6 in.
+
+```rust
+pub const ASSEMBLY_PITCH_M: f64 = 0.1524;
+```
+
+#### Constant `RADIAL_EXCHANGE`
+
+Radial (cell-to-cell, and outer ring to shroud) and axial radiative
+exchange factors. \[A\] MELCOR's 2.0 defaults FCELR and FCELA (Vol. 1,
+COR_RF; 0.25 in its 1.86 scheme).
+
+```rust
+pub const RADIAL_EXCHANGE: f64 = 0.1;
+```
+
+#### Constant `AXIAL_EXCHANGE`
+
+```rust
+pub const AXIAL_EXCHANGE: f64 = 0.1;
+```
+
+#### Constant `SHROUD_THICKNESS_M`
+
+Core shroud wall thickness, m. \[A\] MELCOR's manual describes the BWR
+shroud as "about 5 cm" (Vol. 2, COR §2.2.12); Unit 1's own value needs L4.
+
+```rust
+pub const SHROUD_THICKNESS_M: f64 = 0.05;
+```
+
+#### Constant `ZRO2_DENSITY`
+
+ZrO2 density, kg/m^3, for the oxide thickness that sets the cladding's
+emissivity. \[P\] MELCOR's MP default (Vol. 2, MP Table 6.1).
+
+```rust
+pub const ZRO2_DENSITY: f64 = 5600.0;
+```
+
+#### Constant `BUBBLE_RISE_M_S`
+
+Bubble rise velocity in the pool, m/s, and the largest mean pool void.
+\[A\] MELCOR's defaults C4407(1) and C4407(11); its manual says other
+assumptions change the answer by about a factor of 2, and calls 0.4
+roughly the upper limit of bubbly flow.
+
+```rust
+pub const BUBBLE_RISE_M_S: f64 = 0.3;
+```
+
+#### Constant `MAX_POOL_VOID`
+
+```rust
+pub const MAX_POOL_VOID: f64 = 0.4;
+```
+
+#### Constant `FISSION_SHARE_U235`
+
+Shares of the rated power from U-235 thermal and Pu-239 thermal fission
+(U-238 fast is the rest). \[A\] MELCOR's BWR defaults, 2.316e9,
+1.1114e9 and 1.506e8 W of 3578 MW, from a Sandia-ORIGEN equilibrium cycle
+(Vol. 1, DCH_FPW); Unit 1's own cycle needs a plant source (plan L4).
+
+```rust
+pub const FISSION_SHARE_U235: f64 = _;
+```
+
+#### Constant `FISSION_SHARE_PU239`
+
+```rust
+pub const FISSION_SHARE_PU239: f64 = _;
+```
+
+#### Constant `OPERATING_TIME_S`
+
+Irradiation time at constant power, s. \[A\] MELCOR's default, 584 days
+(2 years at 80 % capacity; Vol. 1, DCH_OPT).
+
+```rust
+pub const OPERATING_TIME_S: f64 = 5.05e7;
+```
+
+#### Constant `FISSIONS_PER_FISSILE_ATOM`
+
+Fissions per initial fissile atom, for the capture correction. \[A\]
+MELCOR's default from Sandia-ORIGEN (Vol. 1, DCH_NFA).
+
+```rust
+pub const FISSIONS_PER_FISSILE_ATOM: f64 = 0.713;
+```
+
+#### Constant `Q_U235_MEV`
+
+Energy per fission, MeV, fission plus decay. \[A\] MELCOR's defaults
+from Sandia-ORIGEN (Vol. 1, 3201).
+
+```rust
+pub const Q_U235_MEV: f64 = 199.0;
+```
+
+#### Constant `Q_PU239_MEV`
+
+```rust
+pub const Q_PU239_MEV: f64 = 210.2;
+```
+
+#### Constant `Q_U238_MEV`
+
+```rust
+pub const Q_U238_MEV: f64 = 199.3;
+```
+
+#### Constant `U239_PER_FISSION`
+
+U-239 atoms made per fission at shutdown. \[A\] MELCOR's default, fitted
+so the standard's equation matches ORIGEN (Vol. 1, 3205(1)).
+
+```rust
+pub const U239_PER_FISSION: f64 = 0.526;
+```
+
+#### Constant `E_U239_MEV`
+
+Mean decay energy of U-239 and Np-239, MeV, and their decay constants,
+1/s. \[P\] the ANS-5.1-1979 standard's values (page 5), as MELCOR's
+defaults give them (Vol. 1, 3205(2..5)).
+
+```rust
+pub const E_U239_MEV: f64 = 0.474;
+```
+
+#### Constant `E_NP239_MEV`
+
+```rust
+pub const E_NP239_MEV: f64 = 0.419;
+```
+
+#### Constant `U239_DECAY_PER_S`
+
+```rust
+pub const U239_DECAY_PER_S: f64 = 4.91e-4;
+```
+
+#### Constant `NP239_DECAY_PER_S`
+
+```rust
+pub const NP239_DECAY_PER_S: f64 = 3.41e-6;
+```
+
+#### Constant `UH_LOW_A`
+
+```rust
+pub const UH_LOW_A: f64 = 29.6;
+```
+
+#### Constant `UH_LOW_B_K`
+
+```rust
+pub const UH_LOW_B_K: f64 = 16_820.0;
+```
+
+#### Constant `UH_HIGH_A`
+
+```rust
+pub const UH_HIGH_A: f64 = 87.9;
+```
+
+#### Constant `UH_HIGH_B_K`
+
+```rust
+pub const UH_HIGH_B_K: f64 = 16_610.0;
+```
+
+#### Constant `UH_LOW_MAX_K`
+
+```rust
+pub const UH_LOW_MAX_K: f64 = 1853.0;
+```
+
+#### Constant `UH_HIGH_MIN_K`
+
+```rust
+pub const UH_HIGH_MIN_K: f64 = 1873.0;
+```
+
+#### Constant `OXIDATION_MIN_K`
+
+No oxidation below this temperature, K. ~~Below this the oxidation is
+negligible on the accident's time scale. \[A\] 1000 K~~ **CORRECTED
+2026-10-29**: MELCOR's TOXMIN for steam, 1100 K (Vol. 1, SAND2017-0455
+O, C1004(1); Vol. 2, COR §2.5.4), which is also the lower end of the
+Urbanic-Heidrick low branch's stated range (1100-1853 K, Table 2-6), so
+the rate is no longer extrapolated below its fit. \[P\]
+
+```rust
+pub const OXIDATION_MIN_K: f64 = 1100.0;
+```
+
+#### Constant `H2O_H2_DIFFUSIVITY_A`
+
+Binary diffusion coefficient of steam in hydrogen, `D = a T^b / p`
+(m^2/s, T in K, p in Pa): MELCOR 2.2 Vol. 2 (SAND2023-10994 O), NCG/H2O
+package §6.1, Eq 6-2, which takes it from the MARCH 2 code's reference.
+At 1000 K and 1 atm it gives 7.2e-4 m^2/s. \[P\]
+
+```rust
+pub const H2O_H2_DIFFUSIVITY_A: f64 = 6.60639e-4;
+```
+
+#### Constant `H2O_H2_DIFFUSIVITY_B`
+
+```rust
+pub const H2O_H2_DIFFUSIVITY_B: f64 = 1.68;
+```
+
+#### Constant `OXIDATION_HEAT_J_PER_KG_ZR`
+
+Zr + 2 H2O(g) -> ZrO2 + 2 H2: heat released per kg Zr, J/kg.
+~~\[U\] about 586 kJ/mol, 6.45 MJ/kg Zr~~ (`6.45e6`; also inconsistent with
+itself: 586 kJ/mol / 91.224 g/mol is 6.42 MJ/kg). **CORRECTED 2026-10-29
+(gh:#1038):** OFFBEAT's
+`corrosion::exotherm::ENERGY_PER_KG_ZIRCONIUM`, reused, derived from the
+standard formation enthalpies of monoclinic ZrO2 (-1100.6 kJ/mol) and
+water vapour (-241.826 kJ/mol) at 298.15 K: 616.95 kJ/mol, **6.763 MJ/kg**.
+\[P\] for the formation enthalpies; the derivation is that module's, not
+fitted to anything. Not modelled: the drift of the reaction enthalpy with
+temperature (Kirchhoff), which that module puts at a few per cent over
+300-2000 K (not measured here).
+
+```rust
+pub const OXIDATION_HEAT_J_PER_KG_ZR: f64 = outram_park_fork_offbeat::corrosion::exotherm::ENERGY_PER_KG_ZIRCONIUM;
+```
+
+#### Constant `M_ZR`
+
+Molar masses, kg/mol.
+
+```rust
+pub const M_ZR: f64 = 0.091_224;
+```
+
+#### Constant `M_H2O`
+
+```rust
+pub const M_H2O: f64 = 0.018_015;
+```
+
+#### Constant `M_H2`
+
+```rust
+pub const M_H2: f64 = 0.002_016;
+```
+
+#### Constant `M_N2`
+
+```rust
+pub const M_N2: f64 = 0.028_014;
+```
+
+#### Constant `R_GAS`
+
+```rust
+pub const R_GAS: f64 = 8.314_462;
+```
+
+#### Constant `DW_WALL_AREA_M2`
+
+Drywell structures (steel shell, concrete, the pedestal) as one lumped
+heat sink: area, m^2, convective coefficient, W/(m^2 K), and heat
+capacity, J/K. \[A\] all three placeholders, moved here from
+`containment.rs` 2026-10-29 unchanged; the real heat-sink inventory is in
+SAND2012-6173 (not held).
+Since 2026-10-29 the coefficient is used only by the
+`without_dw_wall_hs` ablation: the default computes it (MELCOR's
+heat-structure surface).
+
+```rust
+pub const DW_WALL_AREA_M2: f64 = 4000.0;
+```
+
+#### Constant `DW_WALL_H`
+
+```rust
+pub const DW_WALL_H: f64 = 20.0;
+```
+
+#### Constant `DW_WALL_C`
+
+```rust
+pub const DW_WALL_C: f64 = 5.0e8;
+```
+
+#### Constant `DW_WALL_HEIGHT_M`
+
+Height of the drywell structures, m: the characteristic length of their
+natural convection (`Mechanisms::dw_wall_hs`). \[A\] about the height
+of a light-bulb drywell's cylinder; in the turbulent regime that applies
+here it cancels.
+
+```rust
+pub const DW_WALL_HEIGHT_M: f64 = 20.0;
+```
+
+#### Constant `DW_GAP_M`
+
+The drywell structures' outer heat path (`Mechanisms::dw_wall_outer`):
+the gap between the steel shell and the concrete around it, m, and the
+emissivity of its two faces; the concrete's thickness, m, and
+conductivity, W/(m K); and the coefficient from its outer face to the
+reactor building's air, W/(m^2 K). \[A\] all five: a Mark I shell
+stands a few centimetres off its concrete; oxidised steel and concrete
+near 0.8; 1.5 m of biological shield; ordinary concrete's
+conductivity; natural convection to still air.
+
+```rust
+pub const DW_GAP_M: f64 = 0.05;
+```
+
+#### Constant `DW_GAP_EMISSIVITY`
+
+```rust
+pub const DW_GAP_EMISSIVITY: f64 = 0.8;
+```
+
+#### Constant `DW_CONCRETE_M`
+
+```rust
+pub const DW_CONCRETE_M: f64 = 1.5;
+```
+
+#### Constant `CONCRETE_K`
+
+```rust
+pub const CONCRETE_K: f64 = 1.4;
+```
+
+#### Constant `RB_WALL_H`
+
+```rust
+pub const RB_WALL_H: f64 = 5.0;
+```
+
+#### Constant `WW_SHELL_AREA_M2`
+
+The torus shell above the pool (`Mechanisms::ww_shell`): area, m^2,
+heat capacity, J/K, and height, m. \[A\] all three, derived from the
+same assumed torus as `WW_POOL_SURFACE_M2` (15 m major radius, 4.15 m
+minor, 40 % full by volume, so 55 % of its 2458 m^2 above the water), a
+15 mm carbon-steel shell (7850 kg/m^3, 500 J/(kg K)), and the gas
+space's height; the height cancels in the turbulent regime.
+
+```rust
+pub const WW_SHELL_AREA_M2: f64 = 1353.0;
+```
+
+#### Constant `WW_SHELL_C`
+
+```rust
+pub const WW_SHELL_C: f64 = 7.96e7;
+```
+
+#### Constant `WW_SHELL_HEIGHT_M`
+
+```rust
+pub const WW_SHELL_HEIGHT_M: f64 = 5.0;
+```
+
+#### Constant `DRYWELL_VOLUME_M3`
+
+Drywell free volume, m^3. \[U\] about 3410 (KTH slides, simplyinfo).
+
+```rust
+pub const DRYWELL_VOLUME_M3: f64 = 3410.0;
+```
+
+#### Constant `WETWELL_GAS_M3`
+
+Wetwell (torus) gas space, m^3, and pool water, m^3. \[P\] Japanese
+government report to the IAEA, June 2011, attachment 4: 2620 and 1750.
+
+```rust
+pub const WETWELL_GAS_M3: f64 = 2620.0;
+```
+
+#### Constant `POOL_WATER_M3`
+
+```rust
+pub const POOL_WATER_M3: f64 = 1750.0;
+```
+
+#### Constant `CONTAINMENT_DESIGN_PA`
+
+Primary containment design pressure, Pa absolute. \[P\] 0.43 MPa gauge
+(NISA, via WNA).
+
+```rust
+pub const CONTAINMENT_DESIGN_PA: f64 = _;
+```
+
+#### Constant `INITIAL_CONTAINMENT_PA`
+
+Initial containment state: inerted with nitrogen. \[A\] pressure, Pa
+absolute, and temperatures, K.
+
+```rust
+pub const INITIAL_CONTAINMENT_PA: f64 = 1.05e5;
+```
+
+#### Constant `INITIAL_DRYWELL_K`
+
+```rust
+pub const INITIAL_DRYWELL_K: f64 = 323.15;
+```
+
+#### Constant `INITIAL_POOL_K`
+
+```rust
+pub const INITIAL_POOL_K: f64 = 303.15;
+```
+
+#### Constant `VENT_SUBMERGENCE_PA`
+
+Drywell to wetwell downcomers: submergence head, Pa (about 1.2 m of
+water), total flow area, m^2, and discharge coefficient. \[A\]
+
+```rust
+pub const VENT_SUBMERGENCE_PA: f64 = 11_800.0;
+```
+
+#### Constant `DOWNCOMER_AREA_M2`
+
+```rust
+pub const DOWNCOMER_AREA_M2: f64 = 20.0;
+```
+
+#### Constant `DOWNCOMER_COUNT`
+
+Number of downcomers sharing that area. \[A\] the Mark I layout of 96
+(not found for Unit 1 in the held sources; each is then 0.515 m across).
+Sets each downcomer's flow and diameter in the swarm-rise scrubbing
+(`sparc`).
+
+```rust
+pub const DOWNCOMER_COUNT: f64 = 96.0;
+```
+
+#### Constant `DISCHARGE_COEFFICIENT`
+
+```rust
+pub const DISCHARGE_COEFFICIENT: f64 = 0.6;
+```
+
+#### Constant `VACUUM_BREAKER_PA`
+
+Wetwell-to-drywell vacuum breakers: opening differential, Pa, and area,
+m^2. \[A\]
+
+```rust
+pub const VACUUM_BREAKER_PA: f64 = 3400.0;
+```
+
+#### Constant `VACUUM_BREAKER_M2`
+
+```rust
+pub const VACUUM_BREAKER_M2: f64 = 0.5;
+```
+
+#### Constant `VENT_RUPTURE_DISK_PA`
+
+Wetwell vent line to the stack: rupture-disk burst pressure, Pa absolute,
+and flow area, m^2. \[U\] burst pressure; \[A\] area.
+
+```rust
+pub const VENT_RUPTURE_DISK_PA: f64 = 0.549e6;
+```
+
+#### Constant `VENT_AREA_M2`
+
+```rust
+pub const VENT_AREA_M2: f64 = 0.07;
+```
+
+#### Constant `FLANGE_LEAK_PA`
+
+Drywell head-flange leak to the reactor building at high pressure (the
+leading explanation for Unit 1's hydrogen in the building). \[A\] opens
+above this pressure, Pa absolute, with this area, m^2.
+
+```rust
+pub const FLANGE_LEAK_PA: f64 = 0.75e6;
+```
+
+#### Constant `FLANGE_LEAK_M2`
+
+```rust
+pub const FLANGE_LEAK_M2: f64 = 5.0e-4;
+```
+
+#### Constant `REACTOR_BUILDING_M3`
+
+Reactor building free volume, m^3. \[A\] placeholder (about 38,000 is
+quoted for Unit 3).
+
+```rust
+pub const REACTOR_BUILDING_M3: f64 = 26_000.0;
+```
+
+#### Constant `H2_FLAMMABLE`
+
+Hydrogen in air: lower flammability limit (upward propagation).
+\[P\] 4 % (Shapiro diagram).
+
+```rust
+pub const H2_FLAMMABLE: f64 = 0.04;
+```
+
+#### Constant `H2_EXPLOSION`
+
+Hydrogen mole fraction above which a deflagration is strong enough to
+wreck the building's upper floor. \[A\] 8 %.
+
+```rust
+pub const H2_EXPLOSION: f64 = 0.08;
+```
+
+#### Constant `P_ATM`
+
+Atmosphere, Pa.
+
+```rust
+pub const P_ATM: f64 = 1.013e5;
+```
+
+## Module `pool_surface`
+
+Mass and energy transfer at the surface of the suppression pool, between
+the pool and the wetwell atmosphere (2026-10-29, gh:#1047 follow-up, the
+`ww_atmosphere` mechanism). AI draft, clean room: written from the
+MELCOR 2.2 reference manuals' equations, never from MELCOR source.
+
+- **The interface** (CVH/FL RM §5.1.1-5.1.2, Eqs 5-1 to 5-23): the
+  surface temperature `T_l` satisfies, at once, the diffusion of water
+  vapour through the non-condensables (Eq 5-1, the coefficient `C` from
+  the heat-mass analogy, Eq 5-2), the energy balance at the surface (Eq
+  5-7, the pool's and the atmosphere's heat flows by natural convection
+  plus radiation, Eqs 5-9, 5-10, 5-18 to 5-25) and saturation at `T_l`
+  (Eq 5-5). Solved by bisection on `T_l`, as MELCOR does ("bound and
+  bisect"). With no non-condensables the surface is at the saturation
+  temperature of the total pressure (Eq 5-6).
+- **The bubbles** entering the pool at a vent (CVH/FL RM §6.1, Eqs 6-1 to
+  6-3): an efficiency `epsilon = epsilon_z epsilon_T`, its full result the
+  non-condensables leaving at the pool's temperature with water vapour at
+  0.99 of its saturation pressure, interpolated linearly to no
+  interaction at `epsilon = 0`.
+- **Properties** (NCG/H2O RM §4-6): MELCOR's default tables for steam,
+  water and hydrogen, the power-law fits for nitrogen, Eucken's
+  correlation for hydrogen's conductivity, Wilke's mixing rule for
+  viscosity and Wassijewa's with Mason and Saxena's `A_ij` for
+  conductivity, and the steam-air and steam-hydrogen diffusivities
+  (Eqs 6-1, 6-2; nitrogen takes air's, stated).
+
+**Simplifications, stated:** no forced convection (MELCOR's Eq 5-21
+needs the volume's velocity, which this model does not have); the pool's
+heat capacity is the model's constant `c_p`; the pool's expansion
+coefficient is IAPWS-IF97's.
+
+```rust
+pub mod pool_surface { /* ... */ }
+```
+
+### Types
+
+#### Struct `Atmosphere`
+
+The wetwell atmosphere's bulk properties.
+
+```rust
+pub struct Atmosphere {
+    pub t_k: f64,
+    pub p_pa: f64,
+    pub n_steam: f64,
+    pub n_n2: f64,
+    pub n_h2: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` |  |
+| `p_pa` | `f64` |  |
+| `n_steam` | `f64` | Moles of steam, nitrogen and hydrogen. |
+| `n_n2` | `f64` |  |
+| `n_h2` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Pool`
+
+The pool's bulk state.
+
+```rust
+pub struct Pool {
+    pub t_k: f64,
+    pub kg: f64,
+    pub rho: f64,
+    pub cp: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` |  |
+| `kg` | `f64` |  |
+| `rho` | `f64` |  |
+| `cp` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Surface`
+
+Geometry of the surface: its area, m^2, and the depths of the pool and
+of the gas space above it, m (each its volume over the area).
+
+```rust
+pub struct Surface {
+    pub area_m2: f64,
+    pub pool_depth_m: f64,
+    pub gas_depth_m: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `area_m2` | `f64` |  |
+| `pool_depth_m` | `f64` |  |
+| `gas_depth_m` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Exchange`
+
+The surface's result for one step: evaporation, kg/s (negative is
+condensation), and the heat flows from the pool and from the atmosphere
+to the surface, W.
+
+```rust
+pub struct Exchange {
+    pub evaporation_kg_s: f64,
+    pub q_pool_w: f64,
+    pub q_atm_w: f64,
+    pub t_surface_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `evaporation_kg_s` | `f64` |  |
+| `q_pool_w` | `f64` |  |
+| `q_atm_w` | `f64` |  |
+| `t_surface_k` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `exchange`
+
+MELCOR's pool-surface exchange (CVH/FL RM §5.1.1-5.1.2), at the start
+of a step of `dt` s and limited as MELCOR limits it: each phase's
+sensible heat to its content above the surface temperature (Eq 5-17),
+and condensation to 90 % of the atmosphere's vapour (C4407).
+
+```rust
+pub fn exchange(pool: &Pool, atm: &Atmosphere, surface: &Surface, dt: f64) -> Exchange { /* ... */ }
+```
+
+#### Function `structure_surface`
+
+MELCOR's heat-structure surface facing an atmosphere (HS RM §2.6.1,
+§2.7): natural convection on an external rectangular surface of height
+`l_c`, `Nu = 0.59 Ra^1/4` below `Ra = 1e9`, `0.10 Ra^1/3` above `1e10`,
+linear in `Ra` between (Table 2.3, Eqs 2-82, 2-85 to 2-87), with the
+Grashof number from the density difference while condensing; and
+condensation below the dew point by diffusion through the
+non-condensables, `m = h_D rho_v ln((P - P_srf) / (P - P_stm))` with
+`h_D = Nu Sc^1/3 Pr^-1/3 D / l_c` (Eqs 2-134 to 2-136; `rho_v` the
+vapour's density at `T_sat(P)`); above `VPFRAC = 0.9995` of steam the
+steam fraction is held at it (stated: MELCOR then lets the
+structure's conduction limit it). Transport properties at the film
+temperature, density at the bulk. Returns the convective coefficient,
+W/(m^2 K), and the condensation flux, kg/(m^2 s) (zero above the dew
+point: no film is kept to evaporate, stated).
+
+```rust
+pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `bubble_efficiency`
+
+MELCOR's bubble efficiency at a vent below the pool (CVH/FL RM Eqs 6-1
+to 6-3): `epsilon_z = (depth - 0.01 m) / h` with `h` the opening's
+height, and `epsilon_T = (T_sat(P_j) - T_P - 0.1 K) / 5 K` with `P_j`
+the pressure at the opening's depth, each clamped to [0, 1].
+
+```rust
+pub fn bubble_efficiency(depth_m: f64, opening_m: f64, p_junction_pa: f64, t_pool_k: f64) -> f64 { /* ... */ }
+```
+
+## Module `rn_volume`
+
+One control volume's fission products and aerosol: the sectional aerosol
+(`aerosol`), each condensable class (cesium as CsOH, iodine as I2 and,
+since 2026-10-29, tellurium, in [`CLASSES`]) as vapour, on the airborne
+aerosol and on each surface, and
+the transfers between them in one step (gh:#1047).
+
+The step follows MELCOR's order and coupling (Vol. 2, SAND2023-10994 O,
+RN §2.4 and §2.5.2; no source used): released aerosol enters the
+**smallest section** (RN §2.4.3: "consistent with the production of
+small particles by gas-to-particle conversion"); vapour condenses onto
+the aerosol sections (Sherwood number 2) and onto the surfaces at their
+own temperatures by TRAP-MELT2's analytic step; the aerosol agglomerates
+and deposits.
+
+~~**Simplification, stated:** each class on the airborne aerosol is
+tracked as one mass, sharing the aerosol's size distribution, which is
+MELCOR's rule for classes assigned to one component (RN §2.4.1). MELCOR's
+default puts the volatiles in a component of their own; that is not
+followed here.~~ **Changed 2026-10-29:** each class on the airborne
+aerosol is tracked **by section**. It condenses onto each section in
+proportion to that section's mass-transfer coefficient (MELCOR's
+condensation onto the aerosol is per section, RN §2.5.2). It moves
+through agglomeration by the same coefficients as the particle volume
+(Jacobson et al.'s multicomponent scheme) and deposits with its
+section. The condensed mass still does not change the particles' size,
+which MELCOR's separate volatile component would. The lumped model
+before survives as the ablation (`lumped`).
+
+Evaporation from a surface is limited to what it holds (TRAP-MELT2's
+step does not limit it; the excess returns to the vapour).
+
+```rust
+pub mod rn_volume { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `PerClass`
+
+Per-class masses, kg.
+
+```rust
+pub type PerClass = [f64; 3];
+```
+
+#### Type Alias `PerClassSection`
+
+Per-class masses by aerosol section, kg (`[class][section]`).
+
+```rust
+pub type PerClassSection = [Vec<f64>; 3];
+```
+
+#### Struct `RnFlow`
+
+What a flow carries from one volume to another (`RnVolume::take`):
+particle volume per section, m^3, each class's vapour, kg, and each
+class on the aerosol by section, kg. Empty when nothing is carried this
+way.
+
+```rust
+pub struct RnFlow {
+    pub moved: Vec<f64>,
+    pub vapour_kg: PerClass,
+    pub on_aerosol_kg: PerClassSection,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `moved` | `Vec<f64>` |  |
+| `vapour_kg` | `PerClass` |  |
+| `on_aerosol_kg` | `PerClassSection` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn scaled(self: &Self, f: f64) -> Self { /* ... */ }
+  ```
+  The flow scaled by `f`.
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RnSurface`
+
+A deposition surface as this volume sees it: the aerosol surface (area,
+facing, phoretic velocities) and, for the vapour, its temperature, K,
+and mass-transfer coefficient, m/s.
+
+```rust
+pub struct RnSurface {
+    pub surface: super::aerosol::Surface,
+    pub t_k: f64,
+    pub k_vapour: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface` | `super::aerosol::Surface` |  |
+| `t_k` | `f64` |  |
+| `k_vapour` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RnVolume`
+
+What is in the volume.
+
+```rust
+pub struct RnVolume {
+    pub volume_m3: f64,
+    pub sections: super::aerosol::Sections,
+    pub vapour_kg: PerClass,
+    pub on_aerosol_kg: PerClassSection,
+    pub lumped: bool,
+    pub condensate_mass: bool,
+    pub on_surface_kg: Vec<PerClass>,
+    pub aerosol_on_surface_kg: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `volume_m3` | `f64` |  |
+| `sections` | `super::aerosol::Sections` |  |
+| `vapour_kg` | `PerClass` | Each class in the gas as vapour, and on the airborne aerosol, kg. |
+| `on_aerosol_kg` | `PerClassSection` |  |
+| `lumped` | `bool` | The ablation (not state; set by the owner before each use): each<br>class on the aerosol is spread over the sections in proportion to<br>the aerosol's volume before every operation, which is the lumped<br>model before 2026-10-29 to round-off. |
+| `condensate_mass` | `bool` | Whether a class's mass condensed on (or evaporated from) the aerosol<br>adds to (or takes from) its section's particle volume, at the<br>aerosol density, as MELCOR's sectional mass does (RN §2.5.2: the<br>condensed mass on an aerosol section is that section's aerosol mass,<br>and its area follows the section's mass). Not state; set by the<br>owner before each use. False is the condensate riding on the<br>particles weightless (the model before 2026-10-29). |
+| `on_surface_kg` | `Vec<PerClass>` | Per surface: each class on it, kg (by deposition and by<br>condensation), and aerosol deposited on it, kg. |
+| `aerosol_on_surface_kg` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(volume_m3: f64, sections: Sections, n_surfaces: usize) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn set_volume(self: &mut Self, volume_m3: f64) { /* ... */ }
+  ```
+  Resize the gas volume to `volume_m3` (a vessel's gas space as its
+
+- ```rust
+  pub fn aerosol_kg(self: &Self, rho_p: f64) -> f64 { /* ... */ }
+  ```
+  Airborne aerosol mass, kg, at material density `rho_p`.
+
+- ```rust
+  pub fn total_kg(self: &Self, class: usize) -> f64 { /* ... */ }
+  ```
+  One class's mass everywhere in the volume (vapour, on aerosol, on
+
+- ```rust
+  pub fn on_aerosol(self: &Self, class: usize) -> f64 { /* ... */ }
+  ```
+  One class's mass on the airborne aerosol, all sections, kg.
+
+- ```rust
+  pub fn add(self: &mut Self, aerosol_kg: f64, rho_p: f64, vapour_kg: PerClass) { /* ... */ }
+  ```
+  Add released aerosol, kg, into the smallest section, and vapour of
+
+- ```rust
+  pub fn take(self: &mut Self, f: f64) -> (Vec<f64>, PerClass, PerClassSection) { /* ... */ }
+  ```
+  Take the fraction `f` of the volume's gas (with its aerosol and what
+
+- ```rust
+  pub fn receive(self: &mut Self, moved: &[f64], vapour_kg: PerClass, on_aerosol_kg: &PerClassSection) { /* ... */ }
+  ```
+  Receive what `take` returned from another volume (same sections).
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+  Write the state (the section volumes are fixed by construction).
+
+- ```rust
+  pub fn read_into(self: &mut Self, r: &mut Reader<''_>) { /* ... */ }
+  ```
+  Read the state into a volume built like this one.
+
+- ```rust
+  pub fn step(self: &mut Self, medium: &Medium, gases: &[(BulkGas, f64)], surfaces: &[RnSurface], dt: f64) { /* ... */ }
+  ```
+  One step of `dt` s: condensation of each class, agglomeration,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `CLASSES`
+
+The condensable classes tracked, in the order of every per-class array.
+
+```rust
+pub const CLASSES: [super::vapour::FpClass; 3] = _;
+```
+
+#### Constant `N_CLASSES`
+
+How many classes are tracked: cesium (as CsOH), iodine (as I2) and,
+since 2026-10-29, tellurium (elemental, MELCOR's class 5).
+
+```rust
+pub const N_CLASSES: usize = 3;
+```
+
+#### Constant `CS`
+
+Index of cesium and of iodine in the per-class arrays.
+
+```rust
+pub const CS: usize = 0;
+```
+
+#### Constant `IODINE`
+
+```rust
+pub const IODINE: usize = 1;
+```
+
+#### Constant `TE`
+
+```rust
+pub const TE: usize = 2;
+```
+
+## Module `source`
+
+The Unit 1 release as a `changi` source term (gh:#1040, F9's "wire the
+release to changi"): the hand-off the offsite chain consumes, as
+[`crate::chain::pad_for_dispersion`] expects it.
+
+- **What leaves**: the model's cumulative releases to the environment
+  (vented to the stack plus leaked to the reactor building, whose own
+  retention is not modelled), as fractions of each class's inventory
+  ([`super::compare::Histories`]).
+- **Inventories**: each nuclide's activity at the scram, `lambda N`, from
+  the model's ENDF/B-VIII summation ([`super::fp_decay`]). Cs-137, which
+  builds up through the irradiation, is scaled to the BSAF
+  specification's cesium mass (the summation's 95.0 kg against the
+  specified 154.0 kg: its 584-day irradiation is MELCOR's default, not
+  Unit 1's history). I-131 and Xe-133 are not scaled: at 8 and 5 days
+  they stand at equilibrium with the power whatever the history, and an
+  element mass (stable I-127 and long-lived I-129 for iodine) says
+  nothing about them. The summation has no neutron capture (stated
+  there), which biases the Cs-137 share of cesium low.
+- **Nuclides**: Cs-137 (aerosol), I-131 (halogen) and Xe-133 (noble gas),
+  their classes' isotopes taken to move together. Decay constants from
+  `boon-lay` (`changi`'s rule), deposition groups by atomic number
+  ([`DepositionGroup::from_atomic_number`]).
+- **Windows**: the histories' samples grouped into windows of
+  `window_s`; each window's activity is its share of the inventory
+  decayed from the scram to the window's middle (the release is taken as
+  uniform within a window, as `changi` treats it).
+
+~~Not done here: the dispersion run itself, which needs the Fukushima
+meteorology (not held).~~ **CORRECTED 2026-10-29:** [`near_field`] runs
+it, under a stated, assumed [`Weather`] (the meteorology is still not
+held): the source term padded by [`crate::chain::pad_for_dispersion`],
+`changi`'s puff train for the dilution factors, and `changi`'s survey for
+the time-integrated air concentration and dry deposition on the plume's
+centreline. An illustrative chain demonstration within the puff model's
+few-km reach, not a reconstruction of the 2011 plume, and no dose.
+
+```rust
+pub mod source { /* ... */ }
+```
+
+### Types
+
+#### Struct `Weather`
+
+The weather a [`near_field`] run assumes: one wind speed, held toward
+the receptors for the whole run, one Pasquill class, and the height the
+release leaves at.
+
+```rust
+pub struct Weather {
+    pub wind: uom::si::f64::Velocity,
+    pub class: changi::puff::stability::StabilityClass,
+    pub release_height: uom::si::f64::Length,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `wind` | `uom::si::f64::Velocity` |  |
+| `class` | `changi::puff::stability::StabilityClass` |  |
+| `release_height` | `uom::si::f64::Length` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn assumed() -> Self { /* ... */ }
+  ```
+  The assumed default, every value \[A\]: 3 m/s, Pasquill D (neutral,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `inventory_bq`
+
+One nuclide's activity at the scram, Bq, from the summation: `lambda N`
+with `N` the nuclide's mass over `A u`, scaled by `scale`.
+
+```rust
+pub fn inventory_bq(sum: &super::fp_decay::Summation, endf_name: &str, boon_lay_name: &str, scale: f64) -> f64 { /* ... */ }
+```
+
+#### Function `source_term`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The release in `h` as a source term of windows `window_s` long (the
+first starting at the scram), with Cs-137, I-131 and Xe-133.
+
+# Panics
+If the histories are empty, or a nuclide is missing from `boon-lay`.
+
+```rust
+pub fn source_term(h: &super::compare::Histories, prm: &super::params::Params, sum: &super::fp_decay::Summation, window_s: f64) -> changi::activity::source::SourceTerm { /* ... */ }
+```
+
+#### Function `near_field`
+
+The Unit 1 release carried downwind under `weather` (gh:#1040, F9): the
+time-integrated air concentration at 1.5 m and the dry deposition at
+each of `distances` on the plume's centreline. `changi`'s Gaussian puff
+(a port of `puff` 0.1.1, Pasquill-Gifford sigmas over about 0.1-10 km)
+with its uncited order-of-magnitude deposition velocities. Research,
+education and V&V only: no dose, and the weather is assumed, not 2011's.
+
+# Panics
+If every distance is beyond the puff model's reach (`changi` refuses an
+all-zero result).
+
+```rust
+pub fn near_field(term: &changi::activity::source::SourceTerm, weather: &Weather, distances: &[uom::si::f64::Length]) -> changi::activity::survey::SiteSurvey { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `NEAR_FIELD_STEP_S`
+
+Puffs are emitted and moved every `NEAR_FIELD_STEP_S`, and dropped at
+`NEAR_FIELD_PUFF_S` (the puff model's reach is this times the wind: 6 km
+at 3 m/s).
+
+```rust
+pub const NEAR_FIELD_STEP_S: f64 = 10.0;
+```
+
+#### Constant `NEAR_FIELD_PUFF_S`
+
+```rust
+pub const NEAR_FIELD_PUFF_S: f64 = 2000.0;
+```
+
+## Module `sparc`
+
+Pool scrubbing past the vent exit: SPARC-90's inertial impaction and
+swarm-rise removal, as MELCOR describes them (gh:#1047; no source used;
+MELCOR 2.2 Vol. 2, SAND2023-10994 O, RN §2.7.1 Eqs 2-112 and 2-113,
+Appendices D and E).
+
+MELCOR's overall decontamination factor for each particle size is
+
+```text
+DF_OV,i = DF_EC . DF_II,i . DF_ER,i . DF_SR,i                (2-113)
+```
+
+`DF_EC`, removal in proportion to the gas volume the steam's condensation
+takes away, is in `containment.rs`. This module gives the next two:
+
+- **`DF_II`, inertial impaction** into the front of the decelerating
+  globule at the vent exit (Eqs D-8 to D-11), from the Stokes number of
+  the particle at the vent's exit velocity.
+- **`DF_SR`, the swarm rise** (Eq 2-112, Appendix E). The injected gas
+  forms a globule (Eqs D-1 to D-4) that breaks into a swarm of bubbles
+  over twelve of its diameters. The rise from the vent exit to the pool
+  surface is marched in `N_RISE` steps; in each, the part of the gas
+  already in bubbles loses particles to the bubble wall by centrifugal
+  and Brownian deposition and by settling (Eqs E.12 to E.25), the part
+  still in the globule loses none.
+
+`DF_ER` (deposition during injection) applies only to multihole vents
+(MELCOR's `MVENT=1`). The downcomers are single large pipes, so it is 1
+and is not built.
+
+**Where this departs from the manual, and why:**
+
+- **The bubble is at the pool's temperature and saturated with
+  vapour.** MELCOR iterates the bubble's heat and mass transfer through
+  each step (Eqs E.6 to E.11). The gas is taken to be already at the
+  pool's temperature when it leaves the vent exit region, which is
+  MELCOR's own assumption for that region. Two things follow. The
+  evaporation into the bubble is whatever keeps it saturated as it
+  expands under the falling static head. And the particles do not grow
+  by condensation (no supersaturation, so Eq E.10 is not needed). That
+  removes a removal mechanism MELCOR has, so this is a lower bound.
+- **The exposure time of the bubble surface** is the boundary-layer
+  value for a stretching surface (Levich): `tau_e = int r^2 V_s ds /
+  (r^2 V_s^2)`. The manual's "arc length divided by the local surface
+  velocity" is the flat-plate limit of this. Taken literally on a
+  bubble it diverges at the top stagnation point, where V_s goes to 0
+  (the integral of ds/V_s is logarithmic there). On a sphere, Levich's
+  form gives Boussinesq's Sh = (2/sqrt(pi)) Pe^(1/2) exactly; the test
+  checks it.
+- **The surface normal** is the ellipse's own normal: tan beta =
+  (b/a)^2 tan theta. The manual's Eq E.15 prints (a/b)^2. With a > b
+  (oblate), that would make the normal *less* vertical than the radius
+  on the flat top, which is geometrically wrong.
+- **The evaporation-hindrance floor** of Eq E.14 ("limited to a minimum
+  value of V_D,i") is read as the diffusion velocity actually in
+  effect, `xi V_D` of Eq E.24. Read as the unhindered `V_D`, the floor
+  would undo E.24 wherever it binds.
+- **The fraction of the gas still in the globule** is its volume
+  fraction, `(D_g / D_g,o)^3`, from the linear shrinkage of Eq D-4.
+  The manual gives the shrinkage but not the fraction.
+- **Settling** is Stokes's law with slip (Eq E.16) throughout. MELCOR
+  switches to empirical drag above about 70 um (Eqs E.17 to E.19);
+  the largest section here is 40 um.
+
+Gas properties are air's, as MELCOR evaluates every aerosol
+coefficient (RN §2.4.2.3, constraint c).
+
+```rust
+pub mod sparc { /* ... */ }
+```
+
+### Types
+
+#### Enum `Vent`
+
+The vent types of MELCOR's globule correlation `v_n = a We^b` (Eq D-1,
+C7151 defaults).
+
+```rust
+pub enum Vent {
+    MultipleHoles,
+    Downcomer,
+    Horizontal,
+}
+```
+
+##### Variants
+
+###### `MultipleHoles`
+
+###### `Downcomer`
+
+###### `Horizontal`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Pool`
+
+The pool where the gas is injected.
+
+```rust
+pub struct Pool {
+    pub t_k: f64,
+    pub p_surface_pa: f64,
+    pub depth_m: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` |  |
+| `p_surface_pa` | `f64` | Gas pressure at the pool surface, Pa. |
+| `depth_m` | `f64` | Submergence of the vent exit, m. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn submerged(t_k: f64, p_surface_pa: f64, head_pa: f64) -> Self { /* ... */ }
+  ```
+  A pool at `t_k` under gas at `p_surface_pa`, the vent exit under a
+
+- ```rust
+  pub fn x_o(self: &Self) -> f64 { /* ... */ }
+  ```
+  MELCOR's `X_o` (Eq D-6): the non-condensable mole fraction of the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Injection`
+
+The gas entering one vent: its non-condensable flow, mol/s, its total
+volumetric flow at the vent exit before equilibration, m^3/s, and the
+vent's diameter, m.
+
+```rust
+pub struct Injection {
+    pub vent: Vent,
+    pub diameter_m: f64,
+    pub nc_mol_s: f64,
+    pub q_exit_m3_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `vent` | `Vent` |  |
+| `diameter_m` | `f64` |  |
+| `nc_mol_s` | `f64` |  |
+| `q_exit_m3_s` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IodineVapour`
+
+The pool's side of iodine-vapour scrubbing: I2's diffusivity in the
+bubble gas and in the water, m^2/s, the pool's partition coefficient
+(`iodine::partition`), its dissolved iodine, mol of I2 per litre, and
+the entering gas's I2 concentration at the vent exit, mol per litre of
+gas.
+
+```rust
+pub struct IodineVapour {
+    pub d_gas: f64,
+    pub d_liquid: f64,
+    pub h: f64,
+    pub sum_aq: f64,
+    pub c_gas: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `d_gas` | `f64` |  |
+| `d_liquid` | `f64` |  |
+| `h` | `f64` |  |
+| `sum_aq` | `f64` |  |
+| `c_gas` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `bubble_axes`
+
+The bubble of the swarm, as an oblate spheroid of semi-axes `a`
+(horizontal) and `b` (vertical), m, for a non-condensable mole fraction
+`x_nc` (Eqs E.1, E.2).
+
+```rust
+pub fn bubble_axes(x_nc: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `rise_velocity`
+
+The bubble's rise velocity relative to the liquid, m/s (Eq E.3, with
+`sigma` in N/m and `rho_l` in kg/m^3 converted to the correlation's cgs).
+
+```rust
+pub fn rise_velocity(d_cm: f64, sigma: f64, rho_l: f64) -> f64 { /* ... */ }
+```
+
+#### Function `swarm_velocity`
+
+The swarm's rise velocity, m/s (Eqs E.4, E.5): the mean of the
+correlation at the vent depth and at the surface, for a total flow
+`q_l_s` (litre/s, at half depth) through one vent, at most 1.7 m/s.
+
+```rust
+pub fn swarm_velocity(q_l_s: f64, depth_m: f64) -> f64 { /* ... */ }
+```
+
+#### Function `globule_diameter`
+
+The initial globule's diameter, m (Eqs D-1 to D-3), for a gas flow
+`q` (m^3/s at the vent depth, in equilibrium with the pool).
+
+```rust
+pub fn globule_diameter(vent: Vent, d_o: f64, q: f64, sigma: f64, rho_l: f64) -> f64 { /* ... */ }
+```
+
+#### Function `impaction_df`
+
+The inertial-impaction factor `DF_II` (Eqs D-8 to D-11) for a particle
+of diameter `d` and density `rho_p`, gas viscosity `mu`, vent exit
+velocity `v_e` and vent diameter `d_o`.
+
+```rust
+pub fn impaction_df(d: f64, rho_p: f64, mu: f64, v_e: f64, d_o: f64) -> f64 { /* ... */ }
+```
+
+#### Function `pass_fractions`
+
+Pass fractions `1 / (DF_II DF_SR)` for particles of diameters `d` (m)
+and density `rho_p` injected through one vent into `pool`.
+
+```rust
+pub fn pass_fractions(pool: &Pool, inj: &Injection, d: &[f64], rho_p: f64) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `i2_liquid_diffusivity`
+
+I2's diffusivity in water, m^2/s, at `t_k`: 1.2e-9 at 298.15 K \[A\],
+scaled by Stokes-Einstein (`T / mu`) with water's viscosity from the
+steam tables. The manual gives no value; with the pool's partition
+large (CsOH), the gas side controls and this barely matters (test).
+
+```rust
+pub fn i2_liquid_diffusivity(t_k: f64, p_pa: f64) -> f64 { /* ... */ }
+```
+
+#### Function `iodine_pass`
+
+The swarm rise's pass fraction for I2 vapour through one vent (MELCOR
+Appendix F): in each step and on each strip of the bubble, the
+gas-side penetration velocity `sqrt(D_g / (pi tau_e))` brings I2 to the
+interface, whose concentration balances it against the liquid side
+with the partition (Eq F.2); the net velocity is hindered by the
+evaporation as for particles (Eq F.1) and integrated as Eq E.13. The
+bubble's I2 concentration is updated after each step (diluted as the
+bubble expands and scrubbed). No scrubbing where the pool's iodine over
+the partition is at least the bubble's.
+
+```rust
+pub fn iodine_pass(pool: &Pool, inj: &Injection, iv: &IodineVapour) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `N_RISE`
+
+Steps of the rise (MELCOR's XNRISE, C7150(1), default 10).
+
+```rust
+pub const N_RISE: usize = 10;
+```
+
+## Module `steam`
+
+Water and steam properties for the plant model, all from IAPWS-IF97 as
+`tampines-steam-tables` implements it (`tampines_steam_tables`, ~~a
+dev-dependency of this crate; ~~through the metacrate~~ directly since the
+demo moved here on 2026-10-27~~ a normal dependency of `sembawang` since
+the model moved out of the `dhoby-ghaut` demo on 2026-10-29, gh:#1033).
+
+The RPV is solved every step for the saturation pressure whose mixture
+matches the vessel's mass and energy, which takes a few dozen saturation
+evaluations. So the saturation line is **tabulated once** at start-up
+from the steam tables (500 points, log-spaced in pressure from 0.02 to
+9.5 MPa) and interpolated linearly in `ln p`. Every worker builds the same
+table from the same calls, so it is identical everywhere (the three-worker
+step is bit-for-bit the one-worker step).
+
+**Interpolation error** (measured by `the_table_matches_the_steam_tables_between_its_points`):
+below 3e-4 relative on `T_sat`, `v_f`, `v_g`, `u_f`, `u_g`, `h_f`, `h_g`
+at the midpoints of the table between 0.05 and 9 MPa.
+
+```rust
+pub mod steam { /* ... */ }
+```
+
+### Types
+
+#### Struct `Sat`
+
+Saturated-water properties at one pressure.
+
+```rust
+pub struct Sat {
+    pub p_pa: f64,
+    pub t_k: f64,
+    pub v_f: f64,
+    pub v_g: f64,
+    pub u_f: f64,
+    pub u_g: f64,
+    pub h_f: f64,
+    pub h_g: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p_pa` | `f64` |  |
+| `t_k` | `f64` |  |
+| `v_f` | `f64` |  |
+| `v_g` | `f64` |  |
+| `u_f` | `f64` |  |
+| `u_g` | `f64` |  |
+| `h_f` | `f64` |  |
+| `h_g` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SatTable`
+
+The tabulated saturation line.
+
+```rust
+pub struct SatTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn at(self: &Self, p_pa: f64) -> Sat { /* ... */ }
+  ```
+  Saturation properties at `p_pa`, clamped to the table's range.
+
+- ```rust
+  pub fn mixture(self: &Self, v: f64, u: f64) -> Option<(Sat, f64)> { /* ... */ }
+  ```
+  The saturated mixture whose specific volume is `v` and specific
+
+- ```rust
+  pub fn superheated(self: &Self, v: f64, u: f64) -> (f64, f64) { /* ... */ }
+  ```
+  Superheated steam past dry-out, continued from the saturated vapour
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `log_grid`
+
+`n` log-spaced points from `lo`, with the step of `n_grid` points over
+`lo..=grid_top`, continued until past `top` (gh:#1036 follow-up).
+
+```rust
+pub fn log_grid(lo: f64, grid_top: f64, n_grid: usize, top: f64) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `sat_from_tables`
+
+One saturation point straight from the steam tables.
+
+```rust
+pub fn sat_from_tables(p_pa: f64) -> Sat { /* ... */ }
+```
+
+#### Function `p_sat_pa`
+
+Saturation pressure at a temperature, Pa (IF97 region 4, closed form).
+
+```rust
+pub fn p_sat_pa(t_k: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `P_MIN_PA`
+
+Lowest and highest pressure the table covers, Pa. ~~9.5e6~~ **Raised
+2026-10-29** to 20 MPa: a rapid debris quench can push the vessel past
+9.5 MPa, and above the table [`SatTable::mixture`] found no state, which
+the plant took for "boiled dry" (level at the bottom, the superheated
+branch): a wrong state, not physics. 20 MPa stays below the critical
+point (22.064 MPa), as MELCOR advises for its own vessel-failure
+pressure (MELCOR 2.2 Vol. 2, COR §2.3.8).
+
+```rust
+pub const P_MIN_PA: f64 = 2.0e4;
+```
+
+#### Constant `P_MAX_PA`
+
+```rust
+pub const P_MAX_PA: f64 = 2.0e7;
+```
+
+#### Constant `P_GRID_TOP_PA`
+
+The grid: `N_GRID` points log-spaced over `P_MIN_PA` to `P_GRID_TOP_PA`
+(the original table), continued at the same step up to `P_MAX_PA`, so
+every original point is unchanged bit for bit.
+
+```rust
+pub const P_GRID_TOP_PA: f64 = 9.5e6;
+```
+
+## Module `vapour`
+
+Fission-product vapours: vapour pressures and condensation onto surfaces
+(gh:#1047, second deliverable; not yet wired into the plant).
+
+**Vapour pressures** are MELCOR's default curves (Vol. 1, SAND2017-0455
+O, RN sensitivity coefficients 7110; no source used),
+`log10 P[mmHg] = -A/T + B + C log10 T` over temperature ranges, zero
+below the first. The classes tracked so far: Xe (always a vapour), Cs
+(released as CsOH, 7120), I2, and Te (as TeO). **One extracted
+coefficient is corrected**: the text reads Cs's first-range `A` as
+9.4E4, but the manual says these curves were adjusted to be continuous,
+and only `A = 9.4E3` meets the second range at 1553 K (log10 P = 3.570
+from both sides; 9.4E4 gives -50.9, a 54-decade miss). The continuity of every
+range boundary is pinned by a test, which is what makes the correction
+checkable.
+
+**Condensation** onto heat structures, pools and aerosol sections is
+TRAP-MELT2's, solved analytically over a step as MELCOR does (Vol. 2,
+SAND2023-10994 O, RN §2.5.2, Eqs 2-96 to 2-101): each surface `i` takes
+`A_i k_i (C_a - C_i^s)`, the atmosphere gives it up, and over the step
+`C_a` relaxes exponentially toward the area-weighted saturation
+concentration. This module does not limit evaporation to what a
+surface holds; the caller must (stated).
+
+**Vapour diffusivity** is Chapman-Enskog's (Vol. 2, RN §2.5.2, Eqs 2-104,
+2-105, after Bird, Stewart and Lightfoot), with the Lennard-Jones
+parameters of the classes (Vol. 1, RN coefficients 7111) and of the bulk
+gases (Vol. 2, NCG/H2O §5.2), and the collision integral of Vol. 2's
+NCG/H2O Table 6.1 with its extrapolations. An aerosol section takes
+vapour with the mass-transfer coefficient of Sherwood number 2 (RN
+§2.5.2).
+
+```rust
+pub mod vapour { /* ... */ }
+```
+
+### Types
+
+#### Enum `FpClass`
+
+A fission-product vapour class (MELCOR default names).
+
+```rust
+pub enum FpClass {
+    Xe,
+    Cs,
+    I2,
+    Te,
+}
+```
+
+##### Variants
+
+###### `Xe`
+
+###### `Cs`
+
+###### `I2`
+
+###### `Te`
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn diffusivity(self: Self, gases: &[(BulkGas, f64)], t_k: f64, p_pa: f64) -> f64 { /* ... */ }
+  ```
+  Diffusivity of this vapour (a trace) in a gas of the mole fractions
+
+- ```rust
+  pub fn aerosol_mass_transfer(self: Self, gases: &[(BulkGas, f64)], t_k: f64, p_pa: f64, d: f64) -> f64 { /* ... */ }
+  ```
+  Mass-transfer coefficient of the vapour onto an aerosol particle of
+
+- ```rust
+  pub fn molar_mass(self: Self) -> f64 { /* ... */ }
+  ```
+  Molar mass of the released compound, kg/mol (C7120: CsOH, I2, TeO).
+
+- ```rust
+  pub fn vapour_pressure_pa(self: Self, t_k: f64) -> f64 { /* ... */ }
+  ```
+  Vapour pressure at `t_k`, Pa: infinite for a permanent gas (Xe), zero
+
+- ```rust
+  pub fn saturation_concentration(self: Self, t_k: f64) -> f64 { /* ... */ }
+  ```
+  Saturation concentration at `t_k`, kg/m^3 (ideal gas).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `BulkGas`
+
+A bulk gas of the containment or vessel atmosphere.
+
+```rust
+pub enum BulkGas {
+    Steam,
+    H2,
+    N2,
+}
+```
+
+##### Variants
+
+###### `Steam`
+
+###### `H2`
+
+###### `N2`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CondensingSurface`
+
+A surface the vapour can condense on: its `A k`, m^3/s (area times
+mass-transfer coefficient), its saturation concentration at its own
+temperature, kg/m^3, and the mass condensed on it, kg.
+
+```rust
+pub struct CondensingSurface {
+    pub ak: f64,
+    pub c_sat: f64,
+    pub mass: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ak` | `f64` |  |
+| `c_sat` | `f64` |  |
+| `mass` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `binary_diffusivity`
+
+Binary diffusivity of molecule A in B, m^2/s (Eq 2-105, cm^2/s with P
+in atm, converted), from their Lennard-Jones parameters (sigma A,
+epsilon/k K, molar mass g/mol).
+
+```rust
+pub fn binary_diffusivity(a: (f64, f64, f64), b: (f64, f64, f64), t_k: f64, p_pa: f64) -> f64 { /* ... */ }
+```
+
+#### Function `condense`
+
+TRAP-MELT2's analytic step (Eqs 2-98 to 2-101): the atmosphere's vapour
+concentration `c_a`, kg/m^3, in `volume` m^3, against `surfaces`, over
+`dt` s. Returns the new concentration and updates each surface's mass.
+Mass is conserved exactly (`c_a V + sum M`).
+
+```rust
+pub fn condense(c_a: f64, volume: f64, surfaces: &mut [CondensingSurface], dt: f64) -> f64 { /* ... */ }
+```
+
+## Module `wire`
+
+The flat `f64` wire format snapshots and results cross worker boundaries
+in (a `Float64Array` in the browser). Every value crosses as its exact
+`f64` bits, so a step computed on another worker is bit-for-bit the step
+computed in place.
+
+```rust
+pub mod wire { /* ... */ }
+```
+
+### Types
+
+#### Struct `Writer`
+
+```rust
+pub struct Writer(pub Vec<f64>);
+```
+
+##### Fields
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn f(self: &mut Self, v: &[f64]) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn vec(self: &mut Self, v: &[f64]) { /* ... */ }
+  ```
+  A length-prefixed vector.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Reader`
+
+```rust
+pub struct Reader<''a> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(v: &'a [f64]) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn f(self: &mut Self) -> f64 { /* ... */ }
+  ```
+  The next number (NaN past the end: a short message reads as NaN
+
+- ```rust
+  pub fn vec(self: &mut Self) -> Vec<f64> { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Types
+
+#### Enum `Mode`
+
+Who drives the operator actions.
+
+```rust
+pub enum Mode {
+    Historical,
+    FreePlay,
+}
+```
+
+##### Variants
+
+###### `Historical`
+
+The recorded Unit 1 sequence (INPO 11-005 timeline, \[U\] times).
+
+###### `FreePlay`
+
+The reader's own actions.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Mechanisms`
+
+Which modelled mechanisms are on. Every one is **on by default**: the
+correct-physics-default rule (root `CLAUDE.md`). Turning one off is an
+explicit ablation through a `without_*` builder, used by [`compare`] to
+measure how much of each miss against BSAF a mechanism carries
+(gh:#1032).
+
+A core mechanism travels to the core worker in its snapshot
+(`CoreSnapshot::t_dependent_props`); the others act in the plant.
+
+```rust
+pub struct Mechanisms {
+    pub hot_leak: bool,
+    pub ic_h2_blanketing: bool,
+    pub temperature_dependent_properties: bool,
+    pub lower_head_wall: bool,
+    pub rod_collapse: bool,
+    pub core_radiation: bool,
+    pub level_swell: bool,
+    pub decay_mix: bool,
+    pub capture_correction: bool,
+    pub actinide_decay: bool,
+    pub mixture_choking: bool,
+    pub gas_cv_t: bool,
+    pub diffusion_limit: bool,
+    pub hydrogen_cp_t: bool,
+    pub msl_creep: bool,
+    pub dome_internals: bool,
+    pub penetrations: bool,
+    pub failed_vessel_outflow: bool,
+    pub pool_scrubbing: bool,
+    pub in_vessel_deposition: bool,
+    pub internals_heat_loss: bool,
+    pub scrubbing_saturation: bool,
+    pub swarm_scrubbing: bool,
+    pub sectional_classes: bool,
+    pub iodine_partition: bool,
+    pub mixture_vent: bool,
+    pub phoresis: bool,
+    pub iodine_swarm: bool,
+    pub vessel_aerosol: bool,
+    pub condensate_mass: bool,
+    pub fp_decay_follows: bool,
+    pub te_transport: bool,
+    pub debris_oxidation: bool,
+    pub candling: bool,
+    pub debris_quench: bool,
+    pub wet_head_contact: bool,
+    pub penetration_coverage: bool,
+    pub failed_vessel_drain: bool,
+    pub ww_atmosphere: bool,
+    pub dw_wall_hs: bool,
+    pub ww_shell: bool,
+    pub outflow_enthalpy: bool,
+    pub relief_h2_enthalpy: bool,
+    pub condensate_to_floor: bool,
+    pub rpv_wall: bool,
+    pub internals_radiation: bool,
+    pub core_top_radiation: bool,
+    pub see_through: bool,
+    pub mcci: bool,
+    pub dw_wall_outer: bool,
+    pub core_plate: bool,
+    pub bottom_radiation: bool,
+    pub ring_plates: bool,
+    pub pool_layers: bool,
+    pub plate_oxidation: bool,
+    pub lp_steam_consumed: bool,
+    pub control_blades: bool,
+    pub blade_fusion: bool,
+    pub cavity_phases: bool,
+    pub bur_ignition: bool,
+    pub gas_choking: bool,
+    pub blade_diffusion_limit: bool,
+    pub two_sided_equalising: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hot_leak` | `bool` | The RPV hot-gas leak to the drywell ([`HOT_LEAK_M2`], `[A]`). |
+| `ic_h2_blanketing` | `bool` | Hydrogen blanketing of the isolation-condenser tubes (`[A]`). |
+| `temperature_dependent_properties` | `bool` | MATPRO temperature-dependent fuel and cladding heat capacities<br>(OFFBEAT, gh:#1038); off is the constant `UO2_CP`/`ZR_CP` model. |
+| `lower_head_wall` | `bool` | The lower-head wall: heated by the debris, failing on its inner<br>temperature or by creep (gh:#1034); off is the debris-temperature<br>criterion `LOWER_HEAD_FAILURE_K`. |
+| `rod_collapse` | `bool` | MELCOR's rod collapse (gh:#1035): breach at `CLAD_BREACH_K`,<br>collapse at `ROD_COLLAPSE_K` or by time-at-temperature damage; off<br>is the 2100 K whole-node slump `ZR_MELT_K`. |
+| `core_radiation` | `bool` | In-core radiation between rings and levels, and from the outer ring<br>to the shroud (gh:#1037); off is no radiation at all. |
+| `level_swell` | `bool` | The core sees the swollen two-phase mixture level, not the collapsed<br>one (gh:#1036); off is the collapsed level. |
+| `decay_mix` | `bool` | Decay heat from U-235, Pu-239 and U-238 fission products after a<br>finite irradiation (gh:#1041); off is U-235 alone at equilibrium. |
+| `capture_correction` | `bool` | The ANS neutron-capture correction G(t) (gh:#1041). |
+| `actinide_decay` | `bool` | U-239 and Np-239 decay heat (gh:#1041). |
+| `mixture_choking` | `bool` | Choked flow of the vessel's hydrogen-steam gas from its own molar<br>mass (gh:#1037); off is the steam-only flux for any gas. |
+| `gas_cv_t` | `bool` | MELCOR's temperature-dependent `c_v` for the containment's N2 and H2<br>([`gas`], 2026-10-29); off is the constant 20.8 / 20.5 J/(mol K). |
+| `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on Zr oxidation<br>([`core::diffusion_limited_rate`], 2026-10-29); off is the parabolic<br>rate limited only by the steam supply. |
+| `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` in the core and the vessel (MELCOR's fit,<br>[`gas`], 2026-10-29); off is the constant `core::CP_H2_J_PER_KG_K`. |
+| `msl_creep` | `bool` | Creep rupture of a main steam line under the relief flow's hot gas<br>([`msl`], MELCOR's PIPE-STR and LM-CREEP, 2026-10-29); off is no<br>steam-line failure. |
+| `dome_internals` | `bool` | The steam dome's internals as a heat structure between the core and<br>the steam lines, leaks and containment ([`internals`], 2026-10-29);<br>off passes the core's exit gas straight through. |
+| `penetrations` | `bool` | Lower-head penetration failure at the wall's temperature limit<br>(`core::HeadWall`, MELCOR §6.3, 2026-10-29); off is the wall alone. |
+| `failed_vessel_outflow` | `bool` | After lower-head failure the vessel's gas (the hydrogen and steam<br>made after it) leaves through the breach on the vessel's own<br>pressure (2026-10-29); off is the vessel sealed at the drywell's<br>pressure, nothing leaving. |
+| `pool_scrubbing` | `bool` | Pool scrubbing of aerosol and iodine where gas enters the pool (the<br>relief valves' quenchers, the downcomers), by the steam's<br>condensation: SPARC-90's DF_EC (2026-10-29). Off is MELCOR's<br>default with pool interaction off: everything passes. |
+| `in_vessel_deposition` | `bool` | Cesium and iodine vapour condensing on the dome internals in the<br>vessel (2026-10-29); off is everything leaving the core reaching the<br>containment. |
+| `internals_heat_loss` | `bool` | The dome internals lose heat to the saturated dome by natural<br>convection (2026-10-29); off is no heat loss once the flow stops. |
+| `scrubbing_saturation` | `bool` | The condensation scrubbing stops where the pool is near saturation:<br>MELCOR's `DF_EC = X_o / X_i` with `X_o` the non-condensable fraction<br>of the gas in equilibrium with the pool at the vent depth (Eqs D-5,<br>D-6; 2026-10-29). Off is `X_o = 1`: all the steam condenses. |
+| `swarm_scrubbing` | `bool` | Inertial impaction and swarm-rise scrubbing past the downcomer exits<br>(SPARC-90's `DF_II` and `DF_SR`, [`sparc`]; 2026-10-29). Off is<br>condensation scrubbing alone. |
+| `sectional_classes` | `bool` | Cesium and iodine on the aerosol tracked by size section: condensed<br>in proportion to each section's mass transfer, carried through<br>agglomeration and deposited with their section (`rn_volume`;<br>2026-10-29). Off is the lumped model: each class shares the aerosol's<br>volume distribution. |
+| `iodine_partition` | `bool` | The condensation scrubbing of iodine vapour limited by the pool's<br>partition coefficient for I2, from SPARC-90's equilibrium chemistry<br>with the pool's dissolved CsOH (MELCOR Eq D-7, Appendix F; [`iodine`];<br>2026-10-29). Off is iodine vapour scrubbed like the gas. |
+| `mixture_vent` | `bool` | The wetwell vent passes the wetwell's gas mixture through its<br>orifice, the pool boiling to supply the steam, and the boiled-off<br>water takes its sensible heat too (gh:#1053; 2026-10-29). Off is the<br>vent sized for the non-condensables alone, with steam added in<br>proportion and only latent heat leaving the pool. |
+| `phoresis` | `bool` | Thermophoresis (from the walls' heat flux) and diffusiophoresis<br>(from the steam condensing on them) onto the drywell's structures,<br>MELCOR's defaults (RN §2.4.2.2; 2026-10-29). Off is gravity and<br>Brownian diffusion alone. |
+| `iodine_swarm` | `bool` | The swarm rise past the downcomers scrubs I2 vapour by diffusion to<br>the bubbles' walls, limited by the pool's partition (MELCOR Appendix<br>F; [`sparc::iodine_pass`]; 2026-10-29). Off is iodine vapour scrubbed<br>by condensation alone. |
+| `vessel_aerosol` | `bool` | The vessel's gas as a sectional aerosol volume (`rn_volume`;<br>2026-10-29): the released aerosol and vapour agglomerate, condense<br>and deposit on the dome internals (at their temperature, with<br>thermophoresis from their heat flux) and settle on a floor of the<br>vessel's cross-section; what leaves carries its size distribution<br>into the containment. Off is the aerosol passing straight through<br>and the vapour condensing on the internals alone. |
+| `condensate_mass` | `bool` | Cesium and iodine condensed on the aerosol add to their section's<br>particle mass, as MELCOR's sectional mass does (RN §2.5.2; the area,<br>the agglomeration and the deposition follow the section's total;<br>2026-10-29). Off is the condensate riding weightless on the UO2<br>particles. |
+| `fp_decay_follows` | `bool` | The decay heat of the released noble gases, alkali metals and<br>halogens leaves the core with them and heats wherever they are: the<br>vessel, the drywell's gas and structures, the pool; what is vented<br>or leaked takes its heat away (MELCOR's DCH by class, the shares from<br>`fp_decay`'s summation; 2026-10-29). Chalcogens (Te) are released but<br>not transported, so their heat stays in the core (stated). Off is all<br>decay heat in the core. |
+| `te_transport` | `bool` | Tellurium (MELCOR's chalcogen class) released with the volatiles<br>and transported like cesium and iodine, with its own vapour pressure<br>(RN 7110), its decay heat following it (2026-10-29; needs<br>`vessel_aerosol`). Off is tellurium staying in the core, heat and<br>all. |
+| `debris_oxidation` | `bool` | The lower-plenum debris oxidises while it is quenched, by the<br>parabolic law over MELCOR's particulate area (COR §3.2.1,<br>2026-10-29). Off is debris that never oxidises. |
+| `candling` | `bool` | Molten Zr candles down the rods once the oxide shell breaches and<br>refreezes in the first cooler node below, or reaches the debris<br>(MELCOR COR §3.1, simplified; 2026-10-29). Off is the metal staying<br>in its node until the rod falls. |
+| `debris_quench` | `bool` | MELCOR's falling-debris quench: the debris in the wet lower plenum<br>gives the water `h A_p (T - T_sat)` at COR_LP's 100 W/(m^2 K) over<br>its particle area, with the decay factor, and is then limited by<br>Lipinski's dryout flux (COR §2.3.8; 2026-10-29). Off is the excess<br>heat released over a 120 s time constant \[A\]. |
+| `wet_head_contact` | `bool` | The lower head takes heat from the debris that touches it while the<br>plenum holds water, and can fail then (as MELCOR's head conducts<br>from the debris in contact; 2026-10-29). Off is the head boiling<br>against the plenum's water while there is any. |
+| `penetration_coverage` | `bool` | The penetrations take the debris's heat over the part of their<br>height it covers (MELCOR's `dz_d / dz_1`, COR §6.1), the rest<br>cooled by the plenum's water while there is any (2026-10-29). Off is<br>the penetration heated by the debris over all of it. |
+| `failed_vessel_drain` | `bool` | A failed vessel's water drains through the breach into the<br>pedestal (2026-10-29; MELCOR opens a lower-plenum flow path at<br>failure). Off is the water kept in the failed vessel. |
+| `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam: MELCOR's<br>pool-surface exchange (CVH/FL RM §5.1) and bubble model at the vents<br>(§6.1, the efficiency `epsilon_z epsilon_T`), flashing, and the vent<br>and vacuum breakers passing the atmosphere as it is (2026-10-29). Off<br>is the gas at the pool's temperature, saturated. |
+| `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface (HS RM<br>§2.6.1, §2.7): natural convection and condensation by diffusion<br>through the non-condensables, its latent heat into the wall<br>(2026-10-29). Off is the fixed 20 W/(m^2 K) \[A\] and condensation<br>only of supersaturated steam. |
+| `ww_shell` | `bool` | The torus shell above the pool as a heat structure on the wetwell<br>atmosphere: MELCOR's natural convection and condensation, its outer<br>face adiabatic (2026-10-29; needs `ww_atmosphere`). Off is no<br>structure in the wetwell gas. |
+| `outflow_enthalpy` | `bool` | Gas leaving the drywell through the downcomers and the flange leak<br>takes its enthalpy, so the drywell cools as it blows down and the<br>pool receives the flow work (MELCOR CVH/FL RM Eqs 6-5, 6-6;<br>2026-10-29). Off is the internal energy only, the drywell keeping its<br>temperature. |
+| `relief_h2_enthalpy` | `bool` | The relief valves' hydrogen reaches the wetwell with its enthalpy<br>at the vessel's saturation temperature, closing the energy the<br>vessel gives up with it (2026-10-29; needs `ww_atmosphere`). Off is<br>the hydrogen at the pool's temperature. |
+| `condensate_to_floor` | `bool` | Water condensed in the drywell (on its structures, and steam above<br>saturation) drains to the floor, the pedestal's pool, where debris<br>can boil it again (2026-10-29; MELCOR drains a structure's film to<br>its volume's pool). Off is the condensate leaving the model. |
+| `rpv_wall` | `bool` | The RPV wall (cylinder and top head, 0.16 m of steel \[A\]) as a<br>lumped heat structure: it exchanges with the vessel's saturated<br>contents while they hold water, and loses heat through its<br>insulation to the drywell (2026-10-29, gh:#1037). Off is no wall. |
+| `internals_radiation` | `bool` | The dome internals radiate to the RPV wall (MELCOR's gray pair, HS<br>RM Eq 2-96, with its default steel emissivity; 2026-10-29; needs<br>`rpv_wall`). Off is the internals with no heat path once the gas<br>stops flowing past them. |
+| `core_top_radiation` | `bool` | The top of the core radiates to the dome internals above it, its<br>axial boundary structure (MELCOR COR RM §2.1.2, `Fcell,a` =<br>`axial_exchange`; 2026-10-29; needs `core_radiation`). Off is the top<br>of the core exchanging nothing. |
+| `see_through` | `bool` | The core's radiation looks through emptied cells to the next<br>standing component, radially (or to the shroud) and axially, as<br>MELCOR's does (COR RM §2.1.2; 2026-10-29). Off is no view across an<br>emptied cell. |
+| `mcci` | `bool` | Molten core-concrete interaction on the drywell floor: a reduced<br>form of MELCOR's CAV package ([`cavity`]; CORCON basaltic concrete,<br>quasi-steady ablation, the concrete's H2O and CO2 reduced by the<br>debris's Zr; 2026-10-29, F8). Off is the dry debris's heat going<br>straight into the drywell's structures. |
+| `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, a 1-D conduction slab to the reactor building<br>(2026-10-29; MELCOR's heat structures conduct). Off is the lumped<br>structures adiabatic outside. |
+| `core_plate` | `bool` | Relocating material rests on the BWR core plate until the plate<br>yields (MELCOR's PLATEB, COR RM §5.2.3, Eqs 5-3, 5-13, 5-16;<br>2026-10-29); thickness and beam spacing \[A\]. Off is relocation<br>straight to the lower plenum. |
+| `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (MELCOR COR RM §2.1.2, `FLPUP` = 0.25; 2026-10-29; needs<br>`core_radiation`); the steam it raises rises through the core. Off is<br>the bottom of the core exchanging nothing. |
+| `ring_plates` | `bool` | One core plate per radial ring, each holding its ring's relocating<br>material and failing on its own load (MELCOR COR RM §5.2.3: the<br>supporting structure is a component of each ring's cell; 2026-10-29;<br>needs `core_plate`). Off is one plate under the whole core. |
+| `pool_layers` | `bool` | The torus pool in two layers split at the downcomers' exits: the<br>downcomers (and every surface process) act on the water above them,<br>the relief valves' quenchers on the water below; the layers mix when<br>the lower is the hotter (2026-10-29; PPOOLEX, Li and Kudinov). Off is<br>one well-mixed pool. |
+| `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it,<br>which then no longer reaches its ring's core (MELCOR COR §3.2.1,<br>particulate debris; 2026-10-29; needs `core_plate` and<br>`debris_oxidation`). Off is the held debris inert. |
+| `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses no longer rises<br>into the core (2026-10-29, a conservation defect: the core could<br>oxidise with it a second time). Off is the defect, kept as the<br>ablation that reproduces the earlier runs. |
+| `control_blades` | `bool` | The control blades, MELCOR's NS component in its BWR form (steel<br>only, 2026-10-30): their steel at each cell's cladding temperature,<br>oxidised by MELCOR's stainless-steel law (COR RM §2.5.6) in the steam<br>the Zr leaves, failing at the steel's melting temperature and<br>draining to the lower plenum, where it quenches. Their B4C is not<br>modelled (MELCOR's default BWR model caps its oxidation at 2 %).<br>Off is a core without blades. |
+| `blade_fusion` | `bool` | A control blade at the steel's melting temperature absorbs its heat<br>of fusion (MELCOR's 2.68e5 J/kg) before it drains, and carries it to<br>the lower plenum (2026-10-30; needs `control_blades`). Off drains it<br>at once at its solid enthalpy. |
+| `cavity_phases` | `bool` | The cavity debris's phases (MELCOR CAV RM §3.3, §3.10; 2026-10-30;<br>needs `mcci`): its oxide melts over an ideal-solution pseudo-binary<br>range with latent heats, and its interior conducts when solid and<br>convects when liquid. Off is one convecting debris without phase<br>change. |
+| `bur_ignition` | `bool` | The reactor building's burn starts by MELCOR's BUR criteria for a<br>volume without igniters (BUR RM §2.2: Le Chatelier with CO, oxygen,<br>steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers<br>in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\]. |
+| `gas_choking` | `bool` | The wetwell vent and the drywell head flange, which discharge to the<br>atmosphere from several bar, pass at most MELCOR's critical gas flow<br>(CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the<br>incompressible orifice passing about twice it at those ratios. Off<br>is the orifice alone. |
+| `blade_diffusion_limit` | `bool` | The control blades' steel oxidation held to MELCOR's gaseous-<br>diffusion limit (COR RM §2.5.3, Eq 2-168, which binds every<br>reaction; 2026-10-30; needs `control_blades` and `diffusion_limit`).<br>Off leaves the steel's parabolic rate unlimited. |
+| `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts the<br>receiving volume's pressure rise as well as the donor's fall<br>(2026-10-30, a numerical defect: the one-sided cap overshot the set<br>point, and the vacuum breaker chattered about it every step,<br>amplifying a 1e-9 perturbation 1.5 times a step). Off is the<br>one-sided cap. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn without_hot_leak(self: Self) -> Self { /* ... */ }
+  ```
+  No RPV hot-gas leak: the vessel loses gas only through the relief
+
+- ```rust
+  pub fn without_temperature_dependent_properties(self: Self) -> Self { /* ... */ }
+  ```
+  Constant fuel and cladding heat capacities (`UO2_CP`, `ZR_CP`, both
+
+- ```rust
+  pub fn without_lower_head_wall(self: Self) -> Self { /* ... */ }
+  ```
+  The lower head fails when dry debris exceeds `LOWER_HEAD_FAILURE_K`
+
+- ```rust
+  pub fn without_rod_collapse(self: Self) -> Self { /* ... */ }
+  ```
+  A node slumps whole to the lower plenum when its cladding reaches
+
+- ```rust
+  pub fn without_core_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  No radiation inside the core and no shroud heat structure: the model
+
+- ```rust
+  pub fn without_level_swell(self: Self) -> Self { /* ... */ }
+  ```
+  The core sees the collapsed level: the model before gh:#1036.
+
+- ```rust
+  pub fn without_decay_mix(self: Self) -> Self { /* ... */ }
+  ```
+  U-235 fission products alone, at equilibrium: the decay heat before
+
+- ```rust
+  pub fn without_capture_correction(self: Self) -> Self { /* ... */ }
+  ```
+  No neutron-capture correction (G = 1).
+
+- ```rust
+  pub fn without_actinide_decay(self: Self) -> Self { /* ... */ }
+  ```
+  No U-239 or Np-239 decay heat.
+
+- ```rust
+  pub fn without_mixture_choking(self: Self) -> Self { /* ... */ }
+  ```
+  The steam-only choked flux for the vessel gas, however much hydrogen
+
+- ```rust
+  pub fn without_gas_cv_t(self: Self) -> Self { /* ... */ }
+  ```
+  Constant `c_v` for the containment's N2 (20.8) and H2 (20.5 J/(mol
+
+- ```rust
+  pub fn without_diffusion_limit(self: Self) -> Self { /* ... */ }
+  ```
+  No gaseous-diffusion limit on oxidation: the model before
+
+- ```rust
+  pub fn without_hydrogen_cp_t(self: Self) -> Self { /* ... */ }
+  ```
+  Hydrogen at the constant `c_p` in the core and the vessel: the model
+
+- ```rust
+  pub fn without_msl_creep(self: Self) -> Self { /* ... */ }
+  ```
+  No main-steam-line creep rupture: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_dome_internals(self: Self) -> Self { /* ... */ }
+  ```
+  No dome internals: the core's exit gas reaches the steam lines, the
+
+- ```rust
+  pub fn without_penetrations(self: Self) -> Self { /* ... */ }
+  ```
+  The lower head fails by its wall alone, no penetration: the model
+
+- ```rust
+  pub fn without_failed_vessel_outflow(self: Self) -> Self { /* ... */ }
+  ```
+  A failed vessel passes nothing to the drywell: the model before
+
+- ```rust
+  pub fn without_pool_scrubbing(self: Self) -> Self { /* ... */ }
+  ```
+  No pool scrubbing: everything entering the pool passes to the
+
+- ```rust
+  pub fn without_in_vessel_deposition(self: Self) -> Self { /* ... */ }
+  ```
+  No in-vessel deposition: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_internals_heat_loss(self: Self) -> Self { /* ... */ }
+  ```
+  The dome internals lose no heat once the flow past them stops: the
+
+- ```rust
+  pub fn without_scrubbing_saturation(self: Self) -> Self { /* ... */ }
+  ```
+  Condensation scrubbing as if all the steam condensed: the model
+
+- ```rust
+  pub fn without_swarm_scrubbing(self: Self) -> Self { /* ... */ }
+  ```
+  No impaction or swarm-rise scrubbing: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_sectional_classes(self: Self) -> Self { /* ... */ }
+  ```
+  Each class on the aerosol lumped over its volume distribution: the
+
+- ```rust
+  pub fn without_iodine_partition(self: Self) -> Self { /* ... */ }
+  ```
+  Iodine vapour scrubbed like the gas, no partition limit: the model
+
+- ```rust
+  pub fn without_mixture_vent(self: Self) -> Self { /* ... */ }
+  ```
+  The vent sized for the non-condensables alone: the model before
+
+- ```rust
+  pub fn without_phoresis(self: Self) -> Self { /* ... */ }
+  ```
+  No phoresis onto the drywell's structures: the model before
+
+- ```rust
+  pub fn without_iodine_swarm(self: Self) -> Self { /* ... */ }
+  ```
+  No swarm scrubbing of iodine vapour: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_vessel_aerosol(self: Self) -> Self { /* ... */ }
+  ```
+  No aerosol dynamics in the vessel: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_condensate_mass(self: Self) -> Self { /* ... */ }
+  ```
+  Condensate weightless on the particles: the model before
+
+- ```rust
+  pub fn without_fp_decay_follows(self: Self) -> Self { /* ... */ }
+  ```
+  All decay heat stays in the core: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_te_transport(self: Self) -> Self { /* ... */ }
+  ```
+  No tellurium transport: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_debris_oxidation(self: Self) -> Self { /* ... */ }
+  ```
+  Debris that never oxidises: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_candling(self: Self) -> Self { /* ... */ }
+  ```
+  No candling: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_debris_quench(self: Self) -> Self { /* ... */ }
+  ```
+  The 120 s quench: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_wet_head_contact(self: Self) -> Self { /* ... */ }
+  ```
+  The head boils against the water while there is any: the model
+
+- ```rust
+  pub fn without_penetration_coverage(self: Self) -> Self { /* ... */ }
+  ```
+  The penetration fully covered by any debris: the model before
+
+- ```rust
+  pub fn without_failed_vessel_drain(self: Self) -> Self { /* ... */ }
+  ```
+  A failed vessel keeps its water: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_ww_atmosphere(self: Self) -> Self { /* ... */ }
+  ```
+  The wetwell gas at the pool's temperature and saturated: the model
+
+- ```rust
+  pub fn without_dw_wall_hs(self: Self) -> Self { /* ... */ }
+  ```
+  The drywell structures with the fixed coefficient: the model before
+
+- ```rust
+  pub fn without_ww_shell(self: Self) -> Self { /* ... */ }
+  ```
+  No structure in the wetwell gas: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_outflow_enthalpy(self: Self) -> Self { /* ... */ }
+  ```
+  Drywell outflows at internal energy: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_relief_h2_enthalpy(self: Self) -> Self { /* ... */ }
+  ```
+  The relief valves' hydrogen at the pool's temperature: the model
+
+- ```rust
+  pub fn without_condensate_to_floor(self: Self) -> Self { /* ... */ }
+  ```
+  The drywell's condensate leaves the model: before 2026-10-29.
+
+- ```rust
+  pub fn without_rpv_wall(self: Self) -> Self { /* ... */ }
+  ```
+  No RPV wall: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_internals_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  The internals do not radiate to the wall: before 2026-10-29.
+
+- ```rust
+  pub fn without_core_top_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  The top of the core exchanging nothing: before 2026-10-29.
+
+- ```rust
+  pub fn without_see_through(self: Self) -> Self { /* ... */ }
+  ```
+  No view across an emptied cell: before 2026-10-29.
+
+- ```rust
+  pub fn without_mcci(self: Self) -> Self { /* ... */ }
+  ```
+  No core-concrete interaction: before 2026-10-29.
+
+- ```rust
+  pub fn without_dw_wall_outer(self: Self) -> Self { /* ... */ }
+  ```
+  The drywell structures adiabatic outside: before 2026-10-29.
+
+- ```rust
+  pub fn without_core_plate(self: Self) -> Self { /* ... */ }
+  ```
+  No core-plate holdup: before 2026-10-29.
+
+- ```rust
+  pub fn without_bottom_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  The bottom of the core exchanging nothing: before 2026-10-29.
+
+- ```rust
+  pub fn without_ring_plates(self: Self) -> Self { /* ... */ }
+  ```
+  One core plate under the whole core: before 2026-10-29.
+
+- ```rust
+  pub fn without_pool_layers(self: Self) -> Self { /* ... */ }
+  ```
+  One well-mixed torus pool: before 2026-10-29.
+
+- ```rust
+  pub fn without_plate_oxidation(self: Self) -> Self { /* ... */ }
+  ```
+  The debris on the core plate inert: before 2026-10-29.
+
+- ```rust
+  pub fn without_lp_steam_consumed(self: Self) -> Self { /* ... */ }
+  ```
+  The lower plenum's oxidation steam rising into the core as well:
+
+- ```rust
+  pub fn without_control_blades(self: Self) -> Self { /* ... */ }
+  ```
+  A core without control blades: before 2026-10-30.
+
+- ```rust
+  pub fn without_blade_fusion(self: Self) -> Self { /* ... */ }
+  ```
+  The blade drained at once at its solid enthalpy: before 2026-10-30.
+
+- ```rust
+  pub fn without_cavity_phases(self: Self) -> Self { /* ... */ }
+  ```
+  The cavity debris convecting without phase change: before
+
+- ```rust
+  pub fn without_bur_ignition(self: Self) -> Self { /* ... */ }
+  ```
+  The building exploding at 8 % hydrogen: before 2026-10-30.
+
+- ```rust
+  pub fn without_gas_choking(self: Self) -> Self { /* ... */ }
+  ```
+  The vent and the flange as incompressible orifices: before
+
+- ```rust
+  pub fn without_blade_diffusion_limit(self: Self) -> Self { /* ... */ }
+  ```
+  The blades' steel oxidation without the diffusion limit: before
+
+- ```rust
+  pub fn without_two_sided_equalising(self: Self) -> Self { /* ... */ }
+  ```
+  The one-sided equalising cap: before 2026-10-30.
+
+- ```rust
+  pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
+  ```
+  Isolation-condenser condensation unaffected by hydrogen in the vessel.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Controls`
+
+What the operators (or the historical sequence) have set.
+
+```rust
+pub struct Controls {
+    pub ic_open: [bool; 2],
+    pub dc_power: bool,
+    pub relief_held_open: bool,
+    pub injection: bool,
+    pub vent_ordered: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ic_open` | `[bool; 2]` |  |
+| `dc_power` | `bool` |  |
+| `relief_held_open` | `bool` | Hold the relief valves open (manual depressurisation; needs DC). |
+| `injection` | `bool` |  |
+| `vent_ordered` | `bool` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Event`
+
+One recorded moment of the Unit 1 accident, seconds after the scram
+(14:46 JST, 11 March 2011). \[U\] Times are from the INPO 11-005 timeline
+as recalled, not yet checked against the report.
+
+**Partly checked 2026-10-29 (gh:#1044)** against the observed anchors in
+BSAF Phase II (`crates/kovan-literature/derived/nea7525-bsaf-fukushima-daiichi-bands.md`
+§1.1; NEA No. 7525, © OECD 2021, cited with acknowledgement):
+- the reactor-building explosion, 15:36 on 12 March = 24.83 h, **agrees**
+  with BSAF's observed 24.83 h;
+- the wetwell vent order, 14:30 = 23.73 h, is **consistent** with BSAF's
+  "manually vented ≈24 h" (vent closure 24.68 h, a BSAF boundary
+  condition this sequence does not have).
+
+The other five times (IC stop, IC cycling, station blackout, the three
+injection changes) have no BSAF anchor and stay `[U]` until checked
+against INPO 11-005, IAEA TV1 or the Japanese government report (#1031).
+
+```rust
+pub struct Event {
+    pub t_s: f64,
+    pub label: &'static str,
+    pub kind: EventKind,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_s` | `f64` |  |
+| `label` | `&'static str` |  |
+| `kind` | `EventKind` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `EventKind`
+
+```rust
+pub enum EventKind {
+    IcStopped,
+    IcCycleA,
+    StationBlackout,
+    InjectionOn,
+    InjectionOff,
+    VentOpened,
+    Explosion,
+}
+```
+
+##### Variants
+
+###### `IcStopped`
+
+Operators stop both isolation condensers (cooldown above 55 degC/h).
+
+###### `IcCycleA`
+
+Operators cycle train A to hold the pressure in a band, until the
+station blackout.
+
+###### `StationBlackout`
+
+Tsunami: AC and DC lost; the IC valves fail closed.
+
+###### `InjectionOn`
+
+Fire-engine injection starts (fresh water, later seawater).
+
+###### `InjectionOff`
+
+###### `VentOpened`
+
+The wetwell vent is opened.
+
+###### `Explosion`
+
+Recorded for comparison only: the model computes its own.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Vessel`
+
+The vessel's state derived from its mass and energy.
+
+```rust
+pub struct Vessel {
+    pub sat: steam::Sat,
+    pub x: f64,
+    pub p_pa: f64,
+    pub level_m: f64,
+    pub gas_m3: f64,
+    pub h2_fraction: f64,
+    pub dry: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sat` | `steam::Sat` |  |
+| `x` | `f64` |  |
+| `p_pa` | `f64` |  |
+| `level_m` | `f64` | Collapsed level above the bottom of active fuel, m. |
+| `gas_m3` | `f64` |  |
+| `h2_fraction` | `f64` |  |
+| `dry` | `bool` | True when no saturated mixture matches (boiled dry): an ideal-gas<br>steam fallback, outside what the model represents. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Frame`
+
+Everything the page shows, flattened (see [`Frame::write`]).
+
+```rust
+pub struct Frame {
+    pub t_s: f64,
+    pub mode_free: bool,
+    pub controls: Controls,
+    pub vessel: Vessel,
+    pub decay_w: f64,
+    pub q_ic_w: f64,
+    pub ic_shell_k: [f64; 2],
+    pub ic_shell_kg: [f64; 2],
+    pub relief_open: bool,
+    pub w_relief_kg_s: f64,
+    pub w_bypass_kg_s: f64,
+    pub w_leak_kg_s: f64,
+    pub w_injection_kg_s: f64,
+    pub injected_kg: f64,
+    pub rpv_h2_kg: f64,
+    pub hot_leak_open: bool,
+    pub msl: msl::SteamLine,
+    pub internals_k: f64,
+    pub dome_gas_k: f64,
+    pub xe_vessel: f64,
+    pub cs_vessel_kg: f64,
+    pub i_vessel_kg: f64,
+    pub on_internals_kg: [f64; 2],
+    pub core: self::core::CoreResult,
+    pub containment: containment::ContainmentResult,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_s` | `f64` |  |
+| `mode_free` | `bool` |  |
+| `controls` | `Controls` |  |
+| `vessel` | `Vessel` |  |
+| `decay_w` | `f64` |  |
+| `q_ic_w` | `f64` |  |
+| `ic_shell_k` | `[f64; 2]` |  |
+| `ic_shell_kg` | `[f64; 2]` |  |
+| `relief_open` | `bool` |  |
+| `w_relief_kg_s` | `f64` |  |
+| `w_bypass_kg_s` | `f64` |  |
+| `w_leak_kg_s` | `f64` |  |
+| `w_injection_kg_s` | `f64` |  |
+| `injected_kg` | `f64` |  |
+| `rpv_h2_kg` | `f64` |  |
+| `hot_leak_open` | `bool` |  |
+| `msl` | `msl::SteamLine` | The main steam line's wall temperature, K, creep damage, and whether<br>it has ruptured. |
+| `internals_k` | `f64` | The dome internals' temperature and the gas leaving them, K. |
+| `dome_gas_k` | `f64` |  |
+| `xe_vessel` | `f64` | Noble gas (Xe) in the vessel's gas, fraction of inventory (the<br>containment's shares are in `containment`). |
+| `cs_vessel_kg` | `f64` | Cesium in the vessel's gas, kg (gh:#1047). |
+| `i_vessel_kg` | `f64` |  |
+| `on_internals_kg` | `[f64; 2]` | Cesium and iodine on the dome internals, kg. |
+| `core` | `self::core::CoreResult` |  |
+| `containment` | `containment::ContainmentResult` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
+
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Plant`
+
+The plant part of the model (see the module docs).
+
+```rust
+pub struct Plant {
+    pub mode: Mode,
+    pub mechanisms: Mechanisms,
+    pub controls: Controls,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mode` | `Mode` |  |
+| `mechanisms` | `Mechanisms` |  |
+| `controls` | `Controls` |  |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mode: Mode) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn with_mechanisms(mode: Mode, mechanisms: Mechanisms) -> Self { /* ... */ }
+  ```
+  A fresh plant with some mechanisms ablated (see [`Mechanisms`]).
+
+- ```rust
+  pub fn with_params(mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self { /* ... */ }
+  ```
+  A fresh plant with its own inputs (gh:#1033), for a corrected or
+
+- ```rust
+  pub fn parts(self: &Self) -> (Core, Containment) { /* ... */ }
+  ```
+  A fresh core and containment matching a fresh plant.
+
+- ```rust
+  pub fn params(self: &Self) -> &Params { /* ... */ }
+  ```
+  The inputs this plant runs with.
+
+- ```rust
+  pub fn time_s(self: &Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn begin(self: &mut Self) -> Snapshots { /* ... */ }
+  ```
+  Start a step: decide the flows from the start-of-step state and hand
+
+- ```rust
+  pub fn finish(self: &mut Self, core: CoreResult, containment: ContainmentResult) { /* ... */ }
+  ```
+  Finish the step with the core's and the containment's results.
+
+- ```rust
+  pub fn gas_out_k(self: &Self) -> f64 { /* ... */ }
+  ```
+  The temperature of the gas leaving the vessel through the steam
+
+- ```rust
+  pub fn step_inline(self: &mut Self, core: &mut Core, containment: &mut Containment) { /* ... */ }
+  ```
+  One whole step with the core and containment advanced here, in
+
+- ```rust
+  pub fn frame(self: &Self) -> Frame { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Snapshots`
+
+The core and containment snapshots of one step.
+
+```rust
+pub struct Snapshots {
+    pub core: self::core::CoreSnapshot,
+    pub containment: containment::ContainmentSnapshot,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `core` | `self::core::CoreSnapshot` |  |
+| `containment` | `containment::ContainmentSnapshot` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `mixture_flux_factor`
+
+Choked mass flux of a hydrogen-steam gas with hydrogen mole fraction
+`x_h2`, relative to pure steam at the same pressure and temperature:
+`sqrt(M_mix / M_H2O)` (ideal gas, fixed gamma).
+
+```rust
+pub fn mixture_flux_factor(x_h2: f64) -> f64 { /* ... */ }
+```
+
+#### Function `swollen_level`
+
+The swollen two-phase mixture level above the bottom of active fuel, m,
+from the collapsed one (gh:#1036), after MELCOR's CVH pool model (MELCOR
+2.2 Vol. 2, CVH/FL §5.1.3, Eqs 5-26 to 5-30): bubbles rise at
+`bubble_rise_m_s`, so with the vapour flux through the pool top `J` the
+mean void is `J / (2 v0)`, capped at `max_pool_void`, and the swollen pool
+fills `V_liquid / (1 - alpha)`. `q_pool_w` W raise vapour of specific
+volume `v_g` with latent heat `h_fg`; `J` is over the free cross-section
+at the collapsed level.
+
+```rust
+pub fn swollen_level(prm: &Params, level_m: f64, q_pool_w: f64, h_fg: f64, v_g: f64) -> f64 { /* ... */ }
+```
+
+#### Function `volume_below`
+
+Free volume of the vessel below height `z` above its bottom, m^3.
+
+```rust
+pub fn volume_below(prm: &Params, z: f64) -> f64 { /* ... */ }
+```
+
+#### Function `height_of_volume`
+
+Height (above the vessel bottom) at which the free volume below is `v`.
+
+```rust
+pub fn height_of_volume(prm: &Params, v: f64) -> f64 { /* ... */ }
+```
+
+#### Function `csv_row`
+
+```rust
+pub fn csv_row(f: &Frame) -> String { /* ... */ }
+```
+
+#### Function `headless_csv`
+
+The headless run: `steps` steps of the historical sequence, one CSV row
+every `every` steps. Deterministic: no clock, no randomness, no I/O.
+
+```rust
+pub fn headless_csv(steps: usize, every: usize) -> String { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DT_S`
+
+The plant's time step, s.
+
+```rust
+pub const DT_S: f64 = 1.0;
+```
+
+#### Constant `SCENARIO_END_S`
+
+Seconds of the accident the historical sequence runs to (30 h).
+
+```rust
+pub const SCENARIO_END_S: f64 = _;
+```
+
+#### Constant `EVENTS`
+
+```rust
+pub const EVENTS: [Event; 9] = _;
+```
+
+#### Constant `CSV_HEADER`
+
+```rust
+pub const CSV_HEADER: &str = "t_s,p_rpv_mpa,level_m,decay_mw,q_ic_mw,w_relief_kg_s,w_injection_kg_s,peak_clad_k,exit_gas_k,h2_kg,relocated,p_dw_mpa,p_ww_mpa,t_pool_k,rb_h2_fraction,flags";
 ```
 
 ## Module `chain`
@@ -2517,15 +15029,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Error { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2543,7 +15050,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2551,7 +15057,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -2565,7 +15071,6 @@ Fields:
     fn from(source: outram_mc_libs::inventory::InventoryError) -> Self { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2575,7 +15080,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Error) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2617,7 +15122,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2631,11 +15136,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2699,7 +15199,6 @@ pub struct Caveats {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2710,15 +15209,10 @@ pub struct Caveats {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Caveats { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2734,10 +15228,9 @@ pub struct Caveats {
 
 - **Default**
   - ```rust
-    fn default() -> Caveats { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2760,7 +15253,6 @@ pub struct Caveats {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2770,7 +15262,7 @@ pub struct Caveats {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Caveats) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2807,7 +15299,7 @@ pub struct Caveats {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2821,11 +15313,6 @@ pub struct Caveats {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3017,7 +15504,6 @@ pub struct DlofcShape {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3028,15 +15514,10 @@ pub struct DlofcShape {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DlofcShape { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3050,7 +15531,6 @@ pub struct DlofcShape {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3063,7 +15543,6 @@ pub struct DlofcShape {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3073,7 +15552,7 @@ pub struct DlofcShape {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DlofcShape) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3110,7 +15589,7 @@ pub struct DlofcShape {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3124,11 +15603,6 @@ pub struct DlofcShape {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3184,15 +15658,10 @@ pub struct PanamaOverTransient {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PanamaOverTransient { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3205,7 +15674,6 @@ pub struct PanamaOverTransient {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3218,7 +15686,6 @@ pub struct PanamaOverTransient {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3228,7 +15695,7 @@ pub struct PanamaOverTransient {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PanamaOverTransient) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3265,7 +15732,7 @@ pub struct PanamaOverTransient {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3279,11 +15746,6 @@ pub struct PanamaOverTransient {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3325,7 +15787,6 @@ pub struct Htr10Geometry {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3336,15 +15797,10 @@ pub struct Htr10Geometry {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10Geometry { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3358,7 +15814,6 @@ pub struct Htr10Geometry {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3371,7 +15826,6 @@ pub struct Htr10Geometry {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3381,7 +15835,7 @@ pub struct Htr10Geometry {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Htr10Geometry) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3418,7 +15872,7 @@ pub struct Htr10Geometry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3432,11 +15886,6 @@ pub struct Htr10Geometry {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4237,15 +16686,10 @@ pub struct HeatingTest {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatingTest { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4258,7 +16702,6 @@ pub struct HeatingTest {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4271,7 +16714,6 @@ pub struct HeatingTest {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4281,7 +16723,7 @@ pub struct HeatingTest {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatingTest) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4318,7 +16760,7 @@ pub struct HeatingTest {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4332,11 +16774,6 @@ pub struct HeatingTest {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4491,7 +16928,6 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4502,15 +16938,10 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> N1465Phases { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4524,7 +16955,6 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4547,7 +16977,6 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4557,7 +16986,7 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &N1465Phases) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4594,7 +17023,7 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4608,11 +17037,6 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4655,15 +17079,10 @@ pub struct Leakage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Leakage { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4676,7 +17095,6 @@ pub struct Leakage {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4689,7 +17107,6 @@ pub struct Leakage {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4730,7 +17147,7 @@ pub struct Leakage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4744,11 +17161,6 @@ pub struct Leakage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4785,7 +17197,6 @@ pub struct ReleasePhase {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4796,15 +17207,10 @@ pub struct ReleasePhase {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReleasePhase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4818,7 +17224,6 @@ pub struct ReleasePhase {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4831,7 +17236,6 @@ pub struct ReleasePhase {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4841,7 +17245,7 @@ pub struct ReleasePhase {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReleasePhase) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4878,7 +17282,7 @@ pub struct ReleasePhase {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4892,11 +17296,6 @@ pub struct ReleasePhase {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4938,7 +17337,6 @@ pub struct NaturalDeposition {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4949,15 +17347,10 @@ pub struct NaturalDeposition {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NaturalDeposition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4971,7 +17364,6 @@ pub struct NaturalDeposition {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4984,7 +17376,6 @@ pub struct NaturalDeposition {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4994,7 +17385,7 @@ pub struct NaturalDeposition {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NaturalDeposition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5031,7 +17422,7 @@ pub struct NaturalDeposition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5045,11 +17436,6 @@ pub struct NaturalDeposition {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5096,15 +17482,10 @@ pub struct LwrContainedRelease {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LwrContainedRelease { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5117,7 +17498,6 @@ pub struct LwrContainedRelease {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5130,7 +17510,6 @@ pub struct LwrContainedRelease {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5140,7 +17519,7 @@ pub struct LwrContainedRelease {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LwrContainedRelease) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5177,7 +17556,7 @@ pub struct LwrContainedRelease {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5191,11 +17570,6 @@ pub struct LwrContainedRelease {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5276,7 +17650,6 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5287,15 +17660,10 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Group { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5309,7 +17677,6 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5332,7 +17699,6 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5342,7 +17708,7 @@ Everything else (noble metals, lanthanides, cerium, Mo).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Group) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5379,7 +17745,7 @@ Everything else (noble metals, lanthanides, cerium, Mo).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5393,11 +17759,6 @@ Everything else (noble metals, lanthanides, cerium, Mo).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5452,15 +17813,10 @@ pub struct DoseAssumptions {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DoseAssumptions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5474,7 +17830,6 @@ pub struct DoseAssumptions {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5487,7 +17842,6 @@ pub struct DoseAssumptions {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5528,7 +17882,7 @@ pub struct DoseAssumptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5542,11 +17896,6 @@ pub struct DoseAssumptions {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5595,15 +17944,10 @@ pub struct Dose {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Dose { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5616,7 +17960,6 @@ pub struct Dose {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5629,7 +17972,6 @@ pub struct Dose {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5670,7 +18012,7 @@ pub struct Dose {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5684,11 +18026,6 @@ pub struct Dose {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5736,15 +18073,10 @@ pub struct Table9Check {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Table9Check { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5757,7 +18089,6 @@ pub struct Table9Check {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5770,7 +18101,6 @@ pub struct Table9Check {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5780,7 +18110,7 @@ pub struct Table9Check {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Table9Check) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5817,7 +18147,7 @@ pub struct Table9Check {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5831,11 +18161,6 @@ pub struct Table9Check {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5886,7 +18211,6 @@ WASH-1400 PWR 8: context only.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5897,15 +18221,10 @@ WASH-1400 PWR 8: context only.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Tier { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5919,7 +18238,6 @@ WASH-1400 PWR 8: context only.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5942,7 +18260,6 @@ WASH-1400 PWR 8: context only.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5952,7 +18269,7 @@ WASH-1400 PWR 8: context only.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Tier) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5989,7 +18306,7 @@ WASH-1400 PWR 8: context only.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6003,11 +18320,6 @@ WASH-1400 PWR 8: context only.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6042,7 +18354,6 @@ pub struct ArmColumn {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6053,15 +18364,10 @@ pub struct ArmColumn {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ArmColumn { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6075,7 +18381,6 @@ pub struct ArmColumn {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6098,7 +18403,6 @@ pub struct ArmColumn {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6108,7 +18412,7 @@ pub struct ArmColumn {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ArmColumn) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6145,7 +18449,7 @@ pub struct ArmColumn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6159,11 +18463,6 @@ pub struct ArmColumn {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6238,15 +18537,10 @@ pub struct ComparisonRow {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ComparisonRow { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6259,7 +18553,6 @@ pub struct ComparisonRow {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6272,7 +18565,6 @@ pub struct ComparisonRow {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6282,7 +18574,7 @@ pub struct ComparisonRow {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ComparisonRow) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6319,7 +18611,7 @@ pub struct ComparisonRow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6333,11 +18625,6 @@ pub struct ComparisonRow {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6378,7 +18665,6 @@ pub struct IncompleteShares {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6389,15 +18675,10 @@ pub struct IncompleteShares {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IncompleteShares { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6411,7 +18692,6 @@ pub struct IncompleteShares {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6424,7 +18704,6 @@ pub struct IncompleteShares {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6434,7 +18713,7 @@ pub struct IncompleteShares {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IncompleteShares) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6471,7 +18750,7 @@ pub struct IncompleteShares {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6485,11 +18764,6 @@ pub struct IncompleteShares {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6533,15 +18807,10 @@ pub struct BoundingComparison {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoundingComparison { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6554,7 +18823,6 @@ pub struct BoundingComparison {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6567,7 +18835,6 @@ pub struct BoundingComparison {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6577,7 +18844,7 @@ pub struct BoundingComparison {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BoundingComparison) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6614,7 +18881,7 @@ pub struct BoundingComparison {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6628,11 +18895,6 @@ pub struct BoundingComparison {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -7143,15 +19405,10 @@ pub struct TemperatureTransient {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TemperatureTransient { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7164,7 +19421,6 @@ pub struct TemperatureTransient {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7177,7 +19433,6 @@ pub struct TemperatureTransient {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7187,7 +19442,7 @@ pub struct TemperatureTransient {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TemperatureTransient) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7224,7 +19479,7 @@ pub struct TemperatureTransient {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7238,11 +19493,6 @@ pub struct TemperatureTransient {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**

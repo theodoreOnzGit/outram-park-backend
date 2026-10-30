@@ -71,6 +71,7 @@ pub(super) fn folder(krate: &str, dir: &str, files: &[(&str, Vec<FunctionIndex>)
         passed: vec!["t::ok".into(), "t::ok2".into()],
         failed: vec!["t::bad".into()],
         edited: vec!["t::edited".into()],
+        targets: Vec::new(),
     });
     idx
 }
@@ -225,6 +226,7 @@ pub(super) fn eval(
     for i in idx {
         for (_, f) in i.functions() {
             g.hashes_at_test_run.entry(f.id.clone()).or_insert_with(|| f.hash.clone());
+            g.hashes_at_targeted_run.entry(f.id.clone()).or_insert_with(|| f.hash.clone());
         }
     }
     evaluate(revs, idx, rt, &g, concepts, policy)
@@ -479,6 +481,54 @@ fn d6_lock_change_outside_the_crate_keeps_the_stamp() {
     assert_eq!(at(Some("same"), "same"), StateKind::Valid);
     assert_eq!(at(Some("old"), "new"), StateKind::PendingWorkspaceTest);
     assert_eq!(at(None, "same"), StateKind::PendingWorkspaceTest);
+}
+
+/// GitHub #1052: a targeted run of the pending stamps' reaching tests at
+/// the new lock clears a pending stamp only when it targeted every reaching
+/// test, none failed and the function is unchanged since the run; a
+/// failure makes it inherited stale, as a full run's does. The full run's
+/// `[test_run]` (at the old lock) is left as it was.
+#[test]
+fn targeted_run_clears_pending_only_when_it_covers_every_reaching_test() {
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let refs: Vec<&FolderReviews> = revs.iter().collect();
+    let mut g = git_for(&refs);
+    g.cargo_lock = h('2');
+    let ev_with = |reach: &[&str], targets: &[&str], passed: &[&str], failed: &[&str], lock: char, g: &GitFacts| {
+        let mut idx = folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], reach)])]);
+        let v = |s: &[&str]| s.iter().map(|t| t.to_string()).collect::<Vec<_>>();
+        idx.targeted_run = Some(TestRun {
+            commit: SHA.into(),
+            cargo_lock: h(lock),
+            suite: Suite::Targeted,
+            passed: v(passed),
+            failed: v(failed),
+            edited: Vec::new(),
+            targets: v(targets),
+        });
+        eval(&revs, &[idx], &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
+    };
+    let both = ["t::a", "t::b"];
+    assert_eq!(kind(&ev_with(&both, &both, &both, &[], '2', &g), F), StateKind::Valid);
+    // One reaching test not targeted: the run cannot speak for F.
+    assert_eq!(
+        kind(&ev_with(&both, &["t::a"], &["t::a"], &[], '2', &g), F),
+        StateKind::PendingWorkspaceTest
+    );
+    // Taken at another Cargo.lock.
+    assert_eq!(kind(&ev_with(&both, &both, &both, &[], '1', &g), F), StateKind::PendingWorkspaceTest);
+    // No reaching test: only a full run clears it.
+    assert_eq!(kind(&ev_with(&[], &both, &both, &[], '2', &g), F), StateKind::PendingWorkspaceTest);
+    // Targeted but none ran.
+    assert_eq!(kind(&ev_with(&both, &both, &[], &[], '2', &g), F), StateKind::PendingWorkspaceTest);
+    let failing = ev_with(&both, &both, &["t::a"], &["t::b"], '2', &g);
+    assert!(matches!(
+        &failing.functions[&fid(F)].state,
+        StampState::InheritedStale { cause: InheritedCause::LockTestFailed, blocked: true, .. }
+    ));
+    let mut changed = g.clone();
+    changed.hashes_at_targeted_run.insert(fid(F), h('z'));
+    assert_eq!(kind(&ev_with(&both, &both, &both, &[], '2', &changed), F), StateKind::PendingWorkspaceTest);
 }
 
 /// D6 time-bound stamps: the hash recomputed at the certified commit must

@@ -73,6 +73,10 @@
 //! runs `kovan-cli test` on a thread (`super::workspace_test`), so the
 //! "pending workspace test" a `Cargo.lock` change leaves on every stamp
 //! clears without a terminal; the states are recomputed when it finishes.
+//! Beside it, "Run pending stamps' tests" runs `kovan-cli test
+//! --pending-stamps` (GitHub #1052): only the pending stamps' reaching
+//! tests, the quick way to clear them; the full run is for merges to
+//! `main`.
 //! "Test changed crates" runs only the crates whose dependencies moved
 //! (#1049), and the progress line is fixed-format (#1050). The strip folds
 //! to one row (▾/▸) so it does not jump while a test runs.
@@ -671,6 +675,20 @@ impl CodeReviewView {
                     if !self.workspace_test.busy() {
                         use super::workspace_test::Scope;
                         if ui
+                            .add_enabled(!self.sync.busy(), egui::Button::new("Run pending stamps' tests"))
+                            .on_hover_text(
+                                "kovan-cli test --pending-stamps (GitHub #1052): only the reaching \
+                                 tests of the stamps pending a workspace test. It clears a pending \
+                                 stamp when every reaching test of the function ran and none \
+                                 failed; a function no test reaches needs a crate or full run. \
+                                 Refused while .rs, Cargo.toml or Cargo.lock edits are uncommitted.",
+                            )
+                            .on_disabled_hover_text("Wait for Sync down")
+                            .clicked()
+                        {
+                            test_now = Some(Scope::PendingStamps);
+                        }
+                        if ui
                             .add_enabled(!self.sync.busy(), egui::Button::new("Test changed crates"))
                             .on_hover_text(
                                 "kovan-cli test -p, for each crate whose dependencies changed in \
@@ -686,10 +704,10 @@ impl CodeReviewView {
                         if ui
                             .add_enabled(!self.sync.busy(), egui::Button::new("Run workspace test"))
                             .on_hover_text(
-                                "kovan-cli test: the full release suite at this commit (hours). \
-                                 A counted run clears \"pending workspace test\" after a Cargo.lock \
-                                 change. Refused while .rs, Cargo.toml or Cargo.lock edits are \
-                                 uncommitted.",
+                                "kovan-cli test: the full release suite at this commit (hours); \
+                                 run it before a merge to main. A counted run clears \
+                                 \"pending workspace test\" after a Cargo.lock change. Refused \
+                                 while .rs, Cargo.toml or Cargo.lock edits are uncommitted.",
                             )
                             .on_disabled_hover_text("Wait for Sync down")
                             .clicked()

@@ -70,3 +70,35 @@ are gone.
   printed on the pre-change code). Any later change to the inventory path must
   keep it passing or record why it moved.
 - **Dependency:** `sembawang -> outram-mc-libs`, never the reverse.
+
+## `bwr_mark1`: the Fukushima Daiichi Unit 1 model (2026-10-29, GitHub #1033)
+
+**Maintainer direction:** "Physics libraries go to sembawang." The Unit 1
+plant model moved here from `dhoby-ghaut`'s `fukushima_web` example; the demo
+now only draws it and steps it on its Web Workers. New physics for it (the
+F-items in `docs/fukushima-melcor-gap-plan.md`, epic #1028) lands here, never
+in the demo.
+
+- **Regression fixture:** `verification_and_validation/bwr_mark1/headless_30h.csv`,
+  compared byte for byte by `bwr_mark1::tests::the_headless_run_matches_the_committed_fixture`.
+  After a deliberate physics change, re-bless with
+  `FUKUSHIMA_BLESS=1 cargo test --release -p sembawang --lib bwr_mark1` and
+  record the movement in the commit and on the issue.
+- **One worker equals three.** Parts cross as exact `f64`s (`wire`);
+  `tests::three_workers_are_one_worker` must keep passing.
+- **The BSAF bands are the check, never an input** (root `CLAUDE.md`,
+  "PROCESS right first"). `compare::the_uncalibrated_baseline_is_pinned`
+  moves only with the old value, the new one and why.
+- **New mechanisms default ON** with a `Mechanisms::without_*` ablation and a
+  row in `compare::ablations`.
+- **Clean room:** public manuals and literature only, never MELCOR, MAAP,
+  ASTEC, RELAP5, SCDAP or FRAPCON source.
+- **Transcendentals through PETIR** (`.r_exp()` etc., gh:#985), never the
+  platform's `.exp()`; converted 2026-10-29 with the effect measured in
+  `verification_and_validation/bwr_mark1/petir-conversion.md`.
+- **Inputs are `params::Params`** (gh:#1033): every scalar input as one
+  `Copy` value, defaulting to the documented constants (whose tags and
+  sources stay the record). Run a corrected or perturbed plant with
+  `Plant::with_params`; a new input goes in the `params!` list (which fixes
+  its wire order) with its constant, tag and source. Model code reads
+  `prm.field`, never the constant.
