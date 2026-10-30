@@ -309,6 +309,26 @@ All are sub-issues of #1028, filed 2026-10-28.
 | F13 input and event-time check | #1044 | P1 |
 | F14 Units 2 and 3 (blocked) | #1045 | P3 |
 
+**Status of the items, 2026-10-30** (maintainer goal: "finish everything
+except the control volumes"). Checked against the rows above and the code:
+
+- **The MELCOR package models outside CVH/FL** are now in, each default on
+  with an exact ablation, or else checked against the manual and found to be
+  handled as upstream's defaults handle them. That covers B4C, BUR burn
+  dynamics, FDI LPME, COR_CMT UO2 transport and the lower-plenum molten pool;
+  the checked-only ones are HPME/DCH, eutectics, cavity layers and in-core
+  pools (rows in §2a).
+- **F12's injection bypass** is not a MELCOR model. It is a scenario input,
+  the fraction of injected water that misses the core, and has no public
+  source held. The BSAF full report (L9) is not held, and TEPCO data (L8)
+  awaits a data-policy ruling. Picking a value to match the measured
+  pressure would be calibration, so it waits on literature. F12's leak paths
+  and the 500 h run are in.
+- **F13** (the input and event-time check) is blocked on L4-L9 (§4).
+- **F14** (Units 2 and 3) needs the control-volume equation of state, which
+  is excluded from this goal: the thermal hydraulics are to be partitioned
+  into `tampines` and `outram-foam`.
+
 ## 4. Literature needed, and its copyright
 
 **The tiers below are expected, not verified.** A document's tier comes from
