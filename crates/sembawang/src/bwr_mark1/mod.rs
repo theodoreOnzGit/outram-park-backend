@@ -392,6 +392,11 @@ pub struct Mechanisms {
     /// incompressible orifice passing about twice it at those ratios. Off
     /// is the orifice alone.
     pub gas_choking: bool,
+    /// The control blades' steel oxidation held to MELCOR's gaseous-
+    /// diffusion limit (COR RM §2.5.3, Eq 2-168, which binds every
+    /// reaction; 2026-10-30; needs `control_blades` and `diffusion_limit`).
+    /// Off leaves the steel's parabolic rate unlimited.
+    pub blade_diffusion_limit: bool,
 }
 
 impl Default for Mechanisms {
@@ -458,6 +463,7 @@ impl Default for Mechanisms {
             cavity_phases: true,
             bur_ignition: true,
             gas_choking: true,
+            blade_diffusion_limit: true,
         }
     }
 }
@@ -851,6 +857,13 @@ impl Mechanisms {
     /// 2026-10-30.
     pub fn without_gas_choking(mut self) -> Self {
         self.gas_choking = false;
+        self
+    }
+
+    /// The blades' steel oxidation without the diffusion limit: before
+    /// 2026-10-30.
+    pub fn without_blade_diffusion_limit(mut self) -> Self {
+        self.blade_diffusion_limit = false;
         self
     }
 
@@ -1544,7 +1557,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -2362,18 +2375,20 @@ mod tests {
         // blades' heat of fusion: 1.31e-2, 1.82e-4, 1.69e-4; with the cavity
         // debris's phases (MCCI gas holding the drywell at the flange's
         // pressure from 16.7 h): 0.1120, 1.81e-3, 1.34e-3; with the vent and
-        // flange choked: 0.0218, 6.35e-4, 4.01e-4.
+        // flange choked: 0.0218, 6.35e-4, 4.01e-4; with the blades' diffusion
+        // limit: 0.0217, 6.59e-4, 4.19e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 6.35e-4).abs() < 1e-5 && (k.xe_ww - 4.01e-4).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.02184).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 6.59e-4).abs() < 1e-5 && (k.xe_ww - 4.19e-4).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.02174).abs() < 1e-5, "{f:?}");
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a
         // volume with igniters between 24 and 26 h (the explosion came at
         // 24.8 h; recorded, not adopted). With the vent and flange choked:
-        // Y 0.0347, CO 0.0030 (half the gas reaches the building).
-        assert!((k.rb_burn_y - 0.0347).abs() < 1e-4 && (k.rb_co_fraction - 0.0030).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
+        // Y 0.0347, CO 0.0030 (half the gas reaches the building); 0.0345
+        // with the blades' diffusion limit.
+        assert!((k.rb_burn_y - 0.0345).abs() < 1e-4 && (k.rb_co_fraction - 0.0030).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;

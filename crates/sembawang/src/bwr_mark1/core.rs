@@ -171,6 +171,9 @@ pub struct CoreSnapshot {
     /// A blade at the steel's melting temperature absorbs its heat of
     /// fusion before it drains (`Mechanisms::blade_fusion`).
     pub blade_fusion: bool,
+    /// The blades' steel oxidation is held to MELCOR's gaseous-diffusion
+    /// limit as the Zr's is (`Mechanisms::blade_diffusion_limit`).
+    pub blade_diffusion_limit: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -1435,7 +1438,15 @@ impl Core {
                         let (steam_per_ss, h2_per_ss, heat) = ss_reaction(prm);
                         let w = node.ss_ox / a_b;
                         let w_new = (w * w + ks * dt).sqrt().min(m_b / a_b);
-                        let dss = ((w_new - w) * a_b).min(w_steam * dt / steam_per_ss).max(0.0);
+                        let mut dss = (w_new - w) * a_b;
+                        if s.diffusion_limit && s.blade_diffusion_limit {
+                            // MELCOR's Eq 2-168 for this reaction: the Zr's
+                            // rate scaled by MW/n, the steel's per mole of
+                            // steam (M_H2O / steam_per_ss) against Zr's M_Zr/2.
+                            let rate = diffusion_limited_rate(prm, w_steam, w_h2, 0.5 * (node.t_clad + t_steam), s.p_pa) * (M_H2O / steam_per_ss) / (0.5 * M_ZR);
+                            dss = dss.min(rate * a_b * dt);
+                        }
+                        let dss = dss.min(w_steam * dt / steam_per_ss).max(0.0);
                         let used = dss * steam_per_ss / dt;
                         let made = dss * h2_per_ss / dt;
                         let h2_heating = if s.hydrogen_cp_t { made * h2_enthalpy_above_298(t_steam) } else { made * CP_H2_J_PER_KG_K * (t_steam - T_298_K) };
@@ -1898,6 +1909,7 @@ impl CoreSnapshot {
             if self.lp_steam_consumed { 1.0 } else { 0.0 },
             if self.control_blades { 1.0 } else { 0.0 },
             if self.blade_fusion { 1.0 } else { 0.0 },
+            if self.blade_diffusion_limit { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1932,6 +1944,7 @@ impl CoreSnapshot {
             lp_steam_consumed: r.f() != 0.0,
             control_blades: r.f() != 0.0,
             blade_fusion: r.f() != 0.0,
+            blade_diffusion_limit: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -2055,7 +2068,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -2081,7 +2094,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -2110,7 +2123,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, ring_plates: false, plate_oxidation: false, lp_steam_consumed: false, control_blades: false, blade_fusion: false, blade_diffusion_limit: false, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }

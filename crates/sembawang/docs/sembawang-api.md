@@ -5120,6 +5120,7 @@ pub struct CoreSnapshot {
     pub lp_steam_consumed: bool,
     pub control_blades: bool,
     pub blade_fusion: bool,
+    pub blade_diffusion_limit: bool,
     pub prm: Params,
 }
 ```
@@ -5157,6 +5158,7 @@ pub struct CoreSnapshot {
 | `lp_steam_consumed` | `bool` | The steam the lower plenum's debris oxidation uses is taken out of<br>the steam rising into the core (`Mechanisms::lp_steam_consumed`). |
 | `control_blades` | `bool` | The control blades: steel at each cell's cladding temperature, its<br>oxidation, and its melting (`Mechanisms::control_blades`). |
 | `blade_fusion` | `bool` | A blade at the steel's melting temperature absorbs its heat of<br>fusion before it drains (`Mechanisms::blade_fusion`). |
+| `blade_diffusion_limit` | `bool` | The blades' steel oxidation is held to MELCOR's gaseous-diffusion<br>limit as the Zr's is (`Mechanisms::blade_diffusion_limit`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -13072,6 +13074,7 @@ pub struct Mechanisms {
     pub cavity_phases: bool,
     pub bur_ignition: bool,
     pub gas_choking: bool,
+    pub blade_diffusion_limit: bool,
 }
 ```
 
@@ -13140,6 +13143,7 @@ pub struct Mechanisms {
 | `cavity_phases` | `bool` | The cavity debris's phases (MELCOR CAV RM §3.3, §3.10; 2026-10-30;<br>needs `mcci`): its oxide melts over an ideal-solution pseudo-binary<br>range with latent heats, and its interior conducts when solid and<br>convects when liquid. Off is one convecting debris without phase<br>change. |
 | `bur_ignition` | `bool` | The reactor building's burn starts by MELCOR's BUR criteria for a<br>volume without igniters (BUR RM §2.2: Le Chatelier with CO, oxygen,<br>steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers<br>in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\]. |
 | `gas_choking` | `bool` | The wetwell vent and the drywell head flange, which discharge to the<br>atmosphere from several bar, pass at most MELCOR's critical gas flow<br>(CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the<br>incompressible orifice passing about twice it at those ratios. Off<br>is the orifice alone. |
+| `blade_diffusion_limit` | `bool` | The control blades' steel oxidation held to MELCOR's gaseous-<br>diffusion limit (COR RM §2.5.3, Eq 2-168, which binds every<br>reaction; 2026-10-30; needs `control_blades` and `diffusion_limit`).<br>Off leaves the steel's parabolic rate unlimited. |
 
 ##### Implementations
 
@@ -13444,6 +13448,11 @@ pub struct Mechanisms {
   pub fn without_gas_choking(self: Self) -> Self { /* ... */ }
   ```
   The vent and the flange as incompressible orifices: before
+
+- ```rust
+  pub fn without_blade_diffusion_limit(self: Self) -> Self { /* ... */ }
+  ```
+  The blades' steel oxidation without the diffusion limit: before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
