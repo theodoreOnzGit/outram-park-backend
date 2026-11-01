@@ -9649,6 +9649,7 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "env_logger",
+ "farrer-park",
  "getrandom 0.3.4",
  "local-ip-address",
  "ndarray",

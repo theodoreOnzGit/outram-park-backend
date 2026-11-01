@@ -172,6 +172,10 @@ well later);
 `tampines → outram-foam-appbuilder-lib` (2026-11-01, gh:#1060: reuses
 GeN-Foam's `RegimeMap1D`, `InterfacialArea` and `ContactPartition` in
 `multiphase_1d`; no cycle, the appbuilder depends on no tampines crate);
+since 2026-11-01 a normal edge `tampines → farrer-park` (gh:#1069:
+`tampines::fem1d` takes its Gauss line rule from
+`farrer_park::quadrature::facet_rule`; farrer-park's own dependencies were
+already in tampines's tree, and farrer-park does not depend on tampines);
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
 no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD

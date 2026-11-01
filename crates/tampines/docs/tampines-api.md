@@ -9206,6 +9206,1080 @@ Fields:
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `fem1d`
+
+1-D continuous-Galerkin finite elements for HEM pipe flow, built to be
+**compared against** the finite-volume default (gh:#1069).
+
+> Research, education and V&V only. AI draft, unreviewed. Not for nuclear
+> facility operation, reactor control, licensing or safety-critical
+> decisions. See `RESPONSIBLE_USE.md`.
+
+# What this answers
+
+*On the same physics, the same equation of state and the same boundary
+conditions, how does the RELAP-7 style continuous-Galerkin discretisation
+compare with this workspace's finite-volume HEM pipe?* Maintainer decision:
+flow is finite volume (OpenFOAM style) **by default**; this module exists so
+the two can be measured side by side, not to replace it. The comparison and
+its results are `verification_and_validation/fem1d_vs_fv.md`, the tests
+`tests/fem1d_vs_fv.rs`.
+
+# Entry points
+
+- [`Discretisation`]: `FiniteVolume` (the default) or
+  `FiniteElement(Stabilisation)`.
+- [`Pipe1d`]: one enum over both solvers, so one case runs on either.
+- [`FemPipe`]: the finite-element solver itself.
+- [`Stabilisation`], [`FemNumerics`], [`MassMatrix`].
+
+# The discretisation (RELAP-7 Theory Manual §5.1, Eqs 235–245)
+
+Linear Lagrange elements on the uniform mesh of the
+[`HemPipeGeometry`]: `n + 1` nodes at `x_j = jL/n`, so element and
+finite-volume cell have the same width. The unknowns are the nodal
+area-weighted conserved variables `V = [ρA, ρuA, ρEA]` (Eqs 243–245); the
+test functions are the same hat functions (Eq 238). The Galerkin weak form
+(Eqs 239–242, frictionless, adiabatic, horizontal) is, for every node `i`,
+
+```text
+∫ φ_i ∂V/∂t dx = ∫ [ρuA φ_i', ((ρu² + p)A φ_i' + p A' φ_i), ρuHA φ_i'] dx − [G·n̂ φ_i]_ends
+```
+
+evaluated with 2-point Gauss–Legendre quadrature per element (the line rule
+of `farrer_park::quadrature`, exact to degree 3), the equation of state
+closing `(ρ, e)` **at each quadrature point** from the interpolated `V`
+and the analytic area there. `G` at an end is the boundary flux (below).
+
+**Mass matrix:** [`MassMatrix::Lumped`] by default (the row sums,
+`∫φ_j`, so `M` is diagonal); [`MassMatrix::Consistent`] solves the
+tridiagonal `∫φ_iφ_j` system by the Thomas algorithm. Either way the
+global totals `Σ_j m_j V_j = ∫V dx` are what the scheme conserves.
+
+**Time stepping:** explicit SSP Runge–Kutta, by default
+[`TimeIntegrator::Ssp33`] (`petir::ssprk`). Not SSP22, `HemPipe`'s default:
+the Galerkin operator is a central difference, its eigenvalues lie on the
+imaginary axis, and the two-stage scheme's stability region does not
+contain any of the imaginary axis but the origin; the three-stage one
+contains `|Im| ≤ √3`. Explicit rather than implicit (RELAP-7 uses BDF and
+JFNK) because the comparison is against an explicit finite-volume scheme
+at the same Courant number; an implicit FEM would compare time
+integrators, not spatial discretisations. The step is
+`Δt = C h / max(|u| + c)` over nodes and quadrature points, `C` the
+classical Courant number ([`FemNumerics::courant`], default 0.4, which is
+`HemPipe`'s default central Courant number 0.2 in classical terms), divided
+by `√3` with the consistent mass matrix.
+
+# Stabilisation (§5.4), chosen by [`Stabilisation`]
+
+- [`Stabilisation::Supg`] — §5.4.1, Eqs 275–298: the weighting
+  `Σ_K ∫ Aᵀ ∂W/∂x · τ R̃` with `τ = (h/2)|A|⁻¹`, `|A| = P|D|P⁻¹`, the
+  quasi-linear residual `R̃ = V_t + A V_x + (F − AU)A' − S`. The flux
+  Jacobian is Eq 290 with the pressure partials of a general EOS through
+  its sound speed and Grüneisen coefficient (the latter by a forward
+  difference of the EOS); the eigenvectors are normalised to stay finite at
+  rest, where the manual's Eq 293 divides by zero (see `eigen.rs`). `V_t`
+  inside `R̃` is the Galerkin-only nodal rate.
+- [`Stabilisation::EntropyViscosity`] — §5.4.2, single phase (Eqs 330–338
+  with `α = 1`, `l = 0`, `β = 0`, `κ = µ`): dissipative fluxes
+  `f = κρ_x`, `g = ρκu_x + uf`, `h = κ(ρe)_x − (u²/2)f + ug` added in
+  divergence form, `κ = min(κ_max, κ_e)` per element with the first-order
+  bound `(h/2)(|u| + c)` (Eq 334) and the entropy-residual viscosity with
+  the jump and the low-Mach denominator (Eqs 335–338). Frozen over a step;
+  the residual's time derivatives are backward differences over the
+  previous step, and the first step uses `κ_max`.
+- [`Stabilisation::Lapidus`] — the manual lists it as an option (§5.4) but
+  gives no equations. Implemented as the classical Lapidus viscosity
+  `ν = C_L h² |∂u/∂x|` acting on `∂V/∂x` in divergence form, with
+  `C_L =` [`FemNumerics::lapidus_coefficient`] (default 1, fixed before any
+  run, not tuned). **No reference for the form or the coefficient is in the
+  kovan corpus**; the attribution (Lapidus 1967; Löhner, Morgan &
+  Zienkiewicz 1985 for its finite-element use) is from memory and not
+  verified.
+- [`Stabilisation::Galerkin`] — none: the ablation.
+
+# Boundary conditions
+
+Every [`HemBoundary`] is accepted. The end flux `G` is built as
+`HemPipe` builds its boundary face (re-implemented, since that function is
+private): `Wall` takes the end node with `u = 0`, so its mass and energy
+fluxes are exactly zero; `Transmissive` the end node itself;
+`FixedPressure`, `Reservoir` and `ChokedBreak` the same face states; `Flux`
+the prescribed flux. The stabilisation's own boundary fluxes are taken as
+zero (natural boundary condition), so they cannot add or remove mass.
+
+# Conservation
+
+Continuous Galerkin is not locally conservative (no cell has a flux
+balance of its own), but because the hats sum to one, summing the nodal
+equations cancels every interior term, Galerkin and stabilisation alike,
+and leaves only the two end fluxes: **global** mass and energy are
+conserved to round-off. `tests/fem1d_vs_fv.rs` measures it.
+
+# What is not here
+
+Wall friction, gravity, wall heat, two-phase (7-equation) entropy
+viscosity, implicit time integration, higher-order elements. The PCICE
+finite-volume solver (gh:#1068) is not part of [`Discretisation`] yet; the
+comparison test leaves a marked hook for it.
+
+```rust
+pub mod fem1d { /* ... */ }
+```
+
+### Types
+
+#### Enum `Stabilisation`
+
+Which stabilisation the continuous-Galerkin pipe adds (see the module
+doc for each one's equations).
+
+```rust
+pub enum Stabilisation {
+    Galerkin,
+    Supg,
+    EntropyViscosity,
+    Lapidus,
+}
+```
+
+##### Variants
+
+###### `Galerkin`
+
+No stabilisation: plain Galerkin, the ablation.
+
+###### `Supg`
+
+Streamline-upwind Petrov–Galerkin, RELAP-7 §5.4.1.
+
+###### `EntropyViscosity`
+
+Entropy viscosity, RELAP-7 §5.4.2 (single phase).
+
+###### `Lapidus`
+
+Lapidus artificial viscosity (named in RELAP-7 §5.4, no equations
+there).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MassMatrix`
+
+Lumped (diagonal, row-sum) or consistent (`∫φ_iφ_j`) mass matrix.
+
+```rust
+pub enum MassMatrix {
+    Lumped,
+    Consistent,
+}
+```
+
+##### Variants
+
+###### `Lumped`
+
+Row-sum lumped: `m_j = ∫φ_j`. The default.
+
+###### `Consistent`
+
+Consistent tridiagonal, solved by the Thomas algorithm.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FemNumerics`
+
+Numerical settings of [`FemPipe`].
+
+```rust
+pub struct FemNumerics {
+    pub courant: uom::si::f64::Ratio,
+    pub max_dt: uom::si::f64::Time,
+    pub mass_matrix: MassMatrix,
+    pub time_integrator: tampines_steam_tables::hem::TimeIntegrator,
+    pub lapidus_coefficient: uom::si::f64::Ratio,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `courant` | `uom::si::f64::Ratio` | Classical Courant number `(|u| + c)Δt/h`, `> 0`. Default 0.4<br>(`HemPipe`'s default central 0.2 in classical terms). |
+| `max_dt` | `uom::si::f64::Time` | Largest step allowed. Default 1 ms, as `HemPipe`. |
+| `mass_matrix` | `MassMatrix` | Default [`MassMatrix::Lumped`]. |
+| `time_integrator` | `tampines_steam_tables::hem::TimeIntegrator` | Default [`TimeIntegrator::Ssp33`] (see the module doc for why not SSP22). |
+| `lapidus_coefficient` | `uom::si::f64::Ratio` | `C_L` of [`Stabilisation::Lapidus`], `≥ 0`. Default 1. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Discretisation`
+
+Finite volume (the default) or continuous-Galerkin finite elements, for
+the same physics.
+
+```rust
+pub enum Discretisation {
+    FiniteVolume,
+    FiniteElement(Stabilisation),
+}
+```
+
+##### Variants
+
+###### `FiniteVolume`
+
+`tampines_steam_tables::hem::HemPipe`, KNP central-upwind. The default.
+
+###### `FiniteElement`
+
+[`FemPipe`] with the given stabilisation.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Stabilisation` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn solution_points(self: &Self, geometry: &HemPipeGeometry) -> Vec<Length> { /* ... */ }
+  ```
+  Where the solution lives on `geometry`: cell centres (finite volume,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Pipe1dNumerics`
+
+The numerics of both solvers; [`Pipe1d::new`] uses the one its
+[`Discretisation`] picks.
+
+```rust
+pub struct Pipe1dNumerics {
+    pub finite_volume: tampines_steam_tables::hem::HemNumerics,
+    pub finite_element: FemNumerics,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `finite_volume` | `tampines_steam_tables::hem::HemNumerics` | For [`Discretisation::FiniteVolume`]. |
+| `finite_element` | `FemNumerics` | For [`Discretisation::FiniteElement`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Pipe1d`
+
+One HEM pipe on either discretisation: an enum, not a trait object.
+
+```rust
+pub enum Pipe1d<E: HemEquationOfState> {
+    FiniteVolume(tampines_steam_tables::hem::HemPipe<E>),
+    FiniteElement(FemPipe<E>),
+}
+```
+
+##### Variants
+
+###### `FiniteVolume`
+
+The finite-volume `HemPipe`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `tampines_steam_tables::hem::HemPipe<E>` |  |
+
+###### `FiniteElement`
+
+The continuous-Galerkin [`FemPipe`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `FemPipe<E>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(geometry: HemPipeGeometry, eos: E, initial: HemInitialCondition, discretisation: Discretisation, numerics: Pipe1dNumerics) -> Result<Self, HemError> { /* ... */ }
+  ```
+  Build the pipe on `discretisation`. Both ends start as `Wall`.
+
+- ```rust
+  pub fn discretisation(self: &Self) -> Discretisation { /* ... */ }
+  ```
+  The discretisation this pipe runs.
+
+- ```rust
+  pub fn without_wall_friction(self: Self) -> Self { /* ... */ }
+  ```
+  Ablate the finite-volume wall friction (on by default for a closure
+
+- ```rust
+  pub fn set_boundary(self: &mut Self, end: PipeEnd, boundary: HemBoundary) -> Result<(), HemError> { /* ... */ }
+  ```
+  Set the boundary condition at `end`.
+
+- ```rust
+  pub fn run_until(self: &mut Self, t_end: Time) -> Result<HemRunSummary, HemError> { /* ... */ }
+  ```
+  Advance to exactly `t_end`. `max_courant` is the central Courant
+
+- ```rust
+  pub fn time(self: &Self) -> Time { /* ... */ }
+  ```
+  Simulation time.
+
+- ```rust
+  pub fn snapshot(self: &Self) -> Result<HemSnapshot, HemError> { /* ... */ }
+  ```
+  Every solution point's state (cells or nodes).
+
+- ```rust
+  pub fn total_mass(self: &Self) -> Mass { /* ... */ }
+  ```
+  Mass in the pipe.
+
+- ```rust
+  pub fn total_energy(self: &Self) -> Energy { /* ... */ }
+  ```
+  Total energy in the pipe.
+
+- ```rust
+  pub fn cumulative_mass_outflow(self: &Self, end: PipeEnd) -> Mass { /* ... */ }
+  ```
+  Mass that has left through `end` since `t = 0`.
+
+- ```rust
+  pub fn cumulative_energy_outflow(self: &Self, end: PipeEnd) -> Energy { /* ... */ }
+  ```
+  Total energy that has left through `end` since `t = 0`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Re-exports
+
+#### Re-export `FemPipe`
+
+```rust
+pub use pipe::FemPipe;
+```
+
 ## Module `fluids`
 
 Fluid selection unified across TAMPINES's backend property libraries.

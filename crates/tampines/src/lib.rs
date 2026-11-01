@@ -82,6 +82,7 @@ pub mod compressible;
 pub mod cooling_tower;
 pub mod critical_flow;
 pub mod error;
+pub mod fem1d;
 pub mod fluids;
 pub mod gas_phase;
 pub mod heat_transfer;
