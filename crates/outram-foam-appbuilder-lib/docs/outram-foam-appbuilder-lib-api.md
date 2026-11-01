@@ -28254,6 +28254,12 @@ pub use crate::solvers::pimple_foam::PimpleFoam;
 pub use crate::solvers::pimple_foam::PressureSolver;
 ```
 
+#### Re-export `DdtCorrForm`
+
+```rust
+pub use crate::solvers::schemes::DdtCorrForm;
+```
+
 #### Re-export `build_default`
 
 ```rust
@@ -29068,6 +29074,11 @@ follows from this one fact; the discretised physics is identical.
    pressure–velocity (checkerboard) decoupling. `ddtCorr` uses the time-old
    `U`/`phi` (constant across the inner correctors). See
    `outram_foam_basic_lib::fv_operators::fvc::ddt_corr`.
+   **Since 2026-11-01 (gh:#1067)** the form follows `schemes.ddt` through
+   `crate::solvers::schemes::ddt_corr_scheme`: the Euler form for `Euler`,
+   the BDF2 form (`fvc::ddt_corr_backward`, a port of
+   `backwardDdtScheme::fvcDdtPhiCorr`) for `Backward`, zero for
+   `steadyState` — previously the Euler form was used for all three.
 
 ```rust
 pub mod pimple_foam { /* ... */ }
@@ -29220,6 +29231,8 @@ pub struct PimpleFoam {
     pub nu: VolScalarField,
     pub pressure_solver: PressureSolver,
     pub u_old_old: Option<VolVectorField>,
+    pub phi_old_old: Option<SurfaceScalarField>,
+    pub ddt_corr_form: crate::solvers::schemes::DdtCorrForm,
     pub turbulence: crate::turbulence::TurbulenceClosure,
 }
 ```
@@ -29238,6 +29251,8 @@ pub struct PimpleFoam {
 | `nu` | `VolScalarField` | Kinematic viscosity ν [m²/s] |
 | `pressure_solver` | `PressureSolver` | Linear solver for the pressure Poisson equation (default: PCG). |
 | `u_old_old` | `Option<VolVectorField>` | Velocity at the time level *before* `u_old`, i.e. U^{n−2} [m/s].<br><br>Maintained automatically by [`PimpleFoam::step`] and needed only by the<br>second-order [`crate::io::fv_schemes::DdtScheme::Backward`] time scheme.<br>`None` before the first step has completed, where backward differencing<br>degenerates to Euler. |
+| `phi_old_old` | `Option<SurfaceScalarField>` | Face flux at the time level *before* the step's old flux, i.e. φ^{n−2}<br>[m³/s].<br><br>Maintained automatically by [`PimpleFoam::step`], alongside<br>[`Self::u_old_old`]; read only by the BDF2 Rhie–Chow correction<br>(`fvc::ddt_corr_backward`) when `schemes.ddt` is<br>[`crate::io::fv_schemes::DdtScheme::Backward`]. `None` before the first<br>step has completed. |
+| `ddt_corr_form` | `crate::solvers::schemes::DdtCorrForm` | Which `ddtCorr` form is paired with the ddt scheme (default<br>[`DdtCorrForm::MatchDdtScheme`], the correct physics). Setting<br>[`DdtCorrForm::EulerOnly`] is an explicit ablation that reproduces the<br>pre-gh:#1067 Euler-only correction; see<br>`verification_and_validation/bdf2_temporal_order.md` for what it costs. |
 | `turbulence` | `crate::turbulence::TurbulenceClosure` | Turbulence closure (default [`TurbulenceClosure::Laminar`]).<br><br>Selecting a RAS/LES model replaces the molecular viscous term in the<br>momentum predictor with `divDevReff(U) = −∇·(ν_eff ∇U) − ∇·(ν_eff<br>dev2(∇Uᵀ))`, ν_eff = ν + ν_t, and advances the model's transport<br>equations once per time step after the pressure correctors — OpenFOAM's<br>`turbulence->correct()` position. Set it directly, e.g.<br><br>```ignore<br>solver.turbulence = TurbulenceClosure::k_omega_sst(mesh.clone());<br>solver.turbulence.set_k_omega_uniform(1.0e-2, 100.0); // k [m²/s²], ω [1/s]<br>```<br><br>**The default is laminar and stays laminar unless you change it**, so an<br>existing run is unaffected. See [`crate::turbulence`] for the honest<br>scope limits — in particular, the closures use zero-gradient (not<br>wall-function) near-wall boundary conditions. |
 
 ##### Implementations
@@ -30639,6 +30654,7 @@ exactly the failure mode this module exists to remove.
 | Family | Implemented | Returns `UnsupportedScheme` |
 |---|---|---|
 | ddt | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
+| ddtCorr ([`ddt_corr_scheme`]) | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
 | div | `GaussUpwind`, `GaussLinear` | `GaussLinearUpwind`, `GaussVanLeer`, `GaussMUSCL`, `GaussLimitedLinear` |
 
 The limited/TVD `div` schemes need a face limiter driven by a reconstructed
@@ -30650,7 +30666,165 @@ field, so they are declared unsupported rather than approximated.
 pub mod schemes { /* ... */ }
 ```
 
+### Types
+
+#### Enum `DdtCorrForm`
+
+Which Rhie–Chow `ddtCorr` form a PISO/PIMPLE solver pairs with its ddt
+scheme.
+
+The default, [`DdtCorrForm::MatchDdtScheme`], is the correct physics and
+what OpenFOAM does: the correction comes from the *same* ddt scheme as the
+momentum time derivative ([`ddt_corr_scheme`]). [`DdtCorrForm::EulerOnly`]
+is an explicit **ablation** that reproduces this crate's behaviour before
+gh:#1067 (Euler `ddtCorr` whatever the ddt scheme); it exists so the
+temporal-order study in `tests/bdf2_temporal_order.rs` can measure the
+mismatched pairing beside the consistent one. Do not select it for a
+production run.
+
+```rust
+pub enum DdtCorrForm {
+    MatchDdtScheme,
+    EulerOnly,
+}
+```
+
+##### Variants
+
+###### `MatchDdtScheme`
+
+Correction from the selected ddt scheme (Euler → Euler form, Backward →
+BDF2 form, steadyState → zero). **Default.**
+
+###### `EulerOnly`
+
+Ablation: always the Euler form `fvc::ddt_corr`, as before gh:#1067.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Functions
+
+#### Function `ddt_corr_scheme`
+
+Rhie–Chow time-derivative flux correction `fvc::ddtCorr(U, phi)` for the
+selected ddt scheme — the face-flux partner of [`ddt_vec_scheme`].
+
+Returns a face field [m³/s²] (volumetric flux per unit time); a PISO loop
+adds `interpolate(rAU) · ddtCorr` to `phiHbyA`.
+
+# Arguments
+
+* `scheme`      — the `ddtSchemes` selection; must be the one used for the
+  momentum ddt, or the correction and the `H/A` history it replaces do not
+  match.
+* `u_old`, `u_old_old` — U^{n−1}, U^{n−2} [m/s]; `u_old_old = None` on the
+  first step.
+* `phi_old`, `phi_old_old` — φ^{n−1}, φ^{n−2} [m³/s]; `phi_old_old = None`
+  on the first step.
+* `dt` — time step Δt [s] > 0, assumed constant (as in [`ddt_vec_scheme`]).
+
+# Schemes (each mirrors the upstream `fvcDdtPhiCorr(U, phi)`)
+
+* [`DdtScheme::Euler`] — `fvc::ddt_corr` (`EulerDdtScheme`).
+* [`DdtScheme::Backward`] — `fvc::ddt_corr_backward` with `Δt₀ = Δt`
+  (`backwardDdtScheme`); reduces to the Euler form exactly while
+  `u_old_old`/`phi_old_old` are `None`, matching [`ddt_vec_scheme`]'s
+  start-up.
+* [`DdtScheme::SteadyState`] — a zero field (`steadyStateDdtScheme`
+  returns zero: with no time derivative there is no history to couple to).
+
+# Errors
+
+[`AppBuilderError::UnsupportedScheme`] for `CrankNicolson` and `LocalEuler`,
+for the same reasons as [`ddt_vec_scheme`].
+
+```rust
+pub fn ddt_corr_scheme(scheme: &crate::io::fv_schemes::DdtScheme, u_old: &VolVectorField, u_old_old: Option<&VolVectorField>, phi_old: &SurfaceScalarField, phi_old_old: Option<&SurfaceScalarField>, dt: f64) -> Result<SurfaceScalarField, crate::error::AppBuilderError> { /* ... */ }
+```
 
 #### Function `ddt_vec_scheme`
 
@@ -30682,22 +30856,38 @@ The returned [`FvVectorMatrix`] is *volume-integrated*: its diagonal carries
   source `V(2U^{n−1} − 0.5U^{n−2})/Δt`. More accurate but less bounded; can
   ring on a coarse mesh at high Courant number.
 
-  **Known limitation — `Backward` is wired, not verified as second order.**
+  ~~**Known limitation — `Backward` is wired, not verified as second order.**
   [`crate::solvers::pimple_foam::PimpleFoam`]'s PISO loop adds a Rhie–Chow
   flux correction `rAU_f · fvc::ddt_corr(U_old, φ_old, Δt)`, and
   `outram-foam-basic-lib`'s `ddt_corr` implements only the **Euler** form.
   Selecting `Backward` changes `rAU = V/A` (the diagonal becomes `1.5 V/Δt`
   instead of `V/Δt`) without changing `ddt_corr`, so the two are
-  inconsistent by a ratio tending to 1.5 as Δt → 0. Measured consequence
+  inconsistent by a ratio tending to 1.5 as Δt → 0.~~ Measured consequence
   (`tests/fv_scheme_selection.rs`, 2026-08-07): the Euler and Backward
   lid-driven-cavity runs converge to steady states differing by 1.0e-2 to
   2.9e-2 m/s (1–3 % of U_lid), and that difference *grows* as Δt is
   refined — the signature of an inconsistency, not of truncation error.
-  Fixing it needs OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`, which
+  ~~Fixing it needs OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`, which
   belongs in `outram-foam-basic-lib`. Until then, treat `Backward` as
   available and benchmark-neutral (it scores marginally better than Euler
   against Ghia 1982 at every Δt tested), but not as a verified second-order
-  time integration.
+  time integration.~~
+
+  **CORRECTED 2026-11-01** (gh:#1067) — the partner is ported:
+  `outram_foam_basic_lib::fv_operators::fvc::ddt_corr_backward`
+  (`backwardDdtScheme::fvcDdtPhiCorr`), and `PimpleFoam` now selects it
+  through [`ddt_corr_scheme`] whenever `Backward` is chosen (the old
+  pairing survives as the [`DdtCorrForm::EulerOnly`] ablation). Measured
+  2026-11-01 (`tests/bdf2_temporal_order.rs`, record
+  `verification_and_validation/bdf2_temporal_order.md`): the steady
+  Euler/Backward gap falls 2.7–3.6× (8.04e-3 vs 2.93e-2 m/s at Δt = 1e-3)
+  but **still grows** as Δt is refined, and a Richardson temporal-order
+  study on the cavity gave order ≈ 0 for Euler and Backward alike, because
+  the discrete fixed point depends on Δt. So `Backward` is now paired
+  consistently with upstream, but it is **still not verified as second
+  order**.
+  This function assumes a **constant** Δt (weights `1.5`, `2`, `0.5`);
+  [`ddt_corr_scheme`] makes the same assumption.
 * [`DdtScheme::SteadyState`] — the term is dropped entirely (a zero matrix),
   for steady solvers.
 
