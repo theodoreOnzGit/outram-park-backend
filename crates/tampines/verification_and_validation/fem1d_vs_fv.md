@@ -87,9 +87,19 @@ the jump.
 | Nozzle, shocked | as above, exit 0.75e5 Pa, 0.1 s | normal-shock analysis (shock at 0.8604 m, M1 = 1.612) |
 | Edwards | 4.096 m, 24 cells, 7 MPa, Hendrie T, choked break 0 → 0.87 over 1 ms to 0.1 MPa, IF97, to 0.30 s (the last digitised GS-1 point) | Edwards–O'Brien GS-1 data |
 
-PCICE (gh:#1068) is being built separately. Its column is reserved:
+~~PCICE (gh:#1068) is being built separately. Its column is reserved:
 `methods()` and `pcice_hook()` in the test file mark where it goes, and
-every table below reads "pending" for it.
+every table below reads "pending" for it.~~ **UPDATED 2026-11-01:** PCICE
+landed and was run on **Sod**, with the same `L1(ρ)` instrument (cell-width
+weights) and PCICE's own numerics (`pcice::cases::sod_ideal_gas`: the same
+tube, states and end time, walls instead of transmissive ends, which the
+waves do not reach). It is **not** run on the other cases:
+- the nozzles, because PCICE's variable area is verified only at rest;
+- the IF97 double rarefaction and Edwards, because PCICE on flashing water is
+  untested (gh:#1087).
+
+Those cells read "not run". No prediction was written for PCICE here before
+its run, so its row is a measurement, not a test of a prediction.
 
 ## Results (2026-11-01, release, `cargo test --release -p tampines --test fem1d_vs_fv -- --nocapture`)
 
@@ -97,19 +107,19 @@ every table below reads "pending" for it.
 
 | Measure | FV (HemPipe KNP) | FEM SUPG | FEM entropy viscosity | FEM Lapidus | PCICE (gh:#1068) |
 |---|---|---|---|---|---|
-| Sod L1(ρ), every mesh | **best** | 2nd from 200 cells | 2nd at 100 cells, 3rd after | worst | pending |
-| Sod observed L1(ρ) order | 0.84–0.94 | 0.81–0.86 | 0.72–0.76 | 0.68–0.73 | pending |
-| Sod shock width (points) | 2–3 | 1–3 | 3–5 | 3–5 | pending |
-| Sod overshoot ρ / u (% of jump / of u*) | ≤ 2.9 / ≤ 0.8 | ≤ 3.7 / **≤ 14.8** | ≤ 3.3 / ≤ 10.9 | ≤ 4.0 / ≤ 12.1 | pending |
-| Sod wall time at FV-400 accuracy | **0.045 s** | 0.49 s (11×) | 0.32 s (7×) | 0.62 s (14×) | pending |
-| Subsonic nozzle, worst p error | 0.31 % | **0.19 %** | **0.19 %** | **0.19 %** | pending |
-| Subsonic nozzle, mass-flux spread | 0.74 % | **0.0009 %** | 0.0085 % | 0.025 % | pending |
-| Shocked nozzle, shock position | **+0.92 cells** | +1.42 | +1.42 | +1.42 | pending |
-| Shocked nozzle, p overshoot (% of jump) | 1.42 | 7.45 | 1.14 | 1.08 | pending |
-| IF97 water double rarefaction | **passes all four gates** | fails (EOS, step 1) | fails (EOS, 4.3 ms) | fails (EOS, 0.42 ms) | pending |
-| Edwards to 0.30 s, default Courant 0.4 | **completes, RMSE 44.2 psia** | fails 0.3 ms | fails 52 ms | fails 37 ms | pending |
-| Edwards, diagnostic Courant 0.1 | (not rerun) | fails 0.4 ms | completes, RMSE 48.1 psia, 93 s | completes, RMSE 46.3 psia, 88 s | pending |
-| Global mass and energy | round-off | round-off | round-off | round-off | pending |
+| Sod L1(ρ), every mesh | **best** | 2nd from 200 cells | 2nd at 100 cells, 3rd after | worst | within 0.4–10 % of FV (6.94e-2 → 6.42e-3) |
+| Sod observed L1(ρ) order | 0.84–0.94 | 0.81–0.86 | 0.72–0.76 | 0.68–0.73 | 0.81–0.91 |
+| Sod shock width (points) | 2–3 | 1–3 | 3–5 | 3–5 | not measured |
+| Sod overshoot ρ / u (% of jump / of u*) | ≤ 2.9 / ≤ 0.8 | ≤ 3.7 / **≤ 14.8** | ≤ 3.3 / ≤ 10.9 | ≤ 4.0 / ≤ 12.1 | u: 5.9 % at 100 cells (pcice.md) |
+| Sod wall time at FV-400 accuracy | 0.045 s (0.042 s on the PCICE rerun) | 0.49 s (11×) | 0.32 s (7×) | 0.62 s (14×) | **0.036 s** (same rerun) |
+| Subsonic nozzle, worst p error | 0.31 % | **0.19 %** | **0.19 %** | **0.19 %** | not run |
+| Subsonic nozzle, mass-flux spread | 0.74 % | **0.0009 %** | 0.0085 % | 0.025 % | not run |
+| Shocked nozzle, shock position | **+0.92 cells** | +1.42 | +1.42 | +1.42 | not run |
+| Shocked nozzle, p overshoot (% of jump) | 1.42 | 7.45 | 1.14 | 1.08 | not run |
+| IF97 water double rarefaction | **passes all four gates** | fails (EOS, step 1) | fails (EOS, 4.3 ms) | fails (EOS, 0.42 ms) | not run |
+| Edwards to 0.30 s, default Courant 0.4 | **completes, RMSE 44.2 psia** | fails 0.3 ms | fails 52 ms | fails 37 ms | not run |
+| Edwards, diagnostic Courant 0.1 | (not rerun) | fails 0.4 ms | completes, RMSE 48.1 psia, 93 s | completes, RMSE 46.3 psia, 88 s | not run |
+| Global mass and energy | round-off | round-off | round-off | round-off | round-off (pcice.md) |
 
 **Finding.** FV wins on every discontinuous case: accuracy, oscillation,
 cost and, on IF97, robustness. The FEM wins only on the smooth subsonic
@@ -146,7 +156,7 @@ It supports the maintainer's decision to keep FV as the default.
 
 Wall time at FV's 400-cell L1(ρ) = 1.945e-2 (log-log interpolation,
 nothing extrapolated): FV 0.045 s, SUPG 0.493 s, EV 0.316 s, Lapidus 0.623 s,
-PCICE pending. Wall times are single runs on a shared machine, so read
+PCICE 0.036 s on a rerun in which FV took 0.042 s (PCICE L1(ρ) 6.941e-2, 3.695e-2, 2.025e-2, 1.127e-2, 6.424e-3 at 100–1600 cells). Wall times are single runs on a shared machine, so read
 them to about ±30 %.
 
 ### Quasi-1-D nozzle (200 cells)
@@ -157,7 +167,7 @@ them to about ±30 %.
 | SUPG | 0.1861 | 0.1009 | 0.0009 | 3.3e-12 | 3.4e-12 | 47637 | 7.56 |
 | EV | 0.1870 | 0.1009 | 0.0085 | 2.5e-12 | 3.4e-12 | 47655 | 3.61 |
 | Lapidus | 0.1902 | 0.0997 | 0.0248 | 3.1e-12 | 3.3e-12 | 47643 | 3.32 |
-| PCICE | pending | | | | | | |
+| PCICE | not run (variable area verified only at rest) | | | | | | |
 
 | Shocked, p_e/p0 = 0.75, 0.1 s (analytic shock 0.8604 m) | offset cells | post-shock p err % | L1 \|p err\| % | shock pts | p over % jump | p under % jump | mass err | energy err | steps | wall s |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -165,7 +175,7 @@ them to about ±30 %.
 | SUPG | +1.42 | +0.03 | 0.829 | 1 | 7.45 | 7.84 | 1.5e-12 | 2.1e-12 | 36245 | 5.69 |
 | EV | +1.42 | +0.08 | 0.829 | 2 | 1.14 | 1.85 | 3.6e-12 | 1.1e-12 | 35627 | 2.68 |
 | Lapidus | +1.42 | −1.23 | 0.951 | 3 | 1.08 | 1.42 | 1.1e-12 | 1.3e-12 | 35538 | 2.63 |
-| PCICE | pending | | | | | | | | | |
+| PCICE | not run (variable area verified only at rest) | | | | | | | | | |
 
 FEM positions are nodes `jh` and FV positions cell centres `(i+½)h`, so a
 half-cell difference in the reported offset is expected. The conservation
@@ -189,7 +199,7 @@ stabilisation. Galerkin alone fails the walls Riemann problem.
 | SUPG | fails at t = 1e-5 s: EOS cannot close node 49 (ρ = 939, e = 745.5 kJ/kg) | | | | | | | 0.2 |
 | EV | fails at t = 4.34 ms: node 42 (ρ = 1180 kg/m³) | | | | | | | 72.7 |
 | Lapidus | fails at t = 0.42 ms: node 0, the transmissive end | | | | | | | 5.8 |
-| PCICE | pending | | | | | | | |
+| PCICE | not run (flashing water untested, gh:#1087) | | | | | | | |
 
 Diagnostic rerun at FEM Courant 0.1 (`FEM_CFL=0.1`): SUPG still fails at
 1e-5 s, and Lapidus still at 0.42 ms at node 0. EV now fails at 0.57 ms, also
@@ -206,7 +216,7 @@ at node 0. Making the step 4× smaller does not change where the runs fail.
 | *diagnostic, FEM Courant 0.1:* EV | 0.30 s | 372.2 | 48.1 (16) | 3.0e-13 | 4842 | 92.7 |
 | *diagnostic, FEM Courant 0.1:* Lapidus | 0.30 s | 372.7 | 46.3 (16) | 3.6e-13 | 5743 | 87.8 |
 | *diagnostic, FEM Courant 0.1:* SUPG | fails at 0.4 ms | | | | | |
-| PCICE | pending | | | | | | |
+| PCICE | not run (flashing water untested, gh:#1087) | | | | | | |
 
 The FV numbers reproduce the recorded `HemPipe` Edwards record (368.0 psia,
 44.2 psia; `tampines-steam-tables/tests/hem_pipe_edwards.rs`). GS-1 traces in
@@ -271,4 +281,4 @@ Root causes are **not established**. What was checked:
   phase only, as specified.
 - Wall times are single runs on a shared machine.
 - Lapidus's form and coefficient are unverified against a reference.
-- PCICE (gh:#1068) is pending. Every table has its column.
+- PCICE (gh:#1068) is compared on Sod only; the other cases are marked not run, with reasons.

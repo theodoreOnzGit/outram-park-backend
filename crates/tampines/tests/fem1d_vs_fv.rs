@@ -66,10 +66,13 @@
 //! its own recorded numbers). The predictions are judged in the V&V doc, not
 //! asserted: a miss is a finding.
 //!
-//! **PCICE hook (gh:#1068):** the PCICE finite-volume solver is being built
-//! separately. When it lands, add it to [`methods`] (and to
-//! `Discretisation`) and every case below gains its column; until then
-//! [`pcice_hook`] returns `None` and the doc's PCICE column reads "pending".
+//! **PCICE (gh:#1068), added after the FEM runs:** run on Sod by
+//! [`pcice_sod`] with the same `L1(ρ)`; no prediction was written for it
+//! here, so its row is a measurement. The other cases print why PCICE was not
+//! run on them ([`pcice_hook`]). **Result (2026-11-01):** PCICE L1(ρ)
+//! 6.941e-2 → 6.424e-3 over 100–1600 cells (order 0.81–0.91), within
+//! 0.4–10 % of FV; wall time at FV-400 accuracy 0.036 s against FV's 0.042 s
+//! on the same run.
 
 mod common;
 
@@ -105,11 +108,40 @@ fn methods() -> Vec<Discretisation> {
     ]
 }
 
-/// Where the PCICE result of a case will go (gh:#1068). Returns `None` until
-/// that solver lands; each case prints "pending" for it.
+/// Where the PCICE result of a case goes (gh:#1068). Sod is run in
+/// [`pcice_sod`] with the same instrument; for the other cases PCICE has
+/// not been set up on this file's configurations, and the hook says where
+/// its own record is.
 fn pcice_hook(case: &str) -> Option<String> {
-    let _ = case;
-    None
+    match case {
+        "water" => Some("not run on this double rarefaction; PCICE's IF97 shock tube is within 0.37 % of HemPipe's star pressure (verification_and_validation/pcice.md)".into()),
+        "nozzle-subsonic" | "nozzle-shock" => Some("not run: PCICE's variable area is verified only for a duct at rest (pcice.md)".into()),
+        "edwards" => Some("not run: PCICE on a flashing IF97 blowdown is untested (gh:#1087)".into()),
+        _ => None,
+    }
+}
+
+/// **PCICE on this file's Sod** (gh:#1068, added after the FEM runs): the
+/// `pcice::cases::sod_ideal_gas` setup is this file's Sod (10 m, the same
+/// states and end time), closed at both ends (the waves do not reach them),
+/// with PCICE's own numerics (material Courant 0.5, acoustic cap 0.5). The
+/// same `L1(ρ)` with cell-width weights as FV. Returns `(cells, L1, wall s)`.
+fn pcice_sod(n: usize) -> (usize, f64, f64) {
+    let case = tampines::pcice::cases::sod_ideal_gas(n).unwrap();
+    let wall = Instant::now();
+    let mut pipe = case.build_pcice().unwrap();
+    pipe.run_until(case.end_time).unwrap();
+    let secs = wall.elapsed().as_secs_f64();
+    let t = case.end_time.get::<second>();
+    let snap = pipe.snapshot();
+    let h = 10.0 / n as f64;
+    let l1: f64 = snap
+        .cell_centres
+        .iter()
+        .zip(&snap.cells)
+        .map(|(x, c)| h * (c.density.get::<kilogram_per_cubic_meter>() - exact_state(SOD_L, SOD_R, x.get::<meter>() - 5.0, 0.0, t).rho).abs())
+        .sum();
+    (n, l1, secs)
 }
 
 /// The numerics every case uses: the defaults, except that the diagnostic
@@ -339,7 +371,15 @@ fn sod_fv_against_fem_stabilisations() {
         let (t, ex) = time_at(rs, target);
         println!("SOD-COST | {} | {:.4}{}", name(*d), t, if ex { " (extrapolated)" } else { "" });
     }
-    println!("SOD-COST | PCICE (gh:#1068) | {}", pcice_hook("sod").unwrap_or_else(|| "pending".into()));
+    let pc: Vec<(usize, f64, f64)> = meshes.iter().map(|&n| pcice_sod(n)).collect();
+    for (k, (n, l1, secs)) in pc.iter().enumerate() {
+        let order = if k == 0 { f64::NAN } else { (pc[k - 1].1 / l1).r_ln() / 2.0_f64.r_ln() };
+        println!("SOD | PCICE (gh:#1068) | {n} | {l1:.4e} | {order:.2} | | | | | | | | | | {secs:.3}");
+    }
+    let pts: Vec<SodResult> = pc.iter().map(|&(n, l1, secs)| SodResult { n, l1_rho: l1, secs, ..all[0].1[0] }).collect();
+    let (tp, exp) = time_at(&pts, target);
+    println!("SOD-COST | PCICE (gh:#1068) | {:.4}{}", tp, if exp { " (extrapolated)" } else { "" });
+    assert!(pc[4].1 < pc[0].1, "PCICE Sod error falls with the mesh");
     for (d, rs) in &all {
         for r in rs {
             assert!(r.cons.0 < 1e-12 && r.cons.1 < 1e-12, "{} {}: conservation {:?}", name(*d), r.n, r.cons);
