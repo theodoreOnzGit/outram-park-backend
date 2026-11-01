@@ -2805,6 +2805,51 @@ pub struct NodalisedCounterFlowSteamGenerator {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `junction`
+
+Junctions joining 1-D pipes: the RELAP-7 FlowJunction and VolumeBranch
+(gh:#1071, RELAP-7 parity epic gh:#1056).
+
+The framework lives beside the HEM pipe solver in
+`tampines_steam_tables::hem::network`, because it drives `HemPipe`'s
+boundaries and steps; it is re-exported here so balance-of-plant
+components (pump, valve, turbine, separator, downcomer, wet well: gh:#1072
+to gh:#1075) find it where they live. Run it with the run-time closure
+[`crate::hem::HemEos`], e.g. `HemNetwork<HemEos>`.
+
+See the source module's doc for the method and the V&V record,
+`crates/tampines-steam-tables/verification_and_validation/hem_network_junctions.md`.
+
+```rust
+pub mod junction { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `HemJunction`
+
+```rust
+pub use tampines_steam_tables::hem::HemJunction;
+```
+
+#### Re-export `HemNetwork`
+
+```rust
+pub use tampines_steam_tables::hem::HemNetwork;
+```
+
+#### Re-export `PipeEndRef`
+
+```rust
+pub use tampines_steam_tables::hem::PipeEndRef;
+```
+
+#### Re-export `VolumeBranch`
+
+```rust
+pub use tampines_steam_tables::hem::VolumeBranch;
+```
+
 ## Module `pipe`
 
 Pipe / pipeline component.
@@ -3837,6 +3882,30 @@ pub use helical_coil_steam_generator::SteamGeneratorGeometry;
 
 ```rust
 pub use helical_coil_steam_generator::SteamGeneratorState;
+```
+
+#### Re-export `HemJunction`
+
+```rust
+pub use junction::HemJunction;
+```
+
+#### Re-export `HemNetwork`
+
+```rust
+pub use junction::HemNetwork;
+```
+
+#### Re-export `PipeEndRef`
+
+```rust
+pub use junction::PipeEndRef;
+```
+
+#### Re-export `VolumeBranch`
+
+```rust
+pub use junction::VolumeBranch;
 ```
 
 #### Re-export `Pipe`

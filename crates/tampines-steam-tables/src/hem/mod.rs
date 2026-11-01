@@ -34,6 +34,8 @@
 //!   [`PrimitiveState`], [`HemBoundary`] / [`PipeEnd`], [`HemNumerics`]
 //!   (with [`TimeStepControl`], [`TimeIntegrator`] and the basic-lib
 //!   [`FluxLimiter`]).
+//! - Networks (gh:#1071): [`HemNetwork`] joins pipes with [`HemJunction`]s,
+//!   a zero-volume flow junction or a 0-D [`VolumeBranch`].
 //! - Errors: [`HemError`]. Nothing is clamped: a negative density or pressure
 //!   is an error and the step is undone.
 //!
@@ -60,6 +62,7 @@
 pub mod eos;
 mod error;
 mod iapws97;
+mod network;
 mod pipe;
 pub mod reduced_eos;
 
@@ -73,6 +76,7 @@ pub use outram_foam_basic_lib::limiters::FluxLimiter;
 pub use reduced_eos::{
     BarotropicHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem, StiffenedGasPair,
 };
+pub use network::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
 pub use pipe::{
     AreaProfile, HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,
     HemRunSummary, HemSnapshot, HemStepReport, PipeEnd, PrimitiveState, TimeIntegrator,

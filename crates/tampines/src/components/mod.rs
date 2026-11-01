@@ -15,6 +15,7 @@ pub mod cooling_tower;
 pub mod heat_exchanger;
 pub mod helical_coil_sg_standalone;
 pub mod helical_coil_steam_generator;
+pub mod junction;
 pub mod pipe;
 pub mod pump;
 pub mod steam_generator;
@@ -35,6 +36,7 @@ pub use helical_coil_steam_generator::{
     NodalisedCounterFlowSteamGenerator, SteamGeneratorConfig, SteamGeneratorError,
     SteamGeneratorGeometry, SteamGeneratorState,
 };
+pub use junction::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
 pub use pipe::{Pipe, PipeBackend};
 pub use pump::Pump;
 pub use steam_generator::SteamGenerator;

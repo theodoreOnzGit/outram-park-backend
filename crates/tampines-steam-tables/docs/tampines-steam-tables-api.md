@@ -11132,6 +11132,8 @@ No dependency edge is added either way.
   [`PrimitiveState`], [`HemBoundary`] / [`PipeEnd`], [`HemNumerics`]
   (with [`TimeStepControl`], [`TimeIntegrator`] and the basic-lib
   [`FluxLimiter`]).
+- Networks (gh:#1071): [`HemNetwork`] joins pipes with [`HemJunction`]s,
+  a zero-volume flow junction or a 0-D [`VolumeBranch`].
 - Errors: [`HemError`]. Nothing is clamped: a negative density or pressure
   is an error and the step is undone.
 
@@ -12442,6 +12444,30 @@ pub use reduced_eos::StiffenedGasHem;
 
 ```rust
 pub use reduced_eos::StiffenedGasPair;
+```
+
+#### Re-export `HemJunction`
+
+```rust
+pub use network::HemJunction;
+```
+
+#### Re-export `HemNetwork`
+
+```rust
+pub use network::HemNetwork;
+```
+
+#### Re-export `PipeEndRef`
+
+```rust
+pub use network::PipeEndRef;
+```
+
+#### Re-export `VolumeBranch`
+
+```rust
+pub use network::VolumeBranch;
 ```
 
 #### Re-export `AreaProfile`

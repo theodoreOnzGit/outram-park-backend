@@ -74,9 +74,10 @@ use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
 use uom::si::f64::{
-    Area, AvailableEnergy, Energy, Frequency, Length, Mass, MassDensity, Pressure, Ratio,
-    ThermodynamicTemperature, Time, Velocity,
+    Area, AvailableEnergy, Energy, Frequency, HeatFluxDensity, Length, Mass, MassDensity,
+    MassFlux, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
 };
+use uom::si::heat_flux_density::watt_per_square_meter;
 use uom::si::frequency::hertz;
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
@@ -459,6 +460,20 @@ pub enum HemBoundary {
         /// Pressure the break discharges to.
         back_pressure: Pressure,
     },
+    /// A prescribed face flux per unit area, in the `+x` direction like every
+    /// face flux here (so at the inlet a positive mass flux enters the pipe,
+    /// at the outlet it leaves). The junction framework (gh:#1071) computes
+    /// it from the state across the junction and holds it for one step. The
+    /// end cell's state is the reconstruction ghost; the Courant rate uses the
+    /// end cell's `|u| + c`.
+    Flux {
+        /// Mass flux `ρu`, kg/(m²·s).
+        mass_flux: MassFlux,
+        /// Momentum flux `ρu² + p`, Pa.
+        momentum_flux: Pressure,
+        /// Total-energy flux `ρuH`, W/m².
+        energy_flux: HeatFluxDensity,
+    },
 }
 
 /// How the time step is chosen.
@@ -833,6 +848,22 @@ impl<E: HemEquationOfState> HemPipe<E> {
         };
         match boundary {
             HemBoundary::Wall | HemBoundary::Transmissive => {}
+            HemBoundary::Flux {
+                mass_flux,
+                momentum_flux,
+                energy_flux,
+            } => {
+                let v = [
+                    mass_flux.get::<kilogram_per_square_meter_second>(),
+                    momentum_flux.get::<pascal>(),
+                    energy_flux.get::<watt_per_square_meter>(),
+                ];
+                if !v.iter().all(|x| x.is_finite()) {
+                    return Err(HemError::InvalidInput(format!(
+                        "prescribed face flux {v:?} must be finite"
+                    )));
+                }
+            }
             HemBoundary::Reservoir {
                 stagnation_pressure,
                 ..
@@ -963,6 +994,27 @@ impl<E: HemEquationOfState> HemPipe<E> {
     /// produces a state that cannot be closed.
     pub fn step(&mut self) -> Result<HemStepReport, HemError> {
         self.step_until_at_most(f64::INFINITY)
+    }
+
+    /// Advance exactly `dt`, whatever [`HemNumerics::time_step`] says (the
+    /// junction framework, gh:#1071, steps every pipe of a network by one
+    /// common `dt`). A step whose central Courant number would exceed
+    /// [`FIXED_STEP_COURANT_LIMIT`] is refused.
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::InvalidInput`] for a non-positive or non-finite `dt`,
+    /// [`HemError::CourantViolation`], and as [`Self::step`].
+    pub fn step_by(&mut self, dt: Time) -> Result<HemStepReport, HemError> {
+        let d = dt.get::<second>();
+        if !(d.is_finite() && d > 0.0) {
+            return Err(HemError::InvalidInput(format!("step {d} s must be > 0")));
+        }
+        let saved = self.numerics.time_step;
+        self.numerics.time_step = TimeStepControl::Fixed(dt);
+        let out = self.step_until_at_most(self.time_s + d);
+        self.numerics.time_step = saved;
+        out
     }
 
     /// Step until `t_end`, shortening the last step to land on it exactly.
@@ -1221,7 +1273,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
         };
         Ok(match bc {
             HemBoundary::Wall => (Prim { u: 0.0, ..*o }, false),
-            HemBoundary::Transmissive => (*o, false),
+            HemBoundary::Transmissive | HemBoundary::Flux { .. } => (*o, false),
             HemBoundary::FixedPressure(p) => (from_ph(p.get::<pascal>(), h_o, o.u)?, false),
             HemBoundary::Reservoir {
                 stagnation_pressure,
@@ -1281,7 +1333,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
         let mut amax = Vec::with_capacity(n + 1);
 
         let b_in_s = b_in.knp();
-        flux.push(physical_face_flux(&b_in_s, nx));
+        flux.push(boundary_flux(self.inlet, &b_in_s, nx));
         amax.push(central_flux_speed_max(&b_in_s, &b_in_s, nx));
         for f in 0..n - 1 {
             let side = |rho: f64, m: f64, rpsi: f64, e: f64, c: f64| {
@@ -1293,7 +1345,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
             amax.push(central_flux_speed_max(&l, &r, nx));
         }
         let b_out_s = b_out.knp();
-        flux.push(physical_face_flux(&b_out_s, nx));
+        flux.push(boundary_flux(self.outlet, &b_out_s, nx));
         amax.push(central_flux_speed_max(&b_out_s, &b_out_s, nx));
 
         // centralCourantNo.H: ½·max_cells(Σ_faces amaxSf / V); per unit Δt.
@@ -1340,6 +1392,23 @@ impl<E: HemEquationOfState> HemPipe<E> {
         dq[3 * n + 1] = a.flux[0].energy * g.face_area_m2(0);
         dq[3 * n + 2] = a.flux[n].mass * g.face_area_m2(n);
         dq[3 * n + 3] = a.flux[n].energy * g.face_area_m2(n);
+    }
+}
+
+/// The flux through a boundary face: the prescribed one for
+/// [`HemBoundary::Flux`], otherwise the physical flux of the face state.
+fn boundary_flux(bc: HemBoundary, face: &KnpFaceState, nx: Vector3) -> KnpFaceFlux {
+    match bc {
+        HemBoundary::Flux {
+            mass_flux,
+            momentum_flux,
+            energy_flux,
+        } => KnpFaceFlux {
+            mass: mass_flux.get::<kilogram_per_square_meter_second>(),
+            momentum: Vector3::new(momentum_flux.get::<pascal>(), 0.0, 0.0),
+            energy: energy_flux.get::<watt_per_square_meter>(),
+        },
+        _ => physical_face_flux(face, nx),
     }
 }
 
