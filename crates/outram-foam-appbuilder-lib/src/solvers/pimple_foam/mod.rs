@@ -178,11 +178,17 @@
 //!    pressure–velocity (checkerboard) decoupling. `ddtCorr` uses the time-old
 //!    `U`/`phi` (constant across the inner correctors). See
 //!    `outram_foam_basic_lib::fv_operators::fvc::ddt_corr`.
+//!    **Since 2026-11-01 (gh:#1067)** the form follows `schemes.ddt` through
+//!    `crate::solvers::schemes::ddt_corr_scheme`: the Euler form for `Euler`,
+//!    the BDF2 form (`fvc::ddt_corr_backward`, a port of
+//!    `backwardDdtScheme::fvcDdtPhiCorr`) for `Backward`, zero for
+//!    `steadyState` — previously the Euler form was used for all three.
 
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
+use crate::solvers::schemes::DdtCorrForm;
 use crate::turbulence::TurbulenceClosure;
 use outram_foam_basic_lib::prelude::*;
 use std::sync::Arc;
@@ -270,6 +276,21 @@ pub struct PimpleFoam {
     /// `None` before the first step has completed, where backward differencing
     /// degenerates to Euler.
     pub u_old_old: Option<VolVectorField>,
+    /// Face flux at the time level *before* the step's old flux, i.e. φ^{n−2}
+    /// [m³/s].
+    ///
+    /// Maintained automatically by [`PimpleFoam::step`], alongside
+    /// [`Self::u_old_old`]; read only by the BDF2 Rhie–Chow correction
+    /// (`fvc::ddt_corr_backward`) when `schemes.ddt` is
+    /// [`crate::io::fv_schemes::DdtScheme::Backward`]. `None` before the first
+    /// step has completed.
+    pub phi_old_old: Option<SurfaceScalarField>,
+    /// Which `ddtCorr` form is paired with the ddt scheme (default
+    /// [`DdtCorrForm::MatchDdtScheme`], the correct physics). Setting
+    /// [`DdtCorrForm::EulerOnly`] is an explicit ablation that reproduces the
+    /// pre-gh:#1067 Euler-only correction; see
+    /// `verification_and_validation/bdf2_temporal_order.md` for what it costs.
+    pub ddt_corr_form: DdtCorrForm,
     /// Turbulence closure (default [`TurbulenceClosure::Laminar`]).
     ///
     /// Selecting a RAS/LES model replaces the molecular viscous term in the
@@ -340,6 +361,8 @@ impl PimpleFoam {
             nu,
             pressure_solver: PressureSolver::default(),
             u_old_old: None,
+            phi_old_old: None,
+            ddt_corr_form: DdtCorrForm::default(),
             turbulence: TurbulenceClosure::default(),
         }
     }
@@ -457,7 +480,20 @@ impl PimpleFoam {
             // correction) uses the time-old U/phi and so is constant across the
             // PISO correctors below. Both are computed once per outer iteration.
             let rauf = fvc::interpolate(&rau);
-            let ddt_corr = fvc::ddt_corr(&u_old, &phi_old, dt);
+            // The correction must come from the same ddt scheme as the
+            // momentum term (OpenFOAM's `fvc::ddtCorr` dispatches on
+            // `ddtSchemes` too); `EulerOnly` is the explicit ablation.
+            let ddt_corr = match self.ddt_corr_form {
+                DdtCorrForm::MatchDdtScheme => crate::solvers::schemes::ddt_corr_scheme(
+                    &self.schemes.ddt,
+                    &u_old,
+                    self.u_old_old.as_ref(),
+                    &phi_old,
+                    self.phi_old_old.as_ref(),
+                    dt,
+                )?,
+                DdtCorrForm::EulerOnly => fvc::ddt_corr(&u_old, &phi_old, dt),
+            };
 
             // ── PISO pressure-correction loop ────────────────────────────────
             //
@@ -592,6 +628,7 @@ impl PimpleFoam {
         // Roll the time levels forward so a second-order backward ddt scheme has
         // U^{n−2} available on the next step.
         self.u_old_old = Some(u_old);
+        self.phi_old_old = Some(phi_old);
 
         Ok(())
     }

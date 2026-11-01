@@ -42,6 +42,7 @@
 //! | Family | Implemented | Returns `UnsupportedScheme` |
 //! |---|---|---|
 //! | ddt | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
+//! | ddtCorr ([`ddt_corr_scheme`]) | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
 //! | div | `GaussUpwind`, `GaussLinear` | `GaussLinearUpwind`, `GaussVanLeer`, `GaussMUSCL`, `GaussLimitedLinear` |
 //!
 //! The limited/TVD `div` schemes need a face limiter driven by a reconstructed
@@ -53,6 +54,90 @@ use crate::error::AppBuilderError;
 use crate::io::fv_schemes::{DdtScheme, DivScheme};
 use outram_foam_basic_lib::prelude::*;
 use std::sync::Arc;
+
+/// Which Rhie–Chow `ddtCorr` form a PISO/PIMPLE solver pairs with its ddt
+/// scheme.
+///
+/// The default, [`DdtCorrForm::MatchDdtScheme`], is the correct physics and
+/// what OpenFOAM does: the correction comes from the *same* ddt scheme as the
+/// momentum time derivative ([`ddt_corr_scheme`]). [`DdtCorrForm::EulerOnly`]
+/// is an explicit **ablation** that reproduces this crate's behaviour before
+/// gh:#1067 (Euler `ddtCorr` whatever the ddt scheme); it exists so the
+/// temporal-order study in `tests/bdf2_temporal_order.rs` can measure the
+/// mismatched pairing beside the consistent one. Do not select it for a
+/// production run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DdtCorrForm {
+    /// Correction from the selected ddt scheme (Euler → Euler form, Backward →
+    /// BDF2 form, steadyState → zero). **Default.**
+    #[default]
+    MatchDdtScheme,
+    /// Ablation: always the Euler form `fvc::ddt_corr`, as before gh:#1067.
+    EulerOnly,
+}
+
+/// Rhie–Chow time-derivative flux correction `fvc::ddtCorr(U, phi)` for the
+/// selected ddt scheme — the face-flux partner of [`ddt_vec_scheme`].
+///
+/// Returns a face field [m³/s²] (volumetric flux per unit time); a PISO loop
+/// adds `interpolate(rAU) · ddtCorr` to `phiHbyA`.
+///
+/// # Arguments
+///
+/// * `scheme`      — the `ddtSchemes` selection; must be the one used for the
+///   momentum ddt, or the correction and the `H/A` history it replaces do not
+///   match.
+/// * `u_old`, `u_old_old` — U^{n−1}, U^{n−2} [m/s]; `u_old_old = None` on the
+///   first step.
+/// * `phi_old`, `phi_old_old` — φ^{n−1}, φ^{n−2} [m³/s]; `phi_old_old = None`
+///   on the first step.
+/// * `dt` — time step Δt [s] > 0, assumed constant (as in [`ddt_vec_scheme`]).
+///
+/// # Schemes (each mirrors the upstream `fvcDdtPhiCorr(U, phi)`)
+///
+/// * [`DdtScheme::Euler`] — `fvc::ddt_corr` (`EulerDdtScheme`).
+/// * [`DdtScheme::Backward`] — `fvc::ddt_corr_backward` with `Δt₀ = Δt`
+///   (`backwardDdtScheme`); reduces to the Euler form exactly while
+///   `u_old_old`/`phi_old_old` are `None`, matching [`ddt_vec_scheme`]'s
+///   start-up.
+/// * [`DdtScheme::SteadyState`] — a zero field (`steadyStateDdtScheme`
+///   returns zero: with no time derivative there is no history to couple to).
+///
+/// # Errors
+///
+/// [`AppBuilderError::UnsupportedScheme`] for `CrankNicolson` and `LocalEuler`,
+/// for the same reasons as [`ddt_vec_scheme`].
+pub fn ddt_corr_scheme(
+    scheme: &DdtScheme,
+    u_old: &VolVectorField,
+    u_old_old: Option<&VolVectorField>,
+    phi_old: &SurfaceScalarField,
+    phi_old_old: Option<&SurfaceScalarField>,
+    dt: f64,
+) -> Result<SurfaceScalarField, AppBuilderError> {
+    match scheme {
+        DdtScheme::Euler => Ok(fvc::ddt_corr(u_old, phi_old, dt)),
+        DdtScheme::Backward => Ok(fvc::ddt_corr_backward(
+            u_old,
+            u_old_old,
+            phi_old,
+            phi_old_old,
+            dt,
+            dt,
+        )),
+        DdtScheme::SteadyState => Ok(SurfaceScalarField::zeros("ddtCorr", phi_old.mesh.clone())),
+        DdtScheme::CrankNicolson(psi) => Err(AppBuilderError::UnsupportedScheme {
+            family: "ddtSchemes",
+            scheme: format!("CrankNicolson({psi})"),
+            reason: "needs the stored off-centred ddt0 field carried between time steps",
+        }),
+        DdtScheme::LocalEuler => Err(AppBuilderError::UnsupportedScheme {
+            family: "ddtSchemes",
+            scheme: "localEuler".to_string(),
+            reason: "needs a per-cell local time-step (LTS) field",
+        }),
+    }
+}
 
 /// Assemble the transient term `∂U/∂t` of a vector transport equation according
 /// to `scheme`.
@@ -82,22 +167,38 @@ use std::sync::Arc;
 ///   source `V(2U^{n−1} − 0.5U^{n−2})/Δt`. More accurate but less bounded; can
 ///   ring on a coarse mesh at high Courant number.
 ///
-///   **Known limitation — `Backward` is wired, not verified as second order.**
+///   ~~**Known limitation — `Backward` is wired, not verified as second order.**
 ///   [`crate::solvers::pimple_foam::PimpleFoam`]'s PISO loop adds a Rhie–Chow
 ///   flux correction `rAU_f · fvc::ddt_corr(U_old, φ_old, Δt)`, and
 ///   `outram-foam-basic-lib`'s `ddt_corr` implements only the **Euler** form.
 ///   Selecting `Backward` changes `rAU = V/A` (the diagonal becomes `1.5 V/Δt`
 ///   instead of `V/Δt`) without changing `ddt_corr`, so the two are
-///   inconsistent by a ratio tending to 1.5 as Δt → 0. Measured consequence
+///   inconsistent by a ratio tending to 1.5 as Δt → 0.~~ Measured consequence
 ///   (`tests/fv_scheme_selection.rs`, 2026-08-07): the Euler and Backward
 ///   lid-driven-cavity runs converge to steady states differing by 1.0e-2 to
 ///   2.9e-2 m/s (1–3 % of U_lid), and that difference *grows* as Δt is
 ///   refined — the signature of an inconsistency, not of truncation error.
-///   Fixing it needs OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`, which
+///   ~~Fixing it needs OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`, which
 ///   belongs in `outram-foam-basic-lib`. Until then, treat `Backward` as
 ///   available and benchmark-neutral (it scores marginally better than Euler
 ///   against Ghia 1982 at every Δt tested), but not as a verified second-order
-///   time integration.
+///   time integration.~~
+///
+///   **CORRECTED 2026-11-01** (gh:#1067) — the partner is ported:
+///   `outram_foam_basic_lib::fv_operators::fvc::ddt_corr_backward`
+///   (`backwardDdtScheme::fvcDdtPhiCorr`), and `PimpleFoam` now selects it
+///   through [`ddt_corr_scheme`] whenever `Backward` is chosen (the old
+///   pairing survives as the [`DdtCorrForm::EulerOnly`] ablation). Measured
+///   2026-11-01 (`tests/bdf2_temporal_order.rs`, record
+///   `verification_and_validation/bdf2_temporal_order.md`): the steady
+///   Euler/Backward gap falls 2.7–3.6× (8.04e-3 vs 2.93e-2 m/s at Δt = 1e-3)
+///   but **still grows** as Δt is refined, and a Richardson temporal-order
+///   study on the cavity gave order ≈ 0 for Euler and Backward alike, because
+///   the discrete fixed point depends on Δt. So `Backward` is now paired
+///   consistently with upstream, but it is **still not verified as second
+///   order**.
+///   This function assumes a **constant** Δt (weights `1.5`, `2`, `0.5`);
+///   [`ddt_corr_scheme`] makes the same assumption.
 /// * [`DdtScheme::SteadyState`] — the term is dropped entirely (a zero matrix),
 ///   for steady solvers.
 ///
@@ -387,5 +488,58 @@ mod tests {
                 "{s:?} must be reported as unsupported"
             );
         }
+    }
+
+    /// `ddt_corr_scheme` dispatches to the upstream partner of each ddt scheme.
+    ///
+    /// Inputs: the 3-cell line mesh, U^{n−1} = (1,0,0), U^{n−2} = (0.5,0,0) m/s,
+    /// φ^{n−1} = 2, φ^{n−2} = 1.5 m³/s on every face, Δt = 1 s. Expected
+    /// (hand-computed): Euler `0.5·(2 − 1)/1 = 0.5`; Backward
+    /// `0.5·[(2·2 − 0.5·1.5) − (2·1 − 0.5·0.5)]/1 = 0.75`; steadyState 0;
+    /// Backward with no old-old level = the Euler value bit for bit;
+    /// CrankNicolson an error. Results (2026-11-01): as expected, |Δ| < 1e-12.
+    #[test]
+    fn ddt_corr_scheme_dispatches_to_the_matching_partner() {
+        let m = line_mesh();
+        let u0 = VolVectorField::uniform("U", m.clone(), vx(1.0));
+        let u00 = VolVectorField::uniform("U", m.clone(), vx(0.5));
+        let mut p0 = SurfaceScalarField::zeros("phi", m.clone());
+        let mut p00 = SurfaceScalarField::zeros("phi", m.clone());
+        for f in 0..m.n_internal_faces {
+            p0.internal[f] = 2.0;
+            p00.internal[f] = 1.5;
+        }
+        let e = ddt_corr_scheme(&DdtScheme::Euler, &u0, Some(&u00), &p0, Some(&p00), 1.0).unwrap();
+        let b =
+            ddt_corr_scheme(&DdtScheme::Backward, &u0, Some(&u00), &p0, Some(&p00), 1.0).unwrap();
+        let b1 = ddt_corr_scheme(&DdtScheme::Backward, &u0, None, &p0, None, 1.0).unwrap();
+        let z = ddt_corr_scheme(
+            &DdtScheme::SteadyState,
+            &u0,
+            Some(&u00),
+            &p0,
+            Some(&p00),
+            1.0,
+        )
+        .unwrap();
+        for f in 0..m.n_internal_faces {
+            assert!(
+                (e.internal[f] - 0.5).abs() < 1e-12,
+                "euler {}",
+                e.internal[f]
+            );
+            assert!(
+                (b.internal[f] - 0.75).abs() < 1e-12,
+                "backward {}",
+                b.internal[f]
+            );
+            assert_eq!(b1.internal[f].to_bits(), e.internal[f].to_bits());
+            assert_eq!(z.internal[f], 0.0);
+        }
+        assert!(
+            ddt_corr_scheme(&DdtScheme::CrankNicolson(0.9), &u0, None, &p0, None, 1.0).is_err()
+        );
+        assert!(ddt_corr_scheme(&DdtScheme::LocalEuler, &u0, None, &p0, None, 1.0).is_err());
+        assert_eq!(DdtCorrForm::default(), DdtCorrForm::MatchDdtScheme);
     }
 }

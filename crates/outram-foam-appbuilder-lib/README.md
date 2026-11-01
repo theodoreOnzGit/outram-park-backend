@@ -92,6 +92,7 @@ The `ddt` and `div` entries of `FvSchemes` are honoured by `PimpleFoam`:
 | Family | Implemented | Behaviour of the rest |
 |---|---|---|
 | `ddtSchemes` | `Euler` (default), `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` → `AppBuilderError::UnsupportedScheme` |
+| Rhie–Chow `ddtCorr` (`ddt_corr_scheme`, follows `ddtSchemes`) | `Euler`, `Backward` (BDF2 form, since 2026-11-01), `SteadyState` (zero) | as above |
 | `divSchemes` | `GaussUpwind` (default), `GaussLinear` | `linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear` → `AppBuilderError::UnsupportedScheme` |
 
 An unimplemented selection is an **error, never a silent fallback**. Measured
@@ -208,12 +209,19 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
 
 ### Numerical schemes
 
-- `DdtScheme::Backward` is wired but **not verified as second order**:
-  `outram-foam-basic-lib`'s Rhie–Chow `fvc::ddt_corr` implements only the Euler
-  form, while `rAU` picks up BDF2's `1.5 V/Δt` diagonal. Measured consequence:
-  the Euler and Backward cavity runs converge to steady states differing by
-  1.0e-2 to 2.9e-2 m/s, and the gap *grows* as Δt is refined — the signature of
-  an inconsistency, not truncation error.
+- `DdtScheme::Backward` is wired but **not verified as second order**.
+  ~~`outram-foam-basic-lib`'s Rhie–Chow `fvc::ddt_corr` implements only the Euler
+  form, while `rAU` picks up BDF2's `1.5 V/Δt` diagonal.~~ Measured consequence
+  (2026-08-07): the Euler and Backward cavity runs converge to steady states
+  differing by 1.0e-2 to 2.9e-2 m/s, and the gap *grows* as Δt is refined — the
+  signature of an inconsistency, not truncation error. **CORRECTED 2026-11-01**
+  (gh:#1067): `Backward` now pairs with its own Rhie–Chow partner
+  (`fvc::ddt_corr_backward`, via `schemes::ddt_corr_scheme`; the old pairing
+  survives only as the `DdtCorrForm::EulerOnly` ablation). The steady gap falls
+  2.7–3.6× but still grows as Δt is refined (3.80e-3 → 8.04e-3 m/s), and a
+  Richardson temporal-order study on the cavity measured order ≈ 0 for Euler
+  and BDF2 alike, because the discrete fixed point depends on Δt. Record:
+  `verification_and_validation/bdf2_temporal_order.md`.
 - `FvSchemes::default().default_div` is now `GaussUpwind`, not `GaussLinear`.
   The old value described a scheme no solver used.
 

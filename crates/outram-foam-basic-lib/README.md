@@ -189,7 +189,8 @@ reference implementation the other backends are verified against.
 | `fvc::sn_grad(phi)` | Surface-normal gradient → `SurfaceScalarField` (gradient across the cyclic seam to the paired cell) |
 | `fvc::flux(U)` | Face flux φ = U·Sf → `SurfaceScalarField` |
 | `fvc::reconstruct(phi)` | Least-squares VolVectorField from face flux → `VolVectorField` |
-| `fvc::ddt_corr(U_old, phi_old, dt)` | PISO flux consistency correction → `SurfaceScalarField` |
+| `fvc::ddt_corr(U_old, phi_old, dt)` | PISO flux consistency correction, Euler form (`EulerDdtScheme::fvcDdtPhiCorr`) → `SurfaceScalarField` |
+| `fvc::ddt_corr_backward(U_old, U_old_old, phi_old, phi_old_old, dt, dt0)`, `fvc::BackwardDdtCoeffs` | The BDF2 partner (`backwardDdtScheme::fvcDdtPhiCorr`), and the backward scheme's `coefft`/`coefft0`/`coefft00` weights; reduces to `ddt_corr` exactly on the start-up step. gh:#1067; V&V in `outram-foam-appbuilder-lib/verification_and_validation/bdf2_temporal_order.md` |
 | `fvc::buoyancy_flux(rho, g)` | ρ_f·(g·Sf) per face → `SurfaceScalarField` |
 | `fvc::central_upwind::{knp_face_flux, central_face_flux, physical_face_flux, knp_wave_speeds, local_wave_speed_max, central_flux_speed_max, mach_blend, velocity_component}`, `KnpFaceState`, `KnpFaceFlux`, `KnpWaveSpeeds` | The EOS-free Kurganov–Noelle–Petrova (2001) central-upwind face flux of `rhoCentralFoam.C`, per unit area, raw SI. The caller supplies `p`, `c` and an energy pair (`w_e`, `f_e`): `ρE`/`H` for a total-energy solver, `ρh`/`h` for a static-enthalpy one. The one copy used by `RhoCentralFoam` (appbuilder) and `HemPipe` (steam-tables, `tampines::hem`); ~~and the `HybridAllMach` arrays (steam-tables, CoolProp)~~, whose KNP hybrid was retired 2026-10-16 (gh:#914). gh #901 |
 | `adjust_phi(phi, U)` | Global mass-balance correction |
