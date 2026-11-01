@@ -861,6 +861,18 @@ impl InterfacialExchange {
         self.area_model
     }
 
+    /// The interfacial area concentration `A_int` \[1/m\] this closure set
+    /// assigns to vapour fraction `void` (gh:#1060's regime map, or `6 α_d / d`
+    /// without it). Public for the seven-equation relaxation coefficients
+    /// (gh:#1059, RELAP-7 Eqs 197–198).
+    ///
+    /// # Errors
+    ///
+    /// As the regime map, for a `NaN` volume fraction.
+    pub fn interfacial_area_concentration(&self, void: f64) -> Result<f64, TampinesError> {
+        Ok(self.area_and_diameter(void)?.0)
+    }
+
     /// The interfacial area concentration `A_int` \[1/m\] and the diameter
     /// \[m\] the closures are evaluated at, for vapour fraction `void`.
     ///

@@ -9,7 +9,7 @@
 //!
 //! # What is in here
 //!
-//! Two 1-D transient solvers for compressible steam/water pipe flow, one step
+//! ~~Two~~ **Three (gh:#1059, 2026-11-01)** 1-D transient solvers for compressible two-phase pipe flow, one step
 //! above the [`crate::hem`] homogeneous-equilibrium baseline:
 //!
 //! | Solver | Equations | Slip between phases | Thermal non-equilibrium |
@@ -26,9 +26,13 @@
 //! gh:#896.
 //! | [`drift_flux::DriftFlux1d`] | 4 | **algebraic** (`u_g − j = U_dm`) | none |
 //! | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) |
+//! | [`seven_equation::SevenEquation1d`] (gh:#1059) | 7 | dynamic | yes, and **two pressures** with a volume-fraction equation (hyperbolic) |
 //!
 //! That is the standard system-code ladder — each rung relaxes one assumption
-//! of the rung below and costs one more transported field per phase.
+//! of the rung below and costs one more transported field per phase. The
+//! seven-equation rung is explicit (HLLC/Rusanov with stiffened-gas phases),
+//! not semi-implicit, and is described in its own module; the numerical-method
+//! section below is about the drift-flux and six-equation solvers.
 //!
 //! # The trace-back constraint, and exactly how it is honoured
 //!
@@ -156,6 +160,7 @@ pub mod entropy;
 pub mod geometry;
 pub mod interfacial;
 pub mod properties;
+pub mod seven_equation;
 pub mod two_fluid;
 pub mod wall_heat;
 
@@ -163,6 +168,7 @@ pub use drift_flux::{DriftFlux1d, DriftFluxReport};
 pub use geometry::Pipe1d;
 pub use interfacial::{DispersedPhase, InterfacialCellState, InterfacialExchange, InterfacialSources};
 pub use properties::{SaturatedProperties, TwoPhaseState};
+pub use seven_equation::{SevenEquation1d, SevenEquationBoundary, SevenEquationReport, SevenEquationState};
 pub use wall_heat::{PhasicWallHeat, WallPhaseState};
 pub use two_fluid::{
     PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidInflow,

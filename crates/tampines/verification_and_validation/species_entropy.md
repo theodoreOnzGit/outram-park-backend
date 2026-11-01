@@ -17,6 +17,10 @@ private, so it is cited by equation number only. Dated 2026-11-01.
   API: `set_noncondensable_mass_fraction`,
   `set_inflow_noncondensable_mass_fraction`, `noncondensable_concentration`,
   `noncondensable_mass_fraction`, `noncondensable_inventory`.
+  **Added with gh:#1059:** the seven-equation model carries the same
+  balance (`c` conserved with the vapour's flux); verified in
+  `seven_equation.md` (closed-tube drift 6.6e-16, pulse centroid / `u t` =
+  1.000018).
 - **The species is a PASSIVE scalar.** The gas equation of state stays
   IAPWS-IF97 steam; the Dalton mixture (steam at its partial pressure plus an
   ideal non-condensable) is not applied, because it would reach every stage of

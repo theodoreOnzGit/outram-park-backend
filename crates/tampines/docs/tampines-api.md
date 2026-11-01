@@ -14594,7 +14594,7 @@ One-dimensional two-phase system-code solvers, reduced from the OUTRAM-FOAM
 
 # What is in here
 
-Two 1-D transient solvers for compressible steam/water pipe flow, one step
+~~Two~~ **Three (gh:#1059, 2026-11-01)** 1-D transient solvers for compressible two-phase pipe flow, one step
 above the [`crate::hem`] homogeneous-equilibrium baseline:
 
 | Solver | Equations | Slip between phases | Thermal non-equilibrium |
@@ -14611,9 +14611,13 @@ closure), from `tampines_steam_tables::hem`; its stability work is epic
 gh:#896.
 | [`drift_flux::DriftFlux1d`] | 4 | **algebraic** (`u_g − j = U_dm`) | none |
 | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) |
+| [`seven_equation::SevenEquation1d`] (gh:#1059) | 7 | dynamic | yes, and **two pressures** with a volume-fraction equation (hyperbolic) |
 
 That is the standard system-code ladder — each rung relaxes one assumption
-of the rung below and costs one more transported field per phase.
+of the rung below and costs one more transported field per phase. The
+seven-equation rung is explicit (HLLC/Rusanov with stiffened-gas phases),
+not semi-implicit, and is described in its own module; the numerical-method
+section below is about the drift-flux and six-equation solvers.
 
 # The trace-back constraint, and exactly how it is honoured
 
@@ -15684,6 +15688,403 @@ far below any pressure difference a gauge comparison resolves.
 
 ```rust
 pub const DEFAULT_OUTER_TOLERANCE: f64 = 1.0;
+```
+
+## Module `entropy`
+
+Interfacial entropy production and the phasic entropy diagnostic
+(gh:#1064; RELAP-7 Theory Manual §2.1.1 Eqs 18, 23 and §3.1.8
+Eqs 149–155). AI draft, clean room: the manual is private, so only its
+equation numbers are cited; every formula below is derived here from the
+equations [`super::two_fluid::TwoFluid1d`] actually solves.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+# What is checked
+
+The averaged second law (Eq 155) requires the entropy the interfacial
+exchange produces to be non-negative. For the six-equation model the
+interface stores no entropy, so everything the exchange puts into the two
+phases' entropy equations is production. Take phase `k`'s mass source
+`Γ_k` (`Γ_g = Γ = −Γ_l`), its static-enthalpy source
+`Q_k + Γ_k h_k^sat + W_k` (the terms [`super::two_fluid`] adds, with `W_k`
+the friction work and the `½ (u_int − u_k)²` the transferred mass carries,
+both from `two_fluid::interface_work`), and Gibbs at constant
+pressure, `T_k ds_k = dh_k`. Phase `k`'s entropy then gains
+`Γ_k s_k + (Q_k + Γ_k (h_k^sat − h_k) + W_k) / T_k` per unit volume, and
+the sum over both phases is
+
+`σ = Σ_k Q_k/T_k + Γ (s_g − s_l) + Γ ((h_g^sat − h_g)/T_g − (h_f^sat − h_l)/T_l) + Σ_k W_k/T_k`.
+
+Using the interfacial energy jump `Γ h_fg = −(Q_g + Q_l)` that
+[`super::interfacial`] closes `Γ` with, this splits exactly into
+
+| term | expression | sign |
+|---|---|---|
+| heat transfer | `Σ_k Q_k (1/T_k − 1/T_sat)` | `≥ 0`: `Q_k = K_k (T_sat − T_k)`, `K_k ≥ 0` |
+| phase change | `Γ (φ_g − φ_l)`, `φ_k = (s_k − s_k^sat) − (h_k − h_k^sat)/T_k` | not signed; `φ_k` is second order in `T_k − T_sat`, so the term can outweigh the heat term when `Γ` is driven by one phase and the other is far from saturation (measured: see below) |
+| saturation consistency | `Γ ((s_g^sat − s_f^sat) − h_fg/T_sat)` | zero for an exactly consistent EOS |
+| drag | `Σ_k F_k (u_int − u_k)/T_k` | `≥ 0` for any `u_int` between `u_l` and `u_g` |
+| mass-transfer kinetic | `Σ_k Γ_k ½ (u_int − u_k)²/T_k` | **not signed** for the mass-weighted `u_int` |
+
+The saturation-consistency term is IF97's, not the closure's: the
+Region-4 saturation line is a separate fit, so the Region-1 and Region-2
+Gibbs energies are equal on it only to the fit's accuracy. It is reported
+separately so that it cannot hide inside the closure terms.
+
+The kinetic term: with `w = u_g − u_l` and `x = m_g/(m_g + m_l)`, the
+mass-weighted `u_int = u_l + x w` gives, at equal phase temperatures,
+`Γ w² (1 − 2x) / (2T)`, which is **negative for condensation (`Γ < 0`)
+wherever the vapour holds less than half the mass**. The donor-velocity
+ablation (`u_int` = the losing phase's velocity) gives `|Γ| w² / (2T) ≥ 0`.
+Whether Eq 200's `u_int` is the mass-weighted one was not re-checked
+against the manual (see [`super::two_fluid`]); the sign finding is
+algebra on the `u_int` this code uses.
+
+**Measured (2026-11-01, `tests::every_interfacial_closure_produces_non_negative_entropy_over_a_sweep`):**
+heat transfer, drag and the donor kinetic term are never negative; the
+total is negative at 4 of 10 872 swept states with the defaults, all with
+the vapour 100 K superheated against subcooled liquid at 15 MPa. **The
+closures as they stand do not satisfy Eq 155 everywhere**; the record is
+`crates/tampines/verification_and_validation/species_entropy.md`.
+
+**What the check does not cover.** [`super::two_fluid::TwoFluid1d`] makes
+the heat fluxes implicit (`Q_k^imp = (T_sat − T_k)/(1/K_k + Δt/(m_k c_p))`)
+and may rate-limit `Γ` together with both `Q_k`; both keep
+`Q_k (T_sat − T_k) ≥ 0` and the energy jump, so the signs above carry over,
+but the check here evaluates the closures themselves, not the stepped
+values.
+
+```rust
+pub mod entropy { /* ... */ }
+```
+
+### Types
+
+#### Struct `InterfaceWorkTerms`
+
+Which interface-work terms the solver applies, mirroring
+[`super::two_fluid::TwoFluid1d`]'s gh:#1060 defaults and ablations.
+
+```rust
+pub struct InterfaceWorkTerms {
+    pub interface_velocity: bool,
+    pub total_enthalpy_mass_transfer: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `interface_velocity` | `bool` | Mass-weighted `u_int` with friction work (default `true`; `false` is<br>[`super::two_fluid::TwoFluid1d::without_interface_velocity`]). |
+| `total_enthalpy_mass_transfer` | `bool` | Transferred mass carries `H_int` (default `true`; `false` is<br>[`super::two_fluid::TwoFluid1d::without_total_enthalpy_mass_transfer`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `InterfacialEntropyProduction`
+
+The interfacial entropy production of one cell \[W/(m³·K)\], term by term
+(see the module docs for each expression and its expected sign).
+
+```rust
+pub struct InterfacialEntropyProduction {
+    pub heat_transfer: f64,
+    pub phase_change: f64,
+    pub saturation_consistency: f64,
+    pub drag: f64,
+    pub mass_transfer_kinetic: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heat_transfer` | `f64` | `Σ_k Q_k (1/T_k − 1/T_sat)`. |
+| `phase_change` | `f64` | `Γ (φ_g − φ_l)`. |
+| `saturation_consistency` | `f64` | `Γ ((s_g^sat − s_f^sat) − h_fg/T_sat)`: the equation of state's own<br>saturation inconsistency, not the closure's. |
+| `drag` | `f64` | Friction work at `u_int`, `Σ_k F_k (u_int − u_k)/T_k`. |
+| `mass_transfer_kinetic` | `f64` | `Σ_k Γ_k ½ (u_int − u_k)²/T_k`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total(self: Self) -> f64 { /* ... */ }
+  ```
+  The sum of every term: the entropy production Eq 155 requires to be
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `phase_entropies`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Specific entropies `(s_g, s_l)` \[J/(kg·K)\] of vapour at `(p, t_g)` and
+liquid at `(p, t_l)`, from IAPWS-IF97 Region 2 and Region 1 (the liquid's
+metastable continuation where `t_l > T_sat`), the same equations
+[`PhaseState`] inverts. Raw SI: `p` \[Pa\], temperatures \[K\].
+
+```rust
+pub fn phase_entropies(p: f64, t_g: f64, t_l: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `interfacial_entropy_production`
+
+Evaluate the interfacial entropy production for the closure output
+`sources` at the cell state `cell` (gh:#1064, RELAP-7 Eq 155).
+
+`saturated` must be at `cell.pressure`. Raw SI throughout; the result is
+in W/(m³·K).
+
+# Errors
+
+As [`PhaseState::vapour_at`] / [`PhaseState::liquid_at`] for a phase
+enthalpy outside the metastable brackets.
+
+```rust
+pub fn interfacial_entropy_production(cell: super::interfacial::InterfacialCellState, sources: &super::interfacial::InterfacialSources, saturated: super::properties::SaturatedProperties, terms: InterfaceWorkTerms) -> Result<InterfacialEntropyProduction, crate::TampinesError> { /* ... */ }
 ```
 
 ## Module `geometry`
@@ -17008,6 +17409,11 @@ pub struct InterfacialExchange {
   Which interfacial-area model is active.
 
 - ```rust
+  pub fn interfacial_area_concentration(self: &Self, void: f64) -> Result<f64, TampinesError> { /* ... */ }
+  ```
+  The interfacial area concentration `A_int` \[1/m\] this closure set
+
+- ```rust
   pub fn bubbly(diameter: Length) -> Result<Self, TampinesError> { /* ... */ }
   ```
   The conventional **bubbly-flow** closure set: Schiller-Naumann drag,
@@ -18179,6 +18585,1732 @@ expensive property call in this module.
 pub const TRANSPORT_CACHE_TOLERANCE: f64 = 1.0e-2;
 ```
 
+## Module `seven_equation`
+
+The 1-D **seven-equation two-pressure** two-phase model (gh:#1059; RELAP-7
+Theory Manual §3.1.3–3.1.11, Eqs 115–190, and §3.2.1, Eqs 191–198 with
+Remarks 1–2). AI draft, clean room: the manual is private, so only section
+and equation numbers are cited; nothing is transcribed from RELAP-7 source.
+The numerical scheme follows the published Saurel & Abgrall (1999),
+"A multiphase Godunov method for compressible multifluid and multiphase
+flows", *J. Comput. Phys.* 150, 425–467.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+# Where it sits
+
+One rung above [`super::two_fluid::TwoFluid1d`] (six equations, one
+pressure, virtual-mass regularised and **not** hyperbolic): each phase has
+its own pressure, and the volume fraction has its own evolution equation,
+so the system is hyperbolic for every state, with real characteristic
+speeds `u_k ± c_k`, `u_k` (each phase) and `u_int`
+([`characteristic_speeds`]). Searched first (2026-11-01): no crate in the
+workspace implements a seven-equation, Baer–Nunziato, Saurel–Abgrall or
+Kapila model (`grep -ri "baer\|nunziato\|kapila\|seven.equation"`); HRM
+exists only in 3-D CFD.
+
+# The equations (quasi-1-D, area `A(x)`, `k ∈ {v, l}`, `α_l = 1 − α_v`)
+
+- volume fraction: `∂α_v/∂t + u_int ∂α_v/∂x = μ (p_v − p_l)`
+- mass: `∂(α_k ρ_k A)/∂t + ∂(α_k ρ_k u_k A)/∂x = 0` (± `Γ`, see below)
+- momentum: `∂(α_k ρ_k u_k A)/∂t + ∂(α_k A (ρ_k u_k² + p_k))/∂x =
+  p_int A ∂α_k/∂x + p_k α_k ∂A/∂x + α_k ρ_k g_x A ± λ (u_j − u_k) A`
+- total energy: `∂(α_k ρ_k E_k A)/∂t + ∂(α_k u_k A (ρ_k E_k + p_k))/∂x =
+  p_int u_int A ∂α_k/∂x − p_int μ (p_k − p_j) A + λ u_int (u_j − u_k) A
+  + α_k ρ_k u_k g_x A`
+- species (gh:#1064, Eqs 128–132): `∂(α_v ρ_v Y A)/∂t + ∂(α_v ρ_v u_v Y A)/∂x = 0`
+
+Each phase is a stiffened gas (`p = (γ − 1) ρ (e − q) − γ p∞`), the reused
+[`StiffenedGasHem`] pair of gh:#1057.
+
+# Interfacial pressure and velocity ([`InterfacialVariables`], Eqs 191–196)
+
+- [`ImpedanceWeighted`](InterfacialVariables::ImpedanceWeighted)
+  (**default**), the discrete-equation-method form with `Z_k = ρ_k c_k`:
+  `u_int = (Z_l u_l + Z_v u_v)/(Z_l + Z_v) + s (p_v − p_l)/(Z_l + Z_v)`,
+  `p_int = (Z_l p_v + Z_v p_l)/(Z_l + Z_v) + s Z_l Z_v (u_v − u_l)/(Z_l + Z_v)`,
+  `s = sgn(∂α_l/∂x)`. These are the acoustic (linearised) solution of the
+  Riemann problem between the two phases; the `s` terms are
+  [`SevenEquation1d::without_interface_sign_terms`]'s ablation.
+- [`BaerNunziato`](InterfacialVariables::BaerNunziato): `u_int` the
+  velocity of the denser (liquid) phase, `p_int` the pressure of the other.
+- [`SaurelAbgrall`](InterfacialVariables::SaurelAbgrall) (their 1999
+  choice): `p_int = Σ α_k p_k`, `u_int` the mass-weighted velocity.
+
+# Relaxation (Eqs 197–198)
+
+`μ = A_int/(Z_l + Z_v)`, `λ = ½ μ Z_l Z_v`, with `A_int` from the gh:#1060
+regime map ([`InterfacialExchange::interfacial_area_concentration`]).
+Each is [`Relaxation::Finite`] by default (on), can be made
+[`Relaxation::Instantaneous`] (the stiff `μ, λ → ∞` operator), or ablated
+([`SevenEquation1d::without_pressure_relaxation`],
+[`SevenEquation1d::without_velocity_relaxation`]).
+
+- **Velocity**, solved exactly: the slip `w = u_v − u_l` decays as
+  `exp(−λ (1/m_v + 1/m_l) t)` at fixed mixture momentum; the work
+  `∫ u_int d(m_v u_v)` is integrated in closed form with `u_int` written
+  as `u_eq + β' w` (its sign term dropped), so total energy is conserved
+  exactly and each phase's internal energy rises (shown in the code).
+- **Pressure**, finite: one backward-Euler step for `α_v` with
+  `m_k de_k = −p_int dα_k`, where `p_int = w p_v' + (1 − w) p_l'` is the
+  interfacial weight of the chosen [`InterfacialVariables`] (frozen at the
+  start, sign terms dropped) applied to the **end-of-step** pressures; the
+  stiffened-gas law makes the end pressures a 2×2 linear system, and the
+  scalar root in `α_v` is bracketed between the start and the
+  instantaneous equilibrium and solved with PETIR's Brent. Taking `p_int`
+  between the end pressures is what makes each phase's entropy change
+  non-negative (`T_k ds_k = (p_k − p_int) dv_k` along a monotone path);
+  the first version froze `p_int` at the start and lost entropy at the
+  `1e-8` level (measured, V&V record). Instantaneous: the stiffened-gas
+  closed form with `p_int = p*` (the relaxed pressure), a quadratic in
+  `p*` polished by two Newton steps (Saurel, Petitpas & Berry 2009,
+  *J. Comput. Phys.* 228, 1678–1712, §3.2). Both conserve total energy
+  exactly.
+
+**Remark 1 limit.** With both instantaneous the model tends to Kapila's
+five-equation model (one pressure, one velocity, two temperatures), whose
+sound speed is Wood's. Adding [`MassTransfer::Instantaneous`] (opt-in, see
+below) relaxes temperatures and Gibbs energies too, which is HEM.
+
+**Remark 2.** Relaxing the pressures alone, with `λ = 0`, leaves the
+single-pressure two-velocity system, whose characteristic speeds are
+complex at any slip: [`single_pressure_characteristic_speeds`].
+
+# Mass transfer ([`MassTransfer`])
+
+Only the instantaneous thermo-chemical relaxation is implemented: after
+the mechanical relaxation, a two-phase or metastable cell is taken to
+`T_v = T_l = T_sat(p)` at fixed mixture density and internal energy
+(Saurel, Petitpas & Abgrall 2008, *J. Fluid Mech.* 607, 313–350). It is
+**off by default** and that is deliberate, not a missing default: it is an
+equilibrium limit (HEM), not the finite-rate interfacial heat and mass
+transfer RELAP-7 carries, which is not implemented here.
+
+# Numerical method
+
+Explicit finite volume, Godunov splitting: the hyperbolic step, then the
+relaxation operators cell by cell (instantaneous ones after each SSP-RK2
+stage, since they are idempotent; finite-rate ones once per step).
+
+- **Flux** ([`FluxScheme`]): HLLC per phase (default; Toro 2009 §10.4) on
+  that phase's Euler system, multiplied by one face volume fraction
+  upwinded on the face `u_int` (the same `α` enters the `α` equation and
+  the non-conservative terms); or, as the ablation
+  [`SevenEquation1d::without_hllc`], Saurel & Abgrall's (1999) Rusanov
+  form with ONE wave-speed bound `S = max_k max(|u_k| + c_k)` for every
+  equation including `α`, and centred `ᾱ = ½(α_L + α_R)`. Rusanov diffuses
+  `α` at the liquid sound speed, which in the first runs smeared the
+  faucet front over metres and made a trace phase at a void step lose
+  positivity within one stage; HLLC was adopted for that reason (V&V
+  record).
+- **Non-conservative terms**, discretised so that a uniform pressure and
+  velocity stay uniform across a volume-fraction discontinuity (Abgrall's
+  criterion, the property Saurel & Abgrall build on): `∂α/∂x` from the
+  SAME face `α` the phase fluxes use, and the `α` equation in the form
+  `∂α/∂t + ∂(α u_int)/∂x − α ∂u_int/∂x = …`. The proof is a few lines:
+  at uniform `(p, u)` the phase momentum flux is `u` × the mass flux plus
+  `p α_face`, which `p_int Δα_face` cancels when `p_int = p`; the
+  internal-energy flux is `ρe_k` × the `α` flux. Pinned by
+  `seven_equation::tests::uniform_pressure_and_velocity_survive_a_void_discontinuity`.
+- **Reconstruction**: MUSCL with the minmod limiter on the primitive
+  variables `(α_v, ρ_k, u_k, p_k, Y)` (default), or first order.
+- **Time**: SSP-RK2 (Heun), adaptive `Δt` from the Courant number.
+- **Area**: the momentum source is
+  `p_int Δ(ᾱ A) + (p_k − p_int) α_k ΔA`, which is exactly
+  `p_int A ∂α + p_k α ∂A` and keeps a fluid at rest in a variable-area duct
+  at rest.
+
+# Honest scope
+
+- No wall friction, wall heat or finite-rate mass transfer.
+- **`p_int` is cell-centred.** At a material interface with a large
+  pressure jump and trace phases (Saurel & Abgrall's water–air shock tube,
+  1e9 | 1e5 Pa), the water flux enters the air-side cell with `α_l ≈ 1`
+  while the cell's `p_int` is near the air pressure, and the water trace
+  there loses positivity in the first stage: the run is **refused**
+  (pinned by
+  `tests::the_water_air_interface_shock_tube_is_refused_by_cell_centred_p_int`).
+  Face-based interfacial pressures (the discrete equation method of
+  Abgrall & Saurel 2003) would be needed and are not implemented.
+- The HLLC acoustic dissipation is still large at low Mach number; void
+  fronts are smeared over a few cells (faucet record). Where the Davis
+  wave speeds put the HLLC contact outside `[S_L, S_R]` (a strong
+  rarefaction) that phase's face flux falls back to Rusanov.
+- **HLLC loses a trace phase's positivity beside a flashing cell**: the
+  Edwards blowdown in the HEM limit is refused at 0.44 ms with the HLLC
+  default and is run with [`SevenEquation1d::without_hllc`] (V&V record).
+- The water/steam pair of Le Métayer et al. (2004) puts `T_sat` 15–35 K
+  below IAPWS-IF97 (gh:#1057), so a water/steam result here inherits that
+  offset; the Edwards record states what it does to the plateau.
+- Boundaries are ghost cells: wall, transmissive, velocity inlet with a
+  prescribed state, and a static-pressure outlet. There is no critical-flow
+  break model; a pressure outlet chokes only as the scheme does.
+
+# Units
+
+Constructors and accessors are `uom`-typed where a quantity crosses the
+API; per-cell state and the inner loops are raw SI (Pa, kg/m³, m/s, J/kg),
+as in [`super::two_fluid`].
+
+```rust
+pub mod seven_equation { /* ... */ }
+```
+
+### Types
+
+#### Struct `SevenEquationState`
+
+The primitive state of one cell.
+
+Raw SI fields (this is a marching-loop type, as
+[`super::interfacial::InterfacialCellState`]); build it from `uom`
+quantities with [`new`](Self::new) or [`at_temperatures`](Self::at_temperatures).
+
+```rust
+pub struct SevenEquationState {
+    pub void_fraction: f64,
+    pub vapour_density: f64,
+    pub vapour_velocity: f64,
+    pub vapour_pressure: f64,
+    pub liquid_density: f64,
+    pub liquid_velocity: f64,
+    pub liquid_pressure: f64,
+    pub noncondensable_mass_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `void_fraction` | `f64` | Vapour (gas) volume fraction `α_v` \[-\]. |
+| `vapour_density` | `f64` | Vapour density `ρ_v` \[kg/m³\]. |
+| `vapour_velocity` | `f64` | Vapour velocity `u_v` \[m/s\]. |
+| `vapour_pressure` | `f64` | Vapour pressure `p_v` \[Pa\]. |
+| `liquid_density` | `f64` | Liquid density `ρ_l` \[kg/m³\]. |
+| `liquid_velocity` | `f64` | Liquid velocity `u_l` \[m/s\]. |
+| `liquid_pressure` | `f64` | Liquid pressure `p_l` \[Pa\]. |
+| `noncondensable_mass_fraction` | `f64` | Non-condensable mass fraction of the gas `Y` \[-\] (gh:#1064). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(void_fraction: Ratio, vapour_density: MassDensity, liquid_density: MassDensity, pressure: Pressure, velocity: Velocity) -> Self { /* ... */ }
+  ```
+  A state from `uom` quantities, both phases at pressure `pressure` and
+
+- ```rust
+  pub fn at_temperatures(eos: &StiffenedGasPair, void_fraction: Ratio, pressure: Pressure, vapour_temperature: ThermodynamicTemperature, liquid_temperature: ThermodynamicTemperature, velocity: Velocity) -> Self { /* ... */ }
+  ```
+  A mechanical-equilibrium state at `pressure`, each phase at its own
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `InterfacialVariables`
+
+Interfacial pressure and velocity (RELAP-7 Eqs 191–196).
+
+```rust
+pub enum InterfacialVariables {
+    ImpedanceWeighted,
+    BaerNunziato,
+    SaurelAbgrall,
+}
+```
+
+##### Variants
+
+###### `ImpedanceWeighted`
+
+Acoustic-impedance weighted (discrete equation method). Default.
+
+###### `BaerNunziato`
+
+Baer–Nunziato: `u_int = u_l`, `p_int = p_v` (liquid as the dense phase).
+
+###### `SaurelAbgrall`
+
+Saurel–Abgrall (1999): `p_int = Σ α_k p_k`, `u_int` mass weighted.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Relaxation`
+
+How a relaxation process is applied.
+
+```rust
+pub enum Relaxation {
+    Off,
+    Finite,
+    Instantaneous,
+}
+```
+
+##### Variants
+
+###### `Off`
+
+Not applied (an ablation).
+
+###### `Finite`
+
+At the finite rate of RELAP-7 Eqs 197–198. Default.
+
+###### `Instantaneous`
+
+Stiff, `μ` or `λ → ∞`: to equilibrium within each step.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MassTransfer`
+
+Interphase mass transfer.
+
+```rust
+pub enum MassTransfer {
+    None,
+    Instantaneous,
+}
+```
+
+##### Variants
+
+###### `None`
+
+None. Default (see the module docs for why).
+
+###### `Instantaneous`
+
+Instantaneous thermo-chemical relaxation to saturation (HEM limit).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `InterfacialAreaSource`
+
+Where the interfacial area concentration comes from.
+
+```rust
+pub enum InterfacialAreaSource {
+    Exchange(super::interfacial::InterfacialExchange),
+    Constant(f64),
+}
+```
+
+##### Variants
+
+###### `Exchange`
+
+The gh:#1060 closure set's area (regime map by default).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::interfacial::InterfacialExchange` |  |
+
+###### `Constant`
+
+A constant `A_int` \[1/m\].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SevenEquationBoundary`
+
+A ghost-cell boundary condition.
+
+```rust
+pub enum SevenEquationBoundary {
+    Wall,
+    Transmissive,
+    VelocityInlet(SevenEquationState),
+    PressureOutlet {
+        pressure: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Wall`
+
+Rigid wall: velocities mirrored.
+
+###### `Transmissive`
+
+Zero gradient.
+
+###### `VelocityInlet`
+
+Prescribed inflow state (volume fraction, densities, velocities, `Y`);
+each phase's pressure is extrapolated from the adjacent cell.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SevenEquationState` |  |
+
+###### `PressureOutlet`
+
+Static pressure \[Pa\] on both phases; everything else extrapolated.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure` | `f64` | Static pressure \[Pa\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `FluxScheme`
+
+The numerical flux of the hyperbolic step.
+
+```rust
+pub enum FluxScheme {
+    Hllc,
+    Rusanov,
+}
+```
+
+##### Variants
+
+###### `Hllc`
+
+HLLC per phase (Toro, Spruce & Speares 1994; Toro 2009 §10.4), `α`
+upwinded on the face `u_int`. Default.
+
+###### `Rusanov`
+
+Rusanov with one wave-speed bound for every equation and centred `ᾱ`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SevenEquationReport`
+
+What one [`SevenEquation1d::step`] did.
+
+```rust
+pub struct SevenEquationReport {
+    pub time: f64,
+    pub dt: f64,
+    pub max_pressure_disequilibrium: f64,
+    pub max_slip: f64,
+    pub min_void_fraction: f64,
+    pub max_void_fraction: f64,
+    pub mass_transfer_cells: usize,
+    pub mass_transfer_skipped_cells: usize,
+    pub max_saturation_departure: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time` | `f64` | Time at the end of the step \[s\]. |
+| `dt` | `f64` | The step taken \[s\]. |
+| `max_pressure_disequilibrium` | `f64` | Largest `|p_v − p_l|` after relaxation \[Pa\]. |
+| `max_slip` | `f64` | Largest `|u_v − u_l|` after relaxation \[m/s\]. |
+| `min_void_fraction` | `f64` | Smallest and largest `α_v`. |
+| `max_void_fraction` | `f64` | Largest `α_v`. |
+| `mass_transfer_cells` | `usize` | Cells taken to saturation by the mass-transfer operator. |
+| `mass_transfer_skipped_cells` | `usize` | Two-phase or metastable cells where the operator found no admissible<br>equilibrium (the equilibrium quality outside `(0, 1)`, i.e. one phase<br>would have to vanish, or no bracket) and left the cell as it was. |
+| `max_saturation_departure` | `f64` | Largest `|T_k − T_sat(p)|` \[K\] over the cells the operator acted on,<br>after it acted: the HEM-state check. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SevenEquation1d`
+
+The seven-equation two-pressure solver. See the module docs.
+
+```rust
+pub struct SevenEquation1d {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(pipe: Pipe1d, eos: StiffenedGasPair, initial: &[SevenEquationState]) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Build a solver on `pipe` with the stiffened-gas pair `eos` and one
+
+- ```rust
+  pub fn set_state(self: &mut Self, states: &[SevenEquationState]) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Overwrite every cell's state.
+
+- ```rust
+  pub fn without_pressure_relaxation(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: no pressure relaxation (`μ = 0`).
+
+- ```rust
+  pub fn without_velocity_relaxation(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: no velocity relaxation (`λ = 0`).
+
+- ```rust
+  pub fn without_interface_sign_terms(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: drop the `sgn(∂α_l/∂x)` terms of the impedance-weighted
+
+- ```rust
+  pub fn without_regime_map(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: the regime-map interfacial area replaced by the fixed
+
+- ```rust
+  pub fn without_hllc(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: the Rusanov (local Lax–Friedrichs) flux with centred
+
+- ```rust
+  pub fn flux_scheme(self: &Self) -> FluxScheme { /* ... */ }
+  ```
+  The flux scheme in use.
+
+- ```rust
+  pub fn without_muscl(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: first-order (piecewise-constant) reconstruction.
+
+- ```rust
+  pub fn with_instantaneous_relaxation(self: Self) -> Self { /* ... */ }
+  ```
+  Both relaxations stiff (`μ, λ → ∞`): the Kapila five-equation limit
+
+- ```rust
+  pub fn with_pressure_relaxation(self: Self, r: Relaxation) -> Self { /* ... */ }
+  ```
+  Set the pressure relaxation mode.
+
+- ```rust
+  pub fn with_velocity_relaxation(self: Self, r: Relaxation) -> Self { /* ... */ }
+  ```
+  Set the velocity relaxation mode.
+
+- ```rust
+  pub fn with_instantaneous_mass_transfer(self: Self) -> Self { /* ... */ }
+  ```
+  Instantaneous thermo-chemical relaxation (with instantaneous
+
+- ```rust
+  pub fn with_interfacial_variables(self: Self, v: InterfacialVariables) -> Self { /* ... */ }
+  ```
+  Choose the interfacial pressure and velocity (Eqs 191–196).
+
+- ```rust
+  pub fn with_constant_interfacial_area(self: Self, a_int: f64) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  A constant interfacial area concentration \[1/m\] instead of the
+
+- ```rust
+  pub fn set_time_step_control(self: &mut Self, courant: f64, max_dt: Time) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the Courant number and the largest step.
+
+- ```rust
+  pub fn set_left_boundary(self: &mut Self, bc: SevenEquationBoundary) { /* ... */ }
+  ```
+  Set the left boundary.
+
+- ```rust
+  pub fn set_right_boundary(self: &mut Self, bc: SevenEquationBoundary) { /* ... */ }
+  ```
+  Set the right boundary.
+
+- ```rust
+  pub fn set_right_face_area_fraction(self: &mut Self, fraction: f64) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Scale the right end face's area by `fraction` (a break opening).
+
+- ```rust
+  pub fn time(self: &Self) -> Time { /* ... */ }
+  ```
+  Current time.
+
+- ```rust
+  pub fn pipe(self: &Self) -> &Pipe1d { /* ... */ }
+  ```
+  The pipe.
+
+- ```rust
+  pub fn eos(self: &Self) -> &StiffenedGasPair { /* ... */ }
+  ```
+  The equation of state.
+
+- ```rust
+  pub fn pressure_relaxation(self: &Self) -> Relaxation { /* ... */ }
+  ```
+  Pressure relaxation mode.
+
+- ```rust
+  pub fn velocity_relaxation(self: &Self) -> Relaxation { /* ... */ }
+  ```
+  Velocity relaxation mode.
+
+- ```rust
+  pub fn mass_transfer(self: &Self) -> MassTransfer { /* ... */ }
+  ```
+  Mass-transfer mode.
+
+- ```rust
+  pub fn interfacial_variables(self: &Self) -> InterfacialVariables { /* ... */ }
+  ```
+  Interfacial-variable choice.
+
+- ```rust
+  pub fn uses_interface_sign_terms(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the impedance-weighted sign terms are applied.
+
+- ```rust
+  pub fn uses_muscl(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether MUSCL reconstruction is applied.
+
+- ```rust
+  pub fn states(self: &Self) -> Result<Vec<SevenEquationState>, TampinesError> { /* ... */ }
+  ```
+  Primitive state of every cell.
+
+- ```rust
+  pub fn conserved_state(self: &Self) -> &[[f64; 8]] { /* ... */ }
+  ```
+  The conserved state per unit volume of every cell,
+
+- ```rust
+  pub fn inventories(self: &Self) -> (Mass, Mass, Mass) { /* ... */ }
+  ```
+  Total mass of each phase and of the non-condensable \[kg\]:
+
+- ```rust
+  pub fn total_energy(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total energy in the pipe \[J\], `Σ_i V_i (m_v E_v + m_l E_l)`.
+
+- ```rust
+  pub fn entropy_inventory(self: &Self) -> Result<f64, TampinesError> { /* ... */ }
+  ```
+  The area-averaged entropy inventory \[J/K\] (gh:#1064, RELAP-7 Eqs 18,
+
+- ```rust
+  pub fn temperatures(self: &Self) -> Result<Vec<(f64, f64)>, TampinesError> { /* ... */ }
+  ```
+  Phase temperatures `(T_v, T_l)` \[K\] per cell.
+
+- ```rust
+  pub fn mixture_pressure(self: &Self) -> Result<Vec<f64>, TampinesError> { /* ... */ }
+  ```
+  Mixture pressure `α_v p_v + α_l p_l` \[Pa\] per cell.
+
+- ```rust
+  pub fn relaxation_coefficients(self: &Self, state: &SevenEquationState) -> Result<(f64, f64), TampinesError> { /* ... */ }
+  ```
+  The relaxation coefficients `(μ, λ)` of RELAP-7 Eqs 197–198 at a state
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<SevenEquationReport, TampinesError> { /* ... */ }
+  ```
+  Advance one adaptive step: SSP-RK2 hyperbolic step, then velocity
+
+- ```rust
+  pub fn run_until(self: &mut Self, t_end: Time) -> Result<usize, TampinesError> { /* ... */ }
+  ```
+  Step until `t_end` (the last step is shortened to land on it).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `characteristic_speeds`
+
+The seven characteristic speeds of the hyperbolic part \[m/s\]:
+`u_v − c_v, u_v, u_v + c_v, u_l − c_l, u_l, u_l + c_l, u_int`, all real for
+every admissible state (the model's hyperbolicity). `u_int` is the
+impedance-weighted one without its sign term.
+
+# Errors
+
+[`TampinesError::Unphysical`] for an inadmissible state.
+
+```rust
+pub fn characteristic_speeds(eos: &tampines_steam_tables::hem::StiffenedGasPair, state: &SevenEquationState) -> Result<[f64; 7], crate::TampinesError> { /* ... */ }
+```
+
+#### Function `single_pressure_characteristic_speeds`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+
+The four acoustic/void characteristic speeds of the **single-pressure,
+two-velocity** system that relaxing `μ` alone leaves (RELAP-7 Remark 2):
+the roots `λ` of
+
+`α_v ρ_l (u_l − λ)² ((u_v − λ)² − c_v²)/c_v² + α_l ρ_v (u_v − λ)² ((u_l − λ)² − c_l²)/c_l² = 0`,
+
+derived here from the linearised phase mass and momentum equations with a
+common pressure, `p_int = p` and isentropic phases (plane wave
+`exp(i k (x − λ t))`; the entropy waves at `u_k` are separate). Roots from
+PETIR's companion-matrix solver; each is `(re, im)` \[m/s\]. A non-zero
+imaginary part means the initial-value problem is ill posed: a short-wave
+perturbation grows as `exp(k |im| t)`, faster for every shorter wave.
+
+# Errors
+
+[`TampinesError::InvalidInput`] for non-positive densities or sound speeds
+or a volume fraction outside `(0, 1)`.
+
+```rust
+pub fn single_pressure_characteristic_speeds(void_fraction: f64, vapour_density: f64, liquid_density: f64, vapour_sound_speed: f64, liquid_sound_speed: f64, vapour_velocity: f64, liquid_velocity: f64) -> Result<Vec<(f64, f64)>, crate::TampinesError> { /* ... */ }
+```
+
+#### Function `wood_sound_speed`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Wood's mixture sound speed \[m/s\], `1/(ρ c²) = Σ_k α_k/(ρ_k c_k²)` — the
+sound speed of Kapila's five-equation model, the `μ, λ → ∞` limit
+(RELAP-7 Remark 1).
+
+```rust
+pub fn wood_sound_speed(void_fraction: f64, vapour_density: f64, liquid_density: f64, vapour_sound_speed: f64, liquid_sound_speed: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `N_CONSERVED`
+
+Number of conserved quantities per cell: `α_v`, `(m, m u, m E)` per
+phase, and the non-condensable concentration `c = α_v ρ_v Y`.
+
+```rust
+pub const N_CONSERVED: usize = 8;
+```
+
+#### Constant `DEFAULT_COURANT`
+
+Default Courant number for the explicit march.
+
+```rust
+pub const DEFAULT_COURANT: f64 = 0.4;
+```
+
+#### Constant `MIN_VOLUME_FRACTION`
+
+Smallest volume fraction a phase may hold \[-\]. A state that drives a
+phase below it is **refused**, not clipped; initial states carry a trace
+of the absent phase above it.
+
+```rust
+pub const MIN_VOLUME_FRACTION: f64 = 1.0e-12;
+```
+
+#### Constant `TRACE_VOLUME_FRACTION`
+
+Below this volume fraction a phase counts as a trace for the
+thermo-chemical relaxation: it is not forced to saturation unless it is
+metastable \[-\].
+
+```rust
+pub const TRACE_VOLUME_FRACTION: f64 = 1.0e-4;
+```
+
 ## Module `two_fluid`
 
 The 1-D **six-equation two-fluid** solver — separate mass, momentum and
@@ -18460,6 +20592,13 @@ Specific to this one:
   the compliance diagonal — right for a blowdown, wrong for a pipe fed from
   a plenum. [`super::drift_flux`]'s `ReservoirInlet` and `PressureOutlet`
   have no counterpart here yet.
+- **The non-condensable species is passive** (gh:#1064, RELAP-7
+  Eqs 128–132): `c = α_g ρ_g Y` is transported conservatively with the gas
+  and stays out of `Γ`, but the gas EOS remains IF97 steam (no Dalton
+  partial pressure), so it does not affect condensation. See
+  [`TwoFluid1d::set_noncondensable_mass_fraction`] and, for the
+  interfacial second-law check and the entropy diagnostic,
+  [`super::entropy`].
 - **The metastable bounds are the binding constraint on a fast transient.**
   [`super::properties::MAX_METASTABLE_LIQUID_SUPERHEAT`] is 30 K, and a
   depressurisation fast enough to superheat the liquid past that is
@@ -20029,6 +22168,36 @@ pub struct TwoFluid1d {
   Total enthalpy currently in the pipe \[J\], `Σ_i (m_g h_g + m_l h_l)_i V`.
 
 - ```rust
+  pub fn set_noncondensable_mass_fraction(self: &mut Self, y: &[f64]) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the non-condensable mass fraction `Y` of the gas phase, cell by
+
+- ```rust
+  pub fn set_inflow_noncondensable_mass_fraction(self: &mut Self, y: Ratio) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the non-condensable mass fraction `Y` of the gas that enters
+
+- ```rust
+  pub fn noncondensable_concentration(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  Non-condensable mass concentration `c = α_g ρ_g Y` \[kg/m³\] per cell.
+
+- ```rust
+  pub fn noncondensable_mass_fraction(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Non-condensable mass fraction of the gas, `Y = c / (α_g ρ_g)` \[-\],
+
+- ```rust
+  pub fn noncondensable_inventory(self: &Self) -> Mass { /* ... */ }
+  ```
+  Total non-condensable mass in the pipe, `Σ_i c_i V_i`.
+
+- ```rust
+  pub fn entropy_inventory(self: &Self) -> Result<f64, TampinesError> { /* ... */ }
+  ```
+  The area-averaged entropy inventory \[J/K\],
+
+- ```rust
   pub fn outlet_mass_flow(self: &Self) -> MassRate { /* ... */ }
   ```
   Mixture mass flow through the right-hand boundary \[kg/s\], from the
@@ -20956,6 +23125,30 @@ pub use properties::SaturatedProperties;
 
 ```rust
 pub use properties::TwoPhaseState;
+```
+
+#### Re-export `SevenEquation1d`
+
+```rust
+pub use seven_equation::SevenEquation1d;
+```
+
+#### Re-export `SevenEquationBoundary`
+
+```rust
+pub use seven_equation::SevenEquationBoundary;
+```
+
+#### Re-export `SevenEquationReport`
+
+```rust
+pub use seven_equation::SevenEquationReport;
+```
+
+#### Re-export `SevenEquationState`
+
+```rust
+pub use seven_equation::SevenEquationState;
 ```
 
 #### Re-export `PhasicWallHeat`
