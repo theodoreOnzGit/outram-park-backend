@@ -150,7 +150,7 @@ fn a_noncondensable_pulse_advects_with_the_gas_velocity() {
     let x: Vec<f64> = (0..n).map(|i| s.pipe().cell_centre(i)).collect();
     let y0: Vec<f64> = x
         .iter()
-        .map(|xi| 0.01 * petir::mathf::RealMath::r_exp(-0.5 * ((xi - 0.7) / 0.1).powi(2)))
+        .map(|xi| 0.01 * petir::mathf::RealMath::r_exp(-0.5 * petir::mathf::RealMath::r_powi((xi - 0.7) / 0.1, 2)))
         .collect();
     s.set_noncondensable_mass_fraction(&y0).expect("profile");
     s.set_inflow_noncondensable_mass_fraction(Ratio::new::<ratio>(0.0))
