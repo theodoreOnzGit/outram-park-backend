@@ -5089,9 +5089,13 @@ per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
 | RPV leak steam, enthalpy, H2 at `leak_gas_k` | a source in the drywell atmosphere |
 | `vent_ordered` | the vent valve: open once ordered and the rupture disk has burst (`p_ww ≥ vent_rupture_disk_pa`) |
 | `rpv_wall_w` | heat into the drywell atmosphere |
-| `ex_vessel_w`, `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump; the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases) |
+| `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump |
+| ~~`ex_vessel_w` … the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases)~~ | **CORRECTED 2026-11-01 (gh:#1100):** see the next rows |
+| `ex_vessel_w`, `cav_uo2_kg`, `cav_zr_kg`, `cav_debris_k`, `cavity_phases` | sembawang's own [`super::cavity::Cavity`] (MELCOR CAV RM §3, reused, not rewritten): its upward heat into the sump while water lies over the debris (the sump beyond its initial fill), else radiated to the drywell structures; its concrete gases (steam, H2, CO, CO2) into the drywell atmosphere at the ablation temperature ([`NetworkMechanisms::cavity`]) |
+| `vessel_p_pa` and the debris arriving through water | sembawang's FDI fall (`containment::lpme_fall` (crate-private), MELCOR FDI RM §2.2): its heat into the sump ([`NetworkMechanisms::fdi`]) |
+| `dw_wall_outer` | sembawang's drywell slab (`containment::dw_slab_step` (crate-private)) behind the lumped structures ([`NetworkMechanisms::dw_slab`]) |
 | `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
-| fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, MCCI, FDI, `pool_layers`, `dw_wall_outer` | **not mapped**: sembawang's, and not yet on the network |
+| fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, ~~MCCI, FDI,~~ `pool_layers`~~, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above) |
 
 ## Geometry: from `params`, with what had to be assumed marked \[A\]
 
@@ -5452,8 +5456,10 @@ pub struct NetworkConfig {
 - **WasmNotSync**
 #### Struct `NetworkMechanisms`
 
-The network's own mechanisms, all on by default; each `without_*` on
-[`ContainmentNetwork`] is an ablation for attributing a difference.
+The network's own mechanisms, all on by default; ~~each `without_*` on
+[`ContainmentNetwork`] is an ablation~~ (**CORRECTED 2026-11-01**: there
+were no such methods; each field cleared, or the `without_*` builders
+below, is an ablation) for attributing a difference.
 
 ```rust
 pub struct NetworkMechanisms {
@@ -5464,6 +5470,9 @@ pub struct NetworkMechanisms {
     pub bubble_pass_through: bool,
     pub equilibrium_rain_out: bool,
     pub choking: bool,
+    pub cavity: bool,
+    pub fdi: bool,
+    pub dw_slab: bool,
 }
 ```
 
@@ -5478,8 +5487,63 @@ pub struct NetworkMechanisms {
 | `bubble_pass_through` | `bool` | MELCOR's bubble efficiency at submerged ports. |
 | `equilibrium_rain_out` | `bool` | Rain-out to saturation (else sembawang's four passes). |
 | `choking` | `bool` | Choking on every path. |
+| `cavity` | `bool` | sembawang's cavity (MCCI) on the drywell floor (gh:#1100); without<br>it, the debris's heat boils the sump while it holds more than its<br>fill, else goes into the structures (the gh:#1097 mapping). |
+| `fdi` | `bool` | sembawang's FDI fall of arriving debris through the water over the<br>floor (needs `cavity`). |
+| `dw_slab` | `bool` | sembawang's concrete slab behind the drywell structures. |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn without_cavity(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no cavity (nor FDI).
+
+- ```rust
+  pub fn without_fdi(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no FDI fall.
+
+- ```rust
+  pub fn without_dw_slab(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no drywell slab.
+
+- ```rust
+  pub fn without_pressure_work(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no pool compression work.
+
+- ```rust
+  pub fn without_real_steam(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: sembawang's ideal steam.
+
+- ```rust
+  pub fn without_real_liquid(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: sembawang's constant-`c_p` liquid.
+
+- ```rust
+  pub fn without_level_swell(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the collapsed level decides what a port draws.
+
+- ```rust
+  pub fn without_bubble_pass_through(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: `ε = 1` at submerged ports.
+
+- ```rust
+  pub fn without_equilibrium_rain_out(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: sembawang's four rain-out passes.
+
+- ```rust
+  pub fn without_choking(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no choking.
 
 ###### Trait Implementations
 
@@ -5635,6 +5699,15 @@ pub struct NetworkResult {
     pub flange_kg_s: f64,
     pub downcomer_kg_s: f64,
     pub vacuum_breaker_kg_s: f64,
+    pub cav_ablated_kg: f64,
+    pub cav_h2_kg: f64,
+    pub cav_co_kg: f64,
+    pub cav_debris_k: f64,
+    pub fdi_steam_kg: f64,
+    pub dw_co_kg: f64,
+    pub dw_co2_kg: f64,
+    pub dw_wall_k: f64,
+    pub dw_slab_inner_k: f64,
     pub iterations: usize,
     pub residual: f64,
     pub substeps: usize,
@@ -5667,6 +5740,15 @@ pub struct NetworkResult {
 | `flange_kg_s` | `f64` |  |
 | `downcomer_kg_s` | `f64` | Gas through the downcomers (positive into the torus) and the vacuum<br>breakers (into the drywell), kg/s. |
 | `vacuum_breaker_kg_s` | `f64` |  |
+| `cav_ablated_kg` | `f64` | The cavity (gh:#1100): concrete ablated, kg; H2 and CO made there,<br>kg; the debris temperature, K; steam raised by the FDI fall, kg. |
+| `cav_h2_kg` | `f64` |  |
+| `cav_co_kg` | `f64` |  |
+| `cav_debris_k` | `f64` |  |
+| `fdi_steam_kg` | `f64` |  |
+| `dw_co_kg` | `f64` | CO and CO2 in the drywell atmosphere, kg. |
+| `dw_co2_kg` | `f64` |  |
+| `dw_wall_k` | `f64` | The drywell structures' temperature and the slab's inner cell, K. |
+| `dw_slab_inner_k` | `f64` |  |
 | `iterations` | `usize` | Picard iterations this step (summed over sub-steps), the largest<br>residual, and the sub-steps taken so far in the run. |
 | `residual` | `f64` |  |
 | `substeps` | `usize` |  |
@@ -5827,6 +5909,16 @@ pub struct ContainmentNetwork {
   pub fn config(self: &Self) -> NetworkConfig { /* ... */ }
   ```
   The configuration it was built with.
+
+- ```rust
+  pub fn mechanisms(self: &Self) -> NetworkMechanisms { /* ... */ }
+  ```
+  The mechanisms it was built with.
+
+- ```rust
+  pub fn cavity(self: &Self) -> &Cavity { /* ... */ }
+  ```
+  The debris on the drywell floor (sembawang's cavity).
 
 - ```rust
   pub fn wall_temperatures(self: &Self) -> (f64, f64) { /* ... */ }

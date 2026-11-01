@@ -484,7 +484,7 @@ pub(crate) fn bur_cdim(volume_m3: f64) -> f64 {
 }
 
 /// Cells of the concrete slab around the drywell (`dw_wall_outer`).
-const DW_SLAB_CELLS: usize = 10;
+pub(crate) const DW_SLAB_CELLS: usize = 10;
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
 /// pressure).
@@ -584,32 +584,9 @@ impl Containment {
     /// they land at, K.
     fn lpme(&mut self, prm: &Params, s: &ContainmentSnapshot, du: f64, dz: f64, tv: bool) -> f64 {
         let p = self.p_dw(prm);
-        let t_s = t_sat(p);
-        let rho_f = (du + dz) / (du / prm.uo2_density + dz / prm.zr_density);
-        let c_tot = du * prm.uo2_cp + dz * prm.zr_cp;
-        let rho_c = sparc::Pool::submerged(t_s, p, 0.0).rho_l();
-        let u = fdi::ejection_velocity(prm.discharge_coefficient, s.vessel_p_pa - p, rho_f, prm.lp_bottom_level_m);
-        self.fdi_hpme |= u > prm.fdi_hpme_velocity;
-        let fall = fdi::Fall {
-            rho_f,
-            c_f: c_tot / (du + dz),
-            sigma_f: prm.fdi_surface_tension,
-            rho_c,
-            t_c: self.pedestal_t,
-            t_sat: t_s,
-            p_pa: p,
-            u,
-            d0: prm.breach_diameter_m,
-        };
-        let depth = self.pedestal_kg / (rho_c * prm.cavity_area_m2);
-        let t0 = s.cav_debris_k;
-        let mut t_bot = fall.bottom_temperature(t0, depth).min(t0);
-        let dh = pool_surface::steam_h(t_s) - CP_WATER * (self.pedestal_t - 273.15);
-        let mut m = c_tot * (t0 - t_bot) / dh;
-        if m > self.pedestal_kg {
-            m = self.pedestal_kg;
-            t_bot = t0 - m * dh / c_tot;
-        }
+        let f = lpme_fall(prm, s, du, dz, p, self.pedestal_kg, self.pedestal_t);
+        self.fdi_hpme |= f.hpme;
+        let (m, t_s, t_bot) = (f.steam_kg, f.t_sat_k, f.t_bottom_k);
         self.pedestal_kg -= m;
         let e = self.dw_energy(tv) + m * (steam_u(t_s) + R_GAS / M_H2O * t_s);
         self.dw_steam_kg += m;
@@ -722,34 +699,96 @@ impl Containment {
     /// slab of `DW_SLAB_CELLS` cells, and from its outer face to the reactor
     /// building's air at `T_RB`; each face resistance includes half a cell.
     fn dw_slab_step(&mut self, prm: &Params, dt: f64) {
-        let n = DW_SLAB_CELLS;
-        let dx = prm.dw_concrete_m / n as f64;
-        let area = prm.dw_wall_area_m2;
-        let (tw, t0) = (self.dw_wall_t, self.dw_slab[0]);
-        let tm = 0.5 * (tw + t0);
-        let h_gap = air_conductivity(tm) / prm.dw_gap_m + 4.0 * 5.670_374e-8 * tm * tm * tm / (2.0 / prm.dw_gap_emissivity - 1.0);
-        let half = 0.5 * dx / prm.concrete_k;
-        let q_in = area * (tw - t0) / (1.0 / h_gap + half);
-        let q_out = area * (self.dw_slab[n - 1] - T_RB) / (1.0 / prm.rb_wall_h + half);
-        let c_cell = prm.concrete_density * prm.concrete_cp * dx * area;
-        let g = prm.concrete_k / dx * area;
-        let old = self.dw_slab;
-        for i in 0..n {
-            let mut q = 0.0;
-            if i == 0 {
-                q += q_in;
-            } else {
-                q += g * (old[i - 1] - old[i]);
-            }
-            if i == n - 1 {
-                q -= q_out;
-            } else {
-                q -= g * (old[i] - old[i + 1]);
-            }
-            self.dw_slab[i] = old[i] + q * dt / c_cell;
-        }
-        self.dw_wall_t -= q_in * dt / prm.dw_wall_c;
+        dw_slab_step(prm, &mut self.dw_wall_t, &mut self.dw_slab, dt);
     }
+}
+
+/// What debris falling through the pedestal's water does in one step
+/// ([`lpme_fall`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct LpmeFall {
+    /// Pedestal water boiled, kg, at `t_sat_k`, by `dh_j_per_kg` each (`h_g(T_sat)
+    /// − h_pool`, so the heat given up is their product).
+    pub steam_kg: f64,
+    pub t_sat_k: f64,
+    pub dh_j_per_kg: f64,
+    /// The debris's temperature on landing, K.
+    pub t_bottom_k: f64,
+    /// The ejection was fast enough for MELCOR's high-pressure model.
+    pub hpme: bool,
+}
+
+/// `du` kg of UO2 and `dz` of Zr arriving at `s.cav_debris_k` fall through
+/// `pool_kg` of water at `pool_t` K spread over the cavity, at drywell
+/// pressure `p` (MELCOR FDI RM §2.2, see [`fdi`]): what they boil and the
+/// temperature they land at. Moved out of `Containment::lpme` on 2026-11-01
+/// (gh:#1100) so that `containment_network` couples the same code; the
+/// arithmetic is unchanged (the fixture is byte-identical).
+pub(crate) fn lpme_fall(prm: &Params, s: &ContainmentSnapshot, du: f64, dz: f64, p: f64, pool_kg: f64, pool_t: f64) -> LpmeFall {
+    let t_s = t_sat(p);
+    let rho_f = (du + dz) / (du / prm.uo2_density + dz / prm.zr_density);
+    let c_tot = du * prm.uo2_cp + dz * prm.zr_cp;
+    let rho_c = sparc::Pool::submerged(t_s, p, 0.0).rho_l();
+    let u = fdi::ejection_velocity(prm.discharge_coefficient, s.vessel_p_pa - p, rho_f, prm.lp_bottom_level_m);
+    let hpme = u > prm.fdi_hpme_velocity;
+    let fall = fdi::Fall {
+        rho_f,
+        c_f: c_tot / (du + dz),
+        sigma_f: prm.fdi_surface_tension,
+        rho_c,
+        t_c: pool_t,
+        t_sat: t_s,
+        p_pa: p,
+        u,
+        d0: prm.breach_diameter_m,
+    };
+    let depth = pool_kg / (rho_c * prm.cavity_area_m2);
+    let t0 = s.cav_debris_k;
+    let mut t_bot = fall.bottom_temperature(t0, depth).min(t0);
+    let dh = pool_surface::steam_h(t_s) - CP_WATER * (pool_t - 273.15);
+    let mut m = c_tot * (t0 - t_bot) / dh;
+    if m > pool_kg {
+        m = pool_kg;
+        t_bot = t0 - m * dh / c_tot;
+    }
+    LpmeFall { steam_kg: m, t_sat_k: t_s, dh_j_per_kg: dh, t_bottom_k: t_bot, hpme }
+}
+
+/// The drywell structures' outer heat path (`dw_wall_outer`; see
+/// `Containment::dw_slab_step`) on the structures at `wall_t` K and the
+/// slab's cells. Moved out of `Containment` on 2026-11-01 (gh:#1100) so
+/// that `containment_network` couples the same code; unchanged arithmetic.
+pub(crate) fn dw_slab_step(prm: &Params, wall_t: &mut f64, slab: &mut [f64; DW_SLAB_CELLS], dt: f64) {
+    let n = DW_SLAB_CELLS;
+    let dx = prm.dw_concrete_m / n as f64;
+    let area = prm.dw_wall_area_m2;
+    let (tw, t0) = (*wall_t, slab[0]);
+    let tm = 0.5 * (tw + t0);
+    let h_gap = air_conductivity(tm) / prm.dw_gap_m + 4.0 * 5.670_374e-8 * tm * tm * tm / (2.0 / prm.dw_gap_emissivity - 1.0);
+    let half = 0.5 * dx / prm.concrete_k;
+    let q_in = area * (tw - t0) / (1.0 / h_gap + half);
+    let q_out = area * (slab[n - 1] - T_RB) / (1.0 / prm.rb_wall_h + half);
+    let c_cell = prm.concrete_density * prm.concrete_cp * dx * area;
+    let g = prm.concrete_k / dx * area;
+    let old = *slab;
+    for i in 0..n {
+        let mut q = 0.0;
+        if i == 0 {
+            q += q_in;
+        } else {
+            q += g * (old[i - 1] - old[i]);
+        }
+        if i == n - 1 {
+            q -= q_out;
+        } else {
+            q -= g * (old[i] - old[i + 1]);
+        }
+        slab[i] = old[i] + q * dt / c_cell;
+    }
+    *wall_t -= q_in * dt / prm.dw_wall_c;
+}
+
+impl Containment {
     /// Water arriving on the drywell floor, `kg` at `t_k`, mixed into the
     /// pedestal's pool (one pool for the floor and the pedestal, stated).
     fn to_pedestal(&mut self, kg: f64, t_k: f64) {

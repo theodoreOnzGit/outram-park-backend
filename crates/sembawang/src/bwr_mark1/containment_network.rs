@@ -23,9 +23,13 @@
 //! | RPV leak steam, enthalpy, H2 at `leak_gas_k` | a source in the drywell atmosphere |
 //! | `vent_ordered` | the vent valve: open once ordered and the rupture disk has burst (`p_ww ≥ vent_rupture_disk_pa`) |
 //! | `rpv_wall_w` | heat into the drywell atmosphere |
-//! | `ex_vessel_w`, `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump; the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases) |
+//! | `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump |
+//! | ~~`ex_vessel_w` … the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases)~~ | **CORRECTED 2026-11-01 (gh:#1100):** see the next rows |
+//! | `ex_vessel_w`, `cav_uo2_kg`, `cav_zr_kg`, `cav_debris_k`, `cavity_phases` | sembawang's own [`super::cavity::Cavity`] (MELCOR CAV RM §3, reused, not rewritten): its upward heat into the sump while water lies over the debris (the sump beyond its initial fill), else radiated to the drywell structures; its concrete gases (steam, H2, CO, CO2) into the drywell atmosphere at the ablation temperature ([`NetworkMechanisms::cavity`]) |
+//! | `vessel_p_pa` and the debris arriving through water | sembawang's FDI fall (`containment::lpme_fall` (crate-private), MELCOR FDI RM §2.2): its heat into the sump ([`NetworkMechanisms::fdi`]) |
+//! | `dw_wall_outer` | sembawang's drywell slab (`containment::dw_slab_step` (crate-private)) behind the lumped structures ([`NetworkMechanisms::dw_slab`]) |
 //! | `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
-//! | fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, MCCI, FDI, `pool_layers`, `dw_wall_outer` | **not mapped**: sembawang's, and not yet on the network |
+//! | fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, ~~MCCI, FDI,~~ `pool_layers`~~, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above) |
 //!
 //! ## Geometry: from `params`, with what had to be assumed marked \[A\]
 //!
@@ -69,6 +73,8 @@ use tampines::cv_network::{CvNetwork, NetworkBoundary, NetworkControl, NetworkEn
 use tampines::flow_path::{FlowPath, FlowPathGeometry, FlowPathKind};
 use tampines::TampinesError;
 use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::v_tp_1;
+use tampines_steam_tables::region_2_vapour::h_tp_2;
+use tampines_steam_tables::region_5_steam_at_800_plus_degc::intensive_properties::h_tp_5;
 use uom::si::amount_of_substance::mole;
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
@@ -83,7 +89,8 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
-use super::containment::ContainmentSnapshot;
+use super::cavity::Cavity;
+use super::containment::{dw_slab_step, lpme_fall, ContainmentSnapshot, DW_SLAB_CELLS};
 use super::params::*;
 use super::pool_surface;
 use super::steam::p_sat_pa;
@@ -162,8 +169,10 @@ impl Default for NetworkConfig {
     }
 }
 
-/// The network's own mechanisms, all on by default; each `without_*` on
-/// [`ContainmentNetwork`] is an ablation for attributing a difference.
+/// The network's own mechanisms, all on by default; ~~each `without_*` on
+/// [`ContainmentNetwork`] is an ablation~~ (**CORRECTED 2026-11-01**: there
+/// were no such methods; each field cleared, or the `without_*` builders
+/// below, is an ablation) for attributing a difference.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NetworkMechanisms {
     /// The pool's compression work on the atmosphere (each volume).
@@ -180,11 +189,74 @@ pub struct NetworkMechanisms {
     pub equilibrium_rain_out: bool,
     /// Choking on every path.
     pub choking: bool,
+    /// sembawang's cavity (MCCI) on the drywell floor (gh:#1100); without
+    /// it, the debris's heat boils the sump while it holds more than its
+    /// fill, else goes into the structures (the gh:#1097 mapping).
+    pub cavity: bool,
+    /// sembawang's FDI fall of arriving debris through the water over the
+    /// floor (needs `cavity`).
+    pub fdi: bool,
+    /// sembawang's concrete slab behind the drywell structures.
+    pub dw_slab: bool,
+}
+
+impl NetworkMechanisms {
+    /// Ablation: no cavity (nor FDI).
+    pub fn without_cavity(self) -> Self {
+        Self { cavity: false, ..self }
+    }
+    /// Ablation: no FDI fall.
+    pub fn without_fdi(self) -> Self {
+        Self { fdi: false, ..self }
+    }
+    /// Ablation: no drywell slab.
+    pub fn without_dw_slab(self) -> Self {
+        Self { dw_slab: false, ..self }
+    }
+    /// Ablation: no pool compression work.
+    pub fn without_pressure_work(self) -> Self {
+        Self { pressure_work: false, ..self }
+    }
+    /// Ablation: sembawang's ideal steam.
+    pub fn without_real_steam(self) -> Self {
+        Self { real_steam: false, ..self }
+    }
+    /// Ablation: sembawang's constant-`c_p` liquid.
+    pub fn without_real_liquid(self) -> Self {
+        Self { real_liquid: false, ..self }
+    }
+    /// Ablation: the collapsed level decides what a port draws.
+    pub fn without_level_swell(self) -> Self {
+        Self { level_swell: false, ..self }
+    }
+    /// Ablation: `ε = 1` at submerged ports.
+    pub fn without_bubble_pass_through(self) -> Self {
+        Self { bubble_pass_through: false, ..self }
+    }
+    /// Ablation: sembawang's four rain-out passes.
+    pub fn without_equilibrium_rain_out(self) -> Self {
+        Self { equilibrium_rain_out: false, ..self }
+    }
+    /// Ablation: no choking.
+    pub fn without_choking(self) -> Self {
+        Self { choking: false, ..self }
+    }
 }
 
 impl Default for NetworkMechanisms {
     fn default() -> Self {
-        Self { pressure_work: true, real_steam: true, real_liquid: true, level_swell: true, bubble_pass_through: true, equilibrium_rain_out: true, choking: true }
+        Self {
+            pressure_work: true,
+            real_steam: true,
+            real_liquid: true,
+            level_swell: true,
+            bubble_pass_through: true,
+            equilibrium_rain_out: true,
+            choking: true,
+            cavity: true,
+            fdi: true,
+            dw_slab: true,
+        }
     }
 }
 
@@ -218,6 +290,19 @@ pub struct NetworkResult {
     /// breakers (into the drywell), kg/s.
     pub downcomer_kg_s: f64,
     pub vacuum_breaker_kg_s: f64,
+    /// The cavity (gh:#1100): concrete ablated, kg; H2 and CO made there,
+    /// kg; the debris temperature, K; steam raised by the FDI fall, kg.
+    pub cav_ablated_kg: f64,
+    pub cav_h2_kg: f64,
+    pub cav_co_kg: f64,
+    pub cav_debris_k: f64,
+    pub fdi_steam_kg: f64,
+    /// CO and CO2 in the drywell atmosphere, kg.
+    pub dw_co_kg: f64,
+    pub dw_co2_kg: f64,
+    /// The drywell structures' temperature and the slab's inner cell, K.
+    pub dw_wall_k: f64,
+    pub dw_slab_inner_k: f64,
     /// Picard iterations this step (summed over sub-steps), the largest
     /// residual, and the sub-steps taken so far in the run.
     pub iterations: usize,
@@ -279,6 +364,10 @@ pub struct ContainmentNetwork {
     vented_h2_kg: f64,
     substeps: usize,
     sump_initial_kg: f64,
+    mech: NetworkMechanisms,
+    cavity: Cavity,
+    fdi_steam_kg: f64,
+    dw_slab: [f64; DW_SLAB_CELLS],
 }
 
 /// Ports, by volume.
@@ -287,6 +376,7 @@ const DW_VB: usize = 1;
 const DW_FLANGE: usize = 2;
 const DW_LEAK: usize = 3;
 const DW_SUMP: usize = 4;
+const DW_CAVITY: usize = 5;
 const WW_DOWNCOMER: usize = 0;
 const WW_VB: usize = 1;
 const WW_VENT: usize = 2;
@@ -448,6 +538,9 @@ impl ContainmentNetwork {
             Port { elevation: len(dw_top - 0.2), opening_height: len(0.05) },
             Port { elevation: len(0.5 * (z_dc + dw_top)), opening_height: len(0.1) },
             Port { elevation: len(floor - 0.1), opening_height: len(0.1) },
+            // The cavity's gases enter the atmosphere (sembawang's), at the
+            // leak's height, so above any water on the floor.
+            Port { elevation: len(0.5 * (z_dc + dw_top)), opening_height: len(0.1) },
         ];
         let n_dw = p0 * prm.drywell_volume_m3 / (R_GAS * t_dw);
         let dw_gas = GasMixture::new(Mass::new::<kilogram>(0.0), &[(NonCondensable::N2, mol(n_dw))]);
@@ -527,6 +620,10 @@ impl ContainmentNetwork {
             vented_h2_kg: 0.0,
             substeps: 0,
             sump_initial_kg: sump_kg,
+            mech,
+            cavity: Cavity::default(),
+            fdi_steam_kg: 0.0,
+            dw_slab: [t_dw; DW_SLAB_CELLS],
         })
     }
 
@@ -538,6 +635,16 @@ impl ContainmentNetwork {
     /// The configuration it was built with.
     pub fn config(&self) -> NetworkConfig {
         self.cfg
+    }
+
+    /// The mechanisms it was built with.
+    pub fn mechanisms(&self) -> NetworkMechanisms {
+        self.mech
+    }
+
+    /// The debris on the drywell floor (sembawang's cavity).
+    pub fn cavity(&self) -> &Cavity {
+        &self.cavity
     }
 
     /// The drywell structures' and the torus shell's temperatures, K.
@@ -610,16 +717,43 @@ impl ContainmentNetwork {
         let m_sump: f64 = streams.iter().map(|x| x.0).sum();
         let h_sump = if m_sump > 0.0 { streams.iter().map(|(m, t)| m * CP_WATER * (t - 273.15)).sum::<f64>() / m_sump } else { 0.0 };
         self.net.set_source(dw, DW_SUMP, Source::water(kgs(m_sump), AvailableEnergy::new::<joule_per_kilogram>(h_sump)))?;
-        // Debris on the floor (after the lower head fails): its heat boils
-        // the water standing on the floor, or, with none, goes into the
-        // structures (sembawang's choice without a cavity model). Water
-        // "on the floor" is what the sump holds beyond its initial fill
-        // [A] (a control volume needs a pool, so the sump never dries).
-        let sump_kg = self.net.volume(dw).map_or(0.0, |v| v.pool_mass().get::<kilogram>());
-        let wet_floor = sump_kg > self.sump_initial_kg;
-        self.net.set_pool_heat(dw, Power::new::<watt>(if wet_floor { s.ex_vessel_w } else { 0.0 }))?;
-        if !wet_floor {
+        // Debris on the floor (after the lower head fails). Water "on the
+        // floor" is what the sump holds beyond its initial fill [A] (a
+        // control volume needs a pool, so the sump never dries).
+        let (sump_kg, sump_t) = self.net.volume(dw).map_or((0.0, t_pool), |v| (v.pool_mass().get::<kilogram>(), v.pool_temperature().get::<kelvin>()));
+        let over_kg = (sump_kg - self.sump_initial_kg).max(0.0);
+        let p_dw0 = self.net.volume(dw).map_or(prm.initial_containment_pa, |v| v.atmosphere_pressure().get::<pascal>());
+        let mut q_sump = 0.0;
+        let mut cav_gas = Source::none();
+        if self.mech.cavity {
+            let (q, gas) = self.debris(s, over_kg, sump_t, p_dw0);
+            q_sump = q;
+            cav_gas = gas;
+        } else if over_kg > 0.0 {
+            // The gh:#1097 mapping (the ablation): the heat boils the water
+            // on the floor, or, with none, goes into the structures.
+            q_sump = s.ex_vessel_w;
+        } else {
             self.dw_wall.t_k += s.ex_vessel_w * dt / prm.dw_wall_c;
+        }
+        if self.mech.cavity {
+            // The heat into the sump is capped at what heats it to
+            // saturation and boils the water over the fill (the old model
+            // caps its pedestal's boiling at its water, `boil_pedestal`);
+            // the rest is radiated to the structures, as from a dry floor.
+            let t_s = pool_surface::t_sat(p_dw0);
+            let h_fg = pool_surface::steam_h(t_s) - CP_WATER * (t_s - 273.15);
+            let cap = (sump_kg * CP_WATER * (t_s - sump_t)).max(0.0) / dt + over_kg * h_fg / dt;
+            if q_sump > cap {
+                self.dw_wall.t_k += (q_sump - cap) * dt / prm.dw_wall_c;
+                q_sump = cap;
+            }
+        }
+        self.net.set_pool_heat(dw, Power::new::<watt>(q_sump))?;
+        self.net.set_source(dw, DW_CAVITY, cav_gas)?;
+        // The structures' outer heat path (sembawang's slab).
+        if self.mech.dw_slab && s.dw_wall_outer {
+            dw_slab_step(&prm, &mut self.dw_wall.t_k, &mut self.dw_slab, dt);
         }
         // The torus shell's condensate drains to the pool at the shell's
         // temperature (sembawang's), through a port just above the level.
@@ -674,9 +808,75 @@ impl ContainmentNetwork {
             flange_kg_s: rate(self.flange),
             downcomer_kg_s: rate(self.downcomer),
             vacuum_breaker_kg_s: rate(self.vacuum_breaker),
+            cav_ablated_kg: self.cavity.ablated_kg,
+            cav_h2_kg: self.cavity.h2_kg,
+            cav_co_kg: self.cavity.co_kg,
+            cav_debris_k: self.cavity.t_k,
+            fdi_steam_kg: self.fdi_steam_kg,
+            dw_co_kg: v_dw.atmosphere().ncg_moles[NonCondensable::CO.index()] * NonCondensable::CO.molar_mass(),
+            dw_co2_kg: v_dw.atmosphere().ncg_moles[NonCondensable::CO2.index()] * NonCondensable::CO2.molar_mass(),
+            dw_wall_k: self.dw_wall.t_k,
+            dw_slab_inner_k: self.dw_slab[0],
             iterations,
             residual,
             substeps: self.substeps,
         })
     }
+
+    /// One step of sembawang's cavity under the drywell (gh:#1100), from
+    /// the start-of-step state: `over_kg` of water over the debris at
+    /// `sump_t` K, the drywell at `p_dw` Pa. Debris newly arrived falls
+    /// through that water first (sembawang's FDI fall, `lpme_fall`), its
+    /// heat into the water; then the cavity steps (`Cavity::step`, as
+    /// `Containment::step` calls it). Returns the heat into the sump, W
+    /// (the fall's and, wet, the debris top's), and the concrete gases as a
+    /// source on the drywell atmosphere; dry, the top's heat goes into the
+    /// structures here.
+    fn debris(&mut self, s: &ContainmentSnapshot, over_kg: f64, sump_t: f64, p_dw: f64) -> (f64, Source) {
+        let prm = self.prm;
+        let dt = s.dt_s;
+        if s.ex_vessel_w <= 0.0 {
+            return (0.0, Source::none());
+        }
+        let mut q_sump = 0.0;
+        let du = (s.cav_uo2_kg - self.cavity.seen_uo2_kg).max(0.0);
+        let dz = (s.cav_zr_kg - self.cavity.seen_zr_kg).max(0.0);
+        let t_in = if self.mech.fdi && s.fdi_lpme && over_kg > 0.0 && du + dz > 0.0 {
+            let f = lpme_fall(&prm, s, du, dz, p_dw, over_kg, sump_t);
+            self.fdi_steam_kg += f.steam_kg;
+            q_sump += f.steam_kg * f.dh_j_per_kg / dt;
+            f.t_bottom_k
+        } else {
+            s.cav_debris_k
+        };
+        self.cavity.arrive(&prm, s.cav_uo2_kg, s.cav_zr_kg, t_in);
+        let water = (over_kg > 0.0).then(|| (pool_surface::t_sat(p_dw), p_dw));
+        let f = self.cavity.step(&prm, s.ex_vessel_w, self.dw_wall.t_k, water, dt, s.cavity_phases);
+        if water.is_some() {
+            q_sump += f.q_up_w;
+        } else {
+            self.dw_wall.t_k += f.q_up_w * dt / prm.dw_wall_c;
+        }
+        let t = f.gas_k.max(1.0);
+        let n_tot = f.steam_kg / M_H2O + f.h2_mol + f.co_mol + f.co2_mol;
+        let p_steam = if n_tot > 0.0 { p_dw * f.steam_kg / M_H2O / n_tot } else { p_dw };
+        let h_steam = steam_h_if97(t, p_steam.max(1.0));
+        let gas = Source::water(kgs(f.steam_kg / dt), AvailableEnergy::new::<joule_per_kilogram>(h_steam)).with_gas(
+            &[
+                (NonCondensable::H2, kgs(f.h2_mol * NonCondensable::H2.molar_mass() / dt)),
+                (NonCondensable::CO, kgs(f.co_mol * NonCondensable::CO.molar_mass() / dt)),
+                (NonCondensable::CO2, kgs(f.co2_mol * NonCondensable::CO2.molar_mass() / dt)),
+            ],
+            kel(t),
+        );
+        (q_sump, gas)
+    }
+}
+
+/// IF97 steam's specific enthalpy at `t` K and `p` Pa: region 2 to
+/// 1073.15 K, region 5 above (the concrete's gases leave at
+/// `concrete_ablation_k`, 1450 K, beyond region 2).
+fn steam_h_if97(t: f64, p: f64) -> f64 {
+    let (tt, pp) = (kel(t), Pressure::new::<pascal>(p));
+    if t <= 1073.15 { h_tp_2(tt, pp) } else { h_tp_5(tt, pp) }.get::<joule_per_kilogram>()
 }
