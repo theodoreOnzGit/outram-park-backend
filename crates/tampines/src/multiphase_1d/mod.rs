@@ -152,6 +152,7 @@
 //! cost more than they buy. Every raw-`f64` boundary says so.
 
 pub mod drift_flux;
+pub mod entropy;
 pub mod geometry;
 pub mod interfacial;
 pub mod properties;
@@ -282,6 +283,9 @@ mod edwards_tests;
 
 #[cfg(test)]
 mod marviken_tests;
+
+#[cfg(test)]
+mod species_tests;
 
 #[cfg(test)]
 mod tests;

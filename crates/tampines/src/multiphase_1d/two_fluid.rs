@@ -291,6 +291,13 @@
 //!   the compliance diagonal — right for a blowdown, wrong for a pipe fed from
 //!   a plenum. [`super::drift_flux`]'s `ReservoirInlet` and `PressureOutlet`
 //!   have no counterpart here yet.
+//! - **The non-condensable species is passive** (gh:#1064, RELAP-7
+//!   Eqs 128–132): `c = α_g ρ_g Y` is transported conservatively with the gas
+//!   and stays out of `Γ`, but the gas EOS remains IF97 steam (no Dalton
+//!   partial pressure), so it does not affect condensation. See
+//!   [`TwoFluid1d::set_noncondensable_mass_fraction`] and, for the
+//!   interfacial second-law check and the entropy diagnostic,
+//!   [`super::entropy`].
 //! - **The metastable bounds are the binding constraint on a fast transient.**
 //!   [`super::properties::MAX_METASTABLE_LIQUID_SUPERHEAT`] is 30 K, and a
 //!   depressurisation fast enough to superheat the liquid past that is
@@ -1246,6 +1253,12 @@ pub struct TwoFluid1d {
     /// at the start of every step.
     left_time_dependent: Option<TwoFluidTimeDependentBoundary>,
     right_time_dependent: Option<TwoFluidTimeDependentBoundary>,
+    /// gh:#1064: non-condensable mass concentration `c = α_g ρ_g Y`
+    /// \[kg/m³\] (RELAP-7 Eqs 128–132), a passive scalar carried by the gas.
+    m_nc: Vec<f64>,
+    /// gh:#1064: non-condensable mass fraction `Y` of gas entering through an
+    /// inflow boundary \[-\]; `0` unless set.
+    inflow_nc_fraction: f64,
 }
 
 impl TwoFluid1d {
@@ -1344,6 +1357,8 @@ impl TwoFluid1d {
             wall_heat: PhasicWallHeat::default(),
             left_time_dependent: None,
             right_time_dependent: None,
+            m_nc: vec![0.0; n],
+            inflow_nc_fraction: 0.0,
         };
 
         let t0 = temperature.get::<kelvin>();
@@ -1864,6 +1879,120 @@ impl TwoFluid1d {
             .sum()
     }
 
+    /// Set the non-condensable mass fraction `Y` of the gas phase, cell by
+    /// cell (gh:#1064). Stored as the conserved concentration
+    /// `c = α_g ρ_g Y` \[kg/m³\] on the current gas mass.
+    ///
+    /// # The model, and its limit
+    ///
+    /// RELAP-7 §3.1.5 (Eqs 128–132) carries a phasic non-condensable mass
+    /// balance, `∂(α_g ρ_g Y A)/∂t + ∂(α_g ρ_g u_g Y A)/∂x = 0`: the species
+    /// moves with the gas and does not take part in `Γ`. That balance is what
+    /// is solved here, conservatively, with the same donor-cell gas mass
+    /// fluxes the vapour mass equation uses.
+    ///
+    /// **It is a PASSIVE scalar.** The gas equation of state stays IAPWS-IF97
+    /// steam: the Dalton mixture (steam at its partial pressure plus an ideal
+    /// non-condensable) is **not** applied, so `Y` does not change the gas
+    /// density, the saturation temperature at the interface, or the
+    /// interfacial heat transfer. Wiring the partial pressure into the pressure
+    /// equation, the IF97 phase recovery and the closures touches every stage
+    /// of [`step`](Self::step); it is left for when the F14 work (gh:#1045)
+    /// needs it. The result is valid only for trace amounts (`Y ≪ 1`). Where
+    /// the steam condenses away, `Y = c / (α_g ρ_g)` rises, as it should;
+    /// where the residual-alpha floor invents vapour, `c` is untouched.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for a slice of the wrong length or an
+    /// entry outside `[0, 1]`.
+    pub fn set_noncondensable_mass_fraction(&mut self, y: &[f64]) -> Result<(), TampinesError> {
+        if y.len() != self.pipe.n_cells() {
+            return Err(TampinesError::InvalidInput(format!(
+                "non-condensable profile has {} entries, pipe has {} cells",
+                y.len(),
+                self.pipe.n_cells()
+            )));
+        }
+        if let Some(bad) = y.iter().find(|v| !(0.0..=1.0).contains(*v)) {
+            return Err(TampinesError::InvalidInput(format!(
+                "non-condensable mass fraction must be in [0, 1] (got {bad})"
+            )));
+        }
+        for (i, yi) in y.iter().enumerate() {
+            self.m_nc[i] = yi * self.m_g[i];
+        }
+        Ok(())
+    }
+
+    /// Set the non-condensable mass fraction `Y` of the gas that enters
+    /// through an inflow boundary (gh:#1064). `0` by default.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] outside `[0, 1]`.
+    pub fn set_inflow_noncondensable_mass_fraction(&mut self, y: Ratio) -> Result<(), TampinesError> {
+        let y = y.get::<ratio>();
+        if !(0.0..=1.0).contains(&y) {
+            return Err(TampinesError::InvalidInput(format!(
+                "inflow non-condensable mass fraction must be in [0, 1] (got {y})"
+            )));
+        }
+        self.inflow_nc_fraction = y;
+        Ok(())
+    }
+
+    /// Non-condensable mass concentration `c = α_g ρ_g Y` \[kg/m³\] per cell.
+    #[must_use]
+    pub fn noncondensable_concentration(&self) -> &[f64] {
+        &self.m_nc
+    }
+
+    /// Non-condensable mass fraction of the gas, `Y = c / (α_g ρ_g)` \[-\],
+    /// per cell.
+    #[must_use]
+    pub fn noncondensable_mass_fraction(&self) -> Vec<f64> {
+        self.m_nc
+            .iter()
+            .zip(&self.m_g)
+            .map(|(c, m)| if *m > 0.0 { c / m } else { 0.0 })
+            .collect()
+    }
+
+    /// Total non-condensable mass in the pipe, `Σ_i c_i V_i`.
+    #[must_use]
+    pub fn noncondensable_inventory(&self) -> Mass {
+        Mass::new::<kilogram>(
+            (0..self.pipe.n_cells())
+                .map(|i| self.m_nc[i] * self.pipe.cell_volume_at(i))
+                .sum::<f64>(),
+        )
+    }
+
+    /// The area-averaged entropy inventory \[J/K\],
+    /// `S = Σ_i V_i (α_g ρ_g s_g + α_l ρ_l s_l)_i` (gh:#1064; the
+    /// area-averaged phasic entropy of RELAP-7 §2.1.1, Eqs 18 and 23).
+    ///
+    /// A diagnostic: each phase's specific entropy is IF97's at the phase's
+    /// own `(p, T_k)` — Region 1 for the liquid (its metastable continuation
+    /// where superheated), Region 2 for the vapour, the same equations
+    /// [`PhaseState`] inverts. In a closed adiabatic pipe the second law
+    /// says `S` may not fall; [`super::entropy`] checks the interfacial
+    /// closures term by term.
+    ///
+    /// # Errors
+    ///
+    /// None in practice; kept fallible for a future property backend.
+    pub fn entropy_inventory(&self) -> Result<f64, TampinesError> {
+        Ok((0..self.pipe.n_cells())
+            .map(|i| {
+                let (s_g, s_l) =
+                    super::entropy::phase_entropies(self.p[i], self.t_g[i], self.t_l[i]);
+                (self.m_g[i] * s_g + self.m_l[i] * s_l) * self.pipe.cell_volume_at(i)
+            })
+            .sum())
+    }
+
     /// Mixture mass flow through the right-hand boundary \[kg/s\], from the
     /// current state.
     #[must_use]
@@ -1974,6 +2103,7 @@ impl TwoFluid1d {
         let transport_old = self.transport.clone();
         let u_g_old = self.u_g.clone();
         let u_l_old = self.u_l.clone();
+        let m_nc_old = self.m_nc.clone();
 
         // ── Stage 0: closures and compressibilities on the old state ─────
         let ug_cell: Vec<f64> = (0..n)
@@ -2176,6 +2306,7 @@ impl TwoFluid1d {
         let mut outlet_energy_flow = 0.0_f64;
         let mut limited_cells = 0usize;
         let mut floor_events = 0usize;
+        let mut final_flux_g = vec![0.0; n + 1];
 
         // The Newton system is assembled once: its matrix is the (quasi-)
         // Jacobian `−(V/Δt) ∂R/∂p` of the volume residual with respect to the
@@ -2265,6 +2396,7 @@ impl TwoFluid1d {
             // -- transport, interfacial exchange, recovery -------------------------
             let flux_g: Vec<f64> = (0..=n).map(|j| mg_face[j] * u_g_new[j] * area[j]).collect();
             let flux_l: Vec<f64> = (0..=n).map(|j| ml_face[j] * u_l_new[j] * area[j]).collect();
+            final_flux_g.clone_from(&flux_g);
 
             let mut max_residual: f64 = 0.0;
             for i in 0..n {
@@ -2415,7 +2547,21 @@ impl TwoFluid1d {
             }
         }
 
+        // ── Non-condensable species (gh:#1064) ───────────────────────────
+        let m_nc_new = noncondensable_transport(
+            &m_nc_old,
+            &m_g_old,
+            &final_flux_g,
+            &volume,
+            dt,
+            NoncondensableInflow {
+                left: left_inflow.map(|_| self.inflow_nc_fraction),
+                right: right_inflow.map(|_| self.inflow_nc_fraction),
+            },
+        );
+
         // ── Commit ───────────────────────────────────────────────────────
+        self.m_nc = m_nc_new;
         self.p = p_new;
         self.m_g = m_g_new;
         self.m_l = m_l_new;
@@ -2961,6 +3107,62 @@ pub(super) fn interface_work(
         extra_l += -gamma * 0.5 * (u_int - u_l) * (u_int - u_l);
     }
     (extra_g, extra_l)
+}
+
+/// The gas phases' non-condensable donor values at the two ends, for
+/// faces where fluid enters (gh:#1064). `None` means the face carries the
+/// adjacent cell's own `Y` (no inflow boundary there).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct NoncondensableInflow {
+    left: Option<f64>,
+    right: Option<f64>,
+}
+
+/// One conservative donor-cell step of the passive non-condensable balance
+/// `∂(c A)/∂t + ∂(c u_g A)/∂x = 0`, `c = α_g ρ_g Y` (RELAP-7 Eqs 128–132,
+/// gh:#1064).
+///
+/// The face flux is the gas mass flux the vapour equation used,
+/// `F_j = ṁ_g,j Y_donor`, with `Y` upwinded on the sign of `ṁ_g,j` from the
+/// start-of-step cells (or the inflow value), so the cell update telescopes
+/// and a closed pipe conserves `Σ c V` to round-off. A uniform `Y` stays
+/// uniform up to the gas mass change itself.
+///
+/// Raw SI: `m_nc`, `m_g` \[kg/m³\], `flux_g` \[kg/s\], `volume` \[m³\], `dt` \[s\].
+fn noncondensable_transport(
+    m_nc: &[f64],
+    m_g: &[f64],
+    flux_g: &[f64],
+    volume: &[f64],
+    dt: f64,
+    inflow: NoncondensableInflow,
+) -> Vec<f64> {
+    let n = m_nc.len();
+    let y = |i: usize| if m_g[i] > 0.0 { m_nc[i] / m_g[i] } else { 0.0 };
+    let face_flux: Vec<f64> = (0..=n)
+        .map(|j| {
+            let f = flux_g[j];
+            let y_donor = if j == 0 {
+                match inflow.left {
+                    Some(y_in) if f > 0.0 => y_in,
+                    _ => y(0),
+                }
+            } else if j == n {
+                match inflow.right {
+                    Some(y_in) if f < 0.0 => y_in,
+                    _ => y(n - 1),
+                }
+            } else if f >= 0.0 {
+                y(j - 1)
+            } else {
+                y(j)
+            };
+            f * y_donor
+        })
+        .collect();
+    (0..n)
+        .map(|i| m_nc[i] - dt / volume[i] * (face_flux[i + 1] - face_flux[i]))
+        .collect()
 }
 
 /// The mass-weighted interface velocity \[m/s\] of gh:#1060,
