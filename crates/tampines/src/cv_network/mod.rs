@@ -38,6 +38,11 @@
 //! network totals count it, so mass, every gas and energy are conserved to
 //! round-off whatever the tolerance.
 //!
+//! **Atmosphere reactions** ([`CvNetwork::set_atmosphere_reactions`],
+//! gh:#1100) are internal sources: the network's water, gases and energy
+//! close as `now = start + boundary_inflow + reaction_totals`
+//! ([`CvNetwork::reaction_totals`]).
+//!
 //! # Limits
 //!
 //! - The donor volume decides which phase leaves by its level at the port
@@ -61,7 +66,7 @@ use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
-use crate::control_volume::{ControlVolume, ControlVolumeInputs, DonorState, Source};
+use crate::control_volume::{AtmosphereReactions, ControlVolume, ControlVolumeInputs, DonorState, Source};
 use crate::flow_path::{FlowPath, FlowTransfer, PathEnd};
 use crate::TampinesError;
 
@@ -176,6 +181,11 @@ pub struct CvNetwork {
     /// out of it onto the caller's structures, kg/s (held; gh:#1097).
     atm_heat_w: Vec<f64>,
     atm_sink_kg_s: Vec<f64>,
+    /// Combustion rates in each volume's atmosphere (held; gh:#1100).
+    atm_rx: Vec<AtmosphereReactions>,
+    /// What the reactions made since construction: steam, each gas (signed)
+    /// and the heat released, as an inventory change (gh:#1100).
+    reaction_in: InTransit,
     /// External sources, per volume per port (held; gh:#1097).
     sources: Vec<Vec<Source>>,
     /// Net mass and energy that crossed boundaries into the network.
@@ -198,6 +208,8 @@ impl CvNetwork {
             pool_heat_w: Vec::new(),
             atm_heat_w: Vec::new(),
             atm_sink_kg_s: Vec::new(),
+            atm_rx: Vec::new(),
+            reaction_in: InTransit::default(),
             sources: Vec::new(),
             boundary_in: InTransit::default(),
             time_s: 0.0,
@@ -212,6 +224,7 @@ impl CvNetwork {
         self.pool_heat_w.push(0.0);
         self.atm_heat_w.push(0.0);
         self.atm_sink_kg_s.push(0.0);
+        self.atm_rx.push(AtmosphereReactions::none());
         self.volumes.len() - 1
     }
 
@@ -281,6 +294,41 @@ impl CvNetwork {
         let h = self.atm_sink_kg_s.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
         *h = x;
         Ok(())
+    }
+
+    /// Set the combustion rates in volume `i`'s atmosphere (held until
+    /// changed, as [`Self::set_atmosphere_steam_sink`]; see
+    /// [`ControlVolumeInputs::atmosphere_reactions`]): `H2 + ½ O2 → H2O(g)`
+    /// and `CO + ½ O2 → CO2`, in moles of fuel per second. Each volume caps
+    /// them by the reactants present within the step and closes the heat of
+    /// reaction itself (gh:#1100); a caller's burn model sets them before
+    /// each [`Self::step`] and reads back what burned from
+    /// [`Self::reaction_totals`] or the volume's bookkeeping.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for no such volume or a negative or
+    /// non-finite rate.
+    pub fn set_atmosphere_reactions(&mut self, i: usize, reactions: AtmosphereReactions) -> Result<(), TampinesError> {
+        let (h, c) = (
+            reactions.hydrogen_burn.get::<uom::si::catalytic_activity::mole_per_second>(),
+            reactions.carbon_monoxide_burn.get::<uom::si::catalytic_activity::mole_per_second>(),
+        );
+        if !(h.is_finite() && h >= 0.0 && c.is_finite() && c >= 0.0) {
+            return Err(TampinesError::InvalidInput(format!("burn rates H2 {h} mol/s, CO {c} mol/s")));
+        }
+        let r = self.atm_rx.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
+        *r = reactions;
+        Ok(())
+    }
+
+    /// What the atmosphere reactions changed since construction, summed over
+    /// the volumes: `(steam kg made, each gas kg (signed, negative for what
+    /// burned), heat released J)`, so that `water_mass − W0 =
+    /// boundary_inflow + reaction_totals` and likewise for each gas and the
+    /// energy.
+    pub fn reaction_totals(&self) -> (f64, [f64; 6], f64) {
+        (self.reaction_in.water_kg, self.reaction_in.ncg_kg, self.reaction_in.energy_j)
     }
 
     /// Set an external source on port `port` of volume `volume` (held until
@@ -523,7 +571,7 @@ impl CvNetwork {
         let (mut omega, mut last_residual) = (1.0_f64, f64::INFINITY);
         let (mut residual, mut iterations): (f64, usize);
         let mut transfers: Vec<FlowTransfer> = Vec::new();
-        let (mut new_vols, mut new_paths, mut boundary_step);
+        let (mut new_vols, mut new_paths, mut boundary_step, mut reaction_step);
         for k in 1..=self.control.max_iterations {
             iterations = k;
             // 1. Paths from the latest iterate.
@@ -590,6 +638,7 @@ impl CvNetwork {
                     c.pool_heat = uom::si::f64::Power::new::<uom::si::power::watt>(self.pool_heat_w[i]);
                     c.atmosphere_heat = uom::si::f64::Power::new::<uom::si::power::watt>(self.atm_heat_w[i]);
                     c.atmosphere_steam_sink = mr(self.atm_sink_kg_s[i]);
+                    c.atmosphere_reactions = self.atm_rx[i];
                     for (port, src) in self.sources[i].iter().enumerate() {
                         c.ports[port].inflow = *src;
                     }
@@ -653,10 +702,27 @@ impl CvNetwork {
                     }
                 }
             }
-            // Step every volume; record what each donor sent.
+            // Step every volume; record what each donor sent, and what the
+            // reactions made (gh:#1100).
             let mut reports = Vec::with_capacity(new_vols.len());
+            reaction_step = InTransit::default();
             for (i, v) in new_vols.iter_mut().enumerate() {
-                reports.push(v.step(dt, &inputs[i])?);
+                let r = v.step(dt, &inputs[i])?;
+                if r.hydrogen_burned.get::<uom::si::amount_of_substance::mole>() > 0.0
+                    || r.carbon_monoxide_burned.get::<uom::si::amount_of_substance::mole>() > 0.0
+                {
+                    // Each species' change by stoichiometry, from the moles
+                    // the volume reports burned.
+                    let (xh, xc) =
+                        (r.hydrogen_burned.get::<uom::si::amount_of_substance::mole>(), r.carbon_monoxide_burned.get::<uom::si::amount_of_substance::mole>());
+                    reaction_step.water_kg += xh * tampines_steam_tables::gas_mixture::M_H2O;
+                    reaction_step.ncg_kg[NonCondensable::H2.index()] -= xh * NonCondensable::H2.molar_mass();
+                    reaction_step.ncg_kg[NonCondensable::O2.index()] -= 0.5 * (xh + xc) * NonCondensable::O2.molar_mass();
+                    reaction_step.ncg_kg[NonCondensable::CO.index()] -= xc * NonCondensable::CO.molar_mass();
+                    reaction_step.ncg_kg[NonCondensable::CO2.index()] += xc * NonCondensable::CO2.molar_mass();
+                    reaction_step.energy_j += r.reaction_heat.get::<joule>();
+                }
+                reports.push(r);
             }
             // External sources, sinks and heats cross the boundary
             // (gh:#1097): what each volume reports it took in or gave up.
@@ -750,12 +816,12 @@ impl CvNetwork {
             }
             last_residual = residual;
             if k > 1 && residual < self.control.tolerance {
-                self.commit(new_vols, new_paths, transit, boundary_step, dts);
+                self.commit(new_vols, new_paths, transit, boundary_step, reaction_step, dts);
                 return Ok(NetworkStepReport { iterations, residual, transfers });
             }
             if k == self.control.max_iterations {
                 if self.control.max_iterations == 1 {
-                    self.commit(new_vols, new_paths, transit, boundary_step, dts);
+                    self.commit(new_vols, new_paths, transit, boundary_step, reaction_step, dts);
                     return Ok(NetworkStepReport { iterations, residual: 0.0, transfers });
                 }
                 return Err(TampinesError::Numerical(format!("network step: no convergence in {iterations} iterations (residual {residual:e})")));
@@ -764,7 +830,12 @@ impl CvNetwork {
         Err(TampinesError::Numerical("network step: no iterations".into()))
     }
 
-    fn commit(&mut self, vols: Vec<ControlVolume>, paths: Vec<FlowPath>, transit: Vec<[InTransit; 2]>, b: InTransit, dt: f64) {
+    fn commit(&mut self, vols: Vec<ControlVolume>, paths: Vec<FlowPath>, transit: Vec<[InTransit; 2]>, b: InTransit, rx: InTransit, dt: f64) {
+        self.reaction_in.water_kg += rx.water_kg;
+        self.reaction_in.energy_j += rx.energy_j;
+        for q in 0..6 {
+            self.reaction_in.ncg_kg[q] += rx.ncg_kg[q];
+        }
         self.volumes = vols;
         for (np, mut p) in self.paths.iter_mut().zip(paths) {
             p.hold_open(None);

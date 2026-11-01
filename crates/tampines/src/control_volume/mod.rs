@@ -118,6 +118,17 @@
 //! below the triple point evaporates it whole (MELCOR's Eq 5-17 limit over-
 //! draws a pool that is nearly all evaporating).
 //!
+//! ## Atmosphere reactions (gh:#1100)
+//!
+//! [`ControlVolumeInputs::atmosphere_reactions`] burns H2 and CO at the
+//! caller's rates (mol/s; the burn criteria and rates are the caller's,
+//! `sembawang`'s, after MELCOR's BUR package), capped by the reactants
+//! present, applied after the atmosphere heat and steam sink. The heat of
+//! reaction is closed here, on the gas mixture's own references, by
+//! anchoring every species to its NIST-JANAF enthalpy of formation at
+//! 298.15 K (the derivation is in [`reaction`]). The step reports what
+//! burned and the heat; [`ControlVolumeBookkeeping`] keeps the totals.
+//!
 //! ## For gh:#1094 (flow paths) and gh:#1095 (implicit network)
 //!
 //! A flow path between two volumes needs, at each end: the pressure at the
@@ -148,8 +159,10 @@
 pub mod layers;
 pub mod level;
 pub mod pool_surface;
+pub mod reaction;
 
 pub use level::{swollen_level, swollen_level_from_vapour_flow, VolumeAltitudeTable, BUBBLE_RISE_M_S, MAX_POOL_VOID};
+pub use reaction::{AtmosphereReactions, MolarFlowRate};
 pub use tampines_steam_tables::gas_mixture::{GasMixture, GasMixtureModel, NonCondensable};
 
 use tampines_steam_tables::gas_mixture::SteamModel;
@@ -158,8 +171,11 @@ use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::u_tp
 use tampines_steam_tables::region_2_vapour::{h_tp_2, u_tp_2, v_tp_2};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
+use uom::si::amount_of_substance::mole;
+use uom::si::catalytic_activity::mole_per_second;
 use uom::si::f64::{
-    AvailableEnergy, Energy, HeatTransfer, Length, Mass, MassDensity, MassRate, Power, Pressure, ThermodynamicTemperature, Time, Volume,
+    AmountOfSubstance, AvailableEnergy, Energy, HeatTransfer, Length, Mass, MassDensity, MassRate, MolarEnergy, Power, Pressure,
+    ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::length::meter;
@@ -309,6 +325,12 @@ pub struct ControlVolumeInputs {
     /// all, as a port's water source (gh:#1097; MELCOR HS §2.7.3's
     /// condensation, the structure being the caller's).
     pub atmosphere_steam_sink: MassRate,
+    /// Combustion in the atmosphere at the caller's rates (gh:#1100):
+    /// `H2 + ½ O2 → H2O(g)` and `CO + ½ O2 → CO2`, capped by the reactants
+    /// present, the heat of reaction closed here on the gas mixture's own
+    /// references (see [`reaction`]). Applied after the atmosphere heat and
+    /// steam sink. None by default.
+    pub atmosphere_reactions: AtmosphereReactions,
 }
 
 impl ControlVolumeInputs {
@@ -320,6 +342,7 @@ impl ControlVolumeInputs {
             heat_exchanger: ImmersedHeatExchanger::off(),
             atmosphere_heat: Power::new::<watt>(0.0),
             atmosphere_steam_sink: MassRate::new::<kilogram_per_second>(0.0),
+            atmosphere_reactions: AtmosphereReactions::none(),
         }
     }
 }
@@ -373,6 +396,14 @@ pub struct ControlVolumeStepReport {
     /// Pool heat that went into the atmosphere because the pool was dry, or
     /// the pool boiled dry on it within the step (gh:#1100).
     pub pool_heat_to_atmosphere: Energy,
+    /// H2 burned by [`ControlVolumeInputs::atmosphere_reactions`] this step
+    /// (after the limiting-reactant cap).
+    pub hydrogen_burned: AmountOfSubstance,
+    /// CO burned this step.
+    pub carbon_monoxide_burned: AmountOfSubstance,
+    /// The heat of reaction released into the atmosphere's stored energy
+    /// this step, on the gas mixture's references (see [`reaction`]).
+    pub reaction_heat: Energy,
 }
 
 /// Running totals across the boundary since construction.
@@ -390,6 +421,15 @@ pub struct ControlVolumeBookkeeping {
     pub energy_in: Energy,
     /// Energy out (outflows' enthalpy, heat exchanger, pool heat if negative).
     pub energy_out: Energy,
+    /// H2 burned in the atmosphere (gh:#1100): an internal source, not a
+    /// boundary flow. Each species' change follows by stoichiometry
+    /// (`H2 + ½ O2 → H2O`, `M_H2O` kg of steam per mole).
+    pub hydrogen_burned: AmountOfSubstance,
+    /// CO burned (`CO + ½ O2 → CO2`).
+    pub carbon_monoxide_burned: AmountOfSubstance,
+    /// Heat of reaction released: `E − E0 = energy_in − energy_out +
+    /// reaction_heat`.
+    pub reaction_heat: Energy,
 }
 
 /// The state an outflow through a port would carry (for a flow path's donor).
@@ -487,6 +527,11 @@ pub struct ControlVolume {
     ncg_out: [f64; 6],
     e_in: f64,
     e_out: f64,
+    /// Running totals of the atmosphere reactions: H2 and CO burned, mol,
+    /// and the heat released, J (gh:#1100).
+    rx_h2: f64,
+    rx_co: f64,
+    rx_heat: f64,
     /// The pool's layers, bottom first, `(kg, J)`, summing to `pool_kg` and
     /// `pool_e`; empty for one well-mixed pool (gh:#1100).
     layers: Vec<(f64, f64)>,
@@ -564,6 +609,9 @@ impl ControlVolume {
             ncg_out: [0.0; 6],
             e_in: 0.0,
             e_out: 0.0,
+            rx_h2: 0.0,
+            rx_co: 0.0,
+            rx_heat: 0.0,
             layers: Vec::new(),
             layer_t: Vec::new(),
         };
@@ -1158,6 +1206,9 @@ impl ControlVolume {
             ncg_out: self.ncg_out.map(kg),
             energy_in: Energy::new::<joule>(self.e_in),
             energy_out: Energy::new::<joule>(self.e_out),
+            hydrogen_burned: AmountOfSubstance::new::<mole>(self.rx_h2),
+            carbon_monoxide_burned: AmountOfSubstance::new::<mole>(self.rx_co),
+            reaction_heat: Energy::new::<joule>(self.rx_heat),
         }
     }
     /// The pressure at elevation `z`: the atmosphere's plus `ρ g (L − z)`
@@ -1214,14 +1265,15 @@ impl ControlVolume {
     // ── Step ─────────────────────────────────────────────────────────────
 
     /// Advance by `dt`, in the wet well's order: every port's inflow (port
-    /// order) through the bubble model, the pool heat and the heat exchanger,
+    /// order) through the bubble model, the pool heat, the atmosphere heat,
+    /// steam sink and reactions (gh:#1097, gh:#1100), the heat exchanger,
     /// every port's outflow (port order) by the level, the pool surface
     /// (flashing, exchange, rain-out), and the pool's compression work.
     ///
     /// # Errors
     ///
     /// [`TampinesError::InvalidInput`] for a non-positive `dt`, a wrong
-    /// number of port inputs, a negative or non-finite flow, or an
+    /// number of port inputs, a negative or non-finite flow or burn rate, or an
     /// atmosphere outflow not below the atmosphere's mass (a liquid outflow
     /// larger than the pool takes the pool and reports what moved: dry-out,
     /// gh:#1100); [`TampinesError::Unphysical`] if the pool fills the vessel
@@ -1329,6 +1381,8 @@ impl ControlVolume {
             self.e_out += e_sink;
             self.refresh()?;
         }
+        // 2c. Atmosphere reactions at the caller's rates (gh:#1100).
+        let (xi_h, xi_c, q_rx) = self.react(dt, &inputs.atmosphere_reactions)?;
         let k = ua * dt;
         // A dry pool uncovers the exchanger: no heat (gh:#1100).
         let q_hx = if !(self.pool_kg > 0.0) {
@@ -1439,7 +1493,64 @@ impl ControlVolume {
             steam_sink: Mass::new::<kilogram>(m_sink),
             steam_sink_energy: Energy::new::<joule>(e_sink),
             pool_heat_to_atmosphere: Energy::new::<joule>(q_to_atm),
+            hydrogen_burned: AmountOfSubstance::new::<mole>(xi_h),
+            carbon_monoxide_burned: AmountOfSubstance::new::<mole>(xi_c),
+            reaction_heat: Energy::new::<joule>(q_rx),
         })
+    }
+
+    /// The energy each reaction adds to the atmosphere's stored energy per
+    /// mole of fuel burned, `[H2, CO]`, on the current closure's references:
+    /// `Q = −Σ ν_i c_i`, `c_i = Δ_f H_i°(298.15 K) − h_i^code(298.15 K)` (the
+    /// derivation is in [`reaction`]). Not the heat of reaction itself (that
+    /// is `Q` less the reaction's change of the code-reference energy at the
+    /// temperature, Kirchhoff's law on the code's own `c_v`), but at 298.15 K
+    /// it reproduces JANAF's (`tests/control_volume_reactions.rs`, R1).
+    pub fn reaction_energy_per_mole(&self) -> [MolarEnergy; 2] {
+        reaction::as_molar_energy(self.reaction_q())
+    }
+
+    /// `[H2, CO]` energy per mole, J/mol: the code's molar enthalpies at
+    /// 298.15 K, steam in its ideal-gas limit (IF97 region 2 at 1 Pa, the
+    /// floor `h_steam` applies anyway).
+    fn reaction_q(&self) -> [f64; 2] {
+        let t = reaction::T_FORMATION_K;
+        let h = |g: NonCondensable| self.model.ncg_u(g, t) + R_GAS * t;
+        let h_h2o = M_H2O * self.h_steam(t, 1.0);
+        reaction::energy_per_mole(h_h2o, h(NonCondensable::H2), h(NonCondensable::O2), h(NonCondensable::CO), h(NonCondensable::CO2))
+    }
+
+    /// Apply the atmosphere reactions for `dt`: extents capped by the fuel
+    /// and then the oxygen present ([`reaction`]), the amounts moved, the
+    /// heat added to the atmosphere's stored energy. Nothing at all (not
+    /// even a refresh) when both rates are zero, so a volume without
+    /// reactions runs the code as it was, bit for bit. Returns `(ξ_H, ξ_C,
+    /// Q)`, mol, mol, J.
+    fn react(&mut self, dt: f64, rx: &AtmosphereReactions) -> Result<(f64, f64, f64), TampinesError> {
+        let want_h = finite_nonneg(rx.hydrogen_burn.get::<mole_per_second>(), "hydrogen burn rate")? * dt;
+        let want_c = finite_nonneg(rx.carbon_monoxide_burn.get::<mole_per_second>(), "carbon monoxide burn rate")? * dt;
+        if want_h == 0.0 && want_c == 0.0 {
+            return Ok((0.0, 0.0, 0.0));
+        }
+        let (ih, io, ic, ic2) = (NonCondensable::H2.index(), NonCondensable::O2.index(), NonCondensable::CO.index(), NonCondensable::CO2.index());
+        let n = self.gas.ncg_moles;
+        let x = reaction::capped_extents(n[ih], n[ic], n[io], want_h, want_c);
+        if x.xi_h == 0.0 && x.xi_c == 0.0 {
+            return Ok((0.0, 0.0, 0.0));
+        }
+        let [q_h, q_c] = self.reaction_q();
+        let q = x.xi_h * q_h + x.xi_c * q_c;
+        self.gas.ncg_moles[ih] = x.h2;
+        self.gas.ncg_moles[ic] = x.co;
+        self.gas.ncg_moles[io] = x.o2;
+        self.gas.ncg_moles[ic2] += x.xi_c;
+        self.gas.steam_kg += x.xi_h * M_H2O;
+        self.gas_e += q;
+        self.rx_h2 += x.xi_h;
+        self.rx_co += x.xi_c;
+        self.rx_heat += q;
+        self.refresh()?;
+        Ok((x.xi_h, x.xi_c, q))
     }
 
     /// `q` J of pool heat. Into the pool (by mass over the layers); into the

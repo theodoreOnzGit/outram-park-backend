@@ -409,3 +409,154 @@ layers, conservation to round-off (L2, L5, L6, L7, L8); conduction across a
 stable column within 0.011 K of the analytic slab after 55 h (L3); an
 unstable column mixes at once by density (L4); a pool drains, boils or
 evaporates dry and refills, conserving to round-off (L6–L8).
+
+## Atmosphere reactions: H2 and CO combustion at caller-set rates (gh:#1100, 2026-11-01)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+### What was added
+
+`ControlVolumeInputs::atmosphere_reactions: AtmosphereReactions` (two
+`MolarFlowRate`s, mol/s of fuel: `hydrogen_burn` for `H2 + ½ O2 → H2O(g)`,
+`carbon_monoxide_burn` for `CO + ½ O2 → CO2`), applied inside
+`ControlVolume::step` after the atmosphere heat and steam sink (step 2c), and
+`CvNetwork::set_atmosphere_reactions(volume, reactions)` (held until changed,
+as `set_atmosphere_steam_sink`). The burn criteria and rates are the
+caller's (`sembawang`, MELCOR BUR RM §2); this side closes the stoichiometry
+and the energy. The step's extents are capped by the fuel present and then,
+together, by the oxygen (both scaled by one factor when oxygen limits); a
+limited reactant ends exactly 0. `ControlVolumeStepReport` carries
+`hydrogen_burned`, `carbon_monoxide_burned` and `reaction_heat`;
+`ControlVolumeBookkeeping` their running totals; `CvNetwork::reaction_totals`
+the network's.
+
+Searched first: no reaction, combustion or formation-enthalpy code in
+`tampines` or `tampines-steam-tables` (`grep -riE
+"formation|combust|heat of|burn"` over both `src/`; the hits are pebble-bed
+burnup, OpenFOAM's `hConst`/`hPolynomial` formation-enthalpy *field* `Hf`
+with no species data, and the gas mixture itself). Elsewhere,
+`dover::species::Species::enthalpy_formation` holds NIST-JANAF values for
+steam, CO and CO2 rounded to 0.1 kJ/mol (−241.8, −110.5, −393.5); checked
+and not reused: `tampines` does not depend on `dover`, and the rounding
+alone is 1.1e-4 of the H2 heat, against a 1e-3 gate that should be met with
+margin; the full-precision JANAF values are used here instead;
+`gas_mixture::nasa7` keeps only the five `c_p` coefficients of GRI-Mech 3.0,
+not the sixth (the enthalpy constant `a5`, which carries GRI's formation
+enthalpy), and steam is IF97, not NASA-7, so the a5 route cannot serve the
+steam; the formation enthalpies are taken from NIST-JANAF instead, and GRI's
+`a5` is used only in the independent hand calculation (R2).
+
+### The energy-reference derivation
+
+Each species' energy is on its own reference: non-condensables from 0 K by
+`sembawang`'s convention (below each fit's lower bound `u = c_v(T_low) T`),
+steam on IF97 (triple-point liquid). With `h_i^code(T)` the code's molar
+enthalpy (`u_i + R T`; steam `M_H2O h_IF97(T, 1 Pa)`, the ideal-gas limit),
+every species is anchored to its NIST-JANAF `Δ_f H°(298.15 K)` (Chase 1998:
+H2O(g) −241.826, CO −110.527, CO2 −393.522 kJ/mol, elements 0):
+
+```text
+c_i = Δ_f H_i°(298.15) − h_i^code(298.15),    h̃_i = h_i^code + c_i
+Q   = −Σ ν_i c_i ξ        (added to the atmosphere's stored energy)
+```
+
+`c_i` shifts `u` and `h` alike, so `Σ n_i (u_i^code + c_i)` is the conserved
+absolute energy and `Q` is what the stored energy gains. It is a constant per
+mole (`ControlVolume::reaction_energy_per_mole`). 298.15 K, not 0 K, is the
+anchor because the code's "from 0 K" values are an extrapolation below each
+fit, not JANAF's `H°(T) − H°(0)` (numbers in the results).
+
+### Predictions (written 2026-11-01 before the first run)
+
+- **R1, heat of reaction at 298.15 K vs JANAF.** Burn a small amount (so the
+  steam stays below saturation) in a dry 10 m³ volume of H2 + O2 at
+  298.15 K in one step; the heat to remove to bring the products back to
+  298.15 K at constant volume, plus `V Δp`, per mole, is `−Δ_r H(298.15)`.
+  Predicted 241.826 kJ/mol for H2 (JANAF LHV) and 282.995 kJ/mol for CO
+  (JANAF; 282.98 is the rounded value in the issue, 0.005 % away), both
+  within 0.01 %: by construction the anchor is exact, and only the IF97
+  steam's real-gas residual enthalpy at its partial pressure (about 500 Pa:
+  `(B − T dB/dT) p`, a few J/mol, about 1e-5 of the heat) differs from the
+  ideal gas. Gate: < 0.1 %.
+- **R2, adiabatic constant-volume complete burn.** 1 m³, dry, 8 % H2 in air
+  (O2 : N2 = 21 : 79), 300 K, 1 bar (40.09 mol: 3.21 H2, 7.74 O2, 29.15
+  N2), burned to completion. Hand estimate: `Q ≈ 3.21 × 240.6 kJ ≈ 772 kJ`
+  over a mean `C_v ≈ 891 J/K` gives `T_end ≈ 1170 ± 50 K` and
+  `p_end = n R T/V ≈ 3.73 ± 0.2 bar`. Against an independent calculation
+  written in the test (GRI-Mech 3.0 NASA-7 with its own enthalpy constants
+  for H2, O2, N2 and H2O, ideal gases, bisection on `U(T)`), predicted to
+  agree within 1 % of the temperature rise and 1 % on the pressure, the
+  difference carried by MELCOR's N2 `c_v` against NASA-7's (about 1 % near
+  1000 K) and IF97 against NASA-7 steam. Gate: 1 %.
+- **R3, limiting reactant.** 10 mol H2 with 2 mol O2 asked to burn 100 mol
+  in one step: O2 ends exactly 0, H2 at 6 mol and the steam up by 4 mol to
+  1e-14; asked to burn more H2 than present with excess O2, H2 ends exactly
+  0; both fuels O2-starved burn in the asked ratio.
+- **R4, elements.** H, O, C, N (and Ar) over a 60-step transient with both
+  reactions, inflows, outflows and a pool: each element's inventory less
+  what crossed the boundary closes to < 1e-12 relative; energy closes with
+  `reaction_heat` to < 1e-10 of the energy in.
+- **R5, zero reaction is the old code bit for bit.** A 60-step transient
+  (pool, steam, H2, O2, CO, CO2, Ar, N2, inflow, drain, vent, atmosphere heat
+  and sink) taken on the code before the change: every value `to_bits`
+  identical with the reaction input absent, and set explicitly to zero.
+
+### Results (2026-11-01, release, Rust 1.99.1; `tests/control_volume_reactions.rs`)
+
+| Case | Predicted | Measured | |
+|---|---|---|---|
+| R1 H2, `−Δ_r H(298.15)` | 241.826 kJ/mol within 0.01 % | **241.8296 kJ/mol, +1.48e-5** (the gas reached 779 K in the step) | as predicted |
+| R1 CO, `−Δ_r H(298.15)` | 282.995 kJ/mol within 0.01 % | **282.9950 kJ/mol, 0.0** (no steam, no real-gas term); +5.3e-5 against the issue's rounded 282.98 | as predicted |
+| R2 adiabatic burn, end T | 1170 ± 50 K; within 1 % of the rise of the hand calculation | code **1146.09 K**, hand (GRI-Mech NASA-7) **1149.77 K**: −3.68 K, **−0.43 %** of the 850 K rise | as predicted |
+| R2 end p | 3.73 ± 0.2 bar; within 1 % | code **3.6675 bar**, hand **3.6793 bar**: **−0.32 %** | as predicted |
+| R2 path independence | (not predicted) | 20 steps and one step end at the same T to 1e-6 K (1146.093695 K both) | |
+| R2 energy | (closure) | `E − E0 − Q` = −1.2e-10 J of 8.85e5 J | |
+| R3 limiting | O2 exactly 0, H2 6, steam +4 mol to 1e-14 | as predicted; a further step burns nothing; fuel-limited H2 exactly 0 and O2 8.5; both fuels starved burn 3 : 1 as asked | case corrected, below |
+| R4 elements | < 1e-12 relative | H +2.9e-15, O +2.9e-15, C +3.9e-16, N −4.4e-15, Ar 8e-18 (90 mol H2 and 19.96 mol CO burned, 3.04e7 J); energy −3.0e-14 of `E_in` | as predicted |
+| R5 zero reaction | bit for bit | all 72 values identical (absent, `none()`, explicit zeros) | as predicted |
+| R6 network | (added) | the one-volume network burns exactly as the volume alone; water 0, gases < 1e-14 kg, energy 2.3e-10 J of 1.94e6 J against `boundary_inflow + reaction_totals` | |
+
+**Stored-energy release per mole** on the default closure (MELCOR H2 and N2,
+NASA-7 O2/CO/CO2, IF97 steam): `Q_H2 = 275 808.3 J/mol`, `Q_CO = 279 844.5
+J/mol`. These are not heats of reaction (they include each species' shift
+between its code reference and JANAF's); the heats are R1's.
+
+**R2, what carries the −3.7 K.** Re-running the hand calculation with the
+code's MELCOR N2 energy in place of GRI's (attribution only; it reuses the
+code's N2 fit) gives 1146.05 K, 0.04 K from the code: MELCOR's N2 `c_v`
+(about 1 % above NASA-7's near 1000 K) carries the difference; IF97 against
+GRI steam and JANAF's against GRI's own formation enthalpy of H2O(g)
+(−241.8246 kJ/mol from GRI's `a5`, 1.4 J/mol from JANAF) carry 0.04 K.
+
+**Added checks (not in the written predictions).**
+- IF97 to JANAF for water itself: IF97's
+  `M_H2O (h_ig(298.15 K, 1 Pa) − h_liq(298.15 K, 1 bar)) = 44.0112 kJ/mol`
+  against JANAF's `Δ_f H°(H2O,g) − Δ_f H°(H2O,l) = 44.004 kJ/mol`, **+1.6e-4**
+  (7.2 J/mol). IF97's steam and liquid are consistent with the JANAF
+  formation data to that level; the reactions use only the vapour anchor.
+- The code's enthalpies "from 0 K" at 298.15 K against JANAF's
+  `H°(298.15) − H°(0)` (default closure): H2 7571.9 vs 8468 (**−896 J/mol**,
+  MELCOR's fit held at `c_v(100 K)` below 100 K, where real H2's rotational
+  `c_v` falls), O2 +11.8, N2 +83.4 (MELCOR), CO +13.7, CO2 **+517.6**
+  (NASA-7 held at `c_v(200 K)` below 200 K), Ar +0.4; all-NASA-7: H2 −187.1,
+  N2 −1.1. **Finding, not a defect for the existing code:** the gas
+  mixture's "from 0 K" is `sembawang`'s convention (stated in
+  `gas_mixture::nasa7` and `melcor_ncg`), not JANAF's `H°(T) − H°(0)`. It
+  is harmless for energy changes above each fit's lower bound, but it rules
+  out anchoring formation enthalpies at 0 K (a 0.37 % error on the H2 burn
+  from H2 alone); the reactions anchor at 298.15 K for that reason.
+
+**Changes after the first run (case errors, not code).**
+- R3, both fuels starved: the first case held 10 mol of each fuel with rates
+  30 and 10 mol/s, so the fuel cap made the asked extents 10 : 10 before the
+  oxygen scaled them (2 : 2 measured). The volume did what its docs say; the
+  case now holds 50 mol of each and burns 3 : 1.
+- R4: an assertion (not a written prediction) that more than 25 mol of CO
+  burned; only 20 mol was there, and the vent took 0.04 mol of it. Now: H2
+  burned 90 mol (1.5 mol/s × 60 s) and CO ran out.
+
+**What to quote:** heat of reaction at 298.15 K within 1.5e-5 of JANAF for
+H2 and exact for CO (R1); the adiabatic constant-volume burn of 8 % H2 in
+air within 0.43 % of the temperature rise and 0.32 % of the pressure of an
+independent GRI-Mech calculation, the difference carried by MELCOR's N2
+`c_v` (R2); elements to 5e-15 (R4); zero reaction bit for bit (R5).
