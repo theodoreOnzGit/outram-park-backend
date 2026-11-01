@@ -9661,7 +9661,6 @@ dependencies = [
  "outram-park-fork-dwsim-libs",
  "petir",
  "raffles",
- "sembawang",
  "serde",
  "tampines-steam-tables",
  "teh-o-prke",
