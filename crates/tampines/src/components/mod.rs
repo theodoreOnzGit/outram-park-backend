@@ -13,6 +13,7 @@
 pub mod condenser;
 pub mod cooling_tower;
 pub mod heat_exchanger;
+pub mod heat_structure;
 pub mod helical_coil_sg_standalone;
 pub mod helical_coil_steam_generator;
 pub mod junction;
@@ -26,6 +27,10 @@ pub mod valve;
 pub use condenser::Condenser;
 pub use cooling_tower::CoolingTower;
 pub use heat_exchanger::HeatExchanger;
+pub use heat_structure::{
+    ConductionZone, HeatStructure, HeatStructureLink, SideCondition, StructureBoundary, StructureShape,
+    StructureSide, ThermalCoupler,
+};
 // The spatially resolved once-through exchanger, moved here from
 // `htgr_sim_v1` on 2026-09-27 (maintainer direction). NOT the same thing as
 // `steam_generator::SteamGenerator` below, which is a 46-line stub around the

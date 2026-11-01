@@ -872,6 +872,1297 @@ pub struct HeatExchanger {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `heat_structure`
+
+Heat structures coupled to HEM pipes: PipeWithHeatStructure, CoreChannel
+and a wall heat exchanger (gh:#1077; RELAP-7 Theory Manual §4.1 and
+§6.2–6.4, cited, not quoted).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+# What this is
+
+[`HeatStructure`] is transient 1-D conduction through a wall, a cylinder
+(a fuel rod: fuel, gap, cladding) or a slab, at every axial cell of a pipe:
+`ρc ∂T/∂t = ∇·(k∇T) + q'''`, finite volume across the thickness, backward
+Euler in time, one tridiagonal solve per axial cell
+([`crate::multiphase_1d::thomas_solve`]). Zones carry their own `k`, `ρc`
+and volumetric source; a gap is a zone of gas conductivity (radiation
+across it is not modelled).
+
+[`ThermalCoupler`] couples heat structures to the pipes of a
+[`HemNetwork`]. Each step the heat to the fluid, `h A (T_s − T_f)` with
+the surface temperature eliminated through the half-cell resistance, is
+put into the pipe cells with [`HemPipe::set_cell_heat_input`]; the network
+steps; and each structure then advances the **same** `dt` with that same
+heat leaving it. The exchange is frozen over the step, so energy is
+conserved exactly, and explicit in the coupling; the acoustic step of the
+fluid keeps `h dt/(ρc Δr)` small.
+
+**What exists and why this is new (searched first):** TUAS's solid arrays
+(`SolidColumn`) are axial with the wall lumped radially; `bedok`'s
+`fuelrodheattime_1dcylnd` is a transient rod solver, but a port of the
+MATLAB code with its own geometry and sparse types, and `tampines` does
+not depend on `bedok`; OFFBEAT has no thermal sub-solver. This module
+reuses `thomas_solve` and, for MATPRO properties, expects the caller to
+tabulate `outram-park-fork-offbeat`'s `Relap7HeatStructure` (gh:#1070)
+into zone constants.
+
+# Limits
+
+- Properties are constant per zone (no `k(T)` yet).
+- The heat-transfer coefficient is the caller's (a constant per link);
+  wiring the RELAP5 dispatcher ([`crate::heat_transfer`], gh:#1063) needs
+  fluid conductivity and heat capacity, which the HEM state does not carry.
+- No axial conduction in the structure.
+- [`ThermalCoupler::step`] **replaces** each coupled pipe's cell heat
+  input every step; a reactor power source acting on the same pipe must be
+  given to the structure (its zone source), not to the pipe.
+
+```rust
+pub mod heat_structure { /* ... */ }
+```
+
+### Types
+
+#### Enum `StructureShape`
+
+The shape of a heat structure.
+
+```rust
+pub enum StructureShape {
+    Cylinder {
+        inner_radius: uom::si::f64::Length,
+        multiplicity: f64,
+    },
+    Slab {
+        width: uom::si::f64::Length,
+    },
+}
+```
+
+##### Variants
+
+###### `Cylinder`
+
+A cylinder (or annulus) from `inner_radius` outward; `multiplicity`
+identical rods per axial cell.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inner_radius` | `uom::si::f64::Length` | Inner radius (0 for a solid rod, whose inner side is then the<br>symmetry axis and must be adiabatic). |
+| `multiplicity` | `f64` | Number of identical rods. |
+
+###### `Slab`
+
+A plane wall of this width (the wall area per axial cell is
+`width · Δz`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `uom::si::f64::Length` | Width normal to the axis and the thickness. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ConductionZone`
+
+One material layer across the thickness.
+
+```rust
+pub struct ConductionZone {
+    pub thickness: uom::si::f64::Length,
+    pub n_cells: usize,
+    pub conductivity: uom::si::f64::ThermalConductivity,
+    pub volumetric_heat_capacity: uom::si::f64::VolumetricHeatCapacity,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thickness` | `uom::si::f64::Length` | Layer thickness. |
+| `n_cells` | `usize` | Number of finite-volume cells across it (≥ 1). |
+| `conductivity` | `uom::si::f64::ThermalConductivity` | Thermal conductivity. |
+| `volumetric_heat_capacity` | `uom::si::f64::VolumetricHeatCapacity` | Volumetric heat capacity `ρc`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `StructureBoundary`
+
+A boundary condition on one side of a structure, for
+[`HeatStructure::step`].
+
+```rust
+pub enum StructureBoundary {
+    Adiabatic,
+    Temperature(uom::si::f64::ThermodynamicTemperature),
+    Convective {
+        h: uom::si::f64::HeatTransfer,
+        ambient: uom::si::f64::ThermodynamicTemperature,
+    },
+    HeatInflow(Vec<f64>),
+}
+```
+
+##### Variants
+
+###### `Adiabatic`
+
+No heat crosses (also the symmetry axis of a solid rod).
+
+###### `Temperature`
+
+Surface temperature held.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `uom::si::f64::ThermodynamicTemperature` |  |
+
+###### `Convective`
+
+`h (T_s − T_∞)` leaves the surface.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `h` | `uom::si::f64::HeatTransfer` | Heat-transfer coefficient. |
+| `ambient` | `uom::si::f64::ThermodynamicTemperature` | Ambient temperature. |
+
+###### `HeatInflow`
+
+A prescribed heat **into** the structure per axial cell, W (negative
+out); frozen over the step.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `StructureSide`
+
+Which side of a structure.
+
+```rust
+pub enum StructureSide {
+    Inner,
+    Outer,
+}
+```
+
+##### Variants
+
+###### `Inner`
+
+The inner surface (smaller radius, or `x = 0` of a slab).
+
+###### `Outer`
+
+The outer surface.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HeatStructure`
+
+Transient 1-D conduction across a wall at every axial cell.
+
+```rust
+pub struct HeatStructure {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(shape: StructureShape, zones: &[ConductionZone], n_axial: usize, dz: Length, initial: ThermodynamicTemperature) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  A structure of `zones` (from the inner side outward) at `n_axial`
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Cells across the thickness.
+
+- ```rust
+  pub fn n_axial(self: &Self) -> usize { /* ... */ }
+  ```
+  Axial cells.
+
+- ```rust
+  pub fn temperature(self: &Self, j: usize, i: usize) -> Option<ThermodynamicTemperature> { /* ... */ }
+  ```
+  Temperature of cell `i` (across) at axial cell `j`.
+
+- ```rust
+  pub fn set_source(self: &mut Self, j: usize, cells: core::ops::Range<usize>, q: VolumetricPowerDensity) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set a uniform volumetric source in the cells of zone-range
+
+- ```rust
+  pub fn set_power(self: &mut Self, j: usize, cells: core::ops::Range<usize>, p: Power) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the sources of cells `cells` at axial cell `j` so they hold the
+
+- ```rust
+  pub fn surface_area(self: &Self, side: StructureSide) -> uom::si::f64::Area { /* ... */ }
+  ```
+  Area of a surface at one axial cell.
+
+- ```rust
+  pub fn stored_energy(self: &Self) -> f64 { /* ... */ }
+  ```
+  Stored energy `Σ ρc V T`, J (relative to 0 K).
+
+- ```rust
+  pub fn source_power(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total source power, W.
+
+- ```rust
+  pub fn heat_to_fluid(self: &Self, side: StructureSide, j: usize, t_fluid: f64, h: f64) -> f64 { /* ... */ }
+  ```
+  Heat leaving `side` at axial cell `j` into a fluid at `t_fluid` with
+
+- ```rust
+  pub fn step(self: &mut Self, dt: Time, inner: &StructureBoundary, outer: &StructureBoundary) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Advance `dt` by backward Euler with these boundary conditions.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SideCondition`
+
+What one side of a coupled structure sees.
+
+```rust
+pub enum SideCondition {
+    Boundary(StructureBoundary),
+    Pipe {
+        pipe: usize,
+        h: uom::si::f64::HeatTransfer,
+    },
+}
+```
+
+##### Variants
+
+###### `Boundary`
+
+A boundary independent of the network.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `StructureBoundary` |  |
+
+###### `Pipe`
+
+The fluid of network pipe `pipe`, cell for cell, with coefficient `h`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pipe` | `usize` | Pipe index in the network. |
+| `h` | `uom::si::f64::HeatTransfer` | Heat-transfer coefficient (constant; see the module limits). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HeatStructureLink`
+
+A heat structure and what each side of it sees: a PipeWithHeatStructure
+(one side on a pipe), a CoreChannel (a fuel rod with a source, its outer
+side on the coolant), or a heat-exchanger wall (each side on a pipe).
+
+```rust
+pub struct HeatStructureLink {
+    pub structure: HeatStructure,
+    pub inner: SideCondition,
+    pub outer: SideCondition,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `structure` | `HeatStructure` | The structure. |
+| `inner` | `SideCondition` | Its inner side. |
+| `outer` | `SideCondition` | Its outer side. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ThermalCoupler`
+
+Couples heat structures to the pipes of a [`HemNetwork`].
+
+```rust
+pub struct ThermalCoupler {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  An empty coupler.
+
+- ```rust
+  pub fn add<E: HemEquationOfState>(self: &mut Self, net: &HemNetwork<E>, link: HeatStructureLink) -> Result<usize, TampinesError> { /* ... */ }
+  ```
+  Add a link; its pipes must have as many cells as the structure has
+
+- ```rust
+  pub fn link(self: &Self, index: usize) -> Option<&HeatStructureLink> { /* ... */ }
+  ```
+  The links.
+
+- ```rust
+  pub fn link_mut(self: &mut Self, index: usize) -> Option<&mut HeatStructureLink> { /* ... */ }
+  ```
+  The links, mutably (to set sources between steps).
+
+- ```rust
+  pub fn heat_to_fluid(self: &Self) -> uom::si::f64::Energy { /* ... */ }
+  ```
+  Heat given to the fluid since construction.
+
+- ```rust
+  pub fn stored_energy(self: &Self) -> f64 { /* ... */ }
+  ```
+  Stored energy of every structure, J.
+
+- ```rust
+  pub fn step<E: HemEquationOfState>(self: &mut Self, net: &mut HemNetwork<E>) -> Result<Time, TampinesError> { /* ... */ }
+  ```
+  One coupled step: set the pipes' heat input from the walls, step the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `helical_coil_sg_standalone`
 
 **Standalone helical-coil steam-generator harness** — the exchanger alone,
@@ -4598,6 +5889,54 @@ pub use cooling_tower::CoolingTower;
 
 ```rust
 pub use heat_exchanger::HeatExchanger;
+```
+
+#### Re-export `ConductionZone`
+
+```rust
+pub use heat_structure::ConductionZone;
+```
+
+#### Re-export `HeatStructure`
+
+```rust
+pub use heat_structure::HeatStructure;
+```
+
+#### Re-export `HeatStructureLink`
+
+```rust
+pub use heat_structure::HeatStructureLink;
+```
+
+#### Re-export `SideCondition`
+
+```rust
+pub use heat_structure::SideCondition;
+```
+
+#### Re-export `StructureBoundary`
+
+```rust
+pub use heat_structure::StructureBoundary;
+```
+
+#### Re-export `StructureShape`
+
+```rust
+pub use heat_structure::StructureShape;
+```
+
+#### Re-export `StructureSide`
+
+```rust
+pub use heat_structure::StructureSide;
+```
+
+#### Re-export `ThermalCoupler`
+
+```rust
+pub use heat_structure::ThermalCoupler;
 ```
 
 #### Re-export `NodalisedCounterFlowSteamGenerator`
