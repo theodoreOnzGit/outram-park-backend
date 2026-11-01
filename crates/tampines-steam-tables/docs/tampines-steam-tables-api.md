@@ -11138,7 +11138,9 @@ No dependency edge is added either way.
 # Physics, and what is not here
 
 Inviscid, adiabatic, frictionless, horizontal, equilibrium two-phase (both
-phases at `T_sat(p)` inside the dome, no slip). The sound speed is the
+phases at `T_sat(p)` inside the dome, no slip). The flow area may vary
+along the pipe ([`AreaProfile`], gh:#1058; quasi-1-D, with the wall
+pressure force). The sound speed is the
 homogeneous-**equilibrium** one throughout ([`eos`] module doc). Not here:
 wall friction, gravity, heat transfer, slip, metastable liquid.
 
@@ -12440,6 +12442,12 @@ pub use reduced_eos::StiffenedGasHem;
 
 ```rust
 pub use reduced_eos::StiffenedGasPair;
+```
+
+#### Re-export `AreaProfile`
+
+```rust
+pub use pipe::AreaProfile;
 ```
 
 #### Re-export `HemBoundary`
