@@ -422,12 +422,12 @@ struct Tracer {
 /// coefficient and area. The sound speed from the donor's own `g`:
 /// diatomic gases at `c_v = 2.5 R`, steam at `3.15 R` (stated), by mole
 /// fraction (`x_steam`); `molar` its molar mass, kg/mol.
+///
+/// **Since 2026-11-01 the code is `tampines::flow_path::critical_moles`**
+/// (gh:#1094; `sembawang` depends on `tampines`), moved verbatim, so the
+/// values are unchanged; this forwards to it.
 pub(crate) fn critical_moles(cd: f64, area: f64, p: f64, t: f64, molar: f64, x_steam: f64) -> f64 {
-    let cv = (1.0 - x_steam) * 2.5 + x_steam * 3.15;
-    let gamma = (cv + 1.0) / cv;
-    let rho = p * molar / (R_GAS * t);
-    let c_s = (gamma * R_GAS * t / molar).sqrt();
-    cd * area * rho * c_s * 0.578_7 / molar
+    tampines::flow_path::critical_moles(cd, area, p, t, molar, x_steam)
 }
 
 /// MELCOR's BUR ignition test for a volume without igniters (BUR RM §2.2,

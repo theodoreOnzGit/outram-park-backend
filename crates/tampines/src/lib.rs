@@ -93,6 +93,7 @@ pub mod pcice;
 pub mod pebble_bed;
 pub mod single_phase;
 pub mod subchannel;
+pub mod flow_path;
 
 pub use error::TampinesError;
 pub use fluids::TampinesFluid;

@@ -102,9 +102,6 @@ fn quiet(external_pa: f64) -> WetWellInputs {
     }
 }
 
-use sembawang::bwr_mark1::containment::{Containment, ContainmentSnapshot};
-use sembawang::bwr_mark1::params::Params;
-use sembawang::bwr_mark1::{gas, pool_surface};
 
 /// **3a. The ported primitives are bit for bit sembawang's.**
 /// `exchange` over a grid of pool and gas states (no hydrogen), from
