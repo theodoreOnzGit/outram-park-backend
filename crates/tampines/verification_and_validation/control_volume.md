@@ -190,9 +190,12 @@ choice; `n = 1`, the default, runs the single-region code path unchanged):
   and the bubbles' equilibrium use that layer's temperature. A liquid
   outflow draws from the port's layer, then the layers above it, then those
   below; each gives its share of its energy and the flow work comes from the
-  remaining pool by mass. The surface exchange, flashing and rain-out act on
+  remaining pool by mass. ~~The surface exchange, flashing and rain-out act on
   the **top** layer (its temperature, its mass for MELCOR's Eq 5-17 limit,
-  its thickness as the pool-side depth). Pool heat, the immersed heat
+  its thickness as the pool-side depth).~~ **CORRECTED 2026-11-01:** the
+  surface exchange and flashing act on the surface mixed block (section
+  "The surface sees the surface mixed block" below; the top layer alone made
+  the exchange depend on the layer count, L9); rain-out joins the top layer. Pool heat, the immersed heat
   exchanger (per layer, implicit in each layer's temperature) and the
   compression work are shared by mass. A port donor's liquid state is the
   layer at the port.
@@ -414,6 +417,22 @@ evaporates dry and refills, conserving to round-off (L6–L8).
 
 > Research, education and V&V only. AI draft, unreviewed.
 
+> ~~Everything in this section is `tampines` code.~~ **CORRECTED
+> 2026-11-01 (gh:#1103):** the atmosphere reactions are **no longer in
+> `tampines`**. `AtmosphereReactions`, `ControlVolumeInputs::
+> atmosphere_reactions`, `CvNetwork::set_atmosphere_reactions`,
+> `CvNetwork::reaction_totals`, `ControlVolume::reaction_energy_per_mole`,
+> the report's and bookkeeping's `hydrogen_burned`,
+> `carbon_monoxide_burned` and `reaction_heat`, and `control_volume/
+> reaction.rs` were removed; the derivation, constants and anchoring are
+> `sembawang::bwr_mark1::reaction`, and `tests/control_volume_reactions.rs`
+> is `crates/sembawang/tests/reaction_in_a_control_volume.rs` (R1–R6
+> re-run there; results in `sembawang`'s
+> `verification_and_validation/bwr_mark1/containment_network.md`). The
+> record below is kept as it was run; every API name in it is historical.
+> What replaced it here is the species source and sink (section "The
+> reactions move to `sembawang`" below).
+
 ### What was added
 
 `ControlVolumeInputs::atmosphere_reactions: AtmosphereReactions` (two
@@ -560,3 +579,189 @@ H2 and exact for CO (R1); the adiabatic constant-volume burn of 8 % H2 in
 air within 0.43 % of the temperature rise and 0.32 % of the pressure of an
 independent GRI-Mech calculation, the difference carried by MELCOR's N2
 `c_v` (R2); elements to 5e-15 (R4); zero reaction bit for bit (R5).
+
+## The surface sees the surface mixed block, pool heat at an elevation, the heat to the atmosphere reported (gh:#1100, 2026-11-01)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+Three needs listed by `sembawang`'s
+`verification_and_validation/bwr_mark1/containment_network.md` ("What
+`tampines` would need"):
+
+1. **The surface exchange depended on the layer count.** `sembawang`'s case A
+   (relief steam into a mixed, layered torus pool) gave network `p_ww` − old
+   +341.1, +347.9, +354.2, +360.1, +365.5 Pa at 1, 2, 4, 8, 16 layers. The
+   suspected cause, from the code: `ControlVolume::surface_liquid` hands
+   `pool_surface::exchange` the **top layer's** mass (MELCOR's Eq 5-17 limit
+   on the pool's heat) and its **thickness** as the pool depth `L` in the
+   pool-side natural convection (`h_free`, `X = min(D_s, L)`, the
+   coefficient `∝ X^-1/4` through `Nu = 0.27 (Gr Pr)^1/4`). A thinner layer
+   gives a larger coefficient and more evaporation.
+2. Pool heat at an elevation (`set_pool_heat` shares by mass).
+3. Each volume's `pool_heat_to_atmosphere` through `NetworkStepReport`.
+
+**What MELCOR uses.** MELCOR's CVH holds one pool per control volume, so it
+has no layer to choose: the pool-side length of its horizontal-surface
+natural convection (CVH/FL RM §5.1.2, Eqs 5-20, 5-22 to 5-25, `X = min(D_s,
+L)`) is that pool's depth, and Eq 5-17's limit is that pool's mass. (Section
+and equation numbers as cited by the existing ports, `sembawang`'s
+`pool_surface` and this crate's; the manual is private and was not re-read
+for this change.) The physical reading for a layered pool is the water that
+convects with the surface: the block of layers, from the top down, that is
+not stably stratified against the surface water. A neutral or unstable
+column below the surface convects as one, and only a stable density step
+arrests the surface's convection.
+
+### Predictions (written 2026-11-01, before any run of this change)
+
+**L9, confirmation on the code as it stands (before any edit to
+`src/`).** One volume, case A of `sembawang` (750 m² prismatic, 2.34 m of
+water at 303.15 K, 2620 m³ of saturated N2 at 105 kPa, 10 kg/s of 2.7 MJ/kg
+steam into a bottom port, 600 s at 1 s), `n` = 1, 2, 4, 8, 16: `p` at 600 s
+rises monotonically with `n`, by +4 … +8 Pa a doubling (about +24 Pa from 1
+to 16, as `sembawang`'s case A), and the surface evaporation rises with it.
+
+**L9, after the fix.** The surface sees the surface mixed block: from the
+top holding layer down, every layer whose IF97 density (at the
+atmosphere's pressure) is not above the block's by more than 1e-12
+relative (a round-off allowance: the convective adjustment hands the
+block's top layer the energy remainder, a few ulp; 1e-12 in density is
+about 3e-9 K, far below any physical stratification); its mass for Eq
+5-17, its depth (level less the height of the water below it) as `L`, its
+temperature as the pool's; what the surface takes (evaporation, heat,
+flashing) comes from the block's layers by mass. Default ON;
+`without_surface_mixed_block()` restores the top layer.
+
+- The column is mixed (the steam enters the bottom layer, which is the
+  lightest and mixes the whole column each step), so the block is the
+  whole pool: `|p(n) − p(1)|` < 0.5 Pa for `n` = 2 … 16, the evaporated
+  mass within 0.1 % of `n` = 1's.
+- With `without_surface_mixed_block()` the numbers equal the confirmation
+  run's bit for bit.
+- **L1 unchanged** (the one-layer path is not touched): 64 values bit for
+  bit.
+- L2 to L8 keep their asserted bounds. L5 (a stable column heated at the
+  top) moves by under 0.5 K: its block is the top layer plus any split half
+  at the same energy.
+
+**L10, pool heat at an elevation** (`ControlVolumeInputs::pool_heat_at`, a
+list of `(elevation, power)`; `pool_heat` unchanged). A 10 m² pool 1 m deep
+at 300 K in 10 layers, surface exchange ablated to sensible-only at zero
+coefficient and compression work off (an insulated column), conduction off;
+100 kW for 100 s at 0.9 m: all 1e7 J in the top layer (it warms by
+`1e7 / (997 kg × 4180)` ≈ 2.4 K; the others bit for bit unchanged); the same
+at 0.05 m: the bottom layer warms, is lighter, and the convective
+adjustment mixes the whole column to the one-layer temperature within
+1e-9 K. One layer: `pool_heat_at` equals `pool_heat` bit for bit. A dry pool:
+the heat reaches the atmosphere and is reported, as `pool_heat`.
+
+**N1, the network report** (`NetworkStepReport::volumes`, each volume's
+`ControlVolumeStepReport`): a two-volume network, one pool given 1 MW for a
+step with 0.1 kg of water: its report's `pool_heat_to_atmosphere` is the
+heat less the pool's capacity, the same as the volume reports alone; the
+other volume's is zero; every existing network result bit for bit (the
+report is a copy, no arithmetic changes).
+
+### Results (2026-11-01, release, Rust 1.99.1)
+
+| Case | Measured | Prediction |
+|---|---|---|
+| L9 confirmation (unmodified `src/`) | `p` 105684.434, 105691.218, 105697.528, 105703.375, 105708.756 Pa at `n` = 1, 2, 4, 8, 16 (+6.8, +6.3, +5.8, +5.4 Pa a doubling); evaporated 0.663, 0.680, 0.696, 0.711, 0.725 kg | monotone, +4 … +8 Pa a doubling ✓ (the cause confirmed: the top layer's mass and thickness) |
+| L9 after the fix, default | `p(n) − p(1)` below 1e-4 Pa at every `n` (105684.4344 Pa printed for all five); evaporated within 1.5e-13 of one layer's | < 0.5 Pa, < 0.1 % ✓ |
+| L9 `without_surface_mixed_block` | bit-identical to the confirmation run at every `n` | bit for bit ✓ |
+| L1 | 64 of 64 bit-identical, default and ablated | ✓ |
+| L2–L8 | all bounds hold; L5's surface layer 318.7051 K (318.71 before), bottom 299.9985 K: its block is one layer | ✓ |
+| L10 top (0.95 m) | the top layer +1.000000e7 J (302.4001 K), the other nine bit for bit | ✓ |
+| L10 bottom (0.05 m) | the column mixes to within 5.7e-14 K of the one-layer 300.239986 K | < 1e-9 K ✓ |
+| L10 band 0.5–1.0 m | layers 5–9 +1.9999e6 J each, layer 4 +327 J, layers 0–3 bit for bit | "shares by mass": held to 1.6e-4 (below) |
+| L10 one layer; dry pool; invalid band | `pool_heat_at` = `pool_heat` bit for bit; 1e3 J to the atmosphere, reported; a band with its top below its bottom refused | ✓ |
+| N1 network | two reports, in order; A's 0.1 kg film boils dry, 1e6 J to its atmosphere in the network report and alone; B's 0; closure with heat at an elevation 5.6e-16 | ✓ |
+
+**After the run (stated):**
+
+- **L10 band:** the band's 0.5 m maps to the layers through the pool's mean
+  density (as a port finds its layer), and the layers' masses come from
+  the construction's density, so 1.6e-4 of the band's water, 327 J, lies
+  in layer 4. The assertion, first exact for layers 0–4, now holds layers
+  0–3 bit for bit and layer 4 under 1e-3 of the band's heat; set after the
+  run and labelled so in the test.
+- **L4, the 4 °C anomaly, a round-off inversion:** the two 275 K layers at
+  the top form one surface block, which now gives up its exchange by mass
+  with the top layer taking the remainder; they ended 2e-13 K apart, the
+  upper warmer, which below the density maximum is denser by about 1e-17.
+  L4's stability check (strict, through a different density call) failed
+  on that. It now allows 1e-12 of the density, the allowance the block
+  itself uses; **a test tolerance changed after a run, flagged for the
+  maintainer.** The physics asserted (static stability, the lower part
+  mixed) is unchanged.
+
+**A consequence found downstream (stated, open).** Flashing acts on the
+block too, so a mixed block above saturation flashes as a whole in one
+step, as a one-layer pool does. In `sembawang`'s 30 h containment replay
+this brought back post-vent `p_ww` swings (up to +12.7 % at the half-hour
+samples) and an `n` dependence of the vent window (−17.2 % at 11 layers,
+−8.2 % at 22). It is the step-scale relaxation cycle that `sembawang`
+recorded for the one-layer pool. The two options are a flash limited to
+the step, or flashing on the top layer while the exchange sees the block.
+Neither is taken here; both need a decision (record:
+`crates/sembawang/verification_and_validation/bwr_mark1/containment_network.md`).
+
+**What to quote:** with layers, a mixed pool's surface exchange no longer
+depends on the layer count (L9: 1e-13 against +24 Pa from 1 to 16 layers
+before); one layer is untouched (L1); heat at an elevation goes where it
+is put and conserves (L10, N1); each volume's report, including
+`pool_heat_to_atmosphere`, reaches the network's caller (N1).
+
+## The reactions move to `sembawang`; a species source and sink stays (gh:#1103, 2026-11-01)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Maintainer direction:** `tampines` holds thermal hydraulics, no
+chemistry. The atmosphere reactions (`AtmosphereReactions`,
+`set_atmosphere_reactions`, `reaction_totals`, the reaction report and
+bookkeeping fields and `control_volume/reaction.rs`, commit 3f1261bd5) are
+removed here and moved to `sembawang::bwr_mark1::reaction` (with
+`tests/control_volume_reactions.rs`, ported). In their place,
+`ControlVolumeInputs::atmosphere_species` (`AtmosphereSpeciesRates`, held on
+the network by `CvNetwork::set_atmosphere_species`): a mass rate per
+species, negative removing, each carried at its own code molar enthalpy at
+the **start-of-step** atmosphere (`ControlVolume::
+atmosphere_species_molar_enthalpies`, public, so a caller closes its own
+energy balance on exactly those values). A removal beyond what the
+atmosphere holds (by more than 1e-12 of it) is refused. It counts as a
+boundary flow in the volume's bookkeeping and in the network's
+`boundary_inflow`.
+
+### Predictions (written 2026-11-01, before the first run)
+
+**S1** (`tests/control_volume.rs`): a 10 m³ vessel, 2 m³ of water at 330 K,
+N2 + 10 % H2 + 10 % O2 at 1 bar; for 100 s at 1 s, +0.01 kg/s steam,
++0.02 kg/s CO2, −0.002 kg/s H2, −0.016 kg/s O2: water, every gas and the
+energy close against the bookkeeping to < 1e-12 relative; each step's
+energy moved equals `Σ (m_i / M_i) h_i` at the start-of-step enthalpies
+to 1e-12; an H2 sink of more than the atmosphere holds is refused; zero
+rates leave a step bit for bit (L1's 64 values, which use none).
+
+**N1** (extended): a species source and sink on a network volume closes
+against `boundary_inflow` to < 1e-12.
+
+### Results (2026-11-01, release, Rust 1.99.1)
+
+| Case | Measured | Prediction |
+|---|---|---|
+| S1 closure | water 6.8e-13 of the 1 kg added (3e-16 of the inventory), gases 5.9e-16, energy 3.8e-16 of `E0` | < 1e-12 ✓ |
+| S1 energy per step | equal to `Σ (m/M) h` at the start-of-step enthalpies exactly (0 difference) | 1e-12 ✓ |
+| S1 oversized sink | refused | ✓ |
+| L1 (zero rates) | 64 of 64 bit-identical | ✓ |
+| N1 species on a network | closure 3.9e-16 against `boundary_inflow` | < 1e-12 ✓ |
+
+**Changed after the first run (case error):** S1's first sinks (0.002 kg/s
+H2, 0.016 kg/s O2) asked for 99 mol of H2 over 100 s from an 8 m³
+atmosphere holding 29 mol. The volume refused it, as specified. The case
+now uses 0.0002 and 0.0016 kg/s.
+
+**The reactions themselves**, ported to `sembawang`, reproduce this crate's
+R1–R6 record (R1 241.8296 kJ/mol, R2 1146.093695 K, R5 bit for bit),
+and the containment's burn case reproduces bit for bit in peak pressure
+and total H2 burned, with round-off (≤ 8 ulp) elsewhere: `sembawang`'s V&V
+doc.

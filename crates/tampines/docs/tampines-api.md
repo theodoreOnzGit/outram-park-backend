@@ -7032,7 +7032,7 @@ bit-for-bit check and the whole-torus comparison live in
 | flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` |
 | the vacuum breaker | the `ww_atmosphere` vacuum-breaker branch of `containment::Containment::step` (step 5) |
 | the immersed heat exchanger's implicit form | `containment::Containment::ww_shell_step` (its implicit two-capacity exchange, the coolant an infinite capacity) |
-| N2 `c_v(T)` and internal energy (MELCOR NCG library) | `gas::cv_n2`, `gas::u_n2`, `gas::ncg_u`, `gas::ncg_c` |
+| N2 `c_v(T)` and internal energy (MELCOR NCG library) | `gas::cv_n2`, `gas::u_n2`, `gas::ncg_u`, `gas::ncg_c` (since 2026-11-01 used from `tampines_steam_tables::gas_mixture::melcor_ncg`, where `gas` moved verbatim; gh:#1092, gh:#1098) |
 | [`t_sat`], [`steam_h`] and the steam/water energy conventions | `pool_surface::t_sat`, `pool_surface::steam_h`, `containment::steam_u`, `CP_WATER` |
 | the pool's density (IF97 region 1) | `sparc::Pool::rho_l` |
 
@@ -9096,6 +9096,11 @@ N2's `c_v(T)` and internal energy (MELCOR NCG fit): ~~a copy of
 identical operation order (that module was moved there verbatim from
 `sembawang`, gh:#1093).
 
+The N2-only energy and heat-capacity sums (`gas::ncg_u`/`ncg_c` with no
+H2) were also local copies until 2026-11-01 (gh:#1098 item 4); they are
+now `melcor_ncg::{ncg_u, ncg_c}` with zero H2, bit for bit (pinned on a
+grid by `tests/wet_well.rs::n2_fits_are_melcor_ncg_bit_for_bit`).
+
 ```rust
 pub use tampines_steam_tables::gas_mixture::melcor_ncg::cv_n2;
 ```
@@ -9107,6 +9112,11 @@ N2's `c_v(T)` and internal energy (MELCOR NCG fit): ~~a copy of
 `tampines_steam_tables::gas_mixture::melcor_ncg` functions, which have the
 identical operation order (that module was moved there verbatim from
 `sembawang`, gh:#1093).
+
+The N2-only energy and heat-capacity sums (`gas::ncg_u`/`ncg_c` with no
+H2) were also local copies until 2026-11-01 (gh:#1098 item 4); they are
+now `melcor_ncg::{ncg_u, ncg_c}` with zero H2, bit for bit (pinned on a
+grid by `tests/wet_well.rs::n2_fits_are_melcor_ncg_bit_for_bit`).
 
 ```rust
 pub use tampines_steam_tables::gas_mixture::melcor_ncg::u_n2;
@@ -9460,6 +9470,69 @@ atmosphere. Under the constant-`c_p` ablation `h = u = c_p (T −
 | IF97 liquid | [`ControlVolume::without_real_liquid`] (constant `c_p` 4186 J/(kg K)) |
 | IF97 steam in the atmosphere | [`ControlVolume::without_real_steam`] |
 | non-condensable `c_v(T)` | [`ControlVolume::without_ncg_cv_t`] |
+| a layered pool's stable layers conduct | [`ControlVolume::without_pool_layer_conduction`] |
+| a layered pool's surface sees its surface mixed block | [`ControlVolume::without_surface_mixed_block`] (the top layer alone) |
+
+## The layered pool and dry-out (gh:#1100)
+
+**Layers, a configuration choice.** [`ControlVolume::with_pool_layers`]
+splits the pool into `n` horizontal layers (the default `n = 1` runs the
+single-region code path unchanged, bit for bit:
+`tests/control_volume_layers.rs` L1 checks 64 values against the code as
+it was before). The totals still set the level, the density, the swell
+and the atmosphere's volume. What enters at a port joins the layer at
+the port's elevation; bubbles meet that layer's temperature; a liquid
+outflow draws from its layer, then the layers above, then below; the
+donor state at an elevation is that layer's liquid. ~~The surface exchange,
+flashing and rain-out act on the top layer~~ **CORRECTED 2026-11-01**
+(gh:#1100): the surface exchange and flashing act on the **surface mixed
+block**, the layers from the top down that are not stably stratified
+against the surface water (its mass for MELCOR's Eq 5-17 limit, its depth
+as the pool-side length, what it gives up shared over its layers by
+mass), so a mixed column is the one-layer pool whatever `n`
+(`tests/control_volume_layers.rs` L9; the top layer alone made the
+exchange depend on `n`, kept as
+[`ControlVolume::without_surface_mixed_block`]); rain-out joins the top
+layer; pool heat, the immersed heat
+exchanger and the compression work are shared by mass, and
+[`ControlVolumeInputs::pool_heat_at`] puts heat at elevations. The column
+operations are in [`layers`]: DYRESM-style split and merge of Lagrangian
+layers, `sembawang`'s mixing of an unstable column
+(`bwr_mark1::containment::Containment::layer_pool`, generalised to `n`
+layers by IF97 density), and molecular conduction across a stable one
+(no eddy diffusivity: stated, the lower bound of the exchange).
+
+**Dry-out, always on.** A pool may hold zero mass, from construction or
+by draining, flashing, evaporating or boiling. A removal that would leave
+less than 1e-9 of the pool (or a layer) takes it all, so an empty pool is
+exactly `(0, 0)`; a drained pool's last flow work comes from the
+atmosphere, and an end-of-step sweep returns to the atmosphere what the
+compression work leaves on an empty pool (and any pool under 1e-9 kg).
+A dry pool has no surface exchange and no flashing, its ports draw the
+atmosphere, the heat exchanger is uncovered, and pool heat goes to the
+atmosphere (reported as [`ControlVolumeStepReport::pool_heat_to_atmosphere`],
+as is heat beyond what boils the whole pool away). Rain-out, inflow and
+condensate refill it. Evaporation that would leave the surface liquid
+below the triple point evaporates it whole (MELCOR's Eq 5-17 limit over-
+draws a pool that is nearly all evaporating).
+
+## Atmosphere species sources and sinks (gh:#1100, gh:#1103)
+
+~~**Atmosphere reactions:** `ControlVolumeInputs::atmosphere_reactions`
+burns H2 and CO at the caller's rates, the heat of reaction closed here
+on the gas mixture's own references.~~ **CORRECTED 2026-11-01**
+(gh:#1103, maintainer direction: `tampines` holds thermal hydraulics,
+no chemistry): the reactions moved to `sembawang`
+(`sembawang::bwr_mark1::reaction`). What stays here is generic:
+[`ControlVolumeInputs::atmosphere_species`], a mass rate per species
+(steam and each non-condensable; negative removes), each carried at its
+own code molar enthalpy at the **start-of-step** atmosphere
+([`ControlVolume::atmosphere_species_molar_enthalpies`], explicit like
+the other caller inputs, so a caller can close its own energy balance on
+exactly the values used). Applied after the atmosphere heat and steam
+sink; a removal larger than what the atmosphere holds then is refused.
+The step reports what moved; [`ControlVolumeBookkeeping`] counts it as
+a boundary flow.
 
 ## For gh:#1094 (flow paths) and gh:#1095 (implicit network)
 
@@ -9483,14 +9556,54 @@ Kinetic energy and gravity in the energy equation; gravity in the
 atmosphere (the pressure above the level is the atmosphere's); the void's
 own effect on what a port draws (a port below the swollen level draws
 liquid at the pool's state, not a two-phase mixture); fog (rain-out goes to
-the pool at once); pool stratification; heat structures (the caller's, as
-`pool_heat`); aerosols.
+the pool at once); ~~pool stratification~~ (**CORRECTED 2026-11-01,
+gh:#1100:** optional layers, above; mixing by stirring is still not
+modelled); boiling at depth in a layered pool (only the surface mixed block, **CORRECTED 2026-11-01** from "the top layer",
+flashes); heat structures (the caller's, as `pool_heat`); aerosols.
 
 ```rust
 pub mod control_volume { /* ... */ }
 ```
 
 ### Modules
+
+## Module `layers`
+
+The layered (thermally stratified) pool's column operations (gh:#1100):
+Lagrangian re-layering by split and merge, the convective adjustment
+of an unstable column, and implicit conduction across a stable one.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+The pool is `N` horizontal layers stacked bottom first, each with its own
+mass and internal energy, `(kg, J)`. The layers are Lagrangian (what
+enters at a port joins the layer at the port's elevation, what leaves
+comes from the layer there) and are re-layered by splitting and merging
+([`split_merge`]) so that none grows thick or thin. Elevations come from the cumulative mass over the pool's mean
+density through the volume–altitude table (Boussinesq: the layers'
+density differences set the stability, not the level).
+
+**Ported, not written fresh.** The stability rule is `sembawang`'s
+two-layer torus pool, `sembawang::bwr_mark1::containment::Containment::layer_pool`
+(crate-private; `Mechanisms::pool_layers`, 2026-10-29, after the PPOOLEX
+experiments and Li and Kudinov's effective heat and momentum source
+models of the Mark I torus): the layers mix back to one state
+whenever the deep one is the lighter, the stratification then being
+unstable. Here that rule is generalised from two layers to `N` by the
+standard complete convective adjustment of a column (merge any lighter-
+below-denser pair, re-test the merged block against its neighbours until
+the column is stable; e.g. Rahmstorf 1993, "A fast and complete convection
+scheme for ocean models", Ocean Modelling 101; **not re-checked against
+the paper**: it is not in the kovan corpus), and "lighter" is decided by
+IAPWS-IF97 density at a common pressure, not by temperature, so water
+below 4 °C stratifies the right way round. `sembawang` neglects all other
+exchange between its layers ("conduction and entrainment neglected");
+here a stable column exchanges heat by molecular conduction (see
+[`conduct`]).
+
+```rust
+pub mod layers { /* ... */ }
+```
 
 ## Module `level`
 
@@ -10993,6 +11106,311 @@ pub struct PortInput {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `ElevatedPoolHeat`
+
+Heat into the pool water between two elevations (gh:#1100): a heat
+structure, a sparger's condensation, the decay heat of what is
+scrubbed where it is scrubbed. In a layered pool it is shared over the
+layers by the mass of each that lies between `bottom` and `top` (by the
+cumulative mass below each elevation at the pool's mean density, as a
+port finds its layer); a band of zero thickness, or one wholly above
+the level, goes into the layer at `bottom` (the top layer above the
+level). In a one-layer pool it is [`ControlVolumeInputs::pool_heat`]
+exactly.
+
+```rust
+pub struct ElevatedPoolHeat {
+    pub bottom: uom::si::f64::Length,
+    pub top: uom::si::f64::Length,
+    pub power: uom::si::f64::Power,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bottom` | `uom::si::f64::Length` | The band's lower elevation. |
+| `top` | `uom::si::f64::Length` | The band's upper elevation (at least `bottom`). |
+| `power` | `uom::si::f64::Power` | The heat, W; negative removes. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn at(z: Length, power: Power) -> Self { /* ... */ }
+  ```
+  Heat into the layer at elevation `z`.
+
+- ```rust
+  pub fn between(bottom: Length, top: Length, power: Power) -> Self { /* ... */ }
+  ```
+  Heat shared by mass over the water between `bottom` and `top`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AtmosphereSpeciesRates`
+
+Gas sources (positive) and sinks (negative) on a volume's atmosphere,
+per species, kg/s (gh:#1103): a caller's chemistry, a structure's
+outgassing, an absorber. Each species enters or leaves at its own code
+molar enthalpy at the start-of-step atmosphere
+([`ControlVolume::atmosphere_species_molar_enthalpies`]).
+
+```rust
+pub struct AtmosphereSpeciesRates {
+    pub steam: uom::si::f64::MassRate,
+    pub ncg: [uom::si::f64::MassRate; 6],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steam` | `uom::si::f64::MassRate` | Steam, kg/s. |
+| `ncg` | `[uom::si::f64::MassRate; 6]` | Each non-condensable, kg/s, in [`NonCondensable::ALL`] order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn none() -> Self { /* ... */ }
+  ```
+  No source or sink.
+
+- ```rust
+  pub fn is_none(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether every rate is zero.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `ControlVolumeInputs`
 
 What drives one step.
@@ -11001,9 +11419,11 @@ What drives one step.
 pub struct ControlVolumeInputs {
     pub ports: Vec<PortInput>,
     pub pool_heat: uom::si::f64::Power,
+    pub pool_heat_at: Vec<ElevatedPoolHeat>,
     pub heat_exchanger: crate::components::wet_well::ImmersedHeatExchanger,
     pub atmosphere_heat: uom::si::f64::Power,
     pub atmosphere_steam_sink: uom::si::f64::MassRate,
+    pub atmosphere_species: AtmosphereSpeciesRates,
 }
 ```
 
@@ -11012,10 +11432,12 @@ pub struct ControlVolumeInputs {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `ports` | `Vec<PortInput>` | One input per port, in the geometry's port order. |
-| `pool_heat` | `uom::si::f64::Power` | Heat into the pool (a heat structure, a core), W; negative removes. |
+| `pool_heat` | `uom::si::f64::Power` | Heat into the pool (a heat structure, a core), W; negative removes.<br>Shared by mass in a layered pool (heat at an elevation:<br>[`Self::pool_heat_at`]); into the atmosphere when the pool is dry<br>(gh:#1100). |
+| `pool_heat_at` | `Vec<ElevatedPoolHeat>` | Heat into the pool at elevations ([`ElevatedPoolHeat`]; gh:#1100),<br>beside `pool_heat`. Like it explicit, into the atmosphere when the<br>pool is dry, and counted with it for the pool boiling dry within the<br>step. Empty by default (the step is then the code without it, bit<br>for bit). |
 | `heat_exchanger` | `crate::components::wet_well::ImmersedHeatExchanger` | The immersed heat exchanger (implicit in the pool temperature). |
 | `atmosphere_heat` | `uom::si::f64::Power` | Heat into the atmosphere (a heat structure's convection, a hot<br>insulation), W; negative removes. Explicit, as `pool_heat`<br>(gh:#1097: the caller's heat structures, MELCOR's HS package not<br>being here). |
 | `atmosphere_steam_sink` | `uom::si::f64::MassRate` | Steam condensed out of the atmosphere onto a structure (the caller's),<br>≥ 0: it leaves with its enthalpy at the atmosphere's temperature and<br>steam partial pressure, and the caller returns the condensate, if at<br>all, as a port's water source (gh:#1097; MELCOR HS §2.7.3's<br>condensation, the structure being the caller's). |
+| `atmosphere_species` | `AtmosphereSpeciesRates` | Gas into (+) or out of (−) the atmosphere per species<br>([`AtmosphereSpeciesRates`]; gh:#1103), each at its own code molar<br>enthalpy at the start-of-step atmosphere. Applied after the<br>atmosphere heat and steam sink. None by default (the step is then<br>the code without it, bit for bit). |
 
 ##### Implementations
 
@@ -11297,6 +11719,10 @@ pub struct ControlVolumeStepReport {
     pub vapour_flow_m3_s: f64,
     pub steam_sink: uom::si::f64::Mass,
     pub steam_sink_energy: uom::si::f64::Energy,
+    pub pool_heat_to_atmosphere: uom::si::f64::Energy,
+    pub species_water: uom::si::f64::Mass,
+    pub species_ncg: [uom::si::f64::Mass; 6],
+    pub species_energy: uom::si::f64::Energy,
 }
 ```
 
@@ -11312,6 +11738,10 @@ pub struct ControlVolumeStepReport {
 | `vapour_flow_m3_s` | `f64` | Vapour volume flow through the pool top this step, m³/s (sets the<br>swell for the next step). |
 | `steam_sink` | `uom::si::f64::Mass` | Steam taken by [`ControlVolumeInputs::atmosphere_steam_sink`], and<br>the enthalpy it carried away. |
 | `steam_sink_energy` | `uom::si::f64::Energy` | The enthalpy the sunk steam carried. |
+| `pool_heat_to_atmosphere` | `uom::si::f64::Energy` | Pool heat that went into the atmosphere because the pool was dry, or<br>the pool boiled dry on it within the step (gh:#1100). |
+| `species_water` | `uom::si::f64::Mass` | What [`ControlVolumeInputs::atmosphere_species`] moved this step,<br>signed (positive in): steam, each non-condensable, and the energy<br>carried (gh:#1103). |
+| `species_ncg` | `[uom::si::f64::Mass; 6]` |  |
+| `species_energy` | `uom::si::f64::Energy` |  |
 
 ##### Implementations
 
@@ -11449,7 +11879,7 @@ pub struct ControlVolumeBookkeeping {
 | `ncg_in` | `[uom::si::f64::Mass; 6]` | Each non-condensable in. |
 | `ncg_out` | `[uom::si::f64::Mass; 6]` | Each non-condensable out. |
 | `energy_in` | `uom::si::f64::Energy` | Energy in (sources' enthalpy, pool heat if positive). |
-| `energy_out` | `uom::si::f64::Energy` | Energy out (outflows' enthalpy, heat exchanger, pool heat if negative). |
+| `energy_out` | `uom::si::f64::Energy` | Energy out (outflows' enthalpy, heat exchanger, pool heat if negative).<br>(~~H2 and CO burned and the heat of reaction~~ **CORRECTED<br>2026-11-01**, gh:#1103: no reactions here; the species sources and<br>sinks count among the boundary flows above.) |
 
 ##### Implementations
 
@@ -11861,6 +12291,8 @@ pub struct ControlVolumeMechanisms {
     pub level_swell: bool,
     pub equilibrium_rain_out: bool,
     pub liquid: LiquidModel,
+    pub pool_layer_conduction: bool,
+    pub surface_mixed_block: bool,
 }
 ```
 
@@ -11874,6 +12306,8 @@ pub struct ControlVolumeMechanisms {
 | `level_swell` | `bool` | The swollen level decides what a port draws. |
 | `equilibrium_rain_out` | `bool` | Rain-out to saturation (else `sembawang`'s four passes). |
 | `liquid` | `LiquidModel` | The liquid. |
+| `pool_layer_conduction` | `bool` | A layered pool's stable layers exchange heat by molecular conduction<br>(gh:#1100; no effect on a one-layer pool). |
+| `surface_mixed_block` | `bool` | A layered pool's surface (exchange, flashing) acts on the surface<br>mixed block, the layers from the top down that are not stably<br>stratified against the surface water, rather than on the top layer<br>alone (gh:#1100; no effect on a one-layer pool). See<br>[`ControlVolume::without_surface_mixed_block`]. |
 
 ##### Implementations
 
@@ -12069,6 +12503,56 @@ pub struct ControlVolume {
   The atmosphere's closure.
 
 - ```rust
+  pub fn with_pool_layers(self: Self, n: usize) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Split the pool into `n` horizontal layers of equal mass, each at the
+
+- ```rust
+  pub fn without_pool_layer_conduction(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: a layered pool's stable layers exchange nothing (as
+
+- ```rust
+  pub fn without_surface_mixed_block(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: a layered pool's surface exchange and flashing see the top
+
+- ```rust
+  pub fn set_pool_layer_temperatures(self: &mut Self, t: &[ThermodynamicTemperature]) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set each layer's temperature, bottom first (an initial
+
+- ```rust
+  pub fn pool_layer_count(self: &Self) -> usize { /* ... */ }
+  ```
+  The number of pool layers (1 for the well-mixed pool).
+
+- ```rust
+  pub fn pool_layer_temperatures(self: &Self) -> Vec<ThermodynamicTemperature> { /* ... */ }
+  ```
+  Each layer's temperature, bottom first (the pool's for one layer; an
+
+- ```rust
+  pub fn pool_layer_masses(self: &Self) -> Vec<Mass> { /* ... */ }
+  ```
+  Each layer's mass, bottom first (the pool's for one layer).
+
+- ```rust
+  pub fn pool_layer_energies(self: &Self) -> Vec<Energy> { /* ... */ }
+  ```
+  Each layer's internal energy, bottom first (the pool's for one layer).
+
+- ```rust
+  pub fn pool_surface_temperature(self: &Self) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  The temperature of the pool's surface (top holding) layer (the
+
+- ```rust
+  pub fn is_pool_dry(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the pool is dry (holds no liquid).
+
+- ```rust
   pub fn atmosphere_pressure(self: &Self) -> Pressure { /* ... */ }
   ```
   The atmosphere's pressure.
@@ -12167,6 +12651,16 @@ pub struct ControlVolume {
   pub fn step(self: &mut Self, dt: Time, inputs: &ControlVolumeInputs) -> Result<ControlVolumeStepReport, TampinesError> { /* ... */ }
   ```
   Advance by `dt`, in the wet well's order: every port's inflow (port
+
+- ```rust
+  pub fn species_molar_enthalpies(self: &Self, t: ThermodynamicTemperature, p_steam: Pressure) -> [MolarEnergy; 7] { /* ... */ }
+  ```
+  Each species' code molar enthalpy, J/mol, steam first, then the
+
+- ```rust
+  pub fn atmosphere_species_molar_enthalpies(self: &Self) -> [MolarEnergy; 7] { /* ... */ }
+  ```
+  [`Self::species_molar_enthalpies`] at the atmosphere's present
 
 ###### Trait Implementations
 
@@ -32306,6 +32800,12 @@ velocity, the pressures held): `(ρL/Δt + ½Kρ|v^n|) v^{n+1} = ρL/Δt v^n +
 ΔP`. A fully implicit network solve, with the volume pressures coupled, is
 gh:#1095.
 
+**Order (gh:#1098 item 1).** With `ΔP` constant over the step this is
+second order (the linearised quadratic loss matches the exact solution's
+`Δt²` term; for `v∞ tanh(t/τ)` it is exact on a clock stretched by
+`artanh(h)/h = 1 + h²/3 + …`, `h = Δt/τ`). With `ΔP` held at its
+start-of-step value while it changes, it is first order.
+
 **Which phase passes** is set by the donor end's level against the
 opening: the fraction of the opening below the level passes pool liquid,
 the rest atmosphere (MELCOR's partially submerged junction). The donor is
@@ -33288,6 +33788,14 @@ as **in-transit** inventory and delivered on the next step, and the
 network totals count it, so mass, every gas and energy are conserved to
 round-off whatever the tolerance.
 
+~~**Atmosphere reactions** (`CvNetwork::set_atmosphere_reactions`,
+gh:#1100) are internal sources: the network's water, gases and energy
+close as `now = start + boundary_inflow + reaction_totals`
+(`CvNetwork::reaction_totals`).~~ **CORRECTED 2026-11-01** (gh:#1103:
+the chemistry moved to `sembawang`): **atmosphere species sources and
+sinks** ([`CvNetwork::set_atmosphere_species`]) cross the boundary, so
+the network closes as `now = start + boundary_inflow`.
+
 # Limits
 
 - The donor volume decides which phase leaves by its level at the port
@@ -33875,6 +34383,7 @@ pub struct NetworkStepReport {
     pub iterations: usize,
     pub residual: f64,
     pub transfers: Vec<crate::flow_path::FlowTransfer>,
+    pub volumes: Vec<crate::control_volume::ControlVolumeStepReport>,
 }
 ```
 
@@ -33885,6 +34394,7 @@ pub struct NetworkStepReport {
 | `iterations` | `usize` | Picard iterations taken. |
 | `residual` | `f64` | Last residual (largest relative change of a path rate). |
 | `transfers` | `Vec<crate::flow_path::FlowTransfer>` | Each path's transfer at the last iterate. |
+| `volumes` | `Vec<crate::control_volume::ControlVolumeStepReport>` | Each volume's own report at the last iterate, in the order the<br>volumes were added (gh:#1100): among others its<br>`pool_heat_to_atmosphere`, the pool heat that went into the<br>atmosphere because the pool was dry or boiled dry within the step,<br>which a caller cannot otherwise see. |
 
 ##### Implementations
 
@@ -34039,6 +34549,11 @@ pub struct CvNetwork {
   Set the external heat into volume `i`'s pool (held until changed).
 
 - ```rust
+  pub fn set_pool_heat_at(self: &mut Self, i: usize, heats: &[ElevatedPoolHeat]) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the external heat into volume `i`'s pool at elevations (held
+
+- ```rust
   pub fn set_atmosphere_heat(self: &mut Self, i: usize, q: uom::si::f64::Power) -> Result<(), TampinesError> { /* ... */ }
   ```
   Set the external heat into volume `i`'s atmosphere (held until
@@ -34047,6 +34562,11 @@ pub struct CvNetwork {
   pub fn set_atmosphere_steam_sink(self: &mut Self, i: usize, rate: MassRate) -> Result<(), TampinesError> { /* ... */ }
   ```
   Set the steam condensed out of volume `i`'s atmosphere onto the
+
+- ```rust
+  pub fn set_atmosphere_species(self: &mut Self, i: usize, rates: AtmosphereSpeciesRates) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the species sources and sinks on volume `i`'s atmosphere (held
 
 - ```rust
   pub fn set_source(self: &mut Self, volume: usize, port: usize, source: Source) -> Result<(), TampinesError> { /* ... */ }

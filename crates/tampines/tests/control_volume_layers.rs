@@ -353,7 +353,15 @@ fn l4_unstable_layers_mix_by_density() {
         // The column ends statically stable by IF97 density.
         let p = cv.atmosphere_pressure().get::<pascal>();
         let ts: Vec<f64> = cv.pool_layer_temperatures().iter().map(|t| t.get::<kelvin>()).collect();
-        assert!(ts.windows(2).all(|w| rho_if97(w[1], p) <= rho_if97(w[0], p)), "{label}: {ts:?}");
+        // CHANGED 2026-11-01, after a run (gh:#1100, the surface mixed
+        // block): the comparison allows 1e-12 of the density. Since the
+        // surface takes from the whole mixed block by mass, the block's top
+        // layer carries the remainder, and here the top two 275 K layers
+        // ended 2e-13 K apart, the upper warmer, which below the density
+        // maximum is denser by ~1e-17: a round-off inversion inside one
+        // mixed block, not a stratification. The allowance is the one the
+        // block itself uses; it was strict before.
+        assert!(ts.windows(2).all(|w| rho_if97(w[1], p) <= rho_if97(w[0], p) * (1.0 + 1e-12)), "{label}: {ts:?}");
         if label == "hot below" {
             assert!(spread(&cv) < 1e-9, "{label}: {}", spread(&cv));
         } else {
@@ -560,3 +568,154 @@ fn l7_dry_out_by_evaporation_and_heat_and_refill_by_rain() {
     }
 }
 
+
+/// The case-A-like volume for L9: a 750 m² prismatic torus, 2.34 m of
+/// water at 303.15 K under 2620 m³ of saturated N2 at 105 kPa, 10 kg/s of
+/// 2.7 MJ/kg steam through a bottom port for 600 s at 1 s (`sembawang`'s
+/// `containment_network_vs_containment.rs` case A on one volume). Returns
+/// the gas pressure, the surface-evaporated mass and the mean pool
+/// temperature at 600 s.
+fn l9_relief(n: usize, ablate_block: bool) -> (f64, f64, f64) {
+    let a = 750.0;
+    let depth = 2.34;
+    let table = VolumeAltitudeTable::prismatic(Area::new::<uom::si::area::square_meter>(a), m(depth + 2620.0 / a)).unwrap();
+    let pool = a * depth * rho_if97(303.15, 1.05e5);
+    let cv = ControlVolume::new(table, vec![port(0.0, 0.1)], kg(pool), kelv(303.15), n2_atmosphere(2620.0, 1.05e5, 303.15, 1.0), kelv(303.15)).unwrap().with_pool_layers(n).unwrap();
+    let mut cv = if ablate_block { cv.without_surface_mixed_block() } else { cv };
+    let mut inputs = ControlVolumeInputs::closed(1);
+    inputs.ports[0] = PortInput::inflow(Source::water(kgs(10.0), jkg(2.7e6)));
+    let mut evap = 0.0;
+    for _ in 0..600 {
+        evap += cv.step(sec(1.0), &inputs).unwrap().surface_evaporation.get::<kilogram>();
+    }
+    (cv.atmosphere_pressure().get::<pascal>(), evap, cv.pool_temperature().get::<kelvin>())
+}
+/// `p` at 600 s from [`l9_relief`] on the code **before** the fix (the
+/// confirmation run, 2026-11-01, release, Rust 1.99.1: unmodified `src/`),
+/// `n` = 1, 2, 4, 8, 16: 105684.434, 105691.218, 105697.528, 105703.375,
+/// 105708.756 Pa.
+const L9_BEFORE: [u64; 5] = [0x40f9cd46f3516a76, 0x40f9cdb37ba8f53b, 0x40f9ce1871e59afb, 0x40f9ce76002e3280, 0x40f9cecc18f62d01];
+
+/// **L9: the surface exchange converges with the layer count.**
+///
+/// Prediction (V&V doc, written before any run): before the fix `p`
+/// rises with `n` by +4 … +8 Pa a doubling; after it, `|p(n) − p(1)|` <
+/// 0.5 Pa and the evaporated mass within 0.1 % of one layer's; the
+/// `without_surface_mixed_block` ablation reproduces the code before the
+/// fix bit for bit; one layer is untouched.
+///
+/// **Result (2026-11-01, release):** before the fix +6.8, +6.3, +5.8,
+/// +5.4 Pa a doubling (held); after it, see the V&V doc.
+#[test]
+fn l9_the_surface_exchange_converges_with_layer_count() {
+    let (p1, e1, t1) = l9_relief(1, false);
+    assert_eq!(p1.to_bits(), L9_BEFORE[0], "one layer moved: {p1}");
+    for (k, n) in [1usize, 2, 4, 8, 16].into_iter().enumerate() {
+        let (pa_, ea, _) = l9_relief(n, true);
+        let (p, e, t) = l9_relief(n, false);
+        println!("L9 n={n}: default p {p:.4} Pa (vs one layer {:+.4}), evap {e:.5} kg ({:+.2e}), T {t:.6} K; ablated p {pa_:.4} Pa ({:+.4}), evap {ea:.5} kg", p - p1, e / e1 - 1.0, pa_ - p1);
+        assert_eq!(pa_.to_bits(), L9_BEFORE[k], "the ablation departs from the code before the fix at n = {n}: {pa_}");
+        assert!((p - p1).abs() < 0.5, "n = {n}: {p} against {p1}");
+        assert!((e / e1 - 1.0).abs() < 1e-3, "n = {n}: evap {e} against {e1}");
+        assert!((t - t1).abs() < 1e-3);
+    }
+}
+
+/// An insulated column for L10: 10 m² × 3 m, 1 m of water at 300 K in `n`
+/// layers under dry N2, the surface's sensible exchange at zero
+/// coefficient, no compression work, no layer conduction.
+fn l10_column(n: usize) -> ControlVolume {
+    let table = VolumeAltitudeTable::prismatic(Area::new::<uom::si::area::square_meter>(10.0), m(3.0)).unwrap();
+    ControlVolume::new(table, vec![], kg(10.0 * rho_if97(300.0, 1.0e5)), kelv(300.0), n2_atmosphere(20.0, 1.0e5, 300.0, 0.0), kelv(300.0))
+        .unwrap()
+        .without_surface_mass_transfer(HeatTransfer::new::<uom::si::heat_transfer::watt_per_square_meter_kelvin>(0.0))
+        .without_pressure_work()
+        .with_pool_layers(n)
+        .unwrap()
+        .without_pool_layer_conduction()
+}
+
+/// **L10: pool heat at an elevation** (`ControlVolumeInputs::pool_heat_at`).
+///
+/// Prediction (V&V doc, written before the run): 100 kW for 100 s at
+/// 0.95 m: all 1e7 J in the top layer (+2.4 K), the others bit for bit; at
+/// 0.05 m the column mixes to the one-layer temperature within 1e-9 K; a
+/// band over the top half shares by mass and stays stable; one layer:
+/// `pool_heat_at` is `pool_heat` bit for bit; a dry pool's heat reaches the
+/// atmosphere and is reported.
+///
+/// **Result (2026-11-01, release):** see the V&V doc.
+#[test]
+fn l10_pool_heat_at_an_elevation() {
+    let p = |w: f64| Power::new::<watt>(w);
+    let run = |cv: &mut ControlVolume, heat: Vec<ElevatedPoolHeat>, plain: f64| {
+        let mut inp = ControlVolumeInputs::closed(0);
+        inp.pool_heat_at = heat;
+        inp.pool_heat = p(plain);
+        for _ in 0..100 {
+            cv.step(sec(1.0), &inp).unwrap();
+        }
+    };
+    let e = |cv: &ControlVolume| cv.pool_layer_energies().iter().map(|x| x.get::<joule>()).collect::<Vec<f64>>();
+    // Top.
+    let mut top = l10_column(10);
+    let e0 = e(&top);
+    run(&mut top, vec![ElevatedPoolHeat::at(m(0.95), p(1.0e5))], 0.0);
+    let e1 = e(&top);
+    let ts: Vec<f64> = top.pool_layer_temperatures().iter().map(|t| t.get::<kelvin>()).collect();
+    println!("L10 top: dE top {:.6e} J, layers {:?}", e1[9] - e0[9], ts.iter().map(|t| format!("{t:.4}")).collect::<Vec<_>>());
+    assert!(((e1[9] - e0[9]) - 1.0e7).abs() < 1e-6 * 1.0e7);
+    for i in 0..9 {
+        assert_eq!(e1[i].to_bits(), e0[i].to_bits(), "layer {i}");
+    }
+    assert!((ts[9] - 300.0 - 2.4).abs() < 0.1, "{}", ts[9]);
+    // Bottom: mixes to the one-layer pool.
+    let mut bottom = l10_column(10);
+    run(&mut bottom, vec![ElevatedPoolHeat::at(m(0.05), p(1.0e5))], 0.0);
+    let mut one = l10_column(1);
+    run(&mut one, vec![], 1.0e5);
+    let tb: Vec<f64> = bottom.pool_layer_temperatures().iter().map(|t| t.get::<kelvin>()).collect();
+    let t1 = one.pool_temperature().get::<kelvin>();
+    let spread = tb.iter().fold(0.0_f64, |a, t| a.max((t - t1).abs()));
+    println!("L10 bottom: layers within {spread:.2e} K of the one-layer {t1:.6} K");
+    assert!(spread < 1e-9, "{spread}");
+    // A band over the top half.
+    let mut half = l10_column(10);
+    let h0 = e(&half);
+    run(&mut half, vec![ElevatedPoolHeat::between(m(0.5), m(1.0), p(1.0e5))], 0.0);
+    let h1 = e(&half);
+    let gains: Vec<f64> = (0..10).map(|i| h1[i] - h0[i]).collect();
+    println!("L10 band: gains {:?}", gains.iter().map(|g| format!("{g:.4e}")).collect::<Vec<_>>());
+    // Measured after the first run (labelled so): the band's 0.5 m maps
+    // through the pool's mean density (as a port finds its layer), so
+    // 1.6e-4 of the band's mass, 327 J, lies in layer 4; prediction
+    // ("shares by mass") held to that.
+    for i in 0..4 {
+        assert_eq!(h1[i].to_bits(), h0[i].to_bits(), "band: layer {i}");
+    }
+    assert!(gains[4].abs() < 1e-3 * 2.0e6, "band: layer 4 {}", gains[4]);
+    for g in &gains[5..] {
+        assert!((g - 2.0e6).abs() < 1e-3 * 2.0e6, "band gain {g}");
+    }
+    assert!((gains.iter().sum::<f64>() - 1.0e7).abs() < 1e-6 * 1.0e7);
+    // One layer: bit for bit the plain pool heat.
+    let (mut a, mut b) = (l10_column(1), l10_column(1));
+    run(&mut a, vec![ElevatedPoolHeat::at(m(0.3), p(1.0e5))], 0.0);
+    run(&mut b, vec![], 1.0e5);
+    assert_eq!(a.total_energy().get::<joule>().to_bits(), b.total_energy().get::<joule>().to_bits());
+    assert_eq!(a.pool_temperature().get::<kelvin>().to_bits(), b.pool_temperature().get::<kelvin>().to_bits());
+    // A dry pool.
+    let table = VolumeAltitudeTable::prismatic(Area::new::<uom::si::area::square_meter>(1.0), m(3.0)).unwrap();
+    let mut dry = ControlVolume::new(table, vec![], kg(0.0), kelv(300.0), n2_atmosphere(3.0, 1.0e5, 300.0, 0.0), kelv(300.0)).unwrap().with_pool_layers(3).unwrap();
+    let ed = dry.total_energy().get::<joule>();
+    let mut inp = ControlVolumeInputs::closed(0);
+    inp.pool_heat_at = vec![ElevatedPoolHeat::at(m(0.0), p(1.0e3))];
+    let r = dry.step(sec(1.0), &inp).unwrap();
+    assert_eq!(r.pool_heat_to_atmosphere.get::<joule>(), 1.0e3);
+    assert!((dry.total_energy().get::<joule>() - ed - 1.0e3).abs() < 1e-9);
+    // Invalid bands.
+    let mut cv = l10_column(2);
+    let mut inp = ControlVolumeInputs::closed(0);
+    inp.pool_heat_at = vec![ElevatedPoolHeat::between(m(1.0), m(0.5), p(1.0))];
+    assert!(cv.step(sec(1.0), &inp).is_err());
+}

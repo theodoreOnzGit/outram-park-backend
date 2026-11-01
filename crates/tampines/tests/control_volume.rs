@@ -439,3 +439,64 @@ fn correct_physics_is_the_default() {
     ab.step(sec(1.0), &ControlVolumeInputs::closed(1)).unwrap();
     assert!((ab.total_energy().get::<joule>() - e0).abs() < 1e-6);
 }
+
+/// **S1: species sources and sinks on the atmosphere conserve** (gh:#1103).
+///
+/// Prediction (V&V doc, written before the run): water, every gas and the
+/// energy close against the bookkeeping to < 1e-12; each step's energy
+/// equals `Σ (m/M) h` at the start-of-step enthalpies to 1e-12; an
+/// oversized sink is refused.
+///
+/// **Result (2026-11-01, release):** see the V&V doc.
+#[test]
+fn s1_species_sources_and_sinks_conserve() {
+    let table = VolumeAltitudeTable::prismatic(Area::new::<square_meter>(2.0), m(5.0)).unwrap();
+    let pool = 2.0 * rho_if97(330.0, 1.0e5);
+    let n = 1.0e5 * 8.0 / (R_GAS * 330.0);
+    let gas = GasMixture::new(
+        kg(0.5 * n * 0.1 * 0.018_015),
+        &[
+            (NonCondensable::N2, AmountOfSubstance::new::<mole>(0.75 * n)),
+            (NonCondensable::H2, AmountOfSubstance::new::<mole>(0.1 * n)),
+            (NonCondensable::O2, AmountOfSubstance::new::<mole>(0.1 * n)),
+        ],
+    );
+    let mut cv = ControlVolume::new(table, vec![port(0.2, 0.1)], kg(pool), kelv(330.0), gas, kelv(330.0)).unwrap();
+    let mass = |cv: &ControlVolume| (cv.water_mass().get::<kilogram>(), cv.ncg_masses().map(|x| x.get::<kilogram>()));
+    let (w0, g0) = mass(&cv);
+    let e0 = cv.total_energy().get::<joule>();
+    let mut rates = AtmosphereSpeciesRates::none();
+    rates.steam = kgs(0.01);
+    rates.ncg[NonCondensable::CO2.index()] = kgs(0.02);
+    rates.ncg[NonCondensable::H2.index()] = kgs(-0.0002);
+    rates.ncg[NonCondensable::O2.index()] = kgs(-0.0016);
+    let mut inputs = ControlVolumeInputs::closed(1);
+    inputs.atmosphere_species = rates;
+    let mut worst_e_step: f64 = 0.0;
+    for _ in 0..100 {
+        let h = cv.atmosphere_species_molar_enthalpies().map(|x| x.value);
+        let r = cv.step(sec(1.0), &inputs).unwrap();
+        let mut e = 0.01 / 0.018_015 * h[0];
+        for g in NonCondensable::ALL {
+            e += rates.ncg[g.index()].get::<kilogram_per_second>() / g.molar_mass() * h[1 + g.index()];
+        }
+        worst_e_step = worst_e_step.max(rel(r.species_energy.get::<joule>(), e));
+        assert_eq!(r.species_water.get::<kilogram>(), 0.01);
+    }
+    let b = cv.bookkeeping();
+    let (w, g) = mass(&cv);
+    let dw = rel(w - w0, b.water_in.get::<kilogram>() - b.water_out.get::<kilogram>());
+    let mut dg: f64 = 0.0;
+    for q in 0..6 {
+        let want = b.ncg_in[q].get::<kilogram>() - b.ncg_out[q].get::<kilogram>();
+        dg = dg.max(((g[q] - g0[q]) - want).abs() / g0.iter().sum::<f64>());
+    }
+    let de = ((cv.total_energy().get::<joule>() - e0) - (b.energy_in.get::<joule>() - b.energy_out.get::<joule>())).abs() / e0.abs();
+    println!("S1: water {dw:e}, gas {dg:e}, energy {de:e} of E0; per-step energy against the start-of-step enthalpies {worst_e_step:e}; p {} Pa, T {} K", cv.atmosphere_pressure().value, cv.atmosphere_temperature().value);
+    assert!(dw < 1e-12 && dg < 1e-12 && de < 1e-12, "{dw:e} {dg:e} {de:e}");
+    assert!(worst_e_step < 1e-12, "{worst_e_step:e}");
+    // An oversized sink is refused.
+    let mut big = ControlVolumeInputs::closed(1);
+    big.atmosphere_species.ncg[NonCondensable::H2.index()] = kgs(-1.0e3);
+    assert!(cv.step(sec(1.0), &big).is_err());
+}

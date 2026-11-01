@@ -84,6 +84,7 @@
 //! | IF97 steam in the atmosphere | [`ControlVolume::without_real_steam`] |
 //! | non-condensable `c_v(T)` | [`ControlVolume::without_ncg_cv_t`] |
 //! | a layered pool's stable layers conduct | [`ControlVolume::without_pool_layer_conduction`] |
+//! | a layered pool's surface sees its surface mixed block | [`ControlVolume::without_surface_mixed_block`] (the top layer alone) |
 //!
 //! ## The layered pool and dry-out (gh:#1100)
 //!
@@ -95,9 +96,19 @@
 //! and the atmosphere's volume. What enters at a port joins the layer at
 //! the port's elevation; bubbles meet that layer's temperature; a liquid
 //! outflow draws from its layer, then the layers above, then below; the
-//! donor state at an elevation is that layer's liquid. The surface exchange,
-//! flashing and rain-out act on the top layer; pool heat, the immersed heat
-//! exchanger and the compression work are shared by mass. The column
+//! donor state at an elevation is that layer's liquid. ~~The surface exchange,
+//! flashing and rain-out act on the top layer~~ **CORRECTED 2026-11-01**
+//! (gh:#1100): the surface exchange and flashing act on the **surface mixed
+//! block**, the layers from the top down that are not stably stratified
+//! against the surface water (its mass for MELCOR's Eq 5-17 limit, its depth
+//! as the pool-side length, what it gives up shared over its layers by
+//! mass), so a mixed column is the one-layer pool whatever `n`
+//! (`tests/control_volume_layers.rs` L9; the top layer alone made the
+//! exchange depend on `n`, kept as
+//! [`ControlVolume::without_surface_mixed_block`]); rain-out joins the top
+//! layer; pool heat, the immersed heat
+//! exchanger and the compression work are shared by mass, and
+//! [`ControlVolumeInputs::pool_heat_at`] puts heat at elevations. The column
 //! operations are in [`layers`]: DYRESM-style split and merge of Lagrangian
 //! layers, `sembawang`'s mixing of an unstable column
 //! (`bwr_mark1::containment::Containment::layer_pool`, generalised to `n`
@@ -118,16 +129,23 @@
 //! below the triple point evaporates it whole (MELCOR's Eq 5-17 limit over-
 //! draws a pool that is nearly all evaporating).
 //!
-//! ## Atmosphere reactions (gh:#1100)
+//! ## Atmosphere species sources and sinks (gh:#1100, gh:#1103)
 //!
-//! [`ControlVolumeInputs::atmosphere_reactions`] burns H2 and CO at the
-//! caller's rates (mol/s; the burn criteria and rates are the caller's,
-//! `sembawang`'s, after MELCOR's BUR package), capped by the reactants
-//! present, applied after the atmosphere heat and steam sink. The heat of
-//! reaction is closed here, on the gas mixture's own references, by
-//! anchoring every species to its NIST-JANAF enthalpy of formation at
-//! 298.15 K (the derivation is in [`reaction`]). The step reports what
-//! burned and the heat; [`ControlVolumeBookkeeping`] keeps the totals.
+//! ~~**Atmosphere reactions:** `ControlVolumeInputs::atmosphere_reactions`
+//! burns H2 and CO at the caller's rates, the heat of reaction closed here
+//! on the gas mixture's own references.~~ **CORRECTED 2026-11-01**
+//! (gh:#1103, maintainer direction: `tampines` holds thermal hydraulics,
+//! no chemistry): the reactions moved to `sembawang`
+//! (`sembawang::bwr_mark1::reaction`). What stays here is generic:
+//! [`ControlVolumeInputs::atmosphere_species`], a mass rate per species
+//! (steam and each non-condensable; negative removes), each carried at its
+//! own code molar enthalpy at the **start-of-step** atmosphere
+//! ([`ControlVolume::atmosphere_species_molar_enthalpies`], explicit like
+//! the other caller inputs, so a caller can close its own energy balance on
+//! exactly the values used). Applied after the atmosphere heat and steam
+//! sink; a removal larger than what the atmosphere holds then is refused.
+//! The step reports what moved; [`ControlVolumeBookkeeping`] counts it as
+//! a boundary flow.
 //!
 //! ## For gh:#1094 (flow paths) and gh:#1095 (implicit network)
 //!
@@ -153,16 +171,14 @@
 //! liquid at the pool's state, not a two-phase mixture); fog (rain-out goes to
 //! the pool at once); ~~pool stratification~~ (**CORRECTED 2026-11-01,
 //! gh:#1100:** optional layers, above; mixing by stirring is still not
-//! modelled); boiling at depth in a layered pool (only the top layer
+//! modelled); boiling at depth in a layered pool (only the surface mixed block, **CORRECTED 2026-11-01** from "the top layer",
 //! flashes); heat structures (the caller's, as `pool_heat`); aerosols.
 
 pub mod layers;
 pub mod level;
 pub mod pool_surface;
-pub mod reaction;
 
 pub use level::{swollen_level, swollen_level_from_vapour_flow, VolumeAltitudeTable, BUBBLE_RISE_M_S, MAX_POOL_VOID};
-pub use reaction::{AtmosphereReactions, MolarFlowRate};
 pub use tampines_steam_tables::gas_mixture::{GasMixture, GasMixtureModel, NonCondensable};
 
 use tampines_steam_tables::gas_mixture::SteamModel;
@@ -171,10 +187,8 @@ use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::u_tp
 use tampines_steam_tables::region_2_vapour::{h_tp_2, u_tp_2, v_tp_2};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
-use uom::si::amount_of_substance::mole;
-use uom::si::catalytic_activity::mole_per_second;
 use uom::si::f64::{
-    AmountOfSubstance, AvailableEnergy, Energy, HeatTransfer, Length, Mass, MassDensity, MassRate, MolarEnergy, Power, Pressure,
+    AvailableEnergy, Energy, HeatTransfer, Length, Mass, MassDensity, MassRate, MolarEnergy, Power, Pressure,
     ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
@@ -303,15 +317,82 @@ impl PortInput {
     }
 }
 
+/// Heat into the pool water between two elevations (gh:#1100): a heat
+/// structure, a sparger's condensation, the decay heat of what is
+/// scrubbed where it is scrubbed. In a layered pool it is shared over the
+/// layers by the mass of each that lies between `bottom` and `top` (by the
+/// cumulative mass below each elevation at the pool's mean density, as a
+/// port finds its layer); a band of zero thickness, or one wholly above
+/// the level, goes into the layer at `bottom` (the top layer above the
+/// level). In a one-layer pool it is [`ControlVolumeInputs::pool_heat`]
+/// exactly.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ElevatedPoolHeat {
+    /// The band's lower elevation.
+    pub bottom: Length,
+    /// The band's upper elevation (at least `bottom`).
+    pub top: Length,
+    /// The heat, W; negative removes.
+    pub power: Power,
+}
+
+impl ElevatedPoolHeat {
+    /// Heat into the layer at elevation `z`.
+    pub fn at(z: Length, power: Power) -> Self {
+        Self { bottom: z, top: z, power }
+    }
+    /// Heat shared by mass over the water between `bottom` and `top`.
+    pub fn between(bottom: Length, top: Length, power: Power) -> Self {
+        Self { bottom, top, power }
+    }
+}
+
+/// Gas sources (positive) and sinks (negative) on a volume's atmosphere,
+/// per species, kg/s (gh:#1103): a caller's chemistry, a structure's
+/// outgassing, an absorber. Each species enters or leaves at its own code
+/// molar enthalpy at the start-of-step atmosphere
+/// ([`ControlVolume::atmosphere_species_molar_enthalpies`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AtmosphereSpeciesRates {
+    /// Steam, kg/s.
+    pub steam: MassRate,
+    /// Each non-condensable, kg/s, in [`NonCondensable::ALL`] order.
+    pub ncg: [MassRate; 6],
+}
+
+impl AtmosphereSpeciesRates {
+    /// No source or sink.
+    pub fn none() -> Self {
+        Self { steam: MassRate::new::<kilogram_per_second>(0.0), ncg: [MassRate::new::<kilogram_per_second>(0.0); 6] }
+    }
+    /// Whether every rate is zero.
+    pub fn is_none(&self) -> bool {
+        self.steam.get::<kilogram_per_second>() == 0.0 && self.ncg.iter().all(|m| m.get::<kilogram_per_second>() == 0.0)
+    }
+}
+
+impl Default for AtmosphereSpeciesRates {
+    fn default() -> Self {
+        Self::none()
+    }
+}
+
 /// What drives one step.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ControlVolumeInputs {
     /// One input per port, in the geometry's port order.
     pub ports: Vec<PortInput>,
     /// Heat into the pool (a heat structure, a core), W; negative removes.
-    /// Shared by mass in a layered pool; into the atmosphere when the pool
-    /// is dry (gh:#1100).
+    /// Shared by mass in a layered pool (heat at an elevation:
+    /// [`Self::pool_heat_at`]); into the atmosphere when the pool is dry
+    /// (gh:#1100).
     pub pool_heat: Power,
+    /// Heat into the pool at elevations ([`ElevatedPoolHeat`]; gh:#1100),
+    /// beside `pool_heat`. Like it explicit, into the atmosphere when the
+    /// pool is dry, and counted with it for the pool boiling dry within the
+    /// step. Empty by default (the step is then the code without it, bit
+    /// for bit).
+    pub pool_heat_at: Vec<ElevatedPoolHeat>,
     /// The immersed heat exchanger (implicit in the pool temperature).
     pub heat_exchanger: ImmersedHeatExchanger,
     /// Heat into the atmosphere (a heat structure's convection, a hot
@@ -325,12 +406,12 @@ pub struct ControlVolumeInputs {
     /// all, as a port's water source (gh:#1097; MELCOR HS §2.7.3's
     /// condensation, the structure being the caller's).
     pub atmosphere_steam_sink: MassRate,
-    /// Combustion in the atmosphere at the caller's rates (gh:#1100):
-    /// `H2 + ½ O2 → H2O(g)` and `CO + ½ O2 → CO2`, capped by the reactants
-    /// present, the heat of reaction closed here on the gas mixture's own
-    /// references (see [`reaction`]). Applied after the atmosphere heat and
-    /// steam sink. None by default.
-    pub atmosphere_reactions: AtmosphereReactions,
+    /// Gas into (+) or out of (−) the atmosphere per species
+    /// ([`AtmosphereSpeciesRates`]; gh:#1103), each at its own code molar
+    /// enthalpy at the start-of-step atmosphere. Applied after the
+    /// atmosphere heat and steam sink. None by default (the step is then
+    /// the code without it, bit for bit).
+    pub atmosphere_species: AtmosphereSpeciesRates,
 }
 
 impl ControlVolumeInputs {
@@ -339,10 +420,11 @@ impl ControlVolumeInputs {
         Self {
             ports: vec![PortInput::closed(); n_ports],
             pool_heat: Power::new::<watt>(0.0),
+            pool_heat_at: Vec::new(),
             heat_exchanger: ImmersedHeatExchanger::off(),
             atmosphere_heat: Power::new::<watt>(0.0),
             atmosphere_steam_sink: MassRate::new::<kilogram_per_second>(0.0),
-            atmosphere_reactions: AtmosphereReactions::none(),
+            atmosphere_species: AtmosphereSpeciesRates::none(),
         }
     }
 }
@@ -396,14 +478,12 @@ pub struct ControlVolumeStepReport {
     /// Pool heat that went into the atmosphere because the pool was dry, or
     /// the pool boiled dry on it within the step (gh:#1100).
     pub pool_heat_to_atmosphere: Energy,
-    /// H2 burned by [`ControlVolumeInputs::atmosphere_reactions`] this step
-    /// (after the limiting-reactant cap).
-    pub hydrogen_burned: AmountOfSubstance,
-    /// CO burned this step.
-    pub carbon_monoxide_burned: AmountOfSubstance,
-    /// The heat of reaction released into the atmosphere's stored energy
-    /// this step, on the gas mixture's references (see [`reaction`]).
-    pub reaction_heat: Energy,
+    /// What [`ControlVolumeInputs::atmosphere_species`] moved this step,
+    /// signed (positive in): steam, each non-condensable, and the energy
+    /// carried (gh:#1103).
+    pub species_water: Mass,
+    pub species_ncg: [Mass; 6],
+    pub species_energy: Energy,
 }
 
 /// Running totals across the boundary since construction.
@@ -420,16 +500,10 @@ pub struct ControlVolumeBookkeeping {
     /// Energy in (sources' enthalpy, pool heat if positive).
     pub energy_in: Energy,
     /// Energy out (outflows' enthalpy, heat exchanger, pool heat if negative).
+    /// (~~H2 and CO burned and the heat of reaction~~ **CORRECTED
+    /// 2026-11-01**, gh:#1103: no reactions here; the species sources and
+    /// sinks count among the boundary flows above.)
     pub energy_out: Energy,
-    /// H2 burned in the atmosphere (gh:#1100): an internal source, not a
-    /// boundary flow. Each species' change follows by stoichiometry
-    /// (`H2 + ½ O2 → H2O`, `M_H2O` kg of steam per mole).
-    pub hydrogen_burned: AmountOfSubstance,
-    /// CO burned (`CO + ½ O2 → CO2`).
-    pub carbon_monoxide_burned: AmountOfSubstance,
-    /// Heat of reaction released: `E − E0 = energy_in − energy_out +
-    /// reaction_heat`.
-    pub reaction_heat: Energy,
 }
 
 /// The state an outflow through a port would carry (for a flow path's donor).
@@ -478,6 +552,12 @@ pub struct ControlVolumeMechanisms {
     /// A layered pool's stable layers exchange heat by molecular conduction
     /// (gh:#1100; no effect on a one-layer pool).
     pub pool_layer_conduction: bool,
+    /// A layered pool's surface (exchange, flashing) acts on the surface
+    /// mixed block, the layers from the top down that are not stably
+    /// stratified against the surface water, rather than on the top layer
+    /// alone (gh:#1100; no effect on a one-layer pool). See
+    /// [`ControlVolume::without_surface_mixed_block`].
+    pub surface_mixed_block: bool,
 }
 
 impl Default for ControlVolumeMechanisms {
@@ -490,6 +570,7 @@ impl Default for ControlVolumeMechanisms {
             equilibrium_rain_out: true,
             liquid: LiquidModel::Iapws97,
             pool_layer_conduction: true,
+            surface_mixed_block: true,
         }
     }
 }
@@ -527,11 +608,6 @@ pub struct ControlVolume {
     ncg_out: [f64; 6],
     e_in: f64,
     e_out: f64,
-    /// Running totals of the atmosphere reactions: H2 and CO burned, mol,
-    /// and the heat released, J (gh:#1100).
-    rx_h2: f64,
-    rx_co: f64,
-    rx_heat: f64,
     /// The pool's layers, bottom first, `(kg, J)`, summing to `pool_kg` and
     /// `pool_e`; empty for one well-mixed pool (gh:#1100).
     layers: Vec<(f64, f64)>,
@@ -609,9 +685,6 @@ impl ControlVolume {
             ncg_out: [0.0; 6],
             e_in: 0.0,
             e_out: 0.0,
-            rx_h2: 0.0,
-            rx_co: 0.0,
-            rx_heat: 0.0,
             layers: Vec::new(),
             layer_t: Vec::new(),
         };
@@ -763,6 +836,20 @@ impl ControlVolume {
         self
     }
 
+    /// Ablation: a layered pool's surface exchange and flashing see the top
+    /// layer alone (its mass for MELCOR's Eq 5-17 limit, its thickness as
+    /// the pool-side natural-convection length), as before gh:#1100's fix.
+    /// That makes the exchange depend on the layer count through the top
+    /// layer's thickness (`tests/control_volume_layers.rs` L9: +5 to +7 Pa
+    /// a doubling on a mixed pool); the default sees the surface mixed
+    /// block, which MELCOR's one pool per volume (CVH/FL RM §5.1.2, Eqs
+    /// 5-20, 5-22 to 5-25: `X = min(D_s, L)`, `L` the pool's depth) reduces
+    /// to when the column is mixed.
+    pub fn without_surface_mixed_block(mut self) -> Self {
+        self.mech.surface_mixed_block = false;
+        self
+    }
+
     /// Set each layer's temperature, bottom first (an initial
     /// stratification), keeping the layers' masses; one value for a
     /// one-layer pool. No mixing is applied until the next step.
@@ -814,8 +901,11 @@ impl ControlVolume {
     pub fn pool_layer_energies(&self) -> Vec<Energy> {
         if self.layers.is_empty() { vec![Energy::new::<joule>(self.pool_e)] } else { self.layers.iter().map(|l| Energy::new::<joule>(l.1)).collect() }
     }
-    /// The temperature of the pool's surface layer, the one the surface
-    /// exchange sees (the pool's for one layer).
+    /// The temperature of the pool's surface (top holding) layer (the
+    /// pool's for one layer). ~~The one the surface exchange sees~~
+    /// **CORRECTED 2026-11-01:** the exchange sees the surface mixed block,
+    /// whose temperature equals this layer's to round-off when it is mixed
+    /// and is this layer's when the block is one layer.
     pub fn pool_surface_temperature(&self) -> ThermodynamicTemperature {
         kelv(self.t_layer(self.top_layer()))
     }
@@ -1206,9 +1296,6 @@ impl ControlVolume {
             ncg_out: self.ncg_out.map(kg),
             energy_in: Energy::new::<joule>(self.e_in),
             energy_out: Energy::new::<joule>(self.e_out),
-            hydrogen_burned: AmountOfSubstance::new::<mole>(self.rx_h2),
-            carbon_monoxide_burned: AmountOfSubstance::new::<mole>(self.rx_co),
-            reaction_heat: Energy::new::<joule>(self.rx_heat),
         }
     }
     /// The pressure at elevation `z`: the atmosphere's plus `ρ g (L − z)`
@@ -1292,7 +1379,16 @@ impl ControlVolume {
         if !q_heat.is_finite() || !(t_hx.is_finite() && t_hx > 0.0) {
             return Err(TampinesError::InvalidInput(format!("pool heat {q_heat} W / heat exchanger {:?}", inputs.heat_exchanger)));
         }
+        let mut heat_at: Vec<(f64, f64, f64)> = Vec::with_capacity(inputs.pool_heat_at.len());
+        for h in &inputs.pool_heat_at {
+            let (z0, z1, w) = (h.bottom.get::<meter>(), h.top.get::<meter>(), h.power.get::<watt>());
+            if !(z0.is_finite() && z1.is_finite() && z1 >= z0 && w.is_finite()) {
+                return Err(TampinesError::InvalidInput(format!("pool heat at an elevation {h:?}")));
+            }
+            heat_at.push((z0, z1, w * dt));
+        }
         let start = self.d;
+        let species_h = if inputs.atmosphere_species.is_none() { None } else { Some(self.species_molar_h()) };
         let v_pool_start = self.pool_kg / start.rho;
         let pressures: Vec<f64> = self.ports.iter().map(|p| self.p_at(p.elevation.get::<meter>())).collect();
         let mut transfers: Vec<PortTransfer> = pressures
@@ -1350,6 +1446,16 @@ impl ControlVolume {
             }
             q_to_atm = self.heat_pool(q)?;
         }
+        if !heat_at.is_empty() {
+            for &(_, _, q) in &heat_at {
+                if q > 0.0 {
+                    self.e_in += q;
+                } else {
+                    self.e_out -= q;
+                }
+            }
+            q_to_atm += self.heat_pool_at(&heat_at)?;
+        }
         // 2b. The caller's structures on the atmosphere (gh:#1097): heat,
         //     then condensation, both explicit.
         let q_atm = inputs.atmosphere_heat.get::<watt>();
@@ -1381,8 +1487,12 @@ impl ControlVolume {
             self.e_out += e_sink;
             self.refresh()?;
         }
-        // 2c. Atmosphere reactions at the caller's rates (gh:#1100).
-        let (xi_h, xi_c, q_rx) = self.react(dt, &inputs.atmosphere_reactions)?;
+        // 2c. The caller's species sources and sinks (gh:#1103), at the
+        //    start-of-step enthalpies.
+        let (sp_w, sp_n, sp_e) = match species_h {
+            Some(h) => self.apply_species(dt, &inputs.atmosphere_species, &h)?,
+            None => (0.0, [0.0; 6], 0.0),
+        };
         let k = ua * dt;
         // A dry pool uncovers the exchanger: no heat (gh:#1100).
         let q_hx = if !(self.pool_kg > 0.0) {
@@ -1493,64 +1603,101 @@ impl ControlVolume {
             steam_sink: Mass::new::<kilogram>(m_sink),
             steam_sink_energy: Energy::new::<joule>(e_sink),
             pool_heat_to_atmosphere: Energy::new::<joule>(q_to_atm),
-            hydrogen_burned: AmountOfSubstance::new::<mole>(xi_h),
-            carbon_monoxide_burned: AmountOfSubstance::new::<mole>(xi_c),
-            reaction_heat: Energy::new::<joule>(q_rx),
+            species_water: Mass::new::<kilogram>(sp_w),
+            species_ncg: sp_n.map(|x| Mass::new::<kilogram>(x)),
+            species_energy: Energy::new::<joule>(sp_e),
         })
     }
 
-    /// The energy each reaction adds to the atmosphere's stored energy per
-    /// mole of fuel burned, `[H2, CO]`, on the current closure's references:
-    /// `Q = −Σ ν_i c_i`, `c_i = Δ_f H_i°(298.15 K) − h_i^code(298.15 K)` (the
-    /// derivation is in [`reaction`]). Not the heat of reaction itself (that
-    /// is `Q` less the reaction's change of the code-reference energy at the
-    /// temperature, Kirchhoff's law on the code's own `c_v`), but at 298.15 K
-    /// it reproduces JANAF's (`tests/control_volume_reactions.rs`, R1).
-    pub fn reaction_energy_per_mole(&self) -> [MolarEnergy; 2] {
-        reaction::as_molar_energy(self.reaction_q())
+    /// Each species' code molar enthalpy, J/mol, steam first, then the
+    /// non-condensables in [`NonCondensable::ALL`] order, at temperature
+    /// `t` and steam partial pressure `p_steam` (steam: `M_H2O h_steam(t,
+    /// p_steam)` on the closure's steam model; a non-condensable: its
+    /// `u(t) + R t`). The references a caller's chemistry anchors to
+    /// (gh:#1103).
+    pub fn species_molar_enthalpies(&self, t: ThermodynamicTemperature, p_steam: Pressure) -> [MolarEnergy; 7] {
+        Self::molar_h_raw(self, t.get::<kelvin>(), p_steam.get::<pascal>()).map(MolarEnergy::new::<uom::si::molar_energy::joule_per_mole>)
+    }
+    /// [`Self::species_molar_enthalpies`] at the atmosphere's present
+    /// temperature and steam partial pressure: what
+    /// [`ControlVolumeInputs::atmosphere_species`] carries in the next step.
+    pub fn atmosphere_species_molar_enthalpies(&self) -> [MolarEnergy; 7] {
+        self.species_molar_h().map(MolarEnergy::new::<uom::si::molar_energy::joule_per_mole>)
+    }
+    fn species_molar_h(&self) -> [f64; 7] {
+        let n_s = self.gas.steam_kg / M_H2O;
+        let n = n_s + self.gas.ncg_total_moles();
+        let p_s = if n > 0.0 { self.d.p_gas * n_s / n } else { 0.0 };
+        self.molar_h_raw(self.d.t_gas, p_s)
+    }
+    fn molar_h_raw(&self, t: f64, p_s: f64) -> [f64; 7] {
+        let mut h = [0.0; 7];
+        h[0] = M_H2O * self.h_steam(t, p_s);
+        for g in NonCondensable::ALL {
+            h[1 + g.index()] = self.model.ncg_u(g, t) + R_GAS * t;
+        }
+        h
     }
 
-    /// `[H2, CO]` energy per mole, J/mol: the code's molar enthalpies at
-    /// 298.15 K, steam in its ideal-gas limit (IF97 region 2 at 1 Pa, the
-    /// floor `h_steam` applies anyway).
-    fn reaction_q(&self) -> [f64; 2] {
-        let t = reaction::T_FORMATION_K;
-        let h = |g: NonCondensable| self.model.ncg_u(g, t) + R_GAS * t;
-        let h_h2o = M_H2O * self.h_steam(t, 1.0);
-        reaction::energy_per_mole(h_h2o, h(NonCondensable::H2), h(NonCondensable::O2), h(NonCondensable::CO), h(NonCondensable::CO2))
-    }
-
-    /// Apply the atmosphere reactions for `dt`: extents capped by the fuel
-    /// and then the oxygen present ([`reaction`]), the amounts moved, the
-    /// heat added to the atmosphere's stored energy. Nothing at all (not
-    /// even a refresh) when both rates are zero, so a volume without
-    /// reactions runs the code as it was, bit for bit. Returns `(ξ_H, ξ_C,
-    /// Q)`, mol, mol, J.
-    fn react(&mut self, dt: f64, rx: &AtmosphereReactions) -> Result<(f64, f64, f64), TampinesError> {
-        let want_h = finite_nonneg(rx.hydrogen_burn.get::<mole_per_second>(), "hydrogen burn rate")? * dt;
-        let want_c = finite_nonneg(rx.carbon_monoxide_burn.get::<mole_per_second>(), "carbon monoxide burn rate")? * dt;
-        if want_h == 0.0 && want_c == 0.0 {
-            return Ok((0.0, 0.0, 0.0));
+    /// Apply the caller's species sources and sinks for `dt` at the molar
+    /// enthalpies `h` (J/mol, taken at the start of the step): each
+    /// species' mass `rate · Δt` added or removed, the energy `Σ (m / M) h`
+    /// with it. A removal of more than the atmosphere holds (beyond 1e-12
+    /// of it, round-off) is refused; within that it takes it all, exactly.
+    /// Nothing at all (not even a refresh) when every rate is zero. Returns
+    /// the steam, each gas and the energy moved, signed.
+    fn apply_species(&mut self, dt: f64, rates: &AtmosphereSpeciesRates, h: &[f64; 7]) -> Result<(f64, [f64; 6], f64), TampinesError> {
+        let fin = |x: f64, what: &str| if x.is_finite() { Ok(x) } else { Err(TampinesError::InvalidInput(format!("{what} {x}"))) };
+        let take = |have: f64, dm: f64, what: &str| -> Result<f64, TampinesError> {
+            if dm >= 0.0 {
+                return Ok(have + dm);
+            }
+            if -dm > have * (1.0 + 1e-12) {
+                return Err(TampinesError::InvalidInput(format!("{what} sink {} not within the atmosphere's {have}", -dm)));
+            }
+            Ok(if -dm >= have { 0.0 } else { have + dm })
+        };
+        let m_s = fin(rates.steam.get::<kilogram_per_second>(), "steam source")? * dt;
+        let mut m_n = [0.0; 6];
+        for g in NonCondensable::ALL {
+            m_n[g.index()] = fin(rates.ncg[g.index()].get::<kilogram_per_second>(), "gas source")? * dt;
         }
-        let (ih, io, ic, ic2) = (NonCondensable::H2.index(), NonCondensable::O2.index(), NonCondensable::CO.index(), NonCondensable::CO2.index());
-        let n = self.gas.ncg_moles;
-        let x = reaction::capped_extents(n[ih], n[ic], n[io], want_h, want_c);
-        if x.xi_h == 0.0 && x.xi_c == 0.0 {
-            return Ok((0.0, 0.0, 0.0));
+        let mut e = 0.0;
+        if m_s != 0.0 {
+            self.gas.steam_kg = take(self.gas.steam_kg, m_s, "steam")?;
+            e += m_s / M_H2O * h[0];
+            if m_s > 0.0 {
+                self.water_in += m_s;
+            } else {
+                self.water_out -= m_s;
+            }
         }
-        let [q_h, q_c] = self.reaction_q();
-        let q = x.xi_h * q_h + x.xi_c * q_c;
-        self.gas.ncg_moles[ih] = x.h2;
-        self.gas.ncg_moles[ic] = x.co;
-        self.gas.ncg_moles[io] = x.o2;
-        self.gas.ncg_moles[ic2] += x.xi_c;
-        self.gas.steam_kg += x.xi_h * M_H2O;
-        self.gas_e += q;
-        self.rx_h2 += x.xi_h;
-        self.rx_co += x.xi_c;
-        self.rx_heat += q;
+        for g in NonCondensable::ALL {
+            let j = g.index();
+            let m = m_n[j];
+            if m == 0.0 {
+                continue;
+            }
+            let dn = m / g.molar_mass();
+            self.gas.ncg_moles[j] = take(self.gas.ncg_moles[j], dn, "gas")?;
+            e += dn * h[1 + j];
+            if m > 0.0 {
+                self.ncg_in[j] += m;
+            } else {
+                self.ncg_out[j] -= m;
+            }
+        }
+        if m_s == 0.0 && m_n.iter().all(|m| *m == 0.0) {
+            return Ok((0.0, [0.0; 6], 0.0));
+        }
+        self.gas_e += e;
+        if e > 0.0 {
+            self.e_in += e;
+        } else {
+            self.e_out -= e;
+        }
         self.refresh()?;
-        Ok((x.xi_h, x.xi_c, q))
+        Ok((m_s, m_n, e))
     }
 
     /// `q` J of pool heat. Into the pool (by mass over the layers); into the
@@ -1579,6 +1726,72 @@ impl ControlVolume {
         self.spread_by_mass(q);
         self.add_pool(0.0, q)?;
         Ok(0.0)
+    }
+
+    /// Heat into the pool at elevations, `(z0, z1, q J)` each
+    /// ([`ElevatedPoolHeat`]), after `pool_heat` (gh:#1100). One layer, or a
+    /// dry pool, or heat enough to boil the whole pool dry: their sum
+    /// through [`Self::heat_pool`], exactly as `pool_heat`. Otherwise each
+    /// band into its layers ([`Self::band_shares`]). Returns the heat that
+    /// went to the atmosphere, J.
+    fn heat_pool_at(&mut self, bands: &[(f64, f64, f64)]) -> Result<f64, TampinesError> {
+        // No heat: nothing at all (not even a refresh), so a zero band is
+        // the step without it, bit for bit.
+        if bands.iter().all(|b| b.2 == 0.0) {
+            return Ok(0.0);
+        }
+        let total: f64 = bands.iter().map(|b| b.2).sum();
+        if self.layers.is_empty() || !(self.pool_kg > 0.0) {
+            return self.heat_pool(total);
+        }
+        if total > 0.0 {
+            let t_s = t_sat(self.d.p_gas);
+            if total >= self.pool_kg * self.h_steam(t_s, p_sat_pa(t_s)) - self.pool_e {
+                return self.heat_pool(total);
+            }
+        }
+        for &(z0, z1, q) in bands {
+            if q == 0.0 {
+                continue;
+            }
+            let shares = self.band_shares(z0, z1);
+            let last = shares.len() - 1;
+            let mut used = 0.0;
+            for (k, (i, f)) in shares.iter().enumerate() {
+                let x = if k == last { q - used } else { q * f };
+                self.layers[*i].1 += x;
+                used += x;
+            }
+            self.pool_e += q;
+        }
+        self.refresh()?;
+        Ok(0.0)
+    }
+
+    /// The layers holding the water between `z0` and `z1` and the share of
+    /// that water in each, `(layer, fraction)` bottom first, by the
+    /// cumulative mass below each elevation at the pool's mean density (as
+    /// [`Self::layer_at`]); a band holding no water (zero thickness, or
+    /// above the level) is the layer at `z0`, whole.
+    fn band_shares(&self, z0: f64, z1: f64) -> Vec<(usize, f64)> {
+        let m0 = (self.d.rho * self.table.volume_below_m3(z0)).clamp(0.0, self.pool_kg);
+        let m1 = (self.d.rho * self.table.volume_below_m3(z1)).clamp(0.0, self.pool_kg);
+        let mut out = Vec::new();
+        if m1 > m0 {
+            let mut c = 0.0;
+            for (i, l) in self.layers.iter().enumerate() {
+                let (a, b) = (c, c + l.0);
+                c = b;
+                let o = b.min(m1) - a.max(m0);
+                if l.0 > 0.0 && o > 0.0 {
+                    out.push((i, o / (m1 - m0)));
+                }
+            }
+        }
+        if out.is_empty() {
+            out.push((self.layer_at(z0), 1.0));
+        }
+        out
     }
 
     /// Draw `m` kg of liquid through a port at `z` at pressure `p`, carrying
@@ -1744,7 +1957,7 @@ impl ControlVolume {
         // The liquid at the surface: the pool, or a layered pool's top
         // holding layer (gh:#1100). A dry pool has no surface: only
         // rain-out acts, and refills it.
-        let top = self.top_layer();
+        let top = self.surface_block();
         let (mut flash, mut evap) = (0.0, 0.0);
         if !(self.surface_liquid().0 > 0.0) {
             let rain = self.rain_out()?;
@@ -1770,6 +1983,7 @@ impl ControlVolume {
             let rain = self.rain_out()?;
             return Ok((flash, evap, rain));
         }
+        let top = self.surface_block();
         match self.mech.surface {
             SurfaceModel::Melcor => {
                 let d = self.d;
@@ -1843,26 +2057,88 @@ impl ControlVolume {
         Ok((flash, evap, rain))
     }
 
+    /// The surface mixed block of a layered pool, `(lowest, top)` layer
+    /// indices, inclusive (gh:#1100): from the top holding layer down, every
+    /// holding layer whose IF97 density at the atmosphere's pressure is not
+    /// above the block's (the column between them neutral or unstable, so
+    /// it convects with the surface water), stopping at the first stable
+    /// density step. Empty layers are passed over. The comparison allows
+    /// 1e-12 of the density for round-off (the convective adjustment hands
+    /// a merged block's top layer the energy remainder, a few ulp; 1e-12 of
+    /// the density is about 3e-9 K), not as a physical coefficient. Densities
+    /// are taken as [`Self::mix_unstable`] takes them, so a block the
+    /// adjustment has just merged is recognised whole. With the
+    /// [`Self::without_surface_mixed_block`] ablation, the top layer alone.
+    fn surface_block(&self) -> (usize, usize) {
+        let top = self.top_layer();
+        if self.layers.is_empty() || !self.mech.surface_mixed_block || !(self.layers[top].0 > 0.0) {
+            return (top, top);
+        }
+        let p = self.d.p_gas;
+        let guess = self.d.t_pool;
+        let rho = |m: f64, e: f64| rho_liquid(self.t_liquid(e / m, guess), p);
+        let (mut m, mut e) = self.layers[top];
+        let mut rho_b = rho(m, e);
+        let mut lo = top;
+        for i in (0..top).rev() {
+            let l = self.layers[i];
+            if !(l.0 > 0.0) {
+                continue;
+            }
+            if rho(l.0, l.1) > rho_b * (1.0 + 1e-12) {
+                break;
+            }
+            m += l.0;
+            e += l.1;
+            rho_b = rho(m, e);
+            lo = i;
+        }
+        (lo, top)
+    }
     /// The surface liquid: mass, energy, temperature and depth (the pool's,
-    /// or a layered pool's top holding layer and its thickness).
+    /// or a layered pool's surface mixed block, [`Self::surface_block`]:
+    /// its mass, energy, temperature from its specific energy, and its
+    /// depth, the level less the height of the water below it).
     fn surface_liquid(&self) -> (f64, f64, f64, f64) {
         if self.layers.is_empty() {
-            (self.pool_kg, self.pool_e, self.d.t_pool, self.d.level - self.table.bottom_m())
-        } else {
-            let top = self.top_layer();
-            (self.layers[top].0, self.layers[top].1, self.layer_t[top], self.top_layer_thickness())
+            return (self.pool_kg, self.pool_e, self.d.t_pool, self.d.level - self.table.bottom_m());
         }
+        let (lo, top) = self.surface_block();
+        if lo == top {
+            return (self.layers[top].0, self.layers[top].1, self.layer_t[top], self.top_layer_thickness());
+        }
+        let (m, e) = self.layers[lo..=top].iter().fold((0.0, 0.0), |a, l| (a.0 + l.0, a.1 + l.1));
+        let below: f64 = self.layers.iter().take(lo).map(|l| l.0).sum();
+        let depth = self.d.level - self.table.height_of_volume_m(below / self.d.rho);
+        (m, e, self.t_liquid(e / m, self.layer_t[top]), depth)
     }
-    /// Take `dm` kg and `de` J from the surface liquid (layer `top`), which
-    /// held `held` kg; when `dm` is all of it, it ends exactly empty.
-    fn take_surface(&mut self, top: usize, dm: f64, de: f64, held: f64) {
+    /// Take `dm` kg and `de` J from the surface liquid (the block `(lo,
+    /// top)`), which held `held` kg, shared over the block's layers by mass
+    /// (the top one taking the remainder; a block of one layer takes it all,
+    /// as before the block); when `dm` is all of it, it ends exactly empty.
+    fn take_surface(&mut self, block: (usize, usize), dm: f64, de: f64, held: f64) {
+        let (lo, top) = block;
         let whole = dm > 0.0 && dm == held;
-        if let Some(l) = self.layers.get_mut(top) {
+        if top < self.layers.len() {
             if whole {
-                *l = (0.0, 0.0);
+                for l in &mut self.layers[lo..=top] {
+                    *l = (0.0, 0.0);
+                }
             } else {
-                l.0 -= dm;
-                l.1 -= de;
+                let (mut um, mut ue) = (0.0, 0.0);
+                for l in &mut self.layers[lo..top] {
+                    if l.0 > 0.0 {
+                        let x = l.0 / held;
+                        let (a, b) = (dm * x, de * x);
+                        l.0 -= a;
+                        l.1 -= b;
+                        um += a;
+                        ue += b;
+                    }
+                }
+                let l = &mut self.layers[top];
+                l.0 -= dm - um;
+                l.1 -= de - ue;
             }
         }
         self.pool_kg -= dm;

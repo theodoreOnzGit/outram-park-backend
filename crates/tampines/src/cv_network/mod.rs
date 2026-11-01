@@ -38,10 +38,13 @@
 //! network totals count it, so mass, every gas and energy are conserved to
 //! round-off whatever the tolerance.
 //!
-//! **Atmosphere reactions** ([`CvNetwork::set_atmosphere_reactions`],
+//! ~~**Atmosphere reactions** (`CvNetwork::set_atmosphere_reactions`,
 //! gh:#1100) are internal sources: the network's water, gases and energy
 //! close as `now = start + boundary_inflow + reaction_totals`
-//! ([`CvNetwork::reaction_totals`]).
+//! (`CvNetwork::reaction_totals`).~~ **CORRECTED 2026-11-01** (gh:#1103:
+//! the chemistry moved to `sembawang`): **atmosphere species sources and
+//! sinks** ([`CvNetwork::set_atmosphere_species`]) cross the boundary, so
+//! the network closes as `now = start + boundary_inflow`.
 //!
 //! # Limits
 //!
@@ -66,7 +69,7 @@ use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
-use crate::control_volume::{AtmosphereReactions, ControlVolume, ControlVolumeInputs, DonorState, Source};
+use crate::control_volume::{AtmosphereSpeciesRates, ControlVolume, ControlVolumeInputs, ControlVolumeStepReport, DonorState, ElevatedPoolHeat, Source};
 use crate::flow_path::{FlowPath, FlowTransfer, PathEnd};
 use crate::TampinesError;
 
@@ -157,6 +160,12 @@ pub struct NetworkStepReport {
     pub residual: f64,
     /// Each path's transfer at the last iterate.
     pub transfers: Vec<FlowTransfer>,
+    /// Each volume's own report at the last iterate, in the order the
+    /// volumes were added (gh:#1100): among others its
+    /// `pool_heat_to_atmosphere`, the pool heat that went into the
+    /// atmosphere because the pool was dry or boiled dry within the step,
+    /// which a caller cannot otherwise see.
+    pub volumes: Vec<ControlVolumeStepReport>,
 }
 
 /// Inventory carried between steps by a path end: mass that left a donor on
@@ -177,15 +186,16 @@ pub struct CvNetwork {
     transit: Vec<[InTransit; 2]>,
     /// External heat into each volume's pool, W (held until changed).
     pool_heat_w: Vec<f64>,
+    /// External heat into each volume's pool at elevations (held until
+    /// changed; gh:#1100).
+    pool_heat_at: Vec<Vec<ElevatedPoolHeat>>,
     /// External heat into each volume's atmosphere, W, and steam condensed
     /// out of it onto the caller's structures, kg/s (held; gh:#1097).
     atm_heat_w: Vec<f64>,
     atm_sink_kg_s: Vec<f64>,
-    /// Combustion rates in each volume's atmosphere (held; gh:#1100).
-    atm_rx: Vec<AtmosphereReactions>,
-    /// What the reactions made since construction: steam, each gas (signed)
-    /// and the heat released, as an inventory change (gh:#1100).
-    reaction_in: InTransit,
+    /// Species sources and sinks on each volume's atmosphere (held;
+    /// gh:#1103).
+    atm_species: Vec<AtmosphereSpeciesRates>,
     /// External sources, per volume per port (held; gh:#1097).
     sources: Vec<Vec<Source>>,
     /// Net mass and energy that crossed boundaries into the network.
@@ -206,10 +216,10 @@ impl CvNetwork {
             paths: Vec::new(),
             transit: Vec::new(),
             pool_heat_w: Vec::new(),
+            pool_heat_at: Vec::new(),
             atm_heat_w: Vec::new(),
             atm_sink_kg_s: Vec::new(),
-            atm_rx: Vec::new(),
-            reaction_in: InTransit::default(),
+            atm_species: Vec::new(),
             sources: Vec::new(),
             boundary_in: InTransit::default(),
             time_s: 0.0,
@@ -222,9 +232,10 @@ impl CvNetwork {
         self.sources.push(vec![Source::none(); v.ports().len()]);
         self.volumes.push(v);
         self.pool_heat_w.push(0.0);
+        self.pool_heat_at.push(Vec::new());
         self.atm_heat_w.push(0.0);
         self.atm_sink_kg_s.push(0.0);
-        self.atm_rx.push(AtmosphereReactions::none());
+        self.atm_species.push(AtmosphereSpeciesRates::none());
         self.volumes.len() - 1
     }
 
@@ -266,6 +277,27 @@ impl CvNetwork {
         Ok(())
     }
 
+    /// Set the external heat into volume `i`'s pool at elevations (held
+    /// until changed; replaces the previous list; see
+    /// [`ControlVolumeInputs::pool_heat_at`]), beside
+    /// [`Self::set_pool_heat`]'s heat shared by mass (gh:#1100).
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for no such volume, or a band with a
+    /// non-finite elevation or power or its top below its bottom.
+    pub fn set_pool_heat_at(&mut self, i: usize, heats: &[ElevatedPoolHeat]) -> Result<(), TampinesError> {
+        for h in heats {
+            let (z0, z1, w) = (h.bottom.get::<meter>(), h.top.get::<meter>(), h.power.get::<uom::si::power::watt>());
+            if !(z0.is_finite() && z1.is_finite() && z1 >= z0 && w.is_finite()) {
+                return Err(TampinesError::InvalidInput(format!("pool heat at an elevation {h:?}")));
+            }
+        }
+        let h = self.pool_heat_at.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
+        *h = heats.to_vec();
+        Ok(())
+    }
+
     /// Set the external heat into volume `i`'s atmosphere (held until
     /// changed): the caller's heat structures (gh:#1097).
     ///
@@ -296,39 +328,26 @@ impl CvNetwork {
         Ok(())
     }
 
-    /// Set the combustion rates in volume `i`'s atmosphere (held until
-    /// changed, as [`Self::set_atmosphere_steam_sink`]; see
-    /// [`ControlVolumeInputs::atmosphere_reactions`]): `H2 + ½ O2 → H2O(g)`
-    /// and `CO + ½ O2 → CO2`, in moles of fuel per second. Each volume caps
-    /// them by the reactants present within the step and closes the heat of
-    /// reaction itself (gh:#1100); a caller's burn model sets them before
-    /// each [`Self::step`] and reads back what burned from
-    /// [`Self::reaction_totals`] or the volume's bookkeeping.
+    /// Set the species sources and sinks on volume `i`'s atmosphere (held
+    /// until changed; see [`ControlVolumeInputs::atmosphere_species`]): kg/s
+    /// per species, negative removing, each at its code molar enthalpy at
+    /// the start-of-step atmosphere (gh:#1103; a caller's chemistry, e.g.
+    /// `sembawang`'s burns, sets them with the matching heat by
+    /// [`Self::set_atmosphere_heat`]). They cross the boundary account
+    /// ([`Self::boundary_inflow`]).
     ///
     /// # Errors
     ///
-    /// [`TampinesError::InvalidInput`] for no such volume or a negative or
-    /// non-finite rate.
-    pub fn set_atmosphere_reactions(&mut self, i: usize, reactions: AtmosphereReactions) -> Result<(), TampinesError> {
-        let (h, c) = (
-            reactions.hydrogen_burn.get::<uom::si::catalytic_activity::mole_per_second>(),
-            reactions.carbon_monoxide_burn.get::<uom::si::catalytic_activity::mole_per_second>(),
-        );
-        if !(h.is_finite() && h >= 0.0 && c.is_finite() && c >= 0.0) {
-            return Err(TampinesError::InvalidInput(format!("burn rates H2 {h} mol/s, CO {c} mol/s")));
+    /// [`TampinesError::InvalidInput`] for no such volume or a non-finite
+    /// rate.
+    pub fn set_atmosphere_species(&mut self, i: usize, rates: AtmosphereSpeciesRates) -> Result<(), TampinesError> {
+        let all = std::iter::once(rates.steam).chain(rates.ncg);
+        if all.map(|m| m.get::<kilogram_per_second>()).any(|x| !x.is_finite()) {
+            return Err(TampinesError::InvalidInput(format!("species rates {rates:?}")));
         }
-        let r = self.atm_rx.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
-        *r = reactions;
+        let r = self.atm_species.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
+        *r = rates;
         Ok(())
-    }
-
-    /// What the atmosphere reactions changed since construction, summed over
-    /// the volumes: `(steam kg made, each gas kg (signed, negative for what
-    /// burned), heat released J)`, so that `water_mass − W0 =
-    /// boundary_inflow + reaction_totals` and likewise for each gas and the
-    /// energy.
-    pub fn reaction_totals(&self) -> (f64, [f64; 6], f64) {
-        (self.reaction_in.water_kg, self.reaction_in.ncg_kg, self.reaction_in.energy_j)
     }
 
     /// Set an external source on port `port` of volume `volume` (held until
@@ -571,7 +590,7 @@ impl CvNetwork {
         let (mut omega, mut last_residual) = (1.0_f64, f64::INFINITY);
         let (mut residual, mut iterations): (f64, usize);
         let mut transfers: Vec<FlowTransfer> = Vec::new();
-        let (mut new_vols, mut new_paths, mut boundary_step, mut reaction_step);
+        let (mut new_vols, mut new_paths, mut boundary_step);
         for k in 1..=self.control.max_iterations {
             iterations = k;
             // 1. Paths from the latest iterate.
@@ -636,9 +655,10 @@ impl CvNetwork {
                 .map(|(i, v)| {
                     let mut c = ControlVolumeInputs::closed(v.ports().len());
                     c.pool_heat = uom::si::f64::Power::new::<uom::si::power::watt>(self.pool_heat_w[i]);
+                    c.pool_heat_at.clone_from(&self.pool_heat_at[i]);
                     c.atmosphere_heat = uom::si::f64::Power::new::<uom::si::power::watt>(self.atm_heat_w[i]);
                     c.atmosphere_steam_sink = mr(self.atm_sink_kg_s[i]);
-                    c.atmosphere_reactions = self.atm_rx[i];
+                    c.atmosphere_species = self.atm_species[i];
                     for (port, src) in self.sources[i].iter().enumerate() {
                         c.ports[port].inflow = *src;
                     }
@@ -702,26 +722,10 @@ impl CvNetwork {
                     }
                 }
             }
-            // Step every volume; record what each donor sent, and what the
-            // reactions made (gh:#1100).
+            // Step every volume; record what each donor sent.
             let mut reports = Vec::with_capacity(new_vols.len());
-            reaction_step = InTransit::default();
             for (i, v) in new_vols.iter_mut().enumerate() {
                 let r = v.step(dt, &inputs[i])?;
-                if r.hydrogen_burned.get::<uom::si::amount_of_substance::mole>() > 0.0
-                    || r.carbon_monoxide_burned.get::<uom::si::amount_of_substance::mole>() > 0.0
-                {
-                    // Each species' change by stoichiometry, from the moles
-                    // the volume reports burned.
-                    let (xh, xc) =
-                        (r.hydrogen_burned.get::<uom::si::amount_of_substance::mole>(), r.carbon_monoxide_burned.get::<uom::si::amount_of_substance::mole>());
-                    reaction_step.water_kg += xh * tampines_steam_tables::gas_mixture::M_H2O;
-                    reaction_step.ncg_kg[NonCondensable::H2.index()] -= xh * NonCondensable::H2.molar_mass();
-                    reaction_step.ncg_kg[NonCondensable::O2.index()] -= 0.5 * (xh + xc) * NonCondensable::O2.molar_mass();
-                    reaction_step.ncg_kg[NonCondensable::CO.index()] -= xc * NonCondensable::CO.molar_mass();
-                    reaction_step.ncg_kg[NonCondensable::CO2.index()] += xc * NonCondensable::CO2.molar_mass();
-                    reaction_step.energy_j += r.reaction_heat.get::<joule>();
-                }
                 reports.push(r);
             }
             // External sources, sinks and heats cross the boundary
@@ -738,7 +742,16 @@ impl CvNetwork {
                     }
                 }
                 boundary_step.water_kg -= r.steam_sink.get::<kilogram>();
+                // The species sources and sinks (gh:#1103).
+                boundary_step.water_kg += r.species_water.get::<kilogram>();
+                boundary_step.energy_j += r.species_energy.get::<joule>();
+                for q in 0..6 {
+                    boundary_step.ncg_kg[q] += r.species_ncg[q].get::<kilogram>();
+                }
                 boundary_step.energy_j += (self.pool_heat_w[i] + self.atm_heat_w[i]) * dts - r.steam_sink_energy.get::<joule>();
+                for h in &self.pool_heat_at[i] {
+                    boundary_step.energy_j += h.power.get::<uom::si::power::watt>() * dts;
+                }
             }
             let mut new_sent = sent.clone();
             for (pi, np) in self.paths.iter().enumerate() {
@@ -816,13 +829,13 @@ impl CvNetwork {
             }
             last_residual = residual;
             if k > 1 && residual < self.control.tolerance {
-                self.commit(new_vols, new_paths, transit, boundary_step, reaction_step, dts);
-                return Ok(NetworkStepReport { iterations, residual, transfers });
+                self.commit(new_vols, new_paths, transit, boundary_step, dts);
+                return Ok(NetworkStepReport { iterations, residual, transfers, volumes: reports });
             }
             if k == self.control.max_iterations {
                 if self.control.max_iterations == 1 {
-                    self.commit(new_vols, new_paths, transit, boundary_step, reaction_step, dts);
-                    return Ok(NetworkStepReport { iterations, residual: 0.0, transfers });
+                    self.commit(new_vols, new_paths, transit, boundary_step, dts);
+                    return Ok(NetworkStepReport { iterations, residual: 0.0, transfers, volumes: reports });
                 }
                 return Err(TampinesError::Numerical(format!("network step: no convergence in {iterations} iterations (residual {residual:e})")));
             }
@@ -830,12 +843,7 @@ impl CvNetwork {
         Err(TampinesError::Numerical("network step: no iterations".into()))
     }
 
-    fn commit(&mut self, vols: Vec<ControlVolume>, paths: Vec<FlowPath>, transit: Vec<[InTransit; 2]>, b: InTransit, rx: InTransit, dt: f64) {
-        self.reaction_in.water_kg += rx.water_kg;
-        self.reaction_in.energy_j += rx.energy_j;
-        for q in 0..6 {
-            self.reaction_in.ncg_kg[q] += rx.ncg_kg[q];
-        }
+    fn commit(&mut self, vols: Vec<ControlVolume>, paths: Vec<FlowPath>, transit: Vec<[InTransit; 2]>, b: InTransit, dt: f64) {
         self.volumes = vols;
         for (np, mut p) in self.paths.iter_mut().zip(paths) {
             p.hold_open(None);

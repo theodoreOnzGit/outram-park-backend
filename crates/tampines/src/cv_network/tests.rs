@@ -520,3 +520,80 @@ fn a_volume_drains_dry_inside_a_network() {
     assert!(va.pool_mass().get::<kilogram>() > 0.0, "A refilled");
     assert!((va.pool_mass() + vb.pool_mass()).get::<kilogram>() > 190.0);
 }
+
+/// **N1: each volume's report through `NetworkStepReport::volumes`, and
+/// pool heat at an elevation across the network's energy account
+/// (gh:#1100).** Prediction (V&V doc `control_volume.md`, written before
+/// the run): two volumes joined by a gas path; A's 0.1 kg pool given 1 MW
+/// for a 1 s step boils dry and reports the heat to its atmosphere, as the
+/// volume alone reports it; B's report is zero; the reports are one per
+/// volume, in order. Then 5 kW into B's pool at its bottom by
+/// `set_pool_heat_at`: the network's energy closes to < 1e-12 against
+/// `boundary_inflow`. **Result (2026-11-01, release):** see the V&V doc.
+#[test]
+fn volume_reports_and_pool_heat_at_an_elevation() {
+    use crate::control_volume::{ControlVolumeInputs, ElevatedPoolHeat};
+    use uom::si::power::watt;
+    let a_alone = vessel_at(1.0, 5.0, 0.0, 1.0e5, 0.5, &[4.0], 350.0);
+    // 0.1 kg of water in A (a film).
+    let rho = 1.0 / tampines_steam_tables::region_1_subcooled_liquid::v_tp_1(kel(350.0), Pressure::new::<pascal>(1.0e5)).value;
+    let film = 0.1 / rho;
+    let a_alone = {
+        let _ = a_alone;
+        vessel_at(1.0, 5.0, film, 1.0e5, 0.5, &[4.0], 350.0)
+    };
+    let mut net = CvNetwork::new(NetworkControl::default());
+    let a = net.add_volume(a_alone.clone());
+    let b = net.add_volume(vessel_at(1.0, 5.0, 1.0, 1.0e5, 0.5, &[4.0], 350.0).with_pool_layers(4).unwrap());
+    net.add_path(NetworkPath { path: gas_path(4.0, 4.0, 0.01, 1.0), from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+    net.set_pool_heat(a, uom::si::f64::Power::new::<watt>(1.0e6)).unwrap();
+    let r = net.step(Time::new::<second>(1.0)).unwrap();
+    let mut alone = a_alone;
+    let mut inp = ControlVolumeInputs::closed(1);
+    inp.pool_heat = uom::si::f64::Power::new::<watt>(1.0e6);
+    let ra = alone.step(Time::new::<second>(1.0), &inp).unwrap();
+    println!("N1: {} reports; A to the atmosphere {} J (alone {} J), B {} J; A dry {}", r.volumes.len(), r.volumes[a].pool_heat_to_atmosphere.value, ra.pool_heat_to_atmosphere.value, r.volumes[b].pool_heat_to_atmosphere.value, net.volume(a).unwrap().is_pool_dry());
+    assert_eq!(r.volumes.len(), 2);
+    assert_eq!(r.volumes[a].pool_heat_to_atmosphere.value, 1.0e6);
+    assert_eq!(ra.pool_heat_to_atmosphere.value, 1.0e6);
+    assert_eq!(r.volumes[b].pool_heat_to_atmosphere.value, 0.0);
+    assert!(net.volume(a).unwrap().is_pool_dry());
+    // Pool heat at an elevation crosses the boundary account.
+    net.set_pool_heat(a, uom::si::f64::Power::new::<watt>(0.0)).unwrap();
+    assert!(net.set_pool_heat_at(b, &[ElevatedPoolHeat::between(m(1.0), m(0.0), uom::si::f64::Power::new::<watt>(1.0))]).is_err());
+    assert!(net.set_pool_heat_at(9, &[]).is_err());
+    net.set_pool_heat_at(b, &[ElevatedPoolHeat::at(m(0.1), uom::si::f64::Power::new::<watt>(5.0e3))]).unwrap();
+    let (w0, _, e0) = totals(&net);
+    let (bw0, _, be0) = net.boundary_inflow();
+    let mut worst: f64 = 0.0;
+    for _ in 0..20 {
+        net.step(Time::new::<second>(1.0)).unwrap();
+        let (w, _, e) = totals(&net);
+        let (bw, _, be) = net.boundary_inflow();
+        worst = worst.max(((w - w0) - (bw - bw0)).abs() / w0).max(((e - e0) - (be - be0)).abs() / e0.abs());
+    }
+    println!("N1: closure with heat at an elevation {worst:.1e}");
+    assert!(worst < 1e-12, "{worst}");
+    // A species source and sink (gh:#1103) crosses the boundary account.
+    use crate::control_volume::AtmosphereSpeciesRates;
+    let mut sp = AtmosphereSpeciesRates::none();
+    sp.steam = mr(1e-3);
+    sp.ncg[NonCondensable::N2.index()] = mr(-1e-4);
+    net.set_atmosphere_species(b, sp).unwrap();
+    let mut bad = sp;
+    bad.steam = mr(f64::NAN);
+    assert!(net.set_atmosphere_species(b, bad).is_err());
+    let all = |n: &CvNetwork| (n.water_mass().get::<kilogram>(), n.ncg_masses()[0], n.total_energy().get::<joule>());
+    let (w0, n0, e0) = all(&net);
+    let (bw0, bn0, be0) = net.boundary_inflow();
+    let mut worst: f64 = 0.0;
+    for _ in 0..20 {
+        let r = net.step(Time::new::<second>(1.0)).unwrap();
+        assert!(r.volumes[b].species_water.value > 0.0);
+        let (w, n, e) = all(&net);
+        let (bw, bn, be) = net.boundary_inflow();
+        worst = worst.max(((w - w0) - (bw - bw0)).abs() / w0).max(((n - n0) - (bn[0] - bn0[0])).abs() / n0).max(((e - e0) - (be - be0)).abs() / e0.abs());
+    }
+    println!("N1: closure with species sources and sinks {worst:.1e}");
+    assert!(worst < 1e-12, "{worst}");
+}
