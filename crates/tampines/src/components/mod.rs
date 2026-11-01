@@ -9,6 +9,13 @@
 //! field composition are the deliverable of this pass; wiring the method
 //! bodies to real backend calls is tracked separately (see the workspace's
 //! `op-dt3` epic).
+//!
+//! **Since 2026-11-01 (RELAP-7 parity epic gh:#1056) the transient,
+//! verified components live beside these:** [`junction`] (the HEM network's
+//! flow junctions, volume branches, pump, valve, relief valve, turbine,
+//! separator-dryer and downcomer), [`heat_structure`] (PipeWithHeatStructure,
+//! CoreChannel, wall heat exchanger), [`reactor_power`] (core power
+//! distribution). The steady wrappers below are not their front end.
 
 pub mod condenser;
 pub mod cooling_tower;

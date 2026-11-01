@@ -376,6 +376,13 @@ field composition are the deliverable of this pass; wiring the method
 bodies to real backend calls is tracked separately (see the workspace's
 `op-dt3` epic).
 
+**Since 2026-11-01 (RELAP-7 parity epic gh:#1056) the transient,
+verified components live beside these:** [`junction`] (the HEM network's
+flow junctions, volume branches, pump, valve, relief valve, turbine,
+separator-dryer and downcomer), [`heat_structure`] (PipeWithHeatStructure,
+CoreChannel, wall heat exchanger), [`reactor_power`] (core power
+distribution). The steady wrappers below are not their front end.
+
 ```rust
 pub mod components { /* ... */ }
 ```
@@ -4607,6 +4614,12 @@ Composes [`outram_park_fork_dwsim_libs::pump::modes`]'s already-working
 calculation-mode algebra (`PumpSpecification`/`PumpInlet`/`evaluate`)
 behind a TAMPINES-native struct.
 
+**For a transient pipe network, use [`super::junction::HemJunction::Pump`]
+(gh:#1072, RELAP-7 parity epic gh:#1056)**, which runs inside a
+[`super::junction::HemNetwork`] with its own V&V
+(`tampines-steam-tables/verification_and_validation/hem_network_junctions.md`).
+This struct is the steady pump sizing/rating wrapper and is separate from it.
+
 ```rust
 pub mod pump { /* ... */ }
 ```
@@ -5558,6 +5571,12 @@ Composes [`crate::hem::HemSteamCv`] (the inlet/outlet steam state) with
 [`outram_park_fork_dwsim_libs::expander::isentropic`]'s adiabatic/Schultz
 polytropic turbine model.
 
+**For a transient pipe network, use [`super::junction::HemJunction::Turbine`]
+(gh:#1072, RELAP-7 parity epic gh:#1056)**, which runs inside a
+[`super::junction::HemNetwork`] with its own V&V
+(`tampines-steam-tables/verification_and_validation/hem_network_junctions.md`).
+This struct is the steady turbine sizing/rating wrapper and is separate from it.
+
 ```rust
 pub mod turbine { /* ... */ }
 ```
@@ -5713,6 +5732,12 @@ Control valve component.
 
 Composes [`outram_park_fork_dwsim_libs::valve::iec_60534`]'s IEC 60534
 sizing types behind a TAMPINES-native struct.
+
+**For a transient pipe network, use [`super::junction::HemJunction::Valve`]
+(gh:#1072, RELAP-7 parity epic gh:#1056)**, which runs inside a
+[`super::junction::HemNetwork`] with its own V&V
+(`tampines-steam-tables/verification_and_validation/hem_network_junctions.md`).
+This struct is the steady valve sizing/rating wrapper and is separate from it.
 
 ```rust
 pub mod valve { /* ... */ }
