@@ -30,6 +30,7 @@ pub mod reactor_power;
 pub mod steam_generator;
 pub mod turbine;
 pub mod valve;
+pub mod wet_well;
 
 pub use condenser::Condenser;
 pub use cooling_tower::CoolingTower;
@@ -56,3 +57,9 @@ pub use reactor_power::{AxialPowerShape, CoreChannelShare, ReactorPowerSource, T
 pub use steam_generator::SteamGenerator;
 pub use turbine::Turbine;
 pub use valve::Valve;
+// The suppression-pool wet well (gh:#1075, RELAP-7 §6.12), ported from
+// `sembawang::bwr_mark1`'s MELCOR-based torus.
+pub use wet_well::{
+    ExternalVolume, ImmersedHeatExchanger, Injection, VacuumBreaker, VacuumBreakerDirection, WetWell,
+    WetWellGeometry, WetWellInitialState, WetWellInputs,
+};

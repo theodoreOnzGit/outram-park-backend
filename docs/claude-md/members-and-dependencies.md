@@ -165,7 +165,10 @@ their vendored `openfoam_source/` is unchanged); `tampines` dev-deps →
 **CORRECTED 2026-10-16**: `tuas_boussinesq_solver` and `chem-eng` are normal
 `[dependencies]` of `crates/tampines/Cargo.toml`, so the library is not
 TUAS-free; the dev-deps are `{teh-o-prke, nee_soon}` (gated off Android and
-wasm);
+wasm), and since 2026-11-01 `sembawang` (same gate; gh:#1075, so
+`tests/wet_well.rs` can check the wet well's ports of `bwr_mark1` bit for bit;
+never a normal edge, since `sembawang` is meant to consume `tampines`'s wet
+well later);
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
 no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD
