@@ -26,7 +26,10 @@
 //!   defaults to [`Iapws97Hem`], so `HemPipe` alone means water.
 //! - Closures: [`Iapws97Hem`] (IAPWS-IF97 water/steam) and [`IdealGasHem`]
 //!   (the Sod limit), both implementing the compile-time trait
-//!   [`HemEquationOfState`].
+//!   [`HemEquationOfState`]; and, for verification only (gh:#1057), the reduced
+//!   forms of [`reduced_eos`]: [`StiffenedGasHem`] (with [`StiffenedGasPair`]'s
+//!   saturation curve), [`IsentropicStiffenedGasHem`], [`BarotropicHem`] and
+//!   [`LinearEosHem`].
 //! - Configuration: [`HemPipeGeometry`], [`HemInitialCondition`] /
 //!   [`PrimitiveState`], [`HemBoundary`] / [`PipeEnd`], [`HemNumerics`]
 //!   (with [`TimeStepControl`], [`TimeIntegrator`] and the basic-lib
@@ -56,6 +59,7 @@ pub mod eos;
 mod error;
 mod iapws97;
 mod pipe;
+pub mod reduced_eos;
 
 #[cfg(test)]
 mod tests;
@@ -64,6 +68,9 @@ pub use eos::{pressure_from_rho_e, BreakFlow, HemEquationOfState, HemThermoState
 pub use error::HemError;
 pub use iapws97::{Iapws97Hem, P_RHO_E_REL_TOL};
 pub use outram_foam_basic_lib::limiters::FluxLimiter;
+pub use reduced_eos::{
+    BarotropicHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem, StiffenedGasPair,
+};
 pub use pipe::{
     HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,
     HemRunSummary, HemSnapshot, HemStepReport, PipeEnd, PrimitiveState, TimeIntegrator,

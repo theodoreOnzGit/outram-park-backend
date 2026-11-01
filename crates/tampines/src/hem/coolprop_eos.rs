@@ -11,7 +11,7 @@ use outram_park_fork_coolprop::Fluid as CoolPropFluid;
 use outram_park_fork_coolprop::FluidState;
 use tampines_steam_tables::hem::{
     pressure_from_rho_e, BreakFlow, HemEquationOfState, HemError, HemThermoState, Iapws97Hem,
-    IdealGasHem,
+    BarotropicHem, IdealGasHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem,
 };
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
@@ -254,7 +254,16 @@ pub enum HemEos {
     CoolProp(CoolPropFluid),
     /// Calorically perfect gas, for verification (the Sod limit).
     IdealGas(IdealGasHem),
+    /// Stiffened gas, for verification and RELAP-7 parity (gh:#1057).
+    StiffenedGas(StiffenedGasHem),
+    /// Isentropic stiffened gas (Tait), for weak-wave verification (gh:#1057).
+    IsentropicStiffenedGas(IsentropicStiffenedGasHem),
+    /// Barotropic fluid, constant sound speed, for verification (gh:#1057).
+    Barotropic(BarotropicHem),
+    /// Linear liquid from IF97 coefficients, for verification (gh:#1057).
+    Linear(LinearEosHem),
 }
+
 
 impl HemEquationOfState for HemEos {
     fn name(&self) -> &'static str {
@@ -262,6 +271,10 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.name(),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.name(),
             HemEos::IdealGas(g) => g.name(),
+            HemEos::StiffenedGas(g) => g.name(),
+            HemEos::IsentropicStiffenedGas(g) => g.name(),
+            HemEos::Barotropic(g) => g.name(),
+            HemEos::Linear(g) => g.name(),
         }
     }
 
@@ -281,6 +294,10 @@ impl HemEquationOfState for HemEos {
                 pressure_hint,
             ),
             HemEos::IdealGas(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::StiffenedGas(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::IsentropicStiffenedGas(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::Barotropic(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::Linear(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
         }
     }
 
@@ -293,6 +310,10 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.state_p_t(pressure, temperature),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.state_p_t(pressure, temperature),
             HemEos::IdealGas(g) => g.state_p_t(pressure, temperature),
+            HemEos::StiffenedGas(g) => g.state_p_t(pressure, temperature),
+            HemEos::IsentropicStiffenedGas(g) => g.state_p_t(pressure, temperature),
+            HemEos::Barotropic(g) => g.state_p_t(pressure, temperature),
+            HemEos::Linear(g) => g.state_p_t(pressure, temperature),
         }
     }
 
@@ -305,6 +326,10 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.state_p_h(pressure, specific_enthalpy),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.state_p_h(pressure, specific_enthalpy),
             HemEos::IdealGas(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::StiffenedGas(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::IsentropicStiffenedGas(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::Barotropic(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::Linear(g) => g.state_p_h(pressure, specific_enthalpy),
         }
     }
 
@@ -317,6 +342,10 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.state_p_rho(pressure, density),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.state_p_rho(pressure, density),
             HemEos::IdealGas(g) => g.state_p_rho(pressure, density),
+            HemEos::StiffenedGas(g) => g.state_p_rho(pressure, density),
+            HemEos::IsentropicStiffenedGas(g) => g.state_p_rho(pressure, density),
+            HemEos::Barotropic(g) => g.state_p_rho(pressure, density),
+            HemEos::Linear(g) => g.state_p_rho(pressure, density),
         }
     }
 
@@ -338,6 +367,10 @@ impl HemEquationOfState for HemEos {
             HemEos::IdealGas(g) => {
                 g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure)
             }
+            HemEos::StiffenedGas(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
+            HemEos::IsentropicStiffenedGas(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
+            HemEos::Barotropic(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
+            HemEos::Linear(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
         }
     }
 }

@@ -7156,6 +7156,36 @@ pub use tampines_steam_tables::hem::PipeEnd;
 pub use tampines_steam_tables::hem::PrimitiveState;
 ```
 
+#### Re-export `BarotropicHem`
+
+```rust
+pub use tampines_steam_tables::hem::BarotropicHem;
+```
+
+#### Re-export `IsentropicStiffenedGasHem`
+
+```rust
+pub use tampines_steam_tables::hem::IsentropicStiffenedGasHem;
+```
+
+#### Re-export `LinearEosHem`
+
+```rust
+pub use tampines_steam_tables::hem::LinearEosHem;
+```
+
+#### Re-export `StiffenedGasHem`
+
+```rust
+pub use tampines_steam_tables::hem::StiffenedGasHem;
+```
+
+#### Re-export `StiffenedGasPair`
+
+```rust
+pub use tampines_steam_tables::hem::StiffenedGasPair;
+```
+
 #### Re-export `TimeIntegrator`
 
 ```rust
