@@ -80,6 +80,46 @@ their account is kept.
    2–3 bar at 300 K cool below it, correctly. The tests run warmer, or use
    the ideal-steam ablation, with the reason stated. Filed in gh:#1098.
 
+## Energy references across a gas flux (gh:#1098 item 2, 2026-11-01)
+
+The gas closure measures non-condensables from 0 K and IF97 steam from the
+triple-point liquid. The doubt was whether a volume or the network ever adds
+an enthalpy on one reference to an inventory on another.
+
+**Audit.** A volume's atmosphere energy is `Σ n_i u_i^{0 K}(T) +
+m_s u_s^{IF97}(T, p_s)`. Each transfer handles the references as follows:
+
+- **Atmosphere outflow** (`ControlVolume::step`, step 3): it removes one
+  fraction `f` of every species and `f (U + pV)`, so each species' offset
+  leaves with its own mass.
+- **Inflow** (`Source`, `inject`, `bubble_through`): the energy is
+  `m h_w^{IF97} + Σ n_i (u_i^{0 K} + RT)`. Bubble full interaction prices
+  the gases at `u^{0 K}(T_pool)` and the vapour at IF97, and the pool gets
+  the IF97 remainder.
+- **Flashing, surface exchange, rain-out, the steam sink:** water only,
+  IF97 on both sides. The ideal-steam and constant-`c_p` ablations are
+  pinned to IF97 values at 100 °C and 0 °C. The surface correction `corr`
+  closes the difference against `exchange`'s own `h_fg`.
+- **The network's `source_from`:** it subtracts the gases' `u^{0 K} + RT`
+  (the receiver's model, at the donor's gas temperature) from a delivery,
+  and gives the rest to the water. A boundary donor prices its gases the
+  same way.
+
+No path mixes references. A secondary point, not a reference defect: if the
+donor and receiver use different non-condensable `c_v` models (one
+ablated), `source_from` moves that sensible-energy difference onto the
+water. Energy is still conserved exactly. This does not arise with the
+default models.
+
+**Pin.** `p V = p_s V + Σ p_i V`, so `(U + pV)/m` of the mixture is exactly
+the mass-weighted species enthalpies. A slice of a donor's atmosphere split
+by `source_from` must therefore hand the water IF97's `h_tp_2(T, p_s)`.
+
+**Result** (`gas_flux_keeps_each_species_on_its_own_energy_reference`,
+2026-11-01, release): steam with N2, H2, O2, CO2 and Ar at 360 K gives
+`h_w` = 2658314.478990 J/kg, equal to IF97 to 2.2e-16 (bar: 1e-9). Pricing
+the gases from 298.15 K instead would have moved `h_w` by 2.54e6 J/kg.
+
 ## Limits
 
 - The donor's level at the port picks the phase that leaves (a point draw).

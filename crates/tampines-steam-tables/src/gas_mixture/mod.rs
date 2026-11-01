@@ -27,7 +27,10 @@
 //! - **Energy references differ by component** (non-condensables from 0 K,
 //!   IF97 steam from the triple-point liquid). Only energy *changes* and
 //!   enthalpies carried on the same references are meaningful, as in
-//!   `sembawang`; a control volume using this keeps them consistent.
+//!   `sembawang`; a control volume using this keeps them consistent
+//!   (audited 2026-11-01, gh:#1098 item 2: `tampines::control_volume` and
+//!   `tampines::cv_network` move each species with its own reference, pinned
+//!   by `cv_network::tests::gas_flux_keeps_each_species_on_its_own_energy_reference`).
 //!
 //! Steam above its saturation pressure at `T` is reported, not condensed:
 //! condensing it (and where the liquid goes) is the control volume's job.

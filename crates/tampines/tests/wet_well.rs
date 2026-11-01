@@ -453,3 +453,90 @@ fn bad_input_is_refused() {
     assert!(WetWell::new(g, breaker(VacuumBreakerDirection::IntoGasSpace), WetWellInitialState { pool_level: Length::new::<meter>(1.0), pool_temperature: kelv(400.0), ..init }).is_err());
 }
 
+
+/// **gh:#1098 item 4: the wet well's N2 fits are `melcor_ncg`'s, bit for
+/// bit.** Until 2026-11-01 `components::wet_well` carried its own port of
+/// `sembawang::bwr_mark1::gas`'s N2 functions. `cv_n2`/`u_n2` were switched
+/// to `tampines_steam_tables::gas_mixture::melcor_ncg` in gh:#1092 without a
+/// recorded identity check; the N2-only `ncg_u`/`ncg_c` sums followed under
+/// gh:#1098 (now `melcor_ncg::ncg_u/ncg_c` with zero H2).
+///
+/// **Method.** The removed code is reproduced verbatim below (from
+/// `src/components/wet_well.rs` at 6c063401b), and old and new are compared
+/// with `f64::to_bits` on a temperature grid that covers below the fit
+/// (1–299 K), both ends (300 and 5000 K, and their neighbouring floats),
+/// inside the fit and above it (to 6000 K), with both the `T`-dependent
+/// default and the constant ablation, and `n2` from 0 to 1e5 mol.
+/// **Prediction:** every value identical (the operation order is the same,
+/// and `x + 0.0 * y = x` exactly for the zero-H2 sums when `x` is not −0).
+///
+/// **Result (2026-11-01, release):** held. 224168 values over 8006
+/// temperatures, all bit-identical; every other wet-well test passes
+/// unchanged.
+#[test]
+fn n2_fits_are_melcor_ncg_bit_for_bit() {
+    use petir::mathf::RealMath;
+    use tampines::components::wet_well::{cv_n2, u_n2};
+    use tampines_steam_tables::gas_mixture::melcor_ncg;
+
+    // ── The removed copy, verbatim (6c063401b) ───────────────────────────
+    const M_N2: f64 = 0.028_014;
+    const N2_C: [f64; 7] = [1117.0, 0.0, 0.0, 0.0, 0.0, -2.880e5, 5.348e7];
+    const N2_T_LO: f64 = 300.0;
+    const N2_T_UP: f64 = 5000.0;
+    const CV_N2_CONST: f64 = 20.8;
+    fn n2_cv_in(t: f64) -> f64 {
+        let c = &N2_C;
+        c[0] + c[1] * t + c[2] * t * t + c[3] * t * t * t + c[4] / t.sqrt() + c[5] / t + c[6] / (t * t)
+    }
+    fn n2_integral_in(t: f64) -> f64 {
+        let c = &N2_C;
+        c[0] * t + c[1] * t * t / 2.0 + c[2] * t.r_powi(3) / 3.0 + c[3] * t.r_powi(4) / 4.0 + 2.0 * c[4] * t.sqrt() + c[5] * t.r_ln()
+            - c[6] / t
+    }
+    fn old_cv_n2(t: f64, t_dependent: bool) -> f64 {
+        if t_dependent { n2_cv_in(t.clamp(N2_T_LO, N2_T_UP)) * M_N2 } else { CV_N2_CONST }
+    }
+    fn old_u_n2(t: f64, t_dependent: bool) -> f64 {
+        if !t_dependent {
+            return CV_N2_CONST * t;
+        }
+        let lo = n2_cv_in(N2_T_LO) * N2_T_LO;
+        let u = if t <= N2_T_LO {
+            n2_cv_in(N2_T_LO) * t
+        } else if t <= N2_T_UP {
+            lo + n2_integral_in(t) - n2_integral_in(N2_T_LO)
+        } else {
+            lo + n2_integral_in(N2_T_UP) - n2_integral_in(N2_T_LO) + n2_cv_in(N2_T_UP) * (t - N2_T_UP)
+        };
+        u * M_N2
+    }
+    fn old_ncg_u(n2: f64, t: f64, t_dependent: bool) -> f64 {
+        if t_dependent { n2 * old_u_n2(t, true) } else { n2 * CV_N2_CONST * t }
+    }
+    fn old_ncg_c(n2: f64, t: f64, t_dependent: bool) -> f64 {
+        n2 * old_cv_n2(t, t_dependent)
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
+    let mut temps: Vec<f64> = (1..=6000).map(|i| i as f64).collect();
+    temps.extend((0..2000).map(|i| 273.15 + 0.137 * i as f64));
+    for edge in [N2_T_LO, N2_T_UP] {
+        temps.extend([edge, f64::from_bits(edge.to_bits() - 1), f64::from_bits(edge.to_bits() + 1)]);
+    }
+    let moles = [0.0, 1.0e-9, 0.37, 1.0, 1234.567, 1.0e5];
+    let mut count = 0usize;
+    for &t in &temps {
+        for td in [true, false] {
+            assert_eq!(cv_n2(t, td).to_bits(), old_cv_n2(t, td).to_bits(), "cv_n2({t}, {td})");
+            assert_eq!(u_n2(t, td).to_bits(), old_u_n2(t, td).to_bits(), "u_n2({t}, {td})");
+            for &n in &moles {
+                assert_eq!(melcor_ncg::ncg_u(n, 0.0, t, td).to_bits(), old_ncg_u(n, t, td).to_bits(), "ncg_u({n}, {t}, {td})");
+                assert_eq!(melcor_ncg::ncg_c(n, 0.0, t, td).to_bits(), old_ncg_c(n, t, td).to_bits(), "ncg_c({n}, {t}, {td})");
+                count += 2;
+            }
+            count += 2;
+        }
+    }
+    println!("item 4: {count} values bit-identical over {} temperatures", temps.len());
+}

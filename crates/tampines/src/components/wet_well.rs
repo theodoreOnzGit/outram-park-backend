@@ -39,7 +39,7 @@
 //! | flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` |
 //! | the vacuum breaker | the `ww_atmosphere` vacuum-breaker branch of `containment::Containment::step` (step 5) |
 //! | the immersed heat exchanger's implicit form | `containment::Containment::ww_shell_step` (its implicit two-capacity exchange, the coolant an infinite capacity) |
-//! | N2 `c_v(T)` and internal energy (MELCOR NCG library) | `gas::cv_n2`, `gas::u_n2`, `gas::ncg_u`, `gas::ncg_c` |
+//! | N2 `c_v(T)` and internal energy (MELCOR NCG library) | `gas::cv_n2`, `gas::u_n2`, `gas::ncg_u`, `gas::ncg_c` (since 2026-11-01 used from `tampines_steam_tables::gas_mixture::melcor_ncg`, where `gas` moved verbatim; gh:#1092, gh:#1098) |
 //! | [`t_sat`], [`steam_h`] and the steam/water energy conventions | `pool_surface::t_sat`, `pool_surface::steam_h`, `containment::steam_u`, `CP_WATER` |
 //! | the pool's density (IF97 region 1) | `sparc::Pool::rho_l` |
 //!
@@ -122,8 +122,13 @@ use crate::control_volume::pool_surface::{rho_liquid, G};
 /// `tampines_steam_tables::gas_mixture::melcor_ncg` functions, which have the
 /// identical operation order (that module was moved there verbatim from
 /// `sembawang`, gh:#1093).
+///
+/// The N2-only energy and heat-capacity sums (`gas::ncg_u`/`ncg_c` with no
+/// H2) were also local copies until 2026-11-01 (gh:#1098 item 4); they are
+/// now `melcor_ncg::{ncg_u, ncg_c}` with zero H2, bit for bit (pinned on a
+/// grid by `tests/wet_well.rs::n2_fits_are_melcor_ncg_bit_for_bit`).
 pub use tampines_steam_tables::gas_mixture::melcor_ncg::{cv_n2, u_n2};
-use tampines_steam_tables::gas_mixture::melcor_ncg::CV_N2_CONST;
+use tampines_steam_tables::gas_mixture::melcor_ncg::{ncg_c, ncg_u};
 
 // ── Constants (`sembawang::bwr_mark1::containment`) ─────────────────────────
 
@@ -134,16 +139,6 @@ const U_STEAM_REF: f64 = 2.5060e6;
 const T_REF: f64 = 373.15;
 /// Liquid water's constant `c_p`, J/(kg K) (`containment::CP_WATER`).
 const CP_WATER: f64 = 4186.0;
-
-/// Internal energy of `n2` moles at `t`, J (`gas::ncg_u` with no H2).
-fn ncg_u(n2: f64, t: f64, t_dependent: bool) -> f64 {
-    if t_dependent { n2 * u_n2(t, true) } else { n2 * CV_N2_CONST * t }
-}
-
-/// Heat capacity of `n2` moles, J/K (`gas::ncg_c` with no H2).
-fn ncg_c(n2: f64, t: f64, t_dependent: bool) -> f64 {
-    n2 * cv_n2(t, t_dependent)
-}
 
 /// Steam's internal energy, J/kg (`containment::steam_u`).
 fn steam_u(t: f64) -> f64 {
@@ -530,10 +525,10 @@ impl WetWell {
     /// The gas's energy and heat capacity (`Containment::ww_energy`,
     /// `ww_heat_capacity`).
     fn gas_energy(&self) -> f64 {
-        ncg_u(self.n_n2, self.t_gas, self.mech.nitrogen_cv_t) + self.steam_kg * steam_u(self.t_gas)
+        ncg_u(self.n_n2, 0.0, self.t_gas, self.mech.nitrogen_cv_t) + self.steam_kg * steam_u(self.t_gas)
     }
     fn gas_heat_capacity(&self) -> f64 {
-        ncg_c(self.n_n2, self.t_gas, self.mech.nitrogen_cv_t) + self.steam_kg * CV_STEAM
+        ncg_c(self.n_n2, 0.0, self.t_gas, self.mech.nitrogen_cv_t) + self.steam_kg * CV_STEAM
     }
     /// The gas temperature from its energy, by Newton
     /// (`Containment::set_ww_energy`).
@@ -803,7 +798,7 @@ impl WetWell {
         let eps = self.efficiency();
         let p_v = (0.99 * p_sat_pa(self.t_pool)).min(0.99 * p_ww);
         let m_v = dn2 * p_v / (p_ww - p_v) * M_H2O;
-        let e_full = ncg_u(dn2, self.t_pool, tv) + m_v * steam_u(self.t_pool);
+        let e_full = ncg_u(dn2, 0.0, self.t_pool, tv) + m_v * steam_u(self.t_pool);
         let to_atm_steam = eps * m_v + (1.0 - eps) * m_s;
         let to_atm_e = eps * e_full + (1.0 - eps) * e_in;
         let e_a = self.gas_energy() + to_atm_e;

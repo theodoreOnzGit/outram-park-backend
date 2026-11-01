@@ -25,6 +25,12 @@
 //! ΔP`. A fully implicit network solve, with the volume pressures coupled, is
 //! gh:#1095.
 //!
+//! **Order (gh:#1098 item 1).** With `ΔP` constant over the step this is
+//! second order (the linearised quadratic loss matches the exact solution's
+//! `Δt²` term; for `v∞ tanh(t/τ)` it is exact on a clock stretched by
+//! `artanh(h)/h = 1 + h²/3 + …`, `h = Δt/τ`). With `ΔP` held at its
+//! start-of-step value while it changes, it is first order.
+//!
 //! **Which phase passes** is set by the donor end's level against the
 //! opening: the fraction of the opening below the level passes pool liquid,
 //! the rest atmosphere (MELCOR's partially submerged junction). The donor is

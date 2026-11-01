@@ -3,7 +3,10 @@
 //! Predictions written before the first run (2026-11-01):
 //!
 //! 1. The NASA-7 `c_v` at 298.15 K matches the JANAF/NIST values (N2
-//!    20.81, O2 21.00, CO 20.82, CO2 28.81, Ar 12.47 J/(mol K)) within 0.5 %;
+//!    20.81, ~~O2 21.00~~, CO ~~20.82~~, CO2 28.81, Ar 12.47 J/(mol K)) within 0.5 %;
+//!    **CORRECTED 2026-11-01 (gh:#1098 item 3):** the values were from
+//!    memory; re-checked against NIST-JANAF, O2 is 21.062 and CO 20.828
+//!    (`c_p − R`), see the test's doc comment. The tolerance is unchanged;
 //!    `u` integrates `c_v` (centred difference within 1e-6 relative) and is
 //!    continuous at `T_mid`.
 //! 2. Partial pressures sum to the total; non-condensables obey
@@ -27,18 +30,47 @@ fn kel(t: f64) -> ThermodynamicTemperature {
 
 /// **1. NASA-7 heat capacities.** **Result (2026-11-01):** printed and
 /// asserted.
+///
+/// **Reference values, re-checked 2026-11-01 (gh:#1098 item 3).** The first
+/// version used `c_v` values recalled from memory (N2 20.81, ~~O2 21.00~~,
+/// ~~CO 20.82~~, CO2 28.81, Ar 12.47 J/(mol K)). **CORRECTED 2026-11-01**:
+/// they are now NIST-JANAF's ideal-gas `C°p(298.15 K)` (1 bar standard
+/// state) less `R_GAS`:
+///
+/// | gas | JANAF table | `C°p`, J/(mol K) | `c_v = C°p − R` | old value |
+/// |---|---|---|---|---|
+/// | N2 | <https://janaf.nist.gov/tables/N-023.html> | 29.124 | 20.810 | 20.81 (right) |
+/// | O2 | <https://janaf.nist.gov/tables/O-029.html> | 29.376 | 21.062 | ~~21.00~~ (wrong, −0.3 %) |
+/// | CO | <https://janaf.nist.gov/tables/C-093.html> | 29.142 | 20.828 | ~~20.82~~ (rounded down) |
+/// | CO2 | <https://janaf.nist.gov/tables/C-095.html> | 37.129 | 28.815 | 28.81 (right to its digits) |
+/// | Ar | <https://janaf.nist.gov/tables/Ar-001.html> | 20.786 | 12.472 | 12.47 (right) |
+///
+/// Accessed 2026-11-01. **How they were read, stated plainly:** the
+/// session's network blocked `janaf.nist.gov` and `webbook.nist.gov`
+/// directly, so each `C°p` was read from a web-search extract of the JANAF
+/// page named above (queried without the expected number for O2, CO, CO2
+/// and Ar; with it for N2). A human opening the five tables once would
+/// close this. The 0.5 % tolerance is unchanged.
+///
+/// **Result after the correction (2026-11-01, release):** held. N2
+/// 20.7610 against 20.8095 (−0.233 %), O2 21.0637 against 21.0615
+/// (+0.010 %), CO 20.8264 against 20.8275 (−0.006 %), CO2 28.8207 against
+/// 28.8145 (+0.021 %), Ar 12.4717 against 12.4715 (+0.001 %). Against the
+/// old O2 value the miss was +0.30 %; it was the reference that was off.
+/// N2's −0.23 % is GRI-Mech's polynomial, unchanged by the correction.
 #[test]
 fn nasa7_heat_capacities_match_reference_values() {
+    // NIST-JANAF C°p(298.15 K), J/(mol K), less R (see the doc comment).
     let refs = [
-        (NonCondensable::N2, 20.81),
-        (NonCondensable::O2, 21.00),
-        (NonCondensable::CO, 20.82),
-        (NonCondensable::CO2, 28.81),
-        (NonCondensable::Ar, 12.47),
+        (NonCondensable::N2, 29.124 - R_GAS),
+        (NonCondensable::O2, 29.376 - R_GAS),
+        (NonCondensable::CO, 29.142 - R_GAS),
+        (NonCondensable::CO2, 37.129 - R_GAS),
+        (NonCondensable::Ar, 20.786 - R_GAS),
     ];
     for (g, cv_ref) in refs {
         let cv = nasa7::cv_molar(g, 298.15);
-        println!("{g:?}: c_v(298.15) = {cv:.3} J/(mol K) vs {cv_ref} ({:+.3} %)", 100.0 * (cv / cv_ref - 1.0));
+        println!("{g:?}: c_v(298.15) = {cv:.4} J/(mol K) vs {cv_ref:.4} ({:+.3} %)", 100.0 * (cv / cv_ref - 1.0));
         assert!((cv / cv_ref - 1.0).abs() < 0.005);
     }
     for g in NonCondensable::ALL {

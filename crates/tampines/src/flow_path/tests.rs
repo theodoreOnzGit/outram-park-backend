@@ -9,11 +9,18 @@
 //!    and `τ = L/(½K v∞)`; the semi-implicit error at `t = τ` halves with
 //!    `Δt` (first order, ratio in [1.8, 2.2]). **MISSED (2026-11-01), in the
 //!    good direction:** the ratio is 4.000 (errors 1.771e-4 and 4.427e-5 at
-//!    τ/50 and τ/100), second order at this point. Not explained: the
+//!    τ/50 and τ/100), second order at this point. ~~Not explained: the
 //!    lagged-loss backward-Euler step is first order in general, so this may
-//!    be cancellation at `t = τ`; a check at other times is filed. The
-//!    assertion now only requires the error to fall with `Δt` (chosen after
-//!    the run, and labelled so).
+//!    be cancellation at `t = τ`; a check at other times is filed.~~
+//!    **CORRECTED 2026-11-01 (gh:#1098 item 1): explained, and not
+//!    cancellation.** For a constant `ΔP` the lagged quadratic loss is
+//!    second order at every time; on this case the step is the `tanh`
+//!    addition formula and reproduces `v∞ tanh(n artanh(Δt/τ))` exactly
+//!    (case 3b below, measured ratio 4.00 at τ/2, τ and 2τ). The scheme is
+//!    first order only when `ΔP` varies within a step and is held at its
+//!    start value, as in a network (case 3b's ramp: ratio 2.000). The
+//!    assertion here still only requires the error to fall with `Δt` (chosen
+//!    after the run, and labelled so); case 3b holds the tight bar.
 //! 4. **Gravity:** a liquid column with equal end pressures and a 1 m rise
 //!    accelerates backwards at `g/L`.
 //! 5. **Phase selection:** a junction below the donor level passes liquid,
@@ -170,4 +177,101 @@ fn check_valve_and_vacuum_breaker() {
     assert!(b.step(s(0.1), &end(1.04e5, -5.0), &end(1.0e5, -5.0)).unwrap().gas_mass_rate.value > 0.0);
     assert!(FlowPath::new(geo(-1.0, 1.0), FlowPathKind::Open).is_err());
     assert!(FlowPath::new(geo(1.0, 1.0), FlowPathKind::Open).unwrap().step(s(0.0), &end(1.0, 0.0), &end(1.0, 0.0)).is_err());
+}
+
+/// **3b (gh:#1098 item 1). Why case 3 is second order: an exact identity,
+/// not cancellation at `t = τ`.**
+///
+/// **Derivation (written before the run, 2026-11-01).** With `u = v/v∞`,
+/// `s = t/τ` and `h = Δt/τ`, the momentum equation is the constant-
+/// coefficient Riccati equation `du/ds = 1 − u²`, and the lagged-loss step
+/// `(ρL/Δt + ½Kρ|v^n|) v^{n+1} = ρL/Δt v^n + ΔP` becomes (for `u ≥ 0`)
+///
+/// ```text
+/// u_{n+1} = (u_n + h) / (1 + h u_n).
+/// ```
+///
+/// That is the addition formula `tanh(a + b) = (tanh a + tanh b)/(1 + tanh a
+/// tanh b)` with `tanh b` replaced by `h`. From `u_0 = 0` the step is
+/// therefore EXACT on a stretched clock:
+///
+/// ```text
+/// u_n = tanh(n · artanh h) = tanh(s · artanh(h)/h),
+/// artanh(h)/h = 1 + h²/3 + h⁴/5 + …,
+/// u_n − tanh s = sech²(s) · s h²/3 + O(h⁴).
+/// ```
+///
+/// The leading error is `h²`-proportional at **every** `s`, with a
+/// coefficient `s sech² s / 3` that vanishes nowhere on `s > 0`; the ratio
+/// is `4 + O(h²)` at all times. More generally, a Taylor expansion of
+/// `u_{n+1} = (u + ha)/(1 + hbu)` gives `u + h(a − bu²) + h²(b²u³ − abu) +
+/// O(h³)`, which matches the exact `h u' + h²u''/2` for `u' = a − bu²` with
+/// `a`, `b` constant: the linearised quadratic loss is second order for
+/// any constant `ΔP`. The scheme falls to first order only when `ΔP`
+/// changes within a step and is held at its start-of-step value — which is
+/// what a network does (gh:#1095), so the module's "first order" holds for
+/// the coupled problem, not for a path with fixed ends.
+///
+/// **Predictions:** (a) the path's `v_n` equals `v∞ tanh(n artanh h)` to
+/// 1e-12 relative at `s = ½, 1, 2`, for `h = 1/50, 1/100`; (b) the error
+/// against `v∞ tanh s` matches `v∞ sech²(s) s h²/3` to 2 % at `h = 1/100`;
+/// (c) error ratios within `[3.9, 4.1]` at all three times; (d) with `ΔP(t)
+/// = ΔP₀ t/τ` held at each step's start, the self-convergence ratio
+/// `(v_h − v_{h/2})/(v_{h/2} − v_{h/4})` at `s = 1` is in `[1.8, 2.2]`
+/// (first order).
+///
+/// **Result (2026-11-01, release):** all four held. Errors at `h = 1/50`,
+/// `1/100` and their ratio: `s = ½` 1.658e-4, 4.145e-5, 4.001; `s = 1`
+/// 1.771e-4, 4.427e-5, 4.000; `s = 2` 5.958e-5, 1.489e-5, 4.000 (the
+/// leading term `v∞ s sech²(s) h²/3` gives 1.658e-4, 1.771e-4, 5.959e-5 at
+/// `h = 1/50`). Identity (a) holds to 3.8e-15 relative worst. Ramp
+/// self-convergence ratio 2.000 (first order). See
+/// `verification_and_validation/flow_path.md`.
+#[test]
+fn transient_second_order_is_a_tanh_addition_identity() {
+    let (dp, rho, l, k): (f64, f64, f64, f64) = (1.0e4, 1000.0, 10.0, 2.0);
+    let v_inf = (2.0 * dp / (k * rho)).sqrt();
+    let tau = l / (0.5 * k * v_inf);
+    let atanh = |x: f64| 0.5 * ((1.0 + x) / (1.0 - x)).r_ln();
+    let sech2 = |x: f64| 1.0 / (x.r_cosh() * x.r_cosh());
+    let mut worst_identity: f64 = 0.0;
+    for s_end in [0.5, 1.0, 2.0] {
+        let mut errs = [0.0; 2];
+        for (i, per_tau) in [50usize, 100].into_iter().enumerate() {
+            let n = (s_end * per_tau as f64).round() as usize;
+            let h = 1.0 / per_tau as f64;
+            let mut p = FlowPath::new(geo(k, l), FlowPathKind::Open).unwrap().without_choking();
+            for _ in 0..n {
+                p.step(s(h * tau), &end(1.0e5 + dp, 5.0), &end(1.0e5, 5.0)).unwrap();
+            }
+            let v = p.velocities().0.value;
+            let identity = v_inf * (n as f64 * atanh(h)).r_tanh();
+            worst_identity = worst_identity.max((v / identity - 1.0).abs());
+            assert!((v / identity - 1.0).abs() < 1e-12, "identity at s {s_end}, h {h}: {v} vs {identity}");
+            errs[i] = v - v_inf * s_end.r_tanh();
+            if per_tau == 100 {
+                let lead = v_inf * sech2(s_end) * s_end * h * h / 3.0;
+                assert!((errs[i] / lead - 1.0).abs() < 0.02, "leading term at s {s_end}: {} vs {lead}", errs[i]);
+            }
+        }
+        let ratio = errs[0] / errs[1];
+        println!("s = {s_end}: errors {:.3e} (h=1/50), {:.3e} (h=1/100), ratio {ratio:.3}", errs[0], errs[1]);
+        assert!((3.9..=4.1).contains(&ratio), "s {s_end}: ratio {ratio}");
+    }
+    println!("identity worst relative {worst_identity:.2e}");
+
+    // (d) ΔP ramp held at the start of each step: first order.
+    let ramp = |per_tau: usize| {
+        let h = 1.0 / per_tau as f64;
+        let mut p = FlowPath::new(geo(k, l), FlowPathKind::Open).unwrap().without_choking();
+        for i in 0..per_tau {
+            let dpi = dp * (i as f64 * h);
+            p.step(s(h * tau), &end(1.0e5 + dpi, 5.0), &end(1.0e5, 5.0)).unwrap();
+        }
+        p.velocities().0.value
+    };
+    let (a, b, c) = (ramp(50), ramp(100), ramp(200));
+    let r = (a - b) / (b - c);
+    println!("ramp (held ΔP): v(τ) {a:.9} {b:.9} {c:.9}, self-convergence ratio {r:.3}");
+    assert!((1.8..=2.2).contains(&r), "ramp ratio {r}");
 }

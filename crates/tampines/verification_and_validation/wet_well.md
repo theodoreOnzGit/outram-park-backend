@@ -58,7 +58,7 @@ comment names its original. `sembawang` is unchanged.
 | flashing / surface / rain-out | `Containment::pool_surface_step` |
 | vacuum breaker | the `ww_atmosphere` breaker branch of `Containment::step` (mirrored for inflow) |
 | heat exchanger's implicit form | `Containment::ww_shell_step` |
-| N2 `c_v(T)`, `u(T)` | `gas::cv_n2`, `gas::u_n2`, `ncg_u`, `ncg_c` |
+| N2 `c_v(T)`, `u(T)` | `gas::cv_n2`, `gas::u_n2`, `ncg_u`, `ncg_c` (~~copied~~ since 2026-11-01 used from `tampines_steam_tables::gas_mixture::melcor_ncg`, where `gas` moved verbatim: gh:#1092, gh:#1098 item 4; bit-identity on a grid pinned by `tests/wet_well.rs::n2_fits_are_melcor_ncg_bit_for_bit`) |
 | pool density | `sparc::Pool::rho_l` |
 
 ~~`sembawang` became a **dev-dependency** of `tampines` (non-Android, non-wasm

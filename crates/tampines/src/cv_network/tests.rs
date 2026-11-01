@@ -358,3 +358,85 @@ fn a_vacuum_breaker_holds_its_opening_difference() {
     assert!(dp_lo >= 3400.0 && dp_hi <= 4100.0, "{dp_lo} {dp_hi}");
     assert!(worst < 1e-12, "{worst}");
 }
+
+/// **gh:#1098 item 2: a gas flux keeps each species on its own energy
+/// reference.** The gas closure measures non-condensables from 0 K and IF97
+/// steam from the triple-point liquid, so a mixture enthalpy is meaningful
+/// only as a sum of species enthalpies, each on its own reference.
+///
+/// **Audit (2026-11-01).** A volume's atmosphere energy is
+/// `Σ n_i u_i^{0 K}(T) + m_s u_s^{IF97}(T, p_s)` (`GasMixtureModel::state`).
+/// Every transfer in `control_volume` and `cv_network` either moves one
+/// uniform fraction of every species with the same fraction of `U + pV` (an
+/// atmosphere outflow), so each species' reference moves with its own mass,
+/// or prices the species separately: an inflow is `m h_w + Σ n_i (u_i^{0 K}
+/// + R T)`; the network's `source_from` takes the gases' 0 K enthalpy out of
+/// a delivery and gives the rest to the water. No path adds an enthalpy on
+/// one reference to an inventory on another.
+///
+/// **The pin.** Since `p V = p_s V + Σ p_i V`, `m_s h_s = m_s u_s + p_s V`
+/// and `n_i h_i = n_i u_i + p_i V`, the mixture's `(U + pV)/m` is exactly
+/// the mass-weighted species enthalpies. So when `source_from` splits a
+/// slice of a donor's atmosphere, the water's specific enthalpy must be
+/// IF97's `h_tp_2(T, p_s)` at the donor's temperature and steam partial
+/// pressure. Prediction: equal to 1e-9 relative (the partial-pressure
+/// Newton stops at 1e-13), with five non-condensables (MELCOR fits for N2
+/// and H2, NASA-7 for O2, CO2 and Ar). A gas enthalpy taken from any other
+/// reference (gases priced from 298.15 K rather than 0 K) would move it by
+/// the gases' 0–298.15 K enthalpy per kilogram of steam, estimated O(1e5)
+/// J/kg here.
+///
+/// **Result (2026-11-01, release):** held. At 360 K and `p_s` = 37070.626
+/// Pa, `h_w` = 2658314.478990 J/kg against IF97's 2658314.478990 J/kg,
+/// 2.2e-16 relative. The aside was an underestimate: a 298.15 K gas
+/// reference would move `h_w` by 2.54e6 J/kg (the gases outweigh the steam
+/// here), so a mixed reference could not hide under the 1e-9 bar.
+#[test]
+fn gas_flux_keeps_each_species_on_its_own_energy_reference() {
+    let (a, h, pool_h, t) = (4.0, 6.0, 2.0, 360.0);
+    let v_gas = a * (h - pool_h);
+    let n = 2.0e5 * v_gas / (R_GAS * t);
+    let p_s = 0.6 * p_sat(t);
+    let gases = [
+        (NonCondensable::N2, 0.55),
+        (NonCondensable::H2, 0.15),
+        (NonCondensable::O2, 0.15),
+        (NonCondensable::CO2, 0.10),
+        (NonCondensable::Ar, 0.05),
+    ];
+    let mix = GasMixture::new(
+        Mass::new::<kilogram>(p_s * v_gas / (R_GAS * t) * M_H2O),
+        &gases.map(|(g, x)| (g, AmountOfSubstance::new::<mole>(n * x))),
+    );
+    let rho = 1.0 / tampines_steam_tables::region_1_subcooled_liquid::v_tp_1(kel(t), Pressure::new::<pascal>(2.0e5)).value;
+    let v = ControlVolume::new(
+        VolumeAltitudeTable::prismatic(Area::new::<square_meter>(a), m(h)).unwrap(),
+        vec![Port { elevation: m(5.0), opening_height: m(0.05) }],
+        Mass::new::<kilogram>(pool_h * a * rho),
+        kel(t),
+        mix,
+        kel(t),
+    )
+    .unwrap();
+    let (_, gas) = v.phase_states_at(m(5.0));
+    let t_g = gas.temperature.get::<kelvin>();
+    let m_out = 0.01;
+    let water = gas.water_mass_fraction * m_out;
+    let ncg = gas.ncg_mass_fractions.map(|f| f * m_out);
+    let energy = gas.specific_enthalpy.get::<joule_per_kilogram>() * m_out;
+    let (src, left) = CvNetwork::source_from(&v, water, &ncg, energy, t_g, 1.0);
+    assert_eq!(left, InTransit::default(), "everything delivered");
+    let st = v.gas_model().state(&v.atmosphere(), v.atmosphere_volume(), gas.temperature).unwrap();
+    let h_if97 = tampines_steam_tables::region_2_vapour::h_tp_2(gas.temperature, st.steam_partial_pressure).get::<joule_per_kilogram>();
+    let h_w = src.water_specific_enthalpy.get::<joule_per_kilogram>();
+    let rel = (h_w / h_if97 - 1.0).abs();
+    // The same split with the gases priced from 298.15 K instead of 0 K:
+    // how far a mixed reference would move the water's enthalpy.
+    let shift: f64 = NonCondensable::ALL
+        .iter()
+        .map(|g| ncg[g.index()] / g.molar_mass() * (v.gas_model().ncg_u(*g, 298.15) + R_GAS * 298.15))
+        .sum::<f64>()
+        / water;
+    println!("item 2: T {t_g:.3} K, p_s {:.3} Pa, h_w {h_w:.6} vs IF97 {h_if97:.6} J/kg, rel {rel:.2e}; a 298.15 K gas reference would move it by {shift:.4e} J/kg", st.steam_partial_pressure.get::<pascal>());
+    assert!(rel < 1e-9, "water enthalpy {h_w} vs IF97 {h_if97}");
+}
