@@ -384,6 +384,11 @@ its top reaches 389 K.
 
 ### Every remaining difference, attributed to `Containment` (coupled network, 30 h)
 
+(The state after the first gh:#1100 change. **Superseded 2026-11-01** for
+the default configuration by the table in the next section, once the
+fission products were coupled; it still describes
+`without_fission_products`.)
+
 | window | remaining Δ (network − old) | attributed to | evidence |
 |---|---|---|---|
 | 0–4.5 h | +0.1 … +1.3 % | the pool displacing the torus gas (network physics; the old model's gas space is fixed) | gh:#1097 cause 1, case A |
@@ -398,15 +403,18 @@ its top reaches 389 K.
 | 6–23 h drywell H2 | network up to 57 kg higher | **not attributed** (doubt): less gas pushed through the downcomers at the network's lower pressure is the leading hypothesis, untested | |
 | FDI steam | 55 against 75 kg | the water over the debris when it arrives (the network's sump beyond its \[A\] fill against the old pedestal) | not tested further |
 
-**So the remaining differences are, in order of size: the fission products'
-decay heat and the pool layers (not yet on the network; together they set
-the 5–23 h gap, the flange, the vent and the pool temperature), the
+**So the remaining differences are, in order of size: ~~the fission products'
+decay heat and~~ the pool layers (~~not yet on the network; together they set
+the 5–23 h gap, the flange, the vent and the pool temperature~~ **CORRECTED
+2026-11-01:** the decay heat is now on the network, which closes the 5–23 h
+gap to −3.8 … +2.5 % and opens the flange; the layers still set the vent and
+the pool's mean temperature, next section), the
 displacement and gas column (network physics), and the one-step
 blowdown lag (numerical).**
 
 ### What remains of gh:#1100 (not done in this change)
 
-1. **The fission products' decay heat in the volumes**, the largest
+1. ~~**The fission products' decay heat in the volumes**, the largest
    remaining difference. The old model deposits `q_*_w` by where its
    `RnVolume`s hold each class (airborne, on structures, scrubbed in the
    pool). The network cannot place that heat until the fission products ride
@@ -416,7 +424,11 @@ blowdown lag (numerical).**
    the relief and leak arrivals and SPARC-90's scrubbing at the submerged
    ports. Then the decay heat couples by `set_atmosphere_heat` (airborne),
    the structures' temperature (deposited) and `set_pool_heat` (pool).
-   Aerosol deposition, iodine and the building inventory come with it.
+   Aerosol deposition, iodine and the building inventory come with it.~~
+   **CORRECTED 2026-11-01: done** (next section): `FpHold`, moved out of
+   `Containment`, rides the paths' gas transfers with SPARC at the
+   downcomers and quenchers, and its decay heat couples by
+   `set_atmosphere_heat`, the lumped structures and `set_pool_heat`.
 2. **The pool layers**, second. A control volume holds one pool at one
    temperature, so this cannot be expressed with the existing sources and
    sinks without misstating either the level or the surface temperature: a
@@ -440,6 +452,228 @@ blowdown lag (numerical).**
    the water over the debris. A control volume that can dry its pool would
    remove the assumption.
 
+## gh:#1100 (continued): the fission products and their decay heat on the network (2026-11-01)
+
+**What was coupled, reused rather than rewritten.** The old model's
+fission-product code moved out of `Containment` into
+`containment_fp::FpHold`, **arithmetic unchanged** (the byte-for-byte
+`headless_30h.csv` fixture and `three_workers_are_one_worker` are the
+evidence), and both models now call it:
+
+| `FpHold` (moved from `Containment`) | MELCOR reference (cited, clean room) | on the network |
+|---|---|---|
+| `arrive` (the relief flow's scrubbed at the quenchers by SPARC-90's condensation, its iodine by the partition limit; the leaks' into the drywell) | RN RM §2.7.1, Eqs D-5 to D-7 | from the snapshot, against the torus's start-of-step pool and pressure |
+| `downcomer` (condensation, impaction and swarm rise per section, I2's partition and swarm rise) | RN RM §2.7.1, Appendix F | the downcomers' mean gas mass over the step, its composition the drywell's end-of-step mixture |
+| `ww_to_dw`, `vent`, `flange` | (transport in the donor's fractions) | the vacuum breakers', the vent's and the flange's mean gas mass |
+| `step_rn` (condensation, agglomeration, settling, diffusion, phoresis on the drywell's floor and structures; deposition on the pool's surface; the pool's I2 partition) | RN RM §2.4 | every 10 s, the network's end-of-step volumes, the torus's V(z) area at the level, the aerosol volumes following the atmospheres |
+| `decay_heat` (each location's share of the class inventory) | (sembawang's `fp_decay`) | drywell airborne by `set_atmosphere_heat`, its structures into the lumped wall, the torus's share by `set_pool_heat` |
+
+Ablations: `NetworkMechanisms::without_fission_products` (back to the
+first gh:#1100 change, bit for bit, predicted below) and
+`without_fp_decay_heat` (carried, no heat: the pressures must equal the
+ablation's, bit for bit, since the inventory is a pure tracer then). Both
+on by default, pinned by `the_coupled_physics_is_on_by_default`.
+`FUKUSHIMA_NETWORK_ABLATE` takes `fission_products` and `fp_decay_heat`.
+
+**How the gas carries them** (stated in the module docs): a path's mean gas
+mass `m` moves the fraction `m / (M + Σ out)` of its donor's gas (`M` at the
+end of the step, `Σ out` everything it sent), each donor's paths in turn
+from what is left; liquid carries none; the drywell sump holds none (as the
+old pedestal).
+
+### Predictions, written before the first run
+
+**Case D** (new, in the test's module docs, 12 to 15): both models from
+rest, 1800 s at 1 s, steam leaking into the drywell at 2 kg/s carrying Xe,
+Cs, I2 and UO2 aerosol, the scrubbing switches and phoresis on, the class
+decay powers set; the old model without its pool layers (the network has
+none).
+
+**Case B, the 30 h replay** (network − old Δ`p_ww`; the first gh:#1100
+coupled run → predicted). The open-loop replays above measured what the
+fission products' decay heat does to an *unlayered* old pool ("no layers"
+against "neither": +1.6 % at 5 h, +8 % at 6 h, +13.5 % at 8 h, +15.7 % at
+10 h, +11.1 % at 14 h, +10.3 % at 18 h, +13.2 % at 23 h). The network is
+unlayered, so I predict it gains about as much:
+
+| window | first gh:#1100 run | predicted with the fission products | why |
+|---|---|---|---|
+| 0–4 h | +0.07 … +1.3 % | moves by less than 0.5 % | little has left the core |
+| 5 h | +1.17 % | −1.5 … +0.5 % | the decay heat of what the relief valves have brought |
+| 6–10 h | −5.9 … −14.5 % | −3 … +5 % | the decay heat in the pool and the drywell gas |
+| 14–23 h | −12.1 … −13.3 % | −5 … +2 % | as above; what is left is the old model's top layer (+2 … +9 %) against the displacement (+3 … +7 %) |
+| 24 h, the vent | −48.0 % | −48 % ± 5 % | the old top layer (the network still has none) |
+| 26–30 h | −0.5 … +0.0 % | within ±1 % | both vented |
+
+Also predicted: `T_pool` at 23 h 345.6 → 366 ± 4 K (the old unlayered
+replay's 366.6 K); at 30 h 358.7 → 371–374 K; `T_dw` at 8 h 407.9 → 433 ± 6 K
+(old 434.9 K); **the flange opens on the network**, between 15 and 21 h
+(peak `p_dw` about 790 kPa; the old opens at about 17.5 h), and the building
+then receives hydrogen; at 23 h the network's Xe in the torus gas within
+±20 % of the old model's, its Cs in the pool within ±15 %, on the drywell
+structures within ±25 %; the default 6 h worsts move from 56.29 %, 13.65 %,
+1.86 K to about 56 % (±1 %, the blowdown step), 4–9 % and under 1.86 K;
+the cost per step up 10–30 % (the aerosol step and SPARC every 10 s).
+
+**The building's ignition criterion** (a diagnostic, `NetworkResult::
+rb_ignites`, sembawang's `bur_ignites` on the network building's mole
+fractions, steam and CO2 the diluent; nothing burns): predicted **not met
+within 30 h**. The old model's building peaks at 3.73 % H2, below the 4 %
+of `bur_xh2ign`, and the network's building is open to the environment
+through 1 m² \[A\] and holds steam.
+
+### Results (2026-11-01)
+
+**Case D** (predictions 12–16 all held): the network against the old model
+at 1800 s: Xe in the torus gas 2.285e-3 / 2.308e-3 (−1.0 %); Cs in the pool
+0.998 / 1.002 kg (−0.4 %), on the drywell's structures 0.782 / 0.797 kg
+(−1.9 %), airborne 0.920 / 0.901 kg (+2.2 %); I2 in the pool 0.114 / 0.115
+kg. Conservation on the network: Xe, Cs and iodine to 2e-14. The decay heat,
+50.84 kW, is within 0.06 % of the same formula on the old model's inventory
+(the old model's is from the end of the step, the network's from its start).
+`without_fp_decay_heat` leaves every `p_dw` equal to
+`without_fission_products`'s, bit for bit; with the heat `p_dw` rises by at
+most 0.039 %.
+
+**The refactor** (`FpHold` out of `Containment`): the 84 `bwr_mark1` lib
+tests pass, the byte-for-byte `headless_30h.csv` fixture and
+`three_workers_are_one_worker` among them. The 6 h replay with
+`without_fission_products` reproduces the first gh:#1100 change's worsts
+exactly (56.29 %, 13.65 %, 1.86 K; its pin passes).
+
+**Case B, the 30 h replay** (network − old Δ`p_ww`; `T_pool` network / old
+mean, top):
+
+| t (h) | first gh:#1100 run | with the fission products | predicted | `T_pool` (K) | outcome |
+|---|---|---|---|---|---|
+| 3 | +1.29 % | +1.29 % | moves < 0.5 % | 325.45 / 325.41 | held |
+| 4 | +0.36 % | +0.55 % | moves < 0.5 % | 332.16 / 332.12 | held |
+| 5 | +1.17 % | +2.52 % | −1.5 … +0.5 % | 340.25 / 340.43, 343.21 | **MISSED** (see below) |
+| 6 | −5.86 % | +0.97 % | −3 … +5 % | 341.41 / 341.58, 345.55 | held |
+| 8 | −11.35 % | +1.73 % | −3 … +5 % | 343.99 / 344.00, 350.46 | held |
+| 10 | −14.46 % | +0.92 % | −3 … +5 % | 347.09 / 346.95, 356.42 | held |
+| 14 | −13.31 % | −3.79 % | −5 … +2 % | 354.81 / 354.47, 371.45 | held |
+| 18 | −13.08 % | −1.44 % | −5 … +2 % | 361.05 / 359.10, 380.74 | held |
+| 23 | −14.15 % | −3.75 % | −5 … +2 % | 366.19 / 363.47, 389.54 | held (`T_pool` 366 ± 4 K held) |
+| 24 (vent) | −48.00 % | −47.88 % | −48 % ± 5 % | 371.85 / 364.20, 391.01 | held |
+| 26 | −0.53 % | −0.16 % | within ±1 % | 373.17 / 355.07, 373.29 | held |
+| 26.5–29 | | +0.15 … **+6.23 %** | within ±1 % | | **MISSED** (see below) |
+| 30 | −0.26 % | −0.07 % | within ±1 % | 373.12 / 354.96, 373.18 | held (`T_pool` 371–374 K held) |
+
+`Δp_dw` follows: +2.46 % at 5 h, +2.87 % at 6 h, +2.02 % at 8 h, +1.22 % at
+10 h, −3.47 % at 14 h, −0.96 % at 18 h, −1.64 % at 23 h, −41.19 % at 24 h,
++2.20 % at 26 and 30 h. `T_dw` at 8 h 433.5 K against the old model's
+434.9 K (predicted 433 ± 6 K: held); at 23 h 448.7 / 448.9 K.
+
+- **The flange now opens on the network**, at 17.249 h (`p_dw` 749 985 Pa),
+  against the old model's 16.824 h; peak `p_dw` 797.2 kPa (predicted
+  15–21 h and about 790 kPa: held). **The building now receives hydrogen**:
+  1.74 % at 23 h and 30 h, against the old model's 3.36 % and 3.73 %; its Xe
+  1.18e-2 against 2.32e-2 of the core at 30 h (about half: the later opening
+  and 34–39 kg less hydrogen in the network's drywell at 18–23 h, not
+  attributed further).
+- **The fission products agree** (network / old at 23 h): Xe in the torus
+  gas 0.973 / 0.949 (+2.5 %), in the drywell 0.0137 / 0.0275; Cs in the pool
+  61.86 / 62.26 kg (−0.6 %), on the drywell's structures 42.03 / 41.63 kg
+  (+1.0 %), airborne 0.068 / 0.078 kg; vented by 30 h, Xe 0.986 / 0.974,
+  Cs 0.058 / 0.068 kg. All within the predicted bands. The network's decay
+  heat at 23 h: 17 kW into the drywell gas, 460 kW into its structures,
+  1.96 MW into the torus pool.
+- **The building's ignition criterion is never met** (largest `Y` 0.0194):
+  held.
+- **6 h worsts** (pinned after the run, labelled so): 57.77 %, 12.20 %,
+  0.60 K, against 56.29 %, 13.65 %, 1.86 K without the fission products.
+  Predicted about 56 %, 4–9 % and under 1.86 K: the first two **MISSED**.
+  Both worsts are the one step of the vessel's blowdown at 4.956 h (cause 2:
+  `p_ww` 344.9 against 392.8 kPa, the network's torus a step behind), not
+  the post-debris window I had assumed; the drywell is a little warmer then
+  by the decay heat of what has arrived since 3.9 h.
+- **Worst over 30 h:** |Δ`p_dw`| 57.77 % (the 4.956 h step), |Δ`p_ww`|
+  56.49 % (the vent), |Δ`T_pool`| 18.18 K (after the vent: the old model's
+  mean against its top layer).
+- **Cost:** 1251 s for the 30 h (11.6 ms a step, the three old replays
+  included), against 1029 s without (9.5 ms): +22 % (predicted +10–30 %:
+  held), measured with other runs beside it for about a third of the time.
+  **Halved steps: 3 by 30 h, against 953** without the fission products, and
+  at most 36 Picard iterations in a step against 43. Not attributed (the
+  warmer pool and drywell keep the network away from whatever made the
+  Picard steps fail; the failures were never classified).
+
+**The misses:**
+
+- *5 h, +2.52 % against −1.5 … +0.5 %:* an arithmetic sign error in my
+  prediction, not in the model. The replays give the decay heat's effect on
+  an unlayered old pool at 5 h as +1.6 % of its pressure (`no_pool_layers`
+  +1.48 % against `neither` +3.06 %); adding the same to the network moves
+  the gap **up**, to about +2.8 %, which I applied correctly at 6–23 h and
+  subtracted at 5 h. The network's own gain is +1.33 % (444.3 against
+  438.4 kPa without the fission products), the old unlayered model's
+  +1.56 %.
+- *26.5–29 h, `p_ww` up to +6.23 % against ±1 %:* after the vent the
+  network's torus, its pool at saturation (373.1 K), swings between 101.5 and
+  108.5 kPa at the half-hour samples while the old model's sits at
+  101.5–103.0 kPa. Not attributed. The leading hypothesis is the vent's
+  check valve and its 60 m of inertia \[A\] against a pool flashing at
+  saturation, which the old model's quasi-steady `mixture_vent` cannot show;
+  untested. Before the fission products were coupled the network's pool sat
+  at 354–359 K after the vent, subcooled, and this did not appear.
+
+### Every remaining difference, attributed (default network with the fission products, 30 h)
+
+| window | remaining Δ`p_ww` (network − old) | attributed to | evidence |
+|---|---|---|---|
+| 0–4.5 h | +0.3 … +1.3 % | the pool displacing the torus gas (network physics) | gh:#1097 cause 1, case A |
+| 4.956 h | +57.8 % `p_dw`, −12.2 % `p_ww`, one step | the start-of-step equalising limit (numerical) and inertial paths (physical) | gh:#1097 cause 2; located by `FUKUSHIMA_NETWORK_TRACE=4.95,5.0` |
+| 5–23 h | −3.8 … +2.5 % | **two terms that nearly cancel**: the displacement, +2 … +9 % (the network against the unlayered old model with its decay heat: +2.8 % at 5 h, +3.8 % at 8 h, +4.6 % at 14 h, +8.6 % at 18 h, +4.8 % at 23 h) against **the old model's pool layers**, which raise its pressure by putting the pool's decay heat into the top layer | the `no_pool_layers` replay against this run |
+| 18–23 h drywell H2 | network 34–39 kg lower | not attributed (doubt): the flange opens 0.43 h later on the network and the paths differ; it was up to 57 kg *higher* before the decay heat was coupled | |
+| building H2 | 1.74 % against 3.73 % at 30 h | the same, not attributed | |
+| 24 h, the vent | −47.9 % | the old model's top layer, at 391 K by the decay heat, boiling as the torus depressurises | `no_pool_layers` replay: −0.05 % |
+| 26.5–29 h | up to +6.2 % | not attributed (above) | |
+| 26–30 h `T_pool` | network 373.1 K, old mean 355.0 K, top 373.2 K | the layers only: the network matches the old top layer and the unlayered old pool (373.17 K) | `no_pool_layers` replay |
+| 24–30 h `p_dw` | +2.2 % | the network's gas column and submergence at its own density | gh:#1097 cause 6 |
+| after 24 h `T_dw` | network 10–23 K low | not attributed: the no-layers replay leaves 13 K (429.9 against 417.1 K at 30 h); the no-decay-heat replay is within 2.5 K (414.6 K), so the old model's drywell holds decay heat after the vent that the network's does not, in a share not identified | |
+
+**So, with the fission products on the network, its only large remaining
+difference from `Containment` is the old model's two-layer pool**, which
+sets the vent's −48 %, the pool's mean temperature after it, and part of
+the 5–23 h pressure; the rest is network physics (displacement, gas
+column), the one-step blowdown lag, and the post-vent `p_ww` swings and
+the building's hydrogen, which are not attributed.
+
+### Burns: what `tampines` would need (not done; described, not hacked)
+
+A burn in the network's building (MELCOR BUR RM §2.3–2.5, sembawang's
+`Containment::step_burn`) converts H2 and CO with O2 into steam and CO2 and
+releases the heat of combustion. The network can add steam and CO2 (a
+`Source` on a building port) and heat (`set_atmosphere_heat`), but **cannot
+remove a non-condensable**: `Source` rates must be ≥ 0, and
+`ControlVolumeInputs` has a sink for steam only (`atmosphere_steam_sink`).
+What is needed, in `tampines::control_volume` (which another change is
+editing, so not touched here):
+
+- **Preferred: a reaction input** on a volume's atmosphere, `n` mol/s of
+  `H2 + ½ O2 → H2O(g)` and of `CO + ½ O2 → CO2`, applied inside the
+  volume's implicit step and capped at the reactants present, with the
+  energy balance closed by tampines itself from its own species references
+  (the JANAF `c_v` integrals and IF97 steam), so the heat of combustion is
+  consistent with the volume's energy datum. The caller (sembawang's
+  `bur_ignites`, `bur_completeness`, `bur_flame_speed`, `bur_cdim`, already
+  free functions) supplies only the rates.
+- **Minimum: an atmosphere sink per non-condensable**, `[MassRate; 6]`,
+  removing at the atmosphere's temperature with its enthalpy (as
+  `atmosphere_steam_sink` does for steam), plus the existing source and heat.
+  The caller must then compute the heat of combustion against tampines'
+  energy references, which is where an error would hide; hence the
+  preference above.
+- Either needs `CvNetwork` to hold and pass it (as `set_atmosphere_steam_sink`)
+  and a V&V case: an adiabatic, closed volume burning a known H2-air mixture
+  to the adiabatic flame temperature and pressure (a hand calculation from
+  JANAF data).
+
+Until then the network reports the building's BUR ignition criterion as a
+diagnostic (`rb_burn_y`, `rb_ignites`), sembawang's `bur_ignites` on the
+building's composition; nothing burns.
+
 ## What would move if the plant switched (the decision's evidence)
 
 Switching `Plant` to the network re-blesses `headless_30h.csv` and moves:
@@ -457,8 +691,11 @@ Switching `Plant` to the network re-blesses `headless_30h.csv` and moves:
 - `compare::the_uncalibrated_baseline_is_pinned` and the BSAF comparisons,
   through the drywell pressure.
 
-The fission products, aerosols, iodine and burns cannot be compared yet:
-the network carries none of them. **The building's hydrogen differs in
+~~The fission products, aerosols, iodine and burns cannot be compared yet:
+the network carries none of them.~~ **CORRECTED 2026-11-01:** the fission
+products, aerosols and iodine are carried since gh:#1100 (continued) and
+compared in cases D and B; burns are still not (no non-condensable sink in
+`tampines`). **The building's hydrogen differs in
 kind.** The old model's drywell passes the flange's 0.75 MPa opening
 pressure (786 kPa at 21 h, 805 kPa at 23 h), so its flange leaks hydrogen
 into the building. The network's drywell peaks at 674 kPa, so its flange
@@ -467,7 +704,11 @@ cause 3 (no MCCI gases on the network)~~ **CORRECTED 2026-11-01:** with the
 MCCI gases coupled (gh:#1100) the network's drywell peaks at 711.5 kPa and
 its flange still does not open; the open-loop replay attributes the
 difference to the old containment's fission-product decay heat (without it
-the old drywell peaks at 680 kPa). It would move the explosion timing.
+the old drywell peaks at 680 kPa). **CORRECTED again 2026-11-01** (gh:#1100
+continued): with the fission products' decay heat on the network its
+drywell peaks at 797.2 kPa and its flange opens at 17.25 h, against the old
+model's 16.82 h; the building's hydrogen then reaches 1.74 % against
+3.73 %, not attributed. It would move the explosion timing.
 
 **Recommendation (for the maintainer, not acted on):** do not switch yet. The
 network agrees with the old model where they model the same physics, and its
@@ -480,7 +721,11 @@ network; fission products carried by the paths; the start-of-step lag fixed in
 the cavity, MCCI gases and slab are on the network and the vent difference
 is attributed, to the old model's decay-heated top layer; the fission
 products' decay heat in the volumes and the pool layers remain, and they
-are now the largest differences.)
+are now the largest differences.) (**2026-11-01, gh:#1100 continued:** the
+fission products and their decay heat are on the network; the 5–23 h gap
+is −3.8 … +2.5 %, the flange opens within 0.43 h of the old model's, and
+the pool layers are the one large difference left, with burns, which need
+a `tampines` addition.)
 
 ## Units 2 and 3 by configuration (a sketch; no plant data invented)
 
@@ -521,7 +766,11 @@ Unit 1's own \[A\] entries need the same data.
   downcomers. A limit from the latest iterate, or a Newton step, would remove
   it.
 - 588 halvings by 30 h: the Picard step struggles after the vent. The
-  failures were not classified (which path, which switch).
+  failures were not classified (which path, which switch). (953 with the
+  cavity coupled; **3** once the fission products' decay heat was coupled,
+  2026-11-01: still not classified.)
+- After the vent, with the pool at saturation, the network's torus swings
+  by up to 6 % at the half-hour samples (26.5–29 h); not attributed.
 - The drywell's sump pit, the light bulb drawn as a prism, and the drywell
   floor at the torus top are \[A\]. The +90 Pa gas column they imply in the
   downcomers is physical but unverified.

@@ -5062,6 +5062,485 @@ pub struct Containment {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `containment_fp`
+
+The fission products a Mark I containment holds, and how they move
+(gh:#1040, gh:#1047; shared since gh:#1100).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Moved out of [`super::containment::Containment`] on 2026-11-01
+(gh:#1100) with its arithmetic unchanged**, so that
+[`super::containment_network::ContainmentNetwork`] carries the same
+physics rather than a second copy: the noble gas as a trace
+non-condensable, cesium, iodine and tellurium as vapour and on the
+aerosol in the drywell and the wetwell gas ([`RnVolume`]), what the pool
+has scrubbed (SPARC-90's condensation, impaction and swarm rise,
+[`super::sparc`]; MELCOR RN RM §2.7.1 and Appendix F, cited), what has
+left to the stack and the building, and the decay heat each location
+takes (`fp_decay`). The byte-for-byte `headless_30h.csv` fixture is the
+evidence the move changed nothing in the plant.
+
+The caller owns the gas: each method takes the state of the volumes it
+needs as plain numbers (the old model passes its own inventories, the
+network its control volumes'), and moves the fission products in the
+fraction of a donor's gas a path took.
+
+```rust
+pub mod containment_fp { /* ... */ }
+```
+
+### Types
+
+#### Struct `FpDecayHeat`
+
+The decay heat of the fission products a containment holds, W, by where
+it is deposited: airborne in the drywell (its gas), on the drywell's
+structures (their walls), and in the wetwell gas, on the pool's surface
+and scrubbed into the pool (the pool).
+
+```rust
+pub struct FpDecayHeat {
+    pub dw_gas_w: f64,
+    pub dw_wall_w: f64,
+    pub pool_w: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dw_gas_w` | `f64` |  |
+| `dw_wall_w` | `f64` |  |
+| `pool_w` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FpReport`
+
+Where the fission products are, as the old model's
+[`super::containment::ContainmentResult`] reports them.
+
+```rust
+pub struct FpReport {
+    pub xe_dw: f64,
+    pub xe_ww: f64,
+    pub xe_vented: f64,
+    pub xe_building: f64,
+    pub cs_dw_structures_kg: f64,
+    pub cs_ww_pool_kg: f64,
+    pub cs_airborne_kg: f64,
+    pub cs_vented_kg: f64,
+    pub cs_building_kg: f64,
+    pub i_dw_structures_kg: f64,
+    pub i_ww_pool_kg: f64,
+    pub i_airborne_kg: f64,
+    pub i_vented_kg: f64,
+    pub i_building_kg: f64,
+    pub te_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `xe_dw` | `f64` |  |
+| `xe_ww` | `f64` |  |
+| `xe_vented` | `f64` |  |
+| `xe_building` | `f64` |  |
+| `cs_dw_structures_kg` | `f64` |  |
+| `cs_ww_pool_kg` | `f64` |  |
+| `cs_airborne_kg` | `f64` |  |
+| `cs_vented_kg` | `f64` |  |
+| `cs_building_kg` | `f64` |  |
+| `i_dw_structures_kg` | `f64` |  |
+| `i_ww_pool_kg` | `f64` |  |
+| `i_airborne_kg` | `f64` |  |
+| `i_vented_kg` | `f64` |  |
+| `i_building_kg` | `f64` |  |
+| `te_kg` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FpHold`
+
+The fission products in a Mark I containment. See the module docs.
+
+```rust
+pub struct FpHold {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(dw_m3: f64, ww_m3: f64) -> Self { /* ... */ }
+  ```
+  Empty, the drywell's and the wetwell's gas volumes `dw_m3`, `ww_m3`.
+
+- ```rust
+  pub fn decay_heat(self: &Self, prm: &Params, s: &ContainmentSnapshot) -> Option<FpDecayHeat> { /* ... */ }
+  ```
+  The decay heat of the fission products held (`fp_decay`), from the
+
+- ```rust
+  pub fn report(self: &Self) -> FpReport { /* ... */ }
+  ```
+  Where the fission products are (as `ContainmentResult` reports them).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `containment_network`
 
 The Mark I containment on `tampines`'s control-volume network (gh:#1097,
@@ -5095,7 +5574,25 @@ per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
 | `vessel_p_pa` and the debris arriving through water | sembawang's FDI fall (`containment::lpme_fall` (crate-private), MELCOR FDI RM §2.2): its heat into the sump ([`NetworkMechanisms::fdi`]) |
 | `dw_wall_outer` | sembawang's drywell slab (`containment::dw_slab_step` (crate-private)) behind the lumped structures ([`NetworkMechanisms::dw_slab`]) |
 | `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
-| fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, ~~MCCI, FDI,~~ `pool_layers`~~, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above) |
+| `xe_*`, `cs_*`, `i_*`, `uo2_*`, `rn_relief`, `rn_leak` and the scrubbing switches | **since gh:#1100** sembawang's own fission products ([`super::containment_fp::FpHold`], moved out of `Containment` with unchanged arithmetic): the relief flow's scrubbed by SPARC-90's condensation at the quenchers' port, the leaks' into the drywell; each step they ride the gas each path moved (the downcomers' scrubbed by condensation, impaction and the swarm rise; the vacuum breakers', the vent's and the flange's unscrubbed), and every 10 s they deposit on the drywell's floor and structures and on the pool's surface ([`NetworkMechanisms::fission_products`]) |
+| `q_noble_w`, `q_alkali_w`, `q_halogen_w`, `q_chalcogen_w` | **since gh:#1100** the decay heat of what the network holds, by location as in the old model: airborne in the drywell by `set_atmosphere_heat`, on its structures into the lumped wall, in the wetwell gas, on the pool's surface and scrubbed by `set_pool_heat` on the torus ([`NetworkMechanisms::fp_decay_heat`]) |
+| burns, `pool_layers`, ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
+
+**How the fission products ride the paths (stated).** A path's mean gas
+mass over the step (tampines' `FlowTransfer`, positive `from → to`) moves
+the fraction `m / (M + Σ out)` of its donor's gas, `M` the donor's gas at
+the end of the step and `Σ out` all the gas it sent out (donor cell, the
+end-of-step mixture; each donor's paths taken in turn from what is left).
+The downcomers' composition (for SPARC's non-condensable share) is the
+drywell's end-of-step mixture, CO, CO2 and O2 counted with the nitrogen as
+the old model counts them. Liquid crossing a path carries no fission
+products (the scrubbed inventory stays in the torus). The drywell sump
+holds none (as the old pedestal). The torus gas's aerosol volume follows
+the network's atmosphere volume (the pool displaces it); the pool's
+surface for deposition is the V(z) table's area at the level (711 m²
+against the old model's 750 m²). Wall condensation counts toward the
+drywell's diffusiophoresis; the rain-out inside the control volume does
+not (it is not reported; the old model counts both).
 
 ## Geometry: from `params`, with what had to be assumed marked \[A\]
 
@@ -5473,6 +5970,8 @@ pub struct NetworkMechanisms {
     pub cavity: bool,
     pub fdi: bool,
     pub dw_slab: bool,
+    pub fission_products: bool,
+    pub fp_decay_heat: bool,
 }
 ```
 
@@ -5490,6 +5989,8 @@ pub struct NetworkMechanisms {
 | `cavity` | `bool` | sembawang's cavity (MCCI) on the drywell floor (gh:#1100); without<br>it, the debris's heat boils the sump while it holds more than its<br>fill, else goes into the structures (the gh:#1097 mapping). |
 | `fdi` | `bool` | sembawang's FDI fall of arriving debris through the water over the<br>floor (needs `cavity`). |
 | `dw_slab` | `bool` | sembawang's concrete slab behind the drywell structures. |
+| `fission_products` | `bool` | sembawang's fission products (`FpHold`) carried on the paths, with<br>pool scrubbing and deposition (gh:#1100). |
+| `fp_decay_heat` | `bool` | Their decay heat in the volumes (needs `fission_products`). |
 
 ##### Implementations
 
@@ -5509,6 +6010,16 @@ pub struct NetworkMechanisms {
   pub fn without_dw_slab(self: Self) -> Self { /* ... */ }
   ```
   Ablation: no drywell slab.
+
+- ```rust
+  pub fn without_fission_products(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no fission products (nor their decay heat).
+
+- ```rust
+  pub fn without_fp_decay_heat(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the fission products carried, their decay heat not
 
 - ```rust
   pub fn without_pressure_work(self: Self) -> Self { /* ... */ }
@@ -5692,6 +6203,8 @@ pub struct NetworkResult {
     pub dw_h2_kg: f64,
     pub ww_h2_kg: f64,
     pub rb_h2_fraction: f64,
+    pub rb_burn_y: f64,
+    pub rb_ignites: bool,
     pub vent_flowing: bool,
     pub vented_kg_s: f64,
     pub vented_h2_kg: f64,
@@ -5708,6 +6221,8 @@ pub struct NetworkResult {
     pub dw_co2_kg: f64,
     pub dw_wall_k: f64,
     pub dw_slab_inner_k: f64,
+    pub fp: super::containment_fp::FpReport,
+    pub fp_heat: super::containment_fp::FpDecayHeat,
     pub iterations: usize,
     pub residual: f64,
     pub substeps: usize,
@@ -5733,6 +6248,8 @@ pub struct NetworkResult {
 | `dw_h2_kg` | `f64` |  |
 | `ww_h2_kg` | `f64` |  |
 | `rb_h2_fraction` | `f64` | Hydrogen's mole fraction in the building's gas (steam included). |
+| `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction `X_H2 + X_CO<br>L_H2 / L_CO` (BUR RM Eq 2-3) and whether it meets MELCOR's ignition<br>criteria (`containment::bur_ignites`, sembawang's; steam and CO2 as<br>the diluent). A diagnostic only: the network does not burn (no<br>non-condensable sink in `tampines`; V&V doc). |
+| `rb_ignites` | `bool` |  |
 | `vent_flowing` | `bool` |  |
 | `vented_kg_s` | `f64` |  |
 | `vented_h2_kg` | `f64` |  |
@@ -5749,6 +6266,8 @@ pub struct NetworkResult {
 | `dw_co2_kg` | `f64` |  |
 | `dw_wall_k` | `f64` | The drywell structures' temperature and the slab's inner cell, K. |
 | `dw_slab_inner_k` | `f64` |  |
+| `fp` | `super::containment_fp::FpReport` | Where the fission products are (gh:#1100; zero with<br>`without_fission_products`), and the decay heat they deposited this<br>step, W, by location. |
+| `fp_heat` | `super::containment_fp::FpDecayHeat` |  |
 | `iterations` | `usize` | Picard iterations this step (summed over sub-steps), the largest<br>residual, and the sub-steps taken so far in the run. |
 | `residual` | `f64` |  |
 | `substeps` | `usize` |  |
@@ -5919,6 +6438,11 @@ pub struct ContainmentNetwork {
   pub fn cavity(self: &Self) -> &Cavity { /* ... */ }
   ```
   The debris on the drywell floor (sembawang's cavity).
+
+- ```rust
+  pub fn fission_products(self: &Self) -> &FpHold { /* ... */ }
+  ```
+  The fission products the network holds (sembawang's `FpHold`).
 
 - ```rust
   pub fn wall_temperatures(self: &Self) -> (f64, f64) { /* ... */ }

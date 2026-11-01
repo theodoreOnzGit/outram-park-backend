@@ -65,6 +65,33 @@
 //! 11. With `without_cavity().without_dw_slab()` the network reproduces the
 //!     gh:#1097 6 h pins exactly (the new port carries nothing; the
 //!     refactors of `lpme` and `dw_slab_step` are arithmetic-preserving).
+//!
+//! ## gh:#1100 (continued): the fission products and their decay heat
+//!
+//! Predictions written 2026-11-01 before the first run (the replay's, per
+//! window, are in the V&V doc):
+//!
+//! **D. Fission products through the downcomers**, both models from rest,
+//! 1800 s at 1 s: 5 kg/s of steam at 2.7 MJ/kg leaking into the drywell and
+//! 2 kg/s through the relief valves, each carrying Xe, Cs, I2 and UO2
+//! aerosol every step; SPARC's condensation, saturation, swarm and iodine
+//! terms, sectional classes and phoresis on; class decay powers of 2, 1 and
+//! 1 MW (noble, alkali, halogen) for the whole core; no pool layers.
+//!
+//! 12. Conservation on the network: the Xe in the drywell, the torus gas,
+//!     vented and in the building equals what arrived to 1e-12 relative;
+//!     Cs and iodine (airborne, on structures, in the pool, vented, in the
+//!     building) to 1e-9.
+//! 13. The downcomers flow in both, and the network's Xe in the torus gas
+//!     at 1800 s is within ±15 % of the old model's.
+//! 14. Cs in the pool within ±15 % of the old model's, on the drywell's
+//!     structures within ±25 %, airborne within ±30 %.
+//! 15. The network's decay heat is exactly its inventory's share
+//!     (1e-12 relative), and within ±10 % of the same formula on the old
+//!     model's inventory.
+//! 16. With `without_fp_decay_heat` the network's pressures equal
+//!     `without_fission_products`'s bit for bit (the inventory is then a
+//!     pure tracer); with the heat, `p_dw` rises, by less than 3 %.
 
 use sembawang::bwr_mark1::containment::{Containment, ContainmentSnapshot};
 use sembawang::bwr_mark1::containment_network::{ContainmentNetwork, NetworkConfig, NetworkMechanisms, NetworkResult, TorusShape};
@@ -99,6 +126,8 @@ fn ablations_from_env() -> NetworkMechanisms {
             "cavity" => m.without_cavity(),
             "fdi" => m.without_fdi(),
             "dw_slab" => m.without_dw_slab(),
+            "fission_products" => m.without_fission_products(),
+            "fp_decay_heat" => m.without_fp_decay_heat(),
             "" => m,
             other => panic!("unknown ablation {other}"),
         };
@@ -113,12 +142,14 @@ fn ablations_from_env() -> NetworkMechanisms {
 fn the_coupled_physics_is_on_by_default() {
     let net = ContainmentNetwork::new(&Params::default()).unwrap();
     let m = net.mechanisms();
-    assert!(m.cavity && m.fdi && m.dw_slab, "{m:?}");
+    assert!(m.cavity && m.fdi && m.dw_slab && m.fission_products && m.fp_decay_heat, "{m:?}");
     assert_eq!(m, NetworkMechanisms::default());
     let d = NetworkMechanisms::default();
     assert_eq!(d.without_cavity(), NetworkMechanisms { cavity: false, ..d });
     assert_eq!(d.without_fdi(), NetworkMechanisms { fdi: false, ..d });
     assert_eq!(d.without_dw_slab(), NetworkMechanisms { dw_slab: false, ..d });
+    assert_eq!(d.without_fission_products(), NetworkMechanisms { fission_products: false, ..d });
+    assert_eq!(d.without_fp_decay_heat(), NetworkMechanisms { fp_decay_heat: false, ..d });
     assert_eq!(d.without_pressure_work(), NetworkMechanisms { pressure_work: false, ..d });
     assert_eq!(d.without_real_steam(), NetworkMechanisms { real_steam: false, ..d });
     assert_eq!(d.without_real_liquid(), NetworkMechanisms { real_liquid: false, ..d });
@@ -213,6 +244,111 @@ fn debris_on_the_drywell_floor_against_the_old_containment() {
     }
 }
 
+fn fp_snapshot(prm: Params) -> ContainmentSnapshot {
+    ContainmentSnapshot {
+        srv_steam_kg_s: 2.0,
+        leak_steam_kg_s: 5.0,
+        leak_h: 2.7e6,
+        leak_gas_k: 400.0,
+        xe_leak: 2.0e-6,
+        xe_relief: 1.0e-6,
+        cs_leak_kg: 1.0e-3,
+        cs_relief_kg: 5.0e-4,
+        i_leak_kg: 1.0e-4,
+        i_relief_kg: 5.0e-5,
+        uo2_leak_kg: 1.0e-2,
+        uo2_relief_kg: 5.0e-3,
+        pool_scrubbing: true,
+        scrubbing_saturation: true,
+        swarm_scrubbing: true,
+        sectional_classes: true,
+        iodine_partition: true,
+        iodine_swarm: true,
+        phoresis: true,
+        condensate_to_floor: true,
+        q_noble_w: 2.0e6,
+        q_alkali_w: 1.0e6,
+        q_halogen_w: 1.0e6,
+        ..relief_snapshot(prm)
+    }
+}
+
+/// Case D: both models through 1800 s of `fp_snapshot`; the network with
+/// `mech`. Returns the last results, the network's worst
+/// downcomer flow, kg/s, and its `p_dw` history.
+fn run_fp(mech: NetworkMechanisms) -> (NetworkResult, sembawang::bwr_mark1::containment::ContainmentResult, f64, Vec<f64>) {
+    let prm = Params::default();
+    let snap = fp_snapshot(prm);
+    let mut old = Containment::new(&prm);
+    let mut net = ContainmentNetwork::with_config(&prm, NetworkConfig::unit1(), mech).unwrap();
+    let (mut r_net, mut r_old) = (NetworkResult::default(), Default::default());
+    let mut dc: f64 = 0.0;
+    let mut p = Vec::with_capacity(1800);
+    for _ in 0..1800 {
+        r_old = old.step(&snap);
+        r_net = net.step(&snap).unwrap();
+        dc = dc.max(r_net.downcomer_kg_s);
+        p.push(r_net.p_dw_pa);
+    }
+    (r_net, r_old, dc, p)
+}
+
+/// **D (predictions 12–16). Results (2026-11-01): all held.** Network /
+/// old at 1800 s: Xe in the torus gas 2.285e-3 / 2.308e-3 (−1.0 %); Cs in
+/// the pool 0.998 / 1.002 kg (−0.4 %), on the structures 0.782 / 0.797 kg
+/// (−1.9 %), airborne 0.920 / 0.901 kg (+2.2 %); conservation to 2e-14;
+/// decay heat 50.84 kW against 50.87 kW on the old inventory; the tracer
+/// leaves `p_dw` bit-equal; with the heat `p_dw` up by at most 0.039 %.
+#[test]
+fn fission_products_through_the_downcomers_against_the_old_containment() {
+    let prm = Params::default();
+    let on = NetworkMechanisms::default();
+    let (n, o, dc, p_on) = run_fp(on);
+    let (_, _, _, p_tracer) = run_fp(on.without_fp_decay_heat());
+    let (n_off, _, _, p_off) = run_fp(on.without_fission_products());
+    let f = n.fp;
+    println!("D net: xe dw {:.4e} ww {:.4e} vented {:.3e} building {:.3e} | Cs pool {:.4e} structures {:.4e} airborne {:.4e} | I pool {:.4e} structures {:.4e} airborne {:.4e} kg | heat dw gas {:.0} wall {:.0} pool {:.0} W | dc max {dc:.2} kg/s | p_dw {:.0} Pa (no FP {:.0}) | T_pool {:.3} K", f.xe_dw, f.xe_ww, f.xe_vented, f.xe_building, f.cs_ww_pool_kg, f.cs_dw_structures_kg, f.cs_airborne_kg, f.i_ww_pool_kg, f.i_dw_structures_kg, f.i_airborne_kg, n.fp_heat.dw_gas_w, n.fp_heat.dw_wall_w, n.fp_heat.pool_w, n.p_dw_pa, n_off.p_dw_pa, n.t_pool_k);
+    println!("D old: xe dw {:.4e} ww {:.4e} | Cs pool {:.4e} structures {:.4e} airborne {:.4e} | I pool {:.4e} structures {:.4e} airborne {:.4e} kg | p_dw {:.0} Pa | T_pool {:.3} K", o.xe_dw, o.xe_ww, o.cs_ww_pool_kg, o.cs_dw_structures_kg, o.cs_airborne_kg, o.i_ww_pool_kg, o.i_dw_structures_kg, o.i_airborne_kg, o.p_dw_pa, o.t_pool_k);
+    // 12. Conservation.
+    let steps = 1800.0;
+    let xe_in = steps * (2.0e-6 + 1.0e-6);
+    let cs_in = steps * (1.0e-3 + 5.0e-4);
+    let i_in = steps * (1.0e-4 + 5.0e-5);
+    let xe = f.xe_dw + f.xe_ww + f.xe_vented + f.xe_building;
+    let cs = f.cs_airborne_kg + f.cs_dw_structures_kg + f.cs_ww_pool_kg + f.cs_vented_kg + f.cs_building_kg;
+    let io = f.i_airborne_kg + f.i_dw_structures_kg + f.i_ww_pool_kg + f.i_vented_kg + f.i_building_kg;
+    println!("D conservation: xe {:.3e} cs {:.3e} i {:.3e}", xe / xe_in - 1.0, cs / cs_in - 1.0, io / i_in - 1.0);
+    assert!((xe / xe_in - 1.0).abs() < 1e-12, "D12 xe {xe} {xe_in}");
+    assert!((cs / cs_in - 1.0).abs() < 1e-9 && (io / i_in - 1.0).abs() < 1e-9, "D12 cs {cs} i {io}");
+    // 13–14.
+    let rel = |a: f64, b: f64| (a - b) / b;
+    println!(
+        "D rel: xe_ww {:+.3} cs pool {:+.3} structures {:+.3} airborne {:+.3}",
+        rel(f.xe_ww, o.xe_ww),
+        rel(f.cs_ww_pool_kg, o.cs_ww_pool_kg),
+        rel(f.cs_dw_structures_kg, o.cs_dw_structures_kg),
+        rel(f.cs_airborne_kg, o.cs_airborne_kg)
+    );
+    assert!(dc > 0.0 && o.xe_ww > 1.0e-6 * steps, "D13: no downcomer flow");
+    assert!(rel(f.xe_ww, o.xe_ww).abs() < 0.15, "D13");
+    assert!(rel(f.cs_ww_pool_kg, o.cs_ww_pool_kg).abs() < 0.15, "D14 pool");
+    assert!(rel(f.cs_dw_structures_kg, o.cs_dw_structures_kg).abs() < 0.25, "D14 structures");
+    assert!(rel(f.cs_airborne_kg, o.cs_airborne_kg).abs() < 0.30, "D14 airborne");
+    // 15. The heat is the share of the inventory at the step's start
+    // (asserted exactly in `containment_fp`'s own test); here, within 10 %
+    // of the same formula on the old model's inventory.
+    let q = |xe: f64, cs: f64, i: f64| xe * 2.0e6 + cs / prm.cs_inventory_kg * 1.0e6 + i / prm.i_inventory_kg * 1.0e6;
+    let q_net = n.fp_heat.dw_gas_w + n.fp_heat.dw_wall_w + n.fp_heat.pool_w;
+    let q_old = q(o.xe_dw + o.xe_ww, o.cs_airborne_kg + o.cs_dw_structures_kg + o.cs_ww_pool_kg, o.i_airborne_kg + o.i_dw_structures_kg + o.i_ww_pool_kg);
+    let q_net_end = q(f.xe_dw + f.xe_ww, f.cs_airborne_kg + f.cs_dw_structures_kg + f.cs_ww_pool_kg, f.i_airborne_kg + f.i_dw_structures_kg + f.i_ww_pool_kg);
+    println!("D heat: network {q_net:.1} W (its end inventory {q_net_end:.1} W), old inventory {q_old:.1} W");
+    assert!(rel(q_net, q_old).abs() < 0.10, "D15 {q_net} {q_old}");
+    // 16.
+    assert!(p_tracer == p_off, "D16: the tracer moved the pressures");
+    let worst = p_on.iter().zip(&p_off).map(|(a, b)| (a - b) / b).fold(0.0_f64, f64::max);
+    println!("D16: with the heat p_dw up by at most {:.3} %", 100.0 * worst);
+    assert!(worst > 0.0 && worst < 0.03, "D16 {worst}");
+}
 
 fn relief_snapshot(prm: Params) -> ContainmentSnapshot {
     ContainmentSnapshot {
@@ -386,6 +522,7 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     let mut worst = (0.0_f64, 0.0_f64, 0.0_f64);
     let mut most_iter = 0;
     let mut worst_at = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    let (mut flange_seen, mut peak_dw, mut ignites_seen) = ((false, false), 0.0_f64, false);
     // `FUKUSHIMA_NETWORK_TRACE=a,b` prints every step between hours a and b.
     let trace: Option<(f64, f64)> = std::env::var("FUKUSHIMA_NETWORK_TRACE").ok().and_then(|x| {
         let v: Vec<f64> = x.split(',').filter_map(|y| y.parse().ok()).collect();
@@ -406,6 +543,19 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
         }
         let rel_dw = (r.p_dw_pa - o.p_dw_pa) / o.p_dw_pa;
         let rel_ww = (r.p_ww_pa - o.p_ww_pa) / o.p_ww_pa;
+        if r.flange_leaking && !flange_seen.0 {
+            flange_seen.0 = true;
+            println!("B: the network's flange opens at {h:.3} h (p_dw {:.0} Pa)", r.p_dw_pa);
+        }
+        if o.flange_leaking && !flange_seen.1 {
+            flange_seen.1 = true;
+            println!("B: the old model's flange opens at {h:.3} h (p_dw {:.0} Pa)", o.p_dw_pa);
+        }
+        peak_dw = peak_dw.max(r.p_dw_pa);
+        if r.rb_ignites && !ignites_seen {
+            ignites_seen = true;
+            println!("B: the network's building meets the BUR ignition criteria at {h:.3} h (Y {:.4})", r.rb_burn_y);
+        }
         if rel_dw.abs() > worst.0 {
             worst_at = (i as f64 / 3600.0, r.p_dw_pa, o.p_dw_pa, s.leak_steam_kg_s, s.ex_vessel_w, r.downcomer_kg_s, r.vacuum_breaker_kg_s);
         }
@@ -457,6 +607,13 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
                 r.rb_h2_fraction,
                 o.rb_h2_fraction
             );
+            let (f, q) = (r.fp, r.fp_heat);
+            println!(
+                "      fp: xe dw {:.3e}/{:.3e} ww {:.3e}/{:.3e} vented {:.3e}/{:.3e} rb {:.3e}/{:.3e} | Cs pool {:.3}/{:.3} struct {:.3}/{:.3} air {:.3}/{:.3} vent {:.3}/{:.3} rb {:.3}/{:.3} kg | heat dw {:.0} wall {:.0} pool {:.0} W | rb Y {:.4} ignites {}",
+                f.xe_dw, o.xe_dw, f.xe_ww, o.xe_ww, f.xe_vented, o.xe_vented, f.xe_building, o.xe_building,
+                f.cs_ww_pool_kg, o.cs_ww_pool_kg, f.cs_dw_structures_kg, o.cs_dw_structures_kg, f.cs_airborne_kg, o.cs_airborne_kg, f.cs_vented_kg, o.cs_vented_kg, f.cs_building_kg, o.cs_building_kg,
+                q.dw_gas_w, q.dw_wall_w, q.pool_w, r.rb_burn_y, r.rb_ignites
+            );
             for (name, rows) in replays.iter().skip(1) {
                 let (pd, pw, tp, td) = rows[i];
                 println!(
@@ -482,6 +639,7 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
         100.0 * worst.1,
         worst.2
     );
+    println!("B: network peak p_dw {peak_dw:.0} Pa");
     println!("B: worst p_dw at {:.4} h: {:.0} / {:.0} Pa, leak {:.3} kg/s, ex-vessel {:.3e} W, dc {:+.3} vb {:+.3} kg/s", worst_at.0, worst_at.1, worst_at.2, worst_at.3, worst_at.4, worst_at.5, worst_at.6);
     // Predictions 6 and 7 MISSED (2026-11-01; causes in the V&V doc): over
     // 6 h the worst |dp_dw| is 60.39 % (one step at 4.956 h, the vessel's
@@ -490,7 +648,10 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     // 9.78 %, |dT_pool| 1.32 K. Pinned after the run, labelled so, for the
     // default 6 h only:
     println!("B: ablations {mech:?}");
-    let gh1097 = NetworkMechanisms::default().without_cavity().without_dw_slab();
+    // The gh:#1097 and first gh:#1100 pins hold for the configurations
+    // they were measured on, which since the fission products were coupled
+    // (gh:#1100, continued) are ablations.
+    let gh1097 = NetworkMechanisms::default().without_cavity().without_dw_slab().without_fission_products();
     let old_default = old_ablations_from_env() == Mechanisms::default();
     if (hours - 6.0).abs() < 1e-9 && mech == gh1097 && old_default {
         assert!((worst.0 - 0.6039).abs() < 0.005 && (worst.1 - 0.0978).abs() < 0.005, "B pins: {worst:?}");
@@ -502,9 +663,21 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     // (the network's torus is now LOW after the debris lands, by the old
     // model's hot surface layer; V&V doc) and 1.32 -> 1.86 K. Pinned after
     // the run, labelled so, at the same widths as the gh:#1097 pins:
-    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default() && old_default {
+    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default().without_fission_products() && old_default {
         assert!((worst.0 - 0.5629).abs() < 0.005 && (worst.1 - 0.1365).abs() < 0.005, "B pins (gh:#1100): {worst:?}");
         assert!((worst.2 - 1.86).abs() < 0.05, "B pins (gh:#1100): {worst:?}");
+    }
+    // gh:#1100 continued (2026-11-01): with the fission products and their
+    // decay heat on the network (the default since), the 6 h worsts moved
+    // 56.29 -> 57.77 % (the blowdown step, the drywell now warmer by the
+    // decay heat of what arrived from 3.9 h), 13.65 -> 12.20 % and
+    // 1.86 -> 0.60 K. Predicted (V&V doc) about 56 %, 4-9 % and under
+    // 1.86 K: the first two MISSED. Pinned after the run, labelled so, at
+    // the same widths; the 13.65 % pins above hold for
+    // `without_fission_products`, re-run and passing:
+    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default() && old_default {
+        assert!((worst.0 - 0.5777).abs() < 0.005 && (worst.1 - 0.1220).abs() < 0.005, "B pins (gh:#1100, FP): {worst:?}");
+        assert!((worst.2 - 0.60).abs() < 0.05, "B pins (gh:#1100, FP): {worst:?}");
     }
 }
 

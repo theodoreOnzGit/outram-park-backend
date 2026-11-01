@@ -61,11 +61,10 @@
 //! fission products are tracked ([`super::rn_volume`]).
 
 use super::params::*;
-use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Sections, Surface};
+use super::aerosol::Sections;
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
-use super::rn_volume::{RnFlow, RnSurface, RnVolume, CS, IODINE, N_CLASSES, TE};
-use super::vapour::{BulkGas, FpClass};
-use super::iodine;
+use super::containment_fp::{DowncomerFlow, FpHold, PoolSide, RnContext};
+use super::rn_volume::RnFlow;
 use super::fdi;
 use super::sparc;
 use super::pool_surface;
@@ -321,43 +320,11 @@ pub struct Containment {
     /// Water on the drywell floor (pedestal), kg, and its temperature, K.
     pedestal_kg: f64,
     pedestal_t: f64,
-    /// Noble gas (Xe), as in [`ContainmentResult`].
-    xe_dw: f64,
-    xe_ww: f64,
-    xe_vented: f64,
-    xe_building: f64,
-    /// Fission products and aerosol in the drywell and the wetwell gas
-    /// (gh:#1047), the time since their last aerosol step, s, and cesium
-    /// vented and leaked to the building, kg.
-    dw_rn: RnVolume,
-    ww_rn: RnVolume,
-    rn_clock_s: f64,
-    cs_vented_kg: f64,
-    cs_building_kg: f64,
-    i_vented_kg: f64,
-    i_building_kg: f64,
-    /// Tellurium vented or leaked to the building, kg.
-    te_out_kg: f64,
-    /// The swarm-rise pass fractions per section at the downcomers, and
-    /// their age, s: recomputed at most once per aerosol step (`sparc`
-    /// costs about 0.1 ms a call), from the conditions of the step that
-    /// recomputes them.
-    swarm_pass: Vec<f64>,
-    swarm_age_s: f64,
-    /// The pool's partition coefficient for I2 (`iodine::partition`),
-    /// updated at each aerosol step.
-    iodine_h: f64,
-    /// The swarm rise's pass fraction for I2 vapour at the downcomers, and
-    /// its age, s: recomputed at most once per aerosol step, as the
-    /// particles' are.
-    iodine_swarm_pass: f64,
-    iodine_swarm_age_s: f64,
-    /// Steam condensed in the drywell since the last aerosol step, kg: on
-    /// its walls, for their diffusiophoresis.
-    dw_condensed_kg: f64,
-    /// Scrubbed into the pool water at the vent exits (SPARC-90's DF_EC),
-    /// kg: cesium, iodine, aerosol.
-    pool_scrubbed: [f64; N_CLASSES + 1],
+    /// The fission products held (noble gas, cesium, iodine, tellurium,
+    /// aerosol, what the pool scrubbed, what left): moved into
+    /// [`FpHold`] on 2026-11-01 (gh:#1100) with unchanged arithmetic, so
+    /// that the control-volume network carries the same physics.
+    fp: FpHold,
     /// The wetwell atmosphere's steam, kg, and temperature, K
     /// (`ww_atmosphere`); without it the gas is at the pool's temperature,
     /// saturated, and these are unused.
@@ -527,25 +494,7 @@ impl Containment {
             vented_h2_kg: 0.0,
             pedestal_kg: 0.0,
             pedestal_t: prm.initial_drywell_k,
-            xe_dw: 0.0,
-            xe_ww: 0.0,
-            xe_vented: 0.0,
-            xe_building: 0.0,
-            dw_rn: RnVolume::new(prm.drywell_volume_m3, rn_sections(), 2),
-            ww_rn: RnVolume::new(prm.wetwell_gas_m3, rn_sections(), 1),
-            rn_clock_s: 0.0,
-            cs_vented_kg: 0.0,
-            cs_building_kg: 0.0,
-            i_vented_kg: 0.0,
-            i_building_kg: 0.0,
-            te_out_kg: 0.0,
-            swarm_pass: vec![1.0; rn_sections().v.len()],
-            swarm_age_s: RN_STEP_S,
-            iodine_h: iodine::partition(INITIAL_POOL_K, 0.0, 0.0, 0.0),
-            dw_condensed_kg: 0.0,
-            iodine_swarm_pass: 1.0,
-            iodine_swarm_age_s: RN_STEP_S,
-            pool_scrubbed: [0.0; N_CLASSES + 1],
+            fp: FpHold::new(prm.drywell_volume_m3, prm.wetwell_gas_m3),
             ww_steam_kg: p_sat_pa(prm.initial_pool_k) * prm.wetwell_gas_m3 * M_H2O / (R_GAS * prm.initial_pool_k),
             ww_t: prm.initial_pool_k,
             ww_shell_t: prm.initial_pool_k,
@@ -969,32 +918,16 @@ impl Containment {
             self.layer_pool(prm);
         }
         self.dw_hs = s.dw_wall_hs;
-        self.swarm_age_s += dt;
-        self.iodine_swarm_age_s += dt;
-        self.dw_rn.lumped = !s.sectional_classes;
-        self.ww_rn.lumped = !s.sectional_classes;
-        self.dw_rn.condensate_mass = s.condensate_mass;
-        self.ww_rn.condensate_mass = s.condensate_mass;
+        self.fp.begin_step(s);
         // 0. Decay heat of the fission products the containment holds
         //    (`fp_decay`): airborne in the drywell, into its gas; on its
         //    structures, into its walls; in the wetwell gas and the pool,
         //    into the pool.
-        if s.q_noble_w + s.q_alkali_w + s.q_halogen_w + s.q_chalcogen_w > 0.0 {
-            let cs = |kg: f64| kg / prm.cs_inventory_kg * s.q_alkali_w;
-            let io = |kg: f64| kg / prm.i_inventory_kg * s.q_halogen_w;
-            let te = |kg: f64| kg / prm.te_inventory_kg * s.q_chalcogen_w;
-            let air = |v: &RnVolume, c: usize| v.vapour_kg[c] + v.on_aerosol(c);
-            let held = |v: &RnVolume, c: usize| v.on_surface_kg.iter().map(|x| x[c]).sum::<f64>();
-            let dw_gas = self.xe_dw * s.q_noble_w + cs(air(&self.dw_rn, CS)) + io(air(&self.dw_rn, IODINE)) + te(air(&self.dw_rn, TE));
-            let dw_wall = cs(held(&self.dw_rn, CS)) + io(held(&self.dw_rn, IODINE)) + te(held(&self.dw_rn, TE));
-            let pool = self.xe_ww * s.q_noble_w
-                + cs(air(&self.ww_rn, CS) + held(&self.ww_rn, CS) + self.pool_scrubbed[CS])
-                + io(air(&self.ww_rn, IODINE) + held(&self.ww_rn, IODINE) + self.pool_scrubbed[IODINE])
-                + te(air(&self.ww_rn, TE) + held(&self.ww_rn, TE) + self.pool_scrubbed[TE]);
-            let e = self.dw_energy(tv) + dw_gas * dt;
+        if let Some(q) = self.fp.decay_heat(prm, s) {
+            let e = self.dw_energy(tv) + q.dw_gas_w * dt;
             self.set_dw_energy(e, tv);
-            self.dw_wall_t += dw_wall * dt / prm.dw_wall_c;
-            let e = self.pool_energy() + pool * dt;
+            self.dw_wall_t += q.dw_wall_w * dt / prm.dw_wall_c;
+            let e = self.pool_energy() + q.pool_w * dt;
             self.set_pool_energy(e);
         }
         // 0b. The RPV's insulation heats the drywell gas (`rpv_wall`).
@@ -1026,56 +959,10 @@ impl Containment {
         if self.layered {
             self.swap_layers();
         }
-        // Noble gas is a trace non-condensable: it rides with the gas it
-        // arrives in and moves in the same fraction as N2 and H2 on every
-        // path below (gh:#1040).
-        self.xe_ww += s.xe_relief;
-        self.xe_dw += s.xe_leak;
-        // Cesium and aerosol likewise: the relief flow's into the wetwell
-        // gas (MELCOR's default with pool interaction off: gas below a pool
-        // surface passes unchanged), the leaks' into the drywell.
-        let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
-        // The relief flow enters the pool at the quenchers: with scrubbing,
-        // only the share of its volume left once the steam condenses passes
-        // (SPARC-90's DF_EC: "aerosol particles and iodine vapors are
-        // removed in proportion to the reduction in the volumetric flow
-        // rate"; Vol. 2 RN §2.7.1, Eqs D-5, D-6). The quenchers' depth is
-        // not known; the downcomers' is used. Impaction and the swarm rise
-        // are applied at the downcomers only: the quenchers' geometry is
-        // not known either, and the relief flow's aerosol, all in the
-        // smallest section, would pass the swarm almost whole (0.98 in
-        // `sparc`'s test).
-        let pool = sparc::Pool::submerged(self.pool_t, self.p_ww(prm), prm.vent_submergence_pa);
-        let x_o = if s.scrubbing_saturation { pool.x_o() } else { 1.0 };
-        let pass = if s.pool_scrubbing { condensation_pass(nc_share(s.srv_h2_kg_s / M_H2, 0.0, s.srv_steam_kg_s / M_H2O), x_o) } else { 1.0 };
-        let relief_m3 = (s.srv_h2_kg_s / M_H2 + s.srv_steam_kg_s / M_H2O) * dt * R_GAS * self.pool_t / (self.p_ww(prm) + prm.vent_submergence_pa);
-        if s.rn_relief.moved.is_empty() {
-            let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, s.i_relief_kg, relief_m3);
-            self.pool_scrubbed[CS] += s.cs_relief_kg * (1.0 - pass);
-            self.pool_scrubbed[IODINE] += s.i_relief_kg * (1.0 - pass_i);
-            self.pool_scrubbed[AEROSOL] += s.uo2_relief_kg * (1.0 - pass);
-            self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass_i, 0.0]);
-            self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg, 0.0]);
-        } else {
-            // The vessel's aerosol arrives with its size distribution
-            // (`vessel_aerosol`): the relief flow's is scrubbed section by
-            // section by the condensation, its vapour likewise (iodine's
-            // within the partition limit); the leaks' enters the drywell.
-            let rf = &s.rn_relief;
-            let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, rf.vapour_kg[IODINE], relief_m3);
-            let pass_v = [pass, pass_i, pass];
-            for k in 0..N_CLASSES {
-                self.pool_scrubbed[k] += rf.vapour_kg[k] * (1.0 - pass_v[k]) + rf.on_aerosol_kg[k].iter().sum::<f64>() * (1.0 - pass);
-            }
-            self.pool_scrubbed[AEROSOL] += rf.moved.iter().sum::<f64>() * rho_p * (1.0 - pass);
-            let moved: Vec<f64> = rf.moved.iter().map(|m| m * pass).collect();
-            let ca: [Vec<f64>; N_CLASSES] = std::array::from_fn(|k| rf.on_aerosol_kg[k].iter().map(|m| m * pass).collect());
-            self.ww_rn.receive(&moved, std::array::from_fn(|k| rf.vapour_kg[k] * pass_v[k]), &ca);
-            let lk = &s.rn_leak;
-            if !lk.moved.is_empty() {
-                self.dw_rn.receive(&lk.moved, lk.vapour_kg, &lk.on_aerosol_kg);
-            }
-        }
+        // The fission products arriving (`FpHold::arrive`): the relief
+        // flow's scrubbed at the quenchers, the leaks' into the drywell.
+        let side = PoolSide { t_k: self.pool_t, p_ww_pa: self.p_ww(prm), water_kg: self.pool_kg + self.deep_kg };
+        self.fp.arrive(prm, s, side);
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
         let nh = s.leak_h2_kg_s * dt / M_H2;
@@ -1160,7 +1047,7 @@ impl Containment {
                 self.dw_steam_kg -= m;
                 self.set_dw_energy(e, tv);
                 self.dw_wall_t += m * (h_g - CP_WATER * (self.dw_wall_t - 273.15)) / prm.dw_wall_c;
-                self.dw_condensed_kg += m;
+                self.fp.dw_condensed_kg += m;
                 if s.condensate_to_floor {
                     self.to_pedestal(m, self.dw_wall_t);
                 }
@@ -1197,7 +1084,7 @@ impl Containment {
             }
             let keep = p_sat * prm.drywell_volume_m3 * M_H2O / (R_GAS * self.dw_t);
             let cond = self.dw_steam_kg - keep;
-            self.dw_condensed_kg += cond;
+            self.fp.dw_condensed_kg += cond;
             let e = self.dw_energy(tv) - cond * CP_WATER * (self.dw_t - 273.15);
             if s.condensate_to_floor {
                 self.to_pedestal(cond, self.dw_t);
@@ -1226,80 +1113,15 @@ impl Containment {
             let n = orifice.min(n_eq);
             let f = n / n_dw;
             let (dn2, dh2, dsteam) = (self.dw_n2 * f, self.dw_h2 * f, self.dw_steam_kg * f);
-            let dxe = self.xe_dw * f;
-            self.xe_dw -= dxe;
-            self.xe_ww += dxe;
             for i in 0..2 {
                 let d = self.co.dw[i] * f;
                 self.co.dw[i] -= d;
                 self.co.ww[i] += d;
             }
-            let (moved, cv, ca) = self.dw_rn.take(f);
-            // Through the downcomers into the pool: scrubbed likewise by the
-            // condensation, then each section by impaction and the swarm
-            // rise (`sparc`), with the cesium and iodine on that section.
-            let pool = sparc::Pool::submerged(self.pool_t, p_ww, prm.vent_submergence_pa);
-            let x_o = if s.scrubbing_saturation { pool.x_o() } else { 1.0 };
-            let pass = if s.pool_scrubbing { condensation_pass(nc_share(dh2, dn2, dsteam / M_H2O), x_o) } else { 1.0 };
-            let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
-            let swarm: Vec<f64> = if s.pool_scrubbing && s.swarm_scrubbing && moved.iter().any(|&m| m > 0.0) {
-                if self.swarm_age_s >= RN_STEP_S {
-                    let n_v = prm.downcomer_count;
-                    let inj = sparc::Injection {
-                        vent: sparc::Vent::Downcomer,
-                        diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * std::f64::consts::PI)).sqrt(),
-                        nc_mol_s: (dn2 + dh2) / dt / n_v,
-                        q_exit_m3_s: n * R_GAS * self.dw_t / p_dw / dt / n_v,
-                    };
-                    let d: Vec<f64> = (0..moved.len()).map(|k| self.dw_rn.sections.diameter(k)).collect();
-                    self.swarm_pass = sparc::pass_fractions(&pool, &inj, &d, rho_p);
-                    self.swarm_age_s = 0.0;
-                }
-                self.swarm_pass.clone()
-            } else {
-                vec![1.0; moved.len()]
-            };
-            let mut pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, cv[IODINE], n * R_GAS * self.dw_t / p_dw);
-            // The swarm rise scrubs the I2 vapour too (MELCOR Appendix F;
-            // `sparc::iodine_pass`), from the bubble's concentration once
-            // the gas is in equilibrium with the pool at the vent exit.
-            let n_nc = dn2 + dh2;
-            if s.pool_scrubbing && s.iodine_swarm && cv[IODINE] > 0.0 && n_nc > 0.0 && self.iodine_swarm_age_s >= RN_STEP_S {
-                let n_v = prm.downcomer_count;
-                let inj = sparc::Injection {
-                    vent: sparc::Vent::Downcomer,
-                    diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * std::f64::consts::PI)).sqrt(),
-                    nc_mol_s: n_nc / dt / n_v,
-                    q_exit_m3_s: n * R_GAS * self.dw_t / p_dw / dt / n_v,
-                };
-                let p0 = p_ww + prm.vent_submergence_pa;
-                let p_s = p_sat_pa(self.pool_t);
-                let x_s = (p_s / p0).min(1.0);
-                let gas_l = n_nc * R_GAS * self.pool_t / (p0 - p_s).max(1.0) * 1e3;
-                let gases = [(BulkGas::Steam, x_s), (BulkGas::N2, (1.0 - x_s) * dn2 / n_nc), (BulkGas::H2, (1.0 - x_s) * dh2 / n_nc)];
-                let (_, sum_aq, _) = self.pool_chemistry(&pool);
-                let iv = sparc::IodineVapour {
-                    d_gas: FpClass::I2.diffusivity(&gases, self.pool_t, p0),
-                    d_liquid: sparc::i2_liquid_diffusivity(self.pool_t, p0),
-                    h: self.iodine_h,
-                    sum_aq,
-                    c_gas: cv[IODINE] * pass_i / iodine::M_I2 / gas_l,
-                };
-                self.iodine_swarm_pass = sparc::iodine_pass(&pool, &inj, &iv);
-                self.iodine_swarm_age_s = 0.0;
-            }
-            if s.pool_scrubbing && s.iodine_swarm && cv[IODINE] > 0.0 && n_nc > 0.0 {
-                pass_i *= self.iodine_swarm_pass;
-            }
-            let pass_v = [pass, pass_i, pass];
-            for k in 0..N_CLASSES {
-                self.pool_scrubbed[k] += cv[k] * (1.0 - pass_v[k]) + ca[k].iter().zip(&swarm).map(|(m, p)| m * (1.0 - pass * p)).sum::<f64>();
-            }
-            self.pool_scrubbed[AEROSOL] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass)
-                + moved.iter().zip(&swarm).map(|(m, p)| m * pass * (1.0 - p)).sum::<f64>() * rho_p;
-            let moved: Vec<f64> = moved.iter().zip(&swarm).map(|(m, p)| m * pass * p).collect();
-            let ca: [Vec<f64>; N_CLASSES] = std::array::from_fn(|k| ca[k].iter().zip(&swarm).map(|(m, p)| m * pass * p).collect());
-            self.ww_rn.receive(&moved, std::array::from_fn(|k| cv[k] * pass_v[k]), &ca);
+            // Its fission products, scrubbed by the pool (`FpHold::downcomer`).
+            let side = PoolSide { t_k: self.pool_t, p_ww_pa: p_ww, water_kg: self.pool_kg + self.deep_kg };
+            let flow = DowncomerFlow { f, n, dn2, dh2, dsteam_kg: dsteam, t_dw_k: self.dw_t, p_dw_pa: p_dw };
+            self.fp.downcomer(prm, s, flow, side);
             let e_dw = self.dw_energy(tv);
             let t_dw = self.dw_t;
             self.dw_n2 -= dn2;
@@ -1340,16 +1162,12 @@ impl Containment {
             let f = (orifice / n_ww).min(f_eq);
             let (dn2, dh2, dsteam) = (self.ww_n2 * f, self.ww_h2 * f, self.ww_steam_kg * f);
             let e_out = f * (self.ww_energy(tv) + n_ww * R_GAS * self.ww_t);
-            let dxe = self.xe_ww * f;
-            self.xe_ww -= dxe;
-            self.xe_dw += dxe;
             for i in 0..2 {
                 let d = self.co.ww[i] * f;
                 self.co.ww[i] -= d;
                 self.co.dw[i] += d;
             }
-            let (moved, cv, ca) = self.ww_rn.take(f);
-            self.dw_rn.receive(&moved, cv, &ca);
+            self.fp.ww_to_dw(f);
             let e_a = self.ww_energy(tv) - e_out;
             self.ww_n2 -= dn2;
             self.ww_h2 -= dh2;
@@ -1377,16 +1195,12 @@ impl Containment {
             // An empty wetwell gas moves nothing (0/0 otherwise; gh:#1047).
             let f = if n_ww > 0.0 { (n / n_ww).min(1.0) } else { 0.0 };
             let (dn2, dh2) = (self.ww_n2 * f, self.ww_h2 * f);
-            let dxe = self.xe_ww * f;
-            self.xe_ww -= dxe;
-            self.xe_dw += dxe;
             for i in 0..2 {
                 let d = self.co.ww[i] * f;
                 self.co.ww[i] -= d;
                 self.co.dw[i] += d;
             }
-            let (moved, cv, ca) = self.ww_rn.take(f);
-            self.dw_rn.receive(&moved, cv, &ca);
+            self.fp.ww_to_dw(f);
             self.ww_n2 -= dn2;
             self.ww_h2 -= dh2;
             let e = self.dw_energy(tv) + ncg_u(dn2, dh2, self.pool_t, tv);
@@ -1424,16 +1238,10 @@ impl Containment {
             }
             let f = (n_flow / n_all).min((p_ww - P_ATM) / p_ww);
             let dh2 = self.ww_h2 * f;
-            let dxe = self.xe_ww * f;
-            self.xe_ww -= dxe;
-            self.xe_vented += dxe;
             for i in 0..2 {
                 self.co.ww[i] -= self.co.ww[i] * f;
             }
-            let (_, cv, ca) = self.ww_rn.take(f);
-            self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
-            self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
-            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
+            self.fp.vent(f, f);
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = f * (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + self.ww_steam_kg) / dt;
             let e_a = self.ww_energy(tv) - f * (self.ww_energy(tv) + n_all * R_GAS * self.ww_t);
@@ -1483,16 +1291,10 @@ impl Containment {
             // The gas volume that left, for what rides in it.
             let f_gas = ((n_nc + m_s / M_H2O) / (n_g + n_sv)).min(1.0);
             let dh2 = self.ww_h2 * f;
-            let dxe = self.xe_ww * f;
-            self.xe_ww -= dxe;
-            self.xe_vented += dxe;
             for i in 0..2 {
                 self.co.ww[i] -= self.co.ww[i] * f;
             }
-            let (_, cv, ca) = self.ww_rn.take(f_gas);
-            self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
-            self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
-            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
+            self.fp.vent(f, f_gas);
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2 + m_s) / dt;
             self.ww_n2 -= self.ww_n2 * f;
@@ -1519,16 +1321,10 @@ impl Containment {
             // at 73.5 h of the 500 h run, after which no downcomer flowed.
             let f = if n_g > 0.0 { n / n_g } else { 0.0 };
             let dh2 = self.ww_h2 * f;
-            let dxe = self.xe_ww * f;
-            self.xe_ww -= dxe;
-            self.xe_vented += dxe;
             for i in 0..2 {
                 self.co.ww[i] -= self.co.ww[i] * f;
             }
-            let (_, cv, ca) = self.ww_rn.take(f);
-            self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
-            self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
-            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
+            self.fp.vent(f, f);
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2) / dt;
             self.ww_n2 -= self.ww_n2 * f;
@@ -1561,16 +1357,10 @@ impl Containment {
             let f = n / n_dw;
             let dh2 = self.dw_h2 * f;
             let dn2 = self.dw_n2 * f;
-            let dxe = self.xe_dw * f;
-            self.xe_dw -= dxe;
-            self.xe_building += dxe;
             let dco = [self.co.dw[0] * f, self.co.dw[1] * f];
             self.co.dw[0] -= dco[0];
             self.co.dw[1] -= dco[1];
-            let (_, cv, ca) = self.dw_rn.take(f);
-            self.cs_building_kg += cv[CS] + ca[CS].iter().sum::<f64>();
-            self.i_building_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
-            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
+            self.fp.flange(f);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= self.dw_steam_kg * f;
@@ -1600,10 +1390,7 @@ impl Containment {
         // 8. Fission products and aerosol: condensation, agglomeration and
         //    deposition, every 10 s of accumulated time (transport above
         //    moves them every step).
-        self.rn_clock_s += dt;
-        if self.rn_clock_s >= RN_STEP_S {
-            let h = self.rn_clock_s;
-            self.rn_clock_s = 0.0;
+        if let Some(h) = self.fp.rn_due(dt) {
             self.step_rn(prm, h, s.phoresis);
         }
         let n_rb = P_ATM * prm.reactor_building_m3 / (R_GAS * T_RB);
@@ -1626,6 +1413,7 @@ impl Containment {
         if s.pool_layers {
             self.layer_pool(prm);
         }
+        let fp = self.fp.report();
         ContainmentResult {
             p_dw_pa: self.p_dw(prm),
             p_ww_pa: self.p_ww(prm),
@@ -1647,21 +1435,21 @@ impl Containment {
             fdi_hpme: self.fdi_hpme,
             vented_h2_kg: self.vented_h2_kg,
             vented_kg_s,
-            xe_dw: self.xe_dw,
-            xe_ww: self.xe_ww,
-            xe_vented: self.xe_vented,
-            xe_building: self.xe_building,
-            cs_dw_structures_kg: self.dw_rn.on_surface_kg.iter().map(|x| x[CS]).sum(),
-            cs_ww_pool_kg: self.ww_rn.on_surface_kg[0][CS] + self.pool_scrubbed[CS],
-            cs_airborne_kg: self.dw_rn.vapour_kg[CS] + self.dw_rn.on_aerosol(CS) + self.ww_rn.vapour_kg[CS] + self.ww_rn.on_aerosol(CS),
-            cs_vented_kg: self.cs_vented_kg,
-            cs_building_kg: self.cs_building_kg,
-            i_dw_structures_kg: self.dw_rn.on_surface_kg.iter().map(|x| x[IODINE]).sum(),
-            i_ww_pool_kg: self.ww_rn.on_surface_kg[0][IODINE] + self.pool_scrubbed[IODINE],
-            i_airborne_kg: self.dw_rn.vapour_kg[IODINE] + self.dw_rn.on_aerosol(IODINE) + self.ww_rn.vapour_kg[IODINE] + self.ww_rn.on_aerosol(IODINE),
-            i_vented_kg: self.i_vented_kg,
-            i_building_kg: self.i_building_kg,
-            te_kg: self.dw_rn.total_kg(TE) + self.ww_rn.total_kg(TE) + self.pool_scrubbed[TE] + self.te_out_kg,
+            xe_dw: fp.xe_dw,
+            xe_ww: fp.xe_ww,
+            xe_vented: fp.xe_vented,
+            xe_building: fp.xe_building,
+            cs_dw_structures_kg: fp.cs_dw_structures_kg,
+            cs_ww_pool_kg: fp.cs_ww_pool_kg,
+            cs_airborne_kg: fp.cs_airborne_kg,
+            cs_vented_kg: fp.cs_vented_kg,
+            cs_building_kg: fp.cs_building_kg,
+            i_dw_structures_kg: fp.i_dw_structures_kg,
+            i_ww_pool_kg: fp.i_ww_pool_kg,
+            i_airborne_kg: fp.i_airborne_kg,
+            i_vented_kg: fp.i_vented_kg,
+            i_building_kg: fp.i_building_kg,
+            te_kg: fp.te_kg,
             cav_ablated_kg: self.cavity.ablated_kg,
             cav_h2_kg: self.cavity.h2_kg,
             cav_co_kg: self.cavity.co_kg,
@@ -1674,54 +1462,18 @@ impl Containment {
 /// The non-condensable share of a gas's moles (H2, N2, steam), the share of
 /// its volume that survives the steam's condensation in the pool (SPARC-90's
 /// DF_EC is its inverse). No gas, nothing scrubbed.
-fn nc_share(h2_mol: f64, n2_mol: f64, steam_mol: f64) -> f64 {
+pub(crate) fn nc_share(h2_mol: f64, n2_mol: f64, steam_mol: f64) -> f64 {
     let total = h2_mol + n2_mol + steam_mol;
     if total > 0.0 { (h2_mol + n2_mol) / total } else { 1.0 }
-}
-
-impl Containment {
-    /// The pool water, L, and its dissolved iodine (as I2) and cesium (as
-    /// CsOH), mol/L: what was scrubbed into it and what deposited on its
-    /// surface from the wetwell gas.
-    fn pool_chemistry(&self, pool: &sparc::Pool) -> (f64, f64, f64) {
-        let litres = (self.pool_kg + self.deep_kg) / pool.rho_l() * 1e3;
-        let i_kg = self.pool_scrubbed[IODINE] + self.ww_rn.on_surface_kg[0][IODINE];
-        let cs_kg = self.pool_scrubbed[CS] + self.ww_rn.on_surface_kg[0][CS];
-        (litres, i_kg / iodine::M_I2 / litres, cs_kg / iodine::M_CS / litres)
-    }
-
-    /// The share of iodine vapour (`i_kg` in `gas_m3` of entering gas) that
-    /// passes the condensation, given the gas's share `pass`: MELCOR's
-    /// partition limit (Eq D-7, with the pool's `iodine_h`), and no
-    /// scrubbing at all when the pool's own iodine over the partition is
-    /// at least the gas's (RN §2.7.1). `on` false is the gas's share.
-    fn iodine_vapour_pass(&self, pool: &sparc::Pool, on: bool, pass: f64, i_kg: f64, gas_m3: f64) -> f64 {
-        if !on || pass >= 1.0 || gas_m3 <= 0.0 {
-            return pass;
-        }
-        let (_, s_pool, _) = self.pool_chemistry(pool);
-        let c_in = i_kg / iodine::M_I2 / (gas_m3 * 1e3);
-        if s_pool / self.iodine_h >= c_in {
-            return 1.0;
-        }
-        let rho_v = p_sat_pa(self.pool_t) * M_H2O / (R_GAS * self.pool_t);
-        let m = (self.iodine_h * rho_v / pool.rho_l()).min(1.0);
-        // 1 / DF_EC,vap with DF_EC = 1 / pass, written without dividing
-        // by `pass` (which is 0 for pure steam).
-        if m >= 1.0 { pass } else { pass / (pass + m * (1.0 - pass)) }
-    }
 }
 
 /// The share of a gas's volume that passes the condensation at a vent
 /// exit: `1 / DF_EC = X_i / X_o` (Eqs D-5, D-6), `X_i` the gas's
 /// non-condensable mole fraction and `X_o` the fraction once it is in
 /// equilibrium with the pool. At most 1 (DF_EC is at least 1).
-fn condensation_pass(x_i: f64, x_o: f64) -> f64 {
+pub(crate) fn condensation_pass(x_i: f64, x_o: f64) -> f64 {
     if x_i >= x_o { 1.0 } else { x_i / x_o }
 }
-
-/// Index of the particle mass in `pool_scrubbed`, after the classes.
-const AEROSOL: usize = N_CLASSES;
 
 /// Aerosol step, s (the transport steps every plant step).
 pub(crate) const RN_STEP_S: f64 = 10.0;
@@ -1749,75 +1501,31 @@ pub(crate) fn air_viscosity(t_k: f64) -> f64 {
     1.458e-6 * t_k * t_k.sqrt() / (t_k + 110.4)
 }
 
-/// Specific heats for the heat-mass analogy, J/(kg K): steam, N2, H2. \[A\]
-/// constant values near 400-500 K.
-const CP_STEAM_GAS: f64 = 2000.0;
-const CP_N2_GAS: f64 = 1040.0;
-const CP_H2_GAS: f64 = 14_300.0;
-
 impl Containment {
-    /// The fission-product and aerosol step of both volumes (gh:#1047).
-    /// Drywell: its floor and its structures (the wall heat sink's area and
-    /// temperature), the vapour's mass-transfer coefficient from the
-    /// sink's heat-transfer coefficient by the heat-mass analogy,
-    /// `k = h/(rho c_p)` (Lewis number about 1, stated). Wetwell: the pool
-    /// surface (a floor, at the pool temperature); its shell is not a
-    /// deposition surface yet (stated). No phoretic deposition yet.
+    /// The fission-product and aerosol step of both volumes (gh:#1047):
+    /// since gh:#1100 [`FpHold::step_rn`], given this model's drywell gas,
+    /// structures and wetwell gas (arithmetic unchanged).
     fn step_rn(&mut self, prm: &Params, dt: f64, phoresis: bool) {
-        let n = self.dw_rn.sections.v.len();
-        // Drywell gas.
-        let n_s = self.dw_steam_kg / M_H2O;
-        let n_tot = (self.dw_n2 + self.dw_h2 + n_s).max(1e-30);
-        let gases_dw = [(BulkGas::Steam, n_s / n_tot), (BulkGas::N2, self.dw_n2 / n_tot), (BulkGas::H2, self.dw_h2 / n_tot)];
-        let p_dw = self.p_dw(prm);
-        let m_dw = Medium::air(self.dw_t, p_dw, air_viscosity(self.dw_t));
-        let mass = self.dw_steam_kg + self.dw_n2 * M_N2 + self.dw_h2 * M_H2;
-        let cp = (self.dw_steam_kg * CP_STEAM_GAS + self.dw_n2 * M_N2 * CP_N2_GAS + self.dw_h2 * M_H2 * CP_H2_GAS) / mass.max(1e-30);
-        let rho = mass / prm.drywell_volume_m3;
         let h_wall = if self.dw_hs { self.dw_wall_surface(prm).0 } else { prm.dw_wall_h };
-        let k_w = h_wall / (rho * cp);
-        // Phoresis onto the drywell's structures (MELCOR RN §2.4.2.2):
-        // thermophoresis from the gradient of their heat flux, `grad T =
-        // q'' / k_air` at the surface temperature (Eq 2-43 and the text
-        // after it), and diffusiophoresis from the steam condensed on them
-        // since the last aerosol step (Eqs 2-45, 2-46), spread over their
-        // area. Both surfaces are at the wall's temperature.
-        let phoretic = if phoresis {
-            let q = h_wall * (self.dw_t - self.dw_wall_t);
-            let grad_t = q / air_conductivity(self.dw_wall_t);
-            let w_cond = self.dw_condensed_kg / (dt * (prm.dw_floor_m2 + prm.dw_wall_area_m2));
-            let n_nc = (self.dw_n2 + self.dw_h2).max(1e-30);
-            let m_nc = (self.dw_n2 * M_N2 + self.dw_h2 * M_H2) / n_nc;
-            let rho_sat = p_sat_pa(self.dw_t.min(640.0)) * M_H2O / (R_GAS * self.dw_t);
-            let v_dp = diffusiophoretic_velocity(w_cond, n_s / n_tot, M_H2O, m_nc, rho, rho_sat);
-            (0..n).map(|k| m_dw.thermophoretic_velocity(self.dw_rn.sections.diameter(k), grad_t, self.dw_wall_t) + v_dp).collect()
-        } else {
-            vec![0.0; n]
-        };
-        self.dw_condensed_kg = 0.0;
-        let dw_surfaces = [
-            RnSurface { surface: Surface { area: prm.dw_floor_m2, facing: Facing::Floor, phoretic: phoretic.clone() }, t_k: self.dw_wall_t, k_vapour: k_w },
-            RnSurface { surface: Surface { area: prm.dw_wall_area_m2, facing: Facing::Wall, phoretic }, t_k: self.dw_wall_t, k_vapour: k_w },
-        ];
-        self.dw_rn.step(&m_dw, &gases_dw, &dw_surfaces, dt);
-        // The pool's iodine partition (`iodine`), for the scrubbing until
-        // the next aerosol step.
-        let pool = sparc::Pool::submerged(self.pool_t, self.p_ww(prm), prm.vent_submergence_pa);
-        let (_, s_i, oh) = self.pool_chemistry(&pool);
-        self.iodine_h = iodine::partition(self.pool_t, s_i, oh, 0.0);
-        // Wetwell gas, saturated with steam at the pool temperature (or the
-        // atmosphere's own, with `ww_atmosphere`).
         let p_ww = self.p_ww(prm);
         let (x_s, t_gas) = if self.ww_atm { (self.ww_steam_kg / M_H2O / self.ww_moles(), self.ww_t) } else { ((p_sat_pa(self.pool_t) / p_ww).min(1.0), self.pool_t) };
-        let n_nc = (self.ww_n2 + self.ww_h2).max(1e-30);
-        let gases_ww = [(BulkGas::Steam, x_s), (BulkGas::N2, (1.0 - x_s) * self.ww_n2 / n_nc), (BulkGas::H2, (1.0 - x_s) * self.ww_h2 / n_nc)];
-        let m_ww = Medium::air(t_gas, p_ww, air_viscosity(t_gas));
-        let ww_surfaces = [RnSurface {
-            surface: Surface { area: prm.ww_pool_surface_m2, facing: Facing::Floor, phoretic: vec![0.0; n] },
-            t_k: self.pool_t,
-            k_vapour: k_w,
-        }];
-        self.ww_rn.step(&m_ww, &gases_ww, &ww_surfaces, dt);
+        let c = RnContext {
+            dw_steam_kg: self.dw_steam_kg,
+            dw_n2: self.dw_n2,
+            dw_h2: self.dw_h2,
+            dw_t_k: self.dw_t,
+            p_dw_pa: self.p_dw(prm),
+            dw_gas_m3: prm.drywell_volume_m3,
+            h_wall,
+            dw_wall_t_k: self.dw_wall_t,
+            pool: PoolSide { t_k: self.pool_t, p_ww_pa: p_ww, water_kg: self.pool_kg + self.deep_kg },
+            ww_x_steam: x_s,
+            ww_t_k: t_gas,
+            ww_n2: self.ww_n2,
+            ww_h2: self.ww_h2,
+            pool_area_m2: prm.ww_pool_surface_m2,
+        };
+        self.fp.step_rn(prm, &c, dt, phoresis);
     }
 }
 
@@ -1853,21 +1561,21 @@ impl Containment {
             self.vented_h2_kg,
             self.pedestal_kg,
             self.pedestal_t,
-            self.xe_dw,
-            self.xe_ww,
-            self.xe_vented,
-            self.xe_building,
-            self.rn_clock_s,
-            self.cs_vented_kg,
-            self.cs_building_kg,
-            self.i_vented_kg,
-            self.i_building_kg,
-            self.te_out_kg,
-            self.swarm_age_s,
-            self.iodine_h,
-            self.dw_condensed_kg,
-            self.iodine_swarm_pass,
-            self.iodine_swarm_age_s,
+            self.fp.xe_dw,
+            self.fp.xe_ww,
+            self.fp.xe_vented,
+            self.fp.xe_building,
+            self.fp.rn_clock_s,
+            self.fp.cs_vented_kg,
+            self.fp.cs_building_kg,
+            self.fp.i_vented_kg,
+            self.fp.i_building_kg,
+            self.fp.te_out_kg,
+            self.fp.swarm_age_s,
+            self.fp.iodine_h,
+            self.fp.dw_condensed_kg,
+            self.fp.iodine_swarm_pass,
+            self.fp.iodine_swarm_age_s,
             self.ww_steam_kg,
             self.ww_t,
             self.ww_shell_t,
@@ -1887,10 +1595,10 @@ impl Containment {
         w.f(&[self.co.dw[0], self.co.dw[1], self.co.ww[0], self.co.ww[1], self.co.rb[0], self.co.rb[1], self.rb_in]);
         w.f(&[self.burn.left_s, self.burn.y_min, self.burn.o2_used, self.burn.q_j, self.burn.dp_max]);
         w.f(&[self.fdi_steam_kg, b(self.fdi_hpme)]);
-        w.f(&self.swarm_pass);
-        w.f(&self.pool_scrubbed);
-        self.dw_rn.write(w);
-        self.ww_rn.write(w);
+        w.f(&self.fp.swarm_pass);
+        w.f(&self.fp.pool_scrubbed);
+        self.fp.dw_rn.write(w);
+        self.fp.ww_rn.write(w);
     }
     pub fn read_state(r: &mut Reader) -> Self {
         let mut c = Self {
@@ -1910,25 +1618,28 @@ impl Containment {
             vented_h2_kg: r.f(),
             pedestal_kg: r.f(),
             pedestal_t: r.f(),
-            xe_dw: r.f(),
-            xe_ww: r.f(),
-            xe_vented: r.f(),
-            xe_building: r.f(),
-            dw_rn: RnVolume::new(0.0, rn_sections(), 2),
-            ww_rn: RnVolume::new(0.0, rn_sections(), 1),
-            rn_clock_s: r.f(),
-            cs_vented_kg: r.f(),
-            cs_building_kg: r.f(),
-            i_vented_kg: r.f(),
-            i_building_kg: r.f(),
-            te_out_kg: r.f(),
-            swarm_pass: vec![],
-            swarm_age_s: r.f(),
-            iodine_h: r.f(),
-            dw_condensed_kg: r.f(),
-            iodine_swarm_pass: r.f(),
-            iodine_swarm_age_s: r.f(),
-            pool_scrubbed: [0.0; N_CLASSES + 1],
+            // The fission products' scalars, in their wire order (the
+            // fields' former order in `Containment`).
+            fp: {
+                let mut fp = FpHold::new(0.0, 0.0);
+                fp.xe_dw = r.f();
+                fp.xe_ww = r.f();
+                fp.xe_vented = r.f();
+                fp.xe_building = r.f();
+                fp.rn_clock_s = r.f();
+                fp.cs_vented_kg = r.f();
+                fp.cs_building_kg = r.f();
+                fp.i_vented_kg = r.f();
+                fp.i_building_kg = r.f();
+                fp.te_out_kg = r.f();
+                fp.swarm_pass = vec![];
+                fp.swarm_age_s = r.f();
+                fp.iodine_h = r.f();
+                fp.dw_condensed_kg = r.f();
+                fp.iodine_swarm_pass = r.f();
+                fp.iodine_swarm_age_s = r.f();
+                fp
+            },
             ww_steam_kg: r.f(),
             ww_t: r.f(),
             ww_shell_t: r.f(),
@@ -1965,10 +1676,10 @@ impl Containment {
         c.burn = Burn { left_s: r.f(), y_min: r.f(), o2_used: r.f(), q_j: r.f(), dp_max: r.f() };
         c.fdi_steam_kg = r.f();
         c.fdi_hpme = r.f() != 0.0;
-        c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
-        c.pool_scrubbed = std::array::from_fn(|_| r.f());
-        c.dw_rn.read_into(r);
-        c.ww_rn.read_into(r);
+        c.fp.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
+        c.fp.pool_scrubbed = std::array::from_fn(|_| r.f());
+        c.fp.dw_rn.read_into(r);
+        c.fp.ww_rn.read_into(r);
         c
     }
 }

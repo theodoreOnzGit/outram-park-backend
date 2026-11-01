@@ -29,7 +29,25 @@
 //! | `vessel_p_pa` and the debris arriving through water | sembawang's FDI fall (`containment::lpme_fall` (crate-private), MELCOR FDI RM §2.2): its heat into the sump ([`NetworkMechanisms::fdi`]) |
 //! | `dw_wall_outer` | sembawang's drywell slab (`containment::dw_slab_step` (crate-private)) behind the lumped structures ([`NetworkMechanisms::dw_slab`]) |
 //! | `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
-//! | fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, ~~MCCI, FDI,~~ `pool_layers`~~, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above) |
+//! | `xe_*`, `cs_*`, `i_*`, `uo2_*`, `rn_relief`, `rn_leak` and the scrubbing switches | **since gh:#1100** sembawang's own fission products ([`super::containment_fp::FpHold`], moved out of `Containment` with unchanged arithmetic): the relief flow's scrubbed by SPARC-90's condensation at the quenchers' port, the leaks' into the drywell; each step they ride the gas each path moved (the downcomers' scrubbed by condensation, impaction and the swarm rise; the vacuum breakers', the vent's and the flange's unscrubbed), and every 10 s they deposit on the drywell's floor and structures and on the pool's surface ([`NetworkMechanisms::fission_products`]) |
+//! | `q_noble_w`, `q_alkali_w`, `q_halogen_w`, `q_chalcogen_w` | **since gh:#1100** the decay heat of what the network holds, by location as in the old model: airborne in the drywell by `set_atmosphere_heat`, on its structures into the lumped wall, in the wetwell gas, on the pool's surface and scrubbed by `set_pool_heat` on the torus ([`NetworkMechanisms::fp_decay_heat`]) |
+//! | burns, `pool_layers`, ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
+//!
+//! **How the fission products ride the paths (stated).** A path's mean gas
+//! mass over the step (tampines' `FlowTransfer`, positive `from → to`) moves
+//! the fraction `m / (M + Σ out)` of its donor's gas, `M` the donor's gas at
+//! the end of the step and `Σ out` all the gas it sent out (donor cell, the
+//! end-of-step mixture; each donor's paths taken in turn from what is left).
+//! The downcomers' composition (for SPARC's non-condensable share) is the
+//! drywell's end-of-step mixture, CO, CO2 and O2 counted with the nitrogen as
+//! the old model counts them. Liquid crossing a path carries no fission
+//! products (the scrubbed inventory stays in the torus). The drywell sump
+//! holds none (as the old pedestal). The torus gas's aerosol volume follows
+//! the network's atmosphere volume (the pool displaces it); the pool's
+//! surface for deposition is the V(z) table's area at the level (711 m²
+//! against the old model's 750 m²). Wall condensation counts toward the
+//! drywell's diffusiophoresis; the rain-out inside the control volume does
+//! not (it is not reported; the old model counts both).
 //!
 //! ## Geometry: from `params`, with what had to be assumed marked \[A\]
 //!
@@ -90,7 +108,8 @@ use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
 use super::cavity::Cavity;
-use super::containment::{dw_slab_step, lpme_fall, ContainmentSnapshot, DW_SLAB_CELLS};
+use super::containment::{bur_ignites, dw_slab_step, lpme_fall, ContainmentSnapshot, DW_SLAB_CELLS};
+use super::containment_fp::{DowncomerFlow, FpDecayHeat, FpHold, FpReport, PoolSide, RnContext};
 use super::params::*;
 use super::pool_surface;
 use super::steam::p_sat_pa;
@@ -198,6 +217,11 @@ pub struct NetworkMechanisms {
     pub fdi: bool,
     /// sembawang's concrete slab behind the drywell structures.
     pub dw_slab: bool,
+    /// sembawang's fission products (`FpHold`) carried on the paths, with
+    /// pool scrubbing and deposition (gh:#1100).
+    pub fission_products: bool,
+    /// Their decay heat in the volumes (needs `fission_products`).
+    pub fp_decay_heat: bool,
 }
 
 impl NetworkMechanisms {
@@ -212,6 +236,15 @@ impl NetworkMechanisms {
     /// Ablation: no drywell slab.
     pub fn without_dw_slab(self) -> Self {
         Self { dw_slab: false, ..self }
+    }
+    /// Ablation: no fission products (nor their decay heat).
+    pub fn without_fission_products(self) -> Self {
+        Self { fission_products: false, ..self }
+    }
+    /// Ablation: the fission products carried, their decay heat not
+    /// deposited in the volumes.
+    pub fn without_fp_decay_heat(self) -> Self {
+        Self { fp_decay_heat: false, ..self }
     }
     /// Ablation: no pool compression work.
     pub fn without_pressure_work(self) -> Self {
@@ -256,6 +289,8 @@ impl Default for NetworkMechanisms {
             cavity: true,
             fdi: true,
             dw_slab: true,
+            fission_products: true,
+            fp_decay_heat: true,
         }
     }
 }
@@ -281,6 +316,13 @@ pub struct NetworkResult {
     pub ww_h2_kg: f64,
     /// Hydrogen's mole fraction in the building's gas (steam included).
     pub rb_h2_fraction: f64,
+    /// The building's Le Chatelier combustible fraction `X_H2 + X_CO
+    /// L_H2 / L_CO` (BUR RM Eq 2-3) and whether it meets MELCOR's ignition
+    /// criteria (`containment::bur_ignites`, sembawang's; steam and CO2 as
+    /// the diluent). A diagnostic only: the network does not burn (no
+    /// non-condensable sink in `tampines`; V&V doc).
+    pub rb_burn_y: f64,
+    pub rb_ignites: bool,
     pub vent_flowing: bool,
     pub vented_kg_s: f64,
     pub vented_h2_kg: f64,
@@ -303,6 +345,11 @@ pub struct NetworkResult {
     /// The drywell structures' temperature and the slab's inner cell, K.
     pub dw_wall_k: f64,
     pub dw_slab_inner_k: f64,
+    /// Where the fission products are (gh:#1100; zero with
+    /// `without_fission_products`), and the decay heat they deposited this
+    /// step, W, by location.
+    pub fp: FpReport,
+    pub fp_heat: FpDecayHeat,
     /// Picard iterations this step (summed over sub-steps), the largest
     /// residual, and the sub-steps taken so far in the run.
     pub iterations: usize,
@@ -319,19 +366,27 @@ const MAX_HALVINGS: usize = 6;
 /// executive cuts its step when a package fails to converge, EXEC RM,
 /// cited). The network commits nothing on a failed step, and the held
 /// sources and heats are rates, so the halves see the same drive. Writes
-/// each path's mean mass rate over `dt` into `rates`; returns the Picard
-/// iterations, the largest residual and the extra sub-steps taken.
-fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<f64>) -> Result<(usize, f64, usize), TampinesError> {
+/// each path's mean mass rate over `dt` into `rates`, `[both phases, gas]`;
+/// returns the Picard iterations, the largest residual and the extra
+/// sub-steps taken.
+fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<[f64; 2]>) -> Result<(usize, f64, usize), TampinesError> {
     match net.step(Time::new::<second>(dt)) {
         Ok(r) => {
-            *rates = r.transfers.iter().map(|t| t.gas_mass_rate.get::<kilogram_per_second>() + t.liquid_mass_rate.get::<kilogram_per_second>()).collect();
+            *rates = r
+                .transfers
+                .iter()
+                .map(|t| {
+                    let g = t.gas_mass_rate.get::<kilogram_per_second>();
+                    [g + t.liquid_mass_rate.get::<kilogram_per_second>(), g]
+                })
+                .collect();
             Ok((r.iterations, r.residual, 0))
         }
         Err(TampinesError::Numerical(_)) if depth < MAX_HALVINGS => {
             let (mut a, mut b) = (Vec::new(), Vec::new());
             let (i1, r1, s1) = advance(net, 0.5 * dt, depth + 1, &mut a)?;
             let (i2, r2, s2) = advance(net, 0.5 * dt, depth + 1, &mut b)?;
-            *rates = a.iter().zip(&b).map(|(x, y)| 0.5 * (x + y)).collect();
+            *rates = a.iter().zip(&b).map(|(x, y)| [0.5 * (x[0] + y[0]), 0.5 * (x[1] + y[1])]).collect();
             Ok((i1 + i2, r1.max(r2), 1 + s1 + s2))
         }
         Err(e) => Err(e),
@@ -368,6 +423,7 @@ pub struct ContainmentNetwork {
     cavity: Cavity,
     fdi_steam_kg: f64,
     dw_slab: [f64; DW_SLAB_CELLS],
+    fp: FpHold,
 }
 
 /// Ports, by volume.
@@ -624,6 +680,7 @@ impl ContainmentNetwork {
             cavity: Cavity::default(),
             fdi_steam_kg: 0.0,
             dw_slab: [t_dw; DW_SLAB_CELLS],
+            fp: FpHold::new(prm.drywell_volume_m3, prm.wetwell_gas_m3),
         })
     }
 
@@ -645,6 +702,11 @@ impl ContainmentNetwork {
     /// The debris on the drywell floor (sembawang's cavity).
     pub fn cavity(&self) -> &Cavity {
         &self.cavity
+    }
+
+    /// The fission products the network holds (sembawang's `FpHold`).
+    pub fn fission_products(&self) -> &FpHold {
+        &self.fp
     }
 
     /// The drywell structures' and the torus shell's temperatures, K.
@@ -701,12 +763,35 @@ impl ContainmentNetwork {
         let leak = Source::water(kgs(s.leak_steam_kg_s), AvailableEnergy::new::<joule_per_kilogram>(s.leak_h))
             .with_gas(&[(NonCondensable::H2, kgs(s.leak_h2_kg_s))], kel(s.leak_gas_k.max(1.0)));
         self.net.set_source(dw, DW_LEAK, leak)?;
+        // Fission products (gh:#1100): the aerosol volumes follow the
+        // atmospheres; the decay heat of what is held, from the
+        // start-of-step inventory (as the old model's step 0); then what
+        // arrives.
+        let fp_on = self.mech.fission_products;
+        let mut fp_heat = FpDecayHeat::default();
+        if fp_on {
+            self.fp.begin_step(s);
+            if let (Some(a), Some(b)) = (self.net.volume(dw), self.net.volume(ww)) {
+                self.fp.dw_rn.set_volume(a.atmosphere_volume().get::<cubic_meter>());
+                self.fp.ww_rn.set_volume(b.atmosphere_volume().get::<cubic_meter>());
+            }
+            if self.mech.fp_decay_heat {
+                fp_heat = self.fp.decay_heat(&prm, s).unwrap_or_default();
+            }
+            self.dw_wall.t_k += fp_heat.dw_wall_w * dt / prm.dw_wall_c;
+            let side = self.pool_side();
+            self.fp.arrive(&prm, s, side);
+        }
+        self.net.set_pool_heat(ww, Power::new::<watt>(fp_heat.pool_w))?;
         // Structures (explicit, from the start-of-step state).
         let (q_dw, m_dw, q_wall) = self.wall_exchange(dw, self.dw_wall, prm.dw_wall_area_m2, prm.dw_wall_height_m, (!s.dw_wall_hs).then_some(prm.dw_wall_h), dt);
         let (q_ww, m_ww, q_shell) = if s.ww_shell { self.wall_exchange(ww, self.ww_shell, prm.ww_shell_area_m2, prm.ww_shell_height_m, None, dt) } else { (0.0, 0.0, 0.0) };
         self.dw_wall.t_k += q_wall * dt / prm.dw_wall_c;
         self.ww_shell.t_k += q_shell * dt / prm.ww_shell_c;
-        self.net.set_atmosphere_heat(dw, Power::new::<watt>(q_dw + s.rpv_wall_w))?;
+        self.net.set_atmosphere_heat(dw, Power::new::<watt>(q_dw + s.rpv_wall_w + fp_heat.dw_gas_w))?;
+        if fp_on {
+            self.fp.dw_condensed_kg += m_dw * dt;
+        }
         self.net.set_atmosphere_steam_sink(dw, kgs(m_dw))?;
         self.net.set_atmosphere_heat(ww, Power::new::<watt>(q_ww))?;
         self.net.set_atmosphere_steam_sink(ww, kgs(m_ww))?;
@@ -774,7 +859,11 @@ impl ContainmentNetwork {
         let mut rates = Vec::new();
         let (iterations, residual, substeps) = advance(&mut self.net, dt, 0, &mut rates)?;
         self.substeps += substeps;
-        let rate = |i: usize| rates.get(i).copied().unwrap_or(0.0);
+        let rate = |i: usize| rates.get(i).map_or(0.0, |r| r[0]);
+        if fp_on {
+            let gas: Vec<f64> = rates.iter().map(|r| r[1]).collect();
+            self.move_fission_products(s, &gas);
+        }
         let vented = rate(self.vent);
         let v_ww = self.net.volume(ww).ok_or_else(|| TampinesError::InvalidInput("no wetwell".into()))?;
         let v_dw = self.net.volume(dw).ok_or_else(|| TampinesError::InvalidInput("no drywell".into()))?;
@@ -801,6 +890,14 @@ impl ContainmentNetwork {
             dw_h2_kg: v_dw.atmosphere().ncg_moles[h2] * M_H2,
             ww_h2_kg: ww_gas.ncg_moles[h2] * M_H2,
             rb_h2_fraction: rb_gas.ncg_moles[h2] / n_rb,
+            rb_burn_y: (rb_gas.ncg_moles[h2] + rb_gas.ncg_moles[NonCondensable::CO.index()] * prm.bur_xh2ign / prm.bur_xcoign) / n_rb,
+            rb_ignites: bur_ignites(
+                &prm,
+                rb_gas.ncg_moles[h2] / n_rb,
+                rb_gas.ncg_moles[NonCondensable::CO.index()] / n_rb,
+                rb_gas.ncg_moles[NonCondensable::O2.index()] / n_rb,
+                (rb_gas.steam_kg / M_H2O + rb_gas.ncg_moles[NonCondensable::CO2.index()]) / n_rb,
+            ),
             vent_flowing: vent_open && vented > 0.0,
             vented_kg_s: vented,
             vented_h2_kg: self.vented_h2_kg,
@@ -817,9 +914,129 @@ impl ContainmentNetwork {
             dw_co2_kg: v_dw.atmosphere().ncg_moles[NonCondensable::CO2.index()] * NonCondensable::CO2.molar_mass(),
             dw_wall_k: self.dw_wall.t_k,
             dw_slab_inner_k: self.dw_slab[0],
+            fp: self.fp.report(),
+            fp_heat,
             iterations,
             residual,
             substeps: self.substeps,
+        })
+    }
+
+    /// The torus pool as the scrubbing sees it: its temperature, the torus
+    /// pressure and its water.
+    fn pool_side(&self) -> PoolSide {
+        self.net.volume(self.ww).map_or(PoolSide { t_k: self.prm.initial_pool_k, p_ww_pa: self.prm.initial_containment_pa, water_kg: 0.0 }, |v| PoolSide {
+            t_k: v.pool_temperature().get::<kelvin>(),
+            p_ww_pa: v.atmosphere_pressure().get::<pascal>(),
+            water_kg: v.pool_mass().get::<kilogram>(),
+        })
+    }
+
+    /// The fission products ride the gas each path moved this step
+    /// (`gas`, each path's mean gas mass rate, kg/s, positive `from → to`;
+    /// the module docs state the donor-cell split), then, every 10 s, the
+    /// aerosol step deposits them (`FpHold::step_rn`, the old model's) with
+    /// the network's end-of-step volumes.
+    fn move_fission_products(&mut self, s: &ContainmentSnapshot, gas: &[f64]) {
+        let prm = self.prm;
+        let dt = s.dt_s;
+        let g = |i: usize| gas.get(i).copied().unwrap_or(0.0) * dt;
+        let (dc, vb, vent, flange) = (g(self.downcomer), g(self.vacuum_breaker), g(self.vent), g(self.flange));
+        let mass = |i: usize| self.net.volume(i).map_or(0.0, |v| v.atmosphere().total_mass().get::<kilogram>());
+        // Each donor's outflows (the vacuum breakers and the vent never
+        // flow back; a downcomer's backflow would leave the torus gas).
+        let dw_out = [dc.max(0.0), flange.max(0.0)];
+        let ww_out = [vb.max(0.0), vent.max(0.0), (-dc).max(0.0)];
+        let dw_avail = mass(self.dw) + dw_out.iter().sum::<f64>();
+        let ww_avail = mass(self.ww) + ww_out.iter().sum::<f64>();
+        let share = |m: f64, avail: f64, left: &mut f64| -> f64 {
+            if m <= 0.0 || avail <= 0.0 || *left <= 0.0 {
+                return 0.0;
+            }
+            let f = m / avail;
+            let of_left = (f / *left).min(1.0);
+            *left -= f;
+            of_left
+        };
+        // The drywell's: the downcomers (scrubbed), the flange.
+        let mut left = 1.0;
+        let f_dc = share(dw_out[0], dw_avail, &mut left);
+        if f_dc > 0.0 {
+            if let Some(v) = self.net.volume(self.dw) {
+                let a = v.atmosphere();
+                let n_h2 = a.ncg_moles[NonCondensable::H2.index()];
+                let n_nc = a.ncg_total_moles();
+                let scale = dw_out[0] / a.total_mass().get::<kilogram>();
+                let (dn2, dh2, dsteam) = (scale * (n_nc - n_h2), scale * n_h2, scale * a.steam_kg);
+                let flow = DowncomerFlow {
+                    f: f_dc,
+                    n: dn2 + dh2 + dsteam / M_H2O,
+                    dn2,
+                    dh2,
+                    dsteam_kg: dsteam,
+                    t_dw_k: v.atmosphere_temperature().get::<kelvin>(),
+                    p_dw_pa: v.atmosphere_pressure().get::<pascal>(),
+                };
+                let side = self.pool_side();
+                self.fp.downcomer(&prm, s, flow, side);
+            }
+        }
+        let f_fl = share(dw_out[1], dw_avail, &mut left);
+        if f_fl > 0.0 {
+            self.fp.flange(f_fl);
+        }
+        // The torus gas's: the vacuum breakers, the vent, any backflow.
+        let mut left = 1.0;
+        let f_vb = share(ww_out[0], ww_avail, &mut left);
+        if f_vb > 0.0 {
+            self.fp.ww_to_dw(f_vb);
+        }
+        let f_vent = share(ww_out[1], ww_avail, &mut left);
+        if f_vent > 0.0 {
+            self.fp.vent(f_vent, f_vent);
+        }
+        let f_back = share(ww_out[2], ww_avail, &mut left);
+        if f_back > 0.0 {
+            self.fp.ww_to_dw(f_back);
+        }
+        // The aerosol step, every 10 s.
+        if let Some(h) = self.fp.rn_due(dt) {
+            if let Some(c) = self.rn_context(s) {
+                self.fp.step_rn(&prm, &c, h, s.phoresis);
+            }
+        }
+    }
+
+    /// The aerosol step's view of the network (end of step).
+    fn rn_context(&self, s: &ContainmentSnapshot) -> Option<RnContext> {
+        let prm = self.prm;
+        let (vd, vw) = (self.net.volume(self.dw)?, self.net.volume(self.ww)?);
+        let (a, b) = (vd.atmosphere(), vw.atmosphere());
+        let h2 = NonCondensable::H2.index();
+        let t_dw = vd.atmosphere_temperature().get::<kelvin>();
+        let p_dw = vd.atmosphere_pressure().get::<pascal>();
+        let h_wall = if s.dw_wall_hs {
+            let atm = pool_surface::Atmosphere { t_k: t_dw, p_pa: p_dw, n_steam: a.steam_kg / M_H2O, n_n2: a.ncg_total_moles() - a.ncg_moles[h2], n_h2: a.ncg_moles[h2] };
+            pool_surface::structure_surface(&atm, self.dw_wall.t_k, prm.dw_wall_height_m).0
+        } else {
+            prm.dw_wall_h
+        };
+        let n_ww = b.steam_kg / M_H2O + b.ncg_total_moles();
+        Some(RnContext {
+            dw_steam_kg: a.steam_kg,
+            dw_n2: a.ncg_total_moles() - a.ncg_moles[h2],
+            dw_h2: a.ncg_moles[h2],
+            dw_t_k: t_dw,
+            p_dw_pa: p_dw,
+            dw_gas_m3: vd.atmosphere_volume().get::<cubic_meter>(),
+            h_wall,
+            dw_wall_t_k: self.dw_wall.t_k,
+            pool: self.pool_side(),
+            ww_x_steam: if n_ww > 0.0 { b.steam_kg / M_H2O / n_ww } else { 0.0 },
+            ww_t_k: vw.atmosphere_temperature().get::<kelvin>(),
+            ww_n2: b.ncg_total_moles() - b.ncg_moles[h2],
+            ww_h2: b.ncg_moles[h2],
+            pool_area_m2: vw.table().area_at(vw.pool_level()).get::<square_meter>(),
         })
     }
 
