@@ -30,6 +30,7 @@ pub mod reactor_power;
 pub mod steam_generator;
 pub mod turbine;
 pub mod valve;
+pub mod wall_condensation;
 pub mod wet_well;
 
 pub use condenser::Condenser;
@@ -57,6 +58,10 @@ pub use reactor_power::{AxialPowerShape, CoreChannelShare, ReactorPowerSource, T
 pub use steam_generator::SteamGenerator;
 pub use turbine::Turbine;
 pub use valve::Valve;
+// A heat-structure surface facing a gas: MELCOR's natural convection plus
+// condensation through non-condensables (gh:#1096), moved from
+// `sembawang::bwr_mark1::pool_surface::structure_surface`.
+pub use wall_condensation::{CondensateEnthalpy, SurfaceModel, WallCondensation, WallExchange, WallGas};
 // The suppression-pool wet well (gh:#1075, RELAP-7 §6.12), ported from
 // `sembawang::bwr_mark1`'s MELCOR-based torus.
 pub use wet_well::{

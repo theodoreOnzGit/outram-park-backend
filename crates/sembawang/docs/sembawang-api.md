@@ -6532,6 +6532,12 @@ pub fn inventory_kg(symbol: &str) -> f64 { /* ... */ }
 
 Heat capacities of the non-condensable gases, N2 and H2.
 
+**Since 2026-11-01 the code lives in `tampines_steam_tables::gas_mixture::melcor_ncg`**
+(gh:#1093; maintainer direction: `sembawang` depends on `tampines`, so the
+thermal-hydraulic properties live on that side). It moved verbatim, with
+the same constants and operation order, so every value is bit-identical;
+this module forwards to it, and its test moved with it.
+
 Each has its own `c_v(T)`, from MELCOR 2.2's NCG library fits (Vol. 2,
 SAND2023-10994 O, NCG/H2O-RM-33/34; the form is Vol. 1, SAND2017-0455 O,
 NCG-UG-2, Eq 1.1; no source used):
@@ -6552,78 +6558,60 @@ constants, 20.8 (N2) and 20.5 (H2) J/(mol K), and the
 pub mod gas { /* ... */ }
 ```
 
-### Functions
+### Re-exports
 
-#### Function `cv_n2`
-
-Molar `c_v` of N2 and of H2, J/(mol K); `t_dependent` false is the
-constant-value ablation.
+#### Re-export `cp_h2_per_kg`
 
 ```rust
-pub fn cv_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::cp_h2_per_kg;
 ```
 
-#### Function `cv_h2`
+#### Re-export `cv_h2`
 
 ```rust
-pub fn cv_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::cv_h2;
 ```
 
-#### Function `u_n2`
-
-Molar internal energy of N2 and of H2 from 0 K, J/mol.
+#### Re-export `cv_n2`
 
 ```rust
-pub fn u_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::cv_n2;
 ```
 
-#### Function `u_h2`
+#### Re-export `h2_enthalpy_above_298`
 
 ```rust
-pub fn u_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::h2_enthalpy_above_298;
 ```
 
-#### Function `ncg_u`
-
-Internal energy of `n2` and `h2` moles at `t`, J. The ablation keeps the
-operation order of the code before 2026-10-29, so it reproduces it bit
-for bit.
+#### Re-export `h2_molar_enthalpy`
 
 ```rust
-pub fn ncg_u(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::h2_molar_enthalpy;
 ```
 
-#### Function `ncg_c`
-
-Heat capacity of `n2` and `h2` moles at `t`, J/K.
+#### Re-export `ncg_c`
 
 ```rust
-pub fn ncg_c(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::ncg_c;
 ```
 
-#### Function `h2_molar_enthalpy`
-
-Hydrogen's molar enthalpy from 0 K, `u + R T`, J/mol (the ablation as
-before: `(c_v + R) T`).
+#### Re-export `ncg_u`
 
 ```rust
-pub fn h2_molar_enthalpy(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::ncg_u;
 ```
 
-#### Function `cp_h2_per_kg`
-
-Hydrogen's `c_p`, J/(kg K), and its enthalpy above 298.15 K, J/kg, for
-the core and vessel (the `hydrogen_cp_t` mechanism). The ablation's
-`c_p` is the constant the core used before, `(20.5 + R)/M_H2`.
+#### Re-export `u_h2`
 
 ```rust
-pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::u_h2;
 ```
 
-#### Function `h2_enthalpy_above_298`
+#### Re-export `u_n2`
 
 ```rust
-pub fn h2_enthalpy_above_298(t: f64) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::u_n2;
 ```
 
 ## Module `internals`
@@ -9934,6 +9922,11 @@ MELCOR 2.2 reference manuals' equations, never from MELCOR source.
   conductivity, and the steam-air and steam-hydrogen diffusivities
   (Eqs 6-1, 6-2; nitrogen takes air's, stated).
 
+**Since 2026-11-01 the gas-mixture properties and the heat-structure
+surface ([`structure_surface`], [`Atmosphere`]) live in
+`tampines::components::wall_condensation`** (gh:#1096), moved verbatim
+and re-exported here; the pool-surface exchange below stays.
+
 **Simplifications, stated:** no forced convection (MELCOR's Eq 5-21
 needs the volume's velocity, which this model does not have); the pool's
 heat capacity is the model's constant `c_p`; the pool's expansion
@@ -9945,150 +9938,6 @@ pub mod pool_surface { /* ... */ }
 
 ### Types
 
-#### Struct `Atmosphere`
-
-The wetwell atmosphere's bulk properties.
-
-```rust
-pub struct Atmosphere {
-    pub t_k: f64,
-    pub p_pa: f64,
-    pub n_steam: f64,
-    pub n_n2: f64,
-    pub n_h2: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `t_k` | `f64` |  |
-| `p_pa` | `f64` |  |
-| `n_steam` | `f64` | Moles of steam, nitrogen and hydrogen. |
-| `n_n2` | `f64` |  |
-| `n_h2` | `f64` |  |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
-  ```
-  Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Pool`
 
 The pool's bulk state.
@@ -10508,27 +10357,6 @@ and condensation to 90 % of the atmosphere's vapour (C4407).
 pub fn exchange(pool: &Pool, atm: &Atmosphere, surface: &Surface, dt: f64) -> Exchange { /* ... */ }
 ```
 
-#### Function `structure_surface`
-
-MELCOR's heat-structure surface facing an atmosphere (HS RM §2.6.1,
-§2.7): natural convection on an external rectangular surface of height
-`l_c`, `Nu = 0.59 Ra^1/4` below `Ra = 1e9`, `0.10 Ra^1/3` above `1e10`,
-linear in `Ra` between (Table 2.3, Eqs 2-82, 2-85 to 2-87), with the
-Grashof number from the density difference while condensing; and
-condensation below the dew point by diffusion through the
-non-condensables, `m = h_D rho_v ln((P - P_srf) / (P - P_stm))` with
-`h_D = Nu Sc^1/3 Pr^-1/3 D / l_c` (Eqs 2-134 to 2-136; `rho_v` the
-vapour's density at `T_sat(P)`); above `VPFRAC = 0.9995` of steam the
-steam fraction is held at it (stated: MELCOR then lets the
-structure's conduction limit it). Transport properties at the film
-temperature, density at the bulk. Returns the convective coefficient,
-W/(m^2 K), and the condensation flux, kg/(m^2 s) (zero above the dew
-point: no film is kept to evaporate, stated).
-
-```rust
-pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) { /* ... */ }
-```
-
 #### Function `bubble_efficiency`
 
 MELCOR's bubble efficiency at a vent below the pool (CVH/FL RM Eqs 6-1
@@ -10538,6 +10366,20 @@ the pressure at the opening's depth, each clamped to [0, 1].
 
 ```rust
 pub fn bubble_efficiency(depth_m: f64, opening_m: f64, p_junction_pa: f64, t_pool_k: f64) -> f64 { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `structure_surface`
+
+```rust
+pub use tampines::components::wall_condensation::structure_surface;
+```
+
+#### Re-export `Atmosphere`
+
+```rust
+pub use tampines::components::wall_condensation::Atmosphere;
 ```
 
 ## Module `rn_volume`

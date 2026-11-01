@@ -7952,7 +7952,9 @@ heat-transfer selection, which takes the maximum of forced-laminar,
 forced-turbulent and free-convection coefficients; RELAP-7 Theory Manual
 §2.2.2.1, Eqs 47–48). Searched before writing (2026-11-01): no
 Churchill–Chu correlation existed in the workspace; the nearest relative,
-`sembawang::bwr_mark1::pool_surface::structure_surface`, is MELCOR's
+`sembawang::bwr_mark1::pool_surface::structure_surface` (moved on
+2026-11-01 to `tampines::components::wall_condensation::structure_surface`,
+gh:#1096, and re-exported from `sembawang`), is MELCOR's
 piecewise `0.59 Ra^1/4` / `0.10 Ra^1/3` external-surface form, a
 different correlation.
 

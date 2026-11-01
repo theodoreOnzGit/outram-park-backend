@@ -2159,6 +2159,122 @@ impl ContainmentResult {
 mod tests {
     use super::*;
 
+    /// **V&V (gh:#1096, item 3): the drywell wall on this model's inputs,
+    /// through `tampines`' heat-structure coupling, reproduces this model's
+    /// numbers.** Methodology: the containment is stepped from
+    /// `Params::default()` for 1800 s at 1 s with 20 kg/s of steam and
+    /// 0.02 kg/s of hydrogen leaking into the drywell (`dw_wall_hs` on), then
+    /// the drywell's start-of-step wall exchange is computed two ways: (a) as
+    /// step 3 of [`Containment::step`] does (`dw_wall_surface`, the 90 %
+    /// limit, the latent heat `m (h_g − c_p (T_w − 273.15))`), and (b) by
+    /// `tampines::components::wall_condensation::WallCondensation` on the
+    /// containment's convention (`without_real_steam`) over a one-cell
+    /// `HeatStructure` slab of the wall's area (width `dw_wall_area_m2`, 1 m
+    /// high) at the wall's temperature, the drywell's gas as a `WallGas` of
+    /// the same moles. **Prediction (before the run):** the coefficient and
+    /// the condensed mass bit-identical (the same kernel, the same operation
+    /// order for `m_flux A dt`); the latent heat to round-off (< 1e-14
+    /// relative; the product is formed in another order). The sensible heat
+    /// is not compared: the containment exchanges it implicitly in the two
+    /// temperatures with the gas's capacity, the coupling explicitly through
+    /// the slab's half cell (stated). **Result (2026-11-01), held:** at
+    /// t = 300, 600, ..., 1800 s (T_dw 405.4 to 489.1 K, p_dw 0.178 to
+    /// 0.266 MPa, wall 341.6 to 402.5 K) `h` (6.39 to 7.36 W/(m2 K)) and the
+    /// condensed mass (16.07, 14.85, 10.15, 2.16, 0, 0 kg in the step) are
+    /// bit-identical, and the latent heat differs by 0 (better than the
+    /// predicted 1e-14). Record:
+    /// `crates/tampines/verification_and_validation/wall_condensation.md`.
+    #[test]
+    fn the_drywell_wall_through_tampines_reproduces_the_containment() {
+        use tampines::components::heat_structure::{ConductionZone, HeatStructure, StructureShape, StructureSide};
+        use tampines::components::wall_condensation::{WallCondensation, WallGas};
+        use uom::si::amount_of_substance::mole;
+        use uom::si::f64::{AmountOfSubstance, Length, Pressure, ThermalConductivity, ThermodynamicTemperature, Time, VolumetricHeatCapacity};
+        use uom::si::heat_transfer::watt_per_square_meter_kelvin;
+        use uom::si::length::meter;
+        use uom::si::mass_rate::kilogram_per_second;
+        use uom::si::power::watt;
+        use uom::si::pressure::pascal;
+        use uom::si::thermal_conductivity::watt_per_meter_kelvin;
+        use uom::si::thermodynamic_temperature::kelvin;
+        use uom::si::time::second;
+        use uom::si::volumetric_heat_capacity::joule_per_cubic_meter_kelvin;
+
+        let prm = Params::default();
+        let mut c = Containment::new(&prm);
+        let snap = ContainmentSnapshot {
+            dt_s: 1.0,
+            leak_steam_kg_s: 20.0,
+            leak_h: 2.8e6,
+            leak_h2_kg_s: 0.02,
+            leak_gas_k: 550.0,
+            gas_cv_t: true,
+            dw_wall_hs: true,
+            prm,
+            ..Default::default()
+        };
+        let mut worst_latent: f64 = 0.0;
+        let mut checked = 0;
+        for k in 0..1800 {
+            c.step(&snap);
+            if k % 300 != 299 {
+                continue;
+            }
+            let dt = 1.0;
+            // (a) The containment's own step 3.
+            let (h_a, m_flux) = c.dw_wall_surface(&prm);
+            let m_a = (m_flux * prm.dw_wall_area_m2 * dt).min(0.9 * c.dw_steam_kg);
+            let lat_a = m_a * (pool_surface::steam_h(c.dw_t) - CP_WATER * (c.dw_wall_t - 273.15));
+            // (b) tampines.
+            let wall = HeatStructure::new(
+                StructureShape::Slab { width: Length::new::<meter>(prm.dw_wall_area_m2) },
+                &[ConductionZone {
+                    thickness: Length::new::<meter>(0.02),
+                    n_cells: 1,
+                    conductivity: ThermalConductivity::new::<watt_per_meter_kelvin>(50.0),
+                    volumetric_heat_capacity: VolumetricHeatCapacity::new::<joule_per_cubic_meter_kelvin>(3.9e6),
+                }],
+                1,
+                Length::new::<meter>(1.0),
+                ThermodynamicTemperature::new::<kelvin>(c.dw_wall_t),
+            )
+            .unwrap();
+            let gas = WallGas {
+                temperature: ThermodynamicTemperature::new::<kelvin>(c.dw_t),
+                pressure: Pressure::new::<pascal>(c.p_dw(&prm)),
+                steam: AmountOfSubstance::new::<mole>(c.dw_steam_kg / M_H2O),
+                nitrogen: AmountOfSubstance::new::<mole>(c.dw_n2),
+                hydrogen: AmountOfSubstance::new::<mole>(c.dw_h2),
+            };
+            let x = WallCondensation::new()
+                .without_real_steam()
+                .exchange(&wall, StructureSide::Outer, &gas, Length::new::<meter>(prm.dw_wall_height_m), Time::new::<second>(dt))
+                .unwrap();
+            let h_b = x.heat_transfer_coefficient[0].get::<watt_per_square_meter_kelvin>();
+            let m_b = x.condensation_rate.get::<kilogram_per_second>() * dt;
+            let lat_b = x.latent_power_to_wall.get::<watt>() * dt;
+            let rel = if lat_a != 0.0 { ((lat_b - lat_a) / lat_a).abs() } else { lat_b.abs() };
+            worst_latent = worst_latent.max(rel);
+            println!(
+                "t {:5} s: T_dw {:.3} K, p_dw {:.1} Pa, T_wall {:.3} K, steam {:.1} kg; h {h_a:.6} / {h_b:.6} W/(m2 K); condensed {m_a:.6} / {m_b:.6} kg; latent {lat_a:.6e} / {lat_b:.6e} J ({rel:.1e})",
+                k + 1,
+                c.dw_t,
+                c.p_dw(&prm),
+                c.dw_wall_t,
+                c.dw_steam_kg
+            );
+            assert_eq!(h_a.to_bits(), h_b.to_bits());
+            assert_eq!(m_a.to_bits(), m_b.to_bits());
+            assert!(rel < 1e-14, "{rel}");
+            checked += 1;
+            if m_a > 0.0 {
+                assert!(lat_a > 0.0);
+            }
+        }
+        println!("worst latent-heat difference {worst_latent:.2e} over {checked} states");
+        assert_eq!(checked, 6);
+    }
+
     /// MELCOR's BUR ignition test (BUR RM Eqs 2-3 to 2-5) by hand: 10 %
     /// hydrogen ignites, 9.9 % does not; 6 % H2 with 6.68 % CO is Le
     /// Chatelier's `0.06 + 0.0668 x 0.10/0.167` = 0.10, so ignites; 4.9 %

@@ -5896,6 +5896,1104 @@ pub struct Valve {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `wall_condensation`
+
+A heat-structure surface facing a gas atmosphere: natural convection plus
+condensation of steam by diffusion through the non-condensables, the
+latent heat into the wall (gh:#1096, epic gh:#1091; MELCOR 2.2 HS RM
+§2.6.1 and §2.7, cited, not quoted; clean room, no MELCOR source).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+# Moved here verbatim from `sembawang`
+
+**The physics is `sembawang::bwr_mark1::pool_surface::structure_surface`**
+(the Fukushima Unit 1 drywell wall, `Mechanisms::dw_wall_hs`, and the
+torus shell, `Mechanisms::ww_shell`), moved here on 2026-11-01
+(maintainer direction: `sembawang` depends on `tampines`, and the thermal
+hydraulics, wall heat transfer included, belongs here). It moved with its
+operation order unchanged, together with the gas-mixture transport
+properties it needs ([`Atmosphere`]: MELCOR's steam and hydrogen tables,
+the nitrogen power laws, Eucken's correlation for hydrogen's conductivity,
+Wilke's and Wassijewa's mixing rules, the steam-air and steam-hydrogen
+diffusivities). `sembawang::bwr_mark1::pool_surface` now re-exports
+[`structure_surface`] and [`Atmosphere`], so every value is the same bits;
+`crates/sembawang/tests/wall_condensation_bit_identity.rs` checks that
+against hashes pinned on the pre-move code.
+
+Reused rather than copied: the N2 and H2 `c_v(T)` fits and the molar
+masses from [`tampines_steam_tables::gas_mixture::melcor_ncg`] (gh:#1093,
+moved from `sembawang` the same way); the saturation line ([`p_sat_pa`],
+[`t_sat`]) and the containment's steam enthalpy ([`steam_h`]) from
+[`super::wet_well`], which ported them from `sembawang` operation for
+operation (gh:#1075). **Known duplicate, stated:** `wet_well` also carries
+a steam-and-N2-only copy of [`Atmosphere`] and its tables (gh:#1075);
+folding it onto this module needs its own bit-identity check and is left
+as follow-up.
+
+# The model (from the moved doc comment)
+
+Natural convection on an external rectangular surface of height `l_c`:
+`Nu = 0.59 Ra^1/4` below `Ra = 1e9`, `0.10 Ra^1/3` above `1e10`, linear in
+`Ra` between (HS RM Table 2.3, Eqs 2-82, 2-85 to 2-87); while condensing
+the Grashof number comes from the density difference between the bulk
+and the saturated gas at the wall. Condensation below the dew point by
+diffusion through the non-condensables, `m'' = h_D ρ_v ln((P − P_srf) /
+(P − P_stm))` with `h_D = Nu Sc^1/3 Pr^-1/3 D / l_c` (Eqs 2-134 to 2-136;
+`ρ_v` the vapour's density at `T_sat(P)`); above `VPFRAC = 0.9995` of
+steam the steam fraction is held at it. Transport properties at the film
+temperature, density at the bulk. No film is kept (the condensate leaves
+at once: to a pool or a drain), so nothing evaporates from the wall above
+the dew point.
+
+# Coupled to [`HeatStructure`]
+
+[`WallCondensation::exchange`] evaluates the surface for every axial cell
+of one side of a [`HeatStructure`] facing a [`WallGas`], at the start of
+the step (explicit, as `sembawang`'s condensation is), and returns a
+[`WallExchange`]: the [`StructureBoundary::HeatInflow`] to step the
+structure with, the condensation rate (for the caller's pool or drain),
+and every energy flow, which close exactly: the gas loses the sensible
+heat plus `ṁ h_g`; the wall gains the sensible heat plus `ṁ (h_g − h_l)`;
+the condensate carries `ṁ h_l`.
+
+| Default | Ablation | What the ablation does |
+|---|---|---|
+| MELCOR's natural convection plus condensation ([`structure_surface`]) | [`WallCondensation::without_melcor_surface`] | a fixed coefficient, no condensation (`sembawang`'s `dw_wall_h`) |
+| IAPWS-IF97 enthalpies: `h_g` region 2 at the gas temperature and the steam's partial pressure, `h_l` region 1 at the wall temperature | [`WallCondensation::without_real_steam`] | the containment's convention (`sembawang`, [`super::wet_well`]): `h_g = 2.506e6 + 1500 (T − 373.15) + R T / M`, `h_l = 4186 (T − 273.15)` |
+
+Choose the enthalpy convention the atmosphere's own energy is carried on
+(a control volume on the containment's convention takes the ablation), so
+the energy the gas loses is the energy its own bookkeeping removes.
+
+# Limits (stated)
+
+- The wall temperature is the surface cell's centre temperature (the
+  lumped wall of `sembawang` has no other), and the convective heat uses
+  the structure's half-cell resistance ([`HeatStructure::heat_to_fluid`]).
+- Explicit over the step: the surface is evaluated at the start-of-step
+  state, the heat frozen. Condensation is limited to 90 % of the
+  atmosphere's steam in a step (HS §2.7.3), scaled over the side's cells.
+- No radiation, no forced convection, no condensate film resistance, no
+  evaporation from a film.
+
+```rust
+pub mod wall_condensation { /* ... */ }
+```
+
+### Types
+
+#### Struct `Atmosphere`
+
+A steam, nitrogen and hydrogen atmosphere's bulk state, in the SI units
+`sembawang`'s containment carries (moved from
+`sembawang::bwr_mark1::pool_surface::Atmosphere`, kept in plain `f64` so
+the moved arithmetic is the same bits; the `uom` front end is
+[`WallGas`]). Only the ratios of the three amounts enter the properties.
+
+```rust
+pub struct Atmosphere {
+    pub t_k: f64,
+    pub p_pa: f64,
+    pub n_steam: f64,
+    pub n_n2: f64,
+    pub n_h2: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` | Temperature, K. |
+| `p_pa` | `f64` | Total pressure, Pa. |
+| `n_steam` | `f64` | Moles of steam. |
+| `n_n2` | `f64` | Moles of nitrogen. |
+| `n_h2` | `f64` | Moles of hydrogen. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
+
+- ```rust
+  pub fn mass_properties(self: &Self) -> (f64, f64, f64) { /* ... */ }
+  ```
+  Molar mass, kg/mol, density, kg/m^3, and `c_p`, J/(kg K) (steam
+
+- ```rust
+  pub fn steam_diffusivity(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Diffusivity of water vapour in the non-condensables, m^2/s: MELCOR's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WallGas`
+
+The gas a structure surface faces: temperature, total pressure and the
+amounts of steam, nitrogen and hydrogen (as a control volume carries
+them). [`WallGas::from_partial_pressures`] builds one from partial
+pressures and the gas volume.
+
+```rust
+pub struct WallGas {
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
+    pub pressure: uom::si::f64::Pressure,
+    pub steam: uom::si::f64::AmountOfSubstance,
+    pub nitrogen: uom::si::f64::AmountOfSubstance,
+    pub hydrogen: uom::si::f64::AmountOfSubstance,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | Bulk temperature. |
+| `pressure` | `uom::si::f64::Pressure` | Total pressure. |
+| `steam` | `uom::si::f64::AmountOfSubstance` | Steam in the atmosphere. |
+| `nitrogen` | `uom::si::f64::AmountOfSubstance` | Nitrogen. |
+| `hydrogen` | `uom::si::f64::AmountOfSubstance` | Hydrogen. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_partial_pressures(temperature: ThermodynamicTemperature, steam: Pressure, nitrogen: Pressure, hydrogen: Pressure, volume: Volume) -> Self { /* ... */ }
+  ```
+  From partial pressures in a gas volume `volume` (ideal gases,
+
+- ```rust
+  pub fn atmosphere(self: &Self) -> Atmosphere { /* ... */ }
+  ```
+  The moved kernel's state.
+
+- ```rust
+  pub fn steam_partial_pressure(self: &Self) -> Pressure { /* ... */ }
+  ```
+  Steam's partial pressure, `x_steam P`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SurfaceModel`
+
+How the surface's heat-transfer coefficient is found.
+
+```rust
+pub enum SurfaceModel {
+    Melcor,
+    FixedCoefficient(uom::si::f64::HeatTransfer),
+}
+```
+
+##### Variants
+
+###### `Melcor`
+
+MELCOR's natural convection plus condensation ([`structure_surface`]).
+
+###### `FixedCoefficient`
+
+The ablation: a fixed coefficient, no condensation.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `uom::si::f64::HeatTransfer` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CondensateEnthalpy`
+
+The enthalpies the condensate is booked at.
+
+```rust
+pub enum CondensateEnthalpy {
+    Iapws97,
+    ContainmentConstantCv,
+}
+```
+
+##### Variants
+
+###### `Iapws97`
+
+IAPWS-IF97: `h_g` in region 2 at the gas temperature and the steam's
+partial pressure (held at or below saturation), `h_l` in region 1 at
+the wall temperature, just above its saturation pressure.
+
+###### `ContainmentConstantCv`
+
+The containment's convention ([`steam_h`] and
+[`CP_WATER_CONTAINMENT`]): the ablation.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WallCondensation`
+
+A structure surface facing a gas: the model and its ablations.
+
+```rust
+pub struct WallCondensation {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  MELCOR's surface with IF97 enthalpies: every mechanism on.
+
+- ```rust
+  pub fn without_melcor_surface(self: Self, h: HeatTransfer) -> Self { /* ... */ }
+  ```
+  Ablation: a fixed coefficient `h` and no condensation.
+
+- ```rust
+  pub fn without_real_steam(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the containment's constant-`c_v` enthalpies instead of
+
+- ```rust
+  pub fn surface_model(self: &Self) -> SurfaceModel { /* ... */ }
+  ```
+  The surface model in use.
+
+- ```rust
+  pub fn condensate_enthalpy(self: &Self) -> CondensateEnthalpy { /* ... */ }
+  ```
+  The enthalpy convention in use.
+
+- ```rust
+  pub fn surface(self: &Self, gas: &WallGas, t_wall: ThermodynamicTemperature, height: Length) -> (HeatTransfer, f64) { /* ... */ }
+  ```
+  The convective coefficient and the condensation flux, kg/(m² s), of a
+
+- ```rust
+  pub fn exchange(self: &Self, structure: &HeatStructure, side: StructureSide, gas: &WallGas, height: Length, dt: Time) -> Result<WallExchange, TampinesError> { /* ... */ }
+  ```
+  The exchange between `gas` and side `side` of `structure` over a
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WallExchange`
+
+One step's exchange between a gas and one side of a [`HeatStructure`].
+
+```rust
+pub struct WallExchange {
+    pub boundary: super::heat_structure::StructureBoundary,
+    pub heat_transfer_coefficient: Vec<uom::si::f64::HeatTransfer>,
+    pub condensation_per_cell: Vec<uom::si::f64::MassRate>,
+    pub condensation_rate: uom::si::f64::MassRate,
+    pub convective_power: uom::si::f64::Power,
+    pub latent_power_to_wall: uom::si::f64::Power,
+    pub condensate_enthalpy_flow: uom::si::f64::Power,
+    pub gas_energy_loss: uom::si::f64::Power,
+    pub steam_enthalpy: uom::si::f64::AvailableEnergy,
+    pub limited: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `boundary` | `super::heat_structure::StructureBoundary` | The boundary to step the structure's side with<br>([`StructureBoundary::HeatInflow`], per axial cell). |
+| `heat_transfer_coefficient` | `Vec<uom::si::f64::HeatTransfer>` | The convective coefficient at each axial cell. |
+| `condensation_per_cell` | `Vec<uom::si::f64::MassRate>` | The condensation rate at each axial cell (after the step limit). |
+| `condensation_rate` | `uom::si::f64::MassRate` | The total condensation rate: the condensate leaves the wall at once,<br>for the caller's pool or drain. |
+| `convective_power` | `uom::si::f64::Power` | Sensible heat from the gas to the wall (negative: the wall heats the<br>gas). |
+| `latent_power_to_wall` | `uom::si::f64::Power` | Latent heat into the wall, `Σ ṁ_j (h_g − h_l,j)`. |
+| `condensate_enthalpy_flow` | `uom::si::f64::Power` | Enthalpy the condensate carries away, `Σ ṁ_j h_l,j`. |
+| `gas_energy_loss` | `uom::si::f64::Power` | What the gas loses: the sensible heat plus `ṁ h_g`. |
+| `steam_enthalpy` | `uom::si::f64::AvailableEnergy` | The steam's specific enthalpy the condensation removes from the gas. |
+| `limited` | `bool` | Whether the 90 %-of-the-steam step limit scaled the condensation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `interpolate_held`
+
+Linear interpolation in a table of `(T, value)`, held at its ends
+(moved from `sembawang::bwr_mark1::pool_surface::table`).
+
+```rust
+pub fn interpolate_held(t: f64, xs: &[(f64, f64)]) -> f64 { /* ... */ }
+```
+
+#### Function `structure_surface`
+
+MELCOR's heat-structure surface facing an atmosphere (HS RM §2.6.1,
+§2.7): natural convection on an external rectangular surface of height
+`l_c`, `Nu = 0.59 Ra^1/4` below `Ra = 1e9`, `0.10 Ra^1/3` above `1e10`,
+linear in `Ra` between (Table 2.3, Eqs 2-82, 2-85 to 2-87), with the
+Grashof number from the density difference while condensing; and
+condensation below the dew point by diffusion through the
+non-condensables, `m = h_D rho_v ln((P - P_srf) / (P - P_stm))` with
+`h_D = Nu Sc^1/3 Pr^-1/3 D / l_c` (Eqs 2-134 to 2-136; `rho_v` the
+vapour's density at `T_sat(P)`); above `VPFRAC = 0.9995` of steam the
+steam fraction is held at it (stated: MELCOR then lets the
+structure's conduction limit it). Transport properties at the film
+temperature, density at the bulk. Returns the convective coefficient,
+W/(m^2 K), and the condensation flux, kg/(m^2 s) (zero above the dew
+point: no film is kept to evaporate, stated).
+
+Moved verbatim from `sembawang::bwr_mark1::pool_surface::structure_surface`
+(gh:#1096). The front end with units is [`WallCondensation`].
+
+```rust
+pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `steam_conductivity`
+
+Steam's conductivity, W/(m K): MELCOR's default table (above), for film
+correlations elsewhere (moved from `sembawang`'s `pool_surface`).
+
+```rust
+pub fn steam_conductivity(t_k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `steam_viscosity`
+
+Steam's viscosity, Pa s: MELCOR's default table (above).
+
+```rust
+pub fn steam_viscosity(t_k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `steam_mass`
+
+Mass of steam a [`WallGas`] holds.
+
+```rust
+pub fn steam_mass(gas: &WallGas) -> uom::si::f64::Mass { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CP_WATER_CONTAINMENT`
+
+Liquid water's constant `c_p`, J/(kg K): the containment's convention
+(`sembawang::bwr_mark1::containment::CP_WATER`), used by
+[`WallCondensation::without_real_steam`].
+
+```rust
+pub const CP_WATER_CONTAINMENT: f64 = 4186.0;
+```
+
+### Re-exports
+
+#### Re-export `p_sat_pa`
+
+```rust
+pub use super::wet_well::p_sat_pa;
+```
+
+#### Re-export `steam_h`
+
+```rust
+pub use super::wet_well::steam_h;
+```
+
+#### Re-export `t_sat`
+
+```rust
+pub use super::wet_well::t_sat;
+```
+
 ## Module `wet_well`
 
 Wet well (pressure-suppression pool) component (gh:#1075; RELAP-7 Theory
@@ -8194,6 +9292,36 @@ pub use turbine::Turbine;
 
 ```rust
 pub use valve::Valve;
+```
+
+#### Re-export `CondensateEnthalpy`
+
+```rust
+pub use wall_condensation::CondensateEnthalpy;
+```
+
+#### Re-export `SurfaceModel`
+
+```rust
+pub use wall_condensation::SurfaceModel;
+```
+
+#### Re-export `WallCondensation`
+
+```rust
+pub use wall_condensation::WallCondensation;
+```
+
+#### Re-export `WallExchange`
+
+```rust
+pub use wall_condensation::WallExchange;
+```
+
+#### Re-export `WallGas`
+
+```rust
+pub use wall_condensation::WallGas;
 ```
 
 #### Re-export `ExternalVolume`
