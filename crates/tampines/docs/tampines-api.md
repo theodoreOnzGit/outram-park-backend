@@ -18575,6 +18575,1264 @@ pub use two_fluid::TwoFluidBoundary;
 pub use two_fluid::TwoFluidReport;
 ```
 
+## Module `pcice`
+
+PCICE: a pressure-corrected, semi-implicit solver for 1-D compressible flow
+on a general equation of state, finite volume (gh:#1068).
+
+> Research, education and V&V only. AI draft, unreviewed. Not for nuclear
+> facility operation, reactor control, licensing or safety-critical
+> decisions. See `RESPONSIBLE_USE.md`.
+
+# What this module answers
+
+*How do we march the compressible Euler equations with a time step set by
+the flow speed `|u|` instead of the sound speed `|u| + c`?* An explicit
+density-based scheme such as [`crate::hem::HemPipe`] (KNP) must resolve the
+acoustic waves, so at low Mach number it takes `c/|u|` times more steps than
+the material motion needs. PCICE treats the pressure implicitly, so the
+step is limited by the material Courant number alone.
+
+# References
+
+- R. C. Martineau and R. A. Berry, "The pressure-corrected ICE finite element
+  method for compressible flows on unstructured meshes", *J. Comput. Phys.*
+  198 (2004) 659–685. The algorithm (explicit predictor without the pressure
+  terms, a Crank–Nicolson pressure target reached through a pressure
+  Poisson / Helmholtz equation closed by the EOS, then the corrected mass,
+  momentum and total energy) is theirs; their discretisation is finite
+  element, this one is a cell-centred finite volume.
+- RELAP-7 Theory Manual, §5.3 (Eqs 257–274), which describes PCICE for the
+  RELAP-7 single-phase equations. The manual is not public: it is cited by
+  section and equation only, nothing is transcribed from it. This module was
+  written from the open paper above and from first principles (clean room;
+  no RELAP source was read).
+
+# The equations
+
+The quasi-1-D Euler equations in a duct of area `A(x)`:
+
+- `∂(ρA)/∂t + ∂(ρuA)/∂x = 0`
+- `∂(ρuA)/∂t + ∂((ρu² + p)A)/∂x = p ∂A/∂x`
+- `∂(ρEA)/∂t + ∂((ρE + p)uA)/∂x = 0`, `E = e + ½u²`
+
+closed by `p = p(ρ, e)` from any [`HemEquationOfState`] (ideal gas,
+IAPWS-IF97, CoolProp through [`crate::hem::HemEos`], the reduced
+verification closures).
+
+# The algorithm, per step `Δt` (cell `i`, face `f`, volume `V_i = A_i Δx`)
+
+1. **Explicit predictor, two-stage Runge–Kutta (Heun / SSP22).** Mass,
+   momentum and total energy are advanced with their *advective* fluxes
+   only, `ρu`, `ρu²`, `ρEu`: no pressure in the momentum flux, no pressure
+   work in the energy flux. Face values are MUSCL-reconstructed with
+   `outram_foam_basic_lib`'s [`FluxLimiter`] (the uniform-mesh form of
+   `fvc::reconstruct_pos_neg`, as in `HemPipe`), and the face flux is a
+   central flux with a local Lax–Friedrichs dissipation at the **material**
+   speed `a = max(|u_L|, |u_R|)`, never `|u| + c`. The stage-averaged face
+   fluxes `G*`, `F_m*`, `F_E*` are kept.
+2. **Crank–Nicolson pressure target.** The pressure that acts over the step
+   is `p^θ = (1 − θ) pⁿ + θ pⁿ⁺¹`, `θ = ½` by default
+   ([`PciceNumerics::implicitness`]).
+3. **Intermediate momentum and the corrected mass flux.** The face mass
+   flux is the time average of `(ρu)ⁿ` and `(ρu)ⁿ⁺¹`, which is the predictor
+   flux plus the pressure impulse over half the step:
+   `G_f = G*_f − ½Δt (p^θ_R − p^θ_L)/d_f` (`d_f = Δx`, `Δx/2` at a pressure
+   boundary). The compact face gradient is the Rhie–Chow-like coupling that
+   keeps a collocated grid free of odd–even pressure modes. Momentum
+   and energy fluxes follow: `F_m = F_m* + (G − G*) u*_f + p^θ_f`,
+   `F_E = F_E* + (G − G*) E*_f + p^θ_f G/ρ*_f`, and the cell update is
+   conservative, `V_i Δq_i = −Δt Σ_f ±A_f F_f` (+ `Δt p^θ_i (A_{i+½} − A_{i−½})`
+   in momentum).
+4. **Pressure-correction (Helmholtz) equation.** Linearise
+   `pⁿ⁺¹ = p(ρ, ρE, ρu)` about the current iterate `p^k`:
+   `δp_i − A_i δρ_i − B_i δ(ρE)_i − C_i δ(ρu)_i = p_EOS,i − p^k_i`, with
+   `A = (∂p/∂ρ)_e − (∂p/∂e)_ρ (e − ½u²)/ρ`, `B = (∂p/∂e)_ρ/ρ`,
+   `C = −(∂p/∂e)_ρ u/ρ`, and every `δq_i` a linear function of
+   `δp_{i−1}, δp_i, δp_{i+1}` through step 3. That is a tridiagonal system,
+   solved by [`crate::multiphase_1d::thomas_solve`]. For an ideal gas at
+   rest it reduces to `δp − (cΔt/2Δx)² Δ²δp = r`, the Crank–Nicolson wave
+   operator. **The EOS derivatives are finite differences** of
+   [`HemEquationOfState::state_rho_e`] (forward, relative step `1e-6`),
+   because the trait supplies no derivatives. They only shape the
+   correction; the residual uses the EOS itself.
+5. **Two correction passes** ([`PciceNumerics::correction_passes`]): the
+   EOS, its derivatives and the lagged face coefficients are re-evaluated
+   at the new pressure and step 4 is solved again.
+6. **Energy update and closure.** With the final iterate, mass, momentum and
+   total energy are updated once more (step 3) with the corrected mass flux
+   and the time-centred pressure, and the new pressure is taken from the EOS
+   at the new `(ρ, e)`, so the carried state is thermodynamically
+   consistent. What is left of `p_EOS − p^k` is reported as
+   [`PciceStepReport::pressure_residual`].
+
+Every update is in flux form, so with two walls total mass and total energy
+are conserved to round-off.
+
+# Time step
+
+`Δt = C_mat Δx / max|u|` ([`PciceNumerics::material_courant`]), capped by
+[`PciceNumerics::max_dt`]. An optional acoustic cap
+([`PciceNumerics::acoustic_courant_cap`]) is for problems where the
+acoustic waves themselves are the answer (shock tubes); without it the
+acoustic Courant number can be far above one, which is the method's point.
+
+**Limit (measured, see the V&V record):** a fluid that starts at rest
+against a strong pressure jump has no material speed to set the first step,
+so `max_dt` sets it; on Sod with the default 1 ms (acoustic Courant ≈ 3.7)
+the first step drives a density negative and is refused. Use the acoustic
+cap, or a small `max_dt`, for such starts.
+
+# Boundaries ([`PciceBoundary`])
+
+- `Wall`: zero mass and energy flux, the cell pressure on the wall.
+- `FixedPressure(p)`: the face pressure is `p`; the reconstruction ghost is
+  the end cell (zero gradient), as `HemPipe` does.
+- `Reservoir { p0, h0 }`: for inflow the face takes `p = p0 − ½ρu²` and
+  `h = h0 − ½u²` with the end cell's velocity, density from the EOS
+  (`state_p_h`); for outflow `p = p0` with the end cell's state.
+
+# What is not here
+
+Friction, gravity, heat sources, choked breaks and junctions (all in
+`HemPipe`). Variable area is implemented (quasi-1-D, with the wall
+pressure force) and verified only for a duct at rest.
+
+# V&V
+
+`crates/tampines/tests/pcice.rs`, recorded with methodology and results in
+`crates/tampines/verification_and_validation/pcice.md`. The case setups are
+public in [`cases`] so gh:#1069 (the finite-element comparison) can reuse
+them.
+
+```rust
+pub mod pcice { /* ... */ }
+```
+
+### Modules
+
+## Module `cases`
+
+Reusable PCICE verification cases (gh:#1068), set up once so the
+finite-element comparison (gh:#1069) and any other solver can run exactly
+the same problems.
+
+Each case is a [`PciceCase`]: geometry, EOS, initial condition, boundary
+conditions, end time and the PCICE numerics the V&V record used. It builds
+a [`PcicePipe`] ([`PciceCase::build_pcice`]) or the density-based
+[`crate::hem::HemPipeOf`] on the same mesh ([`PciceCase::build_hem_pipe`],
+inviscid like PCICE).
+
+Methodology and results: `crates/tampines/verification_and_validation/pcice.md`.
+
+```rust
+pub mod cases { /* ... */ }
+```
+
+### Types
+
+#### Struct `PciceCase`
+
+One verification problem, solver-independent.
+
+```rust
+pub struct PciceCase<E: HemEquationOfState> {
+    pub name: &'static str,
+    pub geometry: tampines_steam_tables::hem::HemPipeGeometry,
+    pub eos: E,
+    pub initial: tampines_steam_tables::hem::HemInitialCondition,
+    pub inlet: super::PciceBoundary,
+    pub outlet: super::PciceBoundary,
+    pub end_time: uom::si::f64::Time,
+    pub numerics: super::PciceNumerics,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` | Short name for messages. |
+| `geometry` | `tampines_steam_tables::hem::HemPipeGeometry` | Mesh and flow area. |
+| `eos` | `E` | Equation of state. |
+| `initial` | `tampines_steam_tables::hem::HemInitialCondition` | Initial condition. |
+| `inlet` | `super::PciceBoundary` | Boundary at `x = 0`. |
+| `outlet` | `super::PciceBoundary` | Boundary at `x = L`. |
+| `end_time` | `uom::si::f64::Time` | Time at which the case is compared. |
+| `numerics` | `super::PciceNumerics` | The PCICE numerics the V&V record used for this case. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build_pcice(self: &Self) -> Result<PcicePipe<E>, TampinesError> { /* ... */ }
+  ```
+  A [`PcicePipe`] set up for this case with [`Self::numerics`].
+
+- ```rust
+  pub fn build_hem_pipe(self: &Self, numerics: HemNumerics) -> Result<HemPipe<E>, TampinesError> { /* ... */ }
+  ```
+  The density-based KNP `HemPipe` on the same mesh, EOS, initial state
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `sod_end_time`
+
+Sod's comparison time: dimensionless `t = 0.2` on the 10 m tube,
+`0.2 · 10 / √(1e5)` s.
+
+```rust
+pub fn sod_end_time() -> uom::si::f64::Time { /* ... */ }
+```
+
+#### Function `sod_ideal_gas`
+
+**Sod's shock tube** in SI (air, `γ = 1.4`), closed at both ends (the
+waves do not reach the ends by [`sod_end_time`]). PCICE numerics: material
+Courant 0.5, acoustic Courant capped at 0.5, since the shock and the
+rarefaction are the answer here.
+
+# Errors
+
+Only for `n_cells = 0`.
+
+```rust
+pub fn sod_ideal_gas(n_cells: usize) -> Result<PciceCase<tampines_steam_tables::hem::IdealGasHem>, crate::TampinesError> { /* ... */ }
+```
+
+#### Function `low_mach_advection_exact_density`
+
+The exact low-Mach advection solution: uniform `p` and `u`, and the
+temperature bump carried with the flow, `ρ(x, t) = p / (R T0(x − u t))`.
+
+```rust
+pub fn low_mach_advection_exact_density(x: uom::si::f64::Length, t: uom::si::f64::Time) -> uom::si::f64::MassDensity { /* ... */ }
+```
+
+#### Function `low_mach_advection`
+
+**Low-Mach advection** of a temperature (density) bump in air at
+`u = 1 m/s`, `c ≈ 347 m/s`: a 1 m duct, a stagnation reservoir at the inlet
+holding the background state and a fixed pressure at the outlet. The step
+is set by the material Courant number 0.5 alone, so the acoustic Courant
+number is about 175. Compared at `t = 0.3 s`.
+
+# Errors
+
+Only for `n_cells = 0`.
+
+```rust
+pub fn low_mach_advection(n_cells: usize) -> Result<PciceCase<tampines_steam_tables::hem::IdealGasHem>, crate::TampinesError> { /* ... */ }
+```
+
+#### Function `water_shock_tube`
+
+**Water shock tube on IAPWS-IF97**: compressed liquid at 440 K, 10 MPa on
+the left and 1 MPa on the right (`T_sat(1 MPa) ≈ 453 K`, so both sides stay
+liquid), a 10 m closed tube, compared at 2 ms. Acoustic Courant capped at
+0.5, as for Sod.
+
+# Errors
+
+Only for `n_cells = 0`.
+
+```rust
+pub fn water_shock_tube(n_cells: usize) -> Result<PciceCase<tampines_steam_tables::hem::Iapws97Hem>, crate::TampinesError> { /* ... */ }
+```
+
+#### Function `nozzle_at_rest`
+
+**A converging–diverging duct at rest** (areas 2 : 1 : 2 m², throat at mid
+length, 1 m, air at 1e5 Pa and 300 K, walls). The quasi-1-D wall pressure
+force must balance the face pressure forces exactly, so nothing moves.
+
+# Errors
+
+Only for `n_cells = 0`.
+
+```rust
+pub fn nozzle_at_rest(n_cells: usize) -> Result<PciceCase<tampines_steam_tables::hem::IdealGasHem>, crate::TampinesError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SOD_LEFT`
+
+Sod's left state `(p, ρ, u)` in SI: `(1e5 Pa, 1 kg/m³, 0)`.
+
+```rust
+pub const SOD_LEFT: (f64, f64, f64) = _;
+```
+
+#### Constant `SOD_RIGHT`
+
+Sod's right state: `(1e4 Pa, 0.125 kg/m³, 0)`.
+
+```rust
+pub const SOD_RIGHT: (f64, f64, f64) = _;
+```
+
+#### Constant `SOD_LENGTH_M`
+
+Sod's tube length (m) and diaphragm position (m), as in
+`tampines-steam-tables`' `hem_pipe_verification.rs`.
+
+```rust
+pub const SOD_LENGTH_M: f64 = 10.0;
+```
+
+#### Constant `SOD_DIAPHRAGM_M`
+
+Diaphragm position, m.
+
+```rust
+pub const SOD_DIAPHRAGM_M: f64 = 5.0;
+```
+
+#### Constant `LOW_MACH_PRESSURE_PA`
+
+Low-Mach advection: background pressure, Pa.
+
+```rust
+pub const LOW_MACH_PRESSURE_PA: f64 = 1.0e5;
+```
+
+#### Constant `LOW_MACH_T0_K`
+
+Background temperature, K.
+
+```rust
+pub const LOW_MACH_T0_K: f64 = 300.0;
+```
+
+#### Constant `LOW_MACH_DT_K`
+
+Temperature bump amplitude, K.
+
+```rust
+pub const LOW_MACH_DT_K: f64 = 30.0;
+```
+
+#### Constant `LOW_MACH_X0_M`
+
+Bump centre at `t = 0`, m.
+
+```rust
+pub const LOW_MACH_X0_M: f64 = 0.3;
+```
+
+#### Constant `LOW_MACH_SIGMA_M`
+
+Bump width `σ` in `exp(−((x − x0)/σ)²)`, m.
+
+```rust
+pub const LOW_MACH_SIGMA_M: f64 = 0.05;
+```
+
+#### Constant `LOW_MACH_U_MS`
+
+Flow velocity, m/s (Mach ≈ 0.003).
+
+```rust
+pub const LOW_MACH_U_MS: f64 = 1.0;
+```
+
+### Types
+
+#### Enum `PciceBoundary`
+
+A boundary condition at one end of a [`PcicePipe`].
+
+```rust
+pub enum PciceBoundary {
+    Wall,
+    FixedPressure(uom::si::f64::Pressure),
+    Reservoir {
+        stagnation_pressure: uom::si::f64::Pressure,
+        stagnation_enthalpy: uom::si::f64::AvailableEnergy,
+    },
+}
+```
+
+##### Variants
+
+###### `Wall`
+
+Closed rigid end: no mass or energy flux; the end cell's pressure acts
+on the wall.
+
+###### `FixedPressure`
+
+Fixed static pressure at the face; inflow brings the end cell's
+density and energy (zero gradient).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `uom::si::f64::Pressure` |  |
+
+###### `Reservoir`
+
+Stagnation reservoir `(p0, h0)`: inflow at `p = p0 − ½ρu²`,
+`h = h0 − ½u²`; outflow at `p = p0`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `stagnation_pressure` | `uom::si::f64::Pressure` | Stagnation pressure `p0`. |
+| `stagnation_enthalpy` | `uom::si::f64::AvailableEnergy` | Stagnation specific enthalpy `h0`, J/kg. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PciceNumerics`
+
+Numerical settings of a [`PcicePipe`].
+
+```rust
+pub struct PciceNumerics {
+    pub material_courant: uom::si::f64::Ratio,
+    pub acoustic_courant_cap: Option<uom::si::f64::Ratio>,
+    pub max_dt: uom::si::f64::Time,
+    pub limiter: tampines_steam_tables::hem::FluxLimiter,
+    pub correction_passes: usize,
+    pub implicitness: uom::si::f64::Ratio,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `material_courant` | `uom::si::f64::Ratio` | Target material Courant number `max|u| Δt/Δx`. Default `0.5`. |
+| `acoustic_courant_cap` | `Option<uom::si::f64::Ratio>` | Optional cap on the acoustic Courant number `max(|u| + c) Δt/Δx`.<br>Default `None`: the step is set by the material speed only. |
+| `max_dt` | `uom::si::f64::Time` | Largest step allowed (also the step of a fluid at rest). Default 1 ms. |
+| `limiter` | `tampines_steam_tables::hem::FluxLimiter` | Reconstruction limiter of the predictor. Default van Leer. |
+| `correction_passes` | `usize` | Pressure-correction passes per step, `≥ 1`. Default `2`. |
+| `implicitness` | `uom::si::f64::Ratio` | Time weight `θ` of the new pressure, in `[½, 1]`: `½` is Crank–Nicolson<br>(the default, PCICE's choice), `1` backward Euler. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PciceStepReport`
+
+What one [`PcicePipe::step`] did.
+
+```rust
+pub struct PciceStepReport {
+    pub time: uom::si::f64::Time,
+    pub dt: uom::si::f64::Time,
+    pub material_courant: uom::si::f64::Ratio,
+    pub acoustic_courant: uom::si::f64::Ratio,
+    pub pressure_residual: uom::si::f64::Ratio,
+    pub min_pressure: uom::si::f64::Pressure,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time` | `uom::si::f64::Time` | Time at the end of the step. |
+| `dt` | `uom::si::f64::Time` | Step taken. |
+| `material_courant` | `uom::si::f64::Ratio` | `max|u| Δt/Δx` at the start of the step. |
+| `acoustic_courant` | `uom::si::f64::Ratio` | `max(|u| + c) Δt/Δx` at the start of the step. |
+| `pressure_residual` | `uom::si::f64::Ratio` | `max_i |p_EOS,i − p^k_i| / p_EOS,i` after the last correction pass:<br>how far the linearised pressure was from the EOS at the new state. |
+| `min_pressure` | `uom::si::f64::Pressure` | Lowest cell pressure at the end of the step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PciceRunSummary`
+
+What [`PcicePipe::run_until`] did.
+
+```rust
+pub struct PciceRunSummary {
+    pub steps: usize,
+    pub time: uom::si::f64::Time,
+    pub max_material_courant: uom::si::f64::Ratio,
+    pub max_acoustic_courant: uom::si::f64::Ratio,
+    pub max_pressure_residual: uom::si::f64::Ratio,
+    pub min_pressure: uom::si::f64::Pressure,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steps` | `usize` | Steps taken. |
+| `time` | `uom::si::f64::Time` | Time reached (exactly the requested end time). |
+| `max_material_courant` | `uom::si::f64::Ratio` | Largest material Courant number of any step. |
+| `max_acoustic_courant` | `uom::si::f64::Ratio` | Largest acoustic Courant number of any step. |
+| `max_pressure_residual` | `uom::si::f64::Ratio` | Largest pressure residual of any step. |
+| `min_pressure` | `uom::si::f64::Pressure` | Lowest cell pressure at the end of any step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PcicePipe`
+
+The PCICE pipe solver, generic over the equation of state.
+
+Built from the same geometry and initial-condition types as
+[`crate::hem::HemPipe`] ([`HemPipeGeometry`], [`HemInitialCondition`]) and
+reporting the same [`HemSnapshot`], so the two solvers run the same case
+and compare cell by cell. Both ends start as walls.
+
+```rust
+pub struct PcicePipe<E: HemEquationOfState> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(geometry: HemPipeGeometry, eos: E, initial: HemInitialCondition, numerics: PciceNumerics) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Build the pipe and close its initial state with `eos`. Both ends start
+
+- ```rust
+  pub fn set_boundary(self: &mut Self, end: PipeEnd, boundary: PciceBoundary) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the boundary condition at one end (effective from the next step).
+
+- ```rust
+  pub fn boundary(self: &Self, end: PipeEnd) -> PciceBoundary { /* ... */ }
+  ```
+  The boundary condition at one end.
+
+- ```rust
+  pub fn geometry(self: &Self) -> &HemPipeGeometry { /* ... */ }
+  ```
+  The geometry.
+
+- ```rust
+  pub fn equation_of_state(self: &Self) -> &E { /* ... */ }
+  ```
+  The equation of state.
+
+- ```rust
+  pub fn numerics(self: &Self) -> &PciceNumerics { /* ... */ }
+  ```
+  The numerical settings.
+
+- ```rust
+  pub fn time(self: &Self) -> Time { /* ... */ }
+  ```
+  Simulation time.
+
+- ```rust
+  pub fn snapshot(self: &Self) -> HemSnapshot { /* ... */ }
+  ```
+  Every cell's state, in the same form as [`crate::hem::HemPipe`]'s.
+
+- ```rust
+  pub fn total_mass(self: &Self) -> Mass { /* ... */ }
+  ```
+  Total mass in the pipe, `Σ ρ_i V_i`.
+
+- ```rust
+  pub fn total_energy(self: &Self) -> Energy { /* ... */ }
+  ```
+  Total (internal + kinetic) energy in the pipe, `Σ ρE_i V_i`.
+
+- ```rust
+  pub fn net_mass_inflow(self: &Self) -> Mass { /* ... */ }
+  ```
+  Net mass that has entered through both ends since construction
+
+- ```rust
+  pub fn net_energy_inflow(self: &Self) -> Energy { /* ... */ }
+  ```
+  Net total energy (`ρuH` flux) that has entered through both ends.
+
+- ```rust
+  pub fn stable_time_step(self: &Self) -> Time { /* ... */ }
+  ```
+  The step the controller would take now: material Courant, capped by
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<PciceStepReport, TampinesError> { /* ... */ }
+  ```
+  Take one step of [`Self::stable_time_step`].
+
+- ```rust
+  pub fn step_by(self: &mut Self, dt: Time) -> Result<PciceStepReport, TampinesError> { /* ... */ }
+  ```
+  Take one step of `dt`. The material Courant number is not checked: a
+
+- ```rust
+  pub fn run_until(self: &mut Self, t_end: Time) -> Result<PciceRunSummary, TampinesError> { /* ... */ }
+  ```
+  Step until `t_end` (the last step is shortened to land on it).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `pebble_bed`
 
 # Pebble-bed thermal physics for high-temperature gas-cooled reactors
