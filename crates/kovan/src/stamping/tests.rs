@@ -457,17 +457,22 @@ pub(crate) fn clean_record() -> BTreeMap<String, String> {
 /// rust-analyzer, as the fixture's one call does). Then review bottom-up.
 ///
 /// Pass: both items are in `kovan.toml` with their shape, and the struct's
-/// entry hashes as the struct at HEAD does. `twice` cannot be stamped
+/// entry hashes as the struct at HEAD does. ~~`twice` cannot be stamped
 /// while the struct it uses has no valid review (the refusal names it),
-/// even after its callee `leaf` is stamped. The struct is asked the record
+/// even after its callee `leaf` is stamped.~~ **CORRECTED 2026-11-01**
+/// (GitHub #1106): `twice` can be stamped first; its context names what is
+/// unstamped underneath (`leaf` and the struct, then the struct alone), the
+/// stamp reads tentative, and it turns valid by itself, with no re-stamp,
+/// once the struct is stamped. The struct is asked the record
 /// questions and the constant the named-number ones; function answers on
 /// the struct are refused; each stamps valid at rung 3 with its own
 /// answers. `twice` then stamps, and its signed entry records the struct's
 /// hash beside `leaf`'s. Editing the struct's **method** makes the struct
 /// "changed since review" and `twice` "a callee changed"; the constant is
-/// untouched. Quick stamp (re-confirm) of `twice` is then refused until the
-/// struct is reviewed again, after which it names the struct as what
-/// changed and makes `twice` valid at rung 3 without the wizard (#857).
+/// untouched. Quick stamp (re-confirm) of `twice` is ~~then refused until
+/// the struct is reviewed again~~ allowed at once (#1106); once the struct
+/// is reviewed again it names the struct as what changed and makes `twice`
+/// valid at rung 3 without the wizard (#857).
 ///
 /// Result (2026-10-13): passes.
 #[test]
@@ -509,12 +514,15 @@ fn types_and_constants_are_reviewed_bottom_up() {
         r.commit(&format!("stamp {qual}"));
         Ok(w)
     };
-    // Bottom-up: the callee first, then the struct, then the user.
-    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
-    assert!(e.contains("bottom-up"), "{e}");
+    // Tentative stamps (#1106): `twice` may be stamped before what it
+    // calls and uses; the context names what is still unstamped.
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap();
+    assert_eq!(ctx.tentative_on, ["Fractions", "leaf"]);
     r.stamp(&key, "leaf", "");
-    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
-    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap();
+    assert_eq!(ctx.tentative_on, ["Fractions"]);
+    stamp_with("twice", clean()).unwrap();
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::Tentative);
 
     let ctx = prepare_stamp(r.path(), &format!("{LIB}::Fractions"), BY).unwrap();
     assert_eq!(ctx.applicability.shape, Some(ItemShape::Struct));
@@ -525,6 +533,8 @@ fn types_and_constants_are_reviewed_bottom_up() {
     stamp_with("Fractions", clean_record()).unwrap();
     assert_eq!(r.state("Fractions").unwrap().kind(), StateKind::Valid);
     assert_eq!(r.state("Fractions").unwrap().rung, 3);
+    // Everything underneath `twice` is valid now: so is its stamp, unchanged.
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::Valid);
 
     let ctx = prepare_stamp(r.path(), &format!("{LIB}::K_B"), BY).unwrap();
     assert_eq!(ctx.applicability.shape, Some(ItemShape::Const));
@@ -552,8 +562,7 @@ fn types_and_constants_are_reviewed_bottom_up() {
     // while the record itself has no valid review (bottom-up), then the
     // re-confirm names the record, and signing it makes `twice` valid again
     // with the record's new hash and the same answers.
-    let e = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
-    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+    assert!(reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).is_ok());
     stamp_with("Fractions", clean_record()).unwrap();
     assert_eq!(r.state("twice").unwrap().kind(), StateKind::InheritedStale);
     let rc = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap();

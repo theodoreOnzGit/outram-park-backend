@@ -608,7 +608,7 @@ fn main_view(
         ui.horizontal_wrapped(|ui| {
             ui.colored_label(
                 ui.visuals().error_fg_color,
-                "Blocked (bottom-up): review first",
+                "Tentative until these have a valid stamp:",
             );
             for (id, name) in &v.blocked_by {
                 if ui
@@ -982,21 +982,21 @@ fn sidebar(
             let f = a.target.clone();
             FunctionRef { lines: Some((v.lines[0], v.lines[1])), file: if f.file.is_empty() { v.file.clone() } else { f.file }, ..f }
         };
+        // ~~Disabled while a callee has no valid stamp~~ (GitHub #1106,
+        // 2026-11-01): the stamp is written and reads tentative until they do.
         let blocked = !v.blocked_by.is_empty();
-        if ui
-            .add_enabled(!blocked, egui::Button::new("Stamp"))
-            .on_disabled_hover_text("Bottom-up: review the blocking callees first")
-            .clicked()
-        {
+        let stamp = ui.button("Stamp");
+        let stamp = if blocked {
+            stamp.on_hover_text("Tentative: it counts only once everything underneath has a valid stamp")
+        } else {
+            stamp
+        };
+        if stamp.clicked() {
             requests.push(PanelRequest::Dialog(HostRequest::Stamp(target()), a.draft.text()));
         }
         if let Some(test_failed) = v.reconfirm {
-            let can = !test_failed && !blocked;
-            let why = if test_failed {
-                "A test reaching this function failed: re-confirm is enabled once the reaching tests pass"
-            } else {
-                "Bottom-up: review the blocking callees first"
-            };
+            let can = !test_failed;
+            let why = "A test reaching this function failed: re-confirm is enabled once the reaching tests pass";
             if ui
                 .add_enabled(can, egui::Button::new("Re-confirm"))
                 .on_hover_text("Only callees changed: look at their diffs (Changed callees) and sign a re-confirmation of your previous answers, without the wizard")
