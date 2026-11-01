@@ -83,6 +83,40 @@
 //! | IF97 liquid | [`ControlVolume::without_real_liquid`] (constant `c_p` 4186 J/(kg K)) |
 //! | IF97 steam in the atmosphere | [`ControlVolume::without_real_steam`] |
 //! | non-condensable `c_v(T)` | [`ControlVolume::without_ncg_cv_t`] |
+//! | a layered pool's stable layers conduct | [`ControlVolume::without_pool_layer_conduction`] |
+//!
+//! ## The layered pool and dry-out (gh:#1100)
+//!
+//! **Layers, a configuration choice.** [`ControlVolume::with_pool_layers`]
+//! splits the pool into `n` horizontal layers (the default `n = 1` runs the
+//! single-region code path unchanged, bit for bit:
+//! `tests/control_volume_layers.rs` L1 checks 64 values against the code as
+//! it was before). The totals still set the level, the density, the swell
+//! and the atmosphere's volume. What enters at a port joins the layer at
+//! the port's elevation; bubbles meet that layer's temperature; a liquid
+//! outflow draws from its layer, then the layers above, then below; the
+//! donor state at an elevation is that layer's liquid. The surface exchange,
+//! flashing and rain-out act on the top layer; pool heat, the immersed heat
+//! exchanger and the compression work are shared by mass. The column
+//! operations are in [`layers`]: DYRESM-style split and merge of Lagrangian
+//! layers, `sembawang`'s mixing of an unstable column
+//! (`bwr_mark1::containment::Containment::layer_pool`, generalised to `n`
+//! layers by IF97 density), and molecular conduction across a stable one
+//! (no eddy diffusivity: stated, the lower bound of the exchange).
+//!
+//! **Dry-out, always on.** A pool may hold zero mass, from construction or
+//! by draining, flashing, evaporating or boiling. A removal that would leave
+//! less than 1e-9 of the pool (or a layer) takes it all, so an empty pool is
+//! exactly `(0, 0)`; a drained pool's last flow work comes from the
+//! atmosphere, and an end-of-step sweep returns to the atmosphere what the
+//! compression work leaves on an empty pool (and any pool under 1e-9 kg).
+//! A dry pool has no surface exchange and no flashing, its ports draw the
+//! atmosphere, the heat exchanger is uncovered, and pool heat goes to the
+//! atmosphere (reported as [`ControlVolumeStepReport::pool_heat_to_atmosphere`],
+//! as is heat beyond what boils the whole pool away). Rain-out, inflow and
+//! condensate refill it. Evaporation that would leave the surface liquid
+//! below the triple point evaporates it whole (MELCOR's Eq 5-17 limit over-
+//! draws a pool that is nearly all evaporating).
 //!
 //! ## For gh:#1094 (flow paths) and gh:#1095 (implicit network)
 //!
@@ -106,9 +140,12 @@
 //! atmosphere (the pressure above the level is the atmosphere's); the void's
 //! own effect on what a port draws (a port below the swollen level draws
 //! liquid at the pool's state, not a two-phase mixture); fog (rain-out goes to
-//! the pool at once); pool stratification; heat structures (the caller's, as
-//! `pool_heat`); aerosols.
+//! the pool at once); ~~pool stratification~~ (**CORRECTED 2026-11-01,
+//! gh:#1100:** optional layers, above; mixing by stirring is still not
+//! modelled); boiling at depth in a layered pool (only the top layer
+//! flashes); heat structures (the caller's, as `pool_heat`); aerosols.
 
+pub mod layers;
 pub mod level;
 pub mod pool_surface;
 
@@ -139,7 +176,7 @@ use uom::si::volume::cubic_meter;
 
 use crate::components::wet_well::{ImmersedHeatExchanger, SurfaceModel};
 use crate::TampinesError;
-use pool_surface::{bubble_efficiency, exchange, p_sat_pa, rho_liquid, steam_h, t_sat, Atmosphere, PoolState, SurfaceGeometry, G, M_H2O, R_GAS};
+use pool_surface::{bubble_efficiency, exchange, k_water, p_sat_pa, rho_liquid, steam_h, t_sat, Atmosphere, PoolState, SurfaceGeometry, G, M_H2O, R_GAS};
 
 /// `sembawang`'s constant-`c_p` liquid, J/(kg K) (`containment::CP_WATER`).
 const CP_WATER: f64 = 4186.0;
@@ -147,6 +184,22 @@ const CP_WATER: f64 = 4186.0;
 const U_STEAM_REF: f64 = 2.5060e6;
 const CV_STEAM: f64 = 1500.0;
 const T_REF: f64 = 373.15;
+
+/// Dry-out (gh:#1100): a removal that would leave less than this fraction
+/// of what a pool (or a layer) held takes all of it, so a drained pool is
+/// exactly empty rather than a round-off residue whose temperature
+/// `u = E / m` means nothing. Numerical, not physical: it acts only within
+/// a part in 1e9 of empty.
+const DRY_FRACTION: f64 = 1e-9;
+/// Dry-out: a pool below this mass at the end of a step is swept into the
+/// atmosphere as vapour with its energy, kg (numerical, as
+/// [`DRY_FRACTION`]).
+const DRY_KG: f64 = 1e-9;
+
+/// Whether removing `m` from `before` leaves it dry.
+fn leaves_dry(before: f64, m: f64) -> bool {
+    before - m <= (DRY_FRACTION * before).max(DRY_KG)
+}
 
 // ── Inputs and outputs ───────────────────────────────────────────────────────
 
@@ -240,6 +293,8 @@ pub struct ControlVolumeInputs {
     /// One input per port, in the geometry's port order.
     pub ports: Vec<PortInput>,
     /// Heat into the pool (a heat structure, a core), W; negative removes.
+    /// Shared by mass in a layered pool; into the atmosphere when the pool
+    /// is dry (gh:#1100).
     pub pool_heat: Power,
     /// The immersed heat exchanger (implicit in the pool temperature).
     pub heat_exchanger: ImmersedHeatExchanger,
@@ -315,6 +370,9 @@ pub struct ControlVolumeStepReport {
     pub steam_sink: Mass,
     /// The enthalpy the sunk steam carried.
     pub steam_sink_energy: Energy,
+    /// Pool heat that went into the atmosphere because the pool was dry, or
+    /// the pool boiled dry on it within the step (gh:#1100).
+    pub pool_heat_to_atmosphere: Energy,
 }
 
 /// Running totals across the boundary since construction.
@@ -377,6 +435,9 @@ pub struct ControlVolumeMechanisms {
     pub equilibrium_rain_out: bool,
     /// The liquid.
     pub liquid: LiquidModel,
+    /// A layered pool's stable layers exchange heat by molecular conduction
+    /// (gh:#1100; no effect on a one-layer pool).
+    pub pool_layer_conduction: bool,
 }
 
 impl Default for ControlVolumeMechanisms {
@@ -388,6 +449,7 @@ impl Default for ControlVolumeMechanisms {
             level_swell: true,
             equilibrium_rain_out: true,
             liquid: LiquidModel::Iapws97,
+            pool_layer_conduction: true,
         }
     }
 }
@@ -425,6 +487,11 @@ pub struct ControlVolume {
     ncg_out: [f64; 6],
     e_in: f64,
     e_out: f64,
+    /// The pool's layers, bottom first, `(kg, J)`, summing to `pool_kg` and
+    /// `pool_e`; empty for one well-mixed pool (gh:#1100).
+    layers: Vec<(f64, f64)>,
+    /// The layers' temperatures, K (derived; empty with `layers`).
+    layer_t: Vec<f64>,
 }
 
 fn finite_nonneg(x: f64, what: &str) -> Result<f64, TampinesError> {
@@ -443,8 +510,8 @@ impl ControlVolume {
     ///
     /// # Errors
     ///
-    /// [`TampinesError::InvalidInput`] for a non-positive pool mass or
-    /// temperature, an empty atmosphere, a port outside the table, a
+    /// [`TampinesError::InvalidInput`] for a negative pool mass (zero, a dry
+    /// pool, is allowed), a non-positive temperature, an empty atmosphere, a port outside the table, a
     /// non-positive opening; [`TampinesError::Unphysical`] if the pool fills
     /// the vessel or the atmosphere's closure fails.
     pub fn new(
@@ -458,7 +525,12 @@ impl ControlVolume {
         let pool_kg = pool_mass.get::<kilogram>();
         let t_p = pool_temperature.get::<kelvin>();
         let t_g = atmosphere_temperature.get::<kelvin>();
-        for (x, what) in [(pool_kg, "pool mass"), (t_p, "pool temperature"), (t_g, "atmosphere temperature")] {
+        // A dry pool (zero mass) is allowed (gh:#1100); its temperature is
+        // then the one a first drop of liquid is guessed at.
+        if !(pool_kg.is_finite() && pool_kg >= 0.0) {
+            return Err(TampinesError::InvalidInput(format!("pool mass = {pool_kg}")));
+        }
+        for (x, what) in [(t_p, "pool temperature"), (t_g, "atmosphere temperature")] {
             if !(x.is_finite() && x > 0.0) {
                 return Err(TampinesError::InvalidInput(format!("{what} = {x}")));
             }
@@ -492,6 +564,8 @@ impl ControlVolume {
             ncg_out: [0.0; 6],
             e_in: 0.0,
             e_out: 0.0,
+            layers: Vec::new(),
+            layer_t: Vec::new(),
         };
         cv.reset_energies(t_p, t_g)?;
         Ok(cv)
@@ -499,7 +573,18 @@ impl ControlVolume {
 
     /// Set the energies from the temperatures under the current models.
     fn reset_energies(&mut self, t_p: f64, t_g: f64) -> Result<(), TampinesError> {
-        self.pool_e = self.pool_kg * self.u_liquid(t_p);
+        if self.layers.is_empty() {
+            self.pool_e = self.pool_kg * self.u_liquid(t_p);
+        } else {
+            // Each layer keeps its own temperature under the new model.
+            let es: Vec<f64> = self.layers.iter().zip(&self.layer_t).map(|(l, t)| l.0 * self.u_liquid(*t)).collect();
+            let mut e = 0.0;
+            for (l, x) in self.layers.iter_mut().zip(es) {
+                l.1 = x;
+                e += x;
+            }
+            self.pool_e = e;
+        }
         self.d.t_pool = t_p;
         // The atmosphere's volume depends on the pool density, which depends
         // on the pressure: settle it at the given temperature first.
@@ -590,6 +675,250 @@ impl ControlVolume {
     /// The atmosphere's closure.
     pub fn gas_model(&self) -> GasMixtureModel {
         self.model
+    }
+
+    // ── The layered pool and dry-out (gh:#1100) ──────────────────────────
+
+    /// Split the pool into `n` horizontal layers of equal mass, each at the
+    /// pool's present specific energy (see "The layered pool" in the module
+    /// documentation). `n = 1` is the one well-mixed pool, the default,
+    /// which runs the single-region code path unchanged (bit for bit; it
+    /// merges an already layered pool back into one).
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for `n = 0`.
+    pub fn with_pool_layers(mut self, n: usize) -> Result<Self, TampinesError> {
+        if n == 0 {
+            return Err(TampinesError::InvalidInput("a pool needs at least one layer".into()));
+        }
+        if n == 1 {
+            self.layers.clear();
+            self.layer_t.clear();
+            return Ok(self);
+        }
+        let u = if self.pool_kg > 0.0 { self.pool_e / self.pool_kg } else { 0.0 };
+        let target = self.pool_kg / n as f64;
+        let mut layers: Vec<(f64, f64)> = (0..n - 1).map(|_| (target, target * u)).collect();
+        let e_rest: f64 = layers.iter().map(|l| l.1).sum();
+        layers.push((self.pool_kg - target * (n - 1) as f64, self.pool_e - e_rest));
+        self.layers = layers;
+        self.layer_t = vec![self.d.t_pool; n];
+        self.refresh_layers();
+        Ok(self)
+    }
+
+    /// Ablation: a layered pool's stable layers exchange nothing (as
+    /// `sembawang`'s two-layer pool: unstable layers still mix).
+    pub fn without_pool_layer_conduction(mut self) -> Self {
+        self.mech.pool_layer_conduction = false;
+        self
+    }
+
+    /// Set each layer's temperature, bottom first (an initial
+    /// stratification), keeping the layers' masses; one value for a
+    /// one-layer pool. No mixing is applied until the next step.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for the wrong number of values or a
+    /// non-positive temperature; [`TampinesError::Unphysical`] if the
+    /// atmosphere's closure fails.
+    pub fn set_pool_layer_temperatures(&mut self, t: &[ThermodynamicTemperature]) -> Result<(), TampinesError> {
+        let n = self.layers.len().max(1);
+        if t.len() != n {
+            return Err(TampinesError::InvalidInput(format!("{} layer temperatures for {n} layers", t.len())));
+        }
+        let ts: Vec<f64> = t.iter().map(|x| x.get::<kelvin>()).collect();
+        if ts.iter().any(|x| !(x.is_finite() && *x > 0.0)) {
+            return Err(TampinesError::InvalidInput(format!("layer temperatures {ts:?}")));
+        }
+        if self.layers.is_empty() {
+            self.pool_e = self.pool_kg * self.u_liquid(ts[0]);
+            self.d.t_pool = ts[0];
+        } else {
+            let es: Vec<f64> = self.layers.iter().zip(&ts).map(|(l, t)| l.0 * self.u_liquid(*t)).collect();
+            let mut e = 0.0;
+            for (l, x) in self.layers.iter_mut().zip(es) {
+                l.1 = x;
+                e += x;
+            }
+            self.pool_e = e;
+            self.layer_t = ts;
+        }
+        self.refresh()
+    }
+
+    /// The number of pool layers (1 for the well-mixed pool).
+    pub fn pool_layer_count(&self) -> usize {
+        self.layers.len().max(1)
+    }
+    /// Each layer's temperature, bottom first (the pool's for one layer; an
+    /// empty layer reports the pool's).
+    pub fn pool_layer_temperatures(&self) -> Vec<ThermodynamicTemperature> {
+        if self.layers.is_empty() { vec![kelv(self.d.t_pool)] } else { self.layer_t.iter().map(|t| kelv(*t)).collect() }
+    }
+    /// Each layer's mass, bottom first (the pool's for one layer).
+    pub fn pool_layer_masses(&self) -> Vec<Mass> {
+        if self.layers.is_empty() { vec![self.pool_mass()] } else { self.layers.iter().map(|l| Mass::new::<kilogram>(l.0)).collect() }
+    }
+    /// Each layer's internal energy, bottom first (the pool's for one layer).
+    pub fn pool_layer_energies(&self) -> Vec<Energy> {
+        if self.layers.is_empty() { vec![Energy::new::<joule>(self.pool_e)] } else { self.layers.iter().map(|l| Energy::new::<joule>(l.1)).collect() }
+    }
+    /// The temperature of the pool's surface layer, the one the surface
+    /// exchange sees (the pool's for one layer).
+    pub fn pool_surface_temperature(&self) -> ThermodynamicTemperature {
+        kelv(self.t_layer(self.top_layer()))
+    }
+    /// Whether the pool is dry (holds no liquid).
+    pub fn is_pool_dry(&self) -> bool {
+        !(self.pool_kg > 0.0)
+    }
+
+    /// The layer holding elevation `z` (0 for one layer): by the mass below
+    /// `z` at the pool's mean density, the top layer at and above the level.
+    fn layer_at(&self, z: f64) -> usize {
+        if self.layers.is_empty() {
+            return 0;
+        }
+        let m_z = self.d.rho * self.table.volume_below_m3(z);
+        let mut c = 0.0;
+        for (i, l) in self.layers.iter().enumerate() {
+            c += l.0;
+            if m_z < c {
+                return i;
+            }
+        }
+        self.top_layer()
+    }
+    /// The highest layer holding liquid (the top one if all are empty).
+    fn top_layer(&self) -> usize {
+        self.layers.iter().rposition(|l| l.0 > 0.0).unwrap_or(self.layers.len().saturating_sub(1))
+    }
+    /// Layer `i`'s temperature (the pool's for one layer).
+    fn t_layer(&self, i: usize) -> f64 {
+        if self.layers.is_empty() { self.d.t_pool } else { self.layer_t[i] }
+    }
+    /// The liquid's temperature at elevation `z`.
+    fn local_t(&self, z: f64) -> f64 {
+        self.t_layer(self.layer_at(z))
+    }
+    /// `dm` kg and `de` J into layer `layer` (the pool for one layer).
+    fn add_pool_at(&mut self, layer: usize, dm: f64, de: f64) -> Result<(), TampinesError> {
+        if let Some(l) = self.layers.get_mut(layer) {
+            l.0 += dm;
+            l.1 += de;
+        }
+        self.add_pool(dm, de)
+    }
+    /// `de` J spread over the layers in proportion to their mass (the top
+    /// holding layer takes the remainder), the totals unchanged: the caller
+    /// adds `de` to `pool_e`.
+    fn spread_by_mass(&mut self, de: f64) {
+        if self.layers.is_empty() || !(self.pool_kg > 0.0) {
+            return;
+        }
+        let top = self.top_layer();
+        let mut used = 0.0;
+        for (i, l) in self.layers.iter_mut().enumerate() {
+            if i != top && l.0 > 0.0 {
+                let x = de * l.0 / self.pool_kg;
+                l.1 += x;
+                used += x;
+            }
+        }
+        self.layers[top].1 += de - used;
+    }
+    /// Empty the pool: its mass and energy to zero exactly, every layer too.
+    fn empty_pool(&mut self) {
+        self.pool_kg = 0.0;
+        self.pool_e = 0.0;
+        for l in self.layers.iter_mut() {
+            *l = (0.0, 0.0);
+        }
+    }
+    /// The layers' heat capacities, J/K, and the conductances between
+    /// neighbours, W/K: `k A / Δz`, `k` MELCOR's liquid conductivity at the
+    /// two layers' mean temperature, `A` the free cross-section at their
+    /// interface, `Δz` the distance between their mid-mass elevations, all
+    /// at the pool's mean density.
+    fn layer_conductances(&self) -> (Vec<f64>, Vec<f64>) {
+        let n = self.layers.len();
+        let rho = self.d.rho;
+        let cap: Vec<f64> = self.layers.iter().zip(&self.layer_t).map(|(l, t)| if l.0 > 0.0 { l.0 * self.cv_liquid(*t) } else { 0.0 }).collect();
+        let mut mid = Vec::with_capacity(n);
+        let mut top = Vec::with_capacity(n);
+        let mut c = 0.0;
+        for l in &self.layers {
+            mid.push(self.table.height_of_volume_m((c + 0.5 * l.0) / rho));
+            c += l.0;
+            top.push(self.table.height_of_volume_m(c / rho));
+        }
+        let g = (0..n.saturating_sub(1))
+            .map(|k| {
+                let dz = mid[k + 1] - mid[k];
+                if !(dz > 0.0) {
+                    return 0.0;
+                }
+                let k_w = k_water(0.5 * (self.layer_t[k] + self.layer_t[k + 1]));
+                k_w * self.table.area_at(Length::new::<meter>(top[k])).get::<uom::si::area::square_meter>() / dz
+            })
+            .collect();
+        (cap, g)
+    }
+    /// The top holding layer's thickness, m.
+    fn top_layer_thickness(&self) -> f64 {
+        let top = self.top_layer();
+        let below: f64 = self.layers.iter().take(top).map(|l| l.0).sum();
+        self.d.level - self.table.height_of_volume_m(below / self.d.rho)
+    }
+    /// The layered pool's column step: split and merge so no layer is thick
+    /// or empty, conduction across the layers (implicit), and the convective
+    /// adjustment.
+    fn column_step(&mut self, dt: f64) -> Result<(), TampinesError> {
+        if self.layers.is_empty() || !(self.pool_kg > 0.0) {
+            return Ok(());
+        }
+        if layers::split_merge(&mut self.layers) > 0 {
+            self.refresh_layers();
+        }
+        if self.mech.pool_layer_conduction {
+            let (cap, g) = self.layer_conductances();
+            let t = self.layer_t.clone();
+            layers::conduct(&mut self.layers, &t, &cap, &g, dt);
+            self.refresh_layers();
+        }
+        self.mix_unstable();
+        Ok(())
+    }
+    /// The convective adjustment, by IF97 density at the atmosphere's
+    /// pressure (the constant-`c_p` ablation's energy mapped to a
+    /// temperature by that model).
+    fn mix_unstable(&mut self) {
+        if self.layers.is_empty() {
+            return;
+        }
+        let p = self.d.p_gas;
+        let guess = self.d.t_pool;
+        let mut layers = std::mem::take(&mut self.layers);
+        let merges = layers::convective_adjustment(&mut layers, |u| rho_liquid(self.t_liquid(u, guess), p));
+        self.layers = layers;
+        if merges > 0 {
+            self.refresh_layers();
+        }
+    }
+    /// The end-of-step dry-out sweep: a pool below [`DRY_KG`] (and an empty
+    /// pool left holding energy by the step's compression work) goes into
+    /// the atmosphere, mass as vapour with its energy.
+    fn sweep_dry(&mut self) -> Result<(), TampinesError> {
+        if self.pool_kg <= DRY_KG && (self.pool_kg != 0.0 || self.pool_e != 0.0) {
+            self.gas.steam_kg += self.pool_kg;
+            self.gas_e += self.pool_e;
+            self.empty_pool();
+            self.refresh()?;
+        }
+        Ok(())
     }
 
     // ── Thermodynamics ───────────────────────────────────────────────────
@@ -695,7 +1024,8 @@ impl ControlVolume {
     /// fixed-point passes from the density at saturation (the wet well's
     /// `derived`).
     fn refresh(&mut self) -> Result<(), TampinesError> {
-        let t_pool = self.t_liquid(self.pool_e / self.pool_kg, self.d.t_pool);
+        // A dry pool keeps its last temperature (gh:#1100).
+        let t_pool = if self.pool_kg > 0.0 { self.t_liquid(self.pool_e / self.pool_kg, self.d.t_pool) } else { self.d.t_pool };
         let mut t_gas = self.d.t_gas;
         let mut rho = rho_liquid(t_pool, 0.0);
         let mut d = self.d;
@@ -715,13 +1045,28 @@ impl ControlVolume {
             return Err(TampinesError::Unphysical(format!("pool temperature {t_pool} K")));
         }
         self.d = d;
+        self.refresh_layers();
         Ok(())
+    }
+
+    /// Re-derive the layers' temperatures (an empty layer takes the pool's).
+    fn refresh_layers(&mut self) {
+        if self.layers.is_empty() {
+            return;
+        }
+        let mut ts = std::mem::take(&mut self.layer_t);
+        ts.resize(self.layers.len(), self.d.t_pool);
+        for (i, l) in self.layers.iter().enumerate() {
+            let guess = if ts[i].is_finite() && ts[i] > 0.0 { ts[i] } else { self.d.t_pool };
+            ts[i] = if l.0 > 0.0 { self.t_liquid(l.1 / l.0, guess) } else { self.d.t_pool };
+        }
+        self.layer_t = ts;
     }
 
     fn add_pool(&mut self, dm: f64, de: f64) -> Result<(), TampinesError> {
         self.pool_kg += dm;
         self.pool_e += de;
-        if !(self.pool_kg > 0.0) {
+        if !(self.pool_kg >= 0.0) {
             return Err(TampinesError::Unphysical(format!("pool mass {} kg", self.pool_kg)));
         }
         self.refresh()
@@ -841,12 +1186,14 @@ impl ControlVolume {
     /// both phases' properties at each end, and decides the split itself).
     pub fn phase_states_at(&self, z: Length) -> (DonorState, DonorState) {
         let p = self.p_at(z.get::<meter>());
+        // The liquid of the layer at `z` (the pool's for one layer).
+        let t_l = self.local_t(z.get::<meter>());
         let liquid = DonorState {
             draw: PortDraw::Liquid,
             pressure: Pressure::new::<pascal>(p),
             density: self.pool_density(),
-            specific_enthalpy: AvailableEnergy::new::<joule_per_kilogram>(self.h_liquid(self.d.t_pool, p)),
-            temperature: kelv(self.d.t_pool),
+            specific_enthalpy: AvailableEnergy::new::<joule_per_kilogram>(self.h_liquid(t_l, p)),
+            temperature: kelv(t_l),
             water_mass_fraction: 1.0,
             ncg_mass_fractions: [0.0; 6],
         };
@@ -874,9 +1221,11 @@ impl ControlVolume {
     /// # Errors
     ///
     /// [`TampinesError::InvalidInput`] for a non-positive `dt`, a wrong
-    /// number of port inputs, a negative or non-finite flow, or an outflow
-    /// larger than what it draws on; [`TampinesError::Unphysical`] if the pool
-    /// fills the vessel or a closure fails.
+    /// number of port inputs, a negative or non-finite flow, or an
+    /// atmosphere outflow not below the atmosphere's mass (a liquid outflow
+    /// larger than the pool takes the pool and reports what moved: dry-out,
+    /// gh:#1100); [`TampinesError::Unphysical`] if the pool fills the vessel
+    /// or a closure fails.
     pub fn step(&mut self, dt: Time, inputs: &ControlVolumeInputs) -> Result<ControlVolumeStepReport, TampinesError> {
         let dt = dt.get::<second>();
         if !(dt.is_finite() && dt > 0.0) {
@@ -939,6 +1288,7 @@ impl ControlVolume {
 
         // 2. Pool heat (explicit) and the immersed heat exchanger, implicit
         //    in the pool temperature (`q = k ΔT / (1 + k / C_pool)`).
+        let mut q_to_atm = 0.0;
         if q_heat != 0.0 {
             let q = q_heat * dt;
             if q > 0.0 {
@@ -946,7 +1296,7 @@ impl ControlVolume {
             } else {
                 self.e_out -= q;
             }
-            self.add_pool(0.0, q)?;
+            q_to_atm = self.heat_pool(q)?;
         }
         // 2b. The caller's structures on the atmosphere (gh:#1097): heat,
         //     then condensation, both explicit.
@@ -980,9 +1330,32 @@ impl ControlVolume {
             self.refresh()?;
         }
         let k = ua * dt;
-        let q_hx = k * (self.d.t_pool - t_hx) / (1.0 + k / (self.pool_kg * self.cv_liquid(self.d.t_pool)));
-        if q_hx != 0.0 {
+        // A dry pool uncovers the exchanger: no heat (gh:#1100).
+        let q_hx = if !(self.pool_kg > 0.0) {
+            0.0
+        } else if self.layers.is_empty() {
+            k * (self.d.t_pool - t_hx) / (1.0 + k / (self.pool_kg * self.cv_liquid(self.d.t_pool)))
+        } else {
+            // Each layer sees its share of the exchanger, by mass (stated:
+            // the tubes span the pool), implicit in its own temperature.
+            let mut q = 0.0;
+            for i in 0..self.layers.len() {
+                let (m_l, t_l) = (self.layers[i].0, self.layer_t[i]);
+                if m_l > 0.0 {
+                    let k_l = k * m_l / self.pool_kg;
+                    let q_l = k_l * (t_l - t_hx) / (1.0 + k_l / (m_l * self.cv_liquid(t_l)));
+                    self.layers[i].1 -= q_l;
+                    q += q_l;
+                }
+            }
+            self.pool_e -= q;
+            self.refresh()?;
+            q
+        };
+        if q_hx != 0.0 && self.layers.is_empty() {
             self.add_pool(0.0, -q_hx)?;
+        }
+        if q_hx != 0.0 {
             self.e_out += q_hx;
         }
 
@@ -997,11 +1370,7 @@ impl ControlVolume {
             }
             match draw {
                 PortDraw::Liquid => {
-                    if m >= self.pool_kg {
-                        return Err(TampinesError::InvalidInput(format!("outflow {m} kg not below the pool's {} kg", self.pool_kg)));
-                    }
-                    let e = m * self.h_liquid(self.d.t_pool, pressures[i]);
-                    self.add_pool(-m, -e)?;
+                    let (m, e) = self.draw_liquid(z, m, pressures[i])?;
                     self.water_out += m;
                     self.e_out += e;
                     transfers[i].water_out = Mass::new::<kilogram>(m);
@@ -1035,6 +1404,9 @@ impl ControlVolume {
             }
         }
 
+        // 3b. A layered pool's column: split and merge, conduction, mixing.
+        self.column_step(dt)?;
+
         // 4. The pool surface.
         let (flash, evap, rain) = self.surface(dt)?;
         vapour_volume += flash * R_GAS * self.d.t_pool / (M_H2O * self.d.p_gas);
@@ -1045,11 +1417,17 @@ impl ControlVolume {
         if self.mech.pressure_work {
             let w = 0.5 * (start.p_gas + self.d.p_gas) * (self.pool_kg / self.d.rho - v_pool_start);
             if w != 0.0 {
+                self.spread_by_mass(-w);
                 self.pool_e -= w;
                 self.gas_e += w;
                 self.refresh()?;
             }
         }
+        // 6. The surface may have left the top layer denser (evaporative
+        //    cooling): mix again, so the step ends stable. Then the dry-out
+        //    sweep (gh:#1100).
+        self.mix_unstable();
+        self.sweep_dry()?;
         self.vapour_flow = vapour_volume / dt;
         Ok(ControlVolumeStepReport {
             ports: transfers,
@@ -1060,7 +1438,102 @@ impl ControlVolume {
             vapour_flow_m3_s: self.vapour_flow,
             steam_sink: Mass::new::<kilogram>(m_sink),
             steam_sink_energy: Energy::new::<joule>(e_sink),
+            pool_heat_to_atmosphere: Energy::new::<joule>(q_to_atm),
         })
+    }
+
+    /// `q` J of pool heat. Into the pool (by mass over the layers); into the
+    /// atmosphere when the pool is dry; and when it is more than turns the
+    /// whole pool into saturated vapour at the atmosphere's pressure, the
+    /// pool boils dry: its mass goes to the atmosphere as vapour carrying
+    /// its energy and `q` (gh:#1100). Returns the heat that went to the
+    /// atmosphere, J.
+    fn heat_pool(&mut self, q: f64) -> Result<f64, TampinesError> {
+        if !(self.pool_kg > 0.0) {
+            self.gas_e += q;
+            self.refresh()?;
+            return Ok(q);
+        }
+        if q > 0.0 {
+            let t_s = t_sat(self.d.p_gas);
+            let e_cap = self.pool_kg * self.h_steam(t_s, p_sat_pa(t_s)) - self.pool_e;
+            if q >= e_cap {
+                self.gas.steam_kg += self.pool_kg;
+                self.gas_e += self.pool_e + q;
+                self.empty_pool();
+                self.refresh()?;
+                return Ok(q);
+            }
+        }
+        self.spread_by_mass(q);
+        self.add_pool(0.0, q)?;
+        Ok(0.0)
+    }
+
+    /// Draw `m` kg of liquid through a port at `z` at pressure `p`, carrying
+    /// `h_liquid(T, p)` per kg at the temperature of the layer it comes
+    /// from. Returns what moved, kg and J.
+    ///
+    /// One layer: the old step, `m h` from the pool. Layered: the port's
+    /// layer first, then the layers above it (the liquid over the port
+    /// flows down to it), then those below; each gives its share of its
+    /// energy, and the flow work `m (h − u)` is taken from the pool that
+    /// remains, by mass, as the one-layer pool takes it from its total.
+    /// Dry-out (gh:#1100): a draw that would leave less than
+    /// [`DRY_FRACTION`] of the pool takes the whole pool, which is then
+    /// exactly empty; the flow work comes from the atmosphere (the gas
+    /// pushing the last liquid out), and the step's compression work is
+    /// returned by the end-of-step sweep, so neither is counted twice.
+    fn draw_liquid(&mut self, z: f64, m: f64, p: f64) -> Result<(f64, f64), TampinesError> {
+        if leaves_dry(self.pool_kg, m) {
+            let m_all = self.pool_kg;
+            let e = if self.layers.is_empty() {
+                m_all * self.h_liquid(self.d.t_pool, p)
+            } else {
+                self.layers.iter().zip(&self.layer_t).map(|(l, t)| l.0 * self.h_liquid(*t, p)).sum()
+            };
+            self.gas_e -= e - self.pool_e;
+            self.empty_pool();
+            self.refresh()?;
+            return Ok((m_all, e));
+        }
+        if self.layers.is_empty() {
+            let e = m * self.h_liquid(self.d.t_pool, p);
+            self.add_pool(-m, -e)?;
+            return Ok((m, e));
+        }
+        let n = self.layers.len();
+        let from = self.layer_at(z);
+        let order: Vec<usize> = (from..n).chain((0..from).rev()).collect();
+        let (mut rem, mut taken, mut e_out, mut u_out) = (m, 0.0, 0.0, 0.0);
+        for l in order {
+            if !(rem > 0.0) {
+                break;
+            }
+            let (m_l, e_l) = self.layers[l];
+            if !(m_l > 0.0) {
+                continue;
+            }
+            let h = self.h_liquid(self.layer_t[l], p);
+            if leaves_dry(m_l, rem) {
+                e_out += m_l * h;
+                u_out += e_l;
+                taken += m_l;
+                rem -= m_l;
+                self.layers[l] = (0.0, 0.0);
+            } else {
+                let du = e_l * (rem / m_l);
+                e_out += rem * h;
+                u_out += du;
+                taken += rem;
+                self.layers[l] = (m_l - rem, e_l - du);
+                rem = 0.0;
+            }
+        }
+        self.pool_kg -= taken;
+        self.spread_by_mass(u_out - e_out);
+        self.add_pool(0.0, -e_out)?;
+        Ok((taken, e_out))
     }
 
     /// The enthalpy of `dn` moles of non-condensables at `t`, J.
@@ -1098,7 +1571,10 @@ impl ControlVolume {
             let m_l = (1.0 - x) * m;
             let e_l = m_l * h.min(h_f);
             if m_l > 0.0 {
-                self.add_pool(m_l, e_l)?;
+                // The liquid joins the layer at the port (the top one when
+                // the port is above the level).
+                let layer = self.layer_at(z);
+                self.add_pool_at(layer, m_l, e_l)?;
             }
             (m - m_l, e_in - e_l)
         } else {
@@ -1112,8 +1588,9 @@ impl ControlVolume {
         if !self.mech.bubble_pass_through {
             return 1.0;
         }
-        let depth = self.d.level - self.ports[i].elevation.get::<meter>();
-        bubble_efficiency(depth, self.ports[i].opening_height.get::<meter>(), self.d.p_gas + self.d.rho * G * depth.max(0.0), self.d.t_pool)
+        let z = self.ports[i].elevation.get::<meter>();
+        let depth = self.d.level - z;
+        bubble_efficiency(depth, self.ports[i].opening_height.get::<meter>(), self.d.p_gas + self.d.rho * G * depth.max(0.0), self.local_t(z))
     }
 
     /// Gas entering at port `i`: `dn` mol of non-condensables and `m_s` kg of
@@ -1125,7 +1602,9 @@ impl ControlVolume {
     /// rest of the steam and energy stay in the pool), linearly in `ε`.
     fn bubble_through(&mut self, i: usize, dn: [f64; 6], m_s: f64, e_in: f64) -> Result<(f64, f64, f64), TampinesError> {
         let p_g = self.d.p_gas;
-        let t_p = self.d.t_pool;
+        // The liquid the bubbles meet: the layer at the port.
+        let layer = self.layer_at(self.ports[i].elevation.get::<meter>());
+        let t_p = self.t_layer(layer);
         let eps = self.efficiency(i);
         let n_tot: f64 = dn.iter().sum();
         let p_v = (0.99 * p_sat_pa(t_p)).min(0.99 * p_g);
@@ -1140,7 +1619,7 @@ impl ControlVolume {
         self.gas.steam_kg += to_atm_steam;
         self.gas_e += to_atm_e;
         self.refresh()?;
-        self.add_pool(m_s - to_atm_steam, e_in - to_atm_e)?;
+        self.add_pool_at(layer, m_s - to_atm_steam, e_in - to_atm_e)?;
         let vol = (n_tot + to_atm_steam / M_H2O) * R_GAS * t_p / p_g;
         Ok((eps, to_atm_steam, vol))
     }
@@ -1151,32 +1630,45 @@ impl ControlVolume {
     /// exchange (or the sensible-only ablation), and rain-out. Returns the
     /// flashed, the surface-evaporated and the rained-out masses, kg.
     fn surface(&mut self, dt: f64) -> Result<(f64, f64, f64), TampinesError> {
+        // The liquid at the surface: the pool, or a layered pool's top
+        // holding layer (gh:#1100). A dry pool has no surface: only
+        // rain-out acts, and refills it.
+        let top = self.top_layer();
+        let (mut flash, mut evap) = (0.0, 0.0);
+        if !(self.surface_liquid().0 > 0.0) {
+            let rain = self.rain_out()?;
+            return Ok((flash, evap, rain));
+        }
         // Flashing: the vapour leaves as saturated steam at `T_s`; the pool
-        // ends at `T_s` (energy: `E_p = (m − x) u_l(T_s) + x h_g(T_s)`).
+        // ends at `T_s` (energy: `E_p = (m − x) u_l(T_s) + x h_g(T_s)`). A
+        // flash that would leave it dry takes it all, with all its energy.
         let t_s = t_sat(self.d.p_gas);
-        let mut flash = 0.0;
-        if self.d.t_pool > t_s {
+        let (m_s, e_s, t_l, _) = self.surface_liquid();
+        if t_l > t_s {
             let h_g = self.h_steam(t_s, p_sat_pa(t_s));
             let u_l = self.u_liquid(t_s);
-            let m = (self.pool_e - self.pool_kg * u_l) / (h_g - u_l);
-            let e = m * h_g;
+            let m = (e_s - m_s * u_l) / (h_g - u_l);
+            let (m, e) = if leaves_dry(m_s, m) { (m_s, e_s) } else { (m, m * h_g) };
             self.gas.steam_kg += m;
             self.gas_e += e;
-            self.pool_kg -= m;
-            self.pool_e -= e;
+            self.take_surface(top, m, e, m_s);
             self.refresh()?;
             flash = m;
         }
-        let mut evap = 0.0;
+        if !(self.surface_liquid().0 > 0.0) {
+            let rain = self.rain_out()?;
+            return Ok((flash, evap, rain));
+        }
         match self.mech.surface {
             SurfaceModel::Melcor => {
                 let d = self.d;
+                let (m_s, e_s, t_l, depth) = self.surface_liquid();
                 let area = self.table.area_at(Length::new::<meter>(d.level)).get::<uom::si::area::square_meter>();
-                let cp = self.cv_liquid(d.t_pool);
+                let cp = self.cv_liquid(t_l);
                 let ex = exchange(
-                    &PoolState { t_k: d.t_pool, kg: self.pool_kg, rho: d.rho, cp },
+                    &PoolState { t_k: t_l, kg: m_s, rho: d.rho, cp },
                     &Atmosphere { t_k: d.t_gas, p_pa: d.p_gas, n_steam: self.gas.steam_kg / M_H2O, n_n2: self.gas.ncg_total_moles() },
-                    &SurfaceGeometry { area_m2: area, pool_depth_m: d.level - self.table.bottom_m(), gas_depth_m: d.v_gas / area },
+                    &SurfaceGeometry { area_m2: area, pool_depth_m: depth, gas_depth_m: d.v_gas / area },
                     dt,
                 );
                 let m = ex.evaporation_kg_s * dt;
@@ -1186,20 +1678,42 @@ impl ControlVolume {
                 // constant-`c_p`, ideal-steam ablations) is taken from the
                 // atmosphere's heat so energy closes on this volume's values.
                 let p_s = self.gas.steam_kg / M_H2O / (self.gas.steam_kg / M_H2O + self.gas.ncg_total_moles()) * d.p_gas;
-                let h_f = self.h_liquid(d.t_pool, d.p_gas);
+                let h_f = self.h_liquid(t_l, d.p_gas);
                 let h_g = self.h_steam(d.t_gas, p_s);
-                let corr = m * ((h_g - h_f) - (steam_h(d.t_gas) - cp * (d.t_pool - 273.15)));
+                let corr = m * ((h_g - h_f) - (steam_h(d.t_gas) - cp * (t_l - 273.15)));
                 let e_p = m * h_f + ex.q_pool_w * dt;
                 let e_a = m * h_g - ex.q_atm_w * dt - corr;
-                self.pool_kg -= m;
-                self.pool_e -= e_p;
-                self.gas.steam_kg += m;
-                self.gas_e += e_a;
-                self.refresh()?;
-                evap = m;
+                // Dry-out by evaporation (gh:#1100): the surface liquid goes
+                // to the atmosphere whole, with its energy, the gas
+                // supplying the rest of the latent heat, when the
+                // evaporation would leave it dry, or would leave what
+                // remains below the triple point. MELCOR's Eq 5-17 limit
+                // caps the pool's heat by the whole pool's sensible heat
+                // while the evaporated mass leaves at the pool's enthalpy,
+                // so what remains is colder than the surface by `m (p/ρ +
+                // c_p ΔT) / (m_s − m)` per kg: negligible for a pool, but
+                // unbounded as a film evaporates (found on a 0.05 kg film,
+                // 2026-11-01: 221 K, then a negative energy). Liquid below
+                // 273.16 K is outside the model (no ice), so that is the
+                // floor, not a tuned margin.
+                let too_cold = m > 0.0 && m < m_s && (e_s - e_p) < (m_s - m) * self.u_liquid(273.16);
+                if m > 0.0 && (leaves_dry(m_s, m) || too_cold) {
+                    self.gas.steam_kg += m_s;
+                    self.gas_e += e_s;
+                    self.take_surface(top, m_s, e_s, m_s);
+                    self.refresh()?;
+                    evap = m_s;
+                } else {
+                    self.take_surface(top, m, e_p, m_s);
+                    self.gas.steam_kg += m;
+                    self.gas_e += e_a;
+                    self.refresh()?;
+                    evap = m;
+                }
             }
             SurfaceModel::SensibleOnly { coefficient } => {
                 let d = self.d;
+                let (m_s, _, t_l, _) = self.surface_liquid();
                 let area = self.table.area_at(Length::new::<meter>(d.level)).get::<uom::si::area::square_meter>();
                 let k = area * coefficient.get::<watt_per_square_meter_kelvin>() * dt;
                 let c_g = self
@@ -1207,15 +1721,44 @@ impl ControlVolume {
                     .heat_capacity(&self.gas, Volume::new::<cubic_meter>(d.v_gas), kelv(d.t_gas))
                     .map_err(|e| TampinesError::Unphysical(format!("atmosphere: {e}")))?
                     .get::<uom::si::heat_capacity::joule_per_kelvin>();
-                let c_p = self.pool_kg * self.cv_liquid(d.t_pool);
-                let q = k * (d.t_pool - d.t_gas) / (1.0 + k / c_g + k / c_p);
-                self.pool_e -= q;
+                let c_p = m_s * self.cv_liquid(t_l);
+                let q = k * (t_l - d.t_gas) / (1.0 + k / c_g + k / c_p);
+                self.take_surface(top, 0.0, q, m_s);
                 self.gas_e += q;
                 self.refresh()?;
             }
         }
         let rain = self.rain_out()?;
         Ok((flash, evap, rain))
+    }
+
+    /// The surface liquid: mass, energy, temperature and depth (the pool's,
+    /// or a layered pool's top holding layer and its thickness).
+    fn surface_liquid(&self) -> (f64, f64, f64, f64) {
+        if self.layers.is_empty() {
+            (self.pool_kg, self.pool_e, self.d.t_pool, self.d.level - self.table.bottom_m())
+        } else {
+            let top = self.top_layer();
+            (self.layers[top].0, self.layers[top].1, self.layer_t[top], self.top_layer_thickness())
+        }
+    }
+    /// Take `dm` kg and `de` J from the surface liquid (layer `top`), which
+    /// held `held` kg; when `dm` is all of it, it ends exactly empty.
+    fn take_surface(&mut self, top: usize, dm: f64, de: f64, held: f64) {
+        let whole = dm > 0.0 && dm == held;
+        if let Some(l) = self.layers.get_mut(top) {
+            if whole {
+                *l = (0.0, 0.0);
+            } else {
+                l.0 -= dm;
+                l.1 -= de;
+            }
+        }
+        self.pool_kg -= dm;
+        self.pool_e -= de;
+        if whole && (self.layers.is_empty() || self.layers.iter().all(|l| l.0 == 0.0)) {
+            self.empty_pool();
+        }
     }
 
     /// Condense vapour above saturation into the pool. The condensate leaves
@@ -1241,7 +1784,8 @@ impl ControlVolume {
                 self.gas.steam_kg = keep;
                 self.gas_e -= e;
                 self.refresh()?;
-                self.add_pool(cond, e)?;
+                let top = self.top_layer();
+                self.add_pool_at(top, cond, e)?;
                 total += cond;
             }
             return Ok(total);
@@ -1283,7 +1827,8 @@ impl ControlVolume {
         self.gas.steam_kg = s0 - cond;
         self.gas_e -= e;
         self.refresh()?;
-        self.add_pool(cond, e)?;
+        let top = self.top_layer();
+        self.add_pool_at(top, cond, e)?;
         total += cond;
         Ok(total)
     }

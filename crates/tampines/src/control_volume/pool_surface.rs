@@ -123,6 +123,13 @@ const MU_WATER: [(f64, f64); 9] = [
     (449.816, 1.56261e-4), (477.594, 1.35426e-4), (499.850, 1.17267e-4),
 ];
 
+/// Liquid water's conductivity at `t_k`, W/(m K): MELCOR's table
+/// ([`K_WATER`], NCG/H2O RM §4.1.1), held at its ends. For the layered
+/// pool's conduction (gh:#1100); the table is the one the surface uses.
+pub(crate) fn k_water(t_k: f64) -> f64 {
+    table(t_k, &K_WATER)
+}
+
 /// Steam's molar `c_v`, J/(mol K) (`pool_surface::CV_STEAM_MOLAR`).
 const CV_STEAM_MOLAR: f64 = 1500.0 * M_H2O;
 

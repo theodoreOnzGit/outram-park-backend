@@ -440,3 +440,83 @@ fn gas_flux_keeps_each_species_on_its_own_energy_reference() {
     println!("item 2: T {t_g:.3} K, p_s {:.3} Pa, h_w {h_w:.6} vs IF97 {h_if97:.6} J/kg, rel {rel:.2e}; a 298.15 K gas reference would move it by {shift:.4e} J/kg", st.steam_partial_pressure.get::<pascal>());
     assert!(rel < 1e-9, "water enthalpy {h_w} vs IF97 {h_if97}");
 }
+
+/// **L8 (gh:#1100): a volume drains dry inside a network.** Two 1 m² × 5 m
+/// vessels joined bottom to bottom; A holds 0.2 m of water under 3 bar N2,
+/// B no water (a zero pool) under 1 bar. 20 s at 0.02 s.
+///
+/// Prediction (written before the first run): no error; A dry (exactly
+/// 0.0 kg) within 10 s; water, N2 and energy to < 1e-12; B 199–200 kg; A's
+/// gas above B's by B's pool head, about 1960 Pa (within 300 Pa). The first
+/// run at 300 K stopped twice on limits outside this change (see the
+/// comments below); re-designed at 350 K, prediction written before the
+/// re-run: B 190–195 kg (A's 194.8 kg less evaporation), the head
+/// `m g / A` ≈ 1911 Pa (within 300 Pa), the rest as before.
+///
+/// **Result (2026-11-01, release):** A dry (pool exactly 0) at 5.46 s, as
+/// predicted; worst water 2.0e-15, N2 3.3e-16, energy 1.6e-15, as
+/// predicted. **The end state MISSED:** the water swung back, A held
+/// 121.1 kg and B 72.6 kg at 20 s with the gases 31 kPa apart and still
+/// moving: two gas springs and the path's inertia make a U-tube that the
+/// path's `K = 1` damps only slowly, which the prediction ignored. So the
+/// run also refilled a dried volume through the network, without error and
+/// conserving. Asserted: the dry-out within 10 s, the conservation, and the
+/// refill.
+#[test]
+fn a_volume_drains_dry_inside_a_network() {
+    let mut net = CvNetwork::new(NetworkControl::default());
+    // At 350 K: at 300 K A's gas expanded below IF97 steam's 273.16 K floor
+    // (gh:#1098) at 5.7 s, just after A dried (first run, re-designed).
+    let a = net.add_volume(vessel_at(1.0, 5.0, 0.2, 3.0e5, 0.0, &[0.0], 350.0));
+    let b = net.add_volume(vessel_at(1.0, 5.0, 0.0, 1.0e5, 0.0, &[0.0], 350.0));
+    assert!(net.volume(b).unwrap().is_pool_dry());
+    // Without choking: the first run stopped at 5.6 s (A just dry) in the
+    // liquid choking check, `Iapws97Hem::break_flow` refusing 300 K liquid
+    // from 2.31 to 1.50 bar ("h0 - h_b = -6.0 J/kg < 0"). That is a defect of
+    // the HEM break flow for cold subcooled liquid at low pressure, not of
+    // the dry pool: called directly it fails the same way for any 300 K
+    // liquid (2.0 -> 1.5 bar, 1.2 -> 1.0 bar), and succeeds at 3 -> 1 bar
+    // (reported with gh:#1100). The manometer test ablates choking likewise.
+    let path = gas_path(0.0, 0.0, 0.002, 1.0).without_choking();
+    net.add_path(NetworkPath { path, from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+    let (w0, n0, e0) = totals(&net);
+    let mut dry_at = None;
+    let mut worst = (0.0_f64, 0.0_f64, 0.0_f64);
+    for k in 0..1000 {
+        if let Err(e) = net.step(Time::new::<second>(0.02)) {
+            for i in [a, b] {
+                let v = net.volume(i).unwrap();
+                let (l, g) = v.phase_states_at(m(0.0));
+                println!("step {k} failed; volume {i}: pool {} kg T {} p_gas {} level {} swollen {}; liq h {} p {}; gas T {}", v.pool_mass().get::<kilogram>(), v.pool_temperature().get::<kelvin>(), v.atmosphere_pressure().get::<pascal>(), v.pool_level().get::<meter>(), v.swollen_level().get::<meter>(), l.specific_enthalpy.get::<joule_per_kilogram>(), l.pressure.get::<pascal>(), g.temperature.get::<kelvin>());
+            }
+            panic!("{e:?}");
+        }
+        let (w, n, e) = totals(&net);
+        worst = (worst.0.max((w / w0 - 1.0).abs()), worst.1.max((n / n0 - 1.0).abs()), worst.2.max((e / e0 - 1.0).abs()));
+        if dry_at.is_none() && net.volume(a).unwrap().is_pool_dry() {
+            dry_at = Some(0.02 * (k + 1) as f64);
+            assert_eq!(net.volume(a).unwrap().pool_mass().get::<kilogram>().to_bits(), 0.0_f64.to_bits());
+        }
+    }
+    let (va, vb) = (net.volume(a).unwrap(), net.volume(b).unwrap());
+    let dp = va.atmosphere_pressure().get::<pascal>() - vb.atmosphere_pressure().get::<pascal>();
+    println!(
+        "A dry at {dry_at:?} s (pool {} kg); B {} kg at {} K; p_A {} Pa, p_B {} Pa, difference {dp} Pa; worst water {:e}, N2 {:e}, energy {:e}",
+        va.pool_mass().get::<kilogram>(),
+        vb.pool_mass().get::<kilogram>(),
+        vb.pool_temperature().get::<kelvin>(),
+        va.atmosphere_pressure().get::<pascal>(),
+        vb.atmosphere_pressure().get::<pascal>(),
+        worst.0,
+        worst.1,
+        worst.2
+    );
+    assert!(dry_at.is_some_and(|t| t <= 10.0), "{dry_at:?}");
+    assert!(worst.0 < 1e-12 && worst.1 < 1e-12 && worst.2 < 1e-12, "{worst:?}");
+    // MISS of "B 190–195 kg, settled by B's head" (see the doc comment):
+    // the water swings back (a U-tube between two gas springs, damped only
+    // by the path's K = 1), so A refills through the network after drying.
+    // Asserted: the dry-out and the refill happen and conserve.
+    assert!(va.pool_mass().get::<kilogram>() > 0.0, "A refilled");
+    assert!((va.pool_mass() + vb.pool_mass()).get::<kilogram>() > 190.0);
+}
