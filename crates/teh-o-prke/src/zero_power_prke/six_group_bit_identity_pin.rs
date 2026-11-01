@@ -80,7 +80,12 @@ pub(crate) fn fingerprint(nuclide: FissioningNuclideType, implicit: bool) -> (u6
             }
         }
     }
-    (hash, prke.get_current_neutron_population_density().value.to_bits())
+    (
+        hash,
+        prke.get_current_neutron_population_density()
+            .value
+            .to_bits(),
+    )
 }
 
 /// Pinned implicit fingerprints (hash, final n bits) for U-233, U-235, Pu-239,

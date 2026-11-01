@@ -1,7 +1,5 @@
 use ndarray::*;
-use crate::matrix::SquareMatrix;
 use uom::si::f64::*;
-use uom::si::volumetric_number_density::per_cubic_meter;
 use uom::si::ratio::ratio;
 
 use crate::teh_o_prke_error::TehOPrkeError;
@@ -20,116 +18,28 @@ impl SixGroupPRKE {
         neutron_generation_time: Time,
         background_source_rate: VolumetricNumberRate,
     ) -> Result<Array1<VolumetricNumberDensity>, TehOPrkeError> {
-        // first, construct coefficient matrix
-
-        let coefficient_matrix =
-            self.construct_coefficient_matrix(timestep, reactivity, neutron_generation_time);
-        // next, unit test to check if the units match
-        {
-            let _test_quantity: VolumetricNumberDensity = (coefficient_matrix[[6, 0]]
-                * self.precursor_and_neutron_pop_and_source_array[0])
-                .into();
-        }
-
-        // map this to a f64
-        // all SI units
-
-        let coefficient_matrix_float: Array2<f64> =
-            coefficient_matrix.map(|&coefficient_dimensioned_quantity| {
-                let coefficient_float: f64 = coefficient_dimensioned_quantity.get::<ratio>();
-                coefficient_float
-            });
-
-        let neutron_population_number_density = self.precursor_and_neutron_pop_and_source_array[0];
-        let delayed_neutron_precursor_group_1_concentration =
-            self.precursor_and_neutron_pop_and_source_array[1];
-        let delayed_neutron_precursor_group_2_concentration =
-            self.precursor_and_neutron_pop_and_source_array[2];
-        let delayed_neutron_precursor_group_3_concentration =
-            self.precursor_and_neutron_pop_and_source_array[3];
-        let delayed_neutron_precursor_group_4_concentration =
-            self.precursor_and_neutron_pop_and_source_array[4];
-        let delayed_neutron_precursor_group_5_concentration =
-            self.precursor_and_neutron_pop_and_source_array[5];
-        let delayed_neutron_precursor_group_6_concentration =
-            self.precursor_and_neutron_pop_and_source_array[6];
-
-        let precursor_and_neutron_pop_and_source_array_with_background_source =
-            Self::construct_present_timestep_concentration_and_neutron_pop_vector(
-                delayed_neutron_precursor_group_1_concentration,
-                delayed_neutron_precursor_group_2_concentration,
-                delayed_neutron_precursor_group_3_concentration,
-                delayed_neutron_precursor_group_4_concentration,
-                delayed_neutron_precursor_group_5_concentration,
-                delayed_neutron_precursor_group_6_concentration,
-                neutron_population_number_density,
-                background_source_rate,
-                timestep,
-            );
-
-        // neutron and precursor_and_neutron_pop_and_source_vector
-        // also must be mapped to f64 array
-
-        let precursor_and_neutron_pop_and_source_vector: Array1<f64> =
-            precursor_and_neutron_pop_and_source_array_with_background_source
-                .iter()
-                .map(|precursor_or_neutron_number_density| {
-                    // all SI units
-                    let number_density_float: f64 =
-                        precursor_or_neutron_number_density.get::<per_cubic_meter>();
-                    number_density_float
-                })
-                .collect();
-
-        // Build a 7×7 SquareMatrix from the ndarray coefficient matrix
-        let mut sq_mat = SquareMatrix::new(7);
-        for i in 0..7 {
-            for j in 0..7 {
-                sq_mat.set(i, j, coefficient_matrix_float[[i, j]]);
-            }
-        }
-        let rhs: Vec<f64> = precursor_and_neutron_pop_and_source_vector.to_vec();
-        let sol = sq_mat
-            .solve(&rhs)
-            .map_err(|e| TehOPrkeError::ShapeMismatch(e.to_string()))?;
-        let precursor_and_neutron_pop_and_source_vector_next_timestep_float: Array1<f64> =
-            Array1::from(sol);
-
-        let precursor_and_neutron_pop_and_source_vector_next_timestep: Array1<
-            VolumetricNumberDensity,
-        > = precursor_and_neutron_pop_and_source_vector_next_timestep_float
-            .iter()
-            .map(|&precursor_or_neutron_number_density_float| {
-                VolumetricNumberDensity::new::<per_cubic_meter>(
-                    precursor_or_neutron_number_density_float,
-                )
-            })
-            .collect();
-
-        // edit the neutron source vector,
-        // However, need to pivot around the source vector
-
-        self.precursor_and_neutron_pop_and_source_array[0] =
-            precursor_and_neutron_pop_and_source_vector_next_timestep[0];
-        self.precursor_and_neutron_pop_and_source_array[1] =
-            precursor_and_neutron_pop_and_source_vector_next_timestep[1];
-        self.precursor_and_neutron_pop_and_source_array[2] =
-            precursor_and_neutron_pop_and_source_vector_next_timestep[2];
-        self.precursor_and_neutron_pop_and_source_array[3] =
-            precursor_and_neutron_pop_and_source_vector_next_timestep[3];
-        self.precursor_and_neutron_pop_and_source_array[4] =
-            precursor_and_neutron_pop_and_source_vector_next_timestep[4];
-        self.precursor_and_neutron_pop_and_source_array[5] =
-            precursor_and_neutron_pop_and_source_vector_next_timestep[5];
-        self.precursor_and_neutron_pop_and_source_array[6] =
-            precursor_and_neutron_pop_and_source_vector_next_timestep[6];
-
-        // return to environment
-        Ok(precursor_and_neutron_pop_and_source_vector_next_timestep)
+        // gh:#1082: one PRKE core. The arithmetic lives in the N-group module
+        // and is pinned bit-identical to the pre-refactor hand-unrolled 7x7
+        // solve (zero_power_prke::six_group_bit_identity_pin).
+        crate::zero_power_prke::n_group_prke::backward_euler_step(
+            &self.decay_constant_array,
+            &self.delayed_fraction_array,
+            &mut self.precursor_and_neutron_pop_and_source_array,
+            timestep,
+            reactivity,
+            neutron_generation_time,
+            background_source_rate,
+        )?;
+        Ok(Array1::from(
+            self.precursor_and_neutron_pop_and_source_array.to_vec(),
+        ))
     }
 
     /// constructs the vector for delayed neutron precursor concentration
     /// and neutron population concentration
+    ///
+    /// Since gh:#1082 kept for inspection only; the implicit step builds the
+    /// same right-hand side in `n_group_prke::backward_euler_step`.
     ///
     /// note that the first precursor concentration group is that
     /// with the longest half life
@@ -173,6 +83,11 @@ impl SixGroupPRKE {
 
     /// constructs the matrix required for
     /// solution of implicit six group PRKE
+    ///
+    /// Since gh:#1082 the implicit step assembles this same matrix, entry for
+    /// entry, inside `n_group_prke::backward_euler_step` (for any number of
+    /// groups); this function is kept for inspection and is no longer on the
+    /// stepping path.
     pub fn construct_coefficient_matrix(
         &self,
         timestep: Time,
