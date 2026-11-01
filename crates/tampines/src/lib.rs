@@ -88,6 +88,7 @@ pub mod heat_transfer;
 pub mod hem;
 pub mod humid_air;
 pub mod multiphase_1d;
+pub mod pcice;
 pub mod pebble_bed;
 pub mod single_phase;
 pub mod subchannel;
