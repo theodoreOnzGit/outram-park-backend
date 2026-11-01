@@ -87,9 +87,11 @@
 //!
 //! # Honest scope
 //!
-//! [`crate::multiphase_1d`] lists what applies to both solvers (no wall heat
-//! transfer, no flow-regime map, no interfacial-area transport, HEM break
-//! model). Specific to this solver:
+//! [`crate::multiphase_1d`] lists what applies to both solvers (no
+//! interfacial-area transport, HEM break model; ~~no wall heat transfer, no
+//! flow-regime map~~ **CORRECTED 2026-11-01:** wall heat exists since gh:#1062,
+//! see [`DriftFlux1d::set_wall_heat`]; the gh:#1060 regime map applies to the
+//! two-fluid solver only). Specific to this solver:
 //!
 //! - **The drift momentum flux is explicit**, at old-time `U_dm`. At a fast
 //!   front it is a lagged term.
@@ -114,7 +116,8 @@ use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
 use super::geometry::Pipe1d;
-use super::properties::{SaturatedProperties, TwoPhaseState};
+use super::properties::{SaturatedProperties, SaturatedTransport, TwoPhaseState};
+use super::wall_heat::{thermal_expansion, PhasicWallHeat, WallPhaseState};
 use super::thomas_solve;
 use crate::TampinesError;
 
@@ -521,6 +524,8 @@ pub struct DriftFlux1d {
     /// Outer-corrector convergence tolerance on `max |Δp|` \[Pa\]. Below this
     /// the loop stops early.
     outer_tolerance: f64,
+    /// Wall heat (gh:#1062); adiabatic by default.
+    wall_heat: PhasicWallHeat,
 }
 
 impl DriftFlux1d {
@@ -584,7 +589,83 @@ impl DriftFlux1d {
             n_outer_correctors: DEFAULT_OUTER_CORRECTORS,
             p_under_relaxation: DEFAULT_PRESSURE_UNDER_RELAXATION,
             outer_tolerance: DEFAULT_OUTER_TOLERANCE,
+            wall_heat: PhasicWallHeat::default(),
         })
+    }
+
+    /// Set the wall heat boundary condition (gh:#1062, RELAP-7 Eq. 201).
+    ///
+    /// This solver has one mixture energy equation, so the two phasic shares
+    /// of [`PhasicWallHeat::phasic_heat`] are summed. Both phases are at the
+    /// cell's equilibrium temperature and move at the mixture velocity as far
+    /// as the wall is concerned (the drift velocity is not used here).
+    ///
+    /// # Errors
+    ///
+    /// As [`PhasicWallHeat::validate`].
+    pub fn set_wall_heat(&mut self, wall_heat: PhasicWallHeat) -> Result<(), TampinesError> {
+        wall_heat.validate()?;
+        self.wall_heat = wall_heat;
+        Ok(())
+    }
+
+    /// The wall heat boundary condition.
+    #[must_use]
+    pub fn wall_heat(&self) -> PhasicWallHeat {
+        self.wall_heat
+    }
+
+    /// Per-cell volumetric wall heat \[W/m³\] on the start-of-step state.
+    fn wall_heat_sources(
+        &self,
+        p: &[f64],
+        h: &[f64],
+        alpha: &[f64],
+        sat: &[SaturatedProperties],
+        u_m: &[f64],
+    ) -> Result<Vec<f64>, TampinesError> {
+        let n = p.len();
+        let mut q = vec![0.0; n];
+        for i in 0..n {
+            let state = TwoPhaseState::flash(p[i], h[i], sat[i])?;
+            let two_phase = alpha[i] > 0.0;
+            let (h_l, rho_l) = if two_phase {
+                (sat[i].h_f, sat[i].rho_f)
+            } else {
+                (h[i], state.density)
+            };
+            let mut vapour = WallPhaseState {
+                temperature: state.temperature,
+                density: sat[i].rho_g,
+                viscosity: sat[i].mu_g,
+                conductivity: 0.0,
+                cp: 0.0,
+                expansion: 0.0,
+                velocity: u_m[i],
+            };
+            let mut liquid = WallPhaseState {
+                density: rho_l,
+                viscosity: sat[i].mu_f,
+                ..vapour
+            };
+            if self.wall_heat.needs_properties() {
+                let tr = SaturatedTransport::at(super::two_fluid::region_4_safe_pressure(p[i]))?;
+                vapour.conductivity = tr.lambda_g;
+                vapour.cp = tr.cp_g;
+                vapour.expansion = thermal_expansion(false, p[i], sat[i].h_g, tr.cp_g, sat[i])?;
+                liquid.conductivity = tr.lambda_f;
+                liquid.cp = tr.cp_f;
+                liquid.expansion = thermal_expansion(true, p[i], h_l, tr.cp_f, sat[i])?;
+            }
+            let (q_g, q_l) = self.wall_heat.phasic_heat(
+                alpha[i],
+                self.pipe.hydraulic_diameter_si(),
+                vapour,
+                liquid,
+            )?;
+            q[i] = q_g + q_l;
+        }
+        Ok(q)
     }
 
     /// Overwrite the cell temperatures from an axial profile, re-flashing
@@ -1084,6 +1165,14 @@ impl DriftFlux1d {
         let h_in_right: Option<f64> =
             right_inflow.map(|s| s.h_stagnation - 0.5 * u_new[n] * u_new[n]);
 
+        // Wall heat (gh:#1062), explicit on the start-of-step state; zero for
+        // the default adiabatic wall, which keeps the arithmetic unchanged.
+        let q_wall = if self.wall_heat.is_adiabatic() {
+            vec![0.0; n]
+        } else {
+            self.wall_heat_sources(&p_old, &h_old, &alpha_old, &sat_old, &u_m_cells)?
+        };
+
         let mut h_new = vec![0.0; n];
         for i in 0..n {
             let h_left = if i == 0 {
@@ -1104,8 +1193,9 @@ impl DriftFlux1d {
             };
             let convection = (mass_flux[i + 1] * h_right - mass_flux[i] * h_left) / volume;
             let dp_dt = (p_new[i] - p_old[i]) / self.dt;
-            h_new[i] =
-                (rho_old[i] * h_old[i] / self.dt - convection + dp_dt) * self.dt / rho_cont[i];
+            h_new[i] = (rho_old[i] * h_old[i] / self.dt - convection + dp_dt + q_wall[i])
+                * self.dt
+                / rho_cont[i];
         }
 
         // Gas mass transport with the reconstructed vapour velocity, then

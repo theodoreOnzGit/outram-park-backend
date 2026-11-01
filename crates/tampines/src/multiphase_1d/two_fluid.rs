@@ -31,7 +31,10 @@
 //!
 //! `m_k (∂u_k/∂t + u_k ∂u_k/∂x) = −α_k ∂p/∂x + m_k g_x + F_k^d + F_k^vm + Γ_k (u^i − u_k) − F_k^wall`  (phase momentum)
 //!
-//! `∂(m_k h_k)/∂t + ∂(m_k h_k u_k)/∂x = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i`  (phase energy)
+//! `∂(m_k h_k)/∂t + ∂(m_k h_k u_k)/∂x = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i + Q_k^wall`  (phase energy)
+//!
+//! with `Q_k^wall` the phasic wall heat of gh:#1062 (RELAP-7 Eq. 201,
+//! [`super::wall_heat`]), zero for the default adiabatic wall.
 //!
 //! and the **volume constraint** `α_g + α_l = 1`, which is what the pressure
 //! equation enforces (see "The pressure equation" below).
@@ -321,6 +324,7 @@ use super::properties::{
     PhaseState, SaturatedProperties, SaturatedTransport, TwoPhaseState, P_MAX_IF97, P_MIN_IF97,
 };
 use super::thomas_solve;
+use super::wall_heat::{thermal_expansion, PhasicWallHeat, WallPhaseState};
 use crate::TampinesError;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1035,6 +1039,8 @@ pub struct TwoFluid1d {
     /// gh:#1060: transferred mass carries `H_int` (Eq. 208). `false` only via
     /// [`TwoFluid1d::without_total_enthalpy_mass_transfer`].
     total_enthalpy_mass_transfer: bool,
+    /// gh:#1062: wall heat, adiabatic by default.
+    wall_heat: PhasicWallHeat,
 }
 
 impl TwoFluid1d {
@@ -1130,6 +1136,7 @@ impl TwoFluid1d {
             volume_residual_tolerance: DEFAULT_VOLUME_RESIDUAL_TOLERANCE,
             interface_velocity: true,
             total_enthalpy_mass_transfer: true,
+            wall_heat: PhasicWallHeat::default(),
         };
 
         let t0 = temperature.get::<kelvin>();
@@ -1188,6 +1195,79 @@ impl TwoFluid1d {
     pub fn without_total_enthalpy_mass_transfer(mut self) -> Self {
         self.total_enthalpy_mass_transfer = false;
         self
+    }
+
+    /// Set the wall heat boundary condition (gh:#1062, RELAP-7 Eq. 201).
+    ///
+    /// Each phase receives its share through the linear wall-contact
+    /// partition (vapour `α_g`, liquid `1 − α_g`; see [`super::wall_heat`]),
+    /// against its own temperature and, for the RELAP5 variant, with its own
+    /// properties and cell-centre velocity. Explicit on the start-of-step
+    /// state.
+    ///
+    /// # Errors
+    ///
+    /// As [`PhasicWallHeat::validate`].
+    pub fn set_wall_heat(&mut self, wall_heat: PhasicWallHeat) -> Result<(), TampinesError> {
+        wall_heat.validate()?;
+        self.wall_heat = wall_heat;
+        Ok(())
+    }
+
+    /// The wall heat boundary condition.
+    #[must_use]
+    pub fn wall_heat(&self) -> PhasicWallHeat {
+        self.wall_heat
+    }
+
+    /// Per-cell volumetric wall heat `(vapour, liquid)` \[W/m³\] on the
+    /// start-of-step state (gh:#1062).
+    #[allow(clippy::type_complexity)]
+    fn wall_heat_sources(
+        &self,
+        ug_cell: &[f64],
+        ul_cell: &[f64],
+    ) -> Result<(Vec<f64>, Vec<f64>), TampinesError> {
+        let n = self.pipe.n_cells();
+        let mut q_g = vec![0.0; n];
+        let mut q_l = vec![0.0; n];
+        for i in 0..n {
+            let sat = self.sat[i];
+            let tr = self.transport[i];
+            let mut vapour = WallPhaseState {
+                temperature: self.t_g[i],
+                density: self.rho_g[i],
+                viscosity: sat.mu_g,
+                conductivity: tr.lambda_g,
+                cp: tr.cp_g,
+                expansion: 0.0,
+                velocity: ug_cell[i],
+            };
+            let mut liquid = WallPhaseState {
+                temperature: self.t_l[i],
+                density: self.rho_l[i],
+                viscosity: sat.mu_f,
+                conductivity: tr.lambda_f,
+                cp: tr.cp_f,
+                expansion: 0.0,
+                velocity: ul_cell[i],
+            };
+            if self.wall_heat.needs_properties() {
+                vapour.expansion = thermal_expansion(false, self.p[i], self.h_g[i], tr.cp_g, sat)?;
+                liquid.expansion = thermal_expansion(true, self.p[i], self.h_l[i], tr.cp_f, sat)?;
+            }
+            let sum = self.alpha_g[i] + self.alpha_l[i];
+            let void = if sum > 0.0 { self.alpha_g[i] / sum } else { 0.0 };
+            let (g, l) = self.wall_heat.phasic_heat(
+                void,
+                self.pipe.hydraulic_diameter_si(),
+                vapour,
+                liquid,
+            )?;
+            q_g[i] = g;
+            q_l[i] = l;
+        }
+        Ok((q_g, q_l))
     }
 
     /// Whether the gh:#1060 interface-velocity terms are active.
@@ -1676,6 +1756,13 @@ impl TwoFluid1d {
 
         let (psi_g, psi_l) = self.phase_compressibilities(&p_old, &h_g_old, &h_l_old)?;
 
+        // Wall heat (gh:#1062), explicit on the start-of-step state.
+        let (q_wall_g, q_wall_l) = if self.wall_heat.is_adiabatic() {
+            (vec![0.0; n], vec![0.0; n])
+        } else {
+            self.wall_heat_sources(&ug_cell, &ul_cell)?
+        };
+
         // ── Stage 1: face momentum — the 2x2 implicit coupling blocks ────
         let (left_u, left_choked) = self.resolve_boundary(self.left, 0)?;
         let (right_u, right_choked) = self.resolve_boundary(self.right, n - 1)?;
@@ -1950,10 +2037,10 @@ impl TwoFluid1d {
                     ug_i,
                     ul_i,
                 );
-                let e_g_i =
-                    m_g_t * h_g_t + dt * (exchange.q_g + exchange.gamma * sat_i.h_g + extra_g);
-                let e_l_i =
-                    m_l_t * h_l_t + dt * (exchange.q_l - exchange.gamma * sat_i.h_f + extra_l);
+                let e_g_i = m_g_t * h_g_t
+                    + dt * (exchange.q_g + exchange.gamma * sat_i.h_g + extra_g + q_wall_g[i]);
+                let e_l_i = m_l_t * h_l_t
+                    + dt * (exchange.q_l - exchange.gamma * sat_i.h_f + extra_l + q_wall_l[i]);
 
                 let (m_g_f, h_g_f) = if m_g_i > PHASE_FLOOR_TRIGGER * floor_g {
                     (m_g_i, e_g_i / m_g_i)

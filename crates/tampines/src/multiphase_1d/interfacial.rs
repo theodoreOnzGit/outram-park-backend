@@ -115,7 +115,9 @@
 //!   (`Q = K (T_interface − T_phase)`) and it is the sign with which `Q_k^i`
 //!   enters the phase energy equation as written in [`super::two_fluid`]
 //!   (`… = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i`; ~~`+ q_k^wall`~~ **CORRECTED
-//!   2026-11-01:** the solver has no wall heat term, it is adiabatic). A
+//!   2026-11-01:** the solver has no wall heat term, it is adiabatic;
+//!   **CORRECTED AGAIN 2026-11-01, gh:#1062:** it has one now,
+//!   `+ Q_k^wall` from [`super::wall_heat`], adiabatic by default). A
 //!   **positive** `Q_g^i`
 //!   heats the vapour.
 //! - **`Γ > 0` means evaporation** — liquid becoming vapour, mass leaving the

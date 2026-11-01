@@ -94,9 +94,14 @@
 //!
 //! Stated here so it is not discovered late:
 //!
-//! - **No wall heat transfer.** Both solvers are adiabatic. A blowdown is
+//! - ~~**No wall heat transfer.** Both solvers are adiabatic. A blowdown is
 //!   dominated by depressurisation, not by wall heat, but a rewetting or
-//!   reflood problem is not solvable with these as they stand.
+//!   reflood problem is not solvable with these as they stand.~~ **CORRECTED
+//!   2026-11-01 (gh:#1062):** both take a [`wall_heat::PhasicWallHeat`]
+//!   (adiabatic by default): a prescribed flux, a wall temperature with `h`,
+//!   or `h` from the RELAP5 dispatcher, split between the phases by the
+//!   linear wall-contact partition. There is still no boiling curve, CHF or
+//!   rewetting logic, so a reflood problem is still out of reach.
 //! - **No interfacial area transport.** [`two_fluid::TwoFluid1d`] takes a
 //!   prescribed bubble diameter, so ~~its drag and its interfacial heat transfer
 //!   do not respond to a changing flow regime~~ (**CORRECTED 2026-11-01,
@@ -151,11 +156,13 @@ pub mod geometry;
 pub mod interfacial;
 pub mod properties;
 pub mod two_fluid;
+pub mod wall_heat;
 
 pub use drift_flux::{DriftFlux1d, DriftFluxReport};
 pub use geometry::Pipe1d;
 pub use interfacial::{DispersedPhase, InterfacialCellState, InterfacialExchange, InterfacialSources};
 pub use properties::{SaturatedProperties, TwoPhaseState};
+pub use wall_heat::{PhasicWallHeat, WallPhaseState};
 pub use two_fluid::{
     PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidReport,
 };
@@ -274,3 +281,6 @@ mod tests;
 
 #[cfg(test)]
 mod two_fluid_tests;
+
+#[cfg(test)]
+mod wall_heat_tests;
