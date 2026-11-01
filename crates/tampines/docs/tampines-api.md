@@ -13605,20 +13605,33 @@ in the Edwards cases.
 
 Stated here so it is not discovered late:
 
-- **No wall heat transfer.** Both solvers are adiabatic. A blowdown is
+- ~~**No wall heat transfer.** Both solvers are adiabatic. A blowdown is
   dominated by depressurisation, not by wall heat, but a rewetting or
-  reflood problem is not solvable with these as they stand.
+  reflood problem is not solvable with these as they stand.~~ **CORRECTED
+  2026-11-01 (gh:#1062):** both take a [`wall_heat::PhasicWallHeat`]
+  (adiabatic by default): a prescribed flux, a wall temperature with `h`,
+  or `h` from the RELAP5 dispatcher, split between the phases by the
+  linear wall-contact partition. There is still no boiling curve, CHF or
+  rewetting logic, so a reflood problem is still out of reach.
 - **No interfacial area transport.** [`two_fluid::TwoFluid1d`] takes a
-  prescribed bubble diameter, so its drag and its interfacial heat transfer
-  do not respond to a changing flow regime. That absence is not cosmetic: it
+  prescribed bubble diameter, so ~~its drag and its interfacial heat transfer
+  do not respond to a changing flow regime~~ (**CORRECTED 2026-11-01,
+  gh:#1060:** above `α_g = 0.5` the area now follows the regime map; in the
+  bubbly window it is still `6 α_g / d_b`) the bubble size never responds to
+  breakup or nucleation. That absence is not cosmetic: it
   is what makes the six-equation solver **refuse** a transient started at a
   low void fraction, because a phase with almost no interfacial area cannot
   shed its reversible expansion work fast enough to stay inside the bounded
   metastable branches. Measured boundary and diagnosis in
   `two_fluid_tests::six_equation_march_refuses_where_a_phase_cannot_shed_its_expansion_work`.
-- **No flow-regime map.** A real system code selects closures from a
+- ~~**No flow-regime map.** A real system code selects closures from a
   regime map (bubbly / slug / annular / mist). Here the closure is whatever
-  the caller passed, everywhere, for the whole transient.
+  the caller passed, everywhere, for the whole transient.~~ **CORRECTED
+  2026-11-01 (gh:#1060):** [`two_fluid::TwoFluid1d`] takes its interfacial
+  area from a void-fraction regime map (bubbly/slug to annular/mist, the
+  reused GeN-Foam `RegimeMap1D` and `InterfacialArea`); the correlations
+  themselves are still the caller's, and the low-void refusal below is
+  unchanged by it (re-measured).
 - **No counter-current flow limitation, no critical-flow model of their
   own.** The break boundary reuses the crate's existing HEM critical-flow
   dispatcher, so the *break* is HEM even when the *pipe* is drift-flux or
@@ -13735,9 +13748,11 @@ buried in a literal.
 
 # Honest scope
 
-[`crate::multiphase_1d`] lists what applies to both solvers (no wall heat
-transfer, no flow-regime map, no interfacial-area transport, HEM break
-model). Specific to this solver:
+[`crate::multiphase_1d`] lists what applies to both solvers (no
+interfacial-area transport, HEM break model; ~~no wall heat transfer, no
+flow-regime map~~ **CORRECTED 2026-11-01:** wall heat exists since gh:#1062,
+see [`DriftFlux1d::set_wall_heat`]; the gh:#1060 regime map applies to the
+two-fluid solver only). Specific to this solver:
 
 - **The drift momentum flux is explicit**, at old-time `U_dm`. At a fast
   front it is a lagged term.
@@ -14322,6 +14337,16 @@ pub struct DriftFlux1d {
   Build a solver on `pipe`, initialised to a uniform `(p, T)` state.
 
 - ```rust
+  pub fn set_wall_heat(self: &mut Self, wall_heat: PhasicWallHeat) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the wall heat boundary condition (gh:#1062, RELAP-7 Eq. 201).
+
+- ```rust
+  pub fn wall_heat(self: &Self) -> PhasicWallHeat { /* ... */ }
+  ```
+  The wall heat boundary condition.
+
+- ```rust
   pub fn set_temperature_profile(self: &mut Self, temperatures: &[ThermodynamicTemperature]) -> Result<(), TampinesError> { /* ... */ }
   ```
   Overwrite the cell temperatures from an axial profile, re-flashing
@@ -14597,6 +14622,17 @@ Geometry and geometry alone: length, flow area, hydraulic diameter, incline,
 and the uniform axial cell layout derived from them. No state, no fluid
 properties, no time.
 
+# Variable flow area (gh:#1058)
+
+[`Pipe1d::with_area_profile`] gives the pipe an area `A(x)` from the
+**reused** [`tampines_steam_tables::hem::AreaProfile`] (`HemPipe`'s type,
+evaluated through `HemPipeGeometry::flow_area_at`, so the two cannot
+drift). As in `HemPipe`, faces carry `A(x_j)`, a cell's area is the mean
+of its two faces and its volume `Δx` times that. The hydraulic diameter
+scales as `D_h(x) = D_h √(A(x)/A)` with `A`, `D_h` the constructor's
+values — exact for a circular section, an assumption otherwise. Without a
+profile every accessor returns the constructor's value bit for bit.
+
 # What does not
 
 Anything that changes during a transient. Both solvers own their own field
@@ -14610,7 +14646,8 @@ pub mod geometry { /* ... */ }
 
 #### Struct `Pipe1d`
 
-A straight pipe of constant cross-section, discretised into uniform axial
+A straight pipe, of constant cross-section unless given an area profile
+([`Pipe1d::with_area_profile`], gh:#1058), discretised into uniform axial
 cells.
 
 # The mesh
@@ -14664,9 +14701,43 @@ pub struct Pipe1d {
   A circular pipe, whose hydraulic diameter *is* its inside diameter and
 
 - ```rust
-  pub fn length(self: &Self) -> Length { /* ... */ }
+  pub fn with_area_profile(self: Self, profile: AreaProfile) -> Result<Self, TampinesError> { /* ... */ }
   ```
   Total pipe length `L` \[m\].
+
+- ```rust
+  pub fn area_profile(self: &Self) -> Option<AreaProfile> { /* ... */ }
+  ```
+  The area profile, if one was given.
+
+- ```rust
+  pub fn face_area_si(self: &Self, j: usize) -> f64 { /* ... */ }
+  ```
+  Flow area at face `j` \[m²\] (`0 ≤ j ≤ n_cells`).
+
+- ```rust
+  pub fn cell_area_si(self: &Self, i: usize) -> f64 { /* ... */ }
+  ```
+  Flow area of cell `i` \[m²\], the mean of its two faces.
+
+- ```rust
+  pub fn cell_volume_at(self: &Self, i: usize) -> f64 { /* ... */ }
+  ```
+  Volume of cell `i` \[m³\]; equals [`cell_volume`](Self::cell_volume)
+
+- ```rust
+  pub fn face_hydraulic_diameter_si(self: &Self, j: usize) -> f64 { /* ... */ }
+  ```
+  Hydraulic diameter at face `j` \[m\].
+
+- ```rust
+  pub fn cell_hydraulic_diameter_si(self: &Self, i: usize) -> f64 { /* ... */ }
+  ```
+  Hydraulic diameter of cell `i` \[m\], from the cell area.
+
+- ```rust
+  pub fn length(self: &Self) -> Length { /* ... */ }
+  ```
 
 - ```rust
   pub fn flow_area(self: &Self) -> Area { /* ... */ }
@@ -14860,9 +14931,12 @@ Exactly the *interfacial closures* a six-equation model needs, evaluated
   made in the solver, not here.
 - **Wall heat transfer and wall friction.** Those couple a phase to the
   *wall*, not to the interface.
-- **Interfacial-area transport and the flow-regime map.** See "Honest
+- ~~**Interfacial-area transport and the flow-regime map.** See "Honest
   scope" below — both are absent, and their absence is the largest
-  modelling limitation of this layer.
+  modelling limitation of this layer.~~ **CORRECTED 2026-11-01 (gh:#1060):**
+  a one-parameter **flow-regime map** now sets the interfacial area — see
+  "Flow-regime interfacial area" below. Interfacial-area *transport* is
+  still absent.
 - **A second property path.** Every thermodynamic and transport number comes
   from [`super::properties`]; nothing is re-derived here.
 
@@ -14943,7 +15017,9 @@ except into phase change. That closes `Γ` with no new correlation:
   (`Q = K (T_interface − T_phase)`) and it is the sign with which `Q_k^i`
   enters the phase energy equation as written in [`super::two_fluid`]
   (`… = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i`; ~~`+ q_k^wall`~~ **CORRECTED
-  2026-11-01:** the solver has no wall heat term, it is adiabatic). A
+  2026-11-01:** the solver has no wall heat term, it is adiabatic;
+  **CORRECTED AGAIN 2026-11-01, gh:#1062:** it has one now,
+  `+ Q_k^wall` from [`super::wall_heat`], adiabatic by default). A
   **positive** `Q_g^i`
   heats the vapour.
 - **`Γ > 0` means evaporation** — liquid becoming vapour, mass leaving the
@@ -15004,17 +15080,63 @@ closure returns a number built on a `h_fg` that is already leaving IF97's
 Region 1/2 validity. Nothing here has checked that number against
 anything.
 
+# Flow-regime interfacial area (gh:#1060)
+
+RELAP-7's two-phase closures take the interfacial area concentration
+`A_int` from the local flow regime (RELAP-7 Theory Manual, Eq. 117; the
+manual is not public, so only the equation number is cited). This layer
+does that through **reused** GeN-Foam closures rather than a second port:
+
+- the regime is classified on `α_g` by
+  [`outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::regime_map::RegimeMap1D`]
+  (GeN-Foam `regimeMapModels::oneParameter`), linear interpolation across
+  the gap between the two windows;
+- the area of each regime comes from
+  [`outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::area::InterfacialArea`]:
+  `Spherical` (`6 α/d_b`) for **bubbly/slug** and `Annular` (`4 α/D_h`,
+  vapour core of the pipe's hydraulic diameter) for **annular/mist**, both
+  at the upstream default `cutoff_alpha = 0.9`;
+- the windows are `α_g ≤ 0.5` bubbly/slug and `α_g ≥ 0.75` annular/mist
+  ([`BUBBLY_SLUG_UPPER_VOID`], [`ANNULAR_MIST_LOWER_VOID`]), the void-only
+  interfacial-drag regime map of the TRACE V5 Theory Manual. **Not
+  re-checked** against that manual in this session (it is not in the
+  repository); treat the two numbers as a cited modelling choice, not a
+  verified transcription.
+
+The drag and heat-transfer correlations consumed from the 3-D reference
+take a *diameter*, not an area, so the regime area enters them as the
+**Sauter-equivalent diameter** `d_eff = 6 α_g / A_int`. In the pure
+bubbly window `A_int = 6 α_g / d_b` exactly, so `d_eff = d_b` and the
+closures are **bit-identical** to the fixed-diameter set there (pinned by
+`regime_map_is_bit_identical_to_the_fixed_diameter_set_in_the_bubbly_window`).
+In the annular window below the cutoff `A_int = 4 α_g / D_h`, so
+`d_eff = 1.5 D_h` — sphere correlations evaluated at the equivalent
+diameter of the vapour core — **there is no
+film correlation here**, and that is stated as a limitation, not hidden.
+
+The regime map is opt-in at **this** layer
+([`InterfacialExchange::with_regime_map`]) only because it needs the
+pipe's hydraulic diameter, which a free-standing closure set does not
+know. [`super::two_fluid::TwoFluid1d::new`] switches it **on** for every
+vapour-dispersed closure set; the ablation is
+[`super::two_fluid::TwoFluid1d::without_regime_map`].
+
 # Honest scope — what this layer does NOT do
 
-- **No interfacial-area transport.** The inclusion diameter `d` is
+- **No interfacial-area transport.** The bubble diameter `d_b` is
   prescribed once at construction and never responds to breakup,
   coalescence, or the local flow. Every closure here scales as `1/d²`, so
-  `d` is the single most influential number a caller supplies and the least
-  justified.
-- **No flow-regime map.** [`DispersedPhase`] is fixed for the whole
+  `d_b` is the single most influential number a caller supplies and the
+  least justified — in the bubbly window it is still the whole story.
+- ~~**No flow-regime map.** [`DispersedPhase`] is fixed for the whole
   calculation. A real transient runs bubbly at low void and droplet/mist at
   high void; this layer will happily evaluate bubbly closures at `α_g =
-  0.99`, which is wrong and will not complain.
+  0.99`, which is wrong and will not complain.~~ **CORRECTED 2026-11-01
+  (gh:#1060):** with [`InterfacialExchange::with_regime_map`] the area
+  follows the regime, but [`DispersedPhase`] is still fixed (vapour) — the
+  annular/mist area is that of a vapour core, and no droplet field exists.
+  The droplet closure set ([`InterfacialExchange::droplet`]) refuses the
+  regime map rather than evaluate a vapour-core area for dispersed liquid.
 - **No lift, virtual mass, wall lubrication, or turbulent dispersion.**
   Upstream carries those as unported scaffolds
   ([`outram_foam_multiphase::two_fluid::InterfacialForce`]); only drag is
@@ -15047,6 +15169,156 @@ pub mod interfacial { /* ... */ }
 
 ### Types
 
+#### Enum `InterfacialAreaModel`
+
+How the interfacial area concentration `A_int` \[1/m\] is obtained.
+
+Enum dispatch per the workspace rule.
+
+```rust
+pub enum InterfacialAreaModel {
+    FixedDiameter,
+    RegimeMap {
+        hydraulic_diameter: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `FixedDiameter`
+
+The pre-gh:#1060 behaviour: one prescribed inclusion diameter `d`
+everywhere, so `A_int = 6 α_d / d` at every void fraction. The
+**ablation** — what [`super::two_fluid::TwoFluid1d::without_regime_map`]
+selects.
+
+###### `RegimeMap`
+
+`A_int` from the void-fraction regime map (module docs, "Flow-regime
+interfacial area"): bubbly/slug spherical area at the bubble diameter,
+annular/mist core area at the hydraulic diameter, blended across the
+gap.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hydraulic_diameter` | `f64` | Pipe hydraulic diameter `D_h` \[m\] that sizes the annular core. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `DispersedPhase`
 
 Which phase is treated as **dispersed** (bubbles or droplets) and which as
@@ -15422,6 +15694,8 @@ pub struct InterfacialSources {
     pub vapour_temperature: f64,
     pub liquid_temperature: f64,
     pub slip_reynolds_number: f64,
+    pub interfacial_area_concentration: f64,
+    pub effective_diameter: f64,
 }
 ```
 
@@ -15438,6 +15712,8 @@ pub struct InterfacialSources {
 | `vapour_temperature` | `f64` | Vapour bulk temperature `T_g` \[K\], from<br>[`PhaseState::vapour_at`] (metastable branch included). |
 | `liquid_temperature` | `f64` | Liquid bulk temperature `T_l` \[K\], from<br>[`PhaseState::liquid_at`] (metastable branch included). |
 | `slip_reynolds_number` | `f64` | Slip Reynolds number `Re = |u_d − u_c| d / ν_c` \[-\], taken from<br>[`TwoFluidSystem::reynolds_number`] rather than recomputed here. Both<br>the drag and the continuous-side heat-transfer correlation are<br>evaluated at this `Re`. |
+| `interfacial_area_concentration` | `f64` | Interfacial area concentration `A_int` \[1/m\] the closures were<br>evaluated at (gh:#1060): `6 α_d / d` for<br>[`InterfacialAreaModel::FixedDiameter`], the regime-blended area for<br>[`InterfacialAreaModel::RegimeMap`]. |
+| `effective_diameter` | `f64` | The inclusion diameter \[m\] the closures were evaluated at: the<br>prescribed `d`, or the Sauter-equivalent `6 α_d / A_int` under the<br>regime map. |
 
 ##### Implementations
 
@@ -15643,6 +15919,21 @@ pub struct InterfacialExchange {
   Assemble an interfacial closure set.
 
 - ```rust
+  pub fn with_regime_map(self: Self, hydraulic_diameter: Length) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Switch the interfacial area to the void-fraction **regime map**
+
+- ```rust
+  pub fn without_regime_map(self: Self) -> Self { /* ... */ }
+  ```
+  Back to one prescribed diameter everywhere — the **ablation** of
+
+- ```rust
+  pub fn area_model(self: &Self) -> InterfacialAreaModel { /* ... */ }
+  ```
+  Which interfacial-area model is active.
+
+- ```rust
   pub fn bubbly(diameter: Length) -> Result<Self, TampinesError> { /* ... */ }
   ```
   The conventional **bubbly-flow** closure set: Schiller-Naumann drag,
@@ -15821,6 +16112,40 @@ the property layer produces — the measured minimum over the sweep in
 
 ```rust
 pub const MIN_LATENT_HEAT_FOR_MASS_TRANSFER: f64 = 1.0e4;
+```
+
+#### Constant `BUBBLY_SLUG_UPPER_VOID`
+
+Upper void fraction of the **bubbly/slug** regime window \[-\] (gh:#1060).
+
+`0.5`, from the void-only interfacial-drag regime map of the TRACE V5
+Theory Manual (bubbly/slug to `α_g = 0.5`, annular/mist from `0.75`, linear
+interpolation between). **Not re-checked** against the manual in this
+session; see the module docs.
+
+```rust
+pub const BUBBLY_SLUG_UPPER_VOID: f64 = 0.5;
+```
+
+#### Constant `ANNULAR_MIST_LOWER_VOID`
+
+Lower void fraction of the **annular/mist** regime window \[-\] (gh:#1060).
+See [`BUBBLY_SLUG_UPPER_VOID`] for the provenance and its caveat.
+
+```rust
+pub const ANNULAR_MIST_LOWER_VOID: f64 = 0.75;
+```
+
+#### Constant `REGIME_AREA_CUTOFF_ALPHA`
+
+`cutoff_alpha` handed to both reused GeN-Foam area models \[-\]: `0.9`, the
+upstream default (`closures::interfacial::area`). Above it the spherical
+area tapers as `(1−α)/(1−0.9)`; the annular one drops by
+`1/(1+√0.9) ≈ 0.513` and tapers as `(1−√α)/(1−0.9)` — a jump that is
+upstream's, reproduced, and documented there.
+
+```rust
+pub const REGIME_AREA_CUTOFF_ALPHA: f64 = 0.9;
 ```
 
 ## Module `properties`
@@ -16801,7 +17126,10 @@ For `k ∈ {g, l}`, with `m_k = α_k ρ_k` the phase mass concentration
 
 `m_k (∂u_k/∂t + u_k ∂u_k/∂x) = −α_k ∂p/∂x + m_k g_x + F_k^d + F_k^vm + Γ_k (u^i − u_k) − F_k^wall`  (phase momentum)
 
-`∂(m_k h_k)/∂t + ∂(m_k h_k u_k)/∂x = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i`  (phase energy)
+`∂(m_k h_k)/∂t + ∂(m_k h_k u_k)/∂x = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i + Q_k^wall`  (phase energy)
+
+with `Q_k^wall` the phasic wall heat of gh:#1062 (RELAP-7 Eq. 201,
+[`super::wall_heat`]), zero for the default adiabatic wall.
 
 and the **volume constraint** `α_g + α_l = 1`, which is what the pressure
 equation enforces (see "The pressure equation" below).
@@ -16810,6 +17138,44 @@ The momentum equation is written in the *non-conservative* velocity form —
 the conservative form minus `u_k ×` the phase mass equation — which is why
 the mass-transfer momentum source appears as `Γ_k (u^i − u_k)` rather than
 `Γ_k u^i`.
+
+# Interface velocity, friction work and total-enthalpy mass transfer (gh:#1060)
+
+RELAP-7 carries the interphase exchange at an **interface velocity**
+`u_int` (Theory Manual Eq. 200) and lets the transferred mass carry the
+interface **total** enthalpy `H_int = h_int + ½ u_int²` (Eq. 208). The
+manual is not public, so only equation numbers are cited; the definition
+of `u_int` used here is the **mass-weighted** (centre-of-mass) velocity
+
+`u_int = (α_l ρ_l u_l + α_g ρ_g u_g) / (α_l ρ_l + α_g ρ_g)`
+
+as specified in the gh:#1060 brief — **not** re-checked against Eq. 200,
+which was not available in this session. This solver's energy equations
+are in *static-enthalpy* form, so the total-energy sources translate as
+follows (derived here, not transcribed): subtract each phase's
+kinetic-energy equation (`u_k ×` its momentum equation) from its
+total-energy equation.
+
+- **Mass-transfer momentum**: `Γ_k (u_int − u_k)` with `u_int` above,
+  replacing the donor-phase velocity used before.
+- **Friction work at `u_int`**: the interfacial drag `F_k` does work
+  `F_k u_int` in phase `k`'s total energy, of which `F_k u_k` is
+  kinetic, so `F_k (u_int − u_k)` appears in the static-enthalpy equation.
+  Summed over both phases this is `K_d (u_g − u_l)² ≥ 0` — the drag
+  dissipation, now split between the phases by `u_int` instead of being
+  dropped.
+- **Total-enthalpy mass transfer**: `Γ_k H_int` in total energy becomes
+  `Γ_k (h_k^sat + ½ (u_int − u_k)²)` in static enthalpy. `Γ` itself is
+  **unchanged**, because `H_g,int − H_l,int = h_g^sat − h_f^sat` exactly
+  (both sides carry the same `½ u_int²`); what static `h_sat` got wrong was
+  only the energy the transferred mass carries.
+
+Each is **on by default**, with the ablations
+[`TwoFluid1d::without_interface_velocity`] (donor velocity, no friction
+work) and [`TwoFluid1d::without_total_enthalpy_mass_transfer`]. With both
+ablated and [`TwoFluid1d::without_regime_map`], the march is bit-identical
+to the pre-gh:#1060 solver (pinned by
+`all_three_ablations_reproduce_the_pre_1060_march_bit_for_bit`).
 
 # The regularisation, and exactly what is and is not claimed
 
@@ -16974,8 +17340,10 @@ than discovered in a plot.
 # Honest scope — what this solver does NOT do
 
 [`crate::multiphase_1d`] lists what applies to both 1-D solvers (no wall
-heat transfer, no flow-regime map, no interfacial-area transport, HEM break
-model). Specific to this one:
+heat transfer, no interfacial-area transport, HEM break model;
+~~no flow-regime map~~ **CORRECTED 2026-11-01 (gh:#1060):** the interfacial
+area now follows a void-fraction regime map, see [`super::interfacial`]).
+Specific to this one:
 
 - **Not validated against anything.** Every test in `two_fluid_tests.rs` is
   *verification* — closed forms, invariants and degenerate limits. No result
@@ -17007,6 +17375,11 @@ model). Specific to this one:
   which carry `α_k ∂p/∂t` only — matching the equation set stated above and
   matching [`super::drift_flux`], so the two solvers can be compared in the
   equilibrium limit.
+- ~~**Boundary conditions are velocity-type only**~~ **CORRECTED
+  2026-11-01 (gh:#1076):** pressure outlets, pressure inlets and velocity
+  inlets with a described inflow state exist, with time-dependent
+  versions ([`TwoFluidTimeDependentBoundary`]); what follows is the
+  original note.
 - **Boundary conditions are velocity-type only**
   ([`TwoFluidBoundary`]): closed, prescribed velocity, and an HEM choked
   outlet. There is no Dirichlet-pressure boundary, so the pressure floats on
@@ -17041,6 +17414,12 @@ What closes an end of the pipe.
 Enum dispatch per the workspace rule: the set of 1-D end conditions is
 closed, and adding one must force every `match` to be revisited.
 
+~~**Every variant is a *velocity* boundary.**~~ **CORRECTED 2026-11-01
+(gh:#1076):** [`PressureOutlet`](Self::PressureOutlet) and
+[`PressureInlet`](Self::PressureInlet) are pressure boundaries, and
+[`VelocityInlet`](Self::VelocityInlet) is a velocity boundary that says
+what enters. The paragraph below describes the original velocity-only set.
+
 **Every variant is a *velocity* boundary.** That is a deliberate restriction
 of the first implementation and not an oversight: a velocity face carries no
 pressure sensitivity, so it stays out of the pressure matrix entirely and
@@ -17056,6 +17435,17 @@ pub enum TwoFluidBoundary {
     ChokedOutlet {
         area_fraction: f64,
         ambient_pressure: f64,
+    },
+    PressureOutlet {
+        pressure: f64,
+    },
+    PressureInlet {
+        pressure: f64,
+        inflow: TwoFluidInflow,
+    },
+    VelocityInlet {
+        velocity: f64,
+        inflow: TwoFluidInflow,
     },
 }
 ```
@@ -17075,7 +17465,9 @@ A prescribed face velocity \[m/s\], positive in `+x`, imposed on
 Inflow through this boundary re-injects the adjacent cell's state
 (zero-gradient donor), because the variant carries no description of
 what is entering. A case with sustained inflow needs a boundary that
-does; there is none yet.
+does; ~~there is none yet~~ **CORRECTED 2026-11-01 (gh:#1076):** use
+[`VelocityInlet`](Self::VelocityInlet) or
+[`PressureInlet`](Self::PressureInlet).
 
 Fields:
 
@@ -17113,6 +17505,49 @@ Fields:
 | `area_fraction` | `f64` | Break area as a fraction of the pipe flow area, in `(0, 1]`. |
 | `ambient_pressure` | `f64` | Ambient / containment back-pressure \[Pa\]. The outlet unchokes<br>once the critical throat pressure falls below it. |
 
+###### `PressureOutlet`
+
+A **pressure** boundary \[Pa\] (gh:#1076): the face velocity of each
+phase follows from its own momentum equation across the half cell
+between the boundary and the first cell centre, with the 2×2
+drag + virtual-mass block assembled on the adjacent cell's state.
+Backflow re-injects the adjacent cell's state (zero-gradient donor).
+The pressure is static: no `½ρu²` is subtracted.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure` | `f64` | Static pressure at the face \[Pa\]. |
+
+###### `PressureInlet`
+
+A pressure boundary that also says **what enters** (gh:#1076): the
+face velocities as for [`PressureOutlet`](Self::PressureOutlet), and
+inflow carries the [`TwoFluidInflow`] state evaluated at `pressure`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure` | `f64` | Static pressure at the face \[Pa\]. |
+| `inflow` | `TwoFluidInflow` | The entering fluid. |
+
+###### `VelocityInlet`
+
+A prescribed face velocity \[m/s\] on both phases, positive in `+x`,
+carrying the [`TwoFluidInflow`] state (evaluated at the adjacent
+cell's start-of-step pressure) whenever it flows *into* the pipe
+(gh:#1076). Outflow through it is zero-gradient, as for
+[`PrescribedVelocity`](Self::PrescribedVelocity).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `velocity` | `f64` | Face velocity \[m/s\], positive in `+x`. |
+| `inflow` | `TwoFluidInflow` | The entering fluid. |
+
 ##### Implementations
 
 ###### Trait Implementations
@@ -17144,6 +17579,469 @@ Fields:
     ```
 
 - **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `TwoFluidInflowThermo`
+
+How the thermal state of entering liquid is given (gh:#1076).
+
+```rust
+pub enum TwoFluidInflowThermo {
+    LiquidTemperature(f64),
+    LiquidEnthalpy(f64),
+}
+```
+
+##### Variants
+
+###### `LiquidTemperature`
+
+Liquid temperature \[K\], at or below `T_sat` at the face pressure
+(a superheated value is refused by the property layer, not clipped).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `LiquidEnthalpy`
+
+Liquid specific enthalpy \[J/kg\], within the metastable bracket.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TwoFluidInflow`
+
+The state of fluid entering through an inflow boundary (gh:#1076):
+liquid at the given temperature or enthalpy, vapour **saturated** at the
+face pressure, in the volume ratio `void_fraction`. With the face pressure
+that fixes `m_g = α ρ_g^sat`, `m_l = (1 − α) ρ_l(p, h_l)`, `h_g = h_g^sat`.
+
+```rust
+pub struct TwoFluidInflow {
+    pub thermo: TwoFluidInflowThermo,
+    pub void_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thermo` | `TwoFluidInflowThermo` | Liquid thermal state. |
+| `void_fraction` | `f64` | Entering vapour volume fraction \[-\], in `[0, 1)`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `TwoFluidTimeDependentBoundary`
+
+A time-dependent two-fluid boundary (gh:#1076): each quantity is a reused
+[`TimeTable`] (`tampines_steam_tables::hem::TimeTable`, the type RELAP-7-
+style time-dependent components take in `HemNetwork`). At the start of
+every step the solver evaluates it at the current time `t^n` into the
+static [`TwoFluidBoundary`] of the same shape, so a constant table gives
+the static boundary exactly.
+
+```rust
+pub enum TwoFluidTimeDependentBoundary {
+    PressureOutlet {
+        pressure: tampines_steam_tables::hem::TimeTable,
+    },
+    PressureInlet {
+        pressure: tampines_steam_tables::hem::TimeTable,
+        liquid_temperature: tampines_steam_tables::hem::TimeTable,
+        void_fraction: tampines_steam_tables::hem::TimeTable,
+    },
+    VelocityInlet {
+        velocity: tampines_steam_tables::hem::TimeTable,
+        liquid_temperature: tampines_steam_tables::hem::TimeTable,
+        void_fraction: tampines_steam_tables::hem::TimeTable,
+    },
+}
+```
+
+##### Variants
+
+###### `PressureOutlet`
+
+[`TwoFluidBoundary::PressureOutlet`] with `p(t)` \[Pa\].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure` | `tampines_steam_tables::hem::TimeTable` | Static pressure \[Pa\] against time \[s\]. |
+
+###### `PressureInlet`
+
+[`TwoFluidBoundary::PressureInlet`] with `p(t)`, `T_l(t)` and `α(t)`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure` | `tampines_steam_tables::hem::TimeTable` | Static pressure \[Pa\] against time. |
+| `liquid_temperature` | `tampines_steam_tables::hem::TimeTable` | Liquid temperature \[K\] against time. |
+| `void_fraction` | `tampines_steam_tables::hem::TimeTable` | Vapour volume fraction \[-\] against time. |
+
+###### `VelocityInlet`
+
+[`TwoFluidBoundary::VelocityInlet`] with `u(t)`, `T_l(t)` and `α(t)`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `velocity` | `tampines_steam_tables::hem::TimeTable` | Face velocity \[m/s\] against time. |
+| `liquid_temperature` | `tampines_steam_tables::hem::TimeTable` | Liquid temperature \[K\] against time. |
+| `void_fraction` | `tampines_steam_tables::hem::TimeTable` | Vapour volume fraction \[-\] against time. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn at(self: &Self, t: Time) -> TwoFluidBoundary { /* ... */ }
+  ```
+  The static boundary this one prescribes at time `t`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -17633,6 +18531,9 @@ pub struct TwoFluidReport {
     pub outlet_choked: bool,
     pub mass_transfer_limited_cells: usize,
     pub residual_alpha_floor_events: usize,
+    pub inlet_mass_flow: f64,
+    pub inlet_energy_flow: f64,
+    pub outlet_energy_flow: f64,
 }
 ```
 
@@ -17653,6 +18554,9 @@ pub struct TwoFluidReport {
 | `outlet_choked` | `bool` | Whether either boundary was choked this step. |
 | `mass_transfer_limited_cells` | `usize` | How many cells had their interfacial mass transfer **rate-limited** this<br>step \[-\].<br><br>Non-zero means `Γ` would have driven a phase mass below its<br>residual-alpha floor within the step and was scaled back (together with<br>both interfacial heat fluxes, so the interfacial energy balance stays<br>exact). It is a numerical device and it is counted so it cannot act<br>invisibly — see [`TwoFluid1d::step`]. |
 | `residual_alpha_floor_events` | `usize` | How many cells had a phase mass floored at `α_res ρ_k` this step \[-\].<br><br>Non-zero means donor-cell transport drained a phase out of a cell<br>faster than the limiter could catch, and the residual-alpha floor<br>supplied the missing inventory. The mass it invents is of order<br>`α_res ρ_k`; at `α_res = 1e-6` that is `≈ 4e-5 kg/m³` for steam at<br>7 MPa. Counted for the same reason. |
+| `inlet_mass_flow` | `f64` | Mixture mass flow through the **left** face \[kg/s\], `+x` positive<br>(into the pipe), from the final corrector's donor fluxes (gh:#1076). |
+| `inlet_energy_flow` | `f64` | Enthalpy flow `Σ_k ṁ_k h_k` through the left face \[W\], `+x`<br>positive, with the donor enthalpies the transport used (gh:#1076). |
+| `outlet_energy_flow` | `f64` | Enthalpy flow through the **right** face \[W\], `+x` positive<br>(out of the pipe), likewise. |
 
 ##### Implementations
 
@@ -17841,6 +18745,41 @@ pub struct TwoFluid1d {
   Build a solver with the conventional **bubbly-flow** closure set —
 
 - ```rust
+  pub fn without_regime_map(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation** (gh:#1060): go back to one prescribed bubble diameter at
+
+- ```rust
+  pub fn without_interface_velocity(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation** (gh:#1060): carry the mass-transfer momentum at the
+
+- ```rust
+  pub fn without_total_enthalpy_mass_transfer(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation** (gh:#1060): the transferred mass carries the static
+
+- ```rust
+  pub fn set_wall_heat(self: &mut Self, wall_heat: PhasicWallHeat) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the wall heat boundary condition (gh:#1062, RELAP-7 Eq. 201).
+
+- ```rust
+  pub fn wall_heat(self: &Self) -> PhasicWallHeat { /* ... */ }
+  ```
+  The wall heat boundary condition.
+
+- ```rust
+  pub fn uses_interface_velocity(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the gh:#1060 interface-velocity terms are active.
+
+- ```rust
+  pub fn uses_total_enthalpy_mass_transfer(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the gh:#1060 total-enthalpy mass-transfer term is active.
+
+- ```rust
   pub fn set_temperature_profile(self: &mut Self, temperatures: &[ThermodynamicTemperature]) -> Result<(), TampinesError> { /* ... */ }
   ```
   Overwrite the cell temperatures from an axial profile, re-deriving the
@@ -17848,12 +18787,32 @@ pub struct TwoFluid1d {
 - ```rust
   pub fn set_left_boundary(self: &mut Self, bc: TwoFluidBoundary) { /* ... */ }
   ```
-  Set the boundary condition at the `x = 0` end.
+  Set the boundary condition at the `x = 0` end. Clears a
 
 - ```rust
   pub fn set_right_boundary(self: &mut Self, bc: TwoFluidBoundary) { /* ... */ }
   ```
-  Set the boundary condition at the `x = L` end.
+  Set the boundary condition at the `x = L` end. Clears a
+
+- ```rust
+  pub fn set_left_time_dependent_boundary(self: &mut Self, bc: TwoFluidTimeDependentBoundary) { /* ... */ }
+  ```
+  Set a time-dependent boundary at the `x = 0` end (gh:#1076),
+
+- ```rust
+  pub fn set_right_time_dependent_boundary(self: &mut Self, bc: TwoFluidTimeDependentBoundary) { /* ... */ }
+  ```
+  Set a time-dependent boundary at the `x = L` end (gh:#1076).
+
+- ```rust
+  pub fn left_boundary(self: &Self) -> TwoFluidBoundary { /* ... */ }
+  ```
+  The boundary currently in force at the `x = 0` end.
+
+- ```rust
+  pub fn right_boundary(self: &Self) -> TwoFluidBoundary { /* ... */ }
+  ```
+  The boundary currently in force at the `x = L` end.
 
 - ```rust
   pub fn virtual_mass_coefficient(self: &Self) -> Ratio { /* ... */ }
@@ -18252,7 +19211,8 @@ Default inclusion (bubble) diameter `d` \[m\] used by
 most influential number a caller supplies and the least justified — there is
 no interfacial-area transport here, so it never responds to breakup,
 coalescence or the flow. Stated as a **model parameter with no measured
-provenance**.
+provenance**. Since gh:#1060 it sizes the bubbly/slug regime only; above
+`α_g = 0.5` the regime map blends toward the annular core area.
 
 ```rust
 pub const DEFAULT_BUBBLE_DIAMETER: f64 = 1.0e-3;
@@ -18426,6 +19386,385 @@ property set can tell the difference. At 7 MPa the whole budget is 28 µPa.
 pub const MAX_REGION_4_NUDGE: f64 = 4.0e-12;
 ```
 
+## Module `wall_heat`
+
+**Phasic wall heat** for the 1-D two-phase solvers (gh:#1062, RELAP-7
+Theory Manual Eq. 201; the manual is not public, so only the equation
+number is cited).
+
+# What belongs here
+
+The heat that crosses the pipe wall into each phase, as a volumetric
+source \[W/m³\] for [`super::drift_flux::DriftFlux1d`] (one mixture energy
+equation) and [`super::two_fluid::TwoFluid1d`] (one energy equation per
+phase). The wall boundary condition itself is **reused**:
+[`tampines_steam_tables::hem::WallHeat`] (`Adiabatic`, `HeatFlux`,
+`WallTemperature` with a given `h`) is the same type `HemPipe` takes, and
+[`PhasicWallHeat::Relap5WallTemperature`] takes `h` from the RELAP5
+geometry-101/110 dispatcher
+[`crate::heat_transfer::relap5_htc::relap5_wall_heat_transfer`] (gh:#1063)
+from the phase's own properties.
+
+# The phasic split, and which partition it is
+
+The wall area per unit volume of a circular pipe is `4 / D_h`. Each phase
+receives the heat through the fraction of the wall it wets, which is the
+**linear contact partition** of the reused GeN-Foam closure
+[`outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::contact_partition::ContactPartition`]:
+the vapour wets `α_g` of the wall and the liquid (`Complementary`)
+`1 − α_g`. gh:#1060 brought a regime map for the *interfacial area*, not a
+wall-contact map, so the linear partition is what is used; a boiling-curve
+or film-boiling partition is **not** modelled.
+
+- `HeatFlux(q'')`: `Q_k = c_k q'' 4/D_h`; the two shares sum to the
+  prescribed heat exactly.
+- `WallTemperature { T_w, h }`: `Q_k = c_k h (T_w − T_k) 4/D_h`, each phase
+  against its own temperature.
+- `Relap5WallTemperature { T_w, geometry }`: as above with `h_k` from the
+  RELAP5 dispatcher evaluated on phase `k`'s density, viscosity,
+  conductivity, `c_p`, thermal expansion and velocity. Single-phase
+  convection correlations per phase — **no nucleate-boiling or CHF
+  logic**, which the dispatcher does not carry.
+
+# Default
+
+[`PhasicWallHeat::default`] is adiabatic, like `HemPipe`'s: wall heat is a
+boundary input, not physics a closure supplies, so "physics on by default"
+does not apply to it.
+
+# Honest scope
+
+Explicit in the phase temperature (evaluated on the start-of-step state),
+so a very large `h Δt / (ρ c_p D_h)` can overshoot; nothing here limits
+it. Not validated against any experiment; the V&V record is
+`crates/tampines/verification_and_validation/multiphase_1d_issues_1058_1060_1062_1076.md`.
+
+```rust
+pub mod wall_heat { /* ... */ }
+```
+
+### Types
+
+#### Enum `PhasicWallHeat`
+
+The wall heat boundary condition of a 1-D two-phase pipe (gh:#1062).
+
+```rust
+pub enum PhasicWallHeat {
+    Hem(tampines_steam_tables::hem::WallHeat),
+    Relap5WallTemperature {
+        temperature: uom::si::f64::ThermodynamicTemperature,
+        geometry: crate::heat_transfer::relap5_htc::Relap5HeatTransferGeometry,
+    },
+}
+```
+
+##### Variants
+
+###### `Hem`
+
+The reused `HemPipe` wall condition: adiabatic, a prescribed flux
+\[W/m² of wall\], or a wall temperature with a given `h`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `tampines_steam_tables::hem::WallHeat` |  |
+
+###### `Relap5WallTemperature`
+
+A wall at `temperature`, with each phase's `h` from the RELAP5
+geometry-101/110 dispatcher on that phase's own properties.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | Wall temperature. |
+| `geometry` | `crate::heat_transfer::relap5_htc::Relap5HeatTransferGeometry` | RELAP5 heat-transfer geometry (101 pipe, 110 rod bundle). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_adiabatic(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` for the adiabatic wall, which lets a solver skip all wall-heat
+
+- ```rust
+  pub fn needs_properties(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` when evaluating this wall needs the phases' conductivity, `c_p`
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Refuse a non-finite flux, temperature or `h`.
+
+- ```rust
+  pub fn phasic_heat(self: &Self, void: f64, d_h: f64, vapour: WallPhaseState, liquid: WallPhaseState) -> Result<(f64, f64), TampinesError> { /* ... */ }
+  ```
+  Volumetric wall heat into `(vapour, liquid)` \[W/m³\] for a cell of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WallPhaseState`
+
+One phase's state as the wall sees it. Raw SI.
+
+```rust
+pub struct WallPhaseState {
+    pub temperature: f64,
+    pub density: f64,
+    pub viscosity: f64,
+    pub conductivity: f64,
+    pub cp: f64,
+    pub expansion: f64,
+    pub velocity: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `f64` | Bulk temperature \[K\]. |
+| `density` | `f64` | Density \[kg/m³\]. |
+| `viscosity` | `f64` | Dynamic viscosity \[Pa·s\]. |
+| `conductivity` | `f64` | Thermal conductivity \[W/(m·K)\]. |
+| `cp` | `f64` | Isobaric specific heat \[J/(kg·K)\]. |
+| `expansion` | `f64` | Volumetric thermal expansion `β = −(1/ρ) ∂ρ/∂T|_p` \[1/K\]. |
+| `velocity` | `f64` | Axial velocity \[m/s\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `thomas_solve`
@@ -18545,6 +19884,18 @@ pub use properties::SaturatedProperties;
 pub use properties::TwoPhaseState;
 ```
 
+#### Re-export `PhasicWallHeat`
+
+```rust
+pub use wall_heat::PhasicWallHeat;
+```
+
+#### Re-export `WallPhaseState`
+
+```rust
+pub use wall_heat::WallPhaseState;
+```
+
 #### Re-export `PhaseCouplingBlock`
 
 ```rust
@@ -18569,10 +19920,28 @@ pub use two_fluid::TwoFluid1d;
 pub use two_fluid::TwoFluidBoundary;
 ```
 
+#### Re-export `TwoFluidInflow`
+
+```rust
+pub use two_fluid::TwoFluidInflow;
+```
+
+#### Re-export `TwoFluidInflowThermo`
+
+```rust
+pub use two_fluid::TwoFluidInflowThermo;
+```
+
 #### Re-export `TwoFluidReport`
 
 ```rust
 pub use two_fluid::TwoFluidReport;
+```
+
+#### Re-export `TwoFluidTimeDependentBoundary`
+
+```rust
+pub use two_fluid::TwoFluidTimeDependentBoundary;
 ```
 
 ## Module `pcice`
