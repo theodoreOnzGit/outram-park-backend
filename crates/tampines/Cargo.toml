@@ -128,13 +128,6 @@ local-ip-address.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
 serde.workspace = true
-# tests/wet_well.rs only (gh:#1075): checks the wet-well component's ports of
-# `sembawang::bwr_mark1`'s pool physics bit for bit against the originals, and
-# runs sembawang's torus beside it. A dev-dependency, never a normal one:
-# sembawang is a source-term orchestrator, and it is meant to consume
-# tampines's wet well later. No cycle today (`cargo tree -p sembawang -e
-# normal` has no tampines, 2026-11-01). Gated with the block it sits in.
-sembawang.workspace = true
 
 [[example]]
 name = "fhr_sim_v2"

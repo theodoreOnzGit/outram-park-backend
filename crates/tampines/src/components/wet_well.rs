@@ -24,8 +24,12 @@
 //! is meant to consume this component later, which would close a cycle), so
 //! the logic is copied with its operation order kept, and every function
 //! names its counterpart so the two cannot drift unnoticed.
-//! `tests/wet_well.rs` checks the copies **bit for bit** against `sembawang`'s
-//! public functions (a dev-dependency only). `sembawang` itself is unchanged.
+//! ~~`tests/wet_well.rs` checks the copies **bit for bit** against `sembawang`'s
+//! public functions (a dev-dependency only).~~ **CORRECTED 2026-11-01**
+//! (maintainer: `sembawang` depends on `tampines`, never the reverse): the
+//! bit-for-bit check and the whole-torus comparison live in
+//! `crates/sembawang/tests/wet_well_vs_tampines.rs`, and `tampines` has no
+//! `sembawang` dependency of any kind. `sembawang` itself is unchanged.
 //!
 //! | Here | Ported from (`sembawang::bwr_mark1`) |
 //! |---|---|

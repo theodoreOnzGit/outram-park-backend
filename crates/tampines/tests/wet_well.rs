@@ -21,7 +21,9 @@
 //!    ablated) adds exactly 1000 kg of pool, and `ΔL = Δm / (ρ A) + L β ΔT`
 //!    = 1.339e-3 + 2.49e-4 = 1.589e-3 m by hand (ρ ≈ 995.5, β ≈ 3.03e-4/K,
 //!    ΔT ≈ 0.353 K), measured within 2 %.
-//! 3. *Against sembawang*: the ported primitives bit for bit; and the whole
+//! 3. *Against sembawang* (**moved 2026-11-01** to
+//!    `crates/sembawang/tests/wet_well_vs_tampines.rs`, since `sembawang`
+//!    depends on `tampines` and not the reverse): the ported primitives bit for bit; and the whole
 //!    torus (sembawang's `Containment` stepped with only relief steam,
 //!    10 kg/s at 2.7e6 J/kg for 600 s): pool temperature within 2e-3 K
 //!    (sembawang does not report its pool mass); the gas pressure here
@@ -451,124 +453,3 @@ fn bad_input_is_refused() {
     assert!(WetWell::new(g, breaker(VacuumBreakerDirection::IntoGasSpace), WetWellInitialState { pool_level: Length::new::<meter>(1.0), pool_temperature: kelv(400.0), ..init }).is_err());
 }
 
-/// **3. Against sembawang.** Native targets only: sembawang is a
-/// dev-dependency in the non-Android, non-wasm block.
-#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
-mod against_sembawang {
-    use super::*;
-    use sembawang::bwr_mark1::containment::{Containment, ContainmentSnapshot};
-    use sembawang::bwr_mark1::params::Params;
-    use sembawang::bwr_mark1::{gas, pool_surface};
-
-    /// **3a. The ported primitives are bit for bit sembawang's.**
-    /// `exchange` over a grid of pool and gas states (no hydrogen), from
-    /// evaporation into dry gas to condensation from nearly pure steam;
-    /// `bubble_efficiency`, `t_sat`, `steam_h`, and N2's `c_v` and `u` with
-    /// and without the fit.
-    ///
-    /// **Result (2026-11-01, held):** 300 surface states, 5 bubble
-    /// efficiencies and 10 N2 `c_v`/`u` pairs, all bit-identical.
-    #[test]
-    fn the_ported_primitives_are_bit_for_bit_sembawangs() {
-        let mut n_cases = 0;
-        for &t_pool in &[290.0_f64, 303.15, 330.0, 360.0, 385.0] {
-            for &t_gas in &[300.0, 330.0, 380.0, 420.0] {
-                for &x_steam in &[0.0, 0.05, 0.4, 0.9, 0.999] {
-                    for &(p, dt) in &[(1.05e5, 1.0), (3.0e5, 0.5), (6.0e5, 2.0)] {
-                        let n = p * 2620.0 / (R_GAS * t_gas);
-                        let (ns, nn) = (x_steam * n, (1.0 - x_steam) * n);
-                        let rho = rho_if97(t_pool.min(370.0), p);
-                        let a = exchange(
-                            &PoolState { t_k: t_pool, kg: 1.7e6, rho, cp: 4186.0 },
-                            &Atmosphere { t_k: t_gas, p_pa: p, n_steam: ns, n_n2: nn },
-                            &SurfaceGeometry { area_m2: 750.0, pool_depth_m: 2.3, gas_depth_m: 3.5 },
-                            dt,
-                        );
-                        let b = pool_surface::exchange(
-                            &pool_surface::Pool { t_k: t_pool, kg: 1.7e6, rho, cp: 4186.0 },
-                            &pool_surface::Atmosphere { t_k: t_gas, p_pa: p, n_steam: ns, n_n2: nn, n_h2: 0.0 },
-                            &pool_surface::Surface { area_m2: 750.0, pool_depth_m: 2.3, gas_depth_m: 3.5 },
-                            dt,
-                        );
-                        let ab = [a.evaporation_kg_s, a.q_pool_w, a.q_atm_w, a.t_surface_k].map(f64::to_bits);
-                        let bb = [b.evaporation_kg_s, b.q_pool_w, b.q_atm_w, b.t_surface_k].map(f64::to_bits);
-                        assert_eq!(ab, bb, "{t_pool} {t_gas} {x_steam} {p}: {a:?} vs {b:?}");
-                        n_cases += 1;
-                    }
-                }
-            }
-        }
-        for &(d, h, p, t) in &[(1.2, 0.5, 2.0e5, 380.0), (0.26, 0.515, 1.2e5, 360.0), (1.0, 0.5, 1.1e5, 375.0), (1.0, 0.5, 1.1e5, 373.9), (0.0, 0.5, 1e5, 300.0)] {
-            assert_eq!(bubble_efficiency(d, h, p, t).to_bits(), pool_surface::bubble_efficiency(d, h, p, t).to_bits());
-        }
-        // `pool_surface::t_sat` and `steam_h` are crate-private in
-        // sembawang; `t_sat` is reached through `ε_T` in the partial cases
-        // above (and in every `exchange` case), `steam_h` through
-        // `exchange`'s latent heat.
-        for &t in &[250.0, 303.15, 700.0, 4000.0, 6000.0] {
-            for tv in [true, false] {
-                assert_eq!(cv_n2(t, tv).to_bits(), gas::cv_n2(t, tv).to_bits(), "{t} {tv}");
-                assert_eq!(u_n2(t, tv).to_bits(), gas::u_n2(t, tv).to_bits(), "{t} {tv}");
-            }
-        }
-        println!("bit-identical: {n_cases} surface states, 5 bubble efficiencies, 10 N2 c_v/u pairs");
-    }
-
-    /// **3b. The whole torus against sembawang's `Containment`**, stepped
-    /// with relief steam only (10 kg/s at 2.7e6 J/kg, 600 s at 1 s), its
-    /// wetwell atmosphere on and the mechanisms that touch nothing here off
-    /// (no pool layers, no shell, no scrubbing); the wet well here built to
-    /// the same pool mass and gas volume, the port at the downcomers' depth.
-    ///
-    /// **Result (2026-11-01, held):** pool 305.261372 K against sembawang's
-    /// 305.261414 K (−4.2e-5 K; +5.4e-6 K without the pressure work, which
-    /// sembawang does not have); gas pressure +349.3 Pa (105693.96 against
-    /// 105344.68), inside the predicted 150–400 Pa from the 9.6 mm rise of
-    /// the pool compressing the gas. Both at rest read 105000.000 Pa.
-    #[test]
-    fn the_torus_tracks_sembawangs_containment() {
-        let prm = Params::default();
-        let mut c = Containment::new(&prm);
-        let snap = ContainmentSnapshot {
-            dt_s: 1.0,
-            srv_steam_kg_s: 10.0,
-            srv_h: 2.7e6,
-            gas_cv_t: true,
-            ww_atmosphere: true,
-            two_sided_equalising: true,
-            outflow_enthalpy: true,
-            prm,
-            ..Default::default()
-        };
-        let mut w = torus();
-        let mut wa = torus().without_pressure_work();
-        let inputs = WetWellInputs { injection: Injection::water(kgs(10.0), jkg(2.7e6)), ..quiet(P0) };
-        let mut r = c.step(&ContainmentSnapshot { srv_steam_kg_s: 0.0, ..snap.clone() });
-        // The first step above carried no steam: compare its gas pressure
-        // with ours at rest.
-        let p_rest = w.gas_pressure().get::<pascal>();
-        println!("at rest: sembawang p_ww {:.3} Pa, here {p_rest:.3} Pa", r.p_ww_pa);
-        let mut worst_t: f64 = 0.0;
-        for _ in 0..600 {
-            r = c.step(&snap);
-            w.step(sec(1.0), &inputs).unwrap();
-            wa.step(sec(1.0), &inputs).unwrap();
-            worst_t = worst_t.max((w.pool_temperature().get::<kelvin>() - r.t_pool_k).abs());
-        }
-        let dp = w.gas_pressure().get::<pascal>() - r.p_ww_pa;
-        let dt = w.pool_temperature().get::<kelvin>() - r.t_pool_k;
-        let dt_a = wa.pool_temperature().get::<kelvin>() - r.t_pool_k;
-        println!(
-            "vs sembawang after 600 s: T_pool {:.6} vs {:.6} K ({dt:+.3e}; without pressure work {dt_a:+.3e}; worst {worst_t:.3e}), p {:.2} vs {:.2} Pa ({dp:+.2}), level +{:.5} m, T_gas {:.4} K, p_dw {:.1}",
-            w.pool_temperature().get::<kelvin>(),
-            r.t_pool_k,
-            w.gas_pressure().get::<pascal>(),
-            r.p_ww_pa,
-            w.pool_level().get::<meter>() - POOL_KG / (rho_if97(T0, P0) * AREA),
-            w.gas_temperature().get::<kelvin>(),
-            r.p_dw_pa,
-        );
-        assert!(worst_t < 2e-3, "{worst_t}");
-        assert!(dp > 150.0 && dp < 400.0, "{dp}");
-    }
-}

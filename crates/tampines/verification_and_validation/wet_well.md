@@ -61,8 +61,12 @@ comment names its original. `sembawang` is unchanged.
 | N2 `c_v(T)`, `u(T)` | `gas::cv_n2`, `gas::u_n2`, `ncg_u`, `ncg_c` |
 | pool density | `sparc::Pool::rho_l` |
 
-`sembawang` became a **dev-dependency** of `tampines` (non-Android, non-wasm
-block) so the test can check the copies bit for bit. There is no cycle today.
+~~`sembawang` became a **dev-dependency** of `tampines` (non-Android, non-wasm
+block) so the test can check the copies bit for bit. There is no cycle today.~~
+**CORRECTED 2026-11-01** (maintainer: `sembawang` depends on `tampines`,
+never the reverse): that dev-dependency is removed, and the comparison (item
+3 below) moved to `crates/sembawang/tests/wet_well_vs_tampines.rs`, through
+`sembawang`'s existing `tampines` dev-dependency.
 
 ### Mechanisms (all on by default) and their ablations
 
@@ -99,7 +103,8 @@ The predictions were written in the test file's header before the first run.
 2. **Level hand check.** 1000 kg of steam into the subcooled pool, the
    surface ablated to α = 0. Prediction: the pool gains exactly 1000 kg, and
    `ΔL = Δm/(ρA) + L β ΔT = 1.339e-3 + 2.49e-4` m, within 2 %.
-3. **Against sembawang.**
+3. **Against sembawang** (in `crates/sembawang/tests/wet_well_vs_tampines.rs`
+   since 2026-11-01).
    - (a) Ported primitives, bit for bit, over 300 surface states.
    - (b) sembawang's `Containment` stepped standalone with relief steam only
      (10 kg/s at 2.7e6 J/kg, 600 s), against this component at the same pool

@@ -95,5 +95,9 @@ serde_json = { workspace = true }
 # them from there. Kept out of `[dependencies]` deliberately: the library takes
 # geometry as an argument (`htr10::Htr10Geometry`), so a consumer of the
 # library pays nothing for this. `tampines` already depends on `boon-lay`, so
-# the edge sembawang -> tampines introduces no cycle.
+# the edge sembawang -> tampines introduces no cycle. Also used by
+# tests/wet_well_vs_tampines.rs (gh:#1075): tampines's wet well against this
+# crate's torus. The direction is the maintainer's (2026-11-01): sembawang
+# (severe accidents, orchestration) depends on tampines (thermal
+# hydraulics), never the reverse.
 tampines = { workspace = true }

@@ -165,10 +165,13 @@ their vendored `openfoam_source/` is unchanged); `tampines` dev-deps →
 **CORRECTED 2026-10-16**: `tuas_boussinesq_solver` and `chem-eng` are normal
 `[dependencies]` of `crates/tampines/Cargo.toml`, so the library is not
 TUAS-free; the dev-deps are `{teh-o-prke, nee_soon}` (gated off Android and
-wasm), and since 2026-11-01 `sembawang` (same gate; gh:#1075, so
+wasm), ~~and since 2026-11-01 `sembawang` (same gate; gh:#1075, so
 `tests/wet_well.rs` can check the wet well's ports of `bwr_mark1` bit for bit;
 never a normal edge, since `sembawang` is meant to consume `tampines`'s wet
-well later);
+well later)~~ **CORRECTED 2026-11-01** (maintainer: `sembawang` depends on
+`tampines`, never the reverse): `tampines` has no `sembawang` edge of any
+kind; the comparison is `crates/sembawang/tests/wet_well_vs_tampines.rs`,
+through `sembawang`'s existing `tampines` dev-dependency;
 `tampines → outram-foam-appbuilder-lib` (2026-11-01, gh:#1060: reuses
 GeN-Foam's `RegimeMap1D`, `InterfacialArea` and `ContactPartition` in
 `multiphase_1d`; no cycle, the appbuilder depends on no tampines crate);
