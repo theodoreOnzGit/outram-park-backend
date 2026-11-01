@@ -141,6 +141,18 @@ const RELAP_UO2_ED: f64 = 1.32e-19; // J, defect energy
 /// value. Kept as-is so the port reproduces upstream numbers bit-for-bit.
 const RELAP_UO2_BOLTZMANN: f64 = 1.38e-23; // J/K
 
+// -- MATPRO FTHCON UO2 linear strain (NUREG/CR-6150 §2.3; RELAP-7 Theory
+// Manual §4.2.1, Eq 230). Not an OFFBEAT upstream class: added for gh:#1070.
+const MATPRO_FTHCON_UO2_K1: f64 = 1.0e-5; // 1/K
+const MATPRO_FTHCON_UO2_K2: f64 = 3.0e-3; // -
+const MATPRO_FTHCON_UO2_K3: f64 = 4.0e-2; // -
+const MATPRO_FTHCON_UO2_ED: f64 = 6.9e-20; // J, defect energy
+/// Boltzmann constant exactly as the published form rounds it (`1.38e-23`).
+const MATPRO_FTHCON_UO2_BOLTZMANN: f64 = 1.38e-23; // J/K
+/// Lower bound \[K\] of the MATPRO FTHCON strain: the source states it is the
+/// strain "for temperatures above 300 K".
+const MATPRO_FTHCON_UO2_T_LOW: f64 = 300.0; // K
+
 // -- MATPRO-v11 (U,Pu)O2 (thermalExpansionMatproUPuO2.C) --------------------
 // par1..par4: PuO2 end member; par5..par8: UO2 end member. Polynomials in
 // degrees Celsius.
@@ -265,6 +277,7 @@ pub const PU_ATOM_TO_MASS_FRACTION: f64 = 1.13;
 /// |---|---|---|
 /// | [`Constant`](Self::Constant) | any | caller-supplied |
 /// | [`RelapUO2`](Self::RelapUO2) | UO2 | caller-supplied |
+/// | [`MatproFthconUO2`](Self::MatproFthconUO2) | UO2 | fixed by the fit (~300 K) |
 /// | [`MatproUPuO2`](Self::MatproUPuO2) | (U,Pu)O2 | fixed by the fit (~341 K) |
 /// | [`MartinUPuO2`](Self::MartinUPuO2) | (U,Pu)O2 | caller-supplied |
 /// | [`LemehovUPuO2`](Self::LemehovUPuO2) | (U,Pu)O2 | fixed by the fit |
@@ -344,6 +357,51 @@ pub enum ThermalExpansionModel {
         /// Reference (stress-free) temperature \[K\].
         t_ref: f64,
     },
+
+    /// UO2 fuel, the linear strain used *inside* the older MATPRO UO2
+    /// thermal-conductivity model (MATPRO FTHCON, the `3*e_th` term).
+    ///
+    /// ```text
+    /// eps_th = 1.0e-5*T - 3.0e-3 + 4.0e-2*exp(-6.9e-20 / (1.38e-23*T))
+    /// ```
+    ///
+    /// **Not an OFFBEAT upstream class** — added for gh:#1070 so that
+    /// [`ConductivityModel::MatproFthconUo2`] carries its own expansion, and
+    /// exposed here so the strain can be inspected and tested on its own. It
+    /// is a *different fit* from [`RelapUO2`](Self::RelapUO2): `K1 = 1.0e-5`
+    /// vs `9.8e-6 1/K`, `K2 = 3.0e-3` vs `2.61e-3`, `K3 = 4.0e-2` vs `3.16e-1`
+    /// and a defect energy of `6.9e-20 J` vs `1.32e-19 J`. Do not substitute
+    /// one for the other.
+    ///
+    /// # The reference temperature is baked into the fit
+    ///
+    /// The strain is returned as the formula gives it, with nothing
+    /// subtracted, exactly as the conductivity model consumes it. The linear
+    /// part vanishes at exactly 300 K, where the defect term is `2.3e-9` —
+    /// below the `1e-7` dead zone, so [`strain`](Self::strain) returns `0.0`
+    /// there. [`reference_temperature`](Self::reference_temperature) returns
+    /// `None`, as for the other baked-in fits.
+    ///
+    /// # Inputs used from [`MaterialState`]
+    ///
+    /// [`temperature`](MaterialState::temperature) only.
+    ///
+    /// # Validity
+    ///
+    /// Lower bound **300 K**, stated by the source ("for temperatures above
+    /// 300 K"); no upper bound is stated and none is enforced. Below 300 K the
+    /// plain methods clamp to the 300 K value.
+    ///
+    /// # Source
+    ///
+    /// MATPRO, NUREG/CR-6150 (SCDAP/RELAP5 MATPRO), §2.3 UO2 thermal
+    /// conductivity, as reproduced in the RELAP-7 Theory Manual
+    /// (INL/EXT-14-31366) §4.2.1, Eq 230. Hand-checked values are pinned in
+    /// the unit test `matpro_fthcon_uo2_strain_matches_hand_values`.
+    ///
+    /// [`ConductivityModel::MatproFthconUo2`]:
+    ///     crate::materials::properties::conductivity::ConductivityModel::MatproFthconUo2
+    MatproFthconUO2,
 
     /// (U,Pu)O2 MOX fuel, MATPRO-v11 — cubic polynomials in °C for the PuO2 and
     /// UO2 end members, blended by Pu **mass** fraction.
@@ -705,6 +763,7 @@ impl ThermalExpansionModel {
         match self {
             Self::Constant { .. } => "constant thermal expansion",
             Self::RelapUO2 { .. } => "RELAP UO2 thermal expansion",
+            Self::MatproFthconUO2 => "MATPRO FTHCON UO2 linear strain",
             Self::MatproUPuO2 => "MATPRO (U,Pu)O2 thermal expansion",
             Self::MartinUPuO2 { .. } => "Martin (U,Pu)O2 thermal expansion",
             Self::LemehovUPuO2 => "Lemehov (U,Pu)O2 thermal expansion",
@@ -740,6 +799,8 @@ impl ThermalExpansionModel {
         match self {
             // Stated upstream: "273 < T < 1800 K" (thermalExpansionMatproZy.C).
             Self::MatproZy { .. } => (273.0, 1800.0),
+            // Stated by the source: "for temperatures above 300 K".
+            Self::MatproFthconUO2 => (MATPRO_FTHCON_UO2_T_LOW, f64::INFINITY),
             // Upstream hard-zeroes at or below 293 K.
             Self::Gehr1515Ti => (GEHR_1515TI_CUTOFF, f64::INFINITY),
             // No bound stated upstream; none invented here.
@@ -775,7 +836,7 @@ impl ThermalExpansionModel {
             Self::SneadSiC { t_stress_free } => Some(*t_stress_free),
             Self::Gehr1515Ti => Some(293.15),
             Self::Molybdenum => Some(273.15),
-            Self::MatproUPuO2 | Self::LemehovUPuO2 => None,
+            Self::MatproUPuO2 | Self::LemehovUPuO2 | Self::MatproFthconUO2 => None,
         }
     }
 
@@ -973,6 +1034,8 @@ impl ThermalExpansionModel {
 
             Self::RelapUO2 { t_ref } => iso(relap_uo2(t) - relap_uo2(*t_ref)),
 
+            Self::MatproFthconUO2 => iso(matpro_fthcon_uo2_strain(t)),
+
             Self::MatproUPuO2 => {
                 let c_pu = state.pu_fraction / PU_ATOM_TO_MASS_FRACTION;
                 let tc = t - 273.15;
@@ -1035,6 +1098,8 @@ impl ThermalExpansionModel {
             Self::Constant { alpha, .. } => iso(*alpha),
 
             Self::RelapUO2 { .. } => iso(d_relap_uo2(t)),
+
+            Self::MatproFthconUO2 => iso(d_matpro_fthcon_uo2_strain(t)),
 
             Self::MatproUPuO2 => {
                 let c_pu = state.pu_fraction / PU_ATOM_TO_MASS_FRACTION;
@@ -1149,6 +1214,27 @@ fn relap_uo2(t: f64) -> f64 {
 fn d_relap_uo2(t: f64) -> f64 {
     let e_over_k = RELAP_UO2_ED / RELAP_UO2_BOLTZMANN;
     RELAP_UO2_K1 + RELAP_UO2_K3 * (-e_over_k / t).r_exp() * e_over_k / (t * t)
+}
+
+/// MATPRO FTHCON UO2 linear strain
+/// `1.0e-5*T - 3.0e-3 + 4.0e-2*exp(-6.9e-20/(1.38e-23*T))` \[-\].
+///
+/// `pub(crate)` because [`ConductivityModel::MatproFthconUo2`] evaluates the
+/// same strain inside its `1 + 3*e_th` factor, and the two must not drift.
+/// No clamping here: callers clamp.
+///
+/// [`ConductivityModel::MatproFthconUo2`]:
+///     crate::materials::properties::conductivity::ConductivityModel::MatproFthconUo2
+pub(crate) fn matpro_fthcon_uo2_strain(t: f64) -> f64 {
+    MATPRO_FTHCON_UO2_K1 * t - MATPRO_FTHCON_UO2_K2
+        + MATPRO_FTHCON_UO2_K3
+            * (-MATPRO_FTHCON_UO2_ED / (MATPRO_FTHCON_UO2_BOLTZMANN * t)).r_exp()
+}
+
+/// `d/dT` of [`matpro_fthcon_uo2_strain`] \[1/K\].
+fn d_matpro_fthcon_uo2_strain(t: f64) -> f64 {
+    let e_over_k = MATPRO_FTHCON_UO2_ED / MATPRO_FTHCON_UO2_BOLTZMANN;
+    MATPRO_FTHCON_UO2_K1 + MATPRO_FTHCON_UO2_K3 * (-e_over_k / t).r_exp() * e_over_k / (t * t)
 }
 
 /// Martin's hypostoichiometry multiplier `1 + 3.98*(2 - O/M)`.
@@ -1343,6 +1429,7 @@ mod tests {
                 t_ref: 300.0,
             },
             ThermalExpansionModel::RelapUO2 { t_ref: 300.0 },
+            ThermalExpansionModel::MatproFthconUO2,
             ThermalExpansionModel::MatproUPuO2,
             ThermalExpansionModel::MartinUPuO2 { t_ref: 300.0 },
             ThermalExpansionModel::LemehovUPuO2,
@@ -1594,7 +1681,8 @@ mod tests {
     /// error of the central difference is `O(h^2 * eps''')`, which is below
     /// `1e-12 1/K` for every cubic here.
     ///
-    /// *Result.* All 14 variants pass at all three temperatures; the largest
+    /// *Result.* All 15 variants pass at all three temperatures (14 before
+    /// [`ThermalExpansionModel::MatproFthconUO2`] was added, 2026-11-01); the largest
     /// observed relative error is well below `1e-6`.
     #[test]
     fn coefficient_is_the_derivative_of_strain() {
@@ -1698,7 +1786,8 @@ mod tests {
     /// coefficient > 100`, i.e. the two differ by at least two orders of
     /// magnitude.
     ///
-    /// *Result.* All 14 variants pass; ratios cluster around 550-600, which is
+    /// *Result.* All 15 variants pass (14 before 2026-11-01, when
+    /// [`ThermalExpansionModel::MatproFthconUO2`] was added); ratios cluster around 550-600, which is
     /// simply the 600 K temperature rise showing through, as it should for a
     /// nearly-constant coefficient.
     #[test]
@@ -1967,8 +2056,9 @@ mod tests {
     /// unbounded one, so that a reader of
     /// [`ThermalExpansionModel::validity_range`] cannot mistake a port
     /// invention for a literature bound. Only MATPRO Zircaloy (273-1800 K,
-    /// stated upstream) and Gehr 15-15Ti (293 K lower cut-off, encoded
-    /// upstream) are bounded.
+    /// stated upstream), Gehr 15-15Ti (293 K lower cut-off, encoded
+    /// upstream) and the MATPRO FTHCON UO2 strain (300 K lower bound, stated
+    /// by its source; added 2026-11-01, gh:#1070) are bounded.
     #[test]
     fn only_upstream_stated_ranges_are_enforced() {
         for model in all_models() {
@@ -1980,6 +2070,10 @@ mod tests {
                 ThermalExpansionModel::Gehr1515Ti => {
                     assert_eq!((low, high), (293.0, f64::INFINITY));
                 }
+                // Not upstream OFFBEAT: the MATPRO source states "above 300 K".
+                ThermalExpansionModel::MatproFthconUO2 => {
+                    assert_eq!((low, high), (300.0, f64::INFINITY));
+                }
                 _ => assert_eq!(
                     (low, high),
                     (0.0, f64::INFINITY),
@@ -1988,5 +2082,65 @@ mod tests {
                 ),
             }
         }
+    }
+
+    /// **Verification against hand values of the published formula**
+    /// (gh:#1070).
+    ///
+    /// *Methodology.* The MATPRO FTHCON UO2 strain (NUREG/CR-6150 §2.3; as
+    /// reproduced in RELAP-7 Theory Manual §4.2.1, Eq 230) is
+    /// `e_th = 1.0e-5*T - 3.0e-3 + 4.0e-2*exp(-E/(k*T))` with
+    /// `E/k = 6.9e-20/1.38e-23 = 5000 K` exactly. Hand evaluation, done
+    /// independently of this crate in double precision (Python `math.exp`,
+    /// 2026-11-01):
+    ///
+    /// | T \[K\] | linear part | `0.04*exp(-5000/T)` | `e_th` \[-\] | `d e_th/dT` \[1/K\] |
+    /// |---|---|---|---|---|
+    /// | 300  | 0.0     | 2.311e-9   | 2.311e-9 (dead-zoned to 0) | 1.0000128e-5 |
+    /// | 1000 | 7.0e-3  | 2.69518e-4 | 7.269517880e-3 | 1.1347589e-5 |
+    /// | 1500 | 1.2e-2  | 1.42696e-3 | 1.342695973e-2 | 1.3171022e-5 |
+    /// | 2000 | 1.7e-2  | 3.28340e-3 | 2.028339994e-2 | 1.4104250e-5 |
+    ///
+    /// Pass criterion: relative difference `< 1e-12` (round-off only; the
+    /// formula has a single `exp`).
+    ///
+    /// *Result* (2026-11-01, `cargo test --release`): all four temperatures
+    /// agree to `< 1e-12` relative; the 300 K strain is exactly `0.0` because
+    /// `2.3e-9` sits inside upstream's `1e-7` dead zone, and a 200 K input
+    /// clamps to the 300 K value. Interpretation: the port reproduces the
+    /// published form; it says nothing about how well the form represents UO2
+    /// (that is a validation question this test does not address).
+    #[test]
+    fn matpro_fthcon_uo2_strain_matches_hand_values() {
+        let model = ThermalExpansionModel::MatproFthconUO2;
+        let cases = [
+            (1000.0, 7.269_517_879_963_419e-3, 1.134_758_939_981_709_4e-5),
+            (1500.0, 1.342_695_973_389_009_7e-2, 1.317_102_163_086_688e-5),
+            (2000.0, 2.028_339_994_495_595_4e-2, 1.410_424_993_119_494e-5),
+        ];
+        for (t, eps_hand, alpha_hand) in cases {
+            let state = MaterialState::fresh(t);
+            let eps = model.strain(&state);
+            let alpha = model.coefficient(&state);
+            assert!(((eps - eps_hand) / eps_hand).abs() < 1e-12, "{t} K: eps {eps:e}");
+            assert!(
+                ((alpha - alpha_hand) / alpha_hand).abs() < 1e-12,
+                "{t} K: alpha {alpha:e}"
+            );
+        }
+        assert_eq!(model.strain(&MaterialState::fresh(300.0)), 0.0);
+        assert_eq!(model.strain(&MaterialState::fresh(200.0)), 0.0);
+        let alpha_300 = model.coefficient(&MaterialState::fresh(300.0));
+        assert!(((alpha_300 - 1.000_012_839_441_154_3e-5) / 1e-5).abs() < 1e-12);
+        assert_eq!(model.reference_temperature(), None);
+        // The raw helper the conductivity model shares is the same function.
+        assert!((matpro_fthcon_uo2_strain(300.0) - 2.311_099_407_767_653_4e-9).abs() < 1e-21);
+        assert!(matches!(
+            model.strain_checked(&MaterialState::fresh(250.0)),
+            Err(OffbeatError::OutOfRange { .. })
+        ));
+        // A different fit from RelapUO2: the two must not coincide.
+        let relap = ThermalExpansionModel::RelapUO2 { t_ref: 300.0 };
+        assert!((relap.strain(&MaterialState::fresh(1500.0)) - cases[1].1).abs() > 1e-4);
     }
 }

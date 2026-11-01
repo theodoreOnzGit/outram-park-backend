@@ -154,7 +154,7 @@ pub const ENERGY_PER_KG_ZIRCONIUM: f64 =
 ///
 /// Zircaloy density falls with temperature and jumps across the alpha-beta
 /// transition, so at accident temperatures a constant is a poor choice. Use
-/// [`crate::materials::properties::DensityModel::IAEAZy`], which carries the
+/// [`crate::materials::properties::density::DensityModel::IAEAZy`], which carries the
 /// transition. A caller that genuinely wants a constant should say which one
 /// and why.
 ///
