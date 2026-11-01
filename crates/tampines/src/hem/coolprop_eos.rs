@@ -365,6 +365,18 @@ impl HemEquationOfState for HemEos {
         }
     }
 
+    fn saturated_phases(&self, state: &HemThermoState) -> Option<(HemThermoState, HemThermoState)> {
+        match self {
+            HemEos::Iapws97 => Iapws97Hem.saturated_phases(state),
+            HemEos::CoolProp(_) => None,
+            HemEos::IdealGas(g) => g.saturated_phases(state),
+            HemEos::StiffenedGas(g) => g.saturated_phases(state),
+            HemEos::IsentropicStiffenedGas(g) => g.saturated_phases(state),
+            HemEos::Barotropic(g) => g.saturated_phases(state),
+            HemEos::Linear(g) => g.saturated_phases(state),
+        }
+    }
+
     fn break_flow(
         &self,
         stagnation_pressure: Pressure,

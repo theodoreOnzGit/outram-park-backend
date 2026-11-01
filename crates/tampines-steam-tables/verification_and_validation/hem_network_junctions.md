@@ -51,10 +51,10 @@ Each step:
 
 | # | Case | Measured | Prediction |
 |---|---|---|---|
-| 1 | 3 pipes, a K = 0.5 flow junction and a 0.05 m³ volume, walls, 5 ms (287 steps) | mass −7.8e-16, energy 4.4e-16 | held |
+| 1 | 3 pipes, a K = 0.5 flow junction and a 0.05 m³ volume, walls, 5 ms (~~287~~ **551** steps, re-measured 2026-11-01 after the port correction below) | mass ~~−7.8e-16, energy 4.4e-16~~ **−4.4e-16, energy 2.2e-16** | held |
 | 2 | Sod, diaphragm 0.8 m, 2 m pipe against two 1 m pipes, 2 ms | worst 1.88 % of the jump, L1 0.053 % | held |
 | 3 | Two 1 m pipes, K = 2, reservoir 1.02e5 Pa → 1e5 Pa, 200 ms | step 1313 Pa against 1370 Pa (−4.1 %), u = 34.1 m/s | held |
-| 4 | Tee through a 0.01 m³ volume, 1.05e5 → 1e5 Pa, 2 s | B = C = 4.811879 kg/s (bit-identical); (B + C)/A − 1 = −0.15 % | held |
+| 4 | Tee through a 0.01 m³ volume, 1.05e5 → 1e5 Pa, 2 s | ~~B = C = 4.811879 kg/s (bit-identical); (B + C)/A − 1 = −0.15 %~~ **CORRECTED 2026-11-01:** A 97.1574, B = C = 48.578690 kg/s (bit-identical); (B + C)/A − 1 = +0.0000 %; hand Bernoulli estimate 96.4 kg/s, run +0.8 % | held |
 
 ## Corrections made during the work
 
@@ -76,6 +76,25 @@ Each correction is also recorded on its test.
   and the volume slosh: A's flow was 13.37, 11.71, 10.54, 9.57 and 9.64 kg/s
   at 0.05, 0.2, 0.5, 1 and 2 s. The settle time was lengthened to 2 s; the
   0.5 % criterion was not changed.
+
+- **Volume ports (CORRECTED 2026-11-01, gh:#1073).** Each volume port was a
+  KNP flux between the end cell and the volume at rest. At steady flow that
+  forces `ρ_L − ρ_R = ρu/a`, which is an artificial port loss `Δp ≈ ρcu`. In
+  case 4 the 5 kPa drive went mostly into it, and the flows were **ten times
+  too low** (4.81 against 48.58 kg/s per branch). Case 4 never checked a flow
+  rate against a hand value, so the defect went unseen; the separator work
+  exposed it. Every volume port is now a characteristic boundary of its pipe,
+  like `HemBoundary::Reservoir`:
+  - the face velocity follows the pipe's outgoing acoustic invariant;
+  - outflow from the volume is a stagnation reservoir,
+    `p_port = p_f + (1 + K)·½ρu²`;
+  - inflow is a sink, `p_f = p_port + K·½ρu²`, so the inflow's kinetic energy
+    is lost in the volume (Borda);
+  - donor-cell transport.
+
+  Case 4 now has a hand check (written after the run, so not a prediction).
+  Methods step 2 below describes the old KNP flux for volume ports and is
+  superseded for them.
 
 ## Limits
 
@@ -170,3 +189,67 @@ before the run.
 Limits: the valve opens and closes instantly (no stroke time), which is what
 drives the chatter; the break flow uses the end cell's static pressure, not a
 stagnation pressure.
+
+## Separator-dryer and downcomer (gh:#1073)
+
+`HemNetwork::add_separated_volume` creates a vertical volume (`V`, `A`, height
+`V/A`) in which each port draws as its `VolumePort` says. It is based on
+RELAP-7 §6.8–6.9 (cited, not quoted).
+
+- **`Mixture`:** draws the mixture.
+- **`Vapour` / `Liquid`:** saturated phases, from the new
+  `HemEquationOfState::saturated_phases`. IF97 supplies them below 16.529 MPa.
+  This is the ideal separator.
+- **`AtHeight(z)`:** liquid at `p + ρ_f g (L − z)` while the collapsed level
+  `L = M(1 − x)/(ρ_f A)` is above `z`, and vapour once it is not. This is the
+  downcomer's uncovered-port switch.
+
+`volume_level` and `port_draw` report the level and what each port draws.
+Mass and energy are stored and conserved as in a volume branch. Every port is
+a characteristic boundary (see the volume-port correction above).
+
+Searched first:
+- `outram-park-fork-dwsim-libs/src/separator` is a steady flash drum with no
+  dynamics.
+- sembawang names separators only in its parameters, and its reactor-vessel
+  level is lumped.
+- Nothing dynamic existed.
+
+Tests: `tests/hem_separator_downcomer.rs`, 2026-11-01, IF97 water.
+Predictions were written before the first run.
+
+| Case | Measured | Prediction |
+|---|---|---|
+| Closed separator network, 7 MPa, x = 0.2, 200 steps | mass 0, energy 2.2e-16 | held |
+| Ideal separator, inlet 7.0 MPa x = 0.2, steam to 6.99 MPa, bottom liquid port to 6.99 MPa + ρ_f g·0.35 m, K = 20, 1 s | split 0.2001 (+0.05 %); mass −9.0e-4, energy −6.7e-4; steam stream h_g to +0.003 %; level 0.313 m | held |
+| Downcomer, 1 MPa x = 0.001 (level 0.853 m), drained to 0.98 MPa, port at 0.5 m | switched to vapour on the first step at L = 0.49998 m, matched L every step; closure −3.4e-14 / −2.7e-14 | held |
+
+### Corrections during the work
+
+- **A KNP port drained the volume.** KNP's dissipation across a drawn phase
+  and a pipe mixture moved mass at rest. A liquid port emptied a 0.3 kg volume
+  in four steps.
+- **A donor-cell energy flux alone** stopped the energy runaway but not the
+  mass drain.
+- **A linearised acoustic flux** charged steady outflow a `ρcu` loss:
+  3.9 kPa at 0.22 m/s of steam.
+- **The fix:** a characteristic boundary. Checking it at the Mixture inlet
+  exposed the same artificial loss in the #1071 volume branch, now corrected.
+- **The shared `(ρ, e)` inversion** could not find a valid 7 MPa, x = 0.6
+  state without a pressure hint. Its doubling probes jumped from 6.7 to
+  100 MPa, which the flash rejects. A log-grid fallback, reached only on
+  failure, fixes it and has its own regression test.
+- **Steady-state protocol:** see the test's doc comment. The criteria were not
+  changed.
+
+### Limits
+
+- The level is the collapsed level. There is no swell or carry-under, and
+  separation is ideal.
+- A single-phase volume draws the mixture at every port, with no hydrostatic
+  head.
+- **Not compared with sembawang:** its reactor-vessel level is a lumped
+  collapsed level with the same definition, but it is not a separable
+  function to drive with the same input.
+- **Found and not fixed here:** a `FixedPressure` outlet with saturated liquid
+  flashing to 0.5 MPa drives the last cell toward 100 MPa (filed separately).

@@ -63,8 +63,8 @@ use crate::interfaces::functional_programming::ph_flash_eqm::{
     ph_flash_region, t_ph_eqm, v_ph_eqm, w_ph_eqm_hem, x_ph_flash,
 };
 use crate::interfaces::functional_programming::pt_flash_eqm::{h_tp_eqm_single_phase, FwdEqnRegion};
-use crate::region_2_vapour::v_tp_2;
-use crate::region_1_subcooled_liquid::v_tp_1;
+use crate::region_2_vapour::{h_tp_2, u_tp_2, v_tp_2, w_tp_2};
+use crate::region_1_subcooled_liquid::{h_tp_1, u_tp_1, v_tp_1, w_tp_1};
 use crate::dynamic_viscosity::mu_rho_t_eqm;
 use uom::si::f64::DynamicViscosity;
 use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
@@ -145,6 +145,33 @@ impl HemEquationOfState for Iapws97Hem {
     /// RELAP-7's HEM mixture rule (§3.3.2, Eq 222), `μ = (1 − α)μ_f + αμ_g`,
     /// with the saturated phases' viscosities at `T_sat` and their IF97
     /// region-1 and region-2 densities at `p` (gh:#1061).
+    /// The saturated phases at `T_sat(p)` from the IF97 region-1 and region-2
+    /// equations (valid at saturation up to 623.15 K, `p ≤ 16.529 MPa`; above
+    /// it `None`). Each phase carries its own single-phase sound speed, since
+    /// a separated stream is a pure phase, not the equilibrium mixture.
+    fn saturated_phases(&self, state: &HemThermoState) -> Option<(HemThermoState, HemThermoState)> {
+        state.quality?;
+        let p = state.pressure;
+        if p.get::<pascal>() > 16.529e6 {
+            return None;
+        }
+        let t = sat_temp_4(p);
+        let phase = |v: SpecificVolume, h: AvailableEnergy, u: AvailableEnergy, c: Velocity, alpha: f64| HemThermoState {
+            pressure: p,
+            temperature: t,
+            density: MassDensity::new::<kilogram_per_cubic_meter>(v.get::<cubic_meter_per_kilogram>().recip()),
+            specific_internal_energy: u,
+            specific_enthalpy: h,
+            equilibrium_sound_speed: c,
+            quality: None,
+            void_fraction: Ratio::new::<ratio>(alpha),
+        };
+        Some((
+            phase(v_tp_1(t, p), h_tp_1(t, p), u_tp_1(t, p), w_tp_1(t, p), 0.0),
+            phase(v_tp_2(t, p), h_tp_2(t, p), u_tp_2(t, p), w_tp_2(t, p), 1.0),
+        ))
+    }
+
     fn dynamic_viscosity(&self, state: &HemThermoState) -> Option<DynamicViscosity> {
         let t = state.temperature;
         match state.quality {

@@ -51,10 +51,11 @@ use outram_foam_basic_lib::fv_operators::fvc::central_upwind::{
 };
 use outram_foam_basic_lib::primitives::vector::Vector3;
 use uom::si::area::square_meter;
+use uom::si::length::meter;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
 use uom::si::f64::{
-    AvailableEnergy, Energy, HeatFluxDensity, Mass, MassDensity, MassFlux, Pressure,
+    Area, AvailableEnergy, Energy, Length, HeatFluxDensity, Mass, MassDensity, MassFlux, Pressure,
     ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::thermodynamic_temperature::kelvin;
@@ -86,6 +87,41 @@ pub struct VolumeBranch {
     energy_j: f64,
     /// Attached ends and their form-loss coefficients.
     connections: Vec<(PipeEndRef, f64)>,
+    /// How each end draws from the volume (all `Mixture` for a plain
+    /// volume branch).
+    ports: Vec<VolumePort>,
+    /// Cross-section for the liquid level, m² (`None` for a plain volume).
+    cross_section_m2: Option<f64>,
+}
+
+/// How a port of a volume draws from it (gh:#1073; RELAP-7 §6.8–6.9, cited,
+/// not quoted). With a two-phase volume and a closure that supplies
+/// [`HemEquationOfState::saturated_phases`], the phases are taken as
+/// separated: liquid below the level, vapour above. With a single-phase
+/// volume, or a closure without a phase split, every port draws the mixture.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VolumePort {
+    /// The homogeneous mixture (a plain volume branch).
+    Mixture,
+    /// Saturated vapour: an ideal separator's steam outlet (Eqs 370–372).
+    Vapour,
+    /// Saturated liquid: an ideal separator's liquid outlet.
+    Liquid,
+    /// A port at this height above the volume's bottom, m: below the level it
+    /// draws liquid at `p + ρ_f g (L − z)`, above it vapour at `p` (the
+    /// downcomer's uncovered-port switch, Eq 377).
+    AtHeight(f64),
+}
+
+/// What a port drew on the last evaluation (see [`HemNetwork::port_draw`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PortDraw {
+    /// The mixture.
+    Mixture,
+    /// Saturated liquid.
+    Liquid,
+    /// Saturated vapour.
+    Vapour,
 }
 
 impl VolumeBranch {
@@ -807,13 +843,134 @@ impl<E: HemEquationOfState> HemNetwork<E> {
         let rho = initial.density.get::<kilogram_per_cubic_meter>();
         let mass_kg = rho * v;
         let energy_j = mass_kg * initial.specific_internal_energy.get::<joule_per_kilogram>();
+        let ports = vec![VolumePort::Mixture; connections.len()];
         self.junctions.push(HemJunction::Volume(VolumeBranch {
             volume_m3: v,
             mass_kg,
             energy_j,
             connections,
+            ports,
+            cross_section_m2: None,
         }));
         Ok(self.junctions.len() - 1)
+    }
+
+    /// Add a volume whose phases separate (gh:#1073): a vertical vessel of
+    /// `volume` and `cross_section` (height `V/A`), each end drawing as its
+    /// [`VolumePort`] says. An ideal **separator-dryer** is an inlet with
+    /// `Mixture`, a steam outlet with `Vapour` and a liquid outlet with
+    /// `Liquid`; a **downcomer** has `AtHeight` ports. Mass and energy are
+    /// stored as in a volume branch, and conserved by construction.
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::InvalidInput`] as [`Self::add_volume_branch`], for a
+    /// non-positive cross-section, or a port height outside `[0, V/A]`.
+    pub fn add_separated_volume(
+        &mut self,
+        volume: Volume,
+        cross_section: Area,
+        initial: HemThermoState,
+        connections: Vec<(PipeEndRef, f64, VolumePort)>,
+    ) -> Result<usize, HemError> {
+        let a = cross_section.get::<square_meter>();
+        let height = volume.get::<cubic_meter>() / a;
+        if !(a.is_finite() && a > 0.0) {
+            return Err(HemError::InvalidInput(format!("cross-section {a} m2")));
+        }
+        for (_, _, port) in &connections {
+            if let VolumePort::AtHeight(z) = port {
+                if !(z.is_finite() && *z >= 0.0 && *z <= height) {
+                    return Err(HemError::InvalidInput(format!("port height {z} m outside [0, {height}] m")));
+                }
+            }
+        }
+        let ports: Vec<VolumePort> = connections.iter().map(|c| c.2).collect();
+        let ji = self.add_volume_branch(volume, initial, connections.into_iter().map(|c| (c.0, c.1)).collect())?;
+        if let HemJunction::Volume(v) = &mut self.junctions[ji] {
+            v.ports = ports;
+            v.cross_section_m2 = Some(a);
+        }
+        Ok(ji)
+    }
+
+    /// The collapsed liquid level of separated volume `index`, `M(1 − x)/(ρ_f A)`
+    /// clamped to the vessel height; the full height when single-phase liquid
+    /// or without a phase split, zero when single-phase vapour. `None` for a
+    /// plain volume branch or another junction.
+    ///
+    /// # Errors
+    ///
+    /// When the volume's state cannot be closed.
+    pub fn volume_level(&self, index: usize) -> Result<Option<Length>, HemError> {
+        match self.junctions.get(index) {
+            Some(HemJunction::Volume(v)) if v.cross_section_m2.is_some() => {
+                let st = self.close_volume(v)?;
+                Ok(Some(Length::new::<meter>(self.level_of(v, &st))))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// What port `port` of volume `index` draws now. `None` if there is no such
+    /// volume or port.
+    ///
+    /// # Errors
+    ///
+    /// When the volume's state cannot be closed.
+    pub fn port_draw(&self, index: usize, port: usize) -> Result<Option<PortDraw>, HemError> {
+        match self.junctions.get(index) {
+            Some(HemJunction::Volume(v)) if port < v.ports.len() => {
+                let st = self.close_volume(v)?;
+                Ok(Some(self.port_state(v, &st, port).2))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn level_of(&self, v: &VolumeBranch, st: &HemThermoState) -> f64 {
+        let a = v.cross_section_m2.unwrap_or(f64::INFINITY);
+        let height = v.volume_m3 / a;
+        match self.eos.saturated_phases(st) {
+            Some((liq, _)) => {
+                let x = st.quality.map_or(0.0, |q| q.get::<uom::si::ratio::ratio>()).clamp(0.0, 1.0);
+                let l = v.mass_kg * (1.0 - x) / (liq.density.get::<kilogram_per_cubic_meter>() * a);
+                l.min(height)
+            }
+            None => {
+                if st.void_fraction.get::<uom::si::ratio::ratio>() >= 0.5 {
+                    0.0
+                } else {
+                    height
+                }
+            }
+        }
+    }
+
+    /// The state a port presents, its extra (hydrostatic) pressure, and what
+    /// it draws.
+    fn port_state(&self, v: &VolumeBranch, st: &HemThermoState, k: usize) -> (HemThermoState, f64, PortDraw) {
+        let port = v.ports.get(k).copied().unwrap_or(VolumePort::Mixture);
+        if port == VolumePort::Mixture {
+            return (*st, 0.0, PortDraw::Mixture);
+        }
+        let Some((liq, vap)) = self.eos.saturated_phases(st) else {
+            return (*st, 0.0, PortDraw::Mixture);
+        };
+        match port {
+            VolumePort::Vapour => (vap, 0.0, PortDraw::Vapour),
+            VolumePort::Liquid => (liq, 0.0, PortDraw::Liquid),
+            VolumePort::AtHeight(z) => {
+                let l = self.level_of(v, st);
+                if z < l {
+                    let dp = liq.density.get::<kilogram_per_cubic_meter>() * GRAVITY * (l - z);
+                    (liq, dp, PortDraw::Liquid)
+                } else {
+                    (vap, 0.0, PortDraw::Vapour)
+                }
+            }
+            VolumePort::Mixture => (*st, 0.0, PortDraw::Mixture),
+        }
     }
 
     /// The pipes, by index.
@@ -941,7 +1098,6 @@ impl<E: HemEquationOfState> HemNetwork<E> {
         let mut outputs: Vec<(usize, f64, f64)> = Vec::new();
         let mut relief: Vec<(usize, bool, bool)> = Vec::new();
         let mut volume_rates: Vec<(usize, f64, f64)> = Vec::new();
-        let nx = Vector3::new(1.0, 0.0, 0.0);
         for (ji, j) in self.junctions.iter().enumerate() {
             match j {
                 HemJunction::Flow { a, b, form_loss } => {
@@ -1080,44 +1236,57 @@ impl<E: HemEquationOfState> HemNetwork<E> {
                     outputs.push((ji, r.mdot, r.pump_power));
                 }
                 HemJunction::Volume(v) => {
-                    let st = self.close_volume(v)?;
-                    let rho_v = st.density.get::<kilogram_per_cubic_meter>();
+                    let st_mix = self.close_volume(v)?;
                     let (mut mdot_in, mut edot_in, mut vol_rate) = (0.0, 0.0, 0.0);
-                    for (end, k) in &v.connections {
+                    for (port_k, (end, k)) in v.connections.iter().enumerate() {
+                        // The state this port presents (the mixture for a
+                        // plain volume branch).
+                        let (st, dp_port, _) = self.port_state(v, &st_mix, port_k);
+                        let rho_v = st.density.get::<kilogram_per_cubic_meter>();
                         let (c, area) = self.end_cell(*end)?;
                         let pc = Self::prim(&c, outward(end.end));
-                        // Upstream by the end cell's normal velocity.
-                        let pipe_up = pc.1 >= 0.0;
-                        let rho_up = if pipe_up { pc.0 } else { rho_v };
-                        let loss = k * 0.5 * rho_up * pc.1 * pc.1;
-                        let sc = raised(
-                            pc.0,
-                            pc.1,
-                            pc.2,
-                            pc.3,
-                            pc.4,
-                            if pipe_up { 0.0 } else { loss },
-                        );
-                        let sv_k = raised(
-                            rho_v,
-                            0.0,
-                            st.pressure.get::<pascal>(),
-                            st.specific_internal_energy.get::<joule_per_kilogram>(),
-                            st.equilibrium_sound_speed
-                                .get::<uom::si::velocity::meter_per_second>(),
-                            if pipe_up { loss } else { 0.0 },
-                        );
-                        let f = knp_face_flux(&sc, &sv_k, nx);
-                        let amax = central_flux_speed_max(&sc, &sv_k, nx);
-                        // The pipe is downstream when the volume feeds it.
-                        let mom = if pipe_up {
-                            f.momentum.x
-                        } else {
-                            f.momentum.x - loss
+                        // Mass, momentum (along the pipe's outward normal) and
+                        // energy flux, positive from the pipe into the volume.
+                        let (mass, mom_raw, energy, amax) = {
+                            // Every port is a characteristic boundary of its pipe
+                            // (CORRECTED 2026-11-01, gh:#1073). It was a KNP flux
+                            // against the volume at rest, which at steady flow
+                            // forces `ρ_L − ρ_R = ρu/a`, i.e. an artificial port
+                            // loss `Δp ≈ ρcu` (≈ 10 kPa at 0.38 m/s of 7 MPa
+                            // two-phase water), and which at a separated port
+                            // moved mass at rest across the unlike states (a
+                            // liquid port drained a 0.3 kg volume in four steps).
+                            // A linearised acoustic flux has the same `ρcu`. The
+                            // port is instead a characteristic
+                            // boundary of the pipe, as `HemBoundary::Reservoir`:
+                            // the face velocity follows the pipe's outgoing
+                            // acoustic invariant, `u = u_L + (p_L − p_f)/Z_L`;
+                            // outflow from the volume obeys the stagnation
+                            // relation `p_port = p_f + (1 + K)·½ρ_d u²`, inflow
+                            // the sink relation `p_f = p_port + K·½ρ_L u²`; the
+                            // donor phase carries `ρ`, `ρu` and `ρh₀`.
+                            let z_l = pc.0 * pc.4;
+                            let p_port = st.pressure.get::<pascal>() + dp_port;
+                            let c0 = pc.2 + z_l * pc.1 - p_port;
+                            let (u_f, rho_d, h0_d) = if c0 >= 0.0 {
+                                let a2 = 0.5 * pc.0 * k;
+                                let u = 2.0 * c0 / (z_l + (z_l * z_l + 4.0 * a2 * c0).sqrt());
+                                (u, pc.0, pc.3 + pc.2 / pc.0 + 0.5 * pc.1 * pc.1)
+                            } else {
+                                let a2 = 0.5 * rho_v * (1.0 + k);
+                                let u = 2.0 * c0 / (z_l + (z_l * z_l - 4.0 * a2 * c0).sqrt());
+                                (u, rho_v, st.specific_enthalpy.get::<joule_per_kilogram>())
+                            };
+                            let p_f = pc.2 - z_l * (u_f - pc.1);
+                            let m = rho_d * u_f;
+                            let c_r = st.equilibrium_sound_speed.get::<uom::si::velocity::meter_per_second>();
+                            // The face pressure carries the loss.
+                            (m, m * u_f + p_f, m * h0_d, (pc.4 + pc.1.abs()).max(c_r + u_f.abs()))
                         };
-                        boundaries.push((*end, to_pipe_frame(end.end, f.mass, mom, f.energy)));
-                        mdot_in += f.mass * area;
-                        edot_in += f.energy * area;
+                        let mom = mom_raw;
+                        boundaries.push((*end, to_pipe_frame(end.end, mass, mom, energy)));
+                        mdot_in += mass * area;
+                        edot_in += energy * area;
                         vol_rate += amax * area / v.volume_m3;
                         rate = rate.max(
                             amax / self.pipes[end.pipe]

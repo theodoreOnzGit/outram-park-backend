@@ -17,5 +17,5 @@
 //! `crates/tampines-steam-tables/verification_and_validation/hem_network_junctions.md`.
 
 pub use tampines_steam_tables::hem::{
-    HemJunction, HemNetwork, PipeEndRef, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch,
+    HemJunction, HemNetwork, PipeEndRef, PortDraw, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch, VolumePort,
 };

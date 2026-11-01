@@ -2917,6 +2917,12 @@ pub use tampines_steam_tables::hem::HemNetwork;
 pub use tampines_steam_tables::hem::PipeEndRef;
 ```
 
+#### Re-export `PortDraw`
+
+```rust
+pub use tampines_steam_tables::hem::PortDraw;
+```
+
 #### Re-export `PumpHead`
 
 ```rust
@@ -2951,6 +2957,12 @@ pub use tampines_steam_tables::hem::TimeTable;
 
 ```rust
 pub use tampines_steam_tables::hem::VolumeBranch;
+```
+
+#### Re-export `VolumePort`
+
+```rust
+pub use tampines_steam_tables::hem::VolumePort;
 ```
 
 ## Module `pipe`

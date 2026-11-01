@@ -229,8 +229,19 @@ fn a_form_loss_drops_k_half_rho_u_squared_at_steady_state() {
 /// through the partly reflecting ends; at 1 s the balance was still +2.3 %.
 /// The settle time was lengthened; the 0.5 % criterion was not changed.
 ///
-/// **Result (2026-11-01), 2 s:** B and C identical to the last bit (4.811879
-/// kg/s each); `(B + C)/A − 1 = −0.15 %`. Held.
+/// ~~**Result (2026-11-01), 2 s:** B and C identical to the last bit (4.811879
+/// kg/s each); `(B + C)/A − 1 = −0.15 %`. Held.~~ **CORRECTED 2026-11-01
+/// (gh:#1073)**: those flows were ten times too low. The volume's ports were a
+/// KNP flux against the volume at rest, which at steady flow charges an
+/// artificial port loss `Δp ≈ ρcu`; the 5 kPa drive went mostly into it. The
+/// ports are now characteristic boundaries (reservoir outflow, sink inflow).
+/// **Re-measured (2026-11-01), 2 s:** A 97.1574, B = C = 48.578690 kg/s
+/// (bit-identical), `(B + C)/A − 1 = +0.0000 %`. Held. A hand estimate,
+/// written **after** this run and so not a prediction: incompressible, no
+/// friction, A's kinetic energy lost in the volume (Borda), B and C leaving
+/// it as reservoir outflow at `u_A/2`, so `p0 − p_exit = ½ρu_A²(1 + ¼)`,
+/// `u_A = 83.0` m/s, `ṁ_A = 96.4` kg/s; the run is +0.8 % (compressibility
+/// at Mach 0.24), asserted within 3 %.
 #[test]
 fn a_symmetric_tee_splits_the_flow_equally_and_balances_mass() {
     let air = IdealGasHem::air();
@@ -288,6 +299,10 @@ fn a_symmetric_tee_splits_the_flow_equally_and_balances_mass() {
     );
     assert_eq!(mb, mc, "identical branches must carry identical flow");
     assert!(balance.abs() < 0.005);
+    let u_hand = (5.0e3 / (0.625 * rho)).sqrt();
+    let m_hand = rho * u_hand;
+    println!("tee hand estimate: u_A {u_hand:.2} m/s, mdot_A {m_hand:.3} kg/s; run {:+.2} %", 100.0 * (ma / m_hand - 1.0));
+    assert!((ma / m_hand - 1.0).abs() < 0.03);
 }
 
 /// Invalid networks are refused.

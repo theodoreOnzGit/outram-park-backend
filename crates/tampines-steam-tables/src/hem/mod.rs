@@ -78,7 +78,7 @@ pub use reduced_eos::{
     BarotropicHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem, StiffenedGasPair,
 };
 pub use network::{
-    HemJunction, HemNetwork, PipeEndRef, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch,
+    HemJunction, HemNetwork, PipeEndRef, PortDraw, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch, VolumePort,
 };
 pub use pipe::{
     AreaProfile, WallHeat, HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,

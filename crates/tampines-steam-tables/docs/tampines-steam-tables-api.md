@@ -11580,6 +11580,11 @@ pub trait HemEquationOfState: Clone + core::fmt::Debug {
   Dynamic viscosity of `state`, for wall friction (gh:#1061). `None`
 
 - ```rust
+  fn saturated_phases(self: &Self, state: &HemThermoState) -> Option<(HemThermoState, HemThermoState)> { /* ... */ }
+  ```
+  The saturated liquid and vapour, `(liquid, vapour)`, at the pressure of
+
+- ```rust
   fn break_flow(self: &Self, stagnation_pressure: Pressure, stagnation_enthalpy: AvailableEnergy, back_pressure: Pressure) -> Result<BreakFlow, HemError> { /* ... */ }
   ```
   Mass flux through a break from stagnation `(p0, h0)` to `back_pressure`
@@ -12688,6 +12693,12 @@ pub use network::HemNetwork;
 pub use network::PipeEndRef;
 ```
 
+#### Re-export `PortDraw`
+
+```rust
+pub use network::PortDraw;
+```
+
 #### Re-export `PumpHead`
 
 ```rust
@@ -12722,6 +12733,12 @@ pub use network::TimeTable;
 
 ```rust
 pub use network::VolumeBranch;
+```
+
+#### Re-export `VolumePort`
+
+```rust
+pub use network::VolumePort;
 ```
 
 #### Re-export `AreaProfile`
