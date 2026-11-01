@@ -659,7 +659,7 @@ impl DriftFlux1d {
             }
             let (q_g, q_l) = self.wall_heat.phasic_heat(
                 alpha[i],
-                self.pipe.hydraulic_diameter_si(),
+                self.pipe.cell_hydraulic_diameter_si(i),
                 vapour,
                 liquid,
             )?;
@@ -842,8 +842,11 @@ impl DriftFlux1d {
     /// Total mass currently in the pipe.
     #[must_use]
     pub fn inventory(&self) -> Mass {
-        let v = self.pipe.cell_volume();
-        Mass::new::<kilogram>(self.rho.iter().map(|r| r * v).sum::<f64>())
+        Mass::new::<kilogram>(
+            (0..self.pipe.n_cells())
+                .map(|i| self.rho[i] * self.pipe.cell_volume_at(i))
+                .sum::<f64>(),
+        )
     }
 
     /// Mass flow through the right-hand boundary \[kg/s\], from the current
@@ -851,7 +854,7 @@ impl DriftFlux1d {
     #[must_use]
     pub fn outlet_mass_flow(&self) -> MassRate {
         let n = self.pipe.n_cells();
-        MassRate::new::<kilogram_per_second>(self.rho[n - 1] * self.u[n] * self.pipe.area_si())
+        MassRate::new::<kilogram_per_second>(self.rho[n - 1] * self.u[n] * self.pipe.face_area_si(n))
     }
 
     /// Phase velocities `(v_g, v_l)` \[m/s\] reconstructed at cell centres.
@@ -900,8 +903,12 @@ impl DriftFlux1d {
     pub fn step(&mut self) -> Result<DriftFluxReport, TampinesError> {
         let n = self.pipe.n_cells();
         let dx = self.pipe.dx();
-        let area = self.pipe.area_si();
-        let volume = self.pipe.cell_volume();
+        // gh:#1058: face areas and cell volumes (constant without a profile).
+        // The momentum predictor is in non-conservative velocity form, where
+        // the quasi-1-D wall pressure force `p ∂A/∂x` cancels exactly; the area
+        // enters the mass and energy fluxes, the volumes and `D_h`.
+        let area: Vec<f64> = (0..=n).map(|j| self.pipe.face_area_si(j)).collect();
+        let volume: Vec<f64> = (0..n).map(|i| self.pipe.cell_volume_at(i)).collect();
         let g_x = self.pipe.axial_gravity();
 
         let p_old = self.p.clone();
@@ -960,7 +967,7 @@ impl DriftFlux1d {
                 u_j,
                 rho_face,
                 mu_face,
-                self.pipe.hydraulic_diameter_si(),
+                self.pipe.face_hydraulic_diameter_si(j),
             );
 
             let phi_l = drift_momentum_flux(alpha_old[cl], sat_old[cl], rho_old[cl], u_dm[cl]);
@@ -1065,14 +1072,19 @@ impl DriftFlux1d {
             let mut rhs = vec![0.0; n];
             for i in 0..n {
                 let (jl, jr) = (i, i + 1);
-                let compliance = volume * psi[i] / self.dt;
-                sub[i] = -area * rho_face[jl] * d_face[jl];
-                sup[i] = -area * rho_face[jr] * d_face[jr];
+                let compliance = volume[i] * psi[i] / self.dt;
+                sub[i] = -area[jl] * rho_face[jl] * d_face[jl];
+                sup[i] = -area[jr] * rho_face[jr] * d_face[jr];
                 diag[i] = compliance
-                    + area * rho_face[jr] * d_face[jr]
-                    + area * rho_face[jl] * d_face[jl];
+                    + area[jr] * rho_face[jr] * d_face[jr]
+                    + area[jl] * rho_face[jl] * d_face[jl];
                 rhs[i] = compliance * p_old[i]
-                    - area * (rho_face[jr] * u_star[jr] - rho_face[jl] * u_star[jl]);
+                    - if area[jr] == area[jl] {
+                        // Constant section: the pre-gh:#1058 expression, bit for bit.
+                        area[jr] * (rho_face[jr] * u_star[jr] - rho_face[jl] * u_star[jl])
+                    } else {
+                        area[jr] * rho_face[jr] * u_star[jr] - area[jl] * rho_face[jl] * u_star[jl]
+                    };
             }
             // Dirichlet contributions. A pressure boundary's face velocity
             // correction u = u* - d (p_cell - p_boundary) splits into an
@@ -1082,10 +1094,10 @@ impl DriftFlux1d {
             // velocity boundary `d_face` is zero and these terms vanish, so
             // the existing variants are untouched.
             if let BoundaryFaceState::Pressure { p_boundary, .. } = left_face {
-                rhs[0] += area * rho_face[0] * d_face[0] * p_boundary;
+                rhs[0] += area[0] * rho_face[0] * d_face[0] * p_boundary;
             }
             if let BoundaryFaceState::Pressure { p_boundary, .. } = right_face {
-                rhs[n - 1] += area * rho_face[n] * d_face[n] * p_boundary;
+                rhs[n - 1] += area[n] * rho_face[n] * d_face[n] * p_boundary;
             }
             let p_solved = thomas_solve(&sub, &diag, &sup, &rhs)?;
 
@@ -1132,7 +1144,7 @@ impl DriftFlux1d {
             }
         }
 
-        let mass_flux: Vec<f64> = (0..=n).map(|j| rho_face[j] * u_new[j] * area).collect();
+        let mass_flux: Vec<f64> = (0..=n).map(|j| rho_face[j] * u_new[j] * area[j]).collect();
 
         // ── Stage 4: energy and void transport on the corrected fluxes ───────
         // The CONTINUITY density: rebuilt from the final mass flux so that
@@ -1143,7 +1155,7 @@ impl DriftFlux1d {
         // array hit (bead op-21g.14).
         let mut rho_cont = vec![0.0; n];
         for i in 0..n {
-            rho_cont[i] = rho_old[i] - self.dt / volume * (mass_flux[i + 1] - mass_flux[i]);
+            rho_cont[i] = rho_old[i] - self.dt / volume[i] * (mass_flux[i + 1] - mass_flux[i]);
             if !(rho_cont[i] > 0.0) {
                 return Err(TampinesError::Unphysical(format!(
                     "cell {i}: continuity density {} kg/m^3 is not positive at t = {} s \
@@ -1191,7 +1203,7 @@ impl DriftFlux1d {
             } else {
                 upwind_scalar(&h_old, mass_flux[i + 1], i, i + 1)
             };
-            let convection = (mass_flux[i + 1] * h_right - mass_flux[i] * h_left) / volume;
+            let convection = (mass_flux[i + 1] * h_right - mass_flux[i] * h_left) / volume[i];
             let dp_dt = (p_new[i] - p_old[i]) / self.dt;
             h_new[i] = (rho_old[i] * h_old[i] / self.dt - convection + dp_dt + q_wall[i])
                 * self.dt
@@ -1254,7 +1266,13 @@ impl DriftFlux1d {
                 alpha_old[i + 1] * sat_old[i + 1].rho_g * face_right
             };
 
-            let transported = a_rho_g_old - self.dt / dx * (flux_right - flux_left);
+            // gh:#1058: the face fluxes are per unit area, so each is scaled by
+            // its face area over the cell area (exactly 1.0 without a profile).
+            let a_cell = self.pipe.cell_area_si(i);
+            let transported = a_rho_g_old
+                - self.dt / dx
+                    * (self.pipe.face_area_si(i + 1) / a_cell * flux_right
+                        - self.pipe.face_area_si(i) / a_cell * flux_left);
             let a_transported = transported / sat_new.rho_g;
 
             // Relaxation solved IMPLICITLY in alpha: an explicit relaxation
@@ -1293,7 +1311,7 @@ impl DriftFlux1d {
             time: self.time,
             outlet_mass_flow: mass_flux[n],
             outlet_choked: right_choked || left_choked,
-            inventory: self.rho.iter().map(|r| r * volume).sum(),
+            inventory: (0..n).map(|i| self.rho[i] * volume[i]).sum(),
             max_void_fraction: max_void,
             max_courant,
         })
@@ -1454,7 +1472,7 @@ impl DriftFlux1d {
         };
         let mu = mixture_viscosity(alpha_old[0], sat_old[0]);
         let friction =
-            wall_friction_acceleration(u, rho_face, mu, self.pipe.hydraulic_diameter_si());
+            wall_friction_acceleration(u, rho_face, mu, self.pipe.face_hydraulic_diameter_si(0));
         let phi_cell = drift_momentum_flux(alpha_old[0], sat_old[0], rho_old[0], u_dm[0]);
         let d_phi_dx = phi_cell / (0.5 * dx);
         u + self.dt * (-convection + self.pipe.axial_gravity() - friction - d_phi_dx / rho_face)
@@ -1484,8 +1502,12 @@ impl DriftFlux1d {
             -u * u / dx
         };
         let mu = mixture_viscosity(alpha_old[n - 1], sat_old[n - 1]);
-        let friction =
-            wall_friction_acceleration(u, rho_face, mu, self.pipe.hydraulic_diameter_si());
+        let friction = wall_friction_acceleration(
+            u,
+            rho_face,
+            mu,
+            self.pipe.face_hydraulic_diameter_si(self.pipe.n_cells()),
+        );
         u + self.dt * (-convection + self.pipe.axial_gravity() - friction)
     }
 }

@@ -1260,7 +1260,7 @@ impl TwoFluid1d {
             let void = if sum > 0.0 { self.alpha_g[i] / sum } else { 0.0 };
             let (g, l) = self.wall_heat.phasic_heat(
                 void,
-                self.pipe.hydraulic_diameter_si(),
+                self.pipe.cell_hydraulic_diameter_si(i),
                 vapour,
                 liquid,
             )?;
@@ -1607,10 +1607,9 @@ impl TwoFluid1d {
     /// Total mass currently in the pipe.
     #[must_use]
     pub fn inventory(&self) -> Mass {
-        let v = self.pipe.cell_volume();
         Mass::new::<kilogram>(
             (0..self.pipe.n_cells())
-                .map(|i| (self.m_g[i] + self.m_l[i]) * v)
+                .map(|i| (self.m_g[i] + self.m_l[i]) * self.pipe.cell_volume_at(i))
                 .sum::<f64>(),
         )
     }
@@ -1622,9 +1621,10 @@ impl TwoFluid1d {
     /// interfacial energy balance `Q_g + Q_l + Γ h_fg = 0` cancels identically.
     #[must_use]
     pub fn total_enthalpy(&self) -> f64 {
-        let v = self.pipe.cell_volume();
         (0..self.pipe.n_cells())
-            .map(|i| (self.m_g[i] * self.h_g[i] + self.m_l[i] * self.h_l[i]) * v)
+            .map(|i| {
+                (self.m_g[i] * self.h_g[i] + self.m_l[i] * self.h_l[i]) * self.pipe.cell_volume_at(i)
+            })
             .sum()
     }
 
@@ -1633,7 +1633,7 @@ impl TwoFluid1d {
     #[must_use]
     pub fn outlet_mass_flow(&self) -> MassRate {
         let n = self.pipe.n_cells();
-        let a = self.pipe.area_si();
+        let a = self.pipe.face_area_si(n);
         MassRate::new::<kilogram_per_second>(
             (self.m_g[n - 1] * self.u_g[n] + self.m_l[n - 1] * self.u_l[n]) * a,
         )
@@ -1707,11 +1707,15 @@ impl TwoFluid1d {
     pub fn step(&mut self) -> Result<TwoFluidReport, TampinesError> {
         let n = self.pipe.n_cells();
         let dx = self.pipe.dx();
-        let area = self.pipe.area_si();
-        let volume = self.pipe.cell_volume();
+        // gh:#1058: face areas and cell volumes (constant without a profile).
+        // The momentum equation is in non-conservative velocity form, where
+        // the quasi-1-D wall pressure force `p ∂A/∂x` cancels exactly against
+        // `A ∂p/∂x − ∂(pA)/∂x`, so the area enters only the mass and energy
+        // fluxes, the cell volumes and the hydraulic diameter.
+        let area: Vec<f64> = (0..=n).map(|j| self.pipe.face_area_si(j)).collect();
+        let volume: Vec<f64> = (0..n).map(|i| self.pipe.cell_volume_at(i)).collect();
         let g_x = self.pipe.axial_gravity();
         let dt = self.dt;
-        let d_h = self.pipe.hydraulic_diameter_si();
 
         // ── Old-time snapshot ────────────────────────────────────────────
         let p_old = self.p.clone();
@@ -1814,6 +1818,7 @@ impl TwoFluid1d {
 
             let mg_f = ag_f * rho_g_f;
             let ml_f = al_f * rho_l_f;
+            let d_h = self.pipe.face_hydraulic_diameter_si(j);
 
             // Interfacial momentum carried by the transferred mass, in the
             // non-conservative form: Gamma_k (u^i - u_k). gh:#1060 (Eq. 200):
@@ -1914,12 +1919,14 @@ impl TwoFluid1d {
             let inv_rho_l = 1.0 / rho_l_old[i];
             let (jl, jr) = (i, i + 1);
             let cap_l =
-                inv_rho_g * mg_face[jl] * area * d_g[jl] + inv_rho_l * ml_face[jl] * area * d_l[jl];
+                inv_rho_g * mg_face[jl] * area[jl] * d_g[jl]
+                + inv_rho_l * ml_face[jl] * area[jl] * d_l[jl];
             let cap_r =
-                inv_rho_g * mg_face[jr] * area * d_g[jr] + inv_rho_l * ml_face[jr] * area * d_l[jr];
+                inv_rho_g * mg_face[jr] * area[jr] * d_g[jr]
+                + inv_rho_l * ml_face[jr] * area[jr] * d_l[jr];
             sub[i] = -cap_l;
             sup[i] = -cap_r;
-            diag[i] = volume * compliance[i] / dt + cap_l + cap_r;
+            diag[i] = volume[i] * compliance[i] / dt + cap_l + cap_r;
         }
 
         for outer in 0..self.n_outer_correctors {
@@ -1935,7 +1942,7 @@ impl TwoFluid1d {
             // later pass corrects the residual the previous one left.
             let mut max_change: f64 = 0.0;
             if outer > 0 {
-                let rhs: Vec<f64> = (0..n).map(|i| volume * r_vol[i] / dt).collect();
+                let rhs: Vec<f64> = (0..n).map(|i| volume[i] * r_vol[i] / dt).collect();
                 let delta_p = thomas_solve(&sub, &diag, &sup, &rhs)?;
                 for i in 0..n {
                     let target = p_new[i] + self.p_under_relaxation * delta_p[i];
@@ -1962,8 +1969,8 @@ impl TwoFluid1d {
             u_l_new[n] = right_u;
 
             // -- transport, interfacial exchange, recovery -------------------------
-            let flux_g: Vec<f64> = (0..=n).map(|j| mg_face[j] * u_g_new[j] * area).collect();
-            let flux_l: Vec<f64> = (0..=n).map(|j| ml_face[j] * u_l_new[j] * area).collect();
+            let flux_g: Vec<f64> = (0..=n).map(|j| mg_face[j] * u_g_new[j] * area[j]).collect();
+            let flux_l: Vec<f64> = (0..=n).map(|j| ml_face[j] * u_l_new[j] * area[j]).collect();
 
             let mut max_residual: f64 = 0.0;
             for i in 0..n {
@@ -1973,14 +1980,14 @@ impl TwoFluid1d {
                 let hl_l = donor_scalar(&h_l_old, jl, n, flux_l[jl]);
                 let hl_r = donor_scalar(&h_l_old, jr, n, flux_l[jr]);
 
-                let m_g_star = m_g_old[i] - dt / volume * (flux_g[jr] - flux_g[jl]);
-                let m_l_star = m_l_old[i] - dt / volume * (flux_l[jr] - flux_l[jl]);
+                let m_g_star = m_g_old[i] - dt / volume[i] * (flux_g[jr] - flux_g[jl]);
+                let m_l_star = m_l_old[i] - dt / volume[i] * (flux_l[jr] - flux_l[jl]);
                 let dp = p_new[i] - p_old[i];
                 let e_g_star = m_g_old[i] * h_g_old[i]
-                    - dt / volume * (flux_g[jr] * hg_r - flux_g[jl] * hg_l)
+                    - dt / volume[i] * (flux_g[jr] * hg_r - flux_g[jl] * hg_l)
                     + alpha_g_old[i] * dp;
                 let e_l_star = m_l_old[i] * h_l_old[i]
-                    - dt / volume * (flux_l[jr] * hl_r - flux_l[jl] * hl_l)
+                    - dt / volume[i] * (flux_l[jr] * hl_r - flux_l[jl] * hl_l)
                     + alpha_l_old[i] * dp;
 
                 let sat_i = SaturatedProperties::at(p_new[i])?;
@@ -2143,12 +2150,12 @@ impl TwoFluid1d {
         Ok(TwoFluidReport {
             time: self.time,
             outlet_mass_flow: (self.m_g[n - 1] * self.u_g[n] + self.m_l[n - 1] * self.u_l[n])
-                * area,
+                * area[n],
             max_void_fraction: max_void,
             max_thermal_nonequilibrium: max_thermal,
             min_void_fraction: min_void,
             max_slip,
-            inventory: (0..n).map(|i| (self.m_g[i] + self.m_l[i]) * volume).sum(),
+            inventory: (0..n).map(|i| (self.m_g[i] + self.m_l[i]) * volume[i]).sum(),
             max_courant,
             max_volume_residual,
             outer_correctors_used: correctors_used,

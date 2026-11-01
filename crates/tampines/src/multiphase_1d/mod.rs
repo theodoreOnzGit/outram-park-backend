@@ -271,6 +271,9 @@ pub fn thomas_solve(
 }
 
 #[cfg(test)]
+mod area_tests;
+
+#[cfg(test)]
 mod edwards_tests;
 
 #[cfg(test)]

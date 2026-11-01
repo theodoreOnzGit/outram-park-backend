@@ -12,6 +12,17 @@
 //! and the uniform axial cell layout derived from them. No state, no fluid
 //! properties, no time.
 //!
+//! # Variable flow area (gh:#1058)
+//!
+//! [`Pipe1d::with_area_profile`] gives the pipe an area `A(x)` from the
+//! **reused** [`tampines_steam_tables::hem::AreaProfile`] (`HemPipe`'s type,
+//! evaluated through `HemPipeGeometry::flow_area_at`, so the two cannot
+//! drift). As in `HemPipe`, faces carry `A(x_j)`, a cell's area is the mean
+//! of its two faces and its volume `Δx` times that. The hydraulic diameter
+//! scales as `D_h(x) = D_h √(A(x)/A)` with `A`, `D_h` the constructor's
+//! values — exact for a circular section, an assumption otherwise. Without a
+//! profile every accessor returns the constructor's value bit for bit.
+//!
 //! # What does not
 //!
 //! Anything that changes during a transient. Both solvers own their own field
@@ -22,9 +33,12 @@ use uom::si::area::square_meter;
 use uom::si::f64::{Angle, Area, Length};
 use uom::si::length::meter;
 
+use tampines_steam_tables::hem::{AreaProfile, HemPipeGeometry};
+
 use crate::TampinesError;
 
-/// A straight pipe of constant cross-section, discretised into uniform axial
+/// A straight pipe, of constant cross-section unless given an area profile
+/// ([`Pipe1d::with_area_profile`], gh:#1058), discretised into uniform axial
 /// cells.
 ///
 /// # The mesh
@@ -54,7 +68,8 @@ use crate::TampinesError;
 pub struct Pipe1d {
     /// Total pipe length `L` \[m\].
     length_m: f64,
-    /// Cross-sectional flow area `A` \[m²\], constant along the pipe.
+    /// Cross-sectional flow area `A` \[m²\]: the constant section, or the
+    /// reference area that scales `D_h` under an area profile.
     flow_area_m2: f64,
     /// Hydraulic diameter `D_h = 4A/P` \[m\], used by the wall-friction
     /// closures and by the drag correlations' length scale.
@@ -63,6 +78,9 @@ pub struct Pipe1d {
     incline_rad: f64,
     /// Number of uniform axial cells.
     n_cells: usize,
+    /// gh:#1058: the area profile and its face areas \[m²\] (`n_cells + 1`),
+    /// `None` for the constant section.
+    profile: Option<(AreaProfile, Vec<f64>)>,
 }
 
 impl Pipe1d {
@@ -118,6 +136,7 @@ impl Pipe1d {
             hydraulic_diameter_m,
             incline_rad: incline.get::<uom::si::angle::radian>(),
             n_cells,
+            profile: None,
         })
     }
 
@@ -141,6 +160,78 @@ impl Pipe1d {
     }
 
     /// Total pipe length `L` \[m\].
+    /// Give the pipe a varying flow area (gh:#1058). The constructor's area
+    /// and hydraulic diameter become the reference that scales `D_h(x)`.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] if the profile is refused by
+    /// `HemPipeGeometry::with_area_profile` (a non-positive or non-finite
+    /// area, or a throat outside the pipe).
+    pub fn with_area_profile(mut self, profile: AreaProfile) -> Result<Self, TampinesError> {
+        let geometry = HemPipeGeometry::with_area_profile(self.length(), profile, self.n_cells)
+            .map_err(|e| TampinesError::InvalidInput(format!("area profile refused: {e}")))?;
+        let dx = self.dx();
+        let faces = (0..=self.n_cells)
+            .map(|j| {
+                geometry
+                    .flow_area_at(Length::new::<meter>(j as f64 * dx))
+                    .get::<square_meter>()
+            })
+            .collect();
+        self.profile = Some((profile, faces));
+        Ok(self)
+    }
+
+    /// The area profile, if one was given.
+    #[must_use]
+    pub fn area_profile(&self) -> Option<AreaProfile> {
+        self.profile.as_ref().map(|(p, _)| *p)
+    }
+
+    /// Flow area at face `j` \[m²\] (`0 ≤ j ≤ n_cells`).
+    #[must_use]
+    pub fn face_area_si(&self, j: usize) -> f64 {
+        match &self.profile {
+            None => self.flow_area_m2,
+            Some((_, faces)) => faces[j],
+        }
+    }
+
+    /// Flow area of cell `i` \[m²\], the mean of its two faces.
+    #[must_use]
+    pub fn cell_area_si(&self, i: usize) -> f64 {
+        match &self.profile {
+            None => self.flow_area_m2,
+            Some((_, faces)) => 0.5 * (faces[i] + faces[i + 1]),
+        }
+    }
+
+    /// Volume of cell `i` \[m³\]; equals [`cell_volume`](Self::cell_volume)
+    /// bit for bit without a profile.
+    #[must_use]
+    pub fn cell_volume_at(&self, i: usize) -> f64 {
+        self.cell_area_si(i) * self.dx()
+    }
+
+    /// Hydraulic diameter at face `j` \[m\].
+    #[must_use]
+    pub fn face_hydraulic_diameter_si(&self, j: usize) -> f64 {
+        match &self.profile {
+            None => self.hydraulic_diameter_m,
+            Some((_, faces)) => self.hydraulic_diameter_m * (faces[j] / self.flow_area_m2).sqrt(),
+        }
+    }
+
+    /// Hydraulic diameter of cell `i` \[m\], from the cell area.
+    #[must_use]
+    pub fn cell_hydraulic_diameter_si(&self, i: usize) -> f64 {
+        match &self.profile {
+            None => self.hydraulic_diameter_m,
+            Some(_) => self.hydraulic_diameter_m * (self.cell_area_si(i) / self.flow_area_m2).sqrt(),
+        }
+    }
+
     #[must_use]
     pub fn length(&self) -> Length {
         Length::new::<meter>(self.length_m)
