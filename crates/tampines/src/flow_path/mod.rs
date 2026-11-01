@@ -310,7 +310,10 @@ impl FlowPath {
                 let (p_up, p_dn) = if liq_fwd { (p_f, p_t) } else { (p_t, p_f) };
                 if p_up > p_dn {
                     let rho = dl.liquid_density.get::<kilogram_per_cubic_meter>();
-                    let h0 = dl.liquid_enthalpy.get::<joule_per_kilogram>() + 0.5 * self.v_liquid * self.v_liquid;
+                    // The donor is a volume at rest: its stagnation enthalpy is
+                    // its own (a first version added ½v² of the path's
+                    // pre-limit velocity, which ran to 4.5e7 J/kg).
+                    let h0 = dl.liquid_enthalpy.get::<joule_per_kilogram>();
                     let bf = Iapws97Hem.break_flow(
                         Pressure::new::<pascal>(p_up),
                         AvailableEnergy::new::<joule_per_kilogram>(h0),
