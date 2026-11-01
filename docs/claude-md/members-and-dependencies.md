@@ -175,7 +175,7 @@ GeN-Foam's `RegimeMap1D`, `InterfacialArea` and `ContactPartition` in
 since 2026-11-01 a normal edge `tampines → farrer-park` (gh:#1069:
 `tampines::fem1d` takes its Gauss line rule from
 `farrer_park::quadrature::facet_rule`; farrer-park's own dependencies were
-already in tampines's tree, and farrer-park does not depend on tampines);
+already in tampines's tree, and farrer-park does not depend on tampines). **Both edges, `tampines → outram-foam-*` and `tampines → farrer-park`, are approved by the maintainer (2026-11-01: "Tampines can depend on outram-foam and farrer park").**;
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
 no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD
