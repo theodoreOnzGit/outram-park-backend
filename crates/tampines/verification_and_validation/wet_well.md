@@ -66,7 +66,7 @@ block) so the test can check the copies bit for bit. There is no cycle today.~~
 **CORRECTED 2026-11-01** (maintainer: `sembawang` depends on `tampines`,
 never the reverse): that dev-dependency is removed, and the comparison (item
 3 below) moved to `crates/sembawang/tests/wet_well_vs_tampines.rs`, through
-`sembawang`'s existing `tampines` dev-dependency.
+`sembawang`'s `tampines` dependency (a normal one since 2026-11-01).
 
 ### Mechanisms (all on by default) and their ablations
 
