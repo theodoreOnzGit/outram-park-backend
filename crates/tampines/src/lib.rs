@@ -78,6 +78,7 @@
 pub mod balance_of_plant;
 pub mod closures;
 pub mod components;
+pub mod control_volume;
 pub mod compressible;
 pub mod cooling_tower;
 pub mod critical_flow;

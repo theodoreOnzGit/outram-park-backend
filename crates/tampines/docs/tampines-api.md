@@ -5919,8 +5919,12 @@ source-term chain into the thermal-hydraulic framework, and `sembawang`
 is meant to consume this component later, which would close a cycle), so
 the logic is copied with its operation order kept, and every function
 names its counterpart so the two cannot drift unnoticed.
-`tests/wet_well.rs` checks the copies **bit for bit** against `sembawang`'s
-public functions (a dev-dependency only). `sembawang` itself is unchanged.
+~~`tests/wet_well.rs` checks the copies **bit for bit** against `sembawang`'s
+public functions (a dev-dependency only).~~ **CORRECTED 2026-11-01**
+(maintainer: `sembawang` depends on `tampines`, never the reverse): the
+bit-for-bit check and the whole-torus comparison live in
+`crates/sembawang/tests/wet_well_vs_tampines.rs`, and `tampines` has no
+`sembawang` dependency of any kind. `sembawang` itself is unchanged.
 
 | Here | Ported from (`sembawang::bwr_mark1`) |
 |---|---|
@@ -5945,6 +5949,11 @@ volume as a fixed-state reservoir; the pipe-end pressures (Eqs 395, 399,
 400); and the compression work `p ΔV` the pool does on the gas, which
 RELAP-7 neglects (the remark after Eq 390) and `sembawang` has no need of
 (its gas volume is fixed).
+
+**Generalised 2026-11-01 by [`crate::control_volume::ControlVolume`]**
+(gh:#1092): any `V(z)`, six non-condensables, IF97 on both sides, ports
+at elevations and the swollen level. The surface functions above now live
+in `crate::control_volume::pool_surface` (moved verbatim, re-exported here).
 
 ## Mechanisms: ON by default, ablations named `without_*`
 
@@ -5981,565 +5990,6 @@ pub mod wet_well { /* ... */ }
 
 ### Types
 
-#### Struct `Atmosphere`
-
-The gas space's bulk state, for the surface correlations
-(`pool_surface::Atmosphere` without hydrogen).
-
-```rust
-pub struct Atmosphere {
-    pub t_k: f64,
-    pub p_pa: f64,
-    pub n_steam: f64,
-    pub n_n2: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `t_k` | `f64` | Temperature, K. |
-| `p_pa` | `f64` | Total pressure, Pa. |
-| `n_steam` | `f64` | Moles of steam. |
-| `n_n2` | `f64` | Moles of nitrogen. |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
-  ```
-  Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
-
-- ```rust
-  pub fn mass_properties(self: &Self) -> (f64, f64, f64) { /* ... */ }
-  ```
-  Molar mass, kg/mol, density, kg/m³, and `c_p`, J/(kg K)
-
-- ```rust
-  pub fn steam_diffusivity(self: &Self) -> Option<f64> { /* ... */ }
-  ```
-  Diffusivity of water vapour in N2, m²/s: MELCOR's steam-air
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-#### Struct `PoolState`
-
-The pool's bulk state for the surface (`pool_surface::Pool`).
-
-```rust
-pub struct PoolState {
-    pub t_k: f64,
-    pub kg: f64,
-    pub rho: f64,
-    pub cp: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `t_k` | `f64` | Temperature, K. |
-| `kg` | `f64` | Mass, kg. |
-| `rho` | `f64` | Density, kg/m³. |
-| `cp` | `f64` | Heat capacity, J/(kg K). |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-#### Struct `SurfaceGeometry`
-
-Geometry of the surface: its area, m², and the depths of the pool and of
-the gas space, m (`pool_surface::Surface`).
-
-```rust
-pub struct SurfaceGeometry {
-    pub area_m2: f64,
-    pub pool_depth_m: f64,
-    pub gas_depth_m: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `area_m2` | `f64` | Area, m². |
-| `pool_depth_m` | `f64` | Pool depth, m. |
-| `gas_depth_m` | `f64` | Gas-space depth, m. |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-#### Struct `SurfaceExchange`
-
-The surface's result for one step (`pool_surface::Exchange`):
-evaporation, kg/s (negative is condensation), the heat flows from the pool
-and from the gas to the surface, W, and the surface temperature, K.
-
-```rust
-pub struct SurfaceExchange {
-    pub evaporation_kg_s: f64,
-    pub q_pool_w: f64,
-    pub q_atm_w: f64,
-    pub t_surface_k: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `evaporation_kg_s` | `f64` | Evaporation, kg/s. |
-| `q_pool_w` | `f64` | Heat from the pool to the surface, W. |
-| `q_atm_w` | `f64` | Heat from the gas to the surface, W. |
-| `t_surface_k` | `f64` | Surface temperature, K. |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `VacuumBreakerDirection`
 
 Which way the vacuum breaker passes gas. It is a check valve: it opens
@@ -8466,105 +7916,102 @@ pub struct WetWell {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
-### Functions
+### Re-exports
 
-#### Function `cv_n2`
-
-Molar `c_v` of N2, J/(mol K), held at the fit's ends; `t_dependent`
-false is the constant ablation (`gas::cv_n2`).
+#### Re-export `bubble_efficiency`
 
 ```rust
-pub fn cv_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use crate::control_volume::pool_surface::bubble_efficiency;
 ```
 
-#### Function `u_n2`
-
-Molar internal energy of N2 from 0 K, J/mol (`gas::u_n2`).
+#### Re-export `exchange`
 
 ```rust
-pub fn u_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use crate::control_volume::pool_surface::exchange;
 ```
 
-#### Function `p_sat_pa`
-
-Saturation pressure, Pa (IF97 region 4; `steam::p_sat_pa`).
+#### Re-export `p_sat_pa`
 
 ```rust
-pub fn p_sat_pa(t_k: f64) -> f64 { /* ... */ }
+pub use crate::control_volume::pool_surface::p_sat_pa;
 ```
 
-#### Function `t_sat`
-
-Saturation temperature at `p`, K, by bisection on IF97's saturation
-pressure (`pool_surface::t_sat`, operation for operation).
+#### Re-export `steam_h`
 
 ```rust
-pub fn t_sat(p: f64) -> f64 { /* ... */ }
+pub use crate::control_volume::pool_surface::steam_h;
 ```
 
-#### Function `steam_h`
-
-Steam's specific enthalpy, `u + R T / M`, J/kg (`pool_surface::steam_h`).
+#### Re-export `t_sat`
 
 ```rust
-pub fn steam_h(t: f64) -> f64 { /* ... */ }
+pub use crate::control_volume::pool_surface::t_sat;
 ```
 
-#### Function `exchange`
-
-MELCOR's pool-surface exchange (CVH/FL RM §5.1.1–5.1.2) at the start of a
-step of `dt` s, limited as MELCOR limits it (Eq 5-17; condensation at most
-90 % of the vapour). **Port of `sembawang::bwr_mark1::pool_surface::exchange`**,
-operation for operation with hydrogen removed; `tests/wet_well.rs` checks
-it bit for bit against the original with no hydrogen.
-
-The surface temperature satisfies, at once, vapour diffusion through the
-N2 (Eq 5-1, `C` from the heat-mass analogy, Eq 5-2), the surface energy
-balance (Eq 5-7: natural convection plus radiation on each side) and
-saturation (Eq 5-5), solved by bisection. Without N2 the surface is at the
-saturation temperature of the total pressure (Eq 5-6).
+#### Re-export `Atmosphere`
 
 ```rust
-pub fn exchange(pool: &PoolState, atm: &Atmosphere, surface: &SurfaceGeometry, dt: f64) -> SurfaceExchange { /* ... */ }
+pub use crate::control_volume::pool_surface::Atmosphere;
 ```
 
-#### Function `bubble_efficiency`
-
-MELCOR's bubble efficiency at a vent below the pool (CVH/FL RM Eqs 6-1 to
-6-3): `ε_z = (depth − 0.01 m) / h` with `h` the opening's height, and
-`ε_T = (T_sat(P_j) − T_P − 0.1 K) / 5 K` with `P_j` the pressure at the
-opening's depth, each clamped to [0, 1]. **Port of
-`sembawang::bwr_mark1::pool_surface::bubble_efficiency`.**
+#### Re-export `PoolState`
 
 ```rust
-pub fn bubble_efficiency(depth_m: f64, opening_m: f64, p_junction_pa: f64, t_pool_k: f64) -> f64 { /* ... */ }
+pub use crate::control_volume::pool_surface::PoolState;
 ```
 
-### Constants and Statics
-
-#### Constant `M_H2O`
-
-Molar masses, kg/mol, and the gas constant, J/(mol K)
-(`sembawang::bwr_mark1::params::{M_H2O, M_N2, R_GAS}`).
+#### Re-export `SurfaceExchange`
 
 ```rust
-pub const M_H2O: f64 = 0.018_015;
+pub use crate::control_volume::pool_surface::SurfaceExchange;
 ```
 
-#### Constant `M_N2`
-
-Nitrogen's molar mass, kg/mol.
+#### Re-export `SurfaceGeometry`
 
 ```rust
-pub const M_N2: f64 = 0.028_014;
+pub use crate::control_volume::pool_surface::SurfaceGeometry;
 ```
 
-#### Constant `R_GAS`
-
-The gas constant, J/(mol K).
+#### Re-export `M_H2O`
 
 ```rust
-pub const R_GAS: f64 = 8.314_462;
+pub use crate::control_volume::pool_surface::M_H2O;
+```
+
+#### Re-export `M_N2`
+
+```rust
+pub use crate::control_volume::pool_surface::M_N2;
+```
+
+#### Re-export `R_GAS`
+
+```rust
+pub use crate::control_volume::pool_surface::R_GAS;
+```
+
+#### Re-export `cv_n2`
+
+N2's `c_v(T)` and internal energy (MELCOR NCG fit): ~~a copy of
+`sembawang::bwr_mark1::gas`~~ since 2026-11-01 (gh:#1092) the shared
+`tampines_steam_tables::gas_mixture::melcor_ncg` functions, which have the
+identical operation order (that module was moved there verbatim from
+`sembawang`, gh:#1093).
+
+```rust
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::cv_n2;
+```
+
+#### Re-export `u_n2`
+
+N2's `c_v(T)` and internal energy (MELCOR NCG fit): ~~a copy of
+`sembawang::bwr_mark1::gas`~~ since 2026-11-01 (gh:#1092) the shared
+`tampines_steam_tables::gas_mixture::melcor_ncg` functions, which have the
+identical operation order (that module was moved there verbatim from
+`sembawang`, gh:#1093).
+
+```rust
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::u_n2;
 ```
 
 ### Re-exports
@@ -8801,6 +8248,2943 @@ pub use wet_well::WetWellInitialState;
 
 ```rust
 pub use wet_well::WetWellInputs;
+```
+
+## Module `control_volume`
+
+Two-region non-equilibrium control volume: a **pool** and an
+**atmosphere**, each at its own temperature, with the level from a
+volume–altitude table and the swollen level (gh:#1092, epic gh:#1091;
+after MELCOR 2.2's CVH package, CVH/FL reference manual §2 and §5, cited by
+section and equation, not quoted; no MELCOR source used).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+This generalises [`crate::components::wet_well::WetWell`] (gh:#1075):
+
+| Wet well | Control volume |
+|---|---|
+| prismatic, `A_c` and `L_t` | [`VolumeAltitudeTable`]: any `V(z)`, piecewise linear |
+| steam + N2, ideal, sembawang's constant-`c_v` steam | [`GasMixture`]: steam + N2, H2, O2, CO, CO2, Ar, closed by [`GasMixtureModel`] (IF97 steam by default, gh:#1093) |
+| liquid `c_p (T − 273.15)` | IF97 region-1 liquid by default; `sembawang`'s constant `c_p` the ablation |
+| one injection port, one liquid outlet, a vacuum breaker | any number of [`Port`]s at elevations, each with a source and an outflow |
+| no swell | MELCOR's swollen level (Eqs 5-26 to 5-30), ported from `sembawang` |
+| rain-out by `sembawang`'s four passes (ends subsaturated) | rain-out to saturation (RH = 1) by a solve; the four passes the ablation |
+
+The wet well's vacuum breaker is a flow path, not part of a volume: it is
+gh:#1094's job here (see "For gh:#1094" below).
+
+## Ported or reused, not written fresh
+
+| Here | From |
+|---|---|
+| [`pool_surface::exchange`], [`pool_surface::bubble_efficiency`] | **moved verbatim** from the wet well (themselves `sembawang::bwr_mark1::pool_surface::{exchange, bubble_efficiency}`), shared by both |
+| the bubble step at a submerged port | the wet well's `bubble_through` (`sembawang`'s `Containment::bubble_through`), with every non-condensable instead of N2 |
+| flashing, the surface step, the sensible-only ablation | the wet well's `surface` (`sembawang`'s `Containment::pool_surface_step`) |
+| the split of a two-phase source into pool liquid and bubbles | the wet well's `inject` |
+| the pool's compression work on the atmosphere | the wet well's step 6 |
+| the immersed heat exchanger's implicit form | the wet well's step 3 (`sembawang`'s `ww_shell_step`) |
+| [`level::swollen_level`] | `sembawang::bwr_mark1::swollen_level` (gh:#1036) |
+| the atmosphere's pressure, energy, relative humidity | `tampines_steam_tables::gas_mixture` (gh:#1093) |
+| the port's draw by the level | `tampines_steam_tables::hem::VolumePort::AtHeight` (gh:#1073): liquid below the level with `ρ g (L − z)`, vapour above |
+
+## Several non-condensables at the pool surface (a limit, stated)
+
+MELCOR's surface correlations are ported for steam and **one**
+non-condensable with N2's properties. The control volume passes the
+**total** non-condensable moles as that gas: so every non-condensable's
+mole fraction enters the steam's partial pressure and the diffusion
+driving force `ln((p − p_w)/(p − p_sat(T_s)))`, but the diffusivity
+(MELCOR's steam–air correlation), the mixture viscosity and conductivity,
+the density (natural-convection buoyancy) and `c_p` are N2's. For an
+H2-rich atmosphere this misstates the density (and so the convection) and
+the diffusivity (H2–steam is several times steam–N2); `sembawang`'s
+original carries H2's own properties, which a follow-up could port.
+
+## State, energy and conservation
+
+The state is the pool's mass and internal energy and the atmosphere's
+contents ([`GasMixture`]) and internal energy. Temperatures, the pool
+density, the level, the atmosphere's volume and pressure are derived (the
+density and the atmosphere's pressure by three fixed-point passes, as the
+wet well). Every transfer adds to one inventory what it takes from
+another or from the boundary, so mass, per-species mass and energy close
+to round-off by construction; [`ControlVolumeBookkeeping`] carries what
+crossed the boundary.
+
+The liquid's internal energy in the default model is IF97 region 1 on the
+saturation line (`p = 1.0001 p_sat(T)`); its pressure dependence
+(≈ −0.01 J/kg per kPa near 300 K) is neglected. Liquid leaving or arriving
+carries `h = u + p v`, `p` the pressure at the port; the pool's
+compression work `p ΔV` moves the flow work between the pool and the
+atmosphere. Under the constant-`c_p` ablation `h = u = c_p (T −
+273.15)` (`sembawang`'s, as the wet well).
+
+## Mechanisms: ON by default, ablations named `without_*`
+
+| Default | Ablation |
+|---|---|
+| MELCOR's pool surface | [`ControlVolume::without_surface_mass_transfer`] (sensible heat only) |
+| MELCOR's bubble efficiency | [`ControlVolume::without_bubble_pass_through`] (`ε = 1`) |
+| the pool's compression work | [`ControlVolume::without_pressure_work`] |
+| the swollen level decides what a port draws | [`ControlVolume::without_level_swell`] (the collapsed level) |
+| rain-out to saturation | [`ControlVolume::without_equilibrium_rain_out`] (`sembawang`'s four passes) |
+| IF97 liquid | [`ControlVolume::without_real_liquid`] (constant `c_p` 4186 J/(kg K)) |
+| IF97 steam in the atmosphere | [`ControlVolume::without_real_steam`] |
+| non-condensable `c_v(T)` | [`ControlVolume::without_ncg_cv_t`] |
+
+## For gh:#1094 (flow paths) and gh:#1095 (implicit network)
+
+A flow path between two volumes needs, at each end: the pressure at the
+opening's elevation ([`ControlVolume::pressure_at_elevation`]), and the
+donor's state if flow leaves through it ([`ControlVolume::port_donor`]:
+what is drawn by the level, its density, specific enthalpy, temperature
+and composition). A network evaluates both for every volume, computes the
+flows, and drives each volume with one [`PortInput`] per port:
+`outflow` for flow leaving (the volume decides pool or atmosphere by the
+level), `inflow` a [`Source`] carrying the donor's water, enthalpy and
+non-condensables. [`ControlVolume::step`] applies them and returns, per
+port, what actually moved ([`PortTransfer`]); the network passes that, not
+its own estimate, to the receiving volume, so the network conserves what
+each volume conserves. An implicit scheme (gh:#1095) can linearise around
+[`ControlVolume::pressure_at_elevation`] by stepping a clone.
+
+## Not modelled (stated)
+
+Kinetic energy and gravity in the energy equation; gravity in the
+atmosphere (the pressure above the level is the atmosphere's); the void's
+own effect on what a port draws (a port below the swollen level draws
+liquid at the pool's state, not a two-phase mixture); fog (rain-out goes to
+the pool at once); pool stratification; heat structures (the caller's, as
+`pool_heat`); aerosols.
+
+```rust
+pub mod control_volume { /* ... */ }
+```
+
+### Modules
+
+## Module `level`
+
+The volume–altitude table and the swollen pool level (gh:#1092).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+- [`VolumeAltitudeTable`]: MELCOR's description of a control volume's
+  shape (CVH users' guide, the volume–altitude table; MELCOR 2.2 CVH/FL
+  reference manual §2, cited, not quoted): the free volume below each
+  altitude, piecewise linear between the points, so a non-prismatic vessel
+  (a torus, a lower head, a vessel with internals) has a level that is not
+  `V / A`. The inverse is exact on each linear piece (no iteration).
+- [`swollen_level`] and [`swollen_level_from_vapour_flow`]: MELCOR's pool
+  swell (CVH/FL RM §5.1.3, Eqs 5-26 to 5-30). **Ported from
+  `sembawang::bwr_mark1::swollen_level`** (gh:#1036), with the vessel's
+  `volume_below` and `height_of_volume` passed in as closures instead of
+  `sembawang`'s BWR vessel; the operations and their order are kept, so
+  on `sembawang`'s own vessel the result is bit-identical
+  (`crates/sembawang/tests/swollen_level_vs_tampines.rs`).
+
+```rust
+pub mod level { /* ... */ }
+```
+
+### Types
+
+#### Struct `VolumeAltitudeTable`
+
+A vessel's free volume below each altitude, piecewise linear between the
+points (MELCOR's volume–altitude table).
+
+```rust
+pub struct VolumeAltitudeTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(points: &[(Length, Volume)]) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  A table from `(altitude, volume below it)` points. The first volume is
+
+- ```rust
+  pub fn prismatic(area: Area, height: Length) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  A prismatic vessel of cross-section `area` from altitude 0 to `height`.
+
+- ```rust
+  pub fn volume_below(self: &Self, z: Length) -> Volume { /* ... */ }
+  ```
+  The free volume below altitude `z`.
+
+- ```rust
+  pub fn height_of_volume(self: &Self, v: Volume) -> Length { /* ... */ }
+  ```
+  The altitude below which the free volume is `v`.
+
+- ```rust
+  pub fn area_at(self: &Self, z: Length) -> Area { /* ... */ }
+  ```
+  The free cross-section at altitude `z` (the slope of the piece holding
+
+- ```rust
+  pub fn total_volume(self: &Self) -> Volume { /* ... */ }
+  ```
+  The vessel's total free volume.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `swollen_level_from_vapour_flow`
+
+The swollen level, from the collapsed level `z` (same datum as the
+closures) and the vapour volume flow `vapour_flow_m3_s` rising through the
+pool top: the free cross-section at `z` by a centred difference of ±1 cm,
+the superficial vapour velocity `J = Q_v / A`, the mean void `α = J / (2
+v0)` capped at `max_void` (Eqs 5-26 to 5-30), and the swollen pool filling
+`V(z) / (1 − α)`. No vapour or no cross-section: the collapsed level.
+**Port of `sembawang::bwr_mark1::swollen_level`** with `Q_v = q / h_fg ·
+v_g` factored out (the same operations in the same order).
+
+```rust
+pub fn swollen_level_from_vapour_flow<V, H>(volume_below: V, height_of_volume: H, z: f64, vapour_flow_m3_s: f64, bubble_rise_m_s: f64, max_void: f64) -> f64
+where
+    V: Fn(f64) -> f64,
+    H: Fn(f64) -> f64 { /* ... */ }
+```
+
+#### Function `swollen_level`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+
+`sembawang`'s form: the vapour raised by `q_pool_w` W of heat with latent
+heat `h_fg` J/kg and vapour specific volume `v_g` m³/kg. With `z` =
+`level_m + baf_m` and the same vessel closures this returns
+`sembawang::bwr_mark1::swollen_level(..) + baf_m` bit for bit when
+`q_pool_w > 0` (with no heat, `z` itself).
+
+```rust
+pub fn swollen_level<V, H>(volume_below: V, height_of_volume: H, z: f64, q_pool_w: f64, h_fg: f64, v_g: f64, bubble_rise_m_s: f64, max_void: f64) -> f64
+where
+    V: Fn(f64) -> f64,
+    H: Fn(f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `BUBBLE_RISE_M_S`
+
+MELCOR's default bubble rise velocity in a pool, m/s (CVH/FL RM §5.1.3,
+sensitivity coefficient C4407(1); `sembawang::bwr_mark1::params::BUBBLE_RISE_M_S`).
+The manual says other assumptions change the answer by about a factor of 2.
+
+```rust
+pub const BUBBLE_RISE_M_S: f64 = 0.3;
+```
+
+#### Constant `MAX_POOL_VOID`
+
+MELCOR's default largest mean pool void (C4407(11), roughly the upper
+limit of bubbly flow; `sembawang::bwr_mark1::params::MAX_POOL_VOID`).
+
+```rust
+pub const MAX_POOL_VOID: f64 = 0.4;
+```
+
+## Module `pool_surface`
+
+MELCOR's pool surface and bubble efficiency, shared by the wet well
+([`crate::components::wet_well`], gh:#1075) and the control volume
+([`crate::control_volume`], gh:#1092).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Moved here verbatim from `components/wet_well.rs` on 2026-11-01**
+(gh:#1092), so the two components share one copy; no operation was
+changed, so every number is bit-identical to what the wet well computed
+before, and `crates/sembawang/tests/wet_well_vs_tampines.rs` still checks
+the functions bit for bit against `sembawang`'s originals (through the
+wet well's re-exports). Each function names its counterpart in
+`sembawang::bwr_mark1` (MELCOR 2.2 CVH/FL reference manual, cited by
+section and equation, not quoted; no MELCOR source used).
+
+The gas is steam plus **one** non-condensable with nitrogen's properties
+([`Atmosphere::n_n2`]); the control volume passes the total
+non-condensable moles there (see its module documentation for the limit
+this sets).
+
+```rust
+pub mod pool_surface { /* ... */ }
+```
+
+### Types
+
+#### Struct `Atmosphere`
+
+The gas space's bulk state, for the surface correlations
+(`pool_surface::Atmosphere` without hydrogen).
+
+```rust
+pub struct Atmosphere {
+    pub t_k: f64,
+    pub p_pa: f64,
+    pub n_steam: f64,
+    pub n_n2: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` | Temperature, K. |
+| `p_pa` | `f64` | Total pressure, Pa. |
+| `n_steam` | `f64` | Moles of steam. |
+| `n_n2` | `f64` | Moles of nitrogen. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
+
+- ```rust
+  pub fn mass_properties(self: &Self) -> (f64, f64, f64) { /* ... */ }
+  ```
+  Molar mass, kg/mol, density, kg/m³, and `c_p`, J/(kg K)
+
+- ```rust
+  pub fn steam_diffusivity(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Diffusivity of water vapour in N2, m²/s: MELCOR's steam-air
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PoolState`
+
+The pool's bulk state for the surface (`pool_surface::Pool`).
+
+```rust
+pub struct PoolState {
+    pub t_k: f64,
+    pub kg: f64,
+    pub rho: f64,
+    pub cp: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` | Temperature, K. |
+| `kg` | `f64` | Mass, kg. |
+| `rho` | `f64` | Density, kg/m³. |
+| `cp` | `f64` | Heat capacity, J/(kg K). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SurfaceGeometry`
+
+Geometry of the surface: its area, m², and the depths of the pool and of
+the gas space, m (`pool_surface::Surface`).
+
+```rust
+pub struct SurfaceGeometry {
+    pub area_m2: f64,
+    pub pool_depth_m: f64,
+    pub gas_depth_m: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `area_m2` | `f64` | Area, m². |
+| `pool_depth_m` | `f64` | Pool depth, m. |
+| `gas_depth_m` | `f64` | Gas-space depth, m. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SurfaceExchange`
+
+The surface's result for one step (`pool_surface::Exchange`):
+evaporation, kg/s (negative is condensation), the heat flows from the pool
+and from the gas to the surface, W, and the surface temperature, K.
+
+```rust
+pub struct SurfaceExchange {
+    pub evaporation_kg_s: f64,
+    pub q_pool_w: f64,
+    pub q_atm_w: f64,
+    pub t_surface_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `evaporation_kg_s` | `f64` | Evaporation, kg/s. |
+| `q_pool_w` | `f64` | Heat from the pool to the surface, W. |
+| `q_atm_w` | `f64` | Heat from the gas to the surface, W. |
+| `t_surface_k` | `f64` | Surface temperature, K. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `p_sat_pa`
+
+Saturation pressure, Pa (IF97 region 4; `steam::p_sat_pa`).
+
+```rust
+pub fn p_sat_pa(t_k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `t_sat`
+
+Saturation temperature at `p`, K, by bisection on IF97's saturation
+pressure (`pool_surface::t_sat`, operation for operation).
+
+```rust
+pub fn t_sat(p: f64) -> f64 { /* ... */ }
+```
+
+#### Function `steam_h`
+
+Steam's specific enthalpy, `u + R T / M`, J/kg (`pool_surface::steam_h`).
+
+```rust
+pub fn steam_h(t: f64) -> f64 { /* ... */ }
+```
+
+#### Function `exchange`
+
+MELCOR's pool-surface exchange (CVH/FL RM §5.1.1–5.1.2) at the start of a
+step of `dt` s, limited as MELCOR limits it (Eq 5-17; condensation at most
+90 % of the vapour). **Port of `sembawang::bwr_mark1::pool_surface::exchange`**,
+operation for operation with hydrogen removed; ~~`tests/wet_well.rs` checks~~ **CORRECTED 2026-11-01**: `crates/sembawang/tests/wet_well_vs_tampines.rs` checks
+it bit for bit against the original with no hydrogen.
+
+The surface temperature satisfies, at once, vapour diffusion through the
+N2 (Eq 5-1, `C` from the heat-mass analogy, Eq 5-2), the surface energy
+balance (Eq 5-7: natural convection plus radiation on each side) and
+saturation (Eq 5-5), solved by bisection. Without N2 the surface is at the
+saturation temperature of the total pressure (Eq 5-6).
+
+```rust
+pub fn exchange(pool: &PoolState, atm: &Atmosphere, surface: &SurfaceGeometry, dt: f64) -> SurfaceExchange { /* ... */ }
+```
+
+#### Function `bubble_efficiency`
+
+MELCOR's bubble efficiency at a vent below the pool (CVH/FL RM Eqs 6-1 to
+6-3): `ε_z = (depth − 0.01 m) / h` with `h` the opening's height, and
+`ε_T = (T_sat(P_j) − T_P − 0.1 K) / 5 K` with `P_j` the pressure at the
+opening's depth, each clamped to [0, 1]. **Port of
+`sembawang::bwr_mark1::pool_surface::bubble_efficiency`.**
+
+```rust
+pub fn bubble_efficiency(depth_m: f64, opening_m: f64, p_junction_pa: f64, t_pool_k: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `M_H2O`
+
+Molar masses, kg/mol, and the gas constant, J/(mol K)
+(`sembawang::bwr_mark1::params::{M_H2O, M_N2, R_GAS}`).
+
+```rust
+pub const M_H2O: f64 = 0.018_015;
+```
+
+#### Constant `M_N2`
+
+Nitrogen's molar mass, kg/mol.
+
+```rust
+pub const M_N2: f64 = 0.028_014;
+```
+
+#### Constant `R_GAS`
+
+The gas constant, J/(mol K).
+
+```rust
+pub const R_GAS: f64 = 8.314_462;
+```
+
+### Types
+
+#### Struct `Port`
+
+An opening at an elevation: a flow path's end, a vent, a drain, a sparger.
+
+```rust
+pub struct Port {
+    pub elevation: uom::si::f64::Length,
+    pub opening_height: uom::si::f64::Length,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `elevation` | `uom::si::f64::Length` | Elevation of the opening (the table's datum). |
+| `opening_height` | `uom::si::f64::Length` | The opening's height (MELCOR's `h` in the bubble efficiency's `ε_z`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PortDraw`
+
+What a port draws, decided by the level.
+
+```rust
+pub enum PortDraw {
+    Liquid,
+    Atmosphere,
+}
+```
+
+##### Variants
+
+###### `Liquid`
+
+Pool liquid (the port is below the level).
+
+###### `Atmosphere`
+
+The atmosphere's mixture (the port is at or above the level).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Source`
+
+What enters through a port: water (any phase) at a specific enthalpy (IF97
+reference) and non-condensables at a temperature.
+
+```rust
+pub struct Source {
+    pub water_mass_rate: uom::si::f64::MassRate,
+    pub water_specific_enthalpy: uom::si::f64::AvailableEnergy,
+    pub ncg_mass_rates: [uom::si::f64::MassRate; 6],
+    pub ncg_temperature: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `water_mass_rate` | `uom::si::f64::MassRate` | Water mass flow, ≥ 0. |
+| `water_specific_enthalpy` | `uom::si::f64::AvailableEnergy` | The water's specific enthalpy. |
+| `ncg_mass_rates` | `[uom::si::f64::MassRate; 6]` | Each non-condensable's mass flow, [`NonCondensable::ALL`] order, ≥ 0. |
+| `ncg_temperature` | `uom::si::f64::ThermodynamicTemperature` | The non-condensables' temperature (they arrive with their enthalpy). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn none() -> Self { /* ... */ }
+  ```
+  Nothing.
+
+- ```rust
+  pub fn water(mass_rate: MassRate, specific_enthalpy: AvailableEnergy) -> Self { /* ... */ }
+  ```
+  Water only, at `h`.
+
+- ```rust
+  pub fn gas(rates: &[(NonCondensable, MassRate)], t: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  Non-condensables only, at `t`.
+
+- ```rust
+  pub fn with_gas(self: Self, rates: &[(NonCondensable, MassRate)], t: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  This source plus non-condensables at `t`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PortInput`
+
+One port's drive for a step.
+
+```rust
+pub struct PortInput {
+    pub inflow: Source,
+    pub outflow: uom::si::f64::MassRate,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inflow` | `Source` | What enters. |
+| `outflow` | `uom::si::f64::MassRate` | Mass leaving, ≥ 0; pool liquid or atmosphere by the level. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn closed() -> Self { /* ... */ }
+  ```
+  Nothing through this port.
+
+- ```rust
+  pub fn inflow(source: Source) -> Self { /* ... */ }
+  ```
+  Inflow only.
+
+- ```rust
+  pub fn outflow(rate: MassRate) -> Self { /* ... */ }
+  ```
+  Outflow only.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ControlVolumeInputs`
+
+What drives one step.
+
+```rust
+pub struct ControlVolumeInputs {
+    pub ports: Vec<PortInput>,
+    pub pool_heat: uom::si::f64::Power,
+    pub heat_exchanger: crate::components::wet_well::ImmersedHeatExchanger,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ports` | `Vec<PortInput>` | One input per port, in the geometry's port order. |
+| `pool_heat` | `uom::si::f64::Power` | Heat into the pool (a heat structure, a core), W; negative removes. |
+| `heat_exchanger` | `crate::components::wet_well::ImmersedHeatExchanger` | The immersed heat exchanger (implicit in the pool temperature). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn closed(n_ports: usize) -> Self { /* ... */ }
+  ```
+  Every port closed, no heat, for `n_ports` ports.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PortTransfer`
+
+What one port moved in a step.
+
+```rust
+pub struct PortTransfer {
+    pub pressure: uom::si::f64::Pressure,
+    pub draw: PortDraw,
+    pub water_in: uom::si::f64::Mass,
+    pub ncg_in: [uom::si::f64::Mass; 6],
+    pub energy_in: uom::si::f64::Energy,
+    pub water_out: uom::si::f64::Mass,
+    pub ncg_out: [uom::si::f64::Mass; 6],
+    pub energy_out: uom::si::f64::Energy,
+    pub bubble_efficiency: f64,
+    pub steam_to_atmosphere: uom::si::f64::Mass,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure` | `uom::si::f64::Pressure` | The pressure at the port at the start of the step. |
+| `draw` | `PortDraw` | What the outflow drew. |
+| `water_in` | `uom::si::f64::Mass` | Water in. |
+| `ncg_in` | `[uom::si::f64::Mass; 6]` | Non-condensables in, [`NonCondensable::ALL`] order. |
+| `energy_in` | `uom::si::f64::Energy` | Energy in. |
+| `water_out` | `uom::si::f64::Mass` | Water out (liquid, or the atmosphere's steam). |
+| `ncg_out` | `[uom::si::f64::Mass; 6]` | Non-condensables out. |
+| `energy_out` | `uom::si::f64::Energy` | Energy out. |
+| `bubble_efficiency` | `f64` | The bubble efficiency the inflow met (0 above the level). |
+| `steam_to_atmosphere` | `uom::si::f64::Mass` | Inflowing steam that reached the atmosphere uncondensed. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ControlVolumeStepReport`
+
+What one step did.
+
+```rust
+pub struct ControlVolumeStepReport {
+    pub ports: Vec<PortTransfer>,
+    pub heat_exchanger_heat: uom::si::f64::Energy,
+    pub flashing: uom::si::f64::Mass,
+    pub surface_evaporation: uom::si::f64::Mass,
+    pub rain_out: uom::si::f64::Mass,
+    pub vapour_flow_m3_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ports` | `Vec<PortTransfer>` | Per port. |
+| `heat_exchanger_heat` | `uom::si::f64::Energy` | Heat removed by the immersed heat exchanger. |
+| `flashing` | `uom::si::f64::Mass` | Pool liquid flashed to vapour. |
+| `surface_evaporation` | `uom::si::f64::Mass` | Net evaporation at the pool surface (negative is condensation). |
+| `rain_out` | `uom::si::f64::Mass` | Vapour condensed out of a supersaturated atmosphere into the pool. |
+| `vapour_flow_m3_s` | `f64` | Vapour volume flow through the pool top this step, m³/s (sets the<br>swell for the next step). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ControlVolumeBookkeeping`
+
+Running totals across the boundary since construction.
+
+```rust
+pub struct ControlVolumeBookkeeping {
+    pub water_in: uom::si::f64::Mass,
+    pub water_out: uom::si::f64::Mass,
+    pub ncg_in: [uom::si::f64::Mass; 6],
+    pub ncg_out: [uom::si::f64::Mass; 6],
+    pub energy_in: uom::si::f64::Energy,
+    pub energy_out: uom::si::f64::Energy,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `water_in` | `uom::si::f64::Mass` | Water in. |
+| `water_out` | `uom::si::f64::Mass` | Water out. |
+| `ncg_in` | `[uom::si::f64::Mass; 6]` | Each non-condensable in. |
+| `ncg_out` | `[uom::si::f64::Mass; 6]` | Each non-condensable out. |
+| `energy_in` | `uom::si::f64::Energy` | Energy in (sources' enthalpy, pool heat if positive). |
+| `energy_out` | `uom::si::f64::Energy` | Energy out (outflows' enthalpy, heat exchanger, pool heat if negative). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DonorState`
+
+The state an outflow through a port would carry (for a flow path's donor).
+
+```rust
+pub struct DonorState {
+    pub draw: PortDraw,
+    pub pressure: uom::si::f64::Pressure,
+    pub density: uom::si::f64::MassDensity,
+    pub specific_enthalpy: uom::si::f64::AvailableEnergy,
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
+    pub water_mass_fraction: f64,
+    pub ncg_mass_fractions: [f64; 6],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `draw` | `PortDraw` | Pool or atmosphere. |
+| `pressure` | `uom::si::f64::Pressure` | The pressure at the port. |
+| `density` | `uom::si::f64::MassDensity` | The donor's density. |
+| `specific_enthalpy` | `uom::si::f64::AvailableEnergy` | The donor's specific enthalpy. |
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | The donor's temperature. |
+| `water_mass_fraction` | `f64` | Water's mass fraction (1 for liquid). |
+| `ncg_mass_fractions` | `[f64; 6]` | Each non-condensable's mass fraction. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `LiquidModel`
+
+The liquid's thermodynamics.
+
+```rust
+pub enum LiquidModel {
+    Iapws97,
+    ConstantCp,
+}
+```
+
+##### Variants
+
+###### `Iapws97`
+
+IAPWS-IF97 region 1 on the saturation line. The default.
+
+###### `ConstantCp`
+
+`sembawang`'s constant `c_p = 4186 J/(kg K)` from 273.15 K.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ControlVolumeMechanisms`
+
+Which mechanisms are on. All on by default.
+
+```rust
+pub struct ControlVolumeMechanisms {
+    pub surface: crate::components::wet_well::SurfaceModel,
+    pub bubble_pass_through: bool,
+    pub pressure_work: bool,
+    pub level_swell: bool,
+    pub equilibrium_rain_out: bool,
+    pub liquid: LiquidModel,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface` | `crate::components::wet_well::SurfaceModel` | The pool surface. |
+| `bubble_pass_through` | `bool` | MELCOR's bubble efficiency (else `ε = 1`). |
+| `pressure_work` | `bool` | The pool's compression work on the atmosphere. |
+| `level_swell` | `bool` | The swollen level decides what a port draws. |
+| `equilibrium_rain_out` | `bool` | Rain-out to saturation (else `sembawang`'s four passes). |
+| `liquid` | `LiquidModel` | The liquid. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ControlVolume`
+
+The control volume. See the module documentation.
+
+```rust
+pub struct ControlVolume {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(table: VolumeAltitudeTable, ports: Vec<Port>, pool_mass: Mass, pool_temperature: ThermodynamicTemperature, atmosphere: GasMixture, atmosphere_temperature: ThermodynamicTemperature) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  A volume of shape `table` with `ports`, holding `pool_mass` of liquid
+
+- ```rust
+  pub fn without_surface_mass_transfer(self: Self, coefficient: HeatTransfer) -> Self { /* ... */ }
+  ```
+  Ablation: RELAP-7 Eq 390's sensible heat `A α (T_pool − T_atm)`
+
+- ```rust
+  pub fn without_bubble_pass_through(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: full bubble interaction always (`ε = 1`).
+
+- ```rust
+  pub fn without_pressure_work(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no compression work from the pool on the atmosphere.
+
+- ```rust
+  pub fn without_level_swell(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: ports draw by the collapsed level.
+
+- ```rust
+  pub fn without_equilibrium_rain_out(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: `sembawang`'s rain-out (four passes, each condensing to
+
+- ```rust
+  pub fn without_real_liquid(self: Self) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Ablation: `sembawang`'s constant-`c_p` liquid. The pool's temperature
+
+- ```rust
+  pub fn without_real_steam(self: Self) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Ablation: `sembawang`'s ideal constant-`c_v` steam in the atmosphere
+
+- ```rust
+  pub fn without_ncg_cv_t(self: Self) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Ablation: constant non-condensable `c_v`
+
+- ```rust
+  pub fn mechanisms(self: &Self) -> ControlVolumeMechanisms { /* ... */ }
+  ```
+  The mechanisms in use.
+
+- ```rust
+  pub fn gas_model(self: &Self) -> GasMixtureModel { /* ... */ }
+  ```
+  The atmosphere's closure.
+
+- ```rust
+  pub fn atmosphere_pressure(self: &Self) -> Pressure { /* ... */ }
+  ```
+  The atmosphere's pressure.
+
+- ```rust
+  pub fn atmosphere_temperature(self: &Self) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  The atmosphere's temperature.
+
+- ```rust
+  pub fn atmosphere(self: &Self) -> GasMixture { /* ... */ }
+  ```
+  The atmosphere's contents.
+
+- ```rust
+  pub fn atmosphere_volume(self: &Self) -> Volume { /* ... */ }
+  ```
+  The atmosphere's volume (the vessel less the collapsed pool).
+
+- ```rust
+  pub fn relative_humidity(self: &Self) -> f64 { /* ... */ }
+  ```
+  The atmosphere's relative humidity (`p_s / p_sat(T)`).
+
+- ```rust
+  pub fn pool_temperature(self: &Self) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  Pool temperature.
+
+- ```rust
+  pub fn pool_mass(self: &Self) -> Mass { /* ... */ }
+  ```
+  Pool mass.
+
+- ```rust
+  pub fn pool_density(self: &Self) -> MassDensity { /* ... */ }
+  ```
+  Pool density (IF97 region 1 at the atmosphere's pressure).
+
+- ```rust
+  pub fn pool_level(self: &Self) -> Length { /* ... */ }
+  ```
+  The collapsed pool level.
+
+- ```rust
+  pub fn swollen_level(self: &Self) -> Length { /* ... */ }
+  ```
+  The swollen level, from the vapour that rose through the pool in the
+
+- ```rust
+  pub fn water_mass(self: &Self) -> Mass { /* ... */ }
+  ```
+  Water in the volume (pool plus steam).
+
+- ```rust
+  pub fn ncg_masses(self: &Self) -> [Mass; 6] { /* ... */ }
+  ```
+  Each non-condensable's mass.
+
+- ```rust
+  pub fn total_energy(self: &Self) -> Energy { /* ... */ }
+  ```
+  Total internal energy, pool plus atmosphere.
+
+- ```rust
+  pub fn ports(self: &Self) -> &[Port] { /* ... */ }
+  ```
+  The ports.
+
+- ```rust
+  pub fn table(self: &Self) -> &VolumeAltitudeTable { /* ... */ }
+  ```
+  The shape.
+
+- ```rust
+  pub fn bookkeeping(self: &Self) -> ControlVolumeBookkeeping { /* ... */ }
+  ```
+  Running totals across the boundary.
+
+- ```rust
+  pub fn pressure_at_elevation(self: &Self, z: Length) -> Pressure { /* ... */ }
+  ```
+  The pressure at elevation `z`: the atmosphere's plus `ρ g (L − z)`
+
+- ```rust
+  pub fn port_donor(self: &Self, i: usize) -> Result<DonorState, TampinesError> { /* ... */ }
+  ```
+  What an outflow through port `i` would carry now.
+
+- ```rust
+  pub fn step(self: &mut Self, dt: Time, inputs: &ControlVolumeInputs) -> Result<ControlVolumeStepReport, TampinesError> { /* ... */ }
+  ```
+  Advance by `dt`, in the wet well's order: every port's inflow (port
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Re-exports
+
+#### Re-export `swollen_level`
+
+```rust
+pub use level::swollen_level;
+```
+
+#### Re-export `swollen_level_from_vapour_flow`
+
+```rust
+pub use level::swollen_level_from_vapour_flow;
+```
+
+#### Re-export `VolumeAltitudeTable`
+
+```rust
+pub use level::VolumeAltitudeTable;
+```
+
+#### Re-export `BUBBLE_RISE_M_S`
+
+```rust
+pub use level::BUBBLE_RISE_M_S;
+```
+
+#### Re-export `MAX_POOL_VOID`
+
+```rust
+pub use level::MAX_POOL_VOID;
+```
+
+#### Re-export `GasMixture`
+
+```rust
+pub use tampines_steam_tables::gas_mixture::GasMixture;
+```
+
+#### Re-export `GasMixtureModel`
+
+```rust
+pub use tampines_steam_tables::gas_mixture::GasMixtureModel;
+```
+
+#### Re-export `NonCondensable`
+
+```rust
+pub use tampines_steam_tables::gas_mixture::NonCondensable;
 ```
 
 ## Module `compressible`

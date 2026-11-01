@@ -102,7 +102,6 @@ fn quiet(external_pa: f64) -> WetWellInputs {
     }
 }
 
-
 /// **3a. The ported primitives are bit for bit sembawang's.**
 /// `exchange` over a grid of pool and gas states (no hydrogen), from
 /// evaporation into dry gas to condensation from nearly pure steam;
