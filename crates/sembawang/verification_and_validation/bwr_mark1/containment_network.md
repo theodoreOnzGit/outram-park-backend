@@ -446,12 +446,14 @@ blowdown lag (numerical).**
    its own V&V.~~ **CORRECTED 2026-11-01: done** — `tampines` gained the
    layered pool (d870c66cb, its own V&V L1–L8) and the network uses it
    (section "the layered torus pool and dry sumps" below).
-3. **Burns in the building** (`step_burn`, BUR RM §2.3–2.5): the network's
+3. ~~**Burns in the building** (`step_burn`, BUR RM §2.3–2.5): the network's
    building would need its hydrogen and CO removed and the oxygen consumed;
    `ControlVolumeInputs` has a steam sink but no non-condensable sink, so
    this needs a general tampines addition too. It has no effect on the
    drywell or torus here (the old building is held at one atmosphere) and
-   the network's building receives no hydrogen yet (the flange stays shut).
+   the network's building receives no hydrogen yet (the flange stays shut).~~
+   **CORRECTED 2026-11-01: done** (section "the surface block, the decay
+   heat above the exits, and burns").
 4. ~~**The \[A\] sump fill** stays: the coupling uses the water beyond it as
    the water over the debris. A control volume that can dry its pool would
    remove the assumption.~~ **CORRECTED 2026-11-01: removed** — `tampines`'
@@ -656,6 +658,15 @@ the building's hydrogen, which are not attributed.
 
 ### Burns: what `tampines` would need (not done; described, not hacked)
 
+> **CORRECTED 2026-11-01:** done. `tampines` first gained the preferred
+> reaction input (3f1261bd5), and the network burned through it; then, by
+> maintainer direction (gh:#1103), the chemistry moved to sembawang
+> (`bwr_mark1::reaction`) and `tampines` kept the "minimum" below in
+> generic form, a per-species source and sink with each species at its own
+> code enthalpy, plus the existing atmosphere heat. Section "the surface
+> block, the decay heat above the exits, and burns" below. The text here is
+> the record as written.
+
 A burn in the network's building (MELCOR BUR RM §2.3–2.5, sembawang's
 `Containment::step_burn`) converts H2 and CO with O2 into steam and CO2 and
 releases the heat of combustion. The network can add steam and CO2 (a
@@ -684,9 +695,10 @@ editing, so not touched here):
   to the adiabatic flame temperature and pressure (a hand calculation from
   JANAF data).
 
-Until then the network reports the building's BUR ignition criterion as a
+~~Until then the network reports the building's BUR ignition criterion as a
 diagnostic (`rb_burn_y`, `rb_ignites`), sembawang's `bur_ignites` on the
-building's composition; nothing burns.
+building's composition; nothing burns.~~ **CORRECTED 2026-11-01:** the
+building burns (`NetworkMechanisms::burns`, default on).
 
 ## gh:#1100 (continued): the layered torus pool and dry sumps on the network (2026-11-01)
 
@@ -735,15 +747,20 @@ building's composition; nothing burns.
   exercised from the start of a step. Within a step a sump can still boil
   dry under that cap (IF97 against the cap's constant `c_p`); `tampines`
   then puts the remainder into the drywell atmosphere and reports it as
-  `pool_heat_to_atmosphere`, which **`CvNetwork::step` does not pass back**
+  `pool_heat_to_atmosphere`, ~~which **`CvNetwork::step` does not pass back**
   (its `NetworkStepReport` has no per-volume reports), so sembawang cannot
   read or redirect it. A `tampines` addition would be needed to report it:
   the per-volume `ControlVolumeStepReport`s (or their
   `pool_heat_to_atmosphere`) in `NetworkStepReport`. Not hacked; the
-  amount is bounded by the cap's mismatch.
+  amount is bounded by the cap's mismatch.~~ **CORRECTED 2026-11-01:**
+  `NetworkStepReport::volumes` now carries it, and the network reports it
+  per volume (`NetworkResult::pool_heat_to_atmosphere_j`; reported, not
+  redirected).
 - **Where the pool's decay heat goes: by mass (stated, a difference).**
-  `set_pool_heat` shares the heat over the layers by mass, and `tampines`
-  has no pool heat at an elevation; the old model puts the pool's share of
+  ~~`set_pool_heat` shares the heat over the layers by mass, and `tampines`
+  has no pool heat at an elevation~~ (**CORRECTED 2026-11-01:** `tampines`
+  has `set_pool_heat_at`, and the default now puts it above the exits,
+  `fp_pool_heat_above_exits`); the old model puts the pool's share of
   the fission products' decay heat into its top layer (`pool_energy`). The
   replays above attribute most of the old top layer's 391 K at 24 h to that
   choice. Neither is derived here: dissolved and suspended fission
@@ -994,6 +1011,9 @@ a one-step flash, not a physical measurement.
 
 ### What `tampines` would need (described; `tampines` was not edited here)
 
+> **CORRECTED 2026-11-01:** all three done in `tampines` and used here
+> (section "the surface block, the decay heat above the exits, and burns").
+
 1. **The surface's pool-side length should be the surface mixed block, not
    one layer.** In a layered pool `exchange` takes the top layer's mass
    (Eq 5-17's limit) and thickness (the natural-convection length). Where
@@ -1007,6 +1027,360 @@ a one-step flash, not a physical measurement.
 3. **`NetworkStepReport` should carry each volume's
    `pool_heat_to_atmosphere`** (or its `ControlVolumeStepReport`), so a
    caller can see heat that went into a dry or boiled-dry pool's atmosphere.
+
+## gh:#1100 (continued): the surface block, the decay heat above the exits, and burns (2026-11-01)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+The three `tampines` needs listed above, done in `tampines` (its V&V,
+`crates/tampines/verification_and_validation/control_volume.md`, section
+"The surface sees the surface mixed block"), and used here.
+
+**1. The surface exchange's layer dependence: cause confirmed and fixed in
+`tampines`.** Read from the code: `ControlVolume::surface_liquid` handed
+`pool_surface::exchange` the top layer's mass (Eq 5-17's limit) and its
+thickness as the pool-side length `L` (`h_free`, `X = min(D_s, L)`,
+`h ∝ X^-1/4`). Confirmed directly in `tampines` before any edit (its L9,
+case A on one volume): `p` at 600 s 105684.434, 105691.218, 105697.528,
+105703.375, 105708.756 Pa at 1, 2, 4, 8, 16 layers, +6.8 … +5.4 Pa a
+doubling, as here. MELCOR's CVH has one pool per volume, so its length is
+that pool's depth and Eq 5-17's mass that pool's (CVH/FL RM §5.1.2, Eqs
+5-20, 5-22 to 5-25, as cited by the ports; the manual is private and was
+not re-read). The fix: the surface sees the **surface mixed block**, the
+layers from the top down that are not stably stratified against the
+surface water (its mass, its depth, its temperature; what it gives up
+shared over its layers by mass). On the mixed pool of L9 the result is now
+the one-layer result to 1e-13 at every `n`; `without_surface_mixed_block`
+restores the top layer bit for bit. Here:
+`NetworkMechanisms::surface_mixed_block` (ON), `without_surface_mixed_block`.
+
+**2. The torus's decay heat where the old model puts it.** The old model
+puts the torus's share of the fission products' decay heat (its gas, its
+pool's surface, scrubbed in the pool) into `pool_energy()` (`Containment::
+step`, step 0), which with `pool_layers` is its top layer, the water above
+the downcomers' exits (`layer_pool` splits at the submergence). `tampines`
+now takes heat in a band of elevations (`ElevatedPoolHeat`,
+`CvNetwork::set_pool_heat_at`, shared over the band's water by mass); the
+network puts that heat between the exits and the torus top
+(`NetworkMechanisms::fp_pool_heat_above_exits`, ON;
+`without_fp_pool_heat_above_exits` shares it over the pool by mass, as
+before). One layer: the same, bit for bit.
+
+**3. Each volume's pool heat to its atmosphere.** `NetworkStepReport::
+volumes` carries every `ControlVolumeStepReport`; the network sums
+`pool_heat_to_atmosphere` per volume into
+`NetworkResult::pool_heat_to_atmosphere_j` (reported, not redirected).
+
+**4. Burns.** `Containment::step_burn`'s arithmetic moved, unchanged, into
+`containment::bur_step` (BUR RM §2.3–2.5), which both models now call; the
+criterion stays `bur_ignites` (BUR RM §2.2). The network applies it to its
+building's start-of-step gas (steam and CO2 the diluent, where the old
+model, holding its building dry at one atmosphere, counts CO2 only) and
+hands the moles burned per second to `tampines`
+(`CvNetwork::set_atmosphere_reactions`), which caps them at the reactants
+and closes the heat of reaction on its own references. **sembawang adds no
+heat for a burn** (`Burn::q_j` stays a diagnostic in both models).
+`NetworkMechanisms::burns` (ON), `without_burns`. Always BUR's dynamics (the
+old model's default `burn_dynamics`): its ablated "explosion" removes the
+fuel with no heat, which a control volume cannot express. The drywell and
+torus are inerted and no path brings them oxygen, so only the building can
+burn.
+
+### Predictions, written before any run of this change
+
+**Bit identity of the earlier configurations.** With
+`without_surface_mixed_block().without_fp_pool_heat_above_exits()
+.without_burns()` the network is the code before this change bit for bit
+(the block ablation is `tampines`' old path; a zero reaction and a band of
+zero heat do nothing at all): case A's layered values (+360.1, +352.8 Pa)
+and the 6 h worsts 58.11 %, 11.89 %, 0.61 K reproduce, as do every earlier
+pin on `unit1_gh1097` without layers (one layer: the block and the band are
+the old code). The `bwr_mark1` lib tests (the byte-for-byte fixture,
+`three_workers_are_one_worker`) pass after the `bur_step` refactor.
+
+**Case A** (no fission products, so only the block acts): prismatic default
+(8 layers) +360.1 → **+341.1 ± 0.5 Pa** (the mixed pool is now the
+one-layer pool), the torus default (11) +352.8 → +328.8 ± 0.5 Pa; 2, 4, 16
+layers all within 0.5 Pa of +341.1.
+
+**Case C, D:** unchanged within 0.1 % (case C has no torus decay heat
+beyond nothing; case D runs the old model unlayered and the network
+default, whose torus sees D's decay heat above the exits now: Cs in the
+pool within its ±15 % band, the pressures within 0.05 % of before).
+
+**Case E (new: burns).** Both models from rest, 1 s steps, 3600 s,
+`flange_leak_pa` lowered to 150 kPa and `flange_leak_m2` raised to
+0.01 m² (test inputs, \[A\], so that the building receives hydrogen
+within the run), 0.5 kg/s of H2 (248 mol/s) leaking into the drywell, no
+steam:
+
+- E1. Both buildings ignite. The old model near 1000 s (the drywell
+  reaches 150 kPa after about 230 s, its gas then turning over in about
+  500 s, the building's 1.03e6 mol in about 4200 s, to 10 % H2 in about
+  400 s more); I bound it at 700–2500 s. The network ignites within ±15 %
+  of the old model's time (the same displacement of the building's gas;
+  its building is a volume near one atmosphere, open through 1 m²).
+- E2. The first burn is complete in both (`Y` ≈ 0.10 gives a
+  completeness of 1.46, clipped at 1): about 1.0e5 mol (210 kg) of H2
+  burned; the network's within ±10 % of the old model's (`Burn::q_j` over
+  241.8 kJ/mol), and `tampines` burns what sembawang asks to 1e-9 (oxygen
+  at about 19 %, never limiting).
+- E3. Duration `CDIM / V` = 18.37 m / 7.71 m/s ≈ 2.4 s in the old model;
+  the network's within ±20 %.
+- E4. `tampines`' heat of reaction for the burned H2 within 1 % of
+  241.8 kJ/mol × the moles (its energy per mole is JANAF's to 1.5e-5 at
+  298.15 K, 241.83 kJ/mol); sembawang sets no atmosphere heat on the
+  building (it has none to set), so the heat is counted once.
+- E5. The network's building peaks at 3.0–4.8e5 Pa (the old model's
+  adiabatic bound, `q / (2.5 V)` ≈ 3.8e5 Pa above one atmosphere, less what
+  the 1 m² opening vents during the 2.4 s burn).
+- E6. `without_burns`: nothing burns and the building's hydrogen passes
+  10 %.
+
+**The reactions moved from `tampines` to sembawang (gh:#1103, scope
+added mid-change; predicted before the first run on the moved code).**
+`tampines`' `AtmosphereReactions` became `sembawang::bwr_mark1::reaction`
+(the derivation, JANAF constants and 298.15 K anchoring unchanged); a burn
+is now `tampines`' species sinks (H2, CO, O2) and sources (H2O, CO2) at
+their start-of-step code enthalpies `h_i(T0)` plus the heat `Q − Σ ν ξ
+h_i(T0)` by `set_atmosphere_heat`. Case E's fingerprint on the code
+before the move (`tampines` applying the reactions; peak `p_rb`
+402259.484691 Pa, `0x41188d4df052e368`; at 3601 s `p_rb` 101330.478615 Pa,
+H2 burned 323.425472711 kg, building H2 fraction 0.783064633; the burns
+listed in the results) is predicted to reproduce **to round-off, not bit
+for bit**: the stored energy rises by `(Q − moved) + moved` against `Q`
+in one addition, the extents travel as mass rates (`ξ M / Δt`, times `Δt`
+in the step), and there is one more `refresh` between the heat and the
+species. Ignition times and the first burn's H2 the same to the printed
+digits; peak `p_rb` within 1e-9 relative; the later burns within 1e-6
+(the network's Picard iteration can amplify round-off through its
+switches). With no burn (case B, every pin above) the moved code is the
+code before the move bit for bit (zero species rates and zero heat do
+nothing at all).
+
+**Case B, the 30 h replay** (the default network, n = 11, against the
+layered run above; network − old Δ`p_ww`):
+
+| window | layered run (before) | predicted now | why |
+|---|---|---|---|
+| 0–4 h | +0.9 … +1.4 % | moves by less than 0.3 % | little decay heat in the torus yet; the block changes little while the downcomers mix the water above their exits |
+| 5–10 h | +2.0 … +3.0 % | moves by −1 … +2 % | the decay heat now heats only the water above the exits (about 37 % of the pool), so the surface is hotter and the torus gas wetter (+); the block sees a deeper, more massive surface water, so a smaller coefficient (−) |
+| 14–23 h | −1.2 … +1.0 % | **up** by 1–5 % | the decay heat dominates as above |
+| 24 h, the vent | −37.6 % | **shrinks**, to −15 … −32 % | the water above the exits, now carrying the decay heat, nears the old top layer's 391 K and boils as the torus depressurises |
+| 26–30 h | −0.3 … +0.7 % | within ±1.5 % | both vented |
+
+Also predicted: the network's surface layer at 24 h 377.6 → 383–392 K; the
+post-vent mean `T_pool` 367.4–367.9 → 358–366 K (the deep water no longer
+gets the decay heat, the old mean is 355.0 K); the flange opens within 1 h
+of 16.25 h; **no burn in either model** (the building's `Y` peaks at
+0.019–0.04, against 0.10), so the default is bit-equal to
+`without_burns` in case B; the 6 h worsts (the 4.956 h blowdown step)
+58.11 ± 1 %, 11.89 ± 1.5 %, |Δ`T_pool`| 0.61 → 0.4–1.5 K; resolution (n =
+22 against 11): the vent within 0.3 % of `p_ww` (0.98 % before, the
+top-layer effect now gone). The drywell sump's pool heat to its atmosphere:
+under 1 MJ over 30 h (the cap's `c_p` mismatch only).
+
+### Results (2026-11-01, release, Rust 1.99.1)
+
+**Bit identity of the earlier configurations: held.** `before_block()`
+(`without_surface_mixed_block().without_fp_pool_heat_above_exits()
+.without_burns()`) reproduces case A's layered +360.1 / +352.8 Pa and the
+6 h 58.11 % / 11.89 % / 0.61 K exactly; on `unit1_gh1097` without layers
+the earlier pins reproduce exactly: 57.77 % / 12.20 % / 0.60 K,
+56.29 % / 13.65 % / 1.86 K (`without_fission_products`), 60.39 % /
+9.78 % / 1.32 K (gh:#1097's mapping). The `bwr_mark1` lib tests pass after
+the `bur_step` refactor (below, the suite run).
+
+**Case A, the surface block: held.** Prismatic default (8 layers)
+**+341.10 Pa** (+360.1 before the block), and +341.10 Pa at 2, 4 and 16
+layers (the one-layer value; before: +347.9, +354.2, +365.5); torus
+default **+328.77 Pa** (+352.8 before; the one-layer +328.8). Worst
+|Δ`T_pool`| 2.87e-3 K, as unlayered. The layer dependence is gone.
+
+**Cases C and D: held**, unchanged to the printed digits (C dry: 1258.3 kg,
+8.251 / 12.012 kg, 2774.9 K, 0.01 %; wet: FDI 27.6 / 27.6 kg, 4.26 %; D: Xe
+in the torus gas −0.9 %, Cs in the pool −0.4 %, on the structures −1.8 %,
+airborne +2.0 %, conservation 2e-14, `p_dw` up by at most 0.039 % with the
+heat).
+
+**Case E, burns** (`hydrogen_burns_in_the_building_against_the_old_containment`):
+
+| | old model | network |
+|---|---|---|
+| first ignition | 1277 s | 1430 s (+12.0 %) |
+| first burn: duration, H2 burned | 3 steps, 104 983 mol | 3 steps, 102 466 mol (−2.4 %) |
+| second burn | 1787 s, 105 115 mol | 1678 s, 35 738 mol |
+| third burn | 2225 s, 105 046 mol | 1800 s (7 steps), 22 226 mol |
+| building peak pressure | held at 1 atm (bound `q/(2.5 V)`) | 402.3 kPa |
+| what `tampines` burned against what sembawang asked | | 6.8e-15 (7.1e-15 before the move) |
+| `without_burns` | | no burn; `Y` reaches 0.457 by 3600 s |
+
+Outcomes: E1 held (old 1277 s inside 700–2500 s; network +12 % inside
+±15 %). E2 held (−2.4 %, inside ±10 %; the asked moles burned to 7e-15).
+E3 held (three 1 s steps in both, for the computed 2.38 s). **E4 MISSED,
+wrong instrument:** the energy per mole burned is 275 808.27 J/mol, not
+241.8 kJ/mol ±1 %, because it is the stored-energy rise on the code's own
+references (`Q = −Σ ν c_i`, which includes each species' shift between
+its code reference and JANAF's), not the heat of reaction. The heat of
+reaction itself is R1 (241.8296 kJ/mol, +1.48e-5 of JANAF, re-run after
+the move). The check replacing it, set after the run: every step's energy
+per mole equals `reaction::energy_per_mole` of the building to 1e-12. That
+the heat enters once is by construction (the building's only atmosphere
+heat is the burn's, set in one place) and by E2. E5 held (402.3 kPa,
+inside 3.0–4.8e5). E6 held. **Not predicted:** after the first burn the
+network's burns are smaller and earlier (36 and 22 kmol at 248 and 370 s
+after it, against the old model's 105 kmol each at 510 s spacing). The
+burn pushes about half the building's gas out through the 1 m² opening at
+up to 4 bar, so the building's `Y` returns to 0.10 sooner and on fewer
+moles; by 1800 s its oxygen is spent (`Y` then climbs to 0.78 with no
+further burn). The old building is held at one atmosphere with its oxygen
+topped up by its mixing rule. This is a difference of model (a vented
+volume against a fixed one), not attributed further.
+
+**The move of the reactions to sembawang (gh:#1103): held.** Case E on
+the moved code against the fingerprint taken before the move: peak `p_rb`
+(`0x41188d4df052e368`), the H2 burned over the run
+(`0x407436cebc794701`), `p_dw` and the drywell temperature at 3601 s are
+**bit-identical**; the ignition times and the first two burns are
+identical to every printed digit; the third burn's H2 differs in the 17th
+digit (22 225.698955862994 against …99); at 3601 s `p_rb` differs by 8 ulp
+(1.2e-15) and the building's H2 fraction by 5 ulp. The cause is the one
+predicted: the stored energy now rises by `(Q − moved) + moved` (the heat,
+then the species at their own enthalpies) where `tampines` added `Q` in
+one operation, and the extents travel as mass rates. `without_burns` is
+bit-identical. The ported R1–R6 (`tests/reaction_in_a_control_volume.rs`)
+reproduce the `tampines` record: R1 H2 241.8296 kJ/mol (+1.484e-5), CO
+282.9950 (0.0); R2 1146.093695 K and 3.6675 bar (−0.43 % / −0.32 % against
+GRI), 20 steps against one to 1e-6; R3 exact zeros; R4 elements to
+3.0e-15 (H), 3.0e-15 (O), 1.4e-16 (C), 4.3e-15 (N); R5 the 72 values bit
+for bit; R6 the network volume equals the volume run alone, energy
+2.3e-10 J of 1.94e6 J. The stored-energy release per mole: H2 275 808.271,
+CO 279 844.461 J/mol, as before.
+
+**Case B, 6 h worsts (default): held.** 57.99 %, 12.00 %, 0.60 K
+(predicted 58.11 ± 1 %, 11.89 ± 1.5 %, 0.4–1.5 K); no burn; pinned after
+the run, labelled so. The moved code gives the same 6 h run to every
+printed digit.
+
+**Case B, 30 h, network − old Δ`p_ww`** (default, n = 11; `T_pool` network
+mean / top, old mean / top):
+
+| t (h) | layered run (before) | **default now** | predicted | `T_pool` (K) | outcome |
+|---|---|---|---|---|---|
+| 3 | +1.40 % | +1.19 % | moves < 0.3 % | 325.45; 325.41 | held |
+| 4 | +0.92 % | +0.74 % | moves < 0.3 % | 332.16; 332.12 / 332.17 | held |
+| 5 | +2.99 % | +2.87 % | moves −1 … +2 % | 340.25 / 342.62; 340.43 / 343.21 | held |
+| 6 | +1.98 % | +1.99 % | moves −1 … +2 % | 341.38; 341.58 / 345.55 | held |
+| 8 | +2.99 % | +3.69 % | moves −1 … +2 % | 343.88 / 349.58; 344.00 / 350.46 | held |
+| 10 | +2.37 % | +3.97 % | moves −1 … +2 % | 346.87; 346.95 / 356.42 | held |
+| 14 | −1.05 % | +2.88 % | up 1–5 % | 354.28 / 369.21; 354.47 / 371.45 | held (+3.9) |
+| 18 | +1.04 % | +5.54 % | up 1–5 % | 359.53 / 378.96; 359.10 / 380.74 | held (+4.5) |
+| 23 | −1.18 % | +5.42 % | up 1–5 % | 364.00 / 387.19; 363.47 / 389.54 | **MISSED** (+6.6) |
+| 24 (vent) | −37.57 % | **−17.17 %** | −15 … −32 % | 367.43 / 386.30; 364.20 / 391.01 | held |
+| 24.5 | −19.56 % | −1.62 % | | 363.49; 359.33 | |
+| 25 | −5.59 % | +3.07 % | | 360.73; 356.11 | |
+| 26 | +0.71 % | −0.15 % | within ±1.5 % | 359.20 / 373.16; 355.07 / 373.29 | held |
+| 26.5–29.5 | −0.32 … +0.64 % | **−1.27 … +12.71 %** | within ±1.5 % | 359.17–359.21 / 373.1 | **MISSED** (swings back) |
+| 30 | +0.44 % | −0.10 % | within ±1.5 % | 359.23 / 373.14; 354.96 / 373.18 | held |
+
+`Δp_dw`: +2.81 % at 5 h, +3.98 % at 6 h, +3.93 % at 8 h, +4.21 % at 10 h,
++3.09 % at 14 h, +5.92 % at 18 h, +7.55 % at 23 h, −11.01 % at 24 h,
++1.3 … +5.0 % after 25 h.
+
+- **The vent gap halved again, −37.6 % → −17.2 %** (predicted −15 …
+  −32 %): the water above the exits carries the decay heat, so the
+  network's surface layer is 387.2 K at 23 h and 386.3 K at 24.0 h (old
+  top 389.5 / 391.0 K; predicted 383–392 K: held) and boils as the torus
+  depressurises.
+- **The post-vent mean `T_pool` fell to 359.2 K** (367.4–367.9 before; old
+  mean 355.0 K; predicted 358–366 K: held): the deep water no longer
+  receives the decay heat. The gap to the old mean is now 4.2 K (12.4–12.9
+  K before).
+- **14–23 h now runs high, +2.9 … +5.5 %**, against −1.2 … +1.0 % before.
+  The network's surface layer is now within 2.4 K of the old top layer
+  (369.2 / 371.5 K at 14 h, 379.0 / 380.7 K at 18 h, 387.2 / 389.5 K at
+  23 h; 6–16 K below it before), so the old model's hot top layer no
+  longer offsets the network's displacement (+3 … +7 %, earlier
+  sections). That is the expected direction; the 23 h move (+6.6 %) is
+  beyond the predicted 5 %. **Not attributed yet:** the attribution runs
+  below separate the block from the placement.
+- **The flange opens at 15.484 h** (16.254 h before; old 16.824 h;
+  predicted within 1 h of 16.25 h: held, 0.77 h early); peak `p_dw`
+  874.7 kPa. The building's hydrogen 2.79 % at 23 h, 2.71 % at 30 h (old
+  3.36 % / 3.73 %).
+- **No burn in either model** (`Y` peaks 0.0303 network, 0.0394 old,
+  against 0.10): held.
+- **The drywell sump's pool heat to its atmosphere:** 52.7 kJ over 30 h
+  (predicted under 1 MJ: held); torus and building 0.
+- **Worst over 30 h:** |Δ`p_dw`| 57.99 % (the 4.956 h step), |Δ`p_ww`|
+  30.13 %, |Δ`T_pool`| 4.69 K (12.94 K before).
+- **Cost:** 1266 s for the 30 h (11.7 ms a step, one old replay included),
+  with up to three other runs beside it; at most 100 Picard iterations.
+
+### Attribution runs after the first 30 h result, predictions written before they ran
+
+The first default 30 h run (results below) brought back post-vent swings in
+`p_ww` (+12.7 % at 26.5 h, +3.8 % at 29 h, +4.7 % at 29.5 h) and moved the
+23 h gap by +6.6 % (predicted 1–5 %). Hypothesis for the swings: the
+surface mixed block now spans the upper layers that the vent's boiling
+has mixed to saturation, and the block flashes as one in a step, as the
+single pool did (the 225 s relaxation cycle above), where before only the
+top layer could flash. Predicted, one change at a time from the default:
+
+- *`without_surface_mixed_block`* (the decay heat above the exits kept):
+  the post-vent swings below 3 % (as the layered run's), the vent within
+  ±3 % of the default's −17.2 %, 14–23 h within ±1 % of the default.
+- *`without_fp_pool_heat_above_exits`* (the block kept): 14–23 h back to
+  within ±1 % of the layered run (−1.2 … +1.0 %), the vent near its
+  −37.6 %; the swings present (over 3 % somewhere in 26.5–29.5 h) if the
+  block is their cause.
+- *n = 22* (the default): every window within 0.3 % of `p_ww` of n = 11's,
+  the vent included (0.98 % before the block).
+
+**Attribution outcomes** (30 h each, network − old Δ`p_ww`):
+
+| t (h) | default | without the block | without the placement | n = 22 |
+|---|---|---|---|---|
+| 14 | +2.88 % | +3.11 % | −1.21 % | +2.81 % |
+| 18 | +5.54 % | +5.69 % | +0.94 % | +5.44 % |
+| 23 | +5.42 % | +5.50 % | −1.22 % | +5.29 % |
+| 24 (vent) | −17.17 % | −18.04 % | −35.69 % | **−8.15 %** |
+| 24.5 | −1.62 % | −3.67 % | −19.37 % | +11.27 % |
+| 26.5–29.5 | −1.27 … **+12.71 %** | −0.24 … +1.24 % | −1.24 … **+8.35 %** | −1.12 … **+5.67 %** |
+| 30 | −0.10 % | +0.58 % | −0.12 % | +0.39 % |
+| surface layer 23 / 24 h (K) | 387.19 / 386.30 | 387.15 / 386.37 | 373.10 / 377.51 | 387.00 / 388.97 |
+| post-vent mean `T_pool` (K) | 359.2 | 359.3–359.5 | 367.2–367.9 | 357.8–357.9 |
+| flange (h) | 15.484 | 15.454 | 16.280 | 15.497 |
+
+- *Without the block:* the swings below 3 % (largest +1.60 % at 26 h):
+  **held**; the vent −18.04 % (within ±3 % of −17.17 %): held; 14–23 h
+  within 0.25 %: held. **The block causes the post-vent swings.**
+- *Without the placement:* 14–23 h −1.21 … +0.94 % (the layered run's
+  −1.18 … +1.04 %): held; the vent −35.69 % (near −37.6 %): held; the
+  swings present (+8.35 % at 26.5 h, +7.44 % at 28 h): held. **The
+  placement carries the 14–23 h move and the vent's improvement; the
+  block, with or without it, brings the swings.**
+- *n = 22:* 14–23 h within 0.13 %: held; **the vent MISSED**, −8.15 %
+  against −17.17 % (predicted within 0.3 %; 0.98 % before the block), and
+  the swings are there too (+5.67 % at 27 h).
+
+**What this means.** The block does what it was built for where the
+column is mixed below the surface (case A, `tampines`' L9: no layer
+dependence left). After the vent, though, the vent's boiling mixes the
+upper layers to saturation. The block then spans them, and the flashing
+(which acts on the block as the exchange does) flashes that whole block in
+one 1 s step. This is the one-step flash and 225 s relaxation cycle the
+unlayered pool showed (section "The 26.5–29 h post-vent swings"), now on
+the upper part of the pool. Through the same mechanism the depressurisation
+at 24–24.5 h depends on the layer count (the block's extent depends on
+`n`). The block's physics is consistent: a saturated, mixed block does
+flash as a whole. The step-scale burst is what a 1 s explicit flash of
+that much water gives, as the earlier section found, not a measured
+oscillation. **Left open, not hacked** (no threshold or cap was added):
+the options are a flash limited to the step (MELCOR holds bubbles to a
+0.4 void, `pool_surface_step`'s comment) or flashing on the top layer
+while the exchange sees the block. Either is a `tampines` change that
+needs its own V&V and a maintainer decision.
 
 ## What would move if the plant switched (the decision's evidence)
 
@@ -1028,8 +1402,10 @@ Switching `Plant` to the network re-blesses `headless_30h.csv` and moves:
 ~~The fission products, aerosols, iodine and burns cannot be compared yet:
 the network carries none of them.~~ **CORRECTED 2026-11-01:** the fission
 products, aerosols and iodine are carried since gh:#1100 (continued) and
-compared in cases D and B; burns are still not (no non-condensable sink in
-`tampines`). **The building's hydrogen differs in
+compared in cases D and B; ~~burns are still not (no non-condensable sink in
+`tampines`).~~ **CORRECTED again 2026-11-01:** burns are carried and
+compared in case E (section "the surface block, the decay heat above the
+exits, and burns"). **The building's hydrogen differs in
 kind.** The old model's drywell passes the flange's 0.75 MPa opening
 pressure (786 kPa at 21 h, 805 kPa at 23 h), so its flange leaks hydrogen
 into the building. The network's drywell peaks at 674 kPa, so its flange
@@ -1063,6 +1439,13 @@ a `tampines` addition.) (**2026-11-01, gh:#1100 continued, layers:** the
 torus pool is layered and the sumps start dry; what is left in the pool is
 where its decay heat goes and a resolution dependence of the surface
 exchange in `tampines`; burns still need a `tampines` addition.)
+(**2026-11-01, gh:#1100 continued, block, placement, burns:** the surface
+exchange no longer depends on the layer count on a mixed pool; the torus's
+decay heat goes where the old model puts it, halving the vent gap again
+(−17.2 %) and the post-vent pool gap (4.2 K); the building burns by the
+old model's BUR code, with the chemistry in sembawang (gh:#1103); what is
+open is the block's one-step flash after the vent, which brings back
+post-vent swings and an `n` dependence at the vent.)
 
 ## Units 2 and 3 by configuration (a sketch; no plant data invented)
 
@@ -1111,10 +1494,14 @@ Unit 1's own \[A\] entries need the same data.
   **CORRECTED 2026-11-01:** attributed to one-step flashes of the whole
   saturated pool (a 225 s relaxation cycle, up to +38 % in one step on the
   unlayered network); with the layered pool (the default) they are gone.
-- The surface exchange of a layered pool depends on the layer count
+- ~~The surface exchange of a layered pool depends on the layer count
   through the top layer's thickness (case A: +6 Pa a doubling; the vent:
   1 % of `p_ww` between 11 and 22 layers): a `tampines` matter, described
-  in the layered-pool section.
+  in the layered-pool section.~~ **CORRECTED 2026-11-01:** fixed by the
+  surface mixed block (case A: +341.10 Pa at every `n`). **New doubt:**
+  after the vent the block flashes whole in one step: post-vent swings up
+  to +12.7 % and the vent window 9 % apart between 11 and 22 layers
+  (attribution in the block section). Open.
 - The drywell's sump pit, the light bulb drawn as a prism, and the drywell
   floor at the torus top are \[A\]. The +90 Pa gas column they imply in the
   downcomers is physical but unverified.

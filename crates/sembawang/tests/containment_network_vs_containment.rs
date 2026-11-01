@@ -140,6 +140,9 @@ fn ablations_from_env() -> NetworkMechanisms {
             "fp_decay_heat" => m.without_fp_decay_heat(),
             "pool_layers" => m.without_pool_layers(),
             "pool_layer_conduction" => m.without_pool_layer_conduction(),
+            "surface_mixed_block" => m.without_surface_mixed_block(),
+            "fp_pool_heat_above_exits" => m.without_fp_pool_heat_above_exits(),
+            "burns" => m.without_burns(),
             "" => m,
             other => panic!("unknown ablation {other}"),
         };
@@ -180,6 +183,9 @@ fn the_coupled_physics_is_on_by_default() {
     assert!(m.cavity && m.fdi && m.dw_slab && m.fission_products && m.fp_decay_heat, "{m:?}");
     // The layered torus pool and its conduction (gh:#1100, continued).
     assert!(m.pool_layers && m.pool_layer_conduction, "{m:?}");
+    // The surface mixed block, the torus's decay heat above the exits and
+    // burns (gh:#1100, continued).
+    assert!(m.surface_mixed_block && m.fp_pool_heat_above_exits && m.burns, "{m:?}");
     assert_eq!(m, NetworkMechanisms::default());
     // Unit 1's layer count from its geometry: 4 x 3.237 m / 1.209 m -> 11;
     // the quenchers at the torus bottom, the downcomers' exits 1.209 m below
@@ -218,6 +224,15 @@ fn the_coupled_physics_is_on_by_default() {
     assert_eq!(d.without_bubble_pass_through(), NetworkMechanisms { bubble_pass_through: false, ..d });
     assert_eq!(d.without_equilibrium_rain_out(), NetworkMechanisms { equilibrium_rain_out: false, ..d });
     assert_eq!(d.without_choking(), NetworkMechanisms { choking: false, ..d });
+    assert_eq!(d.without_surface_mixed_block(), NetworkMechanisms { surface_mixed_block: false, ..d });
+    assert_eq!(d.without_fp_pool_heat_above_exits(), NetworkMechanisms { fp_pool_heat_above_exits: false, ..d });
+    assert_eq!(d.without_burns(), NetworkMechanisms { burns: false, ..d });
+}
+
+/// The configuration this change's predecessors were measured on: the
+/// default before the surface block, the placed decay heat and burns.
+fn before_block() -> NetworkMechanisms {
+    NetworkMechanisms::default().without_surface_mixed_block().without_fp_pool_heat_above_exits().without_burns()
 }
 
 fn debris_snapshot(prm: Params) -> ContainmentSnapshot {
@@ -512,7 +527,9 @@ fn relief_steam_into_the_torus_against_the_old_containment() {
 /// configuration to attribute the movement. Predictions in the V&V doc
 /// ("the layered torus pool and dry sumps"), written before the run.
 fn relief_steam_on_the_layered_default() {
-    let d = NetworkMechanisms::default();
+    // The layered default as measured before gh:#1100's surface block (the
+    // block, the placed decay heat and burns ablated): its pins below.
+    let d = before_block();
     let pr = |c: NetworkConfig| NetworkConfig { torus_shape: TorusShape::Prismatic, ..c };
     let u = NetworkConfig::unit1();
     let (r, dp, dp_dw, dt, it) = run_relief(pr(u), d);
@@ -543,6 +560,24 @@ fn relief_steam_on_the_layered_default() {
     assert!((r.t_pool_top_k - r.t_pool_k).abs() < 1e-6, "A' mixed {r:?}");
     assert!(r.pool_layers == 8 && r2.pool_layers == 11 && r.downcomer_kg_s.abs() < 1e-9 && r.vacuum_breaker_kg_s.abs() < 1e-9, "A3' {r:?}");
     assert!(it < 30 && it2 < 30, "A5' {it} {it2}");
+    assert!((dp - 360.1).abs() < 0.05 && (dp2 - 352.8).abs() < 0.05, "A' before the block: {dp} {dp2}");
+    // gh:#1100 continued: the default, the surface seeing the surface mixed
+    // block (V&V doc, predicted before the run: every n within 0.5 Pa of
+    // the one-layer +341.1 Pa; the torus +328.8 +- 0.5 Pa).
+    let nd = NetworkMechanisms::default();
+    let (rd, dpd, dpdwd, dtd, itd) = run_relief(pr(u), nd);
+    let (_, dpd2, _, dtd2, _) = run_relief(u, nd);
+    println!("A1'' prismatic, default with the surface block: dp_ww {dpd:+.2} Pa, dp_dw {dpdwd:+.2} Pa, worst dT_pool {dtd:.2e} K, {} layers, iterations <= {itd}; torus {dpd2:+.2} Pa, {dtd2:.2e} K", rd.pool_layers);
+    let mut by_nd = Vec::new();
+    for n in [2, 4, 16] {
+        let (_, dpn, _, _, _) = run_relief(pr(NetworkConfig { pool_layers: Some(n), ..u }), nd);
+        println!("A1'' prismatic, default with the surface block, {n} layers: dp_ww {dpn:+.2} Pa");
+        by_nd.push(dpn);
+    }
+    for x in by_nd.iter().chain([dpd].iter()) {
+        assert!((x - dpa).abs() < 0.5, "A'' the surface block: {x} against one layer {dpa}");
+    }
+    assert!((dpd2 - 328.8).abs() < 0.5, "A'' torus {dpd2}");
 }
 
 /// `FUKUSHIMA_OLD_REPLAY=no_fp_heat;no_pool_layers;no_fp_heat,no_pool_layers`:
@@ -637,6 +672,7 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     let mut most_iter = 0;
     let mut worst_at = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     let (mut flange_seen, mut peak_dw, mut ignites_seen) = ((false, false), 0.0_f64, false);
+    let (mut burn_seen, mut peak_y, mut last) = ((false, false), (0.0_f64, 0.0_f64), (0.0, 0.0, [0.0; 3]));
     // `FUKUSHIMA_NETWORK_TRACE=a,b` prints every step between hours a and b.
     let trace: Option<(f64, f64)> = std::env::var("FUKUSHIMA_NETWORK_TRACE").ok().and_then(|x| {
         let v: Vec<f64> = x.split(',').filter_map(|y| y.parse().ok()).collect();
@@ -670,6 +706,16 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
             ignites_seen = true;
             println!("B: the network's building meets the BUR ignition criteria at {h:.3} h (Y {:.4})", r.rb_burn_y);
         }
+        if r.rb_burning && !burn_seen.0 {
+            burn_seen.0 = true;
+            println!("B: the network's building burns from {h:.3} h");
+        }
+        if o.rb_burning && !burn_seen.1 {
+            burn_seen.1 = true;
+            println!("B: the old model's building burns from {h:.3} h");
+        }
+        peak_y = (peak_y.0.max(r.rb_burn_y), peak_y.1.max(o.rb_burn_y));
+        last = (r.rb_h2_burned_kg, r.rb_burn_heat_j, r.pool_heat_to_atmosphere_j);
         if rel_dw.abs() > worst.0 {
             worst_at = (i as f64 / 3600.0, r.p_dw_pa, o.p_dw_pa, s.leak_steam_kg_s, s.ex_vessel_w, r.downcomer_kg_s, r.vacuum_breaker_kg_s);
         }
@@ -758,6 +804,10 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
         worst.2
     );
     println!("B: network peak p_dw {peak_dw:.0} Pa");
+    println!(
+        "B: building Y peak network {:.4} / old {:.4}; burns: network {} / old {}; network H2 burned {:.3} kg, reaction heat {:.3e} J; pool heat to the atmosphere (dw, ww, rb) {:?} J",
+        peak_y.0, peak_y.1, burn_seen.0, burn_seen.1, last.0, last.1, last.2
+    );
     println!("B: worst p_dw at {:.4} h: {:.0} / {:.0} Pa, leak {:.3} kg/s, ex-vessel {:.3e} W, dc {:+.3} vb {:+.3} kg/s", worst_at.0, worst_at.1, worst_at.2, worst_at.3, worst_at.4, worst_at.5, worst_at.6);
     // Predictions 6 and 7 MISSED (2026-11-01; causes in the V&V doc): over
     // 6 h the worst |dp_dw| is 60.39 % (one step at 4.956 h, the vessel's
@@ -808,9 +858,137 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     // Pinned after the run, labelled so, at the same widths; the 57.77 %
     // pins above hold for `unit1_gh1097` without the layers, re-run and
     // passing:
-    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default() && old_default && cfg == NetworkConfig::unit1() {
+    // Since gh:#1100's surface block, decay heat above the exits and burns
+    // (the default since), these hold for `before_block()`.
+    if (hours - 6.0).abs() < 1e-9 && mech == before_block() && old_default && cfg == NetworkConfig::unit1() {
         assert!((worst.0 - 0.5811).abs() < 0.005 && (worst.1 - 0.1189).abs() < 0.005, "B pins (gh:#1100, layers): {worst:?}");
         assert!((worst.2 - 0.61).abs() < 0.05, "B pins (gh:#1100, layers): {worst:?}");
     }
+    // gh:#1100 continued (2026-11-01): with the surface mixed block, the
+    // torus's decay heat above the downcomers' exits and burns (the default
+    // since), the 6 h worsts moved 58.11 -> 57.99 %, 11.89 -> 12.00 % and
+    // 0.61 -> 0.60 K (the 4.956 h blowdown step; no burn within 6 h).
+    // Predicted (V&V doc) 58.11 +- 1 %, 11.89 +- 1.5 %, 0.4-1.5 K: held.
+    // Pinned after the run, labelled so, at the same widths; the 58.11 %
+    // pins above hold for `before_block()`, re-run and passing:
+    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default() && old_default && cfg == NetworkConfig::unit1() {
+        assert!((worst.0 - 0.5799).abs() < 0.005 && (worst.1 - 0.1200).abs() < 0.005, "B pins (gh:#1100, block): {worst:?}");
+        assert!((worst.2 - 0.60).abs() < 0.05, "B pins (gh:#1100, block): {worst:?}");
+    }
 }
 
+
+/// Case E's drive: from rest, 0.5 kg/s of H2 into the drywell at 400 K,
+/// the flange opening at 150 kPa through 0.01 m² (test inputs, \[A\], so
+/// the building receives hydrogen within the run), MELCOR's BUR criteria
+/// and burn dynamics on.
+fn burn_snapshot() -> ContainmentSnapshot {
+    let mut prm = Params::default();
+    prm.flange_leak_pa = 1.5e5;
+    prm.flange_leak_m2 = 0.01;
+    ContainmentSnapshot { srv_steam_kg_s: 0.0, leak_h2_kg_s: 0.5, leak_gas_k: 400.0, bur_ignition: true, burn_dynamics: true, ..relief_snapshot(prm) }
+}
+
+/// One burn as seen by either model: its start, s, its duration, s, and the
+/// H2 burned, mol.
+#[derive(Clone, Copy, Debug, Default)]
+struct BurnSeen {
+    start_s: f64,
+    duration_s: f64,
+    h2_mol: f64,
+}
+
+/// **E (gh:#1100, continued): hydrogen burns in the building against the
+/// old model.** Predictions E1–E6 in the V&V doc, written before the run.
+/// **Results (2026-11-01, release):** see the V&V doc.
+#[test]
+fn hydrogen_burns_in_the_building_against_the_old_containment() {
+    let snap = burn_snapshot();
+    let prm = snap.prm;
+    let run = |mech: NetworkMechanisms| {
+        let mut old = Containment::new(&prm);
+        let mut net = ContainmentNetwork::with_config(&prm, NetworkConfig::unit1(), mech).unwrap();
+        let (mut ob, mut nb): (Vec<BurnSeen>, Vec<BurnSeen>) = (Vec::new(), Vec::new());
+        let (mut o_was, mut n_was) = (false, false);
+        let (mut peak_rb, mut peak_y, mut last_y_old, mut h2_net_prev, mut heat_prev) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+        let mut heat_per_mol = Vec::new();
+        let mut asked_vs_burned: f64 = 0.0;
+        for k in 0..3600 {
+            let t = k as f64;
+            let o = old.step(&snap);
+            let before = net.building_burn_state();
+            let r = net.step(&snap).unwrap();
+            peak_rb = peak_rb.max(r.p_rb_pa);
+            peak_y = peak_y.max(r.rb_burn_y);
+            last_y_old = o.rb_burn_y;
+            // The old model's burn: its heat over the heat of combustion.
+            if o.rb_burning && !o_was {
+                ob.push(BurnSeen { start_s: t, ..Default::default() });
+            }
+            if let Some(b) = ob.last_mut() {
+                if o.rb_burning || o_was {
+                    b.duration_s = t + 1.0 - b.start_s;
+                    b.h2_mol = old.building_burn().heat_j() / prm.h2_combustion_j_per_mol;
+                }
+            }
+            o_was = o.rb_burning;
+            // The network's: what tampines burned.
+            let burned_mol = (r.rb_h2_burned_kg - h2_net_prev) / 2.016e-3;
+            if burned_mol > 0.0 && !n_was && nb.last().is_none_or(|b| t > b.start_s + b.duration_s) {
+                nb.push(BurnSeen { start_s: t, ..Default::default() });
+            }
+            if burned_mol > 0.0 {
+                if let Some(b) = nb.last_mut() {
+                    b.duration_s = t + 1.0 - b.start_s;
+                    b.h2_mol += burned_mol;
+                }
+                heat_per_mol.push((r.rb_burn_heat_j - heat_prev) / burned_mol);
+                // What sembawang asked (its q_j's increment) against what
+                // tampines burned.
+                let after = net.building_burn_state();
+                let asked = (after.heat_j() - if after.heat_j() >= before.heat_j() { before.heat_j() } else { 0.0 }) / prm.h2_combustion_j_per_mol;
+                asked_vs_burned = asked_vs_burned.max((burned_mol - asked).abs() / asked);
+            }
+            n_was = burned_mol > 0.0;
+            h2_net_prev = r.rb_h2_burned_kg;
+            heat_prev = r.rb_burn_heat_j;
+        }
+        let fin = net.step(&snap).unwrap();
+        println!(
+            "E fingerprint ({mech:?}): peak p_rb {:#x}, final p_rb {:#x} p_dw {:#x} T_rb_gas? {:#x}, H2 burned {:#x} kg, building H2 fraction {:#x}",
+            peak_rb.to_bits(), fin.p_rb_pa.to_bits(), fin.p_dw_pa.to_bits(), fin.t_dw_k.to_bits(), fin.rb_h2_burned_kg.to_bits(), fin.rb_h2_fraction.to_bits()
+        );
+        println!("E fingerprint values: peak p_rb {peak_rb:.6} Pa, final p_rb {:.6} Pa, H2 burned {:.9} kg, building H2 fraction {:.9}", fin.p_rb_pa, fin.rb_h2_burned_kg, fin.rb_h2_fraction);
+        (ob, nb, peak_rb, peak_y, last_y_old, heat_per_mol, asked_vs_burned)
+    };
+    let (ob, nb, peak_rb, peak_y, _, heat_per_mol, asked) = run(NetworkMechanisms::default());
+    println!("E old burns: {ob:?}");
+    println!("E network burns: {nb:?}");
+    println!("E network: building peak {peak_rb:.0} Pa, Y peak {peak_y:.4}; heat per mol {heat_per_mol:?}; asked against burned {asked:.2e}");
+    let (_, nb0, _, peak_y0, y_old0, _, _) = run(NetworkMechanisms::default().without_burns());
+    println!("E without burns: network burns {}, Y peak {peak_y0:.4} (old model at 3600 s {y_old0:.4})", nb0.len());
+    // E1-E6 (V&V doc).
+    assert!(!ob.is_empty() && !nb.is_empty(), "E1: both ignite");
+    assert!((700.0..2500.0).contains(&ob[0].start_s), "E1 old {}", ob[0].start_s);
+    assert!((nb[0].start_s / ob[0].start_s - 1.0).abs() < 0.15, "E1 {} vs {}", nb[0].start_s, ob[0].start_s);
+    assert!((nb[0].h2_mol / ob[0].h2_mol - 1.0).abs() < 0.10, "E2 {} vs {}", nb[0].h2_mol, ob[0].h2_mol);
+    assert!(asked < 1e-9, "E2 asked vs burned {asked}");
+    // E4 MISSED (2026-11-01, wrong instrument): `reaction_heat` is the
+    // energy the reaction adds on `tampines`' own references
+    // (`reaction::energy_per_mole`, moved from `tampines`' former
+    // `ControlVolume::reaction_energy_per_mole`; 275.8 kJ/mol of H2 on the
+    // default closure), not the heat of reaction (Q less the reaction's
+    // change of the code-reference energy; JANAF's 241.8 kJ/mol at 298.15 K
+    // to 1.5e-5, `tampines`' R1). Asserted instead, set after the run: every
+    // step's stored-energy release per mole burned is exactly
+    // `reaction::energy_per_mole` of the building (since gh:#1103 the
+    // chemistry is sembawang's; its heat enters once, by
+    // `set_atmosphere_heat`).
+    let q_ref = ContainmentNetwork::with_config(&prm, NetworkConfig::unit1(), NetworkMechanisms::default()).unwrap().network().volume(2).map(|v| sembawang::bwr_mark1::reaction::energy_per_mole(v)[0]).unwrap();
+    println!("E4: tampines' energy per mole of H2 on its references {q_ref:.3} J/mol");
+    assert!(heat_per_mol.iter().all(|q| (q / q_ref - 1.0).abs() < 1e-12), "E4 {heat_per_mol:?} against {q_ref}");
+    // E3: three 1 s steps in both models for the first burn (2.4 s).
+    assert!(nb[0].duration_s == ob[0].duration_s, "E3 {} vs {}", nb[0].duration_s, ob[0].duration_s);
+    assert!((3.0e5..4.8e5).contains(&peak_rb), "E5 {peak_rb}");
+    assert!(nb0.is_empty() && peak_y0 > 0.10, "E6 {peak_y0}");
+}

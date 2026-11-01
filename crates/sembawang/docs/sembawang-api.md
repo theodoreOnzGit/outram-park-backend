@@ -4925,6 +4925,11 @@ pub struct Containment {
   ```
 
 - ```rust
+  pub fn building_burn(self: &Self) -> Burn { /* ... */ }
+  ```
+  The building's burn state (`burn_dynamics`; read-only, for comparing
+
+- ```rust
   pub fn p_dw(self: &Self, prm: &Params) -> f64 { /* ... */ }
   ```
 
@@ -4984,6 +4989,163 @@ pub struct Containment {
     fn default() -> Self { /* ... */ }
     ```
     The containment with the default inputs ([`Params::default`]).
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Burn`
+
+The building's burn (`Mechanisms::burn_dynamics`): the time left, s
+(zero when none is running), the Le Chatelier `Y` it ends at, the
+oxygen burnt, mol (a deficit that leaves with the building's gas), the
+running burn's heat, J, and the largest burn's pressure bound, Pa.
+
+Shared with `containment_network::ContainmentNetwork` (gh:#1100), whose
+building burns by the same [`bur_step`].
+
+```rust
+pub struct Burn {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_burning(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether a burn is running.
+
+- ```rust
+  pub fn heat_j(self: &Self) -> f64 { /* ... */ }
+  ```
+  The heat of the running (or last) burn so far, J, at
+
+- ```rust
+  pub fn dp_max_pa(self: &Self) -> f64 { /* ... */ }
+  ```
+  The largest burn's adiabatic, constant-volume pressure bound, Pa.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
 
 - **Downcast**
   - ```rust
@@ -5576,8 +5738,9 @@ per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
 | `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
 | `xe_*`, `cs_*`, `i_*`, `uo2_*`, `rn_relief`, `rn_leak` and the scrubbing switches | **since gh:#1100** sembawang's own fission products ([`super::containment_fp::FpHold`], moved out of `Containment` with unchanged arithmetic): the relief flow's scrubbed by SPARC-90's condensation at the quenchers' port, the leaks' into the drywell; each step they ride the gas each path moved (the downcomers' scrubbed by condensation, impaction and the swarm rise; the vacuum breakers', the vent's and the flange's unscrubbed), and every 10 s they deposit on the drywell's floor and structures and on the pool's surface ([`NetworkMechanisms::fission_products`]) |
 | `q_noble_w`, `q_alkali_w`, `q_halogen_w`, `q_chalcogen_w` | **since gh:#1100** the decay heat of what the network holds, by location as in the old model: airborne in the drywell by `set_atmosphere_heat`, on its structures into the lumped wall, in the wetwell gas, on the pool's surface and scrubbed by `set_pool_heat` on the torus ([`NetworkMechanisms::fp_decay_heat`]) |
-| `pool_layers` | **since gh:#1100** `tampines`' layered pool on the torus ([`NetworkMechanisms::pool_layers`], [`derived_pool_layers`] layers): the quenchers' steam joins the layer near the bottom, the downcomers' the layer at their exits, the surface exchange and flashing act on the top layer, an unstable column mixes (the old model's `layer_pool` rule, generalised), a stable one conducts ([`NetworkMechanisms::pool_layer_conduction`]); `t_pool_k` stays the energy mean and `t_pool_top_k` is the surface layer. **Differs from the old model (stated):** the old two layers split once at the downcomers' exits and the pool's share of the fission products' decay heat goes into its top layer (`pool_energy`); here the layers are Lagrangian and `set_pool_heat` shares that heat by mass (`tampines` has no pool heat at an elevation) |
-| burns, ~~`pool_layers`,~~ ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
+| `pool_layers` | **since gh:#1100** `tampines`' layered pool on the torus ([`NetworkMechanisms::pool_layers`], [`derived_pool_layers`] layers): the quenchers' steam joins the layer near the bottom, the downcomers' the layer at their exits, the surface exchange and flashing act on ~~the top layer~~ **CORRECTED 2026-11-01:** `tampines`' surface mixed block ([`NetworkMechanisms::surface_mixed_block`]; the top layer alone made the exchange depend on the layer count), an unstable column mixes (the old model's `layer_pool` rule, generalised), a stable one conducts ([`NetworkMechanisms::pool_layer_conduction`]); `t_pool_k` stays the energy mean and `t_pool_top_k` is the surface layer. **Differs from the old model (stated):** the old two layers split once at the downcomers' exits and the pool's share of the fission products' decay heat goes into its top layer (`pool_energy`); here the layers are Lagrangian and ~~`set_pool_heat` shares that heat by mass (`tampines` has no pool heat at an elevation)~~ **CORRECTED 2026-11-01:** that heat goes into the water above the downcomers' exits by `set_pool_heat_at`, as the old model's top layer ([`NetworkMechanisms::fp_pool_heat_above_exits`]) |
+| `bur_ignition`, `burn_dynamics` (the building's burns) | **since gh:#1100** ([`NetworkMechanisms::burns`]) the building burns by the old model's own BUR code (`containment::bur_ignites`, `bur_step`) on its start-of-step gas, steam and CO2 the diluent; since gh:#1103 the chemistry is sembawang's ([`super::reaction`], moved from `tampines`): the burn becomes `tampines`' species sinks (H2, CO, O2) and sources (H2O, CO2) by `set_atmosphere_species` and the heat of reaction by `set_atmosphere_heat`, once. Always BUR's dynamics (the old ablation's heat-free "explosion" is not expressible). The drywell and torus are inerted and get no oxygen |
+| ~~burns,~~ (**CORRECTED 2026-11-01**: mapped, row above) ~~`pool_layers`,~~ ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
 
 **How the fission products ride the paths (stated).** A path's mean gas
 mass over the step (tampines' `FlowTransfer`, positive `from → to`) moves
@@ -6000,6 +6163,9 @@ pub struct NetworkMechanisms {
     pub fp_decay_heat: bool,
     pub pool_layers: bool,
     pub pool_layer_conduction: bool,
+    pub surface_mixed_block: bool,
+    pub fp_pool_heat_above_exits: bool,
+    pub burns: bool,
 }
 ```
 
@@ -6019,8 +6185,11 @@ pub struct NetworkMechanisms {
 | `dw_slab` | `bool` | sembawang's concrete slab behind the drywell structures. |
 | `fission_products` | `bool` | sembawang's fission products (`FpHold`) carried on the paths, with<br>pool scrubbing and deposition (gh:#1100). |
 | `fp_decay_heat` | `bool` | Their decay heat in the volumes (needs `fission_products`). |
-| `pool_layers` | `bool` | The torus pool in layers (`ControlVolume::with_pool_layers`,<br>gh:#1100): what enters at a port joins the layer at its elevation,<br>the surface sees the top layer, an unstable column mixes. Without it,<br>one well-mixed pool. |
+| `pool_layers` | `bool` | The torus pool in layers (`ControlVolume::with_pool_layers`,<br>gh:#1100): what enters at a port joins the layer at its elevation,<br>the surface sees ~~the top layer~~ the surface mixed block<br>(**CORRECTED 2026-11-01**, [`Self::surface_mixed_block`]), an unstable column mixes. Without it,<br>one well-mixed pool. |
 | `pool_layer_conduction` | `bool` | A layered pool's stable layers conduct (`tampines`' default; needs<br>`pool_layers`). |
+| `surface_mixed_block` | `bool` | The layered pool's surface exchange sees `tampines`' surface mixed<br>block (`tampines`' default since gh:#1100's fix; needs<br>`pool_layers`); without it, the top layer alone, which made the<br>exchange depend on the layer count (V&V doc). |
+| `fp_pool_heat_above_exits` | `bool` | The decay heat of the fission products in the torus (its gas, its<br>pool's surface, scrubbed in the pool) goes into the water above the<br>downcomers' exits, shared by mass (`CvNetwork::set_pool_heat_at`),<br>where the old model puts it: into its top layer, which is the water<br>above the exits (`Containment::step` step 0, `pool_energy()` with<br>`layer_pool`'s split at the submergence). Without it, shared over<br>the whole pool by mass (`set_pool_heat`). One layer: the same, bit<br>for bit. Needs `fp_decay_heat`. |
+| `burns` | `bool` | Hydrogen and CO burns in the building by MELCOR's BUR criteria and<br>rates, sembawang's (`containment::bur_ignites`, `bur_step`, as the<br>old model's building), the stoichiometry and heat by<br>[`super::reaction::burn_inputs`] (moved from `tampines`, gh:#1103) as<br>`tampines`' species sources and sinks and one atmosphere heat. |
 
 ##### Implementations
 
@@ -6060,6 +6229,21 @@ pub struct NetworkMechanisms {
   pub fn without_pool_layer_conduction(self: Self) -> Self { /* ... */ }
   ```
   Ablation: a layered pool's stable layers exchange nothing.
+
+- ```rust
+  pub fn without_surface_mixed_block(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the layered pool's surface sees its top layer alone.
+
+- ```rust
+  pub fn without_fp_pool_heat_above_exits(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the torus's fission-product decay heat shared over the
+
+- ```rust
+  pub fn without_burns(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: nothing burns (the ignition criterion still reported).
 
 - ```rust
   pub fn without_pressure_work(self: Self) -> Self { /* ... */ }
@@ -6248,6 +6432,11 @@ pub struct NetworkResult {
     pub rb_h2_fraction: f64,
     pub rb_burn_y: f64,
     pub rb_ignites: bool,
+    pub rb_burning: bool,
+    pub rb_h2_burned_kg: f64,
+    pub rb_co_burned_kg: f64,
+    pub rb_burn_heat_j: f64,
+    pub pool_heat_to_atmosphere_j: [f64; 3],
     pub vent_flowing: bool,
     pub vented_kg_s: f64,
     pub vented_h2_kg: f64,
@@ -6294,8 +6483,13 @@ pub struct NetworkResult {
 | `dw_h2_kg` | `f64` |  |
 | `ww_h2_kg` | `f64` |  |
 | `rb_h2_fraction` | `f64` | Hydrogen's mole fraction in the building's gas (steam included). |
-| `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction `X_H2 + X_CO<br>L_H2 / L_CO` (BUR RM Eq 2-3) and whether it meets MELCOR's ignition<br>criteria (`containment::bur_ignites`, sembawang's; steam and CO2 as<br>the diluent). A diagnostic only: the network does not burn (no<br>non-condensable sink in `tampines`; V&V doc). |
+| `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction `X_H2 + X_CO<br>L_H2 / L_CO` (BUR RM Eq 2-3) and whether it meets MELCOR's ignition<br>criteria (`containment::bur_ignites`, sembawang's; steam and CO2 as<br>the diluent). ~~A diagnostic only: the network does not burn (no<br>non-condensable sink in `tampines`; V&V doc).~~ **CORRECTED<br>2026-11-01:** with [`NetworkMechanisms::burns`] (default) the<br>building burns when the criteria are met, at the start of a step. |
 | `rb_ignites` | `bool` |  |
+| `rb_burning` | `bool` | A burn is running in the building (`burns`), and what `tampines`<br>burned there since the start, kg of H2 and CO, with the heat of<br>reaction it released, J (gh:#1100). |
+| `rb_h2_burned_kg` | `f64` |  |
+| `rb_co_burned_kg` | `f64` |  |
+| `rb_burn_heat_j` | `f64` |  |
+| `pool_heat_to_atmosphere_j` | `[f64; 3]` | Pool heat each volume (drywell, torus, building) put into its<br>atmosphere because its pool was dry or boiled dry within a step,<br>since the start, J (`tampines`' `pool_heat_to_atmosphere`, gh:#1100). |
 | `vent_flowing` | `bool` |  |
 | `vented_kg_s` | `f64` |  |
 | `vented_h2_kg` | `f64` |  |
@@ -6499,6 +6693,11 @@ pub struct ContainmentNetwork {
   pub fn step(self: &mut Self, s: &ContainmentSnapshot) -> Result<NetworkResult, TampinesError> { /* ... */ }
   ```
   Advance one step with sembawang's snapshot (see the module docs for
+
+- ```rust
+  pub fn building_burn_state(self: &Self) -> Burn { /* ... */ }
+  ```
+  The building's burn state (sembawang's BUR; read-only).
 
 - ```rust
   pub fn pool_layer_count(self: &Self) -> usize { /* ... */ }
@@ -11948,6 +12147,343 @@ pub use tampines::components::wall_condensation::structure_surface;
 
 ```rust
 pub use tampines::components::wall_condensation::Atmosphere;
+```
+
+## Module `reaction`
+
+Atmosphere reactions in a `tampines` control volume: hydrogen and
+carbon-monoxide combustion at rates the caller sets (gh:#1100; MELCOR
+2.2's BUR package decides *whether* and *how fast* a mixture burns, BUR RM
+§2, cited by section only, in [`super::containment::bur_ignites`] and
+[`super::containment::bur_step`]; here only the stoichiometry and the
+energy are closed).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Moved here from `tampines::control_volume::reaction` on 2026-11-01
+(gh:#1103, maintainer direction: `tampines` holds thermal hydraulics, no
+chemistry).** The derivation, the JANAF constants, the 298.15 K anchoring
+and the limiting-reactant cap are unchanged; what changed is where the
+reaction is applied. `tampines` applied the extents inside its step.
+Here a burn becomes `tampines`' generic inputs ([`burn_inputs`]): species
+sinks for H2, CO and O2 and sources for H2O and CO2
+(`ControlVolumeInputs::atmosphere_species`, carried at each species' code
+molar enthalpy at the start-of-step atmosphere, `h_i(T0)`), and the heat
+`Q − Σ ν_i ξ h_i(T0)` by `set_atmosphere_heat`, so the stored energy
+still rises by `Q = −Σ ν_i c_i ξ` (below). `Q − Σ ν h(T0)` is the heat of
+reaction at `T0` on the code's own references (Kirchhoff's law on the
+code's heat capacities). Two things differ from the code in `tampines`,
+stated: the cap is taken on the start-of-step amounts (`tampines` capped
+after the step's inflows, which only add), and the extents travel as
+mass rates (`ξ M / Δt`, multiplied back by `Δt` inside the step), so the
+moles moved and the energy agree with the old code to round-off, not
+bit for bit (`tests/containment_network_vs_containment.rs`, case E,
+records the difference).
+
+```text
+H2 + ½ O2 → H2O(g)        (extent ξ_H, mol)
+CO + ½ O2 → CO2           (extent ξ_C, mol)
+```
+
+## Limiting reactant
+
+The extents a step asks for, `rate · Δt`, are capped by the fuel present
+(`ξ_H ≤ n_H2`, `ξ_C ≤ n_CO`) and then, together, by the oxygen
+(`½ (ξ_H + ξ_C) ≤ n_O2`): when oxygen limits, both extents are scaled by
+the same factor (the caller's rate ratio is kept; neither fuel is given
+priority), and the limited reactant is set to exactly zero, so no amount
+ever goes negative.
+
+## The heat of reaction, on the gas mixture's own references
+
+Each species' energy in `tampines_steam_tables::gas_mixture` is on its
+own reference: the non-condensables' `u(T)` from 0 K by `sembawang`'s
+convention (MELCOR's NCG fits for N2 and H2, GRI-Mech 3.0 NASA-7 `c_p`
+polynomials for O2, CO, CO2 and Ar; **below each fit's lower bound,
+`c_v(T_low) T`**, so "from 0 K" is a convention, not JANAF's
+`H°(T) − H°(0)`), and steam on IAPWS-IF97's (the triple-point liquid's
+`u = s = 0`). A reaction moves moles between species, so the energy it
+releases has to be put on those same references. With `h_i^code(T)` the
+code's molar enthalpy of species `i` (`u_i(T) + R T` for a
+non-condensable; `M_H2O h_IF97(T, p → 0)` for steam, region 2 at 1 Pa,
+where the residual part is below 1e-5 J/kg), each species' absolute
+(formation-referenced) enthalpy is
+
+```text
+h̃_i(T) = h_i^code(T) + c_i,   c_i = Δ_f H_i°(298.15 K) − h_i^code(298.15 K)
+```
+
+which anchors every species to its NIST-JANAF standard enthalpy of
+formation at 298.15 K (Chase, *NIST-JANAF Thermochemical Tables*, 4th ed.,
+J. Phys. Chem. Ref. Data Monograph 9, 1998: H2O(g) −241.826, CO −110.527,
+CO2 −393.522 kJ/mol; the elements H2, O2, N2, Ar zero). The constant `c_i`
+shifts `u` exactly as it shifts `h` (`h − u` is `R T`, or IF97's `p v`, on
+both references), so the conserved absolute energy of the gas is
+`Σ n_i (u_i^code + c_i)`. A reaction of extents `ξ` changes the amounts by
+`ν ξ` at fixed absolute energy, so the stored (code-reference) energy rises
+by
+
+```text
+Q = −Σ_i ν_i c_i ξ
+  = ξ_H [−Δ_f H°(H2O) + h_H2O^code − h_H2^code − ½ h_O2^code]_298.15
+  + ξ_C [Δ_f H°(CO) − Δ_f H°(CO2) + h_CO2^code − h_CO^code − ½ h_O2^code]_298.15
+```
+
+a constant per mole on each closure
+([`energy_per_mole`]). The
+temperature the products reach then follows from the stored energy by the
+mixture's own `U(T)`, so the heat of reaction at any other temperature is
+Kirchhoff's law on the code's own heat capacities. By construction the
+enthalpy of reaction at 298.15 K is the JANAF one: 241.826 kJ/mol for H2
+(the lower heating value) and 282.995 kJ/mol for CO; the V&V gate
+(`tests/reaction_in_a_control_volume.rs`, R1) measures it through a step, from
+the stored energy and the code's own `U(298.15 K)` of the products, which
+tests the offsets, their sign, the mol-to-kg conversion of the steam and
+the IF97 steam's real-gas `p v` at its partial pressure.
+
+**Why 298.15 K, not 0 K.** JANAF also tabulates `Δ_f H°(0)` and
+`H°(298.15) − H°(0)`, and anchoring there looks natural for references
+"from 0 K". It would be wrong here: the code's `u(T)` below each fit's
+lower bound is the `c_v(T_low) T` extrapolation, not the real
+`H°(T) − H°(0)`, so a 0 K anchor would carry the extrapolation's error
+(measured 2026-11-01, the code's `h(298.15)` "from 0 K" less JANAF's
+`H°(298.15) − H°(0)`: H2 −896 J/mol on MELCOR's fit, CO2 +518, N2 +83,
+CO +14, O2 +12, Ar +0.4; `tests/reaction_in_a_control_volume.rs` R1) into
+every heat of reaction (H2's alone is 0.37 % of the H2 burn's), and steam
+on IF97 has no 0 K value to anchor at all. At 298.15 K every fit is
+inside its range, or (N2, Ar, from 300 K) 1.85 K below it, where an inert
+gas's offset cancels.
+
+```rust
+pub mod reaction { /* ... */ }
+```
+
+### Types
+
+#### Struct `Extents`
+
+The extents one step applies, mol, and the amounts left.
+
+```rust
+pub struct Extents {
+    pub xi_h: f64,
+    pub xi_c: f64,
+    pub h2: f64,
+    pub co: f64,
+    pub o2: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `xi_h` | `f64` | H2 burned. |
+| `xi_c` | `f64` | CO burned. |
+| `h2` | `f64` | H2, CO and O2 left. |
+| `co` | `f64` |  |
+| `o2` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `capped_extents`
+
+Cap the asked extents `want_h`, `want_c` (mol) by the fuel and then the
+oxygen present (see the module docs); a limited reactant ends exactly 0.
+
+```rust
+pub fn capped_extents(n_h2: f64, n_co: f64, n_o2: f64, want_h: f64, want_c: f64) -> Extents { /* ... */ }
+```
+
+#### Function `energy_per_mole`
+
+The stored-energy release per mole of each reaction, `[H2, CO]`, J/mol,
+on `cv`'s closure: the code's molar enthalpies at 298.15 K
+(`ControlVolume::species_molar_enthalpies`; steam in its ideal-gas
+limit, IF97 region 2 at 1 Pa, the floor its steam model applies anyway)
+anchored to JANAF (see the module docs). The same arithmetic as
+`tampines`' former `ControlVolume::reaction_energy_per_mole`, bit for
+bit.
+
+```rust
+pub fn energy_per_mole(cv: &tampines::control_volume::ControlVolume) -> [f64; 2] { /* ... */ }
+```
+
+#### Function `energy_per_mole_from`
+
+[`energy_per_mole`] from the code's molar enthalpies at 298.15 K of
+H2O(g), H2, O2, CO and CO2, J/mol.
+
+```rust
+pub fn energy_per_mole_from(h_h2o: f64, h_h2: f64, h_o2: f64, h_co: f64, h_co2: f64) -> [f64; 2] { /* ... */ }
+```
+
+#### Function `burn_inputs`
+
+A burn of `want_h` mol of H2 and `want_c` mol of CO over `dt` s in `cv`
+(its state at the start of the step), as `tampines`' generic inputs:
+the extents capped by the fuel and then the oxygen present
+([`capped_extents`]); the species rates (H2, CO, O2 out; H2O, CO2 in);
+and the heat, W, that with the species' own start-of-step enthalpies
+raises the stored energy by `Q = ξ_H q_H + ξ_C q_C` ([`energy_per_mole`]).
+The energy the species carry is computed as `tampines` computes it
+(`(rate Δt) / M h_i`). Returns the rates, the heat, W, the extents and
+`Q`, J.
+
+# Errors
+
+[`TampinesError::InvalidInput`] for a negative or non-finite amount or
+a non-positive `dt` (as `tampines`' former reaction input refused).
+
+```rust
+pub fn burn_inputs(cv: &tampines::control_volume::ControlVolume, want_h: f64, want_c: f64, dt: f64) -> Result<(tampines::control_volume::AtmosphereSpeciesRates, f64, Extents, f64), tampines::TampinesError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DELTA_HF_H2O_GAS`
+
+NIST-JANAF standard enthalpy of formation of H2O(g) at 298.15 K, J/mol.
+
+```rust
+pub const DELTA_HF_H2O_GAS: f64 = -241_826.0;
+```
+
+#### Constant `DELTA_HF_CO`
+
+NIST-JANAF standard enthalpy of formation of CO at 298.15 K, J/mol.
+
+```rust
+pub const DELTA_HF_CO: f64 = -110_527.0;
+```
+
+#### Constant `DELTA_HF_CO2`
+
+NIST-JANAF standard enthalpy of formation of CO2 at 298.15 K, J/mol.
+
+```rust
+pub const DELTA_HF_CO2: f64 = -393_522.0;
+```
+
+#### Constant `T_FORMATION_K`
+
+The formation enthalpies' reference temperature, K.
+
+```rust
+pub const T_FORMATION_K: f64 = 298.15;
 ```
 
 ## Module `rn_volume`

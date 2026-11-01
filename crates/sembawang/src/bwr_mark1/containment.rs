@@ -365,13 +365,80 @@ pub struct Containment {
 /// (zero when none is running), the Le Chatelier `Y` it ends at, the
 /// oxygen burnt, mol (a deficit that leaves with the building's gas), the
 /// running burn's heat, J, and the largest burn's pressure bound, Pa.
+///
+/// Shared with `containment_network::ContainmentNetwork` (gh:#1100), whose
+/// building burns by the same [`bur_step`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-struct Burn {
-    left_s: f64,
-    y_min: f64,
-    o2_used: f64,
-    q_j: f64,
-    dp_max: f64,
+pub struct Burn {
+    pub(crate) left_s: f64,
+    pub(crate) y_min: f64,
+    pub(crate) o2_used: f64,
+    pub(crate) q_j: f64,
+    pub(crate) dp_max: f64,
+}
+
+impl Burn {
+    /// Whether a burn is running.
+    pub fn is_burning(&self) -> bool {
+        self.left_s > 0.0
+    }
+    /// The heat of the running (or last) burn so far, J, at
+    /// `h2_combustion_j_per_mol` and `co_combustion_j_per_mol` (MELCOR's
+    /// heats of combustion as `params` holds them).
+    pub fn heat_j(&self) -> f64 {
+        self.q_j
+    }
+    /// The largest burn's adiabatic, constant-volume pressure bound, Pa.
+    pub fn dp_max_pa(&self) -> f64 {
+        self.dp_max
+    }
+}
+
+/// One step of MELCOR's BUR burn in a volume of `volume_m3` (BUR RM §2.3 to
+/// §2.5) holding `h2` and `co` mol in `n` mol of gas, the diluent
+/// fraction `x_d` and oxygen fraction `x_o2`; **moved out of
+/// `Containment::step_burn` on 2026-11-01 (gh:#1100), arithmetic
+/// unchanged**, so `ContainmentNetwork` burns by the same code. A burn
+/// starts when `ignites` and none is running: its completeness (Eqs 2-6 to
+/// 2-9) sets the `Y` it ends at, by the completeness's Le Chatelier formula
+/// `Y = X_H2 + X_CO XH2CC / XCOCC` (Eq 2-7), and its duration is `CDIM / V`
+/// (Eq 2-20). Each step burns at `YRATE = (Y - Ymin) / (t0 + t_comb - t)`
+/// (Eq 2-21), the H2 and CO in proportion (Eqs 2-22, 2-23), capped at what
+/// is there and at the oxygen. Returns `(H2 burnt, CO burnt, started)`, mol
+/// and whether a burn started this step; the caller removes the fuel (the
+/// old model) or hands the rates to `tampines`, which closes the heat (the
+/// network). `burn.q_j` and `burn.dp_max` are diagnostics: neither model
+/// adds `q_j` as heat (the old building is held at one atmosphere; the
+/// network's heat is `tampines`').
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn bur_step(prm: &Params, burn: &mut Burn, ignites: bool, h2: f64, co: f64, n: f64, x_d: f64, x_o2: f64, volume_m3: f64, dt: f64) -> (f64, f64, bool) {
+    let ratio = prm.bur_xh2cc / prm.bur_xcocc;
+    let y = (h2 + co * ratio) / n;
+    let mut started = false;
+    if burn.left_s <= 0.0 && ignites {
+        burn.y_min = (1.0 - bur_completeness(prm, y)) * y;
+        burn.left_s = bur_cdim(volume_m3) / bur_flame_speed(y, x_d);
+        burn.q_j = 0.0;
+        started = true;
+    }
+    if burn.left_s <= 0.0 || y <= 0.0 {
+        return (0.0, 0.0, started);
+    }
+    let h = dt.min(burn.left_s);
+    let burnt = ((y - burn.y_min) / burn.left_s * h / y).clamp(0.0, 1.0);
+    let mut d_h2 = h2 * burnt;
+    let mut d_co = co * burnt;
+    let o2 = x_o2.max(0.0) * n;
+    if 0.5 * (d_h2 + d_co) > o2 {
+        let f = o2 / (0.5 * (d_h2 + d_co));
+        d_h2 *= f;
+        d_co *= f;
+    }
+    burn.o2_used += 0.5 * (d_h2 + d_co);
+    burn.q_j += d_h2 * prm.h2_combustion_j_per_mol + d_co * prm.co_combustion_j_per_mol;
+    burn.dp_max = burn.dp_max.max(burn.q_j / (2.5 * volume_m3));
+    burn.left_s -= h;
+    (d_h2, d_co, started)
 }
 
 /// CO and CO2, mol, in the drywell, the wetwell gas and the building.
@@ -545,34 +612,19 @@ impl Containment {
     }
 
     fn step_burn(&mut self, prm: &Params, ignites: bool, n_rb: f64, x_d: f64, x_o2: f64, dt: f64) {
-        let ratio = prm.bur_xh2cc / prm.bur_xcocc;
-        let y = (self.rb_h2 + self.co.rb[0] * ratio) / n_rb;
-        if self.burn.left_s <= 0.0 && ignites {
-            self.burn.y_min = (1.0 - bur_completeness(prm, y)) * y;
-            self.burn.left_s = bur_cdim(prm.reactor_building_m3) / bur_flame_speed(y, x_d);
-            self.burn.q_j = 0.0;
+        let (d_h2, d_co, started) = bur_step(prm, &mut self.burn, ignites, self.rb_h2, self.co.rb[0], n_rb, x_d, x_o2, prm.reactor_building_m3, dt);
+        if started {
             self.exploded = true;
-        }
-        if self.burn.left_s <= 0.0 || y <= 0.0 {
-            return;
-        }
-        let h = dt.min(self.burn.left_s);
-        let burnt = ((y - self.burn.y_min) / self.burn.left_s * h / y).clamp(0.0, 1.0);
-        let mut d_h2 = self.rb_h2 * burnt;
-        let mut d_co = self.co.rb[0] * burnt;
-        let o2 = x_o2.max(0.0) * n_rb;
-        if 0.5 * (d_h2 + d_co) > o2 {
-            let f = o2 / (0.5 * (d_h2 + d_co));
-            d_h2 *= f;
-            d_co *= f;
         }
         self.rb_h2 -= d_h2;
         self.co.rb[0] -= d_co;
         self.co.rb[1] += d_co;
-        self.burn.o2_used += 0.5 * (d_h2 + d_co);
-        self.burn.q_j += d_h2 * prm.h2_combustion_j_per_mol + d_co * prm.co_combustion_j_per_mol;
-        self.burn.dp_max = self.burn.dp_max.max(self.burn.q_j / (2.5 * prm.reactor_building_m3));
-        self.burn.left_s -= h;
+    }
+
+    /// The building's burn state (`burn_dynamics`; read-only, for comparing
+    /// `ContainmentNetwork`'s burns with this model's, gh:#1100).
+    pub fn building_burn(&self) -> Burn {
+        self.burn
     }
 
     fn dw_moles(&self) -> f64 {

@@ -31,8 +31,9 @@
 //! | `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
 //! | `xe_*`, `cs_*`, `i_*`, `uo2_*`, `rn_relief`, `rn_leak` and the scrubbing switches | **since gh:#1100** sembawang's own fission products ([`super::containment_fp::FpHold`], moved out of `Containment` with unchanged arithmetic): the relief flow's scrubbed by SPARC-90's condensation at the quenchers' port, the leaks' into the drywell; each step they ride the gas each path moved (the downcomers' scrubbed by condensation, impaction and the swarm rise; the vacuum breakers', the vent's and the flange's unscrubbed), and every 10 s they deposit on the drywell's floor and structures and on the pool's surface ([`NetworkMechanisms::fission_products`]) |
 //! | `q_noble_w`, `q_alkali_w`, `q_halogen_w`, `q_chalcogen_w` | **since gh:#1100** the decay heat of what the network holds, by location as in the old model: airborne in the drywell by `set_atmosphere_heat`, on its structures into the lumped wall, in the wetwell gas, on the pool's surface and scrubbed by `set_pool_heat` on the torus ([`NetworkMechanisms::fp_decay_heat`]) |
-//! | `pool_layers` | **since gh:#1100** `tampines`' layered pool on the torus ([`NetworkMechanisms::pool_layers`], [`derived_pool_layers`] layers): the quenchers' steam joins the layer near the bottom, the downcomers' the layer at their exits, the surface exchange and flashing act on the top layer, an unstable column mixes (the old model's `layer_pool` rule, generalised), a stable one conducts ([`NetworkMechanisms::pool_layer_conduction`]); `t_pool_k` stays the energy mean and `t_pool_top_k` is the surface layer. **Differs from the old model (stated):** the old two layers split once at the downcomers' exits and the pool's share of the fission products' decay heat goes into its top layer (`pool_energy`); here the layers are Lagrangian and `set_pool_heat` shares that heat by mass (`tampines` has no pool heat at an elevation) |
-//! | burns, ~~`pool_layers`,~~ ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
+//! | `pool_layers` | **since gh:#1100** `tampines`' layered pool on the torus ([`NetworkMechanisms::pool_layers`], [`derived_pool_layers`] layers): the quenchers' steam joins the layer near the bottom, the downcomers' the layer at their exits, the surface exchange and flashing act on ~~the top layer~~ **CORRECTED 2026-11-01:** `tampines`' surface mixed block ([`NetworkMechanisms::surface_mixed_block`]; the top layer alone made the exchange depend on the layer count), an unstable column mixes (the old model's `layer_pool` rule, generalised), a stable one conducts ([`NetworkMechanisms::pool_layer_conduction`]); `t_pool_k` stays the energy mean and `t_pool_top_k` is the surface layer. **Differs from the old model (stated):** the old two layers split once at the downcomers' exits and the pool's share of the fission products' decay heat goes into its top layer (`pool_energy`); here the layers are Lagrangian and ~~`set_pool_heat` shares that heat by mass (`tampines` has no pool heat at an elevation)~~ **CORRECTED 2026-11-01:** that heat goes into the water above the downcomers' exits by `set_pool_heat_at`, as the old model's top layer ([`NetworkMechanisms::fp_pool_heat_above_exits`]) |
+//! | `bur_ignition`, `burn_dynamics` (the building's burns) | **since gh:#1100** ([`NetworkMechanisms::burns`]) the building burns by the old model's own BUR code (`containment::bur_ignites`, `bur_step`) on its start-of-step gas, steam and CO2 the diluent; since gh:#1103 the chemistry is sembawang's ([`super::reaction`], moved from `tampines`): the burn becomes `tampines`' species sinks (H2, CO, O2) and sources (H2O, CO2) by `set_atmosphere_species` and the heat of reaction by `set_atmosphere_heat`, once. Always BUR's dynamics (the old ablation's heat-free "explosion" is not expressible). The drywell and torus are inerted and get no oxygen |
+//! | ~~burns,~~ (**CORRECTED 2026-11-01**: mapped, row above) ~~`pool_layers`,~~ ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
 //!
 //! **How the fission products ride the paths (stated).** A path's mean gas
 //! mass over the step (tampines' `FlowTransfer`, positive `from → to`) moves
@@ -103,7 +104,7 @@
 //!   (sembawang's vent never flows back); the vacuum breakers open at
 //!   `vacuum_breaker_pa`.
 
-use tampines::control_volume::{ControlVolume, GasMixture, NonCondensable, Port, Source, VolumeAltitudeTable};
+use tampines::control_volume::{AtmosphereSpeciesRates, ControlVolume, ElevatedPoolHeat, GasMixture, NonCondensable, Port, Source, VolumeAltitudeTable};
 use tampines::cv_network::{CvNetwork, NetworkBoundary, NetworkControl, NetworkEnd, NetworkPath};
 use tampines::flow_path::{FlowPath, FlowPathGeometry, FlowPathKind};
 use tampines::TampinesError;
@@ -125,7 +126,7 @@ use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
 use super::cavity::Cavity;
-use super::containment::{bur_ignites, dw_slab_step, lpme_fall, ContainmentSnapshot, DW_SLAB_CELLS};
+use super::containment::{bur_ignites, bur_step, dw_slab_step, lpme_fall, Burn, ContainmentSnapshot, DW_SLAB_CELLS};
 use super::containment_fp::{DowncomerFlow, FpDecayHeat, FpHold, FpReport, PoolSide, RnContext};
 use super::params::*;
 use super::pool_surface;
@@ -284,12 +285,33 @@ pub struct NetworkMechanisms {
     pub fp_decay_heat: bool,
     /// The torus pool in layers (`ControlVolume::with_pool_layers`,
     /// gh:#1100): what enters at a port joins the layer at its elevation,
-    /// the surface sees the top layer, an unstable column mixes. Without it,
+    /// the surface sees ~~the top layer~~ the surface mixed block
+    /// (**CORRECTED 2026-11-01**, [`Self::surface_mixed_block`]), an unstable column mixes. Without it,
     /// one well-mixed pool.
     pub pool_layers: bool,
     /// A layered pool's stable layers conduct (`tampines`' default; needs
     /// `pool_layers`).
     pub pool_layer_conduction: bool,
+    /// The layered pool's surface exchange sees `tampines`' surface mixed
+    /// block (`tampines`' default since gh:#1100's fix; needs
+    /// `pool_layers`); without it, the top layer alone, which made the
+    /// exchange depend on the layer count (V&V doc).
+    pub surface_mixed_block: bool,
+    /// The decay heat of the fission products in the torus (its gas, its
+    /// pool's surface, scrubbed in the pool) goes into the water above the
+    /// downcomers' exits, shared by mass (`CvNetwork::set_pool_heat_at`),
+    /// where the old model puts it: into its top layer, which is the water
+    /// above the exits (`Containment::step` step 0, `pool_energy()` with
+    /// `layer_pool`'s split at the submergence). Without it, shared over
+    /// the whole pool by mass (`set_pool_heat`). One layer: the same, bit
+    /// for bit. Needs `fp_decay_heat`.
+    pub fp_pool_heat_above_exits: bool,
+    /// Hydrogen and CO burns in the building by MELCOR's BUR criteria and
+    /// rates, sembawang's (`containment::bur_ignites`, `bur_step`, as the
+    /// old model's building), the stoichiometry and heat by
+    /// [`super::reaction::burn_inputs`] (moved from `tampines`, gh:#1103) as
+    /// `tampines`' species sources and sinks and one atmosphere heat.
+    pub burns: bool,
 }
 
 impl NetworkMechanisms {
@@ -321,6 +343,19 @@ impl NetworkMechanisms {
     /// Ablation: a layered pool's stable layers exchange nothing.
     pub fn without_pool_layer_conduction(self) -> Self {
         Self { pool_layer_conduction: false, ..self }
+    }
+    /// Ablation: the layered pool's surface sees its top layer alone.
+    pub fn without_surface_mixed_block(self) -> Self {
+        Self { surface_mixed_block: false, ..self }
+    }
+    /// Ablation: the torus's fission-product decay heat shared over the
+    /// whole pool by mass.
+    pub fn without_fp_pool_heat_above_exits(self) -> Self {
+        Self { fp_pool_heat_above_exits: false, ..self }
+    }
+    /// Ablation: nothing burns (the ignition criterion still reported).
+    pub fn without_burns(self) -> Self {
+        Self { burns: false, ..self }
     }
     /// Ablation: no pool compression work.
     pub fn without_pressure_work(self) -> Self {
@@ -369,6 +404,9 @@ impl Default for NetworkMechanisms {
             fp_decay_heat: true,
             pool_layers: true,
             pool_layer_conduction: true,
+            surface_mixed_block: true,
+            fp_pool_heat_above_exits: true,
+            burns: true,
         }
     }
 }
@@ -404,10 +442,23 @@ pub struct NetworkResult {
     /// The building's Le Chatelier combustible fraction `X_H2 + X_CO
     /// L_H2 / L_CO` (BUR RM Eq 2-3) and whether it meets MELCOR's ignition
     /// criteria (`containment::bur_ignites`, sembawang's; steam and CO2 as
-    /// the diluent). A diagnostic only: the network does not burn (no
-    /// non-condensable sink in `tampines`; V&V doc).
+    /// the diluent). ~~A diagnostic only: the network does not burn (no
+    /// non-condensable sink in `tampines`; V&V doc).~~ **CORRECTED
+    /// 2026-11-01:** with [`NetworkMechanisms::burns`] (default) the
+    /// building burns when the criteria are met, at the start of a step.
     pub rb_burn_y: f64,
     pub rb_ignites: bool,
+    /// A burn is running in the building (`burns`), and what `tampines`
+    /// burned there since the start, kg of H2 and CO, with the heat of
+    /// reaction it released, J (gh:#1100).
+    pub rb_burning: bool,
+    pub rb_h2_burned_kg: f64,
+    pub rb_co_burned_kg: f64,
+    pub rb_burn_heat_j: f64,
+    /// Pool heat each volume (drywell, torus, building) put into its
+    /// atmosphere because its pool was dry or boiled dry within a step,
+    /// since the start, J (`tampines`' `pool_heat_to_atmosphere`, gh:#1100).
+    pub pool_heat_to_atmosphere_j: [f64; 3],
     pub vent_flowing: bool,
     pub vented_kg_s: f64,
     pub vented_h2_kg: f64,
@@ -446,6 +497,18 @@ pub struct NetworkResult {
 /// 1/64 s).
 const MAX_HALVINGS: usize = 6;
 
+/// What each volume reported over one [`advance`], summed over its
+/// sub-steps, by volume: pool heat into the atmosphere, J; H2 and CO taken
+/// by its species sinks, mol; (for the building's running total) the burn's
+/// stored-energy release `Q`, J, which sembawang computes.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct VolumeSums {
+    pool_heat_to_atm_j: f64,
+    h2_mol: f64,
+    co_mol: f64,
+    rx_heat_j: f64,
+}
+
 /// One network step of `dt`; if the Picard iteration does not converge,
 /// two of `dt / 2`, recursively, up to [`MAX_HALVINGS`] (as MELCOR's
 /// executive cuts its step when a package fails to converge, EXEC RM,
@@ -454,9 +517,17 @@ const MAX_HALVINGS: usize = 6;
 /// each path's mean mass rate over `dt` into `rates`, `[both phases, gas]`;
 /// returns the Picard iterations, the largest residual and the extra
 /// sub-steps taken.
-fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<[f64; 2]>) -> Result<(usize, f64, usize), TampinesError> {
+fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<[f64; 2]>, sums: &mut Vec<VolumeSums>) -> Result<(usize, f64, usize), TampinesError> {
     match net.step(Time::new::<second>(dt)) {
         Ok(r) => {
+            sums.resize(r.volumes.len(), VolumeSums::default());
+            for (s, v) in sums.iter_mut().zip(&r.volumes) {
+                s.pool_heat_to_atm_j += v.pool_heat_to_atmosphere.get::<uom::si::energy::joule>();
+                // What the species sinks took (gh:#1103: the burn's H2 and
+                // CO leave by `tampines`' species sinks).
+                s.h2_mol -= v.species_ncg[NonCondensable::H2.index()].get::<kilogram>() / NonCondensable::H2.molar_mass();
+                s.co_mol -= v.species_ncg[NonCondensable::CO.index()].get::<kilogram>() / NonCondensable::CO.molar_mass();
+            }
             *rates = r
                 .transfers
                 .iter()
@@ -469,8 +540,8 @@ fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<[f64; 2]>
         }
         Err(TampinesError::Numerical(_)) if depth < MAX_HALVINGS => {
             let (mut a, mut b) = (Vec::new(), Vec::new());
-            let (i1, r1, s1) = advance(net, 0.5 * dt, depth + 1, &mut a)?;
-            let (i2, r2, s2) = advance(net, 0.5 * dt, depth + 1, &mut b)?;
+            let (i1, r1, s1) = advance(net, 0.5 * dt, depth + 1, &mut a, sums)?;
+            let (i2, r2, s2) = advance(net, 0.5 * dt, depth + 1, &mut b, sums)?;
             *rates = a.iter().zip(&b).map(|(x, y)| [0.5 * (x[0] + y[0]), 0.5 * (x[1] + y[1])]).collect();
             Ok((i1 + i2, r1.max(r2), 1 + s1 + s2))
         }
@@ -512,6 +583,14 @@ pub struct ContainmentNetwork {
     fdi_steam_kg: f64,
     dw_slab: [f64; DW_SLAB_CELLS],
     fp: FpHold,
+    /// The torus's top, m (the band of the placed decay heat ends there).
+    ww_top: f64,
+    /// The building's burn (sembawang's BUR state) and what `tampines`
+    /// burned and released there, and each volume's pool heat into its
+    /// atmosphere, since the start (gh:#1100).
+    rb_burn: Burn,
+    rb_burned: VolumeSums,
+    pool_heat_to_atm_j: [f64; 3],
 }
 
 /// Ports, by volume.
@@ -605,7 +684,8 @@ fn layer_pool(cv: ControlVolume, m: &NetworkMechanisms, n: usize) -> Result<Cont
         return Ok(cv);
     }
     let cv = cv.with_pool_layers(n)?;
-    Ok(if m.pool_layer_conduction { cv } else { cv.without_pool_layer_conduction() })
+    let cv = if m.pool_layer_conduction { cv } else { cv.without_pool_layer_conduction() };
+    Ok(if m.surface_mixed_block { cv } else { cv.without_surface_mixed_block() })
 }
 
 fn ablate(cv: ControlVolume, m: &NetworkMechanisms) -> Result<ControlVolume, TampinesError> {
@@ -784,6 +864,10 @@ impl ContainmentNetwork {
             fdi_steam_kg: 0.0,
             dw_slab: [t_dw; DW_SLAB_CELLS],
             fp: FpHold::new(prm.drywell_volume_m3, prm.wetwell_gas_m3),
+            ww_top,
+            rb_burn: Burn::default(),
+            rb_burned: VolumeSums::default(),
+            pool_heat_to_atm_j: [0.0; 3],
         })
     }
 
@@ -886,7 +970,15 @@ impl ContainmentNetwork {
             let side = self.pool_side(Some(self.z_quencher));
             self.fp.arrive(&prm, s, side);
         }
-        self.net.set_pool_heat(ww, Power::new::<watt>(fp_heat.pool_w))?;
+        // The torus's share: into the water above the downcomers' exits
+        // (the old model's top layer, `fp_pool_heat_above_exits`), else by
+        // mass over the pool.
+        if self.mech.fp_pool_heat_above_exits {
+            self.net.set_pool_heat(ww, Power::new::<watt>(0.0))?;
+            self.net.set_pool_heat_at(ww, &[ElevatedPoolHeat::between(len(self.z_exit), len(self.ww_top), Power::new::<watt>(fp_heat.pool_w))])?;
+        } else {
+            self.net.set_pool_heat(ww, Power::new::<watt>(fp_heat.pool_w))?;
+        }
         // Structures (explicit, from the start-of-step state).
         let (q_dw, m_dw, q_wall) = self.wall_exchange(dw, self.dw_wall, prm.dw_wall_area_m2, prm.dw_wall_height_m, (!s.dw_wall_hs).then_some(prm.dw_wall_h), dt);
         let (q_ww, m_ww, q_shell) = if s.ww_shell { self.wall_exchange(ww, self.ww_shell, prm.ww_shell_area_m2, prm.ww_shell_height_m, None, dt) } else { (0.0, 0.0, 0.0) };
@@ -966,9 +1058,32 @@ impl ContainmentNetwork {
             self.flange_open = true;
         }
         self.net.set_path_open_fraction(self.flange, if self.flange_open { 1.0 } else { 0.0 })?;
+        // Burns in the building (gh:#1100): sembawang's BUR criteria and
+        // rate on the start-of-step building, `tampines` applying them and
+        // closing the heat. The criterion: `bur_ignites` (or the old
+        // threshold with `bur_ignition` ablated in the snapshot), steam and
+        // CO2 the diluent. The rate: always BUR's dynamics (the old
+        // model's `burn_dynamics`, its default); its instant "explosion"
+        // without them removes the fuel with no heat, which a control
+        // volume cannot express. The drywell and torus are inerted (N2,
+        // and no path brings them oxygen), so their criterion cannot be met.
+        if self.mech.burns {
+            let (rx, heat_w, q) = self.building_burn(&prm, s.bur_ignition, dt);
+            self.net.set_atmosphere_species(rb, rx)?;
+            self.net.set_atmosphere_heat(rb, Power::new::<watt>(heat_w))?;
+            self.rb_burned.rx_heat_j += q;
+        }
         let mut rates = Vec::new();
-        let (iterations, residual, substeps) = advance(&mut self.net, dt, 0, &mut rates)?;
+        let mut sums = Vec::new();
+        let (iterations, residual, substeps) = advance(&mut self.net, dt, 0, &mut rates, &mut sums)?;
         self.substeps += substeps;
+        for (i, v) in sums.iter().enumerate().take(3) {
+            self.pool_heat_to_atm_j[i] += v.pool_heat_to_atm_j;
+        }
+        if let Some(v) = sums.get(rb) {
+            self.rb_burned.h2_mol += v.h2_mol;
+            self.rb_burned.co_mol += v.co_mol;
+        }
         let rate = |i: usize| rates.get(i).map_or(0.0, |r| r[0]);
         if fp_on {
             let gas: Vec<f64> = rates.iter().map(|r| r[1]).collect();
@@ -1011,6 +1126,11 @@ impl ContainmentNetwork {
                 rb_gas.ncg_moles[NonCondensable::O2.index()] / n_rb,
                 (rb_gas.steam_kg / M_H2O + rb_gas.ncg_moles[NonCondensable::CO2.index()]) / n_rb,
             ),
+            rb_burning: self.rb_burn.is_burning(),
+            rb_h2_burned_kg: self.rb_burned.h2_mol * M_H2,
+            rb_co_burned_kg: self.rb_burned.co_mol * NonCondensable::CO.molar_mass(),
+            rb_burn_heat_j: self.rb_burned.rx_heat_j,
+            pool_heat_to_atmosphere_j: self.pool_heat_to_atm_j,
             vent_flowing: vent_open && vented > 0.0,
             vented_kg_s: vented,
             vented_h2_kg: self.vented_h2_kg,
@@ -1033,6 +1153,38 @@ impl ContainmentNetwork {
             residual,
             substeps: self.substeps,
         })
+    }
+
+    /// The building's burn for this step (gh:#1100): sembawang's BUR
+    /// ([`bur_ignites`], [`bur_step`], the old model's code) on the
+    /// building's start-of-step gas, steam and CO2 the diluent, turned into
+    /// `tampines`' species sources and sinks and the heat of reaction by
+    /// [`super::reaction::burn_inputs`] (gh:#1103: the chemistry is
+    /// sembawang's). Returns the species rates, the heat, W, and the
+    /// stored-energy release `Q`, J.
+    fn building_burn(&mut self, prm: &Params, bur_ignition: bool, dt: f64) -> (AtmosphereSpeciesRates, f64, f64) {
+        let Some(v) = self.net.volume(self.rb) else { return (AtmosphereSpeciesRates::none(), 0.0, 0.0) };
+        let g = v.atmosphere();
+        let n = g.steam_kg / M_H2O + g.ncg_total_moles();
+        let (ih, ic, io, ic2) = (NonCondensable::H2.index(), NonCondensable::CO.index(), NonCondensable::O2.index(), NonCondensable::CO2.index());
+        let (h2, co, o2) = (g.ncg_moles[ih], g.ncg_moles[ic], g.ncg_moles[io]);
+        let x_d = (g.steam_kg / M_H2O + g.ncg_moles[ic2]) / n;
+        let ignites = if bur_ignition { bur_ignites(prm, h2 / n, co / n, o2 / n, x_d) } else { h2 / n >= prm.h2_explosion };
+        let (d_h2, d_co, _) = bur_step(prm, &mut self.rb_burn, ignites, h2, co, n, x_d, o2 / n, prm.reactor_building_m3, dt);
+        if d_h2 == 0.0 && d_co == 0.0 {
+            return (AtmosphereSpeciesRates::none(), 0.0, 0.0);
+        }
+        match super::reaction::burn_inputs(v, d_h2, d_co, dt) {
+            Ok((rates, heat_w, _, q)) => (rates, heat_w, q),
+            // `bur_step`'s amounts are finite and non-negative, so this is
+            // unreachable in practice; nothing burns rather than a panic.
+            Err(_) => (AtmosphereSpeciesRates::none(), 0.0, 0.0),
+        }
+    }
+
+    /// The building's burn state (sembawang's BUR; read-only).
+    pub fn building_burn_state(&self) -> Burn {
+        self.rb_burn
     }
 
     /// The torus pool's liquid temperature at elevation `z`, K: the layer
