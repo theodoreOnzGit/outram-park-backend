@@ -142,6 +142,26 @@ pub enum HemJunction {
         /// Form loss when fully open.
         form_loss: f64,
     },
+    /// A relief/safety valve from `a` (protected side) to `b` (discharge
+    /// side) (RELAP-7 §6.11, gh:#1074). Opens when `a`'s end-cell pressure
+    /// reaches `set_pressure_pa`, recloses when it falls to
+    /// `reseat_pressure_pa`; while open it passes the equation of state's
+    /// break flow ([`HemEquationOfState::break_flow`]: choked or
+    /// subcritical) from `a`'s stagnation state to `b`'s pressure, through
+    /// `area_fraction·min(A)`. Only closures with a break-flow model (IAPWS-IF97)
+    /// can open it; the manual's ideal-gas choking relations are not used.
+    ReliefValve {
+        /// Protected end.
+        a: PipeEndRef,
+        /// Discharge end.
+        b: PipeEndRef,
+        /// Opening pressure, Pa.
+        set_pressure_pa: f64,
+        /// Reclosing pressure, Pa, `≤ set_pressure_pa`.
+        reseat_pressure_pa: f64,
+        /// Flow area over the smaller end area, in `(0, 1]`.
+        area_fraction: f64,
+    },
     /// A turbine from inlet end `a` to outlet end `b` (§6.7).
     Turbine {
         /// Inlet end.
@@ -160,6 +180,7 @@ impl HemJunction {
             HemJunction::Flow { a, b, .. }
             | HemJunction::Pump { a, b, .. }
             | HemJunction::Valve { a, b, .. }
+            | HemJunction::ReliefValve { a, b, .. }
             | HemJunction::Turbine { a, b, .. } => Some((*a, *b)),
             HemJunction::Volume(_) => None,
         }
@@ -244,12 +265,18 @@ impl TimeTable {
                 "a time table needs finite values at strictly increasing times; got {points:?}"
             )));
         }
-        Ok(Self { times_s: points.iter().map(|p| p.0).collect(), values: points.iter().map(|p| p.1).collect() })
+        Ok(Self {
+            times_s: points.iter().map(|p| p.0).collect(),
+            values: points.iter().map(|p| p.1).collect(),
+        })
     }
 
     /// A constant.
     pub fn constant(value: f64) -> Self {
-        Self { times_s: vec![0.0], values: vec![value] }
+        Self {
+            times_s: vec![0.0],
+            values: vec![value],
+        }
     }
 
     /// The value at time `t_s`: linear between points, held beyond the ends.
@@ -314,6 +341,8 @@ pub struct HemNetwork<E: HemEquationOfState> {
     /// Power each pump put into, or each turbine took out of, the fluid at
     /// the last step, W.
     junction_power: Vec<f64>,
+    /// Whether each relief valve is open (and whether it was choked).
+    relief_state: Vec<(bool, bool)>,
     courant: f64,
     time_s: f64,
 }
@@ -379,6 +408,7 @@ impl<E: HemEquationOfState> HemNetwork<E> {
             time_dependent: Vec::new(),
             junction_mass_flow: Vec::new(),
             junction_power: Vec::new(),
+            relief_state: Vec::new(),
             courant,
             time_s: 0.0,
         })
@@ -414,38 +444,69 @@ impl<E: HemEquationOfState> HemNetwork<E> {
     /// # Errors
     ///
     /// [`HemError::InvalidInput`] for an unknown or already joined end.
-    pub fn add_time_dependent(&mut self, end: PipeEndRef, boundary: TimeDependentBoundary) -> Result<usize, HemError> {
+    pub fn add_time_dependent(
+        &mut self,
+        end: PipeEndRef,
+        boundary: TimeDependentBoundary,
+    ) -> Result<usize, HemError> {
         self.check_end(end)?;
         self.time_dependent.push((end, boundary));
         Ok(self.time_dependent.len() - 1)
     }
 
     /// The boundary a time-dependent component sets on its end at time `t`.
-    fn time_dependent_boundary(&self, end: PipeEndRef, tdb: &TimeDependentBoundary, t: f64) -> Result<HemBoundary, HemError> {
+    fn time_dependent_boundary(
+        &self,
+        end: PipeEndRef,
+        tdb: &TimeDependentBoundary,
+        t: f64,
+    ) -> Result<HemBoundary, HemError> {
         match tdb {
             TimeDependentBoundary::Volume { pressure, thermo } => {
                 let p = Pressure::new::<pascal>(pressure.at(t));
                 let h = match thermo {
                     TdvThermo::Enthalpy(h) => AvailableEnergy::new::<joule_per_kilogram>(h.at(t)),
                     TdvThermo::Temperature(temp) => {
-                        self.eos.state_p_t(p, ThermodynamicTemperature::new::<kelvin>(temp.at(t)))?.specific_enthalpy
+                        self.eos
+                            .state_p_t(p, ThermodynamicTemperature::new::<kelvin>(temp.at(t)))?
+                            .specific_enthalpy
                     }
                 };
-                Ok(HemBoundary::Reservoir { stagnation_pressure: p, stagnation_enthalpy: h })
+                Ok(HemBoundary::Reservoir {
+                    stagnation_pressure: p,
+                    stagnation_enthalpy: h,
+                })
             }
-            TimeDependentBoundary::Junction { mass_flow, temperature } => {
+            TimeDependentBoundary::Junction {
+                mass_flow,
+                temperature,
+            } => {
                 let (c, area) = self.end_cell(end)?;
                 let g_in = mass_flow.at(t) / area;
                 let p_c = c.pressure.get::<pascal>();
                 let (rho, h) = if g_in >= 0.0 {
-                    let st = self.eos.state_p_t(c.pressure, ThermodynamicTemperature::new::<kelvin>(temperature.at(t)))?;
-                    (st.density.get::<kilogram_per_cubic_meter>(), st.specific_enthalpy.get::<joule_per_kilogram>())
+                    let st = self.eos.state_p_t(
+                        c.pressure,
+                        ThermodynamicTemperature::new::<kelvin>(temperature.at(t)),
+                    )?;
+                    (
+                        st.density.get::<kilogram_per_cubic_meter>(),
+                        st.specific_enthalpy.get::<joule_per_kilogram>(),
+                    )
                 } else {
-                    (c.density.get::<kilogram_per_cubic_meter>(), c.specific_enthalpy.get::<joule_per_kilogram>())
+                    (
+                        c.density.get::<kilogram_per_cubic_meter>(),
+                        c.specific_enthalpy.get::<joule_per_kilogram>(),
+                    )
                 };
                 // Outward-normal frame: inflow is a negative normal mass flux.
                 let u = g_in / rho;
-                Ok(to_pipe_frame(end.end, -g_in, p_c + g_in * u, -g_in * (h + 0.5 * u * u)))
+                Ok(to_pipe_frame(
+                    end.end,
+                    -g_in,
+                    p_c + g_in * u,
+                    -g_in * (h + 0.5 * u * u),
+                ))
             }
         }
     }
@@ -468,21 +529,31 @@ impl<E: HemEquationOfState> HemNetwork<E> {
     /// same end twice, a negative loss, or turbine parameters out of range.
     pub fn add_component(&mut self, junction: HemJunction) -> Result<usize, HemError> {
         let Some((a, b)) = junction.ends() else {
-            return Err(HemError::InvalidInput("use add_volume_branch for a volume".into()));
+            return Err(HemError::InvalidInput(
+                "use add_volume_branch for a volume".into(),
+            ));
         };
         self.check_end(a)?;
         self.check_end(b)?;
         if a == b {
-            return Err(HemError::InvalidInput("a junction needs two different ends".into()));
+            return Err(HemError::InvalidInput(
+                "a junction needs two different ends".into(),
+            ));
         }
         match &junction {
-            HemJunction::Flow { form_loss, .. } | HemJunction::Valve { form_loss, .. } => Self::check_loss(*form_loss)?,
-            HemJunction::Pump { reverse_loss, head, .. } => {
+            HemJunction::Flow { form_loss, .. } | HemJunction::Valve { form_loss, .. } => {
+                Self::check_loss(*form_loss)?
+            }
+            HemJunction::Pump {
+                reverse_loss, head, ..
+            } => {
                 Self::check_loss(reverse_loss.0)?;
                 Self::check_loss(reverse_loss.1)?;
                 if let PumpHead::ShaftPower { shutoff_head_m, .. } = head {
                     if !(shutoff_head_m.is_finite() && *shutoff_head_m > 0.0) {
-                        return Err(HemError::InvalidInput(format!("shut-off head {shutoff_head_m} m must be > 0")));
+                        return Err(HemError::InvalidInput(format!(
+                            "shut-off head {shutoff_head_m} m must be > 0"
+                        )));
                     }
                 }
             }
@@ -497,13 +568,41 @@ impl<E: HemEquationOfState> HemNetwork<E> {
                     && t.efficiency <= 1.0
                     && t.isentropic_exponent > 1.0;
                 if !ok {
-                    return Err(HemError::InvalidInput(format!("turbine parameters out of range: {t:?}")));
+                    return Err(HemError::InvalidInput(format!(
+                        "turbine parameters out of range: {t:?}"
+                    )));
+                }
+            }
+            HemJunction::ReliefValve {
+                set_pressure_pa,
+                reseat_pressure_pa,
+                area_fraction,
+                ..
+            } => {
+                let ok = *set_pressure_pa > 0.0
+                    && *reseat_pressure_pa > 0.0
+                    && reseat_pressure_pa <= set_pressure_pa
+                    && *area_fraction > 0.0
+                    && *area_fraction <= 1.0;
+                if !ok {
+                    return Err(HemError::InvalidInput(format!(
+                        "relief valve needs 0 < reseat <= set and area fraction in (0, 1]; got set {set_pressure_pa}, reseat {reseat_pressure_pa}, fraction {area_fraction}"
+                    )));
                 }
             }
             HemJunction::Volume(_) => {}
         }
         self.junctions.push(junction);
         Ok(self.junctions.len() - 1)
+    }
+
+    /// Whether relief valve `index` is open, and whether its last flow was
+    /// choked.
+    pub fn relief_valve_state(&self, index: usize) -> (bool, bool) {
+        self.relief_state
+            .get(index)
+            .copied()
+            .unwrap_or((false, false))
     }
 
     /// Mass flow through two-end junction `index` at the last step, kg/s,
@@ -523,7 +622,14 @@ impl<E: HemEquationOfState> HemNetwork<E> {
     /// `pump_dp` from `a` to `b`. Both enter the junction momentum balance
     /// the RELAP5 way: the loss raises the downstream state's pressure, the
     /// pump raises `a`'s, and each side receives the flux less its jump.
-    fn two_end(&self, a: PipeEndRef, b: PipeEndRef, scale: f64, form_loss: f64, pump_dp: f64) -> Result<TwoEnd, HemError> {
+    fn two_end(
+        &self,
+        a: PipeEndRef,
+        b: PipeEndRef,
+        scale: f64,
+        form_loss: f64,
+        pump_dp: f64,
+    ) -> Result<TwoEnd, HemError> {
         let nx = Vector3::new(1.0, 0.0, 0.0);
         let (ca, area_a) = self.end_cell(a)?;
         let (cb, area_b) = self.end_cell(b)?;
@@ -552,7 +658,11 @@ impl<E: HemEquationOfState> HemNetwork<E> {
             let side = |area: f64| p_j + (mdot / area) * (mdot / area) / rho_up;
             (side(area_a), side(area_b))
         };
-        let (mom_a, mom_b) = if a_is_up { (mom_a, mom_b - loss) } else { (mom_a - loss, mom_b) };
+        let (mom_a, mom_b) = if a_is_up {
+            (mom_a, mom_b - loss)
+        } else {
+            (mom_a - loss, mom_b)
+        };
         // The pump work enters b only: a loses its jump in momentum and the
         // pressure work ṁ·Δp/ρ in energy.
         let (mom_a, edot_a, pump_power) = if pump_dp != 0.0 {
@@ -561,7 +671,10 @@ impl<E: HemEquationOfState> HemNetwork<E> {
         } else {
             (mom_a, edot, 0.0)
         };
-        let cell = self.pipes[a.pipe].geometry().cell_width().get::<uom::si::length::meter>();
+        let cell = self.pipes[a.pipe]
+            .geometry()
+            .cell_width()
+            .get::<uom::si::length::meter>();
         Ok(TwoEnd {
             // a: flux out of a; b: the same rate into b, so out of b is negative.
             bc_a: to_pipe_frame(a.end, mdot / area_a, mom_a, edot_a / area_a),
@@ -580,12 +693,30 @@ impl<E: HemEquationOfState> HemNetwork<E> {
         let (ca, area_a) = self.end_cell(a)?;
         let (cb, area_b) = self.end_cell(b)?;
         let v = |c: &HemCellState| c.velocity.get::<uom::si::velocity::meter_per_second>();
-        let (rho1, p1, h1, u1) = (ca.density.get::<kilogram_per_cubic_meter>(), ca.pressure.get::<pascal>(), ca.specific_enthalpy.get::<joule_per_kilogram>(), v(&ca));
-        let (rho2, p2, u2) = (cb.density.get::<kilogram_per_cubic_meter>(), cb.pressure.get::<pascal>(), v(&cb));
+        let (rho1, p1, h1, u1) = (
+            ca.density.get::<kilogram_per_cubic_meter>(),
+            ca.pressure.get::<pascal>(),
+            ca.specific_enthalpy.get::<joule_per_kilogram>(),
+            v(&ca),
+        );
+        let (rho2, p2, u2) = (
+            cb.density.get::<kilogram_per_cubic_meter>(),
+            cb.pressure.get::<pascal>(),
+            v(&cb),
+        );
         let (p01, h01) = (p1 + 0.5 * rho1 * u1 * u1, h1 + 0.5 * u1 * u1);
         let p02 = p2 + 0.5 * rho2 * u2 * u2;
-        let cell = self.pipes[a.pipe].geometry().cell_width().get::<uom::si::length::meter>();
-        let c_max = ca.equilibrium_sound_speed.get::<uom::si::velocity::meter_per_second>().max(cb.equilibrium_sound_speed.get::<uom::si::velocity::meter_per_second>());
+        let cell = self.pipes[a.pipe]
+            .geometry()
+            .cell_width()
+            .get::<uom::si::length::meter>();
+        let c_max = ca
+            .equilibrium_sound_speed
+            .get::<uom::si::velocity::meter_per_second>()
+            .max(
+                cb.equilibrium_sound_speed
+                    .get::<uom::si::velocity::meter_per_second>(),
+            );
         if p01 <= p02 {
             // Closed valve: both ends walls.
             return Ok(TwoEnd {
@@ -596,7 +727,10 @@ impl<E: HemEquationOfState> HemNetwork<E> {
                 pump_power: 0.0,
             });
         }
-        let st01 = self.eos.state_p_h(Pressure::new::<pascal>(p01), AvailableEnergy::new::<joule_per_kilogram>(h01))?;
+        let st01 = self.eos.state_p_h(
+            Pressure::new::<pascal>(p01),
+            AvailableEnergy::new::<joule_per_kilogram>(h01),
+        )?;
         let t01 = st01.temperature.get::<kelvin>();
         let rho01 = st01.density.get::<kilogram_per_cubic_meter>();
         let mdot = t.max_mass_flow_kg_s
@@ -798,6 +932,7 @@ impl<E: HemEquationOfState> HemNetwork<E> {
         // 2. Junction fluxes, and the volume rates they imply.
         let mut boundaries: Vec<(PipeEndRef, HemBoundary)> = Vec::new();
         let mut outputs: Vec<(usize, f64, f64)> = Vec::new();
+        let mut relief: Vec<(usize, bool, bool)> = Vec::new();
         let mut volume_rates: Vec<(usize, f64, f64)> = Vec::new();
         let nx = Vector3::new(1.0, 0.0, 0.0);
         for (ji, j) in self.junctions.iter().enumerate() {
@@ -809,33 +944,58 @@ impl<E: HemEquationOfState> HemNetwork<E> {
                     rate = rate.max(r.rate);
                     outputs.push((ji, r.mdot, 0.0));
                 }
-                HemJunction::Pump { a, b, head, reverse_loss } => {
+                HemJunction::Pump {
+                    a,
+                    b,
+                    head,
+                    reverse_loss,
+                } => {
                     let (ca, _) = self.end_cell(*a)?;
                     let rho_a = ca.density.get::<kilogram_per_cubic_meter>();
                     let h = match head {
                         PumpHead::Head(t) => t.at(self.time_s),
-                        PumpHead::ShaftPower { power, shutoff_head_m } => {
+                        PumpHead::ShaftPower {
+                            power,
+                            shutoff_head_m,
+                        } => {
                             let m = self.junction_mass_flow.get(ji).copied().unwrap_or(0.0);
                             let w = power.at(self.time_s);
-                            if m * GRAVITY * shutoff_head_m > w { w / (m * GRAVITY) } else { *shutoff_head_m }
+                            if m * GRAVITY * shutoff_head_m > w {
+                                w / (m * GRAVITY)
+                            } else {
+                                *shutoff_head_m
+                            }
                         }
                     };
                     // Normal flow (a → b) gets the head; reverse flow is a
                     // resistance K1 + K2 (RELAP-7 Eqs 357-358).
-                    let ua = outward(a.end) * ca.velocity.get::<uom::si::velocity::meter_per_second>();
-                    let (dp, k) = if ua >= 0.0 { (rho_a * GRAVITY * h, 0.0) } else { (0.0, reverse_loss.0 + reverse_loss.1) };
+                    let ua =
+                        outward(a.end) * ca.velocity.get::<uom::si::velocity::meter_per_second>();
+                    let (dp, k) = if ua >= 0.0 {
+                        (rho_a * GRAVITY * h, 0.0)
+                    } else {
+                        (0.0, reverse_loss.0 + reverse_loss.1)
+                    };
                     let r = self.two_end(*a, *b, 1.0, k, dp)?;
                     boundaries.push((*a, r.bc_a));
                     boundaries.push((*b, r.bc_b));
                     rate = rate.max(r.rate);
                     outputs.push((ji, r.mdot, r.pump_power));
                 }
-                HemJunction::Valve { a, b, opening, form_loss } => {
+                HemJunction::Valve {
+                    a,
+                    b,
+                    opening,
+                    form_loss,
+                } => {
                     let open = opening.at(self.time_s).clamp(0.0, 1.0);
                     if open <= 0.0 {
                         for e in [a, b] {
                             let (c, _) = self.end_cell(*e)?;
-                            boundaries.push((*e, to_pipe_frame(e.end, 0.0, c.pressure.get::<pascal>(), 0.0)));
+                            boundaries.push((
+                                *e,
+                                to_pipe_frame(e.end, 0.0, c.pressure.get::<pascal>(), 0.0),
+                            ));
                         }
                         outputs.push((ji, 0.0, 0.0));
                     } else {
@@ -844,6 +1004,65 @@ impl<E: HemEquationOfState> HemNetwork<E> {
                         boundaries.push((*b, r.bc_b));
                         rate = rate.max(r.rate);
                         outputs.push((ji, r.mdot, 0.0));
+                    }
+                }
+                HemJunction::ReliefValve {
+                    a,
+                    b,
+                    set_pressure_pa,
+                    reseat_pressure_pa,
+                    area_fraction,
+                } => {
+                    let (ca, area_a) = self.end_cell(*a)?;
+                    let (cb, area_b) = self.end_cell(*b)?;
+                    let p_a = ca.pressure.get::<pascal>();
+                    let was_open = self.relief_state.get(ji).map_or(false, |s| s.0);
+                    let open = if was_open {
+                        p_a > *reseat_pressure_pa
+                    } else {
+                        p_a >= *set_pressure_pa
+                    };
+                    let p_b = cb.pressure.get::<pascal>();
+                    if open {
+                        let u_a = ca.velocity.get::<uom::si::velocity::meter_per_second>();
+                        let h0 = ca.specific_enthalpy.get::<joule_per_kilogram>() + 0.5 * u_a * u_a;
+                        let flow = self.eos.break_flow(
+                            ca.pressure,
+                            AvailableEnergy::new::<joule_per_kilogram>(h0),
+                            cb.pressure,
+                        )?;
+                        let g = flow.mass_flux.get::<kilogram_per_square_meter_second>();
+                        let mdot = g * area_a.min(area_b) * area_fraction;
+                        let (ga, gb) = (mdot / area_a, mdot / area_b);
+                        let (rho_a, rho_b) = (
+                            ca.density.get::<kilogram_per_cubic_meter>(),
+                            cb.density.get::<kilogram_per_cubic_meter>(),
+                        );
+                        boundaries
+                            .push((*a, to_pipe_frame(a.end, ga, p_a + ga * ga / rho_a, ga * h0)));
+                        boundaries.push((
+                            *b,
+                            to_pipe_frame(b.end, -gb, p_b + gb * gb / rho_b, -gb * h0),
+                        ));
+                        let c = ca
+                            .equilibrium_sound_speed
+                            .get::<uom::si::velocity::meter_per_second>()
+                            .max(
+                                cb.equilibrium_sound_speed
+                                    .get::<uom::si::velocity::meter_per_second>(),
+                            );
+                        let cell = self.pipes[a.pipe]
+                            .geometry()
+                            .cell_width()
+                            .get::<uom::si::length::meter>();
+                        rate = rate.max((c + (ga / rho_a).abs().max((gb / rho_b).abs())) / cell);
+                        outputs.push((ji, mdot, 0.0));
+                        relief.push((ji, true, flow.choked));
+                    } else {
+                        boundaries.push((*a, to_pipe_frame(a.end, 0.0, p_a, 0.0)));
+                        boundaries.push((*b, to_pipe_frame(b.end, 0.0, p_b, 0.0)));
+                        outputs.push((ji, 0.0, 0.0));
+                        relief.push((ji, false, false));
                     }
                 }
                 HemJunction::Turbine { a, b, params } => {
@@ -944,6 +1163,11 @@ impl<E: HemEquationOfState> HemNetwork<E> {
         }
         self.junction_mass_flow.resize(self.junctions.len(), 0.0);
         self.junction_power.resize(self.junctions.len(), 0.0);
+        self.relief_state
+            .resize(self.junctions.len(), (false, false));
+        for (ji, open, choked) in relief {
+            self.relief_state[ji] = (open, choked);
+        }
         for (ji, m, w) in outputs {
             self.junction_mass_flow[ji] = m;
             self.junction_power[ji] = w;

@@ -149,3 +149,24 @@ run.
   isentropic drop is the ideal-gas form with a user exponent, not an EOS
   entropy.
 - No homologous pump curves.
+
+## Relief valve (gh:#1074)
+
+`HemJunction::ReliefValve` (RELAP-7 §6.11): opens when the protected end cell
+reaches `p_set`, closes when it falls to `p_reseat`, and when open passes the
+EOS break flow (`HemEquationOfState::break_flow`, choked or not) through
+`area_fraction·min(A)` at the end cell's stagnation enthalpy. Closed, both ends
+are walls. `relief_valve_state` reports open and choked.
+
+Test: `tests/hem_relief_valve.rs`, 2026-11-01, IF97 water. Predictions written
+before the run.
+
+| Case | Measured | Prediction |
+|---|---|---|
+| 7.5 MPa / 500 K pipe, set 7.0, reseat 6.5 MPa, into 0.5 MPa / 400 K, fraction 0.1, 2000 steps | opens on step 1, choked, 90.7 kg/s; recloses at 0.040 ms (end cell 5.95 MPa) | held |
+| Same: stays closed after reseating | **missed**: 12 openings, 12 closings — water hammer from the abrupt closure lifts the end cell back over the set pressure (chatter) | missed, physical |
+| Same: hysteresis thresholds, closed-step mass, total mass | every transition on the right side of its threshold; 4.4e-16; 4.4e-16 | held |
+
+Limits: the valve opens and closes instantly (no stroke time), which is what
+drives the chatter; the break flow uses the end cell's static pressure, not a
+stagnation pressure.
