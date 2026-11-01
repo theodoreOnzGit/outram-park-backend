@@ -85,9 +85,14 @@ fn roster_lists_reviewers_keys_stamps_agents_and_warnings() {
     assert!(f.keys[0].here && f.keys[0].trusted && f.keys[0].fingerprint.starts_with("SHA256:"));
     assert!(f.keys[0].history[0].ends_with("created"), "{:?}", f.keys[0].history);
     assert_eq!(f.stamps.len(), 1, "{:?}", f.stamps);
-    assert_eq!(f.stamps[0].state, StateKind::Valid);
-    assert_eq!(f.coverage, Some((1, 3)));
-    assert!(f.reviews_line().contains("1 stamp \u{b7} 1 valid \u{b7} coverage 33 % (1/3)"), "{}", f.reviews_line());
+    // Tentative since 2026-11-01 (#1106): `leaf` under `twice` is unstamped.
+    assert_eq!(f.stamps[0].state, StateKind::Tentative);
+    assert_eq!(f.coverage, Some((0, 3)));
+    assert!(
+        f.reviews_line().contains("1 stamp \u{b7} 1 tentative: waiting on stamps underneath \u{b7} coverage 0 % (0/3)"),
+        "{}",
+        f.reviews_line()
+    );
     let b = ro.reviewer(B).unwrap();
     assert!(matches!(b.status, Status::AwaitingAdmission(_)), "{:?}", b.status);
     assert!(b.admitted.starts_with("not admitted"));
@@ -304,7 +309,8 @@ fn engine_verdicts_can_be_dumped_for_a_before_after_comparison() {
     r.stamp(&key, "twice", "");
     let ev = super::super::evaluate_workspace(r.path()).unwrap();
     let lines = verdict_lines(&ev.evaluation, "crates/demo");
-    assert!(lines.iter().any(|l| l.contains("::twice") && l.contains("fn=Valid")), "{lines:?}");
+    // Tentative: `leaf` under `twice` is unstamped (#1106).
+    assert!(lines.iter().any(|l| l.contains("::twice") && l.contains("fn=Tentative")), "{lines:?}");
     if let (Some(root), Some(out)) = (std::env::var_os("KOVAN_STAMP_DUMP_ROOT"), std::env::var_os("KOVAN_STAMP_DUMP_OUT")) {
         let prefix = std::env::var("KOVAN_STAMP_DUMP_PREFIX").unwrap_or_default();
         let ev = super::super::evaluate_workspace(Path::new(&root)).unwrap();
@@ -380,7 +386,9 @@ fn a_novice_needs_a_second_sign_off_until_promoted() {
     assert_eq!(StateKind::AwaitingTrustedReviewer.label(), "1 of 2: awaiting a trusted reviewer");
     assert!(!StateKind::AwaitingTrustedReviewer.counts());
     r.stamp(&fk, "twice", "");
-    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid), "novice plus trusted");
+    // Novice plus trusted: past the second sign-off, tentative only because
+    // `leaf` underneath is unstamped (#1106) until Bob stamps it below.
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Tentative), "novice plus trusted");
 
     // Promotion from 2099-01-01; Bob's later stamp counts alone.
     let later = "2099-01-01";
@@ -445,7 +453,8 @@ fn scope_change_and_handover_through_the_panel() {
     let ro = p.roster().unwrap().clone();
     assert_eq!(ro.reviewer(B).unwrap().role_label, "Maintainer");
     assert_eq!(ro.reviewer(BY).unwrap().role_label, "Reviewer \u{b7} founder (stepped down)");
-    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid), "A's past stamps keep their standing");
+    // Tentative (`leaf` underneath is unstamped, #1106), and still standing.
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Tentative), "A's past stamps keep their standing");
     assert!(p.problems(&UserAction::MarkNovice { reviewer: B.into(), scope: vec![] }).iter().any(|x| x.contains("admitted maintainer")));
     // Carol registers; Bob admits her.
     let ks = Keystore::at(store.path());

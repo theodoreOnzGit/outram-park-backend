@@ -490,7 +490,14 @@ impl Facts {
     /// bottom-up rule (#740). UNRESOLVED calls are not counted (they are
     /// not in `calls`).
     pub fn blocked_by(&self, map: &CodeMap, slice: &CrateSlice, id: &str) -> Vec<String> {
-        self.callees(map, slice, id).into_iter().filter(|c| !self.review(c).holds()).collect()
+        // A tentative callee (#1106) is listed: its caller would wait too.
+        self.callees(map, slice, id)
+            .into_iter()
+            .filter(|c| {
+                let r = self.review(c);
+                !r.holds() || r.kind() == StateKind::Tentative
+            })
+            .collect()
     }
 }
 

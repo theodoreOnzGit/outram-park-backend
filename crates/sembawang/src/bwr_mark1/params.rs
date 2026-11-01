@@ -346,6 +346,72 @@ pub const BUR_XO2IG: f64 = 0.05;
 /// The most steam and CO2 for ignition (XMSCIG default), inerting above.
 /// \[P\]
 pub const BUR_XMSCIG: f64 = 0.55;
+/// MELCOR's BUR combustion completeness (BUR RM §2.3, record BUR_COM
+/// defaults): the hydrogen mole fraction in the completeness's Le
+/// Chatelier formula (Eq 2-7), XH2CC. \[P\]
+pub const BUR_XH2CC: f64 = 0.08;
+/// CO's mole fraction in the completeness's Le Chatelier formula, XCOCC.
+/// \[P\]
+pub const BUR_XCOCC: f64 = 0.148;
+/// The HECTR 1.5 completeness correlation's slope (Eq 2-9,
+/// sensitivity coefficients 2202). \[P\]
+pub const BUR_CC_SLOPE: f64 = 23.4116;
+/// The correlation's threshold Ymax, below which nothing burns (Eq 2-8).
+/// \[P\]
+pub const BUR_CC_Y0: f64 = 0.037_46;
+/// Hydrogen's heat of combustion to steam (the lower heating value),
+/// J/mol. \[P\] (NIST: 241.8 kJ/mol.)
+pub const H2_COMBUSTION_J_PER_MOL: f64 = 241.8e3;
+/// CO's heat of combustion to CO2, J/mol. \[P\] (NIST: 283.0 kJ/mol.)
+pub const CO_COMBUSTION_J_PER_MOL: f64 = 283.0e3;
+/// The ejected debris's surface tension, N/m, for its breakup in the
+/// pedestal's water (`Mechanisms::fdi_lpme`, FDI RM Eq 2-8). \[A\] liquid
+/// UO2's, about 0.45 N/m at its melting point (MATPRO).
+pub const FDI_SURFACE_TENSION: f64 = 0.45;
+/// The ejection velocity above which MELCOR models a high-pressure melt
+/// ejection instead, m/s (FDI RM §2.3, sensitivity coefficient 4602).
+/// \[P\]
+pub const FDI_HPME_VELOCITY: f64 = 10.0;
+/// UO2 carried by candling Zr, as a fraction of the molten Zr's mass
+/// (`Mechanisms::uo2_candling`): MELCOR's COR_CMT default FUOZR with
+/// MTUOZR = 1 (COR RM §3.1.4, Eq 3-14). \[P\]
+pub const CANDLING_UO2_FRACTION: f64 = 0.2;
+/// The lower plenum's debris is a convecting oxide pool above this, K
+/// (`Mechanisms::molten_pool`): the UO2-ZrO2 eutectic of MELCOR's Table
+/// 2-12 (COR RM §2.8.2). \[P\]
+pub const POOL_MELT_K: f64 = 2800.0;
+/// MELCOR's ACOPO correlation for an oxide pool's radial boundary, `Nu =
+/// A Ra_i^n` (COR RM Table 2-4, j = 1, C1280): the coefficient. \[P\]
+pub const POOL_NU_A: f64 = 0.3;
+/// The ACOPO correlation's exponent. \[P\]
+pub const POOL_NU_N: f64 = 0.22;
+/// The oxidic melt's conductivity, W/(m K). \[A\] corium literature,
+/// about 3.
+pub const POOL_K: f64 = 3.0;
+/// The oxidic melt's viscosity, Pa s. \[A\] corium literature, 4.4e-3.
+pub const POOL_MU: f64 = 4.4e-3;
+/// The oxidic melt's thermal expansion, 1/K. \[A\] corium literature,
+/// 1.05e-4.
+pub const POOL_BETA: f64 = 1.05e-4;
+/// The oxidic melt's specific heat, J/(kg K). \[A\] corium literature,
+/// about 500.
+pub const POOL_CP: f64 = 500.0;
+/// The oxidic melt's density, kg/m^3. \[A\] corium literature, about
+/// 8000.
+pub const POOL_RHO: f64 = 8000.0;
+/// B4C per control blade over the active height, kg (`Mechanisms::
+/// b4c_oxidation`): \[A\] the blade geometry of `BLADE_STEEL_KG`, 72 tubes of
+/// 3.6 mm bore over 3.66 m, packed at 70 % of B4C's 2520 kg/m^3: 4.7 kg.
+pub const BLADE_B4C_KG: f64 = 4.7;
+/// MELCOR's simple B4C model (COR RM §2.5.9, MARCON 2.1B, Eq 2-208): the
+/// fraction of the initial B4C reacting per second is `A exp(-B/T)`,
+/// `A = 9.973e6 / 60` 1/s. \[P\]
+pub const B4C_RATE_A: f64 = 9.973e6 / 60.0;
+/// Its activation temperature, K. \[P\]
+pub const B4C_RATE_B: f64 = 22647.2;
+/// The most of the B4C that may react, MELCOR's default (C1005(2)): the
+/// blade's eutectic relocates it first. \[P\]
+pub const B4C_MAX_FRACTION: f64 = 0.02;
 /// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
 /// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
 pub const SS_X_FE: f64 = 0.74;
@@ -811,6 +877,27 @@ params! {
     bur_xcoign = BUR_XCOIGN, P,
     bur_xo2ig = BUR_XO2IG, P,
     bur_xmscig = BUR_XMSCIG, P,
+    bur_xh2cc = BUR_XH2CC, P,
+    bur_xcocc = BUR_XCOCC, P,
+    bur_cc_slope = BUR_CC_SLOPE, P,
+    bur_cc_y0 = BUR_CC_Y0, P,
+    h2_combustion_j_per_mol = H2_COMBUSTION_J_PER_MOL, P,
+    co_combustion_j_per_mol = CO_COMBUSTION_J_PER_MOL, P,
+    fdi_surface_tension = FDI_SURFACE_TENSION, A,
+    fdi_hpme_velocity = FDI_HPME_VELOCITY, P,
+    candling_uo2_fraction = CANDLING_UO2_FRACTION, P,
+    pool_melt_k = POOL_MELT_K, P,
+    pool_nu_a = POOL_NU_A, P,
+    pool_nu_n = POOL_NU_N, P,
+    pool_k = POOL_K, A,
+    pool_mu = POOL_MU, A,
+    pool_beta = POOL_BETA, A,
+    pool_cp = POOL_CP, A,
+    pool_rho = POOL_RHO, A,
+    blade_b4c_kg = BLADE_B4C_KG, A,
+    b4c_rate_a = B4C_RATE_A, P,
+    b4c_rate_b = B4C_RATE_B, P,
+    b4c_max_fraction = B4C_MAX_FRACTION, P,
     ss_x_fe = SS_X_FE, P,
     ss_x_cr = SS_X_CR, P,
     ss_x_ni = SS_X_NI, P,
@@ -990,7 +1077,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 183);
+        assert_eq!(Params::INPUTS.len(), 204);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

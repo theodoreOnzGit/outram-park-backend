@@ -103,6 +103,8 @@
 
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
+use crate::materials::properties::heat_capacity::matpro_einstein_heat_capacity;
+use crate::materials::properties::thermal_expansion::matpro_fthcon_uo2_strain;
 use crate::materials::MaterialState;
 
 /// Thermal conductivity \[W/(m K)\] of a fuel, cladding or structural material.
@@ -284,6 +286,93 @@ pub enum ConductivityModel {
     /// Fit to the Halden IFA-601 instrumented fuel rod, as implemented in
     /// upstream `conductivityUO2IFA601.C`.
     Ifa601Uo2,
+
+    /// UO2, the **older MATPRO form** (MATPRO subcode FTHCON, NUREG/CR-6150
+    /// §2.3) \[W/(m K)\]. Not an OFFBEAT upstream class: added for gh:#1070
+    /// as the UO2 conductivity of the RELAP-7 heat-structure property set
+    /// ([`Relap7HeatStructure`]).
+    ///
+    /// **This is a different correlation from [`MatproUo2`](Self::MatproUo2)**,
+    /// which despite its name is OFFBEAT's modified-NFI (FRAPCON-era) form.
+    /// This one has a phonon term whose numerator is the Einstein specific
+    /// heat, a thermal-strain factor, a temperature-dependent porosity factor
+    /// and an electronic term:
+    ///
+    /// ```text
+    /// k = D / (1 + beta(T)*(1 - D)) * Cv(T) / ((A + B*T'') * (1 + 3*e_th(T)))
+    ///   + 5.2997e-3 * T * exp(-13358/T) * (1 + 0.169*(13358/T + 2)^2)
+    ///
+    /// Cv(T)   = 296.7 * 535.285^2 * exp(535.285/T) / (T^2 * (exp(535.285/T) - 1)^2)
+    /// e_th(T) = 1.0e-5*T - 3.0e-3 + 4.0e-2*exp(-6.9e-20/(1.38e-23*T))
+    /// beta(T) = 6.5 - porosity_slope*T          for T < 1364 K
+    ///         = linear between beta(1364) and -1 for 1364 <= T <= 1834 K
+    ///         = -1                               for T > 1834 K
+    /// A = 0.339, B = 0.06867   (O/M = 2.0, no Pu)
+    /// ```
+    ///
+    /// `Cv` is the Einstein term of [`HeatCapacityModel::MatproUo2`] (shared
+    /// code, so they cannot drift) and `e_th` is
+    /// [`ThermalExpansionModel::MatproFthconUO2`] (shared code too).
+    ///
+    /// # Inputs used
+    ///
+    /// [`temperature`](MaterialState::temperature) \[K\] and the fraction of
+    /// theoretical density `D`, taken as
+    /// [`density_fraction`](MaterialState::density_fraction) divided by the
+    /// same swelling/densification volume correction
+    /// [`MatproUo2`](Self::MatproUo2) uses (so a fresh pellet gives
+    /// `D = 1 - porosity`). The RELAP-7 set fixes `D = 0.95`, i.e.
+    /// `porosity = 0.05`. Burnup, Pu content, O/M and gadolinia are **not**
+    /// read: `A` and `B` are the O/M = 2.0, Pu-free constants.
+    ///
+    /// # Two points the published text leaves open — read before quoting a number
+    ///
+    /// 1. **The porosity slope.** The RELAP-7 Theory Manual (§4.2.1, checked
+    ///    against the rendered PDF on 2026-11-01) prints
+    ///    `T' = 6.5 - 0.00649*T`. Taken literally, `beta` falls below `-1`
+    ///    above 1156 K, so the porosity factor exceeds 1 (porous fuel
+    ///    conducting *better* than dense fuel) between 1156 and 1834 K, and
+    ///    `beta` jumps from `-2.35` back up towards `-1` across the
+    ///    interpolation band. A slope of `0.00469` instead gives `beta(1364)
+    ///    = +0.103`, a monotone `beta`, a porosity factor `<= 1` everywhere
+    ///    and continuity at both band edges — which suggests a digit
+    ///    transposition in the manual. **Not re-checked against MATPRO
+    ///    itself** (NUREG/CR-6150 was not available to this session), so the
+    ///    slope is a field: [`MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`] is
+    ///    what the cited source prints and what
+    ///    [`matpro_fthcon_uo2`](Self::matpro_fthcon_uo2) and the RELAP-7 set
+    ///    use; [`MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED`] is the alternative.
+    ///    At 95 % TD they differ by 2 % at 300 K and by 12 % at 1364 K, and
+    ///    agree exactly at and above 1834 K.
+    /// 2. **`T''`.** The phonon denominator is written `A + B*T''` and `T''`
+    ///    is not defined in the cited text. This port takes `T'' = T`, an
+    ///    assumption **not re-checked against MATPRO**.
+    ///
+    /// # Validity range
+    ///
+    /// **300–3113 K**, the same port-chosen UO2 window as
+    /// [`MatproUo2`](Self::MatproUo2) (the melting point of unirradiated UO2
+    /// as used by MATPRO). The RELAP-7 manual states that properties are held
+    /// constant outside their ranges, which is what [`value`](Self::value)'s
+    /// clamp does.
+    ///
+    /// # Source
+    ///
+    /// MATPRO, NUREG/CR-6150 (SCDAP/RELAP5/MOD3.3 MATPRO), §2.3 UO2 thermal
+    /// conductivity; the form and constants as reproduced in the RELAP-7
+    /// Theory Manual (INL/EXT-14-31366) §4.2.1, Eqs 228–230. Hand-checked
+    /// values: unit test `matpro_fthcon_uo2_matches_hand_values`.
+    ///
+    /// [`Relap7HeatStructure`]: crate::materials::properties::relap7_heat_structure::Relap7HeatStructure
+    /// [`HeatCapacityModel::MatproUo2`]: crate::materials::properties::heat_capacity::HeatCapacityModel::MatproUo2
+    /// [`ThermalExpansionModel::MatproFthconUO2`]: crate::materials::properties::thermal_expansion::ThermalExpansionModel::MatproFthconUO2
+    MatproFthconUo2 {
+        /// Slope of the low-temperature porosity factor, `beta = 6.5 -
+        /// porosity_slope*T` \[1/K\]. See the variant doc: the published
+        /// text prints `6.49e-3`
+        /// ([`MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`]).
+        porosity_slope: f64,
+    },
 
     /// MOX (U,Pu)O2, Brancheria fit for Pu/HM = 0.25 \[W/(m K)\].
     ///
@@ -545,6 +634,40 @@ pub enum ConductivityModel {
     /// `conductivityRelapZy.C`.
     RelapZircaloy,
 
+    /// Zircaloy cladding, MATPRO CTHCON form with its full range \[W/(m K)\].
+    /// Not an OFFBEAT upstream class: added for gh:#1070 as the cladding
+    /// conductivity of the RELAP-7 heat-structure set.
+    ///
+    /// ```text
+    /// k = 7.51 + 2.09e-2*T - 1.45e-5*T^2 + 7.67e-9*T^3   for T < 2098 K
+    ///   = 36                                              for T >= 2098 K
+    /// ```
+    ///
+    /// The cubic is **the same four coefficients** as
+    /// [`RelapZircaloy`](Self::RelapZircaloy) (shared code); what differs is
+    /// the range. `RelapZircaloy` clamps at OFFBEAT's 290–1800 K; this variant
+    /// follows the cubic up to 2098 K (the Zircaloy melting point) and then
+    /// holds the constant 36 W/(m K). The step at 2098 K is real in the source
+    /// and is reproduced: the cubic gives 58.36 W/(m K) just below, the
+    /// constant 36 just above.
+    ///
+    /// # Validity range
+    ///
+    /// **300–5000 K**. 300 K is the lower bound the source states for the
+    /// cubic; 5000 K is the RELAP-7 manual's arbitrary upper guard (§4.2,
+    /// "5 and 5000 K"), above which nothing is defined. Below 300 K
+    /// [`value`](Self::value) clamps, i.e. holds the 300 K value, which is the
+    /// manual's "constant beyond the range" rule.
+    ///
+    /// # Source
+    ///
+    /// MATPRO, NUREG/CR-6150, §4.4 Zircaloy thermal conductivity (CTHCON);
+    /// the coefficients and the 2098 K / 36 W/(m K) cut as reproduced in the
+    /// RELAP-7 Theory Manual (INL/EXT-14-31366) §4.2.2, Eq 231 and Table 8.
+    /// Hand-checked values: unit test
+    /// `matpro_cthcon_zircaloy_matches_hand_values`.
+    MatproCthconZircaloy,
+
     /// Molybdenum \[W/(m K)\].
     ///
     /// Upstream: `conductivityMolybdenum`.
@@ -700,6 +823,26 @@ pub enum ConductivityModel {
 }
 
 impl ConductivityModel {
+    /// [`MatproFthconUo2`](Self::MatproFthconUo2) with the porosity slope the
+    /// cited source prints, [`MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`]
+    /// (`6.49e-3` 1/K). Read the variant doc before relying on that slope.
+    ///
+    /// ```
+    /// use outram_park_fork_offbeat::materials::MaterialState;
+    /// use outram_park_fork_offbeat::materials::properties::conductivity::ConductivityModel;
+    ///
+    /// let mut state = MaterialState::fresh(1000.0);
+    /// state.porosity = 0.05; // D = 0.95, as the RELAP-7 set assumes
+    /// let k = ConductivityModel::matpro_fthcon_uo2().value(&state);
+    /// assert!((k - 3.9016).abs() < 1e-3, "got {k}");
+    /// ```
+    #[must_use]
+    pub const fn matpro_fthcon_uo2() -> Self {
+        Self::MatproFthconUo2 {
+            porosity_slope: MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED,
+        }
+    }
+
     /// [`ParfumeBuffer`](Self::ParfumeBuffer) with upstream's default
     /// parameters.
     ///
@@ -743,6 +886,8 @@ impl ConductivityModel {
             Self::MagniMamox { .. } => "Magni MAMOX (U,Pu)O2 conductivity",
             Self::PhilipponneauMox => "Philipponneau (U,Pu)O2-x conductivity",
             Self::RelapZircaloy => "RELAP Zircaloy conductivity",
+            Self::MatproFthconUo2 { .. } => "MATPRO FTHCON UO2 conductivity",
+            Self::MatproCthconZircaloy => "MATPRO CTHCON Zircaloy conductivity (to 2098 K)",
             Self::Molybdenum => "molybdenum conductivity",
             Self::SwindemanHastelloyN => "Swindeman Hastelloy-N conductivity",
             Self::Tobbe1515Ti => "Tobbe 15-15 Ti conductivity",
@@ -754,8 +899,9 @@ impl ConductivityModel {
     /// Temperature validity window `(low, high)` \[K\] of this correlation.
     ///
     /// See each variant's doc comment for whether the window is **stated by
-    /// upstream / the reference** (only [`RelapZircaloy`](Self::RelapZircaloy)
-    /// and the lower bound of [`PhilipponneauMox`](Self::PhilipponneauMox) are)
+    /// upstream / the reference** (only [`RelapZircaloy`](Self::RelapZircaloy),
+    /// the lower bound of [`PhilipponneauMox`](Self::PhilipponneauMox) and the
+    /// lower bound of [`MatproCthconZircaloy`](Self::MatproCthconZircaloy) are)
     /// or is **this port's engineering choice** (everything else). A
     /// port-chosen window is a guard rail against nonsense extrapolation, not
     /// a claim about the experiment behind the fit.
@@ -775,7 +921,10 @@ impl ConductivityModel {
             Self::Constant(_) | Self::ParfumeBuffer { .. } => (0.0, f64::INFINITY),
             // UO2 correlations: up to the melting temperature of unirradiated
             // UO2 used by MATPRO. Port's choice; upstream states no range.
-            Self::MatproUo2 | Self::NfirUo2 | Self::Ifa601Uo2 => (300.0, 3113.0),
+            Self::MatproUo2
+            | Self::NfirUo2
+            | Self::Ifa601Uo2
+            | Self::MatproFthconUo2 { .. } => (300.0, 3113.0),
             // MOX correlations. Port's choice, except Philipponneau's lower
             // bound of 500 K which upstream's header does state.
             Self::BrancheriaMox
@@ -785,6 +934,8 @@ impl ConductivityModel {
             Self::PhilipponneauMox => (500.0, 3000.0),
             // Stated by upstream conductivityRelapZy.C.
             Self::RelapZircaloy => (290.0, 1800.0),
+            // Source's 300 K lower bound; the RELAP-7 manual's 5000 K guard.
+            Self::MatproCthconZircaloy => (300.0, MATPRO_CTHCON_ZIRCALOY_T_GUARD),
             Self::Molybdenum => (300.0, 2800.0),
             Self::SwindemanHastelloyN => (300.0, 1200.0),
             Self::Tobbe1515Ti => (293.0, 1273.0),
@@ -1050,7 +1201,20 @@ impl ConductivityModel {
                 (1.0 / (a + 2.885e-4 * t) + 76.38e-12 * t * t * t) * alpha
             }
 
-            Self::RelapZircaloy => 7.51 + 2.09e-2 * t - 1.45e-5 * t * t + 7.67e-9 * t * t * t,
+            Self::RelapZircaloy => relap_zircaloy_cubic(t),
+
+            Self::MatproFthconUo2 { porosity_slope } => {
+                let d = state.density_fraction() / volume_correction(state);
+                matpro_fthcon_uo2(t, d, porosity_slope)
+            }
+
+            Self::MatproCthconZircaloy => {
+                if t < MATPRO_CTHCON_ZIRCALOY_T_MELT {
+                    relap_zircaloy_cubic(t)
+                } else {
+                    MATPRO_CTHCON_ZIRCALOY_K_MOLTEN
+                }
+            }
 
             Self::Molybdenum => 9.128e-6 * t * t - 4.945e-2 * t + 152.0,
 
@@ -1078,6 +1242,91 @@ impl ConductivityModel {
             Self::ParfumeSiC => 17885.0 / t + 2.0,
         }
     }
+}
+
+/// Porosity-factor slope \[1/K\] of [`ConductivityModel::MatproFthconUo2`]
+/// **as printed** in the RELAP-7 Theory Manual §4.2.1 (`T' = 6.5 -
+/// 0.00649 T`, confirmed on the rendered PDF 2026-11-01): `6.49e-3`.
+///
+/// Used by [`ConductivityModel::matpro_fthcon_uo2`] and the RELAP-7
+/// heat-structure set. See the variant doc for why it is suspected to be a
+/// transposition of [`MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED`]. **Not
+/// re-checked against MATPRO (NUREG/CR-6150) itself.**
+pub const MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED: f64 = 6.49e-3;
+
+/// Alternative porosity-factor slope \[1/K\] for
+/// [`ConductivityModel::MatproFthconUo2`]: `4.69e-3`, the digit transposition
+/// of [`MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`].
+///
+/// With it the porosity factor stays `<= 1` and is continuous and monotone
+/// across 1364–1834 K; with the printed value it does not. That is a
+/// physical-consistency argument, **not** a check against MATPRO — **not
+/// re-checked** because NUREG/CR-6150 was not available. Provided so the
+/// question can be ablated explicitly rather than silently decided.
+pub const MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED: f64 = 4.69e-3;
+
+// MATPRO FTHCON constants (NUREG/CR-6150 §2.3; RELAP-7 Theory Manual
+// §4.2.1, Eqs 228-229), O/M = 2.0 and no Pu.
+const MATPRO_FTHCON_A: f64 = 0.339; // point-defect phonon term
+const MATPRO_FTHCON_B: f64 = 0.06867; // phonon-phonon term, per K
+const MATPRO_FTHCON_CV_K1: f64 = 296.7; // J/(kg K), Einstein amplitude
+const MATPRO_FTHCON_CV_THETA: f64 = 535.285; // K, Einstein temperature
+const MATPRO_FTHCON_BETA_INTERCEPT: f64 = 6.5; // -
+const MATPRO_FTHCON_T_BAND_LOW: f64 = 1364.0; // K
+const MATPRO_FTHCON_T_BAND_HIGH: f64 = 1834.0; // K
+const MATPRO_FTHCON_BETA_HIGH: f64 = -1.0; // -
+const MATPRO_FTHCON_ELECTRONIC_A: f64 = 5.2997e-3; // W/(m K^2)
+const MATPRO_FTHCON_ELECTRONIC_T: f64 = 13358.0; // K
+const MATPRO_FTHCON_ELECTRONIC_C: f64 = 0.169; // -
+
+/// Zircaloy melting point \[K\] at which the MATPRO CTHCON cubic hands over to
+/// the constant molten value (RELAP-7 Theory Manual §4.2.2).
+const MATPRO_CTHCON_ZIRCALOY_T_MELT: f64 = 2098.0;
+/// Conductivity \[W/(m K)\] held at and above
+/// [`MATPRO_CTHCON_ZIRCALOY_T_MELT`].
+const MATPRO_CTHCON_ZIRCALOY_K_MOLTEN: f64 = 36.0;
+/// RELAP-7's arbitrary upper temperature guard \[K\] (§4.2, "5 and 5000 K").
+const MATPRO_CTHCON_ZIRCALOY_T_GUARD: f64 = 5000.0;
+
+/// The RELAP/MATPRO Zircaloy cubic `7.51 + 2.09e-2 T - 1.45e-5 T^2 +
+/// 7.67e-9 T^3` \[W/(m K)\], shared by
+/// [`ConductivityModel::RelapZircaloy`] and
+/// [`ConductivityModel::MatproCthconZircaloy`]. Same operations in the same
+/// order as the original inline `RelapZircaloy` arm, so its numbers are
+/// unchanged.
+fn relap_zircaloy_cubic(t: f64) -> f64 {
+    7.51 + 2.09e-2 * t - 1.45e-5 * t * t + 7.67e-9 * t * t * t
+}
+
+/// MATPRO FTHCON porosity-factor exponent `beta(T)` \[-\] (the source's `T'`).
+fn matpro_fthcon_beta(t: f64, porosity_slope: f64) -> f64 {
+    let beta_low = |temp: f64| MATPRO_FTHCON_BETA_INTERCEPT - porosity_slope * temp;
+    if t < MATPRO_FTHCON_T_BAND_LOW {
+        beta_low(t)
+    } else if t > MATPRO_FTHCON_T_BAND_HIGH {
+        MATPRO_FTHCON_BETA_HIGH
+    } else {
+        let b0 = beta_low(MATPRO_FTHCON_T_BAND_LOW);
+        let w = (t - MATPRO_FTHCON_T_BAND_LOW)
+            / (MATPRO_FTHCON_T_BAND_HIGH - MATPRO_FTHCON_T_BAND_LOW);
+        b0 + w * (MATPRO_FTHCON_BETA_HIGH - b0)
+    }
+}
+
+/// MATPRO FTHCON UO2 conductivity \[W/(m K)\] at temperature `t` \[K\] and
+/// fraction of theoretical density `d` \[-\]. See
+/// [`ConductivityModel::MatproFthconUo2`]; `T'' = T` is assumed.
+fn matpro_fthcon_uo2(t: f64, d: f64, porosity_slope: f64) -> f64 {
+    let cv = matpro_einstein_heat_capacity(t, MATPRO_FTHCON_CV_K1, MATPRO_FTHCON_CV_THETA);
+    let e_th = matpro_fthcon_uo2_strain(t);
+    let porosity = d / (1.0 + matpro_fthcon_beta(t, porosity_slope) * (1.0 - d));
+    let phonon = porosity * cv / ((MATPRO_FTHCON_A + MATPRO_FTHCON_B * t) * (1.0 + 3.0 * e_th));
+    let r = MATPRO_FTHCON_ELECTRONIC_T / t;
+    let electronic = MATPRO_FTHCON_ELECTRONIC_A
+        * t
+        * (-r).r_exp()
+        * (1.0 + MATPRO_FTHCON_ELECTRONIC_C * (r + 2.0) * (r + 2.0));
+    phonon + electronic
 }
 
 /// Cell-volume correction factor \[-\] for the porosity evolution of oxide
@@ -1125,6 +1374,11 @@ mod tests {
             },
             ConductivityModel::PhilipponneauMox,
             ConductivityModel::RelapZircaloy,
+            ConductivityModel::matpro_fthcon_uo2(),
+            ConductivityModel::MatproFthconUo2 {
+                porosity_slope: MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED,
+            },
+            ConductivityModel::MatproCthconZircaloy,
             ConductivityModel::Molybdenum,
             ConductivityModel::SwindemanHastelloyN,
             ConductivityModel::Tobbe1515Ti,
@@ -1883,6 +2137,153 @@ mod tests {
             previous = k;
             t += 50.0;
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // MATPRO FTHCON UO2 and CTHCON Zircaloy (gh:#1070, not upstream OFFBEAT)
+    // ---------------------------------------------------------------------
+
+    /// **Verification against hand values of the published formula.**
+    ///
+    /// *Methodology.* [`ConductivityModel::MatproFthconUo2`] is evaluated with
+    /// `D = 0.95` (porosity 0.05, the RELAP-7 assumption) and compared with
+    /// an independent double-precision hand evaluation of MATPRO FTHCON as
+    /// reproduced in RELAP-7 Theory Manual §4.2.1, Eqs 228–230 (Python
+    /// `math.exp`, 2026-11-01). Worked numbers at 1500 K with the printed
+    /// slope 0.00649: `beta(1364) = 6.5 - 0.00649*1364 = -2.35236`, so
+    /// `beta(1500) = -2.35236 + (136/470)*(-1 + 2.35236) = -1.961039`;
+    /// porosity factor `0.95/(1 - 1.961039*0.05) = 1.05325`;
+    /// `Cv = 293.5713` J/(kg K); `A + B*T = 0.339 + 0.06867*1500 = 103.344`;
+    /// `e_th = 1.342696e-2`, so `1 + 3 e_th = 1.040281`; phonon
+    /// `= 1.05325*293.5713/(103.344*1.040281) = 2.876205`; electronic
+    /// `= 5.2997e-3*1500*exp(-8.90533)*(1 + 0.169*(10.90533)^2) = 0.022754`;
+    /// total `2.898959` W/(m K). Full table, W/(m K):
+    ///
+    /// | T \[K\] | slope 0.00649 (as printed) | slope 0.00469 (transposed) |
+    /// |---|---|---|
+    /// | 300  | 8.466037951 | 8.283849273 |
+    /// | 1000 | 3.901590299 | 3.579616590 |
+    /// | 1364 | 3.251278629 | 2.855401255 |
+    /// | 1500 | 2.898958703 | 2.645301435 |
+    /// | 1834 | 2.317570983 | 2.317570983 |
+    /// | 2000 | 2.202253673 | 2.202253673 |
+    /// | 2500 | 2.228250115 | 2.228250115 |
+    ///
+    /// Pass criterion: relative difference `< 1e-10` (round-off only).
+    ///
+    /// *Result* (2026-11-01, `cargo test --release`): every entry agrees to
+    /// `< 1e-10`. Interpretation: the port reproduces the published form,
+    /// including the band interpolation and the slope ablation. The table also
+    /// shows what the slope question is worth — up to 12 % at 1364 K, nothing
+    /// at or above 1834 K. Against data: dense UO2 is commonly quoted near
+    /// 8–10 W/(m K) at 300 K and 2.5–3 W/(m K) at 1500 K; both columns sit in
+    /// that band, so this magnitude check cannot tell the two slopes apart.
+    #[test]
+    fn matpro_fthcon_uo2_matches_hand_values() {
+        let printed = ConductivityModel::matpro_fthcon_uo2();
+        let transposed = ConductivityModel::MatproFthconUo2 {
+            porosity_slope: MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED,
+        };
+        let cases = [
+            (300.0, 8.466_037_951_249_27, 8.283_849_273_383_943),
+            (1000.0, 3.901_590_299_182_574_4, 3.579_616_589_703_979),
+            (1364.0, 3.251_278_629_353_792_7, 2.855_401_255_039_695),
+            (1500.0, 2.898_958_702_730_89, 2.645_301_434_564_636),
+            (1834.0, 2.317_570_983_420_269, 2.317_570_983_420_269),
+            (2000.0, 2.202_253_672_741_216_8, 2.202_253_672_741_216_8),
+            (2500.0, 2.228_250_115_021_23, 2.228_250_115_021_23),
+        ];
+        for (t, k_printed, k_transposed) in cases {
+            let state = fresh_95_percent_dense(t);
+            let a = printed.value(&state);
+            let b = transposed.value(&state);
+            assert!(((a - k_printed) / k_printed).abs() < 1e-10, "{t} K printed: {a}");
+            assert!(((b - k_transposed) / k_transposed).abs() < 1e-10, "{t} K transposed: {b}");
+        }
+        // Fully dense fuel: the porosity factor is exactly 1 whatever beta is.
+        let dense = printed.value(&MaterialState::fresh(1000.0));
+        assert!(((dense - 4.108_972_435_725_423) / dense).abs() < 1e-10, "D = 1: {dense}");
+        // It is a different correlation from OFFBEAT's MatproUo2.
+        let nfi = ConductivityModel::MatproUo2.value(&fresh_95_percent_dense(1500.0));
+        assert!((nfi - cases[3].1).abs() > 0.05, "MatproUo2 {nfi} vs FTHCON");
+    }
+
+    /// **Self-consistency check, not validation** — characterises the
+    /// porosity-slope question documented on
+    /// [`ConductivityModel::MatproFthconUo2`].
+    ///
+    /// *Methodology.* Evaluate the porosity factor `D/(1 + beta(1 - D))` at
+    /// `D = 0.95` across 300–2500 K for both slopes. Prediction, written
+    /// before running: with the printed slope 0.00649 the factor exceeds 1
+    /// somewhere in 1156–1834 K and `beta` is not monotone; with 0.00469 the
+    /// factor stays `<= 1` and `beta` is monotone non-increasing.
+    ///
+    /// *Result* (2026-11-01): as predicted. Printed slope: factor peaks at
+    /// 1.0766 at 1364 K (porous fuel conducting better than dense — the
+    /// reason the slope is suspected). Transposed slope: factor `<= 1`
+    /// everywhere, reaching exactly 1 at 1834 K. This test pins the
+    /// behaviour; it does not decide which slope MATPRO uses.
+    #[test]
+    fn matpro_fthcon_porosity_factor_exposes_the_slope_question() {
+        let d = 0.95;
+        let factor = |t: f64, slope: f64| d / (1.0 + matpro_fthcon_beta(t, slope) * (1.0 - d));
+        let mut printed_max: f64 = 0.0;
+        let mut previous_beta = f64::INFINITY;
+        let mut transposed_monotone = true;
+        let mut t = 300.0;
+        while t <= 2500.0 {
+            printed_max = printed_max.max(factor(t, MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED));
+            assert!(factor(t, MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED) <= 1.0 + 1e-15, "{t} K");
+            let beta = matpro_fthcon_beta(t, MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED);
+            transposed_monotone &= beta <= previous_beta;
+            previous_beta = beta;
+            t += 2.0;
+        }
+        assert!(transposed_monotone);
+        assert!((printed_max - 0.95 / (1.0 - 2.35236 * 0.05)).abs() < 1e-9, "{printed_max}");
+        // Printed slope: beta drops to -2.35 at 1364 K, then rises to -1.
+        let b_1364 = matpro_fthcon_beta(1364.0, MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED);
+        let b_1600 = matpro_fthcon_beta(1600.0, MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED);
+        assert!(b_1600 > b_1364);
+        assert_eq!(matpro_fthcon_beta(1834.0, MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED), -1.0);
+        assert_eq!(matpro_fthcon_beta(2000.0, MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED), -1.0);
+    }
+
+    /// **Verification against hand values of the published formula.**
+    ///
+    /// *Methodology.* [`ConductivityModel::MatproCthconZircaloy`] is the
+    /// MATPRO CTHCON cubic (NUREG/CR-6150 §4.4; RELAP-7 Theory Manual
+    /// §4.2.2, Eq 231, Table 8) up to 2098 K and 36 W/(m K) from 2098 K.
+    /// Hand values: `k(300) = 7.51 + 6.27 - 1.305 + 0.207090 = 12.68209`;
+    /// `k(1000) = 7.51 + 20.9 - 14.5 + 7.67 = 21.58`;
+    /// `k(2000) = 7.51 + 41.8 - 58.0 + 61.36 = 52.67`;
+    /// `k(2098^-) = 7.51 + 43.8482 - 63.8233 + 70.8292 = 58.364`;
+    /// `k(>= 2098) = 36`. Below 300 K the 300 K value is held (the manual's
+    /// "constant beyond the range"). Pass criterion: `< 1e-12` absolute on
+    /// the cubic, exact on the constant.
+    ///
+    /// *Result* (2026-11-01, `cargo test --release`): all values agree; the
+    /// cubic is bit-identical to [`ConductivityModel::RelapZircaloy`] inside
+    /// RelapZircaloy's 290–1800 K window, and the two differ above 1800 K
+    /// (RelapZircaloy clamps at 42.88 W/(m K); this variant continues to
+    /// 58.36 then steps to 36).
+    #[test]
+    fn matpro_cthcon_zircaloy_matches_hand_values() {
+        let m = ConductivityModel::MatproCthconZircaloy;
+        let k = |t: f64| m.value(&MaterialState::fresh(t));
+        assert!((k(300.0) - 12.682_09).abs() < 1e-12, "{}", k(300.0));
+        assert!((k(1000.0) - 21.58).abs() < 1e-12, "{}", k(1000.0));
+        assert!((k(2000.0) - 52.67).abs() < 1e-12, "{}", k(2000.0));
+        assert!((k(2097.999_999) - 58.364).abs() < 1e-3, "{}", k(2097.999_999));
+        assert_eq!(k(2098.0), 36.0);
+        assert_eq!(k(3000.0), 36.0);
+        assert_eq!(k(100.0), k(300.0));
+        for t in [300.0, 600.0, 1200.0, 1800.0] {
+            let relap = ConductivityModel::RelapZircaloy.value(&MaterialState::fresh(t));
+            assert_eq!(k(t), relap, "{t} K");
+        }
+        let relap_2000 = ConductivityModel::RelapZircaloy.value(&MaterialState::fresh(2000.0));
+        assert!((relap_2000 - 42.881_44).abs() < 1e-9 && k(2000.0) > relap_2000 + 9.0);
     }
 
     /// **Reference-checked against the tabulated room-temperature value.**

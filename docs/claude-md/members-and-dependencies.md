@@ -149,7 +149,7 @@ worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps �
 `{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
 `outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set);
 `dover → outram-park-fork-dwsim-libs` (2026-09-30);
-`sembawang → {boon-lay, changi, buangkok, outram-mc-libs, tampines-steam-tables, teh-o-prke, outram-park-fork-offbeat}` (the last three since 2026-10-29, gh:#1033, for `bwr_mark1`; none depends on sembawang; `dhoby-ghaut → sembawang` as a dev-dependency for the demo), outram-mc-libs direct
+`sembawang → {boon-lay, changi, buangkok, outram-mc-libs, tampines-steam-tables, teh-o-prke, outram-park-fork-offbeat, tampines}` (`teh-o-prke` and `offbeat` since 2026-10-29, gh:#1033, for `bwr_mark1`; **`tampines` a normal dependency since 2026-11-01, maintainer direction: a severe-accident code does thermal hydraulics and much more, so `sembawang` depends on `tampines` and never the reverse**; none depends on sembawang; `dhoby-ghaut → sembawang` as a dev-dependency for the demo), outram-mc-libs direct
 since 2026-10-17 (GitHub #951) for the one inventory type in the workspace,
 `outram_mc_libs::inventory::RadionuclideInventory` (depletion produces it,
 sembawang consumes it). No cycle and no new crate in sembawang's tree:
@@ -165,7 +165,20 @@ their vendored `openfoam_source/` is unchanged); `tampines` dev-deps →
 **CORRECTED 2026-10-16**: `tuas_boussinesq_solver` and `chem-eng` are normal
 `[dependencies]` of `crates/tampines/Cargo.toml`, so the library is not
 TUAS-free; the dev-deps are `{teh-o-prke, nee_soon}` (gated off Android and
-wasm);
+wasm), ~~and since 2026-11-01 `sembawang` (same gate; gh:#1075, so
+`tests/wet_well.rs` can check the wet well's ports of `bwr_mark1` bit for bit;
+never a normal edge, since `sembawang` is meant to consume `tampines`'s wet
+well later)~~ **CORRECTED 2026-11-01** (maintainer: `sembawang` depends on
+`tampines`, never the reverse): `tampines` has no `sembawang` edge of any
+kind; the comparison is `crates/sembawang/tests/wet_well_vs_tampines.rs`,
+through `sembawang`'s `tampines` dependency (normal since 2026-11-01);
+`tampines → outram-foam-appbuilder-lib` (2026-11-01, gh:#1060: reuses
+GeN-Foam's `RegimeMap1D`, `InterfacialArea` and `ContactPartition` in
+`multiphase_1d`; no cycle, the appbuilder depends on no tampines crate);
+since 2026-11-01 a normal edge `tampines → farrer-park` (gh:#1069:
+`tampines::fem1d` takes its Gauss line rule from
+`farrer_park::quadrature::facet_rule`; farrer-park's own dependencies were
+already in tampines's tree, and farrer-park does not depend on tampines). **Both edges, `tampines → outram-foam-*` and `tampines → farrer-park`, are approved by the maintainer (2026-11-01: "Tampines can depend on outram-foam and farrer park").**;
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
 no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD

@@ -7,8 +7,13 @@ code layout, and build commands live in CLAUDE.md.
 
 ## Planned: remove `ndarray-linalg` runtime dep
 
-`ndarray-linalg` is currently in `[target.*.dependencies]` (i.e. a runtime
-dependency that forces users to install system OpenBLAS). There is exactly one
+**CORRECTED 2026-11-01: done.** `Cargo.toml` no longer lists `ndarray-linalg`;
+the solve uses the crate's pure-Rust `matrix::SquareMatrix`, and since gh:#1082
+it lives in `zero_power_prke/n_group_prke.rs`. The plan below is kept as
+history.
+
+~~`ndarray-linalg` is currently in `[target.*.dependencies]` (i.e. a runtime
+dependency that forces users to install system OpenBLAS).~~ There is exactly one
 call site, and it is a tiny 7×7 matrix solve:
 
 - **File:** `src/zero_power_prke/six_group_precursor_prke/implicit_solver.rs:82`

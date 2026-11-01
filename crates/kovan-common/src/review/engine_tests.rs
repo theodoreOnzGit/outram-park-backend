@@ -392,6 +392,79 @@ fn d6_crate_delete_history_in_root() {
     );
 }
 
+/// GitHub #1106, tentative stamps: in the chain f -> g -> h, a stamp on f
+/// and g with h unstamped leaves both tentative (the wait carries up
+/// through g), no rung counted, each naming its own callee; stamping h
+/// makes all three valid with no re-stamp. A needs-fix or stale callee holds
+/// its caller the same way.
+#[test]
+fn a_stamp_is_tentative_until_everything_underneath_is_valid() {
+    let g = "crates/x/src/a.rs::g";
+    let hh = "crates/x/src/a.rs::h";
+    let idx = [folder(
+        "x",
+        D,
+        &[("a.rs", vec![fun(F, 'a', &[g], &[]), fun(g, 'b', &[hh], &[]), fun(hh, 'c', &[], &[])])],
+    )];
+    let f_rev = review(F, M, 'a', &[(g, 'b')]);
+    let g_rev = review(g, M, 'b', &[(hh, 'c')]);
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone(), g_rev.clone()])], &idx);
+    assert_eq!(kind(&ev, hh), StateKind::New);
+    assert_eq!(ev.functions[&fid(g)].state, StampState::Tentative { waiting_on: vec![fid(hh)] });
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+    assert_eq!(ev.functions[&fid(F)].rung, None);
+    assert!(ev.functions[&fid(F)].reviews.iter().all(|r| r.state.kind() == StateKind::Tentative));
+    assert!(!StateKind::Tentative.counts() && StateKind::Tentative.review_holds());
+    assert_eq!(ev.functions[&fid(F)].blocked_by, vec![fid(g)]);
+
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone(), g_rev.clone(), review(hh, M, 'c', &[])])], &idx);
+    for p in [F, g, hh] {
+        assert_eq!(kind(&ev, p), StateKind::Valid, "{p}");
+    }
+    assert!(ev.functions[&fid(F)].rung.is_some());
+
+    // h stamped but changed since: stale, so g and f wait again.
+    let changed = [folder(
+        "x",
+        D,
+        &[("a.rs", vec![fun(F, 'a', &[g], &[]), fun(g, 'b', &[hh], &[]), fun(hh, 'z', &[], &[])])],
+    )];
+    let ev = run(&[reviews_in("x", D, vec![f_rev, review(hh, M, 'c', &[])])], &changed);
+    assert_eq!(kind(&ev, hh), StateKind::DirectlyStale);
+    assert_eq!(kind(&ev, g), StateKind::New);
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+}
+
+/// GitHub #1106, recursion: f and g call each other. With only f stamped,
+/// f is tentative waiting on its partner g (a cycle of tentative stamps
+/// would otherwise wait on itself); with both stamped, both are valid.
+/// A group whose member calls an unstamped h waits on h.
+#[test]
+fn a_recursion_group_becomes_valid_together() {
+    let g = "crates/x/src/a.rs::g";
+    let hh = "crates/x/src/a.rs::h";
+    let idx = |g_calls: &[&str]| {
+        [folder(
+            "x",
+            D,
+            &[("a.rs", vec![fun(F, 'a', &[g], &[]), fun(g, 'b', g_calls, &[]), fun(hh, 'c', &[], &[])])],
+        )]
+    };
+    let f_rev = review(F, M, 'a', &[(g, 'b')]);
+    let g_rev = |calls_h: bool| {
+        let callees: Vec<(&str, char)> = if calls_h { vec![(F, 'a'), (hh, 'c')] } else { vec![(F, 'a')] };
+        review(g, M, 'b', &callees)
+    };
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone()])], &idx(&[F]));
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone(), g_rev(false)])], &idx(&[F]));
+    assert_eq!(kind(&ev, F), StateKind::Valid);
+    assert_eq!(kind(&ev, g), StateKind::Valid);
+    let ev = run(&[reviews_in("x", D, vec![f_rev, g_rev(true)])], &idx(&[F, hh]));
+    assert_eq!(ev.functions[&fid(g)].state, StampState::Tentative { waiting_on: vec![fid(hh)] });
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+}
+
 /// D6 callee changed: the caller always needs a re-confirm, even with every
 /// reaching test passing (necessary, not sufficient); a failing reaching
 /// test blocks the re-confirm.
@@ -1336,8 +1409,9 @@ fn implausible_signed_at_is_flagged_and_does_not_void() {
 
 /// Methodology (#843): a function `f` that uses a struct `T` (its index
 /// entry lists `T` under `uses`). (1) A review of `f` written before types
-/// were indexed (it records no callee): it stays valid, `T` unreviewed is
-/// listed as blocking a new stamp, and `T` changing does not touch it. (2)
+/// were indexed (it records no callee): ~~it stays valid~~ it is tentative
+/// while `T` is unreviewed (GitHub #1106, 2026-11-01), `T` is listed as
+/// blocking, and `T` changing does not make it stale. (2)
 /// A review of `f` that recorded `T`'s hash, `T` reviewed and unchanged:
 /// valid, nothing blocks. (3) The same with `T`'s hash changed (its
 /// definition or a method): `T` is directly stale and `f` needs a
@@ -1365,7 +1439,9 @@ fn a_used_type_blocks_bottom_up_and_its_change_asks_for_reconfirm() {
     let old = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     for hash in ['b', 'c'] {
         let ev = run(&old, &idx(hash));
-        assert_eq!(kind(&ev, F), StateKind::Valid);
+        // ~~valid~~ since 2026-11-01 (GitHub #1106) tentative: the unstamped
+        // `T` underneath holds it.
+        assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(t)] });
         assert_eq!(kind(&ev, t), StateKind::New);
         assert_eq!(ev.functions[&fid(F)].blocked_by, vec![fid(t)]);
     }

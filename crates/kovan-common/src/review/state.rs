@@ -53,6 +53,12 @@ pub enum StateKind {
     /// written until the background refresh gives the engine's verdict.
     /// The engine never produces it, and it never counts.
     Updating,
+    /// "tentative: waiting on stamps underneath" (GitHub #1106, maintainer
+    /// 2026-11-01): a stamp that would be valid, on a function something
+    /// underneath which (a callee, a type or constant it uses, transitively)
+    /// does not count yet. It becomes valid by itself once everything
+    /// underneath does; until then it does not count.
+    Tentative,
 }
 
 /// How a view should colour a state.
@@ -78,7 +84,7 @@ pub enum Tone {
 
 impl StateKind {
     /// Every kind, in declaration order.
-    pub const ALL: [StateKind; 16] = [
+    pub const ALL: [StateKind; 17] = [
         Self::Valid,
         Self::DirectlyStale,
         Self::DocChanged,
@@ -95,6 +101,7 @@ impl StateKind {
         Self::Invalid,
         Self::AwaitingTrustedReviewer,
         Self::Updating,
+        Self::Tentative,
     ];
 
     /// Plain-English label.
@@ -116,6 +123,7 @@ impl StateKind {
             Self::Invalid => "review invalid",
             Self::AwaitingTrustedReviewer => "1 of 2: awaiting a trusted reviewer",
             Self::Updating => "stamped, updating\u{2026}",
+            Self::Tentative => "tentative: waiting on stamps underneath",
         }
     }
 
@@ -128,9 +136,10 @@ impl StateKind {
     /// or valid but for a workspace test run awaited after `Cargo.lock`
     /// changed. Used where the question is "has someone reviewed this?"
     /// (adding a connection from a reviewed function, #839), never for
-    /// maturity ([`Self::counts`]).
+    /// maturity ([`Self::counts`]). A tentative stamp (GitHub #1106) is a
+    /// person's review of the code as it is, waiting only on others.
     pub fn review_holds(self) -> bool {
-        matches!(self, Self::Valid | Self::PendingWorkspaceTest)
+        matches!(self, Self::Valid | Self::PendingWorkspaceTest | Self::Tentative)
     }
 
     /// Whether it belongs in the desktop ⚑ queue (#740 U1).
@@ -158,7 +167,8 @@ impl StateKind {
             | Self::Moved
             | Self::Fixed
             | Self::AwaitingTrustedReviewer
-            | Self::Updating => Tone::Attention,
+            | Self::Updating
+            | Self::Tentative => Tone::Attention,
             Self::PendingWorkspaceTest => Tone::Waiting,
             Self::Deleted
             | Self::NeedsFixOpen

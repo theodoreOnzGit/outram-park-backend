@@ -69,6 +69,15 @@ outram-mc-libs = { workspace = true }
 # aarch64-linux-android (checked 2026-10-29). No cycle: none depends on this
 # crate (`cargo tree -p <each> -e normal`, 2026-10-29).
 tampines-steam-tables    = { workspace = true }
+# The thermal-hydraulic framework (maintainer direction, 2026-11-01):
+# a severe-accident code like MELCOR does thermal hydraulics and much more,
+# so sembawang (severe accidents, orchestration) depends on tampines (thermal
+# hydraulics) as a normal dependency, never the reverse. ~~Examples and tests
+# ONLY~~ (it was a dev-dependency before 2026-11-01, for the HTR-10 pebble and
+# TRISO dimensions in `tampines::pebble_bed` and, since gh:#1075,
+# tests/wet_well_vs_tampines.rs). No cycle: tampines has no sembawang edge of
+# any kind.
+tampines = { workspace = true }
 teh-o-prke               = { workspace = true }
 outram-park-fork-offbeat = { workspace = true }
 # bwr_mark1's decay heat by radionuclide class (gh:#1041): ENDF/B-VIII decay
@@ -89,11 +98,3 @@ thiserror = { workspace = true }
 [dev-dependencies]
 # Reads boon-lay's upstream code-to-code probes (tests/nuclide_names_code_to_code.rs).
 serde_json = { workspace = true }
-# Examples and tests ONLY. The published HTR-10 pebble and TRISO particle
-# dimensions live in `tampines::pebble_bed` (IAEA-TECDOC-1382 part 2
-# Table 4-17) and must not be copied into this crate, so the HTR-10 case reads
-# them from there. Kept out of `[dependencies]` deliberately: the library takes
-# geometry as an argument (`htr10::Htr10Geometry`), so a consumer of the
-# library pays nothing for this. `tampines` already depends on `boon-lay`, so
-# the edge sembawang -> tampines introduces no cycle.
-tampines = { workspace = true }

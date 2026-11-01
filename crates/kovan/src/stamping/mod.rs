@@ -530,6 +530,11 @@ pub struct StampContext {
     /// the wizard opened. Signing refuses when the drafted hash differs
     /// (the code changed while it was being reviewed).
     pub hash: String,
+    /// Added 2026-11-01 (GitHub #1106): the names of the callees (and types
+    /// and constants used) without a valid stamp. Empty: the stamp will be
+    /// valid. Otherwise it is written all the same and reads tentative
+    /// until everything underneath is valid; the dialog says so.
+    pub tentative_on: Vec<String>,
     /// Added 2026-10-10 (#770, #760 q11): the starting no-concept reason,
     /// this reviewer's previous one, else "upstream control flow / solver
     /// structure" for a confirmed port
@@ -581,10 +586,14 @@ fn applicability_for(
 /// [`draft_stamp`] refuses before the answers matter (no commit, not
 /// indexed, uncommitted changes in its file, index hash not the hash at
 /// `HEAD`, index entry out of date, a callee with no hash), with the same
-/// messages, and (added 2026-10-10, #740: "bottom-up is an enforced rule")
-/// while a workspace callee has no ~~valid~~ standing stamp (valid or
-/// pending a workspace test, corrected 2026-10-29;
-/// [`review_mode::blockers_of`]; a recursion partner never blocks).
+/// messages. ~~and (added 2026-10-10, #740: "bottom-up is an enforced
+/// rule") while a workspace callee has no standing stamp (valid or pending
+/// a workspace test, corrected 2026-10-29)~~ **CORRECTED
+/// 2026-11-01** (GitHub #1106, maintainer: "stamp functions without
+/// reviewing the underlying functions"): a callee without a valid stamp no
+/// longer refuses the stamp; it is listed in
+/// [`StampContext::tentative_on`], and the stamp reads tentative until
+/// everything underneath is valid ([`review_mode::blockers_of`]).
 /// Reads git and runs the staleness engine; call it off the UI thread.
 pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampContext, String> {
     let ws = load_workspace(root)?;
@@ -598,15 +607,12 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         return Err(DraftError::MissingCalleeHash(c.clone()).to_string());
     }
     let snap = review_mode::Snapshot::load(root)?;
-    let blocked = review_mode::blockers_of(&snap, &f.id);
-    if !blocked.is_empty() {
-        let names: Vec<&str> = blocked.iter().map(|(_, n)| n.as_str()).collect();
-        return Err(format!(
-            "bottom-up: {path} calls {} without a standing stamp; review {} first",
-            names.join(", "),
-            if names.len() == 1 { "it" } else { "them" }
-        ));
-    }
+    let mut tentative_on: Vec<String> = review_mode::blockers_of(&snap, &f.id)
+        .into_iter()
+        .map(|(_, n)| n)
+        .collect();
+    // By name, so the dialog's list does not follow the ids' order.
+    tentative_on.sort();
     let folder = ws.reviews.get(&idx.dir);
     let (applicability, messages) = applicability_for(root, &ws, idx, f);
     let previous = folder.and_then(|m| {
@@ -666,6 +672,7 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
             .map(|s| s.comments)
             .unwrap_or_default(),
         hash: f.hash.clone(),
+        tentative_on,
         no_concept: review_mode::prefill::no_concept_prefill(
             previous.and_then(|r| r.review.no_concept.as_deref()),
             applicability.is_port,

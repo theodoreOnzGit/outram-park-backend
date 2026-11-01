@@ -45,6 +45,15 @@ pub mod feedback_mechanisms;
 ///
 pub mod decay_heat;
 
+/// ANS-5.1 decay-heat machinery (gh:#1080): standards enum, isotope mix
+/// including Pu-241, conservatism factor F_gamma, user-supplied coefficients,
+/// and the capture correction G(t).
+pub mod ans_decay_heat;
+
+/// `PointReactor` (gh:#1082): N-group kinetics, decay heat and an actinide
+/// slot in one state, with the density -> fission rate -> power conversion.
+pub mod point_reactor;
+
 /// contains code for time stepping for prke
 /// some algorithms copied from OpenFOAM
 ///

@@ -236,7 +236,7 @@ impl Surface {
         } else {
             let c = (a * a - b * b).sqrt();
             // c / (cosh^2 xi0 acot(sinh xi0) - sinh xi0), sinh xi0 = b/c.
-            c * c * c / (a * a * (c / b).atan() - b * c)
+            c * c * c / (a * a * (c / b).r_atan() - b * c)
         };
         let n = N_STRIPS;
         let d_eta = PI / n as f64;

@@ -179,8 +179,14 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | The wetwell vent and the drywell head flange limited to the critical gas flow (MELCOR CVH/FL RM §6.3, Eq 6-13): a missing limit, the incompressible orifice passing about twice it at those pressure ratios | F12, #1043 | 5.240 | 449.03 | predicted first: peak 0.77-0.83 MPa (held: 0.804), building H2 at 26 h 3.5-5 % (3.28 %, narrowly missed), drywell at 24 h 0.25-0.4 MPa (0.198, missed), in-vessel unchanged (held); measured drywell mean miss 0.078 -> 0.067 MPa, inside the codes' envelope 58 -> 71 % of the time |
 | The blades' steel oxidation held to MELCOR's gaseous-diffusion limit (COR RM §2.5.3, Eq 2-168; MW/n 0.0505 kg/mol) | F4, #1035 | 5.238 | 448.16 | predicted first: H2 within 10 kg (held: -0.87), head within 0.05 h (held: -0.002), peak within 0.01 MPa (held: -0.0006) |
 | **Perturbation ensemble** (instrument, `compare::ensemble_member`, 256 members at rel 1e-9; `verification_and_validation/bwr_mark1/ensemble.md`): the run is chaotic at the 1e-9 level, so a single run is one trajectory | #1044 | median 5.23 (IQR 4.91-5.24) | median 449 (IQR 417-449) | predictions: head range narrower than predicted (4.50-5.56), baseline inside the IQR (held); H2 305-481 kg (held); peak up to 0.97 MPa (missed: 0.75-0.87); vent at 23.73 h in all (held). Quote these distributions, not the single run |
-| Checked against the manual, no change (2026-10-30): **debris ejection** (COR RM §6.4): once the bottom node passes TPFAIL MELCOR assumes gross failure and discharges all the bottom cell's debris over 1 s regardless of the opening, which is what this model does at its TPFAIL head failure. **Radial relocation** (§3.1.5, on by default): MELCOR blocks it while a BWR canister stands in either ring and to or from any cell with a plate, which covers every debris location here. **UO2 carried by molten Zr** (§2.8 eutectics, §3.1.4 secondary transport): optional models, not defaults, so not added. **B4C oxidation**: MELCOR's default BWR model caps it at 2 % (about 4 kg of H2 here), not added | F4, #1035 | - | - | upstream handles these as this model does, or as options |
+| Checked against the manual, no change (2026-10-30): **debris ejection** (COR RM §6.4): once the bottom node passes TPFAIL MELCOR assumes gross failure and discharges all the bottom cell's debris over 1 s regardless of the opening, which is what this model does at its TPFAIL head failure. **Radial relocation** (§3.1.5, on by default): MELCOR blocks it while a BWR canister stands in either ring and to or from any cell with a plate, which covers every debris location here. **UO2 carried by molten Zr** (§2.8 eutectics, §3.1.4 secondary transport): ~~optional models, not defaults, so not added.~~ **CORRECTED 2026-10-30:** the eutectics model (COR_MS IEUMOD) is off by default and not recommended, but COR_CMT's secondary transport applies by default (FUOZR = 0.2, mechanism 1: UO2 relocates as 0.2 of the candling Zr's mass; the record is optional, its defaults are not); added below. **Cavity layering** (CAV §3.2): MELCOR's default is enforced mixing, one layer, as here; stratification is an option, not added. **B4C oxidation**: MELCOR's default BWR model caps it at 2 % (about 4 kg of H2 here), not added | F4, #1035 | - | - | upstream handles these as this model does, or as options |
 | Numerical defect fixed: the downcomers' and vacuum breakers' equalising cap counts the receiver's rise as well as the donor's fall (it overshot, and the vacuum breaker chattered at its set point every step from 2.55 h, amplifying perturbations 1.5x a step) | #1044 | 5.404 | 479.93 | predicted first: chatter gone (held), 1e-9 sensitivity down 100x (missed: still 5.4e7; first divergence now at 3.49 h, a core threshold event), single-run move inside the ensemble spread (held). Read single-run moves against the ensemble |
+| The blades' B4C by MELCOR's simple model (COR RM §2.5.9, MARCON 2.1B: Eq 2-208 rate, 2 % cap, equilibrium CO/CO2/CH4 split, Eqs 2-205-2-207 energies); 4.7 kg per blade \[A\] | F4, #1035 | 5.343 | 459.87 | predicted first: 1.8-2.3 kg H2 mostly as CO (missed: 2.6 kg, mostly CO2), ~165 mol carbon gases (held: 160), single-run move inside the ensemble spread (held: a branch change) |
+| Building burn dynamics, MELCOR's BUR (RM §2.3-2.5): the HECTR 1.5 completeness (Eqs 2-8, 2-9) and flame speed (Eqs 2-10-2-19), duration `CDIM / V` with BUR_BRT's default CDIM, rate Eqs 2-21-2-23; oxygen consumed and CO2 made; pressure rise reported as an adiabatic constant-volume bound (the building is held at 1 atm) | F11, #1035 | 5.343 | 459.87 | predicted first: the baseline does not ignite (Y peaks 0.033), so byte-identical (held: the fixture passes unchanged); hand values for the rates, completeness and a 12 % burn's 0.47 MPa bound (held) |
+| Debris falling through the pedestal's water, MELCOR's FDI low-pressure melt ejection (RM §2.2): COR Eq 6-34 velocity through the 0.1 m breach, Chu's modified breakup (Eqs 2-11-2-14) while molten, radiation or Bromley film boiling (Eqs 2-15-2-17), all heat boiling water (Eq 2-20); HPME (above 10 m/s, C4602) flagged, not modelled; time of flight within a step not modelled | F8, #1035 | 5.343 | 459.87 | predicted first: 0.05-0.5 t steam for ~2800 K molten debris (missed low: the debris leaves solid at 1350-2044 K, 63 kg by 7.1 h); byte-exact ablation; drywell peak 0.78578881 -> 0.78577510 MPa only |
+| UO2 carried by candling Zr, MELCOR's default secondary transport (COR RM §3.1.4, Eq 3-14; COR_CMT MTUOZR 1, FUOZR 0.2): 0.2 of the molten Zr's mass from the node's fuel, refreezing with the Zr (joins that node's fuel, stated), counted once per flow; per-node UO2 now a state | F4, #1035 | 5.484 | 470.75 | predicted first: 0.3-2 t moved (missed high: 3.98 t, nearly all metal candles; a first draft counting every node hop gave 10.6 t, a defect fixed before measuring), head 4.9-5.4 h (missed: 5.48 h), no node emptied (held: 0.94-1.62 of its fuel); UO2 conserved to 1e-9 |
+| Lower-plenum molten pool, MELCOR's convecting oxide pool (COR RM §2.4.2): above the UO2-ZrO2 eutectic (2800 K, Table 2-12) the debris-to-head coefficient is ACOPO's `Nu = 0.3 Ra_i^0.22` (Table 2-4, j = 1) with the transient Ra_i (Eq 2-126); melt properties \[A\]; no metallic pool, stratification (an option in MELCOR), Bonnet profile, Stefan substrate or in-core pools | F3, #1035 | 5.484 | 470.75 | predicted first: no pool forms before the head fails (held: byte-identical); the hand value 1609 W/(m^2 K) at 1 MW/m^3, 0.5 m (held) |
+| Checked against the manual, no change (2026-10-30): **HPME / DCH** (FDI RM §2.3): MELCOR disables it unless the user supplies FDI_CVH and FDI_DEP (transport fractions, deposition surfaces), treating every ejection as LPME (FDI UG §1), which is what this model does; it also never ejects above 10 m/s here (`fdi_hpme` stays false). **Eutectics** (COR §2.8, IEUMOD): off by default and not recommended; its default proxy, COR_CMT's UO2 transport, is added above. **Cavity layers** (CAV §3.2): enforced mixing, one layer, is the default, as here. **In-core molten pools**: no fuel node reaches the 2800 K eutectic in this run (UO2 released 2.7 kg), not added | F3, F4, F8, #1035 | - | - | upstream defaults handled as this model does |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently
@@ -302,6 +308,44 @@ All are sub-issues of #1028, filed 2026-10-28.
 | F12 injection bypass, leakage, 500 h | #1043 | P2 |
 | F13 input and event-time check | #1044 | P1 |
 | F14 Units 2 and 3 (blocked) | #1045 | P3 |
+
+**Status of the items, 2026-10-30** (maintainer goal: "finish everything
+except the control volumes"). Checked against the rows above and the code:
+
+- **The MELCOR package models outside CVH/FL** are now in, each default on
+  with an exact ablation, or else checked against the manual and found to be
+  handled as upstream's defaults handle them. That covers B4C, BUR burn
+  dynamics, FDI LPME, COR_CMT UO2 transport and the lower-plenum molten pool;
+  the checked-only ones are HPME/DCH, eutectics, cavity layers and in-core
+  pools (rows in §2a).
+- **F12's injection bypass** is not a MELCOR model. It is a scenario input,
+  the fraction of injected water that misses the core, and has no public
+  source held. The BSAF full report (L9) is not held, and TEPCO data (L8)
+  awaits a data-policy ruling. Picking a value to match the measured
+  pressure would be calibration, so it waits on literature. F12's leak paths
+  and the 500 h run are in. **Deferred, maintainer decision 2026-10-30**:
+  out of scope for this goal, tracked on #1043 until L8 is ruled on or L9
+  is held. No value is to be fitted in the meantime.
+- ~~**F13** (the input and event-time check) is blocked on L4-L9 (§4).~~
+  **CORRECTED 2026-10-30: partly done.** The open NRC HRTD chapter 7.1
+  (`theodore-open-corpus/nrc/nrc-hrtd-ge-bwr4-atm-ch7.1-fukushima.pdf`,
+  Table 7.1-2) gives the event times, 400 assemblies and 1380 MWt. Checked
+  against the `EVENTS` table: the IC stop, the vent, the explosion and the
+  seawater injection agree to the minute. The fresh-water injection began
+  at 14:59 h against its own label and the NRC's 15:00 h; fixed (the
+  pins moved by about 1e-4 MPa in peak pressure, recorded in
+  `compare::the_uncalibrated_baseline_is_pinned`). The station blackout
+  is 15:37 in the table (INPO, recalled) against about 15:41 in the NRC;
+  not resolved, because INPO's report is not held. The IC cycling (15:17)
+  and the water running out (14:53) are still unsourced. The NRC gives the
+  building as about 1.5e6 ft³ for a BWR-4 generally; noted, not adopted
+  for Unit 1. The rest of F13 (the inputs L4-L9 would give) is **deferred,
+  maintainer decision 2026-10-30**: out of scope for this goal, tracked on
+  #1044 until that literature is held (L4 is public but its host is blocked
+  from this environment; L5-L7 and L9 are private).
+- **F14** (Units 2 and 3) needs the control-volume equation of state, which
+  is excluded from this goal: the thermal hydraulics are to be partitioned
+  into `tampines` and `outram-foam`.
 
 ## 4. Literature needed, and its copyright
 

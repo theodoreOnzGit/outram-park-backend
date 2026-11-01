@@ -188,7 +188,7 @@ The fundamental building block — one lumped control volume node.
 `src/lib/array_fluid_collections/fluid_array_lateral_coupling/`
 `src/lib/array_fluid_collections/solid_array_lateral_coupling/`
 
-1D pipe/structure discretised into N nodes. Both have a `front_single_cv` and `back_single_cv` bounding the array. `FluidArray` also carries `fluid_component_loss_properties: DimensionlessDarcyLossCorrelations` and `nusselt_correlation: NusseltCorrelation`. Both use ndarray-linalg (OpenBLAS/MKL) matrix solvers for the implicit energy equation.
+1D pipe/structure discretised into N nodes. Both have a `front_single_cv` and `back_single_cv` bounding the array. `FluidArray` also carries `fluid_component_loss_properties: DimensionlessDarcyLossCorrelations` and `nusselt_correlation: NusseltCorrelation`. ~~Both use ndarray-linalg (OpenBLAS/MKL) matrix solvers for the implicit energy equation.~~ **CORRECTED 2026-11-01:** both solve the implicit energy equation with the pure-Rust LU in `crate::matrix::SquareMatrix` (`standalone_fluid_nodes::solve_conductance_matrix_power_vector`); the crate no longer depends on ndarray-linalg.
 
 ### `FluidComponentCollection`
 `src/lib/array_fluid_collections/fluid_component_collection/`

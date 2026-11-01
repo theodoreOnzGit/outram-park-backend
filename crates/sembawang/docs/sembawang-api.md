@@ -2965,8 +2965,12 @@ manuals' description, never from MELCOR or CORCON source.
 
 - **One debris layer**, lumped: UO2, metallic Zr and oxides (ZrO2 and the
   ablated concrete's oxides) at one temperature, heated by its decay
-  power and by the oxidation of its Zr. No layering (MELCOR stratifies
-  and mixes layers, §3.2). ~~No phase change, no crust (stated).~~
+  power and by the oxidation of its Zr. ~~No layering (MELCOR stratifies
+  and mixes layers, §3.2).~~ **CORRECTED 2026-10-30:** one layer is
+  MELCOR's default: CAV_U's MIXING defaults to enforced mixing (§3.2.1,
+  "the debris always considered to form a single layer", configurations
+  13 to 15); stratification (§3.2.2) and mechanistic mixing (§3.2.3) are
+  options, so not added. ~~No phase change, no crust (stated).~~
   **Since 2026-10-30, with `Mechanisms::cavity_phases`:** the oxide
   phase melts over a solidus-liquidus range from MELCOR's ideal-solution
   pseudo-binary (§3.10: fuel, UO2 and ZrO2, the high-melting component,
@@ -4401,11 +4405,19 @@ fall, so it overshot the set point by about the ratio of the volumes,
 and the vacuum breaker chattered about it every step, amplifying a
 1e-9 perturbation 1.5 times a step; with
 `Mechanisms::two_sided_equalising` it counts the receiver's rise too
-(`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, wetwell
-stratification, pool level and swell, pool scrubbing of aerosols (no
-fission products are tracked yet), the torus room, the reactor building's
-own heat-up and ventilation, steam in the building, and the combustion
-itself (the explosion is a threshold, not a calculation).
+(`R T / V = p / n` for each gas) and lands on the set point. **Not in the model**: drywell spray, ~~wetwell
+stratification,~~ pool level and swell, ~~pool scrubbing of aerosols (no
+fission products are tracked yet),~~ the torus room, the reactor building's
+own heat-up and ventilation, steam in the building, and the building's
+pressure. ~~And the combustion itself (the explosion is a threshold, not
+a calculation).~~ **CORRECTED 2026-10-30:** with
+`Mechanisms::burn_dynamics` a burn runs MELCOR's completeness, flame
+speed and rate (BUR RM §2.3 to §2.5); its pressure rise is reported as
+an adiabatic bound, since the building is held at one atmosphere.
+**CORRECTED 2026-10-30** (struck above; checked in the code): the pool
+stratifies in two layers (`Mechanisms::pool_layers`), it scrubs aerosols
+(`Mechanisms::pool_scrubbing`, SPARC-90 in [`super::sparc`]), and the
+fission products are tracked ([`super::rn_volume`]).
 
 ```rust
 pub mod containment { /* ... */ }
@@ -4469,6 +4481,9 @@ pub struct ContainmentSnapshot {
     pub bur_ignition: bool,
     pub gas_choking: bool,
     pub two_sided_equalising: bool,
+    pub burn_dynamics: bool,
+    pub fdi_lpme: bool,
+    pub vessel_p_pa: f64,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4532,6 +4547,9 @@ pub struct ContainmentSnapshot {
 | `bur_ignition` | `bool` | The building's burn starts by MELCOR's BUR criteria<br>(`Mechanisms::bur_ignition`). |
 | `gas_choking` | `bool` | Gas flows to the atmosphere are limited to the critical flow<br>(`Mechanisms::gas_choking`). |
 | `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts both<br>volumes (`Mechanisms::two_sided_equalising`). |
+| `burn_dynamics` | `bool` | A burn runs MELCOR's completeness, flame speed and rate<br>(`Mechanisms::burn_dynamics`). |
+| `fdi_lpme` | `bool` | Debris arriving in the pedestal falls through its water by MELCOR's<br>low-pressure melt ejection (`Mechanisms::fdi_lpme`). |
+| `vessel_p_pa` | `f64` | The vessel's pressure, Pa, for the ejection velocity. |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -4682,6 +4700,10 @@ pub struct ContainmentResult {
     pub rb_exploded: bool,
     pub rb_burn_y: f64,
     pub rb_co_fraction: f64,
+    pub rb_burning: bool,
+    pub rb_burn_dp_pa: f64,
+    pub fdi_steam_kg: f64,
+    pub fdi_hpme: bool,
     pub vented_h2_kg: f64,
     pub vented_kg_s: f64,
     pub xe_dw: f64,
@@ -4725,6 +4747,10 @@ pub struct ContainmentResult {
 | `rb_exploded` | `bool` |  |
 | `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction, `X_H2 + X_CO<br>L_H2 / L_CO` (MELCOR BUR RM Eq 2-3), and its CO fraction. |
 | `rb_co_fraction` | `f64` |  |
+| `rb_burning` | `bool` | A burn is running in the building (`burn_dynamics`). |
+| `rb_burn_dp_pa` | `f64` | The largest burn's pressure rise, Pa, as an adiabatic,<br>constant-volume bound `Q / (2.5 V)` (no venting, no heat loss; the<br>building itself is held at one atmosphere, stated). |
+| `fdi_steam_kg` | `f64` | Steam raised by debris falling through the pedestal's water, kg<br>(`fdi_lpme`), and whether an ejection was fast enough for MELCOR's<br>high-pressure model (flagged, still treated as low-pressure). |
+| `fdi_hpme` | `bool` |  |
 | `vented_h2_kg` | `f64` |  |
 | `vented_kg_s` | `f64` |  |
 | `xe_dw` | `f64` | Noble gas (Xe) in the drywell and the wetwell gas, vented to the<br>stack and leaked to the reactor building, fractions of the core<br>inventory (gh:#1040). |
@@ -5036,6 +5062,886 @@ pub struct Containment {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `containment_network`
+
+The Mark I containment on `tampines`'s control-volume network (gh:#1097,
+epic gh:#1091): drywell, wetwell (torus) and reactor building as
+[`ControlVolume`]s, the downcomers, vacuum breakers, wetwell vent and
+drywell head-flange leak as [`FlowPath`]s, the stack and the environment
+as boundaries. After MELCOR 2.2's CVH/FL packages (Reference Manual §2,
+§5, §6; cited by section, not quoted; no MELCOR source used).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Built alongside [`super::containment::Containment`], not replacing
+it.** The plant ([`super::Plant`]) still runs the old model and its
+fixtures are unchanged. [`ContainmentNetwork::step`] takes the same
+per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
+([`NetworkResult`]), so the two can be run side by side
+(`tests/containment_network_vs_containment.rs`; the evidence is in
+`verification_and_validation/bwr_mark1/containment_network.md`).
+
+## What is mapped, and what is not (stated)
+
+| Snapshot input | Here |
+|---|---|
+| relief steam, enthalpy, H2 (at `srv_gas_k` with `relief_h2_enthalpy`, else the pool's temperature) | a source at the quenchers' port in the torus pool |
+| RPV leak steam, enthalpy, H2 at `leak_gas_k` | a source in the drywell atmosphere |
+| `vent_ordered` | the vent valve: open once ordered and the rupture disk has burst (`p_ww ≥ vent_rupture_disk_pa`) |
+| `rpv_wall_w` | heat into the drywell atmosphere |
+| `ex_vessel_w`, `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump; the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases) |
+| `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
+| fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, MCCI, FDI, `pool_layers`, `dw_wall_outer` | **not mapped**: sembawang's, and not yet on the network |
+
+## Geometry: from `params`, with what had to be assumed marked \[A\]
+
+One plant datum, the torus bottom at 0 m. Each volume's V(z) table is in
+that datum, so a path's gravity term `ρ g Δz` is the real one.
+
+- **Torus:** a torus of major radius [`NetworkConfig::torus_major_radius_m`]
+  (15 m \[A\], the same assumed torus as `WW_SHELL_AREA_M2`), its tube
+  radius chosen so that the vessel holds `wetwell_gas_m3` plus the pool
+  (1750 m³ at 995 kg/m³, sembawang's mass) at IF97's density: 3.84 m. Its
+  horizontal section at height `y` is `4πR √(r² − (y − r)²)`
+  (Pappus), tabulated at 64 points. At the initial level that is 711 m²
+  against `ww_pool_surface_m2` = 750 m² (sembawang's prismatic pool);
+  [`TorusShape::Prismatic`] reproduces the latter.
+- **Downcomer exits and quenchers:** `vent_submergence_pa` below the
+  initial level at 995 kg/m³ and 9.81 m/s² (sembawang's depth), the
+  opening the downcomer's diameter (0.515 m). The quenchers' port is
+  put at the same depth, as sembawang does (\[A\], their geometry is
+  not held).
+- **Drywell:** a floor of `dw_floor_m2` (200 m² \[A\]) carrying a
+  prismatic volume of `drywell_volume_m3` (\[A\] the light bulb's shape is
+  not held) above a sump pit of 2 m² × 1.5 m holding 1 m³ \[A\] (a
+  control volume needs a pool); the floor at the torus top \[A\]
+  ([`NetworkConfig::drywell_floor_m`]), the downcomers' entry 2 m above
+  it \[A\], the head flange at the top.
+- **Reactor building:** `reactor_building_m3` on a 650 m² floor \[A\]
+  (40 m tall, so it spans the drywell head) above a 2 m² sump pit with
+  1 m³ \[A\], dry air at one atmosphere and 303.15 K (sembawang's
+  `T_RB`), open to the environment through 1 m² \[A\] near its top
+  (sembawang holds its building at one atmosphere exactly).
+- **Paths:** sembawang's orifice `C_d A √(2ρΔp)` is the steady state of a
+  path of area `A`, discharge coefficient `C_d` and form loss `K = 1`,
+  so each path takes `params`' area and coefficient with `K = 1`; the
+  inertial lengths are \[A\]: downcomers 8 m, vacuum breakers 1 m, vent
+  60 m, flange 0.5 m, building openings 1 m. The vent is a check valve
+  (sembawang's vent never flows back); the vacuum breakers open at
+  `vacuum_breaker_pa`.
+
+```rust
+pub mod containment_network { /* ... */ }
+```
+
+### Types
+
+#### Enum `TorusShape`
+
+The torus's V(z).
+
+```rust
+pub enum TorusShape {
+    Torus,
+    Prismatic,
+}
+```
+
+##### Variants
+
+###### `Torus`
+
+A torus (the default).
+
+###### `Prismatic`
+
+sembawang's prismatic pool: area `ww_pool_surface_m2` throughout.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NetworkConfig`
+
+What a unit's containment network needs beyond [`Params`]: the shapes
+and elevations `params` does not hold. Every field is \[A\] for Unit 1
+(see the module docs); Units 2 and 3 would differ here and in `Params`
+(the V&V doc lists the data that would be needed).
+
+```rust
+pub struct NetworkConfig {
+    pub torus_shape: TorusShape,
+    pub torus_major_radius_m: f64,
+    pub drywell_floor_m: Option<f64>,
+    pub downcomer_entry_m: f64,
+    pub sump_area_m2: f64,
+    pub sump_depth_m: f64,
+    pub sump_water_m3: f64,
+    pub building_floor_m2: f64,
+    pub building_openings_m2: f64,
+    pub downcomer_length_m: f64,
+    pub vacuum_breaker_length_m: f64,
+    pub vent_length_m: f64,
+    pub flange_length_m: f64,
+    pub building_length_m: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `torus_shape` | `TorusShape` | The torus's shape. |
+| `torus_major_radius_m` | `f64` | Torus major radius, m. |
+| `drywell_floor_m` | `Option<f64>` | Drywell floor above the torus bottom, m (`None`: at the torus top). |
+| `downcomer_entry_m` | `f64` | The downcomers' entry above the drywell floor, m. |
+| `sump_area_m2` | `f64` | Sump pits (drywell, building): area, m², depth, m, initial water, m³. |
+| `sump_depth_m` | `f64` |  |
+| `sump_water_m3` | `f64` |  |
+| `building_floor_m2` | `f64` | Reactor building floor area, m², and its openings to the<br>environment, m². |
+| `building_openings_m2` | `f64` |  |
+| `downcomer_length_m` | `f64` | Inertial lengths, m: downcomers, vacuum breakers, vent, flange,<br>building openings. |
+| `vacuum_breaker_length_m` | `f64` |  |
+| `vent_length_m` | `f64` |  |
+| `flange_length_m` | `f64` |  |
+| `building_length_m` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn unit1() -> Self { /* ... */ }
+  ```
+  Unit 1, every value \[A\] (module docs).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NetworkMechanisms`
+
+The network's own mechanisms, all on by default; each `without_*` on
+[`ContainmentNetwork`] is an ablation for attributing a difference.
+
+```rust
+pub struct NetworkMechanisms {
+    pub pressure_work: bool,
+    pub real_steam: bool,
+    pub real_liquid: bool,
+    pub level_swell: bool,
+    pub bubble_pass_through: bool,
+    pub equilibrium_rain_out: bool,
+    pub choking: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure_work` | `bool` | The pool's compression work on the atmosphere (each volume). |
+| `real_steam` | `bool` | IF97 steam in the atmospheres (else sembawang's ideal steam). |
+| `real_liquid` | `bool` | IF97 liquid (else sembawang's constant `c_p`). |
+| `level_swell` | `bool` | The swollen level decides what a port draws. |
+| `bubble_pass_through` | `bool` | MELCOR's bubble efficiency at submerged ports. |
+| `equilibrium_rain_out` | `bool` | Rain-out to saturation (else sembawang's four passes). |
+| `choking` | `bool` | Choking on every path. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NetworkResult`
+
+One step's outputs, comparable with [`super::containment::ContainmentResult`].
+
+```rust
+pub struct NetworkResult {
+    pub p_dw_pa: f64,
+    pub p_ww_pa: f64,
+    pub p_rb_pa: f64,
+    pub t_dw_k: f64,
+    pub t_ww_gas_k: f64,
+    pub t_pool_k: f64,
+    pub pool_kg: f64,
+    pub pool_level_m: f64,
+    pub pool_swollen_level_m: f64,
+    pub dw_sump_kg: f64,
+    pub dw_steam_kg: f64,
+    pub ww_steam_kg: f64,
+    pub dw_h2_kg: f64,
+    pub ww_h2_kg: f64,
+    pub rb_h2_fraction: f64,
+    pub vent_flowing: bool,
+    pub vented_kg_s: f64,
+    pub vented_h2_kg: f64,
+    pub flange_leaking: bool,
+    pub flange_kg_s: f64,
+    pub downcomer_kg_s: f64,
+    pub vacuum_breaker_kg_s: f64,
+    pub iterations: usize,
+    pub residual: f64,
+    pub substeps: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p_dw_pa` | `f64` |  |
+| `p_ww_pa` | `f64` |  |
+| `p_rb_pa` | `f64` |  |
+| `t_dw_k` | `f64` |  |
+| `t_ww_gas_k` | `f64` |  |
+| `t_pool_k` | `f64` |  |
+| `pool_kg` | `f64` | Torus pool: mass, kg, collapsed and swollen level, m (plant datum). |
+| `pool_level_m` | `f64` |  |
+| `pool_swollen_level_m` | `f64` |  |
+| `dw_sump_kg` | `f64` | Water in the drywell sump, kg. |
+| `dw_steam_kg` | `f64` |  |
+| `ww_steam_kg` | `f64` |  |
+| `dw_h2_kg` | `f64` |  |
+| `ww_h2_kg` | `f64` |  |
+| `rb_h2_fraction` | `f64` | Hydrogen's mole fraction in the building's gas (steam included). |
+| `vent_flowing` | `bool` |  |
+| `vented_kg_s` | `f64` |  |
+| `vented_h2_kg` | `f64` |  |
+| `flange_leaking` | `bool` |  |
+| `flange_kg_s` | `f64` |  |
+| `downcomer_kg_s` | `f64` | Gas through the downcomers (positive into the torus) and the vacuum<br>breakers (into the drywell), kg/s. |
+| `vacuum_breaker_kg_s` | `f64` |  |
+| `iterations` | `usize` | Picard iterations this step (summed over sub-steps), the largest<br>residual, and the sub-steps taken so far in the run. |
+| `residual` | `f64` |  |
+| `substeps` | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ContainmentNetwork`
+
+The Mark I containment as a control-volume network. See the module docs.
+
+```rust
+pub struct ContainmentNetwork {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(prm: &Params) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Unit 1 from `prm`, [`NetworkConfig::unit1`], every mechanism on.
+
+- ```rust
+  pub fn with_config(prm: &Params, cfg: NetworkConfig, mech: NetworkMechanisms) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Any unit's network: `prm` for what `params` holds, `cfg` for the
+
+- ```rust
+  pub fn network(self: &Self) -> &CvNetwork { /* ... */ }
+  ```
+  The network (read-only).
+
+- ```rust
+  pub fn config(self: &Self) -> NetworkConfig { /* ... */ }
+  ```
+  The configuration it was built with.
+
+- ```rust
+  pub fn wall_temperatures(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  The drywell structures' and the torus shell's temperatures, K.
+
+- ```rust
+  pub fn step(self: &mut Self, s: &ContainmentSnapshot) -> Result<NetworkResult, TampinesError> { /* ... */ }
+  ```
+  Advance one step with sembawang's snapshot (see the module docs for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `core`
 
 The core: heat-up of the fuel once the water level falls, zirconium-steam
@@ -5152,6 +6058,9 @@ pub struct CoreSnapshot {
     pub control_blades: bool,
     pub blade_fusion: bool,
     pub blade_diffusion_limit: bool,
+    pub b4c_oxidation: bool,
+    pub uo2_candling: bool,
+    pub molten_pool: bool,
     pub prm: Params,
 }
 ```
@@ -5190,6 +6099,9 @@ pub struct CoreSnapshot {
 | `control_blades` | `bool` | The control blades: steel at each cell's cladding temperature, its<br>oxidation, and its melting (`Mechanisms::control_blades`). |
 | `blade_fusion` | `bool` | A blade at the steel's melting temperature absorbs its heat of<br>fusion before it drains (`Mechanisms::blade_fusion`). |
 | `blade_diffusion_limit` | `bool` | The blades' steel oxidation is held to MELCOR's gaseous-diffusion<br>limit as the Zr's is (`Mechanisms::blade_diffusion_limit`). |
+| `b4c_oxidation` | `bool` | The blades' B4C reacts with steam by MELCOR's simple model<br>(`Mechanisms::b4c_oxidation`). |
+| `uo2_candling` | `bool` | Candling Zr carries UO2 by MELCOR's secondary transport<br>(`Mechanisms::uo2_candling`). |
+| `molten_pool` | `bool` | A molten plenum pool convects to the head by MELCOR's correlation<br>(`Mechanisms::molten_pool`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5522,6 +6434,16 @@ pub struct Core {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn b4c_tally(self: &Self) -> (f64, [f64; 3]) { /* ... */ }
+  ```
+  B4C reacted, kg, and its CO, CO2 and CH4, mol (`b4c_oxidation`).
+
+- ```rust
+  pub fn uo2_candled_kg(self: &Self) -> f64 { /* ... */ }
+  ```
+  UO2 carried down by candling Zr, kg (`uo2_candling`).
 
 - ```rust
   pub fn new(t_sat_k: f64, prm: &Params) -> Self { /* ... */ }
@@ -5989,7 +6911,7 @@ pub struct PlantDecay {
 - ```rust
   pub fn actinide_power_w(self: &Self) -> f64 { /* ... */ }
   ```
-  U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4).
+  U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4), by
 
 ###### Trait Implementations
 
@@ -6095,6 +7017,45 @@ pub struct PlantDecay {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `fdi`
+
+Debris falling through the pedestal's water: a reduced form of MELCOR's
+FDI package, low-pressure melt ejection (Vol. 2, FDI RM §2.2, the
+Corradini et al. model; 2026-10-30, `Mechanisms::fdi_lpme`). AI draft,
+clean room: written from the manual's description, never from MELCOR
+source.
+
+- **The stream** leaves the breach (`breach_diameter_m`) at MELCOR's
+  Bernoulli velocity (COR RM §6, Eq 6-34), `Cd (2 dP / rho + 2 g
+  dz)^(1/2)`, `dz` the bottom cell's height (`lp_bottom_level_m`,
+  \[A\]). Above `fdi_hpme_velocity` (C4602, 10 m/s) MELCOR switches to
+  high-pressure ejection, which needs user transport fractions; that
+  case is flagged and still falls as here, which is MELCOR's own
+  default: "If HPME model user input is absent, the HPME model will be
+  disabled, and all FDI events will be treated by the LPME model
+  irrespective of ejection conditions. No DCH will occur" without
+  records FDI_CVH and FDI_DEP (FDI UG §1).
+- **Breakup** while molten, by Chu's correlation as MELCOR modifies it
+  (Eqs 2-11 to 2-14): `D(z) = D0 exp(-Z)`, `Z = (C1 We^0.254 / D0)
+  (rho_c / rho_f)^(1/2) (z_pool - z)`, `C1 = 0.1232 - 0.149 (rho_c /
+  rho_f)^(1/2)`, `We = rho_c U^2 D0 / sigma_f`; once solid (below Zr's
+  2098 K, the debris's first component to melt, \[A\]) the diameter
+  stays.
+- **Heat** by the dominant one of radiation to the coolant (unit
+  emissivity) and Bromley's film boiling (Eqs 2-15, 2-16), Eq 2-17
+  integrated over the depth.
+- **Steam**: all of it boils water, `Q / (h_g - h_pool)`, the pool's
+  temperature unchanged (Eq 2-20); capped at the pool, the debris's
+  temperature then back-calculated.
+- **Not modelled**: the time of flight inside a step (Eqs 2-1 to 2-6;
+  seconds against the hour scale, each packet lands in the step it
+  leaves), oxidation of the falling metal (MELCOR's LPME has none
+  either), and a steam explosion (nor does MELCOR).
+
+```rust
+pub mod fdi { /* ... */ }
+```
+
 ## Module `fp_decay`
 
 Fission-product decay heat by element, for decay heat that follows the
@@ -6451,6 +7412,12 @@ pub fn inventory_kg(symbol: &str) -> f64 { /* ... */ }
 
 Heat capacities of the non-condensable gases, N2 and H2.
 
+**Since 2026-11-01 the code lives in `tampines_steam_tables::gas_mixture::melcor_ncg`**
+(gh:#1093; maintainer direction: `sembawang` depends on `tampines`, so the
+thermal-hydraulic properties live on that side). It moved verbatim, with
+the same constants and operation order, so every value is bit-identical;
+this module forwards to it, and its test moved with it.
+
 Each has its own `c_v(T)`, from MELCOR 2.2's NCG library fits (Vol. 2,
 SAND2023-10994 O, NCG/H2O-RM-33/34; the form is Vol. 1, SAND2017-0455 O,
 NCG-UG-2, Eq 1.1; no source used):
@@ -6471,78 +7438,60 @@ constants, 20.8 (N2) and 20.5 (H2) J/(mol K), and the
 pub mod gas { /* ... */ }
 ```
 
-### Functions
+### Re-exports
 
-#### Function `cv_n2`
-
-Molar `c_v` of N2 and of H2, J/(mol K); `t_dependent` false is the
-constant-value ablation.
+#### Re-export `cp_h2_per_kg`
 
 ```rust
-pub fn cv_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::cp_h2_per_kg;
 ```
 
-#### Function `cv_h2`
+#### Re-export `cv_h2`
 
 ```rust
-pub fn cv_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::cv_h2;
 ```
 
-#### Function `u_n2`
-
-Molar internal energy of N2 and of H2 from 0 K, J/mol.
+#### Re-export `cv_n2`
 
 ```rust
-pub fn u_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::cv_n2;
 ```
 
-#### Function `u_h2`
+#### Re-export `h2_enthalpy_above_298`
 
 ```rust
-pub fn u_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::h2_enthalpy_above_298;
 ```
 
-#### Function `ncg_u`
-
-Internal energy of `n2` and `h2` moles at `t`, J. The ablation keeps the
-operation order of the code before 2026-10-29, so it reproduces it bit
-for bit.
+#### Re-export `h2_molar_enthalpy`
 
 ```rust
-pub fn ncg_u(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::h2_molar_enthalpy;
 ```
 
-#### Function `ncg_c`
-
-Heat capacity of `n2` and `h2` moles at `t`, J/K.
+#### Re-export `ncg_c`
 
 ```rust
-pub fn ncg_c(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::ncg_c;
 ```
 
-#### Function `h2_molar_enthalpy`
-
-Hydrogen's molar enthalpy from 0 K, `u + R T`, J/mol (the ablation as
-before: `(c_v + R) T`).
+#### Re-export `ncg_u`
 
 ```rust
-pub fn h2_molar_enthalpy(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::ncg_u;
 ```
 
-#### Function `cp_h2_per_kg`
-
-Hydrogen's `c_p`, J/(kg K), and its enthalpy above 298.15 K, J/kg, for
-the core and vessel (the `hydrogen_cp_t` mechanism). The ablation's
-`c_p` is the constant the core used before, `(20.5 + R)/M_H2`.
+#### Re-export `u_h2`
 
 ```rust
-pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::u_h2;
 ```
 
-#### Function `h2_enthalpy_above_298`
+#### Re-export `u_n2`
 
 ```rust
-pub fn h2_enthalpy_above_298(t: f64) -> f64 { /* ... */ }
+pub use tampines_steam_tables::gas_mixture::melcor_ncg::u_n2;
 ```
 
 ## Module `internals`
@@ -7505,6 +8454,27 @@ pub struct Params {
     pub bur_xcoign: f64,
     pub bur_xo2ig: f64,
     pub bur_xmscig: f64,
+    pub bur_xh2cc: f64,
+    pub bur_xcocc: f64,
+    pub bur_cc_slope: f64,
+    pub bur_cc_y0: f64,
+    pub h2_combustion_j_per_mol: f64,
+    pub co_combustion_j_per_mol: f64,
+    pub fdi_surface_tension: f64,
+    pub fdi_hpme_velocity: f64,
+    pub candling_uo2_fraction: f64,
+    pub pool_melt_k: f64,
+    pub pool_nu_a: f64,
+    pub pool_nu_n: f64,
+    pub pool_k: f64,
+    pub pool_mu: f64,
+    pub pool_beta: f64,
+    pub pool_cp: f64,
+    pub pool_rho: f64,
+    pub blade_b4c_kg: f64,
+    pub b4c_rate_a: f64,
+    pub b4c_rate_b: f64,
+    pub b4c_max_fraction: f64,
     pub ss_x_fe: f64,
     pub ss_x_cr: f64,
     pub ss_x_ni: f64,
@@ -7696,6 +8666,27 @@ pub struct Params {
 | `bur_xcoign` | `f64` |  |
 | `bur_xo2ig` | `f64` |  |
 | `bur_xmscig` | `f64` |  |
+| `bur_xh2cc` | `f64` |  |
+| `bur_xcocc` | `f64` |  |
+| `bur_cc_slope` | `f64` |  |
+| `bur_cc_y0` | `f64` |  |
+| `h2_combustion_j_per_mol` | `f64` |  |
+| `co_combustion_j_per_mol` | `f64` |  |
+| `fdi_surface_tension` | `f64` |  |
+| `fdi_hpme_velocity` | `f64` |  |
+| `candling_uo2_fraction` | `f64` |  |
+| `pool_melt_k` | `f64` |  |
+| `pool_nu_a` | `f64` |  |
+| `pool_nu_n` | `f64` |  |
+| `pool_k` | `f64` |  |
+| `pool_mu` | `f64` |  |
+| `pool_beta` | `f64` |  |
+| `pool_cp` | `f64` |  |
+| `pool_rho` | `f64` |  |
+| `blade_b4c_kg` | `f64` |  |
+| `b4c_rate_a` | `f64` |  |
+| `b4c_rate_b` | `f64` |  |
+| `b4c_max_fraction` | `f64` |  |
 | `ss_x_fe` | `f64` |  |
 | `ss_x_cr` | `f64` |  |
 | `ss_x_ni` | `f64` |  |
@@ -8844,6 +9835,198 @@ The most steam and CO2 for ignition (XMSCIG default), inerting above.
 pub const BUR_XMSCIG: f64 = 0.55;
 ```
 
+#### Constant `BUR_XH2CC`
+
+MELCOR's BUR combustion completeness (BUR RM §2.3, record BUR_COM
+defaults): the hydrogen mole fraction in the completeness's Le
+Chatelier formula (Eq 2-7), XH2CC. \[P\]
+
+```rust
+pub const BUR_XH2CC: f64 = 0.08;
+```
+
+#### Constant `BUR_XCOCC`
+
+CO's mole fraction in the completeness's Le Chatelier formula, XCOCC.
+\[P\]
+
+```rust
+pub const BUR_XCOCC: f64 = 0.148;
+```
+
+#### Constant `BUR_CC_SLOPE`
+
+The HECTR 1.5 completeness correlation's slope (Eq 2-9,
+sensitivity coefficients 2202). \[P\]
+
+```rust
+pub const BUR_CC_SLOPE: f64 = 23.4116;
+```
+
+#### Constant `BUR_CC_Y0`
+
+The correlation's threshold Ymax, below which nothing burns (Eq 2-8).
+\[P\]
+
+```rust
+pub const BUR_CC_Y0: f64 = 0.037_46;
+```
+
+#### Constant `H2_COMBUSTION_J_PER_MOL`
+
+Hydrogen's heat of combustion to steam (the lower heating value),
+J/mol. \[P\] (NIST: 241.8 kJ/mol.)
+
+```rust
+pub const H2_COMBUSTION_J_PER_MOL: f64 = 241.8e3;
+```
+
+#### Constant `CO_COMBUSTION_J_PER_MOL`
+
+CO's heat of combustion to CO2, J/mol. \[P\] (NIST: 283.0 kJ/mol.)
+
+```rust
+pub const CO_COMBUSTION_J_PER_MOL: f64 = 283.0e3;
+```
+
+#### Constant `FDI_SURFACE_TENSION`
+
+The ejected debris's surface tension, N/m, for its breakup in the
+pedestal's water (`Mechanisms::fdi_lpme`, FDI RM Eq 2-8). \[A\] liquid
+UO2's, about 0.45 N/m at its melting point (MATPRO).
+
+```rust
+pub const FDI_SURFACE_TENSION: f64 = 0.45;
+```
+
+#### Constant `FDI_HPME_VELOCITY`
+
+The ejection velocity above which MELCOR models a high-pressure melt
+ejection instead, m/s (FDI RM §2.3, sensitivity coefficient 4602).
+\[P\]
+
+```rust
+pub const FDI_HPME_VELOCITY: f64 = 10.0;
+```
+
+#### Constant `CANDLING_UO2_FRACTION`
+
+UO2 carried by candling Zr, as a fraction of the molten Zr's mass
+(`Mechanisms::uo2_candling`): MELCOR's COR_CMT default FUOZR with
+MTUOZR = 1 (COR RM §3.1.4, Eq 3-14). \[P\]
+
+```rust
+pub const CANDLING_UO2_FRACTION: f64 = 0.2;
+```
+
+#### Constant `POOL_MELT_K`
+
+The lower plenum's debris is a convecting oxide pool above this, K
+(`Mechanisms::molten_pool`): the UO2-ZrO2 eutectic of MELCOR's Table
+2-12 (COR RM §2.8.2). \[P\]
+
+```rust
+pub const POOL_MELT_K: f64 = 2800.0;
+```
+
+#### Constant `POOL_NU_A`
+
+MELCOR's ACOPO correlation for an oxide pool's radial boundary, `Nu =
+A Ra_i^n` (COR RM Table 2-4, j = 1, C1280): the coefficient. \[P\]
+
+```rust
+pub const POOL_NU_A: f64 = 0.3;
+```
+
+#### Constant `POOL_NU_N`
+
+The ACOPO correlation's exponent. \[P\]
+
+```rust
+pub const POOL_NU_N: f64 = 0.22;
+```
+
+#### Constant `POOL_K`
+
+The oxidic melt's conductivity, W/(m K). \[A\] corium literature,
+about 3.
+
+```rust
+pub const POOL_K: f64 = 3.0;
+```
+
+#### Constant `POOL_MU`
+
+The oxidic melt's viscosity, Pa s. \[A\] corium literature, 4.4e-3.
+
+```rust
+pub const POOL_MU: f64 = 4.4e-3;
+```
+
+#### Constant `POOL_BETA`
+
+The oxidic melt's thermal expansion, 1/K. \[A\] corium literature,
+1.05e-4.
+
+```rust
+pub const POOL_BETA: f64 = 1.05e-4;
+```
+
+#### Constant `POOL_CP`
+
+The oxidic melt's specific heat, J/(kg K). \[A\] corium literature,
+about 500.
+
+```rust
+pub const POOL_CP: f64 = 500.0;
+```
+
+#### Constant `POOL_RHO`
+
+The oxidic melt's density, kg/m^3. \[A\] corium literature, about
+8000.
+
+```rust
+pub const POOL_RHO: f64 = 8000.0;
+```
+
+#### Constant `BLADE_B4C_KG`
+
+B4C per control blade over the active height, kg (`Mechanisms::
+b4c_oxidation`): \[A\] the blade geometry of `BLADE_STEEL_KG`, 72 tubes of
+3.6 mm bore over 3.66 m, packed at 70 % of B4C's 2520 kg/m^3: 4.7 kg.
+
+```rust
+pub const BLADE_B4C_KG: f64 = 4.7;
+```
+
+#### Constant `B4C_RATE_A`
+
+MELCOR's simple B4C model (COR RM §2.5.9, MARCON 2.1B, Eq 2-208): the
+fraction of the initial B4C reacting per second is `A exp(-B/T)`,
+`A = 9.973e6 / 60` 1/s. \[P\]
+
+```rust
+pub const B4C_RATE_A: f64 = _;
+```
+
+#### Constant `B4C_RATE_B`
+
+Its activation temperature, K. \[P\]
+
+```rust
+pub const B4C_RATE_B: f64 = 22647.2;
+```
+
+#### Constant `B4C_MAX_FRACTION`
+
+The most of the B4C that may react, MELCOR's default (C1005(2)): the
+blade's eutectic relocates it first. \[P\]
+
+```rust
+pub const B4C_MAX_FRACTION: f64 = 0.02;
+```
+
 #### Constant `SS_X_FE`
 
 The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
@@ -9619,6 +10802,11 @@ MELCOR 2.2 reference manuals' equations, never from MELCOR source.
   conductivity, and the steam-air and steam-hydrogen diffusivities
   (Eqs 6-1, 6-2; nitrogen takes air's, stated).
 
+**Since 2026-11-01 the gas-mixture properties and the heat-structure
+surface ([`structure_surface`], [`Atmosphere`]) live in
+`tampines::components::wall_condensation`** (gh:#1096), moved verbatim
+and re-exported here; the pool-surface exchange below stays.
+
 **Simplifications, stated:** no forced convection (MELCOR's Eq 5-21
 needs the volume's velocity, which this model does not have); the pool's
 heat capacity is the model's constant `c_p`; the pool's expansion
@@ -9630,150 +10818,6 @@ pub mod pool_surface { /* ... */ }
 
 ### Types
 
-#### Struct `Atmosphere`
-
-The wetwell atmosphere's bulk properties.
-
-```rust
-pub struct Atmosphere {
-    pub t_k: f64,
-    pub p_pa: f64,
-    pub n_steam: f64,
-    pub n_n2: f64,
-    pub n_h2: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `t_k` | `f64` |  |
-| `p_pa` | `f64` |  |
-| `n_steam` | `f64` | Moles of steam, nitrogen and hydrogen. |
-| `n_n2` | `f64` |  |
-| `n_h2` | `f64` |  |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
-  ```
-  Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Pool`
 
 The pool's bulk state.
@@ -10193,27 +11237,6 @@ and condensation to 90 % of the atmosphere's vapour (C4407).
 pub fn exchange(pool: &Pool, atm: &Atmosphere, surface: &Surface, dt: f64) -> Exchange { /* ... */ }
 ```
 
-#### Function `structure_surface`
-
-MELCOR's heat-structure surface facing an atmosphere (HS RM §2.6.1,
-§2.7): natural convection on an external rectangular surface of height
-`l_c`, `Nu = 0.59 Ra^1/4` below `Ra = 1e9`, `0.10 Ra^1/3` above `1e10`,
-linear in `Ra` between (Table 2.3, Eqs 2-82, 2-85 to 2-87), with the
-Grashof number from the density difference while condensing; and
-condensation below the dew point by diffusion through the
-non-condensables, `m = h_D rho_v ln((P - P_srf) / (P - P_stm))` with
-`h_D = Nu Sc^1/3 Pr^-1/3 D / l_c` (Eqs 2-134 to 2-136; `rho_v` the
-vapour's density at `T_sat(P)`); above `VPFRAC = 0.9995` of steam the
-steam fraction is held at it (stated: MELCOR then lets the
-structure's conduction limit it). Transport properties at the film
-temperature, density at the bulk. Returns the convective coefficient,
-W/(m^2 K), and the condensation flux, kg/(m^2 s) (zero above the dew
-point: no film is kept to evaporate, stated).
-
-```rust
-pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) { /* ... */ }
-```
-
 #### Function `bubble_efficiency`
 
 MELCOR's bubble efficiency at a vent below the pool (CVH/FL RM Eqs 6-1
@@ -10223,6 +11246,20 @@ the pressure at the opening's depth, each clamped to [0, 1].
 
 ```rust
 pub fn bubble_efficiency(depth_m: f64, opening_m: f64, p_junction_pa: f64, t_pool_k: f64) -> f64 { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `structure_surface`
+
+```rust
+pub use tampines::components::wall_condensation::structure_surface;
+```
+
+#### Re-export `Atmosphere`
+
+```rust
+pub use tampines::components::wall_condensation::Atmosphere;
 ```
 
 ## Module `rn_volume`
@@ -13107,6 +14144,11 @@ pub struct Mechanisms {
     pub gas_choking: bool,
     pub blade_diffusion_limit: bool,
     pub two_sided_equalising: bool,
+    pub b4c_oxidation: bool,
+    pub burn_dynamics: bool,
+    pub fdi_lpme: bool,
+    pub uo2_candling: bool,
+    pub molten_pool: bool,
 }
 ```
 
@@ -13177,6 +14219,11 @@ pub struct Mechanisms {
 | `gas_choking` | `bool` | The wetwell vent and the drywell head flange, which discharge to the<br>atmosphere from several bar, pass at most MELCOR's critical gas flow<br>(CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the<br>incompressible orifice passing about twice it at those ratios. Off<br>is the orifice alone. |
 | `blade_diffusion_limit` | `bool` | The control blades' steel oxidation held to MELCOR's gaseous-<br>diffusion limit (COR RM §2.5.3, Eq 2-168, which binds every<br>reaction; 2026-10-30; needs `control_blades` and `diffusion_limit`).<br>Off leaves the steel's parabolic rate unlimited. |
 | `two_sided_equalising` | `bool` | The downcomers' and vacuum breakers' equalising cap counts the<br>receiving volume's pressure rise as well as the donor's fall<br>(2026-10-30, a numerical defect: the one-sided cap overshot the set<br>point, and the vacuum breaker chattered about it every step,<br>amplifying a 1e-9 perturbation 1.5 times a step). Off is the<br>one-sided cap. |
+| `b4c_oxidation` | `bool` | The control blades' B4C reacts with steam by MELCOR's simple model<br>(COR RM §2.5.9, MARCON 2.1B; at most 2 % of it; 2026-10-30; needs<br>`control_blades`). Off is inert B4C. |
+| `burn_dynamics` | `bool` | A building burn runs MELCOR's combustion completeness, flame speed<br>and rate (BUR RM §2.3 to §2.5; 2026-10-30), consuming oxygen and<br>making CO2, and reports its pressure rise as an adiabatic bound.<br>Off is the burn as one step that removes all of the building's H2<br>and CO and wrecks the building (no further inflow). |
+| `fdi_lpme` | `bool` | Debris leaving the failed vessel falls through the pedestal's water<br>by MELCOR's low-pressure melt ejection (FDI RM §2.2; 2026-10-30):<br>Chu's breakup, radiation or Bromley film boiling, all of the heat<br>boiling water. Off is debris landing at the core's temperature. |
+| `uo2_candling` | `bool` | Candling Zr carries UO2 down with it, 0.2 of its mass: MELCOR's<br>default secondary transport (COR RM §3.1.4, COR_CMT; 2026-10-30).<br>Off is the Zr candling alone. |
+| `molten_pool` | `bool` | A molten lower-plenum pool (above the UO2-ZrO2 eutectic) convects to<br>the head by MELCOR's ACOPO correlation (COR RM §2.4.2, Table 2-4;<br>2026-10-30). Off is the fixed debris-to-head coefficient. |
 
 ##### Implementations
 
@@ -13493,6 +14540,31 @@ pub struct Mechanisms {
   The one-sided equalising cap: before 2026-10-30.
 
 - ```rust
+  pub fn without_b4c_oxidation(self: Self) -> Self { /* ... */ }
+  ```
+  Inert B4C: before 2026-10-30.
+
+- ```rust
+  pub fn without_burn_dynamics(self: Self) -> Self { /* ... */ }
+  ```
+  The burn as one step: before 2026-10-30.
+
+- ```rust
+  pub fn without_fdi_lpme(self: Self) -> Self { /* ... */ }
+  ```
+  Debris landing at the core's temperature: before 2026-10-30.
+
+- ```rust
+  pub fn without_uo2_candling(self: Self) -> Self { /* ... */ }
+  ```
+  The Zr candling alone: before 2026-10-30.
+
+- ```rust
+  pub fn without_molten_pool(self: Self) -> Self { /* ... */ }
+  ```
+  The fixed debris-to-head coefficient for molten debris too: before
+
+- ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
   ```
   Isolation-condenser condensation unaffected by hydrogen in the vessel.
@@ -13780,9 +14852,23 @@ BSAF Phase II (`crates/kovan-literature/derived/nea7525-bsaf-fukushima-daiichi-b
   "manually vented ≈24 h" (vent closure 24.68 h, a BSAF boundary
   condition this sequence does not have).
 
-The other five times (IC stop, IC cycling, station blackout, the three
+~~The other five times (IC stop, IC cycling, station blackout, the three
 injection changes) have no BSAF anchor and stay `[U]` until checked
-against INPO 11-005, IAEA TV1 or the Japanese government report (#1031).
+against INPO 11-005, IAEA TV1 or the Japanese government report
+(#1031).~~ **CORRECTED 2026-10-30 (gh:#1044, F13)**: checked against the
+NRC's open training chapter, *Fukushima Dai-ichi Earthquake and Tsunami
+Event* (USNRC HRTD, GE BWR/4 Advanced Technology, ch. 7.1, Table 7.1-2;
+`reactor-literature/theodore-open-corpus/nrc/`):
+- IC stop 15:03, vent 14:30, explosion 15:36 and seawater 19:04
+  **agree** to the minute;
+- fresh-water injection: the NRC's 05:46, 15 h 00 min after the scram,
+  is the label's own time, but the event fired at 14 h 59 min (a
+  defect, label and code disagreeing). **Fixed to 15.0 h**;
+- the station blackout: the NRC lists the loss of all AC and DC at about
+  15:41 (00:55); this model keeps INPO's 15:37 as recalled. The sources
+  disagree by 4 min, **not resolved** (INPO 11-005 is not held);
+- IC cycling at 15:17 and the fresh water exhausted at 14:53: not in
+  the NRC table, still `[U]`.
 
 ```rust
 pub struct Event {

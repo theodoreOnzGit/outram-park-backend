@@ -9,23 +9,30 @@
 //!
 //! # What is in here
 //!
-//! Two 1-D transient solvers for compressible steam/water pipe flow, one step
+//! ~~Two~~ **Three (gh:#1059, 2026-11-01)** 1-D transient solvers for compressible two-phase pipe flow, one step
 //! above the [`crate::hem`] homogeneous-equilibrium baseline:
 //!
 //! | Solver | Equations | Slip between phases | Thermal non-equilibrium |
 //! |---|---|---|---|
 //! | [`crate::hem`] (HEM) | 3 | none (`u_g = u_l`) | none (both saturated) |
 //!
-//! **CORRECTED 2026-10-16:** the HEM row names a *model level*, not a solver
+//! ~~**CORRECTED 2026-10-16:** the HEM row names a *model level*, not a solver
 //! in this crate. [`crate::hem`] holds only a re-export of the steam-table
 //! control volume (`HemSteamCv`); the HEM pipe solver lives in
 //! `tampines-steam-tables` (`TampinesSteamArray`). Exporting a HEM pipe solver
-//! from `tampines` is gh:#896.
+//! from `tampines` is gh:#896.~~ **CORRECTED 2026-11-01:** [`crate::hem`]
+//! re-exports the KNP HEM pipe solver, `HemPipe` (`HemPipeOf<E>` for any
+//! closure), from `tampines_steam_tables::hem`; its stability work is epic
+//! gh:#896.
 //! | [`drift_flux::DriftFlux1d`] | 4 | **algebraic** (`u_g − j = U_dm`) | none |
 //! | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) |
+//! | [`seven_equation::SevenEquation1d`] (gh:#1059) | 7 | dynamic | yes, and **two pressures** with a volume-fraction equation (hyperbolic) |
 //!
 //! That is the standard system-code ladder — each rung relaxes one assumption
-//! of the rung below and costs one more transported field per phase.
+//! of the rung below and costs one more transported field per phase. The
+//! seven-equation rung is explicit (HLLC/Rusanov with stiffened-gas phases),
+//! not semi-implicit, and is described in its own module; the numerical-method
+//! section below is about the drift-flux and six-equation solvers.
 //!
 //! # The trace-back constraint, and exactly how it is honoured
 //!
@@ -91,20 +98,33 @@
 //!
 //! Stated here so it is not discovered late:
 //!
-//! - **No wall heat transfer.** Both solvers are adiabatic. A blowdown is
+//! - ~~**No wall heat transfer.** Both solvers are adiabatic. A blowdown is
 //!   dominated by depressurisation, not by wall heat, but a rewetting or
-//!   reflood problem is not solvable with these as they stand.
+//!   reflood problem is not solvable with these as they stand.~~ **CORRECTED
+//!   2026-11-01 (gh:#1062):** both take a [`wall_heat::PhasicWallHeat`]
+//!   (adiabatic by default): a prescribed flux, a wall temperature with `h`,
+//!   or `h` from the RELAP5 dispatcher, split between the phases by the
+//!   linear wall-contact partition. There is still no boiling curve, CHF or
+//!   rewetting logic, so a reflood problem is still out of reach.
 //! - **No interfacial area transport.** [`two_fluid::TwoFluid1d`] takes a
-//!   prescribed bubble diameter, so its drag and its interfacial heat transfer
-//!   do not respond to a changing flow regime. That absence is not cosmetic: it
+//!   prescribed bubble diameter, so ~~its drag and its interfacial heat transfer
+//!   do not respond to a changing flow regime~~ (**CORRECTED 2026-11-01,
+//!   gh:#1060:** above `α_g = 0.5` the area now follows the regime map; in the
+//!   bubbly window it is still `6 α_g / d_b`) the bubble size never responds to
+//!   breakup or nucleation. That absence is not cosmetic: it
 //!   is what makes the six-equation solver **refuse** a transient started at a
 //!   low void fraction, because a phase with almost no interfacial area cannot
 //!   shed its reversible expansion work fast enough to stay inside the bounded
 //!   metastable branches. Measured boundary and diagnosis in
 //!   `two_fluid_tests::six_equation_march_refuses_where_a_phase_cannot_shed_its_expansion_work`.
-//! - **No flow-regime map.** A real system code selects closures from a
+//! - ~~**No flow-regime map.** A real system code selects closures from a
 //!   regime map (bubbly / slug / annular / mist). Here the closure is whatever
-//!   the caller passed, everywhere, for the whole transient.
+//!   the caller passed, everywhere, for the whole transient.~~ **CORRECTED
+//!   2026-11-01 (gh:#1060):** [`two_fluid::TwoFluid1d`] takes its interfacial
+//!   area from a void-fraction regime map (bubbly/slug to annular/mist, the
+//!   reused GeN-Foam `RegimeMap1D` and `InterfacialArea`); the correlations
+//!   themselves are still the caller's, and the low-void refusal below is
+//!   unchanged by it (re-measured).
 //! - **No counter-current flow limitation, no critical-flow model of their
 //!   own.** The break boundary reuses the crate's existing HEM critical-flow
 //!   dispatcher, so the *break* is HEM even when the *pipe* is drift-flux or
@@ -136,17 +156,23 @@
 //! cost more than they buy. Every raw-`f64` boundary says so.
 
 pub mod drift_flux;
+pub mod entropy;
 pub mod geometry;
 pub mod interfacial;
 pub mod properties;
+pub mod seven_equation;
 pub mod two_fluid;
+pub mod wall_heat;
 
 pub use drift_flux::{DriftFlux1d, DriftFluxReport};
 pub use geometry::Pipe1d;
 pub use interfacial::{DispersedPhase, InterfacialCellState, InterfacialExchange, InterfacialSources};
 pub use properties::{SaturatedProperties, TwoPhaseState};
+pub use seven_equation::{SevenEquation1d, SevenEquationBoundary, SevenEquationReport, SevenEquationState};
+pub use wall_heat::{PhasicWallHeat, WallPhaseState};
 pub use two_fluid::{
-    PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidReport,
+    PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidInflow,
+    TwoFluidInflowThermo, TwoFluidReport, TwoFluidTimeDependentBoundary,
 };
 
 /// Solve a tridiagonal linear system `A x = b` by the Thomas algorithm.
@@ -253,13 +279,25 @@ pub fn thomas_solve(
 }
 
 #[cfg(test)]
+mod area_tests;
+
+#[cfg(test)]
+mod boundary_tests;
+
+#[cfg(test)]
 mod edwards_tests;
 
 #[cfg(test)]
 mod marviken_tests;
 
 #[cfg(test)]
+mod species_tests;
+
+#[cfg(test)]
 mod tests;
 
 #[cfg(test)]
 mod two_fluid_tests;
+
+#[cfg(test)]
+mod wall_heat_tests;

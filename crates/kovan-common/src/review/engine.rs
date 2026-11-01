@@ -491,6 +491,13 @@ pub enum StampState {
     /// trusted reviewer or a maintainer beside it (GitHub #1019): "1 of 2,
     /// awaiting a trusted reviewer". Not counted until one stamps it.
     AwaitingTrustedReviewer { novice: String },
+    /// A stamp that would be valid on a function something underneath
+    /// which does not count yet (GitHub #1106): "tentative: waiting on
+    /// stamps underneath". `waiting_on` are the function's own callees (or
+    /// types and constants used) that do not count, and the members of its
+    /// recursion group that do not. It becomes valid by itself once
+    /// everything underneath counts.
+    Tentative { waiting_on: Vec<String> },
 }
 
 /// Why a readable review is invalid.
@@ -573,13 +580,15 @@ impl StampState {
             Self::PendingWorkspaceTest { .. } => StateKind::PendingWorkspaceTest,
             Self::Invalid(_) => StateKind::Invalid,
             Self::AwaitingTrustedReviewer { .. } => StateKind::AwaitingTrustedReviewer,
+            Self::Tentative { .. } => StateKind::Tentative,
         }
     }
 }
 
 /// When no review is valid, the function shows the first of these its
 /// reviews have.
-pub const AGGREGATE_ORDER: [StateKind; 12] = [
+pub const AGGREGATE_ORDER: [StateKind; 13] = [
+    StateKind::Tentative,
     StateKind::AwaitingTrustedReviewer,
     StateKind::DirectlyStale,
     StateKind::InheritedStale,
@@ -1246,6 +1255,7 @@ pub fn evaluate(
             },
         );
     }
+    tentative_stamps(&mut ev.functions, &current);
     // Bottom-up: callees whose state does not count.
     let counts: BTreeMap<String, bool> = ev
         .functions
@@ -1464,7 +1474,7 @@ fn judge(
                 // A targeted run of the pending stamps' reaching tests
                 // (GitHub #1052) speaks for the function only when it ran
                 // every one of them.
-                _ => match targeted_verdict(cur.f, cur.index.targeted_run.as_ref(), git) {
+                _ => match targeted_verdict(&cur.index.krate, cur.f, cur.index.targeted_run.as_ref(), git) {
                     Some(ReachVerdict::Passed { .. }) => StampState::Valid,
                     Some(v @ ReachVerdict::Failed { .. }) => StampState::InheritedStale {
                         cause: InheritedCause::LockTestFailed,
@@ -1503,6 +1513,154 @@ fn second_sign_off(reviews: &mut [ReviewReport], registry: &Registry, file: &str
     }
 }
 
+/// Tentative stamps (GitHub #1106, maintainer 2026-11-01: "stamps don't
+/// become valid until everything underneath is stamped"). Over the
+/// workspace's dependency graph (callees, and the types and constants used,
+/// [`FunctionIndex::depends_on`]; ids not in the workspace are ignored),
+/// one recursion group (strongly connected component) at a time, callees'
+/// groups first: a group counts when every member is valid and every
+/// dependency outside the group is settled: valid, or pending only a
+/// workspace test (a pending callee does not hold its caller, maintainer
+/// 2026-10-29, as in the review bar's `Review::holds`). A tentative one is
+/// not settled. Each valid member of a group that
+/// does not becomes [`StampState::Tentative`], with its rung cleared, and
+/// so do its valid reviews. A callee left tentative does not count, so the
+/// wait carries up to every caller.
+fn tentative_stamps(functions: &mut BTreeMap<String, FunctionReport>, current: &BTreeMap<&str, Current>) {
+    let deps: BTreeMap<&str, Vec<&str>> = current
+        .iter()
+        .map(|(id, cur)| {
+            let mut d: Vec<&str> = cur
+                .f
+                .depends_on()
+                .map(String::as_str)
+                .filter(|c| c != id && current.contains_key(c))
+                .collect();
+            d.sort();
+            d.dedup();
+            (*id, d)
+        })
+        .collect();
+    let mut counts: BTreeMap<String, bool> = functions
+        .iter()
+        .map(|(k, v)| {
+            let kind = v.state.kind();
+            (k.clone(), kind.counts() || kind == StateKind::PendingWorkspaceTest)
+        })
+        .collect();
+    let counted = |counts: &BTreeMap<String, bool>, id: &str| counts.get(id).copied().unwrap_or(false);
+    for group in recursion_groups(&deps) {
+        let members: BTreeSet<&str> = group.iter().copied().collect();
+        let waiting: Vec<(&str, Vec<String>)> = group
+            .iter()
+            .map(|m| {
+                let mut w: Vec<String> = deps[m]
+                    .iter()
+                    .filter(|d| !counted(&counts, d))
+                    .map(|d| d.to_string())
+                    .collect();
+                // A partner short of valid holds the whole group.
+                w.extend(
+                    members
+                        .iter()
+                        .filter(|p| *p != m && !deps[m].contains(p) && !counted(&counts, p))
+                        .map(|p| p.to_string()),
+                );
+                w.sort();
+                (*m, w)
+            })
+            .collect();
+        let held: Vec<String> = waiting
+            .iter()
+            .filter(|(m, w)| !w.is_empty() || !counted(&counts, m))
+            .map(|(m, _)| m.to_string())
+            .collect();
+        if held.is_empty() {
+            continue;
+        }
+        for (m, mut w) in waiting {
+            // Only a valid stamp becomes tentative; a pending one stays as
+            // it is.
+            if !functions.get(m).is_some_and(|f| f.state.kind().counts()) {
+                counts.insert(m.to_string(), false);
+                continue;
+            }
+            // Nothing of its own: it waits on the partners that are held.
+            if w.is_empty() {
+                w = held.iter().filter(|p| p.as_str() != m).cloned().collect();
+            }
+            let state = StampState::Tentative { waiting_on: w };
+            if let Some(f) = functions.get_mut(m) {
+                for r in f.reviews.iter_mut().filter(|r| r.state.kind().counts()) {
+                    r.state = state.clone();
+                }
+                f.state = state;
+                f.rung = None;
+            }
+            counts.insert(m.to_string(), false);
+        }
+    }
+}
+
+/// The strongly connected components of `deps` (Tarjan's algorithm, run
+/// iteratively), each a recursion group, in an order where every group
+/// comes after the groups it depends on.
+fn recursion_groups<'a>(deps: &BTreeMap<&'a str, Vec<&'a str>>) -> Vec<Vec<&'a str>> {
+    let mut index: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut low: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut on_stack: BTreeSet<&str> = BTreeSet::new();
+    let mut stack: Vec<&str> = Vec::new();
+    let mut groups = Vec::new();
+    let mut next = 0;
+    for &root in deps.keys() {
+        if index.contains_key(root) {
+            continue;
+        }
+        // (node, position of the next dependency to visit)
+        let mut work: Vec<(&str, usize)> = vec![(root, 0)];
+        index.insert(root, next);
+        low.insert(root, next);
+        next += 1;
+        stack.push(root);
+        on_stack.insert(root);
+        while let Some((v, i)) = work.pop() {
+            let ds = &deps[v];
+            if let Some(&w) = ds.get(i) {
+                work.push((v, i + 1));
+                if !index.contains_key(w) {
+                    index.insert(w, next);
+                    low.insert(w, next);
+                    next += 1;
+                    stack.push(w);
+                    on_stack.insert(w);
+                    work.push((w, 0));
+                } else if on_stack.contains(w) {
+                    let lw = index[w].min(low[v]);
+                    low.insert(v, lw);
+                }
+                continue;
+            }
+            if low[v] == index[v] {
+                let mut g = Vec::new();
+                while let Some(w) = stack.pop() {
+                    on_stack.remove(w);
+                    g.push(w);
+                    if w == v {
+                        break;
+                    }
+                }
+                g.sort();
+                groups.push(g);
+            }
+            if let Some(&(parent, _)) = work.last() {
+                let lp = low[parent].min(low[v]);
+                low.insert(parent, lp);
+            }
+        }
+    }
+    groups
+}
+
 fn full_run_at_current_lock(krate: &str, run: Option<&TestRun>, git: &GitFacts) -> bool {
     run.is_some_and(|r| r.suite == Suite::Full && same_deps(krate, &r.cargo_lock, git))
 }
@@ -1511,11 +1669,14 @@ fn full_run_at_current_lock(krate: &str, run: Option<&TestRun>, git: &GitFacts) 
 /// it cannot speak for it: no such run, not targeted, another `Cargo.lock`,
 /// no reaching test, a reaching test not among its targets, or `f` changed
 /// since the run's commit. Otherwise [`reach_verdict`] over that run.
-pub fn targeted_verdict(f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> Option<ReachVerdict> {
-    let run = run.filter(|r| r.suite == Suite::Targeted && r.cargo_lock == git.cargo_lock)?;
+///
+/// "Another `Cargo.lock`" is per crate, as for `[test_run]` (#1048,
+/// [`same_deps`]): a run at a lock where `krate`'s dependencies are the same.
+pub fn targeted_verdict(krate: &str, f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> Option<ReachVerdict> {
+    let run = run.filter(|r| r.suite == Suite::Targeted && same_deps(krate, &r.cargo_lock, git))?;
     let covered = !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t));
     let unchanged = git.hashes_at_targeted_run.get(&f.id) == Some(&f.hash);
-    (covered && unchanged).then(|| reach_verdict(&f.reached_by, Some(run), &git.cargo_lock))
+    (covered && unchanged).then(|| reach_verdict(&f.reached_by, Some(run), &run.cargo_lock))
 }
 
 fn aggregate(reviews: &[ReviewReport]) -> StampState {

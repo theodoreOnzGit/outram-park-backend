@@ -40,6 +40,8 @@
 //!   fourth-order one.
 //! - [`solve_rkf45`] — the adaptive driver: take a step, judge it against your
 //!   tolerance, shrink and retry or accept and grow.
+//! - [`implicit`] — backward Euler and BDF2 for stiff systems, with a Newton
+//!   inner solve (gh:#1065).
 //!
 //! For a **method-of-lines** semi-discretisation of a hyperbolic PDE, where the
 //! property you need is that the time step does not create new extrema, see
@@ -76,13 +78,19 @@
 //!
 //! That is not a defect in this implementation and no amount of tuning fixes
 //! it. A stiff problem needs an **implicit** method (backward Euler, BDF,
-//! Rosenbrock); GSL has several and PETIR has ported none. The tell is a
-//! solver that takes thousands of steps over a smooth-looking solution.
+//! Rosenbrock); GSL has several ~~and PETIR has ported none~~
+//! (**CORRECTED 2026-11-01, gh:#1065**: [`implicit`] has backward Euler and
+//! BDF2 with a backward-Euler start, on a caller-given grid, with GSL's
+//! `modnewton1` Newton solve; GSL's adaptive stiff steppers `msbdf`, `bsimp`
+//! and `rk2imp`/`rk4imp` are still not ported). The tell is a solver that
+//! takes thousands of steps over a smooth-looking solution.
 //!
 //! # Units
 //!
 //! Bare dimensionless `f64`. A dimensioned system should carry its units at the
 //! caller's API boundary and pass raw values in, per the crate's units policy.
+
+pub mod implicit;
 
 use alloc::vec;
 use alloc::vec::Vec;

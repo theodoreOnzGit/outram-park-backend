@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.4
+**Version:** 0.1.7
 
 **Format Version:** 61
 
@@ -8,11 +8,11 @@
 
 ## Modules
 
-## Module `zero_power_prke`
+## Module `prelude`
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 contains structs for the zero power point reactor kinetics equations
 
@@ -29,6 +29,287 @@ but home computers calculate on the order of 1E-5s per calculation or
 
 Will probably need some other kind of method to calculate feedback
 
+Convenience re-exports: `use teh_o_prke::prelude::*;`. This is the
+intended entry point — see the module docs for the completeness rule.
+Convenience re-exports — the intended entry point for this crate.
+
+```
+use teh_o_prke::prelude::*;
+```
+
+This brings every type needed to set up and run a point-kinetics
+calculation into scope, so a caller never has to know which module an item
+lives in. **A public item reachable only by its full module path is not
+considered exposed** — if you add one, add it here in the same change.
+
+Advancing the PRKE state is [`SixGroupPRKE::step_implicit`] (and
+`step_explicit`). Those are short aliases for the far longer
+`solve_next_timestep_precursor_concentration_and_neutron_pop_vector_*`
+names, which still work.
+
+The completeness test is executable: this crate's own examples and doc
+examples must compile with `use teh_o_prke::prelude::*;` as their only
+import from this crate.
+
+```
+use teh_o_prke::prelude::*;
+use uom::si::f64::*;
+use uom::si::time::second;
+use uom::si::ratio::ratio;
+use uom::si::volumetric_number_rate::per_cubic_meter_second;
+
+let mut prke = SixGroupPRKE::default();
+
+let dt: Time = Time::new::<second>(0.1);
+let reactivity: Ratio = Ratio::new::<ratio>(0.0);
+let generation_time: Time = Time::new::<second>(1.0e-4);
+let source = VolumetricNumberRate::new::<per_cubic_meter_second>(1.0);
+
+// Zero reactivity: the population should hold steady against the source.
+prke.solve_next_timestep_precursor_concentration_and_neutron_pop_vector_implicit(
+    dt, reactivity, generation_time, source,
+)?;
+
+let _n = prke.get_current_neutron_population_density();
+let _beta = prke.get_total_delayed_fraction();
+# Ok::<(), teh_o_prke::prelude::TehOPrkeError>(())
+```
+
+```rust
+pub mod prelude { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `FissioningNuclideType`
+
+```rust
+pub use crate::zero_power_prke::six_group_precursor_prke::six_group_constants::FissioningNuclideType;
+```
+
+#### Re-export `DecayConstant`
+
+```rust
+pub use crate::zero_power_prke::six_group_precursor_prke::DecayConstant;
+```
+
+#### Re-export `SixGroupPRKE`
+
+```rust
+pub use crate::zero_power_prke::six_group_precursor_prke::SixGroupPRKE;
+```
+
+#### Re-export `PointKinetics`
+
+```rust
+pub use crate::zero_power_prke::n_group_prke::PointKinetics;
+```
+
+#### Re-export `DelayedNeutronLayer`
+
+```rust
+pub use crate::delayed_neutron_layer::DelayedNeutronLayer;
+```
+
+#### Re-export `NUM_DELAYED_GROUPS`
+
+```rust
+pub use crate::delayed_neutron_layer::NUM_DELAYED_GROUPS;
+```
+
+#### Re-export `obtain_rod_worth_cylinder`
+
+```rust
+pub use crate::control_rod_feedback::obtain_rod_worth_cylinder;
+```
+
+#### Re-export `Xenon135Poisoning`
+
+```rust
+pub use crate::feedback_mechanisms::fission_product_poisons::Xenon135Poisoning;
+```
+
+#### Re-export `SixFactorFormulaFeedback`
+
+```rust
+pub use crate::feedback_mechanisms::SixFactorFormulaFeedback;
+```
+
+#### Re-export `DensityReactivityTable`
+
+```rust
+pub use crate::feedback_mechanisms::separable::DensityReactivityTable;
+```
+
+#### Re-export `FuelHeatStructure`
+
+```rust
+pub use crate::feedback_mechanisms::separable::FuelHeatStructure;
+```
+
+#### Re-export `FuelTemperatureReactivityTable`
+
+```rust
+pub use crate::feedback_mechanisms::separable::FuelTemperatureReactivityTable;
+```
+
+#### Re-export `ModeratorState`
+
+```rust
+pub use crate::feedback_mechanisms::separable::ModeratorState;
+```
+
+#### Re-export `ModeratorVolume`
+
+```rust
+pub use crate::feedback_mechanisms::separable::ModeratorVolume;
+```
+
+#### Re-export `ScramReactivityCurve`
+
+```rust
+pub use crate::feedback_mechanisms::separable::ScramReactivityCurve;
+```
+
+#### Re-export `SeparableFeedback`
+
+```rust
+pub use crate::feedback_mechanisms::separable::SeparableFeedback;
+```
+
+#### Re-export `SeparableReactivity`
+
+```rust
+pub use crate::feedback_mechanisms::separable::SeparableReactivity;
+```
+
+#### Re-export `obtain_fuel_temperature_feedback_coeff_thermal_spectrum`
+
+```rust
+pub use crate::fuel_temperature_feedback::obtain_fuel_temperature_feedback_coeff_thermal_spectrum;
+```
+
+#### Re-export `obtain_fuel_temperature_reactivity_feedback_thermal_spectrum`
+
+```rust
+pub use crate::fuel_temperature_feedback::obtain_fuel_temperature_reactivity_feedback_thermal_spectrum;
+```
+
+#### Re-export `SimpleFuelTemperatureFeedback`
+
+```rust
+pub use crate::fuel_temperature_feedback::SimpleFuelTemperatureFeedback;
+```
+
+#### Re-export `DecayHeat`
+
+```rust
+pub use crate::decay_heat::DecayHeat;
+```
+
+#### Re-export `FissioningNuclide`
+
+```rust
+pub use crate::decay_heat::FissioningNuclide;
+```
+
+#### Re-export `DECAY_HEAT_GROUPS`
+
+```rust
+pub use crate::decay_heat::DECAY_HEAT_GROUPS;
+```
+
+#### Re-export `NOMINAL_ENERGY_PER_FISSION_MEV`
+
+```rust
+pub use crate::decay_heat::NOMINAL_ENERGY_PER_FISSION_MEV;
+```
+
+#### Re-export `neutron_capture_correction`
+
+```rust
+pub use crate::ans_decay_heat::neutron_capture_correction;
+```
+
+#### Re-export `AnsDecayHeat`
+
+```rust
+pub use crate::ans_decay_heat::AnsDecayHeat;
+```
+
+#### Re-export `AnsStandard`
+
+```rust
+pub use crate::ans_decay_heat::AnsStandard;
+```
+
+#### Re-export `DecayHeatGroupSet`
+
+```rust
+pub use crate::ans_decay_heat::DecayHeatGroupSet;
+```
+
+#### Re-export `DecayHeatIsotope`
+
+```rust
+pub use crate::ans_decay_heat::DecayHeatIsotope;
+```
+
+#### Re-export `ActinideDecayModel`
+
+```rust
+pub use crate::point_reactor::ActinideDecayModel;
+```
+
+#### Re-export `FissionPowerConversion`
+
+```rust
+pub use crate::point_reactor::FissionPowerConversion;
+```
+
+#### Re-export `PointReactor`
+
+```rust
+pub use crate::point_reactor::PointReactor;
+```
+
+#### Re-export `NordheimFuchsExactTimestepper`
+
+```rust
+pub use crate::nordheim_fuchs::NordheimFuchsExactTimestepper;
+```
+
+#### Re-export `MatrixError`
+
+```rust
+pub use crate::matrix::MatrixError;
+```
+
+#### Re-export `SquareMatrix`
+
+```rust
+pub use crate::matrix::SquareMatrix;
+```
+
+#### Re-export `ODESystem`
+
+```rust
+pub use crate::time_stepping::openfoam_ode_system::ODESystem;
+```
+
+#### Re-export `RKF45`
+
+```rust
+pub use crate::time_stepping::openfoam_rfk45::RKF45;
+```
+
+#### Re-export `TehOPrkeError`
+
+```rust
+pub use crate::teh_o_prke_error::TehOPrkeError;
+```
+
+## Module `zero_power_prke`
 
 ```rust
 pub mod zero_power_prke { /* ... */ }
@@ -118,7 +399,7 @@ chooses the Pu239 group of delayed constants
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FissioningNuclideType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -160,7 +441,7 @@ chooses the Pu239 group of delayed constants
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -288,9 +569,18 @@ pub struct SixGroupPRKE {
   total delayed fraction
 
 - ```rust
-  pub fn get_keff_from_reactivity(reactivity: Ratio) -> Ratio { /* ... */ }
+  pub fn step_implicit(self: &mut Self, timestep: Time, reactivity: Ratio, neutron_generation_time: Time, background_source_rate: VolumetricNumberRate) -> Result<Array1<VolumetricNumberDensity>, TehOPrkeError> { /* ... */ }
   ```
   enables you to convert reactivity into keff, useful for calculating
+
+- ```rust
+  pub fn step_explicit(self: &mut Self, timestep: Time, reactivity: Ratio, neutron_generation_time: Time, background_source_rate: VolumetricNumberRate) -> Result<Array1<VolumetricNumberDensity>, TehOPrkeError> { /* ... */ }
+  ```
+  Advance one timestep, explicitly. Short name for
+
+- ```rust
+  pub fn get_keff_from_reactivity(reactivity: Ratio) -> Ratio { /* ... */ }
+  ```
 
 ###### Trait Implementations
 
@@ -311,7 +601,7 @@ pub struct SixGroupPRKE {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SixGroupPRKE { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -358,7 +648,254 @@ pub struct SixGroupPRKE {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `n_group_prke`
+
+N-group point kinetics (gh:#1082): the one PRKE core, which
+`SixGroupPRKE` delegates to.
+# N-group point reactor kinetics (gh:#1082)
+
+The one point-kinetics core in this crate. [`PointKinetics`] carries any
+number `N_d >= 0` of delayed-neutron precursor groups;
+[`SixGroupPRKE`](super::six_group_precursor_prke::SixGroupPRKE) is now a
+fixed-size front end that delegates its arithmetic to the functions in
+this module, and is pinned **bit-identical** to its pre-gh:#1082 self by
+`zero_power_prke::six_group_bit_identity_pin`.
+
+## Equations
+
+RELAP-7 Theory Manual (INL/EXT-14-31366), §7.1, Eqs (412)-(413), the
+standard point-kinetics system in neutron density:
+
+```text
+dn/dt   = (rho - beta)/Lambda n + sum_i lambda_i C_i + S
+dC_i/dt = beta_i/Lambda n - lambda_i C_i            i = 1..N_d
+```
+
+with `n` and `C_i` in /m³, `S` in /m³/s, `beta = sum_i beta_i`. RELAP-7
+writes `beta_i = beta f_i`; [`PointKinetics::with_total_delayed_fraction`]
+uses exactly that split to rescale a group set to a `beta_eff` computed
+elsewhere (for instance `outram_mc_libs::physics::kinetics`, whose
+`KineticsParameters` gives a total `beta_eff` and `lambda_generation`
+but no group split; this crate does not depend on it, the caller passes
+the two numbers).
+
+## Schemes
+
+- **Implicit** ([`PointKinetics::step_implicit`]): backward Euler, one
+  dense `(N_d+1)x(N_d+1)` solve per step with this crate's
+  [`SquareMatrix`](crate::matrix::SquareMatrix) (LU with partial
+  pivoting). This is the same scheme as GeN-Foam's point kinetics
+  (`src/classes/neutronics/pointKinetics/include/solvePointKinetics.H`,
+  GeN-Foam commit 652b3da, ported in
+  `outram-foam-appbuilder-lib::genfoam::neutronics::point_kinetics`),
+  which carries `[P, C_1..C_N, S]` in power units and an extra source row;
+  here the source enters the right-hand side and the unknowns are
+  densities. GeN-Foam's subcritical index `zeta` is not carried: pass
+  `rho - zeta` as the reactivity. The two cores are therefore the same
+  method in different units; teh-o-prke does not depend on the appbuilder
+  crate.
+- **Explicit** ([`PointKinetics::step_explicit`]): one fixed RKF45 step
+  (this crate's OpenFOAM-derived [`RKF45`]). Stiff: use only with
+  `dt << Lambda/beta`.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod n_group_prke { /* ... */ }
+```
+
+### Types
+
+#### Struct `PointKinetics`
+
+N-group point reactor kinetics state (RELAP-7 §7.1, Eqs 412-413).
+
+Holds the delayed-neutron data and the state `[n, C_1..C_N]`. Reactivity,
+generation time and source are per-step inputs, so feedback and a
+time-varying `Lambda` are the caller's to supply.
+
+```
+use teh_o_prke::prelude::*;
+use uom::si::f64::*;
+use uom::si::ratio::ratio;
+use uom::si::time::second;
+use uom::si::volumetric_number_density::per_cubic_meter;
+use uom::ConstZero;
+
+let lambda_gen = Time::new::<second>(1.0e-4);
+let mut pk = PointKinetics::from_nuclide(FissioningNuclideType::U235);
+pk.set_critical_equilibrium(VolumetricNumberDensity::new::<per_cubic_meter>(1.0e12), lambda_gen);
+pk.step_implicit(
+    Time::new::<second>(0.01), Ratio::new::<ratio>(0.0), lambda_gen, VolumetricNumberRate::ZERO,
+)?;
+assert!((pk.neutron_density().get::<per_cubic_meter>() / 1.0e12 - 1.0).abs() < 1e-12);
+# Ok::<(), TehOPrkeError>(())
+```
+
+```rust
+pub struct PointKinetics {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(delayed_fractions: Vec<Ratio>, decay_constants: Vec<DecayConstant>) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  A state with the given group data, `n = 1 /m³` and no precursors (the
+
+- ```rust
+  pub fn from_nuclide(nuclide: FissioningNuclideType) -> Self { /* ... */ }
+  ```
+  The six-group data this crate tabulates for `nuclide` (the same data
+
+- ```rust
+  pub fn with_total_delayed_fraction(self: Self, beta_eff: Ratio) -> Self { /* ... */ }
+  ```
+  Rescale the group fractions so they sum to `beta_eff`, keeping each
+
+- ```rust
+  pub fn group_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of delayed groups `N_d`.
+
+- ```rust
+  pub fn decay_constants(self: &Self) -> &[DecayConstant] { /* ... */ }
+  ```
+  Group decay constants `lambda_i`.
+
+- ```rust
+  pub fn delayed_fractions(self: &Self) -> &[Ratio] { /* ... */ }
+  ```
+  Group delayed fractions `beta_i`.
+
+- ```rust
+  pub fn total_delayed_fraction(self: &Self) -> Ratio { /* ... */ }
+  ```
+  `beta = sum_i beta_i`.
+
+- ```rust
+  pub fn neutron_density(self: &Self) -> VolumetricNumberDensity { /* ... */ }
+  ```
+  Neutron density `n`.
+
+- ```rust
+  pub fn precursor_densities(self: &Self) -> &[VolumetricNumberDensity] { /* ... */ }
+  ```
+  Precursor densities `C_1..C_N`.
+
+- ```rust
+  pub fn set_critical_equilibrium(self: &mut Self, neutron_density: VolumetricNumberDensity, neutron_generation_time: Time) { /* ... */ }
+  ```
+  Set `n` and every `C_i` to the zero-reactivity, zero-source steady
+
+- ```rust
+  pub fn step_implicit(self: &mut Self, timestep: Time, reactivity: Ratio, neutron_generation_time: Time, background_source_rate: VolumetricNumberRate) -> Result<(), TehOPrkeError> { /* ... */ }
+  ```
+  Advance one step by backward Euler (unconditionally stable).
+
+- ```rust
+  pub fn step_explicit(self: &mut Self, timestep: Time, reactivity: Ratio, neutron_generation_time: Time, background_source_rate: VolumetricNumberRate) -> Result<(), TehOPrkeError> { /* ... */ }
+  ```
+  Advance one step with a single fixed RKF45 step. Stiff: unstable
+
+- ```rust
+  pub fn inhour_reactivity(self: &Self, omega: Frequency, neutron_generation_time: Time) -> Ratio { /* ... */ }
+  ```
+  The in-hour equation: the reactivity for which the PRKE has the
+
+- ```rust
+  pub fn inhour_growth_rate(self: &Self, reactivity: Ratio, neutron_generation_time: Time) -> Frequency { /* ... */ }
+  ```
+  The asymptotic growth rate `omega` (the largest root of the in-hour
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -440,7 +977,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MatrixError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -474,7 +1011,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MatrixError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -498,7 +1035,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -596,7 +1133,7 @@ pub struct SquareMatrix {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SquareMatrix { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -637,7 +1174,7 @@ pub struct SquareMatrix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -770,7 +1307,7 @@ pub struct SimpleFuelTemperatureFeedback {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1013,7 +1550,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1170,7 +1707,7 @@ pub struct Xenon135Poisoning {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Xenon135Poisoning { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1218,7 +1755,921 @@ pub struct Xenon135Poisoning {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `separable`
+
+RELAP5-style separable reactivity feedback (RELAP-7 Eq 443, gh:#1083):
+scram curves, tabulated moderator-density and fuel-temperature
+reactivity with weights, and linear temperature terms.
+# RELAP5-style separable reactivity feedback (gh:#1083)
+
+RELAP-7 Theory Manual (INL/EXT-14-31366), §7.5, Eq (443), which RELAP-7
+states is RELAP5's separable model. Each effect is independent of the
+others:
+
+```text
+r(t) = sum_{i=1..n_s} r_si(t)
+     + sum_{i=1..n_rho} [ W_rho,i R_rho(rho_i(t)) + a_M,i dT_M,i(t) ]
+     + sum_{i=1..n_F}   [ W_F,i   R_F(T_F,i(t))  + a_F,i dT_F,i(t) ]
+```
+
+- `r_si(t)`: scram (or any externally scheduled) reactivity curves, tables
+  of reactivity against time ([`ScramReactivityCurve`]);
+- `R_rho`: one table of reactivity against moderator density, evaluated
+  per thermal-fluid volume `i` at that volume's density and weighted by
+  `W_rho,i` ([`DensityReactivityTable`], [`ModeratorVolume`]);
+- `a_M,i dT_M,i`: linear moderator temperature term (temperature change
+  from the start of the transient, density effects excluded);
+- `R_F`: one table of Doppler reactivity against fuel temperature,
+  evaluated per heat structure and weighted by `W_F,i`
+  ([`FuelTemperatureReactivityTable`], [`FuelHeatStructure`]);
+- `a_F,i dT_F,i`: linear fuel temperature term.
+
+**Units.** RELAP-7 writes Eq 443 for `r = rho / beta` (dollars, Eq 430).
+The model is linear in its tables and coefficients, so this module works in
+reactivity `Delta k / k` throughout; [`SeparableReactivity::total_in_dollars`]
+converts. Tables entered in dollars must be multiplied by `beta` first.
+
+**Tables** interpolate linearly and clamp to the end values outside their
+range, the same convention as GeN-Foam's `TimeProfile`
+(`outram-foam-appbuilder-lib::genfoam::common::time_profile`, itself
+OpenFOAM's `Function1` table with `outOfBounds clamp`). That type is not
+reused because teh-o-prke does not depend on the appbuilder crate; the
+small table here follows its rules (at least two points, strictly
+increasing abscissae, start-time shift for scram curves).
+
+Boron feedback is not in Eq 443 (RELAP-7 notes it is absent) and is not
+here. The thermal-hydraulic side (which densities and temperatures, and
+the tampines interface) belongs to the coupling crate.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod separable { /* ... */ }
+```
+
+### Types
+
+#### Struct `ScramReactivityCurve`
+
+A scram (or scheduled) reactivity curve `r_s(t)`.
+
+```rust
+pub struct ScramReactivityCurve {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(times: Vec<Time>, reactivities: Vec<Ratio>) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  Reactivity against time since the curve starts. Linear between
+
+- ```rust
+  pub fn with_start_time(self: Self, start: Time) -> Self { /* ... */ }
+  ```
+  Shift the curve to start at simulation time `start` (e.g. the scram
+
+- ```rust
+  pub fn reactivity(self: &Self, time: Time) -> Ratio { /* ... */ }
+  ```
+  `r_s(t)` at simulation time `t`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DensityReactivityTable`
+
+`R_rho(rho)`: reactivity against moderator density.
+
+```rust
+pub struct DensityReactivityTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(densities: Vec<MassDensity>, reactivities: Vec<Ratio>) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  Linear between points, clamped outside; same validation as
+
+- ```rust
+  pub fn reactivity(self: &Self, density: MassDensity) -> Ratio { /* ... */ }
+  ```
+  `R_rho` at `density`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FuelTemperatureReactivityTable`
+
+`R_F(T_F)`: Doppler reactivity against fuel temperature.
+
+```rust
+pub struct FuelTemperatureReactivityTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(temperatures: Vec<ThermodynamicTemperature>, reactivities: Vec<Ratio>) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  Linear between points, clamped outside; same validation as
+
+- ```rust
+  pub fn reactivity(self: &Self, temperature: ThermodynamicTemperature) -> Ratio { /* ... */ }
+  ```
+  `R_F` at `temperature`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ModeratorVolume`
+
+One thermal-fluid volume of the core: `W_rho,i`, `a_M,i` and the
+moderator temperature at the start of the transient.
+
+```rust
+pub struct ModeratorVolume {
+    pub density_weight: Ratio,
+    pub temperature_coefficient: TemperatureCoefficient,
+    pub initial_temperature: ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `density_weight` | `Ratio` | `W_rho,i`, density weighting factor. |
+| `temperature_coefficient` | `TemperatureCoefficient` | `a_M,i`, fluid temperature coefficient (density effects excluded). |
+| `initial_temperature` | `ThermodynamicTemperature` | Moderator temperature at the start of the transient. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FuelHeatStructure`
+
+One fuel heat structure: `W_F,i`, `a_F,i` and the fuel temperature at
+the start of the transient.
+
+```rust
+pub struct FuelHeatStructure {
+    pub temperature_weight: Ratio,
+    pub temperature_coefficient: TemperatureCoefficient,
+    pub initial_temperature: ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature_weight` | `Ratio` | `W_F,i`, fuel temperature weighting factor. |
+| `temperature_coefficient` | `TemperatureCoefficient` | `a_F,i`, fuel temperature coefficient. |
+| `initial_temperature` | `ThermodynamicTemperature` | Fuel temperature at the start of the transient. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ModeratorState`
+
+The current state of one thermal-fluid volume.
+
+```rust
+pub struct ModeratorState {
+    pub density: MassDensity,
+    pub temperature: ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `density` | `MassDensity` | `rho_i(t)` |
+| `temperature` | `ThermodynamicTemperature` | spatially averaged moderator temperature |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SeparableReactivity`
+
+Eq 443 broken into its five sums, so each can be checked or plotted.
+
+```rust
+pub struct SeparableReactivity {
+    pub scram: Ratio,
+    pub moderator_density: Ratio,
+    pub moderator_temperature: Ratio,
+    pub fuel_doppler_table: Ratio,
+    pub fuel_temperature: Ratio,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `scram` | `Ratio` | `sum r_si` |
+| `moderator_density` | `Ratio` | `sum W_rho,i R_rho(rho_i)` |
+| `moderator_temperature` | `Ratio` | `sum a_M,i dT_M,i` |
+| `fuel_doppler_table` | `Ratio` | `sum W_F,i R_F(T_F,i)` |
+| `fuel_temperature` | `Ratio` | `sum a_F,i dT_F,i` |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total(self: &Self) -> Ratio { /* ... */ }
+  ```
+  The total reactivity, Eq 443.
+
+- ```rust
+  pub fn total_in_dollars(self: &Self, beta: Ratio) -> Ratio { /* ... */ }
+  ```
+  The total in dollars, `r = rho / beta` (RELAP-7 Eq 430).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SeparableFeedback`
+
+RELAP5's separable feedback model (RELAP-7 Eq 443).
+
+A missing table contributes zero, as does an empty list of curves,
+volumes or structures.
+
+```rust
+pub struct SeparableFeedback {
+    pub scram_curves: Vec<ScramReactivityCurve>,
+    pub density_table: Option<DensityReactivityTable>,
+    pub fuel_temperature_table: Option<FuelTemperatureReactivityTable>,
+    pub moderator_volumes: Vec<ModeratorVolume>,
+    pub fuel_structures: Vec<FuelHeatStructure>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `scram_curves` | `Vec<ScramReactivityCurve>` | The `n_s` scram curves. |
+| `density_table` | `Option<DensityReactivityTable>` | `R_rho`, shared by every volume. |
+| `fuel_temperature_table` | `Option<FuelTemperatureReactivityTable>` | `R_F`, shared by every heat structure. |
+| `moderator_volumes` | `Vec<ModeratorVolume>` | The `n_rho` thermal-fluid volumes. |
+| `fuel_structures` | `Vec<FuelHeatStructure>` | The `n_F` fuel heat structures. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn evaluate(self: &Self, time: Time, moderator: &[ModeratorState], fuel_temperatures: &[ThermodynamicTemperature]) -> Result<SeparableReactivity, TehOPrkeError> { /* ... */ }
+  ```
+  Evaluate every term of Eq 443 at simulation time `time`, for the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1346,7 +2797,7 @@ pub struct SixFactorFormulaFeedback {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SixFactorFormulaFeedback { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1393,7 +2844,7 @@ pub struct SixFactorFormulaFeedback {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1497,6 +2948,13 @@ H_i(t+dt) = H_i(t) * exp(-lambda_i * dt)
 This is exact for a piecewise-constant fission power, unconditionally
 stable at any timestep, and costs one `exp` per group per step.
 
+## Mixed isotopes, ANS standards, `F_gamma`
+
+A fuel mix, the conservatism factor, the 1979/1994/2005 standards' isotope
+structure (with Pu-241) and user-supplied coefficients are in
+[`crate::ans_decay_heat`] (gh:#1080), which shares this module's group
+update and reproduces [`DecayHeat`] bit for bit for a single isotope.
+
 ## Status
 
 **AI-assisted implementation, not yet human-reviewed** — see
@@ -1517,9 +2975,11 @@ The fissioning nuclide whose decay-heat parameters are in use.
 
 The three cases tabulated by the 1978 draft ANS Standard. Real fuel is a
 mixture, and Tobias eq. (34) sums over nuclides weighted by their fractional
-fission rates; this enum selects one at a time, so a mixture must be handled
-by summing several [`DecayHeat`] instances (see
-[`DecayHeat::total_decay_heat_power`] and the module tests).
+fission rates; this enum selects one at a time, so with [`DecayHeat`] a
+mixture is handled by summing several instances (see
+[`DecayHeat::total_decay_heat_power`] and the module tests), or with
+[`crate::ans_decay_heat::AnsDecayHeat`], which carries the fission
+fractions itself (gh:#1080).
 
 An enum rather than a trait object, per the workspace design rules: the set
 of tabulated nuclides is closed and known at compile time, so adding one is
@@ -1584,7 +3044,7 @@ Thermal fission of Pu-239. Total decay energy 10.93 MeV/fission.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FissioningNuclide { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1614,7 +3074,7 @@ Thermal fission of Pu-239. Total decay energy 10.93 MeV/fission.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FissioningNuclide) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1633,7 +3093,7 @@ Thermal fission of Pu-239. Total decay energy 10.93 MeV/fission.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1731,7 +3191,7 @@ pub struct DecayHeat {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DecayHeat { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1779,7 +3239,7 @@ pub struct DecayHeat {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1819,6 +3279,1253 @@ should use [`DecayHeat::with_energy_per_fission`].
 pub const NOMINAL_ENERGY_PER_FISSION_MEV: f64 = 200.0;
 ```
 
+## Module `ans_decay_heat`
+
+ANS-5.1 decay-heat machinery (gh:#1080): standards enum, isotope mix
+including Pu-241, conservatism factor F_gamma, user-supplied coefficients,
+and the capture correction G(t).
+# ANS-5.1 decay-heat machinery: standards, isotope mix, `F_gamma` (gh:#1080)
+
+RELAP-7 Theory Manual (INL/EXT-14-31366), §7.2, Eqs (417)-(420). For each
+fissioning isotope `alpha` and exponential group `j`:
+
+```text
+d gamma_aj/dt = F_gamma a_aj / lambda_aj  F_a psi(t) - lambda_aj gamma_aj     (417)
+P'_gamma(t)   = sum_a sum_j lambda_aj gamma_aj                                (418)
+P_gamma(t)    = G(t) P'_gamma(t)                                              (420)
+```
+
+`psi` is the total fission rate, `F_a` the fraction of fissions in isotope
+`a` (summing to 1), `F_gamma` a conservatism factor (1 for best estimate).
+This module integrates `H_aj = lambda_aj gamma_aj` (units of power) with
+the same analytic per-step update as [`crate::decay_heat::DecayHeat`],
+exact for a fission rate held constant over the step; the two share
+[`crate::decay_heat::advance_group_power`].
+
+## Data: what is built in and what is not, and why
+
+| [`AnsStandard`] | isotopes | coefficients |
+|---|---|---|
+| `Draft1978` (default) | U-235, U-238, Pu-239 | **built in**: Tobias Table 16 (England *et al.* 1978), the set already in [`crate::decay_heat`] |
+| `Ans1979` | U-235, U-238, Pu-239 | **user supplied** |
+| `Ans1994` | U-235, U-238, Pu-239, Pu-241 | **user supplied** |
+| `Ans2005` | U-235, U-238, Pu-239, Pu-241 | **user supplied** |
+
+The 1979, 1994 and 2005 23-group coefficient tables are published in the
+ANSI/ANS-5.1 standards, which are copyrighted documents sold by the
+American Nuclear Society. `DATA_POLICY.md` admits only open-source,
+public-literature or properly licensed data. On 2026-11-01 the workspace
+was searched for an open reproduction of those tables (`reference-data/`,
+the `reactor-literature` open corpus, every source file): none was found.
+The RELAP-7 manual, which says its code carries the tables, is held
+privately and does not print them. Typing the coefficients from memory
+would be fabrication. So the enum, the isotope slots (including Pu-241)
+and the machinery are here, and the three standards' coefficients are
+entered by the user through [`DecayHeatGroupSet::from_tabulated`] or
+[`DecayHeatGroupSet::new`], from a copy of the standard they hold.
+
+The 1979 standard is said (MELCOR DCH documentation, as cited in
+`sembawang::bwr_mark1::decay`) to rest on the same England *et al.*
+evaluation as the 1978 draft, but whether its printed coefficients equal
+Tobias Table 16 digit for digit is **not verified here**, so `Ans1979` is
+not silently aliased to the draft set.
+
+**Default kept: the 1978 draft fit** (gh:#1080 asks for it to stay the
+default unless the maintainer decides otherwise; recorded 2026-11-01).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod ans_decay_heat { /* ... */ }
+```
+
+### Types
+
+#### Enum `AnsStandard`
+
+Which ANS decay-heat standard's group structure is in use.
+
+Enum, not trait object: the set is closed.
+
+```rust
+pub enum AnsStandard {
+    Draft1978,
+    Ans1979,
+    Ans1994,
+    Ans2005,
+}
+```
+
+##### Variants
+
+###### `Draft1978`
+
+The 1978 draft ANS standard fit (England *et al.* 1978, as tabulated by
+Tobias): three isotopes, coefficients built in. The default.
+
+###### `Ans1979`
+
+ANSI/ANS-5.1-1979: three isotopes, coefficients user supplied.
+
+###### `Ans1994`
+
+ANSI/ANS-5.1-1994: four isotopes (adds Pu-241), user supplied.
+
+###### `Ans2005`
+
+ANSI/ANS-5.1-2005: four isotopes (adds Pu-241), user supplied.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn isotopes(self: &Self) -> &'static [DecayHeatIsotope] { /* ... */ }
+  ```
+  The isotopes the standard tabulates (`N_I` = 3 or 4, RELAP-7 §7.2).
+
+- ```rust
+  pub fn built_in_group_set(self: &Self, isotope: DecayHeatIsotope) -> Option<DecayHeatGroupSet> { /* ... */ }
+  ```
+  The built-in coefficient set for `isotope`, if this crate carries one.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `DecayHeatIsotope`
+
+A fissioning isotope slot in a decay-heat standard.
+
+```rust
+pub enum DecayHeatIsotope {
+    U235,
+    U238,
+    Pu239,
+    Pu241,
+}
+```
+
+##### Variants
+
+###### `U235`
+
+U-235 (thermal fission)
+
+###### `U238`
+
+U-238 (fast fission)
+
+###### `Pu239`
+
+Pu-239 (thermal fission)
+
+###### `Pu241`
+
+Pu-241 (thermal fission); only in the 1994 and 2005 standards.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DecayHeatGroupSet`
+
+One isotope's 23 `(a_j, lambda_j)` pairs.
+
+```rust
+pub struct DecayHeatGroupSet {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(alpha: [Power; 23], lambda: [Frequency; 23]) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  From dimensioned coefficients: `alpha[j]` is the power per fission of
+
+- ```rust
+  pub fn from_tabulated(alpha_lambda: [(f64, f64); 23]) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  From the standard's printed table as numbers: `(a_j` in MeV/(fission
+
+- ```rust
+  pub fn tabulated(self: &Self) -> &[(f64, f64); 23] { /* ... */ }
+  ```
+  The `(a_j, lambda_j)` pairs, MeV/(fission s) and 1/s.
+
+- ```rust
+  pub fn total_decay_energy_per_fission(self: &Self) -> Energy { /* ... */ }
+  ```
+  `sum_j a_j / lambda_j`: total decay energy per fission.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AnsDecayHeat`
+
+Mixed-isotope fission-product decay heat under one [`AnsStandard`]
+(RELAP-7 Eqs 417-418).
+
+```
+use teh_o_prke::prelude::*;
+use uom::si::f64::*;
+use uom::si::frequency::hertz;
+use uom::si::ratio::ratio;
+use uom::si::time::second;
+
+let mut dh = AnsDecayHeat::new(AnsStandard::Draft1978)
+    .with_built_in_isotope(DecayHeatIsotope::U235, Ratio::new::<ratio>(0.7))?
+    .with_built_in_isotope(DecayHeatIsotope::Pu239, Ratio::new::<ratio>(0.3))?;
+dh.advance(Frequency::new::<hertz>(3.1e16), Time::new::<second>(1.0))?;
+assert!(dh.total_decay_power().value > 0.0);
+# Ok::<(), TehOPrkeError>(())
+```
+
+```rust
+pub struct AnsDecayHeat {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(standard: AnsStandard) -> Self { /* ... */ }
+  ```
+  An empty mix (no isotopes yet), `F_gamma = 1`. Add isotopes with
+
+- ```rust
+  pub fn with_built_in_isotope(self: Self, isotope: DecayHeatIsotope, fission_fraction: Ratio) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  Add `isotope` with fission fraction `F_a`, using the built-in set.
+
+- ```rust
+  pub fn with_user_coefficients(self: Self, isotope: DecayHeatIsotope, fission_fraction: Ratio, set: DecayHeatGroupSet) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  Add `isotope` with fission fraction `F_a` and user-supplied
+
+- ```rust
+  pub fn with_conservatism_factor(self: Self, f_gamma: Ratio) -> Self { /* ... */ }
+  ```
+  Set the conservatism factor `F_gamma` (1 for best estimate; RELAP-7
+
+- ```rust
+  pub fn standard(self: &Self) -> AnsStandard { /* ... */ }
+  ```
+  The standard in use.
+
+- ```rust
+  pub fn conservatism_factor(self: &Self) -> Ratio { /* ... */ }
+  ```
+  `F_gamma`.
+
+- ```rust
+  pub fn total_fission_fraction(self: &Self) -> Ratio { /* ... */ }
+  ```
+  `sum_a F_a`; must be 1 (to 1e-12) before advancing.
+
+- ```rust
+  pub fn advance(self: &mut Self, fission_rate: Frequency, timestep: Time) -> Result<(), TehOPrkeError> { /* ... */ }
+  ```
+  Advance every group by `timestep` at constant total fission rate `psi`
+
+- ```rust
+  pub fn saturate(self: &mut Self, fission_rate: Frequency) -> Result<(), TehOPrkeError> { /* ... */ }
+  ```
+  Put every group at equilibrium with an infinitely long irradiation at
+
+- ```rust
+  pub fn total_decay_power(self: &Self) -> Power { /* ... */ }
+  ```
+  Uncorrected decay power `P'_gamma` (Eq 418). Multiply by
+
+- ```rust
+  pub fn isotope_decay_power(self: &Self, isotope: DecayHeatIsotope) -> Option<Power> { /* ... */ }
+  ```
+  Decay power of one isotope; `None` if it is not in the mix.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    `Draft1978`, all fissions in U-235, `F_gamma = 1`, cold.
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `neutron_capture_correction`
+
+The neutron-absorption correction `G(t)` of the 1979/1994/2005 standards
+as RELAP-7 Eq (419) gives it:
+
+```text
+G(t) = 1 + (3.24e-6 + 5.23e-10 t) T^0.4 psi_g
+```
+
+`t` time since shutdown (s), `T` operating time including shutdowns (s),
+`psi_g` fissions per initial fissile atom. RELAP-7 states the limits
+`1 <= psi_g <= 3`, `T < 1.2614e8 s`, `t < 1e4 s`; outside them this
+returns an error rather than extrapolating. (The standard's tabulated
+`G_max(t)` used beyond 1e4 s is not reproduced here; `sembawang` carries
+MELCOR's copy.)
+
+```rust
+pub fn neutron_capture_correction(time_since_shutdown: Time, operating_time: Time, fissions_per_initial_fissile_atom: Ratio) -> Result<Ratio, crate::teh_o_prke_error::TehOPrkeError> { /* ... */ }
+```
+
+## Module `point_reactor`
+
+`PointReactor` (gh:#1082): N-group kinetics, decay heat and an actinide
+slot in one state, with the density -> fission rate -> power conversion.
+# `PointReactor`: kinetics + decay heat (+ actinide slot) in one state (gh:#1082)
+
+RELAP-7 Theory Manual (INL/EXT-14-31366), §7.1 Eqs (414)-(416) and §7.4
+Eq (429). One state holds
+
+- the N-group point kinetics ([`PointKinetics`], Eqs 412-413) in neutron
+  density;
+- the conversion density -> flux -> fission rate -> immediate power
+  ([`FissionPowerConversion`]):
+
+  ```text
+  phi(t) = n(t) v              (414)
+  psi(t) = V Sigma_f phi(t)    (415)
+  P_f(t) = Q_f psi(t)          (416)
+  ```
+
+- fission-product decay heat ([`AnsDecayHeat`], Eqs 417-418) driven by
+  `psi`, with the capture correction `G` (Eq 420) as a settable factor;
+- the actinides, [`ActinideDecayModel`]: `None`, or the U-239 → Np-239
+  chain of §7.3 (Eqs 421-423), [`ActinideChain`], driven by the transient
+  fission rate (gh:#1081).
+
+and reports the total power, Eq (429):
+
+```text
+P_T = Q_f psi + G sum_a sum_j lambda_aj gamma_aj + P_actinide
+```
+
+`Q_f` is the **immediate** energy per fission (prompt and delayed-neutron
+energy, *excluding* fission-product decay), so the decay term is not
+counted twice.
+
+## Coupling between kinetics and decay heat
+
+Each [`PointReactor::step`] advances the kinetics by backward Euler, then
+the decay-heat groups analytically with the end-of-step fission rate held
+over the step (consistent with backward Euler's end-of-step evaluation).
+This is still an operator split, first order in `dt`; the decay groups do
+not feed back on the kinetics, so the split only affects how `psi` is
+sampled. RELAP-7's own transformation (§7.4, Eqs 430-442) integrates all
+of these as one system; that is not reproduced.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod point_reactor { /* ... */ }
+```
+
+### Types
+
+#### Struct `FissionPowerConversion`
+
+The constants of RELAP-7 Eqs (414)-(416): one-speed neutron velocity
+`v`, core volume `V`, macroscopic fission cross section `Sigma_f`, and
+immediate energy per fission `Q_f`.
+
+```rust
+pub struct FissionPowerConversion {
+    pub neutron_speed: Velocity,
+    pub core_volume: Volume,
+    pub macroscopic_fission_cross_section: ReciprocalLength,
+    pub immediate_energy_per_fission: Energy,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `neutron_speed` | `Velocity` | `v` |
+| `core_volume` | `Volume` | `V` |
+| `macroscopic_fission_cross_section` | `ReciprocalLength` | `Sigma_f` |
+| `immediate_energy_per_fission` | `Energy` | `Q_f`, immediate (prompt + delayed-neutron) energy per fission,<br>excluding fission-product decay energy. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn flux(self: &Self, neutron_density: VolumetricNumberDensity) -> ArealNumberRate { /* ... */ }
+  ```
+  Scalar flux `phi = n v` (Eq 414).
+
+- ```rust
+  pub fn fission_rate(self: &Self, neutron_density: VolumetricNumberDensity) -> Frequency { /* ... */ }
+  ```
+  Fission rate `psi = V Sigma_f phi` in fissions per second (Eq 415).
+
+- ```rust
+  pub fn immediate_power(self: &Self, neutron_density: VolumetricNumberDensity) -> Power { /* ... */ }
+  ```
+  Immediate fission power `P_f = Q_f psi` (Eq 416).
+
+- ```rust
+  pub fn neutron_density_for_power(self: &Self, power: Power) -> VolumetricNumberDensity { /* ... */ }
+  ```
+  The neutron density that gives immediate fission power `power`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ActinideDecayModel`
+
+Actinide (U-239 / Np-239) decay-power model (RELAP-7 §7.3), summed into
+[`PointReactor::total_power`]. ~~Only `None` exists; the actinide
+equations are gh:#1081.~~ **CORRECTED 2026-11-01:** gh:#1081 added
+[`ActinideDecayModel::U239Np239`].
+
+```rust
+pub enum ActinideDecayModel {
+    None,
+    U239Np239(ActinideChain),
+}
+```
+
+##### Variants
+
+###### `None`
+
+No actinide decay power.
+
+###### `U239Np239`
+
+The U-239 → Np-239 chain, driven by the fission rate (gh:#1081).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ActinideChain` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn power(self: &Self) -> Power { /* ... */ }
+  ```
+  Actinide decay power; zero for `None`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ActinideChain`
+
+U-239 → Np-239 → Pu-239 decay heat (RELAP-7 §7.3, Eqs 421-423; the same
+chain as ANS-5.1-1979 and MELCOR's DCH package): `R` U-239 atoms made per
+fission,
+
+```text
+dN_U/dt  = R ψ − λ_U N_U
+dN_Np/dt = λ_U N_U − λ_Np N_Np
+P        = E_U λ_U N_U + E_Np λ_Np N_Np
+```
+
+Advanced **exactly** for a fission rate held constant over a step (the
+Bateman solution with a source), so the transient form reproduces
+[`actinide_decay_power_after_constant_irradiation`] to round-off. AI draft,
+clean room: written from the manual's description.
+
+```rust
+pub struct ActinideChain {
+    pub u239_per_fission: f64,
+    pub e_u239_j: f64,
+    pub e_np239_j: f64,
+    pub lambda_u239_per_s: f64,
+    pub lambda_np239_per_s: f64,
+    pub n_u239: f64,
+    pub n_np239: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `u239_per_fission` | `f64` | U-239 atoms made per fission, `R`. |
+| `e_u239_j` | `f64` | Energy per U-239 decay, J. |
+| `e_np239_j` | `f64` | Energy per Np-239 decay, J. |
+| `lambda_u239_per_s` | `f64` | U-239 decay constant, 1/s. |
+| `lambda_np239_per_s` | `f64` | Np-239 decay constant, 1/s. |
+| `n_u239` | `f64` | U-239 atoms present. |
+| `n_np239` | `f64` | Np-239 atoms present. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn empty(u239_per_fission: f64, e_u239: Energy, e_np239: Energy, lambda_u239: Frequency, lambda_np239: Frequency) -> Self { /* ... */ }
+  ```
+  A chain with no atoms yet.
+
+- ```rust
+  pub fn saturated(self: Self, fission_rate: Frequency) -> Self { /* ... */ }
+  ```
+  The same chain at equilibrium with a constant fission rate.
+
+- ```rust
+  pub fn power(self: &Self) -> Power { /* ... */ }
+  ```
+  Decay power now.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PointReactor`
+
+Kinetics, decay heat and actinides in one state; total power by Eq 429.
+
+```rust
+pub struct PointReactor {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(kinetics: PointKinetics, conversion: FissionPowerConversion, decay_heat: AnsDecayHeat) -> Self { /* ... */ }
+  ```
+  Assemble a reactor. Actinides `None`, capture correction `G = 1`.
+
+- ```rust
+  pub fn set_capture_correction(self: &mut Self, g: Ratio) { /* ... */ }
+  ```
+  Set the capture correction `G` applied to the decay power (Eq 420),
+
+- ```rust
+  pub fn set_critical_equilibrium(self: &mut Self, power: Power, neutron_generation_time: Time) { /* ... */ }
+  ```
+  Put the kinetics at critical equilibrium at immediate power `power`
+
+- ```rust
+  pub fn saturate_decay_heat(self: &mut Self) -> Result<(), TehOPrkeError> { /* ... */ }
+  ```
+  Saturate the decay heat to an infinitely long irradiation at the
+
+- ```rust
+  pub fn step(self: &mut Self, timestep: Time, reactivity: Ratio, neutron_generation_time: Time, background_source_rate: VolumetricNumberRate) -> Result<(), TehOPrkeError> { /* ... */ }
+  ```
+  Advance one step: kinetics by backward Euler, then decay heat at the
+
+- ```rust
+  pub fn set_actinides(self: &mut Self, actinides: ActinideDecayModel) { /* ... */ }
+  ```
+  Use an actinide model (e.g. [`ActinideChain::saturated`] at the
+
+- ```rust
+  pub fn kinetics(self: &Self) -> &PointKinetics { /* ... */ }
+  ```
+  The kinetics state.
+
+- ```rust
+  pub fn decay_heat(self: &Self) -> &AnsDecayHeat { /* ... */ }
+  ```
+  The decay-heat state.
+
+- ```rust
+  pub fn conversion(self: &Self) -> &FissionPowerConversion { /* ... */ }
+  ```
+  The conversion constants.
+
+- ```rust
+  pub fn actinides(self: &Self) -> ActinideDecayModel { /* ... */ }
+  ```
+  The actinide slot.
+
+- ```rust
+  pub fn fission_rate(self: &Self) -> Frequency { /* ... */ }
+  ```
+  Fission rate `psi` (Eq 415).
+
+- ```rust
+  pub fn immediate_fission_power(self: &Self) -> Power { /* ... */ }
+  ```
+  Immediate fission power `Q_f psi` (Eq 416).
+
+- ```rust
+  pub fn decay_power(self: &Self) -> Power { /* ... */ }
+  ```
+  Corrected fission-product decay power `G P'_gamma` (Eq 420).
+
+- ```rust
+  pub fn total_power(self: &Self) -> Power { /* ... */ }
+  ```
+  Total power `P_T` (Eq 429): immediate + corrected decay + actinide.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `actinide_decay_power_after_constant_irradiation`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+
+Actinide decay power, W, after irradiation at a constant fission rate for
+`operating_time_s`, at `time_after_s` after shutdown (the ANS-5.1-1979 /
+MELCOR closed form, MELCOR Eqs 3-2 to 3-4): `E` in MeV, `joule_per_mev`
+the conversion the caller uses. Moved here from
+`sembawang::bwr_mark1::decay` (gh:#1081) with its arithmetic unchanged, so
+sembawang's results are bit-identical.
+
+```rust
+pub fn actinide_decay_power_after_constant_irradiation(fission_rate_per_s: f64, operating_time_s: f64, time_after_s: f64, u239_per_fission: f64, e_u239_mev: f64, e_np239_mev: f64, lambda_u239_per_s: f64, lambda_np239_per_s: f64, joule_per_mev: f64) -> f64 { /* ... */ }
+```
+
 ## Module `time_stepping`
 
 contains code for time stepping for prke
@@ -1835,7 +4542,7 @@ pub mod time_stepping { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(non_upper_case_globals)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_upper_case_globals\",\nkind: Allow}])]")`
 
 ```rust
 pub mod openfoam_rfk45 { /* ... */ }
@@ -1847,7 +4554,7 @@ pub mod openfoam_rfk45 { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(non_snake_case)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_snake_case\", kind: Allow}])]")`
 
 note: need a verification test too
 
@@ -1895,7 +4602,7 @@ pub struct RKF45 {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RKF45 { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1936,7 +4643,7 @@ pub struct RKF45 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1959,7 +4666,7 @@ pub mod openfoam_ode_system { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(non_snake_case)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_snake_case\", kind: Allow}])]")`
 
 rust translation of the OpenFOAM ODE system
 
@@ -2015,7 +4722,7 @@ pub struct ODESystem {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ODESystem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2056,7 +4763,7 @@ pub struct ODESystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2256,7 +4963,7 @@ pub struct NordheimFuchsExactTimestepper {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NordheimFuchsExactTimestepper { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2291,7 +4998,7 @@ pub struct NordheimFuchsExactTimestepper {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NordheimFuchsExactTimestepper) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2310,7 +5017,7 @@ pub struct NordheimFuchsExactTimestepper {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2534,6 +5241,21 @@ pub struct DelayedNeutronLayer {
   Builds the layer with a **documented five-group reduced set for thermal
 
 - ```rust
+  pub fn u235_five_group_with_total_fraction(prompt_generation_time: Time, total_delayed_fraction: Ratio) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  [`Self::u235_five_group`]'s decay constants and **relative**
+
+- ```rust
+  pub fn seed_at_equilibrium(self: &mut Self, reactor_power: Power) { /* ... */ }
+  ```
+  Set every precursor group to its **equilibrium** at a constant power
+
+- ```rust
+  pub fn precursor_inventory(self: &Self) -> f64 { /* ... */ }
+  ```
+  The precursor inventory summed over groups, in the layer's power form
+
+- ```rust
   pub fn total_delayed_neutron_fraction(self: &Self) -> Ratio { /* ... */ }
   ```
   Total delayed-neutron fraction `beta = sum_i beta_i` (dimensionless).
@@ -2582,7 +5304,7 @@ pub struct DelayedNeutronLayer {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DelayedNeutronLayer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2623,7 +5345,7 @@ pub struct DelayedNeutronLayer {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
