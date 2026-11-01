@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ ~~seven~~ ~~eight~~ nine more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ ~~seven~~ ~~eight~~ ~~nine~~ ten more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -378,6 +378,46 @@ non-GSL source. It binds future work as follows:
   by rotation angle against a derived budget (`mirror_svd3::angle_budget`),
   not bit-identity. If `svd.rs` changes, change the shader and mirror with
   it.
+
+### A fourteenth non-GSL port: implicit ODE steppers and JFNK (2026-11-01)
+
+`src/ode/implicit.rs` (gh:#1065) and `src/newton_krylov/` (gh:#1066). The
+maintainer's issues are the approval: #1065 "Prefer porting GSL's `msbdf` if
+it composes; otherwise write it and cite the reference implementation"; #1066
+"a JFNK driver in petir, reusing `gmres_op` and generalising the pflotran
+driver rather than duplicating either". Lineage, file by file:
+
+| piece | upstream | licence |
+|---|---|---|
+| Newton inner solve, backward-Euler step, error level | GSL `ode-initval2/modnewton1.c`, `rk1imp.c` (single step), `rksubs.c`, `cstd.c` | GPL-3.0-or-later |
+| BDF2 coefficients and Euler start | OpenFOAM-dev `backwardDdtScheme.C` (commit `198dd0e1`) | GPL-3.0-or-later |
+| finite-difference Jacobian | GSL `multiroots/fdjac.c` (`src/multiroots.rs`) | GPL-3.0-or-later |
+| GMRES and the operator traits | this workspace's `outram-foam-basic-lib/src/linear_operator.rs` (`gmres_op`) | GPL-3.0 |
+| Newton driver and Armijo line search | this workspace's `outram-park-fork-pflotran/src/solver/mod.rs` | GPL-3.0 |
+| `J v` and its perturbation rule; stopping tests | PETSc `mffd.c` / `wp.c` (Walker–Pernice), `snesut.c` (commit `e413143d`) | BSD-2-Clause |
+
+It binds future work as follows:
+
+- **`msbdf` was checked and not used**: it is variable-order (1–5)
+  Nordsieck with its own step/order control, so a fixed BDF2 on a caller's
+  grid cut out of it would no longer be `msbdf`. If adaptive stiff
+  integration is wanted, port `msbdf` whole.
+- **The GMRES port is not yet pinned bit for bit against `gmres_op`**
+  (the comparison has to live in `outram-foam-basic-lib`, which depends on
+  PETIR). Every expression was kept; only `[]` became `get`/`get_mut` and
+  `.sqrt()` became `Real::sqrt`. Do not "improve" its arithmetic before that
+  pin exists.
+- **The JFNK forcing term defaults to 1e-4, not 1e-8** (measured: at 1e-8
+  every GMRES solve after the first Newton step hit its cap on both V&V
+  problems, because the finite-difference product's noise sits above
+  `1e-8 ||F||`). See `JfnkConfig::default`.
+- **Deviations** are flagged `DEVIATION` in each file: no step doubling in
+  backward Euler (GSL's `rk1imp` returns two half steps), an exact Euler
+  start for BDF2 (OpenFOAM uses `dt0 = 1/DBL_EPSILON`), split Newton failure
+  codes, no retried steps; no `diagonal` on the operator trait; GSL's
+  `nrm2` in place of PETSc's BLAS norm; pflotran's halving line search in
+  place of PETSc's cubic one; constant forcing term.
+- **V&V**: `verification_and_validation/implicit_ode_and_jfnk.md`.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below

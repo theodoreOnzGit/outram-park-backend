@@ -64,7 +64,9 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives and definite integrals (`eval_integ`, added 2026-10-20) |
 | `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, rectangular Householder **QR with least-squares solve**, and GSL's own LU with unscaled partial pivoting and its solve (`lu_decomp`, bit-identical to compiled GSL 2.8, gh:#992); since gh:#993 also **Cholesky**, **SVD**, **symmetric eigenvalues/vectors** and **nonsymmetric eigenvalues** (GSL), an **Octave-style `Matrix` vocabulary**, and **`expm`** (GNU Octave) |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
-| `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
+| `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver; **`ode::implicit`** (added 2026-11-01, gh:#1065): backward Euler and variable-step BDF2 with a backward-Euler start, Newton inner solve ported from GSL's `modnewton1` / `rk1imp`, BDF2 coefficients from OpenFOAM's `backwardDdtScheme`; observed orders 0.9999 / 2.0036 on an analytic linear system, Robertson to t = 40 within 2.1e-6 (BDF2, 2496 steps) of a Radau reference (`tests/ode_implicit_order_and_robertson.rs`) |
+| `multiroots` | ported | GSL's `gsl_multiroot_fdjacobian` (forward-difference Jacobian); the multiroot solvers are not ported. **Added 2026-11-01** |
+| `newton_krylov` | ported (workspace `gmres_op` + pflotran Newton driver, PETSc `MatMult_MFFD` / `SNESConvergedDefault`; not GSL) | Jacobian-free Newton–Krylov: Walker–Pernice finite-difference `J v`, restarted right-preconditioned GMRES, optional dense-LU preconditioning from a caller's approximate Jacobian, absolute / relative / step-length tests. Bratu and a nonlinear heat equation agree with assembled-Jacobian Newton to ≤ 1.3e-12; preconditioning cuts GMRES iterations 10–66x (`tests/jfnk_bratu_and_nonlinear_heat.rs`). **Added 2026-11-01** (gh:#1066) |
 | `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders (OpenFOAM); closed-form **quartic** and biquadratic, and **all roots of any degree** by companion-matrix eigenvalues (the `roots` crate); polynomial **algebra** — multiply, long-divide, translate — with Lagrange interpolation and the **Legendre / Chebyshev / Hermite / Bessel** families (`peroxide`). See Prior art |
 | `roots` | ported | Bracketing (bisection, false position, Brent) and derivative-based (Newton, secant, Steffenson) root finders, with GSL's three convergence tests |
 | `specfunc`, `expint`, `gamma_inc` | ported + lifted + delegated | Error-function family including the scaled `erfcx`, gamma family with GSL's Padé branches at the zeros, incomplete gamma and its inverse, exponential integral `E_1` |
@@ -81,7 +83,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 
 **Deliberate subsets rather than gaps**, each named where it matters and
 tracked as a bead: ~~QAGS and~~ the infinite-range and weighted quadrature
-variants (QAGS **ported 2026-09-28**); implicit and stiff ODE methods; Akima, Steffen and periodic splines;
+variants (QAGS **ported 2026-09-28**); ~~implicit and stiff ODE methods~~ GSL's adaptive stiff ODE steppers (**CORRECTED 2026-11-01**: fixed-grid backward Euler and BDF2 are in `ode::implicit`, gh:#1065); Akima, Steffen and periodic splines;
 general-degree complex polynomial roots; and rank-deficient least squares (the
 QR is unpivoted, so a dependent design matrix is *reported*, not solved —
 `op-4m4b`). An empty module that looks like an API is worse than an absent one.
