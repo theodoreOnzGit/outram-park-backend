@@ -695,7 +695,10 @@ report is a copy, no arithmetic changes).
   maintainer.** The physics asserted (static stability, the lower part
   mixed) is unchanged.
 
-**A consequence found downstream (stated, open).** Flashing acts on the
+~~**A consequence found downstream (stated, open).**~~ **CORRECTED
+2026-11-01** (gh:#1107): fixed by the implicit flash (option (b) below,
+section "The flash is implicit in the pressure it raises"); the record as
+it stood: Flashing acts on the
 block too, so a mixed block above saturation flashes as a whole in one
 step, as a one-layer pool does. In `sembawang`'s 30 h containment replay
 this brought back post-vent `p_ww` swings (up to +12.7 % at the half-hour
@@ -765,3 +768,175 @@ R1–R6 record (R1 241.8296 kJ/mol, R2 1146.093695 K, R5 bit for bit),
 and the containment's burn case reproduces bit for bit in peak pressure
 and total H2 burned, with round-off (≤ 8 ulp) elsewhere: `sembawang`'s V&V
 doc.
+
+## The flash is implicit in the pressure it raises (gh:#1107, 2026-11-01)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**The defect (gh:#1107).** Since the surface mixed block (above), flashing
+acts on the whole block. In `sembawang`'s 30 h replay, after the 24 h vent,
+the upper layers mix to saturation and the block flashes whole in one 1 s
+step. Network − old Δ`p_ww` swings up to +12.71 % at 26.5–29.5 h and the vent
+window depends on the layer count (−17.2 % at 11 layers, −8.2 % at 22). The
+unlayered pool showed the same 225 s burst cycle earlier (up to +38 kPa).
+
+### How the flash is computed here (read before any change)
+
+`ControlVolume::surface` (and before it the wet well's `surface`, and
+`sembawang`'s `Containment::pool_surface_step`, which both port) flashes a
+pool above `T_s = T_sat(p_gas)` **explicitly**: `T_s` is taken at the
+pressure the atmosphere has *before* the flashed vapour joins it, the flash
+mass `m = (E_s − m_s u_l(T_s)) / (h_g(T_s) − u_l(T_s))` is applied in full in
+that step, and only then is the pressure re-derived. The vapour raises the
+pressure, so `T_sat` rises, and the pool, left at the old `T_s`, ends the
+step **subcooled** against its own end-of-step pressure. The overshoot is the
+loop gain
+
+`G = (M c / h_fg) · (dT_sat/dp) · (∂p/∂m_steam)`
+
+of the flash through the gas space. For the unlayered torus at 26 h (the
+`sembawang` trace: 1.75e6 kg, 418 kg flashed, +38.8 kPa, so `∂p/∂m` ≈
+93 Pa/kg; `dT_sat/dp` ≈ 2.8e-4 K/Pa at 1 atm; `M c / h_fg` ≈ 3.3e3 kg/K)
+`G` ≈ 85: the explicit flash takes about 86 times the self-consistent
+amount, then waits for the vent to remove it. `G` scales with the mass that
+flashes, which is why the top layer alone (`1/n` of a mixed pool) hid it
+and the block (or one layer) brings it back, and why the vent window moves
+with `n`. `G` does not depend on `Δt`, so a shorter step shrinks each burst
+but not the overshoot ratio.
+
+The network (`CvNetwork::step`, a Picard iteration on the end-of-step
+pressures) does not make the flash implicit: each iterate steps every volume
+from its start state, and inside that step the flash is again taken at the
+pre-flash pressure.
+
+### What MELCOR does (CVH/FL Reference Manual, section and equation numbers only)
+
+- **The pool's vapour is part of the equation of state, at the new
+  pressure.** §5.1.3 (Eq 5-30): the vapour in the pool is set by the pool's
+  total mass and enthalpy and the saturated enthalpies at the control
+  volume's pressure; §2.3 and the CVT package give pressure from the
+  contents. Flashing on depressurisation (which §5.1.3 names alongside
+  boiling) is therefore not a separate explicit source.
+- **The transfer of that vapour to the atmosphere is implicit.** §4.2.1
+  (Eqs 4-26 to 4-36): bubble separation is linearised in the pool void
+  fraction and eliminated into modified pressure derivatives, so it is
+  solved with the pressures. §4.2.1 gives the reason in substance: as an
+  explicit source it made boiling pools, at low pressure above all,
+  numerically unstable (paraphrased, not quoted).
+- **End-of-step consistency is enforced.** §4.3: the new pressures and
+  void fractions from the full equation of state must agree with the
+  linearly projected ones (0.5 % and 1 % by default), otherwise the
+  linearisation point is moved and the step repeated, then cut; §4.3 also
+  limits a system step to a 10 % change of pressure. §4.3 names crossing the
+  saturation line as the case where a projection over the whole step fails.
+
+So **upstream does not do what this crate does**: MELCOR evaluates the
+pool's vapour at the end-of-step pressure, consistently with the vapour's
+own effect on it. `sembawang`'s `pool_surface_step` and the wet well do what
+this crate does (explicit), and the earlier `sembawang` comment that MELCOR
+"holds bubbles up to a 0.4 void" (§5.1.3's bubbly-flow limit) concerns how
+much vapour may stay in the pool, not when it is generated.
+
+### The fix chosen, and why
+
+**(b), the flash implicit in its own pressure response**, default ON,
+ablation `ControlVolume::without_implicit_flash()` (the explicit flash, bit
+for bit). The end state of the flash satisfies `T_block = T_sat(p_end)`,
+`p_end` the atmosphere's pressure *after* the flashed vapour has joined it
+(and after the pool volume and density have changed with it): a scalar root
+in `T_s ∈ [T_sat(p_before), T_block]`, the flash mass at each trial `T_s`
+given by the same energy balance as before, the pressure by the volume's own
+`refresh` on a probe. This is the single-volume form of MELCOR's
+end-of-step equation-of-state consistency (§4.2.1, §4.3, Eq 5-30); the
+network's Picard iteration then couples it to the flows, so at convergence
+the flash is implicit in the network pressures too. No cap, no limit, no
+tuned constant: the root's tolerance (1e-10 K on `T_s`) is a solver control.
+
+(a), "the exchange sees the block but only the top layer flashes", was
+rejected: the rest of a superheated block would then be lighter than the
+flashed top layer, mix into it at the end of the step and flash on the
+next one, so the flash would relax over `n` steps. That is a time constant
+set by the layer count, not by the physics, and it leaves the unlayered pool
+(`n = 1`, where the top layer is the pool) exactly as unstable as before.
+
+### Predictions (written 2026-11-01, before any run of this change)
+
+**F1, the burst** (`tests/control_volume_flash.rs`, new): a 10 m² prismatic
+vessel 5 m tall, 2 m of water at `T_sat(2.0e5 Pa)` (about 393.36 K, about
+18.9 t) under 30 m³ of steam (RH 0.9 at that temperature) and N2 at
+2.0e5 Pa total, gas at the pool temperature; a port at 4.9 m draws
+0.1 kg/s of the atmosphere for 10 s at `Δt` = 1 s. Each draw lowers `p` by
+about 0.1/35 of it, ≈ 570 Pa, so the pool is ≈ 0.09 K superheated. `G` ≈ 35
+here (`∂p/∂m` ≈ 6.0e3 Pa/kg, `dT_sat/dp` ≈ 1.6e-4 K/Pa, `M c / h_fg` ≈
+36 kg/K).
+
+- *Before the fix* (the code as it stands; then `without_implicit_flash`,
+  bit for bit): step 1 flashes 3.3 ± 0.7 kg; `p` **rises** in that step by
+  +19 ± 5 kPa during a pure depressurisation; the pool ends it subcooled
+  against its own pressure by 3.0 ± 0.8 K; no flash in steps 2–10 (the
+  pool waits for the draw to undo the burst). At `Δt` = 0.5 s the first
+  burst is about half as large.
+- *After the fix* (default): every step flashes 0.09 ± 0.01 kg (≈ the draw
+  times `G / (1 + G)`); `p` falls in every step, by about 16 ± 5 Pa a step
+  (≈ 570 Pa / (1 + G)); at each step's end `|T_pool − T_sat(p)|` < 0.01 K
+  (the surface exchange and compression work act after the flash, so not
+  1e-10); no one-step rise of `p`.
+- *`Δt` convergence, after the fix:* `p(10 s)` at `Δt` = 1, 0.5, 0.25,
+  0.125 s within 5 Pa of each other, the differences shrinking with `Δt`.
+  Before the fix the largest one-step rise of `p` scales with `Δt`
+  (≈ 19, 10, 5, 2.5 kPa).
+- *Layers:* the same case in 8 layers (a mixed column, so the block is the
+  whole pool): after the fix `|p(8) − p(1)|` < 1e-4 Pa at 10 s.
+- *Conservation:* water and energy close against the bookkeeping to
+  < 1e-12 relative, both ways.
+
+**Unchanged, because none of them flashes:** L1's 64 values bit for bit
+(the pool stays below 306 K at 1 bar), L9 (303 K pool at 105 kPa) bit for
+bit at every `n` and both block settings, L2–L10, the network tests and
+the wet well (not edited). `sembawang`'s case A unchanged bit for bit, so
+`p(n) − p(1)` stays below 1e-4 Pa.
+
+**`sembawang`'s 30 h replay** (predictions in its V&V doc, written now):
+nothing moves before the first flash; after the vent the swings fall to
+the `without_surface_mixed_block` level, and the vent window's `n`
+dependence shrinks.
+
+### Results (2026-11-01, release, Rust 1.99.1; `tests/control_volume_flash.rs`)
+
+**First run: a case error, recorded.** F1 as first written put the pool at
+`T_sat` of the *nominal* 2.0e5 Pa, but the volume derives its own
+pressure (IF97 steam, its own pool density): 196 122.5 Pa, so the pool
+started about 0.6 K superheated, and step 1 flashed 26.4 kg even at
+`Δt` = 0.125 s. The case now sets the pool to `T_sat` of the volume's own
+initial pressure (three passes, since the pool's temperature moves the gas
+volume), which is the case the predictions describe. Nothing else changed.
+
+| Case | Measured | Prediction | Outcome |
+|---|---|---|---|
+| F1 explicit (unmodified `src/`; pinned, `without_implicit_flash` bit for bit) | step 1 flashes **4.335 kg**, `p` **+32.86 kPa** in that step (from 196 122.5 Pa), pool **5.07 K** subcooled against its own pressure after it; no flash in steps 2–10; `p(10 s)` 221 860.53 Pa | 3.3 ± 0.7 kg, +19 ± 5 kPa, 3.0 ± 0.8 K, no later flash | burst held; **sizes MISSED** (1.3, 1.7, 1.7 times): `∂p/∂m` 7.6 kPa/kg against the 6.0 estimated (the steam warms the gas), so `G` ≈ 47, not 35 |
+| F1 implicit (default) | 0.0934 kg in step 1, then 0.0920–0.0921 kg a step; `p` −4.9 Pa in step 1, −16.1 Pa in every later step; worst `\|T_pool − T_sat(p)\|` 1.84e-3 K | 0.09 ± 0.01 kg, −16 ± 5 Pa, < 0.01 K, no rise | held |
+| F1 eight layers | `p(10 s)` 7.3e-9 Pa from one layer (implicit); explicit 208 ulp apart | < 1e-4 Pa | held |
+| F1 closure | water ≤ 3.2e-16, energy ≤ 3.1e-16 of the inventory, both flashes | < 1e-12 | held |
+| `Δt` convergence, implicit | `p(10 s)` 195 972.44, 195 966.94, 195 964.19, 195 962.81 Pa at 1, 0.5, 0.25, 0.125 s: differences 5.50, 2.75, 1.38 Pa, **first order**; spread 9.6 Pa | within 5 Pa, shrinking | shrinking held; **"within 5 Pa" MISSED** (the step-1 transient of the explicit surface exchange, `O(Δt)`) |
+| `Δt` convergence, explicit | largest one-step rise 32.9, 16.4, 8.2, 4.1 kPa; `p(10 s)` 221 860.5, 205 342.8, 197 112.1, 197 020.0 Pa | rises ≈ 19, 10, 5, 2.5 kPa | proportional to `Δt` held; 1.7 times the size, as above |
+| L1, L9, L2–L10, network tests | all pass; L1's 64 values and L9 bit for bit (no flash in them) | unchanged | held |
+| full suite | `cargo test --release -j 3 -p tampines --lib --tests`: 248 passed, 0 failed, 5 ignored (14 binaries) | | |
+
+**A check set after the run, flagged for the maintainer.** The
+`Δt`-convergence test first asserted the prediction (all within 5 Pa); it
+failed at 9.6 Pa. It now asserts what the run shows and what convergence
+means here: each halving of `Δt` halves the difference (ratio in
+[0.4, 0.6]; measured 0.500, 0.500), and the spread is under 1e-4 of `p`
+(4.9e-5; the explicit flash spreads 0.13 of `p`). The 5 Pa miss stays
+recorded here and in the test.
+
+**`sembawang`:** case A unchanged (+341.10 Pa at 2, 4, 8, 16 layers), 6 h
+pins unchanged to the printed digits; the 30 h results are in
+`crates/sembawang/verification_and_validation/bwr_mark1/containment_network.md`,
+section gh:#1107.
+
+**What to quote:** a saturated pool under depressurisation now flashes the
+self-consistent amount each step (F1: 0.092 kg against one 4.3 kg burst),
+stays on its own saturation line to 2e-3 K, converges first order in
+`Δt`, and is independent of the layer count to 1e-8 Pa; the explicit form
+is kept bit for bit as the ablation.

@@ -6165,6 +6165,7 @@ pub struct NetworkMechanisms {
     pub pool_layer_conduction: bool,
     pub surface_mixed_block: bool,
     pub fp_pool_heat_above_exits: bool,
+    pub implicit_flash: bool,
     pub burns: bool,
 }
 ```
@@ -6189,6 +6190,7 @@ pub struct NetworkMechanisms {
 | `pool_layer_conduction` | `bool` | A layered pool's stable layers conduct (`tampines`' default; needs<br>`pool_layers`). |
 | `surface_mixed_block` | `bool` | The layered pool's surface exchange sees `tampines`' surface mixed<br>block (`tampines`' default since gh:#1100's fix; needs<br>`pool_layers`); without it, the top layer alone, which made the<br>exchange depend on the layer count (V&V doc). |
 | `fp_pool_heat_above_exits` | `bool` | The decay heat of the fission products in the torus (its gas, its<br>pool's surface, scrubbed in the pool) goes into the water above the<br>downcomers' exits, shared by mass (`CvNetwork::set_pool_heat_at`),<br>where the old model puts it: into its top layer, which is the water<br>above the exits (`Containment::step` step 0, `pool_energy()` with<br>`layer_pool`'s split at the submergence). Without it, shared over<br>the whole pool by mass (`set_pool_heat`). One layer: the same, bit<br>for bit. Needs `fp_decay_heat`. |
+| `implicit_flash` | `bool` | Every volume's pool flashes to the state consistent with the<br>pressure its own vapour raises (`tampines`' default since gh:#1107,<br>after MELCOR CVH/FL RM §4.2.1, §4.3, Eq 5-30); without it, the<br>explicit flash, which after the vent flashed the torus's saturated<br>surface block in one step (post-vent `p_ww` swings, V&V doc). |
 | `burns` | `bool` | Hydrogen and CO burns in the building by MELCOR's BUR criteria and<br>rates, sembawang's (`containment::bur_ignites`, `bur_step`, as the<br>old model's building), the stoichiometry and heat by<br>[`super::reaction::burn_inputs`] (moved from `tampines`, gh:#1103) as<br>`tampines`' species sources and sinks and one atmosphere heat. |
 
 ##### Implementations
@@ -6244,6 +6246,11 @@ pub struct NetworkMechanisms {
   pub fn without_burns(self: Self) -> Self { /* ... */ }
   ```
   Ablation: nothing burns (the ignition criterion still reported).
+
+- ```rust
+  pub fn without_implicit_flash(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the explicit flash (`ControlVolume::without_implicit_flash`)
 
 - ```rust
   pub fn without_pressure_work(self: Self) -> Self { /* ... */ }

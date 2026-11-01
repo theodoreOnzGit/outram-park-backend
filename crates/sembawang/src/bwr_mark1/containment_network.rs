@@ -306,6 +306,12 @@ pub struct NetworkMechanisms {
     /// the whole pool by mass (`set_pool_heat`). One layer: the same, bit
     /// for bit. Needs `fp_decay_heat`.
     pub fp_pool_heat_above_exits: bool,
+    /// Every volume's pool flashes to the state consistent with the
+    /// pressure its own vapour raises (`tampines`' default since gh:#1107,
+    /// after MELCOR CVH/FL RM §4.2.1, §4.3, Eq 5-30); without it, the
+    /// explicit flash, which after the vent flashed the torus's saturated
+    /// surface block in one step (post-vent `p_ww` swings, V&V doc).
+    pub implicit_flash: bool,
     /// Hydrogen and CO burns in the building by MELCOR's BUR criteria and
     /// rates, sembawang's (`containment::bur_ignites`, `bur_step`, as the
     /// old model's building), the stoichiometry and heat by
@@ -357,6 +363,11 @@ impl NetworkMechanisms {
     pub fn without_burns(self) -> Self {
         Self { burns: false, ..self }
     }
+    /// Ablation: the explicit flash (`ControlVolume::without_implicit_flash`)
+    /// in every volume, as before gh:#1107.
+    pub fn without_implicit_flash(self) -> Self {
+        Self { implicit_flash: false, ..self }
+    }
     /// Ablation: no pool compression work.
     pub fn without_pressure_work(self) -> Self {
         Self { pressure_work: false, ..self }
@@ -407,6 +418,7 @@ impl Default for NetworkMechanisms {
             surface_mixed_block: true,
             fp_pool_heat_above_exits: true,
             burns: true,
+            implicit_flash: true,
         }
     }
 }
@@ -707,6 +719,9 @@ fn ablate(cv: ControlVolume, m: &NetworkMechanisms) -> Result<ControlVolume, Tam
     }
     if !m.real_liquid {
         cv = cv.without_real_liquid()?;
+    }
+    if !m.implicit_flash {
+        cv = cv.without_implicit_flash();
     }
     Ok(cv)
 }

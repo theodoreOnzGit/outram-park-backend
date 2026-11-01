@@ -143,6 +143,7 @@ fn ablations_from_env() -> NetworkMechanisms {
             "surface_mixed_block" => m.without_surface_mixed_block(),
             "fp_pool_heat_above_exits" => m.without_fp_pool_heat_above_exits(),
             "burns" => m.without_burns(),
+            "implicit_flash" => m.without_implicit_flash(),
             "" => m,
             other => panic!("unknown ablation {other}"),
         };
@@ -227,6 +228,16 @@ fn the_coupled_physics_is_on_by_default() {
     assert_eq!(d.without_surface_mixed_block(), NetworkMechanisms { surface_mixed_block: false, ..d });
     assert_eq!(d.without_fp_pool_heat_above_exits(), NetworkMechanisms { fp_pool_heat_above_exits: false, ..d });
     assert_eq!(d.without_burns(), NetworkMechanisms { burns: false, ..d });
+    // The implicit flash (gh:#1107) is on in every volume by default.
+    assert!(m.implicit_flash);
+    for i in 0..3 {
+        assert!(net.network().volume(i).unwrap().mechanisms().implicit_flash);
+    }
+    assert_eq!(d.without_implicit_flash(), NetworkMechanisms { implicit_flash: false, ..d });
+    let explicit = ContainmentNetwork::with_config(&Params::default(), NetworkConfig::unit1(), d.without_implicit_flash()).unwrap();
+    for i in 0..3 {
+        assert!(!explicit.network().volume(i).unwrap().mechanisms().implicit_flash);
+    }
 }
 
 /// The configuration this change's predecessors were measured on: the
@@ -870,8 +881,12 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     // 0.61 -> 0.60 K (the 4.956 h blowdown step; no burn within 6 h).
     // Predicted (V&V doc) 58.11 +- 1 %, 11.89 +- 1.5 %, 0.4-1.5 K: held.
     // Pinned after the run, labelled so, at the same widths; the 58.11 %
-    // pins above hold for `before_block()`, re-run and passing:
-    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default() && old_default && cfg == NetworkConfig::unit1() {
+    // pins above hold for `before_block()`, re-run and passing.
+    // gh:#1107 (2026-11-01): the implicit flash (the default since) leaves
+    // these to the printed digits (predicted; `p_dw` at 6 h moves by 2 Pa
+    // from a drywell-sump flash), so they hold for the default and for
+    // `without_implicit_flash()` alike:
+    if (hours - 6.0).abs() < 1e-9 && (mech == NetworkMechanisms::default() || mech == NetworkMechanisms::default().without_implicit_flash()) && old_default && cfg == NetworkConfig::unit1() {
         assert!((worst.0 - 0.5799).abs() < 0.005 && (worst.1 - 0.1200).abs() < 0.005, "B pins (gh:#1100, block): {worst:?}");
         assert!((worst.2 - 0.60).abs() < 0.05, "B pins (gh:#1100, block): {worst:?}");
     }

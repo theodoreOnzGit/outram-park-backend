@@ -1376,11 +1376,132 @@ at 24–24.5 h depends on the layer count (the block's extent depends on
 `n`). The block's physics is consistent: a saturated, mixed block does
 flash as a whole. The step-scale burst is what a 1 s explicit flash of
 that much water gives, as the earlier section found, not a measured
-oscillation. **Left open, not hacked** (no threshold or cap was added):
+oscillation. ~~**Left open, not hacked**~~ **CORRECTED 2026-11-01**
+(gh:#1107): fixed in `tampines` by the implicit flash (section gh:#1107
+below); the record as it stood: (no threshold or cap was added):
 the options are a flash limited to the step (MELCOR holds bubbles to a
 0.4 void, `pool_surface_step`'s comment) or flashing on the top layer
 while the exchange sees the block. Either is a `tampines` change that
 needs its own V&V and a maintainer decision.
+
+## gh:#1107: the flash implicit in the pressure it raises (2026-11-01)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Cause and upstream** (full record in `crates/tampines/verification_and_validation/control_volume.md`,
+section "The flash is implicit in the pressure it raises"). `tampines`'
+`ControlVolume::surface` flashed a pool above saturation **explicitly**: at
+the pressure before the flashed vapour joins the atmosphere, in full, in one
+step, so the pool ended subcooled against its own end-of-step pressure. The
+overshoot is the loop gain `G = (M c / h_fg)(dT_sat/dp)(∂p/∂m)`, about 85 for
+the unlayered torus at 26 h (the 418 kg, +38.8 kPa burst above), and it grows
+with the mass that flashes, which the surface mixed block made the upper
+part of the pool after the vent. MELCOR's CVH puts the pool's vapour in the
+equation of state at the end-of-step pressure (CVH/FL RM §5.1.3, Eq 5-30),
+solves the vapour's transfer to the atmosphere implicitly with the pressures
+(§4.2.1, Eqs 4-26 to 4-36, introduced because the explicit form was unstable
+for boiling pools) and requires end-of-step consistency (§4.3). This
+model's `pool_surface_step` is explicit, as `tampines` was.
+
+**Fix (in `tampines`):** the flash's end state satisfies
+`T_block = T_sat(p_end)` with `p_end` the pressure after its own vapour
+(default ON; `ControlVolume::without_implicit_flash` restores the explicit
+flash bit for bit, here `NetworkMechanisms::without_implicit_flash`). No
+cap, no tuned constant.
+
+### Predictions, written before any run of this change
+
+- **Case A** (relief steam into a 303 K torus): no flash, so bit-identical;
+  `p(n) − p(1)` < 1e-4 Pa held.
+- **6 h pins** (`the_first_hours_of_unit_1_against_the_old_containment`,
+  default and every ablated configuration): unchanged to the printed digits
+  (57.99 %, 12.00 %, 0.60 K): before 6 h the torus pool is 30–80 K below
+  saturation at several bar. The one place a flash could occur early is the
+  drywell sump after the 4.956 h blowdown; if it does, the worsts move by
+  under 0.1 %.
+- **30 h, network − old Δ`p_ww`, default (11 layers):**
+  - 3–23 h: within 0.1 % of the previous row (the default above), the flange
+    within 0.05 h of 15.484 h (no torus flash before the vent; a drywell-sump
+    flash, if any, small);
+  - 24 h (vent): between −8 % and −20 % (previous −17.17 %; the explicit
+    block flash added pressure in bursts and the implicit one supplies the
+    same steam smoothly, so the sign of the move is not predicted);
+  - 26.5–29.5 h: every sample within ±1.6 % (the `without_surface_mixed_block`
+    run's −0.24 … +1.24 %, largest +1.60 % at 26 h), against −1.27 … +12.71 %;
+  - 30 h within ±1.5 %.
+- **n = 22:** the vent within 2 % of `p_ww` of n = 11's (8.15 % against
+  17.17 % before, 9.0 apart), and 26.5–29.5 h within ±1.6 %.
+- **Cost:** within +30 % of 1266 s (the root costs a few `refresh` calls on
+  steps that flash).
+
+### Results (2026-11-01, release, Rust 1.99.1)
+
+- **Case A: held**, unchanged: +341.10 Pa at 2, 4, 8, 16 layers and the
+  default 8 (torus +328.77 Pa), so `p(n) − p(1)` < 1e-4 Pa.
+- **6 h pins: held**, 57.99 % / 12.00 % / 0.60 K and every ablated
+  configuration's pins pass. The default *does* flash once before 6 h
+  (the drywell sump after the 4.956 h blowdown, inferred: `p_dw` at 6 h is
+  2 Pa lower, 435 648 against 435 650 Pa, the first printed difference),
+  inside the predicted 0.1 %. Case E's burn fingerprint (peak `p_rb`
+  `0x41188d4df052e368`, H2 burned `0x407436cebc794701`) is bit-identical:
+  the building does not flash.
+- **The explicit ablation reproduces the run before the fix**
+  (`FUKUSHIMA_NETWORK_ABLATE=implicit_flash`, 27 h): worst `|Δp_ww|`
+  30.13 % at 25.39 h and `|ΔT_pool|` 4.69 K, the previous default's worsts.
+
+**Case B, 30 h, network − old Δ`p_ww`:**
+
+| t (h) | default before (block, explicit) | **default now (implicit)** | predicted | n = 22 before | **n = 22 now** |
+|---|---|---|---|---|---|
+| 3–14 | +1.19 … +3.97 % | same to the printed digits | within 0.1 % | | |
+| 18 | +5.54 % | +5.54 % | within 0.1 % | +5.44 % | +5.44 % |
+| 23 | +5.42 % | +5.42 % | within 0.1 % | +5.29 % | +5.29 % |
+| 24 (vent) | −17.17 % | **−17.94 %** | −8 … −20 % | −8.15 % | **−10.41 %** |
+| 24.5 | −1.62 % | −3.56 % | | +11.27 % | +2.30 % |
+| 25 | +3.07 % | +3.67 % | | +4.80 % | +6.41 % |
+| 25.5 | | +4.10 % | | +11.11 % | +4.87 % |
+| 26 | −0.15 % | +1.91 % | | +0.03 % | +2.01 % |
+| 26.5–29.5 | −1.27 … **+12.71 %** | **−0.12 … +0.99 %** | within ±1.6 % | −1.12 … +5.67 % | **−0.15 … +0.96 %** |
+| 30 | −0.10 % | +0.36 % | within ±1.5 % | +0.39 % | +0.35 % |
+| surface layer 23 / 24 h (K) | 387.19 / 386.30 | 387.19 / 386.43 | | 387.00 / 388.97 | 387.00 / 389.12 |
+| post-vent mean `T_pool` (K) | 359.2 | 359.3–359.5 | | 357.8–357.9 | 358.0–358.1 |
+| flange (h) | 15.484 | 15.484 | within 0.05 h | 15.497 | 15.497 |
+| worst `\|Δp_ww\|` over 30 h | 30.13 % | 24.69 % (the vent) | | 28.40 % | 16.85 % |
+| run time; Picard iterations at most | 1266 s; 100 | 1291 s; 35 | within +30 % | 1938 s; 100 | 1607 s; 44 |
+
+**Step-by-step traces, 24–26.75 h** (`FUKUSHIMA_NETWORK_TRACE=24,26.75`,
+9901 steps each; the half-hour samples can alias a burst cycle, so this is
+the instrument for "bursts gone"):
+
+| | explicit (ablation) | implicit (default) |
+|---|---|---|
+| one-step rises of `p_ww` over 2 kPa | **244** | **0** |
+| largest one-step rise | 30.9 kPa (25.52 h) | 142 Pa (24.01 h, in the vent's opening) |
+| Δ`p_ww` range, 25–26.75 h | −4.02 … +30.13 % | −1.92 … +5.21 % (maximum at 25.23 h, smooth) |
+
+**Outcomes.**
+
+- **The post-vent bursts are gone: held.** 26.5–29.5 h −0.12 … +0.99 %
+  (predicted ±1.6 %; before −1.27 … +12.71 %); no one-step rise over 2 kPa
+  anywhere in 24–26.75 h against 244 with the explicit flash.
+- **3–23 h and the flange: held** (same to the printed digits; 15.484 h).
+- **The vent: held at n = 11** (−17.94 %, inside −8 … −20 %), **MISSED for
+  the layer count:** n = 22 gives −10.41 %, 7.5 points from n = 11 (9.0
+  before; predicted within 2). The flash's overshoot carried only a
+  fraction of the vent's `n` dependence. What remains goes with the hot
+  surface layer's resolution: at 24 h the surface layer is 386.43 K at 11
+  layers and 389.12 K at 22 (the old top layer 391.01 K), so the finer
+  column holds a thinner, hotter top that boils harder as the torus
+  depressurises. **Not attributed by ablation here**; left open.
+- **24.5–26 h runs high and smooth**, +1.9 … +5.2 % (the trace's maximum
+  +5.21 % at 25.23 h; n = 22 +6.41 % at 25 h). It was not predicted (no
+  window was set for 24.5–26 h); the previous default's samples there were
+  partly bursts (+3.07 % at 25 h), so the two are not comparable sample by
+  sample. With the bursts gone this is the network's depressurisation
+  against the old model's, not a numerical cycle. Not attributed.
+- **Cost: held**, +2 % at n = 11 (with up to three other runs beside it)
+  and −17 % at n = 22; the Picard iteration now converges in at most 35
+  and 44 iterations, where the explicit flash hit the 100 cap.
 
 ## What would move if the plant switched (the decision's evidence)
 
@@ -1501,7 +1622,10 @@ Unit 1's own \[A\] entries need the same data.
   surface mixed block (case A: +341.10 Pa at every `n`). **New doubt:**
   after the vent the block flashes whole in one step: post-vent swings up
   to +12.7 % and the vent window 9 % apart between 11 and 22 layers
-  (attribution in the block section). Open.
+  (attribution in the block section). ~~Open.~~ **CORRECTED 2026-11-01**
+  (gh:#1107): the swings are fixed by the implicit flash (26.5–29.5 h
+  −0.12 … +0.99 %, no burst in the trace); the vent window is still 7.5
+  points apart between 11 and 22 layers, open, not attributed.
 - The drywell's sump pit, the light bulb drawn as a prism, and the drywell
   floor at the torus top are \[A\]. The +90 Pa gas column they imply in the
   downcomers is physical but unverified.

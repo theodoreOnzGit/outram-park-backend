@@ -31,7 +31,7 @@
 //! |---|---|
 //! | [`pool_surface::exchange`], [`pool_surface::bubble_efficiency`] | **moved verbatim** from the wet well (themselves `sembawang::bwr_mark1::pool_surface::{exchange, bubble_efficiency}`), shared by both |
 //! | the bubble step at a submerged port | the wet well's `bubble_through` (`sembawang`'s `Containment::bubble_through`), with every non-condensable instead of N2 |
-//! | flashing, the surface step, the sensible-only ablation | the wet well's `surface` (`sembawang`'s `Containment::pool_surface_step`) |
+//! | flashing, the surface step, the sensible-only ablation | the wet well's `surface` (`sembawang`'s `Containment::pool_surface_step`); ~~the flash explicit, as there~~ **CORRECTED 2026-11-01** (gh:#1107): the flash's end state is solved with the pressure its own vapour raises (after MELCOR CVH/FL RM §4.2.1, §4.3, Eq 5-30; [`ControlVolume::without_implicit_flash`] keeps the ported explicit form) |
 //! | the split of a two-phase source into pool liquid and bubbles | the wet well's `inject` |
 //! | the pool's compression work on the atmosphere | the wet well's step 6 |
 //! | the immersed heat exchanger's implicit form | the wet well's step 3 (`sembawang`'s `ww_shell_step`) |
@@ -85,6 +85,7 @@
 //! | non-condensable `c_v(T)` | [`ControlVolume::without_ncg_cv_t`] |
 //! | a layered pool's stable layers conduct | [`ControlVolume::without_pool_layer_conduction`] |
 //! | a layered pool's surface sees its surface mixed block | [`ControlVolume::without_surface_mixed_block`] (the top layer alone) |
+//! | the flash ends at `T_sat` of the pressure after it (gh:#1107) | [`ControlVolume::without_implicit_flash`] (at `T_sat` of the pressure before it: a one-step burst) |
 //!
 //! ## The layered pool and dry-out (gh:#1100)
 //!
@@ -558,6 +559,11 @@ pub struct ControlVolumeMechanisms {
     /// alone (gh:#1100; no effect on a one-layer pool). See
     /// [`ControlVolume::without_surface_mixed_block`].
     pub surface_mixed_block: bool,
+    /// A pool above saturation flashes to the state consistent with the
+    /// pressure its own vapour raises (gh:#1107; MELCOR CVH/FL RM §4.2.1,
+    /// §4.3, Eq 5-30), rather than explicitly at the pressure before it.
+    /// See [`ControlVolume::without_implicit_flash`].
+    pub implicit_flash: bool,
 }
 
 impl Default for ControlVolumeMechanisms {
@@ -571,6 +577,7 @@ impl Default for ControlVolumeMechanisms {
             liquid: LiquidModel::Iapws97,
             pool_layer_conduction: true,
             surface_mixed_block: true,
+            implicit_flash: true,
         }
     }
 }
@@ -847,6 +854,21 @@ impl ControlVolume {
     /// to when the column is mixed.
     pub fn without_surface_mixed_block(mut self) -> Self {
         self.mech.surface_mixed_block = false;
+        self
+    }
+
+    /// Ablation: the flash explicit, as before gh:#1107: a pool (or a
+    /// layered pool's surface mixed block) above `T_sat(p)` flashes in full
+    /// to `T_sat` at the pressure **before** its vapour joins the
+    /// atmosphere, so it ends the step subcooled against its own pressure
+    /// and the next flash waits for the pressure to fall back: a one-step
+    /// burst whose overshoot is the loop gain `G = (M c / h_fg) (dT_sat/dp)
+    /// (∂p/∂m)` (about 85 for `sembawang`'s torus after the vent;
+    /// `tests/control_volume_flash.rs` F1). The default solves the flash
+    /// with its own pressure response, the single-volume form of MELCOR's
+    /// end-of-step consistency (CVH/FL RM §4.2.1, §4.3, Eq 5-30).
+    pub fn without_implicit_flash(mut self) -> Self {
+        self.mech.implicit_flash = false;
         self
     }
 
@@ -1950,7 +1972,9 @@ impl ControlVolume {
 
     /// The pool surface. **The wet well's `surface`** (`sembawang`'s
     /// `Containment::pool_surface_step`): flashing of a pool above the
-    /// saturation temperature at the atmosphere's pressure, MELCOR's surface
+    /// saturation temperature at the atmosphere's pressure (since gh:#1107
+    /// to the saturation temperature of the pressure after the flash,
+    /// [`Self::flash_temperature`]), MELCOR's surface
     /// exchange (or the sensible-only ablation), and rain-out. Returns the
     /// flashed, the surface-evaporated and the rained-out masses, kg.
     fn surface(&mut self, dt: f64) -> Result<(f64, f64, f64), TampinesError> {
@@ -1966,18 +1990,14 @@ impl ControlVolume {
         // Flashing: the vapour leaves as saturated steam at `T_s`; the pool
         // ends at `T_s` (energy: `E_p = (m − x) u_l(T_s) + x h_g(T_s)`). A
         // flash that would leave it dry takes it all, with all its energy.
+        // By default `T_s` is the saturation temperature of the pressure
+        // **after** the flash (gh:#1107, [`Self::flash_temperature`]); the
+        // ablation takes it before, explicitly.
         let t_s = t_sat(self.d.p_gas);
         let (m_s, e_s, t_l, _) = self.surface_liquid();
         if t_l > t_s {
-            let h_g = self.h_steam(t_s, p_sat_pa(t_s));
-            let u_l = self.u_liquid(t_s);
-            let m = (e_s - m_s * u_l) / (h_g - u_l);
-            let (m, e) = if leaves_dry(m_s, m) { (m_s, e_s) } else { (m, m * h_g) };
-            self.gas.steam_kg += m;
-            self.gas_e += e;
-            self.take_surface(top, m, e, m_s);
-            self.refresh()?;
-            flash = m;
+            let t_f = if self.mech.implicit_flash { self.flash_temperature(top, t_s, t_l, m_s, e_s)? } else { t_s };
+            flash = self.apply_flash(top, t_f, m_s, e_s)?;
         }
         if !(self.surface_liquid().0 > 0.0) {
             let rain = self.rain_out()?;
@@ -2055,6 +2075,88 @@ impl ControlVolume {
         }
         let rain = self.rain_out()?;
         Ok((flash, evap, rain))
+    }
+
+    /// Flash the surface liquid `(m_s, e_s)` of block `top` to `t_f`: the
+    /// vapour, `m = (E_s − m_s u_l(T_f)) / (h_g(T_f) − u_l(T_f))`, joins
+    /// the atmosphere as saturated steam at `t_f` (all of the liquid, with
+    /// all its energy, if it would leave it dry; nothing if `m ≤ 0`).
+    /// Returns the flashed mass, kg.
+    fn apply_flash(&mut self, top: (usize, usize), t_f: f64, m_s: f64, e_s: f64) -> Result<f64, TampinesError> {
+        let h_g = self.h_steam(t_f, p_sat_pa(t_f));
+        let u_l = self.u_liquid(t_f);
+        let m = (e_s - m_s * u_l) / (h_g - u_l);
+        if !(m > 0.0) {
+            return Ok(0.0);
+        }
+        let (m, e) = if leaves_dry(m_s, m) { (m_s, e_s) } else { (m, m * h_g) };
+        self.gas.steam_kg += m;
+        self.gas_e += e;
+        self.take_surface(top, m, e, m_s);
+        self.refresh()?;
+        Ok(m)
+    }
+
+    /// The flash's end temperature (gh:#1107): the root `T_f` of
+    /// `T_sat(p(T_f)) = T_f`, `p(T_f)` the atmosphere's pressure after the
+    /// flash to `T_f` ([`Self::apply_flash`] on a probe, with the pool's
+    /// volume and density re-derived), between `t_s = T_sat(p)` before the
+    /// flash (where the explicit flash's vapour has raised `p`, so the
+    /// residual is positive) and the liquid's own temperature `t_l` (no
+    /// flash, residual `t_s − t_l < 0`). The residual falls monotonically
+    /// across the bracket (less vapour, lower pressure), so the Illinois
+    /// variant of regula falsi converges; it stops at a bracket of 1e-10 K
+    /// (a solver control, not physics: about 3 orders above the 50-step
+    /// bisection in [`t_sat`]).
+    ///
+    /// **Why** (MELCOR CVH/FL RM §5.1.3, Eq 5-30; §4.2.1, Eqs 4-26 to 4-36;
+    /// §4.3, cited, not quoted): MELCOR sets the pool's vapour from its
+    /// mass and enthalpy at the end-of-step pressure, solves the vapour's
+    /// separation implicitly with the pressures, and requires end-of-step
+    /// pressures consistent with the contents. The explicit flash (the
+    /// [`Self::without_implicit_flash`] ablation) takes `T_sat` before its
+    /// own vapour raises the pressure, and overshoots by the loop gain
+    /// `G = (M c / h_fg) (dT_sat/dp) (∂p/∂m)`; the network's Picard
+    /// iteration then couples this end state to the flows.
+    fn flash_temperature(&self, top: (usize, usize), t_s: f64, t_l: f64, m_s: f64, e_s: f64) -> Result<f64, TampinesError> {
+        let resid = |t: f64| -> Result<f64, TampinesError> {
+            let mut probe = self.clone();
+            probe.apply_flash(top, t, m_s, e_s)?;
+            Ok(t_sat(probe.d.p_gas) - t)
+        };
+        let (mut a, mut b) = (t_s, t_l);
+        let mut fa = resid(a)?;
+        if !(fa > 0.0) {
+            return Ok(a);
+        }
+        let mut fb = t_s - t_l;
+        let mut side = 0i8;
+        for _ in 0..100 {
+            if b - a <= 1e-10 {
+                break;
+            }
+            let mut c = (a * fb - b * fa) / (fb - fa);
+            if !(c > a && c < b) {
+                c = 0.5 * (a + b);
+            }
+            let fc = resid(c)?;
+            if fc > 0.0 {
+                a = c;
+                fa = fc;
+                if side == 1 {
+                    fb *= 0.5;
+                }
+                side = 1;
+            } else {
+                b = c;
+                fb = fc;
+                if side == -1 {
+                    fa *= 0.5;
+                }
+                side = -1;
+            }
+        }
+        Ok(0.5 * (a + b))
     }
 
     /// The surface mixed block of a layered pool, `(lowest, top)` layer

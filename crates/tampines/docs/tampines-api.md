@@ -9418,7 +9418,7 @@ gh:#1094's job here (see "For gh:#1094" below).
 |---|---|
 | [`pool_surface::exchange`], [`pool_surface::bubble_efficiency`] | **moved verbatim** from the wet well (themselves `sembawang::bwr_mark1::pool_surface::{exchange, bubble_efficiency}`), shared by both |
 | the bubble step at a submerged port | the wet well's `bubble_through` (`sembawang`'s `Containment::bubble_through`), with every non-condensable instead of N2 |
-| flashing, the surface step, the sensible-only ablation | the wet well's `surface` (`sembawang`'s `Containment::pool_surface_step`) |
+| flashing, the surface step, the sensible-only ablation | the wet well's `surface` (`sembawang`'s `Containment::pool_surface_step`); ~~the flash explicit, as there~~ **CORRECTED 2026-11-01** (gh:#1107): the flash's end state is solved with the pressure its own vapour raises (after MELCOR CVH/FL RM §4.2.1, §4.3, Eq 5-30; [`ControlVolume::without_implicit_flash`] keeps the ported explicit form) |
 | the split of a two-phase source into pool liquid and bubbles | the wet well's `inject` |
 | the pool's compression work on the atmosphere | the wet well's step 6 |
 | the immersed heat exchanger's implicit form | the wet well's step 3 (`sembawang`'s `ww_shell_step`) |
@@ -9472,6 +9472,7 @@ atmosphere. Under the constant-`c_p` ablation `h = u = c_p (T −
 | non-condensable `c_v(T)` | [`ControlVolume::without_ncg_cv_t`] |
 | a layered pool's stable layers conduct | [`ControlVolume::without_pool_layer_conduction`] |
 | a layered pool's surface sees its surface mixed block | [`ControlVolume::without_surface_mixed_block`] (the top layer alone) |
+| the flash ends at `T_sat` of the pressure after it (gh:#1107) | [`ControlVolume::without_implicit_flash`] (at `T_sat` of the pressure before it: a one-step burst) |
 
 ## The layered pool and dry-out (gh:#1100)
 
@@ -12293,6 +12294,7 @@ pub struct ControlVolumeMechanisms {
     pub liquid: LiquidModel,
     pub pool_layer_conduction: bool,
     pub surface_mixed_block: bool,
+    pub implicit_flash: bool,
 }
 ```
 
@@ -12308,6 +12310,7 @@ pub struct ControlVolumeMechanisms {
 | `liquid` | `LiquidModel` | The liquid. |
 | `pool_layer_conduction` | `bool` | A layered pool's stable layers exchange heat by molecular conduction<br>(gh:#1100; no effect on a one-layer pool). |
 | `surface_mixed_block` | `bool` | A layered pool's surface (exchange, flashing) acts on the surface<br>mixed block, the layers from the top down that are not stably<br>stratified against the surface water, rather than on the top layer<br>alone (gh:#1100; no effect on a one-layer pool). See<br>[`ControlVolume::without_surface_mixed_block`]. |
+| `implicit_flash` | `bool` | A pool above saturation flashes to the state consistent with the<br>pressure its own vapour raises (gh:#1107; MELCOR CVH/FL RM §4.2.1,<br>§4.3, Eq 5-30), rather than explicitly at the pressure before it.<br>See [`ControlVolume::without_implicit_flash`]. |
 
 ##### Implementations
 
@@ -12516,6 +12519,11 @@ pub struct ControlVolume {
   pub fn without_surface_mixed_block(self: Self) -> Self { /* ... */ }
   ```
   Ablation: a layered pool's surface exchange and flashing see the top
+
+- ```rust
+  pub fn without_implicit_flash(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the flash explicit, as before gh:#1107: a pool (or a
 
 - ```rust
   pub fn set_pool_layer_temperatures(self: &mut Self, t: &[ThermodynamicTemperature]) -> Result<(), TampinesError> { /* ... */ }
