@@ -92,6 +92,16 @@
 //! 16. With `without_fp_decay_heat` the network's pressures equal
 //!     `without_fission_products`'s bit for bit (the inventory is then a
 //!     pure tracer); with the heat, `p_dw` rises, by less than 3 %.
+//!
+//! ## gh:#1100 (continued): the layered torus pool and dry sumps
+//!
+//! The network's default since takes `tampines`' layered pool on the torus
+//! (11 layers, the quenchers at the torus bottom) and starts its sumps dry.
+//! The predictions for cases A–D, written before the first run, and the
+//! results are in the V&V doc's section of that name. Cases A's and B's
+//! earlier pins hold for `NetworkConfig::unit1_gh1097()` without the pool
+//! layers (re-run and passing); the default's are pinned beside them, set
+//! after the run and labelled so.
 
 use sembawang::bwr_mark1::containment::{Containment, ContainmentSnapshot};
 use sembawang::bwr_mark1::containment_network::{ContainmentNetwork, NetworkConfig, NetworkMechanisms, NetworkResult, TorusShape};
@@ -128,11 +138,36 @@ fn ablations_from_env() -> NetworkMechanisms {
             "dw_slab" => m.without_dw_slab(),
             "fission_products" => m.without_fission_products(),
             "fp_decay_heat" => m.without_fp_decay_heat(),
+            "pool_layers" => m.without_pool_layers(),
+            "pool_layer_conduction" => m.without_pool_layer_conduction(),
             "" => m,
             other => panic!("unknown ablation {other}"),
         };
     }
     m
+}
+
+/// Case B's configuration: [`NetworkConfig::unit1`], or with
+/// `FUKUSHIMA_NETWORK_CONFIG=gh1097` the configuration the earlier pins were
+/// measured on (1 m³ sumps, the quenchers at the downcomers' exits);
+/// `FUKUSHIMA_NETWORK_LAYERS=n` sets the torus pool's layer count (the
+/// resolution study) and `FUKUSHIMA_NETWORK_QUENCHER=exit` or a height, m,
+/// the quenchers' port.
+fn config_from_env() -> NetworkConfig {
+    let mut c = match std::env::var("FUKUSHIMA_NETWORK_CONFIG").unwrap_or_default().as_str() {
+        "gh1097" => NetworkConfig::unit1_gh1097(),
+        "" => NetworkConfig::unit1(),
+        other => panic!("unknown configuration {other}"),
+    };
+    if let Some(n) = std::env::var("FUKUSHIMA_NETWORK_LAYERS").ok().and_then(|x| x.parse().ok()) {
+        c.pool_layers = Some(n);
+    }
+    match std::env::var("FUKUSHIMA_NETWORK_QUENCHER").unwrap_or_default().as_str() {
+        "" => {}
+        "exit" => c.quencher_elevation_m = None,
+        z => c.quencher_elevation_m = Some(z.parse().expect("FUKUSHIMA_NETWORK_QUENCHER: exit or a height, m")),
+    }
+    c
 }
 
 /// The physics gh:#1100 couples is ON by default, through the ordinary
@@ -143,8 +178,34 @@ fn the_coupled_physics_is_on_by_default() {
     let net = ContainmentNetwork::new(&Params::default()).unwrap();
     let m = net.mechanisms();
     assert!(m.cavity && m.fdi && m.dw_slab && m.fission_products && m.fp_decay_heat, "{m:?}");
+    // The layered torus pool and its conduction (gh:#1100, continued).
+    assert!(m.pool_layers && m.pool_layer_conduction, "{m:?}");
     assert_eq!(m, NetworkMechanisms::default());
+    // Unit 1's layer count from its geometry: 4 x 3.237 m / 1.209 m -> 11;
+    // the quenchers at the torus bottom, the downcomers' exits 1.209 m below
+    // the 3.237 m level; both sumps start dry.
+    let c = net.config();
+    assert_eq!(c, NetworkConfig::unit1());
+    assert_eq!((c.sump_water_m3, c.pool_layers, c.quencher_elevation_m), (0.0, None, Some(0.0)));
+    assert_eq!(net.pool_layer_count(), 11);
+    assert_eq!(sembawang::bwr_mark1::containment_network::derived_pool_layers(3.237, 1.209), 11);
+    assert_eq!(sembawang::bwr_mark1::containment_network::derived_pool_layers(0.0, 1.209), 1);
+    let (z_exit, z_q) = net.port_elevations();
+    assert!((z_exit - 2.028).abs() < 0.01 && z_q == 0.0, "{z_exit} {z_q}");
+    // The volumes in the order they were added: drywell, torus, building.
+    assert!(net.network().volume(0).unwrap().is_pool_dry() && net.network().volume(2).unwrap().is_pool_dry());
+    assert!(!net.network().volume(1).unwrap().is_pool_dry());
+    // The ablations: one layer; and the gh:#1097 configuration.
+    let one = ContainmentNetwork::with_config(&Params::default(), NetworkConfig::unit1(), NetworkMechanisms::default().without_pool_layers()).unwrap();
+    assert_eq!(one.pool_layer_count(), 1);
+    let twice = ContainmentNetwork::with_config(&Params::default(), NetworkConfig { pool_layers: Some(22), ..NetworkConfig::unit1() }, NetworkMechanisms::default()).unwrap();
+    assert_eq!(twice.pool_layer_count(), 22);
+    let old = ContainmentNetwork::with_config(&Params::default(), NetworkConfig::unit1_gh1097(), NetworkMechanisms::default().without_pool_layers()).unwrap();
+    assert!(!old.network().volume(0).unwrap().is_pool_dry());
+    assert!((old.port_elevations().1 - z_exit).abs() < 1e-12);
     let d = NetworkMechanisms::default();
+    assert_eq!(d.without_pool_layers(), NetworkMechanisms { pool_layers: false, ..d });
+    assert_eq!(d.without_pool_layer_conduction(), NetworkMechanisms { pool_layer_conduction: false, ..d });
     assert_eq!(d.without_cavity(), NetworkMechanisms { cavity: false, ..d });
     assert_eq!(d.without_fdi(), NetworkMechanisms { fdi: false, ..d });
     assert_eq!(d.without_dw_slab(), NetworkMechanisms { dw_slab: false, ..d });
@@ -173,11 +234,11 @@ fn debris_snapshot(prm: Params) -> ContainmentSnapshot {
 
 /// Case C: `wet` pours 10 kg/s onto the floor for 600 s before the
 /// debris arrives. Returns both models' last results.
-fn run_debris(wet: bool) -> (NetworkResult, sembawang::bwr_mark1::containment::ContainmentResult, f64) {
+fn run_debris(wet: bool, cfg: NetworkConfig, mech: NetworkMechanisms) -> (NetworkResult, sembawang::bwr_mark1::containment::ContainmentResult, f64) {
     let prm = Params::default();
     let base = ContainmentSnapshot { srv_steam_kg_s: 0.0, ..debris_snapshot(prm) };
     let mut old = Containment::new(&prm);
-    let mut net = ContainmentNetwork::new(&prm).unwrap();
+    let mut net = ContainmentNetwork::with_config(&prm, cfg, mech).unwrap();
     let pour = ContainmentSnapshot { pedestal_inflow_kg_s: 10.0, ..base.clone() };
     let mut worst_p: f64 = 0.0;
     if wet {
@@ -206,8 +267,18 @@ fn run_debris(wet: bool) -> (NetworkResult, sembawang::bwr_mark1::containment::C
 /// the drywell gas).
 #[test]
 fn debris_on_the_drywell_floor_against_the_old_containment() {
+    // The wet floor's worst |dp_dw| with one change at a time back toward
+    // the gh:#1097 configuration (gh:#1100 continued; V&V doc).
+    for (name, cfg, mech) in [
+        ("1 m3 sumps", NetworkConfig { sump_water_m3: 1.0, ..NetworkConfig::unit1() }, NetworkMechanisms::default()),
+        ("no layers", NetworkConfig::unit1(), NetworkMechanisms::default().without_pool_layers()),
+        ("gh1097, no layers", NetworkConfig::unit1_gh1097(), NetworkMechanisms::default().without_pool_layers()),
+    ] {
+        let (n, o, worst_p) = run_debris(true, cfg, mech);
+        println!("C wet [{name}]: worst |dp_dw| {:.2} %, FDI steam {:.1} / {:.1} kg, ablated {:.1} kg, sump {:.0} kg", 100.0 * worst_p, n.fdi_steam_kg, o.fdi_steam_kg, n.cav_ablated_kg, n.dw_sump_kg);
+    }
     for wet in [false, true] {
-        let (n, o, worst_p) = run_debris(wet);
+        let (n, o, worst_p) = run_debris(wet, NetworkConfig::unit1(), NetworkMechanisms::default());
         println!(
             "C wet={wet}: ablated {:.1} / {:.1} kg, H2 {:.3} / {:.3} kg, CO {:.3} / {:.3} kg, debris {:.1} / {:.1} K, FDI steam {:.1} / {:.1} kg, p_dw {:.0} / {:.0} Pa (worst {:.2} %), T_dw {:.1} / {:.1} K, wall {:.1} K, slab {:.2} K, sump {:.0} kg",
             n.cav_ablated_kg,
@@ -398,14 +469,17 @@ fn run_relief(cfg: NetworkConfig, mech: NetworkMechanisms) -> (NetworkResult, f6
 /// steam against sembawang's ideal steam at the same mass).
 #[test]
 fn relief_steam_into_the_torus_against_the_old_containment() {
-    let prismatic = NetworkConfig { torus_shape: TorusShape::Prismatic, ..NetworkConfig::unit1() };
-    let on = NetworkMechanisms::default();
+    // Predictions 1-5 and their pins hold for the configuration they were
+    // measured on: since gh:#1100 (continued), `unit1_gh1097` without the
+    // pool layers. The new default is the second half of the test.
+    let prismatic = NetworkConfig { torus_shape: TorusShape::Prismatic, ..NetworkConfig::unit1_gh1097() };
+    let on = NetworkMechanisms::default().without_pool_layers();
     let (r, dp, dp_dw, dt, it) = run_relief(prismatic, on);
     println!(
         "A1 prismatic: dp_ww {dp:+.1} Pa, dp_dw {dp_dw:+.1} Pa, worst dT_pool {dt:.2e} K, level {:.4} m, downcomer {:.3e} kg/s, VB {:.3e} kg/s, iterations <= {it}",
         r.pool_level_m, r.downcomer_kg_s, r.vacuum_breaker_kg_s
     );
-    let (r2, dp2, dp_dw2, dt2, it2) = run_relief(NetworkConfig::unit1(), on);
+    let (r2, dp2, dp_dw2, dt2, it2) = run_relief(NetworkConfig::unit1_gh1097(), on);
     println!("A2 torus: dp_ww {dp2:+.1} Pa, dp_dw {dp_dw2:+.1} Pa, worst dT_pool {dt2:.2e} K, level {:.4} m, iterations <= {it2}", r2.pool_level_m);
     let (_, dp3, _, dt3, _) = run_relief(prismatic, NetworkMechanisms { pressure_work: false, ..on });
     println!("A4 prismatic without pressure work: dp_ww {dp3:+.1} Pa, worst dT_pool {dt3:.2e} K");
@@ -430,6 +504,45 @@ fn relief_steam_into_the_torus_against_the_old_containment() {
     // pressure work is only its heating. Pinned after the run, labelled so:
     assert!((dp3 - 280.7).abs() < 5.0, "A4 {dp3}");
     assert!(it < 30 && it2 < 30, "A5 {it} {it2}");
+    relief_steam_on_the_layered_default();
+}
+
+/// Case A on the gh:#1100 (continued) default (layers, bottom quenchers,
+/// dry sumps), with one change at a time back toward the gh:#1097
+/// configuration to attribute the movement. Predictions in the V&V doc
+/// ("the layered torus pool and dry sumps"), written before the run.
+fn relief_steam_on_the_layered_default() {
+    let d = NetworkMechanisms::default();
+    let pr = |c: NetworkConfig| NetworkConfig { torus_shape: TorusShape::Prismatic, ..c };
+    let u = NetworkConfig::unit1();
+    let (r, dp, dp_dw, dt, it) = run_relief(pr(u), d);
+    println!("A1' prismatic, default: dp_ww {dp:+.1} Pa, dp_dw {dp_dw:+.1} Pa, worst dT_pool {dt:.2e} K, top {:.3} / mean {:.3} K, {} layers, iterations <= {it}", r.t_pool_top_k, r.t_pool_k, r.pool_layers);
+    let (r2, dp2, dp_dw2, dt2, it2) = run_relief(u, d);
+    println!("A2' torus, default: dp_ww {dp2:+.1} Pa, dp_dw {dp_dw2:+.1} Pa, worst dT_pool {dt2:.2e} K, top {:.3} / mean {:.3} K, iterations <= {it2}", r2.t_pool_top_k, r2.t_pool_k);
+    let (_, dpa, dpdwa, dta, _) = run_relief(pr(u), d.without_pool_layers());
+    println!("A1' prismatic, default without the layers: dp_ww {dpa:+.1} Pa, dp_dw {dpdwa:+.1} Pa, worst dT_pool {dta:.2e} K");
+    let (_, dpb, dpdwb, dtb, _) = run_relief(pr(NetworkConfig { quencher_elevation_m: None, ..u }), d.without_pool_layers());
+    println!("A1' prismatic, default without the layers, quenchers at the exits: dp_ww {dpb:+.1} Pa, dp_dw {dpdwb:+.1} Pa, worst dT_pool {dtb:.2e} K");
+    let (_, dpc, dpdwc, dtc, _) = run_relief(pr(NetworkConfig { sump_water_m3: 1.0, ..u }), d);
+    println!("A1' prismatic, default with 1 m3 sumps: dp_ww {dpc:+.1} Pa, dp_dw {dpdwc:+.1} Pa, worst dT_pool {dtc:.2e} K");
+    let (_, dpe, _, dte, _) = run_relief(pr(u), d.without_pool_layer_conduction());
+    println!("A1' prismatic, default without layer conduction: dp_ww {dpe:+.1} Pa, worst dT_pool {dte:.2e} K");
+    // The resolution: the surface exchange sees the top layer, so a thinner
+    // top layer (more layers) changes the pool-side coefficient (V&V doc).
+    let mut by_n = Vec::new();
+    for n in [2, 4, 16] {
+        let (r, dpn, _, _, _) = run_relief(pr(NetworkConfig { pool_layers: Some(n), ..u }), d);
+        println!("A1' prismatic, {n} layers: dp_ww {dpn:+.1} Pa, top {:.3} / mean {:.3} K", r.t_pool_top_k, r.t_pool_k);
+        by_n.push(dpn);
+    }
+    // Measured 2026-11-01 (after the run, labelled so): 341.1 (one layer),
+    // 347.9, 354.2, 360.1 (8, the default here), 365.5 Pa (16), about
+    // +6 Pa a doubling, as the top layer's thickness to the -1/4 power in
+    // the pool-side natural convection predicts; the pool stays mixed.
+    assert!(dpa < by_n[0] && by_n[0] < by_n[1] && by_n[1] < dp && dp < by_n[2], "A' resolution {dpa} {by_n:?} {dp}");
+    assert!((r.t_pool_top_k - r.t_pool_k).abs() < 1e-6, "A' mixed {r:?}");
+    assert!(r.pool_layers == 8 && r2.pool_layers == 11 && r.downcomer_kg_s.abs() < 1e-9 && r.vacuum_breaker_kg_s.abs() < 1e-9, "A3' {r:?}");
+    assert!(it < 30 && it2 < 30, "A5' {it} {it2}");
 }
 
 /// `FUKUSHIMA_OLD_REPLAY=no_fp_heat;no_pool_layers;no_fp_heat,no_pool_layers`:
@@ -517,7 +630,8 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     }
     let prm = snaps[0].prm;
     let mech = ablations_from_env();
-    let mut net = ContainmentNetwork::with_config(&prm, NetworkConfig::unit1(), mech).unwrap();
+    let cfg = config_from_env();
+    let mut net = ContainmentNetwork::with_config(&prm, cfg, mech).unwrap();
     let start = std::time::Instant::now();
     let mut worst = (0.0_f64, 0.0_f64, 0.0_f64);
     let mut most_iter = 0;
@@ -537,8 +651,8 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
         let h = i as f64 / 3600.0;
         if trace.is_some_and(|(a, b)| h >= a && h <= b) {
             println!(
-                "trace {h:.5} h: p_dw {:.0}/{:.0} p_ww {:.0}/{:.0} leak {:.1} kg/s h {:.3e} dc {:+.2} vb {:+.2} it {} sub {}",
-                r.p_dw_pa, o.p_dw_pa, r.p_ww_pa, o.p_ww_pa, s.leak_steam_kg_s, s.leak_h, r.downcomer_kg_s, r.vacuum_breaker_kg_s, r.iterations, r.substeps
+                "trace {h:.5} h: p_dw {:.0}/{:.0} p_ww {:.0}/{:.0} leak {:.1} kg/s h {:.3e} srv {:.2} dc {:+.2} vb {:+.2} vent {:+.2}/{} kg/s T_pool {:.2} top {:.2} gas {:.2} steam {:.0} kg level {:.4} swollen {:.4} it {} sub {}",
+                r.p_dw_pa, o.p_dw_pa, r.p_ww_pa, o.p_ww_pa, s.leak_steam_kg_s, s.leak_h, s.srv_steam_kg_s, r.downcomer_kg_s, r.vacuum_breaker_kg_s, r.vented_kg_s, o.vent_flowing, r.t_pool_k, r.t_pool_top_k, r.t_ww_gas_k, r.ww_steam_kg, r.pool_level_m, r.pool_swollen_level_m, r.iterations, r.substeps
             );
         }
         let rel_dw = (r.p_dw_pa - o.p_dw_pa) / o.p_dw_pa;
@@ -586,7 +700,10 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
                 r.substeps
             );
             println!(
-                "      cavity: ablated {:.0} / {:.0} kg, H2 {:.1} / {:.1} kg, CO {:.1} / {:.1} kg, debris {:.0} / {:.0} K, FDI {:.0} / {:.0} kg | wall {:.1} slab {:.1} K | sump {:.0} kg | dw H2 {:.1} / {:.1} kg | flange {} / {} | rb H2 {:.4} / {:.4}",
+                "      pool: network top {:.2} K ({} layers), vent {:+.2} kg/s | cavity: ablated {:.0} / {:.0} kg, H2 {:.1} / {:.1} kg, CO {:.1} / {:.1} kg, debris {:.0} / {:.0} K, FDI {:.0} / {:.0} kg | wall {:.1} slab {:.1} K | sump {:.0} kg (dry {}) | dw H2 {:.1} / {:.1} kg | flange {} / {} | rb H2 {:.4} / {:.4}",
+                r.t_pool_top_k,
+                r.pool_layers,
+                r.vented_kg_s,
                 r.cav_ablated_kg,
                 o.cav_ablated_kg,
                 r.cav_h2_kg,
@@ -600,6 +717,7 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
                 r.dw_wall_k,
                 r.dw_slab_inner_k,
                 r.dw_sump_kg,
+                r.dw_sump_dry,
                 r.dw_h2_kg,
                 o.dw_h2_kg,
                 r.flange_leaking,
@@ -647,13 +765,16 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     // equalising limit is taken from the start of the step), |dp_ww|
     // 9.78 %, |dT_pool| 1.32 K. Pinned after the run, labelled so, for the
     // default 6 h only:
-    println!("B: ablations {mech:?}");
+    println!("B: ablations {mech:?}, configuration {cfg:?}");
     // The gh:#1097 and first gh:#1100 pins hold for the configurations
     // they were measured on, which since the fission products were coupled
     // (gh:#1100, continued) are ablations.
-    let gh1097 = NetworkMechanisms::default().without_cavity().without_dw_slab().without_fission_products();
+    // Since the layered pool and dry-out (gh:#1100, continued) they hold for
+    // `NetworkConfig::unit1_gh1097` without the pool layers.
+    let gh1097 = NetworkMechanisms::default().without_cavity().without_dw_slab().without_fission_products().without_pool_layers();
     let old_default = old_ablations_from_env() == Mechanisms::default();
-    if (hours - 6.0).abs() < 1e-9 && mech == gh1097 && old_default {
+    let legacy = cfg == NetworkConfig::unit1_gh1097();
+    if (hours - 6.0).abs() < 1e-9 && mech == gh1097 && old_default && legacy {
         assert!((worst.0 - 0.6039).abs() < 0.005 && (worst.1 - 0.0978).abs() < 0.005, "B pins: {worst:?}");
         assert!((worst.2 - 1.32).abs() < 0.05, "B pins: {worst:?}");
     }
@@ -663,7 +784,7 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     // (the network's torus is now LOW after the debris lands, by the old
     // model's hot surface layer; V&V doc) and 1.32 -> 1.86 K. Pinned after
     // the run, labelled so, at the same widths as the gh:#1097 pins:
-    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default().without_fission_products() && old_default {
+    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default().without_fission_products().without_pool_layers() && old_default && legacy {
         assert!((worst.0 - 0.5629).abs() < 0.005 && (worst.1 - 0.1365).abs() < 0.005, "B pins (gh:#1100): {worst:?}");
         assert!((worst.2 - 1.86).abs() < 0.05, "B pins (gh:#1100): {worst:?}");
     }
@@ -675,9 +796,21 @@ fn the_first_hours_of_unit_1_against_the_old_containment() {
     // 1.86 K: the first two MISSED. Pinned after the run, labelled so, at
     // the same widths; the 13.65 % pins above hold for
     // `without_fission_products`, re-run and passing:
-    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default() && old_default {
+    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default().without_pool_layers() && old_default && legacy {
         assert!((worst.0 - 0.5777).abs() < 0.005 && (worst.1 - 0.1220).abs() < 0.005, "B pins (gh:#1100, FP): {worst:?}");
         assert!((worst.2 - 0.60).abs() < 0.05, "B pins (gh:#1100, FP): {worst:?}");
+    }
+    // gh:#1100 continued (2026-11-01): with the layered torus pool (11
+    // layers, the quenchers at the bottom) and dry sumps (the default
+    // since), the 6 h worsts moved 57.77 -> 58.11 %, 12.20 -> 11.89 % and
+    // 0.60 -> 0.61 K, all three the 4.956 h blowdown step or before it.
+    // Predicted (V&V doc) 57.77 +- 1 %, 12.20 +- 1 % and 0.4-0.9 K: held.
+    // Pinned after the run, labelled so, at the same widths; the 57.77 %
+    // pins above hold for `unit1_gh1097` without the layers, re-run and
+    // passing:
+    if (hours - 6.0).abs() < 1e-9 && mech == NetworkMechanisms::default() && old_default && cfg == NetworkConfig::unit1() {
+        assert!((worst.0 - 0.5811).abs() < 0.005 && (worst.1 - 0.1189).abs() < 0.005, "B pins (gh:#1100, layers): {worst:?}");
+        assert!((worst.2 - 0.61).abs() < 0.05, "B pins (gh:#1100, layers): {worst:?}");
     }
 }
 

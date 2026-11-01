@@ -5564,19 +5564,20 @@ per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
 
 | Snapshot input | Here |
 |---|---|
-| relief steam, enthalpy, H2 (at `srv_gas_k` with `relief_h2_enthalpy`, else the pool's temperature) | a source at the quenchers' port in the torus pool |
+| relief steam, enthalpy, H2 (at `srv_gas_k` with `relief_h2_enthalpy`, else the pool's temperature) | a source at the quenchers' port in the torus pool (**since gh:#1100** near the torus bottom, into the layer there, the H2 at that layer's temperature) |
 | RPV leak steam, enthalpy, H2 at `leak_gas_k` | a source in the drywell atmosphere |
 | `vent_ordered` | the vent valve: open once ordered and the rupture disk has burst (`p_ww ≥ vent_rupture_disk_pa`) |
 | `rpv_wall_w` | heat into the drywell atmosphere |
-| `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump |
+| `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump (**since gh:#1100** it starts dry and may boil dry again, as the old pedestal) |
 | ~~`ex_vessel_w` … the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases)~~ | **CORRECTED 2026-11-01 (gh:#1100):** see the next rows |
-| `ex_vessel_w`, `cav_uo2_kg`, `cav_zr_kg`, `cav_debris_k`, `cavity_phases` | sembawang's own [`super::cavity::Cavity`] (MELCOR CAV RM §3, reused, not rewritten): its upward heat into the sump while water lies over the debris (the sump beyond its initial fill), else radiated to the drywell structures; its concrete gases (steam, H2, CO, CO2) into the drywell atmosphere at the ablation temperature ([`NetworkMechanisms::cavity`]) |
+| `ex_vessel_w`, `cav_uo2_kg`, `cav_zr_kg`, `cav_debris_k`, `cavity_phases` | sembawang's own [`super::cavity::Cavity`] (MELCOR CAV RM §3, reused, not rewritten): its upward heat into the sump while water lies over the debris (~~the sump beyond its initial fill~~ **CORRECTED 2026-11-01:** while the sump is not dry, [`ControlVolume::is_pool_dry`]), else radiated to the drywell structures; its concrete gases (steam, H2, CO, CO2) into the drywell atmosphere at the ablation temperature ([`NetworkMechanisms::cavity`]) |
 | `vessel_p_pa` and the debris arriving through water | sembawang's FDI fall (`containment::lpme_fall` (crate-private), MELCOR FDI RM §2.2): its heat into the sump ([`NetworkMechanisms::fdi`]) |
 | `dw_wall_outer` | sembawang's drywell slab (`containment::dw_slab_step` (crate-private)) behind the lumped structures ([`NetworkMechanisms::dw_slab`]) |
 | `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
 | `xe_*`, `cs_*`, `i_*`, `uo2_*`, `rn_relief`, `rn_leak` and the scrubbing switches | **since gh:#1100** sembawang's own fission products ([`super::containment_fp::FpHold`], moved out of `Containment` with unchanged arithmetic): the relief flow's scrubbed by SPARC-90's condensation at the quenchers' port, the leaks' into the drywell; each step they ride the gas each path moved (the downcomers' scrubbed by condensation, impaction and the swarm rise; the vacuum breakers', the vent's and the flange's unscrubbed), and every 10 s they deposit on the drywell's floor and structures and on the pool's surface ([`NetworkMechanisms::fission_products`]) |
 | `q_noble_w`, `q_alkali_w`, `q_halogen_w`, `q_chalcogen_w` | **since gh:#1100** the decay heat of what the network holds, by location as in the old model: airborne in the drywell by `set_atmosphere_heat`, on its structures into the lumped wall, in the wetwell gas, on the pool's surface and scrubbed by `set_pool_heat` on the torus ([`NetworkMechanisms::fp_decay_heat`]) |
-| burns, `pool_layers`, ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
+| `pool_layers` | **since gh:#1100** `tampines`' layered pool on the torus ([`NetworkMechanisms::pool_layers`], [`derived_pool_layers`] layers): the quenchers' steam joins the layer near the bottom, the downcomers' the layer at their exits, the surface exchange and flashing act on the top layer, an unstable column mixes (the old model's `layer_pool` rule, generalised), a stable one conducts ([`NetworkMechanisms::pool_layer_conduction`]); `t_pool_k` stays the energy mean and `t_pool_top_k` is the surface layer. **Differs from the old model (stated):** the old two layers split once at the downcomers' exits and the pool's share of the fission products' decay heat goes into its top layer (`pool_energy`); here the layers are Lagrangian and `set_pool_heat` shares that heat by mass (`tampines` has no pool heat at an elevation) |
+| burns, ~~`pool_layers`,~~ ~~fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), MCCI, FDI, `dw_wall_outer`~~ | **not mapped**: sembawang's, and not yet on the network (MCCI, FDI and the slab **CORRECTED 2026-11-01**: mapped, rows above; the fission products and their decay heat likewise, **CORRECTED 2026-11-01**) |
 
 **How the fission products ride the paths (stated).** A path's mean gas
 mass over the step (tampines' `FlowTransfer`, positive `from → to`) moves
@@ -5609,18 +5610,34 @@ that datum, so a path's gravity term `ρ g Δz` is the real one.
   [`TorusShape::Prismatic`] reproduces the latter.
 - **Downcomer exits and quenchers:** `vent_submergence_pa` below the
   initial level at 995 kg/m³ and 9.81 m/s² (sembawang's depth), the
-  opening the downcomer's diameter (0.515 m). The quenchers' port is
+  opening the downcomer's diameter (0.515 m). ~~The quenchers' port is
   put at the same depth, as sembawang does (\[A\], their geometry is
-  not held).
+  not held).~~ **CORRECTED 2026-11-01 (gh:#1100):** sembawang does not
+  put them there: its layered pool sends the relief flow into the deep
+  layer, "the relief valves' quenchers, near the pool's bottom"
+  (`Containment::step`; `Mechanisms::pool_layers`), the deep layer being
+  all the water below the downcomers' exits, heated as one. The
+  quenchers' port is therefore at the torus bottom
+  ([`NetworkConfig::quencher_elevation_m`] = 0 m, \[A\]: their geometry
+  is still not held), so that their heat, rising, mixes the whole column
+  below the warmer water above, as the old deep layer is mixed; a port
+  higher up would leave the water beneath it unheated (`tampines`' L2).
+  The SPARC scrubbing of the relief flow keeps the downcomers' depth
+  (`FpHold::arrive`, unchanged, as in the old model).
+- **Torus pool layers:** [`derived_pool_layers`], four on average across
+  the submergence: 11 for Unit 1 (the initial pool 3.237 m deep, 0.29 m
+  a layer on average, the bottom layer 0.0–0.57 m where the torus is
+  narrow).
 - **Drywell:** a floor of `dw_floor_m2` (200 m² \[A\]) carrying a
   prismatic volume of `drywell_volume_m3` (\[A\] the light bulb's shape is
-  not held) above a sump pit of 2 m² × 1.5 m holding 1 m³ \[A\] (a
-  control volume needs a pool); the floor at the torus top \[A\]
+  not held) above a sump pit of 2 m² × 1.5 m ~~holding 1 m³ \[A\] (a
+  control volume needs a pool)~~ (**CORRECTED 2026-11-01:** dry, as the
+  old pedestal starts, since `tampines`' pools may be empty); the floor at the torus top \[A\]
   ([`NetworkConfig::drywell_floor_m`]), the downcomers' entry 2 m above
   it \[A\], the head flange at the top.
 - **Reactor building:** `reactor_building_m3` on a 650 m² floor \[A\]
-  (40 m tall, so it spans the drywell head) above a 2 m² sump pit with
-  1 m³ \[A\], dry air at one atmosphere and 303.15 K (sembawang's
+  (40 m tall, so it spans the drywell head) above a 2 m² sump pit,
+  ~~with 1 m³ \[A\]~~ dry (**CORRECTED 2026-11-01**), dry air at one atmosphere and 303.15 K (sembawang's
   `T_RB`), open to the environment through 1 m² \[A\] near its top
   (sembawang holds its building at one atmosphere exactly).
 - **Paths:** sembawang's orifice `C_d A √(2ρΔp)` is the steady state of a
@@ -5797,6 +5814,8 @@ pub struct NetworkConfig {
     pub sump_area_m2: f64,
     pub sump_depth_m: f64,
     pub sump_water_m3: f64,
+    pub pool_layers: Option<usize>,
+    pub quencher_elevation_m: Option<f64>,
     pub building_floor_m2: f64,
     pub building_openings_m2: f64,
     pub downcomer_length_m: f64,
@@ -5815,9 +5834,11 @@ pub struct NetworkConfig {
 | `torus_major_radius_m` | `f64` | Torus major radius, m. |
 | `drywell_floor_m` | `Option<f64>` | Drywell floor above the torus bottom, m (`None`: at the torus top). |
 | `downcomer_entry_m` | `f64` | The downcomers' entry above the drywell floor, m. |
-| `sump_area_m2` | `f64` | Sump pits (drywell, building): area, m², depth, m, initial water, m³. |
+| `sump_area_m2` | `f64` | Sump pits (drywell, building): area, m², depth, m, initial water, m³.<br>~~1 m³ \[A\] (a control volume needs a pool)~~ **CORRECTED<br>2026-11-01 (gh:#1100):** 0 for Unit 1, both pits start dry, as the<br>old model's pedestal does (`Containment::pedestal_kg` starts at 0);<br>`tampines`' pools may now be empty. A positive value is the gh:#1097<br>configuration, in which the water "over the debris" is what the<br>drywell sump holds beyond this fill. |
 | `sump_depth_m` | `f64` |  |
 | `sump_water_m3` | `f64` |  |
+| `pool_layers` | `Option<usize>` | The torus pool's layer count (gh:#1100; used with<br>[`NetworkMechanisms::pool_layers`]): `None` derives it from the<br>geometry, [`derived_pool_layers`]; `Some(n)` sets it (the resolution<br>study runs `n` and `2n`). |
+| `quencher_elevation_m` | `Option<f64>` | The relief valves' quenchers' port above the torus bottom, m<br>(gh:#1100): `Some(0.0)` for Unit 1, at the bottom \[A\] (see the<br>module docs); `None` puts them at the downcomers' exit depth, the<br>gh:#1097 placement. |
 | `building_floor_m2` | `f64` | Reactor building floor area, m², and its openings to the<br>environment, m². |
 | `building_openings_m2` | `f64` |  |
 | `downcomer_length_m` | `f64` | Inertial lengths, m: downcomers, vacuum breakers, vent, flange,<br>building openings. |
@@ -5834,6 +5855,11 @@ pub struct NetworkConfig {
   pub fn unit1() -> Self { /* ... */ }
   ```
   Unit 1, every value \[A\] (module docs).
+
+- ```rust
+  pub fn unit1_gh1097() -> Self { /* ... */ }
+  ```
+  The configuration the gh:#1097 and first gh:#1100 pins were measured
 
 ###### Trait Implementations
 
@@ -5972,6 +5998,8 @@ pub struct NetworkMechanisms {
     pub dw_slab: bool,
     pub fission_products: bool,
     pub fp_decay_heat: bool,
+    pub pool_layers: bool,
+    pub pool_layer_conduction: bool,
 }
 ```
 
@@ -5986,11 +6014,13 @@ pub struct NetworkMechanisms {
 | `bubble_pass_through` | `bool` | MELCOR's bubble efficiency at submerged ports. |
 | `equilibrium_rain_out` | `bool` | Rain-out to saturation (else sembawang's four passes). |
 | `choking` | `bool` | Choking on every path. |
-| `cavity` | `bool` | sembawang's cavity (MCCI) on the drywell floor (gh:#1100); without<br>it, the debris's heat boils the sump while it holds more than its<br>fill, else goes into the structures (the gh:#1097 mapping). |
+| `cavity` | `bool` | sembawang's cavity (MCCI) on the drywell floor (gh:#1100); without<br>it, the debris's heat boils the sump while it holds water (beyond<br>any configured fill; none by default since the sumps start dry),<br>else goes into the structures (the gh:#1097 mapping). |
 | `fdi` | `bool` | sembawang's FDI fall of arriving debris through the water over the<br>floor (needs `cavity`). |
 | `dw_slab` | `bool` | sembawang's concrete slab behind the drywell structures. |
 | `fission_products` | `bool` | sembawang's fission products (`FpHold`) carried on the paths, with<br>pool scrubbing and deposition (gh:#1100). |
 | `fp_decay_heat` | `bool` | Their decay heat in the volumes (needs `fission_products`). |
+| `pool_layers` | `bool` | The torus pool in layers (`ControlVolume::with_pool_layers`,<br>gh:#1100): what enters at a port joins the layer at its elevation,<br>the surface sees the top layer, an unstable column mixes. Without it,<br>one well-mixed pool. |
+| `pool_layer_conduction` | `bool` | A layered pool's stable layers conduct (`tampines`' default; needs<br>`pool_layers`). |
 
 ##### Implementations
 
@@ -6020,6 +6050,16 @@ pub struct NetworkMechanisms {
   pub fn without_fp_decay_heat(self: Self) -> Self { /* ... */ }
   ```
   Ablation: the fission products carried, their decay heat not
+
+- ```rust
+  pub fn without_pool_layers(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: one well-mixed torus pool.
+
+- ```rust
+  pub fn without_pool_layer_conduction(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: a layered pool's stable layers exchange nothing.
 
 - ```rust
   pub fn without_pressure_work(self: Self) -> Self { /* ... */ }
@@ -6194,10 +6234,13 @@ pub struct NetworkResult {
     pub t_dw_k: f64,
     pub t_ww_gas_k: f64,
     pub t_pool_k: f64,
+    pub t_pool_top_k: f64,
+    pub pool_layers: usize,
     pub pool_kg: f64,
     pub pool_level_m: f64,
     pub pool_swollen_level_m: f64,
     pub dw_sump_kg: f64,
+    pub dw_sump_dry: bool,
     pub dw_steam_kg: f64,
     pub ww_steam_kg: f64,
     pub dw_h2_kg: f64,
@@ -6238,11 +6281,14 @@ pub struct NetworkResult {
 | `p_rb_pa` | `f64` |  |
 | `t_dw_k` | `f64` |  |
 | `t_ww_gas_k` | `f64` |  |
-| `t_pool_k` | `f64` |  |
+| `t_pool_k` | `f64` | The torus pool's temperature, K: its energy mean over the layers. |
+| `t_pool_top_k` | `f64` | The pool's surface layer, K (gh:#1100; as<br>`ContainmentResult::t_pool_top_k`); the pool's for one layer. |
+| `pool_layers` | `usize` | The number of layers the torus pool holds. |
 | `pool_kg` | `f64` | Torus pool: mass, kg, collapsed and swollen level, m (plant datum). |
 | `pool_level_m` | `f64` |  |
 | `pool_swollen_level_m` | `f64` |  |
-| `dw_sump_kg` | `f64` | Water in the drywell sump, kg. |
+| `dw_sump_kg` | `f64` | Water in the drywell sump, kg, and whether it is dry (gh:#1100). |
+| `dw_sump_dry` | `bool` |  |
 | `dw_steam_kg` | `f64` |  |
 | `ww_steam_kg` | `f64` |  |
 | `dw_h2_kg` | `f64` |  |
@@ -6454,6 +6500,16 @@ pub struct ContainmentNetwork {
   ```
   Advance one step with sembawang's snapshot (see the module docs for
 
+- ```rust
+  pub fn pool_layer_count(self: &Self) -> usize { /* ... */ }
+  ```
+  The torus pool's layer count (1 without `pool_layers`).
+
+- ```rust
+  pub fn port_elevations(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  The downcomers' exits and the quenchers' port above the torus
+
 ###### Trait Implementations
 
 - **Any**
@@ -6558,6 +6614,22 @@ pub struct ContainmentNetwork {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+### Functions
+
+#### Function `derived_pool_layers`
+
+The torus pool's layer count from its geometry (gh:#1100): four layers
+on average across the downcomers' submergence, `⌈4 D / s⌉`, `D` the
+initial pool depth and `s` the submergence (`vent_submergence_pa` as a
+depth), so that the water above the downcomers' exits, the old model's
+top layer, is resolved by several layers, each a few tenths of a metre.
+Unit 1: `D` = 3.237 m, `s` = 1.209 m, so 11 (mean 0.29 m). A resolution,
+not a physical coefficient: the V&V doc runs 11 and 22.
+
+```rust
+pub fn derived_pool_layers(depth_m: f64, submergence_m: f64) -> usize { /* ... */ }
+```
+
 ## Module `core`
 
 The core: heat-up of the fuel once the water level falls, zirconium-steam

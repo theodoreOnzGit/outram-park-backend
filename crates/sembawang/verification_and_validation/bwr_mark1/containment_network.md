@@ -207,7 +207,9 @@ Ablations: `NetworkMechanisms::without_cavity` (back to gh:#1097's mapping),
 
 **Assumed for the coupling, stated:** water "over the debris" is what the
 drywell sump holds beyond its 1 m³ fill \[A\] (a control volume cannot dry
-its pool); the sump's heat is capped at what heats it to saturation and
+its pool; ~~still~~ **CORRECTED 2026-11-01:** since `tampines`' dry-out the
+sump starts dry and all its water is over the debris, the 1 m³ fill kept
+only in `NetworkConfig::unit1_gh1097`); the sump's heat is capped at what heats it to saturation and
 boils that water, the rest radiated to the structures (the old model's
 `boil_pedestal` caps the same boiling at its water and drops the rest);
 the cavity and the fall see the start-of-step sump and drywell (explicit,
@@ -429,7 +431,7 @@ blowdown lag (numerical).**
    `Containment`, rides the paths' gas transfers with SPARC at the
    downcomers and quenchers, and its decay heat couples by
    `set_atmosphere_heat`, the lumped structures and `set_pool_heat`.
-2. **The pool layers**, second. A control volume holds one pool at one
+2. ~~**The pool layers**, second. A control volume holds one pool at one
    temperature, so this cannot be expressed with the existing sources and
    sinks without misstating either the level or the surface temperature: a
    deep layer held outside the volume loses its share of the level (the
@@ -441,16 +443,20 @@ blowdown lag (numerical).**
    flashing and pool heat on the upper layer, mixing on inversion, after
    `Containment::layer_pool` (and the PPOOLEX / Li–Kudinov physics it
    cites). Not started: it is a change to a shared tampines type that needs
-   its own V&V.
+   its own V&V.~~ **CORRECTED 2026-11-01: done** — `tampines` gained the
+   layered pool (d870c66cb, its own V&V L1–L8) and the network uses it
+   (section "the layered torus pool and dry sumps" below).
 3. **Burns in the building** (`step_burn`, BUR RM §2.3–2.5): the network's
    building would need its hydrogen and CO removed and the oxygen consumed;
    `ControlVolumeInputs` has a steam sink but no non-condensable sink, so
    this needs a general tampines addition too. It has no effect on the
    drywell or torus here (the old building is held at one atmosphere) and
    the network's building receives no hydrogen yet (the flange stays shut).
-4. **The \[A\] sump fill** stays: the coupling uses the water beyond it as
+4. ~~**The \[A\] sump fill** stays: the coupling uses the water beyond it as
    the water over the debris. A control volume that can dry its pool would
-   remove the assumption.
+   remove the assumption.~~ **CORRECTED 2026-11-01: removed** — `tampines`'
+   pools may be empty (d870c66cb); the sumps start dry and the cavity
+   branches on `is_pool_dry()` (section below).
 
 ## gh:#1100 (continued): the fission products and their decay heat on the network (2026-11-01)
 
@@ -609,7 +615,9 @@ mean, top):
   subtracted at 5 h. The network's own gain is +1.33 % (444.3 against
   438.4 kPa without the fission products), the old unlayered model's
   +1.56 %.
-- *26.5–29 h, `p_ww` up to +6.23 % against ±1 %:* after the vent the
+- *26.5–29 h, `p_ww` up to +6.23 % against ±1 %* (**attributed
+  2026-11-01**, layered-pool section: one-step flashes of the whole pool,
+  not the vent): after the vent the
   network's torus, its pool at saturation (373.1 K), swings between 101.5 and
   108.5 kPa at the half-hour samples while the old model's sits at
   101.5–103.0 kPa. Not attributed. The leading hypothesis is the vent's
@@ -620,6 +628,10 @@ mean, top):
 
 ### Every remaining difference, attributed (default network with the fission products, 30 h)
 
+(**Superseded 2026-11-01** for the default by the layered-pool section
+below; this table still describes `without_pool_layers` on
+`NetworkConfig::unit1_gh1097()`.)
+
 | window | remaining Δ`p_ww` (network − old) | attributed to | evidence |
 |---|---|---|---|
 | 0–4.5 h | +0.3 … +1.3 % | the pool displacing the torus gas (network physics) | gh:#1097 cause 1, case A |
@@ -628,13 +640,15 @@ mean, top):
 | 18–23 h drywell H2 | network 34–39 kg lower | not attributed (doubt): the flange opens 0.43 h later on the network and the paths differ; it was up to 57 kg *higher* before the decay heat was coupled | |
 | building H2 | 1.74 % against 3.73 % at 30 h | the same, not attributed | |
 | 24 h, the vent | −47.9 % | the old model's top layer, at 391 K by the decay heat, boiling as the torus depressurises | `no_pool_layers` replay: −0.05 % |
-| 26.5–29 h | up to +6.2 % | not attributed (above) | |
+| 26.5–29 h | up to +6.2 % | ~~not attributed (above)~~ **CORRECTED 2026-11-01:** the single well-mixed pool's one-step flashes at saturation, every 225 s (next section but one); gone with the layered pool | traces at 26–26.75 h, unlayered and layered |
 | 26–30 h `T_pool` | network 373.1 K, old mean 355.0 K, top 373.2 K | the layers only: the network matches the old top layer and the unlayered old pool (373.17 K) | `no_pool_layers` replay |
 | 24–30 h `p_dw` | +2.2 % | the network's gas column and submergence at its own density | gh:#1097 cause 6 |
 | after 24 h `T_dw` | network 10–23 K low | not attributed: the no-layers replay leaves 13 K (429.9 against 417.1 K at 30 h); the no-decay-heat replay is within 2.5 K (414.6 K), so the old model's drywell holds decay heat after the vent that the network's does not, in a share not identified | |
 
 **So, with the fission products on the network, its only large remaining
-difference from `Containment` is the old model's two-layer pool**, which
+difference from `Containment` is the old model's two-layer pool** (**CORRECTED
+2026-11-01:** now carried by `tampines`' layered pool; the vent gap is
+−37.6 % and the post-vent pool gap 12.4–12.9 K, next section), which
 sets the vent's −48 %, the pool's mean temperature after it, and part of
 the 5–23 h pressure; the rest is network physics (displacement, gas
 column), the one-step blowdown lag, and the post-vent `p_ww` swings and
@@ -673,6 +687,326 @@ editing, so not touched here):
 Until then the network reports the building's BUR ignition criterion as a
 diagnostic (`rb_burn_y`, `rb_ignites`), sembawang's `bur_ignites` on the
 building's composition; nothing burns.
+
+## gh:#1100 (continued): the layered torus pool and dry sumps on the network (2026-11-01)
+
+**What was adopted** (`tampines` d870c66cb, used unchanged):
+
+| `tampines` capability | on the network | why this way |
+|---|---|---|
+| `ControlVolume::with_pool_layers(n)`, after the other ablations | the torus pool in `n` Lagrangian layers, `NetworkMechanisms::pool_layers` (ON; `without_pool_layers` ablates) | the old model's two-layer pool (`Containment::layer_pool`) is the last large mapped difference |
+| `without_pool_layer_conduction()` | `NetworkMechanisms::pool_layer_conduction` (ON, `tampines`' default) | molecular conduction across a stable column is the lower bound of the exchange; the old model has none ("conduction and entrainment neglected"), so it is an ablation to attribute with, not to match with |
+| `pool_surface_temperature()` | `NetworkResult::t_pool_top_k` (mirrors `ContainmentResult::t_pool_top_k`); `t_pool_k` stays the energy mean | |
+| `phase_states_at(z)` (the layer at `z`) | SPARC's pool side at the quenchers (the relief flow's scrubbing) and at the downcomers' exits; the surface layer for the aerosol step's pool; the relief H2's temperature without `relief_h2_enthalpy` | the old model takes its top layer for all of these; one layer, all are the pool's temperature |
+| a pool may be empty; `is_pool_dry()` | `NetworkConfig::sump_water_m3` 1.0 → **0.0**: the drywell and building sump pits start dry, as the old pedestal does (`pedestal_kg` = 0 at construction); the cavity's wet/dry branch and the ablation's take `is_pool_dry()` | the \[A\] 1 m³ fill existed only because a control volume could not be empty |
+
+**The choices, with their justification (none taken from a comparison):**
+
+- **`n` = 11**, from `derived_pool_layers`: four layers on average across
+  the downcomers' submergence, `⌈4 D / s⌉`, with the initial pool depth
+  `D` = 3.237 m (the torus V(z) at 1750 m³ of sembawang's water, `pool_water_m3`
+  \[P\]) and `s` = 11 800 Pa / (995 × 9.81) = 1.209 m (`vent_submergence_pa`
+  \[A\]). Mean layer 0.29 m; the torus is narrow at the bottom, so the bottom
+  layer is 0–0.57 m. The rule's purpose is that the water above the
+  downcomers' exits, which is the old model's whole top layer, is resolved
+  by several layers rather than one. It is a resolution, so the result
+  must not depend on it: **22 layers are run beside 11.**
+- **The quenchers' port at the torus bottom (0 m, \[A\]).** sembawang's old
+  model does not put the quenchers at the downcomers' depth, as the
+  network's module docs claimed (corrected there): with `pool_layers` its
+  relief flow goes into the deep layer, "the relief valves' quenchers, near
+  the pool's bottom" (`Containment::step`), which is all the water below the
+  downcomers' exits, heated as one. A port at the bottom reproduces that:
+  heat injected there rises and the convective adjustment mixes the whole
+  column below any warmer water. A port higher up (the brief suggested
+  about 0.3 m) leaves the water beneath it unheated (`tampines`' L2: 4.8 K
+  colder below a port 0.3 m up), which is not what the old model does and
+  not supported by any held datum; the quenchers' real elevation is not in
+  the held sources. The downcomers' exits stay at the submergence; the
+  shell's condensate drain stays above the level (the top layer).
+- **Heat into a dry drywell sump goes to the structures, as the old model
+  does.** The old model boils its pedestal while it holds water
+  (`boil_pedestal`, its MCCI top heat and the ablation's), and otherwise
+  puts the heat into `dw_wall_t`. The network already sends the cavity's
+  top heat to the structures when there is no water over the debris, and
+  caps the sump's heat at what heats and boils the water it holds (the
+  rest to the structures), so a dry sump is given no pool heat and
+  `tampines`' default (heat into a dry pool goes to the atmosphere) is not
+  exercised from the start of a step. Within a step a sump can still boil
+  dry under that cap (IF97 against the cap's constant `c_p`); `tampines`
+  then puts the remainder into the drywell atmosphere and reports it as
+  `pool_heat_to_atmosphere`, which **`CvNetwork::step` does not pass back**
+  (its `NetworkStepReport` has no per-volume reports), so sembawang cannot
+  read or redirect it. A `tampines` addition would be needed to report it:
+  the per-volume `ControlVolumeStepReport`s (or their
+  `pool_heat_to_atmosphere`) in `NetworkStepReport`. Not hacked; the
+  amount is bounded by the cap's mismatch.
+- **Where the pool's decay heat goes: by mass (stated, a difference).**
+  `set_pool_heat` shares the heat over the layers by mass, and `tampines`
+  has no pool heat at an elevation; the old model puts the pool's share of
+  the fission products' decay heat into its top layer (`pool_energy`). The
+  replays above attribute most of the old top layer's 391 K at 24 h to that
+  choice. Neither is derived here: dissolved and suspended fission
+  products mix with the water, which favours by mass; the old choice is
+  its own.
+
+**The earlier pins** are kept for the configuration they were measured on,
+`NetworkConfig::unit1_gh1097()` (1 m³ sumps, quenchers at the exits) with
+`without_pool_layers()`; `tampines`' one-layer path is bit-identical to
+before d870c66cb (its L1), so they must reproduce exactly.
+
+### Predictions, written before any run of this change
+
+**Case A** (relief into the torus, the default network now layered, the
+quenchers at the bottom, the sumps dry): the steam enters the bottom layer,
+which is then the lightest and mixes the whole column each step, so the
+pool stays mixed and `p_ww` − old moves by less than ±5 Pa from +341.1 /
++328.8 Pa; worst |Δ`T_pool`| within ±0.1e-3 K of 2.87e-3 K; `p_dw` − old
++6.4 Pa → +1 … +6 Pa (no 1 m³ sump to humidify the drywell: about 0.1 kg
+less evaporated, −4 Pa). The pins hold.
+
+**Case C** (debris): dry floor, every quantity within 0.1 % of its earlier
+value (the 1 m³ fill took no part, only humidified); wet floor, FDI steam
+within 2 % of the old model's (all the poured water is now over the debris,
+as in the old pedestal, and none of it is a 323 K fill), worst |Δ`p_dw`|
+3.3–3.5 %.
+
+**Case D** (fission products, the old model without layers): the leak's
+steam enters the torus at the exits and the relief's at the bottom; every
+D quantity moves by less than 2 % relative and stays within its band; the
+tracer leaves the pressures bit-equal (D16).
+
+**Case B, the 6 h worsts** (the default): |Δ`p_dw`| 57.77 % ± 1 % and
+|Δ`p_ww`| 12.20 % ± 1 % (both the 4.956 h blowdown step, which the pool does
+not set), |Δ`T_pool`| 0.60 → 0.4–0.9 K.
+
+**Case B, the 30 h replay, network − old Δ`p_ww`** (the fission-product run
+above → predicted with layers and dry sumps, n = 11):
+
+| window | before | predicted | why |
+|---|---|---|---|
+| 0–4 h | +0.07 … +1.3 % | moves by less than 0.3 % | the relief steam enters at the bottom and the column mixes; the dry drywell sump changes the drywell's humidity by little |
+| 5 h | +2.52 % | moves by less than 0.5 % | as above |
+| 6–10 h | +0.9 … +1.7 % | **up** by 1–4 %, to +2 … +5 % | the downcomers' steam now heats only the water above their exits, so the surface layer is hotter than the mean and the torus gas wetter; this is the part of the old layers' effect that is not the decay heat (2–3 % in the replays) |
+| 14–23 h | −3.8 … −1.4 % | **up** by 1–4 %, to −2 … +2 % | as above |
+| 24 h, the vent | −47.9 % | **shrinks**, to −30 … −46 % | the network's top layer, hotter than its mean, now boils as the torus depressurises, but it does not reach the old top layer's 391 K, because the pool's decay heat is shared by mass here |
+| 26.5–29 h swings | up to +6.2 % | **below 3 %** | hypothesis: the swings come from the whole saturated pool flashing; with layers only the top layer can |
+| 30 h | −0.07 % | within ±1 % | both vented |
+
+Also predicted: `T_pool` (energy mean) at 26–30 h **falls** from 373.1 K to
+360–370 K, so the 18 K gap to the old mean (355.0 K) shrinks to 5–15 K, the
+network's surface layer at 373 ± 1 K (the old top: 373.2 K); at 23 h the
+network's top layer 3–15 K above its mean (the old: 26 K); the flange opens
+within ±1 h of 17.25 h; the cost per step up 10–40 %.
+
+**Resolution (n = 22 against 11):** every window's Δ`p_ww` within 0.5 % of
+n = 11's, the mean `T_pool` within 0.5 K, the top layer within 1 K, the vent
+within 2 % of `p_ww`.
+
+**Ablations (one change at a time from the new default):**
+
+- *`without_pool_layers` (the dry sumps and the bottom quenchers kept):*
+  within 0.5 % of the fission-product run in every window (the quenchers'
+  depth changes the bubble efficiency only, and it is near 1 at both
+  depths), so the layers carry all the movement above.
+- *`without_pool_layer_conduction`:* within 0.3 % of `p_ww` everywhere, the
+  top layer within 1 K (the conduction length `√(α t)` is 0.12 m over 28 h,
+  half a layer).
+
+### Results (2026-11-01, release, Rust 1.99.1)
+
+**The earlier pins reproduce exactly** on `NetworkConfig::unit1_gh1097()`
+without the layers (6 h replay): 57.77 % / 12.20 % / 0.60 K (with the
+fission products), 56.29 % / 13.65 % / 1.86 K (without), 60.39 % / 9.78 % /
+1.32 K (gh:#1097's mapping), and case A's 341.1 / 328.8 / 280.7 Pa and
+2.87e-3 K. This confirms `tampines`' one-layer path and the refactor here
+(the `pool_side` elevation, the `is_pool_dry` branch) change nothing when
+the layers are off.
+
+**Case A on the new default** (`relief_steam_on_the_layered_default`):
+
+| network | `p_ww` − old | `p_dw` − old | worst \|Δ`T_pool`\| |
+|---|---|---|---|
+| prismatic, default (8 layers: its 2.34 m pool gives `⌈4 × 2.34 / 1.209⌉`) | **+360.1 Pa** | 0.0 Pa | 2.84e-3 K |
+| torus, default (11 layers) | **+352.8 Pa** | 0.0 Pa | 2.85e-3 K |
+| prismatic, default without the layers | +341.1 Pa | 0.0 Pa | 2.87e-3 K |
+| … and the quenchers at the exits | +341.1 Pa | 0.0 Pa | 2.87e-3 K |
+| prismatic, default with 1 m³ sumps | +360.1 Pa | +6.4 Pa | 2.84e-3 K |
+| prismatic, default without layer conduction | +360.1 Pa | | 2.84e-3 K |
+
+The pool stays mixed (top 305.264 K = mean). Outcomes: `p_ww` within ±5 Pa
+**MISSED** (+19.0 Pa prismatic, +24.0 Pa torus), carried wholly by the
+layers (not the quenchers' depth, not the conduction, not the sumps).
+**Resolution check, run after this result** (prismatic, the pool mixed in
+every case): 1 layer +341.1, 2 +347.9, 4 +354.2, 8 +360.1, 16 +365.5 Pa,
+about +6 Pa a doubling, monotone. Explanation, from the code and supported
+by that trend (the length to the −1/4 power in the coefficient), not by
+an ablation inside `tampines` (not edited here): with
+layers the surface exchange sees the **top layer** as the pool, its mass in
+MELCOR's Eq 5-17 limit and its thickness (0.2–0.3 m) as the pool-side
+natural-convection length (`tampines::control_volume::pool_surface::exchange`,
+`h_free`, `x = min(d_s, l)`), where one well-mixed pool gives its whole
+depth (2.3–3.2 m); a thinner length gives a larger pool-side coefficient,
+more evaporation, a wetter torus gas. The old model does the same with its
+top layer's 1.21 m. In a column the convective adjustment has just mixed
+through, the convecting depth is the mixed block, not one layer, so this is
+a resolution dependence in `tampines` (see "What `tampines` would need",
+below). `p_dw` +1 … +6 Pa **MISSED** (0.0 Pa: the 1 m³ sump's evaporation
+was the whole +6.4 Pa, not two thirds of it). `T_pool` within ±0.1e-3 K of
+2.87e-3 K: held. At most 5 Picard iterations (2 before).
+
+**Case C:** dry floor, every value as before to the printed digits
+(1258.3 kg, 8.251 / 12.012 kg, 2774.9 K; worst |Δ`p_dw`| 0.01 %): held.
+Wet floor, FDI steam 27.6 against the old model's 27.6 kg (held), worst
+|Δ`p_dw`| **4.26 %** against the predicted 3.3–3.5 % (**MISSED**): the
+dry sumps carry all of the movement (with 1 m³ sumps and the layers on
+3.46 %, without the layers and dry sumps 4.26 %); the 1000 kg fill at
+323 K was absorbing part of the debris's heat before the poured water
+boiled. Not attributed further.
+
+**Case D:** every value moved by less than 0.1 % relative (Xe in the torus
+gas −0.9 %, Cs in the pool −0.4 %, on the structures −1.8 %, airborne
++2.0 % against the old model, as before; conservation 2e-14; the tracer
+bit-equal, the heat raising `p_dw` by at most 0.039 %): held.
+
+**Case B, 6 h worsts (default):** 58.11 %, 11.89 %, 0.61 K (all three
+predictions held), pinned after the run, labelled so.
+
+**Case B, 30 h, network − old Δ`p_ww`** (n = 11 is the default; `T_pool`
+network mean / top, old mean / top):
+
+| t (h) | FP run (before) | dry sumps, bottom quenchers, no layers | **default, n = 11** | n = 22 | n = 11, no conduction | predicted | `T_pool` n = 11 (K) | outcome |
+|---|---|---|---|---|---|---|---|---|
+| 3 | +1.29 % | +1.19 % | +1.40 % | +1.45 % | +1.40 % | moves < 0.3 % | 325.44 / 325.44; 325.41 | held (+0.11) |
+| 4 | +0.55 % | +0.67 % | +0.92 % | +0.97 % | +0.92 % | moves < 0.3 % | 332.15 / 332.16; 332.12 / 332.17 | **MISSED** (+0.37) |
+| 5 | +2.52 % | +2.67 % | +2.99 % | +3.03 % | +2.99 % | moves < 0.5 % | 340.23 / 342.55; 340.43 / 343.21 | held (+0.47) |
+| 6 | +0.97 % | +1.25 % | +1.98 % | +2.03 % | +1.98 % | +2 … +5 % | 341.37 / 343.60; 341.58 / 345.55 | **MISSED** by 0.02 (the rise, +1.0, is inside "up 1–4") |
+| 8 | +1.73 % | +2.01 % | +2.99 % | +3.03 % | +2.99 % | +2 … +5 % | 343.93 / 346.40; 344.00 / 350.46 | held |
+| 10 | +0.92 % | +1.09 % | +2.37 % | +2.40 % | +2.38 % | +2 … +5 % | 347.01 / 350.28; 346.95 / 356.42 | held |
+| 14 | −3.79 % | −3.82 % | −1.05 % | −1.04 % | −1.02 % | −2 … +2 % | 354.59 / 360.75; 354.47 / 371.45 | held |
+| 18 | −1.44 % | −1.42 % | +1.04 % | +1.03 % | +1.09 % | −2 … +2 % | 360.38 / 368.02; 359.10 / 380.74 | held |
+| 23 | −3.75 % | −3.73 % | −1.18 % | −1.23 % | −1.09 % | −2 … +2 % | 365.38 / 373.03; 363.47 / 389.54 | held |
+| 24 (vent) | −47.88 % | −47.88 % | **−37.57 %** | −36.59 % | −38.61 % | −30 … −46 % | 369.73 / 377.64; 364.20 / 391.01 | held |
+| 24.5 | | −25.36 % | −19.56 % | −19.51 % | −20.55 % | | 368.07 / 374.85; 359.33 / 381.60 | |
+| 25 | | −7.71 % | −5.59 % | −5.22 % | −5.38 % | | 367.49 / 373.78; 356.11 / 375.30 | |
+| 26 | −0.16 % | −0.14 % | +0.71 % | +0.80 % | +0.78 % | | 367.43 / 373.43; 355.07 / 373.29 | |
+| 26.5–29.5 | +0.15 … +6.23 % | −0.24 … **+14.18 %** | −0.32 … +0.64 % | −0.42 … +0.66 % | −0.52 … +0.75 % | below 3 % | 367.5–367.8 / 373.2–373.4 | held |
+| 30 | −0.07 % | −0.05 % | +0.44 % | +0.20 % | +0.38 % | within ±1 % | 367.90 / 373.21; 354.96 / 373.18 | held |
+
+`Δp_dw` (n = 11): +2.94 % at 5 h, +4.06 % at 6 h, +3.25 % at 8 h, +2.64 % at
+10 h, −0.78 % at 14 h, +1.48 % at 18 h, +0.93 % at 23 h, −32.15 % at 24 h,
++2.1 … +2.8 % after 26 h.
+
+- **The vent gap shrank from −47.9 % to −37.6 %**, as predicted in sign and
+  inside the band: the network's top layer is 377.6 K at 24.0 h (its mean
+  369.7 K) and boils as the torus depressurises; the old top layer is at
+  391.0 K, the difference the decay heat's placement (by mass here, into
+  the top layer there) leaves. Against the old model **without** its
+  layers (the `no_pool_layers` replay in this run) the network is now
+  +19.7 % at 24 h: it vents more slowly than an unlayered old pool, as a
+  layered pool should.
+- **The post-vent `T_pool` gap shrank from 18.2 K to 12.4–12.9 K** (network
+  mean 367.4–367.9 K against the old mean 355.0 K; predicted 5–15 K: held).
+  The network's surface layer sits at 373.2–373.4 K against the old top
+  layer's 373.2–373.3 K (held, within 0.2 K). What remains is the deep
+  water: the old deep layer is cooler because the old model put the pool's
+  decay heat into its top layer, which boiled it off after the vent; here
+  it is shared by mass and the deep water keeps its share.
+- **The 5–23 h gap moved toward zero and changed sign at 18 h**
+  (−1.2 … +3.0 %, from −3.8 … +2.5 %): the network's surface layer is now
+  2.3–7.7 K above its mean (the old one's 2.8–26 K).
+- **The flange opens at 16.254 h** (17.249 h before; the old model 16.824 h;
+  predicted 17.25 ± 1 h: held, by 0.005 h). The network is now 0.57 h
+  early rather than 0.43 h late. The building's hydrogen at 30 h: 2.18 %
+  (1.74 % before; the old model 3.73 %). Peak `p_dw` 817.9 kPa.
+- **The dry sumps moved the FDI steam** to 74 kg against the old model's
+  75 kg (55 kg with the 1 m³ fill, gh:#1100's unattributed 20 kg: it was
+  the fill), and the concrete ablated to 65 958 against 64 388 kg at 23 h
+  (+2.4 %; +0.27 % with the fill), 88 015 against 86 534 kg at 30 h; not
+  attributed further.
+- **Worst over 30 h** (n = 11): |Δ`p_dw`| 58.11 % (the 4.956 h step),
+  |Δ`p_ww`| 44.76 % (the vent; 56.49 % before), |Δ`T_pool`| 12.94 K
+  (18.18 K before).
+- **Resolution** (n = 22 against 11): every window within 0.1 % of `p_ww`
+  except the vent, 0.98 % (held, < 2 %); the mean `T_pool` within 0.49 K
+  (held, < 0.5 K); the top layer within 1.06 K at 24 h (**MISSED** by
+  0.06 K; elsewhere within 0.25 K). The vent window's residual dependence
+  on `n` is the same top-layer-thickness effect as in case A.
+- **Ablations:** without the layers (dry sumps and bottom quenchers kept),
+  within 0.3 % of the FP run in every tabled window to 26 h (held), but the
+  post-vent swings grew to +14.2 % at 26.5 h (**MISSED**, "within 0.5 % in
+  every window"); without the layer conduction, within 0.25 % of the default
+  except at 24 h (−38.61 against −37.57 %: **MISSED**, predicted under
+  0.3 %), the top layer within 0.25 K (held). Conduction is not what sets
+  the result.
+- **Cost:** **MISSED** (predicted +10–40 % a step): 2805 s for the 30 h
+  (26.0 ms a step, one old replay included) against 1251 s, measured with
+  four runs on four cores; without conduction 2147 s, n = 22 2523 s, the
+  unlayered dry-sump run 1833 s in the same conditions (so about +50 % for
+  the layers, of which conduction is about half). At most 100 Picard
+  iterations in a step.
+
+**So:** with `tampines`' layered pool the network carries the old model's
+last large mapped mechanism. The remaining differences in the pool are the
+placement of the pool's decay heat (by mass against the old top layer),
+which sets what is left of the vent gap and the post-vent mean
+temperature, and the top-layer-thickness dependence of the surface exchange
+(`tampines`), which sets the n-dependence at the vent.
+
+### The 26.5–29 h post-vent swings, attributed
+
+Two step-by-step traces, 26.00–26.75 h (`FUKUSHIMA_NETWORK_TRACE=26,26.75`,
+2701 steps each), on the unlayered network (dry sumps, bottom quenchers,
+`without_pool_layers`) and on the default:
+
+| | unlayered | default (11 layers) | old model |
+|---|---|---|---|
+| `p_ww` range, kPa | 101.6–**140.5** | 102.4–103.4 | 101.8–103.3 |
+| Δ`p_ww` network − old | −1.6 … **+38.0 %** | −0.7 … +1.4 % | |
+| one-step rises over 2 kPa | **12** (one every 200–268 s, mean 225 s) | 0 (largest 0.9 kPa) | |
+| pool, K (mean; top) | 373.08–373.20, one pool | 367.43–367.54; 373.42–373.44 | |
+| torus steam, kg | 1426–1844 | 1460–1470 | |
+
+**Mechanism (unlayered):** a relaxation oscillation of the single, well
+mixed, saturated pool. Between bursts the pool (1.75e6 kg) warms by about
+0.12 K under the decay heat and the downcomers' condensing steam, the vent
+carrying 0.8–0.9 kg/s and the downcomers 1.5 kg/s. When it reaches
+saturation it flashes in one 1 s step: at 26.0375 h, 418 kg of steam, the
+swollen level 5.41 m for that step, the torus gas to 399 K, `p_ww` from
+101.7 to 140.5 kPa (+38.8 kPa). The downcomers stop, the vacuum breakers
+open (62 kg/s for a step) and the vent, choked, rises from 0.9 to 8.7 kg/s
+within the step and takes about 200 s to bring the torus back, by which
+time the pool, now 0.12 K subcooled, is warming again. The half-hour
+samples alias this 225 s cycle: they land on a burst at some samples
+(26.5 h, +14.2 %) and between bursts at others. **The vent is not the
+cause** (the trace shows it responding in the step, not lagging by its
+60 m of inertia, which was gh:#1100's leading hypothesis): it is the
+flashing of the whole pool at once. Not tested by a vent-length ablation.
+
+**With layers it is gone:** only the surface layer (373.4 K) reaches
+saturation, and it holds about 1/11 of the water, while the deep layers sit
+6 K subcooled; it boils steadily rather than flashing in bursts, and the
+torus stays within 1.4 % of the old model's. The prediction (swings below
+3 % with layers) held, and its hypothesis is confirmed. The cycle period
+and amplitude of the unlayered pool are set by the 1 s step (the flash
+completes in one step), so they are a property of a well-mixed pool under
+a one-step flash, not a physical measurement.
+
+### What `tampines` would need (described; `tampines` was not edited here)
+
+1. **The surface's pool-side length should be the surface mixed block, not
+   one layer.** In a layered pool `exchange` takes the top layer's mass
+   (Eq 5-17's limit) and thickness (the natural-convection length). Where
+   the convective adjustment has merged the top layers into one block, the
+   block's mass and depth are what convects; taking one layer makes the
+   coefficient depend on `n` (case A: +19 Pa at 8 layers; the vent: 1 % of
+   `p_ww` between 11 and 22 layers).
+2. **Pool heat at an elevation** (or into a named layer), so that a caller
+   can place the decay heat of what is scrubbed where it is scrubbed;
+   `set_pool_heat` shares it by mass.
+3. **`NetworkStepReport` should carry each volume's
+   `pool_heat_to_atmosphere`** (or its `ControlVolumeStepReport`), so a
+   caller can see heat that went into a dry or boiled-dry pool's atmosphere.
 
 ## What would move if the plant switched (the decision's evidence)
 
@@ -725,7 +1059,10 @@ are now the largest differences.) (**2026-11-01, gh:#1100 continued:** the
 fission products and their decay heat are on the network; the 5–23 h gap
 is −3.8 … +2.5 %, the flange opens within 0.43 h of the old model's, and
 the pool layers are the one large difference left, with burns, which need
-a `tampines` addition.)
+a `tampines` addition.) (**2026-11-01, gh:#1100 continued, layers:** the
+torus pool is layered and the sumps start dry; what is left in the pool is
+where its decay heat goes and a resolution dependence of the surface
+exchange in `tampines`; burns still need a `tampines` addition.)
 
 ## Units 2 and 3 by configuration (a sketch; no plant data invented)
 
@@ -769,8 +1106,15 @@ Unit 1's own \[A\] entries need the same data.
   failures were not classified (which path, which switch). (953 with the
   cavity coupled; **3** once the fission products' decay heat was coupled,
   2026-11-01: still not classified.)
-- After the vent, with the pool at saturation, the network's torus swings
-  by up to 6 % at the half-hour samples (26.5–29 h); not attributed.
+- ~~After the vent, with the pool at saturation, the network's torus swings
+  by up to 6 % at the half-hour samples (26.5–29 h); not attributed.~~
+  **CORRECTED 2026-11-01:** attributed to one-step flashes of the whole
+  saturated pool (a 225 s relaxation cycle, up to +38 % in one step on the
+  unlayered network); with the layered pool (the default) they are gone.
+- The surface exchange of a layered pool depends on the layer count
+  through the top layer's thickness (case A: +6 Pa a doubling; the vent:
+  1 % of `p_ww` between 11 and 22 layers): a `tampines` matter, described
+  in the layered-pool section.
 - The drywell's sump pit, the light bulb drawn as a prism, and the drywell
   floor at the torus top are \[A\]. The +90 Pa gas column they imply in the
   downcomers is physical but unverified.
