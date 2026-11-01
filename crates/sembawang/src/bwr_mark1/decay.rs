@@ -30,6 +30,7 @@
 use super::params::Params;
 use petir::mathf::RealMath;
 use teh_o_prke::decay_heat::{DecayHeat, FissioningNuclide};
+use teh_o_prke::point_reactor::actinide_decay_power_after_constant_irradiation;
 use uom::si::energy::megaelectronvolt;
 use uom::si::f64::{Energy, Power, Time};
 use uom::si::power::watt;
@@ -155,6 +156,13 @@ impl PlantDecay {
 
     /// `G(t)`: the standard's formula below 1e4 s (MELCOR Eq 3-5), then
     /// `G_max` interpolated logarithmically in time, as MELCOR does.
+    ///
+    /// Kept here rather than calling `teh_o_prke`'s
+    /// `neutron_capture_correction` (gh:#1081): that function enforces the
+    /// limits RELAP-7 states for Eq 419 (`1 ≤ ψ ≤ 3`, `t < 1e4 s`), and this
+    /// plant uses `ψ = 0.713` fissions per fissile atom and MELCOR's `G_max`
+    /// table beyond 1e4 s. Whether 0.713 is inside the ANS-5.1 standard's own
+    /// range is not checked here (the standard is not held).
     pub fn capture_factor(&self) -> f64 {
         let t = self.t_s;
         if t < 1.0e4 {
@@ -167,16 +175,23 @@ impl PlantDecay {
         g0 + w * (g1 - g0)
     }
 
-    /// U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4).
+    /// U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4), by
+    /// `teh_o_prke`'s closed form for constant irradiation then shutdown
+    /// (moved there by gh:#1081, arithmetic unchanged). A transient fission
+    /// rate would use `teh_o_prke::point_reactor::ActinideChain` instead.
     pub fn actinide_power_w(&self) -> f64 {
         let p = &self.prm;
-        let (t, op, l1, l2) = (self.t_s, p.operating_time_s, p.u239_decay_per_s, p.np239_decay_per_s);
-        let u239 = p.e_u239_mev * p.u239_per_fission * (1.0 - (-l1 * op).r_exp()) * (-l1 * t).r_exp();
-        let np239 = p.e_np239_mev
-            * p.u239_per_fission
-            * (l1 * (1.0 - (-l2 * op).r_exp()) * (-l2 * t).r_exp() / (l1 - l2)
-                - l2 * (1.0 - (-l1 * op).r_exp()) * (-l1 * t).r_exp() / (l1 - l2));
-        self.fission_rate * (u239 + np239) * JOULE_PER_MEV
+        actinide_decay_power_after_constant_irradiation(
+            self.fission_rate,
+            p.operating_time_s,
+            self.t_s,
+            p.u239_per_fission,
+            p.e_u239_mev,
+            p.e_np239_mev,
+            p.u239_decay_per_s,
+            p.np239_decay_per_s,
+            JOULE_PER_MEV,
+        )
     }
 }
 

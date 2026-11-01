@@ -16,9 +16,9 @@
 //!
 //! - fission-product decay heat ([`AnsDecayHeat`], Eqs 417-418) driven by
 //!   `psi`, with the capture correction `G` (Eq 420) as a settable factor;
-//! - an actinide (U-239/Np-239) slot, [`ActinideDecayModel`], whose only
-//!   variant today is `None`: the actinide equations (§7.3, Eqs 421-423) are
-//!   gh:#1081 and are deliberately not implemented here.
+//! - the actinides, [`ActinideDecayModel`]: `None`, or the U-239 → Np-239
+//!   chain of §7.3 (Eqs 421-423), [`ActinideChain`], driven by the transient
+//!   fission rate (gh:#1081).
 //!
 //! and reports the total power, Eq (429):
 //!
@@ -53,6 +53,7 @@ use uom::si::velocity::meter_per_second;
 use uom::si::volume::cubic_meter;
 use uom::si::volumetric_number_density::per_cubic_meter;
 use uom::ConstZero;
+use petir::mathf::RealMath;
 
 use crate::ans_decay_heat::AnsDecayHeat;
 use crate::teh_o_prke_error::TehOPrkeError;
@@ -116,16 +117,17 @@ impl FissionPowerConversion {
     }
 }
 
-/// Actinide (U-239 / Np-239) decay-power model slot (RELAP-7 §7.3).
-///
-/// Only `None` exists. The actinide equations (Eqs 421-423) are gh:#1081;
-/// this enum is the hook they will be added to, so `PointReactor` already
-/// sums their power in [`PointReactor::total_power`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+/// Actinide (U-239 / Np-239) decay-power model (RELAP-7 §7.3), summed into
+/// [`PointReactor::total_power`]. ~~Only `None` exists; the actinide
+/// equations are gh:#1081.~~ **CORRECTED 2026-11-01:** gh:#1081 added
+/// [`ActinideDecayModel::U239Np239`].
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ActinideDecayModel {
-    /// No actinide decay power (not modelled; gh:#1081).
+    /// No actinide decay power.
     #[default]
     None,
+    /// The U-239 → Np-239 chain, driven by the fission rate (gh:#1081).
+    U239Np239(ActinideChain),
 }
 
 impl ActinideDecayModel {
@@ -133,8 +135,120 @@ impl ActinideDecayModel {
     pub fn power(&self) -> Power {
         match self {
             Self::None => Power::ZERO,
+            Self::U239Np239(c) => c.power(),
         }
     }
+
+    /// Advance the chain by `dt` at a fission rate held constant over it.
+    fn advance(&mut self, fission_rate_per_s: f64, dt_s: f64) {
+        if let Self::U239Np239(c) = self {
+            c.advance(fission_rate_per_s, dt_s);
+        }
+    }
+}
+
+/// U-239 → Np-239 → Pu-239 decay heat (RELAP-7 §7.3, Eqs 421-423; the same
+/// chain as ANS-5.1-1979 and MELCOR's DCH package): `R` U-239 atoms made per
+/// fission,
+///
+/// ```text
+/// dN_U/dt  = R ψ − λ_U N_U
+/// dN_Np/dt = λ_U N_U − λ_Np N_Np
+/// P        = E_U λ_U N_U + E_Np λ_Np N_Np
+/// ```
+///
+/// Advanced **exactly** for a fission rate held constant over a step (the
+/// Bateman solution with a source), so the transient form reproduces
+/// [`actinide_decay_power_after_constant_irradiation`] to round-off. AI draft,
+/// clean room: written from the manual's description.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ActinideChain {
+    /// U-239 atoms made per fission, `R`.
+    pub u239_per_fission: f64,
+    /// Energy per U-239 decay, J.
+    pub e_u239_j: f64,
+    /// Energy per Np-239 decay, J.
+    pub e_np239_j: f64,
+    /// U-239 decay constant, 1/s.
+    pub lambda_u239_per_s: f64,
+    /// Np-239 decay constant, 1/s.
+    pub lambda_np239_per_s: f64,
+    /// U-239 atoms present.
+    pub n_u239: f64,
+    /// Np-239 atoms present.
+    pub n_np239: f64,
+}
+
+impl ActinideChain {
+    /// A chain with no atoms yet.
+    pub fn empty(u239_per_fission: f64, e_u239: Energy, e_np239: Energy, lambda_u239: Frequency, lambda_np239: Frequency) -> Self {
+        Self {
+            u239_per_fission,
+            e_u239_j: e_u239.get::<joule>(),
+            e_np239_j: e_np239.get::<joule>(),
+            lambda_u239_per_s: lambda_u239.get::<hertz>(),
+            lambda_np239_per_s: lambda_np239.get::<hertz>(),
+            n_u239: 0.0,
+            n_np239: 0.0,
+        }
+    }
+
+    /// The same chain at equilibrium with a constant fission rate.
+    pub fn saturated(self, fission_rate: Frequency) -> Self {
+        let rpsi = self.u239_per_fission * fission_rate.get::<hertz>();
+        Self { n_u239: rpsi / self.lambda_u239_per_s, n_np239: rpsi / self.lambda_np239_per_s, ..self }
+    }
+
+    /// Decay power now.
+    pub fn power(&self) -> Power {
+        Power::new::<watt>(
+            self.e_u239_j * self.lambda_u239_per_s * self.n_u239 + self.e_np239_j * self.lambda_np239_per_s * self.n_np239,
+        )
+    }
+
+    /// Exact step at constant fission rate `psi` (1/s) over `dt` (s).
+    fn advance(&mut self, psi: f64, dt: f64) {
+        let (l1, l2) = (self.lambda_u239_per_s, self.lambda_np239_per_s);
+        let s = self.u239_per_fission * psi;
+        let (e1, e2) = ((-l1 * dt).r_exp(), (-l2 * dt).r_exp());
+        let (u0, n0) = (self.n_u239, self.n_np239);
+        let u_eq = s / l1;
+        let u = u_eq + (u0 - u_eq) * e1;
+        // Np-239 with source λ1·u(t): the equilibrium part s/λ2, plus the
+        // homogeneous parts.
+        let n_eq = s / l2;
+        let a = (u0 - u_eq) * l1 / (l2 - l1);
+        let n = n_eq + a * e1 + (n0 - n_eq - a) * e2;
+        self.n_u239 = u;
+        self.n_np239 = n;
+    }
+}
+
+/// Actinide decay power, W, after irradiation at a constant fission rate for
+/// `operating_time_s`, at `time_after_s` after shutdown (the ANS-5.1-1979 /
+/// MELCOR closed form, MELCOR Eqs 3-2 to 3-4): `E` in MeV, `joule_per_mev`
+/// the conversion the caller uses. Moved here from
+/// `sembawang::bwr_mark1::decay` (gh:#1081) with its arithmetic unchanged, so
+/// sembawang's results are bit-identical.
+#[allow(clippy::too_many_arguments)]
+pub fn actinide_decay_power_after_constant_irradiation(
+    fission_rate_per_s: f64,
+    operating_time_s: f64,
+    time_after_s: f64,
+    u239_per_fission: f64,
+    e_u239_mev: f64,
+    e_np239_mev: f64,
+    lambda_u239_per_s: f64,
+    lambda_np239_per_s: f64,
+    joule_per_mev: f64,
+) -> f64 {
+    let (t, op, l1, l2) = (time_after_s, operating_time_s, lambda_u239_per_s, lambda_np239_per_s);
+    let u239 = e_u239_mev * u239_per_fission * (1.0 - (-l1 * op).r_exp()) * (-l1 * t).r_exp();
+    let np239 = e_np239_mev
+        * u239_per_fission
+        * (l1 * (1.0 - (-l2 * op).r_exp()) * (-l2 * t).r_exp() / (l1 - l2)
+            - l2 * (1.0 - (-l1 * op).r_exp()) * (-l1 * t).r_exp() / (l1 - l2));
+    fission_rate_per_s * (u239 + np239) * joule_per_mev
 }
 
 /// Kinetics, decay heat and actinides in one state; total power by Eq 429.
@@ -201,7 +315,14 @@ impl PointReactor {
             background_source_rate,
         )?;
         let psi = self.fission_rate();
+        self.actinides.advance(psi.get::<hertz>(), timestep.get::<uom::si::time::second>());
         self.decay_heat.advance(psi, timestep)
+    }
+
+    /// Use an actinide model (e.g. [`ActinideChain::saturated`] at the
+    /// operating fission rate).
+    pub fn set_actinides(&mut self, actinides: ActinideDecayModel) {
+        self.actinides = actinides;
     }
 
     /// The kinetics state.
@@ -410,5 +531,47 @@ mod tests {
             peak6 / p_max - 1.0,
             energy6 / e_tot - 1.0
         );
+    }
+
+    /// **The U-239/Np-239 chain, transient against closed form (gh:#1081).**
+    /// Methodology: sembawang's Unit 1 constants (R = 0.526, E_U = 0.474,
+    /// E_Np = 0.419 MeV, λ_U = 4.91e-4, λ_Np = 3.41e-6 /s), a constant
+    /// fission rate 1e19 /s for T = 5e6 s from an empty chain, then zero; the
+    /// exact-exponential steps (100 s while operating, 10 s after) must give
+    /// the closed form at 0, 1 h, 5 h and 25 h after shutdown. Prediction:
+    /// agreement to round-off (< 1e-10 relative), since each step is exact.
+    /// The saturated chain at 1e19 /s must give the infinite-irradiation
+    /// closed form. **Result (2026-11-01):** asserted at 1e-10.
+    #[test]
+    fn actinide_chain_reproduces_the_closed_form() {
+        let mev = 1.602_176_634e-13;
+        let chain = ActinideChain::empty(
+            0.526,
+            Energy::new::<megaelectronvolt>(0.474),
+            Energy::new::<megaelectronvolt>(0.419),
+            Frequency::new::<hertz>(4.91e-4),
+            Frequency::new::<hertz>(3.41e-6),
+        );
+        let mut m = ActinideDecayModel::U239Np239(chain);
+        let (psi, op) = (1.0e19, 5.0e6);
+        let mut t = 0.0;
+        while t < op {
+            m.advance(psi, 100.0);
+            t += 100.0;
+        }
+        let mut after = 0.0;
+        for target in [0.0, 3600.0, 18_000.0, 90_000.0] {
+            while after < target {
+                m.advance(0.0, 10.0);
+                after += 10.0;
+            }
+            let closed = actinide_decay_power_after_constant_irradiation(psi, op, after, 0.526, 0.474, 0.419, 4.91e-4, 3.41e-6, mev);
+            let rel = m.power().get::<watt>() / closed - 1.0;
+            assert!(rel.abs() < 1e-10, "t = {after}: {} vs {closed} ({rel:e})", m.power().get::<watt>());
+        }
+        let sat = chain.saturated(Frequency::new::<hertz>(psi)).power().get::<watt>();
+        let inf = actinide_decay_power_after_constant_irradiation(psi, 1e12, 0.0, 0.526, 0.474, 0.419, 4.91e-4, 3.41e-6, mev);
+        assert!((sat / inf - 1.0).abs() < 1e-12, "{sat} vs {inf}");
+        assert_eq!(ActinideDecayModel::None.power(), Power::ZERO);
     }
 }

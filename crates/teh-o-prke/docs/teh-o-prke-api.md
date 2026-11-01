@@ -3922,9 +3922,9 @@ Eq (429). One state holds
 
 - fission-product decay heat ([`AnsDecayHeat`], Eqs 417-418) driven by
   `psi`, with the capture correction `G` (Eq 420) as a settable factor;
-- an actinide (U-239/Np-239) slot, [`ActinideDecayModel`], whose only
-  variant today is `None`: the actinide equations (§7.3, Eqs 421-423) are
-  gh:#1081 and are deliberately not implemented here.
+- the actinides, [`ActinideDecayModel`]: `None`, or the U-239 → Np-239
+  chain of §7.3 (Eqs 421-423), [`ActinideChain`], driven by the transient
+  fission rate (gh:#1081).
 
 and reports the total power, Eq (429):
 
@@ -4082,15 +4082,15 @@ pub struct FissionPowerConversion {
 - **UnwindSafe**
 #### Enum `ActinideDecayModel`
 
-Actinide (U-239 / Np-239) decay-power model slot (RELAP-7 §7.3).
-
-Only `None` exists. The actinide equations (Eqs 421-423) are gh:#1081;
-this enum is the hook they will be added to, so `PointReactor` already
-sums their power in [`PointReactor::total_power`].
+Actinide (U-239 / Np-239) decay-power model (RELAP-7 §7.3), summed into
+[`PointReactor::total_power`]. ~~Only `None` exists; the actinide
+equations are gh:#1081.~~ **CORRECTED 2026-11-01:** gh:#1081 added
+[`ActinideDecayModel::U239Np239`].
 
 ```rust
 pub enum ActinideDecayModel {
     None,
+    U239Np239(ActinideChain),
 }
 ```
 
@@ -4098,7 +4098,17 @@ pub enum ActinideDecayModel {
 
 ###### `None`
 
-No actinide decay power (not modelled; gh:#1081).
+No actinide decay power.
+
+###### `U239Np239`
+
+The U-239 → Np-239 chain, driven by the fission rate (gh:#1081).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ActinideChain` |  |
 
 ##### Implementations
 
@@ -4147,7 +4157,144 @@ No actinide decay power (not modelled; gh:#1081).
     fn default() -> Self { /* ... */ }
     ```
 
-- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ActinideChain`
+
+U-239 → Np-239 → Pu-239 decay heat (RELAP-7 §7.3, Eqs 421-423; the same
+chain as ANS-5.1-1979 and MELCOR's DCH package): `R` U-239 atoms made per
+fission,
+
+```text
+dN_U/dt  = R ψ − λ_U N_U
+dN_Np/dt = λ_U N_U − λ_Np N_Np
+P        = E_U λ_U N_U + E_Np λ_Np N_Np
+```
+
+Advanced **exactly** for a fission rate held constant over a step (the
+Bateman solution with a source), so the transient form reproduces
+[`actinide_decay_power_after_constant_irradiation`] to round-off. AI draft,
+clean room: written from the manual's description.
+
+```rust
+pub struct ActinideChain {
+    pub u239_per_fission: f64,
+    pub e_u239_j: f64,
+    pub e_np239_j: f64,
+    pub lambda_u239_per_s: f64,
+    pub lambda_np239_per_s: f64,
+    pub n_u239: f64,
+    pub n_np239: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `u239_per_fission` | `f64` | U-239 atoms made per fission, `R`. |
+| `e_u239_j` | `f64` | Energy per U-239 decay, J. |
+| `e_np239_j` | `f64` | Energy per Np-239 decay, J. |
+| `lambda_u239_per_s` | `f64` | U-239 decay constant, 1/s. |
+| `lambda_np239_per_s` | `f64` | Np-239 decay constant, 1/s. |
+| `n_u239` | `f64` | U-239 atoms present. |
+| `n_np239` | `f64` | Np-239 atoms present. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn empty(u239_per_fission: f64, e_u239: Energy, e_np239: Energy, lambda_u239: Frequency, lambda_np239: Frequency) -> Self { /* ... */ }
+  ```
+  A chain with no atoms yet.
+
+- ```rust
+  pub fn saturated(self: Self, fission_rate: Frequency) -> Self { /* ... */ }
+  ```
+  The same chain at equilibrium with a constant fission rate.
+
+- ```rust
+  pub fn power(self: &Self) -> Power { /* ... */ }
+  ```
+  Decay power now.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4237,6 +4384,11 @@ pub struct PointReactor {
   pub fn step(self: &mut Self, timestep: Time, reactivity: Ratio, neutron_generation_time: Time, background_source_rate: VolumetricNumberRate) -> Result<(), TehOPrkeError> { /* ... */ }
   ```
   Advance one step: kinetics by backward Euler, then decay heat at the
+
+- ```rust
+  pub fn set_actinides(self: &mut Self, actinides: ActinideDecayModel) { /* ... */ }
+  ```
+  Use an actinide model (e.g. [`ActinideChain::saturated`] at the
 
 - ```rust
   pub fn kinetics(self: &Self) -> &PointKinetics { /* ... */ }
@@ -4355,6 +4507,25 @@ pub struct PointReactor {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Functions
+
+#### Function `actinide_decay_power_after_constant_irradiation`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+
+Actinide decay power, W, after irradiation at a constant fission rate for
+`operating_time_s`, at `time_after_s` after shutdown (the ANS-5.1-1979 /
+MELCOR closed form, MELCOR Eqs 3-2 to 3-4): `E` in MeV, `joule_per_mev`
+the conversion the caller uses. Moved here from
+`sembawang::bwr_mark1::decay` (gh:#1081) with its arithmetic unchanged, so
+sembawang's results are bit-identical.
+
+```rust
+pub fn actinide_decay_power_after_constant_irradiation(fission_rate_per_s: f64, operating_time_s: f64, time_after_s: f64, u239_per_fission: f64, e_u239_mev: f64, e_np239_mev: f64, lambda_u239_per_s: f64, lambda_np239_per_s: f64, joule_per_mev: f64) -> f64 { /* ... */ }
+```
+
 ## Module `time_stepping`
 
 contains code for time stepping for prke

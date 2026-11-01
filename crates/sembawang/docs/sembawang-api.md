@@ -6031,7 +6031,7 @@ pub struct PlantDecay {
 - ```rust
   pub fn actinide_power_w(self: &Self) -> f64 { /* ... */ }
   ```
-  U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4).
+  U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4), by
 
 ###### Trait Implementations
 
