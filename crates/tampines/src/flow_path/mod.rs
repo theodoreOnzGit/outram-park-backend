@@ -216,6 +216,12 @@ impl FlowPath {
         (Velocity::new::<meter_per_second>(self.v_liquid), Velocity::new::<meter_per_second>(self.v_gas))
     }
 
+    /// Scale the atmosphere-phase velocity by `factor` (a network's
+    /// equalising limit, gh:#1095).
+    pub fn scale_gas_velocity(&mut self, factor: f64) {
+        self.v_gas *= factor;
+    }
+
     /// The geometry.
     pub fn geometry(&self) -> &FlowPathGeometry {
         &self.geometry

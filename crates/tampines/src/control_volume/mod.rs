@@ -810,30 +810,37 @@ impl ControlVolume {
     pub fn port_donor(&self, i: usize) -> Result<DonorState, TampinesError> {
         let port = self.ports.get(i).ok_or_else(|| TampinesError::InvalidInput(format!("no port {i}")))?;
         let z = port.elevation.get::<meter>();
-        let p = self.p_at(z);
-        if z < self.draw_level() {
-            Ok(DonorState {
-                draw: PortDraw::Liquid,
-                pressure: Pressure::new::<pascal>(p),
-                density: self.pool_density(),
-                specific_enthalpy: AvailableEnergy::new::<joule_per_kilogram>(self.h_liquid(self.d.t_pool, p)),
-                temperature: kelv(self.d.t_pool),
-                water_mass_fraction: 1.0,
-                ncg_mass_fractions: [0.0; 6],
-            })
-        } else {
-            let m = self.gas.total_mass().get::<kilogram>();
-            Ok(DonorState {
-                draw: PortDraw::Atmosphere,
-                pressure: Pressure::new::<pascal>(p),
-                density: MassDensity::new::<kilogram_per_cubic_meter>(m / self.d.v_gas),
-                specific_enthalpy: AvailableEnergy::new::<joule_per_kilogram>((self.gas_e + self.d.p_gas * self.d.v_gas) / m),
-                temperature: kelv(self.d.t_gas),
-                water_mass_fraction: self.gas.steam_kg / m,
-                ncg_mass_fractions: NonCondensable::ALL.map(|g| self.gas.ncg_moles[g.index()] * g.molar_mass() / m),
-            })
-        }
+        let (liq, gas) = self.phase_states_at(port.elevation);
+        Ok(if z < self.draw_level() { liq } else { gas })
     }
+
+    /// The pool liquid's and the atmosphere's states at elevation `z`, both
+    /// at the pressure there, whatever the level (gh:#1095: a flow path needs
+    /// both phases' properties at each end, and decides the split itself).
+    pub fn phase_states_at(&self, z: Length) -> (DonorState, DonorState) {
+        let p = self.p_at(z.get::<meter>());
+        let liquid = DonorState {
+            draw: PortDraw::Liquid,
+            pressure: Pressure::new::<pascal>(p),
+            density: self.pool_density(),
+            specific_enthalpy: AvailableEnergy::new::<joule_per_kilogram>(self.h_liquid(self.d.t_pool, p)),
+            temperature: kelv(self.d.t_pool),
+            water_mass_fraction: 1.0,
+            ncg_mass_fractions: [0.0; 6],
+        };
+        let m = self.gas.total_mass().get::<kilogram>();
+        let gas = DonorState {
+            draw: PortDraw::Atmosphere,
+            pressure: Pressure::new::<pascal>(p),
+            density: MassDensity::new::<kilogram_per_cubic_meter>(m / self.d.v_gas),
+            specific_enthalpy: AvailableEnergy::new::<joule_per_kilogram>((self.gas_e + self.d.p_gas * self.d.v_gas) / m),
+            temperature: kelv(self.d.t_gas),
+            water_mass_fraction: self.gas.steam_kg / m,
+            ncg_mass_fractions: NonCondensable::ALL.map(|g| self.gas.ncg_moles[g.index()] * g.molar_mass() / m),
+        };
+        (liquid, gas)
+    }
+
 
     // ── Step ─────────────────────────────────────────────────────────────
 
