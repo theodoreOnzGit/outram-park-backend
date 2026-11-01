@@ -18941,6 +18941,1178 @@ Error type returned by [`SinglePhaseFluidArray`] methods. Re-exported from
 pub use tuas_boussinesq_solver::tuas_lib_error::TuasLibError;
 ```
 
+## Module `subchannel`
+
+Steady-state single-phase subchannel solver with diversion crossflow and
+turbulent mixing (gh:#1078, RELAP-7 parity epic gh:#1056).
+
+**Research, education and V&V only. AI draft, unreviewed.**
+
+# Provenance (clean room)
+
+Written from the open, textbook COBRA-type subchannel formulation:
+
+- N. E. Todreas & M. S. Kazimi, *Nuclear Systems*, Vol. I (2nd ed., CRC
+  Press, 2011) and Vol. II (1990), the subchannel control-volume balance
+  equations and the turbulent-mixing definition `w'_ij = β s_ij Ḡ`.
+  Section and equation numbers are **not re-checked**: neither book is in
+  the kovan corpus.
+- D. S. Rowe, *COBRA-IIIC: A digital computer program for steady state and
+  transient thermal-hydraulic analysis of rod bundle nuclear fuel
+  elements*, BNWL-1695, Battelle Pacific Northwest Laboratories (1973):
+  the lateral-momentum equation with a gap loss coefficient, and the
+  turbulent-momentum factor `f_T`. Not re-checked (not in the corpus).
+
+RELAP-7's subchannel component (RELAP-7 Theory Manual, INL/EXT-14-31366,
+§6.15, Eqs 408–411) is the parity target named by gh:#1078; that manual is
+private and was **not read**. Nothing here is taken from it or from any
+RELAP source.
+
+# What was searched before writing this (workspace rule)
+
+`grep -ri "subchannel\|crossflow\|cross-flow\|turbulent mixing"` over
+`crates/` (2026-11-01): `bedok`'s channels are closed (no crossflow,
+`singleflow1devap.rs`); the `outram-foam-appbuilder-lib` hits are GeN-Foam
+drag closures, not a solver; the `dwsim` and digital-twin hits are
+shell-side crossflow in heat exchangers. No subchannel solver existed.
+Reused: the wall-friction closure [`crate::closures::wall_friction`]
+(RELAP5 four-region Darcy factor), PETIR's sparse LU
+([`petir::sparse::SparseLu`]), and GSL's forward-difference step rule
+([`petir::multiroots::GSL_SQRT_DBL_EPSILON`]). `petir::multiroots::fdjacobian`
+itself was checked and not used: it fills a dense `n × n` matrix, which is
+1 GB at a 25-channel, 100-cell bundle; the Jacobian here is built by
+column colouring on its known block band instead (same step rule).
+
+# Model
+
+`N` subchannels of constant flow area `A_i`, each discretised into `N_z`
+equal axial cells of height `Δz`, connected by gaps `g = (i → j)` of width
+`s` and centroid distance `l`. Fluid properties (`ρ`, `c_p`, `μ`) are
+constant: incompressible, no buoyancy. Unknowns: `ṁ_i`, `T_i`, `p_i` at the
+axial nodes and the diversion crossflow `w_g` (kg m⁻¹ s⁻¹, positive
+`i → j`) in each cell. Per cell `k` (overbars are cell averages of the two
+nodes, `u = ṁ/(ρA)`, `e_gi = +1` for the gap's `from` channel and `-1` for
+its `to` channel):
+
+```text
+mass      ṁ_i(k+1) − ṁ_i(k) + Δz Σ_g e_gi w_g = 0
+energy    c_p[ṁT]_k^{k+1} − q'_i Δz + Δz Σ_g e_gi [w_g c_p T* + w'_g c_p (T̄_i − T̄_j)] = 0
+axial     [ṁ²/(ρA)]_k^{k+1} + Δz Σ_g e_gi [w_g u* + f_T w'_g (ū_i − ū_j)]
+            + A_i (p_i(k+1) − p_i(k)) + A_i Δz ρ (a_f(ū_i) + g) = 0
+lateral   [(u_g w_g)_k − (u_g w_g)_{k−1}]/Δz − (s/l)(p̄_i − p̄_j) + K w_g|w_g|/(2ρ s l) = 0
+```
+
+`T*`, `u*` are the donor (upwind across the gap) cell values; `u_g` is the
+mean of the two channels' axial velocities; `w_{−1} = 0` (no crossflow
+upstream of the inlet); `a_f` is
+[`wall_friction_acceleration`](crate::closures::wall_friction::wall_friction_acceleration).
+The turbulent mixing rate is `w'_g = β s |Ḡ|`, `Ḡ` the mean of the two
+channels' mass fluxes. It is **on by default** (the caller supplies `β`);
+[`SubchannelProblem::without_turbulent_mixing`] ablates it. Mixing moves
+equal and opposite mass, so it carries energy and momentum but no net
+mass; its momentum effect carries the factor `f_T` (default 1).
+
+Boundary conditions: each channel's inlet mass flow and temperature, and a
+uniform outlet pressure. The whole system is solved at once by Newton's
+method (finite-difference Jacobian, sparse LU, backtracking).
+
+Every balance is in conservative form and the crossflow and mixing terms
+are antisymmetric between the two channels of a gap, so the bundle's total
+mass and energy are conserved to the Newton residual (V&V tests 2 and 4).
+
+# What it does not do
+
+- No two-phase flow, no density change with temperature (so no buoyancy
+  and no thermal acceleration), no spacer-grid form losses, no rod
+  conduction or wall temperature (the heat input is the linear power into
+  the coolant). Those are named gaps, not silent omissions.
+- Dense storage is avoided, but the linear solve is a general sparse LU of
+  the whole bundle; no claim is made about large-bundle run time.
+
+V&V: `crates/tampines/verification_and_validation/subchannel_crossflow_mixing.md`.
+
+```rust
+pub mod subchannel { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `LinearMassRate`
+
+A mass flow per unit length (kg m⁻¹ s⁻¹): the diversion crossflow `w` and
+the turbulent mixing rate `w'` per unit axial length. uom has no quantity
+of that name; its dimension, M L⁻¹ T⁻¹, is that of dynamic viscosity, so
+it is stored as one (`Pa·s ≡ kg m⁻¹ s⁻¹`). Read it with
+`get::<pascal_second>()` as kg m⁻¹ s⁻¹.
+
+```rust
+pub type LinearMassRate = uom::si::f64::DynamicViscosity;
+```
+
+#### Struct `FluidProperties`
+
+Constant fluid properties (incompressible single phase).
+
+```rust
+pub struct FluidProperties {
+    pub density: uom::si::f64::MassDensity,
+    pub specific_heat: uom::si::f64::SpecificHeatCapacity,
+    pub viscosity: uom::si::f64::DynamicViscosity,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `density` | `uom::si::f64::MassDensity` | Density `ρ`. |
+| `specific_heat` | `uom::si::f64::SpecificHeatCapacity` | Specific heat `c_p`; enthalpy is `c_p T`. |
+| `viscosity` | `uom::si::f64::DynamicViscosity` | Dynamic viscosity `μ`, for the Reynolds number of the wall friction. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `AxialHeat`
+
+The linear power into one subchannel's coolant.
+
+```rust
+pub enum AxialHeat {
+    Uniform(uom::si::f64::LinearPowerDensity),
+    PerCell(Vec<uom::si::f64::LinearPowerDensity>),
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+The same `q'` in every axial cell.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `uom::si::f64::LinearPowerDensity` |  |
+
+###### `PerCell`
+
+One `q'` per axial cell, inlet first; the length must equal the
+problem's `n_axial`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<uom::si::f64::LinearPowerDensity>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Subchannel`
+
+One subchannel: geometry, wall roughness, inlet state and heating.
+
+```rust
+pub struct Subchannel {
+    pub flow_area: uom::si::f64::Area,
+    pub hydraulic_diameter: uom::si::f64::Length,
+    pub roughness: uom::si::f64::Length,
+    pub shape_factor: f64,
+    pub inlet_mass_flow: uom::si::f64::MassRate,
+    pub inlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub heat: AxialHeat,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `flow_area` | `uom::si::f64::Area` | Flow area `A`. |
+| `hydraulic_diameter` | `uom::si::f64::Length` | Hydraulic diameter `D_h = 4A/P_w`. |
+| `roughness` | `uom::si::f64::Length` | Absolute wall roughness `ε` (the friction closure takes `ε/D_h`). |
+| `shape_factor` | `f64` | Laminar shape factor `Φ_S` of the friction closure (1 = circular). |
+| `inlet_mass_flow` | `uom::si::f64::MassRate` | Inlet mass flow (must be positive). |
+| `inlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | Inlet temperature. |
+| `heat` | `AxialHeat` | Linear power into the coolant. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(flow_area: Area, hydraulic_diameter: Length, inlet_mass_flow: MassRate, inlet_temperature: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  A smooth (`ε = 0`), circular-shape-factor (`Φ_S = 1`), unheated
+
+- ```rust
+  pub fn with_heat(self: Self, heat: AxialHeat) -> Self { /* ... */ }
+  ```
+  Set the linear power into the coolant.
+
+- ```rust
+  pub fn with_roughness(self: Self, roughness: Length) -> Self { /* ... */ }
+  ```
+  Set the absolute wall roughness.
+
+- ```rust
+  pub fn with_shape_factor(self: Self, shape_factor: f64) -> Self { /* ... */ }
+  ```
+  Set the laminar shape factor `Φ_S`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Gap`
+
+A gap between subchannels `from` and `to`; crossflow is positive from
+`from` to `to`.
+
+```rust
+pub struct Gap {
+    pub from: usize,
+    pub to: usize,
+    pub width: uom::si::f64::Length,
+    pub centroid_distance: uom::si::f64::Length,
+    pub loss_coefficient: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from` | `usize` | Index of the first channel. |
+| `to` | `usize` | Index of the second channel. |
+| `width` | `uom::si::f64::Length` | Gap width `s` (rod-to-rod clearance). |
+| `centroid_distance` | `uom::si::f64::Length` | Centroid-to-centroid distance `l`, the lateral control-volume length. |
+| `loss_coefficient` | `f64` | Gap loss coefficient `K` on the lateral velocity head (dimensionless). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(from: usize, to: usize, width: Length, centroid_distance: Length, loss_coefficient: f64) -> Self { /* ... */ }
+  ```
+  A gap between channels `from` and `to`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TurbulentMixing`
+
+Turbulent mixing parameters.
+
+```rust
+pub struct TurbulentMixing {
+    pub beta: f64,
+    pub momentum_factor: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `beta` | `f64` | Mixing coefficient `β` in `w' = β s Ḡ`. |
+| `momentum_factor` | `f64` | Momentum factor `f_T` on the axial-momentum exchange. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SubchannelProblem`
+
+A steady single-phase subchannel problem. Build with
+[`SubchannelProblem::new`], solve with [`SubchannelProblem::solve`].
+
+```rust
+pub struct SubchannelProblem {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(channels: Vec<Subchannel>, gaps: Vec<Gap>, fluid: FluidProperties, length: Length, n_axial: usize, outlet_pressure: Pressure, beta: f64) -> Self { /* ... */ }
+  ```
+  A bundle of `channels` joined by `gaps`, heated length `length` in
+
+- ```rust
+  pub fn without_turbulent_mixing(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: no turbulent mixing (energy or momentum). An explicit act;
+
+- ```rust
+  pub fn with_momentum_mixing_factor(self: Self, factor: f64) -> Self { /* ... */ }
+  ```
+  Set the turbulent-momentum factor `f_T` (0 ablates the momentum part
+
+- ```rust
+  pub fn with_gravity_along_flow(self: Self, g: Acceleration) -> Self { /* ... */ }
+  ```
+  Set the component of gravity opposing the flow (`g cos θ`, θ from the
+
+- ```rust
+  pub fn mixing(self: &Self) -> Option<TurbulentMixing> { /* ... */ }
+  ```
+  The turbulent mixing in force, `None` when ablated.
+
+- ```rust
+  pub fn solve(self: &Self) -> Result<SubchannelSolution, TampinesError> { /* ... */ }
+  ```
+  Solve the steady state.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SubchannelSolution`
+
+The steady state of a [`SubchannelProblem`].
+
+```rust
+pub struct SubchannelSolution {
+    pub z: Vec<uom::si::f64::Length>,
+    pub mass_flow: Vec<Vec<uom::si::f64::MassRate>>,
+    pub temperature: Vec<Vec<uom::si::f64::ThermodynamicTemperature>>,
+    pub pressure: Vec<Vec<uom::si::f64::Pressure>>,
+    pub crossflow: Vec<Vec<LinearMassRate>>,
+    pub turbulent_mixing: Vec<Vec<LinearMassRate>>,
+    pub newton_iterations: usize,
+    pub residual_inf_norm: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `z` | `Vec<uom::si::f64::Length>` | Axial node positions, `n_axial + 1` of them, inlet at 0. |
+| `mass_flow` | `Vec<Vec<uom::si::f64::MassRate>>` | Mass flow, `[channel][node]`. |
+| `temperature` | `Vec<Vec<uom::si::f64::ThermodynamicTemperature>>` | Temperature, `[channel][node]`. |
+| `pressure` | `Vec<Vec<uom::si::f64::Pressure>>` | Pressure, `[channel][node]`. |
+| `crossflow` | `Vec<Vec<LinearMassRate>>` | Diversion crossflow per unit length, `[gap][cell]`, positive<br>`from → to`. |
+| `turbulent_mixing` | `Vec<Vec<LinearMassRate>>` | Turbulent mixing rate per unit length `w' = β s |Ḡ|`, `[gap][cell]`<br>(zero when mixing is ablated). |
+| `newton_iterations` | `usize` | Newton iterations taken. |
+| `residual_inf_norm` | `f64` | Infinity norm of the scaled residual at the returned state. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total_mass_flow(self: &Self, node: usize) -> MassRate { /* ... */ }
+  ```
+  The bundle's total mass flow at axial node `node`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `TYPICAL_MIXING_COEFFICIENT_BETA`
+
+A representative turbulent mixing coefficient `β` for rod bundles, 0.02.
+
+The open literature puts `β` for PWR/BWR-type rod-bundle gaps at roughly
+0.005–0.05 (Rogers & Rosehart's review, and the subchannel chapter of
+Todreas & Kazimi, *Nuclear Systems*); 0.02 is a mid-range value. **Not
+re-checked** against a source in the corpus. It is a starting value for a
+caller, never a fitted one: `β` is always a caller input to
+[`SubchannelProblem::new`].
+
+```rust
+pub const TYPICAL_MIXING_COEFFICIENT_BETA: f64 = 0.02;
+```
+
+#### Constant `DEFAULT_MOMENTUM_MIXING_FACTOR`
+
+Default turbulent-momentum factor `f_T`: 1, i.e. the eddy exchange that
+carries enthalpy carries axial momentum at the same rate (Reynolds
+analogy). COBRA-IIIC (Rowe 1973) exposes `f_T` as an input;
+[`SubchannelProblem::with_momentum_mixing_factor`]`(0.0)` ablates the
+momentum part alone.
+
+```rust
+pub const DEFAULT_MOMENTUM_MIXING_FACTOR: f64 = 1.0;
+```
+
+#### Constant `STANDARD_GRAVITY`
+
+Standard gravity, the default axial gravity for vertical upward flow.
+
+```rust
+pub const STANDARD_GRAVITY: f64 = 9.80665;
+```
+
 ## Re-exports
 
 ### Re-export `TampinesError`
