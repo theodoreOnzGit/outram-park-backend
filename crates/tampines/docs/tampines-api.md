@@ -7742,12 +7742,1099 @@ Thin re-export of the Nusselt-number correlation dispatch enum from
 [`tuas_boussinesq_solver`] (used by [`crate::single_phase`]'s lumped
 pipe/component model) and the thermal-conductivity/viscosity transport
 functions from [`outram_park_fork_coolprop`] (used by
-[`crate::compressible`]'s finite-volume model). This module adds no new
-correlations -- see each backend crate's own documentation for the
-correlations' physics and validated ranges.
+[`crate::compressible`]'s finite-volume model). ~~This module adds no new
+correlations~~ **CORRECTED 2026-11-01 (GitHub #1063):** it now also holds
+[`relap5_htc`], the RELAP5 geometry-101/110 single-phase wall
+heat-transfer selection, which adds the Seban–Shimazaki, Inayatov and
+Kazimi–Carelli forms (its Dittus–Boelter and Churchill–Chu legs come
+from `tuas_boussinesq_solver`). See each backend crate's own
+documentation for the re-exported correlations' physics and validated
+ranges.
 
 ```rust
 pub mod heat_transfer { /* ... */ }
+```
+
+### Modules
+
+## Module `relap5_htc`
+
+RELAP5 geometry-101/110 single-phase wall heat-transfer selection
+(laminar / Dittus–Boelter / Churchill–Chu maximum; Seban–Shimazaki and
+Kazimi–Carelli liquid-metal forms; Inayatov bundle multiplier). GitHub
+#1063.
+RELAP5-style single-phase wall heat-transfer selection for hydraulic
+geometries 101 (internal pipe flow) and 110 (vertical bundle of in-line
+rods, parallel flow only). GitHub issue #1063, part of #1056.
+
+> Research, education and V&V only. AI draft, unreviewed. Not for
+> facility operation, licensing or safety decisions.
+
+# Specification
+
+RELAP-7 Theory Manual (INL), §2.2.2.1–2.2.2.2, Eqs 45–51, which state
+RELAP5's single-phase model for these two geometries. The manual is not
+redistributable and is cited by section and equation only. Every
+correlation it uses is a standard published one, cited at its function:
+
+| Leg | Correlation | Original source | Manual |
+|---|---|---|---|
+| forced laminar | `Nu = 4.36` | fully developed laminar tube flow, uniform wall flux (exact `48/11 = 4.3636`) | Eq. 45 |
+| forced turbulent | Dittus–Boelter `Nu = C Re^0.8 Pr^n`, `C = 0.023`, `n = 0.4` heated / `0.3` cooled | Dittus & Boelter (1930) | Eq. 46 |
+| free convection | Churchill–Chu vertical plate | Churchill & Chu (1975) | Eqs 47–48 |
+| liquid metal, pipe | `Nu = 5.0 + 0.025 Pe^0.8` | Seban & Shimazaki (1951) | Eq. 49 |
+| bundle multiplier | `C = 0.023 P/D`, `P/D` in `[1.1, 1.6]` | Inayatov (1975) | Eq. 50 |
+| liquid metal, bundle | `Nu = 4.0 + 0.33 (P/D)^3.8 (Pe/100)^0.86 + 0.16 (P/D)^5`, `P/D` in `[1.1, 1.4]` | Kazimi & Carelli (1976), "Westinghouse correlation" | Eq. 51 |
+
+# Selection logic
+
+- **`Pr ≥ 0.1` (ordinary fluids):** the Nusselt number is the maximum of
+  the forced-laminar, forced-turbulent and free-convection values, to
+  avoid discontinuities between regimes. The turbulent leg is evaluated
+  at **every** Reynolds number (no `Re > 2300` gate), as the manual
+  states it. Geometry 110 differs only in the Inayatov multiplier on the
+  turbulent leg.
+- **`Pr < 0.1` (liquid metals):** one correlation for all regimes — Eq.
+  49 for geometry 101, Eq. 51 for geometry 110. No max-selection.
+
+# Consequences of the specification worth knowing (found by the V&V)
+
+- **Dittus–Boelter overtakes the laminar value deep in laminar flow.**
+  With the turbulent leg ungated, `0.023 Re^0.8 Pr^0.4 = 4.36` at
+  `Re = (4.36/0.023/Pr^0.4)^1.25`: `Re ≈ 703` at `Pr = 1`, `Re ≈ 266` at
+  `Pr = 7`. This is what the stated model does; it is not a defect here.
+- **The `Pr = 0.1` switch is discontinuous.** At `Re = 10⁴`,
+  Dittus–Boelter at `Pr = 0.1` gives `14.51`; Seban–Shimazaki just below
+  gives `≈ 11.27`, a 22 % drop.
+
+# Decisions not fixed by the manual (stated, not hidden)
+
+- The heating direction is taken as "fluid heated" when
+  `T_wall ≥ T_bulk` (a zero difference picks `n = 0.4`; the free
+  convection leg is then at its conduction limit anyway).
+- The Grashof number uses `|T_wall − T_bulk|`.
+- An absent `P/D` defaults to 1.1 for the liquid-metal bundle form as
+  well as for the Inayatov multiplier (the manual states the default for
+  Eq. 50 and the clip range for Eq. 51).
+- The selection compares Nusselt numbers on the hydraulic diameter. When
+  the free-convection length `L` differs from `D_h`, the Churchill–Chu
+  value (on `L`) is rescaled by `D_h/L` so the three legs compare the same
+  coefficient `h`.
+- Published validity ranges (Dittus–Boelter `Re ≳ 10⁴`; Churchill–Chu
+  `Ra < 10¹²`; Kazimi–Carelli `10 ≤ Pe ≤ 5000`) are documented and not
+  enforced, because the manual evaluates each correlation everywhere.
+
+# Reuse (searched 2026-11-01)
+
+Dittus–Boelter and Churchill–Chu come from `tuas_boussinesq_solver`
+(`NusseltCorrelation::DittusBoelter`,
+`NusseltCorrelation::ChurchillChuVerticalPlate`, both added for this
+issue). The laminar constant is **not** taken from
+`NusseltCorrelation::PipeConstantHeatFluxFullyDeveloped`, which returns
+`4.354`, nor from `pipe_correlations::laminar_nusselt_uniform_heat_flux_fully_developed`,
+which returns `4.36` but panics above `Re = 2300` and so cannot sit under
+a max-selection; [`RELAP5_LAMINAR_NUSSELT`] is the manual's `4.36`.
+GeN-Foam's generic `A + B Re^C Pr^D` HTC (`outram-foam-appbuilder-lib`,
+`fs_htc.rs`) was checked and not used: tampines does not depend on that
+crate, and it has no max-selection or bundle forms. No Seban–Shimazaki,
+Inayatov or Kazimi–Carelli implementation existed in the workspace.
+
+V&V record: `crates/tampines/docs/relap5-htc-dispatcher-vv.md`.
+
+```rust
+pub mod relap5_htc { /* ... */ }
+```
+
+### Types
+
+#### Enum `Relap5HeatTransferGeometry`
+
+RELAP5 hydraulic heat-transfer geometry. An enum, not a trait object:
+the set is closed (only these two are in RELAP-7).
+
+```rust
+pub enum Relap5HeatTransferGeometry {
+    InternalPipe,
+    VerticalRodBundleParallelFlow {
+        pitch_to_diameter: Option<uom::si::f64::Ratio>,
+    },
+}
+```
+
+##### Variants
+
+###### `InternalPipe`
+
+Geometry **101**, the default: internal pipe flow.
+
+###### `VerticalRodBundleParallelFlow`
+
+Geometry **110**: vertical bundle of in-line rods (square pitch, or
+staggered on an equilateral triangle pitch), parallel flow only.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pitch_to_diameter` | `Option<uom::si::f64::Ratio>` | Rod pitch over rod diameter `P/D`; `None` means "not provided"<br>and selects the default 1.1. Clipped per correlation (see<br>[`inayatov_pitch_to_diameter`] and<br>[`kazimi_carelli_pitch_to_diameter`]). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn relap5_geometry_number(self: &Self) -> u16 { /* ... */ }
+  ```
+  The RELAP5 geometry number: 101 or 110.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Relap5HeatTransferRegime`
+
+Which correlation set the returned Nusselt number.
+
+```rust
+pub enum Relap5HeatTransferRegime {
+    ForcedLaminar,
+    ForcedTurbulent,
+    FreeConvection,
+    LiquidMetal,
+}
+```
+
+##### Variants
+
+###### `ForcedLaminar`
+
+Forced laminar, `Nu = 4.36`, was the maximum.
+
+###### `ForcedTurbulent`
+
+Forced turbulent (Dittus–Boelter, with the Inayatov multiplier in
+geometry 110) was the maximum.
+
+###### `FreeConvection`
+
+Free convection (Churchill–Chu) was the maximum.
+
+###### `LiquidMetal`
+
+`Pr < 0.1`: the liquid-metal correlation (no max-selection).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Relap5DimensionlessGroups`
+
+Dimensionless inputs to [`relap5_nusselt`].
+
+```rust
+pub struct Relap5DimensionlessGroups {
+    pub reynolds: uom::si::f64::Ratio,
+    pub prandtl: uom::si::f64::Ratio,
+    pub grashof: uom::si::f64::Ratio,
+    pub free_convection_length_over_hydraulic_diameter: uom::si::f64::Ratio,
+    pub heating_direction: tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::FluidHeatingDirection,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reynolds` | `uom::si::f64::Ratio` | Reynolds number on the hydraulic diameter, `≥ 0`. |
+| `prandtl` | `uom::si::f64::Ratio` | Bulk Prandtl number, `> 0`. |
+| `grashof` | `uom::si::f64::Ratio` | Grashof number on the free-convection length `L`, `≥ 0`. |
+| `free_convection_length_over_hydraulic_diameter` | `uom::si::f64::Ratio` | `L / D_h`, the free-convection length over the hydraulic diameter<br>(1 for RELAP5's default `L = D_h`), `> 0`. |
+| `heating_direction` | `tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::FluidHeatingDirection` | Whether the wall heats or cools the fluid (Dittus–Boelter exponent). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Relap5NusseltSelection`
+
+The selected Nusselt number and the regime that produced it.
+
+```rust
+pub struct Relap5NusseltSelection {
+    pub nusselt: uom::si::f64::Ratio,
+    pub regime: Relap5HeatTransferRegime,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nusselt` | `uom::si::f64::Ratio` | Nusselt number on the hydraulic diameter, `h D_h / k`. |
+| `regime` | `Relap5HeatTransferRegime` | Which correlation won. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Relap5WallConvectionInputs`
+
+Physical (`uom`) inputs for [`relap5_wall_heat_transfer`]. Properties
+are bulk-fluid values (the manual evaluates `k` at the bulk
+temperature).
+
+```rust
+pub struct Relap5WallConvectionInputs {
+    pub density: uom::si::f64::MassDensity,
+    pub dynamic_viscosity: uom::si::f64::DynamicViscosity,
+    pub thermal_conductivity: uom::si::f64::ThermalConductivity,
+    pub specific_heat_capacity: uom::si::f64::SpecificHeatCapacity,
+    pub thermal_expansion_coefficient: uom::si::f64::TemperatureCoefficient,
+    pub bulk_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub wall_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub flow_speed: uom::si::f64::Velocity,
+    pub hydraulic_diameter: uom::si::f64::Length,
+    pub free_convection_length: Option<uom::si::f64::Length>,
+    pub gravity: uom::si::f64::Acceleration,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `density` | `uom::si::f64::MassDensity` | Fluid density `ρ`. |
+| `dynamic_viscosity` | `uom::si::f64::DynamicViscosity` | Dynamic viscosity `μ`. |
+| `thermal_conductivity` | `uom::si::f64::ThermalConductivity` | Thermal conductivity `k`. |
+| `specific_heat_capacity` | `uom::si::f64::SpecificHeatCapacity` | Isobaric specific heat capacity `c_p` (for `Pr = μ c_p / k`). |
+| `thermal_expansion_coefficient` | `uom::si::f64::TemperatureCoefficient` | Volumetric thermal expansion coefficient `β`. |
+| `bulk_temperature` | `uom::si::f64::ThermodynamicTemperature` | Area-averaged bulk fluid temperature `T`. |
+| `wall_temperature` | `uom::si::f64::ThermodynamicTemperature` | Wall temperature `T_w`. |
+| `flow_speed` | `uom::si::f64::Velocity` | Mean flow speed `|u|` (its sign does not matter). |
+| `hydraulic_diameter` | `uom::si::f64::Length` | Heat-transfer hydraulic diameter `D_h`. |
+| `free_convection_length` | `Option<uom::si::f64::Length>` | Free-convection length scale `L`; `None` uses `D_h` (RELAP5's<br>default). |
+| `gravity` | `uom::si::f64::Acceleration` | Gravitational acceleration `g`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimensionless_groups(self: &Self) -> Result<Relap5DimensionlessGroups, TampinesError> { /* ... */ }
+  ```
+  Forms `Re = ρ |u| D_h / μ`, `Pr = μ c_p / k`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Relap5WallHeatTransfer`
+
+Result of [`relap5_wall_heat_transfer`].
+
+```rust
+pub struct Relap5WallHeatTransfer {
+    pub groups: Relap5DimensionlessGroups,
+    pub selection: Relap5NusseltSelection,
+    pub heat_transfer_coefficient: uom::si::f64::HeatTransfer,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `groups` | `Relap5DimensionlessGroups` | The dimensionless groups formed from the inputs. |
+| `selection` | `Relap5NusseltSelection` | The selected Nusselt number and regime. |
+| `heat_transfer_coefficient` | `uom::si::f64::HeatTransfer` | Wall heat-transfer coefficient `h = Nu k / D_h`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `seban_shimazaki_liquid_metal_nusselt`
+
+Seban–Shimazaki liquid-metal correlation for turbulent flow in a pipe
+with uniform wall temperature, `Nu = 5.0 + 0.025 Pe^0.8`.
+
+Source: R. A. Seban and T. T. Shimazaki (1951), "Heat transfer to a
+fluid flowing turbulently in a smooth pipe with walls at constant
+temperature", *Transactions of the ASME* **73**, 803–809. (Lyon's 1951
+uniform-heat-flux form has 7.0 in place of 5.0; the manual's Eq. 49 has
+5.0.) Used for all liquid-metal regimes in geometry 101 (RELAP-7 Theory
+Manual §2.2.2.1, Eq. 49).
+
+Hand check: `Pe = 100` gives `100^0.8 = 39.8107`, `Nu = 5.99527`.
+
+```rust
+pub fn seban_shimazaki_liquid_metal_nusselt(peclet_number: f64) -> f64 { /* ... */ }
+```
+
+#### Function `inayatov_pitch_to_diameter`
+
+`P/D` used by the Inayatov multiplier: an absent value or one below
+1.1 becomes 1.1; above 1.6 becomes 1.6 (RELAP-7 Theory Manual §2.2.2.2,
+following RELAP5).
+
+```rust
+pub fn inayatov_pitch_to_diameter(pitch_to_diameter: Option<f64>) -> f64 { /* ... */ }
+```
+
+#### Function `inayatov_bundle_coefficient`
+
+Inayatov's bundle coefficient replacing Dittus–Boelter's 0.023 for
+parallel flow along in-line (square) or staggered (equilateral
+triangle) rod bundles: `C = 0.023 P/D`, `P/D` clipped by
+[`inayatov_pitch_to_diameter`].
+
+Source: A. Ya. Inayatov (1975), "Correlation of data on heat transfer
+flow parallel to tube bundles at relative tube pitches of
+1.1 < s/d < 1.6", *Heat Transfer — Soviet Research* **7**(3), 84–88.
+As used in RELAP5 / RELAP-7 (Theory Manual §2.2.2.2, Eq. 50).
+
+```rust
+pub fn inayatov_bundle_coefficient(pitch_to_diameter: Option<f64>) -> f64 { /* ... */ }
+```
+
+#### Function `kazimi_carelli_pitch_to_diameter`
+
+`P/D` used by the liquid-metal bundle correlation: an absent value
+defaults to 1.1 (assumption, see the module docs), then clipped to
+`[1.1, 1.4]` (RELAP-7 Theory Manual §2.2.2.2, below Eq. 51).
+
+```rust
+pub fn kazimi_carelli_pitch_to_diameter(pitch_to_diameter: Option<f64>) -> f64 { /* ... */ }
+```
+
+#### Function `kazimi_carelli_rod_bundle_liquid_metal_nusselt`
+
+Liquid-metal Nusselt number for parallel flow in rod bundles,
+`Nu = 4.0 + 0.33 (P/D)^3.8 (Pe/100)^0.86 + 0.16 (P/D)^5.0`. The
+argument is used as given; clip it first with
+[`kazimi_carelli_pitch_to_diameter`].
+
+Source: M. S. Kazimi and M. D. Carelli (1976), "Heat transfer
+correlation for analysis of CRBRP assemblies", Westinghouse report
+CRBRP-ARD-0034, known as the Westinghouse correlation and reproduced in
+N. E. Todreas and M. S. Kazimi, *Nuclear Systems I* (§10, liquid-metal
+heat transfer in rod bundles) with validity `1.1 ≤ P/D ≤ 1.4`,
+`10 ≤ Pe ≤ 5000`. The form, coefficients and `P/D` range match RELAP-7
+Theory Manual §2.2.2.2, Eq. 51 (which does not name its source); the
+identification is from the coefficients and range and should be
+confirmed against the report by a reviewer.
+
+Hand check: `P/D = 1.2, Pe = 100`: `1.2^3.8 = 1.99938`,
+`1.2^5 = 2.48832`, `Nu = 4 + 0.65980 + 0.39813 = 5.05793`.
+
+```rust
+pub fn kazimi_carelli_rod_bundle_liquid_metal_nusselt(pitch_to_diameter: f64, peclet_number: f64) -> f64 { /* ... */ }
+```
+
+#### Function `relap5_nusselt`
+
+RELAP5 single-phase Nusselt number on the hydraulic diameter, selected
+as described in the module docs (RELAP-7 Theory Manual §2.2.2.1–2.2.2.2).
+
+Errors on non-finite inputs, `Re < 0`, `Pr ≤ 0`, `Gr < 0`,
+`L/D_h ≤ 0`, or a provided `P/D` that is not finite.
+
+```rust
+pub fn relap5_nusselt(geometry: Relap5HeatTransferGeometry, groups: Relap5DimensionlessGroups) -> Result<Relap5NusseltSelection, crate::error::TampinesError> { /* ... */ }
+```
+
+#### Function `relap5_wall_heat_transfer`
+
+RELAP5 single-phase wall heat-transfer coefficient for geometry 101 or
+110: forms the dimensionless groups, selects the Nusselt number with
+[`relap5_nusselt`] and returns `h = Nu k / D_h`.
+
+```rust
+pub fn relap5_wall_heat_transfer(geometry: Relap5HeatTransferGeometry, inputs: &Relap5WallConvectionInputs) -> Result<Relap5WallHeatTransfer, crate::error::TampinesError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RELAP5_LAMINAR_NUSSELT`
+
+Laminar Nusselt number for fully developed flow in a circular tube with
+uniform wall heat flux, as RELAP5 / RELAP-7 use it (Theory Manual
+§2.2.2.1, Eq. 45). The exact value is `48/11 = 4.3636…` (e.g. Incropera
+& DeWitt, Eq. 8.53).
+
+```rust
+pub const RELAP5_LAMINAR_NUSSELT: f64 = 4.36;
+```
+
+#### Constant `LIQUID_METAL_PRANDTL_THRESHOLD`
+
+Prandtl number below which a fluid is treated as a liquid metal
+(Theory Manual §2.2.2.1–2.2.2.2). `Pr < 0.1` is liquid metal;
+`Pr = 0.1` is an ordinary fluid.
+
+```rust
+pub const LIQUID_METAL_PRANDTL_THRESHOLD: f64 = 0.1;
 ```
 
 ### Re-exports
@@ -7802,6 +8889,62 @@ Re-exported from `outram-park-fork-coolprop`.
 
 ```rust
 pub use outram_park_fork_coolprop::FluidTransport;
+```
+
+#### Re-export `DittusBoelterData`
+
+Dittus–Boelter inputs and the heating/cooling selector, re-exported
+from `tuas_boussinesq_solver` (the `NusseltCorrelation::DittusBoelter`
+variant's data).
+
+```rust
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::DittusBoelterData;
+```
+
+#### Re-export `FluidHeatingDirection`
+
+Dittus–Boelter inputs and the heating/cooling selector, re-exported
+from `tuas_boussinesq_solver` (the `NusseltCorrelation::DittusBoelter`
+variant's data).
+
+```rust
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::FluidHeatingDirection;
+```
+
+#### Re-export `churchill_chu_vertical_plate_nusselt`
+
+Churchill–Chu vertical-plate free convection, with the Grashof and
+Rayleigh numbers, re-exported from `tuas_boussinesq_solver`.
+
+```rust
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::churchill_chu_vertical_plate_nusselt;
+```
+
+#### Re-export `grashof_number`
+
+Churchill–Chu vertical-plate free convection, with the Grashof and
+Rayleigh numbers, re-exported from `tuas_boussinesq_solver`.
+
+```rust
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::grashof_number;
+```
+
+#### Re-export `rayleigh_number`
+
+Churchill–Chu vertical-plate free convection, with the Grashof and
+Rayleigh numbers, re-exported from `tuas_boussinesq_solver`.
+
+```rust
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::rayleigh_number;
+```
+
+#### Re-export `ChurchillChuData`
+
+Churchill–Chu vertical-plate free convection, with the Grashof and
+Rayleigh numbers, re-exported from `tuas_boussinesq_solver`.
+
+```rust
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::ChurchillChuData;
 ```
 
 ## Module `hem`
