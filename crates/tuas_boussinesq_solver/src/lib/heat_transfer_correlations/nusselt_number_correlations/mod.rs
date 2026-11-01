@@ -11,5 +11,14 @@ pub mod input_structs;
 /// contains nusselt number enums used for input calculation
 pub mod enums;
 
+/// free (natural) convection correlations (Churchill–Chu vertical plate)
+/// with the Grashof and Rayleigh numbers
+pub mod free_convection_correlations;
+
 /// tests to ensure correlations are working correctly
 pub mod tests;
+
+pub use free_convection_correlations::{
+    churchill_chu_vertical_plate_nusselt, grashof_number, rayleigh_number, ChurchillChuData,
+};
+pub use input_structs::{DittusBoelterData, FluidHeatingDirection};
