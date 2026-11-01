@@ -889,6 +889,11 @@ impl CodeReview {
             ui.colored_label(c, format!("{t}"));
         }
         ui.label("Maturity: M0 concept, M1 AI draft, M2 AI V&V, M3 human reviewed, M4 human V&V.");
+        ui.label(
+            "Crate and module cards count their functions: valid (green); pending/tentative (blue: \
+             reviewed, waiting on a workspace test or on the stamps underneath); unreviewed (red: \
+             never stamped, or the stamp needs a person again).",
+        );
     }
 
     fn crate_panel(&mut self, ui: &mut egui::Ui, snap: &Snap, krate: &str) {
