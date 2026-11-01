@@ -280,6 +280,11 @@
 //!   which carry `α_k ∂p/∂t` only — matching the equation set stated above and
 //!   matching [`super::drift_flux`], so the two solvers can be compared in the
 //!   equilibrium limit.
+//! - ~~**Boundary conditions are velocity-type only**~~ **CORRECTED
+//!   2026-11-01 (gh:#1076):** pressure outlets, pressure inlets and velocity
+//!   inlets with a described inflow state exist, with time-dependent
+//!   versions ([`TwoFluidTimeDependentBoundary`]); what follows is the
+//!   original note.
 //! - **Boundary conditions are velocity-type only**
 //!   ([`TwoFluidBoundary`]): closed, prescribed velocity, and an HEM choked
 //!   outlet. There is no Dirichlet-pressure boundary, so the pressure floats on
@@ -324,6 +329,7 @@ use super::properties::{
     PhaseState, SaturatedProperties, SaturatedTransport, TwoPhaseState, P_MAX_IF97, P_MIN_IF97,
 };
 use super::thomas_solve;
+use tampines_steam_tables::hem::TimeTable;
 use super::wall_heat::{thermal_expansion, PhasicWallHeat, WallPhaseState};
 use crate::TampinesError;
 
@@ -481,6 +487,12 @@ pub const MAX_VOLUME_RESIDUAL: f64 = 1.0e-4;
 /// Enum dispatch per the workspace rule: the set of 1-D end conditions is
 /// closed, and adding one must force every `match` to be revisited.
 ///
+/// ~~**Every variant is a *velocity* boundary.**~~ **CORRECTED 2026-11-01
+/// (gh:#1076):** [`PressureOutlet`](Self::PressureOutlet) and
+/// [`PressureInlet`](Self::PressureInlet) are pressure boundaries, and
+/// [`VelocityInlet`](Self::VelocityInlet) is a velocity boundary that says
+/// what enters. The paragraph below describes the original velocity-only set.
+///
 /// **Every variant is a *velocity* boundary.** That is a deliberate restriction
 /// of the first implementation and not an oversight: a velocity face carries no
 /// pressure sensitivity, so it stays out of the pressure matrix entirely and
@@ -500,7 +512,9 @@ pub enum TwoFluidBoundary {
     /// Inflow through this boundary re-injects the adjacent cell's state
     /// (zero-gradient donor), because the variant carries no description of
     /// what is entering. A case with sustained inflow needs a boundary that
-    /// does; there is none yet.
+    /// does; ~~there is none yet~~ **CORRECTED 2026-11-01 (gh:#1076):** use
+    /// [`VelocityInlet`](Self::VelocityInlet) or
+    /// [`PressureInlet`](Self::PressureInlet).
     PrescribedVelocity(f64),
 
     /// A **choked (critical) outlet** through a break of area
@@ -530,6 +544,184 @@ pub enum TwoFluidBoundary {
         /// once the critical throat pressure falls below it.
         ambient_pressure: f64,
     },
+
+    /// A **pressure** boundary \[Pa\] (gh:#1076): the face velocity of each
+    /// phase follows from its own momentum equation across the half cell
+    /// between the boundary and the first cell centre, with the 2×2
+    /// drag + virtual-mass block assembled on the adjacent cell's state.
+    /// Backflow re-injects the adjacent cell's state (zero-gradient donor).
+    /// The pressure is static: no `½ρu²` is subtracted.
+    PressureOutlet {
+        /// Static pressure at the face \[Pa\].
+        pressure: f64,
+    },
+
+    /// A pressure boundary that also says **what enters** (gh:#1076): the
+    /// face velocities as for [`PressureOutlet`](Self::PressureOutlet), and
+    /// inflow carries the [`TwoFluidInflow`] state evaluated at `pressure`.
+    PressureInlet {
+        /// Static pressure at the face \[Pa\].
+        pressure: f64,
+        /// The entering fluid.
+        inflow: TwoFluidInflow,
+    },
+
+    /// A prescribed face velocity \[m/s\] on both phases, positive in `+x`,
+    /// carrying the [`TwoFluidInflow`] state (evaluated at the adjacent
+    /// cell's start-of-step pressure) whenever it flows *into* the pipe
+    /// (gh:#1076). Outflow through it is zero-gradient, as for
+    /// [`PrescribedVelocity`](Self::PrescribedVelocity).
+    VelocityInlet {
+        /// Face velocity \[m/s\], positive in `+x`.
+        velocity: f64,
+        /// The entering fluid.
+        inflow: TwoFluidInflow,
+    },
+}
+
+/// How the thermal state of entering liquid is given (gh:#1076).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TwoFluidInflowThermo {
+    /// Liquid temperature \[K\], at or below `T_sat` at the face pressure
+    /// (a superheated value is refused by the property layer, not clipped).
+    LiquidTemperature(f64),
+    /// Liquid specific enthalpy \[J/kg\], within the metastable bracket.
+    LiquidEnthalpy(f64),
+}
+
+/// The state of fluid entering through an inflow boundary (gh:#1076):
+/// liquid at the given temperature or enthalpy, vapour **saturated** at the
+/// face pressure, in the volume ratio `void_fraction`. With the face pressure
+/// that fixes `m_g = α ρ_g^sat`, `m_l = (1 − α) ρ_l(p, h_l)`, `h_g = h_g^sat`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TwoFluidInflow {
+    /// Liquid thermal state.
+    pub thermo: TwoFluidInflowThermo,
+    /// Entering vapour volume fraction \[-\], in `[0, 1)`.
+    pub void_fraction: f64,
+}
+
+/// A time-dependent two-fluid boundary (gh:#1076): each quantity is a reused
+/// [`TimeTable`] (`tampines_steam_tables::hem::TimeTable`, the type RELAP-7-
+/// style time-dependent components take in `HemNetwork`). At the start of
+/// every step the solver evaluates it at the current time `t^n` into the
+/// static [`TwoFluidBoundary`] of the same shape, so a constant table gives
+/// the static boundary exactly.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TwoFluidTimeDependentBoundary {
+    /// [`TwoFluidBoundary::PressureOutlet`] with `p(t)` \[Pa\].
+    PressureOutlet {
+        /// Static pressure \[Pa\] against time \[s\].
+        pressure: TimeTable,
+    },
+    /// [`TwoFluidBoundary::PressureInlet`] with `p(t)`, `T_l(t)` and `α(t)`.
+    PressureInlet {
+        /// Static pressure \[Pa\] against time.
+        pressure: TimeTable,
+        /// Liquid temperature \[K\] against time.
+        liquid_temperature: TimeTable,
+        /// Vapour volume fraction \[-\] against time.
+        void_fraction: TimeTable,
+    },
+    /// [`TwoFluidBoundary::VelocityInlet`] with `u(t)`, `T_l(t)` and `α(t)`.
+    VelocityInlet {
+        /// Face velocity \[m/s\] against time.
+        velocity: TimeTable,
+        /// Liquid temperature \[K\] against time.
+        liquid_temperature: TimeTable,
+        /// Vapour volume fraction \[-\] against time.
+        void_fraction: TimeTable,
+    },
+}
+
+impl TwoFluidTimeDependentBoundary {
+    /// The static boundary this one prescribes at time `t`.
+    #[must_use]
+    pub fn at(&self, t: Time) -> TwoFluidBoundary {
+        let t = t.get::<second>();
+        match self {
+            Self::PressureOutlet { pressure } => TwoFluidBoundary::PressureOutlet {
+                pressure: pressure.at(t),
+            },
+            Self::PressureInlet {
+                pressure,
+                liquid_temperature,
+                void_fraction,
+            } => TwoFluidBoundary::PressureInlet {
+                pressure: pressure.at(t),
+                inflow: TwoFluidInflow {
+                    thermo: TwoFluidInflowThermo::LiquidTemperature(liquid_temperature.at(t)),
+                    void_fraction: void_fraction.at(t),
+                },
+            },
+            Self::VelocityInlet {
+                velocity,
+                liquid_temperature,
+                void_fraction,
+            } => TwoFluidBoundary::VelocityInlet {
+                velocity: velocity.at(t),
+                inflow: TwoFluidInflow {
+                    thermo: TwoFluidInflowThermo::LiquidTemperature(liquid_temperature.at(t)),
+                    void_fraction: void_fraction.at(t),
+                },
+            },
+        }
+    }
+}
+
+/// The phase masses and enthalpies an inflow boundary donates to its face.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct InflowDonor {
+    m_g: f64,
+    m_l: f64,
+    h_g: f64,
+    h_l: f64,
+}
+
+/// A boundary resolved against the start-of-step state.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum BoundaryFace {
+    /// Velocity face: `u` on both phases.
+    Velocity {
+        u: f64,
+        choked: bool,
+        inflow: Option<InflowDonor>,
+    },
+    /// Pressure face at `p_b`.
+    Pressure {
+        p_b: f64,
+        inflow: Option<InflowDonor>,
+    },
+}
+
+impl BoundaryFace {
+    fn inflow(self) -> Option<InflowDonor> {
+        match self {
+            Self::Velocity { inflow, .. } | Self::Pressure { inflow, .. } => inflow,
+        }
+    }
+}
+
+/// [`TwoFluidInflow`] at pressure `p` \[Pa\] as face donor values.
+fn inflow_donor(p: f64, inflow: TwoFluidInflow) -> Result<InflowDonor, TampinesError> {
+    let alpha = inflow.void_fraction;
+    if !(0.0..1.0).contains(&alpha) {
+        return Err(TampinesError::InvalidInput(format!(
+            "inflow void fraction must be in [0, 1) (got {alpha})"
+        )));
+    }
+    let sat = SaturatedProperties::at(p)?;
+    let h_l = match inflow.thermo {
+        TwoFluidInflowThermo::LiquidTemperature(t) => enthalpy_at_pt(p, t, sat)?,
+        TwoFluidInflowThermo::LiquidEnthalpy(h) => h,
+    };
+    let liquid = PhaseState::liquid_at(p, h_l, sat)?;
+    Ok(InflowDonor {
+        m_g: alpha * sat.rho_g,
+        m_l: (1.0 - alpha) * liquid.density,
+        h_g: sat.h_g,
+        h_l,
+    })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -934,6 +1126,15 @@ pub struct TwoFluidReport {
     /// `α_res ρ_k`; at `α_res = 1e-6` that is `≈ 4e-5 kg/m³` for steam at
     /// 7 MPa. Counted for the same reason.
     pub residual_alpha_floor_events: usize,
+    /// Mixture mass flow through the **left** face \[kg/s\], `+x` positive
+    /// (into the pipe), from the final corrector's donor fluxes (gh:#1076).
+    pub inlet_mass_flow: f64,
+    /// Enthalpy flow `Σ_k ṁ_k h_k` through the left face \[W\], `+x`
+    /// positive, with the donor enthalpies the transport used (gh:#1076).
+    pub inlet_energy_flow: f64,
+    /// Enthalpy flow through the **right** face \[W\], `+x` positive
+    /// (out of the pipe), likewise.
+    pub outlet_energy_flow: f64,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1041,6 +1242,10 @@ pub struct TwoFluid1d {
     total_enthalpy_mass_transfer: bool,
     /// gh:#1062: wall heat, adiabatic by default.
     wall_heat: PhasicWallHeat,
+    /// gh:#1076: time-dependent boundaries, re-evaluated into `left`/`right`
+    /// at the start of every step.
+    left_time_dependent: Option<TwoFluidTimeDependentBoundary>,
+    right_time_dependent: Option<TwoFluidTimeDependentBoundary>,
 }
 
 impl TwoFluid1d {
@@ -1137,6 +1342,8 @@ impl TwoFluid1d {
             interface_velocity: true,
             total_enthalpy_mass_transfer: true,
             wall_heat: PhasicWallHeat::default(),
+            left_time_dependent: None,
+            right_time_dependent: None,
         };
 
         let t0 = temperature.get::<kelvin>();
@@ -1353,14 +1560,43 @@ impl TwoFluid1d {
         Ok(())
     }
 
-    /// Set the boundary condition at the `x = 0` end.
+    /// Set the boundary condition at the `x = 0` end. Clears a
+    /// time-dependent one set there.
     pub fn set_left_boundary(&mut self, bc: TwoFluidBoundary) {
         self.left = bc;
+        self.left_time_dependent = None;
     }
 
-    /// Set the boundary condition at the `x = L` end.
+    /// Set the boundary condition at the `x = L` end. Clears a
+    /// time-dependent one set there.
     pub fn set_right_boundary(&mut self, bc: TwoFluidBoundary) {
         self.right = bc;
+        self.right_time_dependent = None;
+    }
+
+    /// Set a time-dependent boundary at the `x = 0` end (gh:#1076),
+    /// evaluated at the start of every step.
+    pub fn set_left_time_dependent_boundary(&mut self, bc: TwoFluidTimeDependentBoundary) {
+        self.left = bc.at(self.time());
+        self.left_time_dependent = Some(bc);
+    }
+
+    /// Set a time-dependent boundary at the `x = L` end (gh:#1076).
+    pub fn set_right_time_dependent_boundary(&mut self, bc: TwoFluidTimeDependentBoundary) {
+        self.right = bc.at(self.time());
+        self.right_time_dependent = Some(bc);
+    }
+
+    /// The boundary currently in force at the `x = 0` end.
+    #[must_use]
+    pub fn left_boundary(&self) -> TwoFluidBoundary {
+        self.left
+    }
+
+    /// The boundary currently in force at the `x = L` end.
+    #[must_use]
+    pub fn right_boundary(&self) -> TwoFluidBoundary {
+        self.right
     }
 
     /// The added-mass coefficient `C_vm` \[-\].
@@ -1705,6 +1941,13 @@ impl TwoFluid1d {
     ///   closure rejects its inputs.
     /// - [`TampinesError::InvalidInput`] for a malformed boundary condition.
     pub fn step(&mut self) -> Result<TwoFluidReport, TampinesError> {
+        // gh:#1076: a time-dependent boundary is evaluated at t^n.
+        if let Some(bc) = &self.left_time_dependent {
+            self.left = bc.at(self.time());
+        }
+        if let Some(bc) = &self.right_time_dependent {
+            self.right = bc.at(self.time());
+        }
         let n = self.pipe.n_cells();
         let dx = self.pipe.dx();
         // gh:#1058: face areas and cell volumes (constant without a profile).
@@ -1768,8 +2011,10 @@ impl TwoFluid1d {
         };
 
         // ── Stage 1: face momentum — the 2x2 implicit coupling blocks ────
-        let (left_u, left_choked) = self.resolve_boundary(self.left, 0)?;
-        let (right_u, right_choked) = self.resolve_boundary(self.right, n - 1)?;
+        let left_face = self.resolve_face(self.left, 0)?;
+        let right_face = self.resolve_face(self.right, n - 1)?;
+        let left_choked = matches!(left_face, BoundaryFace::Velocity { choked: true, .. });
+        let right_choked = matches!(right_face, BoundaryFace::Velocity { choked: true, .. });
 
         let mut u_star_g = vec![0.0; n + 1];
         let mut u_star_l = vec![0.0; n + 1];
@@ -1854,20 +2099,50 @@ impl TwoFluid1d {
             d_l[j] = dl / dx;
         }
 
-        // Both boundaries are velocity boundaries, so they carry no pressure
-        // sensitivity and stay out of the pressure matrix (d = 0).
-        u_star_g[0] = left_u;
-        u_star_l[0] = left_u;
-        u_star_g[n] = right_u;
-        u_star_l[n] = right_u;
+        // A velocity boundary carries no pressure sensitivity and stays out of
+        // the pressure matrix (d = 0). A pressure boundary (gh:#1076) gets its
+        // own momentum predictor over the half cell to the first centre, so
+        // its d enters the diagonal of the Newton matrix below exactly like an
+        // interior face's.
+        for (face, j, cell) in [(left_face, 0, 0), (right_face, n, n - 1)] {
+            match face {
+                BoundaryFace::Velocity { u, .. } => {
+                    u_star_g[j] = u;
+                    u_star_l[j] = u;
+                }
+                BoundaryFace::Pressure { .. } => {
+                    let (ug, ul, dg, dl) = self.boundary_face_predictor(
+                        j,
+                        cell,
+                        k_d_cell[cell],
+                        &u_g_old,
+                        &u_l_old,
+                    )?;
+                    u_star_g[j] = ug;
+                    u_star_l[j] = ul;
+                    d_g[j] = dg / (0.5 * dx);
+                    d_l[j] = dl / (0.5 * dx);
+                }
+            }
+        }
 
         // Donor phase mass concentrations at faces, upwinded once on the
-        // force-only velocities so the pressure matrix stays linear.
+        // force-only velocities so the pressure matrix stays linear. An inflow
+        // boundary donates its own state where fluid enters (gh:#1076).
+        let left_inflow = left_face.inflow();
+        let right_inflow = right_face.inflow();
+        let face_donor = |field: &[f64], j: usize, u: f64, pick: fn(InflowDonor) -> f64| -> f64 {
+            match (j, left_inflow, right_inflow) {
+                (0, Some(d), _) if u > 0.0 => pick(d),
+                (jj, _, Some(d)) if jj == n && u < 0.0 => pick(d),
+                _ => donor_cell(field, j, n, u),
+            }
+        };
         let mg_face: Vec<f64> = (0..=n)
-            .map(|j| donor_cell(&m_g_old, j, n, u_star_g[j]))
+            .map(|j| face_donor(&m_g_old, j, u_star_g[j], |d| d.m_g))
             .collect();
         let ml_face: Vec<f64> = (0..=n)
-            .map(|j| donor_cell(&m_l_old, j, n, u_star_l[j]))
+            .map(|j| face_donor(&m_l_old, j, u_star_l[j], |d| d.m_l))
             .collect();
 
         // ── Stages 2-5: the outer-corrector loop ─────────────────────────
@@ -1896,6 +2171,9 @@ impl TwoFluid1d {
         let mut transport_new = transport_old.clone();
 
         let mut correctors_used = 0usize;
+        let mut inlet_mass_flow = 0.0_f64;
+        let mut inlet_energy_flow = 0.0_f64;
+        let mut outlet_energy_flow = 0.0_f64;
         let mut limited_cells = 0usize;
         let mut floor_events = 0usize;
 
@@ -1963,10 +2241,26 @@ impl TwoFluid1d {
                 u_g_new[j] = u_star_g[j] - d_g[j] * (p_new[j] - p_new[j - 1]);
                 u_l_new[j] = u_star_l[j] - d_l[j] * (p_new[j] - p_new[j - 1]);
             }
-            u_g_new[0] = left_u;
-            u_l_new[0] = left_u;
-            u_g_new[n] = right_u;
-            u_l_new[n] = right_u;
+            match left_face {
+                BoundaryFace::Velocity { u, .. } => {
+                    u_g_new[0] = u;
+                    u_l_new[0] = u;
+                }
+                BoundaryFace::Pressure { p_b, .. } => {
+                    u_g_new[0] = u_star_g[0] - d_g[0] * (p_new[0] - p_b);
+                    u_l_new[0] = u_star_l[0] - d_l[0] * (p_new[0] - p_b);
+                }
+            }
+            match right_face {
+                BoundaryFace::Velocity { u, .. } => {
+                    u_g_new[n] = u;
+                    u_l_new[n] = u;
+                }
+                BoundaryFace::Pressure { p_b, .. } => {
+                    u_g_new[n] = u_star_g[n] - d_g[n] * (p_b - p_new[n - 1]);
+                    u_l_new[n] = u_star_l[n] - d_l[n] * (p_b - p_new[n - 1]);
+                }
+            }
 
             // -- transport, interfacial exchange, recovery -------------------------
             let flux_g: Vec<f64> = (0..=n).map(|j| mg_face[j] * u_g_new[j] * area[j]).collect();
@@ -1975,10 +2269,17 @@ impl TwoFluid1d {
             let mut max_residual: f64 = 0.0;
             for i in 0..n {
                 let (jl, jr) = (i, i + 1);
-                let hg_l = donor_scalar(&h_g_old, jl, n, flux_g[jl]);
-                let hg_r = donor_scalar(&h_g_old, jr, n, flux_g[jr]);
-                let hl_l = donor_scalar(&h_l_old, jl, n, flux_l[jl]);
-                let hl_r = donor_scalar(&h_l_old, jr, n, flux_l[jr]);
+                let hg_l = face_donor(&h_g_old, jl, flux_g[jl], |d| d.h_g);
+                let hg_r = face_donor(&h_g_old, jr, flux_g[jr], |d| d.h_g);
+                let hl_l = face_donor(&h_l_old, jl, flux_l[jl], |d| d.h_l);
+                let hl_r = face_donor(&h_l_old, jr, flux_l[jr], |d| d.h_l);
+                if i == 0 {
+                    inlet_mass_flow = flux_g[0] + flux_l[0];
+                    inlet_energy_flow = flux_g[0] * hg_l + flux_l[0] * hl_l;
+                }
+                if i == n - 1 {
+                    outlet_energy_flow = flux_g[n] * hg_r + flux_l[n] * hl_r;
+                }
 
                 let m_g_star = m_g_old[i] - dt / volume[i] * (flux_g[jr] - flux_g[jl]);
                 let m_l_star = m_l_old[i] - dt / volume[i] * (flux_l[jr] - flux_l[jl]);
@@ -2162,6 +2463,9 @@ impl TwoFluid1d {
             outlet_choked: left_choked || right_choked,
             mass_transfer_limited_cells: limited_cells,
             residual_alpha_floor_events: floor_events,
+            inlet_mass_flow,
+            inlet_energy_flow,
+            outlet_energy_flow,
         })
     }
 
@@ -2389,6 +2693,113 @@ impl TwoFluid1d {
         Ok((psi_g, psi_l))
     }
 
+    /// Resolve a boundary against the start-of-step state (gh:#1076): a
+    /// velocity face through [`resolve_boundary`](Self::resolve_boundary), a
+    /// pressure face as its pressure, each with its inflow donor if it has
+    /// one.
+    ///
+    /// # Errors
+    ///
+    /// As [`resolve_boundary`](Self::resolve_boundary); a non-finite or
+    /// out-of-range boundary pressure is [`TampinesError::InvalidInput`]; an
+    /// inflow state the property layer refuses is passed on.
+    fn resolve_face(
+        &self,
+        bc: TwoFluidBoundary,
+        adjacent: usize,
+    ) -> Result<BoundaryFace, TampinesError> {
+        let check_p = |p: f64| -> Result<f64, TampinesError> {
+            if p.is_finite() && p > P_MIN_IF97 && p < P_MAX_IF97 {
+                Ok(p)
+            } else {
+                Err(TampinesError::InvalidInput(format!(
+                    "boundary pressure must be finite and inside IF97 (got {p} Pa)"
+                )))
+            }
+        };
+        match bc {
+            TwoFluidBoundary::PressureOutlet { pressure } => Ok(BoundaryFace::Pressure {
+                p_b: check_p(pressure)?,
+                inflow: None,
+            }),
+            TwoFluidBoundary::PressureInlet { pressure, inflow } => {
+                let p_b = check_p(pressure)?;
+                Ok(BoundaryFace::Pressure {
+                    p_b,
+                    inflow: Some(inflow_donor(p_b, inflow)?),
+                })
+            }
+            TwoFluidBoundary::VelocityInlet { velocity, inflow } => {
+                if !velocity.is_finite() {
+                    return Err(TampinesError::InvalidInput(format!(
+                        "inlet velocity must be finite (got {velocity})"
+                    )));
+                }
+                Ok(BoundaryFace::Velocity {
+                    u: velocity,
+                    choked: false,
+                    inflow: Some(inflow_donor(self.p[adjacent], inflow)?),
+                })
+            }
+            other => {
+                let (u, choked) = self.resolve_boundary(other, adjacent)?;
+                Ok(BoundaryFace::Velocity {
+                    u,
+                    choked,
+                    inflow: None,
+                })
+            }
+        }
+    }
+
+    /// Force-only face velocities `(u*_g, u*_l)` \[m/s\] and the per-phase
+    /// pressure sensitivities `(d_g, d_l)` per unit gradient at a
+    /// **pressure** boundary face `j` (gh:#1076), from the 2×2 block
+    /// assembled on the adjacent `cell`'s start-of-step state. The same terms
+    /// as an interior face except the convective acceleration, which has no
+    /// upwind neighbour outside the pipe and is dropped.
+    fn boundary_face_predictor(
+        &self,
+        j: usize,
+        cell: usize,
+        k_d: f64,
+        u_g_old: &[f64],
+        u_l_old: &[f64],
+    ) -> Result<(f64, f64, f64, f64), TampinesError> {
+        let dt = self.dt;
+        let sum = self.alpha_g[cell] + self.alpha_l[cell];
+        let (ag, al) = if sum > 0.0 {
+            (self.alpha_g[cell] / sum, self.alpha_l[cell] / sum)
+        } else {
+            (0.5, 0.5)
+        };
+        let (rho_g, rho_l) = (self.rho_g[cell], self.rho_l[cell]);
+        let block = PhaseCouplingBlock::assemble(PhaseCouplingInputs {
+            alpha_g: ag,
+            alpha_l: al,
+            rho_g,
+            rho_l,
+            k_d,
+            c_vm: self.c_vm,
+            dispersed: self.exchange.dispersed_phase(),
+            residual_alpha: self.residual_alpha,
+            dt,
+        })?;
+        let (mg, ml) = (ag * rho_g, al * rho_l);
+        let d_h = self.pipe.face_hydraulic_diameter_si(j);
+        let g_x = self.pipe.axial_gravity();
+        let (hd_g, hd_l) = (u_g_old[j] / dt, u_l_old[j] / dt);
+        let b_g = block.vapour_diagonal * u_g_old[j] + mg * g_x
+            - mg * wall_friction_acceleration(u_g_old[j], rho_g, self.sat[cell].mu_g, d_h)
+            + block.tapered_virtual_mass_vapour * (hd_g - hd_l);
+        let b_l = block.liquid_diagonal * u_l_old[j] + ml * g_x
+            - ml * wall_friction_acceleration(u_l_old[j], rho_l, self.sat[cell].mu_f, d_h)
+            + block.tapered_virtual_mass_liquid * (hd_l - hd_g);
+        let (ug, ul) = block.solve(b_g, b_l)?;
+        let (dg, dl) = block.pressure_coefficients(ag, al)?;
+        Ok((ug, ul, dg, dl))
+    }
+
     /// Resolve a boundary condition against the current state into the face
     /// velocity (imposed on both phases) and whether a critical-flow model set
     /// it.
@@ -2415,6 +2826,13 @@ impl TwoFluid1d {
                 }
                 Ok((u, false))
             }
+            TwoFluidBoundary::PressureOutlet { .. }
+            | TwoFluidBoundary::PressureInlet { .. }
+            | TwoFluidBoundary::VelocityInlet { .. } => Err(TampinesError::InvalidInput(
+                "resolve_boundary handles velocity boundaries only; pressure and inlet \
+                 boundaries go through resolve_face"
+                    .to_string(),
+            )),
             TwoFluidBoundary::ChokedOutlet {
                 area_fraction,
                 ambient_pressure,
@@ -2588,13 +3006,6 @@ fn donor_cell(field: &[f64], j: usize, n: usize, velocity: f64) -> f64 {
     } else {
         field[j]
     }
-}
-
-/// Donor-cell pick of a cell-centred scalar at face `j`, upwinded on a **mass
-/// flux** \[kg/s\] rather than a velocity. Same end-face convention as
-/// [`donor_cell`].
-fn donor_scalar(field: &[f64], j: usize, n: usize, flux: f64) -> f64 {
-    donor_cell(field, j, n, flux)
 }
 
 /// Wall-friction deceleration `F_wall/ρ` \[m/s²\], Darcy-Weisbach, `F/ρ = f

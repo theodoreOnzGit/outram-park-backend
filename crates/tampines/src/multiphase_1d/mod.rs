@@ -164,7 +164,8 @@ pub use interfacial::{DispersedPhase, InterfacialCellState, InterfacialExchange,
 pub use properties::{SaturatedProperties, TwoPhaseState};
 pub use wall_heat::{PhasicWallHeat, WallPhaseState};
 pub use two_fluid::{
-    PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidReport,
+    PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidInflow,
+    TwoFluidInflowThermo, TwoFluidReport, TwoFluidTimeDependentBoundary,
 };
 
 /// Solve a tridiagonal linear system `A x = b` by the Thomas algorithm.
@@ -272,6 +273,9 @@ pub fn thomas_solve(
 
 #[cfg(test)]
 mod area_tests;
+
+#[cfg(test)]
+mod boundary_tests;
 
 #[cfg(test)]
 mod edwards_tests;
