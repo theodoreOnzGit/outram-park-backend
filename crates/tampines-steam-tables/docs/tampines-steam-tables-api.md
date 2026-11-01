@@ -11575,6 +11575,11 @@ pub trait HemEquationOfState: Clone + core::fmt::Debug {
 ##### Provided Methods
 
 - ```rust
+  fn dynamic_viscosity(self: &Self, state: &HemThermoState) -> Option<DynamicViscosity> { /* ... */ }
+  ```
+  Dynamic viscosity of `state`, for wall friction (gh:#1061). `None`
+
+- ```rust
   fn break_flow(self: &Self, stagnation_pressure: Pressure, stagnation_enthalpy: AvailableEnergy, back_pressure: Pressure) -> Result<BreakFlow, HemError> { /* ... */ }
   ```
   Mass flux through a break from stagnation `(p0, h0)` to `back_pressure`
@@ -12360,6 +12365,225 @@ pub struct LinearEosHem {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `wall_friction`
+
+Single-phase wall friction: the RELAP5 four-region Darcy friction factor
+(gh:#1061, RELAP-7 parity epic gh:#1056). AI draft, clean room: written
+from the RELAP-7 Theory Manual's description (INL/EXT-14-31366, §2.2.1,
+Eqs 24–34; cited, not quoted), never from RELAP-7 or RELAP5 source.
+
+The four regions, by `Re = ρ|u|D_h/μ`:
+
+1. `Re < 64`: RELAP-7 sets `f = f_max` (the manual names `f_max` without
+   giving it). That cap makes the friction force quadratic in `u` as the
+   flow stops, while the exact fully developed laminar solution, `64/(Re
+   Φ_S)`, keeps it linear (Stokes) and is up to `64/Re` times larger. **The
+   default here is the laminar law continued below 64**
+   ([`LowReynolds::Laminar`]), correct physics first; RELAP-7's cap is
+   [`LowReynolds::FMax`] (with `f_max = 1/Φ_S`, the laminar value at
+   `Re = 64`), for parity runs.
+
+   Evidence for the default (2026-11-01): with the cap, the `tampines`
+   two-fluid blowdown's volume constraint drifted to 1.68e-6 (gate 1e-6;
+   8.0e-10 before), because nearly stagnant phases lost their linear drag;
+   with the laminar law it is 8.0e-10 again.
+2. `64 ≤ Re < 2200`: laminar, `f = 64/(Re Φ_S)` (Eq 29), `Φ_S` the shape
+   factor (1 for a circular pipe).
+3. `2200 ≤ Re < 3000`: reciprocal interpolation between the laminar value
+   at 2200 and the turbulent value at 3000 (Eqs 30–33).
+4. `Re ≥ 3000`: Zigrang & Sylvester's explicit approximation to Colebrook
+   (Eq 34), with the factor 1.14 that the manual says corrects the original
+   1.114. Zigrang, D. J. & Sylvester, N. D. (1982), *AIChE J.* 28, 514.
+
+Lives here, beside the HEM pipe that uses it; `tampines` re-exports it as
+`tampines::closures::wall_friction` for its two-phase solvers.
+
+```rust
+pub mod wall_friction { /* ... */ }
+```
+
+### Types
+
+#### Enum `LowReynolds`
+
+What the friction factor does below `Re = 64` (module doc).
+
+```rust
+pub enum LowReynolds {
+    Laminar,
+    FMax,
+}
+```
+
+##### Variants
+
+###### `Laminar`
+
+The laminar law `64/(Re Φ_S)` continued to `Re → 0` (the default).
+
+###### `FMax`
+
+RELAP-7's cap, `f = f_max = 1/Φ_S`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `zigrang_sylvester`
+
+Zigrang–Sylvester turbulent Darcy friction factor at `re` for relative
+roughness `eps_over_d = ε/D` (RELAP-7 Eq 34):
+
+```text
+1/√f = −2 log10( ε/(3.7D) + (2.51/Re)(1.14 − 2 log10(ε/D + 21.25/Re^0.9)) )
+```
+
+```rust
+pub fn zigrang_sylvester(re: f64, eps_over_d: f64) -> f64 { /* ... */ }
+```
+
+#### Function `darcy_friction_factor`
+
+The four-region Darcy friction factor with the default low-Reynolds
+treatment ([`LowReynolds::Laminar`]): see [`darcy_friction_factor_with`].
+
+```rust
+pub fn darcy_friction_factor(re: f64, eps_over_d: f64, shape_factor: f64) -> f64 { /* ... */ }
+```
+
+#### Function `darcy_friction_factor_with`
+
+The RELAP5 four-region Darcy friction factor (module doc) at Reynolds
+number `re` (`≥ 0`), relative roughness `eps_over_d` (`≥ 0`) and shape
+factor `shape_factor` (`> 0`, 1 for a circular pipe), with the given
+treatment below `Re = 64`. At `Re = 0` the laminar law is infinite; the
+force it gives, `f u|u|`, is finite and is what
+[`wall_friction_acceleration`] evaluates.
+
+```rust
+pub fn darcy_friction_factor_with(re: f64, eps_over_d: f64, shape_factor: f64, low: LowReynolds) -> f64 { /* ... */ }
+```
+
+#### Function `wall_friction_acceleration`
+
+Wall-friction deceleration `F_wall/(ρA) = f u|u|/(2 D_h)`, m/s² (RELAP-7
+Eq 24 per unit mass), carrying the sign of `u` so it opposes the motion.
+Zero for `u = 0` or a non-positive density, viscosity or diameter.
+
+```rust
+pub fn wall_friction_acceleration(u: f64, rho: f64, mu: f64, hydraulic_diameter: f64, eps_over_d: f64, shape_factor: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RE_F_MAX`
+
+Lower edge of the laminar region (`f = f_max` below it).
+
+```rust
+pub const RE_F_MAX: f64 = 64.0;
+```
+
+#### Constant `RE_LAMINAR_MAX`
+
+Upper edge of the laminar region, `Re_min` of the transition.
+
+```rust
+pub const RE_LAMINAR_MAX: f64 = 2200.0;
+```
+
+#### Constant `RE_TURBULENT_MIN`
+
+Lower edge of the turbulent region, `Re_max` of the transition.
+
+```rust
+pub const RE_TURBULENT_MIN: f64 = 3000.0;
+```
+
 ### Re-exports
 
 #### Re-export `pressure_from_rho_e`
@@ -12474,6 +12698,12 @@ pub use network::VolumeBranch;
 
 ```rust
 pub use pipe::AreaProfile;
+```
+
+#### Re-export `WallHeat`
+
+```rust
+pub use pipe::WallHeat;
 ```
 
 #### Re-export `HemBoundary`

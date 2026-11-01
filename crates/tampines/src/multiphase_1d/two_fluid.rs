@@ -2324,30 +2324,24 @@ fn donor_scalar(field: &[f64], j: usize, n: usize, flux: f64) -> f64 {
     donor_cell(field, j, n, flux)
 }
 
-/// Wall-friction deceleration `F_wall/ρ` \[m/s²\], Darcy-Weisbach.
+/// Wall-friction deceleration `F_wall/ρ` \[m/s²\], Darcy-Weisbach, `F/ρ = f
+/// |u| u / (2 D_h)`.
 ///
-/// `F/ρ = f |u| u / (2 D_h)` with
-///
-/// - laminar, `Re < 2300`: `f = 64/Re`, exact for fully developed pipe flow;
-/// - turbulent: `f = 0.316 Re^{−1/4}` (Blasius, smooth pipe, good to
-///   `Re ≈ 10⁵`).
-///
+/// ~~Laminar `f = 64/Re` below `Re = 2300`, Blasius `0.316 Re^{−1/4}` above
+/// (smooth pipe).~~ **CORRECTED 2026-11-01 (gh:#1061):** `f` is now the shared
+/// RELAP5 four-region factor ([`crate::closures::wall_friction`]): `f_max`
+/// below `Re = 64`, `64/Re` to 2200, reciprocal interpolation to 3000, then
+/// Zigrang–Sylvester. The pipe is smooth (`ε = 0`, [`super::geometry::Pipe1d`]
+/// carries no roughness) and circular (`Φ_S = 1`). The change moved the
+/// Edwards and Marviken results; the movement is recorded in
+/// `crates/tampines-steam-tables/verification_and_validation/hem_pipe_friction_gravity.md`.
 /// The same closure [`super::drift_flux`] uses, applied here **per phase** with
 /// that phase's own density and viscosity, and weighted by its volume fraction
 /// at the call site. There is no flow-regime wall-friction partition — which
 /// phase actually wets the wall is not modelled — so this is crude wherever
 /// friction matters. Carries the sign of `u`, so it always opposes the motion.
 fn wall_friction_acceleration(u: f64, rho: f64, mu: f64, d_h: f64) -> f64 {
-    if u == 0.0 || mu <= 0.0 || rho <= 0.0 {
-        return 0.0;
-    }
-    let re = (rho * u.abs() * d_h / mu).max(1.0e-6);
-    let f = if re < 2300.0 {
-        64.0 / re
-    } else {
-        0.316 * re.r_powf(-0.25)
-    };
-    f * u.abs() * u / (2.0 * d_h)
+    crate::closures::wall_friction::wall_friction_acceleration(u, rho, mu, d_h, 0.0, 1.0)
 }
 
 /// Specific enthalpy \[J/kg\] at `(p, T)`, picking the IF97 region from `T`

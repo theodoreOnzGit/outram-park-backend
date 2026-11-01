@@ -26,8 +26,8 @@ use petir::mathf::RealMath;
 use petir::roots::{BracketingMethod, BracketingSolver};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    AvailableEnergy, MassDensity, MassFlux, Pressure, Ratio, SpecificHeatCapacity, SpecificVolume,
-    ThermodynamicTemperature, Velocity,
+    AvailableEnergy, DynamicViscosity, MassDensity, MassFlux, Pressure, Ratio,
+    SpecificHeatCapacity, SpecificVolume, ThermodynamicTemperature, Velocity,
 };
 use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -143,6 +143,15 @@ pub trait HemEquationOfState: Clone + core::fmt::Debug {
         pressure: Pressure,
         density: MassDensity,
     ) -> Result<HemThermoState, HemError>;
+
+    /// Dynamic viscosity of `state`, for wall friction (gh:#1061). `None`
+    /// (the default) means the closure supplies none, and the pipe is then
+    /// frictionless with it: the ideal gas and the reduced verification
+    /// closures. [`super::Iapws97Hem`] supplies it.
+    fn dynamic_viscosity(&self, state: &HemThermoState) -> Option<DynamicViscosity> {
+        let _ = state;
+        None
+    }
 
     /// Mass flux through a break from stagnation `(p0, h0)` to `back_pressure`
     /// (critical if choked, isentropic-subcritical otherwise). Used by

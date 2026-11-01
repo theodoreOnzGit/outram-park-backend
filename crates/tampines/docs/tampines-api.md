@@ -289,6 +289,79 @@ pub use crate::components::Turbine;
 pub use crate::components::Valve;
 ```
 
+## Module `closures`
+
+Closures shared by the 1-D solvers (RELAP-7 parity epic gh:#1056).
+
+- [`wall_friction`]: the RELAP5 four-region Darcy friction factor with
+  Zigrang–Sylvester's turbulent form (gh:#1061). It lives in
+  `tampines_steam_tables::hem::wall_friction`, beside the HEM pipe that
+  also uses it, and is re-exported here for `multiphase_1d`.
+
+```rust
+pub mod closures { /* ... */ }
+```
+
+### Modules
+
+## Module `wall_friction`
+
+The RELAP5 four-region wall friction (gh:#1061).
+
+```rust
+pub mod wall_friction { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `darcy_friction_factor`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::darcy_friction_factor;
+```
+
+#### Re-export `darcy_friction_factor_with`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::darcy_friction_factor_with;
+```
+
+#### Re-export `wall_friction_acceleration`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::wall_friction_acceleration;
+```
+
+#### Re-export `zigrang_sylvester`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::zigrang_sylvester;
+```
+
+#### Re-export `LowReynolds`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::LowReynolds;
+```
+
+#### Re-export `RE_F_MAX`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::RE_F_MAX;
+```
+
+#### Re-export `RE_LAMINAR_MAX`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::RE_LAMINAR_MAX;
+```
+
+#### Re-export `RE_TURBULENT_MIN`
+
+```rust
+pub use tampines_steam_tables::hem::wall_friction::RE_TURBULENT_MIN;
+```
+
 ## Module `components`
 
 Balance-of-plant component models.

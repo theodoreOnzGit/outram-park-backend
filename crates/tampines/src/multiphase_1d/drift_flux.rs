@@ -1472,29 +1472,20 @@ fn mixture_viscosity(alpha: f64, sat: SaturatedProperties) -> f64 {
     alpha * sat.mu_g + (1.0 - alpha) * sat.mu_f
 }
 
-/// Wall-friction deceleration `F_wall/ρ` \[m/s²\], Darcy-Weisbach.
+/// Wall-friction deceleration `F_wall/ρ` \[m/s²\], Darcy-Weisbach, `F/ρ = f
+/// |u| u / (2 D_h)`.
 ///
-/// `F/ρ = f |u| u / (2 D_h)` with
-///
-/// - laminar, `Re < 2300`: `f = 64/Re`, exact for fully developed pipe flow;
-/// - turbulent: `f = 0.316 Re^{−1/4}` (Blasius, smooth pipe, good to
-///   `Re ≈ 10⁵`).
-///
-/// Blasius rather than Colebrook because it is explicit, and because in a
-/// blowdown friction is second-order against the pressure gradient — the
-/// roughness dependence Colebrook adds would be false precision. Carries the
-/// sign of `u`, so it always opposes the motion.
+/// ~~Laminar `f = 64/Re` below `Re = 2300`, Blasius `0.316 Re^{−1/4}` above
+/// (smooth pipe).~~ **CORRECTED 2026-11-01 (gh:#1061):** `f` is now the shared
+/// RELAP5 four-region factor ([`crate::closures::wall_friction`]): `f_max`
+/// below `Re = 64`, `64/Re` to 2200, reciprocal interpolation to 3000, then
+/// Zigrang–Sylvester. The pipe is smooth (`ε = 0`, [`super::geometry::Pipe1d`]
+/// carries no roughness) and circular (`Φ_S = 1`). The change moved the
+/// Edwards and Marviken results; the movement is recorded in
+/// `crates/tampines-steam-tables/verification_and_validation/hem_pipe_friction_gravity.md`.
+/// Carries the sign of `u`, so it always opposes the motion.
 fn wall_friction_acceleration(u: f64, rho: f64, mu: f64, d_h: f64) -> f64 {
-    if u == 0.0 || mu <= 0.0 || rho <= 0.0 {
-        return 0.0;
-    }
-    let re = (rho * u.abs() * d_h / mu).max(1.0e-6);
-    let f = if re < 2300.0 {
-        64.0 / re
-    } else {
-        0.316 * re.r_powf(-0.25)
-    };
-    f * u.abs() * u / (2.0 * d_h)
+    crate::closures::wall_friction::wall_friction_acceleration(u, rho, mu, d_h, 0.0, 1.0)
 }
 
 /// The drift momentum flux `Φ = α ρ_g ρ_l U_dm² / ((1−α) ρ_m)` \[Pa\].

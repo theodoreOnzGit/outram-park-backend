@@ -76,6 +76,7 @@
 #![forbid(unsafe_code)]
 
 pub mod balance_of_plant;
+pub mod closures;
 pub mod components;
 pub mod compressible;
 pub mod cooling_tower;

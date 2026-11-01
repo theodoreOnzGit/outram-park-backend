@@ -78,6 +78,13 @@ use uom::si::f64::{
     MassFlux, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
 };
 use uom::si::heat_flux_density::watt_per_square_meter;
+use uom::si::angle::radian;
+use uom::si::dynamic_viscosity::pascal_second;
+use uom::si::f64::{Angle, DynamicViscosity, HeatTransfer, VolumetricPowerDensity};
+use uom::si::heat_transfer::watt_per_square_meter_kelvin;
+use uom::si::thermodynamic_temperature::kelvin;
+use uom::si::volumetric_power_density::watt_per_cubic_meter;
+use super::wall_friction::wall_friction_acceleration;
 use uom::si::frequency::hertz;
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
@@ -195,6 +202,12 @@ pub struct HemPipeGeometry {
     length_m: f64,
     profile: AreaProfile,
     n_cells: usize,
+    /// Incline from horizontal, rad; `+` means `+x` points upward (gh:#1061).
+    incline_rad: f64,
+    /// Wall roughness `ε`, m (gh:#1061).
+    roughness_m: f64,
+    /// Laminar shape factor `Φ_S`, 1 for a circular pipe (gh:#1061).
+    shape_factor: f64,
 }
 
 impl HemPipeGeometry {
@@ -249,7 +262,51 @@ impl HemPipeGeometry {
             length_m,
             profile,
             n_cells,
+            incline_rad: 0.0,
+            roughness_m: 0.0,
+            shape_factor: 1.0,
         })
+    }
+
+    /// The same pipe inclined by `incline` from horizontal (`+` for `+x`
+    /// upward): gravity enters momentum and energy (gh:#1061). Default 0.
+    pub fn with_incline(self, incline: Angle) -> Self {
+        Self { incline_rad: incline.get::<radian>(), ..self }
+    }
+
+    /// The same pipe with wall roughness `ε` (default 0, smooth).
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::InvalidInput`] for a negative or non-finite roughness.
+    pub fn with_roughness(self, roughness: Length) -> Result<Self, HemError> {
+        let r = roughness.get::<meter>();
+        if !(r.is_finite() && r >= 0.0) {
+            return Err(HemError::InvalidInput(format!("roughness {r} m must be >= 0")));
+        }
+        Ok(Self { roughness_m: r, ..self })
+    }
+
+    /// The same pipe with laminar shape factor `Φ_S` (default 1, circular).
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::InvalidInput`] unless `Φ_S > 0`.
+    pub fn with_shape_factor(self, shape_factor: f64) -> Result<Self, HemError> {
+        if !(shape_factor.is_finite() && shape_factor > 0.0) {
+            return Err(HemError::InvalidInput(format!("shape factor {shape_factor} must be > 0")));
+        }
+        Ok(Self { shape_factor, ..self })
+    }
+
+    /// Incline from horizontal.
+    pub fn incline(&self) -> Angle {
+        Angle::new::<radian>(self.incline_rad)
+    }
+
+    /// Wall roughness `ε`.
+    pub fn roughness(&self) -> Length {
+        Length::new::<meter>(self.roughness_m)
     }
 
     /// Total length `L`.
@@ -476,6 +533,28 @@ pub enum HemBoundary {
     },
 }
 
+/// Heat through the pipe wall into the fluid (gh:#1062, RELAP-7 Eqs 22,
+/// 35–37). Applied over the wall area per unit length,
+/// [`HemPipeGeometry::wall_area_per_length_at`] (circular cross-section),
+/// divided by the flow area, as a source in the total-energy equation.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum WallHeat {
+    /// No heat through the wall (the default: a boundary input, not physics
+    /// a closure supplies).
+    #[default]
+    Adiabatic,
+    /// A prescribed heat flux into the fluid, W/m² of wall.
+    HeatFlux(HeatFluxDensity),
+    /// A wall at `temperature` with heat-transfer coefficient `h`: `q'' =
+    /// h (T_wall − T)`, `T` the cell temperature (RELAP-7 Eq 35).
+    WallTemperature {
+        /// Wall temperature.
+        temperature: ThermodynamicTemperature,
+        /// Heat-transfer coefficient `H_w`.
+        heat_transfer_coefficient: HeatTransfer,
+    },
+}
+
 /// How the time step is chosen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TimeStepControl {
@@ -560,10 +639,12 @@ pub struct HemCellState {
     pub quality: Option<Ratio>,
     /// Homogeneous (no-slip) void fraction.
     pub void_fraction: Ratio,
+    /// Dynamic viscosity, when the closure supplies one (gh:#1061).
+    pub dynamic_viscosity: Option<DynamicViscosity>,
 }
 
 impl HemCellState {
-    fn new(t: HemThermoState, u: f64) -> Self {
+    fn new(t: HemThermoState, u: f64, mu: Option<DynamicViscosity>) -> Self {
         Self {
             pressure: t.pressure,
             temperature: t.temperature,
@@ -574,6 +655,7 @@ impl HemCellState {
             equilibrium_sound_speed: t.equilibrium_sound_speed,
             quality: t.quality,
             void_fraction: t.void_fraction,
+            dynamic_viscosity: mu,
         }
     }
 }
@@ -626,6 +708,10 @@ struct Prim {
     p: f64,
     e: f64,
     c: f64,
+    /// Dynamic viscosity, Pa·s; 0 when the closure supplies none.
+    mu: f64,
+    /// Temperature, K.
+    t: f64,
 }
 
 impl Prim {
@@ -636,6 +722,8 @@ impl Prim {
             p: cell.pressure.get::<pascal>(),
             e: cell.specific_internal_energy.get::<joule_per_kilogram>(),
             c: cell.equilibrium_sound_speed.get::<meter_per_second>(),
+            mu: cell.dynamic_viscosity.map_or(0.0, |m| m.get::<pascal_second>()),
+            t: cell.temperature.get::<kelvin>(),
         }
     }
 
@@ -657,6 +745,9 @@ struct Assembly {
     flux: Vec<KnpFaceFlux>,
     /// Cell pressures, Pa, for the wall-pressure force of a varying area.
     cell_pressure: Vec<f64>,
+    /// Cell momentum and energy sources per unit volume from wall friction
+    /// and gravity (gh:#1061), N/m³ and W/m³.
+    cell_source: Vec<(f64, f64)>,
     courant_rate: f64,
     break_choked: bool,
 }
@@ -751,6 +842,13 @@ pub struct HemPipe<E: HemEquationOfState = Iapws97Hem> {
     time_s: f64,
     last_dt: Option<f64>,
     work: SspWorkspace,
+    /// Wall friction applied (default; gh:#1061). Off only by
+    /// [`HemPipe::without_wall_friction`].
+    wall_friction: bool,
+    /// Heat through the wall (gh:#1062); adiabatic by default.
+    wall_heat: WallHeat,
+    /// Volumetric heat source `r` (RELAP-7 Eq 22), W/m³; zero by default.
+    volumetric_heating_w_m3: f64,
 }
 
 impl<E: HemEquationOfState> HemPipe<E> {
@@ -805,7 +903,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
             q[3 * i] = rho;
             q[3 * i + 1] = rho * u;
             q[3 * i + 2] = rho * (e + 0.5 * u * u);
-            cells.push(HemCellState::new(t, u));
+            cells.push(HemCellState::new(t, u, eos.dynamic_viscosity(&t)));
         }
         let len = q.len();
         let mut pipe = Self {
@@ -819,6 +917,9 @@ impl<E: HemEquationOfState> HemPipe<E> {
             time_s: 0.0,
             last_dt: None,
             work: SspWorkspace::new(len),
+            wall_friction: true,
+            wall_heat: WallHeat::Adiabatic,
+            volumetric_heating_w_m3: 0.0,
         };
         // Close the conserved state once through (ρ, e), so what the solver
         // carries is exactly what it will decode on the first step.
@@ -994,6 +1095,60 @@ impl<E: HemEquationOfState> HemPipe<E> {
     /// produces a state that cannot be closed.
     pub fn step(&mut self) -> Result<HemStepReport, HemError> {
         self.step_until_at_most(f64::INFINITY)
+    }
+
+    /// The same pipe without wall friction: the ablation of gh:#1061. Wall
+    /// friction is on by default and acts whenever the closure supplies a
+    /// viscosity ([`HemEquationOfState::dynamic_viscosity`]).
+    pub fn without_wall_friction(self) -> Self {
+        Self { wall_friction: false, ..self }
+    }
+
+    /// Set the heat through the wall (gh:#1062).
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::InvalidInput`] for a non-finite flux, a non-positive wall
+    /// temperature, or a negative or non-finite coefficient.
+    pub fn set_wall_heat(&mut self, wall_heat: WallHeat) -> Result<(), HemError> {
+        let ok = match wall_heat {
+            WallHeat::Adiabatic => true,
+            WallHeat::HeatFlux(q) => q.get::<watt_per_square_meter>().is_finite(),
+            WallHeat::WallTemperature { temperature, heat_transfer_coefficient } => {
+                let t = temperature.get::<kelvin>();
+                let h = heat_transfer_coefficient.get::<watt_per_square_meter_kelvin>();
+                t.is_finite() && t > 0.0 && h.is_finite() && h >= 0.0
+            }
+        };
+        if !ok {
+            return Err(HemError::InvalidInput(format!("invalid wall heat {wall_heat:?}")));
+        }
+        self.wall_heat = wall_heat;
+        Ok(())
+    }
+
+    /// Set a uniform volumetric heat source `r` (RELAP-7 Eq 22).
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::InvalidInput`] if it is not finite.
+    pub fn set_volumetric_heating(&mut self, r: VolumetricPowerDensity) -> Result<(), HemError> {
+        let v = r.get::<watt_per_cubic_meter>();
+        if !v.is_finite() {
+            return Err(HemError::InvalidInput(format!("volumetric heating {v} W/m3")));
+        }
+        self.volumetric_heating_w_m3 = v;
+        Ok(())
+    }
+
+    /// The heat through the wall.
+    pub fn wall_heat(&self) -> WallHeat {
+        self.wall_heat
+    }
+
+    /// Whether wall friction is applied.
+    pub fn has_wall_friction(&self) -> bool {
+        self.wall_friction
     }
 
     /// Advance exactly `dt`, whatever [`HemNumerics::time_step`] says (the
@@ -1236,7 +1391,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
                         value: p,
                     });
                 }
-                Ok(HemCellState::new(t, u))
+                Ok(HemCellState::new(t, u, self.eos.dynamic_viscosity(&t)))
             })
             .collect()
     }
@@ -1269,6 +1424,8 @@ impl<E: HemEquationOfState> HemPipe<E> {
                 p,
                 e: t.specific_internal_energy.get::<joule_per_kilogram>(),
                 c: t.equilibrium_sound_speed.get::<meter_per_second>(),
+                mu: o.mu,
+                t: t.temperature.get::<kelvin>(),
             })
         };
         Ok(match bc {
@@ -1312,6 +1469,46 @@ impl<E: HemEquationOfState> HemPipe<E> {
                 )
             }
         })
+    }
+
+    /// Wall friction `−ρ f u|u|/(2D_h)` (RELAP-7 Eq 24, the RELAP5 four-region
+    /// factor) and gravity `−ρ g sinθ` in momentum, gravity work `−ρ u g
+    /// sinθ` in energy (wall friction does no work on the total energy: the
+    /// wall does not move). Per unit volume.
+    fn cell_sources(&self, cells: &[Prim]) -> Vec<(f64, f64)> {
+        const G: f64 = 9.80665;
+        let geo = &self.geometry;
+        let g_sin = G * geo.incline_rad.sin();
+        cells
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let friction = if self.wall_friction && c.mu > 0.0 {
+                    let x = geo.cell_centre(i);
+                    let d_h = geo.hydraulic_diameter_at(x).get::<meter>();
+                    c.rho
+                        * wall_friction_acceleration(c.u, c.rho, c.mu, d_h, geo.roughness_m / d_h, geo.shape_factor)
+                } else {
+                    0.0
+                };
+                let x = geo.cell_centre(i);
+                let wall_flux = match self.wall_heat {
+                    WallHeat::Adiabatic => 0.0,
+                    WallHeat::HeatFlux(q) => q.get::<watt_per_square_meter>(),
+                    WallHeat::WallTemperature { temperature, heat_transfer_coefficient } => {
+                        heat_transfer_coefficient.get::<watt_per_square_meter_kelvin>()
+                            * (temperature.get::<kelvin>() - c.t)
+                    }
+                };
+                let heat = if wall_flux != 0.0 {
+                    wall_flux * geo.wall_area_per_length_at(x).get::<meter>()
+                        / geo.flow_area_at(x).get::<square_meter>()
+                } else {
+                    0.0
+                };
+                (-friction - c.rho * g_sin, -c.rho * c.u * g_sin + heat + self.volumetric_heating_w_m3)
+            })
+            .collect()
     }
 
     /// Face fluxes and Courant rate of a decoded state.
@@ -1364,6 +1561,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
         Ok(Assembly {
             flux,
             cell_pressure: cells.iter().map(|c| c.p).collect(),
+            cell_source: self.cell_sources(cells),
             courant_rate,
             break_choked: choked(self.inlet, ch_in) || choked(self.outlet, ch_out),
         })
@@ -1387,6 +1585,15 @@ impl<E: HemEquationOfState> HemPipe<E> {
             dq[3 * i + 1] =
                 -(fe.momentum.x * re - fw.momentum.x * rw) / dx + a.cell_pressure[i] * (re - rw) / dx;
             dq[3 * i + 2] = -(fe.energy * re - fw.energy * rw) / dx;
+            // Added only when non-zero, so a frictionless horizontal pipe is
+            // the source-free solver bit for bit.
+            let (sm, se) = a.cell_source[i];
+            if sm != 0.0 {
+                dq[3 * i + 1] += sm;
+            }
+            if se != 0.0 {
+                dq[3 * i + 2] += se;
+            }
         }
         dq[3 * n] = a.flux[0].mass * g.face_area_m2(0);
         dq[3 * n + 1] = a.flux[0].energy * g.face_area_m2(0);

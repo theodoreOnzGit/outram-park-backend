@@ -65,6 +65,7 @@ mod iapws97;
 mod network;
 mod pipe;
 pub mod reduced_eos;
+pub mod wall_friction;
 
 #[cfg(test)]
 mod tests;
@@ -78,7 +79,7 @@ pub use reduced_eos::{
 };
 pub use network::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
 pub use pipe::{
-    AreaProfile, HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,
+    AreaProfile, WallHeat, HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,
     HemRunSummary, HemSnapshot, HemStepReport, PipeEnd, PrimitiveState, TimeIntegrator,
     TimeStepControl, FIXED_STEP_COURANT_LIMIT,
 };

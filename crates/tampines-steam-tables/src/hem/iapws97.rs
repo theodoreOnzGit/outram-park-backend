@@ -64,6 +64,9 @@ use crate::interfaces::functional_programming::ph_flash_eqm::{
 };
 use crate::interfaces::functional_programming::pt_flash_eqm::{h_tp_eqm_single_phase, FwdEqnRegion};
 use crate::region_2_vapour::v_tp_2;
+use crate::region_1_subcooled_liquid::v_tp_1;
+use crate::dynamic_viscosity::mu_rho_t_eqm;
+use uom::si::f64::DynamicViscosity;
 use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
 use crate::steam_turbine_equations::converging_diverging_nozzles::choked_flow::get_critical_pressure_and_mass_flux_multiphase_ph;
 
@@ -136,6 +139,28 @@ impl Iapws97Hem {
 impl HemEquationOfState for Iapws97Hem {
     fn name(&self) -> &'static str {
         "IAPWS-IF97"
+    }
+
+    /// IAPWS viscosity at `(T, ρ)` for a single-phase state. Inside the dome,
+    /// RELAP-7's HEM mixture rule (§3.3.2, Eq 222), `μ = (1 − α)μ_f + αμ_g`,
+    /// with the saturated phases' viscosities at `T_sat` and their IF97
+    /// region-1 and region-2 densities at `p` (gh:#1061).
+    fn dynamic_viscosity(&self, state: &HemThermoState) -> Option<DynamicViscosity> {
+        let t = state.temperature;
+        match state.quality {
+            None => Some(mu_rho_t_eqm(t, state.density)),
+            Some(_) => {
+                let p = state.pressure;
+                let rho_f = MassDensity::new::<kilogram_per_cubic_meter>(
+                    1.0 / v_tp_1(t, p).get::<cubic_meter_per_kilogram>(),
+                );
+                let rho_g = MassDensity::new::<kilogram_per_cubic_meter>(
+                    1.0 / v_tp_2(t, p).get::<cubic_meter_per_kilogram>(),
+                );
+                let alpha = state.void_fraction.get::<ratio>();
+                Some(mu_rho_t_eqm(t, rho_f) * (1.0 - alpha) + mu_rho_t_eqm(t, rho_g) * alpha)
+            }
+        }
     }
 
     fn state_rho_e(

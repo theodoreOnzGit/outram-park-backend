@@ -14,6 +14,7 @@ use tampines_steam_tables::hem::{
     BarotropicHem, IdealGasHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem,
 };
 use uom::si::available_energy::joule_per_kilogram;
+use uom::si::f64::DynamicViscosity;
 use uom::si::f64::{
     AvailableEnergy, MassDensity, Pressure, Ratio, SpecificVolume, ThermodynamicTemperature,
     Velocity,
@@ -346,6 +347,21 @@ impl HemEquationOfState for HemEos {
             HemEos::IsentropicStiffenedGas(g) => g.state_p_rho(pressure, density),
             HemEos::Barotropic(g) => g.state_p_rho(pressure, density),
             HemEos::Linear(g) => g.state_p_rho(pressure, density),
+        }
+    }
+
+    /// Forwarded per closure (gh:#1061): IAPWS-IF97 supplies a viscosity;
+    /// the CoolProp closure does not yet (so a CoolProp pipe is frictionless),
+    /// nor do the verification closures.
+    fn dynamic_viscosity(&self, state: &HemThermoState) -> Option<DynamicViscosity> {
+        match self {
+            HemEos::Iapws97 => Iapws97Hem.dynamic_viscosity(state),
+            HemEos::CoolProp(_) => None,
+            HemEos::IdealGas(g) => g.dynamic_viscosity(state),
+            HemEos::StiffenedGas(g) => g.dynamic_viscosity(state),
+            HemEos::IsentropicStiffenedGas(g) => g.dynamic_viscosity(state),
+            HemEos::Barotropic(g) => g.dynamic_viscosity(state),
+            HemEos::Linear(g) => g.dynamic_viscosity(state),
         }
     }
 
