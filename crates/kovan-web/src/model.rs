@@ -40,7 +40,7 @@ pub struct ModNode {
     pub children: Vec<usize>,
     pub functions: usize,
     /// The ids of those functions and of the module's types and constants
-    /// (#843), for the card's reviewed / to-review
+    /// (#843), for the card's valid / pending-or-tentative / unreviewed
     /// counts ([`Facts::review_split`]).
     pub fn_ids: Vec<String>,
     pub maturity: Option<u8>,
@@ -428,6 +428,20 @@ impl Review {
     }
 }
 
+/// A card's review counts ([`Facts::review_split`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ReviewSplit {
+    /// A valid stamp.
+    pub valid: usize,
+    /// Pending a workspace test, or tentative (GitHub #1106): reviewed,
+    /// waiting on a test run or on the stamps underneath, not on a person
+    /// for this function.
+    pub waiting: usize,
+    /// Never stamped, or a stamp that needs a person again (stale, moved,
+    /// needs fix, unverified, ...).
+    pub unreviewed: usize,
+}
+
 /// Lookups over everything loaded so far.
 #[derive(Debug, Default, Clone)]
 pub struct Facts {
@@ -447,13 +461,24 @@ impl Facts {
         }
     }
 
-    /// How many of `ids` are reviewed (a valid stamp) and how many need a
-    /// review (no stamp, or a stamp that no longer counts): the green and red
-    /// counts on a module card (maintainer, 2026-10-12: "so I can look at one
-    /// glance what functions need to be reviewed").
-    pub fn review_split(&self, ids: &[String]) -> (usize, usize) {
-        let reviewed = ids.iter().filter(|id| self.review(id).is_valid()).count();
-        (reviewed, ids.len() - reviewed)
+    /// How many of `ids` are valid, how many are waiting on something other
+    /// than their reviewer (pending a workspace test, or tentative until the
+    /// stamps underneath are valid, GitHub #1106), and how many need a person
+    /// (no stamp, or a stamp that needs a review again): the green, blue and
+    /// red counts on a crate or module card (maintainer, 2026-10-12: "so I
+    /// can look at one glance what functions need to be reviewed"; the
+    /// middle count added 2026-11-01: "so human authors and reviewers can
+    /// see where to focus their attention").
+    pub fn review_split(&self, ids: &[String]) -> ReviewSplit {
+        let mut s = ReviewSplit::default();
+        for id in ids {
+            match self.review(id).kind() {
+                StateKind::Valid => s.valid += 1,
+                StateKind::PendingWorkspaceTest | StateKind::Tentative => s.waiting += 1,
+                _ => s.unreviewed += 1,
+            }
+        }
+        s
     }
 
     /// The distinct workspace functions `id` calls, and (schema 4, #843) the
@@ -1028,10 +1053,19 @@ mod tests {
         };
         let facts = Facts::new(&[stamp(&a, StampVerdict::Valid), stamp("crates/other/src/lib.rs::z", StampVerdict::Stale)]);
         assert_eq!(facts.blocked_by(&map, &slice, &b), vec!["crates/other/src/lib.rs::z".to_string()]);
-        // A module card's counts: valid is reviewed; stale and unstamped are not.
+        // A module card's counts: valid; pending or tentative; and the rest
+        // (stale, unstamped) to review.
         let ids = [a.clone(), "crates/other/src/lib.rs::z".to_string(), b.clone()];
-        assert_eq!(facts.review_split(&ids), (1, 2));
-        assert_eq!(none.review_split(&ids), (0, 3));
+        let split = |valid, waiting, unreviewed| ReviewSplit { valid, waiting, unreviewed };
+        assert_eq!(facts.review_split(&ids), split(1, 0, 2));
+        assert_eq!(none.review_split(&ids), split(0, 0, 3));
+        let kinded = |f: &str, k: StateKind| StampState { state: Some(k), ..stamp(f, StampVerdict::Stale) };
+        let waiting = Facts::new(&[
+            kinded(&a, StateKind::PendingWorkspaceTest),
+            kinded("crates/other/src/lib.rs::z", StateKind::Tentative),
+            kinded(&b, StateKind::Valid),
+        ]);
+        assert_eq!(waiting.review_split(&ids), split(1, 2, 0));
         // The tree carries each module's function ids for those counts.
         let t = ModTree::build(&krate(), false);
         let live = t.find("crates/bl/src/fork/act/live_pools.rs").unwrap();
