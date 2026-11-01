@@ -86,6 +86,12 @@
 //! Here, the total reactivity `ρ` and the external source power `S` are inputs
 //! the caller supplies each step.
 //!
+//! **CORRECTED 2026-11-01:** "deferred" no longer holds for all of it. The
+//! feedback assembly is in [`crate::genfoam::multi_region`]
+//! (`reactivity_feedback.rs`), and `multi_region::outer_iteration`'s
+//! `LumpedNeutronics` drives this module with Doppler reactivity from a mapped
+//! fuel temperature. This module itself still takes `ρ` as an input.
+//!
 //! ## Example
 //!
 //! ```

@@ -16,11 +16,14 @@
 //! |---|---|---|---|
 //! | [`crate::hem`] (HEM) | 3 | none (`u_g = u_l`) | none (both saturated) |
 //!
-//! **CORRECTED 2026-10-16:** the HEM row names a *model level*, not a solver
+//! ~~**CORRECTED 2026-10-16:** the HEM row names a *model level*, not a solver
 //! in this crate. [`crate::hem`] holds only a re-export of the steam-table
 //! control volume (`HemSteamCv`); the HEM pipe solver lives in
 //! `tampines-steam-tables` (`TampinesSteamArray`). Exporting a HEM pipe solver
-//! from `tampines` is gh:#896.
+//! from `tampines` is gh:#896.~~ **CORRECTED 2026-11-01:** [`crate::hem`]
+//! re-exports the KNP HEM pipe solver, `HemPipe` (`HemPipeOf<E>` for any
+//! closure), from `tampines_steam_tables::hem`; its stability work is epic
+//! gh:#896.
 //! | [`drift_flux::DriftFlux1d`] | 4 | **algebraic** (`u_g − j = U_dm`) | none |
 //! | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) |
 //!

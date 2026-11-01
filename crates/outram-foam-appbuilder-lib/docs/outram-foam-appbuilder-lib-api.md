@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.2
+**Version:** 0.1.6
 
 **Format Version:** 61
 
@@ -36,6 +36,11 @@ outram-foam-appbuilder-lib   Layer 5     ← THIS CRATE
 - [`solvers`] — one submodule per ported OpenFOAM application. Each owns its
   PISO/PIMPLE (or explicit) time loop. Construct one with `new(mesh, control,
   schemes, solution)`, set the field state, then call `step()` or `run()`.
+- [`case_runner`] — the layer above that: read an OpenFOAM case directory,
+  build the solver's initial state from it, march the loop and write the
+  fields back. `CaseRun::from_case(dir, SolverKind::PimpleFoam)` is the
+  one-line way in; the CLI binaries in `outram-foam-cli` are thin wrappers
+  over it, and it is what the Python bindings expose.
 - [`io`] — readers for `constant/polyMesh` and `0/<field>` files, plus typed
   `controlDict` / `fvSchemes` / `fvSolution` structs.
 - [`turbulence`] — pick a closure for a solver run.
@@ -65,9 +70,586 @@ operation, control, licensing, or any safety-critical or operational use.
 
 ## Modules
 
-## Module `error`
+## Module `case_runner`
 
 The crate's single error type, [`error::AppBuilderError`].
+Driving a solver from an OpenFOAM case directory: read the case, build the
+solver's initial state, march the time loop, write the fields back.
+# `case_runner` — driving a solver from an OpenFOAM case directory
+
+[`solvers`](crate::solvers) own their time loops but know nothing about
+case *files*: each is constructed from a mesh and three dictionaries, and
+the caller is left to read `constant/polyMesh`, lift `deltaT`/`endTime`
+out of `system/controlDict`, find the `0/` fields, march the loop and
+write the results back. That glue used to live, four times over, inside
+`outram-foam-cli`'s solver binaries — which could not share it, because a
+`src/bin/*.rs` has no module to share it *through*.
+
+This module is that glue, once. [`CaseRun`] is the whole of it:
+
+```no_run
+use outram_foam_appbuilder_lib::case_runner::{CaseRun, SolverKind};
+
+let mut run = CaseRun::from_case("cavity", SolverKind::PimpleFoam)?;
+while !run.is_done() {
+    let t = run.step()?;            // one time step; returns the new time
+    println!("Time = {t}");         // ... or inspect the fields here
+}
+let summary = run.write_fields()?;
+# Ok::<(), outram_foam_appbuilder_lib::error::AppBuilderError>(())
+```
+
+[`CaseRun::run_to_end`] does the same loop in one call when nothing needs
+to happen between steps.
+
+## Dispatch is an enum, not a trait object
+
+[`SolverState`] is an enum over the concrete solver types rather than a
+`Box<dyn Solver>`, per the workspace rule against trait objects: adding a
+solver is then a compile error at every match site instead of a silent
+gap. It also keeps the solver's own fields reachable — `run.solver` hands
+back the real [`PimpleFoam`](crate::solvers::pimple_foam::PimpleFoam), so
+a caller can read `u`/`p` between steps.
+
+## Which solvers are wired
+
+Only the two whose state can be built from what the case reader actually
+parses. `rhoPimpleFoam` and `sonicFoam` need the compressibility
+`psi = rho/p` from `constant/thermophysicalProperties`, which no reader
+covers yet; they report [`AppBuilderError::SolverNotCaseWired`] rather
+than running with a default equation of state. See
+[`SolverKind::is_case_wired`].
+
+```rust
+pub mod case_runner { /* ... */ }
+```
+
+### Types
+
+#### Enum `SolverKind`
+
+Which ported solver application to run a case with.
+
+```rust
+pub enum SolverKind {
+    PimpleFoam,
+    RhoCentralFoam,
+    RhoPimpleFoam,
+    SonicFoam,
+}
+```
+
+##### Variants
+
+###### `PimpleFoam`
+
+`pimpleFoam` — incompressible transient PIMPLE.
+
+###### `RhoCentralFoam`
+
+`rhoCentralFoam` — density-based central-upwind (Kurganov-Tadmor).
+
+###### `RhoPimpleFoam`
+
+`rhoPimpleFoam` — compressible transient PIMPLE. Not case-wired.
+
+###### `SonicFoam`
+
+`sonicFoam` — transonic/supersonic compressible. Not case-wired.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn name(self: Self) -> &'static str { /* ... */ }
+  ```
+  The OpenFOAM application name, as it appears on a command line.
+
+- ```rust
+  pub fn from_name(name: &str) -> Option<SolverKind> { /* ... */ }
+  ```
+  Parse an application name. Accepts the OpenFOAM spelling
+
+- ```rust
+  pub fn is_case_wired(self: Self) -> bool { /* ... */ }
+  ```
+  Whether [`CaseRun::from_case`] can build this solver's initial state
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SolverState`
+
+A constructed solver, dispatched by value rather than through a trait
+object so that each variant's own fields stay reachable.
+
+```rust
+pub enum SolverState {
+    PimpleFoam(crate::solvers::pimple_foam::PimpleFoam),
+    RhoCentralFoam(crate::solvers::rho_central_foam::RhoCentralFoam),
+}
+```
+
+##### Variants
+
+###### `PimpleFoam`
+
+See [`PimpleFoam`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::solvers::pimple_foam::PimpleFoam` |  |
+
+###### `RhoCentralFoam`
+
+See [`RhoCentralFoam`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::solvers::rho_central_foam::RhoCentralFoam` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn kind(self: &Self) -> SolverKind { /* ... */ }
+  ```
+  Which [`SolverKind`] this state belongs to.
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of mesh cells the solver is running on.
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
+  ```
+  Advance the underlying solver by one time step.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CaseSummary`
+
+What a completed (or partially completed) run did.
+
+```rust
+pub struct CaseSummary {
+    pub solver: SolverKind,
+    pub n_cells: usize,
+    pub start_time: f64,
+    pub end_time: f64,
+    pub delta_t: f64,
+    pub n_steps: usize,
+    pub output_dir: std::path::PathBuf,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `SolverKind` | The solver that was run. |
+| `n_cells` | `usize` | Cell count of the case mesh. |
+| `start_time` | `f64` | Time the run started from, per `system/controlDict`. |
+| `end_time` | `f64` | Time actually reached. |
+| `delta_t` | `f64` | Time-step size used. |
+| `n_steps` | `usize` | Number of steps marched. |
+| `output_dir` | `std::path::PathBuf` | Directory the result fields were written to, once<br>[`CaseRun::write_fields`] has run. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CaseRun`
+
+A case, loaded and marched one step at a time.
+
+Construct with [`CaseRun::from_case`], then either drive the loop yourself
+(see the module example) or call [`CaseRun::run_to_end`].
+
+```rust
+pub struct CaseRun {
+    pub solver: SolverState,
+    pub case_dir: std::path::PathBuf,
+    pub time: f64,
+    pub start_time: f64,
+    pub end_time: f64,
+    pub delta_t: f64,
+    pub n_steps: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `SolverState` | The configured solver. Public so a caller can read or perturb its<br>fields between steps — `run.solver` is the real solver, not a handle. |
+| `case_dir` | `std::path::PathBuf` | The case directory this was read from. |
+| `time` | `f64` | Current simulation time. |
+| `start_time` | `f64` | Time the run started from. |
+| `end_time` | `f64` | Time the run stops at. |
+| `delta_t` | `f64` | Time-step size. |
+| `n_steps` | `usize` | Steps marched so far. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_case</* synthetic */ impl AsRef<Path>: AsRef<Path>>(case_dir: impl AsRef<Path>, kind: SolverKind) -> Result<CaseRun, AppBuilderError> { /* ... */ }
+  ```
+  Read a case directory and build the solver's initial state from it.
+
+- ```rust
+  pub fn is_done(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the run has reached its end time.
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<f64, AppBuilderError> { /* ... */ }
+  ```
+  Advance one time step, returning the new simulation time.
+
+- ```rust
+  pub fn run_to_end(self: &mut Self) -> Result<CaseSummary, AppBuilderError> { /* ... */ }
+  ```
+  March to the end time and write the result fields.
+
+- ```rust
+  pub fn write_fields(self: &Self) -> Result<CaseSummary, AppBuilderError> { /* ... */ }
+  ```
+  Write the solver's fields into `<case>/<time>/` and describe the run.
+
+- ```rust
+  pub fn summary(self: &Self, output_dir: PathBuf) -> CaseSummary { /* ... */ }
+  ```
+  Describe the run so far without writing anything.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `run_case`
+
+Read a case and run it to completion in one call.
+
+```rust
+pub fn run_case</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(case_dir: impl AsRef<std::path::Path>, kind: SolverKind) -> Result<CaseSummary, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `control_from_case`
+
+Build a [`ControlDict`] from the case's `system/controlDict`.
+
+Lifts the three keys the time loop needs — `deltaT`, `startTime`,
+`endTime` — and leaves every other control setting at its default. The
+typed [`ControlDict::read`] is not implemented yet, so these come through
+`outram_foam_basic_lib`'s dictionary parser.
+
+```rust
+pub fn control_from_case(case: &outram_foam_basic_lib::io::case::FoamCase) -> crate::io::control_dict::ControlDict { /* ... */ }
+```
+
+#### Function `time_span`
+
+The `(start, end, deltaT)` triple a time loop needs.
+
+Control modes other than a plain start/end time fall back to `start`, so
+the loop runs zero steps rather than an unbounded number.
+
+```rust
+pub fn time_span(ctrl: &crate::io::control_dict::ControlDict) -> (f64, f64, f64) { /* ... */ }
+```
+
+#### Function `find_scalar`
+
+Find a named scalar field among the case's time-directory fields.
+
+```rust
+pub fn find_scalar(case: &outram_foam_basic_lib::io::case::FoamCase, name: &str) -> Option<outram_foam_basic_lib::prelude::VolScalarField> { /* ... */ }
+```
+
+#### Function `find_vector`
+
+Find a named vector field among the case's time-directory fields.
+
+```rust
+pub fn find_vector(case: &outram_foam_basic_lib::io::case::FoamCase, name: &str) -> Option<outram_foam_basic_lib::prelude::VolVectorField> { /* ... */ }
+```
+
+#### Function `format_time`
+
+Format a time value the way OpenFOAM names a time directory: `0.1`, not
+`0.100000000`, and `1` rather than `1.0`.
+
+```rust
+pub fn format_time(t: f64) -> String { /* ... */ }
+```
+
+## Module `error`
+
 # `error` — the crate's single error type
 
 Every fallible public function in `outram-foam-appbuilder-lib` returns
@@ -122,6 +704,14 @@ pub enum AppBuilderError {
     UnsupportedScheme {
         family: &'static str,
         scheme: String,
+        reason: &'static str,
+    },
+    Case {
+        case: std::path::PathBuf,
+        msg: String,
+    },
+    SolverNotCaseWired {
+        solver: &'static str,
         reason: &'static str,
     },
 }
@@ -209,6 +799,36 @@ Fields:
 | `scheme` | `String` |  |
 | `reason` | `&'static str` |  |
 
+###### `Case`
+
+A case directory is missing something the chosen solver needs -- no
+`constant/polyMesh`, or an absent `0/` field the solver has no default
+for. `case` is the case root and `msg` names what was wanted.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `case` | `std::path::PathBuf` |  |
+| `msg` | `String` |  |
+
+###### `SolverNotCaseWired`
+
+The solver is implemented, but its initial state cannot be built from a
+case directory yet because the case reader does not parse something it
+needs. `reason` says what is missing.
+
+Deliberately distinct from a parse failure: the case is fine and the
+solver is fine -- it is the reader between them that is incomplete, and
+running anyway would mean inventing physical properties.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `&'static str` |  |
+| `reason` | `&'static str` |  |
+
 ##### Implementations
 
 ###### Trait Implementations
@@ -240,7 +860,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -267,7 +887,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -509,7 +1129,7 @@ Linear interpolation between adjacent knots (upstream `LINEAR`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterpolationMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -539,7 +1159,7 @@ Linear interpolation between adjacent knots (upstream `LINEAR`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterpolationMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -558,7 +1178,7 @@ Linear interpolation between adjacent knots (upstream `LINEAR`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -622,7 +1242,7 @@ as [`interpolate_xy`](fn@outram_foam_basic_lib::interpolation::interpolate_xy)).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OutOfBounds { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -652,7 +1272,7 @@ as [`interpolate_xy`](fn@outram_foam_basic_lib::interpolation::interpolate_xy)).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OutOfBounds) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -671,7 +1291,7 @@ as [`interpolate_xy`](fn@outram_foam_basic_lib::interpolation::interpolate_xy)).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -776,7 +1396,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterpolateTableError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -814,7 +1434,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterpolateTableError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -838,7 +1458,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -933,7 +1553,7 @@ pub struct ScalarInterpolateTable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScalarInterpolateTable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -961,7 +1581,7 @@ pub struct ScalarInterpolateTable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScalarInterpolateTable) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -980,7 +1600,7 @@ pub struct ScalarInterpolateTable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1270,7 +1890,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeProfileError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1304,7 +1924,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeProfileError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1328,7 +1948,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1416,7 +2036,7 @@ pub struct TimeProfile {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeProfile { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1444,7 +2064,7 @@ pub struct TimeProfile {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeProfile) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1463,7 +2083,7 @@ pub struct TimeProfile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1700,7 +2320,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1735,7 +2355,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CouplingError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1759,7 +2379,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1812,7 +2432,7 @@ A [`VolVectorField`] (mesh displacement, velocity).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FieldKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1842,7 +2462,7 @@ A [`VolVectorField`] (mesh displacement, velocity).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FieldKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1861,7 +2481,7 @@ A [`VolVectorField`] (mesh displacement, velocity).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1938,7 +2558,7 @@ pub struct CouplingField {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingField { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1979,7 +2599,7 @@ pub struct CouplingField {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2078,7 +2698,7 @@ pub struct CouplingRegion {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2119,7 +2739,7 @@ pub struct CouplingRegion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2215,7 +2835,7 @@ pub struct MeshHandler {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshHandler { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2230,7 +2850,7 @@ pub struct MeshHandler {
 
 - **Default**
   - ```rust
-    fn default() -> MeshHandler { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -2261,7 +2881,7 @@ pub struct MeshHandler {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2408,7 +3028,7 @@ pub struct MeshNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2458,7 +3078,7 @@ pub struct MeshNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2543,7 +3163,7 @@ pub struct MeshThermalHydraulics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshThermalHydraulics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2593,7 +3213,7 @@ pub struct MeshThermalHydraulics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2717,7 +3337,7 @@ see the module docs.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MappingMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2747,7 +3367,7 @@ see the module docs.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MappingMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2766,7 +3386,7 @@ see the module docs.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2823,7 +3443,7 @@ Add the mapped value onto the target cell (upstream `plusEqOp`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MapCombine { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2853,7 +3473,7 @@ Add the mapped value onto the target cell (upstream `plusEqOp`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MapCombine) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2872,7 +3492,7 @@ Add the mapped value onto the target cell (upstream `plusEqOp`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2967,7 +3587,7 @@ pub struct MeshToMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshToMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3008,7 +3628,7 @@ pub struct MeshToMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3181,7 +3801,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingLoopError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3219,7 +3839,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CouplingLoopError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3243,7 +3863,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3313,7 +3933,7 @@ pub struct LumpedNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LumpedNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3363,7 +3983,7 @@ pub struct LumpedNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3434,7 +4054,7 @@ pub struct LumpedThermal {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LumpedThermal { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3484,7 +4104,7 @@ pub struct LumpedThermal {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3541,7 +4161,7 @@ pub struct PrescribedRegion {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PrescribedRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3591,7 +4211,7 @@ pub struct PrescribedRegion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3606,7 +4226,7 @@ pub struct PrescribedRegion {
 
 **Attributes:**
 
-- `Other("#[allow(clippy::large_enum_variant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"large_enum_variant\", kind: Allow}])]")`
 
 The closed set of coupled region models (enum dispatch, no `dyn`).
 
@@ -3724,7 +4344,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegionModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3765,7 +4385,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3844,7 +4464,7 @@ pub struct MultiPhysicsSolver {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MultiPhysicsSolver { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3885,7 +4505,7 @@ pub struct MultiPhysicsSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4051,7 +4671,7 @@ pub enum PolyharmonicMode {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolyharmonicMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4081,7 +4701,7 @@ pub enum PolyharmonicMode {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PolyharmonicMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4100,7 +4720,7 @@ pub enum PolyharmonicMode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4163,7 +4783,7 @@ The RBF saddle-point system was singular (e.g. duplicate sample points).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RbfMapError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4202,7 +4822,7 @@ The RBF saddle-point system was singular (e.g. duplicate sample points).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RbfMapError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4226,7 +4846,7 @@ The RBF saddle-point system was singular (e.g. duplicate sample points).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4296,7 +4916,7 @@ pub struct RbfFieldMap {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RbfFieldMap { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4337,7 +4957,7 @@ pub struct RbfFieldMap {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4457,7 +5077,7 @@ resonance-integral `A + B ln T` form), scaled by `T_ref` so `α` keeps its
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DopplerLaw { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4487,7 +5107,7 @@ resonance-integral `A + B ln T` form), scaled by `T_ref` so `α` keeps its
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DopplerLaw) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4506,7 +5126,7 @@ resonance-integral `A + B ln T` form), scaled by `T_ref` so `α` keeps its
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4571,7 +5191,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ImportanceWeight { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4612,7 +5232,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4721,7 +5341,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FeedbackTerm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4762,7 +5382,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4858,7 +5478,7 @@ pub struct ReactivityFeedback {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactivityFeedback { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4904,7 +5524,7 @@ pub struct ReactivityFeedback {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5117,6 +5737,304 @@ pub mod neutronics { /* ... */ }
 
 ### Modules
 
+## Module `albedo`
+
+# Albedo (partial-current) boundary condition for neutron diffusion
+
+GeN-Foam's `albedoSP3` patch condition, in the form the **diffusion** solver
+uses it. Reactor cases lean on it heavily: a bare `fixedValue 0` treats the
+domain edge as a perfect absorber, which is wrong wherever a reflector,
+a vessel wall or a mirror-symmetry plane sits just outside the mesh.
+
+## The condition
+
+A partially reflecting surface returns a fraction `alpha` of the neutrons
+reaching it. In diffusion theory that is the Robin condition
+
+```text
+  -D dphi/dn = gamma phi          (n the OUTWARD normal)
+```
+
+with the albedo coefficient
+
+```text
+  gamma = (1 - alpha) / (1 + alpha) / 2
+```
+
+— GeN-Foam's own definition, stated in its tutorial dictionaries. Two limits
+fix the convention and are worth holding on to:
+
+| surface | `alpha` | `gamma` | reduces to |
+|---|---|---|---|
+| perfect reflector | 1 | 0 | zero gradient (no leakage) |
+| vacuum (Marshak) | 0 | 1/2 | `-D dphi/dn = phi/2` |
+
+`gamma = 1/2` being the vacuum value is why upstream's patch class defaults
+`gamma` to `0.5`.
+
+## Discretisation
+
+With `delta` the owner-cell-centre-to-face distance and `phi_c` the owner
+cell value, the one-sided gradient `(phi_f - phi_c)/delta` gives
+
+```text
+  -D (phi_f - phi_c)/delta = gamma phi_f
+  =>  phi_f = phi_c / (1 + gamma delta / D)
+```
+
+which is exactly a `mixed` (Robin) patch with zero references and weight
+
+```text
+  w = (gamma delta / D) / (1 + gamma delta / D),   refValue = 0, refGrad = 0
+```
+
+since `mixed` evaluates `phi_f = w refValue + (1-w)(phi_c + refGrad delta)`
+`= (1-w) phi_c`. Check the limits again on this form: `gamma = 0` gives
+`w = 0`, zero gradient; `gamma -> infinity` gives `w -> 1`, `phi_f = 0`.
+
+## Why the weight has to vary along the patch
+
+`w` carries **both** the local mesh spacing `delta` and the local diffusion
+coefficient `D`, and neither is constant: `delta` varies on a graded mesh and
+`D` varies by material zone and, strongly, by energy group. Upstream handles
+the group dependence by resetting its `Dalbedo` field to `D[energyI]` before
+each group's solve (`diffusion/include/fluxEq.H`), and the spatial dependence
+by looking `Dalbedo` up per face. This port matches that: the weight is built
+per face, per group, as a
+[`BoundaryCondition::MixedField`](outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition::MixedField).
+
+For the MSFR tutorial `D` spans 1.10e-2 to 2.37e-2 m across its six groups —
+better than a factor of two — so collapsing the weight to one number per
+patch is not a rounding detail.
+
+## What is deliberately not ported
+
+Upstream's patch class also carries a `fluxStarAlbedo` term and a
+`forSecondMoment` branch, both of which belong to **SP3**: they couple the
+first and second flux moments. In the diffusion solver upstream zeroes that
+field (`fluxStarAlbedo_ *= 0.0`, `diffusion/include/fluxEq.H`), so it drops
+out entirely and the condition reduces to the Robin form above. Porting the
+SP3 branch belongs with the SP3 solver.
+
+```rust
+pub mod albedo { /* ... */ }
+```
+
+### Types
+
+#### Enum `AlbedoLinearisation`
+
+Which linearisation of the albedo condition to assemble.
+
+The condition `-D dphi/dn = gamma phi` is exact; turning it into a matrix
+coefficient requires deciding **which** `phi` the right-hand side means, and
+GeN-Foam and the textbook one-sided derivation answer differently. The
+difference is first order in the cell size, vanishes under refinement, and is
+worth several thousand pcm on a real reactor mesh — so it is a choice, made
+explicitly, rather than a detail.
+
+```rust
+pub enum AlbedoLinearisation {
+    CellValue,
+    FaceValue,
+}
+```
+
+##### Variants
+
+###### `CellValue`
+
+**GeN-Foam's**: the leakage current is evaluated at the *owner cell*
+value, `J_out = gamma phi_cell`.
+
+This is what upstream's `albedoSP3FvPatchField` assembles. Its
+`snGrad()` returns `-phi_c gamma / D` and its `gradientInternalCoeffs()`
+returns `-gamma/D`, both in terms of `patchInternalField()` — the cell
+value — with no face-value closure. Multiplied by the laplacian's own
+`D |Sf|`, that contributes exactly `gamma |Sf|` to the diagonal,
+independent of `D` and of the cell size.
+
+In this port's `mixed` form that is `w = gamma delta / D`, with zero
+references. Note `w` may exceed 1 on a coarse mesh, which a `mixed`
+weight nominally may not; that is a faithful consequence of upstream's
+linearisation, not a bug here, and it is why the weight is not clamped.
+
+**Use this to compare against GeN-Foam.** It is the default for that
+reason.
+
+###### `FaceValue`
+
+The exact one-sided closure: the leakage current is evaluated at the
+*face* value, `J_out = gamma phi_face`.
+
+Eliminating `phi_face` between `-D (phi_f - phi_c)/delta = gamma phi_f`
+gives `phi_f = phi_c/(1 + gamma delta/D)`, i.e. `w = r/(1+r)` with
+`r = gamma delta/D`. This is the form a textbook derivation reaches and
+the one that stays bounded (`w < 1` always, so it never over-drains a
+cell).
+
+It is strictly **less** leaky than [`CellValue`](Self::CellValue), since
+`r/(1+r) < r`. On the MSFR tutorial the two differ by about 2100 pcm.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `gamma_from_albedo`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The albedo coefficient `gamma` for a surface returning a fraction `alpha` of
+incident neutrons: `gamma = (1 - alpha)/(1 + alpha)/2`.
+
+`alpha` is dimensionless in `[0, 1]`; `alpha = 0` is a vacuum
+(`gamma = 1/2`) and `alpha = 1` a perfect reflector (`gamma = 0`).
+
+```
+use outram_foam_appbuilder_lib::genfoam::neutronics::albedo::gamma_from_albedo;
+
+assert!((gamma_from_albedo(0.0) - 0.5).abs() < 1e-15); // vacuum
+assert!(gamma_from_albedo(1.0).abs() < 1e-15);         // perfect reflector
+```
+
+# Panics
+
+Panics if `alpha` is outside `[0, 1]`, which is not a physical albedo. A
+caller that has a `gamma` already — as GeN-Foam case dictionaries do, since
+they state `gamma` directly — should pass it to
+[`albedo_patch_field`] without going through this function.
+
+```rust
+pub fn gamma_from_albedo(alpha: f64) -> f64 { /* ... */ }
+```
+
+#### Function `albedo_patch_field`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Build the albedo (Robin) patch condition for one patch and one energy group.
+
+# Parameters
+
+- `mesh` — the neutronics mesh.
+- `patch_index` — index into `mesh.patches`.
+- `gamma` — the albedo coefficient, dimensionless and non-negative. This is
+  the quantity GeN-Foam case dictionaries state directly; convert from a
+  reflection fraction with [`gamma_from_albedo`].
+- `diffusion_coefficient` — `D` **for this energy group** (m), the field
+  upstream copies into `Dalbedo` before each group's solve.
+
+# Returns
+
+A [`PatchField`] carrying a per-face
+[`MixedField`](outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition::MixedField)
+with `refValue = 0`, `refGrad = 0` and
+`w = (gamma delta/D)/(1 + gamma delta/D)`. The stored face `values` are left
+at zero; they are recomputed from the weight whenever the flux is
+interpolated.
+
+# Panics
+
+Panics if `patch_index` is out of range, if `gamma` is negative or
+non-finite, or if `diffusion_coefficient` is not defined on `mesh`.
+
+A non-positive `D` on a boundary-adjacent cell is treated as **vacuum**
+(`w = 1`) rather than producing an infinity: `D <= 0` is unphysical, and the
+most absorbing interpretation is the one that cannot silently inflate
+`k_eff`.
+
+```rust
+pub fn albedo_patch_field(mesh: &outram_foam_basic_lib::mesh::FvMesh, patch_index: usize, gamma: f64, diffusion_coefficient: &outram_foam_basic_lib::fields::VolScalarField, linearisation: AlbedoLinearisation, delta_coeff: outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff) -> outram_foam_basic_lib::fields::boundary::bc::PatchField<f64> { /* ... */ }
+```
+
 ## Module `diffusion`
 
 # Multigroup neutron-diffusion solver
@@ -5269,6 +6187,11 @@ pub struct DiffusionXsFields {
   ```
   Materialise the cross sections onto `mesh` at the feedback point
 
+- ```rust
+  pub fn materialize_per_cell(mesh: &Arc<FvMesh>, xs: &CrossSectionData, zone_of_cell: &[usize], cell_parameters: &[f64]) -> Result<Self, XsError> { /* ... */ }
+  ```
+  As [`materialize`](Self::materialize), but evaluating the cross sections
+
 ###### Trait Implementations
 
 - **Any**
@@ -5288,7 +6211,7 @@ pub struct DiffusionXsFields {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffusionXsFields { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5329,7 +6252,225 @@ pub struct DiffusionXsFields {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `precursor_drift`
+
+**Circulating-fuel precursor drift** — GeN-Foam's `liquidFuel true` branch.
+
+# The physics, and why it is not a detail
+
+In a molten-salt reactor the fuel *is* the coolant. A delayed-neutron
+precursor born in the core is carried away by the flow and decays wherever
+the salt has reached by then — for the shorter-lived groups that is still
+the core, but for the longer-lived ones it is the heat exchanger, the pump
+leg, or the downcomer, where its neutron is worth far less. Nothing is lost
+(the loop is closed and the precursor boundary conditions are zero-gradient,
+so the *total* delayed source is conserved exactly); what changes is **where**
+the delayed neutrons appear, and therefore their importance-weighted worth.
+
+The effect is bounded above by `beta_total` — 285 pcm for this MSFR
+evaluation — and measured at **-177.8 pcm** on the `2D_MSFR` tutorial, by
+running upstream twice with nothing but its `liquidFuel` switch changed.
+
+# The equation
+
+Upstream's `precEq.H`, with the time derivative dropped because
+`eigenvalueNeutronics` multiplies it by `(1 - 1) = 0`:
+
+```text
+  lambda_k alpha C*_k  +  div(phi, C*_k)  -  laplacian(D_C, C*_k)
+  (laplacian = OpenFOAM's NEGATIVE operator div(D grad); this workspace's
+   `fvm::laplacian` is the POSITIVE -div(D grad), so the code ADDS it --
+   CORRECTED 2026-10-18, gh:#952: it used to subtract, i.e. anti-diffusion)
+    = S_n Beta_k / k_eff
+
+  C_k = C*_k alpha                       (precursors per TOTAL volume)
+  S_delayed = sum_k lambda_k C_k
+```
+
+`C*` is the concentration per unit *fluid* volume and `C` per unit *total*
+volume; upstream solves for `C*` because `alpha` is discontinuous across a
+zone boundary and `C` would be too (its own comment says so, next to the
+commented-out `C`-form of the same equation).
+
+The flux equation then takes the delayed source **as computed**, not as a
+multiple of the fission source:
+
+```text
+  q_g = chi_p,g (1 - beta_tot) S_n / k_eff  +  chi_d,g S_delayed  +  S_scatter
+```
+
+Note the delayed term is **not** divided by `k_eff` — the division already
+happened in the precursor equation's own source. Dividing twice is the
+obvious slip and is worth checking against `diffusion/include/fluxEq.H` if
+this is ever rewritten.
+
+## What it reduces to when the fuel is stationary
+
+With `phi = 0` and `D_C = 0` the equation is algebraic,
+`C_k = alpha C*_k = S_n Beta_k / (k_eff lambda_k)`, so
+`S_delayed = S_n beta_tot / k_eff` and `q_g` collapses to
+`chi_eff,g S_n / k_eff` with
+`chi_eff = chi_p (1 - beta_tot) + chi_d beta_tot`. That is exactly the
+solid-fuel path in [`super::eigenvalue`], and
+[`tests::a_zero_velocity_field_reproduces_the_chi_eff_collapse`] asserts it —
+which is what makes this an extension rather than a second, divergent model.
+
+# Relationship to `outram-park-fork-moltres::precursors`
+
+That crate has a `PrecursorDrift` solving the same advection-decay balance,
+and it was read before this was written. It is **not** reused here, for
+reasons that are interface and lineage rather than taste:
+
+| | `outram-park-fork-moltres` | here |
+|---|---|---|
+| lineage | Moltres (MOOSE), LGPL-2.1 | GeN-Foam `precEq.H`, GPL-3.0 |
+| solved variable | `C` (per total volume) | `C* = C/alpha` (per fluid volume) |
+| fluid fraction | none | per cell; **0.4 to 1.0** on the MSFR tutorial |
+| `beta`, `lambda` | one scalar per family | per cell, from the zone's parametrised data |
+| diffusivity | one uniform scalar | a per-cell field, `(alphat + mu/ScNo)/rhoCool` |
+| linear solve | Gauss-Seidel | BiCGSTAB, matching upstream's `PBiCG` |
+
+The `alpha` split is the substantive one: upstream solves for `C*` precisely
+because `alpha` jumps across a zone boundary and `C` would jump with it (its
+own comment says so, beside a commented-out `C`-form of the same equation).
+Bending this port to the other interface would mean either dropping `alpha`
+or pushing GeN-Foam's zone model into a Moltres-lineage crate that nothing
+else depends on and that carries no human V&V.
+
+**They should not be allowed to drift apart unnoticed.** Whether to converge
+them — most plausibly by generalising the Moltres one and having both call
+it — is a maintainer decision, tracked as a bead.
+
+# Scope
+
+Steady eigenvalue only. The transient form keeps the `ddt` term and is not
+implemented here; `DiffusionNeutronics::step` still uses the `chi_eff`
+collapse.
+
+```rust
+pub mod precursor_drift { /* ... */ }
+```
+
+### Types
+
+#### Struct `PrecursorTransport`
+
+The fields a circulating-fuel precursor solve needs, on the neutronics mesh.
+
+Upstream builds all three in `diffusion/include/solveNeutronics.H` from the
+thermal-hydraulic solution mapped onto this mesh:
+
+```text
+  phi            = fvc::flux(U * alpha)
+  diffusivity    = (alphat + mu/ScNo) / rhoCool
+```
+
+This port takes them as given, because it has no coupled multi-region driver
+to produce them; hand it either upstream's own written fields (what the
+verification test does) or whatever a future driver computes.
+
+```rust
+pub struct PrecursorTransport {
+    pub alpha: outram_foam_basic_lib::prelude::VolScalarField,
+    pub phi: outram_foam_basic_lib::prelude::SurfaceScalarField,
+    pub diffusivity: outram_foam_basic_lib::prelude::VolScalarField,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha` | `outram_foam_basic_lib::prelude::VolScalarField` | Fluid volume fraction `alpha` `[-]`, per cell.<br><br>`1` where the cell is entirely fuel salt, less where the zone is partly<br>structure — 0.4 in the MSFR tutorial's heat-exchanger zone. The solved<br>variable is `C* = C/alpha`, so this scales both the removal term and the<br>conversion back to per-total-volume concentrations. |
+| `phi` | `outram_foam_basic_lib::prelude::SurfaceScalarField` | Volumetric face flux `phi = fvc::flux(U alpha)` `[m^3/s]`, per face.<br><br>Positive from owner to neighbour, as everywhere else in the FV layer. |
+| `diffusivity` | `outram_foam_basic_lib::prelude::VolScalarField` | Precursor diffusivity `[m^2/s]`, per cell.<br><br>Upstream's `(alphat + mu/ScNo)/rhoCool` — turbulent plus laminar mass<br>diffusion of the precursor species. Interpolated to faces here, matching<br>the `volScalarField` upstream hands to `fvm::laplacian`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Arc<FvMesh>, alpha: Vec<f64>, phi_internal: Vec<f64>, phi_boundary: Vec<Vec<f64>>, diffusivity: Vec<f64>) -> Self { /* ... */ }
+  ```
+  Build from per-cell and per-face data.
+
+- ```rust
+  pub fn diffusivity_face(self: &Self) -> SurfaceScalarField { /* ... */ }
+  ```
+  The precursor diffusivity interpolated to faces, ready for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5356,6 +6497,7 @@ pub struct DiffusionSettings {
     pub flux_tolerance: f64,
     pub max_outer_iterations: usize,
     pub linear: outram_foam_basic_lib::prelude::SolverSettings,
+    pub delta_coeff: outram_foam_basic_lib::prelude::fvm::DeltaCoeff,
 }
 ```
 
@@ -5367,6 +6509,7 @@ pub struct DiffusionSettings {
 | `flux_tolerance` | `f64` | Outer-loop convergence tolerance on the relative L2 change in the flux. |
 | `max_outer_iterations` | `usize` | Maximum number of outer power iterations. |
 | `linear` | `outram_foam_basic_lib::prelude::SolverSettings` | Inner linear-solver settings (one group solve). |
+| `delta_coeff` | `outram_foam_basic_lib::prelude::fvm::DeltaCoeff` | Which face-distance coefficient the flux Laplacian divides by.<br><br>GeN-Foam's neutronics regions ship<br>`laplacianSchemes { default Gauss linear uncorrected; }`, so the faithful<br>setting — and the default here — is<br>[`DeltaCoeff::NonOrthogonal`](outram_foam_basic_lib::prelude::fvm::DeltaCoeff::NonOrthogonal),<br>OpenFOAM's `nonOrthDeltaCoeffs`. On an orthogonal mesh the two choices<br>coincide; on the `2D_MSFR` tutorial mesh the orthogonal one under-states<br>the leakage by 580 pcm. |
 
 ##### Implementations
 
@@ -5389,7 +6532,7 @@ pub struct DiffusionSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffusionSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5436,7 +6579,7 @@ pub struct DiffusionSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5492,7 +6635,7 @@ pub struct EigenvalueReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EigenvalueReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5534,7 +6677,7 @@ pub struct EigenvalueReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5586,9 +6729,34 @@ pub struct DiffusionNeutronics {
   Build a diffusion model on `mesh` from cross sections `xs`, a
 
 - ```rust
+  pub fn new_with_cell_parameters(mesh: Arc<FvMesh>, xs: &CrossSectionData, zone_of_cell: &[usize], cell_parameters: &[f64], flux_boundary: &[BoundaryCondition<f64>], settings: DiffusionSettings) -> Result<Self, NeutronicsError> { /* ... */ }
+  ```
+  As [`new`](Self::new), but evaluating the cross sections at **each
+
+- ```rust
+  pub fn set_albedo_boundary(self: &mut Self, patch_index: usize, gamma: f64, linearisation: crate::genfoam::neutronics::albedo::AlbedoLinearisation) { /* ... */ }
+  ```
+  Impose an **albedo** (partially reflecting) boundary on one patch, for
+
+- ```rust
+  pub fn set_precursor_drift(self: &mut Self, transport: PrecursorTransport) { /* ... */ }
+  ```
+  Turn on **circulating-fuel precursor drift** — GeN-Foam's
+
+- ```rust
+  pub fn precursor_drift(self: &Self) -> Option<&PrecursorTransport> { /* ... */ }
+  ```
+  The circulating-fuel precursor transport fields, if set.
+
+- ```rust
   pub fn state(self: &Self) -> &NeutronicsState { /* ... */ }
   ```
   The shared neutronics state (flux, precursors, power density, `k_eff`).
+
+- ```rust
+  pub fn set_initial_guess(self: &mut Self, flux: &[Vec<f64>], k_eff: f64) { /* ... */ }
+  ```
+  Seed the next [`Self::solve_eigenvalue`] with a previous solution — a
 
 - ```rust
   pub fn xs_fields(self: &Self) -> &DiffusionXsFields { /* ... */ }
@@ -5629,7 +6797,7 @@ pub struct DiffusionNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffusionNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5670,7 +6838,7 @@ pub struct DiffusionNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5687,6 +6855,12 @@ pub struct DiffusionNeutronics {
 
 ```rust
 pub use fields::DiffusionXsFields;
+```
+
+#### Re-export `PrecursorTransport`
+
+```rust
+pub use precursor_drift::PrecursorTransport;
 ```
 
 ## Module `point_kinetics`
@@ -5747,6 +6921,12 @@ precursor-advection variant. Those all require the mesh / thermal-hydraulics /
 multi-region layers and are **deferred** (see `docs/genfoam-port-plan.md`).
 Here, the total reactivity `ρ` and the external source power `S` are inputs
 the caller supplies each step.
+
+**CORRECTED 2026-11-01:** "deferred" no longer holds for all of it. The
+feedback assembly is in [`crate::genfoam::multi_region`]
+(`reactivity_feedback.rs`), and `multi_region::outer_iteration`'s
+`LumpedNeutronics` drives this module with Doppler reactivity from a mapped
+fuel temperature. This module itself still takes `ρ` as an input.
 
 ## Example
 
@@ -5922,7 +7102,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5968,7 +7148,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5992,7 +7172,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6093,7 +7273,7 @@ pub struct PointKineticsParameters {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsParameters { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6121,7 +7301,7 @@ pub struct PointKineticsParameters {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsParameters) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6140,7 +7320,7 @@ pub struct PointKineticsParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6225,7 +7405,7 @@ pub struct PointKineticsState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6253,7 +7433,7 @@ pub struct PointKineticsState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6272,7 +7452,7 @@ pub struct PointKineticsState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6471,7 +7651,7 @@ S6 — 48 directions (6 per octant).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureOrder { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6501,7 +7681,7 @@ S6 — 48 directions (6 per octant).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureOrder) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6520,7 +7700,7 @@ S6 — 48 directions (6 per octant).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6609,7 +7789,7 @@ pub struct AngularQuadrature {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AngularQuadrature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6650,7 +7830,7 @@ pub struct AngularQuadrature {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6715,7 +7895,7 @@ pub struct SnSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6762,7 +7942,7 @@ pub struct SnSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6852,7 +8032,7 @@ pub struct SnNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6893,7 +8073,7 @@ pub struct SnNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7086,7 +8266,7 @@ pub struct Sp3XsFields {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sp3XsFields { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7127,7 +8307,7 @@ pub struct Sp3XsFields {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7155,6 +8335,7 @@ pub struct Sp3Settings {
     pub flux_tolerance: f64,
     pub max_outer_iterations: usize,
     pub linear: outram_foam_basic_lib::prelude::SolverSettings,
+    pub delta_coeff: outram_foam_basic_lib::prelude::fvm::DeltaCoeff,
 }
 ```
 
@@ -7166,6 +8347,7 @@ pub struct Sp3Settings {
 | `flux_tolerance` | `f64` | Outer-loop convergence tolerance on the relative L2 change in the flux. |
 | `max_outer_iterations` | `usize` | Maximum number of outer power iterations. |
 | `linear` | `outram_foam_basic_lib::prelude::SolverSettings` | Inner linear-solver settings (one moment-equation solve). |
+| `delta_coeff` | `outram_foam_basic_lib::prelude::fvm::DeltaCoeff` | Which face-distance coefficient the moment Laplacians divide by.<br><br>Same meaning and same default as<br>[`DiffusionSettings::delta_coeff`](crate::genfoam::neutronics::DiffusionSettings::delta_coeff):<br>GeN-Foam's neutronics `fvSchemes` asks for `uncorrected`, so the faithful<br>setting is [`DeltaCoeff::NonOrthogonal`]. |
 
 ##### Implementations
 
@@ -7188,7 +8370,7 @@ pub struct Sp3Settings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sp3Settings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7235,7 +8417,7 @@ pub struct Sp3Settings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7354,7 +8536,7 @@ pub struct Sp3Neutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sp3Neutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7395,7 +8577,7 @@ pub struct Sp3Neutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7603,7 +8785,7 @@ pub struct NeutronicsState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeutronicsState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7644,7 +8826,7 @@ pub struct NeutronicsState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7920,7 +9102,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8010,7 +9192,7 @@ pub struct GroupConstants {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GroupConstants { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8052,7 +9234,7 @@ pub struct GroupConstants {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8108,7 +9290,7 @@ pub struct PrecursorConstants {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PrecursorConstants { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8149,7 +9331,7 @@ pub struct PrecursorConstants {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8242,7 +9424,7 @@ pub struct NuclearDataInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclearDataInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8283,7 +9465,7 @@ pub struct NuclearDataInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8335,7 +9517,7 @@ pub struct StateInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StateInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8376,7 +9558,7 @@ pub struct StateInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8440,7 +9622,7 @@ pub struct ZoneStateInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneStateInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8481,7 +9663,7 @@ pub struct ZoneStateInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8546,7 +9728,7 @@ pub struct ZoneConstantsInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneConstantsInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8593,7 +9775,7 @@ pub struct ZoneConstantsInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8708,7 +9890,7 @@ pub struct NuclearDataOneEnergy {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclearDataOneEnergy { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8749,7 +9931,7 @@ pub struct NuclearDataOneEnergy {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9038,7 +10220,7 @@ pub enum VariableLaw {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VariableLaw { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9068,7 +10250,7 @@ pub enum VariableLaw {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VariableLaw) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9087,7 +10269,7 @@ pub enum VariableLaw {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9148,7 +10330,7 @@ pub struct XsVariable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XsVariable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9177,7 +10359,7 @@ pub struct XsVariable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &XsVariable) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9196,7 +10378,7 @@ pub struct XsVariable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9393,7 +10575,7 @@ pub struct ZoneNuclearData {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneNuclearData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9434,7 +10616,7 @@ pub struct ZoneNuclearData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9571,7 +10753,7 @@ pub struct CrossSectionData {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CrossSectionData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9612,7 +10794,7 @@ pub struct CrossSectionData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9747,7 +10929,7 @@ Discrete-ordinates (SN) transport (eigenvalue only).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeutronicsModelKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9777,7 +10959,7 @@ Discrete-ordinates (SN) transport (eigenvalue only).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NeutronicsModelKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9796,7 +10978,7 @@ Discrete-ordinates (SN) transport (eigenvalue only).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9937,7 +11119,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -9972,7 +11154,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10048,7 +11230,7 @@ pub struct PointKineticsModel {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10076,7 +11258,7 @@ pub struct PointKineticsModel {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10095,7 +11277,7 @@ pub struct PointKineticsModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10110,7 +11292,7 @@ pub struct PointKineticsModel {
 
 **Attributes:**
 
-- `Other("#[allow(clippy::large_enum_variant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"large_enum_variant\", kind: Allow}])]")`
 
 The closed set of deterministic neutronics models (enum dispatch, no
 `dyn`).
@@ -10218,7 +11400,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeutronicsModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10259,7 +11441,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10545,7 +11727,7 @@ pub struct BlackBodyRadiationBc {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BlackBodyRadiationBc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10574,7 +11756,7 @@ pub struct BlackBodyRadiationBc {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BlackBodyRadiationBc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10593,7 +11775,7 @@ pub struct BlackBodyRadiationBc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10711,7 +11893,7 @@ master).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BaffleSide { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10741,7 +11923,7 @@ master).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BaffleSide) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10760,7 +11942,7 @@ master).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10819,7 +12001,7 @@ pub struct NusseltCorrelationCoefficients {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NusseltCorrelationCoefficients { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10848,7 +12030,7 @@ pub struct NusseltCorrelationCoefficients {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NusseltCorrelationCoefficients) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10867,7 +12049,7 @@ pub struct NusseltCorrelationCoefficients {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10944,7 +12126,7 @@ pub struct NusseltThermalBaffle1DBc {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NusseltThermalBaffle1DBc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10973,7 +12155,7 @@ pub struct NusseltThermalBaffle1DBc {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NusseltThermalBaffle1DBc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10992,7 +12174,7 @@ pub struct NusseltThermalBaffle1DBc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11150,7 +12332,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeFieldTableError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11170,7 +12352,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -11192,7 +12374,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeFieldTableError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11216,7 +12398,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11287,7 +12469,7 @@ pub struct TimeFieldTable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeFieldTable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11315,7 +12497,7 @@ pub struct TimeFieldTable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeFieldTable) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11334,7 +12516,7 @@ pub struct TimeFieldTable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11460,7 +12642,7 @@ pub struct VelocityRundownBc {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VelocityRundownBc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11489,7 +12671,7 @@ pub struct VelocityRundownBc {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VelocityRundownBc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11508,7 +12690,7 @@ pub struct VelocityRundownBc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11844,7 +13026,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FsWallFriction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11873,7 +13055,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FsWallFriction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11892,7 +13074,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12188,7 +13370,7 @@ pub struct MultiRegimeBoilingInputs {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MultiRegimeBoilingInputs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12230,7 +13412,7 @@ pub struct MultiRegimeBoilingInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12282,7 +13464,7 @@ pub struct MultiRegimeBoilingResult {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MultiRegimeBoilingResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12324,7 +13506,7 @@ pub struct MultiRegimeBoilingResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12509,7 +13691,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CriticalHeatFlux { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12538,7 +13720,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CriticalHeatFlux) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12557,7 +13739,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12624,7 +13806,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LeidenfrostTemperature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12653,7 +13835,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LeidenfrostTemperature) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12672,7 +13854,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12741,7 +13923,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OnsetOfNucleateBoilingTemperature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12770,7 +13952,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OnsetOfNucleateBoilingTemperature) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12789,7 +13971,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12895,7 +14077,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlowEnhancementFactor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12924,7 +14106,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlowEnhancementFactor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12943,7 +14125,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12998,7 +14180,7 @@ pub struct FlowEnhancementInputs {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlowEnhancementInputs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13040,7 +14222,7 @@ pub struct FlowEnhancementInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13110,7 +14292,7 @@ COBRA-TF, a linear temperature-ratio clamp
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SuppressionFactor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13139,7 +14321,7 @@ COBRA-TF, a linear temperature-ratio clamp
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SuppressionFactor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13158,7 +14340,7 @@ COBRA-TF, a linear temperature-ratio clamp
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13212,7 +14394,7 @@ pub struct SuppressionInputs {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SuppressionInputs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13254,7 +14436,7 @@ pub struct SuppressionInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13325,7 +14507,7 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SubcooledBoilingFraction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13354,7 +14536,7 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SubcooledBoilingFraction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13373,7 +14555,7 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13390,8 +14572,8 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
 - `MustUse { reason: None }`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Two-phase "mixture" Reynolds number shared by
 [`FlowEnhancementFactor::CobraTf`] and [`SuppressionFactor::Chen`]:
@@ -13519,7 +14701,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FfForcedConvectionHtc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13548,7 +14730,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FfForcedConvectionHtc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13567,7 +14749,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13717,7 +14899,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FsForcedConvectionHtc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13746,7 +14928,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FsForcedConvectionHtc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13765,7 +14947,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13864,7 +15046,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PoolBoilingHtc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13893,7 +15075,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PoolBoilingHtc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13912,7 +15094,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14203,7 +15385,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialArea { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14232,7 +15414,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterfacialArea) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14251,7 +15433,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14358,7 +15540,7 @@ than a mesh-registry lookup).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContactPartition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14387,7 +15569,7 @@ than a mesh-registry lookup).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ContactPartition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14406,7 +15588,7 @@ than a mesh-registry lookup).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14537,7 +15719,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BubbleDiameter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14566,7 +15748,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BubbleDiameter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14585,7 +15767,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14665,7 +15847,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FilmDiameter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14694,7 +15876,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FilmDiameter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14713,7 +15895,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14828,7 +16010,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TurbulentDispersion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14857,7 +16039,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TurbulentDispersion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14876,7 +16058,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15045,7 +16227,7 @@ reproduced bit-for-bit rather than replaced with a "cleaner" curve).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegimeInterpolationMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15075,7 +16257,7 @@ reproduced bit-for-bit rather than replaced with a "cleaner" curve).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RegimeInterpolationMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15094,7 +16276,7 @@ reproduced bit-for-bit rather than replaced with a "cleaner" curve).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15149,7 +16331,7 @@ pub struct RegimeBound {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegimeBound { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15177,7 +16359,7 @@ pub struct RegimeBound {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RegimeBound) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15196,7 +16378,7 @@ pub struct RegimeBound {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15262,7 +16444,7 @@ pub struct RegimeMap1D {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegimeMap1D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15290,7 +16472,7 @@ pub struct RegimeMap1D {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RegimeMap1D) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15309,7 +16491,7 @@ pub struct RegimeMap1D {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15509,7 +16691,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VirtualMassCoefficient { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15538,7 +16720,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VirtualMassCoefficient) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15557,7 +16739,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15734,7 +16916,7 @@ module has no dependency on a thermo package.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LatentHeatModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15763,7 +16945,7 @@ module has no dependency on a thermo package.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LatentHeatModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15782,7 +16964,7 @@ module has no dependency on a thermo package.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15940,7 +17122,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseChangeRateModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15969,7 +17151,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseChangeRateModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15988,7 +17170,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16147,7 +17329,7 @@ approximation of the inverse (round-trips to within ~0.04% — see
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SaturationModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16176,7 +17358,7 @@ approximation of the inverse (round-trips to within ~0.04% — see
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SaturationModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16195,7 +17377,7 @@ approximation of the inverse (round-trips to within ~0.04% — see
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16537,7 +17719,7 @@ pub struct LaheyBubbleClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LaheyBubbleClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16566,7 +17748,7 @@ pub struct LaheyBubbleClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LaheyBubbleClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16585,7 +17767,7 @@ pub struct LaheyBubbleClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16745,7 +17927,7 @@ pub struct MixtureKEpsilonClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MixtureKEpsilonClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16774,7 +17956,7 @@ pub struct MixtureKEpsilonClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MixtureKEpsilonClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16793,7 +17975,7 @@ pub struct MixtureKEpsilonClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16930,7 +18112,7 @@ pub struct PorousKEpsilonClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PorousKEpsilonClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16959,7 +18141,7 @@ pub struct PorousKEpsilonClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PorousKEpsilonClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16978,7 +18160,7 @@ pub struct PorousKEpsilonClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17041,7 +18223,7 @@ pub struct PorousKEpsilon2PhaseClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PorousKEpsilon2PhaseClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17070,7 +18252,7 @@ pub struct PorousKEpsilon2PhaseClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PorousKEpsilon2PhaseClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17089,7 +18271,7 @@ pub struct PorousKEpsilon2PhaseClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17508,7 +18690,7 @@ pub struct Extents {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Extents { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17537,7 +18719,7 @@ pub struct Extents {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Extents) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17556,7 +18738,7 @@ pub struct Extents {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17779,7 +18961,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MassFlowRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17820,7 +19002,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17948,7 +19130,7 @@ Area integral: `sum(v * |Sf|)`.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PatchReduceOp { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17978,7 +19160,7 @@ Area integral: `sum(v * |Sf|)`.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PatchReduceOp) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17997,7 +19179,7 @@ Area integral: `sum(v * |Sf|)`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18182,7 +19364,7 @@ pub struct StopDecision {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StopDecision { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18211,7 +19393,7 @@ pub struct StopDecision {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StopDecision) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -18230,7 +19412,7 @@ pub struct StopDecision {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18505,7 +19687,7 @@ Gas / vapour phase.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StateOfMatter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18521,7 +19703,7 @@ Gas / vapour phase.
 
 - **Default**
   - ```rust
-    fn default() -> StateOfMatter { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -18540,7 +19722,7 @@ Gas / vapour phase.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StateOfMatter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -18559,7 +19741,7 @@ Gas / vapour phase.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18974,7 +20156,7 @@ pub struct Fluid {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Fluid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19015,7 +20197,7 @@ pub struct Fluid {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19156,7 +20338,7 @@ pub struct PhaseBase {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseBase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19197,7 +20379,7 @@ pub struct PhaseBase {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19606,7 +20788,7 @@ pub struct OnePhaseSolver {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19725,7 +20907,7 @@ pub struct PorousDrag {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PorousDrag { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19766,7 +20948,7 @@ pub struct PorousDrag {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19853,7 +21035,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20039,7 +21221,7 @@ pub struct HeatExchanger {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatExchanger { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20068,7 +21250,7 @@ pub struct HeatExchanger {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatExchanger) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20087,7 +21269,7 @@ pub struct HeatExchanger {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20225,7 +21407,7 @@ pub struct PassiveStructure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PassiveStructure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20253,7 +21435,7 @@ pub struct PassiveStructure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PassiveStructure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20272,7 +21454,7 @@ pub struct PassiveStructure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20337,6 +21519,471 @@ q'' = h_sum * T_wall - ht_sum
 pub fn wall_heat_flux(h_sum: super::units::HeatTransferCoefficient, ht_sum: super::units::HeatFlux, t_wall: uom::si::f64::ThermodynamicTemperature) -> super::units::HeatFlux { /* ... */ }
 ```
 
+## Module `nuclear_steady_state_pebble`
+
+# `nuclearSteadyStatePebble` — steady sub-scale temperatures in a fuel pebble
+
+GeN-Foam's steady-state pebble power model, as used by its `3D_gFHR`
+tutorial. Given the volumetric power a porous cell produces and the pebble's
+outer surface temperature, it returns the temperature at every interface from
+that surface down to the hottest UO2 kernel centre.
+
+**It is a closed-form chain, not an iteration.** Upstream's `correct()` walks
+it once per cell per timestep; there is no inner solve to converge, so the
+port is an exact transcription rather than a re-derivation.
+
+## The pebble
+
+A pebble-bed FHR pebble is **not** shaped like an HTR-10 one: the fuel sits in
+an *annulus* around an unfuelled graphite core, inside an unfuelled shell.
+
+```text
+  r = 0 ....... r_core ....... r_matrix ....... r_shell
+  | graphite core | fuelled matrix | graphite shell |
+    (unheated)      (N TRISO)        (unheated)
+```
+
+## The chain (upstream's own order and formulas)
+
+With `Q` the total power of one pebble, `q_m` the volumetric power in the
+fuelled annulus and `Q_t = Q/N` the power of one TRISO particle:
+
+```text
+  T_m,out = T_surf  + Q/(4 pi k_g) (1/r_m - 1/r_shell)          [unheated shell]
+  T_m,av  = T_m,out + (q_m/(6 k_eff)) [ r_m^2 - 3(r_m^5 - r_c^5)/(5(r_m^3 - r_c^3)) ]
+                    + (r_c^3 q_m)/(3 k_eff) [ 1/r_m - 3(r_m^2 - r_c^2)/(2(r_m^3 - r_c^3)) ]
+  T_f,S   = T_m,av  + Q_t/(4 pi) * R_coat
+  T_f,av  = T_f,S   + q_f r_f^2 / (15 k_f)
+  T_f,max = T_f,S   + q_f r_f^2 / (6 k_f)
+```
+
+where `R_coat` is the series resistance of the four TRISO coatings and
+`q_f = Q_t / ((4/3) pi r_f^3)`.
+
+The `T_m,av` expression is the **surface-to-volume-average** temperature of a
+uniformly heated spherical annulus whose inner face is adiabatic — adiabatic
+because the central core produces no power and symmetry puts zero flux at
+`r = 0`. Note it is an *average*, not the peak: the peak matrix temperature
+is not what the TRISO particles see on average, and upstream deliberately
+feeds the average into the particle-scale step.
+
+## Effective matrix conductivity — Maxwell
+
+The fuelled matrix is graphite with TRISO particles dispersed in it, and
+upstream homogenises the pair with the **Maxwell** (Maxwell-Garnett) mixture
+rule rather than using the bare graphite value:
+
+```text
+  k_triso = (1/r_f - 1/r_PyCout) / R_coat          [an equivalent solid sphere]
+  PF      = N (4/3) pi r_PyCout^3 / ((4/3) pi (r_m^3 - r_c^3))
+  kappa   = k_triso / k_graphite
+  beta    = (kappa - 1)/(kappa + 2)
+  k_eff   = k_graphite (1 + 2 beta PF)/(1 - beta PF)
+```
+
+This matters: for the gFHR tutorial it is a meaningfully different number from
+the bare graphite conductivity, and using graphite in its place silently
+changes the matrix temperature rise.
+
+## Power bookkeeping
+
+Upstream converts the *cell* volumetric power into a *per-pebble* power with
+the solid volume fraction `alpha`:
+
+```text
+  Q = q (4/3) pi r_shell^3 / alpha
+```
+
+— i.e. the cell's power is shared among the pebbles that occupy `alpha` of
+it. A cell with `alpha = 0` carries no pebbles and produces no power.
+
+## What is not ported here
+
+- **The convective coupling.** Upstream computes the pebble surface
+  temperature as `T_surf = (q_surf + sum h T)/sum h` from the fluid solve;
+  here it is an input, because this crate has no coupled porous
+  thermal-hydraulic driver to produce it.
+- **Temperature-dependent conductivities.** Upstream evaluates each `k` from a
+  polynomial in the local temperature. This port takes the conductivities as
+  values, which the caller may evaluate however it likes; the gFHR tutorial's
+  own coefficients are constant (only the zeroth term is non-zero), so for
+  that case the two are identical.
+- Density correlations and the min/max/average field reductions, which are
+  reporting rather than physics.
+
+```rust
+pub mod nuclear_steady_state_pebble { /* ... */ }
+```
+
+### Types
+
+#### Struct `PebbleGeometry`
+
+The radii of a pebble and of the TRISO particles dispersed in it, metres.
+
+Mirrors the `pebble*Radius` / `triso*Radius` entries of a
+`nuclearSteadyStatePebble` dictionary. All radii are outer radii and must
+increase strictly outward within each scale.
+
+```rust
+pub struct PebbleGeometry {
+    pub core_radius: f64,
+    pub matrix_radius: f64,
+    pub shell_radius: f64,
+    pub fuel_radius: f64,
+    pub buffer_radius: f64,
+    pub inner_pyc_radius: f64,
+    pub silicon_carbide_radius: f64,
+    pub outer_pyc_radius: f64,
+    pub triso_count: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `core_radius` | `f64` | Outer radius of the unfuelled central graphite core (m). gFHR: 1.38e-2. |
+| `matrix_radius` | `f64` | Outer radius of the fuelled matrix annulus (m). gFHR: 1.8e-2. |
+| `shell_radius` | `f64` | Outer radius of the pebble, i.e. of the unfuelled shell (m). gFHR: 2e-2. |
+| `fuel_radius` | `f64` | UO2 kernel radius (m). gFHR: 212.5e-6. |
+| `buffer_radius` | `f64` | Buffer outer radius (m). gFHR: 312.5e-6. |
+| `inner_pyc_radius` | `f64` | Inner-PyC outer radius (m). gFHR: 352.5e-6. |
+| `silicon_carbide_radius` | `f64` | SiC outer radius (m). gFHR: 387.5e-6. |
+| `outer_pyc_radius` | `f64` | Outer-PyC outer radius — the particle's own surface (m). gFHR: 427.5e-6. |
+| `triso_count` | `f64` | Number of TRISO particles per pebble. gFHR: 9022. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn coating_resistance(self: &Self, k: &PebbleConductivities) -> f64 { /* ... */ }
+  ```
+  Series thermal resistance of the four TRISO coatings for unit power,
+
+- ```rust
+  pub fn packing_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  TRISO particle packing fraction within the fuelled annulus,
+
+- ```rust
+  pub fn effective_matrix_conductivity(self: &Self, k: &PebbleConductivities) -> f64 { /* ... */ }
+  ```
+  Effective conductivity of the TRISO-bearing matrix, W/(m K), by the
+
+- ```rust
+  pub fn steady_temperatures(self: &Self, surface_temperature: f64, power_density: f64, solid_fraction: f64, k: &PebbleConductivities) -> PebbleTemperatures { /* ... */ }
+  ```
+  The full steady temperature chain for one porous cell.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PebbleConductivities`
+
+Thermal conductivities, W/(m K), at the temperatures the caller chose to
+evaluate them.
+
+Upstream evaluates each from a polynomial in the local temperature (the
+`*KCoeffs` entries); this port takes the values so the caller keeps that
+choice. The gFHR tutorial's coefficients are constant.
+
+```rust
+pub struct PebbleConductivities {
+    pub fuel: f64,
+    pub buffer: f64,
+    pub pyrolytic_carbon: f64,
+    pub silicon_carbide: f64,
+    pub graphite: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel` | `f64` | UO2 kernel. gFHR: 3.3073. |
+| `buffer` | `f64` | Porous carbon buffer. gFHR: 0.50. |
+| `pyrolytic_carbon` | `f64` | Both pyrolytic-carbon layers — upstream uses one value for IPyC and<br>OPyC. gFHR: 4.00. |
+| `silicon_carbide` | `f64` | Silicon carbide. gFHR: 90.3. |
+| `graphite` | `f64` | Matrix and shell graphite. gFHR: 41.68. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PebbleTemperatures`
+
+The temperature chain from the pebble surface inward, kelvin.
+
+Produced by [`PebbleGeometry::steady_temperatures`]. Every field is an
+absolute temperature.
+
+```rust
+pub struct PebbleTemperatures {
+    pub surface: f64,
+    pub matrix_outer: f64,
+    pub matrix_average: f64,
+    pub particle_surface: f64,
+    pub fuel_average: f64,
+    pub fuel_max: f64,
+    pub matrix_effective_conductivity: f64,
+    pub pebble_power: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface` | `f64` | Pebble outer surface — the input boundary condition, returned unchanged. |
+| `matrix_outer` | `f64` | Outer face of the fuelled matrix annulus (`r = r_matrix`), i.e. the inner<br>face of the unfuelled shell. Upstream's `Tmout`. |
+| `matrix_average` | `f64` | **Volume-average** temperature of the fuelled matrix annulus. Upstream's<br>`Tmav`, and the boundary condition the particle-scale step uses. |
+| `particle_surface` | `f64` | Outer surface of a TRISO particle sitting at the matrix average<br>temperature. Upstream's `TfS`. |
+| `fuel_average` | `f64` | Volume-average UO2 kernel temperature. Upstream's `Tfav`. |
+| `fuel_max` | `f64` | UO2 kernel **centre** — the peak fuel temperature, and the quantity a<br>fuel-temperature limit applies to. Upstream's `Tfmax`. |
+| `matrix_effective_conductivity` | `f64` | Effective conductivity of the TRISO-bearing matrix from the Maxwell<br>mixture rule, W/(m K). Upstream's `keffMatrix`. |
+| `pebble_power` | `f64` | Total power of one pebble, W. Upstream's `Q_pebble_tot`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total_rise(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total rise from the pebble surface to the peak kernel centre, K.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `power_model`
 
 # `power_model` — the solid-structure energy source / surface temperature
@@ -20488,7 +22135,7 @@ pub struct FixedPower {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FixedPower { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20516,7 +22163,7 @@ pub struct FixedPower {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FixedPower) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20535,7 +22182,7 @@ pub struct FixedPower {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20610,7 +22257,7 @@ pub struct FixedTemperature {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FixedTemperature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20638,7 +22285,7 @@ pub struct FixedTemperature {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FixedTemperature) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20657,7 +22304,7 @@ pub struct FixedTemperature {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20749,7 +22396,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PowerModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20777,7 +22424,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PowerModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20796,7 +22443,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20877,7 +22524,7 @@ Use the field minimum over the domain.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FieldReduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20907,7 +22554,7 @@ Use the field minimum over the domain.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FieldReduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20926,7 +22573,7 @@ Use the field minimum over the domain.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20982,7 +22629,7 @@ Fire when the reduced value is at or below the threshold.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThresholdDirection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21012,7 +22659,7 @@ Fire when the reduced value is at or below the threshold.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThresholdDirection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21031,7 +22678,7 @@ Fire when the reduced value is at or below the threshold.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21132,7 +22779,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PowerOffCriterion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21160,7 +22807,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PowerOffCriterion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21179,7 +22826,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21285,7 +22932,7 @@ pub struct Pump {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Pump { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21313,7 +22960,7 @@ pub struct Pump {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Pump) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21332,7 +22979,7 @@ pub struct Pump {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21491,7 +23138,7 @@ pub struct StructureThermalState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StructureThermalState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21520,7 +23167,7 @@ pub struct StructureThermalState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StructureThermalState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21539,7 +23186,7 @@ pub struct StructureThermalState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21638,7 +23285,7 @@ pub struct StructureCell {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StructureCell { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21666,7 +23313,7 @@ pub struct StructureCell {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StructureCell) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21685,7 +23332,7 @@ pub struct StructureCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21726,6 +23373,24 @@ pub use heat_source::wall_heat_flux;
 
 ```rust
 pub use heat_source::PassiveStructure;
+```
+
+#### Re-export `PebbleConductivities`
+
+```rust
+pub use nuclear_steady_state_pebble::PebbleConductivities;
+```
+
+#### Re-export `PebbleGeometry`
+
+```rust
+pub use nuclear_steady_state_pebble::PebbleGeometry;
+```
+
+#### Re-export `PebbleTemperatures`
+
+```rust
+pub use nuclear_steady_state_pebble::PebbleTemperatures;
 ```
 
 #### Re-export `FixedPower`
@@ -22071,7 +23736,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BespokeFluidPropertyModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22087,7 +23752,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **Default**
   - ```rust
-    fn default() -> BespokeFluidPropertyModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -22106,7 +23771,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BespokeFluidPropertyModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22125,7 +23790,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22615,7 +24280,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RheologyOption { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22631,7 +24296,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **Default**
   - ```rust
-    fn default() -> RheologyOption { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -22650,7 +24315,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RheologyOption) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22669,7 +24334,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22758,7 +24423,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22792,7 +24457,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22816,7 +24481,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22936,7 +24601,7 @@ pub struct ElasticMaterial {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ElasticMaterial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22965,7 +24630,7 @@ pub struct ElasticMaterial {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ElasticMaterial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22984,7 +24649,7 @@ pub struct ElasticMaterial {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23133,7 +24798,7 @@ pub struct DisplacementReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DisplacementReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23162,7 +24827,7 @@ pub struct DisplacementReport {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DisplacementReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23181,7 +24846,7 @@ pub struct DisplacementReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23327,7 +24992,7 @@ pub struct MechanicsMeshSolver {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MechanicsMeshSolver { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23368,7 +25033,7 @@ pub struct MechanicsMeshSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23621,7 +25286,7 @@ pub struct LegacyThermoMechanics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LegacyThermoMechanics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23650,7 +25315,7 @@ pub struct LegacyThermoMechanics {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LegacyThermoMechanics) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23669,7 +25334,7 @@ pub struct LegacyThermoMechanics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23742,7 +25407,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermoMechanicsModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23771,7 +25436,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermoMechanicsModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23790,7 +25455,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24056,7 +25721,7 @@ pub struct ControlDict {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ControlDict { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24102,7 +25767,7 @@ pub struct ControlDict {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24173,7 +25838,7 @@ Begin at the earliest time directory present (`startFrom firstTime`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StartControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24201,7 +25866,7 @@ Begin at the earliest time directory present (`startFrom firstTime`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StartControl) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24220,7 +25885,7 @@ Begin at the earliest time directory present (`startFrom firstTime`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24293,7 +25958,7 @@ Stop at the next scheduled write. **Runs zero steps.**
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StopControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24321,7 +25986,7 @@ Stop at the next scheduled write. **Runs zero steps.**
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StopControl) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24340,7 +26005,7 @@ Stop at the next scheduled write. **Runs zero steps.**
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24444,7 +26109,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WriteControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24472,7 +26137,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WriteControl) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24491,7 +26156,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24545,7 +26210,7 @@ Binary (smaller and faster, not diffable).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WriteFormat { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24573,7 +26238,7 @@ Binary (smaller and faster, not diffable).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WriteFormat) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24592,7 +26257,7 @@ Binary (smaller and faster, not diffable).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24722,7 +26387,7 @@ pub struct FvSchemes {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvSchemes { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24769,7 +26434,7 @@ pub struct FvSchemes {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24833,7 +26498,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DdtScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24861,7 +26526,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DdtScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24880,7 +26545,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24932,7 +26597,7 @@ pub enum GradScheme {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GradScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24960,7 +26625,7 @@ pub enum GradScheme {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GradScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24979,7 +26644,7 @@ pub enum GradScheme {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25052,7 +26717,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DivScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25080,7 +26745,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DivScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25099,7 +26764,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25157,7 +26822,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LaplacianScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25185,7 +26850,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LaplacianScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25204,7 +26869,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25262,7 +26927,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnGradScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25290,7 +26955,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SnGradScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25309,7 +26974,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25367,7 +27032,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterpolationScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25395,7 +27060,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterpolationScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25414,7 +27079,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25488,7 +27153,7 @@ pub struct FvSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25534,7 +27199,7 @@ pub struct FvSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25594,7 +27259,7 @@ pub struct LinearSolverConfig {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LinearSolverConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25640,7 +27305,7 @@ pub struct LinearSolverConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25713,7 +27378,7 @@ Smooth solver (iterative, for symmetric).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LinearSolverType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25741,7 +27406,7 @@ Smooth solver (iterative, for symmetric).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LinearSolverType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25760,7 +27425,7 @@ Smooth solver (iterative, for symmetric).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25816,7 +27481,7 @@ pub struct PimpleControl {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PimpleControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25862,7 +27527,7 @@ pub struct PimpleControl {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25873,6 +27538,123 @@ pub struct PimpleControl {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `nuclear_data`
+
+# Reading a GeN-Foam `constant/<region>/nuclearData` dictionary
+
+Turns the on-disk dictionary into the plain-data
+[`NuclearDataInput`](crate::genfoam::neutronics::xs::input::NuclearDataInput)
+that [`CrossSectionData::from_input`] consumes. This is the one link that was
+missing between an upstream GeN-Foam case and this port's neutronics: the
+schema mirror and the solvers both existed, but nothing read the file.
+
+```text
+  nuclearData (text)  --[this module]-->  NuclearDataInput
+      --> CrossSectionData --> DiffusionNeutronics --> k_eff
+```
+
+## The format
+
+An ordinary OpenFOAM dictionary, parsed by
+[`outram_foam_basic_lib::io::dict`]:
+
+```text
+energyGroups    6;
+precGroups      8;
+fastNeutrons    true;
+xsVariables { TFuel log; rhoCool lin; }
+states
+(
+    reference { TFuel 900; rhoCool 4125; zones ( hx { … } intermed { … } ); }
+    TFuel1200K { TFuel 1200; zones ( #include "XSTFuel1200K" ); }
+);
+```
+
+Two features of it are worth naming because they are why a plain
+`FoamFile::read` is not enough:
+
+- **Dictionaries appear inside lists.** `states ( name { … } … )` and
+  `zones ( name { … } … )` are lists whose elements alternate a name word and
+  a braced body. That is handled by
+  [`FoamValue::Dict`](outram_foam_basic_lib::io::dict::FoamValue::Dict).
+- **`#include` is used in earnest.** Upstream's ESFR case keeps each state's
+  zone data in a separate `XS…` file. This module reads through
+  [`FoamFile::read_with_includes`], so those are spliced before parsing.
+
+## Units
+
+Exactly as the file states them: MKSA throughout, so cross sections are per
+**metre** (not per centimetre), `sigmaPow` is J/m, `IV` is s/m and `lambda`
+is 1/s. Nothing is converted here — the values reach
+[`NuclearDataInput`](crate::genfoam::neutronics::xs::input::NuclearDataInput)
+as written, which is what the `xs` layer expects.
+
+## Defaults, taken from upstream
+
+| key | default | meaning |
+|---|---|---|
+| `precGroups` | `1` | delayed-neutron precursor groups (`0` allowed, as upstream) |
+| `polyharmonicSplineMode` | `1` | `phi(r) = |r|`, linear interpolation |
+| `fastNeutrons` | `false` | log vs sqrt Doppler transform (metadata only) |
+| `doNotParametrize` | empty | groups pinned to their reference values |
+| `fuelFraction` | `1.0` | fuel volume fraction per lattice volume |
+| `secondaryPowerVolumeFraction` | `1.0` | |
+| `fractionToSecondaryPower` | `0.0` | |
+| `dfAdjust` | `true` | |
+
+A perturbed state inherits any feedback parameter it does not restate from
+the reference state, which is why upstream's `TFuel1200K` lists only `TFuel`.
+
+[`CrossSectionData::from_input`]: crate::genfoam::neutronics::xs::CrossSectionData::from_input
+
+```rust
+pub mod nuclear_data { /* ... */ }
+```
+
+### Functions
+
+#### Function `read_nuclear_data`
+
+Read and parse a GeN-Foam `nuclearData` dictionary.
+
+Follows `#include` directives relative to `path`'s own directory, so a case
+that splits its per-state cross sections across `XS…` files reads as one
+dictionary.
+
+# Errors
+
+[`AppBuilderError::Io`] if the file (or an included file) cannot be read,
+and [`AppBuilderError::Parse`] for a malformed dictionary, a missing
+required key, or an array whose length disagrees with `energyGroups` /
+`precGroups`. Length disagreement is checked here, at the point where the
+file name is still known, rather than being left to surface later as a
+shape mismatch deep inside the cross-section layer.
+
+# Example
+
+```no_run
+use std::path::Path;
+use outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data;
+use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
+
+let input = read_nuclear_data(Path::new("constant/neutroRegion/nuclearData"))?;
+let xs = CrossSectionData::from_input(&input)?;
+assert_eq!(xs.energy_groups(), input.energy_groups);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+```rust
+pub fn read_nuclear_data(path: &std::path::Path) -> Result<crate::genfoam::neutronics::xs::input::NuclearDataInput, crate::error::AppBuilderError> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `write_nuclear_data`
+
+```rust
+pub use writer::write_nuclear_data;
+```
+
 ## Module `output`
 
 Writers for simulation results — OpenFOAM ASCII field files and legacy VTK
@@ -25944,6 +27726,111 @@ Rust parser is far simpler than attempting C++ interop.
 pub mod poly_mesh { /* ... */ }
 ```
 
+### Types
+
+#### Struct `CellZone`
+
+One named cell zone: the material region a neutronics or thermal-hydraulic
+solver looks up its per-zone properties by.
+
+Mirrors one entry of `constant/<region>/polyMesh/cellZones`. Cell indices are
+the same 0-based indices an [`FvMesh`] uses, so `cells` indexes straight into
+a field's internal array.
+
+```rust
+pub struct CellZone {
+    pub name: String,
+    pub cells: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Zone name, matching a zone declared in the case's `nuclearData`. |
+| `cells` | `Vec<usize>` | The cells belonging to this zone, in file order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Functions
 
 #### Function `read_poly_mesh`
@@ -25993,6 +27880,91 @@ Parse the `boundary` file into a list of `BoundaryPatch`.
 
 ```rust
 pub fn parse_boundary(text: &str, file: &str) -> Result<Vec<outram_foam_basic_lib::prelude::BoundaryPatch>, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `parse_cell_zones`
+
+Parse an OpenFOAM `cellZones` file.
+
+# Format
+
+```text
+N
+(
+    zoneName
+    {
+        type cellZone;
+        cellLabels List<label> M ( 0 1 2 … );
+    }
+    …
+)
+```
+
+# Errors
+
+[`AppBuilderError::Parse`] if the list header is malformed, a zone body is
+unclosed, `cellLabels` is missing, or the declared zone count does not match
+the number parsed.
+
+# Note on overlap
+
+OpenFOAM does not forbid a cell appearing in two zones, and this function
+does not either — it reports what the file says. Use
+[`zone_of_cell`] when a single zone per cell is required; that is where the
+ambiguity is resolved and reported.
+
+```rust
+pub fn parse_cell_zones(text: &str, file: &str) -> Result<Vec<CellZone>, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `read_cell_zones`
+
+Read and parse `<polyMesh>/cellZones`.
+
+# Errors
+
+[`AppBuilderError::Io`] if the file cannot be read, or
+[`AppBuilderError::Parse`] per [`parse_cell_zones`].
+
+# Note
+
+Only the uncompressed file is read. OpenFOAM commonly writes
+`cellZones.gz`; decompress it first (`gzip -d`), as one would to inspect the
+case by hand.
+
+```rust
+pub fn read_cell_zones(poly_mesh_dir: &std::path::Path) -> Result<Vec<CellZone>, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `zone_of_cell`
+
+Build the per-cell zone index a neutronics solver needs, from the zone list
+and the zone ordering the cross-section data uses.
+
+Returns `zone_of_cell[c]` = the index into `zone_order` of the zone owning
+cell `c`, which is exactly the `zone_of_cell` argument of
+[`DiffusionNeutronics::new`].
+
+# Parameters
+
+- `zones` — as read by [`read_cell_zones`].
+- `zone_order` — the zone names in the order the cross-section data holds
+  them (`CrossSectionData::zone_index`). A zone present in the mesh but
+  absent here is an error, not a silent skip.
+- `n_cells` — the mesh cell count.
+
+# Errors
+
+[`AppBuilderError::Parse`] if a mesh zone is not in `zone_order`, if a cell
+index is out of range, if a cell is claimed by two zones, or if any cell is
+left unassigned. All four are conditions under which a solve would otherwise
+run and produce a quietly wrong answer: an unassigned cell would take
+whatever zone 0 happens to be.
+
+[`DiffusionNeutronics::new`]: crate::genfoam::neutronics::diffusion::DiffusionNeutronics::new
+
+```rust
+pub fn zone_of_cell(zones: &[CellZone], zone_order: &[&str], n_cells: usize) -> Result<Vec<usize>, crate::error::AppBuilderError> { /* ... */ }
 ```
 
 ## Module `prelude`
@@ -26102,16 +28074,46 @@ pub use crate::io::fv_solution::LinearSolverType;
 pub use crate::io::fv_solution::PimpleControl;
 ```
 
-#### Re-export `write_scalar_field`
+#### Re-export `read_vol_scalar_field`
 
 ```rust
-pub use crate::io::output::write_scalar_field;
+pub use crate::io::field_reader::read_vol_scalar_field;
+```
+
+#### Re-export `read_vol_scalar_field_full`
+
+```rust
+pub use crate::io::field_reader::read_vol_scalar_field_full;
+```
+
+#### Re-export `read_vol_vector_field`
+
+```rust
+pub use crate::io::field_reader::read_vol_vector_field;
+```
+
+#### Re-export `read_vol_vector_field_full`
+
+```rust
+pub use crate::io::field_reader::read_vol_vector_field_full;
 ```
 
 #### Re-export `read_poly_mesh`
 
 ```rust
 pub use crate::io::poly_mesh::read_poly_mesh;
+```
+
+#### Re-export `read_nuclear_data`
+
+```rust
+pub use crate::io::nuclear_data::read_nuclear_data;
+```
+
+#### Re-export `write_nuclear_data`
+
+```rust
+pub use crate::io::nuclear_data::write_nuclear_data;
 ```
 
 #### Re-export `DecayConstant`
@@ -26436,7 +28438,7 @@ pub struct HrmModelConfig {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HrmModelConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26483,7 +28485,7 @@ pub struct HrmModelConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26632,7 +28634,7 @@ pub struct HrmFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26894,7 +28896,7 @@ pub struct MeltFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27123,7 +29125,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PressureSolver { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27139,7 +29141,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **Default**
   - ```rust
-    fn default() -> PressureSolver { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -27158,7 +29160,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PressureSolver) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -27177,7 +29179,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27274,6 +29276,11 @@ pub struct PimpleFoam {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -27293,7 +29300,7 @@ pub struct PimpleFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27485,7 +29492,7 @@ pub struct PhaseThermo {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27571,7 +29578,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialHeatTransfer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27613,7 +29620,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27685,7 +29692,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialMassTransfer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27727,7 +29734,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27780,7 +29787,7 @@ The continuous phase `c`.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseSelector { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27810,7 +29817,7 @@ The continuous phase `c`.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseSelector) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -27829,7 +29836,7 @@ The continuous phase `c`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27898,7 +29905,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27940,7 +29947,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28038,7 +30045,7 @@ pub struct PhaseSpecies {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28119,7 +30126,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionMechanism { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28161,7 +30168,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28299,7 +30306,7 @@ pub struct ReactingTwoPhaseEulerFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28361,6 +30368,11 @@ reconstructions** of ρ, U and e — the owner-biased (`pos`) and
 neighbour-biased (`neg`) face values from `fvc::reconstruct_pos_neg`,
 matching OpenFOAM rhoCentralFoam's `interpolate(field, pos/neg)`. Using the
 raw cell values instead would make the scheme first-order.
+
+The flux itself is the shared, EOS-free kernel
+[`outram_foam_basic_lib::fv_operators::fvc::central_upwind`], called with
+the total-energy pair `w_e = ρE`, `f_e = H = E + p/ρ` (gh #901). This solver
+supplies the perfect-gas closure and its positivity clamps.
 
 C++ solver: `applications/solvers/compressible/rhoCentralFoam/`
 
@@ -28430,6 +30442,11 @@ pub struct RhoCentralFoam {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -28449,7 +30466,7 @@ pub struct RhoCentralFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28584,7 +30601,7 @@ pub struct RhoPimpleFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28859,7 +30876,7 @@ pub struct SonicFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29145,7 +31162,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> TurbulenceClosure { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -29167,7 +31184,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
