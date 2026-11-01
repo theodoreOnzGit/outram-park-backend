@@ -606,10 +606,12 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         return Err(DraftError::MissingCalleeHash(c.clone()).to_string());
     }
     let snap = review_mode::Snapshot::load(root)?;
-    let tentative_on: Vec<String> = review_mode::blockers_of(&snap, &f.id)
+    let mut tentative_on: Vec<String> = review_mode::blockers_of(&snap, &f.id)
         .into_iter()
         .map(|(_, n)| n)
         .collect();
+    // By name, so the dialog's list does not follow the ids' order.
+    tentative_on.sort();
     let folder = ws.reviews.get(&idx.dir);
     let (applicability, messages) = applicability_for(root, &ws, idx, f);
     let previous = folder.and_then(|m| {

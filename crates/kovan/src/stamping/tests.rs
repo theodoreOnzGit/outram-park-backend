@@ -210,13 +210,14 @@ pub(crate) fn founder_key(r: &Repo, store: &Path) -> UnlockedKey {
 }
 
 /// Methodology: on the fixture (module doc), register a founder key, stamp
+/// `leaf` (since 2026-11-01: else `twice` is tentative, #1106), then
 /// `twice` (draft at HEAD, sign, write `review.md`, commit) and build the
 /// states with signatures enforced. Then edit `leaf` (twice's callee) and
 /// commit, then edit `twice`'s own body and commit, re-judging each time.
 /// Pass: valid at rung 3 with a permalink; inherited stale after the
 /// callee edit; directly stale after its own edit; never valid again
-/// without a new stamp. `leaf` and `other`, never stamped, are absent (the
-/// web shows them unreviewed).
+/// without a new stamp. `other`, never stamped, is absent (the web shows it
+/// unreviewed).
 ///
 /// Also: `write_split` (the `--split-dir` data) carries the stamp.
 ///
@@ -226,8 +227,10 @@ fn stamp_is_valid_then_goes_stale_on_edit() {
     let r = Repo::new();
     let store = tempfile::tempdir().unwrap();
     let key = founder_key(&r, store.path());
+    // `leaf` first: a stamp over an unstamped callee reads tentative (#1106).
+    r.stamp(&key, "leaf", "");
     let w = r.stamp(&key, "twice", "Checked against the doc.");
-    assert!(!w.replaced && w.review_md == r.path().join(DIR).join(REVIEW_MD));
+    assert!(w.review_md == r.path().join(DIR).join(REVIEW_MD));
 
     let s = r.state("twice").expect("twice has a state");
     assert_eq!(
@@ -242,7 +245,7 @@ fn stamp_is_valid_then_goes_stale_on_edit() {
         "{}",
         s.permalink
     );
-    assert!(r.state("leaf").is_none() && r.state("other").is_none());
+    assert!(r.state("other").is_none());
 
     // `kovan-cli call-graph --split-dir` (web-kovan's data) carries the
     // same review.md state (maintainer, 2026-10-10: switched from the
@@ -279,7 +282,8 @@ fn stamp_is_valid_then_goes_stale_on_edit() {
 /// `twice` twice by the same reviewer. Pass: the second write replaces the
 /// first (one standing review per reviewer per function, #764), the
 /// unreadable entry survives byte for byte through both writes, and the
-/// function is still valid. Also: an unsigned review is refused, a draft
+/// function's stamp still stands (tentative since 2026-11-01, #1106: its
+/// callee `leaf` is unstamped). Also: an unsigned review is refused, a draft
 /// on an uncommitted edit is refused, a needs-fix on `other` shows
 /// "needs fix", a stamp committed with the agent attribution trailer is
 /// unverified, and registering a second reviewer and a second key gives
@@ -305,7 +309,8 @@ fn restamp_replaces_keeps_unreadable_and_registration_keeps_comments() {
     );
     assert!(md.contains("Second.") && !md.contains("First."));
     assert_eq!(parse_review_md(&md).reviews().count(), 1);
-    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid));
+    // ~~Valid~~ tentative since 2026-11-01: `leaf` is unstamped (#1106).
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Tentative));
 
     // Refusals.
     let req = StampRequest {

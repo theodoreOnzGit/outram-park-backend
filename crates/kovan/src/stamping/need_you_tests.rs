@@ -119,7 +119,8 @@ fn the_stamp_records_the_authorship_of_the_reviewed_change() {
         a.sessions,
         vec!["https://claude.ai/code/session_test".to_string()]
     );
-    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid));
+    // Tentative, not valid: `leaf` underneath is unstamped (#1106).
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Tentative));
 }
 
 /// Methodology: stamp `leaf` and `twice`; an agent commit then edits
@@ -560,7 +561,8 @@ fn commit_and_push_lands_on_develop_refuses_main_and_merges_a_moved_remote() {
         r.git(&["status", "--porcelain"]).contains("NOTES.txt"),
         "the unrelated edit stays"
     );
-    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid));
+    // Tentative, not valid: `leaf` underneath is unstamped (#1106).
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Tentative));
     assert_eq!(
         commit_and_push(r.path(), &files),
         Err(CommitPushError::NothingToCommit)
