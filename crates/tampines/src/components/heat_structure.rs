@@ -50,6 +50,8 @@
 
 use std::f64::consts::PI;
 
+use petir::mathf::RealMath;
+
 use tampines_steam_tables::hem::{HemEquationOfState, HemNetwork, HemPipe};
 use uom::si::f64::{
     HeatTransfer, Length, Power, ThermalConductivity, ThermodynamicTemperature, Time,
@@ -296,7 +298,7 @@ impl HeatStructure {
                 // solid centre cell (a = 0) has a finite outer resistance.
                 let rc = (0.5 * (a * a + b * b)).sqrt();
                 let rf = self.faces[f];
-                (rf / rc).ln().abs() / (2.0 * PI * self.k[i] * self.dz * multiplicity)
+                (rf / rc).r_ln().abs() / (2.0 * PI * self.k[i] * self.dz * multiplicity)
             }
             StructureShape::Slab { width } => 0.5 * (b - a) / (self.k[i] * width.get::<meter>() * self.dz),
         }
