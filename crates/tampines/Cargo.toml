@@ -71,6 +71,12 @@ raffles.workspace = true
 # op-dt3.12 / op-dt3.13. Only the algebraic closures are consumed
 # (`SlipModel`, `DragModel`); the 3-D field equations are not.
 outram-foam-multiphase.workspace = true
+# GeN-Foam port (gh:#1060): `multiphase_1d::interfacial` reuses its
+# interfacial-area models (`closures::interfacial::area::InterfacialArea`) and
+# its one-parameter flow-regime map (`regime_map::RegimeMap1D`) rather than
+# porting them a second time. No cycle: the appbuilder depends only on petir,
+# outram-foam-{basic,turbulence,multiphase}-lib, ndarray, serde, uom, thiserror.
+outram-foam-appbuilder-lib.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 # DWSIM-derived equipment-model correlations (pipe/valve/heat-exchanger/
 # expander/pump) for tampines::components (op-dt3.4) to build on.

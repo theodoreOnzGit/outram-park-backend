@@ -98,16 +98,24 @@
 //!   dominated by depressurisation, not by wall heat, but a rewetting or
 //!   reflood problem is not solvable with these as they stand.
 //! - **No interfacial area transport.** [`two_fluid::TwoFluid1d`] takes a
-//!   prescribed bubble diameter, so its drag and its interfacial heat transfer
-//!   do not respond to a changing flow regime. That absence is not cosmetic: it
+//!   prescribed bubble diameter, so ~~its drag and its interfacial heat transfer
+//!   do not respond to a changing flow regime~~ (**CORRECTED 2026-11-01,
+//!   gh:#1060:** above `α_g = 0.5` the area now follows the regime map; in the
+//!   bubbly window it is still `6 α_g / d_b`) the bubble size never responds to
+//!   breakup or nucleation. That absence is not cosmetic: it
 //!   is what makes the six-equation solver **refuse** a transient started at a
 //!   low void fraction, because a phase with almost no interfacial area cannot
 //!   shed its reversible expansion work fast enough to stay inside the bounded
 //!   metastable branches. Measured boundary and diagnosis in
 //!   `two_fluid_tests::six_equation_march_refuses_where_a_phase_cannot_shed_its_expansion_work`.
-//! - **No flow-regime map.** A real system code selects closures from a
+//! - ~~**No flow-regime map.** A real system code selects closures from a
 //!   regime map (bubbly / slug / annular / mist). Here the closure is whatever
-//!   the caller passed, everywhere, for the whole transient.
+//!   the caller passed, everywhere, for the whole transient.~~ **CORRECTED
+//!   2026-11-01 (gh:#1060):** [`two_fluid::TwoFluid1d`] takes its interfacial
+//!   area from a void-fraction regime map (bubbly/slug to annular/mist, the
+//!   reused GeN-Foam `RegimeMap1D` and `InterfacialArea`); the correlations
+//!   themselves are still the caller's, and the low-void refusal below is
+//!   unchanged by it (re-measured).
 //! - **No counter-current flow limitation, no critical-flow model of their
 //!   own.** The break boundary reuses the crate's existing HEM critical-flow
 //!   dispatcher, so the *break* is HEM even when the *pipe* is drift-flux or

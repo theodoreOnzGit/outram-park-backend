@@ -9653,6 +9653,7 @@ dependencies = [
  "local-ip-address",
  "ndarray",
  "nee_soon",
+ "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-foam-multiphase",
  "outram-park-fork-coolprop",

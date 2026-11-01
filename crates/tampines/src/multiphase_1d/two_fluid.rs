@@ -41,6 +41,44 @@
 //! the mass-transfer momentum source appears as `Γ_k (u^i − u_k)` rather than
 //! `Γ_k u^i`.
 //!
+//! # Interface velocity, friction work and total-enthalpy mass transfer (gh:#1060)
+//!
+//! RELAP-7 carries the interphase exchange at an **interface velocity**
+//! `u_int` (Theory Manual Eq. 200) and lets the transferred mass carry the
+//! interface **total** enthalpy `H_int = h_int + ½ u_int²` (Eq. 208). The
+//! manual is not public, so only equation numbers are cited; the definition
+//! of `u_int` used here is the **mass-weighted** (centre-of-mass) velocity
+//!
+//! `u_int = (α_l ρ_l u_l + α_g ρ_g u_g) / (α_l ρ_l + α_g ρ_g)`
+//!
+//! as specified in the gh:#1060 brief — **not** re-checked against Eq. 200,
+//! which was not available in this session. This solver's energy equations
+//! are in *static-enthalpy* form, so the total-energy sources translate as
+//! follows (derived here, not transcribed): subtract each phase's
+//! kinetic-energy equation (`u_k ×` its momentum equation) from its
+//! total-energy equation.
+//!
+//! - **Mass-transfer momentum**: `Γ_k (u_int − u_k)` with `u_int` above,
+//!   replacing the donor-phase velocity used before.
+//! - **Friction work at `u_int`**: the interfacial drag `F_k` does work
+//!   `F_k u_int` in phase `k`'s total energy, of which `F_k u_k` is
+//!   kinetic, so `F_k (u_int − u_k)` appears in the static-enthalpy equation.
+//!   Summed over both phases this is `K_d (u_g − u_l)² ≥ 0` — the drag
+//!   dissipation, now split between the phases by `u_int` instead of being
+//!   dropped.
+//! - **Total-enthalpy mass transfer**: `Γ_k H_int` in total energy becomes
+//!   `Γ_k (h_k^sat + ½ (u_int − u_k)²)` in static enthalpy. `Γ` itself is
+//!   **unchanged**, because `H_g,int − H_l,int = h_g^sat − h_f^sat` exactly
+//!   (both sides carry the same `½ u_int²`); what static `h_sat` got wrong was
+//!   only the energy the transferred mass carries.
+//!
+//! Each is **on by default**, with the ablations
+//! [`TwoFluid1d::without_interface_velocity`] (donor velocity, no friction
+//! work) and [`TwoFluid1d::without_total_enthalpy_mass_transfer`]. With both
+//! ablated and [`TwoFluid1d::without_regime_map`], the march is bit-identical
+//! to the pre-gh:#1060 solver (pinned by
+//! `all_three_ablations_reproduce_the_pre_1060_march_bit_for_bit`).
+//!
 //! # The regularisation, and exactly what is and is not claimed
 //!
 //! The naive six-equation system with drag alone has complex characteristics.
@@ -204,8 +242,10 @@
 //! # Honest scope — what this solver does NOT do
 //!
 //! [`crate::multiphase_1d`] lists what applies to both 1-D solvers (no wall
-//! heat transfer, no flow-regime map, no interfacial-area transport, HEM break
-//! model). Specific to this one:
+//! heat transfer, no interfacial-area transport, HEM break model;
+//! ~~no flow-regime map~~ **CORRECTED 2026-11-01 (gh:#1060):** the interfacial
+//! area now follows a void-fraction regime map, see [`super::interfacial`]).
+//! Specific to this one:
 //!
 //! - **Not validated against anything.** Every test in `two_fluid_tests.rs` is
 //!   *verification* — closed forms, invariants and degenerate limits. No result
@@ -315,7 +355,8 @@ pub const DEFAULT_RESIDUAL_ALPHA: f64 = RESIDUAL_ALPHA;
 /// most influential number a caller supplies and the least justified — there is
 /// no interfacial-area transport here, so it never responds to breakup,
 /// coalescence or the flow. Stated as a **model parameter with no measured
-/// provenance**.
+/// provenance**. Since gh:#1060 it sizes the bubbly/slug regime only; above
+/// `α_g = 0.5` the regime map blends toward the annular core area.
 pub const DEFAULT_BUBBLE_DIAMETER: f64 = 1.0e-3;
 
 /// Default initial vapour volume fraction `α_g^0` \[-\] when the initial state
@@ -988,6 +1029,12 @@ pub struct TwoFluid1d {
     p_under_relaxation: f64,
     outer_tolerance: f64,
     volume_residual_tolerance: f64,
+    /// gh:#1060: mass-transfer momentum and friction work at `u_int`
+    /// (Eq. 200). `false` only via [`TwoFluid1d::without_interface_velocity`].
+    interface_velocity: bool,
+    /// gh:#1060: transferred mass carries `H_int` (Eq. 208). `false` only via
+    /// [`TwoFluid1d::without_total_enthalpy_mass_transfer`].
+    total_enthalpy_mass_transfer: bool,
 }
 
 impl TwoFluid1d {
@@ -1043,6 +1090,14 @@ impl TwoFluid1d {
         let p0 = pressure.get::<pascal>();
         let sat0 = SaturatedProperties::at(p0)?;
         let transport0 = transport_at(p0)?;
+        // gh:#1060: the regime-map interfacial area is the default for every
+        // vapour-dispersed closure set; `without_regime_map` ablates it. A
+        // droplet set keeps its fixed diameter (the map refuses it).
+        let exchange = if exchange.dispersed_phase() == DispersedPhase::Vapour {
+            exchange.with_regime_map(pipe.hydraulic_diameter())?
+        } else {
+            exchange
+        };
 
         let mut solver = Self {
             pipe,
@@ -1073,6 +1128,8 @@ impl TwoFluid1d {
             p_under_relaxation: DEFAULT_PRESSURE_UNDER_RELAXATION,
             outer_tolerance: DEFAULT_OUTER_TOLERANCE,
             volume_residual_tolerance: DEFAULT_VOLUME_RESIDUAL_TOLERANCE,
+            interface_velocity: true,
+            total_enthalpy_mass_transfer: true,
         };
 
         let t0 = temperature.get::<kelvin>();
@@ -1089,7 +1146,8 @@ impl TwoFluid1d {
     ///
     /// A convenience, not a recommendation: it inherits every limitation
     /// [`super::interfacial`] documents, in particular that the bubbly closures
-    /// keep being used at void fractions where bubbly flow no longer exists.
+    /// keep being used at void fractions where bubbly flow no longer exists
+    /// (**since gh:#1060** only their *area* follows the regime map there).
     ///
     /// # Errors
     ///
@@ -1104,6 +1162,44 @@ impl TwoFluid1d {
             DEFAULT_BUBBLE_DIAMETER,
         ))?;
         Self::new(pipe, exchange, pressure, temperature, dt)
+    }
+
+    /// **Ablation** (gh:#1060): go back to one prescribed bubble diameter at
+    /// every void fraction instead of the regime-map interfacial area.
+    #[must_use]
+    pub fn without_regime_map(mut self) -> Self {
+        self.exchange = self.exchange.without_regime_map();
+        self
+    }
+
+    /// **Ablation** (gh:#1060): carry the mass-transfer momentum at the
+    /// donor phase's velocity and drop the interfacial friction work, as
+    /// before the change.
+    #[must_use]
+    pub fn without_interface_velocity(mut self) -> Self {
+        self.interface_velocity = false;
+        self
+    }
+
+    /// **Ablation** (gh:#1060): the transferred mass carries the static
+    /// saturation enthalpy only, without the `½ (u_int − u_k)²` that the
+    /// interface total enthalpy contributes in static-enthalpy form.
+    #[must_use]
+    pub fn without_total_enthalpy_mass_transfer(mut self) -> Self {
+        self.total_enthalpy_mass_transfer = false;
+        self
+    }
+
+    /// Whether the gh:#1060 interface-velocity terms are active.
+    #[must_use]
+    pub fn uses_interface_velocity(&self) -> bool {
+        self.interface_velocity
+    }
+
+    /// Whether the gh:#1060 total-enthalpy mass-transfer term is active.
+    #[must_use]
+    pub fn uses_total_enthalpy_mass_transfer(&self) -> bool {
+        self.total_enthalpy_mass_transfer
     }
 
     /// Set one cell's state from a uniform `(p, T)`, applying the initial phase
@@ -1629,17 +1725,25 @@ impl TwoFluid1d {
             let hd_g = u_g_old[j] / dt - conv_g;
             let hd_l = u_l_old[j] / dt - conv_l;
 
+            let mg_f = ag_f * rho_g_f;
+            let ml_f = al_f * rho_l_f;
+
             // Interfacial momentum carried by the transferred mass, in the
-            // non-conservative form: Gamma_k (u^i - u_k), with u^i the DONOR
-            // phase's velocity.
-            let (gm_g, gm_l) = if gamma_f >= 0.0 {
+            // non-conservative form: Gamma_k (u^i - u_k). gh:#1060 (Eq. 200):
+            // u^i is the mass-weighted interface velocity; the ablation keeps
+            // the DONOR phase's velocity.
+            let (gm_g, gm_l) = if self.interface_velocity {
+                let u_int = interface_velocity(mg_f, ml_f, u_g_old[j], u_l_old[j]);
+                (
+                    gamma_f * (u_int - u_g_old[j]),
+                    -gamma_f * (u_int - u_l_old[j]),
+                )
+            } else if gamma_f >= 0.0 {
                 (gamma_f * (u_l_old[j] - u_g_old[j]), 0.0)
             } else {
                 (0.0, -gamma_f * (u_g_old[j] - u_l_old[j]))
             };
 
-            let mg_f = ag_f * rho_g_f;
-            let ml_f = al_f * rho_l_f;
             let b_g = block.vapour_diagonal * u_g_old[j] - mg_f * conv_g + mg_f * g_x
                 - mg_f * wall_friction_acceleration(u_g_old[j], rho_g_f, mu_g_f, d_h)
                 + gm_g
@@ -1836,8 +1940,20 @@ impl TwoFluid1d {
 
                 let m_g_i = m_g_t + dt * exchange.gamma;
                 let m_l_i = m_l_t - dt * exchange.gamma;
-                let e_g_i = m_g_t * h_g_t + dt * (exchange.q_g + exchange.gamma * sat_i.h_g);
-                let e_l_i = m_l_t * h_l_t + dt * (exchange.q_l - exchange.gamma * sat_i.h_f);
+                let (extra_g, extra_l) = interface_work(
+                    self.interface_velocity,
+                    self.total_enthalpy_mass_transfer,
+                    exchange.gamma,
+                    exchange.k_d,
+                    m_g_t,
+                    m_l_t,
+                    ug_i,
+                    ul_i,
+                );
+                let e_g_i =
+                    m_g_t * h_g_t + dt * (exchange.q_g + exchange.gamma * sat_i.h_g + extra_g);
+                let e_l_i =
+                    m_l_t * h_l_t + dt * (exchange.q_l - exchange.gamma * sat_i.h_f + extra_l);
 
                 let (m_g_f, h_g_f) = if m_g_i > PHASE_FLOOR_TRIGGER * floor_g {
                     (m_g_i, e_g_i / m_g_i)
@@ -2283,6 +2399,69 @@ fn implicit_heat_flux(q_explicit: f64, driving: f64, m: f64, cp: f64, dt: f64) -
         return 0.0;
     }
     q_explicit / (1.0 + k * dt / (m * cp))
+}
+
+#[allow(clippy::too_many_arguments)]
+/// The gh:#1060 static-enthalpy energy sources \[W/m³\] into `(vapour,
+/// liquid)`: interfacial friction work at `u_int` and the kinetic part of
+/// the interface total enthalpy carried by the transferred mass. See the
+/// module docs ("Interface velocity, friction work and total-enthalpy mass
+/// transfer") for the derivation.
+///
+/// - friction: `F_g (u_int − u_g)` and `F_l (u_int − u_l)` with
+///   `F_g = −F_l = K_d (u_l − u_g)`; their sum is `K_d (u_g − u_l)² ≥ 0`.
+/// - mass transfer: `Γ_g ½ (u_int − u_g)²` and `Γ_l ½ (u_int − u_l)²`, with
+///   `Γ_g = −Γ_l = Γ`.
+///
+/// `u_int` is the mass-weighted velocity when `interface_velocity_on`
+/// ([`TwoFluid1d::without_interface_velocity`] clears it) is set (then
+/// both terms apply), otherwise the donor phase's velocity (no friction
+/// work; the kinetic term then uses the donor velocity). Returns `(0, 0)`
+/// with both ablations — the pre-gh:#1060 energy equation exactly.
+///
+/// Raw SI: `gamma` \[kg/(m³·s)\], `k_d` \[kg/(m³·s)\], `m_*` \[kg/m³\],
+/// `u_*` \[m/s\] at the cell centre.
+pub(super) fn interface_work(
+    interface_velocity_on: bool,
+    total_enthalpy_on: bool,
+    gamma: f64,
+    k_d: f64,
+    m_g: f64,
+    m_l: f64,
+    u_g: f64,
+    u_l: f64,
+) -> (f64, f64) {
+    let mut extra_g = 0.0;
+    let mut extra_l = 0.0;
+    let u_int = if interface_velocity_on {
+        let u_int = interface_velocity(m_g, m_l, u_g, u_l);
+        let f_g = k_d * (u_l - u_g);
+        extra_g += f_g * (u_int - u_g);
+        extra_l += -f_g * (u_int - u_l);
+        u_int
+    } else if gamma >= 0.0 {
+        u_l
+    } else {
+        u_g
+    };
+    if total_enthalpy_on {
+        extra_g += gamma * 0.5 * (u_int - u_g) * (u_int - u_g);
+        extra_l += -gamma * 0.5 * (u_int - u_l) * (u_int - u_l);
+    }
+    (extra_g, extra_l)
+}
+
+/// The mass-weighted interface velocity \[m/s\] of gh:#1060,
+/// `u_int = (m_g u_g + m_l u_l) / (m_g + m_l)`, with `m_k = α_k ρ_k`
+/// \[kg/m³\]. Falls back to the arithmetic mean if both masses vanish (a
+/// state the residual-alpha floors exclude).
+fn interface_velocity(m_g: f64, m_l: f64, u_g: f64, u_l: f64) -> f64 {
+    let m = m_g + m_l;
+    if m > 0.0 {
+        (m_g * u_g + m_l * u_l) / m
+    } else {
+        0.5 * (u_g + u_l)
+    }
 }
 
 /// Donor-cell (first-order upwind) convective acceleration `u ∂u/∂x`

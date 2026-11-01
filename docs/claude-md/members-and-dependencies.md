@@ -169,6 +169,9 @@ wasm), and since 2026-11-01 `sembawang` (same gate; gh:#1075, so
 `tests/wet_well.rs` can check the wet well's ports of `bwr_mark1` bit for bit;
 never a normal edge, since `sembawang` is meant to consume `tampines`'s wet
 well later);
+`tampines → outram-foam-appbuilder-lib` (2026-11-01, gh:#1060: reuses
+GeN-Foam's `RegimeMap1D`, `InterfacialArea` and `ContactPartition` in
+`multiphase_1d`; no cycle, the appbuilder depends on no tampines crate);
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
 no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD
