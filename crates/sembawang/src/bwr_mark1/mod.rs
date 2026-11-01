@@ -40,6 +40,7 @@ pub mod aerosol;
 pub mod cavity;
 pub mod compare;
 pub mod containment;
+pub mod containment_network;
 pub mod core;
 pub mod decay;
 pub mod fdi;

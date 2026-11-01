@@ -43,6 +43,11 @@
 //! - The donor volume decides which phase leaves by its level at the port
 //!   (a point draw); the path's partial-submergence split sets only the rate.
 //! - Boundaries are fixed-state reservoirs ([`NetworkBoundary`]).
+//! - A vacuum breaker is opened or shut for a whole step by the
+//!   start-of-step pressures, and the equalising limit is taken from the
+//!   start-of-step state (junction pressures less the gas column, gh:#1097):
+//!   both lag by one step a source that arrives within it (measured in
+//!   `cv_network.md` test 7 and in `sembawang`'s containment comparison).
 
 use tampines_steam_tables::gas_mixture::{NonCondensable, R_GAS};
 use uom::si::available_energy::joule_per_kilogram;
@@ -59,6 +64,9 @@ use uom::si::time::second;
 use crate::control_volume::{ControlVolume, ControlVolumeInputs, DonorState, Source};
 use crate::flow_path::{FlowPath, FlowTransfer, PathEnd};
 use crate::TampinesError;
+
+/// Gravity, m/s² (as `flow_path`'s).
+const G: f64 = 9.80665;
 
 /// A fixed-state reservoir at the end of a path: the environment, a stack.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -164,6 +172,12 @@ pub struct CvNetwork {
     transit: Vec<[InTransit; 2]>,
     /// External heat into each volume's pool, W (held until changed).
     pool_heat_w: Vec<f64>,
+    /// External heat into each volume's atmosphere, W, and steam condensed
+    /// out of it onto the caller's structures, kg/s (held; gh:#1097).
+    atm_heat_w: Vec<f64>,
+    atm_sink_kg_s: Vec<f64>,
+    /// External sources, per volume per port (held; gh:#1097).
+    sources: Vec<Vec<Source>>,
     /// Net mass and energy that crossed boundaries into the network.
     boundary_in: InTransit,
     time_s: f64,
@@ -182,6 +196,9 @@ impl CvNetwork {
             paths: Vec::new(),
             transit: Vec::new(),
             pool_heat_w: Vec::new(),
+            atm_heat_w: Vec::new(),
+            atm_sink_kg_s: Vec::new(),
+            sources: Vec::new(),
             boundary_in: InTransit::default(),
             time_s: 0.0,
             control,
@@ -190,8 +207,11 @@ impl CvNetwork {
 
     /// Add a volume; returns its index.
     pub fn add_volume(&mut self, v: ControlVolume) -> usize {
+        self.sources.push(vec![Source::none(); v.ports().len()]);
         self.volumes.push(v);
         self.pool_heat_w.push(0.0);
+        self.atm_heat_w.push(0.0);
+        self.atm_sink_kg_s.push(0.0);
         self.volumes.len() - 1
     }
 
@@ -212,6 +232,9 @@ impl CvNetwork {
                 if used {
                     return Err(TampinesError::InvalidInput(format!("volume {volume} port {port} already has a path")));
                 }
+                if self.sources[volume][port] != Source::none() {
+                    return Err(TampinesError::InvalidInput(format!("volume {volume} port {port} carries a source")));
+                }
             }
         }
         self.paths.push(path);
@@ -227,6 +250,71 @@ impl CvNetwork {
     pub fn set_pool_heat(&mut self, i: usize, q: uom::si::f64::Power) -> Result<(), TampinesError> {
         let h = self.pool_heat_w.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
         *h = q.get::<uom::si::power::watt>();
+        Ok(())
+    }
+
+    /// Set the external heat into volume `i`'s atmosphere (held until
+    /// changed): the caller's heat structures (gh:#1097).
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for no such volume.
+    pub fn set_atmosphere_heat(&mut self, i: usize, q: uom::si::f64::Power) -> Result<(), TampinesError> {
+        let h = self.atm_heat_w.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
+        *h = q.get::<uom::si::power::watt>();
+        Ok(())
+    }
+
+    /// Set the steam condensed out of volume `i`'s atmosphere onto the
+    /// caller's structures (held until changed; see
+    /// [`ControlVolumeInputs::atmosphere_steam_sink`]).
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for no such volume or a negative or
+    /// non-finite rate.
+    pub fn set_atmosphere_steam_sink(&mut self, i: usize, rate: MassRate) -> Result<(), TampinesError> {
+        let x = rate.get::<kilogram_per_second>();
+        if !(x.is_finite() && x >= 0.0) {
+            return Err(TampinesError::InvalidInput(format!("steam sink {x} kg/s")));
+        }
+        let h = self.atm_sink_kg_s.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no volume {i}")))?;
+        *h = x;
+        Ok(())
+    }
+
+    /// Set an external source on port `port` of volume `volume` (held until
+    /// changed): a relief valve's discharge, a vessel leak, a core's
+    /// hydrogen (gh:#1097). It enters through the volume's own port model
+    /// (bubbles below the level), and the network counts it as boundary
+    /// inflow.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for no such volume or port, or a port
+    /// a path already uses.
+    pub fn set_source(&mut self, volume: usize, port: usize, source: Source) -> Result<(), TampinesError> {
+        let end = NetworkEnd::Volume { volume, port };
+        if self.paths.iter().any(|p| p.from == end || p.to == end) {
+            return Err(TampinesError::InvalidInput(format!("volume {volume} port {port} has a path")));
+        }
+        let s = self
+            .sources
+            .get_mut(volume)
+            .and_then(|v| v.get_mut(port))
+            .ok_or_else(|| TampinesError::InvalidInput(format!("no volume {volume} port {port}")))?;
+        *s = source;
+        Ok(())
+    }
+
+    /// Set path `i`'s valve open fraction ([`FlowPath::set_open_fraction`]).
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] for no such path.
+    pub fn set_path_open_fraction(&mut self, i: usize, fraction: f64) -> Result<(), TampinesError> {
+        let p = self.paths.get_mut(i).ok_or_else(|| TampinesError::InvalidInput(format!("no path {i}")))?;
+        p.path.set_open_fraction(fraction);
         Ok(())
     }
 
@@ -277,6 +365,10 @@ impl CvNetwork {
 
     /// Net water, each gas and energy that entered from boundaries since
     /// construction (negative if out): `(water kg, gases kg, energy J)`.
+    /// Since gh:#1097 it also counts the external sources, the atmosphere
+    /// steam sinks and the external heats (pool and atmosphere); ~~pool heat
+    /// was not counted~~ (before 2026-11-01 the pool heat was left out,
+    /// which no test exercised).
     pub fn boundary_inflow(&self) -> (f64, [f64; 6], f64) {
         (self.boundary_in.water_kg, self.boundary_in.ncg_kg, self.boundary_in.energy_j)
     }
@@ -377,7 +469,51 @@ impl CvNetwork {
     pub fn step(&mut self, dt: Time) -> Result<NetworkStepReport, TampinesError> {
         let dts = dt.get::<second>();
         let start_vols = self.volumes.clone();
-        let start_paths: Vec<FlowPath> = self.paths.iter().map(|p| p.path.clone()).collect();
+        // A vacuum breaker opens or stays shut for the whole step by the
+        // start-of-step pressures (gh:#1097: decided on each Picard iterate,
+        // the first pass equalised the two volumes, the second found the
+        // breaker shut, and the step converged with no flow, the breaker
+        // stuck shut at any pressure difference; found on the Mark I
+        // containment, 2026-11-01). Its equalising limit then stops at the
+        // opening difference, not at equal pressures.
+        let mut breaker_dp: Vec<f64> = vec![0.0; self.paths.len()];
+        // Each path's start-of-step driving pressure difference for its gas
+        // phase, forward and backward: the junction pressures (with any
+        // liquid head over a submerged junction) less the donor gas column
+        // `ρ_g g Δz`. The equalising limit stops where it vanishes (gh:#1097:
+        // taken from the atmospheres' pressures it let the downcomers
+        // equalise the drywell with the torus gas, ignoring the 11.8 kPa of
+        // submergence, so the next iterate drove the gas back and the step
+        // did not converge; found on the Mark I containment, 2026-11-01).
+        let drive: Vec<(f64, f64)> = self
+            .paths
+            .iter()
+            .map(|np| {
+                let g = *np.path.geometry();
+                let (zf, zt) = (g.from_elevation.get::<meter>(), g.to_elevation.get::<meter>());
+                let a = Self::path_end(&self.volumes, &np.from, zf);
+                let b = Self::path_end(&self.volumes, &np.to, zt);
+                let (pa, pb) = (a.pressure.get::<pascal>(), b.pressure.get::<pascal>());
+                let (ra, rb) = (a.gas_density.get::<kilogram_per_cubic_meter>(), b.gas_density.get::<kilogram_per_cubic_meter>());
+                (pa - pb - ra * G * (zt - zf), pb - pa - rb * G * (zf - zt))
+            })
+            .collect();
+        let start_paths: Vec<FlowPath> = self
+            .paths
+            .iter()
+            .enumerate()
+            .map(|(pi, np)| {
+                let mut p = np.path.clone();
+                if let Some(dp_open) = p.opening_pressure_difference() {
+                    let g = *p.geometry();
+                    let a = Self::path_end(&self.volumes, &np.from, g.from_elevation.get::<meter>());
+                    let b = Self::path_end(&self.volumes, &np.to, g.to_elevation.get::<meter>());
+                    p.hold_open(Some(a.pressure.get::<pascal>() - b.pressure.get::<pascal>() > dp_open));
+                    breaker_dp[pi] = dp_open;
+                }
+                p
+            })
+            .collect();
         let mut latest = start_vols.clone();
         // Per path, what the donor actually sent on the previous iterate:
         // [toward `to`, toward `from`] as (water, gases, energy, gas T).
@@ -430,12 +566,8 @@ impl CvNetwork {
                         }
                     };
                     if let Some((p_d, n_d, m_d)) = side(donor) {
-                        let p_r = match receiver {
-                            NetworkEnd::Boundary(bd) => bd.pressure.get::<pascal>(),
-                            NetworkEnd::Volume { .. } => side(receiver).map_or(0.0, |x| x.0),
-                        };
                         let stiff = p_d / n_d + side(receiver).map_or(0.0, |(p, n, _)| p / n);
-                        let dp_eq = p_d - p_r;
+                        let dp_eq = if mg > 0.0 { drive[pi].0 - breaker_dp[pi] } else { drive[pi].1 };
                         let m_eq = if dp_eq > 0.0 { dp_eq / stiff * m_d } else { 0.0 };
                         if mg.abs() * dts > m_eq {
                             let f = m_eq / (mg.abs() * dts);
@@ -456,6 +588,11 @@ impl CvNetwork {
                 .map(|(i, v)| {
                     let mut c = ControlVolumeInputs::closed(v.ports().len());
                     c.pool_heat = uom::si::f64::Power::new::<uom::si::power::watt>(self.pool_heat_w[i]);
+                    c.atmosphere_heat = uom::si::f64::Power::new::<uom::si::power::watt>(self.atm_heat_w[i]);
+                    c.atmosphere_steam_sink = mr(self.atm_sink_kg_s[i]);
+                    for (port, src) in self.sources[i].iter().enumerate() {
+                        c.ports[port].inflow = *src;
+                    }
                     c
                 })
                 .collect();
@@ -520,6 +657,22 @@ impl CvNetwork {
             let mut reports = Vec::with_capacity(new_vols.len());
             for (i, v) in new_vols.iter_mut().enumerate() {
                 reports.push(v.step(dt, &inputs[i])?);
+            }
+            // External sources, sinks and heats cross the boundary
+            // (gh:#1097): what each volume reports it took in or gave up.
+            for (i, r) in reports.iter().enumerate() {
+                for (port, src) in self.sources[i].iter().enumerate() {
+                    if *src != Source::none() {
+                        let pt = &r.ports[port];
+                        boundary_step.water_kg += pt.water_in.get::<kilogram>();
+                        boundary_step.energy_j += pt.energy_in.get::<joule>();
+                        for q in 0..6 {
+                            boundary_step.ncg_kg[q] += pt.ncg_in[q].get::<kilogram>();
+                        }
+                    }
+                }
+                boundary_step.water_kg -= r.steam_sink.get::<kilogram>();
+                boundary_step.energy_j += (self.pool_heat_w[i] + self.atm_heat_w[i]) * dts - r.steam_sink_energy.get::<joule>();
             }
             let mut new_sent = sent.clone();
             for (pi, np) in self.paths.iter().enumerate() {
@@ -613,7 +766,8 @@ impl CvNetwork {
 
     fn commit(&mut self, vols: Vec<ControlVolume>, paths: Vec<FlowPath>, transit: Vec<[InTransit; 2]>, b: InTransit, dt: f64) {
         self.volumes = vols;
-        for (np, p) in self.paths.iter_mut().zip(paths) {
+        for (np, mut p) in self.paths.iter_mut().zip(paths) {
+            p.hold_open(None);
             np.path = p;
         }
         self.transit = transit;

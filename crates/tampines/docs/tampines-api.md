@@ -11002,6 +11002,8 @@ pub struct ControlVolumeInputs {
     pub ports: Vec<PortInput>,
     pub pool_heat: uom::si::f64::Power,
     pub heat_exchanger: crate::components::wet_well::ImmersedHeatExchanger,
+    pub atmosphere_heat: uom::si::f64::Power,
+    pub atmosphere_steam_sink: uom::si::f64::MassRate,
 }
 ```
 
@@ -11012,6 +11014,8 @@ pub struct ControlVolumeInputs {
 | `ports` | `Vec<PortInput>` | One input per port, in the geometry's port order. |
 | `pool_heat` | `uom::si::f64::Power` | Heat into the pool (a heat structure, a core), W; negative removes. |
 | `heat_exchanger` | `crate::components::wet_well::ImmersedHeatExchanger` | The immersed heat exchanger (implicit in the pool temperature). |
+| `atmosphere_heat` | `uom::si::f64::Power` | Heat into the atmosphere (a heat structure's convection, a hot<br>insulation), W; negative removes. Explicit, as `pool_heat`<br>(gh:#1097: the caller's heat structures, MELCOR's HS package not<br>being here). |
+| `atmosphere_steam_sink` | `uom::si::f64::MassRate` | Steam condensed out of the atmosphere onto a structure (the caller's),<br>≥ 0: it leaves with its enthalpy at the atmosphere's temperature and<br>steam partial pressure, and the caller returns the condensate, if at<br>all, as a port's water source (gh:#1097; MELCOR HS §2.7.3's<br>condensation, the structure being the caller's). |
 
 ##### Implementations
 
@@ -11291,6 +11295,8 @@ pub struct ControlVolumeStepReport {
     pub surface_evaporation: uom::si::f64::Mass,
     pub rain_out: uom::si::f64::Mass,
     pub vapour_flow_m3_s: f64,
+    pub steam_sink: uom::si::f64::Mass,
+    pub steam_sink_energy: uom::si::f64::Energy,
 }
 ```
 
@@ -11304,6 +11310,8 @@ pub struct ControlVolumeStepReport {
 | `surface_evaporation` | `uom::si::f64::Mass` | Net evaporation at the pool surface (negative is condensation). |
 | `rain_out` | `uom::si::f64::Mass` | Vapour condensed out of a supersaturated atmosphere into the pool. |
 | `vapour_flow_m3_s` | `f64` | Vapour volume flow through the pool top this step, m³/s (sets the<br>swell for the next step). |
+| `steam_sink` | `uom::si::f64::Mass` | Steam taken by [`ControlVolumeInputs::atmosphere_steam_sink`], and<br>the enthalpy it carried away. |
+| `steam_sink_energy` | `uom::si::f64::Energy` | The enthalpy the sunk steam carried. |
 
 ##### Implementations
 
@@ -33070,6 +33078,26 @@ pub struct FlowPath {
   Ablation: no critical-flow limit.
 
 - ```rust
+  pub fn set_open_fraction(self: &mut Self, fraction: f64) { /* ... */ }
+  ```
+  Set the valve's open fraction (clamped to `[0, 1]`; a NaN closes
+
+- ```rust
+  pub fn open_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  The valve's open fraction.
+
+- ```rust
+  pub fn opening_pressure_difference(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  A vacuum breaker's opening pressure difference (`None` for the
+
+- ```rust
+  pub fn hold_open(self: &mut Self, held: Option<bool>) { /* ... */ }
+  ```
+  Hold a vacuum breaker open or shut whatever the pressures passed to
+
+- ```rust
   pub fn mechanisms(self: &Self) -> FlowPathMechanisms { /* ... */ }
   ```
   The mechanisms in force.
@@ -33265,6 +33293,11 @@ round-off whatever the tolerance.
 - The donor volume decides which phase leaves by its level at the port
   (a point draw); the path's partial-submergence split sets only the rate.
 - Boundaries are fixed-state reservoirs ([`NetworkBoundary`]).
+- A vacuum breaker is opened or shut for a whole step by the
+  start-of-step pressures, and the equalising limit is taken from the
+  start-of-step state (junction pressures less the gas column, gh:#1097):
+  both lag by one step a source that arrives within it (measured in
+  `cv_network.md` test 7 and in `sembawang`'s containment comparison).
 
 ```rust
 pub mod cv_network { /* ... */ }
@@ -34004,6 +34037,26 @@ pub struct CvNetwork {
   pub fn set_pool_heat(self: &mut Self, i: usize, q: uom::si::f64::Power) -> Result<(), TampinesError> { /* ... */ }
   ```
   Set the external heat into volume `i`'s pool (held until changed).
+
+- ```rust
+  pub fn set_atmosphere_heat(self: &mut Self, i: usize, q: uom::si::f64::Power) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the external heat into volume `i`'s atmosphere (held until
+
+- ```rust
+  pub fn set_atmosphere_steam_sink(self: &mut Self, i: usize, rate: MassRate) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set the steam condensed out of volume `i`'s atmosphere onto the
+
+- ```rust
+  pub fn set_source(self: &mut Self, volume: usize, port: usize, source: Source) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set an external source on port `port` of volume `volume` (held until
+
+- ```rust
+  pub fn set_path_open_fraction(self: &mut Self, i: usize, fraction: f64) -> Result<(), TampinesError> { /* ... */ }
+  ```
+  Set path `i`'s valve open fraction ([`FlowPath::set_open_fraction`]).
 
 - ```rust
   pub fn volume(self: &Self, i: usize) -> Option<&ControlVolume> { /* ... */ }

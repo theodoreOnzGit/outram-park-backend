@@ -179,6 +179,12 @@ pub struct FlowPath {
     v_liquid: f64,
     v_gas: f64,
     mechanisms: FlowPathMechanisms,
+    /// A valve's open fraction of the area, in `[0, 1]` (MELCOR's valve on
+    /// a flow path, CVH/FL RM §6, cited): 1 unless set.
+    open_fraction: f64,
+    /// A vacuum breaker's open state held by a network for one step
+    /// (`None`: decided by the pressures each call).
+    held_open: Option<bool>,
 }
 
 impl FlowPath {
@@ -197,13 +203,43 @@ impl FlowPath {
         {
             return Err(TampinesError::InvalidInput(format!("flow path {geometry:?}")));
         }
-        Ok(Self { geometry, kind, v_liquid: 0.0, v_gas: 0.0, mechanisms: FlowPathMechanisms::default() })
+        Ok(Self { geometry, kind, v_liquid: 0.0, v_gas: 0.0, mechanisms: FlowPathMechanisms::default(), open_fraction: 1.0, held_open: None })
     }
 
     /// Ablation: no critical-flow limit.
     pub fn without_choking(mut self) -> Self {
         self.mechanisms.choking = false;
         self
+    }
+
+    /// Set the valve's open fraction (clamped to `[0, 1]`; a NaN closes
+    /// it). It multiplies the flow area, and at 0 the path is closed and its
+    /// velocities reset (gh:#1097: a rupture disk, an operator's vent valve,
+    /// a flange that unseats).
+    pub fn set_open_fraction(&mut self, fraction: f64) {
+        self.open_fraction = if fraction.is_nan() { 0.0 } else { fraction.clamp(0.0, 1.0) };
+    }
+
+    /// The valve's open fraction.
+    pub fn open_fraction(&self) -> f64 {
+        self.open_fraction
+    }
+
+    /// A vacuum breaker's opening pressure difference (`None` for the
+    /// other kinds).
+    pub fn opening_pressure_difference(&self) -> Option<f64> {
+        match self.kind {
+            FlowPathKind::VacuumBreaker { opening_pressure_difference } => Some(opening_pressure_difference.get::<pascal>()),
+            _ => None,
+        }
+    }
+
+    /// Hold a vacuum breaker open or shut whatever the pressures passed to
+    /// [`FlowPath::step`] (`None` releases it): a network decides it once
+    /// per step from the start-of-step pressures (gh:#1097). Forward only
+    /// still holds.
+    pub fn hold_open(&mut self, held: Option<bool>) {
+        self.held_open = held;
     }
 
     /// The mechanisms in force.
@@ -250,13 +286,14 @@ impl FlowPath {
         let g = self.geometry;
         let (z_f, z_t) = (g.from_elevation.get::<meter>(), g.to_elevation.get::<meter>());
         let (p_f, p_t) = (from.pressure.get::<pascal>(), to.pressure.get::<pascal>());
-        let a_eff = g.discharge_coefficient * g.area.get::<square_meter>();
+        let a_eff = g.discharge_coefficient * g.area.get::<square_meter>() * self.open_fraction;
         let l = g.inertial_length.get::<meter>();
         let dp = p_f - p_t;
         // Closed kinds.
-        let open = match self.kind {
+        let open = self.open_fraction > 0.0
+            && match self.kind {
             FlowPathKind::Open | FlowPathKind::CheckValve => true,
-            FlowPathKind::VacuumBreaker { opening_pressure_difference } => dp > opening_pressure_difference.get::<pascal>(),
+            FlowPathKind::VacuumBreaker { opening_pressure_difference } => self.held_open.unwrap_or(dp > opening_pressure_difference.get::<pascal>()),
         };
         if !open {
             self.v_liquid = 0.0;
@@ -299,7 +336,7 @@ impl FlowPath {
                 let p_up = if gas_fwd { p_f } else { p_t };
                 let n_crit = critical_moles(
                     g.discharge_coefficient,
-                    f_gas * g.area.get::<square_meter>(),
+                    f_gas * g.area.get::<square_meter>() * self.open_fraction,
                     p_up,
                     dg.gas_temperature.get::<kelvin>(),
                     dg.gas_molar_mass,

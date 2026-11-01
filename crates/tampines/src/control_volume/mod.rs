@@ -243,12 +243,29 @@ pub struct ControlVolumeInputs {
     pub pool_heat: Power,
     /// The immersed heat exchanger (implicit in the pool temperature).
     pub heat_exchanger: ImmersedHeatExchanger,
+    /// Heat into the atmosphere (a heat structure's convection, a hot
+    /// insulation), W; negative removes. Explicit, as `pool_heat`
+    /// (gh:#1097: the caller's heat structures, MELCOR's HS package not
+    /// being here).
+    pub atmosphere_heat: Power,
+    /// Steam condensed out of the atmosphere onto a structure (the caller's),
+    /// ≥ 0: it leaves with its enthalpy at the atmosphere's temperature and
+    /// steam partial pressure, and the caller returns the condensate, if at
+    /// all, as a port's water source (gh:#1097; MELCOR HS §2.7.3's
+    /// condensation, the structure being the caller's).
+    pub atmosphere_steam_sink: MassRate,
 }
 
 impl ControlVolumeInputs {
     /// Every port closed, no heat, for `n_ports` ports.
     pub fn closed(n_ports: usize) -> Self {
-        Self { ports: vec![PortInput::closed(); n_ports], pool_heat: Power::new::<watt>(0.0), heat_exchanger: ImmersedHeatExchanger::off() }
+        Self {
+            ports: vec![PortInput::closed(); n_ports],
+            pool_heat: Power::new::<watt>(0.0),
+            heat_exchanger: ImmersedHeatExchanger::off(),
+            atmosphere_heat: Power::new::<watt>(0.0),
+            atmosphere_steam_sink: MassRate::new::<kilogram_per_second>(0.0),
+        }
     }
 }
 
@@ -293,6 +310,11 @@ pub struct ControlVolumeStepReport {
     /// Vapour volume flow through the pool top this step, m³/s (sets the
     /// swell for the next step).
     pub vapour_flow_m3_s: f64,
+    /// Steam taken by [`ControlVolumeInputs::atmosphere_steam_sink`], and
+    /// the enthalpy it carried away.
+    pub steam_sink: Mass,
+    /// The enthalpy the sunk steam carried.
+    pub steam_sink_energy: Energy,
 }
 
 /// Running totals across the boundary since construction.
@@ -926,6 +948,37 @@ impl ControlVolume {
             }
             self.add_pool(0.0, q)?;
         }
+        // 2b. The caller's structures on the atmosphere (gh:#1097): heat,
+        //     then condensation, both explicit.
+        let q_atm = inputs.atmosphere_heat.get::<watt>();
+        if !q_atm.is_finite() {
+            return Err(TampinesError::InvalidInput(format!("atmosphere heat {q_atm} W")));
+        }
+        if q_atm != 0.0 {
+            let q = q_atm * dt;
+            if q > 0.0 {
+                self.e_in += q;
+            } else {
+                self.e_out -= q;
+            }
+            self.gas_e += q;
+            self.refresh()?;
+        }
+        let m_sink = finite_nonneg(inputs.atmosphere_steam_sink.get::<kilogram_per_second>(), "atmosphere steam sink")? * dt;
+        let mut e_sink = 0.0;
+        if m_sink > 0.0 {
+            if m_sink >= self.gas.steam_kg {
+                return Err(TampinesError::InvalidInput(format!("steam sink {m_sink} kg not below the atmosphere's {} kg", self.gas.steam_kg)));
+            }
+            let n_s = self.gas.steam_kg / M_H2O;
+            let p_s = self.d.p_gas * n_s / (n_s + self.gas.ncg_total_moles());
+            e_sink = m_sink * self.h_steam(self.d.t_gas, p_s);
+            self.gas.steam_kg -= m_sink;
+            self.gas_e -= e_sink;
+            self.water_out += m_sink;
+            self.e_out += e_sink;
+            self.refresh()?;
+        }
         let k = ua * dt;
         let q_hx = k * (self.d.t_pool - t_hx) / (1.0 + k / (self.pool_kg * self.cv_liquid(self.d.t_pool)));
         if q_hx != 0.0 {
@@ -1005,6 +1058,8 @@ impl ControlVolume {
             surface_evaporation: Mass::new::<kilogram>(evap),
             rain_out: Mass::new::<kilogram>(rain),
             vapour_flow_m3_s: self.vapour_flow,
+            steam_sink: Mass::new::<kilogram>(m_sink),
+            steam_sink_energy: Energy::new::<joule>(e_sink),
         })
     }
 

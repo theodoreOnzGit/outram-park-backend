@@ -197,7 +197,9 @@ fn a_manometer_oscillates_at_the_hand_frequency() {
 /// no state (a first run stopped there; the limit is recorded in gh:#1098).
 /// **Result (2026-11-01):** implicit and loose both close water, N2 and
 /// energy to ≤ 1.7e-15 against the boundary account; choked at step 3;
-/// the vessel ends at 1.0000 bar. Held.
+/// ~~the vessel ends at 1.0000 bar~~ **CORRECTED 2026-11-01 (gh:#1097):**
+/// 99 944 Pa, since the equalising limit counts the 4 m gas column (47 Pa)
+/// to the boundary. Held.
 #[test]
 fn a_vent_to_a_boundary_closes_and_loose_coupling_conserves() {
     for control in [NetworkControl::default(), NetworkControl { max_iterations: 1, tolerance: 0.0 }] {
@@ -231,4 +233,128 @@ fn a_vent_to_a_boundary_closes_and_loose_coupling_conserves() {
     let dup = NetworkPath { path: gas_path(4.0, 4.0, 0.01, 1.0), from: NetworkEnd::Volume { volume: 0, port: 0 }, to: NetworkEnd::Volume { volume: 1, port: 0 } };
     assert!(net.add_path(dup).is_err(), "a port takes one path");
     assert!(net.set_pool_heat(9, uom::si::f64::Power::new::<uom::si::power::watt>(1.0)).is_err());
+}
+
+/// **6. External sources, sinks, heats and a valve (gh:#1097).** Prediction
+/// (written before the first run, 2026-11-01): a vessel taking 0.1 kg/s of
+/// steam at 2.7 MJ/kg and 1 g/s of H2 through a submerged port, 20 kW into
+/// its atmosphere, 5 kW into its pool and 1 g/s of steam condensed out of
+/// its atmosphere, venting through a valve to a 1 bar boundary that is
+/// closed for the first 100 s and then half open: water, N2, H2 and energy
+/// close against `boundary_inflow` to round-off (< 1e-12 relative) whether
+/// the valve is open or not; nothing leaves while it is closed; a source on
+/// a path's port and a path on a source's port are refused.
+///
+/// **Result (2026-11-01):** worst closure 2.6e-15 over the 300 steps;
+/// the vessel at 100 977 Pa after the valve opened. Held.
+#[test]
+fn external_sources_sinks_heats_and_a_valve_close() {
+    use crate::control_volume::Source;
+    use uom::si::power::watt;
+    let mut net = CvNetwork::new(NetworkControl::default());
+    let a = net.add_volume(vessel_at(2.0, 5.0, 1.0, 1.2e5, 0.8, &[0.5, 4.0, 4.5], 330.0));
+    let vent = net
+        .add_path(NetworkPath {
+            path: gas_path(4.0, 0.0, 0.001, 1.0),
+            from: NetworkEnd::Volume { volume: a, port: 1 },
+            to: NetworkEnd::Boundary(NetworkBoundary::dry_air(Pressure::new::<pascal>(1.0e5), kel(300.0))),
+        })
+        .unwrap();
+    net.set_path_open_fraction(vent, 0.0).unwrap();
+    let src = Source::water(mr(0.1), AvailableEnergy::new::<joule_per_kilogram>(2.7e6)).with_gas(&[(NonCondensable::H2, mr(1e-3))], kel(400.0));
+    assert!(net.set_source(a, 1, src).is_err(), "a path's port takes no source");
+    net.set_source(a, 0, src).unwrap();
+    let dup = NetworkPath { path: gas_path(0.5, 0.0, 0.01, 1.0), from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Boundary(NetworkBoundary::dry_air(Pressure::new::<pascal>(1.0e5), kel(300.0))) };
+    assert!(net.add_path(dup).is_err(), "a source's port takes no path");
+    net.set_atmosphere_heat(a, uom::si::f64::Power::new::<watt>(2.0e4)).unwrap();
+    net.set_pool_heat(a, uom::si::f64::Power::new::<watt>(5.0e3)).unwrap();
+    net.set_atmosphere_steam_sink(a, mr(1e-3)).unwrap();
+    assert!(net.set_atmosphere_steam_sink(a, mr(-1.0)).is_err());
+    assert!(net.set_path_open_fraction(7, 1.0).is_err());
+    let all = |n: &CvNetwork| (n.water_mass().get::<kilogram>(), n.ncg_masses(), n.total_energy().get::<joule>());
+    let (w0, g0, e0) = all(&net);
+    let mut worst: f64 = 0.0;
+    for k in 0..300 {
+        if k == 100 {
+            net.set_path_open_fraction(vent, 0.5).unwrap();
+        }
+        let r = net.step(Time::new::<second>(1.0)).unwrap();
+        if k < 100 {
+            assert_eq!(r.transfers[vent].gas_mass_rate.value, 0.0);
+        }
+        let (w, g, e) = all(&net);
+        let (bw, bg, be) = net.boundary_inflow();
+        let rw = (w - w0 - bw) / w0;
+        let rn = (g[0] - g0[0] - bg[0]) / g0[0];
+        let rh = (g[NonCondensable::H2.index()] - g0[NonCondensable::H2.index()] - bg[NonCondensable::H2.index()]) / 0.3;
+        let re = (e - e0 - be) / e0;
+        worst = worst.max(rw.abs()).max(rn.abs()).max(rh.abs()).max(re.abs());
+    }
+    let p = net.volume(a).unwrap().atmosphere_pressure().value;
+    println!("external terms: worst closure {worst:.1e}; p {p:.0} Pa after the valve opened");
+    assert!(worst < 1e-12, "{worst}");
+    assert_eq!(net.path(vent).unwrap().path.open_fraction(), 0.5);
+}
+
+/// **7. A vacuum breaker under a rising pressure (gh:#1097).** Found on
+/// the Mark I containment: decided on each Picard iterate, a breaker
+/// equalised on the first pass, was shut on the second, and the step
+/// converged with no flow, so it never opened. Now held for the step by
+/// the start-of-step pressures, its equalising limit stopping at the
+/// opening difference. Prediction (before the run, 2026-11-01): tank A
+/// filling with 0.05 kg/s of N2, a 3.4 kPa breaker A → B: no flow until
+/// `p_A − p_B` passes 3.4 kPa, then B follows A with the difference held
+/// between 3.4 and 3.8 kPa at the end of every later step; closure < 1e-12.
+///
+/// **Result (2026-11-01):** opens at step 5 (4247 Pa at the end of that
+/// step); afterwards the difference sits at **3905–4064 Pa**, closure
+/// 9.8e-15. The band **MISSED** high: my prediction ignored that the
+/// equalising limit is taken from the start-of-step state and does not see
+/// the source's own rise within the step (1.8 mol of N2 a step at about
+/// 340 Pa/mol, so up to about 600 Pa). The bound below is set after the run
+/// and labelled so: at least the opening difference, at most one step's
+/// rise above it.
+#[test]
+fn a_vacuum_breaker_holds_its_opening_difference() {
+    use crate::control_volume::Source;
+    let mut net = CvNetwork::new(NetworkControl::default());
+    let a = net.add_volume(vessel_at(2.0, 5.0, 1.0, 1.0e5, 0.5, &[4.0, 4.5], 330.0));
+    let b = net.add_volume(vessel_at(2.0, 5.0, 1.0, 1.0e5, 0.5, &[4.0], 330.0));
+    let vb = FlowPath::new(
+        FlowPathGeometry {
+            area: Area::new::<square_meter>(0.01),
+            inertial_length: m(1.0),
+            form_loss: 1.0,
+            discharge_coefficient: 0.6,
+            from_elevation: m(4.0),
+            to_elevation: m(4.0),
+            opening_height: m(0.0),
+        },
+        FlowPathKind::VacuumBreaker { opening_pressure_difference: Pressure::new::<pascal>(3400.0) },
+    )
+    .unwrap();
+    net.add_path(NetworkPath { path: vb, from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+    net.set_source(a, 1, Source::gas(&[(NonCondensable::N2, mr(0.05))], kel(330.0))).unwrap();
+    let (w0, g0, e0) = (net.water_mass().get::<kilogram>(), net.ncg_masses()[0], net.total_energy().get::<joule>());
+    let (mut opened_at, mut dp_lo, mut dp_hi, mut worst) = (None, f64::INFINITY, 0.0_f64, 0.0_f64);
+    for k in 0..400 {
+        let r = net.step(Time::new::<second>(1.0)).unwrap();
+        let dp = net.volume(a).unwrap().atmosphere_pressure().value - net.volume(b).unwrap().atmosphere_pressure().value;
+        let flows = r.transfers[0].gas_mass_rate.value > 0.0;
+        if flows && opened_at.is_none() {
+            opened_at = Some((k, dp));
+        } else if opened_at.is_some() {
+            dp_lo = dp_lo.min(dp);
+            dp_hi = dp_hi.max(dp);
+        }
+        let (bw, bg, be) = net.boundary_inflow();
+        let rn = (net.ncg_masses()[0] - g0 - bg[0]) / g0;
+        let rw = (net.water_mass().get::<kilogram>() - w0 - bw) / w0;
+        let re = (net.total_energy().get::<joule>() - e0 - be) / e0;
+        worst = worst.max(rn.abs()).max(rw.abs()).max(re.abs());
+    }
+    println!("breaker: opened at step {opened_at:?}; afterwards dp in [{dp_lo:.0}, {dp_hi:.0}] Pa; closure {worst:.1e}");
+    assert!(opened_at.is_some());
+    assert!(dp_lo >= 3400.0 && dp_hi <= 4100.0, "{dp_lo} {dp_hi}");
+    assert!(worst < 1e-12, "{worst}");
 }

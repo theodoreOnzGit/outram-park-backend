@@ -5062,6 +5062,886 @@ pub struct Containment {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `containment_network`
+
+The Mark I containment on `tampines`'s control-volume network (gh:#1097,
+epic gh:#1091): drywell, wetwell (torus) and reactor building as
+[`ControlVolume`]s, the downcomers, vacuum breakers, wetwell vent and
+drywell head-flange leak as [`FlowPath`]s, the stack and the environment
+as boundaries. After MELCOR 2.2's CVH/FL packages (Reference Manual §2,
+§5, §6; cited by section, not quoted; no MELCOR source used).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Built alongside [`super::containment::Containment`], not replacing
+it.** The plant ([`super::Plant`]) still runs the old model and its
+fixtures are unchanged. [`ContainmentNetwork::step`] takes the same
+per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
+([`NetworkResult`]), so the two can be run side by side
+(`tests/containment_network_vs_containment.rs`; the evidence is in
+`verification_and_validation/bwr_mark1/containment_network.md`).
+
+## What is mapped, and what is not (stated)
+
+| Snapshot input | Here |
+|---|---|
+| relief steam, enthalpy, H2 (at `srv_gas_k` with `relief_h2_enthalpy`, else the pool's temperature) | a source at the quenchers' port in the torus pool |
+| RPV leak steam, enthalpy, H2 at `leak_gas_k` | a source in the drywell atmosphere |
+| `vent_ordered` | the vent valve: open once ordered and the rupture disk has burst (`p_ww ≥ vent_rupture_disk_pa`) |
+| `rpv_wall_w` | heat into the drywell atmosphere |
+| `ex_vessel_w`, `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump; the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases) |
+| `dw_wall_hs`, `ww_shell` | the drywell structures and the torus shell as lumped walls on the atmospheres, by the same MELCOR surface ([`pool_surface::structure_surface`]) |
+| fission products, aerosols, iodine, decay heat of fission products (`q_*_w`), burns, MCCI, FDI, `pool_layers`, `dw_wall_outer` | **not mapped**: sembawang's, and not yet on the network |
+
+## Geometry: from `params`, with what had to be assumed marked \[A\]
+
+One plant datum, the torus bottom at 0 m. Each volume's V(z) table is in
+that datum, so a path's gravity term `ρ g Δz` is the real one.
+
+- **Torus:** a torus of major radius [`NetworkConfig::torus_major_radius_m`]
+  (15 m \[A\], the same assumed torus as `WW_SHELL_AREA_M2`), its tube
+  radius chosen so that the vessel holds `wetwell_gas_m3` plus the pool
+  (1750 m³ at 995 kg/m³, sembawang's mass) at IF97's density: 3.84 m. Its
+  horizontal section at height `y` is `4πR √(r² − (y − r)²)`
+  (Pappus), tabulated at 64 points. At the initial level that is 711 m²
+  against `ww_pool_surface_m2` = 750 m² (sembawang's prismatic pool);
+  [`TorusShape::Prismatic`] reproduces the latter.
+- **Downcomer exits and quenchers:** `vent_submergence_pa` below the
+  initial level at 995 kg/m³ and 9.81 m/s² (sembawang's depth), the
+  opening the downcomer's diameter (0.515 m). The quenchers' port is
+  put at the same depth, as sembawang does (\[A\], their geometry is
+  not held).
+- **Drywell:** a floor of `dw_floor_m2` (200 m² \[A\]) carrying a
+  prismatic volume of `drywell_volume_m3` (\[A\] the light bulb's shape is
+  not held) above a sump pit of 2 m² × 1.5 m holding 1 m³ \[A\] (a
+  control volume needs a pool); the floor at the torus top \[A\]
+  ([`NetworkConfig::drywell_floor_m`]), the downcomers' entry 2 m above
+  it \[A\], the head flange at the top.
+- **Reactor building:** `reactor_building_m3` on a 650 m² floor \[A\]
+  (40 m tall, so it spans the drywell head) above a 2 m² sump pit with
+  1 m³ \[A\], dry air at one atmosphere and 303.15 K (sembawang's
+  `T_RB`), open to the environment through 1 m² \[A\] near its top
+  (sembawang holds its building at one atmosphere exactly).
+- **Paths:** sembawang's orifice `C_d A √(2ρΔp)` is the steady state of a
+  path of area `A`, discharge coefficient `C_d` and form loss `K = 1`,
+  so each path takes `params`' area and coefficient with `K = 1`; the
+  inertial lengths are \[A\]: downcomers 8 m, vacuum breakers 1 m, vent
+  60 m, flange 0.5 m, building openings 1 m. The vent is a check valve
+  (sembawang's vent never flows back); the vacuum breakers open at
+  `vacuum_breaker_pa`.
+
+```rust
+pub mod containment_network { /* ... */ }
+```
+
+### Types
+
+#### Enum `TorusShape`
+
+The torus's V(z).
+
+```rust
+pub enum TorusShape {
+    Torus,
+    Prismatic,
+}
+```
+
+##### Variants
+
+###### `Torus`
+
+A torus (the default).
+
+###### `Prismatic`
+
+sembawang's prismatic pool: area `ww_pool_surface_m2` throughout.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NetworkConfig`
+
+What a unit's containment network needs beyond [`Params`]: the shapes
+and elevations `params` does not hold. Every field is \[A\] for Unit 1
+(see the module docs); Units 2 and 3 would differ here and in `Params`
+(the V&V doc lists the data that would be needed).
+
+```rust
+pub struct NetworkConfig {
+    pub torus_shape: TorusShape,
+    pub torus_major_radius_m: f64,
+    pub drywell_floor_m: Option<f64>,
+    pub downcomer_entry_m: f64,
+    pub sump_area_m2: f64,
+    pub sump_depth_m: f64,
+    pub sump_water_m3: f64,
+    pub building_floor_m2: f64,
+    pub building_openings_m2: f64,
+    pub downcomer_length_m: f64,
+    pub vacuum_breaker_length_m: f64,
+    pub vent_length_m: f64,
+    pub flange_length_m: f64,
+    pub building_length_m: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `torus_shape` | `TorusShape` | The torus's shape. |
+| `torus_major_radius_m` | `f64` | Torus major radius, m. |
+| `drywell_floor_m` | `Option<f64>` | Drywell floor above the torus bottom, m (`None`: at the torus top). |
+| `downcomer_entry_m` | `f64` | The downcomers' entry above the drywell floor, m. |
+| `sump_area_m2` | `f64` | Sump pits (drywell, building): area, m², depth, m, initial water, m³. |
+| `sump_depth_m` | `f64` |  |
+| `sump_water_m3` | `f64` |  |
+| `building_floor_m2` | `f64` | Reactor building floor area, m², and its openings to the<br>environment, m². |
+| `building_openings_m2` | `f64` |  |
+| `downcomer_length_m` | `f64` | Inertial lengths, m: downcomers, vacuum breakers, vent, flange,<br>building openings. |
+| `vacuum_breaker_length_m` | `f64` |  |
+| `vent_length_m` | `f64` |  |
+| `flange_length_m` | `f64` |  |
+| `building_length_m` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn unit1() -> Self { /* ... */ }
+  ```
+  Unit 1, every value \[A\] (module docs).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NetworkMechanisms`
+
+The network's own mechanisms, all on by default; each `without_*` on
+[`ContainmentNetwork`] is an ablation for attributing a difference.
+
+```rust
+pub struct NetworkMechanisms {
+    pub pressure_work: bool,
+    pub real_steam: bool,
+    pub real_liquid: bool,
+    pub level_swell: bool,
+    pub bubble_pass_through: bool,
+    pub equilibrium_rain_out: bool,
+    pub choking: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure_work` | `bool` | The pool's compression work on the atmosphere (each volume). |
+| `real_steam` | `bool` | IF97 steam in the atmospheres (else sembawang's ideal steam). |
+| `real_liquid` | `bool` | IF97 liquid (else sembawang's constant `c_p`). |
+| `level_swell` | `bool` | The swollen level decides what a port draws. |
+| `bubble_pass_through` | `bool` | MELCOR's bubble efficiency at submerged ports. |
+| `equilibrium_rain_out` | `bool` | Rain-out to saturation (else sembawang's four passes). |
+| `choking` | `bool` | Choking on every path. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NetworkResult`
+
+One step's outputs, comparable with [`super::containment::ContainmentResult`].
+
+```rust
+pub struct NetworkResult {
+    pub p_dw_pa: f64,
+    pub p_ww_pa: f64,
+    pub p_rb_pa: f64,
+    pub t_dw_k: f64,
+    pub t_ww_gas_k: f64,
+    pub t_pool_k: f64,
+    pub pool_kg: f64,
+    pub pool_level_m: f64,
+    pub pool_swollen_level_m: f64,
+    pub dw_sump_kg: f64,
+    pub dw_steam_kg: f64,
+    pub ww_steam_kg: f64,
+    pub dw_h2_kg: f64,
+    pub ww_h2_kg: f64,
+    pub rb_h2_fraction: f64,
+    pub vent_flowing: bool,
+    pub vented_kg_s: f64,
+    pub vented_h2_kg: f64,
+    pub flange_leaking: bool,
+    pub flange_kg_s: f64,
+    pub downcomer_kg_s: f64,
+    pub vacuum_breaker_kg_s: f64,
+    pub iterations: usize,
+    pub residual: f64,
+    pub substeps: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p_dw_pa` | `f64` |  |
+| `p_ww_pa` | `f64` |  |
+| `p_rb_pa` | `f64` |  |
+| `t_dw_k` | `f64` |  |
+| `t_ww_gas_k` | `f64` |  |
+| `t_pool_k` | `f64` |  |
+| `pool_kg` | `f64` | Torus pool: mass, kg, collapsed and swollen level, m (plant datum). |
+| `pool_level_m` | `f64` |  |
+| `pool_swollen_level_m` | `f64` |  |
+| `dw_sump_kg` | `f64` | Water in the drywell sump, kg. |
+| `dw_steam_kg` | `f64` |  |
+| `ww_steam_kg` | `f64` |  |
+| `dw_h2_kg` | `f64` |  |
+| `ww_h2_kg` | `f64` |  |
+| `rb_h2_fraction` | `f64` | Hydrogen's mole fraction in the building's gas (steam included). |
+| `vent_flowing` | `bool` |  |
+| `vented_kg_s` | `f64` |  |
+| `vented_h2_kg` | `f64` |  |
+| `flange_leaking` | `bool` |  |
+| `flange_kg_s` | `f64` |  |
+| `downcomer_kg_s` | `f64` | Gas through the downcomers (positive into the torus) and the vacuum<br>breakers (into the drywell), kg/s. |
+| `vacuum_breaker_kg_s` | `f64` |  |
+| `iterations` | `usize` | Picard iterations this step (summed over sub-steps), the largest<br>residual, and the sub-steps taken so far in the run. |
+| `residual` | `f64` |  |
+| `substeps` | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ContainmentNetwork`
+
+The Mark I containment as a control-volume network. See the module docs.
+
+```rust
+pub struct ContainmentNetwork {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(prm: &Params) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Unit 1 from `prm`, [`NetworkConfig::unit1`], every mechanism on.
+
+- ```rust
+  pub fn with_config(prm: &Params, cfg: NetworkConfig, mech: NetworkMechanisms) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Any unit's network: `prm` for what `params` holds, `cfg` for the
+
+- ```rust
+  pub fn network(self: &Self) -> &CvNetwork { /* ... */ }
+  ```
+  The network (read-only).
+
+- ```rust
+  pub fn config(self: &Self) -> NetworkConfig { /* ... */ }
+  ```
+  The configuration it was built with.
+
+- ```rust
+  pub fn wall_temperatures(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  The drywell structures' and the torus shell's temperatures, K.
+
+- ```rust
+  pub fn step(self: &mut Self, s: &ContainmentSnapshot) -> Result<NetworkResult, TampinesError> { /* ... */ }
+  ```
+  Advance one step with sembawang's snapshot (see the module docs for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `core`
 
 The core: heat-up of the fuel once the water level falls, zirconium-steam
