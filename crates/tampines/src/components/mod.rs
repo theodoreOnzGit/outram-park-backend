@@ -18,6 +18,7 @@ pub mod helical_coil_steam_generator;
 pub mod junction;
 pub mod pipe;
 pub mod pump;
+pub mod reactor_power;
 pub mod steam_generator;
 pub mod turbine;
 pub mod valve;
@@ -39,6 +40,7 @@ pub use helical_coil_steam_generator::{
 pub use junction::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
 pub use pipe::{Pipe, PipeBackend};
 pub use pump::Pump;
+pub use reactor_power::{AxialPowerShape, CoreChannelShare, ReactorPowerSource, TotalPower};
 pub use steam_generator::SteamGenerator;
 pub use turbine::Turbine;
 pub use valve::Valve;

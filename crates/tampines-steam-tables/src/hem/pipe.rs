@@ -81,7 +81,8 @@ use uom::si::f64::{
 use uom::si::heat_flux_density::watt_per_square_meter;
 use uom::si::angle::radian;
 use uom::si::dynamic_viscosity::pascal_second;
-use uom::si::f64::{Angle, DynamicViscosity, HeatTransfer, VolumetricPowerDensity};
+use uom::si::f64::{Angle, DynamicViscosity, HeatTransfer, Power, VolumetricPowerDensity};
+use uom::si::power::watt;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
@@ -850,6 +851,8 @@ pub struct HemPipe<E: HemEquationOfState = Iapws97Hem> {
     wall_heat: WallHeat,
     /// Volumetric heat source `r` (RELAP-7 Eq 22), W/m³; zero by default.
     volumetric_heating_w_m3: f64,
+    /// Per-cell heat input as a power density \[W/m³\]; empty when unset.
+    cell_heating_w_m3: Vec<f64>,
 }
 
 impl<E: HemEquationOfState> HemPipe<E> {
@@ -921,6 +924,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
             wall_friction: true,
             wall_heat: WallHeat::Adiabatic,
             volumetric_heating_w_m3: 0.0,
+            cell_heating_w_m3: Vec::new(),
         };
         // Close the conserved state once through (ρ, e), so what the solver
         // carries is exactly what it will decode on the first step.
@@ -1140,6 +1144,46 @@ impl<E: HemEquationOfState> HemPipe<E> {
         }
         self.volumetric_heating_w_m3 = v;
         Ok(())
+    }
+
+    /// Set a heat input per cell, as a power deposited in each cell's fluid
+    /// (gh:#1079: a reactor power source distributes core power this way). It
+    /// adds to any uniform [`Self::set_volumetric_heating`]. An empty slice
+    /// clears it.
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::InvalidInput`] if the length is not the cell count or a
+    /// value is not finite.
+    pub fn set_cell_heat_input(&mut self, powers: &[Power]) -> Result<(), HemError> {
+        if powers.is_empty() {
+            self.cell_heating_w_m3.clear();
+            return Ok(());
+        }
+        let n = self.geometry.n_cells();
+        if powers.len() != n {
+            return Err(HemError::InvalidInput(format!("{} cell powers for {n} cells", powers.len())));
+        }
+        let mut v = Vec::with_capacity(n);
+        for (i, q) in powers.iter().enumerate() {
+            let w = q.get::<watt>();
+            if !w.is_finite() {
+                return Err(HemError::InvalidInput(format!("cell {i} heat input {w} W")));
+            }
+            v.push(w / self.cell_volume(i));
+        }
+        self.cell_heating_w_m3 = v;
+        Ok(())
+    }
+
+    /// The per-cell heat input set by [`Self::set_cell_heat_input`] (empty
+    /// when unset).
+    pub fn cell_heat_input(&self) -> Vec<Power> {
+        self.cell_heating_w_m3
+            .iter()
+            .enumerate()
+            .map(|(i, r)| Power::new::<watt>(r * self.cell_volume(i)))
+            .collect()
     }
 
     /// The heat through the wall.
@@ -1507,7 +1551,8 @@ impl<E: HemEquationOfState> HemPipe<E> {
                 } else {
                     0.0
                 };
-                (-friction - c.rho * g_sin, -c.rho * c.u * g_sin + heat + self.volumetric_heating_w_m3)
+                let cell_heat = self.cell_heating_w_m3.get(i).copied().unwrap_or(0.0);
+                (-friction - c.rho * g_sin, -c.rho * c.u * g_sin + heat + self.volumetric_heating_w_m3 + cell_heat)
             })
             .collect()
     }

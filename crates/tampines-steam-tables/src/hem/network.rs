@@ -821,6 +821,13 @@ impl<E: HemEquationOfState> HemNetwork<E> {
         self.pipes.get(index)
     }
 
+    /// A pipe, mutably, to change its source terms between steps (a reactor
+    /// power source sets cell heat inputs this way, gh:#1079). Changing its
+    /// boundaries at a junction-driven end is overwritten on the next step.
+    pub fn pipe_mut(&mut self, index: usize) -> Option<&mut HemPipe<E>> {
+        self.pipes.get_mut(index)
+    }
+
     /// The junctions, by index.
     pub fn junction(&self, index: usize) -> Option<&HemJunction> {
         self.junctions.get(index)
