@@ -69,6 +69,7 @@ use outram_foam_basic_lib::fv_operators::fvc::central_upwind::{
 };
 use outram_foam_basic_lib::limiters::FluxLimiter;
 use outram_foam_basic_lib::primitives::vector::Vector3;
+use petir::mathf::RealMath;
 use petir::ssprk::{ssp_step, SspMethod, SspWorkspace};
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
@@ -1478,7 +1479,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
     fn cell_sources(&self, cells: &[Prim]) -> Vec<(f64, f64)> {
         const G: f64 = 9.80665;
         let geo = &self.geometry;
-        let g_sin = G * geo.incline_rad.sin();
+        let g_sin = G * geo.incline_rad.r_sin();
         cells
             .iter()
             .enumerate()

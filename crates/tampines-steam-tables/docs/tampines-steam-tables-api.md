@@ -12688,6 +12688,36 @@ pub use network::HemNetwork;
 pub use network::PipeEndRef;
 ```
 
+#### Re-export `PumpHead`
+
+```rust
+pub use network::PumpHead;
+```
+
+#### Re-export `TdvThermo`
+
+```rust
+pub use network::TdvThermo;
+```
+
+#### Re-export `TurbineParams`
+
+```rust
+pub use network::TurbineParams;
+```
+
+#### Re-export `TimeDependentBoundary`
+
+```rust
+pub use network::TimeDependentBoundary;
+```
+
+#### Re-export `TimeTable`
+
+```rust
+pub use network::TimeTable;
+```
+
 #### Re-export `VolumeBranch`
 
 ```rust

@@ -77,7 +77,9 @@ pub use outram_foam_basic_lib::limiters::FluxLimiter;
 pub use reduced_eos::{
     BarotropicHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem, StiffenedGasPair,
 };
-pub use network::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
+pub use network::{
+    HemJunction, HemNetwork, PipeEndRef, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch,
+};
 pub use pipe::{
     AreaProfile, WallHeat, HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,
     HemRunSummary, HemSnapshot, HemStepReport, PipeEnd, PrimitiveState, TimeIntegrator,

@@ -84,3 +84,68 @@ Each correction is also recorded on its test.
 - A volume's kinetic energy is neglected.
 - The junction is first order in space and frozen over each step, so it is
   visibly not transparent (case 2).
+
+## Time-dependent boundaries (gh:#1076, network part)
+
+`TimeTable` holds piecewise-linear, clamped tables. A
+`TimeDependentBoundary` drives a pipe end each step:
+
+- **`Volume`:** a stagnation reservoir at `p(t)` with `T(t)` or `h(t)`;
+- **`Junction`:** `ṁ(t)` entering at `T(t)` and the end cell's pressure.
+
+Tests: `tests/hem_time_dependent.rs`, 2026-11-01. Predictions written before
+the run; all held.
+
+| Case | Measured |
+|---|---|
+| Constant TDV against the static `Reservoir` | bit-identical, every cell |
+| TDJ ramp 0 → 0.2 kg/s over 2 ms, 5 ms run | mass gained = Σ ṁ(t_k)·dt_k to 1e-12; −0.35 % from the exact integral (start-of-step sampling) |
+
+The two-fluid pressure boundary and inflow state in `multiphase_1d` are not
+done here.
+
+## Pump, valve and turbine (gh:#1072)
+
+New `HemJunction` variants, built on the same two-end flux as the flow
+junction:
+
+- **`Pump`** (RELAP-7 §6.6).
+  - The head comes from a table, or from shaft power by Eq 355, capped at a
+    shut-off head.
+  - `ρ g H` raises `a`'s pressure in the junction flux. The pump work `ṁ Δp/ρ`
+    enters `b` only.
+  - Reverse flow is a `K1 + K2` resistance.
+- **`Valve`:** area `opening·min(A)`, loss `K/opening²`; both ends are walls
+  at opening ≤ 0.
+- **`Turbine`** (§6.7).
+  - Mass flow from the characteristic, `tanh(β(p01/p02 − 1))`, with `β` from
+    the design point (Eq 362).
+  - Shaft power `ṁ (h01 − h02)` with `η`.
+  - The isentropic drop uses the manual's ideal-gas form with a user `γ`.
+  - Closed when `p01 ≤ p02`.
+
+Tests: `tests/hem_components.rs`, 2026-11-01. Predictions written before the
+run.
+
+| Case | Measured | Prediction |
+|---|---|---|
+| Pump H = 50 m, air, 1 s | rise +0.91 % of `ρ g H`; power = `ṁ g H` | held |
+| Pump from shaft power W = ṁ g H of that run | rise within 0.00 % of the head run | held |
+| Valve fully open, K = 2, against a flow junction with K = 2 | bit-identical | held |
+| Valve closed between 2e5 and 1e5 Pa pipes | each pipe's mass conserved to 1e-13 | held |
+| Turbine 2e5 → 1e5 Pa, ṁ_max 3, ratio 2, flow ratio 0.8, η 0.85 | junction 2.0191 kg/s, both pipes 2.0191; shaft power 75.9 kW; closed when reversed | held |
+
+### Corrections, each recorded on its test
+
+- **The shaft-power pump never started.** The first version gave zero head
+  until flow existed: Eq 355 is singular at `ṁ = 0`. It now caps the head at a
+  shut-off head.
+- **The pump runs were not steady at 0.3 s.** The head run read −1.83 % and
+  the shaft-power run +1.44 % of it; both were rerun to 1 s.
+
+### Limits
+
+- The turbine's stagnation pressure is `p + ½ρu²` (low Mach), and its
+  isentropic drop is the ideal-gas form with a user exponent, not an EOS
+  entropy.
+- No homologous pump curves.

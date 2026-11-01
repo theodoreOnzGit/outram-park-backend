@@ -16,4 +16,6 @@
 //! See the source module's doc for the method and the V&V record,
 //! `crates/tampines-steam-tables/verification_and_validation/hem_network_junctions.md`.
 
-pub use tampines_steam_tables::hem::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
+pub use tampines_steam_tables::hem::{
+    HemJunction, HemNetwork, PipeEndRef, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch,
+};

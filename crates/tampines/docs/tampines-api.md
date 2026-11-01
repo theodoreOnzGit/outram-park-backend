@@ -2917,6 +2917,36 @@ pub use tampines_steam_tables::hem::HemNetwork;
 pub use tampines_steam_tables::hem::PipeEndRef;
 ```
 
+#### Re-export `PumpHead`
+
+```rust
+pub use tampines_steam_tables::hem::PumpHead;
+```
+
+#### Re-export `TdvThermo`
+
+```rust
+pub use tampines_steam_tables::hem::TdvThermo;
+```
+
+#### Re-export `TurbineParams`
+
+```rust
+pub use tampines_steam_tables::hem::TurbineParams;
+```
+
+#### Re-export `TimeDependentBoundary`
+
+```rust
+pub use tampines_steam_tables::hem::TimeDependentBoundary;
+```
+
+#### Re-export `TimeTable`
+
+```rust
+pub use tampines_steam_tables::hem::TimeTable;
+```
+
 #### Re-export `VolumeBranch`
 
 ```rust
