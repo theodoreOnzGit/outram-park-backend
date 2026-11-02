@@ -70,7 +70,9 @@ network since 2026-11-02** (gh:#1099, maintainer: "switch it"):
 building as control volumes, IF97 water, a layered torus pool, inertial and
 choked paths), the old lumped containment kept as the explicit ablation
 `Mechanisms::without_network_containment()`. Results on the network are
-**tentative** until its geometry is drawn (gh:#1110), and the vent's
+**tentative** until ~~its geometry is drawn~~ a human checks its drawn
+geometry (gh:#1110, drawn 2026-11-02 in
+`verification_and_validation/bwr_mark1/geometry/`), and the vent's
 depressurisation depends on the torus pool's layer count (gh:#1108); what
 moved is in `verification_and_validation/bwr_mark1/containment_network.md`
 ("gh:#1099"). The TRISO release's temperature transient

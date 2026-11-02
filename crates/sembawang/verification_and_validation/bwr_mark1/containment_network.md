@@ -1585,8 +1585,9 @@ above was an open-loop replay of the lumped plant's snapshots.
 
 **Results stay tentative.** The network's geometry (the torus V(z), the
 drywell as a prism over a sump pit, the ports' elevations, the building) is
-not drawn yet (gh:#1110), and the crate's geometry rule makes every result
-on an undrawn geometry tentative. The vent's depressurisation depends on the
+~~not drawn yet (gh:#1110)~~ **drawn since 2026-11-02 (gh:#1110; section
+"gh:#1110" below) and awaiting a human check**, and the crate's geometry rule
+keeps every result on it tentative until that check. The vent's depressurisation depends on the
 torus pool's layer count (gh:#1108; −17.9 % at 11 layers against −10.4 % at
 22 in the open-loop case B above), so the vent-window numbers below carry
 that resolution dependence.
@@ -1878,3 +1879,77 @@ run, in its module docs):
   downcomers is physical but unverified.
 - The building is a control volume open to the environment through 1 m²
   \[A\], where sembawang holds it at one atmosphere exactly.
+
+## gh:#1110: the assembled network, drawn (2026-11-02)
+
+**Methodology.** `ContainmentNetwork::geometry_svg` reads back everything
+from the built `CvNetwork`, never from the named constants:
+- each volume's free area against elevation, from its `VolumeAltitudeTable`;
+- the pool level and the swollen level;
+- the torus layers' boundaries, placed as tampines places them (mass below
+  at the pool's mean density);
+- every port's elevation and opening height;
+- every flow path, between its junction elevations.
+
+`examples/containment_network_geometry.rs` writes one SVG per case into
+`geometry/`; the PNGs are Chromium renders of those SVGs. The three
+volumes share the plant datum (torus bottom 0 m). A panel's width is its
+free area normalised to that volume's widest, so shapes compare within a
+panel only.
+
+`drawing::tests::the_drawing_shows_what_the_network_holds` checks, for all
+four cases:
+- every port and path is labelled;
+- the torus has one boundary per layer, with the top one at the pool level
+  (to 1e-6 m);
+- the downcomer exits and quenchers sit where `port_elevations` says;
+- the exits are submerged.
+
+**Results** (release, initial state, read back):
+
+| | Unit 1 | Unit 1, gh:#1097 config | Units 2 and 3 |
+|---|---|---|---|
+| torus | 0–7.683 m, 4369 m³, widest 723.5 m², pool 3.237 m, 11 layers | same | 0–8.617 m, 6138 m³, widest 906.3 m², pool 4.208 m, 14 layers |
+| downcomer exits / quenchers | 2.028 m / **0.000 m** | 2.028 m / 2.028 m | 2.999 m / **0.000 m** |
+| drywell | pit 6.183–7.683 m (dry), prism 200 m² to 24.718 m, 3410 m³ | 3411 m³, 0.5 m of sump water | pit 7.117 m, prism 231.3 m² to 26.939 m, 4240 m³ |
+| downcomer entry / vacuum breaker (DW) | 9.683 m / 9.683 m | same | 10.617 m / 10.617 m |
+| vent and vacuum breaker (WW gas) | 7.183 m | same | 8.117 m |
+| head flange | 24.518 m | 24.523 m | 26.739 m |
+| building | pit −1.5 m, 650 m² to 40.0 m, 26 000 m³, openings 39.0 m | same | 646.8 m² to 58.75 m, 38 000 m³, openings 57.75 m |
+
+Units 2 and 3 draw identically (only the titles differ): their geometry
+inputs are shared (`UNITS23_*`, "Step 3" of `units23_open_data.md`).
+
+**What I checked in the images, and what stands out** (for the maintainer to
+confirm or correct; nothing was changed because of it):
+
+1. **The drywell is a 200 m² prism** (231 m² for Units 2/3) over a 1.5 m
+   sump pit, not the Mark I light bulb. That is as documented ([A]); the
+   drawing makes the simplification visible. Its volume is right by
+   construction.
+2. **The drywell floor sits at the torus top** (7.683 m), so the downcomer
+   entry 2.0 m above it is 7.65 m above the exits. This is an assumed datum
+   ([A]); only the downcomer's static head depends on it.
+3. **The quenchers sit at the torus bottom (0 m)** in the default Unit 1
+   and in Units 2/3, but at the downcomer-exit height in the gh:#1097
+   configuration. That matches the configs and the issue ("quenchers at
+   0 m [A]"); the two choices put the relief steam under 3.24 m and 1.21 m
+   of water respectively.
+4. **Exit submergence:** Unit 1 1.209 m (pool 3.237 − exit 2.028), Units 2/3
+   1.209 m (4.208 − 2.999). Both are the same `vent_submergence_pa` head, as
+   built.
+5. **The building is a prism** whose datum (floor at 0 m, pit to −1.5 m) is
+   not tied to the plant's. Its gas sees no hydrostatics that matter, so only
+   the openings' and flange's heights in it are cosmetic. Units 2/3's
+   58.75 m height is the configured `46 + 10.2 + 2.55` m.
+6. **The torus outline** is the 64-piece circular section
+   (`torus_table`), widest at its centreline. The 11 and 14 layers fill the
+   pool to its surface.
+
+**Not checked:**
+- whether the real plant's elevations match the assumed datums (items 2
+  and 5);
+- the vent's actual elevation in the plant (drawn at the WW gas port,
+  torus top − 0.5 m);
+- anything below the image's resolution (the 0.0005 m² flange area is
+  drawn as a line).

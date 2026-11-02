@@ -14,7 +14,9 @@
 //! default; the old model is the explicit ablation
 //! `Mechanisms::without_network_containment()`, and the plant reads the
 //! network through [`NetworkResult::to_containment_result`]. Its geometry
-//! is not drawn yet (gh:#1110), so results on it are tentative, and the
+//! ~~is not drawn yet~~ is drawn (gh:#1110, 2026-11-02: [`ContainmentNetwork::geometry_svg`],
+//! images in `verification_and_validation/bwr_mark1/geometry/`) but not yet
+//! checked by a human, so results on it are tentative, and the
 //! vent's depressurisation depends on the torus pool's layer count
 //! (gh:#1108). [`ContainmentNetwork::step`] takes the same
 //! per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
@@ -131,6 +133,9 @@ use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volume::cubic_meter;
+
+mod drawing;
+pub use drawing::VolumeGeometry;
 
 use super::cavity::Cavity;
 use super::containment::{bur_ignites, bur_step, dw_slab_step, lpme_fall, Burn, ContainmentResult, ContainmentSnapshot, DW_SLAB_CELLS};

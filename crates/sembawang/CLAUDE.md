@@ -90,7 +90,9 @@ in the demo.
   so a test that runs the network for more than 5 min goes behind the
   crate's `long-tests` feature (default on, added with the switch), and a
   multi-hour one is a plain `#[ignore]`. **Results on it stay tentative**
-  until its geometry is drawn (gh:#1110), and the vent depends on the torus
+  until ~~its geometry is drawn~~ a human has checked its drawn geometry
+  (gh:#1110: drawn 2026-11-02, `verification_and_validation/bwr_mark1/geometry/`),
+  and the vent depends on the torus
   pool's layer count (gh:#1108).
 - **Regression fixtures:** ~~`verification_and_validation/bwr_mark1/headless_30h.csv`,
   compared byte for byte by `bwr_mark1::tests::the_headless_run_matches_the_committed_fixture`.~~

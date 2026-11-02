@@ -1923,7 +1923,8 @@ mod tests {
     /// the move is not attributed to a containment mechanism (no ablation
     /// was run); the drywell peak, at 1.004 MPa, lies above the lumped
     /// ensemble's whole range (0.785-0.964 MPa). Tentative: the network's
-    /// geometry is not drawn (gh:#1110).
+    /// geometry ~~is not drawn~~ is drawn (gh:#1110, 2026-11-02) but not yet
+    /// checked by a human.
     #[test]
     #[cfg_attr(not(feature = "long-tests"), ignore = "long test (one 26 h network run, ~20 min); runs by default, skipped under --no-default-features")]
     fn the_network_baseline_is_pinned() {
