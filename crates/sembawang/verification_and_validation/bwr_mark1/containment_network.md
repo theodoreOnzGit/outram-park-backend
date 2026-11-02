@@ -1953,3 +1953,49 @@ confirm or correct; nothing was changed because of it):
   torus top − 0.5 m);
 - anything below the image's resolution (the 0.0005 m² flange area is
   drawn as a line).
+
+## gh:#1108: the vent window against the torus pool's layer count (2026-11-02)
+
+**Methodology.** Open-loop case B
+(`tests/containment_network_vs_containment.rs`,
+`the_first_hours_of_unit_1_against_the_old_containment`), to 30 h, with
+`FUKUSHIMA_NETWORK_LAYERS` = 11 (the derived default), 22, 44 and 88. HEAD
+5c29fc691, release, Rust 1.99.1, a 4-core container running four cases at
+once. Traced reruns (`FUKUSHIMA_NETWORK_TRACE=23.7,25`, 1 s steps) measure
+two things that do not depend on timing: the blowdown time (vent opening
+until p_ww < 200 kPa) and the vented mass from 23.7 to 25 h. I chose those
+two measures and wrote the predictions on the issue before the 44- and
+88-layer results existed.
+
+**Results.**
+
+| n | Δp_ww 24 h | 24.5 h | 25 h | 26 h | 30 h | blowdown net / old | vented 23.7–25 h |
+|---|---|---|---|---|---|---|---|
+| 11 | −17.94 % | −3.56 % | +3.67 % | +1.91 % | +0.36 % | 4.68 / 9.78 min | 44.86 t |
+| 22 | −10.41 % | +2.30 % | +6.41 % | +2.01 % | +0.35 % | 5.08 / 9.78 min | 48.41 t |
+| 44 | −6.96 % | +4.63 % | +7.35 % | +1.97 % | +0.34 % | 6.27 / 9.78 min | 49.78 t |
+| 88 | −5.95 % | +5.11 % | +7.41 % | +1.94 % | +0.35 % | (trace pending) | (pending) |
+
+| Prediction | Outcome |
+|---|---|
+| 1. n = 11 and 22 reproduce their old values | held, exactly |
+| 2. n = 44 at −6.6 ± 1.5 % | held (−6.96 %) |
+| 3. n = 88 at −4.8 ± 1.5 % | held, at the edge (−5.95 %) |
+| 4. top layer at 24 h rises toward 391 K | **missed**: about 388 K at vent opening at every n |
+| 5. 24.5–26 h excess fixed within ±1 point | **missed**: grows with n, settling by n = 44–88 |
+
+**Interpretation.**
+- The 24 h point and the vented mass converge with n: the steps are 7.53,
+  3.45 and 1.01 points, and 3.55 and 1.37 t. The 24 h difference converges
+  to about **−5.5 %, not zero**. Layer resolution explains the 11-to-88
+  movement, not the residual.
+- The two models open the vent together and track each other for about
+  2 min. Then the network reaches 200 kPa about twice as fast, while its
+  wetwell gas cools by expansion from 386 to 353 K, about 35–40 K below the
+  pool surface.
+- The suspect is the gas-side heat input during a fast blowdown. This is not
+  attributed: no ablation has been run.
+- The blowdown time is **not converged at n = 44**; the n = 88 trace is
+  pending.
+- Quote n ≥ 44 for anything in the vent window, and the 24 h point as a
+  phase-sensitive instrument only.
