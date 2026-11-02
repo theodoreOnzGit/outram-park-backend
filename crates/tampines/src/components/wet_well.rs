@@ -36,7 +36,7 @@
 //! | [`exchange`] (pool-surface mass and energy transfer, MELCOR CVH/FL RM §5.1) | `pool_surface::exchange`, steam and N2 only; the gas properties since 2026-11-02 from [`crate::components::wall_condensation::Atmosphere`] with no H2 (gh:#1118) |
 //! | [`bubble_efficiency`] (MELCOR CVH/FL RM Eqs 6-1 to 6-3) | `pool_surface::bubble_efficiency` |
 //! | the injection's bubble step | `containment::Containment::bubble_through` |
-//! | flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` |
+//! | flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` (its four-pass rain-out since 2026-11-02 the ablation [`WetWell::without_equilibrium_rain_out`]; the default rain-out is ported from [`crate::control_volume::ControlVolume`], gh:#1118) |
 //! | the vacuum breaker | the `ww_atmosphere` vacuum-breaker branch of `containment::Containment::step` (step 5) |
 //! | the immersed heat exchanger's implicit form | `containment::Containment::ww_shell_step` (its implicit two-capacity exchange, the coolant an infinite capacity) |
 //! | N2 `c_v(T)` and internal energy (MELCOR NCG library) | `gas::cv_n2`, `gas::u_n2`, `gas::ncg_u`, `gas::ncg_c` (since 2026-11-01 used from `tampines_steam_tables::gas_mixture::melcor_ncg`, where `gas` moved verbatim; gh:#1092, gh:#1098) |
@@ -68,6 +68,7 @@
 //! | MELCOR's bubble efficiency (part of the steam passes uncondensed within 5 K of saturation) | [`WetWell::without_bubble_pass_through`] | full interaction always (`ε = 1`) |
 //! | N2 `c_v(T)` (MELCOR NCG fit) | [`WetWell::without_nitrogen_cv_t`] | constant 20.8 J/(mol K), `sembawang`'s ablation |
 //! | the pool's compression work on the gas | [`WetWell::without_pressure_work`] | RELAP-7's omission |
+//! | rain-out to saturation (RH = 1) by a solve, as [`crate::control_volume::ControlVolume`]'s (since 2026-11-02, gh:#1118) | [`WetWell::without_equilibrium_rain_out`] | `sembawang`'s four passes, which end subsaturated; bit for bit the wet well before 2026-11-02 |
 //!
 //! ## Energy conventions (ported, stated)
 //!
@@ -87,11 +88,19 @@
 //! stratification (`sembawang`'s `pool_layers`); the shell as a heat
 //! structure (`sembawang`'s `ww_shell`); swell and void in the pool;
 //! aerosol scrubbing; the liquid outlet only draws (no inflow); the vessel
-//! is prismatic. The rain-out is `sembawang`'s four passes (kept for the
+//! is prismatic. ~~The rain-out is `sembawang`'s four passes (kept for the
 //! bit-for-bit pin), which end subsaturated and amplify a round-off
 //! difference at saturation to about 1e-4 in steam mass at any step size;
 //! [`crate::control_volume::ControlVolume`]'s equilibrium rain-out does not
-//! (gh:#1118, `tests/control_volume.rs::wet_well_round_off_amplification_gh1118`).
+//! (gh:#1118, `tests/control_volume.rs::wet_well_round_off_amplification_gh1118`).~~
+//! **CORRECTED 2026-11-02 (gh:#1118, maintainer decision):** the default
+//! rain-out is now the control volume's equilibrium solve. `sembawang`'s four
+//! passes, which end subsaturated and amplify a round-off difference at
+//! saturation to about 1e-4 in steam mass at any step size, are the
+//! ablation [`WetWell::without_equilibrium_rain_out`]. That ablation
+//! carries the bit-for-bit port check
+//! (`tests/control_volume.rs::wet_well_round_off_amplification_gh1118`,
+//! `crates/sembawang/tests/wet_well_vs_tampines.rs`).
 
 use tampines_steam_tables::prelude::h_tp_eqm_two_phase;
 use uom::si::area::square_meter;
@@ -143,6 +152,13 @@ const U_STEAM_REF: f64 = 2.5060e6;
 const T_REF: f64 = 373.15;
 /// Liquid water's constant `c_p`, J/(kg K) (`containment::CP_WATER`).
 const CP_WATER: f64 = 4186.0;
+
+/// The steam mass the gas holds saturated at `t` in `v` m³, kg (the
+/// expression of `Containment::pool_surface_step`'s rain-out, operation for
+/// operation).
+fn steam_capacity(t: f64, v: f64) -> f64 {
+    p_sat_pa(t.min(640.0)) * v * M_H2O / (R_GAS * t)
+}
 
 /// Steam's internal energy, J/kg (`containment::steam_u`).
 fn steam_u(t: f64) -> f64 {
@@ -320,11 +336,13 @@ pub struct WetWellMechanisms {
     pub nitrogen_cv_t: bool,
     /// The pool's compression work on the gas.
     pub pressure_work: bool,
+    /// Rain-out to saturation by a solve (else `sembawang`'s four passes).
+    pub equilibrium_rain_out: bool,
 }
 
 impl Default for WetWellMechanisms {
     fn default() -> Self {
-        Self { surface: SurfaceModel::Melcor, bubble_pass_through: true, nitrogen_cv_t: true, pressure_work: true }
+        Self { surface: SurfaceModel::Melcor, bubble_pass_through: true, nitrogen_cv_t: true, pressure_work: true, equilibrium_rain_out: true }
     }
 }
 
@@ -495,6 +513,16 @@ impl WetWell {
     /// omission).
     pub fn without_pressure_work(mut self) -> Self {
         self.mech.pressure_work = false;
+        self
+    }
+    /// Ablation: `sembawang`'s rain-out (`Containment::pool_surface_step`):
+    /// four passes, each condensing down to saturation at the current gas
+    /// temperature while the latent heat stays in the gas, so they end
+    /// subsaturated. This is the wet well's rain-out before 2026-11-02, bit
+    /// for bit. It amplifies a round-off difference at saturation to about
+    /// 1e-4 in steam mass (gh:#1118).
+    pub fn without_equilibrium_rain_out(mut self) -> Self {
+        self.mech.equilibrium_rain_out = false;
         self
     }
     /// The mechanisms in use.
@@ -884,7 +912,8 @@ impl WetWell {
     /// ([`exchange`]; or, ablated, RELAP-7 Eq 390's sensible heat, implicit
     /// in the two temperatures as `ww_shell_step`'s exchange), then rain-out
     /// of vapour above saturation in the gas (its latent heat staying in the
-    /// gas). The pool depth is the level and the gas depth the gas volume
+    /// gas; by default to saturation by [`Self::rain_out_equilibrium`], the
+    /// ablation `sembawang`'s four passes). The pool depth is the level and the gas depth the gas volume
     /// over the area (`sembawang`: pool volume and fixed gas volume over the
     /// area). Returns the net evaporation, kg.
     fn surface(&mut self, dt: f64) -> f64 {
@@ -932,9 +961,13 @@ impl WetWell {
                 self.set_gas_energy(e_a);
             }
         }
+        if self.mech.equilibrium_rain_out {
+            net -= self.rain_out_equilibrium();
+            return net;
+        }
         for _ in 0..4 {
             let v_gas = self.derived().v_gas;
-            let keep = p_sat_pa(self.t_gas.min(640.0)) * v_gas * M_H2O / (R_GAS * self.t_gas);
+            let keep = steam_capacity(self.t_gas, v_gas);
             if self.steam_kg <= keep {
                 break;
             }
@@ -949,5 +982,60 @@ impl WetWell {
             net -= cond;
         }
         net
+    }
+
+    /// The default rain-out: condense the mass `c` that leaves the remaining
+    /// steam saturating the gas at the temperature its energy then gives,
+    /// in the gas volume the grown pool then leaves (RH = 1 to 1e-13 of the
+    /// steam). The condensate leaves the gas, and joins the pool, at the
+    /// liquid enthalpy at the gas's starting temperature, so its latent heat
+    /// stays in the gas, as in the four passes. Returns the mass condensed,
+    /// kg.
+    ///
+    /// **Port of [`crate::control_volume::ControlVolume`]'s `rain_out`**
+    /// (gh:#1092, its default): the same bisection on the condensed mass, the
+    /// same bracket `[0, s0 − keep0]`, and the same 80-pass and `1e-13 s0`
+    /// limits. The difference is stated: the gas volume in the residual is
+    /// the wet well's own `derived` at the trial pool mass (its density
+    /// re-evaluated), where the control volume holds the density fixed.
+    fn rain_out_equilibrium(&mut self) -> f64 {
+        let v0 = self.derived().v_gas;
+        let s0 = self.steam_kg;
+        let keep0 = steam_capacity(self.t_gas, v0);
+        if s0 <= keep0 {
+            return 0.0;
+        }
+        let h_l = CP_WATER * (self.t_gas - 273.15);
+        let e0 = self.gas_energy();
+        let resid = |cond: f64| {
+            let mut probe = self.clone();
+            probe.steam_kg = s0 - cond;
+            probe.pool_kg += cond;
+            probe.set_gas_energy(e0 - cond * h_l);
+            let v = probe.derived().v_gas;
+            s0 - cond - steam_capacity(probe.t_gas, v)
+        };
+        // At `cond = s0 − keep0` the latent heat has warmed the gas, so the
+        // residual is negative there; the root lies in the bracket.
+        let (mut lo, mut hi) = (0.0, s0 - keep0);
+        for _ in 0..80 {
+            let mid = 0.5 * (lo + hi);
+            if resid(mid) > 0.0 {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+            if hi - lo <= 1e-13 * s0 {
+                break;
+            }
+        }
+        let cond = 0.5 * (lo + hi);
+        let e_a = self.gas_energy() - cond * h_l;
+        self.steam_kg = s0 - cond;
+        self.set_gas_energy(e_a);
+        let e_p = self.pool_energy() + cond * h_l;
+        self.pool_kg += cond;
+        self.set_pool_energy(e_p);
+        cond
     }
 }

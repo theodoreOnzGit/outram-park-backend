@@ -7035,7 +7035,7 @@ bit-for-bit check and the whole-torus comparison live in
 | [`exchange`] (pool-surface mass and energy transfer, MELCOR CVH/FL RM §5.1) | `pool_surface::exchange`, steam and N2 only; the gas properties since 2026-11-02 from [`crate::components::wall_condensation::Atmosphere`] with no H2 (gh:#1118) |
 | [`bubble_efficiency`] (MELCOR CVH/FL RM Eqs 6-1 to 6-3) | `pool_surface::bubble_efficiency` |
 | the injection's bubble step | `containment::Containment::bubble_through` |
-| flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` |
+| flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` (its four-pass rain-out since 2026-11-02 the ablation [`WetWell::without_equilibrium_rain_out`]; the default rain-out is ported from [`crate::control_volume::ControlVolume`], gh:#1118) |
 | the vacuum breaker | the `ww_atmosphere` vacuum-breaker branch of `containment::Containment::step` (step 5) |
 | the immersed heat exchanger's implicit form | `containment::Containment::ww_shell_step` (its implicit two-capacity exchange, the coolant an infinite capacity) |
 | N2 `c_v(T)` and internal energy (MELCOR NCG library) | `gas::cv_n2`, `gas::u_n2`, `gas::ncg_u`, `gas::ncg_c` (since 2026-11-01 used from `tampines_steam_tables::gas_mixture::melcor_ncg`, where `gas` moved verbatim; gh:#1092, gh:#1098) |
@@ -7067,6 +7067,7 @@ in `crate::control_volume::pool_surface` (moved verbatim, re-exported here).
 | MELCOR's bubble efficiency (part of the steam passes uncondensed within 5 K of saturation) | [`WetWell::without_bubble_pass_through`] | full interaction always (`ε = 1`) |
 | N2 `c_v(T)` (MELCOR NCG fit) | [`WetWell::without_nitrogen_cv_t`] | constant 20.8 J/(mol K), `sembawang`'s ablation |
 | the pool's compression work on the gas | [`WetWell::without_pressure_work`] | RELAP-7's omission |
+| rain-out to saturation (RH = 1) by a solve, as [`crate::control_volume::ControlVolume`]'s (since 2026-11-02, gh:#1118) | [`WetWell::without_equilibrium_rain_out`] | `sembawang`'s four passes, which end subsaturated; bit for bit the wet well before 2026-11-02 |
 
 ## Energy conventions (ported, stated)
 
@@ -7086,11 +7087,19 @@ assumption 4 plus steam); the gravity terms `(z − L_w/2) g` of Eq 393
 stratification (`sembawang`'s `pool_layers`); the shell as a heat
 structure (`sembawang`'s `ww_shell`); swell and void in the pool;
 aerosol scrubbing; the liquid outlet only draws (no inflow); the vessel
-is prismatic. The rain-out is `sembawang`'s four passes (kept for the
+is prismatic. ~~The rain-out is `sembawang`'s four passes (kept for the
 bit-for-bit pin), which end subsaturated and amplify a round-off
 difference at saturation to about 1e-4 in steam mass at any step size;
 [`crate::control_volume::ControlVolume`]'s equilibrium rain-out does not
-(gh:#1118, `tests/control_volume.rs::wet_well_round_off_amplification_gh1118`).
+(gh:#1118, `tests/control_volume.rs::wet_well_round_off_amplification_gh1118`).~~
+**CORRECTED 2026-11-02 (gh:#1118, maintainer decision):** the default
+rain-out is now the control volume's equilibrium solve. `sembawang`'s four
+passes, which end subsaturated and amplify a round-off difference at
+saturation to about 1e-4 in steam mass at any step size, are the
+ablation [`WetWell::without_equilibrium_rain_out`]. That ablation
+carries the bit-for-bit port check
+(`tests/control_volume.rs::wet_well_round_off_amplification_gh1118`,
+`crates/sembawang/tests/wet_well_vs_tampines.rs`).
 
 ```rust
 pub mod wet_well { /* ... */ }
@@ -8376,6 +8385,7 @@ pub struct WetWellMechanisms {
     pub bubble_pass_through: bool,
     pub nitrogen_cv_t: bool,
     pub pressure_work: bool,
+    pub equilibrium_rain_out: bool,
 }
 ```
 
@@ -8387,6 +8397,7 @@ pub struct WetWellMechanisms {
 | `bubble_pass_through` | `bool` | MELCOR's bubble efficiency (else `ε = 1`). |
 | `nitrogen_cv_t` | `bool` | N2 `c_v(T)` (else constant). |
 | `pressure_work` | `bool` | The pool's compression work on the gas. |
+| `equilibrium_rain_out` | `bool` | Rain-out to saturation by a solve (else `sembawang`'s four passes). |
 
 ##### Implementations
 
@@ -8828,6 +8839,11 @@ pub struct WetWell {
   pub fn without_pressure_work(self: Self) -> Self { /* ... */ }
   ```
   Ablation: no compression work from the pool on the gas (RELAP-7's
+
+- ```rust
+  pub fn without_equilibrium_rain_out(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: `sembawang`'s rain-out (`Containment::pool_surface_step`):
 
 - ```rust
   pub fn mechanisms(self: &Self) -> WetWellMechanisms { /* ... */ }
@@ -9417,7 +9433,7 @@ This generalises [`crate::components::wet_well::WetWell`] (gh:#1075):
 | liquid `c_p (T − 273.15)` | IF97 region-1 liquid by default; `sembawang`'s constant `c_p` the ablation |
 | one injection port, one liquid outlet, a vacuum breaker | any number of [`Port`]s at elevations, each with a source and an outflow |
 | no swell | MELCOR's swollen level (Eqs 5-26 to 5-30), ported from `sembawang` |
-| rain-out by `sembawang`'s four passes (ends subsaturated) | rain-out to saturation (RH = 1) by a solve; the four passes the ablation |
+| ~~rain-out by `sembawang`'s four passes (ends subsaturated)~~ since 2026-11-02 the same solve as here, the four passes its ablation (gh:#1118) | rain-out to saturation (RH = 1) by a solve; the four passes the ablation |
 
 The wet well's vacuum breaker is a flow path, not part of a volume: it is
 gh:#1094's job here (see "For gh:#1094" below).

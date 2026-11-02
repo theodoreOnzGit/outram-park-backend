@@ -167,6 +167,28 @@ fn the_ported_primitives_are_bit_for_bit_sembawangs() {
 /// sembawang does not have); gas pressure +349.3 Pa (105693.96 against
 /// 105344.68), inside the predicted 150–400 Pa from the 9.6 mm rise of
 /// the pool compressing the gas. Both at rest read 105000.000 Pa.
+///
+/// **Re-pinned 2026-11-02 (gh:#1118, maintainer decision).** The wet well's
+/// default rain-out became the control volume's equilibrium solve, and
+/// `sembawang`'s four passes became its ablation
+/// `without_equilibrium_rain_out`. This test is a port check, so the record
+/// above stays on the ablation (`w`, `wa`), which reproduces it bit for bit
+/// (tampines' `four_pass_ablation_is_the_old_wet_well_bit_for_bit` pins this
+/// trajectory's hash on the pre-change code). The new default (`wd`) is run
+/// beside it, against the same criteria.
+///
+/// **Prediction E3 (written before the change):** the pool temperature
+/// moves < 1e-4 K and the gas pressure 0 to +30 Pa from the ablation's
+/// numbers. Both criteria still hold.
+///
+/// **Result (2026-11-02, release).** The ablation is unchanged: 305.261372 K,
+/// +349.28 Pa. The new default ends at 305.261372 K (−6.1e-8 K against the
+/// ablation, −4.21e-5 K against `sembawang`) and 105693.95 Pa (−0.01 Pa
+/// against the ablation, +349.27 Pa against `sembawang`), with 80.187 kg of
+/// steam in both. The pool temperature held. **The pressure band missed**
+/// (predicted 0 to +30 Pa, measured −0.01 Pa): in this relief case the
+/// surface warms the gas from 303 K to 304.2 K, so it is mostly
+/// subsaturated and the rain-out barely acts. Both criteria hold.
 #[test]
 fn the_torus_tracks_sembawangs_containment() {
     let prm = Params::default();
@@ -182,8 +204,9 @@ fn the_torus_tracks_sembawangs_containment() {
         prm,
         ..Default::default()
     };
-    let mut w = torus();
-    let mut wa = torus().without_pressure_work();
+    let mut w = torus().without_equilibrium_rain_out();
+    let mut wa = torus().without_equilibrium_rain_out().without_pressure_work();
+    let mut wd = torus();
     let inputs = WetWellInputs { injection: Injection::water(kgs(10.0), jkg(2.7e6)), ..quiet(P0) };
     let mut r = c.step(&ContainmentSnapshot { srv_steam_kg_s: 0.0, ..snap.clone() });
     // The first step above carried no steam: compare its gas pressure
@@ -191,11 +214,14 @@ fn the_torus_tracks_sembawangs_containment() {
     let p_rest = w.gas_pressure().get::<pascal>();
     println!("at rest: sembawang p_ww {:.3} Pa, here {p_rest:.3} Pa", r.p_ww_pa);
     let mut worst_t: f64 = 0.0;
+    let mut worst_td: f64 = 0.0;
     for _ in 0..600 {
         r = c.step(&snap);
         w.step(sec(1.0), &inputs).unwrap();
         wa.step(sec(1.0), &inputs).unwrap();
+        wd.step(sec(1.0), &inputs).unwrap();
         worst_t = worst_t.max((w.pool_temperature().get::<kelvin>() - r.t_pool_k).abs());
+        worst_td = worst_td.max((wd.pool_temperature().get::<kelvin>() - r.t_pool_k).abs());
     }
     let dp = w.gas_pressure().get::<pascal>() - r.p_ww_pa;
     let dt = w.pool_temperature().get::<kelvin>() - r.t_pool_k;
@@ -212,4 +238,18 @@ fn the_torus_tracks_sembawangs_containment() {
     );
     assert!(worst_t < 2e-3, "{worst_t}");
     assert!(dp > 150.0 && dp < 400.0, "{dp}");
+    let dp_d = wd.gas_pressure().get::<pascal>() - r.p_ww_pa;
+    let dt_d = wd.pool_temperature().get::<kelvin>() - r.t_pool_k;
+    println!(
+        "new default (equilibrium rain-out): T_pool {:.6} K ({dt_d:+.3e} vs sembawang; {:+.3e} vs the ablation; worst {worst_td:.3e}), p {:.2} Pa ({dp_d:+.2} vs sembawang; {:+.2} vs the ablation), T_gas {:.4} K, steam {:.3} kg vs {:.3}",
+        wd.pool_temperature().get::<kelvin>(),
+        wd.pool_temperature().get::<kelvin>() - w.pool_temperature().get::<kelvin>(),
+        wd.gas_pressure().get::<pascal>(),
+        wd.gas_pressure().get::<pascal>() - w.gas_pressure().get::<pascal>(),
+        wd.gas_temperature().get::<kelvin>(),
+        wd.steam_mass().get::<uom::si::mass::kilogram>(),
+        w.steam_mass().get::<uom::si::mass::kilogram>(),
+    );
+    assert!(worst_td < 2e-3, "{worst_td}");
+    assert!(dp_d > 150.0 && dp_d < 400.0, "{dp_d}");
 }

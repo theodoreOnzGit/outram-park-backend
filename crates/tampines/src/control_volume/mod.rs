@@ -20,7 +20,7 @@
 //! | liquid `c_p (T − 273.15)` | IF97 region-1 liquid by default; `sembawang`'s constant `c_p` the ablation |
 //! | one injection port, one liquid outlet, a vacuum breaker | any number of [`Port`]s at elevations, each with a source and an outflow |
 //! | no swell | MELCOR's swollen level (Eqs 5-26 to 5-30), ported from `sembawang` |
-//! | rain-out by `sembawang`'s four passes (ends subsaturated) | rain-out to saturation (RH = 1) by a solve; the four passes the ablation |
+//! | ~~rain-out by `sembawang`'s four passes (ends subsaturated)~~ since 2026-11-02 the same solve as here, the four passes its ablation (gh:#1118) | rain-out to saturation (RH = 1) by a solve; the four passes the ablation |
 //!
 //! The wet well's vacuum breaker is a flow path, not part of a volume: it is
 //! gh:#1094's job here (see "For gh:#1094" below).

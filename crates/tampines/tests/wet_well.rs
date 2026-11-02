@@ -147,10 +147,12 @@ fn every_mechanism_is_on_by_default() {
     let m = w.mechanisms();
     assert_eq!(m, WetWellMechanisms::default());
     assert_eq!(m.surface, SurfaceModel::Melcor);
-    assert!(m.bubble_pass_through && m.nitrogen_cv_t && m.pressure_work);
+    assert!(m.bubble_pass_through && m.nitrogen_cv_t && m.pressure_work && m.equilibrium_rain_out);
     let a = torus().without_pressure_work().without_nitrogen_cv_t().without_bubble_pass_through();
     let m = a.mechanisms();
-    assert!(!m.pressure_work && !m.nitrogen_cv_t && !m.bubble_pass_through && m.surface == SurfaceModel::Melcor);
+    assert!(!m.pressure_work && !m.nitrogen_cv_t && !m.bubble_pass_through && m.surface == SurfaceModel::Melcor && m.equilibrium_rain_out);
+    let r = torus().without_equilibrium_rain_out().mechanisms();
+    assert_eq!(r, WetWellMechanisms { equilibrium_rain_out: false, ..WetWellMechanisms::default() });
 }
 
 /// **1. Mass and energy closure.** 600 s at 1 s: 20 kg/s injected (two-phase
@@ -161,7 +163,13 @@ fn every_mechanism_is_on_by_default() {
 ///
 /// **Result (2026-11-01, held):** water closes to 1.7e-9 kg of 1.74e6 kg
 /// (9.5e-16), N2 to −8.9e-11 kg of 2934 kg (−3.0e-14), energy to 2.4e-3 J of
-/// 2.59e10 J injected (9.3e-14). The breaker vented 206 kg of the 300 kg of
+/// 2.59e10 J injected (9.3e-14). **Re-measured 2026-11-02 on the new
+/// default equilibrium rain-out (gh:#1118):** water 9.5e-16 → 6.0e-16, N2
+/// −3.0e-14 → −2.9e-14, energy 9.3e-14 → −4.2e-13 of the injected energy
+/// (prediction E2, < 1e-12: held); pool +2.6180 K and the 206 kg vented,
+/// unchanged to the digits shown. Why it moved at all: the rain-out solve
+/// takes a different sequence of floating-point operations. The old numbers
+/// are the ablation's, bit for bit. The breaker vented 206 kg of the 300 kg of
 /// N2; the pool rose 2.618 K (inside 2.5–4.5), the exchanger and outlet
 /// took 5.60e9 J.
 #[test]
@@ -229,6 +237,15 @@ fn mass_and_energy_close_during_a_condensation_transient() {
 /// the rising pool compresses the saturated gas and 3.6e-4 kg rains out
 /// (asserted equal to the steam the gas lost, to 1e-9 kg); with 90 % humid
 /// gas the gain is 1000 kg to the last bit.
+///
+/// **Re-measured 2026-11-02 on the new default equilibrium rain-out
+/// (gh:#1118):** pool gain 1000.00036 → 1000.000069 kg, the rain-out 3.6e-4
+/// → 6.92e-5 kg; ΔL 1.5898e-3 m, unchanged to the digits shown. Why: each of
+/// the four passes condenses down to saturation at the gas's current
+/// temperature, and the latent heat it leaves then warms the gas, so they
+/// condense about five times what the equilibrium solve does. The
+/// assertions (the excess equals the steam the gas lost; the level within
+/// 2 % of the hand value) are identities and still hold (prediction E6).
 #[test]
 fn the_level_rises_by_the_condensed_mass_over_rho_a() {
     let mut w = torus().without_surface_mass_transfer(HeatTransfer::new::<watt_per_square_meter_kelvin>(0.0));
@@ -276,6 +293,27 @@ fn the_level_rises_by_the_condensed_mass_over_rho_a() {
 /// cools the warmed gas, so it sits just above and reopens (62 times near
 /// the set point). Outward 17.35 kg, ending at 3240.59 Pa (held: the
 /// `(γ − 1)` overshoot of the 400 Pa excess predicted 3240).
+///
+/// **Re-measured 2026-11-02 on the new default equilibrium rain-out
+/// (gh:#1118):** inward 9.52 kg, ending at 3400.10 Pa, 62 re-openings, all
+/// unchanged (prediction E6, within 1 Pa: held). **Outward 17.35 kg → 10.26
+/// kg, ending 3240.59 → 3400.04 Pa, 2 → 232 openings.** E6 did not predict
+/// this case. Why, measured step by step:
+/// - The first vent's expansion cools the saturated gas, and it rains out.
+/// - The four passes condensed 1.29 kg. Their excess latent heat warmed the
+///   gas to 304.07 K and held the difference at 3730 Pa, so a second vent of
+///   8.25 kg overshot to 3328 Pa. The gas then cooled toward the 303.15 K
+///   pool and the difference drifted down to 3240.59 Pa.
+/// - The equilibrium solve condenses 0.25 kg and the gas stays at 303.03 K.
+///   One more vent of 0.87 kg brings it to 3395 Pa. The warmer pool then
+///   warms the gas, so the breaker holds at its set point, as the inward
+///   case does.
+///
+/// So the old agreement with the dry-gas `(γ − 1)` estimate came from the
+/// four passes' over-condensation, not from the overshoot that was
+/// predicted. A saturated gas expands with condensation, and that estimate
+/// does not apply to it. The assertion (3200 to 3401 Pa) was not moved; it
+/// holds for both. The ablation reproduces the old numbers bit for bit.
 #[test]
 fn the_vacuum_breaker_opens_only_beyond_its_set_point_and_only_one_way() {
     // Into the gas space: the external volume 3000 Pa above it, then 3800.
@@ -673,4 +711,70 @@ fn atmosphere_fold_is_bit_for_bit() {
         }
     }
     println!("gh:#1118 item 2: {count} values bit-identical over {} temperatures", temps.len());
+}
+
+/// FNV-1a over the bits of every state quantity, step by step.
+fn trajectory_hash(mut w: WetWell, steps: usize, inputs: impl Fn(usize) -> WetWellInputs) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for i in 0..steps {
+        let r = w.step(sec(1.0), &inputs(i)).unwrap();
+        let xs = [
+            w.pool_temperature().get::<kelvin>(),
+            w.gas_temperature().get::<kelvin>(),
+            w.gas_pressure().get::<pascal>(),
+            w.pool_mass().get::<kilogram>(),
+            w.steam_mass().get::<kilogram>(),
+            w.nitrogen_mass().get::<kilogram>(),
+            r.surface_evaporation.get::<kilogram>(),
+            r.vacuum_breaker_flow.get::<kilogram>(),
+        ];
+        for x in xs {
+            for b in x.to_bits().to_le_bytes() {
+                h ^= b as u64;
+                h = h.wrapping_mul(0x0100_0000_01b3);
+            }
+        }
+    }
+    h
+}
+
+/// The three trajectories of [`four_pass_ablation_is_the_old_wet_well_bit_for_bit`].
+fn ablation_hashes() -> [u64; 3] {
+    let case1 = |i: usize| WetWellInputs {
+        injection: Injection { mass_rate: kgs(20.0), specific_enthalpy: jkg(if i < 300 { 1.6e6 } else { 2.7e6 }), nitrogen_mass_rate: kgs(0.5), nitrogen_temperature: kelv(400.0) },
+        heat_exchanger: ImmersedHeatExchanger { conductance: ThermalConductance::new::<watt_per_kelvin>(2.0e6), coolant_temperature: kelv(300.0) },
+        liquid_outflow: kgs(5.0),
+        ..quiet(P0)
+    };
+    let relief = |_: usize| WetWellInputs { injection: Injection::water(kgs(10.0), jkg(2.7e6)), ..quiet(P0) };
+    let inward = |_: usize| quiet(P0 + 8000.0);
+    [
+        trajectory_hash(torus().without_equilibrium_rain_out(), 600, case1),
+        trajectory_hash(torus().without_equilibrium_rain_out(), 600, relief),
+        trajectory_hash(torus_at(T0, 330.0, 1.0, VacuumBreakerDirection::IntoGasSpace).without_equilibrium_rain_out(), 300, inward),
+    ]
+}
+
+/// **gh:#1118: the four-pass ablation is the old wet well, bit for bit.**
+/// The maintainer's decision (2026-11-02) made the equilibrium rain-out
+/// the default and kept `sembawang`'s four passes as
+/// [`WetWell::without_equilibrium_rain_out`].
+///
+/// **Method.** Three trajectories are hashed (FNV-1a over the bits of
+/// eight state and report quantities at every step):
+/// - case 1's transient (two-phase then steam injection, N2, the heat
+///   exchanger, the outlet, the breaker venting), 600 s;
+/// - case 3b's relief steam, 600 s;
+/// - a 330 K saturated gas over a 303 K pool, with the breaker passing N2
+///   inward from 113 kPa, 300 s.
+///
+/// The constants were taken by running the same three trajectories on the
+/// code before the change (90ecc3373, where the four passes were the only
+/// rain-out). **Prediction E1:** identical.
+///
+/// **Result (2026-11-02, release):** held, all three hashes identical.
+#[test]
+fn four_pass_ablation_is_the_old_wet_well_bit_for_bit() {
+    const OLD: [u64; 3] = [0xf7e3_f70f_bb4f_2c6d, 0xdf80_7ffe_067b_f5aa, 0x78c1_bfc7_8dc7_827f];
+    assert_eq!(ablation_hashes(), OLD);
 }

@@ -200,12 +200,85 @@ gap. This map expands a difference at every step size, so it is not a
 step-size stability limit. The bound scales with one step's excess vapour,
 and so with `dt`. The control volume's equilibrium rain-out removes it.
 
-**Not changed, stated.** Making the equilibrium rain-out the wet well's
+~~**Not changed, stated.** Making the equilibrium rain-out the wet well's
 default would change every number of its bit-for-bit pin against
 `sembawang`'s `Containment` (`crates/sembawang/tests/wet_well_vs_tampines.rs`,
 case 3b). The pin needs the four passes, because `sembawang` uses them. That
 choice is left to the maintainer. The control volume (gh:#1092) is the
-general model, and it already has the equilibrium rain-out on by default.
+general model, and it already has the equilibrium rain-out on by default.~~ **SUPERSEDED 2026-11-02** (maintainer decision): the equilibrium rain-out is now the default, and the four passes, which carry the port check, are the ablation. See the next section.
+
+## Equilibrium rain-out as the default (gh:#1118, maintainer decision 2026-11-02)
+
+The maintainer's decision: the wet well's default becomes the control
+volume's equilibrium rain-out, which bisects for the condensed mass that
+leaves the gas at RH = 1 at the temperature its remaining energy gives.
+`sembawang`'s four passes stay as the ablation
+`WetWell::without_equilibrium_rain_out`, and that ablation carries the
+bit-for-bit port check.
+
+**Predictions (written 2026-11-02, before the code was changed):**
+
+- **E1.** The ablation reproduces the old wet well bit for bit. Every
+  number in the results table above, and case 3b's printed 305.261372 K and
+  105693.96 Pa, come out the same.
+- **E2.** Closure (case 1) stays at round-off with the new default: water
+  < 1e-12 relative, energy < 1e-12 of the injected energy. Both rain-outs
+  move mass and energy between gas and pool exactly.
+- **E3.** Case 3b with the new default: the pool temperature moves by less
+  than 1e-4 K from 305.261372 K, because the rain-out returns at most a few
+  kg to a 1.7e6 kg pool. The gas pressure moves by 0 to +30 Pa: the gas now
+  sits at saturation instead of zig-zagging below it, and a deficit of
+  about 0.1 kg of steam is about 5 Pa in 2620 m³. Both of 3b's criteria
+  (worst `|ΔT_pool|` < 2e-3 K, `Δp` in 150–400 Pa) still hold.
+- **E4.** The control volume's special case (`tests/control_volume.rs`, its
+  default equilibrium rain-out against the wet well's new default) agrees
+  to < 1e-9 relative over all 600 s in all six quantities. That is the
+  original prediction 2, which missed only because of the four passes'
+  amplification. It is not expected bit for bit: Dalton's sum, the
+  energy-to-temperature solve, the bisection's 1e-13 tolerance and the
+  control volume's fixed density inside its rain-out probe all differ.
+- **E5.** The round-off twin (gh:#1118 item 1) with the new default stays
+  below 1e-11 in steam mass at 1 s.
+- **E6.** The other wet-well cases move little:
+  - Case 2's pool-mass excess still equals the steam the gas lost, to
+    1e-9 kg (that is an identity).
+  - Case 4's inward breaker ends within 1 Pa of its old 3400.10 Pa.
+  - Case 6 is unchanged to 1e-6 (a single step with a subsaturated gas).
+
+**Results (2026-11-02, release, Rust 1.99.1).** E1, E2, E4 and E5 held; E3
+held for the pool and missed its pressure band; E6 held where it predicted,
+but did not cover the outward breaker, which moved.
+
+| Prediction | Old (four passes, now the ablation) → new default | Verdict |
+|---|---|---|
+| E1, ablation = old code | three 600/600/300-step trajectory hashes identical to the pre-change code (90ecc3373), `tests/wet_well.rs::four_pass_ablation_is_the_old_wet_well_bit_for_bit` | held |
+| E2, closure (case 1) | water 9.5e-16 → 6.0e-16; N2 −3.0e-14 → −2.9e-14; energy 9.3e-14 → −4.2e-13 | held (< 1e-12) |
+| E3, case 3b pool temperature | 305.261372 K → 305.261372 K (−6.1e-8 K) | held (< 1e-4 K) |
+| E3, case 3b gas pressure | 105693.96 → 105693.95 Pa (−0.01 Pa); vs `sembawang` +349.28 → +349.27 Pa | **missed** the predicted 0 to +30 Pa: the surface warms this gas from 303 to 304.2 K, so it is mostly subsaturated and the rain-out barely acts; the 150–400 Pa criterion holds |
+| E4, control volume vs wet well at both defaults | worst 1.05e-4 (four passes) → 6.1e-11 (steam; temperatures 1.1e-11, pressure 9.3e-12, the rest ≤ 3e-15) | held (< 1e-9): the original prediction 2 now holds |
+| E5, round-off twin | 1.14e-4 → 2.3e-13 (steam) | held (< 1e-11) |
+| E6, case 2 pool gain | 1000.00036 → 1000.000069 kg (rain-out 3.6e-4 → 6.9e-5 kg); ΔL 1.5898e-3 m unchanged | held (identity) |
+| E6, case 4 inward breaker | 3400.10 Pa, 9.52 kg, 62 re-openings: unchanged | held |
+| not predicted: case 4 outward breaker | 17.35 → 10.26 kg; 3240.59 → 3400.04 Pa; 2 → 232 openings | see below |
+| E6, case 6 | ε 0.500000, 0.500000 kg: unchanged | held |
+
+**Why each number moved.** The four passes over-condense: each condenses
+down to saturation at the gas's current temperature, then its latent heat
+warms the gas. They therefore condense about five times what the
+equilibrium solve does: case 2's rain-out, 3.6e-4 against 6.9e-5 kg; the
+outward breaker's first step, 1.29 against 0.25 kg. On the outward breaker,
+that excess latent heat warmed the gas to 304.07 K and held the difference
+at 3730 Pa. A second 8.25 kg vent followed, and the gas then cooled down to
+3240.59 Pa. With the solve, the gas stays at 303.03 K and one 0.87 kg vent
+reaches 3395 Pa. The warmer pool then warms the gas, and the breaker holds
+at its set point, as the inward case does. **The old agreement of the
+outward case with the dry-gas `(γ − 1)` estimate (3240) came from that
+over-condensation, not from the overshoot predicted.** A saturated gas
+expands with condensation, and the estimate does not apply to it. The 3200
+to 3401 Pa assertion was not moved, and it holds for both.
+
+**What to quote:** the new default for the wet well's own numbers. The
+ablation is quoted only for the port check against `sembawang`.
 
 ## Interpretation
 
@@ -225,8 +298,11 @@ general model, and it already has the equilibrium rain-out on by default.
 - The liquid port only draws water out, and the vessel is prismatic.
 - The energy conventions are sembawang's: constant liquid `c_p` and constant
   steam `c_v`.
-- The rain-out is sembawang's four passes, which amplify round-off at
+- ~~The rain-out is sembawang's four passes, which amplify round-off at
   saturation to about 1e-4 in steam mass (gh:#1118, above). The control
-  volume's equilibrium rain-out does not.
+  volume's equilibrium rain-out does not.~~ **CORRECTED 2026-11-02:** the
+  default rain-out is the control volume's equilibrium solve. The four
+  passes, which amplify round-off at saturation to about 1e-4 in steam
+  mass, are the ablation `without_equilibrium_rain_out`.
 - Moving sembawang onto this component is a separate decision, because its
   fixture and pins would move.

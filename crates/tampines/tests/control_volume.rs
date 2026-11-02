@@ -208,10 +208,14 @@ fn torus(t_gas: f64) -> (WetWell, f64, f64, f64) {
 /// physical and end at the same state to 1e-4).
 #[test]
 fn the_wet_well_is_a_special_case() {
-    let (mut ww, lt, z_inj, opening) = torus(T0);
+    // Since 2026-11-02 (gh:#1118) the wet well's four passes are an
+    // ablation; this record is taken on it, with the control volume's
+    // four-pass ablation to match. The new defaults: below.
+    let (ww, lt, z_inj, opening) = torus(T0);
+    let mut ww = ww.without_equilibrium_rain_out();
     // The same wet well with its gas 1e-12 K warmer (3e-15 relative, a few
     // ulps): how far the wet well itself carries a round-off difference.
-    let (mut ww2, ..) = torus(T0 + 1.0e-12);
+    let mut ww2 = torus(T0 + 1.0e-12).0.without_equilibrium_rain_out();
     let gas = GasMixture::new(ww.steam_mass(), &[(NonCondensable::N2, AmountOfSubstance::new::<mole>(ww.nitrogen_mass().get::<kilogram>() / M_N2))]);
     let mut cv = ControlVolume::new(
         VolumeAltitudeTable::prismatic(Area::new::<square_meter>(AREA), m(lt)).unwrap(),
@@ -671,7 +675,13 @@ fn wet_well_round_off_amplification_gh1118() {
         c.step(sec(dt), &cv_in).unwrap();
         (c.atmosphere().steam_kg, c.atmosphere_temperature().get::<kelvin>())
     };
-    let ww = |t: f64| torus(t).0;
+    // The wet well's four passes, its only rain-out when this was measured
+    // and its ablation since (gh:#1118, 2026-11-02).
+    let ww = |t: f64| torus(t).0.without_equilibrium_rain_out();
+    let ww_default = |t: f64| torus(t).0;
+    let r = twin_run(ww_default(T0), ww_default(T0 + 1e-12), 1.0, 600.0, ww_step);
+    println!("wet well, its default equilibrium rain-out (since 2026-11-02), dt 1: {r:?}");
+    assert!(r.steam < 1e-11 && r.t_gas < 1e-11, "{r:?}");
     for dt in [1.0, 0.5, 0.25, 0.1] {
         let r = twin_run(ww(T0), ww(T0 + 1e-12), dt, 600.0, ww_step);
         println!("wet well dt {dt}: {r:?}");
@@ -702,4 +712,70 @@ fn wet_well_round_off_amplification_gh1118() {
             assert!(r.steam < 1e-11 && r.t_gas < 1e-11 && r.sawtooth < 0.01, "{dt}: {r:?}");
         }
     }
+}
+
+/// **gh:#1118 (maintainer decision, 2026-11-02): the wet well's new default
+/// against the control volume's.** Since the wet well's default rain-out is
+/// the control volume's equilibrium solve, the special case is repeated with
+/// both at their defaults. The control volume keeps the wet well's energy
+/// conventions (constant-`c_p` liquid, ideal steam with constant `c_v`).
+/// The inputs and the torus are [`the_wet_well_is_a_special_case`]'s.
+///
+/// **Prediction E4 (written before the change):** agreement to < 1e-9
+/// relative over all 600 s in all six quantities. That is the original
+/// prediction 2, which missed only because the four passes amplify
+/// round-off. It is not expected bit for bit: Dalton's sum, the
+/// energy-to-temperature solve, the 1e-13 bisection tolerance and the
+/// control volume's fixed density inside its rain-out probe all differ.
+///
+/// **Result (2026-11-02, release): held.** Worst relative differences over
+/// 600 s: pool temperature 2.4e-15, gas temperature 1.1e-11, pressure
+/// 9.3e-12, pool mass 2.5e-15, steam mass 6.1e-11, level 3.0e-15. The
+/// four-pass record of [`the_wet_well_is_a_special_case`] (up to 1.05e-4)
+/// came from the four passes' amplification, not from the control volume.
+#[test]
+fn the_wet_well_is_a_special_case_at_both_defaults() {
+    let (mut ww, lt, z_inj, opening) = torus(T0);
+    let gas = GasMixture::new(ww.steam_mass(), &[(NonCondensable::N2, AmountOfSubstance::new::<mole>(ww.nitrogen_mass().get::<kilogram>() / M_N2))]);
+    let mut cv = ControlVolume::new(
+        VolumeAltitudeTable::prismatic(Area::new::<square_meter>(AREA), m(lt)).unwrap(),
+        vec![port(z_inj, opening), port(0.0, 0.1)],
+        ww.pool_mass(),
+        ww.pool_temperature(),
+        gas,
+        ww.gas_temperature(),
+    )
+    .unwrap()
+    .without_real_liquid()
+    .unwrap()
+    .without_real_steam()
+    .unwrap();
+    let ww_in = special_case_ww_inputs();
+    let cv_in = special_case_cv_inputs();
+    let mut worst = [0.0_f64; 6];
+    for _ in 0..600 {
+        ww.step(sec(1.0), &ww_in).unwrap();
+        cv.step(sec(1.0), &cv_in).unwrap();
+        let a = [
+            ww.pool_temperature().get::<kelvin>(),
+            ww.gas_temperature().get::<kelvin>(),
+            ww.gas_pressure().get::<pascal>(),
+            ww.pool_mass().get::<kilogram>(),
+            ww.steam_mass().get::<kilogram>(),
+            ww.pool_level().get::<meter>(),
+        ];
+        let c = [
+            cv.pool_temperature().get::<kelvin>(),
+            cv.atmosphere_temperature().get::<kelvin>(),
+            cv.atmosphere_pressure().get::<pascal>(),
+            cv.pool_mass().get::<kilogram>(),
+            cv.atmosphere().steam_kg,
+            cv.pool_level().get::<meter>(),
+        ];
+        for i in 0..6 {
+            worst[i] = worst[i].max(rel(c[i], a[i]));
+        }
+    }
+    println!("both defaults, worst relative [T_pool, T_gas, p, m_pool, m_steam, level]: {worst:?}");
+    assert!(worst.iter().all(|&x| x < 1e-9), "{worst:?}");
 }

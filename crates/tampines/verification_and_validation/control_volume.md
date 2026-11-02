@@ -146,13 +146,21 @@ In `tests/control_volume.rs` and `crates/sembawang/tests/swollen_level_vs_tampin
   explicit step.~~ **CORRECTED 2026-11-02 (gh:#1118):** it is a property of
   the four-pass rain-out, which the wet well keeps for its bit-for-bit pin
   against `sembawang`'s `Containment`. Both runs stay physical and end at
-  the same state to 1e-4.
+  the same state to 1e-4. **UPDATE 2026-11-02 (maintainer decision):** the
+  wet well's default is now the equilibrium rain-out, with the four passes
+  as its ablation. With both models at their defaults, the special case
+  agrees to 6.1e-11 at worst (steam mass), which meets prediction 2's
+  < 1e-9
+  (`tests/control_volume.rs::the_wet_well_is_a_special_case_at_both_defaults`).
+  The table row above stays as measured, on the four passes.
 
 **What to quote:**
 
 - Closure: round-off.
-- Wet well equivalence: "to round-off before saturation, and within the
-  wet well's own 1e-4 round-off sensitivity after it".
+- Wet well equivalence: ~~"to round-off before saturation, and within the
+  wet well's own 1e-4 round-off sensitivity after it"~~ **since 2026-11-02**
+  "to 6.1e-11 at both defaults (equilibrium rain-out)". The four-pass
+  figure applies only to the ablation.
 - Swollen level: bit-identical to `sembawang`.
 
 ## For gh:#1094 (flow paths) and gh:#1095 (implicit network)
