@@ -1044,7 +1044,7 @@ id = "review-rat-theodoreonzgit-1ed22d1f"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:34:05+08:00"
-modified = "2026-11-02T13:34:05+08:00"
+modified = "2026-11-02T13:35:16+08:00"
 target = "fn:1ed22d1f3185dd46"
 
 [review]
@@ -1052,8 +1052,8 @@ path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::rat"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-11-02"
-signed_at = "2026-11-02T13:34:05+08:00"
-commit = "71014a3b268a4d3c296e61bbd21ae097f1313433"
+signed_at = "2026-11-02T13:35:16+08:00"
+commit = "50e53de097dd34a72fe840cbed8b165808961274"
 hash = "sha256:a500297501cfa7d906f6313e1dbef06b95129b0212901730652c8efc9bb74eb1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
@@ -1073,16 +1073,12 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "is_a_test"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "vsN5g9H1LTHqeQhrSMugLmiemCESb0vI+le9/ik/nUihFxU9x6pZ53Y8gAEMZlJvT5NgKewbSqGpW9sTRd8OBQ=="
+value = "uRQLS4ejmFT0ustMKgZjC0jFUC67RJ3io6hD3LgYRh50FiVGGdWsdoRbqKG+cfDtTtguwxE48DYAFZ0+/pEIDw=="
 ```
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 71014a3b26.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 50e53de097.
