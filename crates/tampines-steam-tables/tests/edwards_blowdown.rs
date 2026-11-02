@@ -141,6 +141,12 @@
 //!
 //! The test still passes. The other rows were not re-run. Quote the new
 //! row-1 numbers. See `hem_pipe_vs_exact_riemann_and_edwards.md` §12.
+//! **Traced (same day):** the RMSE rise is entirely the t = 0.020 s point.
+//! Without it, the 15-point RMSE is 17.65 → 17.60 psia. That point follows
+//! from the 1 ms disc opening, where the old solver clipped the break flux to
+//! 15 610 kg/(m² s) for liquid 0.3–3.3 MPa above `p_sat`; the new solver
+//! gives the continuous Bernoulli value (e.g. 47 430 at 3.87 MPa). See §12,
+//! "Tracing".
 //!
 //! **The predictions, scored:**
 //!

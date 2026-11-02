@@ -301,9 +301,13 @@ solver files differ between the two runs.
   before this change, cause not traced. The struck-and-corrected rows above
   remain the history.
 - **HemPipe's peak break flow rose 67 %** (48.9 → 81.5 kg/s); PIMPLE's rose
-  2.9 %. The likely reason, not checked: HemPipe's break cell passes
+  2.9 %. ~~The likely reason, not checked: HemPipe's break cell passes
   through near-saturated states where the old `ρ_f c_2φ` branch returned
-  the low sonic-kink flux. When the peak occurs was not traced.
+  the low sonic-kink flux. When the peak occurs was not traced.~~
+  **Traced 2026-11-02 (§12, "Tracing").** The 81.5 kg/s is one 1-ms sample
+  at t = 0.043 s. In it, a single break evaluation saw recompressed liquid
+  at 5.03 MPa, produced when the break cell's void collapsed. The sustained
+  break flow is unchanged within a few %.
 - The GS-1 comparison quantities moved by ≤ 3.8 psia on both solvers.
 - Both tests pass.
 
@@ -721,9 +725,11 @@ Measured on the same tree with only the three solver files swapped (release):
 - `p @ t_end` 14.2 → 13.7 psia;
 - 0 bound events and 0 holds, before and after.
 
-Why the RMSE rose was not traced. A plausible reading, not checked: the
+~~Why the RMSE rose was not traced. A plausible reading, not checked: the
 break cell is near-saturated during the transient, where the old
-`ρ_f c_2φ` branch fired. **HemPipe** (`tests/hem_pipe_edwards.rs`) also moved: plateau 367.6 →
+`ρ_f c_2φ` branch fired.~~ **Traced 2026-11-02** (see "Tracing" below). The
+rise is one data point, t = 0.020 s. It follows from the disc-opening break
+flux, which the old solver clipped for deeply subcooled liquid. **HemPipe** (`tests/hem_pipe_edwards.rs`) also moved: plateau 367.6 →
 363.8 psia, RMSE 42.8 → 42.7 psia, and peak break flow **48.9 → 81.5
 kg/s**. See the re-measurement table in §7.
 
@@ -731,8 +737,96 @@ kg/s**. See the re-measurement table in §7.
 --tests`, 2026-11-02): every target passes. The lib run gives 1040 passed,
 0 failed, 14 ignored.
 
+#### Tracing the two Edwards movements (2026-11-02)
+
+Hypotheses were written with a predicted sign before each measurement, in
+the session's predictions file. All runs are release builds on the same
+tree. "Old" means only the three solver files are swapped back to
+`90ecc3373`. The probes were temporary prints, removed afterwards; no code
+was changed by this tracing.
+
+**HemPipe peak break flow, 48.9 → 81.5 kg/s.**
+- **H1, units or area** (prediction: if HemPipe's kg/s and PIMPLE's lbm/s
+  or break areas differed, the whole series would be scaled). **Refuted as
+  a defect.**
+  - Both solvers use `0.87 · π/4 · 0.073²` = 3.64e-3 m².
+  - HemPipe's sustained break flow is 40–48 kg/s before and after. PIMPLE's
+    is 101 lbm/s = 45.8 kg/s.
+  - The 81.5 is one 1-ms sample (t = 0.043 s, neighbours 47.8 and 44.9).
+    The old run had a smaller one-sample spike, 48.9 kg/s at 0.048 s.
+  - Both coincide with the break cell's void collapsing to ≈ 0 and
+    re-flashing. (In this mesh GS-1's cell is the break cell.)
+- **H2, a G* jump at the saturated-liquid line between the in-dome and
+  subcooled solvers** (prediction: the new subcooled G* exceeds the in-dome
+  G* as δ → 0). **Refuted.** The new dispatcher is continuous across the
+  line: at 2.6 MPa, 13 196.0 at `h_f − 1 J/kg` against 13 195.9 at
+  `h_f + 1`; the same to ≤ 1e-5 at 0.5, 2, 3 and 5 MPa.
+- **H3, recompressed liquid at void collapse** (prediction: the stiff
+  liquid EOS briefly recompresses the break cell well above `p_sat`; the new
+  solver returns the Bernoulli kink flux there and the old one returned the
+  clipped `ρ_f c_2φ`). **Held.**
+  - New: one break call at p = 5.03 MPa, ρ 833.9, u 24.6 (with
+    `p_sat` ≈ 2.6 MPa) returned G = 63 460 kg/(m² s). That single step
+    accounts for the excess, ≈ 0.026 kg out in that millisecond.
+  - Old: the same kind of states (3.67 and 3.37 MPa, ρ ≈ 833, u ≈ 25)
+    returned 16 014 and 16 151, the sonic-kink clip.
+- **Verdict.** For the state it is given, the new flux is the HEM answer: a
+  5 MPa liquid with `p_sat` = 2.6 MPa discharges at the Bernoulli flux, the
+  branch Marviken 24 validates. The state itself is a one-step
+  void-collapse recompression in a 24-cell density-based scheme. The old
+  solver happened to mask it.
+- **The "peak" metric is a single-sample maximum and should not be
+  quoted.** The sustained level (≈ 45–48 kg/s on the plateau) is the
+  number to quote.
+
+**PIMPLE GS-1 RMSE, 17.2 → 20.5 psia.**
+- **H4** (prediction: the in-dome solver is unchanged, so the break flows
+  diverge first at a Region 1 break-cell state, with after ≥ before there).
+  **Held.**
+- Per-step break evaluations over the 1 ms disc opening (break cell = GS-1
+  cell), old → new:
+
+  | t (ms) | old: p (MPa) → G | new: p (MPa) → G |
+  |---|---|---|
+  | 0.06 | 6.60 → 82 845 | 6.60 → 82 493 |
+  | 0.09 | 5.86 → **15 610** | 5.87 → 74 678 |
+  | 0.12 | | 4.90 → 62 992 |
+  | 0.15 | | 3.87 → 47 430 |
+  | 0.18 | | 2.98 → 27 712 |
+  | 0.21 | | two-phase at 2.49 MPa, 12 605 |
+  | 0.09 to 0.39 | 5.86 → 2.56, constant **15 610** | |
+  | 0.42 | two-phase at 2.10 MPa, 9 539 | |
+
+  - The old 82 845 → 15 610 drop at 5.86 MPa is the `DEEP_SUBCOOLING_RATIO`
+    knife edge.
+  - The old 15 610 is the sonic-kink clip on liquid 0.3–3.3 MPa above
+    `p_sat`, the same defect as Marviken 24's 48 % deficit.
+  - The new values are continuous and Bernoulli-consistent: at 3.87 MPa,
+    `√(2 ρ Δp)` = 47 300.
+- **Consequence.**
+  - The old run's break cell flashed deeper: 2.10 against 2.49 MPa, with
+    `p_sat(T)` = 2.53–2.56 MPa.
+  - The new run discharges more in the first 10 ms: 0.439 against 0.346 kg
+    (+27 %). By 30 ms the two are equal (1.190 against 1.173 kg).
+  - GS-1 dips deeper at 20 ms: 305.2 against 344.0 psia, data 350.8.
+- **The RMSE rise is that one point.** Without t = 0.020 s, the 15-point
+  RMSE is 17.65 (old) against 17.60 psia (new). Per point, new against old
+  error:
+  - better at 0.16, 0.22, 0.26 and 0.28 s;
+  - worse at 0.04–0.14, 0.18 and 0.30 s.
+- **Verdict.**
+  - The new break flux over the disc opening is the energy-consistent HEM
+    value. The old one was the documented clip.
+  - The deeper 20 ms dip is what equilibrium HEM gives once the flux is
+    right. Whether it is more physical cannot be read from one point:
+    equilibrium HEM does not model the delayed flashing that sets the real
+    pressure undershoot.
+  - No defect was found, so no code was changed.
+
 **Which numbers to quote:** the §12 numbers. The §10/§11 figures describe
-unapplied patches or the old fixture.
+unapplied patches or the old fixture. For Edwards, quote the plateau and
+RMSE and the sustained break flow; the single-sample peak break flow
+should not be quoted.
 
 ## References
 
