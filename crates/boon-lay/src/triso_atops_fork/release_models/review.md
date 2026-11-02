@@ -1248,3 +1248,64 @@ basically, release fraction goes to 1 at infinite timescales. It is an order of 
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 21f19c2b1a.
+
+# Review: breakthrough_transient_zero_guard (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-breakthrough-transient-zero-guard-theodoreonzgit-b317b886"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:39:06+08:00"
+modified = "2026-11-02T13:39:06+08:00"
+target = "fn:b317b88625dac73c"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::breakthrough_transient_zero_guard"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:39:06+08:00"
+commit = "9a6a29cedf3fcb1da6293e6b9c9e6201c35f4701"
+hash = "sha256:50eeaef5885ce4585f7e5ba9125e2597e6d75975c48dc1e97bbee77d9f454b45"
+doc_hash = "sha256:796a977db3f821e38c0df2b34d59c7f067672b3174ac2bb5dce1e72cb7402919"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:1ed22d1f3185dd46" = "sha256:a500297501cfa7d906f6313e1dbef06b95129b0212901730652c8efc9bb74eb1"
+"fn:a5d900994dded2a6" = "sha256:f83d70a686986f6e17bfa437ef3c5d3b750b27891b9b09c5ec646178fa7540b6"
+"fn:df3126435ca0e9d0" = "sha256:c6327566d5563e5e1a8e72426e288d6bb3a75499223a623f40a083449767a994"
+"fn:f5b5a929974c73b5" = "sha256:59ea489b3bf31f24b6959d29acb77d3d93a09bf580c7318115afc0cbc382c578"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "convergence_order_study"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "B1EreYevRSwW5kigWLhWO9WmQjgLIhPad6F7WsQvr5V97sQ+9anu5/SeR6HebtF/b2m9vrkalt7IA5BdBrsqAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+basically, this is a test that release fraction for breakthrough transient should be zero at time = 0
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 9a6a29cedf.
