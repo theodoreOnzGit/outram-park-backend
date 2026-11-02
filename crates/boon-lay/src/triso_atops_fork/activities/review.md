@@ -510,3 +510,66 @@ plating out function matches upstream plate_out_steadystate in TRISOATOPS python
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 7f59cd7f4a.
+
+# Review: plate_out (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-plate-out-theodoreonzgit-9515687f"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:22:38+08:00"
+modified = "2026-11-02T13:22:38+08:00"
+target = "fn:9515687f16091d7e"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::plate_out"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:22:38+08:00"
+commit = "7fcaafd0ee1ce469b4deb2fe24295efc20f1d3c9"
+hash = "sha256:d991c04dc42b0782b9cde96107150da5659aab605a8a9360aee6e287f87f3542"
+doc_hash = "sha256:a97ff3f2cd557d22803ff93bd69ca094f1ff441f633474c6c77b6835f76df231"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "z6LAZLBiUpuqjskVWxSKOT0CkH8Ed9i/TEOve8Xa0HwpcS4/5PJhxxnSJOCec/uro/5CNLXltg6IhQSifOwXAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+follow upstream
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 7fcaafd0ee.
