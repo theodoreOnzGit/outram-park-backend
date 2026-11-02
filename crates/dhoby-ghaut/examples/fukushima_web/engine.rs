@@ -44,7 +44,7 @@
 use crate::physics::containment::ContainmentResult;
 use crate::physics::core::{Core, CoreResult, CoreSnapshot};
 use crate::physics::wire::{Reader, Writer};
-use crate::physics::{ContainmentWorker, Frame, Mode, Plant, PlantContainment};
+use crate::physics::{ContainmentWorker, Frame, Mechanisms, Mode, Plant, PlantContainment, Unit};
 use dhoby_ghaut::web_demo::link::Floats;
 use dhoby_ghaut::web_demo::platform::now_s;
 
@@ -85,6 +85,9 @@ pub enum Request {
     Mode(Mode),
     Set(Control, bool),
     Reset,
+    /// Switch to Unit 1, 2 or 3 (gh:#1109) and reset: each unit has its own
+    /// inputs, containment network and recorded sequence.
+    Unit(Unit),
 }
 
 #[derive(Clone)]
@@ -191,9 +194,14 @@ impl Runner {
                 }
                 let _ = c.index();
             }
+            Request::Unit(u) => {
+                self.plant = Plant::for_unit(u, self.plant.mode, Mechanisms::default());
+                self.apply(Request::Reset);
+            }
             Request::Reset => {
                 let mode = self.plant.mode;
-                self.plant = Plant::new(mode);
+                // `Plant::new` is `for_unit(Unit::One, ..)`, so Unit 1 is unchanged.
+                self.plant = Plant::for_unit(self.plant.unit(), mode, Mechanisms::default());
                 (self.core, self.containment) = self.plant.parts();
                 self.generation += 1;
                 self.failed = None;
@@ -436,7 +444,7 @@ pub mod native_workers {
         let step = |b: &mut Plant, cb: &mut Core| {
             let s = b.begin();
             core.send(core_request(cb, &s.core));
-            cont.send(ContainmentWorker::request(0, b.mechanisms.containment_choice(), &s.containment));
+            cont.send(ContainmentWorker::request(0, b.containment_choice(), &s.containment));
             let (c, cr) = read_core_reply(&wait(&core));
             let (kr, ok) = read_containment_reply(&wait(&cont));
             assert!(ok, "the containment failed in its worker");
@@ -507,6 +515,7 @@ pub mod web {
                 Request::Mode(m) => ("mode", if m == Mode::FreePlay { 1.0 } else { 0.0 }, 0.0),
                 Request::Set(c, on) => ("set", c.index() as f64, on as u8 as f64),
                 Request::Reset => ("reset", 0.0, 0.0),
+                Request::Unit(u) => ("unit", u.code(), 0.0),
             };
             js::set(&o, "kind", kind);
             js::set(&o, "a", a);
@@ -525,6 +534,7 @@ pub mod web {
                 "mode" => Request::Mode(if a != 0.0 { Mode::FreePlay } else { Mode::Historical }),
                 "set" => Request::Set(*Control::ALL.get(a as usize).ok_or("bad control")?, b != 0.0),
                 "reset" => Request::Reset,
+                "unit" => Request::Unit(Unit::from_code(a)),
                 k => return Err(format!("unknown request '{k}'")),
             })
         }
@@ -679,7 +689,7 @@ pub mod web {
         }
         let s = r.plant.begin();
         let wc = core_request(&r.core, &s.core);
-        let wk = ContainmentWorker::request(r.generation, r.plant.mechanisms.containment_choice(), &s.containment);
+        let wk = ContainmentWorker::request(r.generation, r.plant.containment_choice(), &s.containment);
         r.web.busy = true;
         r.web.core = None;
         r.web.containment = None;
@@ -750,7 +760,7 @@ mod tests {
 
     /// The containment worker's request, as the plant worker builds it.
     fn containment_msg(p: &Plant, s: &crate::physics::containment::ContainmentSnapshot) -> Vec<f64> {
-        ContainmentWorker::request(0, p.mechanisms.containment_choice(), s)
+        ContainmentWorker::request(0, p.containment_choice(), s)
     }
 
     /// **The shipped worker entry point gives the inline step, bit for bit.**
@@ -1009,6 +1019,34 @@ mod tests {
             SAMPLE_LEN,
             "reset should leave exactly one sample"
         );
+    }
+
+    /// The unit picker (gh:#1109): `Request::Unit` rebuilds the plant as
+    /// that unit and resets; a later `Reset` keeps the unit; the containment
+    /// worker's request carries it; and Unit 1 through the picker is the
+    /// default plant. Each unit's network step cost over its first 600 s is
+    /// printed, not asserted (a wall clock).
+    #[test]
+    fn the_unit_picker_resets_to_that_unit_and_keeps_it() {
+        let mut r = Runner::default();
+        assert_eq!(r.plant.unit(), Unit::One);
+        for u in [Unit::Two, Unit::Three, Unit::One] {
+            r.apply(Request::Unit(u));
+            assert_eq!(r.plant.unit(), u);
+            assert_eq!(r.plant.containment_choice().unit, u);
+            let t0 = now_s();
+            for _ in 0..600 {
+                r.plant.step_inline(&mut r.core, &mut r.containment);
+                r.after_step();
+            }
+            println!("{u:?}: {:.2} ms/step over 600 network steps", 1e3 * (now_s() - t0) / 600.0);
+            let g = r.generation;
+            r.apply(Request::Reset);
+            assert_eq!((r.plant.unit(), r.plant.time_s(), r.generation), (u, 0.0, g + 1));
+        }
+        let fresh = Runner::default();
+        assert_eq!(r.plant.time_s(), fresh.plant.time_s());
+        assert_eq!(r.plant.params(), fresh.plant.params());
     }
 
     /// `sample()` pushes exactly [`SAMPLE_LEN`] numbers. The page splits the

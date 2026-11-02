@@ -13,7 +13,7 @@
 use crate::engine::{decode_frame, Control, Event, Request, SAMPLE_LEN};
 use crate::physics::core::RINGS;
 use crate::physics::params::*;
-use crate::physics::{Frame, Mode, EVENTS};
+use crate::physics::{Frame, Mode, Unit, EVENTS};
 use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, StrokeKind, Vec2};
 use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::panel::Panel;
@@ -60,6 +60,8 @@ pub struct App {
     speed: f64,
     workers: u8,
     mode: Mode,
+    /// The unit shown (gh:#1109): set here and sent to the engine.
+    unit: Unit,
     error: Option<String>,
     title: String,
 }
@@ -70,6 +72,15 @@ fn colour(t_k: f64) -> Color32 {
 
 fn temp(t_k: f64) -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<kelvin>(t_k)
+}
+
+/// A unit's recorded sequence as (seconds after the scram, label): Unit 1's
+/// `EVENTS`, Units 2 and 3's cited tables (gh:#1109).
+fn events(unit: Unit) -> Vec<(f64, &'static str)> {
+    match unit {
+        Unit::One => EVENTS.iter().map(|e| (e.t_s, e.label)).collect(),
+        _ => unit.sequence().iter().map(|e| (e.t_s, e.label)).collect(),
+    }
 }
 
 /// The clock: the scram was at 14:46 on 11 March 2011 (JST).
@@ -85,7 +96,7 @@ pub fn clock(t_s: f64) -> String {
 impl App {
     /// The app, with the URL query (natively, `--key value` arguments) as
     /// options: `run` starts at once, `speed=<sim s per wall s, 0 = max>`,
-    /// `workers=1|3`, `mode=free`.
+    /// `workers=1|3`, `mode=free`, `unit=1|2|3`.
     pub fn new(link: Link<Request, Event>) -> Self {
         let mut app = Self::bare(link);
         let q = query_pairs();
@@ -100,6 +111,12 @@ impl App {
         if query_value(&q, "mode") == Some("free") {
             app.mode = Mode::FreePlay;
             app.link.send(Request::Mode(Mode::FreePlay));
+        }
+        if let Some(u) = query_value(&q, "unit").and_then(|v| v.parse::<f64>().ok()) {
+            app.unit = Unit::from_code(u);
+            if app.unit != Unit::One {
+                app.link.send(Request::Unit(app.unit));
+            }
         }
         if q.iter().any(|(k, _)| k == "run") {
             app.running = true;
@@ -124,6 +141,7 @@ impl App {
             speed: 600.0,
             workers: 3,
             mode: Mode::Historical,
+            unit: Unit::One,
             error: None,
             title: String::new(),
         }
@@ -204,6 +222,22 @@ impl App {
             if self.stats[2] > 1.0 { format!(" · behind the clock by {:.0} s", self.stats[2]) } else { String::new() }
         )).small());
         ui.separator();
+        ui.heading("Unit");
+        ui.horizontal(|ui| {
+            for (u, l) in [(Unit::One, "Unit 1"), (Unit::Two, "Unit 2"), (Unit::Three, "Unit 3")] {
+                if ui.selectable_label(self.unit == u, l).clicked() && self.unit != u {
+                    self.unit = u;
+                    self.history.clear();
+                    self.link.send(Request::Unit(u));
+                }
+            }
+        });
+        ui.label(RichText::new(match self.unit {
+            Unit::One => "BWR/3, 1380 MWt, isolation condensers. Switching unit restarts the run.",
+            Unit::Two => "BWR/4, 2381 MWt, RCIC (ran about 70 h). Tentative: the model vents at 44 h, where the plant never did (gh:#1109, #1121). Switching unit restarts the run.",
+            Unit::Three => "BWR/4, 2381 MWt, RCIC then HPCI. Tentative: the throttled HPCI over-cools the vessel (gh:#1109). MOX not modelled (gh:#1122). Switching unit restarts the run.",
+        }).small());
+        ui.separator();
         ui.heading("Who acts");
         ui.horizontal(|ui| {
             for (m, l) in [(Mode::Historical, "The recorded sequence"), (Mode::FreePlay, "You (free play)")] {
@@ -224,8 +258,10 @@ impl App {
                     }
                 };
                 toggle(ui, Control::DcPower, c.dc_power, "DC power (batteries)");
-                toggle(ui, Control::IcA, c.ic_open[0], "Isolation condenser A valves open");
-                toggle(ui, Control::IcB, c.ic_open[1], "Isolation condenser B valves open");
+                if self.unit.has_isolation_condenser() {
+                    toggle(ui, Control::IcA, c.ic_open[0], "Isolation condenser A valves open");
+                    toggle(ui, Control::IcB, c.ic_open[1], "Isolation condenser B valves open");
+                }
                 toggle(ui, Control::ReliefHeldOpen, c.relief_held_open, "Hold relief valves open (needs DC)");
                 toggle(ui, Control::Injection, c.injection, "Fire-engine injection");
                 toggle(ui, Control::Vent, c.vent_ordered, "Wetwell vent ordered");
@@ -242,14 +278,20 @@ impl App {
                     ui.end_row();
                 };
                 row("Time", clock(f.t_s));
-                row("Decay heat", format!("{:.1} MW ({:.2} % of rated)", f.decay_w / 1e6, 100.0 * f.decay_w / THERMAL_POWER_W));
+                let prm = self.unit.params();
+                row("Decay heat", format!("{:.1} MW ({:.2} % of rated)", f.decay_w / 1e6, 100.0 * f.decay_w / prm.thermal_power_w));
                 row("RPV pressure", format!("{:.2} MPa", f.vessel.p_pa / 1e6));
                 row("Water level", format!("{:+.2} m above the top of fuel", f.vessel.level_m - ACTIVE_LENGTH_M));
-                row("Isolation condensers", format!("{:.1} MW", f.q_ic_w / 1e6));
+                if self.unit.has_isolation_condenser() {
+                    row("Isolation condensers", format!("{:.1} MW", f.q_ic_w / 1e6));
+                } else {
+                    row("RCIC · HPCI", format!("{:.1} · {:.1} kg/s into the vessel", f.w_rcic_kg_s, f.w_hpci_kg_s));
+                    row("Drywell spray", format!("{:.1} kg/s", f.w_spray_kg_s));
+                }
                 row("Relief valves", format!("{} · {:.0} kg/s", if f.relief_open { "open" } else { "closed" }, f.w_relief_kg_s));
                 row("Injection", format!("{:.1} kg/s · {:.0} t so far", f.w_injection_kg_s, f.injected_kg / 1e3));
                 row("Peak cladding", format!("{:.0} K", f.core.peak_clad_k));
-                row("Zr oxidised", format!("{:.0} kg ({:.1} %)", f.core.zr_oxidised_kg, 100.0 * f.core.zr_oxidised_kg / Params::default().core_zr_kg()));
+                row("Zr oxidised", format!("{:.0} kg ({:.1} %)", f.core.zr_oxidised_kg, 100.0 * f.core.zr_oxidised_kg / prm.core_zr_kg()));
                 row("Hydrogen made", format!("{:.0} kg", f.core.h2_total_kg));
                 row("Core relocated", format!("{:.0} %", 100.0 * f.core.relocated));
                 row("Drywell", format!("{:.3} MPa · {:.0} °C", f.containment.p_dw_pa / 1e6, f.containment.t_dw_k - 273.15));
@@ -262,15 +304,19 @@ impl App {
             });
             ui.separator();
             ui.heading("The recorded sequence");
-            for e in EVENTS.iter() {
-                let done = f.t_s >= e.t_s;
-                ui.label(RichText::new(format!("{} {}", if done { "✔" } else { "·" }, e.label)).small().color(if done { Color32::LIGHT_GREEN } else { Color32::GRAY }));
+            for (t_s, label) in events(self.unit) {
+                let done = f.t_s >= t_s;
+                ui.label(RichText::new(format!("{} {}", if done { "✔" } else { "·" }, label)).small().color(if done { Color32::LIGHT_GREEN } else { Color32::GRAY }));
             }
-            ui.label(RichText::new("Times from the INPO 11-005 timeline, not yet checked against the report.").small());
+            ui.label(RichText::new(if self.unit == Unit::One {
+                "Times from the INPO 11-005 timeline, not yet checked against the report."
+            } else {
+                "Times from USNRC HRTD GE BWR/4 ATM ch. 7.1, Table 7.1-2; rows marked recorded are shown, not acted on."
+            }).small());
         }
         ui.separator();
         egui::CollapsingHeader::new("What this is, and is not").show(ui, |ui| {
-            ui.label("Three lumped models stepped together each second: the pressure vessel's water and steam (IAPWS-IF97 steam tables, with the two-phase level swell), the core (3 rings × 12 axial nodes: heat-up, Urbanic-Heidrick zirconium oxidation, hydrogen, candling, rod collapse, the control blades' steel, a core plate per ring holding the relocating debris, the lower head) and the Mark I containment with the reactor building: since 2026-11-02 a control-volume network (drywell, torus and building as control volumes with IAPWS-IF97 water, a layered torus pool, inertial and choked flow paths, an implicit step; MELCOR's heat-structure surface on the walls; fission products, core-concrete interaction, building burns). Its geometry is not drawn and checked yet, so its results are tentative.");
+            ui.label("Three lumped models stepped together each second: the pressure vessel's water and steam (IAPWS-IF97 steam tables, with the two-phase level swell), the core (3 rings × 12 axial nodes: heat-up, Urbanic-Heidrick zirconium oxidation, hydrogen, candling, rod collapse, the control blades' steel, a core plate per ring holding the relocating debris, the lower head) and the Mark I containment with the reactor building: since 2026-11-02 a control-volume network (drywell, torus and building as control volumes with IAPWS-IF97 water, a layered torus pool, inertial and choked flow paths, an implicit step; MELCOR's heat-structure surface on the walls; fission products, core-concrete interaction, building burns). Its geometry is drawn (gh:#1110) but not yet checked by a human, so its results are tentative. Units 2 and 3 (gh:#1109) run their recorded sequences, timed from USNRC HRTD ch. 7.1 Table 7.1-2, with RCIC and HPCI as steam-turbine-driven pumps; 6 of 11 checks against the recorded readings miss.");
             ui.label("Not in the model: molten-pool physics in the cavity; the burn's flame physics (the building's ignition and burn rate follow MELCOR's BUR model; on the network the burn's heat and gases go into the building's control volume); the control blades' B4C chemistry beyond MELCOR's simple model. In-core radiation is simplified (rings, levels, the shroud and the boundaries above and below). Many plant numbers are placeholders; each is marked in sembawang's bwr_mark1 params.rs with its tag and what would replace it. The head-failure time is a knife edge: inputs changed by 1 % move it by about an hour (gh:#1044).");
             ui.label("Physics runs off the page: a plant worker plus a core worker and a containment worker that step from the same start-of-step snapshot, as the CIET simulator's browser demo does. 1 and 3 workers give the same numbers bit for bit. The containment worker keeps the containment between steps, so a change of worker count takes effect at the next Reset.");
         });
@@ -455,8 +501,10 @@ impl App {
         let h = ((ui.available_height() - 40.0) / 4.0).max(140.0);
         egui::ScrollArea::vertical().show(ui, |ui| {
             let marks = |p: &mut egui_plot::PlotUi| {
-                for e in EVENTS.iter().take(EVENTS.len() - 1) {
-                    p.vline(VLine::new("", e.t_s / 3600.0).color(Color32::from_gray(90)));
+                let ev = events(self.unit);
+                let n = if self.unit == Unit::One { ev.len() - 1 } else { ev.len() };
+                for (t_s, _) in ev.iter().take(n) {
+                    p.vline(VLine::new("", t_s / 3600.0).color(Color32::from_gray(90)));
                 }
             };
             let spec: [(&str, &str, Vec<(usize, &str)>); 4] = [
