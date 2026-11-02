@@ -315,3 +315,61 @@ in release_activity in triso atops python (i checked)
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 372ffa19c7.
+
+# Review: AccidentFractions::accident_sum (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-accident-sum-theodoreonzgit-f6f5fe90"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:50:43+08:00"
+modified = "2026-11-02T13:50:43+08:00"
+target = "fn:f6f5fe90eb866047"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::AccidentFractions::accident_sum"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:50:43+08:00"
+commit = "e90a0b421f35fc3b655d2fa0ff36a1f09e879d90"
+hash = "sha256:4242b94ba43697db40fc2694ba3e577cea664b67c94a6d1e8e0eb861c337b870"
+doc_hash = "sha256:1b5b57d99799530261be2bc9d48ef7dd8a47a4cac6ea3332ba833501e1d520c6"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:48f1bc7388b4aee5" = "sha256:4da0ac43908bdaeb66bf1b8090087e7e71676f71dc2d235cbbee149afeb39b86"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "dkuzS5dw4CyFSDvkFLn9ibv72XXQXePUYqpjuG64b3SRUGihSE1jKiq16Tfqxu7bh5X9mgEC2YTYtsk92yKVCA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+release that follows accidents
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e90a0b421f.
