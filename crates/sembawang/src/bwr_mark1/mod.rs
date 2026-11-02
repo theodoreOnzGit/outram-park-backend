@@ -2627,7 +2627,7 @@ mod tests {
     /// (`the_lumped_headless_run_matches_its_fixture`). Gated behind
     /// `long-tests`: the network's 30 h take about 20 min.
     #[test]
-    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run, ~20 min); runs by default, skipped under --no-default-features")]
+    #[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110)"]
     fn the_headless_run_matches_the_committed_fixture() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h.csv");
         let start = std::time::Instant::now();

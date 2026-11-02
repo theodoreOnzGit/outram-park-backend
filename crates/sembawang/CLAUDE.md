@@ -105,9 +105,13 @@ in the demo.
   record the movement in the commit and on the issue.
   **STALE since 2026-11-02 (gh:#1116, #1117, #1114), on purpose:** those
   tampines changes move the network plant, and `headless_30h.csv` was not
-  re-blessed, so the network fixture test fails until it is. Maintainer:
-  "until we get geometry no need to test regression". Network regression
-  re-blessing waits for the human check of the drawn geometry (gh:#1110).
+  re-blessed. Maintainer: "until we get geometry no need to test
+  regression", and "unnecessary to pin a regression and test if we are not
+  even sure of model yet". So the two network regression pins,
+  `the_headless_run_matches_the_committed_fixture` and
+  `compare::tests::the_network_baseline_is_pinned`, are `#[ignore]`d with
+  that reason until the network model is checked (the human check of the
+  drawn geometry, gh:#1110); then re-bless and un-ignore them.
   One attempt was stopped at its 7000 s timeout, so a 30 h network run with
   #1116 takes over about 2 h. The lumped fixture is unaffected.
 - **One worker equals three.** Parts cross as exact `f64`s (`wire`);

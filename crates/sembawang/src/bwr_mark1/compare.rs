@@ -1926,7 +1926,7 @@ mod tests {
     /// geometry ~~is not drawn~~ is drawn (gh:#1110, 2026-11-02) but not yet
     /// checked by a human.
     #[test]
-    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (one 26 h network run, ~20 min); runs by default, skipped under --no-default-features")]
+    #[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110)"]
     fn the_network_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         println!("network baseline: {m:?}");
