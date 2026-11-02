@@ -2196,7 +2196,7 @@ Simulator's browser demo runs its heat transfer and its two flow solves:
 |---|---|---|
 | [`Plant`] (this module) | the reactor pressure vessel's water and steam, the isolation condensers, the relief valves, injection, decay heat, the operators' sequence | the plant worker, which also paces the run |
 | [`core::Core`] | the fuel and cladding temperatures, oxidation, hydrogen, relocation | the core worker |
-| [`containment::Containment`] | drywell, wetwell, pool, vent, reactor building | the containment worker |
+| [`PlantContainment`]: ~~[`containment::Containment`]~~ **since 2026-11-02 (gh:#1099)** the control-volume network [`containment_network::ContainmentNetwork`], the lumped [`containment::Containment`] under `Mechanisms::without_network_containment` | drywell, wetwell, pool, vent, reactor building | the containment worker, which holds it between steps ([`ContainmentWorker`]) |
 
 Each step, [`Plant::begin`] reads the vessel at the start of the step and
 hands each worker a **snapshot**; the core and the containment advance
@@ -2206,7 +2206,15 @@ part sees the others' start-of-step state), the same splitting CIET v2
 uses for its flows. Because the snapshots and results cross as exact
 `f64`s ([`wire`]), the three-worker step is bit-for-bit the one-worker
 step ([`Plant::step_inline`]); `tests::three_workers_are_one_worker`
-holds that.
+holds that. (Since gh:#1099 the network's state has no wire form, so the
+containment worker keeps its containment and only the snapshot and the
+result cross; the core still crosses with its whole state.)
+
+**Units 2 and 3 (gh:#1109).** [`Plant::for_unit`] builds Unit 2 or 3
+from [`Params::unit2`]/[`Params::unit3`] and its own containment network;
+in place of the isolation condensers it runs RCIC and HPCI
+([`turbine_pump`]) and, under [`Mode::Historical`], the unit's cited
+sequence ([`units23`]). Every existing constructor is Unit 1, unchanged.
 
 **AI draft, not validated.** See [`params`] for where every number comes
 from (many are placeholders) and each module's "Not in the model" list.
@@ -4252,6 +4260,11 @@ pub fn measure(mechanisms: super::Mechanisms) -> Metrics { /* ... */ }
 
 [`measure`] with the plant's inputs set to `prm` (gh:#1033).
 
+# Panics
+
+If the containment network fails: the run would go on with a frozen
+containment and report numbers that mean nothing (gh:#1099).
+
 ```rust
 pub fn measure_with(mechanisms: super::Mechanisms, prm: super::params::Params) -> Metrics { /* ... */ }
 ```
@@ -4274,6 +4287,17 @@ name. Runs the sequence twice.
 pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> { /* ... */ }
 ```
 
+#### Function `elasticity_with`
+
+[`elasticity`] about the plant with `mechanisms` (gh:#1099: the lumped
+containment's elasticities, as `input-sensitivity.md` recorded them, are
+`elasticity_with(Mechanisms::default().without_network_containment(), ..)`
+against a `base` measured with the same mechanisms).
+
+```rust
+pub fn elasticity_with(mechanisms: super::Mechanisms, name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> { /* ... */ }
+```
+
 #### Function `ensemble_member`
 
 One member of the perturbation ensemble (2026-10-30, after the fourth
@@ -4285,6 +4309,16 @@ give the same run on any machine. `rel = 0` is the default run.
 
 ```rust
 pub fn ensemble_member(member: u64, rel: f64, seed: u64) -> Metrics { /* ... */ }
+```
+
+#### Function `ensemble_member_with`
+
+[`ensemble_member`] about the plant with `mechanisms` (gh:#1099: the
+lumped containment's ensemble, as `ensemble.md` recorded it, is
+`ensemble_member_with(Mechanisms::default().without_network_containment(), ..)`).
+
+```rust
+pub fn ensemble_member_with(mechanisms: super::Mechanisms, member: u64, rel: f64, seed: u64) -> Metrics { /* ... */ }
 ```
 
 #### Function `ensemble_report`
@@ -4487,6 +4521,9 @@ pub struct ContainmentSnapshot {
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
+    pub spray_kg_s: f64,
+    pub spray_k: f64,
+    pub spray_exchange: bool,
     pub prm: Params,
 }
 ```
@@ -4553,6 +4590,9 @@ pub struct ContainmentSnapshot {
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
+| `spray_kg_s` | `f64` | The drywell spray (gh:#1109; Unit 3's fire pumper): water, kg/s, at<br>`spray_k`, K; with `spray_exchange` (`Mechanisms::containment_spray`)<br>it reaches equilibrium with the drywell's atmosphere as it falls<br>([`spray_condensation`]), without it the water lands on the floor<br>unchanged. |
+| `spray_k` | `f64` |  |
+| `spray_exchange` | `bool` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5224,6 +5264,36 @@ pub struct Burn {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+### Functions
+
+#### Function `spray_condensation`
+
+The non-condensable share of a gas's moles (H2, N2, steam), the share of
+its volume that survives the steam's condensation in the pool (SPARC-90's
+DF_EC is its inverse). No gas, nothing scrubbed.
+The drywell spray in equilibrium with the atmosphere it falls through
+(gh:#1109): the droplets, `w` kg/s at `t_in` K, heat to the
+atmosphere's dew point (the saturation temperature at the steam's
+partial pressure `p_steam`, Pa), at most the gas's `t_gas`, by
+condensing steam on themselves. Returns the steam condensed, kg/s, and
+the temperature of the water (spray and condensate) reaching the floor,
+K. Energy: `m h_g(t_gas) = w c_p (T - t_in) + m c_p (T - 273.15)`, the
+condensate leaving at `T`, so the atmosphere loses `m h_g` and the floor
+gains it; at most 90 % of the steam `steam_kg` in a step of `dt` s (the
+structures' limit), the temperature then from the balance.
+
+**The equilibrium limit (stated, \[A\]):** MELCOR's SPR package follows a
+droplet's heat and mass transfer as it falls (SPR RM, cited by package
+only, not held); a drop that falls tens of metres reaches the
+atmosphere's temperature, so equilibrium is the bound on the spray's
+effect. The gas's own sensible heat to the droplets is not counted (in a
+steam-rich drywell the latent heat dominates), nor is evaporation from
+droplets hotter than the dew point.
+
+```rust
+pub fn spray_condensation(w: f64, t_in: f64, t_gas: f64, p_steam: f64, steam_kg: f64, dt: f64) -> (f64, f64) { /* ... */ }
+```
+
 ## Module `containment_fp`
 
 The fission products a Mark I containment holds, and how they move
@@ -5714,9 +5784,18 @@ as boundaries. After MELCOR 2.2's CVH/FL packages (Reference Manual §2,
 
 > Research, education and V&V only. AI draft, unreviewed.
 
-**Built alongside [`super::containment::Containment`], not replacing
+~~**Built alongside [`super::containment::Containment`], not replacing
 it.** The plant ([`super::Plant`]) still runs the old model and its
-fixtures are unchanged. [`ContainmentNetwork::step`] takes the same
+fixtures are unchanged.~~ **CORRECTED 2026-11-02 (gh:#1099, maintainer:
+"switch it"):** the plant ([`super::Plant`]) runs this network by
+default; the old model is the explicit ablation
+`Mechanisms::without_network_containment()`, and the plant reads the
+network through [`NetworkResult::to_containment_result`]. Its geometry
+~~is not drawn yet~~ is drawn (gh:#1110, 2026-11-02: [`ContainmentNetwork::geometry_svg`],
+images in `verification_and_validation/bwr_mark1/geometry/`) but not yet
+checked by a human, so results on it are tentative, and the
+vent's depressurisation depends on the torus pool's layer count
+(gh:#1108). [`ContainmentNetwork::step`] takes the same
 per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
 ([`NetworkResult`]), so the two can be run side by side
 (`tests/containment_network_vs_containment.rs`; the evidence is in
@@ -5730,6 +5809,7 @@ per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
 | RPV leak steam, enthalpy, H2 at `leak_gas_k` | a source in the drywell atmosphere |
 | `vent_ordered` | the vent valve: open once ordered and the rupture disk has burst (`p_ww ≥ vent_rupture_disk_pa`) |
 | `rpv_wall_w` | heat into the drywell atmosphere |
+| `spray_kg_s`, `spray_k`, `spray_exchange` (gh:#1109) | the steam the droplets condense (`containment::spray_condensation`) as a drywell atmosphere steam sink, and the spray with its condensate into the drywell sump |
 | `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump (**since gh:#1100** it starts dry and may boil dry again, as the old pedestal) |
 | ~~`ex_vessel_w` … the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases)~~ | **CORRECTED 2026-11-01 (gh:#1100):** see the next rows |
 | `ex_vessel_w`, `cav_uo2_kg`, `cav_zr_kg`, `cav_debris_k`, `cavity_phases` | sembawang's own [`super::cavity::Cavity`] (MELCOR CAV RM §3, reused, not rewritten): its upward heat into the sump while water lies over the debris (~~the sump beyond its initial fill~~ **CORRECTED 2026-11-01:** while the sump is not dry, [`ControlVolume::is_pool_dry`]), else radiated to the drywell structures; its concrete gases (steam, H2, CO, CO2) into the drywell atmosphere at the ablation temperature ([`NetworkMechanisms::cavity`]) |
@@ -6182,6 +6262,7 @@ pub struct NetworkMechanisms {
     pub fp_pool_heat_above_exits: bool,
     pub implicit_flash: bool,
     pub burns: bool,
+    pub ncg_wall_properties: bool,
 }
 ```
 
@@ -6207,10 +6288,16 @@ pub struct NetworkMechanisms {
 | `fp_pool_heat_above_exits` | `bool` | The decay heat of the fission products in the torus (its gas, its<br>pool's surface, scrubbed in the pool) goes into the water above the<br>downcomers' exits, shared by mass (`CvNetwork::set_pool_heat_at`),<br>where the old model puts it: into its top layer, which is the water<br>above the exits (`Containment::step` step 0, `pool_energy()` with<br>`layer_pool`'s split at the submergence). Without it, shared over<br>the whole pool by mass (`set_pool_heat`). One layer: the same, bit<br>for bit. Needs `fp_decay_heat`. |
 | `implicit_flash` | `bool` | Every volume's pool flashes to the state consistent with the<br>pressure its own vapour raises (`tampines`' default since gh:#1107,<br>after MELCOR CVH/FL RM §4.2.1, §4.3, Eq 5-30); without it, the<br>explicit flash, which after the vent flashed the torus's saturated<br>surface block in one step (post-vent `p_ww` swings, V&V doc). |
 | `burns` | `bool` | Hydrogen and CO burns in the building by MELCOR's BUR criteria and<br>rates, sembawang's (`containment::bur_ignites`, `bur_step`, as the<br>old model's building), the stoichiometry and heat by<br>[`super::reaction::burn_inputs`] (moved from `tampines`, gh:#1103) as<br>`tampines`' species sources and sinks and one atmosphere heat. |
+| `ncg_wall_properties` | `bool` | The wall surfaces see each non-condensable with its own transport<br>properties (tampines' `structure_surface_mixture`, gh:#1114, #1120);<br>without it, every non-condensable but H2 counted as N2. |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn without_ncg_wall_properties(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: the wall surfaces count every non-condensable but H2 as
 
 - ```rust
   pub fn without_cavity(self: Self) -> Self { /* ... */ }
@@ -6455,6 +6542,7 @@ pub struct NetworkResult {
     pub rb_burn_y: f64,
     pub rb_ignites: bool,
     pub rb_burning: bool,
+    pub rb_burn_started: bool,
     pub rb_h2_burned_kg: f64,
     pub rb_co_burned_kg: f64,
     pub rb_burn_heat_j: f64,
@@ -6471,6 +6559,10 @@ pub struct NetworkResult {
     pub cav_co_kg: f64,
     pub cav_debris_k: f64,
     pub fdi_steam_kg: f64,
+    pub cav_zr_kg: f64,
+    pub fdi_hpme: bool,
+    pub rb_co_fraction: f64,
+    pub rb_burn_dp_pa: f64,
     pub dw_co_kg: f64,
     pub dw_co2_kg: f64,
     pub dw_wall_k: f64,
@@ -6508,6 +6600,7 @@ pub struct NetworkResult {
 | `rb_burn_y` | `f64` | The building's Le Chatelier combustible fraction `X_H2 + X_CO<br>L_H2 / L_CO` (BUR RM Eq 2-3) and whether it meets MELCOR's ignition<br>criteria (`containment::bur_ignites`, sembawang's; steam and CO2 as<br>the diluent). ~~A diagnostic only: the network does not burn (no<br>non-condensable sink in `tampines`; V&V doc).~~ **CORRECTED<br>2026-11-01:** with [`NetworkMechanisms::burns`] (default) the<br>building burns when the criteria are met, at the start of a step. |
 | `rb_ignites` | `bool` |  |
 | `rb_burning` | `bool` | A burn is running in the building (`burns`), and what `tampines`<br>burned there since the start, kg of H2 and CO, with the heat of<br>reaction it released, J (gh:#1100). |
+| `rb_burn_started` | `bool` | A burn has started in the building since the run began (gh:#1099;<br>the old model's `rb_exploded` with `burn_dynamics`). |
 | `rb_h2_burned_kg` | `f64` |  |
 | `rb_co_burned_kg` | `f64` |  |
 | `rb_burn_heat_j` | `f64` |  |
@@ -6524,6 +6617,10 @@ pub struct NetworkResult {
 | `cav_co_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
 | `fdi_steam_kg` | `f64` |  |
+| `cav_zr_kg` | `f64` | The cavity debris's metallic Zr, kg, and whether an FDI fall was<br>fast enough for MELCOR's high-pressure model (flagged, still treated<br>as low-pressure; `lpme_fall`'s flag, as the old model reports it).<br>Added 2026-11-02 (gh:#1099) so that [`NetworkResult::to_containment_result`]<br>fills every field the plant reads. |
+| `fdi_hpme` | `bool` |  |
+| `rb_co_fraction` | `f64` | The building's CO mole fraction (steam included) and the largest<br>burn's adiabatic pressure bound, Pa (`Burn::dp_max_pa`; a diagnostic,<br>as in the old model: the network's own pressure rise is `p_rb_pa`).<br>Added 2026-11-02 (gh:#1099). |
+| `rb_burn_dp_pa` | `f64` |  |
 | `dw_co_kg` | `f64` | CO and CO2 in the drywell atmosphere, kg. |
 | `dw_co2_kg` | `f64` |  |
 | `dw_wall_k` | `f64` | The drywell structures' temperature and the slab's inner cell, K. |
@@ -6535,6 +6632,13 @@ pub struct NetworkResult {
 | `substeps` | `usize` |  |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn to_containment_result(self: &Self, prm: &Params) -> ContainmentResult { /* ... */ }
+  ```
+  The plant's view of this step (gh:#1099, 2026-11-02): the old
 
 ###### Trait Implementations
 
@@ -6670,6 +6774,16 @@ pub struct ContainmentNetwork {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn geometry(self: &Self) -> [VolumeGeometry; 3] { /* ... */ }
+  ```
+  The drywell, torus and building as read back from the network
+
+- ```rust
+  pub fn geometry_svg(self: &Self, title: &str) -> String { /* ... */ }
+  ```
+  An SVG of the assembled network: each volume's free area against
 
 - ```rust
   pub fn new(prm: &Params) -> Result<Self, TampinesError> { /* ... */ }
@@ -6849,6 +6963,28 @@ not a physical coefficient: the V&V doc runs 11 and 22.
 
 ```rust
 pub fn derived_pool_layers(depth_m: f64, submergence_m: f64) -> usize { /* ... */ }
+```
+
+#### Function `wall_surface`
+
+MELCOR's heat-structure surface facing a volume's atmosphere `a` at
+`t_g` (K) and `p` (Pa), on a wall at `t_wall` (K) of height `height`
+(m): the convective coefficient, W/(m^2 K), and the condensation flux,
+kg/(m^2 s). With `ncg_properties`, each non-condensable keeps its own
+transport properties (tampines' `structure_surface_mixture`, gh:#1114,
+#1120). Without it, the three-gas `structure_surface` counts every
+non-condensable but H2 as N2, bit for bit as before gh:#1120.
+
+```rust
+pub fn wall_surface(a: &tampines::control_volume::GasMixture, t_g: f64, p: f64, t_wall: f64, height: f64, ncg_properties: bool) -> (f64, f64) { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `VolumeGeometry`
+
+```rust
+pub use drawing::VolumeGeometry;
 ```
 
 ## Module `core`
@@ -9474,6 +9610,15 @@ pub struct Params {
     pub reactor_building_m3: f64,
     pub h2_flammable: f64,
     pub h2_explosion: f64,
+    pub rcic_rated_kg_s: f64,
+    pub hpci_rated_kg_s: f64,
+    pub pump_efficiency: f64,
+    pub turbine_efficiency: f64,
+    pub turbine_min_pa: f64,
+    pub level_l2_above_taf_m: f64,
+    pub level_l8_above_taf_m: f64,
+    pub msl_nozzle_above_taf_m: f64,
+    pub carryover_band_m: f64,
     pub ring_factors: [f64; 3],
 }
 ```
@@ -9686,6 +9831,15 @@ pub struct Params {
 | `reactor_building_m3` | `f64` |  |
 | `h2_flammable` | `f64` |  |
 | `h2_explosion` | `f64` |  |
+| `rcic_rated_kg_s` | `f64` |  |
+| `hpci_rated_kg_s` | `f64` |  |
+| `pump_efficiency` | `f64` |  |
+| `turbine_efficiency` | `f64` |  |
+| `turbine_min_pa` | `f64` |  |
+| `level_l2_above_taf_m` | `f64` |  |
+| `level_l8_above_taf_m` | `f64` |  |
+| `msl_nozzle_above_taf_m` | `f64` |  |
+| `carryover_band_m` | `f64` |  |
 | `ring_factors` | `[f64; 3]` | [`RING_FACTORS`]. |
 
 ##### Implementations
@@ -10334,6 +10488,103 @@ pub const FIRE_ENGINE_MAX_KG_S: f64 = 4.0;
 
 ```rust
 pub const INJECTION_TEMPERATURE_K: f64 = 293.15;
+```
+
+#### Constant `RCIC_RATED_KG_S`
+
+RCIC's rated (governed) flow, kg/s: 95 m^3/h at the suction's 998.2
+kg/m^3 (IF97, 293.15 K). Unit 2's; Unit 3's is in `Params::unit3`. [S]
+TEPCO, press material of 6 Aug 2014 (www.tepco.co.jp, betu14_e
+140806e0113), "the rated flow rate (95m3/h)" (page not seen; its 30 m^3/h
+is TEPCO's fit to the measured pressure, a calibration, not used).
+\[U\]
+
+```rust
+pub const RCIC_RATED_KG_S: f64 = _;
+```
+
+#### Constant `HPCI_RATED_KG_S`
+
+HPCI's rated flow, kg/s: 965 t/h. [S] KTH, EMUG 2012 slides (Unit 3) and
+PSI, EMUG 2013 (Unit 2), "HPCI nominal flow rate: 965 t/h" (page not
+seen; both MELCOR users' inputs, so a design value at second hand).
+\[U\]
+
+```rust
+pub const HPCI_RATED_KG_S: f64 = _;
+```
+
+#### Constant `PUMP_EFFICIENCY`
+
+The pump's and the turbine's efficiencies (`turbine_pump`). \[A\] both:
+not in a held source; a Terry turbine at part load is inefficient, so
+the turbine's is set low. They fix the turbine's steam per kilogram
+pumped (about 0.032 at 7 MPa against a 0.15 MPa exhaust).
+\[A\]
+
+```rust
+pub const PUMP_EFFICIENCY: f64 = 0.7;
+```
+
+#### Constant `TURBINE_EFFICIENCY`
+
+\[A\]
+
+```rust
+pub const TURBINE_EFFICIENCY: f64 = 0.5;
+```
+
+#### Constant `TURBINE_MIN_PA`
+
+The vessel pressure below which a turbine-driven pump stops (its
+low-steam-pressure isolation), Pa absolute. \[A\] not in a held source.
+
+```rust
+pub const TURBINE_MIN_PA: f64 = 0.5e6;
+```
+
+#### Constant `LEVEL_L2_ABOVE_TAF_M`
+
+The low level L2, m above the top of active fuel: 120 in. USNRC HRTD ch.
+7.1, Table 7.1-2, p. 7.1-20 (12 Mar 12:35): "Unit 3 HPCI auto start at
+120 inches > TAF"; HPCI starts on L2 ([S] KTH EMUG 2012: "Start at low
+level of water (L2) automatically"). Used as the bottom of the operators'
+level band for both pumps \[P\]
+
+```rust
+pub const LEVEL_L2_ABOVE_TAF_M: f64 = _;
+```
+
+#### Constant `LEVEL_L8_ABOVE_TAF_M`
+
+The high level L8, m above the top of active fuel, where an injecting
+pump trips while DC lasts. \[A\] the number is not in a held source
+(HRTD records the trips, Table 7.1-2 p. 7.1-18, not the set point):
+0.6 m above the model's normal level (4.4 m, Unit 1's, borrowed).
+
+```rust
+pub const LEVEL_L8_ABOVE_TAF_M: f64 = 5.0;
+```
+
+#### Constant `MSL_NOZZLE_ABOVE_TAF_M`
+
+The steam line's nozzle, m above the top of active fuel, where a
+rising swollen level starts to carry water into a turbine's steam
+supply, and the band over which the steam fraction falls to zero, m
+(`turbine_pump::steam_fraction`). \[A\] both: above L8, as L8 is set to
+protect the steam lines; not in a held source, and not adjusted to any
+measured level.
+
+```rust
+pub const MSL_NOZZLE_ABOVE_TAF_M: f64 = 6.0;
+```
+
+#### Constant `CARRYOVER_BAND_M`
+
+\[A\]
+
+```rust
+pub const CARRYOVER_BAND_M: f64 = 0.5;
 ```
 
 #### Constant `MSL_LINES`
@@ -14471,6 +14722,1636 @@ every original point is unchanged bit for bit.
 pub const P_GRID_TOP_PA: f64 = 9.5e6;
 ```
 
+## Module `turbine_pump`
+
+RCIC and HPCI: steam-turbine-driven pumps (gh:#1109), for Fukushima
+Daiichi Units 2 and 3, which had them in place of Unit 1's isolation
+condensers (USNRC HRTD, GE BWR/4 Advanced Technology, ch. 7.1, §7.1.2.1
+"Units 2-5", p. 7.1-4: "a steam driven ... Reactor Core Isolation Cooling
+(RCIC) System that is backed up by the steam driven High Pressure Coolant
+Injection (HPCI) System ... RCIC is significantly smaller than HPCI").
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+## The flow path (HRTD Figure 7.1-5a, "BWR 4 RCIC")
+
+Steam is drawn from the vessel's steam line through the steam-supply,
+trip-throttle and turbine control valves into the turbine; the turbine's
+exhaust line discharges under the suppression pool; the pump, on the
+turbine's shaft, takes water from the condensate storage tank (or the
+pool) and discharges it into the vessel through the feedwater line. A
+flow element and a flow-indicating controller (FIC) set the turbine
+control valve, so with DC power the pump is governed to a set flow; a
+test line returns flow to the condensate storage tank.
+
+## The model (physics-derived, its coefficients marked)
+
+A governed pump of rated flow `W_r` raises its water by `Δp = p_RPV -
+p_suction`; its shaft work per kilogram is `w_p = Δp / (ρ η_p)`. The
+turbine expands vessel steam from `h_g(p_RPV)` to the exhaust pressure
+(the wetwell's plus the submergence head) and delivers `w_t = η_t Δh_s`
+per kilogram of steam, `Δh_s` the isentropic drop from IF97 (`s(p, h)`
+then `h(p, s)`, through `tampines_steam_tables`' checked interface). The
+shaft balance fixes the turbine's steam: `W_s = W_p w_p / w_t`.
+
+- **Energy is conserved by construction.** The vessel gives up `W_in`
+  at the inlet enthalpy; the exhaust leaves at that enthalpy less the
+  shaft work per kilogram; the pumped water gains the shaft work (`h =
+  u + p v` carries the pressure rise, the rest is friction heat), so
+  the work returns to the vessel with the water it injects and to the
+  storage tank with what the test line recirculates (stated: that share
+  leaves the model).
+- **Carry-over (the self-regulation, stated as a hypothesis).** When the
+  swollen level reaches the steam line's nozzle the turbine draws a
+  mixture: the steam fraction `f` falls linearly from 1 to 0 across
+  [`Params::carryover_band_m`] above [`Params::msl_nozzle_above_taf_m`]
+  (both \[A\]). The liquid does no work, so the pump's flow falls with
+  `f`: the level then holds near the nozzle. This is one mechanism the
+  literature proposes for Unit 2's RCIC running for about three days
+  without DC power; the mechanism is not established, and nothing here
+  was adjusted to a measured level.
+- **Drives** ([`Drive`]): `Injecting` sends the whole flow to the vessel
+  and, while DC lasts, trips at the high level L8; `Throttled` (the
+  operators holding the level) runs the turbine at rated flow and sends
+  to the vessel only what a proportional demand between L2 and L8 calls
+  for, the rest round the test line. Without DC, `Throttled` falls back
+  to `Injecting` with no trip (no controller, no trip logic).
+- **Low steam pressure.** Below [`Params::turbine_min_pa`] \[A\] the
+  turbine stops (isolation); it runs again above it.
+
+**Not in the model (stated):** suction from the torus (the water comes
+from the storage tank at [`Params::injection_temperature_k`]; `tampines`
+has no pool sink, gh:#1109 follow-up); the turbine's speed dynamics and
+the governor's own response (the flow is the governed flow at once);
+the hydrogen in the vessel's gas (the turbine takes steam only); pump
+head losses in the feedwater line; the exhaust's back-pressure trip.
+
+```rust
+pub mod turbine_pump { /* ... */ }
+```
+
+### Types
+
+#### Enum `Pump`
+
+Which system.
+
+```rust
+pub enum Pump {
+    Rcic,
+    Hpci,
+}
+```
+
+##### Variants
+
+###### `Rcic`
+
+###### `Hpci`
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn rated_kg_s(self: Self, prm: &Params) -> f64 { /* ... */ }
+  ```
+  Its rated (governed) flow, kg/s.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Drive`
+
+How the pump is being run.
+
+```rust
+pub enum Drive {
+    Off,
+    Injecting,
+    Throttled,
+}
+```
+
+##### Variants
+
+###### `Off`
+
+Not running: never started, tripped, or lost.
+
+###### `Injecting`
+
+The whole flow into the vessel; trips at L8 while DC lasts.
+
+###### `Throttled`
+
+The operators hold the level: rated flow, the vessel's share by a
+proportional demand between L2 and L8, the rest round the test line.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TurbinePump`
+
+One turbine-driven pump's state.
+
+```rust
+pub struct TurbinePump {
+    pub pump: Pump,
+    pub drive: Drive,
+    pub lost: bool,
+    pub tripped_at_s: Option<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pump` | `Pump` |  |
+| `drive` | `Drive` |  |
+| `lost` | `bool` | Lost for good (could not be restarted): no later start applies. |
+| `tripped_at_s` | `Option<f64>` | The plant time of its last automatic trip at L8, s (`None`: never). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(pump: Pump) -> Self { /* ... */ }
+  ```
+  A pump that has not been started.
+
+- ```rust
+  pub fn start(self: &mut Self, drive: Drive) { /* ... */ }
+  ```
+  Start it in `drive` (an operator's or an automatic start); nothing
+
+- ```rust
+  pub fn lose(self: &mut Self) { /* ... */ }
+  ```
+  Lost for good.
+
+- ```rust
+  pub fn flows(self: &Self, prm: &Params, inp: &PumpInputs) -> PumpFlows { /* ... */ }
+  ```
+  This step's flows (see the module docs).
+
+- ```rust
+  pub fn check_trip(self: &mut Self, prm: &Params, level_above_taf_m: f64, dc_power: bool, t_s: f64) -> bool { /* ... */ }
+  ```
+  The high-level trip (L8), checked at the start of a step at time
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PumpInputs`
+
+What a pump sees at the start of a step.
+
+```rust
+pub struct PumpInputs {
+    pub p_vessel_pa: f64,
+    pub h_g: f64,
+    pub h_f: f64,
+    pub level_above_taf_m: f64,
+    pub swollen_above_taf_m: f64,
+    pub p_exhaust_pa: f64,
+    pub p_suction_pa: f64,
+    pub dc_power: bool,
+    pub dry: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p_vessel_pa` | `f64` | The vessel's pressure, Pa, and its saturated enthalpies, J/kg. |
+| `h_g` | `f64` |  |
+| `h_f` | `f64` |  |
+| `level_above_taf_m` | `f64` | The collapsed level (the instrument's) and the swollen level, m<br>above the top of active fuel. |
+| `swollen_above_taf_m` | `f64` |  |
+| `p_exhaust_pa` | `f64` | The turbine's exhaust pressure, Pa (the wetwell's plus the<br>submergence head), and the pump's suction pressure, Pa. |
+| `p_suction_pa` | `f64` |  |
+| `dc_power` | `bool` | DC power for the governor, the level control and the trip logic. |
+| `dry` | `bool` | The vessel has boiled dry (no turbine steam). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PumpFlows`
+
+One pump's flows over a step.
+
+```rust
+pub struct PumpFlows {
+    pub inject_kg_s: f64,
+    pub inject_h: f64,
+    pub pumped_kg_s: f64,
+    pub turbine_kg_s: f64,
+    pub turbine_h: f64,
+    pub exhaust_h: f64,
+    pub shaft_w: f64,
+    pub steam_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inject_kg_s` | `f64` | Water into the vessel, kg/s, and its specific enthalpy, J/kg (the<br>storage tank's plus the shaft work per kilogram). |
+| `inject_h` | `f64` |  |
+| `pumped_kg_s` | `f64` | The pump's whole flow (into the vessel and round the test line),<br>kg/s. |
+| `turbine_kg_s` | `f64` | The turbine's inlet from the vessel, kg/s (steam and any carried-over<br>water), and its specific enthalpy, J/kg. |
+| `turbine_h` | `f64` |  |
+| `exhaust_h` | `f64` | The exhaust's specific enthalpy, J/kg (into the pool, `turbine_kg_s`). |
+| `shaft_w` | `f64` | Shaft power, W. |
+| `steam_fraction` | `f64` | The steam fraction of the turbine's inlet (1 without carry-over). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `isentropic_drop`
+
+The isentropic enthalpy drop of saturated steam at `h_g` from `p_in_pa`
+to `p_out_pa`, J/kg, by IF97 (`s(p, h)`, then `h(p, s)`); `None` outside
+the tables' range or for no expansion.
+
+```rust
+pub fn isentropic_drop(p_in_pa: f64, h_g: f64, p_out_pa: f64) -> Option<f64> { /* ... */ }
+```
+
+#### Function `steam_fraction`
+
+The steam fraction of the turbine's inlet for the swollen level `z`, m
+above the top of active fuel: 1 below the steam line's nozzle, falling
+linearly to 0 across the carry-over band above it.
+
+```rust
+pub fn steam_fraction(prm: &super::params::Params, swollen_above_taf_m: f64) -> f64 { /* ... */ }
+```
+
+#### Function `throttle_demand`
+
+The operators' demand on a throttled pump: 1 at or below L2, 0 at or
+above L8, linear between.
+
+```rust
+pub fn throttle_demand(prm: &super::params::Params, level_above_taf_m: f64) -> f64 { /* ... */ }
+```
+
+#### Function `steam_per_kg_pumped`
+
+The shaft balance's steam per kilogram pumped, `w_p / w_t`, for a vessel
+at `p_vessel_pa` exhausting to `p_exhaust_pa` (a diagnostic the V&V doc
+quotes; `None` where [`isentropic_drop`] is).
+
+```rust
+pub fn steam_per_kg_pumped(prm: &super::params::Params, p_vessel_pa: f64, h_g: f64, p_exhaust_pa: f64, p_suction_pa: f64) -> Option<f64> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RHO_SUCTION`
+
+Cold water's density at the pump's suction, kg/m^3: IF97 at 293.15 K
+and one atmosphere is 998.2 (the injection temperature's).
+
+```rust
+pub const RHO_SUCTION: f64 = 998.2;
+```
+
+## Module `units23`
+
+Fukushima Daiichi Units 2 and 3: which unit a plant is, the operators'
+recorded sequences for Units 2 and 3, and the recorded plant readings
+they are compared against (gh:#1109).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**The source.** Every time below is from one open document held in the
+repository: USNRC HRTD, *GE BWR/4 Advanced Technology*, ch. 7.1
+"Fukushima Dai-ichi Event" (Rev 0114), **Table 7.1-2 "Event
+Chronology"**, pp. 7.1-18 to 7.1-23
+(`crates/kovan-literature/reactor-literature/theodore-open-corpus/nrc/nrc-hrtd-ge-bwr4-atm-ch7.1-fukushima.pdf`,
+PDF pages 22 to 27; read locally with `pdftotext`). Its Figures
+7.1-9a to 7.1-9j draw the same chronology and add nothing for Units 2
+and 3. The table's "TIME ZERO PLUS" column (h:mm after the 14:46 JST
+scram) is the time used; each row's Japan time is kept in its label so
+that the two can be checked against each other. Each event carries the
+page it is on ([`SequenceEvent::source`]).
+
+**A disagreement inside the source.** Three rows on pp. 7.1-19 and
+7.1-20 give an offset 2 min short of their Japan time: 20:48 against
+11:36 (14:46 + 20:48 is 11:34), 21:22 against 12:10, 21:47 against
+12:35. Every other Unit 2 and 3 row agrees to the minute. The offset
+column is used, as for all rows; the 2 min is far below anything the
+comparison resolves, and is recorded, not resolved.
+
+**Inputs and checks are kept apart** (root `CLAUDE.md`, "PROCESS right
+first"). The operators' actions (a start, a loss, an SRV opened, a
+spray, a vent order, an injection) are inputs. What the plant did on its
+own (RCIC's high-level trips, the explosions) is recorded with
+[`EventKind::Recorded`] and is never acted on: the model must produce
+it. The pressures, levels and temperatures the table reports are
+[`OBSERVATIONS`], the check, never an input.
+
+**What had to be assumed (\[A\], said at each row).** Unit 3's RCIC from
+01:17 run in the operators' throttled mode (the table records no high-
+level trip in the next 19.5 h, so level control is inferred); the fire
+pumper's spray stopping when it began injecting (42:39); Unit 3's vent
+valves closing at 59:14 (the table says they "had failed closed" by
+then) and venting resumed at 64:14 (the row says "just prior to
+commencing venting"); the run lengths. **Not found** in the table:
+when Unit 2's RCIC suction moved from the storage tank to the torus (the
+row at 26:44 says it was then taking suction from the pool; the model
+has no torus suction, `turbine_pump`'s docs); the count of SRVs the
+operators opened beyond the one each row names; when Unit 2's SRV
+closed again (the row at 80:04 implies it did, about 79:54, but states
+no closure, so none is applied).
+
+**Not in the model (stated):** Units 1 and 2's torus cooling and spray
+(00:39 to the tsunami at 00:55, on AC: 16 min, before the decay heat had
+heated the pool); Unit 3's MOX assemblies and the Unit 3 to Unit 4
+hydrogen path (separate issues under #1028); Unit 2's blow-out panel
+(opened by Unit 1's explosion at 24:50, row on p. 7.1-20).
+
+```rust
+pub mod units23 { /* ... */ }
+```
+
+### Types
+
+#### Enum `Unit`
+
+Which Fukushima Daiichi unit a plant is.
+
+```rust
+pub enum Unit {
+    One,
+    Two,
+    Three,
+}
+```
+
+##### Variants
+
+###### `One`
+
+Unit 1 (BWR/3, isolation condensers): the model before gh:#1109.
+
+###### `Two`
+
+Unit 2 (BWR/4, RCIC and HPCI).
+
+###### `Three`
+
+Unit 3 (BWR/4, RCIC and HPCI; DC power survived the tsunami).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn params(self: Self) -> Params { /* ... */ }
+  ```
+  The unit's inputs ([`Params::default`], [`Params::unit2`],
+
+- ```rust
+  pub fn network_config(self: Self) -> NetworkConfig { /* ... */ }
+  ```
+  The unit's containment network.
+
+- ```rust
+  pub fn has_isolation_condenser(self: Self) -> bool { /* ... */ }
+  ```
+  Unit 1 alone has isolation condensers (HRTD Table 7.1-1, p. 7.1-3:
+
+- ```rust
+  pub fn sequence(self: Self) -> &'static [SequenceEvent] { /* ... */ }
+  ```
+  Its recorded sequence ([`super::EVENTS`] is Unit 1's, in its own
+
+- ```rust
+  pub fn scenario_end_s(self: Self) -> f64 { /* ... */ }
+  ```
+  How long its historical run goes, s: Unit 1's 30 h; for Units 2
+
+- ```rust
+  pub fn code(self: Self) -> f64 { /* ... */ }
+  ```
+  A number for the worker wire.
+
+- ```rust
+  pub fn from_code(c: f64) -> Self { /* ... */ }
+  ```
+  The unit for a wire code; Unit 1 for anything else.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SequenceEvent`
+
+One row of a unit's sequence: when, what the table says, what the
+model does, and where in the source.
+
+```rust
+pub struct SequenceEvent {
+    pub t_s: f64,
+    pub label: &'static str,
+    pub kind: super::EventKind,
+    pub source: &'static str,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_s` | `f64` | Seconds after the scram (the table's "TIME ZERO PLUS"). |
+| `label` | `&'static str` |  |
+| `kind` | `super::EventKind` |  |
+| `source` | `&'static str` | The table and page, and any \[A\] on the row. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Observed`
+
+What a reading is of.
+
+```rust
+pub enum Observed {
+    ContainmentPsig,
+    DrywellPsig,
+    TorusPsig,
+    RpvPsig,
+    LevelInAboveTaf,
+}
+```
+
+##### Variants
+
+###### `ContainmentPsig`
+
+"Containment pressure" (the table's usual phrase; the drywell's,
+as the comparison reads it), psig.
+
+###### `DrywellPsig`
+
+The drywell's, named so, psig.
+
+###### `TorusPsig`
+
+The torus's, psig.
+
+###### `RpvPsig`
+
+The vessel's, psig.
+
+###### `LevelInAboveTaf`
+
+The vessel's level, inches above the top of active fuel (negative
+below).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Observation`
+
+One reading from HRTD Table 7.1-2: the check.
+
+```rust
+pub struct Observation {
+    pub unit: Unit,
+    pub t_s: f64,
+    pub what: Observed,
+    pub value: f64,
+    pub note: &'static str,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `unit` | `Unit` |  |
+| `t_s` | `f64` |  |
+| `what` | `Observed` |  |
+| `value` | `f64` | As the table gives it (psig, or inches). |
+| `note` | `&'static str` | The page, and the table's own caveat when it gives one. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn si(self: &Self) -> f64 { /* ... */ }
+  ```
+  The value in SI: Pa absolute for a pressure, m for a level.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `hm`
+
+`h:mm` after the scram, in seconds.
+
+```rust
+pub const fn hm(h: u32, m: u32) -> f64 { /* ... */ }
+```
+
+#### Function `observations`
+
+The readings for `unit`, in time order.
+
+```rust
+pub fn observations(unit: Unit) -> impl Iterator<Item = &'static Observation> { /* ... */ }
+```
+
+#### Function `due`
+
+The events of `unit`'s sequence whose time falls in the step starting at
+`t_s` of length `dt_s` (`t_s <= t < t_s + dt_s`, Unit 1's rule).
+
+```rust
+pub fn due(unit: Unit, t_s: f64, dt_s: f64) -> impl Iterator<Item = &'static SequenceEvent> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `UNIT2_SEQUENCE`
+
+Unit 2's sequence (HRTD Table 7.1-2).
+
+```rust
+pub const UNIT2_SEQUENCE: [SequenceEvent; 10] = _;
+```
+
+#### Constant `UNIT3_SEQUENCE`
+
+Unit 3's sequence (HRTD Table 7.1-2).
+
+```rust
+pub const UNIT3_SEQUENCE: [SequenceEvent; 18] = _;
+```
+
+#### Constant `PSI_PA`
+
+One psi, Pa.
+
+```rust
+pub const PSI_PA: f64 = 6894.757;
+```
+
+#### Constant `OBSERVATIONS`
+
+Every Unit 2 and 3 pressure and level the table reports within the two
+runs, in table order (the Unit 2 rows at 84:14 and later and Unit 3's at
+69:14 and later fall outside them, or the table calls them questionable).
+
+```rust
+pub const OBSERVATIONS: [Observation; 33] = _;
+```
+
 ## Module `vapour`
 
 Fission-product vapours: vapour pressures and condensation onto surfaces
@@ -15235,7 +17116,9 @@ pub enum Mode {
 
 ###### `Historical`
 
-The recorded Unit 1 sequence (INPO 11-005 timeline, \[U\] times).
+The recorded sequence of the plant's unit: Unit 1's ([`EVENTS`],
+INPO 11-005 timeline, \[U\] times); since gh:#1109 Units 2 and 3's
+from USNRC HRTD Table 7.1-2 ([`units23`], via [`Plant::for_unit`]).
 
 ###### `FreePlay`
 
@@ -15445,6 +17328,8 @@ pub struct Mechanisms {
     pub fdi_lpme: bool,
     pub uo2_candling: bool,
     pub molten_pool: bool,
+    pub network_containment: bool,
+    pub containment_spray: bool,
 }
 ```
 
@@ -15520,6 +17405,8 @@ pub struct Mechanisms {
 | `fdi_lpme` | `bool` | Debris leaving the failed vessel falls through the pedestal's water<br>by MELCOR's low-pressure melt ejection (FDI RM §2.2; 2026-10-30):<br>Chu's breakup, radiation or Bromley film boiling, all of the heat<br>boiling water. Off is debris landing at the core's temperature. |
 | `uo2_candling` | `bool` | Candling Zr carries UO2 down with it, 0.2 of its mass: MELCOR's<br>default secondary transport (COR RM §3.1.4, COR_CMT; 2026-10-30).<br>Off is the Zr candling alone. |
 | `molten_pool` | `bool` | A molten lower-plenum pool (above the UO2-ZrO2 eutectic) convects to<br>the head by MELCOR's ACOPO correlation (COR RM §2.4.2, Table 2-4;<br>2026-10-30). Off is the fixed debris-to-head coefficient. |
+| `network_containment` | `bool` | The containment is `tampines`' control-volume network<br>([`containment_network::ContainmentNetwork`]: drywell, torus and<br>reactor building as control volumes with IF97 water, V(z) tables,<br>inertial flow paths and an implicit step), **the default since<br>2026-11-02** (maintainer decision on gh:#1099, "switch it"). Off is<br>the lumped [`containment::Containment`], the model every result<br>before that date was measured on. The network costs about 100 times<br>the lumped model a step (the module docs give the measured timing). |
+| `containment_spray` | `bool` | The drywell spray's droplets reach equilibrium with the atmosphere<br>as they fall, condensing steam (gh:#1109,<br>`containment::spray_condensation`; Unit 3's fire-pumper spray, none<br>on Unit 1). Off is the spray's water landing on the floor unchanged. |
 
 ##### Implementations
 
@@ -15859,6 +17746,21 @@ pub struct Mechanisms {
   pub fn without_molten_pool(self: Self) -> Self { /* ... */ }
   ```
   The fixed debris-to-head coefficient for molten debris too: before
+
+- ```rust
+  pub fn without_network_containment(self: Self) -> Self { /* ... */ }
+  ```
+  The lumped [`containment::Containment`] instead of the control-volume
+
+- ```rust
+  pub fn without_containment_spray(self: Self) -> Self { /* ... */ }
+  ```
+  The spray's water reaching the floor without exchanging with the
+
+- ```rust
+  pub fn containment_choice(self: &Self) -> ContainmentChoice { /* ... */ }
+  ```
+  What the containment worker needs to build the plant's containment
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
@@ -16300,6 +18202,18 @@ pub enum EventKind {
     InjectionOff,
     VentOpened,
     Explosion,
+    RcicStart,
+    RcicStartThrottled,
+    RcicLost,
+    HpciStartThrottled,
+    HpciLost,
+    DcLost,
+    AcLost,
+    ReliefHeld(u8),
+    SprayOn,
+    SprayOff,
+    VentClosed,
+    Recorded,
 }
 ```
 
@@ -16331,6 +18245,63 @@ The wetwell vent is opened.
 ###### `Explosion`
 
 Recorded for comparison only: the model computes its own.
+
+###### `RcicStart`
+
+RCIC started, the whole flow into the vessel (trips at L8 while DC
+lasts).
+
+###### `RcicStartThrottled`
+
+RCIC started with the operators holding the level ([`turbine_pump::Drive::Throttled`]).
+
+###### `RcicLost`
+
+RCIC lost for good.
+
+###### `HpciStartThrottled`
+
+HPCI started with the operators holding the level.
+
+###### `HpciLost`
+
+HPCI lost for good.
+
+###### `DcLost`
+
+DC power lost: the relief valves fall back to their spring set
+points, level control and the pumps' trip logic are gone.
+
+###### `AcLost`
+
+AC lost, DC kept (Unit 3's station blackout): nothing modelled runs
+on AC, so recorded.
+
+###### `ReliefHeld`
+
+This many relief valves held open (by batteries brought in: needs
+no station DC).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+###### `SprayOn`
+
+The fire pumper sprays the drywell; and stops.
+
+###### `SprayOff`
+
+###### `VentClosed`
+
+The wetwell vent closes (the order is withdrawn).
+
+###### `Recorded`
+
+What the plant did itself (a trip, an explosion), for comparison
+only: never acted on.
 
 ##### Implementations
 
@@ -16591,6 +18562,637 @@ pub struct Vessel {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `ContainmentChoice`
+
+Which containment the plant builds, and the two plant mechanisms the
+network maps onto its own (gh:#1099): `mcci` onto
+[`containment_network::NetworkMechanisms::cavity`] and `pool_layers`
+onto its layered torus pool. The network reads every other containment
+switch it carries from the snapshot, as the lumped model does; the
+lumped model's own numerical and gas-model switches (`ww_atmosphere`,
+`gas_cv_t`, `outflow_enthalpy`, `mixture_vent`, `two_sided_equalising`,
+`gas_choking`, `condensate_to_floor`, `burn_dynamics`, `relief_h2_enthalpy`
+excepted, which the network reads) have no counterpart on the network
+and do nothing there (stated, not hidden).
+
+```rust
+pub struct ContainmentChoice {
+    pub network: bool,
+    pub mcci: bool,
+    pub pool_layers: bool,
+    pub unit: Unit,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `network` | `bool` |  |
+| `mcci` | `bool` |  |
+| `pool_layers` | `bool` |  |
+| `unit` | `Unit` | Which unit's network to build (gh:#1109); Unit 1 from<br>[`Mechanisms::containment_choice`], the plant's own from<br>[`Plant::containment_choice`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ContainmentModel`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"large_enum_variant\", kind: Allow}])]")`
+
+The containment model a plant runs, by enum dispatch (rust-design-rules:
+no trait objects, no `Box`; the network is held by value).
+
+```rust
+pub enum ContainmentModel {
+    Network(containment_network::ContainmentNetwork),
+    Lumped(containment::Containment),
+    Unbuilt(String),
+}
+```
+
+##### Variants
+
+###### `Network`
+
+The control-volume network, the default since gh:#1099.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `containment_network::ContainmentNetwork` |  |
+
+###### `Lumped`
+
+The lumped model (`Mechanisms::without_network_containment`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `containment::Containment` |  |
+
+###### `Unbuilt`
+
+The network could not be built from these inputs; why. Its steps
+return the initial state and [`PlantContainment::error`] says so.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PlantContainment`
+
+The plant's containment (gh:#1099, 2026-11-02): either model behind one
+step, `ContainmentSnapshot` in, the old [`ContainmentResult`] out
+([`containment_network::NetworkResult::to_containment_result`] maps the
+network's), so the plant, the frame, the CSV and every consumer read
+one type.
+
+**State that cannot cross a worker boundary.** The network's state
+(`tampines`' `CvNetwork`) has no wire form, so the containment worker
+holds its containment between steps ([`ContainmentWorker`]); only the
+snapshot and the result cross, as exact `f64`s.
+
+**A network step that fails** (a Picard step that does not converge
+after six halvings, a state outside IF97) commits nothing; the step
+returns the last result unchanged and [`PlantContainment::error`]
+reports the first failure with its time. The run then continues on a
+frozen containment, so every caller that reports a result must check
+it (the headless run and `compare::measure_with` panic on it).
+
+```rust
+pub struct PlantContainment {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(prm: &Params, choice: ContainmentChoice) -> Self { /* ... */ }
+  ```
+  A fresh containment for `prm`, the model and the mapped switches
+
+- ```rust
+  pub fn step(self: &mut Self, s: &ContainmentSnapshot) -> ContainmentResult { /* ... */ }
+  ```
+  One step.
+
+- ```rust
+  pub fn error(self: &Self) -> Option<&str> { /* ... */ }
+  ```
+  The first failure, if any (see the type's docs).
+
+- ```rust
+  pub fn is_network(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this is the control-volume network.
+
+- ```rust
+  pub fn model(self: &Self) -> &ContainmentModel { /* ... */ }
+  ```
+  The model, read-only.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ContainmentWorker`
+
+The containment worker (gh:#1099): it **holds** the plant's containment
+between steps, because the network's state has no wire form. Each
+request carries a run generation, the [`ContainmentChoice`] and the
+step's snapshot (which carries the `Params`); a new generation rebuilds
+the containment from them, so a reset or a changed choice needs no
+separate message (and a message lost before the worker's handshake
+loses nothing). The reply is a status (1 ok, 0 the containment has
+failed, see [`PlantContainment::error`]) and the [`ContainmentResult`].
+
+```rust
+pub struct ContainmentWorker {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn request(generation: u64, choice: ContainmentChoice, s: &ContainmentSnapshot) -> Vec<f64> { /* ... */ }
+  ```
+  The request for one step of run `generation`.
+
+- ```rust
+  pub fn handle(self: &mut Self, msg: &[f64]) -> Vec<f64> { /* ... */ }
+  ```
+  Answer one request (never panics on a short message: the wire reader
+
+- ```rust
+  pub fn read_reply(v: &[f64]) -> (ContainmentResult, bool) { /* ... */ }
+  ```
+  The reply's result and whether the containment is still good.
+
+- ```rust
+  pub fn held(self: &Self) -> Option<&PlantContainment> { /* ... */ }
+  ```
+  The containment it holds, read-only.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Frame`
 
 Everything the page shows, flattened (see [`Frame::write`]).
@@ -16622,6 +19224,10 @@ pub struct Frame {
     pub on_internals_kg: [f64; 2],
     pub core: self::core::CoreResult,
     pub containment: containment::ContainmentResult,
+    pub w_rcic_kg_s: f64,
+    pub w_hpci_kg_s: f64,
+    pub w_turbine_kg_s: f64,
+    pub w_spray_kg_s: f64,
 }
 ```
 
@@ -16654,6 +19260,10 @@ pub struct Frame {
 | `on_internals_kg` | `[f64; 2]` | Cesium and iodine on the dome internals, kg. |
 | `core` | `self::core::CoreResult` |  |
 | `containment` | `containment::ContainmentResult` |  |
+| `w_rcic_kg_s` | `f64` | RCIC's and HPCI's injection into the vessel, the turbines' steam<br>from it, and the drywell spray, kg/s (gh:#1109; zero on Unit 1). |
+| `w_hpci_kg_s` | `f64` |  |
+| `w_turbine_kg_s` | `f64` |  |
+| `w_spray_kg_s` | `f64` |  |
 
 ##### Implementations
 
@@ -16823,9 +19433,34 @@ pub struct Plant {
   A fresh plant with its own inputs (gh:#1033), for a corrected or
 
 - ```rust
-  pub fn parts(self: &Self) -> (Core, Containment) { /* ... */ }
+  pub fn for_unit(unit: Unit, mode: Mode, mechanisms: Mechanisms) -> Self { /* ... */ }
   ```
-  A fresh core and containment matching a fresh plant.
+  A fresh plant of `unit` with its own inputs ([`Unit::params`]) and
+
+- ```rust
+  pub fn with_unit_params(unit: Unit, mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self { /* ... */ }
+  ```
+  [`Plant::for_unit`] with perturbed or corrected inputs.
+
+- ```rust
+  pub fn parts(self: &Self) -> (Core, PlantContainment) { /* ... */ }
+  ```
+  A fresh core and containment matching a fresh plant: the
+
+- ```rust
+  pub fn containment_choice(self: &Self) -> ContainmentChoice { /* ... */ }
+  ```
+  What the containment worker builds for this plant: the mechanisms'
+
+- ```rust
+  pub fn unit(self: &Self) -> Unit { /* ... */ }
+  ```
+  Which unit this plant is.
+
+- ```rust
+  pub fn pumps(self: &Self) -> &[turbine_pump::TurbinePump; 2] { /* ... */ }
+  ```
+  The RCIC and HPCI pumps' states (never started on Unit 1).
 
 - ```rust
   pub fn params(self: &Self) -> &Params { /* ... */ }
@@ -16852,7 +19487,7 @@ pub struct Plant {
   The temperature of the gas leaving the vessel through the steam
 
 - ```rust
-  pub fn step_inline(self: &mut Self, core: &mut Core, containment: &mut Containment) { /* ... */ }
+  pub fn step_inline(self: &mut Self, core: &mut Core, containment: &mut PlantContainment) { /* ... */ }
   ```
   One whole step with the core and containment advanced here, in
 
@@ -17118,8 +19753,25 @@ pub fn csv_row(f: &Frame) -> String { /* ... */ }
 The headless run: `steps` steps of the historical sequence, one CSV row
 every `every` steps. Deterministic: no clock, no randomness, no I/O.
 
+Every mechanism on, so the containment is the network (gh:#1099);
+[`headless_csv_with`] runs any ablation.
+
 ```rust
 pub fn headless_csv(steps: usize, every: usize) -> String { /* ... */ }
+```
+
+#### Function `headless_csv_with`
+
+[`headless_csv`] with `mechanisms` (gh:#1099: the lumped containment's
+trace is `headless_csv_with(Mechanisms::default().without_network_containment(), ..)`).
+
+# Panics
+
+If the containment network fails (a frozen containment would print a
+trace that looks valid; [`PlantContainment`]).
+
+```rust
+pub fn headless_csv_with(mechanisms: Mechanisms, steps: usize, every: usize) -> String { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -17150,6 +19802,14 @@ pub const EVENTS: [Event; 9] = _;
 
 ```rust
 pub const CSV_HEADER: &str = "t_s,p_rpv_mpa,level_m,decay_mw,q_ic_mw,w_relief_kg_s,w_injection_kg_s,peak_clad_k,exit_gas_k,h2_kg,relocated,p_dw_mpa,p_ww_mpa,t_pool_k,rb_h2_fraction,flags";
+```
+
+### Re-exports
+
+#### Re-export `Unit`
+
+```rust
+pub use units23::Unit;
 ```
 
 ## Module `chain`

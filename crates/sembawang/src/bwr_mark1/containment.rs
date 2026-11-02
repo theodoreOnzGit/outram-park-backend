@@ -229,6 +229,14 @@ pub struct ContainmentSnapshot {
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
+    /// The drywell spray (gh:#1109; Unit 3's fire pumper): water, kg/s, at
+    /// `spray_k`, K; with `spray_exchange` (`Mechanisms::containment_spray`)
+    /// it reaches equilibrium with the drywell's atmosphere as it falls
+    /// ([`spray_condensation`]), without it the water lands on the floor
+    /// unchanged.
+    pub spray_kg_s: f64,
+    pub spray_k: f64,
+    pub spray_exchange: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -1126,6 +1134,23 @@ impl Containment {
         if s.dw_wall_outer {
             self.dw_slab_step(prm, dt);
         }
+        // 3c. The drywell spray (gh:#1109): its droplets condense steam as
+        //     they fall ([`spray_condensation`]), and land on the floor.
+        if s.spray_kg_s > 0.0 {
+            let (m, t_out) = if s.spray_exchange {
+                let p_s = self.dw_steam_kg / M_H2O * R_GAS * self.dw_t / prm.drywell_volume_m3;
+                spray_condensation(s.spray_kg_s, s.spray_k, self.dw_t, p_s, self.dw_steam_kg, dt)
+            } else {
+                (0.0, s.spray_k)
+            };
+            if m > 0.0 {
+                let e = self.dw_energy(tv) - m * dt * pool_surface::steam_h(self.dw_t);
+                self.dw_steam_kg -= m * dt;
+                self.set_dw_energy(e, tv);
+                self.fp.dw_condensed_kg += m * dt;
+            }
+            self.to_pedestal((s.spray_kg_s + m) * dt, t_out);
+        }
         // 4. Condensation of supersaturated steam (latent heat stays in the
         //    gas until the wall takes it): a few fixed-point passes.
         for _ in 0..4 {
@@ -1514,6 +1539,39 @@ impl Containment {
 /// The non-condensable share of a gas's moles (H2, N2, steam), the share of
 /// its volume that survives the steam's condensation in the pool (SPARC-90's
 /// DF_EC is its inverse). No gas, nothing scrubbed.
+/// The drywell spray in equilibrium with the atmosphere it falls through
+/// (gh:#1109): the droplets, `w` kg/s at `t_in` K, heat to the
+/// atmosphere's dew point (the saturation temperature at the steam's
+/// partial pressure `p_steam`, Pa), at most the gas's `t_gas`, by
+/// condensing steam on themselves. Returns the steam condensed, kg/s, and
+/// the temperature of the water (spray and condensate) reaching the floor,
+/// K. Energy: `m h_g(t_gas) = w c_p (T - t_in) + m c_p (T - 273.15)`, the
+/// condensate leaving at `T`, so the atmosphere loses `m h_g` and the floor
+/// gains it; at most 90 % of the steam `steam_kg` in a step of `dt` s (the
+/// structures' limit), the temperature then from the balance.
+///
+/// **The equilibrium limit (stated, \[A\]):** MELCOR's SPR package follows a
+/// droplet's heat and mass transfer as it falls (SPR RM, cited by package
+/// only, not held); a drop that falls tens of metres reaches the
+/// atmosphere's temperature, so equilibrium is the bound on the spray's
+/// effect. The gas's own sensible heat to the droplets is not counted (in a
+/// steam-rich drywell the latent heat dominates), nor is evaporation from
+/// droplets hotter than the dew point.
+pub fn spray_condensation(w: f64, t_in: f64, t_gas: f64, p_steam: f64, steam_kg: f64, dt: f64) -> (f64, f64) {
+    if !(w > 0.0 && p_steam > 0.0 && steam_kg > 0.0) {
+        return (0.0, t_in);
+    }
+    let t_eq = pool_surface::t_sat(p_steam).min(t_gas).max(t_in);
+    let h_g = pool_surface::steam_h(t_gas);
+    let m = w * CP_WATER * (t_eq - t_in) / (h_g - CP_WATER * (t_eq - 273.15));
+    let cap = 0.9 * steam_kg / dt;
+    if m <= cap {
+        return (m.max(0.0), t_eq);
+    }
+    let t = (w * CP_WATER * t_in + cap * (h_g + CP_WATER * 273.15)) / (CP_WATER * (w + cap));
+    (cap, t)
+}
+
 pub(crate) fn nc_share(h2_mol: f64, n2_mol: f64, steam_mol: f64) -> f64 {
     let total = h2_mol + n2_mol + steam_mol;
     if total > 0.0 { (h2_mol + n2_mol) / total } else { 1.0 }
@@ -1796,6 +1854,9 @@ impl ContainmentSnapshot {
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
+            self.spray_kg_s,
+            self.spray_k,
+            b(self.spray_exchange),
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1859,6 +1920,9 @@ impl ContainmentSnapshot {
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
+            spray_kg_s: r.f(),
+            spray_k: r.f(),
+            spray_exchange: r.f() != 0.0,
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),
@@ -2181,5 +2245,67 @@ mod tests {
     fn air_conductivity_matches_the_tables() {
         assert!((air_conductivity(300.0) / 0.0263 - 1.0).abs() < 0.01, "{}", air_conductivity(300.0));
         assert!((air_conductivity(1000.0) / 0.0667 - 1.0).abs() < 0.01, "{}", air_conductivity(1000.0));
+    }
+}
+
+#[cfg(test)]
+mod spray_tests {
+    use super::*;
+
+    /// The spray's equilibrium (gh:#1109) closes its energy balance: the
+    /// steam it condenses at `h_g(T_gas)` heats the spray from `T_in` and
+    /// leaves as condensate at the same temperature; capped at 90 % of the
+    /// steam, the temperature comes from the balance. A dry atmosphere
+    /// condenses nothing. Prediction before the run: 4 kg/s at 293 K in a
+    /// drywell at 420 K with 0.3 MPa of steam (dew point about 407 K)
+    /// condenses about 4 x 4186 x 114 / (2.586e6 - 4186 x 134) = 0.94 kg/s.
+    /// **Result (2026-11-02): 0.8597 kg/s at 406.68 K. The prediction MISSED
+    /// by 9 %**: it took h_g as an IF97 enthalpy (2.586 MJ/kg), where the
+    /// containment's `steam_h(420 K)` is 2.770 MJ/kg (its `u + RT/M` with
+    /// a constant `c_v`); with that, the hand value is 0.860.
+    #[test]
+    fn the_spray_closes_its_energy_balance() {
+        let (w, t_in, t_gas) = (4.0, 293.15, 420.0);
+        let (m, t) = spray_condensation(w, t_in, t_gas, 0.3e6, 5000.0, 1.0);
+        let h_g = pool_surface::steam_h(t_gas);
+        println!("spray: {m:.4} kg/s condensed, water at {t:.2} K");
+        assert!((m * h_g - (w * CP_WATER * (t - t_in) + m * CP_WATER * (t - 273.15))).abs() < 1e-6 * m * h_g);
+        assert!((t - pool_surface::t_sat(0.3e6)).abs() < 1e-9 && (0.85..1.05).contains(&m), "{m} {t}");
+        // Capped: 0.5 kg of steam, 0.45 of it in a 1 s step.
+        let (m, t) = spray_condensation(w, t_in, t_gas, 0.3e6, 0.5, 1.0);
+        assert!((m - 0.45).abs() < 1e-12 && t < pool_surface::t_sat(0.3e6));
+        assert!((m * h_g - (w * CP_WATER * (t - t_in) + m * CP_WATER * (t - 273.15))).abs() < 1e-6 * m * h_g);
+        assert_eq!(spray_condensation(w, t_in, t_gas, 0.0, 0.0, 1.0), (0.0, t_in));
+    }
+
+    /// The lumped containment takes the spray: with the exchange its
+    /// droplets condense drywell steam and land with it on the floor, so
+    /// less steam goes down the downcomers to the pool; without it
+    /// (`Mechanisms::without_containment_spray`) the water lands unchanged
+    /// and nothing else differs from no spray. Water is conserved either
+    /// way. (The drywell's pressure and steam are not the measure: the
+    /// downcomers' equalising cap holds the drywell at the wetwell's plus
+    /// the submergence, so after one step the sprayed drywell holds 0.17
+    /// kg *more* steam at the same pressure; found 2026-11-02 when the
+    /// first form of this test asserted less.)
+    #[test]
+    fn the_lumped_drywell_takes_the_spray() {
+        let prm = Params::unit3();
+        let base = ContainmentSnapshot { dt_s: 1.0, leak_steam_kg_s: 20.0, leak_h: 2.8e6, leak_gas_k: 500.0, prm, ..Default::default() };
+        let mut warm = Containment::new(&prm);
+        for _ in 0..600 {
+            warm.step(&base);
+        }
+        let (mut a, mut b, mut c) = (warm.clone(), warm.clone(), warm);
+        let spray = ContainmentSnapshot { spray_kg_s: 4.0, spray_k: 293.15, spray_exchange: true, ..base.clone() };
+        a.step(&spray);
+        b.step(&ContainmentSnapshot { spray_exchange: false, ..spray.clone() });
+        c.step(&base);
+        println!("drywell steam after one step: spray {:.2} kg, landing unchanged {:.2} kg, none {:.2} kg", a.dw_steam_kg, b.dw_steam_kg, c.dw_steam_kg);
+        let water = |k: &Containment| k.dw_steam_kg + k.pedestal_kg + k.pool_kg + k.ww_steam_kg;
+        println!("pool after one step: spray {:.3} kg, unchanged {:.3} kg; floor {:.3} / {:.3} kg", a.pool_kg, b.pool_kg, a.pedestal_kg, b.pedestal_kg);
+        assert!(a.pool_kg < b.pool_kg && a.pedestal_kg > b.pedestal_kg + 0.5, "{} {}", a.pedestal_kg, b.pedestal_kg);
+        assert!(b.dw_steam_kg == c.dw_steam_kg && b.pool_kg == c.pool_kg && (b.pedestal_kg - c.pedestal_kg - 4.0).abs() < 1e-9);
+        assert!((water(&a) - water(&b)).abs() < 1e-6 * water(&a) && (water(&b) - water(&c) - 4.0).abs() < 1e-6 * water(&b));
     }
 }

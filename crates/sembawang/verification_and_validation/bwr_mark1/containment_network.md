@@ -1809,8 +1809,11 @@ Unit 1's own \[A\] entries need the same data.
 | `NetworkConfig` | torus major radius 16.75 m | building floor 646.8 m² (the volume over the torus-bottom-to-roof height, from TEPCO16's elevations and the 46 m building) | everything else, borrowed from Unit 1 |
 | `Params` | power, assemblies, control rods, RPV radius and height, drywell, wetwell gas and pool volumes, design pressure, rupture disk, downcomer count, U3 building volume | inventories (power ratio), downcomer area (main-vent area ratio), drywell floor and structures ((volume ratio)^(2/3)), pool surface and torus shell (from the torus) | U2 building volume (from Unit 3), vent area, vacuum breakers, submergence, flange, initial state, every vessel and core field not listed |
 
-**No comparison with the accident is made or possible here.** The crate has
-no RCIC or HPCI model and no Unit 2 or 3 sequence.
+**No comparison with the accident is made ~~or possible~~ here.** ~~The crate has
+no RCIC or HPCI model and no Unit 2 or 3 sequence.~~ **CORRECTED 2026-11-02
+(gh:#1109):** it now has both (`turbine_pump`, `units23`,
+`Plant::for_unit`); the comparison with the HRTD chronology is
+[`units23_sequence.md`](units23_sequence.md).
 
 **Unit 3's rupture disk** is a sourced conflict: 0.528 or 0.549 MPa abs.
 0.528 is used, because the disk is set at the PCV maximum working pressure

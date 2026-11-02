@@ -186,6 +186,57 @@ pub const FIRE_ENGINE_SHUTOFF_PA: f64 = 1.0e6;
 pub const FIRE_ENGINE_MAX_KG_S: f64 = 4.0;
 pub const INJECTION_TEMPERATURE_K: f64 = 293.15;
 
+// ── Turbine-driven pumps: RCIC and HPCI (gh:#1109, `turbine_pump`) ────────
+//
+// Units 2 and 3 only: Unit 1's sequence never runs them (its HPCI was lost
+// with DC at the tsunami). Marks as elsewhere; an [S] is a search excerpt
+// of a named public document whose primary was not opened (treat as [U],
+// the tag it carries here).
+
+/// RCIC's rated (governed) flow, kg/s: 95 m^3/h at the suction's 998.2
+/// kg/m^3 (IF97, 293.15 K). Unit 2's; Unit 3's is in `Params::unit3`. [S]
+/// TEPCO, press material of 6 Aug 2014 (www.tepco.co.jp, betu14_e
+/// 140806e0113), "the rated flow rate (95m3/h)" (page not seen; its 30 m^3/h
+/// is TEPCO's fit to the measured pressure, a calibration, not used).
+/// \[U\]
+pub const RCIC_RATED_KG_S: f64 = 95.0 * 998.2 / 3600.0;
+/// HPCI's rated flow, kg/s: 965 t/h. [S] KTH, EMUG 2012 slides (Unit 3) and
+/// PSI, EMUG 2013 (Unit 2), "HPCI nominal flow rate: 965 t/h" (page not
+/// seen; both MELCOR users' inputs, so a design value at second hand).
+/// \[U\]
+pub const HPCI_RATED_KG_S: f64 = 965_000.0 / 3600.0;
+/// The pump's and the turbine's efficiencies (`turbine_pump`). \[A\] both:
+/// not in a held source; a Terry turbine at part load is inefficient, so
+/// the turbine's is set low. They fix the turbine's steam per kilogram
+/// pumped (about 0.032 at 7 MPa against a 0.15 MPa exhaust).
+/// \[A\]
+pub const PUMP_EFFICIENCY: f64 = 0.7;
+/// \[A\]
+pub const TURBINE_EFFICIENCY: f64 = 0.5;
+/// The vessel pressure below which a turbine-driven pump stops (its
+/// low-steam-pressure isolation), Pa absolute. \[A\] not in a held source.
+pub const TURBINE_MIN_PA: f64 = 0.5e6;
+/// The low level L2, m above the top of active fuel: 120 in. USNRC HRTD ch.
+/// 7.1, Table 7.1-2, p. 7.1-20 (12 Mar 12:35): "Unit 3 HPCI auto start at
+/// 120 inches > TAF"; HPCI starts on L2 ([S] KTH EMUG 2012: "Start at low
+/// level of water (L2) automatically"). Used as the bottom of the operators'
+/// level band for both pumps \[P\]
+pub const LEVEL_L2_ABOVE_TAF_M: f64 = 120.0 * 0.0254;
+/// The high level L8, m above the top of active fuel, where an injecting
+/// pump trips while DC lasts. \[A\] the number is not in a held source
+/// (HRTD records the trips, Table 7.1-2 p. 7.1-18, not the set point):
+/// 0.6 m above the model's normal level (4.4 m, Unit 1's, borrowed).
+pub const LEVEL_L8_ABOVE_TAF_M: f64 = 5.0;
+/// The steam line's nozzle, m above the top of active fuel, where a
+/// rising swollen level starts to carry water into a turbine's steam
+/// supply, and the band over which the steam fraction falls to zero, m
+/// (`turbine_pump::steam_fraction`). \[A\] both: above L8, as L8 is set to
+/// protect the steam lines; not in a held source, and not adjusted to any
+/// measured level.
+pub const MSL_NOZZLE_ABOVE_TAF_M: f64 = 6.0;
+/// \[A\]
+pub const CARRYOVER_BAND_M: f64 = 0.5;
+
 /// Main steam lines (gh:#1037, `msl.rs`): number, inner radius, wall
 /// thickness, m. \[A\] all three: Unit 1's line size is not in a held
 /// source. The radius is sized for its rated steam flow, about 667 kg/s
@@ -988,6 +1039,15 @@ params! {
     reactor_building_m3 = REACTOR_BUILDING_M3, A,
     h2_flammable = H2_FLAMMABLE, P,
     h2_explosion = H2_EXPLOSION, A,
+    rcic_rated_kg_s = RCIC_RATED_KG_S, U,
+    hpci_rated_kg_s = HPCI_RATED_KG_S, U,
+    pump_efficiency = PUMP_EFFICIENCY, A,
+    turbine_efficiency = TURBINE_EFFICIENCY, A,
+    turbine_min_pa = TURBINE_MIN_PA, A,
+    level_l2_above_taf_m = LEVEL_L2_ABOVE_TAF_M, P,
+    level_l8_above_taf_m = LEVEL_L8_ABOVE_TAF_M, A,
+    msl_nozzle_above_taf_m = MSL_NOZZLE_ABOVE_TAF_M, A,
+    carryover_band_m = CARRYOVER_BAND_M, A,
 }
 
 // ── Units 2 and 3 (gh:#1101) ────────────────────────────────────────────────
@@ -1014,8 +1074,13 @@ impl Params {
     /// **not** scaled (no sourced ratio fits them): the relief-valve count
     /// and throat, the main steam lines, the dome internals, the vessel's
     /// water levels. The isolation-condenser fields mean nothing for
-    /// Units 2 and 3, which had RCIC and HPCI instead; no RCIC or HPCI model
-    /// exists in this crate, so no Unit 2 or 3 accident sequence can be run.
+    /// Units 2 and 3, which had RCIC and HPCI instead; ~~no RCIC or HPCI model
+    /// exists in this crate, so no Unit 2 or 3 accident sequence can be run.~~
+    /// **CORRECTED 2026-11-02 (gh:#1109):** [`super::turbine_pump`] models
+    /// them (the `rcic_*`, `hpci_*`, `pump_*`, `turbine_*`, `level_*` and
+    /// carry-over inputs) and [`super::units23`] holds the two sequences, so
+    /// `Plant::for_unit` runs them; the plant never runs the isolation
+    /// condensers for these units.
     ///
     /// | field | value | mark and source |
     /// |---|---|---|
@@ -1085,6 +1150,7 @@ impl Params {
     /// | `rpv_height_m` | 21 m | \[S\] IRID, KTH12 (two sources for Unit 3 itself); SI3's 22 m is recorded, not used |
     /// | `reactor_building_m3` | 38 000 m³ | \[S\] KTH12 (asterisked in its table) |
     /// | `vent_rupture_disk_pa` | 0.528 MPa abs | \[S\] **conflict**, see below |
+    /// | `rcic_rated_kg_s` | 97 t/h (26.94 kg/s) | \[S\] KTH12, "RCIC nominal flow rate : 97 t/h" (gh:#1109); Unit 2's 95 m³/h is TEPCO's |
     ///
     /// **The rupture disk: 0.528 against 0.549 MPa abs.** 0.528 is used.
     /// AESJ4 states the rule that the disk is set "according to the maximum
@@ -1096,7 +1162,8 @@ impl Params {
     /// looks like Unit 1's; so 0.549 for Unit 3 may be a carry-over. Not
     /// settled: IAEA TV1 and TEPCO's June 2012 report would settle it.
     pub fn unit3() -> Self {
-        Self { rpv_height_m: 21.0, ..Self::unit2() }
+        // RCIC 97 t/h [S] KTH EMUG 2012 (Unit 3's own slide, page not seen).
+        Self { rpv_height_m: 21.0, rcic_rated_kg_s: 97_000.0 / 3600.0, ..Self::unit2() }
     }
 }
 
@@ -1204,7 +1271,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 204);
+        assert_eq!(Params::INPUTS.len(), 213);
     }
 
     /// gh:#1101: the Unit 2 and 3 values derived from sourced ones
@@ -1247,7 +1314,8 @@ mod tests {
         assert!((u2.containment_design_pa - 0.485e6).abs() < 0.001e6 && u2.vent_rupture_disk_pa > u2.containment_design_pa);
         // Unit 3 is Unit 2 but for the vessel's height; the conflicting
         // disk value is kept, not averaged in.
-        assert_eq!(Params { rpv_height_m: 22.0, ..u3 }, u2);
+        assert_eq!(Params { rpv_height_m: 22.0, rcic_rated_kg_s: u2.rcic_rated_kg_s, ..u3 }, u2);
+        assert!((u3.rcic_rated_kg_s - 26.944).abs() < 1e-3 && (u2.rcic_rated_kg_s - 26.341).abs() < 1e-3);
         assert!(u3.rpv_height_m == 21.0 && u3.vent_rupture_disk_pa == 0.528e6 && UNIT3_RUPTURE_DISK_ANS_PA == 0.549e6);
         // Unit 1 is untouched.
         assert_eq!(u1.thermal_power_w, THERMAL_POWER_W);

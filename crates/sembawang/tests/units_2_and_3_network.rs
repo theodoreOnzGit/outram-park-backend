@@ -8,9 +8,12 @@
 //! of this test is in `verification_and_validation/bwr_mark1/containment_network.md`
 //! ("Units 2 and 3 by configuration").
 //!
-//! **No comparison with the accident is made or implied.** This crate has no
+//! **No comparison with the accident is made or implied.** ~~This crate has no
 //! RCIC or HPCI model and no Unit 2 or 3 sequence (`Mode::Historical` is
-//! Unit 1's), so these tests check only that each configuration builds the
+//! Unit 1's), so these tests~~ **CORRECTED 2026-11-02 (gh:#1109):** the crate
+//! now has both (`turbine_pump`, `units23`, `Plant::for_unit`; the
+//! comparison is `tests/units_2_and_3_sequence.rs`); these tests still
+//! check only that each configuration builds the
 //! geometry its sourced values imply and that a short run conserves what it
 //! should.
 //!

@@ -344,9 +344,13 @@ not found is borrowed from Unit 1 and marked [A]. Tests:
 a 300 s relief run that conserves) and
 `params::tests::units_2_and_3_derive_from_their_sources`.
 
-**No comparison with the accident.** The crate has no RCIC or HPCI model
+~~**No comparison with the accident.** The crate has no RCIC or HPCI model
 and no Unit 2 or Unit 3 sequence. `Mode::Historical` is Unit 1's. A
-Unit 2 or 3 network can be driven only by a snapshot the caller builds.
+Unit 2 or 3 network can be driven only by a snapshot the caller builds.~~
+**CORRECTED 2026-11-02 (gh:#1109):** `turbine_pump` (RCIC, HPCI) and
+`units23` (each unit's sequence from USNRC HRTD ch. 7.1 Table 7.1-2) now
+exist, and `Plant::for_unit` runs them under `Mode::Historical`; the
+comparison is [`units23_sequence.md`](units23_sequence.md).
 
 ### Field by field
 
@@ -383,10 +387,12 @@ fields do not apply to Units 2 and 3.
 
 ### What a real Unit 2 or Unit 3 run still needs
 
-- **A sequence.** RCIC and HPCI models and their timing, the relief-valve
+- ~~**A sequence.** RCIC and HPCI models and their timing, the relief-valve
   openings, the vent orders and the fire-engine injection, each from an
   open source. None of this exists in the crate, and no timing was
-  gathered for this file.
+  gathered for this file.~~ **Done 2026-11-02 (gh:#1109)**, see
+  [`units23_sequence.md`](units23_sequence.md); still missing there: when
+  Unit 2's RCIC suction moved to the torus, and torus suction itself.
 - **The data marked "not found" above.** Downcomer diameter and submergence,
   vacuum breakers, vent-line area, Unit 2's building volume and blow-out
   panel, structure inventories, the head flange, the drywell's elevation,

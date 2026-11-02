@@ -240,6 +240,9 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without UO2 candling", all.without_uo2_candling()),
         ("without molten pool", all.without_molten_pool()),
         ("without network containment", all.without_network_containment()),
+        // Unit 3's spray (gh:#1109): Unit 1 has none, so on this table the
+        // row equals the baseline by construction.
+        ("without containment spray", all.without_containment_spray()),
     ]
 }
 
@@ -1793,7 +1796,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech.without_network_containment()))).collect();
-        assert_eq!(runs.len(), 70);
+        assert_eq!(runs.len(), 71);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");

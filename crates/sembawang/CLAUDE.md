@@ -133,6 +133,15 @@ in the demo.
 - **Transcendentals through PETIR** (`.r_exp()` etc., gh:#985), never the
   platform's `.exp()`; converted 2026-10-29 with the effect measured in
   `verification_and_validation/bwr_mark1/petir-conversion.md`.
+- **Units 2 and 3 (2026-11-02, gh:#1109).** `Plant::for_unit(Unit::Two |
+  Unit::Three, ..)` runs `Params::unit2()`/`unit3()` on
+  `NetworkConfig::unit2()`/`unit3()` with RCIC and HPCI (`turbine_pump`)
+  and, under `Mode::Historical`, the unit's sequence (`units23`), every time
+  cited to USNRC HRTD ch. 7.1 Table 7.1-2 with its page. The plant's own
+  trips and the table's readings (`units23::OBSERVATIONS`) are the check,
+  never inputs. Every older constructor is Unit 1, and Unit 1 must stay
+  bit-identical (`the_lumped_headless_run_matches_its_fixture`). Results:
+  `verification_and_validation/bwr_mark1/units23_sequence.md`.
 - **Inputs are `params::Params`** (gh:#1033): every scalar input as one
   `Copy` value, defaulting to the documented constants (whose tags and
   sources stay the record). Run a corrected or perturbed plant with

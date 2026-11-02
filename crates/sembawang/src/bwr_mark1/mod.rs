@@ -33,6 +33,12 @@
 //! containment worker keeps its containment and only the snapshot and the
 //! result cross; the core still crosses with its whole state.)
 //!
+//! **Units 2 and 3 (gh:#1109).** [`Plant::for_unit`] builds Unit 2 or 3
+//! from [`Params::unit2`]/[`Params::unit3`] and its own containment network;
+//! in place of the isolation condensers it runs RCIC and HPCI
+//! ([`turbine_pump`]) and, under [`Mode::Historical`], the unit's cited
+//! sequence ([`units23`]). Every existing constructor is Unit 1, unchanged.
+//!
 //! **AI draft, not validated.** See [`params`] for where every number comes
 //! from (many are placeholders) and each module's "Not in the model" list.
 //! Research, education and V&V only: never for operation, licensing, safety
@@ -59,8 +65,12 @@ pub mod rn_volume;
 pub mod source;
 pub mod sparc;
 pub mod steam;
+pub mod turbine_pump;
+pub mod units23;
 pub mod vapour;
 pub mod wire;
+
+pub use units23::Unit;
 
 use petir::mathf::RealMath;
 use containment::{Containment, ContainmentResult, ContainmentSnapshot};
@@ -84,7 +94,9 @@ pub const SCENARIO_END_S: f64 = 30.0 * 3600.0;
 /// Who drives the operator actions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
-    /// The recorded Unit 1 sequence (INPO 11-005 timeline, \[U\] times).
+    /// The recorded sequence of the plant's unit: Unit 1's ([`EVENTS`],
+    /// INPO 11-005 timeline, \[U\] times); since gh:#1109 Units 2 and 3's
+    /// from USNRC HRTD Table 7.1-2 ([`units23`], via [`Plant::for_unit`]).
     Historical,
     /// The reader's own actions.
     FreePlay,
@@ -442,6 +454,11 @@ pub struct Mechanisms {
     /// before that date was measured on. The network costs about 100 times
     /// the lumped model a step (the module docs give the measured timing).
     pub network_containment: bool,
+    /// The drywell spray's droplets reach equilibrium with the atmosphere
+    /// as they fall, condensing steam (gh:#1109,
+    /// `containment::spray_condensation`; Unit 3's fire-pumper spray, none
+    /// on Unit 1). Off is the spray's water landing on the floor unchanged.
+    pub containment_spray: bool,
 }
 
 impl Default for Mechanisms {
@@ -516,6 +533,7 @@ impl Default for Mechanisms {
             uo2_candling: true,
             molten_pool: true,
             network_containment: true,
+            containment_spray: true,
         }
     }
 }
@@ -964,10 +982,17 @@ impl Mechanisms {
         self
     }
 
+    /// The spray's water reaching the floor without exchanging with the
+    /// atmosphere: before gh:#1109 (no spray existed).
+    pub fn without_containment_spray(mut self) -> Self {
+        self.containment_spray = false;
+        self
+    }
+
     /// What the containment worker needs to build the plant's containment
     /// (gh:#1099).
     pub fn containment_choice(&self) -> ContainmentChoice {
-        ContainmentChoice { network: self.network_containment, mcci: self.mcci, pool_layers: self.pool_layers }
+        ContainmentChoice { network: self.network_containment, mcci: self.mcci, pool_layers: self.pool_layers, unit: Unit::One }
     }
 
     /// Isolation-condenser condensation unaffected by hydrogen in the vessel.
@@ -1047,6 +1072,35 @@ pub enum EventKind {
     VentOpened,
     /// Recorded for comparison only: the model computes its own.
     Explosion,
+    // ── Units 2 and 3 (gh:#1109; [`units23`]) ──
+    /// RCIC started, the whole flow into the vessel (trips at L8 while DC
+    /// lasts).
+    RcicStart,
+    /// RCIC started with the operators holding the level ([`turbine_pump::Drive::Throttled`]).
+    RcicStartThrottled,
+    /// RCIC lost for good.
+    RcicLost,
+    /// HPCI started with the operators holding the level.
+    HpciStartThrottled,
+    /// HPCI lost for good.
+    HpciLost,
+    /// DC power lost: the relief valves fall back to their spring set
+    /// points, level control and the pumps' trip logic are gone.
+    DcLost,
+    /// AC lost, DC kept (Unit 3's station blackout): nothing modelled runs
+    /// on AC, so recorded.
+    AcLost,
+    /// This many relief valves held open (by batteries brought in: needs
+    /// no station DC).
+    ReliefHeld(u8),
+    /// The fire pumper sprays the drywell; and stops.
+    SprayOn,
+    SprayOff,
+    /// The wetwell vent closes (the order is withdrawn).
+    VentClosed,
+    /// What the plant did itself (a trip, an explosion), for comparison
+    /// only: never acted on.
+    Recorded,
 }
 
 pub const EVENTS: [Event; 9] = [
@@ -1095,6 +1149,10 @@ pub struct ContainmentChoice {
     pub network: bool,
     pub mcci: bool,
     pub pool_layers: bool,
+    /// Which unit's network to build (gh:#1109); Unit 1 from
+    /// [`Mechanisms::containment_choice`], the plant's own from
+    /// [`Plant::containment_choice`].
+    pub unit: Unit,
 }
 
 /// The containment model a plant runs, by enum dispatch (rust-design-rules:
@@ -1151,7 +1209,7 @@ impl PlantContainment {
             let mut mech = containment_network::NetworkMechanisms::default();
             mech.cavity = choice.mcci;
             mech.pool_layers = choice.pool_layers;
-            match containment_network::ContainmentNetwork::with_config(prm, containment_network::NetworkConfig::unit1(), mech) {
+            match containment_network::ContainmentNetwork::with_config(prm, choice.unit.network_config(), mech) {
                 Ok(n) => (ContainmentModel::Network(n), None),
                 Err(e) => {
                     let m = format!("the containment network could not be built: {e}");
@@ -1216,7 +1274,7 @@ impl ContainmentWorker {
     /// The request for one step of run `generation`.
     pub fn request(generation: u64, choice: ContainmentChoice, s: &ContainmentSnapshot) -> Vec<f64> {
         let mut w = Writer::default();
-        w.f(&[generation as f64, b(choice.network), b(choice.mcci), b(choice.pool_layers)]);
+        w.f(&[generation as f64, b(choice.network), b(choice.mcci), b(choice.pool_layers), choice.unit.code()]);
         s.write(&mut w);
         w.0
     }
@@ -1226,7 +1284,7 @@ impl ContainmentWorker {
     pub fn handle(&mut self, msg: &[f64]) -> Vec<f64> {
         let mut r = Reader::new(msg);
         let g = r.f();
-        let choice = ContainmentChoice { network: r.f() != 0.0, mcci: r.f() != 0.0, pool_layers: r.f() != 0.0 };
+        let choice = ContainmentChoice { network: r.f() != 0.0, mcci: r.f() != 0.0, pool_layers: r.f() != 0.0, unit: Unit::from_code(r.f()) };
         let s = ContainmentSnapshot::read(&mut r);
         let generation = (g.is_finite() && g >= 0.0).then_some(g as u64);
         if generation.is_none() || generation != self.generation || self.held.is_none() {
@@ -1290,6 +1348,12 @@ pub struct Frame {
     pub on_internals_kg: [f64; 2],
     pub core: CoreResult,
     pub containment: ContainmentResult,
+    /// RCIC's and HPCI's injection into the vessel, the turbines' steam
+    /// from it, and the drywell spray, kg/s (gh:#1109; zero on Unit 1).
+    pub w_rcic_kg_s: f64,
+    pub w_hpci_kg_s: f64,
+    pub w_turbine_kg_s: f64,
+    pub w_spray_kg_s: f64,
 }
 
 /// Choked mass flux of saturated steam, kg/(m^2 s), tabulated against
@@ -1411,6 +1475,16 @@ pub struct Plant {
     pub mode: Mode,
     pub mechanisms: Mechanisms,
     pub controls: Controls,
+    /// Which unit (gh:#1109): its sequence, its containment network, and
+    /// whether it has isolation condensers or turbine-driven pumps.
+    unit: Unit,
+    /// RCIC and HPCI ([`turbine_pump`]; never started on Unit 1).
+    pumps: [turbine_pump::TurbinePump; 2],
+    /// The fire pumper sprays the drywell (Units 2 and 3's sequences).
+    spray_on: bool,
+    /// Relief valves held open by batteries brought in (needs no station
+    /// DC; Units 2 and 3's sequences).
+    held_valves: u8,
     /// The inputs this plant runs with ([`Params`]); fixed at construction.
     prm: Params,
     t_s: f64,
@@ -1494,6 +1568,17 @@ struct Pending {
     w_drain: f64,
     /// Heat through the RPV's insulation to the drywell, W (`rpv_wall`).
     rpv_out_w: f64,
+    /// The turbine-driven pumps (gh:#1109): water into the vessel, kg/s,
+    /// and its enthalpy, J/kg; the turbines' inlet from the vessel, kg/s,
+    /// its enthalpy, J/kg (the exhaust goes with the relief stream in the
+    /// snapshot); each pump's injection, kg/s (RCIC, HPCI).
+    w_pump_inj: f64,
+    h_pump_inj: f64,
+    w_turbine: f64,
+    h_turbine: f64,
+    w_pump_each: [f64; 2],
+    /// The drywell spray, kg/s.
+    w_spray: f64,
 }
 
 /// The core and containment snapshots of one step.
@@ -1517,6 +1602,19 @@ impl Plant {
     /// core and containment from the same inputs, and every snapshot carries
     /// them to the workers.
     pub fn with_params(mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self {
+        Self::with_unit_params(Unit::One, mode, mechanisms, prm)
+    }
+
+    /// A fresh plant of `unit` with its own inputs ([`Unit::params`]) and
+    /// containment network ([`Unit::network_config`]); under
+    /// [`Mode::Historical`] it runs that unit's recorded sequence
+    /// ([`units23`] for Units 2 and 3; gh:#1109).
+    pub fn for_unit(unit: Unit, mode: Mode, mechanisms: Mechanisms) -> Self {
+        Self::with_unit_params(unit, mode, mechanisms, unit.params())
+    }
+
+    /// [`Plant::for_unit`] with perturbed or corrected inputs.
+    pub fn with_unit_params(unit: Unit, mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self {
         let sat = SatTable::new();
         let choked = ChokedTable::new(&sat);
         let s = sat.at(prm.initial_pressure_pa);
@@ -1535,6 +1633,10 @@ impl Plant {
             mode,
             mechanisms,
             controls: Controls::default(),
+            unit,
+            pumps: [turbine_pump::TurbinePump::new(turbine_pump::Pump::Rcic), turbine_pump::TurbinePump::new(turbine_pump::Pump::Hpci)],
+            spray_on: false,
+            held_valves: 0,
             prm,
             t_s: 0.0,
             m: m_l + m_g,
@@ -1588,7 +1690,23 @@ impl Plant {
     /// containment network by default, the lumped model under
     /// `Mechanisms::without_network_containment` (gh:#1099).
     pub fn parts(&self) -> (Core, PlantContainment) {
-        (Core::new(self.vessel.sat.t_k, &self.prm), PlantContainment::new(&self.prm, self.mechanisms.containment_choice()))
+        (Core::new(self.vessel.sat.t_k, &self.prm), PlantContainment::new(&self.prm, self.containment_choice()))
+    }
+
+    /// What the containment worker builds for this plant: the mechanisms'
+    /// choice with this plant's unit.
+    pub fn containment_choice(&self) -> ContainmentChoice {
+        ContainmentChoice { unit: self.unit, ..self.mechanisms.containment_choice() }
+    }
+
+    /// Which unit this plant is.
+    pub fn unit(&self) -> Unit {
+        self.unit
+    }
+
+    /// The RCIC and HPCI pumps' states (never started on Unit 1).
+    pub fn pumps(&self) -> &[turbine_pump::TurbinePump; 2] {
+        &self.pumps
     }
 
     /// The inputs this plant runs with.
@@ -1636,8 +1754,35 @@ impl Plant {
         }
     }
 
+    /// Units 2 and 3's sequence ([`units23`]): the rows due in this step.
+    fn apply_units23_history(&mut self) {
+        for e in units23::due(self.unit, self.t_s, DT_S) {
+            use turbine_pump::Drive;
+            match e.kind {
+                EventKind::RcicStart => self.pumps[0].start(Drive::Injecting),
+                EventKind::RcicStartThrottled => self.pumps[0].start(Drive::Throttled),
+                EventKind::RcicLost => self.pumps[0].lose(),
+                EventKind::HpciStartThrottled => self.pumps[1].start(Drive::Throttled),
+                EventKind::HpciLost => self.pumps[1].lose(),
+                EventKind::DcLost | EventKind::StationBlackout => self.controls.dc_power = false,
+                EventKind::ReliefHeld(n) => self.held_valves = self.held_valves.max(n),
+                EventKind::SprayOn => self.spray_on = true,
+                EventKind::SprayOff => self.spray_on = false,
+                EventKind::InjectionOn => self.controls.injection = true,
+                EventKind::InjectionOff => self.controls.injection = false,
+                EventKind::VentOpened => self.controls.vent_ordered = true,
+                EventKind::VentClosed => self.controls.vent_ordered = false,
+                EventKind::AcLost | EventKind::Recorded | EventKind::Explosion | EventKind::IcStopped | EventKind::IcCycleA => {}
+            }
+        }
+    }
+
     /// The operators' actions from the historical sequence, at time `t`.
     fn apply_history(&mut self) {
+        if self.unit != Unit::One {
+            self.apply_units23_history();
+            return;
+        }
         let t = self.t_s;
         let at = |k: EventKind| EVENTS.iter().filter(|e| e.kind == k).map(|e| e.t_s).collect::<Vec<_>>();
         let crossed = |times: &[f64]| times.iter().any(|&e| t >= e && t < e + DT_S);
@@ -1681,8 +1826,9 @@ impl Plant {
         let v = self.vessel;
         let p = v.p_pa;
         let t_sat = v.sat.t_k;
-        // Isolation condensers: automatic start on high pressure (needs DC).
-        if self.controls.dc_power && !self.ic_autostarted && p >= prm.ic_autostart_pa {
+        // Isolation condensers: automatic start on high pressure (needs DC);
+        // Unit 1 alone has them.
+        if self.unit.has_isolation_condenser() && self.controls.dc_power && !self.ic_autostarted && p >= prm.ic_autostart_pa {
             self.ic_autostarted = true;
             self.controls.ic_open = [true; IC_TRAINS];
         }
@@ -1711,7 +1857,20 @@ impl Plant {
         // G goes as sqrt(M), so by sqrt(M_mix / M_H2O); gamma's change with
         // the mixture is not followed (stated).
         let flux = self.choked.at(p) * if self.mechanisms.mixture_choking { mixture_flux_factor(v.h2_fraction) } else { 1.0 };
-        let w_relief = if self.relief_open { flux * prm.relief_throat_m2 * prm.relief_valves } else { 0.0 };
+        let w_relief = if self.relief_open {
+            flux * prm.relief_throat_m2 * prm.relief_valves
+        } else if self.held_valves > 0 && !self.last_core.lower_head_failed && p > self.last_containment.p_ww_pa + prm.vent_submergence_pa {
+            // Valves held open by batteries brought in (Units 2 and 3),
+            // while the vessel is above the pool's back-pressure at the
+            // quenchers (the wetwell's plus the submergence head). Once the
+            // lower head has failed, the vessel's gas leaves through the
+            // breach (`share_leak`) and a held valve passes nothing more.
+            // (Found 2026-11-02: without both limits a held valve drained a
+            // failed, dry vessel to zero mass, and its state went NaN.)
+            flux * prm.relief_throat_m2 * f64::from(self.held_valves).min(prm.relief_valves)
+        } else {
+            0.0
+        };
         if self.mechanisms.hot_leak && self.last_core.exit_gas_k >= prm.hot_leak_gas_k {
             self.hot_leak_open = true;
         }
@@ -1810,7 +1969,60 @@ impl Plant {
         } else {
             ((w_relief * DT_S / (steam_gas + self.h2)).min(1.0), (w_leak * DT_S / (steam_gas + self.h2)).min(1.0))
         };
+        // The turbine-driven pumps (gh:#1109; Units 2 and 3 only): the L8
+        // trip on the start-of-step level, then each pump's flows.
+        let mut pf = [turbine_pump::PumpFlows::default(); 2];
+        if self.unit != Unit::One {
+            let level_taf = v.level_m - prm.active_length_m;
+            let (dc, t_now) = (self.controls.dc_power, self.t_s);
+            for pump in self.pumps.iter_mut() {
+                pump.check_trip(&prm, level_taf, dc, t_now);
+            }
+            if self.pumps.iter().any(|x| x.drive != turbine_pump::Drive::Off) {
+                let swollen = if self.mechanisms.level_swell && !v.dry {
+                    swollen_level(&prm, v.level_m, self.last_core.q_pool_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
+                } else {
+                    v.level_m
+                };
+                let inp = turbine_pump::PumpInputs {
+                    p_vessel_pa: v.sat.p_pa,
+                    h_g: v.sat.h_g,
+                    h_f: v.sat.h_f,
+                    level_above_taf_m: level_taf,
+                    swollen_above_taf_m: swollen - prm.active_length_m,
+                    p_exhaust_pa: self.last_containment.p_ww_pa + prm.vent_submergence_pa,
+                    p_suction_pa: P_ATM,
+                    dc_power: dc,
+                    dry: v.dry,
+                };
+                for (f, pump) in pf.iter_mut().zip(self.pumps.iter()) {
+                    *f = pump.flows(&prm, &inp);
+                }
+            }
+        }
+        let w_pump_inj: f64 = pf.iter().map(|f| f.inject_kg_s).sum();
+        let w_turbine: f64 = pf.iter().map(|f| f.turbine_kg_s).sum();
+        // The flows' mass-weighted enthalpies (zero with no flow).
+        let per = |e: f64, w: f64| if w > 0.0 { e / w } else { 0.0 };
+        let h_pump_inj = per(pf.iter().map(|f| f.inject_kg_s * f.inject_h).sum(), w_pump_inj);
+        let h_turbine = per(pf.iter().map(|f| f.turbine_kg_s * f.turbine_h).sum(), w_turbine);
+        let h_exhaust = per(pf.iter().map(|f| f.turbine_kg_s * f.exhaust_h).sum(), w_turbine);
+        // The fire pumper's drywell spray, on the engine's curve against the
+        // drywell's pressure (the same pumper and curve as the injection,
+        // [A]).
+        let p_dw_spray = self.last_containment.p_dw_pa;
+        let w_spray = if self.spray_on && p_dw_spray < prm.fire_engine_shutoff_pa {
+            prm.fire_engine_max_kg_s * (1.0 - (p_dw_spray - P_ATM).max(0.0) / (prm.fire_engine_shutoff_pa - P_ATM)).sqrt()
+        } else {
+            0.0
+        };
         self.pending = Pending {
+            w_pump_inj,
+            h_pump_inj,
+            w_turbine,
+            h_turbine,
+            w_pump_each: [pf[0].inject_kg_s, pf[1].inject_kg_s],
+            w_spray,
             w_bypass,
             q_ic_w: q_ic_train.iter().sum(),
             q_ic_train,
@@ -1843,6 +2055,17 @@ impl Plant {
             (rn_volume::RnFlow::default(), rn_volume::RnFlow::default())
         };
         let h_gas = v.sat.h_g;
+        // The relief valves' steam, and the turbines' exhaust with it into
+        // the pool (gh:#1109; the exhaust line ends under the pool, HRTD
+        // Figure 7.1-5a): one stream, its enthalpy the flows' mean. Without
+        // a turbine running, the relief stream alone, as before.
+        let srv_steam = w_relief * (1.0 - h2_share);
+        let (srv_steam, srv_h) = if w_turbine > 0.0 {
+            let m = srv_steam + w_turbine;
+            (m, (srv_steam * h_gas + w_turbine * h_exhaust) / m)
+        } else {
+            (srv_steam, h_gas)
+        };
         // The level the core sees (gh:#1036): swollen by the vapour the last
         // step raised in the pool, or the collapsed level.
         let core_level = if self.mechanisms.level_swell && !v.dry {
@@ -1854,8 +2077,11 @@ impl Plant {
             core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, b4c_oxidation: self.mechanisms.b4c_oxidation, uo2_candling: self.mechanisms.uo2_candling, molten_pool: self.mechanisms.molten_pool, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
-                srv_steam_kg_s: w_relief * (1.0 - h2_share),
-                srv_h: h_gas,
+                srv_steam_kg_s: srv_steam,
+                srv_h,
+                spray_kg_s: w_spray,
+                spray_k: prm.injection_temperature_k,
+                spray_exchange: self.mechanisms.containment_spray,
                 srv_h2_kg_s: w_relief * h2_share,
                 leak_steam_kg_s: w_leak * (1.0 - h2_share),
                 leak_h: h_gas,
@@ -2000,6 +2226,13 @@ impl Plant {
         let to_relief = if gas_out > 0.0 { d.w_relief / gas_out } else { 0.0 };
         let h2_enthalpy_out = h2_exit_enthalpy(d.h2_out, to_relief, v.sat.t_k, self.gas_out_k(), self.mechanisms.hydrogen_cp_t);
         self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out - d.w_drain * v.sat.h_f) * DT_S;
+        // The turbine-driven pumps (gh:#1109): the turbines take steam (and
+        // any carried-over water) at the inlet's enthalpy, the pumps return
+        // water at the tank's enthalpy plus their shaft work.
+        if d.w_turbine > 0.0 || d.w_pump_inj > 0.0 {
+            self.m += (d.w_pump_inj - d.w_turbine) * DT_S;
+            self.u += (d.w_pump_inj * d.h_pump_inj - d.w_turbine * d.h_turbine) * DT_S;
+        }
         // The dome internals take heat from (or give it back to) the gas
         // leaving the core, out of the vessel's energy.
         if self.mechanisms.dome_internals {
@@ -2218,6 +2451,10 @@ impl Plant {
             on_internals_kg: self.on_internals_kg,
             core: self.last_core.clone(),
             containment: self.last_containment,
+            w_rcic_kg_s: self.pending.w_pump_each[0],
+            w_hpci_kg_s: self.pending.w_pump_each[1],
+            w_turbine_kg_s: self.pending.w_turbine,
+            w_spray_kg_s: self.pending.w_spray,
         }
     }
 }
@@ -2274,6 +2511,7 @@ impl Frame {
         ]);
         self.core.write(w);
         self.containment.write(w);
+        w.f(&[self.w_rcic_kg_s, self.w_hpci_kg_s, self.w_turbine_kg_s, self.w_spray_kg_s]);
     }
     pub fn read(r: &mut Reader) -> Self {
         let t_s = r.f();
@@ -2308,6 +2546,10 @@ impl Frame {
             on_internals_kg: [r.f(), r.f()],
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
+            w_rcic_kg_s: r.f(),
+            w_hpci_kg_s: r.f(),
+            w_turbine_kg_s: r.f(),
+            w_spray_kg_s: r.f(),
         }
     }
 }
@@ -3057,5 +3299,75 @@ mod tests {
         for z in [0.5, 4.9, 6.0, 8.6, 12.0, 19.0] {
             assert!((height_of_volume(&prm, volume_below(&prm, z)) - z).abs() < 1e-9, "{z}");
         }
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    /// gh:#1109: a Unit 2 or 3 plant builds its own unit's containment
+    /// network (`NetworkConfig::unit2()`/`unit3()`) from its own inputs, the
+    /// unit crosses the containment worker's wire, and Unit 1 (every
+    /// existing constructor) stays Unit 1 with the IC and no pumps.
+    #[test]
+    fn each_unit_builds_its_own_network_and_the_unit_crosses_the_wire() {
+        for unit in [Unit::Two, Unit::Three] {
+            let p = Plant::for_unit(unit, Mode::Historical, Mechanisms::default());
+            assert_eq!((p.unit(), *p.params()), (unit, unit.params()));
+            let (_, c) = p.parts();
+            match c.model() {
+                ContainmentModel::Network(n) => assert_eq!(n.config(), unit.network_config()),
+                other => panic!("{unit:?}: {other:?}"),
+            }
+            // The worker builds the same unit from the request alone.
+            let mut wk = ContainmentWorker::default();
+            let mut q = Plant::for_unit(unit, Mode::Historical, Mechanisms::default());
+            let s = q.begin();
+            let reply = wk.handle(&ContainmentWorker::request(1, q.containment_choice(), &s.containment));
+            assert!(ContainmentWorker::read_reply(&reply).1);
+            match wk.held().unwrap().model() {
+                ContainmentModel::Network(n) => assert_eq!(n.config(), unit.network_config()),
+                other => panic!("{unit:?}: {other:?}"),
+            }
+        }
+        let p = Plant::new(Mode::Historical);
+        assert_eq!((p.unit(), p.containment_choice().unit), (Unit::One, Unit::One));
+        assert_eq!(Mechanisms::default().containment_choice().unit, Unit::One);
+        assert!(p.pumps().iter().all(|x| x.drive == turbine_pump::Drive::Off));
+    }
+
+    /// One worker equals three for Unit 2 on the lumped containment, past
+    /// RCIC's start (the pump's flows and the merged exhaust cross the wire
+    /// in the snapshot and the frame).
+    #[test]
+    fn three_workers_are_one_worker_for_unit2() {
+        let mech = Mechanisms::default().without_network_containment();
+        let mut a = Plant::for_unit(Unit::Two, Mode::Historical, mech);
+        let (mut ca, mut ka) = a.parts();
+        let mut b = Plant::for_unit(Unit::Two, Mode::Historical, mech);
+        let (mut cb, _) = b.parts();
+        let mut wk = ContainmentWorker::default();
+        for _ in 0..900 {
+            a.step_inline(&mut ca, &mut ka);
+            let s = b.begin();
+            let mut w = Writer::default();
+            s.core.write(&mut w);
+            let core_snap = CoreSnapshot::read(&mut Reader::new(&w.0));
+            let c = cb.step(&core_snap);
+            let reply = wk.handle(&ContainmentWorker::request(7, b.containment_choice(), &s.containment));
+            let (k, ok) = ContainmentWorker::read_reply(&reply);
+            assert!(ok);
+            b.finish(c, k);
+        }
+        let (fa, fb) = (a.frame(), b.frame());
+        assert!(fa.w_rcic_kg_s > 0.0 && fa.w_turbine_kg_s > 0.0);
+        let (mut wa, mut wb) = (Writer::default(), Writer::default());
+        fa.write(&mut wa);
+        fb.write(&mut wb);
+        assert_eq!(wa.0.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), wb.0.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+        // And the frame survives its own wire.
+        let back = Frame::read(&mut Reader::new(&wa.0));
+        assert_eq!((back.w_rcic_kg_s, back.w_turbine_kg_s, back.w_spray_kg_s), (fa.w_rcic_kg_s, fa.w_turbine_kg_s, fa.w_spray_kg_s));
     }
 }

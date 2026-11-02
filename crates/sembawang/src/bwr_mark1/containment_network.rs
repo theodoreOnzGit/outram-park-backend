@@ -32,6 +32,7 @@
 //! | RPV leak steam, enthalpy, H2 at `leak_gas_k` | a source in the drywell atmosphere |
 //! | `vent_ordered` | the vent valve: open once ordered and the rupture disk has burst (`p_ww ≥ vent_rupture_disk_pa`) |
 //! | `rpv_wall_w` | heat into the drywell atmosphere |
+//! | `spray_kg_s`, `spray_k`, `spray_exchange` (gh:#1109) | the steam the droplets condense (`containment::spray_condensation`) as a drywell atmosphere steam sink, and the spray with its condensate into the drywell sump |
 //! | `pedestal_inflow_kg_s`, `vessel_drain_kg_s` | water into the drywell sump (**since gh:#1100** it starts dry and may boil dry again, as the old pedestal) |
 //! | ~~`ex_vessel_w` … the heat into it while it holds more than its initial fill, else into the drywell structures (no cavity, no MCCI, no concrete gases)~~ | **CORRECTED 2026-11-01 (gh:#1100):** see the next rows |
 //! | `ex_vessel_w`, `cav_uo2_kg`, `cav_zr_kg`, `cav_debris_k`, `cavity_phases` | sembawang's own [`super::cavity::Cavity`] (MELCOR CAV RM §3, reused, not rewritten): its upward heat into the sump while water lies over the debris (~~the sump beyond its initial fill~~ **CORRECTED 2026-11-01:** while the sump is not dry, [`ControlVolume::is_pool_dry`]), else radiated to the drywell structures; its concrete gases (steam, H2, CO, CO2) into the drywell atmosphere at the ablation temperature ([`NetworkMechanisms::cavity`]) |
@@ -250,9 +251,12 @@ impl NetworkConfig {
     /// public document, the primary not opened; \[D\] derived from \[S\]
     /// values; \[A\] assumed.
     ///
-    /// No accident sequence comes with it: this crate has no RCIC or HPCI
+    /// ~~No accident sequence comes with it: this crate has no RCIC or HPCI
     /// model, so a Unit 2 network can be driven only by a snapshot the
-    /// caller builds, never compared with the accident.
+    /// caller builds, never compared with the accident.~~ **CORRECTED
+    /// 2026-11-02 (gh:#1109):** `Plant::for_unit(Unit::Two, ..)` drives it
+    /// with Unit 2's cited sequence and the RCIC model (`super::units23`,
+    /// `super::turbine_pump`).
     pub fn unit2() -> Self {
         Self {
             // [A] the modelling choice, as Unit 1.
@@ -1189,13 +1193,29 @@ impl ContainmentNetwork {
         if fp_on {
             self.fp.dw_condensed_kg += m_dw * dt;
         }
-        self.net.set_atmosphere_steam_sink(dw, kgs(m_dw))?;
+        // The drywell spray (gh:#1109): the steam its droplets condense
+        // (`containment::spray_condensation`, from the start-of-step
+        // atmosphere less the structures' share), and its water with the
+        // condensate onto the floor below. Not counted as wall condensation
+        // for the fission products' diffusiophoresis (stated).
+        let (m_spray, t_spray) = if s.spray_kg_s > 0.0 && s.spray_exchange {
+            self.net.volume(dw).map_or((0.0, s.spray_k), |cv| {
+                let a = cv.atmosphere();
+                let t = cv.atmosphere_temperature().get::<kelvin>();
+                let v = cv.atmosphere_volume().get::<cubic_meter>().max(1e-9);
+                let p_s = a.steam_kg / M_H2O * R_GAS * t / v;
+                super::containment::spray_condensation(s.spray_kg_s, s.spray_k, t, p_s, (a.steam_kg - m_dw * dt).max(0.0), dt)
+            })
+        } else {
+            (0.0, s.spray_k)
+        };
+        self.net.set_atmosphere_steam_sink(dw, kgs(m_dw + m_spray))?;
         self.net.set_atmosphere_heat(ww, Power::new::<watt>(q_ww))?;
         self.net.set_atmosphere_steam_sink(ww, kgs(m_ww))?;
         // Water into the drywell sump: the structures' condensate at the
         // wall's temperature, the pedestal's inflow, the failed vessel's
         // drain (one stream, mass-weighted enthalpy, sembawang's c_p).
-        let streams = [(m_dw, self.dw_wall.t_k), (s.pedestal_inflow_kg_s, prm.injection_temperature_k), (s.vessel_drain_kg_s, s.vessel_drain_k)];
+        let streams = [(m_dw, self.dw_wall.t_k), (s.pedestal_inflow_kg_s, prm.injection_temperature_k), (s.vessel_drain_kg_s, s.vessel_drain_k), (s.spray_kg_s + m_spray, t_spray)];
         let m_sump: f64 = streams.iter().map(|x| x.0).sum();
         let h_sump = if m_sump > 0.0 { streams.iter().map(|(m, t)| m * CP_WATER * (t - 273.15)).sum::<f64>() / m_sump } else { 0.0 };
         self.net.set_source(dw, DW_SUMP, Source::water(kgs(m_sump), AvailableEnergy::new::<joule_per_kilogram>(h_sump)))?;
