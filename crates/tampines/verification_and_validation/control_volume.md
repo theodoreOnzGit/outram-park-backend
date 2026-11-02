@@ -967,3 +967,133 @@ self-consistent amount each step (F1: 0.092 kg against one 4.3 kg burst),
 stays on its own saturation line to 2e-3 K, converges first order in
 `Δt`, and is independent of the layer count to 1e-8 Pa; the explicit form
 is kept bit for bit as the ablation.
+
+## Non-condensables with their own transport properties (gh:#1114, 2026-11-02)
+
+**Before.** The control volume's pool surface passed every
+non-condensable to MELCOR's surface correlations as nitrogen (total moles
+in `n_n2`): N2's viscosity, conductivity, molar mass (so the density),
+`c_p` and steam diffusivity. The wall-condensation kernel
+(`components::wall_condensation`) already gave H2 its own properties
+(MELCOR's tables, Eucken, Eq 6-2), but O2, CO, CO2 and Ar had no
+representation in it.
+
+**Searched first.**
+- `wall_condensation::Atmosphere` already carries steam, N2 and H2: MELCOR
+  NCG/H2O RM §4.1.2, §5.1.2 and §5.1.4 tables, the N2 power laws (§4.4
+  Table 4.1, §5.4 Table 5.2), Eucken for H2 (Eq 4-1), and the steam-air and
+  steam-H2 diffusivities (Eqs 6-1, 6-2) combined by Blanc's law.
+- `sembawang::bwr_mark1::vapour` has Chapman–Enskog binary diffusivity
+  (MELCOR RN §2.5.2, Eq 2-105) with the diffusion collision integral of
+  NCG/H2O Table 6.1, and the Lennard-Jones parameters of steam, H2 and N2
+  (NCG/H2O §5.2). Those three are Svehla's (NASA TR R-132, 1962), the table
+  reprinted in Poling, Prausnitz & O'Connell, *The Properties of Gases and
+  Liquids*, Appendix B.
+- `tampines_steam_tables::gas_mixture::nasa7::cv_molar` gives `c_v(T)` for
+  O2, CO, CO2 and Ar.
+- No workspace code has transport properties for O2, CO, CO2 or Ar.
+
+**The change.**
+- A seven-species atmosphere, `wall_condensation::GasMixtureAtmosphere`:
+  steam plus every non-condensable.
+- Steam, N2 and H2 keep their present properties. O2, CO, CO2 and Ar get:
+  - viscosity: Chapman–Enskog, `μ = 26.69 √(M T) / (σ² Ω_μ)` μP, with
+    Svehla's σ and ε/k (O2 3.467 Å / 106.7 K, CO 3.690 / 91.7, CO2
+    3.941 / 195.2, Ar 3.542 / 93.3) and Neufeld, Janzen & Aziz's (1972)
+    fit for `Ω_μ`;
+  - conductivity: Eucken, `(c_v + 9R/(4M)) μ` (Eq 4-1, as for H2);
+  - steam diffusivity: Chapman–Enskog with steam's parameters (Eq 2-105,
+    ported from `sembawang`'s `vapour`).
+- Mixtures by the rules already in place: Wilke (Eq 5-2), Wassijewa with
+  Mason–Saxena (Eq 4-2), Blanc's law over the non-condensables, molar
+  `c_p` summed.
+- `Atmosphere` (steam, N2, H2) and `pool_surface::Atmosphere` (steam, N2)
+  keep their fields and delegate. The absent gases enter every sum as
+  exact zeros, last, so they stay bit for bit what they were (pinned by a
+  verbatim copy of the removed code).
+- The control volume's pool surface passes its full composition by
+  default. `ControlVolume::without_ncg_transport_properties` restores the
+  N2 stand-in, bit for bit.
+
+**Predictions (written before the code was changed).**
+- **N1.** All-N2 atmospheres are bit-identical, and so is the 3-gas
+  `Atmosphere` (steam/N2/H2) and `structure_surface` on it. So `sembawang`'s
+  wall condensation, which passes only N2 and H2 through `WallGas`, does
+  not move.
+- **N2, sign and size on an H2-rich case.** Pool surface `exchange` at
+  350 K pool, 330 K gas, 2 bar, steam at saturation of 330 K × 0.5, the
+  non-condensables half N2, half H2 by mole, against the N2 stand-in.
+  - The diffusivity rises: Blanc with `D_H2O-H2 ≈ 3.6 D_H2O-N2` gives
+    ×1.56.
+  - The density falls: molar mass 27 → 15 g/mol, ×0.56.
+  - The mixture viscosity falls slightly (×0.9), conductivity roughly
+    doubles, and `c_p` per kg rises ×1.8.
+  - In the turbulent natural-convection limit the mass-transfer
+    coefficient goes as `D^(2/3) (ρ/μ)^(1/3)`, so ×1.15.
+  - Prediction: **evaporation rises by +10 to +30 %**, and the gas-side
+    heat flow rises too.
+- **N3, air-like (N2 79 %, O2 21 % of the non-condensables).** Within ±2 %
+  of the N2 stand-in: O2 is close to N2 (D −3 %, ρ +2 %, μ +3 % in the
+  mix).
+- **N4, the closure transient (`tests/control_volume.rs` prediction 1:
+  steam, N2 and H2 in, H2 about 0.6 kg).** Closures stay < 1e-12. The pool
+  heating (6.31 K) and pressure rise (8.64 %) move by less than 1 % of
+  themselves (H2 is a few per cent of the gas by mole there).
+- **N5, downstream.** `sembawang`'s containment network passes H2 and the
+  other gases through the control volume's pool surface, so its numbers
+  move. Not run here (the re-bless holds sembawang); listed in the
+  hand-off.
+
+**Results (2026-11-02, release, Rust 1.99.1).** Tests:
+`tests/ncg_transport_properties.rs`, the closure test's N4 extension in
+`tests/control_volume.rs`, and the default pin in
+`correct_physics_is_the_default`.
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| N1, three-gas `Atmosphere` and `structure_surface` | 40 608 values bit-identical to the removed code (verbatim copy, bd4932732) | held |
+| N1, pool `exchange` with N2 only (both entry points) | 2 400 values bit-identical | held |
+| new gases' viscosity at 300 K (±3 %) | O2 −0.64 %, CO −0.66 %, CO2 +1.23 %, Ar +0.52 % | held |
+| new gases' conductivity (±5 %; O2 near −5 %, Ar within 1 %) | O2 −4.59 %, CO −0.17 %, CO2 −1.04 %, Ar +0.62 % | held |
+| steam diffusivity ratio to N2's (O2 0.97–1.00, CO2 0.60–0.75) | O2 0.986, CO 0.976, CO2 0.692, Ar 0.958 | held |
+| **N2, half H2: evaporation +10 to +30 %** | **+7.79 %** (3.869e-3 → 4.170e-3 kg/s); gas-side heat flow +21.2 %; `T_s` −0.59 K | **missed** (below) |
+| N3, air-like within ±2 % | −0.05 % | held |
+| N4, closure transient (H2 7.9 % of the gas) within 1 % | pool heating 6.305419 → 6.305368 K (−8.1e-6 of itself); pressure rise 8.64313 → 8.65376 % (+1.2e-3); closures unchanged | held |
+| N5, `sembawang` | not run (the re-bless holds sembawang) | open |
+
+**Why N2 missed.** The estimate scaled only the mass-transfer
+coefficient, about `D^(2/3) (ρ/μ)^(1/3)`, ×1.15. The surface's own energy
+balance answers back:
+- the extra evaporation cools the surface by 0.59 K, which lowers
+  `p_sat(T_s)` in the driving force;
+- the H2-rich gas, with roughly twice the conductivity, draws 21 % more
+  heat from the surface.
+
+About half of the coefficient's rise is absorbed that way. The test
+asserts the measured +5 to +10 %, set after the run and labelled so.
+
+**Moved in `tampines` and not predicted by name (recorded).**
+`tests/control_volume_layers.rs` L1's default-mechanism goldens (captured
+before gh:#1100) inject H2, so they moved: the pressure at 50 s went
+103 503.555 → 103 503.305 Pa. L1 keeps them on
+`without_ncg_transport_properties`, the behaviour they were captured on,
+and checks the layer identity it exists for (one layer = single region,
+bit for bit) at the new default. L2 now runs at the new default: one layer
+304.6568 K, eight 304.6650 K, spread 4.762 K, unchanged at the digits
+recorded.
+
+**What moves downstream, by default (N5).**
+- **Everything in `sembawang` that steps a control volume whose atmosphere
+  holds a gas other than N2:** the containment network (H2 from the core,
+  O2/N2 in the reactor building), so `containment_network_vs_containment`
+  (cases B to E fingerprints), the headless 30 h fixture, the network
+  baseline pin and the BSAF-figure comparisons.
+- **Not moved:** `sembawang`'s own wall condensation, which goes through
+  `WallGas` (steam, N2, H2), whose three-gas path is bit-identical (N1).
+  Giving it O2, CO, CO2 and Ar needs `sembawang` to pass a
+  `GasMixtureAtmosphere` to `structure_surface_mixture`, a `sembawang`
+  change left for after the re-bless.
+- **The wet well** (steam and N2) does not move.
+
+**What to quote:** the H2-rich pool-surface change (+7.8 % evaporation at
+the state above), and the new gases' handbook agreement.

@@ -151,6 +151,33 @@ fn closure_over_a_transient_with_injection_gas_drain_and_vent() {
     println!("pool +{dt} K, pressure {:+.2} %, RH {}", 100.0 * dp, cv.relative_humidity());
     assert!((4.0..8.0).contains(&dt), "pool heated {dt} K");
     assert!((0.05..0.15).contains(&dp), "pressure rose {dp}");
+    // gh:#1114 N4: the same transient on the N2 stand-in (the ablation), for
+    // the movement.
+    let mut old = ControlVolume::new(
+        VolumeAltitudeTable::new(&[(m(0.0), m3(0.0)), (m(2.0), m3(20.0)), (m(6.0), m3(100.0))]).unwrap(),
+        vec![port(0.3, 0.1), port(0.5, 0.05), port(0.0, 0.1), port(5.8, 0.1)],
+        kg(pool),
+        kelv(300.0),
+        n2_atmosphere(85.0, 1.0e5, 300.0, 0.5),
+        kelv(300.0),
+    )
+    .unwrap()
+    .without_ncg_transport_properties();
+    for _ in 0..300 {
+        old.step(sec(1.0), &inputs).unwrap();
+    }
+    let dt_old = old.pool_temperature().get::<kelvin>() - t_pool0;
+    let dp_old = old.atmosphere_pressure().get::<pascal>() / p0 - 1.0;
+    println!(
+        "N4: pool +{dt_old:.6} -> +{dt:.6} K ({:+.3e} of itself), pressure {:+.5} -> {:+.5} % ({:+.3e} of itself), H2 mole fraction of the gas {:.4}",
+        dt / dt_old - 1.0,
+        100.0 * dp_old,
+        100.0 * dp,
+        dp / dp_old - 1.0,
+        cv.atmosphere().ncg_moles[NonCondensable::H2.index()] / (cv.atmosphere().ncg_total_moles() + cv.atmosphere().steam_kg / M_H2O)
+    );
+    // Prediction N4: each moves by less than 1 % of itself.
+    assert!((dt / dt_old - 1.0).abs() < 0.01 && (dp / dp_old - 1.0).abs() < 0.01);
 }
 
 const AREA: f64 = 750.0;
@@ -422,6 +449,9 @@ fn correct_physics_is_the_default() {
     assert_eq!(cv.mechanisms(), ControlVolumeMechanisms::default());
     let mech = cv.mechanisms();
     assert!(mech.bubble_pass_through && mech.pressure_work && mech.level_swell && mech.equilibrium_rain_out);
+    // gh:#1114: each non-condensable on its own transport properties.
+    assert!(mech.ncg_transport_properties);
+    assert!(!cv.clone().without_ncg_transport_properties().mechanisms().ncg_transport_properties);
     assert_eq!(mech.liquid, LiquidModel::Iapws97);
     assert_eq!(mech.surface, SurfaceModel::Melcor);
     assert_eq!(cv.gas_model(), GasMixtureModel::new());

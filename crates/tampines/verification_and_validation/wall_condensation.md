@@ -220,3 +220,17 @@ pinned uncalibrated baseline, and the BSAF figures:
 - The enthalpy convention must match the atmosphere's own bookkeeping.
 - The H2/N2 non-condensable set is MELCOR's subset as `sembawang` has it.
   O2, CO, CO2 and Ar of `GasMixture` have no transport properties here yet.
+
+## All six non-condensables (gh:#1114, 2026-11-02)
+
+`GasMixtureAtmosphere` and `structure_surface_mixture` give O2, CO, CO2 and
+Ar their own transport properties. They use Chapman–Enskog viscosity
+(Svehla's Lennard-Jones parameters, Neufeld's `Ω_μ`), Eucken conductivity
+with NASA-7 `c_v`, and MELCOR's Eq 6-1 scaled by Chapman–Enskog's ratio
+for the steam diffusivity. Steam, N2 and H2 keep this kernel's MELCOR
+properties. `Atmosphere` and `structure_surface` (steam, N2, H2) delegate
+to them, and are bit-identical to the code before (40 608 values,
+`tests/ncg_transport_properties.rs`).
+
+Methodology, predictions and results are in `control_volume.md`,
+"Non-condensables with their own transport properties (gh:#1114)".

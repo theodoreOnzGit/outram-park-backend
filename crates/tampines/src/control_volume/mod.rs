@@ -39,9 +39,9 @@
 //! | the atmosphere's pressure, energy, relative humidity | `tampines_steam_tables::gas_mixture` (gh:#1093) |
 //! | the port's draw by the level | `tampines_steam_tables::hem::VolumePort::AtHeight` (gh:#1073): liquid below the level with `ρ g (L − z)`, vapour above |
 //!
-//! ## Several non-condensables at the pool surface (a limit, stated)
+//! ## Several non-condensables at the pool surface
 //!
-//! MELCOR's surface correlations are ported for steam and **one**
+//! ~~MELCOR's surface correlations are ported for steam and **one**
 //! non-condensable with N2's properties. The control volume passes the
 //! **total** non-condensable moles as that gas: so every non-condensable's
 //! mole fraction enters the steam's partial pressure and the diffusion
@@ -50,7 +50,14 @@
 //! the density (natural-convection buoyancy) and `c_p` are N2's. For an
 //! H2-rich atmosphere this misstates the density (and so the convection) and
 //! the diffusivity (H2–steam is several times steam–N2); `sembawang`'s
-//! original carries H2's own properties, which a follow-up could port.
+//! original carries H2's own properties, which a follow-up could port.~~
+//! **CORRECTED 2026-11-02 (gh:#1114):** the pool surface takes the full
+//! composition as a [`crate::components::wall_condensation::GasMixtureAtmosphere`]:
+//! each non-condensable with its own viscosity, conductivity, molar mass,
+//! `c_p` and steam diffusivity (steam, N2 and H2 MELCOR's; O2, CO, CO2 and
+//! Ar by Chapman–Enskog and Eucken), mixed by MELCOR's rules.
+//! [`ControlVolume::without_ncg_transport_properties`] restores the N2
+//! stand-in, bit for bit.
 //!
 //! ## State, energy and conservation
 //!
@@ -86,6 +93,7 @@
 //! | a layered pool's stable layers conduct | [`ControlVolume::without_pool_layer_conduction`] |
 //! | a layered pool's surface sees its surface mixed block | [`ControlVolume::without_surface_mixed_block`] (the top layer alone) |
 //! | the flash ends at `T_sat` of the pressure after it (gh:#1107) | [`ControlVolume::without_implicit_flash`] (at `T_sat` of the pressure before it: a one-step burst) |
+//! | each non-condensable on its own transport properties at the pool surface (gh:#1114) | [`ControlVolume::without_ncg_transport_properties`] (every non-condensable as N2) |
 //!
 //! ## The layered pool and dry-out (gh:#1100)
 //!
@@ -207,7 +215,8 @@ use uom::si::volume::cubic_meter;
 
 use crate::components::wet_well::{ImmersedHeatExchanger, SurfaceModel};
 use crate::TampinesError;
-use pool_surface::{bubble_efficiency, exchange, k_water, p_sat_pa, rho_liquid, steam_h, t_sat, Atmosphere, PoolState, SurfaceGeometry, G, M_H2O, R_GAS};
+use pool_surface::{bubble_efficiency, exchange, exchange_mixture, k_water, p_sat_pa, rho_liquid, steam_h, t_sat, Atmosphere, PoolState, SurfaceGeometry, G, M_H2O, R_GAS};
+use crate::components::wall_condensation::GasMixtureAtmosphere;
 
 /// `sembawang`'s constant-`c_p` liquid, J/(kg K) (`containment::CP_WATER`).
 const CP_WATER: f64 = 4186.0;
@@ -571,6 +580,10 @@ pub struct ControlVolumeMechanisms {
     /// §4.3, Eq 5-30), rather than explicitly at the pressure before it.
     /// See [`ControlVolume::without_implicit_flash`].
     pub implicit_flash: bool,
+    /// Each non-condensable on its own transport properties at the pool
+    /// surface (gh:#1114), rather than all of them as N2. See
+    /// [`ControlVolume::without_ncg_transport_properties`].
+    pub ncg_transport_properties: bool,
 }
 
 impl Default for ControlVolumeMechanisms {
@@ -585,6 +598,7 @@ impl Default for ControlVolumeMechanisms {
             pool_layer_conduction: true,
             surface_mixed_block: true,
             implicit_flash: true,
+            ncg_transport_properties: true,
         }
     }
 }
@@ -876,6 +890,15 @@ impl ControlVolume {
     /// end-of-step consistency (CVH/FL RM §4.2.1, §4.3, Eq 5-30).
     pub fn without_implicit_flash(mut self) -> Self {
         self.mech.implicit_flash = false;
+        self
+    }
+
+    /// Ablation (gh:#1114): the pool surface treats every non-condensable as
+    /// N2 (their total moles as N2: N2's viscosity, conductivity, molar mass,
+    /// `c_p` and steam diffusivity), as before 2026-11-02, bit for bit. The
+    /// mole fractions in the driving force are unchanged either way.
+    pub fn without_ncg_transport_properties(mut self) -> Self {
+        self.mech.ncg_transport_properties = false;
         self
     }
 
@@ -2038,12 +2061,14 @@ impl ControlVolume {
                 let (m_s, e_s, t_l, depth) = self.surface_liquid();
                 let area = self.table.area_at(Length::new::<meter>(d.level)).get::<uom::si::area::square_meter>();
                 let cp = self.cv_liquid(t_l);
-                let ex = exchange(
-                    &PoolState { t_k: t_l, kg: m_s, rho: d.rho, cp },
-                    &Atmosphere { t_k: d.t_gas, p_pa: d.p_gas, n_steam: self.gas.steam_kg / M_H2O, n_n2: self.gas.ncg_total_moles() },
-                    &SurfaceGeometry { area_m2: area, pool_depth_m: depth, gas_depth_m: d.v_gas / area },
-                    dt,
-                );
+                let pool = PoolState { t_k: t_l, kg: m_s, rho: d.rho, cp };
+                let geometry = SurfaceGeometry { area_m2: area, pool_depth_m: depth, gas_depth_m: d.v_gas / area };
+                let ex = if self.mech.ncg_transport_properties {
+                    let gas = GasMixtureAtmosphere { t_k: d.t_gas, p_pa: d.p_gas, n_steam: self.gas.steam_kg / M_H2O, n_ncg: self.gas.ncg_moles };
+                    exchange_mixture(&pool, &gas, &geometry, dt)
+                } else {
+                    exchange(&pool, &Atmosphere { t_k: d.t_gas, p_pa: d.p_gas, n_steam: self.gas.steam_kg / M_H2O, n_n2: self.gas.ncg_total_moles() }, &geometry, dt)
+                };
                 let m = ex.evaporation_kg_s * dt;
                 // The vapour leaves the pool at the liquid's enthalpy and joins
                 // the atmosphere at the steam's; MELCOR's balance set `m` with

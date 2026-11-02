@@ -5937,6 +5937,17 @@ hydrogen; its tables, mixing rules and diffusivity copy are gone. The
 result is bit-identical, pinned by
 `tests/wet_well.rs::atmosphere_fold_is_bit_for_bit`.
 
+**All six non-condensables (gh:#1114, 2026-11-02).**
+[`GasMixtureAtmosphere`] and [`structure_surface_mixture`] carry O2, CO,
+CO2 and Ar on their own transport properties:
+- Chapman–Enskog viscosity with Svehla's Lennard-Jones parameters;
+- Eucken conductivity with NASA-7 `c_v`;
+- MELCOR's Eq 6-1 scaled by Chapman–Enskog's diffusivity ratio.
+
+[`Atmosphere`] and [`structure_surface`] are those with O2, CO, CO2 and
+Ar absent, bit for bit (`tests/ncg_transport_properties.rs`). [`WallGas`]
+still carries steam, N2 and H2 only.
+
 # The model (from the moved doc comment)
 
 Natural convection on an external rectangular surface of height `l_c`:
@@ -6022,6 +6033,11 @@ pub struct Atmosphere {
 ###### Methods
 
 - ```rust
+  pub fn mixture(self: &Self) -> GasMixtureAtmosphere { /* ... */ }
+  ```
+  The same gas as a [`GasMixtureAtmosphere`], the other four
+
+- ```rust
   pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
   ```
   Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
@@ -6035,6 +6051,171 @@ pub struct Atmosphere {
   pub fn steam_diffusivity(self: &Self) -> Option<f64> { /* ... */ }
   ```
   Diffusivity of water vapour in the non-condensables, m^2/s: MELCOR's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GasMixtureAtmosphere`
+
+Steam and all six non-condensables ([`NonCondensable::ALL`] order in
+`n_ncg`), for the surface correlations (gh:#1114): each gas with its own
+viscosity, conductivity, molar mass, `c_p` and steam diffusivity, mixed
+by Wilke (Eq 5-2), Wassijewa with Mason–Saxena (Eq 4-2), the molar
+`c_p` sum and Blanc's law. Steam, N2 and H2 are [`Atmosphere`]'s; O2, CO,
+CO2 and Ar are Chapman–Enskog's viscosity, Eucken's conductivity and
+Eq 6-1 scaled by Chapman–Enskog's diffusivity ratio (see `Gas`). The
+species run in the order steam, N2, H2, O2, CO, CO2, Ar in every sum,
+so an absent gas adds an exact zero after the others.
+
+```rust
+pub struct GasMixtureAtmosphere {
+    pub t_k: f64,
+    pub p_pa: f64,
+    pub n_steam: f64,
+    pub n_ncg: [f64; 6],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` | Temperature, K. |
+| `p_pa` | `f64` | Total pressure, Pa. |
+| `n_steam` | `f64` | Moles of steam. |
+| `n_ncg` | `[f64; 6]` | Moles of each non-condensable, [`NonCondensable::ALL`] order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn ncg_total(self: &Self) -> f64 { /* ... */ }
+  ```
+  The non-condensables' moles.
+
+- ```rust
+  pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
+
+- ```rust
+  pub fn mass_properties(self: &Self) -> (f64, f64, f64) { /* ... */ }
+  ```
+  Molar mass, kg/mol, density, kg/m³, and `c_p`, J/(kg K).
+
+- ```rust
+  pub fn steam_diffusivity(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Diffusivity of water vapour in the non-condensables, m²/s, by
 
 ###### Trait Implementations
 
@@ -6941,6 +7122,17 @@ Moved verbatim from `sembawang::bwr_mark1::pool_surface::structure_surface`
 
 ```rust
 pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `structure_surface_mixture`
+
+[`structure_surface`] on an atmosphere of steam and all six
+non-condensables, each with its own properties (gh:#1114); the
+three-gas [`structure_surface`] is this with O2, CO, CO2 and Ar absent,
+bit for bit.
+
+```rust
+pub fn structure_surface_mixture(atm: &GasMixtureAtmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) { /* ... */ }
 ```
 
 #### Function `steam_conductivity`
@@ -9452,9 +9644,9 @@ gh:#1094's job here (see "For gh:#1094" below).
 | the atmosphere's pressure, energy, relative humidity | `tampines_steam_tables::gas_mixture` (gh:#1093) |
 | the port's draw by the level | `tampines_steam_tables::hem::VolumePort::AtHeight` (gh:#1073): liquid below the level with `ρ g (L − z)`, vapour above |
 
-## Several non-condensables at the pool surface (a limit, stated)
+## Several non-condensables at the pool surface
 
-MELCOR's surface correlations are ported for steam and **one**
+~~MELCOR's surface correlations are ported for steam and **one**
 non-condensable with N2's properties. The control volume passes the
 **total** non-condensable moles as that gas: so every non-condensable's
 mole fraction enters the steam's partial pressure and the diffusion
@@ -9463,7 +9655,14 @@ driving force `ln((p − p_w)/(p − p_sat(T_s)))`, but the diffusivity
 the density (natural-convection buoyancy) and `c_p` are N2's. For an
 H2-rich atmosphere this misstates the density (and so the convection) and
 the diffusivity (H2–steam is several times steam–N2); `sembawang`'s
-original carries H2's own properties, which a follow-up could port.
+original carries H2's own properties, which a follow-up could port.~~
+**CORRECTED 2026-11-02 (gh:#1114):** the pool surface takes the full
+composition as a [`crate::components::wall_condensation::GasMixtureAtmosphere`]:
+each non-condensable with its own viscosity, conductivity, molar mass,
+`c_p` and steam diffusivity (steam, N2 and H2 MELCOR's; O2, CO, CO2 and
+Ar by Chapman–Enskog and Eucken), mixed by MELCOR's rules.
+[`ControlVolume::without_ncg_transport_properties`] restores the N2
+stand-in, bit for bit.
 
 ## State, energy and conservation
 
@@ -9499,6 +9698,7 @@ atmosphere. Under the constant-`c_p` ablation `h = u = c_p (T −
 | a layered pool's stable layers conduct | [`ControlVolume::without_pool_layer_conduction`] |
 | a layered pool's surface sees its surface mixed block | [`ControlVolume::without_surface_mixed_block`] (the top layer alone) |
 | the flash ends at `T_sat` of the pressure after it (gh:#1107) | [`ControlVolume::without_implicit_flash`] (at `T_sat` of the pressure before it: a one-step burst) |
+| each non-condensable on its own transport properties at the pool surface (gh:#1114) | [`ControlVolume::without_ncg_transport_properties`] (every non-condensable as N2) |
 
 ## The layered pool and dry-out (gh:#1100)
 
@@ -9896,10 +10096,15 @@ wet well's re-exports). Each function names its counterpart in
 `sembawang::bwr_mark1` (MELCOR 2.2 CVH/FL reference manual, cited by
 section and equation, not quoted; no MELCOR source used).
 
-The gas is steam plus **one** non-condensable with nitrogen's properties
+~~The gas is steam plus **one** non-condensable with nitrogen's properties
 ([`Atmosphere::n_n2`]); the control volume passes the total
 non-condensable moles there (see its module documentation for the limit
-this sets).
+this sets).~~ **CORRECTED 2026-11-02 (gh:#1114):** [`exchange`] still
+takes steam and N2 ([`Atmosphere`], the wet well's). [`exchange_mixture`]
+takes steam and all six non-condensables, each on its own transport
+properties, and the control volume calls it with its full composition
+by default. [`exchange`] is [`exchange_mixture`] with only N2, bit for
+bit.
 
 ```rust
 pub mod pool_surface { /* ... */ }
@@ -10526,6 +10731,17 @@ saturation temperature of the total pressure (Eq 5-6).
 
 ```rust
 pub fn exchange(pool: &PoolState, atm: &Atmosphere, surface: &SurfaceGeometry, dt: f64) -> SurfaceExchange { /* ... */ }
+```
+
+#### Function `exchange_mixture`
+
+[`exchange`] with every non-condensable on its own transport properties
+(gh:#1114): the gas as a [`GasMixtureAtmosphere`]. [`exchange`] is this
+with only N2, bit for bit (the absent gases add exact zeros last in every
+sum); the control volume passes its full composition by default.
+
+```rust
+pub fn exchange_mixture(pool: &PoolState, atm: &crate::components::wall_condensation::GasMixtureAtmosphere, surface: &SurfaceGeometry, dt: f64) -> SurfaceExchange { /* ... */ }
 ```
 
 #### Function `bubble_efficiency`
@@ -12340,6 +12556,7 @@ pub struct ControlVolumeMechanisms {
     pub pool_layer_conduction: bool,
     pub surface_mixed_block: bool,
     pub implicit_flash: bool,
+    pub ncg_transport_properties: bool,
 }
 ```
 
@@ -12356,6 +12573,7 @@ pub struct ControlVolumeMechanisms {
 | `pool_layer_conduction` | `bool` | A layered pool's stable layers exchange heat by molecular conduction<br>(gh:#1100; no effect on a one-layer pool). |
 | `surface_mixed_block` | `bool` | A layered pool's surface (exchange, flashing) acts on the surface<br>mixed block, the layers from the top down that are not stably<br>stratified against the surface water, rather than on the top layer<br>alone (gh:#1100; no effect on a one-layer pool). See<br>[`ControlVolume::without_surface_mixed_block`]. |
 | `implicit_flash` | `bool` | A pool above saturation flashes to the state consistent with the<br>pressure its own vapour raises (gh:#1107; MELCOR CVH/FL RM §4.2.1,<br>§4.3, Eq 5-30), rather than explicitly at the pressure before it.<br>See [`ControlVolume::without_implicit_flash`]. |
+| `ncg_transport_properties` | `bool` | Each non-condensable on its own transport properties at the pool<br>surface (gh:#1114), rather than all of them as N2. See<br>[`ControlVolume::without_ncg_transport_properties`]. |
 
 ##### Implementations
 
@@ -12569,6 +12787,11 @@ pub struct ControlVolume {
   pub fn without_implicit_flash(self: Self) -> Self { /* ... */ }
   ```
   Ablation: the flash explicit, as before gh:#1107: a pool (or a
+
+- ```rust
+  pub fn without_ncg_transport_properties(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation (gh:#1114): the pool surface treats every non-condensable as
 
 - ```rust
   pub fn set_pool_layer_temperatures(self: &mut Self, t: &[ThermodynamicTemperature]) -> Result<(), TampinesError> { /* ... */ }

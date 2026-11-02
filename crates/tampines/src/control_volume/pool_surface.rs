@@ -18,13 +18,19 @@
 //! `sembawang::bwr_mark1` (MELCOR 2.2 CVH/FL reference manual, cited by
 //! section and equation, not quoted; no MELCOR source used).
 //!
-//! The gas is steam plus **one** non-condensable with nitrogen's properties
+//! ~~The gas is steam plus **one** non-condensable with nitrogen's properties
 //! ([`Atmosphere::n_n2`]); the control volume passes the total
 //! non-condensable moles there (see its module documentation for the limit
-//! this sets).
+//! this sets).~~ **CORRECTED 2026-11-02 (gh:#1114):** [`exchange`] still
+//! takes steam and N2 ([`Atmosphere`], the wet well's). [`exchange_mixture`]
+//! takes steam and all six non-condensables, each on its own transport
+//! properties, and the control volume calls it with its full composition
+//! by default. [`exchange`] is [`exchange_mixture`] with only N2, bit for
+//! bit.
 
 use petir::mathf::RealMath;
-use crate::components::wall_condensation::Atmosphere as WallAtmosphere;
+use crate::components::wall_condensation::{Atmosphere as WallAtmosphere, GasMixtureAtmosphere};
+use tampines_steam_tables::gas_mixture::NonCondensable;
 use tampines_steam_tables::prelude::{alpha_v_tp_eqm_single_phase, sat_pressure_4};
 use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::v_tp_1;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
@@ -243,6 +249,14 @@ fn water_beta(t: f64, p: f64) -> f64 {
 /// saturation (Eq 5-5), solved by bisection. Without N2 the surface is at the
 /// saturation temperature of the total pressure (Eq 5-6).
 pub fn exchange(pool: &PoolState, atm: &Atmosphere, surface: &SurfaceGeometry, dt: f64) -> SurfaceExchange {
+    exchange_mixture(pool, &atm.as_wall_atmosphere().mixture(), surface, dt)
+}
+
+/// [`exchange`] with every non-condensable on its own transport properties
+/// (gh:#1114): the gas as a [`GasMixtureAtmosphere`]. [`exchange`] is this
+/// with only N2, bit for bit (the absent gases add exact zeros last in every
+/// sum); the control volume passes its full composition by default.
+pub fn exchange_mixture(pool: &PoolState, atm: &GasMixtureAtmosphere, surface: &SurfaceGeometry, dt: f64) -> SurfaceExchange {
     let (mu_a, k_a) = atm.viscosity_and_conductivity();
     let (_, rho_a, cp_a) = atm.mass_properties();
     let (mu_p, k_p) = (table(pool.t_k, &MU_WATER), table(pool.t_k, &K_WATER));
@@ -257,7 +271,7 @@ pub fn exchange(pool: &PoolState, atm: &Atmosphere, surface: &SurfaceGeometry, d
     let h_f = pool.cp * (pool.t_k - 273.15);
     let h_g = steam_h(atm.t_k);
     let h_fg = h_g - h_f;
-    let p_w = atm.n_steam / (atm.n_steam + atm.n_n2) * atm.p_pa;
+    let p_w = atm.n_steam / (atm.n_steam + atm.ncg_total()) * atm.p_pa;
     let t_top = t_sat(atm.p_pa);
     let t_l = match atm.steam_diffusivity() {
         None => t_top,
@@ -288,7 +302,7 @@ pub fn exchange(pool: &PoolState, atm: &Atmosphere, surface: &SurfaceGeometry, d
         q_p = q_p.min(pool.kg * pool.cp * (pool.t_k - t_l) / dt);
     }
     if q_a > 0.0 {
-        let m_a = atm.n_steam * M_H2O + atm.n_n2 * M_N2;
+        let m_a = atm.n_steam * M_H2O + ncg_mass(atm);
         q_a = q_a.min(m_a * cp_a * (atm.t_k - t_l) / dt);
     }
     let mut m = (q_p + q_a) / h_fg;
@@ -300,6 +314,16 @@ pub fn exchange(pool: &PoolState, atm: &Atmosphere, surface: &SurfaceGeometry, d
         q_a *= f;
     }
     SurfaceExchange { evaporation_kg_s: m, q_pool_w: q_p, q_atm_w: q_a, t_surface_k: t_l }
+}
+
+/// The non-condensables' mass, kg, summed in [`NonCondensable::ALL`]'s
+/// order (N2 first, so an N2-only gas is `n_N2 M_N2` exactly).
+fn ncg_mass(atm: &GasMixtureAtmosphere) -> f64 {
+    let mut m = atm.n_ncg[0] * M_N2;
+    for g in &NonCondensable::ALL[1..] {
+        m += atm.n_ncg[g.index()] * g.molar_mass();
+    }
+    m
 }
 
 /// MELCOR's bubble efficiency at a vent below the pool (CVH/FL RM Eqs 6-1 to

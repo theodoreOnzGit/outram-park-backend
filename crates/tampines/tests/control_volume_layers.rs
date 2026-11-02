@@ -64,10 +64,20 @@ fn n2_atmosphere(v: f64, p: f64, t: f64, rh: f64) -> GasMixture {
 
 /// The bit-identity transient: every input path exercised.
 fn golden_volume(ablated: bool) -> (ControlVolume, ControlVolumeInputs) {
+    golden_volume_with(ablated, false)
+}
+
+/// [`golden_volume`], with gh:#1114's transport properties on or off.
+fn golden_volume_with(ablated: bool, ncg_transport: bool) -> (ControlVolume, ControlVolumeInputs) {
     let table = VolumeAltitudeTable::new(&[(m(0.0), m3(0.0)), (m(2.0), m3(20.0)), (m(6.0), m3(100.0))]).unwrap();
     let ports = vec![port(0.3, 0.1), port(0.5, 0.05), port(0.0, 0.1), port(5.8, 0.1)];
     let pool = 15.0 * rho_if97(300.0, 1.0e5);
+    // The goldens predate gh:#1114, whose default gives the injected H2 its
+    // own transport properties at the pool surface; they are reproduced on
+    // that change's ablation (the N2 stand-in), and L1 checks the layer
+    // identity at the new default separately.
     let cv = ControlVolume::new(table, ports, kg(pool), kelv(300.0), n2_atmosphere(85.0, 1.0e5, 300.0, 0.5), kelv(300.0)).unwrap();
+    let cv = if ncg_transport { cv } else { cv.without_ncg_transport_properties() };
     let cv = if ablated {
         cv.without_real_liquid()
             .unwrap()
@@ -125,6 +135,17 @@ const GOLDEN_ABLATED: [u64; 32] = [0x4072d2ca5ad0b8a7, 0x40cd37289d8193ca, 0x407
 /// change, by default and with `with_pool_layers(1)`.
 ///
 /// **Result (2026-11-01, release):** see the V&V doc.
+///
+/// **Re-pinned 2026-11-02 (gh:#1114).** At the new default the transient's
+/// injected H2 takes its own transport properties at the pool surface, so
+/// the default goldens moved. For example, the first pressure moved
+/// 0x40f944f8e2fd7f61 → 0x40f944f4dfcce2d2, 103 503.555 → 103 503.305 Pa
+/// (at 50 s).
+/// They are kept on `without_ncg_transport_properties`, the behaviour they
+/// were captured on. The layer identity this test exists for (one layer is
+/// the single-region volume, bit for bit) is checked at the new default
+/// below. The ablated arm (sensible-only surface) never reaches the
+/// transport properties.
 #[test]
 fn l1_one_layer_is_bit_identical_to_the_single_region_volume() {
     for (ablated, gold) in [(false, GOLDEN_DEFAULT), (true, GOLDEN_ABLATED)] {
@@ -138,6 +159,16 @@ fn l1_one_layer_is_bit_identical_to_the_single_region_volume() {
             assert_eq!(b, gold.to_vec(), "ablated {ablated}, layers(1) {layered_one}");
         }
     }
+    // The layer identity at gh:#1114's default.
+    let at_default = |layered_one: bool| {
+        let (cv, inputs) = golden_volume_with(false, true);
+        assert!(cv.mechanisms().ncg_transport_properties);
+        let mut cv = if layered_one { cv.with_pool_layers(1).unwrap() } else { cv };
+        golden_bits(&mut cv, &inputs)
+    };
+    let (a, b) = (at_default(false), at_default(true));
+    println!("gh:#1114 default: first pressure {}", f64::from_bits(a[3]));
+    assert_eq!(a, b, "one layer = single region at the gh:#1114 default");
 }
 
 fn rel(a: f64, b: f64) -> f64 {
@@ -194,7 +225,9 @@ fn spread(cv: &ControlVolume) -> f64 {
 /// injection within 0.05 K, the bottom one colder.
 #[test]
 fn l2_eight_layers_conserve_and_stay_mixed_when_heated_from_below() {
-    let (cv1, inputs) = golden_volume(false);
+    // At every default, gh:#1114's transport properties included (L1's
+    // goldens run on its ablation).
+    let (cv1, inputs) = golden_volume_with(false, true);
     let mut cv1 = cv1;
     let mut cv8 = cv1.clone().with_pool_layers(8).unwrap();
     assert_eq!(cv8.pool_layer_count(), 8);

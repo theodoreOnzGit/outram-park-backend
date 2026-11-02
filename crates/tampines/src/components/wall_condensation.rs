@@ -42,6 +42,17 @@
 //! result is bit-identical, pinned by
 //! `tests/wet_well.rs::atmosphere_fold_is_bit_for_bit`.
 //!
+//! **All six non-condensables (gh:#1114, 2026-11-02).**
+//! [`GasMixtureAtmosphere`] and [`structure_surface_mixture`] carry O2, CO,
+//! CO2 and Ar on their own transport properties:
+//! - Chapman–Enskog viscosity with Svehla's Lennard-Jones parameters;
+//! - Eucken conductivity with NASA-7 `c_v`;
+//! - MELCOR's Eq 6-1 scaled by Chapman–Enskog's diffusivity ratio.
+//!
+//! [`Atmosphere`] and [`structure_surface`] are those with O2, CO, CO2 and
+//! Ar absent, bit for bit (`tests/ncg_transport_properties.rs`). [`WallGas`]
+//! still carries steam, N2 and H2 only.
+//!
 //! # The model (from the moved doc comment)
 //!
 //! Natural convection on an external rectangular surface of height `l_c`:
@@ -90,6 +101,7 @@
 
 use petir::mathf::RealMath;
 use tampines_steam_tables::gas_mixture::melcor_ncg::{cv_h2, cv_n2, M_H2, M_H2O, M_N2, R_GAS};
+use tampines_steam_tables::gas_mixture::{nasa7, NonCondensable};
 use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::h_tp_1;
 use tampines_steam_tables::region_2_vapour::intensive_properties::h_tp_2;
 use uom::si::amount_of_substance::mole;
@@ -152,13 +164,22 @@ const MU_H2: [(f64, f64); 8] = [
     (900.0, 1.8756e-5),
 ];
 
-/// The three gases of a containment atmosphere.
+/// The gases of a containment atmosphere: steam and the six
+/// non-condensables of [`NonCondensable::ALL`], in that order (O2, CO, CO2
+/// and Ar since gh:#1114).
 #[derive(Clone, Copy, Debug)]
 enum Gas {
     Steam,
     N2,
     H2,
+    O2,
+    Co,
+    Co2,
+    Ar,
 }
+
+/// Steam, then [`NonCondensable::ALL`]'s order.
+const MIX_GASES: [Gas; 7] = [Gas::Steam, Gas::N2, Gas::H2, Gas::O2, Gas::Co, Gas::Co2, Gas::Ar];
 
 impl Gas {
     fn molar_mass(self) -> f64 {
@@ -166,28 +187,161 @@ impl Gas {
             Gas::Steam => M_H2O,
             Gas::N2 => M_N2,
             Gas::H2 => M_H2,
+            Gas::O2 | Gas::Co | Gas::Co2 | Gas::Ar => self.ncg().map_or(f64::NAN, |g| g.molar_mass()),
+        }
+    }
+    fn ncg(self) -> Option<NonCondensable> {
+        match self {
+            Gas::Steam => None,
+            Gas::N2 => Some(NonCondensable::N2),
+            Gas::H2 => Some(NonCondensable::H2),
+            Gas::O2 => Some(NonCondensable::O2),
+            Gas::Co => Some(NonCondensable::CO),
+            Gas::Co2 => Some(NonCondensable::CO2),
+            Gas::Ar => Some(NonCondensable::Ar),
+        }
+    }
+    /// Lennard-Jones `σ`, Å, `ε/k`, K, and molar mass, g/mol: Svehla (NASA
+    /// TR R-132, 1962), the table MELCOR's NCG/H2O RM §5.2 takes steam's,
+    /// N2's and H2's from (as `sembawang::bwr_mark1::vapour::BulkGas::lj`),
+    /// reprinted in Poling, Prausnitz & O'Connell, *The Properties of Gases
+    /// and Liquids*, Appendix B.
+    fn lj(self) -> (f64, f64, f64) {
+        let m = self.molar_mass() * 1000.0;
+        match self {
+            Gas::Steam => (2.641, 809.1, m),
+            Gas::N2 => (3.798, 71.4, m),
+            Gas::H2 => (2.827, 59.7, m),
+            Gas::O2 => (3.467, 106.7, m),
+            Gas::Co => (3.690, 91.7, m),
+            Gas::Co2 => (3.941, 195.2, m),
+            Gas::Ar => (3.542, 93.3, m),
         }
     }
     /// Viscosity, Pa s: steam's and hydrogen's tables, nitrogen's power
     /// law `3.9539785e-7 T^0.67288` (§5.4, Table 5.2).
+    /// O2, CO, CO2 and Ar (gh:#1114): Chapman–Enskog, [`chapman_enskog_viscosity`].
     fn viscosity(self, t: f64) -> f64 {
         match self {
             Gas::Steam => interpolate_held(t, &MU_STEAM),
             Gas::N2 => 3.953_978_5e-7 * t.r_powf(0.672_88),
             Gas::H2 => interpolate_held(t, &MU_H2),
+            Gas::O2 | Gas::Co | Gas::Co2 | Gas::Ar => chapman_enskog_viscosity(self.lj(), t),
         }
     }
     /// Conductivity, W/(m K): steam's table, nitrogen's power law
     /// `3.704689e-4 T^0.74842` (§4.4, Table 4.1), hydrogen by Eucken's
     /// correlation `(c_v + 9 R / (4 M)) mu` (Eq 4-1; MELCOR has no default
     /// table for it).
+    /// O2, CO, CO2 and Ar (gh:#1114): Eucken's correlation as for H2,
+    /// with `c_v(T)` from the NASA-7 fits
+    /// ([`tampines_steam_tables::gas_mixture::nasa7::cv_molar`]).
     fn conductivity(self, t: f64) -> f64 {
         match self {
             Gas::Steam => interpolate_held(t, &K_STEAM),
             Gas::N2 => 3.704_689e-4 * t.r_powf(0.748_42),
             Gas::H2 => (cv_h2(t, true) / M_H2 + 9.0 * R_GAS / (4.0 * M_H2)) * interpolate_held(t, &MU_H2),
+            Gas::O2 | Gas::Co | Gas::Co2 | Gas::Ar => {
+                let (g, m) = (self.ncg().map_or(NonCondensable::N2, |g| g), self.molar_mass());
+                (nasa7::cv_molar(g, t) / m + 9.0 * R_GAS / (4.0 * m)) * self.viscosity(t)
+            }
         }
     }
+    /// Molar `c_v`, J/(mol K): steam the containment's constant, N2 and H2
+    /// MELCOR's fits, the rest NASA-7.
+    fn cv_molar(self, t: f64) -> f64 {
+        match self {
+            Gas::Steam => CV_STEAM_MOLAR,
+            Gas::N2 => cv_n2(t, true),
+            Gas::H2 => cv_h2(t, true),
+            Gas::O2 | Gas::Co | Gas::Co2 | Gas::Ar => nasa7::cv_molar(self.ncg().map_or(NonCondensable::N2, |g| g), t),
+        }
+    }
+    /// Diffusivity of water vapour in this gas, m²/s, at `t`, `p`: N2
+    /// MELCOR's steam-air correlation (Eq 6-1), H2 its steam-H2 one (Eq
+    /// 6-2); the others (gh:#1114) Eq 6-1 scaled by Chapman–Enskog's ratio
+    /// `D(H2O, g) / D(H2O, N2)` (RN §2.5.2, Eq 2-105). Chapman–Enskog with
+    /// Svehla's steam parameters falls 10 % below Eq 6-1 for N2 at 300 K
+    /// (2.20e-5 against 2.44e-5 m²/s at 1 bar), so its absolute level would
+    /// give every other gas a 10 % offset from the method alone; the ratio
+    /// keeps MELCOR's level and takes the species dependence from kinetic
+    /// theory (stated choice, not fitted to any comparison).
+    fn steam_diffusivity(self, t: f64, p: f64) -> f64 {
+        let d_n2 = 4.7931e-5 * t.r_powf(1.9) / p;
+        match self {
+            Gas::Steam => f64::NAN,
+            Gas::N2 => d_n2,
+            Gas::H2 => 6.606_39e-4 * t.r_powf(1.68) / p,
+            Gas::O2 | Gas::Co | Gas::Co2 | Gas::Ar => {
+                let s = Gas::Steam.lj();
+                d_n2 * binary_diffusivity(s, self.lj(), t, p) / binary_diffusivity(s, Gas::N2.lj(), t, p)
+            }
+        }
+    }
+}
+
+/// Neufeld, Janzen & Aziz's (1972) fit to the viscosity collision integral
+/// `Ω_μ(T*)` of the Lennard-Jones 12-6 potential (Poling, Prausnitz &
+/// O'Connell, Eq 9-4.3).
+fn omega_viscosity(t_star: f64) -> f64 {
+    1.16145 * t_star.r_powf(-0.14874) + 0.52487 * (-0.77320 * t_star).r_exp() + 2.16178 * (-2.43787 * t_star).r_exp()
+}
+
+/// Chapman–Enskog viscosity of a dilute gas, Pa s: `26.69 √(M T) / (σ² Ω_μ)`
+/// μP with `M` in g/mol and `σ` in Å (Poling, Prausnitz & O'Connell, Eq
+/// 9-3.9; Bird, Stewart & Lightfoot Eq 1.4-14), from `(σ, ε/k, M)`. At
+/// 300 K it gives O2 2.06e-5, CO 1.77e-5, CO2 1.52e-5 and Ar 2.28e-5 Pa s
+/// (handbook values 2.07, 1.78, 1.50, 2.27e-5).
+pub(crate) fn chapman_enskog_viscosity(lj: (f64, f64, f64), t: f64) -> f64 {
+    2.6693e-6 * (lj.2 * t).sqrt() / (lj.0 * lj.0 * omega_viscosity(t / lj.1))
+}
+
+/// The diffusion collision integral at reduced temperature `t_star`
+/// (MELCOR NCG/H2O RM Table 6.1, linear between its points; `2.662
+/// (T*/0.3)^-0.5` below 0.3 and `0.5170 (T*/100)^-0.155` from 100, as
+/// there). **Port of `sembawang::bwr_mark1::vapour::collision_integral`**,
+/// operation for operation (`tampines` cannot depend on `sembawang`).
+fn collision_integral(t_star: f64) -> f64 {
+    const T: [f64; 75] = [
+        0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40,
+        1.45, 1.50, 1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90, 1.95, 2.00, 2.10, 2.20, 2.30, 2.40, 2.50, 2.60, 2.70, 2.80, 2.90, 3.00, 3.10,
+        3.20, 3.30, 3.40, 3.50, 3.60, 3.70, 3.80, 3.90, 4.00, 4.10, 4.20, 4.30, 4.40, 4.50, 4.60, 4.70, 4.80, 4.90, 5.00, 6.0, 7.0, 8.0, 9.0, 10.0,
+        20.0, 30.0, 40.0, 50.0, 60.0,
+    ];
+    const O: [f64; 75] = [
+        2.662, 2.476, 2.318, 2.184, 2.066, 1.966, 1.877, 1.798, 1.729, 1.667, 1.612, 1.562, 1.517, 1.476, 1.439, 1.406, 1.375, 1.346, 1.320, 1.296,
+        1.273, 1.253, 1.233, 1.215, 1.198, 1.182, 1.167, 1.153, 1.140, 1.128, 1.116, 1.105, 1.094, 1.084, 1.075, 1.057, 1.041, 1.026, 1.012, 0.9996,
+        0.9878, 0.9770, 0.9672, 0.9576, 0.9490, 0.9406, 0.9328, 0.9256, 0.9186, 0.9120, 0.9058, 0.8998, 0.8942, 0.8888, 0.8836, 0.8788, 0.8740,
+        0.8694, 0.8652, 0.8610, 0.8568, 0.8530, 0.8492, 0.8456, 0.8422, 0.8124, 0.7896, 0.7712, 0.7556, 0.7424, 0.6640, 0.6232, 0.5960, 0.5756,
+        0.5596,
+    ];
+    const T_HI: [f64; 5] = [60.0, 70.0, 80.0, 90.0, 100.0];
+    const O_HI: [f64; 5] = [0.5596, 0.5464, 0.5352, 0.5256, 0.5170];
+    if t_star < 0.3 {
+        return 2.662 * (t_star / 0.3).r_powf(-0.5);
+    }
+    if t_star >= 100.0 {
+        return 0.5170 * (t_star / 100.0).r_powf(-0.155);
+    }
+    if t_star >= 60.0 {
+        let i = T_HI.partition_point(|&x| x <= t_star).clamp(1, 4);
+        let (t0, t1, o0, o1) = (T_HI[i - 1], T_HI[i], O_HI[i - 1], O_HI[i]);
+        return o0 + (t_star - t0) / (t1 - t0) * (o1 - o0);
+    }
+    let i = T.partition_point(|&x| x <= t_star).clamp(1, T.len() - 1);
+    let (t0, t1, o0, o1) = (T[i - 1], T[i], O[i - 1], O[i]);
+    o0 + (t_star - t0) / (t1 - t0) * (o1 - o0)
+}
+
+/// Binary diffusivity of A in B, m²/s (MELCOR RN §2.5.2, Eq 2-105, cm²/s
+/// with P in atm, converted), from `(σ Å, ε/k K, M g/mol)`. **Port of
+/// `sembawang::bwr_mark1::vapour::binary_diffusivity`**, operation for
+/// operation.
+pub(crate) fn binary_diffusivity(a: (f64, f64, f64), b: (f64, f64, f64), t_k: f64, p_pa: f64) -> f64 {
+    let sigma = 0.5 * (a.0 + b.0);
+    let omega = collision_integral(t_k / (a.1 * b.1).sqrt());
+    let p_atm = p_pa / 101_325.0;
+    0.0018583 * (t_k.r_powi(3) * (1.0 / a.2 + 1.0 / b.2)).sqrt() / (p_atm * sigma * sigma * omega) * 1.0e-4
 }
 
 /// Wilke's `phi_ij` (NCG/H2O RM Eq 5-2), also Mason and Saxena's `A_ij`
@@ -217,48 +371,135 @@ pub struct Atmosphere {
 }
 
 impl Atmosphere {
-    fn gases(&self) -> [(Gas, f64); 3] {
-        let n = self.n_steam + self.n_n2 + self.n_h2;
-        [(Gas::Steam, self.n_steam / n), (Gas::N2, self.n_n2 / n), (Gas::H2, self.n_h2 / n)]
+    /// The same gas as a [`GasMixtureAtmosphere`], the other four
+    /// non-condensables absent (gh:#1114: every property below is that
+    /// one's, bit for bit the removed three-gas code; pinned by
+    /// `tests/wall_condensation.rs::three_gas_atmosphere_is_bit_for_bit`).
+    pub fn mixture(&self) -> GasMixtureAtmosphere {
+        GasMixtureAtmosphere { t_k: self.t_k, p_pa: self.p_pa, n_steam: self.n_steam, n_ncg: [self.n_n2, self.n_h2, 0.0, 0.0, 0.0, 0.0] }
     }
     /// Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
     /// (Wassijewa with Mason and Saxena, Eq 4-2).
     pub fn viscosity_and_conductivity(&self) -> (f64, f64) {
-        let g = self.gases();
-        let mu: [f64; 3] = g.map(|(x, _)| x.viscosity(self.t_k));
-        let k: [f64; 3] = g.map(|(x, _)| x.conductivity(self.t_k));
-        let (mut mu_mix, mut k_mix) = (0.0, 0.0);
-        for i in 0..3 {
-            if g[i].1 <= 0.0 {
-                continue;
-            }
-            let d: f64 = (0..3).map(|j| g[j].1 * phi(mu[i], mu[j], g[i].0.molar_mass(), g[j].0.molar_mass())).sum();
-            mu_mix += g[i].1 * mu[i] / d;
-            k_mix += g[i].1 * k[i] / d;
-        }
-        (mu_mix, k_mix)
+        self.mixture().viscosity_and_conductivity()
     }
     /// Molar mass, kg/mol, density, kg/m^3, and `c_p`, J/(kg K) (steam
     /// `c_v` as the containment's, plus `R/M`; N2 and H2 MELCOR's `c_v(T)`).
     pub fn mass_properties(&self) -> (f64, f64, f64) {
-        let n = self.n_steam + self.n_n2 + self.n_h2;
-        let mass = self.n_steam * M_H2O + self.n_n2 * M_N2 + self.n_h2 * M_H2;
-        let molar = mass / n;
-        let cp_molar = self.n_steam * (CV_STEAM_MOLAR + R_GAS) + self.n_n2 * (cv_n2(self.t_k, true) + R_GAS) + self.n_h2 * (cv_h2(self.t_k, true) + R_GAS);
-        (molar, self.p_pa * molar / (R_GAS * self.t_k), cp_molar / mass)
+        self.mixture().mass_properties()
     }
     /// Diffusivity of water vapour in the non-condensables, m^2/s: MELCOR's
     /// steam-air (Eq 6-1, used for N2, stated) and steam-hydrogen (Eq 6-2)
     /// correlations, combined by Blanc's law over the non-condensables'
     /// mole fractions. `None` with no non-condensables.
     pub fn steam_diffusivity(&self) -> Option<f64> {
-        let n_nc = self.n_n2 + self.n_h2;
+        self.mixture().steam_diffusivity()
+    }
+}
+
+/// Steam and all six non-condensables ([`NonCondensable::ALL`] order in
+/// `n_ncg`), for the surface correlations (gh:#1114): each gas with its own
+/// viscosity, conductivity, molar mass, `c_p` and steam diffusivity, mixed
+/// by Wilke (Eq 5-2), Wassijewa with Mason–Saxena (Eq 4-2), the molar
+/// `c_p` sum and Blanc's law. Steam, N2 and H2 are [`Atmosphere`]'s; O2, CO,
+/// CO2 and Ar are Chapman–Enskog's viscosity, Eucken's conductivity and
+/// Eq 6-1 scaled by Chapman–Enskog's diffusivity ratio (see `Gas`). The
+/// species run in the order steam, N2, H2, O2, CO, CO2, Ar in every sum,
+/// so an absent gas adds an exact zero after the others.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GasMixtureAtmosphere {
+    /// Temperature, K.
+    pub t_k: f64,
+    /// Total pressure, Pa.
+    pub p_pa: f64,
+    /// Moles of steam.
+    pub n_steam: f64,
+    /// Moles of each non-condensable, [`NonCondensable::ALL`] order.
+    pub n_ncg: [f64; 6],
+}
+
+impl GasMixtureAtmosphere {
+    fn amounts(&self) -> [f64; 7] {
+        let n = &self.n_ncg;
+        [self.n_steam, n[0], n[1], n[2], n[3], n[4], n[5]]
+    }
+    fn total(&self) -> f64 {
+        let a = self.amounts();
+        let mut n = a[0];
+        for x in &a[1..] {
+            n += x;
+        }
+        n
+    }
+    /// The non-condensables' moles.
+    pub fn ncg_total(&self) -> f64 {
+        let n = &self.n_ncg;
+        let mut s = n[0];
+        for x in &n[1..] {
+            s += x;
+        }
+        s
+    }
+    /// Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
+    /// (Wassijewa with Mason and Saxena, Eq 4-2).
+    pub fn viscosity_and_conductivity(&self) -> (f64, f64) {
+        let n = self.total();
+        let a = self.amounts();
+        let x: [f64; 7] = a.map(|v| v / n);
+        let (mut mu, mut k) = ([1.0; 7], [1.0; 7]);
+        for i in 0..7 {
+            if x[i] > 0.0 || i < 3 {
+                mu[i] = MIX_GASES[i].viscosity(self.t_k);
+                k[i] = MIX_GASES[i].conductivity(self.t_k);
+            }
+        }
+        let (mut mu_mix, mut k_mix) = (0.0, 0.0);
+        for i in 0..7 {
+            if x[i] <= 0.0 {
+                continue;
+            }
+            let d: f64 = (0..7).map(|j| x[j] * phi(mu[i], mu[j], MIX_GASES[i].molar_mass(), MIX_GASES[j].molar_mass())).sum();
+            mu_mix += x[i] * mu[i] / d;
+            k_mix += x[i] * k[i] / d;
+        }
+        (mu_mix, k_mix)
+    }
+    /// Molar mass, kg/mol, density, kg/m³, and `c_p`, J/(kg K).
+    pub fn mass_properties(&self) -> (f64, f64, f64) {
+        let n = self.total();
+        let a = self.amounts();
+        let mut mass = a[0] * MIX_GASES[0].molar_mass();
+        let mut cp_molar = a[0] * (MIX_GASES[0].cv_molar(self.t_k) + R_GAS);
+        for i in 1..7 {
+            mass += a[i] * MIX_GASES[i].molar_mass();
+            cp_molar += if a[i] != 0.0 || i < 3 { a[i] * (MIX_GASES[i].cv_molar(self.t_k) + R_GAS) } else { 0.0 };
+        }
+        let molar = mass / n;
+        (molar, self.p_pa * molar / (R_GAS * self.t_k), cp_molar / mass)
+    }
+    /// Diffusivity of water vapour in the non-condensables, m²/s, by
+    /// Blanc's law over their mole fractions; `None` with none.
+    pub fn steam_diffusivity(&self) -> Option<f64> {
+        let n_nc = self.ncg_total();
         if n_nc <= 0.0 {
             return None;
         }
-        let d_n2 = 4.7931e-5 * self.t_k.r_powf(1.9) / self.p_pa;
-        let d_h2 = 6.606_39e-4 * self.t_k.r_powf(1.68) / self.p_pa;
-        Some(1.0 / (self.n_n2 / n_nc / d_n2 + self.n_h2 / n_nc / d_h2))
+        let a = self.amounts();
+        let mut inv = a[1] / n_nc / MIX_GASES[1].steam_diffusivity(self.t_k, self.p_pa);
+        for i in 2..7 {
+            inv += if a[i] != 0.0 || i < 3 { a[i] / n_nc / MIX_GASES[i].steam_diffusivity(self.t_k, self.p_pa) } else { 0.0 };
+        }
+        Some(1.0 / inv)
+    }
+    /// The non-condensables' mass per the amounts' unit, `Σ n_i M_i`
+    /// (N2 first, the removed code's order).
+    fn ncg_mass(&self) -> f64 {
+        let a = self.amounts();
+        let mut m = a[1] * MIX_GASES[1].molar_mass();
+        for i in 2..7 {
+            m += a[i] * MIX_GASES[i].molar_mass();
+        }
+        m
     }
 }
 
@@ -283,19 +524,28 @@ const CV_STEAM_MOLAR: f64 = 1500.0 * M_H2O;
 /// Moved verbatim from `sembawang::bwr_mark1::pool_surface::structure_surface`
 /// (gh:#1096). The front end with units is [`WallCondensation`].
 pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) {
+    structure_surface_mixture(&atm.mixture(), t_wall_k, l_c)
+}
+
+/// [`structure_surface`] on an atmosphere of steam and all six
+/// non-condensables, each with its own properties (gh:#1114); the
+/// three-gas [`structure_surface`] is this with O2, CO, CO2 and Ar absent,
+/// bit for bit.
+pub fn structure_surface_mixture(atm: &GasMixtureAtmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) {
     let t_f = 0.5 * (atm.t_k + t_wall_k);
-    let (mu, k) = Atmosphere { t_k: t_f, ..*atm }.viscosity_and_conductivity();
+    let (mu, k) = GasMixtureAtmosphere { t_k: t_f, ..*atm }.viscosity_and_conductivity();
     let (_, rho, cp) = atm.mass_properties();
     let pr = mu * cp / k;
-    let n = atm.n_steam + atm.n_n2 + atm.n_h2;
+    let n = atm.total();
     let p_stm = (atm.n_steam / n).min(0.9995) * atm.p_pa;
     let p_srf = p_sat_pa(t_wall_k.min(640.0));
-    let condensing = t_wall_k < 647.2 && p_srf < p_stm && atm.n_n2 + atm.n_h2 > 0.0;
+    let condensing = t_wall_k < 647.2 && p_srf < p_stm && atm.ncg_total() > 0.0;
     let gr = if condensing {
         // The gas at the surface: saturated at the wall's temperature.
         let y_s = p_srf / atm.p_pa;
-        let n_nc = atm.n_n2 + atm.n_h2;
-        let m_srf = y_s * M_H2O + (1.0 - y_s) * (atm.n_n2 * M_N2 + atm.n_h2 * M_H2) / n_nc;
+        let n_nc = atm.ncg_total();
+        // `(1 − y_s) Σ n M / n_nc`, left to right, as the removed code.
+        let m_srf = y_s * M_H2O + (1.0 - y_s) * atm.ncg_mass() / n_nc;
         let rho_srf = atm.p_pa * m_srf / (R_GAS * t_wall_k);
         G * (rho_srf - rho).abs() * l_c * l_c * l_c * rho / (mu * mu)
     } else {
