@@ -1,7 +1,8 @@
 # CLAUDE.md — bugis
 
-**BUGIS — Branding, User-interface and Graphics for Interactive Simulators.**
-The shared Gruvbox egui theme. The workspace root `CLAUDE.md` binds here in full.
+**BUGIS — Browser-based User Graphics Interaction System.**
+The workspace's home for colour theming in general (maintainer, 2026-11-02),
+starting with the shared Gruvbox egui theme. The workspace root `CLAUDE.md` binds here in full.
 
 ## Rules
 

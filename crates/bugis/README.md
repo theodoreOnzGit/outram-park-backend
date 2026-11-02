@@ -1,12 +1,14 @@
 # BUGIS
 
-**B**randing, **U**ser-interface and **G**raphics for **I**nteractive **S**imulators.
+**B**rowser-based **U**ser **G**raphics **I**nteraction **S**ystem (backronym set by the maintainer, 2026-11-02).
 
 > ⚠️ **Research, education and V&V only.** Not for nuclear facility operation,
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
-The one place the workspace's egui simulators get their look from. It answers
+The workspace's home for **colour theming in general** (maintainer,
+2026-11-02), and the one place the egui simulators get their look from. It
+answers
 **"what does an OUTRAM PARK simulator look like?"**: the **Gruvbox** palette as
 a dark and a light `egui::Visuals`, and a Dark/Light selector (maintainer,
 2026-11-02: "give all simulators a gruvbox theme").

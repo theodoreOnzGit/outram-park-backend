@@ -4,7 +4,7 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "BUGIS (Branding, User-interface and Graphics for Interactive Simulators) — the shared Gruvbox Dark/Light egui theme and theme selector for the OUTRAM PARK simulators."
+description = "BUGIS (Browser-based User Graphics Interaction System) — colour theming for the OUTRAM PARK GUIs: the shared Gruvbox Dark/Light egui theme, palette and theme selector."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -17,7 +17,7 @@ exclude = ["docs"]
 row = 0
 topic = "utility"
 maturity = 1
-backronym = "Branding, User-interface and Graphics for Interactive Simulators"
+backronym = "Browser-based User Graphics Interaction System"
 
 # egui only (pure Rust: compiles on Android and wasm32); never eframe, so a
 # non-GUI crate never pulls a windowing stack through this one.

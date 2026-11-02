@@ -1,9 +1,10 @@
-//! BUGIS — **B**randing, **U**ser-interface and **G**raphics for
-//! **I**nteractive **S**imulators.
+//! BUGIS — **B**rowser-based **U**ser **G**raphics **I**nteraction **S**ystem
+//! (backronym set by the maintainer, 2026-11-02).
 //!
 //! > Research, education and V&V only. See the workspace `RESPONSIBLE_USE.md`.
 //!
-//! The one place the workspace's egui simulators get their look from: the
+//! The workspace's home for colour theming in general (maintainer,
+//! 2026-11-02), and the one place the egui simulators get their look from: the
 //! **Gruvbox** palette, as a dark and a light [`egui::Visuals`], and a small
 //! selector widget to switch between them (maintainer, 2026-11-02: "give all
 //! simulators a gruvbox theme"; Gruvbox Dark is the default, with a
