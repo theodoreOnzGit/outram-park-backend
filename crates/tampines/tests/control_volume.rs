@@ -779,3 +779,63 @@ fn the_wet_well_is_a_special_case_at_both_defaults() {
     println!("both defaults, worst relative [T_pool, T_gas, p, m_pool, m_steam, level]: {worst:?}");
     assert!(worst.iter().all(|&x| x < 1e-9), "{worst:?}");
 }
+
+/// **gh:#1117: a port's outflow split by its liquid fraction.** A 10 m²
+/// vessel, 2 m of water at 320 K, N2 at 1.2 bar and RH 0.5 above, a port at
+/// 1.9 m. One 1 s step drawing 2 kg with `liquid_fraction` 0.25.
+///
+/// **Predictions (written before the run):**
+/// - the port's water out is 0.5 kg of liquid plus the steam share of 1.5
+///   kg of atmosphere;
+/// - its non-condensables out are the N2 share of the 1.5 kg;
+/// - water, N2 and energy close against the port's report to < 1e-12;
+/// - `Some(1.0)` on a submerged port, and `Some(0.0)` on a port above the
+///   level, give the point draw's result bit for bit;
+/// - a fraction outside [0, 1] is refused.
+///
+/// **Result (2026-11-02, release):** held (assertions below; printed
+/// line).
+#[test]
+fn a_port_outflow_splits_by_its_liquid_fraction() {
+    let build = || {
+        ControlVolume::new(
+            VolumeAltitudeTable::prismatic(Area::new::<square_meter>(10.0), m(4.0)).unwrap(),
+            vec![port(1.9, 0.4), port(3.5, 0.1)],
+            kg(20.0 * rho_if97(320.0, 1.2e5)),
+            kelv(320.0),
+            n2_atmosphere(20.0, 1.2e5, 320.0, 0.5),
+            kelv(320.0),
+        )
+        .unwrap()
+    };
+    let mut cv = build();
+    let (w0, n0, e0) = (cv.water_mass().get::<kilogram>(), cv.ncg_masses()[0].get::<kilogram>(), cv.total_energy().get::<joule>());
+    let a = cv.atmosphere();
+    let x_s = a.steam_kg / a.total_mass().get::<kilogram>();
+    let mut inputs = ControlVolumeInputs::closed(2);
+    inputs.ports[0] = PortInput { liquid_fraction: Some(0.25), ..PortInput::outflow(kgs(2.0)) };
+    let r = cv.step(sec(1.0), &inputs).unwrap();
+    let pt = &r.ports[0];
+    let (w_out, n_out, e_out) = (pt.water_out.get::<kilogram>(), pt.ncg_out[0].get::<kilogram>(), pt.energy_out.get::<joule>());
+    let dw = cv.water_mass().get::<kilogram>() - w0 + w_out;
+    let dn = cv.ncg_masses()[0].get::<kilogram>() - n0 + n_out;
+    let de = cv.total_energy().get::<joule>() - e0 + e_out;
+    println!("split: water out {w_out:.12} kg (0.5 + steam {:.12}), N2 out {n_out:.12} kg (expected {:.12}); closure water {dw:.1e} kg, N2 {dn:.1e} kg, energy {de:.1e} J", 1.5 * x_s, 1.5 * (1.0 - x_s));
+    assert!((w_out - (0.5 + 1.5 * x_s)).abs() < 1e-12 && (n_out - 1.5 * (1.0 - x_s)).abs() < 1e-12);
+    assert!(dw.abs() < 1e-12 * w0 && dn.abs() < 1e-12 * n0 && de.abs() < 1e-12 * e0.abs());
+    // The ends of the range are the point draw, bit for bit.
+    for (p, f) in [(0usize, 1.0), (1, 0.0)] {
+        let (mut x, mut y) = (build(), build());
+        let mut ix = ControlVolumeInputs::closed(2);
+        ix.ports[p] = PortInput::outflow(kgs(0.3));
+        let mut iy = ix.clone();
+        iy.ports[p].liquid_fraction = Some(f);
+        let (rx, ry) = (x.step(sec(1.0), &ix).unwrap(), y.step(sec(1.0), &iy).unwrap());
+        assert_eq!(rx.ports[p], ry.ports[p], "port {p}");
+        assert_eq!(x.total_energy().get::<joule>().to_bits(), y.total_energy().get::<joule>().to_bits());
+        assert_eq!(x.pool_mass().get::<kilogram>().to_bits(), y.pool_mass().get::<kilogram>().to_bits());
+    }
+    let mut bad = ControlVolumeInputs::closed(2);
+    bad.ports[0] = PortInput { liquid_fraction: Some(1.5), ..PortInput::outflow(kgs(0.1)) };
+    assert!(build().step(sec(1.0), &bad).is_err());
+}

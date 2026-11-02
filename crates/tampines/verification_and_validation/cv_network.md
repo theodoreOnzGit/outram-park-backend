@@ -122,8 +122,10 @@ the gases from 298.15 K instead would have moved `h_w` by 2.54e6 J/kg.
 
 ## Limits
 
-- The donor's level at the port picks the phase that leaves (a point draw).
-  The path's partial-submergence split sets only the rate.
+- ~~The donor's level at the port picks the phase that leaves (a point draw).
+  The path's partial-submergence split sets only the rate.~~ **CORRECTED
+  2026-11-02 (gh:#1117):** the donor draws both phases in the path's split;
+  the point draw is the ablation (section below).
 - The step is Picard, not Newton or JFNK, and convergence is linear.
 - A 30-hour run has not been timed; that comes with gh:#1097.
 
@@ -387,3 +389,103 @@ JFNK"). The fix that matches the mechanism is a Newton step on the path
 flows that includes each volume's real (condensing, bubbling) response.
 That is a solver change of its own, not a tweak here, and is not attempted.
 The candidates' temporary code is not kept.
+
+## A partially submerged junction moves both phases (gh:#1117, 2026-11-02)
+
+**Before.** At a path's donor end the path already split its rate by the
+submerged fraction of the opening: liquid through the part below the
+level, gas through the rest (`flow_path`, "MELCOR's partially submerged
+junction"). But the network handed the donor volume one total outflow, and
+the volume drew a single phase by its level at the opening's centre (the
+point draw, `PortDraw`). A junction straddling the surface therefore moved
+pure liquid, at the liquid-plus-gas rate, while the level was above the
+centre, then pure gas.
+
+**Upstream.** MELCOR's FL package gives a flow path separate pool and
+atmosphere velocities. The pool and atmosphere fractions of the junction
+opening come from the donor's level against the opening's elevation and
+height, and each phase moves through its own fraction (MELCOR 2.2 FL
+reference manual, the junction void fraction / flow-path opening section).
+**Section number not re-checked:** the manual is private and not in this
+workspace, and no file here cites the section. The rule as ported is the
+one `flow_path` already applied to the rates; this change makes the donor
+volume honour it.
+
+**The change.**
+- `PortInput::liquid_fraction: Option<f64>`: the pool-liquid mass fraction
+  of a port's outflow. `None` keeps the point draw (the default for a
+  caller that sets only `outflow`).
+- The network passes the path's own split, `m_liq / (m_liq + m_gas)` for
+  the direction's donor.
+- Default on. `CvNetwork::without_two_phase_junction_draw()` restores the
+  point draw, bit for bit (pinned on hashes taken before the change).
+
+**Predictions (written before the code was changed):**
+- **J1, the drain (`side_port_drain`).** A: 1.5 m of water under 2 bar;
+  port at 1.0 m, opening 0.2 m; drains into an empty B at 1 bar.
+  - (a) New: the liquid fraction of A's outflow is exactly 1 while A's
+    level is at or above the opening's top (1.1 m), exactly 0 at or below
+    its bottom (0.9 m), strictly between in the band, and non-increasing as
+    the level falls.
+  - (b) Old (the ablation): it jumps from 1 to 0 in one step as the level
+    crosses the centre, 1.0 m.
+  - (c) The two runs are bit-identical until A's level first falls below
+    1.1 m.
+  - (d) A's lowest level: old within 1 cm below 1.0 m (at the centre the
+    port starts drawing gas, and liquid stops); new within 1 cm of 0.9 m
+    (liquid keeps leaving through the covered part until the opening is
+    clear). A's gas is still about 0.6 bar above B's then, so the drive
+    remains.
+  - (e) Water, N2 and energy close to < 1e-12 in both.
+- **J2, the ablation.** Bit-identical to the pre-change code on the drain
+  and on L8's network (hashes).
+- **J3, L8 at the new default.** Its port at 0.0 m (opening 0.05 m)
+  straddles as A drains, so L8 moves. Dry-out still within 10 s (old
+  5.46 s, change < 0.1 s); closures < 1e-12; the end state (A 121.1 kg,
+  B 72.6 kg) moves by a few kg.
+- **J4, `sembawang` case B (not run here; the coordinator's re-bless holds
+  sembawang).** Bit-identical unless a donor port straddles a surface
+  with flow through it. The torus level stays 3.2–3.4 m with the downcomer
+  exits well below, and I expect the drywell floor water not to reach the
+  downcomer entry band (2 m above the floor) in 6 h. Low confidence on the
+  drywell floor.
+
+**Results (2026-11-02, release, Rust 1.99.1).** Tests:
+`cv_network::tests::a_straddling_junction_moves_both_phases`,
+`a_volume_drains_dry_inside_a_network` (L8),
+`tests/control_volume.rs::a_port_outflow_splits_by_its_liquid_fraction`.
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| J1(a), fraction exactly 1 at or above 1.1 m (by the end-of-step level) | 1.000000000000000 | held |
+| J1(a), strictly between in the band | in (0, 1], but **244 band steps are pure liquid**: with the pressures equal (from about 25 s) the gas flows B → A on those steps | **missed** (backflow not foreseen) |
+| J1(a), non-increasing in the band | it rose on 90 steps, by at most 4.2e-3, as the pressures equalised and the gas flow fluctuated | **missed** |
+| J1(b), old jumps 1 → 0 at 1.0 m | largest one-step fall 1.000002 | held |
+| J1(c), identical until the band | identical for 784 steps; the level first ends below 1.1 m at step 784 | held |
+| J1(d), old lowest level within 1 cm below 1.0 m | 0.99951 m | held |
+| J1(d), new lowest level within 1 cm of 0.9 m | **1.00818 m at 40 s** (1.0013 m at 115 s, still falling) | **missed** (below) |
+| J1(e), closure | 3.3e-15 (new), 4.4e-15 (old) | held |
+| J2, ablation bit for bit (drain and L8 hashes, 215434afa) | identical | held |
+| J3, L8 dry-out | 5.46 → 5.5 s | held |
+| J3, L8 end state "moves by a few kg" | A 121.1 → **0 kg**, B 72.6 → **194.0 kg**, the gases 31 kPa → 1893 Pa apart | **missed**; L8's own original prediction (B 190–195 kg, B's head 1911 ± 300 Pa) now **holds** |
+| control volume split (0.25 of 2 kg) | water out 0.5 + 0.043059 kg of steam, N2 out 1.456941 kg, both exact to 1e-12; closure 7.5e-13 kg water; f = 1 and f = 0 equal the point draw bit for bit; f = 1.5 refused | held |
+| J4, `sembawang` case B | not run (the coordinator's re-bless holds sembawang) | open |
+
+**Why J1(d) missed.** My estimate counted only the liquid moving (A's gas
+expanding, B's compressed) and left A 0.6 bar above B. But from 1.1 m
+down, A's gas also passes through the uncovered part of the opening, and
+the two pressures meet at about 1.40 bar by 25 s. After that the liquid
+drains only under its own small head, through the shrinking covered
+part. The point draw (old) instead stalls just below the centre: once
+the level is below it, the port draws only gas.
+
+**Why L8 moved (J3).** As A drains, L8's 0.05 m opening straddles A's
+surface. The point draw pushed pure liquid at the path's liquid-plus-gas
+rate until A's level passed the centre, then pure gas. That left the two
+gas springs unbalanced, and the water swung back (the old record's
+refill). Passing both phases lets A's gas through as the opening
+uncovers, so the pressures settle on B's head. The refill is now asserted
+on the ablation, which still produces it.
+
+**What to quote:** L8's end state at the default (B 194.0 kg, 1893 Pa).
+The old refill is quoted only as the ablation's.

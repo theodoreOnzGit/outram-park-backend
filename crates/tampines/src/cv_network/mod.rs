@@ -48,8 +48,13 @@
 //!
 //! # Limits
 //!
-//! - The donor volume decides which phase leaves by its level at the port
-//!   (a point draw); the path's partial-submergence split sets only the rate.
+//! - ~~The donor volume decides which phase leaves by its level at the port
+//!   (a point draw); the path's partial-submergence split sets only the rate.~~
+//!   **CORRECTED 2026-11-02 (gh:#1117):** the donor draws both phases in the
+//!   path's own split (liquid through the submerged part of the opening, gas
+//!   through the rest; MELCOR's FL junction opening fractions), so a junction
+//!   straddling the surface moves both. The point draw is the ablation
+//!   [`CvNetwork::without_two_phase_junction_draw`].
 //! - Boundaries are fixed-state reservoirs ([`NetworkBoundary`]).
 //! - ~~A vacuum breaker is opened or shut for a whole step by the
 //!   start-of-step pressures, and the equalising limit is taken from the
@@ -225,6 +230,9 @@ pub struct CvNetwork {
     /// Switch decisions (equalising limit, vacuum breakers) from the latest
     /// Picard iterate (default, gh:#1116); else from the start of the step.
     iterate_switches: bool,
+    /// A donor port moves both phases in the path's own split (default,
+    /// gh:#1117); else one phase by its level (the point draw).
+    two_phase_draw: bool,
 }
 
 fn mr(x: f64) -> MassRate {
@@ -248,6 +256,7 @@ impl CvNetwork {
             time_s: 0.0,
             control,
             iterate_switches: true,
+            two_phase_draw: true,
         }
     }
 
@@ -258,6 +267,23 @@ impl CvNetwork {
     pub fn without_iterate_switch_decisions(mut self) -> Self {
         self.iterate_switches = false;
         self
+    }
+
+    /// Ablation (gh:#1117): a donor volume draws one phase through a path's
+    /// port by its level at the port's elevation (the point draw), whatever
+    /// the path's split, as before 2026-11-02 (bit for bit). A junction
+    /// straddling the surface then moves pure liquid at the path's total
+    /// rate while the level is above the opening's centre, and pure gas
+    /// below it.
+    pub fn without_two_phase_junction_draw(mut self) -> Self {
+        self.two_phase_draw = false;
+        self
+    }
+
+    /// Whether a donor port moves both phases in the path's split (the
+    /// default).
+    pub fn two_phase_junction_draw(&self) -> bool {
+        self.two_phase_draw
     }
 
     /// Whether the switch decisions come from the latest Picard iterate (the
@@ -837,9 +863,17 @@ impl CvNetwork {
                 let (ml, mg) = (t.liquid_mass_rate.get::<kilogram_per_second>(), t.gas_mass_rate.get::<kilogram_per_second>());
                 let fwd = ml.max(0.0) + mg.max(0.0);
                 let bwd = (-ml).max(0.0) + (-mg).max(0.0);
+                let (liq_fwd, liq_bwd) = (ml.max(0.0), (-ml).max(0.0));
                 for (dir, (donor, receiver, rate)) in [(np.from, np.to, fwd), (np.to, np.from, bwd)].into_iter().enumerate() {
                     if let NetworkEnd::Volume { volume, port } = donor {
                         inputs[volume].ports[port].outflow = mr(rate);
+                        // The path's own split of this direction's rate
+                        // between the phases (gh:#1117), for the donor to
+                        // draw; the ablation leaves the donor's point draw.
+                        if self.two_phase_draw && rate > 0.0 {
+                            let liq = if dir == 0 { liq_fwd } else { liq_bwd };
+                            inputs[volume].ports[port].liquid_fraction = Some((liq / rate).clamp(0.0, 1.0));
+                        }
                     }
                     // Delivery: last iterate's sending plus this path end's
                     // in-transit inventory from the previous step.

@@ -11010,6 +11010,7 @@ One port's drive for a step.
 pub struct PortInput {
     pub inflow: Source,
     pub outflow: uom::si::f64::MassRate,
+    pub liquid_fraction: Option<f64>,
 }
 ```
 
@@ -11018,7 +11019,8 @@ pub struct PortInput {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `inflow` | `Source` | What enters. |
-| `outflow` | `uom::si::f64::MassRate` | Mass leaving, ≥ 0; pool liquid or atmosphere by the level. |
+| `outflow` | `uom::si::f64::MassRate` | Mass leaving, ≥ 0; pool liquid or atmosphere by the level, unless<br>[`Self::liquid_fraction`] splits it. |
+| `liquid_fraction` | `Option<f64>` | The pool-liquid mass fraction of the outflow, in [0, 1], the rest<br>atmosphere (gh:#1117: a junction straddling the surface moves both<br>phases, as its path splits them; MELCOR's FL junction opening<br>fractions). `None`: one phase by the level at the port's elevation<br>(the point draw). |
 
 ##### Implementations
 
@@ -33849,8 +33851,13 @@ the network closes as `now = start + boundary_inflow`.
 
 # Limits
 
-- The donor volume decides which phase leaves by its level at the port
-  (a point draw); the path's partial-submergence split sets only the rate.
+- ~~The donor volume decides which phase leaves by its level at the port
+  (a point draw); the path's partial-submergence split sets only the rate.~~
+  **CORRECTED 2026-11-02 (gh:#1117):** the donor draws both phases in the
+  path's own split (liquid through the submerged part of the opening, gas
+  through the rest; MELCOR's FL junction opening fractions), so a junction
+  straddling the surface moves both. The point draw is the ablation
+  [`CvNetwork::without_two_phase_junction_draw`].
 - Boundaries are fixed-state reservoirs ([`NetworkBoundary`]).
 - ~~A vacuum breaker is opened or shut for a whole step by the
   start-of-step pressures, and the equalising limit is taken from the
@@ -34607,6 +34614,16 @@ pub struct CvNetwork {
   pub fn without_iterate_switch_decisions(self: Self) -> Self { /* ... */ }
   ```
   Ablation (gh:#1116): take the equalising limit and the vacuum
+
+- ```rust
+  pub fn without_two_phase_junction_draw(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation (gh:#1117): a donor volume draws one phase through a path's
+
+- ```rust
+  pub fn two_phase_junction_draw(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether a donor port moves both phases in the path's split (the
 
 - ```rust
   pub fn iterate_switch_decisions(self: &Self) -> bool { /* ... */ }

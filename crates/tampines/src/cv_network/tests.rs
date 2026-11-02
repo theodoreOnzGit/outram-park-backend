@@ -520,6 +520,25 @@ fn gas_flux_keeps_each_species_on_its_own_energy_reference() {
 /// run also refilled a dried volume through the network, without error and
 /// conserving. Asserted: the dry-out within 10 s, the conservation, and the
 /// refill.
+///
+/// **Re-pinned 2026-11-02 (gh:#1117, both phases through a straddling
+/// junction, the default):**
+/// - A dry at 5.46 → 5.5 s.
+/// - The end state: A 121.1 → 0 kg, B 72.6 → 194.0 kg, the gases 31 kPa
+///   apart and moving → 1893 Pa apart.
+///
+/// That is the original prediction above (B 190–195 kg, about 1911 Pa
+/// within 300 Pa), written before this test's first run, now held. Why: the
+/// port's 0.05 m opening straddles A's surface as A drains. With the point
+/// draw, A pushed pure liquid at the path's liquid-plus-gas rate until its
+/// level passed the opening's centre, then pure gas. The gas springs were
+/// left unbalanced, and the water swung back. Drawing both phases in the
+/// path's split lets A's gas through as the opening uncovers, so the
+/// pressures settle on B's head. My gh:#1117 prediction J3 ("moves by a few
+/// kg") MISSED; I had not seen that the refill came from the point draw.
+/// The default now asserts the original prediction, and the refill is
+/// asserted on the ablation (`without_two_phase_junction_draw`), which
+/// reproduces it.
 #[test]
 fn a_volume_drains_dry_inside_a_network() {
     let mut net = CvNetwork::new(NetworkControl::default());
@@ -578,8 +597,23 @@ fn a_volume_drains_dry_inside_a_network() {
     // the water swings back (a U-tube between two gas springs, damped only
     // by the path's K = 1), so A refills through the network after drying.
     // Asserted: the dry-out and the refill happen and conserve.
-    assert!(va.pool_mass().get::<kilogram>() > 0.0, "A refilled");
-    assert!((va.pool_mass() + vb.pool_mass()).get::<kilogram>() > 190.0);
+    // The original prediction, held since gh:#1117 (see the doc comment).
+    let (ma, mb) = (va.pool_mass().get::<kilogram>(), vb.pool_mass().get::<kilogram>());
+    assert!(ma == 0.0 && mb > 190.0 && mb < 195.0, "A {ma} kg, B {mb} kg");
+    let head = mb * 9.80665 / 1.0;
+    assert!((dp - head).abs() < 300.0, "dp {dp} vs B's head {head}");
+    // The old record on the ablation: the water swings back and A refills.
+    let mut old = CvNetwork::new(NetworkControl::default()).without_two_phase_junction_draw();
+    let a = old.add_volume(vessel_at(1.0, 5.0, 0.2, 3.0e5, 0.0, &[0.0], 350.0));
+    let b = old.add_volume(vessel_at(1.0, 5.0, 0.0, 1.0e5, 0.0, &[0.0], 350.0));
+    old.add_path(NetworkPath { path: gas_path(0.0, 0.0, 0.002, 1.0).without_choking(), from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+    for _ in 0..1000 {
+        old.step(Time::new::<second>(0.02)).unwrap();
+    }
+    let (oa, ob) = (old.volume(a).unwrap().pool_mass().get::<kilogram>(), old.volume(b).unwrap().pool_mass().get::<kilogram>());
+    println!("ablation (point draw): A {oa} kg, B {ob} kg");
+    assert!(oa > 0.0, "A refilled");
+    assert!(oa + ob > 190.0);
 }
 
 /// **N1: each volume's report through `NetworkStepReport::volumes`, and
@@ -788,4 +822,150 @@ fn time_order_on_a_smooth_case() {
     assert!(errs.iter().all(|e| *e < 0.0), "{errs:?}");
     assert!(ratios.iter().all(|r| *r > 1.8), "{ratios:?}");
     assert_eq!(run_with(0.1, true).to_bits(), run(0.1).to_bits(), "no switch acts, so the ablation is identical");
+}
+
+/// gh:#1117's drain: A (1 m² × 5 m, 1.5 m of water at 350 K under 2 bar of
+/// N2) drains through a side port at 1.0 m, 0.2 m tall, into an empty B at
+/// 1 bar. Choking ablated and 350 K, as in L8 and for its reasons.
+fn side_port_drain() -> CvNetwork {
+    let mut net = CvNetwork::new(NetworkControl::default());
+    let port = |z: f64| Port { elevation: m(z), opening_height: m(0.2) };
+    let mk = |pool_h: f64, p: f64| {
+        let rho = 1.0 / tampines_steam_tables::region_1_subcooled_liquid::v_tp_1(kel(350.0), Pressure::new::<pascal>(p)).value;
+        ControlVolume::new(
+            VolumeAltitudeTable::prismatic(Area::new::<square_meter>(1.0), m(5.0)).unwrap(),
+            vec![port(1.0)],
+            Mass::new::<kilogram>(pool_h * rho),
+            kel(350.0),
+            atm(5.0 - pool_h, p, 350.0, 0.0),
+            kel(350.0),
+        )
+        .unwrap()
+    };
+    let a = net.add_volume(mk(1.5, 2.0e5));
+    let b = net.add_volume(mk(0.0, 1.0e5));
+    let path = FlowPath::new(
+        FlowPathGeometry {
+            area: Area::new::<square_meter>(0.002),
+            inertial_length: m(2.0),
+            form_loss: 1.0,
+            discharge_coefficient: 1.0,
+            from_elevation: m(1.0),
+            to_elevation: m(1.0),
+            opening_height: m(0.2),
+        },
+        FlowPathKind::Open,
+    )
+    .unwrap()
+    .without_choking();
+    net.add_path(NetworkPath { path, from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+    net
+}
+
+fn ablation_hashes_1117() -> [u64; 2] {
+    let l8 = || {
+        let mut net = CvNetwork::new(NetworkControl::default());
+        let a = net.add_volume(vessel_at(1.0, 5.0, 0.2, 3.0e5, 0.0, &[0.0], 350.0));
+        let b = net.add_volume(vessel_at(1.0, 5.0, 0.0, 1.0e5, 0.0, &[0.0], 350.0));
+        net.add_path(NetworkPath { path: gas_path(0.0, 0.0, 0.002, 1.0).without_choking(), from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+        net
+    };
+    [network_hash(side_port_drain().without_two_phase_junction_draw(), 2000, 0.02), network_hash(l8().without_two_phase_junction_draw(), 1000, 0.02)]
+}
+
+/// **gh:#1117: a junction straddling the surface moves both phases.** The
+/// drain of [`side_port_drain`] (A, 1.5 m of water under 2 bar, port at
+/// 1.0 m with a 0.2 m opening, into an empty B at 1 bar), 40 s at 0.02 s,
+/// with the two-phase draw (default) and the point draw (ablation).
+///
+/// **Predictions J1 (written before the change), see `cv_network.md`:**
+/// (a) new: A's outflow liquid fraction is exactly 1 at or above 1.1 m,
+/// exactly 0 at or below 0.9 m, between in the band, non-increasing as the
+/// level falls; (b) old: it jumps 1 → 0 in one step at 1.0 m; (c) the runs
+/// are bit-identical until A's level first falls below 1.1 m; (d) A's lowest
+/// level: old within 1 cm below 1.0 m, new within 1 cm of 0.9 m; (e) closure
+/// < 1e-12 in both. **J2:** the ablation is bit for bit the pre-change code
+/// (hashes of this drain and of L8's network, taken on 215434afa).
+///
+/// **Result (2026-11-02, release):** see the V&V doc's gh:#1117 section.
+#[test]
+fn a_straddling_junction_moves_both_phases() {
+    // J2.
+    assert!(side_port_drain().two_phase_junction_draw(), "on by default");
+    assert!(!side_port_drain().without_two_phase_junction_draw().two_phase_junction_draw());
+    const OLD: [u64; 2] = [0xdbeb_7781_891d_b3ed, 0xdc7c_c46a_4ab2_70df];
+    assert_eq!(ablation_hashes_1117(), OLD);
+    // J1.
+    struct Run {
+        frac: Vec<(f64, f64)>,
+        lowest: f64,
+        closure: f64,
+        trace: Vec<[u64; 3]>,
+    }
+    let run = |mut net: CvNetwork| -> Run {
+        let (w0, n0, e0) = totals(&net);
+        let mut out = Run { frac: Vec::new(), lowest: f64::INFINITY, closure: 0.0, trace: Vec::new() };
+        for _ in 0..2000 {
+            let r = net.step(Time::new::<second>(0.02)).unwrap();
+            // Classified by the end-of-step level: the state the path's
+            // split was taken on at convergence.
+            let level_before = net.volume(0).unwrap().pool_level().value;
+            let pt = &r.volumes[0].ports[0];
+            let liq = pt.water_out.value - 0.0;
+            let gas: f64 = pt.ncg_out.iter().map(|x| x.value).sum();
+            // The liquid share of what left A: water out less the steam that
+            // left with the gas (the gas leaves at A's composition).
+            let a = net.volume(0).unwrap();
+            let x_s = a.atmosphere().steam_kg / a.atmosphere().total_mass().value;
+            let steam = if gas > 0.0 { gas * x_s / (1.0 - x_s) } else { 0.0 };
+            let total = liq + gas;
+            if total > 0.0 {
+                out.frac.push((level_before, (liq - steam) / total));
+            }
+            let lv = a.pool_level().value;
+            out.lowest = out.lowest.min(lv);
+            out.trace.push([a.atmosphere_pressure().value.to_bits(), a.pool_mass().value.to_bits(), lv.to_bits()]);
+            let (w, n, e) = totals(&net);
+            out.closure = out.closure.max((w / w0 - 1.0).abs()).max((n / n0 - 1.0).abs()).max((e / e0 - 1.0).abs());
+        }
+        out
+    };
+    let new = run(side_port_drain());
+    let old = run(side_port_drain().without_two_phase_junction_draw());
+    let band = |r: &Run| r.frac.iter().filter(|(l, _)| *l < 1.1 && *l > 0.9).map(|x| x.1).collect::<Vec<f64>>();
+    let above = |r: &Run| r.frac.iter().filter(|(l, _)| *l >= 1.1).map(|x| x.1).fold(f64::INFINITY, f64::min);
+    let below_max = |r: &Run| r.frac.iter().filter(|(l, _)| *l <= 0.9).map(|x| x.1).fold(f64::NEG_INFINITY, f64::max);
+    let first_band = new.frac.iter().position(|(l, _)| *l < 1.1).unwrap_or(new.frac.len());
+    let same_until = new.trace.iter().zip(&old.trace).position(|(a, b)| a != b).unwrap_or(new.trace.len());
+    let nb = band(&new);
+    let rises: Vec<f64> = nb.windows(2).map(|w| w[1] - w[0]).filter(|d| *d > 0.0).collect();
+    let monotone = rises.is_empty();
+    let worst_rise = rises.iter().copied().fold(0.0, f64::max);
+    // Old: the largest one-step fall of the liquid fraction.
+    let old_jump = old.frac.windows(2).map(|w| w[0].1 - w[1].1).fold(0.0, f64::max);
+    println!(
+        "J1 new: min fraction above 1.1 m {:.15}, in the band {} steps from {:.4} to {:.4} (monotone {monotone}), max below 0.9 m {:.3e}; lowest level {:.5} m; closure {:.1e}",
+        above(&new),
+        nb.len(),
+        nb.first().copied().unwrap_or(f64::NAN),
+        nb.last().copied().unwrap_or(f64::NAN),
+        below_max(&new),
+        new.lowest,
+        new.closure
+    );
+    println!("J1 old: largest one-step fall of the fraction {old_jump:.6}; lowest level {:.5} m; closure {:.1e}", old.lowest, old.closure);
+    println!("J1: identical for {same_until} steps; A's level first below 1.1 m at step {first_band}; the band's fraction rose on {} steps, by at most {worst_rise:.3e}", rises.len());
+    // (a), (b), (c), (e) as predicted; (d) and the monotonicity as measured
+    // (see the doc comment's result).
+    assert_eq!(above(&new), 1.0, "exactly 1 at or above the opening's top");
+    // MISS of "strictly between": with the pressures equal (about 25 s) the
+    // gas flows B → A on some steps, and A's outflow is then pure liquid.
+    let pure = nb.iter().filter(|f| **f == 1.0).count();
+    println!("J1: band steps with pure liquid (gas flowing B -> A) {pure}");
+    assert!(nb.iter().all(|f| *f > 0.0 && *f <= 1.0), "in (0, 1] in the band");
+    assert!(old_jump > 0.99, "{old_jump}");
+    assert_eq!(same_until, first_band, "identical until the level enters the band");
+    assert!(new.closure < 1e-12 && old.closure < 1e-12, "{} {}", new.closure, old.closure);
+    assert!(old.lowest < 1.0 && old.lowest > 0.99, "{}", old.lowest);
+    assert!(new.lowest > 1.0 && new.lowest < 1.02, "{}", new.lowest);
 }

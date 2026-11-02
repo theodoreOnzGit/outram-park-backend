@@ -299,14 +299,21 @@ impl Source {
 pub struct PortInput {
     /// What enters.
     pub inflow: Source,
-    /// Mass leaving, ≥ 0; pool liquid or atmosphere by the level.
+    /// Mass leaving, ≥ 0; pool liquid or atmosphere by the level, unless
+    /// [`Self::liquid_fraction`] splits it.
     pub outflow: MassRate,
+    /// The pool-liquid mass fraction of the outflow, in [0, 1], the rest
+    /// atmosphere (gh:#1117: a junction straddling the surface moves both
+    /// phases, as its path splits them; MELCOR's FL junction opening
+    /// fractions). `None`: one phase by the level at the port's elevation
+    /// (the point draw).
+    pub liquid_fraction: Option<f64>,
 }
 
 impl PortInput {
     /// Nothing through this port.
     pub fn closed() -> Self {
-        Self { inflow: Source::none(), outflow: MassRate::new::<kilogram_per_second>(0.0) }
+        Self { inflow: Source::none(), outflow: MassRate::new::<kilogram_per_second>(0.0), liquid_fraction: None }
     }
     /// Inflow only.
     pub fn inflow(source: Source) -> Self {
@@ -1545,7 +1552,8 @@ impl ControlVolume {
             self.e_out += q_hx;
         }
 
-        // 3. Outflows, by the level.
+        // 3. Outflows, by the level, or split by the port's liquid fraction
+        //    (gh:#1117).
         for i in 0..self.ports.len() {
             let m = finite_nonneg(inputs.ports[i].outflow.get::<kilogram_per_second>(), "outflow")? * dt;
             let z = self.ports[i].elevation.get::<meter>();
@@ -1554,39 +1562,59 @@ impl ControlVolume {
             if m <= 0.0 {
                 continue;
             }
-            match draw {
-                PortDraw::Liquid => {
-                    let (m, e) = self.draw_liquid(z, m, pressures[i])?;
-                    self.water_out += m;
-                    self.e_out += e;
-                    transfers[i].water_out = Mass::new::<kilogram>(m);
-                    transfers[i].energy_out = Energy::new::<joule>(e);
-                }
-                PortDraw::Atmosphere => {
-                    let m_gas = self.gas.total_mass().get::<kilogram>();
-                    if m >= m_gas {
-                        return Err(TampinesError::InvalidInput(format!("outflow {m} kg not below the atmosphere's {m_gas} kg")));
+            // The liquid and atmosphere masses: the point draw puts all of
+            // `m` on one phase; a split puts `f m` on the liquid and the rest
+            // on the atmosphere (exactly `m` and 0 when `f` is 1 or 0).
+            let (m_liq, m_atm) = match inputs.ports[i].liquid_fraction {
+                None => match draw {
+                    PortDraw::Liquid => (m, 0.0),
+                    PortDraw::Atmosphere => (0.0, m),
+                },
+                Some(f) => {
+                    if !(0.0..=1.0).contains(&f) {
+                        return Err(TampinesError::InvalidInput(format!("port {i} liquid fraction {f}")));
                     }
-                    let f = m / m_gas;
-                    let e = f * (self.gas_e + self.d.p_gas * self.d.v_gas);
-                    let ds = f * self.gas.steam_kg;
-                    let mut out = [0.0; 6];
-                    for g in NonCondensable::ALL {
-                        let j = g.index();
-                        let dn = f * self.gas.ncg_moles[j];
-                        self.gas.ncg_moles[j] -= dn;
-                        out[j] = dn * g.molar_mass();
-                        self.ncg_out[j] += out[j];
+                    if f == 1.0 {
+                        (m, 0.0)
+                    } else if f == 0.0 {
+                        (0.0, m)
+                    } else {
+                        (f * m, m - f * m)
                     }
-                    self.gas.steam_kg -= ds;
-                    self.gas_e -= e;
-                    self.refresh()?;
-                    self.water_out += ds;
-                    self.e_out += e;
-                    transfers[i].water_out = Mass::new::<kilogram>(ds);
-                    transfers[i].ncg_out = out.map(|x| Mass::new::<kilogram>(x));
-                    transfers[i].energy_out = Energy::new::<joule>(e);
                 }
+            };
+            if m_liq > 0.0 {
+                let (m, e) = self.draw_liquid(z, m_liq, pressures[i])?;
+                self.water_out += m;
+                self.e_out += e;
+                transfers[i].water_out += Mass::new::<kilogram>(m);
+                transfers[i].energy_out += Energy::new::<joule>(e);
+            }
+            if m_atm > 0.0 {
+                let m = m_atm;
+                let m_gas = self.gas.total_mass().get::<kilogram>();
+                if m >= m_gas {
+                    return Err(TampinesError::InvalidInput(format!("outflow {m} kg not below the atmosphere's {m_gas} kg")));
+                }
+                let f = m / m_gas;
+                let e = f * (self.gas_e + self.d.p_gas * self.d.v_gas);
+                let ds = f * self.gas.steam_kg;
+                let mut out = [0.0; 6];
+                for g in NonCondensable::ALL {
+                    let j = g.index();
+                    let dn = f * self.gas.ncg_moles[j];
+                    self.gas.ncg_moles[j] -= dn;
+                    out[j] = dn * g.molar_mass();
+                    self.ncg_out[j] += out[j];
+                }
+                self.gas.steam_kg -= ds;
+                self.gas_e -= e;
+                self.refresh()?;
+                self.water_out += ds;
+                self.e_out += e;
+                transfers[i].water_out += Mass::new::<kilogram>(ds);
+                transfers[i].ncg_out = out.map(|x| Mass::new::<kilogram>(x));
+                transfers[i].energy_out += Energy::new::<joule>(e);
             }
         }
 
