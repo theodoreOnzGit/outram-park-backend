@@ -126,7 +126,10 @@ the gases from 298.15 K instead would have moved `h_w` by 2.54e6 J/kg.
   The path's partial-submergence split sets only the rate.~~ **CORRECTED
   2026-11-02 (gh:#1117):** the donor draws both phases in the path's split;
   the point draw is the ablation (section below).
-- The step is Picard, not Newton or JFNK, and convergence is linear.
+- ~~The step is Picard, not Newton or JFNK, and convergence is linear.~~
+  **CORRECTED 2026-11-02 (gh:#1119):** the default is a Newton step on the
+  path flows (the section at the end); Picard is the ablation
+  `without_newton_path_flows` and the fallback.
 - A 30-hour run has not been timed; that comes with gh:#1097.
 
 ## External sources, sinks, heats and valves (gh:#1097, 2026-11-01)
@@ -384,10 +387,12 @@ a stiff path's momentum. The old code never performed that solve, because
 its lagged cap always bound. A fixed-point (Picard) iteration with
 pressure under-relaxation converges on it only linearly, and none of the
 listed accelerations changes that without either slowing down or losing
-convergence. The step already states this limit ("Picard, not Newton or
-JFNK"). The fix that matches the mechanism is a Newton step on the path
-flows that includes each volume's real (condensing, bubbling) response.
-That is a solver change of its own, not a tweak here, and is not attempted.
+convergence. The step already states this limit (~~"Picard, not Newton or
+JFNK"~~ **CORRECTED 2026-11-02, gh:#1119:** Newton is now the default, see
+the section at the end). The fix that matches the mechanism is a Newton
+step on the path flows that includes each volume's real (condensing,
+bubbling) response. That is a solver change of its own, not a tweak here,
+and ~~is not attempted~~ was done in gh:#1119.
 The candidates' temporary code is not kept.
 
 ## A partially submerged junction moves both phases (gh:#1117, 2026-11-02)
@@ -489,3 +494,264 @@ on the ablation, which still produces it.
 
 **What to quote:** L8's end state at the default (B 194.0 kg, 1893 Pa).
 The old refill is quoted only as the ablation's.
+
+## A Newton step on the path flows (gh:#1119, 2026-11-02)
+
+**Why.** Since gh:#1116 the network solves the stiff downcomer's momentum
+implicitly, and the under-relaxed Picard iteration converges on it only
+linearly (profile and the rejected candidates (a)–(f) are in the section
+"Cutting the iteration count" above; none is repeated here).
+
+**Searched first, for reuse.** `petir::newton_krylov` (`jfnk`,
+`jfnk_preconditioned`: JFNK with GMRES on a matrix-free product) needs
+`F(x)` as a pure function of `x`. The network's iterate is not one: a
+receiver is stepped with what its donor sent on the *previous* iterate
+(the exact-conservation design), so the iterate carries a one-iterate lag
+that a pure residual does not see. `tampines::subchannel::solver::newton`
+(forward-difference Jacobian by columns, after
+`petir::multiroots::fdjacobian`) is private to its residual. The Newton
+updates in `multiphase_1d::two_fluid` and `control_volume` are scalar or
+specific to their equations. `tuas_boussinesq_solver`'s
+`collection_series_and_parallel_functions` solve a pressure-flow root per
+branch, not a network Jacobian. `changi`: nothing. `outram-foam-basic-lib`'s
+`linear_operator` is the GMRES that `petir` already ported. **Reused:**
+`petir::linalg::{lu_decomp, lu_solve, Matrix}` for the dense solve, and the
+finite-difference column idea of `subchannel::solver::jacobian_triplets`.
+The volume-pressure response is what `control_volume`'s own docs name:
+"an implicit scheme can linearise around `pressure_at_elevation` by
+stepping a clone".
+
+**Method (the design, written before the code).**
+- Unknowns: the end pressures each path is stepped with, `u` (two per
+  path), as the Picard iteration already uses them. The fixed point is
+  `u = P(u)`: the end pressures of the volumes after a step with the path
+  flows `x(u)`.
+- Jacobian `∂P/∂u = D C`:
+  - `C`, per path, `∂x/∂u` by finite differences of `FlowPath::step` on a
+    clone (two extra path steps a path per iterate; cheap). A path the
+    equalising limit cuts gets a zero row: its flow is then set by the
+    limit, not by `u`.
+  - `D`, per path, the end pressures' response to its flow, by finite
+    differences of **the volumes themselves**: the donor stepped again from
+    the start with its outflow raised by `δ`, and the receiver with its
+    inflow raised by what the donor then actually sent more. So condensing
+    at a submerged exit, bubbling, flashing and the level's head are in
+    `D`, as the issue asks. `D` is taken once a step, on the first iterate
+    a path's `C` is non-zero (a chord Newton).
+- The lag: the latest iterate's receivers carry the donor's flow of the
+  iterate before. The residual is corrected for it with the receiver half
+  of `D`: `P̃ = P + D_rec (x_{k−1} − x_{k−2})`.
+- The update, in path-flow space (`N` unknowns, not `2N`):
+  `(I − C D) Δx = C r`, `r = P̃ − u_{k−1}`, `u_k = u_{k−1} + λ (r + D Δx)`.
+  `λ = 1`, halved when the residual grows (floor 1/16).
+- Everything else is the Picard step unchanged: the convergence test (the
+  rate residual against the tolerance), the limit, the breakers, the
+  in-transit inventory.
+- **Fallback:** if Newton has not converged in 30 iterates, or a volume
+  errors while `D` is taken, or a solve fails, the step is re-run with
+  Picard from the start state (nothing is committed before). Counted in
+  `NetworkStepReport::newton_fell_back`.
+- **Not used** (Picard path, bit for bit): with
+  `without_iterate_switch_decisions` (the b4c99e210 pin), with one
+  iteration (loose coupling), and with the ablation
+  `CvNetwork::without_newton_path_flows`.
+
+**Instrument for "within Picard tolerance".** Picard stops when the rate
+change between iterates is below 1e-6 of the largest rate. With `ω` at
+0.05 a small change per iterate does not mean a small distance from the
+fixed point, so the two solvers can legitimately differ by more than
+1e-6 of a rate. The instrument, chosen before the run: Newton at 1e-6 is
+accepted when its distance from Picard at 1e-6 is no larger than Picard's
+own distance from Picard at 1e-8 (the spread the tolerance itself allows),
+on the quantities compared (pressures, pool temperature).
+
+**The case-B stand-in.** `sembawang`'s case B cannot be run in this change
+(another session holds `sembawang`). A stand-in in this crate,
+`cv_network::tests::mark_i_proxy`: Unit 1's drywell, torus, downcomers and
+vacuum breaker (sembawang's numbers, copied), 900 s at 1 s: a 20 kg/s steam
+leak for 300 s, then 8 MW of drywell cooling for 300 s (the breaker opens),
+then a 2 kg/s leak. Same halving driver as sembawang's `advance`.
+**Picard on it, measured before the change** (4-vCPU Xeon @ 2.10 GHz,
+release, `-j 1`): mean 24.56 iterations a step, max 274, 7 extra halving
+sub-steps, **71.9 ms a step**, 27 steps with breaker flow, closure 4.0e-15.
+It is stiffer than case B (9.44 mean).
+
+**Predictions (written before the first Newton run).**
+- **W1, ablation.** `without_newton_path_flows` is bit for bit the Picard
+  default: hashes taken on the code before the change, test 1's two tanks
+  (600 × 0.1 s) `0x6499f07e74895e85`, test 7's breaker (400 × 1 s)
+  `0x35ec1958148a4fca`, the stand-in (900 × 1 s) `0x7bbab5d4aaf8eb46`.
+  The b4c99e210 pin (`iterate_switches_are_default_and_the_ablation_is_the_old_network`)
+  is unchanged.
+- **W2, stand-in, iterations.** Mean 3–5 a step (from 24.56), max ≤ 30,
+  no halving, no fallback.
+- **W3, stand-in, cost.** 25–40 ms a step (from 71.9): a Newton iterate
+  costs a Picard iterate plus two path steps a path, and `D` costs about
+  two volume steps per flowing path once a step.
+- **W4, stand-in, results.** Within the instrument above. Low confidence
+  on the margin: I expect the worst pressure difference Newton − Picard to
+  be of the same order as Picard(1e-6) − Picard(1e-8), under 100 Pa.
+- **W5, the tampines network tests.** Every assertion holds unchanged
+  (tests 1–7, L8, N1, S3, J1); test 1's iterations fall from ≤ 34 to
+  ≤ 10. Closures stay < 1e-12 (the in-transit inventory does not depend
+  on the solver).
+
+**First run of the design above: W2 and W4 MISSED; the design was
+revised three times by diagnosis.** (Measured on the stand-in, recorded
+before the corrections were run; the stand-in itself had a defect, item 0.)
+0. **Stand-in defect, mine:** the drywell floor was at 0 m, below the
+   torus pool surface (2.33 m), so the pool ran back into the drywell
+   through the downcomers. Fixed to sembawang's layout (the floor at the
+   torus top). The Picard numbers above are from the defective stand-in;
+   on the corrected one Picard takes **mean 18.62 iterations, max 153, one
+   halving, 39.9–42.3 ms a step**, 280 steps with breaker flow, hash
+   `0x15da1328b8babe3d`.
+1. **The `C`-based update did nothing where it mattered.** On the
+   corrected stand-in the downcomer is cut by the equalising limit on
+   most iterates, so its `C` row is zero, and Newton took Picard's
+   iterations exactly (mean 18.48). The limit's own convergence is slow
+   because its slopes (`γ p/n`, adiabatic gas) are not the volumes'
+   (steam condensing in the pool), and the receiver's half lags. **Fix:**
+   in the Newton mode the limit, and the breaker's add-back, use the
+   path's measured response `D` for both slopes (`limit_response`). The
+   converged limit is unchanged (the driving difference meets its
+   target); only the rate of getting there changes.
+2. **A linearised path flow cannot cross a dead band.** At the
+   downcomer's clearing (step 7) the flow ping-ponged between 0 (the drive
+   below the 11.8 kPa submergence, where `∂x/∂u = 0`) and 17 kg/s, for
+   30 iterates. **Fix (the method as built):** the volumes stay
+   linearised by `D`; the paths are not linearised at all. Each iterate
+   solves `x = Φ(x)` with the paths' own steps at the linearised pressures
+   `u(x) = P̃ + D (x − x_{k−1})`, and the limit. `Φᵢ` falls as `xᵢ` rises,
+   so `h = x − Φ(x)` rises with slope ≥ 1 and the root is bracketed at
+   once in `[x₀ − h(x₀), x₀]`. One regula falsi (Illinois) per path,
+   Gauss–Seidel over the paths (`monotone_root`). `C`, the dense solve and
+   the step length are gone; path steps cost little next to volume steps.
+3. **`D` taken at zero inflow.** Receivers lag, so on the first flowing
+   iterate the pool's response to bubbling was taken at zero inflow, and
+   the next iterates oscillated with period 2 (13 iterates). **Fix:**
+   re-take `D` when its outflow or inflow base has moved by more than 10 %
+   (`PathResponse::holds_at`).
+4. The regula falsi's tolerance had been scaled by the previous iterate's
+   largest rate (1e-7 kg/s on a clearing step), unreachable for a root of
+   17 kg/s. Now relative to the root.
+
+**As built, on the stand-in (2026-11-02, release, `-j 1`, same
+hardware): mean 4.82 iterations a step, max 8, no halving, no fallback,
+18.8 ms a step against Picard's 39.9 ms on the same run (2.1 times
+faster).** Picard cannot converge step 7 (the downcomers clearing) at
+`Δt` = 1 s even with 5000 iterations and halves it. Newton converges it in
+7. So the two trajectories differ from step 7 on by one halved step: the
+worst |Δp_dw| over the run is 66.3 Pa, the whole of it from that step.
+**The trajectory comparison therefore cannot be the instrument** (a
+time-step difference, not a solver difference). Changed after seeing
+this, and stated: the instrument is **per step**. From each state on the
+Newton trajectory, the same step is taken by Picard at 1e-6 and at 1e-8
+(5000 iterations, no halving); steps where Picard does not converge at
+full `Δt` are counted and excluded.
+
+**Prediction W4′ (written before the per-step run):** on every step
+Picard converges, Newton(1e-6) is no further from Picard(1e-8) than
+Picard(1e-6) is, in both pressures and the pool temperature (Newton
+converges superlinearly, so its last change bounds its error; Picard's
+error at `ω` = 0.05 is about its last change divided by 0.05). The
+worst Picard(1e-6) − Picard(1e-8) per step: under 1 Pa.
+
+**W4′ MISSED (per-step run, 2026-11-02).** Worst per step: |Newton −
+Picard(1e-8)| 3.75 Pa (p_dw), 3.12 Pa (p_ww), 3.8e-6 K; |Picard(1e-6) −
+Picard(1e-8)| 0.025 Pa, 0.018 Pa, 5.7e-8 K. Newton is the further on 493
+of 899 steps (one step skipped: Picard cannot take step 7 at full `Δt`).
+All of the excess is in the leak phase (0–300 s); in the breaker and
+late phases the worst |Newton − Picard(1e-8)| is 4.4e-4 and 8.9e-3 Pa.
+
+**Diagnosis: two converged answers to one step, and only Newton's solves
+the momentum equation.** Step 8, from the same start state (Newton's
+history): Newton gives 23.3445 kg/s through the downcomers, unlimited,
+p_dw 118 074.40 Pa, unchanged at tolerances down to 1e-11. Picard
+(1e-6 and 1e-8) gives 23.432 kg/s, limited, p_dw 118 070.66 Pa.
+Re-evaluating each end state (the path stepped from its start velocity
+at the end pressures; the end-of-step driving difference):
+- Newton: momentum 23.344493 kg/s at its own end pressures (its flow is
+  23.344473; the difference is the in-transit lag), end drive +6.87 Pa,
+  so the limit rightly does not bind;
+- Picard: momentum **13.69 kg/s** at its own end pressures against the
+  23.43 kg/s it moved, end drive 0.0001 Pa.
+
+Picard's answer is a **false convergence**. Once the limit binds, a path's
+rate no longer depends on the relaxed end pressures, so the rate residual
+is met while those pressures (relaxed at `ω` = 0.05) are still far from
+the end state. Tightening the tolerance cannot see it, which is why
+Picard(1e-6) and Picard(1e-8) agree to 0.025 Pa. Newton has the same
+blind spot in principle. It met it on its first design (a path held at
+zero flow twice, item 2), and the exact-path formulation removes it,
+because the paths are evaluated at pressures consistent with the
+volumes' response to the flows. The criterion is not moved. The result
+is that "within Picard tolerance" cannot hold where Picard is falsely
+converged, and the disagreement is the finding.
+
+**Prediction M (written before the run of the momentum-consistency
+instrument):** per step, for the downcomers, the inconsistency `|x −
+x_m| / max rate`, with `x_m` the momentum flow at the end state (and
+`x ≤ x_m` accepted when the end drive is within 1e-3 Pa of its
+target, the limit binding):
+- Newton: under 1e-4 on every step;
+- Picard: about 0.4 on the limited leak steps, and under 1e-4 where the
+  limit does not bind.
+
+**Result M (2026-11-02): held.** The worst inconsistency over the 899
+steps Picard converges: Newton **2.1e-5**; Picard(1e-6) **0.415**, on
+488 steps above 1e-4 (all in the limited leak phase). These are the same
+steps as W4′'s 493.
+
+**Results (2026-11-02, release, Rust 1.99.1, `-j 1`; a 4-vCPU Intel Xeon
+@ 2.10 GHz cloud container, 15 GB; wall time varies by about 12 %
+between runs of the same code).** Tests:
+`cv_network::tests::newton_path_flows_on_a_mark_i_stand_in` (W1–W4′, M)
+and the network suite (W5).
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| W1, ablation = Picard default, bit for bit | test 1 `0x6499f07e74895e85`, test 7 `0x35ec1958148a4fca`, stand-in (first geometry) `0x7bbab5d4aaf8eb46`: identical to the code before the change; the b4c99e210 pin unchanged | held |
+| W2, stand-in, mean 3–5 iterations, max ≤ 30, no halving, no fallback | **mean 4.82, max 8**, no halving, no fallback (Picard: 18.62, max 153, one halving) | held, on the design as built (the first design: 18.48, missed) |
+| W3, stand-in, 25–40 ms a step | **18.2–20.5 ms** against Picard's 39.9–45.9 ms (four runs), **2.0–2.4 times faster** | missed, cheaper than predicted |
+| W4, trajectory within the tolerance spread | 66 Pa, all from one step Picard must halve | instrument withdrawn (above) |
+| W4′, per step, Newton no further from Picard(1e-8) than Picard(1e-6) | 3.75 Pa against 0.025 Pa; Newton the further on 493 of 899 steps | **missed**: Picard falsely converged (M) |
+| M, momentum consistency, Newton < 1e-4 | 2.1e-5 (Picard 0.415) | held |
+| W5, test 1 iterations ≤ 34 → ≤ 10 | ≤ 8; p 151 310.29 / 151 310.28 Pa (was 151 310.28 / 151 310.28) | held |
+| W5, test 7, after opening, within 3400.0–3400.5 Pa | **3399.999498**–3400.000205 Pa (Picard: 3399.999704–3400.000890); opens at step 3 at 3399.99999967 Pa (Picard: step 4); closure 1.0e-14 | held at the test's 1e-3 Pa floor; the opening one step earlier (below) |
+| W5, tests 2–6, L8, N1, S3, J1 | all pass unchanged. Test 4: 99 942.1 Pa (same); L8: B 194.017 kg, 1893.18 Pa (same at the quoted digits); S3 errors identical at the printed digits, Newton − Picard at 0.1 s −1.4e-4 Pa; J1 every quoted number unchanged | held |
+| closures | ≤ 1.0e-14 everywhere (stand-in 5.3e-15) | held |
+
+**Two pins re-based, not loosened.** gh:#1117's point-draw pin and S3's
+"the switch ablation gives the same bits" were taken when Picard was the
+only solver. Their intent, the ablation reproducing the old code, now
+needs the Newton step ablated as well. Both are composed with
+`without_newton_path_flows`, and the hashes are unchanged.
+
+**Test 7 opens one step earlier (step 3).** It ends that step at
+3399.99999967 Pa, the set point. The likely reason, **not isolated:**
+the breaker's add-back now uses the measured response, and at step 3 the
+difference with its own flow added back crosses 3400 Pa where the
+adiabatic slopes left it under.
+
+**Not run: `sembawang`'s case B.** This change could not build
+`sembawang` (another session holds it). Case B's numbers will move, at
+least where its downcomers are limited, if the false convergence is
+there too (likely: its profile has the downcomers at the limit and `ω`
+at its floor). They have to be re-measured with the new default, and
+compared by the momentum-consistency instrument, not by distance from
+the Picard numbers. A lead, **not re-checked:** candidate (d) of the
+profile ("moved results past the tolerance") also solved each path
+self-consistently, and may have been moving off the same false
+convergence.
+
+**What to quote:** the stand-in's iterations and cost (4.82 against
+18.62 a step; about 2.1 times faster), M's consistency numbers, and
+test 7's band. Not W4′'s 3.75 Pa as "Newton's error": it is Picard's.
+
+**Suite run:** `cargo test --release -j 1 -p tampines --lib --tests`
+(the full suite, long tests on): 261 passed, 0 failed, 5 ignored, in 15
+binaries. The two tests added after that run started
+(`the_newton_steps_scalar_solve_brackets_its_root`,
+`a_failed_newton_step_falls_back_and_commits_nothing`) were run on their
+own: 2 passed.

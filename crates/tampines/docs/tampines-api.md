@@ -34038,8 +34038,13 @@ MELCOR 2.2 CVH/FL Reference Manual §6–7, cited, not quoted).
 
 # The step
 
-A step of `Δt` is a Picard (fixed-point) iteration on the end-of-step
-state:
+~~A step of `Δt` is a Picard (fixed-point) iteration on the end-of-step
+state:~~ **CORRECTED 2026-11-02 (gh:#1119):** a step of `Δt` is an
+iteration on the end-of-step state whose end pressures (step 1) come by
+default from a Newton step on the path flows (the section below). The
+Picard (fixed-point) iteration with under-relaxed pressures, described
+here, is the ablation [`CvNetwork::without_newton_path_flows`] (bit for
+bit) and the fallback:
 
 1. Each path advances its two velocities from their start-of-step values
    with the end pressures of the **latest iterate** (the start state on the
@@ -34056,6 +34061,52 @@ state:
    below the tolerance.
 
 With `max_iterations = 1` this is loose (operator-split) coupling.
+
+# The Newton step on the path flows (gh:#1119)
+
+Picard with under-relaxation converges only linearly on a stiff path (a
+Mark I downcomer), and once the equalising limit binds, a path's rate no
+longer depends on the relaxed pressures. So the rate residual can be met
+while those pressures are still far from the end state: a **false
+convergence**, measured in `cv_network.md`. The Newton step:
+
+- **The volumes are linearised by their measured response.** Per
+  flowing path, its end pressures' response to its flow, by finite
+  differences of the volumes themselves (`PathResponse`): the donor
+  stepped again with its outflow raised, and the receiver with its inflow
+  raised by what the donor then sent more. So condensing at a submerged
+  exit, bubbling, flashing and the level's head are in it. It is taken
+  when a path first flows within the step, and re-taken when the rates it
+  was taken about move by more than 10 %.
+- **The paths are not linearised.** Each iterate solves the flows
+  `x = Φ(x)` with the paths' own steps, and the limit, at the linearised
+  pressures `P̃ + D (x − x_{k−1})`. `P̃` is the latest iterate's pressures
+  with each lagged receiver's response added, because a receiver is
+  stepped with what its donor sent on the iterate before. A path's
+  dead band (a downcomer below its submergence) and the limit's kink are
+  therefore exact. `Φᵢ` falls as `xᵢ` rises, so each path's root is
+  bracketed at once and found by regula falsi (`monotone_root`), path by
+  path (Gauss–Seidel).
+- **The equalising limit and a breaker's add-back use the same measured
+  response** for their slopes. The converged limit is unchanged (the
+  driving difference meets its target); only the convergence rate
+  changes.
+- Everything else is the Picard step: the volumes' step, the delivery,
+  the in-transit inventory, the breakers' hysteresis, the convergence
+  test.
+- **Fallback:** a Newton step that does not converge in 30 iterates, or
+  meets any error, is re-run by Picard from the start state
+  ([`NetworkStepReport::newton_fell_back`]).
+- **Not used** with [`CvNetwork::without_iterate_switch_decisions`] (the
+  b4c99e210 pin) or with one iteration (loose coupling).
+
+On a Mark I stand-in (`tests.rs`, `mark_i_proxy`): mean 4.82 iterations
+a step against Picard's 18.62, 18.2–20.5 ms against 39.9–45.9 ms, no
+halving or fallback. **Its results differ from Picard's by up to 3.7 Pa
+a step**, beyond Picard's tolerance spread (0.025 Pa). On those steps
+Picard's limited answer does not satisfy the momentum equation at its
+own end state (it is off by up to 0.41 of the largest rate), and Newton's
+does (2.1e-5).
 
 **Exact conservation.** At the last iterate a receiver's inflow is the
 donor's outflow of the iterate before, which differs by the remaining
@@ -34104,6 +34155,11 @@ the network closes as `now = start + boundary_inflow`.
   transient that crosses them non-smooth in `Δt`. On a smooth case the
   error at these steps is second-order dominated (`cv_network.md`,
   gh:#1116).
+- The Newton step's volume response is a finite-difference linearisation
+  (a chord, re-taken on a 10 % move); a path's cross-coupling through a
+  shared volume enters only through it. A step whose start is far from
+  linear in the volumes falls back to Picard (none did on the stand-in).
+  `sembawang`'s case B has **not** been run with it (gh:#1119).
 
 ```rust
 pub mod cv_network { /* ... */ }
@@ -34537,7 +34593,8 @@ pub struct NetworkPath {
 - **WasmNotSync**
 #### Struct `NetworkControl`
 
-Picard controls.
+Iteration controls: Picard's, and the Newton step's (gh:#1119), whose
+iterates are further capped at 30 before it falls back to Picard.
 
 ```rust
 pub struct NetworkControl {
@@ -34683,6 +34740,7 @@ pub struct NetworkStepReport {
     pub transfers: Vec<crate::flow_path::FlowTransfer>,
     pub volumes: Vec<crate::control_volume::ControlVolumeStepReport>,
     pub equalising_limited: Vec<bool>,
+    pub newton_fell_back: bool,
 }
 ```
 
@@ -34690,11 +34748,12 @@ pub struct NetworkStepReport {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `iterations` | `usize` | Picard iterations taken. |
+| `iterations` | `usize` | Iterations taken: the Newton step's, or Picard's when Newton is<br>ablated, not used, or fell back (then Picard's alone; the failed<br>Newton iterates are not counted). |
 | `residual` | `f64` | Last residual (largest relative change of a path rate). |
 | `transfers` | `Vec<crate::flow_path::FlowTransfer>` | Each path's transfer at the last iterate. |
 | `volumes` | `Vec<crate::control_volume::ControlVolumeStepReport>` | Each volume's own report at the last iterate, in the order the<br>volumes were added (gh:#1100): among others its<br>`pool_heat_to_atmosphere`, the pool heat that went into the<br>atmosphere because the pool was dry or boiled dry within the step,<br>which a caller cannot otherwise see. |
 | `equalising_limited` | `Vec<bool>` | Per path, whether the equalising limit cut its gas flow at the last<br>iterate (gh:#1116). |
+| `newton_fell_back` | `bool` | Whether the Newton step on the path flows (gh:#1119) failed to<br>converge and this step was re-run with the under-relaxed Picard<br>iteration from its start state. `false` when Newton converged or was<br>not used. |
 
 ##### Implementations
 
@@ -34832,6 +34891,16 @@ pub struct CvNetwork {
   pub fn new(control: NetworkControl) -> Self { /* ... */ }
   ```
   An empty network.
+
+- ```rust
+  pub fn without_newton_path_flows(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation (gh:#1119): solve each step by the under-relaxed Picard
+
+- ```rust
+  pub fn newton_path_flows(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether a step is solved by the Newton step on the path flows (the
 
 - ```rust
   pub fn without_iterate_switch_decisions(self: Self) -> Self { /* ... */ }

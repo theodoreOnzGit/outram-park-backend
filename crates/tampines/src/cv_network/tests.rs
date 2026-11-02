@@ -112,6 +112,9 @@ fn two_tanks(control: NetworkControl) -> CvNetwork {
 /// within a step, and the extra iterations are the limit being re-taken
 /// while the gas still warms); at most 30 Picard
 /// iterations. Held (after the corrections in the V&V doc).
+/// **Re-measured 2026-11-02 with the Newton step (gh:#1119):** at most 8
+/// iterations (W5 predicted ≤ 10); 151 310.29 / 151 310.28 Pa; closure
+/// ≤ 1.3e-15.
 #[test]
 fn a_closed_gas_network_conserves_and_equalises() {
     let mut net = two_tanks(NetworkControl::default());
@@ -357,6 +360,13 @@ fn external_sources_sinks_heats_and_a_valve_close() {
 /// is labelled so. Old bound: 3400 to 4100 Pa. The ablation
 /// (`without_iterate_switch_decisions`) keeps the old record and is checked
 /// below against the old bound.
+///
+/// **Re-measured 2026-11-02 (gh:#1119): the Newton step is the default.**
+/// Prediction W5 (written before the change): every assertion holds
+/// unchanged. Held. Opening: step 3 at 3399.99999967 Pa (Picard: step 4).
+/// Afterwards: 3399.999498–3400.000205 Pa (Picard: 3399.999704–
+/// 3400.000890). Closure 1.0e-14. The Picard numbers are those of
+/// `without_newton_path_flows`.
 #[test]
 fn a_vacuum_breaker_holds_its_opening_difference() {
     use crate::control_volume::Source;
@@ -804,8 +814,11 @@ fn time_order_on_a_smooth_case() {
         net.add_path(NetworkPath { path: gas_path(4.0, 4.0, 1e-4, 1.0), from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
         net
     };
-    let run_with = |dt: f64, ablate: bool| {
-        let mut net = if ablate { build().without_iterate_switch_decisions() } else { build() };
+    // gh:#1119: `picard` ablates the Newton step (the solver this record and
+    // the switch ablation's bit-for-bit pin were taken with).
+    let run_with = |dt: f64, ablate: bool, picard: bool| {
+        let net = if ablate { build().without_iterate_switch_decisions() } else { build() };
+        let mut net = if picard { net.without_newton_path_flows() } else { net };
         let n = (2.0 / dt).round() as usize;
         for _ in 0..n {
             let r = net.step(Time::new::<second>(dt)).unwrap();
@@ -813,7 +826,7 @@ fn time_order_on_a_smooth_case() {
         }
         net.volume(0).unwrap().atmosphere_pressure().value
     };
-    let run = |dt: f64| run_with(dt, false);
+    let run = |dt: f64| run_with(dt, false, false);
     let reference = run(0.0125);
     let errs: Vec<f64> = [0.4, 0.2, 0.1, 0.05].iter().map(|&dt| run(dt) - reference).collect();
     let ratios: Vec<f64> = errs.windows(2).map(|w| w[0] / w[1]).collect();
@@ -821,7 +834,10 @@ fn time_order_on_a_smooth_case() {
     // Predicted 1.8–2.2 (first order); measured 3.8–5.2 (see above).
     assert!(errs.iter().all(|e| *e < 0.0), "{errs:?}");
     assert!(ratios.iter().all(|r| *r > 1.8), "{ratios:?}");
-    assert_eq!(run_with(0.1, true).to_bits(), run(0.1).to_bits(), "no switch acts, so the ablation is identical");
+    assert_eq!(run_with(0.1, true, true).to_bits(), run_with(0.1, false, true).to_bits(), "no switch acts, so the ablation is identical");
+    // gh:#1119: Newton against Picard on the smooth case, at 0.1 s.
+    let (newton, picard) = (run(0.1), run_with(0.1, false, true));
+    println!("S3: Newton - Picard at dt 0.1 s: {:.3e} Pa", newton - picard);
 }
 
 /// gh:#1117's drain: A (1 m² × 5 m, 1.5 m of water at 350 K under 2 bar of
@@ -870,7 +886,12 @@ fn ablation_hashes_1117() -> [u64; 2] {
         net.add_path(NetworkPath { path: gas_path(0.0, 0.0, 0.002, 1.0).without_choking(), from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
         net
     };
-    [network_hash(side_port_drain().without_two_phase_junction_draw(), 2000, 0.02), network_hash(l8().without_two_phase_junction_draw(), 1000, 0.02)]
+    // gh:#1119: the code these were taken on solved by Picard, so the
+    // ablation is pinned with the Newton step ablated too.
+    [
+        network_hash(side_port_drain().without_two_phase_junction_draw().without_newton_path_flows(), 2000, 0.02),
+        network_hash(l8().without_two_phase_junction_draw().without_newton_path_flows(), 1000, 0.02),
+    ]
 }
 
 /// **gh:#1117: a junction straddling the surface moves both phases.** The
@@ -968,4 +989,307 @@ fn a_straddling_junction_moves_both_phases() {
     assert!(new.closure < 1e-12 && old.closure < 1e-12, "{} {}", new.closure, old.closure);
     assert!(old.lowest < 1.0 && old.lowest > 0.99, "{}", old.lowest);
     assert!(new.lowest > 1.0 && new.lowest < 1.02, "{}", new.lowest);
+}
+
+/// A Mark I-like stiff network for gh:#1119, a stand-in for `sembawang`'s
+/// case B (which this crate cannot run): Unit 1's drywell (3410 m³ on a
+/// 200 m² floor, N2 at 1.05 bar, 323.15 K) and torus (prismatic, 750 m²
+/// pool surface, 1750 m³ of water at 303.15 K under 2620 m³ of saturated
+/// N2), joined by 20 m² of downcomers (`L` = 8 m, `C_d` = 0.6, entry 2 m
+/// above the drywell floor, exits 11.8 kPa below the pool surface, opening
+/// 0.515 m) and a 0.5 m² vacuum breaker (3.4 kPa, `L` = 1 m); the
+/// drywell floor at the torus top. The numbers
+/// are `sembawang`'s `params.rs` and `containment_network.rs` (Unit 1),
+/// copied, not linked. Driven by [`drive_proxy`].
+fn mark_i_proxy() -> CvNetwork {
+    let g = 9.81;
+    let (p0, t_dw, t_ww) = (1.05e5, 323.15, 303.15);
+    let rho_ww = 1.0 / tampines_steam_tables::region_1_subcooled_liquid::v_tp_1(kel(t_ww), Pressure::new::<pascal>(p0)).value;
+    let (a_ww, v_pool, v_ww_gas) = (750.0, 1750.0, 2620.0);
+    let h_ww = (v_pool + v_ww_gas) / a_ww;
+    let level0 = v_pool / a_ww;
+    let exit = level0 - 11_800.0 / (995.0 * g);
+    let d_dc = (4.0 * 20.0 / (96.0 * std::f64::consts::PI)).sqrt();
+    let z_ww_gas = h_ww - 0.5;
+    let port = |z: f64, h: f64| Port { elevation: m(z), opening_height: m(h) };
+    let ww = ControlVolume::new(
+        VolumeAltitudeTable::prismatic(Area::new::<square_meter>(a_ww), m(h_ww)).unwrap(),
+        vec![port(exit, d_dc), port(z_ww_gas, 0.5)],
+        Mass::new::<kilogram>(v_pool * rho_ww),
+        kel(t_ww),
+        atm(v_ww_gas, p0, t_ww, 1.0),
+        kel(t_ww),
+    )
+    .unwrap();
+    // The drywell floor at the torus top and the downcomers' entry 2 m
+    // above it, as sembawang's `NetworkConfig::unit1` (a first version put
+    // the floor at 0 m, below the pool surface, and the pool ran back into
+    // the drywell through the downcomers).
+    let (a_dw, v_dw) = (200.0, 3410.0);
+    let floor = h_ww;
+    let z_dc = floor + 2.0;
+    let dw_table = VolumeAltitudeTable::new(&[(m(floor), uom::si::f64::Volume::new::<uom::si::volume::cubic_meter>(0.0)), (m(floor + v_dw / a_dw), uom::si::f64::Volume::new::<uom::si::volume::cubic_meter>(v_dw))]).unwrap();
+    let dw = ControlVolume::new(
+        dw_table,
+        vec![port(z_dc, 1.0), port(z_dc, 0.5), port(floor + 10.0, 0.1)],
+        Mass::new::<kilogram>(0.0),
+        kel(t_dw),
+        atm(v_dw, p0, t_dw, 0.0),
+        kel(t_dw),
+    )
+    .unwrap();
+    let mut net = CvNetwork::new(NetworkControl::default());
+    let dw = net.add_volume(dw);
+    let ww = net.add_volume(ww);
+    let path = |area: f64, length: f64, z_from: f64, z_to: f64, opening: f64, kind: FlowPathKind| {
+        FlowPath::new(
+            FlowPathGeometry {
+                area: Area::new::<square_meter>(area),
+                inertial_length: m(length),
+                form_loss: 1.0,
+                discharge_coefficient: 0.6,
+                from_elevation: m(z_from),
+                to_elevation: m(z_to),
+                opening_height: m(opening),
+            },
+            kind,
+        )
+        .unwrap()
+    };
+    net.add_path(NetworkPath { path: path(20.0, 8.0, z_dc, exit, d_dc, FlowPathKind::Open), from: NetworkEnd::Volume { volume: dw, port: 0 }, to: NetworkEnd::Volume { volume: ww, port: 0 } })
+        .unwrap();
+    let vb = FlowPathKind::VacuumBreaker { opening_pressure_difference: Pressure::new::<pascal>(3400.0) };
+    net.add_path(NetworkPath { path: path(0.5, 1.0, z_ww_gas, z_dc, 0.0, vb), from: NetworkEnd::Volume { volume: ww, port: 1 }, to: NetworkEnd::Volume { volume: dw, port: 1 } })
+        .unwrap();
+    net
+}
+
+/// [`drive_proxy`]'s drive for step `k` (see there).
+fn set_proxy_drive(net: &mut CvNetwork, k: usize) {
+    use crate::control_volume::Source;
+    let (leak, cool) = if k < 300 {
+        (20.0, 0.0)
+    } else if k < 600 {
+        (0.0, -8.0e6)
+    } else {
+        (2.0, 0.0)
+    };
+    net.set_source(0, 2, Source::water(mr(leak), AvailableEnergy::new::<joule_per_kilogram>(2.77e6))).unwrap();
+    net.set_atmosphere_heat(0, uom::si::f64::Power::new::<uom::si::power::watt>(cool)).unwrap();
+}
+
+/// What [`drive_proxy`] measured.
+#[derive(Debug, Clone, Default)]
+struct ProxyRun {
+    iterations: Vec<usize>,
+    p_dw: Vec<f64>,
+    p_ww: Vec<f64>,
+    t_pool: Vec<f64>,
+    seconds: f64,
+    closure: f64,
+    hash: u64,
+    substeps: usize,
+    breaker_steps: usize,
+    fallbacks: usize,
+}
+
+/// One step of `dt`, halved recursively (to 6 halvings) while the network
+/// does not converge, as `sembawang`'s `containment_network::advance` does
+/// (MELCOR's executive cutting its step). Returns the last sub-step's
+/// report, the Picard iterations of all sub-steps (failed attempts
+/// included) and the extra sub-steps.
+fn advance_halving(net: &mut CvNetwork, dt: f64, depth: usize) -> (NetworkStepReport, usize, usize) {
+    match net.step(Time::new::<second>(dt)) {
+        Ok(r) => {
+            let it = r.iterations;
+            (r, it, 0)
+        }
+        Err(TampinesError::Numerical(_)) if depth < 6 => {
+            let (_, i1, s1) = advance_halving(net, 0.5 * dt, depth + 1);
+            let (r, i2, s2) = advance_halving(net, 0.5 * dt, depth + 1);
+            (r, net.control.max_iterations + i1 + i2, 1 + s1 + s2)
+        }
+        Err(e) => panic!("{e}"),
+    }
+}
+
+/// [`mark_i_proxy`] for `steps` steps of 1 s: a steam leak into the drywell
+/// (saturated steam at 2.77 MJ/kg) of 20 kg/s for 0–300 s, then none and
+/// 8 MW taken from the drywell atmosphere for 300–600 s (sprays, so the
+/// drywell falls below the torus and the breaker opens), then a 2 kg/s leak
+/// and the cooling off. Records per step the Picard iterations, both
+/// pressures and the pool temperature, the run's wall time, the worst
+/// water / N2 / energy closure and an FNV-1a hash of the trajectory.
+fn drive_proxy(mut net: CvNetwork, steps: usize) -> ProxyRun {
+    let (w0, n0, e0) = totals(&net);
+    let mut out = ProxyRun { hash: 0xcbf2_9ce4_8422_2325, ..ProxyRun::default() };
+    let t0 = std::time::Instant::now();
+    for k in 0..steps {
+        set_proxy_drive(&mut net, k);
+        let (r, it, subs) = advance_halving(&mut net, 1.0, 0);
+        out.iterations.push(it);
+        out.substeps += subs;
+        out.fallbacks += usize::from(r.newton_fell_back);
+        let (dw, ww) = (net.volume(0).unwrap(), net.volume(1).unwrap());
+        let xs = [dw.atmosphere_pressure().value, ww.atmosphere_pressure().value, ww.pool_temperature().value, r.transfers[0].gas_mass_rate.value, r.transfers[1].gas_mass_rate.value];
+        if r.transfers[1].gas_mass_rate.value != 0.0 {
+            out.breaker_steps += 1;
+        }
+        out.p_dw.push(xs[0]);
+        out.p_ww.push(xs[1]);
+        out.t_pool.push(xs[2]);
+        for x in xs {
+            for b in x.to_bits().to_le_bytes() {
+                out.hash ^= b as u64;
+                out.hash = out.hash.wrapping_mul(0x0100_0000_01b3);
+            }
+        }
+        let (w, n, e) = totals(&net);
+        let (bw, bn, be) = net.boundary_inflow();
+        out.closure = out.closure.max(((w - w0) - bw).abs() / w0).max(((n - n0) - bn[0]).abs() / n0).max(((e - e0) - be).abs() / e0.abs());
+    }
+    out.seconds = t0.elapsed().as_secs_f64();
+    out
+}
+
+/// **gh:#1119: a Newton step on the path flows, on a Mark I stand-in.**
+///
+/// **Method.** [`mark_i_proxy`] driven by [`drive_proxy`] (900 steps of 1 s:
+/// a 20 kg/s steam leak, then 8 MW of drywell cooling, the breaker opening,
+/// then a 2 kg/s leak), with the Newton step (default) and with Picard
+/// (`without_newton_path_flows`). Instrument for the results (chosen after
+/// the trajectory comparison was found to measure a halved step, see
+/// `cv_network.md`): **per step**, from each state on the Newton
+/// trajectory, the same step by Picard at 1e-6 and at 1e-8 (5000
+/// iterations); Newton is accepted where it is no further from Picard(1e-8)
+/// than Picard(1e-6) is. Steps where Picard does not converge at full `Δt`
+/// are counted and left out. Also pinned: the ablation bit for bit (W1).
+///
+/// **Predictions (written before the first Newton run):** W1 the ablation's
+/// hashes equal the pre-change code's; W2 Newton's mean 3–5 iterations a
+/// step, max ≤ 30, no halving or fallback; W3 25–40 ms a step (printed,
+/// not asserted: wall time); W4′ (written before the per-step run) Newton no
+/// further from Picard(1e-8) than Picard(1e-6), the latter under 1 Pa.
+///
+/// **Result (2026-11-02, release):** see `cv_network.md`, gh:#1119.
+#[test]
+fn newton_path_flows_on_a_mark_i_stand_in() {
+    // W1: hashes taken on the code before the change (test 1, test 7), and
+    // on the stand-in's Picard ablation (its identity to the code before
+    // the change was shown on the stand-in's first geometry, 0x7bba…).
+    assert!(mark_i_proxy().newton_path_flows(), "on by default");
+    assert!(!mark_i_proxy().without_newton_path_flows().newton_path_flows());
+    let ablation = [network_hash(two_tanks(NetworkControl::default()).without_newton_path_flows(), 600, 0.1), network_hash(breaker_network().without_newton_path_flows(), 400, 1.0)];
+    assert_eq!(ablation, [0x6499_f07e_7489_5e85, 0x35ec_1958_148a_4fca]);
+    let picard = drive_proxy(mark_i_proxy().without_newton_path_flows(), 900);
+    assert_eq!(picard.hash, 0x15da_1328_b8ba_be3d);
+    // W2, W3.
+    let newton = drive_proxy(mark_i_proxy(), 900);
+    let stats = |r: &ProxyRun| {
+        let n = r.iterations.len() as f64;
+        (r.iterations.iter().sum::<usize>() as f64 / n, *r.iterations.iter().max().unwrap(), 1e3 * r.seconds / n)
+    };
+    let (nm, nx, nms) = stats(&newton);
+    let (pm, px, pms) = stats(&picard);
+    println!(
+        "W2/W3 Newton: mean {nm:.2} max {nx} halvings {} fallbacks {} {nms:.1} ms/step; Picard: mean {pm:.2} max {px} halvings {} {pms:.1} ms/step; breaker steps {} / {}",
+        newton.substeps, newton.fallbacks, picard.substeps, newton.breaker_steps, picard.breaker_steps
+    );
+    assert!(nm <= 5.0 && nx <= 30 && newton.substeps == 0 && newton.fallbacks == 0, "{nm} {nx} {} {}", newton.substeps, newton.fallbacks);
+    assert!(newton.closure < 1e-12, "{}", newton.closure);
+    // W4′: per step.
+    let mut net = mark_i_proxy();
+    let (mut worst_n, mut worst_p, mut skipped, mut worse_steps) = ([0.0_f64; 3], [0.0_f64; 3], 0, 0);
+    let state = |n: &CvNetwork| {
+        let (dw, ww) = (n.volume(0).unwrap(), n.volume(1).unwrap());
+        [dw.atmosphere_pressure().value, ww.atmosphere_pressure().value, ww.pool_temperature().value]
+    };
+    // M: the downcomers' flow against the momentum flow at the step's own
+    // end state (the path stepped from its start velocity at the end
+    // pressures); a limited flow below it is consistent when the end drive
+    // meets its target (zero) to 1e-3 Pa.
+    let (mut incons_n, mut incons_p, mut incons_p_steps) = (0.0_f64, 0.0_f64, 0);
+    let inconsistency = |before: &NetworkPath, end: &CvNetwork, r: &NetworkStepReport| -> f64 {
+        let g = *before.path.geometry();
+        let a = CvNetwork::path_end(&end.volumes, &before.from, g.from_elevation.get::<meter>());
+        let b = CvNetwork::path_end(&end.volumes, &before.to, g.to_elevation.get::<meter>());
+        let xm = signed_rate(&before.path.clone().step(Time::new::<second>(1.0), &a, &b).unwrap());
+        let x = signed_rate(&r.transfers[0]);
+        let drive = a.pressure.value - b.pressure.value - a.gas_density.value * G * (g.to_elevation.value - g.from_elevation.value);
+        let scale = r.transfers.iter().map(|t| signed_rate(t).abs()).fold(1e-3, f64::max);
+        if x < xm && drive.abs() < 1e-3 {
+            0.0
+        } else {
+            (x - xm).abs() / scale
+        }
+    };
+    for k in 0..900 {
+        set_proxy_drive(&mut net, k);
+        let before = net.path(0).unwrap().clone();
+        let mut p6 = net.clone().without_newton_path_flows();
+        p6.control.max_iterations = 5000;
+        let mut p8 = p6.clone();
+        p8.control.tolerance = 1e-8;
+        let dt = Time::new::<second>(1.0);
+        let rn = net.step(dt).unwrap();
+        incons_n = incons_n.max(inconsistency(&before, &net, &rn));
+        let (Ok(r6), Ok(_)) = (p6.step(dt), p8.step(dt)) else {
+            skipped += 1;
+            continue;
+        };
+        let ip = inconsistency(&before, &p6, &r6);
+        incons_p = incons_p.max(ip);
+        incons_p_steps += usize::from(ip > 1e-4);
+        let (sn, s6, s8) = (state(&net), state(&p6), state(&p8));
+        let mut worse = false;
+        for q in 0..3 {
+            let (dn, dp) = ((sn[q] - s8[q]).abs(), (s6[q] - s8[q]).abs());
+            worst_n[q] = worst_n[q].max(dn);
+            worst_p[q] = worst_p[q].max(dp);
+            // A round-off margin of 1e-10 of the value.
+            worse |= dn > dp + 1e-10 * s8[q].abs();
+        }
+        worse_steps += usize::from(worse);
+    }
+    println!(
+        "W4': worst per step |Newton - Picard(1e-8)| p_dw {:.3e} Pa, p_ww {:.3e} Pa, T_pool {:.3e} K; |Picard(1e-6) - Picard(1e-8)| {:.3e} Pa, {:.3e} Pa, {:.3e} K; steps where Newton is the further {worse_steps}; skipped (Picard failed at full dt) {skipped}",
+        worst_n[0], worst_n[1], worst_n[2], worst_p[0], worst_p[1], worst_p[2]
+    );
+    println!("M: worst momentum inconsistency of the downcomers' flow at the end state: Newton {incons_n:.3e}; Picard(1e-6) {incons_p:.3e}, on {incons_p_steps} steps above 1e-4");
+    // W4′ MISSED (Newton up to 3.7 Pa from Picard(1e-8), Picard(1e-6) 0.025
+    // Pa); M explains it: Picard's limited answer does not solve the
+    // momentum equation (see `cv_network.md`). Asserted: Picard's own
+    // spread as predicted, and Newton consistent (prediction M).
+    assert!(worst_p[0] < 1.0 && worst_p[1] < 1.0, "{worst_p:?}");
+    assert!(incons_n < 1e-4, "{incons_n}");
+}
+
+
+/// gh:#1119: [`monotone_root`], the Newton step's bracketed scalar solve.
+/// A smooth falling `φ` (`10 − 2x`, root 10/3), a kinked one with a dead
+/// band (`3 max(0, 5 − x)`, root 3.75, from either side of the kink), and a
+/// rising `φ` (`2x`), which breaks the bracket and must be refused.
+#[test]
+fn the_newton_steps_scalar_solve_brackets_its_root() {
+    let ok = |x0: f64, phi: fn(f64) -> f64| monotone_root(x0, 1e-14, 1e-12, |x| Ok(phi(x))).unwrap();
+    let r = ok(0.0, |x| 10.0 - 2.0 * x);
+    assert!((r - 10.0 / 3.0).abs() < 1e-11, "{r}");
+    for x0 in [0.0, 4.0, 20.0] {
+        let r = ok(x0, |x| 3.0 * (5.0 - x).max(0.0));
+        assert!((r - 3.75).abs() < 1e-11, "{x0}: {r}");
+    }
+    assert!(monotone_root(1.0, 1e-14, 1e-12, |x| Ok(2.0 * x + 1.0)).is_err(), "a rising phi has no bracket");
+}
+
+/// gh:#1119: a step that neither Newton nor Picard can converge (two
+/// iterations to a zero tolerance) returns Picard's error and commits
+/// nothing: the fallback re-runs from the start state.
+#[test]
+fn a_failed_newton_step_falls_back_and_commits_nothing() {
+    let mut net = two_tanks(NetworkControl { max_iterations: 2, tolerance: 0.0 });
+    let p0 = net.volume(0).unwrap().atmosphere_pressure();
+    let e = net.step(Time::new::<second>(0.1)).unwrap_err();
+    assert!(matches!(e, TampinesError::Numerical(_)), "{e}");
+    assert_eq!(net.time().value, 0.0);
+    assert_eq!(net.volume(0).unwrap().atmosphere_pressure(), p0);
 }

@@ -12,8 +12,13 @@
 //!
 //! # The step
 //!
-//! A step of `Δt` is a Picard (fixed-point) iteration on the end-of-step
-//! state:
+//! ~~A step of `Δt` is a Picard (fixed-point) iteration on the end-of-step
+//! state:~~ **CORRECTED 2026-11-02 (gh:#1119):** a step of `Δt` is an
+//! iteration on the end-of-step state whose end pressures (step 1) come by
+//! default from a Newton step on the path flows (the section below). The
+//! Picard (fixed-point) iteration with under-relaxed pressures, described
+//! here, is the ablation [`CvNetwork::without_newton_path_flows`] (bit for
+//! bit) and the fallback:
 //!
 //! 1. Each path advances its two velocities from their start-of-step values
 //!    with the end pressures of the **latest iterate** (the start state on the
@@ -30,6 +35,52 @@
 //!    below the tolerance.
 //!
 //! With `max_iterations = 1` this is loose (operator-split) coupling.
+//!
+//! # The Newton step on the path flows (gh:#1119)
+//!
+//! Picard with under-relaxation converges only linearly on a stiff path (a
+//! Mark I downcomer), and once the equalising limit binds, a path's rate no
+//! longer depends on the relaxed pressures. So the rate residual can be met
+//! while those pressures are still far from the end state: a **false
+//! convergence**, measured in `cv_network.md`. The Newton step:
+//!
+//! - **The volumes are linearised by their measured response.** Per
+//!   flowing path, its end pressures' response to its flow, by finite
+//!   differences of the volumes themselves (`PathResponse`): the donor
+//!   stepped again with its outflow raised, and the receiver with its inflow
+//!   raised by what the donor then sent more. So condensing at a submerged
+//!   exit, bubbling, flashing and the level's head are in it. It is taken
+//!   when a path first flows within the step, and re-taken when the rates it
+//!   was taken about move by more than 10 %.
+//! - **The paths are not linearised.** Each iterate solves the flows
+//!   `x = Φ(x)` with the paths' own steps, and the limit, at the linearised
+//!   pressures `P̃ + D (x − x_{k−1})`. `P̃` is the latest iterate's pressures
+//!   with each lagged receiver's response added, because a receiver is
+//!   stepped with what its donor sent on the iterate before. A path's
+//!   dead band (a downcomer below its submergence) and the limit's kink are
+//!   therefore exact. `Φᵢ` falls as `xᵢ` rises, so each path's root is
+//!   bracketed at once and found by regula falsi (`monotone_root`), path by
+//!   path (Gauss–Seidel).
+//! - **The equalising limit and a breaker's add-back use the same measured
+//!   response** for their slopes. The converged limit is unchanged (the
+//!   driving difference meets its target); only the convergence rate
+//!   changes.
+//! - Everything else is the Picard step: the volumes' step, the delivery,
+//!   the in-transit inventory, the breakers' hysteresis, the convergence
+//!   test.
+//! - **Fallback:** a Newton step that does not converge in 30 iterates, or
+//!   meets any error, is re-run by Picard from the start state
+//!   ([`NetworkStepReport::newton_fell_back`]).
+//! - **Not used** with [`CvNetwork::without_iterate_switch_decisions`] (the
+//!   b4c99e210 pin) or with one iteration (loose coupling).
+//!
+//! On a Mark I stand-in (`tests.rs`, `mark_i_proxy`): mean 4.82 iterations
+//! a step against Picard's 18.62, 18.2–20.5 ms against 39.9–45.9 ms, no
+//! halving or fallback. **Its results differ from Picard's by up to 3.7 Pa
+//! a step**, beyond Picard's tolerance spread (0.025 Pa). On those steps
+//! Picard's limited answer does not satisfy the momentum equation at its
+//! own end state (it is off by up to 0.41 of the largest rate), and Newton's
+//! does (2.1e-5).
 //!
 //! **Exact conservation.** At the last iterate a receiver's inflow is the
 //! donor's outflow of the iterate before, which differs by the remaining
@@ -78,6 +129,11 @@
 //!   transient that crosses them non-smooth in `Δt`. On a smooth case the
 //!   error at these steps is second-order dominated (`cv_network.md`,
 //!   gh:#1116).
+//! - The Newton step's volume response is a finite-difference linearisation
+//!   (a chord, re-taken on a 10 % move); a path's cross-coupling through a
+//!   shared volume enters only through it. A step whose start is far from
+//!   linear in the volumes falls back to Picard (none did on the stand-in).
+//!   `sembawang`'s case B has **not** been run with it (gh:#1119).
 
 use tampines_steam_tables::gas_mixture::{NonCondensable, R_GAS};
 use uom::si::available_energy::joule_per_kilogram;
@@ -154,7 +210,8 @@ pub struct NetworkPath {
     pub to: NetworkEnd,
 }
 
-/// Picard controls.
+/// Iteration controls: Picard's, and the Newton step's (gh:#1119), whose
+/// iterates are further capped at 30 before it falls back to Picard.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NetworkControl {
     /// Iterations per step (1 = loose coupling).
@@ -176,7 +233,9 @@ impl Default for NetworkControl {
 /// The report of a network step.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NetworkStepReport {
-    /// Picard iterations taken.
+    /// Iterations taken: the Newton step's, or Picard's when Newton is
+    /// ablated, not used, or fell back (then Picard's alone; the failed
+    /// Newton iterates are not counted).
     pub iterations: usize,
     /// Last residual (largest relative change of a path rate).
     pub residual: f64,
@@ -191,6 +250,11 @@ pub struct NetworkStepReport {
     /// Per path, whether the equalising limit cut its gas flow at the last
     /// iterate (gh:#1116).
     pub equalising_limited: Vec<bool>,
+    /// Whether the Newton step on the path flows (gh:#1119) failed to
+    /// converge and this step was re-run with the under-relaxed Picard
+    /// iteration from its start state. `false` when Newton converged or was
+    /// not used.
+    pub newton_fell_back: bool,
 }
 
 /// Inventory carried between steps by a path end: mass that left a donor on
@@ -233,10 +297,176 @@ pub struct CvNetwork {
     /// A donor port moves both phases in the path's own split (default,
     /// gh:#1117); else one phase by its level (the point draw).
     two_phase_draw: bool,
+    /// A Newton step on the path flows (default, gh:#1119); else the
+    /// under-relaxed Picard iteration.
+    newton: bool,
 }
 
 fn mr(x: f64) -> MassRate {
     MassRate::new::<kilogram_per_second>(x)
+}
+
+/// Newton iterates a step may take before it falls back to Picard
+/// (gh:#1119). Newton converging needs a handful; 30 is far past that and
+/// still well short of Picard's 100.
+const NEWTON_MAX_ITERATIONS: usize = 30;
+
+/// A path's signed mass rate, both phases, positive `from → to`, kg/s.
+fn signed_rate(t: &FlowTransfer) -> f64 {
+    t.liquid_mass_rate.get::<kilogram_per_second>() + t.gas_mass_rate.get::<kilogram_per_second>()
+}
+
+/// One path's linearised effect on the network's end pressures for the
+/// Newton step (gh:#1119): per path `j`, `[from end, to end]`, the change of
+/// that end's pressure per kg/s of this path's signed flow, Pa s/kg, by
+/// finite differences of the volumes themselves (so condensing at a
+/// submerged exit, bubbling, flashing and the level's head are in it).
+#[derive(Debug, Clone, PartialEq)]
+struct PathResponse {
+    /// Through the donor: its outflow raised.
+    donor: Vec<[f64; 2]>,
+    /// Through the receiver: its inflow raised by what the donor then sent.
+    receiver: Vec<[f64; 2]>,
+    /// Whether the receiver sees this path's flow one iterate late (a volume
+    /// donor: the receiver is stepped with what it sent on the iterate
+    /// before); a boundary sends at the current rate.
+    receiver_lagged: bool,
+    /// The signed rates it was taken about: the donor's outflow, and what
+    /// the receiver was given (the iterate before's, when lagged).
+    base: (f64, f64),
+}
+
+impl PathResponse {
+    /// Whether it was taken about rates within 10 % of `(outflow, inflow)`
+    /// (gh:#1119: a pool's response to bubbling taken at zero inflow, on
+    /// the first iterate the path flows, made the next iterates oscillate).
+    fn holds_at(&self, outflow: f64, inflow: f64) -> bool {
+        let near = |a: f64, b: f64| (a - b).abs() <= 0.1 * a.abs().max(b.abs());
+        near(self.base.0, outflow) && near(self.base.1, inflow)
+    }
+}
+
+/// The equalising limit's linearisation from path `i`'s own measured
+/// response `d` (gh:#1119), in place of the adiabatic slopes `γ p/n`:
+/// `(stiffness, own)`, the fall of the forward driving difference per kg/s
+/// of forward flow, Pa s/kg, and the forward difference this path's own
+/// flow already took out of the latest iterate, Pa: the donor's at `g1`
+/// (the previous iterate's gas rate) and a lagged receiver's at `g2` (the
+/// one before). `None` if the stiffness is not positive and finite (then
+/// the adiabatic slopes stand).
+fn limit_response(d: &PathResponse, i: usize, g1: f64, g2: f64) -> Option<(f64, f64)> {
+    let fall = |r: &[[f64; 2]]| r[i][1] - r[i][0];
+    let stiffness = fall(&d.donor) + fall(&d.receiver);
+    let g_rec = if d.receiver_lagged { g2 } else { g1 };
+    let own = fall(&d.donor) * g1 + fall(&d.receiver) * g_rec;
+    (stiffness.is_finite() && stiffness > 0.0 && own.is_finite()).then_some((stiffness, own))
+}
+
+/// The equalising limit's cap on a path's gas rate, kg/s, from its
+/// measured response (gh:#1119): the gas that brings the end-of-step driving
+/// difference to its target. `drive` is the latest iterate's `(forward,
+/// backward)` driving difference, `(stiffness, own)` its [`limit_response`],
+/// `breaker_dp` a breaker's opening difference (zero otherwise), `mg` the
+/// gas rate (its sign picks the direction).
+fn measured_cap(drive: (f64, f64), response: (f64, f64), breaker_dp: f64, mg: f64) -> f64 {
+    let (stiffness, own) = response;
+    let dp_eq = if mg > 0.0 { drive.0 + own - breaker_dp } else { drive.1 - own };
+    if dp_eq > 0.0 {
+        dp_eq / stiffness
+    } else {
+        0.0
+    }
+}
+
+/// The root of `h(x) = x − φ(x)` for a non-increasing `φ` (so `h` rises
+/// with slope at least 1), from `x0`, to `|h| ≤ max(eps, rel |x|)`
+/// (gh:#1119). The slope
+/// brackets the root at once: in `[x0 − h(x0), x0]` when `h(x0) > 0`, else
+/// in `[x0, x0 − h(x0)]`. Then the Illinois variant of regula falsi (the
+/// bracket never grows, so it cannot cycle as an unguarded Newton step
+/// does across a kink: a path's dead band, the limit).
+///
+/// # Errors
+///
+/// `φ`'s errors; [`TampinesError::Numerical`] if the bracket does not hold
+/// (`φ` rose somewhere) or 80 evaluations do not meet the tolerance.
+fn monotone_root<F>(x0: f64, eps: f64, rel: f64, mut phi: F) -> Result<f64, TampinesError>
+where
+    F: FnMut(f64) -> Result<f64, TampinesError>,
+{
+    let tol = |x: f64| eps.max(rel * x.abs());
+    let h0 = x0 - phi(x0)?;
+    if h0.abs() <= tol(x0) {
+        return Ok(x0);
+    }
+    let x1 = x0 - h0;
+    let h1 = x1 - phi(x1)?;
+    if h1.abs() <= tol(x1) {
+        return Ok(x1);
+    }
+    if h0.signum() == h1.signum() {
+        return Err(TampinesError::Numerical(format!("network Newton step: no bracket ({x0:e}, {h0:e}), ({x1:e}, {h1:e})")));
+    }
+    let ((mut a, mut ha), (mut b, mut hb)) = ((x0, h0), (x1, h1));
+    let mut side = 0_i8;
+    for _ in 0..80 {
+        let x = (a * hb - b * ha) / (hb - ha);
+        let hx = x - phi(x)?;
+        if hx.abs() <= tol(x) || (b - a).abs() <= tol(x) {
+            return Ok(x);
+        }
+        if hx.signum() == ha.signum() {
+            (a, ha) = (x, hx);
+            if side == -1 {
+                hb *= 0.5;
+            }
+            side = -1;
+        } else {
+            (b, hb) = (x, hx);
+            if side == 1 {
+                ha *= 0.5;
+            }
+            side = 1;
+        }
+    }
+    Err(TampinesError::Numerical("network Newton step: the path solve did not converge".into()))
+}
+
+/// The end pressures each path sees with the network's flows at `x`, by the
+/// volumes' measured responses about the latest iterate (gh:#1119): `pt`
+/// the latest pressures (each lagged receiver corrected), plus each
+/// responding path's `D (x − x1)`, `x1` the rates the latest iterate was
+/// stepped with.
+fn linear_pressures(pt: &[[f64; 2]], d: &[Option<PathResponse>], x: &[f64], x1: &[f64]) -> Vec<[f64; 2]> {
+    let mut u = pt.to_vec();
+    for (i, di) in d.iter().enumerate() {
+        if let Some(di) = di {
+            let dx = x[i] - x1[i];
+            for (uj, (dj, rj)) in u.iter_mut().zip(di.donor.iter().zip(&di.receiver)) {
+                uj[0] += (dj[0] + rj[0]) * dx;
+                uj[1] += (dj[1] + rj[1]) * dx;
+            }
+        }
+    }
+    u
+}
+
+/// The latest pressures with each lagged receiver's response to `x1 − x2`
+/// added (gh:#1119): the latest iterate's receivers were stepped with what
+/// their donors sent on the iterate before, so `P̃` is the state as if each
+/// had received `x1`.
+fn lag_corrected(p_raw: &[[f64; 2]], d: &[Option<PathResponse>], x1: &[f64], x2: &[f64]) -> Vec<[f64; 2]> {
+    let mut pt = p_raw.to_vec();
+    for (i, di) in d.iter().enumerate() {
+        if let Some(di) = di.as_ref().filter(|di| di.receiver_lagged) {
+            let dx = x1[i] - x2[i];
+            for (ptj, rj) in pt.iter_mut().zip(&di.receiver) {
+                ptj[0] += rj[0] * dx;
+                ptj[1] += rj[1] * dx;
+            }
+        }
+    }
+    pt
 }
 
 impl CvNetwork {
@@ -257,7 +487,24 @@ impl CvNetwork {
             control,
             iterate_switches: true,
             two_phase_draw: true,
+            newton: true,
         }
+    }
+
+    /// Ablation (gh:#1119): solve each step by the under-relaxed Picard
+    /// iteration on the end pressures, as before 2026-11-02 (bit for bit),
+    /// instead of the Newton step on the path flows. Picard converges on a
+    /// stiff path (Mark I downcomers) only linearly.
+    pub fn without_newton_path_flows(mut self) -> Self {
+        self.newton = false;
+        self
+    }
+
+    /// Whether a step is solved by the Newton step on the path flows (the
+    /// default; see the module docs). It is used only with the switch
+    /// decisions from the latest iterate and more than one iteration.
+    pub fn newton_path_flows(&self) -> bool {
+        self.newton
     }
 
     /// Ablation (gh:#1116): take the equalising limit and the vacuum
@@ -599,6 +846,30 @@ impl CvNetwork {
     /// The volumes' and paths' errors; [`TampinesError::Numerical`] if more
     /// than one iteration was allowed and the tolerance was not met.
     pub fn step(&mut self, dt: Time) -> Result<NetworkStepReport, TampinesError> {
+        // gh:#1119: Newton on the path flows, with the switch decisions of
+        // the latest iterate only (the lagged ablation is the b4c99e210 pin)
+        // and never for loose coupling (one pass has nothing to solve).
+        if self.newton && self.iterate_switches && self.control.max_iterations > 1 {
+            // Nothing is committed before convergence, so a failed Newton
+            // step leaves the start state for Picard. Any error falls back:
+            // a far Newton iterate can take a volume outside its tables
+            // where the Picard iterates would not; if Picard fails too, its
+            // error is the one returned.
+            match self.step_solve(dt, true) {
+                Ok(r) => return Ok(r),
+                Err(_) => {
+                    let mut r = self.step_solve(dt, false)?;
+                    r.newton_fell_back = true;
+                    return Ok(r);
+                }
+            }
+        }
+        self.step_solve(dt, false)
+    }
+
+    /// One step solved by Newton on the path flows (`newton`) or by the
+    /// under-relaxed Picard iteration (see the module docs).
+    fn step_solve(&mut self, dt: Time, newton: bool) -> Result<NetworkStepReport, TampinesError> {
         let dts = dt.get::<second>();
         let start_vols = self.volumes.clone();
         // A vacuum breaker opens or stays shut for the whole step by the
@@ -673,10 +944,19 @@ impl CvNetwork {
         let mut prev2_mol: Vec<f64> = vec![0.0; self.paths.len()];
         let mut limited: Vec<bool> = vec![false; self.paths.len()];
         let (mut omega, mut last_residual) = (1.0_f64, f64::INFINITY);
+        // gh:#1119, the Newton step's state. Per path: its end-pressure
+        // response (`D`, taken once a step) and its signed rate on the last
+        // two iterates.
+        let n_paths = self.paths.len();
+        let mut jac_d: Vec<Option<PathResponse>> = vec![None; n_paths];
+        let (mut x1, mut x2): (Vec<f64>, Vec<f64>) = (vec![0.0; n_paths], vec![0.0; n_paths]);
+        // And each path's gas rate on the last two iterates, for the limit.
+        let (mut g1, mut g2): (Vec<f64>, Vec<f64>) = (vec![0.0; n_paths], vec![0.0; n_paths]);
+        let max_iterations = if newton { self.control.max_iterations.min(NEWTON_MAX_ITERATIONS) } else { self.control.max_iterations };
         let (mut residual, mut iterations): (f64, usize);
         let mut transfers: Vec<FlowTransfer> = Vec::new();
         let (mut new_vols, mut new_paths, mut boundary_step);
-        for k in 1..=self.control.max_iterations {
+        for k in 1..=max_iterations {
             iterations = k;
             // 1. Paths from the latest iterate.
             new_paths = start_paths.clone();
@@ -745,13 +1025,85 @@ impl CvNetwork {
                             let g = *np.path.geometry();
                             let a = Self::path_end(&latest, &np.from, g.from_elevation.get::<meter>());
                             let b = Self::path_end(&latest, &np.to, g.to_elevation.get::<meter>());
-                            let d0 = a.pressure.get::<pascal>() - b.pressure.get::<pascal>() + own_dp(np, prev_mol[pi], prev2_mol[pi]);
+                            // gh:#1119: Newton adds its own flow back at its
+                            // measured response, where it has one.
+                            let own = match jac_d[pi].as_ref().filter(|_| newton).and_then(|d| limit_response(d, pi, g1[pi], g2[pi])) {
+                                Some((_, own)) => own,
+                                None => own_dp(np, prev_mol[pi], prev2_mol[pi]),
+                            };
+                            let d0 = a.pressure.get::<pascal>() - b.pressure.get::<pascal>() + own;
                             breaker_open[pi] = d0 > dp_open;
                         }
                         new_paths[pi].hold_open(Some(breaker_open[pi]));
                     }
                 }
             }
+            // gh:#1119: the Newton iterate (from the second iterate; the
+            // first is Picard's, unrelaxed). The volumes are linearised by
+            // their measured responses `D` about the latest iterate; the paths
+            // are not: the flows `x = Φ(x)` are solved with the paths' own
+            // steps at the linearised pressures (and the limit), so a path's
+            // dead band (a downcomer below its submergence) and the limit's
+            // kink are honoured exactly. Each path in turn (Gauss–Seidel),
+            // each a bracketed scalar root (`Φᵢ` falls as `xᵢ` rises).
+            let u_newton: Option<Vec<[f64; 2]>> = if newton && k > 1 {
+                let p_raw: Vec<[f64; 2]> = self
+                    .paths
+                    .iter()
+                    .map(|np| {
+                        let g = np.path.geometry();
+                        let pa = Self::path_end(&latest, &np.from, g.from_elevation.get::<meter>()).pressure.get::<pascal>();
+                        let pb = Self::path_end(&latest, &np.to, g.to_elevation.get::<meter>()).pressure.get::<pascal>();
+                        [pa, pb]
+                    })
+                    .collect();
+                let pt = lag_corrected(&p_raw, &jac_d, &x1, &x2);
+                let mut x = x1.clone();
+                // Each path's flow to 1e-3 of the tolerance, relative to the
+                // larger of its own and the latest largest rate.
+                let x_scale = x1.iter().fold(1e-9_f64, |m, v| m.max(v.abs()));
+                let rel = 1e-3 * self.control.tolerance;
+                let eps = rel * x_scale;
+                // The flow of path `i` at the flows `x`.
+                let phi = |i: usize, x: &[f64]| -> Result<f64, TampinesError> {
+                    let np = &self.paths[i];
+                    let g = np.path.geometry();
+                    let u = linear_pressures(&pt, &jac_d, x, &x1);
+                    let mut a = Self::path_end(&latest, &np.from, g.from_elevation.get::<meter>());
+                    let mut b = Self::path_end(&latest, &np.to, g.to_elevation.get::<meter>());
+                    a.pressure = Pressure::new::<pascal>(u[i][0]);
+                    b.pressure = Pressure::new::<pascal>(u[i][1]);
+                    let t = new_paths[i].clone().step(dt, &a, &b)?;
+                    let (ml, mut mg) = (t.liquid_mass_rate.get::<kilogram_per_second>(), t.gas_mass_rate.get::<kilogram_per_second>());
+                    let has_volume = matches!(np.from, NetworkEnd::Volume { .. }) || matches!(np.to, NetworkEnd::Volume { .. });
+                    if let Some(resp) = jac_d[i].as_ref().and_then(|d| limit_response(d, i, g1[i], g2[i])).filter(|_| has_volume && mg != 0.0) {
+                        let cap = measured_cap(drive_k[i], resp, breaker_dp[i], mg);
+                        if mg.abs() > cap {
+                            mg = cap.copysign(mg);
+                        }
+                    }
+                    Ok(ml + mg)
+                };
+                let responding: Vec<usize> = (0..n_paths).filter(|&i| jac_d[i].is_some()).collect();
+                for _sweep in 0..20 {
+                    let mut moved = 0.0_f64;
+                    for &i in &responding {
+                        let xi = monotone_root(x[i], eps, rel, |v| {
+                            let mut xv = x.clone();
+                            xv[i] = v;
+                            phi(i, &xv)
+                        })?;
+                        moved = moved.max((xi - x[i]).abs());
+                        x[i] = xi;
+                    }
+                    if moved <= eps || responding.len() == 1 {
+                        break;
+                    }
+                }
+                Some(linear_pressures(&pt, &jac_d, &x, &x1))
+            } else {
+                None
+            };
             for (pi, np) in self.paths.iter().enumerate() {
                 let g = *np.path.geometry();
                 let mut a = Self::path_end(&latest, &np.from, g.from_elevation.get::<meter>());
@@ -760,7 +1112,10 @@ impl CvNetwork {
                 // pressures oscillated (found 2026-11-01: a stalled residual
                 // of 1e-5 in a two-tank gas network at 0.1 s). `omega`
                 // halves whenever the residual grows.
-                if let Some((pa, pb)) = used_p[pi] {
+                if let Some(u) = &u_newton {
+                    a.pressure = Pressure::new::<pascal>(u[pi][0]);
+                    b.pressure = Pressure::new::<pascal>(u[pi][1]);
+                } else if let Some((pa, pb)) = used_p[pi] {
                     a.pressure = Pressure::new::<pascal>(omega * a.pressure.get::<pascal>() + (1.0 - omega) * pa);
                     b.pressure = Pressure::new::<pascal>(omega * b.pressure.get::<pascal>() + (1.0 - omega) * pb);
                 }
@@ -807,7 +1162,22 @@ impl CvNetwork {
                             NetworkEnd::Boundary(b) if side(receiver).is_some() => Some(b.molar_mass()),
                             NetworkEnd::Boundary(_) => None,
                         };
-                        if let Some(m_d) = donor_molar {
+                        let measured = jac_d[pi].as_ref().filter(|_| newton).and_then(|d| limit_response(d, pi, g1[pi], g2[pi]));
+                        if let (Some(_), Some(resp)) = (donor_molar, measured) {
+                            // gh:#1119: the same end-of-step condition with
+                            // the path's measured response (condensing,
+                            // bubbling, the level) for the slopes; the
+                            // converged limit is the same, only the rate of
+                            // getting there changes.
+                            let cap = measured_cap(drive_k[pi], resp, breaker_dp[pi], mg);
+                            if mg.abs() > cap {
+                                let f = cap / mg.abs();
+                                new_paths[pi].scale_gas_velocity(f);
+                                t.gas_mass_rate = t.gas_mass_rate * f;
+                                t.gas_enthalpy_rate = t.gas_enthalpy_rate * f;
+                                limited[pi] = true;
+                            }
+                        } else if let Some(m_d) = donor_molar {
                             let stiff = stiffness(np);
                             let own = own_dp(np, prev_mol[pi], prev2_mol[pi]);
                             let dp_eq = if mg > 0.0 { drive_k[pi].0 + own - breaker_dp[pi] } else { drive_k[pi].1 - own };
@@ -837,6 +1207,10 @@ impl CvNetwork {
                 };
                 transfers.push(t);
             }
+            if newton {
+                x2 = std::mem::replace(&mut x1, transfers.iter().map(signed_rate).collect());
+                g2 = std::mem::replace(&mut g1, transfers.iter().map(|t| t.gas_mass_rate.get::<kilogram_per_second>()).collect());
+            }
             // 2–3. Volumes from the start with these outflows and the
             // donors' previous sendings as inflow.
             new_vols = start_vols.clone();
@@ -857,6 +1231,8 @@ impl CvNetwork {
                 })
                 .collect();
             let mut leftover: Vec<[InTransit; 2]> = vec![[InTransit::default(); 2]; self.paths.len()];
+            // What each path end delivered this iterate (gh:#1119's response).
+            let mut delivery: Vec<[(f64, [f64; 6], f64, f64); 2]> = vec![[(0.0, [0.0; 6], 0.0, 300.0); 2]; self.paths.len()];
             boundary_step = InTransit::default();
             for (pi, np) in self.paths.iter().enumerate() {
                 let t = &transfers[pi];
@@ -884,6 +1260,7 @@ impl CvNetwork {
                     for q in 0..6 {
                         nn[q] += tr.ncg_kg[q];
                     }
+                    delivery[pi][dir] = (w, nn, e, tg);
                     match receiver {
                         NetworkEnd::Volume { volume, port } => {
                             let (src, left) = Self::source_from(&new_vols[volume], w, &nn, e, tg, dts);
@@ -926,6 +1303,24 @@ impl CvNetwork {
             for (i, v) in new_vols.iter_mut().enumerate() {
                 let r = v.step(dt, &inputs[i])?;
                 reports.push(r);
+            }
+            // gh:#1119: each path that flows gets its response, re-taken when
+            // the rates it was taken about have moved by more than 10 % (a
+            // chord Newton otherwise).
+            if newton {
+                let scale = transfers.iter().map(|t| signed_rate(t).abs()).fold(1e-3, f64::max);
+                for pi in 0..n_paths {
+                    // `x1` is now this iterate's rate and `x2` the one the
+                    // receiver was given.
+                    let x = signed_rate(&transfers[pi]);
+                    let stale = match &jac_d[pi] {
+                        None => x != 0.0,
+                        Some(d) => x != 0.0 && !d.holds_at(x, if d.receiver_lagged { x2[pi] } else { x }),
+                    };
+                    if stale {
+                        jac_d[pi] = Some(self.path_response(pi, &transfers[pi], x2[pi], scale, &start_vols, &new_vols, &inputs, &reports, &delivery[pi], dt)?);
+                    }
+                }
             }
             // External sources, sinks and heats cross the boundary
             // (gh:#1097): what each volume reports it took in or gave up.
@@ -1029,17 +1424,112 @@ impl CvNetwork {
             last_residual = residual;
             if k > 1 && residual < self.control.tolerance {
                 self.commit(new_vols, new_paths, transit, boundary_step, dts);
-                return Ok(NetworkStepReport { iterations, residual, transfers, volumes: reports, equalising_limited: limited });
+                return Ok(NetworkStepReport { iterations, residual, transfers, volumes: reports, equalising_limited: limited, newton_fell_back: false });
             }
-            if k == self.control.max_iterations {
+            if k == max_iterations {
                 if self.control.max_iterations == 1 {
                     self.commit(new_vols, new_paths, transit, boundary_step, dts);
-                    return Ok(NetworkStepReport { iterations, residual: 0.0, transfers, volumes: reports, equalising_limited: limited });
+                    return Ok(NetworkStepReport { iterations, residual: 0.0, transfers, volumes: reports, equalising_limited: limited, newton_fell_back: false });
                 }
                 return Err(TampinesError::Numerical(format!("network step: no convergence in {iterations} iterations (residual {residual:e})")));
             }
         }
         Err(TampinesError::Numerical("network step: no iterations".into()))
+    }
+
+    /// Path `pi`'s [`PathResponse`] about this iterate (gh:#1119): its
+    /// donor stepped again from the start state (`start`) with its outflow
+    /// raised by `δ`, and its receiver with its inflow raised by what the
+    /// donor then sent more, each against the iterate's own step (`stepped`
+    /// from `inputs`, with `reports`). `t` is the path's transfer this
+    /// iterate (its direction picks the donor; at zero, forward), `inflow`
+    /// the rate the receiver was given this iterate, `scale` the
+    /// network's largest rate (`δ` = 1e-6 of the larger of the two), and
+    /// `delivery` what this iterate delivered per direction, `(water kg,
+    /// gases kg, energy J, gas T)`.
+    ///
+    /// # Errors
+    ///
+    /// The volumes' errors.
+    #[allow(clippy::too_many_arguments)]
+    fn path_response(
+        &self,
+        pi: usize,
+        t: &FlowTransfer,
+        inflow: f64,
+        scale: f64,
+        start: &[ControlVolume],
+        stepped: &[ControlVolume],
+        inputs: &[ControlVolumeInputs],
+        reports: &[ControlVolumeStepReport],
+        delivery: &[(f64, [f64; 6], f64, f64); 2],
+        dt: Time,
+    ) -> Result<PathResponse, TampinesError> {
+        let dts = dt.get::<second>();
+        let np = &self.paths[pi];
+        let x = signed_rate(t);
+        let forward = x >= 0.0;
+        let delta = 1e-6 * x.abs().max(scale);
+        // A raised flow in the current direction is a change `s δ` of the
+        // signed rate.
+        let ds = if forward { delta } else { -delta };
+        let (donor, receiver, dir) = if forward { (np.from, np.to, 0) } else { (np.to, np.from, 1) };
+        let n = self.paths.len();
+        let lagged = matches!(donor, NetworkEnd::Volume { .. });
+        let mut out = PathResponse { donor: vec![[0.0; 2]; n], receiver: vec![[0.0; 2]; n], receiver_lagged: lagged, base: (x, if lagged { inflow } else { x }) };
+        // What the donor sends more: water kg, gases kg, energy J.
+        let (mut dw, mut dn, mut de) = (0.0, [0.0; 6], 0.0);
+        match donor {
+            NetworkEnd::Volume { volume, port } => {
+                let mut inp = inputs[volume].clone();
+                inp.ports[port].outflow += mr(delta);
+                let mut v = start[volume].clone();
+                let r = v.step(dt, &inp)?;
+                let (base, more) = (&reports[volume].ports[port], &r.ports[port]);
+                dw = (more.water_out - base.water_out).get::<kilogram>();
+                de = (more.energy_out - base.energy_out).get::<joule>();
+                for q in 0..6 {
+                    dn[q] = (more.ncg_out[q] - base.ncg_out[q]).get::<kilogram>();
+                }
+                self.add_end_response(volume, &v, &stepped[volume], ds, &mut out.donor);
+            }
+            NetworkEnd::Boundary(b) => {
+                for q in 0..6 {
+                    dn[q] = delta * dts * b.ncg_mass_fractions[q];
+                }
+            }
+        }
+        if let NetworkEnd::Volume { volume, port } = receiver {
+            let mut inp = inputs[volume].clone();
+            inp.ports[port].inflow = match donor {
+                NetworkEnd::Volume { .. } => {
+                    let (w, nn, e, tg) = delivery[dir];
+                    let mut n2 = nn;
+                    for q in 0..6 {
+                        n2[q] += dn[q];
+                    }
+                    Self::source_from(&start[volume], w + dw, &n2, e + de, tg, dts).0
+                }
+                NetworkEnd::Boundary(b) => inp.ports[port].inflow.with_gas(&NonCondensable::ALL.map(|g| (g, mr(dn[g.index()] / dts))), b.temperature),
+            };
+            let mut v = start[volume].clone();
+            v.step(dt, &inp)?;
+            self.add_end_response(volume, &v, &stepped[volume], ds, &mut out.receiver);
+        }
+        Ok(out)
+    }
+
+    /// Add to `out[j][e]` the change of every path end on volume `volume`
+    /// from `base` to `moved`, per `dx` of flow (gh:#1119).
+    fn add_end_response(&self, volume: usize, moved: &ControlVolume, base: &ControlVolume, dx: f64, out: &mut [[f64; 2]]) {
+        for (np, oj) in self.paths.iter().zip(out.iter_mut()) {
+            let g = np.path.geometry();
+            for (e, (end, z)) in [(np.from, g.from_elevation), (np.to, g.to_elevation)].into_iter().enumerate() {
+                if matches!(end, NetworkEnd::Volume { volume: v, .. } if v == volume) {
+                    oj[e] += (moved.pressure_at_elevation(z) - base.pressure_at_elevation(z)).get::<pascal>() / dx;
+                }
+            }
+        }
     }
 
     fn commit(&mut self, vols: Vec<ControlVolume>, paths: Vec<FlowPath>, transit: Vec<[InTransit; 2]>, b: InTransit, dt: f64) {
