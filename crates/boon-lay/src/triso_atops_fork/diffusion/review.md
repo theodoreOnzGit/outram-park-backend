@@ -457,3 +457,61 @@ based on the TrisoAtopsVariant settings, decides whether a particular reading (b
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit d9bc932bfc.
+
+# Review: integrate_diffusion_over_time (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-integrate-diffusion-over-time-theodoreonzgit-759c40b1"
+kind = "review"
+origin = "human"
+created = "2026-11-02T11:31:34+08:00"
+modified = "2026-11-02T11:31:34+08:00"
+target = "fn:759c40b16c1f728e"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::integrate_diffusion_over_time"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T11:31:34+08:00"
+commit = "fe30911754b2ae2385a67465f03d1d313310a2ca"
+hash = "sha256:970d9ba0b671193747184b0d2a77945d439f052d9152e0e24604a1864fda2c0d"
+doc_hash = "sha256:7e8f8175fd040a2830865bade80c59e8599153503b4f4acf8f3775fe34737814"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:7f5cefb7c1df6559" = "sha256:4aa1d67f76c9b0ea57e4840755de225c42bc99fbca0793ad77d574160026eb1a"
+"fn:8bc4c3bc717bd99d" = "sha256:01a9d764192caed17727d22b033e15e121412eb228415dd63816e5c10edbb912"
+"fn:bfe17211ff4ff7f2" = "sha256:24a940e2ec020558fbe49b26c8d59fd415f140bd56a083cfb6247806f6d722c4"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "no_limits: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "/BPyY83TfPTs8yli02+zkakRTW5iGD/yWXFAn1iDrqGW7dk83B13ssVPuL2tMrEY7jGF5Rujip1SuQqLDqV0AA=="
+```
+
+integration utility following upstream
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit fe30911754.
