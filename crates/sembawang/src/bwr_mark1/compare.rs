@@ -1381,7 +1381,7 @@ mod tests {
 
     ///
     /// **Since gh:#1099 (2026-11-02) every run in this test is on the lumped
-    /// containment** (`measure` is shadowed below to add
+    /// containment** (`measure` and `measure_with` are shadowed below to add
     /// `without_network_containment`), so every pin here keeps its meaning
     /// and its value: the lumped plant is reproduced bit for bit. The
     /// network plant, now the default, is pinned by
@@ -1389,6 +1389,10 @@ mod tests {
     #[test]
     fn the_uncalibrated_baseline_is_pinned() {
         let measure = |m: Mechanisms| measure(m.without_network_containment());
+        // `measure_with` too (it was missed when gh:#1099 shadowed `measure`,
+        // and its five runs below went to the network: drywell peak 0.62029
+        // against the lumped pin 0.56378686, found by the full suite).
+        let measure_with = |m: Mechanisms, p: Params| measure_with(m.without_network_containment(), p);
         let m = measure(Mechanisms::default());
         // The earlier models below are reproduced with the fission
         // products' decay heat left in the core, as it was then.
