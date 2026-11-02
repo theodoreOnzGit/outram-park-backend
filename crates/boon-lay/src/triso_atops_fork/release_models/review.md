@@ -1188,3 +1188,63 @@ conveneience function for test
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 4b1c2fe000.
+
+# Review: rf_graph_saturates_to_one (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-rf-graph-saturates-to-one-theodoreonzgit-4b2c8157"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:38:04+08:00"
+modified = "2026-11-02T13:38:04+08:00"
+target = "fn:4b2c81577e596956"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::rf_graph_saturates_to_one"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:38:04+08:00"
+commit = "21f19c2b1afa56d5d8a37cc9e0dca4f7a04f87f5"
+hash = "sha256:4ec42f1957e012c6cbd15e03860833b044d91764158a318f8058bcc8bd18844e"
+doc_hash = "sha256:02f5aff51efd2b7605c1e9614c4e2db6a8098b36e6f0e12f881b8c4e053947eb"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:a5d900994dded2a6" = "sha256:f83d70a686986f6e17bfa437ef3c5d3b750b27891b9b09c5ec646178fa7540b6"
+"fn:df3126435ca0e9d0" = "sha256:c6327566d5563e5e1a8e72426e288d6bb3a75499223a623f40a083449767a994"
+"fn:fffbbf11526a97b3" = "sha256:dfe628eecc32532c8ef23b1b136bdae0fc2b5f0a2ddb69de9a51b87f2aecd9fc"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "8P6jKEnuE9FtSE8Ie1CWxtZEUy4qb+yPZnkJHCqgQiGFuQaTbmf9uQAcwB7bNzT5nzKGjhtW2qasf17DRcgXAw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+basically, release fraction goes to 1 at infinite timescales. It is an order of magnitude test
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 21f19c2b1a.
