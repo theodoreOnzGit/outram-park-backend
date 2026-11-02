@@ -283,6 +283,30 @@ with identical output) gives:
 The struck values above are kept for the record. Since #900, the stabilised
 PIMPLE solver is **2.6× better** than HemPipe in GS-1 RMSE (gh:#918).
 
+**Re-measured 2026-11-02 (gh:#1111), release, 24 cells.** The subcooled
+critical-flow solver behind the break boundary changed (§12). Before = HEAD
+`90ecc3373` with the old solver files; after = the §12 solver. Only the three
+solver files differ between the two runs.
+
+| | HemPipe before | HemPipe after | PIMPLE before | PIMPLE after |
+|---|---|---|---|---|
+| steps to 0.6 s | 4270 | 4224 | 20 000 (fixed Δt) | 20 000 |
+| GS-1 plateau | 367.6 psia | **363.8 psia** | 360.5 psia | **364.0 psia** |
+| GS-1 RMSE | 42.8 psia | **42.7 psia** | 17.2 psia | **20.5 psia** |
+| peak break flow | 48.90 kg/s | **81.51 kg/s** | 98.2 lbm/s (44.5 kg/s) | 101.0 lbm/s (45.8 kg/s) |
+| mass conservation, max rel. | 4.5e-15 | 4.4e-15 | — | — |
+
+- **The "before" HemPipe column already differed** from the 2026-10-16 row
+  above (368.0 psia / 44.2 psia / 4025 steps). That row was stale on HEAD
+  before this change, cause not traced. The struck-and-corrected rows above
+  remain the history.
+- **HemPipe's peak break flow rose 67 %** (48.9 → 81.5 kg/s); PIMPLE's rose
+  2.9 %. The likely reason, not checked: HemPipe's break cell passes
+  through near-saturated states where the old `ρ_f c_2φ` branch returned
+  the low sonic-kink flux. When the peak occurs was not traced.
+- The GS-1 comparison quantities moved by ≤ 3.8 psia on both solvers.
+- Both tests pass.
+
 GS-1 pressure (psia), 24 cells. **NOT RE-CHECKED 2026-10-16:** this series came from the same earlier code state as the struck table values, and the test does not print it, so it was not regenerated. Treat it as illustrative only:
 
 ```csv
@@ -572,7 +596,10 @@ that error, so the Δp → 0 check agreed with it. With a forward-consistent
 solver the check measured the reference instead. The patch uses `ρ_1(T0, p0)`.
 **Recorded separately:** `Iapws97Hem::state_p_t` returns a density that is
 not `ρ(p, T)` at the given `T` (6e-6 relative at 300 K, 1.6e-5 at 500 K). It
-is not changed here.
+is not changed here. **Checked 2026-11-02 (stage 3): not a defect.** It is a
+documented design choice. `state_p_t` routes through `(p, h)` "so ρ and e
+are consistent with the (ρ, e) inversion" (module doc, "Consistency of the
+initial state"). It stays as is.
 
 **Interpretation.** A continuous, energy-consistent rule is available. Rule
 (B) improves the 300 K, Edwards, Zaloudek x_t ≥ 0.05 and most Moody
@@ -589,6 +616,123 @@ the maintainer:** whether to land rule (B) and record these as known misses
 (changing the Zaloudek bubble-curve fixture's definition, the Moody point
 and Marviken 23 to characterisations, and Marviken 24 to a validation), or
 to keep the committed solver. Nothing here may be quoted as validated.
+
+### 12. gh:#1111 stage 3: rule (B) LANDED, misses recorded by name (2026-11-02)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Maintainer decision:** land rule (B) from §11 and record the misses
+honestly. **Applied.**
+- The subcooled critical solver is the continuous global maximum of `G` on
+  a forward-consistent stagnation state.
+- `Iapws97Hem`'s unchoked liquid branch uses the same `T0`.
+- No tolerance was changed.
+
+**Predictions** (written before running; held in the session's predictions
+file):
+- R1: the new Zaloudek saturated-liquid fixture gives `p* = p_t` within
+  0.5 %.
+- R2: `G_calc` is the fixture's `ρ_f c_2φ(0⁺)`.
+- R3: every point passes, with 5–15 psia the risk.
+- Moody 0.25 in full mode passes.
+
+R1–R3 held. **The Moody 0.25 prediction was wrong** (below).
+
+**1. Zaloudek saturated-liquid fixture, redefined.**
+`zaloudek_mass_flux_hom_eqm::hem_stagnation_for_saturated_liquid_throat`
+defines it:
+- the throat sits on the saturated-liquid line (x_t = 0);
+- `s0 = s_1(T_sat, p_t)`;
+- `u_t = c_2φ(0⁺)` from a one-sided `(∂v/∂p)_s` on the dome side, using
+  forward equations;
+- `h0 = h_f + u_t²/2`;
+- `(p0, T0)` comes from a 2D forward Newton solve.
+
+This is the HEM stagnation whose own isentrope has its maximum of `G` at
+the throat, which is what an HEM reference throat means. It is defined
+independently of the comparison. The old fixture (x_t = 1e-4, sound speed
+at 1e-4) did not satisfy this at low pressure. Its numbers under the new
+solver are in §11 and at the test.
+- **Result:** all 16 Region 1 points pass at the unchanged tolerances, in
+  both the subcooled test and the generic-dispatcher test.
+- `p*` equals `p_t` exactly, except −0.02 % at 100–300 psia (a flat
+  maximum).
+- G/G_ref − 1: −7.8, +3.1, +5.9, +5.3, +6.2, +5.8, +3.1, −1.2, +4.1, +3.7,
+  +4.1, −3.2, +0.2, −5.8, −6.6, −3.2 % (5 … 2000 psia).
+- 3000 psia (Region 3 saturated liquid) keeps the old map: −0.29 % on `p*`
+  in the generic test.
+
+**2. Zaloudek, other buckets.**
+- x_t = 0.05 subcooled at 1000/1500/2000 psia: `p*` −0.09/−0.10/+0.03 %,
+  G −4.1/−5.7/−2.1 %.
+- x_t = 0.10 at 1500 psia: `p*` −0.07 %, G −2.65 %.
+- The in-dome, superheated and backward buckets are byte-identical.
+
+**3. Moody.**
+- Every isobar's deep points are equal or better (§11 table).
+- **0.50 / h = 2.2549 is excluded by name** in `MOODY_KNOWN_MISSES`,
+  measured err 0.120 against 0.08. It is printed and asserted to remain
+  outside the tolerance.
+- The rest of the 0.50 isobar asserts. Its R4 points, unmeasured in §11
+  because the test aborted, all pass.
+- **Moody 0.25 was tried in full mode** (its old 0.170 reason is gone):
+  - 6 deep points pass (≤ 0.039);
+  - **1.8627 misses at 0.156 and 1.9020 at 0.252**. These are the steep end
+    of the deep branch, the same signature as 0.50 / 2.2549.
+  - The isobar was kept in-dome-only rather than adding two more
+    exclusions, and the numbers are recorded at the test.
+
+**4. Marviken.**
+- **Test 23: VALIDATED with 5 named misses.**
+  - Mean 13.9 % (≤ 15 %), signed −13.9 %. The worst point outside the named
+    misses is 19.3 %.
+  - The 5 points outside 25 % are named in `MARVIKEN_23_KNOWN_MISSES`:
+    4797.7 kPa −26.9 %, 4877.2 −31.5 %, 4891.6 −25.5 %, 4942.2 −31.3 %,
+    4974.7 −30.6 %. They stay in the mean and are asserted to stay outside.
+  - They are the top-of-envelope points where the measurement itself jumps
+    ±13–30 % between neighbours. The bare-HEM characterisation also exceeds
+    the band there (28.2 %).
+  - **Changed verdict:** before, 29/29 were inside, but the bias was +5.9 %
+    from the knife-edge branch.
+- **Test 24: promoted to VALIDATED.**
+  - Mean 10.4 %, signed −9.4 %.
+  - 39 of 40 points are inside 25 % (worst 24.7 %). The one outside is
+    named in `MARVIKEN_24_KNOWN_MISSES`: 3193.6 kPa, −25.6 %.
+  - The miss-pinning test is now a validation gate at its stated
+    15 %/25 % budget.
+  - **Changed verdict:** NOT VALIDATED (48.6 %) → VALIDATED.
+
+**5. HEM continuity tests.**
+- gh1102 cold test: **un-ignored**, passes, rel 4.2e-8.
+- Edwards transition: rel −5.5e-9.
+- Δp → 0 Bernoulli, with the reference density corrected (§11): worst
+  4.4e-7 (370 K, 1 Pa), within 1e-6.
+
+**6. Determinism goldens.**
+- `edw_pimple_*_{10,50,200}` moved and were regenerated, as recorded in
+  `determinism_golden_moves.md`.
+- Step 1 and Part A are unchanged.
+
+**7. Edwards GS-1** (`tests/edwards_blowdown.rs`, Linear defaults): passes.
+Measured on the same tree with only the three solver files swapped (release):
+- break-flow peak 98.2 → 101.0 lbm/s;
+- GS-1 plateau 360.5 → 364.0 psia;
+- **GS-1 RMSE 17.2 → 20.5 psia (worse)**;
+- `p @ t_end` 14.2 → 13.7 psia;
+- 0 bound events and 0 holds, before and after.
+
+Why the RMSE rose was not traced. A plausible reading, not checked: the
+break cell is near-saturated during the transient, where the old
+`ρ_f c_2φ` branch fired. **HemPipe** (`tests/hem_pipe_edwards.rs`) also moved: plateau 367.6 →
+363.8 psia, RMSE 42.8 → 42.7 psia, and peak break flow **48.9 → 81.5
+kg/s**. See the re-measurement table in §7.
+
+**Integration tests** (`cargo test --release -j 2 -p tampines-steam-tables
+--tests`, 2026-11-02): every target passes. The lib run gives 1040 passed,
+0 failed, 14 ignored.
+
+**Which numbers to quote:** the §12 numbers. The §10/§11 figures describe
+unapplied patches or the old fixture.
 
 ## References
 

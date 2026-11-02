@@ -286,6 +286,11 @@ impl Fnv {
 /// Native golden hashes, `(sub-hash name, value count, hash)`.
 /// x86_64-unknown-linux-gnu, release, 2026-10-16, ~~PRE-migration~~ post-S2
 /// (`lambda_ph`, `p_rho_h` regenerated, `petir_libm` added; see the module docs).
+/// **2026-11-02 (gh:#1111):** `edw_pimple_*_{10,50,200}` regenerated. The
+/// subcooled critical-flow solver changed: forward-consistent stagnation and
+/// a continuous global maximum. The Edwards break boundary calls it; the
+/// step-1 hashes are unchanged, and the step-10 ones and later moved. Recorded in
+/// `verification_and_validation/determinism_golden_moves.md`.
 const GOLDEN: &[(&str, usize, u64)] = &[
     // GOLDEN-TABLE-START
     ("t_ph", 2164, 0xfe7442848ca7f258),
@@ -305,18 +310,18 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("edw_pimple_he_1", 24, 0x99e80f2836e95484),
     ("edw_pimple_rho_1", 24, 0xbf05587125d7c7a4),
     ("edw_pimple_U_1", 72, 0x60673c681d1e7655),
-    ("edw_pimple_p_10", 24, 0x2423d833a3f87c70),
-    ("edw_pimple_he_10", 24, 0x2745388edcf1211a),
-    ("edw_pimple_rho_10", 24, 0x5f784bec19fe3451),
-    ("edw_pimple_U_10", 72, 0xb409cf81ca9ef7ee),
-    ("edw_pimple_p_50", 24, 0x77a391f98be19cae),
-    ("edw_pimple_he_50", 24, 0x55a763f07d6ce4b7),
-    ("edw_pimple_rho_50", 24, 0x928380f00731e1bf),
-    ("edw_pimple_U_50", 72, 0x341470de4b9f6b88),
-    ("edw_pimple_p_200", 24, 0x3d1ebba98509e7e5),
-    ("edw_pimple_he_200", 24, 0x2efa2c88b9d4c55c),
-    ("edw_pimple_rho_200", 24, 0x4f9fe4a58a074f24),
-    ("edw_pimple_U_200", 72, 0xddc1daac10ff6f72),
+    ("edw_pimple_p_10", 24, 0xea24059e9252ee26),
+    ("edw_pimple_he_10", 24, 0x97558ed3c2267639),
+    ("edw_pimple_rho_10", 24, 0x4a6a86282b7d1440),
+    ("edw_pimple_U_10", 72, 0x56f26996362e49d7),
+    ("edw_pimple_p_50", 24, 0x2db5604a318a689a),
+    ("edw_pimple_he_50", 24, 0xfb30d36be397eea7),
+    ("edw_pimple_rho_50", 24, 0x522057d3cd38af3b),
+    ("edw_pimple_U_50", 72, 0x9be7a101d78eb351),
+    ("edw_pimple_p_200", 24, 0x2745182f6bdcdd42),
+    ("edw_pimple_he_200", 24, 0x9bbaec8f5dface67),
+    ("edw_pimple_rho_200", 24, 0xba774c18e058e414),
+    ("edw_pimple_U_200", 72, 0x49d693d4bf1ada00),
     // GOLDEN-TABLE-END
 ];
 

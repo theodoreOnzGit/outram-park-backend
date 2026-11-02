@@ -8828,38 +8828,74 @@ Precondition: `(p0, h0)` is single-phase on the liquid side — subcooled
 liquid (`p0 < p_c`, `T0 < T_sat(p0)`) or liquid-like (`p0 >= p_c`,
 `T0 < T_c`). The caller's dispatcher is responsible for routing here.
 
-Method: two-regime choke finder along the isentrope `s = s0`,
-    `G_energy(p) = rho(p,s0) * sqrt( 2 * (h0 - h(p,s0)) )`
+# Method: the maximum of `G` along the isentrope (gh:#1111, 2026-11-02)
 
-* **Genuinely subcooled** (throat quality > ~0.03): the choke is a smooth
-  interior two-phase point where the energy-balance maximum of `G_energy`
-  coincides with the sonic point (`dG/dp = 0 ⇔ v = c`). Located by
-  golden-section over `[p_min, p_bubble]`.
-* **Near-saturated** (throat quality ≲ 0.03, i.e. throat on the saturated-
-  liquid line): the energy maximum is *not* the choke — it either overshoots
-  `rho_f·v ≫ rho_f·c` at the bubble point or walks off to a deeper stationary
-  point the flow never reaches at `M = 1`. Here the choke is the bubble-point
-  kink itself; the mass flux `rho_f·c_2φ` is read from a precomputed sonic map
-  along the saturated-liquid line (see [`saturation_line_sonic_mass_flux`]).
+Along the isentrope `s = s0`, with the stagnation enthalpy `h0`,
+    `G(p) = ρ(p, s0) · √(2 (h0 − h(p, s0)))`,
+and the choke is its **global maximum over the throat pressure** — the
+maximum-discharge principle that defines the HEM reference curves this
+solver is validated against (Moody 1975, "maximum discharge rate";
+Zaloudek's HEM throats). Along the isentrope `dG/dp|_s = (u² − c²)/(u c²)`,
+so an interior maximum is a sonic point `u = c`.
 
-The regime is selected by the two-phase quality at the energy-max choke,
-which is the only quantity that cleanly separates the two cases (stagnation
-subcooling and pressure both overlap between them).
+- **Liquid stretch `[p_bubble, p0]`.** `u` is far below the liquid sound
+  speed (≈ 1500 m/s), so `G` rises monotonically; it is not searched.
+- **The bubble point.** The HEM sound speed drops there from `c_liq` to
+  `c_2φ(x = 0⁺)`, so `G` has a kink. When the kink is the maximum
+  (typically `u_b > c_2φ`, deep subcooling), `p* = p_bubble` and
+  `G* = ρ_f u_b`, `u_b = √(2 (h0 − h_f))` — the Bernoulli discharge.
+  Otherwise the maximum is an interior two-phase sonic point.
+- **`G*` is continuous in `(p0, h0)`**, being the maximum of a family of
+  continuous functions; only `p*` may jump between two near-equal maxima.
+  Measured 2026-11-02: the worst change of `G*` per 1 J/kg of `h0` over
+  ±300 J/kg is 3.6e-6 (Marviken 4075 kPa), 7.8e-6 and 1.1e-5 (Moody 0.50),
+  2.7e-7 (300 K, 2.31 bar).
+
+The search is a 160-point geometric scan below `p_bubble` (relative offset
+1e-9 to `1 − p_min/p_bubble`) for the largest `G`, including the kink, then
+[`golden_section_max_g`] inside the two neighbours of the best grid point.
+The two-phase `G` uses the forward saturation properties at
+`x = (s0 − s_f)/(s_g − s_f)` (clamped at 0), never a backward equation.
+
+**A first-local-maximum rule was considered and rejected** (V&V §11): it
+takes the kink where `G` has a higher interior maximum, and so misses
+Zaloudek x_t = 0.05 at 1000 psia by −41 %; the references are the global
+maximum.
+
+**What this replaced, and why.** Two thresholds used to select the
+branch:
+- an `x < 0.03` switch (quality at the global energy maximum) to a
+  bubble-point mass flux `ρ_f c_2φ` read from a sonic map;
+- a `DEEP_SUBCOOLING_RATIO = 5` escape (`u_b/c_2φ`) back to the energy
+  maximum.
+
+Both were knife edges: on Marviken test 23 a 0.01 % change in `h0` crossed
+`x = 0.03` and moved G by 20 %; a Moody 0.50 point sat at a ratio of 5.03.
+They existed because the energy objective subtracted from the given `h0`
+while taking `s0` at the backward-equation `T0`, putting up to ≈ 100 J/kg
+of error into a kinetic energy of 0.1–200 J/kg near saturation, which made
+the energy maximum overshoot or wander. The `ρ_f c_2φ` branch was also not
+energy-consistent when `u_b ≠ c_2φ`: it is the flux at a velocity the
+stagnation enthalpy does not supply. Before/after numbers:
+`verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`
+§11–§12.
+
+# Consistent stagnation state
+
+For a Region 1 stagnation `T0` solves the **forward** equation
+`h_1(T0, p0) = h0`
+([`super::basic_multiphase_equations::t_ph_region_1_forward`]), and
+`s0 = s_1(T0, p0)`. The given `h0` is kept. `Iapws97Hem`'s unchoked branch
+uses the same `T0`, so the two meet at `p*`. Region 3 (liquid-like)
+stagnations keep `s_ph_eqm`. Saturated-liquid `ρ_f`, `h_f` at the bubble
+point come from the forward equations at `T_sat(p_bubble)`.
 
 # Validation status
 
-Validated against Zaloudek (1961) HEM critical mass flux curves for all
-throat qualities x_t = 0.0–1.00 (the saturated-liquid-line curve x_t ≈ 0
-included). All curves pass within tolerance.
-
-# Note — the x ≈ 0 curve is numerical, not a physics limit
-
-The near-saturation correction exists because the energy-balance objective
-is blind to the discontinuity in the HEM sound speed at the bubble point, and
-the pointwise sonic function is unreliable in the thin band just below it —
-*not* because HEM cannot reproduce the x ≈ 0 line. The Zaloudek reference is
-itself HEM, and `mass_flux_ps_eqm_throat` evaluated at the throat reproduces
-it to ±0.04 in log10 G at every point.
+Zaloudek (1961) HEM subcooled curves, Moody (1975) deep-subcooled points
+and Marviken tests 23/24: see V&V §12 for the numbers after this change,
+including the recorded misses (Moody 0.50 / h = 2.2549, Marviken 23's
+worst point).
 
 ```rust
 pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(p0: Pressure, h0: AvailableEnergy) -> (Pressure, MassFlux) { /* ... */ }
@@ -8926,12 +8962,18 @@ pub fn get_critical_pressure_and_mass_flux_superheated_vapour_ph(p0: Pressure, h
 Threshold on `v_b/c_2φ` (Bernoulli velocity at the bubble point over the
 two-phase sound speed) above which a subcooled stagnation state is treated as
 unambiguously deeply subcooled and the choke is taken as the energy-balance /
-Bernoulli maximum. Set above the maximum reached by any Zaloudek subcooled
+Bernoulli maximum. ~~The solver branches on it~~ **CORRECTED 2026-11-02
+(gh:#1111): the solver no longer uses it.** The branch is now the
+global-maximum rule in
+[`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`]. The Moody
+tests still use this constant to choose which points to assert (their
+`[DEEP]` bucket), so it stays as a test classification only. Set above the maximum reached by any Zaloudek subcooled
 reference point (3.30) so this only adds deep-subcooling behaviour and never
 perturbs the validated near-bubble (sonic) regime. See README v0.2.1.
 
-Public so the Moody deep-subcooling verification test can classify points with
-the exact same threshold the solver uses.
+Public so the Moody deep-subcooling verification test can classify points
+~~with the exact same threshold the solver uses~~ (since 2026-11-02 the
+solver does not use it; it is the test's bucket definition only).
 
 ```rust
 pub const DEEP_SUBCOOLING_RATIO: f64 = 5.0;

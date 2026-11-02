@@ -119,9 +119,14 @@ impl Iapws97Hem {
     /// `s_1(T, p_b) = s0` (`∂s/∂T|_p = c_p/T`). The drop is then the exact
     /// integral of `v dp` along the IF97 isentrope, positive and continuous
     /// down to `Δp → 0`, and tends to the incompressible Bernoulli
-    /// `Δh = v Δp`. The cost is that the stagnation enthalpy used is
+    /// `Δh = v Δp`. ~~The cost is that the stagnation enthalpy used is
     /// `h_1(T0, p0)`, which differs from the given `h0` by the backward
-    /// `T(p, h)` consistency error (IF97: |ΔT| ≤ 25 mK).
+    /// `T(p, h)` consistency error (IF97: |ΔT| ≤ 25 mK).~~ **CORRECTED
+    /// 2026-11-02 (gh:#1111):** `T0` is now refined by Newton on the forward
+    /// equation, `h_1(T0, p0) = h0`
+    /// (`choked_flow::basic_multiphase_equations::t_ph_region_1_forward`), so
+    /// the given `h0` is kept to round-off. The subcooled critical solver uses
+    /// the same `T0`, so the choked and unchoked branches meet at `p*`.
     ///
     /// # Errors
     ///
@@ -133,10 +138,9 @@ impl Iapws97Hem {
         pb: Pressure,
     ) -> Result<Option<(f64, f64)>, HemError> {
         const T_REGION_1_MAX_K: f64 = 623.15;
-        if ph_flash_region(p0, h0) != FwdEqnRegion::Region1 {
+        let Some(t0) = crate::steam_turbine_equations::converging_diverging_nozzles::choked_flow::basic_multiphase_equations::t_ph_region_1_forward(p0, h0) else {
             return Ok(None);
-        }
-        let t0 = t_ph_eqm(p0, h0);
+        };
         if t0.get::<kelvin>() > T_REGION_1_MAX_K {
             return Ok(None);
         }

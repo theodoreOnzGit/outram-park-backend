@@ -128,6 +128,20 @@
 //! **125.3 → 98.2 lbm/s**; drained-cell holds 0 → 0. Under van Leer the case
 //! went from a failure at ≈ 0.12 s to a full 600 ms pass (358.3 / 19.9 psia).
 //!
+//! **Moved 2026-11-02 (gh:#1111): the break's subcooled critical-flow solver
+//! changed** to a forward-consistent stagnation and a continuous global
+//! maximum, with the `x < 0.03` / `DEEP_SUBCOOLING_RATIO` switches removed.
+//! Re-measured on row 1 (Linear, all defaults), before vs after on the same
+//! tree with only the three solver files swapped, release:
+//! - break-flow peak 98.2 → **101.0 lbm/s**;
+//! - GS-1 plateau 360.5 → **364.0 psia**;
+//! - GS-1 RMSE 17.2 → **20.5 psia** (worse);
+//! - GS-1 `p @ t_end` 14.2 → 13.7 psia;
+//! - bound events 0 → 0, holds 0 → 0.
+//!
+//! The test still passes. The other rows were not re-run. Quote the new
+//! row-1 numbers. See `hem_pipe_vs_exact_riemann_and_edwards.md` §12.
+//!
 //! **The predictions, scored:**
 //!
 //! - *A1 adaptive Δt — plateau barely changes:* **right** (360.2 vs 360.5),

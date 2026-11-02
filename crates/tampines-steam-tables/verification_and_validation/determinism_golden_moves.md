@@ -4,6 +4,37 @@
 on x86_64-unknown-linux-gnu (release). Its rule is that a golden may move
 **only with a named cause**. This file is where each move is recorded.
 
+## 2026-11-02: Part B `edw_pimple_*` at steps 10, 50 and 200 (gh:#1111, subcooled critical-flow solver)
+
+- **What moved:** the 12 goldens `edw_pimple_{p,he,rho,U}_{10,50,200}`. The
+  four step-1 goldens and all of Part A are unchanged.
+- **Cause:** `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`
+  changed:
+  - the stagnation `T0` now comes from the forward equation
+    `h_1(T0, p0) = h0`;
+  - the `x < 0.03` and `DEEP_SUBCOOLING_RATIO` branch switches were replaced
+    by a continuous global maximum of `G`;
+  - `Iapws97Hem::break_flow`'s unchoked liquid branch uses the same `T0`.
+
+  The Edwards slice's break boundary calls `break_flow`, so the break flux
+  changes once the boundary is active. This is a modelling change, not a
+  determinism defect.
+- **Evidence it is that and nothing else:** step 1 is unchanged and
+  every later recorded step moved, which fits a boundary flux that changes
+  once the break chokes. The exact first step that differs was not
+  bisected. The full Edwards target
+  `tests/edwards_blowdown.rs` still passes (release, 261 s). The HEM V&V
+  record (`hem_pipe_vs_exact_riemann_and_edwards.md` §12) has the
+  choked-transition numbers: Edwards `rel` −8.1e-3 → −5.5e-9.
+- **Regenerated** with `DETERMINISM_PRINT=1` on x86_64-unknown-linux-gnu,
+  release. New values are in `GOLDEN`. Old values: `p_10` 0x2423d833a3f87c70,
+  `he_10` 0x2745388edcf1211a, `rho_10` 0x5f784bec19fe3451, `U_10`
+  0xb409cf81ca9ef7ee, `p_50` 0x77a391f98be19cae, `he_50` 0x55a763f07d6ce4b7,
+  `rho_50` 0x928380f00731e1bf, `U_50` 0x341470de4b9f6b88, `p_200`
+  0x3d1ebba98509e7e5, `he_200` 0x2efa2c88b9d4c55c, `rho_200`
+  0x4f9fe4a58a074f24, `U_200` 0xddc1daac10ff6f72.
+- **Not re-checked:** native vs wasm32 for the new values.
+
 ## 2026-10-16: Part B hybrid runs REMOVED (`edw_hybrid_*`, `edw_knp_*`); nothing moved
 
 - **Cause.** Maintainer decision D7, "retire the KNP hybrid" (gh:#914).

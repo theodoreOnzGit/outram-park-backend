@@ -518,11 +518,21 @@ fn errors_display_their_values() {
 // ───────────────────── gh:#1102 cold-liquid break flow ─────────────────────
 
 /// `(p0, h0, ρ0)` of IF97 liquid at `(p0 [Pa], T0 [K])`.
+///
+/// The density is `ρ_1(T0, p0)` from the forward Region 1 equation at the
+/// temperature the state was built from. **CORRECTED 2026-11-02 (gh:#1111):**
+/// it used to be `state_p_t(..).density`, which `Iapws97Hem` forms from
+/// `(p, h)` through the backward `T(p, h)`. That density belongs to
+/// `T_ph(p0, h0)` (300.022 K for the 300 K state, −10 mK at 500 K), off by
+/// 6e-6 / 1.6e-5 relative. The Bernoulli references shared that error with
+/// the old solver; once `break_flow` used the forward-consistent `T0`, the
+/// Δp → 0 check measured the reference's 3e-6 / −8e-6 instead of the
+/// solver. No tolerance was changed.
 fn liquid_stagnation(p0_pa: f64, t0_k: f64) -> (Pressure, AvailableEnergy, f64) {
-    let s = Iapws97Hem
-        .state_p_t(pa(p0_pa), ThermodynamicTemperature::new::<kelvin>(t0_k))
-        .unwrap();
-    (s.pressure, s.specific_enthalpy, s.density.get::<kilogram_per_cubic_meter>())
+    let t0 = ThermodynamicTemperature::new::<kelvin>(t0_k);
+    let s = Iapws97Hem.state_p_t(pa(p0_pa), t0).unwrap();
+    let rho0 = 1.0 / crate::region_1_subcooled_liquid::v_tp_1(t0, s.pressure).value;
+    (s.pressure, s.specific_enthalpy, rho0)
 }
 
 /// Hand Bernoulli flux `√(2 ρ0 Δp)`, kg/(m² s).
@@ -565,7 +575,10 @@ fn gh1102_cold_liquid_low_dp_break_flow_is_unchoked_bernoulli() {
 /// 100 Pa, and `G` is zero at Δp = 0. Bound 1e-6: the round-off of `h0 − h_b`
 /// at Δp = 1 Pa (`Δh` ≈ 1e-3 J/kg against `h` ≈ 1e5–1e6 J/kg at 1e-16
 /// relative, ≈ 1e-7 in `Δh`) plus `κ_T Δp` ≤ 1e-7 at 100 Pa. Measured
-/// 2026-11-02: worst 7.1e-8 (300 K, 1 Pa).
+/// 2026-11-02: worst 7.1e-8 (300 K, 1 Pa). **Re-measured 2026-11-02
+/// (gh:#1111)**, with the forward-consistent `T0` in `break_flow` and the
+/// reference density corrected (see [`liquid_stagnation`]): worst 4.4e-7
+/// (370 K, 1 Pa), the round-off floor of `T Δs` at 1 Pa; bound unchanged.
 #[test]
 fn gh1102_break_flow_tends_to_bernoulli_as_dp_vanishes() {
     for (p0_pa, t0) in [(2.31e5, 300.0), (1.2e5, 370.0), (7.0e6, 500.0)] {
@@ -576,6 +589,7 @@ fn gh1102_break_flow_tends_to_bernoulli_as_dp_vanishes() {
             let bf = Iapws97Hem.break_flow(p0, h0, pa(p0_pa - dp)).unwrap();
             assert!(!bf.choked);
             let rel = bf.mass_flux.get::<kilogram_per_square_meter_second>() / bernoulli(rho0, dp) - 1.0;
+            eprintln!("T0 = {t0} K, dp = {dp} Pa: rel = {rel:e}");
             assert!(rel.abs() <= 1e-6, "T0 = {t0} K, dp = {dp} Pa: {rel:e}");
         }
     }
@@ -617,6 +631,9 @@ fn choked_transition(p0_pa: f64, t0: f64) -> (f64, f64, f64, bool) {
 /// conservative by 2× on `G ∝ √Δh`). Measured 2026-11-02: `G(p*⁺)` =
 /// 85 583, `G*` = 86 283 kg/(m² s), `rel` = −8.1e-3, a step up at the choke
 /// inside the bound. The sweep from `p0` to `p*/2` is non-decreasing.
+/// **Re-measured 2026-11-02 (gh:#1111)** after both branches moved to the
+/// forward-consistent `T0`: `G(p*⁺)` = 85 577.866, `G*` = 85 577.867,
+/// `rel` = −5.5e-9.
 #[test]
 fn gh1102_choked_transition_is_continuous_for_edwards_liquid() {
     let (g_above, g_below, dh, monotone) = choked_transition(7.0e6, 500.0);
@@ -627,8 +644,12 @@ fn gh1102_choked_transition_is_continuous_for_edwards_liquid() {
     assert!(monotone, "G(p_b) decreases somewhere as p_b falls");
 }
 
-/// **The same continuity check for cold liquid (300 K, 2.31 bar) — FAILS,
-/// gh:#1111.** Same criterion (c_p = 4.18 kJ/(kg K), Δh ≈ 228 J/kg, bound
+/// **The same continuity check for cold liquid (300 K, 2.31 bar) — PASSES
+/// since 2026-11-02, gh:#1111 (un-ignored).** Measured 2026-11-02 (release)
+/// with the global-maximum subcooled solver on the forward-consistent
+/// stagnation state: `G(p*⁺)` = 21 291.327, `G*` = 21 291.326 kg/(m² s),
+/// `rel` = +4.2e-8, sweep monotone. The record below is how it ~~FAILS~~
+/// failed before. Same criterion (c_p = 4.18 kJ/(kg K), Δh ≈ 228 J/kg, bound
 /// 0.46). Measured 2026-11-02: `G(p*⁺)` = 21 291, `G*` = 16 387 kg/(m² s),
 /// `rel` = +0.30. That is inside the bound, which at 300 K cannot see the
 /// defect (25 mK of `c_p` is 105 J/kg, half the available `Δh`). The test
@@ -643,12 +664,14 @@ fn gh1102_choked_transition_is_continuous_for_edwards_liquid() {
 /// **Diagnosed 2026-11-02 (gh:#1111).** More precisely, `s0` is the entropy
 /// at `T0 = T_ph(p0, h0)`, but the drop uses the given `h0`, which is 93 J/kg
 /// below `h_1(T0, p0)` here. With `h_1(T0, p0)` substituted, this test passes
-/// as written (rel = +4.8e-7, monotone). That patch is **not applied**,
+/// as written (rel = +4.8e-7, monotone). ~~That patch is **not applied**,
 /// because it moves the Moody 0.50 isobar point h/h_ref = 2.2549 from err
-/// 0.005 to 0.120 against its 0.08 tolerance. See
-/// `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md` §10.
+/// 0.005 to 0.120 against its 0.08 tolerance.~~ **Applied 2026-11-02** in the
+/// forward-Newton form, with the branch switches replaced. The Moody point is
+/// a named known miss. See
+/// `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`
+/// §10–§12.
 #[test]
-#[ignore = "known defect gh:#1111: subcooled critical solver G* 23 % low for cold liquid"]
 fn gh1102_choked_transition_is_continuous_for_cold_liquid() {
     let (g_above, g_below, dh, monotone) = choked_transition(2.31e5, 300.0);
     let rel = g_above / g_below - 1.0;
@@ -657,3 +680,4 @@ fn gh1102_choked_transition_is_continuous_for_cold_liquid() {
     assert!(rel.abs() <= bound, "rel = {rel:e} > {bound:e}");
     assert!(monotone, "G(p_b) decreases somewhere as p_b falls");
 }
+
