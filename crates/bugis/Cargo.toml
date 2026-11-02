@@ -3,8 +3,8 @@ name = "bugis"
 version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
-license.workspace = true
-description = "BUGIS (Browser-based User Graphics Interaction System) — colour theming for the OUTRAM PARK GUIs: the shared Gruvbox Dark/Light egui theme, palette and theme selector."
+license = "AGPL-3.0-only"
+description = "BUGIS (Browser-based User Graphics Interaction System) — colour theming for the OUTRAM PARK GUIs, no_std + alloc: the Gruvbox palette and roles, temperature and Crameri colour maps, and (feature egui) the shared Gruvbox Dark/Light egui theme and selector."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -19,7 +19,14 @@ topic = "utility"
 maturity = 1
 backronym = "Browser-based User Graphics Interaction System"
 
-# egui only (pure Rust: compiles on Android and wasm32); never eframe, so a
-# non-GUI crate never pulls a windowing stack through this one.
+# no_std + alloc core (maintainer, 2026-11-02). PETIR for the exact floor and
+# round the colour maps use (petir is no_std). egui is the
+# optional GUI half, on by default; never eframe, so no crate pulls a
+# windowing stack through this one.
+[features]
+default = ["egui"]
+egui = ["dep:egui"]
+
 [dependencies]
-egui.workspace = true
+petir = { workspace = true }
+egui = { workspace = true, optional = true }
