@@ -168,6 +168,45 @@ The predictions were written in the test file's header before the first run.
   (it is about 1.18e5 Pa). The setup moved to 130 kPa; the prediction is
   unchanged.
 
+## Round-off sensitivity at saturation (gh:#1118 item 1, 2026-11-02)
+
+**Methodology.** The torus of `tests/control_volume.rs` (10 kg/s relief
+steam with 0.5 kg/s N2, the heat exchanger, a 5 kg/s outlet, 600 s) is run
+twice, the twin's gas 1e-12 K warmer. The worst relative difference in
+steam mass and gas temperature is compared across step sizes, across
+surface models and across rain-out models. The test is
+`tests/control_volume.rs::wet_well_round_off_amplification_gh1118`, and its
+doc comment carries the predictions and the full table.
+
+**Predictions (written before the run):** a stability limit of the explicit
+surface step. That would mean it is gone at `dt` ≤ 0.5 s, absent with the
+sensible-only surface, and not removed by the equilibrium rain-out.
+
+**Results (release, Rust 1.99.1).** Three of the four predictions missed.
+
+| Variant | Worst steam-mass difference |
+|---|---|
+| wet well, `dt` 1 / 0.5 / 0.25 / 0.1 s | 1.14e-4 / 5.7e-5 / 2.9e-5 / 1.2e-5 |
+| wet well, sensible-only surface, 1 s | 9.9e-5 |
+| control volume, four-pass rain-out, 1 s | 1.09e-4 |
+| control volume, equilibrium rain-out, 1 / 0.5 / 0.25 s | 1.2e-13 / 1.3e-13 / 1.3e-13 |
+
+**Interpretation.** The amplifier is the four-pass rain-out ported from
+`sembawang`. Each pass condenses to saturation at the current temperature
+and leaves the latent heat in the gas. That heat raises the gas's saturated
+capacity by more than the mass condensed (about 14 times at 330 K). The pass
+therefore ends far subsaturated, and the next step's evaporation refills the
+gap. This map expands a difference at every step size, so it is not a
+step-size stability limit. The bound scales with one step's excess vapour,
+and so with `dt`. The control volume's equilibrium rain-out removes it.
+
+**Not changed, stated.** Making the equilibrium rain-out the wet well's
+default would change every number of its bit-for-bit pin against
+`sembawang`'s `Containment` (`crates/sembawang/tests/wet_well_vs_tampines.rs`,
+case 3b). The pin needs the four passes, because `sembawang` uses them. That
+choice is left to the maintainer. The control volume (gh:#1092) is the
+general model, and it already has the equilibrium rain-out on by default.
+
 ## Interpretation
 
 - The copies reproduce sembawang's surface and bubble physics exactly.
@@ -186,5 +225,8 @@ The predictions were written in the test file's header before the first run.
 - The liquid port only draws water out, and the vessel is prismatic.
 - The energy conventions are sembawang's: constant liquid `c_p` and constant
   steam `c_v`.
+- The rain-out is sembawang's four passes, which amplify round-off at
+  saturation to about 1e-4 in steam mass (gh:#1118, above). The control
+  volume's equilibrium rain-out does not.
 - Moving sembawang onto this component is a separate decision, because its
   fixture and pins would move.

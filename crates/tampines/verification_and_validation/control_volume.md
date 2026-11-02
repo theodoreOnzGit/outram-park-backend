@@ -123,15 +123,30 @@ In `tests/control_volume.rs` and `crates/sembawang/tests/swollen_level_vs_tampin
   saturates near 1e-4 in the steam mass.
 - **The control that explains it**: the wet well started with its gas
   warmer by 3e-15 relative differs from itself by the same amount.
-- **So**: the wet well amplifies any round-off difference. Its explicit
-  surface step and rain-out at 1 s act on a gas held at saturation. The
+- **So**: the wet well amplifies any round-off difference. ~~Its explicit
+  surface step and rain-out at 1 s act on a gas held at saturation.~~
+  **CORRECTED 2026-11-02 (gh:#1118, measured by
+  `tests/control_volume.rs::wet_well_round_off_amplification_gh1118`):**
+  the amplifier is `sembawang`'s four-pass rain-out alone. The surface
+  step is not the cause, and neither is the 1 s step. The sensible-only
+  surface amplifies the same (9.9e-5). Shortening the step only scales the
+  bound with `dt` (1.1e-4 at 1 s, 1.2e-5 at 0.1 s). The control volume
+  with the equilibrium rain-out (its default) stays at round-off, 1.2e-13,
+  at 1, 0.5 and 0.25 s. The four passes leave the latent heat in the gas,
+  which raises the saturated capacity by more than the mass condensed
+  (about 14 times at 330 K in this gas space). The pass therefore ends far
+  subsaturated, the next step's evaporation refills the gap, and the map
+  from one step's excess vapour to the next has a gain above one. The
   control volume reproduces it to the wet well's own reproducibility, and
-  no better is possible.
+  no better is possible while both use the four passes.
 - **What the test asserts**: that explanation (round-off for 5 steps, and
   no more than 10 times the wet well's self-sensitivity), not the original
   criterion. The original criterion stays recorded here as missed.
-- **Follow-up**: the amplification is a property of the wet well's
-  explicit step. Both runs stay physical and end at the same state to 1e-4.
+- **Follow-up**: ~~the amplification is a property of the wet well's
+  explicit step.~~ **CORRECTED 2026-11-02 (gh:#1118):** it is a property of
+  the four-pass rain-out, which the wet well keeps for its bit-for-bit pin
+  against `sembawang`'s `Containment`. Both runs stay physical and end at
+  the same state to 1e-4.
 
 **What to quote:**
 

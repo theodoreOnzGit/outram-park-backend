@@ -540,3 +540,137 @@ fn n2_fits_are_melcor_ncg_bit_for_bit() {
     }
     println!("item 4: {count} values bit-identical over {} temperatures", temps.len());
 }
+
+/// **gh:#1118 item 2: the wet well's `Atmosphere`, folded onto
+/// `wall_condensation`'s, is bit for bit the removed copy.** Until
+/// 2026-11-02 `control_volume::pool_surface::Atmosphere` (re-exported as
+/// `wet_well::Atmosphere`, used by the wet well's and the control volume's
+/// pool surface) carried its own steam tables, N2 power laws, Wilke and
+/// Wassijewa mixing and steam-N2 diffusivity. It now takes them from
+/// `components::wall_condensation::Atmosphere` with `n_h2 = 0`.
+///
+/// **Method.** The removed code is reproduced verbatim below (from
+/// `src/control_volume/pool_surface.rs` at d870c66cb), and old and new are
+/// compared with `f64::to_bits` for all three property methods. The grid
+/// covers temperatures from 200 to 1200 K, which runs off both ends of the
+/// steam tables and the N2 fit, plus every table knot and its neighbouring
+/// floats. It covers pressures from 1e3 to 2e7 Pa and steam mole fractions
+/// 0 (pure N2), 1e-12, 0.05, 0.5, 0.95, 1 − 1e-12 and 1 (pure steam, where
+/// both diffusivities are `None`), at two total amounts.
+///
+/// **Prediction (written before the run):** every value identical. With no
+/// H2 the three-gas sums add `0 · y` (exactly +0 for finite positive `y`)
+/// last, the H2 row is skipped by the `x ≤ 0` guard, and Blanc's law adds
+/// `0 / n / D_H2 = 0`. The operation order of every non-zero term is the
+/// removed copy's.
+///
+/// **Result (2026-11-02, release):** held. 370608 values over 1103
+/// temperatures, all bit-identical; every other wet-well test, and
+/// `sembawang`'s `wet_well_vs_tampines` (both cases, 3a bit for bit against
+/// `sembawang`'s own `exchange`), pass unchanged.
+#[test]
+fn atmosphere_fold_is_bit_for_bit() {
+    use petir::mathf::RealMath;
+    use tampines_steam_tables::gas_mixture::melcor_ncg::cv_n2;
+
+    // ── The removed copy, verbatim (d870c66cb) ───────────────────────────
+    const M_H2O: f64 = 0.018_015;
+    const M_N2: f64 = 0.028_014;
+    const R_GAS: f64 = 8.314_462;
+    fn table(t: f64, xs: &[(f64, f64)]) -> f64 {
+        if t <= xs[0].0 {
+            return xs[0].1;
+        }
+        for w in xs.windows(2) {
+            if t <= w[1].0 {
+                return w[0].1 + (t - w[0].0) / (w[1].0 - w[0].0) * (w[1].1 - w[0].1);
+            }
+        }
+        xs[xs.len() - 1].1
+    }
+    const K_STEAM: [(f64, f64); 21] = [
+        (273.15, 0.0176), (293.15, 0.0188), (313.15, 0.0201), (333.15, 0.0216), (353.15, 0.0231), (373.15, 0.0245), (393.15, 0.0260),
+        (413.15, 0.0277), (433.15, 0.0295), (453.15, 0.0313), (473.15, 0.0331), (493.15, 0.0351), (513.15, 0.0371), (533.15, 0.0391),
+        (553.15, 0.0412), (573.15, 0.0433), (593.15, 0.0455), (613.15, 0.0478), (633.15, 0.0501), (653.15, 0.0525), (673.15, 0.0548),
+    ];
+    const MU_STEAM: [(f64, f64); 11] = [
+        (273.15, 8.04e-6), (313.15, 9.66e-6), (353.15, 1.13e-5), (393.15, 1.29e-5), (433.15, 1.46e-5), (473.15, 1.62e-5), (513.15, 1.78e-5),
+        (553.15, 1.94e-5), (593.15, 2.11e-5), (633.15, 2.27e-5), (673.15, 2.43e-5),
+    ];
+    const CV_STEAM_MOLAR: f64 = 1500.0 * M_H2O;
+    fn phi(mu_i: f64, mu_j: f64, m_i: f64, m_j: f64) -> f64 {
+        let a = 1.0 + (mu_i / mu_j).sqrt() * (m_j / m_i).r_powf(0.25);
+        a * a / (8.0 * (1.0 + m_i / m_j)).sqrt()
+    }
+    struct Old {
+        t_k: f64,
+        p_pa: f64,
+        n_steam: f64,
+        n_n2: f64,
+    }
+    impl Old {
+        fn pure(t: f64) -> [(f64, f64, f64); 2] {
+            [
+                (M_H2O, table(t, &MU_STEAM), table(t, &K_STEAM)),
+                (M_N2, 3.953_978_5e-7 * t.r_powf(0.672_88), 3.704_689e-4 * t.r_powf(0.748_42)),
+            ]
+        }
+        fn viscosity_and_conductivity(&self) -> (f64, f64) {
+            let n = self.n_steam + self.n_n2;
+            let x = [self.n_steam / n, self.n_n2 / n];
+            let g = Self::pure(self.t_k);
+            let (mut mu_mix, mut k_mix) = (0.0, 0.0);
+            for i in 0..2 {
+                if x[i] <= 0.0 {
+                    continue;
+                }
+                let d: f64 = (0..2).map(|j| x[j] * phi(g[i].1, g[j].1, g[i].0, g[j].0)).sum();
+                mu_mix += x[i] * g[i].1 / d;
+                k_mix += x[i] * g[i].2 / d;
+            }
+            (mu_mix, k_mix)
+        }
+        fn mass_properties(&self) -> (f64, f64, f64) {
+            let n = self.n_steam + self.n_n2;
+            let mass = self.n_steam * M_H2O + self.n_n2 * M_N2;
+            let molar = mass / n;
+            let cp_molar = self.n_steam * (CV_STEAM_MOLAR + R_GAS) + self.n_n2 * (cv_n2(self.t_k, true) + R_GAS);
+            (molar, self.p_pa * molar / (R_GAS * self.t_k), cp_molar / mass)
+        }
+        fn steam_diffusivity(&self) -> Option<f64> {
+            let n_nc = self.n_n2;
+            if n_nc <= 0.0 {
+                return None;
+            }
+            let d_n2 = 4.7931e-5 * self.t_k.r_powf(1.9) / self.p_pa;
+            Some(1.0 / (self.n_n2 / n_nc / d_n2))
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
+    let mut temps: Vec<f64> = (0..=1000).map(|i| 200.0 + i as f64).collect();
+    for &(t, _) in K_STEAM.iter().chain(MU_STEAM.iter()).chain([(300.0, 0.0), (5000.0, 0.0)].iter()) {
+        temps.extend([t, f64::from_bits(t.to_bits() - 1), f64::from_bits(t.to_bits() + 1)]);
+    }
+    let pressures = [1.0e3, 1.05e5, 3.3e5, 2.0e7];
+    let fractions = [0.0, 1.0e-12, 0.05, 0.5, 0.95, 1.0 - 1.0e-12, 1.0];
+    let mut count = 0usize;
+    for &t in &temps {
+        for &p in &pressures {
+            for &x in &fractions {
+                for &n in &[1.0, 9.6e4] {
+                    let (ns, nn) = (x * n, (1.0 - x) * n);
+                    let new = Atmosphere { t_k: t, p_pa: p, n_steam: ns, n_n2: nn };
+                    let old = Old { t_k: t, p_pa: p, n_steam: ns, n_n2: nn };
+                    let (a, b) = (new.viscosity_and_conductivity(), old.viscosity_and_conductivity());
+                    assert_eq!([a.0.to_bits(), a.1.to_bits()], [b.0.to_bits(), b.1.to_bits()], "mu/k {t} {p} {x} {n}");
+                    let (a, b) = (new.mass_properties(), old.mass_properties());
+                    assert_eq!([a.0, a.1, a.2].map(f64::to_bits), [b.0, b.1, b.2].map(f64::to_bits), "mass {t} {p} {x} {n}");
+                    assert_eq!(new.steam_diffusivity().map(f64::to_bits), old.steam_diffusivity().map(f64::to_bits), "D {t} {p} {x} {n}");
+                    count += 6;
+                }
+            }
+        }
+    }
+    println!("gh:#1118 item 2: {count} values bit-identical over {} temperatures", temps.len());
+}

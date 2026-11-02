@@ -31,10 +31,16 @@
 //! moved from `sembawang` the same way); the saturation line ([`p_sat_pa`],
 //! [`t_sat`]) and the containment's steam enthalpy ([`steam_h`]) from
 //! [`super::wet_well`], which ported them from `sembawang` operation for
-//! operation (gh:#1075). **Known duplicate, stated:** `wet_well` also carries
+//! operation (gh:#1075). ~~**Known duplicate, stated:** `wet_well` also carries
 //! a steam-and-N2-only copy of [`Atmosphere`] and its tables (gh:#1075);
 //! folding it onto this module needs its own bit-identity check and is left
-//! as follow-up.
+//! as follow-up.~~ **FOLDED 2026-11-02 (gh:#1118 item 2):** the wet well's
+//! and the control volume's steam-and-N2 atmosphere
+//! (`crate::control_volume::pool_surface::Atmosphere`) keeps its four-field
+//! shape but takes every property from this [`Atmosphere`] with no
+//! hydrogen; its tables, mixing rules and diffusivity copy are gone. The
+//! result is bit-identical, pinned by
+//! `tests/wet_well.rs::atmosphere_fold_is_bit_for_bit`.
 //!
 //! # The model (from the moved doc comment)
 //!

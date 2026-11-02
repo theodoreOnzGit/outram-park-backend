@@ -24,7 +24,7 @@
 //! this sets).
 
 use petir::mathf::RealMath;
-use tampines_steam_tables::gas_mixture::melcor_ncg::cv_n2;
+use crate::components::wall_condensation::Atmosphere as WallAtmosphere;
 use tampines_steam_tables::prelude::{alpha_v_tp_eqm_single_phase, sat_pressure_4};
 use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::v_tp_1;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
@@ -97,18 +97,6 @@ fn table(t: f64, xs: &[(f64, f64)]) -> f64 {
     xs[xs.len() - 1].1
 }
 
-/// Steam's conductivity, W/(m K), MELCOR's default table (NCG/H2O RM
-/// §4.1.2), 273–673 K (`pool_surface::K_STEAM`).
-const K_STEAM: [(f64, f64); 21] = [
-    (273.15, 0.0176), (293.15, 0.0188), (313.15, 0.0201), (333.15, 0.0216), (353.15, 0.0231), (373.15, 0.0245), (393.15, 0.0260),
-    (413.15, 0.0277), (433.15, 0.0295), (453.15, 0.0313), (473.15, 0.0331), (493.15, 0.0351), (513.15, 0.0371), (533.15, 0.0391),
-    (553.15, 0.0412), (573.15, 0.0433), (593.15, 0.0455), (613.15, 0.0478), (633.15, 0.0501), (653.15, 0.0525), (673.15, 0.0548),
-];
-/// Steam's viscosity, Pa s (§5.1.2), 273–673 K (`pool_surface::MU_STEAM`).
-const MU_STEAM: [(f64, f64); 11] = [
-    (273.15, 8.04e-6), (313.15, 9.66e-6), (353.15, 1.13e-5), (393.15, 1.29e-5), (433.15, 1.46e-5), (473.15, 1.62e-5), (513.15, 1.78e-5),
-    (553.15, 1.94e-5), (593.15, 2.11e-5), (633.15, 2.27e-5), (673.15, 2.43e-5),
-];
 /// Liquid water's conductivity, W/(m K) (§4.1.1), 273–473 K
 /// (`pool_surface::K_WATER`).
 const K_WATER: [(f64, f64); 21] = [
@@ -130,18 +118,20 @@ pub(crate) fn k_water(t_k: f64) -> f64 {
     table(t_k, &K_WATER)
 }
 
-/// Steam's molar `c_v`, J/(mol K) (`pool_surface::CV_STEAM_MOLAR`).
-const CV_STEAM_MOLAR: f64 = 1500.0 * M_H2O;
-
-/// Wilke's `phi_ij` (NCG/H2O RM Eq 5-2), also Mason and Saxena's `A_ij`
-/// (Eq 4-2) (`pool_surface::phi`).
-fn phi(mu_i: f64, mu_j: f64, m_i: f64, m_j: f64) -> f64 {
-    let a = 1.0 + (mu_i / mu_j).sqrt() * (m_j / m_i).r_powf(0.25);
-    a * a / (8.0 * (1.0 + m_i / m_j)).sqrt()
-}
-
 /// The gas space's bulk state, for the surface correlations
 /// (`pool_surface::Atmosphere` without hydrogen).
+///
+/// **Folded onto [`wall_condensation::Atmosphere`](crate::components::wall_condensation::Atmosphere) on 2026-11-02 (gh:#1118 item 2).** This
+/// struct used to carry its own copy of MELCOR's steam tables, nitrogen's
+/// power laws, Wilke's and Wassijewa's mixing rules and the steam-N2
+/// diffusivity. It now keeps only its steam-and-N2 shape, so callers that
+/// build it are unchanged, and every property is
+/// [`crate::components::wall_condensation::Atmosphere`]'s with no hydrogen,
+/// so there is one copy of the gas physics. With `n_h2 = 0` the
+/// three-gas arithmetic adds exact zeros to the same sums in the same order,
+/// so every value is the same bits as the removed copy. That is pinned on a
+/// grid by `tests/wet_well.rs::atmosphere_fold_is_bit_for_bit`, which keeps
+/// the removed code verbatim.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Atmosphere {
     /// Temperature, K.
@@ -155,51 +145,30 @@ pub struct Atmosphere {
 }
 
 impl Atmosphere {
-    /// Viscosity, Pa s, and conductivity, W/(m K), of steam and of N2:
-    /// MELCOR's steam tables and N2's power laws (`pool_surface::Gas`).
-    fn pure(t: f64) -> [(f64, f64, f64); 2] {
-        [
-            (M_H2O, table(t, &MU_STEAM), table(t, &K_STEAM)),
-            (M_N2, 3.953_978_5e-7 * t.r_powf(0.672_88), 3.704_689e-4 * t.r_powf(0.748_42)),
-        ]
+    /// The same gas as `wall_condensation`'s three-gas atmosphere, with no
+    /// hydrogen.
+    pub fn as_wall_atmosphere(&self) -> WallAtmosphere {
+        WallAtmosphere { t_k: self.t_k, p_pa: self.p_pa, n_steam: self.n_steam, n_n2: self.n_n2, n_h2: 0.0 }
     }
     /// Mixture viscosity, Pa s (Wilke, Eq 5-2) and conductivity, W/(m K)
     /// (Wassijewa with Mason and Saxena, Eq 4-2)
-    /// (`pool_surface::Atmosphere::viscosity_and_conductivity`).
+    /// (`pool_surface::Atmosphere::viscosity_and_conductivity`), from
+    /// [`wall_condensation::Atmosphere::viscosity_and_conductivity`](crate::components::wall_condensation::Atmosphere::viscosity_and_conductivity).
     pub fn viscosity_and_conductivity(&self) -> (f64, f64) {
-        let n = self.n_steam + self.n_n2;
-        let x = [self.n_steam / n, self.n_n2 / n];
-        let g = Self::pure(self.t_k);
-        let (mut mu_mix, mut k_mix) = (0.0, 0.0);
-        for i in 0..2 {
-            if x[i] <= 0.0 {
-                continue;
-            }
-            let d: f64 = (0..2).map(|j| x[j] * phi(g[i].1, g[j].1, g[i].0, g[j].0)).sum();
-            mu_mix += x[i] * g[i].1 / d;
-            k_mix += x[i] * g[i].2 / d;
-        }
-        (mu_mix, k_mix)
+        self.as_wall_atmosphere().viscosity_and_conductivity()
     }
     /// Molar mass, kg/mol, density, kg/m³, and `c_p`, J/(kg K)
-    /// (`pool_surface::Atmosphere::mass_properties`).
+    /// (`pool_surface::Atmosphere::mass_properties`), from
+    /// [`wall_condensation::Atmosphere::mass_properties`](crate::components::wall_condensation::Atmosphere::mass_properties).
     pub fn mass_properties(&self) -> (f64, f64, f64) {
-        let n = self.n_steam + self.n_n2;
-        let mass = self.n_steam * M_H2O + self.n_n2 * M_N2;
-        let molar = mass / n;
-        let cp_molar = self.n_steam * (CV_STEAM_MOLAR + R_GAS) + self.n_n2 * (cv_n2(self.t_k, true) + R_GAS);
-        (molar, self.p_pa * molar / (R_GAS * self.t_k), cp_molar / mass)
+        self.as_wall_atmosphere().mass_properties()
     }
     /// Diffusivity of water vapour in N2, m²/s: MELCOR's steam-air
     /// correlation (Eq 6-1, used for N2 as `sembawang` states); `None`
-    /// with no N2 (`pool_surface::Atmosphere::steam_diffusivity`).
+    /// with no N2 (`pool_surface::Atmosphere::steam_diffusivity`), from
+    /// [`wall_condensation::Atmosphere::steam_diffusivity`](crate::components::wall_condensation::Atmosphere::steam_diffusivity).
     pub fn steam_diffusivity(&self) -> Option<f64> {
-        let n_nc = self.n_n2;
-        if n_nc <= 0.0 {
-            return None;
-        }
-        let d_n2 = 4.7931e-5 * self.t_k.r_powf(1.9) / self.p_pa;
-        Some(1.0 / (self.n_n2 / n_nc / d_n2))
+        self.as_wall_atmosphere().steam_diffusivity()
     }
 }
 

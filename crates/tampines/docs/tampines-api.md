@@ -5926,10 +5926,16 @@ masses from [`tampines_steam_tables::gas_mixture::melcor_ncg`] (gh:#1093,
 moved from `sembawang` the same way); the saturation line ([`p_sat_pa`],
 [`t_sat`]) and the containment's steam enthalpy ([`steam_h`]) from
 [`super::wet_well`], which ported them from `sembawang` operation for
-operation (gh:#1075). **Known duplicate, stated:** `wet_well` also carries
+operation (gh:#1075). ~~**Known duplicate, stated:** `wet_well` also carries
 a steam-and-N2-only copy of [`Atmosphere`] and its tables (gh:#1075);
 folding it onto this module needs its own bit-identity check and is left
-as follow-up.
+as follow-up.~~ **FOLDED 2026-11-02 (gh:#1118 item 2):** the wet well's
+and the control volume's steam-and-N2 atmosphere
+(`crate::control_volume::pool_surface::Atmosphere`) keeps its four-field
+shape but takes every property from this [`Atmosphere`] with no
+hydrogen; its tables, mixing rules and diffusivity copy are gone. The
+result is bit-identical, pinned by
+`tests/wet_well.rs::atmosphere_fold_is_bit_for_bit`.
 
 # The model (from the moved doc comment)
 
@@ -7026,7 +7032,7 @@ bit-for-bit check and the whole-torus comparison live in
 
 | Here | Ported from (`sembawang::bwr_mark1`) |
 |---|---|
-| [`exchange`] (pool-surface mass and energy transfer, MELCOR CVH/FL RM §5.1) | `pool_surface::exchange` with its property tables, steam and N2 only |
+| [`exchange`] (pool-surface mass and energy transfer, MELCOR CVH/FL RM §5.1) | `pool_surface::exchange`, steam and N2 only; the gas properties since 2026-11-02 from [`crate::components::wall_condensation::Atmosphere`] with no H2 (gh:#1118) |
 | [`bubble_efficiency`] (MELCOR CVH/FL RM Eqs 6-1 to 6-3) | `pool_surface::bubble_efficiency` |
 | the injection's bubble step | `containment::Containment::bubble_through` |
 | flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` |
@@ -7080,7 +7086,11 @@ assumption 4 plus steam); the gravity terms `(z − L_w/2) g` of Eq 393
 stratification (`sembawang`'s `pool_layers`); the shell as a heat
 structure (`sembawang`'s `ww_shell`); swell and void in the pool;
 aerosol scrubbing; the liquid outlet only draws (no inflow); the vessel
-is prismatic.
+is prismatic. The rain-out is `sembawang`'s four passes (kept for the
+bit-for-bit pin), which end subsaturated and amplify a round-off
+difference at saturation to about 1e-4 in steam mass at any step size;
+[`crate::control_volume::ControlVolume`]'s equilibrium rain-out does not
+(gh:#1118, `tests/control_volume.rs::wet_well_round_off_amplification_gh1118`).
 
 ```rust
 pub mod wet_well { /* ... */ }
@@ -9886,6 +9896,18 @@ pub mod pool_surface { /* ... */ }
 The gas space's bulk state, for the surface correlations
 (`pool_surface::Atmosphere` without hydrogen).
 
+**Folded onto [`wall_condensation::Atmosphere`](crate::components::wall_condensation::Atmosphere) on 2026-11-02 (gh:#1118 item 2).** This
+struct used to carry its own copy of MELCOR's steam tables, nitrogen's
+power laws, Wilke's and Wassijewa's mixing rules and the steam-N2
+diffusivity. It now keeps only its steam-and-N2 shape, so callers that
+build it are unchanged, and every property is
+[`crate::components::wall_condensation::Atmosphere`]'s with no hydrogen,
+so there is one copy of the gas physics. With `n_h2 = 0` the
+three-gas arithmetic adds exact zeros to the same sums in the same order,
+so every value is the same bits as the removed copy. That is pinned on a
+grid by `tests/wet_well.rs::atmosphere_fold_is_bit_for_bit`, which keeps
+the removed code verbatim.
+
 ```rust
 pub struct Atmosphere {
     pub t_k: f64,
@@ -9907,6 +9929,11 @@ pub struct Atmosphere {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn as_wall_atmosphere(self: &Self) -> WallAtmosphere { /* ... */ }
+  ```
+  The same gas as `wall_condensation`'s three-gas atmosphere, with no
 
 - ```rust
   pub fn viscosity_and_conductivity(self: &Self) -> (f64, f64) { /* ... */ }

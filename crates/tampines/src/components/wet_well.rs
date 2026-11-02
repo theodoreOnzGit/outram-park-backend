@@ -33,7 +33,7 @@
 //!
 //! | Here | Ported from (`sembawang::bwr_mark1`) |
 //! |---|---|
-//! | [`exchange`] (pool-surface mass and energy transfer, MELCOR CVH/FL RM §5.1) | `pool_surface::exchange` with its property tables, steam and N2 only |
+//! | [`exchange`] (pool-surface mass and energy transfer, MELCOR CVH/FL RM §5.1) | `pool_surface::exchange`, steam and N2 only; the gas properties since 2026-11-02 from [`crate::components::wall_condensation::Atmosphere`] with no H2 (gh:#1118) |
 //! | [`bubble_efficiency`] (MELCOR CVH/FL RM Eqs 6-1 to 6-3) | `pool_surface::bubble_efficiency` |
 //! | the injection's bubble step | `containment::Containment::bubble_through` |
 //! | flashing, surface exchange and rain-out | `containment::Containment::pool_surface_step` |
@@ -87,7 +87,11 @@
 //! stratification (`sembawang`'s `pool_layers`); the shell as a heat
 //! structure (`sembawang`'s `ww_shell`); swell and void in the pool;
 //! aerosol scrubbing; the liquid outlet only draws (no inflow); the vessel
-//! is prismatic.
+//! is prismatic. The rain-out is `sembawang`'s four passes (kept for the
+//! bit-for-bit pin), which end subsaturated and amplify a round-off
+//! difference at saturation to about 1e-4 in steam mass at any step size;
+//! [`crate::control_volume::ControlVolume`]'s equilibrium rain-out does not
+//! (gh:#1118, `tests/control_volume.rs::wet_well_round_off_amplification_gh1118`).
 
 use tampines_steam_tables::prelude::h_tp_eqm_two_phase;
 use uom::si::area::square_meter;

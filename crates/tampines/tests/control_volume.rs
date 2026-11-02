@@ -195,13 +195,16 @@ fn torus(t_gas: f64) -> (WetWell, f64, f64, f64) {
 /// control volume: the same wet well started with its gas 1e-12 K warmer
 /// (3e-15 relative) differs from the original by 9.5e-11, 2.9e-5, 2.5e-5,
 /// 5.3e-9, 1.14e-4, 4.1e-9, i.e. by as much. The gas sits at saturation
-/// (RH 1 from the start, steam passing through the pool), where the
-/// explicit surface step and rain-out at 1 s amplify any round-off; the
+/// (RH 1 from the start, steam passing through the pool), where ~~the
+/// explicit surface step and rain-out at 1 s amplify any round-off~~
+/// **CORRECTED 2026-11-02 (gh:#1118)** the four-pass rain-out amplifies any
+/// round-off, at any step size, and the surface step does not
+/// ([`wet_well_round_off_amplification_gh1118`]); the
 /// growth starts when the gas first reaches saturation. The assertion is
 /// therefore the explanation, not the original criterion: round-off for
 /// the first 5 steps, and no more than 10x the wet well's own sensitivity.
-/// The amplification itself is a property of the wet well's explicit
-/// step worth a follow-up (it is not a divergence: both runs stay
+/// The amplification itself is a property of ~~the wet well's explicit
+/// step~~ the four-pass rain-out (gh:#1118), measured in the follow-up (it is not a divergence: both runs stay
 /// physical and end at the same state to 1e-4).
 #[test]
 fn the_wet_well_is_a_special_case() {
@@ -499,4 +502,204 @@ fn s1_species_sources_and_sinks_conserve() {
     let mut big = ControlVolumeInputs::closed(1);
     big.atmosphere_species.ncg[NonCondensable::H2.index()] = kgs(-1.0e3);
     assert!(cv.step(sec(1.0), &big).is_err());
+}
+
+// ── gh:#1118 (a): the wet well's round-off amplification at saturation ──────
+
+/// What one perturbed-twin run measured: the worst relative difference in
+/// steam mass and in gas temperature over the run, the fraction of steps on
+/// which the steam difference changed sign, and the fraction of steps on
+/// which the base run's own steam mass zig-zagged (its second difference
+/// changed sign), a period-2 sawtooth being the signature of an explicit
+/// step beyond its stability limit.
+#[derive(Debug, Clone, Copy)]
+struct Twin {
+    steam: f64,
+    t_gas: f64,
+    diff_sign_flips: f64,
+    sawtooth: f64,
+}
+
+/// Steps a state and its twin (gas 1e-12 K warmer) through `t_end` s of the
+/// special-case test's inputs at `dt`, and reports [`Twin`]. `step` advances
+/// one state by `dt` and returns `(steam kg, gas K)`.
+fn twin_run<S: Clone>(mut a: S, mut b: S, dt: f64, t_end: f64, mut step: impl FnMut(&mut S, f64) -> (f64, f64)) -> Twin {
+    let n = (t_end / dt).round() as usize;
+    let (mut ws, mut wt) = (0.0_f64, 0.0_f64);
+    let (mut flips, mut saw) = (0usize, 0usize);
+    let mut last_d = 0.0_f64;
+    let mut hist: Vec<f64> = Vec::with_capacity(n);
+    for _ in 0..n {
+        let (sa, ta) = step(&mut a, dt);
+        let (sb, tb) = step(&mut b, dt);
+        ws = ws.max(rel(sb, sa));
+        wt = wt.max(rel(tb, ta));
+        let d = sb - sa;
+        if d * last_d < 0.0 {
+            flips += 1;
+        }
+        if d != 0.0 {
+            last_d = d;
+        }
+        hist.push(sa);
+    }
+    for w in hist.windows(4) {
+        if (w[3] - 2.0 * w[2] + w[1]) * (w[2] - 2.0 * w[1] + w[0]) < 0.0 {
+            saw += 1;
+        }
+    }
+    Twin { steam: ws, t_gas: wt, diff_sign_flips: flips as f64 / n as f64, sawtooth: saw as f64 / n.saturating_sub(3).max(1) as f64 }
+}
+
+fn special_case_ww_inputs() -> WetWellInputs {
+    WetWellInputs {
+        injection: Injection { mass_rate: kgs(10.0), specific_enthalpy: jkg(2.7e6), nitrogen_mass_rate: kgs(0.5), nitrogen_temperature: kelv(350.0) },
+        external: ExternalVolume { pressure: pa(1.0e5), temperature: kelv(300.0), steam_mole_fraction: 0.0 },
+        heat_exchanger: ImmersedHeatExchanger { conductance: ThermalConductance::new::<watt_per_kelvin>(1.0e6), coolant_temperature: kelv(300.0) },
+        liquid_outflow: kgs(5.0),
+    }
+}
+
+/// The control volume built on the torus of [`torus`] at gas temperature
+/// `t_gas`, every mechanism at its default.
+fn torus_cv(t_gas: f64) -> ControlVolume {
+    let (ww, lt, z_inj, opening) = torus(t_gas);
+    let gas = GasMixture::new(ww.steam_mass(), &[(NonCondensable::N2, AmountOfSubstance::new::<mole>(ww.nitrogen_mass().get::<kilogram>() / M_N2))]);
+    ControlVolume::new(
+        VolumeAltitudeTable::prismatic(Area::new::<square_meter>(AREA), m(lt)).unwrap(),
+        vec![port(z_inj, opening), port(0.0, 0.1)],
+        ww.pool_mass(),
+        ww.pool_temperature(),
+        gas,
+        ww.gas_temperature(),
+    )
+    .unwrap()
+}
+
+fn special_case_cv_inputs() -> ControlVolumeInputs {
+    let mut cv_in = ControlVolumeInputs::closed(2);
+    cv_in.ports[0] = PortInput::inflow(Source::water(kgs(10.0), jkg(2.7e6)).with_gas(&[(NonCondensable::N2, kgs(0.5))], kelv(350.0)));
+    cv_in.ports[1] = PortInput::outflow(kgs(5.0));
+    cv_in.heat_exchanger = special_case_ww_inputs().heat_exchanger;
+    cv_in
+}
+
+/// **gh:#1118 (a): where the wet well's round-off amplification comes from.**
+///
+/// **Methodology.** The special-case test's torus and inputs (600 s of 10
+/// kg/s relief steam with 0.5 kg/s N2, the heat exchanger, a 5 kg/s
+/// outlet), each model run twice, the twin's gas 1e-12 K warmer (3e-15
+/// relative). Measured: the worst relative difference in steam mass and gas
+/// temperature over 600 s, the fraction of steps on which the difference
+/// changes sign, and the fraction of steps on which the base run's own steam
+/// mass zig-zags (period-2 sawtooth). Variants: the wet well at `dt` = 1,
+/// 0.5, 0.25, 0.1 s; the wet well with the surface's mass transfer ablated
+/// (RELAP-7 Eq 390, `α` = 10 W/(m² K)); the control volume with the wet
+/// well's conventions and the four-pass rain-out (the special case); the
+/// same with the equilibrium rain-out (the control volume's default); and
+/// the control volume at every default.
+///
+/// **Predictions, written 2026-11-02 before the first run.** The issue's
+/// hypothesis is a stability limit of the explicit surface exchange and
+/// rain-out at 1 s. If it holds:
+/// 1. at `dt` = 1 s the difference alternates in sign from step to step
+///    (an amplification factor near −2.5) and the base run's steam mass
+///    zig-zags on most steps;
+/// 2. halving the step brings the factor inside the unit circle (`|1 − k
+///    dt|` with `k dt` ≈ 3.5 at 1 s gives 0.75 at 0.5 s), so at `dt` ≤ 0.5 s
+///    the difference stays at round-off (< 1e-10 in steam mass);
+/// 3. the sensible-only ablation shows no amplification (< 1e-10);
+/// 4. the equilibrium rain-out does **not** remove it, because the
+///    expanding step is the explicit evaporation computed from the
+///    start-of-step state, which rain-out only clips (low confidence: about
+///    even odds).
+///
+/// **Results (2026-11-02, release, Rust 1.99.1): predictions 2, 3 and 4
+/// MISSED; the cause is the four-pass rain-out, not the explicit surface
+/// step, and not a step-size stability limit.**
+///
+/// | Variant | worst steam / gas-T difference | sign flips | base sawtooth |
+/// |---|---|---|---|
+/// | wet well, `dt` 1 s | 1.14e-4 / 2.9e-5 | 0.45 | 0.60 |
+/// | wet well, `dt` 0.5 s | 5.7e-5 / 1.5e-5 | 0.47 | 0.62 |
+/// | wet well, `dt` 0.25 s | 2.9e-5 / 7.5e-6 | 0.48 | 0.62 |
+/// | wet well, `dt` 0.1 s | 1.2e-5 / 3.1e-6 | 0.48 | 0.60 |
+/// | wet well, sensible-only surface, 1 s | 9.9e-5 / 2.5e-5 | 0.43 | 0.62 |
+/// | control volume, wet-well conventions, four passes, 1 / 0.5 / 0.25 s | 1.09e-4 / 5.4e-5 / 3.0e-5 (steam) | 0.46–0.47 | 0.60–0.63 |
+/// | control volume, wet-well conventions, **equilibrium rain-out**, 1 / 0.5 / 0.25 s | 1.2e-13 / 1.3e-13 / 1.3e-13 (steam), ≤ 2.3e-14 (T) | 0.02–0.05 | 0 |
+/// | control volume, every default, 1 / 0.5 / 0.25 s | 1.3e-13 / 1.3e-13 / 1.2e-13 (steam) | 0.04–0.06 | ≤ 0.002 |
+///
+/// - Prediction 1 held in form: the difference changes sign on about half
+///   the steps and the base trajectory zig-zags on about 60 % of them.
+/// - Prediction 2 missed: shortening the step does not remove it. The
+///   bounded difference falls roughly in proportion to `dt` (1.1e-4 at 1 s,
+///   1.2e-5 at 0.1 s), because it is bounded by the size of one step's
+///   excess vapour, but it stays seven to eight orders above round-off.
+///   There is no step size below which the map stops expanding, so it is
+///   not the stability limit of an explicit relaxation.
+/// - Prediction 3 missed: with no mass transfer at the surface (RELAP-7
+///   Eq 390) it amplifies the same, so the explicit exchange is not the
+///   cause.
+/// - Prediction 4 missed: the control volume differs from the wet-well
+///   special case only in its rain-out, and the equilibrium rain-out (its
+///   default) takes the difference from 1.1e-4 to 1.2e-13, round-off, at
+///   every step size, with no sawtooth.
+/// - **The mechanism, stated.** `sembawang`'s four passes condense down to
+///   saturation at the current temperature, leaving the latent heat in the
+///   gas. That heat raises the gas's saturated capacity by more than the
+///   mass condensed (by hand at 330 K and 1 bar in 2620 m³: about 13 kg/K
+///   of capacity, times about 1.1 K per kg condensed against the gas's 2e6
+///   J/K, a ratio of about 14). So the first pass ends far subsaturated and
+///   the next three find nothing to condense. The deficit it leaves scales
+///   with the excess it was given, with a gain above one, and the next
+///   step's evaporation refills it. That map expands any difference in the
+///   excess, and only the nonlinearity bounds it.
+///
+/// What is asserted is that finding: the wet well amplifies at both 1 s
+/// and 0.1 s (> 1e-6), the sensible-only surface amplifies too, the
+/// control volume's four passes amplify, and its equilibrium rain-out
+/// stays at round-off (< 1e-11) at all three step sizes.
+#[test]
+fn wet_well_round_off_amplification_gh1118() {
+    let ww_in = special_case_ww_inputs();
+    let ww_step = |w: &mut WetWell, dt: f64| {
+        w.step(sec(dt), &ww_in).unwrap();
+        (w.steam_mass().get::<kilogram>(), w.gas_temperature().get::<kelvin>())
+    };
+    let cv_in = special_case_cv_inputs();
+    let cv_step = |c: &mut ControlVolume, dt: f64| {
+        c.step(sec(dt), &cv_in).unwrap();
+        (c.atmosphere().steam_kg, c.atmosphere_temperature().get::<kelvin>())
+    };
+    let ww = |t: f64| torus(t).0;
+    for dt in [1.0, 0.5, 0.25, 0.1] {
+        let r = twin_run(ww(T0), ww(T0 + 1e-12), dt, 600.0, ww_step);
+        println!("wet well dt {dt}: {r:?}");
+        if dt == 1.0 || dt == 0.1 {
+            assert!(r.steam > 1e-6 && r.t_gas > 1e-7, "{dt}: {r:?}");
+        }
+        if dt == 1.0 {
+            assert!(r.diff_sign_flips > 0.3 && r.sawtooth > 0.3, "{r:?}");
+        }
+    }
+    let sens = |t: f64| ww(t).without_surface_mass_transfer(HeatTransfer::new::<uom::si::heat_transfer::watt_per_square_meter_kelvin>(10.0));
+    let r = twin_run(sens(T0), sens(T0 + 1e-12), 1.0, 600.0, ww_step);
+    println!("wet well, sensible-only surface: {r:?}");
+    assert!(r.steam > 1e-6, "{r:?}");
+    let special = |t: f64, eq: bool| {
+        let c = torus_cv(t).without_real_liquid().unwrap().without_real_steam().unwrap();
+        if eq { c } else { c.without_equilibrium_rain_out() }
+    };
+    for dt in [1.0, 0.5, 0.25] {
+        let four = twin_run(special(T0, false), special(T0 + 1e-12, false), dt, 600.0, cv_step);
+        let eq = twin_run(special(T0, true), special(T0 + 1e-12, true), dt, 600.0, cv_step);
+        let def = twin_run(torus_cv(T0), torus_cv(T0 + 1e-12), dt, 600.0, cv_step);
+        println!("cv wet-well conventions, four passes, dt {dt}: {four:?}");
+        println!("cv wet-well conventions, equilibrium rain-out, dt {dt}: {eq:?}");
+        println!("cv every default, dt {dt}: {def:?}");
+        assert!(four.steam > 1e-6, "{dt}: {four:?}");
+        for r in [eq, def] {
+            assert!(r.steam < 1e-11 && r.t_gas < 1e-11 && r.sawtooth < 0.01, "{dt}: {r:?}");
+        }
+    }
 }
