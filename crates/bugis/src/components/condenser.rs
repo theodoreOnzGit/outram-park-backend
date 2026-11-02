@@ -25,7 +25,7 @@
 //! # Two colour axes, deliberately
 //!
 //! Steam-side regions are tinted by **quality** through
-//! [`crate::color_maps::steam_quality_colour_mark_1`] (blue at `x = 0`,
+//! [`crate::colour_maps::color32::steam_quality_colour_mark_1`] (blue at `x = 0`,
 //! saturated liquid; white at `x = 1`, dry vapour), because in a condenser the
 //! quality genuinely traverses that whole range from the exhaust neck to the
 //! hotwell — no display remap is needed or applied. Everything that carries a
@@ -82,7 +82,7 @@
 //! this is for education, research and V&V only — not for facility operation,
 //! reactor control, or safety-critical decisions.
 
-use crate::color_maps::steam_quality_colour_mark_1;
+use crate::colour_maps::color32::steam_quality_colour_mark_1;
 use crate::components::temperature_colour;
 use egui::{Align2, Color32, CornerRadius, FontId, Painter, Pos2, Rect, Response, Sense, Shape};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};

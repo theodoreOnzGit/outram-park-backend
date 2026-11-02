@@ -45,7 +45,7 @@ use egui::epaint::CubicBezierShape;
 use egui::{epaint::PathShape, vec2, Color32, Pos2, Sense, Stroke, Vec2, Widget};
 use uom::si::{f64::*, thermodynamic_temperature::degree_celsius};
 
-use crate::color_maps::hot_to_cold_colour_mark_1;
+use crate::colour_maps::color32::hot_to_cold_colour_mark_1;
 use crate::components::htr10_reactor_vessel::{
     draw_packed_pebbles, PackingTransform, PackingWindow, VerticalSense,
 };
@@ -287,7 +287,7 @@ impl Widget for FhrReactorVesselVisual {
     /// commanded insertion depth.
     ///
     /// Each region is filled via
-    /// [`crate::color_maps::hot_to_cold_colour_mark_1`] against the
+    /// [`crate::colour_maps::color32::hot_to_cold_colour_mark_1`] against the
     /// `min_temp`/`max_temp` range. Insertion fractions are clamped to
     /// `[0, 1]` here rather than at the setter, so a transient overshoot from
     /// a controller renders as fully in or fully out instead of panicking.

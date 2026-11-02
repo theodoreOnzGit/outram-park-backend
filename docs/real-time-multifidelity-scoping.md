@@ -281,7 +281,7 @@ valve and cooling tower all return not-implemented; only `Pipe::step` is real.
 Five of its 26 files (`single_phase/`, `compressible/`, `heat_transfer/`,
 `hem/`, `critical_flow/`) are **pure `pub use` re-export files** and say so. The
 engine widgets that wrap the stubs therefore render as flat rectangles by design
-(`crates/outram-park-digital-twin-engine/src/components/condenser.rs:34-38`).
+(~~`crates/outram-park-digital-twin-engine/src/components/condenser.rs:34-38`~~ `crates/bugis/src/components/condenser.rs:34-38` (moved 2026-11-02, gh:#1112; line numbers not re-checked)).
 
 **The one exception is worth flagging as a risk, not an asset.** `DriftFlux1d`
 (`crates/tampines/src/multiphase_1d/drift_flux.rs:232`, `step()` at `:569`) is a

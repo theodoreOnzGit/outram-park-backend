@@ -1156,7 +1156,13 @@ name = "bugis"
 version = "0.0.1"
 dependencies = [
  "egui",
+ "nee_soon",
+ "outram-park-fork-dwsim-libs",
  "petir",
+ "tampines",
+ "tampines-steam-tables",
+ "tuas_boussinesq_solver",
+ "uom",
 ]
 
 [[package]]

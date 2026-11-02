@@ -20,6 +20,19 @@
 //! 2026-11-02: "give all simulators a gruvbox theme"). A `no_std` user takes
 //! `default-features = false`.
 //!
+//! **The central GUI crate** (maintainer, 2026-11-02; gh:#1112). The GUI code
+//! of `outram-park-digital-twin-engine` moves here byte for byte, each module
+//! behind a std feature, with a re-export at the old path:
+//!
+//! - `animation` (feature `animation`): tracer kinematics, egui-free;
+//! - `ascii` (feature `ascii`): schematics on a character grid;
+//! - `components` (feature `widgets`): the widget library, which reads
+//!   `tampines`, `tampines-steam-tables`, `outram-park-fork-dwsim-libs` and
+//!   `nee_soon` state through optional features of the same names.
+//!
+//! The crate is `no_std` exactly when the `std` feature (implied by each of
+//! those) is off.
+//!
 //! ```no_run
 //! # #[cfg(feature = "egui")]
 //! # fn f(ctx: &egui::Context, ui: &mut egui::Ui) {
@@ -45,7 +58,9 @@
 //! the role layout of [`gruvbox::Roles`] and its Gruvbox Dark assignments, and
 //! the idea of [`Rgb::mix`]; each is cited where it is used.
 
-#![no_std]
+// `no_std` unless a std feature is on (gh:#1112): the moved GUI modules were
+// written against the std prelude and stay byte for byte as they were.
+#![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
 extern crate alloc;
@@ -55,6 +70,28 @@ pub mod colour_maps;
 pub mod gruvbox;
 
 pub use colour::Rgb;
+
+/// Tracer, pebble-handling and control-rod-drive kinematics (feature
+/// `animation`). Moved byte for byte from `outram-park-digital-twin-engine`'s
+/// `animation/` (gh:#1112, 2026-11-02), which re-exports it at its old path.
+/// egui-free, so it builds for Android.
+#[cfg(feature = "animation")]
+pub mod animation;
+
+/// Render 2-D schematic geometry to a character grid, so a diagram can be
+/// checked by a test or an agent (feature `ascii`). Moved byte for byte from
+/// `outram-park-digital-twin-engine`'s `ascii/` (gh:#1112, 2026-11-02), which
+/// re-exports it at its old path.
+#[cfg(feature = "ascii")]
+pub mod ascii;
+
+/// The widget library (feature `widgets`): one `egui::Widget` per visual
+/// process object, each composing its physics counterpart (`tampines`,
+/// `nee_soon`, …) with visual-only fields. Moved from
+/// `outram-park-digital-twin-engine`'s `components/` (gh:#1112, 2026-11-02),
+/// which re-exports it at its old path.
+#[cfg(feature = "widgets")]
+pub mod components;
 
 #[cfg(feature = "egui")]
 mod gui;

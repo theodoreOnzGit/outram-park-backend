@@ -6,6 +6,8 @@
 //! unchanged in arithmetic; the functions now return the `no_std` [`Rgb`].
 //! `outram-park-digital-twin-engine::color_maps` keeps its old names as thin
 //! wrappers returning `egui::Color32`, so its call sites did not change.
+//! (**Since 2026-11-02, gh:#1112**, those wrappers are [`color32`] here,
+//! re-exported by the engine as `color_maps`.)
 //!
 //! History of the maps below:
 //!
@@ -22,6 +24,13 @@
 /// CVD-friendly and greyscale-safe -- see the module docs for provenance and
 /// for when to prefer them over the maps in this file.
 pub mod crameri;
+
+/// The same maps as `egui::Color32` (feature `egui`): the wrappers that were
+/// `outram-park-digital-twin-engine::color_maps` until 2026-11-02 (gh:#1112),
+/// moved here with the widget library that calls them. The engine re-exports
+/// this module as its `color_maps`.
+#[cfg(feature = "egui")]
+pub mod color32;
 
 use crate::Rgb;
 

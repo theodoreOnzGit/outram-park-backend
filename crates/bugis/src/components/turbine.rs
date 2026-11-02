@@ -48,7 +48,7 @@
 //! caller.
 
 use petir::mathf::RealMath;
-use crate::color_maps::steam_quality_colour_mark_1;
+use crate::colour_maps::color32::steam_quality_colour_mark_1;
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use std::f64::consts::PI;

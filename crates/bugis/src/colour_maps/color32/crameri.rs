@@ -27,9 +27,13 @@
 //! regardless of the data being MIT underneath.
 //!
 //! **MOVED 2026-11-02:** the tables and the samplers moved, byte for byte, to
-//! `bugis::colour_maps::crameri` (returning `bugis::Rgb`). This module keeps
+//! `crate::colour_maps::crameri` (returning `bugis::Rgb`). This module keeps
 //! the public names and the `egui::Color32` return type, so no call site
 //! changes; the tests below still pin the exact colours.
+//!
+//! **MOVED AGAIN 2026-11-02 (gh:#1112):** this wrapper moved with its parent
+//! to `bugis::colour_maps::color32::crameri`; the engine re-exports it at
+//! `color_maps::crameri`.
 //!
 //! # Choosing a map
 //!
@@ -40,31 +44,31 @@
 use egui::Color32;
 
 /// The 256-entry tables, from `bugis`.
-pub use bugis::colour_maps::crameri::tables;
+pub use crate::colour_maps::crameri::tables;
 
 /// *vik*, diverging (blue → neutral → red); `t` clamped to `[0, 1]`.
 pub fn vik(t: f32) -> Color32 {
-    bugis::colour_maps::crameri::vik(t).into()
+    crate::colour_maps::crameri::vik(t).into()
 }
 
 /// *roma*, diverging; `t` clamped to `[0, 1]`.
 pub fn roma(t: f32) -> Color32 {
-    bugis::colour_maps::crameri::roma(t).into()
+    crate::colour_maps::crameri::roma(t).into()
 }
 
 /// *batlow*, sequential; `t` clamped to `[0, 1]`.
 pub fn batlow(t: f32) -> Color32 {
-    bugis::colour_maps::crameri::batlow(t).into()
+    crate::colour_maps::crameri::batlow(t).into()
 }
 
 /// *lajolla*, sequential; `t` clamped to `[0, 1]`.
 pub fn lajolla(t: f32) -> Color32 {
-    bugis::colour_maps::crameri::lajolla(t).into()
+    crate::colour_maps::crameri::lajolla(t).into()
 }
 
 /// *romaO*, cyclic: `t` wraps, so `0` and `1` are the same colour.
 pub fn roma_o(t: f32) -> Color32 {
-    bugis::colour_maps::crameri::roma_o(t).into()
+    crate::colour_maps::crameri::roma_o(t).into()
 }
 
 #[cfg(test)]

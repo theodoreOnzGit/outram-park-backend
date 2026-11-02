@@ -130,7 +130,7 @@
 //! # Drawing it
 //!
 //! ```
-//! use outram_park_digital_twin_engine::components::pebble_packing::{
+//! use bugis::components::pebble_packing::{
 //!     depth_fraction, BARREL_HEIGHT, CONE_HEIGHT, PACKED_PEBBLES, SPHERE_RADIUS,
 //! };
 //!

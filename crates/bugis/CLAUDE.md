@@ -26,5 +26,20 @@ binds here in full.
   the widgets that read `tampines` / `nee_soon` state. Those physics crates are
   **optional dependencies behind their own features** (std), so the no_std
   core and the plain `egui` feature stay physics-free.
+- **Moved modules (gh:#1112, 2026-11-02) keep their own rules here.**
+  `animation` (feature `animation`), `ascii` (feature `ascii`) and the widget
+  library `components` (feature `widgets`) came from
+  `outram-park-digital-twin-engine`, which re-exports each at its old path.
+  The engine `CLAUDE.md`'s rules move with them and bind here: **animation is
+  derived from physics state, never hardcoded** (HARD RULE); **tracer state
+  is application-owned** (a widget never owns its `TracerTrain`); **keep
+  `animation` egui-free** (it is the Android-building module:
+  `cargo check --release -p bugis --no-default-features --features animation
+  --target aarch64-linux-android`); **enum dispatch, never trait objects**;
+  scalar-backed widgets are not placeholders. The engine's kovan review
+  records for these folders stay at the old paths.
+- **Every moved module needs `std`**: the crate is
+  `#![cfg_attr(not(feature = "std"), no_std)]`, and each moved feature
+  implies `std`. Nothing std goes into the core modules.
 - **Only Gruvbox Dark and Gruvbox Light** (GitHub issue #30: "only gruvbox
   light and dark work"). Add a theme only when the maintainer asks.

@@ -9,11 +9,11 @@
 //!
 //! Two maps are offered because they suit different backgrounds — see
 //! [`blue_red`] and [`black_red`]. Both are the older non-perceptual maps from
-//! [`crate::color_maps`], kept because existing call sites depend on their
+//! [`crate::colour_maps::color32`], kept because existing call sites depend on their
 //! exact values; new *field* visualisations should prefer the perceptually
 //! uniform Crameri map used by [`super::temperature_colour`].
 
-use crate::color_maps::{hot_to_cold_colour_mark_1, hot_to_cold_colour_mark_2};
+use crate::colour_maps::color32::{hot_to_cold_colour_mark_1, hot_to_cold_colour_mark_2};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::degree_celsius;
 

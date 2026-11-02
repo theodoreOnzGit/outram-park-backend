@@ -19,7 +19,7 @@
 
 use egui::{Color32, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 
-use crate::color_maps::hot_to_cold_colour_mark_1;
+use crate::colour_maps::color32::hot_to_cold_colour_mark_1;
 
 /// Visual representation of a distillation column's tray stack.
 ///

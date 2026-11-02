@@ -30,7 +30,7 @@
 //! this works headless, in a test, on wasm, or anywhere else.
 //!
 //! ```
-//! use outram_park_digital_twin_engine::ascii::AsciiCanvas;
+//! use bugis::ascii::AsciiCanvas;
 //!
 //! let mut c = AsciiCanvas::new(24, 8, (0.0, 0.0), (100.0, 100.0));
 //! c.rect(10.0, 10.0, 90.0, 60.0, Some("CORE"));

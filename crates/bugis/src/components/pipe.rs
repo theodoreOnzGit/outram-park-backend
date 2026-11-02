@@ -1172,7 +1172,7 @@ mod tests {
     /// temperature, and must never darken it.
     #[test]
     fn gas_is_lighter_than_liquid() {
-        let base = crate::color_maps::crameri::vik(0.5);
+        let base = crate::colour_maps::color32::crameri::vik(0.5);
         let liquid = PipePhaseShade::Liquid.apply(base);
         let gas = PipePhaseShade::Gas.apply(base);
         let two_phase = PipePhaseShade::TwoPhase.apply(base);

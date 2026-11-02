@@ -94,7 +94,7 @@ and the app scaffold.~~ **CORRECTED 2026-09-29** — checked against `src/`:
   with a test that reproduces its published value (bead `op-jyyp`). It is the
   sanctioned exception, and its rule is its own module doc's: nothing uncited
   goes in, and no solver loop or transient model goes in.
-- `headless/`, `ascii/` and the OPC-UA layers (`opcua_core`, `ciet_opcua`,
+- `headless/`, `ascii/` (since 2026-11-02 in `bugis`, re-exported here) and the OPC-UA layers (`opcua_core`, `ciet_opcua`,
   `htgr_opcua`) are infrastructure, not physics.
 
 The rule itself stands: no *model* physics in `src/`.
@@ -270,7 +270,7 @@ residence time drives tracer travel time"*.
 
 ### Worked example — the coaxial duct, 2026-09-21
 
-`CoaxialDuctVisual` (`src/components/pipe.rs`) draws two streams sharing one
+`CoaxialDuctVisual` (~~`src/components/pipe.rs`~~ `crates/bugis/src/components/pipe.rs` since 2026-11-02, gh:#1112) draws two streams sharing one
 duct body. The first draft hardcoded the annulus as *always* running opposite
 to `screen_vector`, reasoning that a coaxial duct is built for counter-current
 flow and the inner stream defines the axis. It even documented the assumption,
@@ -379,13 +379,13 @@ fall under it too.
 
 | Module | Contains |
 |---|---|
-| `animation/` | Tracer kinematics: `TracerTrain`, `residence_time_from_flow`, `FlowTracer`/`TravelTime`. **Must stay `egui`-free** — it is the only module that builds for Android. |
-| `color_maps/` | Ported hot/cold + steam-quality colour functions (and `crameri`). Real, already-validated code — do not "improve" the maps; call sites depend on the exact values. **Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`** (the maps, the Crameri tables and their `References.md` moved there byte for byte); the tests here still pin the colours. |
-| `components/` | One file per visual process object, each composing its physics counterpart plus visual-only fields and an `egui::Widget` impl. |
+| `animation/` | Tracer kinematics: `TracerTrain`, `residence_time_from_flow`, `FlowTracer`/`TravelTime`. **Must stay `egui`-free** — it is the only module that builds for Android. **MOVED 2026-11-02 (gh:#1112)** to `bugis::animation` (feature `animation`), re-exported here as `animation`; `src/animation/` keeps only the kovan review records. Android check: `cargo check --release -p bugis --no-default-features --features animation --target aarch64-linux-android`. |
+| `color_maps/` | Ported hot/cold + steam-quality colour functions (and `crameri`). Real, already-validated code — do not "improve" the maps; call sites depend on the exact values. ~~**Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`** (the maps, the Crameri tables and their `References.md` moved there byte for byte); the tests here still pin the colours.~~ **MOVED AGAIN 2026-11-02 (gh:#1112):** the `Color32` wrappers and their tests are now `bugis::colour_maps::color32` (feature `egui`), with the widget library that calls them; re-exported here as `color_maps`. `src/color_maps/` keeps only the kovan review records. |
+| `components/` | One file per visual process object, each composing its physics counterpart plus visual-only fields and an `egui::Widget` impl. **MOVED 2026-11-02 (gh:#1112)** to `bugis::components` (feature `widgets`), re-exported here by `src/components/mod.rs`. Only `excursion.rs` stays here, because it reads `htr10::design`'s cited fuel-temperature limits (physics data). |
 | `app_scaffold/` | `SharedState`, monitored physics threads, panel dispatch, crash modal. |
 | `htr10/` | Cited HTR-10 design constants and packed-bed correlations (`design`, `kta`, `zbs`, `neutronics`), each with a test against its published value. GUI-free and not target-gated. Not validated. |
 | `headless/` | Drives a simulator with no GUI, window or thread (the headless rule below, gh #150). |
-| `ascii/` | Renders 2-D schematic geometry to a character grid, so a diagram can be checked by a test or an agent. |
+| `ascii/` | Renders 2-D schematic geometry to a character grid, so a diagram can be checked by a test or an agent. **MOVED 2026-11-02 (gh:#1112)** to `bugis::ascii` (feature `ascii`), re-exported here as `ascii`. |
 | `opcua_core/`, `ciet_opcua/`, `htgr_opcua/` | OPC-UA (IEC 62541) server layers for offline demonstration only. Gated off `wasm32`. |
 | `bin/` | `ciet_educational_simulator_v2`, `ciet_v2_opcua_client`. |
 
@@ -406,7 +406,7 @@ were missing. They were added after checking `src/lib.rs`.
   widget would reset its phase to zero each frame, so the *app* owns the train,
   advances it once per frame, and copies it into the widget at build time. Do
   not "simplify" this by moving the train into the widget.
-- **Keep `animation/` `egui`-free.** Rendering of tracers belongs with each
+- **Keep `animation/` `egui`-free** (since 2026-11-02 it is `bugis::animation`; the rule moved with it into `crates/bugis/CLAUDE.md`). Rendering of tracers belongs with each
   visual component (which is already gated off Android), not in `animation/`.
   Adding an `egui` import there breaks the crate's Android build.
 - **Enum dispatch, never trait objects.** `PipeVisualState` is the pattern:

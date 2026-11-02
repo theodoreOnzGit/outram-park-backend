@@ -8,9 +8,15 @@
 //! `egui::Color32` return type, so no call site changes; the tests below
 //! still pin the exact colours. Each function takes a plain `f32` already
 //! computed by the caller (e.g. a normalised temperature or quality).
+//!
+//! **MOVED AGAIN 2026-11-02 (gh:#1112):** these `Color32` wrappers moved
+//! from `outram-park-digital-twin-engine`'s `src/color_maps/` into
+//! `bugis::colour_maps::color32` (feature `egui`), because the widget library
+//! that calls them moved here too. The engine re-exports this module as its
+//! `color_maps`, so its call sites still did not change.
 
 /// Fabio Crameri's Scientific colour maps (MIT), wrapping
-/// `bugis::colour_maps::crameri`. Perceptually uniform, CVD-friendly and
+/// `crate::colour_maps::crameri`. Perceptually uniform, CVD-friendly and
 /// greyscale-safe.
 pub mod crameri;
 
@@ -18,23 +24,23 @@ use egui::Color32;
 
 /// Hot-to-cold colour map, variant 1: blue (cold) to red (hot), with a
 /// green tint that fades out as `hotness` rises. `hotness` is clamped to
-/// \[0, 1\]. Wraps [`bugis::colour_maps::hot_to_cold_colour_mark_1`].
+/// \[0, 1\]. Wraps [`crate::colour_maps::hot_to_cold_colour_mark_1`].
 pub fn hot_to_cold_colour_mark_1(hotness: f32) -> Color32 {
-    bugis::colour_maps::hot_to_cold_colour_mark_1(hotness).into()
+    crate::colour_maps::hot_to_cold_colour_mark_1(hotness).into()
 }
 
 /// Hot-to-cold colour map, variant 2: black (cold) to red (hot). `hotness`
 /// is clamped to \[0, 1\]. Wraps
-/// [`bugis::colour_maps::hot_to_cold_colour_mark_2`].
+/// [`crate::colour_maps::hot_to_cold_colour_mark_2`].
 pub fn hot_to_cold_colour_mark_2(hotness: f32) -> Color32 {
-    bugis::colour_maps::hot_to_cold_colour_mark_2(hotness).into()
+    crate::colour_maps::hot_to_cold_colour_mark_2(hotness).into()
 }
 
 /// Steam-quality colour map: blue (`quality = 0`, saturated liquid) to
 /// white (`quality = 1`, saturated vapour), clamped to \[0, 1\]. Wraps
-/// [`bugis::colour_maps::steam_quality_colour_mark_1`].
+/// [`crate::colour_maps::steam_quality_colour_mark_1`].
 pub fn steam_quality_colour_mark_1(steam_quality: f32) -> Color32 {
-    bugis::colour_maps::steam_quality_colour_mark_1(steam_quality).into()
+    crate::colour_maps::steam_quality_colour_mark_1(steam_quality).into()
 }
 
 #[cfg(test)]
