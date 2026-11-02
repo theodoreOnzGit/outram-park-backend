@@ -477,3 +477,54 @@ atoms to curies conversion, generic utility, probably mass porting.... it is giv
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 3c2ffe4874.
+
+# Review: ReleaseMaterial (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-releasematerial-theodoreonzgit-0c21cc39"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:54:41+08:00"
+modified = "2026-11-02T13:54:41+08:00"
+target = "fn:0c21cc39d4fb8228"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::ReleaseMaterial"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:54:41+08:00"
+commit = "9a86ab63a530230c620baaea3e6910189c63f85d"
+hash = "sha256:79b187a51027aa0d263a5be10e90506b3a7b3de48b961eeac4b984d01f18257e"
+doc_hash = "sha256:b036b033773c4a527c928966d9e7f28ad7a7b7b6b4437139388ec02c451202f9"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "y8iuh4TabL6Lifaa6NcRDBH1+K0SyGT+Nb9GzPDYgv26z3FZktXITPHRWZgSA31tn5iQVSWoslWGniHPGj0zDg=="
+```
+
+enum could probably be combined, because the two members Kernel and Graphite also appear elsewhere. But i suppose this is fine for now
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 9a86ab63a5.
