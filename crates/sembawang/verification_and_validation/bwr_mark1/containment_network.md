@@ -1974,7 +1974,7 @@ two measures and wrote the predictions on the issue before the 44- and
 | 11 | −17.94 % | −3.56 % | +3.67 % | +1.91 % | +0.36 % | 4.68 / 9.78 min | 44.86 t |
 | 22 | −10.41 % | +2.30 % | +6.41 % | +2.01 % | +0.35 % | 5.08 / 9.78 min | 48.41 t |
 | 44 | −6.96 % | +4.63 % | +7.35 % | +1.97 % | +0.34 % | 6.27 / 9.78 min | 49.78 t |
-| 88 | −5.95 % | +5.11 % | +7.41 % | +1.94 % | +0.35 % | (trace pending) | (pending) |
+| 88 | −5.95 % | +5.11 % | +7.41 % | +1.94 % | +0.35 % | not run (refinement stopped at the maintainer's direction) | not run |
 
 | Prediction | Outcome |
 |---|---|
@@ -1995,7 +1995,30 @@ two measures and wrote the predictions on the issue before the 44- and
   pool surface.
 - The suspect is the gas-side heat input during a fast blowdown. This is not
   attributed: no ablation has been run.
-- The blowdown time is **not converged at n = 44**; the n = 88 trace is
-  pending.
+- The blowdown time is **not converged at n = 44** (4.68, 5.08, 6.27 min).
+  The n = 88 trace was stopped: the maintainer called the refinement enough.
 - Quote n ≥ 44 for anything in the vent window, and the 24 h point as a
   phase-sensitive instrument only.
+
+**Attribution runs** (old-model ablations, 44 layers, traced to 26 h):
+
+| Old-model ablation | p_ww at 23.5 h, net / old | top layer at vent | blowdown to 200 kPa, net / old | Δp_ww 24 h |
+|---|---|---|---|---|
+| none | 856 / 814 kPa | 387.9 K | 6.27 / 9.78 min | −6.96 % |
+| `ww_shell` | 1004 / 950 kPa | 399.1 K | 33.13 / 32.83 min | −4.38 % |
+| `ww_atmosphere` | 1005 / 963 kPa | 397.9 K | 30.88 / 31.32 min | −7.50 % |
+
+Both ablations **confound the comparison**. They change the old plant from
+the start, so the wetwell reaches 1.0 MPa before the vent, and the 200 kPa
+crossing falls in the flashing regime: the pool surface sits above
+T_sat(200 kPa) ≈ 393 K. In that regime the two models agree within 0.5 min.
+
+In the base case the crossing is set by gas expansion, and there the network
+is about 2× faster. The residual (≈ −5.5 % at 24 h) therefore lives in how
+much heat reaches the wetwell gas during a fast blowdown. It is **not
+attributed to one mechanism**; that would need an ablation acting only after
+the vent opens.
+
+The `ww_shell` prediction (old blowdown shortens to 6–8 min) **missed**. The
+`ww_atmosphere` one (it lengthens) held in direction, but neither result can
+be read as an attribution.
