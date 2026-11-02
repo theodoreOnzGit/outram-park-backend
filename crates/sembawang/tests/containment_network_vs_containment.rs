@@ -108,7 +108,7 @@ use sembawang::bwr_mark1::containment_network::{ContainmentNetwork, NetworkConfi
 use sembawang::bwr_mark1::params::Params;
 use sembawang::bwr_mark1::{Mechanisms, Mode, Plant};
 
-/// `FUKUSHIMA_OLD_ABLATE=pool_layers,fp_decay_follows,mcci,dw_wall_outer`
+/// `FUKUSHIMA_OLD_ABLATE=pool_layers,fp_decay_follows,mcci,dw_wall_outer,ww_shell,ww_atmosphere`
 /// ablates those mechanisms of the recorded plant (the old model), so a
 /// remaining difference can be attributed to a `Containment` mechanism:
 /// both models then see the ablated plant's snapshots.
@@ -122,6 +122,10 @@ fn old_ablations_from_env() -> Mechanisms {
             "fp_decay_follows" => m.without_fp_decay_follows(),
             "mcci" => m.without_mcci(),
             "dw_wall_outer" => m.without_dw_wall_outer(),
+            // gh:#1108: the blowdown attribution (the torus shell, and the
+            // wetwell atmosphere's own temperature, under the vent).
+            "ww_shell" => m.without_ww_shell(),
+            "ww_atmosphere" => m.without_ww_atmosphere(),
             "" => m,
             other => panic!("unknown old-model ablation {other}"),
         };
