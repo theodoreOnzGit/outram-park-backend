@@ -479,6 +479,117 @@ Tolerances were not touched. **Quote nothing from the patched solver as
 validated**; the numbers in this section are measurements of an unapplied
 patch.
 
+### 11. gh:#1111 stage 2: principled branch rule + consistent state, measured; NOT applied (2026-11-02)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Status: measured, then reverted.** Maintainer decision after §10: fix the
+branch switches first. I tried two physically defined rules. Both remove the
+knife edges, and both break validations, so per the brief I stopped. The
+solver is unchanged and the gh1102 cold test stays `#[ignore]`d. No
+tolerance was touched. The patch is held by the session; its design is
+described here.
+
+**What was changed in the patch.**
+1. **Consistent stagnation state.** For a Region 1 stagnation, `T0` comes
+   from Newton on the forward equation `h_1(T0, p0) = h0`, starting at the
+   backward `T_ph`. The given `h0` is kept and `s0 = s_1(T0, p0)`. §10's
+   variant instead replaced `h0` by `h_1(T_ph, p0)`; this one does not shift
+   the stagnation enthalpy. `Iapws97Hem::liquid_isentropic_drop` used the
+   same `T0`.
+2. **The `x < 0.03` switch, the sonic map and the `DEEP_SUBCOOLING_RATIO`
+   escape were removed.** `G(p) = ρ√(2(h0 − h))` is evaluated below
+   `p_bubble` from forward saturation properties at
+   `x = (s0 − s_f)/(s_g − s_f)`. At `p_bubble` itself it uses `ρ_f`, `h_f`.
+   A 160-point geometric scan below `p_bubble` selects the maximum, and the
+   golden section refines it within the grid neighbours.
+3. **Two selection rules were measured:**
+   - **(A) first local maximum** going down from `p0`: the converging-nozzle
+     argument that `G = ṁ/A` must rise monotonically to the throat;
+   - **(B) global maximum**: the maximum-discharge principle that defines
+     Moody's and Zaloudek's HEM curves, and the one the old code applied
+     before its switches.
+
+   Both reduce to the kink (`G* = ρ_f u_b`) when `G` falls immediately below
+   `p_bubble`, i.e. `u_b > c_2φ`. (B)'s `G*` is a maximum of continuous
+   functions, so it is continuous in `h0` even where `p*` jumps.
+
+**Predictions** (written before each run, held in the session's predictions
+file):
+- Q1: the largest step in `G*` per 1 J/kg of `h0` is < 0.5 %.
+- Q2: at 300 K the kink binds, the cold test passes and rel < 1e-6.
+- Q3: Edwards |rel| < 1e-3.
+- Q4: Zaloudek x_t ≥ 0.05 passes, with the x_t ≈ 0 low-pressure points at
+  risk.
+- Q5: Moody 0.50 / 2.2549 still fails (≈ 0.12).
+- Q6: Marviken 24 moves to near bare-HEM, so its "budget not met" assertion
+  trips.
+
+**Outcomes, rule (A) first maximum:**
+- 300 K rel = +4.2e-8 and Edwards rel = −5.5e-9 (Q2, Q3 held).
+- **Zaloudek x_t = 0.05 at 1000 psia fails**: `p*` = 8502 kPa against
+  6895 kPa, G −41 %. For that state `G` has a local maximum at the kink and
+  a higher interior maximum at the Zaloudek throat; the reference is the
+  global maximum. x_t = 0.10 at 1500 psia fails the same way.
+- Rule (A) therefore contradicts the reference definition. I did not pursue
+  it further.
+
+**Outcomes, rule (B) global maximum** (filtered lib run: 148 pass, 5 fail):
+
+| check | before (committed) | rule (B) |
+|---|---|---|
+| Q1 continuity, worst `|ΔG/G|` per 1 J/kg over ±300 J/kg | Marviken 4075 kPa: a 20 % jump for a −115 J/kg shift (§10) | Marviken 4075 kPa 3.6e-6; Moody 0.50/2.2549 7.8e-6; 0.50/2.3137 1.1e-5; 300 K 2.7e-7 (**held**) |
+| gh1102 cold (300 K) | ignored, G drops 23 % | rel = 4.2e-8, monotone, **passes** |
+| Edwards transition | rel −8.1e-3 | rel −5.5e-9 |
+| hem Δp → 0 Bernoulli | 7.1e-8 | failed at 3.2e-6 / −7.8e-6 until the test's reference density was corrected (below); in the patch |
+| Zaloudek x_t = 0.05 subcooled (1000/1500/2000 psia) | dp −0.99/−1.11/+1.39 %, dG −5.0/−6.7/−0.6 % | dp −0.09/−0.10/+0.03 %, dG −4.1/−5.7/−2.1 %, pass |
+| Zaloudek x_t = 0.10 at 1500 psia | dp +0.13 %, dG −2.44 % | dp −0.07 %, dG −2.65 %, pass |
+| Zaloudek in-dome, superheated, backward buckets | | byte-identical |
+| **Zaloudek bubble-point curve (x_t = 1e-4)**, subcooled and generic dispatcher | pass | **FAILS.** Per-point (`diagnose_bubble_point_artifact`): dGlg +0.197 / +0.134 / +0.029 at 5/10/15 psia; dP −2.7/−4.0/−4.3/−3.4/−2.1 % at 20/30/50/75/100 psia, with G within 0.017; from 150 psia up both within tolerance |
+| Moody DEEP points, all isobars | max err per isobar ≤ 0.069 | unchanged or better on every isobar (e.g. 0.50 h = 0.4902: 0.069 → 0.003; 6.00: max 0.013 → 0.008), **except 0.50 / h = 2.2549: 0.005 → 0.120, FAIL** (Q5 held). That test aborts there, so the 0.50 isobar's R4 points were not re-measured; the other isobars' R4 points are byte-identical |
+| Marviken 23 | mean 12.6 %, max 23.1 %, pass | mean 13.9 %, signed −13.9 %, **max 31.5 % > 25 %, FAIL**. The worst points (4797–4974 kPa, 1.4–3.6 K local subcooling) are −27 to −31 %. The bare-HEM characterisation in the same file also has max 28.2 % on test 23 |
+| Marviken 24 | mean 48.6 %, signed −48.5 %, 31/40 outside the band ("not validated") | mean **10.4 %**, signed −9.4 %, max 25.6 %, **1/40 outside**: now inside the 15 % mean budget. The test's assertion that the budget is NOT met trips (Q6 held) |
+
+**Why the bubble-point curve breaks: a finding about the fixture, not
+tuned away.** The x_t = 1e-4 fixture sets `h0 = h_t + u_t²/2` with `u_t`
+from `mass_flux_ps_eqm_throat`. That instrument evaluates the sound speed
+at quality 1e-4. At 5 psia, `v_g/v_f` = 4472, so `ρ_t ≈ 0.69 ρ_f` at
+x = 1e-4. With the same velocity, `G` at the bubble point (`ρ_f u_b`) is
+higher than at the fixture's throat. The fixture's throat is therefore not
+the maximum of `G` along its own isentrope, and any energy-consistent
+maximum-flow rule lands on the kink. The old `ρ_f c_2φ` branch reproduced
+the fixture because it used the same instrument and ignored `h0`; it did not
+use an energy-consistent maximum. HEM evaluated at the throat still
+reproduces Zaloudek to ±0.04 (`thr_dGlg`). At 20–100 psia the maximum of
+`G` is flat: G is within 0.017 in log10, while `p*` sits 2–4 % deeper.
+
+**The hem test's reference density (instrument fix included in the
+patch).** `liquid_stagnation` in `src/hem/tests.rs` took ρ0 from
+`Iapws97Hem::state_p_t(..).density`. `Iapws97Hem` forms that from `(p, h)`
+through the backward `T(p, h)`: 996.6101 kg/m³ at "300 K", which is the
+density at 300.022 K, against ρ_1(300 K) = 996.6162. The old solver shared
+that error, so the Δp → 0 check agreed with it. With a forward-consistent
+solver the check measured the reference instead. The patch uses `ρ_1(T0, p0)`.
+**Recorded separately:** `Iapws97Hem::state_p_t` returns a density that is
+not `ρ(p, T)` at the given `T` (6e-6 relative at 300 K, 1.6e-5 at 500 K). It
+is not changed here.
+
+**Interpretation.** A continuous, energy-consistent rule is available. Rule
+(B) improves the 300 K, Edwards, Zaloudek x_t ≥ 0.05 and most Moody
+numbers, and it turns Marviken 24 from a 48.6 % miss into a 10.4 % one.
+Three validations then disagree with it:
+- the Zaloudek x_t = 1e-4 fixture at ≤ 100 psia, which is built with an
+  energy-inconsistent sonic definition;
+- Moody 0.50 / 2.2549 (+0.12 in log10, a steep graph-read point);
+- Marviken 23's per-point band (31.5 %). Bare HEM is at 28.2 % there too.
+
+Under the maximum-flow definition that both references use, these are
+honest misses of equilibrium HEM. They are not solver branch defects. **For
+the maintainer:** whether to land rule (B) and record these as known misses
+(changing the Zaloudek bubble-curve fixture's definition, the Moody point
+and Marviken 23 to characterisations, and Marviken 24 to a validation), or
+to keep the committed solver. Nothing here may be quoted as validated.
+
 ## References
 
 ```bibtex
