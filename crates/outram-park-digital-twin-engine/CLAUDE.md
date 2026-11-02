@@ -382,7 +382,7 @@ fall under it too.
 | `animation/` | Tracer kinematics: `TracerTrain`, `residence_time_from_flow`, `FlowTracer`/`TravelTime`. **Must stay `egui`-free** — it is the only module that builds for Android. **MOVED 2026-11-02 (gh:#1112)** to `bugis::animation` (feature `animation`), re-exported here as `animation`; `src/animation/` keeps only the kovan review records. Android check: `cargo check --release -p bugis --no-default-features --features animation --target aarch64-linux-android`. |
 | `color_maps/` | Ported hot/cold + steam-quality colour functions (and `crameri`). Real, already-validated code — do not "improve" the maps; call sites depend on the exact values. ~~**Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`** (the maps, the Crameri tables and their `References.md` moved there byte for byte); the tests here still pin the colours.~~ **MOVED AGAIN 2026-11-02 (gh:#1112):** the `Color32` wrappers and their tests are now `bugis::colour_maps::color32` (feature `egui`), with the widget library that calls them; re-exported here as `color_maps`. `src/color_maps/` keeps only the kovan review records. |
 | `components/` | One file per visual process object, each composing its physics counterpart plus visual-only fields and an `egui::Widget` impl. **MOVED 2026-11-02 (gh:#1112)** to `bugis::components` (feature `widgets`), re-exported here by `src/components/mod.rs`. Only `excursion.rs` stays here, because it reads `htr10::design`'s cited fuel-temperature limits (physics data). |
-| `app_scaffold/` | `SharedState`, monitored physics threads, panel dispatch, crash modal. |
+| `app_scaffold/` | `SharedState`, monitored physics threads, panel dispatch, crash modal. **MOVED 2026-11-02 (gh:#1112)** to `bugis::app_scaffold` (feature `app_scaffold`), re-exported here as `app_scaffold` (ungated, as before); `src/app_scaffold/` keeps only the kovan review records. |
 | `htr10/` | Cited HTR-10 design constants and packed-bed correlations (`design`, `kta`, `zbs`, `neutronics`), each with a test against its published value. GUI-free and not target-gated. Not validated. |
 | `headless/` | Drives a simulator with no GUI, window or thread (the headless rule below, gh #150). |
 | `ascii/` | Renders 2-D schematic geometry to a character grid, so a diagram can be checked by a test or an agent. **MOVED 2026-11-02 (gh:#1112)** to `bugis::ascii` (feature `ascii`), re-exported here as `ascii`. |
@@ -554,7 +554,10 @@ Android check (library reduces to `animation/`):
 > **CORRECTED 2026-09-21**: this check FAILS. Measured with the command
 > below: `src/app_scaffold/csv_display.rs:64` and `src/app_scaffold/crash.rs`
 > (lines 560, 614, 664) use `egui` without an Android gate, so
-> `app_scaffold/` does not reduce away. The failure predates the
+> `app_scaffold/` does not reduce away. (Since 2026-11-02 those files are
+> `crates/bugis/src/app_scaffold/`, re-exported ungated here, and the line
+> numbers are unchanged; gh:#1112. Not re-measured on Android, which would
+> need a full engine build for that target.) The failure predates the
 > 2026-09-21 widget work: it reproduces with that work stashed. Tracked in
 > GitHub issue #239.
 

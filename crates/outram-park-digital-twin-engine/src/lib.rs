@@ -53,8 +53,8 @@
 //! label/value placeholder because `nee_soon` exposes no instrumentation
 //! readout type to wrap yet.
 //!
-//! **MOVED 2026-11-02 (gh:#1112):** [`animation`], [`ascii`], [`color_maps`]
-//! and the widget library in [`components`] (all but
+//! **MOVED 2026-11-02 (gh:#1112):** [`animation`], [`ascii`], [`color_maps`],
+//! [`app_scaffold`] and the widget library in [`components`] (all but
 //! [`components::excursion`]) now live in `bugis`, the workspace's central
 //! GUI crate, and are re-exported here at their old paths.
 //!
@@ -126,7 +126,11 @@ pub use bugis::ascii;
 /// egui simulator in this workspace. See the module docs and gh #150.
 pub mod headless;
 
-pub mod app_scaffold;
+// MOVED 2026-11-02 (gh:#1112): `app_scaffold` now lives in
+// `bugis::app_scaffold` (feature `app_scaffold`); this re-export keeps the old
+// paths. Ungated, as the module was (see the Android note in CLAUDE.md, gh
+// #239). The kovan review records stay in `src/app_scaffold/`.
+pub use bugis::app_scaffold;
 // MOVED 2026-11-02 (gh:#1112): the `Color32` colour-map wrappers now live in
 // `bugis::colour_maps::color32`, with the widget library that calls them; this
 // re-export keeps `color_maps::…` paths. The kovan review records stay in

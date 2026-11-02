@@ -55,6 +55,11 @@
 //!
 //! Everything here is presentation and plumbing: no physics (the crate rule).
 //! Gated off Android with the rest of the windowing stack.
+//!
+//! **MOVED 2026-11-02 (gh:#1112):** this framework moved, byte for byte, from
+//! `dhoby-ghaut`'s `src/web_demo/` into `bugis` (feature `web_demo`);
+//! `dhoby_ghaut::web_demo` re-exports it, so every demo keeps its paths. The
+//! `examples/…` and `web/…` paths above are `dhoby-ghaut`'s.
 
 pub mod data_cache;
 pub mod dock;

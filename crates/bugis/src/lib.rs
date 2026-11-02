@@ -26,6 +26,10 @@
 //!
 //! - `animation` (feature `animation`): tracer kinematics, egui-free;
 //! - `ascii` (feature `ascii`): schematics on a character grid;
+//! - `app_scaffold` (feature `app_scaffold`): shared state, monitored
+//!   threads, crash modal, CSV, frame metrics, pacing;
+//! - `web_demo` (feature `web_demo`, from `dhoby-ghaut`): the browser demos'
+//!   mobile-first view, panel, docks and worker plumbing;
 //! - `components` (feature `widgets`): the widget library, which reads
 //!   `tampines`, `tampines-steam-tables`, `outram-park-fork-dwsim-libs` and
 //!   `nee_soon` state through optional features of the same names.
@@ -92,6 +96,22 @@ pub mod ascii;
 /// which re-exports it at its old path.
 #[cfg(feature = "widgets")]
 pub mod components;
+
+/// The `eframe`-free app scaffold (feature `app_scaffold`): `SharedState`,
+/// monitored physics threads, the crash modal, CSV display and logging, frame
+/// metrics, plot history and real-time pacing. Moved from
+/// `outram-park-digital-twin-engine`'s `app_scaffold/` (gh:#1112, 2026-11-02),
+/// which re-exports it at its old path.
+#[cfg(feature = "app_scaffold")]
+pub mod app_scaffold;
+
+/// The web-demo framework of the tutorial tracks' browser demos (feature
+/// `web_demo`): main view and zoom buttons, folding panel, docks, the
+/// no-lag worker/thread link, loading, lessons, platform, worker pool and the
+/// nuclear-data cache. Moved from `dhoby-ghaut`'s `web_demo/` (gh:#1112,
+/// 2026-11-02), which re-exports it at its old path.
+#[cfg(feature = "web_demo")]
+pub mod web_demo;
 
 #[cfg(feature = "egui")]
 mod gui;

@@ -23,7 +23,7 @@ let series = theme.accent(0);            // a plot colour that follows the theme
 Since 2026-11-02 it is also **the workspace's central GUI crate**
 (maintainer: "the gui portions, eg widget library and such, should then live
 in bugis too"; gh:#1112). The GUI code of `outram-park-digital-twin-engine`
-moves here, one step at a time, byte for byte, with re-exports at the old
+and `dhoby-ghaut` moves here, one step at a time, byte for byte, with re-exports at the old
 paths so no call site changes.
 
 ## Features
@@ -35,6 +35,8 @@ paths so no call site changes.
 | `std` | turns off `no_std` (implied by everything below) | | yes |
 | `animation` | `animation`: tracer, pebble-handling and control-rod-drive kinematics; uom only, egui-free, builds for Android | engine `animation/` | yes |
 | `ascii` | `ascii`: 2-D schematic geometry on a character grid | engine `ascii/` | yes |
+| `app_scaffold` | `app_scaffold`: `SharedState`, monitored physics threads, crash modal, CSV display and logging, frame metrics, plot history, real-time pacing. Turns on `egui`; adds `csv`, `web-time`, `thiserror` | engine `app_scaffold/` | yes |
+| `web_demo` | `web_demo`: the tutorial tracks' browser-demo framework (main view, zoom buttons, folding panel, docks, worker/thread link, loading, lessons, platform, worker pool, nuclear-data cache). Turns on `egui`; adds `sha2`, and on wasm32 only `wasm-bindgen`, `wasm-bindgen-futures`, `js-sys`, `web-sys` | `dhoby-ghaut` `web_demo/` | yes |
 | `tampines`, `tampines-steam-tables`, `outram-park-fork-dwsim-libs`, `nee_soon` | the physics crate of the same name, as an optional dependency | | yes |
 | `widgets` | `components`: the widget library, one `egui::Widget` per process object. Turns on `egui`, `animation` and all four physics features | engine `components/` (all but `excursion`) | yes |
 
@@ -56,9 +58,10 @@ wasm32. `--no-default-features` is `no_std`, and
 `aarch64-linux-android` (checked 2026-11-02). The `widgets` feature pulls the
 physics crates and is checked on the host only.
 
-Moved in so far (gh:#1112): `animation`, `ascii`, and the widget library
-`components` (step 3). Still to come: the engine's `app_scaffold/` and
-`dhoby-ghaut`'s `web_demo/`.
+Moved in (gh:#1112, all five steps): `animation`, `ascii`, the widget
+library `components`, `app_scaffold` (from the engine) and `web_demo` (from
+`dhoby-ghaut`). Each old path still works through a re-export. Not checked
+here: the wasm32 build of `web_demo` (disk-limited session).
 
 The visuals were moved here from `kovan`'s `src/app/theme.rs`; `kovan` and the
 `tampines-steam-tables` GUI now call this crate instead of carrying copies.

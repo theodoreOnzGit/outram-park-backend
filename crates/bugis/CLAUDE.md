@@ -27,8 +27,9 @@ binds here in full.
   **optional dependencies behind their own features** (std), so the no_std
   core and the plain `egui` feature stay physics-free.
 - **Moved modules (gh:#1112, 2026-11-02) keep their own rules here.**
-  `animation` (feature `animation`), `ascii` (feature `ascii`) and the widget
-  library `components` (feature `widgets`) came from
+  `animation` (feature `animation`), `ascii` (feature `ascii`), the widget
+  library `components` (feature `widgets`) and `app_scaffold` (feature
+  `app_scaffold`) came from
   `outram-park-digital-twin-engine`, which re-exports each at its old path.
   The engine `CLAUDE.md`'s rules move with them and bind here: **animation is
   derived from physics state, never hardcoded** (HARD RULE); **tracer state
@@ -38,6 +39,13 @@ binds here in full.
   --target aarch64-linux-android`); **enum dispatch, never trait objects**;
   scalar-backed widgets are not placeholders. The engine's kovan review
   records for these folders stay at the old paths.
+- **`web_demo` (feature `web_demo`) came from `dhoby-ghaut`** (gh:#1112),
+  which re-exports it as `dhoby_ghaut::web_demo`. The mobile-first and
+  no-lagging HARD RULES bind it
+  (`docs/claude-md/mobile-first-tutorials-and-demos.md`), and so does
+  dhoby-ghaut's "how a new track app plugs in" guide. Its wasm-bindgen family
+  sits in the `cfg(target_arch = "wasm32")` table, so it is a no-op on native
+  targets.
 - **Every moved module needs `std`**: the crate is
   `#![cfg_attr(not(feature = "std"), no_std)]`, and each moved feature
   implies `std`. Nothing std goes into the core modules.

@@ -37,8 +37,13 @@
 //!   dragging a selection across however many rows are on screen.
 //!
 //! A fourth piece, OPC-UA, is **not** here -- it already has its own reusable
-//! home in [`crate::opcua_core`] (see that module's docs and bead
+//! home in `outram_park_digital_twin_engine::opcua_core` (see that module's docs and bead
 //! `op-szmi.1`), so it is not duplicated in this module.
+//!
+//! **MOVED 2026-11-02 (gh:#1112):** this scaffold moved, byte for byte apart
+//! from paths, from `outram-park-digital-twin-engine`'s `src/app_scaffold/`
+//! into `bugis` (feature `app_scaffold`); the engine re-exports it at its old
+//! path. OPC-UA stays in the engine, so the links to it above are plain text.
 
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread::{self, JoinHandle};

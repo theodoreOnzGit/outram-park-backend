@@ -295,7 +295,7 @@ impl ThreadHealth {
     /// Ask this run's monitored loops to stop, without recording a fault.
     ///
     /// Signals and returns immediately, in the same spirit as
-    /// [`OpcuaServerHandle::shutdown`](crate::opcua_core::OpcuaServerHandle::shutdown):
+    /// `outram_park_digital_twin_engine::opcua_core::OpcuaServerHandle::shutdown`:
     /// each loop finishes the `step` it is in (and any sleep inside it) and
     /// returns at the next iteration, so the threads end promptly rather than
     /// instantly. Idempotent -- calling it twice, or on an already-crashed run,

@@ -41,6 +41,24 @@ animation = ["std", "dep:uom"]
 # 2-D schematic geometry rendered to a character grid (moved from the
 # engine's `ascii/`): std only.
 ascii = ["std"]
+# The app scaffold (moved from the engine's `app_scaffold/`): `SharedState`,
+# monitored physics threads, crash modal, CSV display and logging, frame
+# metrics, plot history, real-time pacing.
+app_scaffold = ["std", "egui", "dep:uom", "dep:csv", "dep:web-time", "dep:thiserror"]
+# The web-demo framework (moved from dhoby-ghaut's `web_demo/`): main view
+# and zoom buttons, folding panel, docks, the worker/thread link, loading,
+# lessons, platform, worker pool, nuclear-data cache. The wasm-bindgen family
+# it needs exists only in the wasm32 table below, so on native targets those
+# entries are no-ops, exactly as dhoby-ghaut gated them.
+web_demo = [
+    "std",
+    "egui",
+    "dep:sha2",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:js-sys",
+    "dep:web-sys",
+]
 # One feature per physics crate the widget library reads (maintainer,
 # 2026-11-02: "Integrate them, I'm ok with dependencies"). Each is std and
 # optional, so the no_std core and the plain `egui` feature stay physics-free.
@@ -83,6 +101,34 @@ tampines-steam-tables = { workspace = true, optional = true }
 # too.
 outram-park-fork-dwsim-libs = { workspace = true, optional = true }
 nee_soon = { workspace = true, optional = true }
+# `app_scaffold::csv_logging` / `csv_display` write real CSV (was an engine
+# dependency, bead op-wqk.22.2). Pure Rust.
+csv = { workspace = true, optional = true }
+# `app_scaffold`'s frame timer and CSV logger need a clock that exists in a
+# browser (see the root Cargo.toml's note on `web-time`).
+web-time = { workspace = true, optional = true }
+# `app_scaffold::csv_logging::CsvLoggerError` derives `thiserror::Error`.
+thiserror = { workspace = true, optional = true }
+# `web_demo::data_cache` (gh:#818): SHA-256 of tapes (the cache key) and of
+# cached products (corruption check). Pure Rust, every target.
+sha2 = { workspace = true, optional = true }
+
+# `web_demo`'s Web Worker, IndexedDB, file and canvas plumbing: wasm32 only,
+# the same target gating and web-sys features dhoby-ghaut used.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true, features = [
+    "Window", "Document", "Location", "History", "Response",
+    "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
+    "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
+    # `platform::keep_canvas_at_device_pixels` (gh:#556).
+    "Element", "HtmlCanvasElement", "NodeList", "DomRect",
+    # `files`: the browser's file chooser and downloads (gh:#863).
+    "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "FileList", "File",
+    "Blob", "BlobPropertyBag", "Url",
+] }
 
 [dev-dependencies]
 # Test-only: two widget tests moved from the engine (`components::pipe`,

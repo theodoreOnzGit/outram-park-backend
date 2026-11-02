@@ -24,6 +24,10 @@ exclude = ["/verification_and_validation/**/*.png", "/verification_and_validatio
 # with the rest of the windowing stack) and, on wasm32 only, on the
 # wasm-bindgen family for the Web Worker plumbing. The studios and the demos
 # themselves are still examples, carried by the dev-dependencies below.
+# NOTE 2026-11-02 (gh:#1112): `src/web_demo/` moved into `bugis` (feature
+# `web_demo`, which now carries egui, sha2 and the wasm-bindgen family for
+# it); `dhoby_ghaut::web_demo` re-exports it. The wasm32 entries below stay
+# because the browser-demo examples name those crates directly.
 # ---------------------------------------------------------------------------
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
@@ -76,7 +80,11 @@ sha2 = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
-bugis = { workspace = true }
+# `web_demo`: the web-demo framework, re-exported as `dhoby_ghaut::web_demo`
+# (moved into bugis 2026-11-02, gh:#1112).
+bugis = { workspace = true, features = ["web_demo"] }
+# (2026-11-02, gh:#1112: `web_demo` is now bugis's; the examples and the
+# binary still call petir directly, so this entry stays.)
 # `web_demo::view` routes its transcendentals through PETIR (gh:#985), and the
 # web demos build this library for wasm32, where the `petir` entry above (in
 # the not-wasm32 table) does not reach. petir is no_std, so it is wasm-safe.
@@ -126,7 +134,8 @@ outram-foam-basic-lib = { workspace = true }
 kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# `web_demo::data_cache` (gh:#818): SHA-256 of tapes (the cache key) and of
+# ~~`web_demo::data_cache` (gh:#818)~~ (moved to bugis 2026-11-02, gh:#1112;
+# the examples still use sha2 and the crates below directly): SHA-256 of tapes (the cache key) and of
 # cached products (corruption check). Pure Rust; natively it comes from the
 # section above.
 sha2 = { workspace = true }

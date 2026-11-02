@@ -161,7 +161,7 @@ pub fn pace_tick(budget: Duration, compute: Duration, ahead_of_real_time: bool) 
 /// # use std::time::{Duration, Instant};
 /// # use uom::si::f64::Time;
 /// # use uom::si::time::second;
-/// # use outram_park_digital_twin_engine::app_scaffold::RealTimePacer;
+/// # use bugis::app_scaffold::RealTimePacer;
 /// // 10 ms of plant time per tick, paced to 10 ms of wall clock.
 /// let mut pacer = RealTimePacer::new(Time::new::<second>(0.010), Duration::from_millis(10));
 /// let loop_start = Instant::now();

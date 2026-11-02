@@ -71,7 +71,7 @@ pub type XySample = [f64; 2];
 /// # Example
 ///
 /// ```
-/// use outram_park_digital_twin_engine::app_scaffold::plot_history::{PlotHistory, XySample};
+/// use bugis::app_scaffold::plot_history::{PlotHistory, XySample};
 ///
 /// let mut power_history: PlotHistory<XySample, 3> = PlotHistory::new();
 /// power_history.push([0.0, 10.0]);
