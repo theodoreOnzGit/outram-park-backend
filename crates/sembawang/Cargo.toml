@@ -37,6 +37,14 @@ backronym = "Severe-accident Evolution and Melt Behaviour Analysis Workbench for
 # there was anything to depend on would assert an undecided architecture --
 # that reasoning held, and these three are added because there is now code
 # that calls into them, not ahead of it.
+# Tests over 5 minutes are gated behind `long-tests`, on by default (root
+# CLAUDE.md, docs/claude-md/long-tests-and-ci.md). Added 2026-11-02 with the
+# switch to the containment network (gh:#1099), whose 26-30 h plant runs take
+# about 20 min each.
+[features]
+default = ["long-tests"]
+long-tests = []
+
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.

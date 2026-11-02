@@ -2555,10 +2555,13 @@ mod tests {
     /// holds more than its geometric share).
     #[test]
     fn zircaloy_is_conserved_through_candling() {
-        use super::super::{Mode, Plant};
+        // On the lumped containment since gh:#1099, explicitly: the pins
+        // (and the conservation) were measured there; the containment only
+        // sets the drywell pressure the core sees.
+        use super::super::{Mechanisms, Mode, Plant};
         let prm = Params::default();
         let g = geom(&prm);
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         let total = prm.core_zr_kg();
         let mut candled = false;
@@ -2585,10 +2588,13 @@ mod tests {
     /// emptied (held).
     #[test]
     fn uo2_is_conserved_through_its_candling() {
-        use super::super::{Mode, Plant};
+        // On the lumped containment since gh:#1099, explicitly: the pins
+        // (and the conservation) were measured there; the containment only
+        // sets the drywell pressure the core sees.
+        use super::super::{Mechanisms, Mode, Plant};
         let prm = Params::default();
         let g = geom(&prm);
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         let total = g.m_fuel * NODES as f64;
         for _ in 0..(52 * 360) {

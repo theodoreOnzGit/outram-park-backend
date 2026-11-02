@@ -10,15 +10,26 @@
 //! | plant worker: heat transfer, real-time pacing | plant worker: the vessel, isolation condensers, relief valves, operators' sequence, pacing |
 //! | DRACS-flow worker, primary-flow worker, solving from a start-of-step snapshot | core worker (fuel heat-up, oxidation, relocation) and containment worker (drywell, wetwell, building), stepping from a start-of-step snapshot |
 //!
-//! As in CIET, the solver workers are **stateless**: each message carries the
+//! ~~As in CIET, the solver workers are **stateless**: each message carries the
 //! part's whole state and the step's snapshot, and the reply carries the new
 //! state and the result. So the run can switch between one worker (both
-//! parts stepped inline in the plant worker) and three at any time, and the
-//! two give the same numbers bit for bit
+//! parts stepped inline in the plant worker) and three at any time~~
+//! **CHANGED 2026-11-02 (gh:#1099):** the containment is now `tampines`'
+//! control-volume network, whose state has no wire form, so the
+//! **containment worker holds its containment** between steps
+//! (`sembawang::bwr_mark1::ContainmentWorker`): each message carries the run's
+//! generation, the containment choice and the step's snapshot, and the
+//! reply the result. The **core worker is still stateless** (its whole state
+//! crosses each way). A change of worker count therefore takes effect at
+//! the next reset (at once before the run has started), since the
+//! containment's state lives on one side. One worker and three give the
+//! same numbers bit for bit
 //! (`sembawang::bwr_mark1::tests::three_workers_are_one_worker` checks the protocol;
 //! `tests::the_shipped_solve_entry_point_matches_the_inline_step` checks
 //! that [`solve`] itself, the function the workers actually call, is the
-//! one that reproduces it).
+//! one that reproduces it). The network costs about 100 times the old
+//! lumped containment a step, and it dominates the step: running it in its
+//! own worker, beside the core's, is what the three workers buy.
 //! The plant worker sends the core's and the containment's messages, and the
 //! two workers step **at the same time**; it finishes the step when both
 //! replies are in.
@@ -30,10 +41,10 @@
 //! reaches `speed x` the wall time since the run was (re)started, or for at
 //! most [`TICK_BUDGET_MS`], then answers with a frame.
 
-use crate::physics::containment::{Containment, ContainmentResult, ContainmentSnapshot};
+use crate::physics::containment::ContainmentResult;
 use crate::physics::core::{Core, CoreResult, CoreSnapshot};
 use crate::physics::wire::{Reader, Writer};
-use crate::physics::{Frame, Mode, Plant};
+use crate::physics::{ContainmentWorker, Frame, Mode, Plant, PlantContainment};
 use dhoby_ghaut::web_demo::link::Floats;
 use dhoby_ghaut::web_demo::platform::now_s;
 
@@ -90,10 +101,18 @@ pub enum Event {
 pub struct Runner {
     pub plant: Plant,
     pub core: Core,
-    pub containment: Containment,
+    pub containment: PlantContainment,
     pub running: bool,
     pub speed: f64,
     pub workers: u8,
+    /// The worker count asked for while a run was under way: applied at the
+    /// next reset (the containment's state lives on one side, gh:#1099).
+    pub workers_pending: Option<u8>,
+    /// The run's generation, bumped by every reset: a new one tells the
+    /// containment worker to build a fresh containment.
+    pub generation: u64,
+    /// The containment's first failure, posted once as an error event.
+    failed: Option<String>,
     /// (wall s, sim s) at the last (re)start or speed change.
     anchor: (f64, f64),
     next_sample: f64,
@@ -116,6 +135,9 @@ impl Default for Runner {
             running: false,
             speed: 600.0,
             workers: 3,
+            workers_pending: None,
+            generation: 0,
+            failed: None,
             anchor: (now_s(), 0.0),
             next_sample: 0.0,
             history: Vec::new(),
@@ -147,7 +169,15 @@ impl Runner {
                 self.speed = s.max(0.0);
                 self.reanchor();
             }
-            Request::Workers(n) => self.workers = if n >= 3 { 3 } else { 1 },
+            Request::Workers(n) => {
+                let n = if n >= 3 { 3 } else { 1 };
+                if self.plant.time_s() == 0.0 {
+                    self.workers = n;
+                    self.workers_pending = None;
+                } else {
+                    self.workers_pending = Some(n);
+                }
+            }
             Request::Mode(m) => self.plant.mode = m,
             Request::Set(c, on) => {
                 let k = &mut self.plant.controls;
@@ -165,6 +195,11 @@ impl Runner {
                 let mode = self.plant.mode;
                 self.plant = Plant::new(mode);
                 (self.core, self.containment) = self.plant.parts();
+                self.generation += 1;
+                self.failed = None;
+                if let Some(n) = self.workers_pending.take() {
+                    self.workers = n;
+                }
                 self.history.clear();
                 self.next_sample = 0.0;
                 self.sample();
@@ -239,33 +274,46 @@ impl Runner {
     }
 
     /// Step inline until the tick is spent (one-worker mode, and natively).
+    /// A containment failure stops the run (and is posted once).
     pub fn run_inline(&mut self) {
         while self.should_step() {
             self.plant.step_inline(&mut self.core, &mut self.containment);
             self.after_step();
+            if let Some(e) = self.containment.error() {
+                self.fail(e.to_string());
+            }
         }
+    }
+
+    /// Stop the run on a containment failure, remembering why.
+    fn fail(&mut self, e: String) {
+        self.running = false;
+        if self.failed.is_none() {
+            self.failed = Some(e);
+        }
+    }
+
+    /// The failure not yet posted, if any.
+    pub fn take_error(&mut self) -> Option<Event> {
+        self.failed.take().map(Event::Error)
     }
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // used by the browser's solver workers (and the tests)
-/// A solver worker's whole job: read the state and the snapshot, step, write
-/// the new state and the result. `role` 0 = core, 1 = containment.
-pub fn solve(role: u8, msg: &[f64]) -> Vec<f64> {
+/// A solver worker's whole job. `role` 0 = core: read the state and the
+/// snapshot, step, write the new state and the result. `role` 1 =
+/// containment: answer the request with the result, the containment held
+/// in `held` between messages (gh:#1099; see the module docs).
+pub fn solve(role: u8, msg: &[f64], held: &mut ContainmentWorker) -> Vec<f64> {
+    if role != 0 {
+        return held.handle(msg);
+    }
     let mut r = Reader::new(msg);
     let mut w = Writer::default();
-    if role == 0 {
-        let mut c = Core::read_state(&mut r);
-        let s = CoreSnapshot::read(&mut r);
-        let res = c.step(&s);
-        c.write_state(&mut w);
-        res.write(&mut w);
-    } else {
-        let mut c = Containment::read_state(&mut r);
-        let s = ContainmentSnapshot::read(&mut r);
-        let res = c.step(&s);
-        c.write_state(&mut w);
-        res.write(&mut w);
-    }
+    let mut c = Core::read_state(&mut r);
+    let s = CoreSnapshot::read(&mut r);
+    let res = c.step(&s);
+    c.write_state(&mut w);
+    res.write(&mut w);
     w.0
 }
 
@@ -275,10 +323,18 @@ pub fn read_core_reply(v: &[f64]) -> (Core, CoreResult) {
     let mut r = Reader::new(v);
     (Core::read_state(&mut r), CoreResult::read(&mut r))
 }
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // used by the browser's solver workers (and the tests)
-pub fn read_containment_reply(v: &[f64]) -> (Containment, ContainmentResult) {
-    let mut r = Reader::new(v);
-    (Containment::read_state(&mut r), ContainmentResult::read(&mut r))
+/// The containment worker's reply: the result, and whether the
+/// containment is still good (false once it has failed).
+pub fn read_containment_reply(v: &[f64]) -> (ContainmentResult, bool) {
+    ContainmentWorker::read_reply(v)
+}
+
+/// The message for the core worker: its whole state, then the snapshot.
+pub fn core_request(c: &Core, s: &CoreSnapshot) -> Vec<f64> {
+    let mut w = Writer::default();
+    c.write_state(&mut w);
+    s.write(&mut w);
+    w.0
 }
 
 /// Decode a frame on the page.
@@ -297,9 +353,111 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for Runner {
             self.start_tick();
             self.run_inline();
             post(self.frame_event());
+            if let Some(e) = self.take_error() {
+                post(e);
+            }
         } else {
             self.apply(req);
         }
+    }
+}
+
+// ─── Natively: the three-worker step on engine threads, for timing ────────
+
+/// The three-worker step natively, on the existing engine threads
+/// (`link::start_native`; no new threading machinery), to time it against
+/// the inline step (gh:#1099, maintainer's request). Each solver is a
+/// [`NativeEngine`](dhoby_ghaut::web_demo::link::NativeEngine) answering
+/// [`solve`]; the plant thread sends both requests, then polls both links
+/// until both replies are in, as the browser's plant worker waits for its
+/// two workers. The link's engine loop sleeps 3 ms when it finds no
+/// request, so a step can wait up to that long for a worker to wake: part
+/// of what this measures.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod native_workers {
+    use super::*;
+    use dhoby_ghaut::web_demo::link::{start_native, Link, NativeEngine};
+
+    /// One solver worker natively: role 0 core, 1 containment.
+    pub struct Solver {
+        role: u8,
+        held: ContainmentWorker,
+    }
+
+    impl NativeEngine for Solver {
+        type Req = Vec<f64>;
+        type Ev = Vec<f64>;
+        fn handle(&mut self, req: Vec<f64>, post: &mut impl FnMut(Vec<f64>)) {
+            post(solve(self.role, &req, &mut self.held));
+        }
+    }
+
+    /// Wall time of `steps` steps, s, inline and on three workers, from
+    /// step `skip` (both run from t = 0; only the window is timed), and
+    /// whether every frame of the window was bit-identical.
+    #[derive(Clone, Copy, Debug)]
+    pub struct Timing {
+        pub skip: usize,
+        pub steps: usize,
+        pub inline_s: f64,
+        pub three_s: f64,
+        pub identical: bool,
+    }
+
+    fn wait(link: &Link<Vec<f64>, Vec<f64>>) -> Vec<f64> {
+        loop {
+            if let Some(v) = link.drain().into_iter().next() {
+                return v;
+            }
+            std::thread::yield_now();
+        }
+    }
+
+    /// Time the two modes over `steps` steps after `skip`.
+    pub fn time_modes(skip: usize, steps: usize) -> Timing {
+        let mut a = Plant::new(Mode::Historical);
+        let (mut ca, mut ka) = a.parts();
+        let mut frames = Vec::with_capacity(steps);
+        for _ in 0..skip {
+            a.step_inline(&mut ca, &mut ka);
+        }
+        let t0 = now_s();
+        for _ in 0..steps {
+            a.step_inline(&mut ca, &mut ka);
+            let mut w = Writer::default();
+            a.frame().write(&mut w);
+            frames.push(w.0);
+        }
+        let inline_s = now_s() - t0;
+        let core = start_native(Solver { role: 0, held: ContainmentWorker::default() }, || {});
+        let cont = start_native(Solver { role: 1, held: ContainmentWorker::default() }, || {});
+        let mut b = Plant::new(Mode::Historical);
+        let (mut cb, _) = b.parts();
+        let step = |b: &mut Plant, cb: &mut Core| {
+            let s = b.begin();
+            core.send(core_request(cb, &s.core));
+            cont.send(ContainmentWorker::request(0, b.mechanisms.containment_choice(), &s.containment));
+            let (c, cr) = read_core_reply(&wait(&core));
+            let (kr, ok) = read_containment_reply(&wait(&cont));
+            assert!(ok, "the containment failed in its worker");
+            *cb = c;
+            b.finish(cr, kr);
+        };
+        for _ in 0..skip {
+            step(&mut b, &mut cb);
+        }
+        let t0 = now_s();
+        let mut identical = true;
+        for f in &frames {
+            step(&mut b, &mut cb);
+            let mut w = Writer::default();
+            b.frame().write(&mut w);
+            identical &= w.0.iter().zip(f).all(|(x, y)| x.to_bits() == y.to_bits());
+        }
+        let three_s = now_s() - t0;
+        core.terminate();
+        cont.terminate();
+        Timing { skip, steps, inline_s, three_s, identical }
     }
 }
 
@@ -440,8 +598,12 @@ pub mod web {
                 r.start_tick();
                 r.run_inline();
                 let ev = r.frame_event();
+                let err = r.take_error();
                 drop(r);
                 post.post(ev);
+                if let Some(e) = err {
+                    post.post(e);
+                }
             }
         }
         fn error(message: String) -> Event {
@@ -516,18 +678,14 @@ pub mod web {
             return;
         }
         let s = r.plant.begin();
-        let mut wc = Writer::default();
-        r.core.write_state(&mut wc);
-        s.core.write(&mut wc);
-        let mut wk = Writer::default();
-        r.containment.write_state(&mut wk);
-        s.containment.write(&mut wk);
+        let wc = core_request(&r.core, &s.core);
+        let wk = ContainmentWorker::request(r.generation, r.plant.mechanisms.containment_choice(), &s.containment);
         r.web.busy = true;
         r.web.core = None;
         r.web.containment = None;
         if let Some([c, k]) = &r.web.workers {
-            let _ = c.post_message(&js::f64s(&wc.0));
-            let _ = k.post_message(&js::f64s(&wk.0));
+            let _ = c.post_message(&js::f64s(&wc));
+            let _ = k.post_message(&js::f64s(&wk));
         }
     }
 
@@ -540,11 +698,22 @@ pub mod web {
             }
             let (Some(cv), Some(kv)) = (r.web.core.take(), r.web.containment.take()) else { return };
             let (core, core_res) = read_core_reply(&cv);
-            let (cont, cont_res) = read_containment_reply(&kv);
+            let (cont_res, ok) = read_containment_reply(&kv);
             r.core = core;
-            r.containment = cont;
             r.plant.finish(core_res, cont_res);
             r.after_step();
+            if !ok {
+                r.fail("the containment network failed in its worker (a step that did not converge, or a state outside IF97); the run has stopped".to_string());
+                r.web.busy = false;
+                let ev = r.frame_event();
+                let err = r.take_error();
+                drop(r);
+                post.post(ev);
+                if let Some(e) = err {
+                    post.post(e);
+                }
+                return;
+            }
         }
         next_step(state, post);
     }
@@ -553,9 +722,12 @@ pub mod web {
     pub fn solver_main(role: u8) {
         let scope: web_sys::DedicatedWorkerGlobalScope = js_sys::global().unchecked_into();
         let s2 = scope.clone();
+        // The containment worker's containment lives here, owned by its
+        // message handler, between messages (gh:#1099).
+        let mut held = ContainmentWorker::default();
         let on_msg = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
             let msg = js_sys::Float64Array::new(&ev.data()).to_vec();
-            let out = solve(role, &msg);
+            let out = solve(role, &msg, &mut held);
             let _ = s2.post_message(&js::f64s(&out));
         });
         scope.set_onmessage(Some(on_msg.as_ref().unchecked_ref()));
@@ -576,56 +748,52 @@ mod tests {
         w.0.iter().map(|x| x.to_bits()).collect()
     }
 
-    /// Build the message a solver worker receives: the part's whole state,
-    /// then the step's snapshot. This is the layout [`solve`] reads.
-    fn core_msg(c: &Core, s: &CoreSnapshot) -> Vec<f64> {
-        let mut w = Writer::default();
-        c.write_state(&mut w);
-        s.write(&mut w);
-        w.0
-    }
-    fn containment_msg(c: &Containment, s: &ContainmentSnapshot) -> Vec<f64> {
-        let mut w = Writer::default();
-        c.write_state(&mut w);
-        s.write(&mut w);
-        w.0
+    /// The containment worker's request, as the plant worker builds it.
+    fn containment_msg(p: &Plant, s: &crate::physics::containment::ContainmentSnapshot) -> Vec<f64> {
+        ContainmentWorker::request(0, p.mechanisms.containment_choice(), s)
     }
 
     /// **The shipped worker entry point gives the inline step, bit for bit.**
     ///
     /// `sembawang::bwr_mark1::tests::three_workers_are_one_worker` already checks that
     /// *a* correct round trip reproduces the inline step — but it does so
-    /// with its own local `remote_core`/`remote_containment` helpers, which
-    /// re-implement the protocol. So it proves the protocol *can* be
-    /// bit-identical, not that the function the browser actually calls is.
-    /// Swap the two roles inside [`solve`], or read the state and the
-    /// snapshot in the wrong order, and every test in this binary still
-    /// passed before this one existed.
+    /// with its own local helpers, which re-implement the protocol. So it
+    /// proves the protocol *can* be bit-identical, not that the function the
+    /// browser actually calls is. Swap the two roles inside [`solve`], or
+    /// read the state and the snapshot in the wrong order, and every test in
+    /// this binary still passed before this one existed.
     ///
     /// **Methodology.** Two plants from the same initial state. One stepped
     /// with `step_inline`; the other through [`solve`], [`read_core_reply`]
-    /// and [`read_containment_reply`] exactly as the plant worker does.
-    /// Compare every field of the frame by `f64` bits after every step.
+    /// and [`read_containment_reply`] exactly as the plant worker does (the
+    /// containment held by the worker's [`ContainmentWorker`] since
+    /// gh:#1099). Compare every field of the frame by `f64` bits after every
+    /// step.
     ///
     /// **Result (2026-10-27).** Bit-identical for 2 000 steps (33 min of
     /// the recorded sequence, through the station blackout and into core
-    /// heat-up).
+    /// heat-up). **Re-run 2026-11-02 with the containment network (gh:#1099):
+    /// bit-identical for 2 000 steps.**
     #[test]
     fn the_shipped_solve_entry_point_matches_the_inline_step() {
         let mut a = Plant::new(Mode::Historical);
         let (mut ca, mut ka) = a.parts();
+        assert!(ka.is_network());
         let mut b = Plant::new(Mode::Historical);
-        let (mut cb, mut kb) = b.parts();
+        let (mut cb, _) = b.parts();
+        let mut held = ContainmentWorker::default();
+        let mut idle = ContainmentWorker::default();
 
         for step in 0..2000 {
             a.step_inline(&mut ca, &mut ka);
 
             let s = b.begin();
-            let core_reply = solve(0, &core_msg(&cb, &s.core));
-            let cont_reply = solve(1, &containment_msg(&kb, &s.containment));
-            let (core_res, cont_res);
+            let core_reply = solve(0, &core_request(&cb, &s.core), &mut idle);
+            let cont_reply = solve(1, &containment_msg(&b, &s.containment), &mut held);
+            let core_res;
             (cb, core_res) = read_core_reply(&core_reply);
-            (kb, cont_res) = read_containment_reply(&cont_reply);
+            let (cont_res, ok) = read_containment_reply(&cont_reply);
+            assert!(ok);
             b.finish(core_res, cont_res);
 
             assert_eq!(
@@ -635,22 +803,24 @@ mod tests {
                 a.frame().t_s
             );
         }
+        assert!(idle.held().is_none(), "the core role touched the containment");
     }
 
     /// The two roles are not interchangeable: role 0 is the core and role 1
     /// the containment. If [`solve`] dispatched on the wrong role it would
     /// still return numbers, and they would be read back without complaint,
     /// so this asserts the two produce *different* replies from the same
-    /// plant and that each is the length its own reader consumes.
+    /// plant.
     #[test]
     fn the_two_solver_roles_are_distinct_and_not_interchangeable() {
         let plant = Plant::new(Mode::Historical);
-        let (c, k) = plant.parts();
+        let (c, _) = plant.parts();
         let mut p = plant;
         let s = p.begin();
+        let mut held = ContainmentWorker::default();
 
-        let core_reply = solve(0, &core_msg(&c, &s.core));
-        let cont_reply = solve(1, &containment_msg(&k, &s.containment));
+        let core_reply = solve(0, &core_request(&c, &s.core), &mut held);
+        let cont_reply = solve(1, &containment_msg(&p, &s.containment), &mut held);
         assert!(!core_reply.is_empty() && !cont_reply.is_empty());
         assert_ne!(
             core_reply, cont_reply,
@@ -659,7 +829,8 @@ mod tests {
 
         // Feeding the core's message to the containment role must not
         // silently produce the core's answer.
-        let crossed = solve(1, &core_msg(&c, &s.core));
+        let mut fresh = ContainmentWorker::default();
+        let crossed = solve(1, &core_request(&c, &s.core), &mut fresh);
         assert_ne!(
             crossed, core_reply,
             "role 1 reproduced role 0's reply from role 0's message"
@@ -667,30 +838,33 @@ mod tests {
     }
 
     /// A reply round-trips: what the worker wrote is what the plant reads,
-    /// bit for bit, so no state is lost or reordered crossing the boundary.
+    /// bit for bit, so no state is lost or reordered crossing the boundary
+    /// (the core's whole state; the containment's result, since gh:#1099
+    /// its state stays in the worker).
     #[test]
     fn a_solver_reply_round_trips_the_part_state_exactly() {
         let mut p = Plant::new(Mode::Historical);
-        let (c, k) = p.parts();
+        let (c, _) = p.parts();
         let s = p.begin();
+        let mut held = ContainmentWorker::default();
 
-        let (core_back, _) = read_core_reply(&solve(0, &core_msg(&c, &s.core)));
-        let (cont_back, _) = read_containment_reply(&solve(1, &containment_msg(&k, &s.containment)));
-
-        // Re-serialising what came back must equal what the worker sent.
-        let reply = solve(0, &core_msg(&c, &s.core));
+        let reply = solve(0, &core_request(&c, &s.core), &mut held);
+        let (core_back, core_res) = read_core_reply(&reply);
         let mut w = Writer::default();
         core_back.write_state(&mut w);
+        core_res.write(&mut w);
         assert!(
-            w.0.iter().zip(&reply).all(|(x, y)| x.to_bits() == y.to_bits()),
+            w.0.len() == reply.len() && w.0.iter().zip(&reply).all(|(x, y)| x.to_bits() == y.to_bits()),
             "core state did not round-trip"
         );
-        let reply = solve(1, &containment_msg(&k, &s.containment));
+        let reply = solve(1, &containment_msg(&p, &s.containment), &mut held);
+        let (cont_res, ok) = read_containment_reply(&reply);
         let mut w = Writer::default();
-        cont_back.write_state(&mut w);
+        w.f(&[if ok { 1.0 } else { 0.0 }]);
+        cont_res.write(&mut w);
         assert!(
-            w.0.iter().zip(&reply).all(|(x, y)| x.to_bits() == y.to_bits()),
-            "containment state did not round-trip"
+            ok && w.0.len() == reply.len() && w.0.iter().zip(&reply).all(|(x, y)| x.to_bits() == y.to_bits()),
+            "containment result did not round-trip"
         );
     }
 
@@ -702,13 +876,42 @@ mod tests {
         for role in [0u8, 1u8] {
             for len in [0usize, 1, 5, 17] {
                 let msg = vec![0.0; len];
-                let reply = solve(role, &msg);
+                let mut held = ContainmentWorker::default();
+                let reply = solve(role, &msg, &mut held);
                 assert!(
                     !reply.is_empty(),
                     "role {role}, {len} values in: a worker must still reply"
                 );
             }
         }
+    }
+
+    /// **The three-worker step natively, timed against the inline step**
+    /// (gh:#1099, the maintainer's request), on the existing engine threads
+    /// ([`native_workers::time_modes`]). Asserts the frames are
+    /// bit-identical; the timing is printed, not asserted (a wall clock).
+    /// Results in `crates/sembawang/verification_and_validation/bwr_mark1/containment_network.md`.
+    #[test]
+    fn three_native_workers_match_the_inline_step_and_are_timed() {
+        let t = native_workers::time_modes(0, 600);
+        println!("{t:?}: inline {:.3} ms/step, three workers {:.3} ms/step", 1e3 * t.inline_s / t.steps as f64, 1e3 * t.three_s / t.steps as f64);
+        assert!(t.identical, "{t:?}");
+    }
+
+    /// A worker count asked for during a run waits for the reset (the
+    /// containment's state lives on one side, gh:#1099); before the run it
+    /// applies at once.
+    #[test]
+    fn a_worker_change_during_a_run_waits_for_the_reset() {
+        let mut r = Runner::default();
+        r.apply(Request::Workers(1));
+        assert_eq!((r.workers, r.workers_pending), (1, None));
+        r.plant.step_inline(&mut r.core, &mut r.containment);
+        r.apply(Request::Workers(3));
+        assert_eq!((r.workers, r.workers_pending), (1, Some(3)));
+        let g = r.generation;
+        r.apply(Request::Reset);
+        assert_eq!((r.workers, r.workers_pending, r.generation), (3, None, g + 1));
     }
 
     /// [`decode_frame`] inverts `Frame::write`, which is what the page draws
@@ -833,7 +1036,11 @@ mod tests {
         assert!(!r.running, "a fresh runner is paused");
         assert!(!r.should_step(), "a paused engine asked to step");
 
-        // Run the recorded sequence out, then confirm the engine stops.
+        // Run the recorded sequence out, then confirm the engine stops. On
+        // the lumped containment (gh:#1099): the pacing is tested, and the
+        // network's 30 h would take about 20 min.
+        r.plant = Plant::with_mechanisms(Mode::Historical, crate::physics::Mechanisms::default().without_network_containment());
+        (r.core, r.containment) = r.plant.parts();
         r.apply(Request::Run(true));
         while r.plant.time_s() < SCENARIO_END_S {
             r.plant.step_inline(&mut r.core, &mut r.containment);

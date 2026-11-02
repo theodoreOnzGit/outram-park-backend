@@ -7,9 +7,16 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 //!
-//! **Built alongside [`super::containment::Containment`], not replacing
+//! ~~**Built alongside [`super::containment::Containment`], not replacing
 //! it.** The plant ([`super::Plant`]) still runs the old model and its
-//! fixtures are unchanged. [`ContainmentNetwork::step`] takes the same
+//! fixtures are unchanged.~~ **CORRECTED 2026-11-02 (gh:#1099, maintainer:
+//! "switch it"):** the plant ([`super::Plant`]) runs this network by
+//! default; the old model is the explicit ablation
+//! `Mechanisms::without_network_containment()`, and the plant reads the
+//! network through [`NetworkResult::to_containment_result`]. Its geometry
+//! is not drawn yet (gh:#1110), so results on it are tentative, and the
+//! vent's depressurisation depends on the torus pool's layer count
+//! (gh:#1108). [`ContainmentNetwork::step`] takes the same
 //! per-step input ([`ContainmentSnapshot`]) and returns comparable outputs
 //! ([`NetworkResult`]), so the two can be run side by side
 //! (`tests/containment_network_vs_containment.rs`; the evidence is in
@@ -126,7 +133,7 @@ use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
 use super::cavity::Cavity;
-use super::containment::{bur_ignites, bur_step, dw_slab_step, lpme_fall, Burn, ContainmentSnapshot, DW_SLAB_CELLS};
+use super::containment::{bur_ignites, bur_step, dw_slab_step, lpme_fall, Burn, ContainmentResult, ContainmentSnapshot, DW_SLAB_CELLS};
 use super::containment_fp::{DowncomerFlow, FpDecayHeat, FpHold, FpReport, PoolSide, RnContext};
 use super::params::*;
 use super::pool_surface;
@@ -529,6 +536,9 @@ pub struct NetworkResult {
     /// burned there since the start, kg of H2 and CO, with the heat of
     /// reaction it released, J (gh:#1100).
     pub rb_burning: bool,
+    /// A burn has started in the building since the run began (gh:#1099;
+    /// the old model's `rb_exploded` with `burn_dynamics`).
+    pub rb_burn_started: bool,
     pub rb_h2_burned_kg: f64,
     pub rb_co_burned_kg: f64,
     pub rb_burn_heat_j: f64,
@@ -552,6 +562,19 @@ pub struct NetworkResult {
     pub cav_co_kg: f64,
     pub cav_debris_k: f64,
     pub fdi_steam_kg: f64,
+    /// The cavity debris's metallic Zr, kg, and whether an FDI fall was
+    /// fast enough for MELCOR's high-pressure model (flagged, still treated
+    /// as low-pressure; `lpme_fall`'s flag, as the old model reports it).
+    /// Added 2026-11-02 (gh:#1099) so that [`NetworkResult::to_containment_result`]
+    /// fills every field the plant reads.
+    pub cav_zr_kg: f64,
+    pub fdi_hpme: bool,
+    /// The building's CO mole fraction (steam included) and the largest
+    /// burn's adiabatic pressure bound, Pa (`Burn::dp_max_pa`; a diagnostic,
+    /// as in the old model: the network's own pressure rise is `p_rb_pa`).
+    /// Added 2026-11-02 (gh:#1099).
+    pub rb_co_fraction: f64,
+    pub rb_burn_dp_pa: f64,
     /// CO and CO2 in the drywell atmosphere, kg.
     pub dw_co_kg: f64,
     pub dw_co2_kg: f64,
@@ -568,6 +591,72 @@ pub struct NetworkResult {
     pub iterations: usize,
     pub residual: f64,
     pub substeps: usize,
+}
+
+impl NetworkResult {
+    /// The plant's view of this step (gh:#1099, 2026-11-02): the old
+    /// model's [`ContainmentResult`], field by field, so that
+    /// [`super::Plant`] reads the network exactly as it read
+    /// [`super::containment::Containment`]. Mapped as:
+    ///
+    /// - pressures, temperatures, hydrogen, the vent and the flange, the
+    ///   FDI steam, the cavity and the fission products: the same
+    ///   quantities, directly;
+    /// - `rb_flammable`: the building's H2 fraction at or above
+    ///   `prm.h2_flammable`, as the old model computes it;
+    /// - `rb_exploded`: a burn has started ([`NetworkResult::rb_burn_started`];
+    ///   the old model sets it when `bur_step` starts a burn);
+    /// - `rb_burn_dp_pa`: the same adiabatic bound (`Burn::dp_max_pa`),
+    ///   although the network's building has its own pressure (`p_rb_pa`,
+    ///   not carried: the old result has no field for it).
+    ///
+    /// The old model's building fractions are of its gas at one atmosphere;
+    /// the network's are of its building volume's gas, steam included.
+    pub fn to_containment_result(&self, prm: &Params) -> ContainmentResult {
+        let fp = &self.fp;
+        ContainmentResult {
+            p_dw_pa: self.p_dw_pa,
+            p_ww_pa: self.p_ww_pa,
+            t_dw_k: self.t_dw_k,
+            t_pool_k: self.t_pool_k,
+            t_pool_top_k: self.t_pool_top_k,
+            dw_h2_kg: self.dw_h2_kg,
+            ww_h2_kg: self.ww_h2_kg,
+            rb_h2_fraction: self.rb_h2_fraction,
+            vent_flowing: self.vent_flowing,
+            flange_leaking: self.flange_leaking,
+            rb_flammable: self.rb_h2_fraction >= prm.h2_flammable,
+            rb_exploded: self.rb_burn_started,
+            rb_burn_y: self.rb_burn_y,
+            rb_co_fraction: self.rb_co_fraction,
+            rb_burning: self.rb_burning,
+            rb_burn_dp_pa: self.rb_burn_dp_pa,
+            fdi_steam_kg: self.fdi_steam_kg,
+            fdi_hpme: self.fdi_hpme,
+            vented_h2_kg: self.vented_h2_kg,
+            vented_kg_s: self.vented_kg_s,
+            xe_dw: fp.xe_dw,
+            xe_ww: fp.xe_ww,
+            xe_vented: fp.xe_vented,
+            xe_building: fp.xe_building,
+            cs_dw_structures_kg: fp.cs_dw_structures_kg,
+            cs_ww_pool_kg: fp.cs_ww_pool_kg,
+            cs_airborne_kg: fp.cs_airborne_kg,
+            cs_vented_kg: fp.cs_vented_kg,
+            cs_building_kg: fp.cs_building_kg,
+            i_dw_structures_kg: fp.i_dw_structures_kg,
+            i_ww_pool_kg: fp.i_ww_pool_kg,
+            i_airborne_kg: fp.i_airborne_kg,
+            i_vented_kg: fp.i_vented_kg,
+            i_building_kg: fp.i_building_kg,
+            te_kg: fp.te_kg,
+            cav_ablated_kg: self.cav_ablated_kg,
+            cav_h2_kg: self.cav_h2_kg,
+            cav_co_kg: self.cav_co_kg,
+            cav_debris_k: self.cav_debris_k,
+            cav_zr_kg: self.cav_zr_kg,
+        }
+    }
 }
 
 /// Deepest halving of a step that does not converge (a 1 s step down to
@@ -658,6 +747,7 @@ pub struct ContainmentNetwork {
     mech: NetworkMechanisms,
     cavity: Cavity,
     fdi_steam_kg: f64,
+    fdi_hpme: bool,
     dw_slab: [f64; DW_SLAB_CELLS],
     fp: FpHold,
     /// The torus's top, m (the band of the placed decay heat ends there).
@@ -666,6 +756,9 @@ pub struct ContainmentNetwork {
     /// burned and released there, and each volume's pool heat into its
     /// atmosphere, since the start (gh:#1100).
     rb_burn: Burn,
+    /// A burn has started in the building (gh:#1099: the old model's
+    /// `rb_exploded`, which with `burn_dynamics` is set when a burn starts).
+    rb_burn_started: bool,
     rb_burned: VolumeSums,
     pool_heat_to_atm_j: [f64; 3],
 }
@@ -942,10 +1035,12 @@ impl ContainmentNetwork {
             mech,
             cavity: Cavity::default(),
             fdi_steam_kg: 0.0,
+            fdi_hpme: false,
             dw_slab: [t_dw; DW_SLAB_CELLS],
             fp: FpHold::new(prm.drywell_volume_m3, prm.wetwell_gas_m3),
             ww_top,
             rb_burn: Burn::default(),
+            rb_burn_started: false,
             rb_burned: VolumeSums::default(),
             pool_heat_to_atm_j: [0.0; 3],
         })
@@ -1207,6 +1302,7 @@ impl ContainmentNetwork {
                 (rb_gas.steam_kg / M_H2O + rb_gas.ncg_moles[NonCondensable::CO2.index()]) / n_rb,
             ),
             rb_burning: self.rb_burn.is_burning(),
+            rb_burn_started: self.rb_burn_started,
             rb_h2_burned_kg: self.rb_burned.h2_mol * M_H2,
             rb_co_burned_kg: self.rb_burned.co_mol * NonCondensable::CO.molar_mass(),
             rb_burn_heat_j: self.rb_burned.rx_heat_j,
@@ -1223,6 +1319,10 @@ impl ContainmentNetwork {
             cav_co_kg: self.cavity.co_kg,
             cav_debris_k: self.cavity.t_k,
             fdi_steam_kg: self.fdi_steam_kg,
+            cav_zr_kg: self.cavity.zr_kg,
+            fdi_hpme: self.fdi_hpme,
+            rb_co_fraction: rb_gas.ncg_moles[NonCondensable::CO.index()] / n_rb,
+            rb_burn_dp_pa: self.rb_burn.dp_max_pa(),
             dw_co_kg: v_dw.atmosphere().ncg_moles[NonCondensable::CO.index()] * NonCondensable::CO.molar_mass(),
             dw_co2_kg: v_dw.atmosphere().ncg_moles[NonCondensable::CO2.index()] * NonCondensable::CO2.molar_mass(),
             dw_wall_k: self.dw_wall.t_k,
@@ -1250,7 +1350,8 @@ impl ContainmentNetwork {
         let (h2, co, o2) = (g.ncg_moles[ih], g.ncg_moles[ic], g.ncg_moles[io]);
         let x_d = (g.steam_kg / M_H2O + g.ncg_moles[ic2]) / n;
         let ignites = if bur_ignition { bur_ignites(prm, h2 / n, co / n, o2 / n, x_d) } else { h2 / n >= prm.h2_explosion };
-        let (d_h2, d_co, _) = bur_step(prm, &mut self.rb_burn, ignites, h2, co, n, x_d, o2 / n, prm.reactor_building_m3, dt);
+        let (d_h2, d_co, started) = bur_step(prm, &mut self.rb_burn, ignites, h2, co, n, x_d, o2 / n, prm.reactor_building_m3, dt);
+        self.rb_burn_started |= started;
         if d_h2 == 0.0 && d_co == 0.0 {
             return (AtmosphereSpeciesRates::none(), 0.0, 0.0);
         }
@@ -1429,6 +1530,7 @@ impl ContainmentNetwork {
         let t_in = if self.mech.fdi && s.fdi_lpme && over_kg > 0.0 && du + dz > 0.0 {
             let f = lpme_fall(&prm, s, du, dz, p_dw, over_kg, sump_t);
             self.fdi_steam_kg += f.steam_kg;
+            self.fdi_hpme |= f.hpme;
             q_sump += f.steam_kg * f.dh_j_per_kg / dt;
             f.t_bottom_k
         } else {

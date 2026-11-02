@@ -6,8 +6,9 @@ A code-to-code comparison of two containment models in this workspace. It is
 not a validation: neither model is compared with plant data here. Its purpose
 is the evidence for one decision the maintainer has to make: whether
 `bwr_mark1::Plant` should switch from `containment::Containment` to
-`containment_network::ContainmentNetwork`. **The default path is unchanged**,
-and no fixture was re-blessed.
+`containment_network::ContainmentNetwork`. ~~**The default path is unchanged**,
+and no fixture was re-blessed.~~ **CORRECTED 2026-11-02:** the plant switched
+to the network (gh:#1099) and the fixture was re-blessed; see "gh:#1099".
 
 ## Methodology
 
@@ -1503,7 +1504,7 @@ the instrument for "bursts gone"):
   and −17 % at n = 22; the Picard iteration now converges in at most 35
   and 44 iterations, where the explicit flash hit the 100 cap.
 
-## What would move if the plant switched (the decision's evidence)
+## What would move if the plant switched (the decision's evidence; **it switched 2026-11-02**, gh:#1099: what moved is in that section above)
 
 Switching `Plant` to the network re-blesses `headless_30h.csv` and moves:
 
@@ -1541,7 +1542,9 @@ drywell peaks at 797.2 kPa and its flange opens at 17.25 h, against the old
 model's 16.82 h; the building's hydrogen then reaches 1.74 % against
 3.73 %, not attributed. It would move the explosion timing.
 
-**Recommendation (for the maintainer, not acted on):** do not switch yet. The
+**Recommendation (for the maintainer, not acted on):** do not switch yet.
+(**Superseded 2026-11-02:** the maintainer decided "switch it" on gh:#1099;
+see the section above.) The
 network agrees with the old model where they model the same physics, and its
 differences there are physical (displacement, IF97, inertia). After
 lower-head failure, the gap is mapping that the old model has and the network
@@ -1567,6 +1570,158 @@ decay heat goes where the old model puts it, halving the vent gap again
 old model's BUR code, with the chemistry in sembawang (gh:#1103); what is
 open is the block's one-step flash after the vent, which brings back
 post-vent swings and an `n` dependence at the vent.)
+
+## gh:#1099: the plant switched to the network (2026-11-02)
+
+**Maintainer decision on gh:#1099 (2026-11-02): "switch it".** `Plant` now
+builds `ContainmentNetwork` by default (`Mechanisms::network_containment`,
+pinned by `bwr_mark1::tests::the_containment_network_is_the_default`); the
+lumped `Containment` is the explicit ablation
+`Mechanisms::without_network_containment()`, under which every result
+recorded before this date is reproduced bit for bit (the 30 h fixture,
+renamed `headless_30h_lumped.csv`, byte for byte). **This is now closed
+loop**: the vessel and the core see the network's drywell, where every case
+above was an open-loop replay of the lumped plant's snapshots.
+
+**Results stay tentative.** The network's geometry (the torus V(z), the
+drywell as a prism over a sump pit, the ports' elevations, the building) is
+not drawn yet (gh:#1110), and the crate's geometry rule makes every result
+on an undrawn geometry tentative. The vent's depressurisation depends on the
+torus pool's layer count (gh:#1108; −17.9 % at 11 layers against −10.4 % at
+22 in the open-loop case B above), so the vent-window numbers below carry
+that resolution dependence.
+
+### Predictions, written before any closed-loop run (2026-11-02)
+
+Against the lumped plant (its numbers in brackets):
+
+1. **Lower-head failure 5.48 ± 0.05 h** \[5.4839 h\] **and depressurised
+   4.958 ± 0.01 h** \[4.9578 h\]: both before the containment matters to
+   the vessel; the core sees the drywell only through the leak's back
+   pressure, and the network's drywell is within 4 % of the lumped one
+   before 4.95 h (case B).
+2. **H2 at 25 h within ±10 %** \[470.75 kg\]: the run is chaotic at the
+   1e-9 level (`ensemble.md`), so a containment change after the head fails
+   moves it by an amount no smaller than the ensemble's spread.
+3. **Drywell peak 0–25 h 0.70–0.85 MPa** \[0.81295 MPa\]: open loop the
+   network peaked at 0.797 MPa and its flange opened at 17.25 h.
+4. **Vent within ±0.2 h of the lumped plant's; no building burn by 26 h**
+   (open loop the building reached 1.74 % H2 against the lumped 3.73 %).
+5. **Every bound and every fission-product balance holds** at every step of
+   30 h on the network (`the_network_plant_over_30_hours`), with the lumped
+   tests' tolerances.
+6. **`three_workers_are_one_worker` bit-identical** with the network held in
+   its worker (`ContainmentWorker`) and only snapshots and results crossing.
+7. **BSAF figures** (`tests/bwr_mark1_vs_bsaf_figures.rs`, lumped in
+   brackets): RPV against the 2 measured points within 0.05 MPa of
+   \[3.4388 / 6.5826 MPa\] (they sit near the head's failure, where the
+   vessel does not yet see the containment); drywell against the 33
+   measured points mean 0.05–0.10 MPa, max 0.20–0.35 MPa \[0.0670 /
+   0.2573\]; drywell inside the codes' envelope 0.55–0.80 \[0.6703\];
+   H2, Xe and I envelopes within 0.1 of \[0.9885, 0.8125, 0.8542\].
+8. **Cost: the 30 h run 1100–1500 s** \[10.2 s measured today for the
+   lumped plant\], from the open-loop 1291 s plus the plant's 10 s.
+
+### Results (2026-11-02, release, Rust 1.99.1; every new pin set after the run, gh:#1099)
+
+**The ablation reproduces the old default bit for bit:** the 30 h trace
+under `without_network_containment` equals the fixture committed before the
+switch byte for byte (`headless_30h_lumped.csv`), and every pin recorded on
+the lumped plant passes on it unchanged (`compare`'s baseline and its
+earlier models, the BSAF figures, the 500 h comparisons, the conservation
+tests).
+
+**BSAF metrics, 26 h** (`compare::tests::the_network_baseline_is_pinned`):
+
+| Quantity | BSAF band (tier) | Lumped | Network | Predicted | Outcome |
+|---|---|---|---|---|---|
+| lower-head failure | 7.45–17.16 h (B) | 5.4839 h (below) | **4.6894 h (below)** | 5.48 ± 0.05 h | **MISSED**, 0.79 h early |
+| depressurised (< 2 MPa) | 5–12 h (A) | 4.9578 h (below) | **4.6894 h (below)** | 4.958 ± 0.01 h | **MISSED** |
+| in-vessel H2 at 25 h | 400–1310 kg (C) | 470.75 kg (inside) | 417.19 kg (inside) | ±10 % | **MISSED** (−11.4 %) |
+| drywell peak 0–25 h | 0.8–1.0 MPa (C) | 0.81295 MPa (inside) | **1.00367 MPa (above)** | 0.70–0.85 MPa | **MISSED** high |
+| wetwell vent flowing | 23.5–24.68 h (A) | 23.7336 h (inside) | 23.7336 h (inside) | ±0.2 h | held |
+| building explosion | 24.83 h (A) | never | never | never | held |
+
+**What moved, with its cause (closed loop):**
+
+1. **The lower head fails 0.79 h earlier, before the steam line.** On the
+   lumped plant the main steam line ruptured by creep near 4.96 h and the
+   head failed at 5.48 h; on the network the head fails first, at 4.69 h,
+   with the vessel still at high pressure (8.20 MPa at 4.5 h), so the vessel depressurises through
+   the failed head (hence the identical depressurisation time), the steam
+   line never ruptures, and the FDI fall is flagged as a high-pressure
+   ejection (`fdi_hpme`; still treated as low-pressure, as on the lumped
+   plant). To 4 h the containments' pressures differ by at most 1.5 % (the
+   pool's displacement, case B), at 4.5 h the drywell is 8 % higher; the core sees the drywell only
+   through the leak's back pressure and the RPV wall's heat loss. The
+   lumped plant's own 1e-9 ensemble reaches heads as early as 4.50 h
+   (`ensemble.md`), so this is read as **a branch change of a chaotic
+   run**, not attributed to a containment mechanism; no ablation was run.
+2. **The drywell runs 4–22 % higher from 5 h to the vent** (0.446 against
+   0.419 MPa at 6 h, 0.570 against 0.526 at 10 h, 0.838 against 0.763 at
+   18 h, 0.982 against 0.805 at 23 h; `headless_30h.csv` against
+   `headless_30h_lumped.csv`), and peaks at 1.0016 MPa at a 10-minute
+   sample (1.00367 MPa at 1 s), just above BSAF's band and above the whole
+   range of the lumped ensemble (0.785–0.964 MPa). Its flange opens 1.3 h
+   earlier (15.33–15.5 h against 16.67–16.83 h). Partly the open-loop
+   difference (case B and the gh:#1100 sections: the pool's displacement,
+   IF97, the layered torus), partly the earlier head (more decay heat and
+   MCCI gas ex-vessel, 552 kg of H2 and 803 kg of CO from the cavity by
+   26 h); not separated by ablation.
+3. **The vent** opens at the same moment (the operators' order; both disks
+   burst), and the post-vent pool is hotter on the network (359.8 against
+   355.1 K mean at 26 h; surface layer 374.6 K): the gh:#1108 layer-count
+   dependence applies here.
+4. **The building** reaches 3.9 % H2 at 26 h (lumped 3.7 %), Le Chatelier's
+   Y 0.0416 (0.0394), no burn in either; noble gas to the building 0.0142
+   (0.0232), vented 0.9827 (0.9733).
+
+**BSAF figures** (`tests/bwr_mark1_vs_bsaf_figures.rs`; the tolerance gates
+kept, the lumped pins kept on the ablation, the network's pinned beside them;
+**no gate fails**):
+
+| Check | Lumped | Network | Predicted | Outcome |
+|---|---|---|---|---|
+| measured RPV (2 points), mean / max | 3.4388 / 6.5826 MPa | 3.4177 / 6.5762 MPa | within 0.05 | held |
+| measured drywell (33 points), mean / max | 0.0670 / 0.2573 MPa | **0.1028** / 0.2310 MPa | mean 0.05–0.10, max 0.20–0.35 | mean **MISSED** (worse), max held |
+| inside the codes' envelope: RPV / drywell | 0.6154 / 0.6703 | 0.5714 / 0.6374 | drywell 0.55–0.80 | held |
+| inside: H2 / Xe / I | 0.9885 / 0.8125 / 0.8542 | 0.9885 / 0.8333 / 0.9167 | within 0.1 | held |
+| Cs on DW structures / in S/C water (Fig 2.6) | 0.8667 / 0.9663 | 0.7867 / 0.9663 | | |
+| I on DW structures / in S/C water (Fig 2.6) | 0.0 / 0.0562 | 0.0 / 0.0899 | | |
+
+The drywell against the measurement is **worse by half** in its mean
+(0.0670 → 0.1028 MPa), the unflattering move of this switch, recorded and
+not tuned. The two 500 h comparisons (Fig 2.3a, Fig 5.1) stay on the lumped
+plant; the network's 500 h is an ignored test (several hours), **not run**.
+
+**The other predictions.** 5 (bounds and balances at every step of 30 h):
+held (`the_network_plant_over_30_hours`). 6 (`three_workers_are_one_worker`
+bit-identical, the network held in its worker): held, 2000 steps; the
+browser's shipped entry point likewise
+(`dhoby-ghaut` `engine::tests::the_shipped_solve_entry_point_matches_the_inline_step`).
+8 (cost): see the timing below.
+
+**Re-pinned numbers, old → new** (old pins kept, valid, on the ablation):
+
+| Pin | Lumped (kept on the ablation) | Network (new, set after the run) |
+|---|---|---|
+| `headless_30h.csv` | (now `headless_30h_lumped.csv`, byte-identical) | re-blessed |
+| baseline: head / depressurised | 5.4839 / 4.9578 h | 4.6894 / 4.6894 h |
+| baseline: H2 at 25 h / UO2 released | 470.75 / 2.672 kg | 417.19 / 4.093 kg |
+| baseline: drywell peak | 0.81294607 MPa | 1.00367475 MPa |
+| baseline: vent / explosion | 23.7336 h / never | 23.7336 h / never |
+| BSAF figures (table above) | as above | as above |
+| 26 h: Xe vented / building | 0.9733 / 0.02318 | 0.98265 / 0.014214 |
+| 26 h: building Y | 0.0394 | 0.04159 |
+
+**Not re-measured on the network (cost), stated:** the 70-row ablation
+table (`compare::tests::the_ablation_table_on_the_network`, ignored, about
+70 × 20 min), the 256-member ensemble and the input sensitivities
+(`ensemble.md`, `input-sensitivity.md`; their examples take
+`FUKUSHIMA_CONTAINMENT=lumped` to reproduce the records), the 500 h figures.
+Those records describe the lumped plant.
+
+TIMING_PLACEHOLDER
 
 ## Units 2 and 3 by configuration (gh:#1101; ~~a sketch;~~ no plant data invented)
 

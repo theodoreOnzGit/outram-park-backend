@@ -19,7 +19,7 @@
 //! |---|---|---|
 //! | [`Plant`] (this module) | the reactor pressure vessel's water and steam, the isolation condensers, the relief valves, injection, decay heat, the operators' sequence | the plant worker, which also paces the run |
 //! | [`core::Core`] | the fuel and cladding temperatures, oxidation, hydrogen, relocation | the core worker |
-//! | [`containment::Containment`] | drywell, wetwell, pool, vent, reactor building | the containment worker |
+//! | [`PlantContainment`]: ~~[`containment::Containment`]~~ **since 2026-11-02 (gh:#1099)** the control-volume network [`containment_network::ContainmentNetwork`], the lumped [`containment::Containment`] under `Mechanisms::without_network_containment` | drywell, wetwell, pool, vent, reactor building | the containment worker, which holds it between steps ([`ContainmentWorker`]) |
 //!
 //! Each step, [`Plant::begin`] reads the vessel at the start of the step and
 //! hands each worker a **snapshot**; the core and the containment advance
@@ -29,7 +29,9 @@
 //! uses for its flows. Because the snapshots and results cross as exact
 //! `f64`s ([`wire`]), the three-worker step is bit-for-bit the one-worker
 //! step ([`Plant::step_inline`]); `tests::three_workers_are_one_worker`
-//! holds that.
+//! holds that. (Since gh:#1099 the network's state has no wire form, so the
+//! containment worker keeps its containment and only the snapshot and the
+//! result cross; the core still crosses with its whole state.)
 //!
 //! **AI draft, not validated.** See [`params`] for where every number comes
 //! from (many are placeholders) and each module's "Not in the model" list.
@@ -431,6 +433,15 @@ pub struct Mechanisms {
     /// the head by MELCOR's ACOPO correlation (COR RM §2.4.2, Table 2-4;
     /// 2026-10-30). Off is the fixed debris-to-head coefficient.
     pub molten_pool: bool,
+    /// The containment is `tampines`' control-volume network
+    /// ([`containment_network::ContainmentNetwork`]: drywell, torus and
+    /// reactor building as control volumes with IF97 water, V(z) tables,
+    /// inertial flow paths and an implicit step), **the default since
+    /// 2026-11-02** (maintainer decision on gh:#1099, "switch it"). Off is
+    /// the lumped [`containment::Containment`], the model every result
+    /// before that date was measured on. The network costs about 100 times
+    /// the lumped model a step (the module docs give the measured timing).
+    pub network_containment: bool,
 }
 
 impl Default for Mechanisms {
@@ -504,6 +515,7 @@ impl Default for Mechanisms {
             fdi_lpme: true,
             uo2_candling: true,
             molten_pool: true,
+            network_containment: true,
         }
     }
 }
@@ -944,6 +956,20 @@ impl Mechanisms {
         self
     }
 
+    /// The lumped [`containment::Containment`] instead of the control-volume
+    /// network: the plant before 2026-11-02 (gh:#1099). Every result pinned
+    /// before the switch is reproduced under this ablation, bit for bit.
+    pub fn without_network_containment(mut self) -> Self {
+        self.network_containment = false;
+        self
+    }
+
+    /// What the containment worker needs to build the plant's containment
+    /// (gh:#1099).
+    pub fn containment_choice(&self) -> ContainmentChoice {
+        ContainmentChoice { network: self.network_containment, mcci: self.mcci, pool_layers: self.pool_layers }
+    }
+
     /// Isolation-condenser condensation unaffected by hydrogen in the vessel.
     pub fn without_ic_h2_blanketing(mut self) -> Self {
         self.ic_h2_blanketing = false;
@@ -1052,6 +1078,181 @@ pub struct Vessel {
     /// True when no saturated mixture matches (boiled dry): an ideal-gas
     /// steam fallback, outside what the model represents.
     pub dry: bool,
+}
+
+/// Which containment the plant builds, and the two plant mechanisms the
+/// network maps onto its own (gh:#1099): `mcci` onto
+/// [`containment_network::NetworkMechanisms::cavity`] and `pool_layers`
+/// onto its layered torus pool. The network reads every other containment
+/// switch it carries from the snapshot, as the lumped model does; the
+/// lumped model's own numerical and gas-model switches (`ww_atmosphere`,
+/// `gas_cv_t`, `outflow_enthalpy`, `mixture_vent`, `two_sided_equalising`,
+/// `gas_choking`, `condensate_to_floor`, `burn_dynamics`, `relief_h2_enthalpy`
+/// excepted, which the network reads) have no counterpart on the network
+/// and do nothing there (stated, not hidden).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ContainmentChoice {
+    pub network: bool,
+    pub mcci: bool,
+    pub pool_layers: bool,
+}
+
+/// The containment model a plant runs, by enum dispatch (rust-design-rules:
+/// no trait objects, no `Box`; the network is held by value).
+#[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)] // owned by value, as the workspace's design rules ask
+pub enum ContainmentModel {
+    /// The control-volume network, the default since gh:#1099.
+    Network(containment_network::ContainmentNetwork),
+    /// The lumped model (`Mechanisms::without_network_containment`).
+    Lumped(Containment),
+    /// The network could not be built from these inputs; why. Its steps
+    /// return the initial state and [`PlantContainment::error`] says so.
+    Unbuilt(String),
+}
+
+/// The plant's containment (gh:#1099, 2026-11-02): either model behind one
+/// step, `ContainmentSnapshot` in, the old [`ContainmentResult`] out
+/// ([`containment_network::NetworkResult::to_containment_result`] maps the
+/// network's), so the plant, the frame, the CSV and every consumer read
+/// one type.
+///
+/// **State that cannot cross a worker boundary.** The network's state
+/// (`tampines`' `CvNetwork`) has no wire form, so the containment worker
+/// holds its containment between steps ([`ContainmentWorker`]); only the
+/// snapshot and the result cross, as exact `f64`s.
+///
+/// **A network step that fails** (a Picard step that does not converge
+/// after six halvings, a state outside IF97) commits nothing; the step
+/// returns the last result unchanged and [`PlantContainment::error`]
+/// reports the first failure with its time. The run then continues on a
+/// frozen containment, so every caller that reports a result must check
+/// it (the headless run and `compare::measure_with` panic on it).
+#[derive(Clone, Debug)]
+pub struct PlantContainment {
+    model: ContainmentModel,
+    prm: Params,
+    last: ContainmentResult,
+    error: Option<String>,
+    t_s: f64,
+}
+
+impl PlantContainment {
+    /// A fresh containment for `prm`, the model and the mapped switches
+    /// from `choice`.
+    pub fn new(prm: &Params, choice: ContainmentChoice) -> Self {
+        let mut last = ContainmentResult::default();
+        last.p_dw_pa = prm.initial_containment_pa;
+        last.p_ww_pa = prm.initial_containment_pa;
+        last.t_dw_k = prm.initial_drywell_k;
+        last.t_pool_k = prm.initial_pool_k;
+        last.t_pool_top_k = prm.initial_pool_k;
+        let (model, error) = if choice.network {
+            let mut mech = containment_network::NetworkMechanisms::default();
+            mech.cavity = choice.mcci;
+            mech.pool_layers = choice.pool_layers;
+            match containment_network::ContainmentNetwork::with_config(prm, containment_network::NetworkConfig::unit1(), mech) {
+                Ok(n) => (ContainmentModel::Network(n), None),
+                Err(e) => {
+                    let m = format!("the containment network could not be built: {e}");
+                    (ContainmentModel::Unbuilt(m.clone()), Some(m))
+                }
+            }
+        } else {
+            (ContainmentModel::Lumped(Containment::new(prm)), None)
+        };
+        Self { model, prm: *prm, last, error, t_s: 0.0 }
+    }
+
+    /// One step.
+    pub fn step(&mut self, s: &ContainmentSnapshot) -> ContainmentResult {
+        self.t_s += s.dt_s;
+        match &mut self.model {
+            ContainmentModel::Network(n) => match n.step(s) {
+                Ok(r) => self.last = r.to_containment_result(&self.prm),
+                Err(e) => {
+                    if self.error.is_none() {
+                        self.error = Some(format!("the containment network failed at t = {} s: {e}", self.t_s));
+                    }
+                }
+            },
+            ContainmentModel::Lumped(c) => self.last = c.step(s),
+            ContainmentModel::Unbuilt(_) => {}
+        }
+        self.last
+    }
+
+    /// The first failure, if any (see the type's docs).
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+
+    /// Whether this is the control-volume network.
+    pub fn is_network(&self) -> bool {
+        matches!(self.model, ContainmentModel::Network(_))
+    }
+
+    /// The model, read-only.
+    pub fn model(&self) -> &ContainmentModel {
+        &self.model
+    }
+}
+
+/// The containment worker (gh:#1099): it **holds** the plant's containment
+/// between steps, because the network's state has no wire form. Each
+/// request carries a run generation, the [`ContainmentChoice`] and the
+/// step's snapshot (which carries the `Params`); a new generation rebuilds
+/// the containment from them, so a reset or a changed choice needs no
+/// separate message (and a message lost before the worker's handshake
+/// loses nothing). The reply is a status (1 ok, 0 the containment has
+/// failed, see [`PlantContainment::error`]) and the [`ContainmentResult`].
+#[derive(Clone, Debug, Default)]
+pub struct ContainmentWorker {
+    generation: Option<u64>,
+    held: Option<PlantContainment>,
+}
+
+impl ContainmentWorker {
+    /// The request for one step of run `generation`.
+    pub fn request(generation: u64, choice: ContainmentChoice, s: &ContainmentSnapshot) -> Vec<f64> {
+        let mut w = Writer::default();
+        w.f(&[generation as f64, b(choice.network), b(choice.mcci), b(choice.pool_layers)]);
+        s.write(&mut w);
+        w.0
+    }
+
+    /// Answer one request (never panics on a short message: the wire reader
+    /// reads NaN past the end).
+    pub fn handle(&mut self, msg: &[f64]) -> Vec<f64> {
+        let mut r = Reader::new(msg);
+        let g = r.f();
+        let choice = ContainmentChoice { network: r.f() != 0.0, mcci: r.f() != 0.0, pool_layers: r.f() != 0.0 };
+        let s = ContainmentSnapshot::read(&mut r);
+        let generation = (g.is_finite() && g >= 0.0).then_some(g as u64);
+        if generation.is_none() || generation != self.generation || self.held.is_none() {
+            self.generation = generation;
+            self.held = Some(PlantContainment::new(&s.prm, choice));
+        }
+        let mut w = Writer::default();
+        if let Some(c) = self.held.as_mut() {
+            let res = c.step(&s);
+            w.f(&[b(c.error().is_none())]);
+            res.write(&mut w);
+        }
+        w.0
+    }
+
+    /// The reply's result and whether the containment is still good.
+    pub fn read_reply(v: &[f64]) -> (ContainmentResult, bool) {
+        let mut r = Reader::new(v);
+        let ok = r.f() == 1.0;
+        (ContainmentResult::read(&mut r), ok)
+    }
+
+    /// The containment it holds, read-only.
+    pub fn held(&self) -> Option<&PlantContainment> {
+        self.held.as_ref()
+    }
 }
 
 /// Everything the page shows, flattened (see [`Frame::write`]).
@@ -1383,9 +1584,11 @@ impl Plant {
         p
     }
 
-    /// A fresh core and containment matching a fresh plant.
-    pub fn parts(&self) -> (Core, Containment) {
-        (Core::new(self.vessel.sat.t_k, &self.prm), Containment::new(&self.prm))
+    /// A fresh core and containment matching a fresh plant: the
+    /// containment network by default, the lumped model under
+    /// `Mechanisms::without_network_containment` (gh:#1099).
+    pub fn parts(&self) -> (Core, PlantContainment) {
+        (Core::new(self.vessel.sat.t_k, &self.prm), PlantContainment::new(&self.prm, self.mechanisms.containment_choice()))
     }
 
     /// The inputs this plant runs with.
@@ -1981,7 +2184,7 @@ impl Plant {
     /// One whole step with the core and containment advanced here, in
     /// order: what the one-worker mode (and natively, the engine thread)
     /// runs.
-    pub fn step_inline(&mut self, core: &mut Core, containment: &mut Containment) {
+    pub fn step_inline(&mut self, core: &mut Core, containment: &mut PlantContainment) {
         let s = self.begin();
         let c = core.step(&s.core);
         let k = containment.step(&s.containment);
@@ -2155,13 +2358,30 @@ pub fn csv_row(f: &Frame) -> String {
 
 /// The headless run: `steps` steps of the historical sequence, one CSV row
 /// every `every` steps. Deterministic: no clock, no randomness, no I/O.
+///
+/// Every mechanism on, so the containment is the network (gh:#1099);
+/// [`headless_csv_with`] runs any ablation.
 pub fn headless_csv(steps: usize, every: usize) -> String {
-    let mut plant = Plant::new(Mode::Historical);
+    headless_csv_with(Mechanisms::default(), steps, every)
+}
+
+/// [`headless_csv`] with `mechanisms` (gh:#1099: the lumped containment's
+/// trace is `headless_csv_with(Mechanisms::default().without_network_containment(), ..)`).
+///
+/// # Panics
+///
+/// If the containment network fails (a frozen containment would print a
+/// trace that looks valid; [`PlantContainment`]).
+pub fn headless_csv_with(mechanisms: Mechanisms, steps: usize, every: usize) -> String {
+    let mut plant = Plant::with_mechanisms(Mode::Historical, mechanisms);
     let (mut core, mut cont) = plant.parts();
     let mut out = String::from(CSV_HEADER);
     out.push('\n');
     for i in 0..steps {
         plant.step_inline(&mut core, &mut cont);
+        if let Some(e) = cont.error() {
+            panic!("{e}");
+        }
         if (i + 1) % every.max(1) == 0 {
             out.push_str(&csv_row(&plant.frame()));
             out.push('\n');
@@ -2180,9 +2400,12 @@ mod tests {
     /// mol (the steam-rich core favours CO2), about 2.6 kg of H2; with UO2
     /// carried by candling Zr (the same day) 8.821 kg, CO 4.05, CO2 152.51,
     /// CH4 3.08 mol.
+    ///
+    /// **Since gh:#1099 on the lumped containment**, explicitly: these pins
+    /// were measured on it and keep their value there.
     #[test]
     fn the_blades_b4c_reacts_up_to_melcors_cap() {
-        let mut plant = Plant::new(Mode::Historical);
+        let mut plant = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut core, mut cont) = plant.parts();
         for _ in 0..21600usize {
             plant.step_inline(&mut core, &mut cont);
@@ -2204,9 +2427,12 @@ mod tests {
     /// debris near 2800 K (missed low: the debris that leaves is solid).
     /// With UO2 carried by candling Zr (the same day) the head fails at
     /// 5.484 h: 8.07 kg at once, 74.75 kg by 8 h.
+    ///
+    /// **Since gh:#1099 on the lumped containment**, explicitly (the pins'
+    /// model); the network's FDI is `the_network_plant_over_30_hours`'s.
     #[test]
     fn the_debris_falls_through_the_pedestal_water() {
-        let mut plant = Plant::new(Mode::Historical);
+        let mut plant = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut core, mut cont) = plant.parts();
         let mut first = None;
         for i in 0..28800usize {
@@ -2227,9 +2453,76 @@ mod tests {
     /// again with every snapshot and result written to the wire format and
     /// read back on the other side (what the three-worker mode does); compare
     /// every field of the frame after every step with `==` on the f64s.
+    ///
+    /// **Since gh:#1099 (2026-11-02) the containment is the network**, whose
+    /// state has no wire form: the containment worker holds it
+    /// ([`ContainmentWorker`]) and only the snapshot and the result cross;
+    /// the core still crosses with its whole state. Predicted before the
+    /// run: bit-identical (the worker builds its network from the
+    /// snapshot's round-tripped `Params`, the same bits). The lumped
+    /// containment's state round trip is
+    /// `three_workers_are_one_worker_on_the_lumped_containment`.
     #[test]
     fn three_workers_are_one_worker() {
-        one_worker_against_three(Params::default(), 2000);
+        let f = one_worker_against_three(Params::default(), 2000);
+        assert!(f.t_s == 2000.0);
+    }
+
+    /// The lumped containment (`without_network_containment`) still crosses
+    /// with its whole state each step, bit for bit (the pre-gh:#1099
+    /// protocol, kept for the ablation).
+    #[test]
+    fn three_workers_are_one_worker_on_the_lumped_containment() {
+        let mech = Mechanisms::default().without_network_containment();
+        let mut a = Plant::with_mechanisms(Mode::Historical, mech);
+        let (mut ca, mut ka) = a.parts();
+        let mut b = Plant::with_mechanisms(Mode::Historical, mech);
+        let (mut cb, _) = b.parts();
+        let mut kb = Containment::new(&Params::default());
+        assert!(!ka.is_network());
+        for _ in 0..2000 {
+            a.step_inline(&mut ca, &mut ka);
+            let s = b.begin();
+            let mut w = Writer::default();
+            s.containment.write(&mut w);
+            let cont_snap = ContainmentSnapshot::read(&mut Reader::new(&w.0));
+            let mut w = Writer::default();
+            s.core.write(&mut w);
+            let core_snap = CoreSnapshot::read(&mut Reader::new(&w.0));
+            let (core_res, cont_res);
+            (cb, core_res) = remote_core(&cb, &core_snap);
+            (kb, cont_res) = remote_containment(&kb, &cont_snap);
+            b.finish(core_res, cont_res);
+            let (mut wa, mut wb) = (Writer::default(), Writer::default());
+            a.frame().write(&mut wa);
+            b.frame().write(&mut wb);
+            assert!(wa.0.iter().zip(&wb.0).all(|(x, y)| x.to_bits() == y.to_bits()), "diverged at t = {}", a.frame().t_s);
+        }
+    }
+
+    /// **The network is the default containment** (gh:#1099), pinned as
+    /// `the_coupled_physics_is_on_by_default` pins its physics: a plant
+    /// built the ordinary way gets the network, the ablation gets the
+    /// lumped model, and the worker builds what the plant asks for.
+    #[test]
+    fn the_containment_network_is_the_default() {
+        assert!(Mechanisms::default().network_containment);
+        let p = Plant::new(Mode::Historical);
+        let (_, k) = p.parts();
+        assert!(k.is_network() && k.error().is_none());
+        assert!(matches!(k.model(), ContainmentModel::Network(_)));
+        let lumped = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
+        assert!(matches!(lumped.parts().1.model(), ContainmentModel::Lumped(_)));
+        let mut p = p;
+        let s = p.begin();
+        let mut w = ContainmentWorker::default();
+        let reply = w.handle(&ContainmentWorker::request(0, p.mechanisms.containment_choice(), &s.containment));
+        assert!(ContainmentWorker::read_reply(&reply).1 && w.held().is_some_and(PlantContainment::is_network));
+        // The plant's mechanisms reach the network's.
+        let m = Mechanisms::default().without_mcci().without_pool_layers();
+        let k = Plant::with_mechanisms(Mode::Historical, m).parts().1;
+        let ContainmentModel::Network(n) = k.model() else { panic!("not the network") };
+        assert!(!n.mechanisms().cavity && !n.mechanisms().pool_layers && n.pool_layer_count() == 1);
     }
 
     /// Changed inputs (gh:#1033) reach every part: a plant built with
@@ -2256,26 +2549,29 @@ mod tests {
     }
 
     /// Steps a plant inline and a second one through the worker wire, frame
-    /// for frame bit-identical, and returns the last frame.
+    /// for frame bit-identical, and returns the last frame. The core's
+    /// state crosses each step; the containment stays in its worker
+    /// ([`ContainmentWorker`], gh:#1099).
     fn one_worker_against_three(prm: Params, steps: usize) -> Frame {
         let mut a = Plant::with_params(Mode::Historical, Mechanisms::default(), prm);
         let (mut ca, mut ka) = a.parts();
         let mut b = Plant::with_params(Mode::Historical, Mechanisms::default(), prm);
-        let (mut cb, mut kb) = b.parts();
+        let (mut cb, _) = b.parts();
+        let mut kb = ContainmentWorker::default();
         for _ in 0..steps {
             a.step_inline(&mut ca, &mut ka);
             let s = b.begin();
             let mut w = Writer::default();
             s.core.write(&mut w);
             let core_snap = CoreSnapshot::read(&mut Reader::new(&w.0));
-            let mut w = Writer::default();
-            s.containment.write(&mut w);
-            let cont_snap = ContainmentSnapshot::read(&mut Reader::new(&w.0));
-            // The worker gets the state and the snapshot, steps a copy of
-            // its own, and sends back the new state and the result.
-            let (core_res, cont_res);
+            // The core worker gets the state and the snapshot, steps a copy
+            // of its own, and sends back the new state and the result; the
+            // containment worker gets the request and answers with the
+            // result, holding its containment.
+            let core_res;
             (cb, core_res) = remote_core(&cb, &core_snap);
-            (kb, cont_res) = remote_containment(&kb, &cont_snap);
+            let (cont_res, ok) = ContainmentWorker::read_reply(&kb.handle(&ContainmentWorker::request(0, b.mechanisms.containment_choice(), &s.containment)));
+            assert!(ok, "{:?}", kb.held().and_then(PlantContainment::error));
             b.finish(core_res, cont_res);
             let (fa, fb) = (a.frame(), b.frame());
             let (mut wa, mut wb) = (Writer::default(), Writer::default());
@@ -2323,10 +2619,20 @@ mod tests {
     /// `FUKUSHIMA_BLESS=1 cargo test --release -p sembawang --lib bwr_mark1`
     /// (~~`-p dhoby-ghaut --example fukushima_web`~~, before the model moved
     /// here on 2026-10-29, gh:#1033).
+    ///
+    /// **Since gh:#1099 (2026-11-02) the fixture is the network plant's**,
+    /// re-blessed after the switch (set after the run, gh:#1099); the lumped
+    /// plant's fixture, byte-identical to the one committed before, is
+    /// `headless_30h_lumped.csv`
+    /// (`the_lumped_headless_run_matches_its_fixture`). Gated behind
+    /// `long-tests`: the network's 30 h take about 20 min.
     #[test]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run, ~20 min); runs by default, skipped under --no-default-features")]
     fn the_headless_run_matches_the_committed_fixture() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h.csv");
+        let start = std::time::Instant::now();
         let now = headless_csv(108_000, 600);
+        println!("30 h on the network: {:.1} s", start.elapsed().as_secs_f64());
         if std::env::var("FUKUSHIMA_BLESS").is_ok() {
             std::fs::write(path, &now).expect("write the fixture");
         }
@@ -2334,13 +2640,33 @@ mod tests {
         assert!(now == fixture, "the headless trace changed; re-bless only if the change is deliberate");
     }
 
+    /// The lumped containment's 30 h trace (`without_network_containment`)
+    /// against the fixture committed before gh:#1099, renamed
+    /// `headless_30h_lumped.csv` and otherwise unchanged: the ablation
+    /// reproduces the old default byte for byte. Re-bless with
+    /// `FUKUSHIMA_BLESS=1` as above.
+    #[test]
+    fn the_lumped_headless_run_matches_its_fixture() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h_lumped.csv");
+        let start = std::time::Instant::now();
+        let now = headless_csv_with(Mechanisms::default().without_network_containment(), 108_000, 600);
+        println!("30 h on the lumped containment: {:.1} s", start.elapsed().as_secs_f64());
+        if std::env::var("FUKUSHIMA_BLESS").is_ok() {
+            std::fs::write(path, &now).expect("write the fixture");
+        }
+        let fixture = std::fs::read_to_string(path).expect("the committed fixture");
+        assert!(now == fixture, "the lumped headless trace changed; re-bless only if the change is deliberate");
+    }
+
     /// Physical bounds over the whole recorded sequence, every step: positive
     /// pressures below the vessel's design range, cladding between the
     /// coolant and 2600 K, a level inside the vessel, hydrogen never
     /// decreasing. A harness check that catches divergence, not physics V&V.
+    /// On the lumped containment since gh:#1099, explicitly; the network
+    /// plant's bounds are checked by `the_network_plant_over_30_hours`.
     #[test]
     fn the_whole_sequence_stays_in_physical_bounds() {
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         let mut h2 = 0.0;
         for _ in 0..108_000 {
@@ -2475,9 +2801,13 @@ mod tests {
     /// containment's share lags the vessel's by its one-step hand-over;
     /// once the lower head has failed the vessel's noble gas passes to the
     /// drywell, the vessel being open to it).
+    ///
+    /// **On the lumped containment since gh:#1099**, explicitly, so that the
+    /// positions pinned below keep their meaning; the network plant's
+    /// conservation is `the_network_plant_over_30_hours`'s.
     #[test]
     fn noble_gas_is_conserved_from_fuel_to_stack() {
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         let mut peak_ww = 0.0f64;
         for _ in 0..(26 * 3600) {
@@ -2565,9 +2895,10 @@ mod tests {
     /// building add up to the released fraction times the inventory, to
     /// 1e-9 of it (with the dome internals' deposits since in-vessel
     /// deposition). Iodine and, since 2026-10-29, tellurium likewise.
+    /// On the lumped containment since gh:#1099 (the network's: below).
     #[test]
     fn cesium_is_conserved_from_fuel_to_stack() {
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         for _ in 0..(26 * 3600) {
             p.step_inline(&mut c, &mut k);
@@ -2606,7 +2937,9 @@ mod tests {
     /// vessel).
     #[test]
     fn a_dry_vessel_is_not_emptied_by_the_internals() {
-        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_core_radiation());
+        // On the lumped containment since gh:#1099 (a vessel guard; its 26 h
+        // on the network would cost about 18 min).
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_core_radiation().without_network_containment());
         let (mut c, mut k) = p.parts();
         let mut min_m = f64::INFINITY;
         for _ in 0..(26 * 3600) {
@@ -2615,6 +2948,79 @@ mod tests {
             assert!(p.vessel.p_pa.is_finite() && p.vessel.p_pa < 2.0e7, "{} at {}", p.vessel.p_pa, p.t_s);
         }
         assert!(min_m > 100.0, "{min_m}");
+    }
+
+    /// **The network plant over the whole sequence** (gh:#1099, 2026-11-02):
+    /// at every step of 30 h with the network the default, the physical
+    /// bounds of `the_whole_sequence_stays_in_physical_bounds`, noble gas,
+    /// cesium, iodine and tellurium conserved from the fuel to wherever they
+    /// go (the tolerances of the lumped tests, unchanged), and the network
+    /// never failing. Prints where the fission products are at 26 h.
+    ///
+    /// Predicted before the run: every bound and every balance holds (the
+    /// network carries the same `FpHold` with the same arithmetic, and its
+    /// rides conserve by construction, `containment_network.md` case D);
+    /// at 26 h most of the noble gas vented (the vent opens near 24 h) and
+    /// little in the building (open loop the flange opened at 17.25 h and
+    /// the building reached 1.74 % H2).
+    ///
+    /// **Results (2026-11-02; set after the run, gh:#1099):** every bound
+    /// and balance held at every step, and the network never failed (held).
+    /// At 26 h (lumped in brackets, from `noble_gas_is_conserved_from_fuel_to_stack`):
+    /// noble gas vented 0.98265 \[0.9733\], in the building 0.014214
+    /// \[0.02318\], drywell 4.2e-6, wetwell gas 2.0e-6 \[4.94e-4, 3.38e-4\];
+    /// the building's Le Chatelier Y 0.04159 \[0.0394\], no burn (held);
+    /// cesium on the drywell's structures 73.99 kg and in the pool 78.22 kg,
+    /// 0.067 kg vented and 0.052 kg to the building; iodine 11.31 kg in the
+    /// pool, 0.46 kg vented; the cavity 84.1 t of concrete ablated, 552 kg
+    /// of H2 and 803 kg of CO. The head failed at high pressure (4.69 h,
+    /// before the steam line's creep rupture, which never comes): `fdi_hpme`
+    /// is flagged (still treated as low-pressure ejection, as in the lumped
+    /// model). The flange opens between 15.33 and 15.5 h \[16.67-16.83 h\];
+    /// the building reaches 3.9 % H2 at 26 h \[3.7 %\]. Prediction on the
+    /// building (little H2) MISSED: the drywell, higher than predicted
+    /// (1.00 MPa), leaks more. 1540 s with three other network runs beside
+    /// it.
+    #[test]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run, ~20 min); runs by default, skipped under --no-default-features")]
+    fn the_network_plant_over_30_hours() {
+        let mut p = Plant::new(Mode::Historical);
+        let (mut c, mut k) = p.parts();
+        assert!(k.is_network());
+        let mut h2 = 0.0;
+        let mut at_26 = None;
+        for i in 0..108_000usize {
+            p.step_inline(&mut c, &mut k);
+            assert!(k.error().is_none(), "{:?}", k.error());
+            let f = p.frame();
+            assert!(f.vessel.p_pa > 5.0e4 && f.vessel.p_pa < steam::P_MAX_PA, "p {} at {}", f.vessel.p_pa, f.t_s);
+            assert!(f.core.peak_clad_k < 3200.0, "clad {} at {}", f.core.peak_clad_k, f.t_s);
+            assert!(f.vessel.level_m >= -BAF_M - 1e-9 && f.vessel.level_m <= RPV_HEIGHT_M, "level {}", f.vessel.level_m);
+            let kr = &f.containment;
+            assert!(kr.p_dw_pa > 5.0e4 && kr.p_ww_pa > 5.0e4, "{kr:?}");
+            assert!(kr.t_pool_k > 273.0 && kr.t_pool_k < 450.0, "{kr:?}");
+            assert!(f.core.h2_total_kg >= h2);
+            h2 = f.core.h2_total_kg;
+            let xe = f.xe_vessel + kr.xe_dw + kr.xe_ww + kr.xe_vented + kr.xe_building;
+            assert!((xe - f.core.fp_volatile_released).abs() < 1e-12, "Xe {xe} vs {} at {}", f.core.fp_volatile_released, f.t_s);
+            let cs = f.cs_vessel_kg + f.on_internals_kg[0] + kr.cs_airborne_kg + kr.cs_dw_structures_kg + kr.cs_ww_pool_kg + kr.cs_vented_kg + kr.cs_building_kg;
+            assert!((cs - f.core.fp_volatile_released * CS_INVENTORY_KG).abs() < 1e-9 * CS_INVENTORY_KG, "Cs {cs} at {}", f.t_s);
+            let io = f.i_vessel_kg + f.on_internals_kg[1] + kr.i_airborne_kg + kr.i_dw_structures_kg + kr.i_ww_pool_kg + kr.i_vented_kg + kr.i_building_kg;
+            assert!((io - f.core.fp_volatile_released * I_INVENTORY_KG).abs() < 1e-9 * I_INVENTORY_KG, "I {io} at {}", f.t_s);
+            let te = p.vessel_rn.total_kg(rn_volume::TE) + kr.te_kg;
+            assert!((te - f.core.fp_volatile_released * TE_INVENTORY_KG).abs() < 1e-9 * TE_INVENTORY_KG, "Te {te} at {}", f.t_s);
+            if i + 1 == 26 * 3600 {
+                println!("network 26 h: {f:?}");
+                at_26 = Some(f);
+            }
+        }
+        println!("network 30 h: {:?}", p.frame());
+        // Set after the run, gh:#1099 (2026-11-02).
+        let f = at_26.expect("26 h reached");
+        let kr = &f.containment;
+        assert!((kr.xe_vented - 0.98265).abs() < 1e-4 && (kr.xe_building - 0.014214).abs() < 1e-5 && kr.xe_dw < 1e-5 && kr.xe_ww < 1e-5, "{kr:?}");
+        assert!((kr.rb_burn_y - 0.04159).abs() < 1e-4 && !kr.rb_exploded && kr.fdi_hpme, "{kr:?}");
+        assert!((kr.cs_ww_pool_kg - 78.22).abs() < 0.01 && (kr.i_ww_pool_kg - 11.31).abs() < 0.01, "{kr:?}");
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J

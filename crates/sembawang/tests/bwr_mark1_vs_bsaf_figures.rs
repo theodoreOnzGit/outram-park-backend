@@ -16,7 +16,10 @@
 //!   not a validation.
 //!
 //! **Results** (2026-10-29, the model at `eca21cc`, the data at `8067264`):
-//! in the test's doc comment, with the interpretation; pinned.
+//! in the test's doc comment, with the interpretation; pinned. **Since
+//! 2026-11-02 (gh:#1099)** "every mechanism on" means the containment
+//! network; the earlier pins are kept on the lumped containment (the
+//! explicit ablation), the network's pinned beside them.
 //!
 //! Acknowledgement: OECD Nuclear Energy Agency, *Benchmark Study of the
 //! Accident at the Fukushima Daiichi Nuclear Power Plant*, NEA No. 7525,
@@ -26,6 +29,7 @@ use sembawang::bwr_mark1::compare::{against_measured, histories, inside_envelope
 use sembawang::bwr_mark1::params::Params;
 use sembawang::bwr_mark1::Mechanisms;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 fn data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../kovan-literature/derived/nea7525-bsaf-unit1-figures")
@@ -51,8 +55,26 @@ fn family(fig: &str) -> Vec<Vec<(f64, f64)>> {
     CODES.iter().map(|c| read_series(&format!("fig{fig}-{c}.csv"))).collect()
 }
 
-fn model() -> Histories {
-    histories(Mechanisms::default(), Params::default(), 60.0, 26.0 * 3600.0)
+/// The model as it stands: every mechanism on, so since gh:#1099
+/// (2026-11-02) the containment is the control-volume network. One run
+/// shared by every test in this file (about 20 min).
+fn model() -> &'static Histories {
+    static H: OnceLock<Histories> = OnceLock::new();
+    H.get_or_init(|| histories(Mechanisms::default(), Params::default(), 60.0, 26.0 * 3600.0))
+}
+
+/// The plant before gh:#1099: the lumped containment
+/// (`without_network_containment`), on which every pin recorded before
+/// 2026-11-02 was measured; those pins are kept on it, unchanged.
+fn lumped_model() -> &'static Histories {
+    static H: OnceLock<Histories> = OnceLock::new();
+    H.get_or_init(|| histories(Mechanisms::default().without_network_containment(), Params::default(), 60.0, 26.0 * 3600.0))
+}
+
+/// The lumped plant to 500 h, every 600 s (shared by the two 500 h tests).
+fn lumped_500h() -> &'static Histories {
+    static H: OnceLock<Histories> = OnceLock::new();
+    H.get_or_init(|| histories(Mechanisms::default().without_network_containment(), Params::default(), 600.0, 500.0 * 3600.0))
 }
 
 /// The model's histories against the digitised figures.
@@ -193,11 +215,37 @@ fn model() -> Histories {
 /// RPV 3.537/6.642 -> 3.569/6.672 MPa; envelopes drywell 26.4 -> 24.2 %,
 /// H2 9.2 -> 8.0 %, I 87.5 -> 89.6 %, the rest the same.
 ///
+/// **Moved 2026-11-02 by the switch to the containment network**
+/// (gh:#1099, maintainer: "switch it"; the lumped pins are kept on the
+/// explicit ablation `without_network_containment`, the network's set after
+/// the run beside them). Predictions written before the run in
+/// `containment_network.md` ("gh:#1099"):
+///
+/// | Check | Lumped | Network | Predicted | Outcome |
+/// |---|---|---|---|---|
+/// | Measured RPV (2 points), mean / max | 3.4388 / 6.5826 MPa | 3.4177 / 6.5762 MPa | within 0.05 | held |
+/// | Measured drywell (33 points), mean / max | 0.0670 / 0.2573 MPa | **0.1028** / 0.2310 MPa | mean 0.05-0.10, max 0.20-0.35 | mean **MISSED** (worse), max held |
+/// | Envelope RPV / drywell | 0.6154 / 0.6703 | 0.5714 / 0.6374 | drywell 0.55-0.80 | held |
+/// | Envelope H2 / Xe / I | 0.9885 / 0.8125 / 0.8542 | 0.9885 / 0.8333 / 0.9167 | within 0.1 | held |
+/// | Cs on DW structures / in S/C water (Fig 2.6) | 0.8667 / 0.9663 | 0.7867 / 0.9663 | (none) | |
+/// | I on DW structures / in S/C water (Fig 2.6) | 0.0 / 0.0562 | 0.0 / 0.0899 | (none) | |
+///
+/// The drywell's mean distance from the measurement grows by half (its
+/// 0-25 h peak rises to 1.004 MPa, `compare::tests::the_network_baseline_is_pinned`),
+/// an unflattering move recorded, not tuned. Tentative: the network's
+/// geometry is not drawn (gh:#1110), and the vent depends on the torus
+/// pool's layer count (gh:#1108). The two 500 h comparisons stay on the
+/// lumped plant; the network's 500 h is ignored (several hours) and has not
+/// been run.
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
+#[cfg_attr(not(feature = "long-tests"), ignore = "long test (one 26 h network run, ~20 min, shared in this file); runs by default, skipped under --no-default-features")]
 fn the_model_against_the_digitised_bsaf_figures() {
-    let m = model();
+    // The pins recorded before gh:#1099, on the lumped containment where
+    // they were measured: unchanged.
+    let m = lumped_model();
     let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
     let rpv = against_measured(&m.t_h, &m.p_rpv_mpa, &read_series("fig2.1a-measurement.csv"));
     let dw = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.1b-measurement.csv"));
@@ -243,6 +291,27 @@ fn the_model_against_the_digitised_bsaf_figures() {
     assert!((dw.mean_abs - 0.0670).abs() < 1e-3 && (dw.max_abs - 0.2573).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
     assert!(near(e_rpv, 0.6154) && near(e_dw, 0.6703) && near(e_h2, 0.9885) && near(e_xe, 0.8125) && near(e_i, 0.8542));
+    // The network plant, the default since gh:#1099 (2026-11-02): the same
+    // instruments, the same tolerances.
+    let n = model();
+    let rpv = against_measured(&n.t_h, &n.p_rpv_mpa, &read_series("fig2.1a-measurement.csv"));
+    let dw = against_measured(&n.t_h, &n.p_dw_mpa, &read_series("fig2.1b-measurement.csv"));
+    let env = |v: &[f64], fig: &str| inside_envelope(&n.t_h, v, &family(fig), &grid);
+    let (e_rpv, e_dw, e_h2, e_xe, e_i) =
+        (env(&n.p_rpv_mpa, "2.1a"), env(&n.p_dw_mpa, "2.1b"), env(&n.h2_kg, "2.2"), env(&n.fp_released, "2.5a"), env(&n.fp_released, "2.5b"));
+    println!("NETWORK measured RPV pressure: {rpv:?}");
+    println!("NETWORK measured drywell pressure: {dw:?}");
+    println!("NETWORK inside the code envelope: RPV {e_rpv:?}, drywell {e_dw:?}, H2 {e_h2:?}, Xe {e_xe:?}, I {e_i:?}");
+    assert_eq!((rpv.n, dw.n), (2, 33));
+    // Set after the run, gh:#1099 (2026-11-02), the same tolerances as the
+    // lumped pins above. Lumped -> network: RPV 3.4388/6.5826 ->
+    // 3.4177/6.5762 MPa; drywell 0.0670/0.2573 -> **0.1028**/0.2310 MPa
+    // (the mean worse, the max better); envelopes RPV 0.6154 -> 0.5714,
+    // drywell 0.6703 -> 0.6374, H2 0.9885 (same), Xe 0.8125 -> 0.8333, I
+    // 0.8542 -> 0.9167.
+    assert!((rpv.mean_abs - 3.4177).abs() < 1e-3 && (rpv.max_abs - 6.5762).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.1028).abs() < 1e-3 && (dw.max_abs - 0.2310).abs() < 1e-3, "{dw:?}");
+    assert!(near(e_rpv, 0.5714) && near(e_dw, 0.6374) && near(e_h2, 0.9885) && near(e_xe, 0.8333) && near(e_i, 0.9167));
 }
 
 
@@ -282,7 +351,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
 /// by the mixture vent (`Mechanisms::mixture_vent`; above).
 #[test]
 fn the_model_beyond_its_window_against_fig_2_3a() {
-    let m = histories(Mechanisms::default(), Params::default(), 600.0, 500.0 * 3600.0);
+    // On the lumped containment since gh:#1099, where these pins were
+    // measured; the network's 500 h is
+    // `the_network_beyond_its_window_against_fig_2_3a` (ignored: hours).
+    let m = lumped_500h();
     let a = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.3a-measurement.csv"));
     println!("0-500 h drywell against Fig 2.3a: {a:?}");
     assert_eq!(a.n, 94);
@@ -438,8 +510,10 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
 #[test]
+#[cfg_attr(not(feature = "long-tests"), ignore = "long test (one 26 h network run, ~20 min, shared in this file); runs by default, skipped under --no-default-features")]
 fn cesium_against_fig_2_6() {
-    let m = model();
+    // The pins before gh:#1099, on the lumped containment.
+    let m = lumped_model();
     let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
     let a = inside_envelope(&m.t_h, &m.cs_dw_structures, &family("2.6a"), &grid);
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
@@ -454,13 +528,23 @@ fn cesium_against_fig_2_6() {
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool().without_network_containment(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
     );
     let c_off = inside_envelope(&off.t_h, &off.cs_sc_water, &family("2.6c"), &grid);
     assert!((c_off.0 - 0.8539).abs() < 1e-3, "{c_off:?}");
+    // The network plant (gh:#1099).
+    let n = model();
+    let a = inside_envelope(&n.t_h, &n.cs_dw_structures, &family("2.6a"), &grid);
+    let c = inside_envelope(&n.t_h, &n.cs_sc_water, &family("2.6c"), &grid);
+    println!("NETWORK Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
+    assert_eq!((a.1, c.1), (75, 89));
+    // Set after the run, gh:#1099 (2026-11-02): Cs on the drywell's
+    // structures 0.8667 -> 0.7867 (lumped -> network), in the S/C water
+    // 0.9663 (same).
+    assert!((a.0 - 0.7867).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
 }
 
 
@@ -518,8 +602,10 @@ fn cesium_against_fig_2_6() {
 /// 6.7 %; by the RPV wall, 6.7 -> 7.9 %; by MCCI, 7.9 -> 6.7 %; by the
 /// core plate, 6.7 -> 7.9 %.
 #[test]
+#[cfg_attr(not(feature = "long-tests"), ignore = "long test (one 26 h network run, ~20 min, shared in this file); runs by default, skipped under --no-default-features")]
 fn iodine_against_fig_2_6() {
-    let m = model();
+    // The pins before gh:#1099, on the lumped containment.
+    let m = lumped_model();
     let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
     let b = inside_envelope(&m.t_h, &m.i_dw_structures, &family("2.6b"), &grid);
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
@@ -529,12 +615,21 @@ fn iodine_against_fig_2_6() {
     // -> 0.0562 with UO2 carried by candling Zr (2026-10-30).
     assert!((d.0 - 0.0562).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool().without_network_containment(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
     );
     assert_eq!(inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid), (0.0, 89));
+    // The network plant (gh:#1099).
+    let n = model();
+    let b = inside_envelope(&n.t_h, &n.i_dw_structures, &family("2.6b"), &grid);
+    let d = inside_envelope(&n.t_h, &n.i_sc_water, &family("2.6d"), &grid);
+    println!("NETWORK I on drywell structures {b:?}; I in S/C water {d:?}");
+    assert_eq!((b.1, d.1), (76, 89));
+    // Set after the run, gh:#1099 (2026-11-02): on the drywell's structures
+    // 0.0 (same), in the S/C water 0.0562 -> 0.0899 (lumped -> network).
+    assert!(b.0 == 0.0 && (d.0 - 0.0899).abs() < 1e-3, "{b:?} {d:?}");
 }
 
 /// One BSAF Fig 5.1 series (`time_day,release_rate_bq_per_hr`) as `(t_h,
@@ -613,8 +708,11 @@ fn read_release(code: &str) -> Vec<(f64, f64)> {
 fn cesium_137_release_against_fig_5_1() {
     const SHARE: f64 = 0.316_659;
     const BQ_PER_KG: f64 = 3.212e15;
+    // On the lumped containment since gh:#1099, where these pins were
+    // measured; the network's is `the_network_cs_137_release_against_fig_5_1`
+    // (ignored: hours).
     let prm = Params::default();
-    let m = histories(Mechanisms::default(), prm, 600.0, 500.0 * 3600.0);
+    let m = lumped_500h();
     let bq: Vec<f64> = m.cs_released.iter().map(|f| f * prm.cs_inventory_kg * SHARE * BQ_PER_KG).collect();
     let n = bq.len();
     let rate: Vec<f64> = (0..n)
@@ -652,4 +750,19 @@ fn cesium_137_release_against_fig_5_1() {
     // (F13, the vented flow differs by a few grid hours).
     assert!((total_pbq - 0.0748).abs() < 1e-3 && (at(26.0) - 0.0748).abs() < 1e-3, "{total_pbq}");
     assert!((env.0 - 0.0066).abs() < 1e-3 && env.1 == 454, "{env:?}");
+}
+
+/// **The network plant to 500 h** (gh:#1099): Fig 2.3a's measured drywell
+/// and Fig 5.1's Cs-137 release, by the instruments above. Prints only:
+/// not yet run (2026-11-02). Ignored: about 1.8 million network steps,
+/// several hours (the workspace's third tier).
+#[test]
+#[ignore = "multiple hours: the network plant to 500 h"]
+fn the_network_to_500_hours_against_fig_2_3a_and_fig_5_1() {
+    let m = histories(Mechanisms::default(), Params::default(), 600.0, 500.0 * 3600.0);
+    let a = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.3a-measurement.csv"));
+    println!("NETWORK 0-500 h drywell against Fig 2.3a: {a:?}");
+    let prm = Params::default();
+    let last = m.cs_released.last().copied().unwrap_or(0.0);
+    println!("NETWORK Cs released at 500 h: {:.4e} of inventory ({:.4} PBq Cs-137)", last, last * prm.cs_inventory_kg * 0.316_659 * 3.212e15 / 1e15);
 }

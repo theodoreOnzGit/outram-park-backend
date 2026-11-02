@@ -1,5 +1,12 @@
 # `bwr_mark1`: input sensitivity, to rank F13's checks (gh:#1044, #1033)
 
+> **Since 2026-11-02 (gh:#1099) the plant's default containment is the
+> control-volume network.** Every number in this record was measured on
+> the lumped `Containment` (at the physics of its date), which is now the
+> explicit ablation `Mechanisms::without_network_containment()`. What the
+> switch moved is in `containment_network.md` ("gh:#1099").
+
+
 > ~~**Two runs are recorded.**~~ ~~**Three runs are recorded**~~ **Four
 > runs are recorded** (third added 2026-10-29, fourth 2026-10-30; the fourth
 > finds the run chaotic at the 1e-9 level, so read every number in this

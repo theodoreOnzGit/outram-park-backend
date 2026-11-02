@@ -113,6 +113,11 @@ pub fn measure(mechanisms: Mechanisms) -> Metrics {
 }
 
 /// [`measure`] with the plant's inputs set to `prm` (gh:#1033).
+///
+/// # Panics
+///
+/// If the containment network fails: the run would go on with a frozen
+/// containment and report numbers that mean nothing (gh:#1099).
 pub fn measure_with(mechanisms: Mechanisms, prm: Params) -> Metrics {
     let mut plant = Plant::with_params(Mode::Historical, mechanisms, prm);
     let (mut core, mut cont) = plant.parts();
@@ -120,6 +125,9 @@ pub fn measure_with(mechanisms: Mechanisms, prm: Params) -> Metrics {
     let steps = (COMPARE_END_S / DT_S).round() as usize;
     for _ in 0..steps {
         plant.step_inline(&mut core, &mut cont);
+        if let Some(e) = cont.error() {
+            panic!("{e}");
+        }
         let f = plant.frame();
         let h = f.t_s / 3600.0;
         if f.core.lower_head_failed && m.lower_head_h.is_none() {
@@ -231,6 +239,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without FDI LPME", all.without_fdi_lpme()),
         ("without UO2 candling", all.without_uo2_candling()),
         ("without molten pool", all.without_molten_pool()),
+        ("without network containment", all.without_network_containment()),
     ]
 }
 
@@ -270,13 +279,21 @@ impl Elasticity {
 /// relative step `rel`, given the default run `base`. `None` for an unknown
 /// name. Runs the sequence twice.
 pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> {
+    elasticity_with(Mechanisms::default(), name, rel, base)
+}
+
+/// [`elasticity`] about the plant with `mechanisms` (gh:#1099: the lumped
+/// containment's elasticities, as `input-sensitivity.md` recorded them, are
+/// `elasticity_with(Mechanisms::default().without_network_containment(), ..)`
+/// against a `base` measured with the same mechanisms).
+pub fn elasticity_with(mechanisms: Mechanisms, name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> {
     let &(_, tag) = Params::INPUTS.iter().find(|(n, _)| *n == name)?;
     let d = Params::default();
     let default = d.get(name)?;
     let run = |f: f64| {
         let mut p = d;
         p.set(name, default * f);
-        measure_with(Mechanisms::default(), p)
+        measure_with(mechanisms, p)
     };
     let (lo, hi) = (run(1.0 - rel), run(1.0 + rel));
     let e = |l: f64, h: f64, b: f64| if b == 0.0 { 0.0 } else { (h - l) / (2.0 * rel * b) };
@@ -304,6 +321,13 @@ pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasti
 /// mechanism on, then [`measure_with`]. Deterministic: the same arguments
 /// give the same run on any machine. `rel = 0` is the default run.
 pub fn ensemble_member(member: u64, rel: f64, seed: u64) -> Metrics {
+    ensemble_member_with(Mechanisms::default(), member, rel, seed)
+}
+
+/// [`ensemble_member`] about the plant with `mechanisms` (gh:#1099: the
+/// lumped containment's ensemble, as `ensemble.md` recorded it, is
+/// `ensemble_member_with(Mechanisms::default().without_network_containment(), ..)`).
+pub fn ensemble_member_with(mechanisms: Mechanisms, member: u64, rel: f64, seed: u64) -> Metrics {
     let mix = |mut z: u64| {
         z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -318,7 +342,7 @@ pub fn ensemble_member(member: u64, rel: f64, seed: u64) -> Metrics {
             p.set(name, v * (1.0 + rel * u));
         }
     }
-    measure_with(Mechanisms::default(), p)
+    measure_with(mechanisms, p)
 }
 
 /// The ensemble's distribution as Markdown: for each metric, the minimum,
@@ -426,6 +450,9 @@ pub fn histories(mechanisms: Mechanisms, prm: Params, every_s: f64, end_s: f64) 
     let steps = (end_s / DT_S).round() as usize;
     for i in 1..=steps {
         plant.step_inline(&mut core, &mut cont);
+        if let Some(e) = cont.error() {
+            panic!("{e}");
+        }
         if i % every == 0 {
             let f = plant.frame();
             h.t_h.push(f.t_s / 3600.0);
@@ -1338,17 +1365,30 @@ mod tests {
     /// The ensemble (2026-10-30): a member with `rel = 0` is the default
     /// run exactly; the report's nearest-rank quartiles by hand on four
     /// members (head 1, 2, 3, 4 h: quartiles 1, 2, 3; max 4).
+    ///
+    /// **Since gh:#1099 (2026-11-02) on the lumped containment**, explicitly:
+    /// the property tested is the ensemble's, and two network runs would
+    /// cost about 40 min.
     #[test]
     fn the_ensemble_reproduces_the_default_and_reports_quartiles() {
-        assert_eq!(ensemble_member(7, 0.0, 1), measure(Mechanisms::default()));
+        let lumped = Mechanisms::default().without_network_containment();
+        assert_eq!(ensemble_member_with(lumped, 7, 0.0, 1), measure(lumped));
         let m = |h: f64| Metrics { lower_head_h: Some(h), depressurised_h: Some(h), h2_25h_kg: 10.0 * h, p_dw_peak_mpa: 0.1 * h, vent_h: None, explosion_h: None, fp_released_25h: 1.0, uo2_released_25h_kg: 1.0 };
         let r = ensemble_report(&[m(3.0), m(1.0), m(4.0), m(2.0)]);
         assert!(r.contains("| lower-head failure, h | 1.0000 | 1.0000 | 2.0000 | 3.0000 | 4.0000 |"), "{r}");
         assert!(r.contains("the vent opened in 0, the building exploded in 0"), "{r}");
     }
 
+    ///
+    /// **Since gh:#1099 (2026-11-02) every run in this test is on the lumped
+    /// containment** (`measure` is shadowed below to add
+    /// `without_network_containment`), so every pin here keeps its meaning
+    /// and its value: the lumped plant is reproduced bit for bit. The
+    /// network plant, now the default, is pinned by
+    /// `the_network_baseline_is_pinned`.
     #[test]
     fn the_uncalibrated_baseline_is_pinned() {
+        let measure = |m: Mechanisms| measure(m.without_network_containment());
         let m = measure(Mechanisms::default());
         // The earlier models below are reproduced with the fission
         // products' decay heat left in the core, as it was then.
@@ -1720,15 +1760,19 @@ mod tests {
 
     /// The elasticity of an input that only the demo draws is zero, of one
     /// that sets the lower-head failure is not, and the report ranks them.
+    /// **On the lumped containment since gh:#1099**, explicitly: the
+    /// instrument is tested, and its five network runs would cost about
+    /// 1.5 h.
     #[test]
     fn elasticities_rank_inputs_by_their_effect() {
-        let base = measure(Mechanisms::default());
-        let none = elasticity("containment_design_pa", 0.01, &base).unwrap();
+        let lumped = Mechanisms::default().without_network_containment();
+        let base = measure(lumped);
+        let none = elasticity_with(lumped, "containment_design_pa", 0.01, &base).unwrap();
         assert_eq!((none.lower_head, none.h2, none.p_dw, none.event_changes), (Some(0.0), 0.0, 0.0, false));
-        let lh = elasticity("head_failure_wall_k", 0.01, &base).unwrap();
+        let lh = elasticity_with(lumped, "head_failure_wall_k", 0.01, &base).unwrap();
         assert!(lh.lower_head.is_some_and(|e| e > 0.0), "{lh:?}");
         assert_eq!(lh.tag, Tag::A);
-        assert!(elasticity("no_such_input", 0.01, &base).is_none());
+        assert!(elasticity_with(lumped, "no_such_input", 0.01, &base).is_none());
         let table = sensitivity_report(&[none, lh]);
         assert!(table.find("head_failure_wall_k").unwrap() < table.find("containment_design_pa").unwrap(), "{table}");
     }
@@ -1736,10 +1780,16 @@ mod tests {
     /// Each ablation runs, differs from the baseline in the mechanism it
     /// switches off and nowhere else, and the report carries every run as a
     /// column with every band as a row.
+    ///
+    /// **Since gh:#1099 (2026-11-02) the runs here are on the lumped
+    /// containment** (each row with `without_network_containment` added),
+    /// which is the table every earlier record holds: on the network the
+    /// 70 runs would take about 70 × 18 min. The table on the network is
+    /// `the_ablation_table_on_the_network` (ignored: multiple hours).
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
-        let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 69);
+        let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech.without_network_containment()))).collect();
+        assert_eq!(runs.len(), 70);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -1817,6 +1867,75 @@ mod tests {
         assert!(!ablations()[66].1.fdi_lpme && ablations()[66].1.burn_dynamics);
         assert!(!ablations()[67].1.uo2_candling && ablations()[67].1.fdi_lpme);
         assert!(!ablations()[68].1.molten_pool && ablations()[68].1.uo2_candling);
+        assert!(!ablations()[69].1.network_containment && ablations()[69].1.molten_pool);
+        assert!(ablations()[0].1.network_containment, "the baseline row is the default, the network");
+    }
+
+    /// **The ablation table on the network** (gh:#1099): every row of
+    /// [`ablations`] as it stands, the network the default. Prints the
+    /// table; asserts only that every run completes. Ignored: about 70 runs
+    /// of 15-20 min each (multiple hours, the workspace's third tier). Not
+    /// yet run (2026-11-02).
+    #[test]
+    #[ignore = "multiple hours: 70 network runs of 26 h each"]
+    fn the_ablation_table_on_the_network() {
+        let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
+        println!("{}", report(&runs));
+    }
+
+    /// **The network baseline, pinned** (gh:#1099, 2026-11-02): the
+    /// recorded Unit 1 sequence to 26 h with every mechanism on, the
+    /// containment the control-volume network (the default since the
+    /// maintainer's "switch it").
+    ///
+    /// Predictions, written before the first run (2026-11-02), against the
+    /// lumped plant's 5.4839 h, 4.9578 h, 470.75 kg, 0.81295 MPa:
+    /// - lower head 5.48 ± 0.05 h and depressurised 4.958 ± 0.01 h (both
+    ///   before the containment matters to the vessel: the core sees the
+    ///   drywell only through the leak's back pressure);
+    /// - H2 at 25 h within ±10 % (the run is chaotic at the 1e-9 level,
+    ///   `ensemble.md`);
+    /// - drywell peak 0-25 h between 0.70 and 0.85 MPa (open loop the
+    ///   network peaked at 0.797 MPa, its flange opening at 17.25 h);
+    /// - the vent within ±0.2 h of the lumped plant's, the explosion never
+    ///   (open loop the building reached 1.74 % H2).
+    ///
+    /// **Results (2026-11-02, release, Rust 1.99.1; set after the run,
+    /// gh:#1099)**, network against lumped (the lumped plant reproduced its
+    /// pins exactly in the same run):
+    ///
+    /// | Quantity | Lumped | Network | Predicted | Outcome |
+    /// |---|---|---|---|---|
+    /// | lower-head failure | 5.4839 h | **4.6894 h** | 5.48 ± 0.05 h | **MISSED**, 0.79 h early |
+    /// | depressurised (< 2 MPa) | 4.9578 h | **4.6894 h** | 4.958 ± 0.01 h | **MISSED**: by the head's failure itself |
+    /// | in-vessel H2 at 25 h | 470.75 kg | 417.19 kg | ±10 % | **MISSED** (−11.4 %) |
+    /// | drywell peak 0-25 h | 0.81295 MPa | **1.00367 MPa** | 0.70-0.85 MPa | **MISSED** high; now just above BSAF's 0.8-1.0 band |
+    /// | vent flowing | 23.7336 h | 23.7336 h | ±0.2 h | held |
+    /// | building burn | never | never | never | held |
+    /// | UO2 released by 25 h | 2.672 kg | 4.093 kg | (none) | |
+    ///
+    /// The head's failure moves onto the early branch the lumped plant's
+    /// own 1e-9 ensemble already reaches (4.50-5.56 h, `ensemble.md`), so
+    /// the move is not attributed to a containment mechanism (no ablation
+    /// was run); the drywell peak, at 1.004 MPa, lies above the lumped
+    /// ensemble's whole range (0.785-0.964 MPa). Tentative: the network's
+    /// geometry is not drawn (gh:#1110).
+    #[test]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (one 26 h network run, ~20 min); runs by default, skipped under --no-default-features")]
+    fn the_network_baseline_is_pinned() {
+        let m = measure(Mechanisms::default());
+        println!("network baseline: {m:?}");
+        let lumped = measure(Mechanisms::default().without_network_containment());
+        println!("lumped baseline: {lumped:?}");
+        // Lumped: the pins of `the_uncalibrated_baseline_is_pinned`, again.
+        assert!(lumped.lower_head_h.is_some_and(|h| (h - 5.4839).abs() < 0.001) && (lumped.p_dw_peak_mpa - 0.81294607).abs() < 1e-8, "{lumped:?}");
+        // Network: set after the run, gh:#1099 (2026-11-02).
+        let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
+        assert!(near(m.lower_head_h, 4.6894, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.6894, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 417.19).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 1.00367475).abs() < 1e-8 && (m.uo2_released_25h_kg - 4.093).abs() < 0.01, "{m:?}");
+        assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
     }
 
     /// The verdict reads a value against its band.

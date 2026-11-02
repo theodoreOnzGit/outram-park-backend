@@ -113,7 +113,9 @@ use sembawang::bwr_mark1::{Mechanisms, Mode, Plant};
 /// remaining difference can be attributed to a `Containment` mechanism:
 /// both models then see the ablated plant's snapshots.
 fn old_ablations_from_env() -> Mechanisms {
-    let mut m = Mechanisms::default();
+    // The recorded plant runs the old (lumped) containment: since gh:#1099
+    // the network is the plant's default, so the ablation is explicit.
+    let mut m = Mechanisms::default().without_network_containment();
     for a in std::env::var("FUKUSHIMA_OLD_ABLATE").unwrap_or_default().split(',') {
         m = match a.trim() {
             "pool_layers" => m.without_pool_layers(),

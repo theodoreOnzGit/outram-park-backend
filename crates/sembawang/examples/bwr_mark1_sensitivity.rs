@@ -12,8 +12,13 @@
 //! study to them (for checking how an elasticity depends on the step). The runs are independent and
 //! deterministic, so they are spread over the machine's threads; the table
 //! does not depend on how many. Research, education and V&V only.
+//!
+//! Since gh:#1099 (2026-11-02) the plant's containment is the control-volume
+//! network, about 100 times the cost of the lumped model
+//! `input-sensitivity.md` recorded; `FUKUSHIMA_CONTAINMENT=lumped` runs that
+//! model (the explicit ablation `Mechanisms::without_network_containment`).
 
-use sembawang::bwr_mark1::compare::{elasticity, measure, sensitivity_report, Elasticity};
+use sembawang::bwr_mark1::compare::{elasticity_with, measure, sensitivity_report, Elasticity};
 use sembawang::bwr_mark1::params::Params;
 use sembawang::bwr_mark1::Mechanisms;
 
@@ -21,7 +26,9 @@ use sembawang::bwr_mark1::Mechanisms;
 /// library's tests reach; the example itself has no test.
 fn main() {
     let rel: f64 = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(0.01);
-    let base = measure(Mechanisms::default());
+    let lumped = std::env::var("FUKUSHIMA_CONTAINMENT").is_ok_and(|v| v == "lumped");
+    let mech = if lumped { Mechanisms::default().without_network_containment() } else { Mechanisms::default() };
+    let base = measure(mech);
     let only: Vec<String> = std::env::args().skip(2).collect();
     let names: Vec<&'static str> =
         Params::INPUTS.iter().map(|(n, _)| *n).filter(|n| only.is_empty() || only.iter().any(|o| o == n)).collect();
@@ -30,7 +37,7 @@ fn main() {
     let rows: Vec<Elasticity> = std::thread::scope(|s| {
         let handles: Vec<_> = names
             .chunks(chunk)
-            .map(|c| s.spawn(|| c.iter().filter_map(|n| elasticity(n, rel, &base)).collect::<Vec<_>>()))
+            .map(|c| s.spawn(|| c.iter().filter_map(|n| elasticity_with(mech, n, rel, &base)).collect::<Vec<_>>()))
             .collect();
         handles.into_iter().flat_map(|h| h.join().expect("a sensitivity run panicked")).collect()
     });
