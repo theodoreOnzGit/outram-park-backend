@@ -256,3 +256,62 @@ sums up all the "failure/accident" fractions in the struct, utility function
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 5173055766.
+
+# Review: AccidentFractions::normal_operation_sum (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-normal-operation-sum-theodoreonzgit-30f22e6a"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:49:49+08:00"
+modified = "2026-11-02T13:49:49+08:00"
+target = "fn:30f22e6aa555e522"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::AccidentFractions::normal_operation_sum"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:49:49+08:00"
+commit = "372ffa19c7812255c685124b8309f8becd73ebbf"
+hash = "sha256:f686099b10d09642a2f1f9fb1996aafa32b3f6d31e75e887100d5ded75363435"
+doc_hash = "sha256:d1fcf421c45bd331e8ba863536ce2b2c881dd2d21ea825b8c34e66890195cc1d"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:48f1bc7388b4aee5" = "sha256:4da0ac43908bdaeb66bf1b8090087e7e71676f71dc2d235cbbee149afeb39b86"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "JEafafJ8JByNFWVCUI14CKjS9jN9vG7aLnakkCsrQ6eaAhc60oZyGruJpf0rpSGEbc043eectjIUmPQpO+PWAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+utility function which helps calculate release during normal operation
+in release_activity in triso atops python (i checked)
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 372ffa19c7.
