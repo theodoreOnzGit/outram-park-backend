@@ -148,3 +148,53 @@ That is when trying to reproduce triso atops paper results, we can use defaults 
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit ee87306343.
+
+# Review: AccidentFractions (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-accidentfractions-theodoreonzgit-48f1bc73"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:47:05+08:00"
+modified = "2026-11-02T13:47:05+08:00"
+target = "fn:48f1bc7388b4aee5"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::AccidentFractions"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:47:06+08:00"
+commit = "924bcde174407e76c119b77249234fed7e6ecf37"
+hash = "sha256:4da0ac43908bdaeb66bf1b8090087e7e71676f71dc2d235cbbee149afeb39b86"
+doc_hash = "sha256:7c62060a0abce2181bddb5a9413905af661937d2edbdef4c2f21b30eedd4f4ec"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "2zwx5v+zKo+SuI9hqX1a5EZEdE601Da2BxN3K7uh84FJYEBez64TB4K/b62MWJMXbUFSAvFX9qY+0vG7JbYsCQ=="
+```
+
+data structure to hold accident fractions, it is a np.ndarray fraction under release activity
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 924bcde174.
