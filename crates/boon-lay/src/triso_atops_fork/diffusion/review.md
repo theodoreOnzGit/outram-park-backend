@@ -515,3 +515,67 @@ integration utility following upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit fe30911754.
+
+# Review: diffusion_coefficient_for (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-diffusion-coefficient-for-theodoreonzgit-1b4860a3"
+kind = "review"
+origin = "human"
+created = "2026-11-02T11:33:12+08:00"
+modified = "2026-11-02T11:33:12+08:00"
+target = "fn:1b4860a3c1b4d2ed"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient_for"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T11:33:13+08:00"
+commit = "69b171c34063faec334e38be341923762ab7a8f3"
+hash = "sha256:1e23358c5e8c68e95548f0ed7b7aadf6e613039c32ab88dcea7d6fb1ee4b3fe7"
+doc_hash = "sha256:b29af133b09f4575522a2bfd96b9b0a0e826bfbf6edf0123cd0af3487e9a389e"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:3e752b3c15c4e4fe" = "sha256:d1f72246cf1efe75bc53507767c1fc7af7359636aa5b009d6fba94e241e5bf7a"
+"fn:459395474c5875ce" = "sha256:97f8cd3ee0d1655194b4537bb7ef9d16c1f40e279be6fe6bf1b38d1b7b492abd"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+"fn:8bc4c3bc717bd99d" = "sha256:01a9d764192caed17727d22b033e15e121412eb228415dd63816e5c10edbb912"
+"fn:bbcd28a15cbbf5eb" = "sha256:eb2ee1bfa72e961eccc4f1bb9dc7c1c90fe081cb6aca389e38ac0948778d6040"
+"fn:fc42897456ddcda8" = "sha256:99ab9e07c9d01a858b47d5649f98c035be52983fc3847b7614406757d66dbd8d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: wrapper"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "VxZP9r9J51TH/ySfhLTmfYJjUEpRqkiwTUwnt8ugHVMT3/ZViXg1f5TiIqJnCkUEX9ULCXcYxzsvET/4Z03hAg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+wrapper to do ablation as to which settings reproduce triso atops paper result
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 69b171c340.
