@@ -307,3 +307,57 @@ ablation testing utility, to to check if diffusivity or fixed release fraction i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-30, commit ade4736a45.
+
+# Review: TrisoAtopsVariant (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-trisoatopsvariant-theodoreonzgit-8a156c01"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:20:30+08:00"
+modified = "2026-11-02T10:20:30+08:00"
+target = "fn:8a156c01e50ca527"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/variant.rs::TrisoAtopsVariant"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:20:31+08:00"
+commit = "356904dd99ee7b7745bebae475adaf54528e9e0c"
+hash = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+doc_hash = "sha256:d08752c4e708e2250d64eeeac59feb52d83d046426147a66590de600c10d7564"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:9a3e33816dabd64b" = "sha256:8c0917b5ed353738bf0972a9f3c18d11059686189a878e614fc7682784bc3f37"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "other: this is a switch that checks if we use upstream, or some interpretation of the paper from AI readings"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "none_yet"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "6lr7u7QXf/RamMFTp1i818YY72OwtHYQKFT1oftGhH7YA2IDwx8pdCA9pr7l8FUy7g9j0xUmbWrzE0q9PeGdBA=="
+```
+
+checks whether we use upstream or the paper values (as read from paper)
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 356904dd99.
