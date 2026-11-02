@@ -1067,23 +1067,23 @@ id = "review-induced-stress-with-thinning-factor-theodoreonzgit-bb12bcfe"
 kind = "review"
 origin = "human"
 created = "2026-10-13T15:21:21+08:00"
-modified = "2026-10-13T15:21:21+08:00"
+modified = "2026-11-02T14:22:24+08:00"
 target = "fn:bb12bcfe4e38d67a"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/stress.rs::induced_stress_with_thinning_factor"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:21:21+08:00"
-commit = "a84bcd2e36b18e3b65a6b19934a4303989058791"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:22:24+08:00"
+commit = "2a4100f7eda58e10866fd6583d3a9d652f2c8230"
 hash = "sha256:df990056b7c16e15de2eabb7091840c8d26efb6792d907e9ac6021a69bfb7562"
 doc_hash = "sha256:b5a62bbfd2d05ee79a50dbde20c2d8a5004ed4ad7ef7f122b717fa4ffdfab467"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
-"fn:2b07126502aff09a" = "sha256:6e0cc2c8f38953ed77c6c5ae6e96a20c995869623b64610b219fc6b3a9536e09"
-"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:2b07126502aff09a" = "sha256:ca60c36142570cdb62c6dc0371a4debd43fdb702c2c703de9ed4495f3ffa95d2"
+"fn:5b2b33cb94ca9a56" = "sha256:7ff9b2a5892dca4bfeec223f3a0c85ba6a15332eac2b331f0e94c6699764f399"
 "fn:fcce2a003b237da0" = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
 
 [review.checklist]
@@ -1100,14 +1100,10 @@ units_documented = "not_documented"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "gNBJfNtzikoDXG1HYk0enbSLk0ml6OGQWfQpiwofN9dWKSgootbvqSZu6qRigmzNULXKFx5WZ7FmqiEjBe/+DA=="
+value = "etQ1jxWSqNy8cMcjdBreOCM1PhRrbrEuaMaaMO0ReY0CsjV2kCJCD96gH16hMQVPOjdf9ru87wSHVPW5EtAuDg=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -1116,9 +1112,11 @@ kind = "implements"
 
 Guards could be improved for fkor, but the equation implemented is essentially correct. Result can also be used to wrap this. good numerical utility anyway. But not up to QA standards
 
+Re-confirmed on 2026-11-02 without the wizard (inherited stale: SicLayer::cbrt_mean_radius, SicLayer changed; their diffs were shown). Re-confirms the review of 2026-10-13 at commit a84bcd2e36; the checklist is carried over unchanged.
+
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a84bcd2e36.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 2a4100f7ed.
 
 # Review: a_negative_corrosion_rate_is_refused_by_both_routes (github:theodoreOnzGit)
 
