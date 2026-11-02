@@ -33852,11 +33852,28 @@ the network closes as `now = start + boundary_inflow`.
 - The donor volume decides which phase leaves by its level at the port
   (a point draw); the path's partial-submergence split sets only the rate.
 - Boundaries are fixed-state reservoirs ([`NetworkBoundary`]).
-- A vacuum breaker is opened or shut for a whole step by the
+- ~~A vacuum breaker is opened or shut for a whole step by the
   start-of-step pressures, and the equalising limit is taken from the
   start-of-step state (junction pressures less the gas column, gh:#1097):
   both lag by one step a source that arrives within it (measured in
-  `cv_network.md` test 7 and in `sembawang`'s containment comparison).
+  `cv_network.md` test 7 and in `sembawang`'s containment comparison).~~
+  **CORRECTED 2026-11-02 (gh:#1116):** both are re-decided on every
+  Picard iterate from the latest one. The equalising limit is a
+  linearised end-of-step condition: the gas that brings the driving
+  difference to its target, with this path's own flow added back as the
+  latest iterate carries it. That is, the donor's loss from the previous
+  iterate and the receiver's gain from the one before, each at its
+  adiabatic slope `γ p/n` (the ablation keeps the ported isothermal
+  `p/n`). A path fed by a boundary is limited by its receiver alone. A
+  breaker opens on any iterate where that difference exceeds its set
+  point, and stays open for the step (hysteresis: at most one change a
+  step, so no chatter; open is safe because the limit then gives zero
+  flow below the set point). The old start-of-step decisions are the
+  ablation [`CvNetwork::without_iterate_switch_decisions`].
+- The switches are still switches: choking and the limit make a
+  transient that crosses them non-smooth in `Δt`. On a smooth case the
+  error at these steps is second-order dominated (`cv_network.md`,
+  gh:#1116).
 
 ```rust
 pub mod cv_network { /* ... */ }
@@ -34435,6 +34452,7 @@ pub struct NetworkStepReport {
     pub residual: f64,
     pub transfers: Vec<crate::flow_path::FlowTransfer>,
     pub volumes: Vec<crate::control_volume::ControlVolumeStepReport>,
+    pub equalising_limited: Vec<bool>,
 }
 ```
 
@@ -34446,6 +34464,7 @@ pub struct NetworkStepReport {
 | `residual` | `f64` | Last residual (largest relative change of a path rate). |
 | `transfers` | `Vec<crate::flow_path::FlowTransfer>` | Each path's transfer at the last iterate. |
 | `volumes` | `Vec<crate::control_volume::ControlVolumeStepReport>` | Each volume's own report at the last iterate, in the order the<br>volumes were added (gh:#1100): among others its<br>`pool_heat_to_atmosphere`, the pool heat that went into the<br>atmosphere because the pool was dry or boiled dry within the step,<br>which a caller cannot otherwise see. |
+| `equalising_limited` | `Vec<bool>` | Per path, whether the equalising limit cut its gas flow at the last<br>iterate (gh:#1116). |
 
 ##### Implementations
 
@@ -34583,6 +34602,16 @@ pub struct CvNetwork {
   pub fn new(control: NetworkControl) -> Self { /* ... */ }
   ```
   An empty network.
+
+- ```rust
+  pub fn without_iterate_switch_decisions(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation (gh:#1116): take the equalising limit and the vacuum
+
+- ```rust
+  pub fn iterate_switch_decisions(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the switch decisions come from the latest Picard iterate (the
 
 - ```rust
   pub fn add_volume(self: &mut Self, v: ControlVolume) -> usize { /* ... */ }

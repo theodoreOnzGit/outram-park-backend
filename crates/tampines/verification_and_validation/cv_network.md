@@ -171,6 +171,9 @@ start-of-step state, does not see a source's rise within the step (about
 600 Pa a step in that test). Closure 9.8e-15. The bound kept (3.4–4.1 kPa)
 was set after the run and is labelled so. A breaker held for a whole step is
 first order in `Δt`; a lagged switch, stated.
+**SUPERSEDED 2026-11-02 (gh:#1116):** the decisions now come from the
+latest Picard iterate, and test 7 holds 3399.999704–3400.000890 Pa. See
+the section below.
 
 ### The equalising limit uses the junction pressures (gh:#1097, 2026-11-01)
 
@@ -184,3 +187,143 @@ liquid head) less the donor gas column `ρ_g g Δz`, minus a breaker's opening
 difference. Tests 1–7 still hold. The vent test's vessel now ends at
 99 944 Pa instead of 1.0000 bar: the 4 m gas column to its boundary,
 47 Pa, is no longer ignored.
+
+## Switch decisions from the latest Picard iterate (gh:#1116, 2026-11-02)
+
+**The change.**
+- **Equalising limit.** It is re-taken on every Picard iterate from the
+  latest iterate. That is, it is a linearised end-of-step condition, no
+  longer a start-of-step one. The path may move at most the gas that brings
+  the end-of-step driving difference to its target (the opening difference
+  for a vacuum breaker, zero otherwise):
+  `n_eq = (d0 − Δp_set) / (p_a/n_a + p_b/n_b)`, with `d0 = drive_latest +
+  n_prev (p_a/n_a + p_b/n_b)`. Here `drive_latest` is the latest iterate's
+  junction-pressure difference less the gas column, and `n_prev` the moles
+  this path moved on that iterate. On the first iterate `n_prev = 0` and the
+  latest state is the start state, so it is the old limit. At convergence,
+  whenever the limit binds, the end-of-step driving difference equals
+  `Δp_set`. (This is the design as written before the run. Two
+  corrections, found by the tests, are below under "As built".)
+- **Vacuum breaker.**
+  - It starts each step as before, open if the start-of-step difference
+    exceeds its set point.
+  - On every iterate it also opens if `d0` (the latest difference with its
+    own flow added back) exceeds the set point.
+  - **Hysteresis:** once open within a step it stays open for that step. So
+    the decision changes at most once per step and cannot chatter, unlike
+    gh:#1097's per-iterate decision, which shut itself.
+  - Staying open is safe, because the limit gives zero flow whenever `d0` is
+    below the set point.
+  - A breaker whose donor is a boundary is limited by its receiver alone; a
+    boundary does not move. Before, it had no limit.
+- **Ablation:** `CvNetwork::without_iterate_switch_decisions` keeps the
+  start-of-step decisions, bit for bit.
+
+**Predictions (written before the code was changed):**
+
+- **S1.** The ablation reproduces the old network bit for bit (trajectory
+  hashes of tests 1 and 7 taken on the code before the change).
+- **S2, test 7 (breaker under a rising pressure).** After opening, every
+  step ends with the difference in **3400.0–3400.5 Pa** (old: 3905–4064 Pa),
+  inside the original 3.4–3.8 kPa prediction. The 0.05 kg/s source no
+  longer overshoots, because the limit sees the end of the step. The
+  breaker opens one step earlier (step 4, old step 5), because the opening
+  can now be found within the step in which the difference crosses 3.4 kPa.
+  The step it opens on ends at 3400.0–3400.5 Pa (old: 4247 Pa). Closure
+  stays < 1e-12.
+- **S3, a smooth case for the time order.** Two tanks 1 % apart (1.01 and
+  1.00 bar), a 0.0005 m² path, no choking and the limit never binding
+  (asserted from the report). The momentum is backward Euler and the volumes
+  are first order, so the error at 2 s against `Δt` = 0.0125 s halves with
+  `Δt`: ratio 1.8–2.2 between `Δt` = 0.2 and 0.1 s, and between 0.4 and
+  0.2 s.
+- **S4, test 2 re-measured.** At 120 s, `Δt` = 1 s against 0.01 s: still
+  within the 2 % bar (old +1.06 %). At 2 s, the old +107 Pa (0.2 s) and
+  −3.2 Pa (0.1 s): low confidence. My guess is that the 0.2 s error falls,
+  because the limit no longer acts on a stale state, but the order stays
+  unreadable, because choking is still a switch.
+- **S5.** Tests 1, 3, 4, 5 and 6 still hold: closure < 1e-12. Test 4 still
+  ends at 99 944 Pa (an equilibrium, within 1 Pa).
+
+**As built (two corrections to the design above, each found by a test
+and fixed before the results were recorded):**
+
+1. **The receiver lags by one iterate.** A receiver in the latest iterate
+   has taken only what the donor sent on the iterate *before*. So `n_prev`
+   is added back at the donor's slope, and the moles of the iterate before
+   at the receiver's. The design above took both at `n_prev`, and test 2 at
+   `Δt` = 1 s converged on a false fixed point with no flow. The tanks
+   stayed 100 kPa apart (+32 % at 120 s). The rate residual could not see
+   it, and the in-transit inventory kept the closure exact.
+2. **The slope is adiabatic, `γ p/n`,** with `γ = 1 + nR/C_v` from each
+   volume's gas model, not the isothermal `p/n`. Gas that leaves carries its
+   enthalpy, so the rest cools. With `p/n` the iterates oscillated by a
+   factor of about `1 − γ ≈ −0.4` each, and `sembawang`'s relief case went
+   from 2 to 36 Picard iterations. The building's breathing flow, about
+   6e-5 kg/s through its openings, was being re-limited at sub-mPa drives.
+   With `γ p/n` it went to 11 iterations. The converged limit does not
+   depend on the slope; only the convergence rate does. The first iterate's
+   limit therefore differs from the ablation's by the slope (loose coupling,
+   one pass, moved; test 4 below). A path fed by a boundary is now limited
+   by its receiver alone, for open paths as well as breakers, so inflow from
+   a boundary cannot run past the end-of-step balance either.
+
+**Results (2026-11-02, release, Rust 1.99.1).**
+
+| Prediction | Old (now the ablation) → new | Verdict |
+|---|---|---|
+| S1 ablation = old code | test 1 (600 × 0.1 s) and test 7 (400 × 1 s) trajectory hashes identical to b4c99e210 (`iterate_switches_are_default_and_the_ablation_is_the_old_network`) | held |
+| S2 test 7, after opening | 3904.5–4063.6 → **3399.999704–3400.000890 Pa** | held, except its lower edge missed by 3.0e-4 Pa (Picard tolerance) |
+| S2 test 7, opening | step 5 at 4246.8 Pa → step 4 at 3399.9999928 Pa | held (one step earlier; within 7e-6 Pa of the set point) |
+| S2 test 7, closure | 9.8e-15 → 9.3e-15 | held |
+| S3 smooth case, order | errors at `Δt` 0.4 / 0.2 / 0.1 / 0.05 s: −75.63 / −19.12 / −3.695 / −0.961 Pa against 0.0125 s; ratios 3.96, 5.17, 3.85 | **missed** (predicted 1.8–2.2): second-order dominated, see below |
+| S4 test 2, 120 s | +1.06 % → +0.138 % | held (2 % bar unchanged) |
+| S4 test 2, 2 s | +107 → +58.1 Pa (0.2 s); −3.2 → −17.7 Pa (0.1 s); ratio −3.28 | held as guessed: smaller at 0.2 s, still unreadable |
+| S5 test 1 | 151 324.94 / 151 319.91 → 151 310.28 / 151 310.28 Pa; iterations ≤ 30 → ≤ 34 | held |
+| S5 test 4, implicit | 99 944.1 → 99 942.1 Pa | **missed** "within 1 Pa" by 1 Pa (below) |
+| S5 test 4, loose coupling | 99 944.1 → 99 945.5 Pa | **missed** by 1.4 Pa: its one pass takes the adiabatic slope (As built, 2) |
+| S5 tests 3, 5, 6, L8, N1 | unchanged; closures ≤ 2.9e-15 | held |
+
+**Why the numbers moved.** The limit is now an end-of-step condition, so
+it sees what happens within the step: a source's rise (test 7) and the gas's
+warming from the pools (tests 1, 2 and 4). The start-of-step limit had held
+each of those one step behind. In test 4 the vessel ends 2 Pa lower for
+that reason, and the 1 s run of test 2 lands 7.7 times closer to the
+0.01 s run.
+
+**S3, the time order on a smooth case** (`time_order_on_a_smooth_case`; no
+step choked or limited, asserted). The error at these steps is dominated by
+an `h²` term, not the first-order one predicted. That is `flow_path`'s
+identity (`transient_second_order_is_a_tanh_addition_identity`): a path
+accelerating from rest under a nearly constant difference is second order
+in this scheme, and the first-order term comes only from the difference
+changing within a step. A two-term fit on the two finest steps gives
+`c₁ ≈ −1.5 Pa/s` and `c₂ ≈ −354 Pa/s²`, so the first-order term would
+dominate only below about 4 ms. The fit is stated but not asserted. Asserted
+after the run, and labelled so: one sign, and each halving divides the
+error by at least 1.8. On this case the ablation gives identical bits,
+because no switch acts.
+
+**Downstream: `sembawang`'s containment network**
+(`cargo test --release -p sembawang --test containment_network_vs_containment`,
+6/6 pass on both; the old decisions measured by temporarily making the
+ablation the default, then restored).
+
+| Quantity | Old decisions → new | Comment |
+|---|---|---|
+| A1/A2 relief: Δp_ww, Δp_dw, worst ΔT_pool | +341.1 / +6.4 Pa, 2.87e-3 K: unchanged | |
+| A5 Picard iterations (asserted < 30) | 2 → 11 | the building's breathing flow, ~6e-5 kg/s, which the start-of-step limit froze at zero |
+| B, 6 h of Unit 1: worst \|Δp_dw\|, \|Δp_ww\|, \|ΔT_pool\| against the old lumped `Containment` | 57.99 % → **16.51 %**, 12.00 % → **4.62 %**, 0.60 → **0.26 K** | at 4.96 h the drywell spike: 553 → 408 kPa (old model 350 kPa); the downcomers now open within the step (+1576 kg/s) |
+| B, peak p_dw | 571.6 → 503.6 kPa | |
+| B, half-hourly p_dw at 5.0 / 6.0 h | +2.81 % → +3.41 %, +3.98 % → +4.52 % | slightly worse between spikes |
+| B, Picard iterations, cost | ≤ 35 → ≤ 105; **6.46 → 24.9 ms a step** (a 30 h run 698 s → 2688 s) | **3.9 times the cost** |
+| C, D, E | fingerprints moved: p_dw +0 to −35 Pa; Cs and Xe splits by up to 1e-3 relative; burned H2 323.43 → 320.80 kg, the building's peak 402.3 → 396.3 kPa; burn starts 1678/1800 s → 1677/1799 s; conservation unchanged (~2e-14) | |
+| the whole test file | 177 s → 650 s | |
+
+The cost is the open item. The decisions now resolve flows that the lagged
+limit held at zero or let overshoot, and that takes Picard iterations.
+Every `sembawang` long test that runs the network gets slower and its pins
+move. They were not re-run here (see the hand-off).
+
+**What to quote:** test 7's 3399.999704–3400.000890 Pa, and the smooth
+case's ratios. Test 2's 2 s errors are not an order measurement.

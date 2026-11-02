@@ -51,11 +51,28 @@
 //! - The donor volume decides which phase leaves by its level at the port
 //!   (a point draw); the path's partial-submergence split sets only the rate.
 //! - Boundaries are fixed-state reservoirs ([`NetworkBoundary`]).
-//! - A vacuum breaker is opened or shut for a whole step by the
+//! - ~~A vacuum breaker is opened or shut for a whole step by the
 //!   start-of-step pressures, and the equalising limit is taken from the
 //!   start-of-step state (junction pressures less the gas column, gh:#1097):
 //!   both lag by one step a source that arrives within it (measured in
-//!   `cv_network.md` test 7 and in `sembawang`'s containment comparison).
+//!   `cv_network.md` test 7 and in `sembawang`'s containment comparison).~~
+//!   **CORRECTED 2026-11-02 (gh:#1116):** both are re-decided on every
+//!   Picard iterate from the latest one. The equalising limit is a
+//!   linearised end-of-step condition: the gas that brings the driving
+//!   difference to its target, with this path's own flow added back as the
+//!   latest iterate carries it. That is, the donor's loss from the previous
+//!   iterate and the receiver's gain from the one before, each at its
+//!   adiabatic slope `γ p/n` (the ablation keeps the ported isothermal
+//!   `p/n`). A path fed by a boundary is limited by its receiver alone. A
+//!   breaker opens on any iterate where that difference exceeds its set
+//!   point, and stays open for the step (hysteresis: at most one change a
+//!   step, so no chatter; open is safe because the limit then gives zero
+//!   flow below the set point). The old start-of-step decisions are the
+//!   ablation [`CvNetwork::without_iterate_switch_decisions`].
+//! - The switches are still switches: choking and the limit make a
+//!   transient that crosses them non-smooth in `Δt`. On a smooth case the
+//!   error at these steps is second-order dominated (`cv_network.md`,
+//!   gh:#1116).
 
 use tampines_steam_tables::gas_mixture::{NonCondensable, R_GAS};
 use uom::si::available_energy::joule_per_kilogram;
@@ -166,6 +183,9 @@ pub struct NetworkStepReport {
     /// atmosphere because the pool was dry or boiled dry within the step,
     /// which a caller cannot otherwise see.
     pub volumes: Vec<ControlVolumeStepReport>,
+    /// Per path, whether the equalising limit cut its gas flow at the last
+    /// iterate (gh:#1116).
+    pub equalising_limited: Vec<bool>,
 }
 
 /// Inventory carried between steps by a path end: mass that left a donor on
@@ -202,6 +222,9 @@ pub struct CvNetwork {
     boundary_in: InTransit,
     time_s: f64,
     control: NetworkControl,
+    /// Switch decisions (equalising limit, vacuum breakers) from the latest
+    /// Picard iterate (default, gh:#1116); else from the start of the step.
+    iterate_switches: bool,
 }
 
 fn mr(x: f64) -> MassRate {
@@ -224,7 +247,23 @@ impl CvNetwork {
             boundary_in: InTransit::default(),
             time_s: 0.0,
             control,
+            iterate_switches: true,
         }
+    }
+
+    /// Ablation (gh:#1116): take the equalising limit and the vacuum
+    /// breakers' open/shut decisions from the start-of-step state for the
+    /// whole step, as before 2026-11-02 (bit for bit). They then lag by one
+    /// step a source that arrives within it.
+    pub fn without_iterate_switch_decisions(mut self) -> Self {
+        self.iterate_switches = false;
+        self
+    }
+
+    /// Whether the switch decisions come from the latest Picard iterate (the
+    /// default) rather than the start of the step.
+    pub fn iterate_switch_decisions(&self) -> bool {
+        self.iterate_switches
     }
 
     /// Add a volume; returns its index.
@@ -552,19 +591,27 @@ impl CvNetwork {
         // equalise the drywell with the torus gas, ignoring the 11.8 kPa of
         // submergence, so the next iterate drove the gas back and the step
         // did not converge; found on the Mark I containment, 2026-11-01).
-        let drive: Vec<(f64, f64)> = self
-            .paths
-            .iter()
-            .map(|np| {
-                let g = *np.path.geometry();
-                let (zf, zt) = (g.from_elevation.get::<meter>(), g.to_elevation.get::<meter>());
-                let a = Self::path_end(&self.volumes, &np.from, zf);
-                let b = Self::path_end(&self.volumes, &np.to, zt);
-                let (pa, pb) = (a.pressure.get::<pascal>(), b.pressure.get::<pascal>());
-                let (ra, rb) = (a.gas_density.get::<kilogram_per_cubic_meter>(), b.gas_density.get::<kilogram_per_cubic_meter>());
-                (pa - pb - ra * G * (zt - zf), pb - pa - rb * G * (zf - zt))
-            })
-            .collect();
+        let paths = &self.paths;
+        let drive_from = |vols: &[ControlVolume]| -> Vec<(f64, f64)> {
+            paths
+                .iter()
+                .map(|np| {
+                    let g = *np.path.geometry();
+                    let (zf, zt) = (g.from_elevation.get::<meter>(), g.to_elevation.get::<meter>());
+                    let a = Self::path_end(vols, &np.from, zf);
+                    let b = Self::path_end(vols, &np.to, zt);
+                    let (pa, pb) = (a.pressure.get::<pascal>(), b.pressure.get::<pascal>());
+                    let (ra, rb) = (a.gas_density.get::<kilogram_per_cubic_meter>(), b.gas_density.get::<kilogram_per_cubic_meter>());
+                    (pa - pb - ra * G * (zt - zf), pb - pa - rb * G * (zf - zt))
+                })
+                .collect()
+        };
+        let drive: Vec<(f64, f64)> = drive_from(&self.volumes);
+        // gh:#1116: with `iterate_switches` (the default) the limit and the
+        // breakers are re-decided on every iterate from the latest one; else
+        // (the ablation) from the start-of-step state above, for the step.
+        let lagged = !self.iterate_switches;
+        let mut breaker_open: Vec<bool> = vec![false; self.paths.len()];
         let start_paths: Vec<FlowPath> = self
             .paths
             .iter()
@@ -575,7 +622,9 @@ impl CvNetwork {
                     let g = *p.geometry();
                     let a = Self::path_end(&self.volumes, &np.from, g.from_elevation.get::<meter>());
                     let b = Self::path_end(&self.volumes, &np.to, g.to_elevation.get::<meter>());
-                    p.hold_open(Some(a.pressure.get::<pascal>() - b.pressure.get::<pascal>() > dp_open));
+                    let open = a.pressure.get::<pascal>() - b.pressure.get::<pascal>() > dp_open;
+                    p.hold_open(Some(open));
+                    breaker_open[pi] = open;
                     breaker_dp[pi] = dp_open;
                 }
                 p
@@ -587,6 +636,16 @@ impl CvNetwork {
         let mut sent: Vec<[(f64, [f64; 6], f64, f64); 2]> = vec![[(0.0, [0.0; 6], 0.0, 300.0); 2]; self.paths.len()];
         let mut prev_rates: Vec<f64> = vec![f64::NAN; self.paths.len()];
         let mut used_p: Vec<Option<(f64, f64)>> = vec![None; self.paths.len()];
+        // Per path, the gas moles it moved on the previous iterate and on the
+        // one before, positive `from → to` (gh:#1116). In the latest iterate
+        // the donor has lost the first and the receiver has gained the
+        // second, because a receiver is stepped with what the donor sent on
+        // the iterate before (step 3 of the module docs). Both are zero on the
+        // first iterate, whose latest state is the start state (its limit
+        // differs from the ablation's only in the adiabatic slope).
+        let mut prev_mol: Vec<f64> = vec![0.0; self.paths.len()];
+        let mut prev2_mol: Vec<f64> = vec![0.0; self.paths.len()];
+        let mut limited: Vec<bool> = vec![false; self.paths.len()];
         let (mut omega, mut last_residual) = (1.0_f64, f64::INFINITY);
         let (mut residual, mut iterations): (f64, usize);
         let mut transfers: Vec<FlowTransfer> = Vec::new();
@@ -596,6 +655,77 @@ impl CvNetwork {
             // 1. Paths from the latest iterate.
             new_paths = start_paths.clone();
             transfers.clear();
+            // The state the switches are decided on (gh:#1116): the latest
+            // iterate, or the start of the step for the ablation.
+            let iterate_drive = if lagged || k == 1 { None } else { Some(drive_from(&latest)) };
+            let (drive_k, vols_k): (&[(f64, f64)], &[ControlVolume]) = match &iterate_drive {
+                Some(d) => (d, &latest),
+                None => (&drive, &start_vols),
+            };
+            // `p / n` and the molar mass of a volume end (a boundary: none).
+            let side = |e: &NetworkEnd| -> Option<(f64, f64, f64)> {
+                match e {
+                    NetworkEnd::Volume { volume, .. } => {
+                        let v = &vols_k[*volume];
+                        let a = v.atmosphere();
+                        let n = a.steam_kg / tampines_steam_tables::gas_mixture::M_H2O + a.ncg_total_moles();
+                        Some((v.atmosphere_pressure().get::<pascal>(), n, a.total_mass().get::<kilogram>() / n))
+                    }
+                    NetworkEnd::Boundary(_) => None,
+                }
+            };
+            // An end's pressure response to a mole leaving or arriving
+            // within the step: adiabatic, `γ p / n` with `γ = 1 + n R / C_v`
+            // from the volume's own gas model (gas leaving carries its
+            // enthalpy, so the rest cools; gas arriving brings its own). The
+            // ablation's limit (below) keeps the ported isothermal `p / n`.
+            // The converged limit does not depend on this slope (it ends
+            // where the driving difference meets its target); the slope
+            // sets how fast the iterates get there: with `p / n` they
+            // oscillated by a factor of about −0.4 per iterate, `1 − γ`
+            // (sembawang's building openings, 2 → 36 iterations, found
+            // 2026-11-02).
+            let slope = |e: &NetworkEnd| -> f64 {
+                match e {
+                    NetworkEnd::Volume { volume, .. } => {
+                        let v = &vols_k[*volume];
+                        let a = v.atmosphere();
+                        let n = a.steam_kg / tampines_steam_tables::gas_mixture::M_H2O + a.ncg_total_moles();
+                        let p = v.atmosphere_pressure().get::<pascal>();
+                        let gamma = v
+                            .gas_model()
+                            .heat_capacity(&a, v.atmosphere_volume(), v.atmosphere_temperature())
+                            .map_or(1.0, |c| 1.0 + n * R_GAS / c.get::<uom::si::heat_capacity::joule_per_kelvin>());
+                        gamma * p / n
+                    }
+                    NetworkEnd::Boundary(_) => 0.0,
+                }
+            };
+            let stiffness = |np: &NetworkPath| -> f64 { slope(&np.from) + slope(&np.to) };
+            // This path's own flow as the latest iterate carries it, as a
+            // forward pressure difference: the donor's loss (previous
+            // iterate) and the receiver's gain (the iterate before), each at
+            // its own slope.
+            let own_dp = |np: &NetworkPath, n_donor: f64, n_receiver: f64| -> f64 { n_donor * slope(&np.from) + n_receiver * slope(&np.to) };
+            if !lagged {
+                // A breaker also opens on this iterate if the latest
+                // difference with its own flow added back exceeds its set
+                // point; once open it stays open for the step (hysteresis: a
+                // decision changes at most once a step). Open is safe: the
+                // limit below then gives zero flow below the set point.
+                for (pi, np) in self.paths.iter().enumerate() {
+                    if let Some(dp_open) = np.path.opening_pressure_difference() {
+                        if !breaker_open[pi] && k > 1 {
+                            let g = *np.path.geometry();
+                            let a = Self::path_end(&latest, &np.from, g.from_elevation.get::<meter>());
+                            let b = Self::path_end(&latest, &np.to, g.to_elevation.get::<meter>());
+                            let d0 = a.pressure.get::<pascal>() - b.pressure.get::<pascal>() + own_dp(np, prev_mol[pi], prev2_mol[pi]);
+                            breaker_open[pi] = d0 > dp_open;
+                        }
+                        new_paths[pi].hold_open(Some(breaker_open[pi]));
+                    }
+                }
+            }
             for (pi, np) in self.paths.iter().enumerate() {
                 let g = *np.path.geometry();
                 let mut a = Self::path_end(&latest, &np.from, g.from_elevation.get::<meter>());
@@ -619,31 +749,66 @@ impl CvNetwork {
                 // Picard pass at Δt = 1 s took half a tank's gas at the
                 // start-of-step choked rate (found 2026-11-01).
                 let mg = t.gas_mass_rate.get::<kilogram_per_second>();
+                limited[pi] = false;
                 if mg != 0.0 {
                     let (donor, receiver) = if mg > 0.0 { (&np.from, &np.to) } else { (&np.to, &np.from) };
-                    let side = |e: &NetworkEnd| -> Option<(f64, f64, f64)> {
-                        match e {
-                            NetworkEnd::Volume { volume, .. } => {
-                                let v = &start_vols[*volume];
-                                let a = v.atmosphere();
-                                let n = a.steam_kg / tampines_steam_tables::gas_mixture::M_H2O + a.ncg_total_moles();
-                                Some((v.atmosphere_pressure().get::<pascal>(), n, a.total_mass().get::<kilogram>() / n))
+                    if lagged {
+                        if let Some((p_d, n_d, m_d)) = side(donor) {
+                            let stiff = p_d / n_d + side(receiver).map_or(0.0, |(p, n, _)| p / n);
+                            let dp_eq = if mg > 0.0 { drive[pi].0 - breaker_dp[pi] } else { drive[pi].1 };
+                            let m_eq = if dp_eq > 0.0 { dp_eq / stiff * m_d } else { 0.0 };
+                            if mg.abs() * dts > m_eq {
+                                let f = m_eq / (mg.abs() * dts);
+                                new_paths[pi].scale_gas_velocity(f);
+                                t.gas_mass_rate = t.gas_mass_rate * f;
+                                t.gas_enthalpy_rate = t.gas_enthalpy_rate * f;
+                                limited[pi] = true;
                             }
-                            NetworkEnd::Boundary(_) => None,
                         }
-                    };
-                    if let Some((p_d, n_d, m_d)) = side(donor) {
-                        let stiff = p_d / n_d + side(receiver).map_or(0.0, |(p, n, _)| p / n);
-                        let dp_eq = if mg > 0.0 { drive[pi].0 - breaker_dp[pi] } else { drive[pi].1 };
-                        let m_eq = if dp_eq > 0.0 { dp_eq / stiff * m_d } else { 0.0 };
-                        if mg.abs() * dts > m_eq {
-                            let f = m_eq / (mg.abs() * dts);
-                            new_paths[pi].scale_gas_velocity(f);
-                            t.gas_mass_rate = t.gas_mass_rate * f;
-                            t.gas_enthalpy_rate = t.gas_enthalpy_rate * f;
+                    } else {
+                        // The limit as an end-of-step condition, linearised
+                        // about the latest iterate: the moles that bring the
+                        // driving difference, with this path's own previous
+                        // flow added back, to the target (gh:#1116). A path
+                        // fed by a boundary is limited by its receiver alone
+                        // (a boundary does not move); without that, inflow
+                        // from a boundary ran past the end-of-step balance
+                        // and the limit on the return flow ping-ponged
+                        // (sembawang's building openings, 2 → 36 iterations,
+                        // found 2026-11-02).
+                        let donor_molar = match donor {
+                            NetworkEnd::Volume { .. } => side(donor).map(|(_, _, m)| m),
+                            NetworkEnd::Boundary(b) if side(receiver).is_some() => Some(b.molar_mass()),
+                            NetworkEnd::Boundary(_) => None,
+                        };
+                        if let Some(m_d) = donor_molar {
+                            let stiff = stiffness(np);
+                            let own = own_dp(np, prev_mol[pi], prev2_mol[pi]);
+                            let dp_eq = if mg > 0.0 { drive_k[pi].0 + own - breaker_dp[pi] } else { drive_k[pi].1 - own };
+                            let m_eq = if dp_eq > 0.0 { dp_eq / stiff * m_d } else { 0.0 };
+                            if mg.abs() * dts > m_eq {
+                                let f = m_eq / (mg.abs() * dts);
+                                new_paths[pi].scale_gas_velocity(f);
+                                t.gas_mass_rate = t.gas_mass_rate * f;
+                                t.gas_enthalpy_rate = t.gas_enthalpy_rate * f;
+                                limited[pi] = true;
+                            }
                         }
                     }
                 }
+                // The moles moved this iterate, for the next one's limit.
+                let mg = t.gas_mass_rate.get::<kilogram_per_second>();
+                prev2_mol[pi] = prev_mol[pi];
+                prev_mol[pi] = if mg == 0.0 {
+                    0.0
+                } else {
+                    let donor = if mg > 0.0 { &np.from } else { &np.to };
+                    let m_d = match donor {
+                        NetworkEnd::Volume { .. } => side(donor).map_or(f64::NAN, |(_, _, m)| m),
+                        NetworkEnd::Boundary(b) => b.molar_mass(),
+                    };
+                    mg * dts / m_d
+                };
                 transfers.push(t);
             }
             // 2–3. Volumes from the start with these outflows and the
@@ -830,12 +995,12 @@ impl CvNetwork {
             last_residual = residual;
             if k > 1 && residual < self.control.tolerance {
                 self.commit(new_vols, new_paths, transit, boundary_step, dts);
-                return Ok(NetworkStepReport { iterations, residual, transfers, volumes: reports });
+                return Ok(NetworkStepReport { iterations, residual, transfers, volumes: reports, equalising_limited: limited });
             }
             if k == self.control.max_iterations {
                 if self.control.max_iterations == 1 {
                     self.commit(new_vols, new_paths, transit, boundary_step, dts);
-                    return Ok(NetworkStepReport { iterations, residual: 0.0, transfers, volumes: reports });
+                    return Ok(NetworkStepReport { iterations, residual: 0.0, transfers, volumes: reports, equalising_limited: limited });
                 }
                 return Err(TampinesError::Numerical(format!("network step: no convergence in {iterations} iterations (residual {residual:e})")));
             }

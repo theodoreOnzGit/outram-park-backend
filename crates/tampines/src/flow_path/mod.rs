@@ -241,9 +241,11 @@ impl FlowPath {
     }
 
     /// Hold a vacuum breaker open or shut whatever the pressures passed to
-    /// [`FlowPath::step`] (`None` releases it): a network decides it once
-    /// per step from the start-of-step pressures (gh:#1097). Forward only
-    /// still holds.
+    /// [`FlowPath::step`] (`None` releases it): a network decides it
+    /// ~~once per step from the start-of-step pressures (gh:#1097)~~ on each
+    /// Picard iterate, opening at most once a step (gh:#1116; the start-of-step
+    /// decision is `CvNetwork::without_iterate_switch_decisions`). Forward
+    /// only still holds.
     pub fn hold_open(&mut self, held: Option<bool>) {
         self.held_open = held;
     }

@@ -105,7 +105,12 @@ fn two_tanks(control: NetworkControl) -> CvNetwork {
 
 /// **1. Closed gas network conserves; pressures equalise.** 60 s at 0.1 s.
 /// **Result (2026-11-01):** worst water 8.9e-16, N2 2.2e-16, energy
-/// 1.6e-15; pressures 151 324.94 / 151 319.91 Pa; at most 30 Picard
+/// 1.6e-15; pressures 151 324.94 / 151 319.91 Pa (**re-measured 2026-11-02
+/// with the limit taken from the latest iterate, gh:#1116: 151 310.28 /
+/// 151 310.28 Pa**, closure ≤ 1.8e-15, at most 30 → 34 iterations; the
+/// 5 Pa left before was the start-of-step limit lagging the gas's warming
+/// within a step, and the extra iterations are the limit being re-taken
+/// while the gas still warms); at most 30 Picard
 /// iterations. Held (after the corrections in the V&V doc).
 #[test]
 fn a_closed_gas_network_conserves_and_equalises() {
@@ -129,6 +134,18 @@ fn a_closed_gas_network_conserves_and_equalises() {
 /// 153 274.33 Pa against 151 673.39 Pa at Δt = 0.01 s (+1.06 %); the order
 /// at 2 s is non-monotone (both halves of the prediction missed; see the
 /// module docs).
+///
+/// **Re-measured 2026-11-02 (gh:#1116, the limit from the latest
+/// iterate):** at 120 s, Δt = 1 s 151 881.71 Pa against 151 672.56 Pa
+/// (+1.06 % → +0.138 %; 2 s values 151 163.444 / 151 087.597 / 151 105.333
+/// Pa). The start-of-step limit had held the 1 s run one
+/// step behind the warming gas, and the end-of-step limit does not. At 2 s
+/// against Δt = 0.0125 s (151 105.335 Pa): +107 → +58.1 Pa at 0.2 s and
+/// −3.2 → −17.7 Pa at 0.1 s, ratio −3.28, still non-monotone. Prediction S4
+/// held: the 0.2 s error fell and the order stayed unreadable, because
+/// choking and the limit are still switches within the blowdown. The
+/// order on a smooth case is [`time_order_on_a_smooth_case`]. The 2 % bar
+/// is unchanged.
 #[test]
 fn large_implicit_steps_are_stable_and_first_order() {
     let run = |dt: f64, t_end: f64| {
@@ -199,7 +216,14 @@ fn a_manometer_oscillates_at_the_hand_frequency() {
 /// energy to ≤ 1.7e-15 against the boundary account; choked at step 3;
 /// ~~the vessel ends at 1.0000 bar~~ **CORRECTED 2026-11-01 (gh:#1097):**
 /// 99 944 Pa, since the equalising limit counts the 4 m gas column (47 Pa)
-/// to the boundary. Held.
+/// to the boundary. Held. **Re-measured 2026-11-02 (gh:#1116):** implicit
+/// 99 944.1 → 99 942.1 Pa, loose coupling 99 944.1 → 99 945.5 Pa. S5
+/// predicted within 1 Pa: missed by 1 Pa (implicit) and 1.4 Pa (loose).
+/// Implicit, why: the gas still warms from the pool at 20 s, and the
+/// start-of-step limit had kept the vessel above its end-of-step balance by
+/// about one step's rise. Loose, why: its one pass is the first iterate,
+/// whose limit now takes the adiabatic slope `γ p/n` (a smaller step than
+/// the isothermal `p/n`), so it vents a little slower.
 #[test]
 fn a_vent_to_a_boundary_closes_and_loose_coupling_conserves() {
     for control in [NetworkControl::default(), NetworkControl { max_iterations: 1, tolerance: 0.0 }] {
@@ -314,6 +338,25 @@ fn external_sources_sinks_heats_and_a_valve_close() {
 /// 340 Pa/mol, so up to about 600 Pa). The bound below is set after the run
 /// and labelled so: at least the opening difference, at most one step's
 /// rise above it.
+///
+/// **Re-pinned 2026-11-02 (gh:#1116): the switches are decided from the
+/// latest Picard iterate.** Prediction S2 (written before the change):
+/// 3400.0–3400.5 Pa after opening; opening one step earlier (step 4),
+/// ending at 3400.0–3400.5 Pa.
+/// - **Opening:** step 5 at 4246.8 Pa → step 4 at 3399.9999928 Pa.
+/// - **Afterwards:** 3904.5–4063.6 Pa → **3399.999704–3400.000890 Pa**.
+/// - **Closure:** 9.8e-15 → 9.3e-15.
+///
+/// Why: the limit is now an end-of-step condition, so it sees the source's
+/// own rise within the step, and the breaker opens on the iterate whose end
+/// difference crosses 3.4 kPa. S2 held except its lower edge, missed by
+/// 3.0e-4 Pa. Inside the Picard tolerance (1e-6 of the path rates) the end
+/// difference converges to the set point from either side. The assertion is
+/// therefore 3400 − 1e-3 Pa to 3400.5 Pa. The upper bound is the
+/// prediction's; the 1e-3 Pa below the set point was set after the run and
+/// is labelled so. Old bound: 3400 to 4100 Pa. The ablation
+/// (`without_iterate_switch_decisions`) keeps the old record and is checked
+/// below against the old bound.
 #[test]
 fn a_vacuum_breaker_holds_its_opening_difference() {
     use crate::control_volume::Source;
@@ -353,10 +396,25 @@ fn a_vacuum_breaker_holds_its_opening_difference() {
         let re = (net.total_energy().get::<joule>() - e0 - be) / e0;
         worst = worst.max(rn.abs()).max(rw.abs()).max(re.abs());
     }
-    println!("breaker: opened at step {opened_at:?}; afterwards dp in [{dp_lo:.0}, {dp_hi:.0}] Pa; closure {worst:.1e}");
+    println!("breaker: opened at step {opened_at:?}; afterwards dp in [{dp_lo:.6}, {dp_hi:.6}] Pa; closure {worst:.1e}");
     assert!(opened_at.is_some());
-    assert!(dp_lo >= 3400.0 && dp_hi <= 4100.0, "{dp_lo} {dp_hi}");
+    assert!(dp_lo >= 3400.0 - 1e-3 && dp_hi <= 3400.5, "{dp_lo} {dp_hi}");
     assert!(worst < 1e-12, "{worst}");
+    // The ablation (start-of-step decisions) keeps the old record.
+    let mut old = breaker_network().without_iterate_switch_decisions();
+    let (mut lo, mut hi, mut first) = (f64::INFINITY, 0.0_f64, None);
+    for k in 0..400 {
+        let r = old.step(Time::new::<second>(1.0)).unwrap();
+        let dp = old.volume(0).unwrap().atmosphere_pressure().value - old.volume(1).unwrap().atmosphere_pressure().value;
+        if r.transfers[0].gas_mass_rate.value > 0.0 && first.is_none() {
+            first = Some((k, dp));
+        } else if first.is_some() {
+            lo = lo.min(dp);
+            hi = hi.max(dp);
+        }
+    }
+    println!("breaker, ablation: opened at step {first:?}; afterwards dp in [{lo:.1}, {hi:.1}] Pa");
+    assert!(lo >= 3400.0 && hi <= 4100.0, "{lo} {hi}");
 }
 
 /// **gh:#1098 item 2: a gas flux keeps each species on its own energy
@@ -599,4 +657,135 @@ fn volume_reports_and_pool_heat_at_an_elevation() {
     }
     println!("N1: closure with species sources and sinks {worst:.1e}");
     assert!(worst < 1e-12, "{worst}");
+}
+
+/// FNV-1a over the bits of each volume's pressure, pool and steam mass and
+/// each path's gas rate, step by step (gh:#1116's ablation pin).
+fn network_hash(mut net: CvNetwork, steps: usize, dt: f64) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for _ in 0..steps {
+        let r = net.step(Time::new::<second>(dt)).unwrap();
+        let mut xs: Vec<f64> = r.transfers.iter().map(|t| t.gas_mass_rate.value).collect();
+        for i in 0..2 {
+            let v = net.volume(i).unwrap();
+            xs.extend([v.atmosphere_pressure().value, v.pool_mass().value, v.atmosphere().steam_kg]);
+        }
+        for x in xs {
+            for b in x.to_bits().to_le_bytes() {
+                h ^= b as u64;
+                h = h.wrapping_mul(0x0100_0000_01b3);
+            }
+        }
+    }
+    h
+}
+
+/// Test 7's network: two tanks, a 3.4 kPa breaker A → B, A filling with
+/// 0.05 kg/s of N2.
+fn breaker_network() -> CvNetwork {
+    use crate::control_volume::Source;
+    let mut net = CvNetwork::new(NetworkControl::default());
+    let a = net.add_volume(vessel_at(2.0, 5.0, 1.0, 1.0e5, 0.5, &[4.0, 4.5], 330.0));
+    let b = net.add_volume(vessel_at(2.0, 5.0, 1.0, 1.0e5, 0.5, &[4.0], 330.0));
+    let vb = FlowPath::new(
+        FlowPathGeometry {
+            area: Area::new::<square_meter>(0.01),
+            inertial_length: m(1.0),
+            form_loss: 1.0,
+            discharge_coefficient: 0.6,
+            from_elevation: m(4.0),
+            to_elevation: m(4.0),
+            opening_height: m(0.0),
+        },
+        FlowPathKind::VacuumBreaker { opening_pressure_difference: Pressure::new::<pascal>(3400.0) },
+    )
+    .unwrap();
+    net.add_path(NetworkPath { path: vb, from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+    net.set_source(a, 1, Source::gas(&[(NonCondensable::N2, mr(0.05))], kel(330.0))).unwrap();
+    net
+}
+
+fn ablation_hashes_1116() -> [u64; 2] {
+    [
+        network_hash(two_tanks(NetworkControl::default()).without_iterate_switch_decisions(), 600, 0.1),
+        network_hash(breaker_network().without_iterate_switch_decisions(), 400, 1.0),
+    ]
+}
+
+/// **gh:#1116: switch decisions from the latest iterate are the default,
+/// and the ablation is the old network bit for bit.**
+///
+/// **Method.** Two trajectories are hashed (FNV-1a over the bits of each
+/// volume's pressure, pool and steam mass and the path's gas rate, every
+/// step): test 1's two tanks (600 steps of 0.1 s) and test 7's breaker (400
+/// steps of 1 s), both with `without_iterate_switch_decisions`. The
+/// constants were taken by running the same trajectories on the code before
+/// the change (b4c99e210). **Prediction S1:** identical.
+///
+/// **Result (2026-11-02, release):** held, both hashes identical.
+#[test]
+fn iterate_switches_are_default_and_the_ablation_is_the_old_network() {
+    let net = two_tanks(NetworkControl::default());
+    assert!(net.iterate_switch_decisions(), "on by default");
+    assert!(!net.without_iterate_switch_decisions().iterate_switch_decisions());
+    const OLD: [u64; 2] = [0x1436_57e9_bddb_47fa, 0xcdcc_7640_ac1a_22d4];
+    assert_eq!(ablation_hashes_1116(), OLD);
+}
+
+/// **gh:#1116, S3: the time order on a smooth case.** Two 1 m² × 5 m
+/// tanks at 350 K, 1.01 and 1.00 bar, joined at 4 m by a 1e-4 m² path
+/// (`L` = 2 m, `K` = 1). Run to 2 s at `Δt` = 0.4, 0.2, 0.1 and 0.05 s,
+/// against `Δt` = 0.0125 s. Asserted for the order to mean anything: no
+/// step is choked and the equalising limit never binds (from
+/// `NetworkStepReport`).
+///
+/// **Prediction S3 (written before the change):** first order, the error
+/// in A's pressure at 2 s halving with `Δt`: ratios 1.8–2.2.
+///
+/// **Result (2026-11-02, release): S3 MISSED; it is not first order at
+/// these steps.** No step choked or limited. The reference is 100663.9928
+/// Pa. Errors at `Δt` = 0.4, 0.2, 0.1 and 0.05 s are −75.63, −19.12,
+/// −3.695 and −0.961 Pa, ratios 3.96, 5.17 and 3.85. The error is dominated
+/// by an `h²` term. That is `flow_path`'s identity
+/// (`transient_second_order_is_a_tanh_addition_identity`): a path
+/// accelerating from rest under a nearly constant difference is second
+/// order in this scheme, and the first-order term comes only from the
+/// difference changing within a step. A two-term fit on the two finest steps
+/// gives `c₁ ≈ −1.5 Pa/s`, `c₂ ≈ −354 Pa/s²`. That fit is not asserted: it
+/// says the first-order term would dominate only below about 4 ms. The
+/// order can now be read on a smooth case, and it converges monotonically.
+/// Test 2's blowdown stays unreadable, because choking and the limit
+/// switch within it.
+///
+/// Asserted, set after the run and labelled so: all four errors have one
+/// sign and fall at each halving by at least 1.8 (at least first order).
+/// And, because no switch acts here, the ablation gives the same bits: the
+/// change touches only the switches.
+#[test]
+fn time_order_on_a_smooth_case() {
+    let build = || {
+        let mut net = CvNetwork::new(NetworkControl::default());
+        let a = net.add_volume(vessel_at(1.0, 5.0, 1.0, 1.01e5, 0.5, &[4.0], 350.0));
+        let b = net.add_volume(vessel_at(1.0, 5.0, 1.0, 1.00e5, 0.5, &[4.0], 350.0));
+        net.add_path(NetworkPath { path: gas_path(4.0, 4.0, 1e-4, 1.0), from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
+        net
+    };
+    let run_with = |dt: f64, ablate: bool| {
+        let mut net = if ablate { build().without_iterate_switch_decisions() } else { build() };
+        let n = (2.0 / dt).round() as usize;
+        for _ in 0..n {
+            let r = net.step(Time::new::<second>(dt)).unwrap();
+            assert!(!r.transfers[0].gas_choked && !r.equalising_limited[0], "dt {dt}: not smooth");
+        }
+        net.volume(0).unwrap().atmosphere_pressure().value
+    };
+    let run = |dt: f64| run_with(dt, false);
+    let reference = run(0.0125);
+    let errs: Vec<f64> = [0.4, 0.2, 0.1, 0.05].iter().map(|&dt| run(dt) - reference).collect();
+    let ratios: Vec<f64> = errs.windows(2).map(|w| w[0] / w[1]).collect();
+    println!("S3: p_A(2 s) reference {reference:.4} Pa; errors at dt 0.4/0.2/0.1/0.05 s {errs:?} Pa; ratios {ratios:?}");
+    // Predicted 1.8–2.2 (first order); measured 3.8–5.2 (see above).
+    assert!(errs.iter().all(|e| *e < 0.0), "{errs:?}");
+    assert!(ratios.iter().all(|r| *r > 1.8), "{ratios:?}");
+    assert_eq!(run_with(0.1, true).to_bits(), run(0.1).to_bits(), "no switch acts, so the ablation is identical");
 }
