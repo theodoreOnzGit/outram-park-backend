@@ -571,9 +571,13 @@ stale), with the folder's `review.md` on the right: only this function's
 entries are editable, and only their comments. Line numbers select lines
 for a highlight (an annotation entry anchored with Hypothesis selectors);
 Upstream opens the ported-from file in the browser; Quick fix edits the
-function's own lines in kvim. Stamp is refused while a callee lacks a valid
-stamp (bottom-up is enforced) and when the code changed while it was
-reviewed. Save keeps what was written to `review.md`; Cancel puts it back
+function's own lines in kvim. ~~Stamp is refused while a callee lacks a valid
+stamp (bottom-up is enforced)~~ **CORRECTED 2026-11-01** (GitHub #1106,
+tentative stamps): Stamp is allowed while a callee lacks a valid stamp; the
+stamp reads **tentative: waiting on stamps underneath** and turns valid by
+itself, with no re-stamp, once everything underneath it (transitively) is
+valid; a recursion group turns valid together. It does not count until
+then. Stamp is refused when the code changed while it was reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
@@ -588,7 +592,8 @@ Right-click a function whose stamp is stale only because something it
 calls or uses changed (a function, a type or a constant) and choose
 **Quick stamp**: it shows what changed there and renews the stamp with the
 same answers, without the wizard. It is refused while a reaching test
-fails or while the changed item has no valid review of its own.
+fails; ~~or while the changed item has no valid review of its own~~ (since
+2026-11-01, #1106, it is then allowed and reads tentative).
 **No language server is started**: colours come from the `kopitiam-syntax`
 line lexer and completion from the cached index (`kovan.toml`), so
 completion knows names in this workspace, nearest first, but not types:
@@ -620,8 +625,9 @@ in another file. **Added 2026-10-13 (step 2):** the index run reads from
 rust-analyzer's SCIP index which workspace types and constants each
 function names and writes them as `uses` in `kovan.toml` (and in the map
 data, where a type unfolds to the functions that use it). The bottom-up
-rule covers them: a function cannot be stamped until the types it uses have
-a valid review, and a new stamp records their hashes, so a later change to
+rule covers them: ~~a function cannot be stamped until~~ a function's stamp
+is tentative until (#1106, 2026-11-01) the types it uses have a valid
+review, and a new stamp records their hashes, so a later change to
 a type asks for a re-confirm of its users. A review written before this
 keeps its state. A type's `reached_by` lists the tests that use it.
 **Added 2026-10-13 (step 3):** types and constants are stamped through the

@@ -27,23 +27,25 @@ fn reindex(r: &Repo) {
     r.reindex();
 }
 
-/// Methodology: on the fixture, try to prepare `twice` before `leaf` has a
-/// stamp, then stamp `leaf` (library: draft, sign, write, commit) and
-/// prepare again. Pass: the first is refused with the bottom-up message
-/// naming `leaf` and the flow's hint; the second gives the wizard's context
-/// with the function's hash and no no-concept prefill (not a port).
+/// Methodology: on the fixture, prepare `twice` before `leaf` has a stamp,
+/// then stamp `leaf` (library: draft, sign, write, commit) and prepare
+/// again. Pass: ~~the first is refused with the bottom-up message naming
+/// `leaf`~~ (**CORRECTED 2026-11-01**, GitHub #1106, tentative stamps) the
+/// first gives the wizard's context with `leaf` named as unstamped
+/// underneath; the second gives the context with nothing underneath
+/// unstamped, the function's hash and no no-concept prefill (not a port).
 ///
-/// Result (2026-10-10): passes.
+/// Result (2026-11-01): passes.
 #[test]
-fn bottom_up_is_enforced_before_the_wizard() {
+fn the_wizard_names_what_is_unstamped_underneath() {
     let r = Repo::new();
     let store = tempfile::tempdir().unwrap();
     let key = founder_key(&r, store.path());
-    let e = prepare_stamp(r.path(), &cg("twice"), BY).unwrap_err();
-    assert!(e.starts_with("bottom-up") && e.contains("leaf"), "{e}");
-    assert!(flow::refusal_hint(&e).contains("Bottom-up"));
+    let ctx = prepare_stamp(r.path(), &cg("twice"), BY).unwrap();
+    assert_eq!(ctx.tentative_on, ["leaf"]);
     r.stamp(&key, "leaf", "");
     let ctx = prepare_stamp(r.path(), &cg("twice"), BY).unwrap();
+    assert!(ctx.tentative_on.is_empty());
     let ws = load_workspace(r.path()).unwrap();
     assert_eq!(ctx.hash, ws.find(&cg("twice")).unwrap().2.hash);
     assert_eq!(ctx.no_concept, None);
@@ -325,8 +327,9 @@ fn flow_refuses_a_changed_hash_and_signs_no_concept() {
 
 /// Methodology (#770, #740 decision 8): stamp `leaf` and `twice`, edit
 /// `leaf` and commit (re-indexed): `twice` is inherited stale. Re-confirm is
-/// refused while `leaf` has no valid stamp (bottom-up) and for `leaf`
-/// itself (directly stale, not a callee change). Re-stamp `leaf`, then
+/// ~~refused while `leaf` has no valid stamp (bottom-up) and~~ refused for
+/// `leaf` itself (directly stale, not a callee change); while `leaf` has no
+/// valid stamp it is allowed (GitHub #1106: it would read tentative). Re-stamp `leaf`, then
 /// re-confirm `twice` through the dialog's state machine (purpose
 /// Reconfirm: key, prepare on a worker, the re-confirm step, a wrong then
 /// the right passphrase), commit. Pass: the step lists `leaf` with its
@@ -350,8 +353,7 @@ fn inherited_stale_is_reconfirmed_without_the_wizard() {
         r.state("twice").unwrap().state,
         Some(StateKind::InheritedStale)
     );
-    let e = reconfirm::prepare_reconfirm(r.path(), &cg("twice"), BY).unwrap_err();
-    assert!(e.starts_with("bottom-up") && e.contains("leaf"), "{e}");
+    assert!(reconfirm::prepare_reconfirm(r.path(), &cg("twice"), BY).is_ok());
     let e = reconfirm::prepare_reconfirm(r.path(), &cg("leaf"), BY).unwrap_err();
     assert!(e.contains("only to a review made stale by a change in something"), "{e}");
     let e = reconfirm::prepare_reconfirm(r.path(), &cg("twice"), "github:nobody").unwrap_err();

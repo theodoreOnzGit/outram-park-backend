@@ -168,20 +168,22 @@ fn card_text(painter: &egui::Painter, r: Rect, lines: &[(&str, f32, Color32)], s
     drawn
 }
 
-/// Green for reviewed, red for to review: the module cards' counts and the
-/// unreviewed function cards (maintainer, 2026-10-12).
+/// Green for valid, blue for pending or tentative, red for unreviewed: the
+/// module cards' counts and the unreviewed function cards (maintainer,
+/// 2026-10-12; blue added 2026-11-01, the blue of a pending stamp).
 const REVIEWED: Color32 = Color32::from_rgb(90, 190, 110);
+const WAITING: Color32 = Color32::from_rgb(90, 150, 220);
 const TO_REVIEW: Color32 = Color32::from_rgb(220, 80, 80);
 
-/// Continue the line drawn at `after` with "· N reviewed" in green and
-/// "· M to review" in red (each only when non-zero), clipped to the card.
-/// GUI drawing code (exempt from the test rule; the counts are
-/// [`model::Facts::review_split`], tested).
-fn review_counts(painter: &egui::Painter, pal: &Palette, card: Rect, after: Option<Rect>, size: f32, (done, todo): (usize, usize)) {
+/// Continue the line drawn at `after` with "· N valid" in green,
+/// "· N pending/tentative" in blue and "· N unreviewed" in red (each only
+/// when non-zero), clipped to the card. GUI drawing code (exempt from the
+/// test rule; the counts are [`model::Facts::review_split`], tested).
+fn review_counts(painter: &egui::Painter, pal: &Palette, card: Rect, after: Option<Rect>, size: f32, s: model::ReviewSplit) {
     let Some(after) = after else { return };
     let p = painter.with_clip_rect(card.shrink(1.0));
     let mut x = after.right();
-    for (n, what, colour) in [(done, "reviewed", REVIEWED), (todo, "to review", TO_REVIEW)] {
+    for (n, what, colour) in [(s.valid, "valid", REVIEWED), (s.waiting, "pending/tentative", WAITING), (s.unreviewed, "unreviewed", TO_REVIEW)] {
         if n > 0 {
             x = p.text(Pos2::new(x, after.center().y), Align2::LEFT_CENTER, format!(" \u{b7} {n} {what}"), font(size), pal.on_card(colour)).right();
         }

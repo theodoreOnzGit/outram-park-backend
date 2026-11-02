@@ -187,15 +187,17 @@ fn signed_draft_evaluates_valid_at_rung_3() {
     }];
     let ev = evaluate(
         &reviews,
-        &[index(&[leaf, twice.clone()])],
+        &[index(&[leaf.clone(), twice.clone()])],
         &root,
         &git_for(&r),
         &BTreeMap::new(),
         SignaturePolicy::Enforce,
     );
     let f = &ev.functions[&twice.id];
-    assert_eq!(f.state, StampState::Valid, "{:?}", f.reviews);
-    assert_eq!(f.rung, Some(3));
+    // The review itself is valid at rung 3; `leaf` underneath is unstamped,
+    // so since 2026-11-01 the stamp is tentative (GitHub #1106) until it is.
+    assert_eq!(f.state, StampState::Tentative { waiting_on: vec![leaf.id.clone()] }, "{:?}", f.reviews);
+    assert_eq!(f.reviews[0].rung, Some(3));
 }
 
 /// Methodology: each refusal the module doc lists, one input at a time:
@@ -356,7 +358,8 @@ fn a_justification_never_changes_the_engine_verdict() {
     let j = justification(&twice, Verdict::NotOk);
     let without = run(vec![Entry::Review(r.clone())], &root, &git);
     let with = run(vec![Entry::Review(r), Entry::Justification(j)], &root, &git);
-    assert_eq!(with.functions[&twice.id].state, StampState::Valid);
+    // Tentative, not valid, since 2026-11-01: `leaf` is unstamped (#1106).
+    assert_eq!(with.functions[&twice.id].state.kind(), crate::review::state::StateKind::Tentative);
     assert_eq!(with, without, "a not-ok justification changed the verdict");
 
     // (2) alone: still no review.

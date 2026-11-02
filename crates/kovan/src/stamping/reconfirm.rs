@@ -65,7 +65,7 @@ use kovan_common::review::wizard::ReviewWizard;
 
 use super::review_mode::diff::{function_diff, FnDiff};
 use super::review_mode::section::{function_sections, SectionKind};
-use super::review_mode::{blockers_of, Snapshot};
+use super::review_mode::Snapshot;
 use super::{
     applicability_for, call_graph_id, draft_stamp, evaluate_loaded, join, load_workspace, locate,
     write_review, StampRequest, WrittenEntry, REVIEW_MD,
@@ -148,15 +148,9 @@ pub fn prepare_reconfirm(
             ))
         }
     };
-    let blocked = blockers_of(&snap, &f.id);
-    if !blocked.is_empty() {
-        let names: Vec<&str> = blocked.iter().map(|(_, n)| n.as_str()).collect();
-        return Err(format!(
-            "bottom-up: {path} calls {} without a valid stamp; review {} first",
-            names.join(", "),
-            if names.len() == 1 { "it" } else { "them" }
-        ));
-    }
+    // ~~Refused while a callee has no valid stamp (bottom-up, #740).~~
+    // CORRECTED 2026-11-01 (GitHub #1106): the re-confirm is written and
+    // reads tentative until everything underneath is valid.
     let folder = snap.ws.reviews.get(&idx.dir);
     let previous = folder
         .and_then(|m| {

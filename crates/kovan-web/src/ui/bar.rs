@@ -15,10 +15,12 @@
 //! to list the callees.
 //!
 //! Added 2026-10-10 (#770, decided by the main session): in
-//! [`Mode::Desktop`] Stamp is **disabled while the function is blocked
-//! bottom-up** (a callee without a valid stamp), with the blocking callees
-//! named on hover ([`stamp_blocked_reason`]), as desktop review mode does.
-//! Needs fix stays enabled: a concern can always be raised.
+//! [`Mode::Desktop`] Stamp ~~is **disabled while the function is blocked
+//! bottom-up** (a callee without a valid stamp)~~ **CORRECTED 2026-11-01**
+//! (GitHub #1106) stays enabled: a stamp over unstamped callees is written
+//! and reads tentative until they are valid, and the callees are named on
+//! hover ([`stamp_blocked_reason`]), as desktop review mode does. Needs fix
+//! stays enabled: a concern can always be raised.
 
 use egui::{Color32, RichText};
 
@@ -93,15 +95,21 @@ pub fn review_text(r: &Review) -> String {
     }
 }
 
-/// Why Stamp is disabled for the function `info` shows: `Some(reason)`
-/// while it is blocked bottom-up (callees loaded, at least one without a
-/// valid stamp), naming them; `None` otherwise.
+/// ~~Why Stamp is disabled~~ **CORRECTED 2026-11-01** (GitHub #1106,
+/// tentative stamps): Stamp is never disabled for callees any more. This is
+/// the note on its hover: `Some(note)` while something underneath has no
+/// valid stamp (callees loaded), naming it, since the stamp will then read
+/// tentative until they are; `None` otherwise.
 pub fn stamp_blocked_reason(info: &BarInfo) -> Option<String> {
     if info.loading || info.blocked.is_empty() {
         return None;
     }
     let names: Vec<String> = info.blocked.iter().map(|(id, _)| crate::model::short_name(id).to_string()).collect();
-    Some(format!("Bottom-up: review {} first (no valid stamp)", names.join(", ")))
+    Some(format!(
+        "Tentative: the stamp will count only once {} {} a valid stamp",
+        names.join(", "),
+        if names.len() == 1 { "has" } else { "have" }
+    ))
 }
 
 /// The bar. `expanded` is the reader's toggle (kept by the caller).
@@ -136,11 +144,11 @@ pub fn review_bar(ui: &mut egui::Ui, mode: Mode, info: &BarInfo, expanded: &mut 
         let can = mode.can_stamp();
         let why = "stamping is desktop-only";
         let bottom_up = stamp_blocked_reason(info);
-        let stamp = ui.add_enabled(can && bottom_up.is_none(), egui::Button::new("Stamp"));
+        let stamp = ui.add_enabled(can, egui::Button::new("Stamp"));
         let fix = ui.add_enabled(can, egui::Button::new("Needs fix"));
         if can {
             let stamp = match &bottom_up {
-                Some(r) => stamp.on_disabled_hover_text(r),
+                Some(r) => stamp.on_hover_text(r),
                 None => stamp,
             };
             if stamp.clicked() {
@@ -213,9 +221,10 @@ mod tests {
         }
     }
 
-    /// Methodology (#770, decided by the main session 2026-10-10): Stamp is
-    /// disabled while the function is blocked bottom-up, the reason naming
-    /// the callees; not while the callees are still loading or none blocks.
+    /// Methodology (#770, decided by the main session 2026-10-10; changed
+    /// 2026-11-01, GitHub #1106): while something underneath has no valid
+    /// stamp, Stamp's hover says the stamp will be tentative, naming the
+    /// callees; no note while the callees are still loading or none blocks.
     /// The bar draws headless in both modes, blocked or not, without a
     /// panic.
     ///
@@ -231,7 +240,7 @@ mod tests {
     #[test]
     fn stamp_is_disabled_while_blocked_bottom_up() {
         let r = stamp_blocked_reason(&info(&["leaf", "other"], false)).unwrap();
-        assert!(r.contains("Bottom-up") && r.contains("leaf, other"), "{r}");
+        assert!(r.contains("Tentative") && r.contains("leaf, other"), "{r}");
         assert_eq!(stamp_blocked_reason(&info(&["leaf"], true)), None, "loading");
         assert_eq!(stamp_blocked_reason(&info(&[], false)), None);
         let ctx = egui::Context::default();
