@@ -395,9 +395,18 @@ pub struct NetworkMechanisms {
     /// [`super::reaction::burn_inputs`] (moved from `tampines`, gh:#1103) as
     /// `tampines`' species sources and sinks and one atmosphere heat.
     pub burns: bool,
+    /// The wall surfaces see each non-condensable with its own transport
+    /// properties (tampines' `structure_surface_mixture`, gh:#1114, #1120);
+    /// without it, every non-condensable but H2 counted as N2.
+    pub ncg_wall_properties: bool,
 }
 
 impl NetworkMechanisms {
+    /// Ablation: the wall surfaces count every non-condensable but H2 as
+    /// N2 (the three-gas `structure_surface`, as before gh:#1120).
+    pub fn without_ncg_wall_properties(self) -> Self {
+        Self { ncg_wall_properties: false, ..self }
+    }
     /// Ablation: no cavity (nor FDI).
     pub fn without_cavity(self) -> Self {
         Self { cavity: false, ..self }
@@ -496,7 +505,26 @@ impl Default for NetworkMechanisms {
             fp_pool_heat_above_exits: true,
             burns: true,
             implicit_flash: true,
+            ncg_wall_properties: true,
         }
+    }
+}
+
+/// MELCOR's heat-structure surface facing a volume's atmosphere `a` at
+/// `t_g` (K) and `p` (Pa), on a wall at `t_wall` (K) of height `height`
+/// (m): the convective coefficient, W/(m^2 K), and the condensation flux,
+/// kg/(m^2 s). With `ncg_properties`, each non-condensable keeps its own
+/// transport properties (tampines' `structure_surface_mixture`, gh:#1114,
+/// #1120). Without it, the three-gas `structure_surface` counts every
+/// non-condensable but H2 as N2, bit for bit as before gh:#1120.
+pub fn wall_surface(a: &GasMixture, t_g: f64, p: f64, t_wall: f64, height: f64, ncg_properties: bool) -> (f64, f64) {
+    if ncg_properties {
+        let atm = tampines::components::wall_condensation::GasMixtureAtmosphere { t_k: t_g, p_pa: p, n_steam: a.steam_kg / M_H2O, n_ncg: a.ncg_moles };
+        tampines::components::wall_condensation::structure_surface_mixture(&atm, t_wall, height)
+    } else {
+        let n_h2 = a.ncg_moles[NonCondensable::H2.index()];
+        let atm = pool_surface::Atmosphere { t_k: t_g, p_pa: p, n_steam: a.steam_kg / M_H2O, n_n2: a.ncg_total_moles() - n_h2, n_h2 };
+        pool_surface::structure_surface(&atm, t_wall, height)
     }
 }
 
@@ -1090,18 +1118,11 @@ impl ContainmentNetwork {
         let Some(cv) = self.net.volume(i) else { return (0.0, 0.0, 0.0) };
         let a = cv.atmosphere();
         let t_g = cv.atmosphere_temperature().get::<kelvin>();
-        let n_h2 = a.ncg_moles[NonCondensable::H2.index()];
-        let atm = pool_surface::Atmosphere {
-            t_k: t_g,
-            p_pa: cv.atmosphere_pressure().get::<pascal>(),
-            n_steam: a.steam_kg / M_H2O,
-            n_n2: a.ncg_total_moles() - n_h2,
-            n_h2,
-        };
+        let p = cv.atmosphere_pressure().get::<pascal>();
         let (h, m) = match fixed_h {
             Some(h) => (h, 0.0),
             None => {
-                let (h, flux) = pool_surface::structure_surface(&atm, wall.t_k, height);
+                let (h, flux) = wall_surface(&a, t_g, p, wall.t_k, height, self.mech.ncg_wall_properties);
                 (h, (flux * area * dt).min(0.9 * a.steam_kg) / dt)
             }
         };
@@ -1490,8 +1511,7 @@ impl ContainmentNetwork {
         let t_dw = vd.atmosphere_temperature().get::<kelvin>();
         let p_dw = vd.atmosphere_pressure().get::<pascal>();
         let h_wall = if s.dw_wall_hs {
-            let atm = pool_surface::Atmosphere { t_k: t_dw, p_pa: p_dw, n_steam: a.steam_kg / M_H2O, n_n2: a.ncg_total_moles() - a.ncg_moles[h2], n_h2: a.ncg_moles[h2] };
-            pool_surface::structure_surface(&atm, self.dw_wall.t_k, prm.dw_wall_height_m).0
+            wall_surface(&a, t_dw, p_dw, self.dw_wall.t_k, prm.dw_wall_height_m, self.mech.ncg_wall_properties).0
         } else {
             prm.dw_wall_h
         };

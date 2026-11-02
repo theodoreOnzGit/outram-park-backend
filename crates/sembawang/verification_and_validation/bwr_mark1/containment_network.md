@@ -2036,3 +2036,55 @@ the vent opens.
 The `ww_shell` prediction (old blowdown shortens to 6–8 min) **missed**. The
 `ww_atmosphere` one (it lengthens) held in direction, but neither result can
 be read as an attribution.
+
+## gh:#1120: wall condensation with every non-condensable's own properties (2026-11-02)
+
+**Method.** The network's two wall surfaces (drywell structures, torus
+shell) and the aerosol step's drywell wall coefficient called tampines'
+three-gas `structure_surface`, with every non-condensable other than H2
+counted as N2. They now call `structure_surface_mixture` with the volume's
+own six non-condensables (tampines gh:#1114: viscosity by Chapman–Enskog
+on Svehla's parameters, conductivity by Eucken on the NASA-7 `c_v`, steam
+diffusivity as MELCOR's Eq 6-1 scaled by the Chapman–Enskog ratio to N2).
+The old path is the ablation `NetworkMechanisms::without_ncg_wall_properties()`.
+
+**Predictions, written before any run:**
+
+1. The ablation reproduces the previous code bit for bit (same call, same
+   arguments).
+2. With only N2 and H2 present, default and ablation agree to round-off
+   (relative ≤ 1e-12 on `h` and the flux). The only difference is N2 read
+   directly instead of as `total − H2`.
+3. With CO2 replacing half the N2 at a condensing state, the flux falls by
+   5–20 %, because CO2's steam diffusivity is 0.69 of N2's and enters as
+   about `D^(2/3)`. O2 replacing half the N2 moves it by under 2 %.
+4. In a Unit 1 run, nothing moves before the cavity makes CO and CO2 or
+   burns make O2-poor gas. After that the drywell wall condenses a few
+   per cent less, and `p_dw` moves by under 0.5 %. Not measured here: no
+   network regression runs until the model is checked (gh:#1110,
+   maintainer).
+
+**Results (2026-11-02, release; `the_walls_see_each_non_condensable_with_its_own_properties`):**
+
+At 400 K, 0.4 MPa, half steam, a 350 K wall 10 m high:
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| 1. The ablation is bit-identical | Same call, same arguments, so bit-identical by construction. CO2 counted as N2 under the ablation equals pure N2 exactly (`assert_eq!`) | held |
+| 2. N2 + H2: default = ablation to ≤ 1e-12 | `h` 12.32387445 and flux 4.740600927e-3 kg/(m² s) on both, identical to the printed 10 digits | held |
+| 3. Half CO2: flux −20 to −5 % | **+2.53 %** | **MISSED** |
+| 3. Half O2: under 2 % | **+2.65 %** | **MISSED** |
+| 4. The Unit 1 run | not run (no network regression until the model is checked, gh:#1110) | open |
+
+**Why prediction 3 missed:**
+- The prediction used only the diffusivity, through `h_D ∝ D^(2/3)` in the turbulent range.
+- It left out the Grashof number. While condensing, Gr is set by the density difference between the gas at the wall (saturated at the wall temperature, so richer in non-condensable) and the bulk.
+- A heavier non-condensable (CO2 at 44, O2 at 32 g/mol, against N2 at 28) raises that difference. The convection then more than offsets CO2's lower D.
+- That is the likely cause, not a decomposition: the term-by-term split was not measured.
+
+The test asserts:
+- the N2 + H2 round-off identity;
+- the ablation's bit-identity;
+- that both gases move the flux by under 10 % and in the positive direction, as measured.
+
+It does not assert the predicted bands.
