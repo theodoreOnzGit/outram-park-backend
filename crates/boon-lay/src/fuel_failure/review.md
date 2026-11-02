@@ -1355,22 +1355,23 @@ id = "review-irradiated-weibull-modulus-theodoreonzgit-ff16d9bf"
 kind = "review"
 origin = "human"
 created = "2026-10-13T15:39:45+08:00"
-modified = "2026-10-13T15:41:09+08:00"
+modified = "2026-11-02T14:23:46+08:00"
 target = "fn:ff16d9bf9f457f13"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/strength.rs::irradiated_weibull_modulus"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:41:09+08:00"
-commit = "46c92f0a88e66f3ce25ec4932726d5a1cc15f906"
-hash = "sha256:57b7d596ab143da4a49bd6837cf26bb2e0736b7a99b61b3a931b3afeb2c9b180"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:23:46+08:00"
+commit = "443f4268d51447d6b344a2524fc5118fd1835aff"
+hash = "sha256:d4e81461f1e1289642ed5895eb0efafab5d9185794f936b91210a5b8b1fb4055"
 doc_hash = "sha256:e9557486f5536531c87d37fd5d7f97a47ce47e4204b8fe4a95073ffe5dee0161"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
 "fn:72601fd84f0cb0d8" = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+"fn:89dd813310599ab0" = "sha256:7bdf8ffb9a6314a160402eea825a229d7152f5e9f4e4f0ca0fd65d9ce0fbcedd"
 
 [review.checklist]
 coding_standards = "yes"
@@ -1386,10 +1387,14 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq"]
+
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "QpSiiFBdZM9wsRLIVQrYwIr8F/fGM2qUCiK54xlfjiNV+WzW2KthVfTnCDH38pLzxojZNX8NfingqCzU1jpYAA=="
+value = "zLpC6Ilq4lfHpMNLPoI8X7zvz2fIOWhmDeoXV5ExgND/kTHVqMfwEThIZ6OpI+NE1gNmS28sLrYoyFo4jS2NCQ=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -1400,7 +1405,7 @@ checked against 9a, not 8a
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 46c92f0a88.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 443f4268d5.
 
 # Review: irradiated_strength (github:theodoreOnzGit)
 
