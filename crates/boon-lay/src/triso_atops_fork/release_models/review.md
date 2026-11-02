@@ -1082,3 +1082,56 @@ value = "uRQLS4ejmFT0ustMKgZjC0jFUC67RJ3io6hD3LgYRh50FiVGGdWsdoRbqKG+cfDtTtguwxE
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 50e53de097.
+
+# Review: len (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-len-theodoreonzgit-a5d90099"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:36:09+08:00"
+modified = "2026-11-02T13:36:09+08:00"
+target = "fn:a5d900994dded2a6"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::len"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:36:09+08:00"
+commit = "c2d2251d0c293f5598c1e52c99d3ed77f3708596"
+hash = "sha256:f83d70a686986f6e17bfa437ef3c5d3b750b27891b9b09c5ec646178fa7540b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: conveneience function for test"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "xZeCHr0IQOThbA5VTIZc4ZdNOD8OEcrJ+Ul7O/m/pMAr2wv548hbLiy3XBozlhPh8E+XXiSRKJADI9CpRuMlDA=="
+```
+
+conveneience function for test
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit c2d2251d0c.
