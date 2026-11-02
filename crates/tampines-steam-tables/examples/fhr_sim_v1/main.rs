@@ -104,6 +104,10 @@ pub fn fhr_simulator_v1() -> eframe::Result<()> {
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Clone, Debug)]
 pub struct FHRSimulatorApp {
+    #[serde(skip)]
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     pub fhr_state: Arc<Mutex<FHRState>>,
 
     /// what panel is open
@@ -303,7 +307,9 @@ impl FHRState {
 #[cfg(not(target_os = "android"))]
 impl FHRSimulatorApp {
     /// Called once before the first frame.
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -353,6 +359,7 @@ impl Default for FHRSimulatorApp {
         let default_open_panel = Panel::MainPage;
 
         Self {
+            theme: bugis::Theme::default(),
             fhr_state: fhr_state_ptr,
             open_panel: default_open_panel,
             fhr_simulator_ptr_for_plotting: fhr_plot_ptr,

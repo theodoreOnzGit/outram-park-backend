@@ -45,6 +45,9 @@ enum Tab {
 }
 
 pub struct App {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Link<Request, Event>,
     panel: Panel,
     view: View,
@@ -107,6 +110,7 @@ impl App {
 
     fn bare(link: Link<Request, Event>) -> Self {
         Self {
+            theme: bugis::Theme::default(),
             link,
             panel: Panel::default(),
             // The reactor building's outline, y = -8.2 to 27 m, plus a margin.
@@ -489,7 +493,11 @@ impl eframe::App for App {
             self.title = title;
         }
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Fukushima Daiichi Unit 1", |ui| self.side_panel(ui));
+        panel.show(ui, "Fukushima Daiichi Unit 1", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(Color32::from_rgb(14, 16, 20))).show(ui, |ui| {
             let rect = ui.max_rect();

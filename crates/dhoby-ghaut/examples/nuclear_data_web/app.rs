@@ -44,6 +44,9 @@ enum Phase {
 }
 
 pub struct NdApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<Link<Request, Event>>,
     panel: Panel,
     view: View,
@@ -93,7 +96,9 @@ pub struct NdApp {
 
 impl NdApp {
     pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link = {
             let ctx = cc.egui_ctx.clone();
@@ -102,6 +107,7 @@ impl NdApp {
         #[cfg(target_arch = "wasm32")]
         let link = dhoby_ghaut::web_demo::link::start_web(cc.egui_ctx.clone(), "./worker.js", Event::Error);
         let mut app = Self {
+            theme: bugis::Theme::default(),
             link: None,
             panel: Panel::default(),
             view: View::new(6.0),
@@ -417,7 +423,11 @@ impl eframe::App for NdApp {
         }
         self.title_now(&ctx);
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Nuclear data", |ui| self.side_panel(ui));
+        panel.show(ui, "Nuclear data", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.main_view(ui));
     }

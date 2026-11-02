@@ -16,9 +16,8 @@
 //! Cite as: Crameri, F. (2018). *Scientific colour maps.* Zenodo.
 //! <https://doi.org/10.5281/zenodo.1243862>
 //!
-//! MIT is compatible with this workspace's `GPL-3.0-only`. The full licence
-//! text ships as `LICENSE.crameri.pdf` at the crate root, per the MIT
-//! requirement that the copyright and permission notice accompany the work.
+//! The tables, the sampling code and the full licence text
+//! (`LICENSE.crameri.pdf`) now live in the `bugis` crate.
 //!
 //! The tables were transcribed from the **official release**, not from any
 //! third-party wrapper. Two wrappers were considered and rejected on licence
@@ -27,107 +26,45 @@
 //! (a MATLAB wrapper) declares no licence, so its code is all-rights-reserved
 //! regardless of the data being MIT underneath.
 //!
-//! # Why these rather than the existing maps
-//!
-//! [`crate::color_maps::hot_to_cold_colour_mark_1`] and friends remain, and
-//! callers depending on their exact values are unaffected — this module is an
-//! addition, not a replacement.
-//!
-//! The difference that matters is **perceptual uniformity**: equal steps in the
-//! underlying quantity produce equal-looking steps in colour. A map without
-//! that property manufactures structure — stretches where the colour changes
-//! quickly read as steep gradients and flat stretches read as uniform, whether
-//! or not the data does anything of the sort. For widgets whose whole premise
-//! is that the rendering derives from physics state, a colour map that invents
-//! features is actively misleading.
+//! **MOVED 2026-11-02:** the tables and the samplers moved, byte for byte, to
+//! `bugis::colour_maps::crameri` (returning `bugis::Rgb`). This module keeps
+//! the public names and the `egui::Color32` return type, so no call site
+//! changes; the tests below still pin the exact colours.
 //!
 //! # Choosing a map
 //!
-//! - **Diverging** ([`vik`], [`roma`]) — a quantity with a meaningful midpoint,
-//!   where deviation either way matters: temperature about a reference,
-//!   a residual, an error.
-//! - **Sequential** ([`batlow`], [`lajolla`]) — a quantity read as magnitude
-//!   with no special centre: burnup, flux, steam quality.
-//! - **Cyclic** ([`roma_o`]) — a quantity that wraps, so the ends must join
-//!   without a visible seam: a rotor angle, a phase.
+//! - **Diverging** ([`vik`], [`roma`]) — a quantity with a meaningful midpoint.
+//! - **Sequential** ([`batlow`], [`lajolla`]) — a magnitude with no centre.
+//! - **Cyclic** ([`roma_o`]) — a quantity that wraps, without a visible seam.
 
 use egui::Color32;
 
-pub mod tables;
+/// The 256-entry tables, from `bugis`.
+pub use bugis::colour_maps::crameri::tables;
 
-/// Sample a 256-entry table at `t`, linearly interpolating between entries.
-///
-/// `t` is clamped to `[0, 1]`; `0` is the first entry and `1` the last.
-/// Interpolation keeps the map smooth when the table is stretched across more
-/// screen pixels than it has entries.
-fn sample(table: &[[u8; 3]; 256], t: f32) -> Color32 {
-    let t = t.clamp(0.0, 1.0);
-    let x = t * (table.len() - 1) as f32;
-    let i = x.floor() as usize;
-    let j = (i + 1).min(table.len() - 1);
-    let f = x - i as f32;
-    let lerp = |a: u8, b: u8| -> u8 { (a as f32 + (b as f32 - a as f32) * f).round() as u8 };
-    Color32::from_rgb(
-        lerp(table[i][0], table[j][0]),
-        lerp(table[i][1], table[j][1]),
-        lerp(table[i][2], table[j][2]),
-    )
-}
-
-/// Sample a **cyclic** table at `t`, wrapping rather than clamping.
-///
-/// `t = 0.0` and `t = 1.0` give the same colour, as does any integer offset —
-/// so an angle can be passed as `angle / 2*pi` without special-casing the
-/// wrap point.
-fn sample_cyclic(table: &[[u8; 3]; 256], t: f32) -> Color32 {
-    let t = t.rem_euclid(1.0);
-    let x = t * table.len() as f32;
-    let i = (x.floor() as usize) % table.len();
-    let j = (i + 1) % table.len();
-    let f = x - x.floor();
-    let lerp = |a: u8, b: u8| -> u8 { (a as f32 + (b as f32 - a as f32) * f).round() as u8 };
-    Color32::from_rgb(
-        lerp(table[i][0], table[j][0]),
-        lerp(table[i][1], table[j][1]),
-        lerp(table[i][2], table[j][2]),
-    )
-}
-
-/// `vik` — blue-white-red **diverging**. The default temperature map.
-///
-/// `t = 0.0` is the cold end, `0.5` the neutral centre, `1.0` the hot end.
-/// Normalise a temperature onto `[0, 1]` about its reference before calling,
-/// so that `0.5` lands where the physics says "neither hot nor cold".
+/// *vik*, diverging (blue → neutral → red); `t` clamped to `[0, 1]`.
 pub fn vik(t: f32) -> Color32 {
-    sample(&tables::VIK, t)
+    bugis::colour_maps::crameri::vik(t).into()
 }
 
-/// `roma` — red-yellow-blue **diverging**. Use when a second, visually
-/// distinguishable diverging field shares the screen with [`vik`].
+/// *roma*, diverging; `t` clamped to `[0, 1]`.
 pub fn roma(t: f32) -> Color32 {
-    sample(&tables::ROMA, t)
+    bugis::colour_maps::crameri::roma(t).into()
 }
 
-/// `batlow` — general-purpose **sequential**, monotonic in lightness.
-///
-/// The safe default for a magnitude with no meaningful midpoint, and the one
-/// to reach for if the figure may be printed in greyscale.
+/// *batlow*, sequential; `t` clamped to `[0, 1]`.
 pub fn batlow(t: f32) -> Color32 {
-    sample(&tables::BATLOW, t)
+    bugis::colour_maps::crameri::batlow(t).into()
 }
 
-/// `lajolla` — warm **sequential**, light at the low end.
+/// *lajolla*, sequential; `t` clamped to `[0, 1]`.
 pub fn lajolla(t: f32) -> Color32 {
-    sample(&tables::LAJOLLA, t)
+    bugis::colour_maps::crameri::lajolla(t).into()
 }
 
-/// `romaO` — **cyclic**. Wraps, so `t` and `t + 1` are the same colour.
-///
-/// For quantities with no beginning or end: a rotor angle, a phase. A
-/// non-cyclic map used for these shows a hard seam at the wrap, implying a
-/// discontinuity the physics does not have.
+/// *romaO*, cyclic: `t` wraps, so `0` and `1` are the same colour.
 pub fn roma_o(t: f32) -> Color32 {
-    sample_cyclic(&tables::ROMA_O, t)
+    bugis::colour_maps::crameri::roma_o(t).into()
 }
 
 #[cfg(test)]

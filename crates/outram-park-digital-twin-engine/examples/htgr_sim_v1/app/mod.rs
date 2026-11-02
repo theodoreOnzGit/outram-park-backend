@@ -292,6 +292,9 @@ fn plant_time_per_tick() -> Time {
 
 /// The HTGR simulator `eframe::App`.
 pub struct HtgrSimApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     /// Shared scalar plant state (physics thread writes outputs, GUI writes
     /// control inputs).
     physics: SharedState<HtgrSnapshot>,
@@ -588,8 +591,11 @@ impl HtgrSimApp {
 
 impl HtgrSimApp {
     /// Construct the app and start the first run via [`start_simulation`].
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Self::start()
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let app = Self::start();
+        // Gruvbox Dark from the first frame (native and browser).
+        app.theme.apply(&cc.egui_ctx);
+        app
     }
 
     /// The body of [`new`](Self::new), without the `eframe` argument.
@@ -607,6 +613,7 @@ impl HtgrSimApp {
             plots: run.plots,
             thread_health: run.thread_health,
             open_panel: Panel::Schematic,
+            theme: bugis::Theme::default(),
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
             map_state: map_tab::MapTabState::default(),
@@ -844,7 +851,6 @@ impl eframe::App for HtgrSimApp {
                 if narrow {
                     ui.horizontal(|ui| {
                         panel_selector_compact(ui, &mut self.open_panel);
-                        egui::global_theme_preference_switch(ui);
                     });
                     ui.small("HTGR Simulator v1.1 · offline demonstration, not validated");
                 } else {
@@ -852,8 +858,6 @@ impl eframe::App for HtgrSimApp {
                         "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
                     );
                     ui.horizontal_wrapped(|ui| {
-                        egui::global_theme_preference_buttons(ui);
-                        ui.separator();
                         panel_selector_ui(ui, &mut self.open_panel);
                     });
                     ui.separator();
@@ -875,6 +879,8 @@ impl eframe::App for HtgrSimApp {
         // The body is the same function either way.
         #[cfg(not(target_arch = "wasm32"))]
         egui::Panel::right("htgr_controls").show(ui, |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
             self.draw_side_controls(ui, &snapshot, &plots);
         });
         #[cfg(target_arch = "wasm32")]
@@ -889,7 +895,7 @@ impl eframe::App for HtgrSimApp {
                 // What the desktop's top bar holds, at the top of the panel,
                 // as the Monte Carlo demo puts its rung and mode pickers.
                 ui.small("Offline demonstration, not validated");
-                egui::global_theme_preference_buttons(ui);
+                bugis::selector(ui, &mut self.theme);
                 ui.separator();
                 panel_selector_ui(ui, &mut self.open_panel);
                 ui.separator();

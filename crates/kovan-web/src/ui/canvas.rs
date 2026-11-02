@@ -866,14 +866,11 @@ mod tests {
         assert_eq!(p.on_card(topic), topic);
     }
 
-    /// Under a light theme (desktop kovan's Gruvbox light, or egui's light)
+    /// Under a light theme (the shared `bugis` Gruvbox light, or egui's light)
     /// the cards are light and their text is readable on them.
     #[test]
     fn under_a_light_theme_the_cards_are_light_and_readable() {
-        let mut gruvbox_light = egui::Visuals::light();
-        gruvbox_light.panel_fill = Color32::from_rgb(0xf9, 0xf5, 0xd7);
-        gruvbox_light.faint_bg_color = Color32::from_rgb(0xeb, 0xdb, 0xb2);
-        gruvbox_light.widgets.inactive.bg_fill = Color32::from_rgb(0xeb, 0xdb, 0xb2);
+        let gruvbox_light = bugis::gruvbox_visuals(false);
         for v in [egui::Visuals::light(), gruvbox_light] {
             let p = Palette::of(&v);
             let topic = Color32::from_rgb(69, 133, 136);

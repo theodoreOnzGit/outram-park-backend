@@ -29,6 +29,10 @@ pub fn decay_simulator_v1() -> eframe::Result<()> {
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct DecaySimApp {
+    #[serde(skip)]
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     label: String,
 
     #[serde(skip)]
@@ -56,7 +60,9 @@ pub struct DecaySimApp {
 }
 
 impl DecaySimApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         let new_decay_sim_app: DecaySimApp = Default::default();
 
         let decay_sim_thread_1_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>> =
@@ -212,6 +218,7 @@ impl Default for DecaySimApp {
         dbg!(&initiation_time_secs);
 
         Self {
+            theme: bugis::Theme::default(),
             label: "Boon Lay Decay Simulator v1".to_owned(),
             value: 3.6,
             open_panel: Panel::MainPage,
@@ -236,10 +243,6 @@ impl eframe::App for DecaySimApp {
         let ctx = ui.ctx().clone();
 
         egui::Panel::top("top_panel").show(ui, |ui| {
-            egui::MenuBar::new().ui(ui, |ui| {
-                egui::widgets::global_theme_preference_buttons(ui);
-            });
-
             egui::ScrollArea::both().show(ui, |ui| {
                 ui.heading("Boon Lay Decay Simulator v1");
                 ui.separator();
@@ -256,7 +259,10 @@ impl eframe::App for DecaySimApp {
             });
         });
 
-        egui::Panel::right("Supplementary Info").show(ui, |ui| match self.open_panel {
+        egui::Panel::right("Supplementary Info").show(ui, |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            match self.open_panel {
             Panel::MainPage => {
                 egui::ScrollArea::both().show(ui, |ui| {
                     self.side_panel(ui);
@@ -274,6 +280,7 @@ impl eframe::App for DecaySimApp {
                     self.side_panel(ui);
                     self.citation_disclaimer_and_acknowledgements(ui);
                 });
+            }
             }
         });
 

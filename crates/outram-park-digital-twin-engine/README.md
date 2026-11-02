@@ -45,7 +45,7 @@ separate rendering model that must be kept in sync by hand.
 
 | Module | Status |
 |---|---|
-| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples. |
+| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples, and Crameri's Scientific colour maps. **Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`**, where the maps and tables now live byte for byte. |
 | `components/` | **Real wrappers.** Ten visual process objects, each composing its `tampines` (or `nee_soon`) physics counterpart. `instrumentation` is a deliberate visual-only label/value placeholder — `nee_soon` exposes no instrumentation-readout type to wrap yet. |
 | `animation/` | **Real.** Flow-tracer kinematics: `TracerTrain`, `residence_time_from_flow`, and the `FlowTracer`/`TravelTime` trait contracts. |
 | `app_scaffold/` | **Real.** `Arc<Mutex<_>>` physics-thread + panel-dispatch pattern, plus the thread-panic "please restart" modal. |

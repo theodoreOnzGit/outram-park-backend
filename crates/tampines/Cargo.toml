@@ -122,6 +122,7 @@ teh-o-prke.workspace = true
 nee_soon.workspace = true
 ndarray.workspace = true
 egui.workspace = true
+bugis.workspace = true
 eframe.workspace = true
 env_logger.workspace = true
 local-ip-address.workspace = true

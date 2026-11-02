@@ -76,6 +76,7 @@ sha2 = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
+bugis = { workspace = true }
 # `web_demo::view` routes its transcendentals through PETIR (gh:#985), and the
 # web demos build this library for wasm32, where the `petir` entry above (in
 # the not-wasm32 table) does not reach. petir is no_std, so it is wasm-safe.

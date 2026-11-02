@@ -100,7 +100,7 @@ fn main() -> Result<(), String> {
         "Fukushima Daiichi Unit 1",
         eframe::NativeOptions::default(),
         Box::new(|cc| {
-            cc.egui_ctx.set_theme(egui::Theme::Dark);
+            bugis::Theme::default().apply(&cc.egui_ctx); // Gruvbox Dark (`bugis`)
             let ctx = cc.egui_ctx.clone();
             let link = dhoby_ghaut::web_demo::link::start_native(engine::Runner::default(), move || ctx.request_repaint());
             Ok(Box::new(app::App::new(link)))
@@ -143,7 +143,7 @@ fn main() {
                 canvas,
                 web_options,
                 Box::new(|cc| {
-                    cc.egui_ctx.set_theme(egui::Theme::Dark);
+                    bugis::Theme::default().apply(&cc.egui_ctx); // Gruvbox Dark (`bugis`)
                     let link = dhoby_ghaut::web_demo::link::start_web(cc.egui_ctx.clone(), engine::web::WORKER_JS, engine::Event::Error)?;
                     Ok(Box::new(app::App::new(link)))
                 }),

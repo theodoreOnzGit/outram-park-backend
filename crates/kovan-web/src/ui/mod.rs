@@ -181,6 +181,9 @@ pub struct CodeReview {
     cams: BTreeMap<Level, Camera>,
     panel_open: bool,
     panel_decided: bool,
+    /// The Gruvbox theme (`bugis`), Dark by default. Applied and offered in
+    /// [`Mode::Web`] only: desktop kovan owns the window's theme (#820).
+    theme: bugis::Theme,
     /// The function whose source is shown.
     source: Option<String>,
     bar_expanded: bool,
@@ -225,6 +228,7 @@ impl CodeReview {
             cams: BTreeMap::new(),
             panel_open: true,
             panel_decided: false,
+            theme: bugis::Theme::default(),
             source: None,
             bar_expanded: false,
             menu: None,
@@ -456,11 +460,13 @@ impl CodeReview {
         let ctx = ui.ctx().clone();
         let resizing = camera::keep_canvas_at_device_pixels(&ctx);
         if !self.started {
-            // Dark, like the site's other demos (the cards are drawn for it).
-            // Not inside desktop kovan, which has its own theme for the
-            // whole window (GitHub #820).
+            // ~~Dark, like the site's other demos~~ **CHANGED 2026-11-02:**
+            // the workspace's shared Gruvbox theme (`bugis`), Dark by
+            // default, with a Dark/Light selector in the side panel. Not
+            // inside desktop kovan, which has its own theme for the whole
+            // window (GitHub #820).
             if self.mode == Mode::Web {
-                ctx.set_visuals(egui::Visuals::dark());
+                self.theme.apply(&ctx);
             }
             self.store.start(Self::repaint(&ctx));
             self.started = true;
@@ -503,6 +509,9 @@ impl CodeReview {
         let pw = (width * 0.85).min(360.0);
         egui::Panel::left("kw_side").default_size(pw).resizable(true).show_collapsible(ui, &mut open, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
+                if self.mode == Mode::Web {
+                    bugis::selector(ui, &mut self.theme);
+                }
                 self.site_buttons(ui);
                 ui.horizontal(|ui| {
                     ui.heading(self.panel_title());
@@ -1030,6 +1039,25 @@ impl CodeReview {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The page starts in the shared Gruvbox Dark theme (`bugis`) on its
+    /// first frame; inside desktop kovan (Mode::Desktop) the host's theme is
+    /// left alone (headless egui frame, 2026-11-02).
+    #[test]
+    fn the_web_page_starts_in_gruvbox_dark_and_desktop_keeps_the_host_theme() {
+        let src = DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() };
+        let mut r = CodeReview::new(Mode::Web, src.clone());
+        let ctx = egui::Context::default();
+        let _ = ctx.run_ui(Default::default(), |ui| r.show(ui));
+        assert_eq!(r.theme, bugis::Theme::GruvboxDark);
+        assert_eq!(ctx.global_style().visuals.panel_fill, bugis::palette::DARK0_HARD);
+
+        let mut d = CodeReview::new(Mode::Desktop, src);
+        let host = egui::Context::default();
+        bugis::Theme::GruvboxLight.apply(&host);
+        let _ = host.run_ui(Default::default(), |ui| d.show(ui));
+        assert_eq!(host.global_style().visuals.panel_fill, bugis::palette::LIGHT0_HARD);
+    }
 
     /// Desktop (no browser hash): a drill-in stays put on the next frame.
     /// The view's own location used to be compared with the platform's

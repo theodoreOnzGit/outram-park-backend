@@ -380,7 +380,7 @@ fall under it too.
 | Module | Contains |
 |---|---|
 | `animation/` | Tracer kinematics: `TracerTrain`, `residence_time_from_flow`, `FlowTracer`/`TravelTime`. **Must stay `egui`-free** — it is the only module that builds for Android. |
-| `color_maps/` | Ported hot/cold + steam-quality colour functions. Real, already-validated code — do not "improve" the maps; call sites depend on the exact values. |
+| `color_maps/` | Ported hot/cold + steam-quality colour functions (and `crameri`). Real, already-validated code — do not "improve" the maps; call sites depend on the exact values. **Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`** (the maps, the Crameri tables and their `References.md` moved there byte for byte); the tests here still pin the colours. |
 | `components/` | One file per visual process object, each composing its physics counterpart plus visual-only fields and an `egui::Widget` impl. |
 | `app_scaffold/` | `SharedState`, monitored physics threads, panel dispatch, crash modal. |
 | `htr10/` | Cited HTR-10 design constants and packed-bed correlations (`design`, `kta`, `zbs`, `neutronics`), each with a test against its published value. GUI-free and not target-gated. Not validated. |

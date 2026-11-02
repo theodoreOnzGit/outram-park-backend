@@ -23,7 +23,12 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Boon Lay — Walk-on-Spheres real-time TRISO diffusion",
         native_options,
-        Box::new(|_cc| Ok(Box::new(app::RealtimeApp::new()))),
+        Box::new(|cc| {
+            let app = app::RealtimeApp::new();
+            // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+            app.theme.apply(&cc.egui_ctx);
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -82,6 +87,9 @@ mod app {
     /// The live diffusion demonstrator.
     pub struct RealtimeApp {
         shared: Arc<RwLock<Shared>>,
+        /// The Gruvbox theme (`bugis`), Dark by default; the controls
+        /// panel's selector switches it.
+        pub theme: bugis::Theme,
     }
 
     impl RealtimeApp {
@@ -116,7 +124,7 @@ mod app {
             let worker_shared = Arc::clone(&shared);
             thread::spawn(move || worker(worker_shared));
 
-            Self { shared }
+            Self { shared, theme: bugis::Theme::default() }
         }
     }
 
@@ -238,6 +246,8 @@ mod app {
 
             egui::Panel::top("controls").show(ui, |ui| {
                 ui.heading("Walk-on-Spheres real-time TRISO diffusion (Cs-137, 1600 \u{b0}C)");
+                // The shared Gruvbox Dark/Light selector (GUI drawing).
+                bugis::selector(ui, &mut self.theme);
                 ui.horizontal(|ui| {
                     if ui
                         .button(if running {

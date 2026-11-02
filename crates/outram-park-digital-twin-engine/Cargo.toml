@@ -130,6 +130,7 @@ thiserror.workspace = true
 # Cargo.toml's note on `web-time`.
 web-time.workspace = true
 egui.workspace = true
+bugis.workspace = true
 eframe.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
