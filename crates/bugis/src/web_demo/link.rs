@@ -55,12 +55,16 @@ pub struct Mailbox<R, E> {
     /// Set by [`Link::terminate`]: the engine thread drops what it is sent
     /// and exits; nothing more is delivered.
     pub closed: bool,
+    /// The engine thread, unparked by [`Link::send`] so a request is picked
+    /// up at once rather than after the idle poll (gh:#1105: the 3 ms sleep
+    /// made the native three-worker step slower than the inline one).
+    pub engine: Option<std::thread::Thread>,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl<R, E> Default for Mailbox<R, E> {
     fn default() -> Self {
-        Self { events: Vec::new(), requests: Vec::new(), closed: false }
+        Self { events: Vec::new(), requests: Vec::new(), closed: false, engine: None }
     }
 }
 
@@ -88,6 +92,9 @@ impl<R: Message, E: Message> Link<R, E> {
                 if let Ok(mut m) = m.write() {
                     if !m.closed {
                         m.requests.push(r);
+                        if let Some(t) = &m.engine {
+                            t.unpark();
+                        }
                     }
                 }
             }
@@ -120,6 +127,9 @@ impl<R: Message, E: Message> Link<R, E> {
                     m.closed = true;
                     m.requests.clear();
                     m.events.clear();
+                    if let Some(t) = &m.engine {
+                        t.unpark();
+                    }
                 }
             }
             #[cfg(target_arch = "wasm32")]
@@ -220,7 +230,7 @@ pub trait NativeEngine: Send + 'static {
 pub fn start_native<N: NativeEngine>(mut engine: N, repaint: impl Fn() + Send + 'static) -> Link<N::Req, N::Ev> {
     let mailbox: Arc<RwLock<Mailbox<N::Req, N::Ev>>> = Arc::default();
     let m = mailbox.clone();
-    std::thread::spawn(move || {
+    let handle = std::thread::spawn(move || {
         let mut post = |e: N::Ev| {
             if let Ok(mut m) = m.write() {
                 if !m.closed {
@@ -235,7 +245,9 @@ pub fn start_native<N: NativeEngine>(mut engine: N, repaint: impl Fn() + Send + 
             }
             let requests = m.write().map(|mut m| std::mem::take(&mut m.requests)).unwrap_or_default();
             if requests.is_empty() {
-                std::thread::sleep(std::time::Duration::from_millis(3));
+                // Woken by `send` (or `terminate`); the timeout only bounds
+                // a wake that raced the check above, at the old poll's 3 ms.
+                std::thread::park_timeout(std::time::Duration::from_millis(3));
                 continue;
             }
             for r in requests {
@@ -243,6 +255,9 @@ pub fn start_native<N: NativeEngine>(mut engine: N, repaint: impl Fn() + Send + 
             }
         }
     });
+    if let Ok(mut w) = mailbox.write() {
+        w.engine = Some(handle.thread().clone());
+    }
     Link::Native(mailbox)
 }
 
@@ -485,5 +500,20 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(30));
         assert!(link.drain().is_empty());
         assert!(BAD_MESSAGE.starts_with("bad message"));
+    }
+
+    /// The engine thread is registered for `send` to wake (gh:#1105), and a
+    /// request-reply round trip completes, many in a row, in order.
+    #[test]
+    fn send_wakes_the_engine_thread() {
+        let link = start_native(Echo, || {});
+        if let Link::Native(m) = &link {
+            assert!(m.read().unwrap().engine.is_some());
+        }
+        for i in 0..200 {
+            link.send(i);
+            assert_eq!(wait_for(&link, 1), vec![i]);
+        }
+        link.terminate();
     }
 }
