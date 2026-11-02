@@ -579,3 +579,69 @@ wrapper to do ablation as to which settings reproduce triso atops paper result
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 69b171c340.
+
+# Review: integrate_diffusion_over_time_for (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-integrate-diffusion-over-time-for-theodoreonzgit-a8b82f97"
+kind = "review"
+origin = "human"
+created = "2026-11-02T11:34:42+08:00"
+modified = "2026-11-02T11:34:42+08:00"
+target = "fn:a8b82f97dda5e783"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::integrate_diffusion_over_time_for"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T11:34:42+08:00"
+commit = "eff8f7ead5145800b2ea6ea3cc4cb65e58b07ba3"
+hash = "sha256:22cdab21d2bcd7b2a04977b5f4138f9274b8988e899b876f67e2b62a9f3171a4"
+doc_hash = "sha256:5d5b887a3fa05dd7a4db22e919f92eed1cfa0432a5271b47c8c7e28a894fd04e"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:1b4860a3c1b4d2ed" = "sha256:1e23358c5e8c68e95548f0ed7b7aadf6e613039c32ab88dcea7d6fb1ee4b3fe7"
+"fn:5651ddb28625398d" = "sha256:06d6d142ddb82fd001470fd61c7ed2e4f65f1d3ac98cdf1cb8d94424a1899d08"
+"fn:67358d5c0d56fc08" = "sha256:c32aac384075091714d67e7162126819d5d2c4140fa65b594b7e650b6be8a41b"
+"fn:759c40b16c1f728e" = "sha256:970d9ba0b671193747184b0d2a77945d439f052d9152e0e24604a1864fda2c0d"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+"fn:9a3e33816dabd64b" = "sha256:8c0917b5ed353738bf0972a9f3c18d11059686189a878e614fc7682784bc3f37"
+"fn:bfe17211ff4ff7f2" = "sha256:24a940e2ec020558fbe49b26c8d59fd415f140bd56a083cfb6247806f6d722c4"
+"fn:fc42897456ddcda8" = "sha256:99ab9e07c9d01a858b47d5649f98c035be52983fc3847b7614406757d66dbd8d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream behaviour"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "6pTxTtfk2QM3RB/e6UAjXaU3XCY0LAdSzDYfsrPzg3RXh4Ny5fx89Q6Of7WShpleKYXPMWf0Aq2u59gzT/rRBw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+ablation for how integration is done, and which clamping regime is performed
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit eff8f7ead5.
