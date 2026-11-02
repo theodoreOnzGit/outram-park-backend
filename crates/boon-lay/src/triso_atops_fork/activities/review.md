@@ -817,3 +817,70 @@ follow upstream, circulating_steadystate in python TRISO ATOPS
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit a79697dc87.
+
+# Review: base_activities (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-base-activities-theodoreonzgit-2095c07b"
+kind = "review"
+origin = "human"
+created = "2026-11-02T16:57:03+08:00"
+modified = "2026-11-02T16:57:03+08:00"
+target = "fn:2095c07b5f4097a8"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::base_activities"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T16:57:03+08:00"
+commit = "3c09462778ea3cffa663e0efcff2394c80a603cb"
+hash = "sha256:fb4c3bd2aed5f83efe1505efbff2698445a4da2c6aae7a960ff839b607a18b64"
+doc_hash = "sha256:c3abd162b02b0563c26381a9c1eee9b7b5429221f6b646d26448bd764effe349"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:40683b291bd14f34" = "sha256:b6a7153f4139fde336fffa0b6a41deb9fcf210521ddf9c60576c08fdc0a36f5b"
+"fn:a3654ef9ead0b08e" = "sha256:592d21c9d20158f91f15be8cb7044e39664a0b092598e6c8f8976a45bc511129"
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+"fn:d9fc661a522b11ce" = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+"fn:ee87ae9710c2fa05" = "sha256:9d7ee874d9552f077202594f2437fd8a72a3d2c0b37446ecad11026af97edd94"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "no_limits: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "txV39hGPE5sq/4s0VET+xZxYk59tfLR006Q5gNsK2gZzkzyHV3x29Wlw5X4bMb2imDbh14I4Oaa2RAQctYnHAw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked against base activities in TRSIO ATOPS python
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 3c09462778.
