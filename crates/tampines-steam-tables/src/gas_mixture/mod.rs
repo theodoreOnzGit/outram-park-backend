@@ -25,7 +25,14 @@
 //!   saturated vapour at 100 °C ([`SteamModel::IdealConstantCv`], the
 //!   ablation: `u = 2.506e6 + 1500 (T − 373.15)` J/kg).
 //! - **Energy references differ by component** (non-condensables from 0 K,
-//!   IF97 steam from the triple-point liquid). Only energy *changes* and
+//!   IF97 steam from the triple-point liquid). "From 0 K" means `u(0) = 0`
+//!   with `c_v(T_low) T` below each fit's lower bound (`sembawang`'s
+//!   convention), **not** JANAF's `H°(T) − H°(0)`: at 298.15 K the molar
+//!   enthalpies differ from JANAF by −896 J/mol (H2, MELCOR fit), +518 (CO2),
+//!   +83 (N2, MELCOR fit), +14 (CO), +12 (O2), +0.4 (Ar) (gh:#1098 item 18,
+//!   measured 2026-11-01). Energy changes inside a fit's range are
+//!   unaffected; anything anchored to formation enthalpies must anchor at
+//!   298.15 K, as `sembawang::bwr_mark1::reaction` does, never at 0 K. Only energy *changes* and
 //!   enthalpies carried on the same references are meaningful, as in
 //!   `sembawang`; a control volume using this keeps them consistent
 //!   (audited 2026-11-01, gh:#1098 item 2: `tampines::control_volume` and
