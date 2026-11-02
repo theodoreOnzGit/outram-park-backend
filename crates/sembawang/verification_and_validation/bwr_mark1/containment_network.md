@@ -1568,7 +1568,7 @@ old model's BUR code, with the chemistry in sembawang (gh:#1103); what is
 open is the block's one-step flash after the vent, which brings back
 post-vent swings and an `n` dependence at the vent.)
 
-## Units 2 and 3 by configuration (a sketch; no plant data invented)
+## Units 2 and 3 by configuration (gh:#1101; ~~a sketch;~~ no plant data invented)
 
 The network reduces a unit to `Params` (volumes, areas, set points, the
 snapshots' sources) plus `NetworkConfig` (shapes, elevations, sump pits,
@@ -1576,7 +1576,11 @@ inertial lengths). Units 2 and 3 are BWR/4s in Mark I containments, with
 RCIC and HPCI instead of isolation condensers, which lives in the vessel
 model and not here. A unit would be
 `ContainmentNetwork::with_config(&Params::unit2(), NetworkConfig::unit2(), ..)`.
-Neither constructor exists yet, because the data below is not held. It would
+~~Neither constructor exists yet, because the data below is not held.~~
+**CORRECTED 2026-11-01 (gh:#1101):** both exist now, for Unit 2 and Unit 3,
+with every field marked [S], [D] or [A]. See the record below. The list that
+follows was the data needed. What was found is in
+`units23_open_data.md`. It would
 need, from open literature only (SAND2012-6173, the Japanese government's
 June 2011 report to the IAEA, IAEA Technical Volume 1, TEPCO's public plant
 data; not the restricted BSAF specification):
@@ -1596,6 +1600,67 @@ data; not the restricted BSAF specification):
   inventory).
 
 Unit 1's own \[A\] entries need the same data.
+
+### The constructors and their check (gh:#1101, 2026-11-01)
+
+`Params::unit2()`, `Params::unit3()`, `NetworkConfig::unit2()` and
+`NetworkConfig::unit3()` carry the values in `units23_open_data.md`. Its
+"Step 3" table gives each field's mark and source. In brief:
+
+| | [S] sourced | [D] derived | [A] assumed |
+|---|---|---|---|
+| `NetworkConfig` | torus major radius 16.75 m | building floor 646.8 m² (the volume over the torus-bottom-to-roof height, from TEPCO16's elevations and the 46 m building) | everything else, borrowed from Unit 1 |
+| `Params` | power, assemblies, control rods, RPV radius and height, drywell, wetwell gas and pool volumes, design pressure, rupture disk, downcomer count, U3 building volume | inventories (power ratio), downcomer area (main-vent area ratio), drywell floor and structures ((volume ratio)^(2/3)), pool surface and torus shell (from the torus) | U2 building volume (from Unit 3), vent area, vacuum breakers, submergence, flange, initial state, every vessel and core field not listed |
+
+**No comparison with the accident is made or possible here.** The crate has
+no RCIC or HPCI model and no Unit 2 or 3 sequence.
+
+**Unit 3's rupture disk** is a sourced conflict: 0.528 or 0.549 MPa abs.
+0.528 is used, because the disk is set at the PCV maximum working pressure
+(AESJ4), which NISA gives as 0.427 MPa g (0.528 MPa abs). 0.549 is kept as
+`params::UNIT3_RUPTURE_DISK_ANS_PA` and is not averaged in.
+
+**Check** (`tests/units_2_and_3_network.rs`; predictions written before the
+run, in its module docs):
+
+- **G, geometry**, read from the assembled network:
+  - gas space 3160.000 m³;
+  - pool 2978.04 m³ (2 965 100 kg);
+  - tube radius 4.3087 m. The free volume is 0.9375 of the sourced
+    geometric torus (r = 4.45 m); the difference is internals, which are
+    not drawn;
+  - level 4.2083 m, area there 906.26 m²;
+  - downcomers 0.606 m × 96 = 27.71 m², which is 1.039 of the main vents'
+    26.66 m²;
+  - 14 pool layers;
+  - drywell top 26.94 m, building top 58.745 m.
+
+  All predictions held. The drywell's shape and elevation are Unit 1's [A],
+  so its top is not a sourced number.
+- **A′, 300 s of case A's relief steam**, every mechanism on:
+
+  | unit | ΔT_pool | p_ww | water residual | energy residual / inflow | iterations |
+  |---|---|---|---|---|---|
+  | 1 | +1.0590 K | 105 269 Pa | −1.2e-9 kg | −3.4e-14 | ≤ 5 |
+  | 2 | +0.6224 K | 105 199 Pa | +2.3e-9 kg | −5.3e-14 | ≤ 5 |
+  | 3 | Unit 2's, bit for bit | | | | |
+
+  - The heating ratio is 0.588, the inverse ratio of the pool masses, as
+    predicted.
+  - There is no downcomer or breaker flow.
+  - The balance is the network's own (`boundary_inflow`). The lumped walls
+    are outside it.
+  - The vent, disk, flange, fission products and burns are not reached in
+    300 s.
+- **One prediction missed**
+  (`params::tests::units_2_and_3_derive_from_their_sources`):
+  - The torus shell's share above the pool was estimated by hand at 0.50741
+    and computed as 0.50733. The hand arithmetic used the IF97 volume share,
+    not 2980/6140.
+  - The constant now holds the computed value.
+- **Not drawn.** The crate's geometry rule asks for images of a built
+  geometry. No image of the Unit 2/3 network (V(z) tables, ports) was made
+  in this change. Unit 1's network has none either. That is open.
 
 ## Doubts, not settled here
 

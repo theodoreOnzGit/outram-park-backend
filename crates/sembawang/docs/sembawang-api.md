@@ -5965,8 +5965,13 @@ sembawang's prismatic pool: area `ww_pool_surface_m2` throughout.
 
 What a unit's containment network needs beyond [`Params`]: the shapes
 and elevations `params` does not hold. Every field is \[A\] for Unit 1
-(see the module docs); Units 2 and 3 would differ here and in `Params`
-(the V&V doc lists the data that would be needed).
+(see the module docs); ~~Units 2 and 3 would differ here and in `Params`
+(the V&V doc lists the data that would be needed).~~ **CORRECTED
+2026-11-01 (gh:#1101):** Units 2 and 3 are [`NetworkConfig::unit2`] and
+[`NetworkConfig::unit3`] with [`Params::unit2`] and [`Params::unit3`];
+of this struct only the torus's major radius is sourced and the
+building's floor derived, the rest borrowed from Unit 1 (the V&V doc's
+table lists each field's mark and what is still missing).
 
 ```rust
 pub struct NetworkConfig {
@@ -6023,6 +6028,16 @@ pub struct NetworkConfig {
   pub fn unit1_gh1097() -> Self { /* ... */ }
   ```
   The configuration the gh:#1097 and first gh:#1100 pins were measured
+
+- ```rust
+  pub fn unit2() -> Self { /* ... */ }
+  ```
+  Fukushima Daiichi Unit 2 (gh:#1101), with [`Params::unit2`]. Marks
+
+- ```rust
+  pub fn unit3() -> Self { /* ... */ }
+  ```
+  Fukushima Daiichi Unit 3 (gh:#1101), with [`Params::unit3`]: Unit
 
 ###### Trait Implementations
 
@@ -9696,6 +9711,16 @@ pub struct Params {
   Sets the input named `name`; `false` if there is none.
 
 - ```rust
+  pub fn unit2() -> Self { /* ... */ }
+  ```
+  Fukushima Daiichi Unit 2 (GE BWR/4, Mark I), for the fields an open
+
+- ```rust
+  pub fn unit3() -> Self { /* ... */ }
+  ```
+  Fukushima Daiichi Unit 3: [`Params::unit2`]'s values (KAN's
+
+- ```rust
   pub fn core_uo2_kg(self: &Self) -> f64 { /* ... */ }
   ```
   UO2 mass of the whole core, kg (from the pellet geometry).
@@ -11666,6 +11691,46 @@ Atmosphere, Pa.
 
 ```rust
 pub const P_ATM: f64 = 1.013e5;
+```
+
+#### Constant `UNIT3_RUPTURE_DISK_ANS_PA`
+
+Unit 3's rupture-disk set pressure as ANS-A gives it, Pa absolute: the
+rejected side of the conflict that [`Params::unit3`] resolves to
+0.528 MPa abs (see there). Kept so that a caller can run it, and so the
+conflict stays visible; the two are never averaged. \[S\] ANS Special
+Committee on Fukushima, Appendix A (2012): "0.549 MPa".
+
+```rust
+pub const UNIT3_RUPTURE_DISK_ANS_PA: f64 = 0.549e6;
+```
+
+#### Constant `UNITS23_SHELL_ABOVE_POOL`
+
+The torus shell's share above the pool for Units 2 and 3 (see
+[`Params::unit2`]): `1 - acos(δ)/π` with `δ` the level's depth below the
+tube centre over `r` for a circular segment holding 0.4853 of the
+circle, `δ` = 0.023027 (solved by bisection in
+`params::tests::units_2_and_3_derive_from_their_sources`; the hand
+estimate written before the run, 0.50741, **MISSED**: it took the share
+from the IF97 pool volume, 2978/6138, not 2980/6140). \[D\]
+
+```rust
+pub const UNITS23_SHELL_ABOVE_POOL: f64 = 0.507_33;
+```
+
+#### Constant `UNITS23_WW_POOL_SURFACE_M2`
+
+The torus pool's free surface for Units 2 and 3, m^2: the area of the
+network's volume-fit torus (R 16.75 m \[S\], its tube radius 4.309 m
+from the sourced 3160 + 2980 m³) at the initial level, read from the
+assembled network by `tests/units_2_and_3_network.rs` (906.26 m²; the
+hand estimate before the run was 907). The data file's 936 m² is the
+sourced geometric tube (r = 4.45 m), which holds 6.7 % more than the
+free volume. \[D\]
+
+```rust
+pub const UNITS23_WW_POOL_SURFACE_M2: f64 = 906.3;
 ```
 
 ## Module `pool_surface`

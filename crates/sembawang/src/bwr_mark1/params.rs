@@ -990,6 +990,133 @@ params! {
     h2_explosion = H2_EXPLOSION, A,
 }
 
+// ── Units 2 and 3 (gh:#1101) ────────────────────────────────────────────────
+//
+// Every value below comes from
+// `verification_and_validation/bwr_mark1/units23_open_data.md`, whose source
+// keys (KAN, ICANPS, NISA, …) the comments use. Marks, as in that file:
+// [S] a search excerpt of a named public document, the primary not opened
+// (treat as [U]); [D] derived here from [S] values, the derivation shown;
+// [A] assumed: a field not set here is Unit 1's default, borrowed.
+
+/// Unit 3's rupture-disk set pressure as ANS-A gives it, Pa absolute: the
+/// rejected side of the conflict that [`Params::unit3`] resolves to
+/// 0.528 MPa abs (see there). Kept so that a caller can run it, and so the
+/// conflict stays visible; the two are never averaged. \[S\] ANS Special
+/// Committee on Fukushima, Appendix A (2012): "0.549 MPa".
+pub const UNIT3_RUPTURE_DISK_ANS_PA: f64 = 0.549e6;
+
+/// Units 2 and 3.
+impl Params {
+    /// Fukushima Daiichi Unit 2 (GE BWR/4, Mark I), for the fields an open
+    /// source gives (gh:#1101). Every field not listed below is Unit 1's
+    /// default, borrowed \[A\]; among them, plainly scale-dependent and
+    /// **not** scaled (no sourced ratio fits them): the relief-valve count
+    /// and throat, the main steam lines, the dome internals, the vessel's
+    /// water levels. The isolation-condenser fields mean nothing for
+    /// Units 2 and 3, which had RCIC and HPCI instead; no RCIC or HPCI model
+    /// exists in this crate, so no Unit 2 or 3 accident sequence can be run.
+    ///
+    /// | field | value | mark and source |
+    /// |---|---|---|
+    /// | `thermal_power_w` | 2381 MWt | \[S\] ICANPS |
+    /// | `assemblies`, `control_rods` | 548, 137 | \[S\] TEPCO-OL, KTH12 |
+    /// | `rpv_radius_m` | 2.8 m (5.6 m ID) | \[S\] TEPCO-OL, KTH12 |
+    /// | `rpv_height_m` | 22 m | \[S\] SI2 (Unit 3's sources say 21 m, see [`Params::unit3`]) |
+    /// | `cs_`, `i_`, `te_inventory_kg` | Unit 1's × 2381/1380 | \[D\] the power ratio (ICANPS); the same irradiation history \[A\] |
+    /// | `drywell_volume_m3` | 4240 m³ | \[S\] KAN, JNST25 |
+    /// | `wetwell_gas_m3`, `pool_water_m3` | 3160, 2980 m³ | \[S\] KAN, JNST25, MDPI23 |
+    /// | `containment_design_pa` | 0.384 MPa g | \[S\] NISA (ICANPS, INPO, NAS agree) |
+    /// | `vent_rupture_disk_pa` | 0.528 MPa abs | \[S\] INPO (62 psig), AESJ4 |
+    /// | `downcomer_count` | 96 | \[S\] SI2 |
+    /// | `downcomer_area_m2` | 27.71 m² | \[D\] Unit 1's 20 m² \[A\] × the main-vent area ratio (2.06/1.75)², SI1, SI2 |
+    /// | `dw_floor_m2`, `dw_wall_area_m2`, `dw_wall_c` | Unit 1's × 1.1563 | \[D\] Unit 1's \[A\] × the drywell-volume ratio (4240/3410)^(2/3), KAN |
+    /// | `ww_pool_surface_m2` | 906.3 m² | \[D\] the network's volume-fit torus (R 16.75 m \[S\], volumes \[S\]) at the initial level |
+    /// | `ww_shell_area_m2`, `ww_shell_c` | 1492.9 m², 8.789e7 J/K | \[D\] the sourced geometric torus (R 16.75, r 4.45 m, SI2, MDPI23, TEPCO16) above the pool's level; Unit 1's 15 mm steel \[A\] |
+    /// | `reactor_building_m3` | 38 000 m³ | \[A\] **borrowed from Unit 3** (KTH12), not Unit 1: same plant size; Unit 2's is not found |
+    pub fn unit2() -> Self {
+        let power_ratio = 2381.0e6 / THERMAL_POWER_W;
+        // Geometric similarity of the drywell: an area scales as V^(2/3).
+        let dw_area_ratio = (4240.0 / DRYWELL_VOLUME_M3).r_powf(2.0 / 3.0);
+        // The sourced geometric torus (R 16.75 m, r 4.45 m) and the pool's
+        // level on it, filled to the pool's share of the free volume,
+        // 2980 / (2980 + 3160) = 0.4853, as a circular segment: the level
+        // sits 0.023027 r below the tube's centre, so the wetted arc's
+        // half-angle from the bottom is acos(0.023027) and the shell above
+        // the water is 1 - acos(0.023027) / pi = 0.50733 of 4 pi^2 R r =
+        // 2942.6 m^2. Recomputed by `params::tests::units_2_and_3_derive_from_their_sources`.
+        let shell_total = 4.0 * std::f64::consts::PI * std::f64::consts::PI * 16.75 * 4.45;
+        let ww_shell_area = shell_total * UNITS23_SHELL_ABOVE_POOL;
+        Self {
+            thermal_power_w: 2381.0e6,
+            assemblies: 548.0,
+            control_rods: 137.0,
+            rpv_radius_m: 2.8,
+            rpv_height_m: 22.0,
+            cs_inventory_kg: CS_INVENTORY_KG * power_ratio,
+            i_inventory_kg: I_INVENTORY_KG * power_ratio,
+            te_inventory_kg: TE_INVENTORY_KG * power_ratio,
+            drywell_volume_m3: 4240.0,
+            wetwell_gas_m3: 3160.0,
+            pool_water_m3: 2980.0,
+            containment_design_pa: 0.384e6 + P_ATM,
+            vent_rupture_disk_pa: 0.528e6,
+            downcomer_count: 96.0,
+            downcomer_area_m2: DOWNCOMER_AREA_M2 * (2.06_f64 / 1.75).r_powi(2),
+            dw_floor_m2: DW_FLOOR_M2 * dw_area_ratio,
+            dw_wall_area_m2: DW_WALL_AREA_M2 * dw_area_ratio,
+            dw_wall_c: DW_WALL_C * dw_area_ratio,
+            ww_pool_surface_m2: UNITS23_WW_POOL_SURFACE_M2,
+            ww_shell_area_m2: ww_shell_area,
+            // Unit 1's 15 mm of carbon steel (7850 kg/m^3, 500 J/(kg K)) [A].
+            ww_shell_c: ww_shell_area * 0.015 * 7850.0 * 500.0,
+            reactor_building_m3: 38_000.0,
+            ..Self::default()
+        }
+    }
+
+    /// Fukushima Daiichi Unit 3: [`Params::unit2`]'s values (KAN's
+    /// 2381 MWt column, SI3 and the NISA tables give Unit 3 the same
+    /// containment; SI3 calls its pool "an estimate based on unit 2", so
+    /// for Unit 3 the pool is effectively \[A\] from Unit 2), except:
+    ///
+    /// | field | value | mark and source |
+    /// |---|---|---|
+    /// | `rpv_height_m` | 21 m | \[S\] IRID, KTH12 (two sources for Unit 3 itself); SI3's 22 m is recorded, not used |
+    /// | `reactor_building_m3` | 38 000 m³ | \[S\] KTH12 (asterisked in its table) |
+    /// | `vent_rupture_disk_pa` | 0.528 MPa abs | \[S\] **conflict**, see below |
+    ///
+    /// **The rupture disk: 0.528 against 0.549 MPa abs.** 0.528 is used.
+    /// AESJ4 states the rule that the disk is set "according to the maximum
+    /// working pressure of the PCV", and NISA gives Units 2 and 3 a maximum
+    /// working pressure of 0.427 MPa g, which is 0.528 MPa abs; INPO gives
+    /// the same 62 psig for the Unit 2 disk. 0.549 (ANS-A,
+    /// [`UNIT3_RUPTURE_DISK_ANS_PA`]) is Unit 1's code value, and the
+    /// TEPCO slide that pairs 0.549 with a 0.528 maximum working pressure
+    /// looks like Unit 1's; so 0.549 for Unit 3 may be a carry-over. Not
+    /// settled: IAEA TV1 and TEPCO's June 2012 report would settle it.
+    pub fn unit3() -> Self {
+        Self { rpv_height_m: 21.0, ..Self::unit2() }
+    }
+}
+
+/// The torus shell's share above the pool for Units 2 and 3 (see
+/// [`Params::unit2`]): `1 - acos(δ)/π` with `δ` the level's depth below the
+/// tube centre over `r` for a circular segment holding 0.4853 of the
+/// circle, `δ` = 0.023027 (solved by bisection in
+/// `params::tests::units_2_and_3_derive_from_their_sources`; the hand
+/// estimate written before the run, 0.50741, **MISSED**: it took the share
+/// from the IF97 pool volume, 2978/6138, not 2980/6140). \[D\]
+pub const UNITS23_SHELL_ABOVE_POOL: f64 = 0.507_33;
+/// The torus pool's free surface for Units 2 and 3, m^2: the area of the
+/// network's volume-fit torus (R 16.75 m \[S\], its tube radius 4.309 m
+/// from the sourced 3160 + 2980 m³) at the initial level, read from the
+/// assembled network by `tests/units_2_and_3_network.rs` (906.26 m²; the
+/// hand estimate before the run was 907). The data file's 936 m² is the
+/// sourced geometric tube (r = 4.45 m), which holds 6.7 % more than the
+/// free volume. \[D\]
+pub const UNITS23_WW_POOL_SURFACE_M2: f64 = 906.3;
+
 /// Derived core geometry.
 impl Params {
     /// UO2 mass of the whole core, kg (from the pellet geometry).
@@ -1078,6 +1205,52 @@ mod tests {
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
         assert_eq!(Params::INPUTS.len(), 204);
+    }
+
+    /// gh:#1101: the Unit 2 and 3 values derived from sourced ones
+    /// (`Params::unit2`'s table) recompute from their sources, and Unit 3
+    /// differs from Unit 2 only where its doc says. Predictions written
+    /// 2026-11-01 before the first run, by hand: the shell's share above the
+    /// pool 0.50741 (δ = 0.02328); the downcomers 27.71 m²; the drywell
+    /// area ratio 1.1563; the inventories ×1.7254. **Result (2026-11-01):**
+    /// δ = 0.023027, the share 0.507330: the first prediction **MISSED**
+    /// (the hand arithmetic took the pool's share as 2978/6138, the IF97
+    /// volume, not the stated 2980/6140); the constant was corrected to
+    /// the computed 0.50733 (the shell 1492.9 m², 8.789e7 J/K). The rest
+    /// held.
+    #[test]
+    fn units_2_and_3_derive_from_their_sources() {
+        let (u1, u2, u3) = (Params::default(), Params::unit2(), Params::unit3());
+        // The circular segment holding the pool's share of the free volume.
+        let share = 2980.0 / (2980.0 + 3160.0);
+        let frac = |d: f64| {
+            let a = d.r_acos();
+            (a - a.r_sin() * a.r_cos()) / std::f64::consts::PI
+        };
+        let (mut lo, mut hi) = (0.0, 1.0);
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            if frac(mid) > share { lo = mid } else { hi = mid }
+        }
+        let delta = 0.5 * (lo + hi);
+        let above = 1.0 - delta.r_acos() / std::f64::consts::PI;
+        println!("units 2/3: delta {delta:.6}, shell above the pool {above:.6}, shell {:.1} m2, C {:.4e} J/K", u2.ww_shell_area_m2, u2.ww_shell_c);
+        assert!((above - UNITS23_SHELL_ABOVE_POOL).abs() < 1e-5, "{above}");
+        // The downcomers from the main-vent area ratio; the drywell's areas
+        // from its volume ratio; the inventories from the power ratio.
+        assert!((u2.downcomer_area_m2 - 27.713).abs() < 1e-3, "{}", u2.downcomer_area_m2);
+        let r = u2.dw_floor_m2 / u1.dw_floor_m2;
+        assert!((r - 1.15632).abs() < 1e-4 && r == u2.dw_wall_area_m2 / u1.dw_wall_area_m2, "{r}");
+        assert!((u2.cs_inventory_kg / u1.cs_inventory_kg - 2381.0 / 1380.0).abs() < 1e-14);
+        // Design pressure 0.485 MPa abs (NISA's own conversion), the disk
+        // above it as on Unit 1.
+        assert!((u2.containment_design_pa - 0.485e6).abs() < 0.001e6 && u2.vent_rupture_disk_pa > u2.containment_design_pa);
+        // Unit 3 is Unit 2 but for the vessel's height; the conflicting
+        // disk value is kept, not averaged in.
+        assert_eq!(Params { rpv_height_m: 22.0, ..u3 }, u2);
+        assert!(u3.rpv_height_m == 21.0 && u3.vent_rupture_disk_pa == 0.528e6 && UNIT3_RUPTURE_DISK_ANS_PA == 0.549e6);
+        // Unit 1 is untouched.
+        assert_eq!(u1.thermal_power_w, THERMAL_POWER_W);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

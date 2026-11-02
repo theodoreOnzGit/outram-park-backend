@@ -328,3 +328,70 @@ U1 values are as in code. U2/U3 values are [S] unless marked. Pa abs unless
 | assemblies / control rods | 400 / 97 | 548 / 137 | 548 / 137 | TEPCO-OL, KTH12 |
 | RPV ID / height | 4.8 m / 20 m [U] | ≈5.6 m / 22 vs 21 m (conflict) | ≈5.6 (IRID 5.5) / 21–22 m | TEPCO-OL, SI2, SI3, KTH12, IRID |
 | PCV height | — | ≈33 m (TEPCO17) vs ≈34 m (IRID) | ≈34 m | TEPCO17, IRID |
+
+---
+
+## Step 3: in the code (gh:#1101, 2026-11-01)
+
+`Params::unit2()` / `Params::unit3()` (`src/bwr_mark1/params.rs`) and
+`NetworkConfig::unit2()` / `NetworkConfig::unit3()`
+(`src/bwr_mark1/containment_network.rs`) carry the values above. Each
+field's mark is in a comment beside it. The marks are those of this file:
+[S] is a search excerpt and the primary was not opened, so treat it as
+[U]; [D] is derived and the derivation is shown; [A] is assumed. A field
+not found is borrowed from Unit 1 and marked [A]. Tests:
+`tests/units_2_and_3_network.rs` (geometry from the assembled network, and
+a 300 s relief run that conserves) and
+`params::tests::units_2_and_3_derive_from_their_sources`.
+
+**No comparison with the accident.** The crate has no RCIC or HPCI model
+and no Unit 2 or Unit 3 sequence. `Mode::Historical` is Unit 1's. A
+Unit 2 or 3 network can be driven only by a snapshot the caller builds.
+
+### Field by field
+
+`Params` fields not listed are Unit 1's defaults, borrowed [A].
+
+| field | Unit 2 | Unit 3 | mark | source or derivation |
+|---|---|---|---|---|
+| `Params::thermal_power_w` | 2381 MWt | same | [S] | ICANPS |
+| `assemblies`, `control_rods` | 548, 137 | same | [S] | TEPCO-OL, KTH12 |
+| `rpv_radius_m` | 2.8 m | same | [S] | 5.6 m ID, TEPCO-OL, KTH12 |
+| `rpv_height_m` | 22 m | 21 m | [S] | U2: SI2 (its only source). U3: IRID and KTH12, two sources for Unit 3 itself; SI3's 22 m recorded, not used |
+| `cs_`, `i_`, `te_inventory_kg` | Unit 1's × 1.7254 | same | [D] | power ratio 2381/1380 (ICANPS) × Unit 1's [P]/[A]; assumes the same irradiation history [A]. Unit 3's MOX is not represented |
+| decay heat | from `thermal_power_w` | same | [D] | `decay.rs` scales with the rated power. Fission shares are MELCOR's defaults [A], as for Unit 1 |
+| `drywell_volume_m3` | 4240 m³ | same | [S] | KAN, JNST25, SI3 |
+| `wetwell_gas_m3` | 3160 m³ | same | [S] | KAN, JNST25, SI3 |
+| `pool_water_m3` | 2980 m³ | same | [S] | KAN, JNST25, MDPI23. U3: SI3 calls it "an estimate based on unit 2", so it is effectively [A] from Unit 2 |
+| `containment_design_pa` | 0.384 MPa g | same | [S] | NISA |
+| `vent_rupture_disk_pa` | 0.528 MPa abs | 0.528 MPa abs | [S] | U2: INPO, AESJ4. U3: **conflict**. 0.528 was chosen because AESJ4's rule sets the disk at the PCV maximum working pressure, which NISA gives as 0.427 MPa g = 0.528 MPa abs. ANS-A's 0.549 is kept as `UNIT3_RUPTURE_DISK_ANS_PA`. It equals Unit 1's code value and may be carried over from Unit 1. Not averaged |
+| `downcomer_count` | 96 | 96 | [S] | SI2, SI3 |
+| `downcomer_area_m2` | 27.71 m² | same | [D] | Unit 1's 20 m² [A] × the main-vent area ratio (2.06/1.75)² (SI1, SI2). Each downcomer is then 0.606 m across. That 0.606 m is close to the unconfirmed generic 0.61 m, but the generic value was not used |
+| `dw_floor_m2`, `dw_wall_area_m2`, `dw_wall_c` | Unit 1's × 1.1563 | same | [D] | Unit 1's [A] × (4240/3410)^(2/3) (KAN), assuming geometric similarity and the same shell thickness [A] |
+| `ww_pool_surface_m2` | 906.3 m² | same | [D] | the network's volume-fit torus at the initial level. §2.2's 936 m² is the geometric tube (r = 4.45 m) |
+| `ww_shell_area_m2`, `ww_shell_c` | 1492.9 m², 8.789e7 J/K | same | [D] | 4π²Rr = 2942.6 m² (R 16.75 m, r 4.45 m [S]) × 0.50733 above the pool's level. Unit 1's 15 mm steel [A] |
+| `reactor_building_m3` | 38 000 m³ | 38 000 m³ | U2 [A], U3 [S] | U3: KTH12. U2: **borrowed from Unit 3**, not from Unit 1 (same plant size; Unit 1's 26 000 is itself [A]) |
+| vent area, vacuum breakers, submergence, flange, initial state | Unit 1's | same | [A] | borrowed from Unit 1, not found |
+| `NetworkConfig::torus_major_radius_m` | 16.75 m | same | [S] | SI2, SI3, MDPI23. The tube radius stays derived from the volumes (4.309 m). The free volume is 0.9375 of the sourced geometric torus |
+| `building_floor_m2` | 646.8 m² | same | [D] | 38 000 m³ / 58.75 m. The 58.75 m runs from the torus bottom (OP −2.55 m, TEPCO16) to the roof 46 m above grade (SI2, IRID), with grade taken as the R/B first floor, OP 10.2 m (TEPCO16) [A]. Unit 3 uses Unit 2's elevations [A] |
+| `drywell_floor_m`, `downcomer_entry_m`, sump pits, `pool_layers`, `quencher_elevation_m`, `building_openings_m2`, inertial lengths | Unit 1's | same | [A] | borrowed from Unit 1 |
+
+The following Unit 1 values are scale-dependent but were **not** scaled,
+because no sourced ratio fits them: relief-valve count and throat, main
+steam lines, dome internals, vessel water levels. The isolation-condenser
+fields do not apply to Units 2 and 3.
+
+### What a real Unit 2 or Unit 3 run still needs
+
+- **A sequence.** RCIC and HPCI models and their timing, the relief-valve
+  openings, the vent orders and the fire-engine injection, each from an
+  open source. None of this exists in the crate, and no timing was
+  gathered for this file.
+- **The data marked "not found" above.** Downcomer diameter and submergence,
+  vacuum breakers, vent-line area, Unit 2's building volume and blow-out
+  panel, structure inventories, the head flange, the drywell's elevation,
+  and Unit 3's torus elevation.
+- **The conflicts settled.** Unit 3's rupture disk and the RPV height, from
+  IAEA TV1 and TEPCO's June 2012 report.
+- **Every [S] confirmed** against its primary (see "How to read this
+  file").

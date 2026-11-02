@@ -149,8 +149,13 @@ pub enum TorusShape {
 
 /// What a unit's containment network needs beyond [`Params`]: the shapes
 /// and elevations `params` does not hold. Every field is \[A\] for Unit 1
-/// (see the module docs); Units 2 and 3 would differ here and in `Params`
-/// (the V&V doc lists the data that would be needed).
+/// (see the module docs); ~~Units 2 and 3 would differ here and in `Params`
+/// (the V&V doc lists the data that would be needed).~~ **CORRECTED
+/// 2026-11-01 (gh:#1101):** Units 2 and 3 are [`NetworkConfig::unit2`] and
+/// [`NetworkConfig::unit3`] with [`Params::unit2`] and [`Params::unit3`];
+/// of this struct only the torus's major radius is sourced and the
+/// building's floor derived, the rest borrowed from Unit 1 (the V&V doc's
+/// table lists each field's mark and what is still missing).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NetworkConfig {
     /// The torus's shape.
@@ -225,6 +230,66 @@ impl NetworkConfig {
     /// and the quenchers at the downcomers' exit depth.
     pub fn unit1_gh1097() -> Self {
         Self { sump_water_m3: 1.0, quencher_elevation_m: None, ..Self::unit1() }
+    }
+
+    /// Fukushima Daiichi Unit 2 (gh:#1101), with [`Params::unit2`]. Marks
+    /// as in `verification_and_validation/bwr_mark1/units23_open_data.md`
+    /// (whose source keys are used here): \[S\] a search excerpt of a named
+    /// public document, the primary not opened; \[D\] derived from \[S\]
+    /// values; \[A\] assumed.
+    ///
+    /// No accident sequence comes with it: this crate has no RCIC or HPCI
+    /// model, so a Unit 2 network can be driven only by a snapshot the
+    /// caller builds, never compared with the accident.
+    pub fn unit2() -> Self {
+        Self {
+            // [A] the modelling choice, as Unit 1.
+            torus_shape: TorusShape::Torus,
+            // [S] SI2, MDPI23: the torus's major diameter 33.5 m. The tube
+            // radius stays derived from the sourced volumes (4.309 m), not
+            // the sourced 4.45 m: the free volume is 0.938 of the geometric
+            // torus, the rest being internals the network does not draw.
+            torus_major_radius_m: 16.75,
+            // [A] borrowed from Unit 1: the drywell floor at the torus top
+            // (Unit 2's drywell elevation over the torus is not found).
+            drywell_floor_m: None,
+            // [A] borrowed from Unit 1.
+            downcomer_entry_m: 2.0,
+            // [A] borrowed from Unit 1 (numerical pits, dry).
+            sump_area_m2: 2.0,
+            sump_depth_m: 1.5,
+            sump_water_m3: 0.0,
+            // [A] borrowed from Unit 1: derived from the geometry.
+            pool_layers: None,
+            // [A] borrowed from Unit 1: the quenchers at the torus bottom.
+            quencher_elevation_m: Some(0.0),
+            // [D] the building's free volume (38 000 m^3, [A] from Unit 3)
+            // spread from the torus bottom to the roof: the roof 46 m above
+            // grade (SI2, IRID), grade taken at the R/B first floor, OP
+            // 10.2 m (TEPCO16), and the torus bottom 4.45 m below its
+            // equator at OP 1.9 m (TEPCO16), so 58.75 m: 646.8 m^2.
+            building_floor_m2: 38_000.0 / (46.0 + 10.2 + (4.45 - 1.9)),
+            // [A] borrowed from Unit 1 (the blow-out panel's size is not
+            // found; it opened on 12 March, which is sequence, not
+            // configuration).
+            building_openings_m2: 1.0,
+            // [A] all borrowed from Unit 1.
+            downcomer_length_m: 8.0,
+            vacuum_breaker_length_m: 1.0,
+            vent_length_m: 60.0,
+            flange_length_m: 0.5,
+            building_length_m: 1.0,
+        }
+    }
+
+    /// Fukushima Daiichi Unit 3 (gh:#1101), with [`Params::unit3`]: Unit
+    /// 2's configuration. The torus is \[S\] for Unit 3 itself (SI3: 33.5 m
+    /// and 8.9 m); the building's floor is \[D\] from Unit 3's own volume
+    /// (KTH12) with Unit 2's elevations (TEPCO16), \[A\] for Unit 3, whose
+    /// elevations are not found. Every other field is \[A\] borrowed from
+    /// Unit 1, as for Unit 2.
+    pub fn unit3() -> Self {
+        Self::unit2()
     }
 }
 
