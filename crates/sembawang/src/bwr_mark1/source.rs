@@ -241,7 +241,9 @@ mod tests {
         let i = inventory_bq(&sum, "I131", "I-131", 1.0);
         let xe = inventory_bq(&sum, "Xe133", "Xe-133", 1.0);
         assert!((cs / 1.566e17 - 1.0).abs() < 2e-3, "{cs:e}");
-        let h = histories(Mechanisms::default(), prm, 60.0, 30.0 * 3600.0);
+        // On the lumped containment since gh:#1099 (2026-11-02), explicitly:
+        // these pins were measured on it and keep their value there.
+        let h = histories(Mechanisms::default().without_network_containment(), prm, 60.0, 30.0 * 3600.0);
         let st = source_term(&h, &prm, &sum, 3600.0);
         let padded = crate::chain::pad_for_dispersion(&st, Time::new::<second>(6.0 * 3600.0));
         let total = |t: &SourceTerm, k: usize| t.nuclides[k].total_released().get::<becquerel>();
@@ -286,7 +288,9 @@ mod tests {
     fn the_release_carried_downwind() {
         let prm = Params::default();
         let sum = compute(&prm);
-        let h = histories(Mechanisms::default(), prm, 60.0, 30.0 * 3600.0);
+        // On the lumped containment since gh:#1099 (2026-11-02), explicitly:
+        // these pins were measured on it and keep their value there.
+        let h = histories(Mechanisms::default().without_network_containment(), prm, 60.0, 30.0 * 3600.0);
         let st = source_term(&h, &prm, &sum, 3600.0);
         let d: Vec<Length> = [1000.0, 2000.0, 3000.0, 4000.0, 5000.0].iter().map(|m| Length::new::<meter>(*m)).collect();
         let r = near_field(&st, &Weather::assumed(), &d);
