@@ -286,3 +286,55 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit dec1b0f1f7.
+
+# Review: DiffusionMaterial (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-diffusionmaterial-theodoreonzgit-bfe17211"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:42:05+08:00"
+modified = "2026-11-02T10:42:05+08:00"
+target = "fn:bfe17211ff4ff7f2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::DiffusionMaterial"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:42:05+08:00"
+commit = "444811df970dee14fc6f596b152f39bbfe970977"
+hash = "sha256:24a940e2ec020558fbe49b26c8d59fd415f140bd56a083cfb6247806f6d722c4"
+doc_hash = "sha256:4bed444d5027274c83affc172e0d240466080a9d49faaf53bd68704010b521e4"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "other: this is a plumbing thing"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "other: plumbing, not necessary"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "OO5GepB34pcBCQaWVPDeJnQnIq9ZQBe8YQdGIyKv6XZS42BloG9vga6uTxar0dx+qJS5/4ZUfdEs7UfzB1TSDw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 444811df97.
