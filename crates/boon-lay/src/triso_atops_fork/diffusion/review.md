@@ -235,3 +235,54 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 2291ab492f.
+
+# Review: KernelGraphiteDiffusion (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-kernelgraphitediffusion-theodoreonzgit-bbcd28a1"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:35:07+08:00"
+modified = "2026-11-02T10:35:07+08:00"
+target = "fn:bbcd28a15cbbf5eb"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::KernelGraphiteDiffusion"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:35:07+08:00"
+commit = "dec1b0f1f70648c33714fcf1c74c9729c21b87ad"
+hash = "sha256:eb2ee1bfa72e961eccc4f1bb9dc7c1c90fe081cb6aca389e38ac0948778d6040"
+doc_hash = "sha256:8e7e1c2422fa4211ea94db2b18602e843a7c5912c3193f7001f67081ec114a1d"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "bv/wSZk6hijzrgvL6zo9+evzC/YZjkDkStyQLPMoiogQmsEC7dDd/HKSyu/cCBkAXe8hHBUBz3UOKHttvjkeAw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit dec1b0f1f7.
