@@ -173,3 +173,65 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit d4704dd6b2.
+
+# Review: diffusion_coefficient (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-diffusion-coefficient-theodoreonzgit-8bc4c3bc"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:30:40+08:00"
+modified = "2026-11-02T10:30:40+08:00"
+target = "fn:8bc4c3bc717bd99d"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:30:40+08:00"
+commit = "2291ab492ffa31bd59b4190e2df095685f640c2e"
+hash = "sha256:01a9d764192caed17727d22b033e15e121412eb228415dd63816e5c10edbb912"
+doc_hash = "sha256:a8ce80679db11b00620b31f51b14f8a641d83dd72497db940f48eb6a733ad03f"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:6e1150d88bd2c0b3" = "sha256:4bb6b2b40fb69225d9d7e154b2818422d44e19047fbf1e3efb2e74510d2d2e67"
+"fn:bbcd28a15cbbf5eb" = "sha256:eb2ee1bfa72e961eccc4f1bb9dc7c1c90fe081cb6aca389e38ac0948778d6040"
+"fn:e950fcabea4ee9e2" = "sha256:7faf9ccfcddcda1d8cd8d9f1de564f724c07b6765bbbd4ea91b6755d2561342b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream behaviour"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "euZEcMtxDLL33ZVO3BRqeoPXyMBf3qvox2hKyybRvfNRp7yKhE43n4NObb+Tnxt7LTerOrKwoJS338DISjtyBA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 2291ab492f.
