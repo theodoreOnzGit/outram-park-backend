@@ -338,3 +338,63 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 444811df97.
+
+# Review: diffusion_coefficient_sic_ag (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-diffusion-coefficient-sic-ag-theodoreonzgit-7f5cefb7"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:43:55+08:00"
+modified = "2026-11-02T10:43:55+08:00"
+target = "fn:7f5cefb7c1df6559"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient_sic_ag"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:43:55+08:00"
+commit = "613819d01a38d606b89bd6f9975369c32beca035"
+hash = "sha256:4aa1d67f76c9b0ea57e4840755de225c42bc99fbca0793ad77d574160026eb1a"
+doc_hash = "sha256:bf84a4913a88b849d1fdc98f0a638a3977b3c711c56d7bf1fde73032946baac4"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:e950fcabea4ee9e2" = "sha256:7faf9ccfcddcda1d8cd8d9f1de564f724c07b6765bbbd4ea91b6755d2561342b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "hWMy2GNmTWo4SMgyGTYKKBPZO2evx5DyuFuSrNhJXVl/R3A41OOl84jG/Oy0DLpfDB3d15yoqlsYZHtfy5VJDw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked against table 5 of triso atops paper
+and against backend code
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 613819d01a.
