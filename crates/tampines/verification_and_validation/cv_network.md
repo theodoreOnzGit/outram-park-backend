@@ -327,3 +327,63 @@ move. They were not re-run here (see the hand-off).
 
 **What to quote:** test 7's 3399.999704–3400.000890 Pa, and the smooth
 case's ratios. Test 2's 2 s errors are not an order measurement.
+
+## Cutting the iteration count (gh:#1116 follow-up, 2026-11-02): profiled; no candidate accepted
+
+The maintainer asked for the iteration count to be cut before acceptance.
+Measured on `sembawang`'s case B (6 h of Unit 1,
+`containment_network_vs_containment::the_first_hours_of_unit_1_against_the_old_containment`).
+Hardware: a 4-vCPU Intel Xeon @ 2.10 GHz cloud container, 15 GB, release
+build with `-j 2`. Its timing varies by about 12 % between runs of the same
+code (21.9 and 24.3 ms a step for the base below).
+
+**Profile** (temporary instrumentation, since removed):
+- 21 606 network steps, 203 888 Picard iterations, a mean of 9.44.
+- 75 % of the iterations are in the 11 317 steps that take more than 5.
+- In those steps the largest residual belongs to the **downcomer**
+  (86 920 iterates) and the **vacuum breaker** (42 886). The building's
+  openings almost never hold it (3).
+- **63 % of those iterations run at the under-relaxation floor, `ω` =
+  0.05.**
+
+A per-iterate trace shows the mechanism:
+1. The downcomer's momentum flow is evaluated at the latest end pressures,
+   which already carry its own previous-iterate flow.
+2. A large flow on one iterate therefore lowers its own drive on the next,
+   and the flow collapses, sometimes to zero, then jumps back. That is a
+   Picard iteration on a stiff self-coupling.
+3. Each collapse makes the residual grow (to about 1e11 when every rate
+   drops to zero on one iterate), so `ω` halves. Once it reaches 0.05, the
+   remaining corrections move 5 % a step.
+
+The old start-of-step limit hid all this. It held the downcomer at a
+constant, always-binding cap on every iterate, so the momentum flow never
+decided the rate. That is also why its numbers were 3–4 times further from
+the lumped model.
+
+**Candidates.** The prediction was written before each run. Mean
+iterations are over case B, and acceptance means within the Picard
+tolerance of the current #1116 numbers.
+
+| Candidate | Predicted mean | Measured mean / max / ms a step | Case B (worst \|Δp_dw\|, \|Δp_ww\|, \|ΔT_pool\|) | Verdict |
+|---|---|---|---|---|
+| base (#1116 as committed, d40b3eb7a) | — | 9.44 / 105 / 24.3 | 16.51 %, 4.62 %, 0.26 K | — |
+| (a) don't re-take a limit that did not bind | identical (the flow is `min(raw, cap)`) | 9.44 / 105 / 23.9 | identical | held as predicted; no gain |
+| (b) Aitken Δ² on a limited path's moles, every third iterate | 8–9 | **11.0** / 110 / 27.5 | identical at the printed digits | rejected (slower) |
+| (c) warm start: the first iterate's cap from the previous step's limited moles | about 9 | **12.9** / 105 / 36.6 (+121 substeps) | identical at the printed digits | rejected (slower) |
+| (d) solve each gas path with its own linearised end response (`n = G(n)`, bracketed secant) | ≤ 3.5 | 8.0 / **208** / 23.2 | **14.35 %, 4.87 %, 0.28 K** | rejected: moved past the tolerance; N1 fails to converge |
+| (d′) as (d), donor's slope only | 5–7 | — | — | rejected: N1 and test 2 fail to converge (tampines proxies) |
+| (e) `ω` doubles when the residual halves | 5–6 | — | — | rejected: four tampines network tests fail to converge (the oscillation `ω` was added for) |
+| (f) residual scale: the larger of this and the previous iterate's rates | 7–8 | — | — | rejected: case B stops at 0.002 h. A flow alternating with zero reads residual 1 every iterate, never "growing", so `ω` never damps it |
+| (e) + (f) | 4–5 | — | — | rejected: as (e) |
+
+**Interpretation.** The extra iterations are the genuine implicit solve of
+a stiff path's momentum. The old code never performed that solve, because
+its lagged cap always bound. A fixed-point (Picard) iteration with
+pressure under-relaxation converges on it only linearly, and none of the
+listed accelerations changes that without either slowing down or losing
+convergence. The step already states this limit ("Picard, not Newton or
+JFNK"). The fix that matches the mechanism is a Newton step on the path
+flows that includes each volume's real (condensing, bubbling) response.
+That is a solver change of its own, not a tweak here, and is not attempted.
+The candidates' temporary code is not kept.
