@@ -528,3 +528,56 @@ enum could probably be combined, because the two members Kernel and Graphite als
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 9a86ab63a5.
+
+# Review: NormalOperationNode (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-normaloperationnode-theodoreonzgit-e8bfdd85"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:55:40+08:00"
+modified = "2026-11-02T13:55:40+08:00"
+target = "fn:e8bfdd8514f1aacb"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::NormalOperationNode"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:55:40+08:00"
+commit = "ba91b652747c77cdf9710a5e67a6b71da04527fc"
+hash = "sha256:9001999a6600f6623b7fa7a2747b60f9547e00ed8ad2204701b5d862fa7fe685"
+doc_hash = "sha256:c2394cfe51244d5eb5887e3bea1c90b14ca54c34aeac7d8be75888c33e0ec6b1"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "other: mirrors upstream"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "zRu/9h0j618tyhhCrCP3f8+NGWkU0+46SiPfsddoIKdnE17h1OPtV2mT8vhLbk+gcSTJr7tcp2VcWqvljikjDg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+follow upstream behaviour
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit ba91b65274.
