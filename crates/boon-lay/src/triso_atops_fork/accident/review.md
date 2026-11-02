@@ -581,3 +581,60 @@ follow upstream behaviour
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit ba91b65274.
+
+# Review: distribute_inventory_axially (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-distribute-inventory-axially-theodoreonzgit-1821cd8b"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:59:31+08:00"
+modified = "2026-11-02T13:59:31+08:00"
+target = "fn:1821cd8bfaa22038"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::distribute_inventory_axially"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:59:31+08:00"
+commit = "658ce839c902d64ec4c97bf3746791ec264fd9f5"
+hash = "sha256:a06ab686b38bf13447eacc123d9e2f493f2b7aff664151f75aab6d8de014d14b"
+doc_hash = "sha256:f99867ab55a8b7b4dbd48ecb713c2266280a0e69a588885d347208d17aa556d8"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follows upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: guards against 0 axial nodes"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Wq5lQjRiAMMHdHkkJjM23q4vv2F9KYjlkTddxgw5rA2HxxHnyJTjyeMlGwLhXaznc19CLcqgI8EcwAWpGTsMBg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+ported invenstory_processing upstream 
+looks ok! but deviates as improvement, explained in comments. I suppose an even split also works. 
+Which is the intent of the function
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 658ce839c9.
