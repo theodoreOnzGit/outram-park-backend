@@ -1751,6 +1751,20 @@ so this native number does not settle the browser's speed-up; that is **not
 measured**. Left as found, not tuned; the 3 ms poll is the first thing to
 test (gh:#1105).
 
+**Re-measured after the fix (2026-11-02, gh:#1105, 09fa9f995).** The engine
+thread now wakes on `send` instead of a 3 ms poll. Hardware: Intel Xeon @
+2.10 GHz, 4 logical cores (3 threads used), 15 GB RAM, Linux, CPU only; the
+machine was otherwise idle. The prediction, 0.95–1.15× in both windows, was
+written before the change:
+
+| Window | Inline | Three workers | Speed-up (before → after) |
+|---|---|---|---|
+| steps 0–3600 | 3.916 ms/step | 3.861 ms/step | 0.46 → **1.014** |
+| steps 16 200–18 000 | 18.084 ms/step | 17.831 ms/step | 0.69 → **1.014** |
+
+**Held.** Every frame is bit-identical. The poll was the whole overhead; the
+split now breaks even, and no more, because the network dominates the step.
+
 ## Units 2 and 3 by configuration (gh:#1101; ~~a sketch;~~ no plant data invented)
 
 The network reduces a unit to `Params` (volumes, areas, set points, the
