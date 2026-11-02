@@ -398,3 +398,62 @@ and against backend code
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 613819d01a.
+
+# Review: diffusion_coefficient_sic_ag_for (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-diffusion-coefficient-sic-ag-for-theodoreonzgit-5651ddb2"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:45:37+08:00"
+modified = "2026-11-02T10:45:37+08:00"
+target = "fn:5651ddb28625398d"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient_sic_ag_for"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:45:38+08:00"
+commit = "d9bc932bfc65d2246b50150ad20b5bb9485e94b8"
+hash = "sha256:06d6d142ddb82fd001470fd61c7ed2e4f65f1d3ac98cdf1cb8d94424a1899d08"
+doc_hash = "sha256:23ce288466c8a39e1dfb0c23f76a699768247fd85f61edcfb126529fa7c9e9de"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:3e752b3c15c4e4fe" = "sha256:d1f72246cf1efe75bc53507767c1fc7af7359636aa5b009d6fba94e241e5bf7a"
+"fn:7f5cefb7c1df6559" = "sha256:4aa1d67f76c9b0ea57e4840755de225c42bc99fbca0793ad77d574160026eb1a"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+"fn:fc42897456ddcda8" = "sha256:99ab9e07c9d01a858b47d5649f98c035be52983fc3847b7614406757d66dbd8d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "5EsDpLr+ddKvK3d+bMnTYARxnlVNZQ2rLTFqlJiE83EqAzEAgng2q9aVfudKNJOoyXKVKPQaFRKqpvsPoOTSAA=="
+```
+
+based on the TrisoAtopsVariant settings, decides whether a particular reading (by AI) of the paper should be used, to clamp the diffusion using a hard clamp or a partial clamp
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit d9bc932bfc.
