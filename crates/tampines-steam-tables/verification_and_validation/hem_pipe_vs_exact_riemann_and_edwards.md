@@ -357,6 +357,57 @@ validation).** Because of the liquid defect this is run in superheated steam:
 - max |Δp| = 8.7 Pa = **0.009 %** of the jump;
 - CoolProp took 28 s, IF97 0.12 s.
 
+### 9. `Iapws97Hem::break_flow` for subcooled liquid at low Δp (gh:#1102, 2026-11-02)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Defect.** `break_flow` returned `Err("h0 − h_b < 0")` for 300 K liquid at
+2.31 → 1.50, 2.0 → 1.5 and 1.2 → 1.0 bar. Called at 3 → 1 bar it did not
+error, but it returned 14 987 kg/(m² s), 25 % below Bernoulli. The choke
+check was not the problem: the dispatcher's p* ≈ 3540 Pa ≈ p_sat(300 K) lies
+below every back pressure, so the unchoked branch ran. There it formed
+`h0 − h(p_b, s0)` from `s0 = s(p0, T_ph(p0, h0))` and
+`h_b = h(p_b, T_ps(p_b, s0))`. Each passes through an IF97 backward equation
+(consistency |ΔT| ≤ 25 mK, so up to ≈ 100 J/kg of `c_p ΔT`), and the true
+drop `∫v dp ≈ v Δp` is only 20–200 J/kg here. Measured before the fix:
+`Δh` = −6.8, −38.1, −68.8 and +113.1 J/kg, against `v Δp` ≈ 81, 50, 20 and
+200 J/kg.
+
+**Prediction, written before the fix.** Compute the liquid isentrope from the
+Region 1 forward (Gibbs) equations only, with a Newton solve on
+`s_1(T, p_b) = s0` at `T0 = T_ph(p0, h0)`. Then `Δh` is the exact `∫v dp`,
+positive, and `G → √(2ρΔp)`, with a relative deviation of order `κ_T Δp`
+(≈ 1e-4 at 2 bar in 300 K water). Predicted for 2.31 → 1.50 bar:
+G ≈ 12 700 kg/(m² s).
+
+**Fix.** A new private `Iapws97Hem::liquid_isentropic_drop` (in
+`src/hem/iapws97.rs`) handles a Region 1 stagnation whose isentrope is still
+liquid at `p_b` (`p_b > p_sat(T_b)`, 273.15 ≤ T_b ≤ 623.15 K). If the Newton
+solve fails it returns an error, never a default. Other states keep the
+`(p, s)` flash route. The stagnation enthalpy used is `h_1(T0, p0)`, which
+differs from the given `h0` by the backward `T(p, h)` consistency error.
+
+**Methodology and pass criteria** (tests in `src/hem/tests.rs`, each criterion
+fixed before the run):
+
+| Test | Criterion | Measured 2026-11-02 |
+|---|---|---|
+| `gh1102_cold_liquid_low_dp_break_flow_is_unchoked_bernoulli`: 300 K, the four Δp above | `Ok`, unchoked, `abs(G/√(2ρ0Δp) − 1) ≤ 2 κ_T Δp` (κ_T = 4.5e-10 1/Pa) | all `Ok`, unchoked. 2.31 → 1.50 bar: G = 12 706 kg/(m² s), as predicted. Worst deviation 6.7e-5 (3 → 1 bar, bound 1.8e-4), scaling as −3.3e-10 Δp/Pa |
+| `gh1102_break_flow_tends_to_bernoulli_as_dp_vanishes`: 300 K / 2.31 bar, 370 K / 1.2 bar, 500 K / 7 MPa; Δp = 0, 1, 10, 100 Pa | `G(0) = 0`; `abs(G/G_B − 1) ≤ 1e-6` (round-off of Δh at 1 Pa plus κ_T Δp) | worst 7.1e-8 (300 K, 1 Pa) |
+| `gh1102_choked_transition_is_continuous_for_edwards_liquid`: 500 K / 7 MPa, `p_b = p*(1 ± 1e-9)`, plus a 201-point sweep `p0 → p*/2` | `abs(G(p*⁺)/G*(p*⁻) − 1) ≤ c_p·25 mK/Δh` = 2.2e-2; G non-decreasing as `p_b` falls | −8.1e-3 (85 583 against 86 283 kg/(m² s)); monotone |
+| `gh1102_choked_transition_is_continuous_for_cold_liquid` (`#[ignore]`, gh:#1111): same at 300 K / 2.31 bar | same | **FAILS.** `G(p*⁺)` = 21 291 and `G*` = 16 387 kg/(m² s), so G drops 23 % as `p_b` crosses `p*`. The ratio bound (0.46) is too wide to see it; the monotonicity assertion catches it |
+
+**Interpretation.** The unchoked branch for subcooled liquid is now
+Bernoulli-exact to within compressibility, continuous to Δp = 1 Pa, and
+continuous with the choked flux at the Edwards stagnation state. The
+remaining miss is on the **choked** side for cold low-pressure liquid:
+`get_critical_pressure_and_mass_flux_subcooled_liquid_ph` still builds its
+energy objective through the same backward-equation round trip, so its G* is
+about 23 % low at 300 K / 2.31 bar. Changing that solver re-measures the
+Zaloudek, Moody and Marviken V&V, so it is filed as gh:#1111 rather than
+done here. **Quote** the unchoked numbers above. Do not quote the 300 K
+choked G* as a validated value.
+
 ## References
 
 ```bibtex
@@ -399,6 +450,7 @@ cargo test --release -p tampines-steam-tables --test hem_pipe_verification -- --
 cargo test --release -p tampines-steam-tables --test hem_pipe_edwards -- --nocapture   # ~21 s
 EDW_HEM_CELLS=96 cargo test --release -p tampines-steam-tables --test hem_pipe_edwards -- --nocapture   # ~3 min
 cargo test --release -p tampines --test hem_coolprop -- --nocapture   # ~30 s
+cargo test --release -p tampines-steam-tables --lib gh1102 -- --nocapture --include-ignored   # §9; the ignored one fails (gh:#1111)
 ```
 
 The Edwards test also writes the gitignored

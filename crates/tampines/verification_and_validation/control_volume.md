@@ -400,11 +400,15 @@ L1 confirms neither touches the one-layer path.
   path's `K = 1` damps only slowly, so the water swung back and A refilled
   after drying, without error and conserving. The first L8 run at 300 K
   stopped on two limits outside this change: the HEM liquid choking
-  (`Iapws97Hem::break_flow` refuses 300 K liquid from 2.31 to 1.50 bar, and
+  (~~`Iapws97Hem::break_flow` refuses 300 K liquid from 2.31 to 1.50 bar, and
   from 2.0 to 1.5 bar or 1.2 to 1.0 bar when called directly; it succeeds at
-  3 to 1 bar: a defect of the break flow for cold subcooled liquid at low
-  pressure, reported with gh:#1100), and IF97 steam's 273.16 K floor
-  (gh:#1098). L8 ablates choking (as the manometer test does) and runs at
+  3 to 1 bar~~ **CORRECTED 2026-11-02, gh:#1102**: that refusal was fixed, and
+  `break_flow` now returns the unchoked flux, Bernoulli to 6.7e-5, for all
+  four cases (`tampines-steam-tables`
+  `hem::tests::gh1102_cold_liquid_low_dp_break_flow_is_unchoked_bernoulli`).
+  L8 has not been re-run with choking on. It was a defect of the break flow
+  for cold subcooled liquid at low pressure, reported with gh:#1100), and
+  IF97 steam's 273.16 K floor (gh:#1098). L8 ablates choking (as the manometer test does) and runs at
   350 K.
 
 **What to quote:** one layer is the old volume bit for bit (L1); with

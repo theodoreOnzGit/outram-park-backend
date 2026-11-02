@@ -225,7 +225,7 @@ single-phase ones (see the region-filtering note below, and bead `op-21g.2`,
 which is a candidate for closure on those grounds). All Moody isobars
 (0.25 – 30.0 × p_ref) are active.
 
-**Ignored tests — ~~the complete list, 13 of them~~ 14 of them, list regenerated
+**Ignored tests — ~~the complete list, 13 of them~~ ~~14 of them~~ 15 of them (15th added 2026-11-02, gh:#1102), list regenerated
 2026-09-27** (was: 13, regenerated 2026-08-11 from
 `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`, which
 is authoritative; `grep -rnE '^\s*#\[ignore' src/` returns 15 hits because one of
@@ -247,6 +247,7 @@ them sits inside a `/* … */` block comment and is not compiled at all):
 | `openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_200k_5mpa` | **Known error** — PR EOS 26 % off vs NIST at 200 K / 5 MPa |
 | `openfoam_source::thermophysics::thermo::janaf::tests::newton_converges_from_bad_initial_guess` | **Known error** — Newton stalls at ~1152 K; JANAF discontinuity at `Tcommon` |
 | `steam_turbine_equations::mean_flow_stages::tests::diagnose_multistage_expansion` | **ADDED TO THIS TABLE 2026-09-27** — Diagnostic. It is the **14th** ignore and was missing, so this table's "complete at 13" claim was false. Found by running `cargo test --release -j 3 -p tampines-steam-tables --lib -- --ignored --list`, which printed `14 tests, 0 benchmarks`. |
+| `hem::tests::gh1102_choked_transition_is_continuous_for_cold_liquid` | **ADDED 2026-11-02 (gh:#1102)** — **Known error**, gh:#1111: for 300 K liquid the subcooled critical solver's G* is 23 % below the unchoked flux just above p*, so G drops when the back pressure crosses p*. With it the lib run reports **15 ignored** (`1038 passed; 0 failed; 15 ignored`, 2026-11-02). |
 
 One diagnostic is ignored by design. Three unfinished ones are real gaps and all
 three sit on the **wet-steam** path — the same path the turbine work depends on.

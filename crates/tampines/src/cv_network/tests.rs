@@ -477,6 +477,9 @@ fn a_volume_drains_dry_inside_a_network() {
     // the dry pool: called directly it fails the same way for any 300 K
     // liquid (2.0 -> 1.5 bar, 1.2 -> 1.0 bar), and succeeds at 3 -> 1 bar
     // (reported with gh:#1100). The manometer test ablates choking likewise.
+    // CORRECTED 2026-11-02: gh:#1102 fixed that defect; break_flow now gives
+    // the unchoked Bernoulli flux for all four cases above. This test still
+    // ablates choking and runs at 350 K; it was not re-run with choking on.
     let path = gas_path(0.0, 0.0, 0.002, 1.0).without_choking();
     net.add_path(NetworkPath { path, from: NetworkEnd::Volume { volume: a, port: 0 }, to: NetworkEnd::Volume { volume: b, port: 0 } }).unwrap();
     let (w0, n0, e0) = totals(&net);
