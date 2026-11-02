@@ -103,6 +103,13 @@ in the demo.
   After a deliberate physics change, re-bless with
   `FUKUSHIMA_BLESS=1 cargo test --release -p sembawang --lib bwr_mark1` and
   record the movement in the commit and on the issue.
+  **STALE since 2026-11-02 (gh:#1116, #1117, #1114), on purpose:** those
+  tampines changes move the network plant, and `headless_30h.csv` was not
+  re-blessed, so the network fixture test fails until it is. Maintainer:
+  "until we get geometry no need to test regression". Network regression
+  re-blessing waits for the human check of the drawn geometry (gh:#1110).
+  One attempt was stopped at its 7000 s timeout, so a 30 h network run with
+  #1116 takes over about 2 h. The lumped fixture is unaffected.
 - **One worker equals three.** Parts cross as exact `f64`s (`wire`);
   `tests::three_workers_are_one_worker` must keep passing. Since gh:#1099
   the network's state has no wire form: the containment worker
