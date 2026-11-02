@@ -573,3 +573,62 @@ follow upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 7fcaafd0ee.
+
+# Review: clean_up_steadystate (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-clean-up-steadystate-theodoreonzgit-71fb69d2"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:24:40+08:00"
+modified = "2026-11-02T13:24:40+08:00"
+target = "fn:71fb69d2e7699d01"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::clean_up_steadystate"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:24:40+08:00"
+commit = "a51d4a95165b59bada5d2d36547167334be11f88"
+hash = "sha256:9f4767f618e0131eca8d5260adee1618b636347412ca1c787e3046340f897bf8"
+doc_hash = "sha256:c636e5be24989291a6385693fd08f716a816bbfc4cf00dacade2dc55d64b6c75"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "GQrRtC3+Bt6GqebW8g9DnRxqC15ykFmoejBUTLT5Onczq18c73rqCca9I247pAE/sLgi5V/LZl7GNvyf1NWpCw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+follow upstream, HPS (helium purification system)
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit a51d4a9516.
