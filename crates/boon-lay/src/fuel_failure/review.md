@@ -21,22 +21,24 @@ id = "review-weibull-failure-fraction-theodoreonzgit-dd41ff29"
 kind = "review"
 origin = "human"
 created = "2026-10-12T09:48:30+08:00"
-modified = "2026-10-13T15:00:07+08:00"
+modified = "2026-11-02T14:23:07+08:00"
 target = "fn:dd41ff2953124783"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/weibull.rs::weibull_failure_fraction"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:00:07+08:00"
-commit = "55d541bb7dd6743bcd70f1eeb1771edbd396c6ea"
-hash = "sha256:909caa1fbab166b538d958e5778a9e4b2bbb0ac2b44faa8f50ef9c0624a91539"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:23:07+08:00"
+commit = "f5a4579d04a809cd0797c9fdb2b8d8a4fab10eed"
+hash = "sha256:6698020a43ba87d8d5ab2a4091e9ea80df6d284a42ee2e1957c79e317cbed40e"
 doc_hash = "sha256:52c13390871b8991d976b786d6612153fdd5adfbc946875a3e173157e8b39949"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
+"fn:89dd813310599ab0" = "sha256:7bdf8ffb9a6314a160402eea825a229d7152f5e9f4e4f0ca0fd65d9ce0fbcedd"
 "fn:91b8101ebd5b4ec6" = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
 
 [review.checklist]
 coding_standards = "yes"
@@ -52,10 +54,14 @@ units_documented = "not_documented"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq"]
+
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "luZ+wSc3fNOkEVaimXDeKdl7ccuoNVhhNY8Jt/6iguHGMPZQYQiMwhwUcGEjVTQhloluaNrHR2YbxTchi2DACQ=="
+value = "CX0ZjXr5az+jHn4kPKaRZ4Psj+8D43tNoXKByilSi37ssXODgStiLtr+YMNoBTXHEmWYDEX/spoj4l3U7NaCCA=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -64,7 +70,7 @@ kind = "implements"
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 55d541bb7d.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit f5a4579d04.
 
 # Review: failure_is_monotone_in_stress (github:theodoreOnzGit)
 
