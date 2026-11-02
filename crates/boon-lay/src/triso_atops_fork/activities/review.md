@@ -632,3 +632,129 @@ follow upstream, HPS (helium purification system)
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit a51d4a9516.
+
+# Review: clean_up (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-clean-up-theodoreonzgit-1365b3b5"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:26:30+08:00"
+modified = "2026-11-02T13:26:30+08:00"
+target = "fn:1365b3b5318e0a5d"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::clean_up"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:26:31+08:00"
+commit = "e4e84814e8b351269093bb54f63d7834bfc5d843"
+hash = "sha256:c942284721244108e667ca31e29958749cc2bb1be0458b653a2b2f3da2bf3d67"
+doc_hash = "sha256:a09bb66dc21dd22bdf65b64e83cce12a6038e8e36da5d8f0f85b6de95caacdd5"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "JVB2omsEH5q6BieXOXWkHhoEVVaW3sKijfj7Ccjrt0f33hZUlpOaZaZKKHzpncC/snqd25Qx1I2WdsgjDPw2AQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+follow upstream, checked against clean_up python code
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e4e84814e8.
+
+# Review: circulating (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-circulating-theodoreonzgit-98e15d9c"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:28:00+08:00"
+modified = "2026-11-02T13:28:00+08:00"
+target = "fn:98e15d9c13a78899"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::circulating"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:28:00+08:00"
+commit = "e4e84814e8b351269093bb54f63d7834bfc5d843"
+hash = "sha256:0f0a6db70afe1338a4117433d1546cdbe5d5d3d5267c95e2b2a6ca7cf961ca85"
+doc_hash = "sha256:5bf8ec6362689f806a0311b17fc870a8d0d5d41496795b82d1348620e2c0c72d"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "54OZpz3kEfJOfFrcBR10Dk2zzFeFJyMK6OT224BQgOkFOSb1buwTJ6SylszqEaGt38r92x41cQNIgVr01dJ2Cg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+follow upstream, circulating function in TRISO ATOPS
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e4e84814e8.
