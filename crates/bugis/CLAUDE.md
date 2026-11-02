@@ -2,7 +2,10 @@
 
 **BUGIS — Browser-based User Graphics Interaction System.**
 The workspace's home for colour theming in general (maintainer, 2026-11-02),
-starting with the shared Gruvbox egui theme. The workspace root `CLAUDE.md` binds here in full.
+starting with the shared Gruvbox egui theme, and **the central GUI crate**
+(maintainer, 2026-11-02: "the gui portions, eg widget library and such, should
+then live in bugis too"; the plan is gh:#1112). The workspace root `CLAUDE.md`
+binds here in full.
 
 ## Rules
 
@@ -11,7 +14,13 @@ starting with the shared Gruvbox egui theme. The workspace root `CLAUDE.md` bind
   side panel. A new simulator calls `bugis::Theme::default().apply(ctx)` at
   start-up. Do not add a second copy of the palette or of `gruvbox_visuals`
   anywhere; extend this crate instead.
+- **`no_std` + `alloc` core, AGPL-3.0-only** (maintainer, 2026-11-02).
+  Anything needing `std` or egui goes behind a feature (`egui`, on by
+  default). Check with `cargo build --release -p bugis --no-default-features`.
 - **`egui` only, never `eframe`**, so any crate can depend on it without a
   windowing stack (Android and wasm32 stay clean).
+- **Never depend on a physics crate** (tampines, nee_soon, …): bugis holds the
+  physics-agnostic GUI; adapters from physics types stay with the physics
+  consumer (gh:#1112).
 - **Only Gruvbox Dark and Gruvbox Light** (GitHub issue #30: "only gruvbox
   light and dark work"). Add a theme only when the maintainer asks.
