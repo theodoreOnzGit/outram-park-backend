@@ -1135,3 +1135,56 @@ conveneience function for test
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit c2d2251d0c.
+
+# Review: area (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-area-theodoreonzgit-df312643"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:36:47+08:00"
+modified = "2026-11-02T13:36:47+08:00"
+target = "fn:df3126435ca0e9d0"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::area"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:36:47+08:00"
+commit = "4b1c2fe00076337fbea0edd0a42e99355f3c6f27"
+hash = "sha256:c6327566d5563e5e1a8e72426e288d6bb3a75499223a623f40a083449767a994"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: conveneience function for test"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "kBZmdRAi/5s5zbxn6vAep819uoU2ggtGQXxZ7PANEKU+snnCoI/4nq/HSScbe863AJEANi5Cex8SALpSXh7oAg=="
+```
+
+conveneience function for test
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 4b1c2fe000.
