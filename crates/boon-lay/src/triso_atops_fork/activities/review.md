@@ -758,3 +758,62 @@ follow upstream, circulating function in TRISO ATOPS
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e4e84814e8.
+
+# Review: circulating_steadystate (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-circulating-steadystate-theodoreonzgit-269096ca"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:29:22+08:00"
+modified = "2026-11-02T13:29:22+08:00"
+target = "fn:269096cad00d2563"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::circulating_steadystate"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:29:22+08:00"
+commit = "a79697dc87eb7d335c87ce81ab0056319f598783"
+hash = "sha256:8020635ac2d7627b8c13c4e3f24285459c10eda8c1ce2c8971c0e8e6e80dcd03"
+doc_hash = "sha256:88fe9e9b0c5e86b51b35d2f61fc43be2844e6c8b7f412b6f7d8a310b3d97ef55"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "JZ0Bo6kySliwM8rl3p6tmKh86i2MjWlCQ6atQ9nHG63VEKRw1iGrQnGWwuNf8wpq18Uggg6GUSVIBFsO+XwDDw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+follow upstream, circulating_steadystate in python TRISO ATOPS
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit a79697dc87.
