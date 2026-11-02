@@ -19,8 +19,12 @@ binds here in full.
   default). Check with `cargo build --release -p bugis --no-default-features`.
 - **`egui` only, never `eframe`**, so any crate can depend on it without a
   windowing stack (Android and wasm32 stay clean).
-- **Never depend on a physics crate** (tampines, nee_soon, …): bugis holds the
-  physics-agnostic GUI; adapters from physics types stay with the physics
-  consumer (gh:#1112).
+- ~~**Never depend on a physics crate** (tampines, nee_soon, …): bugis holds
+  the physics-agnostic GUI; adapters from physics types stay with the physics
+  consumer (gh:#1112).~~ **CHANGED 2026-11-02 (maintainer: "Integrate them,
+  I'm ok with dependencies"):** the whole widget library moves here, including
+  the widgets that read `tampines` / `nee_soon` state. Those physics crates are
+  **optional dependencies behind their own features** (std), so the no_std
+  core and the plain `egui` feature stay physics-free.
 - **Only Gruvbox Dark and Gruvbox Light** (GitHub issue #30: "only gruvbox
   light and dark work"). Add a theme only when the maintainer asks.
