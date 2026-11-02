@@ -325,6 +325,8 @@ ablation the default, then restored).
 | C, D, E | fingerprints moved: p_dw +0 to −35 Pa; Cs and Xe splits by up to 1e-3 relative; burned H2 323.43 → 320.80 kg, the building's peak 402.3 → 396.3 kPa; burn starts 1678/1800 s → 1677/1799 s; conservation unchanged (~2e-14) | |
 | the whole test file | 177 s → 650 s | |
 
+> **CAVEAT, 2026-11-02 (gh:#1119):** these case-B figures were measured with the Picard solve. That solve converges *falsely* on steps where the equalising limit binds: on the Mark I stand-in, 488 of 899 steps have a Picard downcomer flow that disagrees with the momentum equation at its own end state by up to 0.415 of the largest rate, against 2.1e-5 for Newton (§ gh:#1119 below). Read the 16.51 / 4.62 % / 0.26 K as numbers from that solver, not as the network's converged answer. Case B has not been re-run on the Newton default; that waits for the network model check (gh:#1110, maintainer).
+
 The cost is the open item. The decisions now resolve flows that the lagged
 limit held at zero or let overshoot, and that takes Picard iterations.
 Every `sembawang` long test that runs the network gets slower and its pins
