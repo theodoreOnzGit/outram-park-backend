@@ -1721,7 +1721,34 @@ table (`compare::tests::the_ablation_table_on_the_network`, ignored, about
 `FUKUSHIMA_CONTAINMENT=lumped` to reproduce the records), the 500 h figures.
 Those records describe the lumped plant.
 
-TIMING_PLACEHOLDER
+### Timing (2026-11-02, release, Rust 1.99.1, one 4-core container, measured while a 3-job `cargo test` ran beside it, so the absolute numbers are pessimistic)
+
+| Run | Wall time | Faster than real time |
+|---|---|---|
+| 30 h headless, network (`fukushima_web --headless 108000 600`) | 1403.4 s | 77× |
+| 30 h headless, lumped (`--lumped-containment`) | 9.93 s | 10 900× |
+
+Both traces matched the committed fixtures byte for byte (`headless_30h.csv`,
+`headless_30h_lumped.csv`). Prediction 8 (1100–1500 s): **held**.
+
+**Three workers against one** (`fukushima_web --bench-workers`, natively on
+the existing `link::start_native` engine threads; every frame of each window
+bit-identical between the two modes):
+
+| Window | Inline | Three workers | Speed-up |
+|---|---|---|---|
+| steps 0–3600 (before the head fails) | 3.470 ms/step | 7.503 ms/step | **0.46** |
+| steps 16 200–18 000 (4.5–5 h, the core busiest) | 18.020 ms/step | 26.238 ms/step | **0.69** |
+
+**The three-worker split is slower natively, not faster**, the opposite of
+what the split was built to buy. The cause is not measured, but the likely one
+is this: the link's engine loop sleeps 3 ms when it finds no request
+(`link::start_native`), which is the same order as a whole inline step, and
+the containment network dominates the step, so running the core beside it
+saves only the core's share. The browser's Web Workers wake on `postMessage`,
+so this native number does not settle the browser's speed-up; that is **not
+measured**. Left as found, not tuned; the 3 ms poll is the first thing to
+test (gh:#1105).
 
 ## Units 2 and 3 by configuration (gh:#1101; ~~a sketch;~~ no plant data invented)
 

@@ -1151,6 +1151,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bugis"
+version = "0.0.1"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "built"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
