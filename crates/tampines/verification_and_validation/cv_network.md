@@ -515,8 +515,10 @@ specific to their equations. `tuas_boussinesq_solver`'s
 `collection_series_and_parallel_functions` solve a pressure-flow root per
 branch, not a network Jacobian. `changi`: nothing. `outram-foam-basic-lib`'s
 `linear_operator` is the GMRES that `petir` already ported. **Reused:**
-`petir::linalg::{lu_decomp, lu_solve, Matrix}` for the dense solve, and the
-finite-difference column idea of `subchannel::solver::jacobian_triplets`.
+~~`petir::linalg::{lu_decomp, lu_solve, Matrix}` for the dense solve, and~~
+**CORRECTED 2026-11-02:** the dense solve served only the first design and
+is gone (revision 2 below), so nothing from `petir` remains; still reused,
+the finite-difference column idea of `subchannel::solver::jacobian_triplets`.
 The volume-pressure response is what `control_volume`'s own docs name:
 "an implicit scheme can linearise around `pressure_at_elevation` by
 stepping a clone".
