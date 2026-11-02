@@ -976,3 +976,62 @@ basically checks that as time goes to infinity, release fraction tends to one, p
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 6547329339.
+
+# Review: booth_transient_zero_integral_is_zero (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-booth-transient-zero-integral-is-zero-theodoreonzgit-a9bfc6b1"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:33:05+08:00"
+modified = "2026-11-02T13:33:05+08:00"
+target = "fn:a9bfc6b10d7a4d29"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::booth_transient_zero_integral_is_zero"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:33:05+08:00"
+commit = "1c73865ad08356fe26cb9c4d4be0cab348641390"
+hash = "sha256:eed81399bfbdb7490e43876d8ef6470c045ec7655a9896fdb268bf2fc93c258b"
+doc_hash = "sha256:2aad8361cdb0e6f4336b07505fcdaaac9f408c63c018e29d1aab489ece6eabd5"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:1ed22d1f3185dd46" = "sha256:a500297501cfa7d906f6313e1dbef06b95129b0212901730652c8efc9bb74eb1"
+"fn:7b3031e11dc9b5cf" = "sha256:c627628d5efbd84722c393487a8d27f59f0ef9f21931477acabe25d2ec1d44fd"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "8oo8MwpPb2IW+MdAu4xD/q4NfTKgUsg4PnetKijA7PP8kBS9ogbWaROj3Grq94lZGChU4vyEWvj+URxZ2PrhCQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+Basically tests that release fraction should tend to 0 for booth sphere when time is zero
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 1c73865ad0.
