@@ -41,6 +41,14 @@
 //!
 //! Steam above its saturation pressure at `T` is reported, not condensed:
 //! condensing it (and where the liquid goes) is the control volume's job.
+//!
+//! **Steam colder than the triple point is refused, on purpose** (maintainer
+//! decision 2026-11-02, gh:#1115: "if steam goes below 0C shld crash, not
+//! quite physical"): IF97 region 2 has no state below 273.15 K, physically the
+//! vapour would deposit as ice or condense as fog, and a gas space that cold
+//! points to an upstream problem. Metastable supercooled vapour, ice/fog and an
+//! ideal-steam fallback were considered and rejected; see
+//! [`STEAM_BELOW_TRIPLE_POINT`].
 
 pub mod melcor_ncg;
 pub mod nasa7;
@@ -141,6 +149,13 @@ const CV_STEAM_IDEAL: f64 = 1500.0;
 const U_STEAM_REF_IDEAL: f64 = 2.5060e6;
 const T_REF_IDEAL: f64 = 373.15;
 
+/// Why the closure refuses steam below IF97 region 2's 273.15 K lower bound
+/// (gh:#1115, maintainer decision 2026-11-02). Part of the error message of
+/// [`GasMixtureModel::state`] and [`GasMixtureModel::temperature`].
+pub const STEAM_BELOW_TRIPLE_POINT: &str = "steam below the triple point (273.16 K): no IF97 state; \
+physically the vapour would condense to fog or ice — a state this cold indicates an upstream \
+problem (gh:#1115)";
+
 /// The contents of a gas space.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct GasMixture {
@@ -200,7 +215,8 @@ pub struct GasMixtureState {
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum GasMixtureError {
     /// Inputs out of range (non-positive volume or temperature, negative
-    /// contents, IF97 steam below 273.15 K).
+    /// contents, IF97 steam below 273.15 K, which is refused on purpose: see
+    /// [`STEAM_BELOW_TRIPLE_POINT`]).
     #[error("gas mixture: invalid input: {0}")]
     InvalidInput(String),
     /// An iteration did not converge.
@@ -269,7 +285,7 @@ impl GasMixtureModel {
             SteamModel::IdealConstantCv => Ok(ideal),
             SteamModel::Iapws97 => {
                 if t < 273.15 {
-                    return Err(GasMixtureError::InvalidInput(format!("IF97 steam at {t} K")));
+                    return Err(GasMixtureError::InvalidInput(format!("{STEAM_BELOW_TRIPLE_POINT}: T = {t} K")));
                 }
                 let tk = ThermodynamicTemperature::new::<kelvin>(t);
                 let rho_of = |p: f64| 1.0 / v_tp_2(tk, Pressure::new::<pascal>(p)).get::<cubic_meter_per_kilogram>();
@@ -430,8 +446,11 @@ impl GasMixtureModel {
     ///
     /// # Errors
     ///
-    /// As [`Self::state`]; [`GasMixtureError::NotConverged`] if no bracket in
-    /// 200–3000 K holds the energy.
+    /// As [`Self::state`]; [`GasMixtureError::InvalidInput`] with
+    /// [`STEAM_BELOW_TRIPLE_POINT`] if IF97 steam is present and the energy
+    /// lies below the mixture's energy at 273.16 K (gh:#1115);
+    /// [`GasMixtureError::NotConverged`] if no other bracket in 200–3000 K
+    /// holds the energy.
     pub fn temperature(
         &self,
         mix: &GasMixture,
@@ -455,6 +474,14 @@ impl GasMixtureModel {
         };
         let (mut lo, mut hi) = (lo0, 3000.0);
         let (f_lo, f_hi) = (u_at(lo)? - target, u_at(hi)? - target);
+        if f_lo > 0.0 && lo0 <= 273.16 && self.steam == SteamModel::Iapws97 && mix.steam_kg > 0.0 {
+            // The energy lies below the gas's energy at the triple point with
+            // subsaturated steam: the state is colder than 273.16 K (gh:#1115).
+            return Err(GasMixtureError::InvalidInput(format!(
+                "{STEAM_BELOW_TRIPLE_POINT}: U = {target} J is below U(273.16 K) = {} J",
+                f_lo + target
+            )));
+        }
         if f_lo > 0.0 || f_hi < 0.0 {
             return Err(GasMixtureError::NotConverged("temperature from energy (no bracket)"));
         }

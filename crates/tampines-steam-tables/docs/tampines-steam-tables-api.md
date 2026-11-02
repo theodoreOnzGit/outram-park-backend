@@ -12862,7 +12862,14 @@ pressure (Dalton); the total pressure is their sum.
   saturated vapour at 100 °C ([`SteamModel::IdealConstantCv`], the
   ablation: `u = 2.506e6 + 1500 (T − 373.15)` J/kg).
 - **Energy references differ by component** (non-condensables from 0 K,
-  IF97 steam from the triple-point liquid). Only energy *changes* and
+  IF97 steam from the triple-point liquid). "From 0 K" means `u(0) = 0`
+  with `c_v(T_low) T` below each fit's lower bound (`sembawang`'s
+  convention), **not** JANAF's `H°(T) − H°(0)`: at 298.15 K the molar
+  enthalpies differ from JANAF by −896 J/mol (H2, MELCOR fit), +518 (CO2),
+  +83 (N2, MELCOR fit), +14 (CO), +12 (O2), +0.4 (Ar) (gh:#1098 item 18,
+  measured 2026-11-01). Energy changes inside a fit's range are
+  unaffected; anything anchored to formation enthalpies must anchor at
+  298.15 K, as `sembawang::bwr_mark1::reaction` does, never at 0 K. Only energy *changes* and
   enthalpies carried on the same references are meaningful, as in
   `sembawang`; a control volume using this keeps them consistent
   (audited 2026-11-01, gh:#1098 item 2: `tampines::control_volume` and
@@ -12871,6 +12878,14 @@ pressure (Dalton); the total pressure is their sum.
 
 Steam above its saturation pressure at `T` is reported, not condensed:
 condensing it (and where the liquid goes) is the control volume's job.
+
+**Steam colder than the triple point is refused, on purpose** (maintainer
+decision 2026-11-02, gh:#1115: "if steam goes below 0C shld crash, not
+quite physical"): IF97 region 2 has no state below 273.15 K, physically the
+vapour would deposit as ice or condense as fog, and a gas space that cold
+points to an upstream problem. Metastable supercooled vapour, ice/fog and an
+ideal-steam fallback were considered and rejected; see
+[`STEAM_BELOW_TRIPLE_POINT`].
 
 ```rust
 pub mod gas_mixture { /* ... */ }
@@ -13682,7 +13697,8 @@ pub enum GasMixtureError {
 ###### `InvalidInput`
 
 Inputs out of range (non-positive volume or temperature, negative
-contents, IF97 steam below 273.15 K).
+contents, IF97 steam below 273.15 K, which is refused on purpose: see
+[`STEAM_BELOW_TRIPLE_POINT`]).
 
 Fields:
 
@@ -13936,6 +13952,20 @@ pub struct GasMixtureModel {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Constants and Statics
+
+#### Constant `STEAM_BELOW_TRIPLE_POINT`
+
+Why the closure refuses steam below IF97 region 2's 273.15 K lower bound
+(gh:#1115, maintainer decision 2026-11-02). Part of the error message of
+[`GasMixtureModel::state`] and [`GasMixtureModel::temperature`].
+
+```rust
+pub const STEAM_BELOW_TRIPLE_POINT: &str = "steam below the triple point (273.16 K): no IF97 state; \
+physically the vapour would condense to fog or ice — a state this cold indicates an upstream \
+problem (gh:#1115)";
+```
+
 ### Re-exports
 
 #### Re-export `M_H2O`

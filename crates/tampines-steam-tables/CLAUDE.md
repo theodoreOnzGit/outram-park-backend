@@ -217,11 +217,20 @@ p-h VLE dome.
 All three stagnation buckets (in-dome, subcooled, superheated) are validated.
 The known discrepancy is `isobar_pref_0_25` (p₀ = 1.72 bar) in the Moody chart
 tests — its sole deeply-subcooled data point deviates by |Δ log10 G| = 0.170
-because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli
-limit at extreme pressure ratios (p_bubble/p₀ ≈ 0.02). **That test is no longer
-`#[ignore]`d** — it is active and passes, because the Moody tests are now
-region-filtered and assert only their in-dome (Region 4) points, skipping the
-single-phase ones (see the region-filtering note below, and bead `op-21g.2`,
+~~because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli
+limit at extreme pressure ratios (p_bubble/p₀ ≈ 0.02)~~ (**CORRECTED
+2026-11-02, gh:#1111**: the cause is a solver defect, not IF97. The
+subcooled solver takes `s0` at the backward-equation `T0` but subtracts from
+the given `h0`. With the consistent `h_1(T0, p0)` this point measured err
+0.005. That patch is not applied, because it breaks Moody 0.50 / h = 2.2549;
+see `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`
+§10). **That test is no longer `#[ignore]`d** — it is active and passes, because
+the Moody tests are now region-filtered and assert ~~only their in-dome
+(Region 4) points, skipping the single-phase ones~~ their in-dome (Region 4)
+points at 0.06 and their deeply subcooled Region 1 points (`v_b/c_2φ >
+DEEP_SUBCOOLING_RATIO`) at 0.08 in log10, skipping the other single-phase
+points. **CORRECTED 2026-11-02**: read from `validate_moody_isobar_inner`.
+Only `isobar_pref_0_25` is in-dome-only (see the region-filtering note below, and bead `op-21g.2`,
 which is a candidate for closure on those grounds). All Moody isobars
 (0.25 – 30.0 × p_ref) are active.
 
@@ -247,7 +256,7 @@ them sits inside a `/* … */` block comment and is not compiled at all):
 | `openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_200k_5mpa` | **Known error** — PR EOS 26 % off vs NIST at 200 K / 5 MPa |
 | `openfoam_source::thermophysics::thermo::janaf::tests::newton_converges_from_bad_initial_guess` | **Known error** — Newton stalls at ~1152 K; JANAF discontinuity at `Tcommon` |
 | `steam_turbine_equations::mean_flow_stages::tests::diagnose_multistage_expansion` | **ADDED TO THIS TABLE 2026-09-27** — Diagnostic. It is the **14th** ignore and was missing, so this table's "complete at 13" claim was false. Found by running `cargo test --release -j 3 -p tampines-steam-tables --lib -- --ignored --list`, which printed `14 tests, 0 benchmarks`. |
-| `hem::tests::gh1102_choked_transition_is_continuous_for_cold_liquid` | **ADDED 2026-11-02 (gh:#1102)** — **Known error**, gh:#1111: for 300 K liquid the subcooled critical solver's G* is 23 % below the unchoked flux just above p*, so G drops when the back pressure crosses p*. With it the lib run reports **15 ignored** (`1038 passed; 0 failed; 15 ignored`, 2026-11-02). |
+| `hem::tests::gh1102_choked_transition_is_continuous_for_cold_liquid` | **ADDED 2026-11-02 (gh:#1102)** — **Known error**, gh:#1111: for 300 K liquid the subcooled critical solver's G* is 23 % below the unchoked flux just above p*, so G drops when the back pressure crosses p*. With it the lib run reports **15 ignored** (`1038 passed; 0 failed; 15 ignored`, 2026-11-02). **Diagnosed 2026-11-02:** `s0` is taken at `T_ph(p0, h0)` while the drop uses the given `h0`. With `h_1(T0, p0)` the test passes, but Moody 0.50 / h = 2.2549 goes to err 0.120 > 0.08, so the fix is held back and the test stays ignored (V&V doc §10). |
 
 One diagnostic is ignored by design. Three unfinished ones are real gaps and all
 three sit on the **wet-steam** path — the same path the turbine work depends on.
@@ -267,8 +276,11 @@ Robinson and JANAF entries were simply missed.
 Verification tests are under `.../tests/`, validated against:
 
 - Moody (1975), maximum discharge rate of liquid-vapour mixtures — `moody_*`.
-  These tests are **region-filtered**: each isobar asserts only its in-dome
-  (Region 4) points and skips the single-phase points. The subcooled (Region 1)
+  These tests are **region-filtered**: each isobar asserts ~~only its in-dome
+  (Region 4) points and skips the single-phase points~~ its in-dome (Region 4)
+  points and its deeply subcooled Region 1 points (0.08 in log10), and skips
+  the rest (**CORRECTED 2026-11-02**, from `validate_moody_isobar_inner`;
+  `isobar_pref_0_25` is in-dome-only). The subcooled (Region 1)
   branch is a documented HEM limitation — HEM equilibrium under-predicts subcooled
   critical flow, and no local discriminator separates Moody's deep-subcooling
   (Bernoulli) reference from Zaloudek's near-saturation (sonic) reference (see
@@ -436,8 +448,11 @@ the near-critical Region 3 (3000 psia) points.
 
 **Moody isobar tests** — `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*`
 are now active (no longer `#[ignore]`d) and pass via region-filtering to the
-in-dome (Region 4) points; the subcooled branch is a documented HEM limitation
-(see above and README v0.2.1).
+in-dome (Region 4) points ~~;~~ **and the deeply subcooled Region 1 points
+(CORRECTED 2026-11-02)**; the ~~subcooled branch is a documented HEM
+limitation~~ near-threshold subcooled points are skipped (see above and
+README v0.2.1; the "HEM limitation" reading of the 0.25 isobar's miss is
+corrected above, gh:#1111).
 
 ## Known accuracy pitfalls
 

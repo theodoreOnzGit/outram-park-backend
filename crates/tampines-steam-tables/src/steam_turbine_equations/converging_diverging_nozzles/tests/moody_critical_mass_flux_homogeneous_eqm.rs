@@ -23,7 +23,11 @@ const MOODY_LOG10_TOL: f64 = 0.06;
 /// - graph-read uncertainty from Moody's digitised log–log chart (≈ ±15% in G)
 /// - known HEM variability for deeply-subcooled states where the energy-balance
 ///   choke imperfectly approximates the Bernoulli limit
-///   (worst observed: 0.069 for the isobar 0.50 DEEP point)
+///   (worst observed: 0.069 for the isobar 0.50 DEEP point). **Note
+///   2026-11-02 (gh:#1111):** that 0.069 is not HEM variability. It is the
+///   subcooled solver's given-`h0` / backward-`T0` mismatch, and with a
+///   consistent stagnation enthalpy it measured 0.003. That patch is not
+///   applied; see `hem_pipe_vs_exact_riemann_and_edwards.md` §10.
 ///
 /// `isobar_pref_0_25` runs in-dome-only (`validate_moody_isobar_in_dome_only`)
 /// and skips its sole DEEP point, which far exceeds this bound (err = 0.170); see
@@ -178,12 +182,22 @@ const MOODY_DEEP_LOG10_TOL: f64 = 0.08;
 //   incompressible-Bernoulli formula give ~18 840 / 18 340 kg/(m²s). That is a
 //   |Δ log10 G| = 0.170 miss — far beyond any graph-read tolerance.
 //
-//   Apparent root cause: the IAPWS-IF97 isentrope delivers only 82 J/kg of
+//   ~~Apparent root cause: the IAPWS-IF97 isentrope delivers only 82 J/kg of
 //   kinetic energy at the bubble point, while the pressure integral v_f·(p₀−p_b)
 //   gives 169 J/kg — a factor-of-2 divergence at this extreme pressure ratio
-//   (p_b/p₀ ≈ 0.021). The deeply-subcooled escape was validated against higher-
+//   (p_b/p₀ ≈ 0.021).~~ **CORRECTED 2026-11-02 (gh:#1111)**: the IF97
+//   isentrope does not diverge from Bernoulli. The 82 J/kg is a numerical
+//   defect in the solver. It takes s0 at T0 = T_ph(p0, h0) (backward
+//   equation) but subtracts from the given h0, which is ~90 J/kg below
+//   h_1(T0, p0) in cold liquid. With the consistent h_1(T0, p0) the solver
+//   gives G = 18 628.8 kg/(m²s) here, against Moody's 18 842.8 (err 0.005),
+//   measured 2026-11-02 with an unapplied patch. The patch is held back
+//   because it breaks the 0.50 isobar's h/h_ref = 2.2549 point; see
+//   `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`
+//   §10. The deeply-subcooled escape was validated against higher-
 //   pressure isobars (0.50 – 30.0 × p_ref), where the two formulations agree to
-//   within 0.08 in log10 G; it does NOT reproduce this very-low-pressure branch.
+//   within 0.08 in log10 G; it does NOT reproduce this very-low-pressure branch
+//   with the solver as it stands.
 //
 // WHY IT'S OK TO SKIP THE SUBCOOLED PART FOR NOW: the in-dome (Region 4) points
 // on this isobar are independently covered by its neighbours (0.50, 1.00, …), so

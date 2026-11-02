@@ -408,6 +408,77 @@ Zaloudek, Moody and Marviken V&V, so it is filed as gh:#1111 rather than
 done here. **Quote** the unchoked numbers above. Do not quote the 300 K
 choked G* as a validated value.
 
+### 10. gh:#1111: the subcooled critical solver's cold-liquid G*, diagnosed and measured; fix NOT applied (2026-11-02)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+**Status: diagnosed, fix measured, fix reverted.** The fix moves one asserted
+Moody point outside its tolerance (below). The brief said to stop and report
+in that case rather than force it, so the solver is unchanged and the
+`gh1102_..._cold_liquid` test stays `#[ignore]`d.
+
+**Cause (measured).** The defect is narrower than "backward-equation round
+trips". `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` takes
+`s0 = s_ph_eqm(p0, h0) = s_1(T_ph(p0, h0), p0)`. That is the entropy of the
+state at the backward-equation temperature `T0`. The kinetic energy is then
+`h0 − h(p, s0)` with the **given** `h0`, not `h_1(T0, p0)`. The two differ by
+the backward `T(p, h)` consistency error, and the in-dome `h(p, s0)` the
+search uses is a forward-equation, quality-weighted value. Measured with a
+temporary diagnostic (release, removed afterwards):
+
+| stagnation | `T_ph(p0,h0) − T0` | `h_1(T0,p0) − h0`, J/kg | `h0 − h(p_b,s0)`: given `h0` → consistent | G* now → consistent, kg/(m² s) |
+|---|---|---|---|---|
+| 300 K / 2.31 bar | +22.3 mK | +93.0 | 135.2 → 228.2 | 16 387 → 21 291 |
+| 370 K / 1.2 bar | +0.73 mK | +3.1 | 27.6 → 30.7 | 7 137 → 7 524 |
+| 500 K / 7 MPa (Edwards) | −10.1 mK | −46.6 | 5 370 → 5 324 | 86 283 → 85 908 |
+
+All three take the bubble-point branch (`p* = p_bubble`). `s0`, `p_bubble`,
+the sonic map and the quality at a given `p` do not change.
+
+**Fix tried.** For a Region 1 stagnation (`T0 ≤ 623.15 K`), use
+`h0 := h_1(T_ph(p0, h0), p0)` throughout the solver. This is the same choice
+`Iapws97Hem::liquid_isentropic_drop` makes (§9), so the two meet at `p*`. The
+patch is about 30 lines in `stagnation_point_outside_vle_ph_dome_multiphase.rs`.
+
+**Predictions, written before the fix was run** (the session's predictions
+file). P1: at 300 K, G* goes to 21 291, the transition is continuous to < 1e-6
+and the cold test passes. P2: Edwards G* goes to 85 908, rel −8.1e-3 → ≈ −3.8e-3.
+P3: at 370 K, G* rises 5.4 %. P4: Zaloudek sonic-kink points unchanged,
+energy-branch points move < 1 %. P5: Moody asserted points byte-identical,
+on the belief that only in-dome points are asserted. P6: Marviken means move
+< 0.5 %. P7: generic-dispatcher Region 1 points move < 1 %.
+
+**Outcomes** (lib run filtered to `converging_diverging_nozzles`, `hem::`,
+`fhr_sim`; 154 tests before, 153 pass and 1 fails after):
+
+| prediction | outcome |
+|---|---|
+| P1 | **held.** G* = 21 291.03; rel = +4.8e-7; the sweep is monotone; the cold test **passes** with the fix |
+| P2 | **held.** G* = 85 907.8; rel = −3.78e-3 (was −8.11e-3), bound 2.2e-2 |
+| P3 | **held.** 7 137 → 7 524 |
+| P4 | **partly wrong in size.** The x_t = 0.05 subcooled points at 1000/1500/2000 psia moved by more than 1 %: p* errors −0.99/−1.11/+1.39 % → −0.10/−0.12/+0.07 % (all better), G errors −5.0/−6.7/−0.6 % → −4.1/−5.7/−2.0 % (two better, one worse). x_t = 0.10 at 1500 psia: p* +0.13 → −0.06 %, G −2.44 → −2.65 %. All Zaloudek tests still pass |
+| P5 | **wrong.** The Moody tests also assert the deeply subcooled Region 1 points (`[DEEP]`, tol 0.08 in log10). Every isobar moved slightly. **`isobar_pref_0_50` FAILS** at h/h_ref = 2.2549 (sub_ratio 5.03): err 0.005 → **0.120**. Same isobar, h/h_ref = 0.4902: err 0.069 → 0.003 (the "worst observed" figure in `MOODY_DEEP_LOG10_TOL`'s doc). The other DEEP errors on this isobar went 0.024/0.006/0.008/0.005/0.041 → 0.015/0.008/0.005/0.023/0.033 |
+| P6 | **wrong.** Test 24 was unchanged. Test 23: 14 of 29 points (p ≥ 4075 kPa) fell about 20 %, mean dev +5.9 % → −5.3 %, mean |dev| 12.6 → 10.7 %, max 23.1 % unchanged. It still passes its ±15 % mean / ±25 % point band. **Mechanism:** the −115 J/kg stagnation shift moves the quality at the energy maximum from 0.0249 to 0.0302, across the solver's `x < 0.03` sonic-kink switch, and the solver jumps branch. The switch is a knife edge: a 0.01 % change in `h0` changes G by 20 % |
+| P7 | the generic-dispatcher tests pass; `CHOKE_PROBE` subcooled (5 MPa) G 95 150.6 → 95 323.5 (+0.18 %) |
+| P8, added before running: the Moody 0.25 isobar's skipped DEEP point (err 0.170, "IF97 isentrope diverges from Bernoulli") becomes ≈ 18 330, err ≈ 0.012 | **held, better.** G = 18 628.8 against Moody's 18 842.8, err **0.005**. The documented 0.170 "open question" is this defect, not IF97 physics |
+
+**Interpretation.** The consistent stagnation state is the right equation
+of state: it removes a 23 % defect at 300 K and closes the long-standing 0.170
+Moody 0.25 miss to 0.005. It also halves the Edwards transition step and
+brings the Zaloudek subcooled choke pressures to ≈ 0.1 %. But the old Moody
+0.50 / h = 2.2549 agreement (err 0.005) was a compensating error. At that
+point the available `Δh` is ≈ 121 J/kg, the given-`h0` error removed 53 J/kg
+of it, and the consistent HEM (= Bernoulli, `v Δp` = 121 J/kg) sits 0.12 in
+log10 above Moody's graph-read value. The point is the steep, near-threshold
+end of the DEEP branch (sub_ratio 5.03 against `DEEP_SUBCOOLING_RATIO` = 5.0,
+and 6.71 when computed with the consistent `h0`). The fix also exposes the
+`x < 0.03` branch switch as discontinuous in `h0` (Marviken 23). **Not done,
+for the maintainer to decide:** whether to land the fix and record the Moody
+0.50 / 2.2549 point as a known miss, or to address the branch switches first.
+Tolerances were not touched. **Quote nothing from the patched solver as
+validated**; the numbers in this section are measurements of an unapplied
+patch.
+
 ## References
 
 ```bibtex

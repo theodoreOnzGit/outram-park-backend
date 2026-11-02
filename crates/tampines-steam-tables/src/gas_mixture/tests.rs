@@ -155,3 +155,33 @@ fn temperature_from_energy_and_the_ablations() {
     assert!(d.state(&GasMixture { steam_kg: -1.0, ..mix }, vol(1.0), kel(400.0)).is_err());
     assert!(d.state(&mix, vol(1.0), kel(250.0)).is_err(), "IF97 steam below 273.15 K");
 }
+
+/// **Steam below the triple point is refused (gh:#1115, maintainer decision
+/// 2026-11-02).** Pins the refusal and its message, through both entry
+/// points: `state` at 250 K, and `temperature` from an energy below the
+/// mixture's energy at 273.16 K (what a cold adiabatic blowdown asks for).
+/// The ideal-steam ablation is not refused (it has no IF97 bound), which this
+/// test also pins so a reader knows the refusal is the IF97 closure's.
+/// **Result (2026-11-02, release):** passes.
+#[test]
+fn steam_below_the_triple_point_is_refused_with_an_explicit_message() {
+    let mix = GasMixture::new(Mass::new::<kilogram>(0.01), &[(NonCondensable::N2, AmountOfSubstance::new::<mole>(100.0))]);
+    let d = GasMixtureModel::new();
+    let explicit = |e: GasMixtureError| match e {
+        GasMixtureError::InvalidInput(m) => {
+            println!("{m}");
+            assert!(m.contains(STEAM_BELOW_TRIPLE_POINT), "{m}");
+        }
+        other => panic!("expected the explicit refusal, got {other:?}"),
+    };
+    explicit(d.state(&mix, vol(10.0), kel(250.0)).unwrap_err());
+    // 0.01 kg in 10 m3 is subsaturated at 273.16 K (p_s ≈ 126 Pa < 611.7 Pa).
+    let u_tp = d.state(&mix, vol(10.0), kel(273.16)).unwrap().internal_energy;
+    let colder = Energy::new::<joule>(u_tp.get::<joule>() - 1000.0);
+    explicit(d.temperature(&mix, vol(10.0), colder, kel(280.0)).unwrap_err());
+    // Just above, it inverts as before.
+    let u_warm = d.state(&mix, vol(10.0), kel(275.0)).unwrap().internal_energy;
+    assert!((d.temperature(&mix, vol(10.0), u_warm, kel(300.0)).unwrap().get::<kelvin>() - 275.0).abs() < 1e-9);
+    // The ideal-steam ablation has no IF97 bound and is not refused.
+    assert!(d.without_real_steam().state(&mix, vol(10.0), kel(250.0)).is_ok());
+}

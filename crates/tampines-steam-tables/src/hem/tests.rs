@@ -639,6 +639,14 @@ fn gh1102_choked_transition_is_continuous_for_edwards_liquid() {
 /// energy objective through IF97 backward equations, the defect this issue
 /// fixed in the unchoked branch. Fixing it there re-measures the Zaloudek,
 /// Moody and Marviken V&V, so it is gh:#1111 and not done here.
+///
+/// **Diagnosed 2026-11-02 (gh:#1111).** More precisely, `s0` is the entropy
+/// at `T0 = T_ph(p0, h0)`, but the drop uses the given `h0`, which is 93 J/kg
+/// below `h_1(T0, p0)` here. With `h_1(T0, p0)` substituted, this test passes
+/// as written (rel = +4.8e-7, monotone). That patch is **not applied**,
+/// because it moves the Moody 0.50 isobar point h/h_ref = 2.2549 from err
+/// 0.005 to 0.120 against its 0.08 tolerance. See
+/// `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md` §10.
 #[test]
 #[ignore = "known defect gh:#1111: subcooled critical solver G* 23 % low for cold liquid"]
 fn gh1102_choked_transition_is_continuous_for_cold_liquid() {

@@ -86,3 +86,13 @@ and the test passes.
   mixing on 2026-11-01 (gh:#1098 item 2): each species keeps its own
   reference. This is pinned by `tampines`'
   `cv_network::tests::gas_flux_keeps_each_species_on_its_own_energy_reference`.
+- **IF97 steam below the triple point is refused, on purpose** (maintainer
+  decision 2026-11-02, gh:#1115). IF97 region 2 has no state below
+  273.15 K; physically the vapour would condense to fog or deposit as ice,
+  and a gas space that cold points to an upstream problem. `state` below
+  273.15 K, and `temperature` from an energy below the mixture's energy at
+  273.16 K with subsaturated steam, both return `InvalidInput` carrying
+  `STEAM_BELOW_TRIPLE_POINT`. Pinned by
+  `gas_mixture::tests::steam_below_the_triple_point_is_refused_with_an_explicit_message`
+  (passes, 2026-11-02, release). The `without_real_steam` ablation has no
+  such bound.
