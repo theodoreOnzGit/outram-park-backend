@@ -55,7 +55,7 @@
 //!
 //! **Not in the model (stated):** suction from the torus (the water comes
 //! from the storage tank at [`Params::injection_temperature_k`]; `tampines`
-//! has no pool sink, gh:#1109 follow-up); the turbine's speed dynamics and
+//! has no pool sink, gh:#1121); the turbine's speed dynamics and
 //! the governor's own response (the flow is the governed flow at once);
 //! the hydrogen in the vessel's gas (the turbine takes steam only); pump
 //! head losses in the feedwater line; the exhaust's back-pressure trip.

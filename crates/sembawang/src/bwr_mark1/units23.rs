@@ -48,7 +48,7 @@
 //! **Not in the model (stated):** Units 1 and 2's torus cooling and spray
 //! (00:39 to the tsunami at 00:55, on AC: 16 min, before the decay heat had
 //! heated the pool); Unit 3's MOX assemblies and the Unit 3 to Unit 4
-//! hydrogen path (separate issues under #1028); Unit 2's blow-out panel
+//! hydrogen path (gh:#1122, #1123); Unit 2's blow-out panel
 //! (opened by Unit 1's explosion at 24:50, row on p. 7.1-20).
 
 use super::params::Params;

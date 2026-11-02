@@ -84,12 +84,12 @@ to the torus (26:44 says it was then on the pool); further SRV openings
 check, never an input); when Unit 2's SRV closed again (80:04 implies
 about 79:54; no closure is applied).
 
-**Not in the model (stated):** torus suction (`tampines` has no pool
+**Not in the model (stated):** torus suction (gh:#1121; `tampines` has no pool
 sink; the pump takes tank water, so the torus pool gains the water the
 vessel boils off: about 1400 t over Unit 2's first 26 h at 15 kg/s); Units
 1 and 2's torus cooling and spray (00:39 to 00:55, on AC); the turbines'
-speed dynamics; Unit 3's MOX; the Unit 3 → 4 hydrogen path; Unit 2's
-blow-out panel.
+speed dynamics; Unit 3's MOX (gh:#1122); the Unit 3 → 4 hydrogen path
+(gh:#1123); Unit 2's blow-out panel.
 
 ## The pump's inputs (`params.rs`, tag and source)
 
@@ -117,10 +117,10 @@ these readings, and none was changed after seeing them.
 
 Runs: `tests/units_2_and_3_sequence.rs`. The full sequences (82 h and
 70 h) run on the **lumped containment** (`without_network_containment`),
-which costs seconds; the network default is run for a short window (it
-costs about 4 min of wall time per plant hour, and its geometry is not
-yet checked by a human, gh:#1110). The lumped model's comparison is
-therefore an ablation's, said so wherever it is quoted.
+which costs seconds; the network default is run over each unit's first
+readings only (Unit 2 to 9 h, Unit 3 to 22 h: 44 min of wall time; its
+geometry is not yet checked by a human, gh:#1110). The lumped model's
+comparison is therefore an ablation's, said so wherever it is quoted.
 
 ## Predictions (written before the first run, 2026-11-02)
 
@@ -286,7 +286,31 @@ with the torus-suction caveat on every Unit 2 containment number. None is
 a validation; the network default has not been run over these windows
 (cost, and its geometry awaits the human check of gh:#1110).
 
-### Network default (short window)
+### Network default, over each unit's first readings
 
-See the next section; the lumped and network models were not compared
-over the sequence.
+Run on a clean worktree of commit 7b3be3985 (committed `tampines`; the
+working tree held another agent's uncommitted `cv_network` edits, gh:#1119,
+so no network result here depends on them):
+`cargo test --release -j 1 -p sembawang --test units_2_and_3_sequence -- --ignored --nocapture the_network_over`.
+Wall time: Unit 2 to 9 h 456 s, Unit 3 to 22 h 2195 s (the network's cost
+grows as the pool heats).
+
+| unit | t | reading | HRTD | network | lumped |
+|---|---|---|---|---|---|
+| 2 | 07:04 | level above TAF | 3.40 m | 6.00 m | 6.01 m |
+| 2 | 08:39 | RPV, MPa | 6.403 | 8.010 | 8.017 |
+| 2 | 08:39 | containment, MPa | 0.136 | **0.133 (−2 %)** | 0.128 (−6 %) |
+| 3 | 01:17 | level above TAF | 3.99 m | 3.66 m | 3.69 m |
+| 3 | 21:22 | containment, MPa | 0.391 | **0.226 (−42 %)** | 0.240 (−39 %) |
+| 3 | 21:47 | level above TAF | 3.05 m | 2.59 m | 2.42 m |
+
+Drywell, network / lumped, MPa: Unit 2 at 4 h 0.1148 / 0.1122, at 9 h
+0.1341 / 0.1296; Unit 3 at 22 h 0.2426 / 0.2631. Pools within 0.15 K of
+each other throughout. **The two containments agree to 2–8 % over these
+windows**, so the lumped comparison above is a fair stand-in for the
+network's up to these times. It is not evidence beyond them, and the
+network's geometry still awaits the human check (gh:#1110). The short
+network smoke test (`the_network_runs_unit2_for_twenty_minutes`, 20 min of
+plant time in 9.4 s) passes. Neither the network's nor the lumped
+model's Unit 3 at 21:22 comes near the reading: both under-predict it by
+about 40 %.

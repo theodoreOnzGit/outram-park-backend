@@ -180,3 +180,27 @@ fn the_network_runs_unit2_for_twenty_minutes() {
     assert!(frames.iter().any(|f| f.w_rcic_kg_s > 0.0 && f.w_turbine_kg_s > 0.0));
     assert!(last.containment.t_pool_k > plant.params().initial_pool_k);
 }
+
+/// The network default (gh:#1099) over each unit's first HRTD readings:
+/// Unit 2 to 9 h (the 08:39 containment and RPV readings), Unit 3 to 22 h
+/// (21:22, 21:47), printed beside the lumped model's. Ignored: 44 min of
+/// wall time on 2026-11-02 (Unit 2 456 s, Unit 3 2195 s, the lumped
+/// comparisons the rest), and not a pin (the network's geometry awaits the
+/// human check of gh:#1110). Results in `units23_sequence.md`.
+#[test]
+#[ignore]
+fn the_network_over_the_first_hrtd_readings() {
+    for (unit, end) in [(Unit::Two, hm(9, 0)), (Unit::Three, hm(22, 0))] {
+        let start = std::time::Instant::now();
+        let (p, f) = run(unit, Mechanisms::default(), end, 60);
+        println!("{unit:?} on the network to {:.0} h: {:.0} s of wall time", end / 3600.0, start.elapsed().as_secs_f64());
+        print_against_hrtd(unit, &f, p.params().active_length_m);
+        let (q, g) = run(unit, lumped(), end, 60);
+        println!("{unit:?} on the lumped containment, for comparison:");
+        print_against_hrtd(unit, &g, q.params().active_length_m);
+        for t in [hm(1, 0), hm(4, 0), hm(8, 39), end] {
+            let (a, b) = (at(&f, t), at(&g, t));
+            println!("  {:>5.2} h  drywell network {:.4} / lumped {:.4} MPa; pool {:.2} / {:.2} K", t / 3600.0, a.containment.p_dw_pa / 1e6, b.containment.p_dw_pa / 1e6, a.containment.t_pool_k, b.containment.t_pool_k);
+        }
+    }
+}
