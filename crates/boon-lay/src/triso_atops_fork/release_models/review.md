@@ -917,3 +917,62 @@ but meaning is well preserved
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ba83522c85.
+
+# Review: booth_transient_large_integral_saturates (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-booth-transient-large-integral-saturates-theodoreonzgit-cde6f34d"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:31:57+08:00"
+modified = "2026-11-02T13:31:57+08:00"
+target = "fn:cde6f34d4a993bcb"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::booth_transient_large_integral_saturates"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:31:57+08:00"
+commit = "65473293395504352935c8ba2df986ee98c93727"
+hash = "sha256:e7ce0375ffb113bc132c30d573e21f02474bae8609b5009e421c9f31000ed376"
+doc_hash = "sha256:dda6a9a41770dd146326ecd04a48f882d431c81a830f0ed1964739a3ec661f29"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:1ed22d1f3185dd46" = "sha256:a500297501cfa7d906f6313e1dbef06b95129b0212901730652c8efc9bb74eb1"
+"fn:7b3031e11dc9b5cf" = "sha256:c627628d5efbd84722c393487a8d27f59f0ef9f21931477acabe25d2ec1d44fd"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "QxlS9CNWTS2b67mKVTCPdmrq7Deoz4Ug1pJDKV6S38wVZkNSIY/wlGdmzKRItDd2YD8Ya0xH8+geVT6Xj1mmAQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+basically checks that as time goes to infinity, release fraction tends to one, physically correct
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 6547329339.
