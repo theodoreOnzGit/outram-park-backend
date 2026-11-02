@@ -60,3 +60,63 @@ From memory, 8.314 J/mol K, looks correct, sourced from upstream is ok
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 48aeedb4e3.
+
+# Review: arrhenius_term (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-arrhenius-term-theodoreonzgit-e950fcab"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:27:49+08:00"
+modified = "2026-11-02T10:27:49+08:00"
+target = "fn:e950fcabea4ee9e2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::arrhenius_term"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:27:49+08:00"
+commit = "7fdb68b85b03580d8bf57ddc310dc6cb8d528edf"
+hash = "sha256:7faf9ccfcddcda1d8cd8d9f1de564f724c07b6765bbbd4ea91b6755d2561342b"
+doc_hash = "sha256:da7b455b628ce5bc1c7f5dba41823e6e07bb8af9ab0c1836baccc56e0f3729ff"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:1be0fd5172d8041a" = "sha256:ed0d0d4925d660ad2532da5cfa6edc19abc8feee253f0058272b9883133e9485"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream behaviour"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "t0iY0Agf8w6sahzX9WgTndC4VuP6697sbQroLu7eZ1IrWieNjQ92MlDn6RhZc8JzH9gK8S2dIZ0RM/zZax30Aw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 7fdb68b85b.
