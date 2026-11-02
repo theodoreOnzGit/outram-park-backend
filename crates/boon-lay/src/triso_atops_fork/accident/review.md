@@ -198,3 +198,61 @@ data structure to hold accident fractions, it is a np.ndarray fraction under rel
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 924bcde174.
+
+# Review: AccidentFractions::total (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-total-theodoreonzgit-43bcac57"
+kind = "review"
+origin = "human"
+created = "2026-11-02T13:48:27+08:00"
+modified = "2026-11-02T13:48:27+08:00"
+target = "fn:43bcac572a02bd8c"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::AccidentFractions::total"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T13:48:27+08:00"
+commit = "517305576683f842467fad2349159a255836f6ff"
+hash = "sha256:5a509edc87ba58d77d2568e6f497c335b2672f45f24e844e22b60ee71d93a30c"
+doc_hash = "sha256:fcc99306f5cba5d675bd4b3068251c6ecae1cb524dcb6a2dafe7ca332bb9a25d"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:48f1bc7388b4aee5" = "sha256:4da0ac43908bdaeb66bf1b8090087e7e71676f71dc2d235cbbee149afeb39b86"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "zmLGMhJsBdT7z1EwG5GDU/77cp+9Isl9fjhCSWSLR1aA0H3MXYi+nvtaJ5YfCR0Xl0m4eUhKqIGJ8ZFUULBcDQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+sums up all the "failure/accident" fractions in the struct, utility function
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 5173055766.
