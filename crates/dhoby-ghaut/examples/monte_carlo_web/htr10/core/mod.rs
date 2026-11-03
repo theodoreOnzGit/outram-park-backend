@@ -1,15 +1,24 @@
 //! **The whole HTR-10 core, live, on a pool of Web Workers** (gh:#786).
 //!
-//! The model is the recorded runs' exactly:
+//! ~~The model is the recorded runs' exactly:
 //! `nee_soon::htr10_rmc::core_model::assemble_explicit_triso(14, N, 0)` (the
 //! bed delta-tracked against `keff_vs_height::bed_majorant`, everything else
 //! surface-tracked), the material set
 //! `htr10_material_set(layout, Htr10MaterialConfig::benchmark_default(300.15))`,
-//! and the nuclide set of `Htr10DataConfig::default()` (ENDF/B-VIII.0 at
-//! 300.15 K and tolerance 1e-3, URR and DBRC on, natural carbon, helium, real
-//! Ni/Fe rod steel, every bound thermal law, the UO₂ laws by LEAPR). The run
-//! is `run_keff_csg_par`'s power iteration, which the recorded runs used,
-//! taken apart by `outram_mc_libs::physics::transport_csg::distributed`.
+//! and the nuclide set of `Htr10DataConfig::default()`~~ **CHANGED 2026-11-03
+//! (gh:#1139, #1142):** the model is `nee_soon`'s `ParametricStudy` ([`study`]):
+//! the recorded runs' geometry `assemble_explicit_triso_with(14, N, 0, ..)`
+//! with the temperature-zone slots placed (the graphite balls and each
+//! reflector region on slots of their own; the same cells), each of the eight
+//! zones at its own temperature, and each (nuclide, temperature) processed
+//! exactly: ENDF/B-VIII.0, tolerance 1e-3, URR and DBRC on, natural carbon,
+//! helium (density from the coolant's temperature), real Ni/Fe rod steel,
+//! **every** bound thermal law by LEAPR at its zone's temperature (the record
+//! read graphite and SiC from the tapes: at 300.15 K that is graphite at the
+//! tape's 296 K). Bed delta-tracked against the study's majorant (the bed's
+//! materials and the moderator balls' slot), everything else surface-tracked.
+//! The run is `run_keff_csg_par`'s power iteration, which the recorded runs
+//! used, taken apart by `outram_mc_libs::physics::transport_csg::distributed`.
 //!
 //! **Why a pool, and how it shares the work** (no `SharedArrayBuffer` on
 //! GitHub Pages, so workers share messages only):
@@ -39,14 +48,13 @@ pub mod bake;
 use crate::keff::KeffConfig;
 use dhoby_ghaut::web_demo::link::Floats;
 use nee_soon::htr10_rmc::core_model::AssembledCore;
-use nee_soon::htr10_rmc::data::{Htr10DataConfig, Htr10NuclideLayout, Tape};
+use nee_soon::htr10_rmc::data::Tape;
 use crate::processed_cache::DataStore;
 use dhoby_ghaut::web_demo::data_cache::Source;
-use nee_soon::htr10_rmc::data_jobs::{
-    assemble_slots, process_job, JobProduct, ProcessingJob, TOLERANCE,
-};
+use nee_soon::htr10_rmc::data_jobs::{process_job_at, JobProduct, ProcessingJob, TemperedJob, TOLERANCE};
 use nee_soon::htr10_rmc::keff_vs_height;
-use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
+use nee_soon::htr10_rmc::parametric::{ParametricStudy, StudyBed, StudyPlan};
+use nee_soon::htr10_rmc::zones::ZoneTemperatures;
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
 use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -59,7 +67,10 @@ use outram_mc_libs::physics::transport_csg::distributed::{
 };
 use outram_mc_libs::tally::mesh::RegularMesh;
 
-/// Temperature of every material and nuclide, K (the recorded runs').
+/// The transport settings' run-wide temperature, K (the recorded runs').
+/// ~~Temperature of every material and nuclide~~ **CORRECTED 2026-11-03
+/// (gh:#1142):** each material carries its zone's temperature, which is what
+/// transport reads at a collision; this one only fills `KeffSettings`.
 pub const TEMP_K: f64 = 300.15;
 /// Rings of the bed tiling, as the recorded runs.
 pub const RINGS: usize = 14;
@@ -91,22 +102,52 @@ pub const RECORD_RUN: KeffConfig = KeffConfig {
     want_sites: false,
 };
 
-/// The nuclide plan of the recorded runs.
-pub fn layout() -> Result<Htr10NuclideLayout, String> {
-    Htr10NuclideLayout::plan(&Htr10DataConfig::default()).map_err(|e| e.to_string())
+/// **The study the core view builds** (gh:#1139): bed code `code` (N
+/// layers of the lattice, or [`random_bed::DEM_BED`]), the rods, the eight
+/// zone temperatures; every other setting `ParametricStudy`'s default
+/// (every bound law by LEAPR at its zone's temperature).
+///
+/// # Errors
+/// The DEM pour cannot be read.
+pub fn study(code: usize, rods: &[f64; random_bed::N_RODS], temps: &ZoneTemperatures) -> Result<ParametricStudy, String> {
+    let bed = if code == random_bed::DEM_BED {
+        let centres = random_bed::dem_centres()?;
+        let is_fuel = nee_soon::htr10_rmc::explicit_bed::paper_fuel_assignment(&centres);
+        StudyBed::Explicit { centres, is_fuel }
+    } else {
+        StudyBed::Seker { layers: code.clamp(10, 20) }
+    };
+    Ok(ParametricStudy {
+        bed,
+        rod_insertions: *rods,
+        temperatures: *temps,
+        ..ParametricStudy::default()
+    })
 }
 
-/// The jobs, in the order every worker and the page index them.
-pub fn jobs() -> Result<Vec<ProcessingJob>, String> {
-    Ok(layout()?.processing_jobs())
+/// The plan at these zone temperatures: materials, nuclide array, jobs (it
+/// depends on the temperatures only, not on the bed or the rods).
+pub fn plan(temps: &ZoneTemperatures) -> Result<StudyPlan, String> {
+    study(12, &random_bed::WITHDRAWN, temps)?.plan().map_err(|e| e.to_string())
+}
+
+/// The jobs at these zone temperatures, in the order every worker and the
+/// page index them.
+pub fn jobs_at(temps: &ZoneTemperatures) -> Result<Vec<TemperedJob>, String> {
+    Ok(plan(temps)?.jobs)
+}
+
+/// The jobs with every zone at the record's 300.15 K.
+pub fn jobs() -> Result<Vec<TemperedJob>, String> {
+    jobs_at(&ZoneTemperatures::record())
 }
 
 /// Rough cost of a job, s, for dealing them out and for the progress bar:
 /// the native bake's per-job times (2026-10-07, i9-13900K, 5 jobs at once on
 /// 5 threads of a loaded machine; `verification_and_validation/
 /// htr10_full_core_web/logs/bake_native.log`). Only the order matters.
-pub fn job_cost(job: &ProcessingJob) -> f64 {
-    match job.label().as_str() {
+pub fn job_cost(job: &TemperedJob) -> f64 {
+    match job.job.label().as_str() {
         "U235" => 58.0,
         "C-in-SiC S(a,b)" => 57.0,
         "U238" => 47.0,
@@ -164,13 +205,15 @@ pub fn wire_url(t: &Tape) -> String {
 
 /// What the page asks of a worker.
 pub enum CoreReq {
-    /// Process these jobs (indices into [`jobs`]), posting each product.
-    Process { jobs: Vec<usize> },
+    /// Process these jobs (indices into [`jobs_at`] at `temps`, K per zone),
+    /// posting each product.
+    Process { jobs: Vec<usize>, temps: [f64; 8] },
     /// Another worker's product.
     Product { job: usize, data: Floats },
-    /// Every product is here: build the 38 nuclides, the materials, the core
-    /// at `layers` and the bed majorant.
-    Assemble { layers: usize },
+    /// Every product is here: build the nuclides, the materials, the core
+    /// at `layers` and the bed majorant, every zone at `temps` (K per zone,
+    /// gh:#1142).
+    Assemble { layers: usize, temps: [f64; 8] },
     /// Rebuild the core at another layer count (nothing else changes).
     Layers { layers: usize },
     /// Rebuild the core with the control rods at these insertions (gh:#1025;
@@ -276,6 +319,10 @@ pub enum CoreEv {
 pub struct CoreModel {
     pub nuclides: Vec<Nuclide>,
     pub materials: Vec<Material>,
+    /// The plan the model was built from, and its zone temperatures
+    /// (gh:#1142): a rod or bed change rebuilds the core on them.
+    pub plan: StudyPlan,
+    pub temps: ZoneTemperatures,
     pub majorant: Majorant,
     pub core: AssembledCore,
     pub layers: usize,
@@ -307,19 +354,20 @@ pub struct CoreWorker {
 /// The tape is missing or unreadable, or processing failed.
 pub fn run_job_cached(
     i: usize,
+    temps: &ZoneTemperatures,
     tape: Option<&[u8]>,
     store: &mut DataStore,
 ) -> Result<(Floats, Source), String> {
-    let jobs = jobs()?;
+    let jobs = jobs_at(temps)?;
     let job = jobs.get(i).ok_or("no such job")?;
-    let cfg = Htr10DataConfig::default();
-    let t_k = cfg.temperature.get::<uom::si::thermodynamic_temperature::kelvin>();
-    let label = job.label();
+    let cfg = ParametricStudy::default().data;
+    let t_k = job.kelvin();
+    let label = job.job.label();
     let t = match tape {
         Some(b) => Some(EndfTape::read(std::io::Cursor::new(b)).map_err(|e| format!("{label}: {e}"))?),
         None => None,
     };
-    let product = match (job, tape, t.as_ref()) {
+    let product = match (&job.job, tape, t.as_ref()) {
         (ProcessingJob::Tape { .. }, Some(b), Some(t)) => {
             let mat = *t
                 .materials()
@@ -333,7 +381,7 @@ pub fn run_job_cached(
                 None => format!("leapr-{label}"),
             };
             let key = crate::processed_cache::law_key(&source, 0, t_k, &label);
-            JobProduct::Law(store.law(&key, &label, || match process_job(job, &cfg, t.as_ref()) {
+            JobProduct::Law(store.law(&key, &label, || match process_job_at(&job.job, &cfg, t.as_ref(), job.temperature) {
                 Ok(JobProduct::Law(l)) => Ok(l),
                 Ok(JobProduct::Nuclide(_)) => Err(format!("{label}: not a law")),
                 Err(e) => Err(e.to_string()),
@@ -349,8 +397,8 @@ pub fn run_job_cached(
 /// none for a LEAPR law, with no cache: what the native bake runs, and the
 /// reference [`run_job_cached`] is tested against.
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-pub fn run_job(i: usize, tape: Option<&[u8]>) -> Result<Floats, String> {
-    let jobs = jobs()?;
+pub fn run_job(i: usize, temps: &ZoneTemperatures, tape: Option<&[u8]>) -> Result<Floats, String> {
+    let jobs = jobs_at(temps)?;
     let job = jobs.get(i).ok_or("no such job")?;
     let t = match tape {
         Some(b) => Some(
@@ -358,11 +406,12 @@ pub fn run_job(i: usize, tape: Option<&[u8]>) -> Result<Floats, String> {
         ),
         None => None,
     };
-    // `nee_soon`'s `process_job`: a tape job is route 4,
-    // `Nuclide::process_evaluation`, i.e. njoy's `process` (gh:#931), which
-    // `run_job_cached`'s store makes too since gh:#932. ~~A tape job is the
-    // demos' pre-gh:#931 chain~~ (gh:#932).
-    let p = process_job(job, &Htr10DataConfig::default(), t.as_ref()).map_err(|e| e.to_string())?;
+    // `nee_soon`'s `process_job_at` at the job's temperature: a tape job is
+    // route 4, `Nuclide::process_evaluation`, i.e. njoy's `process` (gh:#931),
+    // which `run_job_cached`'s store makes too since gh:#932; a law is LEAPR's
+    // at the zone's temperature (gh:#1138).
+    let p = process_job_at(&job.job, &ParametricStudy::default().data, t.as_ref(), job.temperature)
+        .map_err(|e| e.to_string())?;
     Ok(Floats::from_vec(p.to_f64s()))
 }
 
@@ -384,57 +433,53 @@ impl CoreWorker {
     }
 
     /// Build the model from every product and `tape(t)` (the inflated,
-    /// stripped bytes of each tape). Returns the report without the tape
-    /// time, which the caller measures.
+    /// stripped bytes of each tape), every zone at `temps` (gh:#1142).
+    /// Returns the report without the tape time, which the caller measures.
     pub fn assemble(
         &mut self,
         layers: usize,
+        temps: &ZoneTemperatures,
         mut tape: impl FnMut(&Tape) -> Result<Vec<u8>, String>,
     ) -> Result<AssemblyReport, String> {
         let now = dhoby_ghaut::web_demo::platform::now_s;
-        let cfg = Htr10DataConfig::default();
-        let layout = layout()?;
-        let jobs = layout.processing_jobs();
-        if self.products.len() < jobs.len()
-            || self.products.iter().take(jobs.len()).any(Option::is_none)
-        {
+        temps.check()?;
+        let study = study(layers, &random_bed::WITHDRAWN, temps)?;
+        let plan = study.plan().map_err(|e| e.to_string())?;
+        let n_jobs = plan.jobs.len();
+        if self.products.len() < n_jobs || self.products.iter().take(n_jobs).any(Option::is_none) {
             return Err("not every product has arrived".into());
         }
         self.model = None;
         let t0 = now();
         let products = &self.products;
-        let nuclides = assemble_slots(
-            &cfg,
-            &layout,
-            &jobs,
-            |i| {
-                let v = products[i].as_ref().map(Floats::to_vec).unwrap_or_default();
-                JobProduct::from_f64s(&v)
-            },
-            |t| {
-                let b =
-                    tape(t).map_err(nee_soon::htr10_rmc::data::Htr10DataError::InvalidConfig)?;
-                EndfTape::read(std::io::Cursor::new(b)).map_err(|e| {
-                    nee_soon::htr10_rmc::data::Htr10DataError::InvalidConfig(format!(
-                        "{}: {e}",
-                        t.file
-                    ))
-                })
-            },
-        )
-        .map_err(|e| e.to_string())?;
+        let nuclides = study
+            .assemble_nuclides(
+                &plan,
+                |i| {
+                    let v = products[i].as_ref().map(Floats::to_vec).unwrap_or_default();
+                    JobProduct::from_f64s(&v)
+                },
+                |t| {
+                    let b = tape(t).map_err(nee_soon::htr10_rmc::data::Htr10DataError::InvalidConfig)?;
+                    EndfTape::read(std::io::Cursor::new(b)).map_err(|e| {
+                        nee_soon::htr10_rmc::data::Htr10DataError::InvalidConfig(format!("{}: {e}", t.file))
+                    })
+                },
+            )
+            .map_err(|e| e.to_string())?;
         // The relayed copies are no longer needed: free them.
         self.products.clear();
         let t1 = now();
-        let materials = htr10_material_set(&layout, Htr10MaterialConfig::benchmark_default(TEMP_K));
         // `layers` is a bed code: N for the lattice, 0 for the DEM bed.
-        let core = random_bed::build_core(layers)?;
+        let core = study.core(&plan)?;
         let t2 = now();
-        let majorant = keff_vs_height::bed_majorant(&materials, &nuclides);
+        let majorant = ParametricStudy::majorant(&plan, &nuclides);
         let t3 = now();
         self.model = Some(CoreModel {
             nuclides,
-            materials,
+            materials: plan.materials.clone(),
+            plan,
+            temps: *temps,
             majorant,
             core,
             layers,
@@ -455,7 +500,7 @@ impl CoreWorker {
     pub fn set_layers(&mut self, layers: usize) -> Result<(), String> {
         let m = self.model.as_mut().ok_or("the model is not built")?;
         if m.layers != layers {
-            m.core = random_bed::build_core_with(layers, &m.rods)?;
+            m.core = study(layers, &m.rods, &m.temps)?.core(&m.plan)?;
             m.layers = layers;
         }
         Ok(())
@@ -469,7 +514,7 @@ impl CoreWorker {
     pub fn set_rods(&mut self, rods: [f64; random_bed::N_RODS]) -> Result<(), String> {
         let m = self.model.as_mut().ok_or("the model is not built")?;
         if m.rods.map(f64::to_bits) != rods.map(f64::to_bits) {
-            m.core = random_bed::build_core_with(m.layers, &rods)?;
+            m.core = study(m.layers, &rods, &m.temps)?.core(&m.plan)?;
             m.rods = rods;
         }
         Ok(())
@@ -557,15 +602,18 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
     };
     let r: Result<(), String> = (|| {
         match req {
-            CoreReq::Process { jobs: list } => {
-                let all = jobs()?;
+            CoreReq::Process { jobs: list, temps } => {
+                let temps = ZoneTemperatures::from_kelvin(temps);
+                let all = jobs_at(&temps)?;
+                let cfg = ParametricStudy::default().data;
                 for i in list {
                     send(CoreEv::JobStarted { job: i });
                     let t0 = std::time::Instant::now();
                     let bytes = match all
                         .get(i)
                         .ok_or("no such job")?
-                        .tape(&Htr10DataConfig::default())
+                        .job
+                        .tape(&cfg)
                         .map_err(|e| e.to_string())?
                     {
                         Some(t) => Some(native_tape(&t)?),
@@ -574,7 +622,7 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
                     if let Some(b) = &bytes {
                         w.cache.begin_tape(b);
                     }
-                    let (data, source) = run_job_cached(i, bytes.as_deref(), &mut w.cache)?;
+                    let (data, source) = run_job_cached(i, &temps, bytes.as_deref(), &mut w.cache)?;
                     let (_, notes) = w.cache.take_report();
                     for n in notes {
                         send(CoreEv::DataNote(n));
@@ -589,9 +637,9 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
                 }
             }
             CoreReq::Product { job, data } => w.store(job, data),
-            CoreReq::Assemble { layers } => {
+            CoreReq::Assemble { layers, temps } => {
                 let mut tapes_s = 0.0;
-                let mut rep = w.assemble(layers, |t| {
+                let mut rep = w.assemble(layers, &ZoneTemperatures::from_kelvin(temps), |t| {
                     let t0 = std::time::Instant::now();
                     let b = native_tape(t);
                     tapes_s += t0.elapsed().as_secs_f64();
@@ -686,22 +734,24 @@ pub mod web {
     impl CoreReq {
         pub fn to_js(&self, o: &js_sys::Object) {
             match self {
-                CoreReq::Process { jobs } => {
+                CoreReq::Process { jobs, temps } => {
                     js::set(o, "kind", "core_process");
                     js::set(
                         o,
                         "jobs",
                         js::f64s(&jobs.iter().map(|&j| j as f64).collect::<Vec<_>>()),
                     );
+                    js::set(o, "temps", js::f64s(temps));
                 }
                 CoreReq::Product { job, data } => {
                     js::set(o, "kind", "core_product");
                     js::set(o, "job", *job as f64);
                     js::set(o, "data", data.js());
                 }
-                CoreReq::Assemble { layers } => {
+                CoreReq::Assemble { layers, temps } => {
                     js::set(o, "kind", "core_assemble");
                     js::set(o, "layers", *layers as f64);
+                    js::set(o, "temps", js::f64s(temps));
                 }
                 CoreReq::Layers { layers } => {
                     js::set(o, "kind", "core_layers");
@@ -728,19 +778,25 @@ pub mod web {
         pub fn from_js(kind: &str, v: &JsValue) -> Option<Result<Self, String>> {
             let n = |k: &str| js::get_f64(v, k).unwrap_or(0.0) as usize;
             let floats = |k: &str| Floats::get(v, k).ok_or_else(|| format!("{kind}: no {k}"));
+            let temps = || {
+                <[f64; 8]>::try_from(js::get_f64s(v, "temps").as_slice())
+                    .map_err(|_| format!("{kind}: not eight zone temperatures"))
+            };
             Some(match kind {
-                "core_process" => Ok(CoreReq::Process {
+                "core_process" => temps().map(|temps| CoreReq::Process {
                     jobs: js::get_f64s(v, "jobs")
                         .into_iter()
                         .map(|j| j as usize)
                         .collect(),
+                    temps,
                 }),
                 "core_product" => floats("data").map(|data| CoreReq::Product {
                     job: n("job"),
                     data,
                 }),
-                "core_assemble" => Ok(CoreReq::Assemble {
+                "core_assemble" => temps().map(|temps| CoreReq::Assemble {
                     layers: n("layers"),
+                    temps,
                 }),
                 "core_layers" => Ok(CoreReq::Layers {
                     layers: n("layers"),
@@ -879,10 +935,12 @@ pub mod web {
                     w.store(job, data);
                 }
             }
-            CoreReq::Process { jobs: list } => {
+            CoreReq::Process { jobs: list, temps } => {
                 let core = core.clone();
+                let temps = ZoneTemperatures::from_kelvin(temps);
                 wasm_bindgen_futures::spawn_local(async move {
-                    let all = match jobs() {
+                    let cfg = ParametricStudy::default().data;
+                    let all = match jobs_at(&temps) {
                         Ok(a) => a,
                         Err(e) => return fail(e),
                     };
@@ -891,7 +949,7 @@ pub mod web {
                     for i in list {
                         send(CoreEv::JobStarted { job: i });
                         let t0 = js_sys::Date::now();
-                        let bytes = match all.get(i).map(|j| j.tape(&Htr10DataConfig::default())) {
+                        let bytes = match all.get(i).map(|j| j.job.tape(&cfg)) {
                             Some(Ok(Some(t))) => match tape_bytes(&t).await {
                                 Ok(b) => Some(b),
                                 Err(e) => return fail(e),
@@ -907,12 +965,12 @@ pub mod web {
                         match &bytes {
                             Some(b) => cache::before_step(&mut store, b, &mut health).await,
                             None => {
-                                let label = all.get(i).map(|j| j.label()).unwrap_or_default();
+                                let label = all.get(i).map(|j| j.job.label()).unwrap_or_default();
                                 let prefix = crate::processed_cache::tape_prefix(&format!("leapr-{label}"));
                                 cache::before_prefix(&mut store, &prefix, &mut health).await;
                             }
                         }
-                        match run_job_cached(i, bytes.as_deref(), &mut store) {
+                        match run_job_cached(i, &temps, bytes.as_deref(), &mut store) {
                             Ok((data, source)) => {
                                 if let Ok(mut w) = core.write() {
                                     w.store(i, data.clone());
@@ -936,16 +994,17 @@ pub mod web {
                     }
                 });
             }
-            CoreReq::Assemble { layers } => {
+            CoreReq::Assemble { layers, temps } => {
                 let core = core.clone();
+                let temps = ZoneTemperatures::from_kelvin(temps);
                 wasm_bindgen_futures::spawn_local(async move {
                     // Every tape's bytes first (awaited, so relayed products
                     // still land), then the blocking assembly.
                     let t0 = js_sys::Date::now();
-                    let tapes: Vec<Tape> = match layout() {
-                        Ok(l) => {
+                    let tapes: Vec<Tape> = match plan(&temps) {
+                        Ok(p) => {
                             let mut v: Vec<Tape> = Vec::new();
-                            for s in &l.slots {
+                            for s in &p.layout.slots {
                                 if !v.contains(&s.tape) {
                                     v.push(s.tape);
                                 }
@@ -963,7 +1022,7 @@ pub mod web {
                     }
                     let tapes_s = (js_sys::Date::now() - t0) / 1000.0;
                     let r = match core.write() {
-                        Ok(mut w) => w.assemble(layers, |t| {
+                        Ok(mut w) => w.assemble(layers, &temps, |t| {
                             let z = got
                                 .iter()
                                 .find(|(k, _)| k == t)
@@ -1055,11 +1114,15 @@ mod tests {
     fn a_worker_rebuilds_its_core_with_the_rods() {
         let mut w = CoreWorker::default();
         assert!(w.set_rods(random_bed::WITHDRAWN).is_err(), "no model yet");
+        let temps = ZoneTemperatures::record();
+        let p = plan(&temps).expect("plan");
         w.model = Some(CoreModel {
             nuclides: Vec::new(),
-            materials: Vec::new(),
+            materials: p.materials.clone(),
+            core: study(12, &random_bed::WITHDRAWN, &temps).expect("study").core(&p).expect("core"),
+            plan: p,
+            temps,
             majorant: Majorant::uniform(1.0),
-            core: random_bed::build_core(12).expect("lattice"),
             layers: 12,
             rods: random_bed::WITHDRAWN,
         });
@@ -1074,8 +1137,11 @@ mod tests {
         assert!(w.set_rods([2.0; random_bed::N_RODS]).is_err());
         w.set_rods(random_bed::WITHDRAWN).expect("withdraw");
         let a = &w.model.as_ref().unwrap().core;
-        let b = random_bed::build_core(13).unwrap();
+        let temps = ZoneTemperatures::record();
+        let b = study(13, &random_bed::WITHDRAWN, &temps).unwrap().core(&plan(&temps).unwrap()).unwrap();
         assert_eq!(format!("{:?}", a.geometry), format!("{:?}", b.geometry));
+        // The same cells as the record's core: only the zone slots differ.
+        assert_eq!(a.geometry.cells.len(), random_bed::build_core(13).unwrap().geometry.cells.len());
     }
 
     /// **A cached job is the processed job, bit for bit** (gh:#818): the
@@ -1089,31 +1155,41 @@ mod tests {
     /// words, and Si-in-SiC, 229 552 words, identical processed and cached.
     #[test]
     fn a_cached_job_is_the_processed_job() {
-        let all = jobs().expect("jobs");
-        let cfg = Htr10DataConfig::default();
+        let temps = ZoneTemperatures::record();
+        let all = jobs_at(&temps).expect("jobs");
+        let cfg = ParametricStudy::default().data;
         let cheap = (0..all.len())
-            .filter(|&i| matches!(all[i], ProcessingJob::Tape { .. }))
+            .filter(|&i| matches!(all[i].job, ProcessingJob::Tape { .. }))
             .min_by(|&a, &b| job_cost(&all[a]).total_cmp(&job_cost(&all[b])))
             .expect("a tape job");
-        let law = all.iter().position(|j| j.label() == "Si-in-SiC S(a,b)").expect("Si-in-SiC");
+        // Since gh:#1142 every law is LEAPR's (no tape); Si-in-SiC is the
+        // cheapest LEAPR-made law here and is offered with no bytes.
+        let law = all.iter().position(|j| j.job.label() == "Si-in-SiC S(a,b)").expect("Si-in-SiC");
         for i in [cheap, law] {
-            let Some(t) = all[i].tape(&cfg).expect("tape") else {
-                continue;
+            let bytes = match all[i].job.tape(&cfg).expect("tape") {
+                Some(t) => match native_tape(&t) {
+                    Ok(b) => Some(b),
+                    Err(_) => {
+                        eprintln!("SKIP {}: tape not present", all[i].label());
+                        continue;
+                    }
+                },
+                None => None,
             };
-            let Ok(bytes) = native_tape(&t) else {
-                eprintln!("SKIP {}: tape not present", all[i].label());
-                continue;
-            };
-            let want: Vec<u64> = run_job(i, Some(&bytes)).expect("direct").to_vec().iter().map(|x| x.to_bits()).collect();
+            let want: Vec<u64> = run_job(i, &temps, bytes.as_deref()).expect("direct").to_vec().iter().map(|x| x.to_bits()).collect();
             let mut first = DataStore::browser();
-            first.begin_tape(&bytes);
-            let (made, src) = run_job_cached(i, Some(&bytes), &mut first).expect("made");
+            if let Some(b) = &bytes {
+                first.begin_tape(b);
+            }
+            let (made, src) = run_job_cached(i, &temps, bytes.as_deref(), &mut first).expect("made");
             assert_eq!(src, Source::Processed);
             assert_eq!(made.to_vec().iter().map(|x| x.to_bits()).collect::<Vec<_>>(), want, "{}: processed", all[i].label());
             let mut second = DataStore::browser();
-            second.begin_tape(&bytes);
+            if let Some(b) = &bytes {
+                second.begin_tape(b);
+            }
             second.offer(first.take_fresh());
-            let (cached, src) = run_job_cached(i, Some(&bytes), &mut second).expect("cached");
+            let (cached, src) = run_job_cached(i, &temps, bytes.as_deref(), &mut second).expect("cached");
             assert!(matches!(src, Source::Cached { .. }), "{}: {src:?}", all[i].label());
             assert!(second.take_fresh().is_empty());
             assert_eq!(cached.to_vec().iter().map(|x| x.to_bits()).collect::<Vec<_>>(), want, "{}: cached", all[i].label());
@@ -1121,7 +1197,7 @@ mod tests {
         }
         // A LEAPR law's key has no tape: `leapr-<label>`.
         let mut s = DataStore::off();
-        assert!(run_job_cached(cheap, None, &mut s).is_err(), "a tape job needs its tape");
+        assert!(run_job_cached(cheap, &temps, None, &mut s).is_err(), "a tape job needs its tape");
     }
 
     /// The jobs are the layout's (no drift), every one has a cost, and the
@@ -1130,6 +1206,12 @@ mod tests {
     fn the_jobs_are_dealt_once_each_longest_first() {
         let jobs = jobs().expect("jobs");
         assert_eq!(jobs.len(), 36);
+        // At eight zone temperatures there are more jobs, each with a cost.
+        let mut hot = ZoneTemperatures::record();
+        for (i, z) in nee_soon::htr10_rmc::zones::Htr10Zone::ALL.into_iter().enumerate() {
+            hot.set(z, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(400.0 + 50.0 * i as f64));
+        }
+        assert!(jobs_at(&hot).expect("hot jobs").len() > 36);
         let costs: Vec<f64> = jobs.iter().map(job_cost).collect();
         assert!(costs.iter().all(|&c| c > 0.0));
         for w in [1, 2, 4, 7] {
@@ -1139,18 +1221,18 @@ mod tests {
             all.sort_unstable();
             assert_eq!(all, (0..jobs.len()).collect::<Vec<_>>(), "{w} workers");
             // U-235 (the longest) goes first, to worker 0.
-            let u235 = jobs.iter().position(|j| j.label() == "U235").expect("U235");
+            let u235 = jobs.iter().position(|j| j.job.label() == "U235").expect("U235");
             assert_eq!(s[0][0], u235);
             if w >= 2 {
                 // U-238 does not queue behind U-235.
-                let u238 = jobs.iter().position(|j| j.label() == "U238").expect("U238");
+                let u238 = jobs.iter().position(|j| j.job.label() == "U238").expect("U238");
                 assert!(!s[0].contains(&u238));
             }
         }
         // Every job's tape has a download name.
-        let cfg = Htr10DataConfig::default();
+        let cfg = ParametricStudy::default().data;
         for j in &jobs {
-            if let Some(t) = j.tape(&cfg).expect("tape") {
+            if let Some(t) = j.job.tape(&cfg).expect("tape") {
                 assert!(wire_url(&t).starts_with("data/") && wire_url(&t).ends_with(".zz"));
             }
         }

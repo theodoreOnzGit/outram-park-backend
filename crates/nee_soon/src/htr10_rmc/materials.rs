@@ -141,7 +141,7 @@ impl GraphiteLaw {
 
 /// Everything the material set depends on, stated rather than read from the
 /// environment — see the module docs.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Htr10MaterialConfig {
     /// Temperature \[K\] every material is built at.
     pub temperature_k: f64,
