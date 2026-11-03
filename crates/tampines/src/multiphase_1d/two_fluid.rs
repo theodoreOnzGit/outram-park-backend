@@ -3329,11 +3329,19 @@ pub const MAX_REGION_4_NUDGE: f64 = 4.0e-12;
 /// multiplies `p` by `1 + 4e-12`, retrying up to four times. Everywhere else it
 /// returns `p` unchanged, bit for bit.
 ///
-/// **This is a workaround in the consumer, not a fix.** The defect is in
+/// ~~**This is a workaround in the consumer, not a fix.** The defect is in
 /// `tampines-steam-tables` (a panic where an error belongs, and an exact float
 /// comparison on a boundary) and belongs there; this function exists so the
 /// six-equation solver is not blocked on it, and so the next reader finds the
-/// diagnosis rather than a mysterious `+ 4e-12`.
+/// diagnosis rather than a mysterious `+ 4e-12`.~~ **CORRECTED 2026-11-03
+/// (gh:#1157): fixed upstream below 623.15 K** (`p < 16.53 MPa`): the
+/// conductivity's critical-enhancement term takes the phase from `x` on the
+/// saturation line there, so 104 of the 105 panicking pressures of the sweep
+/// above no longer panic (the same fix corrected `λ_f`/`λ_g`, which had used
+/// the other phase's `c_p` at about half of all pressures). Above 16.53 MPa
+/// the line borders Region 3 and one sweep pressure still panics, so this
+/// guard stays; measured in
+/// `two_fluid_tests::region_4_safe_pressure_removes_the_upstream_classifier_panic`.
 ///
 /// # Units
 ///

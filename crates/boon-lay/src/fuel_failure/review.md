@@ -21,22 +21,24 @@ id = "review-weibull-failure-fraction-theodoreonzgit-dd41ff29"
 kind = "review"
 origin = "human"
 created = "2026-10-12T09:48:30+08:00"
-modified = "2026-10-13T15:00:07+08:00"
+modified = "2026-11-02T14:23:07+08:00"
 target = "fn:dd41ff2953124783"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/weibull.rs::weibull_failure_fraction"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:00:07+08:00"
-commit = "55d541bb7dd6743bcd70f1eeb1771edbd396c6ea"
-hash = "sha256:909caa1fbab166b538d958e5778a9e4b2bbb0ac2b44faa8f50ef9c0624a91539"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:23:07+08:00"
+commit = "f5a4579d04a809cd0797c9fdb2b8d8a4fab10eed"
+hash = "sha256:6698020a43ba87d8d5ab2a4091e9ea80df6d284a42ee2e1957c79e317cbed40e"
 doc_hash = "sha256:52c13390871b8991d976b786d6612153fdd5adfbc946875a3e173157e8b39949"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
+"fn:89dd813310599ab0" = "sha256:7bdf8ffb9a6314a160402eea825a229d7152f5e9f4e4f0ca0fd65d9ce0fbcedd"
 "fn:91b8101ebd5b4ec6" = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
 
 [review.checklist]
 coding_standards = "yes"
@@ -52,10 +54,14 @@ units_documented = "not_documented"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq"]
+
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "luZ+wSc3fNOkEVaimXDeKdl7ccuoNVhhNY8Jt/6iguHGMPZQYQiMwhwUcGEjVTQhloluaNrHR2YbxTchi2DACQ=="
+value = "CX0ZjXr5az+jHn4kPKaRZ4Psj+8D43tNoXKByilSi37ssXODgStiLtr+YMNoBTXHEmWYDEX/spoj4l3U7NaCCA=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -64,7 +70,7 @@ kind = "implements"
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 55d541bb7d.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit f5a4579d04.
 
 # Review: failure_is_monotone_in_stress (github:theodoreOnzGit)
 
@@ -946,23 +952,23 @@ id = "review-induced-stress-exact-theodoreonzgit-cc30818a"
 kind = "review"
 origin = "human"
 created = "2026-10-13T15:12:48+08:00"
-modified = "2026-10-13T15:12:48+08:00"
+modified = "2026-11-02T14:22:01+08:00"
 target = "fn:cc30818aa7756c33"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/stress.rs::induced_stress_exact"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:12:48+08:00"
-commit = "04e00535a9f4d450353751526769826e800abe74"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:22:01+08:00"
+commit = "9b77efc6bf8b76341e486f1360f65f49437727ad"
 hash = "sha256:19bcf0ea7122ec816b6337fe91e61431c34361bcd05fc24fcecdf5d6b289e34d"
 doc_hash = "sha256:b60114464cd95855e4abd1ee01ea1a827bb30aa96ce3e24cdcb61d7901e9f5b7"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
-"fn:2b07126502aff09a" = "sha256:6e0cc2c8f38953ed77c6c5ae6e96a20c995869623b64610b219fc6b3a9536e09"
-"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:2b07126502aff09a" = "sha256:ca60c36142570cdb62c6dc0371a4debd43fdb702c2c703de9ed4495f3ffa95d2"
+"fn:5b2b33cb94ca9a56" = "sha256:7ff9b2a5892dca4bfeec223f3a0c85ba6a15332eac2b331f0e94c6699764f399"
 "fn:62323e762b03b9bf" = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
 "fn:c110fac8ce3e9964" = "sha256:055f7daeb9d4f808015285dd822cd2196733ba27bc5da8ccdab88f9f8638129f"
 
@@ -980,14 +986,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "unit_tests_only"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "a5olP9MnCYfHzB/+vvJaOEzCzWMjVswUKNc2YlA7t36ovx/JueWJxVMH5ogBMuag1EtCnxpoutGc05JIuYQlAA=="
+value = "IQ/R7iou+PnYPKP4w9wiTyDzyp9/uEloHaPlFOI1GGP0ildf5s5K3zB47McII6G/qcJaE8ZXO0fnyU6nhQCpBg=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -996,9 +998,11 @@ kind = "implements"
 
 checked against page 484 of PANAMA, works well
 
+Re-confirmed on 2026-11-02 without the wizard (inherited stale: SicLayer::cbrt_mean_radius, SicLayer changed; their diffs were shown). Re-confirms the review of 2026-10-13 at commit 04e00535a9; the checklist is carried over unchanged.
+
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 04e00535a9.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 9b77efc6bf.
 
 # Review: induced_stress (github:theodoreOnzGit)
 
@@ -1008,23 +1012,23 @@ id = "review-induced-stress-theodoreonzgit-c04cf2b3"
 kind = "review"
 origin = "human"
 created = "2026-10-13T15:17:17+08:00"
-modified = "2026-10-13T15:17:17+08:00"
+modified = "2026-11-02T14:21:37+08:00"
 target = "fn:c04cf2b3db90cf92"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/stress.rs::induced_stress"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:17:17+08:00"
-commit = "af92cf3e651924101b00837124370b51db00c01b"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:21:38+08:00"
+commit = "9b77efc6bf8b76341e486f1360f65f49437727ad"
 hash = "sha256:dd8d0e1854a1c7fe6a126c017cd5e6d289aaa4fbe9b8edbd82d62b7108fce2e1"
 doc_hash = "sha256:46d013e338a45a1f0160beb8480856e8db7007cd177da0d0ae351ec7b177c7a3"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
-"fn:2b07126502aff09a" = "sha256:6e0cc2c8f38953ed77c6c5ae6e96a20c995869623b64610b219fc6b3a9536e09"
-"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:2b07126502aff09a" = "sha256:ca60c36142570cdb62c6dc0371a4debd43fdb702c2c703de9ed4495f3ffa95d2"
+"fn:5b2b33cb94ca9a56" = "sha256:7ff9b2a5892dca4bfeec223f3a0c85ba6a15332eac2b331f0e94c6699764f399"
 "fn:62323e762b03b9bf" = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
 "fn:85780296f48ec680" = "sha256:c8e5ee6a302c3857ee1377d1b0ab0fdd0d3caf0315d2aea4d482b5cab08bacf5"
 "fn:fcce2a003b237da0" = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
@@ -1043,14 +1047,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "lmuq5mcDTF4PGmOZR9DWagUk7rmUZCOidl0NVTtNAVrhgi+0k9kyESDQ/IB5bpD56cO7ICW5MYpz3ouTHNICBA=="
+value = "IkOcMh6OD3dtDPB4C7jDsqrcXK3wwP/WA0L7DXyTMHjZZjRpNdYWlIN6+ntarlfY92weDR7zwKJMjNz1rdFzBA=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -1059,9 +1059,11 @@ kind = "implements"
 
 looks like the eq 2 on page 484, implemented properly
 
+Re-confirmed on 2026-11-02 without the wizard (inherited stale: SicLayer::cbrt_mean_radius, SicLayer changed; their diffs were shown). Re-confirms the review of 2026-10-13 at commit af92cf3e65; the checklist is carried over unchanged.
+
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit af92cf3e65.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 9b77efc6bf.
 
 # Review: induced_stress_with_thinning_factor (github:theodoreOnzGit)
 
@@ -1071,23 +1073,23 @@ id = "review-induced-stress-with-thinning-factor-theodoreonzgit-bb12bcfe"
 kind = "review"
 origin = "human"
 created = "2026-10-13T15:21:21+08:00"
-modified = "2026-10-13T15:21:21+08:00"
+modified = "2026-11-02T14:22:24+08:00"
 target = "fn:bb12bcfe4e38d67a"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/stress.rs::induced_stress_with_thinning_factor"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:21:21+08:00"
-commit = "a84bcd2e36b18e3b65a6b19934a4303989058791"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:22:24+08:00"
+commit = "2a4100f7eda58e10866fd6583d3a9d652f2c8230"
 hash = "sha256:df990056b7c16e15de2eabb7091840c8d26efb6792d907e9ac6021a69bfb7562"
 doc_hash = "sha256:b5a62bbfd2d05ee79a50dbde20c2d8a5004ed4ad7ef7f122b717fa4ffdfab467"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
-"fn:2b07126502aff09a" = "sha256:6e0cc2c8f38953ed77c6c5ae6e96a20c995869623b64610b219fc6b3a9536e09"
-"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:2b07126502aff09a" = "sha256:ca60c36142570cdb62c6dc0371a4debd43fdb702c2c703de9ed4495f3ffa95d2"
+"fn:5b2b33cb94ca9a56" = "sha256:7ff9b2a5892dca4bfeec223f3a0c85ba6a15332eac2b331f0e94c6699764f399"
 "fn:fcce2a003b237da0" = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
 
 [review.checklist]
@@ -1104,14 +1106,10 @@ units_documented = "not_documented"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "gNBJfNtzikoDXG1HYk0enbSLk0ml6OGQWfQpiwofN9dWKSgootbvqSZu6qRigmzNULXKFx5WZ7FmqiEjBe/+DA=="
+value = "etQ1jxWSqNy8cMcjdBreOCM1PhRrbrEuaMaaMO0ReY0CsjV2kCJCD96gH16hMQVPOjdf9ru87wSHVPW5EtAuDg=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -1120,9 +1118,11 @@ kind = "implements"
 
 Guards could be improved for fkor, but the equation implemented is essentially correct. Result can also be used to wrap this. good numerical utility anyway. But not up to QA standards
 
+Re-confirmed on 2026-11-02 without the wizard (inherited stale: SicLayer::cbrt_mean_radius, SicLayer changed; their diffs were shown). Re-confirms the review of 2026-10-13 at commit a84bcd2e36; the checklist is carried over unchanged.
+
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a84bcd2e36.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 2a4100f7ed.
 
 # Review: a_negative_corrosion_rate_is_refused_by_both_routes (github:theodoreOnzGit)
 
@@ -1355,22 +1355,23 @@ id = "review-irradiated-weibull-modulus-theodoreonzgit-ff16d9bf"
 kind = "review"
 origin = "human"
 created = "2026-10-13T15:39:45+08:00"
-modified = "2026-10-13T15:41:09+08:00"
+modified = "2026-11-02T14:23:46+08:00"
 target = "fn:ff16d9bf9f457f13"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/strength.rs::irradiated_weibull_modulus"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-13"
-signed_at = "2026-10-13T15:41:09+08:00"
-commit = "46c92f0a88e66f3ce25ec4932726d5a1cc15f906"
-hash = "sha256:57b7d596ab143da4a49bd6837cf26bb2e0736b7a99b61b3a931b3afeb2c9b180"
+date = "2026-11-02"
+signed_at = "2026-11-02T14:23:46+08:00"
+commit = "443f4268d51447d6b344a2524fc5118fd1835aff"
+hash = "sha256:d4e81461f1e1289642ed5895eb0efafab5d9185794f936b91210a5b8b1fb4055"
 doc_hash = "sha256:e9557486f5536531c87d37fd5d7f97a47ce47e4204b8fe4a95073ffe5dee0161"
-cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
 
 [review.callees]
 "fn:72601fd84f0cb0d8" = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+"fn:89dd813310599ab0" = "sha256:7bdf8ffb9a6314a160402eea825a229d7152f5e9f4e4f0ca0fd65d9ce0fbcedd"
 
 [review.checklist]
 coding_standards = "yes"
@@ -1386,10 +1387,14 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq"]
+
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "QpSiiFBdZM9wsRLIVQrYwIr8F/fGM2qUCiK54xlfjiNV+WzW2KthVfTnCDH38pLzxojZNX8NfingqCzU1jpYAA=="
+value = "zLpC6Ilq4lfHpMNLPoI8X7zvz2fIOWhmDeoXV5ExgND/kTHVqMfwEThIZ6OpI+NE1gNmS28sLrYoyFo4jS2NCQ=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -1400,7 +1405,7 @@ checked against 9a, not 8a
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 46c92f0a88.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 443f4268d5.
 
 # Review: irradiated_strength (github:theodoreOnzGit)
 

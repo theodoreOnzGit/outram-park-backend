@@ -640,9 +640,23 @@ fn the_coupling_block_refuses_malformed_inputs() {
 /// pressures that need it. `SaturatedProperties::at` is unaffected because it
 /// never routes through the classifier.
 ///
-/// **This test pins a workaround, not a fix.** The defect — a panic where an
+/// ~~**This test pins a workaround, not a fix.** The defect — a panic where an
 /// error belongs, on an exact float comparison at a region boundary — is in
-/// `tampines-steam-tables` and belongs there.
+/// `tampines-steam-tables` and belongs there.~~ **CORRECTED 2026-11-03
+/// (gh:#1157): fixed upstream below 623.15 K.** The conductivity's
+/// critical-enhancement term now takes the phase from `x` on the saturation
+/// line below 623.15 K (`p_sat(623.15 K) = 16.53 MPa`), which also removed a
+/// worse, silent defect at the same point: the region test put `(T_sat, p)`
+/// in Region 1 or 2 by round-off, so `λ_f` and `λ_g` used the other phase's
+/// `c_p` about half the time (+1.5 % / −1.3 %). Above 16.53 MPa the
+/// saturation line borders Region 3 and the panic remains, so the guard is
+/// still needed there. The test now asserts zero unguarded panics below that
+/// pressure and an exact predicate above it. Before the fix this sweep
+/// recorded the 105 panics in the table above, at pressures across the whole
+/// range. **Measured after it (2026-11-03, release, same sweep):** 1 unguarded
+/// panic, at a pressure above 16.53 MPa (predicted there by the round-trip
+/// predicate: 1 of 1); 0 below; the guard still nudges the 105 round-trip
+/// pressures and leaves 0 panics.
 #[test]
 fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
     use tampines_steam_tables::region_4_vap_liq_equilibrium::sat_pressure::sat_pressure_4;
@@ -653,6 +667,8 @@ fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
     let mut worst_alteration: f64 = 0.0;
     let mut count = 0usize;
 
+    let p_split = sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(623.15)).get::<pascal>();
+    let (mut panics_below, mut predicted_above, mut panics_above) = (0usize, 0usize, 0usize);
     let mut p = 1.0e5_f64;
     while p < 2.2e7 {
         count += 1;
@@ -666,8 +682,14 @@ fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
         if unguarded {
             panics += 1;
         }
-        if unguarded != flagged {
-            mispredictions += 1;
+        if p < p_split {
+            panics_below += usize::from(unguarded);
+        } else {
+            panics_above += usize::from(unguarded);
+            predicted_above += usize::from(flagged);
+            if unguarded != flagged {
+                mispredictions += 1;
+            }
         }
         if std::panic::catch_unwind(|| super::properties::SaturatedProperties::at(p)).is_err() {
             sat_panics += 1;
@@ -693,17 +715,17 @@ fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
     println!("  pressures altered by the guard           : {altered}");
     println!("  largest relative alteration              : {worst_alteration:.6e}");
 
-    assert_eq!(mispredictions, 0, "the round-trip predicate is not exact");
+    println!("  below p_sat(623.15 K) = {p_split:.0} Pa: unguarded panics {panics_below}");
+    println!("  above it: unguarded panics {panics_above}, predicted {predicted_above}");
+    assert_eq!(panics_below, 0, "the upstream fix (gh:#1157) no longer holds below 623.15 K");
+    assert_eq!(mispredictions, 0, "the round-trip predicate is not exact above 623.15 K");
     assert_eq!(guarded_panics, 0, "the guard did not remove every panic");
-    assert_eq!(
-        altered, panics,
-        "the guard altered a different set of pressures than the ones that panic"
-    );
+    assert_eq!(altered, predicted, "the guard nudges exactly the round-trip pressures");
     assert!(worst_alteration <= MAX_REGION_4_NUDGE * 4.0);
     assert!(
-        panics > 0,
-        "no pressure panicked -- the upstream defect may have been fixed; re-check \
-         region_4_safe_pressure and this test before deleting either"
+        panics_above > 0,
+        "no pressure above 16.53 MPa panicked -- the upstream defect may be fixed there too; \
+         re-check region_4_safe_pressure and this test before deleting either"
     );
 }
 
@@ -2125,16 +2147,33 @@ fn interface_work_matches_the_closed_forms_and_dissipates_the_drag() {
 }
 
 /// The end report of the demonstrator blowdown (8 cells, `α_g⁰ = 0.1`,
-/// 1 mm, 30 µs, 20 ms, `C_vm = 0.5`) measured on the **pre-gh:#1060 solver**
-/// (commit 43cb3eb5d, 2026-11-01, release), as raw IEEE-754 bit patterns:
+/// 1 mm, 30 µs, 20 ms, `C_vm = 0.5`) with all three gh:#1060 terms ablated,
+/// as raw IEEE-754 bit patterns:
 /// `[max α_g, min α_g, max |T_g − T_l|, max slip, outlet kg/s, inventory kg]`.
+///
+/// ~~Measured on the **pre-gh:#1060 solver** (commit 43cb3eb5d, 2026-11-01,
+/// release): `0x3fd6_8fc9_3bc4_e5f7, 0x3fc0_45ef_cc69_c732,
+/// 0x4033_532a_98fd_ace0, 0x3ff7_697d_ce22_df00, 0x4050_8e51_188f_4128,
+/// 0x4024_7d87_9d78_440a`.~~ **MOVED 2026-11-03 (gh:#1157)** by a steam-table
+/// fix, not by this solver: `SaturatedTransport`'s `λ_f`/`λ_g` had taken the
+/// other phase's `c_p` in the critical-enhancement term at about half of all
+/// pressures (round-off in the `(T, p)` region test at `T_sat`), +1.5 % /
+/// −1.3 %. Evidence that the move is that fix and nothing else: with only
+/// `tampines-steam-tables/src/thermal_conductivity/mod.rs` restored to its
+/// pre-fix content, the current code reproduced the old bits exactly
+/// (2026-11-03), which also keeps the "ablated = pre-gh:#1060" claim
+/// evidenced. Re-measured on the current code with the fix (2026-11-03,
+/// release): max α_g 0.352526 → 0.351356 (−0.33 %), min α_g +0.13 %,
+/// max |T_g − T_l| 19.3249 → 19.5144 K (+0.98 %), max slip −0.26 %, outlet
+/// flow −0.12 %, inventory +0.014 %. The pin now guards against drift from
+/// that state; flagged for the maintainer on gh:#1157.
 const PRE_1060_DEMONSTRATOR_BITS: [u64; 6] = [
-    0x3fd6_8fc9_3bc4_e5f7,
-    0x3fc0_45ef_cc69_c732,
-    0x4033_532a_98fd_ace0,
-    0x3ff7_697d_ce22_df00,
-    0x4050_8e51_188f_4128,
-    0x4024_7d87_9d78_440a,
+    0x3fd6_7c9f_6af0_92bf,
+    0x3fc0_4b56_b8b5_c669,
+    0x4033_83ad_ce7b_e340,
+    0x3ff7_59b7_9631_6220,
+    0x4050_891c_ed25_bc44,
+    0x4024_7e43_4e80_409e,
 ];
 
 /// **Methodology (gh:#1060).** With all three gh:#1060 terms ablated the

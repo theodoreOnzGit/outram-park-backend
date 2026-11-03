@@ -305,6 +305,11 @@ pub struct GitFacts {
     pub head: String,
     /// `sha256:` hash of the current `Cargo.lock`.
     pub cargo_lock: String,
+    /// Added 2026-10-29 (#1048): lock hash -> crate -> dependency
+    /// fingerprint ([`super::lock_scope::crate_fingerprints`]), for the
+    /// current lock and each lock a review or test run recorded whose text
+    /// git still holds. A lock missing here compares whole-file, as before.
+    pub lock_fingerprints: BTreeMap<String, BTreeMap<String, String>>,
     /// Function id -> its hash at the `[test_run]` commit (#766: "the engine
     /// still checks that the function hash is unchanged since the evidence
     /// commit"). A function missing here is treated as changed: the run
@@ -844,13 +849,32 @@ impl Current<'_> {
 /// The reaching-test verdict of `f` from its folder's `test_run`: #766's
 /// [`reach_verdict`], unless a run exists and `f`'s hash at the run's commit
 /// is not its hash now.
-pub fn test_verdict(f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> TestVerdict {
-    let v = reach_verdict(&f.reached_by, run, &git.cargo_lock);
+///
+/// A run at another lock speaks for `krate` when its dependency closure is
+/// the same in both (#1048, [`same_deps`]).
+pub fn test_verdict(krate: &str, f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> TestVerdict {
+    let current = match run {
+        Some(r) if same_deps(krate, &r.cargo_lock, git) => r.cargo_lock.as_str(),
+        _ => git.cargo_lock.as_str(),
+    };
+    let v = reach_verdict(&f.reached_by, run, current);
     match v {
         ReachVerdict::NoReachingTests | ReachVerdict::Pending(_) => TestVerdict::Reach(v),
         _ if !unchanged_since_run(f, git) => TestVerdict::ChangedSinceRun,
         _ => TestVerdict::Reach(v),
     }
+}
+
+/// Whether `krate` resolves the same dependencies at the `recorded` lock as
+/// at the current one (#1048): the same lock, or both locks' fingerprints
+/// known and `krate`'s equal. Anything unknown is "not the same", so this
+/// only ever relaxes a pending state that is provably unneeded.
+pub fn same_deps(krate: &str, recorded: &str, git: &GitFacts) -> bool {
+    if recorded == git.cargo_lock {
+        return true;
+    }
+    let fp = |lock: &str| git.lock_fingerprints.get(lock).and_then(|m| m.get(krate));
+    matches!((fp(recorded), fp(&git.cargo_lock)), (Some(a), Some(b)) if a == b)
 }
 
 fn unchanged_since_run(f: &FunctionIndex, git: &GitFacts) -> bool {
@@ -1057,7 +1081,7 @@ pub fn evaluate(
             );
             for t in targets {
                 let here = t.location();
-                let tests = test_verdict(t.f, t.index.test_run.as_ref(), git);
+                let tests = test_verdict(&t.index.krate, t.f, t.index.test_run.as_ref(), git);
                 let mut rep = report.clone();
                 rep.state = judge(r, t, &here, &candidates, matched, tests, &current, git, &registry, policy, is_port);
                 if !candidates.is_empty() {
@@ -1432,16 +1456,17 @@ fn judge(
     if cur.f.doc_hash != b.doc_hash {
         return StampState::DocChanged;
     }
-    // 8. Cargo.lock.
+    // 8. Cargo.lock: only a change in this crate's dependency closure
+    // (#1048).
     if let Some(lock) = &b.cargo_lock {
-        if *lock != git.cargo_lock {
+        if !same_deps(&cur.index.krate, lock, git) {
             return match tests {
                 TestVerdict::Reach(ReachVerdict::Failed { .. }) => StampState::InheritedStale {
                     cause: InheritedCause::LockTestFailed,
                     tests,
                     blocked: true,
                 },
-                _ if full_run_at_current_lock(cur.index.test_run.as_ref(), git)
+                _ if full_run_at_current_lock(&cur.index.krate, cur.index.test_run.as_ref(), git)
                     && unchanged_since_run(cur.f, git) =>
                 {
                     StampState::Valid
@@ -1449,7 +1474,7 @@ fn judge(
                 // A targeted run of the pending stamps' reaching tests
                 // (GitHub #1052) speaks for the function only when it ran
                 // every one of them.
-                _ => match targeted_verdict(cur.f, cur.index.targeted_run.as_ref(), git) {
+                _ => match targeted_verdict(&cur.index.krate, cur.f, cur.index.targeted_run.as_ref(), git) {
                     Some(ReachVerdict::Passed { .. }) => StampState::Valid,
                     Some(v @ ReachVerdict::Failed { .. }) => StampState::InheritedStale {
                         cause: InheritedCause::LockTestFailed,
@@ -1494,7 +1519,10 @@ fn second_sign_off(reviews: &mut [ReviewReport], registry: &Registry, file: &str
 /// [`FunctionIndex::depends_on`]; ids not in the workspace are ignored),
 /// one recursion group (strongly connected component) at a time, callees'
 /// groups first: a group counts when every member is valid and every
-/// dependency outside the group counts. Each valid member of a group that
+/// dependency outside the group is settled: valid, or pending only a
+/// workspace test (a pending callee does not hold its caller, maintainer
+/// 2026-10-29, as in the review bar's `Review::holds`). A tentative one is
+/// not settled. Each valid member of a group that
 /// does not becomes [`StampState::Tentative`], with its rung cleared, and
 /// so do its valid reviews. A callee left tentative does not count, so the
 /// wait carries up to every caller.
@@ -1515,7 +1543,10 @@ fn tentative_stamps(functions: &mut BTreeMap<String, FunctionReport>, current: &
         .collect();
     let mut counts: BTreeMap<String, bool> = functions
         .iter()
-        .map(|(k, v)| (k.clone(), v.state.kind().counts()))
+        .map(|(k, v)| {
+            let kind = v.state.kind();
+            (k.clone(), kind.counts() || kind == StateKind::PendingWorkspaceTest)
+        })
         .collect();
     let counted = |counts: &BTreeMap<String, bool>, id: &str| counts.get(id).copied().unwrap_or(false);
     for group in recursion_groups(&deps) {
@@ -1548,7 +1579,10 @@ fn tentative_stamps(functions: &mut BTreeMap<String, FunctionReport>, current: &
             continue;
         }
         for (m, mut w) in waiting {
-            if !counted(&counts, m) {
+            // Only a valid stamp becomes tentative; a pending one stays as
+            // it is.
+            if !functions.get(m).is_some_and(|f| f.state.kind().counts()) {
+                counts.insert(m.to_string(), false);
                 continue;
             }
             // Nothing of its own: it waits on the partners that are held.
@@ -1627,19 +1661,22 @@ fn recursion_groups<'a>(deps: &BTreeMap<&'a str, Vec<&'a str>>) -> Vec<Vec<&'a s
     groups
 }
 
-fn full_run_at_current_lock(run: Option<&TestRun>, git: &GitFacts) -> bool {
-    run.is_some_and(|r| r.suite == Suite::Full && r.cargo_lock == git.cargo_lock)
+fn full_run_at_current_lock(krate: &str, run: Option<&TestRun>, git: &GitFacts) -> bool {
+    run.is_some_and(|r| r.suite == Suite::Full && same_deps(krate, &r.cargo_lock, git))
 }
 
 /// What a `[targeted_run]` (GitHub #1052) says about `f`, or `None` when
 /// it cannot speak for it: no such run, not targeted, another `Cargo.lock`,
 /// no reaching test, a reaching test not among its targets, or `f` changed
 /// since the run's commit. Otherwise [`reach_verdict`] over that run.
-pub fn targeted_verdict(f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> Option<ReachVerdict> {
-    let run = run.filter(|r| r.suite == Suite::Targeted && r.cargo_lock == git.cargo_lock)?;
+///
+/// "Another `Cargo.lock`" is per crate, as for `[test_run]` (#1048,
+/// [`same_deps`]): a run at a lock where `krate`'s dependencies are the same.
+pub fn targeted_verdict(krate: &str, f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> Option<ReachVerdict> {
+    let run = run.filter(|r| r.suite == Suite::Targeted && same_deps(krate, &r.cargo_lock, git))?;
     let covered = !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t));
     let unchanged = git.hashes_at_targeted_run.get(&f.id) == Some(&f.hash);
-    (covered && unchanged).then(|| reach_verdict(&f.reached_by, Some(run), &git.cargo_lock))
+    (covered && unchanged).then(|| reach_verdict(&f.reached_by, Some(run), &run.cargo_lock))
 }
 
 fn aggregate(reviews: &[ReviewReport]) -> StampState {

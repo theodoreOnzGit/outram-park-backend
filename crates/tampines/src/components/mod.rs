@@ -21,6 +21,7 @@ pub mod condenser;
 pub mod cooling_tower;
 pub mod heat_exchanger;
 pub mod heat_structure;
+pub mod helical_coil_otsg;
 pub mod helical_coil_sg_standalone;
 pub mod helical_coil_steam_generator;
 pub mod junction;
@@ -50,6 +51,14 @@ pub use heat_structure::{
 pub use helical_coil_steam_generator::{
     NodalisedCounterFlowSteamGenerator, SteamGeneratorConfig, SteamGeneratorError,
     SteamGeneratorGeometry, SteamGeneratorState,
+};
+// The steady 1-D helical-coil once-through steam generator march (gh:#1157):
+// coil correlations, Chen boiling, Biasi dryout, IF97 water. A different
+// model from the transient `helical_coil_steam_generator` above, whose
+// conductances are calibrated and which carries no coil correlation.
+pub use helical_coil_otsg::{
+    CoilRegion, HelicalCoilGeometry, HelicalCoilOtsg, OperatingPoint, OtsgOptions, OtsgSolution, ProfilePoint,
+    Shooting, WaterRegime,
 };
 pub use junction::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
 pub use pipe::{Pipe, PipeBackend};

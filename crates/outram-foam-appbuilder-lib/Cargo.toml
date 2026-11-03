@@ -74,6 +74,10 @@ outram-blender.workspace = true
 # `htgr_closures::helium` and the ZBS tests moved here from `tampines`.
 # No cycle: coolprop depends on outram-foam-basic-lib, not on this crate.
 outram-park-fork-coolprop.workspace = true
+# gh:#1156: the double-pipe exchanger V&V compares the solved effectiveness
+# with this crate's epsilon-NTU (`heat_exchanger::ntu_effectiveness`).
+# Dev-only: no library code depends on it.
+outram-park-fork-dwsim-libs.workspace = true
 
 [lib]
 name = "outram_foam_appbuilder_lib"

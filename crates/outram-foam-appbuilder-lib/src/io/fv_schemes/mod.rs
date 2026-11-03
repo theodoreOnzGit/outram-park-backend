@@ -70,7 +70,14 @@ pub enum DivScheme {
 /// Laplacian scheme (laplacianSchemes).
 #[derive(Debug, Clone, PartialEq)]
 pub enum LaplacianScheme {
+    /// `Gauss linear corrected`: `1/(n·d)` implicit coefficients plus the
+    /// explicit non-orthogonal correction. The upstream tutorial default and
+    /// the default here; honoured by `PimpleFoam` since gh:#1161.
     GaussLinearCorrected,
+    /// `Gauss linear orthogonal`: `1/|d|`, no correction. What `PimpleFoam`
+    /// did before gh:#1161; the explicit ablation
+    /// (`PimpleFoam::without_non_orthogonal_correction`).
+    GaussLinearOrthogonal,
     GaussLinearUncorrected,
     GaussLinearLimited(f64), // limiter coefficient ∈ [0,1]
 }
@@ -124,10 +131,14 @@ impl Default for FvSchemes {
     /// said `GaussLinear` while every solver hardwired upwind and ignored the
     /// struct entirely — the value was a claim nothing honoured.
     ///
-    /// `default_grad`, `default_laplacian`, `default_sn_grad` and
-    /// `default_interpolation` are **still not consulted by any solver**; they
-    /// are parsed and stored only. Do not read them as a statement about the
-    /// discretisation in use.
+    /// ~~`default_grad`, `default_laplacian`, `default_sn_grad` and
+    /// `default_interpolation` are **still not consulted by any solver**~~
+    /// **CORRECTED 2026-11-03 (gh:#1161):** `default_laplacian` is honoured by
+    /// `PimpleFoam` (both its pressure and its momentum Laplacian; see
+    /// `crate::solvers::non_orthogonal`), and its default
+    /// [`LaplacianScheme::GaussLinearCorrected`] is now what that solver does.
+    /// `default_grad`, `default_sn_grad` and `default_interpolation` are still
+    /// stored only; the correction's gradient is always `Gauss linear`.
     fn default() -> Self {
         Self {
             ddt: DdtScheme::Euler,

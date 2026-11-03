@@ -194,6 +194,20 @@ bash crates/dhoby-ghaut/web/triso_atops/build.sh "$OUT/demos/triso-atops"
 # The DEM pour demo (gh:#787): HTR-10 pebbles poured and settled in the
 # browser by the LIGGGHTS port; the full-size gh:#216 bed is compiled in.
 bash crates/dhoby-ghaut/web/dem/build.sh "$OUT/demos/dem"
+# The helical-coil steam generator demo (gh:#1157): tampines' 1-D helical-coil
+# once-through steam generator march (IF97 water, coil and boiling closures)
+# in a Web Worker, one shooting march per message; no data files.
+bash crates/dhoby-ghaut/web/helical_sg/build.sh "$OUT/demos/helical-sg"
+for f in index.html worker.js helical_sg_web.js helical_sg_web_bg.wasm; do
+  [[ -f "$OUT/demos/helical-sg/$f" ]] || { echo "missing demos/helical-sg/$f" >&2; exit 1; }
+done
+# Foam Studio (gh:#1155): a pipe or duct meshed (O-grid / box blockMesh) and
+# solved by the pimpleFoam port in a Web Worker, one chunk of time steps per
+# message; no data files.
+bash crates/dhoby-ghaut/web/foam_studio/build.sh "$OUT/demos/foam-studio"
+for f in index.html worker.js foam_studio_web.js foam_studio_web_bg.wasm; do
+  [[ -f "$OUT/demos/foam-studio/$f" ]] || { echo "missing demos/foam-studio/$f" >&2; exit 1; }
+done
 # Delta vs surface tracking, step by step (gh:#784): reads the Monte Carlo
 # demo's tapes from ../monte-carlo/data/, so it is built after that one.
 bash crates/dhoby-ghaut/web/delta_tracking/build.sh "$OUT/demos/delta-tracking"

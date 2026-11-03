@@ -153,7 +153,10 @@ fn the_spelling_rule_accepts_marked_letters_only() {
 /// front of the short name
 /// (`deck-based-open-source-visualisation-engine-for-reactors-dover` is DOVER;
 /// renamed 2026-10-20 because `dover` on crates.io belongs to another
-/// project). Seventeen crates carry one (2026-10-13; sembawang alone before).
+/// project). ~~Seventeen crates carry one (2026-10-13; sembawang alone
+/// before).~~ **CORRECTED 2026-11-03:** eighteen, with `bugis` (backronym
+/// set by the maintainer 2026-11-02, "Browser-based User Graphics
+/// Interaction System").
 #[test]
 fn every_backronym_spells_its_crate_name() {
     let map = workspace();
@@ -172,7 +175,7 @@ fn every_backronym_spells_its_crate_name() {
     }
     with.sort_unstable();
     assert_eq!(with, [
-        "bedok", "bishan", "boon-lay", "buangkok", "changi",
+        "bedok", "bishan", "boon-lay", "buangkok", "bugis", "changi",
         "deck-based-open-source-visualisation-engine-for-reactors-dover", "dhoby-ghaut", "farrer-park", "kaki-bukit",
         "nee_soon", "pasir-ris", "petir", "raffles", "redhill", "sembawang", "tampines", "tuas_boussinesq_solver",
     ]);

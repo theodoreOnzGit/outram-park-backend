@@ -375,3 +375,38 @@ fn lambda_ph_two_phase_is_finite_and_bracketed() {
         last_x = x;
     }
 }
+
+/// Regression (gh:#1157, 2026-11-03): at 3.9 MPa the saturation temperature
+/// lands in Region 4 of the `(T, p)` region test by round-off, and the
+/// saturated-endpoint conductivity (`x = 0` and `x = 1`) panicked in the
+/// critical-enhancement term's single-phase `c_p`. It now takes the Region 1
+/// / Region 2 values at that `(T, p)`, which match the neighbouring pressure
+/// (where the region test does not hit Region 4) to 1e-6.
+#[test]
+fn saturated_endpoints_at_3_9_mpa_do_not_panic() {
+    use crate::region_4_vap_liq_equilibrium::sat_temp_4;
+    use uom::si::pressure::pascal;
+    use uom::si::thermal_conductivity::watt_per_meter_kelvin;
+    for x in [0.0, 1.0] {
+        let p = Pressure::new::<pascal>(3.9e6);
+        let lam = super::lambda_tp_eqm_two_phase(sat_temp_4(p), p, x).get::<watt_per_meter_kelvin>();
+        let p2 = Pressure::new::<pascal>(3.9e6 * (1.0 + 1e-7));
+        let lam2 = super::lambda_tp_eqm_two_phase(sat_temp_4(p2), p2, x).get::<watt_per_meter_kelvin>();
+        assert!(lam.is_finite() && lam > 0.0, "x = {x}: {lam}");
+        assert!((lam / lam2 - 1.0).abs() < 1e-6, "x = {x}: {lam} vs {lam2}");
+    }
+    // Near 4.457 MPa the region test flipped between Regions 1 and 2 every
+    // few tenths of a pascal, and the saturated conductivities jumped by
+    // 1.3-1.5 % with it. Now they are smooth: successive values 0.37 Pa
+    // apart differ by less than 1e-7.
+    for x in [0.0, 1.0] {
+        let lam = |p: f64| {
+            let p = Pressure::new::<pascal>(p);
+            super::lambda_tp_eqm_two_phase(sat_temp_4(p), p, x).get::<watt_per_meter_kelvin>()
+        };
+        for j in 0..12 {
+            let p = 4.4568e6 + f64::from(j) * 0.37;
+            assert!((lam(p + 0.37) / lam(p) - 1.0).abs() < 1e-7, "x = {x} at {p} Pa");
+        }
+    }
+}

@@ -361,16 +361,30 @@ fn study3_steady_differences() -> Vec<(f64, f64)> {
     })
 }
 
-/// 2026-08-07 record (`tests/fv_scheme_selection.rs`), mismatched pairing.
-const RECORDED_MISMATCH: [f64; 4] = [1.0394e-2, 1.6499e-2, 2.3420e-2, 2.9258e-2];
-/// 2026-11-01 values of the consistent pairing (this file's first run).
-const RECORDED_CONSISTENT: [f64; 4] = [3.8032e-3, 5.2084e-3, 6.8244e-3, 8.0361e-3];
+/// ~~2026-08-07 record (`tests/fv_scheme_selection.rs`), mismatched pairing:
+/// `[1.0394e-2, 1.6499e-2, 2.3420e-2, 2.9258e-2]`.~~ **RE-PINNED 2026-11-03
+/// (gh:#1154)** to the values measured after `PimpleFoam` gained upstream's
+/// boundary-flux handling (`constrainHbyA` into `phi`, `pEqn.flux()` on
+/// fixed-p patches, the `needReference` guard). On the cavity only the first
+/// acts: the lid's boundary flux in `phi` is now exactly `U_lid·Sf = 0`
+/// instead of the zero-gradient `HbyA_P·Sf`. That moved this ablation by
+/// −19 % to −4 % and moved the cavity closer to icoFoam (max |ΔU| / U_lid
+/// 0.0144 → 0.0062); see `tutorials/pimple_foam_cavity.rs`. The 2026-08-07
+/// record is kept in the table below as history.
+const RECORDED_MISMATCH: [f64; 4] = [8.3883e-3, 1.3833e-2, 2.0748e-2, 2.8047e-2];
+/// ~~2026-11-01 values of the consistent pairing (this file's first run):
+/// `[3.8032e-3, 5.2084e-3, 6.8244e-3, 8.0361e-3]`.~~ **RE-PINNED 2026-11-03
+/// (gh:#1154)**, same cause as [`RECORDED_MISMATCH`]; the BDF2/Euler steady
+/// disagreement fell 44 % to 29 % but still grows as Δt shrinks.
+const RECORDED_CONSISTENT: [f64; 4] = [2.1260e-3, 3.1705e-3, 4.5065e-3, 5.7053e-3];
 
 /// Study 3 — steady-state Euler-vs-BDF2 difference, with each `ddtCorr` form.
 ///
 /// Gates: (a) **pre-registered** — the Euler-only ablation reproduces the
 /// 2026-08-07 record within 1e-3 relative (its code path is meant to be
-/// unchanged); (c) **post-hoc regression pin, chosen after the run and not
+/// unchanged; **since 2026-11-03 it reproduces the re-pinned
+/// [`RECORDED_MISMATCH`]**, because the boundary-flux change of gh:#1154
+/// moved every cavity number); (c) **post-hoc regression pin, chosen after the run and not
 /// evidence** — the consistent pairing reproduces its own 2026-11-01 values
 /// within 1e-3 relative, so a later change to the BDF2 path cannot move them
 /// silently. Pre-registered gate (b) failed; it lives in the ignored
@@ -386,6 +400,18 @@ const RECORDED_CONSISTENT: [f64; 4] = [3.8032e-3, 5.2084e-3, 6.8244e-3, 8.0361e-
 /// | 4e-3 | 1.6499e-2 | 1.6499e-2 | 5.2084e-3 | 3.17 |
 /// | 2e-3 | 2.3420e-2 | 2.3420e-2 | 6.8244e-3 | 3.43 |
 /// | 1e-3 | 2.9258e-2 | 2.9258e-2 | 8.0361e-3 | 3.64 |
+///
+/// **Re-measured 2026-11-03 (gh:#1154), after the boundary-flux change:**
+///
+/// | Δt [s] | Euler-only ddtCorr (ablation) | BDF2 ddtCorr (default) | ratio |
+/// |---|---|---|---|
+/// | 8e-3 | 8.3883e-3 | 2.1260e-3 | 3.95 |
+/// | 4e-3 | 1.3833e-2 | 3.1705e-3 | 4.36 |
+/// | 2e-3 | 2.0748e-2 | 4.5065e-3 | 4.60 |
+/// | 1e-3 | 2.8047e-2 | 5.7053e-3 | 4.92 |
+///
+/// Both columns fell, the BDF2 one most. The growth with shrinking Δt
+/// remains, so the interpretation below still holds.
 ///
 /// **Interpretation.** The ablation reproduces the 2026-08-07 record to all
 /// five printed digits. The BDF2 `ddtCorr` cuts the Euler/BDF2 steady

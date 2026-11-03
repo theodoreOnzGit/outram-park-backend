@@ -34114,10 +34114,21 @@ convergence**, measured in `cv_network.md`. The Newton step:
   changes.
 - Everything else is the Picard step: the volumes' step, the delivery,
   the in-transit inventory, the breakers' hysteresis, the convergence
-  test.
+  test (**CORRECTED 2026-11-03, gh:#1124:** but for the floor below).
+- **A round-off floor on Newton's convergence test.** A path's rate
+  change counts as converged when the mass it moves in the step is at or
+  below the f64 resolution of the smaller inventory it joins,
+  `|Δṁ| Δt ≤ ε_f64 · min(M_from, M_to)` (`M` a volume's water and every
+  gas, a boundary infinite; `roundoff_floor`). Without it, a path whose
+  flow toggles at round-off while nothing else flows keeps the residual
+  (each change over the largest rate, then that tiny flow itself) O(1):
+  `sembawang`'s Unit 1 building opening, one ulp of pressure from the
+  environment, made Newton fall back on every step (measured in
+  `cv_network.md`). Picard's test is unchanged, bit for bit.
 - **Fallback:** a Newton step that does not converge in 30 iterates, or
   meets any error, is re-run by Picard from the start state
-  ([`NetworkStepReport::newton_fell_back`]).
+  ([`NetworkStepReport::newton_fell_back`]; the iterates it spent first
+  are [`NetworkStepReport::newton_iterations`], gh:#1124).
 - **Not used** with [`CvNetwork::without_iterate_switch_decisions`] (the
   b4c99e210 pin) or with one iteration (loose coupling).
 
@@ -34181,6 +34192,11 @@ the network closes as `now = start + boundary_inflow`.
   shared volume enters only through it. A step whose start is far from
   linear in the volumes falls back to Picard (none did on the stand-in).
   `sembawang`'s case B has **not** been run with it (gh:#1119).
+- The round-off floor catches a toggle whose mass in a step is below
+  one f64 resolution of the inventory, not one of a few: on a 1 m²
+  opening from a 60 m tall N2 vessel at one ulp from its boundary the
+  toggle moved about 1.5 times the floor, and Newton still fell back on
+  every step (`cv_network.md`, gh:#1124).
 
 ```rust
 pub mod cv_network { /* ... */ }
@@ -34757,6 +34773,7 @@ The report of a network step.
 ```rust
 pub struct NetworkStepReport {
     pub iterations: usize,
+    pub newton_iterations: usize,
     pub residual: f64,
     pub transfers: Vec<crate::flow_path::FlowTransfer>,
     pub volumes: Vec<crate::control_volume::ControlVolumeStepReport>,
@@ -34769,7 +34786,8 @@ pub struct NetworkStepReport {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `iterations` | `usize` | Iterations taken: the Newton step's, or Picard's when Newton is<br>ablated, not used, or fell back (then Picard's alone; the failed<br>Newton iterates are not counted). |
+| `iterations` | `usize` | Iterations taken: the Newton step's, or Picard's when Newton is<br>ablated, not used, or fell back (then Picard's alone; the failed<br>Newton iterates are in [`Self::newton_iterations`]). |
+| `newton_iterations` | `usize` | Newton iterates this step (gh:#1124): equal to `iterations` when<br>Newton converged, the iterates it spent before giving up when it fell<br>back (so the step cost `newton_iterations + iterations` passes), zero<br>when Newton was not used. |
 | `residual` | `f64` | Last residual (largest relative change of a path rate). |
 | `transfers` | `Vec<crate::flow_path::FlowTransfer>` | Each path's transfer at the last iterate. |
 | `volumes` | `Vec<crate::control_volume::ControlVolumeStepReport>` | Each volume's own report at the last iterate, in the order the<br>volumes were added (gh:#1100): among others its<br>`pool_heat_to_atmosphere`, the pool heat that went into the<br>atmosphere because the pool was dry or boiled dry within the step,<br>which a caller cannot otherwise see. |

@@ -97,6 +97,8 @@ pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<us
             found.push((p, fi));
         }
     }
+    // A `-p` run (#1049) rewrites only its crates' files.
+    found.retain(|(_, f)| kovan_common::code_index::test_run::in_scope(evidence, f));
     let mut folders: Vec<FolderIndex> = found.iter().map(|(_, f)| f.clone()).collect();
     let unmapped = kovan_common::code_index::test_run::write_counted(evidence, &mut folders)
         .map_err(|why| why.iter().map(|w| w.to_string()).collect::<Vec<_>>().join("; "))?;
@@ -216,9 +218,14 @@ pub fn run_pending_stamps_with<F: FnMut(&str)>(
         tp.targets.len(),
         tp.packages.len()
     ));
+    // No `packages`: its `-p`s pick where the reaching tests live, while
+    // the pending functions they speak for may be in other crates, so the
+    // run is written to every folder (#1049's per-crate scope is for a
+    // full run of chosen crates).
     let pl = Plan {
         args: tp.args(),
         partial_reasons: Vec::new(),
+        packages: Vec::new(),
     };
     execute(root, pl, Some(tp.targets), allow_dirty, out, ctl, &mut say)
 }
@@ -328,10 +335,12 @@ fn execute<F: FnMut(&str)>(
     command.extend(pl.args.iter().cloned());
     let scope = if targets.is_some() {
         "targeted: pending stamps' reaching tests".to_string()
-    } else if pl.partial_reasons.is_empty() {
-        "full suite".to_string()
-    } else {
+    } else if !pl.partial_reasons.is_empty() {
         format!("PARTIAL ({})", pl.partial_reasons.join(", "))
+    } else if !pl.packages.is_empty() {
+        format!("full suite of {}", pl.packages.join(", "))
+    } else {
+        "full suite".to_string()
     };
     say(&format!("kovan-cli test: {} [{scope}]", command.join(" ")));
 
@@ -372,7 +381,7 @@ fn execute<F: FnMut(&str)>(
     if lock_after != lock_before {
         dirty_paths.push("Cargo.lock (changed during the run)".into());
     }
-    let evidence = TestEvidence::new(
+    let mut evidence = TestEvidence::new(
         commit,
         dirty_paths,
         lock_after,
@@ -385,6 +394,7 @@ fn execute<F: FnMut(&str)>(
         run.build_ok,
         run.binaries,
     );
+    evidence.packages = pl.packages.clone();
     let evidence = match targets {
         Some(t) => evidence.into_targeted(t),
         None => evidence,

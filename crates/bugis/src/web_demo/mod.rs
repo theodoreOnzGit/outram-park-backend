@@ -27,7 +27,10 @@
 //! [`pool`] (how many Web Workers to start for work that splits, sized to
 //! the device's cores, memory and screen; gh:#786), and [`data_cache`]
 //! (processed nuclear data kept in the browser's IndexedDB, shared by every
-//! demo page of the site and surviving reloads; gh:#818).
+//! demo page of the site and surviving reloads; gh:#818), [`field`] (cell
+//! fields on mesh sections, painted as one triangle mesh with a Crameri map
+//! and a colour bar; gh:#1155) and [`residual`] (a bounded convergence
+//! history and its log/linear plot; gh:#1155).
 //!
 //! # A new track app, step by step
 //!
@@ -63,6 +66,7 @@
 
 pub mod data_cache;
 pub mod dock;
+pub mod field;
 pub mod files;
 pub mod lesson;
 pub mod link;
@@ -70,4 +74,5 @@ pub mod loading;
 pub mod panel;
 pub mod platform;
 pub mod pool;
+pub mod residual;
 pub mod view;

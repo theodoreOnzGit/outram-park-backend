@@ -197,6 +197,13 @@ fixed point moves with Δt. Two mechanisms are visible in the algebra:
 | 2e-3 | 2.3420e-2 | 2.3420e-2 | 6.8244e-3 | 3.43× |
 | 1e-3 | 2.9258e-2 | 2.9258e-2 | 8.0361e-3 | 3.64× |
 
+**RE-MEASURED 2026-11-03 (gh:#1154)**, after `PimpleFoam` gained upstream's boundary-flux
+handling (the lid's flux in `phi` is now exactly `U_lid·Sf = 0`): ablation 8.3883e-3,
+1.3833e-2, 2.0748e-2, 2.8047e-2; BDF2 ddtCorr 2.1260e-3, 3.1705e-3, 4.5065e-3, 5.7053e-3
+(reduction 3.95–4.92×). Both still grow as Δt shrinks; the test now pins these values.
+The Ghia RMS quoted below became 0.0207 for both Euler and Backward. Studies 1 and 2 moved
+too (printed by the test) and were not re-tabulated here.
+
 - **(a) passed.** The ablation reproduces the record to five digits, so the Euler path is
   unchanged.
 - **(b) missed.** The consistent pairing still grows as Δt is refined.

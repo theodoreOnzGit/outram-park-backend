@@ -218,6 +218,17 @@ thermocouples agree; **re-criticality ~3400 s late and long-term power
 ~40 % low in both tests** (model heat sink ~100 kW against ~180 kW); CRW
 first peak 158 % against 216/241 %. Not validated.
 
+**LEAPR is the default for graphite and SiC (maintainer, 2026-11-03: "just use
+LEAPR by default").** `Htr10DataConfig::default().thermal_laws` is
+`ThermalLawSource::Leapr`, for both the jobs path and `load_htr10_nuclides`;
+`load_slots_with_progress` (HTTR too) follows the same default.
+
+**Every HTR-10 and HTTR k recorded before 2026-11-03 used the published
+tapes' graphite and SiC laws**, at the tape's nearest temperature (296 K for
+a 300.15 K run). To reproduce one, set `OUTRAM_HTR10_TAPE_LAWS=1`
+(`ThermalLawSource::Tapes`). Re-measuring those records under the new default
+is gh:#1145.
+
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.
 
