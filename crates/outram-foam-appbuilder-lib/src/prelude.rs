@@ -101,3 +101,8 @@ pub use crate::htgr_closures::{
     BedConductivityModel, BedState, HtgrClosureError, KtaHelium, StructuralMaterial,
     SteelComponent, ZbsBed,
 };
+
+// HTR-10 R-Z solid conduction and radiation model (original work; gh:#1149 part B)
+pub use crate::htr10_rz::{
+    Htr10RzCase, Htr10RzError, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
+};

@@ -95,6 +95,11 @@ pub mod genfoam;
 /// transfer, KTA 3102.3 pressure drop, and the IAEA-TECDOC-1694 HTR-10 solid
 /// conductivities. See [`htgr_closures`].
 pub mod htgr_closures;
+/// The HTR-10 R-Z solid conduction and radiation model (original work,
+/// gh:#1149 part B): the TECDOC-1694 44-region THERMIX-style model built from
+/// the cited input sheet on the solid conduction field, with the
+/// [`htgr_closures`] properties. See [`htr10_rz`].
+pub mod htr10_rz;
 /// OpenFOAM case input/output — polyMesh and field readers, typed
 /// `controlDict`/`fvSchemes`/`fvSolution`, and (unimplemented) field writers.
 pub mod io;

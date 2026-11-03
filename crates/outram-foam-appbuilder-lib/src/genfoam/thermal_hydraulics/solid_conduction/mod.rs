@@ -73,8 +73,15 @@
 //! the GeN-Foam `thermo_mechanics::mesh_solve` `TEqn` (constant properties,
 //! single region); `dhoby-ghaut`'s `porous_core.rs` (rings with no conduction
 //! between them, inside a GUI binary); `dhoby-ghaut`'s `RzDomain` and
-//! `nee_soon::htr10_rmc` (HTR-10 geometry, which comes in a later part of
-//! gh:#1149 and lives downstream of this crate).
+//! `nee_soon::htr10_rmc` (HTR-10 geometry for other codes). ~~The HTR-10
+//! geometry comes in a later part of gh:#1149 and lives downstream of this
+//! crate.~~ **CORRECTED 2026-11-03 (gh:#1149 part B):** it is in this crate,
+//! [`crate::htr10_rz`], built from the cited input sheet on this field.
+//!
+//! **Held cells** ([`SolidConductionField::set_fixed_temperatures`], part B):
+//! a Dirichlet condition on cells, for a gas side or a body whose
+//! temperature is imposed; verified by
+//! `held_cells_are_eliminated_and_their_duty_is_reported`.
 //!
 //! ## Verification
 //!

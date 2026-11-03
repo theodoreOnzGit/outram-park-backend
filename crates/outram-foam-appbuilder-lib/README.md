@@ -138,7 +138,7 @@ translation order are in
 | `thermal_hydraulics::closures` | Correlation leaves ported with unit tests against published values: `fs_drag` (**verified**, analytic `f·Re → 64`), `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`. `turbulence` is **partial** (closure algebra only; the k/ε transport equations and `correctNut` orchestration are deferred). |
 | `thermal_hydraulics::phase` / `structure` | Field-state + structure/power-model kernels **implemented** (with tests). |
 | `thermal_hydraulics::solver` | `one_phase` porous UEqn/pEqn/EEqn driver **implemented** — but a **constant-fluid-property slice only** (`he = Cp·T`, fixed-surface-temperature structure coupling). **New work, not port (gh:#1149, 2026-11-03):** an optional `PorousConductivity` makes `alphaEff = λ(T)/Cp` per region (off by default; the constant path is pinned bit for bit). `onePhaseLegacy` and the **two-phase (MULES) solver are not implemented.** |
-| `thermal_hydraulics::solid_conduction` | **New work, not port (gh:#1149, 2026-11-03).** 2-D R-Z (OpenFOAM-style wedge) or planar solid conduction over homogenised regions: `λ(T)`, `ρc_p(T)` by enum, Picard per steady solve and per backward-Euler step (enthalpy-form storage), fixed / convective / radiative boundaries, gas gaps with two-surface radiation between regions (Kugeler et al. 2017 §9.4). **Verified** against closed forms (uniform-source cylinder, composite cylinder with a radiating gap, Kirchhoff `λ0(1+βT)`, transient slab series, 2-D manufactured solution: observed order 2.00 in space, 1.01 in time). Drawings: `verification_and_validation/solid_conduction_rz/`. Not validated against any reactor; HTR-10 geometry is a later part of gh:#1149. |
+| `thermal_hydraulics::solid_conduction` | **New work, not port (gh:#1149, 2026-11-03).** 2-D R-Z (OpenFOAM-style wedge) or planar solid conduction over homogenised regions: `λ(T)`, `ρc_p(T)` by enum, Picard per steady solve and per backward-Euler step (enthalpy-form storage), fixed / convective / radiative boundaries, gas gaps with two-surface radiation between regions (Kugeler et al. 2017 §9.4). **Verified** against closed forms (uniform-source cylinder, composite cylinder with a radiating gap, Kirchhoff `λ0(1+βT)`, transient slab series, 2-D manufactured solution: observed order 2.00 in space, 1.01 in time). Drawings: `verification_and_validation/solid_conduction_rz/`. ~~HTR-10 geometry is a later part of gh:#1149.~~ **UPDATED 2026-11-03:** the HTR-10 geometry is built on it by `htr10_rz` (below); held cells (`set_fixed_temperatures`, the gas side as a prescribed temperature) added and verified. Not validated against any reactor. |
 | `thermal_hydraulics::thermophysical` | Bespoke **hydrogen** (H/H₂) property package implemented; not yet wired as the `one_phase` solver's fluid package. Other fluids come from basic-lib thermo / tampines-steam-tables. |
 | `thermal_hydraulics::boundary_conditions` | `blackbody_radiation`, `velocity_rundown`, `time_field_table` implemented; **`nusselt_baffle` is a scaffold — every method is `unimplemented!()`.** |
 | `thermal_hydraulics::function_objects` | Post-processing diagnostics (mass flow, pressure drop, T-bulk, field diffs) implemented. |
@@ -163,6 +163,20 @@ formulas and table numbers only) and Kugeler et al. 2017 (open).
 
 V&V record: [`verification_and_validation/htr10_th_closures_vs_tecdoc1694.md`](./verification_and_validation/htr10_th_closures_vs_tecdoc1694.md).
 None of it is validated against an HTR-10 measurement.
+
+## HTR-10 R-Z solid model (`htr10_rz`)
+
+Original work (gh:#1149 part B). The IAEA-TECDOC-1694 THERMIX-style R-Z
+solid model (Tab 2.4 regions on the Fig 2.5 mesh lines, from the cited input
+sheet `docs/reactor-scoping/htr10-th-benchmark.md`) on the
+`solid_conduction` field, with every property from `htgr_closures`; helium
+cavities as conduction-plus-radiation media; the RPV radiating to the RCCS
+at 50 deg C. Solid only (no gas flow; that is gh:#1150). Cases: the bed's
+volume-mean temperature held by its own power (`BedMeanTemperature`), the
+bed held isothermal (`HeldBed`), a given decay power (`DecayPower`).
+**Status: AI draft, verified for energy balance and mesh convergence; every
+region extent is Uncertain (read from a figure); not validated.** V&V record
+with drawings: [`verification_and_validation/htr10_rz_solid/README.md`](./verification_and_validation/htr10_rz_solid/README.md).
 
 ## Limitations
 
