@@ -630,3 +630,58 @@ NodalActivites can spawn a ParentPools struct using this method, quite important
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 50e377ec16.
+
+# Review: FRACTIONS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-fractions-theodoreonzgit-efbd39b2"
+kind = "review"
+origin = "human"
+created = "2026-11-03T15:50:28+08:00"
+modified = "2026-11-03T15:50:28+08:00"
+target = "fn:efbd39b241c35028"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::FRACTIONS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T15:50:29+08:00"
+commit = "66cfbc335688ba82029491c5d1d52456b010b695"
+hash = "sha256:f6a3585c5ec7d4fe7568d5f534ec35c8f5e488b482c976150420ba8023af43cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:2816dd8674f2b148" = "sha256:3890d7f2c2bf5d78ac0a02d952c219265c6ded009ae509e8ceaaf6ce156eced5"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "is_test_code"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "7lge68wNeVQ5xICt83fSWQRnBSZ9zBGzxwrJRfOcR5xNqMGRuCHewJyhgAX6sRCL6Awp+njgtV0vnF/DpnIHAg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+from table 2 of TRISO atops, all match except heavy metal, 2.0e-5 in paper, so this is a more conservative approach. I remember in studying with AI that 1.0e-4 is used for more conservative cases. (can't rmb where tho)
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 66cfbc3356.
