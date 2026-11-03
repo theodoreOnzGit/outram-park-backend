@@ -75,8 +75,10 @@ pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerMode
 pub use crate::genfoam::thermal_hydraulics::solid_conduction::{
     AxisEdges, ConductivityModel, GapConductance, HeatCapacityModel, PropertyModel, RegionGap,
     RegionMap, RzBoundaries, RzGeometry, RzMesh, RzPatch, RzRect, SolidBoundary,
-    SolidConductionField, SolidRegion,
+    SolidConductionField, SolidRegion as RzSolidRegion,
 };
+// `RzSolidRegion`: renamed in the prelude on the 2026-11-03 merge with develop,
+// where gh:#1156 exported chtMultiRegionFoam's own `SolidRegion` (a different type).
 pub use crate::genfoam::thermal_hydraulics::solver::PorousConductivity;
 
 // Solvers
