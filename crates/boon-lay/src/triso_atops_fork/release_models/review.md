@@ -1309,3 +1309,73 @@ basically, this is a test that release fraction for breakthrough transient shoul
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 9a6a29cedf.
+
+# Review: rb_fail (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-rb-fail-theodoreonzgit-9d27b0ef"
+kind = "review"
+origin = "human"
+created = "2026-11-03T16:06:14+08:00"
+modified = "2026-11-03T16:06:14+08:00"
+target = "fn:9d27b0efc9f673f8"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T16:06:14+08:00"
+commit = "c33b49494d2f6c73d90c2d31efda614d96bb5c5f"
+hash = "sha256:4162cefd3282d0b558bf6c799b981584b838e89b2e8a3af48fc5388ee7691186"
+doc_hash = "sha256:647c5bfaec3662f5d197ca0921e1886c75bf6916d11588a2956cddde4f847805"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:18f130883edf5867" = "sha256:16ede897131c661b82088042b31556fe0f4fce43be03f667f09d8dcc336aeefb"
+"fn:19d2894fc2bfea29" = "sha256:bda6e7a004cfd587541249e3312f5b8f3b0b1824a41d456ed23073859410760e"
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:2e610cfd767d4eb5" = "sha256:54c7941e23ca22131751599433e7cd9fd539c9953a45f91a3f68435ad803b55c"
+"fn:2fc35c224f3db467" = "sha256:f575c1def404f9f91f00739d3fb8df45e0f45b53f3442d34bce903ecdba88881"
+"fn:34ff47a5448224c9" = "sha256:1565117e190704e250537a267fcc591cbd6f4f74e8c74c62d6c58955f5437378"
+"fn:353a07bd52f264c2" = "sha256:5ec0f06f3819a0691018bc1695ae96980e0752ef79094cfc66d0a499457191e0"
+"fn:7f5cefb7c1df6559" = "sha256:4aa1d67f76c9b0ea57e4840755de225c42bc99fbca0793ad77d574160026eb1a"
+"fn:ba1b5c7454e73103" = "sha256:a9f6b2311983f00f4945e0cbbc3a56a3737330d0540708d0490c52ae282bf5c2"
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:d9fc661a522b11ce" = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+"fn:e1cb570a455c31b8" = "sha256:06a9c12470b244d22d5415441b5b842edce0c43e867d9a1bbc36b9c1b69988ca"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: ports upstream"
+independence = "someone_else"
+limits_and_guards = "other: ported upstream (no guards)"
+maintainability = "yes"
+numerical_hazards = "other: port upstream"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "DoVGdm0j3kEXER1tWKTiaocCRBVojvj7cNPsQTFfrh9R3oBsNYvvdJqARzQYqNg7jcpPPnqloFNNM5F3UxdUBQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+RB fail ported. I see the dispatch logic
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit c33b49494d.
