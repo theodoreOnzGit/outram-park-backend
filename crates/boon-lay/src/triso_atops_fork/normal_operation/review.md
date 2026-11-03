@@ -520,3 +520,54 @@ value = "GVbLeUVhSi//tGAd19Wv2K+fSi4mSs0GTGVWEXqM4pIDXyIy0f7i+e0spim3lVUll/O/0a2
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit efd4b324a4.
+
+# Review: ParentPools (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-parentpools-theodoreonzgit-49cbfd35"
+kind = "review"
+origin = "human"
+created = "2026-11-03T15:44:57+08:00"
+modified = "2026-11-03T15:44:57+08:00"
+target = "fn:49cbfd358a6976d4"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::ParentPools"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T15:44:57+08:00"
+commit = "6d0c3d63bc890a3158971c5131da13a2fed9836d"
+hash = "sha256:21bde6366bd14b2230818107f9f51697dcb40359f8c429329b0bea39dd191993"
+doc_hash = "sha256:75456474d4e3385998d1a76f732023878da544759e1d5e0d0d17b44ac2107ad1"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Gz2pCM79bp8NTnMmCgmLnskFxui35JqO1HbM4dNzOLSiWwHqSvR8r4q1JXkYD5/G69fXIGLvxpM3Xl5EXd16Cg=="
+```
+
+for higher_activities function in trisoatops.py and other calc files, it uses multiple inputs
+the Rust port by Claude puts it in neat structs instead.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 6d0c3d63bc.
