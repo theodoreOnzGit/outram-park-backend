@@ -27,14 +27,15 @@
 //!   ([`CoreModel::gravity_head`]).
 //!
 //! [`CoreModel`] is an enum (no trait objects, workspace rule). Part A
-//! carries one variant, the lumped stand-in; part B (after gh:#1150) adds
-//! the R-Z core behind the same five methods.
+//! carried one variant, the lumped stand-in; part B (gh:#1151) adds the
+//! R-Z porous core ([`RzPorousCore`]) behind the same five methods.
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
 use uom::si::f64::{MassRate, Power, Pressure, ThermodynamicTemperature, Time};
 
 use super::lumped_core::LumpedPebbleBedCore;
+use super::rz_core::RzPorousCore;
 use crate::TampinesError;
 
 /// Power-weighted fuel and moderator temperatures and the reflector
@@ -81,10 +82,16 @@ pub struct CoreResponse {
 }
 
 /// A core model the loop can carry.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Not `PartialEq` since gh:#1151 part B: the R-Z variant holds a solver
+/// state with no meaningful equality.
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)] // one long-lived core per run; boxing is barred (workspace rule)
 pub enum CoreModel {
     /// The lumped stand-in of part A ([`LumpedPebbleBedCore`]).
     LumpedStandIn(LumpedPebbleBedCore),
+    /// The R-Z porous core of part B ([`RzPorousCore`]).
+    RzPorous(RzPorousCore),
 }
 
 impl CoreModel {
@@ -100,6 +107,7 @@ impl CoreModel {
     ) -> Result<CoreResponse, TampinesError> {
         match self {
             Self::LumpedStandIn(c) => c.advance(Some(dt), power, boundary),
+            Self::RzPorous(c) => c.advance(dt, power, boundary),
         }
     }
 
@@ -114,6 +122,7 @@ impl CoreModel {
     ) -> Result<CoreResponse, TampinesError> {
         match self {
             Self::LumpedStandIn(c) => c.steady_state(power, boundary),
+            Self::RzPorous(c) => c.steady_state(power, boundary),
         }
     }
 
@@ -121,6 +130,7 @@ impl CoreModel {
     pub fn feedback_temperatures(&self) -> FeedbackTemperatures {
         match self {
             Self::LumpedStandIn(c) => c.feedback_temperatures(),
+            Self::RzPorous(c) => c.feedback_temperatures(),
         }
     }
 
@@ -132,6 +142,7 @@ impl CoreModel {
     pub fn pressure_drop(&self, mass_flow: MassRate, pressure: Pressure) -> Result<Pressure, TampinesError> {
         match self {
             Self::LumpedStandIn(c) => c.pressure_drop(mass_flow, pressure),
+            Self::RzPorous(c) => Ok(c.pressure_drop(mass_flow)),
         }
     }
 
@@ -143,6 +154,7 @@ impl CoreModel {
     pub fn gravity_head(&self, pressure: Pressure) -> Result<Pressure, TampinesError> {
         match self {
             Self::LumpedStandIn(c) => c.gravity_head(pressure),
+            Self::RzPorous(c) => Ok(c.gravity_head()),
         }
     }
 
@@ -150,6 +162,7 @@ impl CoreModel {
     pub fn inertance_per_m(&self) -> f64 {
         match self {
             Self::LumpedStandIn(c) => c.inertance_per_m(),
+            Self::RzPorous(c) => c.inertance_per_m(),
         }
     }
 }

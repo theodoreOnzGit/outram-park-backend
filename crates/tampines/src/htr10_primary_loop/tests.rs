@@ -85,7 +85,7 @@ fn lumped_core_steady_state_balances_energy() {
     let r = core.steady_state(p, &as_run_boundary(1.457)).unwrap();
     let to_cool = r.power_to_coolant.get::<watt>();
     let rccs = r.heat_to_rccs.get::<watt>();
-    let CoreModel::LumpedStandIn(c) = &core;
+    let CoreModel::LumpedStandIn(c) = &core else { panic!("lumped core expected") };
     println!("node temperatures (C): {:?}", c.node_temperatures().iter().map(|t| (t - 273.15) * 10.0_f64).map(|x| x.round() / 10.0).collect::<Vec<_>>());
     println!("bed gas (C): {:?}", c.bed_gas_temperatures().iter().map(|t| t - 273.15).collect::<Vec<_>>());
     println!(

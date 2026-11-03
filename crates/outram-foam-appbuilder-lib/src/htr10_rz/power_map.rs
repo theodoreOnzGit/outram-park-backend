@@ -37,7 +37,32 @@ pub struct PowerMapCell {
 /// Never for the embedded file (its parse is pinned by a test).
 #[must_use]
 pub fn fpic_power_map() -> Vec<PowerMapCell> {
-    CSV.lines()
+    parse(CSV)
+}
+
+/// TECDOC-1694 Tab 2.56, the 3 MW map of the LOFC benchmark (gh:#1151
+/// part B), a copy of the input sheet's
+/// `power-density-3mw-lofc-tab2-56.csv` (pinned by a drift test). Same
+/// layout as Tab 2.6; volume integral 2.991 MW (input sheet Sec 6,
+/// Derived).
+#[must_use]
+pub fn lofc_power_map() -> Vec<PowerMapCell> {
+    parse(CSV_LOFC)
+}
+
+/// TECDOC-1694 Tab 2.61, the 3 MW map of the CRW benchmark; differs from
+/// Tab 2.56 in the one cell (z 180-187, r 83.5-90), input sheet N1. Volume
+/// integral 2.999 MW (Derived).
+#[must_use]
+pub fn crw_power_map() -> Vec<PowerMapCell> {
+    parse(CSV_CRW)
+}
+
+const CSV_LOFC: &str = include_str!("data/power-density-3mw-lofc-tab2-56.csv");
+const CSV_CRW: &str = include_str!("data/power-density-3mw-crw-tab2-61.csv");
+
+fn parse(csv: &str) -> Vec<PowerMapCell> {
+    csv.lines()
         .filter(|l| !l.starts_with('#') && !l.starts_with("z_lo") && !l.trim().is_empty())
         .map(|l| {
             let v: Vec<f64> = l.split(',').map(|x| x.trim().parse::<f64>().expect("numeric CSV")).collect();

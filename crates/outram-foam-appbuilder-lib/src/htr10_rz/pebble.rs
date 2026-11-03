@@ -103,7 +103,7 @@ pub struct PebbleProfile {
     pub pebble_power: f64,
 }
 
-fn tab29_k(t_k: f64) -> Result<f64, Htr10RzError> {
+pub(crate) fn tab29_k(t_k: f64) -> Result<f64, Htr10RzError> {
     StructuralMaterial::FuelElement {
         fast_fluence: ArealNumberDensity::new::<per_square_centimeter>(0.0),
     }

@@ -2,9 +2,8 @@
 //! `tampines::htr10_primary_loop` on 2026-11-03 unchanged. Results are
 //! recorded in `crates/nee_soon/verification_and_validation/htr10_loop_lofc/README.md`.
 
-use uom::si::f64::{Length, MassRate, Power, Pressure, ThermodynamicTemperature, Time};
+use uom::si::f64::{Length, Power, ThermodynamicTemperature, Time};
 use uom::si::length::meter;
-use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -14,7 +13,7 @@ use super::data::*;
 use super::*;
 use tampines::htr10_primary_loop::data::TabulatedSeries;
 use tampines::htr10_primary_loop::{
-    BypassSplit, CoastdownModel, CoreModel, LumpedPebbleBedCore, SteamGeneratorModel,
+    BypassSplit, CoastdownModel, CoreModel, LumpedPebbleBedCore,
 };
 
 fn k(t: f64) -> ThermodynamicTemperature {
@@ -257,6 +256,15 @@ fn lofc_atws_sensitivity_cases() {
     let mut c = base.clone().named("BASE-6H");
     c.duration = s(21_600.0);
     cases.push(c);
+    // gh:#1151 part B: the start-up source is ON by default since then;
+    // these two reproduce part A's source-free kinetics.
+    let mut c = base.clone().named("SRC-OFF");
+    c.kinetics = c.kinetics.without_neutron_source();
+    cases.push(c);
+    let mut c = base.clone().named("BASE-6H-SRC-OFF");
+    c.duration = s(21_600.0);
+    c.kinetics = c.kinetics.without_neutron_source();
+    cases.push(c);
     let mut c = base.clone().named("KIN-LAMBDA-H06");
     c.kinetics.generation_time = s(1.68e-4);
     cases.push(c);
@@ -324,6 +332,9 @@ fn lofc_atws_sensitivity_cases() {
 #[cfg(feature = "long-tests")]
 #[test]
 fn helical_coil_steam_generator_in_the_loop() {
+    use tampines::htr10_primary_loop::SteamGeneratorModel;
+    use uom::si::f64::{MassRate, Pressure};
+    use uom::si::mass_rate::kilogram_per_second;
     use tampines::components::helical_coil_sg_standalone::{htr10_illustrative_config, STABLE_SUBSTEP_S};
     use tampines_steam_tables::region_1_subcooled_liquid::h_tp_1;
     use tampines_steam_tables::region_2_vapour::intensive_properties::h_tp_2;

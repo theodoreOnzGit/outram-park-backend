@@ -33,9 +33,14 @@ pub mod transient;
 
 pub use kinetics::{
     DelayedNeutronSet, FeedbackCoefficients, FeedbackTemperatures, Htr10Kinetics, KineticsParameters,
-    ReactivityBreakdown, XenonModel,
+    NeutronSource, ReactivityBreakdown, XenonModel,
 };
-pub use transient::{lofc_metrics, run_lofc, CoupledTransient, InitialState, LofcCase, LofcMetrics, TransientSample};
+pub use transient::{
+    c09_thermocouple_positions, crw_metrics, crw_reactivity, lofc_metrics, run_case, run_lofc, CoreChoice,
+    CoupledTransient, CrwMetrics, InitialState, LofcCase, LofcMetrics, ProbeRow, TransientSample,
+};
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_rz;

@@ -829,6 +829,30 @@ impl GasNetwork {
         self.split
     }
 
+    /// Drop the gravity term on every face: the explicit ablation `NC-OFF`
+    /// of gh:#1151 part B, which removes the in-vessel natural circulation
+    /// so its contribution can be measured. Buoyancy stays ON by default.
+    #[must_use]
+    pub fn without_buoyancy(mut self) -> Self {
+        for f in &mut self.faces {
+            f.dz = 0.0;
+        }
+        self
+    }
+
+    /// Whether any face carries a gravity term.
+    #[must_use]
+    pub fn has_buoyancy(&self) -> bool {
+        self.faces.iter().any(|f| f.dz != 0.0)
+    }
+
+    /// The inlet-chain nodes in flow order: their model cells and the
+    /// fraction of the loop flow through each.
+    #[must_use]
+    pub fn chain_nodes(&self) -> Vec<(Vec<usize>, f64)> {
+        self.chain.iter().map(|nd| (nd.cells.clone(), nd.fraction)).collect()
+    }
+
     /// Number of 2-D gas cells.
     #[must_use]
     pub fn n_gas_cells(&self) -> usize {
@@ -906,6 +930,13 @@ pub fn solve_gas(
 ) -> Result<GasState, Htr10RzError> {
     let p_bar = op.pressure.get::<bar>();
     let w = op.mass_flow.get::<kilogram_per_second>();
+    if !(w >= 0.0) || !w.is_finite() {
+        // The inlet chain and the taps are built for the forced direction;
+        // a reversed loop flow is not represented (gh:#1151 part B).
+        return Err(Htr10RzError::Input(format!(
+            "loop mass flow must be finite and non-negative (forced direction), got {w} kg/s"
+        )));
+    }
     let t_in = op.inlet.get::<kelvin>();
     let ng = net.n_gas_cells();
     let n = net.n_cells;
@@ -999,6 +1030,19 @@ pub fn solve_gas(
             t_out[k] = area / (d * rr[*gc]);
             ldu.diag[*gc] += t_out[k];
         }
+        // No inflow and no gravity term (the loop stopped with buoyancy
+        // ablated, gh:#1151 part B): the solution is p = 0 exactly, and the
+        // solver's residual normalisation by |b| = 0 is undefined.
+        if b.iter().all(|v| *v == 0.0) {
+            p = vec![0.0; ng];
+            flux.iter_mut().for_each(|f| *f = 0.0);
+            out_flux.iter_mut().for_each(|f| *f = 0.0);
+            for c in &net.cell_of_gas {
+                g_cell[*c] = (0.0, 0.0);
+            }
+            picard = (it, 0.0);
+            break;
+        }
         let (x, perf) = conjugate_gradient(
             &ldu,
             &b,
@@ -1075,13 +1119,17 @@ pub fn solve_gas(
         let f = nd.fraction * w;
         let gmid = gas(t_up, p_bar)?;
         let g = f / nd.flow_area;
-        let hv = exchange_coefficient(&nd.region, g, &gmid)?;
+        // No flow through the chain (the loop is stopped, gh:#1151 part B):
+        // a mixed node would otherwise move heat between its cells through
+        // the gas instantly. The stagnant gas is already in the cavity
+        // medium's conductivity, so the chain exchanges nothing.
+        let hv = if f > 0.0 { exchange_coefficient(&nd.region, g, &gmid)? } else { 0.0 };
         let (mut num, mut den) = (f * HELIUM_CP * t_up, f * HELIUM_CP);
         for c in &nd.cells {
             num += hv * net.volumes[*c] * t_solid[*c];
             den += hv * net.volumes[*c];
         }
-        let t = num / den;
+        let t = if den > 0.0 { num / den } else { t_up };
         for c in &nd.cells {
             exchange[*c] = hv;
             t_gas[*c] = t;
@@ -1199,11 +1247,20 @@ pub fn solve_gas(
         }
     }
     let (mut mo, mut mt) = (0.0, 0.0);
-    for (k, (gc, ..)) in net.outlet.iter().enumerate() {
+    let (mut ao, mut at) = (0.0, 0.0);
+    for (k, (gc, area, ..)) in net.outlet.iter().enumerate() {
         mo += out_flux[k];
         mt += out_flux[k] * tg[*gc];
+        ao += area;
+        at += area * tg[*gc];
     }
-    let t_out = mt / mo;
+    // With the loop stopped (w = 0) the outlet carries no net flow: report
+    // the area mean of the outlet cells' gas instead of a mixed-cup value
+    // (gh:#1151 part B). Same for the bed outlet when nothing leaves it.
+    let t_out = if w > 0.0 && mo > 1e-6 * w { mt / mo } else { at / ao };
+    if !(bed_out.0 > 0.0) {
+        bed_out = (1.0, f64::NAN);
+    }
     let mut pressure = vec![f64::NAN; n];
     let mut p_bed_in = (0.0, 0.0);
     for (k, c) in net.cell_of_gas.iter().enumerate() {

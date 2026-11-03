@@ -1058,3 +1058,30 @@ fn cell_exchange_matches_the_fin_solution() {
     let bad = Hv { value: -1.0, ..hv };
     assert!(g.set_cell_exchange(&vec![(bad, kel(300.0)); 10]).is_err());
 }
+
+/// The per-cell capacity factor (gh:#1151 part B) scales storage exactly.
+///
+/// **Methodology.** An adiabatic cylinder (10 cells, constant
+/// `rho c = 1e6 J/(m^3 K)`, uniform 1e5 W/m^3) with factor 0.25 on every
+/// cell heats at `q / (0.25 rho c) = 0.4 K/s`; 10 steps of 1 s must give
+/// +4 K in every cell, and `thermal_energy` must return `q V t`. A steady
+/// solve must not see the factor. **Prediction:** exact to round-off.
+/// **Result (2026-11-03):** as predicted (asserted to 1e-9 K and 1e-12
+/// relative).
+#[test]
+fn capacity_factor_scales_storage_only() {
+    let mut f = cylinder(10, 0.5, lam(10.0), 1.0e5, SolidBoundary::Adiabatic);
+    f.set_cell_capacity_factor(&[0.25; 10]).unwrap();
+    for _ in 0..10 {
+        f.step(Time::new::<second>(1.0)).unwrap();
+    }
+    for c in 0..10 {
+        assert!((f.temperature(c).get::<kelvin>() - 304.0).abs() < 1e-9);
+    }
+    let vol: f64 = f.mesh().mesh().cell_volumes.iter().sum();
+    let e = f.thermal_energy(kel(300.0)).get::<uom::si::energy::joule>();
+    assert!((e / (1.0e5 * vol * 10.0) - 1.0).abs() < 1e-12);
+    assert!(f.set_cell_capacity_factor(&[0.25; 3]).is_err());
+    assert!(f.set_cell_capacity_factor(&[0.0; 10]).is_err());
+    assert!(f.set_cell_capacity_factor(&[f64::NAN; 10]).is_err());
+}

@@ -80,7 +80,6 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 use uom::si::volume::cubic_meter;
-use uom::ConstZero;
 
 pub use tampines::htr10_primary_loop::FeedbackTemperatures;
 use tampines::TampinesError;
@@ -217,10 +216,13 @@ pub struct KineticsParameters {
     /// Multiplier on the ANS decay power (the standard's `F_gamma`); 1 is
     /// best estimate. `DH-HALF` (0.5) mirrors [C14] Tab 4 case 3.
     pub decay_heat_scale: f64,
+    /// External neutron source (gh:#1151 part B; see [`NeutronSource`]).
+    pub neutron_source: NeutronSource,
 }
 
 impl KineticsParameters {
-    /// The base case of the module docs.
+    /// The base case of the module docs, with the start-up source
+    /// ([`NeutronSource::htr10_am_be_startup`]) ON.
     pub fn htr10_base() -> Self {
         Self {
             beta_eff: Ratio::new::<ratio>(0.00726),
@@ -229,6 +231,83 @@ impl KineticsParameters {
             coefficients: FeedbackCoefficients::tecdoc1694(),
             xenon: XenonModel::htr10(),
             decay_heat_scale: 1.0,
+            neutron_source: NeutronSource::htr10_am_be_startup(),
+        }
+    }
+
+    /// The ablation `SRC-OFF`: no external source (part A's kinetics).
+    #[must_use]
+    pub fn without_neutron_source(mut self) -> Self {
+        self.neutron_source = NeutronSource::None;
+        self
+    }
+}
+
+/// An external (non-fission) neutron source in the point kinetics
+/// (gh:#1151 part B).
+///
+/// **Why it matters.** Deep subcritical, the fission power of a
+/// source-free PRKE decays with the longest precursor period for as long
+/// as the reactivity stays negative (part A: hours, to ~1e-20 of the
+/// initial power), and the return to power then has to climb those decades
+/// back; a source holds the fission power at its subcritical
+/// multiplication `S / |rho|` instead.
+///
+/// **Magnitude, cited.** HTR-10 was started with a **20 Ci Am-Be source
+/// placed in the side reflector, emitting 4.4e7 n/s** (IAEA-TECDOC-1382
+/// (2003) Sec 4.2.1.5, "Initial criticality"; the input sheet
+/// `htr10-neutronics.md` records the 20 Ci). **Whether it was still in the
+/// reactor on 15 Oct 2003 is Unknown**: no source in either corpus says it
+/// was removed, and a graphite core at this burnup has no other source
+/// strong enough for a source-range start-up. Its importance relative to a
+/// fission neutron is Unknown; 1 is used, an upper bound for a reflector
+/// source. The intrinsic source of the fuel (U-238 spontaneous fission) is
+/// the floor that is certainly present ([`Self::htr10_intrinsic`]).
+///
+/// **Units.** For a source `S` (n/s) of importance `w`, the PRKE term is
+/// `q = w S / (Lambda nu v Sigma_f V)` in the conversion's units, so that
+/// the subcritical fission-neutron rate is `w S / |rho|` (derivation in
+/// [`Htr10Kinetics::source_rate`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum NeutronSource {
+    /// No source (ablation `SRC-OFF`).
+    None,
+    /// A constant source.
+    Constant {
+        /// Emission rate, n/s.
+        neutrons_per_second: f64,
+        /// Importance relative to a fission neutron.
+        importance: f64,
+    },
+}
+
+/// Neutrons per U-235 thermal fission, 2.43 (Lamarsh, as for xenon above).
+const NU_U235: f64 = 2.43;
+
+impl NeutronSource {
+    /// The 20 Ci Am-Be start-up source, 4.4e7 n/s (TECDOC-1382
+    /// Sec 4.2.1.5), importance 1 (Assumed). **The base**: see the type docs
+    /// for why, and for what is Unknown.
+    pub fn htr10_am_be_startup() -> Self {
+        Self::Constant { neutrons_per_second: 4.4e7, importance: 1.0 }
+    }
+
+    /// `SRC-INTRINSIC`: U-238 spontaneous fission in the as-run fuel only.
+    /// 13,651 pebbles x 5.0 g U x 0.83 U-238 ([J09] Tab 2, [T1] Tab 2.2) =
+    /// 56.65 kg; `T_1/2` 4.468e9 y and SF branch 5.5e-5 % (Tuli, *Nuclear
+    /// Wallet Cards*, 2011) give 6.84e-3 fissions/(s g); `nu_SF = 2.0` is
+    /// **Assumed** (not in the corpus): 775 n/s. (alpha, n) on oxygen is
+    /// left out, so this is a lower bound.
+    pub fn htr10_intrinsic() -> Self {
+        let per_g = core::f64::consts::LN_2 / (4.468e9 * 3.155_76e7) * AVOGADRO / 238.050_8 * 5.5e-7 * 2.0;
+        Self::Constant { neutrons_per_second: 13_651.0 * 5.0 * 0.83 * per_g, importance: 1.0 }
+    }
+
+    /// `w S`, n/s.
+    pub fn effective_strength(&self) -> f64 {
+        match self {
+            Self::None => 0.0,
+            Self::Constant { neutrons_per_second, importance } => neutrons_per_second * importance,
         }
     }
 }
@@ -244,12 +323,18 @@ pub struct ReactivityBreakdown {
     pub reflector: f64,
     /// Xenon change from equilibrium.
     pub xenon: f64,
+    /// Externally inserted reactivity (rod withdrawal; zero in the LOFC).
+    pub external: f64,
+    /// The constant offset that makes the initial state with the source a
+    /// steady state, `-q Lambda / n0` (the plant was held critical with the
+    /// source in; about -1.8e-10 for the Am-Be source at 3.3 MW).
+    pub source_compensation: f64,
 }
 
 impl ReactivityBreakdown {
     /// Sum of the parts.
     pub fn total(&self) -> f64 {
-        self.fuel + self.moderator + self.reflector + self.xenon
+        self.fuel + self.moderator + self.reflector + self.xenon + self.external + self.source_compensation
     }
 }
 
@@ -262,6 +347,7 @@ pub struct Htr10Kinetics {
     iodine: f64,
     xenon: f64,
     xenon_equilibrium: f64,
+    source_compensation: f64,
 }
 
 impl Htr10Kinetics {
@@ -309,12 +395,15 @@ impl Htr10Kinetics {
             iodine: 0.0,
             xenon: 0.0,
             xenon_equilibrium: 0.0,
+            source_compensation: 0.0,
         };
         let f = me.reactor.fission_rate().get::<hertz>();
         let (iodine, xenon) = me.xenon_equilibrium_inventory(f);
         me.iodine = iodine;
         me.xenon = xenon;
         me.xenon_equilibrium = xenon;
+        let n0 = me.reactor.kinetics().neutron_density().value;
+        me.source_compensation = -me.source_rate().value * me.params.generation_time.get::<second>() / n0;
         Ok(me)
     }
 
@@ -364,7 +453,31 @@ impl Htr10Kinetics {
             moderator: c.moderator.get::<per_kelvin>() * d(temps.moderator, self.reference.moderator),
             reflector: c.reflector.get::<per_kelvin>() * d(temps.reflector, self.reference.reflector),
             xenon: self.xenon_reactivity(self.xenon) - self.xenon_reactivity(self.xenon_equilibrium),
+            external: 0.0,
+            source_compensation: self.source_compensation,
         }
+    }
+
+    /// The PRKE source term of [`KineticsParameters::neutron_source`] in the
+    /// conversion's units: `q = w S / (Lambda nu v Sigma_f V)`.
+    ///
+    /// Derivation: the PRKE's `n` is the conversion's density, with fission
+    /// rate `F = n v Sigma_f V`. The fission-neutron production is
+    /// `n V / Lambda` per second in PRKE terms and `nu F` physically; the
+    /// equation is linear in `n` and `q`, so the physical source `w S / V`
+    /// maps to `q = (w S / V) n / n_phys` with `n_phys = Lambda nu F / V`,
+    /// i.e. the expression above. At a steady subcritical `rho`,
+    /// `n = -q Lambda / rho` and the fission-neutron rate is `w S / |rho|`.
+    pub fn source_rate(&self) -> VolumetricNumberRate {
+        let c = self.reactor.conversion();
+        let denom = self.params.generation_time.get::<second>()
+            * NU_U235
+            * c.neutron_speed.get::<meter_per_second>()
+            * c.macroscopic_fission_cross_section.get::<reciprocal_meter>()
+            * c.core_volume.get::<cubic_meter>();
+        VolumetricNumberRate::new::<uom::si::volumetric_number_rate::per_cubic_meter_second>(
+            self.params.neutron_source.effective_strength() / denom,
+        )
     }
 
     /// Advance by `dt` with the feedback evaluated at `temps` (the core's
@@ -373,9 +486,25 @@ impl Htr10Kinetics {
     /// # Errors
     /// [`TampinesError::Numerical`] from `teh-o-prke`.
     pub fn step(&mut self, dt: Time, temps: &FeedbackTemperatures) -> Result<ReactivityBreakdown, TampinesError> {
-        let rho = self.reactivity(temps);
+        self.step_with_external(dt, temps, 0.0)
+    }
+
+    /// As [`Self::step`], with an externally inserted reactivity `external`
+    /// (`dk/k`, e.g. a rod withdrawal) added to the feedback.
+    ///
+    /// # Errors
+    /// [`TampinesError::Numerical`] from `teh-o-prke`.
+    pub fn step_with_external(
+        &mut self,
+        dt: Time,
+        temps: &FeedbackTemperatures,
+        external: f64,
+    ) -> Result<ReactivityBreakdown, TampinesError> {
+        let mut rho = self.reactivity(temps);
+        rho.external = external;
+        let q = self.source_rate();
         self.reactor
-            .step(dt, Ratio::new::<ratio>(rho.total()), self.params.generation_time, VolumetricNumberRate::ZERO)
+            .step(dt, Ratio::new::<ratio>(rho.total()), self.params.generation_time, q)
             .map_err(teho_err)?;
         // I-135 / Xe-135 by backward Euler at the end-of-step fission rate.
         let f = self.reactor.fission_rate().get::<hertz>();
@@ -393,6 +522,11 @@ impl Htr10Kinetics {
     /// Immediate fission power.
     pub fn fission_power(&self) -> Power {
         self.reactor.immediate_fission_power()
+    }
+
+    /// Fission rate, 1/s (the conversion's `F = n v Sigma_f V`).
+    pub fn fission_rate(&self) -> Frequency {
+        self.reactor.fission_rate()
     }
 
     /// Fission-product decay power.

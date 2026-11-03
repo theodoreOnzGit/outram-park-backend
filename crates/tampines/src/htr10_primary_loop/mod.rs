@@ -22,6 +22,7 @@
 //! | [`primary_loop`] | circulator + coastdown, baffle, hot gas duct, SG, loop momentum with buoyancy |
 //! | [`core_model`] | the core plug-in interface ([`CoreModel`], [`CoreBoundary`], [`CoreResponse`], [`FeedbackTemperatures`]) |
 //! | [`lumped_core`] | the stand-in: 5 axial bed zones + cone, reflector, barrel, RPV, RCCS; bypass paths |
+//! | [`rz_core`] | the R-Z porous core (`outram-foam-appbuilder-lib::htr10_rz::Htr10RzTransientCore`) behind the loop interface (gh:#1151 part B) |
 //! | [`data`] | embedded copies of the cited / digitised tables the loop and the stand-in read |
 //!
 //! Loop-only V&V note: `crates/tampines/verification_and_validation/htr10_primary_loop/`.
@@ -39,10 +40,12 @@ pub mod core_model;
 pub mod data;
 pub mod lumped_core;
 pub mod primary_loop;
+pub mod rz_core;
 
 pub use core_model::{CoreBoundary, CoreModel, CoreResponse, FeedbackTemperatures};
 pub use lumped_core::{BypassSplit, LumpedPebbleBedCore};
 pub use primary_loop::{CoastdownModel, FormLoss, PrimaryLoop, PrimaryLoopConfig, SteamGeneratorModel};
+pub use rz_core::{RzCoreTimeStep, RzPorousCore};
 
 #[cfg(test)]
 mod tests;

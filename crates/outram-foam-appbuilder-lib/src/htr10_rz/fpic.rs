@@ -350,9 +350,23 @@ impl Htr10FpicModel {
     /// docs.
     #[must_use]
     pub fn reading(&self, tc: &Thermocouple) -> ThermocoupleReading {
-        let f = self.solid.field();
+        reading_at(&self.solid, &self.network, self.gas.as_ref(), tc)
+    }
+}
+
+/// The model at a thermocouple by the instrument rule of the module docs,
+/// for any solid model, network and gas state on one mesh (shared by the
+/// FPIC case and the gh:#1151 part B transient core).
+#[must_use]
+pub fn reading_at(
+    solid_model: &Htr10RzModel,
+    network: &GasNetwork,
+    gas: Option<&GasState>,
+    tc: &Thermocouple,
+) -> ThermocoupleReading {
+    {
+        let f = solid_model.field();
         let mesh = f.mesh();
-        let gas = self.gas.as_ref();
         let d = 1e-3;
         let mut cells = Vec::new();
         for (dr, dz) in [(-d, -d), (d, -d), (-d, d), (d, d)] {
@@ -371,14 +385,14 @@ impl Htr10FpicModel {
         for &c in &cells {
             let ts = f.temperature(c).get::<kelvin>();
             solid += ts;
-            regions.push(self.solid.regions()[mesh.cell_region(c)].name);
+            regions.push(solid_model.regions()[mesh.cell_region(c)].name);
             let tg = gas.map_or(f64::NAN, |g| g.temperature[c]);
             if tg.is_finite() {
                 gsum += tg;
                 ng += 1;
             }
             let open = matches!(
-                self.network.cell_flow(c),
+                network.cell_flow(c),
                 Some((fr, _)) if matches!(fr.kind, FlowKind::OpenVolume { .. }) && fr.void_fraction >= 0.99
             );
             if open && tg.is_finite() {
@@ -403,7 +417,9 @@ impl Htr10FpicModel {
             regions,
         }
     }
+}
 
+impl Htr10FpicModel {
     fn report(&self, solid: Htr10RzResult, iterations: usize, history: Vec<f64>) -> Result<FpicResult, Htr10RzError> {
         let op = self.options.operating_point;
         let g = self.gas.as_ref().expect("a gas pass ran");

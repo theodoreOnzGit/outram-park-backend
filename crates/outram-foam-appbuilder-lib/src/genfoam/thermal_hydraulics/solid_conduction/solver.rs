@@ -225,6 +225,9 @@ pub struct SolidConductionField {
     /// Per cell: volumetric exchange coefficient to a coexisting fluid,
     /// W/(m^3 K), and the fluid temperature, K (gh:#1150). Zero by default.
     exchange: Vec<(f64, f64)>,
+    /// Per cell: multiplier on the region's volumetric heat capacity
+    /// (gh:#1151 part B). 1 by default.
+    capacity_factor: Vec<f64>,
     settings: SolidConductionSettings,
     time: f64,
 }
@@ -324,6 +327,7 @@ impl SolidConductionField {
             temperature: vec![t0; n],
             fixed: vec![None; n],
             exchange: vec![(0.0, t0); n],
+            capacity_factor: vec![1.0; n],
             cell_source,
             mesh,
             regions,
@@ -407,6 +411,35 @@ impl SolidConductionField {
             v.push((h, t));
         }
         self.exchange = v;
+        Ok(())
+    }
+
+    /// Scale the region heat capacity of each cell by `factor[c]` (default
+    /// 1 everywhere): the storage term becomes `f_c (rho c)(T) V dT/dt`.
+    ///
+    /// **New work (gh:#1151 part B), not a port.** It lets a coupled model
+    /// carry part of a homogenised region's heat capacity in its own node
+    /// (the HTR-10 fuel zones of the pebbles in a bed cell) without the
+    /// field counting it twice. It changes only transient storage and
+    /// [`Self::thermal_energy`]; a steady solve is unaffected.
+    ///
+    /// # Errors
+    /// [`SolidConductionError::InvalidInput`] for the wrong length or a
+    /// factor that is not finite and positive.
+    pub fn set_cell_capacity_factor(&mut self, factor: &[f64]) -> Result<(), SolidConductionError> {
+        if factor.len() != self.mesh.n_cells() {
+            return Err(SolidConductionError::InvalidInput(format!(
+                "{} capacity factors for {} cells",
+                factor.len(),
+                self.mesh.n_cells()
+            )));
+        }
+        if let Some(f) = factor.iter().find(|f| !(**f > 0.0) || !f.is_finite()) {
+            return Err(SolidConductionError::InvalidInput(format!(
+                "capacity factor must be finite and positive, got {f}"
+            )));
+        }
+        self.capacity_factor = factor.to_vec();
         Ok(())
     }
 
@@ -557,7 +590,7 @@ impl SolidConductionField {
         let e: f64 = (0..self.mesh.n_cells())
             .map(|c| {
                 let m = &self.regions[self.mesh.cell_region(c)].heat_capacity.0;
-                fv.cell_volumes[c] * m.integral(tr, self.temperature[c])
+                self.capacity_factor[c] * fv.cell_volumes[c] * m.integral(tr, self.temperature[c])
             })
             .sum();
         Energy::new::<joule>(e)
@@ -850,7 +883,7 @@ impl SolidConductionField {
                             value: cap,
                         });
                     }
-                    let v_dt = fv.cell_volumes[c] / dt;
+                    let v_dt = self.capacity_factor[c] * fv.cell_volumes[c] / dt;
                     eqn.ldu.diag[c] += cap * v_dt;
                     // Enthalpy form: H(T^{k+1}) ~ H(T^k) + C(T^k)(T^{k+1} - T^k),
                     // so storage is conservative once Picard converges. A

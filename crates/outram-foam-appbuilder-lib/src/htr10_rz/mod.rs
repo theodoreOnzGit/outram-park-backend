@@ -49,14 +49,21 @@ pub mod materials;
 pub mod model;
 pub mod pebble;
 pub mod power_map;
+pub mod transient;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod transient_tests;
 
 pub use geometry::{CoreVesselPlacement, ExtentConfidence, RegionSpec};
 pub use materials::{CarbonBrickConductivity, MaterialOptions, RegionMaterial, SideReflectorBelow300C};
 pub use flow::{BypassSplit, FlowKind, FlowRegion, GasNetwork, GasState, OperatingPoint};
-pub use fpic::{FpicOptions, FpicResult, Htr10FpicModel, Instrument, Thermocouple, ThermocoupleReading};
+pub use fpic::{reading_at, FpicOptions, FpicResult, Htr10FpicModel, Instrument, Thermocouple, ThermocoupleReading};
+pub use transient::{
+    CoreFeedbackTemperatures, CoreStepReport, FuelZoneModel, Htr10RzTransientCore, NaturalCirculation, PowerShape,
+    ReflectorAverage, TransientCoreOptions,
+};
 pub use pebble::{PebbleMatrix, PebbleProfile};
 pub use model::{
     build_mesh, HeadBoundary, Htr10RzCase, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
