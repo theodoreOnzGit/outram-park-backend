@@ -1059,3 +1059,71 @@ value = "b7/qhpcCfVBOoxeSPGjKEz0Xc4Bp2Kgz7ce5wPUEckG5emjmHpu/VfC9PeSEo7RpYmAq6VQ
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 2206c5e8ef.
+
+# Review: base_activities_for (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-base-activities-for-theodoreonzgit-ffb1855e"
+kind = "review"
+origin = "human"
+created = "2026-11-03T11:18:47+08:00"
+modified = "2026-11-03T11:18:47+08:00"
+target = "fn:ffb1855ec854dd27"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::base_activities_for"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T11:18:47+08:00"
+commit = "9275cce1524b0cbd6805e5f10fa7757e33ab534e"
+hash = "sha256:a7d1d8385fca2bd85a1bb4bdd69aa11e2beefda8a9895eab3fbfda03a96b8ae1"
+doc_hash = "sha256:85e8e5758d9f137e2d08f9176396932952da2d925b7e7b32102fffd195e029b8"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:2095c07b5f4097a8" = "sha256:fb4c3bd2aed5f83efe1505efbff2698445a4da2c6aae7a960ff839b607a18b64"
+"fn:40ae7325634a6cb2" = "sha256:592d21c9d20158f91f15be8cb7044e39664a0b092598e6c8f8976a45bc511129"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+"fn:90c61e88ff3aaad8" = "sha256:702bb4da43da4fd696f48054a2e447cdd8835219c40a2d817bed2df4d06a569c"
+"fn:b4300d995422f7cf" = "sha256:1ec2c617f1f0e953148c45600858c2e267e666ce1b816c307cb2cd67d91a5f3c"
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+"fn:d9fc661a522b11ce" = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+"fn:ee87ae9710c2fa05" = "sha256:9d7ee874d9552f077202594f2437fd8a72a3d2c0b37446ecad11026af97edd94"
+"fn:fc42897456ddcda8" = "sha256:99ab9e07c9d01a858b47d5649f98c035be52983fc3847b7614406757d66dbd8d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Lj+c0bHKudsWT2iE7i14KMLkc1pbQ8JbulIR8BsViE7yXmSnZwCXMqu+fUqesUtycd9QXIUnM9DwZWRjTDpVBA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+ablation testing/sensitivity testing utility depending on how TrisoAtops is read (TrisoAtopsVariant struct)
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 9275cce152.
