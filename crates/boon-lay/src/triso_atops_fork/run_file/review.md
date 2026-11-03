@@ -779,3 +779,54 @@ Most other fields stay the same
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 925fa2cafb.
+
+# Review: UpstreamRunFileError (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-upstreamrunfileerror-theodoreonzgit-96a590df"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:21:13+08:00"
+modified = "2026-11-03T14:21:13+08:00"
+target = "fn:96a590df75995cb1"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::UpstreamRunFileError"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:21:13+08:00"
+commit = "3e9c7d7c7913e2a8f64a7217fa5a3a921716aae8"
+hash = "sha256:16c5f9c0ef53d8dc1b00899352c912eedfb6cb90384e3cf85f4b1650cbe4a1a1"
+doc_hash = "sha256:dc735b85a7bdac98321f03329d0d677fd12fa440dc4ae7d019c390db44e25528"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "none_yet"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "4gPwMRKBKjCR5/VxFjDQjYjrnDWCMlaXp2XjQHw4uwcwWs/u+EgqK54aahTFWl7ZdF09i1GYXu1ObPRC/fXFAg=="
+```
+
+error type for Rust port of TRISO ATOPS
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 3e9c7d7c79.
