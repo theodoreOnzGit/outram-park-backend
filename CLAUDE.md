@@ -238,9 +238,14 @@ radiation term on either leg**. Rebuilt as five legs derived from the R-Z zone
 map, published vessel dimensions, ZBS `k_eff(T)` and Stefan-Boltzmann on the
 two radiative legs, it gives **234.5 kW — +13.9 % against the published
 figure, derived and not fitted**. Calibrating an effective axial length until
-it matched exactly was considered and rejected by the maintainer. The +13.9 %
-is now a real gate that can fail; the previous exact agreement could not.
-See `crates/outram-park-digital-twin-engine/CLAUDE.md`.
+it matched exactly was considered and rejected by the maintainer. ~~The +13.9 %
+is now a real gate that can fail~~ **CORRECTED 2026-11-03:** the gated value
+has been **254.0 kW, +23.3 %** since 2026-09-28, after later changes to the
+chain; read from `examples/htgr_sim_v1/physics/decay_heat_removal.rs`, not
+re-run. The lesson is unchanged: it is a real gate that can fail; the previous
+exact agreement could not. Also note that Hu et al.'s 206 kW is an input to
+their pre-test analysis, cited from an unpublished 2003 INET report, not a
+measurement. See `crates/outram-park-digital-twin-engine/CLAUDE.md`.
 
 ## Debugging a port: read upstream first (HARD RULE)
 
