@@ -171,12 +171,33 @@ solid model (Tab 2.4 regions on the Fig 2.5 mesh lines, from the cited input
 sheet `docs/reactor-scoping/htr10-th-benchmark.md`) on the
 `solid_conduction` field, with every property from `htgr_closures`; helium
 cavities as conduction-plus-radiation media; the RPV radiating to the RCCS
-at 50 deg C. Solid only (no gas flow; that is gh:#1150). Cases: the bed's
+at 50 deg C. ~~Solid only (no gas flow; that is gh:#1150).~~ **UPDATED
+2026-11-03:** gh:#1150 adds the gas side (below); the solid-only cases are
+unchanged. Cases: the bed's
 volume-mean temperature held by its own power (`BedMeanTemperature`), the
 bed held isothermal (`HeldBed`), a given decay power (`DecayPower`).
 **Status: AI draft, verified for energy balance and mesh convergence; every
 region extent is Uncertain (read from a figure); not validated.** V&V record
 with drawings: [`verification_and_validation/htr10_rz_solid/README.md`](./verification_and_validation/htr10_rz_solid/README.md).
+
+**FPIC full power with gas flow (gh:#1150, original work).** `htr10_rz::flow`
+is a KONVEK-like steady R-Z porous helium flow over the Tab 2.5 flow
+regions (KTA 3102.3 bed resistance, Churchill channel and slot friction,
+buoyancy in the bed and channels), with the inlet path, the risers and the
+bypass paths (discharge tube, control-rod channels, gap leakage) as explicit
+regions and the 87/1/2/10 split **imposed** (unmeasured, D5). The gas energy
+(KTA 3102.2 in the bed, Dittus-Boelter elsewhere) is coupled to the solid
+field by outer iteration through the new implicit per-cell exchange
+`SolidConductionField::set_cell_exchange`. `htr10_rz::pebble` adapts the
+GeN-Foam `nuclearSteadyStatePebble` port to the HTR-10 full-sphere fuel zone,
+and `htr10_rz::fpic` (`Htr10FpicModel`) runs the case and samples the 22
+thermocouples. The GeN-Foam `onePhase` solver was checked and not used
+(constant properties, isotropic drag, transient march; see the `flow`
+module docs). **Status: AI draft; plant energy balance closed to 1e-6;
+compared (not gated) against the 22 measured thermocouples: RMS 49.4 K
+(INET 38.7 K), all 22 inside the participants' range; not validated.** V&V
+record with drawings and sensitivities:
+[`verification_and_validation/htr10_rz_flow_fpic/README.md`](./verification_and_validation/htr10_rz_flow_fpic/README.md).
 
 ## Limitations
 

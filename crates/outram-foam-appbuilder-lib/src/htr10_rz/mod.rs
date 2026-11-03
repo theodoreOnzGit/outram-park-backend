@@ -22,9 +22,16 @@
 //! | [`materials`] | homogenised `lambda(T)`, `rho c(T)` from the closures; gas cavities with radiation; the holds outside closure ranges |
 //! | [`power_map`] | the FPIC Tab 2.6 power map, volume-exact onto any mesh |
 //! | [`model`] | boundaries (RCCS at 50 deg C), the two gh:#1149 (a) cases, solve, report |
+//! | [`flow`] | gh:#1150: KONVEK-like R-Z porous helium flow over the Tab 2.5 flow regions with the bypass paths, and the gas energy equation |
+//! | [`pebble`] | gh:#1150: pebble-internal temperatures, the GeN-Foam pebble port adapted to the HTR-10 pebble |
+//! | [`fpic`] | gh:#1150: the FPIC full-power case, solid and gas coupled by outer iteration, and the 22 thermocouples |
 //!
-//! **Solid only.** There is no gas flow here (that is gh:#1150); the gas
-//! side enters as a held temperature or as stagnant cavities.
+//! ~~**Solid only.** There is no gas flow here (that is gh:#1150); the gas
+//! side enters as a held temperature or as stagnant cavities.~~
+//! **CORRECTED 2026-11-03 (gh:#1150):** the gas flow is [`flow`], coupled
+//! in [`fpic`]; the gh:#1149 cases above remain solid-only (stagnant).
+//! **V&V record of the coupled case:**
+//! `verification_and_validation/htr10_rz_flow_fpic/README.md`.
 //!
 //! **V&V record:** `verification_and_validation/htr10_rz_solid/README.md`
 //! (methodology, the predictions written before the runs, results, the
@@ -35,16 +42,22 @@
 //! licensing or any safety-critical use. Every region extent is
 //! **Uncertain** (read from a figure by the input sheet).
 
+pub mod flow;
+pub mod fpic;
 pub mod geometry;
 pub mod materials;
 pub mod model;
+pub mod pebble;
 pub mod power_map;
 
 #[cfg(test)]
 mod tests;
 
 pub use geometry::{CoreVesselPlacement, ExtentConfidence, RegionSpec};
-pub use materials::{MaterialOptions, RegionMaterial, SideReflectorBelow300C};
+pub use materials::{CarbonBrickConductivity, MaterialOptions, RegionMaterial, SideReflectorBelow300C};
+pub use flow::{BypassSplit, FlowKind, FlowRegion, GasNetwork, GasState, OperatingPoint};
+pub use fpic::{FpicOptions, FpicResult, Htr10FpicModel, Instrument, Thermocouple, ThermocoupleReading};
+pub use pebble::{PebbleMatrix, PebbleProfile};
 pub use model::{
     build_mesh, HeadBoundary, Htr10RzCase, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
     RccsView, RegionTemperatureRange,

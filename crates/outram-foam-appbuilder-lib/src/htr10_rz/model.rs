@@ -292,6 +292,8 @@ pub struct Htr10RzModel {
     specs: [RegionSpec; N_REGIONS],
     /// FPIC Tab 2.6 shape per cell, W/m^3 per W of total power.
     unit_source: Vec<f64>,
+    /// Total power last mapped onto the cells, W.
+    power_w: f64,
 }
 
 impl Htr10RzModel {
@@ -376,6 +378,7 @@ impl Htr10RzModel {
             case,
             specs,
             unit_source,
+            power_w: 0.0,
         };
         match case {
             Htr10RzCase::HeldBed { temperature } => {
@@ -408,6 +411,7 @@ impl Htr10RzModel {
     }
 
     fn set_power(&mut self, p: f64) -> Result<(), Htr10RzError> {
+        self.power_w = p;
         let src: Vec<VolumetricPowerDensity> = self
             .unit_source
             .iter()
@@ -429,6 +433,19 @@ impl Htr10RzModel {
             }
         }
         vt / v
+    }
+
+    /// Power density mapped onto cell `c` (zero outside the bed and for a
+    /// held case).
+    #[must_use]
+    pub fn cell_power_density(&self, c: usize) -> VolumetricPowerDensity {
+        VolumetricPowerDensity::new::<watt_per_cubic_meter>(self.unit_source[c] * self.power_w)
+    }
+
+    /// The field, for a coupled driver in this crate (gh:#1150 sets the
+    /// gas-solid exchange through it).
+    pub(crate) fn field_mut(&mut self) -> &mut SolidConductionField {
+        &mut self.field
     }
 
     /// The solid conduction field (mesh, temperatures, regions).

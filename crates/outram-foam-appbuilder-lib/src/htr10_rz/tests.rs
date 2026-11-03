@@ -180,6 +180,14 @@ fn tabulated_properties_reproduce_the_input_sheet() {
     // Carbon brick (Sec 4.5): 5.0 at 0 C, 8.0 at 1000 C.
     assert!((k(RegionMaterial::CarbonBrick, 273.15) - 5.0).abs() < 1e-9);
     assert!((k(RegionMaterial::CarbonBrick, 1273.15) - 8.0).abs() < 1e-9);
+    // The gh:#1150 brick ablation: a constant replaces Tab 2.12.
+    let ob = MaterialOptions {
+        carbon_brick: CarbonBrickConductivity::Constant(
+            uom::si::f64::ThermalConductivity::new::<uom::si::thermal_conductivity::watt_per_meter_kelvin>(30.0),
+        ),
+        ..o
+    };
+    assert_eq!(RegionMaterial::CarbonBrick.conductivity_si(700.0, &ob).unwrap(), 30.0);
     // Cavity: helium plus 4 sigma T^3 delta / (2/eps - 1), by hand at a table node.
     let cav = RegionMaterial::HeliumCavity {
         emissivity: 0.85,
@@ -284,4 +292,133 @@ fn coarse_solves_close_the_energy_balance() {
     assert!(Htr10RzModel::build(opts, Htr10RzCase::HeldBed { temperature: kel(0.0) }).is_err());
     assert_eq!(dec.regions().len(), N_REGIONS);
     assert!(dec.options().max_cell.is_none());
+}
+
+// ------------------------------------------------------------ gh:#1150 --
+
+use super::flow::{gas, solve_gas, BypassSplit, GasNetwork, OperatingPoint};
+use super::fpic::thermocouples;
+use super::pebble::{pebble_profile, PebbleMatrix};
+
+/// The embedded thermocouple table is byte-identical to the input sheet's
+/// CSV, and parses to 22 rows with the sheet's spot values.
+#[test]
+fn thermocouple_copy_matches_the_input_sheet_and_parses() {
+    let sheet = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/reactor-scoping/htr10-th-data/fpic-thermocouples-tab7-1.csv");
+    let ours = include_str!("data/fpic-thermocouples-tab7-1.csv");
+    match std::fs::read_to_string(&sheet) {
+        Ok(s) => assert_eq!(s, ours, "the embedded Tab 7.1 copy drifted from the input sheet"),
+        Err(_) => println!("input sheet not present in this checkout; copy not compared"),
+    }
+    let tcs = thermocouples();
+    assert_eq!(tcs.len(), 22);
+    assert_eq!((tcs[4].r_cm, tcs[4].z_cm), (117.0, 80.0));
+    assert_eq!(tcs[21].measured_c, 881.7);
+    assert_eq!(tcs[0].participants[10], None, "TC 1 has no UK-WIMSTER value");
+    assert_eq!(tcs[20].participant_range(), (379.0, 820.0));
+}
+
+/// The pebble sub-model: the port run in the `r_core -> 0` limit reproduces
+/// the closed-form full sphere (unheated shell `Q/(4 pi k)(1/r_m - 1/r_s)`,
+/// heated sphere `q r_m^2/(6 k)`) to 1e-9 relative, and the TRISO step and
+/// the Maxwell reduction have the right sign.
+#[test]
+fn pebble_profile_is_the_full_sphere_limit() {
+    let (ts, q) = (1000.0, 2.84e6);
+    let h = pebble_profile(ts, q, PebbleMatrix::Tab29Homogeneous).unwrap();
+    let k = h.fuel_zone_conductivity;
+    let pp = q * 4.0 / 3.0 * std::f64::consts::PI * 0.03f64.powi(3) / 0.61;
+    assert!((h.pebble_power / pp - 1.0).abs() < 1e-12);
+    let shell = pp / (4.0 * std::f64::consts::PI * k) * (1.0 / 0.025 - 1.0 / 0.03);
+    let qm = pp / (4.0 / 3.0 * std::f64::consts::PI * 0.025f64.powi(3));
+    let fz = qm * 0.025 * 0.025 / (6.0 * k);
+    println!(
+        "pebble at 2.84 W/cm^3, surface 1000 K: P {pp:.1} W, k {k:.2}, shell {shell:.3} K, fuel zone {fz:.3} K, kernel step {:.3} K",
+        h.kernel_max - h.centre
+    );
+    assert!(((h.fuel_zone_surface - ts) / shell - 1.0).abs() < 1e-9);
+    assert!(((h.centre - h.fuel_zone_surface) / fz - 1.0).abs() < 1e-9);
+    assert!(h.benchmark_centre < h.centre && h.centre - h.benchmark_centre < 0.1);
+    assert!(h.kernel_max > h.centre);
+    let m = pebble_profile(ts, q, PebbleMatrix::MaxwellOnTab29).unwrap();
+    assert!(m.fuel_zone_conductivity < k, "Maxwell lowers the matrix conductivity");
+    assert!(m.centre > h.centre);
+}
+
+fn coarse_net(split: BypassSplit) -> (Htr10RzModel, GasNetwork) {
+    let m = Htr10RzModel::build(
+        Htr10RzOptions {
+            max_cell: None,
+            ..Htr10RzOptions::default()
+        },
+        Htr10RzCase::DecayPower {
+            power: Power::new::<watt>(1.0e7),
+        },
+    )
+    .unwrap();
+    let net = GasNetwork::build(m.field().mesh(), split).unwrap();
+    (m, net)
+}
+
+/// The gas network on the Fig 2.5 mesh: it assembles, a bad split is
+/// refused, an isothermal solid at the inlet temperature leaves the gas at
+/// the inlet temperature with no exchange, and a uniformly hotter solid
+/// heats it, with the enthalpy rise equal to the exchanged heat (mass and
+/// energy conservation of the network).
+#[test]
+fn gas_network_conserves_mass_and_energy() {
+    let (m, net) = coarse_net(BypassSplit::default());
+    println!("Fig 2.5 mesh: {} 2-D gas cells, {} chain nodes", net.n_gas_cells(), net.n_chain_nodes());
+    assert!(net.n_gas_cells() > 50 && net.n_chain_nodes() > 10);
+    let mut bad = BypassSplit::default();
+    bad.leakage = uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(0.2);
+    assert!(GasNetwork::build(m.field().mesh(), bad).is_err());
+    let op = OperatingPoint::fpic_specification();
+    let n = m.field().mesh().n_cells();
+    let t_in = op.inlet.get::<kelvin>();
+    let g = solve_gas(&net, &op, &vec![t_in; n], None).unwrap();
+    println!(
+        "isothermal: outlet {:.9} K, heat {:.3e} W, bed dp {:.1} Pa, Picard {:?}",
+        g.outlet_temperature, g.heat_to_gas, g.core_pressure_drop, g.flow_picard
+    );
+    assert!((g.outlet_temperature - t_in).abs() < 1e-6);
+    // Round-off of sum h a_v V (T_s - T_g) over ~1e5 W/K of exchange.
+    assert!(g.heat_to_gas.abs() < 1.0, "{}", g.heat_to_gas);
+    assert!(g.core_pressure_drop > 0.0);
+    let g = solve_gas(&net, &op, &vec![t_in + 200.0; n], Some(&g)).unwrap();
+    println!(
+        "solid +200 K: outlet {:.3} K, heat {:.1} W, W cp dT {:.1} W",
+        g.outlet_temperature, g.heat_to_gas, g.enthalpy_rise
+    );
+    assert!(g.outlet_temperature > t_in && g.outlet_temperature < t_in + 200.0);
+    assert!((g.heat_to_gas / g.enthalpy_rise - 1.0).abs() < 1e-6);
+    // Helium at the inlet: density from the Tab 2.8 fit (bar reading).
+    let he = gas(523.15, 30.0).unwrap();
+    assert!((he.rho - 2.74).abs() < 0.05, "{}", he.rho);
+}
+
+/// The coupled FPIC case on the Fig 2.5 mesh converges and closes the
+/// plant energy balance (10 MW = RCCS + heads + W c_p dT).
+#[test]
+fn coarse_fpic_closes_the_plant_energy_balance() {
+    let mut f = super::Htr10FpicModel::build(super::FpicOptions {
+        solid: Htr10RzOptions {
+            max_cell: None,
+            ..Htr10RzOptions::default()
+        },
+        ..super::FpicOptions::default()
+    })
+    .unwrap();
+    let r = f.solve().unwrap();
+    println!(
+        "coarse FPIC: {} passes, outlet {:.2} C, loss {:.1} kW, imbalance {:.2e}, max fuel {:.1} C",
+        r.outer_iterations,
+        r.outlet_temperature.get::<kelvin>() - 273.15,
+        r.heat_to_rccs_and_heads.get::<watt>() / 1e3,
+        r.plant_imbalance,
+        r.max_fuel_centre.0.benchmark_centre - 273.15
+    );
+    assert!(r.plant_imbalance < 1e-5, "{}", r.plant_imbalance);
+    assert_eq!(r.thermocouples.len(), 22);
 }

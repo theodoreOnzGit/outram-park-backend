@@ -106,3 +106,9 @@ pub use crate::htgr_closures::{
 pub use crate::htr10_rz::{
     Htr10RzCase, Htr10RzError, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
 };
+
+// HTR-10 FPIC: R-Z porous gas flow coupled to the solid (original work; gh:#1150)
+pub use crate::htr10_rz::{
+    BypassSplit, FpicOptions, FpicResult, GasNetwork, Htr10FpicModel, OperatingPoint, PebbleMatrix,
+};
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::VolumetricHeatTransferCoefficient;

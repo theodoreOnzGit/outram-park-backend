@@ -112,6 +112,23 @@ pub use solver::{
 
 use thiserror::Error;
 
+/// Volumetric heat-transfer coefficient, W/(m^3 K): a film coefficient times
+/// the interfacial area per unit volume (`h a_v`), as a porous region's
+/// solid-to-fluid exchange uses it. `uom` has no named alias for it.
+pub type VolumetricHeatTransferCoefficient = uom::si::Quantity<
+    uom::si::ISQ<
+        uom::typenum::N1,
+        uom::typenum::P1,
+        uom::typenum::N3,
+        uom::typenum::Z0,
+        uom::typenum::N1,
+        uom::typenum::Z0,
+        uom::typenum::Z0,
+    >,
+    uom::si::SI<f64>,
+    f64,
+>;
+
 /// What can go wrong setting up or solving the solid conduction field.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum SolidConductionError {

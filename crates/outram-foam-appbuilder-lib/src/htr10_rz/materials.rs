@@ -146,6 +146,20 @@ pub enum SideReflectorBelow300C {
     TopBottomFit,
 }
 
+/// The carbon-brick conductivity (gh:#1150 ablation).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum CarbonBrickConductivity {
+    /// TECDOC-1694 Tab 2.12, `0.05 + 0.03e-3 T` W/(cm K) (5-8 W/(m K)).
+    /// **The default**: the only cited value.
+    #[default]
+    Tab212,
+    /// A constant value. **Ablation only**: the 30 W/(m K) that
+    /// `htgr_sim_v1`'s passive decay-heat chain assumes has no source; this
+    /// variant exists to measure, inside this model, how much of the
+    /// gh:#1149 gap (102.5 vs 254.0 kW) that one value carries.
+    Constant(uom::si::f64::ThermalConductivity),
+}
+
 /// Options that change material properties.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MaterialOptions {
@@ -156,6 +170,8 @@ pub struct MaterialOptions {
     /// Helium pressure for the Tab 2.8 fits, bar. Default 30 bar (the
     /// FPIC specification, Tab 2.1).
     pub helium_pressure_bar: f64,
+    /// Carbon brick conductivity. Default Tab 2.12.
+    pub carbon_brick: CarbonBrickConductivity,
 }
 
 impl Default for MaterialOptions {
@@ -164,6 +180,7 @@ impl Default for MaterialOptions {
             bed: BedConductivityModel::default(),
             side_reflector_below_300c: SideReflectorBelow300C::default(),
             helium_pressure_bar: 30.0,
+            carbon_brick: CarbonBrickConductivity::default(),
         }
     }
 }
@@ -275,7 +292,12 @@ impl RegionMaterial {
                 solid_fraction,
                 structural_k(StructuralMaterial::TopBottomReflector, t.clamp(273.15, 1973.15))?,
             ),
-            Self::CarbonBrick => structural_k(StructuralMaterial::CarbonBrick, t.clamp(273.15, 1273.15)),
+            Self::CarbonBrick => match opts.carbon_brick {
+                CarbonBrickConductivity::Tab212 => {
+                    structural_k(StructuralMaterial::CarbonBrick, t.clamp(273.15, 1273.15))
+                }
+                CarbonBrickConductivity::Constant(k) => Ok(k.get::<watt_per_meter_kelvin>()),
+            },
             Self::RpvSteel { solid_fraction } => mix(
                 solid_fraction,
                 structural_k(

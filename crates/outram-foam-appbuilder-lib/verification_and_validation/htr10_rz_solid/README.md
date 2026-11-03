@@ -19,9 +19,14 @@ ZBS: **-60 % / -50 % against the htgr_sim_v1 chain's 254.0 kW**, and
 forced-flow operation, not a measurement and not the same quantity). The
 reflector inner face sits at 415 deg C, the same as the chain's 411.6 deg C,
 so the gap is in the reflector-to-RCCS path: this model's path carries about
-2.5 times less heat at the same reflector temperature. The most likely
+2.5 times less heat at the same reflector temperature. ~~The most likely
 cause is the carbon brick: TECDOC Tab 2.12 gives 5-8 W/(m K), the chain
-assumes 30. This was not ablated here (30 W/(m K) has no source).
+assumes 30. This was not ablated here (30 W/(m K) has no source).~~
+**CORRECTED 2026-11-03 (gh:#1150, measured):** the brick was ablated in
+this model (`tests/htr10_rz_flow_fpic.rs::brick_ablation_in_the_stagnant_mean950_case`).
+With 30 W/(m K), A-MEAN950 moves from 102.53 to only 110.15 kW: 5.0 % of the
+gap. The brick is **not** the main cause. See
+`verification_and_validation/htr10_rz_flow_fpic/README.md`.
 
 The predictions follow, unedited, then the methodology and the results.
 
@@ -238,15 +243,17 @@ Which number to quote:
 - At A-MEAN950 the reflector inner face is 415 deg C. The chain's
   reflector node is at 411.6 deg C.
 - Yet this model carries 2.5 times less heat.
-- So the difference lies outward of the reflector. It is plausibly the
+- So the difference lies outward of the reflector. ~~It is plausibly the
   carbon brick (Tab 2.12 5-8 W/(m K) here, an unsourced 30 W/(m K) in the
-  chain).
+  chain).~~ **CORRECTED 2026-11-03 (gh:#1150):** ablated, the brick
+  carries 5.0 % of the gap (102.53 -> 110.15 kW with 30 W/(m K)).
 - Two other features of the chain may contribute:
   - its annuli conduct over their full heights with no axial resistance,
     which its own doc calls an upper bound;
   - it has no barrel or helium gap layers.
-- None of these has been ablated, so this attribution is a reading of the
-  temperature profile, not a measurement.
+- ~~None of these has been ablated~~ Only the brick has been ablated
+  (gh:#1150); the other two remain a reading of the temperature profile,
+  not a measurement.
 
 **Bed closure (D3).** The choice moves A-MEAN950 by **+24 %** (ZBS over
 Breitbach). It moves the 200 kW peak by -125 K, and Kugeler moves it by
@@ -325,5 +332,6 @@ features of the model:
 - **Fluence.** Zero fluence is assumed throughout.
 - **Not run.**
   - A depressurised (DLOFC) helium pressure: Tab 2.8 does not cover 1 bar.
-  - Any comparison against the thermocouples. Those need the FPIC with gas
-    flow (gh:#1150).
+  - ~~Any comparison against the thermocouples. Those need the FPIC with gas
+    flow (gh:#1150).~~ **DONE 2026-11-03:** gh:#1150,
+    `verification_and_validation/htr10_rz_flow_fpic/README.md`.

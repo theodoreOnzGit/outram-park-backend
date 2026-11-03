@@ -34,6 +34,7 @@ use outram_foam_basic_lib::ldu_matrix::SolverSettings;
 use outram_foam_basic_lib::mesh::FvMesh;
 
 use super::gap::RegionGap;
+use super::VolumetricHeatTransferCoefficient;
 use super::properties::{ConductivityModel, HeatCapacityModel};
 use super::rz_mesh::{RzMesh, RzPatch};
 use super::SolidConductionError;
@@ -163,6 +164,11 @@ pub struct SolidEnergyBalance {
     /// Leaving through each patch, in [`RzPatch::ALL`] order, each face's flux
     /// recomputed from its own condition and the surface temperature.
     pub removed_per_patch: [Power; 4],
+    /// Given up to a coexisting fluid through the per-cell exchange of
+    /// [`SolidConductionField::set_cell_exchange`] (gh:#1150), `sum h_v V
+    /// (T - T_fluid)` over the free cells; zero without an exchange. Negative
+    /// when the fluid heats the solid.
+    pub removed_to_fluid: Power,
 }
 
 impl SolidEnergyBalance {
@@ -171,7 +177,7 @@ impl SolidEnergyBalance {
     pub fn removed(&self) -> Power {
         self.removed_per_patch
             .iter()
-            .fold(Power::new::<watt>(0.0), |a, b| a + *b)
+            .fold(self.removed_to_fluid, |a, b| a + *b)
     }
 
     /// `|generated + supplied - removed| / (generated + supplied)` (the
@@ -216,6 +222,9 @@ pub struct SolidConductionField {
     /// Surface temperatures (owner side, neighbour side) of each internal
     /// face, K; read only on gap faces.
     gap_surface: Vec<(f64, f64)>,
+    /// Per cell: volumetric exchange coefficient to a coexisting fluid,
+    /// W/(m^3 K), and the fluid temperature, K (gh:#1150). Zero by default.
+    exchange: Vec<(f64, f64)>,
     settings: SolidConductionSettings,
     time: f64,
 }
@@ -314,6 +323,7 @@ impl SolidConductionField {
             gap_surface: vec![(t0, t0); fv.n_internal_faces],
             temperature: vec![t0; n],
             fixed: vec![None; n],
+            exchange: vec![(0.0, t0); n],
             cell_source,
             mesh,
             regions,
@@ -354,6 +364,49 @@ impl SolidConductionField {
             return Err(SolidConductionError::InvalidInput("non-finite heat source".into()));
         }
         self.cell_source = v;
+        Ok(())
+    }
+
+    /// Couple every cell to a coexisting fluid (the gas of a porous region):
+    /// a sink `h_v (T - T_fluid)` per unit volume, treated **implicitly** in
+    /// the cell temperature (`h_v V` on the diagonal, `h_v V T_fluid` in the
+    /// source), so a large `h_v` cannot destabilise the solve. Pass `h_v = 0`
+    /// for a cell without fluid. Replaces any earlier exchange.
+    ///
+    /// **New work (gh:#1150), not a port.** It is the solid half of the
+    /// fluid-structure heat source GeN-Foam linearises semi-implicitly
+    /// (`structure::linearizedSemiImplicitHeatSource`), with the fluid
+    /// temperature held for this solve; the HTR-10 gas-solid outer iteration
+    /// ([`crate::htr10_rz::flow`]) alternates it with the gas energy solve.
+    /// The heat given to the fluid is
+    /// [`SolidEnergyBalance::removed_to_fluid`].
+    ///
+    /// # Errors
+    /// [`SolidConductionError::InvalidInput`] for the wrong length, a
+    /// negative or non-finite coefficient, or a non-positive fluid
+    /// temperature where the coefficient is positive.
+    pub fn set_cell_exchange(
+        &mut self,
+        exchange: &[(VolumetricHeatTransferCoefficient, ThermodynamicTemperature)],
+    ) -> Result<(), SolidConductionError> {
+        if exchange.len() != self.mesh.n_cells() {
+            return Err(SolidConductionError::InvalidInput(format!(
+                "{} exchange entries for {} cells",
+                exchange.len(),
+                self.mesh.n_cells()
+            )));
+        }
+        let mut v = Vec::with_capacity(exchange.len());
+        for (h, t) in exchange {
+            let (h, t) = (h.value, t.get::<kelvin>());
+            if !(h >= 0.0) || !h.is_finite() || (h > 0.0 && (!(t > 0.0) || !t.is_finite())) {
+                return Err(SolidConductionError::InvalidInput(format!(
+                    "exchange h_v = {h} W/(m^3 K) to {t} K: h_v must be finite and non-negative, T positive"
+                )));
+            }
+            v.push((h, t));
+        }
+        self.exchange = v;
         Ok(())
     }
 
@@ -573,10 +626,18 @@ impl SolidConductionField {
             }
             removed[p.index()] = Power::new::<watt>(sum);
         }
+        let to_fluid: f64 = (0..self.mesh.n_cells())
+            .filter(|c| self.fixed[*c].is_none())
+            .map(|c| {
+                let (h, tf) = self.exchange[c];
+                h * fv.cell_volumes[c] * (self.temperature[c] - tf)
+            })
+            .sum();
         SolidEnergyBalance {
             generated: Power::new::<watt>(generated),
             supplied_by_fixed_cells: Power::new::<watt>(supplied),
             removed_per_patch: removed,
+            removed_to_fluid: Power::new::<watt>(to_fluid),
         }
     }
 
@@ -589,7 +650,8 @@ impl SolidConductionField {
         let heated = self.cell_source.iter().any(|q| *q != 0.0) || self.fixed.iter().any(Option::is_some);
         let open = RzPatch::ALL
             .iter()
-            .any(|p| !matches!(self.boundaries.get(*p), SolidBoundary::Adiabatic));
+            .any(|p| !matches!(self.boundaries.get(*p), SolidBoundary::Adiabatic))
+            || self.exchange.iter().any(|(h, _)| *h > 0.0);
         if heated && !open {
             return Err(SolidConductionError::InvalidInput(
                 "heat is generated but every boundary is adiabatic: no steady state exists".into(),
@@ -769,6 +831,11 @@ impl SolidConductionField {
             let mut eqn = fvm::laplacian(&gamma, &t_field);
             for c in 0..n {
                 eqn.source[c] += self.cell_source[c] * fv.cell_volumes[c];
+                let (h, tf) = self.exchange[c];
+                if h > 0.0 {
+                    eqn.ldu.diag[c] += h * fv.cell_volumes[c];
+                    eqn.source[c] += h * fv.cell_volumes[c] * tf;
+                }
             }
             if let Some(dt) = dt {
                 for c in 0..n {

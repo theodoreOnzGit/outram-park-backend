@@ -997,3 +997,64 @@ fn held_cells_are_eliminated_and_their_duty_is_reported() {
     f.set_fixed_temperatures(&[]).unwrap();
     assert!(!f.is_fixed(0));
 }
+
+/// V&V (gh:#1150) — the per-cell implicit fluid exchange
+/// (`set_cell_exchange`) against the closed-form fin solution.
+///
+/// **Methodology.** Planar slab `0 <= x <= L = 0.1 m`, `lambda = 2 W/(m K)`,
+/// uniform source `q = 1e5 W/m^3`, adiabatic at `x = 0`, held at 400 K at
+/// `x = L`, every cell exchanging with a fluid at 300 K through
+/// `h_v = 2000 W/(m^3 K)`. With `theta = T - T_f - q/h_v` the equation is
+/// `theta'' = m^2 theta`, `m = sqrt(h_v/lambda)`, so
+/// `T = T_f + q/h_v + (400 - T_f - q/h_v) cosh(m x)/cosh(m L)`. 100 cells.
+/// Pass: max error < 0.02 K (second-order cell-centred error, estimated
+/// `(m dx)^2/12 * 50 K ~ 4e-3 K`), energy balance closes to 1e-9 with the
+/// exchange counted, and a fully adiabatic body with an exchange is solvable.
+///
+/// **Result (2026-11-03, release):** see the printed line; recorded in
+/// `verification_and_validation/htr10_rz_flow_fpic/README.md`.
+#[test]
+fn cell_exchange_matches_the_fin_solution() {
+    use super::VolumetricHeatTransferCoefficient as Hv;
+    let mut f = slab(100, 0.1, 2.0, 1.0e6);
+    let n = f.mesh().n_cells();
+    f.set_cell_heat_source(&vec![qv(1.0e5); n]).unwrap();
+    let hv = Hv { dimension: std::marker::PhantomData, units: std::marker::PhantomData, value: 2000.0 };
+    f.set_cell_exchange(&vec![(hv, kel(300.0)); n]).unwrap();
+    f.solve_steady().unwrap();
+    let mm = (2000.0_f64 / 2.0).sqrt();
+    let mut err: f64 = 0.0;
+    for c in 0..n {
+        let x = f.mesh().cell_centre(c).0.get::<meter>();
+        let exact = 300.0 + 50.0 + 50.0 * (mm * x).r_cosh() / (mm * 0.1).r_cosh();
+        err = err.max((f.temperature(c).get::<kelvin>() - exact).abs());
+    }
+    let bal = f.energy_balance();
+    println!(
+        "cell exchange: max error {err:.3e} K, to fluid {:.6} W, generated {:.6} W, imbalance {:.2e}",
+        bal.removed_to_fluid.get::<watt>(),
+        bal.generated.get::<watt>(),
+        bal.relative_imbalance()
+    );
+    assert!(err < 0.02, "{err}");
+    assert!(bal.relative_imbalance() < 1e-9);
+    // Fully adiabatic body: the exchange alone carries the heat away.
+    let g0 = slab(10, 0.1, 2.0, 1.0e6);
+    let mut g = SolidConductionField::new(
+        g0.mesh().clone(),
+        g0.regions().to_vec(),
+        RzBoundaries::all(SolidBoundary::Adiabatic),
+        vec![],
+        kel(300.0),
+    )
+    .unwrap();
+    g.set_cell_heat_source(&vec![qv(1.0e5); 10]).unwrap();
+    g.set_cell_exchange(&vec![(hv, kel(300.0)); 10]).unwrap();
+    g.solve_steady().unwrap();
+    for c in 0..10 {
+        assert!((g.temperature(c).get::<kelvin>() - 350.0).abs() < 1e-8);
+    }
+    assert!(g.set_cell_exchange(&[(hv, kel(300.0))]).is_err());
+    let bad = Hv { value: -1.0, ..hv };
+    assert!(g.set_cell_exchange(&vec![(bad, kel(300.0)); 10]).is_err());
+}
