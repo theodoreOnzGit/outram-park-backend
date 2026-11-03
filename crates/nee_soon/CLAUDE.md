@@ -173,6 +173,29 @@ MCNP5 VII.0. Rod worth is 3.4 % low after the graphite-law ablation (gh
 #919, open). **AI first build; the maintainer called it "a good first
 draft" (#888), not a line-by-line review.**
 
+**HTR-10 per-zone temperatures and `ParametricStudy` (gh epic #1137,
+2026-11-03).** `htr10_rmc::zones` splits the core into eight temperature
+zones:
+- fuel pebbles, moderator pebbles, coolant;
+- top, side and bottom reflector;
+- control rods, boronated bricks.
+
+A design with `temperature_zones` places the extra slots
+(`mat::MODERATOR_BALL` and a copy of each reflector composition per region);
+without it the geometry is the record's, cell for cell.
+
+`htr10_rmc::parametric::ParametricStudy` holds every setting (bed, rods,
+zone temperatures, statistics, data):
+- it processes each (nuclide, temperature) exactly, and every bound law by
+  LEAPR at its zone's temperature (`ThermalLawSource::Leapr`);
+- **use it for any run that changes temperatures**: the CLI is
+  `examples/htr10_parametric.rs`, and the browser demo builds through it
+  too;
+- with every zone at one temperature it transports bit for bit as the
+  single-temperature model (`tests/htr10_parametric_isothermal.rs`).
+
+Record and images: `verification_and_validation/htr10_zone_temperatures/`.
+
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.
 

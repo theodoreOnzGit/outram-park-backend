@@ -1211,6 +1211,11 @@ impl McApp {
                     let mut c = crate::htr10::core::screen::CoreScreen::new(info.clone(), self.speed_at_1ev, self.autostart);
                     c.cfg = run_cfg_from_query(c.cfg, &self.startup_query);
                     c.rods = crate::htr10::rods::RodControls::from_query(&self.startup_query);
+                    // gh:#1142: `?temps=fuel:900,...` (°C) sets the zone
+                    // temperatures the pool starts at.
+                    c.temps = crate::htr10::core::screen::temperatures_from_query(&self.startup_query);
+                    c.temps_c = nee_soon::htr10_rmc::zones::Htr10Zone::ALL
+                        .map(|z| crate::htr10::core::screen::celsius(c.temps.get(z)));
                     self.core = Some(c);
                 }
                 let sel = self.core.as_ref().map_or(crate::htr10::rods::S3_ROD, |c| c.rods.selected);

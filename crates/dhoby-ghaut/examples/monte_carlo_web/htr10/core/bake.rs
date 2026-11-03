@@ -18,7 +18,8 @@
 use super::{jobs, native_tape, run_job, CoreWorker, RECORD_SEED};
 use crate::keff::KeffConfig;
 use dhoby_ghaut::web_demo::link::Floats;
-use nee_soon::htr10_rmc::data::Htr10DataConfig;
+use nee_soon::htr10_rmc::parametric::ParametricStudy;
+use nee_soon::htr10_rmc::zones::ZoneTemperatures;
 use outram_mc_libs::physics::transport_csg::distributed::{ChunkResult, DistributedPowerIteration};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
@@ -43,10 +44,10 @@ pub fn tracks_path() -> std::path::PathBuf {
 /// A tape that is not in this checkout (for nickel:
 /// `git submodule update --init reference-data/ace`).
 pub fn prepare_web_data(dir: &std::path::Path) -> Result<(usize, usize), String> {
-    let cfg = Htr10DataConfig::default();
+    let cfg = ParametricStudy::default().data;
     let (mut raw_t, mut wire_t) = (0usize, 0usize);
     for j in jobs()? {
-        let Some(t) = j.tape(&cfg).map_err(|e| e.to_string())? else {
+        let Some(t) = j.job.tape(&cfg).map_err(|e| e.to_string())? else {
             continue;
         };
         let out = dir.join(crate::tapes::wire_name(t.file));
@@ -73,7 +74,7 @@ pub fn prepare_web_data(dir: &std::path::Path) -> Result<(usize, usize), String>
 /// Process every job on `threads` threads and assemble one worker's model.
 pub fn build_worker(layers: usize, threads: usize) -> Result<CoreWorker, String> {
     let all = jobs()?;
-    let cfg = Htr10DataConfig::default();
+    let cfg = ParametricStudy::default().data;
     let next = AtomicUsize::new(0);
     let done: Mutex<Vec<(usize, Floats, f64)>> = Mutex::new(Vec::new());
     let errors: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -85,10 +86,11 @@ pub fn build_worker(layers: usize, threads: usize) -> Result<CoreWorker, String>
                 let Some(job) = all.get(i) else { break };
                 let t = Instant::now();
                 let r = job
+                    .job
                     .tape(&cfg)
                     .map_err(|e| e.to_string())
                     .and_then(|tape| tape.map(|t| native_tape(&t)).transpose())
-                    .and_then(|bytes| run_job(i, bytes.as_deref()));
+                    .and_then(|bytes| run_job(i, &ZoneTemperatures::record(), bytes.as_deref()));
                 match r {
                     Ok(f) => done
                         .lock()
@@ -121,7 +123,7 @@ pub fn build_worker(layers: usize, threads: usize) -> Result<CoreWorker, String>
         w.store(i, f);
     }
     let mut tapes_s = 0.0;
-    let mut rep = w.assemble(layers, |t| {
+    let mut rep = w.assemble(layers, &ZoneTemperatures::record(), |t| {
         let t0 = Instant::now();
         let b = native_tape(t);
         tapes_s += t0.elapsed().as_secs_f64();
@@ -220,7 +222,7 @@ pub fn run(
 /// A tape that is not in this checkout, or processing failed.
 pub fn product_records(indices: &[usize], threads: usize) -> Result<Vec<(String, String, usize, String)>, String> {
     let all = jobs()?;
-    let cfg = Htr10DataConfig::default();
+    let cfg = ParametricStudy::default().data;
     let next = AtomicUsize::new(0);
     let done: Mutex<Vec<(usize, Result<Vec<dhoby_ghaut::web_demo::data_cache::Record>, String>)>> = Mutex::new(Vec::new());
     std::thread::scope(|s| {
@@ -231,11 +233,11 @@ pub fn product_records(indices: &[usize], threads: usize) -> Result<Vec<(String,
                 let r = all
                     .get(i)
                     .ok_or_else(|| format!("no job {i}"))
-                    .and_then(|job| job.tape(&cfg).map_err(|e| e.to_string()))
+                    .and_then(|job| job.job.tape(&cfg).map_err(|e| e.to_string()))
                     .and_then(|tape| tape.map(|t| native_tape(&t)).transpose())
                     .and_then(|bytes| {
                         let mut store = crate::processed_cache::DataStore::browser();
-                        super::run_job_cached(i, bytes.as_deref(), &mut store)?;
+                        super::run_job_cached(i, &ZoneTemperatures::record(), bytes.as_deref(), &mut store)?;
                         Ok(store.take_fresh())
                     });
                 if let Ok(mut d) = done.lock() {
@@ -328,10 +330,10 @@ mod tests {
     #[test]
     fn product_records_are_the_records_a_browser_saves() {
         let all = jobs().expect("jobs");
-        let Some(i) = all.iter().position(|j| j.label() == "He4") else {
+        let Some(i) = all.iter().position(|j| j.job.label() == "He4") else {
             panic!("no He4 job");
         };
-        let Ok(Some(t)) = all[i].tape(&Htr10DataConfig::default()) else {
+        let Ok(Some(t)) = all[i].job.tape(&ParametricStudy::default().data) else {
             eprintln!("SKIP: He-4 tape not present");
             return;
         };
@@ -344,7 +346,7 @@ mod tests {
         assert!(recs[0].0.contains("|pe|") && recs[0].0.ends_with("|purr=20,64,10000|heatr=1|e0k=1"), "{}", recs[0].0);
         // `run_job`'s words are a `JobProduct`: a kind word (0 = nuclide),
         // then the product the store saves.
-        let words = run_job(i, Some(&bytes)).expect("job").to_vec();
+        let words = run_job(i, &ZoneTemperatures::record(), Some(&bytes)).expect("job").to_vec();
         assert_eq!(words.first(), Some(&0.0));
         assert_eq!(recs[0].2, words.len() - 1);
         assert_eq!(recs[0].3, dhoby_ghaut::web_demo::data_cache::words_sha256(&words[1..]));

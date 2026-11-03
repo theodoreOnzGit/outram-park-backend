@@ -655,6 +655,8 @@ pub fn assemble_explicit_triso_from_centres_with(
     design: &Htr10CoreDesign,
 ) -> AssembledCore {
     let r_fz = design.fuel_zone_radius_cm;
+    // The graphite balls' slot (gh:#1138; `mat::GRAPHITE` without zones).
+    let moderator_slot = design.moderator_ball_slot();
     assert_eq!(centres.len(), is_fuel.len(), "one fuel flag per centre");
     assert!(!centres.is_empty(), "no pebbles");
     let r = PEBBLE_RADIUS_CM;
@@ -809,7 +811,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                 cells.push(Cell::material(
                     TILE_DUMMY_BALL_CELL_ID + id,
                     clip(Rgn::ins(pb)).0,
-                    mat::GRAPHITE,
+                    moderator_slot,
                     293.6,
                 ));
             }

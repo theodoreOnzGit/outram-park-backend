@@ -33,6 +33,9 @@ use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::physics::track_output::{Track, TrackEvent, TrackState};
 use std::collections::VecDeque;
+use nee_soon::htr10_rmc::zones::{max_temperature, min_temperature, triso_limit, Htr10Zone, ZoneTemperatures};
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::degree_celsius;
 
 /// A core run's time left on this device, from its generations' measured
 /// wall times (the pool's, so every worker counts); `None` before the first.
@@ -307,6 +310,84 @@ pub struct CoreScreen {
     pub sweep_status: String,
     /// Every finished live result, with the curve it belongs to.
     pub live_results: Vec<(Option<crate::htr10::rods::Family>, crate::htr10::rods::LiveResult)>,
+    /// The eight zone temperatures the pool processes and builds at
+    /// (gh:#1142): the record's 27 °C until the reader applies others.
+    pub temps: ZoneTemperatures,
+    /// The sliders' values, °C, in `Htr10Zone::ALL` order: applied with
+    /// "Apply", which restarts the pool at them.
+    pub temps_c: [f64; 8],
+    /// Whether the sliders move together.
+    pub temps_linked: bool,
+}
+
+/// `t` in °C.
+pub fn celsius(t: ThermodynamicTemperature) -> f64 {
+    t.get::<degree_celsius>()
+}
+
+/// **The temperatures to apply**, if the sliders (°C) differ from the
+/// applied ones and every value is in range; `Err` names a value out of
+/// range (gh:#1142).
+pub fn temperatures_to_apply(applied: &ZoneTemperatures, sliders_c: &[f64; 8]) -> Result<Option<ZoneTemperatures>, String> {
+    let mut want = *applied;
+    for (z, &c) in Htr10Zone::ALL.into_iter().zip(sliders_c) {
+        // A slider that reads the applied value keeps it to the bit (27 °C
+        // round-tripped through °C is not always 300.15 K exactly, and a
+        // last-bit difference is another processing key).
+        if (c - celsius(applied.get(z))).abs() >= 1e-9 {
+            want.set(z, ThermodynamicTemperature::new::<degree_celsius>(c));
+        }
+    }
+    want.check()?;
+    let same = Htr10Zone::ALL.into_iter().all(|z| (celsius(want.get(z)) - celsius(applied.get(z))).abs() < 1e-9);
+    Ok((!same).then_some(want))
+}
+
+/// **Zone temperatures from a page URL** (gh:#1142): `?temps=fuel:900,coolant:500`
+/// (°C; the zone keys `fuel`, `moderator`, `coolant`, `top`, `side`,
+/// `bottom`, `rods`, `bricks`, and `all` for every zone, applied first).
+/// A setting that does not parse or is out of range leaves the record's
+/// temperatures.
+pub fn temperatures_from_query(query: &[(String, String)]) -> ZoneTemperatures {
+    let rec = ZoneTemperatures::record();
+    let Some(v) = query.iter().find(|(k, _)| k == "temps").map(|(_, v)| v.as_str()) else {
+        return rec;
+    };
+    let mut t = rec;
+    let mut items: Vec<(&str, &str)> = Vec::new();
+    for item in v.split(',') {
+        let Some(kv) = item.trim().split_once(':') else { return rec };
+        items.push(kv);
+    }
+    items.sort_by_key(|(k, _)| *k != "all");
+    for (k, c) in items {
+        let Ok(c) = c.trim().parse::<f64>() else { return rec };
+        let at = ThermodynamicTemperature::new::<degree_celsius>(c);
+        match (k.trim(), Htr10Zone::from_key(k.trim())) {
+            ("all", _) => t = ZoneTemperatures::uniform(at),
+            (_, Some(z)) => t.set(z, at),
+            _ => return rec,
+        }
+    }
+    if t.check().is_ok() { t } else { rec }
+}
+
+/// The warning shown above 1600 °C (the TRISO fuel limit), or `None`.
+pub fn triso_warning(sliders_c: &[f64; 8]) -> Option<String> {
+    let lim = celsius(triso_limit());
+    let hot: Vec<&str> = Htr10Zone::ALL
+        .into_iter()
+        .zip(sliders_c)
+        .filter(|(_, &c)| c > lim)
+        .map(|(z, _)| z.label())
+        .collect();
+    (!hot.is_empty()).then(|| {
+        format!(
+            "⚠ Above {lim:.0} °C, the TRISO fuel limit: {}. The data are processed there all the same (up to {:.0} °C); the model has no fuel failure.",
+            hot.join(", "),
+            celsius(max_temperature())
+        )
+    })
 }
 
 /// How long the rods must rest before the pool rebuilds its core with them,
@@ -369,6 +450,9 @@ impl CoreScreen {
             sweep: None,
             sweep_status: String::new(),
             live_results: Vec::new(),
+            temps: ZoneTemperatures::record(),
+            temps_c: Htr10Zone::ALL.map(|z| celsius(ZoneTemperatures::record().get(z))),
+            temps_linked: false,
         }
     }
 
@@ -401,7 +485,7 @@ impl CoreScreen {
     /// Start the workers.
     pub fn start_pool(&mut self, ctx: &egui::Context) {
         if self.pool.is_none() {
-            match CorePool::start(ctx, self.plan.clone(), self.layers as usize) {
+            match CorePool::start(ctx, self.plan.clone(), self.layers as usize, &self.temps) {
                 Ok(p) => self.pool = Some(p),
                 Err(e) => self.error = Some(e),
             }
@@ -577,7 +661,7 @@ impl CoreScreen {
         let mut lines: Vec<(String, Color32)> = vec![if self.live {
             ("LIVE: the picture shows neutrons of the k_eff run in this tab's workers".into(), crate::keffplot::LIVE)
         } else {
-            ("RECORDED: the picture shows tracks baked natively from the same model, code and seed (2026-10-07)".into(), crate::keffplot::AMBER)
+            ("RECORDED: the picture shows tracks baked natively (2026-10-07) from the record's model: 27 °C everywhere, graphite and SiC laws from the tapes".into(), crate::keffplot::AMBER)
         }];
         if let Some(p) = &self.pool {
             lines.extend(status_lines(p).into_iter().filter(|(t, _)| !t.starts_with("Bed: ") && !t.starts_with("Control rods: ")));
@@ -623,6 +707,69 @@ impl CoreScreen {
         } else {
             self.sweep = Some(crate::htr10::rods::LiveSweep::one(self.rods.rods, self.cfg));
         }
+    }
+
+    /// **The eight zone temperatures** (gh:#1142): a slider each, 20 to
+    /// 1800 °C in 1 °C steps, "Same for all", a warning above 1600 °C, and Apply, which
+    /// restarts the pool at the new temperatures (each zone's nuclides and
+    /// laws processed exactly there; what is unchanged loads from this
+    /// browser's cache). Fixed while a run or sweep is going. GUI code
+    /// (exempt); its decisions are [`temperatures_to_apply`] and
+    /// [`triso_warning`], tested.
+    fn temperatures_ui(&mut self, ui: &mut egui::Ui) {
+        let busy = self.busy();
+        let (lo, hi) = (celsius(min_temperature()), celsius(max_temperature()));
+        ui.add_enabled_ui(!busy, |ui| {
+            ui.checkbox(&mut self.temps_linked, "Same for all zones");
+            let mut moved: Option<f64> = None;
+            for (i, z) in Htr10Zone::ALL.into_iter().enumerate() {
+                let r = ui.add(
+                    // 1 °C steps: the record's 27 °C (300.15 K) is on the
+                    // grid; with 5 °C steps from 20 the slider snapped it to
+                    // 25 the moment it was touched (gh:#1142).
+                    egui::Slider::new(&mut self.temps_c[i], lo..=hi)
+                        .step_by(1.0)
+                        .fixed_decimals(0)
+                        .suffix(" °C")
+                        .text(z.label()),
+                );
+                if r.changed() {
+                    moved = Some(self.temps_c[i]);
+                }
+            }
+            if let (true, Some(c)) = (self.temps_linked, moved) {
+                self.temps_c = [c; 8];
+            }
+            if ui.button("Reset: every zone at 27 °C (the record's)").clicked() {
+                self.temps_c = Htr10Zone::ALL.map(|z| celsius(ZoneTemperatures::record().get(z)));
+            }
+        });
+        if let Some(w) = triso_warning(&self.temps_c) {
+            ui.colored_label(Color32::from_rgb(255, 110, 90), w);
+        }
+        match temperatures_to_apply(&self.temps, &self.temps_c) {
+            Err(e) => {
+                ui.colored_label(Color32::from_rgb(255, 110, 90), e);
+            }
+            Ok(None) => {
+                ui.weak("The core is built at these temperatures.");
+            }
+            Ok(Some(want)) => {
+                ui.colored_label(
+                    Color32::from_rgb(250, 200, 80),
+                    "Not applied yet. Apply reprocesses each changed zone's nuclides (RECONR, BROADR, HEATR, PURR) and thermal laws (LEAPR) at its temperature: minutes for the fuel, seconds for most; zones you did not change load from this browser's cache.",
+                );
+                let label = if self.pool.is_some() { "Apply: restart the pool at these temperatures" } else { "Apply (the pool starts at these temperatures)" };
+                if ui.add_enabled(!busy, egui::Button::new(label).min_size(Vec2::new(0.0, 36.0))).clicked() {
+                    self.temps = want;
+                    if self.pool.is_some() {
+                        let ctx = ui.ctx().clone();
+                        self.reprocess(&ctx);
+                    }
+                }
+            }
+        }
+        ui.weak("Every bound thermal law is made by LEAPR at its zone's temperature, so at 27 °C everywhere the model differs from the record's (graphite and SiC read from the tapes at 296 K) by that law alone.");
     }
 
     /// The bed: the record's lattice at N layers (10–20), or the DEM bed.
@@ -685,6 +832,9 @@ impl CoreScreen {
                 self.rods_changed_s = now_s();
             }
         });
+        egui::CollapsingHeader::new("Zone temperatures").default_open(true).show(ui, |ui| {
+            self.temperatures_ui(ui);
+        });
         let built = self.pool_rods();
         if self.pool.is_some() && built.map(f64::to_bits) != self.rods.rods.map(f64::to_bits) {
             ui.colored_label(
@@ -693,6 +843,9 @@ impl CoreScreen {
             );
         }
         egui::CollapsingHeader::new("Recorded k_eff at this setting (native runs)").default_open(true).show(ui, |ui| {
+            if !self.temps.is_uniform() || (celsius(self.temps.get(Htr10Zone::FuelPebble)) - 27.0).abs() > 1e-9 {
+                ui.colored_label(Color32::from_rgb(250, 200, 80), "Every record below is at 27 °C in every zone: it is not a reference for these temperatures.");
+            }
             if self.rods.rods == [0.0; 10] && self.layers as usize != super::random_bed::DEM_BED {
                 if let Some((k, s, rmc)) = record_row(self.layers as usize) {
                     ui.label(format!("Every rod withdrawn, N = {}: {k:.6} ± {s:.6} (10 000 × [5 + 135], 2026-10-07); RMC (Li, Yu & Wei 2014) at equal ball count {rmc:.6}.", self.layers as usize));
@@ -708,7 +861,8 @@ impl CoreScreen {
         match self.pool.as_mut() {
             None => {
                 ui.label(format!(
-                    "Processes all 38 nuclides of the recorded model (31 ENDF/B-VIII.0 tapes, 5 thermal laws, about 35 MB to download) in a pool of Web Workers, each nuclide once, then runs k_eff of the whole core at the statistics you set (up to the recorded 10 000 × [5 + 135] and beyond). Pool: {}.",
+                    "Processes every nuclide of the model at each zone temperature it is needed at ({} jobs at these temperatures: ENDF/B-VIII.0 tapes, about 35 MB to download, and thermal laws by LEAPR) in a pool of Web Workers, each once, then runs k_eff of the whole core at the statistics you set (up to the recorded 10 000 × [5 + 135] and beyond). Pool: {}.",
+                    super::jobs_at(&self.temps).map_or(0, |j| j.len()),
                     self.plan.reason
                 ));
                 if self.forced.is_none() {
@@ -1257,7 +1411,7 @@ fn pool_panel(
 pub const NOTES: &[&str] = &[
     "The model is the one the recorded k-vs-height runs used: nee_soon's assemble_explicit_triso(14, N, 0), the material set of the record, and every nuclide of Htr10DataConfig::default() (ENDF/B-VIII.0 at 300.15 K, tolerance 0.001, URR and DBRC on, every bound thermal law, real Ni/Fe rod steel). Nothing is re-modelled for the browser.",
     "Delta tracking in the bed, surface tracking in the reflector, as the recorded runs; the power iteration is the record's (run_keff_csg_par), split by generation over the workers. The answer does not depend on the number of workers, bit for bit.",
-    "The recorded tracks the view opens on were baked natively from the same model, code and seed; the browser's own run can differ from them in the last bits (its maths library is not the platform's), and then in the histories.",
+    "The recorded tracks the view opens on were baked natively (2026-10-07) from the record's model: every zone at 27 °C, graphite and SiC laws from the tapes. Since gh:#1142 the live run's model makes every law by LEAPR at its zone's temperature, so its histories differ from the recorded ones even at 27 °C; the browser's own run also differs in the last bits (its maths library is not the platform's).",
     "A live run of 1000 neutrons per generation has a σ of several hundred pcm, against about 100 pcm for the record's 1.35 million active histories. It shows the core is near critical at N = 12; it does not test the record.",
     "Pebbles on Şeker & Çolak (2003)'s regular lattice, not the reactor's random bed; no k exists here for a random (DEM) bed.",
     "Education and research only. Not for reactor operation, licensing or safety decisions.",
@@ -1267,6 +1421,55 @@ pub const NOTES: &[&str] = &[
 mod tests {
     use super::*;
     use crate::htr10::core::{AssemblyReport, CoreEv};
+
+    /// **The temperature sliders** (gh:#1142): unchanged sliders apply
+    /// nothing; a moved one gives the new temperatures (°C to K exactly); a
+    /// value outside 20..=1800 °C is refused by name; the TRISO warning
+    /// names the zones above 1600 °C only; and the screen starts its pool
+    /// at the applied temperatures, whose jobs grow when zones differ.
+    #[test]
+    fn the_temperature_sliders_apply_check_and_warn() {
+        let rec = ZoneTemperatures::record();
+        let same = Htr10Zone::ALL.map(|z| celsius(rec.get(z)));
+        assert_eq!(temperatures_to_apply(&rec, &same).expect("in range"), None);
+        let mut s = same;
+        s[0] = 900.0;
+        s[2] = 500.0;
+        let want = temperatures_to_apply(&rec, &s).expect("in range").expect("changed");
+        assert!((want.kelvin(Htr10Zone::FuelPebble) - 1173.15).abs() < 1e-9);
+        assert!((want.kelvin(Htr10Zone::Coolant) - 773.15).abs() < 1e-9);
+        assert_eq!(want.kelvin(Htr10Zone::SideReflector).to_bits(), rec.kelvin(Htr10Zone::SideReflector).to_bits());
+        // A slider snapped to a whole 27 °C keeps the record's 300.15 K to
+        // the bit, and the record's 27 °C is a whole slider step.
+        let mut snapped = s;
+        snapped[3] = 27.0;
+        let w = temperatures_to_apply(&rec, &snapped).expect("in range").expect("changed");
+        assert_eq!(w.kelvin(Htr10Zone::TopReflector).to_bits(), rec.kelvin(Htr10Zone::TopReflector).to_bits());
+        assert!((celsius(rec.get(Htr10Zone::FuelPebble)) - 27.0).abs() < 1e-9);
+        s[7] = 1850.0;
+        assert!(temperatures_to_apply(&rec, &s).unwrap_err().contains("Boronated bricks"));
+        assert_eq!(triso_warning(&same), None);
+        let mut hot = same;
+        hot[0] = 1650.0;
+        hot[1] = 1600.0;
+        let w = triso_warning(&hot).expect("warned");
+        assert!(w.contains("Fuel pebbles") && !w.contains("Moderator pebbles"), "{w}");
+        assert!(super::super::jobs_at(&want).expect("jobs").len() > super::super::jobs().expect("jobs").len());
+        let info = crate::table::Rung::Htr10.raster_info().expect("raster");
+        let screen = CoreScreen::new(info, 1.0, false);
+        assert_eq!(screen.temps, rec);
+        assert_eq!(screen.temps_c, same);
+        // The URL: `all` first whatever its place, then each zone; anything
+        // unreadable or out of range leaves the record's.
+        let q = |v: &str| vec![("temps".to_string(), v.to_string())];
+        let t = temperatures_from_query(&q("fuel:900,all:600"));
+        assert!((t.kelvin(Htr10Zone::FuelPebble) - 1173.15).abs() < 1e-9);
+        assert!((t.kelvin(Htr10Zone::BoronatedBricks) - 873.15).abs() < 1e-9);
+        for bad in ["fuel:hot", "core:900", "fuel:1900", "fuel900"] {
+            assert_eq!(temperatures_from_query(&q(bad)), rec, "{bad}");
+        }
+        assert_eq!(temperatures_from_query(&[]), rec);
+    }
 
     /// The picture keeps only the bed (with its pebbles) and the rods; every
     /// other line is the bottom panel's, and it does not repeat those two
@@ -1308,7 +1511,7 @@ mod tests {
             workers: 3,
             reason: "test".into(),
         };
-        let mut p = CorePool::start(&ctx, plan, 12).expect("pool");
+        let mut p = CorePool::start(&ctx, plan, 12, &ZoneTemperatures::record()).expect("pool");
         // Data ready without processing anything (the protocol is scripted).
         let n = p.state.labels.len();
         for j in 0..n {

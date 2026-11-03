@@ -337,6 +337,10 @@ fn data_config() -> Htr10DataConfig {
             Ok(dir) => Uo2Laws::Tapes(dir.into()),
             Err(_) => Uo2Laws::GeneratedFromLeapr,
         },
+        // The recorded runs' graphite and SiC laws: the published tapes
+        // (this example loads through `load_htr10_nuclides`, which reads
+        // tapes only; gh:#1138).
+        thermal_laws: nee_soon::htr10_rmc::data::ThermalLawSource::Tapes,
         temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
         tapes: TapeSource::Workspace,
     }
