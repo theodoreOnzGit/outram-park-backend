@@ -50,6 +50,22 @@
 //! [`super::super::structure::StructureCell`] fuel-pin conduction field is the
 //! next slice (bead op-p6p.7.11 follow-up).
 //!
+//! **Extension, new work and not port (gh:#1149, 2026-11-03):** the optional
+//! [`OnePhaseSolver::conductivity_model`] ([`PorousConductivity`]) replaces
+//! the constant `alphaEff` by `lambda(T)/Cp` per region before each energy
+//! solve. With it `None` (the default) the ported path is unchanged, bit for
+//! bit (`solver::tests::constant_property_energy_path_is_bit_identical`).
+//!
+//! **Two behaviours of the energy solve found while verifying that extension
+//! (2026-11-03), filed as gh:#1152 and deliberately left as they are,
+//! because the port path is pinned:** (1) `correct_energy` replaces `he` by
+//! the matrix solution, whose boundary conditions are all zero-gradient, so a
+//! fixed-value enthalpy boundary is applied on the first call only; (2) the
+//! `EEqn` is solved by Gauss-Seidel cold-started from zero and capped at
+//! the default 1000 sweeps (`SolverSettings::default`), which does not
+//! converge a near-steady diffusion-dominated matrix (a 40-cell slab at
+//! `dt = 1e7 s` was left 2 K from its solution).
+//!
 //! ## Wiring of the consumed models
 //!
 //! | Consumed | Where it enters |
@@ -63,6 +79,7 @@ use std::sync::Arc;
 use outram_foam_basic_lib::prelude::*;
 
 use super::porous_drag::PorousDrag;
+use crate::genfoam::thermal_hydraulics::solid_conduction::{ConductivityModel, SolidConductionError};
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::phase::fluid::Fluid;
 
@@ -110,6 +127,15 @@ pub struct OnePhaseSolver {
     /// Reference pressure value [Pa] pinned at `p_ref_cell`.
     pub p_ref_value: f64,
 
+    /// **New work, not port (gh:#1149).** Optional temperature-dependent
+    /// effective conductivity of the porous energy equation. `None` (the
+    /// default) runs the ported constant-property path unchanged, bit for bit
+    /// (pinned by `solver::tests::constant_property_energy_path_is_bit_identical`).
+    /// `Some` overwrites [`Self::alpha_eff`] with `lambda(T)/Cp` before every
+    /// energy solve, so the outer correctors and time steps iterate the
+    /// nonlinearity (Picard, lagged one solve).
+    pub conductivity_model: Option<PorousConductivity>,
+
     /// PIMPLE outer correctors.
     pub n_outer: usize,
     /// PISO inner (pressure) correctors.
@@ -134,6 +160,7 @@ impl OnePhaseSolver {
             solve_pressure: true,
             p_ref_cell: 0,
             p_ref_value: 0.0,
+            conductivity_model: None,
             n_outer: 1,
             n_inner: 2,
             drag,
@@ -374,6 +401,16 @@ impl OnePhaseSolver {
         let alpha_rho = self.alpha_rho();
         let he_old = self.fluid.enthalpy().clone();
 
+        // New work (gh:#1149), skipped entirely when no model is set:
+        // alphaEff = lambda(T)/Cp at the current temperature T = he/Cp.
+        if let Some(model) = &self.conductivity_model {
+            model.update_alpha_eff(
+                self.fluid.enthalpy().internal.as_slice(),
+                self.cp.internal.as_slice(),
+                self.alpha_eff.internal.as_mut_slice(),
+            );
+        }
+
         // alpha*alphaEff diffusivity, interpolated to faces.
         let mut aae = VolScalarField::zeros("alphaAlphaEff", mesh.clone());
         {
@@ -439,5 +476,60 @@ impl OnePhaseSolver {
             o[i] = a[i] * r[i];
         }
         ar
+    }
+}
+
+/// **New work, not port (gh:#1149).** A temperature-dependent effective
+/// conductivity for the porous energy equation of [`OnePhaseSolver`]: one
+/// [`ConductivityModel`] per region and the region of every cell.
+///
+/// GeN-Foam's `onePhase` carries a constant `alphaEff`; this lets a porous
+/// region (e.g. a stagnant pebble bed's effective conductivity, once
+/// gh:#1148's closures exist) vary with temperature. The models are the same
+/// enum the solid conduction field uses
+/// ([`crate::genfoam::thermal_hydraulics::solid_conduction`]). The models
+/// must return a positive conductivity over the temperatures reached; unlike
+/// the solid field, the porous driver does not check it.
+#[derive(Debug, Clone)]
+pub struct PorousConductivity {
+    cell_region: Vec<usize>,
+    models: Vec<ConductivityModel>,
+}
+
+impl PorousConductivity {
+    /// `cell_region[c]` indexes `models` for each of the mesh's `n_cells`.
+    ///
+    /// # Errors
+    /// [`SolidConductionError::InvalidInput`] for the wrong length or a
+    /// region index with no model.
+    pub fn new(
+        n_cells: usize,
+        cell_region: Vec<usize>,
+        models: Vec<ConductivityModel>,
+    ) -> Result<Self, SolidConductionError> {
+        if cell_region.len() != n_cells {
+            return Err(SolidConductionError::InvalidInput(format!(
+                "{} cell regions for {n_cells} cells",
+                cell_region.len()
+            )));
+        }
+        if let Some(r) = cell_region.iter().find(|r| **r >= models.len()) {
+            return Err(SolidConductionError::InvalidInput(format!(
+                "region {r} has no conductivity model ({} given)",
+                models.len()
+            )));
+        }
+        Ok(Self {
+            cell_region,
+            models,
+        })
+    }
+
+    /// Write `alphaEff = lambda(he/Cp)/Cp` per cell.
+    fn update_alpha_eff(&self, he: &[f64], cp: &[f64], alpha_eff: &mut [f64]) {
+        for c in 0..alpha_eff.len() {
+            let t = he[c] / cp[c];
+            alpha_eff[c] = self.models[self.cell_region[c]].0.value(t) / cp[c];
+        }
     }
 }

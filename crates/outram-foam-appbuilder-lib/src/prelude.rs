@@ -71,6 +71,14 @@ pub use crate::genfoam::multi_region::{MeshHandler, MultiPhysicsSolver};
 pub use crate::genfoam::thermal_hydraulics::phase::{Fluid, StateOfMatter};
 pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerModel};
 
+// R-Z solid conduction with radiation (new work, gh:#1149)
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::{
+    AxisEdges, ConductivityModel, GapConductance, HeatCapacityModel, PropertyModel, RegionGap,
+    RegionMap, RzBoundaries, RzGeometry, RzMesh, RzPatch, RzRect, SolidBoundary,
+    SolidConductionField, SolidRegion,
+};
+pub use crate::genfoam::thermal_hydraulics::solver::PorousConductivity;
+
 // Solvers
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
 pub use crate::solvers::melt_foam::MeltFoam;

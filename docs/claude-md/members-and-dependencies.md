@@ -176,6 +176,11 @@ through `sembawang`'s `tampines` dependency (normal since 2026-11-01);
 `tampines → outram-foam-appbuilder-lib` (2026-11-01, gh:#1060: reuses
 GeN-Foam's `RegimeMap1D`, `InterfacialArea` and `ContactPartition` in
 `multiphase_1d`; no cycle, the appbuilder depends on no tampines crate);
+`outram-foam-appbuilder-lib` dev-dep → `outram-blender` (2026-11-03,
+gh:#1149: its PNG writer and bitmap-font framing draw the solid-conduction
+R-Z region map and mesh in `tests/solid_conduction_rz_images.rs`;
+`default-features = false`, so no wgpu; dev-only, and blender depends on no
+outram-foam crate above basic-lib, so no cycle);
 since 2026-11-01 a normal edge `tampines → farrer-park` (gh:#1069:
 `tampines::fem1d` takes its Gauss line rule from
 `farrer_park::quadrature::facet_rule`; farrer-park's own dependencies were

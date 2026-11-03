@@ -46,6 +46,10 @@
 //!   including the power/heat-exchanger/pump structure models. Implemented.
 //! - [`solver`] — the porous solver drivers. [`solver::one_phase`] (UEqn/pEqn/
 //!   EEqn) is implemented; see "Known gaps" for its property limitation.
+//! - [`solid_conduction`] — **new work, not port (gh:#1149)**: 2-D R-Z solid
+//!   conduction with temperature-dependent properties, radiative boundaries
+//!   and radiating gas gaps between homogenised regions (THERMIX-like).
+//!   Verified against closed forms in its `tests`.
 //! - [`boundary_conditions`] — `blackbody_radiation`, `velocity_rundown` and
 //!   `time_field_table` implemented.
 //! - [`function_objects`] — post-processing diagnostics (mass flow, pressure
@@ -59,7 +63,10 @@
 //!   `onePhaseLegacy`. Only [`solver::one_phase`] exists.
 //! - [`solver::one_phase`] runs on **constant fluid properties** (`he = Cp·T`,
 //!   fixed-surface-temperature structure coupling): [`thermophysical`] is
-//!   ported but not yet wired in as the driver's fluid package.
+//!   ported but not yet wired in as the driver's fluid package. The one
+//!   exception is new work (gh:#1149): an optional
+//!   [`solver::PorousConductivity`] makes the energy equation's `alphaEff`
+//!   temperature-dependent; off by default.
 //! - `boundary_conditions::nusselt_baffle` is a **stub** — every method is
 //!   `unimplemented!()` (cross-patch implicit coupling is not supported).
 //! - [`closures::turbulence`] ports the closure *algebra* only; the k/ε
@@ -75,6 +82,7 @@ pub mod boundary_conditions;
 pub mod closures;
 pub mod function_objects;
 pub mod phase;
+pub mod solid_conduction;
 pub mod solver;
 pub mod structure;
 pub mod thermophysical;
