@@ -92,16 +92,17 @@ fn geometry_is_derived_and_validated() {
     let d_c = 0.1 * (1.0 + (0.03 / (std::f64::consts::PI * 0.1)).powi(2));
     assert!((g.curvature_ratio().get::<ratio>() - 0.014 / d_c).abs() < 1e-15);
     g.validate().expect("valid");
-    let bad = |f: &dyn Fn(&mut HelicalCoilGeometry)| {
+    // Generic, not `&dyn Fn` (workspace rule: no trait objects).
+    fn bad<F: Fn(&mut HelicalCoilGeometry)>(g: HelicalCoilGeometry, f: F) -> bool {
         let mut b = g;
         f(&mut b);
         b.validate().is_err()
-    };
-    assert!(bad(&|b| b.tube_outer_diameter = Length::new::<meter>(0.01)));
-    assert!(bad(&|b| b.pitch = Length::new::<meter>(0.01)));
-    assert!(bad(&|b| b.coil_diameter = Length::new::<meter>(0.015)));
-    assert!(bad(&|b| b.turns = 0.0));
-    assert!(bad(&|b| b.parallel_tubes = 0));
+    }
+    assert!(bad(g, |b| b.tube_outer_diameter = Length::new::<meter>(0.01)));
+    assert!(bad(g, |b| b.pitch = Length::new::<meter>(0.01)));
+    assert!(bad(g, |b| b.coil_diameter = Length::new::<meter>(0.015)));
+    assert!(bad(g, |b| b.turns = 0.0));
+    assert!(bad(g, |b| b.parallel_tubes = 0));
     let op = OperatingPoint::illustrative();
     op.validate().expect("valid");
     let mut o2 = op;

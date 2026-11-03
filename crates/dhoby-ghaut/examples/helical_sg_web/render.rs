@@ -36,12 +36,31 @@ fn colour(r: CoilRegion) -> Rgb {
 }
 
 /// A pixel rectangle `[x0, y0, w, h]` showing world `[u0, u1] × [v0, v1]`
-/// \[m\]; `point(u, v)` maps a world pair to 3-D.
-struct Panel<'a> {
+/// \[m\]; `slice` maps a world pair `(u, v)` to 3-D.
+struct Panel {
     px: [usize; 4],
     u: [f64; 2],
     v: [f64; 2],
-    point: &'a dyn Fn(f64, f64) -> [f64; 3],
+    slice: Slice,
+}
+
+/// The cutting plane of a panel (enum dispatch, not a closure: the
+/// workspace's no-trait-object rule).
+#[derive(Clone, Copy)]
+enum Slice {
+    /// x–z plane at y = 0: `(u, v) = (x, z)`.
+    XzAtY0,
+    /// x–y plane at height `z` \[m\]: `(u, v) = (x, y)`.
+    XyAtZ(f64),
+}
+
+impl Slice {
+    fn point(self, u: f64, v: f64) -> [f64; 3] {
+        match self {
+            Slice::XzAtY0 => [u, 0.0, v],
+            Slice::XyAtZ(z) => [u, v, z],
+        }
+    }
 }
 
 /// Fill a panel by region lookup; returns the pixel count of each region
@@ -53,7 +72,7 @@ fn fill(img: &mut ImageData, g: &HelicalCoilGeometry, p: &Panel) -> [usize; 3] {
         let v = p.v[1] - (j as f64 + 0.5) / h as f64 * (p.v[1] - p.v[0]);
         for i in 0..w {
             let u = p.u[0] + (i as f64 + 0.5) / w as f64 * (p.u[1] - p.u[0]);
-            let r = g.region_at((p.point)(u, v));
+            let r = g.region_at(p.slice.point(u, v));
             count[match r {
                 CoilRegion::Bore => 0,
                 CoilRegion::Wall => 1,
@@ -98,13 +117,12 @@ pub fn render(params: &Params) -> (ImageData, [usize; 3]) {
     let r = 0.5 * params.coil_diameter_m;
     let d_o = g.tube_outer_diameter.get::<meter>();
     let height = g.coil_height().get::<meter>();
-    let axial = |u: f64, v: f64| [u, 0.0, v];
     // (A) whole coil, equal scales on both axes.
     let z0 = -0.05 * height - d_o;
     let z1 = height * 1.05 + d_o;
     let scale_a = 880.0 / (z1 - z0);
     let half_w = 100.0 / scale_a;
-    let pa = Panel { px: [40, 70, 200, 880], u: [-half_w, half_w], v: [z0, z1], point: &axial };
+    let pa = Panel { px: [40, 70, 200, 880], u: [-half_w, half_w], v: [z0, z1], slice: Slice::XzAtY0 };
     fill(&mut img, &g, &pa);
     draw_text(&mut img, 40, 26, "A: WHOLE COIL", INK);
     draw_text(&mut img, 40, 48, "X-Z AT Y=0", INK);
@@ -114,7 +132,7 @@ pub fn render(params: &Params) -> (ImageData, [usize; 3]) {
         px: [300, 70, 500, 500],
         u: [r - 0.5 * span, r + 0.5 * span],
         v: [-0.25 * span, 0.75 * span],
-        point: &axial,
+        slice: Slice::XzAtY0,
     };
     let counts = fill(&mut img, &g, &pb);
     draw_text(&mut img, 300, 40, "B: BOTTOM TURNS, +X SIDE, ZOOMED", INK);
@@ -127,9 +145,8 @@ pub fn render(params: &Params) -> (ImageData, [usize; 3]) {
     draw_text(&mut img, x1 + 6, (y1 + y2) / 2, &format!("PITCH {:.1} MM", (c2[2] - c1[2]) * 1e3), MARK);
     // (C) x-y slice at mid-height.
     let zm = 0.5 * height;
-    let radial = move |u: f64, v: f64| [u, v, zm];
     let half_c = r + 2.0 * d_o;
-    let pc = Panel { px: [860, 70, 500, 500], u: [-half_c, half_c], v: [-half_c, half_c], point: &radial };
+    let pc = Panel { px: [860, 70, 500, 500], u: [-half_c, half_c], v: [-half_c, half_c], slice: Slice::XyAtZ(zm) };
     fill(&mut img, &g, &pc);
     draw_text(&mut img, 860, 40, &format!("C: X-Y AT Z = {:.3} M (MID-HEIGHT)", zm), INK);
     // (D) legend and derived dimensions, read from the geometry methods.
