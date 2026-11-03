@@ -378,8 +378,8 @@ fn steady_outer_iteration_on_the_finest_mesh() {
 /// solid and a gas temperature per step. If the march settles, a steady
 /// state exists and the block iteration is at fault; if it keeps moving, the
 /// state is unsteady at this resolution.
-#[cfg(feature = "long-tests")]
 #[test]
+#[ignore = "gh:#1176 diagnosis record (20-40 min on the 4x mesh), not a gate: run with --ignored"]
 fn finest_mesh_march_at_constant_power() {
     let o = TransientCoreOptions::htr10_lofc()
         .with_refinement(4, 4)
@@ -433,8 +433,8 @@ fn finest_mesh_march_at_constant_power() {
 /// solve's 0.5 relaxation of the gas temperature, and prints the largest
 /// gas change per repeat with the cell and its axial mass flux. If the gas
 /// alone does not settle, the outer iteration cannot.
-#[cfg(feature = "long-tests")]
 #[test]
+#[ignore = "gh:#1176 diagnosis record (20-40 min on the 4x mesh), not a gate: run with --ignored"]
 fn finest_mesh_gas_alone_at_fixed_solid() {
     use super::flow::solve_gas;
     let o = TransientCoreOptions::htr10_lofc().with_refinement(4, 4);
