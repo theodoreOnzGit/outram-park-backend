@@ -1,4 +1,4 @@
-//! Structured hex meshes of two primitives, a **pipe** (cylinder) and a
+//! Structured hex meshes of simple primitives, first a **pipe** (cylinder) and a
 //! **box**, generated as `blockMeshDict` text and built by this crate's
 //! [`block_mesh`](crate::block_mesh) port (gh:#1155, Foam Studio stage 1).
 //!
@@ -32,6 +32,14 @@
 //! double-pipe heat exchanger that way: the inner fluid (an O-grid), the
 //! tube wall (an annulus) and the outer fluid (an annulus), all with `4n`
 //! cells around and the same axial layers.
+//!
+//! # The helical pipe (gh:#1157)
+//!
+//! [`HelicalPipe`]: a [`PipeOGrid`] as long as the coil's tube, its points
+//! mapped onto the helix on a rotation-minimising frame (no twist between
+//! layers); same topology and cell order as the straight grid. Not a
+//! blockMeshDict: blockMesh's straight block edges cannot follow a helix
+//! without one block per layer, and the point map is exact.
 //!
 //! # The box
 //!
@@ -356,6 +364,270 @@ impl DoublePipe {
     }
 }
 
+/// A circular pipe coiled into a helix (gh:#1157, the CFD coil section): a
+/// [`PipeOGrid`] of the tube's arc length, its points swept along the helix
+/// centreline on a **rotation-minimising frame**, so successive cross-sections
+/// are not twisted about the tube axis.
+///
+/// # Geometry
+///
+/// The helix axis is +z through `axis_origin`; the centreline starts at
+/// `axis_origin + (R, 0, 0)` and winds counter-clockwise seen from +z,
+/// `C(φ) = (R cos φ, R sin φ, c φ)`, with `R = D_w/2` (half the coil
+/// diameter at the tube centreline), `c = h/(2π)` (`h` the pitch, rise per
+/// turn) and arc length `s = ℓ φ`, `ℓ = √(R² + c²)`. Its Frenet frame is
+///
+/// - `T = (−R sin φ, R cos φ, c)/ℓ`,
+/// - `N = (−cos φ, −sin φ, 0)`: towards the helix axis (the inner side of the
+///   bend),
+/// - `B = T × N = (c sin φ, −c cos φ, R)/ℓ`,
+///
+/// with constant curvature `κ = R/ℓ²` and torsion `τ = c/ℓ²`
+/// (Frenet–Serret: `T' = κN`, `N' = −κT + τB`, `B' = −τN`). So the
+/// **curvature diameter** is `1/(κ/2) = D_w [1 + (h/(π D_w))²]`, the same
+/// formula as `tampines::components::helical_coil_otsg::correlations::curvature_diameter`
+/// (VDI Heat Atlas Gc, there), derived here from κ rather than called, because
+/// this crate does not depend on `tampines`.
+///
+/// **Why not the Frenet frame.** It turns about `T` at the rate τ, so a
+/// cross-section swept on it is rotated by `τ Δs` against its neighbour a
+/// distance `Δs` along: over one turn (`τ · 2πℓ = h/ℓ` rad) of a `h = 2d`,
+/// `D_w = 10d` coil that is 23°, and every cell between layers is sheared by
+/// it. The rotation-minimising
+/// (Bishop) frame `U = cos θ N + sin θ B`, `V = −sin θ N + cos θ B` with
+/// `θ = −τ s` has `U' = −κ cos θ T` and `V' = κ sin θ T`, i.e. no component
+/// about `T` (derived from Frenet–Serret above; the frame is Bishop's, R. L.
+/// Bishop (1975), "There is more than one way to frame a curve", *Amer. Math.
+/// Monthly* 82(3), 246–251, doi:10.2307/2319846, cited for the idea, not
+/// read in this session). The test `helix_frames_are_orthonormal_and_untwisted`
+/// checks `U'·V = 0` numerically.
+///
+/// # Mesh
+///
+/// [`PipeOGrid::new`]`(radius, arc_length, n, nr, n_layers)`, patches
+/// `patch_names` (inlet at `s = 0`, outlet at `s = L`, the tube wall), every
+/// point `(x, y, z)` mapped to `C(z) + x U(z) + y V(z)`. The topology, cell
+/// order and patch faces are the straight grid's, so cell `i` of
+/// [`HelicalPipe::mesh`] is cell `i` of [`HelicalPipe::straight_grid`]'s
+/// mesh (the blockMesh port's cell order is not layer by layer, so use
+/// [`HelicalPipe::locate`] for a cell's arc position). Faces between layers
+/// are bilinear, not planar; the face-area vectors of the FV mesh are the
+/// usual triangle-fan sums.
+///
+/// With `pitch = 0` the coil is a torus section; turns must then not exceed 1
+/// or the tube overlaps itself (`h ≥ 2 r_tube` is the general no-overlap
+/// condition, which [`HelicalPipe::check`] enforces for more than one turn).
+#[derive(Debug, Clone, PartialEq)]
+pub struct HelicalPipe {
+    /// Tube (inner) radius.
+    pub radius: Length,
+    /// Coil diameter `D_w` at the tube centreline.
+    pub coil_diameter: Length,
+    /// Pitch `h`: rise of the centreline per turn.
+    pub pitch: Length,
+    /// Number of turns (any positive real).
+    pub turns: f64,
+    /// The point of the helix axis at the inlet's height.
+    pub axis_origin: [Length; 3],
+    /// O-grid side (`4 n` cells around the wall).
+    pub n: usize,
+    /// Radial cells between the O-grid square and the wall.
+    pub nr: usize,
+    /// Cells along the tube.
+    pub n_layers: usize,
+    /// Half-width of the O-grid's central square over the radius.
+    pub square_frac: f64,
+    /// Patch names of the inlet (`s = 0`), outlet (`s = L`) and wall.
+    pub patch_names: [String; 3],
+}
+
+/// Where a point lies relative to a [`HelicalPipe`]'s centreline:
+/// arc position and Frenet coordinates of its offset from `C(s)`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CoilPoint {
+    /// Arc length of the nearest centreline point \[m\].
+    pub s: f64,
+    /// Offset along `N` (positive towards the helix axis, the inner side) \[m\].
+    pub n: f64,
+    /// Offset along `B` \[m\].
+    pub b: f64,
+    /// The Frenet frame at `s`: `T`, `N`, `B`.
+    pub frenet: [[f64; 3]; 3],
+}
+
+impl HelicalPipe {
+    /// A coil with its axis on the z axis, patches `inlet`, `outlet`, `walls`
+    /// and the default square fraction.
+    pub fn new(radius: Length, coil_diameter: Length, pitch: Length, turns: f64, n: usize, nr: usize, n_layers: usize) -> Self {
+        let zero = Length::new::<meter>(0.0);
+        Self {
+            radius,
+            coil_diameter,
+            pitch,
+            turns,
+            axis_origin: [zero, zero, zero],
+            n,
+            nr,
+            n_layers,
+            square_frac: DEFAULT_SQUARE_FRAC,
+            patch_names: ["inlet".into(), "outlet".into(), "walls".into()],
+        }
+    }
+
+    fn rc(&self) -> (f64, f64, f64) {
+        let r = 0.5 * self.coil_diameter.get::<meter>();
+        let c = self.pitch.get::<meter>() / (2.0 * std::f64::consts::PI);
+        (r, c, (r * r + c * c).sqrt())
+    }
+
+    /// Why the coil cannot be meshed, if it cannot: positive sizes, the tube
+    /// inside the coil radius, and `pitch ≥ 2 r_tube` beyond one turn.
+    ///
+    /// # Errors
+    /// [`MeshError::Construction`] with the reason.
+    pub fn check(&self) -> Result<(), MeshError> {
+        let (rt, dw, h) = (self.radius.get::<meter>(), self.coil_diameter.get::<meter>(), self.pitch.get::<meter>());
+        let bad = |m: &str| Err(MeshError::Construction(format!("HelicalPipe: {m}")));
+        if !(rt > 0.0 && dw > 2.0 * rt && h >= 0.0 && self.turns > 0.0) {
+            return bad("needs radius > 0, coil diameter > tube diameter, pitch ≥ 0, turns > 0");
+        }
+        if self.turns > 1.0 && h < 2.0 * rt {
+            return bad("turns overlap: pitch must be at least the tube diameter beyond one turn");
+        }
+        if self.n == 0 || self.nr == 0 || self.n_layers == 0 {
+            return bad("n, nr and n_layers must be at least 1");
+        }
+        Ok(())
+    }
+
+    /// Developed length of the tube, `turns · √((π D_w)² + h²)`.
+    pub fn arc_length(&self) -> Length {
+        let (_, _, l) = self.rc();
+        Length::new::<meter>(2.0 * std::f64::consts::PI * l * self.turns)
+    }
+
+    /// Curvature `κ = R/(R² + c²)` \[1/m\].
+    pub fn curvature(&self) -> f64 {
+        let (r, _, l) = self.rc();
+        r / (l * l)
+    }
+
+    /// Torsion `τ = c/(R² + c²)` \[1/m\].
+    pub fn torsion(&self) -> f64 {
+        let (_, c, l) = self.rc();
+        c / (l * l)
+    }
+
+    /// Curvature diameter `2/κ = D_w [1 + (h/(π D_w))²]`.
+    pub fn curvature_diameter(&self) -> Length {
+        Length::new::<meter>(2.0 / self.curvature())
+    }
+
+    /// Cells in one cross-section, `n² + 4 n nr`.
+    pub fn cells_per_section(&self) -> usize {
+        self.n * self.n + 4 * self.n * self.nr
+    }
+
+    /// Number of cells.
+    pub fn n_cells(&self) -> usize {
+        self.cells_per_section() * self.n_layers
+    }
+
+    /// Centreline point at arc length `s` \[m\].
+    pub fn centreline(&self, s: Length) -> [f64; 3] {
+        let (r, c, l) = self.rc();
+        let phi = s.get::<meter>() / l;
+        let o = self.axis_origin.map(|v| v.get::<meter>());
+        [o[0] + r * phi.r_cos(), o[1] + r * phi.r_sin(), o[2] + c * phi]
+    }
+
+    /// The Frenet frame `[T, N, B]` at arc length `s`.
+    pub fn frenet(&self, s: Length) -> [[f64; 3]; 3] {
+        let (r, c, l) = self.rc();
+        let phi = s.get::<meter>() / l;
+        let (sp, cp) = (phi.r_sin(), phi.r_cos());
+        [[-r * sp / l, r * cp / l, c / l], [-cp, -sp, 0.0], [c * sp / l, -c * cp / l, r / l]]
+    }
+
+    /// The rotation-minimising frame `[T, U, V]` at `s` (see the type docs),
+    /// equal to the Frenet frame at `s = 0`.
+    pub fn frame(&self, s: Length) -> [[f64; 3]; 3] {
+        let [t, n, b] = self.frenet(s);
+        let th = -self.torsion() * s.get::<meter>();
+        let (st, ct) = (th.r_sin(), th.r_cos());
+        let u = [0, 1, 2].map(|i| ct * n[i] + st * b[i]);
+        let v = [0, 1, 2].map(|i| -st * n[i] + ct * b[i]);
+        [t, u, v]
+    }
+
+    /// The straight O-grid that is swept: radius, arc length, `n`, `nr`,
+    /// `n_layers`, patches and square fraction of this coil, at the origin.
+    pub fn straight_grid(&self) -> PipeOGrid {
+        let mut g = PipeOGrid::new(self.radius, self.arc_length(), self.n, self.nr, self.n_layers);
+        g.square_frac = self.square_frac;
+        g.patch_names = self.patch_names.clone();
+        g
+    }
+
+    /// Build the mesh: [`HelicalPipe::straight_grid`]'s mesh with every
+    /// point swept onto the coil.
+    ///
+    /// # Errors
+    /// [`HelicalPipe::check`]'s reason, or whatever [`block_mesh`] returns.
+    pub fn mesh(&self) -> Result<PolyMesh, MeshError> {
+        self.check()?;
+        let mut pm = self.straight_grid().mesh()?;
+        for p in pm.points.iter_mut() {
+            let s = Length::new::<meter>(p.z);
+            let c = self.centreline(s);
+            let [_, u, v] = self.frame(s);
+            *p = outram_foam_basic_lib::primitives::Vector3::new(
+                c[0] + p.x * u[0] + p.y * v[0],
+                c[1] + p.x * u[1] + p.y * v[1],
+                c[2] + p.x * u[2] + p.y * v[2],
+            );
+        }
+        Ok(pm)
+    }
+
+    /// The nearest centreline point to `p` \[m\] and `p`'s Frenet offsets
+    /// from it: the turn is picked from `p`'s height, then Newton's method on
+    /// `(p − C(s))·T(s) = 0` (exact to round-off within the tube; not meant
+    /// for points far outside it). `s` is not clamped to `[0, L]`.
+    pub fn locate(&self, p: [f64; 3]) -> CoilPoint {
+        let (r, c, l) = self.rc();
+        let o = self.axis_origin.map(|v| v.get::<meter>());
+        let (x, y, z) = (p[0] - o[0], p[1] - o[1], p[2] - o[2]);
+        let two_pi = 2.0 * std::f64::consts::PI;
+        let mut phi = y.r_atan2(x);
+        if c > 0.0 {
+            let k = ((z / c - phi) / two_pi).round();
+            phi += two_pi * k;
+        } else if phi < -0.5 * std::f64::consts::PI {
+            phi += two_pi;
+        }
+        for _ in 0..30 {
+            let (sp, cp) = (phi.r_sin(), phi.r_cos());
+            let d = [x - r * cp, y - r * sp, z - c * phi];
+            // g = d · C'(φ), C' = (−R sin, R cos, c); g' = −|C'|² + d · C''.
+            let g = -d[0] * r * sp + d[1] * r * cp + d[2] * c;
+            let gp = -(l * l) + (-d[0] * r * cp - d[1] * r * sp);
+            let step = g / gp;
+            phi -= step;
+            if step.abs() < 1e-15 * (1.0 + phi.abs()) {
+                break;
+            }
+        }
+        let s = phi * l;
+        let sl = Length::new::<meter>(s);
+        let cc = self.centreline(sl);
+        let fr = self.frenet(sl);
+        let d = [p[0] - cc[0], p[1] - cc[1], p[2] - cc[2]];
+        let dot = |a: [f64; 3]| a[0] * d[0] + a[1] * d[1] + a[2] * d[2];
+        CoilPoint { s, n: dot(fr[1]), b: dot(fr[2]), frenet: fr }
+    }
+}
+
 /// An axis-aligned box as one hex block.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoxBlock {
@@ -548,6 +820,140 @@ mod tests {
         assert!(all.patches.iter().any(|p| p.name == "outer/shell_wall"));
         let fv = all.to_fv_mesh().unwrap();
         assert_eq!(fv.n_cells, all.n_cells);
+    }
+
+    fn coil() -> HelicalPipe {
+        // d = 10 mm, D_w = 100 mm, h = 20 mm, 1.5 turns.
+        HelicalPipe::new(m(0.005), m(0.1), m(0.02), 1.5, 3, 2, 120)
+    }
+
+    #[test]
+    fn helix_frames_are_orthonormal_and_untwisted() {
+        let g = coil();
+        let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        let (r, c) = (0.05, 0.02 / (2.0 * std::f64::consts::PI));
+        assert!((g.curvature() - r / (r * r + c * c)).abs() < 1e-12);
+        assert!((g.torsion() - c / (r * r + c * c)).abs() < 1e-12);
+        // 2/κ is the VDI curvature diameter D_w [1 + (h/(π D_w))²].
+        let dc = 0.1 * (1.0 + (0.02 / (std::f64::consts::PI * 0.1)).powi(2));
+        assert!((g.curvature_diameter().get::<meter>() / dc - 1.0).abs() < 1e-14);
+        let l = g.arc_length().get::<meter>();
+        assert!((l - 1.5 * ((std::f64::consts::PI * 0.1).powi(2) + 0.02 * 0.02).sqrt()).abs() < 1e-14);
+        assert_eq!(g.centreline(m(0.0)), [0.05, 0.0, 0.0]);
+        let h = 1e-5;
+        for k in 0..7 {
+            let s = l * k as f64 / 6.0;
+            for fr in [g.frenet(m(s)), g.frame(m(s))] {
+                for i in 0..3 {
+                    for j in 0..3 {
+                        let want = if i == j { 1.0 } else { 0.0 };
+                        assert!((dot(fr[i], fr[j]) - want).abs() < 1e-14, "frame not orthonormal at s {s}");
+                    }
+                }
+            }
+            // Unit speed, and T is the centreline's derivative.
+            let (a, b) = (g.centreline(m(s - h)), g.centreline(m(s + h)));
+            let d = [0, 1, 2].map(|i| (b[i] - a[i]) / (2.0 * h));
+            let t = g.frenet(m(s))[0];
+            assert!((0..3).all(|i| (d[i] - t[i]).abs() < 1e-8));
+            // N points to the helix axis.
+            let cc = g.centreline(m(s));
+            let nn = g.frenet(m(s))[1];
+            assert!((dot(nn, [-cc[0], -cc[1], 0.0]) - 0.05).abs() < 1e-12);
+            // The Frenet frame turns about T at the torsion; the swept frame does not.
+            let (f0, f1) = (g.frenet(m(s - h)), g.frenet(m(s + h)));
+            let dn = [0, 1, 2].map(|i| (f1[1][i] - f0[1][i]) / (2.0 * h));
+            assert!((dot(dn, g.frenet(m(s))[2]) - g.torsion()).abs() < 1e-6);
+            let (u0, u1) = (g.frame(m(s - h)), g.frame(m(s + h)));
+            let du = [0, 1, 2].map(|i| (u1[1][i] - u0[1][i]) / (2.0 * h));
+            assert!(dot(du, g.frame(m(s))[2]).abs() < 1e-6, "twist {} at s {s}", dot(du, g.frame(m(s))[2]));
+            assert!((dot(du, t) + g.curvature() * dot(g.frame(m(s))[1], nn)).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn helical_mesh_has_the_swept_volume_and_locates() {
+        let g = coil();
+        assert_eq!(g.cells_per_section(), 9 + 24);
+        assert_eq!(g.n_cells(), 33 * 120);
+        let pm = g.mesh().unwrap();
+        assert_eq!(pm.n_cells, g.n_cells());
+        let names: Vec<&str> = pm.patches.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, ["inlet", "outlet", "walls"]);
+        let l = g.arc_length().get::<meter>();
+        // Pappus: a section swept with its centroid on the curve encloses A·L.
+        // The mesh's straight edges between layers cut the bend's chords, a
+        // second-order shortfall; measured (2026-11-03) at 60/120/240/480
+        // layers: −4.09e-3, −1.02e-3, −2.56e-4, −6.40e-5, i.e.
+        // −0.166 (κ Δs)² (order 2.00).
+        let want = g.straight_grid().polygon_area() * l;
+        let shortfall = |g: &HelicalPipe| {
+            let v = g.mesh().unwrap().total_volume();
+            let ks = g.curvature() * g.arc_length().get::<meter>() / g.n_layers as f64;
+            (v / (g.straight_grid().polygon_area() * g.arc_length().get::<meter>()) - 1.0) / (ks * ks)
+        };
+        let vol = pm.total_volume();
+        assert!((vol / want - 1.0).abs() < 1.1e-3, "volume {vol} vs {want}: {:e}", vol / want - 1.0);
+        let mut fine = coil();
+        fine.n_layers = 240;
+        for k in [shortfall(&g), shortfall(&fine)] {
+            assert!((k + 0.166).abs() < 0.002, "volume shortfall / (κ Δs)² = {k}");
+        }
+        let fv = pm.to_fv_mesh().unwrap();
+        assert!(fv.cell_volumes.iter().all(|v| *v > 0.0));
+        let r = 0.005;
+        for c in &fv.cell_centres {
+            let q = g.locate([c.x, c.y, c.z]);
+            assert!(q.s > 0.0 && q.s < l, "s {}", q.s);
+            assert!((q.n * q.n + q.b * q.b).sqrt() < r, "outside the tube: {q:?}");
+            // The offset is perpendicular to T: locate found the foot point.
+            let cc = g.centreline(m(q.s));
+            let d = [c.x - cc[0], c.y - cc[1], c.z - cc[2]];
+            let t = q.frenet[0];
+            assert!((d[0] * t[0] + d[1] * t[1] + d[2] * t[2]).abs() < 1e-12);
+        }
+        // The inlet sits on the centreline start, facing −T; the outlet at s = L.
+        let ends = |name: &str| {
+            let p = fv.patches.iter().find(|p| p.name == name).unwrap();
+            let (mut a, mut sf) = (0.0, outram_foam_basic_lib::primitives::Vector3::ZERO);
+            let mut cen = outram_foam_basic_lib::primitives::Vector3::ZERO;
+            for i in 0..p.size {
+                let f = p.start + i;
+                a += fv.face_areas[f];
+                sf = sf + fv.face_area_vectors[f];
+                cen = cen + fv.face_centres[f] * fv.face_areas[f];
+            }
+            (cen * (1.0 / a), sf * (1.0 / a))
+        };
+        let (ci, ni) = ends("inlet");
+        assert!((ci.x - 0.05).abs() < 1e-12 && ci.y.abs() < 1e-12 && ci.z.abs() < 1e-12, "{ci:?}");
+        let t0 = g.frenet(m(0.0))[0];
+        assert!((ni.x + t0[0]).abs() < 1e-9 && (ni.y + t0[1]).abs() < 1e-9 && (ni.z + t0[2]).abs() < 1e-9);
+        let (co, _) = ends("outlet");
+        let cl = g.centreline(m(l));
+        assert!((co.x - cl[0]).abs() < 1e-9 && (co.y - cl[1]).abs() < 1e-9 && (co.z - cl[2]).abs() < 1e-9);
+        // Locating a centreline point gives its arc length back, also on a torus.
+        let q = g.locate(g.centreline(m(0.3)));
+        assert!((q.s - 0.3).abs() < 1e-12 && q.n.abs() < 1e-12 && q.b.abs() < 1e-12);
+        let torus = HelicalPipe::new(m(0.005), m(0.1), m(0.0), 0.75, 2, 1, 30);
+        assert_eq!(torus.torsion(), 0.0);
+        let q = torus.locate(torus.centreline(m(0.2)));
+        assert!((q.s - 0.2).abs() < 1e-12);
+        assert!(torus.mesh().is_ok());
+    }
+
+    #[test]
+    fn helical_pipe_rejects_impossible_coils() {
+        let mut g = coil();
+        g.pitch = m(0.009);
+        assert!(g.check().is_err(), "turns overlap");
+        g.turns = 0.9;
+        assert!(g.check().is_ok(), "under one turn any pitch is fine");
+        g.coil_diameter = m(0.008);
+        assert!(g.mesh().is_err());
+        let mut g = coil();
+        g.n_layers = 0;
+        assert!(g.check().is_err());
     }
 
     #[test]

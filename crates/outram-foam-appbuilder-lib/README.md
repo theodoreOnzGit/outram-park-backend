@@ -65,6 +65,7 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 | Module | What |
 |---|---|
 | `double_pipe` | `DoublePipeExchanger`: a counterflow double-pipe heat exchanger as three `ChtMultiRegionFoam` regions (tube fluid, tube wall, annulus fluid) on the conformal meshes of `outram_foam_mesh::block_primitives::DoublePipe`, with the march-freeze-iterate procedure and the report (outlet temperatures, stream and interface heats, effectiveness, local UA) the V&V and the Foam Studio demo use (gh:#1156). |
+| `helical_coil` | `CoilFlow` (Re, d/D_c, Dean number), `CoilCells` (per-cell arc position and Frenet frame, from `outram_foam_mesh::block_primitives::HelicalPipe::locate`), `arc_pressure_gradient` (−dp/ds over an arc window) and `dean_section` (axial-peak shift, secondary speed, core outflow, vortex-pair sign): laminar flow in a helical coil on `laminar_pipe`'s boundary conditions, developing from a uniform inlet (gh:#1157; V&V in `verification_and_validation/helical_coil_dean_gh1157.md`). |
 | `laminar_pipe` | `PipeFlow`: a laminar internal flow on any mesh with `inlet` / `outlet` / wall patches (uniform inlet along the inward normal, p = 0 outlet, no-slip walls) solved by `PimpleFoam`, with Hagen–Poiseuille, f = 64/Re and the Durst et al. (2005) development length as references, and the fits (centreline velocity, −dp/dz, development length, fluxes, continuity) the pipe V&V and the Foam Studio demo use (gh:#1155). |
 
 ## Turbulence closures (`turbulence`)
