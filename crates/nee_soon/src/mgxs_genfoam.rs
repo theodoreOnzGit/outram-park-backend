@@ -46,7 +46,11 @@
 //!   [`Htr10MgxsRegions::without_rebalance`].
 //! - **Group order**: GeN-Foam reads group 0 as the fastest; the records are
 //!   tallied ascending, and the converter cannot tell. Ablation:
-//!   [`Htr10MgxsRegions::without_descending_order`].
+//!   [`Htr10MgxsRegions::without_descending_order`]. **Measured 2026-11-03:
+//!   it does not move the steady `k`** (a consistent reversal of every
+//!   group axis is a relabelling, 1.02789 both ways); it does make the
+//!   inverse velocities `genfoam_xs` writes wrong, which matters for a
+//!   transient.
 //! - **Units**: the records are cm; GeN-Foam is SI (`Sigma` x 100, `D` x
 //!   0.01). Ablation: [`Htr10MgxsRegions::without_unit_conversion`].
 //! - **One zone for the whole core** costs about -27 000 pcm: the regions
@@ -235,12 +239,23 @@ impl MgxsStatePoints {
         self.points[0].layers
     }
 
-    /// Whether material slot `s` carries flux at every point.
+    /// Whether material slot `s` carries flux in every group of the
+    /// eight-group structure ([`Collapse::Eight`], the finest coarse
+    /// structure offered) at every point: the slots a region can be made of.
+    ///
+    /// ~~Every one of the 70 tally groups~~ **CORRECTED 2026-11-03**: that
+    /// excluded most reflector slots (no neutron reaches some of the top
+    /// fine groups there), and the mesh then labelled the top reflector
+    /// helium. A region's constants are only ever used collapsed.
     #[must_use]
     pub fn slot_has_flux(&self, s: usize) -> bool {
-        self.points
-            .iter()
-            .all(|p| p.library.zones.get(s).is_some_and(|z| z.flux.iter().all(|f| *f > 0.0)))
+        let coarse = Collapse::Eight.structure();
+        self.points.iter().all(|p| {
+            p.library.zones.get(s).is_some_and(|z| {
+                let one = MgxsLibrary { groups: p.library.groups.clone(), zones: vec![z.clone()] };
+                one.collapse(&coarse).is_ok_and(|c| c.zones[0].flux.iter().all(|f| *f > 0.0))
+            })
+        })
     }
 }
 

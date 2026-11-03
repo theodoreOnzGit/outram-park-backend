@@ -62,6 +62,9 @@
 //! | [`genfoam_xs`] | hands those constants to GeN-Foam through its own `nuclearData` input path |
 //! | [`coupling`] | [`coupling::McToGenFoam`], the facade: construct, `generate_mgxs()`, `solve_infinite_medium()` |
 //! | [`direct_coupling`] | [`direct_coupling::McGenFoamDirect`], Monte Carlo iterated directly against GeN-Foam's lumped thermal region |
+//! | [`power_shape`] | power shapes (lumps, cosine/sine, `J0 x cos`, Legendre-z, Zernike(-Legendre), Fourier-Bessel, spatial spherical harmonics, R-Z tables), read from Monte Carlo tallies and put on TH cells conserving the power; the HTR-10 frames (gh:#1184) |
+//! | [`htr10_coupling`] | [`htr10_coupling::Htr10DirectCoupling`]: the whole-core HTR-10 Monte Carlo (`ParametricStudy`) iterated against a lumped node or the `htr10_rz` R-Z core, reprocessing the data exactly at each zone temperature (gh:#1186) |
+//! | [`mgxs_genfoam`] | four isothermal Monte Carlo MGXS records stacked with `TFuel` into a GeN-Foam R-Z diffusion core on the `htr10_rz` mesh (gh:#1187) |
 //!
 //! [`NeeSoon::new_prompt_excursion_model`] remains real, wired code exposing
 //! `teh-o-prke`'s Nordheim-Fuchs exact timestepper.

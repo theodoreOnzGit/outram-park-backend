@@ -1413,7 +1413,8 @@ pub fn write_bessel_comparison_png(
     let black = Rgb::new(0, 0, 0);
     let blues = [Rgb::new(150, 190, 240), Rgb::new(60, 120, 220), Rgb::new(10, 40, 140)];
     let reds = [Rgb::new(250, 170, 150), Rgb::new(230, 80, 50), Rgb::new(140, 20, 10)];
-    let mut series = vec![(black, r.clone(), z, vec![0.0; r.len()])];
+    let zernike_series = (black, r.clone(), z, vec![0.0; r.len()]);
+    let mut series = Vec::new();
     let mut legend = vec![LegendEntry::new(black, "ZERNIKE (M = 0)")];
     for (k, &t) in n_terms.iter().enumerate() {
         for (b, cols, name) in [
@@ -1427,7 +1428,8 @@ pub fn write_bessel_comparison_png(
             legend.push(LegendEntry::new(c, format!("{name} {t} TERMS")));
         }
     }
-    legend.push(LegendEntry::new(black, format!("X: R 0-{:.0} CM; Y: RELATIVE POWER", cm(disc_radius))));
+    legend.push(LegendEntry::new(black, format!("X: R 0-{:.0} CM, Y: RELATIVE POWER", cm(disc_radius))));
+    series.push(zernike_series); // drawn last, on top
     let img = line_plot(&series, 520, 340);
     annotate_image(&img, "ZERNIKE -> FOURIER-BESSEL (RADIAL)", &legend)
         .write_png(path)
