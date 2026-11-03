@@ -10,7 +10,10 @@
 //! - **Does NOT belong:** the bed's *conduction* physics — the
 //!   Zehner-Bauer-Schlunder effective conductivity lives in
 //!   [`crate::pebble_bed::zbs`]. Nor particle-to-fluid heat transfer
-//!   (Wakao), which is still unimplemented anywhere in the workspace.
+//!   (Wakao), ~~which is still unimplemented anywhere in the workspace.~~
+//!   **CORRECTED 2026-11-03** — which lives in
+//!   [`crate::pebble_bed::cht`] (`PackedBedConvection::nusselt_number`);
+//!   TUAS also carries `WakaoData` (verified by reading both sources).
 //!
 //! ## Formulation
 //!
