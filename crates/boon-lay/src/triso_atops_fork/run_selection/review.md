@@ -67,3 +67,64 @@ this is data utility, parser
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit e6f0fcff35.
+
+# Review: select_nuclides (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-select-nuclides-theodoreonzgit-2db20ac5"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:52:48+08:00"
+modified = "2026-11-03T14:52:48+08:00"
+target = "fn:2db20ac5ca82f2df"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs::select_nuclides"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:52:48+08:00"
+commit = "75e2b96459f647f388a5abe097d10710476bb83d"
+hash = "sha256:88f57a620fcad0a9ad2c3a1dd178c5e0c248335e82ec9259d7aae14506c5ada5"
+doc_hash = "sha256:4aad173b57721dbb50ce64846945b43664e527663b2fcbad7850c80ab48712dd"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:153ff318fdebeb23" = "sha256:5131c46d8d82af19d0ce45b7a27fa03342176bf85ad2fec54aa89a12a63119a7"
+"fn:2ac3393d97ea6d61" = "sha256:4181732889c916f7ae826996ea74c978665b65a0f13f4937fb366facddd842bb"
+"fn:3292f77e069a4060" = "sha256:6f1cce1318935d762a5e95055133dcd60b18d8b2d565afcb4649635a43a0d0db"
+"fn:4ef295f5b3d28b64" = "sha256:48e95438f69cba28a4bf0a211b732c7dbe4fabe11f86934ecbc07520522f3496"
+"fn:720763535406a854" = "sha256:468363707eb6f8af68dd8e3d9901d7a76231693bf0a5b4e7e8bc5ad5ee6d5cc1"
+"fn:e1cb570a455c31b8" = "sha256:06a9c12470b244d22d5415441b5b842edce0c43e867d9a1bbc36b9c1b69988ca"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "k06nmVsl7JaWben+BD7Tqn5gYPSVURQKHddINqtNOCpAMS3FXBEmTvhk519tblya5jubs7YuWe+UnRs9/Kc2Bg=="
+```
+
+parser function
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 75e2b96459.
