@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.2.9
+**Version:** 0.3.0
 
 **Format Version:** 61
 
@@ -8828,38 +8828,74 @@ Precondition: `(p0, h0)` is single-phase on the liquid side — subcooled
 liquid (`p0 < p_c`, `T0 < T_sat(p0)`) or liquid-like (`p0 >= p_c`,
 `T0 < T_c`). The caller's dispatcher is responsible for routing here.
 
-Method: two-regime choke finder along the isentrope `s = s0`,
-    `G_energy(p) = rho(p,s0) * sqrt( 2 * (h0 - h(p,s0)) )`
+# Method: the maximum of `G` along the isentrope (gh:#1111, 2026-11-02)
 
-* **Genuinely subcooled** (throat quality > ~0.03): the choke is a smooth
-  interior two-phase point where the energy-balance maximum of `G_energy`
-  coincides with the sonic point (`dG/dp = 0 ⇔ v = c`). Located by
-  golden-section over `[p_min, p_bubble]`.
-* **Near-saturated** (throat quality ≲ 0.03, i.e. throat on the saturated-
-  liquid line): the energy maximum is *not* the choke — it either overshoots
-  `rho_f·v ≫ rho_f·c` at the bubble point or walks off to a deeper stationary
-  point the flow never reaches at `M = 1`. Here the choke is the bubble-point
-  kink itself; the mass flux `rho_f·c_2φ` is read from a precomputed sonic map
-  along the saturated-liquid line (see [`saturation_line_sonic_mass_flux`]).
+Along the isentrope `s = s0`, with the stagnation enthalpy `h0`,
+    `G(p) = ρ(p, s0) · √(2 (h0 − h(p, s0)))`,
+and the choke is its **global maximum over the throat pressure** — the
+maximum-discharge principle that defines the HEM reference curves this
+solver is validated against (Moody 1975, "maximum discharge rate";
+Zaloudek's HEM throats). Along the isentrope `dG/dp|_s = (u² − c²)/(u c²)`,
+so an interior maximum is a sonic point `u = c`.
 
-The regime is selected by the two-phase quality at the energy-max choke,
-which is the only quantity that cleanly separates the two cases (stagnation
-subcooling and pressure both overlap between them).
+- **Liquid stretch `[p_bubble, p0]`.** `u` is far below the liquid sound
+  speed (≈ 1500 m/s), so `G` rises monotonically; it is not searched.
+- **The bubble point.** The HEM sound speed drops there from `c_liq` to
+  `c_2φ(x = 0⁺)`, so `G` has a kink. When the kink is the maximum
+  (typically `u_b > c_2φ`, deep subcooling), `p* = p_bubble` and
+  `G* = ρ_f u_b`, `u_b = √(2 (h0 − h_f))` — the Bernoulli discharge.
+  Otherwise the maximum is an interior two-phase sonic point.
+- **`G*` is continuous in `(p0, h0)`**, being the maximum of a family of
+  continuous functions; only `p*` may jump between two near-equal maxima.
+  Measured 2026-11-02: the worst change of `G*` per 1 J/kg of `h0` over
+  ±300 J/kg is 3.6e-6 (Marviken 4075 kPa), 7.8e-6 and 1.1e-5 (Moody 0.50),
+  2.7e-7 (300 K, 2.31 bar).
+
+The search is a 160-point geometric scan below `p_bubble` (relative offset
+1e-9 to `1 − p_min/p_bubble`) for the largest `G`, including the kink, then
+[`golden_section_max_g`] inside the two neighbours of the best grid point.
+The two-phase `G` uses the forward saturation properties at
+`x = (s0 − s_f)/(s_g − s_f)` (clamped at 0), never a backward equation.
+
+**A first-local-maximum rule was considered and rejected** (V&V §11): it
+takes the kink where `G` has a higher interior maximum, and so misses
+Zaloudek x_t = 0.05 at 1000 psia by −41 %; the references are the global
+maximum.
+
+**What this replaced, and why.** Two thresholds used to select the
+branch:
+- an `x < 0.03` switch (quality at the global energy maximum) to a
+  bubble-point mass flux `ρ_f c_2φ` read from a sonic map;
+- a `DEEP_SUBCOOLING_RATIO = 5` escape (`u_b/c_2φ`) back to the energy
+  maximum.
+
+Both were knife edges: on Marviken test 23 a 0.01 % change in `h0` crossed
+`x = 0.03` and moved G by 20 %; a Moody 0.50 point sat at a ratio of 5.03.
+They existed because the energy objective subtracted from the given `h0`
+while taking `s0` at the backward-equation `T0`, putting up to ≈ 100 J/kg
+of error into a kinetic energy of 0.1–200 J/kg near saturation, which made
+the energy maximum overshoot or wander. The `ρ_f c_2φ` branch was also not
+energy-consistent when `u_b ≠ c_2φ`: it is the flux at a velocity the
+stagnation enthalpy does not supply. Before/after numbers:
+`verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`
+§11–§12.
+
+# Consistent stagnation state
+
+For a Region 1 stagnation `T0` solves the **forward** equation
+`h_1(T0, p0) = h0`
+([`super::basic_multiphase_equations::t_ph_region_1_forward`]), and
+`s0 = s_1(T0, p0)`. The given `h0` is kept. `Iapws97Hem`'s unchoked branch
+uses the same `T0`, so the two meet at `p*`. Region 3 (liquid-like)
+stagnations keep `s_ph_eqm`. Saturated-liquid `ρ_f`, `h_f` at the bubble
+point come from the forward equations at `T_sat(p_bubble)`.
 
 # Validation status
 
-Validated against Zaloudek (1961) HEM critical mass flux curves for all
-throat qualities x_t = 0.0–1.00 (the saturated-liquid-line curve x_t ≈ 0
-included). All curves pass within tolerance.
-
-# Note — the x ≈ 0 curve is numerical, not a physics limit
-
-The near-saturation correction exists because the energy-balance objective
-is blind to the discontinuity in the HEM sound speed at the bubble point, and
-the pointwise sonic function is unreliable in the thin band just below it —
-*not* because HEM cannot reproduce the x ≈ 0 line. The Zaloudek reference is
-itself HEM, and `mass_flux_ps_eqm_throat` evaluated at the throat reproduces
-it to ±0.04 in log10 G at every point.
+Zaloudek (1961) HEM subcooled curves, Moody (1975) deep-subcooled points
+and Marviken tests 23/24: see V&V §12 for the numbers after this change,
+including the recorded misses (Moody 0.50 / h = 2.2549, Marviken 23's
+worst point).
 
 ```rust
 pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(p0: Pressure, h0: AvailableEnergy) -> (Pressure, MassFlux) { /* ... */ }
@@ -8926,12 +8962,18 @@ pub fn get_critical_pressure_and_mass_flux_superheated_vapour_ph(p0: Pressure, h
 Threshold on `v_b/c_2φ` (Bernoulli velocity at the bubble point over the
 two-phase sound speed) above which a subcooled stagnation state is treated as
 unambiguously deeply subcooled and the choke is taken as the energy-balance /
-Bernoulli maximum. Set above the maximum reached by any Zaloudek subcooled
+Bernoulli maximum. ~~The solver branches on it~~ **CORRECTED 2026-11-02
+(gh:#1111): the solver no longer uses it.** The branch is now the
+global-maximum rule in
+[`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`]. The Moody
+tests still use this constant to choose which points to assert (their
+`[DEEP]` bucket), so it stays as a test classification only. Set above the maximum reached by any Zaloudek subcooled
 reference point (3.30) so this only adds deep-subcooling behaviour and never
 perturbs the validated near-bubble (sonic) regime. See README v0.2.1.
 
-Public so the Moody deep-subcooling verification test can classify points with
-the exact same threshold the solver uses.
+Public so the Moody deep-subcooling verification test can classify points
+~~with the exact same threshold the solver uses~~ (since 2026-11-02 the
+solver does not use it; it is the test's bucket definition only).
 
 ```rust
 pub const DEEP_SUBCOOLING_RATIO: f64 = 5.0;
@@ -11124,18 +11166,25 @@ No dependency edge is added either way.
   defaults to [`Iapws97Hem`], so `HemPipe` alone means water.
 - Closures: [`Iapws97Hem`] (IAPWS-IF97 water/steam) and [`IdealGasHem`]
   (the Sod limit), both implementing the compile-time trait
-  [`HemEquationOfState`].
+  [`HemEquationOfState`]; and, for verification only (gh:#1057), the reduced
+  forms of [`reduced_eos`]: [`StiffenedGasHem`] (with [`StiffenedGasPair`]'s
+  saturation curve), [`IsentropicStiffenedGasHem`], [`BarotropicHem`] and
+  [`LinearEosHem`].
 - Configuration: [`HemPipeGeometry`], [`HemInitialCondition`] /
   [`PrimitiveState`], [`HemBoundary`] / [`PipeEnd`], [`HemNumerics`]
   (with [`TimeStepControl`], [`TimeIntegrator`] and the basic-lib
   [`FluxLimiter`]).
+- Networks (gh:#1071): [`HemNetwork`] joins pipes with [`HemJunction`]s,
+  a zero-volume flow junction or a 0-D [`VolumeBranch`].
 - Errors: [`HemError`]. Nothing is clamped: a negative density or pressure
   is an error and the step is undone.
 
 # Physics, and what is not here
 
 Inviscid, adiabatic, frictionless, horizontal, equilibrium two-phase (both
-phases at `T_sat(p)` inside the dome, no slip). The sound speed is the
+phases at `T_sat(p)` inside the dome, no slip). The flow area may vary
+along the pipe ([`AreaProfile`], gh:#1058; quasi-1-D, with the wall
+pressure force). The sound speed is the
 homogeneous-**equilibrium** one throughout ([`eos`] module doc). Not here:
 wall friction, gravity, heat transfer, slip, metastable liquid.
 
@@ -11568,6 +11617,16 @@ pub trait HemEquationOfState: Clone + core::fmt::Debug {
 ##### Provided Methods
 
 - ```rust
+  fn dynamic_viscosity(self: &Self, state: &HemThermoState) -> Option<DynamicViscosity> { /* ... */ }
+  ```
+  Dynamic viscosity of `state`, for wall friction (gh:#1061). `None`
+
+- ```rust
+  fn saturated_phases(self: &Self, state: &HemThermoState) -> Option<(HemThermoState, HemThermoState)> { /* ... */ }
+  ```
+  The saturated liquid and vapour, `(liquid, vapour)`, at the pressure of
+
+- ```rust
   fn break_flow(self: &Self, stagnation_pressure: Pressure, stagnation_enthalpy: AvailableEnergy, back_pressure: Pressure) -> Result<BreakFlow, HemError> { /* ... */ }
   ```
   Mass flux through a break from stagnation `(p0, h0)` to `back_pressure`
@@ -11578,6 +11637,10 @@ This trait is implemented for the following types:
 
 - `IdealGasHem`
 - `Iapws97Hem`
+- `StiffenedGasHem`
+- `IsentropicStiffenedGasHem`
+- `BarotropicHem`
+- `LinearEosHem`
 
 ### Functions
 
@@ -11618,6 +11681,954 @@ the iteration limit was hit).
 pub fn pressure_from_rho_e<F>(density: uom::si::f64::MassDensity, specific_internal_energy: uom::si::f64::AvailableEnergy, pressure_hint: Option<uom::si::f64::Pressure>, pressure_range: (uom::si::f64::Pressure, uom::si::f64::Pressure), relative_tolerance: f64, specific_volume_ph: F) -> Result<uom::si::f64::Pressure, super::HemError>
 where
     F: Fn(uom::si::f64::Pressure, uom::si::f64::AvailableEnergy) -> Option<uom::si::f64::SpecificVolume> { /* ... */ }
+```
+
+## Module `reduced_eos`
+
+Reduced equations of state for verification: stiffened gas, isentropic
+stiffened gas, barotropic and linear (gh:#1057, RELAP-7 parity epic
+gh:#1056). AI draft, clean room: written from the RELAP-7 Theory Manual's
+description (INL/EXT-14-31366, §2.2.3.1–2.2.3.4, Eqs 54–93; §3.2.5,
+Eqs 209–220) and the papers it cites, never from RELAP-7 source.
+
+**These are verification closures, not substitutes for IAPWS-IF97.**
+Water and steam already have a full equation of state, [`super::Iapws97Hem`].
+Each form here is a small analytic closure that runs through the same
+[`super::HemPipe`] solver, for code-to-code checks against RELAP-7's
+formulation and for the seven-equation model (gh:#1059), which needs a
+per-phase convex EOS with a closed-form saturation curve.
+
+- [`StiffenedGasHem`]: `p = (γ − 1)ρ(e − q) − γp∞` (Eq 78), with its caloric
+  law `ρ(p, T) = (p + p∞)/((γ − 1)c_v T)` (Eq 80) and Gibbs energy (Eq 82).
+  Parameters for water and steam are Le Métayer, Massoni & Saurel (2004),
+  *Int. J. Therm. Sci.* 43, 265–276, Table 1, fitted by the authors to the
+  saturation curves over 298–473 K.
+- [`StiffenedGasPair`]: a liquid and a vapour stiffened gas, whose
+  saturation temperature follows from equal Gibbs energies (Eq 215, solved
+  by Newton) and whose latent heat is `h_g − h_l` (Eq 220).
+- [`IsentropicStiffenedGasHem`]: `p = (p₀ + p∞)(ρ/ρ₀)^γ − p∞` (Eq 59).
+- [`BarotropicHem`]: `p = p₀ + a²(ρ − ρ₀)` (Eq 54).
+- [`LinearEosHem`]: `p = p₀ + K_ρ(ρ − ρ₀) + K_T(T − T₀)`, `e = e₀ +
+  c_v(T − T₀)` (Eqs 66–67), with coefficients generated from IAPWS-IF97 at a
+  chosen reference state ([`LinearEosHem::from_iapws97`]), not copied from
+  the manual's tables.
+
+The isentropic and barotropic forms close pressure from density alone:
+they describe reversible processes only, so they carry no temperature. Their
+[`HemThermoState::temperature`] is the reference temperature they were
+built with, and their internal energy is whatever the solver transports.
+
+Every form is single phase: `quality` is `None`, and the void fraction is
+`0` for a liquid-like closure (`p∞ > 0`, or the barotropic and linear
+forms) and `1` for a gas-like one.
+
+```rust
+pub mod reduced_eos { /* ... */ }
+```
+
+### Types
+
+#### Struct `StiffenedGasHem`
+
+Stiffened gas, `p(ρ, e) = (γ − 1)ρ(e − q) − γp∞` (RELAP-7 Eq 78), with the
+caloric law `ρ(p, T) = (p + p∞)/((γ − 1)c_v T)` (Eq 80), `h = γ c_v T + q`
+(Eq 81), `T = (e − q − p∞/ρ)/c_v` (Eq 84) and `c² = γ(p + p∞)/ρ` (Eq 93).
+
+`γ > 1`, `c_v > 0`, `p∞ ≥ 0`. `q` sets the zero of the internal energy and
+`q'` enters only the Gibbs energy ([`Self::gibbs`]), which fixes the
+saturation curve of a [`StiffenedGasPair`].
+
+A state is accepted only with `p > 0` and `T > 0`: the solver works in
+positive pressure, so a liquid in tension (`−p∞ < p ≤ 0`) is refused rather
+than passed on.
+
+```rust
+pub struct StiffenedGasHem {
+    pub gamma: f64,
+    pub p_inf_pa: f64,
+    pub q_j_per_kg: f64,
+    pub q_prime_j_per_kg_k: f64,
+    pub cv_j_per_kg_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `gamma` | `f64` | `γ`, dimensionless, `> 1` (not the ratio of specific heats for a liquid). |
+| `p_inf_pa` | `f64` | `p∞`, Pa, `≥ 0`. |
+| `q_j_per_kg` | `f64` | Binding energy `q`, J/kg. |
+| `q_prime_j_per_kg_k` | `f64` | Gibbs-energy parameter `q'`, J/(kg·K). |
+| `cv_j_per_kg_k` | `f64` | Constant-volume specific heat `c_v`, J/(kg·K), `> 0`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(gamma: Ratio, p_inf: Pressure, q: AvailableEnergy, q_prime: SpecificHeatCapacity, cv: SpecificHeatCapacity) -> Result<Self, HemError> { /* ... */ }
+  ```
+  Build from the five parameters.
+
+- ```rust
+  pub fn water_liquid_le_metayer_2004() -> Self { /* ... */ }
+  ```
+  Liquid water: Le Métayer, Massoni & Saurel (2004), Table 1 (γ 2.35,
+
+- ```rust
+  pub fn water_vapour_le_metayer_2004() -> Self { /* ... */ }
+  ```
+  Water vapour: Le Métayer, Massoni & Saurel (2004), Table 1 (γ 1.43,
+
+- ```rust
+  pub fn gibbs(self: &Self, pressure: Pressure, temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+  ```
+  Gibbs energy `g(p, T) = (γc_v − q')T − c_v T ln(T^γ/(p + p∞)^(γ−1)) + q`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **HemEquationOfState**
+  - ```rust
+    fn name(self: &Self) -> &'static str { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_rho_e(self: &Self, density: MassDensity, specific_internal_energy: AvailableEnergy, _pressure_hint: Option<Pressure>) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_t(self: &Self, pressure: Pressure, temperature: ThermodynamicTemperature) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_h(self: &Self, pressure: Pressure, specific_enthalpy: AvailableEnergy) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_rho(self: &Self, pressure: Pressure, density: MassDensity) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StiffenedGasPair`
+
+A liquid and a vapour stiffened gas: the saturation curve and latent heat
+that follow from them (RELAP-7 §3.2.5, after Le Métayer et al. 2004).
+
+```rust
+pub struct StiffenedGasPair {
+    pub liquid: StiffenedGasHem,
+    pub vapour: StiffenedGasHem,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `liquid` | `StiffenedGasHem` | The liquid phase. |
+| `vapour` | `StiffenedGasHem` | The vapour phase. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn water_le_metayer_2004() -> Self { /* ... */ }
+  ```
+  Water and steam with the Le Métayer et al. (2004) parameters.
+
+- ```rust
+  pub fn saturation_temperature(self: &Self, pressure: Pressure) -> Result<ThermodynamicTemperature, HemError> { /* ... */ }
+  ```
+  Saturation temperature at `pressure`: the root of equal Gibbs energies,
+
+- ```rust
+  pub fn latent_heat(self: &Self, temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+  ```
+  Latent heat `L_v = (γ_v c_v,v T + q_v) − (γ_l c_v,l T + q_l)` at
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IsentropicStiffenedGasHem`
+
+Isentropic stiffened gas, `p = (p₀ + p∞)(ρ/ρ₀)^γ − p∞` (RELAP-7 Eq 59),
+`c² = γ(p + p∞)/ρ` (Eq 60). The Tait form for a liquid; valid for weak
+waves only, since it has no entropy rise across a shock.
+
+Pressure depends on density alone; the temperature reported is
+`reference_temperature`.
+
+```rust
+pub struct IsentropicStiffenedGasHem {
+    pub p0_pa: f64,
+    pub rho0: f64,
+    pub p_inf_pa: f64,
+    pub gamma: f64,
+    pub reference_temperature_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p0_pa` | `f64` | Reference pressure `p₀`, Pa. |
+| `rho0` | `f64` | Reference density `ρ₀`, kg/m³, `> 0`. |
+| `p_inf_pa` | `f64` | `p∞`, Pa, `≥ 0`. |
+| `gamma` | `f64` | `γ`, dimensionless, `> 1`. |
+| `reference_temperature_k` | `f64` | Temperature reported with every state, K. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn water_courant_friedrichs() -> Self { /* ... */ }
+  ```
+  Water as Courant and Friedrichs give it (via RELAP-7 Table 2, which
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **HemEquationOfState**
+  - ```rust
+    fn name(self: &Self) -> &'static str { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_rho_e(self: &Self, density: MassDensity, specific_internal_energy: AvailableEnergy, _pressure_hint: Option<Pressure>) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_t(self: &Self, pressure: Pressure, _temperature: ThermodynamicTemperature) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+    The temperature is not a state variable here; it is ignored.
+
+  - ```rust
+    fn state_p_h(self: &Self, pressure: Pressure, specific_enthalpy: AvailableEnergy) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_rho(self: &Self, pressure: Pressure, density: MassDensity) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+    `p` and `ρ` are not independent here: the state is the one at `ρ`, and
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BarotropicHem`
+
+Barotropic fluid, `p = p₀ + a²(ρ − ρ₀)` (RELAP-7 Eq 54), constant sound
+speed `a`. For testing: discontinuities in the initial data propagate
+without steepening.
+
+Pressure depends on density alone; the temperature reported is
+`reference_temperature`.
+
+```rust
+pub struct BarotropicHem {
+    pub p0_pa: f64,
+    pub rho0: f64,
+    pub sound_speed_m_s: f64,
+    pub reference_temperature_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p0_pa` | `f64` | Reference pressure `p₀`, Pa. |
+| `rho0` | `f64` | Reference density `ρ₀`, kg/m³, `> 0`. |
+| `sound_speed_m_s` | `f64` | Sound speed `a`, m/s, `> 0`. |
+| `reference_temperature_k` | `f64` | Temperature reported with every state, K. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **HemEquationOfState**
+  - ```rust
+    fn name(self: &Self) -> &'static str { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_rho_e(self: &Self, density: MassDensity, specific_internal_energy: AvailableEnergy, _pressure_hint: Option<Pressure>) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_t(self: &Self, pressure: Pressure, _temperature: ThermodynamicTemperature) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+    The temperature is not a state variable here; it is ignored.
+
+  - ```rust
+    fn state_p_h(self: &Self, pressure: Pressure, specific_enthalpy: AvailableEnergy) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_rho(self: &Self, pressure: Pressure, density: MassDensity) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+    `p` and `ρ` are not independent here: a `p` that disagrees with
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LinearEosHem`
+
+Linear liquid, `p = p₀ + K_ρ(ρ − ρ₀) + K_T(T − T₀)`, `e = e₀ + c_v(T −
+T₀)` (RELAP-7 Eqs 66–67). Its sound speed is the isentropic one of that
+`p(ρ, e)`: `c² = K_ρ + p K_T/(c_v ρ²)`.
+
+Build it with [`Self::from_iapws97`], which takes the coefficients from
+IAPWS-IF97 at a reference state; the manual's own tables are not used.
+
+```rust
+pub struct LinearEosHem {
+    pub p0_pa: f64,
+    pub rho0: f64,
+    pub t0_k: f64,
+    pub k_rho: f64,
+    pub k_t: f64,
+    pub cv_j_per_kg_k: f64,
+    pub e0_j_per_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p0_pa` | `f64` | Reference pressure `p₀`, Pa. |
+| `rho0` | `f64` | Reference density `ρ₀`, kg/m³. |
+| `t0_k` | `f64` | Reference temperature `T₀`, K. |
+| `k_rho` | `f64` | `K_ρ = (∂p/∂ρ)_T`, Pa·m³/kg. |
+| `k_t` | `f64` | `K_T = (∂p/∂T)_ρ`, Pa/K. |
+| `cv_j_per_kg_k` | `f64` | `c_v`, J/(kg·K). |
+| `e0_j_per_kg` | `f64` | Reference internal energy `e₀`, J/kg. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_iapws97(p0: Pressure, t0: ThermodynamicTemperature) -> Result<Self, HemError> { /* ... */ }
+  ```
+  Coefficients from IAPWS-IF97 region 1 (subcooled liquid) at `(p₀, T₀)`:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **HemEquationOfState**
+  - ```rust
+    fn name(self: &Self) -> &'static str { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_rho_e(self: &Self, density: MassDensity, specific_internal_energy: AvailableEnergy, _pressure_hint: Option<Pressure>) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_t(self: &Self, pressure: Pressure, temperature: ThermodynamicTemperature) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_p_h(self: &Self, pressure: Pressure, specific_enthalpy: AvailableEnergy) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+    `h = e + p/ρ(p, T)` is solved for `T` by Newton (it is smooth and
+
+  - ```rust
+    fn state_p_rho(self: &Self, pressure: Pressure, density: MassDensity) -> Result<HemThermoState, HemError> { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `wall_friction`
+
+Single-phase wall friction: the RELAP5 four-region Darcy friction factor
+(gh:#1061, RELAP-7 parity epic gh:#1056). AI draft, clean room: written
+from the RELAP-7 Theory Manual's description (INL/EXT-14-31366, §2.2.1,
+Eqs 24–34; cited, not quoted), never from RELAP-7 or RELAP5 source.
+
+The four regions, by `Re = ρ|u|D_h/μ`:
+
+1. `Re < 64`: RELAP-7 sets `f = f_max` (the manual names `f_max` without
+   giving it). That cap makes the friction force quadratic in `u` as the
+   flow stops, while the exact fully developed laminar solution, `64/(Re
+   Φ_S)`, keeps it linear (Stokes) and is up to `64/Re` times larger. **The
+   default here is the laminar law continued below 64**
+   ([`LowReynolds::Laminar`]), correct physics first; RELAP-7's cap is
+   [`LowReynolds::FMax`] (with `f_max = 1/Φ_S`, the laminar value at
+   `Re = 64`), for parity runs.
+
+   Evidence for the default (2026-11-01): with the cap, the `tampines`
+   two-fluid blowdown's volume constraint drifted to 1.68e-6 (gate 1e-6;
+   8.0e-10 before), because nearly stagnant phases lost their linear drag;
+   with the laminar law it is 8.0e-10 again.
+2. `64 ≤ Re < 2200`: laminar, `f = 64/(Re Φ_S)` (Eq 29), `Φ_S` the shape
+   factor (1 for a circular pipe).
+3. `2200 ≤ Re < 3000`: reciprocal interpolation between the laminar value
+   at 2200 and the turbulent value at 3000 (Eqs 30–33).
+4. `Re ≥ 3000`: Zigrang & Sylvester's explicit approximation to Colebrook
+   (Eq 34), with the factor 1.14 that the manual says corrects the original
+   1.114. Zigrang, D. J. & Sylvester, N. D. (1982), *AIChE J.* 28, 514.
+
+Lives here, beside the HEM pipe that uses it; `tampines` re-exports it as
+`tampines::closures::wall_friction` for its two-phase solvers.
+
+```rust
+pub mod wall_friction { /* ... */ }
+```
+
+### Types
+
+#### Enum `LowReynolds`
+
+What the friction factor does below `Re = 64` (module doc).
+
+```rust
+pub enum LowReynolds {
+    Laminar,
+    FMax,
+}
+```
+
+##### Variants
+
+###### `Laminar`
+
+The laminar law `64/(Re Φ_S)` continued to `Re → 0` (the default).
+
+###### `FMax`
+
+RELAP-7's cap, `f = f_max = 1/Φ_S`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `zigrang_sylvester`
+
+Zigrang–Sylvester turbulent Darcy friction factor at `re` for relative
+roughness `eps_over_d = ε/D` (RELAP-7 Eq 34):
+
+```text
+1/√f = −2 log10( ε/(3.7D) + (2.51/Re)(1.14 − 2 log10(ε/D + 21.25/Re^0.9)) )
+```
+
+```rust
+pub fn zigrang_sylvester(re: f64, eps_over_d: f64) -> f64 { /* ... */ }
+```
+
+#### Function `darcy_friction_factor`
+
+The four-region Darcy friction factor with the default low-Reynolds
+treatment ([`LowReynolds::Laminar`]): see [`darcy_friction_factor_with`].
+
+```rust
+pub fn darcy_friction_factor(re: f64, eps_over_d: f64, shape_factor: f64) -> f64 { /* ... */ }
+```
+
+#### Function `darcy_friction_factor_with`
+
+The RELAP5 four-region Darcy friction factor (module doc) at Reynolds
+number `re` (`≥ 0`), relative roughness `eps_over_d` (`≥ 0`) and shape
+factor `shape_factor` (`> 0`, 1 for a circular pipe), with the given
+treatment below `Re = 64`. At `Re = 0` the laminar law is infinite; the
+force it gives, `f u|u|`, is finite and is what
+[`wall_friction_acceleration`] evaluates.
+
+```rust
+pub fn darcy_friction_factor_with(re: f64, eps_over_d: f64, shape_factor: f64, low: LowReynolds) -> f64 { /* ... */ }
+```
+
+#### Function `wall_friction_acceleration`
+
+Wall-friction deceleration `F_wall/(ρA) = f u|u|/(2 D_h)`, m/s² (RELAP-7
+Eq 24 per unit mass), carrying the sign of `u` so it opposes the motion.
+Zero for `u = 0` or a non-positive density, viscosity or diameter.
+
+```rust
+pub fn wall_friction_acceleration(u: f64, rho: f64, mu: f64, hydraulic_diameter: f64, eps_over_d: f64, shape_factor: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RE_F_MAX`
+
+Lower edge of the laminar region (`f = f_max` below it).
+
+```rust
+pub const RE_F_MAX: f64 = 64.0;
+```
+
+#### Constant `RE_LAMINAR_MAX`
+
+Upper edge of the laminar region, `Re_min` of the transition.
+
+```rust
+pub const RE_LAMINAR_MAX: f64 = 2200.0;
+```
+
+#### Constant `RE_TURBULENT_MIN`
+
+Lower edge of the turbulent region, `Re_max` of the transition.
+
+```rust
+pub const RE_TURBULENT_MIN: f64 = 3000.0;
 ```
 
 ### Re-exports
@@ -11674,6 +12685,114 @@ pub use iapws97::P_RHO_E_REL_TOL;
 
 ```rust
 pub use outram_foam_basic_lib::limiters::FluxLimiter;
+```
+
+#### Re-export `BarotropicHem`
+
+```rust
+pub use reduced_eos::BarotropicHem;
+```
+
+#### Re-export `IsentropicStiffenedGasHem`
+
+```rust
+pub use reduced_eos::IsentropicStiffenedGasHem;
+```
+
+#### Re-export `LinearEosHem`
+
+```rust
+pub use reduced_eos::LinearEosHem;
+```
+
+#### Re-export `StiffenedGasHem`
+
+```rust
+pub use reduced_eos::StiffenedGasHem;
+```
+
+#### Re-export `StiffenedGasPair`
+
+```rust
+pub use reduced_eos::StiffenedGasPair;
+```
+
+#### Re-export `HemJunction`
+
+```rust
+pub use network::HemJunction;
+```
+
+#### Re-export `HemNetwork`
+
+```rust
+pub use network::HemNetwork;
+```
+
+#### Re-export `PipeEndRef`
+
+```rust
+pub use network::PipeEndRef;
+```
+
+#### Re-export `PortDraw`
+
+```rust
+pub use network::PortDraw;
+```
+
+#### Re-export `PumpHead`
+
+```rust
+pub use network::PumpHead;
+```
+
+#### Re-export `TdvThermo`
+
+```rust
+pub use network::TdvThermo;
+```
+
+#### Re-export `TurbineParams`
+
+```rust
+pub use network::TurbineParams;
+```
+
+#### Re-export `TimeDependentBoundary`
+
+```rust
+pub use network::TimeDependentBoundary;
+```
+
+#### Re-export `TimeTable`
+
+```rust
+pub use network::TimeTable;
+```
+
+#### Re-export `VolumeBranch`
+
+```rust
+pub use network::VolumeBranch;
+```
+
+#### Re-export `VolumePort`
+
+```rust
+pub use network::VolumePort;
+```
+
+#### Re-export `AreaProfile`
+
+```rust
+pub use pipe::AreaProfile;
+```
+
+#### Re-export `WallHeat`
+
+```rust
+pub use pipe::WallHeat;
 ```
 
 #### Re-export `HemBoundary`
@@ -11758,6 +12877,1149 @@ pub use pipe::TimeStepControl;
 
 ```rust
 pub use pipe::FIXED_STEP_COURANT_LIMIT;
+```
+
+## Module `gas_mixture`
+
+Steam + non-condensable gas mixtures by Dalton's law (gh:#1093).
+Steam + non-condensable gas mixtures, by Dalton's law (gh:#1093, part of
+the MELCOR-style control-volume epic gh:#1091).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+A gas space holds steam and any of six non-condensables
+([`NonCondensable`]: N2, H2, O2, CO, CO2, Ar) in one volume at one
+temperature. Each component fills the whole volume at its own partial
+pressure (Dalton); the total pressure is their sum.
+
+- **Non-condensables** are ideal gases, `p_i = n_i R T / V`. Their `c_v(T)`
+  and internal energy (from 0 K) come from MELCOR's NCG fits for N2 and H2
+  ([`melcor_ncg`], moved verbatim from `sembawang`) and from the NASA
+  7-coefficient polynomials of GRI-Mech 3.0 for O2, CO, CO2 and Ar
+  ([`nasa7`]); [`NcgHeatCapacity`] selects, with the MELCOR-where-available
+  choice the default.
+- **Steam** is IAPWS-IF97 region 2 at its partial pressure, `ρ_s = 1/v(T,
+  p_s)`, solved for `p_s` by Newton (the default, [`SteamModel::Iapws97`]),
+  or `sembawang`'s ideal steam with a constant `c_v` referenced to IF97's
+  saturated vapour at 100 °C ([`SteamModel::IdealConstantCv`], the
+  ablation: `u = 2.506e6 + 1500 (T − 373.15)` J/kg).
+- **Energy references differ by component** (non-condensables from 0 K,
+  IF97 steam from the triple-point liquid). "From 0 K" means `u(0) = 0`
+  with `c_v(T_low) T` below each fit's lower bound (`sembawang`'s
+  convention), **not** JANAF's `H°(T) − H°(0)`: at 298.15 K the molar
+  enthalpies differ from JANAF by −896 J/mol (H2, MELCOR fit), +518 (CO2),
+  +83 (N2, MELCOR fit), +14 (CO), +12 (O2), +0.4 (Ar) (gh:#1098 item 18,
+  measured 2026-11-01). Energy changes inside a fit's range are
+  unaffected; anything anchored to formation enthalpies must anchor at
+  298.15 K, as `sembawang::bwr_mark1::reaction` does, never at 0 K. Only energy *changes* and
+  enthalpies carried on the same references are meaningful, as in
+  `sembawang`; a control volume using this keeps them consistent
+  (audited 2026-11-01, gh:#1098 item 2: `tampines::control_volume` and
+  `tampines::cv_network` move each species with its own reference, pinned
+  by `cv_network::tests::gas_flux_keeps_each_species_on_its_own_energy_reference`).
+
+Steam above its saturation pressure at `T` is reported, not condensed:
+condensing it (and where the liquid goes) is the control volume's job.
+
+**Steam colder than the triple point is refused, on purpose** (maintainer
+decision 2026-11-02, gh:#1115: "if steam goes below 0C shld crash, not
+quite physical"): IF97 region 2 has no state below 273.15 K, physically the
+vapour would deposit as ice or condense as fog, and a gas space that cold
+points to an upstream problem. Metastable supercooled vapour, ice/fog and an
+ideal-steam fallback were considered and rejected; see
+[`STEAM_BELOW_TRIPLE_POINT`].
+
+```rust
+pub mod gas_mixture { /* ... */ }
+```
+
+### Modules
+
+## Module `melcor_ncg`
+
+MELCOR's NCG-library `c_v(T)` fits for N2 and H2 (gh:#1093).
+
+**Moved here verbatim from `sembawang::bwr_mark1::gas`** (2026-11-01,
+maintainer direction: `sembawang` depends on `tampines`, so the thermal
+hydraulics, gas properties included, lives on this side). The operation
+order is unchanged, so every value is bit-identical to what `sembawang`
+computed before; `sembawang::bwr_mark1::gas` now forwards here.
+
+The fits are MELCOR 2.2's (Vol. 2, SAND2023-10994 O, NCG/H2O-RM-33/34;
+the form is Vol. 1, SAND2017-0455 O, NCG-UG-2, Eq 1.1; cited, not
+quoted; no MELCOR source used):
+
+```text
+c_v(T) = cv0 + cv1 T + cv2 T^2 + cv3 T^3 + cvsqrt/sqrt(T) + cvm1/T + cvm2/T^2
+```
+
+mass-specific, inside `T_low..=T_up`, held at the boundary value outside.
+Internal energy is from 0 K: `c_v(T_low) T` below `T_low`, the integral
+of the fit inside, linear in `c_v(T_up)` above. `t_dependent = false` is
+the constant-value ablation (20.8 and 20.5 J/(mol K)).
+
+```rust
+pub mod melcor_ncg { /* ... */ }
+```
+
+### Functions
+
+#### Function `cv_n2`
+
+Molar `c_v` of N2, J/(mol K).
+
+```rust
+pub fn cv_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `cv_h2`
+
+Molar `c_v` of H2, J/(mol K).
+
+```rust
+pub fn cv_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `u_n2`
+
+Molar internal energy of N2 from 0 K, J/mol.
+
+```rust
+pub fn u_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `u_h2`
+
+Molar internal energy of H2 from 0 K, J/mol.
+
+```rust
+pub fn u_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `ncg_u`
+
+Internal energy of `n2` and `h2` moles at `t`, J (the ablation keeps the
+operation order sembawang used before 2026-10-29).
+
+```rust
+pub fn ncg_u(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `ncg_c`
+
+Heat capacity of `n2` and `h2` moles at `t`, J/K.
+
+```rust
+pub fn ncg_c(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `h2_molar_enthalpy`
+
+Hydrogen's molar enthalpy from 0 K, `u + R T`, J/mol.
+
+```rust
+pub fn h2_molar_enthalpy(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `cp_h2_per_kg`
+
+Hydrogen's `c_p`, J/(kg K).
+
+```rust
+pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `h2_enthalpy_above_298`
+
+Hydrogen's enthalpy above 298.15 K, J/kg.
+
+```rust
+pub fn h2_enthalpy_above_298(t: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `M_H2O`
+
+Molar mass of H2O, kg/mol (`sembawang::bwr_mark1::params::M_H2O`).
+
+```rust
+pub const M_H2O: f64 = 0.018_015;
+```
+
+#### Constant `M_H2`
+
+Molar mass of H2, kg/mol.
+
+```rust
+pub const M_H2: f64 = 0.002_016;
+```
+
+#### Constant `M_N2`
+
+Molar mass of N2, kg/mol.
+
+```rust
+pub const M_N2: f64 = 0.028_014;
+```
+
+#### Constant `R_GAS`
+
+Gas constant, J/(mol K).
+
+```rust
+pub const R_GAS: f64 = 8.314_462;
+```
+
+#### Constant `CV_N2_CONST`
+
+The constant values, J/(mol K): the ablation.
+
+```rust
+pub const CV_N2_CONST: f64 = 20.8;
+```
+
+#### Constant `CV_H2_CONST`
+
+The constant value for H2, J/(mol K).
+
+```rust
+pub const CV_H2_CONST: f64 = 20.5;
+```
+
+## Module `nasa7`
+
+NASA 7-coefficient ideal-gas heat capacities for the non-condensables
+(gh:#1093).
+
+**Data:** GRI-Mech 3.0 (G. P. Smith, D. M. Golden, M. Frenklach et al.,
+<http://combustion.berkeley.edu/gri-mech/>, open), as distributed in
+Cantera v3.0.0's `data/gri30.yaml` (BSD-3-Clause), downloaded 2026-11-01
+from `raw.githubusercontent.com/Cantera/cantera/v3.0.0/data/gri30.yaml`.
+Only the five `c_p` coefficients of each range are used:
+
+```text
+c_p/R = a0 + a1 T + a2 T^2 + a3 T^3 + a4 T^4,   c_v = c_p − R
+```
+
+The internal energy is measured from 0 K with `sembawang`'s convention
+(as [`super::melcor_ncg`]): `c_v(T_low) T` below the fit's lower bound,
+the integral above it (continuous at `T_mid`, since the two GRI ranges
+match there in value), and linear in `c_v(T_high)` above the upper bound.
+
+```rust
+pub mod nasa7 { /* ... */ }
+```
+
+### Functions
+
+#### Function `cv_molar`
+
+Molar `c_v` of `g` at `t` K, J/(mol K), held at the fit's ends.
+
+```rust
+pub fn cv_molar(g: super::NonCondensable, t: f64) -> f64 { /* ... */ }
+```
+
+#### Function `u_molar`
+
+Molar internal energy of `g` from 0 K at `t` K, J/mol.
+
+```rust
+pub fn u_molar(g: super::NonCondensable, t: f64) -> f64 { /* ... */ }
+```
+
+### Types
+
+#### Enum `NonCondensable`
+
+A non-condensable gas.
+
+```rust
+pub enum NonCondensable {
+    N2,
+    H2,
+    O2,
+    CO,
+    CO2,
+    Ar,
+}
+```
+
+##### Variants
+
+###### `N2`
+
+Nitrogen.
+
+###### `H2`
+
+Hydrogen.
+
+###### `O2`
+
+Oxygen.
+
+###### `CO`
+
+Carbon monoxide.
+
+###### `CO2`
+
+Carbon dioxide.
+
+###### `Ar`
+
+Argon.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn index(self: Self) -> usize { /* ... */ }
+  ```
+  Index in [`GasMixture::ncg_moles`].
+
+- ```rust
+  pub fn molar_mass(self: Self) -> f64 { /* ... */ }
+  ```
+  Molar mass, kg/mol. N2 and H2 are `sembawang`'s values (kept so the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `NcgHeatCapacity`
+
+Which `c_v(T)` the non-condensables use.
+
+```rust
+pub enum NcgHeatCapacity {
+    MelcorWhereAvailable,
+    Nasa7,
+    Constant,
+}
+```
+
+##### Variants
+
+###### `MelcorWhereAvailable`
+
+MELCOR's NCG fits for N2 and H2, NASA-7 (GRI-Mech 3.0) for the rest.
+The default.
+
+###### `Nasa7`
+
+NASA-7 (GRI-Mech 3.0) for every gas.
+
+###### `Constant`
+
+Constants (the ablation): N2 20.8 and H2 20.5 J/(mol K) as
+`sembawang`'s, the others their NASA-7 `c_v` at 300 K.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SteamModel`
+
+How steam in the gas is closed.
+
+```rust
+pub enum SteamModel {
+    Iapws97,
+    IdealConstantCv,
+}
+```
+
+##### Variants
+
+###### `Iapws97`
+
+IAPWS-IF97 region 2 at the partial pressure. The default.
+
+###### `IdealConstantCv`
+
+`sembawang`'s ideal steam: `p_s = m R_s T / V`, `u = 2.506e6 + 1500
+(T − 373.15)` J/kg (the ablation).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GasMixture`
+
+The contents of a gas space.
+
+```rust
+pub struct GasMixture {
+    pub ncg_moles: [f64; 6],
+    pub steam_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ncg_moles` | `[f64; 6]` | Moles of each non-condensable, in [`NonCondensable::ALL`] order. |
+| `steam_kg` | `f64` | Mass of steam, kg. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(steam: Mass, ncg: &[(NonCondensable, AmountOfSubstance)]) -> Self { /* ... */ }
+  ```
+  A mixture of `steam` and the listed non-condensables.
+
+- ```rust
+  pub fn moles(self: &Self, gas: NonCondensable) -> AmountOfSubstance { /* ... */ }
+  ```
+  Moles of `gas`.
+
+- ```rust
+  pub fn ncg_total_moles(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total non-condensable moles.
+
+- ```rust
+  pub fn total_mass(self: &Self) -> Mass { /* ... */ }
+  ```
+  Total mass, kg.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GasMixtureState`
+
+The state of a gas space at `(V, T)`.
+
+```rust
+pub struct GasMixtureState {
+    pub pressure: uom::si::f64::Pressure,
+    pub steam_partial_pressure: uom::si::f64::Pressure,
+    pub ncg_partial_pressures: [f64; 6],
+    pub internal_energy: uom::si::f64::Energy,
+    pub relative_humidity: f64,
+    pub dew_point: Option<uom::si::f64::ThermodynamicTemperature>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pressure` | `uom::si::f64::Pressure` | Total pressure. |
+| `steam_partial_pressure` | `uom::si::f64::Pressure` | Partial pressure of steam. |
+| `ncg_partial_pressures` | `[f64; 6]` | Partial pressure of each non-condensable, [`NonCondensable::ALL`] order, Pa. |
+| `internal_energy` | `uom::si::f64::Energy` | Internal energy of the gas (references as in the module docs). |
+| `relative_humidity` | `f64` | `p_s / p_sat(T)`; above 1 the steam is supersaturated (metastable<br>region 2; the caller should condense it). |
+| `dew_point` | `Option<uom::si::f64::ThermodynamicTemperature>` | Saturation temperature at the steam partial pressure (the dew<br>point), when there is steam. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `GasMixtureError`
+
+Errors of the gas-mixture closure.
+
+```rust
+pub enum GasMixtureError {
+    InvalidInput(String),
+    NotConverged(&'static str),
+}
+```
+
+##### Variants
+
+###### `InvalidInput`
+
+Inputs out of range (non-positive volume or temperature, negative
+contents, IF97 steam below 273.15 K, which is refused on purpose: see
+[`STEAM_BELOW_TRIPLE_POINT`]).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotConverged`
+
+An iteration did not converge.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GasMixtureModel`
+
+The closure: how heat capacities and steam are modelled.
+
+```rust
+pub struct GasMixtureModel {
+    pub heat_capacity: NcgHeatCapacity,
+    pub steam: SteamModel,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heat_capacity` | `NcgHeatCapacity` | Non-condensable heat capacities. |
+| `steam` | `SteamModel` | Steam. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  The default: MELCOR fits where available, IF97 steam.
+
+- ```rust
+  pub fn without_real_steam(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: `sembawang`'s ideal constant-`c_v` steam.
+
+- ```rust
+  pub fn without_ncg_cv_t(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation: constant non-condensable heat capacities.
+
+- ```rust
+  pub fn ncg_cv(self: &Self, gas: NonCondensable, t: f64) -> f64 { /* ... */ }
+  ```
+  Molar `c_v` of `gas` at `t` K, J/(mol K).
+
+- ```rust
+  pub fn ncg_u(self: &Self, gas: NonCondensable, t: f64) -> f64 { /* ... */ }
+  ```
+  Molar internal energy of `gas` from 0 K at `t` K, J/mol.
+
+- ```rust
+  pub fn state(self: &Self, mix: &GasMixture, volume: Volume, temperature: ThermodynamicTemperature) -> Result<GasMixtureState, GasMixtureError> { /* ... */ }
+  ```
+  The state of `mix` in `volume` at `temperature`.
+
+- ```rust
+  pub fn heat_capacity(self: &Self, mix: &GasMixture, volume: Volume, temperature: ThermodynamicTemperature) -> Result<HeatCapacity, GasMixtureError> { /* ... */ }
+  ```
+  Heat capacity at constant volume, `∂U/∂T|_V`, J/K: analytic for the
+
+- ```rust
+  pub fn temperature(self: &Self, mix: &GasMixture, volume: Volume, internal_energy: Energy, guess: ThermodynamicTemperature) -> Result<ThermodynamicTemperature, GasMixtureError> { /* ... */ }
+  ```
+  The temperature at which `mix` in `volume` holds `internal_energy`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `STEAM_BELOW_TRIPLE_POINT`
+
+Why the closure refuses steam below IF97 region 2's 273.15 K lower bound
+(gh:#1115, maintainer decision 2026-11-02). Part of the error message of
+[`GasMixtureModel::state`] and [`GasMixtureModel::temperature`].
+
+```rust
+pub const STEAM_BELOW_TRIPLE_POINT: &str = "steam below the triple point (273.16 K): no IF97 state; \
+physically the vapour would condense to fog or ice — a state this cold indicates an upstream \
+problem (gh:#1115)";
+```
+
+### Re-exports
+
+#### Re-export `M_H2O`
+
+```rust
+pub use melcor_ncg::M_H2O;
+```
+
+#### Re-export `R_GAS`
+
+```rust
+pub use melcor_ncg::R_GAS;
 ```
 
 ## Module `openfoam_algorithms`

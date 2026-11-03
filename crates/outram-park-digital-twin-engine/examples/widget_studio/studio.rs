@@ -166,6 +166,9 @@ impl WidgetUnderTest {
 
 /// The studio app.
 pub struct WidgetStudio {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     /// Which top-level view is showing. Opens on component preview.
     mode: StudioMode,
     /// Which component widget is on the canvas in component preview.
@@ -251,6 +254,7 @@ impl Default for WidgetStudio {
     fn default() -> Self {
         let (pipe_rows, pipe_errors) = crate::pipes::build_rows();
         Self {
+            theme: bugis::Theme::default(),
             mode: StudioMode::default(),
             selected: WidgetUnderTest::SteamTurbine,
             test_reactor: TestReactor::default(),
@@ -414,6 +418,8 @@ impl eframe::App for WidgetStudio {
         egui::Panel::right("controls")
             .min_size(320.0)
             .show(ui, |ui| {
+                // The shared Gruvbox Dark/Light selector (GUI drawing).
+                bugis::selector(ui, &mut self.theme);
                 // Scrollable: the controls outgrow the window (maintainer, 2026-09-22).
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
@@ -502,6 +508,8 @@ impl WidgetStudio {
         egui::Panel::right("test_reactor_controls")
             .min_size(320.0)
             .show(ui, |ui| {
+                // The shared Gruvbox Dark/Light selector (GUI drawing).
+                bugis::selector(ui, &mut self.theme);
                 // Scrollable: the HTR-10 controls are longer than the window
                 // (maintainer direction, 2026-09-22).
                 egui::ScrollArea::vertical()

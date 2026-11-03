@@ -97,6 +97,28 @@ pub const MOLYBDENUM_DENSITY: f64 = 10280.0;
 /// `densitySchumann1515Ti.C`.
 pub const SCHUMANN_1515TI_REFERENCE_DENSITY: f64 = 7900.0;
 
+/// RELAP-7 heat-structure reference density of UO2 \[kg/m^3\]: `10980.0`
+/// (RELAP-7 Theory Manual, INL/EXT-14-31366, §4.2.1). Not an OFFBEAT upstream
+/// default: added for gh:#1070.
+///
+/// RELAP-7 multiplies this constant room-temperature density directly by the
+/// MATPRO heat capacity to form `rho*Cp`; it applies **no** porosity factor to
+/// it, even though the same set evaluates the conductivity at 95 % of
+/// theoretical density. It is therefore close to, and 20 kg/m^3 above,
+/// OFFBEAT's [`UO2_THEORETICAL_DENSITY`] (10 960). Use it through
+/// [`DensityModel::Constant`] (or the
+/// [`Relap7HeatStructure`](crate::materials::properties::relap7_heat_structure::Relap7HeatStructure)
+/// set), not as the `theoretical_density` of [`DensityModel::UO2`], which
+/// would apply the porosity a second time.
+pub const RELAP7_UO2_REFERENCE_DENSITY: f64 = 10980.0;
+
+/// RELAP-7 heat-structure reference density of Zircaloy \[kg/m^3\]: `6551.0`
+/// (RELAP-7 Theory Manual, INL/EXT-14-31366, §4.2.2). Not an OFFBEAT upstream
+/// default: added for gh:#1070. A constant room-temperature value; compare
+/// [`DensityModel::IAEAZy`], which gives `6595.2 - 0.1477*T`
+/// (6550.9 kg/m^3 at 300 K).
+pub const RELAP7_ZIRCALOY_REFERENCE_DENSITY: f64 = 6551.0;
+
 // -- IAEA Zircaloy (densityIAEAZy.C) ----------------------------------------
 const IAEA_ZY_ALPHA_A: f64 = 6595.2; // kg/m^3
 const IAEA_ZY_ALPHA_B: f64 = 0.1477; // kg/(m^3 K)

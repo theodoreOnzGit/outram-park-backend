@@ -709,6 +709,9 @@ fn run_in_progress(phase: &Phase) -> bool {
 }
 
 pub struct McApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     /// A switch held for "Sure anot?" (gh:#876 item 2).
     guard: SwitchGuard,
     /// The start-up link's query, kept for the k∞ and whole-core views,
@@ -783,9 +786,13 @@ pub struct McApp {
 
 impl McApp {
     pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung, mode: Mode) -> Self {
-        // The energy colours are chosen against a dark ground; keep the panel
-        // dark too rather than follow a light system theme.
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // The energy colours are chosen against a dark ground, so the page
+        // ~~stays dark rather than following a light system theme~~ opens in
+        // Gruvbox Dark (the shared `bugis` theme, 2026-11-02); Light is the
+        // reader's choice in the side panel's selector.
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link = {
             let ctx = cc.egui_ctx.clone();
@@ -796,6 +803,7 @@ impl McApp {
         // `?workers=` (gh:#786), read before `switch` rewrites the URL.
         let _ = crate::htr10::core::screen::remember_query();
         let mut app = Self {
+            theme: bugis::Theme::default(),
             guard: SwitchGuard::default(),
             startup_query: dhoby_ghaut::web_demo::platform::query_pairs(),
             link: None,
@@ -1416,7 +1424,11 @@ impl eframe::App for McApp {
         }
         self.title_now(&ctx);
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Monte Carlo", |ui| self.side_panel(ui));
+        panel.show(ui, "Monte Carlo", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         self.confirm_dialog(&ctx);
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.canvas(ui));

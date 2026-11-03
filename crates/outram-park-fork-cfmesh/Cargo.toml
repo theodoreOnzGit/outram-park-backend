@@ -60,6 +60,7 @@ outram-foam-basic-lib = { workspace = true, optional = true }
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 eframe = { workspace = true }
 egui = { workspace = true }
+bugis = { workspace = true }
 env_logger = { workspace = true }
 
 # The mesh-authoring GUI. Needs `foam-export` for the polyMesh writer, so it only

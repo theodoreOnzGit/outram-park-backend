@@ -72,6 +72,9 @@ struct ManyPredictions {
 }
 
 pub struct App {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<DtLink>,
     phase: Phase,
     screen: Screen,
@@ -105,7 +108,9 @@ pub struct App {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<DtLink, String> = {
             let ctx = cc.egui_ctx.clone();
@@ -145,6 +150,7 @@ impl App {
         let mut view = View::new(model::half_pitch());
         view.scale = 1.0;
         let mut app = Self {
+            theme: bugis::Theme::default(),
             link: None,
             phase: Phase::Loading(Loading::new(job_labels(), job_weights())),
             screen: if query_value(&q, "mode") == Some("many") { Screen::Many } else { Screen::Step },
@@ -378,7 +384,11 @@ impl eframe::App for App {
         }
         self.title_now(&ctx);
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Delta vs surface", |ui| self.side_panel(ui));
+        panel.show(ui, "Delta vs surface", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)

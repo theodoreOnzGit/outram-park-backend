@@ -56,6 +56,9 @@ chem-eng-real-time-process-control-simulator.workspace = true
 # drives the blade animation. That is library code, not an example, so it
 # cannot be a dev-dependency. No new weight in the tree -- `tampines` already
 # depends on this crate transitively.
+# NOTE 2026-11-02 (gh:#1112): `TurbineVisual` moved to `bugis::components`
+# (feature `widgets`, which now carries this edge for the library). Kept here
+# because the examples and binaries name the crate directly.
 tampines-steam-tables.workspace = true
 
 # TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
@@ -72,6 +75,12 @@ tuas_boussinesq_solver.workspace = true
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
 
+# The central GUI crate (gh:#1112). Untargeted, unlike the egui stack below,
+# because `animation` (re-exported from `bugis::animation`) is this crate's
+# Android-building module; `animation` is egui-free and pulls only uom, and
+# `ascii` (re-exported from `bugis::ascii`) is std only.
+bugis = { workspace = true, features = ["animation", "ascii"] }
+
 # app_scaffold::csv_logging's CsvLogger writes real CSV files (bead
 # op-wqk.22.2) -- pulling in the `csv` crate instead of hand comma-joining
 # strings the way the existing "fake CSV" display panels in
@@ -80,6 +89,9 @@ uom.workspace = true
 # Cargo.toml, consumed today by tuas_boussinesq_solver) -- no new version
 # introduced. Pure Rust, so this does not endanger the Android/Termux build
 # posture of the modules that are gated to build there.
+# NOTE 2026-11-02 (gh:#1112): `app_scaffold` moved to `bugis` (whose
+# `app_scaffold` feature now carries `csv` for it); the entry stays because
+# `htgr_sim_v1`'s tests read CSV back with it.
 csv.workspace = true
 
 # REAL (non-dev) dependency: `components::HeatExchangerVisual` draws the flow
@@ -93,6 +105,9 @@ csv.workspace = true
 # so promoting it does not endanger the Android build. The
 # examples (htgr_sim_v1's schematic, widget_studio's heat-exchanger tab) reach
 # it through this entry, so it is no longer declared as a dev-dependency.
+# NOTE 2026-11-02 (gh:#1112): `HeatExchangerVisual` moved to
+# `bugis::components` (feature `widgets` carries this edge for the library);
+# the entry stays for the examples named above.
 outram-park-fork-dwsim-libs.workspace = true
 
 # OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
@@ -130,6 +145,9 @@ thiserror.workspace = true
 # Cargo.toml's note on `web-time`.
 web-time.workspace = true
 egui.workspace = true
+# `widgets`: the widget library, re-exported as `components` (gh:#1112).
+# `app_scaffold`: re-exported as `app_scaffold`.
+bugis = { workspace = true, features = ["widgets", "app_scaffold"] }
 eframe.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true

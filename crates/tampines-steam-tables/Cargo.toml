@@ -166,6 +166,7 @@ tuas_boussinesq_solver.workspace = true
 teh-o-prke.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 egui.workspace = true
+bugis.workspace = true
 eframe.workspace = true
 env_logger.workspace = true
 local-ip-address.workspace = true

@@ -134,6 +134,10 @@ members = [
     # slides made visible in the workspace; no code, no deps. Boundary with
     # SEMBAWANG's severe-accident scope is an open maintainer decision.
     "crates/bishan",
+    # bugis — BUGIS (Branding, User-interface and Graphics for Interactive
+    # Simulators): the shared Gruvbox Dark/Light egui theme every simulator
+    # uses (maintainer, 2026-11-02). egui only, never eframe.
+    "crates/bugis",
     # pasir-ris — PASIR RIS (Probabilistic Assessment of Safety In
     # Reactors: Risk & Reliability Integrated Studio): the reserved
     # integrated risk and reliability GUI over raffles, bishan, sembawang,
@@ -581,6 +585,7 @@ raffles                      = { path = "crates/raffles",                      v
 petir                        = { path = "crates/petir",                        version = "0.0.3" }
 changi                       = { path = "crates/changi",                       version = "0.0.2" }
 bishan                       = { path = "crates/bishan",                       version = "0.0.2" }
+bugis                        = { path = "crates/bugis",                        version = "0.0.1" }
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.1" }
 sembawang                    = { path = "crates/sembawang",                    version = "0.0.1" }
 redhill                      = { path = "crates/redhill",                      version = "0.0.2" }

@@ -163,9 +163,9 @@ impl ExportStyle {
     pub fn palette(self, app_theme: GuiTheme) -> crate::figure::FigurePalette {
         match self {
             Self::LightPublication => crate::figure::FigurePalette::LIGHT_PUBLICATION,
-            Self::CurrentTheme => app_theme.figure_palette(),
+            Self::CurrentTheme => crate::theme::figure_palette(app_theme),
             Self::Dark => crate::figure::FigurePalette::DARK,
-            Self::Gruvbox => GuiTheme::GruvboxDark.figure_palette(),
+            Self::Gruvbox => crate::theme::figure_palette(GuiTheme::GruvboxDark),
         }
     }
 }
@@ -204,7 +204,13 @@ pub fn run(out_dir: PathBuf, curve_samples: usize) -> eframe::Result<()> {
     eframe::run_native(
         "tampines-steam-tables-gui",
         options,
-        Box::new(move |_cc| Ok(Box::new(PlotterApp::new(out_dir, curve_samples)))),
+        Box::new(move |cc| {
+            let mut app = PlotterApp::new(out_dir, curve_samples);
+            // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+            app.theme.apply(&cc.egui_ctx);
+            app.applied_theme = Some(app.theme);
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -722,12 +728,8 @@ impl PlotterApp {
         }
 
         ui.separator();
-        ui.heading("Theme");
-        ui.horizontal_wrapped(|ui| {
-            for candidate in GuiTheme::ALL {
-                ui.selectable_value(&mut self.theme, candidate, candidate.label());
-            }
-        });
+        // The shared Gruvbox Dark/Light selector (`bugis`), GUI drawing.
+        bugis::selector(ui, &mut self.theme);
 
         ui.separator();
         ui.heading("Legend").on_hover_text(

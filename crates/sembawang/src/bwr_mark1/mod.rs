@@ -19,7 +19,7 @@
 //! |---|---|---|
 //! | [`Plant`] (this module) | the reactor pressure vessel's water and steam, the isolation condensers, the relief valves, injection, decay heat, the operators' sequence | the plant worker, which also paces the run |
 //! | [`core::Core`] | the fuel and cladding temperatures, oxidation, hydrogen, relocation | the core worker |
-//! | [`containment::Containment`] | drywell, wetwell, pool, vent, reactor building | the containment worker |
+//! | [`PlantContainment`]: ~~[`containment::Containment`]~~ **since 2026-11-02 (gh:#1099)** the control-volume network [`containment_network::ContainmentNetwork`], the lumped [`containment::Containment`] under `Mechanisms::without_network_containment` | drywell, wetwell, pool, vent, reactor building | the containment worker, which holds it between steps ([`ContainmentWorker`]) |
 //!
 //! Each step, [`Plant::begin`] reads the vessel at the start of the step and
 //! hands each worker a **snapshot**; the core and the containment advance
@@ -29,7 +29,15 @@
 //! uses for its flows. Because the snapshots and results cross as exact
 //! `f64`s ([`wire`]), the three-worker step is bit-for-bit the one-worker
 //! step ([`Plant::step_inline`]); `tests::three_workers_are_one_worker`
-//! holds that.
+//! holds that. (Since gh:#1099 the network's state has no wire form, so the
+//! containment worker keeps its containment and only the snapshot and the
+//! result cross; the core still crosses with its whole state.)
+//!
+//! **Units 2 and 3 (gh:#1109).** [`Plant::for_unit`] builds Unit 2 or 3
+//! from [`Params::unit2`]/[`Params::unit3`] and its own containment network;
+//! in place of the isolation condensers it runs RCIC and HPCI
+//! ([`turbine_pump`]) and, under [`Mode::Historical`], the unit's cited
+//! sequence ([`units23`]). Every existing constructor is Unit 1, unchanged.
 //!
 //! **AI draft, not validated.** See [`params`] for where every number comes
 //! from (many are placeholders) and each module's "Not in the model" list.
@@ -40,8 +48,11 @@ pub mod aerosol;
 pub mod cavity;
 pub mod compare;
 pub mod containment;
+pub mod containment_fp;
+pub mod containment_network;
 pub mod core;
 pub mod decay;
+pub mod fdi;
 pub mod fp_decay;
 pub mod gas;
 pub mod internals;
@@ -49,12 +60,17 @@ pub mod iodine;
 pub mod msl;
 pub mod params;
 pub mod pool_surface;
+pub mod reaction;
 pub mod rn_volume;
 pub mod source;
 pub mod sparc;
 pub mod steam;
+pub mod turbine_pump;
+pub mod units23;
 pub mod vapour;
 pub mod wire;
+
+pub use units23::Unit;
 
 use petir::mathf::RealMath;
 use containment::{Containment, ContainmentResult, ContainmentSnapshot};
@@ -78,7 +94,9 @@ pub const SCENARIO_END_S: f64 = 30.0 * 3600.0;
 /// Who drives the operator actions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
-    /// The recorded Unit 1 sequence (INPO 11-005 timeline, \[U\] times).
+    /// The recorded sequence of the plant's unit: Unit 1's ([`EVENTS`],
+    /// INPO 11-005 timeline, \[U\] times); since gh:#1109 Units 2 and 3's
+    /// from USNRC HRTD Table 7.1-2 ([`units23`], via [`Plant::for_unit`]).
     Historical,
     /// The reader's own actions.
     FreePlay,
@@ -357,6 +375,90 @@ pub struct Mechanisms {
     /// particulate debris; 2026-10-29; needs `core_plate` and
     /// `debris_oxidation`). Off is the held debris inert.
     pub plate_oxidation: bool,
+    /// The steam the lower plenum's debris oxidation uses no longer rises
+    /// into the core (2026-10-29, a conservation defect: the core could
+    /// oxidise with it a second time). Off is the defect, kept as the
+    /// ablation that reproduces the earlier runs.
+    pub lp_steam_consumed: bool,
+    /// The control blades, MELCOR's NS component in its BWR form (steel
+    /// only, 2026-10-30): their steel at each cell's cladding temperature,
+    /// oxidised by MELCOR's stainless-steel law (COR RM §2.5.6) in the steam
+    /// the Zr leaves, failing at the steel's melting temperature and
+    /// draining to the lower plenum, where it quenches. Their B4C is not
+    /// modelled (MELCOR's default BWR model caps its oxidation at 2 %).
+    /// Off is a core without blades.
+    pub control_blades: bool,
+    /// A control blade at the steel's melting temperature absorbs its heat
+    /// of fusion (MELCOR's 2.68e5 J/kg) before it drains, and carries it to
+    /// the lower plenum (2026-10-30; needs `control_blades`). Off drains it
+    /// at once at its solid enthalpy.
+    pub blade_fusion: bool,
+    /// The cavity debris's phases (MELCOR CAV RM §3.3, §3.10; 2026-10-30;
+    /// needs `mcci`): its oxide melts over an ideal-solution pseudo-binary
+    /// range with latent heats, and its interior conducts when solid and
+    /// convects when liquid. Off is one convecting debris without phase
+    /// change.
+    pub cavity_phases: bool,
+    /// The reactor building's burn starts by MELCOR's BUR criteria for a
+    /// volume without igniters (BUR RM §2.2: Le Chatelier with CO, oxygen,
+    /// steam and CO2 inerting; 2026-10-30), CO and CO2 followed as tracers
+    /// in the nitrogen-like gas. Off is the 8 % hydrogen threshold \[A\].
+    pub bur_ignition: bool,
+    /// The wetwell vent and the drywell head flange, which discharge to the
+    /// atmosphere from several bar, pass at most MELCOR's critical gas flow
+    /// (CVH/FL RM §6.3, Eq 6-13; 2026-10-30): a missing limit, the
+    /// incompressible orifice passing about twice it at those ratios. Off
+    /// is the orifice alone.
+    pub gas_choking: bool,
+    /// The control blades' steel oxidation held to MELCOR's gaseous-
+    /// diffusion limit (COR RM §2.5.3, Eq 2-168, which binds every
+    /// reaction; 2026-10-30; needs `control_blades` and `diffusion_limit`).
+    /// Off leaves the steel's parabolic rate unlimited.
+    pub blade_diffusion_limit: bool,
+    /// The downcomers' and vacuum breakers' equalising cap counts the
+    /// receiving volume's pressure rise as well as the donor's fall
+    /// (2026-10-30, a numerical defect: the one-sided cap overshot the set
+    /// point, and the vacuum breaker chattered about it every step,
+    /// amplifying a 1e-9 perturbation 1.5 times a step). Off is the
+    /// one-sided cap.
+    pub two_sided_equalising: bool,
+    /// The control blades' B4C reacts with steam by MELCOR's simple model
+    /// (COR RM §2.5.9, MARCON 2.1B; at most 2 % of it; 2026-10-30; needs
+    /// `control_blades`). Off is inert B4C.
+    pub b4c_oxidation: bool,
+    /// A building burn runs MELCOR's combustion completeness, flame speed
+    /// and rate (BUR RM §2.3 to §2.5; 2026-10-30), consuming oxygen and
+    /// making CO2, and reports its pressure rise as an adiabatic bound.
+    /// Off is the burn as one step that removes all of the building's H2
+    /// and CO and wrecks the building (no further inflow).
+    pub burn_dynamics: bool,
+    /// Debris leaving the failed vessel falls through the pedestal's water
+    /// by MELCOR's low-pressure melt ejection (FDI RM §2.2; 2026-10-30):
+    /// Chu's breakup, radiation or Bromley film boiling, all of the heat
+    /// boiling water. Off is debris landing at the core's temperature.
+    pub fdi_lpme: bool,
+    /// Candling Zr carries UO2 down with it, 0.2 of its mass: MELCOR's
+    /// default secondary transport (COR RM §3.1.4, COR_CMT; 2026-10-30).
+    /// Off is the Zr candling alone.
+    pub uo2_candling: bool,
+    /// A molten lower-plenum pool (above the UO2-ZrO2 eutectic) convects to
+    /// the head by MELCOR's ACOPO correlation (COR RM §2.4.2, Table 2-4;
+    /// 2026-10-30). Off is the fixed debris-to-head coefficient.
+    pub molten_pool: bool,
+    /// The containment is `tampines`' control-volume network
+    /// ([`containment_network::ContainmentNetwork`]: drywell, torus and
+    /// reactor building as control volumes with IF97 water, V(z) tables,
+    /// inertial flow paths and an implicit step), **the default since
+    /// 2026-11-02** (maintainer decision on gh:#1099, "switch it"). Off is
+    /// the lumped [`containment::Containment`], the model every result
+    /// before that date was measured on. The network costs about 100 times
+    /// the lumped model a step (the module docs give the measured timing).
+    pub network_containment: bool,
+    /// The drywell spray's droplets reach equilibrium with the atmosphere
+    /// as they fall, condensing steam (gh:#1109,
+    /// `containment::spray_condensation`; Unit 3's fire-pumper spray, none
+    /// on Unit 1). Off is the spray's water landing on the floor unchanged.
+    pub containment_spray: bool,
 }
 
 impl Default for Mechanisms {
@@ -417,6 +519,21 @@ impl Default for Mechanisms {
             ring_plates: true,
             pool_layers: true,
             plate_oxidation: true,
+            lp_steam_consumed: true,
+            control_blades: true,
+            blade_fusion: true,
+            cavity_phases: true,
+            bur_ignition: true,
+            gas_choking: true,
+            blade_diffusion_limit: true,
+            two_sided_equalising: true,
+            b4c_oxidation: true,
+            burn_dynamics: true,
+            fdi_lpme: true,
+            uo2_candling: true,
+            molten_pool: true,
+            network_containment: true,
+            containment_spray: true,
         }
     }
 }
@@ -774,6 +891,110 @@ impl Mechanisms {
         self
     }
 
+    /// The lower plenum's oxidation steam rising into the core as well:
+    /// the defect before 2026-10-29.
+    pub fn without_lp_steam_consumed(mut self) -> Self {
+        self.lp_steam_consumed = false;
+        self
+    }
+
+    /// A core without control blades: before 2026-10-30.
+    pub fn without_control_blades(mut self) -> Self {
+        self.control_blades = false;
+        self
+    }
+
+    /// The blade drained at once at its solid enthalpy: before 2026-10-30.
+    pub fn without_blade_fusion(mut self) -> Self {
+        self.blade_fusion = false;
+        self
+    }
+
+    /// The cavity debris convecting without phase change: before
+    /// 2026-10-30.
+    pub fn without_cavity_phases(mut self) -> Self {
+        self.cavity_phases = false;
+        self
+    }
+
+    /// The building exploding at 8 % hydrogen: before 2026-10-30.
+    pub fn without_bur_ignition(mut self) -> Self {
+        self.bur_ignition = false;
+        self
+    }
+
+    /// The vent and the flange as incompressible orifices: before
+    /// 2026-10-30.
+    pub fn without_gas_choking(mut self) -> Self {
+        self.gas_choking = false;
+        self
+    }
+
+    /// The blades' steel oxidation without the diffusion limit: before
+    /// 2026-10-30.
+    pub fn without_blade_diffusion_limit(mut self) -> Self {
+        self.blade_diffusion_limit = false;
+        self
+    }
+
+    /// The one-sided equalising cap: before 2026-10-30.
+    pub fn without_two_sided_equalising(mut self) -> Self {
+        self.two_sided_equalising = false;
+        self
+    }
+
+    /// Inert B4C: before 2026-10-30.
+    pub fn without_b4c_oxidation(mut self) -> Self {
+        self.b4c_oxidation = false;
+        self
+    }
+
+    /// The burn as one step: before 2026-10-30.
+    pub fn without_burn_dynamics(mut self) -> Self {
+        self.burn_dynamics = false;
+        self
+    }
+
+    /// Debris landing at the core's temperature: before 2026-10-30.
+    pub fn without_fdi_lpme(mut self) -> Self {
+        self.fdi_lpme = false;
+        self
+    }
+
+    /// The Zr candling alone: before 2026-10-30.
+    pub fn without_uo2_candling(mut self) -> Self {
+        self.uo2_candling = false;
+        self
+    }
+
+    /// The fixed debris-to-head coefficient for molten debris too: before
+    /// 2026-10-30.
+    pub fn without_molten_pool(mut self) -> Self {
+        self.molten_pool = false;
+        self
+    }
+
+    /// The lumped [`containment::Containment`] instead of the control-volume
+    /// network: the plant before 2026-11-02 (gh:#1099). Every result pinned
+    /// before the switch is reproduced under this ablation, bit for bit.
+    pub fn without_network_containment(mut self) -> Self {
+        self.network_containment = false;
+        self
+    }
+
+    /// The spray's water reaching the floor without exchanging with the
+    /// atmosphere: before gh:#1109 (no spray existed).
+    pub fn without_containment_spray(mut self) -> Self {
+        self.containment_spray = false;
+        self
+    }
+
+    /// What the containment worker needs to build the plant's containment
+    /// (gh:#1099).
+    pub fn containment_choice(&self) -> ContainmentChoice {
+        ContainmentChoice { network: self.network_containment, mcci: self.mcci, pool_layers: self.pool_layers, unit: Unit::One }
+    }
+
     /// Isolation-condenser condensation unaffected by hydrogen in the vessel.
     pub fn without_ic_h2_blanketing(mut self) -> Self {
         self.ic_h2_blanketing = false;
@@ -811,9 +1032,23 @@ impl Default for Controls {
 ///   "manually vented ≈24 h" (vent closure 24.68 h, a BSAF boundary
 ///   condition this sequence does not have).
 ///
-/// The other five times (IC stop, IC cycling, station blackout, the three
+/// ~~The other five times (IC stop, IC cycling, station blackout, the three
 /// injection changes) have no BSAF anchor and stay `[U]` until checked
-/// against INPO 11-005, IAEA TV1 or the Japanese government report (#1031).
+/// against INPO 11-005, IAEA TV1 or the Japanese government report
+/// (#1031).~~ **CORRECTED 2026-10-30 (gh:#1044, F13)**: checked against the
+/// NRC's open training chapter, *Fukushima Dai-ichi Earthquake and Tsunami
+/// Event* (USNRC HRTD, GE BWR/4 Advanced Technology, ch. 7.1, Table 7.1-2;
+/// `reactor-literature/theodore-open-corpus/nrc/`):
+/// - IC stop 15:03, vent 14:30, explosion 15:36 and seawater 19:04
+///   **agree** to the minute;
+/// - fresh-water injection: the NRC's 05:46, 15 h 00 min after the scram,
+///   is the label's own time, but the event fired at 14 h 59 min (a
+///   defect, label and code disagreeing). **Fixed to 15.0 h**;
+/// - the station blackout: the NRC lists the loss of all AC and DC at about
+///   15:41 (00:55); this model keeps INPO's 15:37 as recalled. The sources
+///   disagree by 4 min, **not resolved** (INPO 11-005 is not held);
+/// - IC cycling at 15:17 and the fresh water exhausted at 14:53: not in
+///   the NRC table, still `[U]`.
 #[derive(Clone, Copy, Debug)]
 pub struct Event {
     pub t_s: f64,
@@ -837,13 +1072,42 @@ pub enum EventKind {
     VentOpened,
     /// Recorded for comparison only: the model computes its own.
     Explosion,
+    // ── Units 2 and 3 (gh:#1109; [`units23`]) ──
+    /// RCIC started, the whole flow into the vessel (trips at L8 while DC
+    /// lasts).
+    RcicStart,
+    /// RCIC started with the operators holding the level ([`turbine_pump::Drive::Throttled`]).
+    RcicStartThrottled,
+    /// RCIC lost for good.
+    RcicLost,
+    /// HPCI started with the operators holding the level.
+    HpciStartThrottled,
+    /// HPCI lost for good.
+    HpciLost,
+    /// DC power lost: the relief valves fall back to their spring set
+    /// points, level control and the pumps' trip logic are gone.
+    DcLost,
+    /// AC lost, DC kept (Unit 3's station blackout): nothing modelled runs
+    /// on AC, so recorded.
+    AcLost,
+    /// This many relief valves held open (by batteries brought in: needs
+    /// no station DC).
+    ReliefHeld(u8),
+    /// The fire pumper sprays the drywell; and stops.
+    SprayOn,
+    SprayOff,
+    /// The wetwell vent closes (the order is withdrawn).
+    VentClosed,
+    /// What the plant did itself (a trip, an explosion), for comparison
+    /// only: never acted on.
+    Recorded,
 }
 
 pub const EVENTS: [Event; 9] = [
     Event { t_s: 17.0 * 60.0, label: "15:03 Operators stop both IC trains (cooldown > 55 °C/h)", kind: EventKind::IcStopped },
     Event { t_s: 31.0 * 60.0, label: "15:17 Train A cycled to hold pressure", kind: EventKind::IcCycleA },
     Event { t_s: 51.0 * 60.0, label: "15:37 Tsunami: station blackout, IC valves fail closed", kind: EventKind::StationBlackout },
-    Event { t_s: (14.0 * 60.0 + 59.0) * 60.0, label: "05:46 (12 Mar) Fresh-water injection by fire engine", kind: EventKind::InjectionOn },
+    Event { t_s: 15.0 * 3600.0, label: "05:46 (12 Mar) Fresh-water injection by fire engine", kind: EventKind::InjectionOn },
     Event { t_s: (23.0 * 60.0 + 44.0) * 60.0, label: "14:30 Wetwell vent opened", kind: EventKind::VentOpened },
     Event { t_s: (24.0 * 60.0 + 7.0) * 60.0, label: "14:53 Fresh water exhausted", kind: EventKind::InjectionOff },
     Event { t_s: (24.0 * 60.0 + 50.0) * 60.0, label: "15:36 Reactor building explosion (recorded)", kind: EventKind::Explosion },
@@ -868,6 +1132,185 @@ pub struct Vessel {
     /// True when no saturated mixture matches (boiled dry): an ideal-gas
     /// steam fallback, outside what the model represents.
     pub dry: bool,
+}
+
+/// Which containment the plant builds, and the two plant mechanisms the
+/// network maps onto its own (gh:#1099): `mcci` onto
+/// [`containment_network::NetworkMechanisms::cavity`] and `pool_layers`
+/// onto its layered torus pool. The network reads every other containment
+/// switch it carries from the snapshot, as the lumped model does; the
+/// lumped model's own numerical and gas-model switches (`ww_atmosphere`,
+/// `gas_cv_t`, `outflow_enthalpy`, `mixture_vent`, `two_sided_equalising`,
+/// `gas_choking`, `condensate_to_floor`, `burn_dynamics`, `relief_h2_enthalpy`
+/// excepted, which the network reads) have no counterpart on the network
+/// and do nothing there (stated, not hidden).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ContainmentChoice {
+    pub network: bool,
+    pub mcci: bool,
+    pub pool_layers: bool,
+    /// Which unit's network to build (gh:#1109); Unit 1 from
+    /// [`Mechanisms::containment_choice`], the plant's own from
+    /// [`Plant::containment_choice`].
+    pub unit: Unit,
+}
+
+/// The containment model a plant runs, by enum dispatch (rust-design-rules:
+/// no trait objects, no `Box`; the network is held by value).
+#[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)] // owned by value, as the workspace's design rules ask
+pub enum ContainmentModel {
+    /// The control-volume network, the default since gh:#1099.
+    Network(containment_network::ContainmentNetwork),
+    /// The lumped model (`Mechanisms::without_network_containment`).
+    Lumped(Containment),
+    /// The network could not be built from these inputs; why. Its steps
+    /// return the initial state and [`PlantContainment::error`] says so.
+    Unbuilt(String),
+}
+
+/// The plant's containment (gh:#1099, 2026-11-02): either model behind one
+/// step, `ContainmentSnapshot` in, the old [`ContainmentResult`] out
+/// ([`containment_network::NetworkResult::to_containment_result`] maps the
+/// network's), so the plant, the frame, the CSV and every consumer read
+/// one type.
+///
+/// **State that cannot cross a worker boundary.** The network's state
+/// (`tampines`' `CvNetwork`) has no wire form, so the containment worker
+/// holds its containment between steps ([`ContainmentWorker`]); only the
+/// snapshot and the result cross, as exact `f64`s.
+///
+/// **A network step that fails** (a Picard step that does not converge
+/// after six halvings, a state outside IF97) commits nothing; the step
+/// returns the last result unchanged and [`PlantContainment::error`]
+/// reports the first failure with its time. The run then continues on a
+/// frozen containment, so every caller that reports a result must check
+/// it (the headless run and `compare::measure_with` panic on it).
+#[derive(Clone, Debug)]
+pub struct PlantContainment {
+    model: ContainmentModel,
+    prm: Params,
+    last: ContainmentResult,
+    error: Option<String>,
+    t_s: f64,
+}
+
+impl PlantContainment {
+    /// A fresh containment for `prm`, the model and the mapped switches
+    /// from `choice`.
+    pub fn new(prm: &Params, choice: ContainmentChoice) -> Self {
+        let mut last = ContainmentResult::default();
+        last.p_dw_pa = prm.initial_containment_pa;
+        last.p_ww_pa = prm.initial_containment_pa;
+        last.t_dw_k = prm.initial_drywell_k;
+        last.t_pool_k = prm.initial_pool_k;
+        last.t_pool_top_k = prm.initial_pool_k;
+        let (model, error) = if choice.network {
+            let mut mech = containment_network::NetworkMechanisms::default();
+            mech.cavity = choice.mcci;
+            mech.pool_layers = choice.pool_layers;
+            match containment_network::ContainmentNetwork::with_config(prm, choice.unit.network_config(), mech) {
+                Ok(n) => (ContainmentModel::Network(n), None),
+                Err(e) => {
+                    let m = format!("the containment network could not be built: {e}");
+                    (ContainmentModel::Unbuilt(m.clone()), Some(m))
+                }
+            }
+        } else {
+            (ContainmentModel::Lumped(Containment::new(prm)), None)
+        };
+        Self { model, prm: *prm, last, error, t_s: 0.0 }
+    }
+
+    /// One step.
+    pub fn step(&mut self, s: &ContainmentSnapshot) -> ContainmentResult {
+        self.t_s += s.dt_s;
+        match &mut self.model {
+            ContainmentModel::Network(n) => match n.step(s) {
+                Ok(r) => self.last = r.to_containment_result(&self.prm),
+                Err(e) => {
+                    if self.error.is_none() {
+                        self.error = Some(format!("the containment network failed at t = {} s: {e}", self.t_s));
+                    }
+                }
+            },
+            ContainmentModel::Lumped(c) => self.last = c.step(s),
+            ContainmentModel::Unbuilt(_) => {}
+        }
+        self.last
+    }
+
+    /// The first failure, if any (see the type's docs).
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+
+    /// Whether this is the control-volume network.
+    pub fn is_network(&self) -> bool {
+        matches!(self.model, ContainmentModel::Network(_))
+    }
+
+    /// The model, read-only.
+    pub fn model(&self) -> &ContainmentModel {
+        &self.model
+    }
+}
+
+/// The containment worker (gh:#1099): it **holds** the plant's containment
+/// between steps, because the network's state has no wire form. Each
+/// request carries a run generation, the [`ContainmentChoice`] and the
+/// step's snapshot (which carries the `Params`); a new generation rebuilds
+/// the containment from them, so a reset or a changed choice needs no
+/// separate message (and a message lost before the worker's handshake
+/// loses nothing). The reply is a status (1 ok, 0 the containment has
+/// failed, see [`PlantContainment::error`]) and the [`ContainmentResult`].
+#[derive(Clone, Debug, Default)]
+pub struct ContainmentWorker {
+    generation: Option<u64>,
+    held: Option<PlantContainment>,
+}
+
+impl ContainmentWorker {
+    /// The request for one step of run `generation`.
+    pub fn request(generation: u64, choice: ContainmentChoice, s: &ContainmentSnapshot) -> Vec<f64> {
+        let mut w = Writer::default();
+        w.f(&[generation as f64, b(choice.network), b(choice.mcci), b(choice.pool_layers), choice.unit.code()]);
+        s.write(&mut w);
+        w.0
+    }
+
+    /// Answer one request (never panics on a short message: the wire reader
+    /// reads NaN past the end).
+    pub fn handle(&mut self, msg: &[f64]) -> Vec<f64> {
+        let mut r = Reader::new(msg);
+        let g = r.f();
+        let choice = ContainmentChoice { network: r.f() != 0.0, mcci: r.f() != 0.0, pool_layers: r.f() != 0.0, unit: Unit::from_code(r.f()) };
+        let s = ContainmentSnapshot::read(&mut r);
+        let generation = (g.is_finite() && g >= 0.0).then_some(g as u64);
+        if generation.is_none() || generation != self.generation || self.held.is_none() {
+            self.generation = generation;
+            self.held = Some(PlantContainment::new(&s.prm, choice));
+        }
+        let mut w = Writer::default();
+        if let Some(c) = self.held.as_mut() {
+            let res = c.step(&s);
+            w.f(&[b(c.error().is_none())]);
+            res.write(&mut w);
+        }
+        w.0
+    }
+
+    /// The reply's result and whether the containment is still good.
+    pub fn read_reply(v: &[f64]) -> (ContainmentResult, bool) {
+        let mut r = Reader::new(v);
+        let ok = r.f() == 1.0;
+        (ContainmentResult::read(&mut r), ok)
+    }
+
+    /// The containment it holds, read-only.
+    pub fn held(&self) -> Option<&PlantContainment> {
+        self.held.as_ref()
+    }
 }
 
 /// Everything the page shows, flattened (see [`Frame::write`]).
@@ -905,6 +1348,12 @@ pub struct Frame {
     pub on_internals_kg: [f64; 2],
     pub core: CoreResult,
     pub containment: ContainmentResult,
+    /// RCIC's and HPCI's injection into the vessel, the turbines' steam
+    /// from it, and the drywell spray, kg/s (gh:#1109; zero on Unit 1).
+    pub w_rcic_kg_s: f64,
+    pub w_hpci_kg_s: f64,
+    pub w_turbine_kg_s: f64,
+    pub w_spray_kg_s: f64,
 }
 
 /// Choked mass flux of saturated steam, kg/(m^2 s), tabulated against
@@ -1026,6 +1475,16 @@ pub struct Plant {
     pub mode: Mode,
     pub mechanisms: Mechanisms,
     pub controls: Controls,
+    /// Which unit (gh:#1109): its sequence, its containment network, and
+    /// whether it has isolation condensers or turbine-driven pumps.
+    unit: Unit,
+    /// RCIC and HPCI ([`turbine_pump`]; never started on Unit 1).
+    pumps: [turbine_pump::TurbinePump; 2],
+    /// The fire pumper sprays the drywell (Units 2 and 3's sequences).
+    spray_on: bool,
+    /// Relief valves held open by batteries brought in (needs no station
+    /// DC; Units 2 and 3's sequences).
+    held_valves: u8,
     /// The inputs this plant runs with ([`Params`]); fixed at construction.
     prm: Params,
     t_s: f64,
@@ -1109,6 +1568,17 @@ struct Pending {
     w_drain: f64,
     /// Heat through the RPV's insulation to the drywell, W (`rpv_wall`).
     rpv_out_w: f64,
+    /// The turbine-driven pumps (gh:#1109): water into the vessel, kg/s,
+    /// and its enthalpy, J/kg; the turbines' inlet from the vessel, kg/s,
+    /// its enthalpy, J/kg (the exhaust goes with the relief stream in the
+    /// snapshot); each pump's injection, kg/s (RCIC, HPCI).
+    w_pump_inj: f64,
+    h_pump_inj: f64,
+    w_turbine: f64,
+    h_turbine: f64,
+    w_pump_each: [f64; 2],
+    /// The drywell spray, kg/s.
+    w_spray: f64,
 }
 
 /// The core and containment snapshots of one step.
@@ -1132,6 +1602,19 @@ impl Plant {
     /// core and containment from the same inputs, and every snapshot carries
     /// them to the workers.
     pub fn with_params(mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self {
+        Self::with_unit_params(Unit::One, mode, mechanisms, prm)
+    }
+
+    /// A fresh plant of `unit` with its own inputs ([`Unit::params`]) and
+    /// containment network ([`Unit::network_config`]); under
+    /// [`Mode::Historical`] it runs that unit's recorded sequence
+    /// ([`units23`] for Units 2 and 3; gh:#1109).
+    pub fn for_unit(unit: Unit, mode: Mode, mechanisms: Mechanisms) -> Self {
+        Self::with_unit_params(unit, mode, mechanisms, unit.params())
+    }
+
+    /// [`Plant::for_unit`] with perturbed or corrected inputs.
+    pub fn with_unit_params(unit: Unit, mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self {
         let sat = SatTable::new();
         let choked = ChokedTable::new(&sat);
         let s = sat.at(prm.initial_pressure_pa);
@@ -1150,6 +1633,10 @@ impl Plant {
             mode,
             mechanisms,
             controls: Controls::default(),
+            unit,
+            pumps: [turbine_pump::TurbinePump::new(turbine_pump::Pump::Rcic), turbine_pump::TurbinePump::new(turbine_pump::Pump::Hpci)],
+            spray_on: false,
+            held_valves: 0,
             prm,
             t_s: 0.0,
             m: m_l + m_g,
@@ -1199,9 +1686,27 @@ impl Plant {
         p
     }
 
-    /// A fresh core and containment matching a fresh plant.
-    pub fn parts(&self) -> (Core, Containment) {
-        (Core::new(self.vessel.sat.t_k, &self.prm), Containment::new(&self.prm))
+    /// A fresh core and containment matching a fresh plant: the
+    /// containment network by default, the lumped model under
+    /// `Mechanisms::without_network_containment` (gh:#1099).
+    pub fn parts(&self) -> (Core, PlantContainment) {
+        (Core::new(self.vessel.sat.t_k, &self.prm), PlantContainment::new(&self.prm, self.containment_choice()))
+    }
+
+    /// What the containment worker builds for this plant: the mechanisms'
+    /// choice with this plant's unit.
+    pub fn containment_choice(&self) -> ContainmentChoice {
+        ContainmentChoice { unit: self.unit, ..self.mechanisms.containment_choice() }
+    }
+
+    /// Which unit this plant is.
+    pub fn unit(&self) -> Unit {
+        self.unit
+    }
+
+    /// The RCIC and HPCI pumps' states (never started on Unit 1).
+    pub fn pumps(&self) -> &[turbine_pump::TurbinePump; 2] {
+        &self.pumps
     }
 
     /// The inputs this plant runs with.
@@ -1249,8 +1754,35 @@ impl Plant {
         }
     }
 
+    /// Units 2 and 3's sequence ([`units23`]): the rows due in this step.
+    fn apply_units23_history(&mut self) {
+        for e in units23::due(self.unit, self.t_s, DT_S) {
+            use turbine_pump::Drive;
+            match e.kind {
+                EventKind::RcicStart => self.pumps[0].start(Drive::Injecting),
+                EventKind::RcicStartThrottled => self.pumps[0].start(Drive::Throttled),
+                EventKind::RcicLost => self.pumps[0].lose(),
+                EventKind::HpciStartThrottled => self.pumps[1].start(Drive::Throttled),
+                EventKind::HpciLost => self.pumps[1].lose(),
+                EventKind::DcLost | EventKind::StationBlackout => self.controls.dc_power = false,
+                EventKind::ReliefHeld(n) => self.held_valves = self.held_valves.max(n),
+                EventKind::SprayOn => self.spray_on = true,
+                EventKind::SprayOff => self.spray_on = false,
+                EventKind::InjectionOn => self.controls.injection = true,
+                EventKind::InjectionOff => self.controls.injection = false,
+                EventKind::VentOpened => self.controls.vent_ordered = true,
+                EventKind::VentClosed => self.controls.vent_ordered = false,
+                EventKind::AcLost | EventKind::Recorded | EventKind::Explosion | EventKind::IcStopped | EventKind::IcCycleA => {}
+            }
+        }
+    }
+
     /// The operators' actions from the historical sequence, at time `t`.
     fn apply_history(&mut self) {
+        if self.unit != Unit::One {
+            self.apply_units23_history();
+            return;
+        }
         let t = self.t_s;
         let at = |k: EventKind| EVENTS.iter().filter(|e| e.kind == k).map(|e| e.t_s).collect::<Vec<_>>();
         let crossed = |times: &[f64]| times.iter().any(|&e| t >= e && t < e + DT_S);
@@ -1294,8 +1826,9 @@ impl Plant {
         let v = self.vessel;
         let p = v.p_pa;
         let t_sat = v.sat.t_k;
-        // Isolation condensers: automatic start on high pressure (needs DC).
-        if self.controls.dc_power && !self.ic_autostarted && p >= prm.ic_autostart_pa {
+        // Isolation condensers: automatic start on high pressure (needs DC);
+        // Unit 1 alone has them.
+        if self.unit.has_isolation_condenser() && self.controls.dc_power && !self.ic_autostarted && p >= prm.ic_autostart_pa {
             self.ic_autostarted = true;
             self.controls.ic_open = [true; IC_TRAINS];
         }
@@ -1324,7 +1857,20 @@ impl Plant {
         // G goes as sqrt(M), so by sqrt(M_mix / M_H2O); gamma's change with
         // the mixture is not followed (stated).
         let flux = self.choked.at(p) * if self.mechanisms.mixture_choking { mixture_flux_factor(v.h2_fraction) } else { 1.0 };
-        let w_relief = if self.relief_open { flux * prm.relief_throat_m2 * prm.relief_valves } else { 0.0 };
+        let w_relief = if self.relief_open {
+            flux * prm.relief_throat_m2 * prm.relief_valves
+        } else if self.held_valves > 0 && !self.last_core.lower_head_failed && p > self.last_containment.p_ww_pa + prm.vent_submergence_pa {
+            // Valves held open by batteries brought in (Units 2 and 3),
+            // while the vessel is above the pool's back-pressure at the
+            // quenchers (the wetwell's plus the submergence head). Once the
+            // lower head has failed, the vessel's gas leaves through the
+            // breach (`share_leak`) and a held valve passes nothing more.
+            // (Found 2026-11-02: without both limits a held valve drained a
+            // failed, dry vessel to zero mass, and its state went NaN.)
+            flux * prm.relief_throat_m2 * f64::from(self.held_valves).min(prm.relief_valves)
+        } else {
+            0.0
+        };
         if self.mechanisms.hot_leak && self.last_core.exit_gas_k >= prm.hot_leak_gas_k {
             self.hot_leak_open = true;
         }
@@ -1423,7 +1969,60 @@ impl Plant {
         } else {
             ((w_relief * DT_S / (steam_gas + self.h2)).min(1.0), (w_leak * DT_S / (steam_gas + self.h2)).min(1.0))
         };
+        // The turbine-driven pumps (gh:#1109; Units 2 and 3 only): the L8
+        // trip on the start-of-step level, then each pump's flows.
+        let mut pf = [turbine_pump::PumpFlows::default(); 2];
+        if self.unit != Unit::One {
+            let level_taf = v.level_m - prm.active_length_m;
+            let (dc, t_now) = (self.controls.dc_power, self.t_s);
+            for pump in self.pumps.iter_mut() {
+                pump.check_trip(&prm, level_taf, dc, t_now);
+            }
+            if self.pumps.iter().any(|x| x.drive != turbine_pump::Drive::Off) {
+                let swollen = if self.mechanisms.level_swell && !v.dry {
+                    swollen_level(&prm, v.level_m, self.last_core.q_pool_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
+                } else {
+                    v.level_m
+                };
+                let inp = turbine_pump::PumpInputs {
+                    p_vessel_pa: v.sat.p_pa,
+                    h_g: v.sat.h_g,
+                    h_f: v.sat.h_f,
+                    level_above_taf_m: level_taf,
+                    swollen_above_taf_m: swollen - prm.active_length_m,
+                    p_exhaust_pa: self.last_containment.p_ww_pa + prm.vent_submergence_pa,
+                    p_suction_pa: P_ATM,
+                    dc_power: dc,
+                    dry: v.dry,
+                };
+                for (f, pump) in pf.iter_mut().zip(self.pumps.iter()) {
+                    *f = pump.flows(&prm, &inp);
+                }
+            }
+        }
+        let w_pump_inj: f64 = pf.iter().map(|f| f.inject_kg_s).sum();
+        let w_turbine: f64 = pf.iter().map(|f| f.turbine_kg_s).sum();
+        // The flows' mass-weighted enthalpies (zero with no flow).
+        let per = |e: f64, w: f64| if w > 0.0 { e / w } else { 0.0 };
+        let h_pump_inj = per(pf.iter().map(|f| f.inject_kg_s * f.inject_h).sum(), w_pump_inj);
+        let h_turbine = per(pf.iter().map(|f| f.turbine_kg_s * f.turbine_h).sum(), w_turbine);
+        let h_exhaust = per(pf.iter().map(|f| f.turbine_kg_s * f.exhaust_h).sum(), w_turbine);
+        // The fire pumper's drywell spray, on the engine's curve against the
+        // drywell's pressure (the same pumper and curve as the injection,
+        // [A]).
+        let p_dw_spray = self.last_containment.p_dw_pa;
+        let w_spray = if self.spray_on && p_dw_spray < prm.fire_engine_shutoff_pa {
+            prm.fire_engine_max_kg_s * (1.0 - (p_dw_spray - P_ATM).max(0.0) / (prm.fire_engine_shutoff_pa - P_ATM)).sqrt()
+        } else {
+            0.0
+        };
         self.pending = Pending {
+            w_pump_inj,
+            h_pump_inj,
+            w_turbine,
+            h_turbine,
+            w_pump_each: [pf[0].inject_kg_s, pf[1].inject_kg_s],
+            w_spray,
             w_bypass,
             q_ic_w: q_ic_train.iter().sum(),
             q_ic_train,
@@ -1456,6 +2055,17 @@ impl Plant {
             (rn_volume::RnFlow::default(), rn_volume::RnFlow::default())
         };
         let h_gas = v.sat.h_g;
+        // The relief valves' steam, and the turbines' exhaust with it into
+        // the pool (gh:#1109; the exhaust line ends under the pool, HRTD
+        // Figure 7.1-5a): one stream, its enthalpy the flows' mean. Without
+        // a turbine running, the relief stream alone, as before.
+        let srv_steam = w_relief * (1.0 - h2_share);
+        let (srv_steam, srv_h) = if w_turbine > 0.0 {
+            let m = srv_steam + w_turbine;
+            (m, (srv_steam * h_gas + w_turbine * h_exhaust) / m)
+        } else {
+            (srv_steam, h_gas)
+        };
         // The level the core sees (gh:#1036): swollen by the vapour the last
         // step raised in the pool, or the collapsed level.
         let core_level = if self.mechanisms.level_swell && !v.dry {
@@ -1464,11 +2074,14 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, plate_oxidation: self.mechanisms.plate_oxidation, lp_steam_consumed: self.mechanisms.lp_steam_consumed, control_blades: self.mechanisms.control_blades, blade_fusion: self.mechanisms.blade_fusion, blade_diffusion_limit: self.mechanisms.blade_diffusion_limit, b4c_oxidation: self.mechanisms.b4c_oxidation, uo2_candling: self.mechanisms.uo2_candling, molten_pool: self.mechanisms.molten_pool, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
-                srv_steam_kg_s: w_relief * (1.0 - h2_share),
-                srv_h: h_gas,
+                srv_steam_kg_s: srv_steam,
+                srv_h,
+                spray_kg_s: w_spray,
+                spray_k: prm.injection_temperature_k,
+                spray_exchange: self.mechanisms.containment_spray,
                 srv_h2_kg_s: w_relief * h2_share,
                 leak_steam_kg_s: w_leak * (1.0 - h2_share),
                 leak_h: h_gas,
@@ -1512,6 +2125,13 @@ impl Plant {
                 mcci: self.mechanisms.mcci,
                 dw_wall_outer: self.mechanisms.dw_wall_outer,
                 pool_layers: self.mechanisms.pool_layers,
+                cavity_phases: self.mechanisms.cavity_phases,
+                bur_ignition: self.mechanisms.bur_ignition,
+                gas_choking: self.mechanisms.gas_choking,
+                two_sided_equalising: self.mechanisms.two_sided_equalising,
+                burn_dynamics: self.mechanisms.burn_dynamics,
+                fdi_lpme: self.mechanisms.fdi_lpme,
+                vessel_p_pa: v.sat.p_pa,
                 cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
                 cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
                 cav_debris_k: self.last_core.debris_k,
@@ -1606,6 +2226,13 @@ impl Plant {
         let to_relief = if gas_out > 0.0 { d.w_relief / gas_out } else { 0.0 };
         let h2_enthalpy_out = h2_exit_enthalpy(d.h2_out, to_relief, v.sat.t_k, self.gas_out_k(), self.mechanisms.hydrogen_cp_t);
         self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out - d.w_drain * v.sat.h_f) * DT_S;
+        // The turbine-driven pumps (gh:#1109): the turbines take steam (and
+        // any carried-over water) at the inlet's enthalpy, the pumps return
+        // water at the tank's enthalpy plus their shaft work.
+        if d.w_turbine > 0.0 || d.w_pump_inj > 0.0 {
+            self.m += (d.w_pump_inj - d.w_turbine) * DT_S;
+            self.u += (d.w_pump_inj * d.h_pump_inj - d.w_turbine * d.h_turbine) * DT_S;
+        }
         // The dome internals take heat from (or give it back to) the gas
         // leaving the core, out of the vessel's energy.
         if self.mechanisms.dome_internals {
@@ -1790,7 +2417,7 @@ impl Plant {
     /// One whole step with the core and containment advanced here, in
     /// order: what the one-worker mode (and natively, the engine thread)
     /// runs.
-    pub fn step_inline(&mut self, core: &mut Core, containment: &mut Containment) {
+    pub fn step_inline(&mut self, core: &mut Core, containment: &mut PlantContainment) {
         let s = self.begin();
         let c = core.step(&s.core);
         let k = containment.step(&s.containment);
@@ -1824,6 +2451,10 @@ impl Plant {
             on_internals_kg: self.on_internals_kg,
             core: self.last_core.clone(),
             containment: self.last_containment,
+            w_rcic_kg_s: self.pending.w_pump_each[0],
+            w_hpci_kg_s: self.pending.w_pump_each[1],
+            w_turbine_kg_s: self.pending.w_turbine,
+            w_spray_kg_s: self.pending.w_spray,
         }
     }
 }
@@ -1880,6 +2511,7 @@ impl Frame {
         ]);
         self.core.write(w);
         self.containment.write(w);
+        w.f(&[self.w_rcic_kg_s, self.w_hpci_kg_s, self.w_turbine_kg_s, self.w_spray_kg_s]);
     }
     pub fn read(r: &mut Reader) -> Self {
         let t_s = r.f();
@@ -1914,6 +2546,10 @@ impl Frame {
             on_internals_kg: [r.f(), r.f()],
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
+            w_rcic_kg_s: r.f(),
+            w_hpci_kg_s: r.f(),
+            w_turbine_kg_s: r.f(),
+            w_spray_kg_s: r.f(),
         }
     }
 }
@@ -1964,13 +2600,30 @@ pub fn csv_row(f: &Frame) -> String {
 
 /// The headless run: `steps` steps of the historical sequence, one CSV row
 /// every `every` steps. Deterministic: no clock, no randomness, no I/O.
+///
+/// Every mechanism on, so the containment is the network (gh:#1099);
+/// [`headless_csv_with`] runs any ablation.
 pub fn headless_csv(steps: usize, every: usize) -> String {
-    let mut plant = Plant::new(Mode::Historical);
+    headless_csv_with(Mechanisms::default(), steps, every)
+}
+
+/// [`headless_csv`] with `mechanisms` (gh:#1099: the lumped containment's
+/// trace is `headless_csv_with(Mechanisms::default().without_network_containment(), ..)`).
+///
+/// # Panics
+///
+/// If the containment network fails (a frozen containment would print a
+/// trace that looks valid; [`PlantContainment`]).
+pub fn headless_csv_with(mechanisms: Mechanisms, steps: usize, every: usize) -> String {
+    let mut plant = Plant::with_mechanisms(Mode::Historical, mechanisms);
     let (mut core, mut cont) = plant.parts();
     let mut out = String::from(CSV_HEADER);
     out.push('\n');
     for i in 0..steps {
         plant.step_inline(&mut core, &mut cont);
+        if let Some(e) = cont.error() {
+            panic!("{e}");
+        }
         if (i + 1) % every.max(1) == 0 {
             out.push_str(&csv_row(&plant.frame()));
             out.push('\n');
@@ -1983,15 +2636,135 @@ pub fn headless_csv(steps: usize, every: usize) -> String {
 mod tests {
     use super::*;
 
+    /// The control blades' B4C over 6 h (`b4c_oxidation`, MELCOR COR RM
+    /// §2.5.9): 97 x 4.7 kg, capped at 2 %, so at most 9.12 kg reacts.
+    /// Results (2026-10-30): 8.862 kg, as CO 4.46, CO2 152.95 and CH4 2.98
+    /// mol (the steam-rich core favours CO2), about 2.6 kg of H2; with UO2
+    /// carried by candling Zr (the same day) 8.821 kg, CO 4.05, CO2 152.51,
+    /// CH4 3.08 mol.
+    ///
+    /// **Since gh:#1099 on the lumped containment**, explicitly: these pins
+    /// were measured on it and keep their value there.
+    #[test]
+    fn the_blades_b4c_reacts_up_to_melcors_cap() {
+        let mut plant = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
+        let (mut core, mut cont) = plant.parts();
+        for _ in 0..21600usize {
+            plant.step_inline(&mut core, &mut cont);
+        }
+        let (kg, gases) = core.b4c_tally();
+        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9 && (kg - 8.821).abs() < 1e-3, "{kg}");
+        assert!((gases[1] - 152.51).abs() < 0.01 && gases[0] < 5.0 && gases[2] < 3.5, "{gases:?}");
+    }
+
+    /// Debris falling through the pedestal's water (`fdi_lpme`, MELCOR FDI
+    /// RM §2.2) over the first 8 h. Results (2026-10-30): the first debris,
+    /// 20.1 t of UO2 and 6.5 t of Zr, leaves the head at 5.344 h at 1350 K,
+    /// solid (below Zr's 2098 K), so it does not break up; at 1.49 m/s
+    /// through 0.93 m of water it cools 2 K and raises 8.6 kg of steam.
+    /// Later packets of 2.2 t arrive hotter (to 2044 K) and slower; 63.0
+    /// kg in all by 7.14 h, after which the vessel sits below the drywell
+    /// and MELCOR's Eq 6-34 gives no velocity. No ejection is fast enough
+    /// for MELCOR's high-pressure model. Predicted 0.05-0.5 t, for molten
+    /// debris near 2800 K (missed low: the debris that leaves is solid).
+    /// With UO2 carried by candling Zr (the same day) the head fails at
+    /// 5.484 h: 8.07 kg at once, 74.75 kg by 8 h.
+    ///
+    /// **Since gh:#1099 on the lumped containment**, explicitly (the pins'
+    /// model); the network's FDI is `the_network_plant_over_30_hours`'s.
+    #[test]
+    fn the_debris_falls_through_the_pedestal_water() {
+        let mut plant = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
+        let (mut core, mut cont) = plant.parts();
+        let mut first = None;
+        for i in 0..28800usize {
+            plant.step_inline(&mut core, &mut cont);
+            if first.is_none() && plant.frame().containment.fdi_steam_kg > 0.0 {
+                first = Some(((i + 1) as f64 / 3600.0, plant.frame().containment.fdi_steam_kg));
+            }
+        }
+        let (h, kg) = first.unwrap();
+        assert!((h - 5.4844).abs() < 1e-3 && (kg - 8.07).abs() < 0.01, "{h} {kg}");
+        let k = plant.frame().containment;
+        assert!((k.fdi_steam_kg - 74.75).abs() < 0.01 && !k.fdi_hpme, "{k:?}");
+    }
+
     /// The core and containment work from snapshots that cross a worker
     /// boundary as flat f64s; that gives the in-place step bit for bit.
     /// Methodology: run 2000 steps of the historical sequence in place, and
     /// again with every snapshot and result written to the wire format and
     /// read back on the other side (what the three-worker mode does); compare
     /// every field of the frame after every step with `==` on the f64s.
+    ///
+    /// **Since gh:#1099 (2026-11-02) the containment is the network**, whose
+    /// state has no wire form: the containment worker holds it
+    /// ([`ContainmentWorker`]) and only the snapshot and the result cross;
+    /// the core still crosses with its whole state. Predicted before the
+    /// run: bit-identical (the worker builds its network from the
+    /// snapshot's round-tripped `Params`, the same bits). The lumped
+    /// containment's state round trip is
+    /// `three_workers_are_one_worker_on_the_lumped_containment`.
     #[test]
     fn three_workers_are_one_worker() {
-        one_worker_against_three(Params::default(), 2000);
+        let f = one_worker_against_three(Params::default(), 2000);
+        assert!(f.t_s == 2000.0);
+    }
+
+    /// The lumped containment (`without_network_containment`) still crosses
+    /// with its whole state each step, bit for bit (the pre-gh:#1099
+    /// protocol, kept for the ablation).
+    #[test]
+    fn three_workers_are_one_worker_on_the_lumped_containment() {
+        let mech = Mechanisms::default().without_network_containment();
+        let mut a = Plant::with_mechanisms(Mode::Historical, mech);
+        let (mut ca, mut ka) = a.parts();
+        let mut b = Plant::with_mechanisms(Mode::Historical, mech);
+        let (mut cb, _) = b.parts();
+        let mut kb = Containment::new(&Params::default());
+        assert!(!ka.is_network());
+        for _ in 0..2000 {
+            a.step_inline(&mut ca, &mut ka);
+            let s = b.begin();
+            let mut w = Writer::default();
+            s.containment.write(&mut w);
+            let cont_snap = ContainmentSnapshot::read(&mut Reader::new(&w.0));
+            let mut w = Writer::default();
+            s.core.write(&mut w);
+            let core_snap = CoreSnapshot::read(&mut Reader::new(&w.0));
+            let (core_res, cont_res);
+            (cb, core_res) = remote_core(&cb, &core_snap);
+            (kb, cont_res) = remote_containment(&kb, &cont_snap);
+            b.finish(core_res, cont_res);
+            let (mut wa, mut wb) = (Writer::default(), Writer::default());
+            a.frame().write(&mut wa);
+            b.frame().write(&mut wb);
+            assert!(wa.0.iter().zip(&wb.0).all(|(x, y)| x.to_bits() == y.to_bits()), "diverged at t = {}", a.frame().t_s);
+        }
+    }
+
+    /// **The network is the default containment** (gh:#1099), pinned as
+    /// `the_coupled_physics_is_on_by_default` pins its physics: a plant
+    /// built the ordinary way gets the network, the ablation gets the
+    /// lumped model, and the worker builds what the plant asks for.
+    #[test]
+    fn the_containment_network_is_the_default() {
+        assert!(Mechanisms::default().network_containment);
+        let p = Plant::new(Mode::Historical);
+        let (_, k) = p.parts();
+        assert!(k.is_network() && k.error().is_none());
+        assert!(matches!(k.model(), ContainmentModel::Network(_)));
+        let lumped = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
+        assert!(matches!(lumped.parts().1.model(), ContainmentModel::Lumped(_)));
+        let mut p = p;
+        let s = p.begin();
+        let mut w = ContainmentWorker::default();
+        let reply = w.handle(&ContainmentWorker::request(0, p.mechanisms.containment_choice(), &s.containment));
+        assert!(ContainmentWorker::read_reply(&reply).1 && w.held().is_some_and(PlantContainment::is_network));
+        // The plant's mechanisms reach the network's.
+        let m = Mechanisms::default().without_mcci().without_pool_layers();
+        let k = Plant::with_mechanisms(Mode::Historical, m).parts().1;
+        let ContainmentModel::Network(n) = k.model() else { panic!("not the network") };
+        assert!(!n.mechanisms().cavity && !n.mechanisms().pool_layers && n.pool_layer_count() == 1);
     }
 
     /// Changed inputs (gh:#1033) reach every part: a plant built with
@@ -2018,26 +2791,29 @@ mod tests {
     }
 
     /// Steps a plant inline and a second one through the worker wire, frame
-    /// for frame bit-identical, and returns the last frame.
+    /// for frame bit-identical, and returns the last frame. The core's
+    /// state crosses each step; the containment stays in its worker
+    /// ([`ContainmentWorker`], gh:#1099).
     fn one_worker_against_three(prm: Params, steps: usize) -> Frame {
         let mut a = Plant::with_params(Mode::Historical, Mechanisms::default(), prm);
         let (mut ca, mut ka) = a.parts();
         let mut b = Plant::with_params(Mode::Historical, Mechanisms::default(), prm);
-        let (mut cb, mut kb) = b.parts();
+        let (mut cb, _) = b.parts();
+        let mut kb = ContainmentWorker::default();
         for _ in 0..steps {
             a.step_inline(&mut ca, &mut ka);
             let s = b.begin();
             let mut w = Writer::default();
             s.core.write(&mut w);
             let core_snap = CoreSnapshot::read(&mut Reader::new(&w.0));
-            let mut w = Writer::default();
-            s.containment.write(&mut w);
-            let cont_snap = ContainmentSnapshot::read(&mut Reader::new(&w.0));
-            // The worker gets the state and the snapshot, steps a copy of
-            // its own, and sends back the new state and the result.
-            let (core_res, cont_res);
+            // The core worker gets the state and the snapshot, steps a copy
+            // of its own, and sends back the new state and the result; the
+            // containment worker gets the request and answers with the
+            // result, holding its containment.
+            let core_res;
             (cb, core_res) = remote_core(&cb, &core_snap);
-            (kb, cont_res) = remote_containment(&kb, &cont_snap);
+            let (cont_res, ok) = ContainmentWorker::read_reply(&kb.handle(&ContainmentWorker::request(0, b.mechanisms.containment_choice(), &s.containment)));
+            assert!(ok, "{:?}", kb.held().and_then(PlantContainment::error));
             b.finish(core_res, cont_res);
             let (fa, fb) = (a.frame(), b.frame());
             let (mut wa, mut wb) = (Writer::default(), Writer::default());
@@ -2085,10 +2861,20 @@ mod tests {
     /// `FUKUSHIMA_BLESS=1 cargo test --release -p sembawang --lib bwr_mark1`
     /// (~~`-p dhoby-ghaut --example fukushima_web`~~, before the model moved
     /// here on 2026-10-29, gh:#1033).
+    ///
+    /// **Since gh:#1099 (2026-11-02) the fixture is the network plant's**,
+    /// re-blessed after the switch (set after the run, gh:#1099); the lumped
+    /// plant's fixture, byte-identical to the one committed before, is
+    /// `headless_30h_lumped.csv`
+    /// (`the_lumped_headless_run_matches_its_fixture`). Gated behind
+    /// `long-tests`: the network's 30 h take about 20 min.
     #[test]
+    #[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110)"]
     fn the_headless_run_matches_the_committed_fixture() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h.csv");
+        let start = std::time::Instant::now();
         let now = headless_csv(108_000, 600);
+        println!("30 h on the network: {:.1} s", start.elapsed().as_secs_f64());
         if std::env::var("FUKUSHIMA_BLESS").is_ok() {
             std::fs::write(path, &now).expect("write the fixture");
         }
@@ -2096,13 +2882,33 @@ mod tests {
         assert!(now == fixture, "the headless trace changed; re-bless only if the change is deliberate");
     }
 
+    /// The lumped containment's 30 h trace (`without_network_containment`)
+    /// against the fixture committed before gh:#1099, renamed
+    /// `headless_30h_lumped.csv` and otherwise unchanged: the ablation
+    /// reproduces the old default byte for byte. Re-bless with
+    /// `FUKUSHIMA_BLESS=1` as above.
+    #[test]
+    fn the_lumped_headless_run_matches_its_fixture() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h_lumped.csv");
+        let start = std::time::Instant::now();
+        let now = headless_csv_with(Mechanisms::default().without_network_containment(), 108_000, 600);
+        println!("30 h on the lumped containment: {:.1} s", start.elapsed().as_secs_f64());
+        if std::env::var("FUKUSHIMA_BLESS").is_ok() {
+            std::fs::write(path, &now).expect("write the fixture");
+        }
+        let fixture = std::fs::read_to_string(path).expect("the committed fixture");
+        assert!(now == fixture, "the lumped headless trace changed; re-bless only if the change is deliberate");
+    }
+
     /// Physical bounds over the whole recorded sequence, every step: positive
     /// pressures below the vessel's design range, cladding between the
     /// coolant and 2600 K, a level inside the vessel, hydrogen never
     /// decreasing. A harness check that catches divergence, not physics V&V.
+    /// On the lumped containment since gh:#1099, explicitly; the network
+    /// plant's bounds are checked by `the_network_plant_over_30_hours`.
     #[test]
     fn the_whole_sequence_stays_in_physical_bounds() {
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         let mut h2 = 0.0;
         for _ in 0..108_000 {
@@ -2237,9 +3043,13 @@ mod tests {
     /// containment's share lags the vessel's by its one-step hand-over;
     /// once the lower head has failed the vessel's noble gas passes to the
     /// drywell, the vessel being open to it).
+    ///
+    /// **On the lumped containment since gh:#1099**, explicitly, so that the
+    /// positions pinned below keep their meaning; the network plant's
+    /// conservation is `the_network_plant_over_30_hours`'s.
     #[test]
     fn noble_gas_is_conserved_from_fuel_to_stack() {
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         let mut peak_ww = 0.0f64;
         for _ in 0..(26 * 3600) {
@@ -2273,11 +3083,35 @@ mod tests {
         // layers the flange opens about 17.5 h: 4.00e-3 in the building,
         // 7.85e-4 in the drywell (past the 5e-4 this test held, which was a
         // record of the earlier runs, not a bound), 9.2e-6 in the wetwell.
-        // With the plate's debris oxidising: 4.60e-3, 7.77e-4 and 8.8e-6.
+        // With the plate's debris oxidising: 4.60e-3, 7.77e-4 and 8.8e-6;
+        // with the plenum's oxidation steam consumed: 4.64e-3, 8.54e-4, 1.1e-5;
+        // with the control blades: 1.62e-2, 2.11e-4, 2.02e-4; with the
+        // blades' heat of fusion: 1.31e-2, 1.82e-4, 1.69e-4; with the cavity
+        // debris's phases (MCCI gas holding the drywell at the flange's
+        // pressure from 16.7 h): 0.1120, 1.81e-3, 1.34e-3; with the vent and
+        // flange choked: 0.0218, 6.35e-4, 4.01e-4; with the blades' diffusion
+        // limit: 0.0217, 6.59e-4, 4.19e-4; with the two-sided equalising:
+        // 0.0283, 7.84e-4, 5.01e-4; with the blades' B4C: 0.0263, 6.47e-4,
+        // 4.61e-4; with the debris falling through the pedestal's water:
+        // 0.0263, 6.75e-4, 4.84e-4; with UO2 carried by candling Zr: 0.0231, 4.34e-4,
+        // 2.99e-4; with the fresh water from 15:00 h (F13): 0.0231, 4.57e-4,
+        // 3.09e-4; with SPARC's atan and the burn's cbrt through PETIR
+        // (round-off, the run diverging from 23.8 h): 0.02318, 4.94e-4,
+        // 3.38e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 7.85e-4).abs() < 1e-5 && k.xe_ww < 4e-4, "{f:?}");
-        assert!((k.xe_building - 4.60e-3).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.94e-4).abs() < 1e-5 && (k.xe_ww - 3.38e-4).abs() < 1e-5, "{f:?}");
+        assert!((k.xe_building - 0.02318).abs() < 1e-5, "{f:?}");
+        // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
+        // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
+        // volume without igniters, so no burn; it passes the 0.07 of a
+        // volume with igniters between 24 and 26 h (the explosion came at
+        // 24.8 h; recorded, not adopted). With the vent and flange choked:
+        // Y 0.0347, CO 0.0030 (half the gas reaches the building); 0.0345
+        // with the blades' diffusion limit; 0.0416, CO 0.0036, with the
+        // two-sided equalising; 0.0329, CO 0.0028, with the blades' B4C;
+        // 0.0394, CO 0.0035, with UO2 carried by candling Zr.
+        assert!((k.rb_burn_y - 0.0394).abs() < 1e-4 && (k.rb_co_fraction - 0.0035).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2290,8 +3124,11 @@ mod tests {
         // 2.6e-4; 0.9960 since the bottom of the core radiates, with 2.7e-4
         // and 2.6e-4; 0.9937 with a plate per ring, the flange open; 0.9898
         // with the pool in two layers; 0.9891 with the plate's debris
-        // oxidising.)
-        assert!((k.xe_vented - 0.9891).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // oxidising; 0.9889 with the plenum's oxidation steam consumed;
+        // 0.9813 with the control blades; 0.9843 with their heat of
+        // fusion; 0.8826 with the cavity debris's phases; 0.9749 with the
+        // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C; 0.9735 with UO2 carried by candling Zr; 0.9733 with SPARC's atan through PETIR.)
+        assert!((k.xe_vented - 0.9733).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
@@ -2300,9 +3137,10 @@ mod tests {
     /// building add up to the released fraction times the inventory, to
     /// 1e-9 of it (with the dome internals' deposits since in-vessel
     /// deposition). Iodine and, since 2026-10-29, tellurium likewise.
+    /// On the lumped containment since gh:#1099 (the network's: below).
     #[test]
     fn cesium_is_conserved_from_fuel_to_stack() {
-        let mut p = Plant::new(Mode::Historical);
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_network_containment());
         let (mut c, mut k) = p.parts();
         for _ in 0..(26 * 3600) {
             p.step_inline(&mut c, &mut k);
@@ -2341,7 +3179,9 @@ mod tests {
     /// vessel).
     #[test]
     fn a_dry_vessel_is_not_emptied_by_the_internals() {
-        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_core_radiation());
+        // On the lumped containment since gh:#1099 (a vessel guard; its 26 h
+        // on the network would cost about 18 min).
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_core_radiation().without_network_containment());
         let (mut c, mut k) = p.parts();
         let mut min_m = f64::INFINITY;
         for _ in 0..(26 * 3600) {
@@ -2350,6 +3190,79 @@ mod tests {
             assert!(p.vessel.p_pa.is_finite() && p.vessel.p_pa < 2.0e7, "{} at {}", p.vessel.p_pa, p.t_s);
         }
         assert!(min_m > 100.0, "{min_m}");
+    }
+
+    /// **The network plant over the whole sequence** (gh:#1099, 2026-11-02):
+    /// at every step of 30 h with the network the default, the physical
+    /// bounds of `the_whole_sequence_stays_in_physical_bounds`, noble gas,
+    /// cesium, iodine and tellurium conserved from the fuel to wherever they
+    /// go (the tolerances of the lumped tests, unchanged), and the network
+    /// never failing. Prints where the fission products are at 26 h.
+    ///
+    /// Predicted before the run: every bound and every balance holds (the
+    /// network carries the same `FpHold` with the same arithmetic, and its
+    /// rides conserve by construction, `containment_network.md` case D);
+    /// at 26 h most of the noble gas vented (the vent opens near 24 h) and
+    /// little in the building (open loop the flange opened at 17.25 h and
+    /// the building reached 1.74 % H2).
+    ///
+    /// **Results (2026-11-02; set after the run, gh:#1099):** every bound
+    /// and balance held at every step, and the network never failed (held).
+    /// At 26 h (lumped in brackets, from `noble_gas_is_conserved_from_fuel_to_stack`):
+    /// noble gas vented 0.98265 \[0.9733\], in the building 0.014214
+    /// \[0.02318\], drywell 4.2e-6, wetwell gas 2.0e-6 \[4.94e-4, 3.38e-4\];
+    /// the building's Le Chatelier Y 0.04159 \[0.0394\], no burn (held);
+    /// cesium on the drywell's structures 73.99 kg and in the pool 78.22 kg,
+    /// 0.067 kg vented and 0.052 kg to the building; iodine 11.31 kg in the
+    /// pool, 0.46 kg vented; the cavity 84.1 t of concrete ablated, 552 kg
+    /// of H2 and 803 kg of CO. The head failed at high pressure (4.69 h,
+    /// before the steam line's creep rupture, which never comes): `fdi_hpme`
+    /// is flagged (still treated as low-pressure ejection, as in the lumped
+    /// model). The flange opens between 15.33 and 15.5 h \[16.67-16.83 h\];
+    /// the building reaches 3.9 % H2 at 26 h \[3.7 %\]. Prediction on the
+    /// building (little H2) MISSED: the drywell, higher than predicted
+    /// (1.00 MPa), leaks more. 1540 s with three other network runs beside
+    /// it.
+    #[test]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run, ~20 min); runs by default, skipped under --no-default-features")]
+    fn the_network_plant_over_30_hours() {
+        let mut p = Plant::new(Mode::Historical);
+        let (mut c, mut k) = p.parts();
+        assert!(k.is_network());
+        let mut h2 = 0.0;
+        let mut at_26 = None;
+        for i in 0..108_000usize {
+            p.step_inline(&mut c, &mut k);
+            assert!(k.error().is_none(), "{:?}", k.error());
+            let f = p.frame();
+            assert!(f.vessel.p_pa > 5.0e4 && f.vessel.p_pa < steam::P_MAX_PA, "p {} at {}", f.vessel.p_pa, f.t_s);
+            assert!(f.core.peak_clad_k < 3200.0, "clad {} at {}", f.core.peak_clad_k, f.t_s);
+            assert!(f.vessel.level_m >= -BAF_M - 1e-9 && f.vessel.level_m <= RPV_HEIGHT_M, "level {}", f.vessel.level_m);
+            let kr = &f.containment;
+            assert!(kr.p_dw_pa > 5.0e4 && kr.p_ww_pa > 5.0e4, "{kr:?}");
+            assert!(kr.t_pool_k > 273.0 && kr.t_pool_k < 450.0, "{kr:?}");
+            assert!(f.core.h2_total_kg >= h2);
+            h2 = f.core.h2_total_kg;
+            let xe = f.xe_vessel + kr.xe_dw + kr.xe_ww + kr.xe_vented + kr.xe_building;
+            assert!((xe - f.core.fp_volatile_released).abs() < 1e-12, "Xe {xe} vs {} at {}", f.core.fp_volatile_released, f.t_s);
+            let cs = f.cs_vessel_kg + f.on_internals_kg[0] + kr.cs_airborne_kg + kr.cs_dw_structures_kg + kr.cs_ww_pool_kg + kr.cs_vented_kg + kr.cs_building_kg;
+            assert!((cs - f.core.fp_volatile_released * CS_INVENTORY_KG).abs() < 1e-9 * CS_INVENTORY_KG, "Cs {cs} at {}", f.t_s);
+            let io = f.i_vessel_kg + f.on_internals_kg[1] + kr.i_airborne_kg + kr.i_dw_structures_kg + kr.i_ww_pool_kg + kr.i_vented_kg + kr.i_building_kg;
+            assert!((io - f.core.fp_volatile_released * I_INVENTORY_KG).abs() < 1e-9 * I_INVENTORY_KG, "I {io} at {}", f.t_s);
+            let te = p.vessel_rn.total_kg(rn_volume::TE) + kr.te_kg;
+            assert!((te - f.core.fp_volatile_released * TE_INVENTORY_KG).abs() < 1e-9 * TE_INVENTORY_KG, "Te {te} at {}", f.t_s);
+            if i + 1 == 26 * 3600 {
+                println!("network 26 h: {f:?}");
+                at_26 = Some(f);
+            }
+        }
+        println!("network 30 h: {:?}", p.frame());
+        // Set after the run, gh:#1099 (2026-11-02).
+        let f = at_26.expect("26 h reached");
+        let kr = &f.containment;
+        assert!((kr.xe_vented - 0.98265).abs() < 1e-4 && (kr.xe_building - 0.014214).abs() < 1e-5 && kr.xe_dw < 1e-5 && kr.xe_ww < 1e-5, "{kr:?}");
+        assert!((kr.rb_burn_y - 0.04159).abs() < 1e-4 && !kr.rb_exploded && kr.fdi_hpme, "{kr:?}");
+        assert!((kr.cs_ww_pool_kg - 78.22).abs() < 0.01 && (kr.i_ww_pool_kg - 11.31).abs() < 0.01, "{kr:?}");
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J
@@ -2386,5 +3299,75 @@ mod tests {
         for z in [0.5, 4.9, 6.0, 8.6, 12.0, 19.0] {
             assert!((height_of_volume(&prm, volume_below(&prm, z)) - z).abs() < 1e-9, "{z}");
         }
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    /// gh:#1109: a Unit 2 or 3 plant builds its own unit's containment
+    /// network (`NetworkConfig::unit2()`/`unit3()`) from its own inputs, the
+    /// unit crosses the containment worker's wire, and Unit 1 (every
+    /// existing constructor) stays Unit 1 with the IC and no pumps.
+    #[test]
+    fn each_unit_builds_its_own_network_and_the_unit_crosses_the_wire() {
+        for unit in [Unit::Two, Unit::Three] {
+            let p = Plant::for_unit(unit, Mode::Historical, Mechanisms::default());
+            assert_eq!((p.unit(), *p.params()), (unit, unit.params()));
+            let (_, c) = p.parts();
+            match c.model() {
+                ContainmentModel::Network(n) => assert_eq!(n.config(), unit.network_config()),
+                other => panic!("{unit:?}: {other:?}"),
+            }
+            // The worker builds the same unit from the request alone.
+            let mut wk = ContainmentWorker::default();
+            let mut q = Plant::for_unit(unit, Mode::Historical, Mechanisms::default());
+            let s = q.begin();
+            let reply = wk.handle(&ContainmentWorker::request(1, q.containment_choice(), &s.containment));
+            assert!(ContainmentWorker::read_reply(&reply).1);
+            match wk.held().unwrap().model() {
+                ContainmentModel::Network(n) => assert_eq!(n.config(), unit.network_config()),
+                other => panic!("{unit:?}: {other:?}"),
+            }
+        }
+        let p = Plant::new(Mode::Historical);
+        assert_eq!((p.unit(), p.containment_choice().unit), (Unit::One, Unit::One));
+        assert_eq!(Mechanisms::default().containment_choice().unit, Unit::One);
+        assert!(p.pumps().iter().all(|x| x.drive == turbine_pump::Drive::Off));
+    }
+
+    /// One worker equals three for Unit 2 on the lumped containment, past
+    /// RCIC's start (the pump's flows and the merged exhaust cross the wire
+    /// in the snapshot and the frame).
+    #[test]
+    fn three_workers_are_one_worker_for_unit2() {
+        let mech = Mechanisms::default().without_network_containment();
+        let mut a = Plant::for_unit(Unit::Two, Mode::Historical, mech);
+        let (mut ca, mut ka) = a.parts();
+        let mut b = Plant::for_unit(Unit::Two, Mode::Historical, mech);
+        let (mut cb, _) = b.parts();
+        let mut wk = ContainmentWorker::default();
+        for _ in 0..900 {
+            a.step_inline(&mut ca, &mut ka);
+            let s = b.begin();
+            let mut w = Writer::default();
+            s.core.write(&mut w);
+            let core_snap = CoreSnapshot::read(&mut Reader::new(&w.0));
+            let c = cb.step(&core_snap);
+            let reply = wk.handle(&ContainmentWorker::request(7, b.containment_choice(), &s.containment));
+            let (k, ok) = ContainmentWorker::read_reply(&reply);
+            assert!(ok);
+            b.finish(c, k);
+        }
+        let (fa, fb) = (a.frame(), b.frame());
+        assert!(fa.w_rcic_kg_s > 0.0 && fa.w_turbine_kg_s > 0.0);
+        let (mut wa, mut wb) = (Writer::default(), Writer::default());
+        fa.write(&mut wa);
+        fb.write(&mut wb);
+        assert_eq!(wa.0.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), wb.0.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+        // And the frame survives its own wire.
+        let back = Frame::read(&mut Reader::new(&wa.0));
+        assert_eq!((back.w_rcic_kg_s, back.w_turbine_kg_s, back.w_spray_kg_s), (fa.w_rcic_kg_s, fa.w_turbine_kg_s, fa.w_spray_kg_s));
     }
 }

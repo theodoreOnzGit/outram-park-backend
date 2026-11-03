@@ -98,6 +98,7 @@ pub mod det_six_factor;
 pub mod rod_insertion;
 pub mod coupling;
 pub mod direct_coupling;
+pub mod system_coupling;
 /// outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
 /// outram-blender's retired `mc-export` feature on 2026-10-02 (GitHub #486).
 pub mod blender_bridge;
@@ -166,6 +167,34 @@ impl NeeSoon {
             fuel_reference_temperature,
             initial_fuel_temperature,
             initial_power,
+        )
+    }
+
+    /// Creates the coupling between a 1-D system code's core nodes and point
+    /// kinetics ([`system_coupling::LoopKineticsCoupling`], gh:#1084): node
+    /// fields to reactivity through GeN-Foam's `ReactivityFeedback`, power to
+    /// the nodes by `power_fractions`, advanced by Picard coupled steps. A
+    /// thin pass-through to that type's constructor.
+    ///
+    /// # Errors
+    ///
+    /// As [`system_coupling::LoopKineticsCoupling::new`].
+    pub fn new_loop_kinetics_coupling(
+        &self,
+        kinetics: teh_o_prke::zero_power_prke::n_group_prke::PointKinetics,
+        generation_time: Time,
+        initial_power: Power,
+        node_volumes: &[f64],
+        power_fractions: &[f64],
+        feedback: outram_foam_appbuilder_lib::genfoam::multi_region::ReactivityFeedback,
+    ) -> Result<system_coupling::LoopKineticsCoupling, system_coupling::SystemCouplingError> {
+        system_coupling::LoopKineticsCoupling::new(
+            kinetics,
+            generation_time,
+            initial_power,
+            node_volumes,
+            power_fractions,
+            feedback,
         )
     }
 }

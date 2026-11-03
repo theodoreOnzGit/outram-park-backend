@@ -186,6 +186,57 @@ pub const FIRE_ENGINE_SHUTOFF_PA: f64 = 1.0e6;
 pub const FIRE_ENGINE_MAX_KG_S: f64 = 4.0;
 pub const INJECTION_TEMPERATURE_K: f64 = 293.15;
 
+// ── Turbine-driven pumps: RCIC and HPCI (gh:#1109, `turbine_pump`) ────────
+//
+// Units 2 and 3 only: Unit 1's sequence never runs them (its HPCI was lost
+// with DC at the tsunami). Marks as elsewhere; an [S] is a search excerpt
+// of a named public document whose primary was not opened (treat as [U],
+// the tag it carries here).
+
+/// RCIC's rated (governed) flow, kg/s: 95 m^3/h at the suction's 998.2
+/// kg/m^3 (IF97, 293.15 K). Unit 2's; Unit 3's is in `Params::unit3`. [S]
+/// TEPCO, press material of 6 Aug 2014 (www.tepco.co.jp, betu14_e
+/// 140806e0113), "the rated flow rate (95m3/h)" (page not seen; its 30 m^3/h
+/// is TEPCO's fit to the measured pressure, a calibration, not used).
+/// \[U\]
+pub const RCIC_RATED_KG_S: f64 = 95.0 * 998.2 / 3600.0;
+/// HPCI's rated flow, kg/s: 965 t/h. [S] KTH, EMUG 2012 slides (Unit 3) and
+/// PSI, EMUG 2013 (Unit 2), "HPCI nominal flow rate: 965 t/h" (page not
+/// seen; both MELCOR users' inputs, so a design value at second hand).
+/// \[U\]
+pub const HPCI_RATED_KG_S: f64 = 965_000.0 / 3600.0;
+/// The pump's and the turbine's efficiencies (`turbine_pump`). \[A\] both:
+/// not in a held source; a Terry turbine at part load is inefficient, so
+/// the turbine's is set low. They fix the turbine's steam per kilogram
+/// pumped (about 0.032 at 7 MPa against a 0.15 MPa exhaust).
+/// \[A\]
+pub const PUMP_EFFICIENCY: f64 = 0.7;
+/// \[A\]
+pub const TURBINE_EFFICIENCY: f64 = 0.5;
+/// The vessel pressure below which a turbine-driven pump stops (its
+/// low-steam-pressure isolation), Pa absolute. \[A\] not in a held source.
+pub const TURBINE_MIN_PA: f64 = 0.5e6;
+/// The low level L2, m above the top of active fuel: 120 in. USNRC HRTD ch.
+/// 7.1, Table 7.1-2, p. 7.1-20 (12 Mar 12:35): "Unit 3 HPCI auto start at
+/// 120 inches > TAF"; HPCI starts on L2 ([S] KTH EMUG 2012: "Start at low
+/// level of water (L2) automatically"). Used as the bottom of the operators'
+/// level band for both pumps \[P\]
+pub const LEVEL_L2_ABOVE_TAF_M: f64 = 120.0 * 0.0254;
+/// The high level L8, m above the top of active fuel, where an injecting
+/// pump trips while DC lasts. \[A\] the number is not in a held source
+/// (HRTD records the trips, Table 7.1-2 p. 7.1-18, not the set point):
+/// 0.6 m above the model's normal level (4.4 m, Unit 1's, borrowed).
+pub const LEVEL_L8_ABOVE_TAF_M: f64 = 5.0;
+/// The steam line's nozzle, m above the top of active fuel, where a
+/// rising swollen level starts to carry water into a turbine's steam
+/// supply, and the band over which the steam fraction falls to zero, m
+/// (`turbine_pump::steam_fraction`). \[A\] both: above L8, as L8 is set to
+/// protect the steam lines; not in a held source, and not adjusted to any
+/// measured level.
+pub const MSL_NOZZLE_ABOVE_TAF_M: f64 = 6.0;
+/// \[A\]
+pub const CARRYOVER_BAND_M: f64 = 0.5;
+
 /// Main steam lines (gh:#1037, `msl.rs`): number, inner radius, wall
 /// thickness, m. \[A\] all three: Unit 1's line size is not in a held
 /// source. The radius is sized for its rated steam flow, about 667 kg/s
@@ -295,6 +346,130 @@ pub const WATER_EMISSIVITY: f64 = 0.95;
 /// That radiation's exchange factor over the cell's area: MELCOR's `FLPUP`
 /// (COR UG, COR_RF default 0.25), \[P\].
 pub const FLPUP: f64 = 0.25;
+/// The control blades (`Mechanisms::control_blades`, MELCOR's NS
+/// component): Unit 1's cruciform control rods, \[U\] 97 for its 400
+/// assemblies (one per four).
+pub const CONTROL_RODS: f64 = 97.0;
+/// Stainless steel per blade over the active height, kg, \[A\] from the
+/// common GE design: four wings 0.124 m by 3.66 m, a 1.4 mm sheath on both
+/// faces (41 kg) and 18 B4C tubes per wing, 4.8 mm across with 0.6 mm walls
+/// (17 kg), rounded up for the tie rod: 60 kg.
+pub const BLADE_STEEL_KG: f64 = 60.0;
+/// Each blade's oxidising surface, m^2: the sheath's outer faces, 4 x 2 x
+/// 0.124 x 3.66. \[A\]
+pub const BLADE_AREA_M2: f64 = 3.6;
+/// MELCOR's stainless-steel oxidation in steam (COR RM Table 2-9):
+/// parabolic, `K = A exp(-B/T)` (kg/m^2)^2/s above `SS_OX_MIN_K`. \[P\]
+pub const SS_OX_A: f64 = 2.42e9;
+/// The rate's activation temperature, K. \[P\]
+pub const SS_OX_B: f64 = 42400.0;
+/// Below this the steel does not oxidise, K. \[P\]
+pub const SS_OX_MIN_K: f64 = 1100.0;
+/// The control blades fail (melt and drain) at the steel's melting
+/// temperature, MELCOR's default criterion and MP value, K. \[P\]
+pub const SS_MELT_K: f64 = 1700.0;
+/// The steel's heat of fusion, J/kg: MELCOR's default for stainless steel
+/// (MP RM §8, "Estimated"; 2.692e5 for 304). \[P\]
+pub const SS_FUSION_J_PER_KG: f64 = 2.68e5;
+/// The cavity debris's phases (`Mechanisms::cavity_phases`): its thermal
+/// conductivity when solid, W/(m K), \[A\] UO2's at high temperature
+/// (about 2-3).
+pub const DEBRIS_K: f64 = 2.5;
+/// The fuel component's melting point, K: MELCOR's UO2 default (MP RM §7,
+/// from MATPRO). \[P\]
+pub const FUEL_MELT_K: f64 = 3113.0;
+/// The fuel component's heat of fusion, J/kg: MELCOR's UO2 default (MP RM
+/// §8). \[P\]
+pub const FUEL_FUSION_J_PER_KG: f64 = 2.74e5;
+/// The concrete's oxides as the low-melting component, taken as SiO2: its
+/// heat of fusion, J/mol, \[A\] (JANAF's about 9.6 kJ/mol), its melting
+/// point being the concrete's ablation temperature.
+pub const CONCRETE_OXIDE_FUSION_J_PER_MOL: f64 = 9.6e3;
+/// The concrete oxides' molar mass, kg/mol, as SiO2. \[A\]
+pub const CONCRETE_OXIDE_M: f64 = 0.060_08;
+/// MELCOR's BUR ignition limits for a volume without igniters (BUR RM
+/// §2.2, record BUR_IGN defaults): hydrogen mole fraction, \[P\].
+pub const BUR_XH2IGN: f64 = 0.10;
+/// CO's ignition mole fraction (XCOIGN default). \[P\]
+pub const BUR_XCOIGN: f64 = 0.167;
+/// The least oxygen mole fraction for ignition (XO2IG default). \[P\]
+pub const BUR_XO2IG: f64 = 0.05;
+/// The most steam and CO2 for ignition (XMSCIG default), inerting above.
+/// \[P\]
+pub const BUR_XMSCIG: f64 = 0.55;
+/// MELCOR's BUR combustion completeness (BUR RM §2.3, record BUR_COM
+/// defaults): the hydrogen mole fraction in the completeness's Le
+/// Chatelier formula (Eq 2-7), XH2CC. \[P\]
+pub const BUR_XH2CC: f64 = 0.08;
+/// CO's mole fraction in the completeness's Le Chatelier formula, XCOCC.
+/// \[P\]
+pub const BUR_XCOCC: f64 = 0.148;
+/// The HECTR 1.5 completeness correlation's slope (Eq 2-9,
+/// sensitivity coefficients 2202). \[P\]
+pub const BUR_CC_SLOPE: f64 = 23.4116;
+/// The correlation's threshold Ymax, below which nothing burns (Eq 2-8).
+/// \[P\]
+pub const BUR_CC_Y0: f64 = 0.037_46;
+/// Hydrogen's heat of combustion to steam (the lower heating value),
+/// J/mol. \[P\] (NIST: 241.8 kJ/mol.)
+pub const H2_COMBUSTION_J_PER_MOL: f64 = 241.8e3;
+/// CO's heat of combustion to CO2, J/mol. \[P\] (NIST: 283.0 kJ/mol.)
+pub const CO_COMBUSTION_J_PER_MOL: f64 = 283.0e3;
+/// The ejected debris's surface tension, N/m, for its breakup in the
+/// pedestal's water (`Mechanisms::fdi_lpme`, FDI RM Eq 2-8). \[A\] liquid
+/// UO2's, about 0.45 N/m at its melting point (MATPRO).
+pub const FDI_SURFACE_TENSION: f64 = 0.45;
+/// The ejection velocity above which MELCOR models a high-pressure melt
+/// ejection instead, m/s (FDI RM §2.3, sensitivity coefficient 4602).
+/// \[P\]
+pub const FDI_HPME_VELOCITY: f64 = 10.0;
+/// UO2 carried by candling Zr, as a fraction of the molten Zr's mass
+/// (`Mechanisms::uo2_candling`): MELCOR's COR_CMT default FUOZR with
+/// MTUOZR = 1 (COR RM §3.1.4, Eq 3-14). \[P\]
+pub const CANDLING_UO2_FRACTION: f64 = 0.2;
+/// The lower plenum's debris is a convecting oxide pool above this, K
+/// (`Mechanisms::molten_pool`): the UO2-ZrO2 eutectic of MELCOR's Table
+/// 2-12 (COR RM §2.8.2). \[P\]
+pub const POOL_MELT_K: f64 = 2800.0;
+/// MELCOR's ACOPO correlation for an oxide pool's radial boundary, `Nu =
+/// A Ra_i^n` (COR RM Table 2-4, j = 1, C1280): the coefficient. \[P\]
+pub const POOL_NU_A: f64 = 0.3;
+/// The ACOPO correlation's exponent. \[P\]
+pub const POOL_NU_N: f64 = 0.22;
+/// The oxidic melt's conductivity, W/(m K). \[A\] corium literature,
+/// about 3.
+pub const POOL_K: f64 = 3.0;
+/// The oxidic melt's viscosity, Pa s. \[A\] corium literature, 4.4e-3.
+pub const POOL_MU: f64 = 4.4e-3;
+/// The oxidic melt's thermal expansion, 1/K. \[A\] corium literature,
+/// 1.05e-4.
+pub const POOL_BETA: f64 = 1.05e-4;
+/// The oxidic melt's specific heat, J/(kg K). \[A\] corium literature,
+/// about 500.
+pub const POOL_CP: f64 = 500.0;
+/// The oxidic melt's density, kg/m^3. \[A\] corium literature, about
+/// 8000.
+pub const POOL_RHO: f64 = 8000.0;
+/// B4C per control blade over the active height, kg (`Mechanisms::
+/// b4c_oxidation`): \[A\] the blade geometry of `BLADE_STEEL_KG`, 72 tubes of
+/// 3.6 mm bore over 3.66 m, packed at 70 % of B4C's 2520 kg/m^3: 4.7 kg.
+pub const BLADE_B4C_KG: f64 = 4.7;
+/// MELCOR's simple B4C model (COR RM §2.5.9, MARCON 2.1B, Eq 2-208): the
+/// fraction of the initial B4C reacting per second is `A exp(-B/T)`,
+/// `A = 9.973e6 / 60` 1/s. \[P\]
+pub const B4C_RATE_A: f64 = 9.973e6 / 60.0;
+/// Its activation temperature, K. \[P\]
+pub const B4C_RATE_B: f64 = 22647.2;
+/// The most of the B4C that may react, MELCOR's default (C1005(2)): the
+/// blade's eutectic relocates it first. \[P\]
+pub const B4C_MAX_FRACTION: f64 = 0.02;
+/// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
+/// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
+pub const SS_X_FE: f64 = 0.74;
+/// Chromium's mass fraction (MP_SS default). \[P\]
+pub const SS_X_CR: f64 = 0.18;
+/// Nickel's mass fraction (MP_SS default). \[P\]
+pub const SS_X_NI: f64 = 0.08;
 /// Wall thickness of a lower-head penetration (instrument or control-rod
 /// drive housing), m: its steel per unit heated area. \[A\] Unit 1's
 /// housings are not in a held source. The debris heats it with
@@ -736,6 +911,47 @@ params! {
     core_plate_beam_m = CORE_PLATE_BEAM_M, A,
     water_emissivity = WATER_EMISSIVITY, A,
     flpup = FLPUP, P,
+    control_rods = CONTROL_RODS, U,
+    blade_steel_kg = BLADE_STEEL_KG, A,
+    blade_area_m2 = BLADE_AREA_M2, A,
+    ss_ox_a = SS_OX_A, P,
+    ss_ox_b = SS_OX_B, P,
+    ss_ox_min_k = SS_OX_MIN_K, P,
+    ss_melt_k = SS_MELT_K, P,
+    ss_fusion_j_per_kg = SS_FUSION_J_PER_KG, P,
+    debris_k = DEBRIS_K, A,
+    fuel_melt_k = FUEL_MELT_K, P,
+    fuel_fusion_j_per_kg = FUEL_FUSION_J_PER_KG, P,
+    concrete_oxide_fusion_j_per_mol = CONCRETE_OXIDE_FUSION_J_PER_MOL, A,
+    concrete_oxide_m = CONCRETE_OXIDE_M, A,
+    bur_xh2ign = BUR_XH2IGN, P,
+    bur_xcoign = BUR_XCOIGN, P,
+    bur_xo2ig = BUR_XO2IG, P,
+    bur_xmscig = BUR_XMSCIG, P,
+    bur_xh2cc = BUR_XH2CC, P,
+    bur_xcocc = BUR_XCOCC, P,
+    bur_cc_slope = BUR_CC_SLOPE, P,
+    bur_cc_y0 = BUR_CC_Y0, P,
+    h2_combustion_j_per_mol = H2_COMBUSTION_J_PER_MOL, P,
+    co_combustion_j_per_mol = CO_COMBUSTION_J_PER_MOL, P,
+    fdi_surface_tension = FDI_SURFACE_TENSION, A,
+    fdi_hpme_velocity = FDI_HPME_VELOCITY, P,
+    candling_uo2_fraction = CANDLING_UO2_FRACTION, P,
+    pool_melt_k = POOL_MELT_K, P,
+    pool_nu_a = POOL_NU_A, P,
+    pool_nu_n = POOL_NU_N, P,
+    pool_k = POOL_K, A,
+    pool_mu = POOL_MU, A,
+    pool_beta = POOL_BETA, A,
+    pool_cp = POOL_CP, A,
+    pool_rho = POOL_RHO, A,
+    blade_b4c_kg = BLADE_B4C_KG, A,
+    b4c_rate_a = B4C_RATE_A, P,
+    b4c_rate_b = B4C_RATE_B, P,
+    b4c_max_fraction = B4C_MAX_FRACTION, P,
+    ss_x_fe = SS_X_FE, P,
+    ss_x_cr = SS_X_CR, P,
+    ss_x_ni = SS_X_NI, P,
     penetration_wall_m = PENETRATION_WALL_M, A,
     corsor_k0_per_min = CORSOR_K0_PER_MIN, P,
     corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
@@ -823,7 +1039,150 @@ params! {
     reactor_building_m3 = REACTOR_BUILDING_M3, A,
     h2_flammable = H2_FLAMMABLE, P,
     h2_explosion = H2_EXPLOSION, A,
+    rcic_rated_kg_s = RCIC_RATED_KG_S, U,
+    hpci_rated_kg_s = HPCI_RATED_KG_S, U,
+    pump_efficiency = PUMP_EFFICIENCY, A,
+    turbine_efficiency = TURBINE_EFFICIENCY, A,
+    turbine_min_pa = TURBINE_MIN_PA, A,
+    level_l2_above_taf_m = LEVEL_L2_ABOVE_TAF_M, P,
+    level_l8_above_taf_m = LEVEL_L8_ABOVE_TAF_M, A,
+    msl_nozzle_above_taf_m = MSL_NOZZLE_ABOVE_TAF_M, A,
+    carryover_band_m = CARRYOVER_BAND_M, A,
 }
+
+// ── Units 2 and 3 (gh:#1101) ────────────────────────────────────────────────
+//
+// Every value below comes from
+// `verification_and_validation/bwr_mark1/units23_open_data.md`, whose source
+// keys (KAN, ICANPS, NISA, …) the comments use. Marks, as in that file:
+// [S] a search excerpt of a named public document, the primary not opened
+// (treat as [U]); [D] derived here from [S] values, the derivation shown;
+// [A] assumed: a field not set here is Unit 1's default, borrowed.
+
+/// Unit 3's rupture-disk set pressure as ANS-A gives it, Pa absolute: the
+/// rejected side of the conflict that [`Params::unit3`] resolves to
+/// 0.528 MPa abs (see there). Kept so that a caller can run it, and so the
+/// conflict stays visible; the two are never averaged. \[S\] ANS Special
+/// Committee on Fukushima, Appendix A (2012): "0.549 MPa".
+pub const UNIT3_RUPTURE_DISK_ANS_PA: f64 = 0.549e6;
+
+/// Units 2 and 3.
+impl Params {
+    /// Fukushima Daiichi Unit 2 (GE BWR/4, Mark I), for the fields an open
+    /// source gives (gh:#1101). Every field not listed below is Unit 1's
+    /// default, borrowed \[A\]; among them, plainly scale-dependent and
+    /// **not** scaled (no sourced ratio fits them): the relief-valve count
+    /// and throat, the main steam lines, the dome internals, the vessel's
+    /// water levels. The isolation-condenser fields mean nothing for
+    /// Units 2 and 3, which had RCIC and HPCI instead; ~~no RCIC or HPCI model
+    /// exists in this crate, so no Unit 2 or 3 accident sequence can be run.~~
+    /// **CORRECTED 2026-11-02 (gh:#1109):** [`super::turbine_pump`] models
+    /// them (the `rcic_*`, `hpci_*`, `pump_*`, `turbine_*`, `level_*` and
+    /// carry-over inputs) and [`super::units23`] holds the two sequences, so
+    /// `Plant::for_unit` runs them; the plant never runs the isolation
+    /// condensers for these units.
+    ///
+    /// | field | value | mark and source |
+    /// |---|---|---|
+    /// | `thermal_power_w` | 2381 MWt | \[S\] ICANPS |
+    /// | `assemblies`, `control_rods` | 548, 137 | \[S\] TEPCO-OL, KTH12 |
+    /// | `rpv_radius_m` | 2.8 m (5.6 m ID) | \[S\] TEPCO-OL, KTH12 |
+    /// | `rpv_height_m` | 22 m | \[S\] SI2 (Unit 3's sources say 21 m, see [`Params::unit3`]) |
+    /// | `cs_`, `i_`, `te_inventory_kg` | Unit 1's × 2381/1380 | \[D\] the power ratio (ICANPS); the same irradiation history \[A\] |
+    /// | `drywell_volume_m3` | 4240 m³ | \[S\] KAN, JNST25 |
+    /// | `wetwell_gas_m3`, `pool_water_m3` | 3160, 2980 m³ | \[S\] KAN, JNST25, MDPI23 |
+    /// | `containment_design_pa` | 0.384 MPa g | \[S\] NISA (ICANPS, INPO, NAS agree) |
+    /// | `vent_rupture_disk_pa` | 0.528 MPa abs | \[S\] INPO (62 psig), AESJ4 |
+    /// | `downcomer_count` | 96 | \[S\] SI2 |
+    /// | `downcomer_area_m2` | 27.71 m² | \[D\] Unit 1's 20 m² \[A\] × the main-vent area ratio (2.06/1.75)², SI1, SI2 |
+    /// | `dw_floor_m2`, `dw_wall_area_m2`, `dw_wall_c` | Unit 1's × 1.1563 | \[D\] Unit 1's \[A\] × the drywell-volume ratio (4240/3410)^(2/3), KAN |
+    /// | `ww_pool_surface_m2` | 906.3 m² | \[D\] the network's volume-fit torus (R 16.75 m \[S\], volumes \[S\]) at the initial level |
+    /// | `ww_shell_area_m2`, `ww_shell_c` | 1492.9 m², 8.789e7 J/K | \[D\] the sourced geometric torus (R 16.75, r 4.45 m, SI2, MDPI23, TEPCO16) above the pool's level; Unit 1's 15 mm steel \[A\] |
+    /// | `reactor_building_m3` | 38 000 m³ | \[A\] **borrowed from Unit 3** (KTH12), not Unit 1: same plant size; Unit 2's is not found |
+    pub fn unit2() -> Self {
+        let power_ratio = 2381.0e6 / THERMAL_POWER_W;
+        // Geometric similarity of the drywell: an area scales as V^(2/3).
+        let dw_area_ratio = (4240.0 / DRYWELL_VOLUME_M3).r_powf(2.0 / 3.0);
+        // The sourced geometric torus (R 16.75 m, r 4.45 m) and the pool's
+        // level on it, filled to the pool's share of the free volume,
+        // 2980 / (2980 + 3160) = 0.4853, as a circular segment: the level
+        // sits 0.023027 r below the tube's centre, so the wetted arc's
+        // half-angle from the bottom is acos(0.023027) and the shell above
+        // the water is 1 - acos(0.023027) / pi = 0.50733 of 4 pi^2 R r =
+        // 2942.6 m^2. Recomputed by `params::tests::units_2_and_3_derive_from_their_sources`.
+        let shell_total = 4.0 * std::f64::consts::PI * std::f64::consts::PI * 16.75 * 4.45;
+        let ww_shell_area = shell_total * UNITS23_SHELL_ABOVE_POOL;
+        Self {
+            thermal_power_w: 2381.0e6,
+            assemblies: 548.0,
+            control_rods: 137.0,
+            rpv_radius_m: 2.8,
+            rpv_height_m: 22.0,
+            cs_inventory_kg: CS_INVENTORY_KG * power_ratio,
+            i_inventory_kg: I_INVENTORY_KG * power_ratio,
+            te_inventory_kg: TE_INVENTORY_KG * power_ratio,
+            drywell_volume_m3: 4240.0,
+            wetwell_gas_m3: 3160.0,
+            pool_water_m3: 2980.0,
+            containment_design_pa: 0.384e6 + P_ATM,
+            vent_rupture_disk_pa: 0.528e6,
+            downcomer_count: 96.0,
+            downcomer_area_m2: DOWNCOMER_AREA_M2 * (2.06_f64 / 1.75).r_powi(2),
+            dw_floor_m2: DW_FLOOR_M2 * dw_area_ratio,
+            dw_wall_area_m2: DW_WALL_AREA_M2 * dw_area_ratio,
+            dw_wall_c: DW_WALL_C * dw_area_ratio,
+            ww_pool_surface_m2: UNITS23_WW_POOL_SURFACE_M2,
+            ww_shell_area_m2: ww_shell_area,
+            // Unit 1's 15 mm of carbon steel (7850 kg/m^3, 500 J/(kg K)) [A].
+            ww_shell_c: ww_shell_area * 0.015 * 7850.0 * 500.0,
+            reactor_building_m3: 38_000.0,
+            ..Self::default()
+        }
+    }
+
+    /// Fukushima Daiichi Unit 3: [`Params::unit2`]'s values (KAN's
+    /// 2381 MWt column, SI3 and the NISA tables give Unit 3 the same
+    /// containment; SI3 calls its pool "an estimate based on unit 2", so
+    /// for Unit 3 the pool is effectively \[A\] from Unit 2), except:
+    ///
+    /// | field | value | mark and source |
+    /// |---|---|---|
+    /// | `rpv_height_m` | 21 m | \[S\] IRID, KTH12 (two sources for Unit 3 itself); SI3's 22 m is recorded, not used |
+    /// | `reactor_building_m3` | 38 000 m³ | \[S\] KTH12 (asterisked in its table) |
+    /// | `vent_rupture_disk_pa` | 0.528 MPa abs | \[S\] **conflict**, see below |
+    /// | `rcic_rated_kg_s` | 97 t/h (26.94 kg/s) | \[S\] KTH12, "RCIC nominal flow rate : 97 t/h" (gh:#1109); Unit 2's 95 m³/h is TEPCO's |
+    ///
+    /// **The rupture disk: 0.528 against 0.549 MPa abs.** 0.528 is used.
+    /// AESJ4 states the rule that the disk is set "according to the maximum
+    /// working pressure of the PCV", and NISA gives Units 2 and 3 a maximum
+    /// working pressure of 0.427 MPa g, which is 0.528 MPa abs; INPO gives
+    /// the same 62 psig for the Unit 2 disk. 0.549 (ANS-A,
+    /// [`UNIT3_RUPTURE_DISK_ANS_PA`]) is Unit 1's code value, and the
+    /// TEPCO slide that pairs 0.549 with a 0.528 maximum working pressure
+    /// looks like Unit 1's; so 0.549 for Unit 3 may be a carry-over. Not
+    /// settled: IAEA TV1 and TEPCO's June 2012 report would settle it.
+    pub fn unit3() -> Self {
+        // RCIC 97 t/h [S] KTH EMUG 2012 (Unit 3's own slide, page not seen).
+        Self { rpv_height_m: 21.0, rcic_rated_kg_s: 97_000.0 / 3600.0, ..Self::unit2() }
+    }
+}
+
+/// The torus shell's share above the pool for Units 2 and 3 (see
+/// [`Params::unit2`]): `1 - acos(δ)/π` with `δ` the level's depth below the
+/// tube centre over `r` for a circular segment holding 0.4853 of the
+/// circle, `δ` = 0.023027 (solved by bisection in
+/// `params::tests::units_2_and_3_derive_from_their_sources`; the hand
+/// estimate written before the run, 0.50741, **MISSED**: it took the share
+/// from the IF97 pool volume, 2978/6138, not 2980/6140). \[D\]
+pub const UNITS23_SHELL_ABOVE_POOL: f64 = 0.507_33;
+/// The torus pool's free surface for Units 2 and 3, m^2: the area of the
+/// network's volume-fit torus (R 16.75 m \[S\], its tube radius 4.309 m
+/// from the sourced 3160 + 2980 m³) at the initial level, read from the
+/// assembled network by `tests/units_2_and_3_network.rs` (906.26 m²; the
+/// hand estimate before the run was 907). The data file's 936 m² is the
+/// sourced geometric tube (r = 4.45 m), which holds 6.7 % more than the
+/// free volume. \[D\]
+pub const UNITS23_WW_POOL_SURFACE_M2: f64 = 906.3;
 
 /// Derived core geometry.
 impl Params {
@@ -912,7 +1271,54 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 163);
+        assert_eq!(Params::INPUTS.len(), 213);
+    }
+
+    /// gh:#1101: the Unit 2 and 3 values derived from sourced ones
+    /// (`Params::unit2`'s table) recompute from their sources, and Unit 3
+    /// differs from Unit 2 only where its doc says. Predictions written
+    /// 2026-11-01 before the first run, by hand: the shell's share above the
+    /// pool 0.50741 (δ = 0.02328); the downcomers 27.71 m²; the drywell
+    /// area ratio 1.1563; the inventories ×1.7254. **Result (2026-11-01):**
+    /// δ = 0.023027, the share 0.507330: the first prediction **MISSED**
+    /// (the hand arithmetic took the pool's share as 2978/6138, the IF97
+    /// volume, not the stated 2980/6140); the constant was corrected to
+    /// the computed 0.50733 (the shell 1492.9 m², 8.789e7 J/K). The rest
+    /// held.
+    #[test]
+    fn units_2_and_3_derive_from_their_sources() {
+        let (u1, u2, u3) = (Params::default(), Params::unit2(), Params::unit3());
+        // The circular segment holding the pool's share of the free volume.
+        let share = 2980.0 / (2980.0 + 3160.0);
+        let frac = |d: f64| {
+            let a = d.r_acos();
+            (a - a.r_sin() * a.r_cos()) / std::f64::consts::PI
+        };
+        let (mut lo, mut hi) = (0.0, 1.0);
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            if frac(mid) > share { lo = mid } else { hi = mid }
+        }
+        let delta = 0.5 * (lo + hi);
+        let above = 1.0 - delta.r_acos() / std::f64::consts::PI;
+        println!("units 2/3: delta {delta:.6}, shell above the pool {above:.6}, shell {:.1} m2, C {:.4e} J/K", u2.ww_shell_area_m2, u2.ww_shell_c);
+        assert!((above - UNITS23_SHELL_ABOVE_POOL).abs() < 1e-5, "{above}");
+        // The downcomers from the main-vent area ratio; the drywell's areas
+        // from its volume ratio; the inventories from the power ratio.
+        assert!((u2.downcomer_area_m2 - 27.713).abs() < 1e-3, "{}", u2.downcomer_area_m2);
+        let r = u2.dw_floor_m2 / u1.dw_floor_m2;
+        assert!((r - 1.15632).abs() < 1e-4 && r == u2.dw_wall_area_m2 / u1.dw_wall_area_m2, "{r}");
+        assert!((u2.cs_inventory_kg / u1.cs_inventory_kg - 2381.0 / 1380.0).abs() < 1e-14);
+        // Design pressure 0.485 MPa abs (NISA's own conversion), the disk
+        // above it as on Unit 1.
+        assert!((u2.containment_design_pa - 0.485e6).abs() < 0.001e6 && u2.vent_rupture_disk_pa > u2.containment_design_pa);
+        // Unit 3 is Unit 2 but for the vessel's height; the conflicting
+        // disk value is kept, not averaged in.
+        assert_eq!(Params { rpv_height_m: 22.0, rcic_rated_kg_s: u2.rcic_rated_kg_s, ..u3 }, u2);
+        assert!((u3.rcic_rated_kg_s - 26.944).abs() < 1e-3 && (u2.rcic_rated_kg_s - 26.341).abs() < 1e-3);
+        assert!(u3.rpv_height_m == 21.0 && u3.vent_rupture_disk_pa == 0.528e6 && UNIT3_RUPTURE_DISK_ANS_PA == 0.549e6);
+        // Unit 1 is untouched.
+        assert_eq!(u1.thermal_power_w, THERMAL_POWER_W);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

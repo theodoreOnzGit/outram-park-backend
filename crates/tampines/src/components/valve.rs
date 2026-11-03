@@ -2,6 +2,12 @@
 //!
 //! Composes [`outram_park_fork_dwsim_libs::valve::iec_60534`]'s IEC 60534
 //! sizing types behind a TAMPINES-native struct.
+//!
+//! **For a transient pipe network, use [`super::junction::HemJunction::Valve`]
+//! (gh:#1072, RELAP-7 parity epic gh:#1056)**, which runs inside a
+//! [`super::junction::HemNetwork`] with its own V&V
+//! (`tampines-steam-tables/verification_and_validation/hem_network_junctions.md`).
+//! This struct is the steady valve sizing/rating wrapper and is separate from it.
 
 use crate::TampinesError;
 use outram_park_fork_dwsim_libs::valve::iec_60534::{OpeningCharacteristic, ValveFlowCoefficient};

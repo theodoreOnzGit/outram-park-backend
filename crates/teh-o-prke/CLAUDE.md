@@ -22,11 +22,15 @@ maturity gate in that file for what this means and how the bar is revised.
   consistency**, with literature constants as the reference. **29 tests pass**.
 
   **This is the thinnest declaration in the workspace, and is deliberately
-  recorded as such.** There is no analytical transient validation yet — no
+  recorded as such.** ~~There is no analytical transient validation yet — no
   step-reactivity insertion checked against the exact in-hour solution, and no
-  Nordheim-Fuchs excursion checked against its closed form. Both are available
-  in closed form and should be added; when they are, this bar should be
-  restated in terms of them.
+  Nordheim-Fuchs excursion checked against its closed form.~~ **CORRECTED
+  2026-11-01 (gh:#1082):** both now exist, in
+  `zero_power_prke::n_group_prke` (in-hour, six groups and one group: 3.8e-6
+  to 7.0e-5 relative in `omega`) and `point_reactor` (prompt-only
+  Nordheim-Fuchs: peak 1.7e-4, energy 8.3e-5), recorded in
+  `verification_and_validation/prke_analytic_checks.md`. The maturity bar has
+  not been restated by the maintainer; that is theirs to do.
 
 ### Known API defect, found on declaration day
 
@@ -44,10 +48,13 @@ This is exactly the class of defect the Haiku dogfooding rule exists to catch,
 and it was found by writing the prelude's own doc example: the call does not
 fit on a line, so the example wraps it awkwardly, which is the visible symptom.
 
-**Not fixed yet, because renaming is a breaking change** and this crate is
+~~**Not fixed yet, because renaming is a breaking change**~~ **CORRECTED
+2026-11-01:** half done. `step_implicit` / `step_explicit` exist as short
+forwarders (`six_group_precursor_prke/mod.rs`, gh #58), and the N-group
+`PointKinetics` uses only the short names. The long names are not yet
+`#[deprecated]`, because this crate is
 consumed by the `outram-park` Python bindings and their generated stubs. The
-fix when it happens: add `step_implicit` / `step_explicit` as the primary
-names, keep the current names as `#[deprecated]` forwarders for one release,
+remaining fix: mark the long names `#[deprecated]` for one release
 and regenerate the bindings. Recorded here rather than silently left, so the
 next person does not have to rediscover it.
 
@@ -75,13 +82,25 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
 ## Code layout (`src/`)
 
 - `zero_power_prke/` — point kinetics core.
+  - `n_group_prke.rs` — **the one PRKE core** (gh:#1082): `PointKinetics`
+    with any number of delayed groups, backward Euler and RKF45, in-hour
+    solver. `SixGroupPRKE` delegates to it and is pinned bit-identical to its
+    pre-refactor self (`six_group_bit_identity_pin.rs`).
   - `six_group_precursor_prke/` — six delayed-neutron precursor groups.
     - `six_group_constants.rs` — the `FissioningNuclideType` enum and the
       `new_u233_/u235_/pu239_delayed_neutron_fraction_array()` constructors
       (per-nuclide delayed fractions). **These items live in this submodule**,
       not at the `six_group_precursor_prke` level (see migration note below).
 - `feedback_mechanisms/` — incl. `fission_product_poisons/` (Xe/Sm).
+  - `separable.rs` — RELAP5 separable feedback (RELAP-7 Eq 443, gh:#1083).
 - `fuel_temperature_feedback`, `control_rod_feedback`, `decay_heat`.
+- `ans_decay_heat` — ANS standards enum, isotope mix incl. Pu-241, `F_gamma`,
+  user-supplied coefficients, `G(t)` (gh:#1080). Only the 1978 draft set is
+  built in; the 1979/1994/2005 tables are copyrighted and user supplied (see
+  the module docs).
+- `point_reactor` — `PointReactor`: kinetics + decay heat + actinide slot,
+  `n -> psi -> P` conversion, total power Eq 429 (gh:#1082). Actinides are
+  gh:#1081, not implemented.
 - `time_stepping/` — integrators (incl. OpenFOAM-derived source files).
 - `teh_o_prke_error` — crate error enum (thiserror).
 
@@ -94,7 +113,9 @@ cargo test -p teh-o-prke --release                        # unit tests
 cargo run -p teh-o-prke --example fhr_sim_v1 --release   # FHR educational GUI
 ```
 
-Requires system OpenBLAS (see root CLAUDE.md).
+~~Requires system OpenBLAS (see root CLAUDE.md).~~ **CORRECTED 2026-11-01:**
+no BLAS is needed; `Cargo.toml` has no `ndarray-linalg` and the solve is the
+pure-Rust `matrix::SquareMatrix`.
 
 ## Conventions
 

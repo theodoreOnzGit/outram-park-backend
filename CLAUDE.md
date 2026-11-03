@@ -363,7 +363,7 @@ as much as to writing it. A brief that names an approach without first
 checking what exists is the same defect one level up: the agent follows it
 competently and produces a duplicate.
 
-**Why it needs to be a rule.** This workspace is 48 crates, many of them ports
+**Why it needs to be a rule.** This workspace is ~~48~~ **49** (bugis added 2026-11-02) crates, many of them ports
 of mature codes. The prior is **"this probably exists already"**, not "this
 needs writing". On 2026-08-12 alone, five separate pieces of work were
 specified before checking, and **every one turned out to be already present** —
@@ -409,7 +409,7 @@ problem; it is a false statement that the next reader — human or agent — wil
 act on.
 
 **Why this is a hard rule and not a courtesy.** This workspace's docs are the
-primary interface to 48 crates that no one can hold in their head, and the
+primary interface to ~~48~~ **49** (bugis added 2026-11-02) crates that no one can hold in their head, and the
 search-before-building rule above *depends on them being true*. A stale
 "missing" claim is the worst kind, because it causes exactly the duplication
 this file exists to prevent: an agent reads "no model exists", believes it,
@@ -780,7 +780,7 @@ Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
 
-~~**47 member crates**~~ **48 member crates** (`kovan-web` added 2026-10-06). ~~All GPL-3.0 except the whole kovan family (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only).~~ **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 are now `AGPL-3.0-only`**, and the root `[workspace.package]` default is too. ~~**Five are HELD at `GPL-3.0-only` by an explicit `license` field** until their third-party authors' consent is recorded on gh:#973 — `bedok`, `raffles`, `tampines`, `tampines-steam-tables`, `tuas_boussinesq_solver`. **Most FILES still carry a GPL-3.0 SPDX header and must keep it**: a translation of a copyleft upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE/PRISMS, Moltres, the Octave control package) cannot be relicensed, so 18 crates — PETIR among them — convey as **AGPL combined works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside `LICENSE`. The per-crate record, with the published versions each crate grandfathers, is [`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).~~ **CORRECTED AGAIN 2026-10-20 (maintainer: "All crates AGPLv3"): all 48 are `AGPL-3.0-only`**; `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works with `LICENSE.GPL-3.0`. Record: `docs/relicensing-agpl-2026-10-20.md`. The roster,
+~~**47 member crates**~~ ~~**48 member crates** (`kovan-web` added 2026-10-06).~~ **49 member crates** (bugis added 2026-11-02). ~~All GPL-3.0 except the whole kovan family (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only).~~ **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 are now `AGPL-3.0-only`**, and the root `[workspace.package]` default is too. ~~**Five are HELD at `GPL-3.0-only` by an explicit `license` field** until their third-party authors' consent is recorded on gh:#973 — `bedok`, `raffles`, `tampines`, `tampines-steam-tables`, `tuas_boussinesq_solver`. **Most FILES still carry a GPL-3.0 SPDX header and must keep it**: a translation of a copyleft upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE/PRISMS, Moltres, the Octave control package) cannot be relicensed, so 18 crates — PETIR among them — convey as **AGPL combined works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside `LICENSE`. The per-crate record, with the published versions each crate grandfathers, is [`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).~~ **CORRECTED AGAIN 2026-10-20 (maintainer: "All crates AGPLv3"): all 48 are `AGPL-3.0-only`**; `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works with `LICENSE.GPL-3.0`. Record: `docs/relicensing-agpl-2026-10-20.md`. The roster,
 maturity marks, internal dependency edges and the dependency policy (all
 versions in the root `[workspace.dependencies]`) are in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md).

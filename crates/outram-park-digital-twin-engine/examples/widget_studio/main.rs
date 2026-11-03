@@ -82,6 +82,10 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Widget Studio — OUTRAM PARK (offline demo)",
         native_options,
-        Box::new(|_cc| Ok(Box::new(studio::WidgetStudio::default()))),
+        Box::new(|cc| {
+            // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+            bugis::Theme::default().apply(&cc.egui_ctx);
+            Ok(Box::new(studio::WidgetStudio::default()))
+        }),
     )
 }

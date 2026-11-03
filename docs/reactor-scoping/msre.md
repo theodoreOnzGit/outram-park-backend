@@ -77,7 +77,7 @@ Audited 2026-08-06 against the workspace at commit `ebbde1b`.
 | Loop hydraulics (series/parallel, natural circulation) | `crates/tuas_boussinesq_solver/.../fluid_component_collection/` | Tested pressure-drop/flow solvers |
 | Shell-and-tube heat exchanger | `crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/` | Stand-in for the MSRE primary HX |
 | Working FLiBe natural-circulation loop | `crates/tuas_boussinesq_solver/.../uw_madison_flibe_loop_components/` | Best structural template for an MSRE loop |
-| Pipe widget driven by real state | `crates/outram-park-digital-twin-engine/src/components/pipe.rs:55` | Accepts temperature, mass flow and residence time from a lumped model |
+| Pipe widget driven by real state | ~~`crates/outram-park-digital-twin-engine/src/components/pipe.rs:55`~~ `crates/bugis/src/components/pipe.rs:55` (moved 2026-11-02, gh:#1112; line numbers not re-checked) | Accepts temperature, mass flow and residence time from a lumped model |
 
 **Verification actually run:** the moltres library test suite passes (20 tests,
 release). Two results are worth recording:

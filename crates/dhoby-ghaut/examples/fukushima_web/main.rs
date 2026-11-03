@@ -19,6 +19,8 @@
 //! cargo run --release -p dhoby-ghaut --example fukushima_web
 //! cargo run --release -p dhoby-ghaut --example fukushima_web -- --headless 108000 600
 //! cargo run --release -p dhoby-ghaut --example fukushima_web -- --compare   # BSAF table (gh:#1032)
+//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --headless 108000 600 --lumped-containment
+//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --bench-workers [skip] [steps]   # gh:#1099
 //! crates/dhoby-ghaut/web/fukushima/build.sh      # the browser demo, into dist/
 //! ```
 //!
@@ -64,23 +66,41 @@ fn main() {
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn main() -> Result<(), String> {
     let args: Vec<String> = std::env::args().collect();
+    // `--lumped-containment`: the explicit ablation of the containment
+    // network, the plant before gh:#1099 (2026-11-02).
+    let lumped = args.iter().any(|a| a == "--lumped-containment");
+    let ablate = |m: physics::Mechanisms| if lumped { m.without_network_containment() } else { m };
     if args.iter().any(|a| a == "--compare") {
         let runs: Vec<(&str, physics::compare::Metrics)> =
-            physics::compare::ablations().into_iter().map(|(n, m)| (n, physics::compare::measure(m))).collect();
+            physics::compare::ablations().into_iter().map(|(n, m)| (n, physics::compare::measure(ablate(m)))).collect();
         print!("{}", physics::compare::report(&runs));
         return Ok(());
     }
     if let Some(i) = args.iter().position(|a| a == "--headless") {
-        let steps = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(3600);
-        let every = args.get(i + 2).and_then(|s| s.parse().ok()).unwrap_or(60);
-        print!("{}", physics::headless_csv(steps, every));
+        let num = |k: usize| args.get(i + k).and_then(|s| s.parse().ok());
+        let steps = num(1).unwrap_or(3600);
+        let every = num(2).unwrap_or(60);
+        print!("{}", physics::headless_csv_with(ablate(physics::Mechanisms::default()), steps, every));
+        return Ok(());
+    }
+    if let Some(i) = args.iter().position(|a| a == "--bench-workers") {
+        let num = |k: usize| args.get(i + k).and_then(|s| s.parse().ok());
+        let t = engine::native_workers::time_modes(num(1).unwrap_or(0), num(2).unwrap_or(3600));
+        println!(
+            "{t:?}\nsteps {} to {}: inline {:.3} ms/step, three workers {:.3} ms/step, speed-up {:.3}",
+            t.skip,
+            t.skip + t.steps,
+            1e3 * t.inline_s / t.steps as f64,
+            1e3 * t.three_s / t.steps as f64,
+            t.inline_s / t.three_s
+        );
         return Ok(());
     }
     eframe::run_native(
         "Fukushima Daiichi Unit 1",
         eframe::NativeOptions::default(),
         Box::new(|cc| {
-            cc.egui_ctx.set_theme(egui::Theme::Dark);
+            bugis::Theme::default().apply(&cc.egui_ctx); // Gruvbox Dark (`bugis`)
             let ctx = cc.egui_ctx.clone();
             let link = dhoby_ghaut::web_demo::link::start_native(engine::Runner::default(), move || ctx.request_repaint());
             Ok(Box::new(app::App::new(link)))
@@ -123,7 +143,7 @@ fn main() {
                 canvas,
                 web_options,
                 Box::new(|cc| {
-                    cc.egui_ctx.set_theme(egui::Theme::Dark);
+                    bugis::Theme::default().apply(&cc.egui_ctx); // Gruvbox Dark (`bugis`)
                     let link = dhoby_ghaut::web_demo::link::start_web(cc.egui_ctx.clone(), engine::web::WORKER_JS, engine::Event::Error)?;
                     Ok(Box::new(app::App::new(link)))
                 }),

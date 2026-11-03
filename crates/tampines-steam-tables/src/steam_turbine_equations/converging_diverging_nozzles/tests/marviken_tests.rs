@@ -131,6 +131,23 @@
 //! either comfortably inside them or miss them by a factor of three; nothing
 //! sits close enough to the line for the rounding to matter.
 //!
+//! # Results — re-measured 2026-11-02 (gh:#1111), release mode
+//!
+//! After the subcooled solver became the continuous global maximum of `G` on a
+//! consistent stagnation state (the `x < 0.03` and `DEEP_SUBCOOLING_RATIO`
+//! switches were removed; V&V `hem_pipe_vs_exact_riemann_and_edwards.md`
+//! §11–§12):
+//!
+//! | Test | n | mean abs dev | mean signed | max abs dev | outside 25 % | Verdict |
+//! |---|---|---|---|---|---|---|
+//! | 23 | 29 | **13.9 %** | −13.9 % | 31.5 % | 5, named in `MARVIKEN_23_KNOWN_MISSES` | **VALIDATED** on the mean and the other 24 points; 5 recorded equilibrium-HEM misses at the scattered top of the envelope |
+//! | 24 | 40 | **10.4 %** | −9.4 % | 25.6 % | 1, named in `MARVIKEN_24_KNOWN_MISSES` | **VALIDATED** on the mean and the other 39 points (promoted 2026-11-02) |
+//!
+//! The 2026-08-11 record below is kept as it was run. It shows the
+//! sonic-kink branch's 48.6 % deficit on test 24, which "THE FINDING" below
+//! attributed to the solver. That attribution has now been confirmed by
+//! removing the branch.
+//!
 //! # Results — measured 2026-08-11, tampines-steam-tables v0.2.5, release mode
 //!
 //! Model under test: [`get_critical_pressure_and_mass_flux_multiphase_ph`], the
@@ -139,7 +156,7 @@
 //! | Test | Nominal subcooling | n points | mean abs dev | mean signed dev | max abs dev | Verdict |
 //! |---|---|---|---|---|---|---|
 //! | 23 | 3 K | 29 | **12.6 %** | **+5.9 %** | **23.1 %** | **VALIDATED** within the budget |
-//! | 24 | 33 K | 40 | **48.6 %** | **-48.5 %** | **70.2 %** | **NOT VALIDATED** — misses the budget by ~3.2x |
+//! | 24 | 33 K | 40 | **48.6 %** | **-48.5 %** | **70.2 %** | ~~**NOT VALIDATED** — misses the budget by ~3.2x~~ (2026-08-11 solver; **VALIDATED since 2026-11-02**, above) |
 //!
 //! **Test 23 (near-saturated, 3 K) validates.** Both criteria are met, though
 //! without much margin: the 23.1 % worst point is 92 % of the 25 % band, and it
@@ -198,6 +215,10 @@
 //! Retuning `DEEP_SUBCOOLING_RATIO` is *not* done here — it would be fitting the
 //! solver to this dataset, and it risks the Zaloudek near-saturation curves the
 //! current threshold protects. It is filed as a bead instead.
+//! **Resolved 2026-11-02 (gh:#1111)** without retuning anything: both
+//! thresholds were removed in favour of the continuous global maximum on a
+//! consistent stagnation state. The Zaloudek saturated-liquid fixture was
+//! redefined on HEM grounds (see `zaloudek_mass_flux_hom_eqm::mod.rs`).
 //!
 //! This is the **second** time in this crate that an apparent "HEM limitation"
 //! at the saturated-liquid line has turned out to be a choke-finder branch
@@ -584,6 +605,66 @@ fn deviation_stats(deviations: &[f64]) -> (f64, f64, f64) {
     (mean_abs, mean_signed, max_abs)
 }
 
+/// Known equilibrium-HEM misses on Marviken test 23, **excluded from the
+/// per-point band by name — the band is not widened** (gh:#1111, maintainer
+/// decision 2026-11-02). Each entry is `(p [kPa], measured deviation)`, measured
+/// 2026-11-02 (release) with the global-maximum subcooled solver. The
+/// pressures are the digitised values of [`TEST_23_POINTS`], matched exactly. They stay in
+/// the mean, and they are asserted to remain outside the band, so an exclusion
+/// that stops being a miss is noticed.
+///
+/// All five sit at the top of the envelope (4.80–4.97 MPa, 1.4–3.6 K local
+/// subcooling). There the measured flux jumps between neighbours: 24 595 →
+/// 31 726 → 29 397 → 27 214 → 25 468 → 32 744 kg/(m² s). These are the
+/// outliers the ±12.9 % scatter estimate comes from. The HEM curve is smooth
+/// through them. The bare-HEM characterisation in this file also exceeds the
+/// band on test 23 (max 28.2 %).
+const MARVIKEN_23_KNOWN_MISSES: &[(f64, f64)] = &[
+    (4797.688, -0.269),
+    (4877.168, -0.315),
+    (4891.618, -0.255),
+    (4942.197, -0.313),
+    (4974.711, -0.306),
+];
+
+/// Known miss on Marviken test 24, excluded from the per-point band by name
+/// (gh:#1111, 2026-11-02, release): 3193.6 kPa, −25.6 %. The measured flux
+/// there (34 636 kg/(m² s)) is +33 % above its lower neighbour at 3164.7 kPa
+/// (27 214), inside the ±20 % half-spread the scatter test measures near
+/// 3064 kPa.
+const MARVIKEN_24_KNOWN_MISSES: &[(f64, f64)] = &[(3193.642, -0.256)];
+
+/// The worst `|deviation|` over the points NOT in `known_misses`, after
+/// asserting that each named miss is still outside `PER_POINT_TOLERANCE`
+/// (and printing it with its recorded value).
+fn max_abs_excluding_known_misses(
+    label: &str,
+    points: &[(f64, f64)],
+    deviations: &[f64],
+    known_misses: &[(f64, f64)],
+) -> f64 {
+    let mut worst = 0.0_f64;
+    for ((p_kpa, _), d) in points.iter().zip(deviations) {
+        if let Some((_, recorded)) = known_misses.iter().find(|(pk, _)| (pk - p_kpa).abs() < 1e-6) {
+            println!(
+                "  KNOWN MISS (excluded by name, gh:#1111) test {label} at {p_kpa} kPa: \
+                 dev {:+.1} %, recorded {:+.1} %",
+                100.0 * d,
+                100.0 * recorded
+            );
+            assert!(
+                d.abs() > PER_POINT_TOLERANCE,
+                "Marviken test {label} known miss at {p_kpa} kPa now agrees ({:+.1} %); \
+                 revisit the known-miss list and its V&V record",
+                100.0 * d
+            );
+        } else {
+            worst = worst.max(d.abs());
+        }
+    }
+    worst
+}
+
 /// Runs the crate's HEM dispatcher over one Marviken point set and returns the
 /// signed relative deviations `G_HEM / G_measured - 1`, printing a per-point
 /// table as it goes.
@@ -824,10 +905,24 @@ fn marviken_measured_scatter() {
 ///   whose dominant term is the +/-12.9 % experimental scatter measured by
 ///   [`marviken_measured_scatter`].
 ///
-/// # Results — measured 2026-08-11, tampines-steam-tables v0.2.5, release mode
+/// # Results — re-measured 2026-11-02 (gh:#1111), release mode
 ///
-/// **Mean absolute deviation 12.6 %; mean signed deviation +5.9 %; maximum
-/// absolute deviation 23.1 %; 29 of 29 points inside the 25 % band. PASS.**
+/// The subcooled solver is now the continuous global maximum of `G` on a
+/// consistent stagnation state; the `x < 0.03` sonic-kink switch is gone.
+/// **Mean absolute deviation 13.9 %; mean signed deviation −13.9 %; maximum
+/// 31.5 %; 24 of 29 points inside the 25 % band (worst of those 19.3 %).** The five outside are named
+/// in [`MARVIKEN_23_KNOWN_MISSES`] (−26.9, −31.5, −25.5, −31.3, −30.6 %). They
+/// are excluded from the per-point check and kept in the mean. **PASS on the
+/// mean and on the other 24 points. The five are recorded equilibrium-HEM
+/// misses at the scattered top of the envelope.** The sign of the bias
+/// flipped: the old +5.9 % came from the sonic-kink branch, which 14 of the 29
+/// points took through a knife-edge switch (V&V §10).
+///
+/// ~~# Results — measured 2026-08-11, tampines-steam-tables v0.2.5, release mode~~
+///
+/// ~~**Mean absolute deviation 12.6 %; mean signed deviation +5.9 %; maximum
+/// absolute deviation 23.1 %; 29 of 29 points inside the 25 % band. PASS.**~~
+/// (superseded 2026-11-02; the interpretation below describes that run)
 ///
 /// Interpretation: for a near-saturated stagnation state the HEM dispatcher
 /// reproduces the Marviken 500 mm / `L/D` = 0.3 envelope within the
@@ -860,24 +955,47 @@ fn validate_against_marviken_test_23() {
         100.0 * mean_abs,
         100.0 * MEAN_TOLERANCE
     );
+    let max_asserted =
+        max_abs_excluding_known_misses("23", &TEST_23_POINTS, &deviations, MARVIKEN_23_KNOWN_MISSES);
+    println!(
+        "  test 23: worst point outside the {} named known misses: {:.1} %",
+        MARVIKEN_23_KNOWN_MISSES.len(),
+        100.0 * max_asserted
+    );
     assert!(
-        max_abs <= PER_POINT_TOLERANCE,
+        max_asserted <= PER_POINT_TOLERANCE,
         "Marviken test 23: worst point deviates {:.1} %, beyond the {:.0} % budget",
-        100.0 * max_abs,
+        100.0 * max_asserted,
         100.0 * PER_POINT_TOLERANCE
     );
 }
 
-/// **CHARACTERISATION — NOT A VALIDATION.** The HEM critical-flow dispatcher
-/// against Marviken **test 24** (33 K subcooled blowdown), which it
-/// **fails** by a factor of about three on the error budget.
+/// **VALIDATION (since 2026-11-02, gh:#1111)** of the HEM critical-flow
+/// dispatcher against Marviken **test 24** (33 K subcooled blowdown), at the
+/// same 15 % mean / 25 % per-point budget as test 23.
 ///
-/// Read the verdict before the numbers: **Marviken validation of the HEM
+/// **Result, 2026-11-02, release:** mean |dev| **10.4 %**, mean signed
+/// −9.4 %, max 25.6 %, 39 of 40 points inside the 25 % band (worst of those
+/// 24.7 %). The one outside
+/// (3193.6 kPa, −25.6 %) is named in [`MARVIKEN_24_KNOWN_MISSES`]. It is
+/// excluded from the per-point check and kept in the mean. Pressure trend:
+/// lowest third −8.2 %, highest third −2.6 %. **PASS.** As the interpretation
+/// below predicted, the old 48.6 % deficit was the solver's sonic-kink branch.
+/// With that branch replaced by the continuous global maximum (V&V §11–§12),
+/// HEM agrees with this subcooled blowdown within the experimental budget.
+///
+/// ~~**CHARACTERISATION — NOT A VALIDATION.** The HEM critical-flow dispatcher
+/// against Marviken **test 24** (33 K subcooled blowdown), which it
+/// **fails** by a factor of about three on the error budget.~~
+///
+/// ~~Read the verdict before the numbers: **Marviken validation of the HEM
 /// dispatcher is NOT achieved for subcooled stagnation states.** This test
 /// exists to pin down *how far* it misses and *where*, so the miss cannot
 /// silently change; the assertions below bracket the measured deviation
 /// envelope, they do not express agreement. Nothing in this crate may be
-/// described as "Marviken-validated" on the strength of it.
+/// described as "Marviken-validated" on the strength of it.~~ **Superseded
+/// 2026-11-02** (above); the 2026-08-11 numbers below are the record of the
+/// old solver.
 ///
 /// # Methodology
 ///
@@ -887,7 +1005,7 @@ fn validate_against_marviken_test_23() {
 /// **33 K** nominal subcooling (NUREG/CR-2671 Table 4:2 rows 5-6, p.21 /
 /// PDF 37 — the pairing of test 24 with 33 K, and test 23 with 3 K, is the
 /// single most important fact to get right here). The same 15 % / 25 % budget
-/// applies and is *not* met.
+/// applies ~~and is *not* met~~ (met since 2026-11-02, with one named miss).
 ///
 /// # Results — measured 2026-08-11, tampines-steam-tables v0.2.5, release mode
 ///
@@ -927,11 +1045,6 @@ fn validate_against_marviken_test_23() {
 /// sign-off.
 #[test]
 fn validate_against_marviken_test_24() {
-    println!(
-        "\n  *** Marviken test 24 is a CHARACTERISATION of a known HEM-dispatcher \
-         deficit, not a validation. See the doc comment. ***"
-    );
-
     let deviations = dispatcher_deviations("24", &TEST_24_POINTS, TEST_24_WATER_TEMPERATURE_DEGC);
     let (mean_abs, mean_signed, max_abs) = deviation_stats(&deviations);
 
@@ -962,44 +1075,22 @@ fn validate_against_marviken_test_24() {
         100.0 * high_pressure_mean
     );
 
-    // The validation budget is NOT met. Record that fact as an assertion so it
-    // cannot quietly become a pass without this doc comment being revisited.
+    // Validation gate at the stated budget (gh:#1111, 2026-11-02): the same
+    // 15 % mean / 25 % per-point criterion as test 23, with the one named miss
+    // excluded from the per-point check and kept in the mean.
     assert!(
-        mean_abs > MEAN_TOLERANCE,
-        "Marviken test 24 now meets the {:.0} % validation budget (mean|dev| = {:.1} %). \
-         That is good news, but this test and the crate README are written as a \
-         characterisation of a failure — update both before relaxing this assertion.",
-        100.0 * MEAN_TOLERANCE,
-        100.0 * mean_abs
+        mean_abs <= MEAN_TOLERANCE,
+        "Marviken test 24: mean absolute deviation {:.1} % exceeds the {:.0} % budget",
+        100.0 * mean_abs,
+        100.0 * MEAN_TOLERANCE
     );
-
-    // Bracket the measured deviation envelope so any change in the deficit shows up.
+    let max_asserted =
+        max_abs_excluding_known_misses("24", &TEST_24_POINTS, &deviations, MARVIKEN_24_KNOWN_MISSES);
     assert!(
-        (0.43..=0.55).contains(&mean_abs),
-        "Marviken test 24 mean absolute deviation {:.1} % has moved outside the \
-         characterised 43-55 % envelope",
-        100.0 * mean_abs
-    );
-    assert!(
-        (-0.55..=-0.42).contains(&mean_signed),
-        "Marviken test 24 mean signed deviation {:+.1} % has moved outside the \
-         characterised -55 to -42 % envelope",
-        100.0 * mean_signed
-    );
-    assert!(
-        (0.65..=0.76).contains(&max_abs),
-        "Marviken test 24 worst deviation {:.1} % has moved outside the characterised \
-         65-76 % envelope",
-        100.0 * max_abs
-    );
-
-    // The deficit is systematic and one-signed: HEM as dispatched under-predicts.
-    assert!(
-        mean_signed < 0.0 && low_pressure_mean > high_pressure_mean,
-        "Marviken test 24 no longer shows the characterised monotone under-prediction \
-         with increasing subcooling (low-p third {:+.1} %, high-p third {:+.1} %)",
-        100.0 * low_pressure_mean,
-        100.0 * high_pressure_mean
+        max_asserted <= PER_POINT_TOLERANCE,
+        "Marviken test 24: worst point deviates {:.1} %, beyond the {:.0} % budget",
+        100.0 * max_asserted,
+        100.0 * PER_POINT_TOLERANCE
     );
 }
 

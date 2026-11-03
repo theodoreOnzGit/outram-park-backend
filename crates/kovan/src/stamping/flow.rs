@@ -18,8 +18,8 @@
 //!                            │
 //!            Stamp ──> Preparing (worker: prepare_stamp)
 //!                            ├─ refused ──> Refused (verbatim + hint, "Try again";
-//!                            │              since 2026-10-10 also bottom-up: a callee
-//!                            │              without a valid stamp, #740)
+//!                            │              bottom-up refusals 2026-10-10 to 11-01,
+//!                            │              now a tentative stamp instead, #1106)
 //!                            v
 //!                         Wizard ── live stamp_gate; "Mark as Needs fix instead?" ─┐
 //!                            │ passphrase                                          │
@@ -263,8 +263,6 @@ pub fn refusal_hint(message: &str) -> &'static str {
         || message.contains("out of date")
     {
         "The index is out of date for this function: run Index fresh in the Code Map tab, then Try again."
-    } else if message.starts_with("bottom-up") {
-        "Bottom-up (#740): review the callees listed first, through the review bar's \"blocked by\" links or the review walk, then Try again."
     } else if message.contains("changed while") {
         "Look at the new diff in the review panel, then sign again: your answers and comments are kept."
     } else if message.contains(ROOT_FILE) {

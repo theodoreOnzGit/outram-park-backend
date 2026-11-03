@@ -1074,6 +1074,7 @@ version = "0.2.1"
 dependencies = [
  "anyhow",
  "approx",
+ "bugis",
  "csv",
  "eframe",
  "egui",
@@ -1148,6 +1149,28 @@ dependencies = [
  "changi",
  "petir",
  "uom",
+]
+
+[[package]]
+name = "bugis"
+version = "0.0.1"
+dependencies = [
+ "csv",
+ "egui",
+ "js-sys",
+ "nee_soon",
+ "outram-park-fork-dwsim-libs",
+ "petir",
+ "sha2",
+ "tampines",
+ "tampines-steam-tables",
+ "thiserror 2.0.21",
+ "tuas_boussinesq_solver",
+ "uom",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "web-time",
 ]
 
 [[package]]
@@ -2377,6 +2400,7 @@ version = "0.0.2"
 dependencies = [
  "boon-lay",
  "buangkok",
+ "bugis",
  "changi",
  "eframe",
  "egui",
@@ -5653,6 +5677,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 version = "0.0.3"
 dependencies = [
+ "bugis",
  "clap",
  "csv",
  "directories 5.0.1",
@@ -5922,6 +5947,7 @@ dependencies = [
 name = "kovan-web"
 version = "0.0.3"
 dependencies = [
+ "bugis",
  "eframe",
  "egui",
  "js-sys",
@@ -7457,6 +7483,7 @@ dependencies = [
  "bishan",
  "boon-lay",
  "buangkok",
+ "bugis",
  "changi",
  "chem-eng-real-time-process-control-simulator",
  "csv",
@@ -7503,6 +7530,7 @@ dependencies = [
 name = "outram-park-fork-cfmesh"
 version = "0.0.3"
 dependencies = [
+ "bugis",
  "eframe",
  "egui",
  "env_logger",
@@ -9643,16 +9671,19 @@ name = "tampines"
 version = "0.0.3"
 dependencies = [
  "boon-lay",
+ "bugis",
  "chem-eng-real-time-process-control-simulator",
  "eframe",
  "egui",
  "egui_extras",
  "egui_plot",
  "env_logger",
+ "farrer-park",
  "getrandom 0.3.4",
  "local-ip-address",
  "ndarray",
  "nee_soon",
+ "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-foam-multiphase",
  "outram-park-fork-coolprop",
@@ -9672,6 +9703,7 @@ name = "tampines-steam-tables"
 version = "0.3.0"
 dependencies = [
  "approx",
+ "bugis",
  "chem-eng-real-time-process-control-simulator",
  "eframe",
  "egui",
@@ -9713,6 +9745,7 @@ name = "teh-o-prke"
 version = "0.1.7"
 dependencies = [
  "approx",
+ "bugis",
  "chem-eng-real-time-process-control-simulator",
  "eframe",
  "egui",
@@ -10121,6 +10154,7 @@ name = "tuas_boussinesq_solver"
 version = "0.1.8"
 dependencies = [
  "approx",
+ "bugis",
  "chem-eng-real-time-process-control-simulator",
  "csv",
  "eframe",

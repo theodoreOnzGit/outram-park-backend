@@ -241,29 +241,29 @@ use super::two_fluid::TwoFluid1d;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Total pipe length \[m\] (13.44 ft).
-const PIPE_LENGTH_M: f64 = 4.096;
+pub(super) const PIPE_LENGTH_M: f64 = 4.096;
 /// Inside diameter \[m\] (2.88 in).
-const PIPE_ID_M: f64 = 0.073;
+pub(super) const PIPE_ID_M: f64 = 0.073;
 /// Break flow area fraction \[-\] — 13 % glass-disc residue.
-const BREAK_AREA_FRACTION: f64 = 0.87;
+pub(super) const BREAK_AREA_FRACTION: f64 = 0.87;
 /// Rupture-disc opening time \[s\] — 1.0 ms linear ramp.
-const DISC_OPEN_TIME_S: f64 = 1.0e-3;
+pub(super) const DISC_OPEN_TIME_S: f64 = 1.0e-3;
 /// Initial pipe pressure \[Pa abs\] — 1000 psig.
-const P_INIT_PA: f64 = 7.0e6;
+pub(super) const P_INIT_PA: f64 = 7.0e6;
 /// Containment / ambient back-pressure \[Pa abs\].
-const P_AMBIENT_PA: f64 = 1.0e5;
+pub(super) const P_AMBIENT_PA: f64 = 1.0e5;
 
-const FT_TO_M: f64 = 0.3048;
-const PA_TO_PSI: f64 = 1.0 / 6894.757_293;
+pub(super) const FT_TO_M: f64 = 0.3048;
+pub(super) const PA_TO_PSI: f64 = 1.0 / 6894.757_293;
 
 /// Volume-centre axial position \[ft from the closed end\], RELAP volumes 1–24.
-const NODE_CENTRE_FT: [f64; 24] = [
+pub(super) const NODE_CENTRE_FT: [f64; 24] = [
     0.260, 0.780, 1.300, 1.820, 2.385, 3.000, 3.615, 4.215, 4.820, 5.425, 6.025, 6.640, 7.255,
     7.820, 8.340, 8.940, 9.630, 10.320, 10.920, 11.440, 11.905, 12.370, 12.890, 13.295,
 ];
 /// Hendrie (1973) non-isothermal initial temperature profile \[degF\] at
 /// [`NODE_CENTRE_FT`]. The single most important modelling detail of the case.
-const NODE_T_DEGF: [f64; 24] = [
+pub(super) const NODE_T_DEGF: [f64; 24] = [
     447.5, 448.4, 449.4, 450.3, 451.4, 452.5, 451.7, 450.8, 450.0, 449.2, 448.3, 447.5, 448.0,
     448.5, 448.9, 449.4, 450.0, 446.5, 443.4, 440.8, 438.4, 436.0, 437.0, 437.8,
 ];
@@ -289,7 +289,7 @@ const GS_POS_FT: [(&str, f64); 7] = [
 /// `benchmark_digitised.csv`. It is a **digitisation of a published figure**,
 /// not raw instrument data, so its own uncertainty is a few psia at best and it
 /// carries no error bars.
-const GS1_DATA_PSIA: [(f64, f64); 16] = [
+pub(super) const GS1_DATA_PSIA: [(f64, f64); 16] = [
     (0.000, 985.0),
     (0.020, 350.777),
     (0.040, 364.038),
@@ -308,12 +308,12 @@ const GS1_DATA_PSIA: [(f64, f64); 16] = [
     (0.300, 190.093),
 ];
 
-fn degf_to_k(f: f64) -> f64 {
+pub(super) fn degf_to_k(f: f64) -> f64 {
     (f - 32.0) * 5.0 / 9.0 + 273.15
 }
 
 /// Piecewise-linear interpolation with flat extrapolation outside the range.
-fn lerp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
+pub(super) fn lerp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
     if x <= xs[0] {
         return ys[0];
     }
@@ -331,7 +331,7 @@ fn lerp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
 
 /// Break area fraction at time `t` \[-\]: the 1 ms linear rupture-disc ramp,
 /// then held at [`BREAK_AREA_FRACTION`].
-fn break_area_fraction(t: f64) -> f64 {
+pub(super) fn break_area_fraction(t: f64) -> f64 {
     (t / DISC_OPEN_TIME_S).clamp(0.0, 1.0) * BREAK_AREA_FRACTION
 }
 

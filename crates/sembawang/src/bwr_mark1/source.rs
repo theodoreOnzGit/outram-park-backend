@@ -226,7 +226,13 @@ mod tests {
     /// later, dry head failure, 2026-10-29; by a plate per ring to 5.99e13
     /// and 9.07e15 Bq, the early branch again; by the pool in two layers to
     /// 1.54e14 and 1.07e16 Bq, the flange leak open from about 17.5 h; by
-    /// the plate's debris oxidising to 1.89e14 and 1.12e16 Bq.)
+    /// the plate's debris oxidising to 1.89e14 and 1.12e16 Bq; by the
+    /// plenum's oxidation steam consumed to 1.85e14 and 1.05e16 Bq; by the
+    /// control blades to 7.40e13 and 4.99e16 Bq; by their heat of fusion to
+    /// 8.00e13 and 5.99e16 Bq; by the cavity debris's phases to 1.07e14 and
+    /// 8.08e16 Bq; by the vent and flange choked to 9.76e13 and 7.51e16 Bq;
+    /// by the blades' diffusion limit to 9.70e13 and 7.48e16 Bq; by the
+    /// two-sided equalising to 7.55e13 and 8.28e16 Bq.)
     #[test]
     fn the_model_release_hands_off_to_changi() {
         let prm = Params::default();
@@ -235,7 +241,9 @@ mod tests {
         let i = inventory_bq(&sum, "I131", "I-131", 1.0);
         let xe = inventory_bq(&sum, "Xe133", "Xe-133", 1.0);
         assert!((cs / 1.566e17 - 1.0).abs() < 2e-3, "{cs:e}");
-        let h = histories(Mechanisms::default(), prm, 60.0, 30.0 * 3600.0);
+        // On the lumped containment since gh:#1099 (2026-11-02), explicitly:
+        // these pins were measured on it and keep their value there.
+        let h = histories(Mechanisms::default().without_network_containment(), prm, 60.0, 30.0 * 3600.0);
         let st = source_term(&h, &prm, &sum, 3600.0);
         let padded = crate::chain::pad_for_dispersion(&st, Time::new::<second>(6.0 * 3600.0));
         let total = |t: &SourceTerm, k: usize| t.nuclides[k].total_released().get::<becquerel>();
@@ -245,10 +253,13 @@ mod tests {
         let f = h.cs_released[h.cs_released.len() - 1];
         assert!((total(&st, 0) / (f * cs) - 1.0).abs() < 1e-4, "{} vs {}", total(&st, 0), f * cs);
         assert!((i / 1.358e18 - 1.0).abs() < 1e-3 && (xe / 2.895e18 - 1.0).abs() < 1e-3, "{i:e} {xe:e}");
-        assert!((total(&st, 0) / 1.8923e14 - 1.0).abs() < 1e-3 && (total(&st, 1) / 1.1206e16 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
+        assert!((total(&st, 0) / 7.4755e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 9.7700e16 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
         // Xe-133 2.533e18 -> 2.521e18 Bq with the bottom of the core's
-        // radiation, -> 2.530e18 with a plate per ring (2026-10-29).
-        assert!((total(&st, 2) / 2.530e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
+        // radiation, -> 2.530e18 with a plate per ring (2026-10-29), ->
+        // 2.538e18 with the control blades, -> 2.541e18 with the cavity
+        // debris's phases, -> 2.539e18 with the vent and flange choked
+        // (2026-10-30).
+        assert!((total(&st, 2) / 2.5386e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
     }
 
     /// The near-field dispersion run (`near_field`) under the assumed
@@ -277,7 +288,9 @@ mod tests {
     fn the_release_carried_downwind() {
         let prm = Params::default();
         let sum = compute(&prm);
-        let h = histories(Mechanisms::default(), prm, 60.0, 30.0 * 3600.0);
+        // On the lumped containment since gh:#1099 (2026-11-02), explicitly:
+        // these pins were measured on it and keep their value there.
+        let h = histories(Mechanisms::default().without_network_containment(), prm, 60.0, 30.0 * 3600.0);
         let st = source_term(&h, &prm, &sum, 3600.0);
         let d: Vec<Length> = [1000.0, 2000.0, 3000.0, 4000.0, 5000.0].iter().map(|m| Length::new::<meter>(*m)).collect();
         let r = near_field(&st, &Weather::assumed(), &d);
@@ -298,8 +311,19 @@ mod tests {
         // 4 km; Cs-137 1.340e8 -> 1.032e8; deposited I-131 4.428e8 ->
         // 1.562e8 Bq/m^2. By the pool in two layers: Cs-137 at 4 km 1.032e8
         // -> 2.658e8, deposited I-131 1.562e8 -> 1.848e8 Bq/m^2; by the
-        // plate's debris oxidising, 3.262e8 and 1.929e8.
-        assert!((air(0, 2) / 1.291e11 - 1.0).abs() < 1e-3 && (air(3, 2) / 4.353e12 - 1.0).abs() < 1e-3, "{:e} {:e}", air(0, 2), air(3, 2));
-        assert!((air(3, 0) / 3.262e8 - 1.0).abs() < 1e-3 && (ground(3, 1) / 1.929e8 - 1.0).abs() < 1e-3, "{:e} {:e}", air(3, 0), ground(3, 1));
+        // plate's debris oxidising, 3.262e8 and 1.929e8; by the plenum's
+        // oxidation steam consumed, 3.183e8 and 1.802e8; by the control
+        // blades, Xe-133 1.295e11 at 1 km and 4.368e12 at 4 km, Cs-137
+        // 1.275e8, deposited I-131 8.595e8; by their heat of fusion,
+        // Cs-137 1.379e8, deposited I-131 1.032e9; by the cavity debris's
+        // phases, Xe-133 1.297e11 and 4.373e12, Cs-137 1.846e8, I-131
+        // 1.390e9; by the vent and flange choked, Xe-133 1.295e11 and
+        // 4.368e12, Cs-137 1.683e8, I-131 1.293e9; by the blades' diffusion
+        // limit, Cs-137 1.672e8, I-131 1.287e9; by the two-sided
+        // equalising, 1.301e8 and 1.425e9; by the blades' B4C, 1.648e8 and
+        // 1.487e9; by the debris falling through the pedestal's water,
+        // 1.646e8 and 1.486e9; with UO2 carried by candling Zr, 1.289e8 and 1.682e9.
+        assert!((air(0, 2) / 1.2954e11 - 1.0).abs() < 1e-3 && (air(3, 2) / 4.3676e12 - 1.0).abs() < 1e-3, "{:e} {:e}", air(0, 2), air(3, 2));
+        assert!((air(3, 0) / 1.2888e8 - 1.0).abs() < 1e-3 && (ground(3, 1) / 1.6817e9 - 1.0).abs() < 1e-3, "{:e} {:e}", air(3, 0), ground(3, 1));
     }
 }

@@ -140,6 +140,9 @@ impl Pour {
 }
 
 pub struct DemApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<DLink>,
     error: Option<String>,
     panel: Panel,
@@ -166,7 +169,9 @@ pub fn from_query(q: &[(String, String)]) -> (usize, Show) {
 
 impl DemApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<DLink, String> = {
             let ctx = cc.egui_ctx.clone();
@@ -190,6 +195,7 @@ impl DemApp {
         // valve (−62 cm) to above the full bed (~190 cm).
         let view = View::new(130.0).with_home([0.0, 64.0]);
         let mut app = Self {
+            theme: bugis::Theme::default(),
             link,
             error,
             panel: Panel::default(),
@@ -632,7 +638,11 @@ impl eframe::App for DemApp {
             self.title = title;
         }
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "DEM pour", |ui| self.side_panel(ui));
+        panel.show(ui, "DEM pour", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)

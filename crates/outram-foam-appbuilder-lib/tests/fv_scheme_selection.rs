@@ -294,6 +294,9 @@ fn gauss_linear_convection_beats_upwind_against_ghia_1982() {
 ///
 /// # Results (run 2026-08-07, release mode, this machine)
 ///
+/// *Record of 2026-08-07, measured with the Euler-only `ddtCorr` paired with
+/// `Backward` (the pairing before gh:#1067; kept as run).*
+///
 /// At Δt = 4e-3 s: transient difference after 5 steps = 2.829482e-2 m/s; long-
 /// time difference = 1.649884e-2 m/s at **both** t = 12 s and t = 30 s (identical
 /// to all printed digits); Ghia RMS — Euler 0.0363, Backward 0.0359.
@@ -339,6 +342,31 @@ fn gauss_linear_convection_beats_upwind_against_ghia_1982() {
 /// BDF2 is not worse against the benchmark. It deliberately does **not** assert
 /// steady-state equivalence, because that is currently false and the number
 /// above is the evidence.
+///
+/// # Re-measured 2026-11-01 (gh:#1067) — `Backward` now pairs with the BDF2 `ddtCorr`
+///
+/// ~~Making `Backward` fully consistent needs a backward-form `ddtCorr`
+/// (OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`), which lives in
+/// `outram-foam-basic-lib` and is outside this crate.~~ **CORRECTED
+/// 2026-11-01** — it is ported (`fvc::ddt_corr_backward`) and `PimpleFoam`
+/// selects it for `Backward` by default. Same test, same Δt = 4e-3 s:
+///
+/// | quantity | 2026-08-07 (Euler-only ddtCorr) | 2026-11-01 (BDF2 ddtCorr) |
+/// |---|---|---|
+/// | transient max &#124;ΔU&#124; after 5 steps | 2.829482e-2 | 2.836295e-2 |
+/// | long-time max &#124;ΔU&#124; at t = 12 s | 1.649884e-2 | 5.208365e-3 |
+/// | Ghia RMS, Euler / Backward | 0.0363 / 0.0359 | 0.0363 / 0.0362 |
+///
+/// The steady Euler/BDF2 disagreement falls 3.2× but does not vanish, and it
+/// still grows as Δt is refined (3.80e-3 → 8.04e-3 m/s over Δt = 8e-3 → 1e-3,
+/// `tests/bdf2_temporal_order.rs`, Study 3); the remaining growth is carried by
+/// the `fvcDdtPhiCoeff` limiter. Backward's earlier edge over Euler against
+/// Ghia (0.0359 vs 0.0363) shrinks to 0.0362 vs 0.0363: most of it came from
+/// the inconsistent pairing, not from second-order time integration. **Still
+/// not verified as second order** — the temporal-order study could not measure
+/// an order on this case (the discrete fixed point depends on Δt); see
+/// `verification_and_validation/bdf2_temporal_order.md`. The Δt-sweep table
+/// above was not re-run beyond what Study 3 records.
 #[test]
 fn backward_ddt_selection_is_live_and_not_worse_against_ghia() {
     let dt = 4.0e-3;
@@ -374,8 +402,8 @@ fn backward_ddt_selection_is_live_and_not_worse_against_ghia() {
     println!("max |U_backward - U_euler|: transient (5 steps) = {d_transient:.6e} m/s, long-time (12 s) = {d_steady:.6e} m/s");
     println!("Ghia Re=100 centreline RMS at 12 s: Euler {rms_e:.4}, Backward {rms_b:.4}");
     println!(
-        "NOTE: the long-time difference is a known inconsistency between the BDF2 momentum \
-         diagonal and the Euler-only Rhie-Chow ddtCorr — see this test's documentation."
+        "NOTE: Backward now pairs with the BDF2 ddtCorr (gh:#1067); the remaining long-time \
+         difference is Delta-t-dependent Rhie-Chow coupling — see this test's documentation."
     );
 
     assert!(

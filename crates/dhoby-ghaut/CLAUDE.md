@@ -62,6 +62,12 @@ screen. `examples/monte_carlo_web/` (~~`examples/triso_pebble_web/`~~, renamed
 is in this crate's LIBRARY, `dhoby_ghaut::web_demo`.** Build on it; do not
 copy `monte_carlo_web`. It gives, ready-made and tested:
 
+> **MOVED 2026-11-02 (gh:#1112):** the code now lives in the central GUI
+> crate, `bugis::web_demo` (`crates/bugis/src/web_demo/`, feature
+> `web_demo`). `dhoby_ghaut::web_demo` re-exports it, so every path in the
+> table below still works and new demos may use either. Change the framework
+> in bugis; `src/web_demo/` here keeps only its kovan review records.
+
 | piece | module | what it does |
 |---|---|---|
 | main view | `web_demo::view` | `View` (world cm to screen, `fit`, `zoom_about`, `handle_input`: wheel / pinch / drag / double-click; refits on a size change until the reader zooms or pans), `zoom_buttons` + `apply_zoom` (+ / − / Reset, 36 px, top right), `scale_bar` |

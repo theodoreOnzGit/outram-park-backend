@@ -1,5 +1,12 @@
 # `bwr_mark1`: the lower-head wall (gh:#1034, plan item F3), measured
 
+> **Since 2026-11-02 (gh:#1099) the plant's default containment is the
+> control-volume network.** Every number in this record was measured on
+> the lumped `Containment` (at the physics of its date), which is now the
+> explicit ablation `Mechanisms::without_network_containment()`. What the
+> switch moved is in `containment_network.md` ("gh:#1099").
+
+
 > Research, education and V&V only. AI draft, not reviewed. Uncalibrated:
 > nothing was tuned toward the BSAF band.
 

@@ -208,24 +208,38 @@ positivity on Toro test 2 with van Leer), is
 
 Multiphase critical-flow solvers (Homogeneous Equilibrium Model) live in
 `src/steam_turbine_equations/converging_diverging_nozzles/choked_flow/`,
-validated against Moody (1975) and Zaloudek HEM reference curves. **Marviken is
+validated against Moody (1975) and Zaloudek HEM reference curves. ~~**Marviken is
 now gated, with a split result — validated on test 23, NOT validated on
-test 24** — see below. The three split solvers (in-dome /
+test 24**~~ **CORRECTED 2026-11-02 (gh:#1111): Marviken tests 23 AND 24 are
+both validated gates** (mean and per-point budgets, with named known misses:
+5 of 29 points on test 23, 1 of 40 on test 24) — see below. The three split solvers (in-dome /
 subcooled / superheated-vapour) cover all stagnation buckets relative to the
 p-h VLE dome.
 
 All three stagnation buckets (in-dome, subcooled, superheated) are validated.
 The known discrepancy is `isobar_pref_0_25` (p₀ = 1.72 bar) in the Moody chart
 tests — its sole deeply-subcooled data point deviates by |Δ log10 G| = 0.170
-because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli
-limit at extreme pressure ratios (p_bubble/p₀ ≈ 0.02). **That test is no longer
-`#[ignore]`d** — it is active and passes, because the Moody tests are now
-region-filtered and assert only their in-dome (Region 4) points, skipping the
-single-phase ones (see the region-filtering note below, and bead `op-21g.2`,
+~~because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli
+limit at extreme pressure ratios (p_bubble/p₀ ≈ 0.02)~~ (**CORRECTED
+2026-11-02, gh:#1111**: the cause is a solver defect, not IF97. The
+subcooled solver takes `s0` at the backward-equation `T0` but subtracts from
+the given `h0`. With the consistent `h_1(T0, p0)` this point measured err
+0.005. ~~That patch is not applied, because it breaks Moody 0.50 / h = 2.2549~~
+**Applied 2026-11-02** (V&V §12); the isobar stays in-dome-only and its
+measured deep numbers (6 points ≤ 0.039; 1.8627 → 0.156, 1.9020 → 0.252) are
+recorded at the test; see
+`verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`
+§10–§12). **That test is no longer `#[ignore]`d** — it is active and passes, because
+the Moody tests are now region-filtered and assert ~~only their in-dome
+(Region 4) points, skipping the single-phase ones~~ their in-dome (Region 4)
+points at 0.06 and their deeply subcooled Region 1 points (`v_b/c_2φ >
+DEEP_SUBCOOLING_RATIO`) at 0.08 in log10, skipping the other single-phase
+points. **CORRECTED 2026-11-02**: read from `validate_moody_isobar_inner`.
+Only `isobar_pref_0_25` is in-dome-only (see the region-filtering note below, and bead `op-21g.2`,
 which is a candidate for closure on those grounds). All Moody isobars
 (0.25 – 30.0 × p_ref) are active.
 
-**Ignored tests — ~~the complete list, 13 of them~~ 14 of them, list regenerated
+**Ignored tests — ~~the complete list, 13 of them~~ ~~14 of them~~ ~~15 of them (15th added 2026-11-02, gh:#1102)~~ 14 of them (2026-11-02: the gh1102 cold-liquid test un-ignored, gh:#1111; lib run `1040 passed; 0 failed; 14 ignored`), list regenerated
 2026-09-27** (was: 13, regenerated 2026-08-11 from
 `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`, which
 is authoritative; `grep -rnE '^\s*#\[ignore' src/` returns 15 hits because one of
@@ -247,6 +261,7 @@ them sits inside a `/* … */` block comment and is not compiled at all):
 | `openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_200k_5mpa` | **Known error** — PR EOS 26 % off vs NIST at 200 K / 5 MPa |
 | `openfoam_source::thermophysics::thermo::janaf::tests::newton_converges_from_bad_initial_guess` | **Known error** — Newton stalls at ~1152 K; JANAF discontinuity at `Tcommon` |
 | `steam_turbine_equations::mean_flow_stages::tests::diagnose_multistage_expansion` | **ADDED TO THIS TABLE 2026-09-27** — Diagnostic. It is the **14th** ignore and was missing, so this table's "complete at 13" claim was false. Found by running `cargo test --release -j 3 -p tampines-steam-tables --lib -- --ignored --list`, which printed `14 tests, 0 benchmarks`. |
+| ~~`hem::tests::gh1102_choked_transition_is_continuous_for_cold_liquid`~~ | **UN-IGNORED 2026-11-02 (gh:#1111)**: passes, rel 4.2e-8, after the subcooled solver moved to the continuous global maximum on a consistent state (V&V §12). The history: **ADDED 2026-11-02 (gh:#1102)** — **Known error**, gh:#1111: for 300 K liquid the subcooled critical solver's G* is 23 % below the unchoked flux just above p*, so G drops when the back pressure crosses p*. With it the lib run reports **15 ignored** (`1038 passed; 0 failed; 15 ignored`, 2026-11-02). **Diagnosed 2026-11-02:** `s0` is taken at `T_ph(p0, h0)` while the drop uses the given `h0`. With `h_1(T0, p0)` the test passes, but Moody 0.50 / h = 2.2549 goes to err 0.120 > 0.08, so the fix is held back and the test stays ignored (V&V doc §10). **Stage 2, 2026-11-02 (V&V doc §11):** the `x < 0.03` and `DEEP_SUBCOOLING_RATIO` switches were replaced by a global-maximum rule on the consistent state. That makes G* continuous and this test pass, but it fails the Zaloudek x_t = 1e-4 curve at ≤ 100 psia, Moody 0.50 / 2.2549 and Marviken 23's per-point band, so it is held too. |
 
 One diagnostic is ignored by design. Three unfinished ones are real gaps and all
 three sit on the **wet-steam** path — the same path the turbine work depends on.
@@ -266,8 +281,11 @@ Robinson and JANAF entries were simply missed.
 Verification tests are under `.../tests/`, validated against:
 
 - Moody (1975), maximum discharge rate of liquid-vapour mixtures — `moody_*`.
-  These tests are **region-filtered**: each isobar asserts only its in-dome
-  (Region 4) points and skips the single-phase points. The subcooled (Region 1)
+  These tests are **region-filtered**: each isobar asserts ~~only its in-dome
+  (Region 4) points and skips the single-phase points~~ its in-dome (Region 4)
+  points and its deeply subcooled Region 1 points (0.08 in log10), and skips
+  the rest (**CORRECTED 2026-11-02**, from `validate_moody_isobar_inner`;
+  `isobar_pref_0_25` is in-dome-only). The subcooled (Region 1)
   branch is a documented HEM limitation — HEM equilibrium under-predicts subcooled
   critical flow, and no local discriminator separates Moody's deep-subcooling
   (Bernoulli) reference from Zaloudek's near-saturation (sonic) reference (see
@@ -279,6 +297,22 @@ Verification tests are under `.../tests/`, validated against:
   graph-read (digitised) HEM curves, not raw experimental data, so keep mass-flux
   (G) tolerances loose.
 
+**Marviken — re-measured 2026-11-02 (gh:#1111): both tests validated.** With
+the continuous global-maximum subcooled solver (V&V
+`hem_pipe_vs_exact_riemann_and_edwards.md` §12):
+- **Test 23:** mean 13.9 % (signed −13.9 %), passes the 15 % mean. Of 29
+  points, 24 are inside 25 % (worst 19.3 %). The 5 outside, at the
+  scattered top of the envelope (−26.9, −31.5, −25.5, −31.3, −30.6 % at
+  4.80–4.97 MPa), are named in `MARVIKEN_23_KNOWN_MISSES`, kept in the mean
+  and asserted to stay outside. **Validated with 5 recorded
+  equilibrium-HEM misses.**
+- **Test 24:** mean **10.4 %** (signed −9.4 %), 39 of 40 inside 25 %. One
+  named miss: 3193.6 kPa, −25.6 %. **VALIDATED** (promoted from
+  characterisation). This confirms the 2026-08-11 finding below: the
+  48.6 % deficit was the solver's sonic-kink branch.
+
+The 2026-08-11 record, kept as it was run:
+
 **Marviken — gated 2026-08-11, split outcome (bead `op-21g.16`).**
 `marviken_tests.rs` is now a real V&V case: 6 active tests, none ignored,
 ~1.4 s, comparing this crate's HEM critical-flow dispatcher against the
@@ -288,11 +322,13 @@ digitised NUREG/CR-2671 (MXC-301) Fig. 8:24 envelopes for the 500 mm /
 - **Test 23 (3 K nominal subcooling) — VALIDATED.** Mean deviation 12.6 %,
   worst 23.1 %, inside a justified ±25 % per-point / ±15 % mean band whose
   dominant term is the ±12.9 % measured experimental scatter.
-- **Test 24 (33 K nominal subcooling) — NOT VALIDATED.** Mean −48.5 %, worst
+- **Test 24 (33 K nominal subcooling) — ~~NOT VALIDATED~~ (2026-08-11
+  solver; validated since 2026-11-02, above).** Mean −48.5 %, worst
   −70.2 %, 31 of 40 points outside the band. Kept as an honest characterisation
-  test, not a validation. **Do not describe the choked-flow work as
+  test, not a validation. ~~**Do not describe the choked-flow work as
   Marviken-validated for subcooled stagnation states, and do not cite it as such
-  in a paper.**
+  in a paper.**~~ **Superseded 2026-11-02**; the caveat now is the named
+  misses, and that this is AI-assisted work without human V&V sign-off.
 - **The test-24 deficit is a solver defect, not HEM physics.** The bare HEM
   maximum-mass-flux criterion (`max_p ρ√(2Δh)` along the isentrope, built from
   the public `(p,s)` flashes in the same test file) reproduces *both* Marviken
@@ -412,7 +448,7 @@ documents the root cause and the quality-based routing.
 |---|---|
 | `get_critical_pressure_and_mass_flux_multiphase_ph` | ✅ Unified dispatcher — routes `(p0,h0)` by `ph_flash_region` to the solvers below; powers `TampinesSteamTableCV::get_crit_pressure_and_massflux`. All 13 `generic_multiphase_stagnation` tests pass |
 | `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass |
-| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated — all Zaloudek subcooled curves incl. the x_t ≈ 0 saturated-liquid line pass |
+| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated — all Zaloudek subcooled curves incl. the saturated-liquid line pass (that fixture redefined 2026-11-02 to x_t = 0 HEM, gh:#1111); Moody deep points pass except the named miss 0.50 / 2.2549 (0.120); Marviken 23/24 validated with named misses. **Since 2026-11-02:** continuous global maximum of `G` on a forward-consistent stagnation state; no `x < 0.03` or `DEEP_SUBCOOLING_RATIO` branches (V&V §12) |
 | `get_critical_pressure_and_mass_flux_superheated_vapour_ph` | ✅ Validated — Zaloudek superheated-vapour / supercritical curves (x_t = 0.80–1.00) pass |
 | `dome_crossing_interior_choke` (private) | ✅ Near-critical Region 3 helper — finds the interior two-phase choke when a supercritical isentrope crosses the dome apex, skipping the spurious phase-boundary kink (see README v0.2.1) |
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only, no longer wired into the OOP API |
@@ -421,10 +457,19 @@ documents the root cause and the quality-based routing.
 `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` now passes.
 The old failure was numerical (the energy-balance choke finder is blind to the
 sound-speed discontinuity at the bubble point), not an HEM physics limitation —
-HEM at the throat reproduces the x ≈ 0 reference to ±0.04 in log10 G. The solver
+HEM at the throat reproduces the x ≈ 0 reference to ±0.04 in log10 G. ~~The solver
 routes near-saturation throats (two-phase quality at the energy-max choke < 0.03)
-to the bubble-point kink choke, mass flux from a saturated-liquid-line sonic map.
-See the comment block above that test and `diagnose_bubble_point_artifact`.
+to the bubble-point kink choke, mass flux from a saturated-liquid-line sonic map.~~
+**CORRECTED 2026-11-02 (gh:#1111):** that routing was itself a knife edge. A
+0.01 % change in `h0` moved G by 20 % on Marviken 23. The artifact's real
+cause was the solver's inconsistent stagnation state: `s0` at the backward
+`T0`, subtracted from the given `h0`. Both the routing and the sonic map are
+gone. The solver takes the continuous global maximum on a forward-consistent
+state. The saturated-liquid fixture now puts the throat at x_t = 0 with
+`u_t = c_2φ(0⁺)`, i.e. the HEM stagnation whose own isentrope peaks at the
+throat. The old x_t = 1e-4 fixture's numbers are recorded at the test. See
+the comment block above that test and `diagnose_bubble_point_artifact`, which
+still uses the old fixture.
 
 **`generic_multiphase_stagnation::quality_*`** — now active (no longer
 `#[ignore]`d). These drive the unified dispatcher
@@ -435,8 +480,11 @@ the near-critical Region 3 (3000 psia) points.
 
 **Moody isobar tests** — `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*`
 are now active (no longer `#[ignore]`d) and pass via region-filtering to the
-in-dome (Region 4) points; the subcooled branch is a documented HEM limitation
-(see above and README v0.2.1).
+in-dome (Region 4) points ~~;~~ **and the deeply subcooled Region 1 points
+(CORRECTED 2026-11-02)**; the ~~subcooled branch is a documented HEM
+limitation~~ near-threshold subcooled points are skipped (see above and
+README v0.2.1; the "HEM limitation" reading of the 0.25 isobar's miss is
+corrected above, gh:#1111).
 
 ## Known accuracy pitfalls
 

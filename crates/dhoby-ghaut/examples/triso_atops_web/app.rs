@@ -151,6 +151,9 @@ fn worker_url() -> String {
 }
 
 pub struct TrisoApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<TLink>,
     error: Option<String>,
     rung: Rung,
@@ -178,7 +181,9 @@ fn bits(x: f64) -> u64 {
 
 impl TrisoApp {
     pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<TLink, String> = {
             let ctx = cc.egui_ctx.clone();
@@ -198,6 +203,7 @@ impl TrisoApp {
             Err(e) => (None, Some(e)),
         };
         Self {
+            theme: bugis::Theme::default(),
             link,
             error,
             rung,
@@ -1658,7 +1664,11 @@ impl eframe::App for TrisoApp {
             self.title = title;
         }
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "TRISO-ATOPS", |ui| self.side_panel(ui));
+        panel.show(ui, "TRISO-ATOPS", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)

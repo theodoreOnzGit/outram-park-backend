@@ -1,0 +1,138 @@
+[package]
+name = "bugis"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license = "AGPL-3.0-only"
+description = "BUGIS (Browser-based User Graphics Interaction System) — colour theming for the OUTRAM PARK GUIs, no_std + alloc: the Gruvbox palette and roles, temperature and Crameri colour maps, and (feature egui) the shared Gruvbox Dark/Light egui theme and selector; the workspace's central GUI crate, with tracer animation, ASCII schematics and the egui widget library behind std features."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+exclude = ["docs"]
+
+# Where this crate sits in kovan's code map (see bishan's Cargo.toml for the
+# keys). A utility: no topic fidelity.
+[package.metadata.kovan]
+row = 0
+topic = "utility"
+maturity = 1
+backronym = "Browser-based User Graphics Interaction System"
+
+# no_std + alloc core (maintainer, 2026-11-02). PETIR for the exact floor and
+# round the colour maps use (petir is no_std). egui is the
+# optional GUI half, on by default; never eframe, so no crate pulls a
+# windowing stack through this one.
+#
+# The central GUI crate (gh:#1112, maintainer 2026-11-02): modules moved from
+# outram-park-digital-twin-engine and dhoby-ghaut come in behind their own
+# features. Every one of them needs `std`; the crate is `no_std` exactly when
+# the `std` feature is off (`#![cfg_attr(not(feature = "std"), no_std)]`), so
+# the moved files compile byte for byte with the std prelude they were written
+# against, and `--no-default-features` is still the pure no_std + alloc core.
+[features]
+default = ["egui"]
+egui = ["dep:egui"]
+# Turns off `no_std`. Implied by every moved module's feature.
+std = []
+# Tracer and pebble/control-rod kinematics (moved from the engine's
+# `animation/`): uom only, egui-free, builds for Android.
+animation = ["std", "dep:uom"]
+# 2-D schematic geometry rendered to a character grid (moved from the
+# engine's `ascii/`): std only.
+ascii = ["std"]
+# The app scaffold (moved from the engine's `app_scaffold/`): `SharedState`,
+# monitored physics threads, crash modal, CSV display and logging, frame
+# metrics, plot history, real-time pacing.
+app_scaffold = ["std", "egui", "dep:uom", "dep:csv", "dep:web-time", "dep:thiserror"]
+# The web-demo framework (moved from dhoby-ghaut's `web_demo/`): main view
+# and zoom buttons, folding panel, docks, the worker/thread link, loading,
+# lessons, platform, worker pool, nuclear-data cache. The wasm-bindgen family
+# it needs exists only in the wasm32 table below, so on native targets those
+# entries are no-ops, exactly as dhoby-ghaut gated them.
+web_demo = [
+    "std",
+    "egui",
+    "dep:sha2",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:js-sys",
+    "dep:web-sys",
+]
+# One feature per physics crate the widget library reads (maintainer,
+# 2026-11-02: "Integrate them, I'm ok with dependencies"). Each is std and
+# optional, so the no_std core and the plain `egui` feature stay physics-free.
+tampines = ["std", "dep:tampines"]
+tampines-steam-tables = ["std", "dep:tampines-steam-tables"]
+outram-park-fork-dwsim-libs = ["std", "dep:outram-park-fork-dwsim-libs"]
+nee_soon = ["std", "dep:nee_soon"]
+# The widget library (moved from the engine's `components/`): one egui widget
+# per process object. It needs every physics feature above: `pipe.rs`, the
+# base the other widgets compose, reads `tampines` state, and the module tree
+# is one unit, so splitting it by physics crate would mean editing the moved
+# files rather than moving them.
+widgets = [
+    "std",
+    "egui",
+    "animation",
+    "dep:uom",
+    "tampines",
+    "tampines-steam-tables",
+    "outram-park-fork-dwsim-libs",
+    "nee_soon",
+]
+
+[dependencies]
+petir = { workspace = true }
+egui = { workspace = true, optional = true }
+# Dimensioned quantities for the moved GUI modules (feature `animation` and
+# up). The workspace entry is `default-features = false`, so this adds no std
+# requirement of its own.
+uom = { workspace = true, optional = true }
+# Physics state the widgets draw (features of the same names). Std crates;
+# never on in the no_std core. No cycle: none of them depends on bugis except
+# as a dev-dependency (their GUI examples take the theme from here), which
+# Cargo permits.
+tampines = { workspace = true, optional = true }
+# `TurbineVisual` renders the generator model's torque-balance shaft speed.
+tampines-steam-tables = { workspace = true, optional = true }
+# `HeatExchangerVisual` names `FlowArrangement`, which tampines does not
+# re-export; the pump, steam-generator and distillation-column widgets read it
+# too.
+outram-park-fork-dwsim-libs = { workspace = true, optional = true }
+nee_soon = { workspace = true, optional = true }
+# `app_scaffold::csv_logging` / `csv_display` write real CSV (was an engine
+# dependency, bead op-wqk.22.2). Pure Rust.
+csv = { workspace = true, optional = true }
+# `app_scaffold`'s frame timer and CSV logger need a clock that exists in a
+# browser (see the root Cargo.toml's note on `web-time`).
+web-time = { workspace = true, optional = true }
+# `app_scaffold::csv_logging::CsvLoggerError` derives `thiserror::Error`.
+thiserror = { workspace = true, optional = true }
+# `web_demo::data_cache` (gh:#818): SHA-256 of tapes (the cache key) and of
+# cached products (corruption check). Pure Rust, every target.
+sha2 = { workspace = true, optional = true }
+
+# `web_demo`'s Web Worker, IndexedDB, file and canvas plumbing: wasm32 only,
+# the same target gating and web-sys features dhoby-ghaut used.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true, features = [
+    "Window", "Document", "Location", "History", "Response",
+    "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
+    "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
+    # `platform::keep_canvas_at_device_pixels` (gh:#556).
+    "Element", "HtmlCanvasElement", "NodeList", "DomRect",
+    # `files`: the browser's file chooser and downloads (gh:#863).
+    "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "FileList", "File",
+    "Blob", "BlobPropertyBag", "Url",
+] }
+
+[dev-dependencies]
+# Test-only: two widget tests moved from the engine (`components::pipe`,
+# `components::pipe_component`) build a real `tampines` pipe from TUAS's
+# `SolidMaterial`, as they did there (gh:#1112). Pure Rust, no BLAS. No cycle:
+# TUAS takes bugis only as a dev-dependency, for its GUI examples' theme.
+tuas_boussinesq_solver = { workspace = true }
