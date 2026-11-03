@@ -19,6 +19,11 @@
 //! test's output too (`--nocapture` is refused by `kovan-cli test`, whose
 //! parser needs libtest's captured form).
 //!
+//! **Run again** (maintainer, same day: for a test that may be racy, "let
+//! it fail ... and can try again"): once a run ends, the window offers it;
+//! the earlier outcomes stay listed, so a test that fails and then passes
+//! shows as flaky rather than as passing.
+//!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** cargo runs on a thread; a
 //! frame only copies the output gathered so far.
 
@@ -47,10 +52,26 @@ pub(crate) enum Outcome {
     Cancelled,
 }
 
+impl Outcome {
+    /// One word, for the list of earlier attempts.
+    pub(crate) fn word(&self) -> &'static str {
+        match self {
+            Outcome::Passed => "passed",
+            Outcome::Failed => "FAILED",
+            Outcome::NotRun => "not run",
+            Outcome::Error(_) => "error",
+            Outcome::Cancelled => "cancelled",
+        }
+    }
+}
+
 /// One single-test run and its window.
 pub(crate) struct SingleTest {
     pub(crate) test: String,
     pub(crate) package: String,
+    root: PathBuf,
+    /// The outcomes of the earlier attempts, oldest first (Run again).
+    pub(crate) history: Vec<Outcome>,
     ctl: RunControl,
     lines: Arc<Mutex<Vec<String>>>,
     job: Option<JoinHandle<Result<(), String>>>,
@@ -89,9 +110,9 @@ impl SingleTest {
     pub(crate) fn start(root: PathBuf, package: String, test: String) -> SingleTest {
         let ctl = RunControl::default();
         let lines: Arc<Mutex<Vec<String>>> = Arc::default();
-        let (worker, sink, a) = (ctl.clone(), lines.clone(), args(&package, &test));
+        let (worker, sink, a, at) = (ctl.clone(), lines.clone(), args(&package, &test), root.clone());
         let job = std::thread::spawn(move || {
-            let out = Some(root.join(RECORD));
+            let (root, out) = (at.clone(), Some(at.join(RECORD)));
             run_with(&root, &a, false, out, &worker, |l| {
                 if let Ok(mut v) = sink.lock() {
                     v.push(l.to_string());
@@ -105,6 +126,8 @@ impl SingleTest {
         SingleTest {
             test,
             package,
+            root,
+            history: Vec::new(),
             ctl,
             lines,
             job: Some(job),
@@ -126,6 +149,18 @@ impl SingleTest {
         self.lines.lock().map(|v| v.clone()).unwrap_or_default()
     }
 
+    /// Run the same test again (ignored while one runs): fresh output, the
+    /// finished attempt's outcome kept in `history`.
+    pub(crate) fn again(&mut self) {
+        if self.running() {
+            return;
+        }
+        let mut next = SingleTest::start(self.root.clone(), self.package.clone(), self.test.clone());
+        next.history = std::mem::take(&mut self.history);
+        next.history.extend(self.outcome.take());
+        *self = next;
+    }
+
     /// Take the finished run; true when it just finished.
     pub(crate) fn poll(&mut self) -> bool {
         if !self.job.as_ref().is_some_and(|j| j.is_finished()) {
@@ -145,6 +180,7 @@ impl SingleTest {
 pub(crate) fn show(ctx: &egui::Context, t: &mut SingleTest, root: &Path) -> bool {
     let mut open = true;
     let mut close = false;
+    let mut again = false;
     egui::Window::new(format!("Test: {}", t.test))
         .id(egui::Id::new("kovan_single_test"))
         .open(&mut open)
@@ -178,7 +214,14 @@ pub(crate) fn show(ctx: &egui::Context, t: &mut SingleTest, root: &Path) -> bool
                         ui.weak("cancelled");
                     }
                 }
+                if t.outcome.is_some() && ui.button("Run again").on_hover_text("Run the same test again, for a result that may be a race").clicked() {
+                    again = true;
+                }
             });
+            if !t.history.is_empty() {
+                let earlier: Vec<&str> = t.history.iter().map(Outcome::word).collect();
+                ui.weak(format!("attempt {} \u{b7} earlier: {}", t.history.len() + 1, earlier.join(", ")));
+            }
             ui.weak(format!(
                 "Partial run: never counted as test evidence. Recorded in {}.",
                 root.join(RECORD).display()
@@ -198,6 +241,9 @@ pub(crate) fn show(ctx: &egui::Context, t: &mut SingleTest, root: &Path) -> bool
                 close = true;
             }
         });
+    if again {
+        t.again();
+    }
     if !open || close {
         if t.running() {
             t.cancel();
@@ -241,5 +287,15 @@ mod tests {
         }
         assert!(!t.running());
         assert!(matches!(t.outcome, Some(Outcome::Error(_))), "{:?}", t.outcome);
+        // Run again: a fresh attempt, the first one's outcome kept.
+        t.again();
+        assert!(t.running() && t.outcome.is_none());
+        t.again(); // ignored while running
+        while !t.poll() {
+            assert!(Instant::now() < deadline, "the second run never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert_eq!(t.history.iter().map(Outcome::word).collect::<Vec<_>>(), ["error"]);
+        assert!(matches!(t.outcome, Some(Outcome::Error(_))));
     }
 }
