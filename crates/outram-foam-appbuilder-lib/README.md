@@ -144,6 +144,25 @@ translation order are in
 | `thermo_mechanics` | Linear-elastic thermal-expansion feedback: material card, Hooke's-law stress, axial-expansion feedback, and a displacement/heat field solve on the mechanics mesh — **implemented**. |
 | `common` | `time_profile`, `interpolate_table`, RBF kernel — implemented. `latticeMap` / `mergeOrSplitBaffles` deferred. |
 
+## Pebble-bed HTGR closures (`htgr_closures`)
+
+Original work, **not** a GeN-Foam port; it lives here so both `tampines`
+(0-D/1-D) and 2-D outram-foam work can reach it (maintainer decision D2,
+2026-11-03, gh:#1148). Coefficients from IAEA-TECDOC-1694 (proprietary tier:
+formulas and table numbers only) and Kugeler et al. 2017 (open).
+
+| Item | What | Status |
+|---|---|---|
+| `BedConductivityModel` | Bed effective conductivity. **Default `Breitbach`** (TECDOC-1694 Tab. 2.9); `Zbs(ZbsBed)` and `Kugeler2017` are comparison variants | **Verified** against hand evaluations (1e-12); default pinned by `breitbach_is_the_physics_default`. ZBS is 32-107 % above Breitbach over 523-1273 K |
+| `ZbsBed` | Zehner-Bauer-Schlunder with radiation and contact, moved here from `tampines` (re-exported there) | Analytic limits verified; the VTB table it does not reproduce is analysed (`op-jvua`) |
+| `kta_3102_2_nusselt`, `kta_3102_2_heat_transfer_coefficient` | KTA 3102.2 pebble-to-gas heat transfer (Tab. 2.10) | **Verified** against hand values; 10.5 % above Wakao at the HTR-10 design point |
+| `kta_3102_3_friction_factor`, `kta_3102_3_pressure_gradient` | KTA 3102.3 bed pressure drop (Tab. 2.10); the one copy `tampines::gas_phase::KtaBed` calls | **Verified** against the VTB step-2 gold values |
+| `KtaHelium` | The benchmark's helium fits (Tab. 2.8) with the pressure unit **fixed to bar** | **Verified** against CoolProp: within 2.2 % (0.8 % above 500 K) |
+| `StructuralMaterial`, `SteelComponent` | Fuel element, side and top/bottom reflector, carbon brick (Tab. 2.9, 2.11, 2.12); steels digitised from Fig. 2.8 | **Verified** against hand values. Steels **Uncertain** (digitised). Side reflector refused below 300 deg C (the printed fit breaks down there) |
+
+V&V record: [`verification_and_validation/htr10_th_closures_vs_tecdoc1694.md`](./verification_and_validation/htr10_th_closures_vs_tecdoc1694.md).
+None of it is validated against an HTR-10 measurement.
+
 ## Limitations
 
 This crate is at an early stage of a large port. The following are **known,

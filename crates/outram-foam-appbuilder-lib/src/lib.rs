@@ -90,6 +90,11 @@ pub mod error;
 /// GeN-Foam reactor-multiphysics port (neutronics + TH + thermo-mechanics).
 /// See `docs/genfoam-port-plan.md` for the module map and translation order.
 pub mod genfoam;
+/// Pebble-bed HTGR closures (original work, not a GeN-Foam port): bed
+/// effective conductivity (Breitbach default, ZBS comparison), KTA 3102.2 heat
+/// transfer, KTA 3102.3 pressure drop, and the IAEA-TECDOC-1694 HTR-10 solid
+/// conductivities. See [`htgr_closures`].
+pub mod htgr_closures;
 /// OpenFOAM case input/output — polyMesh and field readers, typed
 /// `controlDict`/`fvSchemes`/`fvSolution`, and (unimplemented) field writers.
 pub mod io;

@@ -87,3 +87,9 @@ pub use crate::solvers::sonic_foam::SonicFoam;
 
 // Turbulence-closure selection (Layer-5 adapter over outram-foam-turbulence-lib)
 pub use crate::turbulence::TurbulenceClosure;
+
+// Pebble-bed HTGR closures (original work, not a GeN-Foam port; gh:#1148)
+pub use crate::htgr_closures::{
+    BedConductivityModel, BedState, HtgrClosureError, KtaHelium, StructuralMaterial,
+    SteelComponent, ZbsBed,
+};
