@@ -444,6 +444,10 @@ impl CodeReview {
     }
 
     fn choose(&mut self, r: &SearchResult, map: &CodeMap) {
+        // A test is hidden on the map unless tests are shown (#1164).
+        if r.test {
+            self.show_tests = true;
+        }
         match &r.hit {
             SearchHit::Crate(c) => self.go(Place::at(Level::Crate(c.clone()))),
             SearchHit::Module { krate, file } => self.go(Place::at(Level::Module { krate: krate.clone(), file: file.clone() })),
@@ -726,7 +730,7 @@ impl CodeReview {
         let (blocked, callees, loading) = match slice {
             Some(s) => {
                 let c = facts.callees(map, s, id);
-                let b: Vec<(String, model::Review)> = c.iter().filter(|x| !facts.review(x).is_valid()).map(|x| (x.clone(), facts.review(x))).collect();
+                let b: Vec<(String, model::Review)> = c.iter().filter(|x| !facts.review(x).holds()).map(|x| (x.clone(), facts.review(x))).collect();
                 (b, c.len(), false)
             }
             None => (Vec::new(), 0, true),
@@ -890,9 +894,11 @@ impl CodeReview {
         ui.label(RichText::new("Stamp colours").strong());
         use kovan_common::review::state::Tone;
         for (t, c) in [
-            ("unreviewed", bar::tone_colour(Tone::Neutral)),
+            // Unreviewed is drawn red, not its tone's grey (`bar::review_colour`).
+            ("unreviewed", bar::review_colour(&model::Review::Unreviewed)),
             ("valid", bar::tone_colour(Tone::Good)),
-            ("needs a person: changed, a callee changed, moved, doc changed, fixed, pending test", bar::tone_colour(Tone::Attention)),
+            ("reviewed, waiting on a workspace test run (Cargo.lock changed)", bar::tone_colour(Tone::Waiting)),
+            ("needs a person: changed, a callee changed, moved, doc changed, fixed, awaiting a trusted reviewer", bar::tone_colour(Tone::Attention)),
             ("does not count: needs fix, unverified, outside scope, unreadable", bar::tone_colour(Tone::Blocked)),
         ] {
             ui.colored_label(c, format!("{t}"));

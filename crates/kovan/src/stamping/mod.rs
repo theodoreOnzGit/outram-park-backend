@@ -85,6 +85,7 @@ use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, Review
 
 pub mod git;
 mod git_batch;
+mod message_store;
 
 pub mod authorship;
 pub mod carry_forward;
@@ -114,7 +115,7 @@ mod states;
 pub mod ws_cache;
 
 pub use states::{
-    evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
+    crates_needing_test, evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
     stamp_states_timed, RefreshTimings, WorkspaceEvaluation,
 };
 
@@ -587,7 +588,8 @@ fn applicability_for(
 /// indexed, uncommitted changes in its file, index hash not the hash at
 /// `HEAD`, index entry out of date, a callee with no hash), with the same
 /// messages. ~~and (added 2026-10-10, #740: "bottom-up is an enforced
-/// rule") while a workspace callee has no valid stamp~~ **CORRECTED
+/// rule") while a workspace callee has no standing stamp (valid or pending
+/// a workspace test, corrected 2026-10-29)~~ **CORRECTED
 /// 2026-11-01** (GitHub #1106, maintainer: "stamp functions without
 /// reviewing the underlying functions"): a callee without a valid stamp no
 /// longer refuses the stamp; it is listed in

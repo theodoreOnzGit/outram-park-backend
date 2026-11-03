@@ -7,8 +7,12 @@
 # must never be renamed. Add a question or an option; never repurpose a key.
 #
 # applies_when: always | port | physical_interface | rung4
-#   port               the folder's kovan.toml [upstream] table (or the
-#                      wizard's "Is this a port?") declares the function a port
+#   port               the folder's ~~kovan.toml [upstream] table (or the
+#                      wizard's "Is this a port?")~~ review.md [upstream]
+#                      table declares the function a port. CORRECTED
+#                      2026-11-03: the wizard has no "Is this a port?"
+#                      question, and no folder outside the test fixtures has
+#                      an [upstream] table yet, so no function is a port.
 #   physical_interface a physical quantity crosses the function's interface
 #   rung4              the answers say a human wrote the validation case and
 #                      checked its result by hand (vv_case_author =
@@ -221,6 +225,22 @@ label = "No guard, accepted for research use (not for a safety decision), becaus
 effect = "flag_cap_rung3"
 requires_text = true
 
+# A faithful port of upstream code that has no guard (maintainer,
+# 2026-11-03, after stamping TRISO-ATOPS ports: "sometimes upstream itself
+# doesn't even have guards, or return results. ported code will not have such
+# things too"). ~~Offered only on a port.~~ Offered on every function
+# (CORRECTED 2026-11-03, maintainer: no folder is declared a port yet, so a
+# port-only answer never appeared); the label and the required note say
+# what upstream does. It flags the function as needs
+# improvement, so the missing guard stays listed, but does not cap the rung:
+# matching upstream is the port's contract (root CLAUDE.md, "Debugging a port:
+# read upstream first"). The text records what upstream does on bad input.
+[[question.option]]
+key = "matches_upstream_no_guard"
+label = "No guard, as upstream has none (a faithful port); upstream does: ____"
+effect = "flag"
+requires_text = true
+
 [[question.option]]
 key = "no_limits"
 label = "No limits apply, explained: ____"
@@ -321,6 +341,16 @@ effect = "none"
 key = "falls_back_silently"
 label = "Falls back with no signal to the caller"
 effect = "block"
+
+# The same for error handling (maintainer, 2026-11-03): upstream returns
+# no error (Fortran STOP, a NaN, a C++ return code ignored) and the port
+# keeps that behaviour. ~~Offered only on a port~~ offered on every
+# function (corrected the same day, as above); flagged, no rung cap.
+[[question.option]]
+key = "matches_upstream_no_error_return"
+label = "No error return, as upstream has none (a faithful port); upstream does: ____"
+effect = "flag"
+requires_text = true
 
 [[question.option]]
 key = "cannot_happen"

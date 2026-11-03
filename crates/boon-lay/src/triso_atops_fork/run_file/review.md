@@ -549,3 +549,342 @@ constructor
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 94f5ddb954.
+
+# Review: read_profile (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-read-profile-theodoreonzgit-b59f51a4"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:09:33+08:00"
+modified = "2026-11-03T14:09:33+08:00"
+target = "fn:b59f51a42a34581d"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::read_profile"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:09:33+08:00"
+commit = "ee7f945b7c92b5f90fc98d41642e9f68eae0501b"
+hash = "sha256:665d85958a50d58b3a42d86c984b95cc87f84beedf3d0eed36cf9da3f07c22fc"
+doc_hash = "sha256:fcba462e06518ceeb5f4ce5a7336f6ecc398fab07f29c296aa0a3b23e7349edd"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:0e7e1fb5c7353583" = "sha256:9cdcc3ed496ab29eda1531a44e8608aab68afafa3ba610871a63cd0170684a09"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Hg8S31CghMC9Tven9Y2um4APTbyZBTLYTkhF5fgHzUpmO5ZOVHFzPxX5ECfkqDCfFFnPnifng64NVmmKKl6dDA=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit ee7f945b7c.
+
+# Review: read_csv (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-read-csv-theodoreonzgit-0e7e1fb5"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:11:45+08:00"
+modified = "2026-11-03T14:11:45+08:00"
+target = "fn:0e7e1fb5c7353583"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::read_csv"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:11:45+08:00"
+commit = "369617493122336c1c6fbcd3241d117e69f02744"
+hash = "sha256:9cdcc3ed496ab29eda1531a44e8608aab68afafa3ba610871a63cd0170684a09"
+doc_hash = "sha256:b49a75d3e3d82f42683ed89de1aa934ea0bfcd3fc31f0745710833fb093c9604"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "sa0YvxwEdtGprCpz6QzE/vsxbtWlaIhJdH3/LfGGZ+t7wP73Tp35ycDOCyqLFUmuzP4XHw/0LX97QAWCy8D9Dw=="
+```
+
+parsing csv, based on pandas dataframe within python (TRISO ATOPS uses pandas dataframe)
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 3696174931.
+
+# Review: parse (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-parse-theodoreonzgit-323d07f5"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:14:48+08:00"
+modified = "2026-11-03T14:14:48+08:00"
+target = "fn:323d07f54f702214"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::parse"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:14:48+08:00"
+commit = "73c30aede272adbdae932a4bd4ebf63e25942582"
+hash = "sha256:fdaf6c688427845d1add04705a75f08bf29e1a04444a532bf1405160b2d5f613"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:0e7e1fb5c7353583" = "sha256:9cdcc3ed496ab29eda1531a44e8608aab68afafa3ba610871a63cd0170684a09"
+"fn:7211ef55974ed7bc" = "sha256:3b9fff3ac196256b5f0eb77c152443f93ebc5236d4c9a444e8922e2f4b63f60f"
+"fn:77eb4548b2a8440f" = "sha256:eb30dd38df4a20a378104a599f92bd158fb892e9ac79b8aaaf60be81c15abe5f"
+"fn:96a590df75995cb1" = "sha256:16c5f9c0ef53d8dc1b00899352c912eedfb6cb90384e3cf85f4b1650cbe4a1a1"
+"fn:9bb59490b81dec81" = "sha256:5c2b41727d5e8459d4ba83ddfc4fb5bd418b4481e47d807482adf2dd20279fb9"
+"fn:a70d96072f0762c1" = "sha256:23c47f95015a81d55076a1e48bcda9bb75209e4c1d5f5144236bcdc575aa59f7"
+"fn:b59f51a42a34581d" = "sha256:665d85958a50d58b3a42d86c984b95cc87f84beedf3d0eed36cf9da3f07c22fc"
+"fn:bb3bb965bdd5e28b" = "sha256:48a765403379e66dd4a8549e3e096079126eab35e691976607ba056dd88822b6"
+"fn:c913c848f17058e7" = "sha256:1c42362c93a303d935773b0c08e281104e626268772e308e6fa23e11d07dc7cf"
+"fn:d20a025ddfbe2c46" = "sha256:1f8cfcb5024f3aea99cbc2df6b508080342392ed406a281749d7f438adfe23b8"
+"fn:e05d8fbccf283bab" = "sha256:9d26dfd1c38e4c04aba604458c9593ddce6131557bd32578bb9c784e899d5fac"
+"fn:f38837b9ef921914" = "sha256:d746c163ae30ee4391976d67df9abf3674a57cb44dfacd738f39aff37adee8c0"
+"fn:f5caa9d482058451" = "sha256:3593bac03a446b265a57636ccde1593a5a95861ffe005d72b0b74a42291220fa"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "OI4jsQSjb7++lm4VOrLe0PDp3i+KmsYq9ltBytdiMrkhS/nKWxqjJCNIW7MGay9to0LPO1wZ1ZzB2Lo9CFYwBQ=="
+```
+
+this is basically process_run_files or something to that effect. converts a file input into 
+UpstreamRunFile struct, which is a bit different from how TRISO ATOPS upstream does it
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 73c30aede2.
+
+# Review: UpstreamRunFile (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-upstreamrunfile-theodoreonzgit-f38837b9"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:18:12+08:00"
+modified = "2026-11-03T14:18:12+08:00"
+target = "fn:f38837b9ef921914"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::UpstreamRunFile"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:18:12+08:00"
+commit = "925fa2cafb8c618c8e32d3e9c49c29936d7928b1"
+hash = "sha256:d746c163ae30ee4391976d67df9abf3674a57cb44dfacd738f39aff37adee8c0"
+doc_hash = "sha256:8bcc7ccc77a1df29669269417ea94496fc5c8690f46f4d21d91961f550ea0a38"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "HxEPChBqTMRT87BwqHtavPSc72EpLuK2SB4QSZJQ/grc5NbMfLCCnuRIs8nU+1ZCBCGkD2Lsd2QUGknDfaJkDA=="
+```
+
+upstream returns multiple values in python. here, we return this struct
+hand checked,
+
+differences include 
+options, react_config (assumed to be covered elsewhere)
+err is also returned
+
+Most other fields stay the same
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 925fa2cafb.
+
+# Review: UpstreamRunFileError (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-upstreamrunfileerror-theodoreonzgit-96a590df"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:21:13+08:00"
+modified = "2026-11-03T14:21:13+08:00"
+target = "fn:96a590df75995cb1"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::UpstreamRunFileError"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:21:13+08:00"
+commit = "3e9c7d7c7913e2a8f64a7217fa5a3a921716aae8"
+hash = "sha256:16c5f9c0ef53d8dc1b00899352c912eedfb6cb90384e3cf85f4b1650cbe4a1a1"
+doc_hash = "sha256:dc735b85a7bdac98321f03329d0d677fd12fa440dc4ae7d019c390db44e25528"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "none_yet"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "4gPwMRKBKjCR5/VxFjDQjYjrnDWCMlaXp2XjQHw4uwcwWs/u+EgqK54aahTFWl7ZdF09i1GYXu1ObPRC/fXFAg=="
+```
+
+error type for Rust port of TRISO ATOPS
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 3e9c7d7c79.
+
+# Review: read_upstream_run_file (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-read-upstream-run-file-theodoreonzgit-869f01d9"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:22:55+08:00"
+modified = "2026-11-03T14:22:55+08:00"
+target = "fn:869f01d9220c51d2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::read_upstream_run_file"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:22:56+08:00"
+commit = "e9388f43ac4fc3a8371880c63683ebbbe45e1348"
+hash = "sha256:fff8b4116ec901060ac136ec2526190ea96fe96b21b3b04e28345619fe5be75b"
+doc_hash = "sha256:0e3a427d53fd806155e70eb0b0b4ccad706bf6c065b1a851ea8e3297cc9d203b"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:323d07f54f702214" = "sha256:fdaf6c688427845d1add04705a75f08bf29e1a04444a532bf1405160b2d5f613"
+"fn:96a590df75995cb1" = "sha256:16c5f9c0ef53d8dc1b00899352c912eedfb6cb90384e3cf85f4b1650cbe4a1a1"
+"fn:f38837b9ef921914" = "sha256:d746c163ae30ee4391976d67df9abf3674a57cb44dfacd738f39aff37adee8c0"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Giu5eHJ1G02qhIe9t4eHrv4bOzvCasE3asG9Qmq0tx8LXXaigOcH0glPY0/vqNvH097z7Svv39v6k4a740mxCw=="
+```
+
+wrapper for the parse, using upstream run files (input files)
+Good for code to code comparison
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit e9388f43ac.

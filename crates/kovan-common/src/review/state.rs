@@ -66,8 +66,15 @@ pub enum StateKind {
 pub enum Tone {
     /// Valid.
     Good,
-    /// Needs a person (stale, moved, doc changed, fixed, pending).
+    /// Needs a person (stale, moved, doc changed, fixed, awaiting a
+    /// trusted reviewer). ~~Also pending a workspace test~~ **CORRECTED
+    /// 2026-10-29** (maintainer): that one needs no person and is
+    /// [`Tone::Waiting`].
     Attention,
+    /// Reviewed, waiting only on a full workspace test at the current
+    /// `Cargo.lock` ([`StateKind::PendingWorkspaceTest`]): the run clears
+    /// it, no person does.
+    Waiting,
     /// Blocks the function or does not count at all (needs-fix,
     /// unverified, outside scope, unreadable, deleted).
     Blocked,
@@ -159,10 +166,10 @@ impl StateKind {
             | Self::InheritedStale
             | Self::Moved
             | Self::Fixed
-            | Self::PendingWorkspaceTest
             | Self::AwaitingTrustedReviewer
             | Self::Updating
             | Self::Tentative => Tone::Attention,
+            Self::PendingWorkspaceTest => Tone::Waiting,
             Self::Deleted
             | Self::NeedsFixOpen
             | Self::Unverified

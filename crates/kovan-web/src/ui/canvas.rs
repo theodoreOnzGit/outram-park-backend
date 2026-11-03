@@ -668,11 +668,15 @@ impl CodeReview {
                         hits.push((r, Hit::TreeModule(f)));
                     }
                 }
-                TreeItem::Examples => {
+                TreeItem::Examples | TreeItem::Tests => {
+                    // The "tests" card (#1164) is drawn as the "examples" one.
+                    let (group, n) = match item {
+                        TreeItem::Tests => ("tests", format!("{} integration tests", tree.test_roots.len())),
+                        _ => ("examples", format!("{} examples", tree.example_roots.len())),
+                    };
                     painter.rect(r, 8.0 * z, pal.examples, Stroke::new(1.5, if pal.dark { Color32::from_gray(140) } else { pal.outline }), StrokeKind::Inside);
-                    let n = format!("{} examples", tree.example_roots.len());
                     let (title, sub) = if pal.dark { (Color32::from_gray(230), Color32::from_gray(180)) } else { (pal.strong, pal.text) };
-                    card_text(painter, r, &[("examples", 14.0, title), (n.as_str(), 11.0, sub)], z);
+                    card_text(painter, r, &[(group, 14.0, title), (n.as_str(), 11.0, sub)], z);
                 }
                 TreeItem::Module(i) => {
                     let node = &tree.nodes[*i];
@@ -821,7 +825,7 @@ fn selected_hint(item: &TreeItem, tree: &ModTree, sel: &Option<String>) -> bool 
     let file = match item {
         TreeItem::Crate => tree.lib_root.map(|i| tree.nodes[i].file.as_str()),
         TreeItem::Module(i) => Some(tree.nodes[*i].file.as_str()),
-        TreeItem::Examples => None,
+        TreeItem::Examples | TreeItem::Tests => None,
     };
     file.is_some() && file == sel.as_deref()
 }
