@@ -1379,3 +1379,52 @@ RB fail ported. I see the dispatch logic
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit c33b49494d.
+
+# Review: ReleaseMaterial (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-releasematerial-theodoreonzgit-c292835b"
+kind = "review"
+origin = "human"
+created = "2026-11-03T16:25:47+08:00"
+modified = "2026-11-03T16:25:47+08:00"
+target = "fn:c292835b20327ba2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::ReleaseMaterial"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T16:25:47+08:00"
+commit = "0cfbe7e4bb90b2760d4a9ddc38a712e80389a95a"
+hash = "sha256:19afb73e7e8ff4d5b8fb53c75fad6f738518e1d6ac944b40dc3d21043285e8ca"
+doc_hash = "sha256:8d12d5a8946bc1219b3175ebc6e1e181bc2294c47f7e876e3c6a1fd80dc94cae"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "none_yet"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "57w1wFY9tcHRZfjXRZA9Yg4fAbdBJiGPCazEeRM3wOKIMWxNlGhCb4FXGm2cxXD7knxxjKLqFFdkFw2Zhpu0Aw=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 0cfbe7e4bb.
