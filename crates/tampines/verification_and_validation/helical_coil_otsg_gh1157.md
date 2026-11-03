@@ -51,6 +51,22 @@ tolerances:
 | 3 | 4.3e-6 | −0.84 | the noise traced to the **steam tables**: at `(T_sat, p)` the `(T, p)` region test is decided by round-off, flipping between Regions 1, 2 and 4 for pressures 0.37 Pa apart near 4.457 MPa, so the saturated-liquid conductivity's critical-enhancement term took the *vapour* `c_p` about half the time (`λ_f` 0.6187 against 0.6094 W/(m·K), +1.5 %; `λ_g` −1.3 %), and at exactly 3.9 MPa Region 4 **panicked** (`SaturatedTransport::at` crashed the first test run) | fixed at the source, `tampines-steam-tables` `thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate`: on the saturation line below 623.15 K (within 1e-6 of `p_sat`) the caller's `x` picks Region 1 or 2. Regression test `saturated_endpoints_at_3_9_mpa_do_not_panic`. The steam-table library suite still passes (1041 passed, 0 failed, 14 ignored) and its generated V&V tables reproduced byte for byte (only their timestamps changed) |
 | 4 | **6.7e-14** | **1.92** | — | — |
 
+**Consequences of the steam-table fix elsewhere, flagged for the
+maintainer.** Only `tampines::multiphase_1d` consumes the changed path
+(`SaturatedTransport`). Two of its tests moved, and both were updated with
+the old record struck through:
+
+- `two_fluid_tests::all_three_ablations_reproduce_the_pre_1060_march_bit_for_bit`:
+  a bit-identity pin of the demonstrator blowdown moved by up to 0.98 %
+  (max |T_g − T_l|). With only the conductivity file restored to its pre-fix
+  content, the current code reproduced the old bits exactly, so the move is
+  the fix and nothing else. The pin was re-measured.
+- `two_fluid_tests::region_4_safe_pressure_removes_the_upstream_classifier_panic`:
+  it pinned 105 unguarded panics over a 10 790-pressure sweep. After the fix
+  there is 1, above 16.53 MPa, where the line borders Region 3 and this fix
+  does not reach. `two_fluid::region_4_safe_pressure` stays for that range,
+  and its doc is corrected.
+
 ### 2.2 Against the predictions
 
 | # | Prediction | Result | Verdict |
@@ -129,6 +145,26 @@ doctest values. **[U]**: the linear Nu interpolation between `Re_crit` and
 2.2e4, and the subcooled-boiling extension of Chen. Reused unchanged and
 **not re-checked this session**: Biasi et al. (1967) CHF and
 Dougall–Rohsenow (1963), from `outram-foam-multiphase`.
+
+### 2.5a The browser demo (checks, not V&V)
+
+These checks used a full wasm build in headless Chromium (SwiftShader
+software GL), at phone width 390×844 and at 1280×800.
+
+- **Convergence:** 2.7 s and 4.9 s respectively, to the native numbers
+  (10.91 MW, steam 554 °C).
+- **Phone layout:** the panel opens folded. Controls » / « Hide, the
+  + / − / Reset buttons (scale bar 100 → 20 cm after four +), and a physics
+  checkbox all work.
+- **Ablation:** unticking dryout re-solved to 10.93 MW / 556 °C, matching
+  the native `without_dryout` row above.
+- **No-lag check:** the largest gap between animation frames was 200 ms
+  while the worker re-solved, against 150 ms with no solve running.
+  SwiftShader painting dominates both, so no solve work reaches the UI
+  thread. On a hardware GPU the gaps should be frame-sized; that was not
+  measured here.
+- **Cosmetic, open:** on a phone the label at the coil's top touches the
+  status text.
 
 ### 2.6 Geometry drawing (the drawing rule)
 
