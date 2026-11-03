@@ -558,6 +558,9 @@ fn custom_power_map_equal_to_fpic_reproduces_the_tabulated_case() {
     let mut tab = Htr10RzTransientCore::build(o).unwrap();
     let mut custom = Htr10RzTransientCore::build_with_power_map(o, &fpic_power_map()).unwrap();
     assert_eq!(tab.unit_source(), custom.unit_source());
+    let f = tab.captured_power_fraction();
+    println!("Tab 2.6 power captured by the heated bed cells: {f:.9}");
+    assert!(f > 0.99 && f <= 1.0 + 1e-12, "{f}");
     let op = as_run(3.0e6, 1.4);
     let a = tab.solve_steady(&op).unwrap();
     let b = custom.solve_steady(&op).unwrap();

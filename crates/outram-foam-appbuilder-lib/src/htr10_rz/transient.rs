@@ -677,8 +677,23 @@ impl Htr10RzTransientCore {
                 "the power map heats cell {c}, outside the heated bed cells the core was built with"
             )));
         }
+        let vol = &self.solid.field().mesh().mesh().cell_volumes;
+        if !(self.heated.iter().map(|&c| unit[c] * vol[c]).sum::<f64>() > 0.0) {
+            return Err(Htr10RzError::Input("the power map puts no power on the heated bed cells".into()));
+        }
         self.unit_source = unit;
         Ok(())
+    }
+
+    /// Share of the power map's integral that lands on the heated bed cells,
+    /// `sum_c q_c V_c / P_map`: `1` for a map drawn on the bed cells, and
+    /// `1.000000000` for TECDOC Tab 2.6 on the coarse mesh (measured
+    /// 2026-11-03, `custom_power_map_equal_to_fpic_reproduces_the_tabulated_case`).
+    /// Power a map puts outside the heated cells is not deposited.
+    #[must_use]
+    pub fn captured_power_fraction(&self) -> f64 {
+        let vol = &self.solid.field().mesh().mesh().cell_volumes;
+        self.heated.iter().map(|&c| self.unit_source[c] * vol[c]).sum()
     }
 
     /// The cell power density per watt of total power, W/m^3/W, of every
