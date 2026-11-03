@@ -467,3 +467,56 @@ implements the Triso Atops paper settings (as read by AI from paper) rather than
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit b6d7bb6b51.
+
+# Review: ParentPools::none (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-none-theodoreonzgit-e503a3d0"
+kind = "review"
+origin = "human"
+created = "2026-11-03T15:42:31+08:00"
+modified = "2026-11-03T15:42:31+08:00"
+target = "fn:e503a3d0722ff508"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::ParentPools::none"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T15:42:31+08:00"
+commit = "efd4b324a474ed06169de62513c0ff800821e1a1"
+hash = "sha256:2064b2b67750abeeaa8a6697c2016cdb79cb79e9d76cf1bcf4d974387dfe881c"
+doc_hash = "sha256:643d6f26c933b640e5723142178a5e965d70d72f295d133c8734dad4d8816b57"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:49cbfd358a6976d4" = "sha256:21bde6366bd14b2230818107f9f51697dcb40359f8c429329b0bea39dd191993"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: constructor, no need"
+independence = "someone_else"
+limits_and_guards = "no_limits: constructor, no need"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "GVbLeUVhSi//tGAd19Wv2K+fSi4mSs0GTGVWEXqM4pIDXyIy0f7i+e0spim3lVUll/O/0a2q/XGW5G3Al0hyAA=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit efd4b324a4.
