@@ -1005,3 +1005,57 @@ seen the terms under eq 23, data storage utility
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 0c1c011352.
+
+# Review: FailureFractions::with_fuel_failure_incremental (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-with-fuel-failure-incremental-theodoreonzgit-c8df3cd6"
+kind = "review"
+origin = "human"
+created = "2026-11-03T11:16:43+08:00"
+modified = "2026-11-03T11:16:43+08:00"
+target = "fn:c8df3cd65b455789"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::FailureFractions::with_fuel_failure_incremental"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T11:16:43+08:00"
+commit = "2206c5e8efed13412c878c9738a5adb3a6fb25b8"
+hash = "sha256:060c27486b5b8923250691f9f8eeef94a396128c31578e7bbf90c0fcbad13832"
+doc_hash = "sha256:6a1848785a7c94128f7ee49ab545b77b8ac9a38ed3bd807e3ee932549c90f853"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:2816dd8674f2b148" = "sha256:3890d7f2c2bf5d78ac0a02d952c219265c6ded009ae509e8ceaaf6ce156eced5"
+"fn:51521ea418d380ec" = "sha256:f229314ca26d4c1bd969276a00e71384d0956238d1e5adf56f639e8737e8c8ec"
+"fn:f05e8930a2188530" = "sha256:749fc2c38715c20489e5f3554271e09f6ee87f1b55f551dfabf103467942b3cc"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: it takes in an entire struct, not its job to guard"
+independence = "someone_else"
+limits_and_guards = "no_limits: takes in an entire struct"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "b7/qhpcCfVBOoxeSPGjKEz0Xc4Bp2Kgz7ce5wPUEckG5emjmHpu/VfC9PeSEo7RpYmAq6VQqm4gTXSStIrQlAg=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 2206c5e8ef.
