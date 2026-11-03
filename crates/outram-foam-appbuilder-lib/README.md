@@ -50,6 +50,8 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 | Solver | Status |
 |---|---|
 | `pimple_foam` | Incompressible transient PISO/PIMPLE (pimpleFoam ≡ icoFoam at `nOuterCorrectors 1`). Implemented; validated against an icoFoam lid-driven-cavity reference (`tutorials/pimple_foam_cavity.rs`). Open boundaries since gh:#1154; `Gauss linear corrected` non-orthogonal correction (default, ablation `without_non_orthogonal_correction`) since gh:#1161 (`verification_and_validation/non_orthogonal_correction_gh1161.md`); laminar pipe V&V (Hagen–Poiseuille, f·Re → 64.09, development length +1.4 % against Durst et al. 2005) in `verification_and_validation/laminar_pipe_gh1155.md`. |
+| `energy` | The incompressible, constant-property energy equation (gh:#1156) — `EnergyEquation` (T, `IncompressibleThermo`, Euler or steady), attached to `PimpleFoam::energy` for forced convection (solved after the PISO loop with the corrected flux; `None` by default, which leaves every flow bit-identical) or held by a solid region. Upwind convection, the flow's Laplacian (default `Gauss linear corrected`), BiCGStab with iterative refinement. Verified: developed Nusselt numbers (constant flux → 4.364, constant T → the Graetz eigenvalue incl. axial diffusion, both converging at first order) and discrete energy closure to ≤ 2e-10, in `verification_and_validation/cht_double_pipe_gh1156.md`. Compressible terms (kinetic energy, pressure work, buoyancy, radiation) are **not** carried. |
+| `cht_multi_region_foam` | chtMultiRegionFoam's multi-region coupling (gh:#1156): fluid regions (`PimpleFoam` + energy) and `SolidRegion`s on separate meshes, joined by `CoupledTemperature`, a port of OpenFOAM-8's `compressible::turbulentTemperatureCoupledBaffleMixed` (mixed condition, `thicknessLayers`/`kappaLayers` contact layers), solved fluid-then-solid per outer pass with upstream's `frozenFlow`. Coupling on by default; ablation `without_interface_coupling`. Verified against the analytic composite slab (to ≤ 8e-9 K, the solve tolerance) and on a counterflow double pipe against ε-NTU. |
 | `non_orthogonal` | The `Gauss linear corrected` pieces `PimpleFoam` applies (gh:#1161): `LaplacianCorrection`, the explicit face corrections, the vector-matrix re-stamp to `1/(n·d)`. |
 | `melt_foam` | Incompressible buoyant PIMPLE with phase change — pimpleFoam's PISO loop plus a temperature equation and `FvModels` wiring, so `solidificationMelting` can act on **both** the momentum and the energy equation. Not a port of any single upstream application (upstream composes this at runtime through a dictionary). Implemented; **verified** against the closed-form Stefan similarity solution (-0.035 % in integrated melt thickness) and a discrete energy-conservation check (imbalance -2.71e-4 J/m², -1.27e-5 %) in `tests/melting_vv_cases/`. The gallium cavity in the same file is a **demonstration only — no benchmark data, see its `References.md`**. |
 | `rho_central_foam` | Kurganov-Noelle-Petrova (KNP) central-upwind explicit compressible (rhoCentralFoam). Implemented; **validated** against Sod (1978) Table II and an OpenFOAM reference run (`tests/sod_shock_tube_validation/`, `tutorials/rho_central_foam_shock_tube.rs`). |
@@ -62,6 +64,7 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 
 | Module | What |
 |---|---|
+| `double_pipe` | `DoublePipeExchanger`: a counterflow double-pipe heat exchanger as three `ChtMultiRegionFoam` regions (tube fluid, tube wall, annulus fluid) on the conformal meshes of `outram_foam_mesh::block_primitives::DoublePipe`, with the march-freeze-iterate procedure and the report (outlet temperatures, stream and interface heats, effectiveness, local UA) the V&V and the Foam Studio demo use (gh:#1156). |
 | `laminar_pipe` | `PipeFlow`: a laminar internal flow on any mesh with `inlet` / `outlet` / wall patches (uniform inlet along the inward normal, p = 0 outlet, no-slip walls) solved by `PimpleFoam`, with Hagen–Poiseuille, f = 64/Re and the Durst et al. (2005) development length as references, and the fits (centreline velocity, −dp/dz, development length, fluxes, continuity) the pipe V&V and the Foam Studio demo use (gh:#1155). |
 
 ## Turbulence closures (`turbulence`)
@@ -172,7 +175,9 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   V&V'd slices are: `rho_central_foam` (Sod shock tube), `pimple_foam`
   (lid-driven cavity vs icoFoam and vs Ghia et al. 1982),
   `melt_foam` (Stefan similarity solution + a discrete energy-conservation
-  check), `genfoam::neutronics::point_kinetics` (inhour),
+  check), `energy` + `cht_multi_region_foam` (composite slab, Graetz Nusselt
+  numbers, double-pipe ε-NTU and energy closure; gh:#1156),
+  `genfoam::neutronics::point_kinetics` (inhour),
   `genfoam::neutronics::diffusion` (analytical one-group theory),
   `genfoam::neutronics::sp3` / `::sn` (closed-form `k_inf`, angular/mesh
   convergence, and the diffusion limit),
@@ -192,6 +197,13 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
 
 ### OpenFOAM solvers
 
+- `energy` / `cht_multi_region_foam` (gh:#1156) carry **constant
+  properties and no buoyancy**: the flow is solved once per step and only the
+  energy equations are iterated across regions, which is exact only because
+  the flow does not depend on T. Scalar convection is first-order upwind, so
+  the exchanger's effectiveness carries an O(Δz) error (measured: the gap to
+  ε-NTU falls as 1/nz). Only conformal interfaces have been exercised
+  (nearest-face pairing; `max_pairing_gap` checks it).
 - `sonic_foam` and `hrm_foam` are **implemented but have no tutorial or
   validation case** — they are unexercised and should be treated as unverified.
 - `sonic_foam` uses **explicit** convection (`fvc::div`) because basic-lib has

@@ -55,6 +55,10 @@ approx.workspace = true
 # 20/40/80 meshes in-process from a blockMeshDict string rather than shipping
 # three more polyMesh directories. Dev-only: no library code depends on it.
 outram-foam-mesh.workspace = true
+# gh:#1156: the double-pipe exchanger V&V compares the solved effectiveness
+# with this crate's epsilon-NTU (`heat_exchanger::ntu_effectiveness`).
+# Dev-only: no library code depends on it.
+outram-park-fork-dwsim-libs.workspace = true
 
 [lib]
 name = "outram_foam_appbuilder_lib"

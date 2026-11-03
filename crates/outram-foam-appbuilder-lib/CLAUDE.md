@@ -4,8 +4,11 @@
 Solver application layer for the OUTRAM PARK OpenFOAM-in-Rust stack.
 This crate provides:
 1. **Solver loops** — Rust ports of pimpleFoam, rhoPimpleFoam, sonicFoam,
-   rhoCentralFoam, HRMFoam, reactingTwoPhaseEulerFoam, and a
-   pimpleFoam + `solidificationMelting` composition (`melt_foam`).
+   rhoCentralFoam, HRMFoam, reactingTwoPhaseEulerFoam, a
+   pimpleFoam + `solidificationMelting` composition (`melt_foam`), and
+   (gh:#1156) an incompressible energy equation for `PimpleFoam`
+   (`solvers::energy`) with chtMultiRegionFoam's fluid/solid region coupling
+   (`solvers::cht_multi_region_foam`).
 2. **Case I/O** — polyMesh and field readers. **The
    controlDict/fvSchemes/fvSolution parsers and every OpenFOAM/VTK writer are
    `todo!()`** — cases are configured by constructing the structs in Rust and

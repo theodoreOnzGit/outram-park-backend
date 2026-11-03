@@ -215,6 +215,7 @@ use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
+use crate::solvers::energy::{EnergyEquation, EnergySolve};
 use crate::solvers::non_orthogonal::{self, LaplacianCorrection};
 use crate::solvers::schemes::DdtCorrForm;
 use crate::turbulence::TurbulenceClosure;
@@ -413,6 +414,15 @@ pub struct PimpleFoam {
     /// scope limits — in particular, the closures use zero-gradient (not
     /// wall-function) near-wall boundary conditions.
     pub turbulence: TurbulenceClosure,
+    /// Temperature transport for forced convection (gh:#1156), `None` by
+    /// default. With `None`, [`Self::step`] is exactly [`Self::step_flow`],
+    /// so every pre-gh:#1156 run is bit-identical. With `Some`, the energy
+    /// equation of [`crate::solvers::energy`] is solved after the PISO loop
+    /// with the corrected flux and the same Laplacian treatment (and
+    /// `nNonOrthogonalCorrectors`) as the flow; the temperature is passive
+    /// (constant properties, no buoyancy), so `U`, `p` and `phi` are
+    /// unchanged by it.
+    pub energy: Option<EnergyEquation>,
 }
 
 impl PimpleFoam {
@@ -469,6 +479,43 @@ impl PimpleFoam {
             phi_old_old: None,
             ddt_corr_form: DdtCorrForm::default(),
             turbulence: TurbulenceClosure::default(),
+            energy: None,
+        }
+    }
+
+    /// Advance one time step: the flow ([`Self::step_flow`], skipped when
+    /// `solution.pimple.frozen_flow` is set, as upstream's `frozenFlow`),
+    /// then, if [`Self::energy`] is configured, the energy equation with the
+    /// step's corrected flux ([`Self::solve_energy`]).
+    ///
+    /// # Errors
+    /// Whatever the flow or the energy solve returns.
+    pub fn step(&mut self) -> Result<(), AppBuilderError> {
+        let t_old = self.energy.as_ref().map(|e| e.t.clone());
+        if !self.solution.pimple.frozen_flow {
+            self.step_flow()?;
+        }
+        if let Some(t_old) = t_old {
+            self.solve_energy(&t_old)?;
+        }
+        Ok(())
+    }
+
+    /// Solve the attached energy equation once from old-time field `t_old`
+    /// with the current `phi`, `control.delta_t`, the flow's Laplacian scheme
+    /// and `nNonOrthogonalCorrectors`. A no-op (zero change) with no energy
+    /// equation attached.
+    ///
+    /// # Errors
+    /// [`AppBuilderError::UnsupportedScheme`] for an unimplemented energy
+    /// ddt or Laplacian scheme.
+    pub fn solve_energy(&mut self, t_old: &VolScalarField) -> Result<EnergySolve, AppBuilderError> {
+        let lap = LaplacianCorrection::from_scheme(&self.schemes.default_laplacian)?;
+        let n_non_orth = self.solution.pimple.n_non_orthogonal_correctors;
+        let dt = uom::si::f64::Time::new::<uom::si::time::second>(self.control.delta_t);
+        match self.energy.as_mut() {
+            Some(e) => e.solve(t_old, Some(&self.phi), dt, lap, n_non_orth),
+            None => Ok(EnergySolve { max_change: 0.0, iterations: 0, residual: 0.0 }),
         }
     }
 
@@ -485,7 +532,7 @@ impl PimpleFoam {
         self
     }
 
-    /// Advance the solution by one time step using the PIMPLE algorithm.
+    /// Advance the flow (U, p, phi) by one time step using the PIMPLE algorithm.
     ///
     /// Dimensional analysis (integrated FV system):
     ///   A has units m³/s  →  rAU = V/A has units s
@@ -493,7 +540,10 @@ impl PimpleFoam {
     ///   phi_hbya = flux(HbyA) has units m³/s
     ///   Pressure source = Σ_f phi_hbya_f (NOT divided by V) ∈ m³/s
     ///   Laplacian coeff = rAUf · area/delta ∈ s·m  →  coeff·p (m²/s²) = m³/s ✓
-    pub fn step(&mut self) -> Result<(), AppBuilderError> {
+    ///
+    /// This is the whole of what `step` did before gh:#1156; [`Self::step`]
+    /// calls it and then the energy equation, if any.
+    pub fn step_flow(&mut self) -> Result<(), AppBuilderError> {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
         let dt = self.control.delta_t;

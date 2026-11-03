@@ -41,6 +41,8 @@
 //! boundary conditions around a field solve.
 
 pub(crate) mod bc_util;
+pub mod cht_multi_region_foam;
+pub mod energy;
 pub mod hrm_foam;
 pub mod melt_foam;
 pub mod non_orthogonal;
