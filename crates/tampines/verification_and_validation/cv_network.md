@@ -759,3 +759,92 @@ binaries. The two tests added after that run started
 (`the_newton_steps_scalar_solve_brackets_its_root`,
 `a_failed_newton_step_falls_back_and_commits_nothing`) were run on their
 own: 2 passed.
+
+## Unit 1's quiet containment falls back from Newton on every step (gh:#1124, 2026-11-03): diagnosed, not fixed
+
+**Measured before (gh:#1124).** `sembawang`'s three units on their
+historical sequences, first 600 s at 1 s, the network containment default
+(Newton on): Unit 1 costs about 25 ms a containment step with 5 iterates
+on every step; Units 2 and 3 cost about 3 ms with 2. Unit 1's torus is
+quiescent (no downcomer or breaker flow); Units 2 and 3 discharge SRV
+steam into the pool.
+
+**Hypothesis (gh:#1124, untested when written).** Some path carries a
+tiny non-zero flow (the building's breathing flow, about 6e-5 kg/s, was
+named), whose rate moves by more than the 10 % chord criterion
+(`PathResponse::holds_at`) on every iterate, so `path_response` is re-taken
+on every iterate.
+
+**Predictions (copied from gh:#1124 before the run).**
+1. Logging which path is re-linearised shows the same small path every
+   iterate on Unit 1.
+2. An absolute floor on the chord criterion, relative to the step's largest
+   rate (`scale`), brings Unit 1 to about 2 iterates and about 3 ms, with
+   results unchanged within the Picard/Newton tolerance.
+
+**Method.** A temporary `sembawang` example (deleted, not committed):
+`Plant::for_unit(u, Mode::Historical, Mechanisms::default())`, the core from
+`p.parts()`, `ContainmentNetwork::with_config(&u.params(),
+u.network_config(), NetworkMechanisms::default())` stepped with
+`p.begin().containment`, then `p.finish`; containment wall time per step,
+`NetworkResult::iterations`, and `p_dw`, `p_ww`, `T_pool` and the downcomer
+flow at full precision each step. Temporary `eprintln!` in
+`CvNetwork::step_solve` (reverted): per iterate, each path's rate, whether
+its response was re-taken, its residual term, and the fallback. Release,
+4-vCPU Intel Xeon @ 2.10 GHz.
+
+**Results.**
+
+- **Prediction 1 missed.** No path's response is re-taken after the first
+  iterate of a step (`stale = false` on every later iterate). The chord
+  criterion is not involved.
+- **What happens instead: Newton never converges on Unit 1 and falls back
+  to Picard on all 600 steps** (Units 2 and 3: 0 of 600). Each step costs
+  30 failed Newton iterates and then Picard's 5; the "5 iterates" of
+  gh:#1124 are Picard's, since `NetworkStepReport::iterations` counts the
+  fallback's alone.
+- **The path is the building opening (path 4, building to environment),
+  and its flow is round-off, not breathing.** The building's pressure at
+  the opening alternates between 101 300 Pa and 101 299.999 999 999 985 Pa,
+  one ulp (1.455e-11 Pa) below the boundary's. One iterate drives
+  -1.455e-11 kg/s (capped by the equalising limit to -3.13e-12 kg/s); the
+  volume stepped with that inflow returns to exactly the boundary pressure,
+  so the next iterate has no flow, and so on. The 3.13e-12 kg it moves in a
+  step is below the f64 resolution of the building's 44 000 kg of air
+  (`f64::EPSILON` × 44 000 kg ≈ 9.7e-12 kg), so the state cannot settle it.
+- **Why the convergence test cannot pass.** The residual is each path's
+  rate change over the network's largest rate, floored at an absolute
+  1e-12 kg/s (`step_solve`, "Residual on the path rates"). With no other
+  path flowing, the largest rate is the round-off flow itself, so the
+  residual alternates between 1.0 and 3.13 (the floor) on every iterate.
+  Picard ends after 5, on two consecutive zero-flow iterates, after its
+  `ω` has halved at iterate 4 (the residual grew); why the relaxed
+  pressure then stays on the boundary's was not traced. On Units 2 and 3 the SRV-driven
+  flows make the scale large and the same toggle is 1e-12 of it.
+- **Prediction 2 not tested as written** (it addresses the chord
+  criterion, which is not the cause). **A different candidate was measured
+  as a diagnostic and reverted:** a path's rate change counts as converged
+  when its mass over the step is below the f64 resolution of the smaller
+  inventory it joins, `|Δṁ| Δt ≤ ε_f64 · min(M_from, M_to)` (water plus
+  every gas, a boundary infinite). With it:
+
+  | unit | ms/step before | ms/step with the candidate | iterates (mean, max) before | with the candidate | Newton fallbacks before / with |
+  |---|---|---|---|---|---|
+  | 1 | 24.7 | 1.57 | 5.000, 5 (Picard's) | 2.000, 2 | 600 / 0 |
+  | 2 | 2.66 | 3.0 | 2.003, 4 | 2.000, 2 | 0 / 0 |
+  | 3 | 2.72 | 2.56 | 2.003, 4 | 2.000, 2 | 0 / 0 |
+
+  Units 2 and 3's times are within the run-to-run spread seen here (2.6
+  to 3.4 ms). **`p_dw`, `p_ww`, `T_pool` and the downcomer flow are bit
+  for bit identical on all 600 steps of all three units** (largest
+  difference 0), Unit 1's included, where the step moved from Picard to
+  Newton.
+
+**Not done, on purpose.** The cause found is not the hypothesised one, so
+no fix is committed (gh:#1124 asks for the evidence first). Open for the
+maintainer: whether the round-off floor above is the right instrument
+(it is derived from `f64::EPSILON` and the inventories, not from the
+timing), whether it belongs in the Picard path too (it would change
+Picard's iterate counts, though not, here, its results), and whether
+`NetworkStepReport` should also count the failed Newton iterates so a
+fallback on every step is visible to a caller.
