@@ -256,6 +256,9 @@ pub struct PoolState {
     /// `[0, 1]`, rod `i` as `Htr10CoreDesign::rod_insertions` numbers them.
     /// All withdrawn until [`Self::set_rods`].
     pub rods: [f64; super::random_bed::N_RODS],
+    /// The eight zone temperatures, K, the workers process and build at
+    /// (gh:#1142). The record's 300.15 K until [`Self::with_temperatures`].
+    pub temps: [f64; 8],
     pub phase: PoolPhase,
     pub started_s: f64,
     pub data_ready_s: Option<f64>,
@@ -313,6 +316,7 @@ impl PoolState {
             assembled: vec![None; workers],
             layers,
             rods: super::random_bed::WITHDRAWN,
+            temps: nee_soon::htr10_rmc::zones::ZoneTemperatures::record().to_kelvin(),
             phase: PoolPhase::Processing,
             started_s: now_s,
             data_ready_s: None,
@@ -326,6 +330,15 @@ impl PoolState {
             out: Vec::new(),
             per_worker: "about 545 MB of nuclear data".into(),
         }
+    }
+
+    /// This pool, processing and building at zone temperatures `temps` (K,
+    /// in `Htr10Zone::ALL` order; gh:#1142). The job list must be
+    /// `super::jobs_at` of the same temperatures.
+    #[must_use]
+    pub fn with_temperatures(mut self, temps: [f64; 8]) -> Self {
+        self.temps = temps;
+        self
     }
 
     /// **A pool whose workers already hold their model** (gh:#905, #907):
@@ -447,6 +460,19 @@ impl PoolState {
                 }
             }
             CoreEv::Assembled(r) => {
+                // One console line per assembly, for an unattended browser
+                // check of time and memory (gh:#1141).
+                log::info!(
+                    "worker pool: worker {} assembled N = {} in {:.1} s (nuclides {:.1} s, geometry {:.1} s, majorant {:.1} s), wasm memory {:.0} MB, {:.0} s after the pool started",
+                    w + 1,
+                    r.layers,
+                    r.tapes_s + r.nuclides_s + r.geometry_s + r.majorant_s,
+                    r.nuclides_s,
+                    r.geometry_s,
+                    r.majorant_s,
+                    r.memory_mb,
+                    now_s - self.started_s
+                );
                 self.assembled[w] = Some(r);
                 self.check_ready(now_s);
             }
@@ -804,7 +830,13 @@ impl PoolState {
         if !self.process_sent {
             self.process_sent = true;
             for (w, js) in self.assignment.iter().enumerate() {
-                out.push((w, CoreReq::Process { jobs: js.clone() }));
+                out.push((
+                    w,
+                    CoreReq::Process {
+                        jobs: js.clone(),
+                        temps: self.temps,
+                    },
+                ));
             }
         }
         let mut words = 0usize;
@@ -840,6 +872,7 @@ impl PoolState {
                         v,
                         CoreReq::Assemble {
                             layers: self.layers,
+                            temps: self.temps,
                         },
                     ));
                 }
@@ -930,8 +963,10 @@ impl CorePool {
         ctx: &egui::Context,
         plan: dhoby_ghaut::web_demo::pool::Plan,
         layers: usize,
+        temps: &nee_soon::htr10_rmc::zones::ZoneTemperatures,
     ) -> Result<Self, String> {
-        let jobs = super::jobs()?;
+        temps.check()?;
+        let jobs = super::jobs_at(temps)?;
         let labels = jobs.iter().map(|j| j.label()).collect();
         let costs = jobs.iter().map(super::job_cost).collect();
         let mut links = Vec::new();
@@ -958,7 +993,8 @@ impl CorePool {
             costs,
             layers,
             dhoby_ghaut::web_demo::platform::now_s(),
-        );
+        )
+        .with_temperatures(temps.to_kelvin());
         Ok(Self { links, state, plan })
     }
 
@@ -1039,7 +1075,7 @@ mod tests {
         let processed: Vec<(usize, Vec<usize>)> = first
             .iter()
             .filter_map(|(w, r)| match r {
-                CoreReq::Process { jobs } => Some((*w, jobs.clone())),
+                CoreReq::Process { jobs, .. } => Some((*w, jobs.clone())),
                 _ => None,
             })
             .collect();
@@ -1074,7 +1110,7 @@ mod tests {
                         assert!(assembled_after[v].is_none(), "a product after the assembly");
                         got[v].push(job);
                     }
-                    CoreReq::Assemble { layers } => {
+                    CoreReq::Assemble { layers, .. } => {
                         assert_eq!(layers, 12);
                         assembled_after[v] = Some(got[v].len());
                     }
@@ -1673,7 +1709,7 @@ mod tests {
             workers: 2,
             reason: "test".into(),
         };
-        let pool = CorePool::start(&egui::Context::default(), plan, 12).expect("start");
+        let pool = CorePool::start(&egui::Context::default(), plan, 12, &nee_soon::htr10_rmc::zones::ZoneTemperatures::record()).expect("start");
         assert_eq!(pool.links.len(), 2);
         assert_eq!(pool.state.labels.len(), 36);
         pool.terminate();

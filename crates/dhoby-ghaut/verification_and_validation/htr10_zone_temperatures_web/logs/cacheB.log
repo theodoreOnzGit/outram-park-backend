@@ -1,0 +1,54 @@
+[1.1 s] [monte_carlo_web::htr10::core::pool] worker pool: C-in-SiC S(a,b) @ 1173.15 K from this browser's cache, processed 2026-11-03 04:14 UTC, code nd-2026-10-18.1 (0.0 s, worker
+[1.1 s] [monte_carlo_web::htr10::core::pool] worker pool: graphite S(a,b) @ 1173.15 K from this browser's cache, processed 2026-11-03 04:18 UTC, code nd-2026-10-18.1 (0.0 s, worker
+[1.1 s] [monte_carlo_web::htr10::core::pool] worker pool: O-in-UO2 S(a,b) @ 1173.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.0 s, worker
+[1.1 s] [monte_carlo_web::htr10::core::pool] worker pool: Si-in-SiC S(a,b) @ 1173.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.0 s, worke
+[1.3 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni60 @ 573.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.1 s, worker 2)
+[1.3 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr52 @ 573.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.1 s, worker 2)
+[1.4 s] [monte_carlo_web::htr10::core::pool] worker pool: O16 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 2)
+[1.4 s] [monte_carlo_web::htr10::core::pool] worker pool: C12 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 2)
+[1.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Si30 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 2)
+[1.5 s] [monte_carlo_web::processed_cache] nuclear-data cache: He4 made in 0.1 s
+[1.5 s] [monte_carlo_web::htr10::core::pool] worker pool: C13 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 2)
+[1.5 s] [monte_carlo_web::htr10::core::pool] worker pool: He4 @ 873.15 K processed now (0.1 s, worker 2)
+[1.7 s] [monte_carlo_web::htr10::core::pool] worker pool: U238 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:17 UTC, code nd-2026-10-18.1 (0.7 s, worker 3)
+[1.9 s] [monte_carlo_web::htr10::core::pool] worker pool: U235 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:17 UTC, code nd-2026-10-18.1 (0.9 s, worker 1)
+[2.0 s] [monte_carlo_web::htr10::core::pool] worker pool: U-in-UO2 S(a,b) @ 1173.15 K from this browser's cache, processed 2026-11-03 04:18 UTC, code nd-2026-10-18.1 (0.1 s, worker
+[2.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Si28 @ 573.15 K from this browser's cache, processed 2026-11-03 04:18 UTC, code nd-2026-10-18.1 (0.1 s, worker 1)
+[2.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni62 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 2)
+[2.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti47 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 2)
+[2.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti50 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 2)
+[2.0 s] [monte_carlo_web::htr10::core::pool] worker pool: graphite S(a,b) @ 573.15 K from this browser's cache, processed 2026-11-03 04:18 UTC, code nd-2026-10-18.1 (0.2 s, worker 
+[2.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Si28 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:18 UTC, code nd-2026-10-18.1 (0.1 s, worker 3)
+[2.1 s] [monte_carlo_web::htr10::core::pool] worker pool: Si29 @ 573.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.1 s, worker 1)
+[2.1 s] [monte_carlo_web::htr10::core::pool] worker pool: Si29 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.1 s, worker 3)
+[2.3 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe58 @ 573.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.2 s, worker 1)
+[2.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe54 @ 573.15 K from this browser's cache, processed 2026-11-03 04:19 UTC, code nd-2026-10-18.1 (0.4 s, worker 3)
+[2.6 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe57 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.3 s, worker 1)
+[2.7 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr53 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 1)
+[2.8 s] [monte_carlo_web::htr10::core::pool] worker pool: C12 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 1)
+[2.8 s] [monte_carlo_web::htr10::core::pool] worker pool: B10 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 1)
+[2.8 s] [monte_carlo_web::htr10::core::pool] worker pool: B11 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 1)
+[2.8 s] [monte_carlo_web::htr10::core::pool] worker pool: C13 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 1)
+[2.8 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr54 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 1)
+[2.8 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe56 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.4 s, worker 3)
+[3.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni64 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 1)
+[3.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti48 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 1)
+[3.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni58 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.2 s, worker 3)
+[3.1 s] [monte_carlo_web::htr10::core::pool] worker pool: Si30 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 1)
+[3.1 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr50 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 3)
+[3.2 s] [monte_carlo_web::htr10::core::pool] worker pool: Mn55 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 3)
+[3.2 s] [monte_carlo_web::htr10::core::pool] worker pool: B10 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 3)
+[3.2 s] [monte_carlo_web::htr10::core::pool] worker pool: B11 @ 1173.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 3)
+[3.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: He3 made in 0.1 s
+[3.3 s] [monte_carlo_web::htr10::core::pool] worker pool: He3 @ 873.15 K processed now (0.1 s, worker 3)
+[3.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni61 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.1 s, worker 3)
+[3.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti46 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 3)
+[3.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti49 @ 573.15 K from this browser's cache, processed 2026-11-03 04:20 UTC, code nd-2026-10-18.1 (0.0 s, worker 3)
+[24.0 s] [monte_carlo_web::htr10::core::pool] worker pool: worker 2 assembled N = 12 in 20.6 s (nuclides 5.3 s, geometry 0.7 s, majorant 14.3 s), wasm memory 359 MB, 23 s after the 
+[24.2 s] [monte_carlo_web::htr10::core::pool] worker pool: worker 3 assembled N = 12 in 20.8 s (nuclides 5.4 s, geometry 0.7 s, majorant 14.4 s), wasm memory 359 MB, 24 s after the 
+[24.4 s] [monte_carlo_web::htr10::core::pool] worker pool: worker 1 assembled N = 12 in 20.9 s (nuclides 6.0 s, geometry 0.5 s, majorant 14.1 s), wasm memory 359 MB, 24 s after the 
+[27.6 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1: generation 0 k = 9.107608351186741e-1 (3 workers)
+[30.0 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1: generation 1 k = 8.021342186863336e-1 (3 workers)
+[32.8 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1: generation 2 k = 8.747045861590241e-1 (3 workers)
+[32.8 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1 done: k = 0.838419 ± 0.036285
+generations 3; records 46; sha mismatches 0; max probe 425 ms; max frame gap 183 ms

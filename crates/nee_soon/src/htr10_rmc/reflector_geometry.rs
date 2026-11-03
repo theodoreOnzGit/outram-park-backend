@@ -596,7 +596,8 @@ struct BuiltChannel {
 /// **Build the reflector**: append its surfaces and cells, and return the root
 /// cells in search order.
 ///
-/// `zone_material(zone)` maps a Fig. 4.10 zone to a material slot, with the
+/// `zone_material(box)` maps a Fig. 4.10 box to a material slot (by its zone
+/// and, with temperature zones, gh:#1138, its region), with the
 /// p. 242 corrections already applied (see `core_model::mat::for_zone_mc`).
 ///
 /// The rod universe (when rods are built) is appended to `universes` and every
@@ -614,7 +615,7 @@ pub(super) fn build_reflector(
     frame: ReflectorFrame,
     opts: ReflectorOptions,
     mats: ReflectorMaterials,
-    zone_material: impl Fn(usize) -> usize,
+    zone_material: impl Fn(&Fig410Box) -> usize,
 ) -> Vec<usize> {
     let s = surfaces;
     let mut root: Vec<usize> = Vec::new();
@@ -917,7 +918,7 @@ pub(super) fn build_reflector(
             );
             reg = reg.and(duct().not());
         }
-        let m = zone_material(zb.zone);
+        let m = zone_material(zb);
         root.push(push(cells, Cell::material(new_id(), reg.0, m, 293.6)));
     }
     root

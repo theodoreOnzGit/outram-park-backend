@@ -96,6 +96,13 @@ pub struct Htr10CoreDesign {
     /// ~~`rod_insertion: f64`, all ten rods together~~ **CHANGED 2026-10-23
     /// (gh:#1025)**: [`Self::with_bank`] is that case.
     pub rod_insertions: [f64; N_CONTROL_RODS],
+    /// **Temperature zones** (gh:#1138): place the extra material slots
+    /// (`mat::MODERATOR_BALL` for the graphite balls, a copy of each
+    /// reflector composition per top, side and bottom region) so every
+    /// material belongs to one of `super::zones`' eight zones. Off by default:
+    /// the record's geometry, cell for cell. `super::zones::zoned_material_set`
+    /// supplies the materials it needs.
+    pub temperature_zones: bool,
 }
 
 impl Default for Htr10CoreDesign {
@@ -107,11 +114,29 @@ impl Default for Htr10CoreDesign {
             triso_radii_cm: TRISO_RADII_CM,
             particles_per_pebble: PARTICLES_PER_PEBBLE,
             rod_insertions: [0.0; N_CONTROL_RODS],
+            temperature_zones: false,
         }
     }
 }
 
 impl Htr10CoreDesign {
+    /// This design with [`Self::temperature_zones`] on.
+    #[must_use]
+    pub fn with_temperature_zones(self) -> Self {
+        Self { temperature_zones: true, ..self }
+    }
+
+    /// Material slot of a graphite (dummy) ball: `mat::MODERATOR_BALL` with
+    /// [`Self::temperature_zones`], else `mat::GRAPHITE` (the record's).
+    #[must_use]
+    pub fn moderator_ball_slot(&self) -> usize {
+        if self.temperature_zones {
+            super::core_model::mat::MODERATOR_BALL
+        } else {
+            super::core_model::mat::GRAPHITE
+        }
+    }
+
     /// This design with **all ten rods at insertion `f`** (the bank, synced):
     /// the case the single shared `rod_insertion` described until
     /// 2026-10-23, and the geometry it built, cell for cell (pinned by
