@@ -216,7 +216,14 @@ the C09 thermocouple probes. Record:
 short-term shutdown, the top-reflector heat-up and the side-reflector
 thermocouples agree; **re-criticality ~3400 s late and long-term power
 ~40 % low in both tests** (model heat sink ~100 kW against ~180 kW); CRW
-first peak 158 % against 216/241 %. Not validated.
+first peak 158 % against 216/241 %. Not validated. **UPDATED 2026-11-03
+(gh:#1173-#1175):** the gas Picard converges on the 10 cm mesh, and the
+20 cm base is **not mesh-converged** (10 cm: re-criticality +590 s, late
+power +33 kW); RPV-cavity air convection is on by default and adds ~5 kW
+(not the heat-sink gap); the moderator coefficient reads all pebble
+graphite and the dummy pebbles have their own node (both default): LOFC
+re-criticality 7426 s, P(100 s) 0.170 (measured 0.204), CRW first peak
+154 % at 22 s. Still not validated.
 
 **LEAPR is the default for graphite and SiC (maintainer, 2026-11-03: "just use
 LEAPR by default").** `Htr10DataConfig::default().thermal_laws` is
