@@ -62,6 +62,11 @@ outram-foam-mesh.workspace = true
 # pulls thiserror, petir and miniz_oxide only (pure Rust, Android/wasm-clean).
 # No cycle: outram-blender does not depend on this crate, even optionally.
 outram-blender.workspace = true
+# Dev-only, gh:#1148: an independent helium reference (Helmholtz EOS,
+# Hands-Arp conductivity) for verifying the KTA 3102.1 helium fits in
+# `htgr_closures::helium` and the ZBS tests moved here from `tampines`.
+# No cycle: coolprop depends on outram-foam-basic-lib, not on this crate.
+outram-park-fork-coolprop.workspace = true
 
 [lib]
 name = "outram_foam_appbuilder_lib"

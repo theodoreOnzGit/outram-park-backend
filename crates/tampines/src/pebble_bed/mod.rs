@@ -51,6 +51,12 @@
 //!   generic-pbr 18-point reference table is *not* reproduced by ZBS with
 //!   helium in the pores — the model sits below the table at all 18 points
 //!   (ratio 0.177 at 300 K to 0.644 at 2000 K), tracked as `op-jvua`.
+//!   **UPDATED 2026-11-03 (gh:#1148):** the code now lives in
+//!   `outram_foam_appbuilder_lib::htgr_closures::zbs` and [`zbs`] re-exports
+//!   it. `op-jvua` was re-investigated there: the table is never used by the
+//!   VTB deck, and read as `k_eff/k_f` it tracks ZBS within 6-11 %. The
+//!   default bed conductivity is now the IAEA-TECDOC-1694 Breitbach fit
+//!   (`htgr_closures::BedConductivityModel`), not ZBS.
 //! - [`feedback`] — the graphite/moderator reactivity channel, held as its
 //!   **own** state with its own coefficient and its own lumped thermal-mass
 //!   ODE rather than folded into fuel Doppler, because the large graphite mass
