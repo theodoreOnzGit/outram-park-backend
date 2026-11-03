@@ -440,6 +440,10 @@ impl CodeReview {
     }
 
     fn choose(&mut self, r: &SearchResult, map: &CodeMap) {
+        // A test is hidden on the map unless tests are shown (#1164).
+        if r.test {
+            self.show_tests = true;
+        }
         match &r.hit {
             SearchHit::Crate(c) => self.go(Place::at(Level::Crate(c.clone()))),
             SearchHit::Module { krate, file } => self.go(Place::at(Level::Module { krate: krate.clone(), file: file.clone() })),

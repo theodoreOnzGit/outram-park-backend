@@ -47,7 +47,8 @@ pub struct ModNode {
     pub test: bool,
 }
 
-/// The module tree of one crate: the library's, then each example's.
+/// The module tree of one crate: the library's, then each example's, then
+/// (when tests are shown) each integration test's (`tests/*.rs`).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModTree {
     pub nodes: Vec<ModNode>,
@@ -55,14 +56,20 @@ pub struct ModTree {
     pub lib_root: Option<usize>,
     /// Each example's root file, by example name.
     pub example_roots: Vec<usize>,
+    /// Each integration-test target's root file (`tests/*.rs`), only when
+    /// tests are shown (GitHub #1164: they were never in the tree, so a
+    /// test in `tests/` could not be found on the map).
+    pub test_roots: Vec<usize>,
 }
 
 impl ModTree {
-    /// Build the tree of `krate`. Modules under `#[cfg(test)]` are left out
-    /// unless `tests`.
+    /// Build the tree of `krate`. Modules under `#[cfg(test)]`, and the
+    /// integration-test targets (#1164), are left out unless `tests`.
     pub fn build(krate: &CrateGraph, tests: bool) -> ModTree {
         let mut tree = ModTree::default();
-        for t in &krate.targets {
+        let test_targets = if tests { krate.tests.as_slice() } else { &[] };
+        for t in krate.targets.iter().chain(test_targets) {
+            let test_target = t.kind == TargetKind::Test;
             let mods: Vec<&Module> = t.modules.iter().filter(|m| tests || !m.test).collect();
             let base = tree.nodes.len();
             let index: BTreeMap<&str, usize> =
@@ -84,7 +91,7 @@ impl ModTree {
                     functions: m.functions.iter().filter(|f| tests || !f.test).count(),
                     fn_ids: reviewables(m, tests).map(|f| f.id.clone()).collect(),
                     maturity: m.maturity,
-                    test: m.test,
+                    test: m.test || test_target,
                 });
             }
             for i in base..tree.nodes.len() {
@@ -101,6 +108,7 @@ impl ModTree {
             match (t.kind, root) {
                 (TargetKind::Lib, Some(r)) => tree.lib_root = Some(r),
                 (TargetKind::Example, Some(r)) => tree.example_roots.push(r),
+                (TargetKind::Test, Some(r)) => tree.test_roots.push(r),
                 _ => {}
             }
         }
@@ -128,11 +136,18 @@ impl ModTree {
     }
 
     /// Every node in display order (depth first, children by path), with
-    /// its depth: the library first, then each example.
+    /// its depth: the library first, then each example, then each
+    /// integration test.
     pub fn depth_first(&self) -> Vec<(usize, usize)> {
         let mut out = Vec::new();
-        let mut stack: Vec<(usize, usize)> =
-            self.example_roots.iter().rev().map(|&r| (r, 0)).chain(self.lib_root.map(|r| (r, 0))).collect();
+        let mut stack: Vec<(usize, usize)> = self
+            .test_roots
+            .iter()
+            .rev()
+            .chain(self.example_roots.iter().rev())
+            .map(|&r| (r, 0))
+            .chain(self.lib_root.map(|r| (r, 0)))
+            .collect();
         while let Some((n, d)) = stack.pop() {
             out.push((n, d));
             for &c in self.nodes[n].children.iter().rev() {
@@ -150,6 +165,8 @@ pub enum TreeItem {
     Crate,
     /// The "examples" group card.
     Examples,
+    /// The "tests" group card: the integration tests (#1164).
+    Tests,
     Module(usize),
 }
 
@@ -188,9 +205,13 @@ pub fn tree_layout(tree: &ModTree, collapsed: &BTreeSet<String>) -> TreeLayout {
                 if !tree.example_roots.is_empty() {
                     v.push(TreeItem::Examples);
                 }
+                if !tree.test_roots.is_empty() {
+                    v.push(TreeItem::Tests);
+                }
                 v
             }
             TreeItem::Examples => tree.example_roots.iter().map(|&r| TreeItem::Module(r)).collect(),
+            TreeItem::Tests => tree.test_roots.iter().map(|&r| TreeItem::Module(r)).collect(),
             TreeItem::Module(i) => {
                 if collapsed.contains(&tree.nodes[i].file) {
                     Vec::new()
@@ -819,7 +840,17 @@ mod tests {
             name: "bl".into(),
             dir: "crates/bl".into(),
             maturity: Some(1),
-            tests: Vec::new(),
+            tests: vec![Target {
+                kind: TargetKind::Test,
+                name: "paper".into(),
+                root: "crates/bl/tests/paper.rs".into(),
+                modules: vec![module(
+                    "crates/bl/tests/paper.rs",
+                    "",
+                    None,
+                    vec![Function { test: true, ..func("crates/bl/tests/paper.rs", "reproduces_the_paper", 5) }],
+                )],
+            }],
             targets: vec![
                 Target {
                     kind: TargetKind::Lib,
@@ -865,6 +896,20 @@ mod tests {
         assert!(ModTree::build(&krate(), true).find("crates/bl/src/tests.rs").is_some());
         let order: Vec<&str> = t.depth_first().iter().map(|&(i, _)| t.nodes[i].name.as_str()).collect();
         assert_eq!(order, vec!["bl", "chem", "fork", "act", "live_pools", "demo"]);
+        // #1164: an integration test (`tests/paper.rs`) is in the tree only
+        // when tests are shown, as its own root after the examples, marked
+        // as test code, with its test function counted; and it has its own
+        // "tests" group card.
+        assert!(t.find("crates/bl/tests/paper.rs").is_none() && t.test_roots.is_empty());
+        let shown = ModTree::build(&krate(), true);
+        let paper = shown.find("crates/bl/tests/paper.rs").unwrap();
+        assert_eq!(shown.test_roots, [paper]);
+        assert!(shown.nodes[paper].test);
+        assert_eq!(shown.nodes[paper].fn_ids, ["crates/bl/tests/paper.rs::reproduces_the_paper"]);
+        assert_eq!(shown.depth_first().last().map(|&(i, d)| (i, d)), Some((paper, 0)));
+        let l = tree_layout(&shown, &BTreeSet::new());
+        assert!(l.position(TreeItem::Tests).is_some() && l.position(TreeItem::Module(paper)).is_some());
+        assert!(tree_layout(&t, &BTreeSet::new()).position(TreeItem::Tests).is_none());
     }
 
     /// Every module (and the examples group) gets one card, no two cards
