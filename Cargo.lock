@@ -2417,6 +2417,7 @@ dependencies = [
  "outram-blender",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
+ "outram-foam-mesh",
  "outram-mc-libs",
  "outram-park-digital-twin-engine",
  "outram-park-fork-cfmesh",

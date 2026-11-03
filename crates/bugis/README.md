@@ -36,7 +36,7 @@ paths so no call site changes.
 | `animation` | `animation`: tracer, pebble-handling and control-rod-drive kinematics; uom only, egui-free, builds for Android | engine `animation/` | yes |
 | `ascii` | `ascii`: 2-D schematic geometry on a character grid | engine `ascii/` | yes |
 | `app_scaffold` | `app_scaffold`: `SharedState`, monitored physics threads, crash modal, CSV display and logging, frame metrics, plot history, real-time pacing. Turns on `egui`; adds `csv`, `web-time`, `thiserror` | engine `app_scaffold/` | yes |
-| `web_demo` | `web_demo`: the tutorial tracks' browser-demo framework (main view, zoom buttons, folding panel, docks, worker/thread link, loading, lessons, platform, worker pool, nuclear-data cache). Turns on `egui`; adds `sha2`, and on wasm32 only `wasm-bindgen`, `wasm-bindgen-futures`, `js-sys`, `web-sys` | `dhoby-ghaut` `web_demo/` | yes |
+| `web_demo` | `web_demo`: the tutorial tracks' browser-demo framework (main view, zoom buttons, folding panel, docks, worker/thread link, loading, lessons, platform, worker pool, nuclear-data cache; since gh:#1155 `field` (cell fields on mesh sections, Crameri colour bar) and `residual` (convergence history plot)). Turns on `egui`; adds `sha2`, and on wasm32 only `wasm-bindgen`, `wasm-bindgen-futures`, `js-sys`, `web-sys` | `dhoby-ghaut` `web_demo/` | yes |
 | `tampines`, `tampines-steam-tables`, `outram-park-fork-dwsim-libs`, `nee_soon` | the physics crate of the same name, as an optional dependency | | yes |
 | `widgets` | `components`: the widget library, one `egui::Widget` per process object. Turns on `egui`, `animation` and all four physics features | engine `components/` (all but `excursion`) | yes |
 

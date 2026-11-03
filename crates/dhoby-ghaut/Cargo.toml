@@ -204,6 +204,12 @@ outram-park-fork-dwsim-libs = { workspace = true }
 # demo's page draws its time histories with egui_plot in the browser, and
 # egui_plot is wasm-safe (it is egui widgets and nothing else).
 egui_plot = { workspace = true }
+# Foam Studio (`foam_studio_web`, gh:#1155): the O-grid / box meshers and
+# the pimpleFoam port, run in the page's worker too. All wasm in-scope (the
+# stage 0 gate, gh:#1154, ran them in a Worker with no host imports).
+outram-foam-appbuilder-lib = { workspace = true }
+outram-foam-basic-lib = { workspace = true }
+outram-foam-mesh = { workspace = true }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
@@ -219,7 +225,7 @@ env_logger = { workspace = true }
 # `nee_soon`, outram-blender's `mc-export` feature is retired, and MC Studio
 # drives `nee_soon::sim`. The volume-meshing bridge (`foam-mesh`) is LIBRARY
 # code and stays in outram-blender; this crate only hosts the GUI that drives it.
-outram-blender = { workspace = true, features = ["foam-mesh", "gpu"] }
+outram-blender = { workspace = true, features = ["foam-mesh", "foam-export", "gpu"] }
 # MC Studio's backend (`nee_soon::sim`, `nee_soon::blender_bridge`) is now in
 # the table above: `nee_soon` also builds for wasm32 since the Monte Carlo
 # demo's `htr10` rung (gh:#528) rasterises its assembled core in the browser.
@@ -363,3 +369,7 @@ path = "examples/helical_sg_web/main.rs"
 [[example]]
 name = "fukushima_web"
 path = "examples/fukushima_web/main.rs"
+
+[[example]]
+name = "foam_studio_web"
+path = "examples/foam_studio_web/main.rs"
