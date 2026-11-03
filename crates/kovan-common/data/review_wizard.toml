@@ -64,6 +64,8 @@
 #    `rung` question and this effect are gone. See `wizard::derived_rung`.)
 #
 # only_when (on an option): the option is offered, and accepted, only then.
+#   port   the function is a port (as applies_when = "port"): the "as
+#          upstream, which has none" options (maintainer, 2026-11-03).
 #   test   the function under review is a test (`test = true` in its folder's
 #          kovan.toml). The "this is a test" options (maintainer, 2026-10-12:
 #          "test functions are allowed to panic. This is correct behaviour",
@@ -221,6 +223,20 @@ label = "No guard, accepted for research use (not for a safety decision), becaus
 effect = "flag_cap_rung3"
 requires_text = true
 
+# A faithful port of upstream code that has no guard (maintainer,
+# 2026-11-03, after stamping TRISO-ATOPS ports: "sometimes upstream itself
+# doesn't even have guards, or return results. ported code will not have such
+# things too"). Offered only on a port. It flags the function as needs
+# improvement, so the missing guard stays listed, but does not cap the rung:
+# matching upstream is the port's contract (root CLAUDE.md, "Debugging a port:
+# read upstream first"). The text records what upstream does on bad input.
+[[question.option]]
+key = "matches_upstream_no_guard"
+label = "No guard, as upstream has none (a faithful port); upstream does: ____"
+effect = "flag"
+requires_text = true
+only_when = "port"
+
 [[question.option]]
 key = "no_limits"
 label = "No limits apply, explained: ____"
@@ -321,6 +337,16 @@ effect = "none"
 key = "falls_back_silently"
 label = "Falls back with no signal to the caller"
 effect = "block"
+
+# The same for error handling (maintainer, 2026-11-03): upstream returns
+# no error (Fortran STOP, a NaN, a C++ return code ignored) and the port
+# keeps that behaviour. Offered only on a port; flagged, no rung cap.
+[[question.option]]
+key = "matches_upstream_no_error_return"
+label = "No error return, as upstream has none (a faithful port); upstream does: ____"
+effect = "flag"
+requires_text = true
+only_when = "port"
 
 [[question.option]]
 key = "cannot_happen"
