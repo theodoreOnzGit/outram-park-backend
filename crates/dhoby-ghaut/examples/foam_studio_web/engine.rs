@@ -19,7 +19,8 @@ use outram_foam_appbuilder_lib::solvers::pimple_foam::PimpleFoam;
 use outram_foam_basic_lib::fv_operators::fvm::max_non_orthogonality_deg;
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_mesh::block_mesh::PolyMesh;
-use outram_foam_mesh::block_primitives::{BoxBlock, DoublePipe, PipeOGrid};
+use outram_foam_mesh::block_primitives::{BoxBlock, DoublePipe, HelicalPipe, PipeOGrid};
+use crate::coil::{CoilRun, CoilSpec};
 use outram_foam_mesh::section::{boundary_edges, plane_section, Axis, CellSection};
 use uom::si::f64::{KinematicViscosity, Length, Velocity};
 use uom::si::kinematic_viscosity::square_meter_per_second;
@@ -87,6 +88,12 @@ pub enum Shape {
     /// of thickness `wall`, cold fluid in the annulus out to `r_shell` (in at
     /// z+), adiabatic shell. Its patches are fixed, not tagged.
     DoublePipe { r_tube: f64, wall: f64, r_shell: f64, length: f64, centre: [f64; 3] },
+    /// A helical coil section (gh:#1157): a pipe of radius `tube_radius`
+    /// coiled about a vertical (z) axis through `centre`, coil diameter
+    /// `coil_diameter` at the tube centreline, rise `pitch` per turn,
+    /// `turns` turns, centred on `centre`; inlet at the bottom end. Its
+    /// patches are fixed (inlet, outlet, walls).
+    Coil { tube_radius: f64, coil_diameter: f64, pitch: f64, turns: f64, centre: [f64; 3] },
 }
 
 impl Shape {
@@ -95,7 +102,7 @@ impl Shape {
         match self {
             Shape::Cylinder { .. } => 3,
             Shape::Box { .. } => 6,
-            Shape::DoublePipe { .. } => 0,
+            Shape::DoublePipe { .. } | Shape::Coil { .. } => 0,
         }
     }
     /// Human names of the faces.
@@ -103,7 +110,7 @@ impl Shape {
         match self {
             Shape::Cylinder { .. } => &["end z−", "end z+", "side"],
             Shape::Box { .. } => &["x−", "x+", "y−", "y+", "z−", "z+"],
-            Shape::DoublePipe { .. } => &[],
+            Shape::DoublePipe { .. } | Shape::Coil { .. } => &[],
         }
     }
     /// Bounding box `[min, max]` \[m\].
@@ -114,6 +121,10 @@ impl Shape {
             }
             Shape::Box { size: s, centre: c } => {
                 [[c[0] - 0.5 * s[0], c[1] - 0.5 * s[1], c[2] - 0.5 * s[2]], [c[0] + 0.5 * s[0], c[1] + 0.5 * s[1], c[2] + 0.5 * s[2]]]
+            }
+            Shape::Coil { tube_radius: r, coil_diameter, pitch, turns, centre: c } => {
+                let (a, h) = (0.5 * coil_diameter + r, 0.5 * pitch * turns + r);
+                [[c[0] - a, c[1] - a, c[2] - h], [c[0] + a, c[1] + a, c[2] + h]]
             }
         }
     }
@@ -140,6 +151,29 @@ impl Default for Design {
 }
 
 impl Design {
+    /// The demo's coil section (gh:#1157): the V&V coil's tube and coil
+    /// (d = 10 mm, D_w = 100 mm, h = 20 mm) with [`COIL_DEFAULT_TURNS`]
+    /// turns, 20k cells.
+    pub fn coil() -> Self {
+        let s = CoilSpec::vv();
+        Self {
+            shape: Shape::Coil { tube_radius: s.tube_radius, coil_diameter: s.coil_diameter, pitch: s.pitch, turns: COIL_DEFAULT_TURNS, centre: [0.0; 3] },
+            tags: [Tag::Wall; 6],
+            target_cells: DEFAULT_CELLS,
+        }
+    }
+
+    /// The coil spec and its axis origin (the helix axis at the inlet's
+    /// height), for a coil design.
+    pub fn coil_spec(&self) -> Option<(CoilSpec, [f64; 3])> {
+        match self.shape {
+            Shape::Coil { tube_radius, coil_diameter, pitch, turns, centre } => {
+                Some((CoilSpec { tube_radius, coil_diameter, pitch, turns }, [centre[0], centre[1], centre[2] - 0.5 * pitch * turns]))
+            }
+            _ => None,
+        }
+    }
+
     /// The demo's double-pipe exchanger: tube r = 5 mm with a 1 mm wall, shell
     /// r = 10 mm, L = 200 mm (the geometry of the V&V record
     /// `cht_double_pipe_gh1156.md`), 20k cells.
@@ -156,6 +190,9 @@ impl Design {
 pub fn check(d: &Design) -> Result<(), String> {
     if d.target_cells == 0 || d.target_cells > MAX_CELLS {
         return Err(format!("cells must be 1..{MAX_CELLS}"));
+    }
+    if let Some(g) = coil_grid(d) {
+        return g.check().map_err(|e| e.to_string());
     }
     if let Shape::DoublePipe { r_tube, wall, r_shell, length, .. } = d.shape {
         if !(r_tube > 1e-4 && wall > 1e-5 && r_shell > r_tube + wall + 1e-4 && length > 1e-3) {
@@ -257,6 +294,15 @@ pub fn exchanger_grid(r_tube: f64, wall: f64, r_shell: f64, length: f64, centre:
     best
 }
 
+/// The coil grid of a coil design for its cell budget
+/// ([`CoilSpec::for_budget`]), positioned; `None` for other shapes.
+pub fn coil_grid(d: &Design) -> Option<HelicalPipe> {
+    let (spec, origin) = d.coil_spec()?;
+    let mut g = spec.for_budget(d.target_cells);
+    g.axis_origin = origin.map(m);
+    Some(g)
+}
+
 /// The mesh of a design (checked), and the flow axis (0 x, 1 y, 2 z) with the
 /// signed inlet-to-outlet direction, and the cell length along it \[m\].
 pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
@@ -282,6 +328,11 @@ pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
             let [a, b, c] = g.meshes().map_err(|e| e.to_string())?;
             let all = PolyMesh::concatenate(&[("tube_fluid", &a), ("tube_wall", &b), ("annulus_fluid", &c)]);
             Ok((all, 2, length / g.nz as f64))
+        }
+        Shape::Coil { .. } => {
+            let g = coil_grid(d).ok_or("not a coil")?;
+            let ds = g.arc_length().get::<meter>() / g.n_layers as f64;
+            g.mesh().map(|p| (p, 2, ds)).map_err(|e| e.to_string())
         }
     }
 }
@@ -332,12 +383,17 @@ pub enum Request {
 }
 
 /// A plane section, ready to draw: the plane (axis 0/1/2, offset \[m\]) and
-/// one polygon per cut cell in in-plane coordinates \[m\].
+/// one polygon per cut cell in in-plane coordinates \[m\]. With `frame`
+/// (`[origin, e1, e2]`, 9 numbers) the plane is not axis-aligned: an
+/// in-plane point `(a, b)` is `origin + a e1 + b e2` (the coil's
+/// cross-section, `e1 = N` towards the coil axis, `e2 = B`), and `axis`
+/// and `offset` are unused.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Section {
     pub axis: u8,
     pub offset: f64,
     pub polygons: Vec<Vec<[f32; 2]>>,
+    pub frame: Option<[f64; 9]>,
 }
 
 /// What the mesh looks like to the page.
@@ -388,6 +444,49 @@ pub struct Progress {
     pub cross_t: Vec<f32>,
     /// The exchanger's numbers (NaN for the pipe): see [`Exch`].
     pub exch: [f64; EXCH_LEN],
+    /// The coil's secondary velocity on the cross-section, `u_n, u_b` per
+    /// cell \[m/s\] (empty unless a coil); there `cross_ua` is `u_t`.
+    pub cross_sec: Vec<f32>,
+    /// The coil's numbers (NaN unless a coil): see [`CoilNo`].
+    pub coil: [f64; COIL_LEN],
+}
+
+/// Indices into [`Progress::coil`].
+pub struct CoilNo;
+impl CoilNo {
+    /// Dean number.
+    pub const DEAN: usize = 0;
+    /// f·Re/64 over the last turn (at most L/2) and the window before it.
+    pub const F_RE_64: usize = 1;
+    pub const F_RE_64_BEFORE: usize = 2;
+    /// Mishra & Gupta (1979) f_c/f_s (tampines).
+    pub const MISHRA_GUPTA: usize = 3;
+    /// Axial maximum's n/R (negative: outer side), largest secondary speed
+    /// over U, core u_n/U (negative: outward), the vortex-pair sign test.
+    pub const PEAK_N: usize = 4;
+    pub const MAX_SECONDARY: usize = 5;
+    pub const CORE_UN: usize = 6;
+    pub const PAIR: usize = 7;
+}
+/// Length of [`Progress::coil`].
+pub const COIL_LEN: usize = 8;
+/// Turns of the demo coil (see the V&V record for why).
+pub const COIL_DEFAULT_TURNS: f64 = 2.0;
+/// Above this Reynolds number the coil's steady march runs at Co 1, not 4:
+/// on the V&V grid (m = 3) the Co 4 march did not converge at Re = 400 and
+/// 800 (the steady metric grew after 150 steps), while Re ≤ 200 converged
+/// at Co 4 (measured 2026-11-03, `helical_coil_dean_gh1157.md`). At Co 1
+/// Re 400 does not converge on that grid either (gh:#1172).
+pub const COIL_CO4_MAX_RE: f64 = 250.0;
+
+/// The coil's Courant number for `mode` at `reynolds` (see
+/// [`COIL_CO4_MAX_RE`]).
+pub fn coil_courant(mode: Mode, reynolds: f64) -> f64 {
+    if reynolds > COIL_CO4_MAX_RE {
+        1.0
+    } else {
+        mode.courant()
+    }
 }
 
 /// Indices into [`Progress::exch`].
@@ -447,6 +546,8 @@ pub enum Case {
     Pipe(PimpleFoam, PipeFlow),
     /// The double-pipe exchanger by `ChtMultiRegionFoam` (stage 2).
     Exchanger(ExchangerRun),
+    /// The helical coil section by `PimpleFoam` (gh:#1157).
+    Coil(CoilRun),
 }
 
 /// The engine: at most one mesh and one case.
@@ -464,6 +565,10 @@ pub struct Engine {
     case: Option<Case>,
     steps: usize,
     time: f64,
+    /// For a coil: the straight O-grid's mesh (same cell order) whose z
+    /// sections are the coil's true cross-sections, and the coil grid.
+    straight: Option<PolyMesh>,
+    coil: Option<HelicalPipe>,
 }
 
 fn axis_of(i: usize) -> Axis {
@@ -484,6 +589,7 @@ fn section_of(cs: &[CellSection], axis: usize, offset: f64) -> Section {
         axis: axis as u8,
         offset,
         polygons: cs.iter().map(|c| c.polygon.iter().map(|p| [p[0] as f32, p[1] as f32]).collect()).collect(),
+        frame: None,
     }
 }
 
@@ -544,13 +650,16 @@ impl Engine {
         let (Some(d), Some(poly), Some(fv)) = (self.design, &self.poly, &self.fv) else {
             return section_of(&[], 2, 0.0);
         };
+        if let (Some(g), Some(st)) = (&self.coil, &self.straight) {
+            return Self::coil_cross(g, st, fv, f, &mut self.cross, &mut self.probe_cell);
+        }
         let [lo, hi] = d.shape.bounds();
         let a = self.flow_axis;
         let inlet_low = match d.shape {
             Shape::Cylinder { .. } => d.tags[0] == Tag::Inlet,
             Shape::Box { .. } => d.tags[2 * a] == Tag::Inlet,
             // The hot (tube) inlet is at z−.
-            Shape::DoublePipe { .. } => true,
+            Shape::DoublePipe { .. } | Shape::Coil { .. } => true,
         };
         let f = f.clamp(0.0, 1.0);
         let x = if inlet_low { lo[a] + f * (hi[a] - lo[a]) } else { hi[a] - f * (hi[a] - lo[a]) };
@@ -568,8 +677,41 @@ impl Engine {
         section_of(&self.cross, a, x)
     }
 
+    /// The coil's cross-section at fraction `f` of the arc: the layer of
+    /// cells whose centre is nearest, cut from the straight grid (same cell
+    /// order) at its mid-plane and drawn in the Frenet plane there
+    /// (`e1 = N`, `e2 = B`); the probe is the cell nearest the centreline.
+    pub fn coil_cross(g: &HelicalPipe, straight: &PolyMesh, fv: &FvMesh, f: f64, cross: &mut Vec<CellSection>, probe: &mut usize) -> Section {
+        let l = g.arc_length().get::<meter>();
+        let ds = l / g.n_layers as f64;
+        let k = ((f.clamp(0.0, 1.0) * l / ds).floor()).clamp(0.0, g.n_layers as f64 - 1.0);
+        let s = (k + 0.5) * ds;
+        *cross = plane_section(straight, Axis::Z, m(s));
+        // Straight (x, y) are the swept frame's (U, V); rotate to (N, B).
+        let th = -g.torsion() * s;
+        let (st, ct) = (th.sin(), th.cos());
+        for c in cross.iter_mut() {
+            for p in &mut c.polygon {
+                let (x, y) = (p[0], p[1]);
+                *p = [x * ct - y * st, x * st + y * ct];
+            }
+        }
+        let o = g.centreline(m(s));
+        let [_, n, b] = g.frenet(m(s));
+        let target = outram_foam_basic_lib::primitives::Vector3::new(o[0], o[1], o[2]);
+        *probe = cross.iter().map(|c| c.cell).min_by(|&i, &j| (fv.cell_centres[i] - target).mag().total_cmp(&(fv.cell_centres[j] - target).mag())).unwrap_or(0);
+        let mut sec = section_of(cross, 2, s);
+        sec.frame = Some([o[0], o[1], o[2], n[0], n[1], n[2], b[0], b[1], b[2]]);
+        sec
+    }
+
     fn mesh(&mut self, id: u32, design: Design, probe: f64) -> Result<Meshed, String> {
         let (poly, axis, cell_len) = mesh_design(&design)?;
+        self.coil = coil_grid(&design);
+        self.straight = match &self.coil {
+            Some(g) => Some(g.straight_grid().mesh().map_err(|e| e.to_string())?),
+            None => None,
+        };
         let fv = Arc::new(poly.to_fv_mesh().map_err(|e| e.to_string())?);
         self.id = id;
         self.design = Some(design);
@@ -618,6 +760,8 @@ impl Engine {
         let (dh, len) = match self.design.map(|d| d.shape) {
             Some(Shape::Cylinder { radius, length, .. }) => (2.0 * radius, length),
             Some(Shape::DoublePipe { r_tube, length, .. }) => (2.0 * r_tube, length),
+            // Not used: the coil's flow is `CoilRun`'s.
+            Some(Shape::Coil { tube_radius, .. }) => (2.0 * tube_radius, 0.0),
             Some(Shape::Box { size, .. }) => {
                 let a = self.flow_axis;
                 let (b, c) = (size[(a + 1) % 3], size[(a + 2) % 3]);
@@ -665,6 +809,17 @@ impl Engine {
             return self.start_exchanger(reynolds);
         }
         let fv = self.fv.clone().ok_or("mesh first")?;
+        if let Some(g) = self.coil.clone() {
+            // The V&V record's settings: Gauss linear convection (the Dean
+            // vortices are resolved convection), Co 4 (1 above
+            // `COIL_CO4_MAX_RE`, or to watch it develop) under the viscous
+            // cap, one non-orthogonal corrector.
+            let run = CoilRun::on_mesh(g, fv, reynolds, outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinear, coil_courant(mode, reynolds), max_viscous());
+            self.case = Some(Case::Coil(run));
+            self.steps = 0;
+            self.time = 0.0;
+            return Ok(());
+        }
         let flow = self.flow(reynolds);
         // Co ≈ 4 (or 1), but the viscous number ν Δt / h² held at
         // `MAX_VISCOUS_DEFAULT` or below, h the mean cell size (V/N)^(1/3);
@@ -695,8 +850,23 @@ impl Engine {
             _ => v.z,
         };
         let n = self.fv.as_ref().map_or(0, |f| f.n_cells);
+        let mut coil = [f64::NAN; COIL_LEN];
+        let mut cross_sec = Vec::new();
+        let mut cross_ut: Option<Vec<f32>> = None;
+        if let Some(Case::Coil(run)) = self.case.as_ref() {
+            let r = run.report();
+            coil = [r.dean, r.f_re_64, r.f_re_64_before, r.mishra_gupta, r.section.axial_peak_n, r.section.max_secondary, r.section.core_u_n, r.section.vortex_pair];
+            let mut ut = Vec::new();
+            for c in &self.cross {
+                let [a, b, cc] = outram_foam_appbuilder_lib::cases::helical_coil::frenet_components(run.solver.u.internal[c.cell], &run.cells.frenet[c.cell]);
+                ut.push(a as f32);
+                cross_sec.push(b as f32);
+                cross_sec.push(cc as f32);
+            }
+            cross_ut = Some(ut);
+        }
         let (u, p, t, continuity, out_in, dp, dt, exch, phase): (Vec<_>, Vec<f64>, Vec<f64>, f64, f64, f64, f64, [f64; EXCH_LEN], u8) = match self.case.as_ref()? {
-            Case::Pipe(s, _) => {
+            Case::Pipe(s, _) | Case::Coil(CoilRun { solver: s, .. }) => {
                 let mesh = &s.mesh;
                 let pp = s.p.internal.as_slice();
                 let mean_p = |name: &str| {
@@ -764,18 +934,20 @@ impl Engine {
             dp,
             ms_per_step: ms,
             steady: match self.case.as_ref()? {
-                Case::Pipe(..) => change < STEADY,
+                Case::Pipe(..) | Case::Coil(..) => change < STEADY,
                 Case::Exchanger(x) => x.energy_phase && x.last_energy_change < ENERGY_STEADY,
             },
             axial_u: pick(&self.axial, |c| u[c].mag()),
             axial_p: pick(&self.axial, |c| p[c]),
             cross_u: pick(&self.cross, |c| u[c].mag()),
             cross_p: pick(&self.cross, |c| p[c]),
-            cross_ua: pick(&self.cross, |c| comp(u[c])),
+            cross_ua: cross_ut.unwrap_or_else(|| pick(&self.cross, |c| comp(u[c]))),
             phase,
             axial_t: if t.is_empty() { Vec::new() } else { pick(&self.axial, tt) },
             cross_t: if t.is_empty() { Vec::new() } else { pick(&self.cross, tt) },
             exch,
+            cross_sec,
+            coil,
         })
     }
 
@@ -796,6 +968,16 @@ impl Engine {
                     }
                     done += 1;
                     self.time += s.control.delta_t;
+                    if change < STEADY {
+                        break;
+                    }
+                }
+            }
+            Case::Coil(run) => {
+                for _ in 0..steps.max(1) {
+                    change = run.step().map_err(|_| diverged())?;
+                    done += 1;
+                    self.time += run.solver.control.delta_t;
                     if change < STEADY {
                         break;
                     }
@@ -908,6 +1090,13 @@ impl bugis::web_demo::link::WorkerEngine for Engine {
 fn put_section(d: &mut Vec<f64>, s: &Section) {
     d.push(f64::from(s.axis));
     d.push(s.offset);
+    match &s.frame {
+        Some(f) => {
+            d.push(1.0);
+            d.extend_from_slice(f);
+        }
+        None => d.push(0.0),
+    }
     d.push(s.polygons.len() as f64);
     for p in &s.polygons {
         d.push(p.len() as f64);
@@ -943,6 +1132,15 @@ impl Reader<'_> {
     fn section(&mut self) -> Result<Section, String> {
         let axis = self.f()? as u8;
         let offset = self.f()?;
+        let frame = if self.f()? != 0.0 {
+            let mut f = [0.0; 9];
+            for v in &mut f {
+                *v = self.f()?;
+            }
+            Some(f)
+        } else {
+            None
+        };
         let n = self.n()?;
         let mut polygons = Vec::with_capacity(n);
         for _ in 0..n {
@@ -953,7 +1151,7 @@ impl Reader<'_> {
             }
             polygons.push(p);
         }
-        Ok(Section { axis, offset, polygons })
+        Ok(Section { axis, offset, polygons, frame })
     }
 }
 
@@ -971,6 +1169,7 @@ impl Request {
                     Shape::Cylinder { radius, length, centre } => (0.0, [radius, length, 0.0, 0.0], centre),
                     Shape::Box { size, centre } => (1.0, [size[0], size[1], size[2], 0.0], centre),
                     Shape::DoublePipe { r_tube, wall, r_shell, length, centre } => (2.0, [r_tube, wall, r_shell, length], centre),
+                    Shape::Coil { tube_radius, coil_diameter, pitch, turns, centre } => (3.0, [tube_radius, coil_diameter, pitch, turns], centre),
                 };
                 let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], a[3], b[0], b[1], b[2], design.target_cells as f64, *probe];
                 d.extend(design.tags.iter().map(|t| t.code()));
@@ -1001,7 +1200,8 @@ impl Request {
                 let shape = match k as u8 {
                     0 => Shape::Cylinder { radius: a[0], length: a[1], centre },
                     1 => Shape::Box { size: [a[0], a[1], a[2]], centre },
-                    _ => Shape::DoublePipe { r_tube: a[0], wall: a[1], r_shell: a[2], length: a[3], centre },
+                    2 => Shape::DoublePipe { r_tube: a[0], wall: a[1], r_shell: a[2], length: a[3], centre },
+                    _ => Shape::Coil { tube_radius: a[0], coil_diameter: a[1], pitch: a[2], turns: a[3], centre },
                 };
                 Ok(Request::Mesh { id, design: Design { shape, tags, target_cells }, probe })
             }
@@ -1052,6 +1252,8 @@ impl Event {
                 put_f32s(&mut d, &p.axial_t);
                 put_f32s(&mut d, &p.cross_t);
                 d.extend_from_slice(&p.exch);
+                put_f32s(&mut d, &p.cross_sec);
+                d.extend_from_slice(&p.coil);
                 (d, String::new())
             }
             Event::Error(m) => (vec![3.0, 0.0], m.clone()),
@@ -1096,6 +1298,14 @@ impl Event {
                 cross_t: r.f32s()?,
                 exch: {
                     let mut x = [0.0; EXCH_LEN];
+                    for v in &mut x {
+                        *v = r.f()?;
+                    }
+                    x
+                },
+                cross_sec: r.f32s()?,
+                coil: {
+                    let mut x = [0.0; COIL_LEN];
                     for v in &mut x {
                         *v = r.f()?;
                     }
@@ -1199,6 +1409,9 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
             x[Exch::NTU]
         ));
     }
+    if let Shape::Coil { .. } = design.shape {
+        out.insert(1, format!("# grid (n, nr, layers, cells): {:?}", coil_grid(&design).map(|g| (g.n, g.nr, g.n_layers, g.n_cells()))));
+    }
     if let (Some(Case::Pipe(s, flow)), Shape::Cylinder { centre, length, .. }) = (&e.case, design.shape) {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient};
         use uom::si::acceleration::meter_per_second_squared;
@@ -1210,6 +1423,20 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
             uc / (2.0 * U_IN),
             g.get::<meter_per_second_squared>() / flow.hagen_poiseuille_gradient().get::<meter_per_second_squared>(),
             flow.friction_factor(g) * flow.reynolds()
+        ));
+    }
+    if let (Some(p), Shape::Coil { .. }) = (&last_progress, design.shape) {
+        let c = &p.coil;
+        out.push(format!(
+            "# coil: De={:.3} fRe64={:.5} fRe64_before={:.5} MG={:.5} peak_n={:.4} max_sec={:.4} core_un={:.4} pair={:.4}",
+            c[CoilNo::DEAN],
+            c[CoilNo::F_RE_64],
+            c[CoilNo::F_RE_64_BEFORE],
+            c[CoilNo::MISHRA_GUPTA],
+            c[CoilNo::PEAK_N],
+            c[CoilNo::MAX_SECONDARY],
+            c[CoilNo::CORE_UN],
+            c[CoilNo::PAIR]
         ));
     }
     out.push(format!("# {} steps, {:.2} s wall in the solve", e.steps, wall));
@@ -1239,6 +1466,7 @@ mod tests {
             },
             Request::Start { id: 3, reynolds: 50.0, mode: Mode::Transient },
             Request::Mesh { id: 5, design: Design::exchanger(), probe: 0.3 },
+            Request::Mesh { id: 6, design: Design::coil(), probe: 0.6 },
             Request::Step { id: 3, steps: 7 },
             Request::Probe { id: 3, probe: 0.9 },
         ];
@@ -1247,7 +1475,8 @@ mod tests {
         }
         assert!(Request::from_wire(&[9.0, 1.0]).is_err());
         assert!(Request::from_wire(&[0.0]).is_err());
-        let sec = Section { axis: 1, offset: 0.5, polygons: vec![vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]] };
+        let sec = Section { axis: 1, offset: 0.5, polygons: vec![vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]], frame: None };
+        let framed = Section { frame: Some([1.0, 2.0, 3.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]), ..sec.clone() };
         let evs = [
             Event::Meshed(Meshed {
                 id: 2,
@@ -1260,6 +1489,7 @@ mod tests {
                 cross: sec.clone(),
             }),
             Event::Cross { id: 2, cross: sec },
+            Event::Cross { id: 2, cross: framed },
             Event::Progress(Progress {
                 id: 2,
                 steps: 4,
@@ -1282,6 +1512,8 @@ mod tests {
                 axial_t: vec![300.0],
                 cross_t: vec![310.0, 320.0],
                 exch: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+                cross_sec: vec![0.5, -0.5],
+                coil: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
             }),
         ];
         for e in evs {
@@ -1360,6 +1592,66 @@ mod tests {
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         assert!(last.ends_with(" 1"), "{last}");
         assert!(lines.iter().any(|l| !l.starts_with('#') && l.ends_with(" 0")), "{joined}");
+    }
+
+    /// The headless coil regression (gh:#1157): a ~3k-cell, two-turn demo
+    /// coil at Re = 200 (De = 63) reaches the steady criterion, conserves
+    /// mass, shows the Dean flow (core outward, axial maximum outward, the
+    /// return flows meeting at the inner wall) and a friction factor above
+    /// the straight pipe's; numbers pinned loosely, to this grid.
+    #[test]
+    fn headless_coil_shows_dean_flow() {
+        let d = Design { target_cells: 3_000, ..Design::coil() };
+        let lines = headless(d, 200.0, Mode::Steady, 3_000).unwrap();
+        let joined = lines.join("\n");
+        let co = lines.iter().find(|l| l.starts_with("# coil")).unwrap_or_else(|| panic!("{joined}"));
+        let val = |k: &str| -> f64 { co.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
+        assert!((val("De=") - 63.12).abs() < 0.05, "{co}");
+        assert!(val("core_un=") < -0.02 && val("peak_n=") < -0.1 && val("pair=") < 0.0, "{co}");
+        let (f, mg) = (val("fRe64="), val("MG="));
+        assert!(f > 1.15 && f < 1.6 && (mg - 1.3465).abs() < 1e-3, "{co}");
+        let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
+        let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
+        assert!((out_in - 1.0).abs() < 1e-8, "{last}");
+        assert!(joined.contains("cells"), "{joined}");
+    }
+
+    #[test]
+    fn coil_designs_are_checked_sized_and_served() {
+        let d = Design::coil();
+        assert!(check(&d).is_ok());
+        let g = coil_grid(&d).unwrap();
+        assert!(g.n_cells() <= DEFAULT_CELLS && g.n_cells() > 15_000, "{}", g.n_cells());
+        let big = coil_grid(&Design { target_cells: MAX_CELLS, ..d }).unwrap();
+        assert!(big.n_cells() <= MAX_CELLS && big.n_cells() > 2 * g.n_cells(), "{}", big.n_cells());
+        let mut bad = d;
+        bad.shape = Shape::Coil { tube_radius: 0.005, coil_diameter: 0.1, pitch: 0.005, turns: 2.0, centre: [0.0; 3] };
+        assert!(check(&bad).is_err(), "turns overlap");
+        assert_eq!((coil_courant(Mode::Steady, 200.0), coil_courant(Mode::Steady, 400.0), coil_courant(Mode::Transient, 100.0)), (4.0, 1.0, 1.0));
+        let [lo, hi] = d.shape.bounds();
+        assert!((hi[0] - lo[0] - 0.11).abs() < 1e-12 && (hi[2] - lo[2] - (0.02 * COIL_DEFAULT_TURNS + 0.01)).abs() < 1e-12);
+        // Served: the cross-section is one layer in the Frenet plane, its
+        // polygons tile the tube's polygon, and the inlet is at the bottom.
+        let mut e = Engine::default();
+        let mut evs = Vec::new();
+        let small = Design { target_cells: 1_500, ..d };
+        e.serve(Request::Mesh { id: 2, design: small, probe: 0.5 }, &mut |ev| evs.push(ev));
+        let Some(Event::Meshed(me)) = evs.pop() else { panic!("no mesh") };
+        let g = coil_grid(&small).unwrap();
+        assert_eq!(me.cross.polygons.len(), g.cells_per_section());
+        let f = me.cross.frame.expect("framed");
+        let o = g.centreline(m(f64::from(me.cross.offset as f32)));
+        assert!((0..3).all(|i| (f[i] - o[i]).abs() < 1e-6), "{f:?} {o:?}");
+        let area: f64 = me.cross.polygons.iter().map(|p| outram_foam_mesh::section::polygon_area(&p.iter().map(|q| [f64::from(q[0]), f64::from(q[1])]).collect::<Vec<_>>())).sum();
+        assert!((area / g.straight_grid().polygon_area() - 1.0).abs() < 1e-5, "{area}");
+        assert!(!me.axial.polygons.is_empty());
+        e.serve(Request::Start { id: 2, reynolds: 100.0, mode: Mode::Transient }, &mut |ev| evs.push(ev));
+        e.serve(Request::Step { id: 2, steps: 2 }, &mut |ev| evs.push(ev));
+        let Some(Event::Progress(p)) = evs.pop() else { panic!("no progress") };
+        assert_eq!(p.cross_sec.len(), 2 * p.cross_ua.len());
+        assert!(p.coil[CoilNo::DEAN] > 0.0 && (p.outlet_over_inlet - 1.0).abs() < 1e-8);
+        e.serve(Request::Probe { id: 2, probe: 0.1 }, &mut |ev| evs.push(ev));
+        assert!(evs.iter().any(|ev| matches!(ev, Event::Cross { cross, .. } if cross.frame.is_some() && cross.offset < 0.1 * g.arc_length().get::<meter>() + g.arc_length().get::<meter>() / g.n_layers as f64)));
     }
 
     #[test]

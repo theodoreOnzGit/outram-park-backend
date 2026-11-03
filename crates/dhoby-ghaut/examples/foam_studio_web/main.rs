@@ -1,5 +1,7 @@
 //! **Foam Studio** (gh:#1155, stage 1 of epic gh:#1153; the double-pipe heat
-//! exchanger is stage 2, gh:#1156): put a cylinder, a box or a double pipe
+//! exchanger is stage 2, gh:#1156; the helical coil section, with its Dean
+//! vortices and friction against Mishra & Gupta (1979), is gh:#1157): put a
+//! cylinder, a box, a double pipe or a helical coil
 //! in a 3-D viewport, move and scale it, tag its faces inlet, outlet or
 //! wall, mesh it, and run OUTRAM PARK's pimpleFoam port on it in the
 //! reader's browser, with velocity and pressure on two slices, the residual
@@ -13,6 +15,9 @@
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-mesh [out-dir]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-exchanger [cells] [re]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-exchanger [out-dir]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-coil [out-dir]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-coil [cells] [re] [turns]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --coil-run <m> <re> [linear|upwind] [straight]
 //! cargo test -p dhoby-ghaut --example foam_studio_web --release
 //! ```
 //!
@@ -30,13 +35,20 @@
 //! - `--headless` runs the same engine natively and prints its progress
 //!   (the engine CLAUDE.md headless rule; regression test in [`engine`]).
 //! - `--render-mesh` writes the drawing rule's mesh images, from the
-//!   `PolyMesh` the solver is built from.
+//!   `PolyMesh` the solver is built from (`--render-exchanger`,
+//!   `--render-coil` for the other cases).
+//! - The coil ([`coil`]): `outram_foam_mesh::block_primitives::HelicalPipe`,
+//!   `cases::helical_coil`, Mishra & Gupta from `tampines`; `--coil-run`
+//!   is the V&V command, record
+//!   `crates/outram-foam-appbuilder-lib/verification_and_validation/helical_coil_dean_gh1157.md`.
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`): not for reactor
 //! operation, licensing or safety decisions.
 
 #[cfg(not(target_os = "android"))]
 mod app;
+#[cfg(not(target_os = "android"))]
+mod coil;
 #[cfg(not(target_os = "android"))]
 mod engine;
 #[cfg(not(target_os = "android"))]
@@ -84,6 +96,8 @@ fn render_mesh(out: &std::path::Path) -> Result<(), String> {
         let len_cm = match d.shape {
             engine::Shape::Cylinder { length, .. } | engine::Shape::DoublePipe { length, .. } => length * 100.0,
             engine::Shape::Box { size, .. } => size[2] * 100.0,
+            // Not drawn here (render_mesh draws the pipes; `--render-coil` the coil).
+            engine::Shape::Coil { .. } => 0.0,
         };
         let shots = [
             (PlotBasis::Xy, [0.0, 0.0, 0.5 * len_cm + 0.013], [2.2, 2.2], 900, format!("{label}, {} CELLS, X-Y AT Z = {:.2} CM", m.n_cells(), 0.5 * len_cm + 0.013), "xy"),
@@ -173,6 +187,176 @@ fn rebuild_with_zones(all: &outram_foam_mesh::block_mesh::PolyMesh, zones: Vec<o
     UnstructuredMesh::from_polyhedral(LengthUnit::Metre, points, faces, all.n_cells, patches, zones).map_err(|e| format!("{e:?}"))
 }
 
+/// `--coil-run <m> <re> [linear|upwind] [straight] [max_steps] [co=<Courant, 4>] [tol=<steady tolerance>] [svg=<path>]`: one run of the
+/// coil V&V (`helical_coil_dean_gh1157.md`) on the level-`m` grid, printing
+/// progress and one result row. CLI glue; the run is the tested
+/// `coil::run_to_steady`.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn coil_run_cli(args: &[String]) -> Result<(), String> {
+    use outram_foam_appbuilder_lib::io::fv_schemes::DivScheme;
+    let lvl: usize = args.first().and_then(|v| v.parse().ok()).unwrap_or(3);
+    let re: f64 = args.get(1).and_then(|v| v.parse().ok()).unwrap_or(200.0);
+    let has = |w: &str| args.iter().any(|a| a == w);
+    let scheme = if has("upwind") { DivScheme::GaussUpwind } else { DivScheme::GaussLinear };
+    let spec = if has("straight") { coil::CoilSpec::straight_limit() } else { coil::CoilSpec::vv() };
+    let max_steps = args.iter().filter_map(|a| a.parse::<usize>().ok()).nth(2).unwrap_or(20_000);
+    let co: f64 = args.iter().find_map(|a| a.strip_prefix("co=")).and_then(|v| v.parse().ok()).unwrap_or(4.0);
+    let tol = args.iter().find_map(|a| a.strip_prefix("tol=")).and_then(|v| v.parse().ok()).unwrap_or(engine::STEADY);
+    let g = spec.level(lvl);
+    let cells = g.n_cells();
+    let t0 = bugis::web_demo::platform::now_s();
+    // Every 50 steps: f on the two windows, and where the largest one-step
+    // change of U is (arc position s, and r/R), from a snapshot one step
+    // earlier.
+    let mut snap: Option<Vec<outram_foam_basic_lib::primitives::Vector3>> = None;
+    let (r, run, solve_s) = coil::run_to_steady(g, re, scheme.clone(), co, tol, max_steps, |run, c| {
+        if let Some(prev) = snap.take() {
+            let (mut worst, mut at) = (0.0, 0);
+            for (i, (a, b)) in prev.iter().zip(run.solver.u.internal.as_slice()).enumerate() {
+                let d = (*b - *a).mag();
+                if d > worst {
+                    worst = d;
+                    at = i;
+                }
+            }
+            let rr = (run.cells.n[at].powi(2) + run.cells.b[at].powi(2)).sqrt() / run.grid.radius.get::<uom::si::length::meter>();
+            eprintln!("  largest change at s = {:.4} m of {:.4} (r/R {:.2}), |dU| {:.3e}", run.cells.s[at], run.grid.arc_length().get::<uom::si::length::meter>(), rr, worst);
+        }
+        if run.steps % 50 == 0 {
+            let r = run.report();
+            eprintln!("step {}: change {c:.3e} t {:.0} s fRe64 {:.5} before {:.5}", run.steps, bugis::web_demo::platform::now_s() - t0, r.f_re_64, r.f_re_64_before);
+        }
+        if run.steps % 50 == 49 {
+            snap = Some(run.solver.u.internal.as_slice().to_vec());
+        }
+    })?;
+    let steps = run.steps;
+    if let Some(path) = args.iter().find_map(|a| a.strip_prefix("svg=")) {
+        let l = run.grid.arc_length().get::<uom::si::length::meter>();
+        write_dean_svg(&run, r.section_s / l, &format!("De = {:.1} (Re {:.0}, d/D_c {:.4}), s = {:.3} m of {:.3} m, {cells} cells, {scheme:?}", r.dean, r.reynolds, run.flow.curvature_ratio(), r.section_s, l), std::path::Path::new(path))?;
+        eprintln!("wrote {path}");
+    }
+    let s = r.section;
+    println!(
+        "ROW m={lvl} cells={cells} scheme={scheme:?} co={co} tol={tol:e} straight={} Re={:.0} De={:.2} steps={steps} wall_s={:.1} (solve {:.1}) fRe64={:.5} fRe64_before={:.5} dev_ratio={:.5} MG={:.5} cfd/MG={:.5} peak_n={:.3} peak={:.4} max_sec={:.4} core_un={:.4} pair={:.4} sec_cells={} sec_s={:.4}",
+        has("straight"),
+        r.reynolds,
+        r.dean,
+        bugis::web_demo::platform::now_s() - t0,
+        solve_s,
+        r.f_re_64,
+        r.f_re_64_before,
+        r.f_re_64_before / r.f_re_64,
+        r.mishra_gupta,
+        r.f_re_64 / r.mishra_gupta,
+        s.axial_peak_n,
+        s.axial_peak,
+        s.max_secondary,
+        s.core_u_n,
+        s.vortex_pair,
+        s.cells,
+        r.section_s
+    );
+    Ok(())
+}
+
+/// The Dean cross-section of a solved coil as an SVG (for the V&V record):
+/// the layer at arc fraction `f` from the assembled solver mesh's cells
+/// (`engine::Engine::coil_cross`), coil axis to the left, outer wall to the
+/// right, B up; fill u_t/U (grey ramp, labelled), arrows the in-plane
+/// velocity (u_n, u_b), scaled to the largest. CLI glue (file output).
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn write_dean_svg(run: &coil::CoilRun, f: f64, title: &str, path: &std::path::Path) -> Result<(), String> {
+    use outram_foam_appbuilder_lib::cases::helical_coil::frenet_components;
+    let straight = run.grid.straight_grid().mesh().map_err(|e| e.to_string())?;
+    let (mut cross, mut probe) = (Vec::new(), 0);
+    let _ = engine::Engine::coil_cross(&run.grid, &straight, &run.solver.mesh, f, &mut cross, &mut probe);
+    let r = run.grid.radius.get::<uom::si::length::meter>();
+    let u = coil::U_COIL;
+    let (w, h, k) = (640.0, 700.0, 280.0 / r);
+    let (cx, cy) = (320.0, 330.0);
+    let comps: Vec<[f64; 3]> = cross.iter().map(|c| frenet_components(run.solver.u.internal[c.cell], &run.cells.frenet[c.cell])).collect();
+    let umax_t = comps.iter().map(|v| v[0]).fold(0.0_f64, f64::max).max(1e-300);
+    let umax_s = comps.iter().map(|v| (v[1] * v[1] + v[2] * v[2]).sqrt()).fold(0.0_f64, f64::max).max(1e-300);
+    let mut s = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\" font-family=\"sans-serif\">\n<rect width=\"{w}\" height=\"{h}\" fill=\"white\"/>\n");
+    s.push_str(&format!("<text x=\"10\" y=\"20\" font-size=\"13\">{title}</text>\n"));
+    s.push_str("<text x=\"10\" y=\"40\" font-size=\"12\">left: coil axis side (inner, +N) · right: outer wall · up: +B · fill: u_axial/U · arrows: secondary (u_n, u_b)</text>\n");
+    let to = |n: f64, b: f64| (cx - n * k, cy - b * k);
+    let cell_px = 2.0 * 280.0 / (cross.len() as f64).sqrt();
+    for (c, v) in cross.iter().zip(&comps) {
+        let g = (255.0 * (1.0 - 0.85 * v[0].max(0.0) / umax_t)).round() as u8;
+        let pts: Vec<String> = c.polygon.iter().map(|p| { let (x, y) = to(p[0], p[1]); format!("{x:.1},{y:.1}") }).collect();
+        s.push_str(&format!("<polygon points=\"{}\" fill=\"rgb({g},{g},{})\" stroke=\"#888\" stroke-width=\"0.4\"/>\n", pts.join(" "), g.saturating_add(20)));
+    }
+    for (c, v) in cross.iter().zip(&comps) {
+        let n = c.polygon.len() as f64;
+        let (pn, pb) = c.polygon.iter().fold((0.0, 0.0), |a, p| (a.0 + p[0] / n, a.1 + p[1] / n));
+        let (x0, y0) = to(pn, pb);
+        let sc = 0.9 * cell_px / umax_s;
+        let (dx, dy) = (-v[1] * sc, -v[2] * sc);
+        if (dx * dx + dy * dy).sqrt() < 1.0 {
+            continue;
+        }
+        s.push_str(&format!("<line x1=\"{x0:.1}\" y1=\"{y0:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" stroke=\"#c00\" stroke-width=\"1.3\"/>\n", x0 + dx, y0 + dy));
+        let (l, ux, uy) = ((dx * dx + dy * dy).sqrt(), dx, dy);
+        let (hx, hy) = (ux / l * 5.0, uy / l * 5.0);
+        s.push_str(&format!("<polygon points=\"{:.1},{:.1} {:.1},{:.1} {:.1},{:.1}\" fill=\"#c00\"/>\n", x0 + dx, y0 + dy, x0 + dx - hx - 0.5 * hy, y0 + dy - hy + 0.5 * hx, x0 + dx - hx + 0.5 * hy, y0 + dy - hy - 0.5 * hx));
+    }
+    s.push_str(&format!("<text x=\"10\" y=\"{}\" font-size=\"12\">max u_axial = {:.3} U (white 0, dark = max) · longest arrow = {:.3} U</text>\n", h - 40.0, umax_t / u, umax_s / u));
+    s.push_str(&format!("<text x=\"10\" y=\"{}\" font-size=\"12\">solver mesh cells of one layer, drawn in the Frenet (N, B) plane at s; tube radius {:.1} mm</text>\n</svg>\n", h - 20.0, r * 1e3));
+    std::fs::write(path, s).map_err(|e| e.to_string())
+}
+
+/// The drawing rule's images of the coil meshes (gh:#1157): the V&V grid
+/// (m = 3, 3 turns) and the demo's default (20k, 2 turns), from the
+/// assembled `PolyMesh` the solver gets, through `outram_blender`'s mesh
+/// plotter: a vertical slice through the coil axis (every half-turn cut
+/// across), a horizontal plan slice, and zooms onto single tube sections at
+/// several stations. CLI glue (file output); the meshes come from the tested
+/// `coil::CoilSpec::level` and `engine::coil_grid`.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn render_coil(out: &std::path::Path) -> Result<(), String> {
+    use outram_blender::csg::plot::slice::PlotBasis;
+    use outram_blender::unstructured::convert::foam::from_poly_mesh;
+    use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice};
+    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    let mut demo = engine::coil_grid(&engine::Design::coil()).ok_or("no coil")?;
+    demo.axis_origin = [uom::si::f64::Length::new::<uom::si::length::meter>(0.0); 3];
+    for (tag, g) in [("vv_m3", coil::CoilSpec::vv().level(3)), ("demo_20k", demo)] {
+        let poly = g.mesh().map_err(|e| e.to_string())?;
+        let mesh = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
+        let cm = |v: uom::si::f64::Length| v.get::<uom::si::length::meter>() * 100.0;
+        let (rw, rt, h) = (0.5 * cm(g.coil_diameter), cm(g.radius), cm(g.pitch));
+        let height = h * g.turns;
+        let label = format!("{} CELLS ({}x{}x{} LAYERS), D_W {:.0} MM, PITCH {:.0} MM, {} TURNS", g.n_cells(), g.n, g.nr, g.n_layers, 10.0 * 2.0 * rw, 10.0 * h, g.turns);
+        let wide = 2.0 * (rw + rt) + 1.0;
+        let mut shots: Vec<(PlotBasis, [f64; 3], [f64; 2], usize, String, String)> = vec![
+            (PlotBasis::Xz, [0.0, 0.0, 0.5 * height], [wide, height + 2.0 * rt + 1.0], 1000, format!("COIL {label}, X-Z AT Y = 0 (THROUGH THE AXIS)"), "xz_axis".into()),
+            (PlotBasis::Xy, [0.0, 0.0, 0.5 * h + 0.013], [wide, wide], 900, format!("COIL, X-Y PLAN AT Z = {:.2} CM", 0.5 * h + 0.013), "xy_plan".into()),
+        ];
+        // Single tube sections on the plane y = 0 at phi = pi, 2pi, ... (x = -R, +R alternately).
+        let half_turns = (2.0 * g.turns).floor() as usize;
+        for k in 1..=half_turns {
+            let phi = std::f64::consts::PI * k as f64;
+            let x = if k % 2 == 1 { -rw } else { rw };
+            let z = h * phi / (2.0 * std::f64::consts::PI);
+            let s_m = phi * (g.arc_length().get::<uom::si::length::meter>() / (2.0 * std::f64::consts::PI * g.turns));
+            if k == 1 || k == half_turns || k == half_turns / 2 + 1 {
+                shots.push((PlotBasis::Xz, [x, 0.0, z], [2.6 * rt, 2.6 * rt], 700, format!("TUBE SECTION AT PHI = {k} PI (S = {:.3} M), X-Z AT Y = 0 (TILTED BY THE PITCH ANGLE)", s_m), format!("xz_section_{k}pi")));
+            }
+        }
+        for (basis, origin, width, px, title, view) in shots {
+            let py = ((px as f64) * width[1] / width[0]).round() as usize;
+            let sl = MeshSlice { basis, origin, width, pixels: [px, py], colour_by: MeshColourBy::Cell };
+            let img = render_mesh_slice_annotated(&mesh, &sl, &title);
+            let name = format!("{tag}_{view}.png");
+            img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
+            println!("wrote {name}: {} cells, volume {:.6e} m3 (A L = {:.6e})", mesh.n_cells(), mesh.total_volume(), g.straight_grid().polygon_area() * g.arc_length().get::<uom::si::length::meter>());
+        }
+    }
+    Ok(())
+}
+
 /// Natively: the GUI, or a command-line mode. `main` and CLI glue: exempt
 /// from the reaching-test rule; each mode calls tested code
 /// ([`engine::headless`], [`engine::mesh_design`]).
@@ -186,6 +370,25 @@ fn main() -> Result<(), String> {
             let mode = if args.get(3).map(String::as_str) == Some("transient") { engine::Mode::Transient } else { engine::Mode::Steady };
             let d = engine::Design { target_cells: cells, ..engine::Design::default() };
             for l in engine::headless(d, re, mode, 5000)? {
+                println!("{l}");
+            }
+            Ok(())
+        }
+        Some("--coil-run") => coil_run_cli(&args[1..]),
+        Some("--render-coil") => {
+            let out = args.get(1).cloned().unwrap_or_else(|| {
+                concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/helical_coil_dean_gh1157").to_string()
+            });
+            render_coil(std::path::Path::new(&out))
+        }
+        Some("--headless-coil") => {
+            let cells = args.get(1).and_then(|v| v.parse().ok()).unwrap_or(engine::DEFAULT_CELLS);
+            let re = args.get(2).and_then(|v| v.parse().ok()).unwrap_or(200.0);
+            let mut d = engine::Design { target_cells: cells, ..engine::Design::coil() };
+            if let (Some(t), engine::Shape::Coil { turns, .. }) = (args.get(3).and_then(|v| v.parse().ok()), &mut d.shape) {
+                *turns = t;
+            }
+            for l in engine::headless(d, re, engine::Mode::Steady, 20_000)? {
                 println!("{l}");
             }
             Ok(())

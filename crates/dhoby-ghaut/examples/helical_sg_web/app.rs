@@ -16,6 +16,9 @@ use petir::mathf::RealMath;
 
 type HLink = Link<Request, Event>;
 
+/// The resolved single-phase coil section in Foam Studio (gh:#1157), on the
+/// same site (`demos/foam-studio/`).
+pub const COIL_CFD_URL: &str = "../foam-studio/?shape=coil";
 /// Where the V&V record lives, for the panel's link.
 pub const VV_URL: &str = "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/tampines/verification_and_validation/helical_coil_otsg_gh1157.md";
 
@@ -375,6 +378,7 @@ impl HelicalApp {
             ui.label(format!("• {line}"));
         }
         ui.add(egui::Hyperlink::from_label_and_url("V&V record: method, predictions, results", VV_URL).open_in_new_tab(true));
+        ui.add(egui::Hyperlink::from_label_and_url("Resolved 3-D CFD of a coil section (the Dean vortices, friction against Mishra & Gupta) in Foam Studio", COIL_CFD_URL).open_in_new_tab(true));
     }
 
     /// The results grid. GUI drawing (exempt).

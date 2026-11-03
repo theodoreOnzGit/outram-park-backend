@@ -82,11 +82,18 @@ m = 4: 320 × 378 = 120 960.
 - **Dean section** (`cases::helical_coil::dean_section`, the cells within
   half a layer of s = 2.5 L_t): `n/R` of the axial maximum (negative is
   outward), the largest secondary speed `√(u_n² + u_b²)/U`, the mean `u_n/U`
-  of the core (r < R/3; negative is outward), and the vortex-pair sign.
+  of the core (r < R/3; negative is outward), and the vortex-pair sign
+  (negative for the classic pair whose return flows meet at the inner wall;
+  **corrected 2026-11-03 before any V&V run**: the doc comment first said
+  positive, a sign slip in the derivation, found when the regression test's
+  coarse coil gave a negative value and the circulation was re-derived).
 - **Straight-pipe limit:** the same code with D_w = 10 m (1000 d), 0.01 turns
   (L = 31.4 d), pitch 0, at Re = 100 (De = 3.2, Mishra & Gupta +0.2 %), m = 3
   cross-section and Δs = d/3, gradient fit over s ∈ [15 d, 29 d] (past the
-  Durst 5.8 d development length); against 64/Re.
+  Durst 5.8 d development length); against 64/Re. (As run, the window is the
+  code's general rule `[L − w, L − 2d]` with w = min(one turn, L/2), i.e.
+  [15.7 d, 29.4 d]; stated here because it differs from the line above by
+  0.7 d at the start.)
 - **Grid convergence:** m = 2, 3, 4 at Re = 200 (De = 63); observed order
   from the three, as in `laminar_pipe_gh1155.md`.
 - **Dean (1928) small-De asymptote:** not done. It was not read in this
@@ -104,6 +111,250 @@ m = 4: 320 × 378 = 120 960.
 | P6 | upwind ablation, De 126 | f_coil/f_straight **lower** than Gauss linear's by 3 to 15 % (damped secondary flow) |
 | P7 | cost | m = 3, Re = 200: about 400 steps, about 5 min on this 4-CPU host |
 
-## Results
+## Results (2026-11-03)
 
-(Not yet run.)
+Runs: `cargo run --release -p dhoby-ghaut --example foam_studio_web -- --coil-run <m> <Re> [linear|upwind] [straight] [co=<Co>] [tol=<tol>] [svg=<file>]`
+(`examples/foam_studio_web/coil.rs`, `run_to_steady`), each printing one
+`ROW` line; wall times are on the shared 4-CPU host with two to four runs at
+once, so they are indicative only. Every run's inlet/outlet flux balance is
+the `laminar_pipe` boundary set-up's (the demo's headless coil regression
+asserts out/in = 1 to 1e-8). Repeating Re = 100 gave the same `ROW` to every
+printed digit (determinism).
+
+### Straight-pipe limit (P1)
+
+| case | cells | steps | f·Re/64 | predicted |
+|---|---|---|---|---|
+| D_w = 1000 d, m = 3, Re 100 (De 3.2) | 16 920 | 42 (14 s) | **1.01064** | 1.008 to 1.013 ✓ |
+
+The swept mesh reduces to the straight O-grid's answer (gh:#1155's m = 3
+straight grid gave 1.0108; Mishra & Gupta add 0.2 % at De 3.2). This is the
+denominator of the same-grid ratio below.
+
+### Dean-number sweep, m = 3 (50 940 cells), Gauss linear (P2, P3, P4)
+
+| Re | De | Co | steps (wall) | f·Re/64, turn 3 | turn 2 / turn 3 | Mishra & Gupta | CFD / MG | same-grid ratio / MG | predicted CFD / MG |
+|---|---|---|---|---|---|---|---|---|---|
+| 50 | 15.8 | 4 | 49 (108 s) | 1.04338 | 1.00001 | 1.06799 | **0.977** | 0.967 | 1.00 to 1.02 ✗ |
+| 100 | 31.6 | 4 | 73 (144 s) | 1.16616 | 0.99973 | 1.16667 | **1.000** | 0.989 | 1.00 to 1.02 ✓ (at the edge) |
+| 200 | 63.1 | 4 | 150 (208 s) | 1.38521 | 0.99907 | 1.34654 | **1.029** | 1.018 | 1.00 to 1.02 ✗ |
+| 400 | 126 | 1 | not steady, see below | 1.68964 | 0.9976 to 0.9948 | 1.64323 | **1.028** | 1.017 | 0.95 to 1.05 ✓ |
+| 800 | 252 | 1 | not steady, see below | 2.158 to 2.216 | 0.97 to 1.01 | 2.09890 | **1.03 to 1.06** | 1.02 to 1.04 | 0.90 to 0.97 ✗ (wrong sign) |
+
+**Quote:** the CFD / MG column for De ≤ 126, with De 400's caveat; the
+same-grid column removes the O-grid's +1.06 % offset (P1) and is the better
+estimate of the coil effect alone. De = 252 has no converged value.
+
+**Developed (P3):** turn 2 and turn 3 agree to 0.1 % at De ≤ 63 ✓. At
+De = 126 turn 3 is stationary but turn 2 drifts (below); at De = 252 neither is.
+
+**Dean section at s = 2.5 L_t (P4)** (cells of one layer; n/R is quantised
+by the cell size, about 0.15 R at m = 3):
+
+| De | axial max n/R | axial max / U | max secondary / U | core u_n / U | vortex pair |
+|---|---|---|---|---|---|
+| 15.8 | −0.12 | 1.963 | 0.128 | −0.097 | −0.053 |
+| 31.6 | −0.38 | 1.887 | 0.181 | −0.141 | −0.081 |
+| 63.1 | −0.53 | 1.766 | 0.199 | −0.134 | −0.089 |
+| 126 (upwind ablation; the linear run was stopped before a report) | −0.53 | 1.573 | 0.189 | −0.107 | −0.078 |
+| 252 (not converged, step 300) | −0.82 | 1.646 | 0.210 | −0.037 | −0.043 |
+
+Every De: the core flows outward (u_n < 0), the axial maximum is on the outer
+side and moves outward with De, the axial maximum falls below the
+Hagen–Poiseuille 2U, and the return flows meet at the inner wall (pair < 0):
+the Dean vortices. P4 ✓ for the signs and for |n_peak| ≈ 0.1 at De 16; at
+De 252 |n_peak| = 0.82 is above the predicted 0.4–0.6, but that run is not
+converged. Pictures from the solver's cells: `dean_m3_re100.png`,
+`dean_m3_re200.png` (and `.svg`), see "Images".
+
+### Re ≥ 400 does not reach a steady state (P7 and the protocol)
+
+- **At Co 4 neither converged.** Re 400: the steady metric fell to 3.6e-2 by
+  step 150, then grew (7.5e-2 at 250); Re 800: 1.7 at step 200, 9.5 at 300.
+  Both stopped. (Re ≤ 200 converged at Co 4 in 49–150 steps.)
+- **At Co 1, Re 400:** the metric fell to 0.13 at step 250, then grew
+  steadily (2.5 at step 800, ×20 in 550 steps). The largest one-step change
+  sat in turns 1 and 2 (s = 0.22–0.67 m, r/R 0.3–0.8). Turn 3's f·Re/64 was
+  1.69200, 1.68978, 1.68971, 1.68964 at steps 150, 250, 300, 500 and 1.68964
+  to step 800, while turn 2's drifted from 1.68773 to 1.68084 as the
+  disturbance spread. **The quoted 1.68964 is a stationary turn-3 value, not
+  a converged solution** by the record's criterion.
+- **At Co 1, Re 800:** no stationary value; over steps 100–500 turn 3's
+  f·Re/64 moved within 2.158–2.216 and turn 2's within 2.098–2.224; the
+  largest change wandered over turns 2 and 3 (r/R 0.5–0.8).
+- **Not diagnosed.** Laminar coil flow at these De (Re far below Schmidt's
+  9 300) is expected to be steady, so a numerical cause is the first
+  hypothesis: `Gauss linear` as a deferred correction at axial cell Péclet
+  numbers `U Δs/ν` = Re/3 ≈ 130–270. Upwind at Re 400, Co 1 converged in
+  182 steps. Filed as gh:#1172. Nothing was tuned
+  to make these rows pass; they are reported as they came.
+
+### Grid convergence at De = 63 (P5)
+
+| m | cells | steps | f·Re/64 |
+|---|---|---|---|
+| 2 | 15 120 | 292 (98 s) | 1.42231 |
+| 3 | 50 940 | 150 (208 s) | 1.38521 |
+| 4 | 120 960 | 478 (62 min) | 1.37396 |
+| extrapolated (p from the three) | | | **1.3626** |
+
+Monotone; **observed order p = 2.40** (predicted 1 to 2 ✗, a little above);
+m = 3 is 1.66 % above the extrapolated value (predicted within 2 % ✓). The
+extrapolated f_coil/f_straight, 1.3626, is **+1.2 % above Mishra & Gupta**
+(1.3465); dividing by the straight O-grid's grid-limit 64.09/64 (gh:#1155)
+gives 1.3607, +1.1 %. That is the best single number of this record.
+
+### Steady criterion (protocol check)
+
+Re = 200, m = 3 run on to the metric < 1e-4 (292 steps): f·Re/64 = 1.38521,
+the same five digits as at 1e-3 (150 steps). The criterion does not move the
+answer at the precision quoted.
+
+### Convection ablation at De = 126 (P6)
+
+| scheme | Co | steps | f·Re/64 | CFD / MG |
+|---|---|---|---|---|
+| Gauss linear (the record's) | 1 | not steady | 1.68964 | 1.028 |
+| Gauss upwind | 1 | 182, steady | **1.85225** | 1.127 |
+
+Upwind's f is **9.6 % higher**, not lower: **P6 ✗, wrong sign.** The reasoning
+in P6 (upwind damps the secondary flow, so less enhancement) was wrong in
+what it left out: the numerical viscosity also carries axial momentum across
+the section with the secondary flow, steepening the wall gradient, and that
+wins here. The secondary speed did fall (0.189 U against 0.199 U at De 63),
+as P6 assumed. The choice of `Gauss linear` stands for the reason given before
+the runs, and this row shows what the default would have cost: a 13 % miss
+against the correlation instead of 3 %.
+
+### Cost (P7)
+
+m = 3 at Re 200: 150 steps, 208 s with three runs sharing the host (P7: about
+400 steps and 5 min; fewer steps than predicted). Re ≥ 400 never finished
+(above).
+
+### What misses, in one place
+
+- De 15.8 is **2.3 % below** Mishra & Gupta (3.3 % on the same-grid ratio),
+  outside P2's 0 to +2 %; De 63 is 2.9 % above (1.8 % same-grid; +1.2 % in the
+  grid limit). Mishra & Gupta is itself a fit to data; its scatter was not
+  read in this session, so whether a ±3 % difference is inside it is open.
+- Re ≥ 400 is not steady on m = 3 with `Gauss linear` (undiagnosed); De 252
+  has no converged friction factor, and its band lies above Mishra & Gupta
+  where P2 predicted below.
+- P6 had the wrong sign; P5's order is above the predicted range.
+
+## The demo coil (not the V&V grid)
+
+Foam Studio's "Helical coil section" (`examples/foam_studio_web`,
+`engine::Design::coil`, `coil::CoilSpec::for_budget`): the V&V tube and coil
+with **2 turns** at the 20k default, cross-section `(n, n − 2)` with as many
+layers as fit up to 3 per diameter and none longer than d: **8 × 6 × 78
+layers, 19 968 cells** (layers 0.81 d long, against d/3 on the V&V grid; its
+volume is 0.43 % short of A·L from the long chords, measured, against 0.074 %
+for m = 3). Native headless, Re 200: 215 steps, f·Re/64 = **1.3819** on turn
+2 (1.3924 on turn 1, which holds the entrance), Mishra & Gupta 1.3465, the
+axial maximum at n/R = −0.48, core u_n −0.136 U. That agrees with the V&V
+m = 3 value (1.3852) to 0.2 %, so the demo's number is a fair one at De 63.
+**Why 2 turns:** 3 turns at 20k leave layers of 0.9 d (`for_budget` picks
+7 × 5 × 105); with 2 the turn-1/turn-2 difference is 0.8 %, and the m = 3 V&V
+runs show turn 2 developed to 0.1 % at De ≤ 63. Above Re 250 the demo marches
+at Co 1 (`engine::COIL_CO4_MAX_RE`), because Co 4 did not converge there on
+the V&V grid; whether Co 1 converges on the demo grid at Re 400–800 was not
+measured, and on the V&V grid it does not (above).
+
+## Images
+
+In `helical_coil_dean_gh1157/`.
+
+**Mesh** (`cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-coil`,
+from the `PolyMesh` the solver's `FvMesh` is built from, one colour per cell,
+through `outram_blender`'s mesh plotter):
+
+| file | what |
+|---|---|
+| `vv_m3_xz_axis.png`, `demo_20k_xz_axis.png` | the whole coil, cut by the vertical plane through its axis (y = 0): every half-turn crosses it |
+| `vv_m3_xy_plan.png`, `demo_20k_xy_plan.png` | plan view, horizontal cut at mid first turn |
+| `vv_m3_xz_section_{1,4,6}pi.png`, `demo_20k_xz_section_{1,3,4}pi.png` | zoom onto single tube sections on y = 0 at φ = π … (tilted from the true cross-section by the 3.6° pitch angle) |
+
+**Checked by eye (2026-11-03):** the axial cut shows 3 (2) turns as tube
+sections at x = ±5 cm, rising 1 cm per half turn, the inlet and outlet cut in
+half at z = 0 and z = 6 (4) cm; each section is a closed 24-gon (32-gon) on
+the 5 mm circle with a 6 × 6 (8 × 8) core, no gaps, overlaps or folded cells;
+the core square's orientation turns from section to section by −τ s about the
+tube axis (−45.7° at s = 0.630 m, 4π, visible in `vv_m3_xz_section_4pi.png`),
+which is the untwisted frame turning against the Frenet frame, as designed:
+the cells are not twisted between layers, the frame is. The plan view is the
+expected crescent of half a turn either side of φ = π. The printed volumes
+match A·L to −7.4e-4 (V&V) and −4.3e-3 (demo), the measured second-order chord
+shortfall `−0.166 (κΔs)²` (`block_primitives` test). **Not checked:** the
+faces between layers away from the cut planes, the face warping (not
+plotted), and the patch assignment (not coloured; the inlet/outlet flux
+balance and the inlet's normal being −T, asserted in
+`helical_mesh_has_the_swept_volume_and_locates`, cover it).
+
+**Flow:** `dean_m3_re100.{svg,png}`, `dean_m3_re200.{svg,png}` (written by
+`--coil-run … svg=`): the solver's cells of one layer at s = 0.786 m, in the
+Frenet plane, coil axis left, outer wall right, fill u_t/U, arrows the
+secondary velocity. Both show the two Dean cells: the core moving outward,
+the return flow along the upper and lower walls, the axial maximum on the
+outer side.
+
+**Browser** (`browser_phone_390_*.png`, `browser_desktop_1280_*.png`): see
+the next section.
+
+## The browser demo (checks, not V&V)
+
+Full wasm build (`web/foam_studio/build.sh`, 12 MB), served locally on a
+free port, driven by `helical_coil_dean_gh1157/browser_check.js` (gh:#1155's
+script with the coil's URL, `?autostart&shape=coil&cells=20000`) in headless
+Chromium (Playwright's build, SwiftShader software GL) on the shared 4-CPU
+host, with one native V&V run (m = 4) still going. While the worker solves,
+the script taps "+" and drags on the view six times and records every
+animation frame. Report: `helical_coil_dean_gh1157/browser_report_20000.json`.
+
+| viewport | to steady (wall) | steps · last ms/step (worker) | frame interval while solving: median / p95 / max | after: median / max | input round trips |
+|---|---|---|---|---|---|
+| phone 390×844 (touch, DPR 2) | **229 s** | 215 · 777 ms | 83 / 133 / 400 ms | 16.7 / 67 ms | 0.3–1.5 s |
+| desktop 1280×800 | **219 s** | 215 · 725 ms | 16.7 / 16.8 / 517 ms | 16.7 / 117 ms | 0.3–0.7 s |
+
+- **It runs, and converges in the browser to the native answer:** 215 steps,
+  f/f_s 1.382 on the last turn, 1.392 the turn before, Mishra & Gupta 1.347,
+  the same numbers as the native headless run (title, status line and the
+  dock's Dean panel show them).
+- **Phone layout:** the panel opens folded ("Controls »"); + / − / Reset and
+  the orbit / pan toggle sit top right; the bottom dock holds the residual
+  history and the Dean cross-section (coil axis left, outer wall right, colour
+  u_t/U, white arrows the secondary flow) with its numbers beside it.
+  Screenshots: `browser_phone_390_solving.png` (mid-solve, after the zoom
+  taps, while f is still negative from the start-up transient),
+  `browser_phone_390_steady.png`, `browser_desktop_1280_steady.png`.
+- **Responsiveness:** on the desktop the median frame stays at 16.7 ms
+  through the solve. On the phone emulation it is 83 ms while solving and
+  16.7 ms after: the page repaints every 100 ms while a run is going, and at
+  DPR 2 SwiftShader rasterises four times the pixels of the desktop (the coil's
+  ~5 000 wireframe edges plus the Dean panel's ~800 arrow strokes) on CPUs
+  that the worker and a native solve also use. The zoom taps and drags took
+  effect mid-solve. It was not measured on a hardware GPU. The first run of
+  this check, with three native solves on the host, gave 133 ms (phone) and
+  100 ms (desktop) medians and 287–307 s to steady.
+- **Found and fixed during the check:** the font has no ← / → glyphs (the
+  Dean panel's side labels showed boxes), the panel's numbers ran off a phone
+  screen, and the colour bar's label overlapped its end values; all three
+  changed before the second run, which the table reports.
+- **Against the 20k interactive default:** 3.7 min to steady is far from the
+  pipe's 13 s; the coil needs about six times the steps (two turns are 63 d
+  of tube, L/U of 126 s at Co 4) at about three times the cost per step
+  (Gauss linear, the coil report each chunk). Fewer cells (the ~10k button)
+  roughly halves it; the 20k default stays because it is what gives the
+  0.2 % agreement with the V&V grid above.
+
+## Reproduce
+
+```bash
+cargo test --release -p outram-foam-mesh --lib block_primitives
+cargo test --release -p outram-foam-appbuilder-lib --lib helical_coil
+cargo test --release -p dhoby-ghaut --example foam_studio_web coil
+cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --coil-run 3 200 linear
+cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --coil-run 3 100 linear straight
+cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-coil
+```

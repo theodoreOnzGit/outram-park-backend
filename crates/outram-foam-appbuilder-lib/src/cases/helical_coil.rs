@@ -125,10 +125,11 @@ pub struct DeanSection {
     /// the core flowing outward, the Dean vortices' signature.
     pub core_u_n: f64,
     /// Volume-mean `u_b / U` over the cells with `n > 0` and `b > 0`, minus
-    /// that over `n > 0`, `b < 0`: the two vortices' return flow along the
-    /// wall runs inward on both sides and the pair is antisymmetric in `b`,
-    /// so with B along +z this is positive for two counter-rotating cells
-    /// that meet at the inner wall (it is a sign test, not a magnitude).
+    /// that over `n > 0`, `b < 0`. In the classic Dean pair the core flows
+    /// outward, the flow returns inward along the upper and lower walls, and
+    /// the two return flows meet at the inner wall and turn towards `b = 0`:
+    /// `u_b < 0` above the midplane and `> 0` below it on the inner half, so
+    /// this is **negative** for that pair (a sign test, not a magnitude).
     pub vortex_pair: f64,
 }
 

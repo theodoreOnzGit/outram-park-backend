@@ -9,7 +9,7 @@
 //! drawing); its geometry comes from the tested `render` and
 //! `bugis::web_demo::{field, residual}`, and its messages from the tested
 //! `engine`.
-use crate::engine::{Design, Event, Exch, Meshed, Mode, Progress, Request, Section, Shape, Tag, DEFAULT_CELLS, MAX_CELLS, T_COLD_IN, T_HOT_IN, U_IN};
+use crate::engine::{CoilNo, Design, Event, Exch, Meshed, Mode, Progress, Request, Section, Shape, Tag, DEFAULT_CELLS, MAX_CELLS, T_COLD_IN, T_HOT_IN, U_IN};
 use crate::render::{plane_to_3d, project_section, Orbit};
 use bugis::web_demo::dock::{Dock, Edge};
 use bugis::web_demo::field::{self, ColourMap, Scale};
@@ -122,6 +122,12 @@ impl FoamApp {
             app.reynolds = 30.0;
             app.cam = Self::camera_for(&app.design);
         }
+        if bugis::web_demo::platform::query_value(&q, "shape") == Some("coil") {
+            app.design = Design { target_cells: app.design.target_cells, ..Design::coil() };
+            app.reynolds = 200.0;
+            app.probe = 0.9;
+            app.cam = Self::camera_for(&app.design);
+        }
         if bugis::web_demo::platform::query_value(&q, "mode") == Some("transient") {
             app.mode = Mode::Transient;
         }
@@ -217,7 +223,20 @@ impl FoamApp {
                         self.running = false;
                         self.batch_frac = 1.0;
                     }
-                    self.status = if self.is_exchanger() {
+                    self.status = if self.is_coil() && p.coil[CoilNo::F_RE_64].is_finite() {
+                        let c = &p.coil;
+                        format!(
+                            "{} steps · t = {:.0} s · De {:.1} · f/f_straight {:.3} on the last turn ({:.3} the turn before) · Mishra & Gupta {:.3} · {:.0} ms/step{}",
+                            p.steps,
+                            p.time_s,
+                            c[CoilNo::DEAN],
+                            c[CoilNo::F_RE_64],
+                            c[CoilNo::F_RE_64_BEFORE],
+                            c[CoilNo::MISHRA_GUPTA],
+                            p.ms_per_step,
+                            if p.steady { " · steady" } else { "" }
+                        )
+                    } else if self.is_exchanger() {
                         let x = &p.exch;
                         if p.phase == 0 {
                             format!("flow: {} steps · out/in {:.9} · {:.0} ms/step (then the flow is frozen and the temperatures iterated)", p.steps, p.outlet_over_inlet, p.ms_per_step)
@@ -274,6 +293,10 @@ impl FoamApp {
         matches!(self.design.shape, Shape::DoublePipe { .. })
     }
 
+    fn is_coil(&self) -> bool {
+        matches!(self.design.shape, Shape::Coil { .. })
+    }
+
     /// The side panel. GUI (exempt).
     fn side_panel(&mut self, ui: &mut egui::Ui) {
         let mut changed = false;
@@ -282,6 +305,7 @@ impl FoamApp {
             let cyl = matches!(self.design.shape, Shape::Cylinder { .. });
             let bx = matches!(self.design.shape, Shape::Box { .. });
             let ex = self.is_exchanger();
+            let co = self.is_coil();
             if ui.selectable_label(cyl, "Cylinder (pipe)").clicked() && !cyl {
                 self.design = Design { target_cells: self.design.target_cells, ..Design::default() };
                 self.shown = Shown::Speed;
@@ -298,6 +322,13 @@ impl FoamApp {
                 self.design = Design { target_cells: self.design.target_cells, ..Design::exchanger() };
                 self.shown = Shown::Temperature;
                 self.reynolds = 30.0;
+                changed = true;
+            }
+            if ui.selectable_label(co, "Helical coil section").clicked() && !co {
+                self.design = Design { target_cells: self.design.target_cells, ..Design::coil() };
+                self.shown = Shown::Speed;
+                self.reynolds = 200.0;
+                self.probe = 0.9;
                 changed = true;
             }
         });
@@ -326,6 +357,16 @@ impl FoamApp {
                 for (i, n) in ["x", "y", "z"].iter().enumerate() {
                     changed |= mm(ui, &mut centre[i], -200.0, 400.0, n);
                 }
+            }
+            Shape::Coil { tube_radius, coil_diameter, pitch, turns, centre: _ } => {
+                ui.label("Coil");
+                changed |= mm(ui, tube_radius, 3.0, 8.0, "tube radius");
+                changed |= mm(ui, coil_diameter, 40.0, 300.0, "coil diameter D_w");
+                changed |= mm(ui, pitch, 0.0, 60.0, "pitch (rise per turn)");
+                changed |= ui.add(egui::Slider::new(turns, 0.25..=4.0).step_by(0.25).text("turns")).changed();
+                let d = 2.0 * *tube_radius;
+                let dc = *coil_diameter * (1.0 + (*pitch / (std::f64::consts::PI * *coil_diameter)).powi(2));
+                ui.label(RichText::new(format!("d/D_c = {:.4} · De = Re √(d/D_c) = {:.1}", d / dc, self.reynolds * (d / dc).sqrt())).small());
             }
             Shape::DoublePipe { r_tube, wall, r_shell, length, centre } => {
                 ui.label("Scale");
@@ -366,7 +407,9 @@ impl FoamApp {
                 ui.end_row();
             }
         });
-        if !self.is_exchanger() {
+        if self.is_coil() {
+            ui.label(RichText::new("Fixed: inlet at the bottom end (uniform 5 mm/s), outlet at the top (p = 0), no-slip wall. The flow develops from the inlet; the friction factor is measured on the last turn.").small());
+        } else if !self.is_exchanger() {
             ui.label(RichText::new("inlet: uniform 5 mm/s · outlet: p = 0 · walls: no-slip").small());
         }
         ui.separator();
@@ -384,6 +427,7 @@ impl FoamApp {
                 Shape::Cylinder { .. } => "O-grid: a square core and a ring of radial cells; the wall is a polygon on the circle.",
                 Shape::Box { .. } => "One hex block, near-cubic cells.",
                 Shape::DoublePipe { .. } => "Three region meshes, face to face: an O-grid in the tube, a ring for the wall, a ring for the annulus (the same cells around).",
+                Shape::Coil { .. } => "The pipe O-grid swept along the helix on an untwisted (rotation-minimising) frame; no layer is longer than the tube diameter.",
             })
             .small(),
         );
@@ -400,7 +444,14 @@ impl FoamApp {
         }
         ui.separator();
         ui.label(RichText::new("4 · Run").strong());
-        if self.is_exchanger() {
+        if self.is_coil() {
+            ui.add(egui::Slider::new(&mut self.reynolds, 50.0..=800.0).text("Re = U d / ν").logarithmic(true));
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.mode, Mode::Steady, "Steady (Co ≤ 4)");
+                ui.selectable_value(&mut self.mode, Mode::Transient, "Watch it develop (Co ≈ 1)");
+            });
+            ui.label(RichText::new("Convection: Gauss linear (second order), as in the V&V record: upwind's numerical viscosity would damp the Dean vortices. Above Re 250 the steady march runs at Co 1 (at Co 4 it did not converge there), so it takes longer.").small());
+        } else if self.is_exchanger() {
             ui.add(egui::Slider::new(&mut self.reynolds, 10.0..=100.0).text("Re in the tube").logarithmic(true));
             ui.label(RichText::new("Steady: the flows are marched to steady, frozen, then the three temperatures are iterated to steady (chtMultiRegionFoam's loop).").small());
         } else {
@@ -432,7 +483,8 @@ impl FoamApp {
             }
             ui.checkbox(&mut self.show_mesh, "mesh");
         });
-        if ui.add(egui::Slider::new(&mut self.probe, 0.0..=1.0).text("probe and slice, inlet to outlet")).drag_stopped() {
+        let probe_label = if self.is_coil() { "cross-section, inlet to outlet (along the tube)" } else { "probe and slice, inlet to outlet" };
+        if ui.add(egui::Slider::new(&mut self.probe, 0.0..=1.0).text(probe_label)).drag_stopped() {
             self.send(Request::Probe { id: self.next_id, probe: self.probe });
         }
         ui.checkbox(&mut self.pan_mode, "one-finger drag pans (else orbits)");
@@ -449,6 +501,8 @@ impl FoamApp {
                  Hagen–Poiseuille and the Durst et al. (2005) development length in the V&V record laminar_pipe_gh1155.md. \
                  The exchanger adds the energy equation and a port of chtMultiRegionFoam's coupled-temperature interface; \
                  checked against the composite slab, the Graetz Nusselt numbers and ε-NTU in cht_double_pipe_gh1156.md. \
+                 The coil section is checked against Mishra & Gupta (1979)'s laminar coil friction factor, as a function of the \
+                 Dean number, in helical_coil_dean_gh1157.md (the correlation is called from tampines, as in the helical steam-generator demo). \
                  Research, education and V&V only: not for reactor operation, licensing or safety decisions.",
             )
             .small(),
@@ -485,7 +539,7 @@ impl FoamApp {
             };
             for (sec, v) in [(&me.axial, ax), (&me.cross, cr)] {
                 if sec.polygons.len() == v.len() {
-                    let polys = project_section(&cam, rect, sec.axis, sec.offset, &sec.polygons);
+                    let polys = project_section(&cam, rect, sec);
                     let vv: Vec<f64> = v.iter().map(|x| f64::from(*x)).collect();
                     field::paint(&painter, &polys, &vv, &s);
                 }
@@ -572,7 +626,23 @@ impl FoamApp {
                 }
             })
             .collect();
-        if self.is_exchanger() {
+        if self.is_coil() {
+            let r2: Vec<Rect> = if wide {
+                let w = body.width() / 3.0;
+                vec![
+                    Rect::from_min_size(body.min, Vec2::new(w - 6.0, body.height() - 40.0)),
+                    Rect::from_min_size(Pos2::new(body.left() + w, body.top()), Vec2::new(2.0 * w, body.height() - 40.0)),
+                ]
+            } else {
+                let h = body.height() - 40.0;
+                vec![
+                    Rect::from_min_size(body.min, Vec2::new(body.width(), 0.32 * h - 4.0)),
+                    Rect::from_min_size(Pos2::new(body.left(), body.top() + 0.32 * h), Vec2::new(body.width(), 0.68 * h)),
+                ]
+            };
+            residual::paint(&painter, r2[0], &self.residuals, true, "time [s] (steady when the blue line < 1e-3)", 11.0);
+            self.dean_view(&painter, r2[1]);
+        } else if self.is_exchanger() {
             residual::paint(&painter, rects[0], &self.residuals, true, "step (flow to < 1e-3, then T to < 1e-7)", 11.0);
             residual::paint(&painter, rects[1], &self.probe_hist, false, "step", 11.0);
             self.exchanger_numbers(&painter, rects[2]);
@@ -607,6 +677,78 @@ impl FoamApp {
         let rows = (((rect.height() - 8.0) / 18.0).floor().max(1.0)) as usize;
         for (i, l) in lines.iter().take(rows).enumerate() {
             painter.text(rect.left_top() + Vec2::new(8.0, 8.0 + 18.0 * i as f32), egui::Align2::LEFT_TOP, l, f.clone(), Color32::from_gray(220));
+        }
+    }
+
+    /// The coil's cross-section as Dean drew it: the coil axis to the left,
+    /// the outer wall to the right, B up; colour u_t/U, arrows the secondary
+    /// velocity (u_n, u_b), and the friction factor against Mishra & Gupta.
+    /// GUI drawing (exempt); the numbers come from the tested engine.
+    fn dean_view(&self, painter: &egui::Painter, rect: Rect) {
+        painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+        let f = egui::FontId::proportional(11.0);
+        let (Some(me), Some(p), Shape::Coil { tube_radius, .. }) = (&self.mesh, &self.last, self.design.shape) else {
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Dean cross-section: run the coil", f, Color32::GRAY);
+            return;
+        };
+        let sec = &me.cross;
+        if sec.polygons.len() != p.cross_ua.len() || p.cross_sec.len() != 2 * p.cross_ua.len() {
+            return;
+        }
+        // Text beside the picture when there is room for ~22 characters.
+        let text_w = if rect.width() > 1.4 * rect.height() || rect.width() > 330.0 { (0.45 * rect.width()).min(190.0) } else { 0.0 };
+        let pic = Rect::from_min_max(rect.min + Vec2::new(8.0, 18.0), Pos2::new(rect.max.x - 8.0 - text_w, rect.max.y - 30.0));
+        let k = 0.5 * pic.width().min(pic.height()) / tube_radius as f32;
+        let c = pic.center();
+        // (n, b) to screen: outer (−n) to the right, b up.
+        let to = |n: f32, b: f32| Pos2::new(c.x - n * k, c.y - b * k);
+        let ut: Vec<f64> = p.cross_ua.iter().map(|v| f64::from(*v) / U_IN).collect();
+        let scale = Scale::from_values(&ut, ColourMap::Batlow);
+        let polys: Vec<Vec<Pos2>> = sec.polygons.iter().map(|q| q.iter().map(|v| to(v[0], v[1])).collect()).collect();
+        field::paint(painter, &polys, &ut, &scale);
+        let umax = (0..ut.len()).map(|i| (p.cross_sec[2 * i].powi(2) + p.cross_sec[2 * i + 1].powi(2)).sqrt()).fold(0.0_f32, f32::max).max(1e-12);
+        let cell = (pic.width().min(pic.height()) / (sec.polygons.len() as f32).sqrt()).max(4.0);
+        for (i, q) in sec.polygons.iter().enumerate() {
+            let nq = q.len().max(1) as f32;
+            let (cn, cb) = q.iter().fold((0.0, 0.0), |a, v| (a.0 + v[0] / nq, a.1 + v[1] / nq));
+            let (un, ub) = (p.cross_sec[2 * i], p.cross_sec[2 * i + 1]);
+            let a = to(cn, cb);
+            let d = Vec2::new(-un, -ub) / umax * 1.2 * cell;
+            if d.length() < 1.0 {
+                continue;
+            }
+            let b = a + d;
+            let st = Stroke::new(1.2, Color32::WHITE);
+            painter.line_segment([a, b], st);
+            let h = d.normalized() * 3.5;
+            painter.line_segment([b, b - h + Vec2::new(-h.y, h.x) * 0.6], st);
+            painter.line_segment([b, b - h - Vec2::new(-h.y, h.x) * 0.6], st);
+        }
+        painter.text(Pos2::new(pic.left(), rect.top() + 4.0), egui::Align2::LEFT_TOP, "< coil axis (inner side)", f.clone(), Color32::GRAY);
+        painter.text(Pos2::new(pic.right(), rect.top() + 4.0), egui::Align2::RIGHT_TOP, "outer wall >", f.clone(), Color32::GRAY);
+        let bar = Rect::from_min_size(Pos2::new(rect.left() + 8.0, rect.bottom() - 26.0), Vec2::new((pic.width()).min(200.0), 14.0));
+        field::colour_bar(painter, bar, &scale, "u_axial/U", 10.0);
+        let cn = &p.coil;
+        let lines = [
+            format!("De {:.1}", cn[CoilNo::DEAN]),
+            format!("f/f_s {:.3} last turn", cn[CoilNo::F_RE_64]),
+            format!("f/f_s {:.3} turn before", cn[CoilNo::F_RE_64_BEFORE]),
+            format!("Mishra-Gupta {:.3}", cn[CoilNo::MISHRA_GUPTA]),
+            format!("axial max n/R {:+.2}", cn[CoilNo::PEAK_N]),
+            format!("secondary {:.2} U", cn[CoilNo::MAX_SECONDARY]),
+            format!("core u_n {:+.3} U", cn[CoilNo::CORE_UN]),
+            "white arrows: secondary flow".to_string(),
+            "n/R < 0: towards outer wall".to_string(),
+        ];
+        let (x0, y0) = if text_w > 0.0 { (pic.right() + 12.0, rect.top() + 22.0) } else { (rect.left() + 8.0, rect.top() + 18.0) };
+        if text_w > 0.0 || rect.height() > 260.0 {
+            for (i, l) in lines.iter().enumerate() {
+                let y = if text_w > 0.0 { y0 + 16.0 * i as f32 } else { rect.top() + 18.0 + 14.0 * i as f32 };
+                if text_w == 0.0 && i > 3 || y > rect.bottom() - 12.0 {
+                    break;
+                }
+                painter.text(Pos2::new(x0, y), egui::Align2::LEFT_TOP, l, f.clone(), Color32::from_gray(220));
+            }
         }
     }
 
@@ -646,15 +788,19 @@ impl FoamApp {
 
 /// The outline of each polygon of a section. GUI drawing (exempt).
 fn outline(painter: &egui::Painter, cam: &Orbit, rect: Rect, sec: &Section, c: Color32) {
-    for p in project_section(cam, rect, sec.axis, sec.offset, &sec.polygons) {
+    for p in project_section(cam, rect, sec) {
         if p.len() >= 3 {
             painter.add(egui::Shape::closed_line(p, Stroke::new(0.6, c)));
         }
     }
 }
 
-/// The probe's 3-D point: the cross-section's plane on the shape's axis.
+/// The probe's 3-D point: the cross-section's plane on the shape's axis
+/// (the frame's origin, on the centreline, for the coil).
 fn probe_point(d: &Design, cross: &Section) -> [f64; 3] {
+    if let Some(f) = &cross.frame {
+        return [f[0], f[1], f[2]];
+    }
     let [lo, hi] = d.shape.bounds();
     let c = [0, 1, 2].map(|i| 0.5 * (lo[i] + hi[i]));
     let (a, b) = match cross.axis {

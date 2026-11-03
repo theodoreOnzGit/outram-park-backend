@@ -3,6 +3,7 @@
 //! secondary-drag (or the Pan toggle, or two fingers) to pan, wheel or pinch
 //! to zoom, with the + / − / Reset buttons always on the view
 //! (mobile-first rule). Pure geometry, tested; the painting is in `app.rs`.
+use crate::engine::Section;
 use egui::{Pos2, Rect, Vec2};
 
 /// World up for the camera: +y, so a pipe along z lies across the screen.
@@ -153,14 +154,24 @@ pub fn plane_to_3d(axis: u8, offset: f64, a: f64, b: f64) -> [f64; 3] {
     }
 }
 
+/// A point of a section in 3-D from its in-plane coordinates: through the
+/// section's frame when it has one (the coil's cross-section), else
+/// [`plane_to_3d`].
+pub fn section_point(sec: &Section, a: f64, b: f64) -> [f64; 3] {
+    match &sec.frame {
+        Some(f) => [0, 1, 2].map(|i| f[i] + a * f[3 + i] + b * f[6 + i]),
+        None => plane_to_3d(sec.axis, sec.offset, a, b),
+    }
+}
+
 /// Every polygon of a section projected to the screen; a polygon with a
 /// vertex behind the eye is dropped (an empty entry keeps the cell order).
-pub fn project_section(cam: &Orbit, rect: Rect, axis: u8, offset: f64, polys: &[Vec<[f32; 2]>]) -> Vec<Vec<Pos2>> {
-    polys
+pub fn project_section(cam: &Orbit, rect: Rect, sec: &Section) -> Vec<Vec<Pos2>> {
+    sec.polygons
         .iter()
         .map(|p| {
             p.iter()
-                .map(|q| cam.project(rect, plane_to_3d(axis, offset, f64::from(q[0]), f64::from(q[1]))))
+                .map(|q| cam.project(rect, section_point(sec, f64::from(q[0]), f64::from(q[1]))))
                 .collect::<Option<Vec<Pos2>>>()
                 .unwrap_or_default()
         })
@@ -218,9 +229,13 @@ mod tests {
         assert_eq!(plane_to_3d(2, 1.0, 2.0, 3.0), [2.0, 3.0, 1.0]);
         let c = Orbit::new([0.0; 3], 0.05);
         let polys = vec![vec![[0.0, 0.0], [0.01, 0.0], [0.0, 0.01]]];
-        let s = project_section(&c, rect(), 2, 0.0, &polys);
+        let mut sec = Section { axis: 2, offset: 0.0, polygons: polys, frame: None };
+        let s = project_section(&c, rect(), &sec);
         assert_eq!(s.len(), 1);
         assert_eq!(s[0].len(), 3);
         assert_eq!(s[0][0], rect().center());
+        // A framed section: origin + a e1 + b e2.
+        sec.frame = Some([1.0, 2.0, 3.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0]);
+        assert_eq!(section_point(&sec, 0.5, 0.25), [1.25, 2.0, 3.5]);
     }
 }
