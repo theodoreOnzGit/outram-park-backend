@@ -11,7 +11,32 @@ gh:#1148 closures `htgr_closures`. **Tests:** `src/htr10_rz/tests.rs` (unit
 checks), `tests/htr10_rz_solid.rs` (drawings, cases, convergence,
 sensitivities). Measured 2026-11-03, `cargo test --release`, Rust 1.99.1.
 
-**Headline.** With the bed's volume-mean temperature at 950 K, stagnant
+> **CORRECTED 2026-11-03 (gh:#1173): the default changed, every number
+> below that is not re-stated here is the radiation-only record.** The RPV
+> side wall now carries natural convection of the cavity air beside the
+> radiation (MacGregor & Emery 1969 enclosure correlation; `model.rs`,
+> ablation `without_cavity_convection`). Re-measured on the 5 cm base,
+> `cargo test --release -p outram-foam-appbuilder-lib --test htr10_rz_solid`:
+>
+> | Case | RCCS kW (radiation only -> with convection) | in kW | hottest | RPV r 214, z 90 |
+> |---|---|---|---|---|
+> | A-MEAN950 Breitbach | ~~102.53~~ **105.07** (+2.5 %) | ~~112.59~~ 113.98 | 1276.0 K | ~~178.3~~ 161.6 deg C |
+> | A-MEAN950 ZBS | ~~127.15~~ **130.56** | ~~139.17~~ 141.26 | 1244.5 K | 182.0 deg C |
+> | A-HELD Breitbach | ~~235.40~~ **242.34** | ~~255.20~~ 260.20 | 950.0 K | 251.6 deg C |
+> | A-DECAY 200 kW Breitbach | ~~183.84~~ 185.71 | 200.00 | ~~1557.9~~ **1555.1 K** | 221.7 deg C |
+> | A-DECAY ZBS / Kugeler 2017 | 185.70 / 185.71 | 200.00 | ~~1433.2 / 1577.1~~ 1429.4 / 1574.0 K | 221.6 / 221.7 deg C |
+> | A-MEAN950 RCCS-SHIELD | ~~94.51~~ 100.19 | 111.24 | - | 194.4 deg C |
+> | A-MEAN950 HEADS-ADIABATIC | ~~111.92~~ 113.46 | 113.46 | - | 162.3 deg C |
+>
+> Predicted before the run (`crates/nee_soon/verification_and_validation/htr10_rz_transients/README.md`
+> Sec 7): A-MEAN950 total +2 to +5 % (measured **+1.2 %**, a miss, low);
+> A-DECAY hottest 5-15 K cooler (measured **-2.8 K**, a miss, smaller).
+> The RPV wall cools by 17-21 K, but the core temperatures hardly move:
+> the in-vessel path, not the wall, limits the duty. Against htgr_sim_v1's
+> 254.0 kW the A-MEAN950 RCCS duty is now -58.6 % (Breitbach) / -48.6 %
+> (ZBS); against Hu's 206 kW -49.0 % / -36.6 %.
+
+**Headline (radiation only, before gh:#1173).** With the bed's volume-mean temperature at 950 K, stagnant
 (the `htgr_sim_v1` instrument), this 2-D model carries **102.5 kW** to the
 RCCS (112.6 kW in all) under Breitbach, and **127.2 kW** (139.2 kW) under
 ZBS: **-60 % / -50 % against the htgr_sim_v1 chain's 254.0 kW**, and
@@ -293,6 +318,21 @@ Every Fig 2.5 interval is split into cells of at most `h`.
 The 5 cm base is within 0.3 % (duty) and 0.2 K (peak) of the extrapolated
 values.
 
+**Re-measured 2026-11-03 with the cavity convection (gh:#1173)**, the
+table above being the radiation-only record:
+
+| h | cells | A-MEAN950 RCCS kW | A-HELD RCCS kW | A-DECAY hottest K |
+|---|---|---|---|---|
+| Fig 2.5 itself | 819 | 102.82 | 235.91 | 1556.5 |
+| 10 cm | 3 729 | 104.70 | 241.47 | 1555.0 |
+| 5 cm (base) | 11 770 | 105.07 | 242.34 | 1555.11 |
+| 2.5 cm | 41 580 | 105.25 | 242.82 | 1555.03 |
+| 1.25 cm | 153 450 | 105.33 | 243.02 | 1554.99 |
+| Richardson (5/2.5/1.25) | | 105.39 (order 1.23) | 243.17 (order 1.27) | 1554.94 (order 0.94) |
+
+The same orders and the same 0.3 % / 0.2 K distance of the 5 cm base from
+the extrapolated values.
+
 The observed order is about 1, not the scheme's 2. That fits two
 features of the model:
 
@@ -320,8 +360,13 @@ features of the model:
   above). Fig 2.5 was not overlaid.
 - **Missing transport.**
   - There is no natural convection: neither in the helium cavities, nor
-    inside the bed, nor in the air cavity.
-  - The air cavity also carries no air conduction.
+    inside the bed, ~~nor in the air cavity~~ (**CORRECTED 2026-11-03,
+    gh:#1173**: the air cavity has it now, beside the radiation; the
+    helium cavities and the bed still do not here; the bed has it in the
+    gh:#1151 transient core).
+  - ~~The air cavity also carries no air conduction.~~ **CORRECTED
+    2026-11-03 (gh:#1173):** conduction across the air gap is the
+    convection correlation's floor (`Nu_L >= 1`).
   - The insulation is not modelled. Its properties are Unknown.
 - **Homogenisation.** The channel homogenisation is parallel-path, which is
   an upper bound across the channels. It includes no radiation inside the

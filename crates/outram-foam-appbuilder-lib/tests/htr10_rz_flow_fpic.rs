@@ -523,9 +523,11 @@ fn fpic_base_case_thermocouples_and_drawings() {
     pin("RMS residual K", ours.rms, PIN_RMS_K, 0.1);
 }
 
-const PIN_OUTLET_C: f64 = 689.27;
-const PIN_MAX_FUEL_C: f64 = 912.6;
-const PIN_RMS_K: f64 = 49.4;
+// Re-measured 2026-11-03 with RPV-cavity natural convection ON by default
+// (gh:#1173); radiation-only record: 689.27, 912.6, 49.4.
+const PIN_OUTLET_C: f64 = 688.75;
+const PIN_MAX_FUEL_C: f64 = 912.0;
+const PIN_RMS_K: f64 = 49.8;
 
 /// One-at-a-time sensitivities of the FPIC case (D3, D4, D5, the brick
 /// ablation, the pebble rule, the flow and the mesh).
@@ -594,11 +596,13 @@ fn brick_ablation_in_the_stagnant_mean950_case() {
         100.0 * (out[1] - out[0]) / gap,
         gap
     );
-    pin("A-MEAN950 base RCCS kW (gh:#1149 record)", out[0], 102.53, 0.11);
+    // 105.07 since gh:#1173 (cavity convection ON); 102.53 radiation only.
+    pin("A-MEAN950 base RCCS kW (gh:#1149 record)", out[0], 105.07, 0.11);
     pin("A-MEAN950 brick-30 RCCS kW", out[1], PIN_BRICK30_KW, 0.12);
 }
 
-const PIN_BRICK30_KW: f64 = 110.15;
+// 113.02 since gh:#1173 (cavity convection ON); 110.15 radiation only.
+const PIN_BRICK30_KW: f64 = 113.02;
 
 /// Mesh study of the FPIC case at 2.5 cm (41 580 cells), against the 5 cm
 /// base and the 10 cm / Fig 2.5 meshes of [`fpic_sensitivities`]. Behind the

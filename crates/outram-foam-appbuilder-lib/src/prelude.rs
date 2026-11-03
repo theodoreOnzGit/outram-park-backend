@@ -73,7 +73,7 @@ pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerMode
 
 // R-Z solid conduction with radiation (new work, gh:#1149)
 pub use crate::genfoam::thermal_hydraulics::solid_conduction::{
-    AxisEdges, ConductivityModel, GapConductance, HeatCapacityModel, PropertyModel, RegionGap,
+    AxisEdges, ConductivityModel, EnclosureNaturalConvection, GapConductance, HeatCapacityModel, PropertyModel, RegionGap,
     RegionMap, RzBoundaries, RzGeometry, RzMesh, RzPatch, RzRect, SolidBoundary,
     SolidConductionField, SolidRegion as RzSolidRegion,
 };

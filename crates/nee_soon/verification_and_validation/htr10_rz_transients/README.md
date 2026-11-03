@@ -138,10 +138,20 @@ with their own inlet temperatures and flows; no LOFC or CRW. Not compared.
 else is reported, not gated.
 
 **Numerical checks.** Core time step halved (`DT-HALF`: 0.5 / 2.5 s); mesh
-15 / 20 / 30 cm (`rz_lofc_mesh_check`); energy conservation and the
+~~15 / 20 / 30 cm~~ **30 / 20 / 15 / 10 cm** (`rz_lofc_mesh_check`; the
+10 cm mesh since gh:#1175, Sec 3.3.1); energy conservation and the
 buoyancy ablation in the appbuilder unit tests.
 
 ## 3. Results (2026-11-03, `cargo test --release -p nee_soon --lib htr10_th_transient`)
+
+> **CORRECTED 2026-11-03 (gh:#1173, gh:#1174): two defaults changed after
+> this section was written** (RPV-cavity air convection; the moderator
+> coefficient on all pebble graphite with a dummy-pebble node). The tables
+> of Sec 3 are the part B record as run; the same cases under the current
+> defaults are in **Sec 9** (headline: re-criticality ~~7616 s~~ 7426 s,
+> P(100 s) ~~0.162~~ 0.170, CRW first peak ~~158.4 %~~ 154.4 % at 22 s,
+> late power 109 kW unchanged). The plots in this folder show the current
+> base.
 
 ### 3.1 Initial state and natural circulation (TH only, power as input)
 
@@ -257,14 +267,22 @@ bed the heat goes.
 | DT-HALF (core step 0.5 / 2.5 s) | 288 s | -370 pcm @ 3060 s | 7561 s | 8457 s | 21.9 % @ 8645 s | 109 kW | 0.093 kg/s |
 | MESH-30CM (1210 cells) | 288 s | -370 pcm @ 3075 s | 7616 s | 8514 s | 22.4 % @ 8705 s | 109 kW | 0.093 kg/s |
 | MESH-15CM (2136 cells) | 287 s | -408 pcm @ 3350 s | 7876 s | 8744 s | 23.6 % @ 8930 s | 122 kW | 0.098 kg/s |
-| MESH-10CM | **failed**: the gas-flow Picard stalls at a relative change 7.0e-7 against its 1e-7 tolerance (also with 1000 passes instead of 200, tried and reverted) | | | | | | |
+| ~~MESH-10CM~~ | ~~**failed**: the gas-flow Picard stalls at a relative change 7.0e-7 against its 1e-7 tolerance (also with 1000 passes instead of 200, tried and reverted)~~ **CORRECTED 2026-11-03 (gh:#1175)**: runs; result in Sec 3.3.1 | | | | | | |
+| MESH-10CM (3729 cells, gh:#1175) | 287 s | -448 pcm @ 3710 s | 8206 s | 9044 s | 25.1 % @ 9225 s | 142 kW | 0.098 kg/s |
 
 Reading it:
 
 - **Which numbers to quote:** RZ-BASE. The numerical uncertainty is
-  ~+-60 s on the re-criticality from the time step and ~+260 s from 20 to
+  ~+-60 s on the re-criticality from the time step and ~~~+260 s from 20 to
   15 cm; neither touches the ~3400 s miss. The 10 cm mesh does not run
-  (unresolved; the gas Picard's convergence measure has a floor there).
+  (unresolved; the gas Picard's convergence measure has a floor there).~~
+  **CORRECTED 2026-11-03 (gh:#1175):** the mesh is **not converged**: from
+  20 to 10 cm the re-criticality moves **+590 s** (7616 -> 8206 s) and the
+  late power **+33 kW** (109 -> 142 kW), and the steps grow (Sec 3.3.1).
+  The mesh error does not close the re-criticality miss (it widens it, to
+  ~4100 s at 10 cm) but it is a third of the late-power gap. RZ-BASE stays
+  at 20 cm so every case in this record compares at one resolution; the
+  10 cm numbers are the better estimate of the converged answer.
 - **The bed conductivity is the strongest physical lever** (ZBS: -2280 s,
   164 kW late power), then xenon (-1060 s), then the reflector weighting
   (-775 s). None is a free parameter and none is picked because it is
@@ -275,6 +293,74 @@ Reading it:
 - **The fuel-zone lag is not the short-term cause**: removing it makes the
   1 % time 9 s *slower* (the lag holds fuel heat away from the moderator
   coefficient for a few seconds).
+
+### 3.3.1 Mesh study and the 10 cm gas Picard (gh:#1175, 2026-11-03)
+
+**The failure, diagnosed before fixing.** On the 10 cm mesh the gas-flow
+Picard (`flow::solve_gas`) failed at the first step with the loop stopped
+(a reproducer is `gas_picard_converges_on_the_10cm_mesh_with_the_loop_stopped`,
+12 s of coastdown then stopped). Its convergence measure was the per-cell
+change of the mass flux `|dG| / max(|G|, 1e-3 kg/(m^2 s))`. The residual
+history of that step:
+
+- passes 1-30: geometric fall, factor ~0.52 per pass (the 0.5 relaxation),
+  from 2.0 to 3.1e-7: **no period-2 oscillation**, no Rayleigh-Darcy limit
+  cycle as in the plena of gh:#1150;
+- passes 31-200: a random walk between 1.0e-7 and 7.0e-7, the cell that
+  sets the maximum hopping between unrelated cells (hot-plenum-side open
+  volume, bottom-reflector channels): **a floor**.
+
+Two sources, measured on that step: in the open volumes the change was 1-3
+times `T_f eps (|p_a| + |p_b|) / A_f`, the flux error of a single rounding
+of the ~63 Pa hydrostatic pressure on a low-resistance face (round-off);
+in the laminar bottom-reflector channels (`Re ~ 1`) the flux, ~2e-4
+kg/(m^2 s), is the difference of pressures ~1e4 times the column's own
+drop, so the CG's 1e-13 relative residual leaves ~5e-10 of noise, read
+against the 1e-3 floor as up to 7e-7. Both are noise in `G` in cells
+whose resistance does not depend on `G` (laminar limit, `f |G|` constant),
+so they cannot be iterated away: raising the pass cap to 1000 (tried
+before this change) could not help. The 20 cm mesh passed only because
+its faces are wider (smaller transmissibility, less noise).
+
+**The fix: measure what is iterated.** The Picard iterates
+`G -> R(|G|) -> p -> G` and the pressure solve is linear given `R`, so the
+convergence measure is now the relative change of the cell resistances,
+`max |R(G_new) - R(G_old)| / R(G_old)`, at the **same 1e-7 tolerance**
+(`flow::resistance_change`). Where `R` depends on `G` (turbulent channels,
+the KTA bed) `|dln R / dln G| <= 1`, so this is no looser there; in one
+coastdown step it was the stricter of the two measures throughout. Result
+on the reproducer: 27 passes at the first stopped step, 13-19 per step
+after; on the 20 cm mesh RZ-BASE is unchanged to every printed digit
+(7616 s, 109 kW, 22.4 % at 8705 s), and so is MESH-30CM.
+
+**The mesh study** (`rz_lofc_mesh_check`, RZ-BASE with only the largest
+cell changed; Fig 2.5 lines kept, each interval split into
+`ceil(length / max)` cells):
+
+| max cell | cells | in the bed (r x z) | to 1 % | min rho | rho = 0 | first peak | mean P, last 30 min | wall |
+|---|---|---|---|---|---|---|---|---|
+| 30 cm | 1210 | Fig 2.5: 6-14 x 18 cm | 288 s | -370 pcm @ 3075 s | 7616 s | 22.4 % @ 8705 s | 109 kW | 48 s |
+| 20 cm (RZ-BASE) | 1452 | Fig 2.5: 6-14 x 18 cm | 288 s | -370 pcm @ 3080 s | 7616 s | 22.4 % @ 8705 s | 109 kW | 53 s |
+| 15 cm | 2136 | 6-14 x 9 cm | 287 s | -408 pcm @ 3350 s | 7876 s | 23.6 % @ 8930 s | 122 kW | 81 s |
+| 10 cm | 3729 | 5-10 x 9 cm | 287 s | -448 pcm @ 3710 s | 8206 s | 25.1 % @ 9225 s | 142 kW | 163 s |
+| 5 cm (one extra try) | 11 770 | - | **failed**: the steady solid-gas outer iteration (`solve_steady`, 0.5 relaxation) did not converge in 400 passes (last pass: 5 solid, 22 gas Picard passes); not diagnosed | | | | | 112 s |
+
+**Convergence statement.** 30 and 20 cm are the same discretisation in the
+bed (every Fig 2.5 bed interval is under 20 cm), and they agree to 1 s:
+outside the bed, refining the reflectors from 30 to 20 cm changes nothing
+measurable. In the bed the three distinct meshes refine different
+directions (20 -> 15 cm halves the bed's axial 18 cm intervals; 15 -> 10 cm
+halves its radial ones), so they are **not** a geometric sequence and no
+Richardson extrapolation or observed order can be formed from them. What
+the numbers do show: every metric after the minimum moves the same way on
+both refinements, and the steps do not shrink (re-criticality +260 s then
++330 s; late power +13 then +20 kW; minimum -38 then -40 pcm). **The
+20 cm results are not mesh-converged; the discretisation error of
+RZ-BASE is at least -590 s on the re-criticality and -33 kW on the late
+power, with the converged values beyond the 10 cm ones.** The short-term
+metrics are converged (1 % time 288 / 287 / 287 s). A uniform-ratio
+sequence (e.g. 20 / 10 / 5 cm with every interval split) needs the 5 cm
+steady state to converge first.
 
 ### 3.4 The too-fast short-term fall (item 4)
 
@@ -294,7 +380,13 @@ homogeneous bed gives fuel-pebble shells and dummy pebbles one
 temperature; in the plant the dummies (43 % of the mixed zone) heat only
 through contact, radiation and gas, so the moderator term lags the fuel.
 Predicted sign: slower fall and a later, higher CRW peak. Magnitude
-Unknown; it needs a two-temperature bed.
+Unknown; it needs a two-temperature bed. **TESTED 2026-11-03 (gh:#1174,
+Sec 8):** the two-temperature bed exists now (default); with the moderator
+read on all the pebble graphite the dummy lag moves P(100 s) by -3 % and
+the CRW peak by -2.6 points (an energy argument predicted ~0), so it is
+not the cause. It does act as stated (+12 %, CRW 175 % at 32 s) only if
+the coefficient leaves the fuel zones' graphite out (`MOD-OUTSIDE-FZ`).
+The audit found that reading in the part B model and replaced it.
 
 ### 3.5 Neutron source (item 4)
 
@@ -347,10 +439,29 @@ reflector rise matches. Plots: `rz_crw_power_short.png`,
    m^2 RPV side at a ~100-150 K difference is **45-90 kW**, more removal ->
    earlier re-criticality and a higher plateau. Needs a combined
    radiation + convection boundary (the field takes one condition per
-   patch). Not tuned, not tested.
-2. Short-term fall and CRW peak (3.4): dummy-pebble lag hypothesis untested.
+   patch). Not tuned, not tested. **TESTED 2026-11-03 (gh:#1173, Sec 7):**
+   the convection is now in the model (default, derived `h` 1.9-2.5
+   W/(m^2 K)) and adds **~5 kW**, not 45-90 kW (that estimate held the RPV
+   temperature fixed; the in-vessel path limits the sink); re-criticality
+   +15 s, late power +0 to +2 kW. **The hypothesis is ruled out as the
+   cause; the gap stays open.** The largest movement seen is numerical:
+   109 -> 142 kW of late power from 20 to 10 cm cells (Sec 3.3.1).
+2. ~~Short-term fall and CRW peak (3.4): dummy-pebble lag hypothesis untested.~~
+   **UPDATED 2026-11-03 (gh:#1174, Sec 8):** kinetics inputs audited
+   (`Lambda`, groups ruled out); moderator reading corrected to all pebble
+   graphite and the dummy lag modelled (both default). LOFC P(100 s)
+   0.162 -> 0.170 (measured 0.204); CRW first peak 158 -> 154 % at 22 s
+   (measured 216-241 % at 30-35 s). **Both misses remain.** Open: which
+   graphite the -16.2 pcm/K coefficient belongs to (MOD-OUTSIDE-FZ gives
+   175 % at 32 s; measurable with `htr10_rmc::zones`), the ex-core signal,
+   the decay-heat history.
 3. Riser loop and plena buoyancy not represented (3.1).
-4. The 10 cm mesh's gas Picard does not converge (3.3).
+4. ~~The 10 cm mesh's gas Picard does not converge (3.3).~~ **RESOLVED
+   2026-11-03 (gh:#1175):** a floor in the convergence measure, not a
+   non-converging iteration; measured on the resistances now (3.3.1).
+   **New, from the same study:** the 20 cm mesh is not converged (-590 s,
+   -33 kW against 10 cm, steps not shrinking), and the 5 cm steady
+   solid-gas outer iteration does not converge in 400 passes (3.3.1).
 5. Thermocouple positions are read from a schematic (Uncertain); BR pairing
    chosen from the initial readings.
 6. The Am-Be source's presence at the test is Unknown; the default uses it.
@@ -390,4 +501,359 @@ The runs also write the traces as CSV (`rz_*_trace.csv`,
 `rz_lofc_base_thermocouples.csv`) into this folder; `*.csv` is gitignored
 under `verification_and_validation/`, so they are regenerated, not
 committed. Wall time (4 cores): RZ-BASE 58 s; the sensitivity set ~10 min; CRW set
-~3 min; mesh check ~2 min.
+~3 min; mesh check ~6 min (four meshes, gh:#1175). Since gh:#1173 / gh:#1174 also
+`rz_cavity_convection_cases` (~10 min, Sec 7) and
+`rz_short_term_feedback_cases` (~12 min, Sec 8).
+
+## 7. RPV-cavity natural convection (gh:#1173): predictions, written before the runs (2026-11-03)
+
+Committed in its own commit before any coupled run with the convection.
+The code (`EnclosureNaturalConvection`, `SolidBoundary::RadiativeAndConvective`,
+`Htr10RzOptions::cavity_convection`, ablation `without_cavity_convection`)
+was written and unit-tested first; the only numbers seen were the unit
+tests' (the coefficient against a hand value, and a coarse 21 x 39 steady
+case at a fixed 100 kW, whose RCCS side share rose by 1.07 kW).
+
+**What the benchmark says.** [T1] Sec 2.1.1.4: "The RPV transfers heat to
+the water cooling panels through radiation and natural convection"; the
+panels are held at 50 degC. No effective coefficient is given, and the
+specification and the as-run plant agree (both have the convection), so
+rule D4 does not split anything here: the convection is the base case and
+`CAVITY-NC-OFF` (radiation only, every record before this) is the ablation.
+GAMMA+ and the CFD participants modelled the cavity air explicitly ([T1]
+Sec 2.2: air up at ~0.40 m/s by the RPV, down at ~0.32 m/s by the panels,
+at mid-core, steady FPIC); that is a code result, not a measurement, and
+is not used.
+
+**Model (derived, not fitted).** MacGregor & Emery (1969),
+`Nu_L = 0.046 Ra_L^(1/3)` for a vertical enclosure, on the RPV-to-panel gap
+`L = 2.854 - 2.18 = 0.674 m`, `H = 10.16 m` (`H/L = 15`, inside 1-40), air
+at 1 atm (Assumed) at the film temperature (Sutherland / White, ideal gas,
+Incropera Tab A.4 `c_p`; within 2 % of CoolProp at 300-600 K), curvature as
+two wall layers in series, `x 2/(1 + 2.18/2.854) = 1.134`. Out of range:
+air's `Pr = 0.7` (< 1), and `Ra_L` reaches 1.2e9 (> 1e9) at a 200 degC wall.
+
+**Predicted coefficient** (from the code, at a 50 degC panel): **2.08 / 2.50
+/ 2.74 W/(m^2 K)** for an RPV wall at 100 / 150 / 200 degC (`Ra_L` 7.2e8 to
+1.2e9). At 3 h the RCCS duty of RZ-BASE (97.4 kW with the heads) puts the
+area-mean RPV wall at ~130 degC (`T^4` mean of the 92 kW side duty over
+139 m^2 at `eps_eff = 0.7626`), so `h ~ 2.3 W/(m^2 K)` area-mean.
+
+**Predicted extra heat removal at 3 h.** Two estimates, the second the one
+predicted:
+
+- *RPV temperature held* (the reasoning of Sec 4 item 1, which gave
+  45-90 kW): `2.3 x 139 m^2 x ~80 K ~ 26 kW`. This is an upper bound: it
+  assumes the in-vessel path can supply whatever the wall rejects.
+- *With the in-vessel resistance* (predicted): the radiation alone is a
+  linearised `~8.4 W/(m^2 K)`; the convection adds ~28 % to the outer
+  conductance. The outer path is a small part of the core-to-panel
+  resistance: the gh:#1149 record's `RCCS-SHIELD` cut the radiative
+  conductance to 0.56 of the base and moved the duty only -7.8 %. Scaling
+  that, +28 % of outer conductance gives **+3 to +5 % of the ~100 kW, i.e.
+  +3 to +6 kW at 3 h** (band +2 to +10 kW), with the RPV wall **10-20 K
+  cooler**.
+
+**Predicted shifts** (RZ-BASE and CRW-BASE, 20 cm, everything else
+unchanged):
+
+| Quantity | RZ-BASE now | Predicted | CRW-BASE now | Predicted |
+|---|---|---|---|---|
+| Short term (1 % time, P(100 s); CRW first peak) | 288 s, 0.162 | unchanged (< 1 s, < 0.001) | 158.4 % @ 23 s | unchanged (< 0.5 point) |
+| Re-criticality | 7616 s | **earlier by 50-400 s** | 6041 s | **earlier by 50-400 s** |
+| Mean power, last 30 min | 109 kW | **+2 to +10 kW** | 135 kW | **+2 to +10 kW** |
+| Heat to RCCS + heads at 3 h | 97.4 kW | +2 to +10 kW | - | - |
+
+**So the prediction is that cavity convection does not close the ~80 kW
+gap**: it is the right physics and the specification's, but its leverage is
+small because the heat sink is limited inside the vessel, not at the wall.
+The mesh study of Sec 3.3 (this change set, gh:#1175) already shows a larger
+lever on the late power: 109 kW at 20 cm, 142 kW at 10 cm.
+
+**The gh:#1149 / gh:#1150 records move too** (the default changed, so they
+are re-measured): A-MEAN950 total duty +2 to +5 % (RCCS side more, heads
+less); A-DECAY 200 kW hottest cell 5-15 K cooler; FPIC outlet < 0.2 K and
+thermocouple RMS < 0.5 K (the FPIC heat loss is ~1 % of 10 MW).
+
+### 7.1 Results (2026-11-03, after the predictions above were committed in `cc9e00a09`)
+
+`cargo test --release -p nee_soon --lib htr10_th_transient::tests_rz::rz_cavity_convection_cases -- --nocapture`
+(`rz_cavity_convection_cases`; RPV wall probes at r 216 cm). RZ-BASE and
+CRW-BASE are the cases of Sec 3 with the convection (the new default);
+`CAVITY-NC-OFF` is the old record, reproduced to every digit.
+
+| case | 1 % | P(100 s)/P0 | min rho | rho = 0 | first peak | mean P, last 30 min | RCCS + heads at 0 / 1 / 2 / 3 h | RPV wall z 90 at 3 h |
+|---|---|---|---|---|---|---|---|---|
+| RZ-BASE (20 cm) | 288 s | 0.1621 | -372 pcm @ 3085 s | **7631 s** | 22.4 % @ 8720 s | **109 kW** | 111.2 / 107.5 / 104.5 / **102.3 kW** | 132.2 degC |
+| CAVITY-NC-OFF (20 cm) | 288 s | 0.1622 | -370 pcm @ 3080 s | 7616 s | 22.4 % @ 8705 s | 109 kW | 104.3 / 101.5 / 99.1 / 97.4 kW | 144.5 degC |
+| RZ-BASE-10CM | 287 s | 0.1612 | -451 pcm @ 3715 s | 8211 s | 25.2 % @ 9230 s | 141 kW | 114.4 / 110.2 / 106.7 / 104.2 kW | 132.4 degC |
+| CAVITY-NC-OFF-10CM | 287 s | 0.1613 | -448 pcm @ 3710 s | 8206 s | 25.1 % @ 9225 s | 142 kW | 107.0 / 103.8 / 101.1 / 99.1 kW | 144.7 degC |
+
+| CRW case | first peak | decay level | rho = 0 | P(7200 s) | mean P, last 30 min | RCCS + heads at 3 h |
+|---|---|---|---|---|---|---|
+| CRW-BASE | 158.4 % @ 23 s | 272 s | **6056 s** | 727 kW | **137 kW** | 102.2 kW |
+| CRW-CAVITY-NC-OFF | 158.4 % @ 23 s | 272 s | 6041 s | 694 kW | 135 kW | 97.3 kW |
+
+**Against the predictions:**
+
+| Quantity | Predicted | Measured | Verdict |
+|---|---|---|---|
+| `h` area-mean at 3 h | ~2.3 W/(m^2 K) | not printed per face; the RPV wall is 92 / 132 / 130 degC at z -200 / 90 / 400 cm at 3 h, i.e. `h` 1.9-2.4 W/(m^2 K) by the coefficient (`rpv_cavity_convection_hand_value` prints 2.08 at 100 degC, 2.50 at 150 degC) | consistent |
+| Extra heat removal at 3 h | +3 to +6 kW (band +2 to +10) | **+4.9 kW** (20 cm), +5.1 kW (10 cm), +4.9 kW (CRW) | **met** |
+| RPV wall | 10-20 K cooler | **12.3 K** cooler at z 90 | met |
+| Short term | unchanged | 1 % time and P(100 s) unchanged to 1e-4; CRW first peak unchanged | met |
+| Re-criticality | **earlier** by 50-400 s | **later by 15 s** (LOFC 20 cm and CRW), +5 s (10 cm) | **miss, wrong sign** (the size, ~0, is inside the "small" verdict) |
+| Late power | +2 to +10 kW | 0 kW (LOFC 20 cm), -1 kW (10 cm), +2 kW (CRW) | miss, low |
+| The gap closes? | no | no | met |
+
+**Why the sign was wrong (measured, not argued).** The reactivity
+breakdown, LOFC 20 cm, with against without the convection:
+
+| t | moderator pcm | reflector pcm | total pcm |
+|---|---|---|---|
+| 1800 s | -288.8 / -288.0 | +11.1 / +11.6 | -349.9 / -348.5 |
+| 3600 s | -264.2 / -263.1 | +7.9 / +8.7 | -367.1 / -365.0 |
+| 7200 s | +66.6 / +67.0 | +1.7 / +3.2 | -60.3 / -58.4 |
+
+The feedback is measured from each run's own steady state, and the
+convection lowers that whole state by ~1 K (moderator 592.1 -> 591.2 degC
+at 1800 s, reflector 312.3 -> 311.2 degC). After the trip the bed's own
+cooling is the same to 1 pcm, while the reflectors, which give up most of
+the extra 5 kW, cool ~0.2 K more against their start, and their
+coefficient is positive (+7.71 pcm/K). Net ~2 pcm more negative at
+7200 s, so ~15 s later. The prediction counted only the bed.
+
+**Reading it.**
+- The convection is the specification's physics and is now the default;
+  it moves the duty by the predicted ~5 kW and the RPV wall by 12 K, and
+  it does **not** move the transients: re-criticality +15 s, late power
+  0 to +2 kW. **The ~80 kW heat-sink gap of Sec 4 item 1 is not the cavity
+  air.** The leading hypothesis's 45-90 kW held the RPV temperature fixed;
+  the in-vessel resistance (about 5 K/kW against ~0.9 K/kW outside the
+  RPV) limits the sink.
+- **What does move the late power is the mesh** (Sec 3.3.1: 109 -> 142 kW
+  from 20 to 10 cm), and the bed conductivity (BED-ZBS 164 kW, Sec 3.3).
+  Neither is a free parameter; the mesh is a numerical error to remove,
+  not a lever.
+- The gh:#1149 and gh:#1150 records were re-measured under the new default
+  (their READMEs, CORRECTED 2026-11-03): A-MEAN950 RCCS 102.53 -> 105.07 kW
+  (+2.5 %, total +1.2 %, predicted +2 to +5 %: a miss, low); A-DECAY hottest
+  -2.8 K (predicted 5-15 K: a miss, smaller); FPIC outlet -0.52 K
+  (predicted < 0.2 K: a miss), RMS 49.4 -> 49.8 K, inside the participants'
+  range 22 -> 19 of 22.
+
+## 8. Short-term power and the CRW first peak (gh:#1174): audit and predictions, written before the runs (2026-11-03)
+
+Committed in its own commit before any coupled run with the changes below.
+The code was written and unit-tested first (`transient_tests.rs`: coarse
+21 x 39 cases only); the only numbers seen were the unit tests'.
+
+### 8.1 Audit of the kinetics inputs
+
+| Input | Model | Source | Audit |
+|---|---|---|---|
+| `beta_eff` | 0.00726 | [T1] Sec 2.3.1.1 (re-read 2026-11-03: "Fraction of delayed neutrons: beta = 0.726 %"), [J09] Tab 3, [C09] Tab 1, [H06] Sec 2.1 | agrees with every source |
+| `Lambda` | 1.68e-3 s | [T1] Sec 2.3.1.1 ("Prompt generation time"); the TAC-NC entry of [T1] Sec 2.3.2.5 uses the same as "prompt lifetime" | agrees; [H06]'s 1.68e-4 s is `KIN-LAMBDA-H06` |
+| six delayed groups | Keepin U-235 thermal, rescaled to `beta_eff` | none: [T1] and the participants say "six groups" and print none | a named assumption (kinetics.rs); U-235 thermal is the physical choice for 17 % UO2 in a graphite spectrum |
+| `alpha_f / alpha_m / alpha_r` | -2.13 / -16.2 / +7.71 pcm/K | [T1] Sec 2.3.1.1, [J09] Tab 3 | agrees; the [G02] and [H06] sets are sensitivities (Sec 3.3), never picked for fit |
+| zone weighting | power-weighted over the heated cells | [T1] Sec 2.1.1.6: "subdivided into all core zones according to their power fraction" | as specified |
+| what **fuel** reads | fuel-zone node (volume mean of the 5 cm fuel zone) | [T1] Sec 2.1.1.6: "1 degC variation of fuel temperature within the whole core" | consistent (TRISO kernels sit at the local matrix temperature to ~1 K) |
+| what **moderator** reads | ~~the bed cell: pebble graphite **outside** the fuel zones (shells and dummies at one temperature)~~ | [T1] Sec 2.1.1.6: "similar to" the fuel's; no further definition | **gap found**: the fuel zones' matrix is a third of the pebble graphite of the mixed zone (`w_f = x (2.5/3)^3 = 0.330`) and was left out; and the dummies (`w_d = 0.430`) were held at the shells' temperature |
+
+### 8.2 Changes (code written; defaults chosen on physics before any run)
+
+- **`ModeratorTemperature::AllPebbleGraphite` (default):** the moderator
+  coefficient reads the volume mean of all pebble graphite of a heated
+  cell, `0.330 T_f + 0.240 T_shell + 0.430 T_dummy`, power-weighted across
+  cells. The moderator is the graphite, so all of it; which graphite [T1]'s
+  coefficient means is not stated (Assumed; it is VSOP's fuel/moderator
+  split). `MOD-OUTSIDE-FZ` keeps the part B reading.
+- **`DummyPebbleModel::Lagged` (default):** a dummy node per heated cell
+  (transient.rs module docs item 4): capacity `1 - x = 0.430` of the bed's,
+  conductance per dummy `1/(1/(20 pi k R) + 1/(2 pi D k_bed + h A))`.
+  Hand time constant: capacity ~317 J/K, `k_bed ~ 7-9 W/(m K)` at
+  550-600 degC -> `2 pi D k_bed ~ 3 W/K`, gas film `h A ~ 3.9 W/K` at the
+  3 MW flow: **~45 s** while the loop runs, **~100 s** stagnant. The unit
+  test (coarse mesh, hottest cell, 2x power for 10 s): fuel zone +9.9 K,
+  shells +5.7 K, dummy +0.47 K. `DUMMY-IN-CELL` is the ablation.
+
+### 8.3 Predictions (each before measuring; base = RZ-BASE / CRW-BASE after gh:#1173)
+
+**An energy argument settles most of the dummy-lag hypothesis before any
+run.** With the all-graphite reading the moderator temperature of a cell
+is (to the heat capacities' small temperature dependence) the energy
+stored in its pebble graphite over its capacity: how that energy is
+shared between fuel zones, shells and dummies does not move it. So the
+dummy lag can only act through the fuel coefficient (`T_f` leads more
+when the dummies lag: a slightly *faster* fall) and through the gas. **It
+would slow the fall only under the part B reading**, which leaves out the
+fuel zones: there the dummies are 0.43/0.67 of what the coefficient sees.
+
+| Case | One change | LOFC P(100 s) (now 0.162, measured 0.204) | LOFC re-criticality | CRW first peak (now ~158 % @ 23 s) |
+|---|---|---|---|---|
+| KIN-LAMBDA-H06 | `Lambda` 1.68e-4 s | < 0.5 % change (prompt jump: `|rho| < beta` throughout) | < 20 s | < 1 point |
+| KIN-DN-TEHO | `teh-o-prke`'s U-235 groups | within +-3 % | < 100 s | < 3 points |
+| KIN-DN-1G | one group, same mean life | **lower** by 10-40 % (no 80 s tail) | < 300 s | +-10 points |
+| MOD-ALLGRAPHITE only (dummies in the cell) | the moderator reading | **higher by 3-12 %** (0.167-0.182): at power the fuel zones run ~7 K (power-weighted, Sec 3.1) above the shells; as the power falls that excess goes into the cell, which the part B reading counts as a moderator rise and the all-graphite reading does not (`0.33 x 0.84 x 6.6 K ~ 1.8 K`, ~+30 pcm at 100 s) | within +-150 s | **lower by 3-10 %** and <= 1 s earlier (the same excess grows with the power: ~-20 pcm at the peak) |
+| DUMMY-LAG with MOD-ALLGRAPHITE (the new base) vs MOD-ALLGRAPHITE alone | the dummy node | within +-3 % (energy argument) | within +-150 s | within +-3 points |
+| DUMMY-LAG with MOD-OUTSIDE-FZ (the hypothesis of Sec 3.4 as stated) | the dummy node, part B reading | **higher by 10-30 %** | within +-300 s | **higher by 10-30 points, 2-8 s later** |
+
+**Net prediction for the new base** (both defaults): LOFC P(100 s)
+0.167-0.182 (still below 0.204), 1 % time 5-20 s later (288 -> 293-308 s);
+CRW first peak 140-155 % at 21-24 s (further from 216/241 %, not closer);
+re-criticality and late power within +-150 s and +-5 kW. **So the
+physically consistent changes are predicted to move the LOFC the right
+way and the CRW peak the wrong way, and to close neither.** If the
+measured short-term power is an ex-core detector signal (Sec 3.4 (d)),
+none of this is testable against it.
+
+### 8.4 Results (2026-11-03, after the predictions above were committed in `c9c78b6fb`)
+
+`cargo test --release -p nee_soon --lib htr10_th_transient::tests_rz::rz_short_term_feedback_cases -- --nocapture`
+(20 cm, cavity convection ON; BASE = both new defaults; PARTB = both
+ablated, which reproduces the Sec 7 base to every digit).
+
+**LOFC** (relative fission power; measured from the digitised [C09] Fig 6):
+
+| case | 1 % | P 20 s | P 50 s | P 100 s | P 200 s | min rho | rho = 0 | first peak | mean P, last 30 min |
+|---|---|---|---|---|---|---|---|---|---|
+| **BASE** | **296 s** | 0.870 | 0.446 | **0.170** | 0.036 | -348 pcm @ 3000 s | **7426 s** | 20.3 % @ 8530 s | 109 kW |
+| DUMMY-IN-CELL | 296 s | 0.877 | 0.461 | 0.176 | 0.036 | -353 @ 3050 | 7466 s | 21.2 % @ 8560 | 109 kW |
+| MOD-OUTSIDE-FZ | 287 s | 0.877 | 0.482 | 0.181 | 0.034 | -393 @ 2995 | 7746 s | 26.0 % @ 8835 | 88 kW |
+| PARTB (Sec 7 base) | 288 s | 0.855 | 0.433 | 0.162 | 0.033 | -372 @ 3085 | 7631 s | 22.4 % @ 8720 | 109 kW |
+| KIN-LAMBDA-H06 | 296 s | 0.865 | 0.442 | 0.169 | 0.036 | -346 @ 3005 | 7416 s | 20.0 % @ 8505 | 108 kW |
+| KIN-DN-TEHO | 297 s | 0.870 | 0.446 | 0.171 | 0.036 | -348 @ 3000 | 7431 s | 20.3 % @ 8530 | 109 kW |
+| KIN-DN-1G | 217 s | 0.902 | 0.523 | 0.167 | 0.015 | -346 @ 3005 | 7416 s | 22.9 % @ 8660 | 115 kW |
+| *measured* | ~330 s | 0.905 | 0.496 | **0.204** | 0.047 | - | 2520 / 4075 s | 24.6 % @ 4395 s | ~180 kW |
+
+**CRW:**
+
+| case | first peak | P 30 s | P 35 s | to decay level | rho = 0 | mean P, last 30 min |
+|---|---|---|---|---|---|---|
+| **BASE** | **154.4 % @ 22 s** | 1.485 | 1.408 | 286 s | **5771 s** | 125 kW |
+| DUMMY-IN-CELL | 157.0 % @ 23 s | 1.537 | 1.470 | 279 s | 5901 s | 126 kW |
+| MOD-OUTSIDE-FZ | **175.0 % @ 32 s** | 1.746 | 1.731 | 254 s | 6511 s | 136 kW |
+| PARTB (Sec 7 base) | 158.4 % @ 23 s | 1.547 | 1.477 | 272 s | 6056 s | 137 kW |
+| KIN-LAMBDA-H06 | 155.6 % @ 21 s | 1.483 | 1.399 | 286 s | 5751 s | 126 kW |
+| KIN-DN-TEHO | 154.4 % @ 22 s | 1.485 | 1.408 | 286 s | 5771 s | 125 kW |
+| KIN-DN-1G | 139.3 % @ 31 s | 1.393 | 1.379 | 232 s | 5751 s | 137 kW |
+| *measured* | 216 % @ 35 s [H06] / 241 % @ 30 s [J09] | - | - | 810 s | 2400 / ~3400 s | ~200 kW |
+
+**Against the predictions of Sec 8.3:**
+
+| Case | Predicted | Measured | Verdict |
+|---|---|---|---|
+| KIN-LAMBDA-H06 | P(100 s) < 0.5 %; CRW < 1 point | -0.6 %; +1.2 points | marginal miss (still negligible) |
+| KIN-DN-TEHO | +-3 %; < 3 points | +0.3 %; 0.0 points | met |
+| KIN-DN-1G | P(100 s) lower by 10-40 % | -2.2 % (but P(200 s) -59 %, 1 % at 217 s); CRW -15 points, 9 s later | miss: the one-group set crosses the six-group curve near 100 s; not a candidate either way |
+| MOD-ALLGRAPHITE alone (DUMMY-IN-CELL vs PARTB) | P(100 s) +3 to +12 %; CRW peak -3 to -10 %; rho = 0 +-150 s | **+8.6 %**; **-1.4 points** (-0.9 %); -165 s (LOFC), -155 s (CRW) | met; CRW sign met, size a miss (smaller); re-criticality just outside |
+| DUMMY-LAG, all-graphite (BASE vs DUMMY-IN-CELL) | +-3 %; +-3 points; +-150 s | -3.2 %; -2.6 points; -40 s / -130 s | met (P(100 s) at the edge) |
+| DUMMY-LAG, part B reading (MOD-OUTSIDE-FZ vs PARTB) | +10 to +30 %; +10 to +30 points, 2-8 s later | +11.8 %; **+16.6 points, 9 s later** | met (timing just outside) |
+| Net new base | P(100 s) 0.167-0.182; 1 % 293-308 s; CRW 140-155 % @ 21-24 s; rho = 0 and late power +-150 s / +-5 kW | **0.170; 296 s; 154.4 % @ 22 s**; rho = 0 **-205 s** (LOFC) / **-285 s** (CRW); late power 0 / **-12 kW** (CRW) | short term met; re-criticality miss (larger, toward the measurement); CRW late power miss (away) |
+
+**The energy argument, checked.** At 100 s into the LOFC the moderator
+reading is 591.00 degC with the dummy node and 591.43 degC without it
+(0.4 K, 7 pcm): the dummy lag does not move the all-graphite moderator
+temperature, as argued. What it moves is the fuel term (-36.9 against
+-25.9 pcm): with the dummies lagging, the fuel zones run hotter (597.3
+against 592.2 degC). Under the part B reading the same lag moves the
+moderator reading by 2.5 K (588.5 degC).
+
+**Reading it.**
+- **Ruled out as causes:** `Lambda` (< 1 %), the delayed-group set (the
+  Keepin and `teh-o-prke` U-235 sets agree to 0.3 %; one group is not
+  physical), and the dummy-pebble lag under the all-graphite reading
+  (< 3 %, and the wrong way).
+- **What the corrected physics does:** reading the moderator coefficient
+  on all the pebble graphite takes P(100 s) from 0.162 to **0.170**
+  (measured 0.204: ~20 % of the gap closed), the 1 % time from 288 to
+  296 s (measured ~330 s), and brings the LOFC re-criticality 205 s and
+  the CRW's 285 s earlier. It lowers the CRW first peak slightly, 158.4 ->
+  **154.4 %** (measured 216-241 %), still at 22 s against 30-35 s. **Both
+  short-term misses remain.**
+- **The one case that moves the CRW peak towards the measurement is
+  MOD-OUTSIDE-FZ** (the dummy lag with the part B reading: 175 % at
+  32 s, and P(100 s) 0.181). It gets there by leaving the fuel zones'
+  matrix, a third of the pebble graphite, out of the moderator. **It is
+  not adopted because it is closer** (the defaults were fixed in Sec 8.2
+  before the run). Whether [T1]'s -16.2 pcm/K belongs to all the pebble
+  graphite or mostly to the dummies and shells is a neutronics question
+  this record cannot settle; it can be settled with the workspace's own
+  Monte Carlo model: `nee_soon::htr10_rmc::zones` already separates the
+  fuel-pebble and moderator-pebble temperatures, so a `ParametricStudy`
+  can measure the coefficient of each (follow-up).
+- **Still untested:** the measured short-term power is an ex-core signal
+  (3.4 (d)); the bed heat capacity; the decay heat's saturated-history
+  assumption (kinetics.rs); the Tab 2.60 reactivity shape.
+
+## 9. The record re-measured under the current defaults (2026-11-03, after gh:#1173-#1175)
+
+`cargo test --release -p nee_soon --lib --tests -- --nocapture` (the full
+suite), with the defaults of gh:#1173 (cavity convection) and gh:#1174
+(all-graphite moderator reading, dummy-pebble node). The tables of Sec 3
+are the gh:#1151 part B record and stay as written; the plots in this
+folder (`rz_lofc_*.png`, `rz_crw_*.png`) were regenerated by this run and
+show the current base.
+
+**RZ-BASE** (20 cm): 1 % at **296 s** (gate 330 +- 120 s: passes; part B
+288 s); minimum -348 pcm at 3000 s; re-criticality **7426 s** (part B
+7616 s; measured 2520 / 4075 s); power back above 1 % at 8338 s; first
+peak 20.3 % at 8530 s (measured 24.6 % at 4395 s); mean power, last
+30 min, **109 kW** (measured ~180 kW). Short term, model / measured:
+10 s 0.987 / 0.989; 20 s 0.870 / 0.905; 50 s 0.446 / 0.496; 100 s
+**0.170** / 0.204; 200 s 0.036 / 0.047; 300 s 0.0095 / 0.0139; 400 s
+0.0029 / 0.0056. RCCS + heads 111.2 kW at 0, 102.3 kW at 3 h.
+Thermocouples: RMS over all 17 traces and bins **32.2 K** (part B 32.4 K),
+mean +7.4 K; TR1&TR4 274 -> 493 degC (+219 K; measured +173 K); side
+reflector within 45 K everywhere.
+
+**LOFC sensitivity set** (one change each from RZ-BASE):
+
+| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min |
+|---|---|---|---|---|---|---|
+| RZ-BASE | 296 s | -348 pcm @ 3000 s | 7426 s | 8338 s | 20.3 % @ 8530 s | 109 kW |
+| NC-OFF | 301 s | -320 @ 211 s | 5041 s | 6724 s | 5.7 % @ 7020 s | 70 kW |
+| SRC-OFF | 296 s | -348 @ 3000 s | 7426 s | 9448 s | 122.6 % @ 9510 s | 201 kW |
+| SRC-INTRINSIC | 296 s | -348 @ 3000 s | 7426 s | 8692 s | 38.3 % @ 8825 s | 90 kW |
+| FUEL-QS | 307 s | -332 @ 3030 s | 7346 s | 8261 s | 18.5 % @ 8455 s | 108 kW |
+| REFL-SIDE | 300 s | -322 @ 232 s | 6641 s | 7571 s | 19.8 % @ 7765 s | 134 kW |
+| BED-ZBS | 303 s | -315 @ 227 s | 5136 s | 6068 s | 20.5 % @ 6260 s | 166 kW |
+| BYP-G02 | 297 s | -342 @ 2945 s | 7326 s | 8233 s | 20.5 % @ 8425 s | 110 kW |
+| BYP-NOLEAK | 292 s | -398 @ 3310 s | 8241 s | 9187 s | 18.2 % @ 9385 s | 119 kW |
+| TR-SPEC | 306 s | -313 @ 2865 s | 7411 s | 8373 s | 20.2 % @ 8580 s | 100 kW |
+| KIN-ALPHA-G02-EQ | 387 s | -249 @ 3490 s | 9336 s | 10716 s | 3.1 % @ 10800 s | 36 kW |
+| XE-OFF | 298 s | -325 @ 236 s | 6356 s | 7281 s | 20.1 % @ 7475 s | 157 kW |
+| DT-HALF (0.5 / 2.5 s) | 297 s | -348 @ 2980 s | 7373 s | 8280 s | 19.8 % @ 8470 s | 109 kW |
+| CAVITY-NC-OFF (gh:#1173) | 297 s | -346 @ 2990 s | 7416 s | 8325 s | 20.2 % @ 8515 s | 109 kW |
+| DUMMY-IN-CELL / MOD-OUTSIDE-FZ / PARTB (gh:#1174) | Sec 8.4 | | | | | |
+
+**Mesh** (`rz_lofc_mesh_check`): 30 / 20 / 15 / 10 cm: re-criticality
+7426 / 7426 / 7696 / **8036 s**; minimum -348 / -348 / -385 / -424 pcm;
+first peak 20.3 / 20.3 / 21.4 / 22.7 %; mean power, last 30 min,
+108 / 109 / 111 / **164 kW**; 1 % at 296 / 296 / 295 / 295 s. The same
+picture as Sec 3.3.1: converged in the short term, not converged after
+the minimum (+610 s on the re-criticality from 20 to 10 cm; the steps
++270 s then +340 s do not shrink). The late-power metric jumps at 10 cm
+(111 -> 164 kW) because the last 30 min then fall on a different part of
+the post-return oscillation: read it with the re-criticality, not alone.
+
+**CRW set:**
+
+| case | first peak | to decay level | min rho | re-criticality | re-criticality peak | P at 7200 s | mean P, last 30 min | TR1&TR4 rise at 2 h |
+|---|---|---|---|---|---|---|---|---|
+| CRW-BASE | **154.4 % @ 22 s** (5034 kW; 170.6 % of 3000 kW) | 286 s | -276 pcm @ 300 s | **5771 s** | 19.4 % @ 6930 s | 138 kW | 125 kW | +224 K |
+| CRW-TRIP9 | 142.8 % @ 20 s | 288 s | -269 @ 304 s | 5736 s | 19.2 % @ 6900 s | 117 kW | 125 kW | +224 K |
+| CRW-SRC-OFF | 154.4 % @ 22 s | 286 s | -276 @ 300 s | 5771 s | 82.4 % @ 7680 s | 35 kW | 131 kW | +217 K |
+| CRW-NC-OFF | 154.3 % @ 22 s | 290 s | -264 @ 264 s | 2816 s | 8.9 % @ 4415 s | 176 kW | 77 kW | +9 K |
+
+Measured: first peak 216 % at 35 s [H06] / 241 % at 30 s [J09]; decay
+level 810 s; re-criticality 2400 s [H06] / ~3400 s [T1]; long-term
+~200 kW; top reflector +215 K [H06].
+
+**What changed from part B, in one line each:** the short term moved
+towards the plant in the LOFC (P(100 s) 0.162 -> 0.170) and slightly away
+in the CRW (158 -> 154 %); the re-criticality came 190 s (LOFC) and 270 s
+(CRW) earlier, still ~3400 s late; the late power did not move (LOFC
+109 kW) or fell (CRW 135 -> 125 kW); the thermocouples are unchanged
+(RMS 32.2 K). The miss list of Sec 4 stands, with items 1, 2 and 4
+updated.

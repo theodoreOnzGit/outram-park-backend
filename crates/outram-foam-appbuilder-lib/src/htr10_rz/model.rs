@@ -14,8 +14,20 @@
 //!   2017, EUR 28712 EN, eq. 125, open):
 //!   `eps_eff = 1 / (1/eps_1 + (r_1/r_2)(1/eps_2 - 1))` with `r_1 = 218 cm`
 //!   and the panels at `r_2 = 285.4 cm` (the input sheet's reading of region
-//!   39, **Uncertain**): `eps_eff = 0.7626`. Air conduction and natural
-//!   convection in the cavity are **not** modelled (under-states removal).
+//!   39, **Uncertain**): `eps_eff = 0.7626`. ~~Air conduction and natural
+//!   convection in the cavity are **not** modelled (under-states removal).~~
+//!   **CORRECTED 2026-11-03 (gh:#1173):** natural convection of the cavity
+//!   air runs in parallel with the radiation, **ON by default**
+//!   ([`Htr10RzOptions::cavity_convection`], ablation
+//!   [`Htr10RzOptions::without_cavity_convection`]): TECDOC-1694 Sec 2.1.1.4
+//!   says "the RPV transfers heat to the water cooling panels through
+//!   radiation and natural convection". It is the MacGregor & Emery (1969)
+//!   vertical-enclosure correlation ([`EnclosureNaturalConvection`]) on the
+//!   gap from the RPV (`r = 218 cm`) to the panels (`r = 285.4 cm`),
+//!   `L = 67.4 cm`, over the RPV side height `H = 10.16 m` (`z -351..665`),
+//!   with air at 1 atm (the cavity pressure is not stated: **Assumed**) at
+//!   the film temperature; derived, not fitted. It is applied to the
+//!   panels in both views.
 //!   Sensitivity `RCCS-SHIELD` puts the region-42 insulating plate at
 //!   `r = 283.4 cm` in the view as a thin two-sided radiation shield of the
 //!   same emissivity ([`RccsView::InsulatingPlateShield`]).
@@ -71,7 +83,7 @@ use super::materials::{MaterialOptions, RegionMaterial};
 use super::power_map::{cell_average_w_per_m3, fpic_power_map, map_power_w};
 use super::Htr10RzError;
 use crate::genfoam::thermal_hydraulics::solid_conduction::{
-    AxisEdges, ConductivityModel, PicardReport, PropertyModel, RzBoundaries, RzGeometry, RzMesh, RzPatch, SolidBoundary,
+    AxisEdges, ConductivityModel, EnclosureNaturalConvection, PicardReport, PropertyModel, RzBoundaries, RzGeometry, RzMesh, RzPatch, SolidBoundary,
     SolidConductionField, SolidConductionSettings, SolidRegion,
 };
 use outram_foam_basic_lib::ldu_matrix::SolverSettings;
@@ -87,6 +99,29 @@ pub const RPV_OUTER_RADIUS_M: f64 = 2.18;
 pub const RCCS_RADIUS_M: f64 = 2.854;
 /// Region-42 insulating-plate radius, m (input sheet reading, Uncertain).
 pub const INSULATING_PLATE_RADIUS_M: f64 = 2.834;
+/// RPV side-wall height, m: the model's outer patch, `z = -351..665 cm`
+/// (Tab 2.3 via the input sheet's Fig 2.5 axial lines).
+pub const RPV_SIDE_HEIGHT_M: f64 = 10.16;
+/// Reactor-cavity air pressure, Pa: one standard atmosphere (not stated in
+/// any source; **Assumed**).
+pub const CAVITY_AIR_PRESSURE_PA: f64 = 101_325.0;
+
+/// The air enclosure between the RPV side wall and the RCCS panels
+/// (gh:#1173): gap `RCCS_RADIUS_M - RPV_OUTER_RADIUS_M` = 0.674 m, height
+/// [`RPV_SIDE_HEIGHT_M`], radius ratio 2.18/2.854, air at
+/// [`CAVITY_AIR_PRESSURE_PA`].
+#[must_use]
+pub fn rpv_cavity_enclosure() -> EnclosureNaturalConvection {
+    use uom::si::f64::Pressure;
+    use uom::si::length::meter;
+    use uom::si::pressure::pascal;
+    EnclosureNaturalConvection {
+        gap: Length::new::<meter>(RCCS_RADIUS_M - RPV_OUTER_RADIUS_M),
+        height: Length::new::<meter>(RPV_SIDE_HEIGHT_M),
+        radius_ratio: Ratio::new::<ratio>(RPV_OUTER_RADIUS_M / RCCS_RADIUS_M),
+        pressure: Pressure::new::<pascal>(CAVITY_AIR_PRESSURE_PA),
+    }
+}
 
 /// What the RPV side wall sees.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -151,6 +186,11 @@ pub struct Htr10RzOptions {
     pub heads: HeadBoundary,
     /// RPV side wall view.
     pub rccs: RccsView,
+    /// Natural convection of the cavity air beside the RPV-to-RCCS
+    /// radiation ([`rpv_cavity_enclosure`]). Default ON (gh:#1173);
+    /// `false` is the ablation `CAVITY-NC-OFF`
+    /// ([`Self::without_cavity_convection`]).
+    pub cavity_convection: bool,
     /// Largest cell size: every Fig 2.5 mesh interval is split into
     /// `ceil(length / max_cell)` equal cells. `None` keeps the Fig 2.5 mesh
     /// itself (21 x 39 cells here, THERMIX's own resolution). Default 5 cm.
@@ -164,7 +204,30 @@ impl Default for Htr10RzOptions {
             vessel: CoreVesselPlacement::default(),
             heads: HeadBoundary::default(),
             rccs: RccsView::default(),
+            cavity_convection: true,
             max_cell: Some(Length::new::<centimeter>(5.0)),
+        }
+    }
+}
+
+impl Htr10RzOptions {
+    /// The ablation `CAVITY-NC-OFF`: the RPV side wall radiates only (the
+    /// gh:#1149-#1151 records before gh:#1173).
+    #[must_use]
+    pub fn without_cavity_convection(mut self) -> Self {
+        self.cavity_convection = false;
+        self
+    }
+
+    /// The RPV side-wall boundary these options give.
+    #[must_use]
+    pub fn rpv_side_boundary(&self) -> SolidBoundary {
+        let emissivity = Ratio::new::<ratio>(self.rccs.effective_emissivity());
+        let ambient = ThermodynamicTemperature::new::<kelvin>(RCCS_TEMPERATURE_K);
+        if self.cavity_convection {
+            SolidBoundary::RadiativeAndConvective { emissivity, ambient, convection: rpv_cavity_enclosure() }
+        } else {
+            SolidBoundary::Radiative { emissivity, ambient }
         }
     }
 }
@@ -324,10 +387,7 @@ impl Htr10RzModel {
                 })
             })
             .collect::<Result<Vec<_>, Htr10RzError>>()?;
-        let rccs = SolidBoundary::Radiative {
-            emissivity: Ratio::new::<ratio>(options.rccs.effective_emissivity()),
-            ambient: ThermodynamicTemperature::new::<kelvin>(RCCS_TEMPERATURE_K),
-        };
+        let rccs = options.rpv_side_boundary();
         let boundaries = RzBoundaries {
             inner: SolidBoundary::Adiabatic,
             outer: rccs,

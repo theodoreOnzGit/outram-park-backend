@@ -509,7 +509,6 @@ fn rz_lofc_sensitivity_cases() {
     let mut c = base.clone().named("XE-OFF");
     c.kinetics.xenon = XenonModel::Off;
     cases.push(c);
-    cases.push(base.clone().with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(10.0))).named("MESH-10CM"));
     cases.push(
         base.clone()
             .with_rz_time_step(RzCoreTimeStep { early: s(0.5), late: s(2.5), switch_at: s(1000.0) })
@@ -532,16 +531,201 @@ fn rz_lofc_sensitivity_cases() {
     }
 }
 
-/// **Mesh check** of `RZ-BASE` (20 cm): 15 cm and 30 cm cells. The 10 cm
-/// mesh is in [`rz_lofc_sensitivity_cases`]; its gas-flow Picard stalls at
-/// a relative change ~7e-7 against the 1e-7 tolerance (2026-11-03,
-/// recorded in the README, unresolved), so the check brackets 20 cm from
-/// both sides with the meshes that run.
+/// **V&V: the short-term power and the CRW first peak (gh:#1174).** The
+/// kinetics-input audit cases and the feedback-temperature cases, on the
+/// LOFC and the CRW, one change each from the base (the two-temperature
+/// bed and the all-graphite moderator reading are the defaults since
+/// gh:#1174):
+///
+/// - `DUMMY-IN-CELL`: no dummy-pebble node (all-graphite moderator kept);
+/// - `MOD-OUTSIDE-FZ`: the part B moderator reading (dummy node kept): the
+///   dummy-lag hypothesis of README Sec 3.4 as stated;
+/// - `PARTB`: both, i.e. the gh:#1151 part B core (with gh:#1173's cavity
+///   convection);
+/// - `KIN-LAMBDA-H06`, `KIN-DN-TEHO`, `KIN-DN-1G`: the kinetics inputs.
+///
+/// Prints the relative fission power at 20, 50, 100 and 200 s (measured
+/// LOFC 0.905 / 0.496 / 0.204 / 0.047, [C09] Fig 6 digitised) and the CRW
+/// first peak (216 % at 35 s [H06] / 241 % at 30 s [J09]). Predictions
+/// (written and committed before this ran) and results: README Sec 8.
+#[cfg(feature = "long-tests")]
+#[test]
+fn rz_short_term_feedback_cases() {
+    type Edit = fn(LofcCase) -> LofcCase;
+    let edits: [(&str, Edit); 7] = [
+        ("BASE", |c| c),
+        ("DUMMY-IN-CELL", |c| c.with_rz_options(|o| o.without_dummy_pebble_lag())),
+        ("MOD-OUTSIDE-FZ", |c| c.with_rz_options(|o| o.with_moderator_outside_fuel_zones())),
+        ("PARTB", |c| c.with_rz_options(|o| o.without_dummy_pebble_lag().with_moderator_outside_fuel_zones())),
+        ("KIN-LAMBDA-H06", |mut c| {
+            c.kinetics.generation_time = Time::new::<second>(1.68e-4);
+            c
+        }),
+        ("KIN-DN-TEHO", |mut c| {
+            c.kinetics.delayed_set = DelayedNeutronSet::TehOPrkeU235;
+            c
+        }),
+        ("KIN-DN-1G", |mut c| {
+            c.kinetics.delayed_set = DelayedNeutronSet::OneGroupKeepin;
+            c
+        }),
+    ];
+    println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    for (test, base) in [("LOFC", LofcCase::rz_base().unwrap()), ("CRW", LofcCase::crw_base().unwrap())] {
+        for (name, edit) in edits {
+            let case = edit(base.clone()).named(&format!("{test}-{name}"));
+            let started = std::time::Instant::now();
+            let trace = match run_lofc(&case) {
+                Ok((_, t)) => t,
+                Err(e) => {
+                    println!("| {} | FAILED: {e} |", case.name);
+                    continue;
+                }
+            };
+            summarise_lofc(&case.name, &trace);
+            let p0 = trace[0].fission_power_w;
+            let rel = |t: f64| trace.iter().find(|x| x.time_s >= t - 1e-6).map_or(f64::NAN, |x| x.fission_power_w / p0);
+            let x100 = trace.iter().find(|x| x.time_s >= 100.0 - 1e-6).unwrap();
+            println!(
+                "  {}: P/P0 at 20 / 50 / 100 / 200 s = {:.4} / {:.4} / {:.4} / {:.4}; at 100 s rho fuel {:+.1}, moderator {:+.1}, reflector {:+.1} pcm, fuel {:.2} C, moderator {:.2} C",
+                case.name,
+                rel(20.0),
+                rel(50.0),
+                rel(100.0),
+                rel(200.0),
+                x100.reactivity.fuel * 1e5,
+                x100.reactivity.moderator * 1e5,
+                x100.reactivity.reflector * 1e5,
+                x100.fuel_k - 273.15,
+                x100.moderator_k - 273.15
+            );
+            if test == "CRW" {
+                let m = crw_metrics(&trace);
+                println!(
+                    "  {} CRW: first peak {:.1} % @ {:.0} s; P/P0 at 30 / 35 s {:.3} / {:.3}; decay level {}; re-criticality {}",
+                    case.name,
+                    100.0 * m.first_peak.0,
+                    m.first_peak.1,
+                    rel(30.0),
+                    rel(35.0),
+                    m.decay_level_s.map_or("none".into(), |t| format!("{t:.0} s")),
+                    m.recriticality_s.map_or("none".into(), |t| format!("{t:.0} s"))
+                );
+            }
+            println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
+        }
+    }
+}
+
+/// Probes on the RPV side wall (`r = 216 cm`, the outer half of the 8 cm
+/// wall) at three heights, for the cavity-convection record (gh:#1173).
+fn rpv_wall_probes() -> Vec<outram_foam_appbuilder_lib::htr10_rz::Thermocouple> {
+    let template = c09_thermocouple_positions().into_iter().next().unwrap();
+    [("RPV_z-200", -200.0), ("RPV_z90", 90.0), ("RPV_z400", 400.0)]
+        .into_iter()
+        .map(|(name, z)| {
+            let mut t = template.clone();
+            t.location = name.into();
+            t.r_cm = 216.0;
+            t.z_cm = z;
+            t
+        })
+        .collect()
+}
+
+/// **V&V: RPV-cavity natural convection (gh:#1173).** LOFC and CRW with
+/// the convection (the default since gh:#1173) and the ablation
+/// `CAVITY-NC-OFF` (radiation only, every record before it), on the 20 cm
+/// base mesh and on 10 cm. Prints the usual metrics, the relative fission
+/// power at 100 s, the heat to the RCCS and heads at 1, 2 and 3 h, and the
+/// RPV wall at three heights. Predictions (written and committed before
+/// this ran) and results: README Sec 7.
+#[cfg(feature = "long-tests")]
+#[test]
+fn rz_cavity_convection_cases() {
+    let probes = rpv_wall_probes();
+    let lofc = LofcCase::rz_base().unwrap();
+    let crw = LofcCase::crw_base().unwrap();
+    let off = |c: LofcCase, n: &str| c.with_rz_options(|mut o| { o.solid = o.solid.without_cavity_convection(); o }).named(n);
+    let ten = |c: LofcCase, n: &str| c.with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(10.0))).named(n);
+    let cases = vec![
+        (lofc.clone().named("RZ-BASE"), false),
+        (off(lofc.clone(), "CAVITY-NC-OFF"), false),
+        (ten(lofc.clone(), "RZ-BASE-10CM"), false),
+        (off(ten(lofc, "x"), "CAVITY-NC-OFF-10CM"), false),
+        (crw.clone().named("CRW-BASE"), true),
+        (off(crw, "CRW-CAVITY-NC-OFF"), true),
+    ];
+    println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    for (case, is_crw) in &cases {
+        let started = std::time::Instant::now();
+        let (_, trace, rows) = match run_case(case, &probes, 600.0) {
+            Ok(x) => x,
+            Err(e) => {
+                println!("| {} | FAILED: {e} |", case.name);
+                continue;
+            }
+        };
+        summarise_lofc(&case.name, &trace);
+        let at = |t: f64| trace.iter().find(|x| x.time_s >= t - 1e-6).unwrap();
+        let p0 = trace[0].fission_power_w;
+        if *is_crw {
+            let m = crw_metrics(&trace);
+            println!(
+                "  {} CRW: first peak {:.1} % @ {:.0} s, decay level {}, re-criticality {}, P(7200 s) {:.0} kW",
+                case.name,
+                100.0 * m.first_peak.0,
+                m.first_peak.1,
+                m.decay_level_s.map_or("none".into(), |t| format!("{t:.0} s")),
+                m.recriticality_s.map_or("none".into(), |t| format!("{t:.0} s")),
+                m.power_at_7200_w / 1e3
+            );
+        }
+        println!(
+            "  {}: P(100 s)/P0 {:.4}; RCCS+heads at 0 / 1 / 2 / 3 h: {:.1} / {:.1} / {:.1} / {:.1} kW",
+            case.name,
+            at(100.0).fission_power_w / p0,
+            trace[0].heat_to_rccs_w / 1e3,
+            at(3600.0).heat_to_rccs_w / 1e3,
+            at(7200.0).heat_to_rccs_w / 1e3,
+            at(10_800.0).heat_to_rccs_w / 1e3
+        );
+        for t in [1800.0, 3600.0, 5400.0, 7200.0] {
+            let x = at(t);
+            let r = &x.reactivity;
+            println!(
+                "  {} at {t:.0} s: rho fuel {:+.1} / moderator {:+.1} / reflector {:+.1} / Xe {:+.1} / total {:+.1} pcm; fuel {:.2} C, moderator {:.2} C, reflector {:.2} C",
+                case.name,
+                r.fuel * 1e5,
+                r.moderator * 1e5,
+                r.reflector * 1e5,
+                r.xenon * 1e5,
+                r.total() * 1e5,
+                x.fuel_k - 273.15,
+                x.moderator_k - 273.15,
+                x.reflector_k - 273.15
+            );
+        }
+        for (t, v) in rows.iter().filter(|(t, _)| [0.0, 3600.0, 7200.0, 10_800.0].iter().any(|x| (t - x).abs() < 1e-6)) {
+            println!("  {} RPV wall at {t:.0} s (z -200 / 90 / 400 cm): {:.1} / {:.1} / {:.1} degC", case.name, v[0], v[1], v[2]);
+        }
+        println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
+    }
+}
+
+/// **Mesh study** of `RZ-BASE` (20 cm): 30, 20, 15 and 10 cm cells, the
+/// metrics per mesh and the cell counts (the README's mesh table and its
+/// convergence statement). ~~The 10 cm mesh is in
+/// [`rz_lofc_sensitivity_cases`]; its gas-flow Picard stalls at a relative
+/// change ~7e-7 against the 1e-7 tolerance, so the check brackets 20 cm
+/// from both sides with the meshes that run.~~ **CORRECTED 2026-11-03
+/// (gh:#1175):** the stall was the flux measure's round-off floor; with
+/// the Picard measured on the resistances the 10 cm mesh runs, and is here.
 #[cfg(feature = "long-tests")]
 #[test]
 fn rz_lofc_mesh_check() {
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
-    for cm in [15.0, 30.0] {
+    for cm in [30.0, 20.0, 15.0, 10.0] {
         let case = LofcCase::rz_base()
             .unwrap()
             .with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(cm)))

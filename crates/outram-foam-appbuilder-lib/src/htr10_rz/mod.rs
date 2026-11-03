@@ -62,12 +62,13 @@ pub use materials::{CarbonBrickConductivity, MaterialOptions, RegionMaterial, Si
 pub use flow::{BypassSplit, FlowKind, FlowRegion, GasNetwork, GasState, OperatingPoint};
 pub use fpic::{reading_at, FpicOptions, FpicResult, Htr10FpicModel, Instrument, Thermocouple, ThermocoupleReading};
 pub use transient::{
-    CoreFeedbackTemperatures, CoreStepReport, FuelZoneModel, Htr10RzTransientCore, NaturalCirculation, PowerShape,
+    dummy_pebble_conductance, CoreFeedbackTemperatures, CoreStepReport, DummyPebbleModel, FuelZoneModel, Htr10RzTransientCore,
+    ModeratorTemperature, NaturalCirculation, PowerShape,
     ReflectorAverage, TransientCoreOptions,
 };
 pub use pebble::{PebbleMatrix, PebbleProfile};
 pub use model::{
-    build_mesh, HeadBoundary, Htr10RzCase, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
+    build_mesh, rpv_cavity_enclosure, HeadBoundary, Htr10RzCase, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
     RccsView, RegionTemperatureRange,
 };
 

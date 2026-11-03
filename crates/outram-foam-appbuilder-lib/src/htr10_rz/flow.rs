@@ -510,6 +510,47 @@ fn resistance(fr: &FlowRegion, g_mag: f64, g_dir: f64, axial: bool, gas: &Gas) -
     })
 }
 
+/// Largest relative change of a cell's momentum resistances, radial and
+/// axial, between the mass flux `old` and `new` (`(G_r, G_z)`,
+/// kg/(m^2 s)): `max |R(new) - R(old)| / R(old)` over the open directions.
+/// This is the convergence measure of the gas-flow Picard (gh:#1175).
+///
+/// **Why the resistance and not the flux.** The Picard iterates
+/// `G -> R(|G|) -> p -> G`; given `R` the pressure solve is linear, so the
+/// fixed point is reached when `R` stops changing. The earlier measure, the
+/// per-cell change of `G` over `max(|G|, 1e-3)`, has a floor that iteration
+/// cannot lower: on the 10 cm mesh with the loop stopped (2026-11-03) it
+/// fell geometrically (factor ~0.52 per pass, the 0.5 relaxation) to
+/// ~3e-7 by pass 30 and then wandered between 1e-7 and 7e-7 for the
+/// remaining 170 passes, its maximum hopping between unrelated cells. Two
+/// sources, both measured:
+///
+/// - open volumes: the change was 1-3 times `T_f eps (|p_a| + |p_b|) / A_f`,
+///   the flux error of one rounding of the ~63 Pa hydrostatic pressure on a
+///   low-resistance face, i.e. round-off;
+/// - laminar channels (`Re ~ 1`): ~5e-10 kg/(m^2 s) of noise on
+///   `G ~ 2e-4`, the CG's 1e-13 relative residual on pressures ~1e4 times
+///   the column's own drop, read against the 1e-3 floor as ~7e-7.
+///
+/// In both cells `R` does not depend on `G` (laminar limit: `f |G|` is
+/// constant), so the flux noise moves `R` by nothing: there is nothing left
+/// for the Picard to converge. Where `R` does depend on `G` (turbulent
+/// channels, the KTA bed), `|dln R / dln G| <= 1`, so the tolerance on `R`
+/// is the same tolerance, 1e-7, on what is iterated.
+///
+/// # Errors
+/// [`Htr10RzError::Property`] from a closure.
+fn resistance_change(fr: &FlowRegion, old: (f64, f64), new: (f64, f64), gas: &Gas) -> Result<f64, Htr10RzError> {
+    let (mo, mn) = (old.0.hypot(old.1), new.0.hypot(new.1));
+    let mut change: f64 = 0.0;
+    for (axial, go, gn) in [(false, old.0, new.0), (true, old.1, new.1)] {
+        if let (Some(ro), Some(rn)) = (resistance(fr, mo, go, axial, gas)?, resistance(fr, mn, gn, axial, gas)?) {
+            change = change.max((rn - ro).abs() / ro);
+        }
+    }
+    Ok(change)
+}
+
 /// Volumetric gas-solid exchange coefficient `h a_v`, W/(m^3 K), at the
 /// superficial mass flux `g`.
 pub(crate) fn exchange_coefficient(fr: &FlowRegion, g: f64, gas: &Gas) -> Result<f64, Htr10RzError> {
@@ -903,7 +944,8 @@ pub struct GasState {
     /// `W c_p (T_out - T_in)`, W: equals `heat_to_gas` when the gas side
     /// conserves energy.
     pub enthalpy_rise: f64,
-    /// Picard passes of the last flow solve and its last relative change.
+    /// Picard passes of the last flow solve and its last relative change of
+    /// the cell resistances (`resistance_change`, gh:#1175).
     pub flow_picard: (usize, f64),
     /// Pressure drop inlet-of-bed-stream to outlet, Pa (mean over the
     /// region-18 inflow cells).
@@ -1086,6 +1128,8 @@ pub fn solve_gas(
             sum_r[*gc].0 += out_flux[k] / area;
             sum_r[*gc].1 += 1;
         }
+        // Convergence is measured on what the Picard iterates: the cell
+        // resistances `R(|G|)` (gh:#1175). See [`resistance_change`].
         let mut change: f64 = 0.0;
         for k in 0..ng {
             let c = net.cell_of_gas[k];
@@ -1094,14 +1138,17 @@ pub fn solve_gas(
                 if sum_z[k].1 > 0 { sum_z[k].0 / sum_z[k].1 as f64 } else { 0.0 },
             );
             let old = g_cell[c];
-            let scale = old.0.hypot(old.1).max(new.0.hypot(new.1)).max(1e-3);
-            change = change.max((new.0 - old.0).hypot(new.1 - old.1) / scale);
+            change = change.max(resistance_change(&net.region_of_gas[k], old, new, &gases[k])?);
             // Under-relaxed Picard on the resistance argument.
             g_cell[c] = (0.5 * (old.0 + new.0), 0.5 * (old.1 + new.1));
         }
         picard = (it, change);
-        // 1e-7: the pressure solve (relative residual 1e-13) puts a
-        // round-off floor near 1e-9 under the cell flux of small cells.
+        // ~~1e-7 on the cell flux: the pressure solve (relative residual
+        // 1e-13) puts a round-off floor near 1e-9 under the cell flux of
+        // small cells.~~ CORRECTED 2026-11-03 (gh:#1175): that floor, read
+        // against the 1e-3 scale floor, is 1e-7 to 7e-7 on the 10 cm mesh,
+        // so the flux measure could not reach 1e-7 there. The same 1e-7 now
+        // applies to the resistances, which carry no such floor.
         if change < 1e-7 {
             break;
         }

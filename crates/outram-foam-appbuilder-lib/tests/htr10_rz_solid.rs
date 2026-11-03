@@ -367,12 +367,15 @@ fn htr10_rz_drawings_and_case_a() {
     pin("A-DECAY Kugeler hottest", rdk.max_temperature.get::<kelvin>(), PIN_DECAY_K);
 }
 
-const PIN_MEAN950_B: f64 = 102.526;
-const PIN_MEAN950_Z: f64 = 127.15;
-const PIN_HELD_B: f64 = 235.398;
-const PIN_DECAY_B: f64 = 1557.877;
-const PIN_DECAY_Z: f64 = 1433.2;
-const PIN_DECAY_K: f64 = 1577.1;
+// Re-measured 2026-11-03 when RPV-cavity natural convection became the
+// default (gh:#1173). Radiation-only values (`without_cavity_convection`):
+// 102.526, 127.15, 235.398, 1557.877, 1433.2, 1577.1.
+const PIN_MEAN950_B: f64 = 105.068;
+const PIN_MEAN950_Z: f64 = 130.56;
+const PIN_HELD_B: f64 = 242.34;
+const PIN_DECAY_B: f64 = 1555.1;
+const PIN_DECAY_Z: f64 = 1429.4;
+const PIN_DECAY_K: f64 = 1574.0;
 
 /// Mesh convergence of case (a): the Fig 2.5 mesh itself, then every
 /// interval split to at most 10, 5, 2.5 and 1.25 cm. About 7 minutes in
