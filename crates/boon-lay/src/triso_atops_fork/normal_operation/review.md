@@ -68,3 +68,60 @@ checked that the TRISO ATOPS normal_operation code contains these
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 4e9fcc74fc.
+
+# Review: PlantConstants::new (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-new-theodoreonzgit-5a33f79b"
+kind = "review"
+origin = "human"
+created = "2026-11-03T15:03:03+08:00"
+modified = "2026-11-03T15:03:03+08:00"
+target = "fn:5a33f79b407cf341"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::PlantConstants::new"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T15:03:03+08:00"
+commit = "28f7d496061853e5b4865dc2edd5a91f9d8ae1a8"
+hash = "sha256:4c2afe9cb508ba2c2933c0c9cd1e4cf01c88e57848b554e759d1854331c9e2a8"
+doc_hash = "sha256:b74b1f0ab7a0d8d0f354ccc43f8a980da0ad8a08085ca595e575eb0ef62b4a98"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "io_format"
+
+[review.callees]
+"fn:515e6933ab0603f9" = "sha256:e6d597d01f0fbf4906e858eed1b26c1868f061c52188509463e05e83cc78a311"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream (no result return)"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream (no result return)"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "d+2AIUOG97qmmqdMP/i5G7yu2LoQb5P979gGOZDnOjgD0ycDEDnZEd5MEBYD75CUayZwIyuQ9ZWXq63/NpjwAA=="
+```
+
+constructor
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 28f7d49606.
