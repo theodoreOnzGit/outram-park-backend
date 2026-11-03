@@ -656,7 +656,7 @@ impl CoreScreen {
         let mut lines: Vec<(String, Color32)> = vec![if self.live {
             ("LIVE: the picture shows neutrons of the k_eff run in this tab's workers".into(), crate::keffplot::LIVE)
         } else {
-            ("RECORDED: the picture shows tracks baked natively from the same model, code and seed (2026-10-07)".into(), crate::keffplot::AMBER)
+            ("RECORDED: the picture shows tracks baked natively (2026-10-07) from the record's model: 27 °C everywhere, graphite and SiC laws from the tapes".into(), crate::keffplot::AMBER)
         }];
         if let Some(p) = &self.pool {
             lines.extend(status_lines(p).into_iter().filter(|(t, _)| !t.starts_with("Bed: ") && !t.starts_with("Control rods: ")));
@@ -1403,7 +1403,7 @@ fn pool_panel(
 pub const NOTES: &[&str] = &[
     "The model is the one the recorded k-vs-height runs used: nee_soon's assemble_explicit_triso(14, N, 0), the material set of the record, and every nuclide of Htr10DataConfig::default() (ENDF/B-VIII.0 at 300.15 K, tolerance 0.001, URR and DBRC on, every bound thermal law, real Ni/Fe rod steel). Nothing is re-modelled for the browser.",
     "Delta tracking in the bed, surface tracking in the reflector, as the recorded runs; the power iteration is the record's (run_keff_csg_par), split by generation over the workers. The answer does not depend on the number of workers, bit for bit.",
-    "The recorded tracks the view opens on were baked natively from the same model, code and seed; the browser's own run can differ from them in the last bits (its maths library is not the platform's), and then in the histories.",
+    "The recorded tracks the view opens on were baked natively (2026-10-07) from the record's model: every zone at 27 °C, graphite and SiC laws from the tapes. Since gh:#1142 the live run's model makes every law by LEAPR at its zone's temperature, so its histories differ from the recorded ones even at 27 °C; the browser's own run also differs in the last bits (its maths library is not the platform's).",
     "A live run of 1000 neutrons per generation has a σ of several hundred pcm, against about 100 pcm for the record's 1.35 million active histories. It shows the core is near critical at N = 12; it does not test the record.",
     "Pebbles on Şeker & Çolak (2003)'s regular lattice, not the reactor's random bed; no k exists here for a random (DEM) bed.",
     "Education and research only. Not for reactor operation, licensing or safety decisions.",

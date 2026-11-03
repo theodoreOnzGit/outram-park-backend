@@ -460,6 +460,19 @@ impl PoolState {
                 }
             }
             CoreEv::Assembled(r) => {
+                // One console line per assembly, for an unattended browser
+                // check of time and memory (gh:#1141).
+                log::info!(
+                    "worker pool: worker {} assembled N = {} in {:.1} s (nuclides {:.1} s, geometry {:.1} s, majorant {:.1} s), wasm memory {:.0} MB, {:.0} s after the pool started",
+                    w + 1,
+                    r.layers,
+                    r.tapes_s + r.nuclides_s + r.geometry_s + r.majorant_s,
+                    r.nuclides_s,
+                    r.geometry_s,
+                    r.majorant_s,
+                    r.memory_mb,
+                    now_s - self.started_s
+                );
                 self.assembled[w] = Some(r);
                 self.check_ready(now_s);
             }
