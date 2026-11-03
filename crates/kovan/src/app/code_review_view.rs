@@ -179,6 +179,8 @@ pub(crate) struct CodeReviewView {
     strip_collapsed: bool,
     /// A reviewed function's "Add connection" window, while open (#839).
     connection: Option<super::connection_picker::ConnectionPicker>,
+    /// "Run this test" and its output window, while open (#1165).
+    single_test: Option<super::single_test::SingleTest>,
     /// The app's key session (GitHub #1020): kept across a change of
     /// workspace, dropped (and zeroised) on Lock now, auto-lock and quit.
     key_session: SharedKeySession,
@@ -296,6 +298,12 @@ impl CodeReviewView {
                     self.connection = Some(super::connection_picker::ConnectionPicker::new(root, f));
                 }
             }
+            // One test at a time: a press while one runs is dropped (#1165).
+            Some(HostRequest::RunTest { package, test, .. }) => {
+                if let (Some(root), false) = (&self.workspace, self.single_test.as_ref().is_some_and(|t| t.running())) {
+                    self.single_test = Some(super::single_test::SingleTest::start(root.clone(), package, test));
+                }
+            }
             Some(r) if self.pending.is_none() => self.open(r),
             _ => {}
         }
@@ -320,7 +328,7 @@ impl CodeReviewView {
             // like review mode's own Re-confirm.
             HostRequest::Reconfirm(f) => return self.open_flow(Purpose::Reconfirm, HostRequest::Stamp(f.clone())),
             // Not a stamp dialog: `take_request` opens its own window.
-            HostRequest::AddConnection(_) => return,
+            HostRequest::AddConnection(_) | HostRequest::RunTest { .. } => return,
         };
         self.open_flow(purpose, req);
     }
@@ -333,7 +341,8 @@ impl CodeReviewView {
             HostRequest::Stamp(f)
             | HostRequest::NeedsFix(f)
             | HostRequest::AddConnection(f)
-            | HostRequest::Reconfirm(f) => f,
+            | HostRequest::Reconfirm(f)
+            | HostRequest::RunTest { function: f, .. } => f,
         };
         let target = Target {
             function: f.id.clone(),
@@ -1005,6 +1014,16 @@ impl CodeReviewView {
                     }
                     if !super::connection_picker::show(&ctx, p) {
                         self.connection = None;
+                    }
+                }
+                // "Run this test" (#1165): its output window.
+                if let (Some(t), Some(root)) = (self.single_test.as_mut(), self.workspace.clone()) {
+                    t.poll();
+                    if t.running() {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(200));
+                    }
+                    if !super::single_test::show(&ctx, t, &root) {
+                        self.single_test = None;
                     }
                 }
             }
