@@ -571,3 +571,62 @@ the Rust port by Claude puts it in neat structs instead.
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 6d0c3d63bc.
+
+# Review: NodalActivities::parent_pools (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-parent-pools-theodoreonzgit-745bd77b"
+kind = "review"
+origin = "human"
+created = "2026-11-03T15:47:45+08:00"
+modified = "2026-11-03T15:47:45+08:00"
+target = "fn:745bd77be64f687a"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::NodalActivities::parent_pools"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T15:47:46+08:00"
+commit = "50e377ec168c0be3f4831683cba310da1fee85f6"
+hash = "sha256:443b83fe6b2801369330c415e78fe99fc27db37a4f85e98465880c10a1eec8f2"
+doc_hash = "sha256:5c056c851ac3eb152496404a41e078c0878471b4d28d73e5cd5f1b0359197910"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:49cbfd358a6976d4" = "sha256:21bde6366bd14b2230818107f9f51697dcb40359f8c429329b0bea39dd191993"
+"fn:dcb6acb5e841b5b0" = "sha256:24b2f6ca6faddbc1768e5afef5d98c2498f83bd3ad7a163cbe0edc7e13e24187"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: ports upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "no_limits: constructor"
+maintainability = "yes"
+numerical_hazards = "other: upstream behaviour"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "lb2YauroaHqpoYgPcOmKDdsvQxLpf9TYPevjBgJY09huRcjMMI3Upkt5kNcVhhqv7oPCNLTqBEi48ooaFiYLDQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+NodalActivites can spawn a ParentPools struct using this method, quite important, to feed into daughter nuclide
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 50e377ec16.
