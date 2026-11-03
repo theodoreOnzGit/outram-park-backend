@@ -127,6 +127,21 @@ fn main() -> Result<(), String> {
             )
             .map_err(|e| e.to_string())?;
     }
+    // Zernike -> Fourier-Bessel: an order-4 Zernike profile against its
+    // Neumann (Dini) and Dirichlet (R_b = R) reconstructions with 1, 3, 6
+    // terms. The Zernike profile is non-zero at the edge, which only the
+    // Neumann series can represent.
+    let mut z = vec![0.0; 15];
+    z[0] = 1.0;
+    z[4] = -0.3;
+    z[12] = 0.1;
+    nee_soon::power_shape::write_bessel_comparison_png(
+        dir.join("zernike_vs_bessel_radial.png"),
+        &z,
+        l(90.0),
+        l(90.0),
+        &[1, 3, 6],
+    )?;
     println!("wrote {}", dir.display());
     Ok(())
 }

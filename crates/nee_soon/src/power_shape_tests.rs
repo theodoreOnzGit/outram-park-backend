@@ -326,3 +326,125 @@ fn shapes_draw() {
     assert!(!s.is_axisymmetric());
     assert!(PowerShape::Uniform.is_axisymmetric());
 }
+
+/// The zeros of `J0` and `J1` against A&S Tab 9.5.
+#[test]
+fn bessel_zeros_match_the_tables() {
+    let j0 = bessel_zeros(0, 3);
+    let j1 = bessel_zeros(1, 2);
+    for (got, want) in j0.iter().zip([2.404_825_557_695_773, 5.520_078_110_286_311, 8.653_727_912_911_013]) {
+        assert!((got - want).abs() < 1e-13, "{got}");
+    }
+    for (got, want) in j1.iter().zip([3.831_705_970_207_512, 7.015_586_669_815_619]) {
+        assert!((got - want).abs() < 1e-13, "{got}");
+    }
+}
+
+/// The `m = 0` Zernike coefficients (filter order, radial order `order`) of
+/// a radial profile `f(rho)`, by projection: `c_n0 = 2 (n+1) int_0^1 f
+/// R_n^0 rho d rho`.
+fn zernike_of(f: impl Fn(f64) -> f64, order: usize) -> Vec<f64> {
+    let (nodes, weights) = gauss_legendre_table(30).unwrap();
+    let n_terms = (order + 1) * (order + 2) / 2;
+    let mut c = vec![0.0; n_terms];
+    for s in 0..8 {
+        let (lo, hi) = (s as f64 / 8.0, (s + 1) as f64 / 8.0);
+        for (x, w) in nodes.iter().zip(weights) {
+            let rho = 0.5 * (lo + hi) + 0.5 * (hi - lo) * x;
+            let z = zernike_zn(order, rho, 0.0);
+            let mut j = 0;
+            for n in 0..=order {
+                let mut m = -(n as i32);
+                while m <= n as i32 {
+                    if m == 0 {
+                        c[j] += 2.0 * (n as f64 + 1.0) * w * 0.5 * (hi - lo) * f(rho) * z[j] * rho;
+                    }
+                    j += 1;
+                    m += 2;
+                }
+            }
+        }
+    }
+    c
+}
+
+/// **A pure `J0(2.405 r/R)` written as Zernike moments converts back to one
+/// Dirichlet term** at `R_b = R`: `b_1 = 1`, the rest round-off-small.
+#[test]
+fn a_bare_cylinder_mode_is_one_dirichlet_term() {
+    let z = zernike_of(|rho| bessel_j0(J0_FIRST_ZERO * rho), 20);
+    let b = zernike_to_bessel(&z, l(90.0), 6, BesselBoundary::Dirichlet { extrapolated_radius: l(90.0) }).unwrap();
+    println!("J0 mode in Dirichlet terms: {:?}", b.coefficients);
+    assert!((b.coefficients[0] - 1.0).abs() < 1e-10, "{:?}", b.coefficients);
+    for c in &b.coefficients[1..] {
+        assert!(c.abs() < 1e-10, "{:?}", b.coefficients);
+    }
+}
+
+/// **A Zernike polynomial converts with a monotonically falling L2 error**
+/// (the `r`-weighted norm the projection is orthogonal in), for both
+/// boundaries; **power is conserved exactly by Neumann at every `n_terms`**
+/// and converges with Dirichlet. The numbers are printed (V&V README).
+#[test]
+fn zernike_polynomial_converges_in_bessel_modes_and_conserves_power() {
+    // Order 4: (0,0) .. (2,0) is index 4, (4,0) is index 12.
+    let mut z = vec![0.0; 15];
+    z[0] = 1.0;
+    z[4] = -0.3;
+    z[12] = 0.1;
+    let r = l(90.0);
+    let p = zernike_disc_integral(&z, r);
+    let (nodes, weights) = gauss_legendre_table(30).unwrap();
+    let l2 = |b: &BesselRadial| -> f64 {
+        let mut e = 0.0;
+        let rb = b.radius.get::<centimeter>();
+        // [0, R] in 16 pieces, then [R, R_b] (where f = 0) in 4.
+        let ends: Vec<(f64, f64)> = (0..16)
+            .map(|s| (90.0 * s as f64 / 16.0, 90.0 * (s + 1) as f64 / 16.0))
+            .chain((0..4).map(|s| (90.0 + (rb - 90.0) * s as f64 / 4.0, 90.0 + (rb - 90.0) * (s + 1) as f64 / 4.0)))
+            .filter(|(a, b)| b > a)
+            .collect();
+        for (lo, hi) in ends {
+            for (x, w) in nodes.iter().zip(weights) {
+                let rr = 0.5 * (lo + hi) + 0.5 * (hi - lo) * x;
+                let f = if rr <= 90.0 { zernike_m0_profile(&z, rr / 90.0) } else { 0.0 };
+                let d = b.eval(l(rr)) - f;
+                e += w * 0.5 * (hi - lo) * rr * d * d;
+            }
+        }
+        (e / (0.5 * 90.0 * 90.0)).sqrt() // over [0, R_b], normalised by the disc
+    };
+    for (name, boundary) in [
+        ("Neumann", BesselBoundary::default()),
+        ("Dirichlet R_b = R", BesselBoundary::Dirichlet { extrapolated_radius: r }),
+        ("Dirichlet R_b = 1.2 R", BesselBoundary::Dirichlet { extrapolated_radius: l(108.0) }),
+    ] {
+        let mut prev = f64::INFINITY;
+        let mut line = format!("{name}:");
+        for n in 1..=10 {
+            let b = zernike_to_bessel(&z, r, n, boundary).unwrap();
+            let e = l2(&b);
+            let dp = b.disc_integral(r) / p - 1.0;
+            line.push_str(&format!(" n={n} L2={e:.3e} dP={dp:+.2e};"));
+            assert!(e <= prev * (1.0 + 1e-9), "{name}: L2 rose at n = {n}: {e} > {prev}");
+            prev = e;
+            if boundary == BesselBoundary::Neumann {
+                assert!(dp.abs() < 1e-12, "{name}: power {dp} at n = {n}");
+            }
+        }
+        println!("{line}");
+    }
+    assert_eq!(BesselBoundary::default(), BesselBoundary::Neumann);
+    // The Bessel-Legendre shape conserves power on cells like every other.
+    let b = zernike_to_bessel(&z, r, 4, BesselBoundary::Neumann).unwrap();
+    let s = PowerShape::bessel_legendre(&b, &[1.0, 0.2], l(-90.0), l(90.0));
+    let q = s.cell_power_density(&tecdoc_bed_rings(), Power::new::<megawatt>(10.0)).unwrap();
+    let sum: f64 = q
+        .iter()
+        .zip(&tecdoc_bed_rings().cells)
+        .map(|(q, c)| q.get::<watt_per_cubic_meter>() * c.volume().get::<uom::si::volume::cubic_meter>())
+        .sum();
+    assert!((sum / 1e7 - 1.0).abs() < 1e-12);
+    assert!(zernike_to_bessel(&z, r, 0, BesselBoundary::Neumann).is_err());
+    assert!(zernike_to_bessel(&z, r, 3, BesselBoundary::Dirichlet { extrapolated_radius: l(80.0) }).is_err());
+}

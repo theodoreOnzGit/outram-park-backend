@@ -114,7 +114,7 @@ use crate::htr10_rmc::data_jobs::{JobProduct, TemperedJob};
 use crate::htr10_rmc::parametric::{ParametricStudy, StudyPlan};
 use crate::htr10_rmc::zones::{max_temperature, min_temperature, Htr10Zone, ZoneTemperatures};
 use crate::power_shape::{
-    CellGeometry, FrameMap, McPowerTally, PowerCells, PowerShape, TECDOC_BED_FLOOR_Z_CM,
+    line_plot, CellGeometry, FrameMap, McPowerTally, PowerCells, PowerShape, TECDOC_BED_FLOOR_Z_CM,
 };
 
 /// Why the coupled solve failed.
@@ -829,74 +829,6 @@ pub fn write_history_png(history: &[PicardIteration], path: impl AsRef<std::path
     legend.push(LegendEntry::new(Rgb::new(0, 0, 0), format!("RIGHT RANGE {tmin:.0}-{tmax:.0} K")));
     legend.push(LegendEntry::new(Rgb::new(0, 0, 0), format!("X: PICARD ITERATION 1-{}", history.len())));
     annotate_image(&both, "HTR-10 MC <-> TH PICARD HISTORY", &legend).write_png(path)
-}
-
-/// A minimal line plot: each series `(colour, x, y, y_error)` scaled into a
-/// `w x h` box with a frame; error bars where `y_error > 0`.
-fn line_plot(series: &[(Rgb, Vec<f64>, Vec<f64>, Vec<f64>)], w: usize, h: usize) -> ImageData {
-    let mut img = ImageData::filled(w, h, Rgb::new(255, 255, 255));
-    let pad = 12.0;
-    let (mut x0, mut x1, mut y0, mut y1) = (f64::INFINITY, f64::NEG_INFINITY, f64::INFINITY, f64::NEG_INFINITY);
-    for (_, xs, ys, es) in series {
-        for ((x, y), e) in xs.iter().zip(ys).zip(es) {
-            x0 = x0.min(*x);
-            x1 = x1.max(*x);
-            y0 = y0.min(y - e);
-            y1 = y1.max(y + e);
-        }
-    }
-    if !(x1 > x0) {
-        x1 = x0 + 1.0;
-    }
-    if !(y1 > y0) {
-        y1 = y0 + 1.0;
-    }
-    let dy = 0.05 * (y1 - y0);
-    let (y0, y1) = (y0 - dy, y1 + dy);
-    let px = |x: f64| pad + (x - x0) / (x1 - x0) * (w as f64 - 2.0 * pad);
-    let py = |y: f64| h as f64 - pad - (y - y0) / (y1 - y0) * (h as f64 - 2.0 * pad);
-    let put = |img: &mut ImageData, x: f64, y: f64, c: Rgb| {
-        let (xi, yi) = (x.round() as i64, y.round() as i64);
-        if xi >= 0 && yi >= 0 && (xi as usize) < w && (yi as usize) < h {
-            img.set(xi as usize, yi as usize, c);
-        }
-    };
-    let black = Rgb::new(0, 0, 0);
-    for t in 0..w {
-        put(&mut img, t as f64, pad, black);
-        put(&mut img, t as f64, h as f64 - pad, black);
-    }
-    for t in 0..h {
-        put(&mut img, pad, t as f64, black);
-        put(&mut img, w as f64 - pad, t as f64, black);
-    }
-    for (c, xs, ys, es) in series {
-        for i in 0..xs.len() {
-            let (cx, cy) = (px(xs[i]), py(ys[i]));
-            for d in -2i32..=2 {
-                for e in -2i32..=2 {
-                    put(&mut img, cx + d as f64, cy + e as f64, *c);
-                }
-            }
-            if es[i] > 0.0 {
-                let (a, b) = (py(ys[i] - es[i]), py(ys[i] + es[i]));
-                let mut t = b.min(a);
-                while t <= a.max(b) {
-                    put(&mut img, cx, t, *c);
-                    t += 0.5;
-                }
-            }
-            if i + 1 < xs.len() {
-                let (nx, ny) = (px(xs[i + 1]), py(ys[i + 1]));
-                let n = ((nx - cx).abs().max((ny - cy).abs()) * 2.0) as usize + 1;
-                for s in 0..=n {
-                    let f = s as f64 / n as f64;
-                    put(&mut img, cx + f * (nx - cx), cy + f * (ny - cy), *c);
-                }
-            }
-        }
-    }
-    img
 }
 
 #[cfg(test)]

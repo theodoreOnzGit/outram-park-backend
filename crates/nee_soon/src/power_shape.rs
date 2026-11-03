@@ -43,6 +43,7 @@
 //! | [`PowerShape::cell_power_density`] | total power -> W/m^3 per cell, conserving the total to round-off |
 //! | [`PowerShape::from_tally`], [`PowerShape::zernike_legendre_from_tallies`] | the shape a Monte Carlo `KappaFission` tally measured, with the expansion normalisations |
 //! | [`McPowerTally`] | builders for those tallies (`rz_mesh`, `legendre_z`, `zernike`) |
+//! | [`zernike_to_bessel`], [`BesselRadial`], [`BesselBoundary`] | a Zernike (`m = 0`) shape re-expressed in Fourier-Bessel `J0` modes (Neumann/Dini by default, Dirichlet on request); [`PowerShape::bessel_legendre`] makes the R-Z product |
 //! | [`Frame`], [`FrameMap`] | the three coordinate frames of the HTR-10 chain: MC (cm, z up, 0 at bed mid-height), TECDOC-1694 (cm, z down, 0 at the full-core bed top) and GeN-Foam meshes (metres, TECDOC orientation) |
 //! | [`CellGeometry`], [`PowerCells`] | the cells power is put on: exact rings (R-Z meshes), boxes, or centroid points (a general `FvMesh`) |
 //! | [`PowerShape::write_rz_png`] | an R-Z picture of a shape, for a human to check |
@@ -98,7 +99,7 @@ use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use petir::integration::gauss_legendre_tables::gauss_legendre_table;
 use petir::mathf::RealMath;
-use petir::specfunc::bessel::bessel_j0;
+use petir::specfunc::bessel::{bessel_j0, bessel_j1};
 use uom::si::f64::{Length, Power, Volume, VolumetricPowerDensity};
 use uom::si::length::{centimeter, meter};
 use uom::si::power::watt;
@@ -489,6 +490,25 @@ pub enum PowerShape {
         /// `c[n][j]`.
         coefficients: Vec<Vec<f64>>,
     },
+    /// **Fourier-Bessel in `r` times Legendre in `z`**:
+    /// `sum_n sum_k c[n][k] P_n(xi(z)) J0(alpha_k r / radius)` on `r <=
+    /// radius`, `z_min <= z <= z_max`, axisymmetric about the core axis.
+    /// The radial modes come from [`zernike_to_bessel`] (a Zernike tally
+    /// re-expressed in Bessel modes); [`Self::bessel_legendre`] builds the
+    /// product with a Legendre-z axial shape.
+    BesselLegendre {
+        /// The Bessel radius `R_b` (support and argument scale).
+        radius: Length,
+        /// `alpha_k` (zeros of `J0` for Dirichlet, `0` and the zeros of `J1`
+        /// for Neumann).
+        alphas: Vec<f64>,
+        /// Lower end of the axial interval.
+        z_min: Length,
+        /// Upper end.
+        z_max: Length,
+        /// `c[n][k]`.
+        coefficients: Vec<Vec<f64>>,
+    },
     /// **Spatial** real spherical harmonics on a sphere:
     /// `R(rho) sum_{l,m} c_lm Y_l^m(theta, phi)` for `rho = |p - centre| /
     /// radius <= 1`, `theta` the polar angle from `+z`. `coefficients` in
@@ -565,7 +585,8 @@ impl PowerShape {
             | Self::Sine { .. }
             | Self::J0Cosine { .. }
             | Self::LegendreZ { .. }
-            | Self::RzTable { .. } => true,
+            | Self::RzTable { .. }
+            | Self::BesselLegendre { .. } => true,
             Self::Zernike {
                 centre,
                 coefficients,
@@ -700,6 +721,27 @@ impl PowerShape {
                     .map(|(row, pn)| pn * zernike_eval(centre, *radius, row, x, y))
                     .sum()
             }
+            Self::BesselLegendre {
+                radius,
+                alphas,
+                z_min,
+                z_max,
+                coefficients,
+            } => {
+                let (a, b, rb) = (cm(*z_min), cm(*z_max), cm(*radius));
+                let r = x.r_hypot(y);
+                if z < a || z > b || r > rb || coefficients.is_empty() {
+                    return 0.0;
+                }
+                let xi = 2.0 * (z - a) / (b - a) - 1.0;
+                let p = legendre_pn(coefficients.len() - 1, xi);
+                let j: Vec<f64> = alphas.iter().map(|al| bessel_j0(al * r / rb)).collect();
+                coefficients
+                    .iter()
+                    .zip(&p)
+                    .map(|(row, pn)| pn * row.iter().zip(&j).map(|(c, j)| c * j).sum::<f64>())
+                    .sum()
+            }
             Self::SphericalHarmonics {
                 centre,
                 radius,
@@ -747,6 +789,7 @@ impl PowerShape {
                 vec![cm(*radius)]
             }
             Self::RzTable { r_edges, .. } => r_edges.iter().map(|v| cm(*v)).collect(),
+            Self::BesselLegendre { radius, .. } => vec![cm(*radius)],
             _ => Vec::new(),
         }
     }
@@ -768,7 +811,9 @@ impl PowerShape {
                 vec![c - 0.5 * h, c + 0.5 * h]
             }
             Self::Sine { bottom, height } => vec![cm(*bottom), cm(*bottom) + cm(*height)],
-            Self::LegendreZ { z_min, z_max, .. } | Self::ZernikeLegendre { z_min, z_max, .. } => {
+            Self::LegendreZ { z_min, z_max, .. }
+            | Self::ZernikeLegendre { z_min, z_max, .. }
+            | Self::BesselLegendre { z_min, z_max, .. } => {
                 vec![cm(*z_min), cm(*z_max)]
             }
             Self::SphericalHarmonics { centre, radius, .. } => {
@@ -1054,6 +1099,23 @@ impl PowerShape {
         })
     }
 
+    /// **A Fourier-Bessel radial shape times a Legendre-z axial one**:
+    /// `c[n][k] = a_n b_k`, with `radial` from [`zernike_to_bessel`] and
+    /// `legendre` the `a_n` of a [`Self::LegendreZ`] on `[z_min, z_max]`.
+    #[must_use]
+    pub fn bessel_legendre(radial: &BesselRadial, legendre: &[f64], z_min: Length, z_max: Length) -> Self {
+        Self::BesselLegendre {
+            radius: radial.radius,
+            alphas: radial.alphas.clone(),
+            z_min,
+            z_max,
+            coefficients: legendre
+                .iter()
+                .map(|a| radial.coefficients.iter().map(|b| a * b).collect())
+                .collect(),
+        }
+    }
+
     // ── Pictures ────────────────────────────────────────────────────────
 
     /// **Draw the shape in R-Z** (the `x >= 0, y = 0` half-plane, Monte
@@ -1109,6 +1171,343 @@ impl PowerShape {
         }
         write_scalar_png(path.as_ref(), title, n, n, &v)
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Zernike -> Fourier-Bessel
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Which Fourier-Bessel series a radial shape is re-expressed in.
+///
+/// **The default is [`Self::Neumann`]**, because a Zernike reconstruction of
+/// a reflected core's power is generally **non-zero at the disc edge**: the
+/// Dini (Neumann) modes `J0(alpha_k r/R)`, `J1(alpha_k) = 0`, with the
+/// constant `k = 0` term, carry a non-zero edge value and converge fast. The
+/// Dirichlet modes all vanish at `R_b`, so with `R_b = R` they can only
+/// approach a non-zero edge value slowly and with Gibbs ringing; they are
+/// the bare cylinder's modes, an explicit choice for a bare (or
+/// extrapolated, `R_b > R`) description.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum BesselBoundary {
+    /// `alpha_k` the zeros of `J0` at the radius `R_b = extrapolated_radius
+    /// >= R` (the disc radius): `f(R_b) = 0`.
+    Dirichlet {
+        /// `R_b`, at least the disc radius.
+        extrapolated_radius: Length,
+    },
+    /// `alpha_0 = 0` and `alpha_k` the zeros of `J1` (`f'(R) = 0`), at the
+    /// disc radius: the Dini series.
+    #[default]
+    Neumann,
+}
+
+/// A radial Fourier-Bessel series `f(r) = sum_k b_k J0(alpha_k r / R_b)` on
+/// `r <= R_b`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BesselRadial {
+    /// `R_b`.
+    pub radius: Length,
+    /// `alpha_k`.
+    pub alphas: Vec<f64>,
+    /// `b_k` (the units of the Zernike shape it came from).
+    pub coefficients: Vec<f64>,
+    /// The series' boundary condition.
+    pub boundary: BesselBoundary,
+}
+
+impl BesselRadial {
+    /// `f(r)` (zero beyond `R_b`).
+    #[must_use]
+    pub fn eval(&self, r: Length) -> f64 {
+        let (r, rb) = (cm(r), cm(self.radius));
+        if r > rb {
+            return 0.0;
+        }
+        self.alphas.iter().zip(&self.coefficients).map(|(a, b)| b * bessel_j0(a * r / rb)).sum()
+    }
+
+    /// `int_0^{r_max} 2 pi r f(r) dr`, cm^2 times the shape's unit: exact
+    /// per mode (`int_0^x t J0(t) dt = x J1(x)`, A&S 11.3.20).
+    #[must_use]
+    pub fn disc_integral(&self, r_max: Length) -> f64 {
+        let rb = cm(self.radius);
+        let x = cm(r_max).min(rb) / rb;
+        self.alphas
+            .iter()
+            .zip(&self.coefficients)
+            .map(|(a, b)| {
+                let m = if *a == 0.0 { 0.5 * x * x } else { x * bessel_j1(a * x) / a };
+                2.0 * PI * rb * rb * b * m
+            })
+            .sum()
+    }
+}
+
+/// The first `n` positive zeros of `J0` (`order = 0`) or `J1` (`order = 1`),
+/// by Newton from McMahon's asymptotic start `(k - 1/4) pi` / `(k + 1/4)
+/// pi` (A&S 9.5.12), on petir's `J0`, `J1` (`J0' = -J1`, `J1' = J0 - J1/x`),
+/// to round-off.
+#[must_use]
+pub fn bessel_zeros(order: usize, n: usize) -> Vec<f64> {
+    (1..=n)
+        .map(|k| {
+            let mut x = if order == 0 { (k as f64 - 0.25) * PI } else { (k as f64 + 0.25) * PI };
+            for _ in 0..50 {
+                let (f, df) = if order == 0 {
+                    (bessel_j0(x), -bessel_j1(x))
+                } else {
+                    (bessel_j1(x), bessel_j0(x) - bessel_j1(x) / x)
+                };
+                let dx = f / df;
+                x -= dx;
+                if dx.abs() <= 1e-15 * x {
+                    break;
+                }
+            }
+            x
+        })
+        .collect()
+}
+
+/// The radial profile `f(r)`, `r <= R`, of the `m = 0` moments of a Zernike
+/// coefficient vector in Monte Carlo filter order (the `m != 0` moments are
+/// dropped: `f` is the azimuthal average).
+fn zernike_m0_profile(zernike: &[f64], rho: f64) -> f64 {
+    let order = zernike_order(zernike.len()).unwrap_or(0);
+    let z = zernike_zn(order, rho, 0.0);
+    let mut j = 0;
+    let mut f = 0.0;
+    for n in 0..=order {
+        let mut m = -(n as i32);
+        while m <= n as i32 {
+            if m == 0 {
+                f += zernike[j] * z[j];
+            }
+            j += 1;
+            m += 2;
+        }
+    }
+    f
+}
+
+/// **Re-express a Zernike radial shape in Fourier-Bessel modes** (no Monte
+/// Carlo Bessel filter: the tally stays Zernike, this is a projection).
+///
+/// `zernike` is a coefficient vector in filter order on a disc of
+/// `disc_radius` ([`PowerShape::Zernike`]'s, e.g. from
+/// [`PowerShape::from_tally`]); its `m = 0` part `f(r)` is projected on
+/// `n_terms` modes with the Bessel orthogonality weight `r`:
+///
+/// - **Dirichlet** (`alpha_k` zeros of `J0`, `R_b >= R`; `f = 0` beyond
+///   `R`): `b_k = 2 / (R_b^2 J1(alpha_k)^2) int_0^{R_b} f(r) J0(alpha_k r /
+///   R_b) r dr` (Watson, *Treatise on the Theory of Bessel Functions*, 2nd
+///   ed., Sec 18.24; the norm `int_0^1 x J0(alpha x)^2 dx = J1(alpha)^2/2`,
+///   A&S 11.4.5);
+/// - **Neumann / Dini** (`alpha_0 = 0`, `alpha_k` zeros of `J1`, `R_b =
+///   R`): `b_0 = (2/R^2) int_0^R f r dr`, `b_k = 2 / (R^2 J0(alpha_k)^2)
+///   int_0^R f J0(alpha_k r/R) r dr` (Watson Sec 18.33, the Dini series with
+///   `H = 0`; the norm is `J0(alpha)^2/2` where `J1(alpha) = 0`).
+///
+/// The integrand is a polynomial times `J0`, integrated by composite
+/// 30-point Gauss-Legendre refined until two estimates agree to 1e-14.
+///
+/// **Power**: with Neumann the disc integral is carried by `b_0` alone
+/// (`int_0^R J0(alpha_k r/R) r dr = 0`), so it is conserved exactly at every
+/// `n_terms >= 1`. With Dirichlet every mode carries some, and the
+/// truncated series' integral converges to the Zernike one as `n_terms`
+/// grows ([`BesselRadial::disc_integral`] measures it).
+///
+/// # Errors
+/// `n_terms == 0`, a non-positive radius, a Dirichlet radius below the disc
+/// radius, or a vector whose length is not a Zernike count.
+pub fn zernike_to_bessel(
+    zernike: &[f64],
+    disc_radius: Length,
+    n_terms: usize,
+    boundary: BesselBoundary,
+) -> Result<BesselRadial, PowerShapeError> {
+    let r = cm(disc_radius);
+    if n_terms == 0 || !(r > 0.0) || zernike_order(zernike.len()).is_none() {
+        return Err(PowerShapeError::Input(
+            "n_terms >= 1, a positive radius and a Zernike-length vector are needed".into(),
+        ));
+    }
+    let (rb, alphas, norm): (f64, Vec<f64>, Vec<f64>) = match boundary {
+        BesselBoundary::Dirichlet { extrapolated_radius } => {
+            let rb = cm(extrapolated_radius);
+            if rb < r {
+                return Err(PowerShapeError::Input("the Dirichlet radius is below the disc radius".into()));
+            }
+            let a = bessel_zeros(0, n_terms);
+            let n = a.iter().map(|a| 2.0 / (rb * rb * bessel_j1(*a).powi(2))).collect();
+            (rb, a, n)
+        }
+        BesselBoundary::Neumann => {
+            let mut a = vec![0.0];
+            a.extend(bessel_zeros(1, n_terms - 1));
+            let n = a
+                .iter()
+                .map(|a| if *a == 0.0 { 2.0 / (r * r) } else { 2.0 / (r * r * bessel_j0(*a).powi(2)) })
+                .collect();
+            (r, a, n)
+        }
+    };
+    let (nodes, weights) = gauss_legendre_table(30).expect("30-point rule tabulated");
+    let coefficients = alphas
+        .iter()
+        .zip(&norm)
+        .map(|(a, nk)| {
+            // f is zero beyond R: integrate on [0, R] only.
+            let integral = converge(
+                |s| {
+                    pieces([0.0, r], s)
+                        .map(|(lo, hi)| {
+                            let (h, c) = (0.5 * (hi - lo), 0.5 * (hi + lo));
+                            nodes
+                                .iter()
+                                .zip(weights)
+                                .map(|(x, w)| {
+                                    let rr = c + h * x;
+                                    w * h * rr * zernike_m0_profile(zernike, rr / r) * bessel_j0(a * rr / rb)
+                                })
+                                .sum::<f64>()
+                        })
+                        .sum()
+                },
+                1e-14,
+                64,
+            );
+            nk * integral
+        })
+        .collect();
+    Ok(BesselRadial {
+        radius: Length::new::<centimeter>(rb),
+        alphas,
+        coefficients,
+        boundary,
+    })
+}
+
+/// `int_0^R 2 pi r f(r) dr` of the `m = 0` Zernike profile (cm^2 times its
+/// unit): `pi R^2 c_00`, the only moment with a disc integral.
+#[must_use]
+pub fn zernike_disc_integral(zernike: &[f64], disc_radius: Length) -> f64 {
+    PI * cm(disc_radius).powi(2) * zernike.first().copied().unwrap_or(0.0)
+}
+
+/// **Picture: a Zernike radial profile against its Fourier-Bessel
+/// reconstructions** with `n_terms` of each listed count, both boundaries.
+///
+/// # Errors
+/// The conversion fails or the file cannot be written.
+pub fn write_bessel_comparison_png(
+    path: impl AsRef<std::path::Path>,
+    zernike: &[f64],
+    disc_radius: Length,
+    dirichlet_radius: Length,
+    n_terms: &[usize],
+) -> Result<(), String> {
+    let n = 200;
+    let r: Vec<f64> = (0..=n).map(|k| cm(disc_radius) * k as f64 / n as f64).collect();
+    let z: Vec<f64> = r.iter().map(|x| zernike_m0_profile(zernike, x / cm(disc_radius))).collect();
+    let black = Rgb::new(0, 0, 0);
+    let blues = [Rgb::new(150, 190, 240), Rgb::new(60, 120, 220), Rgb::new(10, 40, 140)];
+    let reds = [Rgb::new(250, 170, 150), Rgb::new(230, 80, 50), Rgb::new(140, 20, 10)];
+    let mut series = vec![(black, r.clone(), z, vec![0.0; r.len()])];
+    let mut legend = vec![LegendEntry::new(black, "ZERNIKE (M = 0)")];
+    for (k, &t) in n_terms.iter().enumerate() {
+        for (b, cols, name) in [
+            (BesselBoundary::Neumann, &blues, "NEUMANN"),
+            (BesselBoundary::Dirichlet { extrapolated_radius: dirichlet_radius }, &reds, "DIRICHLET"),
+        ] {
+            let s = zernike_to_bessel(zernike, disc_radius, t, b).map_err(|e| e.to_string())?;
+            let y: Vec<f64> = r.iter().map(|x| s.eval(Length::new::<centimeter>(*x))).collect();
+            let c = cols[k.min(2)];
+            series.push((c, r.clone(), y, vec![0.0; r.len()]));
+            legend.push(LegendEntry::new(c, format!("{name} {t} TERMS")));
+        }
+    }
+    legend.push(LegendEntry::new(black, format!("X: R 0-{:.0} CM; Y: RELATIVE POWER", cm(disc_radius))));
+    let img = line_plot(&series, 520, 340);
+    annotate_image(&img, "ZERNIKE -> FOURIER-BESSEL (RADIAL)", &legend)
+        .write_png(path)
+        .map_err(|e| e.to_string())
+}
+
+/// A minimal line plot: each series `(colour, x, y, y_error)` scaled into a
+/// `w x h` box with a frame; error bars where `y_error > 0`.
+pub(crate) fn line_plot(series: &[(Rgb, Vec<f64>, Vec<f64>, Vec<f64>)], w: usize, h: usize) -> ImageData {
+    let mut img = ImageData::filled(w, h, Rgb::new(255, 255, 255));
+    let pad = 12.0;
+    let (mut x0, mut x1, mut y0, mut y1) = (f64::INFINITY, f64::NEG_INFINITY, f64::INFINITY, f64::NEG_INFINITY);
+    for (_, xs, ys, es) in series {
+        for ((x, y), e) in xs.iter().zip(ys).zip(es) {
+            x0 = x0.min(*x);
+            x1 = x1.max(*x);
+            y0 = y0.min(y - e);
+            y1 = y1.max(y + e);
+        }
+    }
+    if !(x1 > x0) {
+        x1 = x0 + 1.0;
+    }
+    if !(y1 > y0) {
+        y1 = y0 + 1.0;
+    }
+    let dy = 0.05 * (y1 - y0);
+    let (y0, y1) = (y0 - dy, y1 + dy);
+    let px = |x: f64| pad + (x - x0) / (x1 - x0) * (w as f64 - 2.0 * pad);
+    let py = |y: f64| h as f64 - pad - (y - y0) / (y1 - y0) * (h as f64 - 2.0 * pad);
+    let put = |img: &mut ImageData, x: f64, y: f64, c: Rgb| {
+        let (xi, yi) = (x.round() as i64, y.round() as i64);
+        if xi >= 0 && yi >= 0 && (xi as usize) < w && (yi as usize) < h {
+            img.set(xi as usize, yi as usize, c);
+        }
+    };
+    let black = Rgb::new(0, 0, 0);
+    for t in 0..w {
+        put(&mut img, t as f64, pad, black);
+        put(&mut img, t as f64, h as f64 - pad, black);
+    }
+    for t in 0..h {
+        put(&mut img, pad, t as f64, black);
+        put(&mut img, w as f64 - pad, t as f64, black);
+    }
+    if y0 < 0.0 && y1 > 0.0 {
+        for t in 0..w {
+            put(&mut img, t as f64, py(0.0), Rgb::new(180, 180, 180));
+        }
+    }
+    for (c, xs, ys, es) in series {
+        let dense = xs.len() > 50;
+        for i in 0..xs.len() {
+            let (cx, cy) = (px(xs[i]), py(ys[i]));
+            if !dense {
+                for d in -2i32..=2 {
+                    for e in -2i32..=2 {
+                        put(&mut img, cx + d as f64, cy + e as f64, *c);
+                    }
+                }
+            }
+            if es[i] > 0.0 {
+                let (a, b) = (py(ys[i] - es[i]), py(ys[i] + es[i]));
+                let mut t = b.min(a);
+                while t <= a.max(b) {
+                    put(&mut img, cx, t, *c);
+                    t += 0.5;
+                }
+            }
+            if i + 1 < xs.len() {
+                let (nx, ny) = (px(xs[i + 1]), py(ys[i + 1]));
+                let n = ((nx - cx).abs().max((ny - cy).abs()) * 2.0) as usize + 1;
+                for s in 0..=n {
+                    let f = s as f64 / n as f64;
+                    put(&mut img, cx + f * (nx - cx), cy + f * (ny - cy), *c);
+                }
+            }
+        }
+    }
+    img
 }
 
 fn centred(c: &[Length; 2]) -> bool {

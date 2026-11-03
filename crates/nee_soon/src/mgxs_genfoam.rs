@@ -380,8 +380,14 @@ impl Htr10MgxsRegions {
     /// The regions of `mesh`, with every default ON and 4 groups.
     #[must_use]
     pub fn new(mesh: &Htr10RzNeutronicsMesh) -> Self {
+        Self::from_regions(mesh.regions.clone())
+    }
+
+    /// Given regions (zone order), every default ON, 4 groups.
+    #[must_use]
+    pub fn from_regions(regions: Vec<(String, RegionRecipe)>) -> Self {
         Self {
-            regions: mesh.regions.clone(),
+            regions,
             collapse: Collapse::Four,
             rebalance: true,
             descending: true,
