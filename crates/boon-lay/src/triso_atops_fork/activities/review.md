@@ -952,3 +952,56 @@ checked against release_rate in python TRISO atops codebase
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit a34ac66758.
+
+# Review: FailureFractions (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-failurefractions-theodoreonzgit-2816dd86"
+kind = "review"
+origin = "human"
+created = "2026-11-03T11:12:21+08:00"
+modified = "2026-11-03T11:12:21+08:00"
+target = "fn:2816dd8674f2b148"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::FailureFractions"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T11:12:21+08:00"
+commit = "0c1c0113524a4dff98bb44a4ef3c0bb696b2a697"
+hash = "sha256:3890d7f2c2bf5d78ac0a02d952c219265c6ded009ae509e8ceaaf6ce156eced5"
+doc_hash = "sha256:2ff6c99b71931d4d3c4d8d497c4ba028b11bbd7cd1baa0869dc7040339590ff7"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "hv0w79Y1p1HmMo5HIbG9kA5rqJEg5elm7yEyzID281/k3QY5+5znInEMEZjZngzDHb8k4/koKHPkagAlsq0VAw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+seen the terms under eq 23, data storage utility
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 0c1c011352.
