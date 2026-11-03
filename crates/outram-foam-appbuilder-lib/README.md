@@ -157,12 +157,81 @@ translation order are in
 | `multi_region` | **Implemented + verified end-to-end** for 0-D and mesh-based diffusion↔TH coupling with Doppler feedback. Two **degraded scaffolds** remain (see Limitations): exact conservative mesh-to-mesh mapping, and actual mesh-point motion. |
 | `thermal_hydraulics::closures` | Correlation leaves ported with unit tests against published values: `fs_drag` (**verified**, analytic `f·Re → 64`), `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`. `turbulence` is **partial** (closure algebra only; the k/ε transport equations and `correctNut` orchestration are deferred). |
 | `thermal_hydraulics::phase` / `structure` | Field-state + structure/power-model kernels **implemented** (with tests). |
-| `thermal_hydraulics::solver` | `one_phase` porous UEqn/pEqn/EEqn driver **implemented** — but a **constant-fluid-property slice only** (`he = Cp·T`, fixed-surface-temperature structure coupling). `onePhaseLegacy` and the **two-phase (MULES) solver are not implemented.** |
+| `thermal_hydraulics::solver` | `one_phase` porous UEqn/pEqn/EEqn driver **implemented** — but a **constant-fluid-property slice only** (`he = Cp·T`, fixed-surface-temperature structure coupling). **New work, not port (gh:#1149, 2026-11-03):** an optional `PorousConductivity` makes `alphaEff = λ(T)/Cp` per region (off by default; the constant path is pinned bit for bit). `onePhaseLegacy` and the **two-phase (MULES) solver are not implemented.** |
+| `thermal_hydraulics::solid_conduction` | **New work, not port (gh:#1149, 2026-11-03).** 2-D R-Z (OpenFOAM-style wedge) or planar solid conduction over homogenised regions: `λ(T)`, `ρc_p(T)` by enum, Picard per steady solve and per backward-Euler step (enthalpy-form storage), fixed / convective / radiative boundaries, gas gaps with two-surface radiation between regions (Kugeler et al. 2017 §9.4). **Verified** against closed forms (uniform-source cylinder, composite cylinder with a radiating gap, Kirchhoff `λ0(1+βT)`, transient slab series, 2-D manufactured solution: observed order 2.00 in space, 1.01 in time). Drawings: `verification_and_validation/solid_conduction_rz/`. ~~HTR-10 geometry is a later part of gh:#1149.~~ **UPDATED 2026-11-03:** the HTR-10 geometry is built on it by `htr10_rz` (below); held cells (`set_fixed_temperatures`, the gas side as a prescribed temperature) added and verified. Not validated against any reactor. |
 | `thermal_hydraulics::thermophysical` | Bespoke **hydrogen** (H/H₂) property package implemented; not yet wired as the `one_phase` solver's fluid package. Other fluids come from basic-lib thermo / tampines-steam-tables. |
 | `thermal_hydraulics::boundary_conditions` | `blackbody_radiation`, `velocity_rundown`, `time_field_table` implemented; **`nusselt_baffle` is a scaffold — every method is `unimplemented!()`.** |
 | `thermal_hydraulics::function_objects` | Post-processing diagnostics (mass flow, pressure drop, T-bulk, field diffs) implemented. |
 | `thermo_mechanics` | Linear-elastic thermal-expansion feedback: material card, Hooke's-law stress, axial-expansion feedback, and a displacement/heat field solve on the mechanics mesh — **implemented**. |
 | `common` | `time_profile`, `interpolate_table`, RBF kernel — implemented. `latticeMap` / `mergeOrSplitBaffles` deferred. |
+
+## Pebble-bed HTGR closures (`htgr_closures`)
+
+Original work, **not** a GeN-Foam port; it lives here so both `tampines`
+(0-D/1-D) and 2-D outram-foam work can reach it (maintainer decision D2,
+2026-11-03, gh:#1148). Coefficients from IAEA-TECDOC-1694 (proprietary tier:
+formulas and table numbers only) and Kugeler et al. 2017 (open).
+
+| Item | What | Status |
+|---|---|---|
+| `BedConductivityModel` | Bed effective conductivity. **Default `Breitbach`** (TECDOC-1694 Tab. 2.9); `Zbs(ZbsBed)` and `Kugeler2017` are comparison variants | **Verified** against hand evaluations (1e-12); default pinned by `breitbach_is_the_physics_default`. ZBS is 32-107 % above Breitbach over 523-1273 K |
+| `ZbsBed` | Zehner-Bauer-Schlunder with radiation and contact, moved here from `tampines` (re-exported there) | Analytic limits verified; the VTB table it does not reproduce is analysed (`op-jvua`) |
+| `kta_3102_2_nusselt`, `kta_3102_2_heat_transfer_coefficient` | KTA 3102.2 pebble-to-gas heat transfer (Tab. 2.10) | **Verified** against hand values; 10.5 % above Wakao at the HTR-10 design point |
+| `kta_3102_3_friction_factor`, `kta_3102_3_pressure_gradient` | KTA 3102.3 bed pressure drop (Tab. 2.10); the one copy `tampines::gas_phase::KtaBed` calls | **Verified** against the VTB step-2 gold values |
+| `KtaHelium` | The benchmark's helium fits (Tab. 2.8) with the pressure unit **fixed to bar** | **Verified** against CoolProp: within 2.2 % (0.8 % above 500 K) |
+| `StructuralMaterial`, `SteelComponent` | Fuel element, side and top/bottom reflector, carbon brick (Tab. 2.9, 2.11, 2.12); steels digitised from Fig. 2.8 | **Verified** against hand values. Steels **Uncertain** (digitised). Side reflector refused below 300 deg C (the printed fit breaks down there) |
+
+V&V record: [`verification_and_validation/htr10_th_closures_vs_tecdoc1694.md`](./verification_and_validation/htr10_th_closures_vs_tecdoc1694.md).
+None of it is validated against an HTR-10 measurement.
+
+## HTR-10 R-Z solid model (`htr10_rz`)
+
+Original work (gh:#1149 part B). The IAEA-TECDOC-1694 THERMIX-style R-Z
+solid model (Tab 2.4 regions on the Fig 2.5 mesh lines, from the cited input
+sheet `docs/reactor-scoping/htr10-th-benchmark.md`) on the
+`solid_conduction` field, with every property from `htgr_closures`; helium
+cavities as conduction-plus-radiation media; the RPV radiating to the RCCS
+at 50 deg C. ~~Solid only (no gas flow; that is gh:#1150).~~ **UPDATED
+2026-11-03:** gh:#1150 adds the gas side (below); the solid-only cases are
+unchanged. Cases: the bed's
+volume-mean temperature held by its own power (`BedMeanTemperature`), the
+bed held isothermal (`HeldBed`), a given decay power (`DecayPower`).
+**Status: AI draft, verified for energy balance and mesh convergence; every
+region extent is Uncertain (read from a figure); not validated.** V&V record
+with drawings: [`verification_and_validation/htr10_rz_solid/README.md`](./verification_and_validation/htr10_rz_solid/README.md).
+
+**FPIC full power with gas flow (gh:#1150, original work).** `htr10_rz::flow`
+is a KONVEK-like steady R-Z porous helium flow over the Tab 2.5 flow
+regions (KTA 3102.3 bed resistance, Churchill channel and slot friction,
+buoyancy in the bed and channels), with the inlet path, the risers and the
+bypass paths (discharge tube, control-rod channels, gap leakage) as explicit
+regions and the 87/1/2/10 split **imposed** (unmeasured, D5). The gas energy
+(KTA 3102.2 in the bed, Dittus-Boelter elsewhere) is coupled to the solid
+field by outer iteration through the new implicit per-cell exchange
+`SolidConductionField::set_cell_exchange`. `htr10_rz::pebble` adapts the
+GeN-Foam `nuclearSteadyStatePebble` port to the HTR-10 full-sphere fuel zone,
+and `htr10_rz::fpic` (`Htr10FpicModel`) runs the case and samples the 22
+thermocouples. The GeN-Foam `onePhase` solver was checked and not used
+(constant properties, isotropic drag, transient march; see the `flow`
+module docs). **Status: AI draft; plant energy balance closed to 1e-6;
+compared (not gated) against the 22 measured thermocouples: RMS 49.4 K
+(INET 38.7 K), all 22 inside the participants' range; not validated.** V&V
+record with drawings and sensitivities:
+[`verification_and_validation/htr10_rz_flow_fpic/README.md`](./verification_and_validation/htr10_rz_flow_fpic/README.md).
+
+**Transient R-Z core (gh:#1151 part B, original work).**
+`htr10_rz::transient::Htr10RzTransientCore` marches the solid field by
+backward Euler and solves the gas quasi-steadily each step (THERMIX's
+coupling), with buoyancy in the bed and channels so that the in-vessel
+natural circulation appears once the loop stops, and a lagged fuel-zone node
+per heated cell eliminated exactly into the solid row
+(`SolidConductionField::set_cell_capacity_factor` keeps the capacity
+counted once). The power is an input (thermal-hydraulics only); the kinetics
+that sets it is `nee_soon::htr10_th_transient`. Verified: energy conserved
+to the Picard tolerance over a stopped-loop march; natural circulation
+vanishes with buoyancy ablated (`NC-OFF`). Drawings and the coupled LOFC /
+CRW validation: `crates/nee_soon/verification_and_validation/htr10_rz_transients/README.md`.
+Not validated: the coupled LOFC re-criticality is ~3400 s late (see there).
 
 ## Limitations
 

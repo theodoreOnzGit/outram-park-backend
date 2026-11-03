@@ -73,7 +73,7 @@ use super::super::units::HeatFlux;
 
 /// Stefan-Boltzmann constant, `W / (m^2 K^4)` — see the module doc for the
 /// value's provenance.
-const STEFAN_BOLTZMANN_SIGMA: f64 = 5.670_374_419e-8;
+pub(crate) const STEFAN_BOLTZMANN_SIGMA: f64 = 5.670_374_419e-8;
 
 /// A black-body radiative wall boundary condition.
 ///

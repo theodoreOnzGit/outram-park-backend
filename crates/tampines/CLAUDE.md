@@ -2,6 +2,28 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `tampines` crate.
 
+## Heat sources are inputs; kinetics lives in `nee_soon` (HARD RULE)
+
+**Maintainer direction, 2026-11-03:** "any neutronics and TH shld live in
+nee soon, bring it over there" and "Tampines will have fixed or user
+determined heat sources. So TH parts can stay there."
+
+- `tampines` models take the heat source **as an input**: a fixed power, or a
+  power and shape the caller sets each step (e.g. `CoreModel::advance(dt,
+  power, ..)`, `components::reactor_power::TotalPower`). **Nothing in
+  `tampines` computes power from reactivity.**
+- Point kinetics, reactivity feedback, decay heat and xenon, and every
+  transient that couples them to thermal-hydraulics, belong in `nee_soon`
+  (the HTR-10 one is `nee_soon::htr10_th_transient`). `tampines` may report
+  the temperatures a feedback reads (`htr10_primary_loop::FeedbackTemperatures`),
+  never the reactivity.
+- The library does not depend on `teh-o-prke`; it stays an Android/wasm-gated
+  dev-dependency for examples only.
+- The split, as of 2026-11-03: loop and core TH in
+  `tampines::htr10_primary_loop` (loop-only note:
+  `verification_and_validation/htr10_primary_loop/README.md`); the coupled
+  record in `crates/nee_soon/verification_and_validation/htr10_loop_lofc/`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

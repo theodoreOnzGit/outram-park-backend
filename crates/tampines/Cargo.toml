@@ -93,6 +93,11 @@ boon-lay.workspace = true
 # outram-foam-basic-lib, all already here, so this edge adds no new crate to
 # the tree and no cycle (farrer-park does not depend on tampines).
 farrer-park.workspace = true
+# ~~teh-o-prke as a library dependency for the HTR-10 coupled transient
+# (gh:#1151, decision D2)~~ CORRECTED again 2026-11-03: maintainer moved
+# coupled kinetics to nee_soon (`nee_soon::htr10_th_transient`); tampines
+# takes heat sources as fixed or user-set inputs and is teh-o-prke-free again
+# (only the gated dev-dependency below, for the fhr_sim_v2 example).
 
 # Public API primitives -- dimensioned quantities and error types.
 uom.workspace = true

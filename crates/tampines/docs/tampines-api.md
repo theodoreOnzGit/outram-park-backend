@@ -2876,7 +2876,13 @@ redesigned to make it portable. Only three things changed:
    not of any particular plant, and keeping it beside them is what stops the
    two copies drifting.
 
-The example now re-exports this module rather than owning a second copy.
+~~The example now re-exports this module rather than owning a second copy.~~
+**CORRECTED 2026-11-03** — it does not: `htgr_sim_v1/physics/steam_generator.rs`
+(2355 lines) still defines its own `SteamGeneratorGeometry`,
+`SteamGeneratorConfig`, `PimpleCorrectors` and
+`NodalisedCounterFlowSteamGenerator`, and imports nothing from
+`tampines::components` (it only cites this module in doc comments). The
+two copies can drift.
 
 # Why it was moved: it is the subject of an open defect
 
@@ -15415,7 +15421,10 @@ sees flowing through a randomly packed bed of monosized spheres.
 - **Does NOT belong:** the bed's *conduction* physics — the
   Zehner-Bauer-Schlunder effective conductivity lives in
   [`crate::pebble_bed::zbs`]. Nor particle-to-fluid heat transfer
-  (Wakao), which is still unimplemented anywhere in the workspace.
+  (Wakao), ~~which is still unimplemented anywhere in the workspace.~~
+  **CORRECTED 2026-11-03** — which lives in
+  [`crate::pebble_bed::cht`] (`PackedBedConvection::nusselt_number`);
+  TUAS also carries `WakaoData` (verified by reading both sources).
 
 ## Formulation
 
@@ -28794,12 +28803,17 @@ temperature is the one below it's boundary condition:
   **correct** Wakao-Funazkri particle-to-fluid Nusselt correlation
   `Nu = 2 + 1.1 Pr^(1/3) Re^0.6` on the pebble diameter, the heat transfer
   coefficient it implies, and the bed volumetric form via
-  `a_v = 6(1 - eps)/d`. **Warning, still current:** the TUAS `WakaoData`
+  `a_v = 6(1 - eps)/d`. ~~**Warning, still current:** the TUAS `WakaoData`
   implementation has the Re and Pr exponents *swapped* relative to the
   published correlation (bead `op-4542`), diverging by a factor of about
   5.8 at Re = 1000, Pr = 0.71 — `cht` therefore implements the correlation
   independently and must **not** be cross-wired to TUAS until that bead is
-  resolved.
+  resolved.~~ **CORRECTED 2026-11-03** — TUAS fixed the swap on
+  2026-08-11 (`op-4542`): `WakaoData::get` in
+  `tuas_boussinesq_solver/.../nusselt_number_correlations/input_structs.rs`
+  now uses `prandtl_power = 1/3`, `reynolds_power = 0.6` (verified by
+  reading the source). `cht` still carries its own independent copy; the
+  two are no longer known to disagree, but nothing here cross-checks them.
 
 ## Also present
 
@@ -28908,23 +28922,30 @@ source before this module is promoted past Prototype in the V&V pipeline.
 ## Why this is implemented here and not consumed from TUAS
 
 [`tuas_boussinesq_solver`] carries a `WakaoData` Nusselt correlation, and
-it would be the natural thing to reuse. **It must not be used**: its
-implementation computes
+it would be the natural thing to reuse. ~~**It must not be used**: its
+implementation computes~~
 
 ```text
-Nu = 2 + 1.1 * Re^0.333 * Pr^0.6        (TUAS -- exponents transposed)
+Nu = 2 + 1.1 * Re^0.333 * Pr^0.6        (TUAS before 2026-08-11 -- exponents transposed)
 ```
 
-— the Reynolds and Prandtl exponents are swapped relative to the published
-correlation. This is not a rounding difference. At `Re = 1000`, `Pr = 0.71`
+~~— the Reynolds and Prandtl exponents are swapped relative to the published
+correlation.~~ **CORRECTED 2026-11-03** — that was TUAS's form *before*
+2026-08-11. TUAS fixed it that day (`op-4542`): `WakaoData::get` in
+`tuas_boussinesq_solver/.../nusselt_number_correlations/input_structs.rs`
+now uses `prandtl_power = 1/3`, `reynolds_power = 0.6`, the published
+form (verified by reading the source on 2026-11-03). The rest of this
+paragraph describes the pre-fix defect. This is not a rounding difference. At `Re = 1000`, `Pr = 0.71`
 (representative of helium in an HTR-10 bed) the two forms differ by a
 factor of about 5.8; see
 `tests::divergence_from_the_tuas_wakao_implementation` for the measured
 numbers. The defect is tracked in this workspace's issue tracker as
 **`op-4542`**; TUAS is not modified from here, so this module implements
-the correct form independently. **Do not "unify" the two until `op-4542`
+the correct form independently. ~~**Do not "unify" the two until `op-4542`
 is closed** — unification in the wrong direction would silently import the
-defect.
+defect.~~ **CORRECTED 2026-11-03** — `op-4542` was fixed in TUAS on
+2026-08-11, so that precondition no longer blocks unification; whether to
+unify is a separate decision not made here.
 
 ## Status
 

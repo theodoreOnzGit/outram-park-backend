@@ -1,0 +1,35 @@
+# Source: IAEA-TECDOC-1694 (2013), Evaluation of High Temperature Gas Cooled Reactor Performance:
+# Benchmark Analysis Related to the PBMR-400, PBMM, GT-MHR, HTR-10 and the ASTRA Critical Facility. IAEA, Vienna.
+# Redistribution: IAEA publication, no reuse licence. Numbers only, cited by table (maintainer decision D1, 2026-11-03).
+# Transcribed 2026-11-03 for gh:#1147 from pdftotext -layout of the PDF, checked against rendered pages.
+# Methodology, confidence and conflicts: docs/reactor-scoping/htr10-th-benchmark.md
+# Content: the 22 FPIC thermocouple locations (Tab 2.7 / 2.14 / 7.1), measured temperature (exp),
+# INET THERMIX-KONVEK result to 0.1 degC (Tab 2.14), every participant's result (Tab 7.1, 1 degC as printed),
+# and the printed AVG and STD (1 sigma) of the calculated values. Empty cell = printed '-' (not submitted).
+# Coordinates: z = 0 at the top surface of the pebble bed, positive DOWNWARD; r from the axis (Sec 2.1.1.3).
+# TC 5 has no z printed in Tab 2.7; z = 80 is from Tab 2.14 and Tab 7.1. Measurement uncertainty: NOT PROVIDED (Sec 7.1.1.2).
+# Keys (Tab 7.1 note): CN China (THERMIX-KONVEK), FR France, JP Japan, KR Korea, NL Netherlands, ZA_TINTE and
+# ZA_VSOP South Africa, TR Turkey, UK_PHOENICS_1 and _2 (theta-planes 1 and 2), UK_WIMSTER.
+no,region,r_cm,z_cm,exp_degC,inet_tab2_14_degC,CN_degC,FR_degC,JP_degC,KR_degC,NL_degC,ZA_TINTE_degC,ZA_VSOP_degC,TR_degC,UK_PHOENICS_1_degC,UK_PHOENICS_2_degC,UK_WIMSTER_degC,avg_printed_degC,std_printed_degC
+1,Side reflector,193,80,231.3,243.9,244,220,250,222,204,244,231,224,253,256,,235,17
+2,Side reflector,189,80,249.3,263.5,264,260,254,240,224,260,257,253,265,270,335,262,14
+3,Side reflector,167,80,274.3,291.6,292,303,287,289,291,305,299,260,281,294,335,294,13
+4,Side reflector,133,80,289.1,316.4,316,328,313,317,315,342,326,298,307,320,357,322,12
+5,Side reflector,117,80,313.3,349.5,350,360,340,339,339,380,362,341,329,350,389,353,15
+6,Side reflector,93,80,357.7,410.4,410,433,413,386,379,456,433,441,471,443,463,430,29
+7,Side reflector,193,170,234.9,247.3,247,227,250,222,217,257,243,220,252,254,,239,16
+8,Side reflector,189,170,264.8,270.9,271,268,255,245,240,274,269,247,266,272,366,270,13
+9,Side reflector,167,170,303.9,305.3,305,315,297,311,314,324,315,253,284,305,368,308,21
+10,Side reflector,133,170,328.5,341.5,342,350,337,356,344,382,361,315,326,348,408,352,19
+11,Side reflector,117,170,365.3,388.8,389,394,380,397,409,451,429,386,365,401,469,406,25
+12,Side reflector,93,170,507.1,501.3,501,495,494,489,501,598,587,524,646,584,632,550,57
+13,Top reflector,60,-40,245.7,260.8,261,278,251,278,269,282,274,267,271,271,275,271,9
+14,Hot helium plenum,40,234,800.2,769.9,770,783,793,728,796,775,720,820,741,735,819,771,33
+15,Hot helium plenum,60,234,763.1,714.1,714,740,746,734,748,753,697,738,658,653,794,725,37
+16,Bottom carbon bricks,70,440,224.1,239.5,240,250,252,254,250,252,257,246,250,250,261,251,5
+17,Bottom carbon bricks,50,400,245.7,263.7,264,251,440,267,251,255,255,245,266,266,252,274,58
+18,Bottom carbon bricks,50,370,296.2,295.4,295,257,251,311,276,272,263,252,294,294,255,275,21
+19,Bottom carbon bricks,50,340,406.7,339.8,340,289,250,412,367,347,410,340,351,351,263,338,49
+20,Fuel discharge tube,26,340,334.2,316.8,317,305,289,352,340,309,399,323,321,329,254,322,30
+21,Fuel discharge tube,26,300,806.1,707.4,707,760,434,488,754,715,640,820,379,389,462,595,169
+22,Fuel discharge tube,26,260,881.7,792.7,793,796,791,585,793,783,726,829,728,725,832,762,70

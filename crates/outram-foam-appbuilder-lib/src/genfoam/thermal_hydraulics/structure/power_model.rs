@@ -32,10 +32,17 @@
 //! (`heatedPin`, `nuclearFuelPin`, `interpolatedNuclearFuelPin`,
 //! `nuclearSteadyStatePebble`, `nuclearFuelFMU`, `fixedTemperatureFMU`) solve a
 //! **radial (1-D) conduction** problem inside the pin/pebble each timestep and
-//! are *not* ported here — that radial-conduction machinery is a substantial
+//! are *not* ported here — ~~that radial-conduction machinery is a substantial
 //! follow-up (its own bead) and the FMU variants couple to an external
 //! functional-mock-up unit that is out of scope for this crate. The two lumped
-//! models above are the self-contained, hand-verifiable core of the family.
+//! models above are the self-contained, hand-verifiable core of the family.~~
+//! **CORRECTED 2026-11-03** — half stale: `nuclearSteadyStatePebble` *is*
+//! ported, as the sibling module [`super::nuclear_steady_state_pebble`],
+//! checked against an upstream GeN-Foam run by
+//! `tests/genfoam_gfhr_pebble_vs_upstream.rs`. It is not a [`PowerModel`]
+//! variant, so it is still not dispatched from here. The other pin/FMU models
+//! listed above remain unported (verified: no module of those names under
+//! `structure/`).
 //!
 //! ## Lumped energy balance (the `fixedPower` core)
 //!

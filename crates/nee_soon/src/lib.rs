@@ -87,6 +87,9 @@ pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
 
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 
+/// HTR-10 coupled thermal-hydraulic transients: point kinetics with the
+/// `tampines` primary loop (gh:#1151; moved from `tampines` 2026-11-03).
+pub mod htr10_th_transient;
 pub mod htr10_rmc;
 pub mod httr;
 pub mod mgxs;

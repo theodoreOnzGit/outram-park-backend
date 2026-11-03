@@ -11,11 +11,16 @@
 //! [`ReactorPowerSource`] takes a total reactor power and distributes it over
 //! core channels by a radial weight and, within each channel, over its cells
 //! by an [`AxialPowerShape`]. The total comes from a [`TotalPower`]: a table
-//! in time, or a value the caller sets each step. **`tampines` does not
-//! depend on `teh-o-prke`** (as `crate::pebble_bed` already states): power
-//! from its `PointReactor` (fission plus decay heat) arrives through
-//! [`TotalPower::External`], and the coupling lives in `nee_soon` or an
-//! example.
+//! in time, or a value the caller sets each step. ~~**`tampines` does not
+//! depend on `teh-o-prke`** (as `crate::pebble_bed` already states)~~
+//! ~~**CORRECTED 2026-11-03 (gh:#1151):** `tampines` now depends on
+//! `teh-o-prke` (maintainer decision D2: the HTR-10 coupled loop transient
+//! lives here, in [`crate::htr10_primary_loop`]).~~ **CORRECTED again
+//! 2026-11-03: maintainer moved coupled kinetics to nee_soon**
+//! (`nee_soon::htr10_th_transient`); `tampines` is again free of
+//! `teh-o-prke` outside a gated example dev-dependency. This component takes
+//! no kinetics itself: power from a `PointReactor` (fission plus decay heat)
+//! arrives through [`TotalPower::External`].
 //!
 //! The distribution is exact by construction: the chopped-cosine shape is
 //! integrated cell by cell, and every set of fractions is normalised, so the
