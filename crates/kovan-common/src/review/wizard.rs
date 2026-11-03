@@ -1303,7 +1303,8 @@ requires_text = true
     ///
     /// Result (2026-10-07): passes (8 block options, 6 prompt, 2 flag);
     /// 7 block options since the `rung` question (whose Other blocked) was
-    /// removed the same day.
+    /// removed the same day. 4 flag options since 2026-11-03: the two
+    /// "as upstream, which has none" answers.
     #[test]
     fn effects_block_prompt_and_flag() {
         let w = ReviewWizard::embedded();
@@ -1341,7 +1342,54 @@ requires_text = true
                 }
             }
         }
-        assert_eq!(counts, [7, 6, 2]);
+        assert_eq!(counts, [7, 6, 4]);
+    }
+
+    /// Methodology: the "as upstream, which has none" answers (maintainer,
+    /// 2026-11-03: flag, no rung cap, a note required). With answers that
+    /// otherwise give rung 4 (a qualifying V&V case written by hand, git
+    /// agreeing), each is stampable, flagged, not capped, and leaves rung
+    /// 4; without its note it is refused. ~~On a function that is not a
+    /// port it is refused as not offered.~~ CORRECTED the same day
+    /// (maintainer): offered on every function, port or not, since no
+    /// folder is declared a port yet.
+    ///
+    /// Result (2026-11-03): passes.
+    #[test]
+    fn a_faithful_port_of_unguarded_upstream_is_flagged_not_capped() {
+        let w = ReviewWizard::embedded();
+        let port = Applicability { is_port: true, tests: TestAuthorship::Human, ..NONE };
+        let not_port = Applicability { tests: TestAuthorship::Human, ..NONE };
+        let human_answers = |q: &str, raw: String| {
+            let mut m = clean();
+            m.insert("vv_evidence".into(), "analytical_case".into());
+            m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+            m.insert(q.into(), raw);
+            m
+        };
+        for (q, o) in [
+            ("limits_and_guards", "matches_upstream_no_guard"),
+            ("error_handling", "matches_upstream_no_error_return"),
+        ] {
+            let opt = w.question(q).unwrap().option(o).unwrap();
+            assert_eq!((opt.effect, opt.requires_text), (Effect::Flag, true), "{q}/{o}");
+            assert!(opt.offered(port) && opt.offered(not_port), "{q}/{o}");
+            let mut m = clean();
+            m.insert("upstream_fidelity".into(), "matches".into());
+            m.insert("vv_evidence".into(), "analytical_case".into());
+            m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+            m.insert(q.into(), format!("{o}: STOP in the Fortran, no range check"));
+            let g = w.stamp_gate(&m, port);
+            let c = Choice { question: q.into(), option: o.into() };
+            assert!(g.stampable(), "{q}/{o}: {:?}", g.blocked_by);
+            assert_eq!(g.flags, [c]);
+            assert!(g.rung_capped.is_empty());
+            assert_eq!(g.rung, Rung::Four, "{q}/{o}");
+            m.insert(q.into(), o.into());
+            assert!(matches!(w.stamp_gate(&m, port).blocked_by.as_slice(), [GateReason::Invalid(_)]), "{q}/{o}");
+            let g = w.stamp_gate(&human_answers(q, format!("{o}: STOP in the Fortran")), not_port);
+            assert!(g.stampable() && g.rung_capped.is_empty() && g.rung == Rung::Four, "{q}/{o}: {:?}", g.blocked_by);
+        }
     }
 
     /// Methodology: the number-guard waiver (maintainer, 2026-10-14).

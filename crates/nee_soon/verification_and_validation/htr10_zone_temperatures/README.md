@@ -86,7 +86,10 @@ The LEAPR validation it depends on is gh:#1140,
 
 ## What it changes, and what is still open
 
-- **The study's thermal laws.** Its default is `ThermalLawSource::Leapr`: graphite and SiC by LEAPR at each zone's temperature. The record read them from the tapes, so graphite was at the tape's 296 K for a 300.15 K run. At 300.15 K everywhere the study therefore differs from the record by that law alone.
+- **The thermal laws.** ~~The study's default is `ThermalLawSource::Leapr`~~ **CHANGED 2026-11-03 (maintainer: "just use LEAPR by default"):**
+  - `ThermalLawSource::Leapr` is now the data default everywhere: graphite and SiC by LEAPR at each zone's temperature, the native loader included.
+  - The records read them from the tapes, so graphite was at the tape's 296 K for a 300.15 K run. At 300.15 K everywhere the default model therefore differs from the records by that law alone.
+  - `OUTRAM_HTR10_TAPE_LAWS=1` restores the tapes. Re-measuring the records is gh:#1145.
   - gh:#1140 shows LEAPR reproduces the tapes' S(α,β) at every tabulated temperature.
   - SiC's elastic channel through `from_leapr` is coherent, from crystal data, about −3 % from the tape (`docs/leapr-sic-coherent-elastic-vv.md`).
   - The k movement from the law change is gh:#1143's to measure, with seeds.

@@ -109,9 +109,16 @@ impl Snapshot {
 }
 
 /// The callees that block stamping `fn_id` under the enforced bottom-up
-/// rule ([`walk::blockers`]), as (`fn:` id, name).
+/// rule ([`walk::blockers`]), as (`fn:` id, name): those whose review does
+/// not stand ([`StateKind::review_holds`]; a callee pending only a
+/// workspace test does not block, maintainer 2026-10-29).
 pub fn blockers_of(snap: &Snapshot, fn_id: &str) -> Vec<(String, String)> {
-    walk::blockers(fn_id, &snap.callees(), |c| snap.kind(c).counts())
+    // A tentative callee (#1106) is listed too: it is waiting on what is
+    // underneath it, so its caller's stamp would wait as well.
+    walk::blockers(fn_id, &snap.callees(), |c| {
+        let k = snap.kind(c);
+        k.review_holds() && k != StateKind::Tentative
+    })
         .into_iter()
         .map(|c| {
             let n = snap.name(&c);

@@ -117,10 +117,9 @@ impl Default for ParametricStudy {
             rod_insertions: [0.0; N_CONTROL_RODS],
             temperatures: ZoneTemperatures::record(),
             statistics: SweepStatistics::QUICK,
-            data: Htr10DataConfig {
-                thermal_laws: ThermalLawSource::Leapr,
-                ..Htr10DataConfig::default()
-            },
+            // Every bound law by LEAPR at its zone's temperature: the data
+            // default since 2026-11-03 (`ThermalLawSource::Leapr`).
+            data: Htr10DataConfig::default(),
             materials: Htr10MaterialConfig::benchmark_default(300.15),
         }
     }

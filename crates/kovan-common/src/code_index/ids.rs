@@ -19,7 +19,11 @@
 //!    (`file::qual`, or one of the `file::qual#k` twins, picked by an `@L`
 //!    line when the path carries one).
 //! 2. **The previous `kovan.toml` by path** ([`Prior`]): an unclaimed
-//!    function keeps the id the previous index gave the same path.
+//!    function keeps the id the previous index gave the same path. So does
+//!    an id claimed only by hash (a callee key, no path) when the function
+//!    at its previous path still has a hash a claim records (GitHub #1144:
+//!    without this, a per-folder refresh gave a function another folder's
+//!    id that shared its body hash).
 //! 3. **Claims by hash.** An id still unplaced (an entry's, or a key of a
 //!    review's `[review.callees]`, which records the callee's hash) takes
 //!    the one unassigned function whose code `hash` equals the claim's: the
@@ -255,9 +259,24 @@ pub fn assign_ids(fns: &[Located], claims: &[Claim], priors: &[Prior], commit: &
     let claimed: BTreeSet<&str> = by_id.keys().copied().collect();
     let mut priors: Vec<&Prior> = priors.iter().collect();
     priors.sort();
-    // 2. The previous kovan.toml by path.
+    // 2. The previous kovan.toml by path. An id claimed only by hash (a
+    // review's callee key, no path) stays at its previous path when the
+    // function there still has a hash a claim records (GitHub #1144):
+    // otherwise step 3 could give that function to another id claimed by
+    // the same hash (two functions with identical bodies), as a per-folder
+    // refresh did while a full run did not.
+    let path_claimed: BTreeSet<&str> = claims
+        .iter()
+        .filter(|c| c.path.is_some())
+        .map(|c| c.id.as_str())
+        .collect();
     for p in &priors {
-        if used.contains(&p.id) || claimed.contains(p.id.as_str()) {
+        let hash_only_and_unchanged = || {
+            !path_claimed.contains(p.id.as_str())
+                && by_id[p.id.as_str()].iter().any(|c| c.hash.as_deref() == Some(p.hash.as_str()))
+                && fns.iter().any(|f| f.path_id == p.path_id && f.hash == p.hash)
+        };
+        if used.contains(&p.id) || (claimed.contains(p.id.as_str()) && !hash_only_and_unchanged()) {
             continue;
         }
         if let Some(i) = (0..fns.len()).find(|&i| fns[i].path_id == p.path_id) {

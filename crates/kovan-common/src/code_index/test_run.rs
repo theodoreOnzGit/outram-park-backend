@@ -117,11 +117,13 @@ pub fn graph_from_folders(folders: &[FolderIndex]) -> CallGraphDoc {
 
 /// Write counted `evidence` into every folder's `[test_run]`, restricted to
 /// the tests it uses. Returns the libtest names that did not map to one
-/// test id; refuses (with the reasons) a run that does not count.
+/// test id; refuses (with the reasons) a run that does not count. A `-p`
+/// run (#1049) is written only into the folders of the crates it selected
+/// ([`in_scope`]); every other folder keeps its own `[test_run]`.
 pub fn write_counted(evidence: &TestEvidence, folders: &mut [FolderIndex]) -> Result<Vec<Unmapped>, Vec<NotCounted>> {
     let map = TestIdMap::from_graph(&graph_from_folders(folders));
     let (run, unmapped) = to_test_run(evidence, &map)?;
-    for fi in folders.iter_mut() {
+    for fi in folders.iter_mut().filter(|f| in_scope(evidence, f)) {
         let mut wanted: BTreeSet<String> = BTreeSet::new();
         for (file, f) in fi.functions() {
             wanted.extend(f.reached_by.iter().cloned());
@@ -140,6 +142,12 @@ pub fn write_counted(evidence: &TestEvidence, folders: &mut [FolderIndex]) -> Re
         fi.normalise();
     }
     Ok(unmapped)
+}
+
+/// Whether `evidence` speaks for `folder`: a whole-workspace run for every
+/// folder, a `-p` run (#1049) for its selected crates' folders only.
+pub fn in_scope(evidence: &TestEvidence, folder: &FolderIndex) -> bool {
+    evidence.packages.is_empty() || evidence.packages.contains(&folder.krate)
 }
 
 #[cfg(test)]
@@ -212,6 +220,17 @@ mod tests {
         assert!(write_counted(&dirty, &mut fresh).is_err());
         assert!(fresh.iter().all(|f| f.test_run.is_none()));
 
+        // #1049: a `-p` run lands only in the selected crate's folders.
+        let mut other = ev.clone();
+        other.packages = vec!["not-kern".into()];
+        let mut untouched: Vec<FolderIndex> = build(&input(C1)).folders.into_values().collect();
+        write_counted(&other, &mut untouched).unwrap();
+        assert!(untouched.iter().all(|f| f.test_run.is_none()));
+        let mut kern = ev.clone();
+        kern.packages = vec!["kern".into()];
+        let mut written: Vec<FolderIndex> = build(&input(C1)).folders.into_values().collect();
+        write_counted(&kern, &mut written).unwrap();
+        assert!(written.iter().all(|f| f.test_run.is_some()));
         // GitHub #1052: the same run made targeted (its "filtered out"
         // note dropped) counts, lands in `[targeted_run]` with its targets
         // restricted per folder, and leaves the full run's `[test_run]` as
@@ -232,7 +251,7 @@ mod tests {
         assert_eq!(t.passed, vec![format!("{LIB_RS}::t_twice")]);
         // Any other partial reason keeps a targeted run from counting.
         let mut narrowed = ev.clone();
-        narrowed.partial_reasons.push("-p kern".into());
+        narrowed.partial_reasons.push("--skip x".into());
         let narrowed = narrowed.into_targeted(vec![format!("{LIB_RS}::t_twice")]);
         assert_eq!(narrowed.scope, Scope::Partial);
         assert!(narrowed.counted().is_err());

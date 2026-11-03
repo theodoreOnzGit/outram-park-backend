@@ -518,3 +518,120 @@ value = "IdRHlxL5HZwaNJf9V+Ap/fCxvpGe6ZSx3uu7g39kMTNmm/OYoNigovtickFzn/X7TRfWkcG
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit 0eea3ba24f.
+
+# Review: TrisoAtopsNuclide::element_group_for (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-element-group-for-theodoreonzgit-2ae73ae4"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:17:09+08:00"
+modified = "2026-11-02T10:17:09+08:00"
+target = "fn:2ae73ae4ad5edebf"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::TrisoAtopsNuclide::element_group_for"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:17:09+08:00"
+commit = "ad910eb673d05e1cdc9cfe48d5b70a051d12a083"
+hash = "sha256:397acae832a3b2ab140849d2299b17eca0626c642a5de66485cbbbc7770ae0a0"
+doc_hash = "sha256:7e10971b420cefa33ca3b4389a6690d20d293df51656855357110a70e1d253d2"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:25d9c96c56dabc0a" = "sha256:7c3b9b91c07d67e50cd624fcabd0512eba7bcccbe17896ebd0cbedc518f2c8e6"
+"fn:546333a5363bc5a2" = "sha256:601d879e0b2947c8c69562c0278d67beccee30a0999a8eb86181de5ebcd65549"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+"fn:d9fc661a522b11ce" = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper function"
+independence = "someone_else"
+limits_and_guards = "no_limits: wrapper function"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "WkbvxT7VVNDLRmiWuruTbz3+6E0Wm7ANFI7+SkZwtnNYFtzIXB2dHiUfg5qDZ+pBUjpdnNXuAYGCr8/fu2HZBg=="
+```
+
+just a wrapper.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit ad910eb673.
+
+# Review: ElementGroup::from_atomic_number_for (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-from-atomic-number-for-theodoreonzgit-25d9c96c"
+kind = "review"
+origin = "human"
+created = "2026-11-02T10:22:12+08:00"
+modified = "2026-11-02T10:22:12+08:00"
+target = "fn:25d9c96c56dabc0a"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::ElementGroup::from_atomic_number_for"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-02"
+signed_at = "2026-11-02T10:22:12+08:00"
+commit = "d21fcd736b2a7880cfb5511bea40fc1cc196ac5c"
+hash = "sha256:7c3b9b91c07d67e50cd624fcabd0512eba7bcccbe17896ebd0cbedc518f2c8e6"
+doc_hash = "sha256:5bca61d3578110cb1d54823e23ee54a55c0e71575eab7e64d653fd9d1b56493f"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:2e610cfd767d4eb5" = "sha256:54c7941e23ca22131751599433e7cd9fd539c9953a45f91a3f68435ad803b55c"
+"fn:459395474c5875ce" = "sha256:97f8cd3ee0d1655194b4537bb7ef9d16c1f40e279be6fe6bf1b38d1b7b492abd"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+"fn:d9fc661a522b11ce" = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+"fn:fc42897456ddcda8" = "sha256:99ab9e07c9d01a858b47d5649f98c035be52983fc3847b7614406757d66dbd8d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: upstream behaviour is similar"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: upstream behaviour is similar"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "none_yet"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "EFESPZ7wlxX3NFKT2bkNvk0c3xlD+nVxK9jX/BB0Eg+AyO3Ar8ggWYBOBlNkVFzF81aT9xZGsGmkpY8y8BzZCA=="
+```
+
+takes proton number, and checks if one uses upstream TRISO atops open source code, or some AI read interpretation of the paper (for ablation). The upstream one is usually used as it can reproduce the results of the paper
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit d21fcd736b.

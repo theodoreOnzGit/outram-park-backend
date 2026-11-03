@@ -36,7 +36,7 @@ use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use super::data::{
-    Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, Tape, ThermalLaw, ThermalLawSource,
+    Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, Tape, ThermalLaw,
     Uo2Laws,
 };
 
@@ -121,21 +121,14 @@ impl TemperedJob {
 
 /// The LEAPR deck a law is generated from under `cfg`, or `None` when it is
 /// read from a tape. The UO2 and metal laws are always LEAPR's (as the
-/// loader); graphite and SiC are under [`ThermalLawSource::Leapr`], except
-/// the VII.0 graphite tape, which has no deck.
+/// loader); graphite and SiC are under
+/// [`super::data::ThermalLawSource::Leapr`] (the default), except the VII.0 graphite tape, which has no deck.
 #[must_use]
 pub fn leapr_material(law: ThermalLaw, cfg: &Htr10DataConfig) -> Option<SabMaterial> {
-    let leapr = cfg.thermal_laws == ThermalLawSource::Leapr;
     match law {
-        ThermalLaw::Graphite { file, .. } if leapr => match file {
-            "tsl-crystalline-graphite.endf" => Some(SabMaterial::CrystallineGraphite),
-            "tsl-reactor-graphite-10P.endf" => Some(SabMaterial::ReactorGraphite10P),
-            "tsl-reactor-graphite-30P.endf" => Some(SabMaterial::ReactorGraphite30P),
-            _ => None,
-        },
-        ThermalLaw::CInSiC if leapr => Some(SabMaterial::CInSiC),
-        ThermalLaw::SiInSiC if leapr => Some(SabMaterial::SiInSiC),
-        ThermalLaw::Graphite { .. } | ThermalLaw::CInSiC | ThermalLaw::SiInSiC => None,
+        ThermalLaw::Graphite { .. } | ThermalLaw::CInSiC | ThermalLaw::SiInSiC => {
+            cfg.thermal_laws.leapr_deck(law)
+        }
         ThermalLaw::IronMetal => Some(SabMaterial::IronMetal),
         ThermalLaw::AluminumMetal => Some(SabMaterial::AluminumMetal),
         ThermalLaw::UInUO2 => matches!(cfg.uo2_laws, Uo2Laws::GeneratedFromLeapr)
@@ -298,7 +291,8 @@ pub fn process_job_at(
                     .map_err(fail)?,
             )
         }
-        // A LEAPR law under `ThermalLawSource::Leapr` (gh:#1138), at the
+        // A LEAPR law under `ThermalLawSource::Leapr` (the default since
+        // 2026-11-03; gh:#1138), at the
         // requested temperature exactly, with the loader's labels.
         ProcessingJob::Law(law @ (ThermalLaw::Graphite { .. } | ThermalLaw::CInSiC | ThermalLaw::SiInSiC))
             if leapr_material(*law, cfg).is_some() =>
@@ -503,14 +497,20 @@ mod tests {
         assert!(jobs[..first_tape]
             .iter()
             .all(|j| matches!(j, ProcessingJob::Law(_))));
+        // Since 2026-11-03 every one of the five laws is LEAPR's by default
+        // (no tape); under the tape ablation only the two UO2 laws are.
         let cfg = Htr10DataConfig::default();
-        assert!(
+        let leapr = |cfg: &Htr10DataConfig| {
             jobs.iter()
-                .filter(|j| j.tape(&cfg).expect("tape").is_none())
+                .filter(|j| j.tape(cfg).expect("tape").is_none())
                 .count()
-                == 2,
-            "two LEAPR laws"
-        );
+        };
+        assert_eq!(leapr(&cfg), 5, "five LEAPR laws by default");
+        let tapes = Htr10DataConfig {
+            thermal_laws: super::super::data::ThermalLawSource::Tapes,
+            ..Htr10DataConfig::default()
+        };
+        assert_eq!(leapr(&tapes), 2, "two LEAPR laws under the tape ablation");
         assert!(jobs
             .iter()
             .any(|j| matches!(j.tape(&cfg), Ok(Some(t)) if t.dir == DataDir::AceSubmoduleEndfB8)));
