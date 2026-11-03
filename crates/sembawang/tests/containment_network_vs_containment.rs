@@ -1058,3 +1058,34 @@ fn hydrogen_burns_in_the_building_against_the_old_containment() {
     assert!((3.0e5..4.8e5).contains(&peak_rb), "E5 {peak_rb}");
     assert!(nb0.is_empty() && peak_y0 > 0.10, "E6 {peak_y0}");
 }
+
+/// **gh:#1124: `tampines`' Newton count and fallbacks reach
+/// [`NetworkResult`], and Unit 1's quiet containment no longer falls back.**
+///
+/// **Method.** Unit 1 on its historical sequence
+/// (`Plant::for_unit(Unit::One, Mode::Historical, ..)`), the network built
+/// by `ContainmentNetwork::with_config` with the unit's configuration and
+/// stepped with the plant's own snapshots, 10 steps of 1 s. **Before the
+/// change (measured 2026-11-03):** Newton fell back on every step (600 of
+/// 600 in the first 600 s), its building opening toggling at one ulp of the
+/// environment's pressure. **Prediction:** no fallback,
+/// `newton_iterations == iterations` (Newton's own) on every step, at most 2
+/// iterates. **Result (2026-11-03, release):** held (2 on each step).
+#[test]
+fn the_newton_steps_count_and_fallbacks_reach_the_network_result() {
+    use sembawang::bwr_mark1::Unit;
+    let u = Unit::One;
+    let mut p = Plant::for_unit(u, Mode::Historical, Mechanisms::default());
+    let (mut core, _) = p.parts();
+    let mut cont = ContainmentNetwork::with_config(&u.params(), u.network_config(), NetworkMechanisms::default()).unwrap();
+    for _ in 0..10 {
+        let s = p.begin();
+        let c = core.step(&s.core);
+        let r: NetworkResult = cont.step(&s.containment).unwrap();
+        assert_eq!((r.newton_fell_back, r.newton_fallbacks), (false, 0), "t = {}", p.time_s());
+        assert_eq!(r.newton_iterations, r.iterations);
+        assert!(r.iterations <= 2, "{}", r.iterations);
+        let k = r.to_containment_result(p.params());
+        p.finish(c, k);
+    }
+}

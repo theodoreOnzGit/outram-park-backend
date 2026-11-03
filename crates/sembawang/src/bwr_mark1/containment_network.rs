@@ -623,11 +623,22 @@ pub struct NetworkResult {
     /// step, W, by location.
     pub fp: FpReport,
     pub fp_heat: FpDecayHeat,
-    /// Picard iterations this step (summed over sub-steps), the largest
-    /// residual, and the sub-steps taken so far in the run.
+    /// ~~Picard iterations~~ **CORRECTED 2026-11-03 (gh:#1124):** the
+    /// network's iterations this step (summed
+    /// over sub-steps; Newton's, or Picard's where Newton fell back, as
+    /// `tampines`' `NetworkStepReport::iterations`), the largest residual,
+    /// and the sub-steps taken so far in the run.
     pub iterations: usize,
     pub residual: f64,
     pub substeps: usize,
+    /// `tampines`' Newton step this step (gh:#1124), summed over sub-steps:
+    /// its iterates, the failed ones of a fallback included (so the step
+    /// cost `newton_iterations` plus the fallbacks' Picard iterations), and
+    /// the sub-steps on which it fell back to Picard. `newton_fell_back` is
+    /// `newton_fallbacks > 0`.
+    pub newton_iterations: usize,
+    pub newton_fallbacks: usize,
+    pub newton_fell_back: bool,
 }
 
 impl NetworkResult {
@@ -718,9 +729,9 @@ struct VolumeSums {
 /// cited). The network commits nothing on a failed step, and the held
 /// sources and heats are rates, so the halves see the same drive. Writes
 /// each path's mean mass rate over `dt` into `rates`, `[both phases, gas]`;
-/// returns the Picard iterations, the largest residual and the extra
-/// sub-steps taken.
-fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<[f64; 2]>, sums: &mut Vec<VolumeSums>) -> Result<(usize, f64, usize), TampinesError> {
+/// returns the iterations, the largest residual, the extra sub-steps taken
+/// and the Newton step's count ([`Advanced`]).
+fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<[f64; 2]>, sums: &mut Vec<VolumeSums>) -> Result<Advanced, TampinesError> {
     match net.step(Time::new::<second>(dt)) {
         Ok(r) => {
             sums.resize(r.volumes.len(), VolumeSums::default());
@@ -739,17 +750,41 @@ fn advance(net: &mut CvNetwork, dt: f64, depth: usize, rates: &mut Vec<[f64; 2]>
                     [g + t.liquid_mass_rate.get::<kilogram_per_second>(), g]
                 })
                 .collect();
-            Ok((r.iterations, r.residual, 0))
+            Ok(Advanced {
+                iterations: r.iterations,
+                residual: r.residual,
+                substeps: 0,
+                newton_iterations: r.newton_iterations,
+                newton_fallbacks: usize::from(r.newton_fell_back),
+            })
         }
         Err(TampinesError::Numerical(_)) if depth < MAX_HALVINGS => {
             let (mut a, mut b) = (Vec::new(), Vec::new());
-            let (i1, r1, s1) = advance(net, 0.5 * dt, depth + 1, &mut a, sums)?;
-            let (i2, r2, s2) = advance(net, 0.5 * dt, depth + 1, &mut b, sums)?;
+            let x = advance(net, 0.5 * dt, depth + 1, &mut a, sums)?;
+            let y = advance(net, 0.5 * dt, depth + 1, &mut b, sums)?;
             *rates = a.iter().zip(&b).map(|(x, y)| [0.5 * (x[0] + y[0]), 0.5 * (x[1] + y[1])]).collect();
-            Ok((i1 + i2, r1.max(r2), 1 + s1 + s2))
+            Ok(Advanced {
+                iterations: x.iterations + y.iterations,
+                residual: x.residual.max(y.residual),
+                substeps: 1 + x.substeps + y.substeps,
+                newton_iterations: x.newton_iterations + y.newton_iterations,
+                newton_fallbacks: x.newton_fallbacks + y.newton_fallbacks,
+            })
         }
         Err(e) => Err(e),
     }
+}
+
+/// What [`advance`] reports: the iterations, the largest residual, the
+/// extra sub-steps, and `tampines`' Newton iterates (failed ones included)
+/// and fallbacks, each summed over the sub-steps (gh:#1124).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Advanced {
+    iterations: usize,
+    residual: f64,
+    substeps: usize,
+    newton_iterations: usize,
+    newton_fallbacks: usize,
 }
 
 /// Lumped wall on an atmosphere (the drywell structures, the torus shell).
@@ -1296,8 +1331,8 @@ impl ContainmentNetwork {
         }
         let mut rates = Vec::new();
         let mut sums = Vec::new();
-        let (iterations, residual, substeps) = advance(&mut self.net, dt, 0, &mut rates, &mut sums)?;
-        self.substeps += substeps;
+        let adv = advance(&mut self.net, dt, 0, &mut rates, &mut sums)?;
+        self.substeps += adv.substeps;
         for (i, v) in sums.iter().enumerate().take(3) {
             self.pool_heat_to_atm_j[i] += v.pool_heat_to_atm_j;
         }
@@ -1375,9 +1410,12 @@ impl ContainmentNetwork {
             dw_slab_inner_k: self.dw_slab[0],
             fp: self.fp.report(),
             fp_heat,
-            iterations,
-            residual,
+            iterations: adv.iterations,
+            residual: adv.residual,
             substeps: self.substeps,
+            newton_iterations: adv.newton_iterations,
+            newton_fallbacks: adv.newton_fallbacks,
+            newton_fell_back: adv.newton_fallbacks > 0,
         })
     }
 
