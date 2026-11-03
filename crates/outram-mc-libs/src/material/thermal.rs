@@ -725,6 +725,16 @@ impl ThermalScattering {
     /// `tsl-HinH2O.endf` in all 70 374 values
     /// (`tests/thermal_h2o_leapr_vs_tsl.rs`, 2026-10-14).
     ///
+    /// For the HTR-10 laws (GitHub #1140, 2026-11-03), the same path gives
+    /// MF=7/MT=4 bit-identical to the published tapes at every tabulated
+    /// temperature of reactor graphite 10P/30P, C in SiC and Si in SiC, and
+    /// graphite's MT=2 to within one unit in the 7th figure. **SiC's elastic
+    /// channel differs:** these decks have `iel = 0` and no translational
+    /// term, so LEAPR writes *incoherent* elastic (`leapr.f90:3043`), where the
+    /// published tape is coherent (and [`from_leapr`](Self::from_leapr) builds
+    /// coherent from the 3C-SiC catalogue). Record:
+    /// `crates/njoy-outram-park-fork/verification_and_validation/leapr_htr10_tsl_vs_endf8.md`.
+    ///
     /// # Errors
     ///
     /// The deck is not embedded, does not parse, has no block LEAPR can run at
