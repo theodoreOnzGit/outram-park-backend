@@ -1,5 +1,6 @@
-//! **Foam Studio** (gh:#1155, stage 1 of epic gh:#1153): put a cylinder or a
-//! box in a 3-D viewport, move and scale it, tag its faces inlet, outlet or
+//! **Foam Studio** (gh:#1155, stage 1 of epic gh:#1153; the double-pipe heat
+//! exchanger is stage 2, gh:#1156): put a cylinder, a box or a double pipe
+//! in a 3-D viewport, move and scale it, tag its faces inlet, outlet or
 //! wall, mesh it, and run OUTRAM PARK's pimpleFoam port on it in the
 //! reader's browser, with velocity and pressure on two slices, the residual
 //! history, a probe and the velocity profile against Hagen–Poiseuille.
@@ -10,6 +11,8 @@
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless [cells] [re] [steady|transient]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-mesh [out-dir]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-exchanger [cells] [re]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-exchanger [out-dir]
 //! cargo test -p dhoby-ghaut --example foam_studio_web --release
 //! ```
 //!
@@ -79,7 +82,7 @@ fn render_mesh(out: &std::path::Path) -> Result<(), String> {
         };
         let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
         let len_cm = match d.shape {
-            engine::Shape::Cylinder { length, .. } => length * 100.0,
+            engine::Shape::Cylinder { length, .. } | engine::Shape::DoublePipe { length, .. } => length * 100.0,
             engine::Shape::Box { size, .. } => size[2] * 100.0,
         };
         let shots = [
@@ -98,6 +101,78 @@ fn render_mesh(out: &std::path::Path) -> Result<(), String> {
     Ok(())
 }
 
+/// The drawing rule's images of the double-pipe exchanger (gh:#1156): the
+/// three region meshes the solver gets (`engine::exchanger_grid`, the
+/// demo's 20k grid and the V&V record's 8k test grid), concatenated and
+/// coloured by region (one zone per region), cross-sections at mid-length,
+/// zoomed onto the tube wall, an x-z slice at the inlet end, and one
+/// cell-coloured cross-section. CLI glue (file output); the meshes come from
+/// the tested `engine::exchanger_grid` and `DoublePipe::meshes`.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn render_exchanger(out: &std::path::Path) -> Result<(), String> {
+    use outram_blender::csg::plot::slice::PlotBasis;
+    use outram_blender::unstructured::convert::foam::from_poly_mesh;
+    use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice, UnstructuredMesh, Zone};
+    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    let d = engine::Design::exchanger();
+    let engine::Shape::DoublePipe { r_tube, wall, r_shell, length, centre } = d.shape else { unreachable!() };
+    let len = uom::si::f64::Length::new::<uom::si::length::meter>;
+    let vv = outram_foam_mesh::block_primitives::DoublePipe {
+        r_tube_inner: len(0.005),
+        r_tube_outer: len(0.006),
+        r_shell: len(0.01),
+        length: len(0.2),
+        origin: [len(0.0); 3],
+        n: 4,
+        nr: [3, 2, 4],
+        nz: 50,
+    };
+    let grids = [("exch_demo_20k", engine::exchanger_grid(r_tube, wall, r_shell, length, centre, engine::DEFAULT_CELLS), "DEMO EXCHANGER"), ("exch_vv_8k", vv, "VV EXCHANGER")];
+    for (tag, g, label) in grids {
+        let [a, b, c] = g.meshes().map_err(|e| e.to_string())?;
+        let all = outram_foam_mesh::block_mesh::PolyMesh::concatenate(&[("tube_fluid", &a), ("tube_wall", &b), ("annulus_fluid", &c)]);
+        let plain = from_poly_mesh(&all.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
+        // The same mesh with one zone per region, for the region colours.
+        let (n0, n1) = (a.n_cells, a.n_cells + b.n_cells);
+        let zones = vec![
+            Zone { name: "TUBE FLUID (HOT)".into(), cells: (0..n0).collect() },
+            Zone { name: "TUBE WALL (SOLID)".into(), cells: (n0..n1).collect() },
+            Zone { name: "ANNULUS FLUID (COLD)".into(), cells: (n1..all.n_cells).collect() },
+        ];
+        let zoned = rebuild_with_zones(&all, zones)?;
+        let z0 = g.origin[2].get::<uom::si::length::meter>() * 100.0;
+        let lcm = g.length.get::<uom::si::length::meter>() * 100.0;
+        let zmid = z0 + 0.5 * lcm + 0.013;
+        let cells = g.n_cells();
+        let shots: [(&UnstructuredMesh, MeshColourBy, PlotBasis, [f64; 3], [f64; 2], usize, String, &str); 4] = [
+            (&zoned, MeshColourBy::Zone, PlotBasis::Xy, [0.0, 0.0, zmid], [2.2, 2.2], 900, format!("{label} {:?} CELLS, REGIONS, X-Y AT Z = {zmid:.2} CM", cells), "xy_regions"),
+            (&zoned, MeshColourBy::Zone, PlotBasis::Xy, [0.55, 0.0, zmid], [0.5, 0.5], 800, format!("{label}, REGIONS AT THE TUBE WALL (R 0.5-0.6 CM), X-Y ZOOM"), "xy_wall_zoom"),
+            (&zoned, MeshColourBy::Zone, PlotBasis::Xz, [0.0, 0.013, z0 + 2.0], [2.2, 4.4], 500, format!("{label}, REGIONS, X-Z AT Y = 0.013 CM, INLET END"), "xz_regions"),
+            (&plain, MeshColourBy::Cell, PlotBasis::Xy, [0.0, 0.0, zmid], [2.2, 2.2], 900, format!("{label}, CELLS, X-Y AT Z = {zmid:.2} CM"), "xy_cells"),
+        ];
+        for (mesh, colour_by, basis, origin, width, px, title, view) in shots {
+            let py = ((px as f64) * width[1] / width[0]).round() as usize;
+            let sl = MeshSlice { basis, origin, width, pixels: [px, py], colour_by };
+            let img = render_mesh_slice_annotated(mesh, &sl, &title);
+            let name = format!("{tag}_{view}.png");
+            img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
+            println!("wrote {name}: {} cells, volume {:.6e} m3", mesh.n_cells(), mesh.total_volume());
+        }
+    }
+    Ok(())
+}
+
+/// `from_poly_mesh` with cell zones (it builds none). CLI glue for
+/// [`render_exchanger`].
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn rebuild_with_zones(all: &outram_foam_mesh::block_mesh::PolyMesh, zones: Vec<outram_blender::unstructured::Zone>) -> Result<outram_blender::unstructured::UnstructuredMesh, String> {
+    use outram_blender::unstructured::{LengthUnit, Patch, PatchKind, PolyFace, UnstructuredMesh};
+    let points = all.points.iter().map(|p| [p.x, p.y, p.z]).collect();
+    let faces = all.faces.iter().map(|f| PolyFace { verts: f.verts.clone(), owner: f.owner, neighbour: f.neighbour }).collect();
+    let patches = all.patches.iter().map(|p| Patch { name: p.name.clone(), kind: PatchKind::Wall, faces: (p.start..p.start + p.size).collect() }).collect();
+    UnstructuredMesh::from_polyhedral(LengthUnit::Metre, points, faces, all.n_cells, patches, zones).map_err(|e| format!("{e:?}"))
+}
+
 /// Natively: the GUI, or a command-line mode. `main` and CLI glue: exempt
 /// from the reaching-test rule; each mode calls tested code
 /// ([`engine::headless`], [`engine::mesh_design`]).
@@ -111,6 +186,21 @@ fn main() -> Result<(), String> {
             let mode = if args.get(3).map(String::as_str) == Some("transient") { engine::Mode::Transient } else { engine::Mode::Steady };
             let d = engine::Design { target_cells: cells, ..engine::Design::default() };
             for l in engine::headless(d, re, mode, 5000)? {
+                println!("{l}");
+            }
+            Ok(())
+        }
+        Some("--render-exchanger") => {
+            let out = args.get(1).cloned().unwrap_or_else(|| {
+                concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/cht_double_pipe_gh1156").to_string()
+            });
+            render_exchanger(std::path::Path::new(&out))
+        }
+        Some("--headless-exchanger") => {
+            let cells = args.get(1).and_then(|v| v.parse().ok()).unwrap_or(engine::DEFAULT_CELLS);
+            let re = args.get(2).and_then(|v| v.parse().ok()).unwrap_or(30.0);
+            let d = engine::Design { target_cells: cells, ..engine::Design::exchanger() };
+            for l in engine::headless(d, re, engine::Mode::Steady, 20_000)? {
                 println!("{l}");
             }
             Ok(())

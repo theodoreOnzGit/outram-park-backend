@@ -1,14 +1,15 @@
 //! The page: the editor (primitive, size, position, patch tags, cells), the
 //! run controls, and the 3-D viewport with the mesh and the fields on two
 //! slices; a bottom dock with the residual history, the probe and the
-//! velocity profile. The UI thread only draws; meshing and the solve run in
+//! velocity profile (for the double-pipe exchanger, gh:#1156: temperature on
+//! the slices and the exchanger's numbers against ε-NTU). The UI thread only draws; meshing and the solve run in
 //! the engine (a thread natively, the Web Worker in the browser).
 //!
 //! Drawing and widget code here is exempt from the reaching-test rule (GUI
 //! drawing); its geometry comes from the tested `render` and
 //! `bugis::web_demo::{field, residual}`, and its messages from the tested
 //! `engine`.
-use crate::engine::{Design, Event, Meshed, Mode, Progress, Request, Section, Shape, Tag, DEFAULT_CELLS, MAX_CELLS, U_IN};
+use crate::engine::{Design, Event, Exch, Meshed, Mode, Progress, Request, Section, Shape, Tag, DEFAULT_CELLS, MAX_CELLS, T_COLD_IN, T_HOT_IN, U_IN};
 use crate::render::{plane_to_3d, project_section, Orbit};
 use bugis::web_demo::dock::{Dock, Edge};
 use bugis::web_demo::field::{self, ColourMap, Scale};
@@ -30,6 +31,7 @@ const MAX_CHUNK: usize = 8;
 enum Shown {
     Speed,
     Pressure,
+    Temperature,
 }
 
 pub struct FoamApp {
@@ -104,7 +106,7 @@ impl FoamApp {
             last: None,
             batch_frac: 0.0,
             first_change: f64::NAN,
-            residuals: History::new(&["max |ΔU|/U per L/U", "continuity"], 600),
+            residuals: History::new(&["max |ΔU|/U per L/U", "continuity", "max |ΔT| per pass / ΔT_in"], 600),
             probe_hist: History::new(&["probe |U| / U"], 600),
             status: String::new(),
             title: String::new(),
@@ -113,6 +115,12 @@ impl FoamApp {
         let q = bugis::web_demo::platform::query_pairs();
         if let Some(n) = bugis::web_demo::platform::query_value(&q, "cells").and_then(|v| v.parse::<usize>().ok()) {
             app.design.target_cells = n.clamp(1, MAX_CELLS);
+        }
+        if bugis::web_demo::platform::query_value(&q, "shape") == Some("exchanger") {
+            app.design = Design { target_cells: app.design.target_cells, ..Design::exchanger() };
+            app.shown = Shown::Temperature;
+            app.reynolds = 30.0;
+            app.cam = Self::camera_for(&app.design);
         }
         if bugis::web_demo::platform::query_value(&q, "mode") == Some("transient") {
             app.mode = Mode::Transient;
@@ -197,22 +205,45 @@ impl FoamApp {
                         let span = (self.first_change / crate::engine::STEADY).log10().max(1e-9);
                         let got = (self.first_change / p.change).log10() / span;
                         self.batch_frac = self.batch_frac.max(got.clamp(0.0, 1.0));
-                        self.residuals.push(p.time_s, &[p.change, p.continuity]);
-                        self.probe_hist.push(p.time_s, &[p.probe_u / U_IN]);
+                        let x = if self.is_exchanger() { p.steps as f64 } else { p.time_s };
+                        if p.phase == 1 {
+                            self.residuals.push(x, &[f64::NAN, p.continuity, p.change]);
+                        } else {
+                            self.residuals.push(x, &[p.change, p.continuity]);
+                        }
+                        self.probe_hist.push(x, &[p.probe_u / U_IN]);
                     }
                     if p.steady && self.mode == Mode::Steady {
                         self.running = false;
                         self.batch_frac = 1.0;
                     }
-                    self.status = format!(
-                        "{} steps · t = {:.1} s · Δp = {:.3e} m²/s² · out/in {:.9} · {:.0} ms/step{}",
-                        p.steps,
-                        p.time_s,
-                        p.dp,
-                        p.outlet_over_inlet,
-                        p.ms_per_step,
-                        if p.steady { " · steady" } else { "" }
-                    );
+                    self.status = if self.is_exchanger() {
+                        let x = &p.exch;
+                        if p.phase == 0 {
+                            format!("flow: {} steps · out/in {:.9} · {:.0} ms/step (then the flow is frozen and the temperatures iterated)", p.steps, p.outlet_over_inlet, p.ms_per_step)
+                        } else {
+                            format!(
+                                "energy: step {} · T_hot,out {:.2} K · T_cold,out {:.2} K · ε {:.4} (ε-NTU {:.4}) · Q {:.3} W{}",
+                                p.steps,
+                                x[Exch::T_HOT_OUT],
+                                x[Exch::T_COLD_OUT],
+                                x[Exch::EPS],
+                                x[Exch::EPS_NTU],
+                                x[Exch::Q_HOT],
+                                if p.steady { " · steady" } else { "" }
+                            )
+                        }
+                    } else {
+                        format!(
+                            "{} steps · t = {:.1} s · Δp = {:.3e} m²/s² · out/in {:.9} · {:.0} ms/step{}",
+                            p.steps,
+                            p.time_s,
+                            p.dp,
+                            p.outlet_over_inlet,
+                            p.ms_per_step,
+                            if p.steady { " · steady" } else { "" }
+                        )
+                    };
                     self.last = Some(p);
                 }
                 Event::Error(m) => {
@@ -226,6 +257,7 @@ impl FoamApp {
         }
         if self.running && !self.in_flight {
             let keep = match (&self.last, self.mode) {
+                (Some(p), _) if self.is_exchanger() => !p.steady,
                 (Some(p), Mode::Steady) => !p.steady,
                 _ => true,
             };
@@ -238,19 +270,34 @@ impl FoamApp {
         }
     }
 
+    fn is_exchanger(&self) -> bool {
+        matches!(self.design.shape, Shape::DoublePipe { .. })
+    }
+
     /// The side panel. GUI (exempt).
     fn side_panel(&mut self, ui: &mut egui::Ui) {
         let mut changed = false;
         ui.label(RichText::new("1 · Shape").strong());
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             let cyl = matches!(self.design.shape, Shape::Cylinder { .. });
+            let bx = matches!(self.design.shape, Shape::Box { .. });
+            let ex = self.is_exchanger();
             if ui.selectable_label(cyl, "Cylinder (pipe)").clicked() && !cyl {
-                self.design = Design::default();
+                self.design = Design { target_cells: self.design.target_cells, ..Design::default() };
+                self.shown = Shown::Speed;
+                self.reynolds = 100.0;
                 changed = true;
             }
-            if ui.selectable_label(!cyl, "Box (duct)").clicked() && cyl {
+            if ui.selectable_label(bx, "Box (duct)").clicked() && !bx {
                 self.design.shape = Shape::Box { size: [0.02, 0.02, 0.2], centre: [0.0, 0.0, 0.1] };
                 self.design.tags = [Tag::Wall, Tag::Wall, Tag::Wall, Tag::Wall, Tag::Inlet, Tag::Outlet];
+                self.shown = Shown::Speed;
+                changed = true;
+            }
+            if ui.selectable_label(ex, "Double pipe (heat exchanger)").clicked() && !ex {
+                self.design = Design { target_cells: self.design.target_cells, ..Design::exchanger() };
+                self.shown = Shown::Temperature;
+                self.reynolds = 30.0;
                 changed = true;
             }
         });
@@ -280,9 +327,30 @@ impl FoamApp {
                     changed |= mm(ui, &mut centre[i], -200.0, 400.0, n);
                 }
             }
+            Shape::DoublePipe { r_tube, wall, r_shell, length, centre } => {
+                ui.label("Scale");
+                changed |= mm(ui, r_tube, 2.0, 20.0, "tube radius");
+                changed |= mm(ui, wall, 0.2, 5.0, "tube wall");
+                changed |= mm(ui, r_shell, 3.0, 40.0, "shell radius");
+                changed |= mm(ui, length, 20.0, 400.0, "length");
+                ui.label("Move (centre)");
+                for (i, n) in ["x", "y", "z"].iter().enumerate() {
+                    changed |= mm(ui, &mut centre[i], -200.0, 400.0, n);
+                }
+            }
         }
         ui.separator();
         ui.label(RichText::new("2 · Patches").strong());
+        if self.is_exchanger() {
+            ui.label(
+                RichText::new(format!(
+                    "Fixed, counterflow: hot fluid in the tube enters at z− at {T_HOT_IN:.0} K; cold fluid in the annulus enters at z+ at {T_COLD_IN:.0} K; \
+                     both outlets p = 0; the tube wall (steel-like, k = 16 W/(m K)) conducts and couples the two; the shell is adiabatic. \
+                     Water-like fluids (Pr 6.7), equal flow rates."
+                ))
+                .small(),
+            );
+        }
         let names = self.design.shape.face_names();
         egui::Grid::new("tags").num_columns(2).show(ui, |ui| {
             for (i, n) in names.iter().enumerate() {
@@ -298,7 +366,9 @@ impl FoamApp {
                 ui.end_row();
             }
         });
-        ui.label(RichText::new("inlet: uniform 5 mm/s · outlet: p = 0 · walls: no-slip").small());
+        if !self.is_exchanger() {
+            ui.label(RichText::new("inlet: uniform 5 mm/s · outlet: p = 0 · walls: no-slip").small());
+        }
         ui.separator();
         ui.label(RichText::new("3 · Mesh").strong());
         ui.horizontal_wrapped(|ui| {
@@ -313,6 +383,7 @@ impl FoamApp {
             RichText::new(match self.design.shape {
                 Shape::Cylinder { .. } => "O-grid: a square core and a ring of radial cells; the wall is a polygon on the circle.",
                 Shape::Box { .. } => "One hex block, near-cubic cells.",
+                Shape::DoublePipe { .. } => "Three region meshes, face to face: an O-grid in the tube, a ring for the wall, a ring for the annulus (the same cells around).",
             })
             .small(),
         );
@@ -329,11 +400,16 @@ impl FoamApp {
         }
         ui.separator();
         ui.label(RichText::new("4 · Run").strong());
-        ui.add(egui::Slider::new(&mut self.reynolds, 20.0..=200.0).text("Re = U D_h / ν").logarithmic(true));
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.mode, Mode::Steady, "Steady (Co ≤ 4)");
-            ui.selectable_value(&mut self.mode, Mode::Transient, "Watch it develop (Co ≈ 1)");
-        });
+        if self.is_exchanger() {
+            ui.add(egui::Slider::new(&mut self.reynolds, 10.0..=100.0).text("Re in the tube").logarithmic(true));
+            ui.label(RichText::new("Steady: the flows are marched to steady, frozen, then the three temperatures are iterated to steady (chtMultiRegionFoam's loop).").small());
+        } else {
+            ui.add(egui::Slider::new(&mut self.reynolds, 20.0..=200.0).text("Re = U D_h / ν").logarithmic(true));
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.mode, Mode::Steady, "Steady (Co ≤ 4)");
+                ui.selectable_value(&mut self.mode, Mode::Transient, "Watch it develop (Co ≈ 1)");
+            });
+        }
         ui.horizontal(|ui| {
             let can = self.link.is_some() && !self.meshing;
             if ui.add_enabled(can && !self.running, egui::Button::new(RichText::new("▶ Run").size(18.0))).clicked() {
@@ -351,9 +427,12 @@ impl FoamApp {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.shown, Shown::Speed, "|U|");
             ui.selectable_value(&mut self.shown, Shown::Pressure, "p (kinematic)");
+            if self.is_exchanger() {
+                ui.selectable_value(&mut self.shown, Shown::Temperature, "T");
+            }
             ui.checkbox(&mut self.show_mesh, "mesh");
         });
-        if ui.add(egui::Slider::new(&mut self.probe, 0.0..=1.0).text("probe and slice, inlet → outlet")).drag_stopped() {
+        if ui.add(egui::Slider::new(&mut self.probe, 0.0..=1.0).text("probe and slice, inlet to outlet")).drag_stopped() {
             self.send(Request::Probe { id: self.next_id, probe: self.probe });
         }
         ui.checkbox(&mut self.pan_mode, "one-finger drag pans (else orbits)");
@@ -368,6 +447,8 @@ impl FoamApp {
                 "Solver: OUTRAM PARK's port of OpenFOAM's pimpleFoam (laminar, PISO, upwind, Gauss linear corrected), \
                  in a background worker. Steady runs are pseudo-transient. The pipe case is checked against \
                  Hagen–Poiseuille and the Durst et al. (2005) development length in the V&V record laminar_pipe_gh1155.md. \
+                 The exchanger adds the energy equation and a port of chtMultiRegionFoam's coupled-temperature interface; \
+                 checked against the composite slab, the Graetz Nusselt numbers and ε-NTU in cht_double_pipe_gh1156.md. \
                  Research, education and V&V only: not for reactor operation, licensing or safety decisions.",
             )
             .small(),
@@ -393,9 +474,15 @@ impl FoamApp {
             let (ax, cr) = match self.shown {
                 Shown::Speed => (&p.axial_u, &p.cross_u),
                 Shown::Pressure => (&p.axial_p, &p.cross_p),
+                Shown::Temperature => (&p.axial_t, &p.cross_t),
             };
             let vals: Vec<f64> = ax.iter().chain(cr.iter()).map(|v| f64::from(*v)).collect();
-            let s = Scale::from_values(&vals, if self.shown == Shown::Speed { ColourMap::Batlow } else { ColourMap::Lajolla });
+            let s = match self.shown {
+                Shown::Speed => Scale::from_values(&vals, ColourMap::Batlow),
+                Shown::Pressure => Scale::from_values(&vals, ColourMap::Lajolla),
+                // T on a fixed range, cold inlet to hot inlet.
+                Shown::Temperature => Scale::from_values(&[T_COLD_IN, T_HOT_IN], ColourMap::Batlow),
+            };
             for (sec, v) in [(&me.axial, ax), (&me.cross, cr)] {
                 if sec.polygons.len() == v.len() {
                     let polys = project_section(&cam, rect, sec.axis, sec.offset, &sec.polygons);
@@ -437,13 +524,17 @@ impl FoamApp {
         }
         if let Some(s) = scale {
             let bar = Rect::from_min_size(Pos2::new(rect.right() - 230.0, rect.top() + 100.0), Vec2::new(210.0, 30.0));
-            let label = if self.shown == Shown::Speed { "|U| [m/s]" } else { "p [m²/s²]" };
+            let label = match self.shown {
+                Shown::Speed => "|U| [m/s]",
+                Shown::Pressure => "p [m²/s²]",
+                Shown::Temperature => "T [K]",
+            };
             field::colour_bar(&painter, bar, &s, label, 12.0);
         }
-        let legend = "green inlet · red outlet · blue walls";
+        let legend = if self.is_exchanger() { "green inlets · red outlets · blue walls and interfaces" } else { "green inlet · red outlet · blue walls" };
         painter.text(Pos2::new(rect.left() + 80.0, rect.bottom() - 12.0), egui::Align2::LEFT_BOTTOM, legend, egui::FontId::proportional(12.0), Color32::GRAY);
         // Batch progress.
-        if self.running && me.n_cells as f64 > 1.05 * DEFAULT_CELLS as f64 && self.mode == Mode::Steady {
+        if self.running && me.n_cells as f64 > 1.05 * DEFAULT_CELLS as f64 && (self.mode == Mode::Steady || self.is_exchanger()) {
             let b = Rect::from_min_size(Pos2::new(rect.left() + 16.0, rect.top() + 140.0), Vec2::new((rect.width() - 32.0).min(320.0), 18.0));
             painter.rect_filled(b, 4.0, Color32::from_gray(40));
             let f = Rect::from_min_size(b.min, Vec2::new(b.width() * self.batch_frac as f32, b.height()));
@@ -481,9 +572,42 @@ impl FoamApp {
                 }
             })
             .collect();
-        residual::paint(&painter, rects[0], &self.residuals, true, "time [s] (steady when the blue line < 1e-3)", 11.0);
-        residual::paint(&painter, rects[1], &self.probe_hist, false, "time [s]", 11.0);
-        self.profile(&painter, rects[2]);
+        if self.is_exchanger() {
+            residual::paint(&painter, rects[0], &self.residuals, true, "step (flow to < 1e-3, then T to < 1e-7)", 11.0);
+            residual::paint(&painter, rects[1], &self.probe_hist, false, "step", 11.0);
+            self.exchanger_numbers(&painter, rects[2]);
+        } else {
+            residual::paint(&painter, rects[0], &self.residuals, true, "time [s] (steady when the blue line < 1e-3)", 11.0);
+            residual::paint(&painter, rects[1], &self.probe_hist, false, "time [s]", 11.0);
+            self.profile(&painter, rects[2]);
+        }
+    }
+
+    /// The exchanger's terminal temperatures, heats and effectiveness against
+    /// ε-NTU at the solved local UA. GUI drawing (exempt).
+    fn exchanger_numbers(&self, painter: &egui::Painter, rect: Rect) {
+        painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+        let f = egui::FontId::proportional(12.0);
+        let lines: Vec<String> = match &self.last {
+            Some(p) if p.phase == 1 => {
+                let x = &p.exch;
+                vec![
+                    format!("hot: {T_HOT_IN:.1} to {:.2} K   cold: {T_COLD_IN:.1} to {:.2} K", x[Exch::T_HOT_OUT], x[Exch::T_COLD_OUT]),
+                    format!("Q hot {:.4} W · Q cold {:.4} W", x[Exch::Q_HOT], x[Exch::Q_COLD]),
+                    format!("UA (local) {:.4} W/K · NTU {:.3}", x[Exch::UA], x[Exch::NTU]),
+                    format!("ε solved {:.4} · ε-NTU {:.4} ({:+.2} %)", x[Exch::EPS], x[Exch::EPS_NTU], 100.0 * (x[Exch::EPS] / x[Exch::EPS_NTU] - 1.0)),
+                    "ε-NTU: counterflow, C_r = 1 (dwsim-libs ntu_effectiveness)".into(),
+                ]
+            }
+            Some(_) => vec!["flow being marched to steady…".into(), "then: temperatures, heats, ε against ε-NTU".into()],
+            None => vec!["exchanger numbers: run it".into()],
+        };
+        // Clip to the rect (the dock already keeps the References strip
+        // clear below it); the last lines go first on a short phone dock.
+        let rows = (((rect.height() - 8.0) / 18.0).floor().max(1.0)) as usize;
+        for (i, l) in lines.iter().take(rows).enumerate() {
+            painter.text(rect.left_top() + Vec2::new(8.0, 8.0 + 18.0 * i as f32), egui::Align2::LEFT_TOP, l, f.clone(), Color32::from_gray(220));
+        }
     }
 
     /// u_axial / U against r / R at the slice, with Hagen–Poiseuille's
@@ -566,7 +690,7 @@ impl eframe::App for FoamApp {
             self.title = title;
         }
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Foam Studio · pipe flow", |ui| self.side_panel(ui));
+        panel.show(ui, "Foam Studio", |ui| self.side_panel(ui));
         self.panel = panel;
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| {
             let full = ui.max_rect();

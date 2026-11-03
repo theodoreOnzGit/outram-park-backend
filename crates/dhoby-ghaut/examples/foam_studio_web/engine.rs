@@ -12,12 +12,14 @@
 //! page draws.
 use std::sync::Arc;
 
+use outram_foam_appbuilder_lib::cases::double_pipe::{self, DoublePipeExchanger, ExchangerReport};
 use outram_foam_appbuilder_lib::cases::laminar_pipe::{max_continuity_error, patch_flux, PipeFlow};
+use outram_foam_appbuilder_lib::solvers::cht_multi_region_foam::ChtMultiRegionFoam;
 use outram_foam_appbuilder_lib::solvers::pimple_foam::PimpleFoam;
 use outram_foam_basic_lib::fv_operators::fvm::max_non_orthogonality_deg;
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_mesh::block_mesh::PolyMesh;
-use outram_foam_mesh::block_primitives::{BoxBlock, PipeOGrid};
+use outram_foam_mesh::block_primitives::{BoxBlock, DoublePipe, PipeOGrid};
 use outram_foam_mesh::section::{boundary_edges, plane_section, Axis, CellSection};
 use uom::si::f64::{KinematicViscosity, Length, Velocity};
 use uom::si::kinematic_viscosity::square_meter_per_second;
@@ -80,6 +82,11 @@ pub enum Shape {
     Cylinder { radius: f64, length: f64, centre: [f64; 3] },
     /// An axis-aligned box. Faces: x-, x+, y-, y+, z-, z+.
     Box { size: [f64; 3], centre: [f64; 3] },
+    /// A counterflow double-pipe heat exchanger along z (gh:#1156): hot
+    /// fluid in the tube (radius `r_tube`, in at z−), a conducting tube wall
+    /// of thickness `wall`, cold fluid in the annulus out to `r_shell` (in at
+    /// z+), adiabatic shell. Its patches are fixed, not tagged.
+    DoublePipe { r_tube: f64, wall: f64, r_shell: f64, length: f64, centre: [f64; 3] },
 }
 
 impl Shape {
@@ -88,6 +95,7 @@ impl Shape {
         match self {
             Shape::Cylinder { .. } => 3,
             Shape::Box { .. } => 6,
+            Shape::DoublePipe { .. } => 0,
         }
     }
     /// Human names of the faces.
@@ -95,12 +103,13 @@ impl Shape {
         match self {
             Shape::Cylinder { .. } => &["end z−", "end z+", "side"],
             Shape::Box { .. } => &["x−", "x+", "y−", "y+", "z−", "z+"],
+            Shape::DoublePipe { .. } => &[],
         }
     }
     /// Bounding box `[min, max]` \[m\].
     pub fn bounds(&self) -> [[f64; 3]; 2] {
         match *self {
-            Shape::Cylinder { radius, length, centre: c } => {
+            Shape::Cylinder { radius, length, centre: c } | Shape::DoublePipe { r_shell: radius, length, centre: c, .. } => {
                 [[c[0] - radius, c[1] - radius, c[2] - 0.5 * length], [c[0] + radius, c[1] + radius, c[2] + 0.5 * length]]
             }
             Shape::Box { size: s, centre: c } => {
@@ -130,8 +139,30 @@ impl Default for Design {
     }
 }
 
+impl Design {
+    /// The demo's double-pipe exchanger: tube r = 5 mm with a 1 mm wall, shell
+    /// r = 10 mm, L = 200 mm (the geometry of the V&V record
+    /// `cht_double_pipe_gh1156.md`), 20k cells.
+    pub fn exchanger() -> Self {
+        Self {
+            shape: Shape::DoublePipe { r_tube: 0.005, wall: 0.001, r_shell: 0.01, length: 0.2, centre: [0.0, 0.0, 0.1] },
+            tags: [Tag::Wall; 6],
+            target_cells: DEFAULT_CELLS,
+        }
+    }
+}
+
 /// Why a design cannot be meshed or run, in words for the page.
 pub fn check(d: &Design) -> Result<(), String> {
+    if d.target_cells == 0 || d.target_cells > MAX_CELLS {
+        return Err(format!("cells must be 1..{MAX_CELLS}"));
+    }
+    if let Shape::DoublePipe { r_tube, wall, r_shell, length, .. } = d.shape {
+        if !(r_tube > 1e-4 && wall > 1e-5 && r_shell > r_tube + wall + 1e-4 && length > 1e-3) {
+            return Err("the tube, its wall and the shell must nest with positive gaps".into());
+        }
+        return Ok(());
+    }
     let tags = &d.tags[..d.shape.n_faces()];
     let n_in = tags.iter().filter(|t| **t == Tag::Inlet).count();
     if n_in != 1 {
@@ -200,6 +231,32 @@ pub fn box_block(size: [f64; 3], centre: [f64; 3], target: usize) -> BoxBlock {
     b
 }
 
+/// The double-pipe grid for a cell budget: `4 n` cells around every region;
+/// radial cells `n − 1` (tube fluid ring), 2 (wall), `n` (annulus); axial
+/// `1.5 n L / (2 r_shell)`; the largest n ≥ 3 within 5 % of the budget.
+pub fn exchanger_grid(r_tube: f64, wall: f64, r_shell: f64, length: f64, centre: [f64; 3], target: usize) -> DoublePipe {
+    let make = |n: usize| DoublePipe {
+        r_tube_inner: m(r_tube),
+        r_tube_outer: m(r_tube + wall),
+        r_shell: m(r_shell),
+        length: m(length),
+        origin: [m(centre[0]), m(centre[1]), m(centre[2] - 0.5 * length)],
+        n,
+        nr: [n - 1, 2, n],
+        nz: ((1.5 * n as f64 * length / (2.0 * r_shell)).round() as usize).max(2),
+    };
+    let mut best = make(3);
+    for n in 3..64 {
+        let g = make(n);
+        if g.n_cells().iter().sum::<usize>() as f64 <= 1.05 * target as f64 {
+            best = g;
+        } else {
+            break;
+        }
+    }
+    best
+}
+
 /// The mesh of a design (checked), and the flow axis (0 x, 1 y, 2 z) with the
 /// signed inlet-to-outlet direction, and the cell length along it \[m\].
 pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
@@ -220,7 +277,25 @@ pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
             let h = size[axis] / b.cells[axis] as f64;
             b.mesh().map(|p| (p, axis, h)).map_err(|e| e.to_string())
         }
+        Shape::DoublePipe { r_tube, wall, r_shell, length, centre } => {
+            let g = exchanger_grid(r_tube, wall, r_shell, length, centre, d.target_cells);
+            let [a, b, c] = g.meshes().map_err(|e| e.to_string())?;
+            let all = PolyMesh::concatenate(&[("tube_fluid", &a), ("tube_wall", &b), ("annulus_fluid", &c)]);
+            Ok((all, 2, length / g.nz as f64))
+        }
     }
+}
+
+/// The three region meshes of a double-pipe design (tube fluid, tube wall,
+/// annulus fluid), in the order [`mesh_design`] concatenates them.
+pub fn exchanger_meshes(d: &Design) -> Result<[Arc<FvMesh>; 3], String> {
+    let Shape::DoublePipe { r_tube, wall, r_shell, length, centre } = d.shape else {
+        return Err("not a double pipe".into());
+    };
+    let g = exchanger_grid(r_tube, wall, r_shell, length, centre, d.target_cells);
+    let [a, b, c] = g.meshes().map_err(|e| e.to_string())?;
+    let fv = |p: PolyMesh| p.to_fv_mesh().map(Arc::new).map_err(|e| e.to_string());
+    Ok([fv(a)?, fv(b)?, fv(c)?])
 }
 
 /// How the solve runs.
@@ -305,7 +380,46 @@ pub struct Progress {
     pub cross_u: Vec<f32>,
     pub cross_p: Vec<f32>,
     pub cross_ua: Vec<f32>,
+    /// 0 while the flow is marched, 1 once it is frozen and the exchanger's
+    /// temperatures are iterated (the pipe stays at 0).
+    pub phase: u8,
+    /// Per section cell: T \[K\] (empty for the pipe).
+    pub axial_t: Vec<f32>,
+    pub cross_t: Vec<f32>,
+    /// The exchanger's numbers (NaN for the pipe): see [`Exch`].
+    pub exch: [f64; EXCH_LEN],
 }
+
+/// Indices into [`Progress::exch`].
+pub struct Exch;
+impl Exch {
+    /// Hot (tube) and cold (annulus) mixing-cup outlet temperatures \[K\].
+    pub const T_HOT_OUT: usize = 0;
+    pub const T_COLD_OUT: usize = 1;
+    /// Heat lost by the hot stream and gained by the cold one \[W\].
+    pub const Q_HOT: usize = 2;
+    pub const Q_COLD: usize = 3;
+    /// Solved effectiveness, and ε-NTU (dwsim-libs, counter-current) at the
+    /// local UA.
+    pub const EPS: usize = 4;
+    pub const EPS_NTU: usize = 5;
+    /// Local UA \[W/K\] and NTU = UA/C_min.
+    pub const UA: usize = 6;
+    pub const NTU: usize = 7;
+    /// Largest |ΔT| of the last energy pass over the inlet difference.
+    pub const ENERGY_CHANGE: usize = 8;
+}
+/// Length of [`Progress::exch`].
+pub const EXCH_LEN: usize = 9;
+/// Hot and cold inlet temperatures of the exchanger \[K\] (the
+/// `DoublePipeExchanger::demo` values).
+pub const T_HOT_IN: f64 = 350.0;
+pub const T_COLD_IN: f64 = 300.0;
+/// The exchanger's energy is steady when an energy pass changes no cell by
+/// more than this fraction of the inlet temperature difference.
+pub const ENERGY_STEADY: f64 = 1.0e-7;
+/// Energy passes per exchanger step (one request).
+pub const ENERGY_PASSES_PER_STEP: usize = 10;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
@@ -314,6 +428,25 @@ pub enum Event {
     Cross { id: u32, cross: Section },
     Progress(Progress),
     Error(String),
+}
+
+/// A running double-pipe exchanger: the three coupled regions, the case,
+/// whether the flow is frozen yet, and where each region's cells start in
+/// the concatenated drawing mesh.
+pub struct ExchangerRun {
+    pub cht: ChtMultiRegionFoam,
+    pub spec: DoublePipeExchanger,
+    pub energy_phase: bool,
+    pub offsets: [usize; 3],
+    pub last_energy_change: f64,
+}
+
+/// What is being solved.
+pub enum Case {
+    /// A pipe or duct by `PimpleFoam` (stage 1).
+    Pipe(PimpleFoam, PipeFlow),
+    /// The double-pipe exchanger by `ChtMultiRegionFoam` (stage 2).
+    Exchanger(ExchangerRun),
 }
 
 /// The engine: at most one mesh and one case.
@@ -328,7 +461,7 @@ pub struct Engine {
     axial: Vec<CellSection>,
     cross: Vec<CellSection>,
     probe_cell: usize,
-    case: Option<(PimpleFoam, PipeFlow)>,
+    case: Option<Case>,
     steps: usize,
     time: f64,
 }
@@ -352,6 +485,42 @@ fn section_of(cs: &[CellSection], axis: usize, offset: f64) -> Section {
         offset,
         polygons: cs.iter().map(|c| c.polygon.iter().map(|p| [p[0] as f32, p[1] as f32]).collect()).collect(),
     }
+}
+
+/// The viscous-number cap of the run (native: `FOAM_MAX_VISCOUS` overrides).
+fn max_viscous() -> f64 {
+    #[cfg(not(target_arch = "wasm32"))]
+    let v = std::env::var("FOAM_MAX_VISCOUS").ok().and_then(|v| v.parse().ok()).unwrap_or(MAX_VISCOUS_DEFAULT);
+    #[cfg(target_arch = "wasm32")]
+    let v = MAX_VISCOUS_DEFAULT;
+    v
+}
+
+/// The exchanger's numbers from the case report, with ε-NTU at the local UA
+/// from `outram-park-fork-dwsim-libs` (counter-current).
+pub fn exchanger_numbers(r: &ExchangerReport, energy_change: f64) -> [f64; EXCH_LEN] {
+    use outram_park_fork_dwsim_libs::heat_exchanger::{lmtd::FlowArrangement, ntu_effectiveness::evaluate};
+    use uom::si::f64::{TemperatureInterval, ThermalConductance};
+    use uom::si::thermal_conductance::watt_per_kelvin;
+    let w = ThermalConductance::new::<watt_per_kelvin>;
+    let e = evaluate(
+        FlowArrangement::CounterCurrent,
+        w(r.ua_local.max(0.0)),
+        w(r.c_hot),
+        w(r.c_cold),
+        TemperatureInterval::new::<uom::si::temperature_interval::kelvin>(T_HOT_IN - T_COLD_IN),
+    );
+    let mut x = [f64::NAN; EXCH_LEN];
+    x[Exch::T_HOT_OUT] = r.t_hot_out;
+    x[Exch::T_COLD_OUT] = r.t_cold_out;
+    x[Exch::Q_HOT] = r.q_hot;
+    x[Exch::Q_COLD] = r.q_cold;
+    x[Exch::EPS] = r.effectiveness;
+    x[Exch::EPS_NTU] = e.effectiveness.get::<uom::si::ratio::ratio>();
+    x[Exch::UA] = r.ua_local;
+    x[Exch::NTU] = e.ntu.get::<uom::si::ratio::ratio>();
+    x[Exch::ENERGY_CHANGE] = energy_change;
+    x
 }
 
 impl Engine {
@@ -380,6 +549,8 @@ impl Engine {
         let inlet_low = match d.shape {
             Shape::Cylinder { .. } => d.tags[0] == Tag::Inlet,
             Shape::Box { .. } => d.tags[2 * a] == Tag::Inlet,
+            // The hot (tube) inlet is at z−.
+            Shape::DoublePipe { .. } => true,
         };
         let f = f.clamp(0.0, 1.0);
         let x = if inlet_low { lo[a] + f * (hi[a] - lo[a]) } else { hi[a] - f * (hi[a] - lo[a]) };
@@ -405,10 +576,12 @@ impl Engine {
         self.flow_axis = axis;
         self.cell_len = cell_len;
         self.case = None;
+        // Edge colours: inlet 0, outlet 1, anything else a wall (2). The
+        // exchanger's patches are "<region>/<patch>".
         let tag_of: Vec<f32> = poly
             .patches
             .iter()
-            .map(|p| match p.name.as_str() {
+            .map(|p| match p.name.rsplit('/').next().unwrap_or("") {
                 "inlet" => 0.0,
                 "outlet" => 1.0,
                 _ => 2.0,
@@ -440,10 +613,11 @@ impl Engine {
     }
 
     /// The flow set-up of the current design at `reynolds`, on the inlet's
-    /// hydraulic diameter.
+    /// hydraulic diameter (the tube's, for the exchanger).
     fn flow(&self, reynolds: f64) -> PipeFlow {
         let (dh, len) = match self.design.map(|d| d.shape) {
             Some(Shape::Cylinder { radius, length, .. }) => (2.0 * radius, length),
+            Some(Shape::DoublePipe { r_tube, length, .. }) => (2.0 * r_tube, length),
             Some(Shape::Box { size, .. }) => {
                 let a = self.flow_axis;
                 let (b, c) = (size[(a + 1) % 3], size[(a + 2) % 3]);
@@ -459,84 +633,202 @@ impl Engine {
         }
     }
 
-    fn start(&mut self, reynolds: f64, mode: Mode) -> Result<(), String> {
-        let fv = self.fv.clone().ok_or("mesh first")?;
-        let flow = self.flow(reynolds);
-        // Co ≈ 4 (or 1), but the viscous number ν Δt / h² held at
-        // `MAX_VISCOUS_DEFAULT` or below,
-        // h the mean cell size (V/N)^(1/3). A guard for low Re (gh:#1162:
-        // PimpleFoam diverged at ν Δt / Δy² = 8 on a uniform channel). The
-        // smallest spacing is the wrong length here: the O-grid's thin ring
-        // cells at the square's corners (0.37 mm at 20k) would cap Co at
-        // ≈ 1.6, while the uncapped Co ≈ 4 run is stable (gh:#1161 record:
-        // 34 steps) — measured 2026-11-03, 79 steps with that cap.
-        let vol: f64 = fv.cell_volumes.iter().sum();
-        let h = (vol / fv.n_cells.max(1) as f64).cbrt();
-        let nu = flow.nu.get::<square_meter_per_second>();
-        #[cfg(not(target_arch = "wasm32"))]
-        let max_viscous = std::env::var("FOAM_MAX_VISCOUS").ok().and_then(|v| v.parse().ok()).unwrap_or(MAX_VISCOUS_DEFAULT);
-        #[cfg(target_arch = "wasm32")]
-        let max_viscous = MAX_VISCOUS_DEFAULT;
-        #[allow(non_snake_case)]
-        let MAX_VISCOUS: f64 = max_viscous;
-        let dt_co = flow.courant_time_step(m(self.cell_len), mode.courant());
-        let dt = if h.is_finite() && MAX_VISCOUS * h * h / nu < dt_co.get::<uom::si::time::second>() {
-            uom::si::f64::Time::new::<uom::si::time::second>(MAX_VISCOUS * h * h / nu)
-        } else {
-            dt_co
+    /// The exchanger at tube Reynolds number `reynolds`: `DoublePipeExchanger::demo`
+    /// with the design's length and the flow rate that gives that Re in the
+    /// tube (ν fixed at 1e-6 m²/s); each fluid at Co 4 capped by the viscous
+    /// number.
+    fn start_exchanger(&mut self, reynolds: f64) -> Result<(), String> {
+        let d = self.design.ok_or("mesh first")?;
+        let Shape::DoublePipe { r_tube, length, .. } = d.shape else { return Err("not a double pipe".into()) };
+        let [a, b, c] = exchanger_meshes(&d)?;
+        let mut spec = DoublePipeExchanger::demo();
+        spec.length = m(length);
+        let nu = spec.nu.get::<square_meter_per_second>();
+        spec.flow_rate = uom::si::f64::VolumeRate::new::<uom::si::volume_rate::cubic_meter_per_second>(reynolds * nu / (2.0 * r_tube) * std::f64::consts::PI * r_tube * r_tube);
+        let q = spec.flow_rate.get::<uom::si::volume_rate::cubic_meter_per_second>();
+        let inlet_area = |mesh: &FvMesh| -> f64 {
+            mesh.patches.iter().find(|p| p.name == "inlet").map_or(1.0, |p| (0..p.size).map(|i| mesh.face_areas[p.start + i]).sum())
         };
-        let mut s = flow.build_solver(fv, dt);
-        // gh:#1161: the lagged correction alone (0 correctors) went unstable
-        // at Co ≈ 4 on the 50k O-grid; one corrector is stable there.
-        s.solution.pimple.n_non_orthogonal_correctors = 1;
-        self.case = Some((s, flow));
+        let dz = m(self.cell_len);
+        let dt = |mesh: &FvMesh| double_pipe::pseudo_time_step(mesh, Velocity::new::<meter_per_second>(q / inlet_area(mesh)), spec.nu, dz, Mode::Steady.courant(), max_viscous());
+        let (dta, dtc) = (dt(&a), dt(&c));
+        let offsets = [0, a.n_cells, a.n_cells + b.n_cells];
+        let cht = spec.build(a, b, c, dta, dtc).map_err(|e| e.to_string())?;
+        self.case = Some(Case::Exchanger(ExchangerRun { cht, spec, energy_phase: false, offsets, last_energy_change: f64::NAN }));
         self.steps = 0;
         self.time = 0.0;
         Ok(())
     }
 
+    fn start(&mut self, reynolds: f64, mode: Mode) -> Result<(), String> {
+        if matches!(self.design.map(|d| d.shape), Some(Shape::DoublePipe { .. })) {
+            return self.start_exchanger(reynolds);
+        }
+        let fv = self.fv.clone().ok_or("mesh first")?;
+        let flow = self.flow(reynolds);
+        // Co ≈ 4 (or 1), but the viscous number ν Δt / h² held at
+        // `MAX_VISCOUS_DEFAULT` or below, h the mean cell size (V/N)^(1/3);
+        // `cases::double_pipe::pseudo_time_step` (gh:#1162: PimpleFoam
+        // diverged at ν Δt / Δy² = 8 on a uniform channel). The smallest
+        // spacing is the wrong length here: the O-grid's thin ring cells at
+        // the square's corners (0.37 mm at 20k) would cap Co at ≈ 1.6, while
+        // the uncapped Co ≈ 4 run is stable (gh:#1161 record: 34 steps) —
+        // measured 2026-11-03, 79 steps with that cap.
+        let dt = double_pipe::pseudo_time_step(&fv, flow.bulk_velocity, flow.nu, m(self.cell_len), mode.courant(), max_viscous());
+        let mut s = flow.build_solver(fv, dt);
+        // gh:#1161: the lagged correction alone (0 correctors) went unstable
+        // at Co ≈ 4 on the 50k O-grid; one corrector is stable there.
+        s.solution.pimple.n_non_orthogonal_correctors = 1;
+        self.case = Some(Case::Pipe(s, flow));
+        self.steps = 0;
+        self.time = 0.0;
+        Ok(())
+    }
+
+    /// Per-cell fields on the drawing mesh: |U|, p, axial U and T (T empty
+    /// for the pipe), plus the run's diagnostics.
     fn progress(&self, change: f64, ms: f64) -> Option<Progress> {
-        let (s, _) = self.case.as_ref()?;
-        let mesh = &s.mesh;
-        let u = s.u.internal.as_slice();
-        let p = s.p.internal.as_slice();
         let a = self.flow_axis;
         let comp = |v: outram_foam_basic_lib::primitives::Vector3| match a {
             0 => v.x,
             1 => v.y,
             _ => v.z,
         };
-        let mean_p = |name: &str| {
-            mesh.patches.iter().find(|q| q.name == name).map_or(0.0, |q| {
-                let (mut s1, mut w) = (0.0, 0.0);
-                for fi in 0..q.size {
-                    let a = mesh.face_areas[q.start + fi];
-                    s1 += p[mesh.owner[q.start + fi]] * a;
-                    w += a;
+        let n = self.fv.as_ref().map_or(0, |f| f.n_cells);
+        let (u, p, t, continuity, out_in, dp, dt, exch, phase): (Vec<_>, Vec<f64>, Vec<f64>, f64, f64, f64, f64, [f64; EXCH_LEN], u8) = match self.case.as_ref()? {
+            Case::Pipe(s, _) => {
+                let mesh = &s.mesh;
+                let pp = s.p.internal.as_slice();
+                let mean_p = |name: &str| {
+                    mesh.patches.iter().find(|q| q.name == name).map_or(0.0, |q| {
+                        let (mut s1, mut w) = (0.0, 0.0);
+                        for fi in 0..q.size {
+                            let a = mesh.face_areas[q.start + fi];
+                            s1 += pp[mesh.owner[q.start + fi]] * a;
+                            w += a;
+                        }
+                        s1 / w.max(1e-300)
+                    })
+                };
+                let inflow = -patch_flux(s, "inlet");
+                (
+                    s.u.internal.as_slice().to_vec(),
+                    pp.to_vec(),
+                    Vec::new(),
+                    max_continuity_error(s),
+                    patch_flux(s, "outlet") / inflow.max(1e-300),
+                    mean_p("inlet") - mean_p("outlet"),
+                    s.control.delta_t,
+                    [f64::NAN; EXCH_LEN],
+                    0,
+                )
+            }
+            Case::Exchanger(x) => {
+                let mut u = vec![outram_foam_basic_lib::primitives::Vector3::ZERO; n];
+                let mut p = vec![0.0; n];
+                let mut t = vec![f64::NAN; n];
+                for (k, f) in x.cht.fluids.iter().enumerate() {
+                    let o = x.offsets[2 * k];
+                    for c in 0..f.mesh.n_cells {
+                        u[o + c] = f.u.internal[c];
+                        p[o + c] = f.p.internal[c];
+                        t[o + c] = f.energy.as_ref().map_or(f64::NAN, |e| e.t.internal[c]);
+                    }
                 }
-                s1 / w.max(1e-300)
-            })
+                let w = &x.cht.solids[0].energy.t;
+                for c in 0..w.mesh.n_cells {
+                    t[x.offsets[1] + c] = w.internal[c];
+                }
+                let f0 = &x.cht.fluids[0];
+                let cont = max_continuity_error(f0).max(max_continuity_error(&x.cht.fluids[1]));
+                let oi = |f: &PimpleFoam| patch_flux(f, "outlet") / (-patch_flux(f, "inlet")).max(1e-300);
+                let exch = if x.energy_phase {
+                    exchanger_numbers(&double_pipe::report(&x.cht, &x.spec), x.last_energy_change)
+                } else {
+                    [f64::NAN; EXCH_LEN]
+                };
+                (u, p, t, cont, oi(f0).min(oi(&x.cht.fluids[1])), f64::NAN, f0.control.delta_t, exch, u8::from(x.energy_phase))
+            }
         };
-        let inflow = -patch_flux(s, "inlet");
+        let tt = |c: usize| t.get(c).copied().unwrap_or(f64::NAN);
         Some(Progress {
             id: self.id,
             steps: self.steps,
             time_s: self.time,
-            dt_s: s.control.delta_t,
+            dt_s: dt,
             change,
-            continuity: max_continuity_error(s),
-            outlet_over_inlet: patch_flux(s, "outlet") / inflow.max(1e-300),
-            probe_u: u[self.probe_cell].mag(),
-            probe_p: p[self.probe_cell],
-            dp: mean_p("inlet") - mean_p("outlet"),
+            continuity,
+            outlet_over_inlet: out_in,
+            probe_u: u.get(self.probe_cell).map_or(0.0, |v| v.mag()),
+            probe_p: p.get(self.probe_cell).copied().unwrap_or(0.0),
+            dp,
             ms_per_step: ms,
-            steady: change < STEADY,
+            steady: match self.case.as_ref()? {
+                Case::Pipe(..) => change < STEADY,
+                Case::Exchanger(x) => x.energy_phase && x.last_energy_change < ENERGY_STEADY,
+            },
             axial_u: pick(&self.axial, |c| u[c].mag()),
             axial_p: pick(&self.axial, |c| p[c]),
             cross_u: pick(&self.cross, |c| u[c].mag()),
             cross_p: pick(&self.cross, |c| p[c]),
             cross_ua: pick(&self.cross, |c| comp(u[c])),
+            phase,
+            axial_t: if t.is_empty() { Vec::new() } else { pick(&self.axial, tt) },
+            cross_t: if t.is_empty() { Vec::new() } else { pick(&self.cross, tt) },
+            exch,
         })
+    }
+
+    /// Advance the case by up to `steps` and return (steps done, change).
+    /// The exchanger marches its flows to the steady criterion, then freezes
+    /// them and iterates the energy, [`ENERGY_PASSES_PER_STEP`] passes per
+    /// step, to [`ENERGY_STEADY`].
+    fn advance(&mut self, steps: usize) -> Result<(usize, f64), String> {
+        let diverged = || "the solve diverged; try a smaller Reynolds number or fewer cells".to_string();
+        let mut done = 0;
+        let mut change = f64::INFINITY;
+        match self.case.as_mut().ok_or("no case")? {
+            Case::Pipe(s, flow) => {
+                for _ in 0..steps.max(1) {
+                    change = flow.step(s).map_err(|_| diverged())?;
+                    if !change.is_finite() {
+                        return Err(diverged());
+                    }
+                    done += 1;
+                    self.time += s.control.delta_t;
+                    if change < STEADY {
+                        break;
+                    }
+                }
+            }
+            Case::Exchanger(x) => {
+                for _ in 0..steps.max(1) {
+                    if x.energy_phase {
+                        let r = x.cht.step().map_err(|e| e.to_string())?;
+                        x.last_energy_change = r.last_pass_change / (T_HOT_IN - T_COLD_IN);
+                        change = x.last_energy_change;
+                        done += 1;
+                        if change < ENERGY_STEADY {
+                            break;
+                        }
+                    } else {
+                        change = double_pipe::step_flows(&mut x.cht, x.spec.length).map_err(|_| diverged())?;
+                        if !change.is_finite() {
+                            return Err(diverged());
+                        }
+                        done += 1;
+                        self.time += x.cht.fluids[0].control.delta_t;
+                        if change < STEADY {
+                            double_pipe::freeze_flows_for_steady_energy(&mut x.cht);
+                            x.cht.energy_outer_correctors = ENERGY_PASSES_PER_STEP;
+                            x.energy_phase = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        Ok((done, change))
     }
 
     /// Serve one request.
@@ -555,29 +847,22 @@ impl Engine {
                 Err(e) => post(Event::Error(e)),
             },
             Request::Step { id, steps } if id == self.id => {
-                let Some((s, flow)) = self.case.as_mut() else { return };
+                if self.case.is_none() {
+                    return;
+                }
                 let t0 = bugis::web_demo::platform::now_s();
-                let mut change = f64::INFINITY;
-                let mut done = 0;
-                for _ in 0..steps.max(1) {
-                    match flow.step(s) {
-                        Ok(c) if c.is_finite() => change = c,
-                        Ok(_) | Err(_) => {
-                            post(Event::Error("the solve diverged; try a smaller Reynolds number or fewer cells".into()));
-                            self.case = None;
-                            return;
+                match self.advance(steps) {
+                    Ok((done, change)) => {
+                        self.steps += done;
+                        let ms = (bugis::web_demo::platform::now_s() - t0) * 1e3 / done.max(1) as f64;
+                        if let Some(p) = self.progress(change, ms) {
+                            post(Event::Progress(p));
                         }
                     }
-                    done += 1;
-                    self.time += s.control.delta_t;
-                    if change < STEADY {
-                        break;
+                    Err(e) => {
+                        post(Event::Error(e));
+                        self.case = None;
                     }
-                }
-                self.steps += done;
-                let ms = (bugis::web_demo::platform::now_s() - t0) * 1e3 / done.max(1) as f64;
-                if let Some(p) = self.progress(change, ms) {
-                    post(Event::Progress(p));
                 }
             }
             Request::Probe { id, probe } if id == self.id => {
@@ -683,10 +968,11 @@ impl Request {
         match self {
             Request::Mesh { id, design, probe } => {
                 let (k, a, b) = match design.shape {
-                    Shape::Cylinder { radius, length, centre } => (0.0, [radius, length, 0.0], centre),
-                    Shape::Box { size, centre } => (1.0, size, centre),
+                    Shape::Cylinder { radius, length, centre } => (0.0, [radius, length, 0.0, 0.0], centre),
+                    Shape::Box { size, centre } => (1.0, [size[0], size[1], size[2], 0.0], centre),
+                    Shape::DoublePipe { r_tube, wall, r_shell, length, centre } => (2.0, [r_tube, wall, r_shell, length], centre),
                 };
-                let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], b[0], b[1], b[2], design.target_cells as f64, *probe];
+                let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], a[3], b[0], b[1], b[2], design.target_cells as f64, *probe];
                 d.extend(design.tags.iter().map(|t| t.code()));
                 d
             }
@@ -704,7 +990,7 @@ impl Request {
         match kind {
             0 => {
                 let k = r.f()?;
-                let a = [r.f()?, r.f()?, r.f()?];
+                let a = [r.f()?, r.f()?, r.f()?, r.f()?];
                 let centre = [r.f()?, r.f()?, r.f()?];
                 let target_cells = r.n()?;
                 let probe = r.f()?;
@@ -712,7 +998,11 @@ impl Request {
                 for t in &mut tags {
                     *t = Tag::from_code(r.f()?);
                 }
-                let shape = if k == 0.0 { Shape::Cylinder { radius: a[0], length: a[1], centre } } else { Shape::Box { size: a, centre } };
+                let shape = match k as u8 {
+                    0 => Shape::Cylinder { radius: a[0], length: a[1], centre },
+                    1 => Shape::Box { size: [a[0], a[1], a[2]], centre },
+                    _ => Shape::DoublePipe { r_tube: a[0], wall: a[1], r_shell: a[2], length: a[3], centre },
+                };
                 Ok(Request::Mesh { id, design: Design { shape, tags, target_cells }, probe })
             }
             1 => Ok(Request::Start { id, reynolds: r.f()?, mode: if r.f()? == 0.0 { Mode::Steady } else { Mode::Transient } }),
@@ -758,6 +1048,10 @@ impl Event {
                 for v in [&p.axial_u, &p.axial_p, &p.cross_u, &p.cross_p, &p.cross_ua] {
                     put_f32s(&mut d, v);
                 }
+                d.push(f64::from(p.phase));
+                put_f32s(&mut d, &p.axial_t);
+                put_f32s(&mut d, &p.cross_t);
+                d.extend_from_slice(&p.exch);
                 (d, String::new())
             }
             Event::Error(m) => (vec![3.0, 0.0], m.clone()),
@@ -797,6 +1091,16 @@ impl Event {
                 cross_u: r.f32s()?,
                 cross_p: r.f32s()?,
                 cross_ua: r.f32s()?,
+                phase: r.f()? as u8,
+                axial_t: r.f32s()?,
+                cross_t: r.f32s()?,
+                exch: {
+                    let mut x = [0.0; EXCH_LEN];
+                    for v in &mut x {
+                        *v = r.f()?;
+                    }
+                    x
+                },
             })),
             3 => Ok(Event::Error(text.to_string())),
             k => Err(format!("bad event {k}")),
@@ -860,16 +1164,18 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
         _ => return Err("no mesh".into()),
     }
     e.serve(Request::Start { id: 1, reynolds, mode }, &mut |ev| last = Some(ev));
-    out.push("# steps  t[s]  change  continuity  out/in  dp[m2/s2]  ms/step".into());
+    out.push("# steps  t[s]  change  continuity  out/in  dp[m2/s2]  ms/step  phase".into());
     let t1 = bugis::web_demo::platform::now_s();
+    let mut last_progress = None;
     while e.steps < max_steps {
         e.serve(Request::Step { id: 1, steps: 5 }, &mut |ev| last = Some(ev));
         match &last {
             Some(Event::Progress(p)) => {
                 out.push(format!(
-                    "{} {:.3} {:.3e} {:.1e} {:.9} {:.6e} {:.1}",
-                    p.steps, p.time_s, p.change, p.continuity, p.outlet_over_inlet, p.dp, p.ms_per_step
+                    "{} {:.3} {:.3e} {:.1e} {:.9} {:.6e} {:.1} {}",
+                    p.steps, p.time_s, p.change, p.continuity, p.outlet_over_inlet, p.dp, p.ms_per_step, p.phase
                 ));
+                last_progress = Some(p.clone());
                 if p.steady {
                     break;
                 }
@@ -879,7 +1185,21 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
         }
     }
     let wall = bugis::web_demo::platform::now_s() - t1;
-    if let (Some((s, flow)), Shape::Cylinder { centre, length, .. }) = (&e.case, design.shape) {
+    if let (Some(p), Shape::DoublePipe { .. }) = (&last_progress, design.shape) {
+        let x = &p.exch;
+        out.push(format!(
+            "# exchanger: Thot_out={:.4} Tcold_out={:.4} Qhot={:.6} Qcold={:.6} eps={:.5} eps_ntu={:.5} UA={:.5} NTU={:.4}",
+            x[Exch::T_HOT_OUT],
+            x[Exch::T_COLD_OUT],
+            x[Exch::Q_HOT],
+            x[Exch::Q_COLD],
+            x[Exch::EPS],
+            x[Exch::EPS_NTU],
+            x[Exch::UA],
+            x[Exch::NTU]
+        ));
+    }
+    if let (Some(Case::Pipe(s, flow)), Shape::Cylinder { centre, length, .. }) = (&e.case, design.shape) {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient};
         use uom::si::acceleration::meter_per_second_squared;
         let z0 = centre[2] - 0.5 * length;
@@ -918,6 +1238,7 @@ mod tests {
                 probe: 0.25,
             },
             Request::Start { id: 3, reynolds: 50.0, mode: Mode::Transient },
+            Request::Mesh { id: 5, design: Design::exchanger(), probe: 0.3 },
             Request::Step { id: 3, steps: 7 },
             Request::Probe { id: 3, probe: 0.9 },
         ];
@@ -957,6 +1278,10 @@ mod tests {
                 cross_u: vec![],
                 cross_p: vec![4.0],
                 cross_ua: vec![5.0],
+                phase: 1,
+                axial_t: vec![300.0],
+                cross_t: vec![310.0, 320.0],
+                exch: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             }),
         ];
         for e in evs {
@@ -1009,6 +1334,56 @@ mod tests {
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
+    }
+
+    /// The headless exchanger regression (gh:#1156): a ~2.4k-cell double
+    /// pipe at the demo's Re = 30 marches its flows, freezes them, iterates
+    /// the energy to steady, closes energy between the streams, and its
+    /// effectiveness sits within a few per cent of ε-NTU at the local UA
+    /// (the coarse-grid gap of the V&V record, which shrinks as 1/nz).
+    #[test]
+    fn headless_exchanger_closes_energy_and_matches_ntu() {
+        let mut d = Design::exchanger();
+        d.target_cells = 2_500;
+        assert!(check(&d).is_ok());
+        let lines = headless(d, 30.0, Mode::Steady, 2_000).unwrap();
+        let joined = lines.join("\n");
+        let ex = lines.iter().find(|l| l.starts_with("# exchanger")).unwrap_or_else(|| panic!("{joined}"));
+        let val = |k: &str| -> f64 { ex.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
+        let (qh, qc) = (val("Qhot="), val("Qcold="));
+        assert!((qh / qc - 1.0).abs() < 1e-6, "{ex}");
+        let (eps, ntu) = (val("eps="), val("eps_ntu="));
+        assert!(eps > 0.3 && eps < 0.8, "{ex}");
+        assert!((eps / ntu - 1.0).abs() < 0.05, "{ex}");
+        assert!(val("Thot_out=") < T_HOT_IN && val("Tcold_out=") > T_COLD_IN, "{ex}");
+        // Both phases ran, and the last report is steady.
+        let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
+        assert!(last.ends_with(" 1"), "{last}");
+        assert!(lines.iter().any(|l| !l.starts_with('#') && l.ends_with(" 0")), "{joined}");
+    }
+
+    #[test]
+    fn exchanger_designs_are_checked_and_sized() {
+        let d = Design::exchanger();
+        let Shape::DoublePipe { r_tube, wall, r_shell, length, centre } = d.shape else { panic!() };
+        let g = exchanger_grid(r_tube, wall, r_shell, length, centre, DEFAULT_CELLS);
+        let n: usize = g.n_cells().iter().sum();
+        assert!(n <= 21_000 && n > 12_000, "{n} {:?}", g.n_cells());
+        assert_eq!(g.n_cells(), [(25 + 80) * 75, 40 * 75, 100 * 75]);
+        let big: usize = exchanger_grid(r_tube, wall, r_shell, length, centre, MAX_CELLS).n_cells().iter().sum();
+        assert!(big <= 52_500 && big > 30_000, "{big}");
+        let mut bad = d;
+        bad.shape = Shape::DoublePipe { r_tube: 0.005, wall: 0.006, r_shell: 0.01, length: 0.2, centre };
+        assert!(check(&bad).is_err());
+        assert!(exchanger_meshes(&Design::default()).is_err());
+        assert_eq!(d.shape.n_faces(), 0);
+        assert!(d.shape.face_names().is_empty());
+        assert_eq!(d.shape.bounds()[1][0], 0.01);
+        // The drawing mesh is the three regions side by side.
+        let (poly, axis, dz) = mesh_design(&d).unwrap();
+        assert_eq!(poly.n_cells, n);
+        assert_eq!(axis, 2);
+        assert!((dz - 0.2 / 75.0).abs() < 1e-15);
     }
 
     #[test]
