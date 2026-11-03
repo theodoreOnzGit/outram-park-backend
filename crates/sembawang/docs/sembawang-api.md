@@ -6572,6 +6572,9 @@ pub struct NetworkResult {
     pub iterations: usize,
     pub residual: f64,
     pub substeps: usize,
+    pub newton_iterations: usize,
+    pub newton_fallbacks: usize,
+    pub newton_fell_back: bool,
 }
 ```
 
@@ -6627,9 +6630,12 @@ pub struct NetworkResult {
 | `dw_slab_inner_k` | `f64` |  |
 | `fp` | `super::containment_fp::FpReport` | Where the fission products are (gh:#1100; zero with<br>`without_fission_products`), and the decay heat they deposited this<br>step, W, by location. |
 | `fp_heat` | `super::containment_fp::FpDecayHeat` |  |
-| `iterations` | `usize` | Picard iterations this step (summed over sub-steps), the largest<br>residual, and the sub-steps taken so far in the run. |
+| `iterations` | `usize` | ~~Picard iterations~~ **CORRECTED 2026-11-03 (gh:#1124):** the<br>network's iterations this step (summed<br>over sub-steps; Newton's, or Picard's where Newton fell back, as<br>`tampines`' `NetworkStepReport::iterations`), the largest residual,<br>and the sub-steps taken so far in the run. |
 | `residual` | `f64` |  |
 | `substeps` | `usize` |  |
+| `newton_iterations` | `usize` | `tampines`' Newton step this step (gh:#1124), summed over sub-steps:<br>its iterates, the failed ones of a fallback included (so the step<br>cost `newton_iterations` plus the fallbacks' Picard iterations), and<br>the sub-steps on which it fell back to Picard. `newton_fell_back` is<br>`newton_fallbacks > 0`. |
+| `newton_fallbacks` | `usize` |  |
+| `newton_fell_back` | `bool` |  |
 
 ##### Implementations
 

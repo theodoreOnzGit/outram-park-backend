@@ -840,11 +840,93 @@ its response was re-taken, its residual term, and the fallback. Release,
   difference 0), Unit 1's included, where the step moved from Picard to
   Newton.
 
-**Not done, on purpose.** The cause found is not the hypothesised one, so
-no fix is committed (gh:#1124 asks for the evidence first). Open for the
+~~**Not done, on purpose.** The cause found is not the hypothesised one, so
+no fix is committed (gh:#1124 asks for the evidence first).~~ **SUPERSEDED
+2026-11-03:** the maintainer chose "Newton only, report fallbacks"; the
+fix and its results are the next section. The text below records what was
+open before that choice. Open for the
 maintainer: whether the round-off floor above is the right instrument
 (it is derived from `f64::EPSILON` and the inventories, not from the
 timing), whether it belongs in the Picard path too (it would change
 Picard's iterate counts, though not, here, its results), and whether
 `NetworkStepReport` should also count the failed Newton iterates so a
 fallback on every step is visible to a caller.
+
+### The fix: the round-off floor on Newton's test, and fallbacks counted (gh:#1124, 2026-11-03)
+
+**Maintainer's choice:** "Newton only, report fallbacks". The floor above,
+`|Δṁ| Δt ≤ ε_f64 · min(M_from, M_to)` (`roundoff_floor`), applies to
+Newton's convergence test only; Picard, the fallback and
+`without_newton_path_flows` keep the old test. `NetworkStepReport` gains
+`newton_iterations` (Newton's iterates, the failed ones of a fallback
+included; 0 when Newton is not used), and `sembawang`'s `NetworkResult`
+carries `newton_iterations`, `newton_fallbacks` and `newton_fell_back`,
+summed over its sub-steps.
+
+**Predictions (written before the runs).**
+- F1: the Picard pins are unchanged: `without_newton_path_flows` on test 1
+  and test 7, the stand-in's Picard trajectory, and the gh:#1116 and
+  gh:#1117 ablations.
+- F2: the Newton default on `tampines`' own cases (test 1, test 7, the
+  side-port drain, the Mark I stand-in) is unchanged bit for bit: each has
+  real flows, so the floor (about 1e-11 kg/s or less) never decides.
+- F3: `sembawang`, first 600 s, as in the diagnosis: Unit 1 to 2 iterates
+  and about 1.5 ms, no fallback; Units 2 and 3 unchanged at about 3 ms;
+  every `NetworkResult` field bit for bit, as the diagnostic run found for
+  the four it compared.
+
+**Results (2026-11-03, release, 4-vCPU Intel Xeon @ 2.10 GHz).**
+- **F1 held.** The existing hash pins pass unchanged
+  (`newton_path_flows_on_a_mark_i_stand_in`,
+  `iterate_switches_are_default_and_the_ablation_is_the_old_network`, the
+  gh:#1117 ablation test), in the full suite below.
+- **F2 held.** Hashes of the Newton default taken before the change and
+  after (`network_hash`, `drive_proxy`): test 1 `0x6fb5abade0a7d839`,
+  test 7 `0x77085d148ed4668a`, the side-port drain `0xc91d30324fe9f42c`,
+  the stand-in `0xed2ccaafdbf2217e` (mean 4.82 iterations, no fallback),
+  identical. Printed by a temporary test, not pinned (the maintainer: no
+  new pins before gh:#1110).
+- **F3: the timings and counts held; "every field" missed by one ulp on
+  Units 2 and 3.** The same probe as the diagnosis, every `NetworkResult`
+  field compared at full precision (66 numbers a step, the fission-product
+  report's included, the iteration counters and residual left out):
+
+  | unit | ms/step before → after | iterates (mean, max) before → after | Newton fallbacks before → after | fields differing |
+  |---|---|---|---|---|
+  | 1 | 26.1–26.4 → 1.42–1.54 | 5.000, 5 (Picard's) → 2.000, 2 | 600 → 0 | none, on 600 of 600 steps |
+  | 2 | 3.1–3.2 → 3.0–3.3 | 2.003, 4 → 2.000, 2 | 0 → 0 | `p_rb_pa` only, by 1.455e-11 Pa (one ulp, 1.4e-16 relative) |
+  | 3 | 2.7–2.9 → 2.7–3.0 | 2.003, 4 → 2.000, 2 | 0 → 0 | `p_rb_pa` only, by one ulp |
+
+  Two runs each; the before runs were deterministic (byte-identical
+  output). Before, `NetworkResult` had no fallback count; the 600 is the
+  diagnosis's count from the same code. **`p_dw`, `p_ww`, `T_pool` and the
+  downcomer flow are bit for bit identical on all three units** (largest
+  difference 0). On Units 2 and 3 the building's pressure now settles one
+  ulp from where Picard's iterate left it, because Newton accepts the
+  toggle on an earlier iterate; nothing else moves, so the difference does
+  not grow over 600 steps. It is round-off, its cause is understood, and it
+  is far below the 1e-8 relative allowance for code-to-code differences.
+- **The toggle in `tampines`' own terms.** A grid, chosen before the run,
+  of one quiet building-sized volume (38 000 m³ on 650 m², no pool, 1 m²
+  opening 1 m below the top to a 300 K dry-air boundary): the boundary
+  −2 … +2 ulps from the volume's pressure at the opening, the volume's gas
+  N2 or dry air, at 300 K or 303.15 K, 5 steps each. Without the floor, 5
+  of the 20 cells fell back (on 1 to 5 of the 5 steps; 30 failed iterates
+  each). With it, none did, at 2 iterates a step except on two steps of
+  two cells (3, 4 and 7). The cell pinned as the regression test,
+  `a_round_off_toggle_converges_by_newton`, is dry air at 303.15 K with
+  the boundary 2 ulps below (the closest to `sembawang`'s building): 5 of 5
+  fell back before, 0 after.
+- **Limit, recorded.** In the first construction tried (the tests'
+  `vessel` helper: 650 m² × 60 m of dry N2 at 300 K, a 1 m² path with a
+  2 m inertial length, the boundary one ulp above), the toggle moved
+  1.5e-11 kg in a step against a floor of 9.9e-12 kg, and Newton still
+  falls back on 5 of 5 steps with the fix. The floor catches a toggle
+  below one f64 resolution of the inventory, not one of a few. Measured
+  by a temporary test, not pinned.
+- **The pass-through.** `containment_network_vs_containment::
+  the_newton_steps_count_and_fallbacks_reach_the_network_result` steps
+  Unit 1 for 10 s on the plant's own snapshots and asserts no fallback and
+  `newton_iterations == iterations` at 2 iterates (it fell back on every
+  step before).
+

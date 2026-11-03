@@ -1293,3 +1293,73 @@ fn a_failed_newton_step_falls_back_and_commits_nothing() {
     assert_eq!(net.time().value, 0.0);
     assert_eq!(net.volume(0).unwrap().atmosphere_pressure(), p0);
 }
+
+/// gh:#1124's quiet building: `sembawang`'s Unit 1 reactor building as one
+/// dry volume (38 000 m³ on a 650 m² floor, dry air, 79 % N2 and 21 % O2 by
+/// mole, at 101 300 Pa and 303.15 K, no pool), with its 1 m² opening (1 m
+/// high, 1 m inertial length, `C_d` 1, `K` 1) 1 m below its top to a
+/// dry-air boundary at 300 K whose pressure is `ulps` ulps from the
+/// building's own at the opening. Nothing drives a flow but round-off.
+fn quiet_building(ulps: i64) -> CvNetwork {
+    let (a, v_m3, p0, t) = (650.0, 38_000.0, 101_300.0, 303.15);
+    let (h, n) = (v_m3 / a, p0 * v_m3 / (R_GAS * t));
+    let z = h - 1.0;
+    let mole_of = |x: f64| AmountOfSubstance::new::<mole>(x * n);
+    let gas = GasMixture::new(Mass::new::<kilogram>(0.0), &[(NonCondensable::N2, mole_of(0.79)), (NonCondensable::O2, mole_of(0.21))]);
+    let table = VolumeAltitudeTable::prismatic(Area::new::<square_meter>(a), m(h)).unwrap();
+    let cv = ControlVolume::new(table, vec![Port { elevation: m(z), opening_height: m(1.0) }], Mass::new::<kilogram>(0.0), kel(t), gas, kel(t)).unwrap();
+    let mut net = CvNetwork::new(NetworkControl::default());
+    let v = net.add_volume(cv);
+    let p_port = net.volume(v).unwrap().pressure_at_elevation(m(z)).value;
+    let p_b = f64::from_bits(p_port.to_bits().checked_add_signed(ulps).unwrap());
+    let geometry = FlowPathGeometry {
+        area: Area::new::<square_meter>(1.0),
+        inertial_length: m(1.0),
+        form_loss: 1.0,
+        discharge_coefficient: 1.0,
+        from_elevation: m(z),
+        to_elevation: m(z),
+        opening_height: m(1.0),
+    };
+    let to = NetworkEnd::Boundary(NetworkBoundary::dry_air(Pressure::new::<pascal>(p_b), kel(300.0)));
+    net.add_path(NetworkPath { path: FlowPath::new(geometry, FlowPathKind::Open).unwrap(), from: NetworkEnd::Volume { volume: v, port: 0 }, to }).unwrap();
+    net
+}
+
+/// **gh:#1124: a round-off toggle no longer defeats Newton's convergence
+/// test, and a fallback is counted.**
+///
+/// **Method.** [`quiet_building`] with the boundary 2 ulps below the
+/// building's pressure at the opening, 5 steps of 1 s. The opening's flow
+/// toggles at round-off while the residual (each rate's change over the
+/// largest rate, here that tiny flow itself, floored at 1e-12 kg/s) stays
+/// O(1). **Before the change (measured 2026-11-03, the floor disabled):**
+/// Newton fell back to Picard on 5 of 5 steps, 30 failed iterates each.
+/// The grid it was taken from (boundary −2 … +2 ulps, 300 or 303.15 K, N2
+/// or dry air, 20 cells): 5 cells fell back before, 0 after; all are in
+/// `cv_network.md`. **Prediction:** with the round-off floor
+/// (`roundoff_floor`), no fallback, at most 2 iterates a step,
+/// `newton_iterations == iterations`; the Picard ablation reports
+/// `newton_iterations == 0`.
+///
+/// **Result (2026-11-03, release):** held (2 iterates on each step).
+#[test]
+fn a_round_off_toggle_converges_by_newton() {
+    let dt = Time::new::<second>(1.0);
+    let mut net = quiet_building(-2);
+    let floor = roundoff_floor(&net.volumes, net.path(0).unwrap(), 1.0);
+    // ε × 44 t of air.
+    assert!(floor > 9e-12 && floor < 1.1e-11, "{floor}");
+    for _ in 0..5 {
+        let r = net.step(dt).unwrap();
+        assert!(!r.newton_fell_back, "{r:?}");
+        assert_eq!(r.newton_iterations, r.iterations);
+        assert!(r.iterations <= 2, "{}", r.iterations);
+        assert!(signed_rate(&r.transfers[0]).abs() <= 1e-10, "{:?}", r.transfers[0]);
+    }
+    let mut picard = quiet_building(-2).without_newton_path_flows();
+    for _ in 0..5 {
+        let r = picard.step(dt).unwrap();
+        assert_eq!((r.newton_iterations, r.newton_fell_back), (0, false));
+    }
+}

@@ -67,10 +67,21 @@
 //!   changes.
 //! - Everything else is the Picard step: the volumes' step, the delivery,
 //!   the in-transit inventory, the breakers' hysteresis, the convergence
-//!   test.
+//!   test (**CORRECTED 2026-11-03, gh:#1124:** but for the floor below).
+//! - **A round-off floor on Newton's convergence test.** A path's rate
+//!   change counts as converged when the mass it moves in the step is at or
+//!   below the f64 resolution of the smaller inventory it joins,
+//!   `|Δṁ| Δt ≤ ε_f64 · min(M_from, M_to)` (`M` a volume's water and every
+//!   gas, a boundary infinite; `roundoff_floor`). Without it, a path whose
+//!   flow toggles at round-off while nothing else flows keeps the residual
+//!   (each change over the largest rate, then that tiny flow itself) O(1):
+//!   `sembawang`'s Unit 1 building opening, one ulp of pressure from the
+//!   environment, made Newton fall back on every step (measured in
+//!   `cv_network.md`). Picard's test is unchanged, bit for bit.
 //! - **Fallback:** a Newton step that does not converge in 30 iterates, or
 //!   meets any error, is re-run by Picard from the start state
-//!   ([`NetworkStepReport::newton_fell_back`]).
+//!   ([`NetworkStepReport::newton_fell_back`]; the iterates it spent first
+//!   are [`NetworkStepReport::newton_iterations`], gh:#1124).
 //! - **Not used** with [`CvNetwork::without_iterate_switch_decisions`] (the
 //!   b4c99e210 pin) or with one iteration (loose coupling).
 //!
@@ -134,6 +145,11 @@
 //!   shared volume enters only through it. A step whose start is far from
 //!   linear in the volumes falls back to Picard (none did on the stand-in).
 //!   `sembawang`'s case B has **not** been run with it (gh:#1119).
+//! - The round-off floor catches a toggle whose mass in a step is below
+//!   one f64 resolution of the inventory, not one of a few: on a 1 m²
+//!   opening from a 60 m tall N2 vessel at one ulp from its boundary the
+//!   toggle moved about 1.5 times the floor, and Newton still fell back on
+//!   every step (`cv_network.md`, gh:#1124).
 
 use tampines_steam_tables::gas_mixture::{NonCondensable, R_GAS};
 use uom::si::available_energy::joule_per_kilogram;
@@ -235,8 +251,13 @@ impl Default for NetworkControl {
 pub struct NetworkStepReport {
     /// Iterations taken: the Newton step's, or Picard's when Newton is
     /// ablated, not used, or fell back (then Picard's alone; the failed
-    /// Newton iterates are not counted).
+    /// Newton iterates are in [`Self::newton_iterations`]).
     pub iterations: usize,
+    /// Newton iterates this step (gh:#1124): equal to `iterations` when
+    /// Newton converged, the iterates it spent before giving up when it fell
+    /// back (so the step cost `newton_iterations + iterations` passes), zero
+    /// when Newton was not used.
+    pub newton_iterations: usize,
     /// Last residual (largest relative change of a path rate).
     pub residual: f64,
     /// Each path's transfer at the last iterate.
@@ -314,6 +335,26 @@ const NEWTON_MAX_ITERATIONS: usize = 30;
 /// A path's signed mass rate, both phases, positive `from → to`, kg/s.
 fn signed_rate(t: &FlowTransfer) -> f64 {
     t.liquid_mass_rate.get::<kilogram_per_second>() + t.gas_mass_rate.get::<kilogram_per_second>()
+}
+
+/// The largest change of path `np`'s mass rate, kg/s, that the end state
+/// cannot resolve over a step of `dts` s (gh:#1124): the mass it moves in
+/// the step, `|Δṁ| Δt`, at or below the f64 resolution of the smaller
+/// inventory it joins, `f64::EPSILON · min(M_from, M_to)`, with `M` a
+/// volume's water and every gas at the start of the step and a boundary
+/// infinite. A change that small moves the volume's pressure by less than
+/// about one ulp, so the iterates can toggle on it forever (Unit 1's
+/// building opening at one ulp below the environment's pressure, measured
+/// in `cv_network.md`). Newton's convergence test treats it as converged.
+fn roundoff_floor(volumes: &[ControlVolume], np: &NetworkPath, dts: f64) -> f64 {
+    let inventory = |e: &NetworkEnd| match e {
+        NetworkEnd::Volume { volume, .. } => {
+            let v = &volumes[*volume];
+            v.water_mass().get::<kilogram>() + v.ncg_masses().iter().map(|m| m.get::<kilogram>()).sum::<f64>()
+        }
+        NetworkEnd::Boundary(_) => f64::INFINITY,
+    };
+    f64::EPSILON * inventory(&np.from).min(inventory(&np.to)) / dts
 }
 
 /// One path's linearised effect on the network's end pressures for the
@@ -855,23 +896,30 @@ impl CvNetwork {
             // a far Newton iterate can take a volume outside its tables
             // where the Picard iterates would not; if Picard fails too, its
             // error is the one returned.
-            match self.step_solve(dt, true) {
+            let mut tried = 0;
+            match self.step_solve(dt, true, &mut tried) {
                 Ok(r) => return Ok(r),
                 Err(_) => {
-                    let mut r = self.step_solve(dt, false)?;
+                    let mut r = self.step_solve(dt, false, &mut 0)?;
                     r.newton_fell_back = true;
+                    r.newton_iterations = tried;
                     return Ok(r);
                 }
             }
         }
-        self.step_solve(dt, false)
+        self.step_solve(dt, false, &mut 0)
     }
 
     /// One step solved by Newton on the path flows (`newton`) or by the
-    /// under-relaxed Picard iteration (see the module docs).
-    fn step_solve(&mut self, dt: Time, newton: bool) -> Result<NetworkStepReport, TampinesError> {
+    /// under-relaxed Picard iteration (see the module docs). `tried` is set
+    /// to the iterates taken, whether or not the step converges.
+    fn step_solve(&mut self, dt: Time, newton: bool, tried: &mut usize) -> Result<NetworkStepReport, TampinesError> {
         let dts = dt.get::<second>();
         let start_vols = self.volumes.clone();
+        // gh:#1124, Newton's convergence test only: per path, the largest
+        // change of its rate that the end state cannot resolve, kg/s (see
+        // `roundoff_floor`).
+        let floor: Vec<f64> = if newton { self.paths.iter().map(|np| roundoff_floor(&start_vols, np, dts)).collect() } else { Vec::new() };
         // A vacuum breaker opens or stays shut for the whole step by the
         // start-of-step pressures (gh:#1097: decided on each Picard iterate,
         // the first pass equalised the two volumes, the second found the
@@ -958,6 +1006,7 @@ impl CvNetwork {
         let (mut new_vols, mut new_paths, mut boundary_step);
         for k in 1..=max_iterations {
             iterations = k;
+            *tried = k;
             // 1. Paths from the latest iterate.
             new_paths = start_paths.clone();
             transfers.clear();
@@ -1373,7 +1422,16 @@ impl CvNetwork {
                 .fold(1e-12, f64::max);
             for (pi, t) in transfers.iter().enumerate() {
                 let r = t.liquid_mass_rate.get::<kilogram_per_second>().abs() + t.gas_mass_rate.get::<kilogram_per_second>().abs();
-                let d = if prev_rates[pi].is_nan() { f64::INFINITY } else { (r - prev_rates[pi]).abs() / scale };
+                let d = if prev_rates[pi].is_nan() {
+                    f64::INFINITY
+                } else if newton && (r - prev_rates[pi]).abs() <= floor[pi] {
+                    // gh:#1124: a change the end state cannot resolve (a
+                    // round-off toggle) is converged; Newton only, so Picard
+                    // stays bit for bit.
+                    0.0
+                } else {
+                    (r - prev_rates[pi]).abs() / scale
+                };
                 residual = residual.max(d);
                 prev_rates[pi] = r;
             }
@@ -1424,12 +1482,12 @@ impl CvNetwork {
             last_residual = residual;
             if k > 1 && residual < self.control.tolerance {
                 self.commit(new_vols, new_paths, transit, boundary_step, dts);
-                return Ok(NetworkStepReport { iterations, residual, transfers, volumes: reports, equalising_limited: limited, newton_fell_back: false });
+                return Ok(NetworkStepReport { iterations, newton_iterations: if newton { iterations } else { 0 }, residual, transfers, volumes: reports, equalising_limited: limited, newton_fell_back: false });
             }
             if k == max_iterations {
                 if self.control.max_iterations == 1 {
                     self.commit(new_vols, new_paths, transit, boundary_step, dts);
-                    return Ok(NetworkStepReport { iterations, residual: 0.0, transfers, volumes: reports, equalising_limited: limited, newton_fell_back: false });
+                    return Ok(NetworkStepReport { iterations, newton_iterations: 0, residual: 0.0, transfers, volumes: reports, equalising_limited: limited, newton_fell_back: false });
                 }
                 return Err(TampinesError::Numerical(format!("network step: no convergence in {iterations} iterations (residual {residual:e})")));
             }
