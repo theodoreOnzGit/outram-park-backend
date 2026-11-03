@@ -93,6 +93,14 @@ boon-lay.workspace = true
 # outram-foam-basic-lib, all already here, so this edge adds no new crate to
 # the tree and no cycle (farrer-park does not depend on tampines).
 farrer-park.workspace = true
+# Point kinetics + ANS decay heat for the HTR-10 primary-loop coupled
+# transient (gh:#1151). Maintainer decision D2 (2026-11-03): tampines owns the
+# 0-D/1-D loop and the coupled transient, so the kinetics it couples to is a
+# library dependency now, not only an example dev-dependency. No cycle:
+# teh-o-prke depends on petir, approx, ndarray, thiserror, uom and
+# chem-eng-real-time-process-control-simulator, none of which depend on
+# tampines; all already build for Android and wasm32 inside this crate's tree.
+teh-o-prke.workspace = true
 
 # Public API primitives -- dimensioned quantities and error types.
 uom.workspace = true
@@ -118,7 +126,6 @@ thiserror.workspace = true
 # `cargo test --target wasm32-wasip1` cannot build even a test that touches none
 # of it. The --lib compile gate is blind to this class of problem.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
-teh-o-prke.workspace = true
 nee_soon.workspace = true
 ndarray.workspace = true
 egui.workspace = true

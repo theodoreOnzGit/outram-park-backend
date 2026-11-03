@@ -88,6 +88,7 @@ pub mod fluids;
 pub mod gas_phase;
 pub mod heat_transfer;
 pub mod hem;
+pub mod htr10_primary_loop;
 pub mod humid_air;
 pub mod multiphase_1d;
 pub mod pcice;

@@ -39,9 +39,13 @@
 //! - report the thermal time constant that balance implies
 //!   ([`GraphiteModeratorFeedback::thermal_time_constant`]).
 //!
-//! It does **not** contain point kinetics. This crate's library is deliberately
+//! It does **not** contain point kinetics. ~~This crate's library is deliberately
 //! free of [`teh_o_prke`](https://docs.rs/teh-o-prke) — that crate is only an
-//! Android-gated *dev*-dependency of `tampines`, used by examples — so the
+//! Android-gated *dev*-dependency of `tampines`, used by examples —~~
+//! **CORRECTED 2026-11-03 (gh:#1151):** `teh-o-prke` is now a library
+//! dependency of `tampines` (maintainer decision D2: the HTR-10 coupled loop
+//! transient, [`crate::htr10_primary_loop`], lives here); this module still
+//! does not use it, so the
 //! reactivity produced here is a plain dimensionless number for a caller to
 //! feed into a kinetics solver. **Wiring this channel into PRKE is deliberate
 //! future work** belonging in an example or in `nee_soon`, where the

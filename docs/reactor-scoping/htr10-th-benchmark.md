@@ -713,10 +713,16 @@ in [T1] Sec 2.1.1.5. The split is not stated anywhere (Unknown).
 | Control rods | none moved ([H06], [C09], [T1]) | none moved |
 | Circulator coastdown | shown **only as figures**: [C09] Fig 4 (blower speed) and [J09] Fig 6, the latter selected by matching the short-term power decay | — |
 
-**Unknown:** the coastdown curve as numbers. An as-run LOFC case therefore
+~~**Unknown:** the coastdown curve as numbers. An as-run LOFC case therefore
 needs [C09] Fig 4 or [J09] Fig 6 digitised, which was **not done here**. Until
 it is, the only fully defined LOFC input is the spec case **LOFC-SPEC**. That
-departure from D4 is forced by missing data, and is stated as such.
+departure from D4 is forced by missing data, and is stated as such.~~
+**CORRECTED 2026-11-03 (gh:#1151):** both are now digitised:
+[`lofc-blower-speed-c09-fig4.csv`](./htr10-th-data/lofc-blower-speed-c09-fig4.csv)
+(the **measured** blower speed, the as-run coastdown under D4) and
+[`lofc-flow-coastdown-j09-fig6.csv`](./htr10-th-data/lofc-flow-coastdown-j09-fig6.csv)
+([J09]'s tuned GAMMA+ input flow, a sensitivity case only). The as-run LOFC
+is therefore fully defined; **LOFC-SPEC** is a sensitivity case.
 
 ### 7.2 Measured response (all Quoted; conflicts in Section 12)
 
@@ -732,7 +738,7 @@ departure from D4 is forced by missing data, and is stated as such.
 | Top internals TCs (averages of symmetric pairs) | TR1&TR4: 232 → 405 °C in 3 h. TR2&TR5: +52 °C from 218 °C. | [C09] Sec 5 |
 | Side reflector SR6 | minimum 295 °C at 2800 s (THERMIX: 335 °C at 4200 s) | [C09] Sec 5 |
 | Fuel-centre maximum (calculated) | 883 °C (THERMIX post-test, [C09]); about 823 °C (pre-test, [H06] Sec 2.2) | code results |
-| Full traces | figures only: [T1] Figs 2.82–2.84, 7.3, 7.4; [H06] Fig 3; [C09] Figs 4, 6, 8–11; [J09] Fig 7 | not digitised |
+| Full traces | figures only: [T1] Figs 2.82–2.84, 7.3, 7.4; [H06] Fig 3; [C09] Figs 4, 6, 8–11; [J09] Fig 7 | ~~not digitised~~ **CORRECTED 2026-11-03 (gh:#1151):** [C09] Figs 4, 6 (measured power, blower speed) and 8–11 (measured thermocouples) digitised into `htr10-th-data/lofc-*.csv`; the others are not |
 
 [T1] Tab 2.59 is the **South African TINTE calculation** of the LOFC power,
 not a measurement. It is not transcribed.
@@ -856,7 +862,7 @@ input, so its effect can be read alone.
 | **TR-HU** | Transients start at 3000 kW, inlet 215 °C, 2500 kPa ([H06]) | [H06]'s as-run state |
 | **TR-SPEC** | Transients start at 3 MW, 250 / 650 °C, 2.5 MPa ([T1] spec) | The benchmark definition |
 | **TR-FLOW-J09** | Initial flow 1.413 kg/s ([J09]) | A tuned value, kept only to measure its effect |
-| **LOFC-SPEC** | Flow stop and isolation instantaneous at t = 0 | The spec; also the only fully defined LOFC input until a coastdown is digitised |
+| **LOFC-SPEC** | Flow stop and isolation instantaneous at t = 0 | The spec; ~~also the only fully defined LOFC input until a coastdown is digitised~~ (**CORRECTED 2026-11-03**: the coastdown is digitised, Sec 7.1) |
 | **CRW-TRIP9** | Flow stop and isolation at 9 s instead of 12 s | The spec against [H06] |
 | **CRW-PMAP-0** | The Tab 2.61 cell (z 180–187, r 83.5–90) set to 0.0, as in Tab 2.56 | Finding N1 |
 | **KIN-LAMBDA-H06** | Λ = 1.68e-4 s | The [H06] value |
@@ -918,8 +924,8 @@ Everything here is from [K17], [P21] or [S21] and was re-read for this sheet.
 | Operation history, 2003–2007 | 569 days, 2503.4 MWd: 2003, 106 d / 258.9 MWd; 2004, 168 / 708.5; 2005, 149 / 821.4; 2006, 97 / 532; 2007, 49 / 182.6 | [S21] Tab 1 (citing Chen 2014) | Quoted |
 | Pebble counts | first criticality: 16,890 mixed at 57:43, cone and discharge tube filled with graphite pebbles; FPIC: 23,900 mixed; full core (December 2004): about 27,000 | [S21], "The HTR-10 operation history" section | Quoted |
 | Full power | 10 MW at 700 °C outlet, January 2003 | [S21], "The HTR-10 operation history" section | Quoted |
-| Measured validation quantity | PANGU against measured coolant outlet temperature over the steady power periods: difference "generally below 5 °C" | [S21] abstract, Fig 8 | Quoted. Figure only, not digitised. |
-| Measured inlet mass flow and inlet temperature, whole history | figures only | [S21] Fig 4 | not digitised |
+| Measured validation quantity | PANGU against measured coolant outlet temperature over the steady power periods: difference "generally below 5 °C" | [S21] abstract, Fig 8 | Quoted. ~~Figure only, not digitised.~~ **CORRECTED 2026-11-03:** digitised, `htr10-th-data/she2021-fig8-outlet-temperature.csv` (gh:#1151) |
+| Measured inlet mass flow and inlet temperature, whole history | figures only | [S21] Fig 4 | ~~not digitised~~ **CORRECTED 2026-11-03:** digitised, `she2021-fig4a-inlet-flow.csv`, `she2021-fig4b-inlet-temperature.csv` (gh:#1151) |
 
 **Putra's coating layers are transposed (check, Derived).** [P21] Tab 1 lists
 its *densities* kernel-outward: 1.1 is the low-density buffer and 3.18 is SiC
@@ -961,7 +967,7 @@ not in the earlier extraction or in `htr10-plant-data.md`.
 | I5 | Λ | 1.68e-3 s [T1], [J09], [C09]; 1.68e-4 s [H06] | 1.68e-3 s | KIN-LAMBDA-H06 |
 | I6 | Temperature coefficients | [T1]; [G02] IC and EQ; [C09] overall; [H06] (N8) | [T1] | KIN-ALPHA-* |
 | I7 | CRW flow-stop time | 12 s as run [H06]; 9 s spec [T1] | 12 s | CRW-TRIP9 |
-| I8 | LOFC isolation | coastdown from 0 with isolation at 12 s, as run; instantaneous at 0, spec | as run once a coastdown is digitised; until then LOFC-SPEC | LOFC-SPEC |
+| I8 | LOFC isolation | coastdown from 0 with isolation at 12 s, as run; instantaneous at 0, spec | as run (~~once a coastdown is digitised; until then LOFC-SPEC~~ **CORRECTED 2026-11-03**: digitised, Sec 7.1) | LOFC-SPEC |
 | I9 | Bypass split | 87/1/2/10 [T1]; 86/14 [G02]; CR 2.5 % [S5] | [T1], as an assumption | BYP-* |
 | I10 | FPIC operating point | spec 10 MW / 250 °C / 3.0 MPa; as measured 10.3 MW / 236 °C / 2.94 MPa ([C14] Tab 2) | spec | SS-ASRUN |
 | I11 **NEW (N1)** | Power-map cell z 180–187, r 83.5–90 at 3 MW | 0.0 in Tab 2.56 (LOFC); **0.335** in Tab 2.61 (CRW). The two tables are otherwise identical. Tab 2.6's same cell was revised to 0 in Sec 2.1.1.6. | each test uses its own table, as printed | CRW-PMAP-0 (the difference is 8.3 kW, Derived) |
@@ -1033,6 +1039,19 @@ Each file has the citation in `#` header lines.
 | [`htr10-th-data/power-density-fpic-10mw-tab2-6.csv`](./htr10-th-data/power-density-fpic-10mw-tab2-6.csv) | FPIC power density by cell (cell-edge layout, Section 5.1) | [T1] Tab 2.6 and Sec 2.1.1.6 |
 | [`htr10-th-data/power-density-3mw-lofc-tab2-56.csv`](./htr10-th-data/power-density-3mw-lofc-tab2-56.csv) | 3 MW power density, LOFC | [T1] Tab 2.56 |
 | [`htr10-th-data/power-density-3mw-crw-tab2-61.csv`](./htr10-th-data/power-density-3mw-crw-tab2-61.csv) | 3 MW power density, CRW | [T1] Tab 2.61 |
+| [`htr10-th-data/lofc-blower-speed-c09-fig4.csv`](./htr10-th-data/lofc-blower-speed-c09-fig4.csv) | LOFC measured relative blower speed, 0–500 s (digitised, gh:#1151) | [C09] Fig 4 |
+| [`htr10-th-data/lofc-power-short-c09-fig4.csv`](./htr10-th-data/lofc-power-short-c09-fig4.csv) | LOFC measured relative fission power, 0–500 s (digitised) | [C09] Fig 4 |
+| [`htr10-th-data/lofc-power-long-c09-fig6.csv`](./htr10-th-data/lofc-power-long-c09-fig6.csv) | LOFC measured relative fission power, 0–10800 s (digitised) | [C09] Fig 6 |
+| [`htr10-th-data/lofc-flow-coastdown-j09-fig6.csv`](./htr10-th-data/lofc-flow-coastdown-j09-fig6.csv) | GAMMA+ input flow coastdown, **tuned** (digitised) | [J09] Fig 6 |
+| [`htr10-th-data/lofc-thermocouples-c09-figs8-11.csv`](./htr10-th-data/lofc-thermocouples-c09-figs8-11.csv) | 17 measured internals thermocouple traces, 0–10800 s (digitised) | [C09] Figs 8–11 |
+| [`htr10-th-data/she2021-fig8-outlet-temperature.csv`](./htr10-th-data/she2021-fig8-outlet-temperature.csv) | measured core outlet temperature, 7 steady periods, with the PANGU power (digitised) | [S21] Fig 8 (CC BY) |
+| [`htr10-th-data/she2021-fig4a-inlet-flow.csv`](./htr10-th-data/she2021-fig4a-inlet-flow.csv), [`she2021-fig4b-inlet-temperature.csv`](./htr10-th-data/she2021-fig4b-inlet-temperature.csv) | inlet mass flow and temperature, whole history (digitised) | [S21] Fig 4 (CC BY) |
+
+**Digitised files (gh:#1151).** Each header states the figure, the method
+(native-resolution `pdfimages` extraction, frame and tick calibration,
+colour selection per pixel column, legend masked, no interpolation) and the
+read error. Checks against the papers' text are in
+`crates/tampines/verification_and_validation/htr10_loop_lofc/README.md` Sec 4.
 
 **How they were produced.** A short Python script parsed the
 `pdftotext -layout` output of [T1]. It asserted 22 thermocouple rows, an exact
@@ -1046,9 +1065,12 @@ the ones listed in this sheet.
 
 - Measurement uncertainty of every thermocouple and of the power signal.
 - The bypass split (unmeasured).
-- The circulator coastdown and the small-insertion reactivity history as
-  numbers (figures only).
-- The LOFC and CRW power traces as numbers (figures only).
+- ~~The circulator coastdown and~~ the small-insertion reactivity history as
+  numbers (figures only). **CORRECTED 2026-11-03:** the coastdown is
+  digitised (Sec 7.1).
+- ~~The LOFC and~~ The CRW power traces as numbers (figures only).
+  **CORRECTED 2026-11-03:** the LOFC power trace is digitised from [C09]
+  Figs 4 and 6 (gh:#1151).
 - The six-group delayed-neutron constants.
 - The afterheat curve as numbers, its normalisation and its standard.
 - The operating history before the tests, beyond "about 3000 MWh".

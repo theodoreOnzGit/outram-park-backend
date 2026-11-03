@@ -64,9 +64,12 @@
 //!   response. **No moderator temperature coefficient is supplied** — it must
 //!   come from the caller's neutronics; the published HTR-10 *isothermal*
 //!   coefficients are provided separately and clearly labelled as not being
-//!   that quantity. Wiring the channel into point kinetics belongs in an
+//!   that quantity. ~~Wiring the channel into point kinetics belongs in an
 //!   example or in `nee_soon`, not in this library, which stays free of
-//!   `teh-o-prke`.
+//!   `teh-o-prke`.~~ **CORRECTED 2026-11-03 (gh:#1151):** the library now
+//!   depends on `teh-o-prke` (decision D2); the HTR-10 coupled transient in
+//!   [`crate::htr10_primary_loop`] carries its own fuel/moderator/reflector
+//!   feedback and does not use this channel.
 //! - [`temperature_difference`] — the one shared helper, converting a pair of
 //!   absolute temperatures into the `uom` `TemperatureInterval` that `uom`
 //!   deliberately will not produce with `-`.
