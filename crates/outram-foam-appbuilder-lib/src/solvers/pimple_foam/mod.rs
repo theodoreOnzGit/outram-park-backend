@@ -183,6 +183,18 @@
 //!    the BDF2 form (`fvc::ddt_corr_backward`, a port of
 //!    `backwardDdtScheme::fvcDdtPhiCorr`) for `Backward`, zero for
 //!    `steadyState` — previously the Euler form was used for all three.
+//!
+//! 7. **Open boundaries — ported 2026-11-03 (gh:#1154).** Until then only
+//!    closed cavities had been run. Three upstream behaviours were missing:
+//!    `setReference` is applied only when `p.needReference()` (no patch fixes
+//!    p); `constrainHbyA` sets phiHbyA's — and so `phi`'s — boundary flux to
+//!    `U_b·Sf` on fixed-velocity patches, while a zeroGradient outlet keeps
+//!    `HbyA_P·Sf` (both feed the pressure source, as `fvc::div(phiHbyA)` does
+//!    upstream); and `phi = phiHbyA − pEqn.flux()` includes the boundary
+//!    pressure flux of fixed-p patches. Pinned by
+//!    `tests/pimple_foam_open_channel.rs` (plane Poiseuille). On the closed
+//!    cavity only the second acts (the lid's flux is now exactly 0); it moved
+//!    the cavity toward icoFoam, max |ΔU| / U_lid 0.0144 → 0.0062.
 
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
@@ -216,6 +228,80 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
             for x in pf.values.iter_mut() {
                 *x = *v;
             }
+        }
+    }
+}
+
+/// OpenFOAM `constrainHbyA` applied to the boundary flux of `phiHbyA`
+/// (gh:#1154): on every patch whose velocity BC fixes the value
+/// ([`BoundaryCondition::is_fixed_value`]) the boundary flux becomes the
+/// prescribed `U_b·Sf` \[m³/s\]. Other patches (a zeroGradient outlet) keep
+/// `fvc::flux(HbyA)`'s `HbyA_P·Sf`, as upstream does. Empty and cyclic patches
+/// are left alone.
+fn constrain_hbya_boundary_flux(
+    phi_hbya: &mut SurfaceScalarField,
+    u: &VolVectorField,
+    u_bcs: &[BoundaryCondition<Vector3>],
+    mesh: &FvMesh,
+) {
+    for (pi, patch) in mesh.patches.iter().enumerate() {
+        if matches!(patch.kind, PatchKind::Cyclic | PatchKind::CyclicAmi | PatchKind::Empty)
+            || matches!(u_bcs[pi], BoundaryCondition::Empty)
+            || !u_bcs[pi].is_fixed_value()
+        {
+            continue;
+        }
+        for fi in 0..patch.size {
+            phi_hbya.boundary[pi].values[fi] =
+                u.boundary[pi].values[fi].dot(mesh.face_area_vectors[patch.start + fi]);
+        }
+    }
+}
+
+/// The boundary part of OpenFOAM's `phi = phiHbyA - pEqn.flux()` (gh:#1154):
+/// add, on each boundary face, the outward pressure-correction flux that
+/// `fvm::laplacian(rAUf, p)` put into the owner's matrix row \[m³/s\]. It mirrors
+/// that operator's boundary arms (orthogonal `1/|d|` delta, the same `coeff =
+/// rAUf_b·|Sf|/|d|`): `coeff·(p_P − p_b)` on a fixed-value p patch,
+/// `−coeff·|d|·g` on a fixed-gradient one, the Robin blend of the two on a
+/// mixed one, and nothing on zeroGradient patches, so a closed domain is
+/// unchanged.
+fn add_fixed_pressure_boundary_flux(
+    phi: &mut SurfaceScalarField,
+    p: &VolScalarField,
+    rauf: &SurfaceScalarField,
+    mesh: &FvMesh,
+) {
+    for (pi, patch) in mesh.patches.iter().enumerate() {
+        if matches!(patch.kind, PatchKind::Cyclic | PatchKind::CyclicAmi | PatchKind::Empty) {
+            continue;
+        }
+        for fi in 0..patch.size {
+            let gf = patch.start + fi;
+            let o = mesh.owner[gf];
+            let d = (mesh.face_centres[gf] - mesh.cell_centres[o]).mag();
+            if d < 1e-300 {
+                continue;
+            }
+            let coeff = rauf.boundary[pi].values[fi] * mesh.face_areas[gf] / d;
+            let pp = p.internal[o];
+            let flux = match &p.boundary[pi].bc {
+                BoundaryCondition::FixedValue(v) => coeff * (pp - v),
+                BoundaryCondition::FixedField(ff) => coeff * (pp - ff[fi]),
+                BoundaryCondition::NoSlip => coeff * pp,
+                BoundaryCondition::TotalPressure { .. } => coeff * (pp - p.boundary[pi].values[fi]),
+                BoundaryCondition::FixedGradient(g) => -coeff * d * g,
+                BoundaryCondition::FixedFluxPressure { gradient } => -coeff * d * gradient,
+                BoundaryCondition::Mixed { value_fraction, ref_value, ref_grad } => {
+                    value_fraction * coeff * (pp - ref_value) - (1.0 - value_fraction) * coeff * d * ref_grad
+                }
+                BoundaryCondition::MixedField { value_fraction, ref_value, ref_grad } => {
+                    let w = value_fraction[fi];
+                    w * coeff * (pp - ref_value[fi]) - (1.0 - w) * coeff * d * ref_grad[fi]
+                }
+                _ => 0.0,
+            };
+            phi.boundary[pi].values[fi] += flux;
         }
     }
 }
@@ -405,6 +491,9 @@ impl PimpleFoam {
             self.u.boundary.iter().map(|pf| pf.bc.clone()).collect();
         let p_bcs: Vec<BoundaryCondition<f64>> =
             self.p.boundary.iter().map(|pf| pf.bc.clone()).collect();
+        // OpenFOAM `GeometricField::needReference()`: true unless some patch
+        // fixes the value of p.
+        let p_needs_reference = !p_bcs.iter().any(|bc| bc.is_fixed_value());
 
         for _ in 0..n_outer {
             // Push the live velocity / flux / viscosity / dt into the turbulence
@@ -537,6 +626,13 @@ impl PimpleFoam {
                         phi_hbya.internal[f] += rauf_int[f] * dc_int[f];
                     }
                 }
+                // constrainHbyA (OpenFOAM `constrainHbyA.C`): on a patch that
+                // fixes U, HbyA's boundary value is U_b, so the boundary flux
+                // of phiHbyA is the prescribed U_b·Sf (0 through a
+                // no-penetration wall). On any other patch (a zeroGradient
+                // outlet) it stays fvc::flux(HbyA)'s HbyA_P·Sf. See
+                // `constrain_hbya_boundary_flux`.
+                constrain_hbya_boundary_flux(&mut phi_hbya, &self.u, &u_bcs, &mesh);
 
                 // Pressure source = −(net phiHbyA outflow) per cell [m³/s].
                 //
@@ -553,20 +649,22 @@ impl PimpleFoam {
                         s[mesh.owner[f]] -= phi_int[f];
                         s[mesh.neighbour[f]] += phi_int[f];
                     }
-                    // Boundary flux is the prescribed U_BC·Sf (0 through a
-                    // no-penetration wall), not the zero-gradient HbyA
-                    // extrapolation — OpenFOAM's `constrainHbyA`. Using the
-                    // extrapolation leaks spurious wall flux, breaks the
-                    // closed-domain compatibility condition (Σ source ≠ 0), and
-                    // ramps the pinned-Poisson pressure each step.
+                    // Boundary flux is phiHbyA's boundary value, constrained
+                    // above: the prescribed U_BC·Sf on fixed-velocity patches
+                    // (OpenFOAM's `constrainHbyA`; the zero-gradient HbyA
+                    // extrapolation there leaks spurious wall flux, breaks the
+                    // closed-domain compatibility condition and ramps the
+                    // pinned-Poisson pressure each step), and HbyA_P·Sf on a
+                    // zeroGradient outlet, exactly the `fvc::div(phiHbyA)` of
+                    // upstream. (Before gh:#1154 the U boundary *values* were
+                    // used on every patch, which are 0 on a zeroGradient
+                    // outlet, so an open domain lost its outflow here.)
                     for (pi, patch) in mesh.patches.iter().enumerate() {
                         if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
                             continue; // 2-D front/back: no in-plane flux
                         }
                         for fi in 0..patch.size {
-                            let gf = patch.start + fi;
-                            let u_bc = self.u.boundary[pi].values[fi];
-                            s[mesh.owner[gf]] -= u_bc.dot(mesh.face_area_vectors[gf]);
+                            s[mesh.owner[patch.start + fi]] -= phi_hbya.boundary[pi].values[fi];
                         }
                     }
                     s
@@ -586,7 +684,13 @@ impl PimpleFoam {
                 for (s, &sp) in p_eqn.source.iter_mut().zip(source_p.iter()) {
                     *s += sp;
                 }
-                p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
+                // Pin the reference only where upstream does: `setRefCell` and
+                // `fvMatrix::setReference` act only when `p.needReference()`,
+                // i.e. when no patch fixes p. With a fixed-p outlet, pinning
+                // cell 0 as well makes it a mass source/sink (gh:#1154).
+                if p_needs_reference {
+                    p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
+                }
                                              // Warm-start from the current pressure (previous corrector /
                                              // time step). Near steady state `p` barely changes, so the
                                              // solve converges in a few iterations instead of from x = 0
@@ -606,6 +710,11 @@ impl PimpleFoam {
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] -= rauf_int[f] * sng_int[f] * mesh.face_areas[f];
                     }
+                    // `phi = phiHbyA - pEqn.flux()` on the boundary too: a
+                    // fixed-p patch carries the pressure-correction flux the
+                    // matrix row already counted. Zero on zeroGradient-p
+                    // patches, so a closed domain is unchanged.
+                    add_fixed_pressure_boundary_flux(&mut phi_hbya, &self.p, &rauf, &mesh);
                     self.phi = phi_hbya;
                 }
 

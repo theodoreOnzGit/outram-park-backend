@@ -101,6 +101,15 @@ effect of choosing `Gauss linear` on the Re = 100 lid-driven cavity, 20×20 mesh
 Ghia et al. (1982) falls from **0.0363 to 0.0224** (−38 %), peak error from
 0.0634 to 0.0426.
 
+**RE-MEASURED 2026-11-03 (gh:#1154).** `PimpleFoam` now sets the boundary
+flux of `phi` to the prescribed `U_b·Sf` on fixed-velocity patches (upstream
+`constrainHbyA`); before, the moving lid carried the zero-gradient
+`HbyA_P·Sf`. Every cavity number moved, toward its reference. On the 20×20
+Re = 100 cavity: upwind RMS against Ghia 0.0363 → **0.0207** (max 0.0634 →
+0.0367); `Gauss linear` 0.0224 → **0.0057** (max 0.0426 → 0.0127). Against
+icoFoam at Re = 10, max |ΔU| / U_lid 0.0144 → **0.0062**. The earlier numbers
+here are the record of the pre-fix solver.
+
 `grad`, `laplacian`, `snGrad` and `interpolation` selections are still only
 **stored** — no solver consults them. (Nothing is *parsed* from disk either:
 `FvSchemes::read` is `todo!()`, so the struct is built in Rust.)

@@ -195,6 +195,15 @@ fn ghia_error(solver: &PimpleFoam) -> (f64, f64) {
 /// | `Gauss upwind` (first order) | 0.0634 | 0.0363 |
 /// | `Gauss linear` (second order) | 0.0426 | 0.0224 |
 ///
+/// **RE-MEASURED 2026-11-03 (gh:#1154).** `PimpleFoam` now sets the boundary
+/// flux of `phi` to the prescribed `U_b·Sf` on fixed-velocity patches (upstream
+/// `constrainHbyA`); before, the moving lid carried the zero-gradient
+/// `HbyA_P·Sf`. Every cavity number moved, toward its reference. On the 20×20
+/// Re = 100 cavity: upwind RMS against Ghia 0.0363 → **0.0207** (max 0.0634 →
+/// 0.0367); `Gauss linear` 0.0224 → **0.0057** (max 0.0426 → 0.0127). Against
+/// icoFoam at Re = 10, max |ΔU| / U_lid 0.0144 → **0.0062**. The earlier numbers
+/// here are the record of the pre-fix solver.
+///
 /// max &#124;U_linear − U_upwind&#124; = 6.3653e-2 m/s (6.4 % of U_lid).
 ///
 /// **Interpretation.** Choosing `Gauss linear` cuts the centreline RMS error
