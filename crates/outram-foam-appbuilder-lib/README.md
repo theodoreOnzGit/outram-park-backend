@@ -49,13 +49,20 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 
 | Solver | Status |
 |---|---|
-| `pimple_foam` | Incompressible transient PISO/PIMPLE (pimpleFoam ≡ icoFoam at `nOuterCorrectors 1`). Implemented; validated against an icoFoam lid-driven-cavity reference (`tutorials/pimple_foam_cavity.rs`). |
+| `pimple_foam` | Incompressible transient PISO/PIMPLE (pimpleFoam ≡ icoFoam at `nOuterCorrectors 1`). Implemented; validated against an icoFoam lid-driven-cavity reference (`tutorials/pimple_foam_cavity.rs`). Open boundaries since gh:#1154; `Gauss linear corrected` non-orthogonal correction (default, ablation `without_non_orthogonal_correction`) since gh:#1161 (`verification_and_validation/non_orthogonal_correction_gh1161.md`); laminar pipe V&V (Hagen–Poiseuille, f·Re → 64.09, development length +1.4 % against Durst et al. 2005) in `verification_and_validation/laminar_pipe_gh1155.md`. |
+| `non_orthogonal` | The `Gauss linear corrected` pieces `PimpleFoam` applies (gh:#1161): `LaplacianCorrection`, the explicit face corrections, the vector-matrix re-stamp to `1/(n·d)`. |
 | `melt_foam` | Incompressible buoyant PIMPLE with phase change — pimpleFoam's PISO loop plus a temperature equation and `FvModels` wiring, so `solidificationMelting` can act on **both** the momentum and the energy equation. Not a port of any single upstream application (upstream composes this at runtime through a dictionary). Implemented; **verified** against the closed-form Stefan similarity solution (-0.035 % in integrated melt thickness) and a discrete energy-conservation check (imbalance -2.71e-4 J/m², -1.27e-5 %) in `tests/melting_vv_cases/`. The gallium cavity in the same file is a **demonstration only — no benchmark data, see its `References.md`**. |
 | `rho_central_foam` | Kurganov-Noelle-Petrova (KNP) central-upwind explicit compressible (rhoCentralFoam). Implemented; **validated** against Sod (1978) Table II and an OpenFOAM reference run (`tests/sod_shock_tube_validation/`, `tutorials/rho_central_foam_shock_tube.rs`). |
 | `rho_pimple_foam` | Compressible transient PIMPLE (rhoPimpleFoam), ideal-gas `ρ = ψ·p` closure. Implemented; exercised by a subsonic NACA 0012 tutorial (`tutorials/rho_pimple_foam_aerofoil_naca0012.rs`). |
 | `sonic_foam` | Transonic/supersonic ψ-based solver (sonicFoam). Implemented, but the implicit `fvm::div` scalar-convection operator is absent from basic-lib, so convection is treated **explicitly** via `fvc::div`. **No tutorial or validation case — unexercised.** |
 | `hrm_foam` | Homogeneous Relaxation Model two-phase (HRMFoam), Downar-Zapolski (1996) relaxation. Implemented. **No tutorial or validation case — unexercised.** |
 | `reacting_two_phase_euler_foam` | Reacting two-phase Euler-Euler (OpenFOAM-dev's `multiphaseEuler`, historic `reactingTwoPhaseEulerFoam`). Composes the `outram-foam-multiphase` hydrodynamic core (`TwoFluidPimple`) and adds per-phase conservative enthalpy equations, one-resistance interfacial heat transfer (Spherical / Ranz-Marshall / constant-Nu), operator-split phase change with latent heat, an optional single-phase multicomponent composition, and a global Arrhenius reaction. Implemented; demonstrated by `examples/reacting_two_phase_euler_combustion.rs`. **Verification-tested only — no benchmark validation.** |
+
+## Ready-made cases (`cases`)
+
+| Module | What |
+|---|---|
+| `laminar_pipe` | `PipeFlow`: a laminar internal flow on any mesh with `inlet` / `outlet` / wall patches (uniform inlet along the inward normal, p = 0 outlet, no-slip walls) solved by `PimpleFoam`, with Hagen–Poiseuille, f = 64/Re and the Durst et al. (2005) development length as references, and the fits (centreline velocity, −dp/dz, development length, fluxes, continuity) the pipe V&V and the Foam Studio demo use (gh:#1155). |
 
 ## Turbulence closures (`turbulence`)
 

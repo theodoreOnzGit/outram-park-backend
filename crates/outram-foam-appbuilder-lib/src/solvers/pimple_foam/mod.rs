@@ -195,11 +195,27 @@
 //!    `tests/pimple_foam_open_channel.rs` (plane Poiseuille). On the closed
 //!    cavity only the second acts (the lid's flux is now exactly 0); it moved
 //!    the cavity toward icoFoam, max |ΔU| / U_lid 0.0144 → 0.0062.
+//!
+//! 8. **Non-orthogonal correction — ported 2026-11-03 (gh:#1161).** Until
+//!    then both Laplacians divided by `|d|` and had no explicit term (OpenFOAM
+//!    `Gauss linear orthogonal`), whatever `schemes.default_laplacian` said.
+//!    Now `default_laplacian` is honoured, and its default `Gauss linear
+//!    corrected` does what upstream does: `1/(n·d)` implicit coefficients, an
+//!    explicit `k·∇φ` face correction on internal faces (lagged, so it is
+//!    applied even with `nNonOrthogonalCorrectors = 0`, upstream's default),
+//!    the same correction subtracted in `phi = phiHbyA − pEqn.flux()`, and the
+//!    `nNonOrthogonalCorrectors` loop. Details and upstream line references:
+//!    [`crate::solvers::non_orthogonal`]. Ablation:
+//!    [`PimpleFoam::without_non_orthogonal_correction`]. On a Cartesian mesh
+//!    the correction vectors are zero, so the cavity and channel results move
+//!    by round-off only; V&V record:
+//!    `verification_and_validation/non_orthogonal_correction_gh1161.md`.
 
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
+use crate::solvers::non_orthogonal::{self, LaplacianCorrection};
 use crate::solvers::schemes::DdtCorrForm;
 use crate::turbulence::TurbulenceClosure;
 use outram_foam_basic_lib::prelude::*;
@@ -261,8 +277,8 @@ fn constrain_hbya_boundary_flux(
 /// The boundary part of OpenFOAM's `phi = phiHbyA - pEqn.flux()` (gh:#1154):
 /// add, on each boundary face, the outward pressure-correction flux that
 /// `fvm::laplacian(rAUf, p)` put into the owner's matrix row \[m³/s\]. It mirrors
-/// that operator's boundary arms (orthogonal `1/|d|` delta, the same `coeff =
-/// rAUf_b·|Sf|/|d|`): `coeff·(p_P − p_b)` on a fixed-value p patch,
+/// that operator's boundary arms (the same `coeff = rAUf_b·|Sf|/δ_b`, with
+/// δ_b from `delta_coeff`: `|d|` orthogonal, `n·d` otherwise): `coeff·(p_P − p_b)` on a fixed-value p patch,
 /// `−coeff·|d|·g` on a fixed-gradient one, the Robin blend of the two on a
 /// mixed one, and nothing on zeroGradient patches, so a closed domain is
 /// unchanged.
@@ -271,6 +287,7 @@ fn add_fixed_pressure_boundary_flux(
     p: &VolScalarField,
     rauf: &SurfaceScalarField,
     mesh: &FvMesh,
+    delta_coeff: fvm::DeltaCoeff,
 ) {
     for (pi, patch) in mesh.patches.iter().enumerate() {
         if matches!(patch.kind, PatchKind::Cyclic | PatchKind::CyclicAmi | PatchKind::Empty) {
@@ -279,7 +296,8 @@ fn add_fixed_pressure_boundary_flux(
         for fi in 0..patch.size {
             let gf = patch.start + fi;
             let o = mesh.owner[gf];
-            let d = (mesh.face_centres[gf] - mesh.cell_centres[o]).mag();
+            // The same boundary distance the pressure matrix divided by.
+            let d = delta_coeff.boundary_delta(mesh, gf);
             if d < 1e-300 {
                 continue;
             }
@@ -423,8 +441,9 @@ impl PimpleFoam {
     /// * `control` — time-loop settings; see [`ControlDict`] for which of its
     ///   fields are actually honoured.
     /// * `schemes` — `ddt` and `div` selections, applied via
-    ///   [`crate::solvers::schemes`]. `grad`/`laplacian`/`snGrad` are stored but
-    ///   not consulted.
+    ///   [`crate::solvers::schemes`], and (since gh:#1161) `default_laplacian`,
+    ///   applied via [`crate::solvers::non_orthogonal`]. `grad`/`snGrad` are
+    ///   stored but not consulted.
     /// * `solution` — linear-solver tolerances and the PIMPLE corrector counts.
     pub fn new(
         mesh: Arc<FvMesh>,
@@ -453,6 +472,19 @@ impl PimpleFoam {
         }
     }
 
+    /// Ablation (gh:#1161): use OpenFOAM's `Gauss linear orthogonal` Laplacian
+    /// (`1/|d|`, no explicit correction) for both the pressure and the
+    /// momentum equation, which is bit-for-bit what this solver did before
+    /// the non-orthogonal correction was ported. The default is `Gauss linear
+    /// corrected`, as in upstream's tutorials; see
+    /// `verification_and_validation/non_orthogonal_correction_gh1161.md` for
+    /// what the correction is worth on a pipe O-grid.
+    #[must_use]
+    pub fn without_non_orthogonal_correction(mut self) -> Self {
+        self.schemes.default_laplacian = crate::io::fv_schemes::LaplacianScheme::GaussLinearOrthogonal;
+        self
+    }
+
     /// Advance the solution by one time step using the PIMPLE algorithm.
     ///
     /// Dimensional analysis (integrated FV system):
@@ -477,6 +509,8 @@ impl PimpleFoam {
         };
         let n_outer = self.solution.pimple.n_outer_correctors.max(1);
         let n_inner = self.solution.pimple.n_correctors.max(1);
+        let n_non_orth = self.solution.pimple.n_non_orthogonal_correctors;
+        let lap = LaplacianCorrection::from_scheme(&self.schemes.default_laplacian)?;
 
         let u_old = self.u.clone();
         let phi_old = self.phi.clone(); // old-time flux for the ddtCorr term
@@ -533,6 +567,18 @@ impl PimpleFoam {
                 mesh.clone(),
             )?;
             let mut u_eqn = ddt_term + div_term + self.turbulence.div_dev_reff(&self.u, &self.nu);
+            // Non-orthogonal treatment of the viscous Laplacian (gh:#1161,
+            // upstream `fvm::laplacian(nuEff, U)` with `Gauss linear
+            // corrected`): `1/(n·d)` implicit coefficients and the explicit
+            // per-component `ν_f|Sf| k·∇U_j`, evaluated from the current U.
+            if lap != LaplacianCorrection::Orthogonal {
+                let nu_eff_f = fvc::interpolate(&self.turbulence.nu_eff(&self.nu));
+                non_orthogonal::restamp_vector_delta(&mut u_eqn, &nu_eff_f, &self.u, lap.delta_coeff());
+                if lap.is_explicit() {
+                    let corr = non_orthogonal::vector_face_correction(&nu_eff_f, &fvc::grad_vec(&self.u), &mesh);
+                    non_orthogonal::add_to_source_vector(u_eqn.source.as_mut_slice(), &corr, &mesh);
+                }
+            }
 
             // A = diagonal [m³/s];  rAU = V/A [s]
             let a = u_eqn.a_field();
@@ -670,53 +716,85 @@ impl PimpleFoam {
                     s
                 };
 
-                // Pressure equation: L·p = source (symmetric SPD → PCG).
-                let mut p_eqn = fvm::laplacian(&rauf, &self.p);
-                // ADD, don't OVERWRITE: `fvm::laplacian` already put any
-                // FixedValue pressure boundary's Dirichlet source term
-                // (`coeff·p_bc`) into `p_eqn.source` with its matching
-                // diagonal `coeff`. Overwriting would drop the source term
-                // but keep the diagonal, silently imposing `p_boundary = 0`
-                // and blowing up any fixed-pressure outlet. Harmless for a
-                // purely closed (all-zeroGradient-p) domain -- the laplacian
-                // source is zero there -- but correct if a FixedValue p BC
-                // is ever set.
-                for (s, &sp) in p_eqn.source.iter_mut().zip(source_p.iter()) {
-                    *s += sp;
-                }
-                // Pin the reference only where upstream does: `setRefCell` and
-                // `fvMatrix::setReference` act only when `p.needReference()`,
-                // i.e. when no patch fixes p. With a fixed-p outlet, pinning
-                // cell 0 as well makes it a mass source/sink (gh:#1154).
-                if p_needs_reference {
-                    p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
-                }
-                                             // Warm-start from the current pressure (previous corrector /
-                                             // time step). Near steady state `p` barely changes, so the
-                                             // solve converges in a few iterations instead of from x = 0
-                                             // every time. PCG or GAMG per `self.pressure_solver`.
-                let (mut p_new, _) = match self.pressure_solver {
-                    PressureSolver::Pcg => p_eqn.solve_cg_with_guess("p", &self.p, p_settings),
-                    PressureSolver::Gamg => p_eqn.solve_gamg_with_guess("p", &self.p, p_settings),
-                };
-                correct_bcs(&mut p_new, &p_bcs);
-                self.p = p_new;
+                // Non-orthogonal pressure corrector loop (upstream
+                // `while (pimple.correctNonOrthogonal())`, gh:#1161): with
+                // `nNonOrthogonalCorrectors = 0` (the default) this is one
+                // pass, and the explicit correction is still applied, lagged
+                // on the `p` the pass starts from. `phi` is updated on the
+                // final pass only, with the same face correction the matrix
+                // got, so the corrected flux stays divergence-free.
+                for i_non_orth in 0..=n_non_orth {
+                    // Pressure equation: L·p = source (symmetric SPD → PCG).
+                    let mut p_eqn = fvm::laplacian_with_delta(&rauf, &self.p, lap.delta_coeff());
+                    let face_corr = if lap.is_explicit() {
+                        let c = non_orthogonal::scalar_face_correction(&rauf, &fvc::grad(&self.p), &mesh);
+                        non_orthogonal::add_to_source_scalar(p_eqn.source.as_mut_slice(), &c, &mesh);
+                        Some(c)
+                    } else {
+                        None
+                    };
+                    // ADD, don't OVERWRITE: `fvm::laplacian` already put any
+                    // FixedValue pressure boundary's Dirichlet source term
+                    // (`coeff·p_bc`) into `p_eqn.source` with its matching
+                    // diagonal `coeff`. Overwriting would drop the source term
+                    // but keep the diagonal, silently imposing `p_boundary = 0`
+                    // and blowing up any fixed-pressure outlet. Harmless for a
+                    // purely closed (all-zeroGradient-p) domain -- the laplacian
+                    // source is zero there -- but correct if a FixedValue p BC
+                    // is ever set.
+                    for (s, &sp) in p_eqn.source.iter_mut().zip(source_p.iter()) {
+                        *s += sp;
+                    }
+                    // Pin the reference only where upstream does: `setRefCell` and
+                    // `fvMatrix::setReference` act only when `p.needReference()`,
+                    // i.e. when no patch fixes p. With a fixed-p outlet, pinning
+                    // cell 0 as well makes it a mass source/sink (gh:#1154).
+                    if p_needs_reference {
+                        p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
+                    }
+                    // Warm-start from the current pressure (previous corrector /
+                    // time step). Near steady state `p` barely changes, so the
+                    // solve converges in a few iterations instead of from x = 0
+                    // every time. PCG or GAMG per `self.pressure_solver`.
+                    let (mut p_new, _) = match self.pressure_solver {
+                        PressureSolver::Pcg => p_eqn.solve_cg_with_guess("p", &self.p, p_settings),
+                        PressureSolver::Gamg => p_eqn.solve_gamg_with_guess("p", &self.p, p_settings),
+                    };
+                    correct_bcs(&mut p_new, &p_bcs);
+                    self.p = p_new;
 
-                // Correct the face flux: phi = phiHbyA − rAUf·snGrad(p)·|Sf|
-                let sng = fvc::sn_grad(&self.p);
-                {
-                    let sng_int = sng.internal.as_slice();
-                    let rauf_int = rauf.internal.as_slice();
-                    for f in 0..mesh.n_internal_faces {
-                        phi_hbya.internal[f] -= rauf_int[f] * sng_int[f] * mesh.face_areas[f];
+                    if i_non_orth < n_non_orth {
+                        continue;
+                    }
+                    // phi = phiHbyA − pEqn.flux(): the implicit face flux
+                    // `rAUf|Sf|Δ_f(p_N − p_P)` plus the stored face correction.
+                    if lap == LaplacianCorrection::Orthogonal {
+                        // Pre-gh:#1161 path, kept bit-for-bit for the ablation.
+                        let sng = fvc::sn_grad(&self.p);
+                        let sng_int = sng.internal.as_slice();
+                        let rauf_int = rauf.internal.as_slice();
+                        for f in 0..mesh.n_internal_faces {
+                            phi_hbya.internal[f] -= rauf_int[f] * sng_int[f] * mesh.face_areas[f];
+                        }
+                    } else {
+                        let dc = lap.delta_coeff();
+                        for f in 0..mesh.n_internal_faces {
+                            let dp = self.p.internal[mesh.neighbour[f]] - self.p.internal[mesh.owner[f]];
+                            phi_hbya.internal[f] -= rauf.internal[f] * mesh.face_areas[f] * dp / dc.interior_delta(&mesh, f);
+                        }
+                        if let Some(c) = &face_corr {
+                            for (f, cf) in c.iter().enumerate() {
+                                phi_hbya.internal[f] -= cf;
+                            }
+                        }
                     }
                     // `phi = phiHbyA - pEqn.flux()` on the boundary too: a
                     // fixed-p patch carries the pressure-correction flux the
                     // matrix row already counted. Zero on zeroGradient-p
                     // patches, so a closed domain is unchanged.
-                    add_fixed_pressure_boundary_flux(&mut phi_hbya, &self.p, &rauf, &mesh);
-                    self.phi = phi_hbya;
+                    add_fixed_pressure_boundary_flux(&mut phi_hbya, &self.p, &rauf, &mesh, lap.delta_coeff());
                 }
+                self.phi = phi_hbya;
 
                 // Correct the cell velocity: U = HbyA − rAU·∇p, then re-impose BCs.
                 self.u = hbya - rau.clone() * fvc::grad(&self.p);

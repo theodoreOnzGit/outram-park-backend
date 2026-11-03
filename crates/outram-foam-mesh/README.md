@@ -62,6 +62,8 @@ cells, meshed volume 59.8594 m^3 against the analytic box-minus-sphere
 | `driver` | (the `snappyHexMesh` app) | **Start here** — surface + controls -> `PolyMesh`, phases picked by enum |
 | `mesh_quality` | `checkMesh` | Non-orthogonality (max/mean), skewness, aspect ratio, inverted-cell count for *any* `polyMesh` |
 | `block_mesh` | `blockMesh` | Structured hex meshing from a `blockMeshDict`, incl. multi-grading and full per-edge `edgeGrading` |
+| `block_primitives` | (blockMeshDict generators) | A pipe as an O-grid (`PipeOGrid`, every wall vertex on the circle, no arc edges needed) and a box as one block (`BoxBlock`), with caller-named patches; built by `block_mesh` (gh:#1155) |
+| `section` | (for drawing) | Axis-aligned plane sections of every cell (`plane_section`) and the boundary wireframe (`boundary_edges`) of a `PolyMesh` |
 | `snappy_hex_mesh` | `snappyHexMesh` | Split-hex meshing around STL surfaces (castellate → snap → layers) |
 | `ideas_unv_to_foam` | `ideasUnvToFoam` | Import an I-DEAS `.unv` mesh into `polyMesh` |
 | `poly_dual_mesh` | `polyDualMesh` | Polyhedral dual-mesh construction |

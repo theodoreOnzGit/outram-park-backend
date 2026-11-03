@@ -99,8 +99,9 @@ fn patch_flux(s: &PimpleFoam, name: &str) -> f64 {
     s.phi.boundary[i].values.as_slice().iter().sum()
 }
 
-#[test]
-fn plane_poiseuille_with_fixed_pressure_outlet() {
+/// The channel case at `stop` s; `ablate` selects the pre-gh:#1161 orthogonal
+/// Laplacian.
+fn channel(stop: f64, ablate: bool) -> PimpleFoam {
     let mesh = Arc::new(
         outram_foam_mesh::block_mesh::block_mesh(DICT)
             .expect("blockMesh")
@@ -110,7 +111,7 @@ fn plane_poiseuille_with_fixed_pressure_outlet() {
     let n = mesh.n_cells;
     let control = ControlDict {
         start: StartControl::StartTime(0.0),
-        stop: StopControl::EndTime(2.0),
+        stop: StopControl::EndTime(stop),
         delta_t: 0.002,
         ..ControlDict::default()
     };
@@ -135,7 +136,37 @@ fn plane_poiseuille_with_fixed_pressure_outlet() {
     s.u = VolVectorField::new("U", mesh.clone(), Field::new(vec![Vector3::ZERO; n]), ub);
     s.p = VolScalarField::new("p", mesh.clone(), Field::new(vec![0.0; n]), pb);
     s.nu = VolScalarField::uniform("nu", mesh.clone(), NU);
+    if ablate {
+        s = s.without_non_orthogonal_correction();
+    }
     s.run().expect("run");
+    s
+}
+
+/// gh:#1161: on this Cartesian mesh the non-orthogonal correction is zero up
+/// to the rounding of `n = Sf/|Sf|` and `1/(n·d)` against `1/|d|`, so the
+/// default (corrected) run and the ablation agree to round-off.
+///
+/// Prediction (written before the run): below 1e-10 relative in U and p.
+/// Measured 2026-11-03: see the println (recorded in
+/// `verification_and_validation/non_orthogonal_correction_gh1161.md`).
+#[test]
+fn cartesian_channel_moves_by_round_off_only() {
+    let a = channel(0.2, false);
+    let b = channel(0.2, true);
+    let du = a.u.internal.as_slice().iter().zip(b.u.internal.as_slice()).fold(0.0_f64, |m, (x, y)| m.max((*x - *y).mag())) / U;
+    let pmax = b.p.internal.as_slice().iter().fold(0.0_f64, |m, x| m.max(x.abs()));
+    let dp = a.p.internal.as_slice().iter().zip(b.p.internal.as_slice()).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs())) / pmax;
+    let same = a.u.internal.as_slice() == b.u.internal.as_slice();
+    println!("corrected vs orthogonal: max |dU|/U {du:.3e}, max |dp|/max p {dp:.3e}, bit-identical U: {same}");
+    assert!(du < 1e-10 && dp < 1e-10, "du {du:.3e} dp {dp:.3e}");
+}
+
+#[test]
+fn plane_poiseuille_with_fixed_pressure_outlet() {
+    let s = channel(2.0, false);
+    let mesh = s.mesh.clone();
+    let n = mesh.n_cells;
 
     let q_in = -patch_flux(&s, "inlet");
     let q_out = patch_flux(&s, "outlet");

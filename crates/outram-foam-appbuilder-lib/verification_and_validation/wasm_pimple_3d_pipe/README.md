@@ -334,11 +334,15 @@ code before optimised code is ready; this was not isolated.
   0.998 × 2U, but dp/dz is still 2.4 % high. Part of the excess is the
   polygonal wall: at the same bulk velocity a 24-, 32- or 40-gon of the same
   circumradius has less area, which raises dp/dz by 1.15 %, 0.64 % or 0.41 %.
-  The rest, **~1.7–2.8 %, does not shrink with refinement.** Hypothesis, not
-  tested: this port's `fvm::laplacian` has no non-orthogonal correction, and
-  the O-grid's worst non-orthogonality (20–30°, at the square's corners) does
-  not fall under refinement. The plane-channel test, on an orthogonal mesh,
-  is within 0.5 %.
+  The rest, **~1.7–2.8 %, does not shrink with refinement.** ~~Hypothesis, not
+  tested: this port's `fvm::laplacian` has no non-orthogonal correction~~
+  **TESTED 2026-11-03 (gh:#1161):** it was the missing non-orthogonal
+  correction. With upstream's `Gauss linear corrected` ported, the Re = 25
+  value is 1.0072 (0.08 % above the polygon value) and the Re = 100 values
+  are 1.0175 / 1.0151 / 1.0136 (the slab is still developing at Re = 100);
+  record: `../non_orthogonal_correction_gh1161.md`. The numbers in this
+  README are the pre-gh:#1161 solver's, kept as run. The plane-channel test,
+  on an orthogonal mesh, is within 0.5 %.
 - **cfMesh fails the sanity check:** the profile is far too flat (u_c / 2U =
   0.63–0.75) and dp/dz is 6–27 % high, getting *worse* with refinement. Mass
   is conserved, so this is the discretisation on these meshes, not a leak.
@@ -383,7 +387,11 @@ code before optimised code is ready; this was not isolated.
    watching the profile develop; it costs ~3× more wall time.
 4. **Mesh the pipe with the O-grid**, promoted from this harness into a
    library (outram-foam-mesh or outram-blender) in stage 1, with its own
-   test. Do not put cfMesh behind a pipe demo until its flow problems are
+   test. **DONE 2026-11-03 (gh:#1155):** `outram_foam_mesh::block_primitives::PipeOGrid`
+   (same blockMeshDict); the case set-up and fits are
+   `outram_foam_appbuilder_lib::cases::laminar_pipe`. This harness's own copies
+   (`ogrid_block_mesh_dict`, `build_case`, the fits) are superseded and kept
+   only so the stage 0 numbers stay reproducible as run. Do not put cfMesh behind a pipe demo until its flow problems are
    understood.
 5. **Before stage 1 counts as V&V:** decide on the non-orthogonal correction
    (the +1.7–2.8 % dp/dz residual) and the large-viscous-number instability

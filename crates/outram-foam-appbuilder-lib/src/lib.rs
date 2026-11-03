@@ -85,6 +85,9 @@
 /// Driving a solver from an OpenFOAM case directory: read the case, build the
 /// solver's initial state, march the time loop, write the fields back.
 pub mod case_runner;
+/// Ready-made flow cases (boundary conditions + diagnostics) shared by V&V
+/// tests and demos, e.g. [`cases::laminar_pipe`].
+pub mod cases;
 
 pub mod error;
 /// GeN-Foam reactor-multiphysics port (neutronics + TH + thermo-mechanics).
