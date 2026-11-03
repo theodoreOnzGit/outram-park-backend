@@ -88,6 +88,16 @@ created 2026-08-10 and carrying the maintainer decision of 2026-08-11 that
 `htgr_sim_v1` *is* the HTR-10 simulator. The `op-wqk.9.*` children predate it
 and are stale — see [Bead accuracy](#bead-accuracy--three-of-four-children-are-stale).
 
+**Thermal-hydraulic inputs (added 2026-11-03, gh:#1147).** The cited input
+sheet for the HTR-10 TH model is
+[`htr10-th-benchmark.md`](./htr10-th-benchmark.md), with CSVs in
+[`htr10-th-data/`](./htr10-th-data/). It covers:
+
+- the IAEA-TECDOC-1694 (CRP-5) R-Z geometry and material correlations;
+- the 22 FPIC thermocouples with every participant's result;
+- the LOFC and CRW transient initial states, reactivity and kinetics;
+- the source conflicts and the named sensitivity cases.
+
 ## 1. Framing correction — read this first
 
 > **This section is OBSOLETE as of 2026-08-12 and is kept only so the change is
@@ -385,9 +395,22 @@ cited source for the KTA and ZBS gold values and for the nuclear-graphite
 correlations recorded above, and `docs/reactor-scoping/vtb-findings.md` catalogues
 what they contain.
 
-**Still true:** `reference-data/endf/` contains only a `README.md`. Input decks
+~~**Still true:** `reference-data/endf/` contains only a `README.md`. Input decks
 and benchmark specifications are not evaluated nuclear data, and the
-criticality-calculation gap in the MISSING table stands.
+criticality-calculation gap in the MISSING table stands.~~ **CORRECTED
+2026-11-03** — false. `ls reference-data/endf/` on 2026-11-03 lists **83
+`.endf` tapes** besides the README (the root `CLAUDE.md` already records this
+claim as wrong). Whether the criticality-calculation gap in the MISSING table
+still stands was **not re-checked** in this pass.
+
+**Added 2026-11-03 (gh:#1147).** The "follow-on IAEA programme" row above is
+now identified and read: it is **IAEA-TECDOC-1694 (2013), CRP-5**. Its HTR-10
+chapter carries the FPIC steady-state thermocouple benchmark and the LOFC and
+CRW without-scram transients. Its numbers are transcribed with citations in
+[`htr10-th-benchmark.md`](./htr10-th-benchmark.md). That document is in the
+maintainer's private literature repository; it is not redistributable. The
+safety-test traces are figures only, as the table predicted. The other rows of
+the table stay unverified.
 
 ## 5. Recommended sequencing
 
