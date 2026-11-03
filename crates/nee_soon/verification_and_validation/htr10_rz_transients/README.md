@@ -361,6 +361,14 @@ power, with the converged values beyond the 10 cm ones.** The short-term
 metrics are converged (1 % time 288 / 287 / 287 s). A uniform-ratio
 sequence (e.g. 20 / 10 / 5 cm with every interval split) needs the 5 cm
 steady state to converge first.
+**UPDATED 2026-11-03 (gh:#1176, Sec 10):** done. The 5 cm steady failure
+was a non-settling outer iteration in the discharge tube's gas (the
+lagged-density map oscillates), fixed by a density-consistent gas solve
+in the steady state; the ratio-2 sequence 20 cm x 1 / 2 / 4 gives the
+re-criticality 7426 / 8246 / 8571 s, **observed order 1.34, Richardson
+~8780 s**, and the heat to the RCCS and heads at 3 h 102.3 / 104.4 /
+104.7 kW (Richardson 104.8 kW). The axial part of the drift is the
+upwind gas cell (first order); the radial part is not attributed.
 
 ### 3.4 The too-fast short-term fall (item 4)
 
@@ -444,8 +452,13 @@ reflector rise matches. Plots: `rz_crw_power_short.png`,
    W/(m^2 K)) and adds **~5 kW**, not 45-90 kW (that estimate held the RPV
    temperature fixed; the in-vessel path limits the sink); re-criticality
    +15 s, late power +0 to +2 kW. **The hypothesis is ruled out as the
-   cause; the gap stays open.** The largest movement seen is numerical:
-   109 -> 142 kW of late power from 20 to 10 cm cells (Sec 3.3.1).
+   cause; the gap stays open.** ~~The largest movement seen is numerical:
+   109 -> 142 kW of late power from 20 to 10 cm cells (Sec 3.3.1).~~
+   **CORRECTED 2026-11-03 (gh:#1176, Sec 10.3):** the mesh is not the gap
+   either: the heat to the RCCS and heads at 3 h is mesh-converged at
+   ~104.8 kW (102.3 kW at 20 cm); the late *mean power* moves with the
+   mesh only because the post-return oscillation shifts. **Open:** the
+   in-vessel path (~80 kW).
 2. ~~Short-term fall and CRW peak (3.4): dummy-pebble lag hypothesis untested.~~
    **UPDATED 2026-11-03 (gh:#1174, Sec 8):** kinetics inputs audited
    (`Lambda`, groups ruled out); moderator reading corrected to all pebble
@@ -462,6 +475,12 @@ reflector rise matches. Plots: `rz_crw_power_short.png`,
    **New, from the same study:** the 20 cm mesh is not converged (-590 s,
    -33 kW against 10 cm, steps not shrinking), and the 5 cm steady
    solid-gas outer iteration does not converge in 400 passes (3.3.1).
+   **UPDATED 2026-11-03 (gh:#1176, Sec 10):** the steady iteration is
+   fixed (density-consistent gas); the ratio-2 study gives order 1.3 and
+   a converged re-criticality ~8800 s (20 cm: -1350 s of mesh error). Still
+   open: the first-order upwind gas exchange temperature (axial part),
+   the radial part (not attributed), and the lagged gas of a transient
+   step, which alternates in the discharge tube on the finest mesh.
 5. Thermocouple positions are read from a schematic (Uncertain); BR pairing
    chosen from the initial readings.
 6. The Am-Be source's presence at the test is Unknown; the default uses it.
@@ -501,7 +520,9 @@ The runs also write the traces as CSV (`rz_*_trace.csv`,
 `rz_lofc_base_thermocouples.csv`) into this folder; `*.csv` is gitignored
 under `verification_and_validation/`, so they are regenerated, not
 committed. Wall time (4 cores): RZ-BASE 58 s; the sensitivity set ~10 min; CRW set
-~3 min; mesh check ~6 min (four meshes, gh:#1175). Since gh:#1173 / gh:#1174 also
+~3 min; mesh check ~6 min (four meshes, gh:#1175); since gh:#1176
+`rz_lofc_geometric_mesh_study` ~1 h (REF-4X 50 min) and
+`rz_lofc_mesh_diagnostics` ~6 min. Since gh:#1173 / gh:#1174 also
 `rz_cavity_convection_cases` (~10 min, Sec 7) and
 `rz_short_term_feedback_cases` (~12 min, Sec 8).
 
@@ -954,9 +975,118 @@ cell size, which would explain a slow, monotone drift):
    upflow/downflow in the bed and the side-reflector boundary layer, which
    a 6-14 cm radial cell smears.
 
-### 10.3 Results
+### 10.3 Results (2026-11-03, after the predictions above were committed in `ffdc07b33`)
 
-*(to be written after the runs)*
+**The steady state: march, gas alone, fix.**
+
+- *March* (`finest_mesh_march_at_constant_power`,
+  `logs/march_constant_power_ref4x.log`): **did not settle**, against the
+  prediction (miss). Over 60 steps of 1 s and 60 of 10 s the axis gas of
+  the discharge tube (r 0.8-2.4 cm, z 227-289 cm) changed by 50-120 K per
+  step and the solid there by 0.1-1.1 K per step, without decaying. The
+  gas has no storage in this model and its flow sees the previous step's
+  densities, so the march repeats the same lagged map as the steady
+  iteration; it says nothing about physical stability.
+- *Gas alone at fixed solid* (`finest_mesh_gas_alone_at_fixed_solid`,
+  `logs/gas_alone_at_fixed_solid_ref4x.log`): repeating `solve_gas` from
+  its own state oscillates by 50-100 K plain and by 8.8 K with the steady
+  solve's 0.5 relaxation (the axis cell's axial flux flipping between
+  -2.4e-2 and +1.3e-2 kg/(m^2 s)), and **converges with a 0.2 relaxation**
+  (factor ~0.75 per repeat, to 2e-5 K in 40). **Root cause:** a
+  consistent gas state exists; the fixed-point map in which the flow sees
+  the gas densities of the previous pass has a slope below -1 at the axis
+  cells of the tube once they are resolved (16 radial cells in 25 cm), so
+  it oscillates instead of converging. Not a floor, not a divergence.
+- *Fix* (`flow::solve_gas_consistent`): the gas solved consistently in its
+  own density, Aitken-relaxed (Irons-Tuck), to 1e-4 K, inside the steady
+  outer iteration (inexact early, tightening to 1e-4 K). **The outer
+  tolerance (1e-4 K) is unchanged.** REF-4X steady: **240 passes, last
+  change 9.0e-5 K** (`logs/steady_outer_iteration_ref4x_consistent_gas.log`).
+  It reaches the same fixed point: REF-1X reproduces RZ-BASE to every
+  printed digit.
+- *Tried and not kept:* the same consistent solve at every transient
+  step. On the 2x mesh it needed 15-87 evaluations per step at 1e-4 K and
+  12-51 at 1e-2 K, and at the last forced-flow step of the coastdown
+  (0.12 kg/s) it did not converge in 200 evaluations at either tolerance
+  (residual wandering 0.05-0.4 K). **A step keeps the lagged gas**
+  (THERMIX's explicit coupling), so every transient record keeps its
+  scheme. **Known limitation of REF-4X:** its tube gas alternates step to
+  step as in the march (the tube is unheated and below the cone; its
+  effect on the metrics is not separated here).
+
+**The geometric sequence** (`rz_lofc_geometric_mesh_study`, 4 cores
+shared with the Monte Carlo of Sec 11; wall 57 / 391 / 2990 s):
+
+| Quantity | REF-1X (1452) | REF-2X (5808) | REF-4X (23 232) | observed order | Richardson | Predicted | Verdict |
+|---|---|---|---|---|---|---|---|
+| re-criticality | 7426 s | 8246 s | 8571 s | **1.34** | **8784 s** | 7426 / 8000-8400 / 8250-8900; order 0.5-1.5; 8400-9500 | met |
+| min rho | -348 pcm @ 3000 s | -465 @ 3635 s | -530 @ 3865 s | 0.87 | -607 pcm | -390 to -460 / -410 to -500 | miss (deeper) |
+| RCCS + heads at 3 h | 102.28 kW | 104.39 kW | 104.74 kW | 2.6 | **104.8 kW** | +1 to +4 / +1.5 to +6 kW | met |
+| mean P, last 30 min | 109 kW | 145 kW | 134 kW | not monotone | - | 110-170 / 120-190 | met, as warned not a convergence metric |
+| P(100 s) | 0.1704 | 0.1699 | 0.1690 | - | - | within 0.002 | met |
+| 1 % time | 296 s | 294 s | 292 s | - | - | - | converged to ~4 s |
+| initial moderator reading | 575.54 C | 566.10 C | 560.49 C | 0.75 | ~552 C | - | - |
+| first peak | 20.3 % @ 8530 s | 23.4 % @ 9260 s | 25.0 % @ 9550 s | - | - | - | - |
+| max bed upflow after 1000 s | 0.092 | 0.097 | 0.101 kg/s | - | - | - | - |
+
+**Where the mesh dependence acts** (`rz_lofc_mesh_diagnostics`, lagged gas
+in the steady state, which converged on these meshes; REF-1X / REF-2X of
+the table above; `logs/mesh_diagnostics_lagged_gas.log`):
+
+| Case | re-criticality | initial moderator | Predicted | Verdict |
+|---|---|---|---|---|
+| NC-OFF 1X -> 2X | 5041 -> 5936 s (**+895 s**, 109 % of the base's +820 s) | 575.42 -> 565.92 C | < 30 % of the base's change | **miss**: the circulation does not carry it |
+| REF-R2 (radial only) | 7951 s (+525 s, 64 %) | 575.80 C (+0.3 K) | 30-70 % | met |
+| REF-Z2 (axial only) | 7731 s (+305 s, 37 %) | 565.80 C (-9.7 K) | 30-70 % | met |
+
+The two directions add (525 + 305 = 830 s against 820 s).
+
+**What drives it.**
+
+1. **Axial: the upwind, well-mixed gas cell.** Each cell's gas is at its
+   outlet temperature, so in forced flow a heated bed cell exchanges with
+   gas half a cell's rise hotter than the gas at its centre, and its solid
+   sits that much too hot. Measured (`upwind_half_cell_gas_rise_in_the_bed`,
+   prediction committed before the run in `289398826`: the 1x - 2x
+   difference of the half rise within +-40 % of the initial moderator's
+   9.4 K): power-weighted half rise **21.77 K at 1x, 10.69 K at 2x**
+   (exactly first order), difference 11.08 K against 9.44 K: **met**
+   (17 %). So RZ-BASE starts ~19 K too hot in the moderator reading at
+   full flow; once the flow stops the bias vanishes, and the feedback,
+   measured from the biased start, sees the bed as cooler than it is: an
+   early re-criticality. At -16.2 pcm/K the 1x bias is ~300 pcm of
+   reference.
+2. **Radial: not attributed.** Halving the radial cells moves the
+   re-criticality +525 s without moving the initial state (+0.3 K); with
+   NC-OFF the whole 2x change persists, so it is in the solid, fuel and
+   feedback part, not the circulation. The moderator reading cools more
+   slowly (594.4 against 592.0 C at 1800 s). The solid-only gh:#1149
+   model converges at order ~1.2 in its duty; which radial feature
+   (bed-to-side-reflector conduction, the power weighting of a peaked
+   profile) carries this is not isolated. Open.
+3. **The dropped buoyancy half cell** (candidate 1 of 10.2): not the
+   driver (NC-OFF keeps the whole dependence).
+
+**What it means for the record.**
+
+- **Quote:** re-criticality **~8800 s** (Richardson, order 1.3; REF-4X
+  8571 s) for the converged model, against 7426 s at 20 cm and measured
+  2520 / 4075 s. **The mesh error was hiding ~1350 s of the miss**: the
+  converged model is ~4700-6300 s late, not ~3400-4900 s.
+- **The heat sink is converged** (104.8 kW at 3 h, order 2.6; +2.5 kW
+  over 20 cm). **The ~80 kW gap of gh:#1173 is not a mesh artefact.** The
+  rise of the late mean power with refinement (109 -> 145 -> 134 kW) is
+  where the post-return oscillation falls, not more heat removed.
+- The short term is converged (1 % time 296 / 294 / 292 s; P(100 s)
+  0.1704 / 0.1699 / 0.1690).
+- RZ-BASE stays at 20 cm (cost: 57 s against 50 min at 4x) so the
+  sensitivity sets compare at one resolution; their numbers carry a mesh
+  error of about -1350 s on the re-criticality.
+- **A first-order term remains in the model**: the upwind gas cell's
+  exchange temperature (item 1). Replacing it with a cell-centre gas
+  temperature (an exponential or linear profile within the cell) would
+  remove the axial part; it changes the gh:#1150 FPIC record too, so it
+  is left as a follow-up, not done here.
 
 ## 11. Which graphite carries the moderator coefficient (gh:#1174): Monte Carlo worths; predictions, written before the runs (2026-11-03)
 
