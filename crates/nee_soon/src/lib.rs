@@ -101,6 +101,12 @@ pub mod det_six_factor;
 pub mod rod_insertion;
 pub mod coupling;
 pub mod direct_coupling;
+/// Power shapes and their mapping from Monte Carlo tallies onto thermal-hydraulic
+/// cells, with the HTR-10 frames (gh:#1184).
+pub mod power_shape;
+/// HTR-10 Monte Carlo iterated directly against a thermal-hydraulic target
+/// (lumped node or the `htr10_rz` R-Z core), with exact reprocessing (gh:#1186).
+pub mod htr10_coupling;
 pub mod system_coupling;
 /// outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
 /// outram-blender's retired `mc-export` feature on 2026-10-02 (GitHub #486).

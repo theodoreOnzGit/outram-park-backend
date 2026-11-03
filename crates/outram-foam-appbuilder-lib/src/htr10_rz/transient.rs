@@ -506,6 +506,46 @@ fn graphite_fractions(x: f64) -> (f64, f64, f64) {
     (x * zone, x * (1.0 - zone), 1.0 - x)
 }
 
+/// Bed-volumetric power per W of total power, W/m^3/W, of every cell of
+/// `mesh` for the power-density map `map` (exact axisymmetric overlap,
+/// [`cell_average_w_per_m3`]); zero outside the bed region. The one
+/// computation [`Htr10RzTransientCore::build`] and
+/// [`Htr10RzTransientCore::set_power_map`] share, so a custom map equal to a
+/// tabulated one gives the same source bit for bit.
+///
+/// # Errors
+/// [`Htr10RzError::Input`] when the map carries no power (`map_power_w <=
+/// 0`) or a negative density.
+fn unit_source_of(
+    mesh: &crate::genfoam::thermal_hydraulics::solid_conduction::RzMesh,
+    map: &[PowerMapCell],
+) -> Result<Vec<f64>, Htr10RzError> {
+    if map.iter().any(|c| !(c.q_w_per_cm3 >= 0.0)) {
+        return Err(Htr10RzError::Input("a power map density is negative or not a number".into()));
+    }
+    let total = map_power_w(map);
+    if !(total > 0.0) {
+        return Err(Htr10RzError::Input(format!("the power map integrates to {total} W")));
+    }
+    let per_watt = 1.0 / total;
+    let (re, ze) = (mesh.r_edges().clone(), mesh.z_edges().clone());
+    let nr = re.n_cells();
+    Ok((0..mesh.n_cells())
+        .map(|c| {
+            if mesh.cell_region(c) != idx::BED {
+                return 0.0;
+            }
+            let (i, j) = (c % nr, c / nr);
+            per_watt
+                * cell_average_w_per_m3(
+                    map,
+                    [re.edge(i).get::<centimeter>(), re.edge(i + 1).get::<centimeter>()],
+                    [ze.edge(j).get::<centimeter>(), ze.edge(j + 1).get::<centimeter>()],
+                )
+        })
+        .collect())
+}
+
 impl Htr10RzTransientCore {
     /// Build the solid model, the gas network and the fuel nodes.
     ///
@@ -527,24 +567,7 @@ impl Htr10RzTransientCore {
         }
         let mesh = solid.field().mesh();
         let n = mesh.n_cells();
-        let map = options.shape.map();
-        let per_watt = 1.0 / map_power_w(&map);
-        let (re, ze) = (mesh.r_edges().clone(), mesh.z_edges().clone());
-        let nr = re.n_cells();
-        let unit_source: Vec<f64> = (0..n)
-            .map(|c| {
-                if mesh.cell_region(c) != idx::BED {
-                    return 0.0;
-                }
-                let (i, j) = (c % nr, c / nr);
-                per_watt
-                    * cell_average_w_per_m3(
-                        &map,
-                        [re.edge(i).get::<centimeter>(), re.edge(i + 1).get::<centimeter>()],
-                        [ze.edge(j).get::<centimeter>(), ze.edge(j + 1).get::<centimeter>()],
-                    )
-            })
-            .collect();
+        let unit_source = unit_source_of(mesh, &options.shape.map())?;
         let heated: Vec<usize> = (0..n).filter(|c| unit_source[*c] > 0.0).collect();
         let reflector_cells: Vec<usize> = (0..n)
             .filter(|c| {
@@ -611,6 +634,58 @@ impl Htr10RzTransientCore {
     #[must_use]
     pub fn solid(&self) -> &Htr10RzModel {
         &self.solid
+    }
+
+    /// **Build with a custom power-density map** (gh:#1185): as
+    /// [`Self::build`], then [`Self::set_power_map`]. The options' `shape`
+    /// still decides which bed cells are heated (the fuel and dummy nodes
+    /// live on those), so pass a shape whose heated zone covers the custom
+    /// map; every TECDOC map heats the whole bed (core and cone).
+    ///
+    /// # Errors
+    /// As [`Self::build`] and [`Self::set_power_map`].
+    pub fn build_with_power_map(options: TransientCoreOptions, map: &[PowerMapCell]) -> Result<Self, Htr10RzError> {
+        let mut core = Self::build(options)?;
+        core.set_power_map(map)?;
+        Ok(core)
+    }
+
+    /// **Replace the power shape with a custom map** (gh:#1185), e.g. a Monte
+    /// Carlo power tally mapped into TECDOC `z` (`nee_soon::power_shape`).
+    /// `map` is cells of `[z_lo, z_hi] x [r_lo, r_hi]` cm (TECDOC `z`,
+    /// downward) with densities in W/cm^3, the layout of
+    /// [`super::power_map::fpic_power_map`]; only its **shape** is used, the
+    /// total power stays the core's own (`step`/`solve_steady` set it). The
+    /// mapping is the build's own (exact axisymmetric overlap), so a map
+    /// equal to `FpicTab26`'s gives the tabulated source bit for bit.
+    ///
+    /// Callable between solves (a Picard iteration); the temperatures are
+    /// kept.
+    ///
+    /// # Errors
+    /// [`Htr10RzError::Input`] when the map carries no power, a negative
+    /// density, or power on a cell outside the heated set the core was built
+    /// with ([`Self::heated_cells`]); nothing is changed then.
+    pub fn set_power_map(&mut self, map: &[PowerMapCell]) -> Result<(), Htr10RzError> {
+        let unit = unit_source_of(self.solid.field().mesh(), map)?;
+        let mut heated = vec![false; unit.len()];
+        for &c in &self.heated {
+            heated[c] = true;
+        }
+        if let Some(c) = (0..unit.len()).find(|&c| unit[c] > 0.0 && !heated[c]) {
+            return Err(Htr10RzError::Input(format!(
+                "the power map heats cell {c}, outside the heated bed cells the core was built with"
+            )));
+        }
+        self.unit_source = unit;
+        Ok(())
+    }
+
+    /// The cell power density per watt of total power, W/m^3/W, of every
+    /// cell (zero outside the heated cells): the current shape.
+    #[must_use]
+    pub fn unit_source(&self) -> &[f64] {
+        &self.unit_source
     }
 
     /// The passes of the last steady outer iteration (gh:#1176).

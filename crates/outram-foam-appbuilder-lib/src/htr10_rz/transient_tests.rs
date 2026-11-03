@@ -542,3 +542,40 @@ fn upwind_half_cell_gas_rise_in_the_bed() {
         );
     }
 }
+
+/// **gh:#1185: a custom power map equal to Tab 2.6 reproduces the
+/// tabulated `FpicTab26` case bit for bit**: the same source per cell after
+/// `set_power_map`, and the same steady state (every solid temperature and
+/// the feedback temperatures equal as `f64`). A map with power outside the
+/// heated bed cells, a negative density or no power is refused and leaves
+/// the core unchanged.
+#[test]
+fn custom_power_map_equal_to_fpic_reproduces_the_tabulated_case() {
+    use super::power_map::{fpic_power_map, PowerMapCell};
+    use super::transient::PowerShape;
+    let mut o = coarse(TransientCoreOptions::htr10_lofc());
+    o.shape = PowerShape::FpicTab26;
+    let mut tab = Htr10RzTransientCore::build(o).unwrap();
+    let mut custom = Htr10RzTransientCore::build_with_power_map(o, &fpic_power_map()).unwrap();
+    assert_eq!(tab.unit_source(), custom.unit_source());
+    let op = as_run(3.0e6, 1.4);
+    let a = tab.solve_steady(&op).unwrap();
+    let b = custom.solve_steady(&op).unwrap();
+    assert_eq!(a.feedback, b.feedback);
+    let (fa, fb) = (tab.solid().field(), custom.solid().field());
+    for c in 0..fa.mesh().n_cells() {
+        assert_eq!(fa.temperature(c).get::<kelvin>().to_bits(), fb.temperature(c).get::<kelvin>().to_bits(), "cell {c}");
+    }
+    // Refusals change nothing.
+    let before = custom.unit_source().to_vec();
+    let outside = [PowerMapCell { z_cm: [300.0, 320.0], r_cm: [0.0, 20.0], q_w_per_cm3: 1.0 }];
+    assert!(custom.set_power_map(&outside).is_err());
+    let negative = [PowerMapCell { z_cm: [0.0, 20.0], r_cm: [0.0, 20.0], q_w_per_cm3: -1.0 }];
+    assert!(custom.set_power_map(&negative).is_err());
+    assert!(custom.set_power_map(&[]).is_err());
+    assert_eq!(custom.unit_source(), &before[..]);
+    // A different shape does move the source.
+    let top = [PowerMapCell { z_cm: [0.0, 90.0], r_cm: [0.0, 90.0], q_w_per_cm3: 2.0 }];
+    custom.set_power_map(&top).unwrap();
+    assert_ne!(custom.unit_source(), &before[..]);
+}
