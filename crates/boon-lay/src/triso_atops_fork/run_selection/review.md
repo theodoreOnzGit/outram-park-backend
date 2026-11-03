@@ -128,3 +128,60 @@ parser function
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 75e2b96459.
+
+# Review: select_nuclides_accident (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-select-nuclides-accident-theodoreonzgit-ee64ea35"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:53:37+08:00"
+modified = "2026-11-03T14:53:37+08:00"
+target = "fn:ee64ea353c7ab103"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs::select_nuclides_accident"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:53:37+08:00"
+commit = "b4298cae39ad13e55ff95d0259d5a6527788d038"
+hash = "sha256:b64465272106ee396d691f1630588ea4b5129a3d60820a756aac7ab81dcc4787"
+doc_hash = "sha256:a4ee8adaca48d98dd4606b2ff2667309ecdbae390667b121e4cda44079528e93"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "io_format"
+
+[review.callees]
+"fn:3292f77e069a4060" = "sha256:6f1cce1318935d762a5e95055133dcd60b18d8b2d565afcb4649635a43a0d0db"
+"fn:4ef295f5b3d28b64" = "sha256:48e95438f69cba28a4bf0a211b732c7dbe4fabe11f86934ecbc07520522f3496"
+"fn:546333a5363bc5a2" = "sha256:601d879e0b2947c8c69562c0278d67beccee30a0999a8eb86181de5ebcd65549"
+"fn:e1cb570a455c31b8" = "sha256:06a9c12470b244d22d5415441b5b842edce0c43e867d9a1bbc36b9c1b69988ca"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "nQ3AOP3cv+l9t+89I3s/siaqy/UPb5/HwsXcZU1th5koE87x0O4LCfzr1rZnrEOVB/t/HwMCx06iymRh7pp1CA=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit b4298cae39.
