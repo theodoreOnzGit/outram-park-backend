@@ -41,18 +41,46 @@
 //!    eliminated **exactly** into the solid row: with `a = C_f/dt`,
 //!    `h' = G a/(a + G)` to the reference `T* = T_f^n + q/a`. Its capacity
 //!    is the fraction `phi = x_fuel (r_1/r_2)^3` of the bed's `rho c`, and
-//!    the bed cell keeps `1 - phi` (`set_cell_capacity_factor`), so nothing
-//!    is counted twice. `x_fuel` is the as-run fuel-pebble fraction of the
+//!    the bed cell keeps `1 - phi` (`set_cell_capacity_factor`; `1 - phi -
+//!    phi_d` with the dummy node of item 4), so nothing is counted twice. `x_fuel` is the as-run fuel-pebble fraction of the
 //!    mixed zone, 13,651 / (13,651 + 10,298) ([J09] Tab 2; sheet Sec 6,
 //!    Derived 57:43).
+//!
+//! 4. **Dummy pebbles** (gh:#1174, [`DummyPebbleModel::Lagged`], default):
+//!    the mixed zone holds 43 % dummies, all-graphite balls that generate
+//!    nothing and heat only through the bed around them. Each heated cell
+//!    gets a dummy node of capacity `phi_d = 1 - x_fuel` of the bed's
+//!    `rho c` (the cell keeps the fuel pebbles' shells, `x (1 - (r_1/r_2)^3)`),
+//!    coupled to the cell by [`dummy_pebble_conductance`] per dummy:
+//!    the sphere's mean-to-surface resistance `1/(20 pi k R)` in series with
+//!    `2 pi D k_bed + h A` (a sphere in a medium of the bed's effective
+//!    conductivity, plus the gas film of one pebble, both referenced to the
+//!    cell). Eliminated into the cell row exactly as the fuel node
+//!    (`h' = G a/(a+G)` to `T_d^n`), enthalpy-form update, counted in
+//!    [`Htr10RzTransientCore::stored_energy`]. Stated approximations: the
+//!    bed's conduction network runs through the cell, not the dummies; the
+//!    gas film is referenced to the cell, not the gas (a lower bound on the
+//!    lag in forced flow). Hand time constant ~45 s in forced flow, ~100 s
+//!    stagnant. Ablation `DUMMY-IN-CELL`.
 //!
 //! ## Feedback temperatures (kinetics input)
 //!
 //! [T1] Sec 2.1.1.6 defines each coefficient as the change for a 1 deg C
 //! change of that temperature "within the whole core", split over zones by
 //! power fraction. Here: **fuel** = power-weighted fuel-zone node
-//! temperature; **moderator** = power-weighted bed-cell temperature
-//! (pebble graphite outside the fuel zones); **reflector** = volume mean of
+//! temperature; **moderator** = power-weighted ~~bed-cell temperature
+//! (pebble graphite outside the fuel zones)~~ **(gh:#1174, 2026-11-03)**
+//! volume mean of all pebble graphite in the cell,
+//! `w_f T_f + w_s T_cell + w_d T_d` with the fuel zones' matrix
+//! `w_f = x (r_1/r_2)^3 = 0.330`, the fuel pebbles' shells
+//! `w_s = x (1 - (r_1/r_2)^3) = 0.240` and the dummies `w_d = 1 - x = 0.430`
+//! ([`ModeratorTemperature::AllPebbleGraphite`]): the moderator is the
+//! graphite, and a third of it is the fuel zones' matrix, which the part B
+//! reading left out. [T1] defines the moderator coefficient only as
+//! "similar" to the fuel's, so which graphite it reads is an **assumption**
+//! (the all-graphite reading is VSOP's fuel/moderator split, not checked
+//! against a source); `MOD-OUTSIDE-FZ` is the part B reading, kept as a
+//! sensitivity. **reflector** = volume mean of
 //! all graphite reflector cells ([`ReflectorAverage::AllGraphite`], a named
 //! assumption: any weighting reproduces the uniform-change definition;
 //! `SideOnly` is part A's side-reflector node, kept as a sensitivity).
@@ -79,7 +107,7 @@ use super::pebble::tab29_k;
 use super::power_map::{cell_average_w_per_m3, crw_power_map, fpic_power_map, lofc_power_map, map_power_w, PowerMapCell};
 use super::{Htr10RzCase, Htr10RzError, Htr10RzModel, Htr10RzOptions, RegionMaterial};
 use crate::genfoam::thermal_hydraulics::solid_conduction::{
-    HeatCapacityModel, RzPatch, VolumetricHeatTransferCoefficient,
+    ConductivityModel, HeatCapacityModel, RzPatch, VolumetricHeatTransferCoefficient,
 };
 
 const PI: f64 = std::f64::consts::PI;
@@ -140,6 +168,34 @@ pub enum ReflectorAverage {
     SideOnly,
 }
 
+/// How the dummy (all-graphite) pebbles mixed with the fuel in the heated
+/// zone respond in time (gh:#1174; module docs, "Two-temperature bed").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DummyPebbleModel {
+    /// A dummy-pebble node per heated bed cell with its own heat capacity,
+    /// coupled to the bed cell through the dummy's interior and the bed
+    /// around it ([`dummy_pebble_conductance`]). Default (gh:#1174).
+    #[default]
+    Lagged,
+    /// The dummies are part of the bed cell's capacity, at the cell's
+    /// temperature (the gh:#1151 part B model; ablation `DUMMY-IN-CELL`).
+    InBedCell,
+}
+
+/// Which pebble graphite the **moderator** temperature coefficient reads
+/// (gh:#1174; module docs, "Feedback temperatures").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ModeratorTemperature {
+    /// All pebble graphite of a heated cell, weighted by volume: the fuel
+    /// zones (matrix, at the fuel-zone node), the fuel pebbles' shells (the
+    /// bed cell) and the dummies. Default (gh:#1174).
+    #[default]
+    AllPebbleGraphite,
+    /// The pebble graphite outside the fuel zones only (shells and
+    /// dummies): the gh:#1151 part B reading (sensitivity `MOD-OUTSIDE-FZ`).
+    OutsideFuelZones,
+}
+
 /// Everything that defines the transient core, each defaulting to the
 /// gh:#1151 part B base case.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -160,6 +216,10 @@ pub struct TransientCoreOptions {
     pub buoyancy: bool,
     /// Reflector feedback temperature.
     pub reflector: ReflectorAverage,
+    /// Dummy pebbles in the heated zone (gh:#1174).
+    pub dummy_pebbles: DummyPebbleModel,
+    /// What the moderator coefficient reads (gh:#1174).
+    pub moderator: ModeratorTemperature,
     /// Outer-iteration tolerance of the initial steady state, K.
     pub steady_tolerance_k: f64,
 }
@@ -180,6 +240,8 @@ impl TransientCoreOptions {
             fuel_zone: FuelZoneModel::Lagged,
             buoyancy: true,
             reflector: ReflectorAverage::AllGraphite,
+            dummy_pebbles: DummyPebbleModel::default(),
+            moderator: ModeratorTemperature::default(),
             steady_tolerance_k: 1.0e-4,
         }
     }
@@ -201,6 +263,22 @@ impl TransientCoreOptions {
     #[must_use]
     pub fn with_quasi_steady_fuel(mut self) -> Self {
         self.fuel_zone = FuelZoneModel::QuasiSteady;
+        self
+    }
+
+    /// The ablation `DUMMY-IN-CELL`: the dummies at the bed cell's
+    /// temperature, no dummy-pebble node (gh:#1174).
+    #[must_use]
+    pub fn without_dummy_pebble_lag(mut self) -> Self {
+        self.dummy_pebbles = DummyPebbleModel::InBedCell;
+        self
+    }
+
+    /// The sensitivity `MOD-OUTSIDE-FZ`: the moderator coefficient reads the
+    /// pebble graphite outside the fuel zones only (gh:#1174).
+    #[must_use]
+    pub fn with_moderator_outside_fuel_zones(mut self) -> Self {
+        self.moderator = ModeratorTemperature::OutsideFuelZones;
         self
     }
 
@@ -282,6 +360,15 @@ pub struct Htr10RzTransientCore {
     fuel_pebbles_per_m3: f64,
     /// Fraction of a heated cell's capacity carried by its fuel node.
     phi: f64,
+    /// Dummy-pebble node temperature per cell, K (heated cells only, and
+    /// only with [`DummyPebbleModel::Lagged`]).
+    dummy: Vec<f64>,
+    /// Fraction of a heated cell's capacity carried by its dummy node.
+    phi_d: f64,
+    /// Dummy pebbles per m^3 of bed.
+    dummies_per_m3: f64,
+    /// Effective conductivity of the bed (the solid model's bed closure).
+    bed_conductivity: ConductivityModel,
     power_w: f64,
     time_s: f64,
 }
@@ -319,6 +406,33 @@ pub fn fuel_pebble_conductance(k: f64) -> f64 {
     let r_zone = 1.0 / (20.0 * PI * k * R_FUEL_ZONE);
     let r_shell = (1.0 / R_FUEL_ZONE - 1.0 / R_PEBBLE) / (4.0 * PI * k);
     1.0 / (r_zone + r_shell)
+}
+
+/// Conductance of one dummy pebble between its mean temperature and the bed
+/// around it, W/K (gh:#1174): `1 / (R_int + 1/G_ext)`, with
+///
+/// - `R_int = 1/(20 pi k_g R)`, the mean-to-surface resistance of a sphere
+///   whose temperature profile is the quasi-steady parabola (the same form
+///   as the fuel zone's, here for a heat sink spread over the sphere);
+/// - `G_ext = 2 pi D k_bed + h A`: a sphere of diameter `D` in an infinite
+///   medium of the bed's effective conductivity (conduction shape factor
+///   `S = 2 pi D`, Incropera & DeWitt 6th ed. Tab 4.1 case 1) in parallel
+///   with the gas film `h A` of one pebble, referenced to the bed cell.
+///
+/// `k_g` is the pebble graphite (`k_graphite`, W/(m K)), `k_bed` the bed
+/// (W/(m K)), `h_a` the per-pebble gas film conductance (W/K).
+#[must_use]
+pub fn dummy_pebble_conductance(k_graphite: f64, k_bed: f64, h_a: f64) -> f64 {
+    let r_int = 1.0 / (20.0 * PI * k_graphite * R_PEBBLE);
+    let g_ext = 2.0 * PI * 2.0 * R_PEBBLE * k_bed + h_a;
+    1.0 / (r_int + 1.0 / g_ext)
+}
+
+/// Volume fractions of the pebble graphite of a heated cell: fuel zones,
+/// fuel-pebble shells, dummies, for fuel-pebble fraction `x`.
+fn graphite_fractions(x: f64) -> (f64, f64, f64) {
+    let zone = (R_FUEL_ZONE / R_PEBBLE).powi(3);
+    (x * zone, x * (1.0 - zone), 1.0 - x)
 }
 
 impl Htr10RzTransientCore {
@@ -384,6 +498,11 @@ impl Htr10RzTransientCore {
             FuelZoneModel::Lagged => x * (R_FUEL_ZONE / R_PEBBLE).powi(3),
             FuelZoneModel::QuasiSteady => 0.0,
         };
+        let phi_d = match options.dummy_pebbles {
+            DummyPebbleModel::Lagged => 1.0 - x,
+            DummyPebbleModel::InBedCell => 0.0,
+        };
+        let bed_conductivity = RegionMaterial::PebbleBed.conductivity_model(&options.solid.materials)?;
         let mut me = Self {
             solid,
             network,
@@ -396,13 +515,17 @@ impl Htr10RzTransientCore {
             bed_capacity,
             fuel_pebbles_per_m3: x * PACKING / v_peb,
             phi,
+            dummy: vec![f64::NAN; n],
+            phi_d,
+            dummies_per_m3: (1.0 - x) * PACKING / v_peb,
+            bed_conductivity,
             power_w: 0.0,
             time_s: 0.0,
         };
-        if phi > 0.0 {
+        if phi + phi_d > 0.0 {
             let mut factor = vec![1.0; n];
             for &c in &me.heated {
-                factor[c] = 1.0 - phi;
+                factor[c] = 1.0 - phi - phi_d;
             }
             me.solid
                 .field_mut()
@@ -459,6 +582,24 @@ impl Htr10RzTransientCore {
     pub fn fuel_temperature(&self, c: usize) -> Option<ThermodynamicTemperature> {
         let t = self.fuel[c];
         t.is_finite().then(|| ThermodynamicTemperature::new::<kelvin>(t))
+    }
+
+    /// Dummy-pebble node temperature of cell `c` (`None` for an unheated
+    /// cell or with [`DummyPebbleModel::InBedCell`]).
+    #[must_use]
+    pub fn dummy_temperature(&self, c: usize) -> Option<ThermodynamicTemperature> {
+        let t = self.dummy[c];
+        t.is_finite().then(|| ThermodynamicTemperature::new::<kelvin>(t))
+    }
+
+    /// Dummy conductance per m^3 of bed, W/(m^3 K), for dummy temperature
+    /// `t_d`, bed cell temperature `t_cell` and gas exchange `h a_v`
+    /// (W/(m^3 K)) of the cell.
+    fn g_dummy(&self, t_d: f64, t_cell: f64, hv_gas: f64) -> Result<f64, Htr10RzError> {
+        let k_bed = self.bed_conductivity.0.value(t_cell);
+        let v_peb = 4.0 / 3.0 * PI * R_PEBBLE.powi(3);
+        let h_a = hv_gas.max(0.0) * v_peb / PACKING;
+        Ok(self.dummies_per_m3 * dummy_pebble_conductance(tab29_k(t_d)?, k_bed, h_a))
     }
 
     fn t_solid(&self) -> Vec<f64> {
@@ -571,6 +712,13 @@ impl Htr10RzTransientCore {
                 let g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
                 self.gas = Some(g);
                 self.quasi_steady_fuel()?;
+                if self.phi_d > 0.0 {
+                    // No source in a dummy: at steady state it sits at the
+                    // temperature of the bed around it.
+                    for &c in &self.heated {
+                        self.dummy[c] = t_s[c];
+                    }
+                }
                 self.time_s = 0.0;
                 let (si, gi) = last.unwrap_or((0, 0));
                 return Ok(self.report(si, gi));
@@ -610,11 +758,30 @@ impl Htr10RzTransientCore {
                 fuel_coef.push((a, gf, q));
             }
         }
+        let mut dummy_coef = Vec::new();
+        if self.phi_d > 0.0 {
+            for &c in &self.heated {
+                let td = self.dummy[c];
+                let a = self.phi_d * self.bed_capacity.0.value(td) / h;
+                let gd = self.g_dummy(td, t_s[c], g.exchange[c])?;
+                fuel_ex.push((c, gd * a / (a + gd), td));
+                dummy_coef.push((a, gd));
+            }
+        }
         self.set_source(!lagged)?;
         let ex = self.exchange(&g, &fuel_ex);
         self.solid.field_mut().set_cell_exchange(&ex).map_err(|e| Htr10RzError::Solve(e.to_string()))?;
         let rep = self.solid.field_mut().step(dt).map_err(|e| Htr10RzError::Solve(e.to_string()))?;
         self.gas = Some(g);
+        if self.phi_d > 0.0 {
+            let ts = self.t_solid();
+            for (k, &c) in self.heated.iter().enumerate() {
+                let (a, gd) = dummy_coef[k];
+                let t0 = self.dummy[c];
+                let t_lin = (a * t0 + gd * ts[c]) / (a + gd);
+                self.dummy[c] = self.enthalpy_update(t0, t_lin);
+            }
+        }
         if lagged {
             let ts = self.t_solid();
             for (k, &c) in self.heated.iter().enumerate() {
@@ -645,7 +812,26 @@ impl Htr10RzTransientCore {
         Ok(self.report(rep.iterations, gp))
     }
 
-    /// Thermal energy above `reference` in the solid and the fuel nodes.
+    /// The node temperature whose exact enthalpy rise from `t0` equals
+    /// `c(t0) (t_lin - t0)` (the solid field's enthalpy form, so a node
+    /// conserves energy exactly).
+    fn enthalpy_update(&self, t0: f64, t_lin: f64) -> f64 {
+        let m = &self.bed_capacity.0;
+        let dh = m.value(t0) * (t_lin - t0);
+        let mut t = t_lin;
+        for _ in 0..20 {
+            let r = m.integral(t0, t) - dh;
+            let step = r / m.value(t);
+            t -= step;
+            if step.abs() < 1e-10 {
+                break;
+            }
+        }
+        t
+    }
+
+    /// Thermal energy above `reference` in the solid, the fuel nodes and the
+    /// dummy nodes.
     #[must_use]
     pub fn stored_energy(&self, reference: ThermodynamicTemperature) -> Energy {
         let mut e = self.solid.field().thermal_energy(reference).get::<joule>();
@@ -656,6 +842,13 @@ impl Htr10RzTransientCore {
                 e += self.phi * fv.cell_volumes[c] * self.bed_capacity.0.integral(tr, self.fuel[c]);
             }
         }
+        if self.phi_d > 0.0 {
+            let fv = self.solid.field().mesh().mesh();
+            let tr = reference.get::<kelvin>();
+            for &c in &self.heated {
+                e += self.phi_d * fv.cell_volumes[c] * self.bed_capacity.0.integral(tr, self.dummy[c]);
+            }
+        }
         Energy::new::<joule>(e)
     }
 
@@ -664,11 +857,18 @@ impl Htr10RzTransientCore {
     pub fn feedback(&self) -> CoreFeedbackTemperatures {
         let f = self.solid.field();
         let vol = &f.mesh().mesh().cell_volumes;
+        let (gz, gs, gd) = graphite_fractions(self.options.fuel_pebble_fraction);
         let (mut wf, mut wm, mut w) = (0.0, 0.0, 0.0);
         for &c in &self.heated {
             let q = self.unit_source[c] * vol[c];
+            let tc = f.temperature(c).get::<kelvin>();
+            let td = if self.phi_d > 0.0 { self.dummy[c] } else { tc };
+            let tm = match self.options.moderator {
+                ModeratorTemperature::OutsideFuelZones => (gs * tc + gd * td) / (gs + gd),
+                ModeratorTemperature::AllPebbleGraphite => gz * self.fuel[c] + gs * tc + gd * td,
+            };
             wf += q * self.fuel[c];
-            wm += q * f.temperature(c).get::<kelvin>();
+            wm += q * tm;
             w += q;
         }
         let (mut vr, mut v) = (0.0, 0.0);

@@ -616,3 +616,68 @@ coefficient is positive (+7.71 pcm/K). Net ~2 pcm more negative at
   -2.8 K (predicted 5-15 K: a miss, smaller); FPIC outlet -0.52 K
   (predicted < 0.2 K: a miss), RMS 49.4 -> 49.8 K, inside the participants'
   range 22 -> 19 of 22.
+
+## 8. Short-term power and the CRW first peak (gh:#1174): audit and predictions, written before the runs (2026-11-03)
+
+Committed in its own commit before any coupled run with the changes below.
+The code was written and unit-tested first (`transient_tests.rs`: coarse
+21 x 39 cases only); the only numbers seen were the unit tests'.
+
+### 8.1 Audit of the kinetics inputs
+
+| Input | Model | Source | Audit |
+|---|---|---|---|
+| `beta_eff` | 0.00726 | [T1] Sec 2.3.1.1 (re-read 2026-11-03: "Fraction of delayed neutrons: beta = 0.726 %"), [J09] Tab 3, [C09] Tab 1, [H06] Sec 2.1 | agrees with every source |
+| `Lambda` | 1.68e-3 s | [T1] Sec 2.3.1.1 ("Prompt generation time"); the TAC-NC entry of [T1] Sec 2.3.2.5 uses the same as "prompt lifetime" | agrees; [H06]'s 1.68e-4 s is `KIN-LAMBDA-H06` |
+| six delayed groups | Keepin U-235 thermal, rescaled to `beta_eff` | none: [T1] and the participants say "six groups" and print none | a named assumption (kinetics.rs); U-235 thermal is the physical choice for 17 % UO2 in a graphite spectrum |
+| `alpha_f / alpha_m / alpha_r` | -2.13 / -16.2 / +7.71 pcm/K | [T1] Sec 2.3.1.1, [J09] Tab 3 | agrees; the [G02] and [H06] sets are sensitivities (Sec 3.3), never picked for fit |
+| zone weighting | power-weighted over the heated cells | [T1] Sec 2.1.1.6: "subdivided into all core zones according to their power fraction" | as specified |
+| what **fuel** reads | fuel-zone node (volume mean of the 5 cm fuel zone) | [T1] Sec 2.1.1.6: "1 degC variation of fuel temperature within the whole core" | consistent (TRISO kernels sit at the local matrix temperature to ~1 K) |
+| what **moderator** reads | ~~the bed cell: pebble graphite **outside** the fuel zones (shells and dummies at one temperature)~~ | [T1] Sec 2.1.1.6: "similar to" the fuel's; no further definition | **gap found**: the fuel zones' matrix is a third of the pebble graphite of the mixed zone (`w_f = x (2.5/3)^3 = 0.330`) and was left out; and the dummies (`w_d = 0.430`) were held at the shells' temperature |
+
+### 8.2 Changes (code written; defaults chosen on physics before any run)
+
+- **`ModeratorTemperature::AllPebbleGraphite` (default):** the moderator
+  coefficient reads the volume mean of all pebble graphite of a heated
+  cell, `0.330 T_f + 0.240 T_shell + 0.430 T_dummy`, power-weighted across
+  cells. The moderator is the graphite, so all of it; which graphite [T1]'s
+  coefficient means is not stated (Assumed; it is VSOP's fuel/moderator
+  split). `MOD-OUTSIDE-FZ` keeps the part B reading.
+- **`DummyPebbleModel::Lagged` (default):** a dummy node per heated cell
+  (transient.rs module docs item 4): capacity `1 - x = 0.430` of the bed's,
+  conductance per dummy `1/(1/(20 pi k R) + 1/(2 pi D k_bed + h A))`.
+  Hand time constant: capacity ~317 J/K, `k_bed ~ 7-9 W/(m K)` at
+  550-600 degC -> `2 pi D k_bed ~ 3 W/K`, gas film `h A ~ 3.9 W/K` at the
+  3 MW flow: **~45 s** while the loop runs, **~100 s** stagnant. The unit
+  test (coarse mesh, hottest cell, 2x power for 10 s): fuel zone +9.9 K,
+  shells +5.7 K, dummy +0.47 K. `DUMMY-IN-CELL` is the ablation.
+
+### 8.3 Predictions (each before measuring; base = RZ-BASE / CRW-BASE after gh:#1173)
+
+**An energy argument settles most of the dummy-lag hypothesis before any
+run.** With the all-graphite reading the moderator temperature of a cell
+is (to the heat capacities' small temperature dependence) the energy
+stored in its pebble graphite over its capacity: how that energy is
+shared between fuel zones, shells and dummies does not move it. So the
+dummy lag can only act through the fuel coefficient (`T_f` leads more
+when the dummies lag: a slightly *faster* fall) and through the gas. **It
+would slow the fall only under the part B reading**, which leaves out the
+fuel zones: there the dummies are 0.43/0.67 of what the coefficient sees.
+
+| Case | One change | LOFC P(100 s) (now 0.162, measured 0.204) | LOFC re-criticality | CRW first peak (now ~158 % @ 23 s) |
+|---|---|---|---|---|
+| KIN-LAMBDA-H06 | `Lambda` 1.68e-4 s | < 0.5 % change (prompt jump: `|rho| < beta` throughout) | < 20 s | < 1 point |
+| KIN-DN-TEHO | `teh-o-prke`'s U-235 groups | within +-3 % | < 100 s | < 3 points |
+| KIN-DN-1G | one group, same mean life | **lower** by 10-40 % (no 80 s tail) | < 300 s | +-10 points |
+| MOD-ALLGRAPHITE only (dummies in the cell) | the moderator reading | **higher by 3-12 %** (0.167-0.182): at power the fuel zones run ~7 K (power-weighted, Sec 3.1) above the shells; as the power falls that excess goes into the cell, which the part B reading counts as a moderator rise and the all-graphite reading does not (`0.33 x 0.84 x 6.6 K ~ 1.8 K`, ~+30 pcm at 100 s) | within +-150 s | **lower by 3-10 %** and <= 1 s earlier (the same excess grows with the power: ~-20 pcm at the peak) |
+| DUMMY-LAG with MOD-ALLGRAPHITE (the new base) vs MOD-ALLGRAPHITE alone | the dummy node | within +-3 % (energy argument) | within +-150 s | within +-3 points |
+| DUMMY-LAG with MOD-OUTSIDE-FZ (the hypothesis of Sec 3.4 as stated) | the dummy node, part B reading | **higher by 10-30 %** | within +-300 s | **higher by 10-30 points, 2-8 s later** |
+
+**Net prediction for the new base** (both defaults): LOFC P(100 s)
+0.167-0.182 (still below 0.204), 1 % time 5-20 s later (288 -> 293-308 s);
+CRW first peak 140-155 % at 21-24 s (further from 216/241 %, not closer);
+re-criticality and late power within +-150 s and +-5 kW. **So the
+physically consistent changes are predicted to move the LOFC the right
+way and the CRW peak the wrong way, and to close neither.** If the
+measured short-term power is an ex-core detector signal (Sec 3.4 (d)),
+none of this is testable against it.

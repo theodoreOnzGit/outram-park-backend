@@ -531,6 +531,92 @@ fn rz_lofc_sensitivity_cases() {
     }
 }
 
+/// **V&V: the short-term power and the CRW first peak (gh:#1174).** The
+/// kinetics-input audit cases and the feedback-temperature cases, on the
+/// LOFC and the CRW, one change each from the base (the two-temperature
+/// bed and the all-graphite moderator reading are the defaults since
+/// gh:#1174):
+///
+/// - `DUMMY-IN-CELL`: no dummy-pebble node (all-graphite moderator kept);
+/// - `MOD-OUTSIDE-FZ`: the part B moderator reading (dummy node kept): the
+///   dummy-lag hypothesis of README Sec 3.4 as stated;
+/// - `PARTB`: both, i.e. the gh:#1151 part B core (with gh:#1173's cavity
+///   convection);
+/// - `KIN-LAMBDA-H06`, `KIN-DN-TEHO`, `KIN-DN-1G`: the kinetics inputs.
+///
+/// Prints the relative fission power at 20, 50, 100 and 200 s (measured
+/// LOFC 0.905 / 0.496 / 0.204 / 0.047, [C09] Fig 6 digitised) and the CRW
+/// first peak (216 % at 35 s [H06] / 241 % at 30 s [J09]). Predictions
+/// (written and committed before this ran) and results: README Sec 8.
+#[cfg(feature = "long-tests")]
+#[test]
+fn rz_short_term_feedback_cases() {
+    type Edit = fn(LofcCase) -> LofcCase;
+    let edits: [(&str, Edit); 7] = [
+        ("BASE", |c| c),
+        ("DUMMY-IN-CELL", |c| c.with_rz_options(|o| o.without_dummy_pebble_lag())),
+        ("MOD-OUTSIDE-FZ", |c| c.with_rz_options(|o| o.with_moderator_outside_fuel_zones())),
+        ("PARTB", |c| c.with_rz_options(|o| o.without_dummy_pebble_lag().with_moderator_outside_fuel_zones())),
+        ("KIN-LAMBDA-H06", |mut c| {
+            c.kinetics.generation_time = Time::new::<second>(1.68e-4);
+            c
+        }),
+        ("KIN-DN-TEHO", |mut c| {
+            c.kinetics.delayed_set = DelayedNeutronSet::TehOPrkeU235;
+            c
+        }),
+        ("KIN-DN-1G", |mut c| {
+            c.kinetics.delayed_set = DelayedNeutronSet::OneGroupKeepin;
+            c
+        }),
+    ];
+    println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    for (test, base) in [("LOFC", LofcCase::rz_base().unwrap()), ("CRW", LofcCase::crw_base().unwrap())] {
+        for (name, edit) in edits {
+            let case = edit(base.clone()).named(&format!("{test}-{name}"));
+            let started = std::time::Instant::now();
+            let trace = match run_lofc(&case) {
+                Ok((_, t)) => t,
+                Err(e) => {
+                    println!("| {} | FAILED: {e} |", case.name);
+                    continue;
+                }
+            };
+            summarise_lofc(&case.name, &trace);
+            let p0 = trace[0].fission_power_w;
+            let rel = |t: f64| trace.iter().find(|x| x.time_s >= t - 1e-6).map_or(f64::NAN, |x| x.fission_power_w / p0);
+            let x100 = trace.iter().find(|x| x.time_s >= 100.0 - 1e-6).unwrap();
+            println!(
+                "  {}: P/P0 at 20 / 50 / 100 / 200 s = {:.4} / {:.4} / {:.4} / {:.4}; at 100 s rho fuel {:+.1}, moderator {:+.1}, reflector {:+.1} pcm, fuel {:.2} C, moderator {:.2} C",
+                case.name,
+                rel(20.0),
+                rel(50.0),
+                rel(100.0),
+                rel(200.0),
+                x100.reactivity.fuel * 1e5,
+                x100.reactivity.moderator * 1e5,
+                x100.reactivity.reflector * 1e5,
+                x100.fuel_k - 273.15,
+                x100.moderator_k - 273.15
+            );
+            if test == "CRW" {
+                let m = crw_metrics(&trace);
+                println!(
+                    "  {} CRW: first peak {:.1} % @ {:.0} s; P/P0 at 30 / 35 s {:.3} / {:.3}; decay level {}; re-criticality {}",
+                    case.name,
+                    100.0 * m.first_peak.0,
+                    m.first_peak.1,
+                    rel(30.0),
+                    rel(35.0),
+                    m.decay_level_s.map_or("none".into(), |t| format!("{t:.0} s")),
+                    m.recriticality_s.map_or("none".into(), |t| format!("{t:.0} s"))
+                );
+            }
+            println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
+        }
+    }
+}
+
 /// Probes on the RPV side wall (`r = 216 cm`, the outer half of the 8 cm
 /// wall) at three heights, for the cavity-convection record (gh:#1173).
 fn rpv_wall_probes() -> Vec<outram_foam_appbuilder_lib::htr10_rz::Thermocouple> {
