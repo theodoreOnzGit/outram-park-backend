@@ -443,3 +443,24 @@ fn finest_mesh_gas_alone_at_fixed_solid() {
         }
     }
 }
+
+/// gh:#1176: the 2x-refined 20 cm mesh through the LOFC's first seconds:
+/// the steady state (gas consistent in its density), 12 s of linear
+/// coastdown, then the loop stopped at 300 kW, 1 s steps with the lagged
+/// gas of a step. Every step must succeed, and the steady gas must be
+/// consistent to 1e-4 K.
+#[cfg(feature = "long-tests")]
+#[test]
+fn steady_and_steps_on_the_2x_mesh() {
+    let o = TransientCoreOptions::htr10_lofc().with_refinement(2, 2);
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    core.solve_steady(&as_run(3.315e6, 1.457)).unwrap();
+    let (n, r) = core.gas().unwrap().density_iterations;
+    println!("steady: {} outer passes; final gas density iterations {n}, residual {r:.2e} K", core.steady_history().len());
+    assert!(r < 1e-4);
+    for i in 0..20 {
+        let flow = if i < 12 { 1.457 * (1.0 - i as f64 / 12.0) } else { 0.0 };
+        core.step(Time::new::<second>(1.0), &as_run(3.0e5, flow))
+            .unwrap_or_else(|e| panic!("step {i} (flow {flow:.3} kg/s): {e}"));
+    }
+}

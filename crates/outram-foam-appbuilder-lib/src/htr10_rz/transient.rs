@@ -27,13 +27,18 @@
 //!    circulation only as low-resistance connections. The 1-D inlet chain
 //!    (annulus, risers, top plenum) carries only the loop flow, so **no
 //!    riser loop** exists here; see the V&V README for its size.
-//!    ~~The flow sees the gas densities of the previous solve.~~
-//!    **CHANGED 2026-11-03 (gh:#1176):** the gas is solved consistently in
-//!    its own density ([`super::flow::solve_gas_consistent`], Aitken-relaxed
-//!    to 1e-4 K), at every step and in the steady state. The lagged form
-//!    oscillated (50-100 K step to step) at the axis cells of the discharge
-//!    tube once the mesh resolved them radially (the 4x-refined 20 cm mesh),
-//!    so neither the steady state nor the transient settled there.
+//!    **The steady state (gh:#1176, 2026-11-03)** solves the gas
+//!    consistently in its own density
+//!    ([`super::flow::solve_gas_consistent`], Aitken-relaxed to 1e-4 K):
+//!    with the densities lagged one outer pass the steady iteration
+//!    wandered at 3-9 K from the axis cells of the discharge tube on the
+//!    4x-refined 20 cm mesh and never converged. **A step keeps the lagged
+//!    densities** (explicit in the gas, as THERMIX): a consistent solve per
+//!    step was tried and needed 15-87 evaluations per step, and failed to
+//!    converge at the last forced-flow step of the coastdown on the 2x mesh
+//!    (2026-11-03). Known limitation: on the 4x mesh at a constant state
+//!    the tube's axis gas alternates by 50-120 K from step to step (V&V
+//!    README Sec 10).
 //! 2. **Solid** (`SolidConductionField::step`): backward Euler with
 //!    Picard on `lambda(T)`, `rho c(T)` and radiation; the gas exchange
 //!    `h a_v (T - T_gas)` implicit in `T`.
@@ -107,7 +112,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
-use super::flow::{gas, solve_gas_consistent, BypassSplit, GAS_DENSITY_TOLERANCE_K, GasNetwork, GasState, OperatingPoint, GRAVITY};
+use super::flow::{gas, solve_gas, solve_gas_consistent, BypassSplit, GAS_DENSITY_TOLERANCE_K, GasNetwork, GasState, OperatingPoint, GRAVITY};
 use super::fpic::{reading_at, Thermocouple, ThermocoupleReading};
 use super::geometry::idx;
 use super::pebble::tab29_k;
@@ -826,7 +831,9 @@ impl Htr10RzTransientCore {
         }
         self.power_w = p;
         let t_s = self.t_solid();
-        let g = solve_gas_consistent(&self.network, op, &t_s, self.gas.as_ref(), GAS_DENSITY_TOLERANCE_K)?;
+        // Explicit in the gas, densities lagged one step (THERMIX's
+        // coupling; gh:#1176 kept it: see the module docs, step 1).
+        let g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
         let gp = g.flow_picard.0;
         let lagged = self.phi > 0.0;
         let mut fuel_ex = Vec::new();

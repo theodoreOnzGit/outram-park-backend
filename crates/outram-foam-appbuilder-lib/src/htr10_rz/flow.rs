@@ -947,6 +947,10 @@ pub struct GasState {
     /// Picard passes of the last flow solve and its last relative change of
     /// the cell resistances (`resistance_change`, gh:#1175).
     pub flow_picard: (usize, f64),
+    /// Evaluations of [`solve_gas`] in the last [`solve_gas_consistent`]
+    /// and its last density residual, K (`(1, NaN)` for a plain
+    /// [`solve_gas`]).
+    pub density_iterations: (usize, f64),
     /// Pressure drop inlet-of-bed-stream to outlet, Pa (mean over the
     /// region-18 inflow cells).
     pub core_pressure_drop: f64,
@@ -1008,7 +1012,8 @@ pub fn solve_gas_consistent(
     let mut r_old: Option<Vec<f64>> = None;
     let mut w = 1.0;
     let mut last = f64::INFINITY;
-    for _ in 0..200 {
+    let mut history: Vec<(f64, f64)> = Vec::new();
+    for k in 1..=200 {
         let r: Vec<f64> = state
             .temperature
             .iter()
@@ -1016,7 +1021,9 @@ pub fn solve_gas_consistent(
             .map(|(e, xi)| if e.is_finite() { e - xi } else { 0.0 })
             .collect();
         last = r.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+        history.push((last, w));
         if last < tol_k {
+            state.density_iterations = (k, last);
             return Ok(state);
         }
         if let Some(ro) = &r_old {
@@ -1043,7 +1050,8 @@ pub fn solve_gas_consistent(
         state = solve_gas(net, op, t_solid, Some(&seed))?;
     }
     Err(Htr10RzError::Solve(format!(
-        "gas density iteration did not converge in 200 evaluations (last change {last:e} K)"
+        "gas density iteration did not converge in 200 evaluations (last change {last:e} K; residual, relaxation of the last 12: {:?})",
+        &history[history.len().saturating_sub(12)..]
     )))
 }
 
@@ -1424,6 +1432,7 @@ pub fn solve_gas(
         heat_to_gas,
         enthalpy_rise: w * HELIUM_CP * (t_out - t_in),
         flow_picard: picard,
+        density_iterations: (1, f64::NAN),
         core_pressure_drop: p_bed_in.1 / p_bed_in.0,
         tap_temperatures: taps,
         outlet_mass_flow: mo,
