@@ -55,6 +55,13 @@ approx.workspace = true
 # 20/40/80 meshes in-process from a blockMeshDict string rather than shipping
 # three more polyMesh directories. Dev-only: no library code depends on it.
 outram-foam-mesh.workspace = true
+# PNG writer, 5x7 bitmap font and legend framing (`csg::plot::{image,
+# annotate}`) for the drawings of the solid-conduction R-Z region map and mesh
+# (gh:#1149; the "geometry is DRAWN" HARD RULE). Dev-only, ADDED 2026-11-03.
+# Workspace entry has default-features = false, so no wgpu: the crate then
+# pulls thiserror, petir and miniz_oxide only (pure Rust, Android/wasm-clean).
+# No cycle: outram-blender does not depend on this crate, even optionally.
+outram-blender.workspace = true
 
 [lib]
 name = "outram_foam_appbuilder_lib"
