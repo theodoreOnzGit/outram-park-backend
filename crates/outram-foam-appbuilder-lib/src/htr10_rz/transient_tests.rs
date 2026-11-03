@@ -464,3 +464,49 @@ fn steady_and_steps_on_the_2x_mesh() {
             .unwrap_or_else(|e| panic!("step {i} (flow {flow:.3} kg/s): {e}"));
     }
 }
+
+/// gh:#1176, mechanism test: the gas energy is upwind and each cell's gas
+/// is well mixed at its **outlet** temperature, so in forced flow a bed
+/// cell exchanges with gas that is half a cell's rise hotter than the gas
+/// at its centre, and its solid sits that much too hot. Prints, at the
+/// as-run steady state on the 1x and 2x meshes, the power-weighted half
+/// rise of the gas across a heated cell (outlet minus the cell above it,
+/// over two) and the power-weighted moderator (bed cell) temperature.
+/// **Prediction, written before this ran:** the 1x minus 2x difference of
+/// the half rise is within +-40 % of the 1x minus 2x difference of the
+/// initial moderator reading (9.4 K from `rz_lofc_geometric_mesh_study`).
+#[cfg(feature = "long-tests")]
+#[test]
+fn upwind_half_cell_gas_rise_in_the_bed() {
+    for f in [1, 2] {
+        let o = TransientCoreOptions::htr10_lofc().with_refinement(f, f);
+        let mut core = Htr10RzTransientCore::build(o).unwrap();
+        let rep = core.solve_steady(&as_run(3.315e6, 1.457)).unwrap();
+        let mesh = core.solid().field().mesh().clone();
+        let nr = mesh.r_edges().n_cells();
+        let g = core.gas().unwrap();
+        let vol = &mesh.mesh().cell_volumes;
+        let (mut wq, mut half, mut ts) = (0.0, 0.0, 0.0);
+        for &c in core.heated_cells() {
+            if c < nr {
+                continue;
+            }
+            let above = c - nr;
+            let (tg, tu) = (g.temperature[c], g.temperature[above]);
+            if !(tg.is_finite() && tu.is_finite()) {
+                continue;
+            }
+            let q = core.cell_power_density(c).value * vol[c];
+            wq += q;
+            half += q * 0.5 * (tg - tu);
+            ts += q * core.solid().field().temperature(c).get::<kelvin>();
+        }
+        println!(
+            "{f}x: {} cells; power-weighted half rise of the gas per heated cell {:.2} K; power-weighted bed cell {:.2} C; moderator reading {:.2} C",
+            mesh.n_cells(),
+            half / wq,
+            ts / wq - 273.15,
+            rep.feedback.moderator.get::<kelvin>() - 273.15
+        );
+    }
+}
