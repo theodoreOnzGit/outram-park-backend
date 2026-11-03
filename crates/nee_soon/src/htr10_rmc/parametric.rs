@@ -46,7 +46,8 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::keff::KeffResult;
 use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
-use uom::si::f64::Length;
+use uom::si::f64::{Length, ThermodynamicTemperature};
+use uom::si::thermodynamic_temperature::kelvin;
 
 use super::control_rod::N_CONTROL_RODS;
 use super::core_design::Htr10CoreDesign;
@@ -62,7 +63,10 @@ use super::keff_vs_height::{
     fissile_entropy_mesh, fissile_source_box, majorant_energy_grid, SweepStatistics,
 };
 use super::materials::Htr10MaterialConfig;
-use super::zones::{set_cell_temperatures, split_by_temperature, zoned_material_set, ZoneTemperatures};
+use super::zones::{
+    max_temperature, min_temperature, set_cell_temperatures, split_by_temperature, zoned_material_set, Htr10Zone,
+    ZoneTemperatures,
+};
 
 /// Rings of the bed tiling the recorded runs use.
 pub const RECORD_RINGS: usize = 14;
@@ -261,8 +265,40 @@ impl ParametricStudy {
     /// # Errors
     /// The nuclide plan refuses the data configuration.
     pub fn plan(&self) -> Result<StudyPlan, Htr10DataError> {
+        self.plan_with_slot_temperatures(&[])
+    }
+
+    /// **The plan with some material slots off their zone's temperature**
+    /// (gh:#1174): as [`Self::plan`], then each `(slot, T)` of `slots` sets
+    /// that slot's material temperature, so its nuclides are processed, its
+    /// bound laws generated and its cells placed at `T`. This is how a part
+    /// of a zone is perturbed alone, e.g. the fuel pebbles' graphite
+    /// ([`mat::GRAPHITE`]: the fuel-zone matrix and the shell) without their
+    /// kernels and coatings, for the moderator-coefficient split of
+    /// [`graphite_worth_cases`]. With `slots` empty it is [`Self::plan`].
+    ///
+    /// # Errors
+    /// As [`Self::plan`]; [`Htr10DataError::InvalidConfig`] for a slot of
+    /// no zoned material or a temperature outside the zones' range.
+    pub fn plan_with_slot_temperatures(
+        &self,
+        slots: &[(usize, ThermodynamicTemperature)],
+    ) -> Result<StudyPlan, Htr10DataError> {
         let layout = Htr10NuclideLayout::plan(&self.data)?;
         let mut materials = zoned_material_set(&layout, self.materials, &self.temperatures);
+        let (lo, hi) = (min_temperature().get::<kelvin>(), max_temperature().get::<kelvin>());
+        for (slot, t) in slots {
+            let tk = t.get::<kelvin>();
+            if !(lo..=hi).contains(&tk) {
+                return Err(Htr10DataError::InvalidConfig(format!(
+                    "slot {slot}: {tk} K is outside {lo}-{hi} K"
+                )));
+            }
+            materials
+                .get_mut(*slot)
+                .ok_or_else(|| Htr10DataError::InvalidConfig(format!("no zoned material slot {slot}")))?
+                .temperature = tk;
+        }
         let entries = split_by_temperature(&mut materials, layout.len());
         let jobs = layout.tempered_jobs(&entries);
         Ok(StudyPlan {
@@ -454,6 +490,51 @@ impl ParametricStudy {
     }
 }
 
+/// One case of the graphite-zone worth measurement (gh:#1174).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GraphiteWorthCase {
+    /// Short name (`BASE`, `FUEL-GRAPHITE`, ...).
+    pub name: &'static str,
+    /// The zone temperatures.
+    pub temperatures: ZoneTemperatures,
+    /// Slots moved off their zone's temperature
+    /// ([`ParametricStudy::plan_with_slot_temperatures`]).
+    pub slots: Vec<(usize, ThermodynamicTemperature)>,
+}
+
+/// **The cases that split the graphite temperature worth by zone**
+/// (gh:#1174): every zone at `base`, then one part at `base + delta_k` at a
+/// time:
+///
+/// - `FUEL-GRAPHITE`: the fuel pebbles' graphite ([`mat::GRAPHITE`]: the
+///   fuel-zone matrix and the shell), kernels and coatings kept at `base`;
+/// - `DUMMIES`: the moderator (dummy) pebbles;
+/// - `TOP`, `SIDE`, `BOTTOM`: the three reflector zones;
+/// - `KERNEL`: the rest of the fuel-pebble zone (kernel and the four
+///   coatings), the fuel coefficient's own part, as a check against
+///   TECDOC-1694's fuel coefficient.
+///
+/// The reactivity worth of each part is `1/k_base - 1/k_case`.
+#[must_use]
+pub fn graphite_worth_cases(base: ThermodynamicTemperature, delta_k: f64) -> Vec<GraphiteWorthCase> {
+    let hot = ThermodynamicTemperature::new::<kelvin>(base.get::<kelvin>() + delta_k);
+    let uniform = ZoneTemperatures::uniform(base);
+    let zone = |name, z| GraphiteWorthCase { name, temperatures: uniform.with(z, hot), slots: vec![] };
+    vec![
+        GraphiteWorthCase { name: "BASE", temperatures: uniform, slots: vec![] },
+        GraphiteWorthCase { name: "FUEL-GRAPHITE", temperatures: uniform, slots: vec![(mat::GRAPHITE, hot)] },
+        zone("DUMMIES", Htr10Zone::ModeratorPebble),
+        zone("TOP", Htr10Zone::TopReflector),
+        zone("SIDE", Htr10Zone::SideReflector),
+        zone("BOTTOM", Htr10Zone::BottomReflector),
+        GraphiteWorthCase {
+            name: "KERNEL",
+            temperatures: uniform.with(Htr10Zone::FuelPebble, hot),
+            slots: vec![(mat::GRAPHITE, base)],
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -547,6 +628,58 @@ mod tests {
         let ratio = he(&base.materials[mat::HELIUM]) / he(&plan.materials[mat::HELIUM]);
         let tk = study.temperatures.get(Htr10Zone::Coolant).get::<kelvin>();
         assert!((ratio - tk / 300.15).abs() < 1e-12, "{ratio}");
+    }
+
+    /// gh:#1174: a slot moved off its zone's temperature carries its own
+    /// temperature into the materials, the nuclide entries, the jobs and
+    /// the cells; nothing else moves. The worth cases perturb one part each.
+    #[test]
+    fn a_slot_off_its_zone_temperature_moves_only_that_slot() {
+        let k = |x: f64| ThermodynamicTemperature::new::<kelvin>(x);
+        let study = ParametricStudy { bed: StudyBed::Seker { layers: 10 }, ..ParametricStudy::default() };
+        let base = study.plan().expect("plan");
+        let plan = study.plan_with_slot_temperatures(&[(mat::GRAPHITE, k(900.0))]).expect("plan");
+        for (slot, (a, b)) in plan.materials.iter().zip(&base.materials).enumerate() {
+            let want = if slot == mat::GRAPHITE { 900.0 } else { 300.15 };
+            assert_eq!(a.temperature, want, "slot {slot}");
+            assert_eq!(b.temperature, 300.15);
+        }
+        assert!(plan.entries.len() > base.entries.len());
+        assert!(plan.jobs.iter().any(|j| j.kelvin() == 900.0));
+        let core = study.core(&plan).expect("core");
+        let mut moved = 0;
+        for c in &core.geometry.cells {
+            if let CellFill::Material(x) = c.fill {
+                let want = if x == mat::GRAPHITE { 900.0 } else { 300.15 };
+                assert_eq!(c.temperature, want, "cell {}", c.id);
+                moved += usize::from(x == mat::GRAPHITE);
+            }
+        }
+        assert!(moved > 0);
+        assert!(study.plan_with_slot_temperatures(&[(mat::GRAPHITE, k(5000.0))]).is_err());
+        assert!(study.plan_with_slot_temperatures(&[(mat::ZONED_COUNT, k(900.0))]).is_err());
+        let cases = graphite_worth_cases(k(600.0), 400.0);
+        assert_eq!(cases.len(), 7);
+        for c in &cases {
+            let s = ParametricStudy { temperatures: c.temperatures, ..ParametricStudy::default() };
+            let plan = s.plan_with_slot_temperatures(&c.slots).expect("plan");
+            let hot: Vec<usize> =
+                (0..mat::ZONED_COUNT).filter(|x| plan.materials[*x].temperature != 600.0).collect();
+            let expect: Vec<usize> = match c.name {
+                "BASE" => vec![],
+                "FUEL-GRAPHITE" => vec![mat::GRAPHITE],
+                "KERNEL" => vec![mat::KERNEL, mat::BUFFER, mat::IPYC, mat::SIC, mat::OPYC],
+                "DUMMIES" => (0..mat::ZONED_COUNT)
+                    .filter(|x| zone_of_slot(*x) == Htr10Zone::ModeratorPebble)
+                    .collect(),
+                _ => (0..mat::ZONED_COUNT)
+                    .filter(|x| zone_of_slot(*x).key() == c.name.to_lowercase())
+                    .collect(),
+            };
+            assert!(!expect.is_empty() || c.name == "BASE", "{}", c.name);
+            assert_eq!(hot, expect, "{}", c.name);
+            assert!(hot.iter().all(|x| plan.materials[*x].temperature == 1000.0), "{}", c.name);
+        }
     }
 
     /// The command line sets every field, in °C for temperatures, and hands

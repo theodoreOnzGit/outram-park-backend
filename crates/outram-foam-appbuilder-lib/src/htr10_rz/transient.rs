@@ -288,6 +288,15 @@ impl TransientCoreOptions {
         self.solid.max_cell = Some(max_cell);
         self
     }
+
+    /// Split every cell of the mesh uniformly, `radial x axial`
+    /// ([`Htr10RzOptions::refinement`]; the gh:#1176 geometric mesh
+    /// sequence).
+    #[must_use]
+    pub fn with_refinement(mut self, radial: usize, axial: usize) -> Self {
+        self.solid = self.solid.with_refinement(radial, axial);
+        self
+    }
 }
 
 /// Power-weighted fuel and moderator temperatures and the reflector's.
@@ -342,6 +351,24 @@ pub struct CoreStepReport {
     pub gas_picard_iterations: usize,
 }
 
+/// One pass of the steady solid-gas outer iteration
+/// ([`Htr10RzTransientCore::solve_steady`]), kept so a stall can be told
+/// apart from an oscillation or a divergence (gh:#1176).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SteadyOuterPass {
+    /// Largest change of a solid cell temperature over the pass, K.
+    pub solid_change_k: f64,
+    /// Largest change of a gas cell temperature over the pass, K
+    /// (infinite on the first pass).
+    pub gas_change_k: f64,
+    /// The cell that set the larger of the two.
+    pub worst_cell: usize,
+    /// Picard passes of the solid solve.
+    pub solid_picard: usize,
+    /// Picard passes of the gas flow solve.
+    pub gas_picard: usize,
+}
+
 /// The transient HTR-10 R-Z core.
 #[derive(Debug, Clone)]
 pub struct Htr10RzTransientCore {
@@ -371,6 +398,8 @@ pub struct Htr10RzTransientCore {
     bed_conductivity: ConductivityModel,
     power_w: f64,
     time_s: f64,
+    /// Passes of the last steady outer iteration.
+    steady_history: Vec<SteadyOuterPass>,
 }
 
 fn hv(v: f64) -> VolumetricHeatTransferCoefficient {
@@ -521,6 +550,7 @@ impl Htr10RzTransientCore {
             bed_conductivity,
             power_w: 0.0,
             time_s: 0.0,
+            steady_history: Vec::new(),
         };
         if phi + phi_d > 0.0 {
             let mut factor = vec![1.0; n];
@@ -539,6 +569,12 @@ impl Htr10RzTransientCore {
     #[must_use]
     pub fn solid(&self) -> &Htr10RzModel {
         &self.solid
+    }
+
+    /// The passes of the last steady outer iteration (gh:#1176).
+    #[must_use]
+    pub fn steady_history(&self) -> &[SteadyOuterPass] {
+        &self.steady_history
     }
 
     /// The gas network.
@@ -672,6 +708,19 @@ impl Htr10RzTransientCore {
     /// [`Htr10RzError::Solve`] if a sub-solve fails or 400 passes do not
     /// converge; [`Htr10RzError::Input`] for a non-positive power.
     pub fn solve_steady(&mut self, op: &OperatingPoint) -> Result<CoreStepReport, Htr10RzError> {
+        self.solve_steady_with_progress(op, |_| {})
+    }
+
+    /// [`Self::solve_steady`], calling `progress` after every outer pass
+    /// (gh:#1176: to watch a slow or stalling outer iteration live).
+    ///
+    /// # Errors
+    /// As [`Self::solve_steady`].
+    pub fn solve_steady_with_progress(
+        &mut self,
+        op: &OperatingPoint,
+        mut progress: impl FnMut(&SteadyOuterPass),
+    ) -> Result<CoreStepReport, Htr10RzError> {
         let p = op.power.get::<watt>();
         if !(p > 0.0) || !p.is_finite() {
             return Err(Htr10RzError::Input("steady power must be positive".into()));
@@ -680,6 +729,7 @@ impl Htr10RzTransientCore {
         self.set_source(true)?;
         let mut t_s = self.t_solid();
         let mut last = None;
+        self.steady_history.clear();
         for _ in 0..400 {
             let mut g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
             if let Some(old) = &self.gas {
@@ -693,19 +743,38 @@ impl Htr10RzTransientCore {
             self.solid.field_mut().set_cell_exchange(&ex).map_err(|e| Htr10RzError::Solve(e.to_string()))?;
             let rep = self.solid.field_mut().solve_steady().map_err(|e| Htr10RzError::Solve(e.to_string()))?;
             let t_new = self.t_solid();
-            let mut change: f64 = t_new.iter().zip(&t_s).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+            let (mut solid_change, mut worst) = (0.0_f64, 0usize);
+            for (c, (a, b)) in t_new.iter().zip(&t_s).enumerate() {
+                if (a - b).abs() > solid_change {
+                    (solid_change, worst) = ((a - b).abs(), c);
+                }
+            }
+            let mut gas_change = 0.0_f64;
+            let mut gas_worst = 0usize;
             match &self.gas {
                 Some(old) => {
-                    for (a, b) in g.temperature.iter().zip(&old.temperature) {
-                        if a.is_finite() && b.is_finite() {
-                            change = change.max((a - b).abs());
+                    for (c, (a, b)) in g.temperature.iter().zip(&old.temperature).enumerate() {
+                        if a.is_finite() && b.is_finite() && (a - b).abs() > gas_change {
+                            (gas_change, gas_worst) = ((a - b).abs(), c);
                         }
                     }
                 }
-                None => change = f64::INFINITY,
+                None => gas_change = f64::INFINITY,
+            }
+            let change = solid_change.max(gas_change);
+            if gas_change > solid_change {
+                worst = gas_worst;
             }
             t_s = t_new;
             let gp = g.flow_picard.0;
+            self.steady_history.push(SteadyOuterPass {
+                solid_change_k: solid_change,
+                gas_change_k: gas_change,
+                worst_cell: worst,
+                solid_picard: rep.iterations,
+                gas_picard: gp,
+            });
+            progress(self.steady_history.last().expect("just pushed"));
             self.gas = Some(g);
             last = Some((rep.iterations, gp));
             if change < self.options.steady_tolerance_k {

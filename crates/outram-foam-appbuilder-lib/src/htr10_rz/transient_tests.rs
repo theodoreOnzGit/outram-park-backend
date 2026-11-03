@@ -304,3 +304,93 @@ fn moderator_readings_at_steady_state() {
     );
     assert!((m[0].1 - (m[1].1 + wf * (m[1].0 - m[1].1))).abs() < 1e-6);
 }
+
+/// gh:#1176: the steady solid-gas outer iteration at the as-run 3.3 MW
+/// state on the finest mesh of the geometric sequence. Prints the pass
+/// history (solid and gas temperature change, the cell that set it, the
+/// sub-solves' passes) so a stall, an oscillation and a divergence can be
+/// told apart.
+#[cfg(feature = "long-tests")]
+#[test]
+fn steady_outer_iteration_on_the_finest_mesh() {
+    let o = TransientCoreOptions::htr10_lofc().with_refinement(4, 4);
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    let n = core.solid().field().mesh().n_cells();
+    let mesh = core.solid().field().mesh().clone();
+    let started = std::time::Instant::now();
+    let mut i = 0;
+    let res = core.solve_steady_with_progress(&as_run(3.315e6, 1.457), |p| {
+        let (r, z) = mesh.cell_centre(p.worst_cell);
+        println!(
+            "pass {i}: solid {:.3e} K, gas {:.3e} K, worst cell {} (r {:.1} z {:.1} cm, region {}), solid {} / gas {} passes, {:.0} s",
+            p.solid_change_k,
+            p.gas_change_k,
+            p.worst_cell,
+            r.get::<uom::si::length::centimeter>(),
+            z.get::<uom::si::length::centimeter>(),
+            mesh.cell_region(p.worst_cell),
+            p.solid_picard,
+            p.gas_picard,
+            started.elapsed().as_secs_f64()
+        );
+        i += 1;
+    });
+    let r = res.unwrap_or_else(|e| panic!("{n} cells: {e}"));
+    println!("{n} cells: outlet {:.2} K, passes {}", r.outlet_temperature.get::<kelvin>(), core.steady_history().len());
+}
+
+/// gh:#1176 diagnosis: when the steady outer iteration on the finest mesh
+/// does not converge, march the physical transient at the same constant
+/// operating point from its last iterate (quasi-steady fuel, dummies in the
+/// cell, so no node needs a steady start) and print the largest change of a
+/// solid and a gas temperature per step. If the march settles, a steady
+/// state exists and the block iteration is at fault; if it keeps moving, the
+/// state is unsteady at this resolution.
+#[cfg(feature = "long-tests")]
+#[test]
+fn finest_mesh_march_at_constant_power() {
+    let o = TransientCoreOptions::htr10_lofc()
+        .with_refinement(4, 4)
+        .with_quasi_steady_fuel()
+        .without_dummy_pebble_lag();
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    let op = as_run(3.315e6, 1.457);
+    let res = core.solve_steady(&op);
+    println!("steady: {} after {} passes", if res.is_ok() { "converged" } else { "NOT converged" }, core.steady_history().len());
+    let mesh = core.solid().field().mesh().clone();
+    let solid = |c: &Htr10RzTransientCore| -> Vec<f64> {
+        (0..mesh.n_cells()).map(|i| c.solid().field().temperature(i).get::<kelvin>()).collect()
+    };
+    let started = std::time::Instant::now();
+    for (dt, n) in [(1.0, 60), (10.0, 120), (100.0, 120)] {
+        for k in 0..n {
+            let (ts0, tg0) = (solid(&core), core.gas().unwrap().temperature.clone());
+            core.step(Time::new::<second>(dt), &op).unwrap();
+            let (ts1, tg1) = (solid(&core), &core.gas().unwrap().temperature);
+            let (mut ds, mut cs) = (0.0_f64, 0);
+            for (i, (a, b)) in ts1.iter().zip(&ts0).enumerate() {
+                if (a - b).abs() > ds {
+                    (ds, cs) = ((a - b).abs(), i);
+                }
+            }
+            let (mut dg, mut cg) = (0.0_f64, 0);
+            for (i, (a, b)) in tg1.iter().zip(&tg0).enumerate() {
+                if a.is_finite() && b.is_finite() && (a - b).abs() > dg {
+                    (dg, cg) = ((a - b).abs(), i);
+                }
+            }
+            if k % 10 == 0 || k == n - 1 {
+                let (rs, zs) = mesh.cell_centre(cs);
+                let (rg, zg) = mesh.cell_centre(cg);
+                println!(
+                    "dt {dt} s step {k}: solid {ds:.3e} K/step (r {:.1} z {:.1}), gas {dg:.3e} K/step (r {:.1} z {:.1}), {:.0} s",
+                    rs.get::<uom::si::length::centimeter>(),
+                    zs.get::<uom::si::length::centimeter>(),
+                    rg.get::<uom::si::length::centimeter>(),
+                    zg.get::<uom::si::length::centimeter>(),
+                    started.elapsed().as_secs_f64()
+                );
+            }
+        }
+    }
+}

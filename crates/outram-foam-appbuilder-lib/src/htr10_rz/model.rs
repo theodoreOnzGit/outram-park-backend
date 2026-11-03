@@ -195,6 +195,15 @@ pub struct Htr10RzOptions {
     /// `ceil(length / max_cell)` equal cells. `None` keeps the Fig 2.5 mesh
     /// itself (21 x 39 cells here, THERMIX's own resolution). Default 5 cm.
     pub max_cell: Option<Length>,
+    /// Uniform subdivision `[radial, axial]` applied **after**
+    /// [`Self::max_cell`]: every cell of that mesh is split into
+    /// `refinement[0] x refinement[1]` equal cells (gh:#1176). Unlike a
+    /// smaller `max_cell`, which re-splits each Fig 2.5 interval by
+    /// `ceil(length / max)` and so refines different intervals by different
+    /// ratios, this halves (`[2, 2]`) every cell in both directions, so a
+    /// `[1, 1]`, `[2, 2]`, `[4, 4]` sequence is geometric with ratio 2 and
+    /// every region boundary stays on a face. Default `[1, 1]` (no change).
+    pub refinement: [usize; 2],
 }
 
 impl Default for Htr10RzOptions {
@@ -206,6 +215,7 @@ impl Default for Htr10RzOptions {
             rccs: RccsView::default(),
             cavity_convection: true,
             max_cell: Some(Length::new::<centimeter>(5.0)),
+            refinement: [1, 1],
         }
     }
 }
@@ -216,6 +226,14 @@ impl Htr10RzOptions {
     #[must_use]
     pub fn without_cavity_convection(mut self) -> Self {
         self.cavity_convection = false;
+        self
+    }
+
+    /// Split every cell of the `max_cell` mesh uniformly, `radial x axial`
+    /// (see [`Self::refinement`]; gh:#1176).
+    #[must_use]
+    pub fn with_refinement(mut self, radial: usize, axial: usize) -> Self {
+        self.refinement = [radial, axial];
         self
     }
 
@@ -254,13 +272,16 @@ pub enum Htr10RzCase {
     },
 }
 
-fn axis(lines_cm: &[f64], max_cell: Option<Length>) -> Result<AxisEdges, Htr10RzError> {
+fn axis(lines_cm: &[f64], max_cell: Option<Length>, refinement: usize) -> Result<AxisEdges, Htr10RzError> {
+    if refinement == 0 {
+        return Err(Htr10RzError::Mesh("refinement factor must be at least 1".into()));
+    }
     let h = max_cell.map(|l| l.get::<centimeter>());
     let segs: Vec<(Length, usize)> = lines_cm
         .windows(2)
         .map(|w| {
             let n = h.map_or(1, |h| ((w[1] - w[0]) / h - 1e-9).ceil().max(1.0) as usize);
-            (Length::new::<centimeter>(w[1]), n)
+            (Length::new::<centimeter>(w[1]), n * refinement)
         })
         .collect();
     AxisEdges::segments(Length::new::<centimeter>(lines_cm[0]), &segs)
@@ -279,8 +300,8 @@ pub fn build_mesh(options: &Htr10RzOptions) -> Result<RzMesh, Htr10RzError> {
         RzGeometry::Axisymmetric {
             wedge_angle: Angle::new::<radian>(2.0 * std::f64::consts::PI),
         },
-        axis(&radial_lines_cm(options.vessel), options.max_cell)?,
-        axis(&AXIAL_LINES_CM, options.max_cell)?,
+        axis(&radial_lines_cm(options.vessel), options.max_cell, options.refinement[0])?,
+        axis(&AXIAL_LINES_CM, options.max_cell, options.refinement[1])?,
         N_REGIONS,
         |r, z| region_at_cm(&rects, default_region, r.get::<centimeter>(), z.get::<centimeter>()),
     )
