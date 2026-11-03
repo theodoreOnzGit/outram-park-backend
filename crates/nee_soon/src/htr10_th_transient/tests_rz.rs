@@ -531,6 +531,102 @@ fn rz_lofc_sensitivity_cases() {
     }
 }
 
+/// Probes on the RPV side wall (`r = 216 cm`, the outer half of the 8 cm
+/// wall) at three heights, for the cavity-convection record (gh:#1173).
+fn rpv_wall_probes() -> Vec<outram_foam_appbuilder_lib::htr10_rz::Thermocouple> {
+    let template = c09_thermocouple_positions().into_iter().next().unwrap();
+    [("RPV_z-200", -200.0), ("RPV_z90", 90.0), ("RPV_z400", 400.0)]
+        .into_iter()
+        .map(|(name, z)| {
+            let mut t = template.clone();
+            t.location = name.into();
+            t.r_cm = 216.0;
+            t.z_cm = z;
+            t
+        })
+        .collect()
+}
+
+/// **V&V: RPV-cavity natural convection (gh:#1173).** LOFC and CRW with
+/// the convection (the default since gh:#1173) and the ablation
+/// `CAVITY-NC-OFF` (radiation only, every record before it), on the 20 cm
+/// base mesh and on 10 cm. Prints the usual metrics, the relative fission
+/// power at 100 s, the heat to the RCCS and heads at 1, 2 and 3 h, and the
+/// RPV wall at three heights. Predictions (written and committed before
+/// this ran) and results: README Sec 7.
+#[cfg(feature = "long-tests")]
+#[test]
+fn rz_cavity_convection_cases() {
+    let probes = rpv_wall_probes();
+    let lofc = LofcCase::rz_base().unwrap();
+    let crw = LofcCase::crw_base().unwrap();
+    let off = |c: LofcCase, n: &str| c.with_rz_options(|mut o| { o.solid = o.solid.without_cavity_convection(); o }).named(n);
+    let ten = |c: LofcCase, n: &str| c.with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(10.0))).named(n);
+    let cases = vec![
+        (lofc.clone().named("RZ-BASE"), false),
+        (off(lofc.clone(), "CAVITY-NC-OFF"), false),
+        (ten(lofc.clone(), "RZ-BASE-10CM"), false),
+        (off(ten(lofc, "x"), "CAVITY-NC-OFF-10CM"), false),
+        (crw.clone().named("CRW-BASE"), true),
+        (off(crw, "CRW-CAVITY-NC-OFF"), true),
+    ];
+    println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    for (case, is_crw) in &cases {
+        let started = std::time::Instant::now();
+        let (_, trace, rows) = match run_case(case, &probes, 600.0) {
+            Ok(x) => x,
+            Err(e) => {
+                println!("| {} | FAILED: {e} |", case.name);
+                continue;
+            }
+        };
+        summarise_lofc(&case.name, &trace);
+        let at = |t: f64| trace.iter().find(|x| x.time_s >= t - 1e-6).unwrap();
+        let p0 = trace[0].fission_power_w;
+        if *is_crw {
+            let m = crw_metrics(&trace);
+            println!(
+                "  {} CRW: first peak {:.1} % @ {:.0} s, decay level {}, re-criticality {}, P(7200 s) {:.0} kW",
+                case.name,
+                100.0 * m.first_peak.0,
+                m.first_peak.1,
+                m.decay_level_s.map_or("none".into(), |t| format!("{t:.0} s")),
+                m.recriticality_s.map_or("none".into(), |t| format!("{t:.0} s")),
+                m.power_at_7200_w / 1e3
+            );
+        }
+        println!(
+            "  {}: P(100 s)/P0 {:.4}; RCCS+heads at 0 / 1 / 2 / 3 h: {:.1} / {:.1} / {:.1} / {:.1} kW",
+            case.name,
+            at(100.0).fission_power_w / p0,
+            trace[0].heat_to_rccs_w / 1e3,
+            at(3600.0).heat_to_rccs_w / 1e3,
+            at(7200.0).heat_to_rccs_w / 1e3,
+            at(10_800.0).heat_to_rccs_w / 1e3
+        );
+        for t in [1800.0, 3600.0, 5400.0, 7200.0] {
+            let x = at(t);
+            let r = &x.reactivity;
+            println!(
+                "  {} at {t:.0} s: rho fuel {:+.1} / moderator {:+.1} / reflector {:+.1} / Xe {:+.1} / total {:+.1} pcm; fuel {:.2} C, moderator {:.2} C, reflector {:.2} C",
+                case.name,
+                r.fuel * 1e5,
+                r.moderator * 1e5,
+                r.reflector * 1e5,
+                r.xenon * 1e5,
+                r.total() * 1e5,
+                x.fuel_k - 273.15,
+                x.moderator_k - 273.15,
+                x.reflector_k - 273.15
+            );
+        }
+        for (t, v) in rows.iter().filter(|(t, _)| [0.0, 3600.0, 7200.0, 10_800.0].iter().any(|x| (t - x).abs() < 1e-6)) {
+            println!("  {} RPV wall at {t:.0} s (z -200 / 90 / 400 cm): {:.1} / {:.1} / {:.1} degC", case.name, v[0], v[1], v[2]);
+        }
+        println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
+    }
+}
+
 /// **Mesh study** of `RZ-BASE` (20 cm): 30, 20, 15 and 10 cm cells, the
 /// metrics per mesh and the cell counts (the README's mesh table and its
 /// convergence statement). ~~The 10 cm mesh is in

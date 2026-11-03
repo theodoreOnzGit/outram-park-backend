@@ -424,7 +424,13 @@ reflector rise matches. Plots: `rz_crw_power_short.png`,
    m^2 RPV side at a ~100-150 K difference is **45-90 kW**, more removal ->
    earlier re-criticality and a higher plateau. Needs a combined
    radiation + convection boundary (the field takes one condition per
-   patch). Not tuned, not tested.
+   patch). Not tuned, not tested. **TESTED 2026-11-03 (gh:#1173, Sec 7):**
+   the convection is now in the model (default, derived `h` 1.9-2.5
+   W/(m^2 K)) and adds **~5 kW**, not 45-90 kW (that estimate held the RPV
+   temperature fixed; the in-vessel path limits the sink); re-criticality
+   +15 s, late power +0 to +2 kW. **The hypothesis is ruled out as the
+   cause; the gap stays open.** The largest movement seen is numerical:
+   109 -> 142 kW of late power from 20 to 10 cm cells (Sec 3.3.1).
 2. Short-term fall and CRW peak (3.4): dummy-pebble lag hypothesis untested.
 3. Riser loop and plena buoyancy not represented (3.1).
 4. ~~The 10 cm mesh's gas Picard does not converge (3.3).~~ **RESOLVED
@@ -543,3 +549,70 @@ lever on the late power: 109 kW at 20 cm, 142 kW at 10 cm.
 are re-measured): A-MEAN950 total duty +2 to +5 % (RCCS side more, heads
 less); A-DECAY 200 kW hottest cell 5-15 K cooler; FPIC outlet < 0.2 K and
 thermocouple RMS < 0.5 K (the FPIC heat loss is ~1 % of 10 MW).
+
+### 7.1 Results (2026-11-03, after the predictions above were committed in `cc9e00a09`)
+
+`cargo test --release -p nee_soon --lib htr10_th_transient::tests_rz::rz_cavity_convection_cases -- --nocapture`
+(`rz_cavity_convection_cases`; RPV wall probes at r 216 cm). RZ-BASE and
+CRW-BASE are the cases of Sec 3 with the convection (the new default);
+`CAVITY-NC-OFF` is the old record, reproduced to every digit.
+
+| case | 1 % | P(100 s)/P0 | min rho | rho = 0 | first peak | mean P, last 30 min | RCCS + heads at 0 / 1 / 2 / 3 h | RPV wall z 90 at 3 h |
+|---|---|---|---|---|---|---|---|---|
+| RZ-BASE (20 cm) | 288 s | 0.1621 | -372 pcm @ 3085 s | **7631 s** | 22.4 % @ 8720 s | **109 kW** | 111.2 / 107.5 / 104.5 / **102.3 kW** | 132.2 degC |
+| CAVITY-NC-OFF (20 cm) | 288 s | 0.1622 | -370 pcm @ 3080 s | 7616 s | 22.4 % @ 8705 s | 109 kW | 104.3 / 101.5 / 99.1 / 97.4 kW | 144.5 degC |
+| RZ-BASE-10CM | 287 s | 0.1612 | -451 pcm @ 3715 s | 8211 s | 25.2 % @ 9230 s | 141 kW | 114.4 / 110.2 / 106.7 / 104.2 kW | 132.4 degC |
+| CAVITY-NC-OFF-10CM | 287 s | 0.1613 | -448 pcm @ 3710 s | 8206 s | 25.1 % @ 9225 s | 142 kW | 107.0 / 103.8 / 101.1 / 99.1 kW | 144.7 degC |
+
+| CRW case | first peak | decay level | rho = 0 | P(7200 s) | mean P, last 30 min | RCCS + heads at 3 h |
+|---|---|---|---|---|---|---|
+| CRW-BASE | 158.4 % @ 23 s | 272 s | **6056 s** | 727 kW | **137 kW** | 102.2 kW |
+| CRW-CAVITY-NC-OFF | 158.4 % @ 23 s | 272 s | 6041 s | 694 kW | 135 kW | 97.3 kW |
+
+**Against the predictions:**
+
+| Quantity | Predicted | Measured | Verdict |
+|---|---|---|---|
+| `h` area-mean at 3 h | ~2.3 W/(m^2 K) | not printed per face; the RPV wall is 92 / 132 / 130 degC at z -200 / 90 / 400 cm at 3 h, i.e. `h` 1.9-2.4 W/(m^2 K) by the coefficient (`rpv_cavity_convection_hand_value` prints 2.08 at 100 degC, 2.50 at 150 degC) | consistent |
+| Extra heat removal at 3 h | +3 to +6 kW (band +2 to +10) | **+4.9 kW** (20 cm), +5.1 kW (10 cm), +4.9 kW (CRW) | **met** |
+| RPV wall | 10-20 K cooler | **12.3 K** cooler at z 90 | met |
+| Short term | unchanged | 1 % time and P(100 s) unchanged to 1e-4; CRW first peak unchanged | met |
+| Re-criticality | **earlier** by 50-400 s | **later by 15 s** (LOFC 20 cm and CRW), +5 s (10 cm) | **miss, wrong sign** (the size, ~0, is inside the "small" verdict) |
+| Late power | +2 to +10 kW | 0 kW (LOFC 20 cm), -1 kW (10 cm), +2 kW (CRW) | miss, low |
+| The gap closes? | no | no | met |
+
+**Why the sign was wrong (measured, not argued).** The reactivity
+breakdown, LOFC 20 cm, with against without the convection:
+
+| t | moderator pcm | reflector pcm | total pcm |
+|---|---|---|---|
+| 1800 s | -288.8 / -288.0 | +11.1 / +11.6 | -349.9 / -348.5 |
+| 3600 s | -264.2 / -263.1 | +7.9 / +8.7 | -367.1 / -365.0 |
+| 7200 s | +66.6 / +67.0 | +1.7 / +3.2 | -60.3 / -58.4 |
+
+The feedback is measured from each run's own steady state, and the
+convection lowers that whole state by ~1 K (moderator 592.1 -> 591.2 degC
+at 1800 s, reflector 312.3 -> 311.2 degC). After the trip the bed's own
+cooling is the same to 1 pcm, while the reflectors, which give up most of
+the extra 5 kW, cool ~0.2 K more against their start, and their
+coefficient is positive (+7.71 pcm/K). Net ~2 pcm more negative at
+7200 s, so ~15 s later. The prediction counted only the bed.
+
+**Reading it.**
+- The convection is the specification's physics and is now the default;
+  it moves the duty by the predicted ~5 kW and the RPV wall by 12 K, and
+  it does **not** move the transients: re-criticality +15 s, late power
+  0 to +2 kW. **The ~80 kW heat-sink gap of Sec 4 item 1 is not the cavity
+  air.** The leading hypothesis's 45-90 kW held the RPV temperature fixed;
+  the in-vessel resistance (about 5 K/kW against ~0.9 K/kW outside the
+  RPV) limits the sink.
+- **What does move the late power is the mesh** (Sec 3.3.1: 109 -> 142 kW
+  from 20 to 10 cm), and the bed conductivity (BED-ZBS 164 kW, Sec 3.3).
+  Neither is a free parameter; the mesh is a numerical error to remove,
+  not a lever.
+- The gh:#1149 and gh:#1150 records were re-measured under the new default
+  (their READMEs, CORRECTED 2026-11-03): A-MEAN950 RCCS 102.53 -> 105.07 kW
+  (+2.5 %, total +1.2 %, predicted +2 to +5 %: a miss, low); A-DECAY hottest
+  -2.8 K (predicted 5-15 K: a miss, smaller); FPIC outlet -0.52 K
+  (predicted < 0.2 K: a miss), RMS 49.4 -> 49.8 K, inside the participants'
+  range 22 -> 19 of 22.

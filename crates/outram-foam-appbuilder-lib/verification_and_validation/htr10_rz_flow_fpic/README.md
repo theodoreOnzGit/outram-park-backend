@@ -55,7 +55,28 @@ were written before that run and were not changed after it.
 
 ## Headline
 
-On the 5 cm base mesh, at the benchmark specification (D4), the model gives:
+> **CORRECTED 2026-11-03 (gh:#1173): re-measured with RPV-cavity natural
+> convection, the default since then** (`model.rs`; ablation
+> `without_cavity_convection`). `cargo test --release -p
+> outram-foam-appbuilder-lib --test htr10_rz_flow_fpic`, 5 cm:
+> outlet ~~689.27~~ **688.75 deg C**; RCCS + heads ~~141.7~~ **153.5 kW**;
+> max fuel centre ~~912.6~~ **912.0 deg C**; thermocouples mean / RMS
+> ~~-16.9 / 49.4 K~~ **-17.9 / 49.8 K**, inside the participants' range
+> ~~22/22~~ **19/22** (TC 7, 8 and 10, the outer side reflector at
+> z = 170 cm, now fall 1-1.5 K below the participants' lowest), within
+> 100 K 21/22. Brick ablation: A-MEAN950 ~~102.53 -> 110.15~~ **105.07 ->
+> 113.02 kW** (+7.6 %, 5.3 % of the 148.9 kW gap). Predicted before the
+> run: outlet change < 0.2 K and RMS change < 0.5 K; measured -0.52 K
+> (a miss: the extra 11.8 kW to the RCCS is 0.5 K of a 4.3 kg/s stream,
+> which the prediction under-counted) and +0.4 K. The sensitivities
+> re-measured on the same day: SS-ASRUN 693.70 deg C / RMS 50.5 K; FLOW-EB
+> 693.05 / 48.6; BYP-G02 688.74 / 49.4; BYP-NOLEAK 688.83 / 64.0; ZBS
+> 688.72 / 53.0; BRICK-30 687.76 / 50.3; mesh Fig 2.5 / 10 / 5 / 2.5 cm
+> outlet 689.25 / 688.84 / 688.75 / 688.70 deg C, fuel centre 916.5 /
+> 912.2 / 912.0 / 909.4 deg C. Every other number below is the
+> radiation-only record.
+
+On the 5 cm base mesh, at the benchmark specification (D4), the model gives (radiation only):
 
 - a mixed core outlet of **689.3 deg C**;
 - a maximum fuel-centre temperature of **912.6 deg C**, on the axis at
