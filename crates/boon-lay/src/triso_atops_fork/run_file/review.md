@@ -654,3 +654,71 @@ parsing csv, based on pandas dataframe within python (TRISO ATOPS uses pandas da
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 3696174931.
+
+# Review: parse (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-parse-theodoreonzgit-323d07f5"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:14:48+08:00"
+modified = "2026-11-03T14:14:48+08:00"
+target = "fn:323d07f54f702214"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::parse"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:14:48+08:00"
+commit = "73c30aede272adbdae932a4bd4ebf63e25942582"
+hash = "sha256:fdaf6c688427845d1add04705a75f08bf29e1a04444a532bf1405160b2d5f613"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:0e7e1fb5c7353583" = "sha256:9cdcc3ed496ab29eda1531a44e8608aab68afafa3ba610871a63cd0170684a09"
+"fn:7211ef55974ed7bc" = "sha256:3b9fff3ac196256b5f0eb77c152443f93ebc5236d4c9a444e8922e2f4b63f60f"
+"fn:77eb4548b2a8440f" = "sha256:eb30dd38df4a20a378104a599f92bd158fb892e9ac79b8aaaf60be81c15abe5f"
+"fn:96a590df75995cb1" = "sha256:16c5f9c0ef53d8dc1b00899352c912eedfb6cb90384e3cf85f4b1650cbe4a1a1"
+"fn:9bb59490b81dec81" = "sha256:5c2b41727d5e8459d4ba83ddfc4fb5bd418b4481e47d807482adf2dd20279fb9"
+"fn:a70d96072f0762c1" = "sha256:23c47f95015a81d55076a1e48bcda9bb75209e4c1d5f5144236bcdc575aa59f7"
+"fn:b59f51a42a34581d" = "sha256:665d85958a50d58b3a42d86c984b95cc87f84beedf3d0eed36cf9da3f07c22fc"
+"fn:bb3bb965bdd5e28b" = "sha256:48a765403379e66dd4a8549e3e096079126eab35e691976607ba056dd88822b6"
+"fn:c913c848f17058e7" = "sha256:1c42362c93a303d935773b0c08e281104e626268772e308e6fa23e11d07dc7cf"
+"fn:d20a025ddfbe2c46" = "sha256:1f8cfcb5024f3aea99cbc2df6b508080342392ed406a281749d7f438adfe23b8"
+"fn:e05d8fbccf283bab" = "sha256:9d26dfd1c38e4c04aba604458c9593ddce6131557bd32578bb9c784e899d5fac"
+"fn:f38837b9ef921914" = "sha256:d746c163ae30ee4391976d67df9abf3674a57cb44dfacd738f39aff37adee8c0"
+"fn:f5caa9d482058451" = "sha256:3593bac03a446b265a57636ccde1593a5a95861ffe005d72b0b74a42291220fa"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "OI4jsQSjb7++lm4VOrLe0PDp3i+KmsYq9ltBytdiMrkhS/nKWxqjJCNIW7MGay9to0LPO1wZ1ZzB2Lo9CFYwBQ=="
+```
+
+this is basically process_run_files or something to that effect. converts a file input into 
+UpstreamRunFile struct, which is a bit different from how TRISO ATOPS upstream does it
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 73c30aede2.
