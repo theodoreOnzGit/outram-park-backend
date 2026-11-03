@@ -318,6 +318,41 @@ pub struct PolyMesh {
 }
 
 impl PolyMesh {
+    /// Several region meshes side by side as one `PolyMesh`, for drawing a
+    /// multi-region case (gh:#1156): nothing is merged or connected, the
+    /// regions' cells are numbered in order (region `k`'s cell `c` becomes
+    /// `c + Σ_{j<k} n_cells_j`), every internal face comes first, then each
+    /// region's patches, renamed `"<region>/<patch>"`. A solver never sees
+    /// this mesh; each region keeps its own.
+    pub fn concatenate(parts: &[(&str, &PolyMesh)]) -> PolyMesh {
+        let mut points = Vec::new();
+        let mut internal = Vec::new();
+        let mut boundary: Vec<(String, outram_foam_basic_lib::mesh::PatchKind, Vec<MeshFace>)> = Vec::new();
+        let (mut p0, mut c0) = (0, 0);
+        for (name, m) in parts {
+            let shift = |f: &MeshFace| MeshFace {
+                verts: f.verts.iter().map(|v| v + p0).collect(),
+                owner: f.owner + c0,
+                neighbour: f.neighbour.map(|n| n + c0),
+            };
+            points.extend_from_slice(&m.points);
+            internal.extend(m.faces[..m.n_internal_faces].iter().map(shift));
+            for p in &m.patches {
+                boundary.push((format!("{name}/{}", p.name), p.kind, m.faces[p.start..p.start + p.size].iter().map(shift).collect()));
+            }
+            p0 += m.points.len();
+            c0 += m.n_cells;
+        }
+        let n_internal_faces = internal.len();
+        let mut faces = internal;
+        let mut patches = Vec::new();
+        for (name, kind, fs) in boundary {
+            patches.push(BoundaryPatch::new(name, faces.len(), fs.len(), kind));
+            faces.extend(fs);
+        }
+        PolyMesh { points, faces, n_internal_faces, n_cells: c0, patches }
+    }
+
     /// Number of points.
     pub fn n_points(&self) -> usize {
         self.points.len()
