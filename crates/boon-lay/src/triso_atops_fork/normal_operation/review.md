@@ -360,3 +360,54 @@ value = "UWc1FEiJw93E3rkwUoMgJAOAvpIXAYT3px8pvWf03PQE96UIK66N1yayJ4IFWgTmrwjkT9D
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 8191ae72ef.
+
+# Review: NodalActivitiesCurie (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-nodalactivitiescurie-theodoreonzgit-5c7ac5cc"
+kind = "review"
+origin = "human"
+created = "2026-11-03T15:39:32+08:00"
+modified = "2026-11-03T15:39:32+08:00"
+target = "fn:5c7ac5ccc2a03227"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::NodalActivitiesCurie"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T15:39:32+08:00"
+commit = "faaab8326c536a0c2b2955dd8076e74ab1af4745"
+hash = "sha256:d9cf55d57337141e3fe03a9138a64b2647093b159f37498bc895f95f69708646"
+doc_hash = "sha256:c8812d70e6962cc85504e283b0e1c7de959aaa84d124fbbe42f3a995eea9cf6e"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "other: ports upstream (no guard)"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "FYDdnfmgOaibqHh44AiljknzakWVFKinD7hXrGHbNhWFdyT4YvqxEyF7pzpUcEZjdgWERvKIdwAgdqLBaJ33AA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit faaab8326c.
