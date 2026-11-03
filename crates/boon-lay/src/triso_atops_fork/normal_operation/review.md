@@ -204,3 +204,63 @@ mirrors normal_operation in trisoatops.py upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 25f1eeb072.
+
+# Review: NodalActivities::to_curies (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-to-curies-theodoreonzgit-5a2cfb2f"
+kind = "review"
+origin = "human"
+created = "2026-11-03T15:08:52+08:00"
+modified = "2026-11-03T15:08:52+08:00"
+target = "fn:5a2cfb2f89e6446a"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::NodalActivities::to_curies"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T15:08:52+08:00"
+commit = "1dc38140681c3830126cfdd3d6b2bee5db965a1b"
+hash = "sha256:6f018e714c7040808b9b260d600f70aa1c59b7aa1fb8ebc33668a99f025e9654"
+doc_hash = "sha256:378f3b46e5f2a96e928e1aecac4bee1a270bbe5a6cd5fd1291ecd933a4055059"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:4e747b96b31630e2" = "sha256:684872ed9862c8116c6c7c0d3a5e67c1706f30a9a55d31b4d03b2f1ba1c8232d"
+"fn:5c7ac5ccc2a03227" = "sha256:d9cf55d57337141e3fe03a9138a64b2647093b159f37498bc895f95f69708646"
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:dcb6acb5e841b5b0" = "sha256:24b2f6ca6faddbc1768e5afef5d98c2498f83bd3ad7a163cbe0edc7e13e24187"
+"fn:e6c95a55e6568166" = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: follow upstream"
+independence = "someone_else"
+limits_and_guards = "no_limits: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "T5ZDbDQARcRgjkXpNqk3ywEMXvOd7VpSyGEBGwvu3W8Gxtd2opdsK58ksjauWvWvyCgP6XFGrQUk031UhKlAAg=="
+```
+
+unit conversion
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 1dc3814068.
