@@ -457,8 +457,40 @@ reflector rise matches. Plots: `rz_crw_power_short.png`,
    **CORRECTED 2026-11-03 (gh:#1176, Sec 10.3):** the mesh is not the gap
    either: the heat to the RCCS and heads at 3 h is mesh-converged at
    ~104.8 kW (102.3 kW at 20 cm); the late *mean power* moves with the
-   mesh only because the post-return oscillation shifts. **Open:** the
-   in-vessel path (~80 kW).
+   mesh only because the post-return oscillation shifts. ~~**Open:** the
+   in-vessel path (~80 kW).~~ **CORRECTED 2026-11-04 (gh:#1173), from the
+   thermocouples already in Sec 3.2, no new run:** the side wall at the two
+   instrumented heights is **not** the bottleneck. The flux through the side
+   carbon brick, from the TC pair across it (SR3/SR2, SR9/SR8; r 167 -> 189
+   cm) and the Tab 2.12 brick conductivity at the pair's mean temperature,
+   cylindrical conduction:
+
+   | z, time | measured dT / flux | model dT / flux | model / plant |
+   |---|---|---|---|
+   | 80 cm, t0 | 20.6 K / 508 W/m^2 | 32.2 K / 798 W/m^2 | 1.57 |
+   | 80 cm, 3 h | 29.7 K / 736 W/m^2 | 49.9 K / 1249 W/m^2 | 1.70 |
+   | 170 cm, t0 | 46.7 K / 1173 W/m^2 | 31.8 K / 788 W/m^2 | 0.67 |
+   | 170 cm, 3 h | 50.1 K / 1267 W/m^2 | 59.5 K / 1501 W/m^2 | 1.18 |
+
+   At 3 h the model already drives **more** heat through the side wall than
+   the plant at both heights (1.18x, 1.70x), the opposite of an 80 kW
+   in-vessel deficit there. The steady FPIC profile agrees (the model's drop
+   from r 93 to 193 cm at z 170 is 271 K against 272 K measured;
+   `outram-foam-appbuilder-lib` `htr10_rz_flow_fpic` README). The primary
+   loop is not the missing path either: the secondary is isolated at 12 s
+   (Sec 7.1 of the input sheet). **Limits of the instrument:** two heights
+   only; the brick conductivity is the spec's, the same on both sides of the
+   comparison, so a plant brick that conducts better than Tab 2.12 would not
+   show; TC positions are read from a schematic (Uncertain, item 5).
+   **What remains, each untested:** (a) the premise. "~180 kW" is the
+   plant's *power* at 3 h ([C09] Sec 5); it equals the heat loss only once
+   the plant is steady, and the internals are still heating at 3 h (TR1&TR4
+   +172.5 K in 3 h), so part of it may be storage. The model at 3 h is near
+   steady (power 109 kW, heat out 104 kW). (b) A heat path above or below
+   the instrumented heights (top head, bottom head, the cone and discharge
+   tube region), where no thermocouple constrains the model. (c) The
+   measured power itself at ~2 % of full power: the ex-core signal is
+   already an open item for gh:#1174 (item 2).
 2. ~~Short-term fall and CRW peak (3.4): dummy-pebble lag hypothesis untested.~~
    **UPDATED 2026-11-03 (gh:#1174, Sec 8):** kinetics inputs audited
    (`Lambda`, groups ruled out); moderator reading corrected to all pebble
