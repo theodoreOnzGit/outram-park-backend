@@ -122,25 +122,20 @@ fn log_messages(root: &Path, rev: &str, file: &str) -> Vec<String> {
 }
 
 /// A full commit id: what it names never changes, so what git says about
-/// it can be kept for the life of the process.
+/// it can be kept ~~for the life of the process~~ across runs
+/// ([`super::message_store`]).
 fn is_full_sha(rev: &str) -> bool {
     rev.len() == 40 && rev.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-type KeptMessages = std::collections::HashMap<(std::path::PathBuf, String, String), Vec<String>>;
-
-/// Messages kept across calls, for full commit ids only (GitHub #856).
-fn kept_messages() -> &'static std::sync::Mutex<KeptMessages> {
-    static KEPT: std::sync::OnceLock<std::sync::Mutex<KeptMessages>> = std::sync::OnceLock::new();
-    KEPT.get_or_init(Default::default)
-}
 
 /// Fill `cache` with the messages of the commits up to `rev` that touched
 /// each of `files`. One `git log` per file, as before (the history of each
 /// file is simplified on its own, which one log over all of them would not
 /// reproduce); what is new (#856) is that the logs run side by side, two
-/// cores left free, and that the answer for a full commit id is kept for
-/// the life of the process. Measured 2026-10-13 on this workspace: the
+/// cores left free, and that the answer for a full commit id is kept ~~for
+/// the life of the process~~ on disk across runs (2026-11-03,
+/// [`super::message_store`]). Measured 2026-10-13 on this workspace: the
 /// reaching tests of one reviewed function took 1.08 s one after another.
 fn fetch_messages(cache: &mut MessageCache, root: &Path, rev: &str, files: &BTreeSet<String>) {
     let keep = is_full_sha(rev);
@@ -149,9 +144,7 @@ fn fetch_messages(cache: &mut MessageCache, root: &Path, rev: &str, files: &BTre
         if cache.contains_key(&(rev.to_string(), f.clone())) {
             continue;
         }
-        let kept = keep
-            .then(|| kept_messages().lock().ok()?.get(&(root.to_path_buf(), rev.to_string(), f.clone())).cloned())
-            .flatten();
+        let kept = keep.then(|| super::message_store::kept(root, rev, f)).flatten();
         match kept {
             Some(m) => {
                 cache.insert((rev.to_string(), f.clone()), m);
@@ -175,9 +168,7 @@ fn fetch_messages(cache: &mut MessageCache, root: &Path, rev: &str, files: &BTre
     });
     for (f, m) in got {
         if keep {
-            if let Ok(mut k) = kept_messages().lock() {
-                k.insert((root.to_path_buf(), rev.to_string(), f.clone()), m.clone());
-            }
+            super::message_store::keep(root, rev, &f, m.clone());
         }
         cache.insert((rev.to_string(), f), m);
     }
@@ -556,6 +547,10 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
             g.code_authors.entry(id.clone()).or_default().extend(ids);
         }
     }
+    // Keep the new test commit messages for the next run. A failed write
+    // costs the next run time, never a different answer (module doc of
+    // `message_store`), so it is not an error of the refresh.
+    let _ = super::message_store::save(root);
     g
 }
 
@@ -860,6 +855,44 @@ pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings)
     t.total = start.elapsed();
     t.git_spawns = super::git::spawns().saturating_sub(spawned);
     Ok((out, t))
+}
+
+#[cfg(test)]
+mod message_store_tests {
+    use super::*;
+
+    /// Methodology (2026-11-03): a throwaway repository where `t.rs` is
+    /// changed by a commit with the agent trailer and a human one. The messages
+    /// up to HEAD for `t.rs` are asked once (from git, then saved); the
+    /// process's copy is dropped, as a new kovan run starts, and they are
+    /// asked again. Pass: the second answer equals the first and equals
+    /// `git log` itself, and it starts no `git` process.
+    #[test]
+    fn kept_messages_survive_a_restart_and_match_git() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path();
+        let run = |a: &[&str]| git::git(p, a).unwrap();
+        run(&["init", "-q", "-b", "main"]);
+        run(&["config", "user.email", "t@example.org"]);
+        run(&["config", "user.name", "T"]);
+        run(&["config", "commit.gpgsign", "false"]);
+        for (text, msg) in [("1", "add t\n\nCo-Authored-By: Claude <noreply@anthropic.com>"), ("2", "edit t by hand")] {
+            std::fs::write(p.join("t.rs"), text).unwrap();
+            run(&["add", "-A"]);
+            run(&["commit", "-q", "-m", msg]);
+        }
+        let head = run(&["rev-parse", "HEAD"]).trim().to_string();
+        let first = messages(&mut MessageCache::new(), p, &head, "t.rs");
+        assert_eq!(first, log_messages(p, &head, "t.rs"));
+        assert_eq!(first.len(), 2);
+        assert!(first.iter().any(|m| agent_trailer(m).0), "{first:?}");
+        super::super::message_store::save(p).unwrap();
+        super::super::message_store::forget(p);
+        let spawned = git::spawns();
+        let again = messages(&mut MessageCache::new(), p, &head, "t.rs");
+        assert_eq!(git::spawns(), spawned, "read from the kept file, not git");
+        assert_eq!(again, first);
+    }
 }
 
 #[cfg(test)]

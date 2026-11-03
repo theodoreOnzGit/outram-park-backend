@@ -85,6 +85,7 @@ use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, Review
 
 pub mod git;
 mod git_batch;
+mod message_store;
 
 pub mod authorship;
 pub mod carry_forward;
