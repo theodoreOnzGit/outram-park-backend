@@ -722,3 +722,60 @@ UpstreamRunFile struct, which is a bit different from how TRISO ATOPS upstream d
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 73c30aede2.
+
+# Review: UpstreamRunFile (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-upstreamrunfile-theodoreonzgit-f38837b9"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:18:12+08:00"
+modified = "2026-11-03T14:18:12+08:00"
+target = "fn:f38837b9ef921914"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::UpstreamRunFile"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:18:12+08:00"
+commit = "925fa2cafb8c618c8e32d3e9c49c29936d7928b1"
+hash = "sha256:d746c163ae30ee4391976d67df9abf3674a57cb44dfacd738f39aff37adee8c0"
+doc_hash = "sha256:8bcc7ccc77a1df29669269417ea94496fc5c8690f46f4d21d91961f550ea0a38"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "HxEPChBqTMRT87BwqHtavPSc72EpLuK2SB4QSZJQ/grc5NbMfLCCnuRIs8nU+1ZCBCGkD2Lsd2QUGknDfaJkDA=="
+```
+
+upstream returns multiple values in python. here, we return this struct
+hand checked,
+
+differences include 
+options, react_config (assumed to be covered elsewhere)
+err is also returned
+
+Most other fields stay the same
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 925fa2cafb.
