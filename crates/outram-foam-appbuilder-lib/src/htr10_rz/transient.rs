@@ -206,6 +206,14 @@ pub enum ModeratorTemperature {
     /// The pebble graphite outside the fuel zones only (shells and
     /// dummies): the gh:#1151 part B reading (sensitivity `MOD-OUTSIDE-FZ`).
     OutsideFuelZones,
+    /// All pebble graphite, each part weighted by its volume **and its
+    /// measured reactivity importance per unit graphite** (gh:#1174): the
+    /// fuel pebbles' graphite (fuel-zone matrix and shell, one importance)
+    /// against the dummies', in the ratio
+    /// [`TransientCoreOptions::fuel_graphite_importance`] from the whole-core
+    /// Monte Carlo worths (V&V README Sec 11). With a ratio of 1 it is
+    /// [`Self::AllPebbleGraphite`].
+    ImportanceWeighted,
 }
 
 /// Everything that defines the transient core, each defaulting to the
@@ -232,6 +240,10 @@ pub struct TransientCoreOptions {
     pub dummy_pebbles: DummyPebbleModel,
     /// What the moderator coefficient reads (gh:#1174).
     pub moderator: ModeratorTemperature,
+    /// Reactivity worth per kelvin per unit graphite of the fuel pebbles'
+    /// graphite over the dummies' ([`ModeratorTemperature::ImportanceWeighted`];
+    /// gh:#1174, measured by Monte Carlo, V&V README Sec 11).
+    pub fuel_graphite_importance: f64,
     /// Outer-iteration tolerance of the initial steady state, K.
     pub steady_tolerance_k: f64,
 }
@@ -254,6 +266,7 @@ impl TransientCoreOptions {
             reflector: ReflectorAverage::AllGraphite,
             dummy_pebbles: DummyPebbleModel::default(),
             moderator: ModeratorTemperature::default(),
+            fuel_graphite_importance: 1.0,
             steady_tolerance_k: 1.0e-4,
         }
     }
@@ -291,6 +304,23 @@ impl TransientCoreOptions {
     #[must_use]
     pub fn with_moderator_outside_fuel_zones(mut self) -> Self {
         self.moderator = ModeratorTemperature::OutsideFuelZones;
+        self
+    }
+
+    /// The moderator reading weighted by the measured importance of the
+    /// fuel pebbles' graphite against the dummies' (`ratio`; gh:#1174).
+    #[must_use]
+    pub fn with_importance_weighted_moderator(mut self, ratio: f64) -> Self {
+        self.moderator = ModeratorTemperature::ImportanceWeighted;
+        self.fuel_graphite_importance = ratio;
+        self
+    }
+
+    /// The ablation of the importance weighting: all pebble graphite by
+    /// volume (the gh:#1174 reading of 2026-11-03).
+    #[must_use]
+    pub fn with_all_pebble_graphite_moderator(mut self) -> Self {
+        self.moderator = ModeratorTemperature::AllPebbleGraphite;
         self
     }
 
@@ -956,6 +986,10 @@ impl Htr10RzTransientCore {
             let tm = match self.options.moderator {
                 ModeratorTemperature::OutsideFuelZones => (gs * tc + gd * td) / (gs + gd),
                 ModeratorTemperature::AllPebbleGraphite => gz * self.fuel[c] + gs * tc + gd * td,
+                ModeratorTemperature::ImportanceWeighted => {
+                    let rho = self.options.fuel_graphite_importance;
+                    (rho * (gz * self.fuel[c] + gs * tc) + gd * td) / (rho * (gz + gs) + gd)
+                }
             };
             wf += q * self.fuel[c];
             wm += q * tm;

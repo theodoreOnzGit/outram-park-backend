@@ -292,7 +292,10 @@ fn dummy_pebbles_lag_the_bed_and_conserve_energy() {
 fn moderator_readings_at_steady_state() {
     let op = as_run(3.315e6, 1.457);
     let mut m = Vec::new();
-    for o in [TransientCoreOptions::htr10_lofc(), TransientCoreOptions::htr10_lofc().with_moderator_outside_fuel_zones()] {
+    for o in [
+        TransientCoreOptions::htr10_lofc().with_all_pebble_graphite_moderator(),
+        TransientCoreOptions::htr10_lofc().with_moderator_outside_fuel_zones(),
+    ] {
         let mut core = Htr10RzTransientCore::build(coarse(o)).unwrap();
         let r = core.solve_steady(&op).unwrap();
         m.push((r.feedback.fuel.get::<kelvin>(), r.feedback.moderator.get::<kelvin>()));
@@ -303,6 +306,35 @@ fn moderator_readings_at_steady_state() {
         m[0].0, m[0].1, m[1].1
     );
     assert!((m[0].1 - (m[1].1 + wf * (m[1].0 - m[1].1))).abs() < 1e-6);
+}
+
+/// gh:#1174: the importance-weighted moderator reading at steady state
+/// (dummies at the cell temperature): with ratio 1 it is the all-graphite
+/// reading to round-off; with ratio `r` it reads `(r w_f T_f + (r w_s +
+/// w_d) T_cell) / (r (w_f + w_s) + w_d)` per cell, power-weighted, which at
+/// steady state is `T_out + r w_f/(r (w_f + w_s) + w_d) (T_f - T_out)`.
+#[test]
+fn importance_weighted_moderator_reading() {
+    let op = as_run(3.315e6, 1.457);
+    let read = |o: TransientCoreOptions| {
+        let mut core = Htr10RzTransientCore::build(coarse(o)).unwrap();
+        let r = core.solve_steady(&op).unwrap();
+        (r.feedback.fuel.get::<kelvin>(), r.feedback.moderator.get::<kelvin>())
+    };
+    let base = TransientCoreOptions::htr10_lofc();
+    let (_, all) = read(base.with_all_pebble_graphite_moderator());
+    let (_, one) = read(base.with_importance_weighted_moderator(1.0));
+    assert!((all - one).abs() < 1e-9, "{all} {one}");
+    let (tf, out) = read(base.with_moderator_outside_fuel_zones());
+    let x = 13_651.0 / 23_949.0;
+    let z = (2.5_f64 / 3.0).powi(3);
+    let (wf, ws, wd) = (x * z, x * (1.0 - z), 1.0 - x);
+    for r in [0.5, 1.4] {
+        let (_, m) = read(base.with_importance_weighted_moderator(r));
+        let want = out + r * wf / (r * (wf + ws) + wd) * (tf - out);
+        println!("ratio {r}: moderator {m:.4} K, expected {want:.4} K");
+        assert!((m - want).abs() < 1e-6);
+    }
 }
 
 /// gh:#1176: the steady solid-gas outer iteration at the as-run 3.3 MW
