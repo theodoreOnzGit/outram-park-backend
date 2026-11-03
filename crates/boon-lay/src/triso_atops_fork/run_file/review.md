@@ -830,3 +830,61 @@ error type for Rust port of TRISO ATOPS
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 3e9c7d7c79.
+
+# Review: read_upstream_run_file (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-read-upstream-run-file-theodoreonzgit-869f01d9"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:22:55+08:00"
+modified = "2026-11-03T14:22:55+08:00"
+target = "fn:869f01d9220c51d2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::read_upstream_run_file"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:22:56+08:00"
+commit = "e9388f43ac4fc3a8371880c63683ebbbe45e1348"
+hash = "sha256:fff8b4116ec901060ac136ec2526190ea96fe96b21b3b04e28345619fe5be75b"
+doc_hash = "sha256:0e3a427d53fd806155e70eb0b0b4ccad706bf6c065b1a851ea8e3297cc9d203b"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:323d07f54f702214" = "sha256:fdaf6c688427845d1add04705a75f08bf29e1a04444a532bf1405160b2d5f613"
+"fn:96a590df75995cb1" = "sha256:16c5f9c0ef53d8dc1b00899352c912eedfb6cb90384e3cf85f4b1650cbe4a1a1"
+"fn:f38837b9ef921914" = "sha256:d746c163ae30ee4391976d67df9abf3674a57cb44dfacd738f39aff37adee8c0"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Giu5eHJ1G02qhIe9t4eHrv4bOzvCasE3asG9Qmq0tx8LXXaigOcH0glPY0/vqNvH097z7Svv39v6k4a740mxCw=="
+```
+
+wrapper for the parse, using upstream run files (input files)
+Good for code to code comparison
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit e9388f43ac.
