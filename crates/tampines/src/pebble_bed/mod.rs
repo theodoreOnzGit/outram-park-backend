@@ -26,12 +26,17 @@
 //!   **correct** Wakao-Funazkri particle-to-fluid Nusselt correlation
 //!   `Nu = 2 + 1.1 Pr^(1/3) Re^0.6` on the pebble diameter, the heat transfer
 //!   coefficient it implies, and the bed volumetric form via
-//!   `a_v = 6(1 - eps)/d`. **Warning, still current:** the TUAS `WakaoData`
+//!   `a_v = 6(1 - eps)/d`. ~~**Warning, still current:** the TUAS `WakaoData`
 //!   implementation has the Re and Pr exponents *swapped* relative to the
 //!   published correlation (bead `op-4542`), diverging by a factor of about
 //!   5.8 at Re = 1000, Pr = 0.71 — `cht` therefore implements the correlation
 //!   independently and must **not** be cross-wired to TUAS until that bead is
-//!   resolved.
+//!   resolved.~~ **CORRECTED 2026-11-03** — TUAS fixed the swap on
+//!   2026-08-11 (`op-4542`): `WakaoData::get` in
+//!   `tuas_boussinesq_solver/.../nusselt_number_correlations/input_structs.rs`
+//!   now uses `prandtl_power = 1/3`, `reynolds_power = 0.6` (verified by
+//!   reading the source). `cht` still carries its own independent copy; the
+//!   two are no longer known to disagree, but nothing here cross-checks them.
 //!
 //! ## Also present
 //!

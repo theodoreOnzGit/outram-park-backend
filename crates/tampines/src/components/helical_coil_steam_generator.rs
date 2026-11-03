@@ -26,7 +26,13 @@
 //!    not of any particular plant, and keeping it beside them is what stops the
 //!    two copies drifting.
 //!
-//! The example now re-exports this module rather than owning a second copy.
+//! ~~The example now re-exports this module rather than owning a second copy.~~
+//! **CORRECTED 2026-11-03** — it does not: `htgr_sim_v1/physics/steam_generator.rs`
+//! (2355 lines) still defines its own `SteamGeneratorGeometry`,
+//! `SteamGeneratorConfig`, `PimpleCorrectors` and
+//! `NodalisedCounterFlowSteamGenerator`, and imports nothing from
+//! `tampines::components` (it only cites this module in doc comments). The
+//! two copies can drift.
 //!
 //! # Why it was moved: it is the subject of an open defect
 //!
