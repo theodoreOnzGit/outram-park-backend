@@ -40,6 +40,31 @@ gh issue comment <number> --body "..."           # progress
   end. Ideally a script drives this (`scripts/release-lockstep.sh`); the agent
   manages it.
 
+## Crate-level interfaces may follow SOLID principles (maintainer, 2026-11-03)
+
+**Maintainer direction:** "At the crate level I am ok with interfaces using
+SOLID principles … the reason is so we don't introduce lifetimes
+unnecessarily."
+
+- **A crate may define a trait as its public interface.** Callers in other
+  crates implement it, and the crate consumes it **generically** (`M: Trait` or
+  `impl Trait`), never as `dyn Trait`. This covers dependency inversion (a
+  library states what it needs, and a downstream physics crate supplies it),
+  interface segregation (small traits, one job each), and open/closed (a new
+  implementer needs no edit to the library). Example: `raffles::fidelity`'s
+  `HighFidelityModel` and `ParametricModel` (gh:#1194).
+- **Why:** a generic trait bound lets the library own its implementer by value
+  or hold it in an `Arc`, so no lifetime parameter is needed. The alternatives
+  this replaces each drag in `'a`: a struct holding `&'a dyn Trait`, a borrowed
+  callback `&'a dyn Fn`, or a framework of borrowed references between
+  objects.
+- **What does not change:** the [Rust design rules](docs/claude-md/rust-design-rules.md)
+  still bind. There are still no trait objects (`Box<dyn>`, `&dyn`,
+  `Arc<dyn>`), no `Box<T>`, and no lifetime parameters. A closed set of
+  variants that the crate itself provides (its models, schemes, routes) is
+  still an enum. Traits are for the open seam *between* crates; enums are for
+  dispatch *within* a crate.
+
 ## Non-Interactive Shell Commands
 
 **ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.

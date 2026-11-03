@@ -44,6 +44,26 @@ impl TurbulenceModel {
 }
 ```
 
+### Crate-level interfaces: traits consumed generically (SOLID), added 2026-11-03
+
+**Maintainer direction, 2026-11-03:** "At the crate level I am ok with
+interfaces using SOLID principles … the reason is so we don't introduce
+lifetimes unnecessarily." A crate may expose a trait as the seam other crates
+implement, consumed generically, never through `dyn`:
+
+```rust
+// raffles states what it needs (dependency inversion) ...
+pub trait HighFidelityModel {
+    fn evaluate(&self, x: &[f64]) -> Result<Vec<f64>>;
+}
+// ... and owns the implementer by value: no `&'a dyn`, so no lifetime.
+pub fn build<M: HighFidelityModel>(hf: &M /* or M, or Arc<M> */) -> Result<Surrogate> { .. }
+```
+
+A closed set of variants the crate provides itself is still an enum, as above.
+Full statement: the root [`AGENTS.md`](../../AGENTS.md), "Crate-level
+interfaces may follow SOLID principles".
+
 ### No `Box<T>`
 
 Do not use `Box<T>`. Own data by value or share it with `Arc<T>`.
