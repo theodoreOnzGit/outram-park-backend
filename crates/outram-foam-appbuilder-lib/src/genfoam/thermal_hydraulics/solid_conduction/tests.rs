@@ -933,3 +933,67 @@ fn vacuum_gap_with_large_temperature_drop_converges() {
     );
     assert!((si.get::<kelvin>() - t_in).abs() < 0.5 && (so.get::<kelvin>() - t_out).abs() < 0.5);
 }
+
+/// **Held cells (the gas side as a prescribed temperature), gh:#1149 part B.**
+///
+/// *Methodology.* A planar slab `0 <= x <= 1 m`, 10 cells, `k = 2 W/(m K)`,
+/// adiabatic at `x = 0`, held at 300 K at `x = 1`. Cell 0 (centre
+/// `x = 0.05 m`) is held at 400 K with
+/// `SolidConductionField::set_fixed_temperatures`; it also carries a heat
+/// source, which must be ignored. The exact solution of the free cells is
+/// the straight line from `(0.05, 400)` to `(1, 300)`, which the
+/// finite-volume scheme reproduces exactly, and the heat the held cell gives
+/// up is `k A 100 / 0.95`.
+///
+/// *Prediction (written before the run).* Free cells on the line to
+/// round-off (< 1e-9 K); `supplied_by_fixed_cells` equals the exact flux and
+/// the removed heat to 1e-9 relative; `generated` is zero.
+///
+/// *Result (2026-11-03).* Pass, as predicted (the error and balance are
+/// printed by the test).
+#[test]
+fn held_cells_are_eliminated_and_their_duty_is_reported() {
+    let base = slab(10, 1.0, 2.0, 1.0e6);
+    let mut f = SolidConductionField::new(
+        base.mesh().clone(),
+        base.regions().to_vec(),
+        RzBoundaries {
+            inner: SolidBoundary::Adiabatic,
+            outer: SolidBoundary::FixedTemperature(kel(300.0)),
+            bottom: SolidBoundary::Adiabatic,
+            top: SolidBoundary::Adiabatic,
+        },
+        vec![],
+        kel(350.0),
+    )
+    .unwrap();
+    let mut src = vec![qv(0.0); f.mesh().n_cells()];
+    src[0] = qv(5.0e4);
+    f.set_cell_heat_source(&src).unwrap();
+    f.set_fixed_temperatures(&[(0, kel(400.0))]).unwrap();
+    assert!(f.is_fixed(0) && !f.is_fixed(1));
+    f.solve_steady().unwrap();
+    let mut err: f64 = 0.0;
+    for c in 0..f.mesh().n_cells() {
+        let x = f.mesh().cell_centre(c).0.get::<meter>();
+        let exact = 400.0 - 100.0 * (x - 0.05) / 0.95;
+        err = err.max((f.temperature(c).get::<kelvin>() - exact).abs());
+    }
+    let bal = f.energy_balance();
+    let fv = f.mesh().mesh();
+    let area = fv.face_areas[fv.patches[RzPatch::Outer.index()].start];
+    let exact_q = 2.0 * area * 100.0 / 0.95;
+    let supplied = bal.supplied_by_fixed_cells.get::<watt>();
+    println!(
+        "held cell: max error {err:.3e} K, supplied {supplied:.9} W vs exact {exact_q:.9} W, imbalance {:.2e}",
+        bal.relative_imbalance()
+    );
+    assert!(err < 1e-9);
+    assert!((supplied / exact_q - 1.0).abs() < 1e-9);
+    assert_eq!(bal.generated.get::<watt>(), 0.0);
+    assert!(bal.relative_imbalance() < 1e-9);
+    assert!(f.set_fixed_temperatures(&[(999, kel(400.0))]).is_err());
+    assert!(f.set_fixed_temperatures(&[(0, kel(-1.0))]).is_err());
+    f.set_fixed_temperatures(&[]).unwrap();
+    assert!(!f.is_fixed(0));
+}

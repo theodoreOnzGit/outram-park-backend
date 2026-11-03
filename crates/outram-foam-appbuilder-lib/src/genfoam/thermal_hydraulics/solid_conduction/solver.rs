@@ -151,8 +151,15 @@ pub struct PicardReport {
 /// Heat generated against heat leaving through the four physical patches.
 #[derive(Debug, Clone)]
 pub struct SolidEnergyBalance {
-    /// `sum q''' V`.
+    /// `sum q''' V` over the cells whose temperature is solved for (cells
+    /// held by [`SolidConductionField::set_fixed_temperatures`] excluded).
     pub generated: Power,
+    /// Net heat the held cells deliver to the rest of the body and out of
+    /// their own boundary faces (zero when no cell is held). This is the
+    /// "prescribed temperature" side's duty: a held region stands in for a
+    /// gas or a structure whose temperature is imposed, and this is what it
+    /// gives up at that temperature.
+    pub supplied_by_fixed_cells: Power,
     /// Leaving through each patch, in [`RzPatch::ALL`] order, each face's flux
     /// recomputed from its own condition and the surface temperature.
     pub removed_per_patch: [Power; 4],
@@ -167,11 +174,11 @@ impl SolidEnergyBalance {
             .fold(Power::new::<watt>(0.0), |a, b| a + *b)
     }
 
-    /// `|generated - removed| / generated` (the absolute imbalance in W when
-    /// nothing is generated).
+    /// `|generated + supplied - removed| / (generated + supplied)` (the
+    /// absolute imbalance in W when nothing enters).
     #[must_use]
     pub fn relative_imbalance(&self) -> f64 {
-        let g = self.generated.get::<watt>();
+        let g = self.generated.get::<watt>() + self.supplied_by_fixed_cells.get::<watt>();
         let d = (g - self.removed().get::<watt>()).abs();
         if g.abs() > 0.0 {
             d / g.abs()
@@ -198,6 +205,10 @@ pub struct SolidConductionField {
     cell_source: Vec<f64>,
     /// K per cell.
     temperature: Vec<f64>,
+    /// Per cell: `Some(T)` when the cell is held at `T` K (a Dirichlet
+    /// condition on the cell, eliminated from the system as OpenFOAM's
+    /// `fvMatrix::setValues` does), `None` when it is solved for.
+    fixed: Vec<Option<f64>>,
     /// Surface temperature of each boundary face (global face minus
     /// `n_internal_faces`), K: the previous iterate's, used to linearise
     /// radiation.
@@ -302,6 +313,7 @@ impl SolidConductionField {
             boundary_surface: vec![t0; fv.n_faces - fv.n_internal_faces],
             gap_surface: vec![(t0, t0); fv.n_internal_faces],
             temperature: vec![t0; n],
+            fixed: vec![None; n],
             cell_source,
             mesh,
             regions,
@@ -372,6 +384,52 @@ impl SolidConductionField {
             self.gap_surface[f] = (self.temperature[fv.owner[f]], self.temperature[fv.neighbour[f]]);
         }
         Ok(())
+    }
+
+    /// Hold cells at prescribed temperatures (a Dirichlet condition on the
+    /// cell, not on a face): the gas side, or any body whose temperature is
+    /// imposed rather than solved for. Replaces any earlier set; an empty
+    /// slice releases every cell.
+    ///
+    /// The held rows are eliminated from the linear system the way
+    /// OpenFOAM's `fvMatrix::setValues` does it: the held cell's row becomes
+    /// `a_P T_P = a_P T_fixed`, and each coupling to a free neighbour is
+    /// moved to that neighbour's source and zeroed, so the matrix stays
+    /// symmetric for the conjugate-gradient solve. A held cell's own heat
+    /// source is not counted in [`SolidEnergyBalance::generated`]; the heat
+    /// it gives up is [`SolidEnergyBalance::supplied_by_fixed_cells`].
+    ///
+    /// # Errors
+    /// [`SolidConductionError::InvalidInput`] for a cell index out of range
+    /// or a non-positive or non-finite temperature.
+    pub fn set_fixed_temperatures(
+        &mut self,
+        cells: &[(usize, ThermodynamicTemperature)],
+    ) -> Result<(), SolidConductionError> {
+        let n = self.mesh.n_cells();
+        let mut fixed = vec![None; n];
+        for (c, t) in cells {
+            let tk = t.get::<kelvin>();
+            if *c >= n || !(tk > 0.0) || !tk.is_finite() {
+                return Err(SolidConductionError::InvalidInput(format!(
+                    "held cell {c} at {tk} K: the cell must exist and the temperature be positive"
+                )));
+            }
+            fixed[*c] = Some(tk);
+        }
+        for (c, f) in fixed.iter().enumerate() {
+            if let Some(tk) = f {
+                self.temperature[c] = *tk;
+            }
+        }
+        self.fixed = fixed;
+        Ok(())
+    }
+
+    /// Whether cell `c` is held by [`Self::set_fixed_temperatures`].
+    #[must_use]
+    pub fn is_fixed(&self, c: usize) -> bool {
+        self.fixed[c].is_some()
     }
 
     /// The mesh.
@@ -458,8 +516,20 @@ impl SolidConductionField {
         let fv = self.mesh.mesh().clone();
         let k = self.conductivities().unwrap_or_else(|_| vec![f64::NAN; self.mesh.n_cells()]);
         let generated: f64 = (0..self.mesh.n_cells())
+            .filter(|c| self.fixed[*c].is_none())
             .map(|c| self.cell_source[c] * fv.cell_volumes[c])
             .sum();
+        let mut supplied = 0.0;
+        for f in 0..fv.n_internal_faces {
+            let (o, nb) = (fv.owner[f], fv.neighbour[f]);
+            let into_free = match (self.fixed[o].is_some(), self.fixed[nb].is_some()) {
+                (true, false) => self.temperature[o] - self.temperature[nb],
+                (false, true) => self.temperature[nb] - self.temperature[o],
+                _ => continue,
+            };
+            let (r, ..) = self.face_resistance(&fv, &k, f);
+            supplied += fv.face_areas[f] / r * into_free;
+        }
         let mut removed = [Power::new::<watt>(0.0); 4];
         for p in RzPatch::ALL {
             let patch = &fv.patches[p.index()];
@@ -470,7 +540,7 @@ impl SolidConductionField {
                 let area = fv.face_areas[gf];
                 let d = DeltaCoeff::Orthogonal.boundary_delta(&fv, gf);
                 let ts = self.boundary_surface[gf - fv.n_internal_faces];
-                sum += match self.boundaries.get(p) {
+                let out = match self.boundaries.get(p) {
                     SolidBoundary::Adiabatic => 0.0,
                     SolidBoundary::FixedTemperature(_) => {
                         if d > 0.0 {
@@ -496,11 +566,16 @@ impl SolidConductionField {
                             * (ts * ts * ts * ts - ta * ta * ta * ta)
                     }
                 };
+                if self.fixed[c].is_some() {
+                    supplied += out;
+                }
+                sum += out;
             }
             removed[p.index()] = Power::new::<watt>(sum);
         }
         SolidEnergyBalance {
             generated: Power::new::<watt>(generated),
+            supplied_by_fixed_cells: Power::new::<watt>(supplied),
             removed_per_patch: removed,
         }
     }
@@ -511,7 +586,7 @@ impl SolidConductionField {
     /// [`SolidConductionError::InvalidInput`] when heat is generated but
     /// every boundary is adiabatic; otherwise as [`Self::step`].
     pub fn solve_steady(&mut self) -> Result<PicardReport, SolidConductionError> {
-        let heated = self.cell_source.iter().any(|q| *q != 0.0);
+        let heated = self.cell_source.iter().any(|q| *q != 0.0) || self.fixed.iter().any(Option::is_some);
         let open = RzPatch::ALL
             .iter()
             .any(|p| !matches!(self.boundaries.get(*p), SolidBoundary::Adiabatic));
@@ -718,6 +793,37 @@ impl SolidConductionField {
                     } else {
                         v_dt * (cap * tk - m.integral(t_old[c], tk))
                     };
+                }
+            }
+            // Held cells: eliminate their rows (OpenFOAM fvMatrix::setValues).
+            if self.fixed.iter().any(Option::is_some) {
+                for f in 0..n_int {
+                    let (o, nb) = (fv.owner[f], fv.neighbour[f]);
+                    match (self.fixed[o], self.fixed[nb]) {
+                        (None, None) => continue,
+                        (Some(vo), None) => eqn.source[nb] -= eqn.ldu.lower[f] * vo,
+                        (None, Some(vn)) => eqn.source[o] -= eqn.ldu.upper[f] * vn,
+                        (Some(_), Some(_)) => {}
+                    }
+                    eqn.ldu.upper[f] = 0.0;
+                    eqn.ldu.lower[f] = 0.0;
+                }
+                // A held row is decoupled: `a T = a T_fixed` for any `a > 0`.
+                // Use the mean free-cell diagonal, so a held body of very high
+                // conductivity does not dominate the solver's residual
+                // normalisation and loosen the free cells' convergence.
+                let (sum, count) = self
+                    .fixed
+                    .iter()
+                    .zip(eqn.ldu.diag.iter())
+                    .filter(|(f, _)| f.is_none())
+                    .fold((0.0, 0usize), |(s, n), (_, d)| (s + d.abs(), n + 1));
+                let scale = if count > 0 && sum > 0.0 { sum / count as f64 } else { 1.0 };
+                for (c, f) in self.fixed.iter().enumerate() {
+                    if let Some(v) = f {
+                        eqn.ldu.diag[c] = scale;
+                        eqn.source[c] = scale * v;
+                    }
                 }
             }
             let (solved, perf) = eqn.solve_cg_with_guess("T", &t_field, self.settings.linear);

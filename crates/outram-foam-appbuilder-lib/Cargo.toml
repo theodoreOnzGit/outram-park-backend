@@ -49,6 +49,13 @@ outram-foam-basic-lib.workspace = true
 outram-foam-turbulence-lib.workspace = true
 outram-foam-multiphase.workspace = true
 
+[features]
+default = ["long-tests"]
+# Tests over 5 minutes (root CLAUDE.md "Slow tests and CI"): on by default,
+# skipped by `cargo quick-test`. ADDED 2026-11-03 for the HTR-10 R-Z mesh
+# convergence study (gh:#1149 part B, ~7 min in release).
+long-tests = []
+
 [dev-dependencies]
 approx.workspace = true
 # Used only by the cavity grid-convergence tutorial, which generates its
