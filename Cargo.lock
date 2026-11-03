@@ -6612,6 +6612,8 @@ dependencies = [
  "petir",
  "serde",
  "serde_json",
+ "tampines",
+ "tampines-steam-tables",
  "teh-o-prke",
  "thiserror 2.0.21",
  "uom",

@@ -59,6 +59,11 @@ outram-foam-basic-lib      = { workspace = true }   # FvMesh / fields, for the G
 # `sim` run driver moved here from outram-blender's retired `mc-export` feature
 # (GitHub #486, 2026-10-02). The edge runs coupler -> blender, never back.
 outram-blender        = { workspace = true }
+# HTR-10 coupled thermal-hydraulic transients (`htr10_th_transient`, gh:#1151):
+# the tampines primary loop and its core models, with the point kinetics here
+# (maintainer, 2026-11-03: "any neutronics and TH shld live in nee soon").
+# No cycle: tampines has nee_soon only as a target-gated dev-dependency.
+tampines              = { workspace = true }
 
 # Public API primitives — dimensioned quantities and error types for the
 # object-oriented surface.
@@ -68,3 +73,8 @@ thiserror             = { workspace = true }
 # so an expensive Monte Carlo run is reloaded rather than repeated.
 serde                 = { workspace = true }
 serde_json            = { workspace = true }
+
+[dev-dependencies]
+# Steam states of the helical-coil SG test in `htr10_th_transient` (moved
+# from tampines, gh:#1151). Pure Rust; Android- and wasm-clean.
+tampines-steam-tables = { workspace = true }

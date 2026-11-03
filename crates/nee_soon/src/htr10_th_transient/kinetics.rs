@@ -82,7 +82,8 @@ use uom::si::velocity::meter_per_second;
 use uom::si::volume::cubic_meter;
 use uom::ConstZero;
 
-use crate::TampinesError;
+pub use tampines::htr10_primary_loop::FeedbackTemperatures;
+use tampines::TampinesError;
 
 const AVOGADRO: f64 = 6.022_140_76e23;
 /// Keepin U-235 thermal half-lives, s.
@@ -170,17 +171,6 @@ impl FeedbackCoefficients {
     pub fn g02_equilibrium_core() -> Self {
         Self { fuel: pcm_per_k(-2.55), moderator: pcm_per_k(-5.62), reflector: pcm_per_k(4.29) }
     }
-}
-
-/// The three temperatures the reactivity is computed from.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FeedbackTemperatures {
-    /// Power-weighted fuel temperature.
-    pub fuel: ThermodynamicTemperature,
-    /// Power-weighted moderator (pebble graphite) temperature.
-    pub moderator: ThermodynamicTemperature,
-    /// Reflector temperature.
-    pub reflector: ThermodynamicTemperature,
 }
 
 /// The Xe-135 channel.

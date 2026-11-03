@@ -64,7 +64,7 @@ applies: only to crates declared mature".
 | `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), Faddeeva, windowed multipole, ν̄/χ. Exposes `XsProvider` | ✅ |
 | `outram-mc-libs` | **Monte Carlo transport** — tracking, k-eigenvalue, delta tracking, depletion; ~~CSG geometry~~ the CSG description and its navigation kernel live in `outram-blender` since 2026-10-02 (#486), re-exported here as `geometry::*` (transport-state work stays here). **Data-free**: pulls from `njoy-outram-park-fork` | ✅ |
 | `teh-o-prke` | Point Reactor Kinetics (PRKE) | ✅ |
-| `nee_soon` | Integration / coupling layer — MC ⟷ deterministic/TH ⟷ nuclear data ⟷ PRKE. Steady state only, no validation. Since 2026-10-02 also the blender → MC bridge (`blender_bridge`, `sim`, moved from blender's retired `mc-export`) | |
+| `nee_soon` | Integration / coupling layer — MC ⟷ deterministic/TH ⟷ nuclear data ⟷ PRKE. ~~Steady state only, no validation.~~ Since 2026-11-03 also the HTR-10 coupled kinetics + loop transient (`htr10_th_transient`, moved from `tampines`; LOFC ATWS against the measured trace). Since 2026-10-02 also the blender → MC bridge (`blender_bridge`, `sim`, moved from blender's retired `mc-export`) | |
 | `bedok` | Systems-level multiphysics — 3-D nodal diffusion + channel TH, above 1-D neutronics and below CFD. IAEA-3D matches published `k_eff`; stage-2 corrections on by default. Sparse LU on `petir::sparse` since 2026-10-20 (gh #994), no `faer` | |
 | `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) — TUAS | ✅ |
 | `tampines` | Central thermal-hydraulic framework — composes TUAS, CoolProp, steam tables, outram-foam, chem-eng | |
@@ -147,7 +147,7 @@ that `outram-foam-basic-lib` stays publishable independently.
 
 **Internal dependency edges** are all by **path**, not crates.io. The ones
 worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps →
-`{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
+`{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`; `nee_soon → tampines` (normal, since 2026-11-03: the HTR-10 coupled kinetics + loop transient `nee_soon::htr10_th_transient`, moved from `tampines` on the maintainer's direction "any neutronics and TH shld live in nee soon"; no cycle, `tampines` has `nee_soon` only as a gated dev-dependency; `tampines` takes heat sources as inputs and stays free of `teh-o-prke` outside that gated dev-dependency);
 `outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set);
 `dover → outram-park-fork-dwsim-libs` (2026-09-30);
 `sembawang → {boon-lay, changi, buangkok, outram-mc-libs, tampines-steam-tables, teh-o-prke, outram-park-fork-offbeat, tampines}` (`teh-o-prke` and `offbeat` since 2026-10-29, gh:#1033, for `bwr_mark1`; **`tampines` a normal dependency since 2026-11-01, maintainer direction: a severe-accident code does thermal hydraulics and much more, so `sembawang` depends on `tampines` and never the reverse**; none depends on sembawang; `dhoby-ghaut → sembawang` as a dev-dependency for the demo), outram-mc-libs direct

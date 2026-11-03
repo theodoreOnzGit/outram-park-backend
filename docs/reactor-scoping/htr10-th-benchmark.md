@@ -1051,7 +1051,7 @@ Each file has the citation in `#` header lines.
 (native-resolution `pdfimages` extraction, frame and tick calibration,
 colour selection per pixel column, legend masked, no interpolation) and the
 read error. Checks against the papers' text are in
-`crates/tampines/verification_and_validation/htr10_loop_lofc/README.md` Sec 4.
+~~`crates/tampines/verification_and_validation/htr10_loop_lofc/README.md`~~ `crates/nee_soon/verification_and_validation/htr10_loop_lofc/README.md` (moved 2026-11-03) Sec 4.
 
 **How they were produced.** A short Python script parsed the
 `pdftotext -layout` output of [T1]. It asserted 22 thermocouple rows, an exact

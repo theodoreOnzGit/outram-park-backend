@@ -21,10 +21,6 @@ pub const POWER_MAP_TAB2_56: &str = include_str!("data/power-density-3mw-lofc-ta
 pub const BLOWER_SPEED_C09_FIG4: &str = include_str!("data/lofc-blower-speed-c09-fig4.csv");
 /// Jun et al. (2009) Fig 6, the GAMMA+ input flow coastdown (a TUNED input).
 pub const FLOW_COASTDOWN_J09_FIG6: &str = include_str!("data/lofc-flow-coastdown-j09-fig6.csv");
-/// Chen et al. (2009) Fig 6, measured relative fission power, 0-10800 s.
-pub const POWER_LONG_C09_FIG6: &str = include_str!("data/lofc-power-long-c09-fig6.csv");
-/// Chen et al. (2009) Fig 4, measured relative fission power, 0-500 s.
-pub const POWER_SHORT_C09_FIG4: &str = include_str!("data/lofc-power-short-c09-fig4.csv");
 
 /// The numeric rows of a citation-headed CSV: `#` lines and the one header
 /// line (the first non-`#` line) are skipped; every remaining field must

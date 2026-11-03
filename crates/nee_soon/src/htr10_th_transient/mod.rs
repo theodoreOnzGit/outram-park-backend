@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// This file is part of OUTRAM PARK. See `src/lib.rs` for the full licence
+// notice.
+//! # HTR-10 coupled thermal-hydraulic transients (gh:#1151)
+//!
+//! Point kinetics (`teh-o-prke`) coupled to the `tampines` primary loop and
+//! its core models: the LOFC ATWS case with its named sensitivity cases.
+//! **Moved here from `tampines::htr10_primary_loop` on 2026-11-03**
+//! (maintainer: "any neutronics and TH shld live in nee soon"; "Tampines
+//! will have fixed or user determined heat sources"): `tampines` keeps the
+//! loop and core thermal-hydraulics with the power as an input; everything
+//! that computes power from reactivity lives here.
+//!
+//! | Module | What |
+//! |---|---|
+//! | [`kinetics`] | PRKE + ANS decay heat + Xe-135 + fuel/moderator/reflector feedback |
+//! | [`transient`] | the coupled step, the LOFC case and its named sensitivities, metrics |
+//! | [`data`] | embedded copies of the measured traces the coupled tests compare against |
+//!
+//! V&V record: `crates/nee_soon/verification_and_validation/htr10_loop_lofc/README.md`.
+//!
+//! Inputs: `docs/reactor-scoping/htr10-th-benchmark.md` and
+//! `docs/reactor-scoping/htr10-th-data/`. Source keys are the sheet's.
+//!
+//! > Research, education and V&V only. Not for licensing, operation or
+//! > safety decisions. AI draft, unreviewed.
+
+pub mod data;
+pub mod kinetics;
+pub mod transient;
+
+pub use kinetics::{
+    DelayedNeutronSet, FeedbackCoefficients, FeedbackTemperatures, Htr10Kinetics, KineticsParameters,
+    ReactivityBreakdown, XenonModel,
+};
+pub use transient::{lofc_metrics, run_lofc, CoupledTransient, InitialState, LofcCase, LofcMetrics, TransientSample};
+
+#[cfg(test)]
+mod tests;

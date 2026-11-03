@@ -13,9 +13,12 @@
 //! by an [`AxialPowerShape`]. The total comes from a [`TotalPower`]: a table
 //! in time, or a value the caller sets each step. ~~**`tampines` does not
 //! depend on `teh-o-prke`** (as `crate::pebble_bed` already states)~~
-//! **CORRECTED 2026-11-03 (gh:#1151):** `tampines` now depends on
+//! ~~**CORRECTED 2026-11-03 (gh:#1151):** `tampines` now depends on
 //! `teh-o-prke` (maintainer decision D2: the HTR-10 coupled loop transient
-//! lives here, in [`crate::htr10_primary_loop`]). This component still takes
+//! lives here, in [`crate::htr10_primary_loop`]).~~ **CORRECTED again
+//! 2026-11-03: maintainer moved coupled kinetics to nee_soon**
+//! (`nee_soon::htr10_th_transient`); `tampines` is again free of
+//! `teh-o-prke` outside a gated example dev-dependency. This component takes
 //! no kinetics itself: power from a `PointReactor` (fission plus decay heat)
 //! arrives through [`TotalPower::External`].
 //!

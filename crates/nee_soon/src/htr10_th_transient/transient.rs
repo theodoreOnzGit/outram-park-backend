@@ -33,11 +33,12 @@ use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
-use super::core_model::{CoreBoundary, CoreModel, CoreResponse};
+use tampines::htr10_primary_loop::{
+    BypassSplit, CoastdownModel, CoreBoundary, CoreModel, CoreResponse, LumpedPebbleBedCore, PrimaryLoop,
+    PrimaryLoopConfig, SteamGeneratorModel,
+};
+use tampines::TampinesError;
 use super::kinetics::{Htr10Kinetics, KineticsParameters, ReactivityBreakdown};
-use super::lumped_core::{BypassSplit, LumpedPebbleBedCore};
-use super::primary_loop::{CoastdownModel, PrimaryLoop, PrimaryLoopConfig, SteamGeneratorModel};
-use crate::TampinesError;
 
 /// The initial operating point.
 #[derive(Debug, Clone, Copy, PartialEq)]

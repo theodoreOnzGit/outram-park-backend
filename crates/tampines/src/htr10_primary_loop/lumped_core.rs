@@ -87,7 +87,9 @@ use outram_foam_appbuilder_lib::htgr_closures::{
 };
 use outram_foam_appbuilder_lib::htr10_rz::{MaterialOptions, RegionMaterial};
 use petir::mathf::RealMath;
-use teh_o_prke::prelude::SquareMatrix;
+// The same Crout LU (Numerical Recipes `ludcmp`) as `teh-o-prke`'s inlined
+// copy, which is a copy of this one: identical arithmetic.
+use outram_foam_basic_lib::matrix::SquareMatrix;
 use uom::si::areal_number_density::per_square_centimeter;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
@@ -107,7 +109,7 @@ use uom::si::time::second;
 
 use super::core_model::{CoreBoundary, CoreResponse};
 use super::data::{lofc_power_map, map_power_in_band_w};
-use super::kinetics::FeedbackTemperatures;
+use super::core_model::FeedbackTemperatures;
 use crate::gas_phase::KtaBed;
 use crate::TampinesError;
 

@@ -63,6 +63,7 @@ assemble simulations without wiring the crates together by hand.
 | Monte Carlo transport | `outram-mc-libs` | CSG geometry, k-eigenvalue, Woodcock tracking |
 | Point reactor kinetics | `teh-o-prke` | PRKE precursor / reactivity time response |
 | GeN-Foam SP3 multiphysics | `outram-foam-appbuilder-lib` | SP3 neutronics + porous-media TH + multi-region coupling (host for the Xin Wang SP3 workflow) |
+| Reactor thermal-hydraulics (loop + core TH, heat source as input) | `tampines` | since 2026-11-03: the HTR-10 primary loop and its core models (`tampines::htr10_primary_loop`), coupled to the point kinetics in `htr10_th_transient` |
 | Geometry authoring | `outram-blender` | since 2026-10-02 (GitHub #486): `blender_bridge::to_mc_geometry` (authored surface -> CSG, a wrapper over `outram_blender::export::to_csg_geometry`) and the `sim` run driver behind MC Studio, both moved from blender's retired `mc-export` feature. The edge runs nee_soon -> blender; blender never depends on outram-mc-libs |
 
 See the workspace `docs/architecture.md` for the responsibility split
@@ -195,6 +196,17 @@ zone temperatures, statistics, data):
   single-temperature model (`tests/htr10_parametric_isothermal.rs`).
 
 Record and images: `verification_and_validation/htr10_zone_temperatures/`.
+
+**HTR-10 coupled TH transients (gh:#1151, moved here 2026-11-03).**
+Maintainer: "any neutronics and TH shld live in nee soon"; "Tampines will
+have fixed or user determined heat sources". `htr10_th_transient` holds the
+point kinetics (PRKE + ANS decay heat + Xe-135 + fuel/moderator/reflector
+feedback, on `teh-o-prke`), the coupled step with `tampines`'s primary loop
+and core models, and the LOFC ATWS case with its named sensitivities.
+`tampines` keeps the loop and core thermal-hydraulics with the power as an
+input. Record: `verification_and_validation/htr10_loop_lofc/README.md`
+(moved from tampines with git history; the moved tests reproduce its
+numbers).
 
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.

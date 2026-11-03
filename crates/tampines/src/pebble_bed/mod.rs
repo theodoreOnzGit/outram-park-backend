@@ -66,10 +66,14 @@
 //!   coefficients are provided separately and clearly labelled as not being
 //!   that quantity. ~~Wiring the channel into point kinetics belongs in an
 //!   example or in `nee_soon`, not in this library, which stays free of
-//!   `teh-o-prke`.~~ **CORRECTED 2026-11-03 (gh:#1151):** the library now
+//!   `teh-o-prke`.~~ ~~**CORRECTED 2026-11-03 (gh:#1151):** the library now
 //!   depends on `teh-o-prke` (decision D2); the HTR-10 coupled transient in
 //!   [`crate::htr10_primary_loop`] carries its own fuel/moderator/reflector
-//!   feedback and does not use this channel.
+//!   feedback and does not use this channel.~~ **CORRECTED again 2026-11-03:
+//!   maintainer moved coupled kinetics to nee_soon**: the original statement
+//!   holds again. The HTR-10 coupled transient is `nee_soon::htr10_th_transient`,
+//!   with its own fuel/moderator/reflector feedback; it does not use this
+//!   channel.
 //! - [`temperature_difference`] — the one shared helper, converting a pair of
 //!   absolute temperatures into the `uom` `TemperatureInterval` that `uom`
 //!   deliberately will not produce with `-`.

@@ -3,7 +3,9 @@
 > Research, education and V&V only. Not for licensing, operation or safety
 > decisions. AI draft (Claude), unreviewed by a human.
 
-Code: `crates/tampines/src/htr10_primary_loop/`. Inputs:
+> **Moved 2026-11-03** from `crates/tampines/verification_and_validation/htr10_loop_lofc/` (maintainer: coupled kinetics and TH live in `nee_soon`). Loop and stand-in code stay in `crates/tampines/src/htr10_primary_loop/`; the kinetics, the coupled transient and these tests are `crates/nee_soon/src/htr10_th_transient/`. The moved tests reproduce every number below (Sec 7).
+
+Code: `crates/tampines/src/htr10_primary_loop/` (loop, stand-in) and `crates/nee_soon/src/htr10_th_transient/` (kinetics, coupling). Inputs:
 `docs/reactor-scoping/htr10-th-benchmark.md` (the cited input sheet; source
 keys [T1] TECDOC-1694, [J09] Jun 2009, [C09] Chen 2009, [H06] Hu 2006,
 [G02] Gao & Shi 2002, [S21] She 2021 are its own) and
@@ -70,7 +72,7 @@ groups (**named assumption**, none published); Xe ON (one-group burnout,
 `kinetics.rs` docs). Bypass 87/1/2/10 ([T1], **assumption**, D5). Coastdown:
 the **measured** blower speed, [C09] Fig 4 digitised. Core: the lumped
 stand-in (`lumped_core.rs`; its data table and named assumptions A1-A8 are
-in the module docs; layout drawn in `lumped_core_layout.svg`).
+in the module docs; layout drawn in `crates/tampines/verification_and_validation/htr10_primary_loop/lumped_core_layout.svg`).
 
 **Reference.** The measured relative fission power, [C09] Fig 4 (0-500 s)
 and Fig 6 (0-10800 s), digitised (Sec 4). Its own markers, read from the
@@ -259,7 +261,7 @@ was judged enough), and every calculated (black) curve.
 
 ## 6. Geometry drawing
 
-`lumped_core_layout.svg` (written by `draw_the_lumped_core_layout` from
+`crates/tampines/verification_and_validation/htr10_primary_loop/lumped_core_layout.svg` (written by the tampines test `draw_the_lumped_core_layout` from
 the assembled core): the five heated zones with their pebble counts, power
 fractions and steady temperatures, the cone, and the radial bodies the
 solver reads. Checked in it: zone edges 0-36-72-108-144-187 cm, power
@@ -273,8 +275,9 @@ radius).
 ## 7. How to run
 
 ```bash
-cargo test --release -p tampines --lib htr10_primary_loop -- --nocapture
+cargo test --release -p nee_soon --lib htr10_th_transient -- --nocapture   # coupled (moved 2026-11-03)
+cargo test --release -p tampines --lib htr10_primary_loop -- --nocapture   # loop-only TH
 ```
 
-13 tests; all but the helical-coil SG test (`long-tests`, ~26 min) finish
+~~13 tests~~ (since the 2026-11-03 move: 9 in nee_soon, 6 loop-only in tampines); all but the helical-coil SG test (`long-tests`, ~26 min) finish
 in under 10 s together.

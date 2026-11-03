@@ -16,11 +16,12 @@
 //! - **in:** the loop mass flow (signed: positive in the forced direction,
 //!   cold nozzle to hot nozzle), the temperature of the gas *arriving* at
 //!   each nozzle, the system pressure, and the total thermal power the
-//!   kinetics deposited ([`CoreBoundary`], `power`);
+//!   caller deposits ([`CoreBoundary`], `power`): a fixed or user-set heat
+//!   source; the kinetics that may set it lives in `nee_soon`;
 //! - **out:** the temperature of the gas *leaving* at the downstream
 //!   nozzle, the heat given to the coolant and to the RCCS, and the
-//!   power-weighted fuel / moderator / reflector temperatures the kinetics
-//!   feeds back on ([`CoreResponse`], [`FeedbackTemperatures`]);
+//!   power-weighted fuel / moderator / reflector temperatures a caller's
+//!   kinetics may feed back on ([`CoreResponse`], [`FeedbackTemperatures`]);
 //! - **for the loop momentum balance:** the core's flow resistance at a
 //!   trial flow ([`CoreModel::pressure_drop`]) and its gravity head
 //!   ([`CoreModel::gravity_head`]).
@@ -33,9 +34,22 @@
 
 use uom::si::f64::{MassRate, Power, Pressure, ThermodynamicTemperature, Time};
 
-use super::kinetics::FeedbackTemperatures;
 use super::lumped_core::LumpedPebbleBedCore;
 use crate::TampinesError;
+
+/// Power-weighted fuel and moderator temperatures and the reflector
+/// temperature of a core: what a point-kinetics feedback reads. (Moved
+/// here from the kinetics module, 2026-11-03, when the kinetics moved to
+/// `nee_soon`: the temperatures are thermal-hydraulic outputs.)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FeedbackTemperatures {
+    /// Power-weighted fuel temperature.
+    pub fuel: ThermodynamicTemperature,
+    /// Power-weighted moderator (pebble graphite) temperature.
+    pub moderator: ThermodynamicTemperature,
+    /// Reflector temperature.
+    pub reflector: ThermodynamicTemperature,
+}
 
 /// The loop-side state the core is advanced against.
 #[derive(Debug, Clone, Copy, PartialEq)]
