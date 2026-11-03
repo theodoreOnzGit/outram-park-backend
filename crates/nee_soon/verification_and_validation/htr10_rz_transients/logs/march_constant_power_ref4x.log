@@ -1,0 +1,16 @@
+steady: NOT converged after 400 passes
+dt 1 s step 0: solid 2.865e-2 K/step (r 0.8 z 285.2), gas 1.199e1 K/step (r 2.4 z 285.2), 1 s
+dt 1 s step 10: solid 1.175e-1 K/step (r 0.8 z 289.1), gas 5.122e1 K/step (r 0.8 z 289.1), 7 s
+dt 1 s step 20: solid 1.416e-1 K/step (r 0.8 z 227.6), gas 1.053e2 K/step (r 0.8 z 227.6), 14 s
+dt 1 s step 30: solid 1.019e-1 K/step (r 0.8 z 289.1), gas 6.786e1 K/step (r 2.4 z 227.6), 22 s
+dt 1 s step 40: solid 1.382e-1 K/step (r 0.8 z 228.9), gas 1.077e2 K/step (r 0.8 z 227.6), 28 s
+dt 1 s step 50: solid 9.976e-2 K/step (r 0.8 z 289.1), gas 7.261e1 K/step (r 2.4 z 227.6), 35 s
+dt 1 s step 59: solid 1.436e-1 K/step (r 0.8 z 228.9), gas 1.197e2 K/step (r 0.8 z 227.6), 41 s
+dt 10 s step 0: solid 1.134e0 K/step (r 0.8 z 227.6), gas 1.145e2 K/step (r 0.8 z 227.6), 42 s
+dt 10 s step 10: solid 8.766e-1 K/step (r 0.8 z 285.2), gas 5.604e1 K/step (r 2.4 z 227.6), 50 s
+dt 10 s step 20: solid 9.449e-1 K/step (r 0.8 z 227.6), gas 1.046e2 K/step (r 0.8 z 227.6), 57 s
+dt 10 s step 30: solid 9.925e-1 K/step (r 0.8 z 227.6), gas 1.006e2 K/step (r 0.8 z 227.6), 65 s
+dt 10 s step 40: solid 7.758e-1 K/step (r 4.1 z 285.2), gas 7.812e1 K/step (r 2.4 z 227.6), 72 s
+dt 10 s step 50: solid 1.108e0 K/step (r 0.8 z 228.9), gas 1.174e2 K/step (r 0.8 z 227.6), 79 s
+dt 10 s step 60: solid 7.358e-1 K/step (r 4.1 z 285.2), gas 6.583e1 K/step (r 2.4 z 227.6), 86 s
+dt 10 s step 70: solid 9.953e-1 K/step (r 0.8 z 227.6), gas 1.058e2 K/step (r 0.8 z 227.6), 93 s

@@ -1,0 +1,9 @@
+| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |
+| NC-OFF-1X | 301 s | -320 pcm @ 211 s | 5041 s | 6724 s | 5.7 % @ 7020 s | 70 kW | 0.000 kg/s |
+  NC-OFF-1X: 1452 cells; P(100 s) 0.1710; RCCS+heads 0 / 3 h 111.23 / 102.34 kW; initial fuel / moderator / reflector 579.85 / 575.42 / 309.98 C; moderator at 1800 / 3600 / 7200 s 583.75 / 575.62 / 569.63 C; max bed upflow after 1000 s 0.0000 kg/s; wall 21 s
+| NC-OFF-2X | 300 s | -321 pcm @ 221 s | 5936 s | 7745 s | 5.0 % @ 8055 s | 34 kW | 0.000 kg/s |
+  NC-OFF-2X: 5808 cells; P(100 s) 0.1711; RCCS+heads 0 / 3 h 114.61 / 104.47 kW; initial fuel / moderator / reflector 570.32 / 565.92 / 310.73 C; moderator at 1800 / 3600 / 7200 s 575.33 / 567.64 / 555.07 C; max bed upflow after 1000 s 0.0000 kg/s; wall 92 s
+| REF-R2 | 296 s | -412 pcm @ 3385 s | 7951 s | 8816 s | 22.1 % @ 9000 s | 146 kW | 0.092 kg/s |
+  REF-R2: 2904 cells; P(100 s) 0.1710; RCCS+heads 0 / 3 h 114.21 / 104.11 kW; initial fuel / moderator / reflector 580.23 / 575.80 / 310.55 C; moderator at 1800 / 3600 / 7200 s 594.38 / 594.10 / 574.00 C; max bed upflow after 1000 s 0.0915 kg/s; wall 121 s
+| REF-Z2 | 295 s | -391 pcm @ 3300 s | 7731 s | 8609 s | 21.5 % @ 8795 s | 112 kW | 0.098 kg/s |
+  REF-Z2: 2904 cells; P(100 s) 0.1693; RCCS+heads 0 / 3 h 111.62 / 102.67 kW; initial fuel / moderator / reflector 570.20 / 565.80 / 310.07 C; moderator at 1800 / 3600 / 7200 s 583.55 / 582.96 / 562.36 C; max bed upflow after 1000 s 0.0977 kg/s; wall 130 s

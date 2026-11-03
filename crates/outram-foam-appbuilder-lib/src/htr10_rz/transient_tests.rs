@@ -394,3 +394,52 @@ fn finest_mesh_march_at_constant_power() {
         }
     }
 }
+
+/// gh:#1176 diagnosis: the gas alone at FIXED solid temperatures (the last
+/// iterate of the non-converging finest-mesh steady state). Repeats
+/// `solve_gas` from its own previous state, plain and with the steady
+/// solve's 0.5 relaxation of the gas temperature, and prints the largest
+/// gas change per repeat with the cell and its axial mass flux. If the gas
+/// alone does not settle, the outer iteration cannot.
+#[cfg(feature = "long-tests")]
+#[test]
+fn finest_mesh_gas_alone_at_fixed_solid() {
+    use super::flow::solve_gas;
+    let o = TransientCoreOptions::htr10_lofc().with_refinement(4, 4);
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    let op = as_run(3.315e6, 1.457);
+    let _ = core.solve_steady(&op);
+    let mesh = core.solid().field().mesh().clone();
+    let ts: Vec<f64> = (0..mesh.n_cells()).map(|i| core.solid().field().temperature(i).get::<kelvin>()).collect();
+    for relax in [1.0, 0.5, 0.2] {
+        let mut prev = core.gas().unwrap().clone();
+        for k in 0..40 {
+            let mut g = solve_gas(core.network(), &op, &ts, Some(&prev)).unwrap();
+            for (a, b) in g.temperature.iter_mut().zip(&prev.temperature) {
+                if a.is_finite() && b.is_finite() {
+                    *a = relax * *a + (1.0 - relax) * b;
+                }
+            }
+            let (mut d, mut c) = (0.0_f64, 0);
+            for (i, (a, b)) in g.temperature.iter().zip(&prev.temperature).enumerate() {
+                if a.is_finite() && b.is_finite() && (a - b).abs() > d {
+                    (d, c) = ((a - b).abs(), i);
+                }
+            }
+            if k % 4 == 0 || k == 39 {
+                let (r, z) = mesh.cell_centre(c);
+                println!(
+                    "relax {relax} repeat {k}: gas {d:.3e} K at r {:.1} z {:.1} cm (region {}), G_z {:.3e} kg/(m2 s), T_gas {:.1} K, T_solid {:.1} K, flow Picard {}",
+                    r.get::<uom::si::length::centimeter>(),
+                    z.get::<uom::si::length::centimeter>(),
+                    mesh.cell_region(c),
+                    g.mass_flux[c].1,
+                    g.temperature[c],
+                    ts[c],
+                    g.flow_picard.0
+                );
+            }
+            prev = g;
+        }
+    }
+}

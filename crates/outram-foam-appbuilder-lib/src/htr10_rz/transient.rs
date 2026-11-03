@@ -27,6 +27,13 @@
 //!    circulation only as low-resistance connections. The 1-D inlet chain
 //!    (annulus, risers, top plenum) carries only the loop flow, so **no
 //!    riser loop** exists here; see the V&V README for its size.
+//!    ~~The flow sees the gas densities of the previous solve.~~
+//!    **CHANGED 2026-11-03 (gh:#1176):** the gas is solved consistently in
+//!    its own density ([`super::flow::solve_gas_consistent`], Aitken-relaxed
+//!    to 1e-4 K), at every step and in the steady state. The lagged form
+//!    oscillated (50-100 K step to step) at the axis cells of the discharge
+//!    tube once the mesh resolved them radially (the 4x-refined 20 cm mesh),
+//!    so neither the steady state nor the transient settled there.
 //! 2. **Solid** (`SolidConductionField::step`): backward Euler with
 //!    Picard on `lambda(T)`, `rho c(T)` and radiation; the gas exchange
 //!    `h a_v (T - T_gas)` implicit in `T`.
@@ -100,7 +107,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
-use super::flow::{gas, solve_gas, BypassSplit, GasNetwork, GasState, OperatingPoint, GRAVITY};
+use super::flow::{gas, solve_gas_consistent, BypassSplit, GAS_DENSITY_TOLERANCE_K, GasNetwork, GasState, OperatingPoint, GRAVITY};
 use super::fpic::{reading_at, Thermocouple, ThermocoupleReading};
 use super::geometry::idx;
 use super::pebble::tab29_k;
@@ -730,8 +737,14 @@ impl Htr10RzTransientCore {
         let mut t_s = self.t_solid();
         let mut last = None;
         self.steady_history.clear();
+        let mut prev_change = f64::INFINITY;
         for _ in 0..400 {
-            let mut g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
+            // Inexact inner solves (gh:#1176): the gas is made consistent in
+            // its density to a tenth of the last outer change, never looser
+            // than needed and tightening to GAS_DENSITY_TOLERANCE_K; the
+            // converged state is checked at that tolerance below.
+            let inner_tol = GAS_DENSITY_TOLERANCE_K.max(0.1 * prev_change);
+            let mut g = solve_gas_consistent(&self.network, op, &t_s, self.gas.as_ref(), inner_tol)?;
             if let Some(old) = &self.gas {
                 for (a, b) in g.temperature.iter_mut().zip(&old.temperature) {
                     if a.is_finite() && b.is_finite() {
@@ -762,6 +775,7 @@ impl Htr10RzTransientCore {
                 None => gas_change = f64::INFINITY,
             }
             let change = solid_change.max(gas_change);
+            prev_change = change;
             if gas_change > solid_change {
                 worst = gas_worst;
             }
@@ -778,7 +792,7 @@ impl Htr10RzTransientCore {
             self.gas = Some(g);
             last = Some((rep.iterations, gp));
             if change < self.options.steady_tolerance_k {
-                let g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
+                let g = solve_gas_consistent(&self.network, op, &t_s, self.gas.as_ref(), GAS_DENSITY_TOLERANCE_K)?;
                 self.gas = Some(g);
                 self.quasi_steady_fuel()?;
                 if self.phi_d > 0.0 {
@@ -812,7 +826,7 @@ impl Htr10RzTransientCore {
         }
         self.power_w = p;
         let t_s = self.t_solid();
-        let g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
+        let g = solve_gas_consistent(&self.network, op, &t_s, self.gas.as_ref(), GAS_DENSITY_TOLERANCE_K)?;
         let gp = g.flow_picard.0;
         let lagged = self.phi > 0.0;
         let mut fuel_ex = Vec::new();
