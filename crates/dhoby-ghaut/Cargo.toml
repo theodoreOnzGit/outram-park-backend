@@ -341,6 +341,17 @@ path = "examples/nuclear_data_web/main.rs"
 name = "dem_web"
 path = "examples/dem_web/main.rs"
 
+# The helical-coil steam generator demo (gh:#1157, epic gh:#1153): one tube
+# of a helical-coil once-through steam generator, solved by tampines'
+# `components::helical_coil_otsg` 1-D march (IF97 water, coil and boiling
+# correlations) in a Web Worker, one march per message (web/helical_sg/).
+# Uses the dev-dependencies already present: tampines and uom (shared
+# table), outram-blender natively for the geometry review image. Carries an
+# Android stub `main`. AI draft, not validated.
+[[example]]
+name = "helical_sg_web"
+path = "examples/helical_sg_web/main.rs"
+
 # The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986): a GE BWR/3
 # with isolation condensers in a Mark I containment, from the scram through
 # core damage, hydrogen, venting and the reactor-building explosion. Built on

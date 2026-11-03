@@ -132,15 +132,35 @@ Dougall–Rohsenow (1963), from `outram-foam-multiphase`.
 
 ### 2.6 Geometry drawing (the drawing rule)
 
-`helical_coil_otsg_gh1157_geometry.png`, beside this record, drawn from the
-model's own geometry methods (the helix the march integrates along, with
-its tube length, curvature diameter and helix angle), not from typed
-constants. See the PNG's caption for what it shows and §5 of the commit
-message for what was checked in it.
+`helical_coil_otsg_gh1157_geometry.png`, beside this record, written by
+`cargo run --release -p dhoby-ghaut --example helical_sg_web --
+--render-geometry`. Every pixel is classified by
+`HelicalCoilGeometry::region_at` (distance to the assembled helix the march
+integrates along: bore, wall or shell), not drawn from the named
+constants. Panels: (A) the whole coil, x–z through the axis; (B) the bottom
+turns zoomed, with the pitch measured between two centreline crossings;
+(C) the x–y slice at mid-height; (D) the derived dimensions.
+
+**Checked in it (2026-11-03, illustrative coil):** the y = 0 cuts of the tube
+in (B) are circles 30.0 mm apart (the pitch, measured from
+`centreline_point`), each a bore inside a wall annulus; the bore/wall pixel
+ratio is 1.180 against 1.188 for exact circles of 14 and 19 mm (the 0.7 %
+gap is the helix angle, sin θ = 0.095, plus pixelation; the test
+`render::tests::the_review_image_is_drawn_from_the_assembled_geometry` holds
+it within 8 %); turns do not overlap (pitch 30 mm > d_o 19 mm); the coil
+starts at z = 0 and its height is 3.240 m with 108 turns, tube length
+34.084 m, `D_c` = 100.91 mm, `d_i/D_c` = 0.1387; the mid-height plane cuts
+the near-horizontal tube along a crescent, as a helix rising at 0.095 should.
+**Not checked:** the shell around the coil (its geometry is not modelled;
+the hot side is a constant `h_o`), and any geometry other than the
+illustrative default.
 
 ## 3. How to re-run
 ## 3. How to re-run
 
 ```
 cargo test --release -j 2 -p tampines --lib helical_coil_otsg -- --nocapture
+cargo test --release -j 2 -p dhoby-ghaut --example helical_sg_web
+cargo run  --release -j 2 -p dhoby-ghaut --example helical_sg_web -- --headless 200
+cargo run  --release -j 2 -p dhoby-ghaut --example helical_sg_web -- --render-geometry
 ```
