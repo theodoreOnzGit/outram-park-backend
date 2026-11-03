@@ -331,7 +331,12 @@ pub fn celsius(t: ThermodynamicTemperature) -> f64 {
 pub fn temperatures_to_apply(applied: &ZoneTemperatures, sliders_c: &[f64; 8]) -> Result<Option<ZoneTemperatures>, String> {
     let mut want = *applied;
     for (z, &c) in Htr10Zone::ALL.into_iter().zip(sliders_c) {
-        want.set(z, ThermodynamicTemperature::new::<degree_celsius>(c));
+        // A slider that reads the applied value keeps it to the bit (27 °C
+        // round-tripped through °C is not always 300.15 K exactly, and a
+        // last-bit difference is another processing key).
+        if (c - celsius(applied.get(z))).abs() >= 1e-9 {
+            want.set(z, ThermodynamicTemperature::new::<degree_celsius>(c));
+        }
     }
     want.check()?;
     let same = Htr10Zone::ALL.into_iter().all(|z| (celsius(want.get(z)) - celsius(applied.get(z))).abs() < 1e-9);
@@ -705,7 +710,7 @@ impl CoreScreen {
     }
 
     /// **The eight zone temperatures** (gh:#1142): a slider each, 20 to
-    /// 1800 °C, "Same for all", a warning above 1600 °C, and Apply, which
+    /// 1800 °C in 1 °C steps, "Same for all", a warning above 1600 °C, and Apply, which
     /// restarts the pool at the new temperatures (each zone's nuclides and
     /// laws processed exactly there; what is unchanged loads from this
     /// browser's cache). Fixed while a run or sweep is going. GUI code
@@ -719,8 +724,11 @@ impl CoreScreen {
             let mut moved: Option<f64> = None;
             for (i, z) in Htr10Zone::ALL.into_iter().enumerate() {
                 let r = ui.add(
+                    // 1 °C steps: the record's 27 °C (300.15 K) is on the
+                    // grid; with 5 °C steps from 20 the slider snapped it to
+                    // 25 the moment it was touched (gh:#1142).
                     egui::Slider::new(&mut self.temps_c[i], lo..=hi)
-                        .step_by(5.0)
+                        .step_by(1.0)
                         .fixed_decimals(0)
                         .suffix(" °C")
                         .text(z.label()),
@@ -1430,7 +1438,14 @@ mod tests {
         let want = temperatures_to_apply(&rec, &s).expect("in range").expect("changed");
         assert!((want.kelvin(Htr10Zone::FuelPebble) - 1173.15).abs() < 1e-9);
         assert!((want.kelvin(Htr10Zone::Coolant) - 773.15).abs() < 1e-9);
-        assert_eq!(want.kelvin(Htr10Zone::SideReflector), rec.kelvin(Htr10Zone::SideReflector));
+        assert_eq!(want.kelvin(Htr10Zone::SideReflector).to_bits(), rec.kelvin(Htr10Zone::SideReflector).to_bits());
+        // A slider snapped to a whole 27 °C keeps the record's 300.15 K to
+        // the bit, and the record's 27 °C is a whole slider step.
+        let mut snapped = s;
+        snapped[3] = 27.0;
+        let w = temperatures_to_apply(&rec, &snapped).expect("in range").expect("changed");
+        assert_eq!(w.kelvin(Htr10Zone::TopReflector).to_bits(), rec.kelvin(Htr10Zone::TopReflector).to_bits());
+        assert!((celsius(rec.get(Htr10Zone::FuelPebble)) - 27.0).abs() < 1e-9);
         s[7] = 1850.0;
         assert!(temperatures_to_apply(&rec, &s).unwrap_err().contains("Boronated bricks"));
         assert_eq!(triso_warning(&same), None);

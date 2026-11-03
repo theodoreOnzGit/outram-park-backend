@@ -12,7 +12,7 @@ Epic gh:#1137, issues gh:#1141 (the pool at per-zone temperatures) and gh:#1142
 ## What changed on the page
 
 **HTR-10 → "Whole core" → "Zone temperatures" panel:**
-- Eight sliders, 20–1800 °C in 5 °C steps:
+- Eight sliders, 20–1800 °C in ~~5 °C~~ 1 °C steps (**CORRECTED 2026-11-03**: with 5 °C steps counted from 20 °C, the record's 27 °C was off the grid and the slider showed and snapped it to 25 °C):
   - fuel pebbles, moderator pebbles, helium coolant;
   - top, side and bottom reflector;
   - control rods, boronated bricks.
