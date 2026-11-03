@@ -1,0 +1,86 @@
+# Source: Jun J. S., Lim H. S., Lee W. J., "The benchmark calculations of the GAMMA+ code with the HTR-10 safety
+# demonstration experiments", Nucl. Eng. Technol. 41(3) (2009) 307-318. [J09]
+# Redistribution: no licence statement; held private by the owner (D1). Numbers only, cited by figure.
+# Digitised 2026-11-03 for gh:#1151 by an AI agent (draft until human review). Method: the embedded raster figure
+# was extracted at native resolution with `pdfimages -png` (no resampling). The plot frame was located from its
+# solid axis lines; the axes were calibrated from the frame lines and the printed tick labels (and checked against
+# the dotted gridlines where present). Curve pixels were selected by colour and reduced per pixel column (scripts
+# kept in the session scratchpad, not committed). The legend box was masked. No point was interpolated or invented:
+# a column with no curve pixel (hidden behind another curve) is simply absent.
+# Content: [J09] Fig 6, solid curve "helium flow rate" (kg/s), the GAMMA+ INPUT flow after the circulator
+# trip. NOT a measurement: [J09] Sec 2.4 says it was "selected by comparing the power decay curve for a short
+# term with the experimental data", i.e. tuned to the validation target. Use only as a named sensitivity case.
+# Its starting value is [J09]'s own tuned 1.413 kg/s. Axes 0-600 s, 0-1.6 kg/s; 1 px = 0.45 s, 0.0019 kg/s.
+# The dashed "rotating speed" curve was not digitised (the measured speed is lofc-blower-speed-c09-fig4.csv).
+# Read error +-0.01 kg/s or the half-width if larger. Below ~0.02 kg/s the curve merges with the axis.
+t_s,flow_kg_s,halfwidth
+1.56,1.35171,0.0268
+3.35,1.25009,0.0326
+5.14,1.17436,0.0144
+6.92,1.11204,0.0096
+8.71,1.05261,0.0077
+10.50,0.93565,0.0422
+12.29,0.86471,0.0384
+14.07,0.80144,0.0326
+15.86,0.75351,0.0211
+17.65,0.71132,0.0249
+19.43,0.66435,0.0297
+21.22,0.61258,0.0278
+23.01,0.56273,0.0259
+24.80,0.52343,0.0192
+26.58,0.49275,0.0153
+28.37,0.46399,0.0192
+30.16,0.42852,0.0221
+31.94,0.39305,0.0192
+33.73,0.36333,0.0163
+35.52,0.33936,0.0115
+37.30,0.32115,0.0106
+39.09,0.30102,0.0134
+40.88,0.27801,0.0115
+42.67,0.26171,0.0086
+44.45,0.25117,0.0057
+46.24,0.24350,0.0077
+48.03,0.23200,0.0077
+49.81,0.22049,0.0077
+51.60,0.20899,0.0077
+53.39,0.19652,0.0086
+55.17,0.18310,0.0086
+56.96,0.17160,0.0086
+58.75,0.15914,0.0077
+60.54,0.14476,0.0106
+62.32,0.12846,0.0096
+64.11,0.11696,0.0077
+65.90,0.10737,0.0057
+67.68,0.09874,0.0067
+69.47,0.08820,0.0077
+71.26,0.07861,0.0057
+73.05,0.07669,0.0038
+74.83,0.07573,0.0048
+76.62,0.07382,0.0048
+78.41,0.07286,0.0038
+80.19,0.07094,0.0038
+81.98,0.06806,0.0048
+83.77,0.06615,0.0048
+85.55,0.06327,0.0038
+87.34,0.06040,0.0048
+89.13,0.05848,0.0048
+90.92,0.05560,0.0038
+92.70,0.05464,0.0048
+94.49,0.05273,0.0048
+96.28,0.05081,0.0048
+98.06,0.04889,0.0048
+99.85,0.04697,0.0048
+101.64,0.04506,0.0048
+103.43,0.04218,0.0038
+105.21,0.03930,0.0048
+107.00,0.03739,0.0048
+108.79,0.03451,0.0038
+110.57,0.03164,0.0048
+112.36,0.02972,0.0048
+114.15,0.02684,0.0038
+115.93,0.02397,0.0048
+117.72,0.02205,0.0048
+119.51,0.02013,0.0029
+121.30,0.01917,0.0020
+123.08,0.01821,0.0020
+124.87,0.01821,0.0020

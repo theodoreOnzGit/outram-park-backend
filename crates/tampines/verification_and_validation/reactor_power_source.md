@@ -11,7 +11,10 @@ power. This is a clean-room equivalent.
 `tampines::components::reactor_power::ReactorPowerSource`:
 
 - **Total power** comes from a `TotalPower`: either a time table or a value
-  the caller sets each step. `tampines` stays free of `teh-o-prke`, so a
+  the caller sets each step. ~~`tampines` stays free of `teh-o-prke`, so~~
+  **CORRECTED 2026-11-03 (gh:#1151):** `tampines` now depends on
+  `teh-o-prke` (decision D2, for `htr10_primary_loop`), but this component
+  takes no kinetics: a
   `PointReactor`'s fission and decay power arrive through `External`.
 - **Distribution over channels** is by a normalised radial weight.
 - **Distribution within a channel** is by an `AxialPowerShape`:
