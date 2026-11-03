@@ -64,7 +64,7 @@ pub use fpic::{reading_at, FpicOptions, FpicResult, Htr10FpicModel, Instrument, 
 pub use transient::{
     dummy_pebble_conductance, CoreFeedbackTemperatures, CoreStepReport, DummyPebbleModel, FuelZoneModel, Htr10RzTransientCore,
     ModeratorTemperature, NaturalCirculation, PowerShape,
-    ReflectorAverage, TransientCoreOptions,
+    ReflectorAverage, SteadyOuterPass, TransientCoreOptions,
 };
 pub use pebble::{PebbleMatrix, PebbleProfile};
 pub use model::{

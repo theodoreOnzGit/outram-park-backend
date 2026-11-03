@@ -27,6 +27,18 @@
 //!    circulation only as low-resistance connections. The 1-D inlet chain
 //!    (annulus, risers, top plenum) carries only the loop flow, so **no
 //!    riser loop** exists here; see the V&V README for its size.
+//!    **The steady state (gh:#1176, 2026-11-03)** solves the gas
+//!    consistently in its own density
+//!    ([`super::flow::solve_gas_consistent`], Aitken-relaxed to 1e-4 K):
+//!    with the densities lagged one outer pass the steady iteration
+//!    wandered at 3-9 K from the axis cells of the discharge tube on the
+//!    4x-refined 20 cm mesh and never converged. **A step keeps the lagged
+//!    densities** (explicit in the gas, as THERMIX): a consistent solve per
+//!    step was tried and needed 15-87 evaluations per step, and failed to
+//!    converge at the last forced-flow step of the coastdown on the 2x mesh
+//!    (2026-11-03). Known limitation: on the 4x mesh at a constant state
+//!    the tube's axis gas alternates by 50-120 K from step to step (V&V
+//!    README Sec 10).
 //! 2. **Solid** (`SolidConductionField::step`): backward Euler with
 //!    Picard on `lambda(T)`, `rho c(T)` and radiation; the gas exchange
 //!    `h a_v (T - T_gas)` implicit in `T`.
@@ -100,7 +112,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
-use super::flow::{gas, solve_gas, BypassSplit, GasNetwork, GasState, OperatingPoint, GRAVITY};
+use super::flow::{gas, solve_gas, solve_gas_consistent, BypassSplit, GAS_DENSITY_TOLERANCE_K, GasNetwork, GasState, OperatingPoint, GRAVITY};
 use super::fpic::{reading_at, Thermocouple, ThermocoupleReading};
 use super::geometry::idx;
 use super::pebble::tab29_k;
@@ -194,6 +206,14 @@ pub enum ModeratorTemperature {
     /// The pebble graphite outside the fuel zones only (shells and
     /// dummies): the gh:#1151 part B reading (sensitivity `MOD-OUTSIDE-FZ`).
     OutsideFuelZones,
+    /// All pebble graphite, each part weighted by its volume **and its
+    /// measured reactivity importance per unit graphite** (gh:#1174): the
+    /// fuel pebbles' graphite (fuel-zone matrix and shell, one importance)
+    /// against the dummies', in the ratio
+    /// [`TransientCoreOptions::fuel_graphite_importance`] from the whole-core
+    /// Monte Carlo worths (V&V README Sec 11). With a ratio of 1 it is
+    /// [`Self::AllPebbleGraphite`].
+    ImportanceWeighted,
 }
 
 /// Everything that defines the transient core, each defaulting to the
@@ -220,6 +240,10 @@ pub struct TransientCoreOptions {
     pub dummy_pebbles: DummyPebbleModel,
     /// What the moderator coefficient reads (gh:#1174).
     pub moderator: ModeratorTemperature,
+    /// Reactivity worth per kelvin per unit graphite of the fuel pebbles'
+    /// graphite over the dummies' ([`ModeratorTemperature::ImportanceWeighted`];
+    /// gh:#1174, measured by Monte Carlo, V&V README Sec 11).
+    pub fuel_graphite_importance: f64,
     /// Outer-iteration tolerance of the initial steady state, K.
     pub steady_tolerance_k: f64,
 }
@@ -242,6 +266,7 @@ impl TransientCoreOptions {
             reflector: ReflectorAverage::AllGraphite,
             dummy_pebbles: DummyPebbleModel::default(),
             moderator: ModeratorTemperature::default(),
+            fuel_graphite_importance: 1.0,
             steady_tolerance_k: 1.0e-4,
         }
     }
@@ -282,10 +307,36 @@ impl TransientCoreOptions {
         self
     }
 
+    /// The moderator reading weighted by the measured importance of the
+    /// fuel pebbles' graphite against the dummies' (`ratio`; gh:#1174).
+    #[must_use]
+    pub fn with_importance_weighted_moderator(mut self, ratio: f64) -> Self {
+        self.moderator = ModeratorTemperature::ImportanceWeighted;
+        self.fuel_graphite_importance = ratio;
+        self
+    }
+
+    /// The ablation of the importance weighting: all pebble graphite by
+    /// volume (the gh:#1174 reading of 2026-11-03).
+    #[must_use]
+    pub fn with_all_pebble_graphite_moderator(mut self) -> Self {
+        self.moderator = ModeratorTemperature::AllPebbleGraphite;
+        self
+    }
+
     /// Change the largest cell size.
     #[must_use]
     pub fn with_max_cell(mut self, max_cell: Length) -> Self {
         self.solid.max_cell = Some(max_cell);
+        self
+    }
+
+    /// Split every cell of the mesh uniformly, `radial x axial`
+    /// ([`Htr10RzOptions::refinement`]; the gh:#1176 geometric mesh
+    /// sequence).
+    #[must_use]
+    pub fn with_refinement(mut self, radial: usize, axial: usize) -> Self {
+        self.solid = self.solid.with_refinement(radial, axial);
         self
     }
 }
@@ -342,6 +393,24 @@ pub struct CoreStepReport {
     pub gas_picard_iterations: usize,
 }
 
+/// One pass of the steady solid-gas outer iteration
+/// ([`Htr10RzTransientCore::solve_steady`]), kept so a stall can be told
+/// apart from an oscillation or a divergence (gh:#1176).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SteadyOuterPass {
+    /// Largest change of a solid cell temperature over the pass, K.
+    pub solid_change_k: f64,
+    /// Largest change of a gas cell temperature over the pass, K
+    /// (infinite on the first pass).
+    pub gas_change_k: f64,
+    /// The cell that set the larger of the two.
+    pub worst_cell: usize,
+    /// Picard passes of the solid solve.
+    pub solid_picard: usize,
+    /// Picard passes of the gas flow solve.
+    pub gas_picard: usize,
+}
+
 /// The transient HTR-10 R-Z core.
 #[derive(Debug, Clone)]
 pub struct Htr10RzTransientCore {
@@ -371,6 +440,8 @@ pub struct Htr10RzTransientCore {
     bed_conductivity: ConductivityModel,
     power_w: f64,
     time_s: f64,
+    /// Passes of the last steady outer iteration.
+    steady_history: Vec<SteadyOuterPass>,
 }
 
 fn hv(v: f64) -> VolumetricHeatTransferCoefficient {
@@ -521,6 +592,7 @@ impl Htr10RzTransientCore {
             bed_conductivity,
             power_w: 0.0,
             time_s: 0.0,
+            steady_history: Vec::new(),
         };
         if phi + phi_d > 0.0 {
             let mut factor = vec![1.0; n];
@@ -539,6 +611,12 @@ impl Htr10RzTransientCore {
     #[must_use]
     pub fn solid(&self) -> &Htr10RzModel {
         &self.solid
+    }
+
+    /// The passes of the last steady outer iteration (gh:#1176).
+    #[must_use]
+    pub fn steady_history(&self) -> &[SteadyOuterPass] {
+        &self.steady_history
     }
 
     /// The gas network.
@@ -672,6 +750,19 @@ impl Htr10RzTransientCore {
     /// [`Htr10RzError::Solve`] if a sub-solve fails or 400 passes do not
     /// converge; [`Htr10RzError::Input`] for a non-positive power.
     pub fn solve_steady(&mut self, op: &OperatingPoint) -> Result<CoreStepReport, Htr10RzError> {
+        self.solve_steady_with_progress(op, |_| {})
+    }
+
+    /// [`Self::solve_steady`], calling `progress` after every outer pass
+    /// (gh:#1176: to watch a slow or stalling outer iteration live).
+    ///
+    /// # Errors
+    /// As [`Self::solve_steady`].
+    pub fn solve_steady_with_progress(
+        &mut self,
+        op: &OperatingPoint,
+        mut progress: impl FnMut(&SteadyOuterPass),
+    ) -> Result<CoreStepReport, Htr10RzError> {
         let p = op.power.get::<watt>();
         if !(p > 0.0) || !p.is_finite() {
             return Err(Htr10RzError::Input("steady power must be positive".into()));
@@ -680,8 +771,15 @@ impl Htr10RzTransientCore {
         self.set_source(true)?;
         let mut t_s = self.t_solid();
         let mut last = None;
+        self.steady_history.clear();
+        let mut prev_change = f64::INFINITY;
         for _ in 0..400 {
-            let mut g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
+            // Inexact inner solves (gh:#1176): the gas is made consistent in
+            // its density to a tenth of the last outer change, never looser
+            // than needed and tightening to GAS_DENSITY_TOLERANCE_K; the
+            // converged state is checked at that tolerance below.
+            let inner_tol = GAS_DENSITY_TOLERANCE_K.max(0.1 * prev_change);
+            let mut g = solve_gas_consistent(&self.network, op, &t_s, self.gas.as_ref(), inner_tol)?;
             if let Some(old) = &self.gas {
                 for (a, b) in g.temperature.iter_mut().zip(&old.temperature) {
                     if a.is_finite() && b.is_finite() {
@@ -693,23 +791,43 @@ impl Htr10RzTransientCore {
             self.solid.field_mut().set_cell_exchange(&ex).map_err(|e| Htr10RzError::Solve(e.to_string()))?;
             let rep = self.solid.field_mut().solve_steady().map_err(|e| Htr10RzError::Solve(e.to_string()))?;
             let t_new = self.t_solid();
-            let mut change: f64 = t_new.iter().zip(&t_s).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+            let (mut solid_change, mut worst) = (0.0_f64, 0usize);
+            for (c, (a, b)) in t_new.iter().zip(&t_s).enumerate() {
+                if (a - b).abs() > solid_change {
+                    (solid_change, worst) = ((a - b).abs(), c);
+                }
+            }
+            let mut gas_change = 0.0_f64;
+            let mut gas_worst = 0usize;
             match &self.gas {
                 Some(old) => {
-                    for (a, b) in g.temperature.iter().zip(&old.temperature) {
-                        if a.is_finite() && b.is_finite() {
-                            change = change.max((a - b).abs());
+                    for (c, (a, b)) in g.temperature.iter().zip(&old.temperature).enumerate() {
+                        if a.is_finite() && b.is_finite() && (a - b).abs() > gas_change {
+                            (gas_change, gas_worst) = ((a - b).abs(), c);
                         }
                     }
                 }
-                None => change = f64::INFINITY,
+                None => gas_change = f64::INFINITY,
+            }
+            let change = solid_change.max(gas_change);
+            prev_change = change;
+            if gas_change > solid_change {
+                worst = gas_worst;
             }
             t_s = t_new;
             let gp = g.flow_picard.0;
+            self.steady_history.push(SteadyOuterPass {
+                solid_change_k: solid_change,
+                gas_change_k: gas_change,
+                worst_cell: worst,
+                solid_picard: rep.iterations,
+                gas_picard: gp,
+            });
+            progress(self.steady_history.last().expect("just pushed"));
             self.gas = Some(g);
             last = Some((rep.iterations, gp));
             if change < self.options.steady_tolerance_k {
-                let g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
+                let g = solve_gas_consistent(&self.network, op, &t_s, self.gas.as_ref(), GAS_DENSITY_TOLERANCE_K)?;
                 self.gas = Some(g);
                 self.quasi_steady_fuel()?;
                 if self.phi_d > 0.0 {
@@ -743,6 +861,8 @@ impl Htr10RzTransientCore {
         }
         self.power_w = p;
         let t_s = self.t_solid();
+        // Explicit in the gas, densities lagged one step (THERMIX's
+        // coupling; gh:#1176 kept it: see the module docs, step 1).
         let g = solve_gas(&self.network, op, &t_s, self.gas.as_ref())?;
         let gp = g.flow_picard.0;
         let lagged = self.phi > 0.0;
@@ -866,6 +986,10 @@ impl Htr10RzTransientCore {
             let tm = match self.options.moderator {
                 ModeratorTemperature::OutsideFuelZones => (gs * tc + gd * td) / (gs + gd),
                 ModeratorTemperature::AllPebbleGraphite => gz * self.fuel[c] + gs * tc + gd * td,
+                ModeratorTemperature::ImportanceWeighted => {
+                    let rho = self.options.fuel_graphite_importance;
+                    (rho * (gz * self.fuel[c] + gs * tc) + gd * td) / (rho * (gz + gs) + gd)
+                }
             };
             wf += q * self.fuel[c];
             wm += q * tm;

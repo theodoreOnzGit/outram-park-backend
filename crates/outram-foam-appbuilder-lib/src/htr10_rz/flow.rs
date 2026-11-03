@@ -947,6 +947,10 @@ pub struct GasState {
     /// Picard passes of the last flow solve and its last relative change of
     /// the cell resistances (`resistance_change`, gh:#1175).
     pub flow_picard: (usize, f64),
+    /// Evaluations of [`solve_gas`] in the last [`solve_gas_consistent`]
+    /// and its last density residual, K (`(1, NaN)` for a plain
+    /// [`solve_gas`]).
+    pub density_iterations: (usize, f64),
     /// Pressure drop inlet-of-bed-stream to outlet, Pa (mean over the
     /// region-18 inflow cells).
     pub core_pressure_drop: f64,
@@ -956,6 +960,99 @@ pub struct GasState {
     /// Mass leaving through the outlet, kg/s: equals the total flow when
     /// the pressure solve conserves mass.
     pub outlet_mass_flow: f64,
+}
+
+/// Tolerance of [`solve_gas_consistent`]: the largest change of a gas
+/// temperature between the density the flow saw and the energy solution,
+/// K. The same 1e-4 K as the steady outer iteration's.
+pub const GAS_DENSITY_TOLERANCE_K: f64 = 1.0e-4;
+
+/// **The gas solved consistently in its own density** (gh:#1176): the
+/// fixed point `T = E(T)` of [`solve_gas`], where the flow sees the
+/// densities (and `mu`) of `T` and the energy solve returns `E(T)`.
+///
+/// [`solve_gas`] alone is one evaluation of that map: its flow uses the
+/// gas temperatures of `prev`. Where buoyancy drives the flow and a cell's
+/// gas temperature depends on the direction of its through-flow (a cell
+/// whose upwind side changes with the sign of a small flux), the map has a
+/// slope below -1, and repeating it oscillates. Measured on the finest
+/// mesh of the gh:#1176 study (`finest_mesh_gas_alone_at_fixed_solid`,
+/// solid held): plain repeats swing by 50-100 K at the axis cells of the
+/// discharge tube, with the 0.5 relaxation of the steady solve by 8.8 K
+/// (the axial flux there flipping sign), and with a fixed 0.2 relaxation
+/// they converge geometrically (factor ~0.75) to 2e-5 K. So the
+/// consistent state exists; the lagged map does not reach it.
+///
+/// The iteration is relaxed with Aitken's dynamic factor (Irons & Tuck
+/// 1969; Küttler & Wall 2008, Comput. Mech. 43, eq. 41): `x_{k+1} = x_k +
+/// w_k r_k`, `r_k = E(x_k) - x_k`, `w_k = -w_{k-1} r_{k-1}.(r_k -
+/// r_{k-1}) / |r_k - r_{k-1}|^2`, clamped to `[0.02, 1]`, `w_0 = 1`. It
+/// stops when `max |r_k| < tol_k` and returns the state evaluated at
+/// `x_k` (whose energy solution differs from its density temperatures by
+/// less than `tol_k`). The first evaluation is exactly [`solve_gas`].
+///
+/// # Errors
+/// As [`solve_gas`]; [`Htr10RzError::Solve`] if 200 evaluations do not
+/// converge.
+pub fn solve_gas_consistent(
+    net: &GasNetwork,
+    op: &OperatingPoint,
+    t_solid: &[f64],
+    prev: Option<&GasState>,
+    tol_k: f64,
+) -> Result<GasState, Htr10RzError> {
+    let mut state = solve_gas(net, op, t_solid, prev)?;
+    // The density temperatures of the first evaluation: `prev`'s, or the
+    // inlet temperature where `prev` has none (as `solve_gas` starts).
+    let t_in = op.inlet.get::<kelvin>();
+    let mut x: Vec<f64> = match prev {
+        Some(p) => p.temperature.iter().map(|t| if t.is_finite() { *t } else { t_in }).collect(),
+        None => vec![t_in; state.temperature.len()],
+    };
+    let mut r_old: Option<Vec<f64>> = None;
+    let mut w = 1.0;
+    let mut last = f64::INFINITY;
+    let mut history: Vec<(f64, f64)> = Vec::new();
+    for k in 1..=200 {
+        let r: Vec<f64> = state
+            .temperature
+            .iter()
+            .zip(&x)
+            .map(|(e, xi)| if e.is_finite() { e - xi } else { 0.0 })
+            .collect();
+        last = r.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+        history.push((last, w));
+        if last < tol_k {
+            state.density_iterations = (k, last);
+            return Ok(state);
+        }
+        if let Some(ro) = &r_old {
+            let (mut num, mut den) = (0.0, 0.0);
+            for (a, b) in r.iter().zip(ro) {
+                let d = a - b;
+                num += b * d;
+                den += d * d;
+            }
+            if den > 0.0 {
+                w = (-w * num / den).clamp(0.02, 1.0);
+            }
+        }
+        for (xi, ri) in x.iter_mut().zip(&r) {
+            *xi += w * ri;
+        }
+        r_old = Some(r);
+        let mut seed = state.clone();
+        for (s, xi) in seed.temperature.iter_mut().zip(&x) {
+            if s.is_finite() {
+                *s = *xi;
+            }
+        }
+        state = solve_gas(net, op, t_solid, Some(&seed))?;
+    }
+    Err(Htr10RzError::Solve(format!(
+        "gas density iteration did not converge in 200 evaluations (last change {last:e} K; residual, relaxation of the last 12: {:?})",
+        &history[history.len().saturating_sub(12)..]
+    )))
 }
 
 /// Solve the flow (Picard on the resistances) and the gas energy for the
@@ -1335,6 +1432,7 @@ pub fn solve_gas(
         heat_to_gas,
         enthalpy_rise: w * HELIUM_CP * (t_out - t_in),
         flow_picard: picard,
+        density_iterations: (1, f64::NAN),
         core_pressure_drop: p_bed_in.1 / p_bed_in.0,
         tap_temperatures: taps,
         outlet_mass_flow: mo,

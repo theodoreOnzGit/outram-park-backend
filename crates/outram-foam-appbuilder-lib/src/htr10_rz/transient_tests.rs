@@ -292,7 +292,10 @@ fn dummy_pebbles_lag_the_bed_and_conserve_energy() {
 fn moderator_readings_at_steady_state() {
     let op = as_run(3.315e6, 1.457);
     let mut m = Vec::new();
-    for o in [TransientCoreOptions::htr10_lofc(), TransientCoreOptions::htr10_lofc().with_moderator_outside_fuel_zones()] {
+    for o in [
+        TransientCoreOptions::htr10_lofc().with_all_pebble_graphite_moderator(),
+        TransientCoreOptions::htr10_lofc().with_moderator_outside_fuel_zones(),
+    ] {
         let mut core = Htr10RzTransientCore::build(coarse(o)).unwrap();
         let r = core.solve_steady(&op).unwrap();
         m.push((r.feedback.fuel.get::<kelvin>(), r.feedback.moderator.get::<kelvin>()));
@@ -303,4 +306,239 @@ fn moderator_readings_at_steady_state() {
         m[0].0, m[0].1, m[1].1
     );
     assert!((m[0].1 - (m[1].1 + wf * (m[1].0 - m[1].1))).abs() < 1e-6);
+}
+
+/// gh:#1174: the importance-weighted moderator reading at steady state
+/// (dummies at the cell temperature): with ratio 1 it is the all-graphite
+/// reading to round-off; with ratio `r` it reads `(r w_f T_f + (r w_s +
+/// w_d) T_cell) / (r (w_f + w_s) + w_d)` per cell, power-weighted, which at
+/// steady state is `T_out + r w_f/(r (w_f + w_s) + w_d) (T_f - T_out)`.
+#[test]
+fn importance_weighted_moderator_reading() {
+    let op = as_run(3.315e6, 1.457);
+    let read = |o: TransientCoreOptions| {
+        let mut core = Htr10RzTransientCore::build(coarse(o)).unwrap();
+        let r = core.solve_steady(&op).unwrap();
+        (r.feedback.fuel.get::<kelvin>(), r.feedback.moderator.get::<kelvin>())
+    };
+    let base = TransientCoreOptions::htr10_lofc();
+    let (_, all) = read(base.with_all_pebble_graphite_moderator());
+    let (_, one) = read(base.with_importance_weighted_moderator(1.0));
+    assert!((all - one).abs() < 1e-9, "{all} {one}");
+    let (tf, out) = read(base.with_moderator_outside_fuel_zones());
+    let x = 13_651.0 / 23_949.0;
+    let z = (2.5_f64 / 3.0).powi(3);
+    let (wf, ws, wd) = (x * z, x * (1.0 - z), 1.0 - x);
+    for r in [0.5, 1.4] {
+        let (_, m) = read(base.with_importance_weighted_moderator(r));
+        let want = out + r * wf / (r * (wf + ws) + wd) * (tf - out);
+        println!("ratio {r}: moderator {m:.4} K, expected {want:.4} K");
+        assert!((m - want).abs() < 1e-6);
+    }
+}
+
+/// gh:#1176: the steady solid-gas outer iteration at the as-run 3.3 MW
+/// state on the finest mesh of the geometric sequence. Prints the pass
+/// history (solid and gas temperature change, the cell that set it, the
+/// sub-solves' passes) so a stall, an oscillation and a divergence can be
+/// told apart.
+#[cfg(feature = "long-tests")]
+#[test]
+fn steady_outer_iteration_on_the_finest_mesh() {
+    let o = TransientCoreOptions::htr10_lofc().with_refinement(4, 4);
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    let n = core.solid().field().mesh().n_cells();
+    let mesh = core.solid().field().mesh().clone();
+    let started = std::time::Instant::now();
+    let mut i = 0;
+    let res = core.solve_steady_with_progress(&as_run(3.315e6, 1.457), |p| {
+        let (r, z) = mesh.cell_centre(p.worst_cell);
+        println!(
+            "pass {i}: solid {:.3e} K, gas {:.3e} K, worst cell {} (r {:.1} z {:.1} cm, region {}), solid {} / gas {} passes, {:.0} s",
+            p.solid_change_k,
+            p.gas_change_k,
+            p.worst_cell,
+            r.get::<uom::si::length::centimeter>(),
+            z.get::<uom::si::length::centimeter>(),
+            mesh.cell_region(p.worst_cell),
+            p.solid_picard,
+            p.gas_picard,
+            started.elapsed().as_secs_f64()
+        );
+        i += 1;
+    });
+    let r = res.unwrap_or_else(|e| panic!("{n} cells: {e}"));
+    println!("{n} cells: outlet {:.2} K, passes {}", r.outlet_temperature.get::<kelvin>(), core.steady_history().len());
+}
+
+/// gh:#1176 diagnosis: when the steady outer iteration on the finest mesh
+/// does not converge, march the physical transient at the same constant
+/// operating point from its last iterate (quasi-steady fuel, dummies in the
+/// cell, so no node needs a steady start) and print the largest change of a
+/// solid and a gas temperature per step. If the march settles, a steady
+/// state exists and the block iteration is at fault; if it keeps moving, the
+/// state is unsteady at this resolution.
+#[test]
+#[ignore = "gh:#1176 diagnosis record (20-40 min on the 4x mesh), not a gate: run with --ignored"]
+fn finest_mesh_march_at_constant_power() {
+    let o = TransientCoreOptions::htr10_lofc()
+        .with_refinement(4, 4)
+        .with_quasi_steady_fuel()
+        .without_dummy_pebble_lag();
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    let op = as_run(3.315e6, 1.457);
+    let res = core.solve_steady(&op);
+    println!("steady: {} after {} passes", if res.is_ok() { "converged" } else { "NOT converged" }, core.steady_history().len());
+    let mesh = core.solid().field().mesh().clone();
+    let solid = |c: &Htr10RzTransientCore| -> Vec<f64> {
+        (0..mesh.n_cells()).map(|i| c.solid().field().temperature(i).get::<kelvin>()).collect()
+    };
+    let started = std::time::Instant::now();
+    for (dt, n) in [(1.0, 60), (10.0, 120), (100.0, 120)] {
+        for k in 0..n {
+            let (ts0, tg0) = (solid(&core), core.gas().unwrap().temperature.clone());
+            core.step(Time::new::<second>(dt), &op).unwrap();
+            let (ts1, tg1) = (solid(&core), &core.gas().unwrap().temperature);
+            let (mut ds, mut cs) = (0.0_f64, 0);
+            for (i, (a, b)) in ts1.iter().zip(&ts0).enumerate() {
+                if (a - b).abs() > ds {
+                    (ds, cs) = ((a - b).abs(), i);
+                }
+            }
+            let (mut dg, mut cg) = (0.0_f64, 0);
+            for (i, (a, b)) in tg1.iter().zip(&tg0).enumerate() {
+                if a.is_finite() && b.is_finite() && (a - b).abs() > dg {
+                    (dg, cg) = ((a - b).abs(), i);
+                }
+            }
+            if k % 10 == 0 || k == n - 1 {
+                let (rs, zs) = mesh.cell_centre(cs);
+                let (rg, zg) = mesh.cell_centre(cg);
+                println!(
+                    "dt {dt} s step {k}: solid {ds:.3e} K/step (r {:.1} z {:.1}), gas {dg:.3e} K/step (r {:.1} z {:.1}), {:.0} s",
+                    rs.get::<uom::si::length::centimeter>(),
+                    zs.get::<uom::si::length::centimeter>(),
+                    rg.get::<uom::si::length::centimeter>(),
+                    zg.get::<uom::si::length::centimeter>(),
+                    started.elapsed().as_secs_f64()
+                );
+            }
+        }
+    }
+}
+
+/// gh:#1176 diagnosis: the gas alone at FIXED solid temperatures (the last
+/// iterate of the non-converging finest-mesh steady state). Repeats
+/// `solve_gas` from its own previous state, plain and with the steady
+/// solve's 0.5 relaxation of the gas temperature, and prints the largest
+/// gas change per repeat with the cell and its axial mass flux. If the gas
+/// alone does not settle, the outer iteration cannot.
+#[test]
+#[ignore = "gh:#1176 diagnosis record (20-40 min on the 4x mesh), not a gate: run with --ignored"]
+fn finest_mesh_gas_alone_at_fixed_solid() {
+    use super::flow::solve_gas;
+    let o = TransientCoreOptions::htr10_lofc().with_refinement(4, 4);
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    let op = as_run(3.315e6, 1.457);
+    let _ = core.solve_steady(&op);
+    let mesh = core.solid().field().mesh().clone();
+    let ts: Vec<f64> = (0..mesh.n_cells()).map(|i| core.solid().field().temperature(i).get::<kelvin>()).collect();
+    for relax in [1.0, 0.5, 0.2] {
+        let mut prev = core.gas().unwrap().clone();
+        for k in 0..40 {
+            let mut g = solve_gas(core.network(), &op, &ts, Some(&prev)).unwrap();
+            for (a, b) in g.temperature.iter_mut().zip(&prev.temperature) {
+                if a.is_finite() && b.is_finite() {
+                    *a = relax * *a + (1.0 - relax) * b;
+                }
+            }
+            let (mut d, mut c) = (0.0_f64, 0);
+            for (i, (a, b)) in g.temperature.iter().zip(&prev.temperature).enumerate() {
+                if a.is_finite() && b.is_finite() && (a - b).abs() > d {
+                    (d, c) = ((a - b).abs(), i);
+                }
+            }
+            if k % 4 == 0 || k == 39 {
+                let (r, z) = mesh.cell_centre(c);
+                println!(
+                    "relax {relax} repeat {k}: gas {d:.3e} K at r {:.1} z {:.1} cm (region {}), G_z {:.3e} kg/(m2 s), T_gas {:.1} K, T_solid {:.1} K, flow Picard {}",
+                    r.get::<uom::si::length::centimeter>(),
+                    z.get::<uom::si::length::centimeter>(),
+                    mesh.cell_region(c),
+                    g.mass_flux[c].1,
+                    g.temperature[c],
+                    ts[c],
+                    g.flow_picard.0
+                );
+            }
+            prev = g;
+        }
+    }
+}
+
+/// gh:#1176: the 2x-refined 20 cm mesh through the LOFC's first seconds:
+/// the steady state (gas consistent in its density), 12 s of linear
+/// coastdown, then the loop stopped at 300 kW, 1 s steps with the lagged
+/// gas of a step. Every step must succeed, and the steady gas must be
+/// consistent to 1e-4 K.
+#[cfg(feature = "long-tests")]
+#[test]
+fn steady_and_steps_on_the_2x_mesh() {
+    let o = TransientCoreOptions::htr10_lofc().with_refinement(2, 2);
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    core.solve_steady(&as_run(3.315e6, 1.457)).unwrap();
+    let (n, r) = core.gas().unwrap().density_iterations;
+    println!("steady: {} outer passes; final gas density iterations {n}, residual {r:.2e} K", core.steady_history().len());
+    assert!(r < 1e-4);
+    for i in 0..20 {
+        let flow = if i < 12 { 1.457 * (1.0 - i as f64 / 12.0) } else { 0.0 };
+        core.step(Time::new::<second>(1.0), &as_run(3.0e5, flow))
+            .unwrap_or_else(|e| panic!("step {i} (flow {flow:.3} kg/s): {e}"));
+    }
+}
+
+/// gh:#1176, mechanism test: the gas energy is upwind and each cell's gas
+/// is well mixed at its **outlet** temperature, so in forced flow a bed
+/// cell exchanges with gas that is half a cell's rise hotter than the gas
+/// at its centre, and its solid sits that much too hot. Prints, at the
+/// as-run steady state on the 1x and 2x meshes, the power-weighted half
+/// rise of the gas across a heated cell (outlet minus the cell above it,
+/// over two) and the power-weighted moderator (bed cell) temperature.
+/// **Prediction, written before this ran:** the 1x minus 2x difference of
+/// the half rise is within +-40 % of the 1x minus 2x difference of the
+/// initial moderator reading (9.4 K from `rz_lofc_geometric_mesh_study`).
+#[cfg(feature = "long-tests")]
+#[test]
+fn upwind_half_cell_gas_rise_in_the_bed() {
+    for f in [1, 2] {
+        let o = TransientCoreOptions::htr10_lofc().with_refinement(f, f);
+        let mut core = Htr10RzTransientCore::build(o).unwrap();
+        let rep = core.solve_steady(&as_run(3.315e6, 1.457)).unwrap();
+        let mesh = core.solid().field().mesh().clone();
+        let nr = mesh.r_edges().n_cells();
+        let g = core.gas().unwrap();
+        let vol = &mesh.mesh().cell_volumes;
+        let (mut wq, mut half, mut ts) = (0.0, 0.0, 0.0);
+        for &c in core.heated_cells() {
+            if c < nr {
+                continue;
+            }
+            let above = c - nr;
+            let (tg, tu) = (g.temperature[c], g.temperature[above]);
+            if !(tg.is_finite() && tu.is_finite()) {
+                continue;
+            }
+            let q = core.cell_power_density(c).value * vol[c];
+            wq += q;
+            half += q * 0.5 * (tg - tu);
+            ts += q * core.solid().field().temperature(c).get::<kelvin>();
+        }
+        println!(
+            "{f}x: {} cells; power-weighted half rise of the gas per heated cell {:.2} K; power-weighted bed cell {:.2} C; moderator reading {:.2} C",
+            mesh.n_cells(),
+            half / wq,
+            ts / wq - 273.15,
+            rep.feedback.moderator.get::<kelvin>() - 273.15
+        );
+    }
 }
