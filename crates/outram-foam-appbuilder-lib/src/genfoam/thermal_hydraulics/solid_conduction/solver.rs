@@ -14,9 +14,11 @@ use std::sync::Arc;
 
 use uom::si::energy::joule;
 use uom::si::f64::{
-    Energy, HeatTransfer, Power, Ratio, TemperatureInterval, ThermodynamicTemperature, Time,
+    Energy, HeatTransfer, Length, Power, Pressure, Ratio, TemperatureInterval, ThermodynamicTemperature, Time,
     VolumetricPowerDensity,
 };
+use uom::si::length::meter;
+use uom::si::pressure::pascal;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
@@ -62,6 +64,177 @@ pub enum SolidBoundary {
         /// Temperature of the surroundings.
         ambient: ThermodynamicTemperature,
     },
+    /// Radiation as [`Self::Radiative`] **plus** natural convection of the
+    /// gas in the enclosure between the surface and a cold wall at
+    /// `ambient`, in parallel:
+    /// `q'' = eps sigma (T_s^4 - T_a^4) + h_nc(T_s, T_a) (T_s - T_a)`, with
+    /// `h_nc` from [`EnclosureNaturalConvection`] at the surface
+    /// temperature of the previous Picard pass (gh:#1173).
+    RadiativeAndConvective {
+        /// Effective emissivity of the radiative exchange, `(0, 1]`.
+        emissivity: Ratio,
+        /// Temperature of the cold wall (and of the radiation sink).
+        ambient: ThermodynamicTemperature,
+        /// The enclosure whose natural convection runs beside the radiation.
+        convection: EnclosureNaturalConvection,
+    },
+}
+
+/// Natural convection of **air** across a tall vertical enclosure (a
+/// cavity between a heated wall and a cooled wall), per unit area of the
+/// heated wall (gh:#1173).
+///
+/// **Correlation.** MacGregor & Emery (1969), "Free convection through
+/// vertical plane layers: moderate and high Prandtl number fluids", J. Heat
+/// Transfer 91, 391-403, the high-Rayleigh form
+///
+/// ```text
+///   Nu_L = h L / k = 0.046 Ra_L^(1/3),   Ra_L = g beta (T_s - T_a) L^3 / (nu alpha)
+/// ```
+///
+/// (as Incropera & DeWitt, *Fundamentals of Heat and Mass Transfer*, 6th
+/// ed., eq. 9.53, with its stated range `1 < H/L < 40`, `1 < Pr < 20`,
+/// `1e6 < Ra_L < 1e9`), floored at `Nu_L = 1` (conduction across the gap).
+/// `Ra^(1/3)` makes `h` independent of `L`: the boundary-layer regime, two
+/// wall layers in series through a mixed core. **Out of range, stated:**
+/// air's `Pr ~ 0.7` is below the stated 1, and see
+/// [`Self::rayleigh_number`] for `Ra_L`.
+///
+/// **Air properties** at the film temperature `(T_s + T_a)/2` and
+/// [`Self::pressure`] ([`air_properties`]): Sutherland viscosity and
+/// conductivity, ideal-gas density, `c_p` from Incropera Tab A.4; `beta =
+/// 1/T_film` (ideal gas). Checked against CoolProp's `Air` in the tests.
+///
+/// **Curvature.** For coaxial cylinders, hot wall inside at `r_h`, cold
+/// wall at `r_c`, the two wall layers have areas in the ratio `r_h/r_c`.
+/// The plane-layer `h` is the two equal layers in series (`h_layer = 2 h`),
+/// so per unit hot-wall area `h_h = 2 h / (1 + r_h/r_c)`
+/// ([`Self::radius_ratio`] = 1 is the plane layer). Derived, an assumption.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EnclosureNaturalConvection {
+    /// Wall-to-wall gap `L`.
+    pub gap: Length,
+    /// Enclosure height `H` (checked, and reported against the
+    /// correlation's range; `h` does not depend on it).
+    pub height: Length,
+    /// `r_hot / r_cold` (1 for a plane layer).
+    pub radius_ratio: Ratio,
+    /// Air pressure.
+    pub pressure: Pressure,
+}
+
+/// Standard gravity, m/s^2.
+const STANDARD_GRAVITY: f64 = 9.806_65;
+
+/// Air's specific heat, J/(kg K), at 1 atm: Incropera & DeWitt,
+/// *Fundamentals of Heat and Mass Transfer*, 6th ed., Tab A.4, 300-600 K
+/// (linear between the printed points, held at the ends).
+const AIR_CP_TAB_A4: [(f64, f64); 7] = [
+    (300.0, 1007.0),
+    (350.0, 1009.0),
+    (400.0, 1014.0),
+    (450.0, 1021.0),
+    (500.0, 1030.0),
+    (550.0, 1040.0),
+    (600.0, 1051.0),
+];
+
+/// Air properties at one temperature (K) and pressure (Pa): `(nu, alpha,
+/// k)` in SI.
+///
+/// - viscosity, Sutherland's law with the standard constants,
+///   `mu = 1.458e-6 T^1.5 / (T + 110.4)` Pa s;
+/// - conductivity, Sutherland's law with White's constants for air
+///   (`k0 = 0.0241` W/(m K) at 273 K, `S = 194` K; F. M. White, *Viscous
+///   Fluid Flow*, 3rd ed., Tab 1-3), the form
+///   `sembawang::bwr_mark1::containment::air_conductivity` uses (ported here,
+///   not imported: `sembawang` is downstream of this crate);
+/// - density, ideal gas, `R = 287.05` J/(kg K);
+/// - `c_p`, [`AIR_CP_TAB_A4`].
+///
+/// Pure Rust and dependency-free on purpose (no new library edge for one
+/// boundary); verified against CoolProp's `Air` (Lemmon et al. 2000 EOS,
+/// Lemmon & Jacobsen 2004 transport) at 1 atm, 300-600 K, in the tests.
+///
+/// # Errors
+/// [`SolidConductionError::InvalidInput`] for a non-positive or
+/// non-finite temperature or pressure.
+pub fn air_properties(t_k: f64, p_pa: f64) -> Result<(f64, f64, f64), SolidConductionError> {
+    if !(t_k > 0.0 && t_k.is_finite() && p_pa > 0.0 && p_pa.is_finite()) {
+        return Err(SolidConductionError::InvalidInput(format!("air at {t_k} K, {p_pa} Pa")));
+    }
+    let mu = 1.458e-6 * t_k * t_k.sqrt() / (t_k + 110.4);
+    let r = t_k / 273.0;
+    let k = 0.0241 * r * r.sqrt() * (273.0 + 194.0) / (t_k + 194.0);
+    let rho = p_pa / (287.05 * t_k);
+    let tab = &AIR_CP_TAB_A4;
+    let cp = if t_k <= tab[0].0 {
+        tab[0].1
+    } else if t_k >= tab[tab.len() - 1].0 {
+        tab[tab.len() - 1].1
+    } else {
+        let i = tab.iter().position(|(t, _)| *t > t_k).unwrap_or(tab.len() - 1);
+        let ((t0, c0), (t1, c1)) = (tab[i - 1], tab[i]);
+        c0 + (c1 - c0) * (t_k - t0) / (t1 - t0)
+    };
+    Ok((mu / rho, k / (rho * cp), k))
+}
+
+impl EnclosureNaturalConvection {
+    /// The correlation's Rayleigh number `Ra_L` for a hot surface at
+    /// `t_surface_k` and a cold wall at `t_cold_k`, K.
+    ///
+    /// # Errors
+    /// [`SolidConductionError::InvalidInput`] if the air properties fail.
+    pub fn rayleigh_number(&self, t_surface_k: f64, t_cold_k: f64) -> Result<f64, SolidConductionError> {
+        let tf = 0.5 * (t_surface_k + t_cold_k);
+        let (nu, alpha, _) = air_properties(tf, self.pressure.get::<pascal>())?;
+        let l = self.gap.get::<meter>();
+        Ok(STANDARD_GRAVITY * (t_surface_k - t_cold_k).abs() / tf * l * l * l / (nu * alpha))
+    }
+
+    /// The film coefficient per unit hot-wall area, W/(m^2 K), for a hot
+    /// surface at `t_surface_k` and a cold wall at `t_cold_k`, K.
+    ///
+    /// # Errors
+    /// [`SolidConductionError::InvalidInput`] if the air properties fail.
+    pub fn coefficient_si(&self, t_surface_k: f64, t_cold_k: f64) -> Result<f64, SolidConductionError> {
+        let tf = 0.5 * (t_surface_k + t_cold_k);
+        let (_, _, k) = air_properties(tf, self.pressure.get::<pascal>())?;
+        let ra = self.rayleigh_number(t_surface_k, t_cold_k)?;
+        let nu_l = (0.046 * ra.cbrt()).max(1.0);
+        Ok(nu_l * k / self.gap.get::<meter>() * 2.0 / (1.0 + self.radius_ratio.get::<ratio>()))
+    }
+
+    /// [`Self::coefficient_si`] as a `uom` quantity.
+    ///
+    /// # Errors
+    /// As [`Self::coefficient_si`].
+    pub fn coefficient(
+        &self,
+        surface: ThermodynamicTemperature,
+        cold: ThermodynamicTemperature,
+    ) -> Result<HeatTransfer, SolidConductionError> {
+        Ok(HeatTransfer::new::<watt_per_square_meter_kelvin>(
+            self.coefficient_si(surface.get::<kelvin>(), cold.get::<kelvin>())?,
+        ))
+    }
+
+    fn check(&self) -> Result<(), String> {
+        let (l, h, r, p) = (
+            self.gap.get::<meter>(),
+            self.height.get::<meter>(),
+            self.radius_ratio.get::<ratio>(),
+            self.pressure.get::<pascal>(),
+        );
+        let ok = l > 0.0 && l.is_finite() && h > 0.0 && h.is_finite() && r > 0.0 && r <= 1.0 && p > 0.0 && p.is_finite();
+        if !ok {
+            return Err(format!(
+                "enclosure: gap {l} m, height {h} m and pressure {p} Pa must be positive, radius ratio {r} in (0, 1]"
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// One [`SolidBoundary`] per physical patch.
@@ -285,6 +458,20 @@ impl SolidConductionField {
                             p.name()
                         )));
                     }
+                }
+                SolidBoundary::RadiativeAndConvective { emissivity, ambient, convection } => {
+                    let e = emissivity.get::<ratio>();
+                    if !(e > 0.0 && e <= 1.0) {
+                        return Err(SolidConductionError::InvalidInput(format!(
+                            "{}: emissivity must be in (0, 1], got {e}",
+                            p.name()
+                        )));
+                    }
+                    convection
+                        .check()
+                        .map_err(|m| SolidConductionError::InvalidInput(format!("{}: {m}", p.name())))?;
+                    // The air properties must evaluate where the boundary works.
+                    convection.coefficient_si(ambient.get::<kelvin>() + 50.0, ambient.get::<kelvin>())?;
                 }
                 _ => {}
             }
@@ -651,6 +838,19 @@ impl SolidConductionField {
                             * STEFAN_BOLTZMANN_SIGMA
                             * (ts * ts * ts * ts - ta * ta * ta * ta)
                     }
+                    SolidBoundary::RadiativeAndConvective {
+                        emissivity,
+                        ambient,
+                        convection,
+                    } => {
+                        let ta = ambient.get::<kelvin>();
+                        // A failed air property shows as NaN in the balance.
+                        let hc = convection.coefficient_si(ts, ta).unwrap_or(f64::NAN);
+                        area * (emissivity.get::<ratio>()
+                            * STEFAN_BOLTZMANN_SIGMA
+                            * (ts * ts * ts * ts - ta * ta * ta * ta)
+                            + hc * (ts - ta))
+                    }
                 };
                 if self.fixed[c].is_some() {
                     supplied += out;
@@ -756,8 +956,21 @@ impl SolidConductionField {
 
     /// Effective film coefficient and reference temperature of a Robin
     /// boundary face, linearised at surface temperature `ts`.
-    fn robin(b: SolidBoundary, ts: f64) -> Option<(f64, f64)> {
-        match b {
+    ///
+    /// # Errors
+    /// [`SolidConductionError::InvalidInput`] if an enclosure's air
+    /// properties fail.
+    fn robin(b: SolidBoundary, ts: f64) -> Result<Option<(f64, f64)>, SolidConductionError> {
+        if let SolidBoundary::RadiativeAndConvective { emissivity, ambient, convection } = b {
+            // Radiation (tangent form, as below) and convection in parallel;
+            // `h_nc` at the previous surface temperature (secant in `h`).
+            let (hr, tr) = Self::robin(SolidBoundary::Radiative { emissivity, ambient }, ts)?.unwrap_or((0.0, 0.0));
+            let ta = ambient.get::<kelvin>();
+            let hc = convection.coefficient_si(ts.max(1.0), ta)?;
+            let h = hr + hc;
+            return Ok(Some((h, (hr * tr + hc * ta) / h)));
+        }
+        Ok(match b {
             SolidBoundary::Convective {
                 coefficient,
                 ambient,
@@ -784,7 +997,7 @@ impl SolidConductionField {
                 Some((h, t - q / h))
             }
             _ => None,
-        }
+        })
     }
 
     /// The Picard loop of one steady solve (`dt = None`) or time step.
@@ -821,7 +1034,7 @@ impl SolidConductionField {
                 .patches
                 .iter()
                 .enumerate()
-                .map(|(pi, patch)| {
+                .map(|(pi, patch)| -> Result<PatchField<f64>, SolidConductionError> {
                     let bc = if pi < 4 {
                         let b = self.boundaries.get(RzPatch::ALL[pi]);
                         match b {
@@ -836,7 +1049,7 @@ impl SolidConductionField {
                                     let gf = patch.start + local;
                                     let d = DeltaCoeff::Orthogonal.boundary_delta(&fv, gf);
                                     let ts = self.boundary_surface[gf - n_int];
-                                    let (h, ta) = Self::robin(b, ts).unwrap_or((0.0, 0.0));
+                                    let (h, ta) = Self::robin(b, ts)?.unwrap_or((0.0, 0.0));
                                     // externalWallHeatFluxTemperature: hp/(hp + k deltaCoeffs).
                                     w.push(h * d / (h * d + k[fv.owner[gf]]));
                                     tr.push(ta);
@@ -852,12 +1065,12 @@ impl SolidConductionField {
                         // Wedge front/back: zero normal gradient, exact for a scalar.
                         BoundaryCondition::ZeroGradient
                     };
-                    PatchField {
+                    Ok(PatchField {
                         bc,
                         values: Field::zeros(patch.size),
-                    }
+                    })
                 })
-                .collect();
+                .collect::<Result<Vec<_>, _>>()?;
             let t_field =
                 VolScalarField::new("T", fv.clone(), Field::new(self.temperature.clone()), t_bcs);
 
@@ -967,7 +1180,7 @@ impl SolidConductionField {
                         SolidBoundary::Adiabatic => new[c],
                         SolidBoundary::FixedTemperature(ts) => ts.get::<kelvin>(),
                         _ => {
-                            let (h, ta) = Self::robin(b, self.boundary_surface[slot])
+                            let (h, ta) = Self::robin(b, self.boundary_surface[slot])?
                                 .unwrap_or((0.0, 0.0));
                             let q = (new[c] - ta) / (1.0 / h + d / k[c]);
                             new[c] - q * d / k[c]

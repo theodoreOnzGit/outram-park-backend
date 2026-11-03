@@ -473,3 +473,73 @@ The runs also write the traces as CSV (`rz_*_trace.csv`,
 under `verification_and_validation/`, so they are regenerated, not
 committed. Wall time (4 cores): RZ-BASE 58 s; the sensitivity set ~10 min; CRW set
 ~3 min; mesh check ~6 min (four meshes, gh:#1175).
+
+## 7. RPV-cavity natural convection (gh:#1173): predictions, written before the runs (2026-11-03)
+
+Committed in its own commit before any coupled run with the convection.
+The code (`EnclosureNaturalConvection`, `SolidBoundary::RadiativeAndConvective`,
+`Htr10RzOptions::cavity_convection`, ablation `without_cavity_convection`)
+was written and unit-tested first; the only numbers seen were the unit
+tests' (the coefficient against a hand value, and a coarse 21 x 39 steady
+case at a fixed 100 kW, whose RCCS side share rose by 1.07 kW).
+
+**What the benchmark says.** [T1] Sec 2.1.1.4: "The RPV transfers heat to
+the water cooling panels through radiation and natural convection"; the
+panels are held at 50 degC. No effective coefficient is given, and the
+specification and the as-run plant agree (both have the convection), so
+rule D4 does not split anything here: the convection is the base case and
+`CAVITY-NC-OFF` (radiation only, every record before this) is the ablation.
+GAMMA+ and the CFD participants modelled the cavity air explicitly ([T1]
+Sec 2.2: air up at ~0.40 m/s by the RPV, down at ~0.32 m/s by the panels,
+at mid-core, steady FPIC); that is a code result, not a measurement, and
+is not used.
+
+**Model (derived, not fitted).** MacGregor & Emery (1969),
+`Nu_L = 0.046 Ra_L^(1/3)` for a vertical enclosure, on the RPV-to-panel gap
+`L = 2.854 - 2.18 = 0.674 m`, `H = 10.16 m` (`H/L = 15`, inside 1-40), air
+at 1 atm (Assumed) at the film temperature (Sutherland / White, ideal gas,
+Incropera Tab A.4 `c_p`; within 2 % of CoolProp at 300-600 K), curvature as
+two wall layers in series, `x 2/(1 + 2.18/2.854) = 1.134`. Out of range:
+air's `Pr = 0.7` (< 1), and `Ra_L` reaches 1.2e9 (> 1e9) at a 200 degC wall.
+
+**Predicted coefficient** (from the code, at a 50 degC panel): **2.08 / 2.50
+/ 2.74 W/(m^2 K)** for an RPV wall at 100 / 150 / 200 degC (`Ra_L` 7.2e8 to
+1.2e9). At 3 h the RCCS duty of RZ-BASE (97.4 kW with the heads) puts the
+area-mean RPV wall at ~130 degC (`T^4` mean of the 92 kW side duty over
+139 m^2 at `eps_eff = 0.7626`), so `h ~ 2.3 W/(m^2 K)` area-mean.
+
+**Predicted extra heat removal at 3 h.** Two estimates, the second the one
+predicted:
+
+- *RPV temperature held* (the reasoning of Sec 4 item 1, which gave
+  45-90 kW): `2.3 x 139 m^2 x ~80 K ~ 26 kW`. This is an upper bound: it
+  assumes the in-vessel path can supply whatever the wall rejects.
+- *With the in-vessel resistance* (predicted): the radiation alone is a
+  linearised `~8.4 W/(m^2 K)`; the convection adds ~28 % to the outer
+  conductance. The outer path is a small part of the core-to-panel
+  resistance: the gh:#1149 record's `RCCS-SHIELD` cut the radiative
+  conductance to 0.56 of the base and moved the duty only -7.8 %. Scaling
+  that, +28 % of outer conductance gives **+3 to +5 % of the ~100 kW, i.e.
+  +3 to +6 kW at 3 h** (band +2 to +10 kW), with the RPV wall **10-20 K
+  cooler**.
+
+**Predicted shifts** (RZ-BASE and CRW-BASE, 20 cm, everything else
+unchanged):
+
+| Quantity | RZ-BASE now | Predicted | CRW-BASE now | Predicted |
+|---|---|---|---|---|
+| Short term (1 % time, P(100 s); CRW first peak) | 288 s, 0.162 | unchanged (< 1 s, < 0.001) | 158.4 % @ 23 s | unchanged (< 0.5 point) |
+| Re-criticality | 7616 s | **earlier by 50-400 s** | 6041 s | **earlier by 50-400 s** |
+| Mean power, last 30 min | 109 kW | **+2 to +10 kW** | 135 kW | **+2 to +10 kW** |
+| Heat to RCCS + heads at 3 h | 97.4 kW | +2 to +10 kW | - | - |
+
+**So the prediction is that cavity convection does not close the ~80 kW
+gap**: it is the right physics and the specification's, but its leverage is
+small because the heat sink is limited inside the vessel, not at the wall.
+The mesh study of Sec 3.3 (this change set, gh:#1175) already shows a larger
+lever on the late power: 109 kW at 20 cm, 142 kW at 10 cm.
+
+**The gh:#1149 / gh:#1150 records move too** (the default changed, so they
+are re-measured): A-MEAN950 total duty +2 to +5 % (RCCS side more, heads
+less); A-DECAY 200 kW hottest cell 5-15 K cooler; FPIC outlet < 0.2 K and
+thermocouple RMS < 0.5 K (the FPIC heat loss is ~1 % of 10 MW).

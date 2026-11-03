@@ -33,7 +33,8 @@
 //!   at convergence for any `rho c_p (T)` (and reduces to `C (T^{k+1} - T^n)`,
 //!   bit for bit, for a constant one);
 //! - boundaries ([`SolidBoundary`]): adiabatic, fixed temperature, convective
-//!   `(h, T_inf)`, radiative `(eps, T_inf)`;
+//!   `(h, T_inf)`, radiative `(eps, T_inf)`, and radiative plus enclosure
+//!   natural convection of air ([`EnclosureNaturalConvection`], gh:#1173);
 //! - **gas gaps** between regions ([`GapConductance`]): gas conduction plus
 //!   grey two-surface radiation (Kugeler et al. 2017 §9.4), as a series
 //!   resistance on the faces between the two regions.
@@ -106,7 +107,8 @@ pub use gap::{GapConductance, RegionGap};
 pub use properties::{ConductivityModel, HeatCapacityModel, PropertyModel, PropertyTable};
 pub use rz_mesh::{AxisEdges, RegionMap, RzGeometry, RzMesh, RzPatch, RzRect};
 pub use solver::{
-    PicardReport, RzBoundaries, SolidBoundary, SolidConductionField, SolidConductionSettings,
+    air_properties, EnclosureNaturalConvection, PicardReport, RzBoundaries, SolidBoundary, SolidConductionField,
+    SolidConductionSettings,
     SolidEnergyBalance, SolidRegion,
 };
 

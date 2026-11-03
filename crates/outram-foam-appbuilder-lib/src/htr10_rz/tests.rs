@@ -17,6 +17,7 @@ use super::geometry::{idx, region_at_cm, region_rects, N_REGIONS};
 use super::materials::SIGMA;
 use super::power_map::{fpic_power_map, map_power_w};
 use super::*;
+use crate::genfoam::thermal_hydraulics::solid_conduction::SolidBoundary;
 use crate::htgr_closures::{BedConductivityModel, ZbsBed};
 
 fn kel(t: f64) -> ThermodynamicTemperature {
@@ -236,6 +237,78 @@ fn base_case_defaults_are_pinned() {
     assert_eq!(o.heads, HeadBoundary::RadiateTo50C);
     assert_eq!(o.vessel, CoreVesselPlacement::Fig25);
     assert_eq!(o.max_cell.unwrap().get::<centimeter>(), 5.0);
+    // gh:#1173: cavity natural convection is ON by default, ablatable.
+    assert!(o.cavity_convection);
+    assert!(matches!(o.rpv_side_boundary(), SolidBoundary::RadiativeAndConvective { .. }));
+    assert!(matches!(o.without_cavity_convection().rpv_side_boundary(), SolidBoundary::Radiative { .. }));
+    // Through the ordinary build and solve: the side wall carries more of
+    // the same 100 kW with convection, at a cooler RPV, and the balance
+    // (radiation + convection per face) closes.
+    let mut side = Vec::new();
+    for opts in [o, o.without_cavity_convection()] {
+        let mut m = Htr10RzModel::build(
+            Htr10RzOptions { max_cell: None, ..opts },
+            Htr10RzCase::DecayPower { power: Power::new::<watt>(1.0e5) },
+        )
+        .unwrap();
+        let r = m.solve_steady().unwrap();
+        assert!(r.relative_imbalance < 1e-6, "{}", r.relative_imbalance);
+        side.push(r.rccs_side.get::<watt>());
+    }
+    println!("coarse 100 kW: RCCS side {:.2} kW with cavity convection, {:.2} kW without", side[0] / 1e3, side[1] / 1e3);
+    assert!(side[0] > side[1]);
+}
+
+/// gh:#1173: the RPV-cavity natural-convection coefficient against a hand
+/// evaluation of MacGregor & Emery (1969) `Nu_L = 0.046 Ra_L^(1/3)` with
+/// air from Incropera & DeWitt 6th ed. Tab A.4, linearly interpolated to
+/// the 373.15 K film (nu 23.46e-6 m^2/s, alpha 33.79e-6 m^2/s, k 31.76e-3
+/// W/(m K)): RPV 150 deg C, panels 50 deg C, `L = 0.674 m` ->
+/// `Ra_L = 1.015e9`, `Nu_L = 46.2`, plane `h = 2.18`, curvature factor
+/// `2/(1 + 2.18/2.854) = 1.134` -> **2.47 W/(m^2 K)**. The model's air is
+/// CoolProp's, not the table's, hence the 3 % tolerance. Also: no
+/// difference, no convection beyond the conduction floor (`Nu = 1`).
+#[test]
+fn rpv_cavity_convection_hand_value() {
+    let e = rpv_cavity_enclosure();
+    let h = e.coefficient_si(423.15, 323.15).unwrap();
+    let ra = e.rayleigh_number(423.15, 323.15).unwrap();
+    println!("RPV cavity: Ra_L {ra:.3e}, h {h:.3} W/(m^2 K) at 150/50 deg C");
+    for (ts, label) in [(373.15, "100"), (473.15, "200"), (523.15, "250")] {
+        println!("  RPV {label} C: h {:.3} W/(m^2 K), Ra_L {:.3e}", e.coefficient_si(ts, 323.15).unwrap(), e.rayleigh_number(ts, 323.15).unwrap());
+    }
+    assert!((ra / 1.015e9 - 1.0).abs() < 0.05, "{ra:e}");
+    assert!((h / 2.471 - 1.0).abs() < 0.03, "{h}");
+    let floor = e.coefficient_si(323.15, 323.15).unwrap();
+    let k_air = 0.0280; // Tab A.4 at 323 K, W/(m K)
+    assert!((floor / (k_air / 0.674 * 2.0 / (1.0 + 2.18 / 2.854)) - 1.0).abs() < 0.05, "{floor}");
+}
+
+/// gh:#1173: the in-crate air properties (Sutherland / White, ideal gas,
+/// Incropera Tab A.4 `c_p`) against CoolProp's `Air` (Helmholtz EOS and
+/// its transport model, the workspace port) at 1 atm, 300-600 K. Measured
+/// 2026-11-03: worst `nu` / `alpha` / `k` difference printed below; gate
+/// 3 % each (the correlation's own uncertainty is far larger).
+#[test]
+fn air_properties_against_coolprop() {
+    use crate::genfoam::thermal_hydraulics::solid_conduction::air_properties;
+    use outram_park_fork_coolprop::{conductivity, state_pt, viscosity, Fluid};
+    let mut worst = [0.0_f64; 3];
+    for t in [300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0] {
+        let (nu, alpha, k) = air_properties(t, 101_325.0).unwrap();
+        let st = state_pt(Fluid::Air, t, 101_325.0).unwrap();
+        let mu_c = viscosity(Fluid::Air, t, st.density).unwrap();
+        let k_c = conductivity(Fluid::Air, t, st.density).unwrap();
+        let (nu_c, alpha_c) = (mu_c / st.density, k_c / (st.density * st.cp));
+        let d = [nu / nu_c - 1.0, alpha / alpha_c - 1.0, k / k_c - 1.0];
+        println!("{t} K: nu {:+.2} %, alpha {:+.2} %, k {:+.2} %", 100.0 * d[0], 100.0 * d[1], 100.0 * d[2]);
+        for i in 0..3 {
+            worst[i] = worst[i].max(d[i].abs());
+        }
+    }
+    println!("worst |diff|: nu {:.2} %, alpha {:.2} %, k {:.2} %", 100.0 * worst[0], 100.0 * worst[1], 100.0 * worst[2]);
+    assert!(worst.iter().all(|w| *w < 0.03), "{worst:?}");
+    assert!(air_properties(0.0, 101_325.0).is_err());
 }
 
 /// Both cases solve on the coarse Fig 2.5 mesh and close their energy

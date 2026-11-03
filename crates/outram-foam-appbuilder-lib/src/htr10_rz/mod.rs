@@ -67,7 +67,7 @@ pub use transient::{
 };
 pub use pebble::{PebbleMatrix, PebbleProfile};
 pub use model::{
-    build_mesh, HeadBoundary, Htr10RzCase, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
+    build_mesh, rpv_cavity_enclosure, HeadBoundary, Htr10RzCase, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
     RccsView, RegionTemperatureRange,
 };
 
