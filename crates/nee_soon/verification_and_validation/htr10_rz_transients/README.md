@@ -138,7 +138,8 @@ with their own inlet temperatures and flows; no LOFC or CRW. Not compared.
 else is reported, not gated.
 
 **Numerical checks.** Core time step halved (`DT-HALF`: 0.5 / 2.5 s); mesh
-15 / 20 / 30 cm (`rz_lofc_mesh_check`); energy conservation and the
+~~15 / 20 / 30 cm~~ **30 / 20 / 15 / 10 cm** (`rz_lofc_mesh_check`; the
+10 cm mesh since gh:#1175, Sec 3.3.1); energy conservation and the
 buoyancy ablation in the appbuilder unit tests.
 
 ## 3. Results (2026-11-03, `cargo test --release -p nee_soon --lib htr10_th_transient`)
@@ -257,14 +258,22 @@ bed the heat goes.
 | DT-HALF (core step 0.5 / 2.5 s) | 288 s | -370 pcm @ 3060 s | 7561 s | 8457 s | 21.9 % @ 8645 s | 109 kW | 0.093 kg/s |
 | MESH-30CM (1210 cells) | 288 s | -370 pcm @ 3075 s | 7616 s | 8514 s | 22.4 % @ 8705 s | 109 kW | 0.093 kg/s |
 | MESH-15CM (2136 cells) | 287 s | -408 pcm @ 3350 s | 7876 s | 8744 s | 23.6 % @ 8930 s | 122 kW | 0.098 kg/s |
-| MESH-10CM | **failed**: the gas-flow Picard stalls at a relative change 7.0e-7 against its 1e-7 tolerance (also with 1000 passes instead of 200, tried and reverted) | | | | | | |
+| ~~MESH-10CM~~ | ~~**failed**: the gas-flow Picard stalls at a relative change 7.0e-7 against its 1e-7 tolerance (also with 1000 passes instead of 200, tried and reverted)~~ **CORRECTED 2026-11-03 (gh:#1175)**: runs; result in Sec 3.3.1 | | | | | | |
+| MESH-10CM (3729 cells, gh:#1175) | 287 s | -448 pcm @ 3710 s | 8206 s | 9044 s | 25.1 % @ 9225 s | 142 kW | 0.098 kg/s |
 
 Reading it:
 
 - **Which numbers to quote:** RZ-BASE. The numerical uncertainty is
-  ~+-60 s on the re-criticality from the time step and ~+260 s from 20 to
+  ~+-60 s on the re-criticality from the time step and ~~~+260 s from 20 to
   15 cm; neither touches the ~3400 s miss. The 10 cm mesh does not run
-  (unresolved; the gas Picard's convergence measure has a floor there).
+  (unresolved; the gas Picard's convergence measure has a floor there).~~
+  **CORRECTED 2026-11-03 (gh:#1175):** the mesh is **not converged**: from
+  20 to 10 cm the re-criticality moves **+590 s** (7616 -> 8206 s) and the
+  late power **+33 kW** (109 -> 142 kW), and the steps grow (Sec 3.3.1).
+  The mesh error does not close the re-criticality miss (it widens it, to
+  ~4100 s at 10 cm) but it is a third of the late-power gap. RZ-BASE stays
+  at 20 cm so every case in this record compares at one resolution; the
+  10 cm numbers are the better estimate of the converged answer.
 - **The bed conductivity is the strongest physical lever** (ZBS: -2280 s,
   164 kW late power), then xenon (-1060 s), then the reflector weighting
   (-775 s). None is a free parameter and none is picked because it is
@@ -275,6 +284,74 @@ Reading it:
 - **The fuel-zone lag is not the short-term cause**: removing it makes the
   1 % time 9 s *slower* (the lag holds fuel heat away from the moderator
   coefficient for a few seconds).
+
+### 3.3.1 Mesh study and the 10 cm gas Picard (gh:#1175, 2026-11-03)
+
+**The failure, diagnosed before fixing.** On the 10 cm mesh the gas-flow
+Picard (`flow::solve_gas`) failed at the first step with the loop stopped
+(a reproducer is `gas_picard_converges_on_the_10cm_mesh_with_the_loop_stopped`,
+12 s of coastdown then stopped). Its convergence measure was the per-cell
+change of the mass flux `|dG| / max(|G|, 1e-3 kg/(m^2 s))`. The residual
+history of that step:
+
+- passes 1-30: geometric fall, factor ~0.52 per pass (the 0.5 relaxation),
+  from 2.0 to 3.1e-7: **no period-2 oscillation**, no Rayleigh-Darcy limit
+  cycle as in the plena of gh:#1150;
+- passes 31-200: a random walk between 1.0e-7 and 7.0e-7, the cell that
+  sets the maximum hopping between unrelated cells (hot-plenum-side open
+  volume, bottom-reflector channels): **a floor**.
+
+Two sources, measured on that step: in the open volumes the change was 1-3
+times `T_f eps (|p_a| + |p_b|) / A_f`, the flux error of a single rounding
+of the ~63 Pa hydrostatic pressure on a low-resistance face (round-off);
+in the laminar bottom-reflector channels (`Re ~ 1`) the flux, ~2e-4
+kg/(m^2 s), is the difference of pressures ~1e4 times the column's own
+drop, so the CG's 1e-13 relative residual leaves ~5e-10 of noise, read
+against the 1e-3 floor as up to 7e-7. Both are noise in `G` in cells
+whose resistance does not depend on `G` (laminar limit, `f |G|` constant),
+so they cannot be iterated away: raising the pass cap to 1000 (tried
+before this change) could not help. The 20 cm mesh passed only because
+its faces are wider (smaller transmissibility, less noise).
+
+**The fix: measure what is iterated.** The Picard iterates
+`G -> R(|G|) -> p -> G` and the pressure solve is linear given `R`, so the
+convergence measure is now the relative change of the cell resistances,
+`max |R(G_new) - R(G_old)| / R(G_old)`, at the **same 1e-7 tolerance**
+(`flow::resistance_change`). Where `R` depends on `G` (turbulent channels,
+the KTA bed) `|dln R / dln G| <= 1`, so this is no looser there; in one
+coastdown step it was the stricter of the two measures throughout. Result
+on the reproducer: 27 passes at the first stopped step, 13-19 per step
+after; on the 20 cm mesh RZ-BASE is unchanged to every printed digit
+(7616 s, 109 kW, 22.4 % at 8705 s), and so is MESH-30CM.
+
+**The mesh study** (`rz_lofc_mesh_check`, RZ-BASE with only the largest
+cell changed; Fig 2.5 lines kept, each interval split into
+`ceil(length / max)` cells):
+
+| max cell | cells | in the bed (r x z) | to 1 % | min rho | rho = 0 | first peak | mean P, last 30 min | wall |
+|---|---|---|---|---|---|---|---|---|
+| 30 cm | 1210 | Fig 2.5: 6-14 x 18 cm | 288 s | -370 pcm @ 3075 s | 7616 s | 22.4 % @ 8705 s | 109 kW | 48 s |
+| 20 cm (RZ-BASE) | 1452 | Fig 2.5: 6-14 x 18 cm | 288 s | -370 pcm @ 3080 s | 7616 s | 22.4 % @ 8705 s | 109 kW | 53 s |
+| 15 cm | 2136 | 6-14 x 9 cm | 287 s | -408 pcm @ 3350 s | 7876 s | 23.6 % @ 8930 s | 122 kW | 81 s |
+| 10 cm | 3729 | 5-10 x 9 cm | 287 s | -448 pcm @ 3710 s | 8206 s | 25.1 % @ 9225 s | 142 kW | 163 s |
+| 5 cm (one extra try) | 11 770 | - | **failed**: the steady solid-gas outer iteration (`solve_steady`, 0.5 relaxation) did not converge in 400 passes (last pass: 5 solid, 22 gas Picard passes); not diagnosed | | | | | 112 s |
+
+**Convergence statement.** 30 and 20 cm are the same discretisation in the
+bed (every Fig 2.5 bed interval is under 20 cm), and they agree to 1 s:
+outside the bed, refining the reflectors from 30 to 20 cm changes nothing
+measurable. In the bed the three distinct meshes refine different
+directions (20 -> 15 cm halves the bed's axial 18 cm intervals; 15 -> 10 cm
+halves its radial ones), so they are **not** a geometric sequence and no
+Richardson extrapolation or observed order can be formed from them. What
+the numbers do show: every metric after the minimum moves the same way on
+both refinements, and the steps do not shrink (re-criticality +260 s then
++330 s; late power +13 then +20 kW; minimum -38 then -40 pcm). **The
+20 cm results are not mesh-converged; the discretisation error of
+RZ-BASE is at least -590 s on the re-criticality and -33 kW on the late
+power, with the converged values beyond the 10 cm ones.** The short-term
+metrics are converged (1 % time 288 / 287 / 287 s). A uniform-ratio
+sequence (e.g. 20 / 10 / 5 cm with every interval split) needs the 5 cm
+steady state to converge first.
 
 ### 3.4 The too-fast short-term fall (item 4)
 
@@ -350,7 +427,12 @@ reflector rise matches. Plots: `rz_crw_power_short.png`,
    patch). Not tuned, not tested.
 2. Short-term fall and CRW peak (3.4): dummy-pebble lag hypothesis untested.
 3. Riser loop and plena buoyancy not represented (3.1).
-4. The 10 cm mesh's gas Picard does not converge (3.3).
+4. ~~The 10 cm mesh's gas Picard does not converge (3.3).~~ **RESOLVED
+   2026-11-03 (gh:#1175):** a floor in the convergence measure, not a
+   non-converging iteration; measured on the resistances now (3.3.1).
+   **New, from the same study:** the 20 cm mesh is not converged (-590 s,
+   -33 kW against 10 cm, steps not shrinking), and the 5 cm steady
+   solid-gas outer iteration does not converge in 400 passes (3.3.1).
 5. Thermocouple positions are read from a schematic (Uncertain); BR pairing
    chosen from the initial readings.
 6. The Am-Be source's presence at the test is Unknown; the default uses it.
@@ -390,4 +472,4 @@ The runs also write the traces as CSV (`rz_*_trace.csv`,
 `rz_lofc_base_thermocouples.csv`) into this folder; `*.csv` is gitignored
 under `verification_and_validation/`, so they are regenerated, not
 committed. Wall time (4 cores): RZ-BASE 58 s; the sensitivity set ~10 min; CRW set
-~3 min; mesh check ~2 min.
+~3 min; mesh check ~6 min (four meshes, gh:#1175).

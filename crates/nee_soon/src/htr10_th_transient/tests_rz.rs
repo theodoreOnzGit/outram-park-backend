@@ -509,7 +509,6 @@ fn rz_lofc_sensitivity_cases() {
     let mut c = base.clone().named("XE-OFF");
     c.kinetics.xenon = XenonModel::Off;
     cases.push(c);
-    cases.push(base.clone().with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(10.0))).named("MESH-10CM"));
     cases.push(
         base.clone()
             .with_rz_time_step(RzCoreTimeStep { early: s(0.5), late: s(2.5), switch_at: s(1000.0) })
@@ -532,16 +531,19 @@ fn rz_lofc_sensitivity_cases() {
     }
 }
 
-/// **Mesh check** of `RZ-BASE` (20 cm): 15 cm and 30 cm cells. The 10 cm
-/// mesh is in [`rz_lofc_sensitivity_cases`]; its gas-flow Picard stalls at
-/// a relative change ~7e-7 against the 1e-7 tolerance (2026-11-03,
-/// recorded in the README, unresolved), so the check brackets 20 cm from
-/// both sides with the meshes that run.
+/// **Mesh study** of `RZ-BASE` (20 cm): 30, 20, 15 and 10 cm cells, the
+/// metrics per mesh and the cell counts (the README's mesh table and its
+/// convergence statement). ~~The 10 cm mesh is in
+/// [`rz_lofc_sensitivity_cases`]; its gas-flow Picard stalls at a relative
+/// change ~7e-7 against the 1e-7 tolerance, so the check brackets 20 cm
+/// from both sides with the meshes that run.~~ **CORRECTED 2026-11-03
+/// (gh:#1175):** the stall was the flux measure's round-off floor; with
+/// the Picard measured on the resistances the 10 cm mesh runs, and is here.
 #[cfg(feature = "long-tests")]
 #[test]
 fn rz_lofc_mesh_check() {
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
-    for cm in [15.0, 30.0] {
+    for cm in [30.0, 20.0, 15.0, 10.0] {
         let case = LofcCase::rz_base()
             .unwrap()
             .with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(cm)))

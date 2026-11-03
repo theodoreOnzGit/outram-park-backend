@@ -180,3 +180,32 @@ fn lagged_fuel_zone_lags_and_agrees_at_steady_state() {
     assert!((steady[0] - steady[1]).abs() < 1e-6);
     assert!(rises[0] > 0.0 && rises[0] < rises[1]);
 }
+
+/// gh:#1175 regression: on the 10 cm mesh the gas-flow Picard converges
+/// with the loop stopped. Before the fix it stalled at the first stopped
+/// step (step 12 here) with a per-cell flux change of 6.7e-7 against the
+/// 1e-7 tolerance, after 200 passes: the flux measure's round-off floor
+/// (see `flow::resistance_change`). Measured after the fix (2026-11-03):
+/// 27 passes at step 12, 13-19 per step from then on. The tolerance is
+/// unchanged; the assertion is that every step converges (an error
+/// otherwise) in well under the 200-pass cap.
+#[test]
+fn gas_picard_converges_on_the_10cm_mesh_with_the_loop_stopped() {
+    use uom::si::f64::Length;
+    use uom::si::length::centimeter;
+    let o = TransientCoreOptions::htr10_lofc().with_max_cell(Length::new::<centimeter>(10.0));
+    let mut core = Htr10RzTransientCore::build(o).unwrap();
+    core.solve_steady(&as_run(3.315e6, 1.457)).unwrap();
+    let mut most = 0;
+    for i in 0..20 {
+        let flow = if i < 12 { 1.457 * (1.0 - i as f64 / 12.0) } else { 0.0 };
+        let r = core
+            .step(Time::new::<second>(1.0), &as_run(3.0e5, flow))
+            .unwrap_or_else(|e| panic!("step {i} (flow {flow:.3} kg/s): {e}"));
+        let (passes, change) = core.gas().unwrap().flow_picard;
+        assert!(change < 1e-7, "step {i}: last change {change:e}");
+        most = most.max(r.gas_picard_iterations);
+        println!("step {i}: flow {flow:.3} kg/s, gas Picard {passes} passes, last resistance change {change:.2e}");
+    }
+    assert!(most < 150, "{most} passes");
+}
