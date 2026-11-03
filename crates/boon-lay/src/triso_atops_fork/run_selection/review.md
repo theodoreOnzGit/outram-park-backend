@@ -185,3 +185,56 @@ value = "nQ3AOP3cv+l9t+89I3s/siaqy/UPb5/HwsXcZU1th5koE87x0O4LCfzr1rZnrEOVB/t/HwM
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit b4298cae39.
+
+# Review: sort_parents_before_daughters (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-sort-parents-before-daughters-theodoreonzgit-65fc83dc"
+kind = "review"
+origin = "human"
+created = "2026-11-03T14:56:47+08:00"
+modified = "2026-11-03T14:56:47+08:00"
+target = "fn:65fc83dc4226d102"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs::sort_parents_before_daughters"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-03"
+signed_at = "2026-11-03T14:56:47+08:00"
+commit = "df5d00d3f962b37ad17a4b4936445a8abb92fe63"
+hash = "sha256:6022a10a17bf072b5a59f7c050d40bbdf24ee661420a5b50571c9fe2a2184120"
+doc_hash = "sha256:9e15d049d71610b499b5004e1496696337476ed057f60215309a9d3aba3120bc"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:e1cb570a455c31b8" = "sha256:06a9c12470b244d22d5415441b5b842edce0c43e867d9a1bbc36b9c1b69988ca"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "7+hoF+D8DRFvtOK9cf+IfoGCefXmjN/4SS4WW3CKC7BVDwv+B0bOvhN/wAyxwQ79HjHvtZGXLq6TTG7fRGLRBw=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit df5d00d3f9.
