@@ -15,11 +15,13 @@
 //!
 //! | Module | What |
 //! |---|---|
-//! | [`kinetics`] | PRKE + ANS decay heat + Xe-135 + fuel/moderator/reflector feedback |
-//! | [`transient`] | the coupled step, the LOFC case and its named sensitivities, metrics |
-//! | [`data`] | embedded copies of the measured traces the coupled tests compare against |
+//! | [`kinetics`] | PRKE + ANS decay heat + Xe-135 + fuel/moderator/reflector feedback + the start-up neutron source + external reactivity |
+//! | [`transient`] | the coupled step, the LOFC and CRW cases (lumped or R-Z core) and their named sensitivities, metrics, thermocouple probes |
+//! | [`data`] | embedded copies of the measured traces and the Tab 2.60 reactivity |
 //!
-//! V&V record: `crates/nee_soon/verification_and_validation/htr10_loop_lofc/README.md`.
+//! V&V records: `crates/nee_soon/verification_and_validation/htr10_loop_lofc/README.md`
+//! (part A, lumped stand-in) and `.../htr10_rz_transients/README.md`
+//! (part B, R-Z core).
 //!
 //! Inputs: `docs/reactor-scoping/htr10-th-benchmark.md` and
 //! `docs/reactor-scoping/htr10-th-data/`. Source keys are the sheet's.

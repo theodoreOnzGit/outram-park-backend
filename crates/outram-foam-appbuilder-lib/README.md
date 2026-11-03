@@ -199,6 +199,20 @@ compared (not gated) against the 22 measured thermocouples: RMS 49.4 K
 record with drawings and sensitivities:
 [`verification_and_validation/htr10_rz_flow_fpic/README.md`](./verification_and_validation/htr10_rz_flow_fpic/README.md).
 
+**Transient R-Z core (gh:#1151 part B, original work).**
+`htr10_rz::transient::Htr10RzTransientCore` marches the solid field by
+backward Euler and solves the gas quasi-steadily each step (THERMIX's
+coupling), with buoyancy in the bed and channels so that the in-vessel
+natural circulation appears once the loop stops, and a lagged fuel-zone node
+per heated cell eliminated exactly into the solid row
+(`SolidConductionField::set_cell_capacity_factor` keeps the capacity
+counted once). The power is an input (thermal-hydraulics only); the kinetics
+that sets it is `nee_soon::htr10_th_transient`. Verified: energy conserved
+to the Picard tolerance over a stopped-loop march; natural circulation
+vanishes with buoyancy ablated (`NC-OFF`). Drawings and the coupled LOFC /
+CRW validation: `crates/nee_soon/verification_and_validation/htr10_rz_transients/README.md`.
+Not validated: the coupled LOFC re-criticality is ~3400 s late (see there).
+
 ## Limitations
 
 This crate is at an early stage of a large port. The following are **known,

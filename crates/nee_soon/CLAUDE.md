@@ -206,7 +206,17 @@ and core models, and the LOFC ATWS case with its named sensitivities.
 `tampines` keeps the loop and core thermal-hydraulics with the power as an
 input. Record: `verification_and_validation/htr10_loop_lofc/README.md`
 (moved from tampines with git history; the moved tests reproduce its
-numbers).
+numbers). **Part B (same day):** the R-Z porous core
+(`tampines::htr10_primary_loop::RzPorousCore` over
+`outram_foam_appbuilder_lib::htr10_rz::Htr10RzTransientCore`) in the loop,
+the CRW case (Tab 2.60), the Am-Be start-up source **ON by default**
+(`NeutronSource`, ablation `without_neutron_source`; pinned by a test), and
+the C09 thermocouple probes. Record:
+`verification_and_validation/htr10_rz_transients/README.md`. Status: the
+short-term shutdown, the top-reflector heat-up and the side-reflector
+thermocouples agree; **re-criticality ~3400 s late and long-term power
+~40 % low in both tests** (model heat sink ~100 kW against ~180 kW); CRW
+first peak 158 % against 216/241 %. Not validated.
 
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.

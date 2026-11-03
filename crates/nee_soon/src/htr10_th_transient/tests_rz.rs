@@ -201,7 +201,13 @@ fn plot(path: &str, title: &str, xr: (f64, f64), yr: (f64, f64), log_y: bool, xl
                 img.set(l + i, yy as usize, Rgb::new(220, 220, 220));
             }
         }
-        let lab = if log_y { format!("1E{yv:.1}") } else { format!("{yv:.3}") };
+        let lab = if log_y {
+            format!("1E{yv:.1}")
+        } else if (y1 - y0).abs() >= 10.0 {
+            format!("{yv:.0}")
+        } else {
+            format!("{yv:.3}")
+        };
         draw_text(&mut img, 2, yy as i64 - 4, &lab, BLACK);
     }
     draw_text(&mut img, (l + w / 2) as i64 - 40, (t + h + 24) as i64, xlabel, BLACK);
@@ -443,7 +449,7 @@ fn rz_lofc_base_against_the_measured_traces() {
             series.push(Series {
                 points: meas.rows.iter().map(|(t, v, _)| (*t, *v)).collect(),
                 colour: colours[i],
-                label: format!("{lab} MEASURED (DOTTED IN TEXT: SAME COLOUR, THIN)"),
+                label: format!("{lab} MEASURED"),
             });
             series.push(Series {
                 points: rows.iter().map(|(t, v)| (*t, v[kk])).collect(),
@@ -519,6 +525,34 @@ fn rz_lofc_sensitivity_cases() {
                 if case.name == "NC-OFF" || case.name == "SRC-OFF" {
                     write_trace_csv(&format!("{}/rz_lofc_{}_trace.csv", vv_dir(), case.name.to_lowercase()), &trace);
                 }
+            }
+            Err(e) => println!("| {} | FAILED: {e} |", case.name),
+        }
+        println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
+    }
+}
+
+/// **Mesh check** of `RZ-BASE` (20 cm): 15 cm and 30 cm cells. The 10 cm
+/// mesh is in [`rz_lofc_sensitivity_cases`]; its gas-flow Picard stalls at
+/// a relative change ~7e-7 against the 1e-7 tolerance (2026-11-03,
+/// recorded in the README, unresolved), so the check brackets 20 cm from
+/// both sides with the meshes that run.
+#[cfg(feature = "long-tests")]
+#[test]
+fn rz_lofc_mesh_check() {
+    println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    for cm in [15.0, 30.0] {
+        let case = LofcCase::rz_base()
+            .unwrap()
+            .with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(cm)))
+            .named(&format!("MESH-{cm:.0}CM"));
+        let started = std::time::Instant::now();
+        match run_lofc(&case) {
+            Ok((sim, trace)) => {
+                if let CoreModel::RzPorous(c) = sim.core() {
+                    println!("  ({} cells)", c.core().solid().field().mesh().n_cells());
+                }
+                summarise_lofc(&case.name, &trace);
             }
             Err(e) => println!("| {} | FAILED: {e} |", case.name),
         }

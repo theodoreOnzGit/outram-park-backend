@@ -25,6 +25,7 @@
 //! | [`flow`] | gh:#1150: KONVEK-like R-Z porous helium flow over the Tab 2.5 flow regions with the bypass paths, and the gas energy equation |
 //! | [`pebble`] | gh:#1150: pebble-internal temperatures, the GeN-Foam pebble port adapted to the HTR-10 pebble |
 //! | [`fpic`] | gh:#1150: the FPIC full-power case, solid and gas coupled by outer iteration, and the 22 thermocouples |
+//! | [`transient`] | gh:#1151 part B: the core in time (backward-Euler solid, quasi-steady gas with buoyancy, lagged fuel zones); the power is an input |
 //!
 //! ~~**Solid only.** There is no gas flow here (that is gh:#1150); the gas
 //! side enters as a held temperature or as stagnant cavities.~~

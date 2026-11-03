@@ -134,7 +134,9 @@ the decay heat (64 kW at 1000 s, 31 kW at 10800 s), so the bed cools by
 only ~55 K in 3 h (fuel 562 -> 507 degC; reflector 215 -> 221 degC) while
 xenon adds -187 pcm. The prediction that a late peak would be *lower* was
 wrong: the 80.8 % peak of the 6 h run comes from returning from a very deep
-subcritical state. There is **no neutron source** in the model, so the
+subcritical state. There is **no neutron source** in the model (**CORRECTED
+2026-11-03:** there is since part B, default ON; the numbers in this
+paragraph are the source-free `SRC-OFF` run, which reproduces them), so the
 fission power falls with the longest precursor period for hours and the
 excursion overshoots before feedback catches it. The measured return comes
 at 4210 s from a far shallower state.
@@ -166,6 +168,27 @@ circulation and the top/bottom reflectors (part B, after gh:#1150).
 | LOFC-INERTIAL-49S (`1/(1+t/49 s)`) | 258 s | -547 pcm @ 942 s | none | none | none | 32 kW |
 | TR-HU (3000 kW, 215 degC, 2.5 MPa) | 266 s | -504 pcm @ 803 s | 9263 s | none | none | 29 kW |
 | TR-SPEC (3 MW, 250 degC, 2.5 MPa) | 267 s | -508 pcm @ 892 s | 10563 s | none | none | 29 kW |
+
+**CORRECTED 2026-11-03 (gh:#1151 part B): the default kinetics changed**
+(the Am-Be start-up source is ON, `neutron_source`; part B README Sec 3.5),
+so this table was **re-measured** with the moved tests
+(`cargo test --release -p nee_soon --lib lofc_atws_sensitivity_cases`). The
+table above is the source-free record; it is reproduced exactly by the new
+`SRC-OFF` and `BASE-6H-SRC-OFF` rows. With the source, only the rows that
+return to power move (the others are identical):
+
+| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min |
+|---|---|---|---|---|---|---|
+| BASE-6H | 257 s | -547 pcm @ 942 s | 10962 s | ~~15038 s~~ **12406 s** | ~~80.8 % @ 15129 s~~ **8.7 % @ 12681 s** | ~~26~~ **28 kW** |
+| XE-OFF | 258 s | -526 pcm @ 731 s | 8325 s | ~~none~~ **9652 s** | ~~none~~ **10.2 % @ 9913 s** | ~~32~~ **95 kW** |
+| DH-HALF | 261 s | -491 pcm @ 555 s | 6248 s | ~~8844 s~~ **7452 s** | ~~59.3 % @ 8952 s~~ **12.3 % @ 7694 s** | ~~61~~ **48 kW** |
+| BYP-G02 | 258 s | -543 pcm @ 905 s | ~~10553~~ **10554 s** | none | none | 32 kW |
+| LOFC-J09-FLOW | 278 s | -449 pcm @ 474 s | ~~4300~~ **4301 s** | ~~6033 s~~ **5273 s** | ~~60.7 % @ 6142 s~~ **18.9 % @ 5479 s** | ~~136~~ **103 kW** |
+| TR-HU | 266 s | -504 pcm @ 803 s | 9263 s | ~~none~~ **10648 s** | ~~none~~ **5.8 % @ 10800 s** | ~~29~~ **37 kW** |
+
+The source does what part B's Sec 1 predicted: earlier returns and much
+smaller overshoots (the 80.8 % "higher, not lower" peak below was the
+source-free floor at ~1e-20).
 
 Reading it:
 
@@ -244,8 +267,11 @@ was judged enough), and every calculated (black) curve.
 
 1. **The stand-in lacks the heat-removal paths that set re-criticality**
    (in-vessel natural circulation, top and bottom reflectors). Part B.
-2. **No neutron source**: subcritical power falls without a floor and the
-   return overshoots. The HTR-10 source strength is Unknown here.
+2. ~~**No neutron source**: subcritical power falls without a floor and the
+   return overshoots. The HTR-10 source strength is Unknown here.~~
+   **CORRECTED 2026-11-03 (part B):** the start-up source is cited
+   (TECDOC-1382 Sec 4.2.1.5: 20 Ci Am-Be, 4.4e7 n/s) and ON by default; its
+   presence at the test remains Unknown. See Sec 3.4's re-measurement.
 3. Short-term power falls faster than measured (Sec 3.3); cause not found.
 4. Bypass split unmeasured; [T1] split assumed (D5).
 5. Six-group constants unpublished; Keepin assumed.

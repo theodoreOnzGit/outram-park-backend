@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" font-family="sans-serif" font-size="13">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="28" font-size="17">HTR-10 coupled model (gh:#1151 part B): what exchanges what, per step</text>
+<text x="20" y="48" fill="#555">Topology only (not to scale). The R-Z core geometry the solver uses is drawn from the assembled mesh in rz_transient_mesh_flow_regions.png.</text>
+<!-- kinetics -->
+<rect x="40" y="90" width="300" height="150" fill="#fde2c8" stroke="black"/>
+<text x="55" y="115" font-weight="bold">nee_soon::htr10_th_transient</text>
+<text x="55" y="137">PRKE (teh-o-prke), 6 groups, dt 0.1 / 0.5 s</text>
+<text x="55" y="157">ANS decay heat, Xe-135 with burnout</text>
+<text x="55" y="177">Am-Be source 4.4e7 n/s (SRC-OFF ablation)</text>
+<text x="55" y="197">rho = a_f dT_f + a_m dT_m + a_r dT_r</text>
+<text x="55" y="217">  + dXe + rho_ext (CRW: Tab 2.60)</text>
+<!-- core -->
+<rect x="440" y="90" width="320" height="300" fill="#e6f0fa" stroke="black"/>
+<text x="455" y="115" font-weight="bold">tampines CoreModel::RzPorous</text>
+<text x="455" y="135">appbuilder Htr10RzTransientCore</text>
+<text x="455" y="160">R-Z solid, 22 x 66 cells (20 cm)</text>
+<text x="455" y="180">  backward Euler, core dt 1 s / 5 s</text>
+<text x="455" y="200">porous gas, quasi-steady, buoyancy</text>
+<text x="455" y="220">  in bed, tube, borings, CR channels</text>
+<text x="455" y="240">  (no buoyancy in plena; no riser loop)</text>
+<text x="455" y="260">fuel-zone node per heated cell</text>
+<text x="455" y="280">RCCS: RPV side radiates to 50 C panels</text>
+<text x="455" y="300">heads radiate to 50 C</text>
+<text x="455" y="330">power shape Tab 2.56 (LOFC) / 2.61 (CRW)</text>
+<text x="455" y="350">bypass 87/1/2/10 (assumed, D5)</text>
+<!-- loop -->
+<rect x="440" y="450" width="320" height="130" fill="#e8f5e2" stroke="black"/>
+<text x="455" y="475" font-weight="bold">tampines PrimaryLoop</text>
+<text x="455" y="497">circulator (measured C09 coastdown)</text>
+<text x="455" y="517">baffle + secondary isolation (12 s)</text>
+<text x="455" y="537">hot gas duct, SG: prescribed He outlet</text>
+<text x="455" y="557">momentum: K W|W| + frozen gravity head</text>
+<!-- arrows -->
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="black"/></marker></defs>
+<line x1="340" y1="130" x2="440" y2="130" stroke="black" marker-end="url(#a)"/>
+<text x="350" y="122">total power P(t)</text>
+<line x1="440" y1="200" x2="340" y2="200" stroke="black" marker-end="url(#a)"/>
+<text x="345" y="192">T_f, T_m, T_r</text>
+<line x1="560" y1="450" x2="560" y2="390" stroke="black" marker-end="url(#a)"/>
+<text x="350" y="420">W, T_cold nozzle, p</text>
+<line x1="660" y1="390" x2="660" y2="450" stroke="black" marker-end="url(#a)"/>
+<text x="670" y="425">T_hot nozzle; K, gravity head</text>
+<rect x="820" y="90" width="250" height="160" fill="#f4f4f4" stroke="black"/>
+<text x="835" y="115" font-weight="bold">Not represented</text>
+<text x="835" y="137">riser / CR-channel loop</text>
+<text x="835" y="157">  (chain carries loop flow only)</text>
+<text x="835" y="177">buoyancy in the plena</text>
+<text x="835" y="197">air convection in RPV cavity</text>
+<text x="835" y="217">reversed loop flow</text>
+<text x="835" y="237">dummy-pebble lag (homogeneous bed)</text>
+</svg>
