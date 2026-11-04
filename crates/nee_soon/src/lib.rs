@@ -62,6 +62,9 @@
 //! | [`genfoam_xs`] | hands those constants to GeN-Foam through its own `nuclearData` input path |
 //! | [`coupling`] | [`coupling::McToGenFoam`], the facade: construct, `generate_mgxs()`, `solve_infinite_medium()` |
 //! | [`direct_coupling`] | [`direct_coupling::McGenFoamDirect`], Monte Carlo iterated directly against GeN-Foam's lumped thermal region |
+//! | [`power_shape`] | power shapes (lumps, cosine/sine, `J0 x cos`, Legendre-z, Zernike(-Legendre), Fourier-Bessel, spatial spherical harmonics, R-Z tables), read from Monte Carlo tallies and put on TH cells conserving the power; the HTR-10 frames (gh:#1184) |
+//! | [`htr10_coupling`] | [`htr10_coupling::Htr10DirectCoupling`]: the whole-core HTR-10 Monte Carlo (`ParametricStudy`) iterated against a lumped node or the `htr10_rz` R-Z core, reprocessing the data exactly at each zone temperature (gh:#1186) |
+//! | [`mgxs_genfoam`] | four isothermal Monte Carlo MGXS records stacked with `TFuel` into a GeN-Foam R-Z diffusion core on the `htr10_rz` mesh (gh:#1187) |
 //!
 //! [`NeeSoon::new_prompt_excursion_model`] remains real, wired code exposing
 //! `teh-o-prke`'s Nordheim-Fuchs exact timestepper.
@@ -101,6 +104,15 @@ pub mod det_six_factor;
 pub mod rod_insertion;
 pub mod coupling;
 pub mod direct_coupling;
+/// Power shapes and their mapping from Monte Carlo tallies onto thermal-hydraulic
+/// cells, with the HTR-10 frames (gh:#1184).
+pub mod power_shape;
+/// HTR-10 Monte Carlo iterated directly against a thermal-hydraulic target
+/// (lumped node or the `htr10_rz` R-Z core), with exact reprocessing (gh:#1186).
+pub mod htr10_coupling;
+/// HTR-10 Monte Carlo MGXS state points into a GeN-Foam R-Z diffusion core with
+/// `TFuel` feedback (gh:#1187).
+pub mod mgxs_genfoam;
 pub mod system_coupling;
 /// outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
 /// outram-blender's retired `mc-export` feature on 2026-10-02 (GitHub #486).

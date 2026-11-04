@@ -225,6 +225,26 @@ graphite and the dummy pebbles have their own node (both default): LOFC
 re-criticality 7426 s, P(100 s) 0.170 (measured 0.204), CRW first peak
 154 % at 22 s. Still not validated.
 
+**The two multiphysics chains (gh epic #1183, 2026-11-03).** Untrusted AI draft; not validated.
+
+- **`power_shape` (gh:#1184)** puts a total power onto TH cells, conserved to round-off. It holds:
+  - the shapes, as a closed enum: lumps, cosine/sine, `J0 x cos`, Legendre-z, Zernike(-Legendre), Fourier-Bessel x Legendre, spatial spherical harmonics, and an R-Z table;
+  - `PowerShape::from_tally`, which reads the Monte Carlo `KappaFission` tallies built by `McPowerTally`;
+  - `zernike_to_bessel` (Neumann/Dini by default);
+  - the MC / TECDOC / GeN-Foam frames, tied at the bed floor (`TECDOC_BED_FLOOR_Z_CM`).
+
+  Record: `verification_and_validation/power_shapes/`.
+- **`htr10_coupling` (gh:#1186)** runs `Htr10DirectCoupling`: the `ParametricStudy` Monte Carlo with an R-Z power tally, Picard-iterated against either GeN-Foam's lumped node or `htr10_rz`'s R-Z core.
+  - **Every temperature is reprocessed exactly** and cached: setting `Material.temperature` alone does nothing for HTR-10's NJOY nuclides.
+  - The coupled run is `examples/htr10_direct_coupling.rs`, which is far too slow for a test.
+  - Record: `verification_and_validation/htr10_direct_coupling/`.
+- **`mgxs_genfoam` (gh:#1187)** stacks the four isothermal records with `TFuel` (log law).
+  - The regions are read from the Monte Carlo geometry on the `htr10_rz` mesh lines.
+  - Rebalance, descending order and SI units are on by default; each has a `without_*` ablation.
+  - The diffusion `k` is compared against the records' Monte Carlo `k` in `examples/htr10_mgxs_genfoam_rz.rs`.
+  - Record: `verification_and_validation/htr10_mgxs_genfoam_rz/`.
+- **`direct_coupling::Convergence` and `McGenFoamDirect::new`'s volume are `uom`** since the same change.
+
 **LEAPR is the default for graphite and SiC (maintainer, 2026-11-03: "just use
 LEAPR by default").** `Htr10DataConfig::default().thermal_laws` is
 `ThermalLawSource::Leapr`, for both the jobs path and `load_htr10_nuclides`;

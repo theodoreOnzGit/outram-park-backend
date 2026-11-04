@@ -50,7 +50,10 @@ use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::transport_csg::SourceBox;
-use uom::si::f64::{HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature, Time};
+use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureInterval, ThermalConductance, ThermodynamicTemperature, Time, Volume};
+use uom::si::ratio::ratio;
+use uom::si::temperature_interval;
+use uom::si::volume::cubic_meter;
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::power::watt;
 use uom::si::thermal_conductance::watt_per_kelvin;
@@ -177,17 +180,17 @@ fn monte_carlo_and_genfoam_reach_a_coupled_steady_state() {
         source,
         thermal_node(),
         Power::new::<watt>(5.0e5),
-        VOLUME_M3,
+        Volume::new::<cubic_meter>(VOLUME_M3),
     )
     .with_particles(400)
     .with_batches(10, 25)
     .with_time_step(Time::new::<second>(20.0));
 
     let criteria = Convergence {
-        temperature_k: 2.0,
+        temperature: TemperatureInterval::new::<temperature_interval::kelvin>(2.0),
         // Above the Monte Carlo one-sigma at this particle count: asking the
         // loop to converge tighter than its own noise would stop it on chance.
-        k_eff: 6.0e-3,
+        k_eff: Ratio::new::<ratio>(6.0e-3),
         max_iterations: 25,
     };
 
@@ -270,17 +273,17 @@ fn a_non_converging_solve_reports_its_residuals() {
         source,
         thermal_node(),
         Power::new::<watt>(5.0e5),
-        VOLUME_M3,
+        Volume::new::<cubic_meter>(VOLUME_M3),
     )
     .with_particles(200)
     .with_batches(5, 10);
 
     let err = coupling
-        .solve_steady_state(Convergence {
-            temperature_k: 1.0e-12,
-            k_eff: 1.0e-12,
-            max_iterations: 3,
-        })
+        .solve_steady_state(Convergence::new(
+            TemperatureInterval::new::<temperature_interval::kelvin>(1.0e-12),
+            Ratio::new::<ratio>(1.0e-12),
+            3,
+        ))
         .expect_err("an impossible tolerance must not silently succeed");
 
     let msg = err.to_string();
