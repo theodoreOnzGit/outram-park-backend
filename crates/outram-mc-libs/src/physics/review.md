@@ -488,3 +488,64 @@ transport_history_vr copies the upstream style of no result
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 42d0916def.
+
+# Review: HistoryOutcome (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-historyoutcome-theodoreonzgit-23794db8"
+kind = "review"
+origin = "human"
+created = "2026-11-04T16:29:32+08:00"
+modified = "2026-11-04T16:29:32+08:00"
+target = "fn:23794db85e1f47f0"
+
+[review]
+path = "crates/outram-mc-libs/src/physics/transport_csg.rs::HistoryOutcome"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T16:29:32+08:00"
+commit = "16c69a39bb807308898f70098b52d2dd6556a8b9"
+hash = "sha256:36759ccd60e1222a586d4c863889ed3fb66e1e9d5fb4fa7a0a2e206e98b27343"
+doc_hash = "sha256:2ef2cf530dc3ad6e98e0a932fd386bb9e98dd7e7d64dd84ade7fac4eed7c4cc7"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
+
+[review.callees]
+"fn:ef7e3b7801b0e07e" = "sha256:dfd96fba48b7234160d5f7d5208d64b48203b3c1e2e51b400ae628a169df8b02"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "none_yet"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_017j6t92YEuE649Nx5e7k8nD",
+    "https://claude.ai/code/session_01FbFYNpJxPtK8cotkuBZyPU",
+    "https://claude.ai/code/session_01LN5DvQqPQdehQ1YLqvGPXd",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "+GWrTC3uw/GaRveQMUIQIcPIyqCcrRpIzUYgembErSCyzohvA41fcTLRlXiSAxpDyrhJ0ZOlXREIh5zKj0vrAQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport"
+kind = "implements"
+```
+
+uses survival biasing (i'm not too familiar with it), 
+but otherwise, quite straightforward for a neutron transport person
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 16c69a39bb.
