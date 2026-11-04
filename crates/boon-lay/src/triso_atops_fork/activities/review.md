@@ -460,19 +460,19 @@ id = "review-plate-out-steadystate-theodoreonzgit-8ea2eef1"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:20:47+08:00"
-modified = "2026-11-02T13:20:47+08:00"
+modified = "2026-11-04T15:14:49+08:00"
 target = "fn:8ea2eef18751cdc9"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::plate_out_steadystate"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-11-02"
-signed_at = "2026-11-02T13:20:47+08:00"
-commit = "7f59cd7f4a2cc702711b545e02321a330788065b"
+date = "2026-11-04"
+signed_at = "2026-11-04T15:14:49+08:00"
+commit = "807aa57d91b634061207bd8bca49d96dc3f7f4a5"
 hash = "sha256:a4582845d242eaac109123741e2f00ee38dbd45ddf6133b85561fbea369e9750"
 doc_hash = "sha256:e5252425075dd535fa65ba2501b62fd701771dd5bfc754259743c0620e72ff26"
-cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
 
 [review.callees]
 "fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
@@ -491,14 +491,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "SrrNdIY8uBl6wyuflRq3U8jEFw7V1UcFkC/7kyHjYx2AgL0UQpKYCS+utMzt+vCrjHh3DwgR06Ijckvt3yqWAg=="
+value = "Hy2E+s1JRprw/bc8cTCHV45Mc/mGz87yvJwXIqYnAXghloGUkovKV76S3y7Bwr7UlY4H3+G74VsExXWiR8h+Bw=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -506,10 +502,11 @@ kind = "implements"
 ```
 
 plating out function matches upstream plate_out_steadystate in TRISOATOPS python
+This is the analytical integral
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 7f59cd7f4a.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 807aa57d91.
 
 # Review: plate_out (github:theodoreOnzGit)
 
