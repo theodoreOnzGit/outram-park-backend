@@ -132,3 +132,56 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 66aa9561d1.
+
+# Review: env_usize (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-env-usize-theodoreonzgit-f8a9269e"
+kind = "review"
+origin = "human"
+created = "2026-11-04T16:11:57+08:00"
+modified = "2026-11-04T16:11:57+08:00"
+target = "fn:f8a9269e53dc9d00"
+
+[review]
+path = "crates/nee_soon/examples/htr10_rmc_keff.rs::env_usize"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T16:11:57+08:00"
+commit = "bcfa50de5b2574dbf28e465564af9e342f7b8b52"
+hash = "sha256:267e061d0f427a872d74298e75471817304b1ca11502da56af63ec69d3070478"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: this is data input"
+independence = "someone_else"
+limits_and_guards = "guard_waived_research: so this takes in environment variables, defaults to 12"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "none_yet"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01LN5DvQqPQdehQ1YLqvGPXd",
+    "https://claude.ai/code/session_01MCKcAXFCyB6muPnCcb2NpZ",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "8H5+/5ultOlX1RM4IeEWYRjtOwZFxd82fO1n9FOFomOuMrCqD3ldURjHJgKHwXkG5q3kXDeufGnR8kuiqj4sAQ=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit bcfa50de5b.
