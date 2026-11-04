@@ -2105,7 +2105,7 @@ mod tests {
         let ogrid = Design { target_cells: 8000, ..Design::default() };
         let lu = (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0)));
         let lin = (DivScheme::GaussLinear, None);
-        for (name, d, scheme) in [("dual h 4 mm, linearUpwind+cellLimited", dual, Some(lu)), ("dual h 4 mm, Gauss linear", dual, Some(lin)), ("O-grid 7920, upwind (its setting)", ogrid, None)] {
+        for (name, d, scheme) in [("dual h 4 mm, linearUpwind+cellLimited", dual, Some(lu)), ("dual h 4 mm, Gauss linear", dual, Some(lin)), ("dual h 4 mm, linearUpwind unlimited", dual, Some((DivScheme::GaussLinearUpwind("grad(U)".into()), None))), ("O-grid 7920, upwind (its setting)", ogrid, None)] {
             let mut e = Engine::default();
             e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |_| {});
             e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});

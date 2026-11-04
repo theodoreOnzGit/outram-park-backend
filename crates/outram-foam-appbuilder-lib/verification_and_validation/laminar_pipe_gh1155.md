@@ -742,6 +742,21 @@ max 0.139; the dual h 4 mm: 32 136 of 33 636 differ, mean 1.8e-2, max
 | dual h 4 mm, `Gauss linear`, measured-flow u_c, dp/dz (0.9820, 0.9616) | each moves by less than 0.01 |
 | dual h 4 mm, `linearUpwind` + `cellLimited` (0.8897, 1.0196) | u_c up by 0–0.03: **not** the main cause. My leading explanation of its low u_c is now the limiter itself: at a smooth extremum (the centreline maximum of u_z) minmod `cellLimited` sets the limiter to 0 (the neighbours are all below the cell, so `max − U = 0`), the gradient vanishes, and `linearUpwind` falls back to first-order upwind on the axis cells, whose false diffusion flattens the peak. That is upstream's behaviour, not a port defect, and the unlimited `linearUpwind` (u_c 0.9597, dp/dz 1.0218 against its own flow, from the sweep's nominal numbers) shows the size of it |
 
+**Results after the fix (2026-11-04; `linear_weight` is upstream's,
+unit test `fvc::interpolate::tests::linear_weight_projects_on_the_face_normal_as_upstream`):**
+
+| case | before | after | verdict |
+|---|---|---|---|
+| structured default 20 480 (nominal; `--headless`) | 34 steps, 0.9940, 1.0151, RMS 0.0063, τ_w 1.0063 | 34 steps, **0.9940, 1.0154**, RMS 0.0063, τ_w 1.0066 | held: moved by +0.03 % on dp/dz only |
+| O-grid 7 920 | 27, 0.9905, 1.0171 | 27, 0.9905, 1.0173 | |
+| dual h 4 mm, `Gauss linear`, nominal / own flow | 0.9418, 0.9414 / 0.9820, 0.9616 | 0.9397, 0.9353 / 0.9797, 0.9553 | held (moved < 0.01), slightly further |
+| dual h 4 mm, `linearUpwind` unlimited, nominal / own flow | 0.9205, 1.0005 / — | 0.9188, 0.9852 / 0.9580, 1.0062 | |
+| dual h 4 mm, `linearUpwind` + `cellLimited` (demo), nominal / own flow | 0.8534, 0.9983 / 0.8897, 1.0196 | **0.8540, 0.9915** / 0.8904, 1.0127 | held: not the cause |
+
+The fix is kept because it is upstream's formula, not for what it does to
+the numbers (which is little). **The structured default moved:**
+~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by

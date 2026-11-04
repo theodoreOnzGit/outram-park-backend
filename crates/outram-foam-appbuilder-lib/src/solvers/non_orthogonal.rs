@@ -196,16 +196,11 @@ pub fn limit_vector_correction(corr: &mut [Vector3], gamma: &SurfaceScalarField,
     }
 }
 
-/// OpenFOAM `linear` weight of the owner on internal face `f` (the same
-/// distance form as `fvc::interpolate`).
+/// OpenFOAM `linear` weight of the owner on internal face `f`: the same
+/// weight as `fvc::interpolate` (~~a copy of its distance form~~ since
+/// 2026-11-04, gh:#1202, the function itself, upstream's projected form).
 fn owner_weight(mesh: &FvMesh, f: usize) -> f64 {
-    let co = mesh.cell_centres[mesh.owner[f]];
-    let cn = mesh.cell_centres[mesh.neighbour[f]];
-    let denom = (cn - co).mag();
-    if denom < 1e-300 {
-        return 0.5;
-    }
-    (cn - mesh.face_centres[f]).mag() / denom
+    fvc::linear_weight(mesh, f)
 }
 
 /// `k_f = n − d·nonOrthDeltaCoeff` on internal face `f` (dimensionless), zero
