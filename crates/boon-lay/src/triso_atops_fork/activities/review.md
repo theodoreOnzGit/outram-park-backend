@@ -1194,3 +1194,67 @@ ablation/sensitivity testing utility for readings of TRISO ATOPS (uses TrisoAtop
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 4a788b5f72.
+
+# Review: step (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-step-theodoreonzgit-f37cec30"
+kind = "review"
+origin = "human"
+created = "2026-11-04T15:10:06+08:00"
+modified = "2026-11-04T15:10:06+08:00"
+target = "fn:f37cec301c5918a4"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T15:10:06+08:00"
+commit = "508266ffe1786f728488c25bc7926741af3811d2"
+hash = "sha256:679dafd954ddb4359227d970029a9de1bfa6d1f77031b39d113ada4194c1d936"
+doc_hash = "sha256:a6a6b9300a8a9f32c4d619e6859afd4ff4ef70d2f30aadfb9d8cee48c61d7c26"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
+
+[review.callees]
+"fn:0e9ccca890f6126d" = "sha256:3900326329f1200d7bab64933aa5a5edc6b76f2742a3938411ba4b975ed236ad"
+"fn:46b0d3d8a500434a" = "sha256:96c58430e7ccefcba6f2340b7d2b6620ec271f91404971e24e4a3ce5182276f6"
+"fn:507456e528cbc960" = "sha256:526e9979f678df8ed90d3915e9570e8be7e1fe96735795252fd39df33a200cb8"
+"fn:60da73c1a5c2618c" = "sha256:ecb178c561fbb8da759ba2a0a1716230a693a1fc2423b7fdc03d4a4e9ac28945"
+"fn:8d5a30749926de65" = "sha256:8840fbdd71c0be0085c763cb6b8a52b63a179a437c858a4904f8e7745bb05ca2"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: upstream doesn't even give results, we can always wrap it in results guard wrapper later"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour, ATOPS doesn't even check, limited guards present for negative or infinite timestep"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01EXPhstVwAqRb8o6YHVQoXW",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "sPy+XR3I6KfxK2DDkVg3XJAYM7WaX1Vw/7mrsz2apinpxsQU18zEGyvwFwBwqqCwgXR2BLUv9l/f63VyAA7YDg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 508266ffe1.
