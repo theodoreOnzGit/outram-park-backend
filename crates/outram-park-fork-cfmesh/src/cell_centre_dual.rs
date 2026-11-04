@@ -47,7 +47,8 @@ use crate::math::Vec3;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 use outram_foam_basic_lib::mesh::{BoundaryPatch as FoamPatch, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
-use outram_foam_mesh::poly_dual_mesh::{poly_dual_mesh, DualMesh, PolyMesh};
+use crate::dual::FeaturePointRule;
+use outram_foam_mesh::poly_dual_mesh::{poly_dual_mesh_with, DualMesh, FeaturePoints, PolyMesh};
 
 /// The primal `mesh` as `outram-foam-mesh`'s [`PolyMesh`], faces in OpenFOAM
 /// order, and the patch names (the last is `"unpatched"` when a boundary face
@@ -141,8 +142,18 @@ pub fn from_dual(dual: &DualMesh, names: &[String]) -> VolumeMesh {
 /// assert!(dual.validate().is_ok());
 /// ```
 pub fn cell_centre_dual(mesh: &VolumeMesh, feature_angle_deg: f64) -> Result<VolumeMesh, String> {
+    cell_centre_dual_with(mesh, feature_angle_deg, FeaturePointRule::OnFeatureEdge)
+}
+
+/// [`cell_centre_dual`] with the feature-point rule named
+/// ([`FeaturePointRule`], mapped onto `outram-foam-mesh`'s `FeaturePoints`).
+pub fn cell_centre_dual_with(mesh: &VolumeMesh, feature_angle_deg: f64, rule: FeaturePointRule) -> Result<VolumeMesh, String> {
     let (primal, names) = to_primal(mesh);
-    let dual = poly_dual_mesh(&primal, feature_angle_deg).map_err(|e| e.to_string())?;
+    let rule = match rule {
+        FeaturePointRule::OnFeatureEdge => FeaturePoints::OnFeatureEdge,
+        FeaturePointRule::Corners => FeaturePoints::Corners,
+    };
+    let dual = poly_dual_mesh_with(&primal, feature_angle_deg, rule).map_err(|e| e.to_string())?;
     Ok(from_dual(&dual, &names))
 }
 
@@ -166,6 +177,8 @@ mod tests {
         dual.validate().unwrap();
         assert_eq!(dual.cell_count(), 27);
         assert!((dual.total_volume() - 1.0).abs() < 1e-12, "{}", dual.total_volume());
+        let corners = cell_centre_dual_with(&hex, 45.0, FeaturePointRule::Corners).unwrap();
+        assert!((corners.total_volume() - 1.0).abs() < 1e-12, "{}", corners.total_volume());
         let centre = hex.points.iter().position(|q| q.sub(Vec3::new(0.5, 0.5, 0.5)).length() < 1e-12).unwrap();
         let (vols, _) = crate::checks::cell_geometry(&dual);
         assert!((vols[centre] - 0.125).abs() < 1e-12, "{}", vols[centre]);

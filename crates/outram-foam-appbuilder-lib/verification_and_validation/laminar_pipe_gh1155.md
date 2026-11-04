@@ -1588,6 +1588,47 @@ closely and interior non-orthogonality, skewness and validity may not.
 Where A and corner should differ: only at the boundary faces; any change in
 the interior quality beyond the boundary vertex moves is a finding.
 
+### First runs, a defect found, and a second variant (2026-11-04)
+
+The bare-mesh rows and the BackOffOnly / SnappyCollapse layer rows were run
+first (results below). **BackOffOnly grew no layer on either new route**, at
+any h and any N. The cause, found with `diagnose_back_off_on_dual_kinds`
+(the back-off's candidates at the cap × 0.6^k on the bare h 5 mm pipe):
+**16 faces with a non-positive pyramid at every thickness down to 1 % of
+the cap**, and a per-point cap of 0 m somewhere. They sit on the inlet and
+outlet rims. With `FeaturePointRule::OnFeatureEdge` (OpenFOAM's
+`polyDualMesh` *utility*: every point on a feature edge keeps its vertex),
+a rim point's inlet face is `[v, em₁, fc, …, em₂]` with `em₁`, `v`, `em₂`
+on the rim; on a straight stretch of the 48-gon they are collinear, and the
+layer stage's border limit (cfMesh `boundaryLayers::createNewVertices`,
+"limit distances": 0.9 × the distance from the point to the segment between
+its two neighbours in the non-layer face, ported as upstream has it) is
+then **0**. A zero-thickness column next to full ones folds the layer cell
+there. cfMesh's rule assumes the vertex is not collinear with its
+neighbours; nothing in it is wrong for cfMesh's own meshes.
+
+OpenFOAM has a second `polyDualMesh`: the **class**
+(`src/conversion/polyDualMesh/polyDualMesh.C`, the one the brief names).
+Its `calcFeatures` keeps only points with **more than two** feature edges;
+a point on a feature line is dropped and its ring split along the line
+(`splitFace`), so the inlet and wall faces of a rim point meet on the chord
+`em₁–em₂`, which on a straight stretch passes through the dropped point.
+Both rules are now callable (`TetDualOptions::dual_feature_points`:
+`OnFeatureEdge`, the default, and `Corners`; the same enum in
+`outram-foam-mesh` as `FeaturePoints`), and both are run below.
+
+**Predictions for `Corners`, written before its differential rows (one
+diagnostic already run, said here so the prediction is not mistaken for a
+blind one):** the diagnostic showed the h 5 mm back-off candidates with no
+bad pyramid and max non-orthogonality 55° (1 layer) and 54–66° (3 layers,
+× 0.6 and × 1). Predicted for the table: bare cell counts, wall faces per
+wall cell, internal NO and the wall face-to-owner angle as `OnFeatureEdge`
+(± 1° on the medians); volume and inlet area within 2e-4 of `OnFeatureEdge`
+(the rim chords cut only at the 48-gon's corners); BackOffOnly now grows
+full layers at 1–3 layers at h 4 / 5 / 6 with max NO < 70°; SnappyCollapse
+coverage ≥ 80 % at 1 layer and ≥ 50 % at 3 layers; the 3-layer h 5 mm solve
+runs, u_c/2U 0.90–0.94, dp/dz 0.98–1.04 × HP.
+
 ## Reproduce
 
 ```bash

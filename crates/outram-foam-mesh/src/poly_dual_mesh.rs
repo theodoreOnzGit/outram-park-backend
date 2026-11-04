@@ -819,10 +819,41 @@ impl DualMesh {
 /// Returns [`MeshError::Construction`] for a non-manifold boundary or an
 /// inconsistent edge fan.
 pub fn poly_dual_mesh(primal: &PolyMesh, feature_angle_deg: f64) -> Result<DualMesh, MeshError> {
+    poly_dual_mesh_with(primal, feature_angle_deg, FeaturePoints::OnFeatureEdge)
+}
+
+/// Which boundary points keep their own dual vertex (gh:#1240). OpenFOAM's
+/// two `polyDualMesh`s differ here; both are kept callable. The same choice
+/// is `outram-park-fork-cfmesh`'s `dual::FeaturePointRule`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FeaturePoints {
+    /// Every point on a feature edge: the `polyDualMesh` **utility**
+    /// (`simpleMarkFeatures`' `singleCellFeaturePoints`, `meshDualiser`).
+    #[default]
+    OnFeatureEdge,
+    /// Only points with more than two feature edges: the `polyDualMesh`
+    /// **class** (`polyDualMesh::calcFeatures`); a point on a feature line is
+    /// dropped and its ring split along the line (`splitFace`), the sides
+    /// meeting on the chord between the two feature-edge midpoints.
+    Corners,
+}
+
+/// [`poly_dual_mesh`] with the feature-point rule named (gh:#1240).
+///
+/// # Errors
+/// As [`poly_dual_mesh`].
+pub fn poly_dual_mesh_with(primal: &PolyMesh, feature_angle_deg: f64, rule: FeaturePoints) -> Result<DualMesh, MeshError> {
     let topo = build_topo(primal)?;
 
     // Feature edges (patch seams and sharp edges) and the points on them.
-    let (is_feature_edge, is_feature_point) = classify_features(primal, &topo, feature_angle_deg);
+    let (is_feature_edge, n_feature_edges) = classify_features(primal, &topo, feature_angle_deg);
+    let is_feature_point: Vec<bool> = n_feature_edges
+        .iter()
+        .map(|&n| match rule {
+            FeaturePoints::OnFeatureEdge => n > 0,
+            FeaturePoints::Corners => n > 2,
+        })
+        .collect();
 
     // ── Dual point layout ───────────────────────────────────────────────────
     // [0 .. n_cells)                         : cell centres
@@ -953,12 +984,12 @@ pub fn poly_dual_mesh(primal: &PolyMesh, feature_angle_deg: f64) -> Result<DualM
 /// `applications/utilities/mesh/manipulation/polyDualMesh/polyDualMesh.C`):
 /// a boundary edge is a feature when its two boundary faces are in different
 /// patches, or when their unit normals satisfy `n0 · n1 < cos(feature_angle)`;
-/// every point on a feature edge is a feature point. Returns
-/// `(is_feature_edge per edge, is_feature_point per point)`.
-fn classify_features(m: &PolyMesh, topo: &PrimalTopo, feature_angle_deg: f64) -> (Vec<bool>, Vec<bool>) {
+/// the caller decides which points are feature points from the count. Returns
+/// `(is_feature_edge per edge, number of feature edges per point)`.
+fn classify_features(m: &PolyMesh, topo: &PrimalTopo, feature_angle_deg: f64) -> (Vec<bool>, Vec<usize>) {
     let min_cos = feature_angle_deg.to_radians().r_cos();
     let mut is_edge = vec![false; topo.edge_pts.len()];
-    let mut is_point = vec![false; m.n_points()];
+    let mut is_point = vec![0usize; m.n_points()];
     for (e, fs) in topo.edge_faces.iter().enumerate() {
         if !topo.edge_is_boundary[e] {
             continue;
@@ -970,8 +1001,8 @@ fn classify_features(m: &PolyMesh, topo: &PrimalTopo, feature_angle_deg: f64) ->
         if seam || n0.dot(n1) < min_cos {
             is_edge[e] = true;
             let (a, b) = topo.edge_pts[e];
-            is_point[a] = true;
-            is_point[b] = true;
+            is_point[a] += 1;
+            is_point[b] += 1;
         }
     }
     (is_edge, is_point)
@@ -1143,12 +1174,14 @@ fn build_boundary_faces_for_point(
     }
     let cuts: Vec<usize> = (0..k).filter(|&i| is_feature_edge[shared[i]]).collect();
 
-    if feature && cuts.len() >= 2 {
+    if cuts.len() >= 2 {
+        // Through `p` at a feature point; else closed on the chord between
+        // the two feature-edge midpoints (`polyDualMesh::splitFace`).
         for c in 0..cuts.len() {
             let (start, end) = (cuts[c], cuts[(c + 1) % cuts.len()]);
             // Faces ring[start + 1 ..= end] (cyclic), bounded by the feature
             // edges shared[start] and shared[end].
-            let mut loop_ids = vec![dp_bpoint[&p], dp_bedge[&shared[start]]];
+            let mut loop_ids = if feature { vec![dp_bpoint[&p], dp_bedge[&shared[start]]] } else { vec![dp_bedge[&shared[start]]] };
             let mut nrm = Vector3::default();
             let mut i = (start + 1) % k;
             loop {

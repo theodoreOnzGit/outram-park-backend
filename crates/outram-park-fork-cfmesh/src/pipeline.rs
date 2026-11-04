@@ -92,7 +92,7 @@
 use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
-use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces, polyhedral_dual_per_point, DualKind};
+use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces, polyhedral_dual_per_point_with, DualKind, FeaturePointRule};
 use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh, BoundaryLayerOptimisationControls};
 use crate::layers::{add_boundary_layers_back_off, LayerOutcome, LayerQualityStrategy};
 use crate::snappy_layers::{add_boundary_layers_snappy, SnappyLayerControls};
@@ -178,6 +178,11 @@ pub struct TetDualOptions {
     /// `DEFAULT_FEATURE_ANGLE_DEG`; upstream's utility takes it as a
     /// required argument).
     pub dual_feature_angle_deg: f64,
+    /// Which boundary points the two new dual kinds keep as dual vertices
+    /// ([`FeaturePointRule`]): every point on a feature edge (the default,
+    /// OpenFOAM's `polyDualMesh` utility) or only the corners where more than
+    /// two feature edges meet (the `polyDualMesh` class).
+    pub dual_feature_points: FeaturePointRule,
     /// Smart-Laplacian smoothing passes ([`laplacian_smooth`]) applied to the
     /// interior after the dual and before the layers. `0` disables it. Safe:
     /// smoothing never inverts a cell and conserves volume exactly.
@@ -253,6 +258,7 @@ impl Default for TetDualOptions {
             dual_min_faces: true,
             dual_kind: DualKind::MedianPerCorner,
             dual_feature_angle_deg: 45.0,
+            dual_feature_points: FeaturePointRule::OnFeatureEdge,
             smooth_passes: 0,
             n_layers: 3,
             first_layer_thickness: 0.04,
@@ -328,14 +334,14 @@ fn layer_note(o: &LayerOutcome) -> String {
 /// [`DualKind::CellCentre`]'s dual: `outram-foam-mesh`'s `polyDualMesh`
 /// port (feature `cell-centre-dual`), or an error naming the feature.
 #[cfg(feature = "cell-centre-dual")]
-fn cell_centre(mesh: &VolumeMesh, feature_angle_deg: f64) -> Result<VolumeMesh, String> {
-    crate::cell_centre_dual::cell_centre_dual(mesh, feature_angle_deg)
+fn cell_centre(mesh: &VolumeMesh, feature_angle_deg: f64, rule: FeaturePointRule) -> Result<VolumeMesh, String> {
+    crate::cell_centre_dual::cell_centre_dual_with(mesh, feature_angle_deg, rule)
 }
 
 /// Without the `cell-centre-dual` feature: the error the pipeline turns
 /// into its fall-back note.
 #[cfg(not(feature = "cell-centre-dual"))]
-fn cell_centre(_mesh: &VolumeMesh, _feature_angle_deg: f64) -> Result<VolumeMesh, String> {
+fn cell_centre(_mesh: &VolumeMesh, _feature_angle_deg: f64, _rule: FeaturePointRule) -> Result<VolumeMesh, String> {
     Err("this build has no `cell-centre-dual` feature".into())
 }
 
@@ -574,8 +580,8 @@ fn run_pipeline(
             None => mesh.clone(),
         };
         let candidate = match opts.dual_kind {
-            DualKind::MedianPerPoint => Ok(polyhedral_dual_per_point(&named, opts.dual_feature_angle_deg)),
-            _ => cell_centre(&named, opts.dual_feature_angle_deg),
+            DualKind::MedianPerPoint => Ok(polyhedral_dual_per_point_with(&named, opts.dual_feature_angle_deg, opts.dual_feature_points)),
+            _ => cell_centre(&named, opts.dual_feature_angle_deg, opts.dual_feature_points),
         };
         match candidate {
             Ok(d) if acceptable(&d) => {
@@ -2178,6 +2184,8 @@ mod tests {
             ("duct h5".into(), &bp, &bt, &br, 0.005, 0.02 * 0.02),
         ];
         let kinds = [(DualKind::MedianPerCorner, "corner"), (DualKind::MedianPerPoint, "point"), (DualKind::CellCentre, "centre")];
+        // CFMESH_FP=corners: the polyDualMesh class's feature points.
+        let fp = if env("CFMESH_FP").as_deref() == Some("corners") { FeaturePointRule::Corners } else { FeaturePointRule::OnFeatureEdge };
         let layers: Vec<usize> = env("CFMESH_LAYERS").map_or(vec![0, 1, 2, 3], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let strats: Vec<(LayerQualityStrategy, &str)> = [(LayerQualityStrategy::BackOffOnly, "backoff"), (LayerQualityStrategy::SnappyCollapse, "snappy"), (LayerQualityStrategy::CfMeshOptimise, "cfmesh")]
             .into_iter()
@@ -2196,7 +2204,7 @@ mod tests {
                         if n == 0 && *strategy != LayerQualityStrategy::BackOffOnly {
                             continue;
                         }
-                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, ..Default::default() };
+                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
                         let t0 = std::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
                             Ok(x) => x,
@@ -2273,5 +2281,84 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Diagnostic (gh:#1240), `--ignored`: why the back-off grows no layer on
+    /// the per-point duals. On the bare h 5 mm pipe of each dual kind, the
+    /// back-off's columns at the cap scaled by 0.6^k, and what each candidate
+    /// fails: closure, inverted cells, a folded face, `meets_layer_quality`'s
+    /// skewness / pyramid / determinant.
+    #[test]
+    #[ignore]
+    fn diagnose_back_off_on_dual_kinds() {
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let h: f64 = std::env::var("CFMESH_H").ok().and_then(|v| v.parse().ok()).unwrap_or(0.005);
+        for kind in [DualKind::MedianPerCorner, DualKind::MedianPerPoint, DualKind::CellCentre] {
+            let fp = if std::env::var("CFMESH_FP").as_deref() == Ok("corners") { FeaturePointRule::Corners } else { FeaturePointRule::OnFeatureEdge };
+            let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
+            let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            for n in [1usize, 3] {
+                let s = crate::layers::layer_setup(&bare, &["walls"], n, 3e-4, 1.2).unwrap();
+                let counts: std::collections::BTreeMap<usize, usize> = s.wall_pts.iter().map(|&wp| (wp, n)).collect();
+                let caps: Vec<f64> = s.cap.values().copied().collect();
+                let mut row = Vec::new();
+                for k in 0..10 {
+                    let sc = 0.6f64.powi(k);
+                    let per: std::collections::BTreeMap<usize, f64> = s.cap.iter().map(|(&wp, &c)| (wp, c * sc)).collect();
+                    let c = crate::layers::build_layered_variable(&bare, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &per, &counts);
+                    let q = check_quality(&c);
+                    row.push(format!(
+                        "x{sc:.3}: valid {} neg {} NO {:.1} skew {:.2} negPyr {} minDet {:.1e}",
+                        c.validate().is_ok(),
+                        q.n_negative_volume_cells,
+                        q.max_non_orthogonality_deg,
+                        q.max_skewness,
+                        q.n_negative_pyramid_faces,
+                        q.min_cell_determinant
+                    ));
+                }
+                println!(
+                    "{kind:?} n{n}: {} wall faces, {} wall points, cap min {:.2e} mean {:.2e} m\n  {}",
+                    s.wall_faces.len(),
+                    s.wall_pts.len(),
+                    caps.iter().cloned().fold(f64::MAX, f64::min),
+                    caps.iter().sum::<f64>() / caps.len() as f64,
+                    row.join("\n  ")
+                );
+            }
+        }
+    }
+
+    /// Diagnostic (gh:#1240), `--ignored`: on the bare per-point h 5 mm pipe,
+    /// the faces whose pyramid about the owner (or neighbour) centre is not
+    /// positive, the wall faces with a zero-length edge, and the faces with
+    /// the largest non-orthogonality, with where they are.
+    #[test]
+    #[ignore]
+    fn diagnose_per_point_bad_faces() {
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let o = TetDualOptions { cell_size: 0.005, n_layers: 0, dual_kind: DualKind::MedianPerPoint, ..Default::default() };
+        let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        let (_, c) = crate::checks::cell_geometry(&m);
+        let patch = |f: usize| m.patches.iter().find(|q| f >= q.start_face && f < q.start_face + q.n_faces).map_or("-", |q| q.name.as_str());
+        let mut n_pyr = 0;
+        for f in 0..m.face_count() {
+            let (s, fc) = (m.face_area_vector(f), m.face_centroid(f));
+            let own = s.dot(fc.sub(c[m.owner[f]])) <= 0.0;
+            let nb = m.neighbour[f].is_some_and(|n| s.dot(c[n].sub(fc)) <= 0.0);
+            let ring = &m.faces[f];
+            let min_edge = (0..ring.len()).map(|i| m.points[ring[i]].sub(m.points[ring[(i + 1) % ring.len()]]).length()).fold(f64::MAX, f64::min);
+            if own || nb {
+                n_pyr += 1;
+                if n_pyr <= 12 {
+                    let r = (fc.x * fc.x + fc.y * fc.y).sqrt();
+                    println!("negative pyramid: face {f} ({}), {} verts, centre r {:.3} mm z {:.3} mm, own {own} nb {nb}, min edge {:.2e}", patch(f), ring.len(), 1e3 * r, 1e3 * fc.z, min_edge);
+                }
+            }
+            if m.neighbour[f].is_none() && min_edge < 1e-9 {
+                println!("zero edge: face {f} ({}), {} verts, z {:.3} mm, ring {:?}", patch(f), ring.len(), 1e3 * fc.z, ring);
+            }
+        }
+        println!("{n_pyr} faces with a non-positive pyramid");
     }
 }
