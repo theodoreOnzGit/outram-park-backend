@@ -697,7 +697,7 @@ Hagen–Poiseuille relates the centreline velocity and the gradient to the
 flow rate through the section: u_c = 2Q/A, −dp/dz = 8μQ/(πR⁴). The
 nominal normalisation assumes Q = U πR², which is a property of the
 mesh's inlet patch, not of the solution; on the dual it is false by 6 %.
-So, for "does the solver reproduce Hagen–Poiseuille", the right
+~~So, for "does the solver reproduce Hagen–Poiseuille", the right
 instrument is **(b), the fit intercept, normalised by the flow the case
 carries: u_c/2U_b and dp/dz/(8νU_b/R_eq²) with U_b = Q/A** (both exact
 quantities), with (a′) beside it as the whole-profile check. The nominal
@@ -705,7 +705,12 @@ numbers stay reported, because they are what the demo shows and they say
 the demo runs at Re ≈ 94, not 100: **that is a defect of the case**
 (the inlet does not span the pipe) and it is listed to fix, not normalised
 away. On the O-grid the two normalisations differ by the 24-gon's area
-(1.1 %), so the structured record keeps its nominal numbers.
+(1.1 %), so the structured record keeps its nominal numbers.~~
+**CORRECTED (maintainer direction via the coordinator, 2026-11-04): the
+bar's instrument is the nominal one**, u_c and dp/dz against
+Hagen–Poiseuille for the U and R the user set; the flow-normalised numbers
+are diagnostics. The case must carry the flow it says it does, so the
+chamfer was fixed at its source (below), not normalised away.
 
 **Verdict.** The instruments agree that the demo setting's u_c really is
 low: **11 % against its own flow**, with an RMS three times
@@ -1056,7 +1061,61 @@ the pairs below differ by less than 3 % in τ_w/HP and dp/dz/HP, in either
 direction, and the bare mesh at the smaller h is the closer one. Reason:
 at h = 4–6 mm the error is in the core (the profile shape), not in the
 wall gradient, and a layer costs a whole wall's worth of cells that the
-bare mesh spends on the core. **The structured default moved:**
+bare mesh spends on the core.
+
+**Results (2026-11-04, current code: weights, feature-edge capture, layer
+quality limits, warm-started momentum; Re = 100; nominal instrument;
+`FOAM_SWEEP=matched`):**
+
+| cells | mesh | demo pair: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** | `Gauss linear`: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** |
+|---|---|---|---|
+| 6 353 | h 4 mm, no layer (**default**) | 29, 0.8925, **1.0326**, 0.0356, **1.0312** | 63, 0.9811, **0.9673**, 0.0126, **0.9638** |
+| 6 713 | h 6 mm, 1 layer | 23, 0.8071, 1.0565, 0.0733, 1.0514 | 76, 0.9453, 0.8882, 0.0222, 0.8840 |
+| 11 177 | h 3.3 mm, no layer | 37, 0.9606, **0.9838**, 0.0214, **0.9802** | 54, 0.9669, **0.9632**, 0.0161, **0.9596** |
+| 10 745 | h 5 mm, 1 layer | 28, 0.8954, 0.9705, 0.0509, 0.9678 | 63, 0.9440, 0.9011, 0.0262, 0.8978 |
+| 11 487 | h 6 mm, 2 layers | 39, 0.8079, 1.0883, 0.0729, 1.0653 | 80, 0.9483, 0.9029, 0.0222, 0.8902 |
+| 18 321 | h 4 mm, 1 layer | 73, 0.8907, 1.0301, 0.0372, 1.0215 | 95, 0.9748, 0.9511, 0.0152, 0.9418 |
+| 18 377 | h 5 mm, 2 layers | 117, 0.8990, 0.9946, 0.0500, 0.9785 | 93, 0.9509, 0.9225, 0.0253, 0.9088 |
+
+The warm start changed none of the rows it shares with the earlier table
+to the printed digits (the h 5 mm, 2-layer mesh is new: the pyramid gate
+thinned it).
+
+**Against the prediction.** "Layers do not improve τ_w or dp/dz at matched
+count": **held**. At ~6.5k and ~11k cells the bare mesh is closer to
+Hagen–Poiseuille in τ_w and dp/dz under both schemes; at ~18k, h 5 mm
+with 2 layers beats h 4 mm with 1 under the demo pair (τ_w 0.979 against
+1.022) and loses under `Gauss linear` (0.909 against 0.942). "Within 3 %
+of each other": **missed**: under `Gauss linear` the layered meshes read
+τ_w 6–8 % lower than the bare one at the same count, and under the demo
+pair the 6 mm meshes read 2–8 % higher. Adding layers at fixed h *does*
+move τ_w (h 6 mm `Gauss linear`: 0.903 bare → 0.884 one layer → 0.890
+two), but not toward 1: the layers resolve a wall gradient that is
+already right to a few per cent, while the coarse core sets the error.
+**On this mesh family wall layers are not the lever for the remaining
+gap**; they are offered in the demo because they run (1–2 layers), not
+because they help here.
+
+### Mesh images after this work (drawn from the `PolyMesh` the solver gets)
+
+New in `laminar_pipe_gh1155/unstructured_gh1202/` (2026-11-04,
+`--render-unstructured`; every older image there was regenerated from the
+current mesher too, and now shows the mapped rim):
+`mapped_h4_bare_*` (the demo default, 6 353 cells),
+`mapped_h4_2layers_*` (30 289), `mapped_h4_3layers_*` (42 257), each as
+`xy` (mid-length), `xz_inlet`, `xz_corner` (inlet rim) and `xy_wall` (a
+3.5 mm wall zoom showing the layer stack).
+
+**Checked by eye:** `mapped_h4_bare_xz_corner.png`: the rim is a square
+corner at (1.0, 0) cm, the inlet flat at z = 0 out to the wall, the wall
+straight at x = 1.0 cm down to the inlet (before: a 2 mm × 5 mm chamfer,
+`unstructured_default_7k_xz_corner.png` in its pre-2026-11-04 version).
+`mapped_h4_3layers_xy_wall.png`: three thin prism layers along the wall,
+total about 0.15 mm, under large dual cells (about 1.2 mm across); the
+layer faces meet the dual cells at a visibly oblique angle where a dual
+cell's centre sits sideways of its wall face, which is the 75–84°
+interface non-orthogonality of the table above. **Not checked:** the
+layer stack at the rim in 3-D (the slices cut it in two planes only). **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
@@ -1085,15 +1144,43 @@ typed `wall`), not drawn.
 
 ### Unresolved (gh:#1202 follow-ups)
 
-- The dual mesh's flat profile and high dp/dz (above): measure the port's
-  corrected Laplacian and Gauss-linear gradient on the dual against the
-  exact quadratic; compare against OpenFOAM on an exported mesh
-  (`export_polymesh`).
-- 2+ layers diverge; 1 layer runs.
-- No feature-edge capture: bent end faces at the rim, chamfered wall.
+**UPDATED 2026-11-04 (end of the merge work).** Status of each item, and
+what is still open:
+
+- ~~The dual mesh's flat profile and high dp/dz~~: the upwind false
+  diffusion (fixed by second-order convection) and the chamfered inlet
+  (fixed by the feature-edge capture) explained most of it. **Still open:
+  a few-per-cent gap at the demo default** (nominal instrument, the bar's:
+  u_c/2U **0.8925**, dp/dz **1.0326** with the demo's `linearUpwind` +
+  `cellLimited`; 0.9811 / 0.9673 with `Gauss linear`; 0.9597 / 1.0210
+  with unlimited `linearUpwind`). The 2 % bar on both is **not met** by
+  any of them. The `cellLimited` choice is explained against the
+  tutorials above (a laminar smooth flow is the `icoFoam/elbow` case,
+  which has no cell limiter); changing it is the maintainer's call.
+  Comparing against OpenFOAM on an exported mesh (`export_polymesh`) is
+  the next check that would separate the port from the mesh.
+- ~~2+ layers diverge; 1 layer runs.~~ **1 and 2 layers run; 3 diverge**
+  (one shrunk dual cell over the layer stack, 75–84° interface); local
+  layer collapse is not ported.
+- ~~No feature-edge capture~~: ported (`surface_mapper`), without
+  `correctEdgesBetweenPatches` (points that would land a face on the rim
+  stay unmapped: 34 at h 6 mm, 126 at 3.3 mm, 0 at the default).
+- ~~19 inward boundary faces~~: 0 on every layered pipe and duct measured
+  (test `every_boundary_face_points_outward_on_layered_pipes_and_ducts`).
 - ~~`limited` snGrad with a coefficient in (0, 1) is not ported.~~ Ported
-  2026-11-04. `cellLimited` gradients and `linearUpwind` / `limitedLinearV`
-  convection, which the tutorials use, were not tried here.
+  2026-11-04. ~~`cellLimited` gradients and `linearUpwind` /
+  `limitedLinearV` convection, which the tutorials use, were not tried
+  here.~~ `linearUpwind` and `cellLimited` ported and measured;
+  `limitedLinearV` (elbow) is not ported.
+- Port defects found and fixed on the way: the linear interpolation
+  weights (`fvc::linear_weight`, now upstream's `makeWeights`), cfMesh's
+  skewness metric (now `faceSkewness`), the cold-started momentum solve
+  (now warm-started, as upstream). The same weight defect is in
+  `outram-park-fork-coolprop` and `tampines-steam-tables`'
+  `openfoam_source/fv_operators/fvc/interpolate.rs`, not changed here.
+- **Structured default re-checked after all of it:** 34 steps, u_c/2U
+  0.9940, ~~dp/dz 1.0151~~ **1.0154** (the weights fix), RMS 0.0063,
+  τ_w 1.0066.
 
 ## Reproduce
 

@@ -28,7 +28,9 @@
 //!   `outram_foam_mesh::block_primitives` (the pipe O-grid, the box block),
 //!   and, for the cylinder's **Unstructured** choice (gh:#1202), the cfMesh
 //!   port through `outram_blender::foam_mesh` (tet → polyhedral dual →
-//!   wall-only prism layers, `Gauss linear` convection; 3-6 % below Hagen–Poiseuille, see the V&V
+//!   feature-edge capture, wall-only prism layers, `linearUpwind grad(U)`
+//!   with `cellLimited Gauss linear 1` convection; at the default u_c/2U
+//!   0.89 and dp/dz 1.03 × Hagen–Poiseuille, an open gap, see the V&V
 //!   record's gh:#1202 section);
 //!   the solve is `outram_foam_appbuilder_lib`'s `PimpleFoam` with
 //!   `cases::laminar_pipe`'s boundary conditions. V&V record:

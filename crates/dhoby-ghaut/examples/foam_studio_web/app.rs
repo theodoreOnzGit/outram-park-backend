@@ -466,7 +466,11 @@ impl FoamApp {
                 }
                 if c.n_layers >= 2 {
                     ui.label(
-                        RichText::new("2 or more layers: on every mesh tried so far the solve diverges (the V&V record, gh:#1202). 0 or 1 layer runs.")
+                        RichText::new(if c.n_layers >= 3 {
+                            "3 layers: the solve diverges on the meshes tried (one dual cell over the layer stack, the V&V record, gh:#1202). 0-2 layers run."
+                        } else {
+                            "2 layers run; on this mesh they do not bring the pipe closer to Hagen–Poiseuille than a finer bare mesh (the V&V record, gh:#1202)."
+                        })
                             .small()
                             .color(Color32::from_rgb(250, 189, 47)),
                     );

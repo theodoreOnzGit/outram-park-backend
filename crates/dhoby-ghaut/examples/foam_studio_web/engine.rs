@@ -192,9 +192,13 @@ pub const MAX_LAYERS: usize = 3;
 impl TetDualSpec {
     /// The demo's default for a pipe of radius `radius`: cell 0.4 R, **no
     /// layer** (first layer 0.03 R and expansion 1.2 for when layers are asked
-    /// for). On the demo pipe: 6 353 cells, meshed in about 0.5 s, 61 steps
+    /// for). On the demo pipe: 6 353 cells, meshed in about 0.5 s; ~~61 steps
     /// and about 9 s natively with `Gauss linear` convection, u_c/2U 0.942,
-    /// dp/dz 0.941 × HP (the V&V record). History, all 2026-11-04: ~~2 layers,
+    /// dp/dz 0.941 × HP~~ **UPDATED 2026-11-04 (gh:#1202)**, with the
+    /// feature-edge capture (the inlet now spans 0.9936 πR², was 0.9396) and
+    /// the tutorials' `linearUpwind` + `cellLimited` convection: 29 steps,
+    /// about 5 s, u_c/2U 0.8925, dp/dz 1.0326 × HP (the V&V record). History,
+    /// all 2026-11-04: ~~2 layers,
     /// cell R/2 (18 377 cells)~~ diverged in the solve, as every mesh with 2+
     /// layers did; ~~1 layer, cell R/2 (10 745)~~ and ~~1 layer, cell 0.6 R
     /// (6 713)~~ ran but, with one layer, sit further from Hagen–Poiseuille
@@ -906,7 +910,8 @@ impl Engine {
         let mesh_s = bugis::web_demo::platform::now_s() - t0;
         let quality = outram_foam_mesh::mesh_quality::assess_quality(&poly.to_foam_poly_mesh());
         // Some cfMesh settings leave a near-degenerate cell (the sweep of
-        // 2026-11-04: h 4 mm with 2 layers, skewness 251); say so on the page.
+        // 2026-11-04 before the feature-edge capture and the layer quality
+        // limits: h 4 mm with 2 layers, skewness 251); say so on the page.
         if quality.max_non_ortho_deg >= 89.0 || quality.max_skewness > 20.0 {
             notes.push(format!(
                 "warning: near-degenerate cells (max non-orthogonality {:.1}°, skewness {:.0}); the solve may be poor or diverge, try another cell size",
@@ -1069,8 +1074,8 @@ impl Engine {
         // `limitedLinearV 1` (elbow) or `linearUpwind grad(U)`.
         if matches!(self.design.map(|d| d.mesh), Some(PipeMesh::Unstructured(_))) {
             s.solution.pimple.n_non_orthogonal_correctors = NON_ORTH_UNSTRUCTURED;
-            // Convection: `Gauss linear` on the unstructured mesh (gh:#1202,
-            // 2026-11-04). Upwind on faces oblique to the flow adds cross-stream
+            // ~~Convection: `Gauss linear` on the unstructured mesh~~ (gh:#1202,
+            // 2026-11-04, superseded below). Upwind on faces oblique to the flow adds cross-stream
             // false diffusion of order U·h (Patankar 1980, §5.6), 10-15× ν here:
             // it flattened the developed profile to u_c/2U 0.62. The tutorials on
             // unstructured meshes use second-order upwind-biased schemes
@@ -2355,11 +2360,12 @@ mod tests {
     /// Re = 100, reaches the steady criterion and conserves mass; its patches
     /// arrive named `inlet`, `outlet`, `walls` (typed wall); its developed
     /// numbers are pinned where the V&V record measured them on 2026-11-04
-    /// (`laminar_pipe_gh1155.md`, gh:#1202 section) with `Gauss linear`
-    /// convection and 2 correctors: u_c/2U 0.9416, dp/dz 0.9414 × HP, 6 %
-    /// low, converging with refinement (0.969 / 0.975 at h = R/3). Earlier
+    /// (`laminar_pipe_gh1155.md`, gh:#1202 section): with the feature-edge
+    /// capture and `linearUpwind grad(U)` + `cellLimited Gauss linear 1`,
+    /// 2 correctors: u_c/2U **0.8925**, dp/dz **1.0326** × HP. Earlier
     /// pins, struck: ~~h 6 mm, 1 layer, upwind: 0.6105 / 1.2452 (`limited 0`),
-    /// then 0.6179 / 1.3355 (`limited corrected 0.33`, 2 correctors)~~.
+    /// then 0.6179 / 1.3355 (`limited corrected 0.33`, 2 correctors)~~;
+    /// ~~h 4 mm, `Gauss linear`, chamfered rim: 0.9416 / 0.9414~~.
     /// Pinned so that a change is seen. Deterministic: run twice, the same
     /// lines.
     #[test]
@@ -2376,8 +2382,8 @@ mod tests {
         assert!(joined.contains("6353 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
-        assert!((val("uc=") - 0.9416).abs() < 2e-3, "{pipe}");
-        assert!((val("dpdz=") - 0.9414).abs() < 2e-3, "{pipe}");
+        assert!((val("uc=") - 0.8925).abs() < 2e-3, "{pipe}");
+        assert!((val("dpdz=") - 1.0326).abs() < 2e-3, "{pipe}");
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
