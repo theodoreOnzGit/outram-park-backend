@@ -486,7 +486,8 @@ fn batch_posterior(kf: &KalmanFilter, m0: &[f64], p0: &Matrix, zs: &[Vec<f64>]) 
 /// own cancellation under P₀ = 1000 I. The Joseph form gives the numbers
 /// above. The batch's spread between two algebraically equal forms is 6.4e-7
 /// (CV) and 1.6e-5 (CA), so the 1.9e-10 cannot be attributed to the RTS.
-/// The 1e-9 covariance gate was set after the miss (V&V record).
+/// The 1e-9 covariance gate was set after the miss (V&V record); the
+/// maintainer reviewed and accepted it on 2026-11-04 (gh:#1208).
 #[test]
 fn a2_rts_equals_batch_least_squares() {
     let r = load("filterpy_filters.json");

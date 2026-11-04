@@ -283,6 +283,10 @@ miss**, and the test also requires the difference to be under 10⁻³ of the
 instrument's spread. A better instrument (extended precision, or a
 square-root batch) is the way to close this. It was not built.
 
+**Maintainer review, 2026-11-04 (gh:#1208):** the post-hoc 1e-9 covariance
+gate is accepted ("Okay lah I'm fine with 1208"). The miss against the
+predicted 1e-10 stays recorded as a miss.
+
 ### 5.3 Typed route
 
 `fidelity::state_space` test: on a linear CV model the typed EKF (central
