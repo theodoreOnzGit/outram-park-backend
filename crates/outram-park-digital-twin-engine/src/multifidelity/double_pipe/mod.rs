@@ -37,6 +37,11 @@
 //! [`fidelity`] adapts the pair: [`fidelity::TuasOneD`] is the 1-D model as a
 //! `ParametricModel`, [`fidelity::committed_dataset`] the committed CFD rows
 //! as a `Dataset` with the stored split.
+//!
+//! **State estimation (gh:#1191):** [`filtering`] tracks a synthetic,
+//! drifting wall resistance from noisy outlet temperatures with
+//! `raffles::filtering`'s FilterPy ports, through
+//! `raffles::fidelity::StateSpaceModel` (synthetic truth only).
 use uom::si::f64::{Length, Power, Pressure, Ratio, ThermalConductance, ThermalConductivity, ThermodynamicTemperature};
 
 pub mod cfd;
@@ -45,6 +50,7 @@ pub mod cokriging;
 pub mod dataset;
 pub mod design;
 pub mod fidelity;
+pub mod filtering;
 pub mod koh;
 pub mod lf_grid;
 pub mod one_d;

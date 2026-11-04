@@ -431,7 +431,19 @@ pub fn ua(x: &DoublePipeInput, theta: &Theta) -> Result<ThermalConductance, OneD
     let (nt, ns) = textbook_nusselt(x)?;
     let nu_hot = fold_fouling(nt.get::<ratio>() * theta.nu_mult_hot.get::<ratio>(), fouling_to_si(theta.wall_resistance));
     let nu_cold = ns * theta.nu_mult_cold;
-    let mut s = build(x, NusseltSpec::Fixed(Ratio::new::<ratio>(nu_hot), nu_cold))?;
+    ua_with_nusselt(x, Ratio::new::<ratio>(nu_hot), nu_cold)
+}
+
+/// [`ua`] for given tube- and annulus-side Nusselt numbers (any fouling
+/// already folded into `nu_hot`, [`fold_fouling`]): TUAS's two nodal
+/// conductances, march-free. gh:#1191's filtering pilot calls it with the
+/// CFD's own Nusselt numbers. [`ua`] is this function after its θ folding,
+/// so it is unchanged bit for bit (`march_free_ua_is_the_marched_ua`).
+///
+/// # Errors
+/// [`build`]'s or TUAS errors.
+pub fn ua_with_nusselt(x: &DoublePipeInput, nu_hot: Ratio, nu_cold: Ratio) -> Result<ThermalConductance, OneDError> {
+    let mut s = build(x, NusseltSpec::Fixed(nu_hot, nu_cold))?;
     let (mh, mc) = mass_flows(x);
     s.lateral_and_miscellaneous_connections(false, mh, mc)?;
     let g_t = s.get_single_tube_side_fluid_array_node_to_inner_pipe_shell_nodal_conductance(false)?;

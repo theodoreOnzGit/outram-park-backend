@@ -212,7 +212,7 @@ Analytic checks (Rust only, independent of FilterPy):
 
 ## 5. Results (2026-11-04, added after the runs; sections 1–4 unedited)
 
-Port commit: the one following `b6bc8cfc3` (the references and predictions).
+Port commit: `bd1042431` (after `b6bc8cfc3`, the references and predictions).
 `cargo test --release -p raffles --test filterpy_gh1191`; every number below
 is printed by that test and asserted there.
 
@@ -295,3 +295,6 @@ used `uom` Length/Velocity in and out.
 `cargo test --release -p raffles --lib --tests -j 2`: **315 passed, 0
 failed, 2 ignored** (2026-11-04, including the 10 tests of
 `tests/filterpy_gh1191.rs` and the new unit tests).
+`cargo check --release -p raffles --all-targets --target aarch64-linux-android`
+and `cargo check --release -p raffles --lib --target wasm32-unknown-unknown`:
+clean (2026-11-04; target trees deleted afterwards). No new dependency.
