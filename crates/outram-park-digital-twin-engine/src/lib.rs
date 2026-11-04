@@ -108,6 +108,10 @@ pub mod opcua_core;
 // on Android with no target gate. NOT VALIDATED -- its tests reproduce
 // published numbers; they do not validate a simulator.
 pub mod htr10;
+/// High-fidelity → low-fidelity model mapping (epic gh:#1177): closure
+/// extraction from CFD into 1-D models. Infrastructure; the physics is
+/// the models' own crates'.
+pub mod multifidelity;
 #[cfg(not(target_os = "android"))]
 /// Convenience re-exports: `use outram_park_digital_twin_engine::prelude::*;`
 pub mod prelude;

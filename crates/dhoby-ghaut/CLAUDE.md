@@ -47,6 +47,17 @@ against `openmc --plot`
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
+## Never declare modules through a macro (HARD RULE, 2026-11-04)
+
+**Maintainer direction, 2026-11-04**, the workspace rule of the same name in
+the root `CLAUDE.md`, restated here because this crate is where it bit. Every
+`mod` is a plain `mod name;` line: never `mod $m;` inside a `macro_rules!`
+such as `rung_table!`. kovan reads `mod` lines without expanding macros, so
+the HTR-10 web demo and nine other `monte_carlo_web` rungs had no
+`kovan.toml` and were missing from review until their `mod` lines moved into
+`main.rs`. A macro may still generate the enums and dispatch over modules
+declared plainly. Pinned by `crates/kovan/tests/no_macro_declared_modules.rs`.
+
 ## Web demos are mobile-first (HARD RULE, 2026-10-04)
 
 Every demo here follows
@@ -155,10 +166,19 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    `include_bytes!("data/tracks.bin.z")`, written by `--bake-tracks <rung>`
    (`recorded.rs`); re-bake when the rung's geometry or Watch chain changes,
    and update the counts its test pins.
-2. **One line** in the `rung_table!` invocation in `main.rs`
+2. ~~**One line** in the `rung_table!` invocation in `main.rs`
    (`<module>: <Marker>,`, in ladder order). The macro declares the module and
-   generates the `Rung` enum and all dispatch; the engine, app, worker and
-   message format need no change.
+   generates the `Rung` enum and all dispatch~~ **CHANGED 2026-11-04:**
+   **two lines** in `main.rs`: a plain `mod <module>;` (with the
+   `#[cfg(not(target_os = "android"))]` the others carry) and
+   `<module>: <Marker>,` in the `rung_table!` invocation, in ladder order.
+   The macro generates the `Rung` enum and all dispatch; the engine, app,
+   worker and message format need no change. **The macro must never declare
+   the module (HARD RULE, root `CLAUDE.md`, "Never declare modules through a
+   macro"):** kovan reads `mod` lines without expanding macros, and until
+   this change every rung but `triso` (which `delta_tracking_web` loads by
+   `#[path]`) was missing from kovan, the HTR-10 rung among them. The same
+   holds for every example and library here: no `mod $m;` in a macro.
 3. The lesson page `crates/outram-mc-libs/docs/tutorial/src/<rung>.md`, listed
    in that book's `SUMMARY.md` and in the "every page must exist" list of
    `scripts/build-pages.sh`; it links the demo as

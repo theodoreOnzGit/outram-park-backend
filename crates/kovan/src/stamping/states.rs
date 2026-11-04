@@ -983,9 +983,10 @@ mod message_store_tests {
         assert!(first.iter().any(|m| agent_trailer(m).0), "{first:?}");
         super::super::message_store::save(p).unwrap();
         super::super::message_store::forget(p);
-        let spawned = git::spawns();
+        // Counted on this thread: other tests' git calls run beside it.
+        let spawned = git::spawns_on_this_thread();
         let again = messages(&mut MessageCache::new(), p, &head, "t.rs");
-        assert_eq!(git::spawns(), spawned, "read from the kept file, not git");
+        assert_eq!(git::spawns_on_this_thread(), spawned, "read from the kept file, not git");
         assert_eq!(again, first);
     }
 }

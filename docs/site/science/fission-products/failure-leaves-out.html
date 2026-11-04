@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What the model leaves out</title>
-<meta name="description" content="Fission products, lesson 38: the honest closing page of chapter 4. What boon-lay fuel failure models, simplifies and leaves out: thin shell, ideal gas, stand-in strength, unverified decomposition, no oxidation, no palladium attack, no amoeba effect, and no validation.">
+<meta name="description" content="Fission products, lesson 40: the honest closing page of chapter 4. What boon-lay fuel failure models, simplifies and leaves out: thin shell, ideal gas, stand-in strength, unverified decomposition, no oxidation, no palladium attack, no amoeba effect, and no validation.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="barrier-data.js" defer></script>
@@ -15,7 +15,7 @@
 <script src="barrier-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 4, lesson 38. The list is read from
+<!-- Fission products, chapter 4, lesson 40. The list is read from
      crates/boon-lay/src/fuel_failure/ (module docs), crates/boon-lay/docs/
      lessons/src/limitations.md and the open issues named. -->
 <main class="lesson-body">
@@ -43,23 +43,23 @@
 <li><b>Decomposition is unverified</b> against any output of the report.</li>
 <li><b>Grain-boundary attack is off by default</b>, as in the report.</li>
 <li><b>As-manufactured defects are an input</b> (&phi;<sub>0</sub>); the 6&times;10<sup>&minus;5</sup> target is a named constant, never a default.</li>
-<li><b>Not for normal-operation failure</b> (lesson 36&rsquo;s note).</li>
+<li><b>Not for normal-operation failure</b> (lesson 38&rsquo;s note).</li>
 <li><b>Nothing is validated</b> against measured failure or release data.</li>
 </ul>
 
 <h2>What nothing in the workspace models yet</h2>
 <ul>
-<li><b>Oxidation failure.</b> Air or steam eating through the matrix, the PyC, the SiC and an exposed kernel: tracked as gh:#441, #443 and #444.</li>
+<li><b>Oxidation failure.</b> Air or steam eating through the matrix, the PyC, the SiC and an exposed kernel: tracked as gh:#441, #443 and #444. In air-ingress tests the measured failures do come from SiC oxidation: in the KORA tests, about 20 of 16&nbsp;400 particles (1.2&times;10<sup>&minus;3</sup>) after 140 h at 1400 &deg;C in air (IAEA-TECDOC-978, Table 5-7; Kugeler et al. 2017, Table 9). boon-lay has no model of it; <code>sembawang</code>&rsquo;s bounding air-ingress case adds that measured number by hand, as an empirical term (gh:#435, #438).</li>
 <li><b>Palladium and lanthanide attack on SiC.</b> The theory book (<a href="../../tutorials/fp-transport-theory/04-sic.html">step 4</a>) names sources that call palladium the fission product of greatest concern; nothing in the code models it. No open source in the corpus was read for this page: <b>source pending</b> here.</li>
 <li><b>The amoeba effect</b>: the kernel migrating up a temperature gradient through the buffer in UO<sub>2</sub> fuel. Not modelled; <b>source pending</b>.</li>
 <li><b>PyC creep, swelling, cracking and debonding</b>, which change how the load reaches the SiC (theory book <a href="../../tutorials/fp-transport-theory/08-pressure-stress.html">step 6</a>).</li>
-<li><b>A multilayer diffusion solver</b> for release through intact layers (lesson 32).</li>
+<li><b>Release through intact layers</b> (lesson 34). <del>A multilayer diffusion solver</del> <b>CORRECTED 2026-11-04:</b> boon-lay now has a multilayer solver (gh:#1209; <a href="atops-conservative.html">Is TRISO-ATOPS&rsquo;s analytical solution conservative?</a> uses it), but nothing in the failure model or the release path calls it.</li>
 </ul>
 
 <h2>Why say all this</h2>
 <p>A model whose gaps are hidden looks more certain than it is. Each item above is a place where a real particle can do something the model cannot, and where a number from this chapter could be wrong. The next chapter shows how TRISO-ATOPS, the code that turns all this into a source term, makes its own, larger simplifications.</p>
 
-<p><b>Next:</b> chapter 5, &ldquo;Integrating it in TRISO-ATOPS&rdquo;.</p>
+<p><b>Next:</b> <del>chapter 5, &ldquo;Integrating it in TRISO-ATOPS&rdquo;.</del> the two chemical attacks of an accident: <a href="chem-air.html">Air on hot graphite</a>, then steam.</p>
 
 <details class="optional">
 <summary>Learn more advanced stuff</summary>

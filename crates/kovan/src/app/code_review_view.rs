@@ -63,7 +63,8 @@
 //! **The signing key, once per session (GitHub #1020).** The view owns the
 //! app's key session ([`SharedKeySession`]), which outlives a change of
 //! workspace: every signing window it opens (the stamp dialog,
-//! Organisations & IV&V, the re-anchor window) signs through it, so the
+//! ~~Organisations & IV&V~~ User management (which holds the IV&V sections
+//! since #1211), the re-anchor window) signs through it, so the
 //! passphrase is asked at the first signing only. The strip shows 🔓/🔒
 //! with **Lock now**, and "Signing key…" opens the window that sets the
 //! auto-lock and exports or imports the key (`super::key_window`, logic
@@ -103,7 +104,6 @@ use super::review_mode_panel::PanelRequest;
 use crate::stamping::flow::{Purpose, StampFlow, Target};
 use crate::stamping::refresh::Refresher;
 use crate::stamping::key_panel::{settings_file, status_line, try_lock, KeyPanel, KeySessionSettings};
-use crate::stamping::organisations::panel::OrgPanel;
 use crate::stamping::user_management::UserPanel;
 use super::key_window::KeyPick;
 
@@ -164,8 +164,10 @@ pub(crate) struct CodeReviewView {
     /// The commit-and-push run (one at a time, shared by the panel and the
     /// dialog).
     commit: CommitPushJob,
-    /// The "Organisations & IV&V" window, while open (GitHub #810).
-    organisations: Option<OrgPanel>,
+    /// The open save picker is for User management's "Issue a validated
+    /// keyfile" (GitHub #1211), not the Signing-key panel's export. (The
+    /// "Organisations & IV&V" window that was here moved into that tab.)
+    pick_for_issue: bool,
     /// Review mode and the review walk (#770, #740), drawn in place of the
     /// embedded map while a function is under review.
     review_mode: super::review_mode_panel::ReviewModePanel,
@@ -261,6 +263,17 @@ impl CodeReviewView {
                 ..Self::default()
             };
         }
+    }
+
+    /// The workspace shown, if any (a function bookmark's, GitHub #1210).
+    pub(crate) fn workspace(&self) -> Option<&Path> {
+        self.workspace.as_deref()
+    }
+
+    /// The function selected in the embedded UI's module view, if any (a
+    /// function bookmark's, GitHub #1210).
+    pub(crate) fn selected_function(&self) -> Option<kovan_web::ui::FunctionRef> {
+        self.review.as_ref().and_then(|r| r.selected_function())
     }
 
     /// Open `entry` (`path/to/file.rs::qual`) of `workspace`, with its
@@ -362,22 +375,6 @@ impl CodeReviewView {
         }
     }
 
-    /// Open the "Organisations & IV&V" window (GitHub #810) over the
-    /// workspace, with the same keystore rule as the stamp dialog.
-    fn open_organisations(&mut self) {
-        let Some(root) = self.workspace.clone() else {
-            return;
-        };
-        match self.keystore() {
-            Ok(ks) => {
-                self.organisations = Some(OrgPanel::new(root, ks).with_session(self.key_session.clone()))
-            }
-            Err(e) => {
-                self.states_note = Some(format!("Cannot open Organisations & IV&V: {e}"));
-            }
-        }
-    }
-
     /// Open the "Signing key" window (GitHub #1020) over the workspace,
     /// with the same keystore rule as the stamp dialog.
     fn open_key_panel(&mut self) {
@@ -452,6 +449,12 @@ impl CodeReviewView {
     /// A path was picked for the window: the export destination
     /// (`export`), else the key file to import.
     pub(crate) fn key_picked(&mut self, export: bool, path: PathBuf) {
+        if export && std::mem::take(&mut self.pick_for_issue) {
+            if let Some(u) = self.users.as_mut() {
+                u.issue_destination(path);
+            }
+            return;
+        }
         let Some(p) = self.key_panel.as_mut() else { return };
         if export {
             p.export_to(path);
@@ -586,7 +589,6 @@ impl CodeReviewView {
             self.rebuild(true);
         }
         let mut rebuild = false;
-        let mut open_orgs = false;
         let mut open_key = false;
         let mut lock_now = false;
         let mut sync_now = false;
@@ -735,20 +737,8 @@ impl CodeReviewView {
                     }
                     None => {}
                 }
-                if self.workspace.is_some()
-                    && ui
-                        .add_enabled(
-                            self.organisations.is_none(),
-                            egui::Button::new("Organisations & IV&V"),
-                        )
-                        .on_hover_text(
-                            "Rung 5: sign developing and reviewer organisations (maintainer) \
-                             or a separation attestation (independent reviewer).",
-                        )
-                        .clicked()
-                {
-                    open_orgs = true;
-                }
+                // ~~"Organisations & IV&V" window button~~ (GitHub #1211):
+                // its sections are in the User management tab now.
                 if self.workspace.is_some() {
                     ui.weak(status_line(self.key_status.as_ref()));
                     if self.key_status.is_some() && ui.small_button("Lock now").clicked() {
@@ -822,9 +812,6 @@ impl CodeReviewView {
         }
         let unsaved = self.session.len();
         self.sync.prompt_ui(&ui.ctx().clone(), unsaved);
-        if open_orgs {
-            self.open_organisations();
-        }
         if lock_now {
             self.lock_key();
         }
@@ -853,6 +840,12 @@ impl CodeReviewView {
                 });
                 if pick.is_some() {
                     self.key_pick = pick;
+                    self.pick_for_issue = false;
+                }
+                if let Some(name) = u.take_issue_pick() {
+                    // The same save picker as a key export (#1211).
+                    self.key_pick = Some(KeyPick::Export(name));
+                    self.pick_for_issue = true;
                 }
                 if u.take_changed() && self.review.is_some() {
                     // Trust changed: every stamp may count differently.
@@ -870,6 +863,7 @@ impl CodeReviewView {
             let (open, pick) = super::key_window::show(&ui.ctx().clone(), p);
             if pick.is_some() {
                 self.key_pick = pick;
+                self.pick_for_issue = false;
             }
             if p.take_imported() {
                 // A key arrived: an open stamp dialog looks again.
@@ -879,15 +873,6 @@ impl CodeReviewView {
             }
             if !open {
                 self.key_panel = None;
-            }
-        }
-        if let Some(p) = self.organisations.as_mut() {
-            if super::organisations_view::show(&ui.ctx().clone(), p) {
-                self.organisations = None;
-                // A record may change rung 5 on every function: recompute.
-                if self.review.is_some() {
-                    self.load_states();
-                }
             }
         }
         if let Some(f) = review_now {
@@ -1289,62 +1274,26 @@ mod tests {
         v.close_dialog();
     }
 
-    /// Headless (GitHub #810): the Organisations & IV&V window opens only
-    /// with a keystore (never the real one under `cargo test`) and draws
-    /// its loading, error and loaded states, with a key, forms filled and
-    /// notices, without a display or a panic; the stamp dialog draws its
-    /// attestation picker with and without choices. Temporary folders only.
+    /// Headless (GitHub #810): the stamp dialog draws its attestation
+    /// picker with and without choices, without a display or a panic.
+    /// Temporary folders only. ~~It also drew the Organisations & IV&V
+    /// window~~ (#1211): that window is gone; its sections are drawn in
+    /// the User management tab by `user_management_tab_draws_headless_and_screenshots`.
     #[test]
-    fn organisations_window_and_attestation_picker_draw_headless() {
-        use crate::stamping::flow::{KeyInfo, Step, WizardForm};
-        use crate::stamping::organisations::Overview;
+    fn attestation_picker_draws_headless() {
+        use crate::stamping::flow::{Step, WizardForm};
         use crate::stamping::StampContext;
         use kovan_common::review::ivv_view::AttestationChoice;
-        use kovan_common::review::root::Role;
 
         let d = tempfile::tempdir().unwrap();
         let store = tempfile::tempdir().unwrap();
         let mut v = CodeReviewView {
             workspace: Some(d.path().to_path_buf()),
             checked: true,
+            keystore: Some(Keystore::at(store.path())),
             ..CodeReviewView::default()
         };
-        v.open_organisations();
-        assert!(v.organisations.is_none());
-        v.keystore = Some(Keystore::at(store.path()));
-        v.open_organisations();
         let ctx = egui::Context::default();
-        for _ in 0..2 {
-            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
-        }
-        v.organisations.as_mut().unwrap().wait();
-        let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
-        {
-            let p = v.organisations.as_mut().unwrap();
-            assert!(matches!(&p.overview, Some(Err(_))), "no kovan_root.toml");
-            p.overview = Some(Ok(Overview {
-                warnings: vec!["developing organisation record 1: it is not signed".into()],
-                reviewers: vec![("github:m".into(), Role::Maintainer)],
-                ..Overview::default()
-            }));
-            p.keys = vec![KeyInfo {
-                reviewer: "github:m".into(),
-                key: "k1".into(),
-                path: store.path().join("k"),
-                registered: true,
-                fingerprint: "SHA256:test".into(),
-            }];
-            p.forms.dev_name = "Outram Park project".into();
-            p.forms.attestation.audit_record = "not a url".into();
-            p.notices.push("Signed.".into());
-            p.error = Some("Wrong passphrase. Nothing was written.".into());
-        }
-        for _ in 0..2 {
-            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
-        }
-        assert!(v.organisations.is_some(), "open until closed");
-
-        // The picker in the stamp dialog.
         v.review = Some(kovan_web::ui::CodeReview::new(
             kovan_web::Mode::Desktop,
             kovan_web::data::DataSource::Dir {
@@ -1352,7 +1301,6 @@ mod tests {
                 workspace: d.path().to_path_buf(),
             },
         ));
-        v.organisations = None;
         v.open(HostRequest::Stamp(function()));
         v.dialog.as_mut().unwrap().wait();
         let ctx_w = StampContext {
@@ -1559,6 +1507,46 @@ mod tests {
         assert!(u.roster().unwrap().reviewer(B).unwrap().role_label.contains("novice"));
         assert_eq!(u.roster().unwrap().agents.len(), 1);
         assert!(v.key_panel.is_some(), "the inline Signing-key panel stays open");
+        // #1211: the Organisations & IV&V sections and the two key
+        // pathways, in the tab (no window): a founder-signed developing
+        // organisation, retired, and one in force; the issue form filled,
+        // its save picker routed to the tab, not the key export.
+        apply_action(r.path(), &key, &UserAction::DevelopingOrganisation { name: "Old Org".into(), krate: String::new() }, &today).unwrap();
+        let loaded = kovan_common::review::root::ReviewRoot::parse(&r.read(crate::stamping::ROOT_FILE)).unwrap();
+        let sig = loaded.code_review.unwrap().developing_organisation[0].signature.clone().unwrap();
+        apply_action(
+            r.path(),
+            &key,
+            &UserAction::RetireOrganisation(crate::stamping::organisations::OrgRecordRef {
+                list: kovan_common::review::root::OrganisationList::DevelopingOrganisation,
+                reviewer: None,
+                record: sig,
+                name: "Old Org".into(),
+            }),
+            &today,
+        )
+        .unwrap();
+        apply_action(r.path(), &key, &UserAction::DevelopingOrganisation { name: "Outram Park project".into(), krate: String::new() }, &today).unwrap();
+        {
+            let u = v.users.as_mut().unwrap();
+            u.load();
+            u.wait();
+            u.selected = None;
+            u.issue.reviewer = "github:carol".into();
+            u.issue.scope = "crates/demo/**".into();
+            u.request_issue_destination();
+            assert_eq!(u.ivv().unwrap().developing.len(), 2);
+            assert!(u.ivv().unwrap().developing[0].is_retired);
+        }
+        let size = egui::vec2(390.0, 2400.0);
+        let _ = shots.frame(&ctx, size, |ui| v.ui(ui));
+        let out = shots.frame(&ctx, size, |ui| v.ui(ui));
+        shots.save(&ctx, out, size, bg, &out_dir.join("5-ivv-and-issue-phone.png"));
+        let pick = v.take_key_pick();
+        assert!(matches!(&pick, Some(KeyPick::Export(n)) if n.ends_with("--k1.kovankey")), "{pick:?}");
+        v.key_picked(true, out_dir.join("carol.kovankey"));
+        assert_eq!(v.users.as_ref().unwrap().issue.dest.as_deref(), Some(out_dir.join("carol.kovankey").as_path()));
+        assert!(!v.pick_for_issue, "the next export goes to the key panel again");
         // Back to the map: the tab is kept across a workspace re-set.
         v.set_workspace(Some(r.path()));
         assert_eq!(v.tab, ReviewTab::Users);

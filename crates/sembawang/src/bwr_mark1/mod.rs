@@ -3226,6 +3226,29 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run, ~20 min); runs by default, skipped under --no-default-features")]
     fn the_network_plant_over_30_hours() {
+        // The bounds and balances, at every step (see the doc above). The
+        // values pinned at 26 h are in `the_network_plant_over_30_hours_pins`.
+        let _ = network_30_hours_checked();
+    }
+
+    /// The values set after the run at 26 h (gh:#1099, d16ec33f0), split out
+    /// on 2026-11-04 from [`the_network_plant_over_30_hours`] so its bounds and
+    /// balances keep gating while the regression values wait for the network
+    /// model check, like the two other network pins.
+    #[test]
+    #[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since"]
+    fn the_network_plant_over_30_hours_pins() {
+        let f = network_30_hours_checked();
+        let kr = &f.containment;
+        assert!((kr.xe_vented - 0.98265).abs() < 1e-4 && (kr.xe_building - 0.014214).abs() < 1e-5 && kr.xe_dw < 1e-5 && kr.xe_ww < 1e-5, "{kr:?}");
+        assert!((kr.rb_burn_y - 0.04159).abs() < 1e-4 && !kr.rb_exploded && kr.fdi_hpme, "{kr:?}");
+        assert!((kr.cs_ww_pool_kg - 78.22).abs() < 0.01 && (kr.i_ww_pool_kg - 11.31).abs() < 0.01, "{kr:?}");
+    }
+
+    /// The 30 h historical network run with every bound and every
+    /// fission-product balance asserted at every step; returns the 26 h frame.
+    /// Reached by `the_network_plant_over_30_hours` and its `_pins` twin.
+    fn network_30_hours_checked() -> Frame {
         let mut p = Plant::new(Mode::Historical);
         let (mut c, mut k) = p.parts();
         assert!(k.is_network());
@@ -3257,12 +3280,7 @@ mod tests {
             }
         }
         println!("network 30 h: {:?}", p.frame());
-        // Set after the run, gh:#1099 (2026-11-02).
-        let f = at_26.expect("26 h reached");
-        let kr = &f.containment;
-        assert!((kr.xe_vented - 0.98265).abs() < 1e-4 && (kr.xe_building - 0.014214).abs() < 1e-5 && kr.xe_dw < 1e-5 && kr.xe_ww < 1e-5, "{kr:?}");
-        assert!((kr.rb_burn_y - 0.04159).abs() < 1e-4 && !kr.rb_exploded && kr.fdi_hpme, "{kr:?}");
-        assert!((kr.cs_ww_pool_kg - 78.22).abs() < 0.01 && (kr.i_ww_pool_kg - 11.31).abs() < 0.01, "{kr:?}");
+        at_26.expect("26 h reached")
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J

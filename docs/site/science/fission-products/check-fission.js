@@ -267,7 +267,7 @@ for (const [name, P] of Object.entries(SD)) {
   check("bracket of 1 MeV in (0.0253 eV, 500 keV, 14 MeV)", Math.abs(b[0] - 1) + Math.abs(b[2] - 5e5 / 1.35e7), 1e-15);
 }
 
-// ─── Chapter 2, "A fragment's story" (lessons 4-9) ───────────────────────
+// ─── Chapter 2, "A fragment's story" (lessons 4-10) ───────────────────────
 // Data from crates/dhoby-ghaut/examples/lesson_fission_cascades
 // (cascade-data.js), the cited records (cascade-recorded.js) and the kinetic
 // Monte Carlo (hop-physics.js).
@@ -392,7 +392,7 @@ for (const [f, html] of ch2) {
 }
 check("cascade-recorded.js: the RustBCA record carries its date", CR.rustbca.date === "2026-10-16" ? 0 : 1, 0);
 
-// ─── Chapter 3, "TRISO kernel" (lessons 10-28) ───────────────────────────
+// ─── Chapter 3, "TRISO kernel" (lessons 12-30) ───────────────────────────
 // Data: kernel-data.js (crates/dhoby-ghaut/examples/lesson_triso_kernel),
 // kernel-recorded.js (cited / pending), kernel-physics.js (the page models).
 // PREDICTIONS, written 2026-10-20 BEFORE the first run of 26-34:
@@ -594,7 +594,7 @@ for (const el of ["Cs", "Ag", "Sr"]) for (const t of [1200, 1400, 1600, 1800]) {
   report("43 P12 (MISSED: predicted 3 < ratio < 6)", `p(0.12 FIMA) / p(0.04 FIMA) = ${ratio.toFixed(6)}: pressure is linear in burnup in this model`);
 }
 // 44. The chapter's pages: banner, folded section, nav entry; the required
-//     boon-lay fuel failure wording on lessons 33 and 38; no page attributes a
+//     boon-lay fuel failure wording on lessons 35 and 40; no page attributes a
 //     number to PANAMA.
 {
   const kit = fs.readFileSync(path.join(__dirname, "../neutronics/lesson-kit.js"), "utf8");
@@ -610,7 +610,7 @@ for (const el of ["Cs", "Ag", "Sr"]) for (const t of [1200, 1400, 1600, 1800]) {
   check("44: barrier-recorded.js cites Kugeler Table 5 on pp. 32-33", BR.layerJobs.page === "32-33" && BR.layerJobs.sic.length === 2 ? 0 : 1, 0);
 }
 
-// ─── Chapter 5, "Integrating it in TRISO-ATOPS" (lessons 39-46) ──────────
+// ─── Chapter 5, "Integrating it in TRISO-ATOPS" (lessons 45-53) ──────────
 // Data: atops-data.js (crates/dhoby-ghaut/examples/lesson_triso_atops),
 // atops-physics.js. Predictions Q1-Q9 written in the generator's docs
 // before the first run. Results 2026-10-22 in the comments.

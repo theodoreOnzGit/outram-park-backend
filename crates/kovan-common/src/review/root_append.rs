@@ -33,6 +33,9 @@
 //!   existing one; [`append_roster_event`] adds a
 //!   `[[code_review.roster_event]]` (role, scope, novice, trusted) at the
 //!   end of the file, the admission untouched.
+//! - [`append_organisation_retirement`] (GitHub #1211): a new
+//!   `[[code_review.organisation_retirement]]` at the end of the file; the
+//!   retired organisation record is left as it is.
 //!
 //! No workspace member depends on `toml_edit` directly (checked
 //! 2026-10-10; it is only `toml`'s own dependency), so the splice is by line, and every result is **read back**: the
@@ -48,8 +51,9 @@
 use serde::Serialize;
 
 use super::root::{
-    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, ReviewRoot, Reviewer, ReviewerKey,
-    ReviewerOrganisation, Revocation, RootError, Role, RosterEvent, SeparationAttestation,
+    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, OrganisationRetirement, ReviewRoot,
+    Reviewer, ReviewerKey, ReviewerOrganisation, Revocation, RootError, Role, RosterEvent,
+    SeparationAttestation,
 };
 
 /// Why a registration was refused. Nothing is changed on any refusal.
@@ -696,6 +700,40 @@ pub fn append_roster_event(existing: &str, e: &RosterEvent) -> Result<String, Ap
     expected.code_review.get_or_insert_with(Default::default).roster_events.push(e.clone());
     if after != expected {
         return Err(AppendError::NotReadBack(format!("[[code_review.roster_event]] {} of {}", e.event.as_str(), e.reviewer)));
+    }
+    Ok(text)
+}
+
+/// `existing` with `r` appended as a new
+/// `[[code_review.organisation_retirement]]` at the end (GitHub #1211),
+/// signed by the caller (`UnlockedKey::sign_organisation_retirement`)
+/// first. The retired record is never edited; `crate::review::ivv` judges
+/// the retirement.
+pub fn append_organisation_retirement(existing: &str, r: &OrganisationRetirement) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let mut block = String::from("[[code_review.organisation_retirement]]\n");
+    block.push_str(&kv("list", r.list.as_str()));
+    if let Some(id) = &r.reviewer {
+        block.push_str(&kv("reviewer", id));
+    }
+    block.push_str(&kv("record", &r.record));
+    block.push_str(&kv("date", &r.date));
+    if let Some(sg) = &r.signer {
+        block.push_str(&signer_line(sg));
+    }
+    if let Some(sig) = &r.signature {
+        block.push_str(&kv("signature", sig));
+    }
+    let mut text = with_newline(existing);
+    if !text.is_empty() {
+        text.push('\n');
+    }
+    text.push_str(&block);
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.code_review.get_or_insert_with(Default::default).organisation_retirements.push(r.clone());
+    if after != expected {
+        return Err(AppendError::NotReadBack("[[code_review.organisation_retirement]]".into()));
     }
     Ok(text)
 }

@@ -25,7 +25,7 @@
 use std::sync::Arc;
 
 use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, PipeFlow};
-use outram_foam_appbuilder_lib::cases::double_pipe::{freeze_flows_for_steady_energy, pseudo_time_step, report, step_flows, DoublePipeExchanger, ExchangerReport};
+use outram_foam_appbuilder_lib::cases::double_pipe::{freeze_flows_for_steady_energy, pressure_drop, profiles, pseudo_time_step, report, step_flows, DoublePipeExchanger, ExchangerProfiles, ExchangerReport};
 use outram_foam_mesh::block_primitives::DoublePipe;
 use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::FlowArrangement;
 use outram_park_fork_dwsim_libs::heat_exchanger::ntu_effectiveness::evaluate;
@@ -43,6 +43,8 @@ fn m(v: f64) -> Length {
 
 struct Outcome {
     rep: ExchangerReport,
+    prof: ExchangerProfiles,
+    dp: [f64; 2],
     uc: f64,
     eps_ntu: f64,
     cells: [usize; 3],
@@ -52,8 +54,11 @@ struct Outcome {
 }
 
 fn run(n: usize, nr: [usize; 3], nz: usize) -> Outcome {
+    run_case(DoublePipeExchanger::demo(), n, nr, nz)
+}
+
+fn run_case(case: DoublePipeExchanger, n: usize, nr: [usize; 3], nz: usize) -> Outcome {
     let t0 = std::time::Instant::now();
-    let case = DoublePipeExchanger::demo();
     let dp = DoublePipe { r_tube_inner: m(0.005), r_tube_outer: m(0.006), r_shell: m(0.01), length: case.length, origin: [m(0.0); 3], n, nr, nz };
     let [a, b, c] = dp.meshes().unwrap();
     let (fa, fb, fc) = (Arc::new(a.to_fv_mesh().unwrap()), Arc::new(b.to_fv_mesh().unwrap()), Arc::new(c.to_fv_mesh().unwrap()));
@@ -64,7 +69,8 @@ fn run(n: usize, nr: [usize; 3], nz: usize) -> Outcome {
         (0..p.size).map(|i| mesh.face_areas[p.start + i]).sum::<f64>()
     };
     let dt_in = pseudo_time_step(&fa, Velocity::new::<meter_per_second>(q / area(&fa)), case.nu, dz, 4.0, 0.5);
-    let dt_out = pseudo_time_step(&fc, Velocity::new::<meter_per_second>(q / area(&fc)), case.nu, dz, 4.0, 0.5);
+    let q_out = case.annulus_flow().get::<cubic_meter_per_second>();
+    let dt_out = pseudo_time_step(&fc, Velocity::new::<meter_per_second>(q_out / area(&fc)), case.nu, dz, 4.0, 0.5);
     let mut cht = case.build(fa, fb, fc, dt_in, dt_out).unwrap();
     // The conformal interfaces really are conformal.
     for i in &cht.interfaces {
@@ -88,6 +94,9 @@ fn run(n: usize, nr: [usize; 3], nz: usize) -> Outcome {
     let st = cht.step().unwrap();
     assert!(st.last_pass_change <= 1e-9, "energy not converged: {st:?}");
     let rep = report(&cht, &case);
+    let prof = profiles(&cht);
+    let rho = case.fluid.density.get::<uom::si::mass_density::kilogram_per_cubic_meter>();
+    let dps = [pressure_drop(&cht.fluids[0], rho), pressure_drop(&cht.fluids[1], rho)];
     let e = evaluate(
         FlowArrangement::CounterCurrent,
         ThermalConductance::new::<watt_per_kelvin>(rep.ua_local),
@@ -95,7 +104,7 @@ fn run(n: usize, nr: [usize; 3], nz: usize) -> Outcome {
         ThermalConductance::new::<watt_per_kelvin>(rep.c_cold),
         TemperatureInterval::new::<kelvin>(50.0),
     );
-    Outcome { rep, uc, eps_ntu: e.effectiveness.get::<ratio>(), cells: dp.n_cells(), flow_steps, energy_passes: st.passes, secs: t0.elapsed().as_secs_f64() }
+    Outcome { rep, prof, dp: dps, uc, eps_ntu: e.effectiveness.get::<ratio>(), cells: dp.n_cells(), flow_steps, energy_passes: st.passes, secs: t0.elapsed().as_secs_f64() }
 }
 
 fn print(o: &Outcome) {
@@ -162,4 +171,45 @@ fn measure_gh1156_double_pipe() {
         let o = run(n, nr, nz);
         print(&o);
     }
+}
+
+/// gh:#1178's instruments on the coarse grid, with unequal flow rates
+/// (annulus 1.5× the tube, so C_r = 2/3): the per-layer interface heats sum
+/// to the interface totals, energy closes, the local Nusselt numbers are
+/// finite and positive, and the tube's pressure drop lies between fully
+/// developed Hagen–Poiseuille (64/Re) and that plus Shah's entrance
+/// increment K(∞) = 1.25 with a 10 % allowance for the coarse grid.
+///
+/// **Results (2026-11-03, this grid):** printed by the test; the design-grid
+/// numbers are in `crates/outram-park-digital-twin-engine/verification_and_validation/hf_lf_double_pipe_gh1178.md`.
+#[test]
+fn double_pipe_profiles_and_pressure_drop_unequal_flows() {
+    let mut case = DoublePipeExchanger::demo();
+    case.annulus_flow_rate = Some(case.flow_rate * 1.5);
+    let o = run_case(case, 3, [2, 2, 3], 30);
+    print(&o);
+    let (r, p) = (&o.rep, &o.prof);
+    assert!((r.c_cold / r.c_hot - 1.5).abs() < 1e-6, "C_cold/C_hot {}", r.c_cold / r.c_hot);
+    assert!((r.q_cold / r.q_hot - 1.0).abs() < 1e-6);
+    let (qi, qo): (f64, f64) = (p.q_inner.iter().sum(), p.q_outer.iter().sum());
+    assert!((qi / r.q_wall_in - 1.0).abs() < 1e-9, "{qi} vs {}", r.q_wall_in);
+    assert!((qo / r.q_wall_out - 1.0).abs() < 1e-9, "{qo} vs {}", r.q_wall_out);
+    assert_eq!(p.z.len(), 30);
+    for (a, b) in p.nu_hot().iter().zip(p.nu_cold()) {
+        assert!(a.is_finite() && *a > 1.0 && b.is_finite() && b > 1.0, "{a} {b}");
+    }
+    let (nh, nc) = (p.mean_nu_hot(), p.mean_nu_cold());
+    println!("  mean Nu hot {nh:.4} cold {nc:.4}; D_h {:.5} / {:.5} m; dp {:.4e} / {:.4e} Pa", p.dh_hot, p.dh_cold, o.dp[0], o.dp[1]);
+    assert!(nh > 3.0 && nh < 15.0 && nc > 3.0 && nc < 20.0);
+    // The hydraulic diameters from the mesh. Every wall is a regular
+    // 4n-gon inscribed in its circle, for which 4A/P is the circle's value
+    // times cos(pi/4n): 2 r1 and 2 (r3 - r2), both times cos(pi/12) here.
+    let c = (std::f64::consts::PI / 12.0).cos();
+    assert!((p.dh_hot / (0.010 * c) - 1.0).abs() < 1e-9 && (p.dh_cold / (0.008 * c) - 1.0).abs() < 1e-9, "{} {}", p.dh_hot, p.dh_cold);
+    // Tube: Re = 30, L/D = 20, rho U^2/2 with U = Q / A_circle.
+    let u = case.flow_rate.get::<cubic_meter_per_second>() / (std::f64::consts::PI * 0.005f64.powi(2));
+    let dyn_p = 0.5 * 1000.0 * u * u;
+    let hp = 64.0 / 30.0 * 20.0 * dyn_p;
+    assert!(o.dp[0] > 0.95 * hp && o.dp[0] < 1.10 * (hp + 1.25 * dyn_p), "{} vs HP {}", o.dp[0], hp);
+    assert!(o.dp[1] > 0.0);
 }

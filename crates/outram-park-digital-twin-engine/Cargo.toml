@@ -75,6 +75,30 @@ tuas_boussinesq_solver.workspace = true
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
 
+# REAL (non-dev) dependencies for `multifidelity::double_pipe` (gh:#1178, rung 1
+# of the HF -> LF epic gh:#1177): the closure-extraction step runs the
+# double-pipe conjugate-heat-transfer CFD (`outram_foam_appbuilder_lib::cases::
+# double_pipe`) on meshes from `outram_foam_mesh::block_primitives::DoublePipe`,
+# and the TUAS 1-D exchanger (above) at the same design points. No cycle:
+# neither crate depends on this one (checked in their Cargo.toml, 2026-11-03).
+# Both are pure Rust and already build for wasm32 (Foam Studio runs them in the
+# browser); the library's Android build is gh:#239's, unchanged by this.
+#
+# `outram-foam-appbuilder-lib` was a dev-dependency (htgr_sim_v1's genfoam
+# placeholder); it moved here.
+outram-foam-appbuilder-lib.workspace = true
+outram-foam-mesh.workspace = true
+# Names `FvMesh` for the meshes above (was a dev-dependency, below).
+outram-foam-basic-lib.workspace = true
+
+# REAL (non-dev) dependency for `multifidelity::double_pipe::fidelity`
+# (gh:#1194): the double-pipe pair implements `raffles::fidelity`'s traits
+# (`ParametricModel`, `Quantities` via `raffles::quantities!`) and builds its
+# `Dataset`. No cycle: raffles depends only on thiserror, petir, uom, xml-rs
+# and optional burn (checked in its Cargo.toml, 2026-11-04), and it was already
+# in this crate's tree through `tampines -> raffles`, so it adds no build work.
+raffles.workspace = true
+
 # The central GUI crate (gh:#1112). Untargeted, unlike the egui stack below,
 # because `animation` (re-exported from `bugis::animation`) is this crate's
 # Android-building module; `animation` is egui-free and pulls only uom, and
@@ -171,7 +195,7 @@ teh-o-prke.workspace = true
 # tuas_boussinesq_solver is now a REAL dependency above (the CIET v2 binary needs
 # it and bins cannot see dev-deps); it stays usable from examples/tests either way.
 ndarray.workspace = true
-outram-foam-basic-lib.workspace = true
+# outram-foam-basic-lib is now a REAL dependency above (gh:#1178).
 serde.workspace = true
 # env_logger is now a REAL dependency above (the CIET v2 [[bin]] needs it and
 # bins cannot see dev-deps); it stays usable from the examples either way.
@@ -271,23 +295,22 @@ buangkok = { workspace = true }
 # dependency here); nothing in sembawang depends on this crate, so no cycle.
 sembawang = { workspace = true }
 
-# htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
-# this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
-# as its intended real integration target, stepped by
-# `teh-o-prke::nordheim_fuchs::NordheimFuchsExactTimestepper` instead of
-# GeN-Foam's own point-kinetics coupling. Wired in here as a dev-dependency so
-# that tier can start importing real `genfoam` types -- the coupling itself
-# remains unimplemented (that placeholder still falls back to `one_node`'s
-# math); see that module's doc comment. `genfoam` (and the wider
-# `outram-foam-appbuilder-lib`) is itself flagged an AI-assisted draft with no
-# human V&V, so composing it here still needs the same scrutiny this crate's
-# own CLAUDE.md records for its other physics.
-outram-foam-appbuilder-lib.workspace = true
+# outram-foam-appbuilder-lib is now a REAL dependency above (gh:#1178's
+# `multifidelity::double_pipe` runs its double-pipe CFD from the library);
+# htgr_sim_v1's `coarse_mesh_genfoam` placeholder keeps citing its `genfoam`
+# module either way.
 
 # Widget Studio -- the gallery app for developing and quality-controlling the
 # visual component library one widget at a time (bead op-wqk.14). Not a
 # simulator: it drives a single widget across its full state range with live
 # controls so the widget's look, feel and physics coupling can be judged.
+# gh:#1190: the TUAS 1-D low-fidelity grid for the double-pipe co-kriging
+# (`multifidelity::double_pipe::lf_grid`), written to
+# verification_and_validation/double_pipe_mfk_gh1190/lf_grid.csv.
+[[example]]
+name = "double_pipe_lf_grid"
+path = "examples/double_pipe_lf_grid.rs"
+
 [[example]]
 name = "widget_studio"
 path = "examples/widget_studio/main.rs"
@@ -378,3 +401,11 @@ mdns-sd.workspace = true
 directories.workspace = true
 local-ip-address.workspace = true
 env_logger.workspace = true
+
+[features]
+default = ["long-tests"]
+# Tests that take minutes rather than seconds, ON BY DEFAULT (workspace
+# `long-tests` rule, docs/claude-md/long-tests-and-ci.md): presently the
+# double-pipe co-kriging held-out report (gh:#1190), measured at 19 min on
+# 2026-11-04. `--no-default-features` skips it for the edit-compile loop.
+long-tests = []

@@ -1,6 +1,8 @@
 //! **The rung table** of the TRISO-ATOPS and fuel failure demo (gh:#540, the
-//! demo phase of #531): one row per rung of the boon-lay lesson ladder,
-//! `tutorials/triso-atops/`. One table drives both directions: the demo's
+//! demo phase of #531): one row per rung. ~~Each rung's lesson was a page of
+//! the boon-lay tutorial book, `tutorials/triso-atops/`.~~ Since 2026-11-04
+//! (gh:#1207) that book is folded into the Fission products science lessons,
+//! `science/fission-products/`, and each rung opens the lesson that carries it. One table drives both directions: the demo's
 //! "What's happening here?" opens `lesson`, and each lesson page links the
 //! demo at `?rung=<name>`.
 //!
@@ -22,42 +24,42 @@ pub const TABLE: [RungInfo; 8] = [
     RungInfo {
         name: "triso",
         title: "1. The particle: five layers",
-        lesson: "tutorials/triso-atops/triso.html",
+        lesson: "science/fission-products/barriers-why.html",
     },
     RungInfo {
         name: "decay",
         title: "2. An atom's clock: decay by Monte Carlo",
-        lesson: "tutorials/triso-atops/decay.html",
+        lesson: "science/fission-products/decay-clock.html",
     },
     RungInfo {
         name: "walk",
         title: "3. An atom's walk: Walk-on-Spheres",
-        lesson: "tutorials/triso-atops/walk.html",
+        lesson: "science/fission-products/walk-on-spheres.html",
     },
     RungInfo {
         name: "layers",
         title: "4. Through the layers: D(T) per layer",
-        lesson: "tutorials/triso-atops/layers.html",
+        lesson: "science/fission-products/barriers-migration.html",
     },
     RungInfo {
         name: "failure",
         title: "5. When the shell breaks: fuel failure",
-        lesson: "tutorials/triso-atops/failure.html",
+        lesson: "science/fission-products/failure-accident.html",
     },
     RungInfo {
         name: "chemistry",
         title: "6. Air and steam: chemical attack",
-        lesson: "tutorials/triso-atops/chemistry.html",
+        lesson: "science/fission-products/chem-air.html",
     },
     RungInfo {
         name: "release",
         title: "7. To the coolant: release and pools",
-        lesson: "tutorials/triso-atops/coolant.html",
+        lesson: "science/fission-products/atops-coolant.html",
     },
     RungInfo {
         name: "source-term",
         title: "8. Into the source term",
-        lesson: "tutorials/triso-atops/handoff.html",
+        lesson: "science/fission-products/atops-source-term.html",
     },
 ];
 
@@ -117,12 +119,12 @@ mod tests {
     use super::*;
 
     /// The enum and the table agree, names are unique, and every lesson is a
-    /// page of the boon-lay tutorial book.
+    /// Fission products science page.
     #[test]
     fn the_rung_table_is_consistent() {
         for (i, r) in ALL.iter().enumerate() {
             assert_eq!(*r as usize, i);
-            assert!(r.lesson().starts_with("tutorials/triso-atops/"));
+            assert!(r.lesson().starts_with("science/fission-products/"));
         }
         let mut names: Vec<&str> = TABLE.iter().map(|t| t.name).collect();
         names.sort_unstable();

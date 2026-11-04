@@ -1,5 +1,5 @@
 //! The calls behind chapter 5, "Integrating it in TRISO-ATOPS" (Fission
-//! products, lessons 39-46): boon-lay's port of INL's TRISO-ATOPS
+//! products, lessons 45-53): boon-lay's port of INL's TRISO-ATOPS
 //! (`boon_lay::triso_atops_fork`, upstream de374c8, MIT; code-to-code
 //! verified in `crates/boon-lay/docs/triso-atops-code-to-code.md`), with the
 //! plant constants and failure fractions of the TRISO-ATOPS paper's MHTGR
@@ -214,7 +214,7 @@ pub fn released_atoms(n: &TrisoAtopsNuclide, act: &NodalActivities, rf: f64) -> 
     release_activity(n.element_group(), accident_fractions_a(), nd, rf, false, AccMaterial::Kernel, false, n.z)
 }
 
-/// The same ILLUSTRATIVE heat-up as chapter 4's lesson 36 (prescribed, not
+/// The same ILLUSTRATIVE heat-up as chapter 4's lesson 38 (prescribed, not
 /// a plant calculation): from `t0` up to `peak` over 50 h, held 50 h, down to
 /// `t0` over 200 h, sampled every 5 h.
 pub fn heatup(t0: f64, peak: f64) -> (Vec<f64>, Vec<f64>) {

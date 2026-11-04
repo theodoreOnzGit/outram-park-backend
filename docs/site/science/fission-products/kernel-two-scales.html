@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>From boundary to surface</title>
-<meta name="description" content="Fission products, lesson 18: two scales. If the grain boundaries are open paths, reaching a boundary is release; if they are closed, the whole kernel is the sphere. TRISO-ATOPS blends the two radii.">
+<meta name="description" content="Fission products, lesson 20: two scales. If the grain boundaries are open paths, reaching a boundary is release; if they are closed, the whole kernel is the sphere. TRISO-ATOPS blends the two radii.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="kernel-data.js" defer></script>
@@ -14,7 +14,7 @@
 <script src="kernel-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 3, lesson 18. The equivalent-sphere radius
+<!-- Fission products, chapter 3, lesson 20. The equivalent-sphere radius
      a_booth = sqrt(2 a_grain r) is checked against boon-lay's code
      (release_models/mod.rs, rb_fail, lines 92-95 on 2026-10-20) and its
      TRISO_ATOPS_DERIVATION.md §2. -->
@@ -39,7 +39,7 @@
 <h2>Open paths and closed paths</h2>
 <ul>
 <li><b>Open paths:</b> the boundaries connect to the outside and carry atoms out quickly. Reaching a boundary is release, so the sphere is the <b>grain</b>.</li>
-<li><b>Closed paths:</b> the boundaries hold atoms (lesson 14), and the atoms must cross the whole kernel by slow diffusion. The sphere is the <b>kernel</b>.</li>
+<li><b>Closed paths:</b> the boundaries hold atoms (lesson 16), and the atoms must cross the whole kernel by slow diffusion. The sphere is the <b>kernel</b>.</li>
 </ul>
 <p>Real fuel is somewhere between. TRISO-ATOPS takes a blend: for its &ldquo;special metals&rdquo; it uses a sphere of radius <i>a</i> = &radic;(2&nbsp;<i>a</i><sub>grain</sub>&nbsp;<i>r</i>), with <i>r</i> the kernel radius. That is what boon-lay&rsquo;s port computes (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail"><code>rb_fail</code></a>, read 2026-10-20), and its derivation document gives the same form (<code>TRISO_ATOPS_DERIVATION.md</code>, §2). Where the blend comes from physically: <span class="pending">source pending</span>.</p>
 

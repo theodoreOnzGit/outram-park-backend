@@ -134,8 +134,8 @@ use serde::{Deserialize, Serialize};
 
 use super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::root::{
-    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, Revocation, Reviewer, ReviewerKey,
-    ReviewerOrganisation, Role, RosterEvent, SeparationAttestation,
+    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, OrganisationRetirement, Revocation,
+    Reviewer, ReviewerKey, ReviewerOrganisation, Role, RosterEvent, SeparationAttestation,
 };
 
 pub mod registry;
@@ -298,6 +298,20 @@ pub fn separation_attestation_bytes(reviewer: &str, a: &SeparationAttestation) -
     line(&mut s, "audit_record", &[a.audit_record.as_deref().unwrap_or("")]);
     line(&mut s, "key", &[a.key.as_deref().unwrap_or("")]);
     line(&mut s, "statement", &[SEPARATION_STATEMENT]);
+    s.into_bytes()
+}
+
+/// The bytes the founder signs to retire an organisation record (GitHub
+/// #1211): the list, the reviewer (`""` for a developing organisation),
+/// the retired record's signature, the date and the signer. Its own first
+/// line, so no other statement's signature can be replayed as one.
+pub fn organisation_retirement_bytes(r: &OrganisationRetirement) -> Vec<u8> {
+    let mut s = String::from("kovan-organisation-retirement-v1\n");
+    line(&mut s, "list", &[r.list.as_str()]);
+    line(&mut s, "reviewer", &[r.reviewer.as_deref().unwrap_or("")]);
+    line(&mut s, "record", &[&r.record]);
+    line(&mut s, "date", &[&r.date]);
+    signer_line(&mut s, r.signer.as_ref());
     s.into_bytes()
 }
 

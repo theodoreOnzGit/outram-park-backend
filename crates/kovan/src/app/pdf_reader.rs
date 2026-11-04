@@ -1855,6 +1855,23 @@ impl PdfReaderState {
         }
     }
 
+    /// The 0-based page in view, for a bookmark (GitHub #1210); `0` for a
+    /// plain image, and the page asked for while a document is opening.
+    pub(super) fn page_index(&self) -> usize {
+        self.annotate_page
+    }
+
+    /// Scroll to 0-based `page` on the next frame, clamped to the document
+    /// once it is open: a bookmark's jump (GitHub #1210), as a thumbnail
+    /// click does.
+    pub(super) fn go_to_page(&mut self, page: usize) {
+        let last = self.source.page_count().saturating_sub(1);
+        let page = if self.source.page_count() > 0 { page.min(last) } else { page };
+        self.scroll_request = Some(page);
+        self.annotate_page = page;
+        self.thumb_synced = None;
+    }
+
     /// The open PDF document, for a crop/stext read against the *same*
     /// loaded bytes the embedded [`PdfReader`] already holds — no second
     /// file load. `None` when nothing is open or the source is a plain
