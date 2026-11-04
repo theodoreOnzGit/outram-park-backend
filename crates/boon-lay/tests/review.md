@@ -628,3 +628,56 @@ in terms of the table19, and plant constants
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 8e9d9bff32.
+
+# Review: table (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-table-theodoreonzgit-1baee06e"
+kind = "review"
+origin = "human"
+created = "2026-11-04T11:24:41+08:00"
+modified = "2026-11-04T11:24:41+08:00"
+target = "fn:1baee06ed91589b2"
+
+[review]
+path = "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::table"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T11:24:42+08:00"
+commit = "4154585966144f34dc82addd6fe233dd5de087b6"
+hash = "sha256:906c8fb45b9ce4759492ee1f3e113bcbf209fa53a912c0003642e686e8cfe2af"
+doc_hash = "sha256:9064bb0ecf34b62ab4b1dabf3f86db1fb9fa27dcc8002d3d8632a7eb4d88b7f0"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "io_format"
+
+[review.callees]
+"fn:8e508796566df4fe" = "sha256:1c65a7461c3900f956519fdccf236e0c993fc7a7382c9cdfd5dcab04fab35fce"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01EXPhstVwAqRb8o6YHVQoXW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "lD7SPXyTqz3aZQhq7fQNJZmtSHtlv/zQZFtRRnW5K29LxU9nQTHSZxN3Jk0x6Q4ttkLyRxgpV6oOCp/+nB64CQ=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 4154585966.
