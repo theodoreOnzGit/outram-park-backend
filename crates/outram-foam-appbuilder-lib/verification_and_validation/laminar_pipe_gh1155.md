@@ -292,6 +292,144 @@ corrected 0.33–0.5`. The `limited` snGrad is not ported
 case runs `corrected` with **2** correctors (the O-grid keeps 1, so its
 numbers do not move).
 
+### Methodology (as run)
+
+Native headless runs of the demo engine (`foam_studio_web --headless N`
+for the O-grid, `--headless-unstructured h_mm layers first_mm expansion Re`
+for cfMesh), release, Re = 100, steady mode, on the shared 4-CPU host one at
+a time. The instruments are `cases::laminar_pipe`'s, the same on both
+meshes, over the slab 0.65–0.85 L: `centreline_velocity` (u_z = a + b r²
+fit, r < R/2, ±0.05 L about 0.75 L), `pressure_gradient`, `profile_rms`,
+`wall_shear_stress` (one-sided `ν u_P / d` on the wall faces, OpenFOAM's
+`wallShearStress` for a laminar wall), and the **binned profile**
+(`radial_profile_binned`: cell centres within one cell size of the 0.75 L
+plane, binned in 12 bins of r/R, volume-weighted) that the demo plots on
+both meshes. "Matched resolution" became matched *cell count*: the O-grid
+family jumps (7 920 → 13 230), so the pairs are 7 920 / 6 713 and 13 230 /
+10 745. The structured default was re-run to check it did not move.
+
+### Results (2026-11-04)
+
+**The structured default did not move:** 20 480 cells, 34 steps, u_c/2U
+**0.9940**, (−dp/dz)/HP **1.0151**, out/in 1.000000000 — the recorded
+numbers to every printed digit.
+
+**Mesher, `--mesh-sweep` (native, R 10 mm, L 200 mm, first layer 0.3 mm,
+expansion 1.2; time is meshing only):**
+
+| h (mm) | layers | cells | wall faces | max non-ortho (°) | max skewness | mesh (s) | note |
+|---|---|---|---|---|---|---|---|
+| 6 | 0 / 1 / 2 / 3 | 1939 / 6713 / 11487 / 16261 | 4774 | 56 / 86 / 89 / 89 | 1.0 / 1.3 / 1.7 / 1.7 | 0.5–0.8 | Delaunay flips skipped |
+| 5 | 0 / 1 / 2 / 3 | 3113 / 10745 / 18377 / 26009 | 7632 | 48 / 83 / 88 / 90.5 | 0.9 / 1.1 / 1.9 / 8.9 | 0.2–0.7 | |
+| 4 | 0 / 1 / 2 / 3 | 6353 / 6353 / 30289 / 42257 | 11968 | 51 / 51 / 90.0 / 86 | 0.9 / 0.9 / **251** / 1.2 | 0.4–2.0 | 1 layer: none added (back-off to zero) |
+| 3.3 | 0 / 1 / 2 / 3 | 9055 / 25675 / 33524 / 46656 | 16620 | 61 / 87 / 87 / 87 | 0.9–1.5 | 0.6–1.8 | |
+| 2.5, 2 | — | erratic | fewer than at 3.3 | | | | 2 mm: the dual skipped (all-tet) |
+
+The demo therefore offers h ∈ [R/3, R/1.5], at most 3 layers, and refuses
+settings estimated above 50k cells; meshing takes 0.2–2 s natively.
+
+**Flow (Re = 100, slab 0.65–0.85 L):**
+
+| mesh | cells | max non-ortho (°) | skew | Laplacian | steps | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP | out/in | ms/step |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| O-grid | 7 920 | 19.7 | 1.99 | corrected, 1 | 27 | **0.9905** | **1.0171** | 0.0112 | 1.0042 | 1.000000000 | 44 |
+| cfMesh h 6 mm, 1 layer | 6 713 | 85.9 | 1.33 | limited 0 | 15 | **0.6105** | **1.2452** | 0.1713 | 1.1976 | 1.000000000 | 34 |
+| O-grid | 13 230 | 23.3 | 2.07 | corrected, 1 | 31 | **0.9928** | **1.0161** | 0.0082 | 1.0057 | 1.000000000 | 85 |
+| cfMesh h 5 mm, 1 layer (demo default) | 10 745 | 83.4 | 1.05 | limited 0 | 53 | **0.6118** | **1.2527** | 0.1733 | 1.2244 | 1.000000000 | 62 |
+| O-grid (demo default) | 20 480 | 26.0 | 2.13 | corrected, 1 | 34 | 0.9940 | 1.0151 | 0.0063 | 1.0063 | 1.000000000 | 182 |
+| cfMesh h 5 mm, **2 layers** | 18 377 | 87.7 | 1.88 | either | — | **diverged** | | | | | |
+| cfMesh h 5 mm, no layers | 3 113 | 47.6 | 0.91 | corrected, 2 | 10 | 0.6272 | 1.4757 | 0.1665 | 1.4426 | 0.999999999 | 46 |
+| cfMesh h 4 mm, no layers | 6 353 | 50.8 | 0.91 | corrected, 2 | 11 | 0.7022 | 1.6431 | 0.1334 | 1.6187 | 1.000000000 | 116 |
+| cfMesh h 3.3 mm, no layers | 11 177 | 57.4 | 0.92 | corrected, 2 | 10 | 0.7544 | 1.6895 | 0.1074 | 1.6721 | 1.000000000 | 278 |
+
+Binned profiles at 0.75 L (r/R : u/U): O-grid 13k `0.000:1.985 0.314:1.791
+0.608:1.245 0.877:0.443 0.956:0.150` (Hagen–Poiseuille 2(1 − r²): 2.000,
+1.803, 1.261, 0.462, 0.172); cfMesh 11k default `0.000:1.227 0.438:1.154
+0.678:1.036 0.878:0.611 0.956:0.149`. The cfMesh profile is a plug with a
+wall layer.
+
+**Against the predictions:**
+
+| prediction | result | verdict |
+|---|---|---|
+| unstructured converges, 40–150 steps | 1 layer: 15–53 steps; **2 or 3 layers: diverged on all 7 meshes tried**, at Co 4, at a 10× smaller Δt, with 0, 1 or 2 correctors, corrected or uncorrected | **missed** |
+| mass to 1e-8 | 1 ± 1e-9 | held |
+| u_c/2U 0.90–1.00 | **0.61–0.75** | **missed badly**; the non-orthogonal correction did not recover stage 0's flat profile |
+| dp/dz within ±10 % | **+25 % (1 layer), +48 to +69 % (bare)**, and the bare meshes get *worse* with refinement (1.48 → 1.64 → 1.69) | **missed** |
+| profile RMS 0.02–0.08 | 0.11–0.17 | missed |
+| τ_w/HP 0.85–1.05 | 1.20–1.67 | missed |
+| max non-ortho 80–90° (layered) | 83–90° (bare 48–61°) | held |
+| skewness 2–15 | 0.9–1.9 (251 on one setting, flagged by the page) | held, mostly below |
+| mesh 1–5 s at 20k | 0.2–2 s over the offered range | held (faster) |
+| ms/step per cell 1.5–3× the O-grid | about 1–1.4× with limited 0 (no correctors); about 4× with 2 correctors on the bare meshes | missed both ways |
+
+**The unstructured result is much worse than the structured one, and is
+reported as it is.** The demo offers it, defaulting to the one-layer mesh
+that runs, and the page says that 2 or more layers diverge.
+
+**What was tested about the cause (`--ignored`
+`diagnose_dual_mesh_geometry_and_laplacian` in `foam_studio_web/engine.rs`,
+and the `FOAM_CFMESH_STAGES` / `FOAM_NON_ORTH` / `FOAM_LAPLACIAN` /
+`FOAM_MAX_VISCOUS` knobs of the native engine):**
+
+- **Not the geometry bookkeeping.** On the 6 353-cell dual every interior
+  cell closes to 1e-16 and the Gauss volume Σ x_f·S_f / 3 matches the
+  solver's cell volume to 3e-14.
+- **The two-point Laplacian is biased low on the dual.** For φ = x² + y²
+  (∇²φ = 4) the uncorrected `|S|²/(S·d)` operator reads 0.885 × 4 on
+  average over interior dual cells (worst cell off by 171 %), the
+  orthogonal `|S|/|d|` 0.783; on the O-grid 0.983 and 0.980. Too little
+  interior diffusion keeps a plug core, which is what the profiles show.
+  The explicit correction should remove the mean bias; with it (bare
+  meshes) the profile is still flat, so either the Gauss-linear gradient
+  in the correction is itself poor on these cells or something else
+  dominates. **Not resolved.**
+- **It is the dual, not cfMesh's earlier stages.** The snapped hex carve
+  alone (`FOAM_CFMESH_STAGES=carve`, 1 050 cells) gives dp/dz 0.88 × HP and
+  RMS 0.07, on the right side of the reference, while the dual of the
+  same carve gives 1.64; the tetrahedral mesh (`=tet`) diverges.
+- **Radially the dual is very coarse.** The cross-section at the default
+  (`unstructured_default_wall_only_xy.png`) has 4–5 cells across the
+  diameter (the O-grid at 8k has 14), and the snapped wall is a ~16-gon,
+  not the 48-faceted surface. Part of the miss is resolution, but the bare
+  meshes' dp/dz grows with refinement, so not all of it.
+- **The layered meshes' divergence is spatial, not temporal:** it happens
+  at every Δt and corrector count tried. Not investigated further.
+
+### Mesh images (drawn from the `PolyMesh` the solver gets)
+
+In `laminar_pipe_gh1155/unstructured_gh1202/`, written by
+`cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-unstructured`,
+one colour per cell:
+
+| file | what |
+|---|---|
+| `unstructured_default_wall_only_{xy,xz_inlet,xz_corner}.png` | the demo default (h 5 mm, 1 layer, wall only): cross-section at mid-length, x-z slice of the first 4.4 cm, zoom on the inlet corner — **after** |
+| `unstructured_default_whole_boundary_{xy,xz_inlet,xz_corner}.png` | the same settings with layers on the whole boundary (the pre-gh:#1202 behaviour) — **before** |
+| `unstructured_vv_7k_{xy,xz_inlet,xz_corner}.png` | the 6 713-cell V&V mesh (h 6 mm, 1 layer) |
+
+**Checked by eye (2026-11-04):** in the corner zooms, *after* has a thin
+layer column along the wall (x ≈ 0.98–1.0 cm) that stops at z = 0 with no
+layer on the inlet; *before* has the same wall column plus a row of thin
+cells along the whole inlet (z = 0–0.03 cm). The cell counts differ by
+336 = 2 × 168, the end faces' prisms. The cross-section is a ~16-sided
+polygon of radius 1 cm with 4–5 large polyhedra across and a ring of thin
+wall prisms; the requested 0.3 mm first layer came out about 0.2 mm (the
+layerer's cap at half the local wall-edge length and its validity
+back-off). **Not checked:** the faces between the cut planes; the patch
+assignment was checked by the test (`inlet` / `outlet` / `walls`, walls
+typed `wall`), not drawn.
+
+### Unresolved (gh:#1202 follow-ups)
+
+- The dual mesh's flat profile and high dp/dz (above): measure the port's
+  corrected Laplacian and Gauss-linear gradient on the dual against the
+  exact quadratic; compare against OpenFOAM on an exported mesh
+  (`export_polymesh`).
+- 2+ layers diverge; 1 layer runs.
+- No feature-edge capture: bent end faces at the rim, chamfered wall.
+- `limited` snGrad with a coefficient in (0, 1) is not ported.
+
 ## Reproduce
 
 ```bash
