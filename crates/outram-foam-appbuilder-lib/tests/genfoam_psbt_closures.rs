@@ -4,8 +4,11 @@
 //! # Why this case is verified at the closure level
 //!
 //! `Tutorials/featureCases/1D_PSBT_SC` is the OECD/NRC PSBT subchannel
-//! benchmark, and it sets `regionSolvers { fluidRegion twoPhase; }`. This crate
-//! has no two-phase Euler-Euler porous solver — `genfoam::thermal_hydraulics::
+//! benchmark, and it sets `regionSolvers { fluidRegion twoPhase; }`. ~~This crate
+//! has no two-phase Euler-Euler porous solver~~ (**CORRECTED 2026-11-04,
+//! gh:#1218:** `solver::two_phase` now exists, but it does not port PSBT's
+//! `multiRegimeBoilingTRACE`, `twoParameters` regime map or `byRegime` areas,
+//! so the statement below about PSBT's exit void still holds) — `genfoam::thermal_hydraulics::
 //! solver` has `one_phase` only — so the port **cannot** compute the case's exit
 //! void fraction, and no amount of comparison here changes that. What it *can*
 //! do is the closures, and PSBT's own `phaseProperties` names them:

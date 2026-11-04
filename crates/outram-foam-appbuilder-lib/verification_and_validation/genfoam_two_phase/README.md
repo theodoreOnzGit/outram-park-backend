@@ -1,6 +1,7 @@
 # GeN-Foam `twoPhase` port: V&V record (gh:#1218, epic gh:#1216)
 
-**Status: predictions committed before any run (2026-11-04).** The results
+**Status: predictions committed before any run (2026-11-04, commit `94bf9aa6a`);
+results added below on the same day.** The results
 sections below are filled in by later commits; this file's git history shows
 the predictions were written first.
 
@@ -88,3 +89,98 @@ be claimed from it.
 - **Linear solvers.** `p_rgh` uses ILU(0)-preconditioned BiCGStab where upstream
   uses GAMG; both are run to the case's absolute tolerance, so the difference is
   below the stated solver tolerance.
+
+## Methodology (as run)
+
+- **Port:** `genfoam::thermal_hydraulics::solver::two_phase` (`TwoPhaseSolver`),
+  reading upstream's case files unchanged through `TwoPhaseCase::read`
+  (vendored copy: `tests/data/genfoam_1d_boiling/`, see its `PROVENANCE.md`).
+- **Test:** `tests/genfoam_two_phase_1d_boiling.rs`, three tests, 7.8 s in
+  release for all three:
+  `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_two_phase_1d_boiling`.
+- **Plots:** `TWO_PHASE_OUT=<dir>` on that command writes `history.csv` and
+  `profiles.csv`; `python plot_1d_boiling.py <dir> .` draws the PNGs here.
+- **Time stepping:** upstream's `twoPhase::maxDeltaT` (maxCo 2, maxCoTwoPhase
+  0.25, marginToPhaseChange 20 K, maxDeltaT 0.01 s) and `adjustableRunTime`
+  write-time hitting; 4577 steps to 12 s.
+- **Deviation** (printed by the run): `alpha solver MULES is not ported; ran
+  GeN-Foam's implicitUpwind (solveAlphaImplicitUpwind.H) with solvePhase vapour`.
+
+## Results, measured 2026-11-04
+
+| | predicted (before the run) | measured | verdict |
+|---|---|---|---|
+| **P1** isothermal liquid velocity vs closed form 0.711977 m/s | within 1e-3 | **0.711972 m/s at the inlet, worst cell 2.25e-5 relative** (heater ablated, t = 1 s) | **pass** |
+| P1 as first stated: heated case before boiling, within 1e-3 | within 1e-3 | inlet 0.700430 m/s (**-1.62 %**), outlet 0.727761 m/s at t = 0.3 s | **miss, explained** (below) |
+| **P2** first `alpha.vapour/(1-alpha_s) > 1e-3` | 1.5 s to 5 s | **6.14 s** (power off at 7 s) | **miss, explained** (below) |
+| **P3** flow excursion: inlet liquid velocity < 50 % of P1 | yes (direction only) | yes: falls to 0.1 m/s by 6.5 s and **reverses**, minimum **-0.94 m/s** at 9.1 s | pass on direction; magnitude unverified |
+| **P4** void condenses to < 1e-3 before 12 s | yes | max void 0.97 at 7 s, **5.9e-12 at 12 s** (gone by ~10.3 s) | pass |
+| **P5** cumulative continuity error < 1e-3 kg/m^3 | < 1e-3 | liquid **-2.675 kg/m^3**, vapour 1.85e-3 kg/m^3 | **miss, not explained** (below) |
+
+### P1: the miss and the protocol change
+
+The prediction assumed the heated case is isothermal "before boiling". It is
+not: by 0.3 s the heater has started raising the liquid temperature in `mid`,
+and the liquid density falls about 0.23 kg/m^3 per K, so the liquid expands
+while it heats. An expansion rate `d(rho)/dt ~ 16 kg/(m^3 s)` over the 1 m
+heated zone adds `~0.019 m/s` downstream, the order of the 0.0273 m/s
+inlet-to-outlet difference measured. The closed form's premise holds only with
+the heater off, so the check was re-run that way (the `fixedPower` models
+switched off after reading, everything else upstream's): **2.25e-5**, inside
+the 1e-3 bound. The heated 0.3 s state is kept as its own test pinning what was
+measured (inlet within 3 % of the closed form, outlet faster than inlet). The
+1e-3 bound was not moved; the protocol was changed so its premise holds.
+
+### P2: the miss is in the prediction
+
+The prediction took the heat-up rate from the structure alone (117 K/s). The
+structure and the liquid it touches heat together: `(alpha_s rho Cp)_structure
++ (alpha rho Cp)_liquid = 1.925e6 + 0.553e6 J/(m^3 K)`, so 2.25e8 W/m^3 heats
+them at **91 K/s**, which is the measured rate of the hottest liquid (739.8 K at
+1 s, 831.5 K at 2 s, 922.9 K at 3 s: 91.6 K/s). From 652 K to the local
+saturation temperature at the top of `mid` (~1136 K) is 484 K, i.e. 5.3 s at
+91 K/s plus the time the flow takes to carry heat away; 6.14 s is consistent.
+The port's number stands; the prediction's heat capacity was wrong.
+
+### P5: not explained
+
+The liquid's cumulative continuity error grows in two bursts: -0.0037 kg/m^3
+by 6.0 s (single phase), then -0.76 kg/m^3 between 6.2 s and 6.5 s (boiling
+onset) and -1.47 kg/m^3 between 9 s and 10 s (collapse). The vapour's stays
+below 2e-3 kg/m^3. A likely mechanism, **not confirmed**: with
+`solvePhase vapour` the liquid fraction is `1 - alpha_s - alpha_v`, so any error
+in the vapour's volume balance is carried into the liquid's mass at the liquid
+density (~860 kg/m^3, ~1600 times the vapour's). Two diagnostic ablations, not
+defaults, move it but do not remove it: `alpha` relaxation 1 instead of 0.5
+gives -1.017 kg/m^3; 100 outer correctors instead of 24 gives -6.958 kg/m^3.
+Both also change the excursion (minimum inlet velocity -3.12 and -2.11 m/s
+against -0.94 m/s), so **the boiling phase of this run is sensitive to its
+iteration controls**: 426 of the 4577 steps ended at the 24-corrector limit
+without meeting `residualControl`. Whether upstream (with MULES) behaves the
+same is unknown, since upstream cannot be run here.
+
+## Plots
+
+- `1d_boiling_void_profiles.png`: void fraction along the channel at 6.2 to
+  10 s. Vapour first appears at the top of `mid` (x = 1.45-1.6 m), fills the
+  top of the heated zone and the riser above it, and condenses after 7 s.
+- `1d_boiling_temperature_profiles.png`: liquid, vapour, structure and
+  interface (saturation) temperatures at 3, 7 and 9 s. At 7 s the liquid and
+  the structure reach the saturation line from x ~ 1.3 m.
+- `1d_boiling_history.png`: inlet liquid velocity, maximum void, maximum
+  structure temperature against time; power off at 7 s.
+
+**No upstream curve is overlaid on any plot, because upstream ships none for
+this case and cannot be run here.** The geometry is the 40-cell, 2 m channel
+of upstream's `blockMeshDict`; the heated zone boundaries (0.5 m, 1.5 m) are
+marked on the void plot and match the `cellZones` read (cells 10-29).
+
+## What is not established
+
+- **Parity with upstream** on any two-phase quantity. Nothing here compares the
+  port with an upstream run; the numbers above are the port's alone.
+- The other four feature cases: `1D_PSBT_SC` and `1D_CHF` need closures that
+  are not ported (the case reader stops on them by name);
+  `2D_voidMotionNoPhaseChange` and `2D_KNS37-L22` were not attempted.
+- `phaseProperties.residualKd` (1D_boiling sets 10) is read by nothing in
+  upstream `src/` at `652b3da` (grep finds no use); the port ignores it too.

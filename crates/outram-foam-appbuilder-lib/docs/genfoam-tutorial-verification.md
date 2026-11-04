@@ -172,7 +172,10 @@ conductivity is a **Maxwell mixture**, not bare graphite.
 
 ### PSBT — closure verified
 
-The port has no two-phase Euler-Euler solver, so it cannot compute the exit void
+~~The port has no two-phase Euler-Euler solver~~ **CORRECTED 2026-11-04
+(gh:#1218):** the port now has GeN-Foam's two-phase solver (`solver::two_phase`),
+but not the closures PSBT selects (`multiRegimeBoilingTRACE`, the
+`twoParameters` regime map, `byRegime` area/diameter), so it still cannot compute the exit void
 fraction, and nothing here pretends otherwise. What it has are the closures.
 Upstream assembles `Kd = 0.5/Dh·(1−α_s)·ρ·max(|U|,minMagU)·f(Re)`, so evaluating
 the **port's** friction factor against **upstream's** drag must reproduce the
