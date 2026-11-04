@@ -220,3 +220,58 @@ whether to use paper or upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit a461c5d9de.
+
+# Review: Setup (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-setup-theodoreonzgit-b872687b"
+kind = "review"
+origin = "human"
+created = "2026-11-04T10:56:21+08:00"
+modified = "2026-11-04T10:56:21+08:00"
+target = "fn:b872687bd30a967d"
+
+[review]
+path = "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::Setup"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T10:56:21+08:00"
+commit = "18111f33f14a7d49ed639c86e1188c694cd98d4c"
+hash = "sha256:a0ebdf17d87a0897d282f8e148ec15e3648cb75a06fbbb453256f89835cd2337"
+doc_hash = "sha256:f5ec0b4732a50579359855fe23370d826281a6a3e2b50ae7bbf611758fb1f964"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:720763535406a854" = "sha256:468363707eb6f8af68dd8e3d9901d7a76231693bf0a5b4e7e8bc5ad5ee6d5cc1"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "is_test_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "ifGEtaq51b04+6s1f66M8sElcwGWJeXwuNkpW8YIoAibdTLW5MHzklXwYQQaY0vDt6aXqCyZ1HyROdDkwRD2CA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 18111f33f1.
