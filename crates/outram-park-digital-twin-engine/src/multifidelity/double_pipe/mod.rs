@@ -31,12 +31,19 @@
 //!
 //! The CSV is SI with the unit in every column header; everything crossing
 //! the Rust API is `uom`.
+//!
+//! **Through `raffles::fidelity` (gh:#1194):** the three records derive
+//! `raffles::fidelity::Quantities` (`raffles::quantities!` below), and
+//! [`fidelity`] adapts the pair: [`fidelity::TuasOneD`] is the 1-D model as a
+//! `ParametricModel`, [`fidelity::committed_dataset`] the committed CFD rows
+//! as a `Dataset` with the stored split.
 use uom::si::f64::{Length, Power, Pressure, Ratio, ThermalConductance, ThermalConductivity, ThermodynamicTemperature};
 
 pub mod cfd;
 pub mod closure;
 pub mod dataset;
 pub mod design;
+pub mod fidelity;
 pub mod one_d;
 pub mod study;
 
@@ -107,18 +114,20 @@ pub mod fixed {
     }
 }
 
-/// A design point x.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DoublePipeInput {
-    /// Tube (hot) Reynolds number on D = 2 r_tube,i, nominal circular area.
-    pub re_hot: Ratio,
-    /// Annulus (cold) Reynolds number on D_h = D_shell − D_tube,o, nominal
-    /// circular area.
-    pub re_cold: Ratio,
-    /// Tube-wall conductivity.
-    pub k_wall: ThermalConductivity,
-    /// Exchanger length.
-    pub length: Length,
+raffles::quantities! {
+    /// A design point x.
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub struct DoublePipeInput {
+        /// Tube (hot) Reynolds number on D = 2 r_tube,i, nominal circular area.
+        pub re_hot: Ratio,
+        /// Annulus (cold) Reynolds number on D_h = D_shell − D_tube,o, nominal
+        /// circular area.
+        pub re_cold: Ratio,
+        /// Tube-wall conductivity.
+        pub k_wall: ThermalConductivity,
+        /// Exchanger length.
+        pub length: Length,
+    }
 }
 
 impl DoublePipeInput {
@@ -157,50 +166,54 @@ impl DoublePipeInput {
     }
 }
 
-/// What either model says about a design point.
-///
-/// For the CFD, `nu_hot` / `nu_cold` are the ΔT-weighted mean Nusselt
-/// numbers converted to the 1-D model's circular geometry (the closures,
-/// [`closure::Closures`]); for the 1-D model they are the ones it used.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DoublePipeOutput {
-    /// Overall conductance: CFD `UA_local`; 1-D `N / (1/G_tube + 1/G_shell)`
-    /// from TUAS's nodal conductances.
-    pub ua: ThermalConductance,
-    /// Heat duty, the heat the hot stream loses.
-    pub q: Power,
-    /// ε = Q / (C_min ΔT_in).
-    pub effectiveness: Ratio,
-    /// Hot (tube) mixing-cup outlet temperature.
-    pub t_hot_out: ThermodynamicTemperature,
-    /// Cold (annulus) mixing-cup outlet temperature.
-    pub t_cold_out: ThermodynamicTemperature,
-    /// Tube static pressure drop.
-    pub dp_hot: Pressure,
-    /// Annulus static pressure drop.
-    pub dp_cold: Pressure,
-    /// Mean tube-side Nusselt number (1-D convention, D = 2 r_tube,i).
-    pub nu_hot: Ratio,
-    /// Mean annulus-side Nusselt number (1-D convention, D_h, heated inner
-    /// wall).
-    pub nu_cold: Ratio,
+raffles::quantities! {
+    /// What either model says about a design point.
+    ///
+    /// For the CFD, `nu_hot` / `nu_cold` are the ΔT-weighted mean Nusselt
+    /// numbers converted to the 1-D model's circular geometry (the closures,
+    /// [`closure::Closures`]); for the 1-D model they are the ones it used.
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub struct DoublePipeOutput {
+        /// Overall conductance: CFD `UA_local`; 1-D `N / (1/G_tube + 1/G_shell)`
+        /// from TUAS's nodal conductances.
+        pub ua: ThermalConductance,
+        /// Heat duty, the heat the hot stream loses.
+        pub q: Power,
+        /// ε = Q / (C_min ΔT_in).
+        pub effectiveness: Ratio,
+        /// Hot (tube) mixing-cup outlet temperature.
+        pub t_hot_out: ThermodynamicTemperature,
+        /// Cold (annulus) mixing-cup outlet temperature.
+        pub t_cold_out: ThermodynamicTemperature,
+        /// Tube static pressure drop.
+        pub dp_hot: Pressure,
+        /// Annulus static pressure drop.
+        pub dp_cold: Pressure,
+        /// Mean tube-side Nusselt number (1-D convention, D = 2 r_tube,i).
+        pub nu_hot: Ratio,
+        /// Mean annulus-side Nusselt number (1-D convention, D_h, heated inner
+        /// wall).
+        pub nu_cold: Ratio,
+    }
 }
 
-/// The 1-D model's parameters θ. [`Theta::nominal`] is the uncalibrated
-/// model (TUAS's textbook correlations as they are).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Theta {
-    /// Multiplier on the tube-side Nusselt number. Nominal 1.
-    pub nu_mult_hot: Ratio,
-    /// Multiplier on the annulus-side Nusselt number. Nominal 1.
-    pub nu_mult_cold: Ratio,
-    /// Extra wall resistance (a fouling factor) per unit **tube outer**
-    /// area, in series with the rest. Nominal 0.
-    pub wall_resistance: AreaSpecificThermalResistance,
-    /// Multiplier on the tube-side `(f L/D + K)`. Nominal 1.
-    pub friction_mult_hot: Ratio,
-    /// Multiplier on the annulus-side `(f L/D + K)`. Nominal 1.
-    pub friction_mult_cold: Ratio,
+raffles::quantities! {
+    /// The 1-D model's parameters θ. [`Theta::nominal`] is the uncalibrated
+    /// model (TUAS's textbook correlations as they are).
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub struct Theta {
+        /// Multiplier on the tube-side Nusselt number. Nominal 1.
+        pub nu_mult_hot: Ratio,
+        /// Multiplier on the annulus-side Nusselt number. Nominal 1.
+        pub nu_mult_cold: Ratio,
+        /// Extra wall resistance (a fouling factor) per unit **tube outer**
+        /// area, in series with the rest. Nominal 0.
+        pub wall_resistance: AreaSpecificThermalResistance,
+        /// Multiplier on the tube-side `(f L/D + K)`. Nominal 1.
+        pub friction_mult_hot: Ratio,
+        /// Multiplier on the annulus-side `(f L/D + K)`. Nominal 1.
+        pub friction_mult_cold: Ratio,
+    }
 }
 
 impl Theta {

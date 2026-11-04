@@ -148,7 +148,7 @@ that `outram-foam-basic-lib` stays publishable independently.
 **Internal dependency edges** are all by **path**, not crates.io. The ones
 worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps →
 `{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`; `nee_soon → tampines` (normal, since 2026-11-03: the HTR-10 coupled kinetics + loop transient `nee_soon::htr10_th_transient`, moved from `tampines` on the maintainer's direction "any neutronics and TH shld live in nee soon"; no cycle, `tampines` has `nee_soon` only as a gated dev-dependency; `tampines` takes heat sources as inputs and stays free of `teh-o-prke` outside that gated dev-dependency);
-`outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set), and `→ {outram-foam-appbuilder-lib, outram-foam-mesh, outram-foam-basic-lib}` as normal dependencies since 2026-11-03 (gh:#1178: `multifidelity::double_pipe` runs the double-pipe CFD from the library; none of the three depends on the twin engine);
+`outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set), and `→ {outram-foam-appbuilder-lib, outram-foam-mesh, outram-foam-basic-lib}` as normal dependencies since 2026-11-03 (gh:#1178: `multifidelity::double_pipe` runs the double-pipe CFD from the library; none of the three depends on the twin engine); and `→ raffles` as a normal dependency since 2026-11-04 (gh:#1194: `multifidelity::double_pipe::fidelity` implements `raffles::fidelity`'s traits; raffles was already in the tree through `tampines → raffles`, and depends on no physics crate, so no cycle);
 `dover → outram-park-fork-dwsim-libs` (2026-09-30);
 `sembawang → {boon-lay, changi, buangkok, outram-mc-libs, tampines-steam-tables, teh-o-prke, outram-park-fork-offbeat, tampines}` (`teh-o-prke` and `offbeat` since 2026-10-29, gh:#1033, for `bwr_mark1`; **`tampines` a normal dependency since 2026-11-01, maintainer direction: a severe-accident code does thermal hydraulics and much more, so `sembawang` depends on `tampines` and never the reverse**; none depends on sembawang; `dhoby-ghaut → sembawang` as a dev-dependency for the demo), outram-mc-libs direct
 since 2026-10-17 (GitHub #951) for the one inventory type in the workspace,
@@ -206,7 +206,7 @@ steady conduction for the beginner thermal profile, GitHub #949, 2026-10-17;
 no features, no cycle since it depends only on `petir`), tampines-steam-tables
 (IAPWS-IF97 density for the beginner `model::Material::water(T, p)`, GitHub
 #937, 2026-10-17; no features; its own deps are already in this tree)}`;
-`raffles → petir` (the RNG) — ~~`raffles → outram-mc-libs`~~ **REMOVED
+`raffles → petir` (the RNG), `raffles → uom` (no_std, the `fidelity` API, since 2026-11-04, gh:#1194; already in its tree through petir) — ~~`raffles → outram-mc-libs`~~ **REMOVED
 2026-10-02**: it closed the cycle `outram-mc-libs → liggghts → raffles →
 outram-mc-libs`; the LCG moved to `petir::rng` and the CSG graph adapter to
 `outram_blender::gnn_graph`. **`raffles` must not depend on `outram-mc-libs`

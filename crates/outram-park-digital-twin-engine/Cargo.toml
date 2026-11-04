@@ -91,6 +91,14 @@ outram-foam-mesh.workspace = true
 # Names `FvMesh` for the meshes above (was a dev-dependency, below).
 outram-foam-basic-lib.workspace = true
 
+# REAL (non-dev) dependency for `multifidelity::double_pipe::fidelity`
+# (gh:#1194): the double-pipe pair implements `raffles::fidelity`'s traits
+# (`ParametricModel`, `Quantities` via `raffles::quantities!`) and builds its
+# `Dataset`. No cycle: raffles depends only on thiserror, petir, uom, xml-rs
+# and optional burn (checked in its Cargo.toml, 2026-11-04), and it was already
+# in this crate's tree through `tampines -> raffles`, so it adds no build work.
+raffles.workspace = true
+
 # The central GUI crate (gh:#1112). Untargeted, unlike the egui stack below,
 # because `animation` (re-exported from `bugis::animation`) is this crate's
 # Android-building module; `animation` is egui-free and pulls only uom, and

@@ -274,6 +274,10 @@ residual is mostly the interpolation's high bias on the tube-side Nu
 
 ## The rung-3 interface (gh:#1180; the `raffles::fidelity` traits are gh:#1194)
 
+**Since 2026-11-04** the pair is also available through `raffles::fidelity`
+(gh:#1194): `multifidelity::double_pipe::fidelity::{TuasOneD, committed_dataset}`;
+record `crates/raffles/verification_and_validation/fidelity_interface_gh1194.md`.
+
 - **x:** `multifidelity::double_pipe::DoublePipeInput { re_hot: Ratio,
   re_cold: Ratio, k_wall: ThermalConductivity, length: Length }`.
 - **CFD outputs:** `DoublePipeOutput { ua: ThermalConductance, q: Power,
