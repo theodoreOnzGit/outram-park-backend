@@ -1190,4 +1190,53 @@ re-criticality within +-100 s).
 
 ### 11.1 Results
 
-*(to be written after the runs)*
+**Run 2026-11-03 23:04 -> 2026-11-04 00:18 UTC** on develop `2bc7eab1c`,
+`cargo run --release -p nee_soon --example htr10_graphite_zone_worth --
+--base 600 --delta 600 --particles 3000 --inactive 20 --active 80 --threads
+16`, the statistics fixed above, seed 20260917, 0 histories lost in every
+case. Intel Xeon W-2195 @ 2.30 GHz, 36 logical cores, 16 threads used, CPU
+only, Linux; the machine was shared with a `cargo test` run. Per case ~170-210 s
+of data and 410-530 s of transport.
+
+| Case | k | Worth (pcm) | pcm/K |
+|---|---|---|---|
+| BASE | 0.95389 +- 0.00229 | - | - |
+| FUEL-GRAPHITE | 0.90249 +- 0.00247 | -5970 +- 394 | -9.95 +- 0.66 |
+| DUMMIES | 0.91825 +- 0.00234 | -4068 +- 375 | -6.78 +- 0.63 |
+| TOP | 0.95415 +- 0.00251 | +29 +- 374 | +0.05 +- 0.62 |
+| SIDE | 0.96370 +- 0.00292 | +1067 +- 403 | +1.78 +- 0.67 |
+| BOTTOM | 0.95580 +- 0.00222 | +210 +- 350 | +0.35 +- 0.58 |
+| KERNEL | 0.94050 +- 0.00258 | -1492 +- 385 | -2.49 +- 0.64 |
+
+The sigma is the uncorrelated one (an upper bound, as stated above).
+
+**Against the predictions:**
+
+| Quantity | Predicted | Measured | |
+|---|---|---|---|
+| FUEL-GRAPHITE + DUMMIES | -8 to -25 pcm/K | **-16.73 +- 0.91 pcm/K** | inside; [T1] -16.2 |
+| DUMMIES share of the pebble-graphite worth | 0.35-0.50 | **0.405 +- 0.04** | inside |
+| `rho_I`, per-gram importance fuel-pebble / dummy graphite | 0.85-1.15 | **1.11 +- 0.13** | inside, and 0.8 sigma from 1 |
+| KERNEL | -1.5 to -3.5 pcm/K | **-2.49 +- 0.64 pcm/K** | inside; [T1] -2.13 |
+| TOP + SIDE + BOTTOM | +3 to +12 pcm/K | **+2.18 +- 1.08 pcm/K** | **miss, low**; [T1] +7.71 is 5.1 sigma above it |
+| SIDE share of the reflector worth | 0.5-0.85 | 0.82, not resolved (TOP and BOTTOM are each consistent with zero, as stated in advance) | inside |
+
+`rho_I` uses the per-gram split fixed above: the fuel pebbles' graphite
+0.57 and the dummies' 0.43 of the pebble graphite above the bed floor, the
+cone and tube dummies counted with the bed's (the stated bias towards a low
+`I_dummy`, i.e. a high `rho_I`): `I_fuel = 9.95 / 0.57 = 17.5`, `I_dummy =
+6.78 / 0.43 = 15.8`, ratio 1.11, sigma from the two worths' relative
+sigmas in quadrature.
+
+**Reading it.** The pebble graphite carries the moderator coefficient
+(-16.7 pcm/K against [T1]'s -16.2), and a kelvin in a gram of fuel-pebble
+graphite is worth the same as in a gram of dummy graphite within the
+statistics, as predicted from the ~50 cm thermal diffusion length. The
+volume-mean reading (`rho_I = 1`, today's `AllPebbleGraphite`) is therefore
+supported; the measured `rho_I = 1.11` is the default by the rule fixed
+above. The reflector coefficient is the one miss: +2.2 +- 1.1 pcm/K against
+[T1]'s +7.71 and the predicted +3 to +12. The secant (600 -> 1200 K, every
+other zone at 600 K) is not [T1]'s operating-point derivative, and the
+uncorrelated sigma overstates the noise; the miss is recorded, not
+explained. It does not enter the R-Z model, which takes [T1]'s reflector
+coefficient.
