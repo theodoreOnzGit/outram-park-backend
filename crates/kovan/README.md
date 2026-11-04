@@ -757,7 +757,19 @@ in `kovan_root.toml` and every agent that wrote a justification.
 Every action signs with the session key, and the passphrase is asked only
 while it is locked:
 
-- **Admit:** as Reviewer, Novice reviewer or Maintainer.
+- **Admit** (validate a reviewer's own key): as Reviewer, Novice reviewer or
+  Maintainer. ~~Any admitted maintainer~~ **Since 2026-11-04 (GitHub
+  #1211) the founder only**; admissions signed earlier by another
+  maintainer still count.
+- **Issue a validated keyfile** (founder only, #1211): generate a key for
+  another person, admit it in the same write, and save it encrypted under a
+  passphrase the founder types (save picker), to hand over; it imports with
+  "Import a key".
+- **Organisations & IV&V** (#1211, formerly a separate window): the
+  founder signs or retires organisation records (retire appends a signed
+  `[[code_review.organisation_retirement]]`; the record stays listed,
+  marked retired, and no longer counts); a reviewer signs their separation
+  attestation.
 - **Key actions:** endorse, retire, un-retire, revoke or mark compromised.
 - **Revoke** a reviewer.
 - **Change standing**, as signed `[[code_review.roster_event]]` entries
@@ -771,6 +783,10 @@ verdict. A novice's stamp alone shows **"1 of 2: awaiting a trusted
 reviewer"** until a trusted reviewer or a maintainer also stamps the
 function. The rules are in `kovan_common::review::signing::registry`'s module
 doc.
+
+**After a founder hands over and steps down,** nobody can admit or sign
+organisation records from kovan (#1211 makes them founder-only, and the
+founder signs as a maintainer) until founder succession (GitHub #1022).
 
 **If no maintainer is available,** there is no bypass of the signatures. The
 repository owners' route is a reviewed commit declaring a new founder. That
@@ -843,9 +859,13 @@ rows of the need-you queue. It is read-only: kovan-cli has no signing
 command. The same summary is drawn in the review bar of kovan-web and of
 desktop kovan's Code Review tab.
 
-Signing happens in desktop kovan. The Code Review tab's **Organisations &
+Signing happens in desktop kovan. ~~The Code Review tab's **Organisations &
 IV&V** window lets a maintainer sign developing-organisation and
-reviewer-organisation records, and an independent reviewer sign a separation
+reviewer-organisation records~~ **CORRECTED 2026-11-04** (GitHub #1211):
+the **Organisations & IV&V** sections of Code Review ▸ User management let
+the **founder** sign, and retire, developing-organisation and
+reviewer-organisation records (records signed earlier by another
+maintainer still count, and are marked so), and an independent reviewer sign a separation
 attestation naming a GitHub issue as its audit record. The stamp dialog lets
 the reviewer pick which of their own signed attestations a review relies on
 (none by default). Every record is appended to `kovan_root.toml` as text,
