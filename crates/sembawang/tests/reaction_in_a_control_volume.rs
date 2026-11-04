@@ -111,8 +111,11 @@ fn n_of(cv: &ControlVolume, g: NonCondensable) -> f64 {
 
 /// The pin transient: a pool, steam, all six gases, a steam inflow below the
 /// pool, an H2 + N2 inflow, a drain, a vent, atmosphere heat and a steam
-/// sink, 60 steps of 1 s; 12 values every 10 steps.
-fn pin_transient(rx: Option<Burn>) -> Vec<u64> {
+/// sink, 60 steps of 1 s; 12 values every 10 steps. `n2_stand_in` runs it on
+/// `without_ncg_transport_properties()`, the pool-surface physics the pins
+/// were taken with (every non-condensable as N2; gh:#1114 made each gas's own
+/// properties the default on 2026-11-02).
+fn pin_transient(rx: Option<Burn>, n2_stand_in: bool) -> Vec<u64> {
     let table = VolumeAltitudeTable::new(&[(m(0.0), m3(0.0)), (m(2.0), m3(20.0)), (m(6.0), m3(100.0))]).unwrap();
     let ports = vec![port(0.3, 0.1), port(0.5, 0.05), port(0.0, 0.1), port(5.8, 0.1)];
     let rho = 1.0 / v_tp_1(kelv(320.0), Pressure::new::<pascal>(1.0e5)).get::<cubic_meter_per_kilogram>();
@@ -127,7 +130,8 @@ fn pin_transient(rx: Option<Burn>) -> Vec<u64> {
             (NonCondensable::Ar, mol(30.0)),
         ],
     );
-    let mut cv = ControlVolume::new(table, ports, kg(15.0 * rho), kelv(320.0), atm, kelv(330.0)).unwrap();
+    let cv = ControlVolume::new(table, ports, kg(15.0 * rho), kelv(320.0), atm, kelv(330.0)).unwrap();
+    let mut cv = if n2_stand_in { cv.without_ncg_transport_properties() } else { cv };
     let mut inputs = ControlVolumeInputs::closed(4);
     inputs.ports[0] = PortInput::inflow(Source::water(kgs(0.5), AvailableEnergy::new::<joule_per_kilogram>(2.75e6)));
     inputs.ports[1] = PortInput::inflow(Source::gas(&[(NonCondensable::H2, kgs(0.002)), (NonCondensable::N2, kgs(0.01))], kelv(400.0)));
@@ -164,12 +168,23 @@ const PIN: [u64; 72] = [0x4074034a36fc8a64, 0x4074c7d300f01a1c, 0x40fa70d1102189
 /// with the input absent, `none()` and explicit zero rates. Ported: the
 /// same 72 values, the species input absent and a zero burn through
 /// `reaction::burn_inputs` (which then sets no species and no heat).
+///
+/// **Re-pointed 2026-11-04:** gh:#1114 (`093f59312`, 2026-11-02) gave each
+/// non-condensable its own transport properties at the pool surface by
+/// default, a deliberate physics change that moved this transient (first
+/// value 320.2056188 -> 320.2056195 K; found by `git bisect` with this test
+/// as the oracle, it passes at the pinning commit `0cb0324bc` on the same
+/// host). As that commit did for its own goldens, the pin is kept on the
+/// ablation that restores the old physics, where the zero reaction must
+/// still reproduce it bit for bit; at the new default the two zero-reaction
+/// arms must be bit-identical to each other.
 #[test]
 fn r5_zero_reaction_is_the_old_code_bit_for_bit() {
     assert_eq!(AtmosphereSpeciesRates::default(), AtmosphereSpeciesRates::none());
     assert_eq!(ControlVolumeInputs::closed(0).atmosphere_species, AtmosphereSpeciesRates::none());
+    assert_eq!(pin_transient(None, false), pin_transient(Some(burn(0.0, 0.0)), false));
     for rx in [None, Some(burn(0.0, 0.0))] {
-        let v = pin_transient(rx);
+        let v = pin_transient(rx, true);
         assert_eq!(v.len(), PIN.len());
         for (i, (a, b)) in v.iter().zip(PIN.iter()).enumerate() {
             assert_eq!(a, b, "value {i} ({} vs {}) with {rx:?}", f64::from_bits(*a), f64::from_bits(*b));
