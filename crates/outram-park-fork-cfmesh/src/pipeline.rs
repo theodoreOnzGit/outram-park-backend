@@ -93,7 +93,9 @@ use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
 use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces};
-use crate::layers::{add_boundary_layers_adaptive, add_boundary_layers_adaptive_on_patches};
+use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh, BoundaryLayerOptimisationControls};
+use crate::layers::{add_boundary_layers_back_off, LayerOutcome, LayerQualityStrategy};
+use crate::snappy_layers::{add_boundary_layers_snappy, SnappyLayerControls};
 use crate::math::Vec3;
 use crate::octree::refine_near_boundary_banded;
 use crate::patches::{assign_patches_by_region, SurfaceRegions};
@@ -196,6 +198,20 @@ pub struct TetDualOptions {
     /// inlet spans the section. **On by default**; `false` is the explicit
     /// ablation (the chamfered boundary the pipeline gave before).
     pub feature_edges: bool,
+    /// **How the layer stage meets upstream's mesh-quality limits**
+    /// (gh:#1215): [`LayerQualityStrategy::BackOffOnly`] (the default, this
+    /// crate's global uniform back-off, unchanged),
+    /// [`LayerQualityStrategy::CfMeshOptimise`] (cfMesh's local thinning and
+    /// untangling) or [`LayerQualityStrategy::SnappyCollapse`]
+    /// (snappyHexMesh's local layer collapse). Every strategy starts from the
+    /// same columns ([`crate::layers`]).
+    pub layer_strategy: LayerQualityStrategy,
+    /// Settings of [`LayerQualityStrategy::SnappyCollapse`] (upstream's
+    /// `addLayersControls` and quality defaults).
+    pub snappy_layers: SnappyLayerControls,
+    /// Settings of [`LayerQualityStrategy::CfMeshOptimise`] (cfMesh's
+    /// `boundaryLayerOptimisation` defaults).
+    pub cfmesh_layer_optimisation: BoundaryLayerOptimisationControls,
 }
 
 impl Default for TetDualOptions {
@@ -225,6 +241,9 @@ impl Default for TetDualOptions {
             wall_patch: "walls".to_string(),
             layer_patches: Vec::new(),
             feature_edges: true,
+            layer_strategy: LayerQualityStrategy::BackOffOnly,
+            snappy_layers: SnappyLayerControls::default(),
+            cfmesh_layer_optimisation: BoundaryLayerOptimisationControls::default(),
         }
     }
 }
@@ -258,6 +277,33 @@ pub struct TetDualReport {
     /// Number of negative-volume cells in the final mesh — `0` for an accepted
     /// result (the acceptance gate rejects any stage that would raise it).
     pub n_negative_volume_cells: usize,
+    /// What the layer stage did (gh:#1215): per wall point and face, the
+    /// layers and thickness each got, under the strategy used. `None` when
+    /// the stage did not run.
+    pub layers: Option<LayerOutcome>,
+}
+
+/// Grow the layers on `patches` with `opts.layer_strategy` (gh:#1215).
+fn grow_layers(mesh: &VolumeMesh, patches: &[&str], opts: &TetDualOptions) -> (VolumeMesh, LayerOutcome) {
+    let (n, t, e) = (opts.n_layers, opts.first_layer_thickness.max(1e-6), opts.expansion.max(1.0));
+    match opts.layer_strategy {
+        LayerQualityStrategy::BackOffOnly => add_boundary_layers_back_off(mesh, patches, n, t, e),
+        LayerQualityStrategy::CfMeshOptimise => add_boundary_layers_cfmesh(mesh, patches, n, t, e, &opts.cfmesh_layer_optimisation),
+        LayerQualityStrategy::SnappyCollapse => add_boundary_layers_snappy(mesh, patches, n, t, e, &opts.snappy_layers),
+    }
+}
+
+/// One stage note summarising a non-default layer strategy's outcome.
+fn layer_note(o: &LayerOutcome) -> String {
+    format!(
+        "boundary layers ({:?}): {:.1} % of wall faces with all {} layers, {:.1} % of wall points with none, mean total thickness {:.3e} m; {}",
+        o.strategy,
+        100.0 * o.full_coverage(),
+        o.n_layers_requested,
+        100.0 * o.collapsed_point_fraction(),
+        o.mean_total_thickness(),
+        o.notes.last().cloned().unwrap_or_default()
+    )
 }
 
 /// Is `mesh` acceptable as a stage output — closed *and* free of inverted cells?
@@ -540,6 +586,7 @@ fn run_pipeline(
     }
 
     // Stage 7 — adaptive prism boundary layers on the wall patch.
+    let mut layer_outcome: Option<LayerOutcome> = None;
     let selective = regions.filter(|_| !opts.layer_patches.is_empty());
     if let (true, Some(regions)) = (opts.n_layers > 0, selective) {
         // Patch-selective (gh:#1202): name the boundary first, then grow
@@ -553,18 +600,16 @@ fn run_pipeline(
                 if n_layer_faces == 0 {
                     notes.push(format!("boundary layers skipped — no boundary face is on {:?}", opts.layer_patches));
                 } else {
-                    let layered = add_boundary_layers_adaptive_on_patches(
-                        &named,
-                        &names,
-                        opts.n_layers,
-                        opts.first_layer_thickness.max(1e-6),
-                        opts.expansion.max(1.0),
-                    );
+                    let (layered, outcome) = grow_layers(&named, &names, opts);
                     let before = mesh.cell_count();
                     let (m, kept) = keep_if_ok(mesh, layered);
                     mesh = m;
+                    let strategy = outcome.strategy;
+                    layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
                     if !kept {
                         notes.push("boundary layers skipped — the wall is too tight for any valid layer".into());
+                    } else if strategy != LayerQualityStrategy::BackOffOnly {
+                        notes.push(layer_note(layer_outcome.as_ref().unwrap()));
                     } else if mesh.cell_count() != before + opts.n_layers * n_layer_faces {
                         notes.push(
                             "boundary layers added none — the layerer backed off to zero thickness, or a point \
@@ -583,13 +628,7 @@ fn run_pipeline(
                 opts.wall_patch
             ));
         } else {
-            let layered = add_boundary_layers_adaptive(
-                &mesh,
-                &opts.wall_patch,
-                opts.n_layers,
-                opts.first_layer_thickness.max(1e-6),
-                opts.expansion.max(1.0),
-            );
+            let (layered, outcome) = grow_layers(&mesh, &[opts.wall_patch.as_str()], opts);
             // The adaptive layerer already backs off to a valid mesh, but it can
             // return the input rebuilt (no layers) when the wall is too tight;
             // either way `acceptable` keeps only a valid result.
@@ -602,10 +641,14 @@ fn run_pipeline(
             let before = mesh.cell_count();
             let (m, kept) = keep_if_ok(mesh, layered);
             mesh = m;
+            let strategy = outcome.strategy;
+            layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
             if !kept {
                 notes.push(
                     "boundary layers skipped — the wall is too tight for any valid layer".into(),
                 );
+            } else if strategy != LayerQualityStrategy::BackOffOnly {
+                notes.push(layer_note(layer_outcome.as_ref().unwrap()));
             } else if mesh.cell_count() == before {
                 notes.push(
                     "boundary layers added none — the adaptive layerer backed off to zero thickness \
@@ -640,6 +683,7 @@ fn run_pipeline(
         max_non_orthogonality_deg: q.max_non_orthogonality_deg,
         max_skewness: q.max_skewness,
         n_negative_volume_cells: q.n_negative_volume_cells,
+        layers: layer_outcome,
     };
     Ok((mesh, report))
 }
@@ -1396,10 +1440,22 @@ mod tests {
     /// pipe (R 10 mm, L 60 mm, 48 facets) at h 6 / 4 mm with 1–3 layers, and a
     /// 20 × 20 × 60 mm box duct at h 5 mm with 2 layers; each final mesh is
     /// fingerprinted (points to the bit, faces, owners, neighbours, patches).
-    /// The fingerprints were recorded on 2026-11-04 on the code *before*
-    /// gh:#1215 (commit `ffda5fb46`) and are asserted here, so introducing
-    /// the layer-quality strategies cannot move a recorded number under
-    /// `LayerQualityStrategy::BackOffOnly`.
+    ///
+    /// Results (2026-11-04). ~~The fingerprints were recorded on the code
+    /// before gh:#1215 and pin it.~~ **CORRECTED the same day:** recording them
+    /// exposed that the pipeline was **not reproducible between processes**:
+    /// the Delaunay flipper (`delaunay::flip_to_delaunay`) swept the faces in
+    /// `HashMap` order, randomly seeded per process, so the h 6 mm pipe got a
+    /// different mesh on every run (three runs, three fingerprints, same
+    /// cell count); `tet_dual_stages_are_deterministic` compares two calls
+    /// within one process and could not see it. The sweep now runs in
+    /// `BTreeMap` order. The layer code itself was checked separately: the
+    /// pre-gh:#1215 `add_boundary_layers_adaptive_on_patches` (a temporary
+    /// copy from `ffda5fb46`) and the refactored one give identical meshes,
+    /// points to the bit, on the bare h 6 / 4 / 5 mm pipes with 1–3 layers
+    /// (7 cases). The fingerprints below are the deterministic ones; the h 4
+    /// mm and box-duct values equal the first recording (the flip order did
+    /// not change those meshes), the h 6 mm ones do not.
     #[test]
     fn back_off_only_layers_are_pinned_bit_for_bit() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
@@ -1428,14 +1484,17 @@ mod tests {
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&bp, &bt, &br, &o).unwrap();
         got.push(("box duct h 0.005 n 2".into(), m.cell_count(), mesh_fingerprint(&m)));
         let pinned: [(usize, u64); 7] = [
-            (2025, 14571713154878100336),
-            (3445, 15107328938539315242),
-            (4865, 17913122352869577766),
+            (2025, 7691211397797103741),
+            (3445, 6777344945964783458),
+            (4865, 8963858472090204797),
             (5511, 11354576510400452468),
             (9079, 6008187938627271744),
             (12647, 13850840632559401666),
             (5813, 7672853737214871962),
         ];
+        for g in &got {
+            eprintln!("fingerprint {g:?}");
+        }
         for (g, want) in got.iter().zip(pinned) {
             assert_eq!((g.1, g.2), want, "{} moved", g.0);
         }
