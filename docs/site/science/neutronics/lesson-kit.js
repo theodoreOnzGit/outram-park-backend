@@ -322,6 +322,10 @@
     ["chem-steam.html", "Steam on graphite and bare kernels"],
     // Chapter 5, "Integrating it in TRISO-ATOPS" (maintainer direction
     // 2026-10-22: chapters 3 and 4 brought together inside TRISO-ATOPS).
+    // gh:#1209 (maintainer direction 2026-11-04): the diffusion arc opens
+    // the chapter, from the equation to whether TRISO-ATOPS is conservative.
+    ["diffusion-three-ways.html", "The diffusion equation, three ways"],
+    ["atops-conservative.html", "Is TRISO-ATOPS's analytical solution conservative?"],
     ["atops-big-picture.html", "TRISO-ATOPS: the big picture"],
     ["atops-groups.html", "84 nuclides, five groups"],
     ["atops-diffusion.html", "One diffusion law per group"],
