@@ -33,10 +33,12 @@ mod nav;
 mod organisations_view;
 mod user_management_view;
 mod workspace_test;
+mod single_test;
 #[cfg(test)]
 mod headless_shot;
 mod page_canvas;
 mod pdf_reader;
+mod pdf_search;
 mod plot_setup;
 mod repo_management_view;
 mod review_mode_panel;

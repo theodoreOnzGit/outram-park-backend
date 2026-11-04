@@ -48,6 +48,9 @@ pub struct BarInfo {
     pub tests: Vec<(String, u32)>,
     pub tests_total: usize,
     pub examples: Vec<(String, u32)>,
+    /// When the function is a `#[test]`: its libtest name, for "Run this
+    /// test" (GitHub #1165, desktop only).
+    pub test_name: Option<String>,
 }
 
 /// What the reader did in the bar.
@@ -60,6 +63,9 @@ pub enum BarAction {
     /// Desktop only: becomes [`super::HostRequest::NeedsFix`].
     NeedsFix,
     ViewSource,
+    /// Desktop only, a test only (#1165): becomes
+    /// [`super::HostRequest::RunTest`].
+    RunTest,
 }
 
 /// The colour of a state's tone ([`Tone`], shared by every view).
@@ -144,6 +150,15 @@ pub fn review_bar(ui: &mut egui::Ui, mode: Mode, info: &BarInfo, expanded: &mut 
         if ui.button("Source").clicked() {
             action = Some(BarAction::ViewSource);
         }
+        if mode.can_run_tests() && info.test_name.is_some() {
+            let run = ui.button("Run this test").on_hover_text(
+                "Run only this test in release, with its printed output (kovan-cli test, \
+                 recorded as a partial run: it never counts as test evidence).",
+            );
+            if run.clicked() {
+                action = Some(BarAction::RunTest);
+            }
+        }
         let can = mode.can_stamp();
         let why = "stamping is desktop-only";
         let bottom_up = stamp_blocked_reason(info);
@@ -221,6 +236,7 @@ mod tests {
             tests: Vec::new(),
             tests_total: 0,
             examples: Vec::new(),
+            test_name: None,
         }
     }
 
