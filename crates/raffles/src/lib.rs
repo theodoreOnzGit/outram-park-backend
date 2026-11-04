@@ -168,6 +168,7 @@ pub mod filtering;
 pub mod gnn;
 pub mod imprecise;
 pub mod model_selection;
+pub mod openda;
 pub mod samplers;
 pub mod scram;
 pub mod sensitivity;

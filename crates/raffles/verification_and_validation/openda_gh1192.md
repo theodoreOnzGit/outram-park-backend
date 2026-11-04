@@ -158,6 +158,31 @@ this is driver input, not OpenDA code.
     Gaspari–Cohn half-width is `Math.sqrt(10 / 3)`, integer division, i.e.
     √3 rather than √(10/3).
 
+### 3.1 Found while porting (after §4 was written; ported faithfully)
+
+14. **`StochVector.evaluatePdf`, independent branch, multiplies by Πσ
+    instead of dividing**: it divides `sqrtDetCov` by each σ and then
+    returns `prob / sqrtDetCov`. The particle filter only uses ratios of
+    weights with one σ vector, so its resampling is unaffected; a caller
+    using the value as a density gets it wrong by Πσ².
+15. **The weighted cost drops the observation at the model start time**:
+    `createSelection(getTimeHorizon())` keeps times in `(t_start, t_stop]`
+    (`Time.inSpan`'s strict lower bound), so the oscillator calibration
+    uses 10 of the fixture's 11 observations (confirmed: 10 predictions per
+    evaluation in the reference).
+16. **The oscillator and Lorenz models redeclare `initialStateUncertainty`**,
+    shadowing the field `getStateUncertainty()` returns: without an
+    `initialStateUncertainty` configuration entry the model has **no** state
+    uncertainty, whatever its constructor sets. Likewise a configured
+    `parameters` entry without `parameterUncertainty` leaves the uncertainty
+    centred on the constructor's defaults.
+17. **The Simplex error estimate collapses for a small simplex**: it
+    inverts AᵀA with `Matrix.inverse()`, whose singular-value cut-off is
+    **absolute** (1e-7), so once the simplex has shrunk far enough the
+    estimate becomes 0 (seen in a unit test at tolerances 1e-14; with
+    OpenDA's defaults it is (1, 2) on the simple least-squares case, as the
+    reference records).
+
 ## 4. Predictions (written before the port)
 
 ### Differential (bit-identical unless stated)
@@ -193,9 +218,75 @@ this is driver input, not OpenDA code.
 Written before the pilot code in
 `crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_openda_gh1192.md`.
 
-## 5. Results
+## 5. Results (2026-11-04)
 
-*To be added after the port runs.*
+Commands: `cargo test --release -p raffles --test openda_gh1192 -- --nocapture`
+(all six tests, 70 s, dominated by A5's EnSR at N 400).
+
+### Differential
+
+| id | prediction | measured |
+|---|---|---|
+| D1 | JAMA SVD bit-identical | **bit-identical** (U, s, V of all 6 matrices) |
+| D2 | OpenDA kernels bit-identical | **bit-identical**; D1 + D2 together **402/402** |
+| D3 | ≤ 1 % of `exp` differ, by 1 ulp | **met**: 6 of 2 000 differ, each by 1 ulp (glibc `exp` vs the JVM's intrinsic) |
+| D4 | Simplex bit-identical, 25 / 90 / 22 evaluations | **met**, same counts |
+| D5 | Powell bit-identical, 47 / 116 / 230 | **met**, same counts |
+| D6 | DUD bit-identical with the error estimate | **met** |
+| D7 | oscillator calibration ×6 bit-identical (every parameter, cost and prediction) | **met**: DUD 8 / 4, Simplex 22 / 25, Powell 35 / 34 evaluations, no-background / background |
+| D4–D7 total | | **3 330/3 330 bit-identical** |
+| D8 | EnKF none / Hamill / Zhang / stochastic parameters, draws injected | **met**: every member, gain and main state |
+| D9 | EnSR | **met** |
+| D10 | PF states bit-identical | **met**; the D3 `exp` differences did not reach these weights |
+| D11 | steady-state filter | **met** |
+| D12 | Lorenz-63 EnKF | **met** |
+| D8–D12 total | | **4 281/4 281 bit-identical**, and every recorded draw consumed, no more (4 130, 4 130, 4 130 + 5 500 integers, 4 150, 4 020, 8 040 + 53 uniforms, 0, 6 330) |
+| D13 | statistical pass (criterion fixed first) | **pass, all six** components: |
+
+| D13 | x[0] \|Δmean\|/se, sd ratio | x[1] \|Δmean\|/se, sd ratio |
+|---|---|---|
+| EnKF (N 10) | 0.97, 1.055 | 1.21, 1.105 |
+| EnSR (N 10) | 0.38, 0.926 | 0.27, 1.149 |
+| PF (N 20) | 0.35, 0.967 | 0.40, 1.051 |
+
+**No residual needs a human judgement:** every deterministic comparison and
+every injected-draw comparison is bit-identical, so the 1e-8 allowance was
+not used.
+
+### Analytic
+
+| id | prediction | measured |
+|---|---|---|
+| A1 | DUD exact to 1e-12 at its first trial | **met**: max relative error 2.7e-15, 4 evaluations in all |
+| A2 | Simplex within 1e-5 | **met**: 2.9e-9 after 69 iterations |
+| A3 | Powell within 1e-5 | **MISSED**: stopped after 2 iterations at (0.579, 0.816), error 1.42 |
+| A4 | EnKF → KF monotone, < 0.1 at N 1600, variance within 10 % | **met**: 0.145, 0.069, 0.054, **0.0165** σ_KF at N 25, 100, 400, 1600; variance ratio (0.998, 1.010) |
+| A5 | EnSR < 0.1 at N 1600 | **not tested as predicted**: OpenDA's EnSR does a q×q SVD per analysis; 10 seeds at N 400 took 66 s, so N 1600 (≈ 64×) was not run. At N 25, 100, 400: 0.138, 0.056, 0.0525 σ_KF, reported without a gate |
+
+**A3, the miss.** The exact KF at t = 10 is x = (−0.22801, −0.01798),
+σ = (0.0956, 0.371). On the straight line, OpenDA's Powell (bit-identical
+to OpenDA on the six D5/D7 cases, so taken to be OpenDA's behaviour; the
+line problem itself was not run in Java) makes one good sweep, then in
+iteration 2 both Brent line searches return their base point, the change
+in J is exactly 0, and the outer test `|ΔJ| < absTol` stops it. **Post-hoc
+diagnosis (run after the miss, not a prediction):** with Brent's tolerances
+tightened from OpenDA's 0.01 / 0.001 to 1e-14, the same code reaches
+(2.0, 0.49999999999999994) in 3 iterations. The cause is OpenDA's Brent
+stopping on a relative change in f between successive trial points with no
+x-tolerance. The test keeps no accuracy gate on A3; it pins only the
+post-hoc check. Not changed in the port: it is upstream's behaviour.
+
+### Reading the results
+
+- On the same inputs and draws, the port reproduces OpenDA's sequential
+  filters and optimisers exactly, including their quirks (§3), and its own
+  draws reproduce OpenDA's statistics (D13).
+- OpenDA's Powell with its default line-search tolerances can stall on an
+  ill-conditioned quadratic; DUD is exact on a linear model; Simplex is
+  slow but gets there.
+- The EnKF's error falls by factors 2.1, 1.3 and 3.3 per four-fold N;
+  1/√N would give 2 each. With 10 seeds per N the steps are noisy; the
+  rate itself was not a prediction and is not claimed.
 
 ## 6. Not ported (with reason)
 

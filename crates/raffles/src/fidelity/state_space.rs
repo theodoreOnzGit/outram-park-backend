@@ -30,6 +30,7 @@ use super::quantities::Quantities;
 use crate::filtering::{
     nis, EnsembleKalmanFilter, ExtendedKalmanFilter, Matrix, MerweScaledSigmaPoints, UnscentedKalmanFilter,
 };
+use crate::openda::{enkf_update, DrawSource, LocalizationInput, Observations as OdaObservations, StochVector};
 use crate::{RafflesError, Result};
 
 /// A caller's state-space model, typed.
@@ -106,6 +107,48 @@ pub enum Assimilator {
         /// The LCG state for the draws.
         seed: u64,
     },
+    /// OpenDA's EnKF (gh:#1192, [`crate::openda::enkf_update`]): members
+    /// propagated by the model plus a realisation of `N(0, Q)` (OpenDA's
+    /// system noise), perturbed observations, no localisation. Its estimate
+    /// is the ensemble mean and the ensemble covariance (1/(N − 1)); OpenDA
+    /// itself reports the mean and the standard deviations.
+    OpenDaEnsemble {
+        /// Member states, SI.
+        members: Vec<Vec<f64>>,
+        /// The process noise per step.
+        process_noise: StochVector,
+        /// Observation standard deviations (R must be diagonal: OpenDA's
+        /// observer is independent).
+        obs_std: Vec<f64>,
+        /// The draws.
+        draws: DrawSource,
+    },
+}
+
+/// `N(0, C)` as OpenDA builds it: independent when `C` is diagonal,
+/// otherwise correlated with OpenDA's SVD square root.
+fn zero_mean(c: &Matrix) -> Result<StochVector> {
+    let n = c.rows();
+    let diagonal = (0..n).all(|i| (0..n).all(|j| i == j || c.get(i, j) == 0.0));
+    if diagonal {
+        StochVector::independent(vec![0.0; n], c.diag().iter().map(|v| v.sqrt()).collect())
+    } else {
+        StochVector::correlated(vec![0.0; n], c.to_rows(), false)
+    }
+}
+
+/// The ensemble mean and the 1/(N − 1) covariance.
+fn ensemble_gaussian<S: Quantities>(members: &[Vec<f64>]) -> Result<Gaussian<S>> {
+    let n = members.len() as f64;
+    let mean = crate::openda::linalg::ensemble_average(members);
+    let d = mean.len();
+    let mut p = Matrix::zeros(d, d);
+    for i in 0..d {
+        for j in 0..d {
+            p.set(i, j, members.iter().map(|x| (x[i] - mean[i]) * (x[j] - mean[j])).sum::<f64>() / (n - 1.0));
+        }
+    }
+    Gaussian::from_si(&mean, &p)
 }
 
 fn check_square(m: &Matrix, n: usize) -> Result<()> {
@@ -201,6 +244,35 @@ impl Assimilator {
         Ok(Self::Ensemble { filter: f, seed })
     }
 
+    /// OpenDA's EnKF of `members` members (gh:#1192): each member is `x₀` plus
+    /// a realisation of `N(0, P₀)` (OpenDA's `stochInit`), drawn on the
+    /// workspace LCG at `seed`.
+    ///
+    /// # Errors
+    /// On a shape mismatch, a non-diagonal R, or fewer than 2 members.
+    pub fn openda_ensemble<S: Quantities, O: Quantities>(x0: &S, p0: Matrix, q: Matrix, r: Matrix, members: usize, seed: u64) -> Result<Self> {
+        let (n, m) = (S::width(), O::width());
+        check_square(&p0, n)?;
+        check_square(&q, n)?;
+        check_square(&r, m)?;
+        if members < 2 {
+            return Err(RafflesError::InvalidParameter { parameter: "members".into(), value: members as f64, reason: "an ensemble needs at least 2".into() });
+        }
+        if (0..m).any(|i| (0..m).any(|j| i != j && r.get(i, j) != 0.0)) {
+            return Err(RafflesError::InvalidParameter { parameter: "R".into(), value: 0.0, reason: "OpenDA's observer is independent: R must be diagonal".into() });
+        }
+        let mut draws = DrawSource::lcg(seed);
+        let init = zero_mean(&p0)?;
+        let x = x0.to_si();
+        let mut ens = Vec::with_capacity(members);
+        for _ in 0..members {
+            let mut xi = x.clone();
+            crate::openda::linalg::axpy(&mut xi, 1.0, &init.realization(&mut draws)?);
+            ens.push(xi);
+        }
+        Ok(Self::OpenDaEnsemble { members: ens, process_noise: zero_mean(&q)?, obs_std: r.diag().iter().map(|v| v.sqrt()).collect(), draws })
+    }
+
     /// The current estimate.
     ///
     /// # Errors
@@ -210,6 +282,7 @@ impl Assimilator {
             Self::Extended { filter, .. } => Gaussian::from_si(&filter.x.col(0), &filter.p),
             Self::Unscented(f) => Gaussian::from_si(&f.x, &f.p),
             Self::Ensemble { filter, .. } => Gaussian::from_si(&filter.x, &filter.p),
+            Self::OpenDaEnsemble { members, .. } => ensemble_gaussian(members),
         }
     }
 
@@ -263,6 +336,27 @@ impl Assimilator {
                 filter.update(&zs, model_hx(model, step), seed)?;
                 let y: Vec<f64> = zs.iter().zip(&zp).map(|(a, b)| a - b).collect();
                 (prior, zp, y, filter.s.clone(), Gaussian::from_si(&filter.x, &filter.p)?)
+            }
+            Self::OpenDaEnsemble { members, process_noise, obs_std, draws } => {
+                if predict {
+                    let fx = model_fx(model, prev);
+                    for xi in members.iter_mut() {
+                        let mut x = fx(xi)?;
+                        crate::openda::linalg::axpy(&mut x, 1.0, &process_noise.realization(draws)?);
+                        *xi = x;
+                    }
+                }
+                let prior = ensemble_gaussian(members)?;
+                let hx = model_hx(model, step);
+                let preds = members.iter().map(|x| hx(x)).collect::<Result<Vec<_>>>()?;
+                let m = zs.len();
+                let obs = OdaObservations::new(vec![0.0; m], (0..m).map(|i| i as f64).collect(), zs.clone(), obs_std.clone(), None)?;
+                let up = enkf_update(members.clone(), preds, &obs, &LocalizationInput::None, draws)?;
+                for (xi, d) in members.iter_mut().zip(&up.deltas) {
+                    crate::openda::linalg::axpy(xi, 1.0, d);
+                }
+                let y: Vec<f64> = zs.iter().zip(&up.predicted_mean).map(|(a, b)| a - b).collect();
+                (prior, up.predicted_mean.clone(), y, Matrix::from_rows(&up.innovation_covariance)?, ensemble_gaussian(members)?)
             }
         };
         Ok(AssimilationStep {
@@ -328,6 +422,7 @@ mod tests {
         let mut ekf = Assimilator::extended::<Kinematic, Fix>(&x0, p0.clone(), q.clone(), r.clone(), 1e-3).unwrap();
         let mut ukf = Assimilator::unscented::<Kinematic, Fix>(&x0, p0.clone(), q.clone(), r.clone(), 0.5, 2.0, 1.0).unwrap();
         let mut enkf = Assimilator::ensemble::<Kinematic, Fix>(&x0, p0.clone(), q.clone(), r.clone(), 400, 7).unwrap();
+        let mut oda = Assimilator::openda_ensemble::<Kinematic, Fix>(&x0, p0.clone(), q.clone(), r.clone(), 400, 7).unwrap();
         let mut nis_sum = 0.0;
         for k in 0..30usize {
             let z = Fix { pos: Length::new::<meter>(0.1 * k as f64 + 0.3 * ((k as f64 * 0.77) % 1.0 - 0.5)) };
@@ -338,6 +433,10 @@ mod tests {
             let se = ekf.step(&Cv, k, &z).unwrap();
             let su = ukf.step(&Cv, k, &z).unwrap();
             let sn = enkf.step(&Cv, k, &z).unwrap();
+            let so = oda.step(&Cv, k, &z).unwrap();
+            let mo = so.posterior.mean.to_si();
+            assert!((mo[0] - kf.x.get(0, 0)).abs() < 4.0 * kf.p.get(0, 0).sqrt() / 20.0 + 0.02, "openda enkf k{k}");
+            assert!(so.nis.is_finite() && so.posterior.covariance_si.get(0, 0) > 0.0);
             nis_sum += su.nis;
             for (est, tol) in [(&se.posterior, 1e-9), (&su.posterior, 1e-9)] {
                 let m = est.mean.to_si();
@@ -358,6 +457,10 @@ mod tests {
         assert!(e.std_dev.pos.get::<meter>() > 0.0 && e.std_dev.pos.get::<meter>() < 0.5);
         let _: Gaussian<Kinematic> = ekf.estimate().unwrap();
         let _: Gaussian<Kinematic> = enkf.estimate().unwrap();
+        let _: Gaussian<Kinematic> = oda.estimate().unwrap();
+        assert!(Assimilator::openda_ensemble::<Kinematic, Fix>(&x0, p0.clone(), q.clone(), r.clone(), 1, 7).is_err());
+        let rr = Matrix::from_rows(&[vec![0.25]]).unwrap();
+        assert!(Assimilator::openda_ensemble::<Kinematic, Fix>(&x0, p0.clone(), q.clone(), rr, 10, 7).is_ok());
         assert!(Assimilator::extended::<Kinematic, Fix>(&x0, p0.clone(), q.clone(), r.clone(), 0.0).is_err());
         assert!(Assimilator::unscented::<Kinematic, Fix>(&x0, r.clone(), q.clone(), r.clone(), 0.5, 2.0, 1.0).is_err());
         assert!(Assimilator::ensemble::<Kinematic, Fix>(&x0, p0, q, r, 1, 7).is_err());

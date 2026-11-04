@@ -533,6 +533,54 @@ Verification: verification_and_validation/filterpy_gh1191.md.
 Status: AI-assisted draft, not reviewed by a human.
 
 
+OPENDA (OpenDA Association) — LGPL-3.0-or-later (gh:#1192, 2026-11-04)
+=======================================================================
+
+  Project:     OpenDA, open data assimilation toolbox (openda.org)
+  Repository:  https://github.com/OpenDA-Association/OpenDA
+  Commit:      e51565c2c8def7d35f8b378a9ac118edbd98a94d (2026-10-23),
+               accessed 2026-11-04
+  License:     GNU Lesser General Public License v3, "or (at your option)
+               any later version" (each file's header), "Copyright (c) 2012
+               OpenDA Association" (some files 2008/2014/2018). Upstream
+               license.txt preserved verbatim as LICENSE-LGPL-3.0-OPENDA
+               (sha256
+               97628afebc60f026f5c2b25d7491c46a5c4ee61f693e7cfa07fbd2c03605979b).
+  Ported:      algorithms/.../kalmanFilter/{EnKF, EnsembleVectors,
+               AutoLocalizationZhang2011, EnSR, ParticleFilter,
+               SteadyStateFilter, AbstractSequentialAlgorithm,
+               AbstractSequentialEnsembleAlgorithm}.java;
+               algorithms/{BaseDudCoreOptimizer, DudCoreOptimizer,
+               SimplexCoreOptimizer, PowellCoreOptimizer,
+               SimulationKwadraticCostFunction, SimpleCostFunction,
+               RosenbrockCostFunction, SimpleLeastSquaresCostFunction}.java;
+               core/.../utils/{Matrix, VectorDouble, StochVector,
+               SqrtCovariance, Time}.java; models/.../{simpleModel/
+               SimpleStochModelInstance, oscillator/OscillatorStochModelInstance,
+               lorenz/LorenzStochModelInstance}.java; observers/
+               CsvStochObserver.java (subset).
+  Into:        src/openda/{enkf,ensr,sequential,dud,simplex,powell,cost,
+               noise,models,linalg}.rs, each with its own header.
+               src/openda/mod.rs and noise.rs's DrawSource are NOT ports.
+
+  LGPL-3.0 is GPL-3.0 plus additional permissions, so this code is conveyed
+  inside the AGPL-3.0-only crate as a combined work (GPLv3 section 13 /
+  AGPLv3 section 13); the ported files keep OpenDA's LGPL notice.
+
+JAMA (NIST and The MathWorks) — public domain (gh:#1192, 2026-11-04)
+===================================================================
+
+  JAMA 1.0.2, Jama/SingularValueDecomposition.java, Jama/util/Maths.java,
+  Jama/Matrix.java (times, transpose), as vendored by OpenDA
+  (core/java/resources/jama/Jama-1.0.2.jar; sources from Maven Central
+  gov.nist.math:jama:1.0.2, bytecode checked identical in arithmetic).
+  "This software is a cooperative product of The MathWorks and the National
+  Institute of Standards and Technology (NIST) which has been released to the
+  public domain." Into src/openda/jama.rs.
+
+Verification: verification_and_validation/openda_gh1192.md.
+Status: AI-assisted draft, not reviewed by a human.
+
 INDEPENDENCE / TRADEMARK
 ========================
 
