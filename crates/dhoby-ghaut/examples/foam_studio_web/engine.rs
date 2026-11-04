@@ -1078,7 +1078,13 @@ impl Engine {
             // are not ported; `Gauss linear` is the second-order scheme the port
             // has (the coil demo uses it too). The O-grid, whose faces are aligned
             // with the flow, keeps upwind and its recorded numbers.
-            s.schemes.default_div = outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinear;
+            // UPDATED 2026-11-04 (gh:#1202): `linearUpwind` and `cellLimited`
+            // are ported; the demo now runs the tutorials' pair,
+            // `div(phi,U) Gauss linearUpwind grad(U)` with
+            // `grad(U) cellLimited Gauss linear 1` (`incompressibleFluid/propeller`,
+            // `multiRegion/CHT/misalignedDuct`), chosen before measuring it.
+            s.schemes.default_div = outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinearUpwind("grad(U)".into());
+            s.schemes.grad_u = Some(outram_foam_appbuilder_lib::io::fv_schemes::GradScheme::CellLimitedGaussLinear(1.0));
             if max_non_orthogonality_deg(&s.mesh) > LIMITED_ABOVE_DEG {
                 s.schemes.default_laplacian = outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme::GaussLinearLimited(LIMITED_COEFF);
             }

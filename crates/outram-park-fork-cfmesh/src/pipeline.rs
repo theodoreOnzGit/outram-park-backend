@@ -1467,4 +1467,57 @@ mod tests {
             rep.max_skewness
         );
     }
+
+    /// Diagnostic (gh:#1202), `--ignored`: list the boundary faces whose
+    /// pyramid about their owner's centre is not positive (S·(c_f − C) ≤ 0)
+    /// on the demo's layered pipes, with the owner's kind and the face's patch.
+    #[test]
+    #[ignore]
+    fn diagnose_inward_boundary_faces_on_layered_pipes() {
+        let (r, l) = (0.01, 0.2);
+        let (p, t, regions) = pipe_surface(r, l, 48);
+        for (h, n) in [(0.006, 0), (0.006, 1), (0.005, 1), (0.005, 2), (0.004, 2)] {
+            let base = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+            let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
+            let opts = TetDualOptions { n_layers: n, first_layer_thickness: 0.0003, expansion: 1.2, layer_patches: vec!["walls".into()], ..base.clone() };
+            let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
+            let q = check_quality(&m);
+            let (_, centres) = crate::checks::cell_geometry_for_tests(&m);
+            let n0 = bare.cell_count();
+            let mut lines = Vec::new();
+            for pa in &m.patches {
+                for f in pa.start_face..pa.start_face + pa.n_faces {
+                    let s = m.face_area_vector(f);
+                    let c = m.face_centroid(f);
+                    let o = m.owner[f];
+                    let pyr = c.sub(centres[o]).dot(s);
+                    if pyr <= 0.0 {
+                        let rr = (c.x * c.x + c.y * c.y).sqrt();
+                        let nz = s.z / s.length();
+                        lines.push(format!(
+                            "  {} face {f} ({} verts) owner {} {}: r {:.2} mm z {:.2} mm n_z {nz:.3} pyr/|S|^1.5 {:.3e}",
+                            pa.name,
+                            m.faces[f].len(),
+                            o,
+                            if o >= n0 { "prism" } else { "dual" },
+                            1e3 * rr,
+                            1e3 * c.z,
+                            pyr / s.length().powf(1.5)
+                        ));
+                    }
+                }
+            }
+            println!(
+                "h {h} layers {n}: {} cells, neg pyramids {} (boundary {}), max non-ortho {:.1}, notes {:?}",
+                m.cell_count(),
+                q.n_negative_pyramid_faces,
+                lines.len(),
+                rep.max_non_orthogonality_deg,
+                rep.stage_notes
+            );
+            for li in lines.iter().take(30) {
+                println!("{li}");
+            }
+        }
+    }
 }

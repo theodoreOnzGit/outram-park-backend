@@ -312,6 +312,13 @@ pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
 /// Per-cell `(volume, centroid)` via the OpenFOAM pyramid decomposition: each
 /// face forms a pyramid with the cell's face-centroid average as apex; the
 /// cell volume and centroid are the signed sums over those pyramids.
+/// Test access to [`cell_geometry`] (the volumes and centres the quality
+/// checks use), for diagnostics in sibling modules.
+#[cfg(test)]
+pub(crate) fn cell_geometry_for_tests(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
+    cell_geometry(mesh)
+}
+
 fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
     // Collect each cell's (face, outward-sign): +1 for its owner faces, −1 for
     // faces where it is the neighbour (the stored normal points owner→neighbour).

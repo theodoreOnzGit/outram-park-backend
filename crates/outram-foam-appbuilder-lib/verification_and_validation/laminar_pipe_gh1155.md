@@ -604,6 +604,35 @@ pipe):**
 | demo default within 2 % with the scheme alone | **no** | u_c and dp/dz miss by the same 6 % at h 4 mm with `Gauss linear`; a scheme change would move the profile shape, not both together. I expect the cause elsewhere (step 4 candidates) |
 | steps to steady at h 4 mm | 40–80 (Gauss linear: 61) | upwind-biased, so at least as stable as central |
 
+**Results (2026-11-04, native release, Re = 100, bare duals, 2 correctors,
+`corrected`; `diagnose_unstructured_linear_refinement` with `FOAM_DIV_U`;
+the `Gauss linear` rows reproduce the earlier record to every digit):**
+
+| h (mm) | cells | `Gauss linear`: steps, u_c/2U, dp/dz, RMS, τ_w | `linearUpwind`, Gauss linear grad | `linearUpwind`, `cellLimited … 1` (**demo setting**) |
+|---|---|---|---|---|
+| 6 | 1 939 | 70, 0.8623, 0.8549, 0.0858, 0.8185 | 20, 0.8182, 0.9520, 0.1035, 0.9111 | 22, 0.7333, 0.9989, 0.1184, 0.9575 |
+| 5 | 3 113 | 55, 0.8856, 0.8868, 0.0715, 0.8665 | 18, 0.8349, 0.9704, 0.0903, 0.9488 | 22, 0.8287, 0.9336, 0.0918, 0.9128 |
+| 4 (default) | 6 353 | 61, 0.9416, 0.9414, 0.0395, 0.9257 | 26, **0.9205**, **1.0005**, 0.0472, 0.9853 | 29, **0.8534**, **0.9983**, 0.0574, 0.9832 |
+| 3.3 | 11 177 | 54, 0.9685, 0.9754, 0.0192, 0.9634 | 32, 0.9675, 1.0114, 0.0225, 1.0005 | 37, 0.9585, 0.9933, 0.0246, 0.9809 |
+
+| prediction | result | verdict |
+|---|---|---|
+| `linearUpwind` within ±0.02 of `Gauss linear` | u_c −0.02 to −0.05 (h ≥ 4 mm), dp/dz **+0.04 to +0.10** | **missed**: the scheme moves dp/dz much more than predicted, and u_c and dp/dz no longer move together |
+| `cellLimited` 0–0.03 below unlimited | u_c −0.07 at h 4 mm, −0.09 at 6 mm, −0.01 at 3.3 mm; dp/dz ±0.04 | **missed** at h 4–6 mm (more diffusive than predicted) |
+| monotone toward 1 | `linearUpwind` u_c monotone; dp/dz overshoots 1 at 3.3 mm; limited u_c monotone, dp/dz not | partly |
+| default within 2 % with the scheme alone | demo setting: u_c **0.853**, dp/dz **0.998** | held (it is not): u_c misses by 15 % |
+| 40–80 steps at h 4 mm | 26–29 | missed (faster) |
+
+**Reading it.** dp/dz is within 0.2 % of Hagen–Poiseuille at the default
+under both `linearUpwind` variants, but the centreline velocity is 8–15 %
+low; the profile is flatter than parabolic while the wall shear is right
+(τ_w 0.98). The schemes disagree with each other by more than their
+truncation error should allow at h = 4 mm, and the limiter (which only
+acts where the gradient extrapolation overshoots a neighbour) changes u_c
+by 7 %: the gradient on these cells is suspect. That is the "gradient
+reconstruction" candidate of step 4, examined below. The demo takes the
+tutorial pair regardless, as decided before the run.
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by
