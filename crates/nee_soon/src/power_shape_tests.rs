@@ -5,6 +5,7 @@
 //! exact integrals the ring quadrature promises, the expansion round trips
 //! through the Monte Carlo filters' own basis, and the frames.
 
+use petir::mathf::RealMath;
 use super::*;
 use outram_mc_libs::tally::filter::FilterEvent;
 use uom::si::power::megawatt;
@@ -140,7 +141,7 @@ fn ring_integrals_are_exact() {
     let cosine = PowerShape::ChoppedCosine { centre: l(0.0), extrapolated_height: l(200.0) };
     // int_{-50}^{70} cos(pi z / 200) dz = (200/pi)(sin(0.35 pi) + sin(0.25 pi)).
     let i = cosine.integrate_ring([0.0, 90.0], [-50.0, 70.0]);
-    let exact = ring(0.0, 90.0) * 200.0 / PI * ((0.35 * PI).sin() + (0.25 * PI).sin());
+    let exact = ring(0.0, 90.0) * 200.0 / PI * ((0.35 * PI).r_sin() + (0.25 * PI).r_sin());
     assert!((i / exact - 1.0).abs() < 1e-12, "{i} vs {exact}");
 
     // A region lump: its fraction of the power lands in its ring exactly.
@@ -162,7 +163,7 @@ fn score_cylinder(tally: &mut Tally, q: impl Fn(f64, f64, f64) -> f64) {
             let z = 90.0 * xz;
             for k in 0..n_theta {
                 let t = (k as f64 + 0.5) * 2.0 * PI / n_theta as f64;
-                let (x, y) = (r * t.cos(), r * t.sin());
+                let (x, y) = (r * t.r_cos(), r * t.r_sin());
                 let w = wr * wz * 45.0 * 90.0 * r * 2.0 * PI / n_theta as f64 * q(x, y, z);
                 let ev = FilterEvent { position: Position::new(x, y, z), ..Default::default() };
                 let f = &tally.filters[0];

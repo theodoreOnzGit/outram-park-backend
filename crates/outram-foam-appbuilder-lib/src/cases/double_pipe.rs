@@ -40,6 +40,7 @@
 //! against the solved ε tests what the ideal model leaves out (axial
 //! conduction in the wall and the fluids, and the entrance regions' radial
 //! profiles), not an identity.
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
@@ -163,7 +164,7 @@ fn patch_area(m: &FvMesh, name: &str) -> Result<f64, AppBuilderError> {
 #[must_use]
 pub fn pseudo_time_step(mesh: &FvMesh, bulk: Velocity, nu: KinematicViscosity, dz: Length, co: f64, max_viscous: f64) -> Time {
     let vol: f64 = mesh.cell_volumes.iter().sum();
-    let h = (vol / mesh.n_cells.max(1) as f64).cbrt();
+    let h = (vol / mesh.n_cells.max(1) as f64).r_cbrt();
     let dt_co = co * dz.get::<meter>() / (2.0 * bulk.get::<meter_per_second>().max(1e-300));
     let dt_visc = max_viscous * h * h / nu.get::<square_meter_per_second>().max(1e-300);
     Time::new::<second>(dt_co.min(dt_visc))
@@ -313,7 +314,7 @@ pub fn report(cht: &ChtMultiRegionFoam, case: &DoublePipeExchanger) -> Exchanger
     }
     let ua_local = ql.iter().zip(bh.iter().zip(&bc)).filter(|(_, (h, c))| h.is_finite() && c.is_finite()).map(|(q, (h, c))| q / (h - c)).sum();
     let (d1, d2) = (th - t_cold_out, t_hot_out - tc);
-    let lmtd = if (d1 - d2).abs() < 1e-12 * d1.abs().max(1e-300) { d1 } else { (d1 - d2) / (d1 / d2).ln() };
+    let lmtd = if (d1 - d2).abs() < 1e-12 * d1.abs().max(1e-300) { d1 } else { (d1 - d2) / (d1 / d2).r_ln() };
     ExchangerReport { t_hot_out, t_cold_out, q_hot, q_cold, q_wall_in, q_wall_out, c_hot, c_cold, effectiveness, ua_local, ua_lmtd: q_hot / lmtd }
 }
 

@@ -8,6 +8,7 @@
 // The plot helpers and some imports serve only the `long-tests` runs.
 #![cfg_attr(not(feature = "long-tests"), allow(unused_imports, dead_code))]
 
+use petir::mathf::RealMath;
 use outram_blender::csg::plot::annotate::draw_text;
 use outram_blender::csg::plot::colour::{Rgb, BLACK, WHITE};
 use outram_blender::csg::plot::image::ImageData;
@@ -172,7 +173,7 @@ fn line(img: &mut ImageData, (x0, y0): (f64, f64), (x1, y1): (f64, f64), c: Rgb)
 fn plot(path: &str, title: &str, xr: (f64, f64), yr: (f64, f64), log_y: bool, xlabel: &str, series: &[Series]) {
     let (w, h, l, b, t) = (900usize, 420usize, 80usize, 40usize, 10usize);
     let mut img = ImageData::filled(w + l + 20, h + b + t, WHITE);
-    let fy = |y: f64| if log_y { y.max(1e-300).log10() } else { y };
+    let fy = |y: f64| if log_y { y.max(1e-300).r_log10() } else { y };
     let (y0, y1) = (fy(yr.0), fy(yr.1));
     let px = |x: f64| l as f64 + (x - xr.0) / (xr.1 - xr.0) * w as f64;
     let py = |y: f64| t as f64 + (1.0 - (fy(y) - y0) / (y1 - y0)) * h as f64;
@@ -856,8 +857,8 @@ fn richardson(f1: f64, f2: f64, f3: f64, r: f64) -> Option<(f64, f64)> {
     if d12 == 0.0 || d23 == 0.0 || d12.signum() != d23.signum() {
         return None;
     }
-    let p = (d12 / d23).ln() / r.ln();
-    Some((p, f3 + (f3 - f2) / (r.powf(p) - 1.0)))
+    let p = (d12 / d23).r_ln() / r.r_ln();
+    Some((p, f3 + (f3 - f2) / (r.r_powf(p) - 1.0)))
 }
 
 /// The Richardson helper on manufactured sequences: `f = 1 + h^2` gives

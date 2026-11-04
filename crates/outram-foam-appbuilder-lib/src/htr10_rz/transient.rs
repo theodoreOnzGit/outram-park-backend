@@ -100,6 +100,7 @@
 //! > Research, education and V&V only. Not for licensing, operation or
 //! > safety decisions. AI draft, unreviewed.
 
+use petir::mathf::RealMath;
 use uom::si::energy::joule;
 use uom::si::f64::{
     Energy, Length, MassRate, Power, Pressure, ThermodynamicTemperature, Time, VolumetricPowerDensity,
@@ -502,7 +503,7 @@ pub fn dummy_pebble_conductance(k_graphite: f64, k_bed: f64, h_a: f64) -> f64 {
 /// Volume fractions of the pebble graphite of a heated cell: fuel zones,
 /// fuel-pebble shells, dummies, for fuel-pebble fraction `x`.
 fn graphite_fractions(x: f64) -> (f64, f64, f64) {
-    let zone = (R_FUEL_ZONE / R_PEBBLE).powi(3);
+    let zone = (R_FUEL_ZONE / R_PEBBLE).r_powi(3);
     (x * zone, x * (1.0 - zone), 1.0 - x)
 }
 
@@ -587,9 +588,9 @@ impl Htr10RzTransientCore {
         let mut mopts = options.solid.materials;
         mopts.helium_pressure_bar = 30.0;
         let bed_capacity = RegionMaterial::PebbleBed.heat_capacity_model(&mopts)?;
-        let v_peb = 4.0 / 3.0 * PI * R_PEBBLE.powi(3);
+        let v_peb = 4.0 / 3.0 * PI * R_PEBBLE.r_powi(3);
         let phi = match options.fuel_zone {
-            FuelZoneModel::Lagged => x * (R_FUEL_ZONE / R_PEBBLE).powi(3),
+            FuelZoneModel::Lagged => x * (R_FUEL_ZONE / R_PEBBLE).r_powi(3),
             FuelZoneModel::QuasiSteady => 0.0,
         };
         let phi_d = match options.dummy_pebbles {
@@ -765,7 +766,7 @@ impl Htr10RzTransientCore {
     /// (W/(m^3 K)) of the cell.
     fn g_dummy(&self, t_d: f64, t_cell: f64, hv_gas: f64) -> Result<f64, Htr10RzError> {
         let k_bed = self.bed_conductivity.0.value(t_cell);
-        let v_peb = 4.0 / 3.0 * PI * R_PEBBLE.powi(3);
+        let v_peb = 4.0 / 3.0 * PI * R_PEBBLE.r_powi(3);
         let h_a = hv_gas.max(0.0) * v_peb / PACKING;
         Ok(self.dummies_per_m3 * dummy_pebble_conductance(tab29_k(t_d)?, k_bed, h_a))
     }
@@ -1125,7 +1126,7 @@ impl Htr10RzTransientCore {
                 continue;
             }
             let (gr, gz) = g.mass_flux[c];
-            gmax = gmax.max(gr.hypot(gz));
+            gmax = gmax.max(gr.r_hypot(gz));
             if c / nr == row {
                 // G_z positive downward (TECDOC z).
                 if gz < 0.0 {

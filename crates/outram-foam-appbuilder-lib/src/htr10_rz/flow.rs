@@ -131,6 +131,7 @@
 //! flow as one node. The hydraulic diameters not in the input sheet are
 //! **Assumed** (see [`flow_region`]).
 
+use petir::mathf::RealMath;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
     DynamicViscosity, Length, MassDensity, MassFlux, MassRate, Power, Pressure, Ratio,
@@ -541,7 +542,7 @@ fn resistance(fr: &FlowRegion, g_mag: f64, g_dir: f64, axial: bool, gas: &Gas) -
 /// # Errors
 /// [`Htr10RzError::Property`] from a closure.
 fn resistance_change(fr: &FlowRegion, old: (f64, f64), new: (f64, f64), gas: &Gas) -> Result<f64, Htr10RzError> {
-    let (mo, mn) = (old.0.hypot(old.1), new.0.hypot(new.1));
+    let (mo, mn) = (old.0.r_hypot(old.1), new.0.r_hypot(new.1));
     let mut change: f64 = 0.0;
     for (axial, go, gn) in [(false, old.0, new.0), (true, old.1, new.1)] {
         if let (Some(ro), Some(rn)) = (resistance(fr, mo, go, axial, gas)?, resistance(fr, mn, gn, axial, gas)?) {
@@ -1113,7 +1114,7 @@ pub fn solve_gas(
         for k in 0..ng {
             let c = net.cell_of_gas[k];
             let (gr, gz) = g_cell[c];
-            let mag = gr.hypot(gz);
+            let mag = gr.r_hypot(gz);
             let f = &net.region_of_gas[k];
             match resistance(f, mag, gr, false, &gases[k])? {
                 Some(v) => rr[k] = v,
@@ -1322,7 +1323,7 @@ pub fn solve_gas(
         .map(|k| {
             let c = net.cell_of_gas[k];
             let (gr, gz) = g_cell[c];
-            exchange_coefficient(&net.region_of_gas[k], gr.hypot(gz), &gases[k])
+            exchange_coefficient(&net.region_of_gas[k], gr.r_hypot(gz), &gases[k])
         })
         .collect::<Result<_, _>>()?;
     // Kahn order on the upwind graph.

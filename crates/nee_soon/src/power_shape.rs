@@ -1339,7 +1339,7 @@ pub fn zernike_to_bessel(
                 return Err(PowerShapeError::Input("the Dirichlet radius is below the disc radius".into()));
             }
             let a = bessel_zeros(0, n_terms);
-            let n = a.iter().map(|a| 2.0 / (rb * rb * bessel_j1(*a).powi(2))).collect();
+            let n = a.iter().map(|a| 2.0 / (rb * rb * bessel_j1(*a).r_powi(2))).collect();
             (rb, a, n)
         }
         BesselBoundary::Neumann => {
@@ -1347,7 +1347,7 @@ pub fn zernike_to_bessel(
             a.extend(bessel_zeros(1, n_terms - 1));
             let n = a
                 .iter()
-                .map(|a| if *a == 0.0 { 2.0 / (r * r) } else { 2.0 / (r * r * bessel_j0(*a).powi(2)) })
+                .map(|a| if *a == 0.0 { 2.0 / (r * r) } else { 2.0 / (r * r * bessel_j0(*a).r_powi(2)) })
                 .collect();
             (r, a, n)
         }
@@ -1392,7 +1392,7 @@ pub fn zernike_to_bessel(
 /// unit): `pi R^2 c_00`, the only moment with a disc integral.
 #[must_use]
 pub fn zernike_disc_integral(zernike: &[f64], disc_radius: Length) -> f64 {
-    PI * cm(disc_radius).powi(2) * zernike.first().copied().unwrap_or(0.0)
+    PI * cm(disc_radius).r_powi(2) * zernike.first().copied().unwrap_or(0.0)
 }
 
 /// **Picture: a Zernike radial profile against its Fourier-Bessel

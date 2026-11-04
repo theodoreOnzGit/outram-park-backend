@@ -6,6 +6,7 @@
 //! The coupled LOFC / CRW validation is in `tampines`
 //! (`verification_and_validation/htr10_rz_transients/README.md`).
 
+use petir::mathf::RealMath;
 use uom::si::energy::joule;
 use uom::si::f64::{MassRate, Power, Pressure, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
@@ -300,7 +301,7 @@ fn moderator_readings_at_steady_state() {
         let r = core.solve_steady(&op).unwrap();
         m.push((r.feedback.fuel.get::<kelvin>(), r.feedback.moderator.get::<kelvin>()));
     }
-    let wf = 13_651.0 / 23_949.0 * (2.5_f64 / 3.0).powi(3);
+    let wf = 13_651.0 / 23_949.0 * (2.5_f64 / 3.0).r_powi(3);
     println!(
         "steady fuel {:.3} K; moderator all-graphite {:.3} K, outside fuel zones {:.3} K; w_f {wf:.4}",
         m[0].0, m[0].1, m[1].1
@@ -327,7 +328,7 @@ fn importance_weighted_moderator_reading() {
     assert!((all - one).abs() < 1e-9, "{all} {one}");
     let (tf, out) = read(base.with_moderator_outside_fuel_zones());
     let x = 13_651.0 / 23_949.0;
-    let z = (2.5_f64 / 3.0).powi(3);
+    let z = (2.5_f64 / 3.0).r_powi(3);
     let (wf, ws, wd) = (x * z, x * (1.0 - z), 1.0 - x);
     for r in [0.5, 1.4] {
         let (_, m) = read(base.with_importance_weighted_moderator(r));

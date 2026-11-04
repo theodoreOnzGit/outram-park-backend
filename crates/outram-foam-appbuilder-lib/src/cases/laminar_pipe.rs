@@ -26,6 +26,7 @@
 //! friction factor `f = 64/Re`. The hydrodynamic development length (to 99 %
 //! of the developed centreline velocity, uniform inlet) is taken from Durst
 //! et al. (2005), see [`PipeFlow::durst_development_length`].
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
@@ -104,7 +105,7 @@ impl PipeFlow {
     /// At Re = 100 this is 5.772 D.
     pub fn durst_development_length(&self) -> Length {
         let re = self.reynolds();
-        let ld = (0.619_f64.powf(1.6) + (0.0567 * re).powf(1.6)).powf(1.0 / 1.6);
+        let ld = (0.619_f64.r_powf(1.6) + (0.0567 * re).r_powf(1.6)).r_powf(1.0 / 1.6);
         Length::new::<meter>(ld * self.d())
     }
 
@@ -202,7 +203,7 @@ pub fn centreline_velocity(s: &PimpleFoam, flow: &PipeFlow, axis: (f64, f64), z0
     let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
         .filter_map(|c| {
             let x = m.cell_centres[c];
-            let r2 = (x.x - axis.0).powi(2) + (x.y - axis.1).powi(2);
+            let r2 = (x.x - axis.0).r_powi(2) + (x.y - axis.1).r_powi(2);
             ((x.z - z0).abs() < hz && r2 < 0.25 * r * r).then(|| (r2, s.u.internal[c].z, m.cell_volumes[c]))
         })
         .collect();

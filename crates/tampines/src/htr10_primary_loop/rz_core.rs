@@ -30,6 +30,7 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::htr10_rz::{
     CoreStepReport, Htr10RzTransientCore, OperatingPoint, Thermocouple, TransientCoreOptions,
 };
@@ -177,7 +178,7 @@ impl RzPorousCore {
         let r = self.core.solve_steady(&op).map_err(rz_err)?;
         let w = op.mass_flow.get::<kilogram_per_second>();
         let dp_bed = self.core.gas().map_or(0.0, |g| g.core_pressure_drop);
-        let dp_pass = DP_SIDE_REFLECTOR_PASS.0 * (w / DP_SIDE_REFLECTOR_PASS.1).powi(2);
+        let dp_pass = DP_SIDE_REFLECTOR_PASS.0 * (w / DP_SIDE_REFLECTOR_PASS.1).r_powi(2);
         self.k_dp = if w > 0.0 { (dp_bed + dp_pass) / (w * w) } else { 0.0 };
         self.gravity_pa = self.core.forced_path_gravity_head(boundary.pressure).get::<pascal>();
         let resp = self.response(&r);
