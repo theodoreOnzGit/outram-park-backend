@@ -304,6 +304,13 @@ sembawang = { workspace = true }
 # visual component library one widget at a time (bead op-wqk.14). Not a
 # simulator: it drives a single widget across its full state range with live
 # controls so the widget's look, feel and physics coupling can be judged.
+# gh:#1190: the TUAS 1-D low-fidelity grid for the double-pipe co-kriging
+# (`multifidelity::double_pipe::lf_grid`), written to
+# verification_and_validation/double_pipe_mfk_gh1190/lf_grid.csv.
+[[example]]
+name = "double_pipe_lf_grid"
+path = "examples/double_pipe_lf_grid.rs"
+
 [[example]]
 name = "widget_studio"
 path = "examples/widget_studio/main.rs"
@@ -394,3 +401,11 @@ mdns-sd.workspace = true
 directories.workspace = true
 local-ip-address.workspace = true
 env_logger.workspace = true
+
+[features]
+default = ["long-tests"]
+# Tests that take minutes rather than seconds, ON BY DEFAULT (workspace
+# `long-tests` rule, docs/claude-md/long-tests-and-ci.md): presently the
+# double-pipe co-kriging held-out report (gh:#1190), measured at 19 min on
+# 2026-11-04. `--no-default-features` skips it for the edit-compile loop.
+long-tests = []

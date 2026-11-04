@@ -41,9 +41,11 @@ use uom::si::f64::{Length, Power, Pressure, Ratio, ThermalConductance, ThermalCo
 
 pub mod cfd;
 pub mod closure;
+pub mod cokriging;
 pub mod dataset;
 pub mod design;
 pub mod fidelity;
+pub mod lf_grid;
 pub mod one_d;
 pub mod study;
 

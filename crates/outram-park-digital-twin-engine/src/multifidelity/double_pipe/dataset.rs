@@ -119,7 +119,9 @@ fn header() -> String {
     s
 }
 
-fn output_si(y: &DoublePipeOutput) -> [f64; 9] {
+/// The nine outputs as SI numbers, in [`output_from_si`]'s order.
+#[must_use]
+pub fn output_si(y: &DoublePipeOutput) -> [f64; 9] {
     [
         y.ua.get::<watt_per_kelvin>(),
         y.q.get::<watt>(),

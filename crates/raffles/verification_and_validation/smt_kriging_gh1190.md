@@ -247,6 +247,182 @@ standardised points (≈ 0.3 apart) correlate at about exp(−0.9) ≈ 0.4:
 - **P15a** (prediction for both): as P15, i.e. per-level likelihood ≤ 1e-12,
   σ² ≤ 1e-12, β, γ ≤ 1e-9, mean ≤ 1e-10, variance ≤ 1e-9 σ², σ²_ρ ≤ 1e-9.
 
-## Results
+## Results (measured 2026-11-04, `cargo test --release -p raffles`)
 
-Not yet run (filled in after the port).
+Numbers printed by `tests/smt_kriging_gh1190.rs` (`-- --nocapture`) and the
+twin engine's `double_pipe::cokriging` test. rustc 1.99.1, x86_64.
+
+### Findings 6 and 7 (found while porting, after the predictions)
+
+6. **MFK's variance for three or more levels uses μ = 0 above level 1**
+   (`predict_variances_all_levels` fills only `mu[:, 0]` but reads
+   `mu[:, i − 1]`). From reading only; no three-level case is run here, and
+   the port reproduces it.
+7. **KRG divides its likelihood and σ² by n; MFK by n − p − q** (`KrgBased.
+   _get_pq` returns (0, 0); MFK overrides it). The first port run used
+   n − p for KRG and missed every KRG fixed case by up to 37 %; with the
+   upstream rule, see below. So KRG's σ² is the ML estimate and MFK's the
+   unbiased one, and a one-level MFK is a KRG with σ² larger by n/(n − p)
+   (pinned by `mfk::tests::one_level_is_krg_and_undetermined_levels_are_refused`).
+
+### Differential table (port against SMT, well-conditioned cases, cond(R) ≤ 1e8)
+
+| Comparison | Bit-identical | Worst difference | Cause |
+|---|---|---|---|
+| Standardisation (KRG 8 cases, KPLS 2, MFK 5) | **82 / 82** | 0 | — (column sums sequential, `(n, 1)` sums pairwise, as numpy) |
+| KRG reduced likelihood (8 fixed cases) | 0 / 8 | 1.7e-14 rel | LAPACK `dpotrf`/`dgeqrf` (OpenBLAS) against unblocked loops; `log10`, `pow` |
+| KRG σ² | 0 / 8 | 3.7e-14 rel | as above |
+| KRG β, γ (relative to largest) | 7 / 162 | 6.6e-14 | as above, times cond(R) ≤ 3.8e3 |
+| KRG mean, 198 points (relative to max abs y) | 22 / 198 | 3.1e-14 | as above; `exp` (numpy SIMD against `petir`) |
+| KRG variance (relative to σ²), incl. SMT's diag-G form | 3 / 198 | 1.1e-15 | as above |
+| KRG likelihood gradient (relative to largest) | 0 / 15 | 5.6e-14 | as above; trace via an explicit R⁻¹ |
+| KPLS `coeff_pls` | 2 / 24 | 4.2e-15 | BLAS dot order in NIPALS |
+| KPLS likelihood / σ² / β, γ / mean / variance / gradient | 0/2, 0/2, 0/82, 2/50, 1/50, 0/4 | 5.8e-14, 2.9e-14, 8.3e-14, 2.3e-14, 1.2e-15, 1.6e-13 | as KRG |
+| MFK per-level likelihood and σ² (2 cases × 2 levels) | 1 / 8 | 3.7e-15 | as KRG |
+| MFK β, γ | 6 / 41 | 4.6e-15 | as KRG |
+| MFK mean (21 points × 2) | 11 / 42 | 4.5e-16 | as KRG |
+| MFK variance, every level | 5 / 84 | 8.0e-15 | as KRG |
+| MFK σ²_ρ | 0 / 42 | 1.6e-15 | `inv(GᵀG)` by LU in SMT, by G⁻¹ here |
+
+Every comparison on a well-conditioned case is below the 1e-8 criterion with
+its cause stated; none is bit-identical in full, because LAPACK's blocked
+factorisations are not reproduced (crate rule: no BLAS/LAPACK). **Flagged
+for the maintainer:** the largest, 1.6e-13 (KPLS gradient), is explained.
+
+**Ill-conditioned levels, reported and not counted** (addendum): the three
+original MFK fixed cases (level 0 cond(R) 1.3e10–1.8e10): likelihood and σ²
+2.7e-2 apart at worst, β, γ 1.5e-2, mean 2.9e-9, σ²_ρ 6.3e-9; the variance
+of `mfk_forrester_linear_fixed`'s level 1, whose σ² is round-off (1.5e-14),
+is 6.7e4 σ² apart. The demonstration holds: an unblocked Cholesky in Python
+gives σ² = 96791.98271647282 at level 0 of `mfk_forrester_fixed`, the port's
+96791.9827164728 (**1.5e-16** apart), against LAPACK's 96791.95642930
+(2.7e-7). The gap is the factorisation order, amplified by cond(R).
+
+### Fits (optimiser-dependent; compared at optima)
+
+| Case | cond(R) at SMT's optimum | From SMT's starts: θ gap to polished, likelihood − SMT's | From the port's own starts | Prediction gap (rel. to max abs y) |
+|---|---|---|---|---|
+| `fit_doc_1d` | 1.0e1 | 1.9e-11; 0 | 8.1e-10; 0 | 3.1e-12 |
+| `fit_branin_squar_exp` | 1.5e6 | 7.9e-7; +1.2e-11 | 1.4e-6; +1.4e-11 | 1.7e-7 |
+| `fit_branin_matern52` | 1.2e7 | 1.0e-6; −2.2e-11 | 2.4e-6; +3.2e-11 | 1.5e-8 |
+| `fit_rosenbrock_squar_exp` | **6.4e14** | 8.5e-4; −1.8e-4 | 5.9e-4; +4.0e-4 | 1.8e-6 |
+| `kpls_fit` | 1.6e1 | 2.0e-8 (to SMT's, = polished); 0 to 10 digits | the same optimum | 1.8e-9 |
+| `kplsk_fit` | 4.0e1 | θ up to 5.6e-6; +2e-10 | **a different, higher optimum**: likelihood 8.0798 against 7.1737, θ₁, θ₂ on the 1e-6 bound | 1.9e-6 (SMT starts); 0.37 (own) |
+| MFK level 0 | 9.3e4 | 1.4e-8 to SMT's; equal to 10 digits | the same | — |
+| MFK level 1 | **1.8e14** | both θ on the 1e-6 bound; likelihood −8.8e-5 | the same | — |
+
+The polished optimum equals SMT's on three of the four KRG cases (TNC had
+converged); on Branin squar_exp TNC stopped 2.9e-7 short. The two
+ill-conditioned optima differ at the same θ already: on Rosenbrock the
+port's likelihood **at SMT's polished θ** is 31.640111 against SMT's
+31.643094, so no optimiser comparison is meaningful there.
+
+### Forrester, MFK against single-fidelity KRG (101 held-out points)
+
+| | Port, SMT's starts | Port, own starts | SMT |
+|---|---|---|---|
+| MFK RMSE; 2σ coverage | 0.05350437406; 88/101 | 0.05350437407; 88/101 | 0.05350437524; 88/101 |
+| KRG (4 HF points) RMSE; 2σ coverage | 5.60205408; 59/101 | — | 5.60205408; 59/101 |
+
+MFK is 105 times better than KRG at the same 4-point HF budget, and its 2σ
+band covers 87 % of the held-out points against KRG's 58 %. The port agrees
+with SMT to 2.2e-8 (MFK) and 5.6e-11 (KRG) in RMSE.
+
+### Cross-check against the RAVEN/sklearn route
+
+At the mapped hyperparameters (`branin_squar_exp`): the RAVEN mean plus m₀
+equals SMT's to **7.6e-16** of max abs y; SMT's variance minus RAVEN's is
+non-negative everywhere (worst negative part 0) and at most 2.8e-3 σ², the
+GLS trend term σ²‖u‖² that sklearn's zero-mean GP does not have. Default
+fits on the Branin 20 points, 100 held-out points (std 51.88): SMT KRG RMSE
+2.752 (2σ coverage 0.94), RAVEN `Constant*RBF` anisotropic RMSE 1.544
+(0.93), amplitude 8.5e4 and length scales (4.29, 18.09) in raw units. The
+routes differ as models (GLS constant mean and profiled σ² against a zero
+mean and a fitted amplitude on unstandardised y), and here RAVEN's is the
+more accurate; neither is "the" kriging.
+
+### Predictions scored
+
+| # | Predicted | Measured | |
+|---|---|---|---|
+| P1 | standardisation bit-identical | 82 / 82 | hit |
+| P2 | likelihood ≤ 1e-12 | 1.7e-14 (KRG), 5.8e-14 (KPLS), 3.7e-15 (MFK) | hit |
+| P3 | σ² ≤ 1e-12; β, γ ≤ 1e-9 | 3.7e-14; 8.3e-14 | hit |
+| P4 | mean ≤ 1e-10 | 3.1e-14 | hit |
+| P5 | variance ≤ 1e-9 σ² | 1.2e-15 | hit |
+| P6 | AsSmt as P5 | inside P5's 1.1e-15 | hit |
+| P7 | Exact differs > 1e-3 | 2.2e-2 σ² | hit: finding 1 is real |
+| P8 | gradient ≤ 1e-8 | 1.6e-13 | hit |
+| P9 | from SMT's starts: likelihood ≥ SMT's − 1e-9, θ ≤ 1e-4 of polished | met on the three well-conditioned cases; **Rosenbrock missed** (−1.8e-4, 8.5e-4) | hit ×3, missed ×1 (cond(R) 6.4e14, a condition I did not foresee) |
+| P10 | own starts, same optimum | same on the three well-conditioned; higher likelihood on Rosenbrock | hit |
+| P11 | `coeff_pls` ≤ 1e-14 | 4.2e-15 | hit |
+| P12 | KPLS fixed as P2–P5 | as the table | hit |
+| P13 | KPLS fit as P9 | equal | hit |
+| P14 | KPLSK: likelihood ≥ SMT's − 1e-6; held-out within 1 % | SMT's starts: hit (+2e-10; 4.5e-7 in RMSE); own starts: a higher optimum, RMSE 1397 against 1440 (3.0 %) | hit / **missed** (own starts) |
+| P15 | MFK fixed as P2–P5 | the three original cases: **missed** (cond(R) 1.8e10; the linear case's level 1 is degenerate) | missed |
+| P15a | the two added cases as P15 | ≤ 8.0e-15 throughout | hit |
+| P16 | MFK fit θ ≤ 1e-4 or the same bound | 1.4e-8; both on 1e-6 | hit |
+| P17 | Forrester study equal to SMT's | RMSE 2.2e-8 rel, coverage counts equal | hit |
+| P18 | cross-check identities ≤ 1e-9 | 7.6e-16; 0 | hit |
+| P19 | RMSEs differ, both < 25 % of std | 5.3 % and 3.0 % | hit |
+
+### The double pipe (MFK on TUAS 1-D + CFD, 8 held-out CFD rows)
+
+Run with `cargo test --release -p outram-park-digital-twin-engine --lib
+double_pipe::cokriging -- --nocapture` (MFK fit 1111 s, KRG 35 s, on 2 of
+4 shared CPUs; behind the twin engine's `long-tests` feature, on by
+default). The low-fidelity grid (`lf_grid.csv`, 375 TUAS runs at nominal θ)
+took 1686 s on 2 threads; two of its rows regenerate bit for bit
+(`lf_grid::tests::the_committed_low_fidelity_grid_regenerates`).
+Relative = held-out RMSE / mean |y| over the 8 rows.
+
+| channel | MFK RMSE (rel.) / max / 2σ cov. | KRG, 36 CFD rows only | polynomial degree 1 (gh:#1194 record) |
+|---|---|---|---|
+| UA [W/K] | 0.0360 (3.0 %) / 0.0976 / 7/8 | 0.1667 (13.9 %) / 8/8 | 0.1328 (11.1 %) |
+| Q [W] | 0.165 (0.56 %) / 0.268 / 7/8 | 3.82 (13.0 %) / 7/8 | 7.349 (25.1 %) |
+| ε | 0.0086 (1.3 %) / 0.0159 / 8/8 | 0.170 (26.6 %) / 5/8 | 0.0880 |
+| T_hot,out [K] | 0.376 / 0.552 / 8/8 | 2.90 / 6/8 | 3.503 |
+| T_cold,out [K] | 0.198 / 0.440 / 8/8 | 5.86 / 6/8 | 3.489 |
+| Δp_hot [Pa] | 0.00155 (0.56 %) / 0.00252 / **3/8** | 0.0276 (10.0 %) / 8/8 | 0.0311 (11.3 %) |
+| Δp_cold [Pa] | 0.00157 (0.47 %) / 0.00341 / 8/8 | 0.180 (53.6 %) / 8/8 | 0.0430 (12.8 %) |
+| Nu_hot | 0.146 (2.8 %) / 0.252 / 8/8 | 0.259 (5.0 %) / 5/8 | 0.2694 (5.2 %) |
+| Nu_cold | 0.113 (1.7 %) / 0.221 / 7/8 | 0.209 (3.2 %) / 5/8 | 0.1512 (2.3 %) |
+
+| # | Predicted | Measured | |
+|---|---|---|---|
+| D1 | UA, Q 1–6 % | 3.0 %, 0.56 % | UA hit; Q better than the range |
+| D2 | ε 0.005–0.03; outlet T 0.3–1.5 K | 0.0086; 0.38 K, 0.20 K | hit; T_cold better than the range |
+| D3 | Δp 1–8 % | 0.56 %, 0.47 % | better than the range |
+| D4 | Nu 2–10 % | 2.8 %, 1.7 % | hit; Nu_cold better than the range |
+| D5 | MFK beats the polynomial on ≥ 7 of 9 | 9 of 9 (by 1.3× on Nu_cold to 44× on Q) | hit |
+| D6 | MFK beats KRG on ≥ 6 of 9; KRG UA 8–30 % | 9 of 9; KRG UA 13.9 % | hit |
+| D7 | coverage 4/8–8/8 per output | 7/8 or 8/8 on eight outputs; **Δp_hot 3/8** | missed on Δp_hot |
+
+**Which numbers to quote:** MFK's held-out RMSE (settings fixed before the
+run, nothing revisited). **Interpretation.** The 1-D model's errors against
+the CFD are large (UA 3–20 % low, annulus Δp 45–70 % low, gh:#1178) but
+smooth, so a constant ρ plus a GP correction trained on 36 CFD rows removes
+most of them, and the 375 LF rows carry the k_wall = 10 and interior-L
+behaviour no CFD training row shows. Two cautions. The LF grid contains the
+held-out points' x (geometric Re levels, k_wall 10, L 0.15–0.25), so MFK
+sees the **1-D model** there (never the CFD), which is how co-kriging is
+meant to be used but makes these 8 points easier than arbitrary ones. And
+the Δp_hot band is too narrow (3/8 inside 2σ with a 0.56 % RMSE): the GP
+variance from an ML θ is optimistic where the discrepancy is nearly
+constant. This is a surrogate of the CFD, not a validation of either model;
+the CFD itself carries about 1 % mesh error (gh:#1178).
+
+
+## What this does not show
+
+- SMT's TNC is not ported: fits agree at optima, not paths, and where TNC
+  stops early (Branin, 2.9e-7) the port's answer is the converged one.
+- `SmtStarts::Default` draws from `petir::rng::lcg`, not numpy's PCG64, so
+  the port's own multistart points are not SMT's (they found the same optima
+  except on KPLSK, where they found a higher one).
+- Not ported: noise estimation, `eval_n_comp`, MFKPLS/MFKPLSK, derivatives,
+  mixed-integer kernels, `pow_exp`, `squar_sin_exp`; three or more MFK levels
+  are implemented but not compared with SMT (finding 6).
+- No leave-one-out for the SMT routes (`ValidationReport::loo_rmse` is
+  `None`).
+- Nothing here is validation, and no human has reviewed it.
