@@ -531,19 +531,106 @@ pub fn add_boundary_layers_adaptive_on_patches(
     // the faces of tangled cells and `validate` caught them by accident. The
     // two curved-wall pipeline tests (sphere, cylinder) failed on 92.4° and
     // 92.5° folds until the third condition was added.
+    //
+    // **Local back-off, since 2026-11-04 (gh:#1202).** A candidate that passes
+    // those three can still hold cells whose centre lies outside one of
+    // their own faces (a non-positive face pyramid, OpenFOAM `checkMesh`'s
+    // "Error in face pyramids"): on the tet-dual pipe, prisms extruded from
+    // the bent faces that wrap the rim (no feature-edge capture) tangled, and
+    // 19 boundary faces pointed back past their owner's centre. snappyHexMesh
+    // handles this locally: `snappyLayerDriver::addLayers` checks the layered
+    // mesh against `meshQualityControls` (`minTetQuality`, `minVol`, which
+    // reject a non-positive face pyramid), and shrinks the extrusion only at
+    // the points of the failing faces, over `nLayerIter` passes
+    // (OpenFOAM-dev `852527377c7e`, `snappyLayerDriver.C`,
+    // `meshRefinement::checkMesh` / `motionSmoother::checkMesh`). Here the
+    // per-point thickness of every wall point of a cell with a non-positive
+    // pyramid is halved and the mesh rebuilt, up to `LOCAL_PASSES` times,
+    // before the global scale is touched; snappy removes the layer there
+    // outright, which this layerer, whose prism columns always span the whole
+    // wall, cannot do, so the thickness only tends to zero there.
+    const LOCAL_PASSES: usize = 12;
     let mut scale = 1.0;
+    let mut local: BTreeMap<usize, f64> = wall_pts.iter().map(|&wp| (wp, 1.0)).collect();
+    let mut fallback: Option<VolumeMesh> = None;
     for _try in 0..10 {
-        let per_point: BTreeMap<usize, f64> = cap.iter().map(|(&wp, &c)| (wp, c * scale)).collect();
-        let candidate = build_layered(mesh, &wall_faces, &wall_pts, &inward, &profile, &per_point, n_layers);
-        if candidate.validate().is_ok() {
+        for _pass in 0..=LOCAL_PASSES {
+            let per_point: BTreeMap<usize, f64> = cap.iter().map(|(&wp, &c)| (wp, c * scale * local[&wp])).collect();
+            let candidate = build_layered(mesh, &wall_faces, &wall_pts, &inward, &profile, &per_point, n_layers);
+            if candidate.validate().is_err() {
+                break;
+            }
             let q = check_quality(&candidate);
-            if q.n_negative_volume_cells == 0 && q.max_non_orthogonality_deg < 90.0 {
+            if q.n_negative_volume_cells != 0 || q.max_non_orthogonality_deg >= 90.0 {
+                break;
+            }
+            let bad = cells_with_nonpositive_pyramids(&candidate);
+            if bad.is_empty() {
                 return candidate;
             }
+            for wp in wall_points_of_cells(mesh, &wall_faces, &wall_pts, n_layers, &bad) {
+                *local.get_mut(&wp).expect("a wall point") *= 0.5;
+            }
+            fallback = Some(candidate);
         }
         scale *= 0.6;
     }
-    rebuild() // too tight for any valid layer
+    // Valid but with tangled cells left: better than no layers only if a
+    // caller cannot do better; the pipeline's checks report it.
+    fallback.unwrap_or_else(rebuild)
+}
+
+/// The cells of `m` with a non-positive face pyramid about their centre
+/// (`(c_f − C)·S_f ≤ 0` for one of their faces, `S_f` outward from the
+/// cell): the cells OpenFOAM's `checkMesh` fails for "face pyramids".
+fn cells_with_nonpositive_pyramids(m: &VolumeMesh) -> BTreeSet<usize> {
+    let (_, centres) = crate::checks::cell_geometry(m);
+    let mut bad = BTreeSet::new();
+    for f in 0..m.face_count() {
+        let s = m.face_area_vector(f);
+        let c = m.face_centroid(f);
+        if c.sub(centres[m.owner[f]]).dot(s) <= 0.0 {
+            bad.insert(m.owner[f]);
+        }
+        if let Some(nb) = m.neighbour[f] {
+            if c.sub(centres[nb]).dot(s) >= 0.0 {
+                bad.insert(nb);
+            }
+        }
+    }
+    bad
+}
+
+/// The wall points (of the input `mesh`) whose columns build the cells
+/// `cells` of a layered mesh assembled by [`build_layered`]: cell `c <
+/// n_cells` is an original cell (its wall points), cell `n_cells + i ·
+/// n_layers + k` is layer `k` of wall face `wall_faces[i]`.
+fn wall_points_of_cells(
+    mesh: &VolumeMesh,
+    wall_faces: &[usize],
+    wall_pts: &BTreeSet<usize>,
+    n_layers: usize,
+    cells: &BTreeSet<usize>,
+) -> BTreeSet<usize> {
+    let mut out = BTreeSet::new();
+    let mut original: BTreeSet<usize> = BTreeSet::new();
+    for &c in cells {
+        if c >= mesh.n_cells {
+            let i = (c - mesh.n_cells) / n_layers;
+            out.extend(mesh.faces[wall_faces[i]].iter().copied());
+        } else {
+            original.insert(c);
+        }
+    }
+    if !original.is_empty() {
+        for f in 0..mesh.face_count() {
+            let touches = original.contains(&mesh.owner[f]) || mesh.neighbour[f].is_some_and(|n| original.contains(&n));
+            if touches {
+                out.extend(mesh.faces[f].iter().copied().filter(|p| wall_pts.contains(p)));
+            }
+        }
+    }
+    out
 }
 
 /// Distance from `p` to the segment `[a, b]` (cfMesh

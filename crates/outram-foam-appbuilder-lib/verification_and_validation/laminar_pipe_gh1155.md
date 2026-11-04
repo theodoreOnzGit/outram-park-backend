@@ -633,6 +633,34 @@ by 7 %: the gradient on these cells is suspect. That is the "gradient
 reconstruction" candidate of step 4, examined below. The demo takes the
 tutorial pair regardless, as decided before the run.
 
+### Is the u_c instrument biased on the dual? (coordinator's check, 2026-11-04)
+
+**Question (coordinator).** If u_c came from cell centres binned near the
+axis, a bin of radius b over the parabola reads u_c(1 − b²/2R²), about 8 %
+low for b ≈ 0.4 R, on the dual but not on the O-grid (which has a cell on
+the axis). Check the instrument before changing numerics.
+
+**What the instrument is (read from `cases::laminar_pipe`, before
+measuring).** The headline u_c is **not** binned:
+`centreline_velocity` is a volume-weighted least-squares fit u_z = a + b r²
+over every cell with r < R/2 in the slab |z − 0.75 L| < 0.05 L, u_c = a,
+which is exact for a parabola wherever the cells sit. That is instrument (b)
+already. Only the plotted profile (`radial_profile_binned`) bins, and its
+first bin is what the binning bias would affect.
+
+**Predictions (written before the run), at the demo default (h 4 mm,
+6 353 cells, `linearUpwind` + `cellLimited`):**
+
+| instrument | prediction |
+|---|---|
+| binned first bin (r/R < 1/12), u/2U | ≤ the fit by u_c b²/2R² with b ≈ the bin's mean r, i.e. 0–2 % below the fit (the bin is 0.08 R wide, not 0.4 R) |
+| (b) fit u = a − b r² (r < R/2), a/2U | 0.853 (the recorded number: this *is* the headline instrument) |
+| (b′) the same fit over r < 0.9 R | within 0.02 of (b) if the profile is parabolic |
+| (a) RMS over the slab of (u − u_HP(r))/2U at each cell's own centre, u_HP from the **nominal** U | 0.05–0.06 (recorded 0.057) |
+| (c) slab flow Σ u_z V / Δz against the inlet flux | 1 to 1e-6 (mass is conserved to 1e-9) |
+| (c′) inlet flux against U πR² | **0.92–0.96.** My hypothesis, from a geometry check made just before the coordinator's message (cfMesh's own 48-sided pipe, `diagnose_inward_boundary_faces_on_layered_pipes`): the inlet patch's projected area is 0.9396 πR² at h 4 mm (0.8656 at 6 mm, 0.8915 at 5 mm, 0.9718 at 3.3 mm), because the rim is chamfered (no feature-edge capture) and the chamfer faces are `walls`. `Gauss linear`'s u_c and dp/dz tracked these ratios to 0.3–1 %. If so, the miss is the flow rate the case carries, not the profile |
+| (a′) the RMS against u_HP built from the **measured** flow rate and section area (U_b = Q/A, R_eq = √(A/π)) | below (a) |
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by

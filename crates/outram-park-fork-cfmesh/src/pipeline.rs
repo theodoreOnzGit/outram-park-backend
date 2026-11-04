@@ -1476,13 +1476,19 @@ mod tests {
     fn diagnose_inward_boundary_faces_on_layered_pipes() {
         let (r, l) = (0.01, 0.2);
         let (p, t, regions) = pipe_surface(r, l, 48);
-        for (h, n) in [(0.006, 0), (0.006, 1), (0.005, 1), (0.005, 2), (0.004, 2)] {
+        for (h, n) in [(0.006, 0), (0.004, 0), (0.00334, 0), (0.006, 1), (0.005, 1), (0.005, 2), (0.004, 2)] {
             let base = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
             let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
+            // Inlet / outlet projected areas against pi R^2, and the volume per
+            // length of the middle half against pi R^2 (cells by centre).
+            let proj = |name: &str| patch_faces(&bare, name).iter().map(|&f| bare.face_area_vector(f).z.abs()).sum::<f64>() / (PI * r * r);
+            let (vols, cen) = crate::checks::cell_geometry(&bare);
+            let mid: f64 = (0..bare.n_cells).filter(|&c| (cen[c].z - 0.5 * l).abs() < 0.25 * l).map(|c| vols[c]).sum::<f64>() / (0.5 * l) / (PI * r * r);
+            println!("h {h} bare: inlet area/piR2 {:.4}, outlet {:.4}, mid-section area/piR2 {mid:.4}", proj("inlet"), proj("outlet"));
             let opts = TetDualOptions { n_layers: n, first_layer_thickness: 0.0003, expansion: 1.2, layer_patches: vec!["walls".into()], ..base.clone() };
             let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
             let q = check_quality(&m);
-            let (_, centres) = crate::checks::cell_geometry_for_tests(&m);
+            let (_, centres) = crate::checks::cell_geometry(&m);
             let n0 = bare.cell_count();
             let mut lines = Vec::new();
             for pa in &m.patches {
