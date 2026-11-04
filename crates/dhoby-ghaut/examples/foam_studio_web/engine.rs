@@ -493,6 +493,13 @@ pub fn mesh_unstructured_dual(
         _ => opts,
     };
     let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, ..opts };
+    // Native-only knob (gh:#1240): FOAM_DUAL_FP=corners, the polyDualMesh
+    // class's feature points, for the two new dual kinds.
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = match std::env::var("FOAM_DUAL_FP").as_deref() {
+        Ok("corners") => TetDualOptions { dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners, ..opts },
+        _ => opts,
+    };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);

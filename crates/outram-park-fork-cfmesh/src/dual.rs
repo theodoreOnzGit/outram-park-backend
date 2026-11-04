@@ -91,7 +91,10 @@
 //!    cells have more than 6 faces, and the face-minimal variant has strictly
 //!    fewer faces than the quad-fan one.
 //!
-//! **There is no orthogonality or skewness test for this crate's dual.** No
+//! **There is no orthogonality or skewness test for this crate's dual.**
+//! (**UPDATED 2026-11-04, gh:#1240:** still no gate, but the pipeline's
+//! ignored `diagnose_dual_kinds_differential` measures both for every
+//! [`DualKind`] on the pipe and duct.) No
 //! test in this module calls [`crate::checks::check_quality`], so the
 //! non-orthogonality and skewness of a median dual produced here are
 //! **unmeasured** at the module level. The only numbers this crate records for

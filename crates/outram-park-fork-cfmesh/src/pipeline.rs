@@ -2262,6 +2262,27 @@ mod tests {
                         } else {
                             let lo = rep.layers.clone().unwrap_or_default();
                             let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
+                            if *strategy == LayerQualityStrategy::BackOffOnly && lo.full_coverage() == 1.0 {
+                                // Which of snappy's checks the layer cells' faces fail, one at a time.
+                                let n0 = m.cell_count() - n * lo.faces.len();
+                                let off = crate::checks::MeshQualityControls { max_non_ortho_deg: 180.0, max_boundary_skewness: -1.0, max_internal_skewness: -1.0, min_tet_quality: None, min_twist: -2.0, min_determinant: -1.0, min_face_weight: -1.0, min_vol_ratio: -1.0 };
+                                let d = crate::checks::MeshQualityControls::default();
+                                let one = |c: crate::checks::MeshQualityControls| {
+                                    let bad = crate::checks::faces_failing_mesh_quality(&m, &c);
+                                    (0..m.face_count()).filter(|&f| bad[f] && (m.owner[f] >= n0 || m.neighbour[f].is_some_and(|x| x >= n0))).count()
+                                };
+                                println!(
+                                    "  {name} {tag} n{n} layer-cell faces failing, one check at a time: nonOrtho65 {} intSkew4 {} bndSkew20 {} tet {} twist {} det {} weight {} volRatio {}",
+                                    one(crate::checks::MeshQualityControls { max_non_ortho_deg: 65.0, ..off.clone() }),
+                                    one(crate::checks::MeshQualityControls { max_internal_skewness: d.max_internal_skewness, ..off.clone() }),
+                                    one(crate::checks::MeshQualityControls { max_boundary_skewness: d.max_boundary_skewness, ..off.clone() }),
+                                    one(crate::checks::MeshQualityControls { min_tet_quality: d.min_tet_quality, ..off.clone() }),
+                                    one(crate::checks::MeshQualityControls { min_twist: d.min_twist, ..off.clone() }),
+                                    one(crate::checks::MeshQualityControls { min_determinant: d.min_determinant, ..off.clone() }),
+                                    one(crate::checks::MeshQualityControls { min_face_weight: d.min_face_weight, ..off.clone() }),
+                                    one(crate::checks::MeshQualityControls { min_vol_ratio: d.min_vol_ratio, ..off.clone() }),
+                                );
+                            }
                             println!(
                                 "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; notes {:?}",
                                 m.cell_count(),
@@ -2360,5 +2381,40 @@ mod tests {
             }
         }
         println!("{n_pyr} faces with a non-positive pyramid");
+    }
+
+    /// V&V (gh:#1240) — **the dual kinds, pinned bit for bit across
+    /// processes**, and the wall-face count they exist for. Methodology: the
+    /// demo pipe (R 10 mm, L 200 mm, 48 facets) at h 5 mm, bare, through the
+    /// multipatch pipeline with each dual kind and each feature-point rule;
+    /// fingerprints recorded 2026-11-04 in two separate processes
+    /// (`diagnose_dual_kinds_differential`, identical) and asserted here.
+    /// Results: every kind gives 3 113 cells (one per primal point); the
+    /// per-corner dual owns 7 632 wall faces on 1 288 wall cells, the
+    /// per-point and cell-centre duals 1 320 (`OnFeatureEdge`) or 1 304
+    /// (`Corners`), at most 2 per cell. Needs `cell-centre-dual`.
+    #[cfg(feature = "cell-centre-dual")]
+    #[test]
+    fn dual_kinds_are_pinned_bit_for_bit() {
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let cases = [
+            (DualKind::MedianPerCorner, FeaturePointRule::OnFeatureEdge, 7632, 16736591880388189566u64),
+            (DualKind::MedianPerPoint, FeaturePointRule::OnFeatureEdge, 1320, 5331245050290215594),
+            (DualKind::CellCentre, FeaturePointRule::OnFeatureEdge, 1320, 1937584253539663578),
+            (DualKind::MedianPerPoint, FeaturePointRule::Corners, 1304, 3093209209138859925),
+            (DualKind::CellCentre, FeaturePointRule::Corners, 1304, 10005039613933009028),
+        ];
+        for (kind, fp, n_wall, pin) in cases {
+            let o = TetDualOptions { cell_size: 0.005, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
+            let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            assert!(rep.stage_notes.iter().all(|n| !n.contains("dual skipped")), "{kind:?}: {:?}", rep.stage_notes);
+            assert_eq!(m.cell_count(), 3113, "{kind:?}");
+            let (_, _, per_cell) = face_angles(&m, "walls");
+            assert_eq!(per_cell.values().sum::<usize>(), n_wall, "{kind:?} {fp:?} wall faces");
+            if kind != DualKind::MedianPerCorner {
+                assert!(per_cell.values().all(|&k| k <= 2), "{kind:?} {fp:?}");
+            }
+            assert_eq!(mesh_fingerprint(&m), pin, "{kind:?} {fp:?} moved");
+        }
     }
 }

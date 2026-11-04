@@ -132,7 +132,10 @@ a graded mesh),
 `delaunay::flip_to_delaunay` (bistellar 2→3 / 3→2 flips with Shewchuk
 predicates, improve-or-noop), `dual::polyhedral_dual` /
 `dual::polyhedral_dual_min_faces` (median dual, robust
-quad-fan or face-minimal), `smooth::laplacian_smooth` (smart-Laplacian quality
+quad-fan or face-minimal; since gh:#1240 also `dual::polyhedral_dual_per_point`,
+one boundary face per point per sector as OpenFOAM's `polyDualMesh`, and the
+cell-centre dual through `outram-foam-mesh` with the `cell-centre-dual`
+feature, chosen by `TetDualOptions::dual_kind`; the default is unchanged), `smooth::laplacian_smooth` (smart-Laplacian quality
 smoothing), and `layers::add_boundary_layers` / `add_boundary_layers_adaptive`
 (graded prism wall layers — flat walls, and curved/polyhedral walls with
 per-point thickness limiting).
@@ -153,7 +156,13 @@ cells are well *shaped*. Two specific gaps to know before citing this crate:
   non-orthogonality; the dual of a uniform hex block measures exactly 0° and 0
   skewness"* — is a statement about **that** algorithm and **must not be
   transferred to this one**. No test in `dual` calls `checks::check_quality`, so
-  this dual's orthogonality and skewness are **unmeasured**.
+  this dual's orthogonality and skewness are **unmeasured** at the module
+  level. **UPDATED 2026-11-04 (gh:#1240):** the pipeline's differential
+  (`pipeline::tests::diagnose_dual_kinds_differential`, ignored, not a gate)
+  measures them on the pipe and duct for every dual kind (h 5 mm pipe:
+  internal non-orthogonality 16.3° mean, 47.0° max; wall face-to-owner
+  median 69° per corner, 26° per point); see the gh:#1240 section of
+  `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 - **The tet primal's quality is unmeasured**, and is the *suspected* dominant
   source of the non-orthogonality reported downstream. `tet::tetrahedralize` is
   centroid subdivision; its two tests assert only tet count, positive volume,

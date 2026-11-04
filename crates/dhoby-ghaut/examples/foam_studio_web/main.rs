@@ -325,6 +325,8 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
     let h = 0.005;
+    // FOAM_DUAL_FP=corners: the polyDualMesh class's feature points, file suffix `_corners`.
+    let sfx = if std::env::var("FOAM_DUAL_FP").as_deref() == Ok("corners") { "_corners" } else { "" };
     for (kind, tag) in [(D::MedianPerCorner, "corner"), (D::MedianPerPoint, "point"), (D::CellCentre, "centre")] {
         // 1. One wall cell's wall faces, from the VolumeMesh itself.
         let cyl = outram_blender::primitives::cylinder(engine::CYL_SEGMENTS, 0.01, 0.2);
@@ -337,7 +339,7 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
             }
             .into()
         };
-        let opts = TetDualOptions { cell_size: h, n_layers: 0, layer_patches: vec!["walls".into()], dual_kind: kind, ..TetDualOptions::default() };
+        let opts = TetDualOptions { cell_size: h, n_layers: 0, layer_patches: vec!["walls".into()], dual_kind: kind, dual_feature_points: if std::env::var("FOAM_DUAL_FP").as_deref() == Ok("corners") { outram_park_fork_cfmesh::dual::FeaturePointRule::Corners } else { outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge }, ..TetDualOptions::default() };
         let (vm, _) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
         let walls = vm.patches.iter().find(|p| p.name == "walls").ok_or("no walls patch")?;
         let wf: Vec<usize> = (walls.start_face..walls.start_face + walls.n_faces).collect();
@@ -413,7 +415,7 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
         }
         draw_text(&mut img, 6, 6, &format!("{tag} dual, h 5 mm: wall faces of one wall cell, unrolled (R theta x z), 6 mm window").to_uppercase(), black);
         draw_text(&mut img, 6, 20, &format!("{} wall faces; face-to-owner angle (deg) at each centre: {}; + owner centre", mine.len(), angles.join(" ")).to_uppercase(), black);
-        let name = format!("dual_{tag}_h5_wall_cell.png");
+        let name = format!("dual_{tag}{sfx}_h5_wall_cell.png");
         img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
         println!("wrote {name}: cell {cell}, {} wall faces, angles {:?}", mine.len(), angles);
 
@@ -435,7 +437,7 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
                 let py = ((pxl as f64) * width[1] / width[0]).round() as usize;
                 let sl = MeshSlice { basis, origin, width, pixels: [pxl, py], colour_by: MeshColourBy::Cell };
                 let img = render_mesh_slice_annotated(&m, &sl, &title);
-                let name = format!("dual_{tag}_h5_{view}_{v}.png");
+                let name = format!("dual_{tag}{sfx}_h5_{view}_{v}.png");
                 img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
                 println!("wrote {name}; notes {notes:?}");
             }
