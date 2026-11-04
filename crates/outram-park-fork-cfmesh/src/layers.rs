@@ -260,7 +260,7 @@ pub fn add_boundary_layers_adaptive(
 /// How a boundary point of the layer patches moves (cfMesh's
 /// `boundaryLayers::findPatchVertices` classification).
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum LayerVertex {
+pub(crate) enum LayerVertex {
     /// Only layer-patch faces meet here (cfMesh `PATCHNODE` alone): it moves
     /// along the smoothed inward normal.
     Patch,
@@ -339,9 +339,206 @@ pub fn add_boundary_layers_adaptive_on_patches(
     first_thickness: f64,
     expansion: f64,
 ) -> VolumeMesh {
+    add_boundary_layers_back_off(mesh, layer_patches, n_layers, first_thickness, expansion).0
+}
+
+/// The [`LayerQualityStrategy::BackOffOnly`] layerer with its outcome: the
+/// body of [`add_boundary_layers_adaptive_on_patches`] (gh:#1215 split it in
+/// two, unchanged, so the other strategies share the setup).
+pub(crate) fn add_boundary_layers_back_off(
+    mesh: &VolumeMesh,
+    layer_patches: &[&str],
+    n_layers: usize,
+    first_thickness: f64,
+    expansion: f64,
+) -> (VolumeMesh, LayerOutcome) {
     let rebuild = || from_cell_faces(mesh.points.clone(), &cells_faces(mesh));
+    let Some(s) = layer_setup(mesh, layer_patches, n_layers, first_thickness, expansion) else {
+        return (rebuild(), LayerOutcome::none(LayerQualityStrategy::BackOffOnly, n_layers));
+    };
+
+    // Global validity back-off: keep the thickest layers that stay valid.
+    // Valid = closed, no inverted cell AND no folded face (non-orthogonality
+    // of 90° or more: the owner-to-neighbour vector against the face normal).
+    // Since 2026-11-04 the prisms are assembled with their own winding
+    // (`from_cell_faces_wound`), so a tangled prism stays closed and only its
+    // volume or a folded face shows it; before, the orientation guess flipped
+    // the faces of tangled cells and `validate` caught them by accident. The
+    // two curved-wall pipeline tests (sphere, cylinder) failed on 92.4° and
+    // 92.5° folds until the third condition was added.
+    let counts: BTreeMap<usize, usize> = s.wall_pts.iter().map(|&wp| (wp, n_layers)).collect();
+    let mut scale = 1.0;
+    for attempt in 0..10 {
+        let per_point: BTreeMap<usize, f64> = s.cap.iter().map(|(&wp, &c)| (wp, c * scale)).collect();
+        let candidate = build_layered_variable(mesh, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &per_point, &counts);
+        if candidate.validate().is_ok() {
+            let q = check_quality(&candidate);
+            if q.n_negative_volume_cells == 0 && q.max_non_orthogonality_deg < 90.0 && meets_layer_quality(&q) {
+                let mut outcome = LayerOutcome::from_columns(LayerQualityStrategy::BackOffOnly, mesh, &s, &counts, &per_point, attempt + 1);
+                if attempt > 0 {
+                    outcome.notes.push(format!("uniform back-off: every column scaled by {scale:.4}"));
+                }
+                return (candidate, outcome);
+            }
+        }
+        scale *= 0.6;
+    }
+    let mut none = LayerOutcome::none(LayerQualityStrategy::BackOffOnly, n_layers);
+    none.iterations = 10;
+    none.notes.push("uniform back-off found no valid thickness in 10 tries".into());
+    (rebuild(), none) // too tight for any valid layer
+}
+
+/// How the layer stage meets upstream's mesh-quality limits (gh:#1215).
+///
+/// Three routes to the same job, kept callable side by side so they can be
+/// compared on the same inputs (the differential-testing rule, `AGENTS.md`):
+///
+/// - [`Self::BackOffOnly`] (**the default**): this crate's own global
+///   back-off. Build every layer at the per-point cap, check the whole mesh
+///   against upstream's limits ([`meets_layer_quality`]), and scale *every*
+///   column down by 0.6 until it passes or ten tries are spent. One bad face
+///   thins the whole wall.
+/// - [`Self::CfMeshOptimise`]: cfMesh's own repair, ported in
+///   [`crate::boundary_layer_optimisation`] and [`crate::mesh_optimizer`]:
+///   one layer at the cap, `meshOptimizer::optimizeLowQualityFaces`, the
+///   `boundaryLayerOptimisation::optimiseLayer` hair-normal smoothing and
+///   local thickness reduction, `untangleMeshFV`, then the split into the
+///   requested layers and `untangleBoundaryLayer`. Thins locally and moves
+///   interior points; never removes a layer.
+/// - [`Self::SnappyCollapse`]: snappyHexMesh's per-point `extrudeMode` and
+///   its add–check–unextrude loop, ported in [`crate::snappy_layers`]. Keeps
+///   the full thickness where the mesh passes and removes the layer locally
+///   (0 layers at a collapsed point) where it does not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LayerQualityStrategy {
+    /// Global uniform back-off (this crate's, the behaviour before gh:#1215).
+    #[default]
+    BackOffOnly,
+    /// cfMesh `boundaryLayerOptimisation` + `meshOptimizer` (local thinning
+    /// and untangling).
+    CfMeshOptimise,
+    /// snappyHexMesh `snappyLayerDriver::addLayers` (local layer collapse).
+    SnappyCollapse,
+}
+
+/// What a layer stage did, per wall point and per wall face (gh:#1215): the
+/// instrument for coverage, achieved thickness and where layers were thinned
+/// or collapsed. Points and faces are listed in the layerer's own order (wall
+/// points ascending, wall faces ascending) with their positions, so a caller
+/// can draw them without the mesh's numbering.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LayerOutcome {
+    /// Which strategy produced it.
+    pub strategy: LayerQualityStrategy,
+    /// Layers requested.
+    pub n_layers_requested: usize,
+    /// Per wall point: (position on the wall, layers at the point, total
+    /// thickness [m] of its column, the cap [m] the column was allowed).
+    pub points: Vec<(Vec3, usize, f64, f64)>,
+    /// Per wall face: (centre, layers of the face = the most of its points).
+    pub faces: Vec<(Vec3, usize)>,
+    /// Iterations the strategy's loop ran (back-off tries, snappy layer
+    /// iterations, cfMesh `optimiseLayer` passes).
+    pub iterations: usize,
+    /// Faces still failing the strategy's own quality check at the end.
+    pub remaining_bad_faces: usize,
+    /// One line per notable event.
+    pub notes: Vec<String>,
+}
+
+impl LayerOutcome {
+    /// No layer at all.
+    pub(crate) fn none(strategy: LayerQualityStrategy, n_layers_requested: usize) -> Self {
+        LayerOutcome { strategy, n_layers_requested, ..Default::default() }
+    }
+
+    /// Outcome of a layered mesh built from columns.
+    pub(crate) fn from_columns(
+        strategy: LayerQualityStrategy,
+        mesh: &VolumeMesh,
+        s: &LayerSetup,
+        counts: &BTreeMap<usize, usize>,
+        totals: &BTreeMap<usize, f64>,
+        iterations: usize,
+    ) -> Self {
+        let points = s
+            .wall_pts
+            .iter()
+            .map(|&wp| (mesh.points[wp], counts[&wp], if counts[&wp] > 0 { totals[&wp] } else { 0.0 }, s.cap[&wp]))
+            .collect();
+        let faces = s
+            .wall_faces
+            .iter()
+            .map(|&f| (mesh.face_centroid(f), mesh.faces[f].iter().map(|p| counts[p]).max().unwrap_or(0)))
+            .collect();
+        LayerOutcome { strategy, n_layers_requested: s.n_layers, points, faces, iterations, ..Default::default() }
+    }
+
+    /// Fraction of wall faces carrying the full requested layer count.
+    pub fn full_coverage(&self) -> f64 {
+        if self.faces.is_empty() {
+            return 0.0;
+        }
+        self.faces.iter().filter(|f| f.1 == self.n_layers_requested && f.1 > 0).count() as f64 / self.faces.len() as f64
+    }
+
+    /// Fraction of wall points with no layer (collapsed, or none grown).
+    pub fn collapsed_point_fraction(&self) -> f64 {
+        if self.points.is_empty() {
+            return 1.0;
+        }
+        self.points.iter().filter(|p| p.1 == 0).count() as f64 / self.points.len() as f64
+    }
+
+    /// Mean total thickness over the wall points that carry a layer [m].
+    pub fn mean_total_thickness(&self) -> f64 {
+        let t: Vec<f64> = self.points.iter().filter(|p| p.1 > 0).map(|p| p.2).collect();
+        if t.is_empty() {
+            0.0
+        } else {
+            t.iter().sum::<f64>() / t.len() as f64
+        }
+    }
+}
+
+/// The geometry every layer strategy starts from (gh:#1215; split out of
+/// [`add_boundary_layers_adaptive_on_patches`] unchanged): the layer faces
+/// and points, cfMesh's border classification with its constrained
+/// directions and caps, the smoothed inward normals, the wall-point
+/// adjacency, the cumulative requested thicknesses and the per-point cap on
+/// the total thickness.
+#[derive(Debug, Clone)]
+pub(crate) struct LayerSetup {
+    /// Boundary faces on the layer patches, ascending.
+    pub wall_faces: Vec<usize>,
+    /// Their points.
+    pub wall_pts: BTreeSet<usize>,
+    /// cfMesh `findPatchVertices` class of each wall point.
+    pub kind: BTreeMap<usize, LayerVertex>,
+    /// Unit march direction (inward) of each wall point.
+    pub inward: BTreeMap<usize, Vec3>,
+    /// Cumulative requested thickness `d[0] = 0 … d[n]` [m].
+    pub d: Vec<f64>,
+    /// Per-point cap on the total thickness [m].
+    pub cap: BTreeMap<usize, f64>,
+    /// Requested layers.
+    pub n_layers: usize,
+}
+
+/// Classify and measure the layer patches (see [`LayerSetup`]). `None` when
+/// no layer can be grown: no layer faces, zero layers or thickness, or a
+/// border point upstream refuses (three or more layer-free patches, or two
+/// with no shared edge).
+pub(crate) fn layer_setup(
+    mesh: &VolumeMesh,
+    layer_patches: &[&str],
+    n_layers: usize,
+    first_thickness: f64,
+    expansion: f64,
+) -> Option<LayerSetup> {
     if n_layers == 0 || first_thickness <= 0.0 {
-        return rebuild();
+        return None;
     }
     // Patch of every boundary face (usize::MAX for internal faces).
     let mut patch_of = vec![usize::MAX; mesh.face_count()];
@@ -355,7 +552,7 @@ pub fn add_boundary_layers_adaptive_on_patches(
         .filter(|&f| patch_of[f] != usize::MAX && treated[patch_of[f]])
         .collect();
     if wall_faces.is_empty() {
-        return rebuild();
+        return None;
     }
 
     // Boundary faces around each point (cfMesh `pointFaces`), in face order.
@@ -447,14 +644,14 @@ pub fn add_boundary_layers_adaptive_on_patches(
                         }
                     }
                 }
-                let Some(q) = target else { return rebuild() };
+                let q = target?;
                 let d = mesh.points[q].sub(x);
                 inward.insert(wp, d.normalize());
                 border_cap.insert(wp, 0.5 * d.length());
                 kind.insert(wp, LayerVertex::Corner);
             }
             _ => {
-                return rebuild();
+                return None;
             }
         }
     }
@@ -501,7 +698,7 @@ pub fn add_boundary_layers_adaptive_on_patches(
         inward = smoothed;
     }
 
-    // Cumulative profile d[0..=n] normalized to [0, 1] (the layer grading).
+    // Cumulative profile d[0..=n] (the layer grading).
     let mut d = vec![0.0f64; n_layers + 1];
     let mut t = first_thickness;
     for m in 1..=n_layers {
@@ -509,7 +706,6 @@ pub fn add_boundary_layers_adaptive_on_patches(
         t *= expansion;
     }
     let total_req = d[n_layers];
-    let profile: Vec<f64> = d.iter().map(|x| x / total_req).collect();
 
     // Per-point total-thickness cap: a fraction of the local wall spacing, and
     // on the border upstream's limit.
@@ -521,29 +717,7 @@ pub fn add_boundary_layers_adaptive_on_patches(
             (wp, border_cap.get(&wp).map_or(c, |&b| c.min(b)))
         })
         .collect();
-
-    // Global validity back-off: keep the thickest layers that stay valid.
-    // Valid = closed, no inverted cell AND no folded face (non-orthogonality
-    // of 90° or more: the owner-to-neighbour vector against the face normal).
-    // Since 2026-11-04 the prisms are assembled with their own winding
-    // (`from_cell_faces_wound`), so a tangled prism stays closed and only its
-    // volume or a folded face shows it; before, the orientation guess flipped
-    // the faces of tangled cells and `validate` caught them by accident. The
-    // two curved-wall pipeline tests (sphere, cylinder) failed on 92.4° and
-    // 92.5° folds until the third condition was added.
-    let mut scale = 1.0;
-    for _try in 0..10 {
-        let per_point: BTreeMap<usize, f64> = cap.iter().map(|(&wp, &c)| (wp, c * scale)).collect();
-        let candidate = build_layered(mesh, &wall_faces, &wall_pts, &inward, &profile, &per_point, n_layers);
-        if candidate.validate().is_ok() {
-            let q = check_quality(&candidate);
-            if q.n_negative_volume_cells == 0 && q.max_non_orthogonality_deg < 90.0 && meets_layer_quality(&q) {
-                return candidate;
-            }
-        }
-        scale *= 0.6;
-    }
-    rebuild() // too tight for any valid layer
+    Some(LayerSetup { wall_faces, wall_pts, kind, inward, d, cap, n_layers })
 }
 
 /// Upstream's mesh-quality limits for layer addition (gh:#1202), from
@@ -556,7 +730,7 @@ pub fn add_boundary_layers_adaptive_on_patches(
 /// checked closure, volume and non-orthogonality only, and 3-layer pipes
 /// at skewness 6.6–7.2 were accepted and diverged in the solver
 /// (`laminar_pipe_gh1155.md`, step 3).
-fn meets_layer_quality(q: &crate::checks::QualityReport) -> bool {
+pub(crate) fn meets_layer_quality(q: &crate::checks::QualityReport) -> bool {
     const MAX_INTERNAL_SKEWNESS: f64 = 4.0;
     const MIN_DETERMINANT: f64 = 0.001;
     q.max_skewness <= MAX_INTERNAL_SKEWNESS && q.n_negative_pyramid_faces == 0 && q.min_cell_determinant >= MIN_DETERMINANT
@@ -571,24 +745,61 @@ fn distance_to_segment(p: Vec3, a: Vec3, b: Vec3) -> f64 {
     p.sub(a.add(e.scale(t))).length()
 }
 
-/// Assemble a layered mesh given a per-wall-point total thickness and a
-/// normalized grading `profile` (`profile[0] = 0`, `profile[n] = 1`). Shared by
-/// the adaptive driver's back-off loop. Points and cells are numbered in a
-/// fixed order (wall points ascending), so the result is reproducible.
-fn build_layered(
+/// Assemble a layered mesh with a **per-point layer count** (gh:#1215): wall
+/// point `p` carries `counts[p]` layers over a column of total thickness
+/// `per_point_total[p]`, graded by the requested profile `d` restricted to its
+/// own layers (`d[j] / d[counts[p]]`). Each wall face gets as many cells as
+/// the most of its points (addPatchCellLayer's rule: `nPointLayers` is the max
+/// over the connected faces), and in its layer `i` a point with fewer layers
+/// stands at the top of its column, so the cell's edge there collapses: a
+/// prism becomes a wedge or a pyramid where a layer ends. Every face is built
+/// from the same column points on both of its sides, so neighbouring stacks
+/// with different counts conform; faces whose points collapse to fewer than
+/// three are dropped. A point with `counts[p] = 0` does not move.
+///
+/// How this differs from upstream (OpenFOAM-dev `852527377c7e`,
+/// `addPatchCellLayer::setRefinement`,
+/// `src/polyTopoChange/polyTopoChange/addPatchCellLayer.C`): both align a
+/// face's layers with the wall and keep an unextruded point where it is;
+/// upstream gives a face fewer cells than its points have (`nFaceLayers`, 1 on
+/// a face where a layer ends, with `nBufferCellsNoExtrude 0`) and lets that
+/// face's first cell span the rest of each column, where this builder gives
+/// the face the full count with collapsed edges. The cells cover the same
+/// region.
+///
+/// With every count equal to `n` this is the uniform builder the back-off
+/// always used, bit for bit (pinned by
+/// `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`). Points and
+/// cells are numbered in a fixed order (wall points ascending), so the result
+/// is reproducible.
+pub(crate) fn build_layered_variable(
     mesh: &VolumeMesh,
     wall_faces: &[usize],
     wall_pts: &BTreeSet<usize>,
     inward: &BTreeMap<usize, Vec3>,
-    profile: &[f64],
+    d: &[f64],
     per_point_total: &BTreeMap<usize, f64>,
-    n_layers: usize,
+    counts: &BTreeMap<usize, usize>,
 ) -> VolumeMesh {
+    let (points, column) = layer_columns(mesh, wall_pts, inward, d, per_point_total, counts);
+    assemble_layered(mesh, wall_faces, wall_pts, points, &column, counts)
+}
+
+/// The point list of a layered mesh: the non-wall points in order, then each
+/// wall point's column (wall first) — `counts[p] + 1` points, or the point
+/// itself when `counts[p] = 0`. Returns the points and each wall point's
+/// column of new indices.
+pub(crate) fn layer_columns(
+    mesh: &VolumeMesh,
+    wall_pts: &BTreeSet<usize>,
+    inward: &BTreeMap<usize, Vec3>,
+    d: &[f64],
+    per_point_total: &BTreeMap<usize, f64>,
+    counts: &BTreeMap<usize, usize>,
+) -> (Vec<Vec3>, BTreeMap<usize, Vec<usize>>) {
     let mut new_points: Vec<Vec3> = Vec::new();
-    let mut new_of = vec![usize::MAX; mesh.points.len()];
     for (op, &pt) in mesh.points.iter().enumerate() {
         if !wall_pts.contains(&op) {
-            new_of[op] = new_points.len();
             new_points.push(pt);
         }
     }
@@ -596,17 +807,46 @@ fn build_layered(
     for &wp in wall_pts {
         let x = mesh.points[wp];
         let nrm = inward[&wp];
-        let tot = per_point_total[&wp];
-        let mut col = Vec::with_capacity(profile.len());
-        for &frac in profile {
+        let n_p = counts[&wp];
+        let mut col = Vec::with_capacity(n_p + 1);
+        if n_p == 0 {
             col.push(new_points.len());
-            new_points.push(x.add(nrm.scale(tot * frac)));
+            new_points.push(x);
+        } else {
+            let tot = per_point_total[&wp];
+            for dj in &d[..=n_p] {
+                let frac = dj / d[n_p];
+                col.push(new_points.len());
+                new_points.push(x.add(nrm.scale(tot * frac)));
+            }
         }
         column.insert(wp, col);
     }
+    (new_points, column)
+}
+
+/// Assemble the layered mesh from its points and columns (see
+/// [`build_layered_variable`]): the original cells with every wall point
+/// replaced by the top of its column, then the layer cells of each wall face.
+pub(crate) fn assemble_layered(
+    mesh: &VolumeMesh,
+    wall_faces: &[usize],
+    wall_pts: &BTreeSet<usize>,
+    points: Vec<Vec3>,
+    column: &BTreeMap<usize, Vec<usize>>,
+    counts: &BTreeMap<usize, usize>,
+) -> VolumeMesh {
+    let mut new_of = vec![usize::MAX; mesh.points.len()];
+    let mut next = 0usize;
+    for (op, slot) in new_of.iter_mut().enumerate() {
+        if !wall_pts.contains(&op) {
+            *slot = next;
+            next += 1;
+        }
+    }
     let remap = |op: usize| -> usize {
         if wall_pts.contains(&op) {
-            column[&op][n_layers]
+            *column[&op].last().unwrap()
         } else {
             new_of[op]
         }
@@ -620,9 +860,52 @@ fn build_layered(
         );
     }
     for &f in wall_faces {
-        prism_stack(&mesh.faces[f], &column, n_layers, &mut cells);
+        let m_f = mesh.faces[f].iter().map(|p| counts[p]).max().unwrap_or(0);
+        prism_stack_variable(&mesh.faces[f], column, m_f, &mut cells);
     }
-    from_cell_faces_wound(new_points, &cells)
+    from_cell_faces_wound(points, &cells)
+}
+
+/// The `m_f` layer cells of wall face `w` over columns of different lengths
+/// (see [`build_layered_variable`]); with equal columns, exactly the cells of
+/// [`prism_stack`]. Faces are wound as there; cyclically repeated points are
+/// removed and faces left with fewer than three points dropped.
+fn prism_stack_variable(w: &[usize], column: &BTreeMap<usize, Vec<usize>>, m_f: usize, cells: &mut Vec<Vec<Vec<usize>>>) {
+    let at = |p: usize, i: usize| -> usize {
+        let c = &column[&p];
+        c[i.min(c.len() - 1)]
+    };
+    let k = w.len();
+    for i in 0..m_f {
+        let mut faces: Vec<Vec<usize>> = Vec::with_capacity(k + 2);
+        let mut push = |ring: Vec<usize>| {
+            let ring = dedupe_ring(ring);
+            if ring.len() >= 3 {
+                faces.push(ring);
+            }
+        };
+        push(w.iter().map(|&p| at(p, i)).collect());
+        push(w.iter().rev().map(|&p| at(p, i + 1)).collect());
+        for e in 0..k {
+            let (p, q) = (w[e], w[(e + 1) % k]);
+            push(vec![at(p, i), at(p, i + 1), at(q, i + 1), at(q, i)]);
+        }
+        cells.push(faces);
+    }
+}
+
+/// `ring` with cyclically consecutive repeats removed.
+fn dedupe_ring(ring: Vec<usize>) -> Vec<usize> {
+    let mut out: Vec<usize> = Vec::with_capacity(ring.len());
+    for v in ring {
+        if out.last() != Some(&v) {
+            out.push(v);
+        }
+    }
+    while out.len() > 1 && out.first() == out.last() {
+        out.pop();
+    }
+    out
 }
 
 #[cfg(test)]

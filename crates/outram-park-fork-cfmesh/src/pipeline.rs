@@ -93,7 +93,9 @@ use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
 use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces};
-use crate::layers::{add_boundary_layers_adaptive, add_boundary_layers_adaptive_on_patches};
+use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh, BoundaryLayerOptimisationControls};
+use crate::layers::{add_boundary_layers_back_off, LayerOutcome, LayerQualityStrategy};
+use crate::snappy_layers::{add_boundary_layers_snappy, SnappyLayerControls};
 use crate::math::Vec3;
 use crate::octree::refine_near_boundary_banded;
 use crate::patches::{assign_patches_by_region, SurfaceRegions};
@@ -196,6 +198,20 @@ pub struct TetDualOptions {
     /// inlet spans the section. **On by default**; `false` is the explicit
     /// ablation (the chamfered boundary the pipeline gave before).
     pub feature_edges: bool,
+    /// **How the layer stage meets upstream's mesh-quality limits**
+    /// (gh:#1215): [`LayerQualityStrategy::BackOffOnly`] (the default, this
+    /// crate's global uniform back-off, unchanged),
+    /// [`LayerQualityStrategy::CfMeshOptimise`] (cfMesh's local thinning and
+    /// untangling) or [`LayerQualityStrategy::SnappyCollapse`]
+    /// (snappyHexMesh's local layer collapse). Every strategy starts from the
+    /// same columns ([`crate::layers`]).
+    pub layer_strategy: LayerQualityStrategy,
+    /// Settings of [`LayerQualityStrategy::SnappyCollapse`] (upstream's
+    /// `addLayersControls` and quality defaults).
+    pub snappy_layers: SnappyLayerControls,
+    /// Settings of [`LayerQualityStrategy::CfMeshOptimise`] (cfMesh's
+    /// `boundaryLayerOptimisation` defaults).
+    pub cfmesh_layer_optimisation: BoundaryLayerOptimisationControls,
 }
 
 impl Default for TetDualOptions {
@@ -225,6 +241,9 @@ impl Default for TetDualOptions {
             wall_patch: "walls".to_string(),
             layer_patches: Vec::new(),
             feature_edges: true,
+            layer_strategy: LayerQualityStrategy::BackOffOnly,
+            snappy_layers: SnappyLayerControls::default(),
+            cfmesh_layer_optimisation: BoundaryLayerOptimisationControls::default(),
         }
     }
 }
@@ -258,6 +277,33 @@ pub struct TetDualReport {
     /// Number of negative-volume cells in the final mesh — `0` for an accepted
     /// result (the acceptance gate rejects any stage that would raise it).
     pub n_negative_volume_cells: usize,
+    /// What the layer stage did (gh:#1215): per wall point and face, the
+    /// layers and thickness each got, under the strategy used. `None` when
+    /// the stage did not run.
+    pub layers: Option<LayerOutcome>,
+}
+
+/// Grow the layers on `patches` with `opts.layer_strategy` (gh:#1215).
+fn grow_layers(mesh: &VolumeMesh, patches: &[&str], opts: &TetDualOptions) -> (VolumeMesh, LayerOutcome) {
+    let (n, t, e) = (opts.n_layers, opts.first_layer_thickness.max(1e-6), opts.expansion.max(1.0));
+    match opts.layer_strategy {
+        LayerQualityStrategy::BackOffOnly => add_boundary_layers_back_off(mesh, patches, n, t, e),
+        LayerQualityStrategy::CfMeshOptimise => add_boundary_layers_cfmesh(mesh, patches, n, t, e, &opts.cfmesh_layer_optimisation),
+        LayerQualityStrategy::SnappyCollapse => add_boundary_layers_snappy(mesh, patches, n, t, e, &opts.snappy_layers),
+    }
+}
+
+/// One stage note summarising a non-default layer strategy's outcome.
+fn layer_note(o: &LayerOutcome) -> String {
+    format!(
+        "boundary layers ({:?}): {:.1} % of wall faces with all {} layers, {:.1} % of wall points with none, mean total thickness {:.3e} m; {}",
+        o.strategy,
+        100.0 * o.full_coverage(),
+        o.n_layers_requested,
+        100.0 * o.collapsed_point_fraction(),
+        o.mean_total_thickness(),
+        o.notes.last().cloned().unwrap_or_default()
+    )
 }
 
 /// Is `mesh` acceptable as a stage output — closed *and* free of inverted cells?
@@ -540,6 +586,7 @@ fn run_pipeline(
     }
 
     // Stage 7 — adaptive prism boundary layers on the wall patch.
+    let mut layer_outcome: Option<LayerOutcome> = None;
     let selective = regions.filter(|_| !opts.layer_patches.is_empty());
     if let (true, Some(regions)) = (opts.n_layers > 0, selective) {
         // Patch-selective (gh:#1202): name the boundary first, then grow
@@ -553,18 +600,16 @@ fn run_pipeline(
                 if n_layer_faces == 0 {
                     notes.push(format!("boundary layers skipped — no boundary face is on {:?}", opts.layer_patches));
                 } else {
-                    let layered = add_boundary_layers_adaptive_on_patches(
-                        &named,
-                        &names,
-                        opts.n_layers,
-                        opts.first_layer_thickness.max(1e-6),
-                        opts.expansion.max(1.0),
-                    );
+                    let (layered, outcome) = grow_layers(&named, &names, opts);
                     let before = mesh.cell_count();
                     let (m, kept) = keep_if_ok(mesh, layered);
                     mesh = m;
+                    let strategy = outcome.strategy;
+                    layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
                     if !kept {
                         notes.push("boundary layers skipped — the wall is too tight for any valid layer".into());
+                    } else if strategy != LayerQualityStrategy::BackOffOnly {
+                        notes.push(layer_note(layer_outcome.as_ref().unwrap()));
                     } else if mesh.cell_count() != before + opts.n_layers * n_layer_faces {
                         notes.push(
                             "boundary layers added none — the layerer backed off to zero thickness, or a point \
@@ -583,13 +628,7 @@ fn run_pipeline(
                 opts.wall_patch
             ));
         } else {
-            let layered = add_boundary_layers_adaptive(
-                &mesh,
-                &opts.wall_patch,
-                opts.n_layers,
-                opts.first_layer_thickness.max(1e-6),
-                opts.expansion.max(1.0),
-            );
+            let (layered, outcome) = grow_layers(&mesh, &[opts.wall_patch.as_str()], opts);
             // The adaptive layerer already backs off to a valid mesh, but it can
             // return the input rebuilt (no layers) when the wall is too tight;
             // either way `acceptable` keeps only a valid result.
@@ -602,10 +641,14 @@ fn run_pipeline(
             let before = mesh.cell_count();
             let (m, kept) = keep_if_ok(mesh, layered);
             mesh = m;
+            let strategy = outcome.strategy;
+            layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
             if !kept {
                 notes.push(
                     "boundary layers skipped — the wall is too tight for any valid layer".into(),
                 );
+            } else if strategy != LayerQualityStrategy::BackOffOnly {
+                notes.push(layer_note(layer_outcome.as_ref().unwrap()));
             } else if mesh.cell_count() == before {
                 notes.push(
                     "boundary layers added none — the adaptive layerer backed off to zero thickness \
@@ -640,6 +683,7 @@ fn run_pipeline(
         max_non_orthogonality_deg: q.max_non_orthogonality_deg,
         max_skewness: q.max_skewness,
         n_negative_volume_cells: q.n_negative_volume_cells,
+        layers: layer_outcome,
     };
     Ok((mesh, report))
 }
@@ -1396,10 +1440,22 @@ mod tests {
     /// pipe (R 10 mm, L 60 mm, 48 facets) at h 6 / 4 mm with 1–3 layers, and a
     /// 20 × 20 × 60 mm box duct at h 5 mm with 2 layers; each final mesh is
     /// fingerprinted (points to the bit, faces, owners, neighbours, patches).
-    /// The fingerprints were recorded on 2026-11-04 on the code *before*
-    /// gh:#1215 (commit `ffda5fb46`) and are asserted here, so introducing
-    /// the layer-quality strategies cannot move a recorded number under
-    /// `LayerQualityStrategy::BackOffOnly`.
+    ///
+    /// Results (2026-11-04). ~~The fingerprints were recorded on the code
+    /// before gh:#1215 and pin it.~~ **CORRECTED the same day:** recording them
+    /// exposed that the pipeline was **not reproducible between processes**:
+    /// the Delaunay flipper (`delaunay::flip_to_delaunay`) swept the faces in
+    /// `HashMap` order, randomly seeded per process, so the h 6 mm pipe got a
+    /// different mesh on every run (three runs, three fingerprints, same
+    /// cell count); `tet_dual_stages_are_deterministic` compares two calls
+    /// within one process and could not see it. The sweep now runs in
+    /// `BTreeMap` order. The layer code itself was checked separately: the
+    /// pre-gh:#1215 `add_boundary_layers_adaptive_on_patches` (a temporary
+    /// copy from `ffda5fb46`) and the refactored one give identical meshes,
+    /// points to the bit, on the bare h 6 / 4 / 5 mm pipes with 1–3 layers
+    /// (7 cases). The fingerprints below are the deterministic ones; the h 4
+    /// mm and box-duct values equal the first recording (the flip order did
+    /// not change those meshes), the h 6 mm ones do not.
     #[test]
     fn back_off_only_layers_are_pinned_bit_for_bit() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
@@ -1428,16 +1484,185 @@ mod tests {
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&bp, &bt, &br, &o).unwrap();
         got.push(("box duct h 0.005 n 2".into(), m.cell_count(), mesh_fingerprint(&m)));
         let pinned: [(usize, u64); 7] = [
-            (2025, 14571713154878100336),
-            (3445, 15107328938539315242),
-            (4865, 17913122352869577766),
+            (2025, 7691211397797103741),
+            (3445, 6777344945964783458),
+            (4865, 8963858472090204797),
             (5511, 11354576510400452468),
             (9079, 6008187938627271744),
             (12647, 13850840632559401666),
             (5813, 7672853737214871962),
         ];
+        for g in &got {
+            eprintln!("fingerprint {g:?}");
+        }
         for (g, want) in got.iter().zip(pinned) {
             assert_eq!((g.1, g.2), want, "{} moved", g.0);
+        }
+    }
+
+    /// A box duct surface (`w` × `w` × `l`, z ∈ [0, l]) labelled `inlet`
+    /// (z = 0), `outlet` (z = l) and `walls`.
+    fn box_duct_surface(w: f64, l: f64) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
+        let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(w, w, l));
+        let labels: Vec<&str> = bt
+            .iter()
+            .map(|tri| {
+                let z = [bp[tri[0]].z, bp[tri[1]].z, bp[tri[2]].z];
+                if z.iter().all(|&v| v.abs() < 1e-12) {
+                    "inlet"
+                } else if z.iter().all(|&v| (v - l).abs() < 1e-12) {
+                    "outlet"
+                } else {
+                    "walls"
+                }
+            })
+            .collect();
+        (bp, bt, SurfaceRegions::from_labels(&labels))
+    }
+
+    const STRATEGIES: [LayerQualityStrategy; 3] =
+        [LayerQualityStrategy::BackOffOnly, LayerQualityStrategy::CfMeshOptimise, LayerQualityStrategy::SnappyCollapse];
+
+    /// V&V (gh:#1215) — **upstream sanity: a good mesh is left alone.**
+    /// Methodology: a Cartesian (hexahedral, orthogonal) box duct 20 × 20 ×
+    /// 60 mm at 5 mm, `inlet` / `outlet` at the ends, 3 layers (first
+    /// 0.3 mm, × 1.2) on `walls`, by each strategy.
+    ///
+    /// Predictions (written 2026-11-04 before the first run): the layered
+    /// duct passes snappy's strict controls everywhere, so
+    /// `SnappyCollapse` converges in its first iteration with every wall
+    /// point extruded, and its mesh is the back-off's to the bit (same
+    /// columns, same builder); `CfMeshOptimise` finds no bad and no
+    /// low-quality face on the flat walls, so the optimisers move no
+    /// interior point (the duct's interior points stay bit-identical); its
+    /// hairs are recomputed from the surface normals and smoothed, which on
+    /// a flat side gives the side's normal back, so the layer thickness at
+    /// the middle of each side equals the back-off's to 1e-12, and coverage
+    /// is 100 %.
+    #[test]
+    fn every_strategy_leaves_a_good_box_duct_alone() {
+        let (bp, bt, br) = box_duct_surface(0.02, 0.06);
+        let hex = crate::patches::assign_patches_by_region(&carve_box(&bp, &bt, 0.005), &bp, &bt, &br).unwrap();
+        let (back, bo) = crate::layers::add_boundary_layers_back_off(&hex, &["walls"], 3, 3e-4, 1.2);
+        let (snap, so) = add_boundary_layers_snappy(&hex, &["walls"], 3, 3e-4, 1.2, &SnappyLayerControls::default());
+        let (cfm, co) = add_boundary_layers_cfmesh(&hex, &["walls"], 3, 3e-4, 1.2, &BoundaryLayerOptimisationControls::default());
+        assert_eq!(bo.full_coverage(), 1.0);
+        assert_eq!((so.full_coverage(), so.iterations, so.collapsed_point_fraction()), (1.0, 1, 0.0), "{:?}", so.notes);
+        assert_eq!(mesh_fingerprint(&snap), mesh_fingerprint(&back), "snappy = back-off on a good duct");
+        assert_eq!(co.full_coverage(), 1.0);
+        assert_eq!(co.remaining_bad_faces, 0, "{:?}", co.notes);
+        assert!(co.notes.iter().any(|n| n.starts_with("optimizeLowQualityFaces: low-quality faces 0 -> 0")), "{:?}", co.notes);
+        // Interior (non-wall) points of the duct are not moved by cfMesh.
+        let n_inner = hex.points.len() - bo.points.len();
+        assert_eq!(&cfm.points[..n_inner], &back.points[..n_inner]);
+        // Hairs at the middle point of each wall side, away from every edge
+        // of the duct, stay along the face normal.
+        for x in [Vec3::new(0.0, 0.01, 0.03), Vec3::new(0.01, 0.0, 0.03)] {
+            let i = co.points.iter().position(|p| p.0.sub(x).length() < 1e-12).expect("mid point");
+            assert!((co.points[i].2 - bo.points[i].2).abs() < 1e-12, "thickness kept at {x:?}: {} vs {}", co.points[i].2, bo.points[i].2);
+        }
+    }
+
+    /// V&V (gh:#1215) — **both new strategies are deterministic**, within a
+    /// process (two calls) and between processes (fingerprints pinned on
+    /// 2026-11-04 and asserted here; any process gives these numbers).
+    /// Methodology: the demo pipe (R 10 mm, L 60 mm, 48 facets) at h 5 mm
+    /// with 3 wall-only layers, through the multipatch pipeline under each
+    /// strategy.
+    #[test]
+    fn layer_strategies_are_deterministic() {
+        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
+        let mut got = Vec::new();
+        for strategy in [LayerQualityStrategy::CfMeshOptimise, LayerQualityStrategy::SnappyCollapse] {
+            let o = TetDualOptions { cell_size: 0.005, n_layers: 3, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, ..Default::default() };
+            let (a, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            let (b, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            assert_eq!(mesh_fingerprint(&a), mesh_fingerprint(&b), "{strategy:?}");
+            got.push((a.cell_count(), mesh_fingerprint(&a)));
+        }
+        eprintln!("strategy fingerprints {got:?}");
+    }
+
+    /// Diagnostic (gh:#1215), `--ignored`: **the differential table.** Every
+    /// strategy on the same inputs: the demo pipe (R 10 mm, L 200 mm, 48
+    /// facets) at h 4 / 5 / 6 mm with 1–4 wall-only layers (first 0.3 mm,
+    /// × 1.2), a tet-dual box duct 20 × 20 × 200 mm at h 5 mm with 2 and 3
+    /// layers (its four long 90° edges are the sharp-feature case), and the
+    /// same duct with snappy's `featureAngle` at the propeller tutorial's
+    /// 60°. Prints mesh quality, counts beyond upstream's limits, coverage,
+    /// thickness, time and a determinism check.
+    #[test]
+    #[ignore]
+    fn diagnose_layer_strategies_differential() {
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let (bp, bt, br) = box_duct_surface(0.02, 0.2);
+        let mut cases: Vec<(String, &[Vec3], &[[usize; 3]], &SurfaceRegions, f64, usize, f64)> = Vec::new();
+        for h in [0.006, 0.005, 0.004] {
+            for n in 1..=4 {
+                cases.push((format!("pipe h{} n{n}", h * 1e3), &p, &t, &regions, h, n, 100.0));
+            }
+        }
+        for n in [2, 3] {
+            cases.push((format!("duct h5 n{n}"), &bp, &bt, &br, 0.005, n, 100.0));
+            cases.push((format!("duct h5 n{n} fa60"), &bp, &bt, &br, 0.005, n, 60.0));
+        }
+        let only = std::env::var("CFMESH_CASE").ok();
+        for (name, sp, st, sr, h, n, fa) in cases {
+            if only.as_deref().is_some_and(|o| !name.contains(o)) {
+                continue;
+            }
+            for strategy in STRATEGIES {
+                if fa < 100.0 && strategy != LayerQualityStrategy::SnappyCollapse {
+                    continue;
+                }
+                let mut snappy = SnappyLayerControls::default();
+                snappy.feature_angle_deg = fa;
+                let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, snappy_layers: snappy, ..Default::default() };
+                let t0 = std::time::Instant::now();
+                let (m, rep) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
+                let secs = t0.elapsed().as_secs_f64();
+                let (m2, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
+                let det = mesh_fingerprint(&m) == mesh_fingerprint(&m2);
+                let q = check_quality(&m);
+                let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
+                let relaxed = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls { max_non_ortho_deg: 75.0, ..Default::default() }).iter().filter(|&&b| b).count();
+                let ortho_only = |deg: f64| {
+                    crate::checks::faces_failing_mesh_quality(
+                        &m,
+                        &crate::checks::MeshQualityControls { max_non_ortho_deg: deg, max_boundary_skewness: -1.0, max_internal_skewness: -1.0, min_tet_quality: None, min_twist: -2.0, min_determinant: -1.0, min_face_weight: -1.0, min_vol_ratio: -1.0 },
+                    )
+                    .iter()
+                    .filter(|&&b| b)
+                    .count()
+                };
+                let lo = rep.layers.clone().unwrap_or_default();
+                let layered: Vec<&(Vec3, usize, f64, f64)> = lo.points.iter().filter(|q| q.1 > 0).collect();
+                let d1 = 1.0 / (1..=n).map(|k| 1.2f64.powi(k as i32 - 1)).sum::<f64>(); // first / total at n layers
+                let first: Vec<f64> = layered.iter().filter(|q| q.1 == n).map(|q| q.2 * d1).collect();
+                let mean = |v: &[f64]| if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 };
+                let tot: Vec<f64> = layered.iter().map(|q| q.2).collect();
+                let thinned = layered.iter().filter(|q| q.2 < 0.999 * q.3).count();
+                println!(
+                    "{name} {:?}: {} cells, {secs:.2} s, det {det}; nonortho max {:.1}, >65 {}, >75 {}; skew {:.2}; minDet {:.2e}; minVol {:.2e}; negPyr {}; fail strict {strict} relaxed {relaxed}; cover {:.3}, collapsed pts {:.3}, thinned pts {thinned}/{}, first {:.4} mm, total mean {:.4} min {:.4} mm; iters {}; notes {:?}",
+                    strategy,
+                    m.cell_count(),
+                    q.max_non_orthogonality_deg,
+                    ortho_only(65.0),
+                    ortho_only(75.0),
+                    q.max_skewness,
+                    q.min_cell_determinant,
+                    q.min_cell_volume,
+                    q.n_negative_pyramid_faces,
+                    lo.full_coverage(),
+                    lo.collapsed_point_fraction(),
+                    layered.len(),
+                    1e3 * mean(&first),
+                    1e3 * mean(&tot),
+                    1e3 * tot.iter().cloned().fold(f64::MAX, f64::min).min(if tot.is_empty() { 0.0 } else { f64::MAX }),
+                    lo.iterations,
+                    rep.stage_notes
+                );
+            }
         }
     }
 
