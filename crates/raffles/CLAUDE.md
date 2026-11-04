@@ -90,7 +90,7 @@ confirm or reverse" (`scram/`, `estimators`, its submodules, and
 `raffles::fidelity::build` running the caller's model, gh:#1194) are confirmed
 by the maintainer**, and new direction from the maintainer needs no further
 sign-off. Adolphus Lye remains the author of the backronym and of the Bayesian
-work the crate draws on; credit them accurately, and use they/them. The text
+work the crate draws on; credit him accurately (he/him). The text
 below is kept struck through as the history of the earlier position.
 
 ~~**This crate belongs to Adolphus Lye**, a colleague of the workspace
@@ -106,8 +106,11 @@ What that means in practice:
 - If a task you are given conflicts with what this file or the README records
   as the crate's scope, say so and ask, rather than quietly widening the scope.
 - Attribute their ownership accurately in anything you write about the crate.
-- **Use they/them for Adolphus Lye.** Their pronouns have not been stated, so
-  singular *they* is the correct default here — do not guess otherwise.
+- ~~**Use they/them for Adolphus Lye.** Their pronouns have not been stated, so
+  singular *they* is the correct default here — do not guess otherwise.~~
+  **CORRECTED 2026-11-04 (maintainer): "Adolphus is he."** Use he/him for
+  Adolphus Lye. Older text in this crate that says "they" for him is not wrong
+  enough to rewrite; new text uses he/him.
 
 Filling in a module the crate already declares, to the design rules below, is
 ordinary contribution and does not need a fresh decision.
