@@ -21,7 +21,8 @@
 //! | [`SurrogateSpec`], [`Surrogate<I, O>`] | what to fit, and the fitted model: `Polynomial` (one fit per output), `Neural` behind the `burn` feature, since gh:#1193 RAVEN's `PolynomialChaos` and `Kriging { route: RavenSklearn }` (with a σ), since gh:#1190 SMT's `Kriging { route: Smt }` and `CoKriging` (MFK, fitted by `Surrogate::fit_multi` on a `MultiFidelityDataset`) |
 //! | [`Prediction<O>`] | `mean: O`, `std_dev: Option<O>` (the uncertainty keeps the output's units) |
 //! | [`ValidationReport<O>`] | held-out RMSE and max error per output in output units, LOO RMSE on the training rows, 2σ coverage when a σ exists |
-//! | [`CorrectedModel<L>`], [`ThetaEstimate`], [`discrepancy_dataset`] | `y_LF(x, θ) + δ(x)` |
+//! | [`CorrectedModel<L>`], [`ThetaEstimate`], [`discrepancy_dataset`] | `y_LF(x, θ) + δ(x)`; since gh:#1180 `ThetaEstimate::Posterior` |
+//! | [`koh::KohCalibration`], [`koh::KohSpec`] | Kennedy–O'Hagan calibration of a [`ParametricModel`] against a [`Dataset`]'s training rows, with a GP discrepancy (SEPIA's formulation, gh:#1180) |
 //! | [`build`], [`sample`], [`BuildPlan`], [`HeldOut`] | sample `hf` over a [`Sampler`](crate::samplers::Sampler) design, split, fit, validate |
 //!
 //! # Design rules it follows
@@ -63,6 +64,7 @@
 
 mod build;
 mod dataset;
+pub mod koh;
 mod models;
 mod quantities;
 mod space;

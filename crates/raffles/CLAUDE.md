@@ -399,6 +399,22 @@ in the SMT mode: KRG's universal-kriging variance uses only `diag(G)`
 likelihood by n where MFK divides by n − p − q, and MFK's variance for three
 or more levels uses `mu = 0` above level 1.
 
+### The gh:#1180 Kennedy–O'Hagan route: SEPIA (BSD-3-Clause, 2026-11-04)
+
+`src/bayesian/koh/{mod,data,model}.rs` port LANL's SEPIA @ `309890423a12`
+(`LICENSE-BSD-SEPIA`, NOTICE): its scalar-output model y = η(x, t) + δ(x) +
+ε (the GPMSA formulation), transforms, covariance, log-likelihood, priors
+and dense predictor. `sample.rs` is not a port: raffles' TMCMC samples
+SEPIA's posterior. The typed route is `fidelity::koh::KohCalibration`
+(with `ThetaEstimate::Posterior`). Differential record:
+`verification_and_validation/koh_calibration_gh1180.md`, tests
+`tests/koh_sepia_gh1180.rs`. Two upstream facts not to "fix" back: SEPIA's
+univariate **setup** cannot carry δ (only its likelihood and dense
+predictor have the branch), and its dense `uvPred` scalar + δ branch puts
+`SigUUx` in the wrong block (line 704); the port follows upstream's own
+GPMSA comment there. TMCMC needs enough moves per stage on this posterior
+(3 under-mixed in 11 dimensions; 20 matched SEPIA's MCMC).
+
 ### Third-party BSD code inside RAVEN
 
 RAVEN's own `NOTICE.txt` discloses vendored third-party code under separate BSD

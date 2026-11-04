@@ -61,20 +61,63 @@ pub trait ParametricModel {
     fn evaluate(&self, x: &Self::Input, theta: &Self::Theta) -> Result<Self::Output>;
 }
 
-/// What is known about `θ`. A point estimate now; posterior samples (from
-/// TMCMC, gh:#1180) are the planned second variant.
+/// What is known about `θ`: a point, or ~~posterior samples (from TMCMC,
+/// gh:#1180) as the planned second variant~~ (landed 2026-11-04, gh:#1180:
+/// [`ThetaEstimate::Posterior`], from [`crate::fidelity::koh`]).
 #[derive(Debug, Clone, PartialEq)]
 pub enum ThetaEstimate<T: Quantities> {
     /// One value of `θ` (e.g. the nominal, uncalibrated one, or a MAP).
     Point(T),
+    /// Posterior samples of `θ` and their channel-wise mean (in SI), the
+    /// value [`point`](Self::point) gives a [`CorrectedModel`].
+    Posterior {
+        /// The samples.
+        samples: Vec<T>,
+        /// The mean of each channel's SI value over the samples.
+        mean: T,
+    },
 }
 
 impl<T: Quantities> ThetaEstimate<T> {
-    /// The value used for a prediction: the point itself.
+    /// A posterior estimate from samples; `mean` is the channel-wise SI mean.
+    ///
+    /// # Errors
+    /// [`crate::RafflesError::InvalidParameter`] for no samples.
+    pub fn posterior(samples: Vec<T>) -> Result<Self> {
+        let Some(first) = samples.first() else {
+            return Err(crate::RafflesError::InvalidParameter {
+                parameter: "samples".to_string(),
+                value: 0.0,
+                reason: "a posterior needs at least one sample".to_string(),
+            });
+        };
+        let mut sum = vec![0.0; first.to_si().len()];
+        for s in &samples {
+            for (a, v) in sum.iter_mut().zip(s.to_si()) {
+                *a += v;
+            }
+        }
+        let n = samples.len() as f64;
+        let mean = T::from_si(&sum.iter().map(|a| a / n).collect::<Vec<f64>>())?;
+        Ok(Self::Posterior { samples, mean })
+    }
+
+    /// The value used for a prediction: the point itself, or the posterior
+    /// mean.
     #[must_use]
     pub fn point(&self) -> &T {
         match self {
             Self::Point(t) => t,
+            Self::Posterior { mean, .. } => mean,
+        }
+    }
+
+    /// The samples: the one point, or the posterior's.
+    #[must_use]
+    pub fn samples(&self) -> &[T] {
+        match self {
+            Self::Point(t) => core::slice::from_ref(t),
+            Self::Posterior { samples, .. } => samples,
         }
     }
 }
@@ -262,6 +305,15 @@ mod tests {
             slope: Ratio::new::<ratio>(2.0),
         });
         assert_eq!(theta.point().slope.value, 2.0);
+        assert_eq!(theta.samples().len(), 1);
+        let post = ThetaEstimate::posterior(vec![
+            Th { slope: Ratio::new::<ratio>(1.0) },
+            Th { slope: Ratio::new::<ratio>(3.0) },
+        ])
+        .unwrap();
+        assert_eq!(post.point().slope.value, 2.0);
+        assert_eq!(post.samples().len(), 2);
+        assert!(ThetaEstimate::<Th>::posterior(Vec::new()).is_err());
 
         let lf_only = CorrectedModel::new(Linear, theta.clone(), None);
         let x = X {

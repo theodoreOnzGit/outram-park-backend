@@ -94,6 +94,9 @@
 //!   the one repository in that set that carries a licence. Includes a bimodal
 //!   posterior whose two modes are computable in closed form, which is the
 //!   failure a moment-based check cannot see.
+//! - [`koh`] — Kennedy–O'Hagan calibration with a GP model discrepancy,
+//!   translated from LANL's SEPIA (BSD-3, gh:#1180) and sampled with
+//!   [`transitional`]; differential-tested against SEPIA.
 //!
 //! # Conventions used throughout
 //!
@@ -132,6 +135,7 @@
 
 use petir::mathf::RealMath;
 pub mod case_studies;
+pub mod koh;
 pub mod mcmc;
 pub mod raven_mcmc;
 pub mod transitional;

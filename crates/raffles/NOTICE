@@ -469,6 +469,38 @@ verification_and_validation/smt_kriging_gh1190.md.
 Status: AI-assisted draft, not reviewed by a human.
 
 
+SEPIA (LANL) — BSD-3-CLAUSE (gh:#1180, 2026-11-04)
+=================================================
+
+  Project:     SEPIA, Simulation-Enabled Prediction, Inference, and Analysis
+               (Los Alamos National Laboratory), the Python successor of
+               GPMSA (Higdon et al. 2004, 2008)
+  Repository:  https://github.com/lanl/SEPIA
+  Commit:      309890423a121919dc09a678c65a21748bbefb4b (master,
+               2023-10-02), accessed 2026-11-04
+  License:     BSD 3-Clause, "(c) 2020. Triad National Security, LLC. All
+               rights reserved." Upstream License-BSD-3 preserved verbatim as
+               LICENSE-BSD-SEPIA (sha256
+               041d7b8a1cf4e1934af86c65a7a27968f05ea9cf1443be5e4e3a38f7047ec151);
+               setup.py declares license = 'BSD'.
+  Ported:      sepia/SepiaData.py (transform_xt, standardize_y, scalar
+               output), sepia/SepiaDistCov.py (compute_cov_mat),
+               sepia/SepiaLogLik.py (compute_log_lik, scalar branch with and
+               without discrepancy, simulation only), sepia/SepiaPrior.py
+               (compute_log_prior, is_in_bounds), sepia/SepiaModel.py (the
+               default priors of set_params_sim_only / _noD / _full),
+               sepia/SepiaPredict.py (uvPred, scalar branch).
+  Into:        src/bayesian/koh/{mod,data,model}.rs (each with its own
+               header). src/bayesian/koh/sample.rs is NOT a port (raffles'
+               TMCMC drives SEPIA's posterior; SEPIA's own MCMC is not
+               ported).
+
+BSD-3-Clause is compatible with (A)GPLv3; the code flows ONE WAY into
+RAFFLES and may not be contributed back to SEPIA, or redistributed under BSD
+terms. Verification: verification_and_validation/koh_calibration_gh1180.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
 INDEPENDENCE / TRADEMARK
 ========================
 
