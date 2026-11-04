@@ -64,9 +64,19 @@ pub struct QualityReport {
     /// internal face's normal and the vector joining its two cell centres. `0°`
     /// is perfectly orthogonal; OpenFOAM flags `> 70°`.
     pub max_non_orthogonality_deg: f64,
-    /// Maximum face **skewness**: the offset of the face centre from where the
-    /// owner–neighbour centre line crosses the face, as a fraction of that
-    /// line's length. OpenFOAM flags `> 4`.
+    /// Maximum face **skewness** over the internal faces, OpenFOAM's
+    /// `primitiveMeshTools::faceSkewness`: the offset `s` of the face centre
+    /// from where the owner–neighbour centre line crosses the face plane,
+    /// divided by the face's own extent along `s` (the largest projection of
+    /// a face vertex, measured from the face centre, on `s`), floored at
+    /// `0.2 |d|`. OpenFOAM flags `> 4` (`maxInternalSkewness 4`).
+    ///
+    /// ~~as a fraction of that line's length~~ **CORRECTED 2026-11-04
+    /// (gh:#1202):** that was this port's normalisation, not upstream's; on
+    /// a stack of thin prism layers it read width/thickness (6.6–7.2 on
+    /// 3-layer pipes) where upstream's reads the actual skew. Ported from
+    /// the workspace's existing port, `outram_foam_mesh::mesh_quality::
+    /// face_skewness` (OpenFOAM `primitiveMeshTools.C`).
     pub max_skewness: f64,
     /// Maximum cell **aspect ratio** (`Σ|Sf| / (6 · V^{2/3})`, which is `1` for
     /// a cube). Large values mean sliver cells.
@@ -199,14 +209,20 @@ pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
             if dlen > 1e-30 && area > 1e-30 {
                 let cos = (d.dot(sf) / (dlen * area)).clamp(-1.0, 1.0);
                 max_non_orth = max_non_orth.max(cos.r_acos().to_degrees());
-                // Skewness: where the centre line crosses the face plane.
+                // Skewness (OpenFOAM `primitiveMeshTools::faceSkewness`):
+                // the face-centre offset from where the centre line pierces
+                // the face plane, over the face's extent along that offset,
+                // floored at 0.2 |d|.
                 let fc = mesh.face_centroid(f);
-                let denom = d.dot(sf);
-                if denom.abs() > 1e-30 {
-                    let t = fc.sub(co).dot(sf) / denom;
-                    let fi = co.add(d.scale(t));
-                    max_skew = max_skew.max(fc.sub(fi).length() / dlen);
+                let cpf = fc.sub(co);
+                let sv = cpf.sub(d.scale(sf.dot(cpf) / (sf.dot(d) + 1e-300)));
+                let sv_mag = sv.length();
+                let sv_hat = sv.scale(1.0 / (sv_mag + 1e-300));
+                let mut fd = 0.2 * dlen + 1e-300;
+                for &v in &mesh.faces[f] {
+                    fd = fd.max(sv_hat.dot(mesh.points[v].sub(fc)).abs());
                 }
+                max_skew = max_skew.max(sv_mag / fd);
             }
         }
     }
@@ -312,7 +328,10 @@ pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
 /// Per-cell `(volume, centroid)` via the OpenFOAM pyramid decomposition: each
 /// face forms a pyramid with the cell's face-centroid average as apex; the
 /// cell volume and centroid are the signed sums over those pyramids.
-fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
+/// The cell volumes and centres the quality checks use (pyramid
+/// decomposition about the face-centroid average); also used by the layer
+/// back-off (`layers`) to find cells with non-positive face pyramids.
+pub(crate) fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
     // Collect each cell's (face, outward-sign): +1 for its owner faces, −1 for
     // faces where it is the neighbour (the stored normal points owner→neighbour).
     let mut cell_faces: Vec<Vec<(usize, f64)>> = vec![Vec::new(); mesh.n_cells];

@@ -224,7 +224,8 @@ impl EnergyEquation {
         for _ in 0..=n_non_orth {
             let mut eqn = fvm::laplacian_with_delta(&alpha_f, &self.t, lap.delta_coeff());
             if lap.is_explicit() {
-                let c = non_orthogonal::scalar_face_correction(&alpha_f, &fvc::grad(&self.t), &mesh);
+                let mut c = non_orthogonal::scalar_face_correction(&alpha_f, &fvc::grad(&self.t), &mesh);
+                lap.limit_scalar(&mut c, &alpha_f, &self.t, &mesh);
                 non_orthogonal::add_to_source_scalar(eqn.source.as_mut_slice(), &c, &mesh);
             }
             match &self.ddt {

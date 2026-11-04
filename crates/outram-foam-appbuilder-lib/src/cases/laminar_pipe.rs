@@ -91,6 +91,12 @@ impl PipeFlow {
         Acceleration::new::<meter_per_second_squared>(32.0 * self.nu_si() * self.u() / (self.d() * self.d()))
     }
 
+    /// Hagen–Poiseuille kinematic wall shear stress `τ_w/ρ = 4 ν U / R`
+    /// \[m²/s²\] (the force balance `τ_w = (−dp/dz) R / 2`).
+    pub fn hagen_poiseuille_wall_shear(&self) -> f64 {
+        4.0 * self.nu_si() * self.u() / self.radius.get::<meter>()
+    }
+
     /// Darcy friction factor from a kinematic pressure gradient:
     /// `f = (−dp/dz) D / (½ U²)`; Hagen–Poiseuille gives `64/Re`.
     pub fn friction_factor(&self, gradient: Acceleration) -> f64 {
@@ -167,10 +173,17 @@ impl PipeFlow {
     pub fn step(&self, s: &mut PimpleFoam) -> Result<f64, AppBuilderError> {
         let before = s.u.internal.as_slice().to_vec();
         s.step()?;
-        let du = before
-            .iter()
-            .zip(s.u.internal.as_slice())
-            .fold(0.0_f64, |a, (b, c)| a.max((*c - *b).mag()));
+        // A NaN cell must not read as "no change": `f64::max` drops NaN, so a
+        // diverged field used to report 0, i.e. steady (found on the
+        // unstructured pipe, gh:#1202). Any non-finite change is returned as NaN.
+        let du = before.iter().zip(s.u.internal.as_slice()).fold(0.0_f64, |a, (b, c)| {
+            let d = (*c - *b).mag();
+            if a.is_nan() || !d.is_finite() {
+                f64::NAN
+            } else {
+                a.max(d)
+            }
+        });
         let u = self.u();
         Ok(du / u * (self.length.get::<meter>() / u) / s.control.delta_t)
     }
@@ -259,6 +272,98 @@ pub fn pressure_gradient(s: &PimpleFoam, z0: f64, z1: f64) -> Acceleration {
     Acceleration::new::<meter_per_second_squared>(-fit_line(&pts).1)
 }
 
+/// Volume-weighted RMS of `(u_z − 2U(1 − r²/R²)) / 2U` over the cells whose
+/// centres lie in `z ∈ [z0, z1]`: the developed-profile error of the gh:#1155
+/// record, as a function so that any mesh (O-grid or polyhedral, gh:#1202)
+/// is measured the same way. The axis is the z axis through `axis`.
+pub fn profile_rms(s: &PimpleFoam, flow: &PipeFlow, axis: (f64, f64), z0: f64, z1: f64) -> f64 {
+    let (r, u2) = (flow.radius.get::<meter>(), 2.0 * flow.u());
+    let m = &s.mesh;
+    let (mut sw, mut se) = (0.0, 0.0);
+    for c in 0..m.n_cells {
+        let x = m.cell_centres[c];
+        if x.z < z0 || x.z > z1 {
+            continue;
+        }
+        let rr = ((x.x - axis.0).r_powi(2) + (x.y - axis.1).r_powi(2)) / (r * r);
+        let e = (s.u.internal[c].z - u2 * (1.0 - rr)) / u2;
+        sw += m.cell_volumes[c];
+        se += m.cell_volumes[c] * e * e;
+    }
+    if sw > 0.0 {
+        (se / sw).sqrt()
+    } else {
+        f64::NAN
+    }
+}
+
+/// The radial profile of `u_z` by **binning cell centres in r** (gh:#1202):
+/// the cells whose centres lie within `|z − z_mid| < hz` are put in `n_bins`
+/// equal bins of r/R ∈ [0, 1], and each bin gives its volume-weighted mean
+/// r/R and mean `u_z / U`. Empty bins are left out. This works on any mesh;
+/// on an unstructured one a single plane cuts cells whose centres sit off
+/// the plane, so a slab is used instead of interpolating to the plane.
+/// Returns `(r/R, u_z/U, cells in the bin)`.
+pub fn radial_profile_binned(s: &PimpleFoam, flow: &PipeFlow, axis: (f64, f64), z_mid: f64, hz: f64, n_bins: usize) -> Vec<(f64, f64, usize)> {
+    let (r, u) = (flow.radius.get::<meter>(), flow.u());
+    let n_bins = n_bins.max(1);
+    let mut acc = vec![(0.0, 0.0, 0.0, 0usize); n_bins];
+    let m = &s.mesh;
+    for c in 0..m.n_cells {
+        let x = m.cell_centres[c];
+        if (x.z - z_mid).abs() >= hz {
+            continue;
+        }
+        let rr = ((x.x - axis.0).r_powi(2) + (x.y - axis.1).r_powi(2)).sqrt() / r;
+        let k = ((rr * n_bins as f64) as usize).min(n_bins - 1);
+        let w = m.cell_volumes[c];
+        acc[k].0 += w;
+        acc[k].1 += w * rr;
+        acc[k].2 += w * s.u.internal[c].z / u;
+        acc[k].3 += 1;
+    }
+    acc.into_iter().filter(|a| a.3 > 0).map(|a| (a.1 / a.0, a.2 / a.0, a.3)).collect()
+}
+
+/// Mean kinematic wall shear stress `τ_w/ρ` \[m²/s²\] on the faces of every
+/// patch other than `inlet` and `outlet` whose centres lie in `z ∈ [z0, z1]`,
+/// area-weighted: per face `ν |U_P,t| / d`, the tangential velocity of the
+/// wall cell over the distance from its centre to the face along the face
+/// normal. This is OpenFOAM's `wallShearStress` with the wall's own
+/// `snGrad` (no non-orthogonal correction, first order in d), as its
+/// `wallShearStress` function object computes it for a laminar no-slip wall.
+/// Hagen–Poiseuille gives `4 ν U / R`; [`PipeFlow::hagen_poiseuille_wall_shear`].
+pub fn wall_shear_stress(s: &PimpleFoam, z0: f64, z1: f64) -> f64 {
+    let m = &s.mesh;
+    let nu = s.nu.internal[0];
+    let (mut sa, mut st) = (0.0, 0.0);
+    for p in &m.patches {
+        if p.name == "inlet" || p.name == "outlet" {
+            continue;
+        }
+        for fi in 0..p.size {
+            let f = p.start + fi;
+            let fc = m.face_centres[f];
+            if fc.z < z0 || fc.z > z1 {
+                continue;
+            }
+            let a = m.face_areas[f];
+            let n = m.face_area_vectors[f] * (1.0 / a.max(1e-300));
+            let c = m.owner[f];
+            let d = (fc - m.cell_centres[c]).dot(n).abs().max(1e-300);
+            let up = s.u.internal[c];
+            let ut = up - n * up.dot(n);
+            sa += a;
+            st += a * nu * ut.mag() / d;
+        }
+    }
+    if sa > 0.0 {
+        st / sa
+    } else {
+        f64::NAN
+    }
+}
+
 /// Net face flux through the named patch as stored in `phi` \[m³/s\],
 /// outward positive; 0 if there is no such patch.
 pub fn patch_flux(s: &PimpleFoam, name: &str) -> f64 {
@@ -309,6 +414,70 @@ mod tests {
         assert!((ld - 5.771_884).abs() < 1e-5, "L/D {ld}");
         let dt = f.courant_time_step(Length::new::<meter>(0.0025), 4.0);
         assert!((dt.get::<second>() - 1.0).abs() < 1e-12);
+    }
+
+    /// The profile instruments on an exact Hagen–Poiseuille field set at the
+    /// cell centres of a coarse O-grid (gh:#1202): the RMS is round-off and
+    /// every bin sits on 2(1 − r²) to within its width. The wall shear is
+    /// checked on a plane channel instead (below): on the O-grid the parabola
+    /// vanishes on the circle, not on the polygon's flat faces, so the
+    /// one-sided estimate there reads high (1.28 on this 16-gon, first run
+    /// 2026-11-04) for a reason that is the test field's, not the
+    /// instrument's.
+    #[test]
+    fn profile_instruments_on_an_exact_parabola() {
+        use outram_foam_mesh::block_primitives::PipeOGrid;
+        let f = PipeFlow { length: Length::new::<meter>(0.05), ..PipeFlow::stage0() };
+        let g = PipeOGrid::new(f.radius, f.length, 4, 3, 10);
+        let mesh = Arc::new(g.mesh().unwrap().to_fv_mesh().unwrap());
+        let mut s = f.build_solver(mesh.clone(), Time::new::<second>(0.1));
+        let (r, u2) = (0.01, 2.0 * 5.0e-3);
+        for c in 0..mesh.n_cells {
+            let x = mesh.cell_centres[c];
+            s.u.internal[c] = Vector3::new(0.0, 0.0, u2 * (1.0 - (x.x * x.x + x.y * x.y) / (r * r)));
+        }
+        assert!(profile_rms(&s, &f, (0.0, 0.0), 0.0, 0.05) < 1e-12);
+        let bins = radial_profile_binned(&s, &f, (0.0, 0.0), 0.025, 0.01, 5);
+        assert!(bins.len() >= 4, "{bins:?}");
+        for (rr, u, n) in &bins {
+            assert!(*n > 0 && (u - 2.0 * (1.0 - rr * rr)).abs() < 0.15, "{rr} {u}");
+        }
+        assert!((f.hagen_poiseuille_wall_shear() - 2.0e-6).abs() < 1e-18);
+    }
+
+    /// `wall_shear_stress` on plane Poiseuille flow `u_z = 4U y (H − y) / H²`
+    /// between walls y = 0 and y = H of a box (the x and z sides named
+    /// `inlet` / `outlet`, so only the two walls count): the one-sided
+    /// `ν u_P / d` with d = Δy/2 is exactly `4νU/H · (1 − d/H)`.
+    #[test]
+    fn wall_shear_is_the_one_sided_gradient_on_a_channel() {
+        use outram_foam_mesh::block_primitives::BoxBlock;
+        let (h, ny) = (0.01, 10);
+        let mut b = BoxBlock::new([0.01, h, 0.02].map(Length::new::<meter>), [2, ny, 3]);
+        b.patch_names = ["inlet", "outlet", "walls", "walls", "inlet", "outlet"].map(String::from);
+        let mesh = Arc::new(b.mesh().unwrap().to_fv_mesh().unwrap());
+        let f = PipeFlow::stage0();
+        let mut s = f.build_solver(mesh.clone(), Time::new::<second>(0.1));
+        let u = 5.0e-3;
+        for c in 0..mesh.n_cells {
+            let y = mesh.cell_centres[c].y;
+            s.u.internal[c] = Vector3::new(0.0, 0.0, 4.0 * u * y * (h - y) / (h * h));
+        }
+        let d = 0.5 * h / ny as f64;
+        let want = 4.0 * 1.0e-6 * u / h * (1.0 - d / h);
+        let got = wall_shear_stress(&s, -1.0, 1.0);
+        assert!((got / want - 1.0).abs() < 1e-12, "{got} vs {want}");
+    }
+
+    /// A diverged (NaN) velocity reads as a NaN change, never as steady.
+    #[test]
+    fn a_nan_field_is_not_steady() {
+        use outram_foam_mesh::block_primitives::PipeOGrid;
+        let f = PipeFlow { length: Length::new::<meter>(0.05), ..PipeFlow::stage0() };
+        let mesh = Arc::new(PipeOGrid::new(f.radius, f.length, 2, 1, 4).mesh().unwrap().to_fv_mesh().unwrap());
+        let mut s = f.build_solver(mesh, Time::new::<second>(0.1));
+        s.u.internal[0] = Vector3::new(f64::NAN, 0.0, 0.0);
+        assert!(!matches!(f.step(&mut s), Ok(v) if v.is_finite()));
     }
 
     #[test]

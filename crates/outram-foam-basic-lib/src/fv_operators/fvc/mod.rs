@@ -58,7 +58,7 @@ pub use flux::{buoyancy_flux, flux};
 pub use grad::grad;
 pub use grad_least_squares::grad_least_squares;
 pub use grad_vec::grad_vec;
-pub use interpolate::interpolate;
+pub use interpolate::{interpolate, linear_weight};
 pub use muscl::{reconstruct_pos_neg, Limiter};
 pub use reconstruct::reconstruct;
 pub use sn_grad::sn_grad;

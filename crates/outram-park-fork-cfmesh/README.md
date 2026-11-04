@@ -248,9 +248,27 @@ including prism layers: contiguous patches with correct counts and start offsets
 and geometrically correct membership. The single-patch
 `surface_to_tet_dual_mesh` is unchanged.
 
-Known limitation: because classification runs last, prism layers are grown over
+~~Known limitation: because classification runs last, prism layers are grown over
 the **whole** boundary, `inlet`/`outlet` included — snappyHexMesh's per-patch
-`nSurfaceLayers` selection is future work.
+`nSurfaceLayers` selection is future work.~~ **CORRECTED 2026-11-04
+(gh:#1202):** set `TetDualOptions::layer_patches` (e.g. `["walls"]`) and the
+boundary is named before the layer stage and prisms grow on those patches only
+(`layers::add_boundary_layers_adaptive_on_patches`, a port of cfMesh's
+per-patch `boundaryLayers` border rules). Empty keeps the old whole-boundary
+behaviour. ~~Still missing: **feature-edge capture** (cfMesh's
+`meshSurfaceEdgeExtractor`), so on a pipe the dual's boundary faces wrap round
+the rim and the "flat" ends reach about a quarter cell up the wall.~~
+**UPDATED 2026-11-04 (gh:#1202):** feature-edge capture is ported
+(`surface_mapper`, cfMesh's `meshSurfaceMapper::mapVerticesOntoSurfacePatches`
+with edge and corner nodes) and runs in the multipatch pipeline after the dual
+(`TetDualOptions::feature_edges`, on by default): the Foam Studio pipe's rim is
+square and its inlet spans 0.9936 πR² (was 0.9396). Not ported:
+`correctEdgesBetweenPatches`; where mapping would leave a face on a feature
+edge, those points stay unmapped and the pipeline notes how many. Also since
+2026-11-04: `checks::QualityReport::max_skewness` is OpenFOAM's
+`faceSkewness` (it divided by the centre distance before), and the layer
+back-off applies upstream's layer limits (`maxInternalSkewness 4`, no
+non-positive face pyramid, `minDeterminant 0.001`).
 
 Remaining roadmap (beads under the `op-hzs` epic):
 
@@ -265,8 +283,14 @@ Remaining roadmap (beads under the `op-hzs` epic):
 9. named boundary patches carried through to the output polyMesh
    (`surface_to_tet_dual_mesh_multipatch`) ✅
 10. exact/adaptive predicates + size-driven point insertion (rest of `op-38z`)
-11. **patch-selective** layer insertion (layers currently grow over the whole
-    boundary, because patch classification runs last) and feature-aware layers
+11. ~~**patch-selective** layer insertion (layers currently grow over the whole
+    boundary, because patch classification runs last) and~~ **patch-selective
+    layers done 2026-11-04 (gh:#1202)**; ~~still to do: feature-edge capture~~
+    feature-edge capture done 2026-11-04 (without `correctEdgesBetweenPatches`);
+    still to do: feature-aware layers and **local layer collapse** (three
+    layers on the pipe diverge in the solver; the interface to the dual sits
+    at 75–84°, and only a local collapse, snappy-style, can meet upstream's
+    relaxed `maxNonOrtho 75`)
 12. make the adaptive layerer work on graded near-wall meshes — it currently
     backs off to zero thickness there, which the pipeline now *reports* in
     `TetDualReport::stage_notes` rather than failing silently

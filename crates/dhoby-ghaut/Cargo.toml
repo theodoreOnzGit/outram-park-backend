@@ -210,6 +210,12 @@ egui_plot = { workspace = true }
 outram-foam-appbuilder-lib = { workspace = true }
 outram-foam-basic-lib = { workspace = true }
 outram-foam-mesh = { workspace = true }
+# Foam Studio's unstructured pipe (gh:#1202): outram-blender's cylinder and
+# its cfMesh bridge (`foam-mesh`), and the neutral -> polyMesh converter
+# (`foam-export`), in the worker too. Both features are wasm in-scope
+# (cfMesh and outram-foam-basic-lib are pure Rust); `gpu` stays native only,
+# in the table below, so the browser build pulls no wgpu from here.
+outram-blender = { workspace = true, features = ["foam-mesh", "foam-export"] }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature

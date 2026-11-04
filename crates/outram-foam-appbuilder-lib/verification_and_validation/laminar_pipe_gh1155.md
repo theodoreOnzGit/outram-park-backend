@@ -212,6 +212,976 @@ inscribed-polygon prisms to the printed 7 digits (6.242890e-5, 1.242331e-4,
 the patch assignment (patches are not coloured; the solver's inlet/outlet
 fluxes, equal to 1e-10, show the end patches are where they should be).
 
+## The unstructured mesh: Hagen–Poiseuille on cfMesh's polyhedral mesh with wall layers (gh:#1202)
+
+**Issue:** gh:#1202 (under the Foam Studio epic gh:#1153). **Started:**
+2026-11-04. The demo gained a mesh choice for the pipe: **Structured** (the
+O-grid above, the default, unchanged) or **Unstructured**: `outram-blender`'s
+cylinder (48 facets) through the cfMesh port's carve → snap → tet → Delaunay
+flips → face-minimal polyhedral dual → **wall-only** prism layers
+(`outram_blender::foam_mesh::mesh_to_tet_dual_multipatch`,
+`TetDualOptions::layer_patches = ["walls"]`), converted through the neutral
+mesh to the solver's `FvMesh`.
+
+### Question
+
+On the polyhedral mesh the demo now offers, does the same `PimpleFoam` case
+reproduce Hagen–Poiseuille (centreline velocity, profile, pressure gradient,
+wall shear) as well as on the O-grid at a matched cell count, and if not, by
+how much does it miss?
+
+### What was changed in the mesher first (and what was not)
+
+- **Layers on the wall only.** Before gh:#1202 the multipatch pipeline grew
+  prisms over the whole boundary, inlet and outlet included (stage 0 found
+  7488 of 8226 cells were prisms). Upstream cfMesh selects patches per
+  patch (`boundaryLayers::addLayerForPatch`, `patchBoundaryLayers` in
+  `meshDict`); its border rules (`boundaryLayersCreateVertices.C`,
+  `createNewVertex`) were ported into
+  `outram_park_fork_cfmesh::layers::add_boundary_layers_adaptive_on_patches`.
+  That port is small (one function plus its assembly), so it was done rather
+  than worked around. Tests and the before/after pictures:
+  `outram-park-fork-cfmesh` `layers::tests::wall_only_layers_on_a_box_keep_the_ends`,
+  `pipeline::tests::wall_only_layers_end_on_the_pipe_ends`.
+- **Determinism.** The pipeline gave a different cell numbering on every
+  run (the face-minimal dual and the layerers iterated hash maps); now
+  pinned by `pipeline::tests::tet_dual_stages_are_deterministic`.
+- **Patch types.** The neutral mesh typed every cfMesh patch as a generic
+  `patch`; `walls` now arrives as a `wall` (the cfMesh writer's own rule).
+  The solver's boundary conditions go by name (`inlet`, `outlet`, anything
+  else a no-slip wall), so this changed no number.
+- **Not changed: no feature-edge capture.** cfMesh's
+  `meshSurfaceEdgeExtractor` is not ported, so the dual's boundary faces at
+  the rim wrap round the corner: on the 4 mm test mesh, end-patch points
+  reach 1.0 mm up the wall, and the bare mesh holds 1.8 % less volume than
+  the 24-gon prism. The inlet condition is applied on those bent faces.
+
+### Predictions (written 2026-11-04, before any flow solve on the unstructured mesh)
+
+The case is the demo's: D = 20 mm, L = 200 mm (L/D = 10), Re = 100, uniform
+inlet, steady by pseudo-transient PISO (Co ≤ 4, viscous number ≤ 0.5), the
+instruments of the demo's headless run over the slab 0.65–0.85 L
+(130–170 mm, past Durst's 115 mm development length). Matched resolution:
+the unstructured settings whose cell count is closest to the O-grid's, at
+about 5k and about 20k cells.
+
+| quantity | O-grid (structured) | unstructured, wall-only layers |
+|---|---|---|
+| converges to the steady criterion | yes, 30–40 steps at 20k (recorded: 34) | yes, but slower: 40–150 steps |
+| outlet / inlet flux | 1 to 1e-9 | 1 to 1e-8 (the scheme is conservative on any mesh) |
+| u_c / 2U at 0.75 L | 0.99–1.00 (recorded 0.994) | **0.90–1.00**. Stage 0 measured 0.63–0.75 on cfMesh meshes without layers *before* the non-orthogonal correction (gh:#1161) existed; I expect the correction to recover most of it, not all |
+| (−dp/dz) / HP | 1.01–1.03 (recorded 1.015) | within ±10 % |
+| profile RMS of (u_z − u_HP)/2U | 0.005–0.02 | 0.02–0.08 |
+| τ_w / (4νU/R), one-sided `ν u_P/d` | 0.93–1.00 (d ≈ 0.4 mm on the ring) | 0.85–1.05 (d ≈ half the first layer) |
+| max non-orthogonality | 26° (recorded) | 80–90° |
+| max skewness (checkMesh) | ≈ 2.1 | 2–15 |
+| mesh time, native | ≈ 0.1 s | 1–5 s at 20k |
+| ms per step, native, per cell | baseline | 1.5–3× the O-grid's (more faces per cell, 2 non-orthogonal correctors) |
+
+If u_c falls below 0.90 on the unstructured mesh, the candidates, in the
+order I would test them: the missing skewness correction (the port
+interpolates linearly to the face centre along `d`, as `Gauss linear`
+does, and dual faces are skewed); the cell centre of non-star-shaped dual
+cells; the bent inlet faces at the rim; plain under-resolution by the
+large octahedral cells.
+
+**Non-orthogonal correctors.** Upstream practice on meshes above ~70° is
+more correctors and, above ~75–80°, `laplacian Gauss linear limited
+corrected 0.33–0.5`. ~~The `limited` snGrad is not ported
+(`non_orthogonal::LaplacianCorrection` refuses it), so the unstructured
+case runs `corrected` with **2** correctors (the O-grid keeps 1, so its
+numbers do not move).~~ **Superseded the same day:** the first runs used
+`limited 0` with no correctors on the layered meshes (they diverged with
+`corrected`); the maintainer then directed that the unstructured mesh get
+non-orthogonal correctors and upstream's tutorial settings, `limitedSnGrad`
+was ported, and every unstructured number was re-measured. Both sets are in
+the results below; see "Settings from the OpenFOAM tutorials".
+
+### Methodology (as run)
+
+Native headless runs of the demo engine (`foam_studio_web --headless N`
+for the O-grid, `--headless-unstructured h_mm layers first_mm expansion Re`
+for cfMesh), release, Re = 100, steady mode, on the shared 4-CPU host one at
+a time. The instruments are `cases::laminar_pipe`'s, the same on both
+meshes, over the slab 0.65–0.85 L: `centreline_velocity` (u_z = a + b r²
+fit, r < R/2, ±0.05 L about 0.75 L), `pressure_gradient`, `profile_rms`,
+`wall_shear_stress` (one-sided `ν u_P / d` on the wall faces, OpenFOAM's
+`wallShearStress` for a laminar wall), and the **binned profile**
+(`radial_profile_binned`: cell centres within one cell size of the 0.75 L
+plane, binned in 12 bins of r/R, volume-weighted) that the demo plots on
+both meshes. "Matched resolution" became matched *cell count*: the O-grid
+family jumps (7 920 → 13 230), so the pairs are 7 920 / 6 713 and 13 230 /
+10 745. The structured default was re-run to check it did not move.
+
+### Results (2026-11-04)
+
+**The structured default did not move:** 20 480 cells, 34 steps, u_c/2U
+**0.9940**, (−dp/dz)/HP **1.0151**, out/in 1.000000000 — the recorded
+numbers to every printed digit.
+
+**Mesher, `--mesh-sweep` (native, R 10 mm, L 200 mm, first layer 0.3 mm,
+expansion 1.2; time is meshing only):**
+
+| h (mm) | layers | cells | wall faces | max non-ortho (°) | max skewness | mesh (s) | note |
+|---|---|---|---|---|---|---|---|
+| 6 | 0 / 1 / 2 / 3 | 1939 / 6713 / 11487 / 16261 | 4774 | 56 / 86 / 89 / 89 | 1.0 / 1.3 / 1.7 / 1.7 | 0.5–0.8 | Delaunay flips skipped |
+| 5 | 0 / 1 / 2 / 3 | 3113 / 10745 / 18377 / 26009 | 7632 | 48 / 83 / 88 / 90.5 | 0.9 / 1.1 / 1.9 / 8.9 | 0.2–0.7 | |
+| 4 | 0 / 1 / 2 / 3 | 6353 / 6353 / 30289 / 42257 | 11968 | 51 / 51 / 90.0 / 86 | 0.9 / 0.9 / **251** / 1.2 | 0.4–2.0 | 1 layer: none added (back-off to zero) |
+| 3.3 | 0 / 1 / 2 / 3 | 9055 / 25675 / 33524 / 46656 | 16620 | 61 / 87 / 87 / 87 | 0.9–1.5 | 0.6–1.8 | |
+| 2.5, 2 | — | erratic | fewer than at 3.3 | | | | 2 mm: the dual skipped (all-tet) |
+
+The demo therefore offers h ∈ [R/3, R/1.5], at most 3 layers, and refuses
+settings estimated above 50k cells; meshing takes 0.2–2 s natively.
+
+**Flow (Re = 100, slab 0.65–0.85 L):**
+
+| mesh | cells | max non-ortho (°) | skew | Laplacian | steps | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP | out/in | ms/step |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| O-grid | 7 920 | 19.7 | 1.99 | corrected, 1 | 27 | **0.9905** | **1.0171** | 0.0112 | 1.0042 | 1.000000000 | 44 |
+| cfMesh h 6 mm, 1 layer | 6 713 | 85.9 | 1.33 | limited 0 | 15 | **0.6105** | **1.2452** | 0.1713 | 1.1976 | 1.000000000 | 34 |
+| O-grid | 13 230 | 23.3 | 2.07 | corrected, 1 | 31 | **0.9928** | **1.0161** | 0.0082 | 1.0057 | 1.000000000 | 85 |
+| cfMesh h 5 mm, 1 layer (~~demo default~~, see the re-run) | 10 745 | 83.4 | 1.05 | limited 0 | 53 | **0.6118** | **1.2527** | 0.1733 | 1.2244 | 1.000000000 | 62 |
+| O-grid (demo default) | 20 480 | 26.0 | 2.13 | corrected, 1 | 34 | 0.9940 | 1.0151 | 0.0063 | 1.0063 | 1.000000000 | 182 |
+| cfMesh h 5 mm, **2 layers** | 18 377 | 87.7 | 1.88 | either | — | **diverged** | | | | | |
+| cfMesh h 5 mm, no layers | 3 113 | 47.6 | 0.91 | corrected, 2 | 10 | 0.6272 | 1.4757 | 0.1665 | 1.4426 | 0.999999999 | 46 |
+| cfMesh h 4 mm, no layers | 6 353 | 50.8 | 0.91 | corrected, 2 | 11 | 0.7022 | 1.6431 | 0.1334 | 1.6187 | 1.000000000 | 116 |
+| cfMesh h 3.3 mm, no layers | 11 177 | 57.4 | 0.92 | corrected, 2 | 10 | 0.7544 | 1.6895 | 0.1074 | 1.6721 | 1.000000000 | 278 |
+
+Binned profiles at 0.75 L (r/R : u/U): O-grid 13k `0.000:1.985 0.314:1.791
+0.608:1.245 0.877:0.443 0.956:0.150` (Hagen–Poiseuille 2(1 − r²): 2.000,
+1.803, 1.261, 0.462, 0.172); cfMesh 11k default `0.000:1.227 0.438:1.154
+0.678:1.036 0.878:0.611 0.956:0.149`. The cfMesh profile is a plug with a
+wall layer.
+
+**Against the predictions:**
+
+| prediction | result | verdict |
+|---|---|---|
+| unstructured converges, 40–150 steps | 1 layer: 15–53 steps; **2 or 3 layers: diverged on all 7 meshes tried**, at Co 4, at a 10× smaller Δt, with 0, 1 or 2 correctors, corrected or uncorrected | **missed** |
+| mass to 1e-8 | 1 ± 1e-9 | held |
+| u_c/2U 0.90–1.00 | **0.61–0.75** | **missed badly**; the non-orthogonal correction did not recover stage 0's flat profile |
+| dp/dz within ±10 % | **+25 % (1 layer), +48 to +69 % (bare)**, and the bare meshes get *worse* with refinement (1.48 → 1.64 → 1.69) | **missed** |
+| profile RMS 0.02–0.08 | 0.11–0.17 | missed |
+| τ_w/HP 0.85–1.05 | 1.20–1.67 | missed |
+| max non-ortho 80–90° (layered) | 83–90° (bare 48–61°) | held |
+| skewness 2–15 | 0.9–1.9 (251 on one setting, flagged by the page) | held, mostly below |
+| mesh 1–5 s at 20k | 0.2–2 s over the offered range | held (faster) |
+| ms/step per cell 1.5–3× the O-grid | about 1–1.4× with limited 0 (no correctors); about 4× with 2 correctors on the bare meshes | missed both ways |
+
+**The unstructured result is much worse than the structured one, and is
+reported as it is.** The demo offers it, defaulting to the one-layer mesh
+that runs, and the page says that 2 or more layers diverge.
+
+### Settings from the OpenFOAM tutorials, and the re-run (maintainer direction, 2026-11-04)
+
+The table above was run with `limited 0` and no correctors on the layered
+meshes, a setting chosen because `corrected` diverged. The maintainer
+directed that the unstructured mesh get non-orthogonal correctors and that
+the settings follow the OpenFOAM tutorials. OpenFOAM-dev was cloned
+shallowly (`--filter=blob:none`, sparse `tutorials/` and
+`limitedSnGrad/`, commit `852527377c7e`, 2026-11-03) and these were read:
+
+| tutorial (OpenFOAM-dev) | mesh | `laplacianSchemes` / `snGradSchemes` | `nNonOrthogonalCorrectors` | `gradSchemes` | `div(phi,U)` |
+|---|---|---|---|---|---|
+| `legacy/incompressible/icoFoam/elbow` | unstructured (Fluent `elbow.msh`), laminar PISO | `Gauss linear corrected` / `corrected` | **2** | `Gauss linear` | `Gauss limitedLinearV 1` |
+| `legacy/basic/laplacianFoam/flange` | unstructured (ANSYS) | `Gauss linear corrected` / `corrected` | **2** | `Gauss linear` | — |
+| `incompressibleFluid/propeller` (pimpleFoam) | snappyHexMesh, `maxNonOrtho 65`, layers to 75 | `Gauss linear limited corrected 0.33` / `limited corrected 0.33` | 0 (nOuter 2, nCorr 1) | `cellLimited Gauss linear 1` on U | `Gauss linearUpwind grad(U)` |
+| `incompressibleFluid/turbineSiting` (simpleFoam) | snappyHexMesh | `limited corrected 0.33` | 0 | `Gauss linear` | `bounded Gauss upwind` |
+| `incompressibleVoF/cavitatingBullet` | snappyHexMesh | `limited corrected 0.5` | 0 (3 for `pcorr`) | `Gauss linear` | `Gauss linearUpwind grad(U)` |
+| `motorBikeSteady`, `drivaerFastback`, `windAroundBuildings` | snappyHexMesh, `maxNonOrtho 65` | `corrected` | 0 (10 only in `potentialFlow`) | `cellLimited Gauss linear 1` | `bounded Gauss linearUpwind…` |
+| `multiRegion/CHT/misalignedDuct` (fluid) | — | `corrected` | 1 | `cellLimited Gauss linear 1` on U | `Gauss linearUpwind grad(U)` |
+
+No tutorial runs on a `polyDualMesh` or cfMesh mesh in this tree (grep:
+none). **Chosen, and why:** `nNonOrthogonalCorrectors 2` (elbow and
+flange, the two unstructured-mesh cases, elbow being laminar PISO like
+this one); `Gauss linear corrected` up to 70° max non-orthogonality (the
+snappy cases meshed to 65°) and `Gauss linear limited corrected 0.33` above
+it (propeller and turbineSiting, whose layers are allowed to 75°). The
+`limitedSnGrad` limiter, `min(ψ |snGrad_uncorrected| / ((1 − ψ)
+|correction| + small), 1)`, was ported from OpenFOAM-dev
+`limitedSnGrad.C` into `outram_foam_appbuilder_lib::solvers::non_orthogonal`
+(`LaplacianCorrection::Limited`, `limit_scalar_correction`,
+`limit_vector_correction`; test `limited_correction_follows_upstream_limiter`)
+and applied to the pressure, momentum and energy Laplacians. **Not
+followed:** convection stays `Gauss upwind` on both meshes (the demo's
+scheme; changing it would change the structured default), and `cellLimited`
+gradients are not ported. The structured mesh keeps its settings
+(`corrected`, 1 corrector); re-run: 34 steps, 0.9940, 1.0151, unchanged.
+
+**Re-run with those settings (Re = 100, slab 0.65–0.85 L):**
+
+| mesh | cells | max non-ortho (°) | settings | steps | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP | out/in | ms/step |
+|---|---|---|---|---|---|---|---|---|---|---|
+| cfMesh h 6 mm, 1 layer (**demo default now**) | 6 713 | 85.9 | limited corrected 0.33, 2 correctors | 64 | **0.6179** | **1.3355** | 0.1683 | 1.2782 | 1.000000000 | 89 |
+| cfMesh h 5 mm, 1 layer | 10 745 | 83.4 | limited corrected 0.33, 2 | 273 | **0.6216** | **1.3921** | 0.1684 | 1.3417 | 1.000000000 | 148 |
+| cfMesh h 5 mm, 1 layer | 10 745 | 83.4 | limited corrected **0.5**, 2 | not steady in 5000 (metric oscillates at 0.2) | 0.6268 | 1.4495 | 0.1655 | 1.4057 | 1.000000000 | 165 |
+| cfMesh h 5 mm, 2 layers | 18 377 | 87.7 | limited corrected 0.33, 2 (and 3) | **diverged** | | | | | | |
+| cfMesh h 4 / 3.3 mm, no layers | 6 353 / 11 177 | 50.8 / 57.4 | corrected, 2 | 11 / 10 | 0.7022 / 0.7544 | 1.6431 / 1.6895 | 0.133 / 0.107 | 1.62 / 1.67 | 1.000000000 | 120 / 266 |
+
+**Reading it.** The tutorial settings run the one-layer meshes and change
+the answer by little: u_c/2U 0.61 → 0.62, dp/dz 1.25 → 1.34–1.39 × HP (the
+limited correction adds back part of the non-orthogonal flux, and the
+miss grows), at 4–5× the steps. Two or more layers still diverge, with 2 or
+3 correctors. So the missing correctors were not the cause of the miss;
+the dual-mesh diagnosis above stands. The demo's default became the 6 713-
+cell mesh (64 steps, ~6 s natively) because the 10 745-cell one now takes
+273 steps (43 s) for the same answer to 1 %. The headless regression
+`headless_unstructured_pipe_runs_and_is_pinned` pins 0.6179 / 1.3355.
+
+**What was tested about the cause (`--ignored`
+`diagnose_dual_mesh_geometry_and_laplacian` in `foam_studio_web/engine.rs`,
+and the `FOAM_CFMESH_STAGES` / `FOAM_NON_ORTH` / `FOAM_LAPLACIAN` /
+`FOAM_MAX_VISCOUS` knobs of the native engine):**
+
+- **Not the geometry bookkeeping.** On the 6 353-cell dual every interior
+  cell closes to 1e-16 and the Gauss volume Σ x_f·S_f / 3 matches the
+  solver's cell volume to 3e-14.
+- **The two-point Laplacian is biased low on the dual.** For φ = x² + y²
+  (∇²φ = 4) the uncorrected `|S|²/(S·d)` operator reads 0.885 × 4 on
+  average over interior dual cells (worst cell off by 171 %), the
+  orthogonal `|S|/|d|` 0.783; on the O-grid 0.983 and 0.980. Too little
+  interior diffusion keeps a plug core, which is what the profiles show.
+  The explicit correction should remove the mean bias; with it (bare
+  meshes) the profile is still flat, so either the Gauss-linear gradient
+  in the correction is itself poor on these cells or something else
+  dominates. **Not resolved.**
+- **It is the dual, not cfMesh's earlier stages.** The snapped hex carve
+  alone (`FOAM_CFMESH_STAGES=carve`, 1 050 cells) gives dp/dz 0.88 × HP and
+  RMS 0.07, on the right side of the reference, while the dual of the
+  same carve gives 1.64; the tetrahedral mesh (`=tet`) diverges.
+- **Radially the dual is very coarse.** The cross-section at the default
+  (`unstructured_h5_1layer_wall_only_xy.png`) has 4–5 cells across the
+  diameter (the O-grid at 8k has 14), and the snapped wall is a ~16-gon,
+  not the 48-faceted surface. Part of the miss is resolution, but the bare
+  meshes' dp/dz grows with refinement, so not all of it.
+- **The layered meshes' divergence is spatial, not temporal:** it happens
+  at every Δt and corrector count tried. Not investigated further.
+
+### Isolating the miss: geometry, orientation, a manufactured Poisson problem (maintainer direction, 2026-11-04)
+
+The non-orthogonal correction did not move the answer, so the maintainer
+asked for the geometry and the discretisation's geometric terms to be
+checked, cheapest first. Diagnostic: `foam_studio_web/engine.rs`
+`diagnose_geometry_orientation_and_poisson` (`--ignored`), on the O-grid
+7 920, the dual h 4 mm without layers, and the dual h 6 mm with 1 layer.
+
+**Predictions (written 2026-11-04, before running it):**
+
+1. *Closure and volume.* Closure already measured 1e-16 and the Gauss
+   volume 3e-14 per interior cell (the first diagnostic). Σ V: O-grid
+   0.9936 πR²L (the 32-gon), dual 0.97–0.99 (the ~16-gon snapped wall and
+   chamfered rim). Wall area: O-grid 0.9984, dual 0.97–1.0. Non-planarity:
+   O-grid ~1e-16 (planar quads), dual 1e-3–1e-1 (median-dual faces are
+   non-planar), layer prism side faces non-planar too. The port's
+   face and cell centres follow OpenFOAM's triangle decomposition about the
+   face's average point (`face_centre_and_area` / `cell_geometry` in
+   `outram-foam-mesh`, read before writing this), so non-planarity should
+   bias nothing beyond OpenFOAM's own.
+2. *Orientation.* 0 misoriented internal faces and 0 boundary faces on all
+   three meshes (the layer back-off rejects folded faces).
+3. *Poisson.* O-grid: b = 1.00 ± 0.01, RMS < 1 %. Dual: **if b differs from
+   1 by more than 5 %, the Laplacian (or the mesh it sees) is the cause, not
+   PISO**; the two-point check measured the uncorrected operator 12 % low,
+   so I predict the uncorrected solve gives b ≈ 1.1 and the corrected one
+   b ≈ 1.0–1.05. If corrected b ≈ 1, the Laplacian is cleared and the miss
+   is in the momentum/pressure coupling on these meshes.
+4. *Wall snGrad.* Read, not run: `DeltaCoeff::NonOrthogonal.boundary_delta`
+   is the projection n·d (as OpenFOAM's `fvPatch::delta()`), and the
+   momentum matrix is restamped to it on fixed-value/no-slip walls
+   (`non_orthogonal::restamp_vector_delta`). Predicted correct.
+5. *Development length and station.* Durst: 115 mm at Re = 100; the slab
+   is 130–170 mm and the O-grid reads 0.99 there. On the dual the same
+   station; the binned profile is flat at every station, so not the cause.
+
+**Results (2026-11-04)** (`diagnose_geometry_orientation_and_poisson`,
+`diagnose_unstructured_reynolds_dependence`,
+`diagnose_unstructured_linear_refinement`, all `--ignored` in
+`foam_studio_web/engine.rs`):
+
+| check | O-grid 7 920 | dual h 4 mm, no layer | dual h 6 mm, 1 layer | verdict against the prediction |
+|---|---|---|---|---|
+| 1. Σ V / πR²L | 0.98862 | 0.97866 | **0.94155** | O-grid: the 24-gon of this grid (0.9886), not the 32-gon I wrote; dual as predicted, the layered mesh lower |
+| 1. wall area / 2πRL | 0.99715 | 0.99254 | 0.98018 | held |
+| 1. max non-planarity / √\|S\| | 7e-14 | 0.31 | **1.05** | held in kind, larger than predicted on the layered mesh |
+| 2. misoriented internal / boundary faces | 0 / 0 | 0 / 0 | 0 / **19** | **missed on the layered mesh**: 19 boundary faces whose normal points back past their cell centre |
+| 3. Poisson, uncorrected: b (exact 1), a/R² | 1.0008, 0.969 | 0.959, 1.060 | 1.018, 1.112 | dual within 4–11 %, **not** the 30–40 % flow miss |
+| 3. Poisson, corrected (20 passes): b, a/R², RMS/a | 1.012, 0.989, 0.004 | 0.983, 0.992, 0.015 | 1.077, 1.010, 0.018 | held: **the Laplacian and the mesh it sees are within 2–8 %** |
+| 4. wall snGrad distance | n·d (read) | n·d | n·d | held (read, not measured) |
+| 5. development, u_c/2U at z/L 0.2 / 0.45 / 0.75 / 0.9 | 0.880 / 0.969 / 0.990 / 0.993 | — | 0.617 / 0.618 / 0.618 / 0.618 | the dual flow is **developed** by 0.2 L, to the wrong profile: not a development-length or station problem |
+
+(The first Poisson run built Γ with `SurfaceScalarField::uniform`, which sets
+the internal faces only; the walls got no Dirichlet term and every solve
+diverged, the O-grid's too. The harness was fixed to interpolate Γ; the
+numbers above are from the fixed run.)
+
+**So none of checks 1–5 explains the flow miss; the Re dependence did.**
+At Re = 20 the 6 713-cell dual gave u_c/2U 0.73 and dp/dz 0.99 × HP, at
+Re = 100 0.62 and 1.34: the error grows with convection. On the dual's
+faces, oblique to the flow, **first-order upwind adds cross-stream false
+diffusion** of order U·h·sin 2θ / 4 (Patankar 1980, *Numerical Heat
+Transfer and Fluid Flow*, §5.6; De Vahl Davis & Mallinson 1976), here about
+U·h/4 ≈ 1.5e-5 m²/s against ν = 1e-6: it carries momentum from the core to
+the wall, flattens the developed profile and raises the wall shear and dp/dz.
+On the O-grid the faces are aligned with the flow and the term vanishes,
+which is why upwind is harmless there. Test: the same meshes with `Gauss
+linear` convection (second order, no false diffusion):
+
+| mesh (Re = 100, `Gauss linear`, corrected, 2 correctors) | cells | steps | wall (s, native) | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP |
+|---|---|---|---|---|---|---|---|
+| dual h 6 mm, no layer | 1 939 | 70 | 2.2 | 0.8623 | 0.8549 | 0.0858 | 0.8185 |
+| dual h 5 mm, no layer | 3 113 | 55 | 3.0 | 0.8856 | 0.8868 | 0.0715 | 0.8665 |
+| dual h 4 mm, no layer (**demo default**) | 6 353 | 61 | 8.6 | **0.9416** | **0.9414** | 0.0395 | 0.9257 |
+| dual h 3.3 mm (R/3), no layer | 11 177 | 54 | 16.2 | **0.9685** | **0.9754** | 0.0192 | 0.9634 |
+| dual h 6 mm, 1 layer (limited corrected 0.33) | 6 713 | 146 | 13.7 | 0.8503 | 0.8292 | 0.0872 | 0.7957 |
+| dual h 5 mm, 1 layer (limited corrected 0.33) | 10 745 | 75 | 11.4 | 0.8726 | 0.8572 | 0.0751 | 0.8266 |
+| O-grid 7 920, upwind (unchanged) | 7 920 | 27 | — | 0.9905 | 1.0171 | 0.0112 | 1.0042 |
+| O-grid 7 920, `Gauss linear` (control) | 7 920 | 29 | — | 0.992 (z = 0.75 L) | 1.0146 | — | — |
+
+(At h 4 mm "1 layer" gave the bare mesh: the layerer added none, as the
+sweep recorded.) **With central convection the unstructured pipe converges
+toward Hagen–Poiseuille with refinement, from below:** the miss falls from
+14 % (h 6 mm) to 6 % (h 4 mm) to 3 % (h 3.3 mm) on u_c and dp/dz alike,
+while the O-grid control barely moves (1.0171 → 1.0146). The wall layer does
+not help at these resolutions (0.85 against 0.86 bare at 6 mm). The demo now
+runs the unstructured pipe with `Gauss linear` convection (the tutorials'
+`limitedLinearV 1` / `linearUpwind grad(U)`, bounded second-order schemes, are
+not ported; `Gauss linear` is the second-order scheme the port has, and the
+coil demo already uses it), 2 non-orthogonal correctors and `corrected`
+(the bare meshes are at 51–57°) or `limited corrected 0.33` above 70°, and
+its default is the bare h 4 mm mesh. The structured mesh keeps upwind, and
+its recorded numbers (34 steps, 0.9940, 1.0151 at 20k) did not move.
+
+**Does the unstructured pipe "match" Hagen–Poiseuille?** Not to the O-grid's
+1 %: 6 % low at the default, 3 % low at the finest cell the mesher handles
+(h = R/3; below that the cfMesh pipeline skips stages, see the sweep). The
+trend is monotone toward 1 but three points on an irregular mesh family
+give no reliable order or extrapolation. **That is the maintainer's call
+for the merge.** Still open: the 19 inward boundary faces of the layered
+mesh (check 2), the 2+ layer divergence, the mesher's degradation below
+R/3, and a bounded second-order convection scheme.
+
+### `linearUpwind` and `cellLimited`, the tutorials' convection (gh:#1202, merge work, 2026-11-04)
+
+**Maintainer's merge bar:** the unstructured demo default within **2 %** of
+Hagen–Poiseuille on both u_c and dp/dz, after porting `linearUpwind`, fixing
+the 19 inward boundary faces and fixing the 2+ layer divergence; reached by
+fixing physics and numerics, not by tuning.
+
+**What was ported.** From OpenFOAM-dev `852527377c7e` (2026-11-03):
+`linearUpwind<vector>::correction` (`linearUpwind.C`) and
+`cellLimitedGrad<vector, minmod>` (`cellLimitedGrad.{C,H}`,
+`minmodGradientLimiter.H`), into
+`outram_foam_appbuilder_lib::solvers::schemes` (`linear_upwind_correction`,
+`cell_limited_grad_vec`, `grad_vec_scheme`; `DivScheme::GaussLinearUpwind`
+now runs instead of returning `UnsupportedScheme`; new
+`GradScheme::CellLimitedGaussLinear(k)` and the `grad(U)` entry
+`FvSchemes::grad_u`). Searched first: the appbuilder had the `fvSchemes`
+enum variant (unimplemented), `fvc::grad_vec` (Gauss linear, reused as the
+base gradient) and no gradient limiter. Upstream's
+`correctedSnGrad::fullGradCorrection` takes its gradient from the
+`grad(U)` scheme too, so the momentum Laplacian's non-orthogonal
+correction now uses `grad_u` as well (with the default `Gauss linear`
+nothing changes, bit for bit). Unit tests against hand values:
+`schemes::tests::linear_upwind_matches_hand_values_and_is_exact_for_linear_fields`,
+`cell_limited_gradient_matches_hand_values`.
+
+**Chosen for the demo, from the tutorials, before any run:**
+`div(phi,U) Gauss linearUpwind grad(U)` with
+`grad(U) cellLimited Gauss linear 1`: `incompressibleFluid/propeller`
+(pimpleFoam, snappy mesh with layers) and
+`multiRegion/CHT/misalignedDuct` use exactly this pair. `Gauss linear`
+(the previous setting) and unlimited `linearUpwind` are measured beside it
+as controls; the choice does not depend on which comes out closer.
+
+**Predictions (written 2026-11-04, before running `linearUpwind` on the
+pipe):**
+
+| quantity | prediction | reasoning |
+|---|---|---|
+| u_c/2U, dp/dz at h 6 / 5 / 4 / 3.3 mm, `linearUpwind`, Gauss linear grad | within ±0.02 of the `Gauss linear` row at each h (h 4 mm: 0.92–0.96) | both are second order; `Gauss linear` already removed upwind's cross-stream false diffusion, so the scheme should not be what is left |
+| the same with `cellLimited Gauss linear 1` | 0–0.03 below the unlimited `linearUpwind` | the limiter flattens the gradient at the wall and centreline extrema, adding some diffusion |
+| trend with h | monotone toward 1 from below, as `Gauss linear` | |
+| demo default within 2 % with the scheme alone | **no** | u_c and dp/dz miss by the same 6 % at h 4 mm with `Gauss linear`; a scheme change would move the profile shape, not both together. I expect the cause elsewhere (step 4 candidates) |
+| steps to steady at h 4 mm | 40–80 (Gauss linear: 61) | upwind-biased, so at least as stable as central |
+
+**Results (2026-11-04, native release, Re = 100, bare duals, 2 correctors,
+`corrected`; `diagnose_unstructured_linear_refinement` with `FOAM_DIV_U`;
+the `Gauss linear` rows reproduce the earlier record to every digit):**
+
+| h (mm) | cells | `Gauss linear`: steps, u_c/2U, dp/dz, RMS, τ_w | `linearUpwind`, Gauss linear grad | `linearUpwind`, `cellLimited … 1` (**demo setting**) |
+|---|---|---|---|---|
+| 6 | 1 939 | 70, 0.8623, 0.8549, 0.0858, 0.8185 | 20, 0.8182, 0.9520, 0.1035, 0.9111 | 22, 0.7333, 0.9989, 0.1184, 0.9575 |
+| 5 | 3 113 | 55, 0.8856, 0.8868, 0.0715, 0.8665 | 18, 0.8349, 0.9704, 0.0903, 0.9488 | 22, 0.8287, 0.9336, 0.0918, 0.9128 |
+| 4 (default) | 6 353 | 61, 0.9416, 0.9414, 0.0395, 0.9257 | 26, **0.9205**, **1.0005**, 0.0472, 0.9853 | 29, **0.8534**, **0.9983**, 0.0574, 0.9832 |
+| 3.3 | 11 177 | 54, 0.9685, 0.9754, 0.0192, 0.9634 | 32, 0.9675, 1.0114, 0.0225, 1.0005 | 37, 0.9585, 0.9933, 0.0246, 0.9809 |
+
+| prediction | result | verdict |
+|---|---|---|
+| `linearUpwind` within ±0.02 of `Gauss linear` | u_c −0.02 to −0.05 (h ≥ 4 mm), dp/dz **+0.04 to +0.10** | **missed**: the scheme moves dp/dz much more than predicted, and u_c and dp/dz no longer move together |
+| `cellLimited` 0–0.03 below unlimited | u_c −0.07 at h 4 mm, −0.09 at 6 mm, −0.01 at 3.3 mm; dp/dz ±0.04 | **missed** at h 4–6 mm (more diffusive than predicted) |
+| monotone toward 1 | `linearUpwind` u_c monotone; dp/dz overshoots 1 at 3.3 mm; limited u_c monotone, dp/dz not | partly |
+| default within 2 % with the scheme alone | demo setting: u_c **0.853**, dp/dz **0.998** | held (it is not): u_c misses by 15 % |
+| 40–80 steps at h 4 mm | 26–29 | missed (faster) |
+
+**Reading it.** dp/dz is within 0.2 % of Hagen–Poiseuille at the default
+under both `linearUpwind` variants, but the centreline velocity is 8–15 %
+low; the profile is flatter than parabolic while the wall shear is right
+(τ_w 0.98). The schemes disagree with each other by more than their
+truncation error should allow at h = 4 mm, and the limiter (which only
+acts where the gradient extrapolation overshoots a neighbour) changes u_c
+by 7 %: the gradient on these cells is suspect. That is the "gradient
+reconstruction" candidate of step 4, examined below. The demo takes the
+tutorial pair regardless, as decided before the run.
+
+### Is the u_c instrument biased on the dual? (coordinator's check, 2026-11-04)
+
+**Question (coordinator).** If u_c came from cell centres binned near the
+axis, a bin of radius b over the parabola reads u_c(1 − b²/2R²), about 8 %
+low for b ≈ 0.4 R, on the dual but not on the O-grid (which has a cell on
+the axis). Check the instrument before changing numerics.
+
+**What the instrument is (read from `cases::laminar_pipe`, before
+measuring).** The headline u_c is **not** binned:
+`centreline_velocity` is a volume-weighted least-squares fit u_z = a + b r²
+over every cell with r < R/2 in the slab |z − 0.75 L| < 0.05 L, u_c = a,
+which is exact for a parabola wherever the cells sit. That is instrument (b)
+already. Only the plotted profile (`radial_profile_binned`) bins, and its
+first bin is what the binning bias would affect.
+
+**Predictions (written before the run), at the demo default (h 4 mm,
+6 353 cells, `linearUpwind` + `cellLimited`):**
+
+| instrument | prediction |
+|---|---|
+| binned first bin (r/R < 1/12), u/2U | ≤ the fit by u_c b²/2R² with b ≈ the bin's mean r, i.e. 0–2 % below the fit (the bin is 0.08 R wide, not 0.4 R) |
+| (b) fit u = a − b r² (r < R/2), a/2U | 0.853 (the recorded number: this *is* the headline instrument) |
+| (b′) the same fit over r < 0.9 R | within 0.02 of (b) if the profile is parabolic |
+| (a) RMS over the slab of (u − u_HP(r))/2U at each cell's own centre, u_HP from the **nominal** U | 0.05–0.06 (recorded 0.057) |
+| (c) slab flow Σ u_z V / Δz against the inlet flux | 1 to 1e-6 (mass is conserved to 1e-9) |
+| (c′) inlet flux against U πR² | **0.92–0.96.** My hypothesis, from a geometry check made just before the coordinator's message (cfMesh's own 48-sided pipe, `diagnose_inward_boundary_faces_on_layered_pipes`): the inlet patch's projected area is 0.9396 πR² at h 4 mm (0.8656 at 6 mm, 0.8915 at 5 mm, 0.9718 at 3.3 mm), because the rim is chamfered (no feature-edge capture) and the chamfer faces are `walls`. `Gauss linear`'s u_c and dp/dz tracked these ratios to 0.3–1 %. If so, the miss is the flow rate the case carries, not the profile |
+| (a′) the RMS against u_HP built from the **measured** flow rate and section area (U_b = Q/A, R_eq = √(A/π)) | below (a) |
+
+**Results (2026-11-04, `diagnose_pipe_instruments` in
+`foam_studio_web/engine.rs`, `--ignored`; Re = 100 nominal, to steady).**
+Q is the inlet face flux (exact: out/in = 1 ± 1e-9); A the exact area of
+the section the 0.75 L plane cuts (Σ of the cut polygons).
+
+| instrument | dual h 4 mm, `linearUpwind` + `cellLimited` (demo) | dual h 4 mm, `Gauss linear` | O-grid 7 920, upwind (control) |
+|---|---|---|---|
+| binned first bin, u/2U (bin's mean r/R) | 0.8491 (0.000) | 0.9279 (0.000) | 0.9740 (0.130) |
+| (b) fit r < R/2, a/2U (**the headline**) | 0.8534 | 0.9418 | 0.9905 |
+| (b′) fit r < 0.9 R | 0.8862 | 0.9423 | 0.9932 |
+| (a) RMS (u − u_HP)/2U at cell centres, nominal U, R | 0.0574 | 0.0395 | 0.0112 |
+| (a′) the same with U_b = Q/A, R_eq = √(A/π) | 0.0385 | 0.0120 | 0.0056 |
+| (c) Σ u_z A over the cut / Q | 1.0088 | 1.0133 | 1.0000 |
+| inlet Q / (U πR²) | **0.9396** | **0.9396** | 0.9886 |
+| cut area / πR² | 0.9796 | 0.9796 | 0.9886 |
+| u_c / 2U_b, U_b = Q/A | **0.8897** | **0.9820** | 0.9905 |
+| (−dp/dz) / (8νU_b/R_eq²) | **1.0196** | **0.9616** | 1.0055 |
+| nominal u_c/2U, dp/dz/HP | 0.8534, 0.9983 | 0.9418, 0.9414 | 0.9905, 1.0171 |
+
+**Against the predictions.** The binning bias is not what moved u_c: the
+headline is a fit, and the first bin reads within 0.4–1.5 % of it (held).
+(b′) is within 0.02 of (b) on `Gauss linear` and the O-grid, but **0.033
+above** on the demo setting: its profile is not parabolic (held / missed).
+(c) closes to 1–1.3 % on the dual (midpoint quadrature over cut cells of
+a curved profile; exact on the O-grid) (held, looser). The inlet carries
+**0.9396 U πR²** on the demo mesh, as predicted from the cfMesh-only
+geometry, while the section is 0.9796 πR²: **the case runs at 4.1 % less
+flow than U over its own section**, because the chamfered rim's faces are
+`walls`, not `inlet` (feature-edge capture is not ported). (a′) < (a)
+(held).
+
+**Which instrument the 2 % bar should use, from the physics.**
+Hagen–Poiseuille relates the centreline velocity and the gradient to the
+flow rate through the section: u_c = 2Q/A, −dp/dz = 8μQ/(πR⁴). The
+nominal normalisation assumes Q = U πR², which is a property of the
+mesh's inlet patch, not of the solution; on the dual it is false by 6 %.
+~~So, for "does the solver reproduce Hagen–Poiseuille", the right
+instrument is **(b), the fit intercept, normalised by the flow the case
+carries: u_c/2U_b and dp/dz/(8νU_b/R_eq²) with U_b = Q/A** (both exact
+quantities), with (a′) beside it as the whole-profile check. The nominal
+numbers stay reported, because they are what the demo shows and they say
+the demo runs at Re ≈ 94, not 100: **that is a defect of the case**
+(the inlet does not span the pipe) and it is listed to fix, not normalised
+away. On the O-grid the two normalisations differ by the 24-gon's area
+(1.1 %), so the structured record keeps its nominal numbers.~~
+**CORRECTED (maintainer direction via the coordinator, 2026-11-04): the
+bar's instrument is the nominal one**, u_c and dp/dz against
+Hagen–Poiseuille for the U and R the user set; the flow-normalised numbers
+are diagnostics. The case must carry the flow it says it does, so the
+chamfer was fixed at its source (below), not normalised away.
+
+**Verdict.** The instruments agree that the demo setting's u_c really is
+low: **11 % against its own flow**, with an RMS three times
+`Gauss linear`'s. `Gauss linear` on the same mesh is −1.8 % / −3.8 %
+against its own flow. So the `linearUpwind` + `cellLimited` profile is a
+numerics problem, and the remaining 4 % of the nominal miss is the inlet.
+
+### Port defect: the linear interpolation weights (found 2026-11-04, step 4 "gradient reconstruction")
+
+**Upstream is the specification.** OpenFOAM-dev `852527377c7e`
+`surfaceInterpolation::makeWeights` sets the owner weight of an internal
+face to `w = |S·(C_N − C_f)| / (|S·(C_f − C_O)| + |S·(C_N − C_f)|)`
+(projections on the face normal; the distance form `dNei/(dOwn + dNei)`
+only as a fallback when the projections vanish). The port
+(`outram_foam_basic_lib::fvc::interpolate::linear_weight`, and a copy,
+`non_orthogonal::owner_weight`, used by the explicit non-orthogonal
+correction) uses `|C_N − C_f| / |C_N − C_O|`, which is neither: on any
+face whose centre is off the line between the cell centres it is a
+different number. Every `fvc::interpolate`, so every Gauss gradient, the
+`Gauss linear` convection, `rAU` and `HbyA` interpolation and the face
+flux, uses it. **Measured** (`diagnose_interpolation_weights`, geometry
+only): the structured default O-grid 20 480: 30 720 of 59 904 internal
+faces differ, mean |Δw| 3.9e-3, max 0.157; the O-grid 7 920: mean 4.4e-3,
+max 0.139; the dual h 4 mm: 32 136 of 33 636 differ, mean 1.8e-2, max
+0.150. No port weight falls outside [0, 1]. The same copy is in
+`outram-park-fork-coolprop` and `tampines-steam-tables`
+(`openfoam_source/fv_operators/fvc/interpolate.rs`), not changed here.
+
+**Predictions (written before the fix is run):**
+
+| case | prediction |
+|---|---|
+| structured default 20 480 (34 steps, 0.9940, 1.0151) | **moves**, by less than 0.3 % on each (the faces that differ are the square/ring transition, mean Δw 4e-3); step count ±3 |
+| dual h 4 mm, `Gauss linear`, measured-flow u_c, dp/dz (0.9820, 0.9616) | each moves by less than 0.01 |
+| dual h 4 mm, `linearUpwind` + `cellLimited` (0.8897, 1.0196) | u_c up by 0–0.03: **not** the main cause. My leading explanation of its low u_c is now the limiter itself: at a smooth extremum (the centreline maximum of u_z) minmod `cellLimited` sets the limiter to 0 (the neighbours are all below the cell, so `max − U = 0`), the gradient vanishes, and `linearUpwind` falls back to first-order upwind on the axis cells, whose false diffusion flattens the peak. That is upstream's behaviour, not a port defect, and the unlimited `linearUpwind` (u_c 0.9597, dp/dz 1.0218 against its own flow, from the sweep's nominal numbers) shows the size of it |
+
+**Results after the fix (2026-11-04; `linear_weight` is upstream's,
+unit test `fvc::interpolate::tests::linear_weight_projects_on_the_face_normal_as_upstream`):**
+
+| case | before | after | verdict |
+|---|---|---|---|
+| structured default 20 480 (nominal; `--headless`) | 34 steps, 0.9940, 1.0151, RMS 0.0063, τ_w 1.0063 | 34 steps, **0.9940, 1.0154**, RMS 0.0063, τ_w 1.0066 | held: moved by +0.03 % on dp/dz only |
+| O-grid 7 920 | 27, 0.9905, 1.0171 | 27, 0.9905, 1.0173 | |
+| dual h 4 mm, `Gauss linear`, nominal / own flow | 0.9418, 0.9414 / 0.9820, 0.9616 | 0.9397, 0.9353 / 0.9797, 0.9553 | held (moved < 0.01), slightly further |
+| dual h 4 mm, `linearUpwind` unlimited, nominal / own flow | 0.9205, 1.0005 / — | 0.9188, 0.9852 / 0.9580, 1.0062 | |
+| dual h 4 mm, `linearUpwind` + `cellLimited` (demo), nominal / own flow | 0.8534, 0.9983 / 0.8897, 1.0196 | **0.8540, 0.9915** / 0.8904, 1.0127 | held: not the cause |
+
+The fix is kept because it is upstream's formula, not for what it does to
+the numbers (which is little).
+
+### Feature-edge capture: the chamfered rim at its source (coordinator's direction, 2026-11-04)
+
+**Upstream read first.** cfMesh (`6cf1d211f9cf`)
+`tetMeshGenerator::generateMesh` runs `mapMeshToSurface` (every boundary
+vertex to the surface), then `mapEdgesAndCorners`
+(`meshSurfaceEdgeExtractorNonTopo`: `edgeExtractor` distributes the
+boundary faces into patches, then
+`meshSurfaceMapper::mapVerticesOntoSurfacePatches`: a vertex of one patch
+goes to the nearest point of that patch, a vertex between two patches onto
+the feature edge between them (`mapEdgeNodes`), a vertex of three or more
+to the nearest corner (`mapCorners`), each move capped by
+`findMappingDistance`; then `correctEdgesBetweenPatches`), and only then
+the boundary layers. The port's pipeline snapped the *carved* mesh and
+then built the dual, whose boundary vertices are averages, and never
+mapped again: hence the chamfer and the ~16-gon. Ported as
+`outram_park_fork_cfmesh::surface_mapper::map_vertices_onto_surface_patches`
+(the face distribution is the crate's nearest-triangle rule, not
+`edgeExtractor`'s optimisation; `correctEdgesBetweenPatches` and the
+surface untangler are not ported) and run in the multipatch pipeline
+after the dual, before the layers (`TetDualOptions::feature_edges`, on by
+default; `false` is the ablation). The single-patch entry points do not
+run it.
+
+**Predictions (written before the first run), pipe R 10 mm, 48 facets:**
+
+| quantity | before | prediction |
+|---|---|---|
+| inlet projected area / πR², h 4 mm | 0.9396 | 0.99–0.998 (the 48-gon is 0.9971) |
+| section area / πR², h 4 mm | 0.9796 | 0.99–0.998 |
+| the stage is kept (mesh valid) at h 6 / 5 / 4 / 3.3 mm | — | kept at all four; if one is refused, it is a face with all its vertices on the rim (`correctEdgesBetweenPatches` not ported) |
+| max non-orthogonality, bare h 4 mm | 51° | rises, 55–75° (wall cells stretched outward) |
+| inward boundary faces with 1 layer, h 6 mm | 20 | fewer, 0–10: the tangled prisms sat on the chamfer |
+| nominal u_c/2U, dp/dz at the demo default | 0.854, 0.992 | u_c 0.88–0.93 (the +6 % flow, but the `cellLimited` axis flattening stays), dp/dz 1.03–1.08 |
+
+**Mesh results (2026-11-04, cfMesh's own 48-sided pipe, 200 mm;
+`diagnose_inward_boundary_faces_on_layered_pipes`).** First run (mapping
+only): inlet 0.9901 / 0.9936 / 0.9936 πR² at h 6 / 4 / 3.3 mm, section
+0.998 / 0.9955 / 0.9977, the stage kept everywhere, **but** 2 inward
+outlet faces at h 6 mm and 6 at 3.3 mm (zero-area faces whose every vertex
+landed on the rim: the `correctEdgesBetweenPatches` case). So the mapping
+now undoes itself locally (`map_vertices_onto_surface_patches_untangled`:
+the boundary points of any cell left with a non-positive face pyramid go
+back, repeated up to 10 passes) and the pipeline notes how many points
+stay unmapped. Second run:
+
+| h (mm), layers | inlet / πR² (before → after) | section / πR² | unmapped points | inward boundary faces (before → after) | max non-ortho (°) | negative pyramids, all faces |
+|---|---|---|---|---|---|---|
+| 6, 0 | 0.8656 → 0.9901 (outlet 0.9391) | 0.9547 → 0.9980 | 34 | 0 → 0 | 56.2 | 0 |
+| 4, 0 (demo default) | 0.9396 → **0.9936** | 0.9795 → **0.9955** | 0 | 0 → 0 | 50.6 | 0 |
+| 3.3, 0 | 0.9718 → 0.9833 | 0.9864 → 0.9977 | 126 | 0 → 0 | 57.4 | 0 |
+| 6, 1 | | | 34 | **20 → 0** | 77.0 | 0 |
+| 5, 1 | 0.8915 → 0.9872 | 0.9653 → 0.9911 | 0 | 31 → 0 | 74.7 | 0 |
+| 5, 2 | | | 0 | 66 → 0 | 86.8 | **105 (internal)** |
+| 4, 2 | | | 0 | 34 → 0 | 83.5 | 0 (1 602 before) |
+
+Against the predictions: inlet and section areas held at h 4 mm (0.9936,
+0.9955); held at 6 and 5 mm on the inlet, **missed at 3.3 mm** (0.9833,
+where 126 points stayed unmapped) and on the 6 mm outlet (0.9391). The
+stage is kept everywhere (held, after the local undo). Max non-orthogonality
+did not rise (missed: 50.6° at h 4 mm). **The inward boundary faces are
+gone on every layered pipe measured** (held, better than predicted): they
+sat on prisms extruded from the chamfer, so step 2's fix is this port, not
+a change in the layerer. Test:
+`pipeline::tests::every_boundary_face_points_outward_on_layered_pipes_and_ducts`
+(pipes h 6 / 4 mm with 1–2 layers and a 20 × 20 × 60 mm box duct with 1–2
+layers: 0 inward faces). **Open:** on the coarse 24-sided test pipe of
+`wall_only_layers_end_on_the_pipe_ends` (facet 2.6 mm under a 4 mm cell),
+105 points stay unmapped, the boundary creases, and the layerer then
+finds a 108° fold at every thickness and adds no layer; that test now
+runs with `feature_edges: false`, its premise (the layer port on the
+unmapped dual) kept and said so.
+
+**Flow predictions on the mapped mesh (written before the runs), nominal
+instrument, Re = 100:** `Gauss linear` at h 4 mm u_c/2U 0.97–0.99, dp/dz
+0.96–1.00; unlimited `linearUpwind` u_c 0.95–0.97, dp/dz 1.02–1.05; the
+demo pair (`cellLimited`) as in the table above (0.88–0.93, 1.03–1.08).
+Layers (step 3): h 4 mm with 2 layers (no negative pyramid left) **runs**;
+h 5 mm with 2 layers (105 internal negative pyramids) still diverges.
+
+**Flow results on the mapped mesh (2026-11-04, Re = 100 nominal, demo
+cylinder; steps, u_c/2U, dp/dz/HP, profile RMS, τ_w/HP; nominal
+instrument):**
+
+| h (mm), layers, cells | `Gauss linear` | `linearUpwind`, Gauss linear grad | `linearUpwind` + `cellLimited … 1` (demo pair) |
+|---|---|---|---|
+| 6, 0, 1 939 | 75, 0.9499, 0.9054, 0.0227, 0.9032 | 19, 0.9029, 1.0010, 0.0474, 0.9991 | 22, 0.8058, 1.0692, 0.0739, 1.0677 |
+| 5, 0, 3 113 | 58, 0.9556, 0.9342, 0.0219, 0.9316 | 18, 0.9029, 1.0118, 0.0478, 1.0101 | 24, 0.9005, 0.9925, 0.0486, 0.9908 |
+| **4, 0, 6 353 (default)** | 63, **0.9811, 0.9673**, 0.0126, 0.9638 | 27, **0.9598, 1.0210**, 0.0214, 1.0193 | 29, **0.8925, 1.0326**, 0.0356, 1.0312 |
+| 3.3, 0, 11 177 | 54, 0.9669, 0.9632, 0.0161, 0.9596 | 33, 0.9661, 0.9932, 0.0198, 0.9911 | 37, 0.9606, 0.9838, 0.0214, 0.9802 |
+| 6, 1, 6 713 | 76, 0.9453, 0.8882, 0.0222, 0.8840 | 20, 0.9000, 0.9809, 0.0476, 0.9763 | 23, 0.8071, 1.0565, 0.0733, 1.0514 |
+| 5, 1, 10 745 | 63, 0.9440, 0.9011, 0.0262, 0.8978 | 21, 0.8954, 0.9704, 0.0509, 0.9677 | 28, 0.8954, 0.9705, 0.0509, 0.9678 |
+| 4, 1, **18 321** (a layer now grows; before, the back-off gave none) | 95, 0.9748, 0.9511, 0.0152, 0.9418 | 74, 0.9522, 1.0015, 0.0248, 0.9932 | 73, 0.8907, 1.0301, 0.0372, 1.0215 |
+
+Instruments at the default (`diagnose_pipe_instruments`): inlet Q now
+**0.9936** U πR², cut section 0.9964 πR²; nominal and own-flow numbers now
+agree to 0.3 % (demo pair 0.8925 / 1.0326 nominal, 0.8951 / 1.0317 own
+flow; `Gauss linear` 0.9813 / 0.9673, 0.9841 / 0.9665; unlimited
+`linearUpwind` 0.9597 / 1.0210, 0.9624 / 1.0201). The first bin reads
+0.8883 against the fit's 0.8925 (no binning bias of note).
+
+**Against the predictions:** `Gauss linear` u_c 0.981 (held, 0.97–0.99),
+dp/dz 0.967 (held, 0.96–1.00); unlimited `linearUpwind` 0.960 (held,
+low edge) / 1.021 (held); demo pair 0.893 (held, 0.88–0.93) / 1.033
+(held, 1.03–1.08). **None of the three is within 2 % on both u_c and dp/dz
+at the default.** The chamfer is fixed (the flow is right to 0.6 %), so
+what is left is the discretisation on this mesh: the refinement series is
+not monotone at 3.3 mm for `Gauss linear` (0.981 → 0.967), and the
+schemes differ from each other by 2–9 % at h = 4 mm, i.e. the mesh is not
+resolved to 2 % by any of them. Wall layers do not help at fixed h (they
+lower `Gauss linear`'s dp/dz by 2–4 %).
+
+**`cellLimited` revisited (coordinator: once the geometry is right),
+against the tutorials, not by the numbers.** The tutorials that pair
+`cellLimited Gauss linear 1` with `linearUpwind grad(U)` (`propeller`,
+`misalignedDuct`, `motorBikeSteady`) are turbulent, high-Re snappy cases
+where the limiter's job is to bound the gradient at sharp fronts; the
+laminar, smooth tutorial on an unstructured mesh (`icoFoam/elbow`) uses
+`Gauss linear` gradients with `Gauss limitedLinearV 1` convection, no
+cell limiter. A minmod cell limiter clips the gradient to zero at every
+smooth extremum, here the whole centreline, which turns `linearUpwind`
+back into first-order upwind on the axis cells: the measured 7 % u_c
+deficit against unlimited `linearUpwind` at h = 4 mm is that, and it
+shrinks with h (0.961 against 0.966 at 3.3 mm), as a clipped-extremum
+error should. The laminar-tutorial reading (no cell limiter for a smooth
+laminar flow) is the one that matches this case; changing the demo on
+that ground is a decision for the maintainer, so the demo keeps the pair
+it was given until then, and the record shows all three.
+
+### Step 3: two or more layers (2026-11-04)
+
+**On the mapped mesh, 2 layers run; 3 diverge** (Re = 100, demo cylinder):
+
+| h, layers, cells | demo pair: steps, u_c/2U, dp/dz, RMS, τ_w | `Gauss linear` |
+|---|---|---|
+| 6, 2, 11 487 | 39, 0.8079, 1.0883, 0.0729, 1.0653 | 80, 0.9483, 0.9029, 0.0222, 0.8902 |
+| 5, 2, 18 377 | 39, 0.8983, 0.9892, 0.0500, 0.9862 | 76, 0.9485, 0.9131, 0.0254, 0.9096 |
+| 4, 2, 30 289 | 45, 0.8926, 1.0280, 0.0365, 1.0262 | 80, 0.9754, 0.9516, 0.0157, 0.9482 |
+| 5, 3, 26 009 | **diverged** | **diverged** |
+| 4, 3, 42 257 | **diverged** | **diverged** |
+
+So the earlier 2-layer divergence went with the chamfer (prediction
+"h 5 mm, 2 layers still diverges": **missed**, it runs). The 3-layer
+meshes have no negative volume, no non-positive pyramid and max
+non-orthogonality 82–84° (no worse than the 2-layer ones that run), but
+their **max skewness is 6.6 and 7.2** (2 layers: 2.4 and 4.4; bare and
+1 layer: 0.2–0.8) and their minimum cell determinant 6.6e-3 (cfMesh's
+48-sided pipe, `diagnose_inward_boundary_faces_on_layered_pipes`).
+Upstream's mesh-quality limits for layer addition
+(`etc/caseDicts/mesh/generation/meshQualityDict`, OpenFOAM-dev
+`852527377c7e`, which snappyHexMesh applies while adding layers and
+removes the layer locally where they fail): `maxInternalSkewness 4`,
+`minTetQuality 1e-15` (no non-positive face pyramid),
+`minDeterminant 0.001`, `maxNonOrtho 65` (relaxed for layers to 75 in the
+tutorials). The port's layer back-off checked only closure, negative
+volume and non-orthogonality < 90°.
+
+**Fix:** the back-off now also requires max skewness ≤ 4, no
+non-positive face pyramid and min determinant ≥ 0.001 (upstream's values;
+the non-orthogonality bound stays < 90° because the dual itself sits at
+50–57° and the tutorials' layers are allowed to 75°, so 65° would refuse
+every layer; that choice is this crate's, and said so).
+
+**Predictions (before the run):** the 3-layer meshes back off to thinner
+layers with skewness ≤ 4 and then run; the 2-layer h 5 mm mesh loses its
+105 bad pyramids; the 1-layer meshes are unchanged (skew ≤ 0.8); h 4 mm
+with 2 layers (skew 4.37) backs off slightly. If skewness does not fall
+with thickness, the layerer returns no layers and the pipeline says so,
+and the divergence is then not fixed.
+
+**Result: missed.** With those limits **every 2- and 3-layer pipe backed
+off to no layer at all** (h 5 and 4 mm; the 1-layer ones unchanged): the
+skewness did not fall with thickness. Reading why turned up a second
+port defect. The crate's `checks::QualityReport::max_skewness` divides the
+face-centre offset by the **cell-centre distance |d|**, while OpenFOAM's
+`primitiveMeshTools::faceSkewness` divides it by the face's own extent in
+the offset's direction, floored at 0.2 |d| (already ported in this
+workspace as `outram_foam_mesh::mesh_quality::face_skewness`). For a thin
+prism stacked on another, |d| is the layer thickness and the face is a
+wall-face wide, so the port's number scales like width/thickness and no
+amount of thinning brings it under 4. The doc claim "OpenFOAM flags > 4"
+held only for upstream's metric.
+
+**Prediction for the corrected metric (before the run):** the 3-layer
+meshes' max skewness falls to 0.5–3 and they are accepted with the full
+thickness again; whether they then run is open: if they still diverge, the
+skewness was not the cause and the next suspects are the layer cells'
+aspect ratio against the explicit non-orthogonal correction.
+
+**Result:** held on the metric (3-layer max skewness 0.98–1.01 with
+upstream's definition; the 2-layer h 5 mm mesh backs off slightly and
+loses its 105 bad pyramids), and the 3-layer meshes are the same meshes as
+before, so **they still diverge: skewness was not the cause.**
+
+**Isolation of the 3-layer divergence (h 5 mm, 3 layers, 26 009 cells,
+demo pair, Re = 100, `--headless-unstructured 5 3 0.3 1.2 100`):**
+
+| change | result |
+|---|---|
+| none | diverged |
+| `FOAM_LAPLACIAN=uncorrected` (no explicit non-orthogonal term) | diverged |
+| `FOAM_NON_ORTH=0` | diverged |
+| Re = 20 | diverged |
+| viscous-number cap 0.2 (default 0.5) | diverged |
+| viscous-number cap 0.1 | (not finished in 25 min) |
+| viscous-number cap 0.05 (Δt 10× smaller) | did not diverge in 15 min (killed by the time limit, not steady) |
+
+So it is temporal after all, and not the non-orthogonal correction.
+Instrumented (a temporary print of each linear solve's iterations and
+residual): the pressure PCG converges throughout (60–170 iterations to
+1e-8) until the end; the **momentum predictor's Gauss–Seidel needs 33
+sweeps at first, then 100, 190, 716, then hits its 1 000-sweep cap
+unconverged (residual 2e-2 … 2.0)**, and three steps later the pressure
+solve blows up. The port solves `UEqn` **cold-started from U = 0**
+(`FvVectorMatrix::solve`), so every step it must rebuild the whole field
+by Gauss–Seidel sweeps; on the stretched layer cells (aspect 5–7.5,
+first layer 0.04–0.08 mm) the sweep count to 1e-7 grows past the cap.
+OpenFOAM solves `UEqn == -grad(p)` for U **starting from the current U**
+(every `fvMatrix::solve` iterates on `psi` in place), so its smoother only
+has to remove the change over one step.
+
+**Fix (prediction written before the run):** warm-start the momentum
+solve from the current U (`FvVectorMatrix::solve_with_guess`, used by
+`PimpleFoam`'s predictor). Predicted: the 3-layer meshes run to steady at
+the default Δt; Gauss–Seidel sweeps per step stay below 100; the
+structured default moves by at most the solver tolerance (u_c, dp/dz to
+4 digits unchanged, 34 ± 1 steps).
+
+**Result: the structured default is unchanged (34 steps, 0.9940, 1.0154,
+RMS 0.0063, τ_w 1.0066), but the 3-layer meshes still diverge: the
+prediction missed, and the sweep counts were a symptom.** With the warm
+start, the largest |U| per step was 3.9e-3, 1.5e-2, 0.146, 0.30, 0.80,
+52 m/s (U = 5e-3 m/s) before the Gauss–Seidel cap was ever reached, and
+from the second step on it sat in **one cell**: a shrunk dual cell next to
+the layers near the inlet rim (r 9.29 mm, z 2.0 mm, 9 faces, 4.9e-9 m³),
+growing radially. The warm start is kept (it is upstream's behaviour and
+changes no recorded number), but it is not the fix.
+
+The cells with the worst non-orthogonality on these meshes are exactly
+the shrunk dual cells over the layer stack (`diagnose_layer_quality_per_layer`:
+max non-orthogonality in the layers 54°, at the top-layer/dual interface
+75–84°). snappyHexMesh adds layers against its *relaxed* quality controls,
+`maxNonOrtho 75` (the tutorials' `snappyHexMeshDict` `relaxed` block,
+used while layers are added), and collapses the layer where that fails;
+the port allowed anything under 90°.
+
+**Fix (prediction before the run):** the layer back-off uses upstream's
+relaxed `maxNonOrtho 75`. Thinner layers bring the prism centres toward
+the wall and the interface angle down, so the back-off should find a
+thickness: predicted max non-orthogonality ≤ 75° on all layered pipes,
+the 3-layer pipes run to steady, the layers end thinner (first layer
+0.02–0.06 mm).
+
+**Result: missed, and reverted.** With the 75° bound **every 2- and
+3-layer pipe, and even the 1-layer h 4 mm pipe, backed off to no layer at
+all**: the angle at the top-prism/dual face does not fall with a uniform
+thinning (it is set by how far the dual cell's centre sits sideways from
+its wall face, which the bare mesh already has as boundary
+non-orthogonality). snappyHexMesh meets the bound by collapsing the layer
+*locally*; this layerer's prism columns span the whole wall, so it cannot.
+The bound stays < 90°, as before. **Status of step 3: 1 and 2 layers run
+at every h measured; 3 layers diverge**, the instability growing in one
+shrunk dual cell over the layer stack near the inlet rim. What would fix
+it, both upstream practice and not ported: local layer collapse
+(snappy `addLayers`' per-face termination) or cfMesh's
+`refineBoundaryLayers` + `meshOptimizer::untangleMeshFV` after the layers.
+Not tried: a smaller time step for 3 layers (a viscous-number cap of 0.05
+did not diverge in 15 min, but did not finish either), which would hide
+the cell, not fix it.
+
+**Per-layer quality of the layered pipes (2026-11-04, cfMesh's 48-sided
+pipe, 200 mm, `diagnose_layer_quality_per_layer`; OpenFOAM's skewness and
+aspect ratio; requested first layer 0.3 mm, ×1.2):**
+
+| h, layers, cells | region | max non-ortho (°) | max skewness | max aspect ratio | mean thickness |
+|---|---|---|---|---|---|
+| 5, 1, 10 745 | dual / layer 1 | 74.7 / 74.7 | 1.14 / 0.85 | 2.7 / 2.4 | — / 0.290 mm |
+| 5, 2, 18 377 | dual / layer 1 / layer 2 | 79.4 / 54.0 / 79.4 | 1.00 / 0.80 / 0.80 | 2.4 / 5.2 / 4.6 | — / 0.082 / 0.099 mm |
+| 5, 3, 26 009 | dual / 1 / 2 / 3 | 81.7 / 53.9 / 54.2 / 81.7 | 1.01 / 0.80 / 0.80 / 0.80 | 2.5 / 7.1 / 6.3 / 5.5 | — / 0.053 / 0.064 / 0.076 mm |
+| 4, 1, 18 321 | dual / layer 1 | 78.2 / 78.2 | 1.38 / 1.38 | 4.6 / 2.4 | — / 0.284 mm |
+| 4, 2, 30 289 | dual / 1 / 2 | 83.5 / 54.2 / 83.5 | 0.98 / 0.59 / 0.74 | 3.0 / 5.5 / 4.9 | — / 0.070 / 0.084 mm |
+| 4, 3, 42 257 | dual / 1 / 2 / 3 | 84.4 / 54.1 / 54.3 / 84.4 | 0.98 / 0.59 / 0.59 / 0.63 | 3.0 / 7.5 / 6.7 / 6.0 | — / 0.043 / 0.051 / 0.061 mm |
+
+(A face counts for both cells it joins, so the top layer and the dual
+share the interface's angle.) Inside the stack the layers are good
+(54°, skewness < 1, aspect ≤ 7.5). The bad faces are the interface to the
+dual (75–84°). With 2 or 3 layers the total thickness is capped at half
+the shortest wall edge at each point (upstream's `boundaryLayers` rule,
+`boundaryLayersCreateVertices.C`: penetration distance 0.5 × the nearest
+neighbour), so the first layer comes out 0.04–0.08 mm, not the 0.3 mm
+asked; one layer is not capped (0.29 mm).
+
+### Layers against no layers at matched cell count (step 3, second half)
+
+**Predictions (written before the run; from the earlier, pre-warm-start
+rows, which these runs repeat on the current code):** wall layers do
+**not** improve τ_w or dp/dz at matched cell count on this mesh family:
+the pairs below differ by less than 3 % in τ_w/HP and dp/dz/HP, in either
+direction, and the bare mesh at the smaller h is the closer one. Reason:
+at h = 4–6 mm the error is in the core (the profile shape), not in the
+wall gradient, and a layer costs a whole wall's worth of cells that the
+bare mesh spends on the core.
+
+**Results (2026-11-04, current code: weights, feature-edge capture, layer
+quality limits, warm-started momentum; Re = 100; nominal instrument;
+`FOAM_SWEEP=matched`):**
+
+| cells | mesh | demo pair: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** | `Gauss linear`: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** |
+|---|---|---|---|
+| 6 353 | h 4 mm, no layer (**default**) | 29, 0.8925, **1.0326**, 0.0356, **1.0312** | 63, 0.9811, **0.9673**, 0.0126, **0.9638** |
+| 6 713 | h 6 mm, 1 layer | 23, 0.8071, 1.0565, 0.0733, 1.0514 | 76, 0.9453, 0.8882, 0.0222, 0.8840 |
+| 11 177 | h 3.3 mm, no layer | 37, 0.9606, **0.9838**, 0.0214, **0.9802** | 54, 0.9669, **0.9632**, 0.0161, **0.9596** |
+| 10 745 | h 5 mm, 1 layer | 28, 0.8954, 0.9705, 0.0509, 0.9678 | 63, 0.9440, 0.9011, 0.0262, 0.8978 |
+| 11 487 | h 6 mm, 2 layers | 39, 0.8079, 1.0883, 0.0729, 1.0653 | 80, 0.9483, 0.9029, 0.0222, 0.8902 |
+| 18 321 | h 4 mm, 1 layer | 73, 0.8907, 1.0301, 0.0372, 1.0215 | 95, 0.9748, 0.9511, 0.0152, 0.9418 |
+| 18 377 | h 5 mm, 2 layers | 117, 0.8990, 0.9946, 0.0500, 0.9785 | 93, 0.9509, 0.9225, 0.0253, 0.9088 |
+
+The warm start changed none of the rows it shares with the earlier table
+to the printed digits (the h 5 mm, 2-layer mesh is new: the pyramid gate
+thinned it).
+
+**Against the prediction.** "Layers do not improve τ_w or dp/dz at matched
+count": **held**. At ~6.5k and ~11k cells the bare mesh is closer to
+Hagen–Poiseuille in τ_w and dp/dz under both schemes; at ~18k, h 5 mm
+with 2 layers beats h 4 mm with 1 under the demo pair (τ_w 0.979 against
+1.022) and loses under `Gauss linear` (0.909 against 0.942). "Within 3 %
+of each other": **missed**: under `Gauss linear` the layered meshes read
+τ_w 6–8 % lower than the bare one at the same count, and under the demo
+pair the 6 mm meshes read 2–8 % higher. Adding layers at fixed h *does*
+move τ_w (h 6 mm `Gauss linear`: 0.903 bare → 0.884 one layer → 0.890
+two), but not toward 1: the layers resolve a wall gradient that is
+already right to a few per cent, while the coarse core sets the error.
+**On this mesh family wall layers are not the lever for the remaining
+gap**; they are offered in the demo because they run (1–2 layers), not
+because they help here.
+
+### Mesh images after this work (drawn from the `PolyMesh` the solver gets)
+
+New in `laminar_pipe_gh1155/unstructured_gh1202/` (2026-11-04,
+`--render-unstructured`; every older image there was regenerated from the
+current mesher too, and now shows the mapped rim):
+`mapped_h4_bare_*` (the demo default, 6 353 cells),
+`mapped_h4_2layers_*` (30 289), `mapped_h4_3layers_*` (42 257), each as
+`xy` (mid-length), `xz_inlet`, `xz_corner` (inlet rim) and `xy_wall` (a
+3.5 mm wall zoom showing the layer stack).
+
+**Checked by eye:** `mapped_h4_bare_xz_corner.png`: the rim is a square
+corner at (1.0, 0) cm, the inlet flat at z = 0 out to the wall, the wall
+straight at x = 1.0 cm down to the inlet (before: a 2 mm × 5 mm chamfer,
+`unstructured_default_7k_xz_corner.png` in its pre-2026-11-04 version).
+`mapped_h4_3layers_xy_wall.png`: three thin prism layers along the wall,
+total about 0.15 mm, under large dual cells (about 1.2 mm across); the
+layer faces meet the dual cells at a visibly oblique angle where a dual
+cell's centre sits sideways of its wall face, which is the 75–84°
+interface non-orthogonality of the table above. **Not checked:** the
+layer stack at the rim in 3-D (the slices cut it in two planes only). **The structured default moved:**
+~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
+
+### Mesh images (drawn from the `PolyMesh` the solver gets)
+
+In `laminar_pipe_gh1155/unstructured_gh1202/`, written by
+`cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-unstructured`,
+one colour per cell:
+
+| file | what |
+|---|---|
+| `unstructured_h5_1layer_wall_only_{xy,xz_inlet,xz_corner}.png` | h 5 mm, 1 layer, wall only (10 745 cells): cross-section at mid-length, x-z slice of the first 4.4 cm, zoom on the inlet corner — **after** |
+| `unstructured_h5_1layer_whole_boundary_{xy,xz_inlet,xz_corner}.png` | the same settings with layers on the whole boundary (the pre-gh:#1202 behaviour) — **before** |
+| `unstructured_default_7k_{xy,xz_inlet,xz_corner}.png` | the 6 713-cell V&V mesh (h 6 mm, 1 layer; ~~the demo default~~ until the convection fix, after which the default is the bare h 4 mm mesh, whose cells are those of the "after" images without the wall column) |
+
+**Checked by eye (2026-11-04):** in the corner zooms, *after* has a thin
+layer column along the wall (x ≈ 0.98–1.0 cm) that stops at z = 0 with no
+layer on the inlet; *before* has the same wall column plus a row of thin
+cells along the whole inlet (z = 0–0.03 cm). The cell counts differ by
+336 = 2 × 168, the end faces' prisms. The cross-section is a ~16-sided
+polygon of radius 1 cm with 4–5 large polyhedra across and a ring of thin
+wall prisms; the requested 0.3 mm first layer came out about 0.2 mm (the
+layerer's cap at half the local wall-edge length and its validity
+back-off). **Not checked:** the faces between the cut planes; the patch
+assignment was checked by the test (`inlet` / `outlet` / `walls`, walls
+typed `wall`), not drawn.
+
+### Unresolved (gh:#1202 follow-ups)
+
+**UPDATED 2026-11-04 (end of the merge work).** Status of each item, and
+what is still open:
+
+- ~~The dual mesh's flat profile and high dp/dz~~: the upwind false
+  diffusion (fixed by second-order convection) and the chamfered inlet
+  (fixed by the feature-edge capture) explained most of it. **Still open:
+  a few-per-cent gap at the demo default** (nominal instrument, the bar's:
+  u_c/2U **0.8925**, dp/dz **1.0326** with the demo's `linearUpwind` +
+  `cellLimited`; 0.9811 / 0.9673 with `Gauss linear`; 0.9597 / 1.0210
+  with unlimited `linearUpwind`). The 2 % bar on both is **not met** by
+  any of them. The `cellLimited` choice is explained against the
+  tutorials above (a laminar smooth flow is the `icoFoam/elbow` case,
+  which has no cell limiter); changing it is the maintainer's call.
+  Comparing against OpenFOAM on an exported mesh (`export_polymesh`) is
+  the next check that would separate the port from the mesh.
+- ~~2+ layers diverge; 1 layer runs.~~ **1 and 2 layers run; 3 diverge**
+  (one shrunk dual cell over the layer stack, 75–84° interface); local
+  layer collapse is not ported.
+- ~~No feature-edge capture~~: ported (`surface_mapper`), without
+  `correctEdgesBetweenPatches` (points that would land a face on the rim
+  stay unmapped: 34 at h 6 mm, 126 at 3.3 mm, 0 at the default).
+- ~~19 inward boundary faces~~: 0 on every layered pipe and duct measured
+  (test `every_boundary_face_points_outward_on_layered_pipes_and_ducts`).
+- ~~`limited` snGrad with a coefficient in (0, 1) is not ported.~~ Ported
+  2026-11-04. ~~`cellLimited` gradients and `linearUpwind` /
+  `limitedLinearV` convection, which the tutorials use, were not tried
+  here.~~ `linearUpwind` and `cellLimited` ported and measured;
+  `limitedLinearV` (elbow) is not ported.
+- Port defects found and fixed on the way: the linear interpolation
+  weights (`fvc::linear_weight`, now upstream's `makeWeights`), cfMesh's
+  skewness metric (now `faceSkewness`), the cold-started momentum solve
+  (now warm-started, as upstream). The same weight defect is in
+  `outram-park-fork-coolprop` and `tampines-steam-tables`'
+  `openfoam_source/fv_operators/fvc/interpolate.rs`, not changed here.
+- **Structured default re-checked after all of it:** 34 steps, u_c/2U
+  0.9940, ~~dp/dz 1.0151~~ **1.0154** (the weights fix), RMS 0.0063,
+  τ_w 1.0066.
+
 ## Reproduce
 
 ```bash

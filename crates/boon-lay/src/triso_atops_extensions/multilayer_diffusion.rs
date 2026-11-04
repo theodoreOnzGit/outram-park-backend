@@ -86,6 +86,7 @@
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`).
 
+use petir::mathf::RealMath;
 use petir::linalg::solve_symm_tridiag;
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{DiffusionCoefficient, Frequency, Length, Ratio, Time};
@@ -164,7 +165,7 @@ impl LayeredSphere {
             *faces_m.last_mut().expect("just pushed") = outer;
             inner = outer;
         }
-        let volumes = faces_m.windows(2).map(|w| 4.0 / 3.0 * PI * (w[1].powi(3) - w[0].powi(3))).collect();
+        let volumes = faces_m.windows(2).map(|w| 4.0 / 3.0 * PI * (w[1].r_powi(3) - w[0].r_powi(3))).collect();
         Ok(Self { faces_m, volumes, layer_of_cell, layers: layers.len() })
     }
 
