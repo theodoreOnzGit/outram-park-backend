@@ -130,14 +130,107 @@ impl Shape {
     }
 }
 
-/// A design: the shape, a tag per face (only the first `n_faces` count) and
-/// the cell budget.
+/// A design: the shape, a tag per face (only the first `n_faces` count), the
+/// cell budget, and (for the cylinder) which mesher (gh:#1202).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Design {
     pub shape: Shape,
     pub tags: [Tag; 6],
     pub target_cells: usize,
+    pub mesh: PipeMesh,
 }
+
+/// The cylinder's mesh (gh:#1202). Other shapes ignore it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PipeMesh {
+    /// The O-grid of blockMesh (`PipeOGrid`), sized by the cell budget: the
+    /// default, and the mesh every gh:#1155 number was recorded on.
+    Structured,
+    /// cfMesh's tet → polyhedral dual → wall prism layers, from
+    /// `outram_blender`'s cylinder primitive (`foam_mesh::mesh_to_tet_dual_multipatch`).
+    Unstructured(TetDualSpec),
+}
+
+/// The unstructured mesher's controls, lengths in metres. Clamped by
+/// [`TetDualSpec::clamped`] before use, so a phone cannot ask for a mesh
+/// that would take minutes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TetDualSpec {
+    /// Background (Cartesian carve) cell size.
+    pub cell_size: f64,
+    /// Prism layers on the wall (0 for none).
+    pub n_layers: usize,
+    /// First (wall) layer thickness.
+    pub first_layer: f64,
+    /// Layer-to-layer growth.
+    pub expansion: f64,
+}
+
+/// Facets of the cylinder surface handed to cfMesh (the blender primitive's
+/// segments): 48, as the stage 0 harness used.
+pub const CYL_SEGMENTS: usize = 48;
+/// The unstructured mesher's limits, relative to the pipe radius R: cell
+/// size in [R / CELL_PER_R_MAX, R / CELL_PER_R_MIN], at most
+/// [`MAX_LAYERS`] layers, first layer in [1e-3 R, 0.1 R], expansion in
+/// [1, 1.5]; and the estimated cell count ([`TetDualSpec::estimated_cells`])
+/// at most [`MAX_CELLS`].
+///
+/// Measured basis (`--mesh-sweep`, native release, 2026-11-04, the demo pipe
+/// R 10 mm, L 200 mm, first layer 0.3 mm, expansion 1.2): h = 6 / 5 / 4 /
+/// 3.3 mm gave 1939 / 3113 / 6353 / 9055 cells bare and 4774 / 7632 / 11968
+/// / 16620 wall faces, meshed in 0.2-2 s (0.54 s for the 20k default). Below
+/// h = R/3 the pipeline starts skipping stages (2.5 mm: fewer wall faces than
+/// at 3.3; 2 mm: the dual skipped, an all-tet mesh), so the cell count stops
+/// following h and the mesh is not what the reader asked for: the finest
+/// cell offered is R/3. Above R/1.5 the pipe is two cells across.
+pub const CELL_PER_R_MAX: f64 = 3.0;
+pub const CELL_PER_R_MIN: f64 = 1.5;
+pub const MAX_LAYERS: usize = 3;
+
+impl TetDualSpec {
+    /// The demo's default for a pipe of radius `radius`: cell R/2, **one**
+    /// layer of 0.03 R (expansion 1.2 for when more are asked for). On the
+    /// demo pipe that is 10 745 cells, meshed in about 0.5 s. ~~2 layers
+    /// (18 377 cells, nearest the O-grid's 20 480)~~ was the first choice;
+    /// every mesh with 2 or more layers diverged in the solve (2026-11-04,
+    /// the V&V record), so the default is the finest one that runs.
+    pub fn default_for(radius: f64) -> Self {
+        Self { cell_size: radius / 2.0, n_layers: 1, first_layer: 0.03 * radius, expansion: 1.2 }
+    }
+
+    /// Rough cell count of the tet-dual mesh of a pipe (radius `r`, length
+    /// `l`) with these settings: [`MESH_ESTIMATE`]`.0` dual cells per h³ of
+    /// pipe volume, plus `n_layers` prisms per wall face, the wall carrying
+    /// [`MESH_ESTIMATE`]`.1` faces per h² of wall area. Measured on this
+    /// pipe; used only to refuse settings that would freeze a phone.
+    pub fn estimated_cells(&self, r: f64, l: f64) -> f64 {
+        let h = self.cell_size.max(1e-12);
+        let vol = std::f64::consts::PI * r * r * l;
+        let wall = 2.0 * std::f64::consts::PI * r * l;
+        MESH_ESTIMATE.0 * vol / (h * h * h) + self.n_layers as f64 * MESH_ESTIMATE.1 * wall / (h * h)
+    }
+
+    /// The spec within the limits above, for a pipe of radius `r` and length
+    /// `l`: each control clamped to its range, then the cell size raised until
+    /// the estimate is at most [`MAX_CELLS`].
+    pub fn clamped(&self, r: f64, l: f64) -> Self {
+        let mut s = Self {
+            cell_size: self.cell_size.clamp(r / CELL_PER_R_MAX, r / CELL_PER_R_MIN),
+            n_layers: self.n_layers.min(MAX_LAYERS),
+            first_layer: self.first_layer.clamp(1e-3 * r, 0.1 * r),
+            expansion: self.expansion.clamp(1.0, 1.5),
+        };
+        while s.estimated_cells(r, l) > MAX_CELLS as f64 && s.cell_size < r / CELL_PER_R_MIN {
+            s.cell_size = (s.cell_size * 1.05).min(r / CELL_PER_R_MIN);
+        }
+        s
+    }
+}
+
+/// `(dual cells per h³ of pipe volume, wall faces per h² of wall area)` of
+/// the tet-dual pipe mesh: 6.2-6.7 and 13.7-15.2 over h = 4-6 mm in the
+/// `--mesh-sweep` of 2026-11-04 (see [`CELL_PER_R_MAX`]).
+pub const MESH_ESTIMATE: (f64, f64) = (6.5, 15.0);
 
 impl Default for Design {
     /// The stage 0 pipe: D = 20 mm, L = 200 mm, inlet at z−, 20k cells.
@@ -146,6 +239,7 @@ impl Default for Design {
             shape: Shape::Cylinder { radius: 0.01, length: 0.2, centre: [0.0, 0.0, 0.1] },
             tags: [Tag::Inlet, Tag::Outlet, Tag::Wall, Tag::Wall, Tag::Wall, Tag::Wall],
             target_cells: DEFAULT_CELLS,
+            mesh: PipeMesh::Structured,
         }
     }
 }
@@ -160,6 +254,7 @@ impl Design {
             shape: Shape::Coil { tube_radius: s.tube_radius, coil_diameter: s.coil_diameter, pitch: s.pitch, turns: COIL_DEFAULT_TURNS, centre: [0.0; 3] },
             tags: [Tag::Wall; 6],
             target_cells: DEFAULT_CELLS,
+            mesh: PipeMesh::Structured,
         }
     }
 
@@ -182,6 +277,7 @@ impl Design {
             shape: Shape::DoublePipe { r_tube: 0.005, wall: 0.001, r_shell: 0.01, length: 0.2, centre: [0.0, 0.0, 0.1] },
             tags: [Tag::Wall; 6],
             target_cells: DEFAULT_CELLS,
+            mesh: PipeMesh::Structured,
         }
     }
 }
@@ -306,14 +402,73 @@ pub fn coil_grid(d: &Design) -> Option<HelicalPipe> {
 /// The mesh of a design (checked), and the flow axis (0 x, 1 y, 2 z) with the
 /// signed inlet-to-outlet direction, and the cell length along it \[m\].
 pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
+    mesh_design_noted(d).map(|(p, a, h, _)| (p, a, h))
+}
+
+/// The unstructured pipe (gh:#1202): `outram_blender`'s cylinder primitive
+/// (`CYL_SEGMENTS` sides) with its z− end, z+ end and side named by the
+/// design's tags, through cfMesh's tet → dual → layers pipeline
+/// (`outram_blender::foam_mesh::mesh_to_tet_dual_multipatch`), the prism
+/// layers grown on the `walls`-tagged faces only
+/// (`TetDualOptions::layer_patches`, the port of cfMesh's per-patch
+/// `boundaryLayers`), moved to the design's centre, and converted through
+/// the neutral mesh (`convert::cfmesh`, `convert::foam`) to the `PolyMesh`
+/// the solver and the section cutter take. Returns the stage notes of the
+/// pipeline too (what it skipped).
+pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag; 3], spec: &TetDualSpec) -> Result<(PolyMesh, Vec<String>), String> {
+    use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
+    let s = spec.clamped(radius, length);
+    let cyl = outram_blender::primitives::cylinder(CYL_SEGMENTS, radius, length);
+    let label = |t: [Vec3; 3]| -> String {
+        let flat = (t[0].z - t[1].z).abs() < 1e-12 && (t[1].z - t[2].z).abs() < 1e-12;
+        let face = match (flat, t[0].z < 0.0) {
+            (true, true) => 0,
+            (true, false) => 1,
+            _ => 2,
+        };
+        tags[face].name().to_string()
+    };
+    let opts = TetDualOptions {
+        cell_size: s.cell_size,
+        n_layers: s.n_layers,
+        first_layer_thickness: s.first_layer,
+        expansion: s.expansion,
+        layer_patches: vec![Tag::Wall.name().to_string()],
+        ..TetDualOptions::default()
+    };
+    // Native-only isolation knob for the V&V record (gh:#1202):
+    // FOAM_CFMESH_STAGES=carve (carve + snap: hexahedra) or tet (no dual).
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = match std::env::var("FOAM_CFMESH_STAGES").as_deref() {
+        Ok("carve") => TetDualOptions { dual: false, delaunay: false, n_layers: 0, ..opts },
+        Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
+        _ => opts,
+    };
+    let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
+    for p in &mut vm.points {
+        *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);
+    }
+    let neutral = outram_blender::unstructured::convert::cfmesh::from_volume_mesh(&vm).map_err(|e| format!("{e:?}"))?;
+    let foam = outram_blender::unstructured::convert::foam::to_poly_mesh(&neutral).map_err(|e| format!("{e:?}"))?;
+    Ok((PolyMesh::from_foam_poly_mesh(&foam), report.stage_notes))
+}
+
+/// [`mesh_design`] with the mesher's notes (empty for the block meshes).
+pub fn mesh_design_noted(d: &Design) -> Result<(PolyMesh, usize, f64, Vec<String>), String> {
     check(d)?;
     let name = |i: usize| d.tags[i].name().to_string();
+    let none = |(p, a, h): (PolyMesh, usize, f64)| (p, a, h, Vec::new());
     match d.shape {
+        Shape::Cylinder { radius, length, centre } if matches!(d.mesh, PipeMesh::Unstructured(_)) => {
+            let PipeMesh::Unstructured(spec) = d.mesh else { unreachable!() };
+            let (poly, notes) = mesh_unstructured(radius, length, centre, [d.tags[0], d.tags[1], d.tags[2]], &spec)?;
+            Ok((poly, 2, spec.clamped(radius, length).cell_size, notes))
+        }
         Shape::Cylinder { radius, length, centre } => {
             let mut g = pipe_grid(radius, length, centre, d.target_cells);
             g.patch_names = [name(0), name(1), name(2)];
             let dz = length / g.nz as f64;
-            g.mesh().map(|p| (p, 2, dz)).map_err(|e| e.to_string())
+            g.mesh().map(|p| none((p, 2, dz))).map_err(|e| e.to_string())
         }
         Shape::Box { size, centre } => {
             let mut b = box_block(size, centre, d.target_cells);
@@ -321,18 +476,18 @@ pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
             let inlet = d.tags.iter().take(6).position(|t| *t == Tag::Inlet).unwrap_or(4);
             let axis = inlet / 2;
             let h = size[axis] / b.cells[axis] as f64;
-            b.mesh().map(|p| (p, axis, h)).map_err(|e| e.to_string())
+            b.mesh().map(|p| none((p, axis, h))).map_err(|e| e.to_string())
         }
         Shape::DoublePipe { r_tube, wall, r_shell, length, centre } => {
             let g = exchanger_grid(r_tube, wall, r_shell, length, centre, d.target_cells);
             let [a, b, c] = g.meshes().map_err(|e| e.to_string())?;
             let all = PolyMesh::concatenate(&[("tube_fluid", &a), ("tube_wall", &b), ("annulus_fluid", &c)]);
-            Ok((all, 2, length / g.nz as f64))
+            Ok(none((all, 2, length / g.nz as f64)))
         }
         Shape::Coil { .. } => {
             let g = coil_grid(d).ok_or("not a coil")?;
             let ds = g.arc_length().get::<meter>() / g.n_layers as f64;
-            g.mesh().map(|p| (p, 2, ds)).map_err(|e| e.to_string())
+            g.mesh().map(|p| none((p, 2, ds))).map_err(|e| e.to_string())
         }
     }
 }
@@ -409,7 +564,28 @@ pub struct Meshed {
     pub edges: Vec<f32>,
     pub axial: Section,
     pub cross: Section,
+    /// checkMesh-style max skewness (`outram_foam_mesh::mesh_quality`).
+    pub max_skewness: f64,
+    /// Wall time of the meshing \[s\] (in the worker, in the browser).
+    pub mesh_s: f64,
+    /// What the mesher skipped or changed, for the page (empty for the block
+    /// meshes).
+    pub notes: String,
 }
+
+/// Non-orthogonal correctors on the unstructured pipe (see `Engine::start`).
+pub const NON_ORTH_UNSTRUCTURED: usize = 2;
+/// Above this max non-orthogonality \[deg\] the unstructured pipe runs
+/// `Gauss linear limited 0` (uncorrected) with no correctors (see
+/// `Engine::start`): the layered meshes (86-90°) diverged with the
+/// correction, the bare dual meshes (51-61°) ran with it.
+pub const LIMITED_ZERO_ABOVE_DEG: f64 = 80.0;
+
+/// Radial bins of the profile plot.
+pub const PROFILE_BINS: usize = 12;
+
+/// Wall edges drawn at most (see `Engine::mesh`).
+pub const MAX_DRAWN_EDGES: usize = 20_000;
 
 /// One report of the solve.
 #[derive(Clone, Debug, PartialEq)]
@@ -449,6 +625,10 @@ pub struct Progress {
     pub cross_sec: Vec<f32>,
     /// The coil's numbers (NaN unless a coil): see [`CoilNo`].
     pub coil: [f64; COIL_LEN],
+    /// The pipe's radial profile by binning cell centres in r (gh:#1202,
+    /// `laminar_pipe::radial_profile_binned`): pairs `r/R, u_z/U`; empty
+    /// unless a cylinder is solved.
+    pub profile: Vec<f32>,
 }
 
 /// Indices into [`Progress::coil`].
@@ -569,6 +749,8 @@ pub struct Engine {
     /// sections are the coil's true cross-sections, and the coil grid.
     straight: Option<PolyMesh>,
     coil: Option<HelicalPipe>,
+    /// Where the cross-section plane is on the flow axis \[m\].
+    probe_x: f64,
 }
 
 fn axis_of(i: usize) -> Axis {
@@ -665,6 +847,7 @@ impl Engine {
         let x = if inlet_low { lo[a] + f * (hi[a] - lo[a]) } else { hi[a] - f * (hi[a] - lo[a]) };
         let x = x.clamp(lo[a] + 0.51 * self.cell_len, hi[a] - 0.51 * self.cell_len) + 1e-4 * self.cell_len;
         self.cross = plane_section(poly, axis_of(a), m(x));
+        self.probe_x = x;
         let mut p = self.centre();
         p[a] = x;
         self.probe_cell = (0..fv.n_cells)
@@ -706,7 +889,18 @@ impl Engine {
     }
 
     fn mesh(&mut self, id: u32, design: Design, probe: f64) -> Result<Meshed, String> {
-        let (poly, axis, cell_len) = mesh_design(&design)?;
+        let t0 = bugis::web_demo::platform::now_s();
+        let (poly, axis, cell_len, mut notes) = mesh_design_noted(&design)?;
+        let mesh_s = bugis::web_demo::platform::now_s() - t0;
+        let quality = outram_foam_mesh::mesh_quality::assess_quality(&poly.to_foam_poly_mesh());
+        // Some cfMesh settings leave a near-degenerate cell (the sweep of
+        // 2026-11-04: h 4 mm with 2 layers, skewness 251); say so on the page.
+        if quality.max_non_ortho_deg >= 89.0 || quality.max_skewness > 20.0 {
+            notes.push(format!(
+                "warning: near-degenerate cells (max non-orthogonality {:.1}°, skewness {:.0}); the solve may be poor or diverge, try another cell size",
+                quality.max_non_ortho_deg, quality.max_skewness
+            ));
+        }
         self.coil = coil_grid(&design);
         self.straight = match &self.coil {
             Some(g) => Some(g.straight_grid().mesh().map_err(|e| e.to_string())?),
@@ -730,7 +924,15 @@ impl Engine {
             })
             .collect();
         let mut edges = Vec::new();
-        for (a, b, pi) in boundary_edges(&poly) {
+        let all = boundary_edges(&poly);
+        // An unstructured wall has many small faces: draw at most about
+        // MAX_DRAWN_EDGES of them (every k-th wall edge; all inlet and outlet
+        // edges), so the message and each frame stay small.
+        let stride = (all.len() / MAX_DRAWN_EDGES).max(1);
+        for (k, (a, b, pi)) in all.into_iter().enumerate() {
+            if tag_of[pi] == 2.0 && k % stride != 0 {
+                continue;
+            }
             edges.extend(a.iter().chain(b.iter()).map(|v| *v as f32));
             edges.push(tag_of[pi]);
         }
@@ -751,6 +953,9 @@ impl Engine {
             edges,
             axial: section_of(&self.axial, aa, off),
             cross,
+            max_skewness: quality.max_skewness,
+            mesh_s,
+            notes: notes.join("; "),
         })
     }
 
@@ -834,10 +1039,59 @@ impl Engine {
         // gh:#1161: the lagged correction alone (0 correctors) went unstable
         // at Co ≈ 4 on the 50k O-grid; one corrector is stable there.
         s.solution.pimple.n_non_orthogonal_correctors = 1;
+        // gh:#1202: the tet-dual mesh with prism layers runs at 80-90° max
+        // non-orthogonality. Upstream practice (OpenFOAM user guide,
+        // fvSolution `nNonOrthogonalCorrectors`, and the tutorials on
+        // snappy/cfMesh meshes) is more non-orthogonal correctors and, above
+        // ~75°, `laplacian Gauss linear limited corrected 0.33-0.5`. The
+        // `limited` snGrad is not ported (`non_orthogonal::LaplacianCorrection`
+        // refuses it), so the unstructured mesh gets `corrected` with
+        // NON_ORTH_UNSTRUCTURED correctors.
+        if matches!(self.design.map(|d| d.mesh), Some(PipeMesh::Unstructured(_))) {
+            s.solution.pimple.n_non_orthogonal_correctors = NON_ORTH_UNSTRUCTURED;
+            // Above LIMITED_ZERO_ABOVE_DEG the explicit correction diverged
+            // on every layered mesh tried (2026-11-04, the V&V record), at
+            // every time step and corrector count; upstream's answer there
+            // is `limited` with a small coefficient, and `limited 0` (=
+            // `uncorrected`) is the one value of it this port has.
+            if max_non_orthogonality_deg(&s.mesh) > LIMITED_ZERO_ABOVE_DEG {
+                s.schemes.default_laplacian = outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme::GaussLinearLimited(0.0);
+                s.solution.pimple.n_non_orthogonal_correctors = 0;
+            }
+            // Native-only experiment knobs for the V&V record (gh:#1202):
+            // FOAM_NON_ORTH (correctors), FOAM_LAPLACIAN=uncorrected.
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if let Some(n) = std::env::var("FOAM_NON_ORTH").ok().and_then(|v| v.parse().ok()) {
+                    s.solution.pimple.n_non_orthogonal_correctors = n;
+                }
+                if std::env::var("FOAM_LAPLACIAN").as_deref() == Ok("uncorrected") {
+                    s.schemes.default_laplacian = outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme::GaussLinearUncorrected;
+                }
+            }
+        }
         self.case = Some(Case::Pipe(s, flow));
         self.steps = 0;
         self.time = 0.0;
         Ok(())
+    }
+
+    /// The radial profile at the cross-section plane, for a solved cylinder:
+    /// cell centres binned in r ([`PROFILE_BINS`] bins) over a slab about the
+    /// plane, half a cell thick on the O-grid (exactly the layer the plane
+    /// cuts) and one cell size each side on the unstructured mesh, whose
+    /// centres do not sit on planes. Flattened `r/R, u_z/U` pairs.
+    fn binned_profile(&self) -> Vec<f32> {
+        let (Some(Case::Pipe(s, flow)), Some(d)) = (self.case.as_ref(), self.design) else { return Vec::new() };
+        let Shape::Cylinder { centre, .. } = d.shape else { return Vec::new() };
+        let hz = match d.mesh {
+            PipeMesh::Structured => 0.5 * self.cell_len,
+            PipeMesh::Unstructured(_) => self.cell_len,
+        };
+        outram_foam_appbuilder_lib::cases::laminar_pipe::radial_profile_binned(s, flow, (centre[0], centre[1]), self.probe_x, hz, PROFILE_BINS)
+            .into_iter()
+            .flat_map(|(r, u, _)| [r as f32, u as f32])
+            .collect()
     }
 
     /// Per-cell fields on the drawing mesh: |U|, p, axial U and T (T empty
@@ -948,6 +1202,7 @@ impl Engine {
             exch,
             cross_sec,
             coil,
+            profile: self.binned_profile(),
         })
     }
 
@@ -1173,6 +1428,10 @@ impl Request {
                 };
                 let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], a[3], b[0], b[1], b[2], design.target_cells as f64, *probe];
                 d.extend(design.tags.iter().map(|t| t.code()));
+                match design.mesh {
+                    PipeMesh::Structured => d.extend([0.0; 5]),
+                    PipeMesh::Unstructured(s) => d.extend([1.0, s.cell_size, s.n_layers as f64, s.first_layer, s.expansion]),
+                }
                 d
             }
             Request::Start { id, reynolds, mode } => {
@@ -1203,7 +1462,13 @@ impl Request {
                     2 => Shape::DoublePipe { r_tube: a[0], wall: a[1], r_shell: a[2], length: a[3], centre },
                     _ => Shape::Coil { tube_radius: a[0], coil_diameter: a[1], pitch: a[2], turns: a[3], centre },
                 };
-                Ok(Request::Mesh { id, design: Design { shape, tags, target_cells }, probe })
+                let mesh = if r.f()? == 0.0 {
+                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?];
+                    PipeMesh::Structured
+                } else {
+                    PipeMesh::Unstructured(TetDualSpec { cell_size: r.f()?, n_layers: r.n()?, first_layer: r.f()?, expansion: r.f()? })
+                };
+                Ok(Request::Mesh { id, design: Design { shape, tags, target_cells, mesh }, probe })
             }
             1 => Ok(Request::Start { id, reynolds: r.f()?, mode: if r.f()? == 0.0 { Mode::Steady } else { Mode::Transient } }),
             2 => Ok(Request::Step { id, steps: r.n()? }),
@@ -1222,7 +1487,8 @@ impl Event {
                 put_f32s(&mut d, &me.edges);
                 put_section(&mut d, &me.axial);
                 put_section(&mut d, &me.cross);
-                (d, String::new())
+                d.extend([me.max_skewness, me.mesh_s]);
+                (d, me.notes.clone())
             }
             Event::Cross { id, cross } => {
                 let mut d = vec![1.0, f64::from(*id)];
@@ -1254,6 +1520,7 @@ impl Event {
                 d.extend_from_slice(&p.exch);
                 put_f32s(&mut d, &p.cross_sec);
                 d.extend_from_slice(&p.coil);
+                put_f32s(&mut d, &p.profile);
                 (d, String::new())
             }
             Event::Error(m) => (vec![3.0, 0.0], m.clone()),
@@ -1273,6 +1540,9 @@ impl Event {
                 edges: r.f32s()?,
                 axial: r.section()?,
                 cross: r.section()?,
+                max_skewness: r.f()?,
+                mesh_s: r.f()?,
+                notes: text.to_string(),
             })),
             1 => Ok(Event::Cross { id, cross: r.section()? }),
             2 => Ok(Event::Progress(Progress {
@@ -1311,6 +1581,7 @@ impl Event {
                     }
                     x
                 },
+                profile: r.f32s()?,
             })),
             3 => Ok(Event::Error(text.to_string())),
             k => Err(format!("bad event {k}")),
@@ -1363,13 +1634,16 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
     let t0 = bugis::web_demo::platform::now_s();
     e.serve(Request::Mesh { id: 1, design, probe: 0.75 }, &mut |ev| last = Some(ev));
     match last.take() {
-        Some(Event::Meshed(me)) => out.push(format!(
-            "# mesh: {} cells, max non-orthogonality {:.1} deg, cell length {:.3e} m, {:.3} s",
-            me.n_cells,
-            me.max_non_ortho_deg,
-            me.cell_len,
-            bugis::web_demo::platform::now_s() - t0
-        )),
+        Some(Event::Meshed(me)) => {
+            out.push(format!(
+                "# mesh: {} cells, max non-orthogonality {:.1} deg, cell length {:.3e} m, {:.3} s",
+                me.n_cells,
+                me.max_non_ortho_deg,
+                me.cell_len,
+                bugis::web_demo::platform::now_s() - t0
+            ));
+            out.push(format!("# quality: skew={:.3} mesh_s={:.3} notes=[{}]", me.max_skewness, me.mesh_s, me.notes));
+        }
         Some(Event::Error(m)) => return Err(m),
         _ => return Err("no mesh".into()),
     }
@@ -1424,6 +1698,15 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
             g.get::<meter_per_second_squared>() / flow.hagen_poiseuille_gradient().get::<meter_per_second_squared>(),
             flow.friction_factor(g) * flow.reynolds()
         ));
+        // gh:#1202: the profile and wall shear over the same slab, for both meshes.
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::{profile_rms, wall_shear_stress};
+        let rms = profile_rms(s, flow, (centre[0], centre[1]), z0 + 0.65 * length, z0 + 0.85 * length);
+        let tau = wall_shear_stress(s, z0 + 0.65 * length, z0 + 0.85 * length) / flow.hagen_poiseuille_wall_shear();
+        out.push(format!("# pipe profile (RMS of (u_z - u_HP)/2U, tau_w/HP over 0.65-0.85 L): rms={rms:.4} tau={tau:.4}"));
+        if let Some(p) = &last_progress {
+            let bins: Vec<String> = p.profile.chunks(2).map(|q| format!("{:.3}:{:.3}", q[0], q[1])).collect();
+            out.push(format!("# binned profile at 0.75 L (r/R:u/U): {}", bins.join(" ")));
+        }
     }
     if let (Some(p), Shape::Coil { .. }) = (&last_progress, design.shape) {
         let c = &p.coil;
@@ -1451,6 +1734,73 @@ mod tests {
         Design { target_cells: 2000, ..Design::default() }
     }
 
+    /// Diagnostic for the V&V record (gh:#1202), `--ignored`: the discrete
+    /// geometry and the two-point Laplacian of φ = x² + y² (∇²φ = 4 exactly)
+    /// on the O-grid and on the cfMesh dual, per interior cell: cell closure
+    /// |Σ S_f| / Σ|S_f|, Gauss volume Σ x_f·S_f / 3 against the cell volume,
+    /// and the uncorrected (`|S|²/(S·d)`) and orthogonal (`|S|/|d|`) Laplacians
+    /// against 4. Prints a table; asserts nothing.
+    #[test]
+    #[ignore]
+    fn diagnose_dual_mesh_geometry_and_laplacian() {
+        use outram_foam_basic_lib::primitives::Vector3;
+        fn worst(cells: &[usize], f: impl Fn(usize) -> f64) -> f64 {
+            cells.iter().map(|&c| f(c).abs()).fold(0.0_f64, f64::max)
+        }
+        fn mean(cells: &[usize], f: impl Fn(usize) -> f64) -> f64 {
+            cells.iter().map(|&c| f(c)).sum::<f64>() / cells.len() as f64
+        }
+        let cases: Vec<(&str, PolyMesh)> = vec![
+            ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
+            ("dual h=4 mm bare", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }).unwrap().0),
+        ];
+        for (name, poly) in cases {
+            let m = poly.to_fv_mesh().unwrap();
+            let n = m.n_cells;
+            let (mut ssum, mut sabs, mut xs) = (vec![Vector3::ZERO; n], vec![0.0; n], vec![0.0; n]);
+            let (mut lu, mut lo) = (vec![0.0; n], vec![0.0; n]);
+            let mut boundary = vec![false; n];
+            let phi = |p: Vector3| p.x * p.x + p.y * p.y;
+            for f in 0..m.face_area_vectors.len() {
+                let s = m.face_area_vectors[f];
+                let o = m.owner[f];
+                let xf = m.face_centres[f];
+                ssum[o] = ssum[o] + s;
+                sabs[o] += s.mag();
+                xs[o] += xf.dot(s) / 3.0;
+                if f < m.n_internal_faces {
+                    let nb = m.neighbour[f];
+                    ssum[nb] = ssum[nb] - s;
+                    sabs[nb] += s.mag();
+                    xs[nb] -= xf.dot(s) / 3.0;
+                    let d = m.cell_centres[nb] - m.cell_centres[o];
+                    let dphi = phi(m.cell_centres[nb]) - phi(m.cell_centres[o]);
+                    let fu = dphi * s.mag() * s.mag() / s.dot(d);
+                    let fo = dphi * s.mag() / d.mag();
+                    lu[o] += fu;
+                    lu[nb] -= fu;
+                    lo[o] += fo;
+                    lo[nb] -= fo;
+                } else {
+                    boundary[o] = true;
+                }
+            }
+            let interior: Vec<usize> = (0..n).filter(|&c| !boundary[c]).collect();
+            let ic = &interior;
+            println!(
+                "{name}: {} cells ({} interior); closure max {:.2e}; Gauss volume max rel {:.2e}; uncorrected lap/4: mean {:.4}, max |err| {:.3}; orthogonal lap/4: mean {:.4}, max |err| {:.3}",
+                n,
+                interior.len(),
+                worst(ic, |c| ssum[c].mag() / sabs[c]),
+                worst(ic, |c| xs[c] / m.cell_volumes[c] - 1.0),
+                mean(ic, |c| lu[c] / m.cell_volumes[c] / 4.0),
+                worst(ic, |c| lu[c] / m.cell_volumes[c] / 4.0 - 1.0),
+                mean(ic, |c| lo[c] / m.cell_volumes[c] / 4.0),
+                worst(ic, |c| lo[c] / m.cell_volumes[c] / 4.0 - 1.0),
+            );
+        }
+    }
+
     #[test]
     fn requests_and_events_survive_the_wire() {
         let reqs = [
@@ -1461,12 +1811,14 @@ mod tests {
                     shape: Shape::Box { size: [0.1, 0.02, 0.03], centre: [0.0, 1.0, 2.0] },
                     tags: [Tag::Inlet, Tag::Outlet, Tag::Wall, Tag::Wall, Tag::Wall, Tag::Wall],
                     target_cells: 900,
+                    mesh: PipeMesh::Structured,
                 },
                 probe: 0.25,
             },
             Request::Start { id: 3, reynolds: 50.0, mode: Mode::Transient },
             Request::Mesh { id: 5, design: Design::exchanger(), probe: 0.3 },
             Request::Mesh { id: 6, design: Design::coil(), probe: 0.6 },
+            Request::Mesh { id: 7, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() }, probe: 0.4 },
             Request::Step { id: 3, steps: 7 },
             Request::Probe { id: 3, probe: 0.9 },
         ];
@@ -1487,6 +1839,9 @@ mod tests {
                 edges: vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 2.0],
                 axial: sec.clone(),
                 cross: sec.clone(),
+                max_skewness: 0.5,
+                mesh_s: 0.25,
+                notes: "a note".into(),
             }),
             Event::Cross { id: 2, cross: sec },
             Event::Cross { id: 2, cross: framed },
@@ -1514,6 +1869,7 @@ mod tests {
                 exch: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
                 cross_sec: vec![0.5, -0.5],
                 coil: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+                profile: vec![0.1, 1.9, 0.5, 1.4],
             }),
         ];
         for e in evs {
@@ -1566,6 +1922,52 @@ mod tests {
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
+    }
+
+    /// The headless regression of the **unstructured** pipe (gh:#1202): the
+    /// cfMesh dual with one wall layer, h = 6 mm (6713 cells), at Re = 100,
+    /// reaches the steady criterion and conserves mass; its patches arrive
+    /// named `inlet`, `outlet`, `walls` (typed wall); its developed numbers
+    /// are pinned where the V&V record measured them on 2026-11-04
+    /// (`laminar_pipe_gh1155.md`, gh:#1202 section): u_c/2U 0.6105, dp/dz
+    /// 1.2452 × HP. **Those numbers MISS Hagen–Poiseuille** (the profile is
+    /// too flat); they are pinned so that a change is seen, not because they
+    /// are right. Deterministic: run twice, the same lines.
+    #[test]
+    fn headless_unstructured_pipe_runs_and_is_pinned() {
+        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let (poly, _, _, _) = mesh_design_noted(&d).unwrap();
+        let fv = poly.to_fv_mesh().unwrap();
+        let mut names: Vec<(&str, outram_foam_basic_lib::mesh::PatchKind)> = fv.patches.iter().map(|p| (p.name.as_str(), p.kind)).collect();
+        names.sort_by_key(|n| n.0);
+        assert_eq!(names.iter().map(|n| n.0).collect::<Vec<_>>(), ["inlet", "outlet", "walls"]);
+        assert_eq!(names[2].1, outram_foam_basic_lib::mesh::PatchKind::Wall);
+        let lines = headless(d, 100.0, Mode::Steady, 200).unwrap();
+        let joined = lines.join("\n");
+        assert!(joined.contains("6713 cells"), "{joined}");
+        let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
+        let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
+        assert!((val("uc=") - 0.6105).abs() < 2e-3, "{pipe}");
+        assert!((val("dpdz=") - 1.2452).abs() < 2e-3, "{pipe}");
+        let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
+        let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
+        assert!((out_in - 1.0).abs() < 1e-8, "{last}");
+        let again = headless(d, 100.0, Mode::Steady, 200).unwrap();
+        let strip = |v: &[String]| v.iter().filter(|l| l.starts_with("# pipe")).cloned().collect::<Vec<_>>();
+        assert_eq!(strip(&again), strip(&lines), "deterministic");
+    }
+
+    /// The unstructured controls are clamped (a phone cannot ask for a mesh
+    /// that freezes it) and the estimate follows the measured sweep.
+    #[test]
+    fn unstructured_specs_are_clamped() {
+        let s = TetDualSpec { cell_size: 1e-5, n_layers: 9, first_layer: 1.0, expansion: 3.0 }.clamped(0.01, 0.2);
+        assert!(s.cell_size >= 0.01 / CELL_PER_R_MAX - 1e-15 && s.n_layers == MAX_LAYERS && s.first_layer <= 1e-3 + 1e-15 && s.expansion == 1.5);
+        assert!(s.estimated_cells(0.01, 0.2) <= MAX_CELLS as f64);
+        let d = TetDualSpec::default_for(0.01);
+        let e = d.estimated_cells(0.01, 0.2);
+        assert!((e / 10_745.0 - 1.0).abs() < 0.15, "estimate {e} vs measured 10745");
+        assert_eq!(d.clamped(0.01, 0.2), d);
     }
 
     /// The headless exchanger regression (gh:#1156): a ~2.4k-cell double
@@ -1686,6 +2088,7 @@ mod tests {
             shape: Shape::Box { size: [0.02, 0.02, 0.1], centre: [0.0, 0.0, 0.05] },
             tags: [Tag::Wall, Tag::Wall, Tag::Wall, Tag::Wall, Tag::Inlet, Tag::Outlet],
             target_cells: 800,
+            mesh: PipeMesh::Structured,
         };
         e.serve(Request::Mesh { id: 5, design: d, probe: 0.5 }, &mut |ev| evs.push(ev));
         let Some(Event::Meshed(me)) = evs.pop() else { panic!("no mesh") };

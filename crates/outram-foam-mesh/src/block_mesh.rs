@@ -471,6 +471,21 @@ impl PolyMesh {
         }
     }
 
+    /// The inverse of [`PolyMesh::to_foam_poly_mesh`]: take an
+    /// `outram-foam-basic-lib` polyMesh (read from disk, or converted from
+    /// another mesher, e.g. the cfMesh port through `outram_blender`'s neutral
+    /// mesh, gh:#1202) as this crate's `PolyMesh`, so the section cutter and
+    /// [`PolyMesh::to_fv_mesh`] work on it. A pure re-packing, like its inverse.
+    pub fn from_foam_poly_mesh(m: &outram_foam_basic_lib::io::PolyMesh) -> PolyMesh {
+        PolyMesh {
+            points: m.points.clone(),
+            faces: m.faces.iter().map(|f| MeshFace { verts: f.verts.clone(), owner: f.owner, neighbour: f.neighbour }).collect(),
+            n_internal_faces: m.n_internal_faces,
+            n_cells: m.n_cells,
+            patches: m.patches.clone(),
+        }
+    }
+
     /// Convert to the `outram-foam-basic-lib` [`FvMesh`], computing all
     /// finite-volume geometry (cell volumes/centres, face-area vectors, face
     /// areas, face centres) from the point/face topology.
@@ -1726,6 +1741,17 @@ fn patch_kind_from_str(t: &str) -> PatchKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `from_foam_poly_mesh` inverts `to_foam_poly_mesh` exactly (gh:#1202).
+    #[test]
+    fn foam_poly_mesh_round_trip_is_exact() {
+        let m = block_mesh(&multigrading_cube_dict(5)).unwrap();
+        let back = PolyMesh::from_foam_poly_mesh(&m.to_foam_poly_mesh());
+        assert_eq!(back.points, m.points);
+        assert_eq!((back.n_cells, back.n_internal_faces, back.faces.len()), (m.n_cells, m.n_internal_faces, m.faces.len()));
+        assert!(back.faces.iter().zip(&m.faces).all(|(a, b)| a.verts == b.verts && a.owner == b.owner && a.neighbour == b.neighbour));
+        assert_eq!(back.patches, m.patches);
+    }
 
     /// A unit-cube `blockMeshDict` (`[0,1]^3`, `convertToMeters 1`) whose
     /// x-direction uses the multi-grading list `((0.2 0.3 4)(0.6 0.4 3)(0.2 0.3
