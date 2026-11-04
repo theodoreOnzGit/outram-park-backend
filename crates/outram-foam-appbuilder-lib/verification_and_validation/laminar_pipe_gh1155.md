@@ -212,6 +212,86 @@ inscribed-polygon prisms to the printed 7 digits (6.242890e-5, 1.242331e-4,
 the patch assignment (patches are not coloured; the solver's inlet/outlet
 fluxes, equal to 1e-10, show the end patches are where they should be).
 
+## The unstructured mesh: Hagen–Poiseuille on cfMesh's polyhedral mesh with wall layers (gh:#1202)
+
+**Issue:** gh:#1202 (under the Foam Studio epic gh:#1153). **Started:**
+2026-11-04. The demo gained a mesh choice for the pipe: **Structured** (the
+O-grid above, the default, unchanged) or **Unstructured**: `outram-blender`'s
+cylinder (48 facets) through the cfMesh port's carve → snap → tet → Delaunay
+flips → face-minimal polyhedral dual → **wall-only** prism layers
+(`outram_blender::foam_mesh::mesh_to_tet_dual_multipatch`,
+`TetDualOptions::layer_patches = ["walls"]`), converted through the neutral
+mesh to the solver's `FvMesh`.
+
+### Question
+
+On the polyhedral mesh the demo now offers, does the same `PimpleFoam` case
+reproduce Hagen–Poiseuille (centreline velocity, profile, pressure gradient,
+wall shear) as well as on the O-grid at a matched cell count, and if not, by
+how much does it miss?
+
+### What was changed in the mesher first (and what was not)
+
+- **Layers on the wall only.** Before gh:#1202 the multipatch pipeline grew
+  prisms over the whole boundary, inlet and outlet included (stage 0 found
+  7488 of 8226 cells were prisms). Upstream cfMesh selects patches per
+  patch (`boundaryLayers::addLayerForPatch`, `patchBoundaryLayers` in
+  `meshDict`); its border rules (`boundaryLayersCreateVertices.C`,
+  `createNewVertex`) were ported into
+  `outram_park_fork_cfmesh::layers::add_boundary_layers_adaptive_on_patches`.
+  That port is small (one function plus its assembly), so it was done rather
+  than worked around. Tests and the before/after pictures:
+  `outram-park-fork-cfmesh` `layers::tests::wall_only_layers_on_a_box_keep_the_ends`,
+  `pipeline::tests::wall_only_layers_end_on_the_pipe_ends`.
+- **Determinism.** The pipeline gave a different cell numbering on every
+  run (the face-minimal dual and the layerers iterated hash maps); now
+  pinned by `pipeline::tests::tet_dual_stages_are_deterministic`.
+- **Patch types.** The neutral mesh typed every cfMesh patch as a generic
+  `patch`; `walls` now arrives as a `wall` (the cfMesh writer's own rule).
+  The solver's boundary conditions go by name (`inlet`, `outlet`, anything
+  else a no-slip wall), so this changed no number.
+- **Not changed: no feature-edge capture.** cfMesh's
+  `meshSurfaceEdgeExtractor` is not ported, so the dual's boundary faces at
+  the rim wrap round the corner: on the 4 mm test mesh, end-patch points
+  reach 1.0 mm up the wall, and the bare mesh holds 1.8 % less volume than
+  the 24-gon prism. The inlet condition is applied on those bent faces.
+
+### Predictions (written 2026-11-04, before any flow solve on the unstructured mesh)
+
+The case is the demo's: D = 20 mm, L = 200 mm (L/D = 10), Re = 100, uniform
+inlet, steady by pseudo-transient PISO (Co ≤ 4, viscous number ≤ 0.5), the
+instruments of the demo's headless run over the slab 0.65–0.85 L
+(130–170 mm, past Durst's 115 mm development length). Matched resolution:
+the unstructured settings whose cell count is closest to the O-grid's, at
+about 5k and about 20k cells.
+
+| quantity | O-grid (structured) | unstructured, wall-only layers |
+|---|---|---|
+| converges to the steady criterion | yes, 30–40 steps at 20k (recorded: 34) | yes, but slower: 40–150 steps |
+| outlet / inlet flux | 1 to 1e-9 | 1 to 1e-8 (the scheme is conservative on any mesh) |
+| u_c / 2U at 0.75 L | 0.99–1.00 (recorded 0.994) | **0.90–1.00**. Stage 0 measured 0.63–0.75 on cfMesh meshes without layers *before* the non-orthogonal correction (gh:#1161) existed; I expect the correction to recover most of it, not all |
+| (−dp/dz) / HP | 1.01–1.03 (recorded 1.015) | within ±10 % |
+| profile RMS of (u_z − u_HP)/2U | 0.005–0.02 | 0.02–0.08 |
+| τ_w / (4νU/R), one-sided `ν u_P/d` | 0.93–1.00 (d ≈ 0.4 mm on the ring) | 0.85–1.05 (d ≈ half the first layer) |
+| max non-orthogonality | 26° (recorded) | 80–90° |
+| max skewness (checkMesh) | ≈ 2.1 | 2–15 |
+| mesh time, native | ≈ 0.1 s | 1–5 s at 20k |
+| ms per step, native, per cell | baseline | 1.5–3× the O-grid's (more faces per cell, 2 non-orthogonal correctors) |
+
+If u_c falls below 0.90 on the unstructured mesh, the candidates, in the
+order I would test them: the missing skewness correction (the port
+interpolates linearly to the face centre along `d`, as `Gauss linear`
+does, and dual faces are skewed); the cell centre of non-star-shaped dual
+cells; the bent inlet faces at the rim; plain under-resolution by the
+large octahedral cells.
+
+**Non-orthogonal correctors.** Upstream practice on meshes above ~70° is
+more correctors and, above ~75–80°, `laplacian Gauss linear limited
+corrected 0.33–0.5`. The `limited` snGrad is not ported
+(`non_orthogonal::LaplacianCorrection` refuses it), so the unstructured
+case runs `corrected` with **2** correctors (the O-grid keeps 1, so its
+numbers do not move).
+
 ## Reproduce
 
 ```bash
