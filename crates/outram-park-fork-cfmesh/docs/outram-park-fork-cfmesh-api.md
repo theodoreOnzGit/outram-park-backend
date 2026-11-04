@@ -1968,14 +1968,25 @@ mesh takes the region of the input triangle nearest its centroid. See
   with [`SurfaceRegions::from_labels`]. Validated before meshing starts.
 - `opts` — [`TetDualOptions`], exactly as for the single-patch entry point.
 
-# Limitation — layers are grown on the whole boundary
+# Which patches get layers
 
-Because classification happens after stage 7, the boundary-layer stage still
-sees the single `"walls"` patch and grows prisms over the **entire**
-boundary, inlet and outlet included. That is a valid mesh, but it is not
+~~**Limitation — layers are grown on the whole boundary.** Because
+classification happens after stage 7, the boundary-layer stage still sees
+the single `"walls"` patch and grows prisms over the **entire** boundary,
+inlet and outlet included. That is a valid mesh, but it is not
 snappyHexMesh's per-patch `nSurfaceLayers` behaviour; patch-selective layer
-insertion is future work. Set `opts.n_layers = 0` if layers on the flow
-openings are unacceptable for your case.
+insertion is future work.~~ **CORRECTED 2026-11-04 (gh:#1202):** set
+[`TetDualOptions::layer_patches`] (e.g. `["walls"]`) and the boundary is
+named *before* stage 7, layers grow on those patches only (the port of
+cfMesh's per-patch `boundaryLayers`,
+[`add_boundary_layers_adaptive_on_patches`]), and the openings stay flat
+and layer-free. With `layer_patches` empty (the default) the old behaviour
+is kept: prisms over the whole boundary, inlet and outlet included.
+
+(Mirror hand-edited 2026-11-04: `kovan-cli` was not available in the session;
+the new items `layer_patches`, `add_boundary_layers_adaptive_on_patches` and
+`from_cell_faces_wound` are not mirrored yet. Regenerate with
+`kovan-cli api-docs outram-park-fork-cfmesh`.)
 
 # Returns
 

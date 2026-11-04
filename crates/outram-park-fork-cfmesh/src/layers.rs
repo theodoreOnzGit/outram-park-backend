@@ -56,13 +56,25 @@
 //!
 //! A single wall patch, moved along the averaged per-point inward normal (so a
 //! sharp convex corner shrinks along its diagonal — adequate for modest total
-//! thickness). Multi-patch selection and corner-feature handling are future
-//! work. The total thickness must be smaller than the wall cells or they would
+//! thickness). ~~Multi-patch selection and corner-feature handling are future
+//! work.~~ **CORRECTED 2026-11-04 (gh:#1202):** patch selection is ported:
+//! [`add_boundary_layers_adaptive_on_patches`] grows layers on named patches
+//! only and ends them on the other patches, with cfMesh's border rules (a
+//! point between a layer patch and one other patch slides in that patch's
+//! plane; between two others, along their shared edge). On a mesh whose
+//! whole boundary is one patch, as [`add_boundary_layers`] and
+//! [`add_boundary_layers_adaptive`] are usually called, nothing changes.
+//! The total thickness must be smaller than the wall cells or they would
 //! invert. Pure Rust, Android-safe.
+//!
+//! Deterministic since 2026-11-04: point and cell numbering no longer follow a
+//! randomly seeded hash set, so the same input gives the same mesh in every
+//! run (the reproducibility defect class of the HTR-10 neighbour grid).
 
+use crate::checks::check_quality;
 use crate::math::Vec3;
-use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
-use std::collections::{HashMap, HashSet};
+use crate::volume_mesh::{cells_faces, from_cell_faces, from_cell_faces_wound, VolumeMesh};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Insert `n_layers` graded prism boundary layers at the patch named
 /// `patch_name`, returning the new mesh.
@@ -103,8 +115,8 @@ pub fn add_boundary_layers(
 
     // Wall points and their inward normal (average of adjacent wall faces'
     // inward normals = −outward area vector).
-    let mut wall_pts: HashSet<usize> = HashSet::new();
-    let mut inward: HashMap<usize, Vec3> = HashMap::new();
+    let mut wall_pts: BTreeSet<usize> = BTreeSet::new();
+    let mut inward: BTreeMap<usize, Vec3> = BTreeMap::new();
     for &f in &wall_faces {
         let out = mesh.face_area_vector(f).normalize();
         for &p in &mesh.faces[f] {
@@ -135,7 +147,7 @@ pub fn add_boundary_layers(
             new_points.push(pt);
         }
     }
-    let mut column: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut column: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for &wp in &wall_pts {
         let x = mesh.points[wp];
         let nrm = inward[&wp];
@@ -165,29 +177,31 @@ pub fn add_boundary_layers(
         );
     }
     for &f in &wall_faces {
-        let w = &mesh.faces[f];
-        let k = w.len();
-        for i in 0..n_layers {
-            let mut faces: Vec<Vec<usize>> = Vec::new();
-            // outer (layer i) and inner (layer i+1) faces
-            faces.push(w.iter().map(|&p| column[&p][i]).collect());
-            faces.push(w.iter().map(|&p| column[&p][i + 1]).collect());
-            // side faces, one per wall-face edge
-            for e in 0..k {
-                let p = w[e];
-                let q = w[(e + 1) % k];
-                faces.push(vec![
-                    column[&p][i],
-                    column[&q][i],
-                    column[&q][i + 1],
-                    column[&p][i + 1],
-                ]);
-            }
-            cells.push(faces);
-        }
+        prism_stack(&mesh.faces[f], &column, n_layers, &mut cells);
     }
 
-    from_cell_faces(new_points, &cells)
+    from_cell_faces_wound(new_points, &cells)
+}
+
+/// The `n_layers` prisms of one wall face `w` (wound outward, as a boundary
+/// face of a `VolumeMesh` is), each with its faces wound **outward from the
+/// prism**: the wall-side face as `w`, the inner face reversed, and each side
+/// face `p_i, p_{i+1}, q_{i+1}, q_i` for the wall edge `p → q` (an edge of a
+/// ring wound counter-clockwise about its normal has the face on its left, so
+/// the side's outward normal is `(q − p) × n`). Shared by both layerers, which
+/// assemble with [`from_cell_faces_wound`].
+fn prism_stack(w: &[usize], column: &BTreeMap<usize, Vec<usize>>, n_layers: usize, cells: &mut Vec<Vec<Vec<usize>>>) {
+    let k = w.len();
+    for i in 0..n_layers {
+        let mut faces: Vec<Vec<usize>> = Vec::with_capacity(k + 2);
+        faces.push(w.iter().map(|&p| column[&p][i]).collect());
+        faces.push(w.iter().rev().map(|&p| column[&p][i + 1]).collect());
+        for e in 0..k {
+            let (p, q) = (w[e], w[(e + 1) % k]);
+            faces.push(vec![column[&p][i], column[&p][i + 1], column[&q][i + 1], column[&q][i]]);
+        }
+        cells.push(faces);
+    }
 }
 
 /// Insert graded prism boundary layers that **adapt to curved walls**.
@@ -240,18 +254,123 @@ pub fn add_boundary_layers_adaptive(
     first_thickness: f64,
     expansion: f64,
 ) -> VolumeMesh {
+    add_boundary_layers_adaptive_on_patches(mesh, &[patch_name], n_layers, first_thickness, expansion)
+}
+
+/// How a boundary point of the layer patches moves (cfMesh's
+/// `boundaryLayers::findPatchVertices` classification).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum LayerVertex {
+    /// Only layer-patch faces meet here (cfMesh `PATCHNODE` alone): it moves
+    /// along the smoothed inward normal.
+    Patch,
+    /// On the border with exactly one non-layer patch (cfMesh `EDGENODE`, "on
+    /// an edge"): it moves inside that patch's plane, along the layer faces'
+    /// normal with its component along the other patch's normal removed. The
+    /// direction is held fixed by the smoothing.
+    Edge,
+    /// On the border with two non-layer patches (cfMesh's "corner"): it moves
+    /// along the boundary edge both of them share.
+    Corner,
+}
+
+/// Insert graded prism boundary layers on the **named patches only**, the
+/// patch-selective form of [`add_boundary_layers_adaptive`] (gh:#1202).
+///
+/// Every boundary face outside `layer_patches` keeps its place: no prism stack
+/// is extruded from it, and a layer that runs into it ends on it. This is
+/// cfMesh's `boundaryLayers::addLayerForPatch` behaviour (a patch with
+/// `nLayers 0` under `patchBoundaryLayers` in `meshDict`), ported from
+/// `meshLibrary/utilities/boundaryLayers/boundaryLayersCreateVertices.C`
+/// (`findPatchVertices`, `createNewVertex`; cfMesh, Copyright (C) 2014-2017
+/// Creative Fields, Ltd., GPL-3.0-only, commit `6cf1d211f9cf`):
+///
+/// - a layer point that also touches **one** non-layer patch (the rim where a
+///   pipe wall meets its inlet) moves along the sum of its layer faces' area
+///   vectors with the component along the non-layer faces' unit normal
+///   removed, so it **stays in the non-layer patch's plane** and that patch is
+///   only re-partitioned, never moved; its thickness is capped at 0.9 × its
+///   distance to the edge opposite it in each adjacent non-layer face
+///   (upstream's "limit distances");
+/// - a point that touches **two** non-layer patches moves along the boundary
+///   edge they share, at most half way to the next point;
+/// - a point touching **three or more** non-layer patches is refused upstream
+///   ("There are more than 3 patches meeting at this vertex!"): here the mesh
+///   is returned rebuilt with no layers, which the pipeline reports.
+///
+/// What is this crate's own and not upstream's: the layer thickness follows
+/// the requested profile (`first_thickness`, `expansion`) with the per-point
+/// caps and validity back-off of [`add_boundary_layers_adaptive`], where
+/// upstream extrudes one layer of half the local edge length and splits it
+/// later (`refineBoundaryLayers`); and the interior normals are smoothed, with
+/// the border directions held fixed.
+///
+/// Cell count: a successful call adds exactly `n_layers` prisms per layer-patch
+/// face, appended after the existing cells (whose order is kept). The returned
+/// mesh has the single `walls` patch of [`from_cell_faces`]; re-assign names
+/// afterwards (the pipeline does, with [`crate::patches`]). Deterministic: the
+/// same input gives the same mesh, numbering included.
+///
+/// # Examples
+///
+/// ```
+/// use outram_park_fork_cfmesh::{math::Vec3, shapes::box_surface, carve::carve_box,
+///     patches::{SurfaceRegions, assign_patches_by_region},
+///     layers::add_boundary_layers_adaptive_on_patches};
+///
+/// // A unit box with its +X / -X faces as outlet / inlet: layers on the
+/// // four other sides only.
+/// let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+/// let regions = SurfaceRegions::from_labels(&[
+///     "walls", "walls", "walls", "walls", "walls", "walls",
+///     "walls", "walls", "outlet", "outlet", "inlet", "inlet",
+/// ]);
+/// let named = assign_patches_by_region(&carve_box(&p, &t, 0.25), &p, &t, &regions).unwrap();
+/// let n_wall = named.patches.iter().find(|q| q.name == "walls").unwrap().n_faces;
+/// let layered = add_boundary_layers_adaptive_on_patches(&named, &["walls"], 2, 0.02, 1.2);
+/// assert!(layered.validate().is_ok());
+/// assert_eq!(layered.cell_count(), named.cell_count() + 2 * n_wall);
+/// assert!((layered.total_volume() - 1.0).abs() < 1e-9);
+/// ```
+pub fn add_boundary_layers_adaptive_on_patches(
+    mesh: &VolumeMesh,
+    layer_patches: &[&str],
+    n_layers: usize,
+    first_thickness: f64,
+    expansion: f64,
+) -> VolumeMesh {
     let rebuild = || from_cell_faces(mesh.points.clone(), &cells_faces(mesh));
-    let Some(patch) = mesh.patches.iter().find(|p| p.name == patch_name) else {
-        return rebuild();
-    };
     if n_layers == 0 || first_thickness <= 0.0 {
         return rebuild();
     }
-    let wall_faces: Vec<usize> = (patch.start_face..patch.start_face + patch.n_faces).collect();
+    // Patch of every boundary face (usize::MAX for internal faces).
+    let mut patch_of = vec![usize::MAX; mesh.face_count()];
+    for (pi, p) in mesh.patches.iter().enumerate() {
+        for f in p.start_face..p.start_face + p.n_faces {
+            patch_of[f] = pi;
+        }
+    }
+    let treated: Vec<bool> = mesh.patches.iter().map(|p| layer_patches.contains(&p.name.as_str())).collect();
+    let wall_faces: Vec<usize> = (0..mesh.face_count())
+        .filter(|&f| patch_of[f] != usize::MAX && treated[patch_of[f]])
+        .collect();
+    if wall_faces.is_empty() {
+        return rebuild();
+    }
+
+    // Boundary faces around each point (cfMesh `pointFaces`), in face order.
+    let mut point_faces: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for f in 0..mesh.face_count() {
+        if patch_of[f] != usize::MAX {
+            for &p in &mesh.faces[f] {
+                point_faces.entry(p).or_default().push(f);
+            }
+        }
+    }
 
     // Wall points and their (averaged) inward normal.
-    let mut wall_pts: HashSet<usize> = HashSet::new();
-    let mut inward: HashMap<usize, Vec3> = HashMap::new();
+    let mut wall_pts: BTreeSet<usize> = BTreeSet::new();
+    let mut inward: BTreeMap<usize, Vec3> = BTreeMap::new();
     for &f in &wall_faces {
         let out = mesh.face_area_vector(f).normalize();
         for &p in &mesh.faces[f] {
@@ -264,9 +383,85 @@ pub fn add_boundary_layers_adaptive(
         *v = v.normalize();
     }
 
+    // Classify the border points and fix their constrained directions and
+    // thickness caps (upstream `createNewVertex`).
+    let mut kind: BTreeMap<usize, LayerVertex> = BTreeMap::new();
+    let mut border_cap: BTreeMap<usize, f64> = BTreeMap::new();
+    for &wp in &wall_pts {
+        let faces = &point_faces[&wp];
+        let mut others: Vec<usize> = Vec::new();
+        for &f in faces {
+            let pi = patch_of[f];
+            if !treated[pi] && !others.contains(&pi) {
+                others.push(pi);
+            }
+        }
+        let x = mesh.points[wp];
+        match others.len() {
+            0 => {
+                kind.insert(wp, LayerVertex::Patch);
+            }
+            1 => {
+                let (mut n, mut v) = (Vec3::ZERO, Vec3::ZERO);
+                for &f in faces {
+                    if treated[patch_of[f]] {
+                        n = n.add(mesh.face_area_vector(f));
+                    } else {
+                        v = v.add(mesh.face_area_vector(f));
+                    }
+                }
+                let v = v.scale(1.0 / (v.length() + f64::MIN_POSITIVE));
+                let n = n.sub(v.scale(n.dot(v)));
+                let n = n.scale(1.0 / (n.length() + f64::MIN_POSITIVE));
+                inward.insert(wp, n.scale(-1.0));
+                // Upstream "limit distances": 0.9 x the distance to the edge
+                // opposite the point in each adjacent non-layer face.
+                let mut cap = f64::MAX;
+                for &f in faces {
+                    if treated[patch_of[f]] {
+                        continue;
+                    }
+                    let ring = &mesh.faces[f];
+                    let k = ring.len();
+                    if let Some(pos) = ring.iter().position(|&q| q == wp) {
+                        let a = mesh.points[ring[(pos + k - 1) % k]];
+                        let b = mesh.points[ring[(pos + 1) % k]];
+                        cap = cap.min(0.9 * distance_to_segment(x, a, b));
+                    }
+                }
+                border_cap.insert(wp, cap);
+                kind.insert(wp, LayerVertex::Edge);
+            }
+            2 => {
+                // The neighbouring boundary point on both other patches.
+                let mut target: Option<usize> = None;
+                'search: for &f in faces {
+                    let ring = &mesh.faces[f];
+                    let k = ring.len();
+                    let Some(pos) = ring.iter().position(|&q| q == wp) else { continue };
+                    for q in [ring[(pos + k - 1) % k], ring[(pos + 1) % k]] {
+                        let on = |pi: usize| point_faces.get(&q).is_some_and(|fs| fs.iter().any(|&g| patch_of[g] == pi));
+                        if on(others[0]) && on(others[1]) {
+                            target = Some(q);
+                            break 'search;
+                        }
+                    }
+                }
+                let Some(q) = target else { return rebuild() };
+                let d = mesh.points[q].sub(x);
+                inward.insert(wp, d.normalize());
+                border_cap.insert(wp, 0.5 * d.length());
+                kind.insert(wp, LayerVertex::Corner);
+            }
+            _ => {
+                return rebuild();
+            }
+        }
+    }
+
     // Wall-point adjacency + shortest incident wall edge (the local spacing).
-    let mut nbrs: HashMap<usize, HashSet<usize>> = HashMap::new();
-    let mut min_edge: HashMap<usize, f64> = HashMap::new();
+    let mut nbrs: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
+    let mut min_edge: BTreeMap<usize, f64> = BTreeMap::new();
     for &f in &wall_faces {
         let w = &mesh.faces[f];
         let k = w.len();
@@ -283,11 +478,15 @@ pub fn add_boundary_layers_adaptive(
     }
 
     // Smooth the normal field (advancing-layer style): each pass replaces a
-    // normal with the unit average of itself and its wall neighbours.
+    // normal with the unit average of itself and its wall neighbours. Border
+    // points keep their constrained direction.
     for _ in 0..3 {
-        let smoothed: HashMap<usize, Vec3> = wall_pts
+        let smoothed: BTreeMap<usize, Vec3> = wall_pts
             .iter()
             .map(|&wp| {
+                if kind[&wp] != LayerVertex::Patch {
+                    return (wp, inward[&wp]);
+                }
                 let mut s = inward[&wp];
                 if let Some(ns) = nbrs.get(&wp) {
                     for &nb in ns {
@@ -312,44 +511,61 @@ pub fn add_boundary_layers_adaptive(
     let total_req = d[n_layers];
     let profile: Vec<f64> = d.iter().map(|x| x / total_req).collect();
 
-    // Per-point total-thickness cap: a fraction of the local wall spacing.
+    // Per-point total-thickness cap: a fraction of the local wall spacing, and
+    // on the border upstream's limit.
     const BETA: f64 = 0.5;
-    let cap: HashMap<usize, f64> = wall_pts
+    let cap: BTreeMap<usize, f64> = wall_pts
         .iter()
-        .map(|&wp| (wp, total_req.min(BETA * min_edge[&wp])))
+        .map(|&wp| {
+            let c = total_req.min(BETA * min_edge[&wp]);
+            (wp, border_cap.get(&wp).map_or(c, |&b| c.min(b)))
+        })
         .collect();
 
     // Global validity back-off: keep the thickest layers that stay valid.
+    // Valid = closed, no inverted cell AND no folded face (non-orthogonality
+    // of 90° or more: the owner-to-neighbour vector against the face normal).
+    // Since 2026-11-04 the prisms are assembled with their own winding
+    // (`from_cell_faces_wound`), so a tangled prism stays closed and only its
+    // volume or a folded face shows it; before, the orientation guess flipped
+    // the faces of tangled cells and `validate` caught them by accident. The
+    // two curved-wall pipeline tests (sphere, cylinder) failed on 92.4° and
+    // 92.5° folds until the third condition was added.
     let mut scale = 1.0;
     for _try in 0..10 {
-        let per_point: HashMap<usize, f64> = cap.iter().map(|(&wp, &c)| (wp, c * scale)).collect();
-        let candidate = build_layered(
-            mesh,
-            &wall_faces,
-            &wall_pts,
-            &inward,
-            &profile,
-            &per_point,
-            n_layers,
-        );
+        let per_point: BTreeMap<usize, f64> = cap.iter().map(|(&wp, &c)| (wp, c * scale)).collect();
+        let candidate = build_layered(mesh, &wall_faces, &wall_pts, &inward, &profile, &per_point, n_layers);
         if candidate.validate().is_ok() {
-            return candidate;
+            let q = check_quality(&candidate);
+            if q.n_negative_volume_cells == 0 && q.max_non_orthogonality_deg < 90.0 {
+                return candidate;
+            }
         }
         scale *= 0.6;
     }
     rebuild() // too tight for any valid layer
 }
 
+/// Distance from `p` to the segment `[a, b]` (cfMesh
+/// `help::distanceOfPointFromTheEdge`).
+fn distance_to_segment(p: Vec3, a: Vec3, b: Vec3) -> f64 {
+    let e = b.sub(a);
+    let l2 = e.dot(e);
+    let t = if l2 > 0.0 { (p.sub(a).dot(e) / l2).clamp(0.0, 1.0) } else { 0.0 };
+    p.sub(a.add(e.scale(t))).length()
+}
+
 /// Assemble a layered mesh given a per-wall-point total thickness and a
 /// normalized grading `profile` (`profile[0] = 0`, `profile[n] = 1`). Shared by
-/// the adaptive driver's back-off loop.
+/// the adaptive driver's back-off loop. Points and cells are numbered in a
+/// fixed order (wall points ascending), so the result is reproducible.
 fn build_layered(
     mesh: &VolumeMesh,
     wall_faces: &[usize],
-    wall_pts: &HashSet<usize>,
-    inward: &HashMap<usize, Vec3>,
+    wall_pts: &BTreeSet<usize>,
+    inward: &BTreeMap<usize, Vec3>,
     profile: &[f64],
-    per_point_total: &HashMap<usize, f64>,
+    per_point_total: &BTreeMap<usize, f64>,
     n_layers: usize,
 ) -> VolumeMesh {
     let mut new_points: Vec<Vec3> = Vec::new();
@@ -360,7 +576,7 @@ fn build_layered(
             new_points.push(pt);
         }
     }
-    let mut column: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut column: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for &wp in wall_pts {
         let x = mesh.points[wp];
         let nrm = inward[&wp];
@@ -388,26 +604,9 @@ fn build_layered(
         );
     }
     for &f in wall_faces {
-        let w = &mesh.faces[f];
-        let k = w.len();
-        for i in 0..n_layers {
-            let mut faces: Vec<Vec<usize>> = Vec::new();
-            faces.push(w.iter().map(|&p| column[&p][i]).collect());
-            faces.push(w.iter().map(|&p| column[&p][i + 1]).collect());
-            for e in 0..k {
-                let p = w[e];
-                let q = w[(e + 1) % k];
-                faces.push(vec![
-                    column[&p][i],
-                    column[&q][i],
-                    column[&q][i + 1],
-                    column[&p][i + 1],
-                ]);
-            }
-            cells.push(faces);
-        }
+        prism_stack(&mesh.faces[f], &column, n_layers, &mut cells);
     }
-    from_cell_faces(new_points, &cells)
+    from_cell_faces_wound(new_points, &cells)
 }
 
 #[cfg(test)]
@@ -576,6 +775,67 @@ mod tests {
             base.cell_count() + 3 * wall_faces,
             "prism cells added"
         );
+    }
+
+    /// V&V — `n_layers = 0` is a faithful rebuild (no change in volume or cells).
+    #[test]
+    fn zero_layers_is_a_noop_on_patches_too() {
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let base = carve_box(&p, &t, 0.5);
+        let same = add_boundary_layers_adaptive_on_patches(&base, &["walls"], 0, 0.05, 1.2);
+        assert_eq!(same.cell_count(), base.cell_count());
+        let none = add_boundary_layers_adaptive_on_patches(&base, &["no-such-patch"], 2, 0.05, 1.2);
+        assert_eq!(none.cell_count(), base.cell_count());
+        assert!(distance_to_segment(Vec3::new(0.0, 1.0, 0.0), Vec3::ZERO, Vec3::new(2.0, 0.0, 0.0)) == 1.0);
+        assert!(distance_to_segment(Vec3::new(3.0, 0.0, 0.0), Vec3::ZERO, Vec3::new(2.0, 0.0, 0.0)) == 1.0);
+    }
+
+    /// V&V — **wall-only layers on a box duct** (gh:#1202), the case with
+    /// truly flat ends. Methodology: the unit box carved 4×4×4, its −X / +X
+    /// sides named `inlet` / `outlet`, the other four `walls`; 2 layers (first
+    /// 0.02, expansion 1.2, total t = 0.044) on `walls` only.
+    ///
+    /// Predictions, written before the first run (2026-11-04): exactly
+    /// `2 × 64` prisms added (16 faces on each of 4 walls); closed, no
+    /// inverted cell, volume 1 to 1e-9 (a repartition); every inlet point at
+    /// x = 0 and outlet point at x = 1 exactly, each end's area 1 to 1e-9 (the
+    /// ends are re-partitioned in their planes, cfMesh's border rule); the
+    /// prisms' share of the inlet a frame of width t, `1 − (1 − 2t)² ≈ 0.168`
+    /// less the corner chamfers (the corner points slide along the diagonal),
+    /// so in [0.15, 0.18].
+    #[test]
+    fn wall_only_layers_on_a_box_keep_the_ends() {
+        use crate::patches::{assign_patches_by_region, SurfaceRegions};
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let regions = SurfaceRegions::from_labels(&[
+            "walls", "walls", "walls", "walls", "walls", "walls", "walls", "walls", "outlet", "outlet", "inlet", "inlet",
+        ]);
+        let named = assign_patches_by_region(&carve_box(&p, &t, 0.25), &p, &t, &regions).unwrap();
+        let n0 = named.cell_count();
+        let l = add_boundary_layers_adaptive_on_patches(&named, &["walls"], 2, 0.02, 1.2);
+        assert_eq!(l.cell_count(), n0 + 2 * 64);
+        l.validate().unwrap();
+        assert_eq!(check_quality(&l).n_negative_volume_cells, 0);
+        assert!((l.total_volume() - 1.0).abs() < 1e-9);
+        // The rebuilt mesh has one patch; the ends are the boundary faces in
+        // the x = 0 / x = 1 planes, and nothing else may touch those planes.
+        let (mut a_in, mut a_out, mut a_prism) = (0.0, 0.0, 0.0);
+        for f in l.n_internal_faces()..l.face_count() {
+            let a = l.face_area_vector(f);
+            let xs: Vec<f64> = l.faces[f].iter().map(|&v| l.points[v].x).collect();
+            if a.x < -0.999 * a.length() {
+                assert!(xs.iter().all(|&x| x == 0.0), "inlet face off x = 0: {xs:?}");
+                a_in += a.length();
+                if l.owner[f] >= n0 {
+                    a_prism += a.length();
+                }
+            } else if a.x > 0.999 * a.length() {
+                assert!(xs.iter().all(|&x| x == 1.0), "outlet face off x = 1: {xs:?}");
+                a_out += a.length();
+            }
+        }
+        assert!((a_in - 1.0).abs() < 1e-9 && (a_out - 1.0).abs() < 1e-9, "{a_in} {a_out}");
+        assert!((0.15..0.18).contains(&a_prism), "prism share of the inlet {a_prism}");
     }
 
     /// V&V — `n_layers = 0` is a faithful rebuild (no change in volume or cells).

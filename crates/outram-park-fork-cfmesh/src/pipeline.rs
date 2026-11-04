@@ -93,7 +93,7 @@ use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
 use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces};
-use crate::layers::add_boundary_layers_adaptive;
+use crate::layers::{add_boundary_layers_adaptive, add_boundary_layers_adaptive_on_patches};
 use crate::math::Vec3;
 use crate::octree::refine_near_boundary_banded;
 use crate::patches::{assign_patches_by_region, SurfaceRegions};
@@ -176,6 +176,17 @@ pub struct TetDualOptions {
     /// Name of the boundary patch to grow layers on. The crate's meshers place
     /// all exposed faces in a single `"walls"` patch, which is the default.
     pub wall_patch: String,
+    /// **Patch-selective layers** (gh:#1202), for
+    /// [`surface_to_tet_dual_mesh_multipatch`] only: the named regions to grow
+    /// layers on, e.g. `["walls"]` for a duct whose `inlet` and `outlet` must
+    /// stay layer-free. The boundary is then classified into the regions
+    /// *before* the layer stage, layers grow on these patches only
+    /// ([`add_boundary_layers_adaptive_on_patches`], the port of cfMesh's
+    /// per-patch `boundaryLayers`), and the boundary is classified again at the
+    /// end. Empty (the default) keeps the historical behaviour: layers on the
+    /// whole boundary, as [`Self::wall_patch`] says. Ignored by the
+    /// single-patch entry points, whose boundary is one patch.
+    pub layer_patches: Vec<String>,
 }
 
 impl Default for TetDualOptions {
@@ -203,6 +214,7 @@ impl Default for TetDualOptions {
             first_layer_thickness: 0.04,
             expansion: 1.3,
             wall_patch: "walls".to_string(),
+            layer_patches: Vec::new(),
         }
     }
 }
@@ -341,14 +353,20 @@ pub fn surface_to_tet_dual_mesh(
 ///   with [`SurfaceRegions::from_labels`]. Validated before meshing starts.
 /// - `opts` — [`TetDualOptions`], exactly as for the single-patch entry point.
 ///
-/// # Limitation — layers are grown on the whole boundary
+/// # Which patches get layers
 ///
-/// Because classification happens after stage 7, the boundary-layer stage still
-/// sees the single `"walls"` patch and grows prisms over the **entire**
-/// boundary, inlet and outlet included. That is a valid mesh, but it is not
+/// ~~**Limitation — layers are grown on the whole boundary.** Because
+/// classification happens after stage 7, the boundary-layer stage still sees
+/// the single `"walls"` patch and grows prisms over the **entire** boundary,
+/// inlet and outlet included. That is a valid mesh, but it is not
 /// snappyHexMesh's per-patch `nSurfaceLayers` behaviour; patch-selective layer
-/// insertion is future work. Set `opts.n_layers = 0` if layers on the flow
-/// openings are unacceptable for your case.
+/// insertion is future work.~~ **CORRECTED 2026-11-04 (gh:#1202):** set
+/// [`TetDualOptions::layer_patches`] (e.g. `["walls"]`) and the boundary is
+/// named *before* stage 7, layers grow on those patches only (the port of
+/// cfMesh's per-patch `boundaryLayers`,
+/// [`add_boundary_layers_adaptive_on_patches`]), and the openings stay flat
+/// and layer-free. With `layer_patches` empty (the default) the old behaviour
+/// is kept: prisms over the whole boundary, inlet and outlet included.
 ///
 /// # Returns
 ///
@@ -495,7 +513,42 @@ fn run_pipeline(
     }
 
     // Stage 7 — adaptive prism boundary layers on the wall patch.
-    if opts.n_layers > 0 {
+    let selective = regions.filter(|_| !opts.layer_patches.is_empty());
+    if let (true, Some(regions)) = (opts.n_layers > 0, selective) {
+        // Patch-selective (gh:#1202): name the boundary first, then grow
+        // layers on the chosen patches only (cfMesh `addLayerForPatch`).
+        match assign_patches_by_region(&mesh, points, tris, regions) {
+            Err(e) => notes.push(format!("boundary layers skipped — the boundary could not be named first: {e}")),
+            Ok(named) => {
+                let names: Vec<&str> = opts.layer_patches.iter().map(String::as_str).collect();
+                let n_layer_faces: usize =
+                    named.patches.iter().filter(|p| names.contains(&p.name.as_str())).map(|p| p.n_faces).sum();
+                if n_layer_faces == 0 {
+                    notes.push(format!("boundary layers skipped — no boundary face is on {:?}", opts.layer_patches));
+                } else {
+                    let layered = add_boundary_layers_adaptive_on_patches(
+                        &named,
+                        &names,
+                        opts.n_layers,
+                        opts.first_layer_thickness.max(1e-6),
+                        opts.expansion.max(1.0),
+                    );
+                    let before = mesh.cell_count();
+                    let (m, kept) = keep_if_ok(mesh, layered);
+                    mesh = m;
+                    if !kept {
+                        notes.push("boundary layers skipped — the wall is too tight for any valid layer".into());
+                    } else if mesh.cell_count() != before + opts.n_layers * n_layer_faces {
+                        notes.push(
+                            "boundary layers added none — the layerer backed off to zero thickness, or a point \
+                             touches three or more layer-free patches (refused, as upstream cfMesh does)"
+                                .into(),
+                        );
+                    }
+                }
+            }
+        }
+    } else if opts.n_layers > 0 {
         let has_patch = mesh.patches.iter().any(|p| p.name == opts.wall_patch);
         if !has_patch {
             notes.push(format!(
@@ -1250,6 +1303,168 @@ mod tests {
             rel < 0.08,
             "default sphere volume {} within 8% of {analytic} (rel {rel})",
             rep.total_volume
+        );
+    }
+
+    /// Every stage of the tet-dual pipeline gives the same mesh, numbering
+    /// included, when run twice in one process (each run's hash maps are
+    /// seeded differently). On 2026-11-04 the face-minimal dual failed this
+    /// (its edge map was iterated); the two duals now iterate a BTreeMap
+    /// (gh:#1202).
+    #[test]
+    fn tet_dual_stages_are_deterministic() {
+        let (p, t, regions) = pipe_surface(0.01, 0.04, 24);
+        let same = |a: &VolumeMesh, b: &VolumeMesh| {
+            a.faces == b.faces && a.owner == b.owner && a.points.iter().zip(&b.points).all(|(x, y)| x.x == y.x && x.y == y.y && x.z == y.z)
+        };
+        let c = carve_box(&p, &t, 0.004);
+        assert!(same(&c, &carve_box(&p, &t, 0.004)), "carve");
+        let s = snap_to_surface(&c, &p, &t);
+        assert!(same(&s, &snap_to_surface(&c, &p, &t)), "snap");
+        let te = tetrahedralize(&s);
+        assert!(same(&te, &tetrahedralize(&s)), "tet");
+        let f = flip_to_delaunay(&te, 20_000);
+        assert!(same(&f, &flip_to_delaunay(&te, 20_000)), "flip");
+        let d = polyhedral_dual_min_faces(&f);
+        assert!(same(&d, &polyhedral_dual_min_faces(&f)), "min-face dual");
+        assert!(same(&polyhedral_dual(&f), &polyhedral_dual(&f)), "quad-fan dual");
+        let n = assign_patches_by_region(&d, &p, &t, &regions).unwrap();
+        assert!(same(&n, &assign_patches_by_region(&d, &p, &t, &regions).unwrap()), "named");
+        let l = crate::layers::add_boundary_layers_adaptive_on_patches(&n, &["walls"], 3, 0.0003, 1.2);
+        assert!(same(&l, &crate::layers::add_boundary_layers_adaptive_on_patches(&n, &["walls"], 3, 0.0003, 1.2)), "layers");
+    }
+
+    /// A pipe surface (radius `r`, length `l`, `n_seg` sides, z ∈ [0, l]) with
+    /// each triangle labelled `inlet` (flat at z = 0), `outlet` (flat at
+    /// z = l) or `walls`.
+    fn pipe_surface(r: f64, l: f64, n_seg: usize) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
+        let (p, t) = cylinder_surface(Vec3::ZERO, r, l, n_seg);
+        let labels: Vec<&str> = t
+            .iter()
+            .map(|tri| {
+                let z = [p[tri[0]].z, p[tri[1]].z, p[tri[2]].z];
+                let flat = (z[0] - z[1]).abs() < 1e-12 && (z[1] - z[2]).abs() < 1e-12;
+                match (flat, z[0] < 0.5 * l) {
+                    (true, true) => "inlet",
+                    (true, false) => "outlet",
+                    _ => "walls",
+                }
+            })
+            .collect();
+        (p, t, SurfaceRegions::from_labels(&labels))
+    }
+
+    fn patch_faces(m: &VolumeMesh, name: &str) -> Vec<usize> {
+        m.patches
+            .iter()
+            .find(|q| q.name == name)
+            .map_or(Vec::new(), |q| (q.start_face..q.start_face + q.n_faces).collect())
+    }
+
+    /// V&V — **wall-only prism layers on a pipe** (gh:#1202, the port of
+    /// cfMesh's per-patch `boundaryLayers`).
+    ///
+    /// Methodology: a pipe of radius 10 mm and length 40 mm (24-sided surface,
+    /// `inlet` / `outlet` / `walls` regions), meshed through the multipatch
+    /// pipeline at cell size 4 mm, once with no layers and once with 3 layers
+    /// (first 0.3 mm, expansion 1.2) on `layer_patches = ["walls"]`; and once
+    /// more with the same layers on the whole boundary (the old behaviour).
+    ///
+    /// Predictions, written before the first run (2026-11-04):
+    /// 1. cells = cells(no layers) + 3 × (wall faces of the no-layer mesh),
+    ///    exactly (every stage before the layers is deterministic and the
+    ///    same in both runs);
+    /// 2. the mesh is closed, has no inverted cell, and ~~keeps the no-layer
+    ///    volume to 1e-9 relative (a repartition)~~;
+    /// 3. ~~every inlet / outlet point stays on its plane (|z − z_end| < 1e-12)
+    ///    and each end keeps its area to 1e-9 relative: the ends are
+    ///    re-partitioned, not moved~~;
+    ///
+    /// **2 and 3 MISSED (first run, 2026-11-04), and the cause is upstream of
+    /// the layers:** the end patches are not flat even with NO layers. The
+    /// tet-dual pipeline has no feature-edge capture (cfMesh's
+    /// `meshSurfaceEdgeExtractor` is not ported), so dual boundary faces at
+    /// the rim wrap round the corner and are classified `inlet` by their
+    /// nearest triangle: end-patch points reach 1.000 mm off the end planes
+    /// on the bare mesh (a quarter of the 4 mm cell), and the bare volume is
+    /// 1.8 % under the 24-gon prism (the rim is chamfered). A border point on
+    /// such a bent face moves in the bent face's mean plane, so the boundary
+    /// itself moves a little: volume −3.95e-6 relative, end-patch points
+    /// 1.084 mm off the plane. The checks that replace them bound that by
+    /// the geometry, not by the measurement: the volume may change by at most
+    /// the band the wrapped faces sweep, `2 ends × 2πR × h_wrap × t / V`
+    /// (h_wrap the bare off-plane distance, t the total layer thickness;
+    /// 1.1e-2 here), and the off-plane distance may grow by at most t. The
+    /// flat-end checks hold exactly on a box, whose ends are flat
+    /// (`layers::tests::wall_only_layers_on_a_box_keep_the_ends`).
+    /// 4. no prism is extruded off an end: the inlet faces owned by prism
+    ///    cells are the layers' cross-section, an annulus about 2·t/R ≈ 0.2
+    ///    of the inlet area (t ≈ 1.1 mm total, unless the caps thin it), so
+    ///    between 0.02 and 0.35; with layers on the whole boundary every inlet
+    ///    face is a prism's (fraction 1);
+    /// 5. two runs give the identical mesh (points, faces, owners).
+    #[test]
+    fn wall_only_layers_end_on_the_pipe_ends() {
+        let (r, l) = (0.01, 0.04);
+        let (p, t, regions) = pipe_surface(r, l, 24);
+        let base = TetDualOptions { cell_size: 0.004, n_layers: 0, ..Default::default() };
+        let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
+        let opts = TetDualOptions {
+            n_layers: 3,
+            first_layer_thickness: 0.0003,
+            expansion: 1.2,
+            layer_patches: vec!["walls".into()],
+            ..base.clone()
+        };
+        let (mesh, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
+        assert!(rep.stage_notes.iter().all(|n| !n.contains("boundary layers")), "{:?}", rep.stage_notes);
+        // 1. exact cell count.
+        let n_wall = patch_faces(&bare, "walls").len();
+        assert_eq!(mesh.cell_count(), bare.cell_count() + 3 * n_wall);
+        // 2. valid, and the volume moves only by the wrapped band (see above).
+        mesh.validate().unwrap();
+        assert_eq!(rep.n_negative_volume_cells, 0);
+        let t_total = 0.0003 * (1.0 + 1.2 + 1.44);
+        let off = |m: &VolumeMesh, name: &str, z0: f64| {
+            patch_faces(m, name).iter().flat_map(|&f| m.faces[f].clone()).map(|v| (m.points[v].z - z0).abs()).fold(0.0_f64, f64::max)
+        };
+        let h_wrap = off(&bare, "inlet", 0.0).max(off(&bare, "outlet", l));
+        let rel = (mesh.total_volume() - bare.total_volume()).abs() / bare.total_volume();
+        let bound = 2.0 * 2.0 * PI * r * h_wrap * t_total / bare.total_volume();
+        assert!(rel <= bound, "volume change {rel} over the wrapped band {bound}");
+        // 3. the ends move by at most the layer thickness off their planes.
+        let area = |m: &VolumeMesh, fs: &[usize]| fs.iter().map(|&f| m.face_area_vector(f).length()).sum::<f64>();
+        let mut report = Vec::new();
+        for (name, z0) in [("inlet", 0.0), ("outlet", l)] {
+            let (o, o0) = (off(&mesh, name, z0), off(&bare, name, z0));
+            assert!(o <= o0 + t_total, "{name} off its plane by {o} (bare {o0})");
+            let a = area(&mesh, &patch_faces(&mesh, name)) / area(&bare, &patch_faces(&bare, name));
+            report.push(format!("{name}: off-plane {:.3} mm (bare {:.3}), area x {a:.6}", 1e3 * o, 1e3 * o0));
+        }
+        eprintln!("volume change {rel:.3e} (bound {bound:.2e}); {}", report.join("; "));
+        // 4. layers end on the inlet, not grown from it.
+        let n0 = bare.cell_count();
+        let inlet = patch_faces(&mesh, "inlet");
+        let prism: Vec<usize> = inlet.iter().copied().filter(|&f| mesh.owner[f] >= n0).collect();
+        let frac = area(&mesh, &prism) / area(&mesh, &inlet);
+        assert!((0.02..0.35).contains(&frac), "prism share of the inlet {frac}");
+        let whole = TetDualOptions { layer_patches: Vec::new(), ..opts.clone() };
+        let (all, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &whole).unwrap();
+        let inlet_all = patch_faces(&all, "inlet");
+        let frac_all = inlet_all.iter().filter(|&&f| all.owner[f] >= n0).count() as f64 / inlet_all.len() as f64;
+        assert!(frac_all > 0.99, "whole-boundary layers cover the inlet: {frac_all}");
+        // 5. reproducible.
+        let (again, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
+        assert_eq!(again.faces, mesh.faces);
+        assert_eq!(again.owner, mesh.owner);
+        assert!(again.points.iter().zip(&mesh.points).all(|(a, b)| a.x == b.x && a.y == b.y && a.z == b.z));
+        eprintln!(
+            "wall-only layers: {} cells ({} + 3 x {n_wall}), prism share of the inlet {frac:.4}, \
+             max non-ortho {:.1} deg, max skewness {:.2}",
+            mesh.cell_count(),
+            n0,
+            rep.max_non_orthogonality_deg,
+            rep.max_skewness
         );
     }
 }

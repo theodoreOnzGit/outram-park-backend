@@ -248,9 +248,16 @@ including prism layers: contiguous patches with correct counts and start offsets
 and geometrically correct membership. The single-patch
 `surface_to_tet_dual_mesh` is unchanged.
 
-Known limitation: because classification runs last, prism layers are grown over
+~~Known limitation: because classification runs last, prism layers are grown over
 the **whole** boundary, `inlet`/`outlet` included — snappyHexMesh's per-patch
-`nSurfaceLayers` selection is future work.
+`nSurfaceLayers` selection is future work.~~ **CORRECTED 2026-11-04
+(gh:#1202):** set `TetDualOptions::layer_patches` (e.g. `["walls"]`) and the
+boundary is named before the layer stage and prisms grow on those patches only
+(`layers::add_boundary_layers_adaptive_on_patches`, a port of cfMesh's
+per-patch `boundaryLayers` border rules). Empty keeps the old whole-boundary
+behaviour. Still missing: **feature-edge capture** (cfMesh's
+`meshSurfaceEdgeExtractor`), so on a pipe the dual's boundary faces wrap round
+the rim and the "flat" ends reach about a quarter cell up the wall.
 
 Remaining roadmap (beads under the `op-hzs` epic):
 
@@ -265,8 +272,10 @@ Remaining roadmap (beads under the `op-hzs` epic):
 9. named boundary patches carried through to the output polyMesh
    (`surface_to_tet_dual_mesh_multipatch`) ✅
 10. exact/adaptive predicates + size-driven point insertion (rest of `op-38z`)
-11. **patch-selective** layer insertion (layers currently grow over the whole
-    boundary, because patch classification runs last) and feature-aware layers
+11. ~~**patch-selective** layer insertion (layers currently grow over the whole
+    boundary, because patch classification runs last) and~~ **patch-selective
+    layers done 2026-11-04 (gh:#1202)**; still to do: feature-edge capture and
+    feature-aware layers
 12. make the adaptive layerer work on graded near-wall meshes — it currently
     backs off to zero thickness there, which the pipeline now *reports* in
     `TetDualReport::stage_notes` rather than failing silently
