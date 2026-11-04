@@ -788,7 +788,45 @@ run it.
 | the stage is kept (mesh valid) at h 6 / 5 / 4 / 3.3 mm | — | kept at all four; if one is refused, it is a face with all its vertices on the rim (`correctEdgesBetweenPatches` not ported) |
 | max non-orthogonality, bare h 4 mm | 51° | rises, 55–75° (wall cells stretched outward) |
 | inward boundary faces with 1 layer, h 6 mm | 20 | fewer, 0–10: the tangled prisms sat on the chamfer |
-| nominal u_c/2U, dp/dz at the demo default | 0.854, 0.992 | u_c 0.88–0.93 (the +6 % flow, but the `cellLimited` axis flattening stays), dp/dz 1.03–1.08 | **The structured default moved:**
+| nominal u_c/2U, dp/dz at the demo default | 0.854, 0.992 | u_c 0.88–0.93 (the +6 % flow, but the `cellLimited` axis flattening stays), dp/dz 1.03–1.08 |
+
+**Mesh results (2026-11-04, cfMesh's own 48-sided pipe, 200 mm;
+`diagnose_inward_boundary_faces_on_layered_pipes`).** First run (mapping
+only): inlet 0.9901 / 0.9936 / 0.9936 πR² at h 6 / 4 / 3.3 mm, section
+0.998 / 0.9955 / 0.9977, the stage kept everywhere, **but** 2 inward
+outlet faces at h 6 mm and 6 at 3.3 mm (zero-area faces whose every vertex
+landed on the rim: the `correctEdgesBetweenPatches` case). So the mapping
+now undoes itself locally (`map_vertices_onto_surface_patches_untangled`:
+the boundary points of any cell left with a non-positive face pyramid go
+back, repeated up to 10 passes) and the pipeline notes how many points
+stay unmapped. Second run:
+
+| h (mm), layers | inlet / πR² (before → after) | section / πR² | unmapped points | inward boundary faces (before → after) | max non-ortho (°) | negative pyramids, all faces |
+|---|---|---|---|---|---|---|
+| 6, 0 | 0.8656 → 0.9901 (outlet 0.9391) | 0.9547 → 0.9980 | 34 | 0 → 0 | 56.2 | 0 |
+| 4, 0 (demo default) | 0.9396 → **0.9936** | 0.9795 → **0.9955** | 0 | 0 → 0 | 50.6 | 0 |
+| 3.3, 0 | 0.9718 → 0.9833 | 0.9864 → 0.9977 | 126 | 0 → 0 | 57.4 | 0 |
+| 6, 1 | | | 34 | **20 → 0** | 77.0 | 0 |
+| 5, 1 | 0.8915 → 0.9872 | 0.9653 → 0.9911 | 0 | 31 → 0 | 74.7 | 0 |
+| 5, 2 | | | 0 | 66 → 0 | 86.8 | **105 (internal)** |
+| 4, 2 | | | 0 | 34 → 0 | 83.5 | 0 (1 602 before) |
+
+Against the predictions: inlet and section areas held at h 4 mm (0.9936,
+0.9955); held at 6 and 5 mm on the inlet, **missed at 3.3 mm** (0.9833,
+where 126 points stayed unmapped) and on the 6 mm outlet (0.9391). The
+stage is kept everywhere (held, after the local undo). Max non-orthogonality
+did not rise (missed: 50.6° at h 4 mm). **The inward boundary faces are
+gone on every layered pipe measured** (held, better than predicted): they
+sat on prisms extruded from the chamfer, so step 2's fix is this port, not
+a change in the layerer. Test:
+`pipeline::tests::every_boundary_face_points_outward_on_layered_pipes_and_ducts`
+(pipes h 6 / 4 mm with 1–2 layers and a 20 × 20 × 60 mm box duct with 1–2
+layers: 0 inward faces). **Open:** on the coarse 24-sided test pipe of
+`wall_only_layers_end_on_the_pipe_ends` (facet 2.6 mm under a 4 mm cell),
+105 points stay unmapped, the boundary creases, and the layerer then
+finds a 108° fold at every thickness and adds no layer; that test now
+runs with `feature_edges: false`, its premise (the layer port on the
+unmapped dual) kept and said so. **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)

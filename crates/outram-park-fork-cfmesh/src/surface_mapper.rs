@@ -234,6 +234,71 @@ pub fn map_vertices_onto_surface_patches(
     }
 }
 
+/// [`map_vertices_onto_surface_patches`], then **undo the move locally**
+/// wherever it left a cell with a non-positive face pyramid (a cell centre
+/// on or outside one of its faces, including a face collapsed to zero area
+/// because all its vertices landed on one feature edge): every boundary
+/// point of such a cell goes back to where it was, and the check repeats,
+/// at most `passes` times. Returns the mesh and the number of boundary
+/// points left unmapped.
+///
+/// This stands in for the two upstream steps that are not ported:
+/// `correctEdgesBetweenPatches`, which re-splits a face lying on a feature
+/// edge, and `meshSurfaceOptimizer::untangleSurface`. Where upstream repairs
+/// the face, this leaves that bit of the boundary where the dual put it.
+pub fn map_vertices_onto_surface_patches_untangled(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    passes: usize,
+) -> (VolumeMesh, usize) {
+    let mut mapped = map_vertices_onto_surface_patches(mesh, points, tris, regions);
+    let mut reverted: BTreeSet<usize> = BTreeSet::new();
+    for _ in 0..passes {
+        let bad = cells_with_nonpositive_pyramids(&mapped);
+        if bad.is_empty() {
+            break;
+        }
+        let mut changed = false;
+        for f in 0..mapped.face_count() {
+            if mapped.neighbour[f].is_none() && bad.contains(&mapped.owner[f]) {
+                for &v in &mapped.faces[f] {
+                    if reverted.insert(v) {
+                        mapped.points[v] = mesh.points[v];
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    (mapped, reverted.len())
+}
+
+/// The cells of `m` with a non-positive face pyramid about their centre
+/// (`(c_f − C)·S_f ≤ 0` for one of their faces, `S_f` outward from the
+/// cell): what OpenFOAM's `checkMesh` fails as "face pyramids".
+pub fn cells_with_nonpositive_pyramids(m: &VolumeMesh) -> BTreeSet<usize> {
+    let (_, centres) = crate::checks::cell_geometry(m);
+    let mut bad = BTreeSet::new();
+    for f in 0..m.face_count() {
+        let s = m.face_area_vector(f);
+        let c = m.face_centroid(f);
+        if c.sub(centres[m.owner[f]]).dot(s) <= 0.0 {
+            bad.insert(m.owner[f]);
+        }
+        if let Some(nb) = m.neighbour[f] {
+            if c.sub(centres[nb]).dot(s) >= 0.0 {
+                bad.insert(nb);
+            }
+        }
+    }
+    bad
+}
+
 /// The point of segment `[a, b]` nearest to `p`.
 fn closest_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     let e = b.sub(a);

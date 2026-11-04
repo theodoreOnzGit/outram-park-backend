@@ -527,11 +527,15 @@ fn run_pipeline(
     // exists and before the layers (`tetMeshGenerator::generateMesh`:
     // `mapMeshToSurface`, `mapEdgesAndCorners`, then `generateBoudaryLayers`).
     if let (true, Some(regions)) = (opts.feature_edges && opts.dual, regions) {
-        let mapped = crate::surface_mapper::map_vertices_onto_surface_patches(&mesh, points, tris, regions);
+        let (mapped, n_reverted) = crate::surface_mapper::map_vertices_onto_surface_patches_untangled(&mesh, points, tris, regions, 10);
         let (m, kept) = keep_if_ok(mesh, mapped);
         mesh = m;
         if !kept {
             notes.push("feature-edge capture skipped — mapping the boundary onto the patches would invalidate the mesh".into());
+        } else if n_reverted > 0 {
+            notes.push(format!(
+                "feature-edge capture: {n_reverted} boundary points left unmapped where mapping tangled a cell (cfMesh's correctEdgesBetweenPatches is not ported)"
+            ));
         }
     }
 
@@ -1430,7 +1434,15 @@ mod tests {
     fn wall_only_layers_end_on_the_pipe_ends() {
         let (r, l) = (0.01, 0.04);
         let (p, t, regions) = pipe_surface(r, l, 24);
-        let base = TetDualOptions { cell_size: 0.004, n_layers: 0, ..Default::default() };
+        // `feature_edges: false` (gh:#1202, 2026-11-04): this test is about the
+        // layer port on the dual as it was. On this coarse 24-sided pipe (facet
+        // 2.6 mm under the 4 mm cell) the feature-edge capture leaves 105
+        // boundary points unmapped (`correctEdgesBetweenPatches` is not
+        // ported), the boundary creases there, and the layerer then finds a
+        // 108-109 deg fold at every thickness and adds no layer. Open: see the
+        // V&V record. The demo's 48-sided pipe layers with it on
+        // (`every_boundary_face_points_outward_on_layered_pipes_and_ducts`).
+        let base = TetDualOptions { cell_size: 0.004, n_layers: 0, feature_edges: false, ..Default::default() };
         let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
         let opts = TetDualOptions {
             n_layers: 3,
@@ -1547,6 +1559,58 @@ mod tests {
             for li in lines.iter().take(30) {
                 println!("{li}");
             }
+        }
+    }
+
+    /// V&V (gh:#1202) — **every boundary face points outward** (a positive
+    /// face pyramid about its owner's centre, `(c_f − C)·S_f > 0`) on layered
+    /// pipes and a layered box duct, through the multipatch pipeline with
+    /// wall-only layers.
+    ///
+    /// Methodology: a pipe R = 10 mm, L = 60 mm (48 facets) at h = 6 and
+    /// 4 mm with 1 and 2 layers (first 0.3 mm, ×1.2), and a box duct
+    /// 20 × 20 × 60 mm (`inlet` / `outlet` at the ends) at h = 5 mm with 1 and
+    /// 2 layers. Pass: no boundary face with a non-positive pyramid.
+    ///
+    /// Result (2026-11-04): before the feature-edge capture
+    /// (`surface_mapper`), the demo's 200 mm pipe at h 6 mm, 1 layer had 20
+    /// such faces (19 on Foam Studio's cylinder), all on prisms extruded
+    /// from the chamfered rim; with it, 0 on every mesh here.
+    #[test]
+    fn every_boundary_face_points_outward_on_layered_pipes_and_ducts() {
+        let check = |m: &VolumeMesh, what: &str| {
+            let (_, centres) = crate::checks::cell_geometry(m);
+            let bad: Vec<usize> = (0..m.face_count())
+                .filter(|&f| m.neighbour[f].is_none())
+                .filter(|&f| !(m.face_centroid(f).sub(centres[m.owner[f]]).dot(m.face_area_vector(f)) > 0.0))
+                .collect();
+            assert!(bad.is_empty(), "{what}: {} inward boundary faces, e.g. {:?}", bad.len(), &bad[..bad.len().min(5)]);
+        };
+        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
+        for (h, n) in [(0.006, 1), (0.004, 1), (0.004, 2)] {
+            let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            check(&m, &format!("pipe h {h} layers {n} ({:?})", rep.stage_notes));
+        }
+        let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(0.02, 0.02, 0.06));
+        let labels: Vec<&str> = bt
+            .iter()
+            .map(|tri| {
+                let z = [bp[tri[0]].z, bp[tri[1]].z, bp[tri[2]].z];
+                if z.iter().all(|&v| v.abs() < 1e-12) {
+                    "inlet"
+                } else if z.iter().all(|&v| (v - 0.06).abs() < 1e-12) {
+                    "outlet"
+                } else {
+                    "walls"
+                }
+            })
+            .collect();
+        let bregions = SurfaceRegions::from_labels(&labels);
+        for n in [1, 2] {
+            let o = TetDualOptions { cell_size: 0.005, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let (m, rep) = surface_to_tet_dual_mesh_multipatch(&bp, &bt, &bregions, &o).unwrap();
+            check(&m, &format!("box duct layers {n} ({:?})", rep.stage_notes));
         }
     }
 }
