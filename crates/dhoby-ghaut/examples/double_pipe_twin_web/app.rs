@@ -357,11 +357,12 @@ pub fn slice_rows(a: &Artefacts, s: &Slider) -> Vec<GridRow> {
 /// The CFD point at the grid node nearest the operating point, if one lies
 /// there.
 #[must_use]
-pub fn cfd_at_node<'a>(a: &'a Artefacts, s: &Slider) -> Option<&'a CfdPoint> {
+pub fn cfd_at_node(a: &Artefacts, s: &Slider) -> Option<CfdPoint> {
     let rh = artefacts::re_hot_levels()[s.i_rh()];
     a.cfd_on_slice(s.i_rc, s.i_k, s.i_l)
         .into_iter()
         .find(|p| (p.x[0] / rh - 1.0).abs() < 1e-9)
+        .cloned()
 }
 
 /// The readout lines for the twin view at the operating point, from the
