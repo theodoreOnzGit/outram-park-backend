@@ -285,8 +285,20 @@ impl LayeredDiffusion {
     /// Booth's sphere.
     #[must_use]
     pub fn uniform_in_kernel(sphere: LayeredSphere) -> Self {
-        let vk = sphere.kernel_volume();
-        let atoms = sphere.volumes.iter().zip(&sphere.layer_of_cell).map(|(v, l)| if *l == 0 { v / vk } else { 0.0 }).collect();
+        Self::uniform_in_first_layers(sphere, 1)
+    }
+
+    /// Start with the whole inventory spread uniformly through the first
+    /// `n` layers (at least one; capped at the number of layers). Lets a
+    /// caller split the kernel into an inner core and a finely meshed outer
+    /// shell with the same `D`, to resolve a thin boundary layer, and still
+    /// start uniformly through the whole kernel.
+    #[must_use]
+    pub fn uniform_in_first_layers(sphere: LayeredSphere, n: usize) -> Self {
+        let n = n.clamp(1, sphere.layers);
+        let inside = |l: usize| l < n;
+        let v: f64 = sphere.volumes.iter().zip(&sphere.layer_of_cell).filter(|(_, l)| inside(**l)).map(|(v, _)| v).sum();
+        let atoms = sphere.volumes.iter().zip(&sphere.layer_of_cell).map(|(vi, l)| if inside(*l) { vi / v } else { 0.0 }).collect();
         Self { sphere, atoms, released: 0.0, decayed: 0.0, elapsed_s: 0.0 }
     }
 
@@ -329,6 +341,13 @@ impl LayeredDiffusion {
     #[must_use]
     pub fn decayed_fraction(&self) -> Ratio {
         Ratio::new::<ratio>(self.decayed)
+    }
+
+    /// Atoms in each cell (fractions of the starting inventory), centre
+    /// outwards: the concentration profile times each cell's volume.
+    #[must_use]
+    pub fn cell_atoms(&self) -> &[f64] {
+        &self.atoms
     }
 
     /// Fraction still inside, per layer.
@@ -489,5 +508,24 @@ mod tests {
         assert_eq!(run.elapsed().get::<second>(), 1.0);
         assert_eq!(run.sphere().layers(), 1);
         assert!(run.decayed_fraction().get::<ratio>() == 0.0);
+        assert_eq!(run.cell_atoms().len(), 3);
+        // A kernel split into a core and a shell with the same D gives the
+        // same release as the undivided kernel (to discretisation error).
+        let split = LayeredSphere::new(&[
+            SphereLayer { outer_radius: um(50.0), cells: 50 },
+            SphereLayer { outer_radius: um(100.0), cells: 50 },
+        ])
+        .unwrap();
+        let whole = LayeredSphere::new(&[SphereLayer { outer_radius: um(100.0), cells: 100 }]).unwrap();
+        let mut a = LayeredDiffusion::uniform_in_first_layers(split, 2);
+        let mut b = LayeredDiffusion::uniform_in_kernel(whole);
+        assert!((a.cell_atoms().iter().sum::<f64>() - 1.0).abs() < 1e-12);
+        for _ in 0..50 {
+            a.step(s(100.0), &[dco(1e-12), dco(1e-12)], hz(0.0)).unwrap();
+            b.step(s(100.0), &[dco(1e-12)], hz(0.0)).unwrap();
+        }
+        let (fa, fb) = (a.released_fraction().get::<ratio>(), b.released_fraction().get::<ratio>());
+        assert!((fa - fb).abs() < 1e-12, "{fa} vs {fb}");
+        assert!((run.cell_atoms().iter().sum::<f64>() + run.released_fraction().get::<ratio>() - 1.0).abs() < 1e-12);
     }
 }
