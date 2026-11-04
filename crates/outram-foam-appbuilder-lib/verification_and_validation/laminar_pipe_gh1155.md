@@ -923,7 +923,26 @@ layers with skewness ≤ 4 and then run; the 2-layer h 5 mm mesh loses its
 105 bad pyramids; the 1-layer meshes are unchanged (skew ≤ 0.8); h 4 mm
 with 2 layers (skew 4.37) backs off slightly. If skewness does not fall
 with thickness, the layerer returns no layers and the pipeline says so,
-and the divergence is then not fixed. **The structured default moved:**
+and the divergence is then not fixed.
+
+**Result: missed.** With those limits **every 2- and 3-layer pipe backed
+off to no layer at all** (h 5 and 4 mm; the 1-layer ones unchanged): the
+skewness did not fall with thickness. Reading why turned up a second
+port defect. The crate's `checks::QualityReport::max_skewness` divides the
+face-centre offset by the **cell-centre distance |d|**, while OpenFOAM's
+`primitiveMeshTools::faceSkewness` divides it by the face's own extent in
+the offset's direction, floored at 0.2 |d| (already ported in this
+workspace as `outram_foam_mesh::mesh_quality::face_skewness`). For a thin
+prism stacked on another, |d| is the layer thickness and the face is a
+wall-face wide, so the port's number scales like width/thickness and no
+amount of thinning brings it under 4. The doc claim "OpenFOAM flags > 4"
+held only for upstream's metric.
+
+**Prediction for the corrected metric (before the run):** the 3-layer
+meshes' max skewness falls to 0.5–3 and they are accepted with the full
+thickness again; whether they then run is open: if they still diverge, the
+skewness was not the cause and the next suspects are the layer cells'
+aspect ratio against the explicit non-orthogonal correction. **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)

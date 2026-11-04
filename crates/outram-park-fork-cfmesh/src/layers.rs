@@ -537,13 +537,29 @@ pub fn add_boundary_layers_adaptive_on_patches(
         let candidate = build_layered(mesh, &wall_faces, &wall_pts, &inward, &profile, &per_point, n_layers);
         if candidate.validate().is_ok() {
             let q = check_quality(&candidate);
-            if q.n_negative_volume_cells == 0 && q.max_non_orthogonality_deg < 90.0 {
+            if q.n_negative_volume_cells == 0 && q.max_non_orthogonality_deg < 90.0 && meets_layer_quality(&q) {
                 return candidate;
             }
         }
         scale *= 0.6;
     }
     rebuild() // too tight for any valid layer
+}
+
+/// Upstream's mesh-quality limits for layer addition (gh:#1202), from
+/// OpenFOAM-dev `852527377c7e` `etc/caseDicts/mesh/generation/meshQualityDict`,
+/// which snappyHexMesh's `addLayers` checks the layered mesh against:
+/// `maxInternalSkewness 4`, `minTetQuality 1e-15` (here: no non-positive
+/// face pyramid about a cell centre), `minDeterminant 0.001`. Its
+/// `maxNonOrtho 65` is not applied: the tet dual itself sits at 50–57°, and
+/// the caller keeps its own bound (< 90°). Before 2026-11-04 the back-off
+/// checked closure, volume and non-orthogonality only, and 3-layer pipes
+/// at skewness 6.6–7.2 were accepted and diverged in the solver
+/// (`laminar_pipe_gh1155.md`, step 3).
+fn meets_layer_quality(q: &crate::checks::QualityReport) -> bool {
+    const MAX_INTERNAL_SKEWNESS: f64 = 4.0;
+    const MIN_DETERMINANT: f64 = 0.001;
+    q.max_skewness <= MAX_INTERNAL_SKEWNESS && q.n_negative_pyramid_faces == 0 && q.min_cell_determinant >= MIN_DETERMINANT
 }
 
 /// Distance from `p` to the segment `[a, b]` (cfMesh
