@@ -133,9 +133,12 @@ pub(crate) fn save(root: &Path) -> Result<(), String> {
         s.dirty = false;
         let mut index: BTreeMap<&str, u32> = BTreeMap::new();
         let mut messages: Vec<String> = Vec::new();
-        let mut logs: Vec<Log> = s
-            .logs
-            .iter()
+        // Numbered in (rev, file) order, so the same answers always give
+        // the same file (a HashMap's order differs between runs).
+        let mut sorted: Vec<_> = s.logs.iter().collect();
+        sorted.sort_by(|a, b| a.0.cmp(b.0));
+        let logs: Vec<Log> = sorted
+            .into_iter()
             .map(|((rev, file), ms)| Log {
                 rev: rev.clone(),
                 file: file.clone(),
@@ -150,7 +153,6 @@ pub(crate) fn save(root: &Path) -> Result<(), String> {
                     .collect(),
             })
             .collect();
-        logs.sort_by(|a, b| (&a.rev, &a.file).cmp(&(&b.rev, &b.file)));
         serde_json::to_string(&OnDisk { format: FORMAT, check: check(&messages, &logs), messages, logs }).ok()
     })
     .flatten() else {
