@@ -2009,13 +2009,32 @@ mod tests {
     }
 
     /// Diagnostic (gh:#1202), `--ignored`: the unstructured pipe at Re = 100
-    /// with `Gauss linear` convection over a refinement series, with and
-    /// without a wall layer. Prints the headless pipe lines.
+    /// over a refinement series, with and without a wall layer, under the
+    /// convection scheme `FOAM_DIV_U` names (`linear`, the default here;
+    /// `linearUpwind`; `linearUpwindLimited`: `linearUpwind grad(U)` with
+    /// `grad(U) cellLimited Gauss linear 1`) and the meshes `FOAM_SWEEP`
+    /// names (`bare`, `layered` or both). Prints the headless pipe lines.
     #[test]
     #[ignore]
     fn diagnose_unstructured_linear_refinement() {
-        use outram_foam_appbuilder_lib::io::fv_schemes::DivScheme;
-        for (h, n) in [(0.006, 0), (0.005, 0), (0.004, 0), (0.00334, 0), (0.006, 1), (0.005, 1), (0.004, 1)] {
+        use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, GradScheme};
+        let which = std::env::var("FOAM_DIV_U").unwrap_or_else(|_| "linear".into());
+        let (div, grad) = match which.as_str() {
+            "linearUpwind" => (DivScheme::GaussLinearUpwind("grad(U)".into()), None),
+            "linearUpwindLimited" => (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0))),
+            "upwind" => (DivScheme::GaussUpwind, None),
+            _ => (DivScheme::GaussLinear, None),
+        };
+        let sweep = std::env::var("FOAM_SWEEP").unwrap_or_default();
+        let bare = [(0.006, 0), (0.005, 0), (0.004, 0), (0.00334, 0)];
+        let layered = [(0.006, 1), (0.005, 1), (0.004, 1)];
+        let list: Vec<(f64, usize)> = match sweep.as_str() {
+            "bare" => bare.to_vec(),
+            "layered" => layered.to_vec(),
+            _ => bare.iter().chain(layered.iter()).copied().collect(),
+        };
+        println!("convection {which}: {div:?}, grad(U) {grad:?}");
+        for (h, n) in list {
             let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
             let mut e = Engine::default();
             let mut cells = 0;
@@ -2026,7 +2045,8 @@ mod tests {
             });
             e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
             if let Some(Case::Pipe(s, _)) = e.case.as_mut() {
-                s.schemes.default_div = DivScheme::GaussLinear;
+                s.schemes.default_div = div.clone();
+                s.schemes.grad_u = grad.clone();
             }
             let t0 = bugis::web_demo::platform::now_s();
             let mut out = String::new();

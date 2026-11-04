@@ -560,6 +560,50 @@ for the merge.** Still open: the 19 inward boundary faces of the layered
 mesh (check 2), the 2+ layer divergence, the mesher's degradation below
 R/3, and a bounded second-order convection scheme.
 
+### `linearUpwind` and `cellLimited`, the tutorials' convection (gh:#1202, merge work, 2026-11-04)
+
+**Maintainer's merge bar:** the unstructured demo default within **2 %** of
+Hagen–Poiseuille on both u_c and dp/dz, after porting `linearUpwind`, fixing
+the 19 inward boundary faces and fixing the 2+ layer divergence; reached by
+fixing physics and numerics, not by tuning.
+
+**What was ported.** From OpenFOAM-dev `852527377c7e` (2026-11-03):
+`linearUpwind<vector>::correction` (`linearUpwind.C`) and
+`cellLimitedGrad<vector, minmod>` (`cellLimitedGrad.{C,H}`,
+`minmodGradientLimiter.H`), into
+`outram_foam_appbuilder_lib::solvers::schemes` (`linear_upwind_correction`,
+`cell_limited_grad_vec`, `grad_vec_scheme`; `DivScheme::GaussLinearUpwind`
+now runs instead of returning `UnsupportedScheme`; new
+`GradScheme::CellLimitedGaussLinear(k)` and the `grad(U)` entry
+`FvSchemes::grad_u`). Searched first: the appbuilder had the `fvSchemes`
+enum variant (unimplemented), `fvc::grad_vec` (Gauss linear, reused as the
+base gradient) and no gradient limiter. Upstream's
+`correctedSnGrad::fullGradCorrection` takes its gradient from the
+`grad(U)` scheme too, so the momentum Laplacian's non-orthogonal
+correction now uses `grad_u` as well (with the default `Gauss linear`
+nothing changes, bit for bit). Unit tests against hand values:
+`schemes::tests::linear_upwind_matches_hand_values_and_is_exact_for_linear_fields`,
+`cell_limited_gradient_matches_hand_values`.
+
+**Chosen for the demo, from the tutorials, before any run:**
+`div(phi,U) Gauss linearUpwind grad(U)` with
+`grad(U) cellLimited Gauss linear 1`: `incompressibleFluid/propeller`
+(pimpleFoam, snappy mesh with layers) and
+`multiRegion/CHT/misalignedDuct` use exactly this pair. `Gauss linear`
+(the previous setting) and unlimited `linearUpwind` are measured beside it
+as controls; the choice does not depend on which comes out closer.
+
+**Predictions (written 2026-11-04, before running `linearUpwind` on the
+pipe):**
+
+| quantity | prediction | reasoning |
+|---|---|---|
+| u_c/2U, dp/dz at h 6 / 5 / 4 / 3.3 mm, `linearUpwind`, Gauss linear grad | within ±0.02 of the `Gauss linear` row at each h (h 4 mm: 0.92–0.96) | both are second order; `Gauss linear` already removed upwind's cross-stream false diffusion, so the scheme should not be what is left |
+| the same with `cellLimited Gauss linear 1` | 0–0.03 below the unlimited `linearUpwind` | the limiter flattens the gradient at the wall and centreline extrema, adding some diffusion |
+| trend with h | monotone toward 1 from below, as `Gauss linear` | |
+| demo default within 2 % with the scheme alone | **no** | u_c and dp/dz miss by the same 6 % at h 4 mm with `Gauss linear`; a scheme change would move the profile shape, not both together. I expect the cause elsewhere (step 4 candidates) |
+| steps to steady at h 4 mm | 40–80 (Gauss linear: 61) | upwind-biased, so at least as stable as central |
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by

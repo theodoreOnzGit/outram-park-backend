@@ -612,6 +612,7 @@ impl PimpleFoam {
             )?;
             let div_term = crate::solvers::schemes::div_vec_scheme(
                 &self.schemes.default_div,
+                self.schemes.grad_u_scheme(),
                 &self.phi,
                 &self.u,
                 mesh.clone(),
@@ -625,7 +626,11 @@ impl PimpleFoam {
                 let nu_eff_f = fvc::interpolate(&self.turbulence.nu_eff(&self.nu));
                 non_orthogonal::restamp_vector_delta(&mut u_eqn, &nu_eff_f, &self.u, lap.delta_coeff());
                 if lap.is_explicit() {
-                    let mut corr = non_orthogonal::vector_face_correction(&nu_eff_f, &fvc::grad_vec(&self.u), &mesh);
+                    // upstream `correctedSnGrad::fullGradCorrection` takes the
+                    // gradient from the `grad(U)` scheme (gh:#1202); with the
+                    // default `Gauss linear` this is `fvc::grad_vec` unchanged.
+                    let grad_u = crate::solvers::schemes::grad_vec_scheme(self.schemes.grad_u_scheme(), &self.u)?;
+                    let mut corr = non_orthogonal::vector_face_correction(&nu_eff_f, &grad_u, &mesh);
                     lap.limit_vector(&mut corr, &nu_eff_f, &self.u, &mesh);
                     non_orthogonal::add_to_source_vector(u_eqn.source.as_mut_slice(), &corr, &mesh);
                 }

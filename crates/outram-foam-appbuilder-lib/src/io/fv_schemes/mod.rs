@@ -32,6 +32,13 @@ use std::path::Path;
 pub struct FvSchemes {
     pub ddt: DdtScheme,
     pub default_grad: GradScheme,
+    /// The `grad(U)` entry of `gradSchemes`, when the case gives one; `None`
+    /// means `default_grad` (upstream's lookup falls back to `default` the
+    /// same way). Read through [`FvSchemes::grad_u_scheme`]. Consulted by
+    /// `div(phi,U) Gauss linearUpwind grad(U)` and by the momentum
+    /// Laplacian's non-orthogonal correction, which upstream's
+    /// `correctedSnGrad::fullGradCorrection` takes from `grad(U)` (gh:#1202).
+    pub grad_u: Option<GradScheme>,
     pub default_div: DivScheme,
     pub default_laplacian: LaplacianScheme,
     pub default_sn_grad: SnGradScheme,
@@ -51,7 +58,16 @@ pub enum DdtScheme {
 /// Gradient scheme (gradSchemes).
 #[derive(Debug, Clone, PartialEq)]
 pub enum GradScheme {
+    /// `Gauss linear`: `(1/V) Σ_f S_f ⊗ φ_f`, φ_f linearly interpolated.
     GaussLinear,
+    /// `cellLimited Gauss linear k` (gh:#1202): the Gauss linear gradient
+    /// scaled, per component, so that extrapolating it from the cell centre
+    /// to any face centre stays within the min/max of the cell and its face
+    /// neighbours (minmod limiter, upstream `cellLimitedGrad<Type, minmod>`).
+    /// `k ∈ [0, 1]`: 1 is fully limited, 0 is unlimited. Used by the
+    /// OpenFOAM tutorials for `grad(U)` on snappy meshes (`propeller`,
+    /// `motorBikeSteady`, `misalignedDuct`).
+    CellLimitedGaussLinear(f64),
     LeastSquares,
     FourthOrder,
 }
@@ -99,6 +115,13 @@ pub enum InterpolationScheme {
 }
 
 impl FvSchemes {
+    /// The gradient scheme for `grad(U)`: [`FvSchemes::grad_u`] if set,
+    /// otherwise [`FvSchemes::default_grad`] (upstream's
+    /// `mesh.schemes().grad("grad(U)")` falls back to `default` likewise).
+    pub fn grad_u_scheme(&self) -> &GradScheme {
+        self.grad_u.as_ref().unwrap_or(&self.default_grad)
+    }
+
     /// Parse a `system/fvSchemes` file from disk.
     ///
     /// **Not yet implemented — calling this panics (`todo!`).** No OpenFOAM
@@ -137,12 +160,19 @@ impl Default for FvSchemes {
     /// `PimpleFoam` (both its pressure and its momentum Laplacian; see
     /// `crate::solvers::non_orthogonal`), and its default
     /// [`LaplacianScheme::GaussLinearCorrected`] is now what that solver does.
-    /// `default_grad`, `default_sn_grad` and `default_interpolation` are still
-    /// stored only; the correction's gradient is always `Gauss linear`.
+    /// ~~`default_grad`, `default_sn_grad` and `default_interpolation` are still
+    /// stored only; the correction's gradient is always `Gauss linear`.~~
+    /// **CORRECTED 2026-11-04 (gh:#1202):** the velocity gradient
+    /// ([`FvSchemes::grad_u_scheme`], i.e. `grad_u` or else `default_grad`) is
+    /// honoured by `PimpleFoam`'s momentum Laplacian correction and by
+    /// `Gauss linearUpwind`; the pressure correction's gradient is still
+    /// always `Gauss linear`. `default_sn_grad` and `default_interpolation`
+    /// are still stored only.
     fn default() -> Self {
         Self {
             ddt: DdtScheme::Euler,
             default_grad: GradScheme::GaussLinear,
+            grad_u: None,
             default_div: DivScheme::GaussUpwind,
             default_laplacian: LaplacianScheme::GaussLinearCorrected,
             default_sn_grad: SnGradScheme::Corrected,
