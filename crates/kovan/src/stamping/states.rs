@@ -48,8 +48,9 @@
 //! in git (unverified, "no git facts"); with signatures enforced it would be
 //! unverified anyway.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use kovan_common::call_graph::split::{StampState as WebStamp, StampVerdict};
 use kovan_common::review::carry_forward::CarryForward;
@@ -96,14 +97,23 @@ pub(crate) fn fn_at(git: &mut GitBatch, rev: &str, file: &str, qual: &str) -> Op
         git.files.insert(key.clone(), parsed);
     }
     let fns = git.files.get(&key)?.as_ref()?;
+    pick(fns.iter().map(|h| h.entry.qualname()), qual).map(|i| fns[i].clone())
+}
+
+/// Which of a file's items (their qualified names, in file order) `qual`
+/// names: the one with that name, or the `#k`-th of several (the call
+/// graph's rule). Shared by [`fn_at`] and the kept test-run hashes
+/// ([`super::hash_store`]), so the two cannot choose differently.
+pub(crate) fn pick(names: impl Iterator<Item = String>, qual: &str) -> Option<usize> {
     let (base, k) = split_qual(qual);
-    let same: Vec<&HashedFn> = fns
-        .iter()
-        .filter(|h| h.entry.qualname().split_whitespace().collect::<String>() == base)
+    let same: Vec<usize> = names
+        .enumerate()
+        .filter(|(_, n)| n.split_whitespace().collect::<String>() == base)
+        .map(|(i, _)| i)
         .collect();
     match (k, same.as_slice()) {
-        (None, [one]) => Some((*one).clone()),
-        (Some(k), many) if k >= 1 && many.len() > 1 => many.get(k - 1).map(|h| (*h).clone()),
+        (None, [one]) => Some(*one),
+        (Some(k), many) if k >= 1 && many.len() > 1 => many.get(k - 1).copied(),
         _ => None,
     }
 }
@@ -190,15 +200,13 @@ pub(crate) fn tests_at(
     id: &str,
     cache: &mut MessageCache,
 ) -> Option<TestsAtReview> {
-    let text = git.show(commit, &join(dir, KOVAN_TOML))?;
+    let reached_by = reached_by_at(git, commit, dir)?.get(id)?.clone();
     let root = git.root();
-    let idx = FolderIndex::parse(&text).ok()?;
-    let f = idx.functions().find(|(_, f)| f.id == id)?.1.clone();
     let test_files: BTreeSet<String> =
-        f.reached_by.iter().filter_map(|t| t.split_once(".rs::").map(|(file, _)| format!("{file}.rs"))).collect();
+        reached_by.iter().filter_map(|t| t.split_once(".rs::").map(|(file, _)| format!("{file}.rs"))).collect();
     fetch_messages(cache, root, commit, &test_files);
     let mut commit_messages = BTreeMap::new();
-    for t in &f.reached_by {
+    for t in &reached_by {
         if let Some((file, _)) = t.split_once(".rs::") {
             commit_messages.insert(
                 t.clone(),
@@ -207,9 +215,76 @@ pub(crate) fn tests_at(
         }
     }
     Some(TestsAtReview {
-        reached_by: f.reached_by,
+        reached_by,
         commit_messages,
     })
+}
+
+/// Each function's `reached_by` in `dir`'s `kovan.toml` as committed at
+/// `commit`; `None` when it was not committed or does not parse.
+///
+/// Parsed once per process for a full commit id (#1198: re-parsing it for
+/// every stamp was 1.55 s of each refresh, 2026-11-04), since what a fixed
+/// commit holds never changes; asked afresh for any other revision.
+/// [`prefetch_reached_by`] parses a refresh's files side by side first.
+type ReachedBy = Arc<HashMap<String, Vec<String>>>;
+type ReachedByKey = (PathBuf, String, String);
+fn kept_reached_by() -> &'static Mutex<HashMap<ReachedByKey, Option<ReachedBy>>> {
+    static KEPT: OnceLock<Mutex<HashMap<ReachedByKey, Option<ReachedBy>>>> = OnceLock::new();
+    KEPT.get_or_init(Default::default)
+}
+
+fn parse_reached_by(text: &str) -> Option<ReachedBy> {
+    let idx = FolderIndex::parse(text).ok()?;
+    let mut m = HashMap::new();
+    for (_, f) in idx.functions() {
+        // The first entry with an id, as a search through the file finds.
+        m.entry(f.id.clone()).or_insert_with(|| f.reached_by.clone());
+    }
+    Some(Arc::new(m))
+}
+
+fn reached_by_at(git: &mut GitBatch, commit: &str, dir: &str) -> Option<ReachedBy> {
+    let key = (git.root().to_path_buf(), commit.to_string(), dir.to_string());
+    let keep = is_full_sha(commit);
+    if keep {
+        if let Some(v) = kept_reached_by().lock().ok().and_then(|k| k.get(&key).cloned()) {
+            return v;
+        }
+    }
+    let parsed = git.show(commit, &join(dir, KOVAN_TOML)).and_then(|t| parse_reached_by(&t));
+    if keep {
+        if let Ok(mut k) = kept_reached_by().lock() {
+            k.insert(key, parsed.clone());
+        }
+    }
+    parsed
+}
+
+/// Parse the committed `kovan.toml`s of `pairs` (commit, folder) not yet
+/// kept, side by side, and keep them ([`reached_by_at`]): the same parse,
+/// so the same answers (#1198).
+fn prefetch_reached_by(git: &mut GitBatch, pairs: &BTreeSet<(String, String)>) {
+    let root = git.root().to_path_buf();
+    let mut todo = Vec::new();
+    for (commit, dir) in pairs.iter().filter(|(c, _)| is_full_sha(c)) {
+        let key = (root.clone(), commit.clone(), dir.clone());
+        if kept_reached_by().lock().is_ok_and(|k| k.contains_key(&key)) {
+            continue;
+        }
+        todo.push((key, git.show(commit, &join(dir, KOVAN_TOML))));
+    }
+    let parsed = super::git_batch::side_by_side(todo, |(_, text)| text.as_deref().and_then(parse_reached_by));
+    if let Ok(mut k) = kept_reached_by().lock() {
+        for ((key, _), v) in parsed {
+            k.insert(key, v);
+        }
+    }
+}
+
+/// The folder of a `<file>.rs::<qual>` path.
+fn dir_of(p: &str) -> String {
+    p.split_once(".rs::").map_or(String::new(), |(f, _)| f.rsplit_once('/').map_or(String::new(), |(d, _)| d.to_string()))
 }
 
 /// The stamp's pickaxe string: its signature value.
@@ -440,26 +515,32 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
         ..GitFacts::default()
     };
     g.lock_fingerprints = lock_fingerprints(git, ws, &g.cargo_lock);
+    // Each function's hash at its folder's last test run, and at the
+    // targeted run (GitHub #1052) for the functions all of whose reaching
+    // tests it targeted (`targeted_verdict`): no extra work for the rest.
+    // Kept by blob and parsed in parallel (#1198, [`super::hash_store`]).
+    let covered = |run: &kovan_common::review::index::TestRun, f: &kovan_common::review::index::FunctionIndex| {
+        !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t))
+    };
+    let mut wanted = BTreeSet::new();
     for idx in &ws.indexes {
-        if let Some(run) = &idx.test_run {
-            for (file, f) in idx.functions() {
-                if let Some(h) = fn_at(git, &run.commit, &idx.file_path(file), &f.qual)
-                {
-                    g.hashes_at_test_run.insert(f.id.clone(), h.hashes.hash);
-                }
+        for (file, f) in idx.functions() {
+            for run in [idx.test_run.as_ref(), idx.targeted_run.as_ref().filter(|r| covered(r, f))].into_iter().flatten() {
+                wanted.insert((run.commit.clone(), idx.file_path(file)));
             }
         }
-        // The targeted run (GitHub #1052) speaks only for functions all of
-        // whose reaching tests it targeted (`targeted_verdict`), so only
-        // those are re-hashed: no extra git work for the rest.
-        if let Some(run) = &idx.targeted_run {
-            let covered = |f: &&kovan_common::review::index::FunctionIndex| {
-                !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t))
-            };
-            for (file, f) in idx.functions().filter(|(_, f)| covered(f)) {
-                if let Some(h) = fn_at(git, &run.commit, &idx.file_path(file), &f.qual) {
-                    g.hashes_at_targeted_run.insert(f.id.clone(), h.hashes.hash);
-                }
+    }
+    let items = super::hash_store::items_at(git, &wanted);
+    let hash_at = |run: &kovan_common::review::index::TestRun, path: String, qual: &str| {
+        items.get(&(run.commit.clone(), path)).and_then(|i| super::hash_store::hash_of(i, qual))
+    };
+    for idx in &ws.indexes {
+        for (file, f) in idx.functions() {
+            if let Some(h) = idx.test_run.as_ref().and_then(|run| hash_at(run, idx.file_path(file), &f.qual)) {
+                g.hashes_at_test_run.insert(f.id.clone(), h);
+            }
+            if let Some(h) = idx.targeted_run.as_ref().filter(|r| covered(r, f)).and_then(|run| hash_at(run, idx.file_path(file), &f.qual)) {
+                g.hashes_at_targeted_run.insert(f.id.clone(), h);
             }
         }
     }
@@ -480,6 +561,21 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
         .collect();
     // Reviewed function ranges by file, blamed together after the loop.
     let mut blames: BTreeMap<String, Vec<(String, [u32; 2])>> = BTreeMap::new();
+    // The logs `added_in` reads, run side by side first (#1198).
+    let signed: BTreeSet<String> = ws
+        .reviews
+        .iter()
+        .filter(|(_, m)| m.doc.reviews().any(|r| needle(r).is_some_and(|n| !n.is_empty())))
+        .map(|(dir, _)| join(dir, REVIEW_MD))
+        .collect();
+    git.prefetch_file_logs(&signed);
+    // The committed `kovan.toml`s `tests_at` reads, parsed side by side.
+    let at_review: BTreeSet<(String, String)> = ws
+        .reviews
+        .values()
+        .flat_map(|m| m.doc.reviews().map(|r| (r.review.commit.clone(), dir_of(&certified_path(r)))).collect::<Vec<_>>())
+        .collect();
+    prefetch_reached_by(git, &at_review);
     for (dir, m) in &ws.reviews {
         let review_md = join(dir, REVIEW_MD);
         for r in m.doc.reviews() {
@@ -494,10 +590,6 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
             let at = path.split_once(".rs::").and_then(|(file, qual)| {
                 fn_at(git, &key, &format!("{file}.rs"), qual)
             });
-            let dir_of = |p: &str| {
-                p.split_once(".rs::")
-                    .map_or(String::new(), |(f, _)| f.rsplit_once('/').map_or(String::new(), |(d, _)| d.to_string()))
-            };
             // The tests at the original commit when this clone holds it,
             // else at the effective key.
             let tests_at_review =
@@ -534,8 +626,10 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
     }
     // `git blame` author e-mails of each reviewed function's current lines:
     // one `blame` per file (#1023).
+    let ranges_of = |wanted: &Vec<(String, [u32; 2])>| -> BTreeSet<[u32; 2]> { wanted.iter().map(|(_, l)| *l).collect() };
+    git.prefetch_blames(&blames.iter().map(|(f, w)| (f.clone(), ranges_of(w))).collect());
     for (file, wanted) in &blames {
-        let ranges: BTreeSet<[u32; 2]> = wanted.iter().map(|(_, l)| *l).collect();
+        let ranges = ranges_of(wanted);
         let mails = git.blame(file, &ranges);
         for (id, lines) in wanted {
             let ids: BTreeSet<String> = mails
@@ -551,6 +645,7 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
     // costs the next run time, never a different answer (module doc of
     // `message_store`), so it is not an error of the refresh.
     let _ = super::message_store::save(root);
+    let _ = super::hash_store::save(root);
     g
 }
 

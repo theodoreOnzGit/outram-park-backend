@@ -595,6 +595,21 @@ pub fn find_function<'a>(krate: &'a CrateGraph, id: &str) -> Option<(&'a Module,
     })
 }
 
+/// The libtest name of test function `id` (GitHub #1165, "Run this
+/// test"): its module path from the target root, then its name, as
+/// `cargo test -- --exact` takes it (`triso_atops_fork::tests::t` in a
+/// library, `paper_reproduces` in `tests/paper.rs`). `None` unless `id` is
+/// a `#[test]` function of the library or an integration-test target.
+pub fn libtest_name(krate: &CrateGraph, id: &str) -> Option<String> {
+    let (m, f, kind) = find_function(krate, id)?;
+    if !f.test_fn || !matches!(kind, TargetKind::Lib | TargetKind::Test) {
+        return None;
+    }
+    let qual = id.strip_prefix(&format!("{}::", m.file)).unwrap_or(id);
+    let qual = qual.split('#').next().unwrap_or(qual);
+    Some(if m.path.is_empty() { qual.to_string() } else { format!("{}::{qual}", m.path) })
+}
+
 /// The module with this file (integration-test targets included).
 pub fn find_module<'a>(krate: &'a CrateGraph, file: &str) -> Option<(&'a Module, TargetKind, &'a str)> {
     krate
@@ -790,7 +805,7 @@ pub fn hierarchy_layout(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use kovan_common::call_graph::{Call, CallKind, Target};
 
@@ -834,7 +849,7 @@ mod tests {
     }
 
     /// A crate shaped like boon-lay's `triso_atops_fork::activities::live_pools`.
-    fn krate() -> CrateGraph {
+    pub(crate) fn krate() -> CrateGraph {
         let d = "crates/bl/src";
         CrateGraph {
             name: "bl".into(),
@@ -848,7 +863,7 @@ mod tests {
                     "crates/bl/tests/paper.rs",
                     "",
                     None,
-                    vec![Function { test: true, ..func("crates/bl/tests/paper.rs", "reproduces_the_paper", 5) }],
+                    vec![Function { test: true, test_fn: true, ..func("crates/bl/tests/paper.rs", "reproduces_the_paper", 5) }],
                 )],
             }],
             targets: vec![
@@ -867,7 +882,18 @@ mod tests {
                             vec![func(&format!("{d}/fork/act/live_pools.rs"), "step", 10)],
                         ),
                         module(&format!("{d}/chem.rs"), "chem", Some(&format!("{d}/lib.rs")), vec![func(&format!("{d}/chem.rs"), "rate", 3)]),
-                        Module { test: true, ..module(&format!("{d}/tests.rs"), "tests", Some(&format!("{d}/lib.rs")), vec![]) },
+                        Module {
+                            test: true,
+                            ..module(
+                                &format!("{d}/tests.rs"),
+                                "tests",
+                                Some(&format!("{d}/lib.rs")),
+                                vec![
+                                    Function { test: true, test_fn: true, ..func(&format!("{d}/tests.rs"), "rate_is_positive", 4) },
+                                    Function { test: true, ..func(&format!("{d}/tests.rs"), "helper", 9) },
+                                ],
+                            )
+                        },
                     ],
                 },
                 Target {
@@ -878,6 +904,20 @@ mod tests {
                 },
             ],
         }
+    }
+
+    /// #1165: the libtest name `cargo test -- --exact` takes. A library
+    /// test is named by its module path, an integration test by its name
+    /// alone; a test helper (no `#[test]`), an ordinary function and an
+    /// unknown id have none.
+    #[test]
+    fn a_test_has_its_libtest_name() {
+        let k = krate();
+        assert_eq!(libtest_name(&k, "crates/bl/src/tests.rs::rate_is_positive").as_deref(), Some("tests::rate_is_positive"));
+        assert_eq!(libtest_name(&k, "crates/bl/tests/paper.rs::reproduces_the_paper").as_deref(), Some("reproduces_the_paper"));
+        assert_eq!(libtest_name(&k, "crates/bl/src/tests.rs::helper"), None);
+        assert_eq!(libtest_name(&k, "crates/bl/src/chem.rs::rate"), None);
+        assert_eq!(libtest_name(&k, "crates/bl/src/nowhere.rs::x"), None);
     }
 
     /// The tree follows the `parent` links, sorted by path, test modules

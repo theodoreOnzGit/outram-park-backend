@@ -72,4 +72,10 @@ impl Mode {
     pub fn can_stamp(self) -> bool {
         matches!(self, Mode::Desktop)
     }
+
+    /// Whether the review bar offers "Run this test" (GitHub #1165): only
+    /// desktop kovan can run cargo.
+    pub fn can_run_tests(self) -> bool {
+        matches!(self, Mode::Desktop)
+    }
 }
