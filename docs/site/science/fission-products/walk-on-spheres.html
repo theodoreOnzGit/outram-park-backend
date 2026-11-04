@@ -26,10 +26,10 @@
 <h1>Walking on spheres</h1>
 <p class="kicker lesson-progress">Fission products</p>
 
-<p>Lessons 8 and 9 built diffusion from single hops: billions a second, each a fraction of a nanometre. Nobody can follow every one of them for hours. A simulator needs a shortcut. The obvious one fails inside a TRISO particle; this lesson shows why, and the shortcut boon-lay uses instead.</p>
+<p>Lessons 9 and 10 built diffusion from single hops: billions a second, each a fraction of a nanometre. Nobody can follow every one of them for hours. A simulator needs a shortcut. The obvious one fails inside a TRISO particle; this lesson shows why, and the shortcut boon-lay uses instead.</p>
 
 <h2>The obvious shortcut: one Gaussian step</h2>
-<p>Add up many small random hops and the sum is a Gaussian, whatever the hops look like (the central limit theorem, lesson 8). So jump straight to the end of a time interval &Delta;<i>t</i> with one Gaussian step: each of its three components has variance</p>
+<p>Add up many small random hops and the sum is a Gaussian, whatever the hops look like (the central limit theorem, lesson 9). So jump straight to the end of a time interval &Delta;<i>t</i> with one Gaussian step: each of its three components has variance</p>
 <p class="eq-block">&sigma;<sup>2</sup> = 2&nbsp;<i>D</i>&nbsp;&Delta;<i>t</i></p>
 <p>with <i>D</i> the diffusion coefficient. The step grows as &radic;&Delta;<i>t</i>, not &Delta;<i>t</i>: the signature of diffusion. boon-lay&rsquo;s first engine did exactly this. It is exact in an infinite, uniform medium.</p>
 
@@ -90,15 +90,15 @@
 <tr><td>1b</td><td>1600 &deg;C</td><td><span data-dw="d1b">&hellip;</span></td><td><span data-dw="c1b">&hellip;</span></td><td>1.0000</td></tr>
 </tbody></table></div>
 <p>The whole curve from one set of 10 000 walkers stays within <span data-dw="w1a">&hellip;</span> standard deviations of Crank at 1200 &deg;C and <span data-dw="w1b">&hellip;</span> at 1600 &deg;C. This is <b>verification</b> (the walker against an exact solution of the same equation, with the same <i>D</i>), not validation: it says the walk solves the diffusion equation, not that the diffusion equation with this <i>D</i> describes a real kernel.</p>
-<p>The fixed-step Gaussian walk out of the same kernel releases too little, because it only looks for escape at the end of each step and misses atoms that poke out and come back within one: at 200 h it falls short of Crank by <span data-dw="g10">&hellip;</span>, <span data-dw="g30">&hellip;</span> and <span data-dw="g100">&hellip;</span> for steps of <i>R</i>/10, <i>R</i>/30 and <i>R</i>/100. Walk-on-Spheres has no step to shrink. (The bias of lesson 16&rsquo;s page walk is the same effect.)</p>
+<p>The fixed-step Gaussian walk out of the same kernel releases too little, because it only looks for escape at the end of each step and misses atoms that poke out and come back within one: at 200 h it falls short of Crank by <span data-dw="g10">&hellip;</span>, <span data-dw="g30">&hellip;</span> and <span data-dw="g100">&hellip;</span> for steps of <i>R</i>/10, <i>R</i>/30 and <i>R</i>/100. Walk-on-Spheres has no step to shrink. (The bias of lesson 18&rsquo;s page walk is the same effect.)</p>
 
 <h3>What the check does not cover</h3>
 <ul>
 <li><b>A disagreement it does not settle.</b> Two of boon-lay&rsquo;s tests quote Hales et al. (2021, Table 4) for Case 1a as 0.453&ndash;0.498, and 0.5337 lies outside that range; both wrap the range check so its failure is invisible. It does not touch the walker-against-Crank verification (both sides use the same <i>D</i>); it questions whether the crate&rsquo;s Case 1a inputs are the benchmark&rsquo;s. The paper is not in the open corpus, so it is not checked here: <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/537">gh:#537</a>, open.</li>
-<li><b>One uniform sphere.</b> No layer boundaries. The five-layer walk is exercised only qualitatively, and in practice it cannot get an atom through the coatings: lesson 32 shows boon-lay&rsquo;s own walker stuck at the buffer/PyC boundary (its cost probe), so it is not repeated here. There is no full multilayer CRP-6 release record.</li>
+<li><b>One uniform sphere.</b> No layer boundaries. The five-layer walk is exercised only qualitatively, and in practice it cannot get an atom through the coatings: lesson 34 shows boon-lay&rsquo;s own walker stuck at the buffer/PyC boundary (its cost probe), so it is not repeated here. There is no full multilayer CRP-6 release record.</li>
 <li><b>No decay during the walk.</b> The atom&rsquo;s clock (<a href="decay-clock.html">An atom&rsquo;s clock</a>) and its walk are separate here.</li>
 </ul>
-<p>The same Walk-on-Spheres Monte Carlo, run on the HTR-10 kernel and compared with Booth&rsquo;s series (the same series as Crank&rsquo;s), is lesson 16&rsquo;s check (<a href="kernel-booth-grain.html">Booth on one grain</a>).</p>
+<p>The same Walk-on-Spheres Monte Carlo, run on the HTR-10 kernel and compared with Booth&rsquo;s series (the same series as Crank&rsquo;s), is lesson 18&rsquo;s check (<a href="kernel-booth-grain.html">Booth on one grain</a>).</p>
 
 <h2>Where it is in the code</h2>
 <ul>

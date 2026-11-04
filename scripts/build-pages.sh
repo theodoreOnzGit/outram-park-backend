@@ -29,6 +29,8 @@ cp docs/site/science/transport/*.html docs/site/science/transport/*.js "$OUT/sci
 # The Fission products track (2026-10-20); check-fission.js is a node check, not
 # a page, but is copied like the other tracks' checks.
 cp docs/site/science/fission-products/*.html docs/site/science/fission-products/*.js "$OUT/science/fission-products/"
+# The particle slices and the concept map's stylesheet (gh:#1207).
+cp docs/site/science/fission-products/*.svg docs/site/science/fission-products/*.css "$OUT/science/fission-products/"
 cp docs/site/demos/index.html "$OUT/demos/"
 bash scripts/build-search-index.sh "$OUT"
 
@@ -38,6 +40,13 @@ bash scripts/build-search-index.sh "$OUT"
 node docs/site/science/neutronics/check-physics.js
 node docs/site/science/transport/check-transport.js
 node docs/site/science/fission-products/check-fission.js
+# gh:#1207 / #1209: the lessons folded in from the TRISO-ATOPS mdBook, the
+# concept map and walks, the diffusion arc and breathing.
+node docs/site/science/fission-products/check-decaywalk.js
+node docs/site/science/fission-products/check-chemhand.js
+node docs/site/science/fission-products/check-concepts.js
+node docs/site/science/fission-products/check-diffarc.js
+node docs/site/science/fission-products/check-breathing.js
 
 # The code map (gh:#734): every crate placed by its [package.metadata.kovan]
 # tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
@@ -356,7 +365,13 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   science/fission-products/atops-{big-picture,groups,diffusion,release-models,normal-operation,coolant,accident,simplifications}.html \
   science/fission-products/{atops-data,atops-physics,atops-story}.js \
   science/fission-products/{decay-clock,walk-on-spheres,chem-air,chem-steam,atops-source-term}.html \
-  science/fission-products/triso-htr10-slice.svg \
+  science/fission-products/{decaywalk-data,decaywalk-story,chemhand-data,chemhand-story}.js \
+  science/fission-products/{diffusion-three-ways,atops-conservative,atops-breathing}.html \
+  science/fission-products/{diffarc-data,diffarc-story,breathing-data,breathing-story}.js \
+  science/fission-products/{atops-concepts,atops-walk-cs137,atops-walk-accident,atops-walk-silver}.html \
+  science/fission-products/{atops-concepts-data,atops-concepts,atops-walk-numbers,atops-walk-recorded}.js \
+  science/fission-products/atops-concepts.css \
+  science/fission-products/{triso-htr10-slice,triso-crp6-slice}.svg \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \

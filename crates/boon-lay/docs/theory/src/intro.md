@@ -5,8 +5,9 @@
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
 *You may have arrived from the
-[TRISO-ATOPS ladder](../../science/index.html#fission-products), which teaches
-the crate rung by rung through code. This book asks a different question:
+~~TRISO-ATOPS ladder, which teaches the crate rung by rung through code~~
+[Fission products lessons](../../science/index.html#fission-products) (the ladder was folded
+into them on 2026-11-04, gh:#1207), which teach the crate one lesson at a time, with the code. This book asks a different question:
 what is the physics behind fission product transport, and which
 simplifications are we making when we compute it?*
 

@@ -38,9 +38,13 @@ and burnup and HTR-Module's in strength and fluence.
 2.8·10⁻¹⁵ (700 °C), 1.2·10⁻¹² (776 °C), 5.0·10⁻⁹ (900 °C), 1.6·10⁻⁶ (1000 °C).
 Eight decades across 300 °C, which is why $T_B$ is an input and not a guess.
 
-**Accident, 200 h isothermal, $T_B$ = 776 °C** (2026-09-24): see
+**Accident, 200 h isothermal, $T_B$ = 776 °C** (2026-09-24): ~~see
 [*An accident, step by step*](../../science/fission-products/failure-accident.html)
-for the table and its re-measurement.
+for the table and its re-measurement.~~ **CORRECTED 2026-11-04:** the table and its
+2026-10-04 re-measurement were on the retired tutorial's rung 5
+([`failure.md` at `e5ba96e`](https://github.com/theodoreOnzGit/outram-park-backend/blob/e5ba96e7b0ac71f7b1c2dd425c8555d387989f3b/crates/boon-lay/docs/tutorial/src/failure.md), gh:#1207) and are not on the lesson page.
+[*An accident, step by step*](../../science/fission-products/failure-accident.html) runs 200 h
+holds at 1200, 1600 and 2000 °C from the same particle instead. Not re-run here.
 
 **Why the normal-operation number must not become `f_inc`.** TRISO-ATOPS's
 in-service failure fraction for normal operation is a manufacturing and
