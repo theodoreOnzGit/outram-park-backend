@@ -101,9 +101,35 @@ mod prime_pool;
 #[path = "../common/processed_cache.rs"]
 mod processed_cache;
 
+// The rung modules, declared plainly so kovan's module walk (which reads
+// `mod` lines and does not expand macros) finds each rung's folder: the
+// workspace rule "never declare modules through a macro" (root `CLAUDE.md`).
+#[cfg(not(target_os = "android"))]
+mod godiva;
+#[cfg(not(target_os = "android"))]
+mod natu;
+#[cfg(not(target_os = "android"))]
+mod jemima;
+#[cfg(not(target_os = "android"))]
+mod hst009;
+#[cfg(not(target_os = "android"))]
+mod ugraphite;
+#[cfg(not(target_os = "android"))]
+mod lumped;
+#[cfg(not(target_os = "android"))]
+mod lct008;
+#[cfg(not(target_os = "android"))]
+mod triso;
+#[cfg(not(target_os = "android"))]
+mod dhshort;
+#[cfg(not(target_os = "android"))]
+mod packing;
+#[cfg(not(target_os = "android"))]
+mod htr10;
+
 // THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
 // for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
-// rung is adding its directory and one line here; nothing else changes.
+// rung is adding its directory, its `mod` line above and one line here.
 #[cfg(not(target_os = "android"))]
 rung_table! {
     godiva: Godiva,
