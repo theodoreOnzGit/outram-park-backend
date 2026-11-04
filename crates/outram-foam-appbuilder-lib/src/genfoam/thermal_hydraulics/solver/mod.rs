@@ -45,12 +45,14 @@
 
 pub mod one_phase;
 pub mod porous_drag;
+pub mod two_phase;
 
 #[cfg(test)]
 mod tests;
 
 pub use one_phase::{OnePhaseSolver, PorousConductivity};
 pub use porous_drag::PorousDrag;
+pub use two_phase::{TwoPhaseCase, TwoPhaseSolver};
 
 use crate::error::AppBuilderError;
 
