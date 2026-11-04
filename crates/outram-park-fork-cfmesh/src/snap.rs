@@ -128,7 +128,7 @@ pub(crate) fn closest_point_on_surface(p: Vec3, points: &[Vec3], tris: &[[usize;
 
 /// Closest point on triangle `abc` to `p` (Ericson, *Real-Time Collision
 /// Detection*, §5.1.5) — handles the vertex, edge, and face Voronoi regions.
-fn closest_point_on_triangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
+pub(crate) fn closest_point_on_triangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
     let ab = b.sub(a);
     let ac = c.sub(a);
     let ap = p.sub(a);
