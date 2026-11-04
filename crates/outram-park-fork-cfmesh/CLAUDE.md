@@ -56,3 +56,26 @@ description the FV, FE and Monte Carlo solvers are built from. Its `foam-mesh` f
 rule 1): blender depends on this crate, optionally, to export into it, and
 Cargo counts optional dependencies when it looks for cycles. Mesh types stay
 defined here; the converters live in `outram_blender::unstructured::convert`.
+
+## Layer quality: three strategies, kept side by side (gh:#1215, 2026-11-04)
+
+`TetDualOptions::layer_strategy` picks how the layer stage meets upstream's
+mesh-quality limits: `BackOffOnly` (default; this crate's global uniform
+back-off), `CfMeshOptimise` (port of cfMesh v1.1 `boundaryLayerOptimisation`
+and `meshOptimizer`, from `github.com/DAFoam/cfmesh` `e944f6ba695f`, because
+`wyldckat/cfMesh` v1.0 has no `boundaryLayerOptimisation`) and
+`SnappyCollapse` (port of OpenFOAM-dev `852527377c7e` `snappyLayerDriver`'s
+per-point `extrudeMode` loop). They share `layers::layer_setup` and
+`layers::build_layered_variable`; never give one strategy its own copy of the
+column geometry. Keep all three callable: the maintainer's differential-testing
+rule (`AGENTS.md`) compares them on the same inputs, and the comparison table
+lives in the gh:#1215 section of
+`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+Changing the default needs the maintainer, and re-measuring every number that
+depends on it.
+
+**Reproducibility is pinned across processes, not just within one.** A test
+that runs the pipeline twice in one process cannot see `HashMap` iteration
+order (seeded per process); `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
+asserts fingerprints recorded once. `octree.rs` still numbers cells in
+`HashSet` order (the `refinement_levels > 0` path): not yet fixed.

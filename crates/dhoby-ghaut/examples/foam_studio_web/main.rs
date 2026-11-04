@@ -21,6 +21,7 @@
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-unstructured [h_mm] [layers] [first_mm] [expansion] [re] [length_mm]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --mesh-sweep
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-unstructured [out-dir]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-layer-strategies [out-dir]
 //! cargo test -p dhoby-ghaut --example foam_studio_web --release
 //! ```
 //!
@@ -216,6 +217,90 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
             img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
             println!("wrote {name}: {} cells, volume {:.6e} m3", m.n_cells(), m.total_volume());
         }
+    }
+    Ok(())
+}
+
+/// `--render-layer-strategies`: the gh:#1215 pictures. For each layer
+/// strategy on the demo pipe at h 5 mm with 3 wall layers: the inlet rim
+/// (x-z zoom), a wall zoom of the cross-section at mid-length, and an
+/// unrolled map of the wall (angle against z) coloured by the layers each
+/// wall point got and how thin its column is against its cap. CLI glue: the
+/// meshes come from `engine::mesh_unstructured_with`, the slices from
+/// `render_mesh_slice_annotated`; reached by no test (drawing only).
+fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
+    use engine::{Tag, TetDualSpec};
+    use outram_blender::csg::plot::slice::PlotBasis;
+    use outram_blender::csg::plot::{annotate::draw_text, ImageData};
+    use outram_blender::unstructured::convert::foam::from_poly_mesh;
+    use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice};
+    use outram_park_fork_cfmesh::layers::LayerQualityStrategy as S;
+    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
+    let h_mm: f64 = std::env::var("FOAM_RENDER_H_MM").ok().and_then(|v| v.parse().ok()).unwrap_or(5.0);
+    let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers: 3, first_layer: 3e-4, expansion: 1.2 };
+    for (strategy, tag) in [(S::BackOffOnly, "backoff"), (S::CfMeshOptimise, "cfmesh"), (S::SnappyCollapse, "snappy")] {
+        let (poly, _, outcome) = engine::mesh_unstructured_with(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, strategy)?;
+        let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
+        let label = format!("{tag} h {h_mm} mm 3 layers");
+        let shots = [
+            (PlotBasis::Xz, [0.75, 0.013, 0.25], [0.6, 0.6], 700, format!("{label}, {} cells, x-z inlet rim (x 0.45-1.05, z 0-0.55 cm)", m.n_cells()).to_uppercase(), "xz_rim"),
+            (PlotBasis::Xy, [0.0, 0.0, 10.013], [2.2, 2.2], 900, format!("{label}, x-y at z = 10.01 cm").to_uppercase(), "xy"),
+            (PlotBasis::Xy, [0.85, 0.0, 10.013], [0.35, 0.35], 800, format!("{label}, x-y wall zoom (x 0.675-1.025 cm)").to_uppercase(), "xy_wall"),
+        ];
+        for (basis, origin, width, px, title, view) in shots {
+            let py = ((px as f64) * width[1] / width[0]).round() as usize;
+            let sl = MeshSlice { basis, origin, width, pixels: [px, py], colour_by: MeshColourBy::Cell };
+            let img = render_mesh_slice_annotated(&m, &sl, &title);
+            let name = format!("layers_{tag}_h{h_mm}_3_{view}.png");
+            img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
+            println!("wrote {name}");
+        }
+        // The wall map: angle (x) against z (y), one dot per wall point.
+        let Some(o) = outcome else { continue };
+        let (w, hgt, margin) = (960usize, 520usize, 40usize);
+        let mut img = ImageData::filled(w, hgt + 2 * margin, outram_blender::csg::plot::Rgb { r: 255, g: 255, b: 255 });
+        for (p, n, t, cap) in &o.points {
+            let theta = p.y.atan2(p.x); // -pi..pi
+            let z = p.z; // the pipeline's frame: 0..0.2 m
+            let x = ((theta + std::f64::consts::PI) / (2.0 * std::f64::consts::PI) * (w - 1) as f64) as i64;
+            let y = margin as i64 + ((z / 0.2) * (hgt - 1) as f64) as i64;
+            // Colour: no layer red; full count blue, darker the thinner the
+            // column is against its cap; fewer than requested orange.
+            let c = if *n == 0 {
+                outram_blender::csg::plot::Rgb { r: 220, g: 30, b: 30 }
+            } else if *n < o.n_layers_requested {
+                outram_blender::csg::plot::Rgb { r: 240, g: 150, b: 20 }
+            } else {
+                let f = (t / cap).clamp(0.0, 1.0);
+                outram_blender::csg::plot::Rgb { r: (40.0 + 160.0 * (1.0 - f)) as u8, g: (90.0 + 120.0 * (1.0 - f)) as u8, b: 230 }
+            };
+            for dx in -2..=2 {
+                for dy in -2..=2 {
+                    let (xx, yy) = (x + dx, y + dy);
+                    if xx >= 0 && yy >= 0 && (xx as usize) < w && (yy as usize) < hgt + 2 * margin {
+                        img.set(xx as usize, yy as usize, c);
+                    }
+                }
+            }
+        }
+        let black = outram_blender::csg::plot::Rgb { r: 0, g: 0, b: 0 };
+        draw_text(&mut img, 6, 6, &format!("{label}: WALL MAP, ANGLE (X, -180..180 DEG) AGAINST Z (Y, 0 AT TOP .. 20 CM)").to_uppercase(), black);
+        draw_text(
+            &mut img,
+            6,
+            (hgt + margin + 12) as i64,
+            &format!(
+                "RED NO LAYER, ORANGE FEWER, BLUE ALL 3 (PALER = THINNER VS CAP). FULL {:.1} %, NONE {:.1} %, MEAN TOTAL {:.3} MM",
+                100.0 * o.full_coverage(),
+                100.0 * o.collapsed_point_fraction(),
+                1e3 * o.mean_total_thickness()
+            ),
+            black,
+        );
+        let name = format!("layers_{tag}_h{h_mm}_3_wallmap.png");
+        img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
+        println!("wrote {name}: full {:.3}, none {:.3}, mean total {:.4} mm; {:?}", o.full_coverage(), o.collapsed_point_fraction(), 1e3 * o.mean_total_thickness(), o.notes);
     }
     Ok(())
 }
@@ -508,6 +593,12 @@ fn main() -> Result<(), String> {
             Ok(())
         }
         Some("--mesh-sweep") => mesh_sweep(),
+        Some("--render-layer-strategies") => {
+            let out = args.get(1).cloned().unwrap_or_else(|| {
+                concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/layer_strategies_gh1215").to_string()
+            });
+            render_layer_strategies(std::path::Path::new(&out))
+        }
         Some("--render-unstructured") => {
             let out = args.get(1).cloned().unwrap_or_else(|| {
                 concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/unstructured_gh1202").to_string()

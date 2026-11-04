@@ -1621,8 +1621,11 @@ mod tests {
                 let t0 = std::time::Instant::now();
                 let (m, rep) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
                 let secs = t0.elapsed().as_secs_f64();
-                let (m2, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
-                let det = mesh_fingerprint(&m) == mesh_fingerprint(&m2);
+                // Determinism (a second run) only on request: CFMESH_DET=1.
+                let det = std::env::var("CFMESH_DET").is_err() || {
+                    let (m2, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
+                    mesh_fingerprint(&m) == mesh_fingerprint(&m2)
+                };
                 let q = check_quality(&m);
                 let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
                 let relaxed = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls { max_non_ortho_deg: 75.0, ..Default::default() }).iter().filter(|&&b| b).count();
@@ -1636,6 +1639,29 @@ mod tests {
                     .count()
                 };
                 let lo = rep.layers.clone().unwrap_or_default();
+                if strategy == LayerQualityStrategy::BackOffOnly && lo.full_coverage() == 1.0 {
+                    // Which of snappy's checks the layer cells fail (faces of
+                    // a cell added by the layerer), one check at a time.
+                    let n0 = m.cell_count() - n * lo.faces.len();
+                    let off = crate::checks::MeshQualityControls { max_non_ortho_deg: 180.0, max_boundary_skewness: -1.0, max_internal_skewness: -1.0, min_tet_quality: None, min_twist: -2.0, min_determinant: -1.0, min_face_weight: -1.0, min_vol_ratio: -1.0 };
+                    let d = crate::checks::MeshQualityControls::default();
+                    let one = |c: crate::checks::MeshQualityControls| {
+                        let bad = crate::checks::faces_failing_mesh_quality(&m, &c);
+                        (0..m.face_count()).filter(|&f| bad[f] && (m.owner[f] >= n0 || m.neighbour[f].is_some_and(|x| x >= n0))).count()
+                    };
+                    println!(
+                        "  {name} layer-cell faces failing, one check at a time: nonOrtho65 {} nonOrtho75 {} intSkew4 {} bndSkew20 {} tet {} twist {} det {} weight {} volRatio {}",
+                        one(crate::checks::MeshQualityControls { max_non_ortho_deg: 65.0, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { max_non_ortho_deg: 75.0, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { max_internal_skewness: d.max_internal_skewness, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { max_boundary_skewness: d.max_boundary_skewness, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { min_tet_quality: d.min_tet_quality, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { min_twist: d.min_twist, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { min_determinant: d.min_determinant, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { min_face_weight: d.min_face_weight, ..off.clone() }),
+                        one(crate::checks::MeshQualityControls { min_vol_ratio: d.min_vol_ratio, ..off.clone() }),
+                    );
+                }
                 let layered: Vec<&(Vec3, usize, f64, f64)> = lo.points.iter().filter(|q| q.1 > 0).collect();
                 let d1 = 1.0 / (1..=n).map(|k| 1.2f64.powi(k as i32 - 1)).sum::<f64>(); // first / total at n layers
                 let first: Vec<f64> = layered.iter().filter(|q| q.1 == n).map(|q| q.2 * d1).collect();

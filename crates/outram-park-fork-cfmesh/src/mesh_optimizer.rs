@@ -397,15 +397,8 @@ impl PartTetMesh {
     /// `tetMeshOptimisation::optimiseUsingVolumeOptimizer(nIterations)`.
     pub fn optimise_using_volume_optimizer(&mut self, n_iterations: usize) {
         for _ in 0..n_iterations {
-            let mut moved = Vec::new();
-            for node in 0..self.points.len() {
-                if self.kind[node] & LOCKED != 0 || self.kind[node] & SMOOTH == 0 {
-                    continue;
-                }
-                let (mut pts, tets, c) = self.simplex(node);
-                volume_optimizer(&mut pts, &tets, c, 1e-5);
-                moved.push((node, pts[c]));
-            }
+            let nodes: Vec<usize> = (0..self.points.len()).filter(|&n| self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
+            let moved = self.smooth_nodes(&nodes, |pts, tets, c| volume_optimizer(pts, tets, c, 1e-5));
             self.update_vertices(&moved);
         }
     }
@@ -430,15 +423,9 @@ impl PartTetMesh {
             if n_negative == 0 {
                 return;
             }
-            let mut moved = Vec::new();
-            for node in 0..self.points.len() {
-                if !negative_node[node] || self.kind[node] & LOCKED != 0 || self.kind[node] & SMOOTH == 0 {
-                    continue;
-                }
-                let (mut pts, tets, c) = self.simplex(node);
-                knupp_metric(&mut pts, &tets, c);
-                moved.push((node, pts[c]));
-            }
+            let nodes: Vec<usize> =
+                (0..self.points.len()).filter(|&n| negative_node[n] && self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
+            let moved = self.smooth_nodes(&nodes, knupp_metric);
             self.update_vertices(&moved);
             let before = n_negative;
             n_negative = 0;
@@ -458,6 +445,31 @@ impl PartTetMesh {
                 return;
             }
         }
+    }
+
+    /// New positions of `nodes`, each from its simplex over the current
+    /// points (Jacobi: no node sees another's move, as upstream's
+    /// `updateVerticesSMP`), in node order. Natively the nodes are shared
+    /// out over the available threads; the result does not depend on how
+    /// (each position is a pure function of the snapshot).
+    fn smooth_nodes(&self, nodes: &[usize], f: fn(&mut [Vec3], &[[usize; 4]], usize)) -> Vec<(usize, Vec3)> {
+        let one = |node: usize| {
+            let (mut pts, tets, c) = self.simplex(node);
+            f(&mut pts, &tets, c);
+            (node, pts[c])
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let n_threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(8);
+            if n_threads > 1 && nodes.len() > 64 {
+                let chunk = nodes.len().div_ceil(n_threads);
+                return std::thread::scope(|sc| {
+                    let handles: Vec<_> = nodes.chunks(chunk).map(|c| sc.spawn(move || c.iter().map(|&n| one(n)).collect::<Vec<_>>())).collect();
+                    handles.into_iter().flat_map(|h| h.join().expect("smoother thread")).collect()
+                });
+            }
+        }
+        nodes.iter().map(|&n| one(n)).collect()
     }
 
     fn tet_vol(&self, t: &[usize; 4]) -> f64 {
