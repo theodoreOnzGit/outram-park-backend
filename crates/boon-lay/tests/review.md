@@ -499,3 +499,58 @@ checked against table 7
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 4004da6611.
+
+# Review: upstream (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-upstream-theodoreonzgit-8d25b16b"
+kind = "review"
+origin = "human"
+created = "2026-11-04T11:16:10+08:00"
+modified = "2026-11-04T11:16:10+08:00"
+target = "fn:8d25b16bb87e33c6"
+
+[review]
+path = "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::upstream"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T11:16:10+08:00"
+commit = "e9be6819cfdcf6e1ae4fd5b2c853dfdfee832e11"
+hash = "sha256:538b6eea075af3a5d7c39745773931c10cdf7b332f63a19603868f0b8449c583"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "ui_or_cli"
+
+[review.callees]
+"fn:03f4100244ab1727" = "sha256:bea6414e8e99f94ebe6ab5c8bcd76ca692357209df5b465e98a9117c39e35b38"
+"fn:1baee06ed91589b2" = "sha256:906c8fb45b9ce4759492ee1f3e113bcbf209fa53a912c0003642e686e8cfe2af"
+"fn:3dab844bc23ea2bd" = "sha256:773d24db91ae5910200fd9060f3bedee67bce16d86c437bf02caea9ddccd8f9d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01EXPhstVwAqRb8o6YHVQoXW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "KXLfwoYKbk9vfmJk3WN7dkpm9lfd3FGbWkXx2ziekS7Fm2l+hzLtWMdHx5CsMdSWDzGZo2Lzu43Mrdxv/NIqCQ=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit e9be6819cf.
