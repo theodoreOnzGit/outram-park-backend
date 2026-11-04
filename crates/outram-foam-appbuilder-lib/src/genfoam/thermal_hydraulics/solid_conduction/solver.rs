@@ -10,6 +10,7 @@
 //! The solid conduction field: assembly, Picard iteration, steady and
 //! transient solves (see [`super`] for the equations).
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use uom::si::energy::joule;
@@ -202,7 +203,7 @@ impl EnclosureNaturalConvection {
         let tf = 0.5 * (t_surface_k + t_cold_k);
         let (_, _, k) = air_properties(tf, self.pressure.get::<pascal>())?;
         let ra = self.rayleigh_number(t_surface_k, t_cold_k)?;
-        let nu_l = (0.046 * ra.cbrt()).max(1.0);
+        let nu_l = (0.046 * ra.r_cbrt()).max(1.0);
         Ok(nu_l * k / self.gap.get::<meter>() * 2.0 / (1.0 + self.radius_ratio.get::<ratio>()))
     }
 

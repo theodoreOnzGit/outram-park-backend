@@ -7,6 +7,7 @@
 //! the resolution rather than only its tail. [`plot_points`] maps a series to
 //! screen points (log or linear y) and is what the tests check; [`paint`]
 //! draws the axes, the series and the legend.
+use petir::mathf::RealMath;
 use egui::{Color32, Pos2, Rect, Stroke};
 
 /// Series colours, Gruvbox bright: blue, orange, aqua, purple.
@@ -79,7 +80,7 @@ impl History {
     pub fn y_range(&self, log_y: bool) -> Option<(f64, f64)> {
         let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
         for v in self.ys.iter().flatten().filter(|v| v.is_finite() && (!log_y || **v > 0.0)) {
-            let v = if log_y { v.log10() } else { *v };
+            let v = if log_y { v.r_log10() } else { *v };
             lo = lo.min(v);
             hi = hi.max(v);
         }
@@ -106,7 +107,7 @@ pub fn plot_points(h: &History, i: usize, plot: Rect, log_y: bool, range: (f64, 
         .zip(&h.ys[i])
         .filter(|(_, y)| y.is_finite() && (!log_y || **y > 0.0))
         .map(|(x, y)| {
-            let yy = if log_y { y.log10() } else { *y };
+            let yy = if log_y { y.r_log10() } else { *y };
             Pos2::new(
                 plot.left() + ((x - x0) / xs) as f32 * plot.width(),
                 plot.bottom() - ((yy - range.0) / (range.1 - range.0)) as f32 * plot.height(),

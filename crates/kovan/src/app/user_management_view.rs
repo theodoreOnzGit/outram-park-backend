@@ -3,7 +3,11 @@
 //! roster, statuses, warnings, each action's preconditions, signing and
 //! writing) is [`crate::stamping::user_management`]'s, tested in
 //! `stamping/user_management_tests.rs`; "My keys on this machine" is the
-//! #1020 Signing-key panel's own body (`super::key_window::body`).
+//! #1020 Signing-key panel's own body (`super::key_window::body`). Since
+//! GitHub #1211 the tab also holds the two founder-only key pathways
+//! (validate a key; issue a validated keyfile) and the Organisations &
+//! IV&V sections (`super::organisations_view::sections`), which replaced
+//! that separate window.
 //!
 //! **Mobile-first.** One scrolling column; every row wraps; the sections
 //! are collapsing headers, so it fits a phone-width window. **No lag:**
@@ -19,7 +23,7 @@ use crate::stamping::user_management::{globs, ReviewerRow, UserAction, UserPanel
 /// One action button: enabled only when the panel lists no problem; the
 /// problems are its tooltip. GUI drawing code (exempt; the preconditions
 /// are `UserPanel::problems`, tested).
-fn action_button(ui: &mut egui::Ui, p: &mut UserPanel, action: UserAction) {
+pub(super) fn action_button(ui: &mut egui::Ui, p: &mut UserPanel, action: UserAction) {
     let problems = p.problems(&action);
     let can = problems.is_empty() && !p.busy();
     if ui
@@ -78,6 +82,10 @@ pub(crate) fn show(ui: &mut egui::Ui, p: &mut UserPanel, keys: Option<&mut KeyPa
                     ui.weak(n);
                 }
                 roster(ui, p);
+                ui.separator();
+                key_pathways(ui, p);
+                // The Organisations & IV&V sections (#1211: no window).
+                super::organisations_view::sections(ui, p);
             }
         }
         ui.separator();
@@ -118,6 +126,114 @@ fn signing_key(ui: &mut egui::Ui, p: &mut UserPanel) {
     });
     let unlocked = p.unlocked();
     key_window::passphrase_row(ui, unlocked, &mut p.passphrase);
+}
+
+/// The two founder-only key pathways (GitHub #1211): (a) validate a
+/// reviewer's own key (the Admit on their page), (b) issue a validated
+/// keyfile to hand over. GUI drawing code (exempt; the checks and the job
+/// are `UserPanel::{issue_problems, submit_issue}`, tested).
+fn key_pathways(ui: &mut egui::Ui, p: &mut UserPanel) {
+    let founder = p.is_founder();
+    let awaiting: Vec<String> = p
+        .roster()
+        .map(|ro| {
+            ro.reviewers
+                .iter()
+                .filter(|r| r.admitted.starts_with("not admitted"))
+                .map(|r| r.id.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+    egui::CollapsingHeader::new(RichText::new(format!("Validate a key (founder) \u{b7} {} awaiting", awaiting.len())).strong())
+        .id_salt("users-validate")
+        .default_open(founder && !awaiting.is_empty())
+        .show(ui, |ui| {
+            ui.weak(
+                "A person generates their own key from a Stamp and registers it; the founder \
+                 validates it by admitting them (signed). Open their page and press Admit.",
+            );
+            if !founder {
+                ui.weak("Only the founder validates keys: act as the founder's key above.");
+            }
+            for id in awaiting {
+                if ui.link(format!("{id} \u{2014} awaiting admission")).clicked() {
+                    p.selected = Some(id);
+                }
+            }
+        });
+    egui::CollapsingHeader::new(RichText::new("Issue a validated keyfile (founder)").strong())
+        .id_salt("users-issue")
+        .default_open(false)
+        .show(ui, |ui| {
+            ui.weak(
+                "Generate a key for another person, admit it in the same signed write, and save \
+                 it encrypted under a passphrase you choose. Hand over the file and the \
+                 passphrase separately; they import it with \"Import a key\".",
+            );
+            let f = &mut p.issue;
+            egui::Grid::new("users-issue-grid").num_columns(2).show(ui, |ui| {
+                ui.label("Reviewer id");
+                ui.add(egui::TextEdit::singleline(&mut f.reviewer).hint_text("github:<handle>"));
+                ui.end_row();
+                ui.label("Name (optional)");
+                ui.text_edit_singleline(&mut f.name);
+                ui.end_row();
+                ui.label("Key id");
+                ui.add(egui::TextEdit::singleline(&mut f.key_id).desired_width(80.0));
+                ui.end_row();
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Role");
+                if ui.radio(f.role == Role::Reviewer && !f.novice, "Reviewer").clicked() {
+                    (f.role, f.novice) = (Role::Reviewer, false);
+                }
+                if ui.radio(f.novice, "Novice reviewer").clicked() {
+                    (f.role, f.novice) = (Role::Reviewer, true);
+                }
+                if ui.radio(f.role == Role::Maintainer, "Maintainer").clicked() {
+                    (f.role, f.novice) = (Role::Maintainer, false);
+                }
+            });
+            if f.role == Role::Reviewer {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Scope");
+                    ui.add(egui::TextEdit::singleline(&mut f.scope).hint_text("crates/njoy-*/**"));
+                });
+            }
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Keyfile passphrase");
+                ui.add(egui::TextEdit::singleline(&mut f.passphrase).password(true));
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Again");
+                ui.add(egui::TextEdit::singleline(&mut f.confirm).password(true));
+            });
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Save as\u{2026}").clicked() {
+                    p.request_issue_destination();
+                }
+                match &p.issue.dest {
+                    Some(d) => {
+                        ui.monospace(d.display().to_string());
+                    }
+                    None => {
+                        ui.weak("no file chosen");
+                    }
+                }
+            });
+            let problems = p.issue_problems();
+            for e in problems.iter().filter(|e| !e.starts_with("Type your")) {
+                ui.weak(e);
+            }
+            let can = problems.is_empty() && !p.busy();
+            if ui
+                .add_enabled(can, egui::Button::new("Issue keyfile"))
+                .on_disabled_hover_text(problems.join("\n"))
+                .clicked()
+            {
+                p.submit_issue();
+            }
+        });
 }
 
 /// The warnings strip, the reviewers list, the open page and the agents.
@@ -257,7 +373,7 @@ fn reviewer_page(ui: &mut egui::Ui, p: &mut UserPanel, r: &ReviewerRow) {
     }
     if r.admitted.starts_with("not admitted") {
         ui.group(|ui| {
-            ui.label(RichText::new("Admit").strong());
+            ui.label(RichText::new("Validate their key: admit (founder only, #1211)").strong());
             ui.horizontal_wrapped(|ui| {
                 ui.label("Role");
                 if ui.radio(p.admit.role == Role::Reviewer && !p.admit.novice, "Reviewer").clicked() {

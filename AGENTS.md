@@ -39,6 +39,10 @@ gh issue comment <number> --body "..."           # progress
   crates.io's rate limits are spread over the run instead of hitting at the
   end. Ideally a script drives this (`scripts/release-lockstep.sh`); the agent
   manages it.
+- **Never declare modules through a macro (HARD RULE,** maintainer
+  2026-11-04): every `mod` is a plain line in source, never `mod $m;` in a
+  `macro_rules!`. kovan reads `mod` lines without expanding macros, so a
+  macro-declared module is missing from review. Full rule: `CLAUDE.md`.
 
 ## Crate-level interfaces may follow SOLID principles (maintainer, 2026-11-03)
 

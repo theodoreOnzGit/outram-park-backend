@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>One diffusion law per group</title>
-<meta name="description" content="Fission products, lesson 41: TRISO-ATOPS gives each group one Arrhenius diffusion law in the kernel and one in the graphite, holds some of them flat below their valid range, and extrapolates others. Read from the code's output.">
+<meta name="description" content="Fission products, lesson 47: TRISO-ATOPS gives each group one Arrhenius diffusion law in the kernel and one in the graphite, holds some of them flat below their valid range, and extrapolates others. Read from the code's output.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="atops-data.js" defer></script>
@@ -13,7 +13,7 @@
 <script src="atops-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 41.
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 47.
      D(T): diffusion_coefficient and diffusion_coefficient_sic_ag on a 25 °C grid; the clamps found from the output alone (atops-data.js, lesson_triso_atops). Prediction Q2. -->
 <main class="lesson-body">
 <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
@@ -22,7 +22,7 @@
 <h1>One diffusion law per group</h1>
 <p class="kicker lesson-progress">Fission products</p>
 
-<p>Lesson 8 built the Arrhenius law from hops; lesson 30 used one for every element in every layer. TRISO-ATOPS keeps far fewer: one law per group for the kernel, one for the graphite, and one for silver in SiC. Nothing for the buffer or the pyrocarbon, because in this model a failed particle has lost them (lesson 39).</p>
+<p>Lesson 9 built the Arrhenius law from hops; lesson 32 used one for every element in every layer. TRISO-ATOPS keeps far fewer: one law per group for the kernel, one for the graphite, and one for silver in SiC. Nothing for the buffer or the pyrocarbon, because in this model a failed particle has lost them (lesson 45).</p>
 
 <section class="widget-card">
   <h3>D against temperature, by group</h3>
@@ -41,7 +41,7 @@
 <p>Everything outside the four correlations gets 10<sup>&minus;19</sup> m&sup2;/s, in kernel and graphite alike: the paper&rsquo;s reasoning is that those elements have never been seen released from TRISO fuel (p. 9).</p>
 
 <h2>Where it is in the code</h2>
-<p><code>diffusion_<wbr>coefficient</code> is one <code>match</code> on the atomic number, with the clamps as <code>max(...)</code> on the temperature before the exponential. It is called by <code>normal_<wbr>operation_<wbr>node</code> for each node, and by <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::integrate_diffusion_over_time"><code>integrate_<wbr>diffusion_<wbr>over_<wbr>time</code></a> in an accident (lesson 45).</p>
+<p><code>diffusion_<wbr>coefficient</code> is one <code>match</code> on the atomic number, with the clamps as <code>max(...)</code> on the temperature before the exponential. It is called by <code>normal_<wbr>operation_<wbr>node</code> for each node, and by <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::integrate_diffusion_over_time"><code>integrate_<wbr>diffusion_<wbr>over_<wbr>time</code></a> in an accident (lesson 51).</p>
 
 <p><b>Next:</b> from D to a release: one model per group.</p>
 

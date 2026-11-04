@@ -21,8 +21,9 @@
 //! saved region boxes could never be drawn over it or clicked. The maintainer
 //! wants boxes visible + double-click-to-edit *everywhere*, so the embedded
 //! reader is gone and its one irreplaceable feature, `/`-search, is
-//! reimplemented here ([`SearchState`], `line_hits`) over the same
-//! `page_to_stext` structured text the select-text tool already uses.
+//! reimplemented here ([`SearchState`], over [`super::pdf_search`]) on the
+//! same `page_to_stext` structured text the select-text tool already uses,
+//! extracted and searched on a background thread (#1199).
 //!
 //! [`PdfReader`] is still *held* (as the parsed-document container behind
 //! [`ReaderSource::Pdf`] and for [`PdfReader::load_bytes`] hot-reload) but its
@@ -169,6 +170,7 @@ use super::kvim_editor::{
     CompletionSource, {EditorSignal, KvimEditorState},
 };
 use super::page_canvas::PageView;
+use super::pdf_search::{SearchHit, TextSearchWorker};
 
 /// Screen-resolution DPI for the continuous canvas's page raster and
 /// for the crop-to-digitiser render — sharp enough to read body text at a
@@ -928,15 +930,6 @@ pub enum CropResult {
 /// State for one open document: its source (embedded [`PdfReader`] or a
 /// plain image), its continuous-canvas page/
 /// zoom/cached texture, and its annotations.
-/// One in-document search hit — a tight box in `RENDER_DPI` texture-pixel
-/// space on `page`.
-#[derive(Debug, Clone, Copy)]
-struct SearchHit {
-    page: usize,
-    min: Pos2,
-    max: Pos2,
-}
-
 /// In-document `/`-search state (GH issue #35 2026-09-02) — the one feature
 /// the dropped embedded reader is missed for, reimplemented over
 /// [`kopitiam_pdf::mupdf::page_to_stext`].
@@ -951,6 +944,27 @@ struct SearchState {
     computed_for: String,
     /// Index into `hits` of the "current" hit (`Next`/`Prev` cycle it).
     current: Option<usize>,
+    /// The background extraction-and-search worker for the open document
+    /// (#1199), started by the first non-empty query and dropped whenever the
+    /// document changes. `None` before the first search.
+    worker: Option<TextSearchWorker>,
+    /// The worker generation `hits` belong to; `None` when no search is in
+    /// flight or the last one has finished.
+    pending: Option<u64>,
+    /// Pages searched so far and pages in the document, for the
+    /// "searching… n/N pages" indicator while `pending` is `Some`.
+    progress: (usize, usize),
+}
+
+impl SearchState {
+    /// Forget everything derived from the document's text, keeping the
+    /// query: the next frame starts a fresh worker and re-searches. Called
+    /// when the document under the reader changes (hot reload, page turn).
+    fn invalidate_document(&mut self) {
+        self.computed_for.clear();
+        self.worker = None;
+        self.pending = None;
+    }
 }
 
 /// A drag on the edited block's region box ([`PdfReaderState::region_drag`]).
@@ -1506,55 +1520,6 @@ fn selection_highlight(ctx: &egui::Context) -> Color32 {
     Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 90)
 }
 
-/// Every `(start_char, end_char)` half-open char range in `chars` that
-/// case-insensitively matches `needle` (ASCII fold). Overlapping matches
-/// are not returned — the scan advances past each hit.
-fn substr_char_ranges(chars: &[char], needle: &str) -> Vec<(usize, usize)> {
-    let needle: Vec<char> = needle.chars().flat_map(|c| c.to_lowercase()).collect();
-    if needle.is_empty() || needle.len() > chars.len() {
-        return Vec::new();
-    }
-    let lower: Vec<char> = chars.iter().map(|c| c.to_ascii_lowercase()).collect();
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i + needle.len() <= lower.len() {
-        if lower[i..i + needle.len()] == needle[..] {
-            out.push((i, i + needle.len()));
-            i += needle.len();
-        } else {
-            i += 1;
-        }
-    }
-    out
-}
-
-/// Case-insensitive occurrences of `needle` on one structured-text line,
-/// each as a tight bounding box in **texture-pixel space** (device-space
-/// char quads × `scale`). Word/character granularity, unlike
-/// [`select_text_in_rect`]'s line granularity — a search hit should
-/// highlight the matched word, not its whole line.
-fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) -> Vec<(Pos2, Pos2)> {
-    let chars: Vec<char> = line.chars.iter().map(|ch| ch.c).collect();
-    substr_char_ranges(&chars, needle)
-        .into_iter()
-        .map(|(s, e)| {
-            let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
-            for ch in &line.chars[s..e] {
-                for p in [ch.quad.ul, ch.quad.ur, ch.quad.ll, ch.quad.lr] {
-                    x0 = x0.min(p.x);
-                    y0 = y0.min(p.y);
-                    x1 = x1.max(p.x);
-                    y1 = y1.max(p.y);
-                }
-            }
-            (
-                Pos2::new(x0 * scale, y0 * scale),
-                Pos2::new(x1 * scale, y1 * scale),
-            )
-        })
-        .collect()
-}
-
 /// A short read-only preview of an artifact body for the page-context
 /// panel — the first few non-empty lines, capped, with an ellipsis when
 /// there is more.
@@ -1702,7 +1667,7 @@ impl PdfReaderState {
         // old orientation.
         self.pages.clear();
         self.stext_cache = None;
-        self.search.computed_for.clear();
+        self.search.invalidate_document();
         self.text_selection = None;
         self.select_start = None;
     }
@@ -1846,7 +1811,7 @@ impl PdfReaderState {
                     // raster, structured-text page and search hit is stale.
                     self.pages.clear();
                     self.stext_cache = None;
-                    self.search.computed_for.clear();
+                    self.search.invalidate_document();
                     self.message = format!("{} changed on disk — reloaded", self.path);
                 }
                 Err(e) => {
@@ -1888,6 +1853,23 @@ impl PdfReaderState {
             ReaderSource::Pdf(_) => self.annotate_page,
             ReaderSource::Image(_) | ReaderSource::None => 0,
         }
+    }
+
+    /// The 0-based page in view, for a bookmark (GitHub #1210); `0` for a
+    /// plain image, and the page asked for while a document is opening.
+    pub(super) fn page_index(&self) -> usize {
+        self.annotate_page
+    }
+
+    /// Scroll to 0-based `page` on the next frame, clamped to the document
+    /// once it is open: a bookmark's jump (GitHub #1210), as a thumbnail
+    /// click does.
+    pub(super) fn go_to_page(&mut self, page: usize) {
+        let last = self.source.page_count().saturating_sub(1);
+        let page = if self.source.page_count() > 0 { page.min(last) } else { page };
+        self.scroll_request = Some(page);
+        self.annotate_page = page;
+        self.thumb_synced = None;
     }
 
     /// The open PDF document, for a crop/stext read against the *same*
@@ -2523,45 +2505,75 @@ impl PdfReaderState {
         }
     }
 
-    /// Rescan the whole document for `self.search.query` (GH issue #35
-    /// 2026-09-02) — the `/`-search the dropped embedded reader used to
+    /// Start searching the whole document for `self.search.query` (GH issue
+    /// #35 2026-09-02) — the `/`-search the dropped embedded reader used to
     /// provide. Runs only when the query text changes (see
-    /// `SearchState::computed_for`), synchronously: a paper is a few dozen
-    /// pages of structured text, cheap enough not to warrant a worker.
+    /// `SearchState::computed_for`). ~~Synchronously: a paper is a few dozen
+    /// pages of structured text, cheap enough not to warrant a worker.~~
+    /// **CORRECTED 2026-11-04 (#1199)** — measured, it was not cheap: the old
+    /// synchronous rescan re-extracted every page on every keystroke and
+    /// blocked the UI thread for ~80 ms per character on a 42-page manual,
+    /// ~280 ms on a 326-page one and ~1.9 s on an 816-page one (numbers in
+    /// [`super::pdf_search`] and on #1199). It now only hands the query to a
+    /// background [`TextSearchWorker`], which extracts each page once per
+    /// document; [`Self::poll_search`] collects the hits.
     fn recompute_search(&mut self) {
         self.search.computed_for = self.search.query.clone();
         self.search.hits.clear();
         self.search.current = None;
-        let needle = self.search.query.trim();
-        let Some(doc) = self.current_pdf_document() else {
+        self.search.pending = None;
+        let needle = self.search.query.trim().to_string();
+        if needle.is_empty() {
+            // Supersede whatever the worker is still doing.
+            if let Some(worker) = &self.search.worker {
+                worker.submit("");
+            }
+            return;
+        }
+        let ReaderSource::Pdf(reader) = &self.source else {
             return;
         };
-        if needle.is_empty() {
+        if self.search.worker.is_none() {
+            self.search.worker = TextSearchWorker::spawn(
+                reader.document_bytes().to_vec(),
+                reader.page_count(),
+                RENDER_DPI / 72.0,
+            );
+        }
+        let Some(worker) = &self.search.worker else {
+            self.message = "could not start the search thread".to_string();
             return;
-        }
-        let scale = RENDER_DPI / 72.0;
-        let pages = self.source.page_count();
-        let mut hits = Vec::new();
-        for page in 0..pages {
-            let Ok(stext) = page_to_stext(doc, page, StextOptions::default()) else {
-                continue;
-            };
-            for block in &stext.blocks {
-                let StextBlock::Text(tb) = block else {
-                    continue;
-                };
-                for line in &tb.lines {
-                    for (min, max) in line_hits(line, needle, scale) {
-                        hits.push(SearchHit { page, min, max });
-                    }
-                }
-            }
-        }
-        if !hits.is_empty() {
+        };
+        self.search.pending = Some(worker.submit(&needle));
+        self.search.progress = (0, reader.page_count());
+    }
+
+    /// Take whatever hits the worker has published for the current query
+    /// since the last frame. The first hit to arrive becomes current and is
+    /// scrolled to — the hits arrive in document order, so that is the
+    /// document's first hit, as before #1199. Returns whether a search is
+    /// still running (so the caller keeps repainting).
+    fn poll_search(&mut self) -> bool {
+        let (Some(generation), Some(worker)) = (self.search.pending, &self.search.worker) else {
+            return false;
+        };
+        let Some(progress) = worker.poll(generation, self.search.hits.len()) else {
+            // Superseded; the newer query owns `pending` once submitted.
+            self.search.pending = None;
+            return false;
+        };
+        let was_empty = self.search.hits.is_empty();
+        self.search.hits.extend(progress.new_hits.iter().copied());
+        if was_empty && !self.search.hits.is_empty() {
             self.search.current = Some(0);
-            self.scroll_request = Some(hits[0].page);
+            self.scroll_request = Some(self.search.hits[0].page);
         }
-        self.search.hits = hits;
+        self.search.progress = (progress.pages_done, progress.page_count);
+        if progress.finished() {
+            self.search.pending = None;
+            return false;
+        }
+        true
     }
 
     /// Move the current search hit by `dir` (`+1` / `-1`), wrapping, and
@@ -3067,6 +3079,9 @@ impl PdfReaderState {
     /// must reload it from the session too after a save it drives itself.
     ///
     /// Returns `Some` only for a completed crop-then-right-click gesture.
+    ///
+    /// No test drives this function: it is egui drawing glue. Its search
+    /// logic is in `recompute_search`/`poll_search`, which tests reach.
     #[allow(clippy::needless_option_as_deref)] // `active_paper` reborrowed for two sinks
     pub fn ui(
         &mut self,
@@ -3313,8 +3328,15 @@ impl PdfReaderState {
                 if self.search.query != self.search.computed_for {
                     self.recompute_search();
                 }
+                if self.poll_search() {
+                    // Keep collecting hits while the worker runs (#1199).
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(30));
+                    let (done, total) = self.search.progress;
+                    ui.weak(format!("searching\u{2026} {done}/{total} pages"));
+                }
                 if self.search.hits.is_empty() {
-                    if !self.search.query.is_empty() {
+                    if !self.search.query.is_empty() && self.search.pending.is_none() {
                         ui.weak("no matches");
                     }
                 } else {
@@ -4947,6 +4969,7 @@ impl PdfReaderState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::pdf_search::substr_char_ranges;
     use kopitiam_pdf::mupdf::{Point, Quad, Rect as PdfRect, StextChar, StextLine, StextTextBlock};
 
     fn stub_char(c: char) -> StextChar {
@@ -5578,6 +5601,69 @@ mod tests {
         }
         assert!(substr_char_ranges(&chars, "xyz").is_empty());
         assert!(substr_char_ranges(&chars, "").is_empty());
+    }
+
+    /// Drive the reader's search the way the toolbar does each frame —
+    /// `recompute_search` on a changed query, then `poll_search` until done —
+    /// and return when the search finishes. Panics after 30 s.
+    fn run_search_to_completion(r: &mut PdfReaderState) {
+        let start = std::time::Instant::now();
+        if r.search.query != r.search.computed_for {
+            r.recompute_search();
+        }
+        while r.poll_search() {
+            assert!(start.elapsed().as_secs() < 30, "search never finished");
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
+    /// #1199: the reader's background search gives the same hits as the old
+    /// synchronous scan, selects the first hit and scrolls to its page; a
+    /// query typed over an unfinished one replaces it, and a document change
+    /// restarts the worker.
+    #[test]
+    fn background_search_matches_the_old_scan_and_selects_the_first_hit() {
+        use super::super::pdf_search::tests::{old_synchronous_scan, text_pdf, FIXTURE};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("search.pdf");
+        let bytes = text_pdf(FIXTURE);
+        std::fs::write(&path, &bytes).unwrap();
+        let doc = PdfDocument::open(bytes).unwrap();
+        let scale = RENDER_DPI / 72.0;
+
+        let mut r = PdfReaderState::new();
+        r.open(path.to_str().unwrap());
+        assert!(matches!(r.source, ReaderSource::Pdf(_)), "{}", r.message);
+
+        // A query, immediately superseded by another before any poll.
+        r.search.query = "e".into();
+        r.recompute_search();
+        r.search.query = " flux ".into();
+        run_search_to_completion(&mut r);
+        assert_eq!(r.search.hits, old_synchronous_scan(&doc, "flux", scale));
+        assert_eq!(r.search.hits.len(), 1);
+        assert_eq!(r.search.current, Some(0));
+        assert_eq!(r.scroll_request, Some(2));
+        assert_eq!(r.search.progress, (FIXTURE.len(), FIXTURE.len()));
+
+        r.search.query = "neutron".into();
+        run_search_to_completion(&mut r);
+        assert_eq!(r.search.hits, old_synchronous_scan(&doc, "neutron", scale));
+        assert_eq!(r.scroll_request, Some(0));
+
+        // Clearing the query clears the hits.
+        r.search.query.clear();
+        run_search_to_completion(&mut r);
+        assert!(r.search.hits.is_empty());
+        assert_eq!(r.search.current, None);
+
+        // A document change drops the worker and re-searches on the next frame.
+        r.search.query = "kinetics".into();
+        run_search_to_completion(&mut r);
+        r.search.invalidate_document();
+        assert!(r.search.worker.is_none());
+        run_search_to_completion(&mut r);
+        assert_eq!(r.search.hits, old_synchronous_scan(&doc, "kinetics", scale));
     }
 
     #[test]

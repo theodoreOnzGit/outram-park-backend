@@ -13,7 +13,7 @@ use crate::rungs::Rung;
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
 use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::panel::Panel;
-use dhoby_ghaut::web_demo::platform::{now_s, set_query, set_title};
+use dhoby_ghaut::web_demo::platform::{now_s, query_value, set_query, set_title};
 use dhoby_ghaut::web_demo::view::{apply_zoom, zoom_buttons, View, Zoom};
 use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 
@@ -173,6 +173,10 @@ pub struct TrisoApp {
     plot_text: f32,
     title: String,
     tapped: Option<String>,
+    /// A nuclide named by the deep link's `pick=`, resolved against the
+    /// release frame's names when the first one arrives (they are the
+    /// engine's, not known before).
+    pending_pick: Option<String>,
 }
 
 fn bits(x: f64) -> u64 {
@@ -222,7 +226,16 @@ impl TrisoApp {
             plot_text: 13.0,
             title: String::new(),
             tapped: None,
+            pending_pick: None,
         }
+        .with_deep_link(&deep_link(&dhoby_ghaut::web_demo::platform::query_pairs()))
+    }
+
+    /// Apply a parsed deep link to the opening controls (GUI glue around
+    /// [`apply_deep_link`], which the tests reach).
+    fn with_deep_link(mut self, d: &DeepLink) -> Self {
+        apply_deep_link(&mut self.c, &mut self.pending_pick, d);
+        self
     }
 
     fn set_rung(&mut self, r: Rung) {
@@ -375,6 +388,14 @@ impl TrisoApp {
                     if self.rung == Rung::Walk && f.dots.is_empty() && f.radii.is_empty() {
                         self.check = Some(f);
                     } else {
+                        if self.rung == Rung::Release {
+                            if let Some(name) = self.pending_pick.take() {
+                                let (n, _) = release_dims(&f);
+                                if let Some(p) = resolve_pick_name(&f.names[..n.min(f.names.len())], &name) {
+                                    self.c.release_pick = p;
+                                }
+                            }
+                        }
                         self.frame = Some(f);
                     }
                 }
@@ -1056,6 +1077,108 @@ const GROUP_COLOURS: [Color32; 5] = [
     Color32::from_rgb(140, 230, 140),
 ];
 
+/// The query keys the demo reads (gh:#1207, the ATOPS concept walks' deep
+/// links): `rung` (the rung table), and for the failure and release rungs
+/// `hold` (°C), `hours` (h) and `now` (h), and for the release rung `pick`
+/// (`all`, a group word of [`PICK_GROUP_WORDS`], or a nuclide name) and
+/// `leak` (`on`/`off`). `docs/site/science/fission-products/check-concepts.js`
+/// reads this list and fails if a walk page links a key that is not in it.
+pub const DEEP_LINK_KEYS: [&str; 6] = ["rung", "pick", "hold", "hours", "now", "leak"];
+
+/// The `pick=` words for the transport groups, in [`GROUPS`] order (a
+/// trailing `s` is accepted too). Also read by `check-concepts.js`.
+pub const PICK_GROUP_WORDS: [&str; 5] = ["noble", "halogen", "metal", "silver", "other"];
+
+/// What `pick=` asked for.
+#[derive(Clone, Debug, PartialEq)]
+enum PickQuery {
+    /// A release pick known without the frame (`all`, or a group).
+    Fixed(u8),
+    /// A nuclide name (lower case), resolved when the release frame arrives.
+    Name(String),
+}
+
+/// The opening state a URL asks for, e.g.
+/// `?rung=release&pick=Cs-137&hold=1600&now=100&leak=off`. Every field is
+/// optional; a value that does not parse or lies outside its control's range
+/// is dropped, never an error (the link still opens the rung).
+#[derive(Clone, Debug, Default, PartialEq)]
+struct DeepLink {
+    pick: Option<PickQuery>,
+    hold_c: Option<f64>,
+    hours: Option<f64>,
+    now_h: Option<f64>,
+    leak: Option<bool>,
+}
+
+/// A finite number in `[lo, hi]`, else nothing.
+fn in_range(v: Option<&str>, lo: f64, hi: f64) -> Option<f64> {
+    v?.trim().parse::<f64>().ok().filter(|x| x.is_finite() && *x >= lo && *x <= hi)
+}
+
+/// Parse the deep-link keys of a query. The ranges are the sliders' own:
+/// hold 1200-2500 °C, hours 10-1000 h, now 0-1000 h (clamped to the hold
+/// length when applied).
+fn deep_link(q: &[(String, String)]) -> DeepLink {
+    let pick = query_value(q, "pick").and_then(|v| {
+        let w = v.trim().to_ascii_lowercase();
+        if w.is_empty() {
+            None
+        } else if w == "all" {
+            Some(PickQuery::Fixed(PICK_ALL))
+        } else if let Some(g) = PICK_GROUP_WORDS.iter().position(|g| w == *g || w == format!("{g}s")) {
+            Some(PickQuery::Fixed(PICK_GROUP + g as u8))
+        } else {
+            Some(PickQuery::Name(w))
+        }
+    });
+    let leak = query_value(q, "leak").and_then(|v| match v.trim().to_ascii_lowercase().as_str() {
+        "on" | "1" | "true" => Some(true),
+        "off" | "0" | "false" => Some(false),
+        _ => None,
+    });
+    DeepLink {
+        pick,
+        hold_c: in_range(query_value(q, "hold"), 1200.0, 2500.0),
+        hours: in_range(query_value(q, "hours"), 10.0, 1000.0),
+        now_h: in_range(query_value(q, "now"), 0.0, 1000.0),
+        leak,
+    }
+}
+
+/// Write a deep link into the controls (and the pending nuclide name). A
+/// cursor (`now`) pauses the animation, so the page opens on that hour.
+fn apply_deep_link(c: &mut Controls, pending: &mut Option<String>, d: &DeepLink) {
+    if let Some(h) = d.hold_c {
+        c.hold_c = h;
+    }
+    if let Some(h) = d.hours {
+        c.hours = h;
+        c.cursor_h = c.cursor_h.min(h);
+    }
+    if let Some(t) = d.now_h {
+        c.cursor_h = t.min(c.hours);
+        c.playing = false;
+    }
+    if let Some(l) = d.leak {
+        c.leak_on = l;
+    }
+    match &d.pick {
+        Some(PickQuery::Fixed(p)) => c.release_pick = *p,
+        Some(PickQuery::Name(n)) => *pending = Some(n.clone()),
+        None => {}
+    }
+}
+
+/// The release pick of the nuclide called `name` among the frame's modelled
+/// `names`, matched without case or hyphens (`cs137` finds `Cs-137`).
+fn resolve_pick_name(names: &[String], name: &str) -> Option<u8> {
+    let norm = |s: &str| s.to_ascii_lowercase().replace('-', "");
+    let want = norm(name);
+    let i = names.iter().position(|n| norm(n) == want)?;
+    u8::try_from(i).ok().and_then(|i| i.checked_add(PICK_ONE))
+}
+
 /// The nuclides (frame indices) a pick selects.
 fn selected_nuclides(f: &Frame, pick: u8) -> Vec<usize> {
     let (n, _) = release_dims(f);
@@ -1673,5 +1796,88 @@ impl eframe::App for TrisoApp {
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| self.canvas(ui));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn q(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    }
+
+    /// The deep links of the ATOPS concept walks (gh:#1207) open the state
+    /// they name. Methodology: parse fixed queries and apply them to the
+    /// default controls. A nuclide pick waits for the frame; a group or
+    /// `all` is set at once; `now` pauses the cursor at that hour, clamped to
+    /// the hold; `leak` switches the leak. Result (2026-11-04): as asserted.
+    #[test]
+    fn deep_links_set_the_opening_state() {
+        let d = deep_link(&q(&[("rung", "release"), ("pick", "Cs-137"), ("hold", "1600"), ("now", "100"), ("leak", "off")]));
+        assert_eq!(d.pick, Some(PickQuery::Name("cs-137".into())));
+        let (mut c, mut pending) = (Controls::default(), None);
+        apply_deep_link(&mut c, &mut pending, &d);
+        assert_eq!(c.hold_c, 1600.0);
+        assert_eq!(c.cursor_h, 100.0);
+        assert!(!c.playing);
+        assert!(!c.leak_on);
+        assert_eq!(pending.as_deref(), Some("cs-137"));
+        assert_eq!(c.release_pick, PICK_ALL);
+
+        let d = deep_link(&q(&[("pick", "silver"), ("hours", "200"), ("now", "900")]));
+        let (mut c, mut pending) = (Controls::default(), None);
+        apply_deep_link(&mut c, &mut pending, &d);
+        assert_eq!(c.release_pick, PICK_GROUP + 3);
+        assert_eq!(c.hours, 200.0);
+        assert_eq!(c.cursor_h, 200.0, "now is clamped to the hold length");
+        assert!(pending.is_none());
+        assert_eq!(deep_link(&q(&[("pick", "halogens")])).pick, Some(PickQuery::Fixed(PICK_GROUP + 1)));
+        assert_eq!(deep_link(&q(&[("pick", "ALL")])).pick, Some(PickQuery::Fixed(PICK_ALL)));
+        assert_eq!(deep_link(&q(&[("leak", "on")])).leak, Some(true));
+    }
+
+    /// Unknown keys and bad or out-of-range values are ignored: the controls
+    /// stay at their defaults and nothing panics.
+    #[test]
+    fn bad_deep_link_values_are_ignored() {
+        let d = deep_link(&q(&[
+            ("hold", "hot"),
+            ("hours", "5"),
+            ("now", "-3"),
+            ("leak", "maybe"),
+            ("pick", ""),
+            ("colour", "red"),
+        ]));
+        assert_eq!(d, DeepLink::default());
+        assert_eq!(deep_link(&q(&[("hold", "9000")])).hold_c, None);
+        assert_eq!(deep_link(&q(&[("hold", "NaN")])).hold_c, None);
+        assert_eq!(deep_link(&q(&[("hold", "inf")])).hold_c, None);
+        let (mut c, mut pending) = (Controls::default(), None);
+        apply_deep_link(&mut c, &mut pending, &d);
+        assert!(c == Controls::default());
+        assert!(pending.is_none());
+    }
+
+    /// A nuclide name resolves against the frame's names without case or
+    /// hyphens; a name the frame does not carry resolves to nothing (the
+    /// pick stays at `all`).
+    #[test]
+    fn pick_names_resolve_against_the_frame() {
+        let names: Vec<String> = ["Kr-88", "Cs-137", "Ag-110m"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(resolve_pick_name(&names, "cs-137"), Some(PICK_ONE + 1));
+        assert_eq!(resolve_pick_name(&names, "AG110M"), Some(PICK_ONE + 2));
+        assert_eq!(resolve_pick_name(&names, "Xe-999"), None);
+    }
+
+    /// The group words cover the engine's groups one for one, and the key
+    /// list has no duplicates.
+    #[test]
+    fn deep_link_word_lists_are_consistent() {
+        assert_eq!(PICK_GROUP_WORDS.len(), GROUPS.len());
+        let mut k = DEEP_LINK_KEYS.to_vec();
+        k.sort_unstable();
+        k.dedup();
+        assert_eq!(k.len(), DEEP_LINK_KEYS.len());
     }
 }

@@ -400,7 +400,11 @@ mod tests {
             }
             panic!("timed out");
         };
-        wait(&|s| matches!(s.index, Some(Load::Ready(_))) && s.layout.is_some());
+        // `build.json` loads on its own: wait for it too (GitHub #1166, the
+        // assert below raced it about 1 run in 5).
+        wait(&|s| {
+            matches!(s.index, Some(Load::Ready(_))) && s.layout.is_some() && matches!(s.build, Some(Load::Ready(_)))
+        });
         assert_eq!(store.shared.read().unwrap().build.as_ref().unwrap().ready().unwrap().repo, DEFAULT_REPO);
         store.want_crate("a", || {});
         store.want_crate("zz", || {});

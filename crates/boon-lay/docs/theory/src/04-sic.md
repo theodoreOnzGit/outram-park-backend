@@ -23,7 +23,7 @@ do that the others do not, and what can take that away?**
    SiC alone.
 
 If the SiC fails, both jobs fail at once. The layers are described this way in
-[rung 1](../../tutorials/triso-atops/triso.html).
+[*Why layers?*](../../science/fission-products/barriers-why.html).
 
 ## How big is the diffusion contrast?
 
@@ -45,8 +45,11 @@ For Cs it is 120 at 1000 °C and 440 at 1600 °C.
 | Ag-110m | 1600 | 74 | 1.3e-2 |
 | Kr-85 | 1600 | 13 | 7.4e-2 |
 
-(From the [rung 4 table](../../tutorials/triso-atops/layers.html), run
-2026-10-04. The contrast is among the crate's coefficients; it is **not** a
+(~~From the [*Migration through the layers*](../../science/fission-products/barriers-migration.html), run
+2026-10-04.~~ **CORRECTED 2026-11-04:** from `examples/layer_diffusion_table.rs`, run
+2026-10-04, as recorded on the retired tutorial's rung 4
+([`layers.md` at `e5ba96e`](https://github.com/theodoreOnzGit/outram-park-backend/blob/e5ba96e7b0ac71f7b1c2dd425c8555d387989f3b/crates/boon-lay/docs/tutorial/src/layers.md), gh:#1207); that record is not on any lesson page now.
+[*Migration through the layers*](../../science/fission-products/barriers-migration.html) draws the same coefficients. The contrast is among the crate's coefficients; it is **not** a
 comparison with a measured barrier.)
 
 *What it means for an atom.* The walker crosses an interface with probability

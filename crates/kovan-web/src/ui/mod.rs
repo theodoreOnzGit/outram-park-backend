@@ -161,6 +161,11 @@ pub enum HostRequest {
     /// shows what changed in the callee and signs a new review carrying the
     /// previous answers, without the wizard.
     Reconfirm(FunctionRef),
+    /// "Run this test" (GitHub #1165, maintainer 2026-11-03): offered only
+    /// on a `#[test]` function. The host runs that one test (`package`,
+    /// libtest name `test`) and shows its output; a partial run, never
+    /// counted.
+    RunTest { function: FunctionRef, package: String, test: String },
 }
 
 /// The Code Review UI.
@@ -744,7 +749,8 @@ impl CodeReview {
             ),
             None => (Vec::new(), 0, Vec::new()),
         };
-        Some(BarInfo { name, id: id.clone(), review: facts.review(id), maturity, blocked, callees, loading, tests, tests_total, examples })
+        let test_name = slice.and_then(|s| model::libtest_name(&s.krate, id));
+        Some(BarInfo { name, id: id.clone(), review: facts.review(id), maturity, blocked, callees, loading, tests, tests_total, examples, test_name })
     }
 
     fn bar_action(&mut self, a: BarAction, snap: &Snap) {
@@ -757,6 +763,18 @@ impl CodeReview {
             BarAction::ViewSource => {
                 self.source = self.place.selected.clone();
                 self.sync_hash();
+            }
+            BarAction::RunTest => {
+                let id = self.place.selected.clone();
+                let test = id.as_deref().and_then(|id| snap.slice_of(id)).zip(id.as_deref()).and_then(|(s, id)| model::libtest_name(&s.krate, id));
+                let f = id.as_deref().and_then(|id| self.function_ref(snap, id));
+                match (self.mode.can_run_tests(), f, test) {
+                    (true, Some(f), Some(test)) => {
+                        let package = f.krate.clone();
+                        self.host_request = Some(HostRequest::RunTest { function: f, package, test });
+                    }
+                    _ => self.status = Some("Run this test: only a test function, in desktop kovan.".into()),
+                }
             }
             BarAction::Stamp | BarAction::NeedsFix => {
                 if !self.mode.can_stamp() {
@@ -1190,6 +1208,48 @@ mod tests {
         w.bar_action(BarAction::NeedsFix, &snap);
         assert_eq!(w.take_host_request(), None);
         assert!(w.status.as_deref().unwrap_or("").contains("desktop-only"));
+    }
+
+    /// #1165, "Run this test". Desktop, a `#[test]` function with its
+    /// crate's slice loaded: one RunTest request naming the package and the
+    /// libtest name. Not a test, or the web: no request, a status instead.
+    #[test]
+    fn run_this_test_queues_a_host_request_for_a_test_only() {
+        let mut snap = snap_with_map();
+        let slice = kovan_common::call_graph::split::CrateSlice {
+            schema: 1,
+            krate: crate::model::tests::krate(),
+            calls: vec![],
+            module_calls: vec![],
+            crate_calls: vec![],
+            outside: vec![],
+            commit: None,
+            site_base: None,
+            files: vec![],
+            uses: vec![],
+        };
+        snap.crates.insert("bl".into(), crate::data::Load::Ready(Arc::new(slice)));
+        let src = || DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() };
+        let test = "crates/bl/src/tests.rs::rate_is_positive";
+        let mut d = CodeReview::new(Mode::Desktop, src());
+        d.place.selected = Some(test.into());
+        assert_eq!(d.bar_info(&snap).and_then(|b| b.test_name).as_deref(), Some("tests::rate_is_positive"));
+        d.bar_action(BarAction::RunTest, &snap);
+        match d.take_host_request() {
+            Some(HostRequest::RunTest { function, package, test: name }) => {
+                assert_eq!((function.id.as_str(), package.as_str(), name.as_str()), (test, "bl", "tests::rate_is_positive"));
+            }
+            other => panic!("{other:?}"),
+        }
+        d.place.selected = Some("crates/bl/src/chem.rs::rate".into());
+        assert_eq!(d.bar_info(&snap).and_then(|b| b.test_name), None);
+        d.bar_action(BarAction::RunTest, &snap);
+        assert_eq!(d.take_host_request(), None);
+        assert!(d.status.as_deref().unwrap_or("").contains("only a test function"));
+        let mut w = CodeReview::new(Mode::Web, src());
+        w.place.selected = Some(test.into());
+        w.bar_action(BarAction::RunTest, &snap);
+        assert_eq!(w.take_host_request(), None);
     }
 
     /// The host's navigate request is held until the code map is there,

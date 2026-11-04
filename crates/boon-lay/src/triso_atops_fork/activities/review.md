@@ -460,19 +460,19 @@ id = "review-plate-out-steadystate-theodoreonzgit-8ea2eef1"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:20:47+08:00"
-modified = "2026-11-02T13:20:47+08:00"
+modified = "2026-11-04T15:14:49+08:00"
 target = "fn:8ea2eef18751cdc9"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::plate_out_steadystate"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-11-02"
-signed_at = "2026-11-02T13:20:47+08:00"
-commit = "7f59cd7f4a2cc702711b545e02321a330788065b"
+date = "2026-11-04"
+signed_at = "2026-11-04T15:14:49+08:00"
+commit = "807aa57d91b634061207bd8bca49d96dc3f7f4a5"
 hash = "sha256:a4582845d242eaac109123741e2f00ee38dbd45ddf6133b85561fbea369e9750"
 doc_hash = "sha256:e5252425075dd535fa65ba2501b62fd701771dd5bfc754259743c0620e72ff26"
-cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
 
 [review.callees]
 "fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
@@ -491,14 +491,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "SrrNdIY8uBl6wyuflRq3U8jEFw7V1UcFkC/7kyHjYx2AgL0UQpKYCS+utMzt+vCrjHh3DwgR06Ijckvt3yqWAg=="
+value = "Hy2E+s1JRprw/bc8cTCHV45Mc/mGz87yvJwXIqYnAXghloGUkovKV76S3y7Bwr7UlY4H3+G74VsExXWiR8h+Bw=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -506,10 +502,11 @@ kind = "implements"
 ```
 
 plating out function matches upstream plate_out_steadystate in TRISOATOPS python
+This is the analytical integral
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit 7f59cd7f4a.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 807aa57d91.
 
 # Review: plate_out (github:theodoreOnzGit)
 
@@ -641,19 +638,19 @@ id = "review-clean-up-theodoreonzgit-1365b3b5"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:26:30+08:00"
-modified = "2026-11-02T13:26:30+08:00"
+modified = "2026-11-04T15:15:53+08:00"
 target = "fn:1365b3b5318e0a5d"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::clean_up"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-11-02"
-signed_at = "2026-11-02T13:26:31+08:00"
-commit = "e4e84814e8b351269093bb54f63d7834bfc5d843"
+date = "2026-11-04"
+signed_at = "2026-11-04T15:15:53+08:00"
+commit = "57c15041aee75278b58ac7425c0097e1291a6d91"
 hash = "sha256:c942284721244108e667ca31e29958749cc2bb1be0458b653a2b2f3da2bf3d67"
 doc_hash = "sha256:a09bb66dc21dd22bdf65b64e83cce12a6038e8e36da5d8f0f85b6de95caacdd5"
-cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
 
 [review.callees]
 "fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
@@ -673,17 +670,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = [
-    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
-    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
-]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "JVB2omsEH5q6BieXOXWkHhoEVVaW3sKijfj7Ccjrt0f33hZUlpOaZaZKKHzpncC/snqd25Qx1I2WdsgjDPw2AQ=="
+value = "lFHNF2K7gc4pvHG6kaCJs566Vt2qj+YfT+DFW3bMHqE69zedosTcL+aMsDIrG7a4XRGzgaOCVY7rMwmuYgPWDw=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -691,10 +681,11 @@ kind = "implements"
 ```
 
 follow upstream, checked against clean_up python code
+This is the analytical integral (see doc comments)
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e4e84814e8.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 57c15041ae.
 
 # Review: circulating (github:theodoreOnzGit)
 
@@ -704,19 +695,19 @@ id = "review-circulating-theodoreonzgit-98e15d9c"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:28:00+08:00"
-modified = "2026-11-02T13:28:00+08:00"
+modified = "2026-11-04T15:14:19+08:00"
 target = "fn:98e15d9c13a78899"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::circulating"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-11-02"
-signed_at = "2026-11-02T13:28:00+08:00"
-commit = "e4e84814e8b351269093bb54f63d7834bfc5d843"
+date = "2026-11-04"
+signed_at = "2026-11-04T15:14:19+08:00"
+commit = "7be5389ecccdb826b3a40143867fe1d1c72c3461"
 hash = "sha256:0f0a6db70afe1338a4117433d1546cdbe5d5d3d5267c95e2b2a6ca7cf961ca85"
 doc_hash = "sha256:5bf8ec6362689f806a0311b17fc870a8d0d5d41496795b82d1348620e2c0c72d"
-cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
 
 [review.callees]
 "fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
@@ -736,17 +727,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = [
-    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
-    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
-]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "54OZpz3kEfJOfFrcBR10Dk2zzFeFJyMK6OT224BQgOkFOSb1buwTJ6SylszqEaGt38r92x41cQNIgVr01dJ2Cg=="
+value = "QRvJ1MSg+OB4ZQNx2b7V5OQFppJcLOR4SdCG26yQ/nBJY/25dqrdD4EGpAegL5w+2EuSMChXhykra8++Zr2XCw=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -754,10 +738,11 @@ kind = "implements"
 ```
 
 follow upstream, circulating function in TRISO ATOPS
+This is the analytical integral
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e4e84814e8.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 7be5389ecc.
 
 # Review: circulating_steadystate (github:theodoreOnzGit)
 
@@ -767,19 +752,19 @@ id = "review-circulating-steadystate-theodoreonzgit-269096ca"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:29:22+08:00"
-modified = "2026-11-02T13:29:22+08:00"
+modified = "2026-11-04T15:14:35+08:00"
 target = "fn:269096cad00d2563"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::circulating_steadystate"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-11-02"
-signed_at = "2026-11-02T13:29:22+08:00"
-commit = "a79697dc87eb7d335c87ce81ab0056319f598783"
+date = "2026-11-04"
+signed_at = "2026-11-04T15:14:35+08:00"
+commit = "800187369bc78f62383254bbe8031bcc1313b927"
 hash = "sha256:8020635ac2d7627b8c13c4e3f24285459c10eda8c1ce2c8971c0e8e6e80dcd03"
 doc_hash = "sha256:88fe9e9b0c5e86b51b35d2f61fc43be2844e6c8b7f412b6f7d8a310b3d97ef55"
-cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
 
 [review.callees]
 "fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
@@ -798,14 +783,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "JZ0Bo6kySliwM8rl3p6tmKh86i2MjWlCQ6atQ9nHG63VEKRw1iGrQnGWwuNf8wpq18Uggg6GUSVIBFsO+XwDDw=="
+value = "pqWrHv/JpYLilb9anySVxFmJG4sEs0flww+Wr1Z1RQs69iSQf7D6O8G/6KFnrkRLlJ1+CduJypzf9wqRIOEnDw=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -813,10 +794,11 @@ kind = "implements"
 ```
 
 follow upstream, circulating_steadystate in python TRISO ATOPS
+This is the analytical integral
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit a79697dc87.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 800187369b.
 
 # Review: base_activities (github:theodoreOnzGit)
 
@@ -1194,3 +1176,62 @@ ablation/sensitivity testing utility for readings of TRISO ATOPS (uses TrisoAtop
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-03, commit 4a788b5f72.
+
+# Review: step (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-step-theodoreonzgit-f37cec30"
+kind = "review"
+origin = "human"
+created = "2026-11-04T15:10:06+08:00"
+modified = "2026-11-04T15:12:09+08:00"
+target = "fn:f37cec301c5918a4"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T15:12:10+08:00"
+commit = "1e369368ecaf4bc2cf6eaaf52c222dc7a2033d19"
+hash = "sha256:679dafd954ddb4359227d970029a9de1bfa6d1f77031b39d113ada4194c1d936"
+doc_hash = "sha256:a6a6b9300a8a9f32c4d619e6859afd4ff4ef70d2f30aadfb9d8cee48c61d7c26"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
+
+[review.callees]
+"fn:0e9ccca890f6126d" = "sha256:3900326329f1200d7bab64933aa5a5edc6b76f2742a3938411ba4b975ed236ad"
+"fn:46b0d3d8a500434a" = "sha256:96c58430e7ccefcba6f2340b7d2b6620ec271f91404971e24e4a3ce5182276f6"
+"fn:507456e528cbc960" = "sha256:526e9979f678df8ed90d3915e9570e8be7e1fe96735795252fd39df33a200cb8"
+"fn:60da73c1a5c2618c" = "sha256:ecb178c561fbb8da759ba2a0a1716230a693a1fc2423b7fdc03d4a4e9ac28945"
+"fn:8d5a30749926de65" = "sha256:8840fbdd71c0be0085c763cb6b8a52b63a179a437c858a4904f8e7745bb05ca2"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: upstream doesn't even give results, we can always wrap it in results guard wrapper later"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour, ATOPS doesn't even check, limited guards present for negative or infinite timestep"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "5ArXiWBQH/QffcwHHsP0j0IwyAzs2ODtqPIerEBfDf/zHAIPJ594hYXwOHjnHFZsxNK9UHdPgG8t9m8VzbqDBA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+SUPER IMPORTANT. This is where the numerical integration happens for each of the pools
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 1e369368ec.

@@ -19,8 +19,15 @@
 //! way the stamp states are the same, as the test
 //! `kept_messages_survive_a_restart_and_match_git` checks.
 //!
+//! **A corrupt file is rebuilt** (maintainer, 2026-11-04: "regenerate cache
+//! if it is corrupted"). Since that day the file carries a checksum of its
+//! contents (`check`); one that fails it, or does not parse, is ignored as
+//! a whole, and the answers git gives again are written afresh by the same
+//! refresh. A file written before the checksum existed (no `check`) is
+//! read as it is and rewritten with one by that refresh.
+//!
 //! ```text
-//!  { "format": 1,
+//!  { "format": 1, "check": "sha256:…",
 //!    "messages": ["msg A", "msg B", …],          each text once
 //!    "logs": [ { "rev": "<sha>", "file": "x.rs", "m": [0, 1] }, … ] }
 //! ```
@@ -45,8 +52,17 @@ struct Store {
 #[derive(Serialize, Deserialize)]
 struct OnDisk {
     format: u32,
+    /// [`check`] of the contents; absent in a file written before it
+    /// existed (module doc).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    check: Option<String>,
     messages: Vec<String>,
     logs: Vec<Log>,
+}
+
+/// The checksum of the contents as written (module doc).
+fn check(messages: &[String], logs: &[Log]) -> Option<String> {
+    serde_json::to_string(&(messages, logs)).ok().map(|t| kovan_common::review::hash::sha256_tagged(t.as_bytes()))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -61,28 +77,35 @@ fn stores() -> &'static Mutex<HashMap<PathBuf, Store>> {
     S.get_or_init(Default::default)
 }
 
-/// The kept answers of `root`'s file; empty when there is none or it does
-/// not read (module doc).
-fn read(root: &Path) -> HashMap<(String, String), Vec<String>> {
-    let Ok(text) = std::fs::read_to_string(root.join(STORE)) else { return HashMap::new() };
-    let Ok(d) = serde_json::from_str::<OnDisk>(&text) else { return HashMap::new() };
+/// The kept answers of `root`'s file, and whether it must be rewritten (it
+/// has no checksum yet); empty when there is none, or it is corrupt or of
+/// another format (module doc).
+fn read(root: &Path) -> (HashMap<(String, String), Vec<String>>, bool) {
+    let Ok(text) = std::fs::read_to_string(root.join(STORE)) else { return Default::default() };
+    let Ok(d) = serde_json::from_str::<OnDisk>(&text) else { return Default::default() };
     if d.format != FORMAT {
-        return HashMap::new();
+        return Default::default();
     }
-    d.logs
+    let unchecked = match &d.check {
+        Some(c) if check(&d.messages, &d.logs).as_ref() == Some(c) => false,
+        Some(_) => return Default::default(),
+        None => true,
+    };
+    let logs = d.logs
         .into_iter()
         .filter_map(|l| {
             let m: Option<Vec<String>> = l.m.iter().map(|&i| d.messages.get(i as usize).cloned()).collect();
             m.map(|m| ((l.rev, l.file), m))
         })
-        .collect()
+        .collect();
+    (logs, unchecked)
 }
 
 fn with<T>(root: &Path, f: impl FnOnce(&mut Store) -> T) -> Option<T> {
     let mut s = stores().lock().ok()?;
-    let store = s.entry(root.to_path_buf()).or_insert_with(|| Store {
-        logs: read(root),
-        dirty: false,
+    let store = s.entry(root.to_path_buf()).or_insert_with(|| {
+        let (logs, dirty) = read(root);
+        Store { logs, dirty }
     });
     Some(f(store))
 }
@@ -110,9 +133,12 @@ pub(crate) fn save(root: &Path) -> Result<(), String> {
         s.dirty = false;
         let mut index: BTreeMap<&str, u32> = BTreeMap::new();
         let mut messages: Vec<String> = Vec::new();
-        let mut logs: Vec<Log> = s
-            .logs
-            .iter()
+        // Numbered in (rev, file) order, so the same answers always give
+        // the same file (a HashMap's order differs between runs).
+        let mut sorted: Vec<_> = s.logs.iter().collect();
+        sorted.sort_by(|a, b| a.0.cmp(b.0));
+        let logs: Vec<Log> = sorted
+            .into_iter()
             .map(|((rev, file), ms)| Log {
                 rev: rev.clone(),
                 file: file.clone(),
@@ -127,8 +153,7 @@ pub(crate) fn save(root: &Path) -> Result<(), String> {
                     .collect(),
             })
             .collect();
-        logs.sort_by(|a, b| (&a.rev, &a.file).cmp(&(&b.rev, &b.file)));
-        serde_json::to_string(&OnDisk { format: FORMAT, messages, logs }).ok()
+        serde_json::to_string(&OnDisk { format: FORMAT, check: check(&messages, &logs), messages, logs }).ok()
     })
     .flatten() else {
         return Ok(());
@@ -172,11 +197,29 @@ mod tests {
         assert_eq!(kept(root, &a, "u.rs"), None);
         let text = std::fs::read_to_string(root.join(STORE)).unwrap();
         assert_eq!(text.matches("shared").count(), 1);
-        for bad in ["not json", r#"{"format":99,"messages":[],"logs":[]}"#] {
+        // Corrupt: a message changed under its checksum, cut short, not
+        // JSON, another format. All ignored.
+        let altered = text.replacen("one", "two", 1);
+        for bad in [altered.as_str(), &text[..text.len() / 2], "not json", r#"{"format":99,"messages":[],"logs":[]}"#] {
             std::fs::write(root.join(STORE), bad).unwrap();
             forget(root);
             assert_eq!(kept(root, &a, "t.rs"), None, "{bad}");
         }
         assert_eq!(save(root), Ok(()), "nothing new: nothing written");
+        // Asked of git again and kept: the file is rewritten whole.
+        keep(root, &a, "t.rs", vec!["one".into(), "shared".into()]);
+        keep(root, &b, "t.rs", vec!["shared".into()]);
+        save(root).unwrap();
+        assert_eq!(std::fs::read_to_string(root.join(STORE)).unwrap(), text);
+        // A file from before the checksum: read as it is, rewritten with one.
+        let old = r#"{"format":1,"messages":["m"],"logs":[{"rev":"c","file":"t.rs","m":[0]}]}"#;
+        std::fs::write(root.join(STORE), old).unwrap();
+        forget(root);
+        assert_eq!(kept(root, "c", "t.rs").unwrap(), ["m"]);
+        save(root).unwrap();
+        let rewritten = std::fs::read_to_string(root.join(STORE)).unwrap();
+        assert!(rewritten.contains("\"check\":\"sha256:"), "{rewritten}");
+        forget(root);
+        assert_eq!(kept(root, "c", "t.rs").unwrap(), ["m"], "and it passes its own check");
     }
 }

@@ -5,8 +5,9 @@
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
 *You may have arrived from the
-[TRISO-ATOPS ladder](../../tutorials/triso-atops/intro.html), which teaches
-the crate rung by rung through code. This book asks a different question:
+~~TRISO-ATOPS ladder, which teaches the crate rung by rung through code~~
+[Fission products lessons](../../science/index.html#fission-products) (the ladder was folded
+into them on 2026-11-04, gh:#1207), which teach the crate one lesson at a time, with the code. This book asks a different question:
 what is the physics behind fission product transport, and which
 simplifications are we making when we compute it?*
 
@@ -41,7 +42,7 @@ A TRISO particle is five concentric spheres, under a millimetre across
 (HTR-10 values, from
 [`fuel_failure::htr10`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs),
 transcribed from IAEA-TECDOC-1382 part 2, Table 4-17, as the
-[rung 1](../../tutorials/triso-atops/triso.html) page records;
+[*Why layers?*](../../science/fission-products/barriers-why.html) page records;
 International Atomic Energy Agency, 2003, *Evaluation of High Temperature Gas Cooled Reactor Performance*, IAEA-TECDOC-1382, as cited in the repo):
 
 ```text
@@ -68,7 +69,7 @@ The radii are the same ones the cascade probe uses (interfaces at 0, 40, 75,
 115, 205 and 455 µm when counted inward from the outer surface; see the
 [RustBCA cascade record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/verification_and_validation/rustbca_cascades/README.md)).
 The CRP-6 benchmark particle is a little smaller (212.5 to 427.5 µm); see
-[rung 1](../../tutorials/triso-atops/triso.html) for both. The buffer is
+[*Why layers?*](../../science/fission-products/barriers-why.html) for both. The buffer is
 "about 50 % voids" in that page's words; the exact porosity is not needed here.
 
 ## The map of the twenty-one steps

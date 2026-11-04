@@ -95,7 +95,7 @@ library that must build for Android has no use for them.
 running upstream (`dev/gen_upstream_run_file_reference.py`,
 `tests/triso_atops_upstream_run_file.rs`). The name normalisation is part of
 the third code-to-code pass (31 cases). See
-[rung 7](../../tutorials/triso-atops/coolant.html#step-2-through-the-graphite-and-into-the-helium) for the
+[*Into the coolant*](../../science/fission-products/atops-coolant.html) for the
 whole suite's numbers.
 
 **Re-run 2026-10-04** (`develop` atop `5e802df3a4`, `--release`): pass. Two

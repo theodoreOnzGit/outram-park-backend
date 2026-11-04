@@ -8,6 +8,7 @@
 // The plot helpers and some imports serve only the `long-tests` runs.
 #![cfg_attr(not(feature = "long-tests"), allow(unused_imports, dead_code))]
 
+use petir::mathf::RealMath;
 use outram_blender::csg::plot::annotate::draw_text;
 use outram_blender::csg::plot::colour::{Rgb, BLACK, WHITE};
 use outram_blender::csg::plot::image::ImageData;
@@ -172,7 +173,7 @@ fn line(img: &mut ImageData, (x0, y0): (f64, f64), (x1, y1): (f64, f64), c: Rgb)
 fn plot(path: &str, title: &str, xr: (f64, f64), yr: (f64, f64), log_y: bool, xlabel: &str, series: &[Series]) {
     let (w, h, l, b, t) = (900usize, 420usize, 80usize, 40usize, 10usize);
     let mut img = ImageData::filled(w + l + 20, h + b + t, WHITE);
-    let fy = |y: f64| if log_y { y.max(1e-300).log10() } else { y };
+    let fy = |y: f64| if log_y { y.max(1e-300).r_log10() } else { y };
     let (y0, y1) = (fy(yr.0), fy(yr.1));
     let px = |x: f64| l as f64 + (x - xr.0) / (xr.1 - xr.0) * w as f64;
     let py = |y: f64| t as f64 + (1.0 - (fy(y) - y0) / (y1 - y0)) * h as f64;
@@ -843,5 +844,161 @@ fn rz_crw_cases() {
                 ],
             );
         }
+    }
+}
+
+/// Observed order and Richardson extrapolation from three meshes refined
+/// by a constant ratio `r` (coarse `f1`, medium `f2`, fine `f3`; Roache
+/// 1998, the generalised Richardson form): `p = ln((f1 - f2)/(f2 - f3)) /
+/// ln r`, `f_ext = f3 + (f3 - f2)/(r^p - 1)`. `None` when the differences
+/// change sign (oscillatory: no order exists) or vanish.
+fn richardson(f1: f64, f2: f64, f3: f64, r: f64) -> Option<(f64, f64)> {
+    let (d12, d23) = (f1 - f2, f2 - f3);
+    if d12 == 0.0 || d23 == 0.0 || d12.signum() != d23.signum() {
+        return None;
+    }
+    let p = (d12 / d23).r_ln() / r.r_ln();
+    Some((p, f3 + (f3 - f2) / (r.r_powf(p) - 1.0)))
+}
+
+/// The Richardson helper on manufactured sequences: `f = 1 + h^2` gives
+/// order 2 and the limit 1 exactly, `f = 1 + h` order 1; an oscillating
+/// sequence is refused.
+#[test]
+fn richardson_recovers_a_known_order() {
+    let f = |h: f64| 1.0 + h * h;
+    let (p, e) = richardson(f(0.4), f(0.2), f(0.1), 2.0).unwrap();
+    assert!((p - 2.0).abs() < 1e-12 && (e - 1.0).abs() < 1e-12, "{p} {e}");
+    let (p, e) = richardson(1.4, 1.2, 1.1, 2.0).unwrap();
+    assert!((p - 1.0).abs() < 1e-12 && (e - 1.0).abs() < 1e-12, "{p} {e}");
+    assert!(richardson(1.0, 2.0, 1.5, 2.0).is_none());
+}
+
+/// One mesh-study row (gh:#1176): the LOFC metrics plus the quantities
+/// that say where a mesh change acts.
+#[cfg(feature = "long-tests")]
+struct MeshRow {
+    cells: usize,
+    recrit_s: f64,
+    late_kw: f64,
+    rccs_3h_kw: f64,
+    min_pcm: f64,
+    mod_c: [f64; 4],
+    p100: f64,
+}
+
+/// Run `case` and print its mesh-study row: cells, the LOFC metrics,
+/// P(100 s), the heat to the RCCS and heads at 0 and 3 h, the initial
+/// fuel / moderator / reflector temperatures and the moderator reading at
+/// 1800, 3600 and 7200 s, the largest bed upflow after 1000 s, and the wall
+/// time.
+#[cfg(feature = "long-tests")]
+fn mesh_row(case: &LofcCase) -> Option<MeshRow> {
+    let started = std::time::Instant::now();
+    let (sim, trace) = match run_lofc(case) {
+        Ok(x) => x,
+        Err(e) => {
+            println!("| {} | FAILED: {e} | ({:.0} s) |", case.name, started.elapsed().as_secs_f64());
+            return None;
+        }
+    };
+    let cells = match sim.core() {
+        CoreModel::RzPorous(c) => c.core().solid().field().mesh().n_cells(),
+        _ => 0,
+    };
+    let m = summarise_lofc(&case.name, &trace);
+    let last = *trace.last().unwrap();
+    let at = |t: f64| *trace.iter().find(|x| x.time_s >= t - 1e-6).unwrap_or(&last);
+    let p0 = trace[0].fission_power_w;
+    let x0 = trace[0];
+    let mod_c = [0.0, 1800.0, 3600.0, 7200.0].map(|t| at(t).moderator_k - 273.15);
+    let up = trace.iter().filter(|x| x.time_s >= 1000.0).map(|x| x.bed_upflow_kg_s).fold(0.0, f64::max);
+    let row = MeshRow {
+        cells,
+        recrit_s: m.reactivity_zero_crossing_s.unwrap_or(f64::NAN),
+        late_kw: m.late_total_power_w / 1e3,
+        rccs_3h_kw: at(10_800.0).heat_to_rccs_w / 1e3,
+        min_pcm: m.min_reactivity.0 * 1e5,
+        mod_c,
+        p100: at(100.0).fission_power_w / p0,
+    };
+    println!(
+        "  {}: {} cells; P(100 s) {:.4}; RCCS+heads 0 / 3 h {:.2} / {:.2} kW; initial fuel / moderator / reflector {:.2} / {:.2} / {:.2} C; moderator at 1800 / 3600 / 7200 s {:.2} / {:.2} / {:.2} C; max bed upflow after 1000 s {:.4} kg/s; wall {:.0} s",
+        case.name,
+        row.cells,
+        row.p100,
+        x0.heat_to_rccs_w / 1e3,
+        row.rccs_3h_kw,
+        x0.fuel_k - 273.15,
+        x0.moderator_k - 273.15,
+        x0.reflector_k - 273.15,
+        mod_c[1],
+        mod_c[2],
+        mod_c[3],
+        up,
+        started.elapsed().as_secs_f64()
+    );
+    Some(row)
+}
+
+/// **V&V: geometric mesh study of `RZ-BASE` (gh:#1176).** The 20 cm mesh
+/// (`REF-1X`, 1452 cells) with every cell split 2 x 2 (`REF-2X`) and
+/// 4 x 4 (`REF-4X`): ratio 2, every region boundary on a face (unlike the
+/// `max_cell` sequence of [`rz_lofc_mesh_check`], which refines different
+/// Fig 2.5 intervals by different ratios). Prints each row, then the
+/// observed order and the Richardson-extrapolated value of the
+/// re-criticality, the mean power of the last 30 min, the heat to the RCCS
+/// and heads at 3 h, the minimum reactivity, the moderator reading at
+/// 3600 s and P(100 s). Predictions (committed before this ran) and
+/// results: README Sec 10.
+#[cfg(feature = "long-tests")]
+#[test]
+fn rz_lofc_geometric_mesh_study() {
+    println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    let base = LofcCase::rz_base().unwrap();
+    let rows: Vec<Option<MeshRow>> = [1, 2, 4]
+        .into_iter()
+        .map(|f| mesh_row(&base.clone().with_rz_options(|o| o.with_refinement(f, f)).named(&format!("REF-{f}X"))))
+        .collect();
+    if let [Some(a), Some(b), Some(c)] = &rows[..] {
+        type Get = fn(&MeshRow) -> f64;
+        let metrics: [(&str, Get); 6] = [
+            ("re-criticality s", |r| r.recrit_s),
+            ("mean P last 30 min kW", |r| r.late_kw),
+            ("RCCS+heads at 3 h kW", |r| r.rccs_3h_kw),
+            ("min rho pcm", |r| r.min_pcm),
+            ("moderator at 3600 s C", |r| r.mod_c[2]),
+            ("P(100 s)/P0", |r| r.p100),
+        ];
+        println!("cells {} / {} / {}", a.cells, b.cells, c.cells);
+        for (name, get) in metrics {
+            let (f1, f2, f3) = (get(a), get(b), get(c));
+            match richardson(f1, f2, f3, 2.0) {
+                Some((p, e)) => println!("{name}: {f1:.4} / {f2:.4} / {f3:.4}; observed order {p:.2}; Richardson {e:.4}"),
+                None => println!("{name}: {f1:.4} / {f2:.4} / {f3:.4}; not monotone: no order"),
+            }
+        }
+    }
+}
+
+/// **Diagnostics of the mesh dependence (gh:#1176):** which part of the
+/// model carries it. Against `REF-1X` / `REF-2X` of
+/// [`rz_lofc_geometric_mesh_study`]: `NC-OFF` at 1x and 2x (if the change
+/// vanishes without buoyancy, the gas circulation carries it); radial-only
+/// (`REF-R2`) and axial-only (`REF-Z2`) halving. Predictions (committed
+/// before this ran) and results: README Sec 10.
+#[cfg(feature = "long-tests")]
+#[test]
+fn rz_lofc_mesh_diagnostics() {
+    println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    let base = LofcCase::rz_base().unwrap();
+    let cases = [
+        base.clone().with_rz_options(|o| o.without_buoyancy()).named("NC-OFF-1X"),
+        base.clone().with_rz_options(|o| o.without_buoyancy().with_refinement(2, 2)).named("NC-OFF-2X"),
+        base.clone().with_rz_options(|o| o.with_refinement(2, 1)).named("REF-R2"),
+        base.clone().with_rz_options(|o| o.with_refinement(1, 2)).named("REF-Z2"),
+    ];
+    for c in &cases {
+        mesh_row(c);
     }
 }

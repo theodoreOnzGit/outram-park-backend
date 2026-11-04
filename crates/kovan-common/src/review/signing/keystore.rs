@@ -56,6 +56,7 @@ use super::super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::super::root::{
     ReviewRoot, DevelopingOrganisation, ReviewerOrganisation, SeparationAttestation,
     KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey, RosterEvent,
+    OrganisationRetirement,
 };
 use super::super::signed_at::{now_local, parse_rfc3339};
 use super::super::types::{reviewer_id_kind, FieldError};
@@ -63,7 +64,7 @@ use super::registry::{check_append_date, open_retirement, LifecycleError};
 use super::super::ivv::{parse_audit_record, AuditRecordProblem};
 use super::{
     developing_organisation_bytes, reviewer_organisation_bytes, separation_attestation_bytes,
-    architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
+    organisation_retirement_bytes, architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
     revocation_bytes, roster_event_bytes, signed_bytes, Signature, ALG,
 };
 
@@ -455,6 +456,17 @@ impl KeyFile {
     pub fn from_toml(text: &str) -> Result<KeyFile, KeystoreError> {
         toml::from_str(text).map_err(|e| KeystoreError::Parse { path: None, message: e.to_string() })
     }
+
+    /// Write this (encrypted) key file to a **new** file at `dest`,
+    /// owner-only on unix, as [`Keystore::save`] and [`Keystore::export`]
+    /// do (GitHub #1211: a keyfile the founder issues to hand over). It
+    /// holds nothing secret in the clear; an existing `dest` is
+    /// [`KeystoreError::AlreadyExists`], never overwritten. The file imports
+    /// with [`Keystore::import`].
+    pub fn write_new_to(&self, dest: &Path) -> Result<(), KeystoreError> {
+        check_key_id(&self.key)?;
+        write_new(dest, &self.to_toml()?)
+    }
 }
 
 /// An unlocked key, in memory only. Not `Clone`; `Debug` never prints the
@@ -656,6 +668,24 @@ impl UnlockedKey {
         }
         e.signer = Some(self.as_signer());
         e.signature = Some(self.sign(&reviewer_organisation_bytes(reviewer, e)));
+        Ok(())
+    }
+
+    /// Sign a `[[code_review.organisation_retirement]]` (GitHub #1211):
+    /// sets `signer` to this key and `signature` over
+    /// [`organisation_retirement_bytes`]. It counts only if this key is the
+    /// founder's, trusted and active at `r.date`, while the founder is a
+    /// maintainer (checked by [`crate::review::ivv`], not here). Refuses a
+    /// malformed date and an empty record.
+    pub fn sign_organisation_retirement(&self, r: &mut OrganisationRetirement) -> Result<(), SignError> {
+        if !is_date(&r.date) {
+            return Err(SignError::BadDate(r.date.clone()));
+        }
+        if r.record.is_empty() {
+            return Err(SignError::Missing("the retired record's signature"));
+        }
+        r.signer = Some(self.as_signer());
+        r.signature = Some(self.sign(&organisation_retirement_bytes(r)));
         Ok(())
     }
 

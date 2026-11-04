@@ -757,7 +757,19 @@ in `kovan_root.toml` and every agent that wrote a justification.
 Every action signs with the session key, and the passphrase is asked only
 while it is locked:
 
-- **Admit:** as Reviewer, Novice reviewer or Maintainer.
+- **Admit** (validate a reviewer's own key): as Reviewer, Novice reviewer or
+  Maintainer. ~~Any admitted maintainer~~ **Since 2026-11-04 (GitHub
+  #1211) the founder only**; admissions signed earlier by another
+  maintainer still count.
+- **Issue a validated keyfile** (founder only, #1211): generate a key for
+  another person, admit it in the same write, and save it encrypted under a
+  passphrase the founder types (save picker), to hand over; it imports with
+  "Import a key".
+- **Organisations & IV&V** (#1211, formerly a separate window): the
+  founder signs or retires organisation records (retire appends a signed
+  `[[code_review.organisation_retirement]]`; the record stays listed,
+  marked retired, and no longer counts); a reviewer signs their separation
+  attestation.
 - **Key actions:** endorse, retire, un-retire, revoke or mark compromised.
 - **Revoke** a reviewer.
 - **Change standing**, as signed `[[code_review.roster_event]]` entries
@@ -771,6 +783,10 @@ verdict. A novice's stamp alone shows **"1 of 2: awaiting a trusted
 reviewer"** until a trusted reviewer or a maintainer also stamps the
 function. The rules are in `kovan_common::review::signing::registry`'s module
 doc.
+
+**After a founder hands over and steps down,** nobody can admit or sign
+organisation records from kovan (#1211 makes them founder-only, and the
+founder signs as a maintainer) until founder succession (GitHub #1022).
 
 **If no maintainer is available,** there is no bypass of the signatures. The
 repository owners' route is a reviewed commit declaring a new founder. That
@@ -843,9 +859,13 @@ rows of the need-you queue. It is read-only: kovan-cli has no signing
 command. The same summary is drawn in the review bar of kovan-web and of
 desktop kovan's Code Review tab.
 
-Signing happens in desktop kovan. The Code Review tab's **Organisations &
+Signing happens in desktop kovan. ~~The Code Review tab's **Organisations &
 IV&V** window lets a maintainer sign developing-organisation and
-reviewer-organisation records, and an independent reviewer sign a separation
+reviewer-organisation records~~ **CORRECTED 2026-11-04** (GitHub #1211):
+the **Organisations & IV&V** sections of Code Review ▸ User management let
+the **founder** sign, and retire, developing-organisation and
+reviewer-organisation records (records signed earlier by another
+maintainer still count, and are marked so), and an independent reviewer sign a separation
 attestation naming a GitHub issue as its audit record. The stamp dialog lets
 the reviewer pick which of their own signed attestations a review relies on
 (none by default). Every record is appended to `kovan_root.toml` as text,
@@ -1212,6 +1232,15 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance
   ([morhetz/gruvbox](https://github.com/morhetz/gruvbox)).
+- **Bookmarks** (top bar → "Bookmarks", beside Setup; GitHub #1210) —
+  "Bookmark this page" keeps the current page (view, concept, paper), the
+  open paper's PDF at the page in view, or the function selected in the
+  Code Review; a fuzzy-find box ranks them by name and target; each can be
+  renamed and deleted, and a click jumps there as a Back/Forward step.
+  Kept in the Kovan folder as `bookmarks/<user>.toml`, one file per user:
+  the reviewer id of the first key in kovan's keystore, else
+  `login:<OS login>`. A file that cannot be read is reported and left as
+  it is. See `src/bookmarks.rs`.
 
 Still open on the `op-9c2e` epic and not implemented: the bibliography
 management window, the "kovan folder" project format (`kovan.toml`), and

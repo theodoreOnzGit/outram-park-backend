@@ -777,6 +777,8 @@ pub fn history_append_only(previous: &ReviewRoot, current: &ReviewRoot) -> Vec<H
     records_append_only(&devs(previous), &devs(current), || RecordList::DevelopingOrganisation, &mut out);
     let roster = |r: &ReviewRoot| r.code_review.as_ref().map(|c| c.roster_events.clone()).unwrap_or_default();
     records_append_only(&roster(previous), &roster(current), || RecordList::RosterEvent, &mut out);
+    let retired = |r: &ReviewRoot| r.code_review.as_ref().map(|c| c.organisation_retirements.clone()).unwrap_or_default();
+    records_append_only(&retired(previous), &retired(current), || RecordList::OrganisationRetirement, &mut out);
     for pr in &previous.reviewers {
         let Some(cr) = current.reviewer(&pr.id) else {
             out.push(HistoryWarning::ReviewerRemoved { reviewer: pr.id.clone() });

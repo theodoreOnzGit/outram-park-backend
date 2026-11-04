@@ -6,10 +6,12 @@
 //! A rung is a directory `examples/monte_carlo_web/<rung>/` whose `mod.rs`
 //! defines a marker type implementing [`McRung`] (its [`RungInfo`], tapes,
 //! picture, notes, and the [`RungBuilder`] / [`LoadedRung`] that process the
-//! data and run the neutrons), plus **one line** in the `rung_table!`
-//! invocation in `main.rs`:
+//! data and run the neutrons), plus **two lines** in `main.rs`: its `mod`
+//! declaration and its entry in the `rung_table!` invocation:
 //!
 //! ```text
+//! mod ugraphite;              // <- declared plainly, never by the macro
+//!
 //! rung_table! {
 //!     godiva: Godiva,
 //!     triso: Triso,
@@ -17,7 +19,11 @@
 //! }
 //! ```
 //!
-//! The macro declares the module and generates the `Rung` enum, its URL
+//! ~~The macro declares the module and~~ **CHANGED 2026-11-04:** the macro
+//! no longer declares the module: kovan finds a module's folder by reading
+//! `mod` lines and does not expand macros, so the rungs declared by it were
+//! missing from kovan (root `CLAUDE.md`, "Never declare modules through a
+//! macro"). The macro generates the `Rung` enum, its URL
 //! names, and the enum dispatch (`Builder`, `Loaded`) that the engine and the
 //! app use, so no other file changes. (Enums, not trait objects: the
 //! workspace's Rust rules.) `godiva/` is the worked example of a rung with a
@@ -283,14 +289,13 @@ pub trait McRung {
     }
 }
 
-/// Generates, from a list `module: Marker`, the `mod` declarations, the
+/// Generates, from a list `module: Marker` (each module declared by a plain
+/// `mod` line beside the invocation, never here: module docs), the
 /// `Rung` enum with its dispatch to each marker's [`McRung`] methods, and the
 /// `Builder` / `Loaded` enums the engine holds. See the module docs.
 #[macro_export]
 macro_rules! rung_table {
     ($($m:ident : $t:ident),+ $(,)?) => {
-        $( #[cfg(not(target_os = "android"))] mod $m; )+
-
         #[cfg(not(target_os = "android"))]
         pub mod table {
             #![allow(dead_code)]

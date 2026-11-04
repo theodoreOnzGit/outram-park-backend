@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Booth on one grain</title>
-<meta name="description" content="Fission products, lesson 16: treat one grain as a sphere, let the fission products random-walk out, and compare with Booth's formula; checked against boon-lay's CRP-6 Monte Carlo.">
+<meta name="description" content="Fission products, lesson 18: treat one grain as a sphere, let the fission products random-walk out, and compare with Booth's formula; checked against boon-lay's CRP-6 Monte Carlo.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="kernel-data.js" defer></script>
@@ -14,7 +14,7 @@
 <script src="kernel-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 3, lesson 16. Booth's curve: boon-lay's
+<!-- Fission products, chapter 3, lesson 18. Booth's curve: boon-lay's
      booth_longlived via kernel-data.js; the page's walk: kernel-physics.js
      in kernel-worker.js; the check: boon-lay's CRP-6 Monte Carlo against
      Booth (lesson_triso_kernel generator). -->
@@ -25,14 +25,14 @@
 <h1>Booth on one grain</h1>
 <p class="kicker lesson-progress">Fission products</p>
 
-<p>Take one grain and pretend it is a sphere. Fission products are born evenly through it and wander (lesson 8). Any that reach the surface are gone. How much has left after a time <i>t</i>?</p>
+<p>Take one grain and pretend it is a sphere. Fission products are born evenly through it and wander (lesson 9). Any that reach the surface are gone. How much has left after a time <i>t</i>?</p>
 
 <section class="widget-card">
   <h3>Random walks out of a sphere</h3>
   <div class="widget" id="booth">
     <canvas aria-label="A circle with a few random-walk paths of atoms escaping it; beside it Booth's curve of released fraction against reduced time, with the walk's result as a dot."></canvas>
   </div>
-  <p class="note">Curve: boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_longlived"><code>booth_longlived</code></a>. Dots: 600 atoms walked in a Web Worker. D: the code&rsquo;s class for your family (lesson 15). Grain radius: <b>illustrative</b> (no cited TRISO UO<sub>2</sub> grain size in the workspace).</p>
+  <p class="note">Curve: boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_longlived"><code>booth_longlived</code></a>. Dots: 600 atoms walked in a Web Worker. D: the code&rsquo;s class for your family (lesson 17). Grain radius: <b>illustrative</b> (no cited TRISO UO<sub>2</sub> grain size in the workspace).</p>
 </section>
 
 <p><b>Predict first.</b> Double the grain&rsquo;s radius. To release the same fraction, does it take twice as long, or four times?</p>

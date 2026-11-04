@@ -91,9 +91,9 @@ constant source, are the picture that makes plate-out and purification
 visible. Move the sliders: raise $k_{plate}$ and the orange plate-out pool
 grows while the blue circulating pool shrinks.
 
-<link rel="stylesheet" href="../triso-atops/anim/boonlay-anim.css">
+<link rel="stylesheet" href="anim/boonlay-anim.css">
 <div class="bl-anim" data-anim="pools"></div>
-<script src="../triso-atops/anim/boonlay-anim.js"></script>
+<script src="anim/boonlay-anim.js"></script>
 
 If the widget does not appear (it needs the published site; a local `mdbook
 build` of this book alone does not carry the tutorial's script), the image
