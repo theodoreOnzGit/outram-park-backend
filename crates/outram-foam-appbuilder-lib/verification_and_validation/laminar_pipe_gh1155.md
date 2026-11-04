@@ -826,7 +826,14 @@ layers: 0 inward faces). **Open:** on the coarse 24-sided test pipe of
 105 points stay unmapped, the boundary creases, and the layerer then
 finds a 108° fold at every thickness and adds no layer; that test now
 runs with `feature_edges: false`, its premise (the layer port on the
-unmapped dual) kept and said so. **The structured default moved:**
+unmapped dual) kept and said so.
+
+**Flow predictions on the mapped mesh (written before the runs), nominal
+instrument, Re = 100:** `Gauss linear` at h 4 mm u_c/2U 0.97–0.99, dp/dz
+0.96–1.00; unlimited `linearUpwind` u_c 0.95–0.97, dp/dz 1.02–1.05; the
+demo pair (`cellLimited`) as in the table above (0.88–0.93, 1.03–1.08).
+Layers (step 3): h 4 mm with 2 layers (no negative pyramid left) **runs**;
+h 5 mm with 2 layers (105 internal negative pyramids) still diverges. **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
