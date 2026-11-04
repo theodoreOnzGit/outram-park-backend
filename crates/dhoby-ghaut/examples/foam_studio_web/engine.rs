@@ -455,6 +455,10 @@ pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag;
         Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
         _ => opts,
     };
+    // Native-only knob for the gh:#1215 differential record:
+    // FOAM_LAYER_STRATEGY=backoff (the default) | cfmesh | snappy.
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = TetDualOptions { layer_strategy: layer_strategy_from_env(), ..opts };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);
@@ -462,6 +466,18 @@ pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag;
     let neutral = outram_blender::unstructured::convert::cfmesh::from_volume_mesh(&vm).map_err(|e| format!("{e:?}"))?;
     let foam = outram_blender::unstructured::convert::foam::to_poly_mesh(&neutral).map_err(|e| format!("{e:?}"))?;
     Ok((PolyMesh::from_foam_poly_mesh(&foam), report.stage_notes))
+}
+
+/// The layer strategy `FOAM_LAYER_STRATEGY` names (native only, gh:#1215):
+/// `cfmesh`, `snappy`, or the default back-off for anything else.
+#[cfg(not(target_arch = "wasm32"))]
+fn layer_strategy_from_env() -> outram_park_fork_cfmesh::layers::LayerQualityStrategy {
+    use outram_park_fork_cfmesh::layers::LayerQualityStrategy as S;
+    match std::env::var("FOAM_LAYER_STRATEGY").as_deref() {
+        Ok("cfmesh") => S::CfMeshOptimise,
+        Ok("snappy") => S::SnappyCollapse,
+        _ => S::BackOffOnly,
+    }
 }
 
 /// [`mesh_design`] with the mesher's notes (empty for the block meshes).

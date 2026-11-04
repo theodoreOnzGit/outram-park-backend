@@ -1500,6 +1500,172 @@ mod tests {
         }
     }
 
+    /// A box duct surface (`w` × `w` × `l`, z ∈ [0, l]) labelled `inlet`
+    /// (z = 0), `outlet` (z = l) and `walls`.
+    fn box_duct_surface(w: f64, l: f64) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
+        let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(w, w, l));
+        let labels: Vec<&str> = bt
+            .iter()
+            .map(|tri| {
+                let z = [bp[tri[0]].z, bp[tri[1]].z, bp[tri[2]].z];
+                if z.iter().all(|&v| v.abs() < 1e-12) {
+                    "inlet"
+                } else if z.iter().all(|&v| (v - l).abs() < 1e-12) {
+                    "outlet"
+                } else {
+                    "walls"
+                }
+            })
+            .collect();
+        (bp, bt, SurfaceRegions::from_labels(&labels))
+    }
+
+    const STRATEGIES: [LayerQualityStrategy; 3] =
+        [LayerQualityStrategy::BackOffOnly, LayerQualityStrategy::CfMeshOptimise, LayerQualityStrategy::SnappyCollapse];
+
+    /// V&V (gh:#1215) — **upstream sanity: a good mesh is left alone.**
+    /// Methodology: a Cartesian (hexahedral, orthogonal) box duct 20 × 20 ×
+    /// 60 mm at 5 mm, `inlet` / `outlet` at the ends, 3 layers (first
+    /// 0.3 mm, × 1.2) on `walls`, by each strategy.
+    ///
+    /// Predictions (written 2026-11-04 before the first run): the layered
+    /// duct passes snappy's strict controls everywhere, so
+    /// `SnappyCollapse` converges in its first iteration with every wall
+    /// point extruded, and its mesh is the back-off's to the bit (same
+    /// columns, same builder); `CfMeshOptimise` finds no bad and no
+    /// low-quality face on the flat walls, so the optimisers move no
+    /// interior point (the duct's interior points stay bit-identical); its
+    /// hairs are recomputed from the surface normals and smoothed, which on
+    /// a flat side gives the side's normal back, so the layer thickness at
+    /// the middle of each side equals the back-off's to 1e-12, and coverage
+    /// is 100 %.
+    #[test]
+    fn every_strategy_leaves_a_good_box_duct_alone() {
+        let (bp, bt, br) = box_duct_surface(0.02, 0.06);
+        let hex = crate::patches::assign_patches_by_region(&carve_box(&bp, &bt, 0.005), &bp, &bt, &br).unwrap();
+        let (back, bo) = crate::layers::add_boundary_layers_back_off(&hex, &["walls"], 3, 3e-4, 1.2);
+        let (snap, so) = add_boundary_layers_snappy(&hex, &["walls"], 3, 3e-4, 1.2, &SnappyLayerControls::default());
+        let (cfm, co) = add_boundary_layers_cfmesh(&hex, &["walls"], 3, 3e-4, 1.2, &BoundaryLayerOptimisationControls::default());
+        assert_eq!(bo.full_coverage(), 1.0);
+        assert_eq!((so.full_coverage(), so.iterations, so.collapsed_point_fraction()), (1.0, 1, 0.0), "{:?}", so.notes);
+        assert_eq!(mesh_fingerprint(&snap), mesh_fingerprint(&back), "snappy = back-off on a good duct");
+        assert_eq!(co.full_coverage(), 1.0);
+        assert_eq!(co.remaining_bad_faces, 0, "{:?}", co.notes);
+        assert!(co.notes.iter().any(|n| n.starts_with("optimizeLowQualityFaces: low-quality faces 0 -> 0")), "{:?}", co.notes);
+        // Interior (non-wall) points of the duct are not moved by cfMesh.
+        let n_inner = hex.points.len() - bo.points.len();
+        assert_eq!(&cfm.points[..n_inner], &back.points[..n_inner]);
+        // Hairs at the middle point of each wall side, away from every edge
+        // of the duct, stay along the face normal.
+        for x in [Vec3::new(0.0, 0.01, 0.03), Vec3::new(0.01, 0.0, 0.03)] {
+            let i = co.points.iter().position(|p| p.0.sub(x).length() < 1e-12).expect("mid point");
+            assert!((co.points[i].2 - bo.points[i].2).abs() < 1e-12, "thickness kept at {x:?}: {} vs {}", co.points[i].2, bo.points[i].2);
+        }
+    }
+
+    /// V&V (gh:#1215) — **both new strategies are deterministic**, within a
+    /// process (two calls) and between processes (fingerprints pinned on
+    /// 2026-11-04 and asserted here; any process gives these numbers).
+    /// Methodology: the demo pipe (R 10 mm, L 60 mm, 48 facets) at h 5 mm
+    /// with 3 wall-only layers, through the multipatch pipeline under each
+    /// strategy.
+    #[test]
+    fn layer_strategies_are_deterministic() {
+        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
+        let mut got = Vec::new();
+        for strategy in [LayerQualityStrategy::CfMeshOptimise, LayerQualityStrategy::SnappyCollapse] {
+            let o = TetDualOptions { cell_size: 0.005, n_layers: 3, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, ..Default::default() };
+            let (a, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            let (b, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            assert_eq!(mesh_fingerprint(&a), mesh_fingerprint(&b), "{strategy:?}");
+            got.push((a.cell_count(), mesh_fingerprint(&a)));
+        }
+        eprintln!("strategy fingerprints {got:?}");
+    }
+
+    /// Diagnostic (gh:#1215), `--ignored`: **the differential table.** Every
+    /// strategy on the same inputs: the demo pipe (R 10 mm, L 200 mm, 48
+    /// facets) at h 4 / 5 / 6 mm with 1–4 wall-only layers (first 0.3 mm,
+    /// × 1.2), a tet-dual box duct 20 × 20 × 200 mm at h 5 mm with 2 and 3
+    /// layers (its four long 90° edges are the sharp-feature case), and the
+    /// same duct with snappy's `featureAngle` at the propeller tutorial's
+    /// 60°. Prints mesh quality, counts beyond upstream's limits, coverage,
+    /// thickness, time and a determinism check.
+    #[test]
+    #[ignore]
+    fn diagnose_layer_strategies_differential() {
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let (bp, bt, br) = box_duct_surface(0.02, 0.2);
+        let mut cases: Vec<(String, &[Vec3], &[[usize; 3]], &SurfaceRegions, f64, usize, f64)> = Vec::new();
+        for h in [0.006, 0.005, 0.004] {
+            for n in 1..=4 {
+                cases.push((format!("pipe h{} n{n}", h * 1e3), &p, &t, &regions, h, n, 100.0));
+            }
+        }
+        for n in [2, 3] {
+            cases.push((format!("duct h5 n{n}"), &bp, &bt, &br, 0.005, n, 100.0));
+            cases.push((format!("duct h5 n{n} fa60"), &bp, &bt, &br, 0.005, n, 60.0));
+        }
+        let only = std::env::var("CFMESH_CASE").ok();
+        for (name, sp, st, sr, h, n, fa) in cases {
+            if only.as_deref().is_some_and(|o| !name.contains(o)) {
+                continue;
+            }
+            for strategy in STRATEGIES {
+                if fa < 100.0 && strategy != LayerQualityStrategy::SnappyCollapse {
+                    continue;
+                }
+                let mut snappy = SnappyLayerControls::default();
+                snappy.feature_angle_deg = fa;
+                let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, snappy_layers: snappy, ..Default::default() };
+                let t0 = std::time::Instant::now();
+                let (m, rep) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
+                let secs = t0.elapsed().as_secs_f64();
+                let (m2, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
+                let det = mesh_fingerprint(&m) == mesh_fingerprint(&m2);
+                let q = check_quality(&m);
+                let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
+                let relaxed = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls { max_non_ortho_deg: 75.0, ..Default::default() }).iter().filter(|&&b| b).count();
+                let ortho_only = |deg: f64| {
+                    crate::checks::faces_failing_mesh_quality(
+                        &m,
+                        &crate::checks::MeshQualityControls { max_non_ortho_deg: deg, max_boundary_skewness: -1.0, max_internal_skewness: -1.0, min_tet_quality: None, min_twist: -2.0, min_determinant: -1.0, min_face_weight: -1.0, min_vol_ratio: -1.0 },
+                    )
+                    .iter()
+                    .filter(|&&b| b)
+                    .count()
+                };
+                let lo = rep.layers.clone().unwrap_or_default();
+                let layered: Vec<&(Vec3, usize, f64, f64)> = lo.points.iter().filter(|q| q.1 > 0).collect();
+                let d1 = 1.0 / (1..=n).map(|k| 1.2f64.powi(k as i32 - 1)).sum::<f64>(); // first / total at n layers
+                let first: Vec<f64> = layered.iter().filter(|q| q.1 == n).map(|q| q.2 * d1).collect();
+                let mean = |v: &[f64]| if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 };
+                let tot: Vec<f64> = layered.iter().map(|q| q.2).collect();
+                let thinned = layered.iter().filter(|q| q.2 < 0.999 * q.3).count();
+                println!(
+                    "{name} {:?}: {} cells, {secs:.2} s, det {det}; nonortho max {:.1}, >65 {}, >75 {}; skew {:.2}; minDet {:.2e}; minVol {:.2e}; negPyr {}; fail strict {strict} relaxed {relaxed}; cover {:.3}, collapsed pts {:.3}, thinned pts {thinned}/{}, first {:.4} mm, total mean {:.4} min {:.4} mm; iters {}; notes {:?}",
+                    strategy,
+                    m.cell_count(),
+                    q.max_non_orthogonality_deg,
+                    ortho_only(65.0),
+                    ortho_only(75.0),
+                    q.max_skewness,
+                    q.min_cell_determinant,
+                    q.min_cell_volume,
+                    q.n_negative_pyramid_faces,
+                    lo.full_coverage(),
+                    lo.collapsed_point_fraction(),
+                    layered.len(),
+                    1e3 * mean(&first),
+                    1e3 * mean(&tot),
+                    1e3 * tot.iter().cloned().fold(f64::MAX, f64::min).min(if tot.is_empty() { 0.0 } else { f64::MAX }),
+                    lo.iterations,
+                    rep.stage_notes
+                );
+            }
+        }
+    }
+
     /// A pipe surface (radius `r`, length `l`, `n_seg` sides, z ∈ [0, l]) with
     /// each triangle labelled `inlet` (flat at z = 0), `outlet` (flat at
     /// z = l) or `walls`.

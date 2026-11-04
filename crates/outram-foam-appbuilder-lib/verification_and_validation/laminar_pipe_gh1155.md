@@ -246,6 +246,12 @@ how much does it miss?
 - **Determinism.** The pipeline gave a different cell numbering on every
   run (the face-minimal dual and the layerers iterated hash maps); now
   pinned by `pipeline::tests::tet_dual_stages_are_deterministic`.
+  **CORRECTED 2026-11-04 (gh:#1215):** ~~now pinned~~ that test compares two
+  calls within one process; between processes the Delaunay flipper still
+  swept faces in randomly seeded `HashMap` order and the h 6 mm pipe came
+  out different on every run. Fixed (`BTreeMap` order) and pinned across
+  processes by `back_off_only_layers_are_pinned_bit_for_bit`; see the
+  gh:#1215 section.
 - **Patch types.** The neutral mesh typed every cfMesh patch as a generic
   `patch`; `walls` now arrives as a `wall` (the cfMesh writer's own rule).
   The solver's boundary conditions go by name (`inlet`, `outlet`, anything
@@ -1181,6 +1187,92 @@ what is still open:
 - **Structured default re-checked after all of it:** 34 steps, u_c/2U
   0.9940, ~~dp/dz 1.0151~~ **1.0154** (the weights fix), RMS 0.0063,
   τ_w 1.0066.
+
+## Layer quality: cfMesh thinning against snappyHexMesh collapse, differentially (gh:#1215)
+
+**Issue:** gh:#1215, the follow-up of gh:#1202's step 3 (3 layers diverge,
+one shrunk dual cell over the layer stack, 75–84° at the top-prism/dual
+interface; uniform thinning does not lower it). **Maintainer direction:**
+port both upstream mechanisms and test them differentially against the
+crate's own global back-off on the same inputs.
+
+### What was ported (2026-11-04)
+
+| strategy (`TetDualOptions::layer_strategy`) | module | upstream ported (file, commit) |
+|---|---|---|
+| `BackOffOnly` (**default**, unchanged) | `layers::add_boundary_layers_back_off` | this crate's own: every column at the per-point cap, then all scaled by 0.6 until upstream's limits pass |
+| `CfMeshOptimise` | `boundary_layer_optimisation`, `mesh_optimizer` | cfMesh v1.1 (`github.com/DAFoam/cfmesh` `e944f6ba695f`; `boundaryLayerOptimisation` is not in the `wyldckat/cfMesh` v1.0 the rest of the crate cites): `boundaryLayerOptimisation::optimiseLayer` (hair normals at the boundary and inside, `nSmoothNormals 5`; `optimiseThicknessVariation` with `relThicknessTol 0.15`, `featureSizeFactor 0.3`, `maxNumIterations 5`), `meshOptimizer::untangleMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer`, `untangleBoundaryLayer`, `partTetMesh`, `volumeOptimizer`, `knuppMetric`, `polyMeshGenChecks::findBadFaces` / `findLowQualityFaces`, in `tetMeshGenerator`'s order (optimise one layer, then split it) |
+| `SnappyCollapse` | `snappy_layers`, `checks::faces_failing_mesh_quality` | OpenFOAM-dev `852527377c7e`: `snappyLayerDriver` `extrudeMode`, `handleNonManifolds`, `handleFeatureAngle`, `growNoExtrusion`, `truncateDisplacement`, `setupLayerInfoTruncation`, `checkAndUnmark`, the `nLayerIter` / `nRelaxedIter` loop; `meshCheck::checkMesh` with `meshQualityDict`'s values (65° strict, 75° relaxed, skewness 4 / 20, tet sign, twist 0.02, determinant 0.001, face weight 0.05, volume ratio 0.01) |
+
+Shared: `layers::build_layered_variable`, a per-point layer count (0 at a
+collapsed point; a face takes the most of its points, `addPatchCellLayer`'s
+rule; cells collapse to wedges where a layer ends).
+
+**Not ported, and why it matters to the comparison.** cfMesh: the LP
+`meshUntangler`, boundary-point moves in `untangleMeshFV`,
+`meshSurfaceOptimizer` inside `optimiseLayer`, the Laplace pass of
+`optimizeMeshFV`. snappy: `medialAxisMeshMover` (only the wall points move
+here, so the per-point cap, half the shortest wall edge, stands in for the
+medial-axis limit), `handleWarpedFaces` (runs only with `relativeSizes`),
+`maxConcave`, the butterfly strings. Upstream's `handleFeatureAngle` only
+looks at edges between *two* layer faces, so it cannot stop layers at the
+wall/inlet rim (an edge of one layer face), whatever `featureAngle` is;
+the brief's expectation that it would is not upstream's behaviour.
+
+**Reuse decision.** `outram-foam-mesh`'s `snappy_hex_mesh/layers.rs` was
+read in full first. It cites `snappyLayerDriver.C:217` for "the
+`EXTRUDE`/`NOEXTRUDE` unextrusion loop", but its code reduces the layer
+count *globally* (`for n in (1..=n_surface_layers).rev()`, interior insert
+then outward extrusion) and its own "Honest scope" says "no per-face layer
+termination"; it has no per-point mode. What it does share with cfMesh's
+layerer is the grading arithmetic (`layer_thicknesses`), which this crate
+already had. It works on `outram_foam_basic_lib` `PolyPatchMesh` /
+`CastellatedMesh`; this crate builds without that dependency by default.
+So there was nothing to factor out, and the collapse loop was ported here
+(its doc comment cites both). The overclaim in that module's header was
+corrected with a dated note.
+
+**Found on the way: the tet-dual pipeline was not reproducible between
+processes.** `delaunay::flip_to_delaunay` swept faces in `HashMap` order,
+seeded per process: three runs of the h 6 mm pipe gave three meshes (same
+cell count). gh:#1202's `tet_dual_stages_are_deterministic` compares two
+calls inside one process and could not see it. The sweep is now in
+`BTreeMap` order (`smooth`'s neighbour sets too); the fingerprints of the
+h 4 mm and box-duct meshes did not change, the h 6 mm ones did. Every
+gh:#1202 number on an h 6 mm mesh (and any other mesh whose flips depend on
+the order) came from one draw of that randomness.
+
+### Predictions (written 2026-11-04, before any differential run)
+
+Inputs: the demo pipe (R 10 mm, L 200 mm, 48 facets, wall-only layers,
+first 0.3 mm, × 1.2) at h 4 / 5 / 6 mm with 1–4 layers; a tet-dual box duct
+20 × 20 × 200 mm at h 5 mm with 2 and 3 layers (its four 90° long edges are
+the sharp-feature case, run also with snappy's `featureAngle 60` of the
+`propeller` tutorial); a Cartesian (hexahedral) duct for the sanity test.
+
+| quantity | `BackOffOnly` | `CfMeshOptimise` | `SnappyCollapse` |
+|---|---|---|---|
+| layer coverage (wall faces with all N layers) | 100 % at 1–3 layers, as gh:#1202 (or 0 where the back-off finds nothing) | **100 % always** (cfMesh never removes a layer) | 1 layer: 60–95 %; 2–3 layers: **0–50 %**: I expect `minFaceWeight 0.05` and `minVolRatio 0.01` at the top-prism/dual face (layer 0.05–0.08 mm against dual cells 1–3 mm deep), not the non-orthogonality, to be what collapses most points |
+| collapsed wall points | 0 | 0 | the complement: 50–100 % at 2–3 layers |
+| total thickness (mean, layered points) | as gh:#1202 (≈ 0.15 mm at 3 layers, h 5 mm) | 0.8–1.0 × the back-off's: on a pipe the inward hairs converge only by 7.5° per facet, so `featureSizeFactor` binds nowhere and `relThicknessTol 0.15` only near the rim | the back-off's where kept (same cap, no global scaling) |
+| max non-orthogonality | 82–84° (3 layers) | **lower, 65–78°**: `optimizeLowQualityFaces` targets every face above 65° by moving the dual points around it | ≤ 75° when converged (the relaxed bound), else as the back-off |
+| faces above 65° / 75° | hundreds / tens | fewer than the back-off, not zero | 0 above 75° on layer cells when converged |
+| max skewness (OpenFOAM) | ≈ 1 | ≈ 1 | ≈ 1 |
+| min determinant (crate's) | 6.6e-3 at 3 layers | similar or higher | higher (bad cells removed) |
+| bad faces (cfMesh `findBadFaces`) after | 0 | 0 | — |
+| converges / steps (Re 100, demo pair), 3 layers | **diverges** (gh:#1202) | **runs** at h 5 mm (55 % confidence): the shrunk dual cell is reshaped | **runs** (70 %): the layers at the bad cells are gone |
+| u_c/2U, dp/dz/HP, τ_w where a run converges | as gh:#1202 for 1–2 layers | within ±2 % of the back-off at the same h and N (the core sets the error, gh:#1202) | within ±2 % on u_c and dp/dz; τ_w within ±5 % (fewer layers where collapsed) |
+| determinism | identical across runs | identical | identical |
+| meshing time | 0.2–2 s | 2–20× the back-off (tet-region volume optimiser) | ≤ nLayerIter × the back-off's build + check; 1–20 s |
+| Cartesian duct (sanity) | full layers | interior points bit-identical, thickness on the side middles unchanged | first iteration accepted, mesh identical to the back-off's |
+| tet-dual duct, `featureAngle` 100 vs 60 | — | — | 100: no edge flagged (90° edges); 60: the four long edges' points unextruded at the start |
+
+Where A and B should differ, and why: A keeps every layer and moves
+interior points; B keeps the geometry and removes layers. So A wins on
+coverage and B on worst-face quality; on the solve both should remove the
+3-layer divergence if its cause is the one shrunk cell, and neither changes
+the Hagen–Poiseuille accuracy by more than the 2 % the core's resolution
+already costs.
 
 ## Reproduce
 
