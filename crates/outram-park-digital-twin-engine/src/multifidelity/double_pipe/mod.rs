@@ -42,6 +42,11 @@
 //! drifting wall resistance from noisy outlet temperatures with
 //! `raffles::filtering`'s FilterPy ports, through
 //! `raffles::fidelity::StateSpaceModel` (synthetic truth only).
+//!
+//! **OpenDA (gh:#1192):** [`openda`] runs OpenDA's EnKF (ported into
+//! `raffles::openda`) on the same twin experiment beside FilterPy's, and
+//! OpenDA's DUD calibrates θ on the CFD training UA for comparison with the
+//! Kennedy–O'Hagan posterior (synthetic truth only).
 use uom::si::f64::{Length, Power, Pressure, Ratio, ThermalConductance, ThermalConductivity, ThermodynamicTemperature};
 
 pub mod cfd;
@@ -54,6 +59,7 @@ pub mod filtering;
 pub mod koh;
 pub mod lf_grid;
 pub mod one_d;
+pub mod openda;
 pub mod study;
 
 /// Area-specific thermal resistance \[m² K/W\]: the inverse of a heat

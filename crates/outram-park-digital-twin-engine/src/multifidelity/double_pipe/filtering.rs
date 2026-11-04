@@ -314,6 +314,9 @@ pub enum FilterKind {
     Extended,
     /// EnKF, N 50, seed 1191.
     Ensemble,
+    /// OpenDA's EnKF (gh:#1192, `raffles::openda`), N 50, seed 1192: the
+    /// ensemble mean and ensemble covariance as the estimate.
+    OpenDaEnsemble,
 }
 
 /// One run's per-step trace and summary.
@@ -358,6 +361,7 @@ pub fn run<S: FoulingStateLike>(model: &FoulingModel<S>, zs: &[OutletTemperature
         FilterKind::Unscented => Assimilator::unscented::<S, OutletTemperatures>(&x0, p0, q, r, 0.5, 2.0, 3.0 - n as f64)?,
         FilterKind::Extended => Assimilator::extended::<S, OutletTemperatures>(&x0, p0, q, r, 1e-3)?,
         FilterKind::Ensemble => Assimilator::ensemble::<S, OutletTemperatures>(&x0, p0, q, r, 50, 1191)?,
+        FilterKind::OpenDaEnsemble => Assimilator::openda_ensemble::<S, OutletTemperatures>(&x0, p0, q, r, 50, 1192)?,
     };
     let mut trace = Vec::with_capacity(zs.len());
     for (k, z) in zs.iter().enumerate() {
