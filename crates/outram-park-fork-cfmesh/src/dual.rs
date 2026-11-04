@@ -144,7 +144,7 @@
 
 use crate::math::Vec3;
 use crate::volume_mesh::{from_cell_faces, VolumeMesh};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Build the polyhedral **median dual** of `mesh`: one polyhedral cell per
 /// primal vertex. See the module docs for the construction and its guarantees.
@@ -215,7 +215,7 @@ pub fn polyhedral_dual(mesh: &VolumeMesh) -> VolumeMesh {
         // Per-cell edge midpoints, and for each edge the two incident face
         // centroids (an edge touches exactly two faces of a manifold cell).
         let mut mid_idx: HashMap<(usize, usize), usize> = HashMap::new();
-        let mut edge_faces: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+        let mut edge_faces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
         for &f in faces {
             let ring = &mesh.faces[f];
             let k = ring.len();
@@ -322,8 +322,12 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
     }
 
     // edge -> faces containing it; (cell, edge) -> the (two) faces of that cell
-    // containing the edge; needed to walk each edge's star.
-    let mut edge_faces: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    // containing the edge; needed to walk each edge's star. `edge_faces` is a
+    // BTreeMap because the loop below numbers edge midpoints and emits dual
+    // faces in its order; as a HashMap that order (and so the mesh's
+    // numbering) changed from call to call (gh:#1202, 2026-11-04). The same in
+    // `polyhedral_dual`.
+    let mut edge_faces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
     let mut cell_edge_faces: HashMap<(usize, (usize, usize)), Vec<usize>> = HashMap::new();
     let key = |a: usize, b: usize| if a < b { (a, b) } else { (b, a) };
     for (c, faces) in cell_faces.iter().enumerate() {

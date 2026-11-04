@@ -1,0 +1,22 @@
+[  121.8 s] MFK (UA only): held-out UA relative RMSE 3.01 % (gh:#1190 record: 3.0 %), 2 sigma coverage 7/8
+[  122.0 s] MFK on the 1215-point grid done
+[  844.3 s] KOH calibrated: m = 264, n = 36, 9 TMCMC stages
+[  844.3 s] posterior-mean theta (SI: theta_h, theta_c, r_f, f_h, f_c): [1.1862231156216758, 1.4199658771453592, 0.0005428288590767538, 1.0, 1.0]; 2000 samples
+[  847.8 s] KOH held-out UA relative RMSE 1.28 %, 95 % coverage 8/8 (gh:#1180 record: 1.28 %, 8/8); 1-D alone uncalibrated 8.95 % (record 8.95 %), at posterior-mean theta without delta 6.30 % (record 6.30 %)
+[  847.8 s]   H1: CFD 1.14336 W/K, KOH median 1.14229 [1.11116, 1.17463], delta -0.0371 ± 0.0333
+[  847.8 s]   H2: CFD 1.15001 W/K, KOH median 1.14177 [1.10951, 1.17341], delta -0.0726 ± 0.0364
+[  847.8 s]   H3: CFD 1.29950 W/K, KOH median 1.31644 [1.28006, 1.35661], delta +0.0026 ± 0.0331
+[  847.8 s]   H4: CFD 1.27261 W/K, KOH median 1.27673 [1.23945, 1.31250], delta -0.0680 ± 0.0332
+[  847.8 s]   H5: CFD 0.76961 W/K, KOH median 0.76711 [0.74607, 0.78785], delta -0.0620 ± 0.0331
+[  847.8 s]   H6: CFD 1.62369 W/K, KOH median 1.66034 [1.61566, 1.71095], delta +0.0150 ± 0.0343
+[  847.8 s]   H7: CFD 1.19173 W/K, KOH median 1.19626 [1.16857, 1.22345], delta -0.0505 ± 0.0320
+[  847.8 s]   H8: CFD 1.12149 W/K, KOH median 1.11051 [1.08432, 1.13613], delta -0.0694 ± 0.0326
+[  858.8 s] KOH grid chunk 1/27
+[  908.1 s] KOH grid chunk 6/27
+[  959.4 s] KOH grid chunk 11/27
+[ 1010.0 s] KOH grid chunk 16/27
+[ 1057.2 s] KOH grid chunk 21/27
+[ 1105.0 s] KOH grid chunk 26/27
+[ 1114.3 s] grid KOH median at the 8 held-out x vs the 8-point call: worst relative difference 0.00e0
+[ 1114.3 s] delta(x) on ln UA over the grid: -0.0921 … +0.0909
+[ 1114.3 s] wrote /tmp/claude-0/-home-user-outram-park-backend/2ededaf1-7f3a-5725-ab7e-fabec898484f/scratchpad/gen_out/koh_mfk_grid.csv and koh_theta_samples.csv; total 1114 s

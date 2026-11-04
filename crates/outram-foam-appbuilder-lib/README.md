@@ -64,7 +64,7 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 
 | Module | What |
 |---|---|
-| `double_pipe` | `DoublePipeExchanger`: a counterflow double-pipe heat exchanger as three `ChtMultiRegionFoam` regions (tube fluid, tube wall, annulus fluid) on the conformal meshes of `outram_foam_mesh::block_primitives::DoublePipe`, with the march-freeze-iterate procedure and the report (outlet temperatures, stream and interface heats, effectiveness, local UA) the V&V and the Foam Studio demo use (gh:#1156). |
+| `double_pipe` | `DoublePipeExchanger`: a counterflow double-pipe heat exchanger as three `ChtMultiRegionFoam` regions (tube fluid, tube wall, annulus fluid) on the conformal meshes of `outram_foam_mesh::block_primitives::DoublePipe`, with the march-freeze-iterate procedure and the report (outlet temperatures, stream and interface heats, effectiveness, local UA) the V&V and the Foam Studio demo use (gh:#1156). Since gh:#1178: an independent annulus flow rate (`annulus_flow_rate`, `None` keeps C_r = 1), the axial `profiles` (per-layer interface heat, bulk and interface temperatures, local and ΔT-weighted mean Nusselt numbers on both sides) and the apparent `pressure_drop`, which `outram-park-digital-twin-engine::multifidelity::double_pipe` reads closures from. |
 | `helical_coil` | `CoilFlow` (Re, d/D_c, Dean number), `CoilCells` (per-cell arc position and Frenet frame, from `outram_foam_mesh::block_primitives::HelicalPipe::locate`), `arc_pressure_gradient` (−dp/ds over an arc window) and `dean_section` (axial-peak shift, secondary speed, core outflow, vortex-pair sign): laminar flow in a helical coil on `laminar_pipe`'s boundary conditions, developing from a uniform inlet (gh:#1157; V&V in `verification_and_validation/helical_coil_dean_gh1157.md`). |
 | `laminar_pipe` | `PipeFlow`: a laminar internal flow on any mesh with `inlet` / `outlet` / wall patches (uniform inlet along the inward normal, p = 0 outlet, no-slip walls) solved by `PimpleFoam`, with Hagen–Poiseuille, f = 64/Re and the Durst et al. (2005) development length as references, and the fits (centreline velocity, −dp/dz, development length, fluxes, continuity) the pipe V&V and the Foam Studio demo use (gh:#1155). |
 
@@ -104,7 +104,8 @@ The `ddt` and `div` entries of `FvSchemes` are honoured by `PimpleFoam`:
 |---|---|---|
 | `ddtSchemes` | `Euler` (default), `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` → `AppBuilderError::UnsupportedScheme` |
 | Rhie–Chow `ddtCorr` (`ddt_corr_scheme`, follows `ddtSchemes`) | `Euler`, `Backward` (BDF2 form, since 2026-11-01), `SteadyState` (zero) | as above |
-| `divSchemes` | `GaussUpwind` (default), `GaussLinear` | `linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear` → `AppBuilderError::UnsupportedScheme` |
+| `divSchemes` | `GaussUpwind` (default), `GaussLinear`, `GaussLinearUpwind` (since 2026-11-04, gh:#1202, OpenFOAM-dev `linearUpwind.C`) | `vanLeer`, `MUSCL`, `limitedLinear` → `AppBuilderError::UnsupportedScheme` |
+| `gradSchemes`, the `grad(U)` entry (`FvSchemes::grad_u`, else `default_grad`) | `GaussLinear` (default), `CellLimitedGaussLinear(k)` (since 2026-11-04, `cellLimitedGrad<vector, minmod>`) | `leastSquares`, `fourth` → `UnsupportedScheme` |
 
 An unimplemented selection is an **error, never a silent fallback**. Measured
 effect of choosing `Gauss linear` on the Re = 100 lid-driven cavity, 20×20 mesh
@@ -121,8 +122,12 @@ Re = 100 cavity: upwind RMS against Ghia 0.0363 → **0.0207** (max 0.0634 →
 icoFoam at Re = 10, max |ΔU| / U_lid 0.0144 → **0.0062**. The earlier numbers
 here are the record of the pre-fix solver.
 
-`grad`, `laplacian`, `snGrad` and `interpolation` selections are still only
-**stored** — no solver consults them. (Nothing is *parsed* from disk either:
+~~`grad`, `laplacian`, `snGrad` and `interpolation` selections are still only
+**stored** — no solver consults them.~~ **CORRECTED 2026-11-04:** the
+`laplacian` selection is honoured by `PimpleFoam` since gh:#1161, and the
+`grad(U)` selection since gh:#1202 (by `linearUpwind` and by the momentum
+Laplacian's non-orthogonal correction, as upstream's `correctedSnGrad`);
+`snGrad` and `interpolation` are still only **stored**. (Nothing is *parsed* from disk either:
 `FvSchemes::read` is `todo!()`, so the struct is built in Rust.)
 
 ## Case I/O (`io`)
@@ -239,6 +244,18 @@ This crate is at an early stage of a large port. The following are **known,
 real limitations** as of version 0.1.1 — grounded in the code, not aspirational.
 
 ### Verification & validation
+
+- **Open (gh:#1202, 2026-11-04): the laminar pipe on cfMesh's tet-dual mesh
+  is a few per cent off Hagen–Poiseuille.** At the Foam Studio default
+  (h 4 mm, 6 353 cells, `linearUpwind grad(U)` + `cellLimited Gauss linear
+  1`) u_c/2U is 0.893 and dp/dz 1.033 × HP; with `Gauss linear`, 0.981 and
+  0.967. The structured O-grid is within 1–2 %. Fixed on the way: the
+  interpolation weights (now upstream's `makeWeights`), the chamfered rim
+  (feature-edge capture in the cfMesh port; the inlet carried 6 % too
+  little flow), the inward boundary faces and the 2-layer divergence.
+  Still open: 3 wall layers diverge; layers do not improve τ_w or dp/dz at
+  matched cell count; the remaining gap is in the core at this resolution.
+  Record: `verification_and_validation/laminar_pipe_gh1155.md`.
 
 - **Unverified until validated (see banner).** Only the cases with an explicit
   V&V test are trusted; everything else is untrusted draft. The currently

@@ -210,6 +210,12 @@ egui_plot = { workspace = true }
 outram-foam-appbuilder-lib = { workspace = true }
 outram-foam-basic-lib = { workspace = true }
 outram-foam-mesh = { workspace = true }
+# Foam Studio's unstructured pipe (gh:#1202): outram-blender's cylinder and
+# its cfMesh bridge (`foam-mesh`), and the neutral -> polyMesh converter
+# (`foam-export`), in the worker too. Both features are wasm in-scope
+# (cfMesh and outram-foam-basic-lib are pure Rust); `gpu` stays native only,
+# in the table below, so the browser build pulls no wgpu from here.
+outram-blender = { workspace = true, features = ["foam-mesh", "foam-export"] }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
@@ -217,6 +223,13 @@ outram-foam-mesh = { workspace = true }
 # moved to the shared table 2026-10-05 for the `htr10` rung, gh:#528.)
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 env_logger = { workspace = true }
+# The double-pipe twin demo's `--generate-artefacts` (gh:#1182): the
+# Kennedy-O'Hagan calibration and the co-kriging fit, run natively once from
+# raffles::fidelity (the calls gh:#1180's and gh:#1190's tests make). Native
+# only: the browser reads their committed results and never fits. Already in
+# this tree through the digital-twin engine and tampines, so no build work
+# is added; AGPL-3.0-only like this crate.
+raffles = { workspace = true }
 # Authoring frontend (math/mesh/primitives) plus its volume-meshing bridge.
 #
 # ~~The `mc-export` feature is still required here because `outram_blender::sim`
@@ -373,3 +386,17 @@ path = "examples/fukushima_web/main.rs"
 [[example]]
 name = "foam_studio_web"
 path = "examples/foam_studio_web/main.rs"
+
+# The double-pipe high-fidelity -> low-fidelity twin (gh:#1182, rung 5 of
+# epic gh:#1177): the TUAS 1-D double pipe evaluated live in a Web Worker
+# (the digital-twin engine's `one_d::ua`), beside the committed
+# Kennedy-O'Hagan predictive (eta + delta, gh:#1180), the co-kriging sweep
+# (gh:#1190), the 44 CFD design points (gh:#1178) and gh:#1191's filtering
+# traces (web/double_pipe_twin/, demos/double-pipe-twin/). Uses the
+# dev-dependencies already present (twin engine, uom); raffles natively, for
+# `--generate-artefacts` only. Carries an Android stub `main`. AI draft.
+#
+#   cargo run -p dhoby-ghaut --example double_pipe_twin_web --release [-- --headless]
+[[example]]
+name = "double_pipe_twin_web"
+path = "examples/double_pipe_twin_web/main.rs"
