@@ -166,6 +166,29 @@ def inv(A):  # dgesv on the identity: getf2, then trsm with inverse diagonals
     return X
 
 
+def pairwise(a):  # numpy's pairwise_sum (loops_utils.h.src), from 0
+    n = len(a)
+    if n < 8:
+        r = 0.0
+        for v in a:
+            r += v
+        return r
+    if n <= 128:
+        r, i = list(a[:8]), 8
+        while i < n - n % 8:
+            for j in range(8):
+                r[j] += a[i + j]
+            i += 8
+        res = ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]))
+        while i < n:
+            res += a[i]
+            i += 1
+        return res
+    n2 = n // 2
+    n2 -= n2 % 8
+    return pairwise(a[:n2]) + pairwise(a[n2:])
+
+
 def sequential_sum(stack):  # numpy's reduction over a non-contiguous axis 0
     acc = stack[0].copy()
     for row in stack[1:]:
@@ -203,6 +226,14 @@ def main():
             np.mean(S := rng.standard_normal((N, 3)), axis=0), sequential_sum(S) / N))))
         rows.append((f"sum axis 0 of (N,3,3), N={N}", count(lambda: np.array_equal(
             np.sum(O := rng.standard_normal((N, 3, 3)), axis=0), sequential_sum(O)))))
+    # Added after D7 first missed (2026-11-04): a reduction whose slices
+    # hold ONE element runs along a contiguous axis, and numpy then uses its
+    # pairwise sum (zero-started), not the sequential one.
+    for shape in [(20, 1), (50, 1), (20, 1, 1)]:
+        rows.append((f"sum axis 0 of {shape}", count(lambda: (
+            np.sum(S := rng.standard_normal(shape), axis=0).ravel()[0] == pairwise(list(S.ravel()))))))
+        rows.append((f"  (sequential instead)", count(lambda: np.array_equal(
+            np.sum(S := rng.standard_normal(shape), axis=0), sequential_sum(S)))))
     # Outside the envelope: kept to show where the emulation stops.
     rows.append(("OUTSIDE: gemv 2x8 @ 8x1", count(lambda: np.array_equal(
         np.dot(A := rng.standard_normal((2, 8)), x := rng.standard_normal((8, 1)))[:, 0], gemvt(A, x[:, 0])))))

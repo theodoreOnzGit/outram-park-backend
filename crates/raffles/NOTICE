@@ -501,6 +501,38 @@ terms. Verification: verification_and_validation/koh_calibration_gh1180.md.
 Status: AI-assisted draft, not reviewed by a human.
 
 
+FILTERPY (Roger R. Labbe Jr) — MIT (gh:#1191, 2026-11-04)
+===========================================================
+
+  Project:     FilterPy, Kalman filtering and optimal estimation library
+               (companion to "Kalman and Bayesian Filters in Python")
+  Repository:  https://github.com/rlabbe/filterpy
+  Commit:      5df4e095fac07684a05c495bd72d3424f7c68c9c (master,
+               2026-10-26, __version__ 2.0.0), accessed 2026-11-04
+  License:     MIT, "Copyright (c) 2015 Roger R. Labbe Jr". Upstream LICENSE
+               preserved verbatim as LICENSE-MIT-FILTERPY (sha256
+               8ffce1097f1b1c0fba42e4449ef49aa05cb7b45566dd0989407839dba07af99c);
+               setup.py declares license='MIT'.
+  Ported:      filterpy/kalman/kalman_filter.py (KalmanFilter predict,
+               Joseph-form update, batch_filter, rts_smoother),
+               filterpy/kalman/EKF.py, filterpy/kalman/sigma_points.py
+               (MerweScaledSigmaPoints), filterpy/kalman/UKF.py and
+               unscented_transform.py, filterpy/kalman/ensemble_kalman_filter.py,
+               filterpy/common/helpers.py (outer_product_sum),
+               filterpy/common/discretization.py (Q_discrete_white_noise,
+               Q_continuous_white_noise, order_by_derivative).
+  Into:        src/filtering/{kalman,ekf,sigma_points,ukf,enkf,discretization}.rs
+               (each with its own header). src/filtering/numpy_ops.rs,
+               consistency.rs and src/fidelity/state_space.rs are NOT ports:
+               numpy_ops reproduces numpy/OpenBLAS rounding orders that were
+               measured (no OpenBLAS source was read or copied).
+
+MIT is compatible with (A)GPLv3; the code flows ONE WAY into RAFFLES and may
+not be contributed back to FilterPy, or redistributed under MIT terms.
+Verification: verification_and_validation/filterpy_gh1191.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
 INDEPENDENCE / TRADEMARK
 ========================
 

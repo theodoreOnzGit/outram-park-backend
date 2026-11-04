@@ -415,6 +415,32 @@ predictor have the branch), and its dense `uvPred` scalar + δ branch puts
 GPMSA comment there. TMCMC needs enough moves per stage on this posterior
 (3 under-mixed in 11 dimensions; 20 matched SEPIA's MCMC).
 
+### The gh:#1191 FilterPy route (MIT, 2026-11-04)
+
+`src/filtering/` ports FilterPy @ `5df4e095fac0` (2.0.0; `LICENSE-MIT-FILTERPY`,
+NOTICE): the linear KF (Joseph-form update, batch filter, RTS smoother),
+EKF, UKF with Merwe sigma points, EnKF and the kinematic process-noise
+helpers. `numpy_ops.rs` is **not** a port: its `Matrix` kernels reproduce
+numpy/OpenBLAS's rounding order, which was **measured**
+(`verification_and_validation/filterpy_gh1191/probe_numpy_kernels.py`).
+That is what makes the filters bit-identical with FilterPy inside the
+measured envelope (dims ≤ 5 for `inv`, ≤ 4 for the Cholesky). Do not
+"tidy" an operation order there.
+The typed route is `fidelity::StateSpaceModel` with `fidelity::Assimilator`.
+Differential record: `verification_and_validation/filterpy_gh1191.md`,
+tests `tests/filterpy_gh1191.rs`.
+
+Four upstream facts are ported faithfully and must not be "fixed":
+- the UKF re-draws its sigma points after predict (since `94852b4`, which is
+  newer than PyPI 1.4.5);
+- the EnKF's `P` after an update is `P − K S Kᵀ`, not the ensemble's own
+  covariance (`ensemble_covariance()` gives that, beside it);
+- the EnKF's `P_xz` uses `self.x`;
+- `Q_discrete_white_noise` only takes dim 2–4.
+
+**Synthetic data only:** state estimation is in scope only for twin
+experiments (`RESPONSIBLE_USE.md`).
+
 ### Third-party BSD code inside RAVEN
 
 RAVEN's own `NOTICE.txt` discloses vendored third-party code under separate BSD

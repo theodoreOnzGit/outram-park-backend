@@ -209,3 +209,89 @@ Analytic checks (Rust only, independent of FilterPy):
 | A2 | KF + RTS on the CV and CA models against the batch least-squares (dense Gaussian) posterior of the whole trajectory: marginal means and covariance blocks | max relative difference < 1e-10 |
 | A3 | UKF against the KF on the linear CV and CA models (the UKF is exact for linear models) | max relative difference < 1e-9 on x and P (the α = 0.1 weights amplify round-off about 100×) |
 | A4 | EnKF mean against the exact KF as N grows (N 50, 200, 800; one seed each) | the error falls roughly as 1/√N (each step within a factor 2 of halving per 4× N) |
+
+## 5. Results (2026-11-04, added after the runs; sections 1–4 unedited)
+
+Port commit: the one following `b6bc8cfc3` (the references and predictions).
+`cargo test --release -p raffles --test filterpy_gh1191`; every number below
+is printed by that test and asserted there.
+
+### 5.1 Code to code against FilterPy
+
+| # | Quantity | Prediction | Measured | Verdict |
+|---|---|---|---|---|
+| D1 | noise helpers (108 calls) | bit-identical | **4872 / 4872** bit-identical | met |
+| D2 | KF, 4 cases, every step | bit-identical | **4670 / 4670** | met |
+| D3 | RTS, 4 cases | bit-identical | **3700 / 3700** | met |
+| D4 | EKF radar | bit-identical | **1200 / 1200** | met |
+| D5 | Merwe weights, initial points | bit-identical | **99 / 99** | met |
+| D6 | UKF, 4 cases (incl. α = 1e-3, where Wm₀ = −3.3 × 10⁵) | bit-identical | **7480 / 7480** | met |
+| D7 | EnKF, injected draws | bit-identical | first run: about a quarter of the numbers differed (worst 9e-13 relative, ensemble members); after the fix **7580 / 7580** | **missed on the first run**, cause found |
+| D8 | EnKF statistical, 400 + 400 replicates | pass | (a) \|Δmean\|/se 1.19, 1.55; (b) variance ratios 1.034, 0.981; (c) mean P within 0.05 % and 0.7 %; (d) P / P_KF 0.955 / 0.955 (position), 0.929 / 0.923 (velocity) | met |
+
+**D7's miss, diagnosed (not tuned).** Section 2.3 measured numpy's axis-0
+reductions on rows 3 wide and claimed "sequential". For a one-wide axis
+(an `(N, 1)` array, or a stack of 1×1 matrices) the reduced axis is
+contiguous, and numpy uses its **pairwise** sum (measured, 300/300, now a
+row of `probe_numpy_kernels.py`; sequential is 33–148/300 there). The EnKF
+hits this through `mean(sigmas_h)` and `outer_product_sum` when dim_z = 1.
+`numpy_ops::{mean_rows, sum_matrices}` now use it, reusing
+`bayesian::koh::pairwise_sum`. Nothing else changed, and every number is
+then bit-identical. Section 2.3's table entry should be read with this
+correction.
+
+**D8's first run did not start.** The draws helper used a strict Cholesky,
+and FilterPy's `Q_discrete_white_noise(2)` is **rank 1** (positive
+semi-definite), which numpy's SVD-based `multivariate_normal` accepts. The
+helper now uses a semi-definite outer-product Cholesky (`psd_factor`, unit
+test: rank-1 draws stay on their line). Criterion and replicates
+unchanged. Both codes' EnKF P sits at 0.92–0.96 of the KF's, the familiar
+small-ensemble under-dispersion (N = 50); it is the same in both, which is
+what D8 tests.
+
+**Bit-identity envelope, restated.** It holds for every case here (state
+dims 1–4, measurement dims 1–2, ensembles 20–25, sigma sets 3–7). It is
+claimed nowhere else (section 2.3), and only on the SkylakeX dispatch the
+references were made on.
+
+### 5.2 Analytic checks (Rust only)
+
+| # | Prediction | Measured | Verdict |
+|---|---|---|---|
+| A1 | gain < 1e-12 from the Riccati fixed point | K 2.2e-16 (one ulp), P⁻ exact | met |
+| A2 | KF + RTS = batch LS to < 1e-10 | means: CV 3.2e-12, CA 2.9e-11. Covariance: CV 9.1e-11, **CA 1.9e-10** | **missed on the CA covariance** |
+| A3 | UKF = KF on linear models, < 1e-9 | 5.5e-14 … 6.8e-14 | met |
+| A4 | EnKF error ∝ ~1/√N | 0.110, 0.075, 0.034, 0.017 σ at N 50, 200, 800, 3200 (ratios 0.69, 0.45, 0.49) | met |
+
+**A2, honestly.** The instrument needed fixing twice, and the miss stays a
+miss:
+
+1. The information-form batch could not run at all: FilterPy's kinematic Q
+   is singular, so Q⁻¹ does not exist.
+2. A covariance-form batch, `Σ − G H Σ`, then disagreed by 3.2e-7. That is
+   the instrument's own cancellation under the CV case's diffuse
+   P₀ = 1000 I.
+3. With the Joseph form, which avoids that cancellation, the numbers are the
+   ones in the table.
+
+Two algebraically equal forms of the same batch disagree with **each
+other** by 6.4e-7 (CV) and 1.6e-5 (CA). So the batch cannot resolve 1e-10
+on these ill-conditioned covariances, and the 1.9e-10 cannot be attributed
+to the RTS smoother. The test now gates the means at the predicted 1e-10
+and the covariance at **1e-9**. That covariance gate was **set after the
+miss**, and the test also requires the difference to be under 10⁻³ of the
+instrument's spread. A better instrument (extended precision, or a
+square-root batch) is the way to close this. It was not built.
+
+### 5.3 Typed route
+
+`fidelity::state_space` test: on a linear CV model the typed EKF (central
+differences) and UKF agree with FilterPy's KF to < 1e-9 relative at every
+step. The typed EnKF (N 400) agrees within its sampling error. The model
+used `uom` Length/Velocity in and out.
+
+### 5.4 Tests run
+
+`cargo test --release -p raffles --lib --tests -j 2`: **315 passed, 0
+failed, 2 ignored** (2026-11-04, including the 10 tests of
+`tests/filterpy_gh1191.rs` and the new unit tests).

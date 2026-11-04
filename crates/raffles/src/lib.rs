@@ -164,6 +164,7 @@ pub mod distance;
 pub mod distributions;
 pub mod estimators;
 pub mod fidelity;
+pub mod filtering;
 pub mod gnn;
 pub mod imprecise;
 pub mod model_selection;

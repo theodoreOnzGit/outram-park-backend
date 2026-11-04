@@ -24,6 +24,7 @@
 //! | [`CorrectedModel<L>`], [`ThetaEstimate`], [`discrepancy_dataset`] | `y_LF(x, θ) + δ(x)`; since gh:#1180 `ThetaEstimate::Posterior` |
 //! | [`koh::KohCalibration`], [`koh::KohSpec`] | Kennedy–O'Hagan calibration of a [`ParametricModel`] against a [`Dataset`]'s training rows, with a GP discrepancy (SEPIA's formulation, gh:#1180) |
 //! | [`build`], [`sample`], [`BuildPlan`], [`HeldOut`] | sample `hf` over a [`Sampler`](crate::samplers::Sampler) design, split, fit, validate |
+//! | [`StateSpaceModel`], [`Assimilator`], [`Gaussian`], [`AssimilationStep`] | `x_{k+1} = f(x_k)`, `z_k = h(x_k)`, implemented by the caller; FilterPy's EKF / UKF / EnKF ([`crate::filtering`]) run on it, typed (gh:#1191) |
 //!
 //! # Design rules it follows
 //!
@@ -45,8 +46,9 @@
 //!   co-kriging (SMT, gh:#1190) become [`SurrogateSpec`] / [`Surrogate`]
 //!   variants when they land~~ (landed 2026-11-04: `KrigingRoute::Smt`,
 //!   `SurrogateSpec::CoKriging`; ~~polynomial chaos (RAVEN, gh:#1193)~~ landed
-//!   2026-11-04 with RAVEN's kriging route); a sibling
-//!   `StateSpaceModel` trait comes with the Kalman ports (gh:#1191).
+//!   2026-11-04 with RAVEN's kriging route); ~~a sibling
+//!   `StateSpaceModel` trait comes with the Kalman ports (gh:#1191)~~
+//!   landed 2026-11-04 with them: [`StateSpaceModel`] and [`Assimilator`].
 //!
 //! # Scope note
 //!
@@ -68,6 +70,7 @@ pub mod koh;
 mod models;
 mod quantities;
 mod space;
+mod state_space;
 mod surrogate;
 
 pub use build::{build, sample, BuildPlan, HeldOut};
@@ -77,6 +80,7 @@ pub use models::{
 };
 pub use quantities::{check_width, Channel, Quantities, SiQuantity};
 pub use space::ParameterSpace;
+pub use state_space::{AssimilationStep, Assimilator, Gaussian, StateSpaceModel};
 #[cfg(feature = "burn")]
 pub use surrogate::NeuralBackend;
 pub use surrogate::{KrigingRoute, Prediction, Surrogate, SurrogateSpec, ValidationReport};
