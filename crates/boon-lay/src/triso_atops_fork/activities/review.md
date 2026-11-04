@@ -704,19 +704,19 @@ id = "review-circulating-theodoreonzgit-98e15d9c"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:28:00+08:00"
-modified = "2026-11-02T13:28:00+08:00"
+modified = "2026-11-04T15:14:19+08:00"
 target = "fn:98e15d9c13a78899"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::circulating"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-11-02"
-signed_at = "2026-11-02T13:28:00+08:00"
-commit = "e4e84814e8b351269093bb54f63d7834bfc5d843"
+date = "2026-11-04"
+signed_at = "2026-11-04T15:14:19+08:00"
+commit = "7be5389ecccdb826b3a40143867fe1d1c72c3461"
 hash = "sha256:0f0a6db70afe1338a4117433d1546cdbe5d5d3d5267c95e2b2a6ca7cf961ca85"
 doc_hash = "sha256:5bf8ec6362689f806a0311b17fc870a8d0d5d41496795b82d1348620e2c0c72d"
-cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
 
 [review.callees]
 "fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
@@ -736,17 +736,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = [
-    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
-    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
-]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "54OZpz3kEfJOfFrcBR10Dk2zzFeFJyMK6OT224BQgOkFOSb1buwTJ6SylszqEaGt38r92x41cQNIgVr01dJ2Cg=="
+value = "QRvJ1MSg+OB4ZQNx2b7V5OQFppJcLOR4SdCG26yQ/nBJY/25dqrdD4EGpAegL5w+2EuSMChXhykra8++Zr2XCw=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -754,10 +747,11 @@ kind = "implements"
 ```
 
 follow upstream, circulating function in TRISO ATOPS
+This is the analytical integral
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e4e84814e8.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 7be5389ecc.
 
 # Review: circulating_steadystate (github:theodoreOnzGit)
 
