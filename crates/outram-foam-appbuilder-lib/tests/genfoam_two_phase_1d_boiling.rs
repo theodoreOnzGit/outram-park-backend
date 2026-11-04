@@ -15,9 +15,10 @@
 //! - **P2-P5**, physical behaviour predicted before the run (boiling onset
 //!   window, flow excursion, condensation after power-off, continuity).
 //!
-//! The case needs the upstream clone: set `GENFOAM_UPSTREAM` (default
-//! `/workspace/GeN-Foam`); the tests skip with a message when it is absent.
-//! `TWO_PHASE_OUT=<dir>` makes the full run write CSV histories for plotting.
+//! The case files are upstream's, vendored unchanged in
+//! `tests/data/genfoam_1d_boiling` (`GENFOAM_UPSTREAM` points at a checkout
+//! instead). `TWO_PHASE_OUT=<dir>` makes the full run write CSV histories for
+//! plotting.
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -27,10 +28,12 @@ use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::
 };
 
 fn case_dir() -> Option<PathBuf> {
-    let root = std::env::var("GENFOAM_UPSTREAM")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/workspace/GeN-Foam"));
-    let dir = root.join("Tutorials/featureCases/1D_boiling");
+    // Upstream's case files, vendored unchanged (tests/data/genfoam_1d_boiling,
+    // see its PROVENANCE.md); GENFOAM_UPSTREAM points at a checkout instead.
+    let dir = match std::env::var("GENFOAM_UPSTREAM") {
+        Ok(root) => PathBuf::from(root).join("Tutorials/featureCases/1D_boiling"),
+        Err(_) => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_boiling"),
+    };
     dir.join("constant").is_dir().then_some(dir)
 }
 
@@ -130,9 +133,14 @@ fn one_d_boiling_heated_flow_at_0_3_s() {
     assert!(u_out > u_in, "heating must accelerate the liquid downstream");
 }
 
-/// The full 12 s transient, P2-P5. Long (minutes): run with `--ignored`.
+/// The full 12 s transient, P2-P5 (about 8 s in release).
+///
+/// Asserts the measured behaviour, not the P2 window, which was missed
+/// (README "Results"): boiling starts before the 7 s power-off, the inlet
+/// liquid flow falls below half its single-phase value (flow excursion), and
+/// the void has condensed away by 12 s. The continuity errors (P5, missed) are
+/// printed, not asserted.
 #[test]
-#[ignore = "full 12 s transient; run explicitly"]
 fn one_d_boiling_full_transient() {
     let Some(dir) = case_dir() else {
         eprintln!("SKIP: upstream 1D_boiling not found; set GENFOAM_UPSTREAM");
@@ -144,6 +152,13 @@ fn one_d_boiling_full_transient() {
     }
     let end = case.end_time;
     let mut s = TwoPhaseSolver::new(case);
+    // Diagnostic ablations (not defaults): override alpha relaxation or nOuter.
+    if let Ok(v) = std::env::var("TWO_PHASE_RELAX_ALPHA") {
+        s.controls.relax_alpha = v.parse().expect("relax");
+    }
+    if let Ok(v) = std::env::var("TWO_PHASE_N_OUTER") {
+        s.controls.n_outer = v.parse().expect("n_outer");
+    }
     let out = std::env::var("TWO_PHASE_OUT").ok().map(PathBuf::from);
     let mut hist = Vec::new();
     let mut profiles = Vec::new();
@@ -168,7 +183,7 @@ fn one_d_boiling_full_transient() {
             max_void_after_off.push((s.time, vmax));
         }
         let tsmax = s.structure.t_act.iter().cloned().fold(0.0, f64::max);
-        hist.push((s.time, r.dt, u_in, vmax, tsmax, r.outer_iterations, r.courant));
+        hist.push((s.time, r.dt, u_in, vmax, tsmax, r.outer_iterations, r.courant, s.fluids[0].cumul_cont_err, s.fluids[1].cumul_cont_err, s.fluids[1].u.c[0].x));
         let wi = s.time_controls.write_interval.unwrap_or(0.1);
         if ((s.time / wi).round() * wi - s.time).abs() < 1e-9 {
             profiles.push((s.time, s.geom.mesh.cell_centres.iter().map(|c| c.x).collect::<Vec<_>>(),
@@ -185,12 +200,17 @@ fn one_d_boiling_full_transient() {
         "P5: cumulative continuity errors = {:.3e} {:.3e} kg/m3",
         s.fluids[0].cumul_cont_err, s.fluids[1].cumul_cont_err
     );
+    let onset = first_boil.expect("P2: no boiling");
+    assert!(onset < 7.0, "P2: boiling must start before power-off, got {onset}");
+    assert!(min_u_in < 0.5 * u0, "P3: no flow excursion ({min_u_in})");
+    assert!(last.expect("ran past 7 s").1 < 1e-3, "P4: void did not condense");
+    assert!(s.fluids[0].cumul_cont_err.is_finite());
     if let Some(dir) = out {
         std::fs::create_dir_all(&dir).expect("out dir");
         let mut f = std::fs::File::create(dir.join("history.csv")).expect("csv");
-        writeln!(f, "t,dt,u_liquid_inlet,max_alpha_vapour_normalized,max_T_structure,outer_iters,courant").unwrap();
+        writeln!(f, "t,dt,u_liquid_inlet,max_alpha_vapour_normalized,max_T_structure,outer_iters,courant,cumul_cont_err_liquid,cumul_cont_err_vapour,u_vapour_inlet").unwrap();
         for h in &hist {
-            writeln!(f, "{},{},{},{},{},{},{}", h.0, h.1, h.2, h.3, h.4, h.5, h.6).unwrap();
+            writeln!(f, "{},{},{},{},{},{},{},{},{},{}", h.0, h.1, h.2, h.3, h.4, h.5, h.6, h.7, h.8, h.9).unwrap();
         }
         let mut f = std::fs::File::create(dir.join("profiles.csv")).expect("csv");
         writeln!(f, "t,x,alpha_vapour_normalized,T_liquid,T_vapour,T_structure,T_interface").unwrap();

@@ -68,3 +68,27 @@ fn reading_a_missing_case_is_an_error() {
     let r = TwoPhaseCase::read(std::path::Path::new("/nonexistent/genfoam/case"));
     assert!(r.is_err());
 }
+
+/// The vendored upstream `1D_boiling` case reads, builds, and steps through
+/// the `ThermalHydraulicsSolver` enum; the fluid fractions fill the moving
+/// volume exactly (`twoPhase.C` normalisation).
+#[test]
+fn one_d_boiling_case_steps_through_the_solver_enum() {
+    use super::super::ThermalHydraulicsSolver;
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_boiling");
+    let case = TwoPhaseCase::read(&dir).expect("read vendored 1D_boiling");
+    assert_eq!(case.deviations.len(), 1, "MULES -> implicitUpwind is the only deviation");
+    let mut th = ThermalHydraulicsSolver::TwoPhase(super::TwoPhaseSolver::new(case));
+    for _ in 0..5 {
+        th.step(1e-3).expect("step");
+    }
+    let ThermalHydraulicsSolver::TwoPhase(s) = th else {
+        unreachable!("constructed as TwoPhase")
+    };
+    for c in 0..s.geom.n_cells() {
+        let sum = s.fluids[0].alpha.c[c] + s.fluids[1].alpha.c[c] + s.structure.alpha.c[c];
+        assert!((sum - 1.0).abs() < 1e-12, "cell {c}: {sum}");
+        assert!(s.fluids[0].t.c[c].is_finite() && s.p.c[c].is_finite());
+    }
+    assert!((s.time - 5e-3).abs() < 1e-12);
+}

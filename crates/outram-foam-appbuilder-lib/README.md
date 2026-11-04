@@ -162,7 +162,7 @@ translation order are in
 | `multi_region` | **Implemented + verified end-to-end** for 0-D and mesh-based diffusion↔TH coupling with Doppler feedback. Two **degraded scaffolds** remain (see Limitations): exact conservative mesh-to-mesh mapping, and actual mesh-point motion. |
 | `thermal_hydraulics::closures` | Correlation leaves ported with unit tests against published values: `fs_drag` (**verified**, analytic `f·Re → 64`), `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`. `turbulence` is **partial** (closure algebra only; the k/ε transport equations and `correctNut` orchestration are deferred). |
 | `thermal_hydraulics::phase` / `structure` | Field-state + structure/power-model kernels **implemented** (with tests). |
-| `thermal_hydraulics::solver` | `one_phase` porous UEqn/pEqn/EEqn driver **implemented** — but a **constant-fluid-property slice only** (`he = Cp·T`, fixed-surface-temperature structure coupling). **New work, not port (gh:#1149, 2026-11-03):** an optional `PorousConductivity` makes `alphaEff = λ(T)/Cp` per region (off by default; the constant path is pinned bit for bit). `onePhaseLegacy` and the **two-phase (MULES) solver are not implemented.** |
+| `thermal_hydraulics::solver` | `one_phase` porous UEqn/pEqn/EEqn driver **implemented** — but a **constant-fluid-property slice only** (`he = Cp·T`, fixed-surface-temperature structure coupling). **New work, not port (gh:#1149, 2026-11-03):** an optional `PorousConductivity` makes `alphaEff = λ(T)/Cp` per region (off by default; the constant path is pinned bit for bit). `onePhaseLegacy` ~~and the **two-phase (MULES) solver are not implemented.**~~ is not implemented. **`two_phase` (gh:#1218, 2026-11-04):** GeN-Foam's `twoPhase` with `implicitUpwind` alpha (MULES not ported), runs `1D_boiling`. |
 | `thermal_hydraulics::solid_conduction` | **New work, not port (gh:#1149, 2026-11-03).** 2-D R-Z (OpenFOAM-style wedge) or planar solid conduction over homogenised regions: `λ(T)`, `ρc_p(T)` by enum, Picard per steady solve and per backward-Euler step (enthalpy-form storage), fixed / convective / radiative boundaries, gas gaps with two-surface radiation between regions (Kugeler et al. 2017 §9.4). **Verified** against closed forms (uniform-source cylinder, composite cylinder with a radiating gap, Kirchhoff `λ0(1+βT)`, transient slab series, 2-D manufactured solution: observed order 2.00 in space, 1.01 in time). Drawings: `verification_and_validation/solid_conduction_rz/`. ~~HTR-10 geometry is a later part of gh:#1149.~~ **UPDATED 2026-11-03:** the HTR-10 geometry is built on it by `htr10_rz` (below); held cells (`set_fixed_temperatures`, the gas side as a prescribed temperature) added and verified. **2026-11-03 (gh:#1173):** a radiative-plus-enclosure-natural-convection boundary (`SolidBoundary::RadiativeAndConvective`, `EnclosureNaturalConvection`: MacGregor & Emery 1969, air from `air_properties`, checked against CoolProp within 2 %), the HTR-10 RPV side wall's default. Not validated against any reactor. |
 | `thermal_hydraulics::thermophysical` | Bespoke **hydrogen** (H/H₂) property package implemented; not yet wired as the `one_phase` solver's fluid package. Other fluids come from basic-lib thermo / tampines-steam-tables. |
 | `thermal_hydraulics::boundary_conditions` | `blackbody_radiation`, `velocity_rundown`, `time_field_table` implemented; **`nusselt_baffle` is a scaffold — every method is `unimplemented!()`.** |
@@ -358,7 +358,11 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   `with_cross_sections` for a working model. **SN has no transient** — it
   offers `solve_eigenvalue` only, unlike `diffusion` and `sp3`, which also
   offer `step`.
-- **adjointDiffusion and albedoSP3 are not ported.**
+- ~~**adjointDiffusion and albedoSP3 are not ported.**~~ **CORRECTED 2026-11-04
+  (gh:#1217 audit):** `albedoSP3` is ported as `genfoam::neutronics::albedo`
+  (5 tests; verified against an upstream MSFR run to 0.0 pcm on its boundary
+  row). `adjointDiffusion` is still not ported (checked: no module of that
+  name under `src/genfoam/neutronics/`).
 - **Point kinetics is the bare 0-D reactivity-driven ODE.** The full GeN-Foam
   `pointKineticNeutronics` couplings — temperature/density feedback fields,
   GEM and control-rod-driveline reactivity, external-source power modulation,
@@ -373,10 +377,19 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
 
 ### GeN-Foam thermal-hydraulics
 
-- **The two-phase solver is not implemented.** Only `solver::one_phase` exists,
+- ~~**The two-phase solver is not implemented.** Only `solver::one_phase` exists,
   and only as a **constant-fluid-property** slice (`he = Cp·T`, isotropic drag,
   fixed-surface-temperature structure coupling). `onePhaseLegacy` and the
-  MULES-limited two-phase `alpha`/pressure driver are absent.
+  MULES-limited two-phase `alpha`/pressure driver are absent.~~ **CORRECTED
+  2026-11-04 (gh:#1218):** `solver::two_phase` ports GeN-Foam's `twoPhase`
+  solver with the `implicitUpwind` alpha solver, face-centred momentum with
+  implicit partial elimination, the compressible `p_rgh` equation, both
+  enthalpy equations and `heatDriven` boiling, on basic-lib's `heRhoThermo`
+  stacks; it runs upstream's `1D_boiling` end to end (V&V:
+  `verification_and_validation/genfoam_two_phase/README.md`). **MULES is not
+  ported** (a case selecting it runs `implicitUpwind`, recorded as a
+  deviation), nor `onePhaseLegacy`; `one_phase` is still the
+  constant-property slice. Gap list: `docs/genfoam-port-gap-audit.md`.
 - **The porous fluid thermophysical package is not wired into the solver.** The
   one-phase driver runs on constant properties supplied on the fields; the
   hydrogen property package exists standalone but is not yet the solver's EOS.

@@ -6,6 +6,22 @@ fetched shallow and sparse from `gitlab.com/foam-for-nuclear/GeN-Foam`. Port
 side: `crates/outram-foam-appbuilder-lib/src/genfoam/` at branch
 `claude/outram-foam-8ookor` merged with `develop` (merge `270705faf`).
 
+> **Update, same day, after gh:#1218.** The tables below are the state
+> *before* the two-phase port, kept as audited. `solver/two_phase/` now
+> covers, for the selections `1D_boiling` makes: `twoPhase.{C,H}`,
+> `alphaEqns_2p.H` + `solveAlphaImplicitUpwind.H`, `UEqns_2p.H`, `pEqnf_2p.H`
+> with the implicit partial-elimination branch and its `pEqnRoutines`,
+> `EEqns_2p.H` (both stabilisation modes), the field orchestration of
+> `FFPair::correct`, `FSPair::correct` (isotropic), `FFDragFactor`,
+> `twoPhaseDragFactor`, `virtualMass`, `phaseChangeModel::correct` with
+> `heatDriven` (no `dmdtW` source), `latentHeatModel::adjust`,
+> `fluidDiameterModel::correctField`, the `byRegime` dispatch for dispersion
+> and contact partition, `structure::correct`/`linearizedSemiImplicitHeatSource`
+> for `fixedPower`, and `customPimpleControl`'s residual control and
+> `correctUntilConvergence`. Each of those rows moves from *missing* to
+> *partial*. Still missing in the solver: MULES, `pEqn_2p.H` (cell-centred),
+> the `none`/`explicit` partial-elimination branches, turbulence, tortuosity.
+
 ## How this was measured
 
 - **Upstream line counts** are `wc -l` over every `*.C`/`*.H` file under

@@ -592,6 +592,12 @@ impl TwoPhaseSolver {
             .map(|f| s.fluids[0].alpha_phi[f] + s.fluids[1].alpha_phi[f])
             .collect();
         s.update_mixture_density();
+        // p on patches is `calculated`: p = p_rgh + rho gh.
+        for f in ni..nf {
+            if s.geom.active[f] {
+                s.p.b[f - ni] = s.p_rgh.b[f - ni] + s.rho_mix.b[f - ni] * s.ghf[f];
+            }
+        }
         // Structure surface temperature starts at the power models' T.
         for c in 0..n {
             if let Some(pm) = &s.structure.power[c] {

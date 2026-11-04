@@ -17,6 +17,15 @@ This crate provides:
    `outram-foam-turbulence-lib`.
 4. **The GeN-Foam port** (`genfoam`) — deterministic reactor neutronics,
    thermal-hydraulics, thermo-mechanics, and their multi-region coupling.
+   Per-class status against upstream `652b3da` (ported / partial / missing,
+   with line counts): `docs/genfoam-port-gap-audit.md` (gh:#1217). Since
+   2026-11-04 (gh:#1218) `genfoam::thermal_hydraulics::solver::two_phase` ports
+   GeN-Foam's `twoPhase` boiling solver (implicitUpwind alpha; **MULES is not
+   ported**) and runs upstream's `1D_boiling` case files end to end; its V&V
+   record is `verification_and_validation/genfoam_two_phase/README.md`, and it
+   is **not** compared with an upstream run (none is shipped or runnable here).
+   `TwoPhaseCase::read` refuses, by name, every case selection the port does
+   not implement: extend the port, never the refusal.
 
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
