@@ -291,6 +291,15 @@ fn the_model_against_the_digitised_bsaf_figures() {
     assert!((dw.mean_abs - 0.0670).abs() < 1e-3 && (dw.max_abs - 0.2573).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
     assert!(near(e_rpv, 0.6154) && near(e_dw, 0.6703) && near(e_h2, 0.9885) && near(e_xe, 0.8125) && near(e_i, 0.8542));
+}
+
+/// The network-plant half of [`the_model_against_the_digitised_bsaf_figures`], split out on 2026-11-04 so the
+/// lumped pins keep gating while the network pins wait for the model check.
+#[test]
+#[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since"]
+fn the_model_against_the_digitised_bsaf_figures_network() {
+    let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
+    let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
     // The network plant, the default since gh:#1099 (2026-11-02): the same
     // instruments, the same tolerances.
     let n = model();
@@ -535,6 +544,14 @@ fn cesium_against_fig_2_6() {
     );
     let c_off = inside_envelope(&off.t_h, &off.cs_sc_water, &family("2.6c"), &grid);
     assert!((c_off.0 - 0.8539).abs() < 1e-3, "{c_off:?}");
+}
+
+/// The network-plant half of [`cesium_against_fig_2_6`], split out on 2026-11-04 so the
+/// lumped pins keep gating while the network pins wait for the model check.
+#[test]
+#[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since"]
+fn cesium_against_fig_2_6_network() {
+    let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
     // The network plant (gh:#1099).
     let n = model();
     let a = inside_envelope(&n.t_h, &n.cs_dw_structures, &family("2.6a"), &grid);
@@ -621,6 +638,14 @@ fn iodine_against_fig_2_6() {
         26.0 * 3600.0,
     );
     assert_eq!(inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid), (0.0, 89));
+}
+
+/// The network-plant half of [`iodine_against_fig_2_6`], split out on 2026-11-04 so the
+/// lumped pins keep gating while the network pins wait for the model check.
+#[test]
+#[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since"]
+fn iodine_against_fig_2_6_network() {
+    let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
     // The network plant (gh:#1099).
     let n = model();
     let b = inside_envelope(&n.t_h, &n.i_dw_structures, &family("2.6b"), &grid);
