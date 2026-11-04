@@ -252,3 +252,79 @@ Impt function as it manages parallelism, and dries code
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 0e7aa027da.
+
+# Review: transport_generation_par (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-transport-generation-par-theodoreonzgit-857bb1e6"
+kind = "review"
+origin = "human"
+created = "2026-11-04T16:23:20+08:00"
+modified = "2026-11-04T16:23:20+08:00"
+target = "fn:857bb1e623c23d22"
+
+[review]
+path = "crates/outram-mc-libs/src/physics/transport_csg.rs::transport_generation_par"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T16:23:20+08:00"
+commit = "318e1c060ab70a0f264100090332a5314f05c8ea"
+hash = "sha256:10a0eedf9c551a3976f07e7820108368dc9e140e933be5ed59dca29f742a5e64"
+doc_hash = "sha256:6dac1883d1ad42b8ac920ba8d49f690cc6c3642455bb1cc731cf1f41dd52cfc6"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
+
+[review.callees]
+"fn:015742ee4e8bd724" = "sha256:6bac6d53345a1502561556dc720a51cd2235d3994913dfb84619fbdb55bb2c45"
+"fn:03f2c5a46bf665de" = "sha256:d28100d4bc72cdcc346a6e5353cd64183a321c17b7b437c6c45377ffdf44b5c1"
+"fn:21a3b7c5b5c4a907" = "sha256:e8fcb6ad4ea70da331d6166edcd942529a3ae2b2b147cf46909bfccb3e1eb724"
+"fn:22c30e2054607d5a" = "sha256:fde0089b897ca31e42dce8b5cdd328b720b2adcec4d46b9c967b0494ea793dfb"
+"fn:2cdc0dbae63c02c1" = "sha256:89cef8038fdc9569259fd2a0f2ab842b7d7bde6d8f2694c845bd7242f606f8a7"
+"fn:3af0fd8a516bcb0d" = "sha256:e85f5d08ffef84733b73557178704497dada475b248b5fded3a5435a3588d21b"
+"fn:52240e147d4d4b36" = "sha256:1fa25ed5a1f06ac9fb8802f7e67aa33df81e6072c5a8845dad4cda8d9f219010"
+"fn:62a9bff6bf32728c" = "sha256:1a57aeb5fcc9142a4d157438a3bc14a3a85c2a96652ae079dc91a84ddac947e9"
+"fn:72eac18850a2356b" = "sha256:ef74819872880be210268d59443be2cbbb2ddb3db8ee0891e03534c4e53f72d5"
+"fn:770c5941dead0a7e" = "sha256:e7da85859203f919743199860493872328e541d23b2146b50d16d2ccd7055b85"
+"fn:78922ce6d9a08c5f" = "sha256:4ef24abc0d6d00567d0023377c3b84ad87fef6e43f6e8ffd872a67365b88e56b"
+"fn:86fec0a94b7f6b00" = "sha256:e640c6ea7104c96133f22abd1da08a45d5c6f2d27695ecbb91fbbea415ab0a80"
+"fn:8a6f6c1ba4a90a90" = "sha256:99a628f8277a00528054b1e951fd7978333f9bb9f86a73c39502ff962d2c98c8"
+"fn:c18707f1370d3347" = "sha256:962b128136c7bc85d8cba4f5cbc9ab48a0c2c900c0ce872793308fe46a7888df"
+"fn:c5c249ea5441011c" = "sha256:ac257f1d5609a800b65cf7863dde481789eaa5c71c674f5104df8eaa69efcaed"
+"fn:cef42e1a8f2fd45a" = "sha256:65de7eb0adb8398f4098ea482e1d84c064feee199ee81e633208a9438a32dd60"
+"fn:db39829f500f2e09" = "sha256:698cb5702c783200053f0e822f9b010797aa8b9e8789b0b31a575059095b73d5"
+"fn:ff4dfa6416cdd4fc" = "sha256:dbc35cfa9f5f6ca51932de3653592be4a995644f71dd8233f344d32be3f21a76"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: not quite ported from upstream openmc, but ports it style in that it throws errors"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: not quite ported from upstream openmc, but ports it style"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_017j6t92YEuE649Nx5e7k8nD"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "qOZKDTQ4vJJdCzb8WmbpnvTN1BLZWrdRw9/DE0tmeeWOwU0ZlfL36X+AwCqCDpNGCPJ5IIQUxUHWclS4rRjoBg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport"
+kind = "implements"
+```
+
+manages seeds in parallel, reassmebles them so that they are byte identical to series
+therefore parallel simulations can be deterministic
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 318e1c060a.
