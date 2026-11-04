@@ -376,6 +376,193 @@ pub(crate) fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
     (vols, centres)
 }
 
+/// snappyHexMesh's mesh-quality controls (`meshQualityControls`, the file
+/// `etc/caseDicts/mesh/generation/meshQualityDict` of OpenFOAM-dev
+/// `852527377c7e`), as checked by [`faces_failing_mesh_quality`]. The
+/// defaults are that file's values.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshQualityControls {
+    /// `maxNonOrtho` [degrees]; 180 disables.
+    pub max_non_ortho_deg: f64,
+    /// `maxBoundarySkewness`; negative disables.
+    pub max_boundary_skewness: f64,
+    /// `maxInternalSkewness`; negative disables.
+    pub max_internal_skewness: f64,
+    /// `minTetQuality`: here only its sign is checked (a decomposition
+    /// tetrahedron of non-positive volume fails); `None` disables.
+    pub min_tet_quality: Option<f64>,
+    /// `minTwist`; below −1 disables.
+    pub min_twist: f64,
+    /// `minDeterminant`; negative disables.
+    pub min_determinant: f64,
+    /// `minFaceWeight`; outside [0, 1) disables.
+    pub min_face_weight: f64,
+    /// `minVolRatio`; outside [0, 1) disables.
+    pub min_vol_ratio: f64,
+}
+
+impl Default for MeshQualityControls {
+    fn default() -> Self {
+        MeshQualityControls {
+            max_non_ortho_deg: 65.0,
+            max_boundary_skewness: 20.0,
+            max_internal_skewness: 4.0,
+            min_tet_quality: Some(1e-15),
+            min_twist: 0.02,
+            min_determinant: 0.001,
+            min_face_weight: 0.05,
+            min_vol_ratio: 0.01,
+        }
+    }
+}
+
+/// The faces that fail `controls` (gh:#1215): the port of OpenFOAM's
+/// `meshCheck::checkMesh(report, mesh, dict, checkFaces, baffles,
+/// wrongFaces)` (OpenFOAM-dev `852527377c7e`, `src/meshCheck/checkMesh.C`,
+/// with the per-check definitions of `polyMeshCheck/polyMeshCheckQuality.C`
+/// and `primitiveMeshCheck/primitiveMeshCheck.C`), which snappyHexMesh's
+/// layer driver runs on every layered mesh (`snappyLayerDriver::
+/// checkAndUnmark`).
+///
+/// Checks ported: `checkFaceOrthogonality` (internal faces),
+/// `checkFaceSkewness` (`faceSkewness` on internal faces,
+/// `boundaryFaceSkewness` with its 0.4 |d| floor on boundary faces),
+/// `checkFaceTets` (sign only), `checkFaceTwist`, `checkCellDeterminant`
+/// (`cellDeterminant`: det of Σ (S/⟨|S|⟩)² over the cell's internal faces; a
+/// failing cell marks all its faces), `checkFaceWeights`, `checkVolRatio`.
+/// Not ported: `maxConcave` (`checkFaceAngles`), `minVol` (disabled, −1e30,
+/// in the default dictionary) and `minFaceFlatness` (absent from it).
+/// Centres are this crate's ([`cell_geometry`], vertex-average face
+/// centres), not OpenFOAM's area-weighted ones.
+pub fn faces_failing_mesh_quality(mesh: &VolumeMesh, controls: &MeshQualityControls) -> Vec<bool> {
+    let (vols, centres) = cell_geometry(mesh);
+    let nf = mesh.face_count();
+    let mut bad = vec![false; nf];
+    let cos_max = controls.max_non_ortho_deg.to_radians().r_cos();
+    const RVS: f64 = 1e-150;
+    let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); mesh.n_cells];
+    for f in 0..nf {
+        cell_faces[mesh.owner[f]].push(f);
+        if let Some(n) = mesh.neighbour[f] {
+            cell_faces[n].push(f);
+        }
+    }
+    for f in 0..nf {
+        let s = mesh.face_area_vector(f);
+        let fc = mesh.face_centroid(f);
+        let co = centres[mesh.owner[f]];
+        let ring = &mesh.faces[f];
+        let k = ring.len();
+        let skew_of = |d: Vec3, floor: f64| -> f64 {
+            let cpf = fc.sub(co);
+            let sv = cpf.sub(d.scale(s.dot(cpf) / (s.dot(d) + RVS)));
+            let sv_hat = sv.scale(1.0 / (sv.length() + RVS));
+            let mut fd = floor * d.length() + RVS;
+            for &v in ring {
+                fd = fd.max(sv_hat.dot(mesh.points[v].sub(fc)).abs());
+            }
+            sv.length() / fd
+        };
+        let mut b = false;
+        match mesh.neighbour[f] {
+            Some(n) => {
+                let cn = centres[n];
+                let d = cn.sub(co);
+                if controls.max_non_ortho_deg < 180.0 && d.dot(s) / (d.length() * s.length() + RVS) < cos_max {
+                    b = true;
+                }
+                if controls.max_internal_skewness > 0.0 && skew_of(d, 0.2) > controls.max_internal_skewness {
+                    b = true;
+                }
+                if (0.0..1.0).contains(&controls.min_face_weight) {
+                    let d_own = s.dot(fc.sub(co)).abs();
+                    let d_nei = s.dot(cn.sub(fc)).abs();
+                    if d_own.min(d_nei) / (d_own + d_nei + 1e-300) < controls.min_face_weight {
+                        b = true;
+                    }
+                }
+                if (0.0..1.0).contains(&controls.min_vol_ratio) {
+                    let (a, c) = (vols[mesh.owner[f]].abs(), vols[n].abs());
+                    if a.min(c) / (a.max(c) + 1e-300) < controls.min_vol_ratio {
+                        b = true;
+                    }
+                }
+            }
+            None => {
+                if controls.max_boundary_skewness > 0.0 {
+                    let nrm = s.scale(1.0 / (s.length() + RVS));
+                    let d = nrm.scale(nrm.dot(fc.sub(co)));
+                    if skew_of(d, 0.4) > controls.max_boundary_skewness {
+                        b = true;
+                    }
+                }
+            }
+        }
+        if controls.min_tet_quality.is_some() {
+            for i in 0..k {
+                let p = mesh.points[ring[i]];
+                let q = mesh.points[ring[(i + 1) % k]];
+                // owner tets with the face and cell centres exchanged, as
+                // upstream, so a valid one is positive
+                if q.sub(p).cross(fc.sub(p)).dot(co.sub(p)) >= 0.0 {
+                    b = true;
+                }
+                if let Some(n) = mesh.neighbour[f] {
+                    if q.sub(p).cross(fc.sub(p)).dot(centres[n].sub(p)) <= 0.0 {
+                        b = true;
+                    }
+                }
+            }
+        }
+        if controls.min_twist >= -1.0 && k > 3 {
+            let nf_dir = match mesh.neighbour[f] {
+                Some(n) => centres[n].sub(co),
+                None => fc.sub(co),
+            };
+            let nf_dir = nf_dir.scale(1.0 / (nf_dir.length() + RVS));
+            for i in 0..k {
+                let p = mesh.points[ring[i]];
+                let q = mesh.points[ring[(i + 1) % k]];
+                let tri = q.sub(p).cross(fc.sub(p)).scale(0.5);
+                let m = tri.length();
+                if m > RVS && nf_dir.dot(tri.scale(1.0 / m)) < controls.min_twist {
+                    b = true;
+                }
+            }
+        }
+        bad[f] = b;
+    }
+    if controls.min_determinant >= 0.0 {
+        for faces in cell_faces.iter() {
+            let internal: Vec<Vec3> = faces.iter().filter(|&&f| mesh.neighbour[f].is_some()).map(|&f| mesh.face_area_vector(f)).collect();
+            let det = if internal.is_empty() {
+                0.0
+            } else {
+                let avg = internal.iter().map(|s| s.length()).sum::<f64>() / internal.len() as f64;
+                let mut t = [[0.0f64; 3]; 3];
+                for s in &internal {
+                    let v = [s.x / avg, s.y / avg, s.z / avg];
+                    for i in 0..3 {
+                        for j in 0..3 {
+                            t[i][j] += v[i] * v[j];
+                        }
+                    }
+                }
+                (t[0][0] * (t[1][1] * t[2][2] - t[1][2] * t[2][1]) - t[0][1] * (t[1][0] * t[2][2] - t[1][2] * t[2][0])
+                    + t[0][2] * (t[1][0] * t[2][1] - t[1][1] * t[2][0]))
+                    .abs()
+            };
+            if det < controls.min_determinant {
+                for &f in faces {
+                    bad[f] = true;
+                }
+            }
+        }
+    }
+    let _ = vols;
+    bad
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

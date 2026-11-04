@@ -69,6 +69,29 @@ unnecessarily."
   still an enum. Traits are for the open seam *between* crates; enums are for
   dispatch *within* a crate.
 
+- **Differential testing whenever there is more than one way to compute the same
+  thing** (maintainer, 2026-11-04, gh:#1215). Some situations where it applies:
+  - a port alongside its upstream;
+  - two ports of the same upstream algorithm;
+  - two strategies for the same job, e.g. cfMesh layer thinning vs snappy
+    layer collapse;
+  - a new solver path beside an old one.
+
+  In each case, run every route on the **same inputs** and compare their
+  outputs quantity by quantity. Then:
+  1. **Write the predicted agreement before running.** Say which quantities
+     should match exactly and which only within a stated tolerance, and why.
+  2. **Explain every difference.** An unexplained difference is a finding to
+     investigate, never noise to average away.
+  3. **Test upstream first where it is runnable.** When upstream can be run
+     (OpenFOAM, GeN-Foam, NJOY, cfMesh), the port is checked against it on
+     shared cases. Bit-identity is the goal; below `1e-8` relative is
+     acceptable only with an explained cause, per `CLAUDE.md`.
+  4. **Keep the alternative routes callable** as named options, so the
+     comparison can be re-run. Pin the agreement with a test.
+
+  Record the methodology and the comparison table in the V&V record.
+
 ## Non-Interactive Shell Commands
 
 **ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.

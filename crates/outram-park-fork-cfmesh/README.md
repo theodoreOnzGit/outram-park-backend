@@ -287,10 +287,26 @@ Remaining roadmap (beads under the `op-hzs` epic):
     boundary, because patch classification runs last) and~~ **patch-selective
     layers done 2026-11-04 (gh:#1202)**; ~~still to do: feature-edge capture~~
     feature-edge capture done 2026-11-04 (without `correctEdgesBetweenPatches`);
-    still to do: feature-aware layers and **local layer collapse** (three
+    ~~still to do: feature-aware layers and **local layer collapse** (three
     layers on the pipe diverge in the solver; the interface to the dual sits
     at 75–84°, and only a local collapse, snappy-style, can meet upstream's
-    relaxed `maxNonOrtho 75`)
+    relaxed `maxNonOrtho 75`)~~ **UPDATED 2026-11-04 (gh:#1215):** both
+    upstream repairs are ported beside the crate's own back-off and
+    selectable by `TetDualOptions::layer_strategy`
+    (`layers::LayerQualityStrategy`): `BackOffOnly` (default, unchanged),
+    `CfMeshOptimise` (cfMesh v1.1 `boundaryLayerOptimisation` +
+    `meshOptimizer::untangleMeshFV` / `optimizeLowQualityFaces`, modules
+    `boundary_layer_optimisation`, `mesh_optimizer`) and `SnappyCollapse`
+    (snappyHexMesh's per-point `extrudeMode` and `checkAndUnmark` loop with
+    `meshQualityDict`'s limits, modules `snappy_layers`,
+    `checks::faces_failing_mesh_quality`); the layer builder takes a
+    per-point layer count (`layers::build_layered_variable`). The
+    differential results are in
+    `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`
+    (gh:#1215 section). Also found: the tet-dual pipeline was not
+    reproducible between processes (the Delaunay flipper swept a
+    `HashMap`); fixed, pinned by
+    `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
 12. make the adaptive layerer work on graded near-wall meshes — it currently
     backs off to zero thickness there, which the pipeline now *reports* in
     `TetDualReport::stage_notes` rather than failing silently

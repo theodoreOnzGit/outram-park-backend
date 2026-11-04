@@ -427,6 +427,24 @@ pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
 /// the solver and the section cutter take. Returns the stage notes of the
 /// pipeline too (what it skipped).
 pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag; 3], spec: &TetDualSpec) -> Result<(PolyMesh, Vec<String>), String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    let strategy = layer_strategy_from_env();
+    #[cfg(target_arch = "wasm32")]
+    let strategy = outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly;
+    mesh_unstructured_with(radius, length, centre, tags, spec, strategy).map(|(p, n, _)| (p, n))
+}
+
+/// [`mesh_unstructured`] with the layer strategy named (gh:#1215), also
+/// returning what the layer stage did. The native knob
+/// `FOAM_LAYER_STRATEGY` of [`mesh_unstructured`] goes through here.
+pub fn mesh_unstructured_with(
+    radius: f64,
+    length: f64,
+    centre: [f64; 3],
+    tags: [Tag; 3],
+    spec: &TetDualSpec,
+    strategy: outram_blender::foam_mesh::LayerQualityStrategy,
+) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
     use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
     let s = spec.clamped(radius, length);
     let cyl = outram_blender::primitives::cylinder(CYL_SEGMENTS, radius, length);
@@ -455,13 +473,27 @@ pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag;
         Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
         _ => opts,
     };
+    let opts = TetDualOptions { layer_strategy: strategy, ..opts };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);
     }
     let neutral = outram_blender::unstructured::convert::cfmesh::from_volume_mesh(&vm).map_err(|e| format!("{e:?}"))?;
     let foam = outram_blender::unstructured::convert::foam::to_poly_mesh(&neutral).map_err(|e| format!("{e:?}"))?;
-    Ok((PolyMesh::from_foam_poly_mesh(&foam), report.stage_notes))
+    Ok((PolyMesh::from_foam_poly_mesh(&foam), report.stage_notes, report.layers))
+}
+
+/// The layer strategy `FOAM_LAYER_STRATEGY` names (native only, gh:#1215; the
+/// knob of the differential record, `laminar_pipe_gh1155.md`):
+/// `cfmesh`, `snappy`, or the default back-off for anything else.
+#[cfg(not(target_arch = "wasm32"))]
+fn layer_strategy_from_env() -> outram_blender::foam_mesh::LayerQualityStrategy {
+    use outram_blender::foam_mesh::LayerQualityStrategy as S;
+    match std::env::var("FOAM_LAYER_STRATEGY").as_deref() {
+        Ok("cfmesh") => S::CfMeshOptimise,
+        Ok("snappy") => S::SnappyCollapse,
+        _ => S::BackOffOnly,
+    }
 }
 
 /// [`mesh_design`] with the mesher's notes (empty for the block meshes).

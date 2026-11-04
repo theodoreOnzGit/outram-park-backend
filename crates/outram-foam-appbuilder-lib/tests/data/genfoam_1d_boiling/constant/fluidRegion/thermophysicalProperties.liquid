@@ -1,0 +1,115 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+thermoType
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       polynomial;
+    thermo          hPolynomial;
+    equationOfState icoPolynomial; //perfectGas;
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+pRef            1e5;
+
+mixture
+{
+    specie
+    {
+        molWeight               22.989769;
+    }
+    equationOfState
+    {
+        //- Discrepancy with experimental values below 1% in the
+        //  400 K - 1950 K range, deteriorates slowly
+        rhoCoeffs<8>           
+        (
+            1006.81
+            -2.17E-01
+            -2.83E-06
+            -6.54E-09
+            0 
+            0 
+            0 
+            0
+        );
+    }
+    thermodynamics
+    {
+        //-
+        CpCoeffs<8>            
+        (
+            1.5640E+03
+            -4.5129E-01 
+            -3.1104E-04 
+            6.5282E-07 
+            -1.9570E-10 
+            0 
+            0 
+            0
+        );
+        Hf                      0;
+        Sf                      0;
+    }
+    transport
+    {
+        //- Discrepancy with experimental values below 1% in the 
+        //  400 K - 1400 K, deteriorates quickly after that
+        
+        muCoeffs<8>             
+        (
+            4.932462E-03
+            -2.654334E-05
+            6.527520E-08
+            -8.752858E-11
+            6.621667E-14
+            -2.657514E-17
+            4.402963E-21
+            0
+        );
+        /*
+        muCoeffs<8>             
+        (
+            4.932462E-02
+            -2.654334E-04
+            6.527520E-07
+            -8.752858E-10
+            6.621667E-13
+            -2.657514E-16
+            4.402963E-20
+            0
+        );
+        */
+        
+        //- Provided by evaluators for the 371 K - 2503.7 K
+        kappaCoeffs<8>          
+        (
+            124.67 
+            -1.1381e-1
+            5.5226e-5 
+            -1.1842e-8 
+            0 
+            0 
+            0 
+            0
+        );
+    }
+}
+
+// ************************************************************************* //
