@@ -156,9 +156,13 @@ design.
 
 ## What this does not show
 
-- No Gaussian process, polynomial chaos or co-kriging route exists yet, so no
+- ~~No Gaussian process, polynomial chaos or co-kriging route exists yet, so no
   route reports a standard deviation, and `coverage_2sigma` is exercised only
-  by a unit test of its helper on hand-computed rows.
+  by a unit test of its helper on hand-computed rows.~~ **CORRECTED
+  2026-11-04:** RAVEN's polynomial chaos and GP routes landed with gh:#1193,
+  and SMT's KRG/KPLS/KPLSK and MFK co-kriging with gh:#1190; the GP routes
+  report a standard deviation and `coverage_2sigma` is exercised on real fits
+  (`raven_routes_gh1193.md`, `smt_kriging_gh1190.md`).
 - The neural route is plumbing-checked only:
   `fidelity::build::the_neural_route_runs_through_the_same_interface`
   (`--features burn`, LHS 300 rows, every 5th held out, 600 epochs, seed 7)

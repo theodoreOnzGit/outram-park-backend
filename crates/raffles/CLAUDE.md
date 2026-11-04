@@ -384,6 +384,21 @@ caller's likelihood, as `bayesian::transitional` already did; this is the
 "model-in-the-loop sampler" the scope list below called out of scope, brought
 in by the maintainer's gh:#1193 direction.
 
+### The gh:#1190 SMT kriging routes (BSD-3-Clause, 2026-11-04)
+
+`src/surrogate/smt/` ports SMT @ `151a3ff3c137` (`LICENSE-BSD-SMT`, NOTICE):
+KRG, KPLS, KPLSK (`SmtKriging`, `SmtPls`) and MFK co-kriging (`Mfk`), with
+the PLS from scikit-learn 1.9.1 (`pls.rs`). Typed access:
+`fidelity::KrigingRoute::Smt`, `SurrogateSpec::CoKriging` and
+`Surrogate::fit_multi`. Differential record:
+`verification_and_validation/smt_kriging_gh1190.md`, tests
+`tests/smt_kriging_gh1190.rs`. The optimiser is the crate's bounded BFGS,
+not TNC. Three SMT behaviours are ported faithfully and must not be "fixed"
+in the SMT mode: KRG's universal-kriging variance uses only `diag(G)`
+(`TrendVariance::AsSmt`; `Exact` is offered beside it), KRG divides its
+likelihood by n where MFK divides by n − p − q, and MFK's variance for three
+or more levels uses `mu = 0` above level 1.
+
 ### Third-party BSD code inside RAVEN
 
 RAVEN's own `NOTICE.txt` discloses vendored third-party code under separate BSD

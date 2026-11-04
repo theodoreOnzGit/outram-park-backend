@@ -201,7 +201,10 @@ pub fn numpy_sum(a: &[f64]) -> f64 {
     }
 }
 
-fn pairwise_sum(a: &[f64]) -> f64 {
+/// NumPy's pairwise summation of a contiguous `f64` run (`pairwise_sum` in
+/// `loops_utils.h.src`): eight accumulators up to 128 elements, halving above.
+/// Also what an `axis=0` reduction of an `(n, 1)` array uses (measured, gh:#1190).
+pub(crate) fn pairwise_sum(a: &[f64]) -> f64 {
     let n = a.len();
     if n < 8 {
         let mut res = 0.0;

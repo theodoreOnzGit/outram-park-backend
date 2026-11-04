@@ -705,24 +705,37 @@ impl GaussianProcess {
 /// Not a port of L-BFGS-B (module notes).
 fn maximise(kernel: &GpKernel, x: &[Vec<f64>], y: &[f64], alpha: f64) -> Result<Vec<f64>> {
     let bounds = kernel.bounds();
-    let m = bounds.len();
-    let project = |t: &mut Vec<f64>| {
-        for (v, (lo, hi)) in t.iter_mut().zip(&bounds) {
-            *v = v.clamp(*lo, *hi);
-        }
-    };
     let eval = |t: &[f64]| -> Option<(f64, Vec<f64>)> {
         let k = kernel.with_theta(t).ok()?;
         lml_and_grad(&k, x, y, alpha).map(|(v, g, _, _)| (-v, g.iter().map(|e| -e).collect()))
     };
-    let mut t = kernel.theta();
-    project(&mut t);
-    let (mut f, mut g) = eval(&t).ok_or(RafflesError::InvalidParameter {
+    bounded_bfgs(kernel.theta(), &bounds, &eval).ok_or(RafflesError::InvalidParameter {
         parameter: "kernel".to_string(),
         value: f64::NAN,
         reason: "the starting hyperparameters give a non positive definite Gram matrix"
             .to_string(),
-    })?;
+    })
+}
+
+/// Minimises `eval` (value and gradient; `None` where undefined) from `t0`
+/// within `bounds`: BFGS projected onto the bounds, Armijo backtracking, a
+/// steepest-descent restart when a line search fails. This crate's own
+/// optimiser, not a port of L-BFGS-B or TNC. Shared by the RAVEN/sklearn GP
+/// route (gh:#1193) and the SMT kriging routes (gh:#1190); `None` if `eval`
+/// fails at the (projected) start.
+pub(crate) fn bounded_bfgs<F>(t0: Vec<f64>, bounds: &[(f64, f64)], eval: &F) -> Option<Vec<f64>>
+where
+    F: Fn(&[f64]) -> Option<(f64, Vec<f64>)>,
+{
+    let m = bounds.len();
+    let project = |t: &mut Vec<f64>| {
+        for (v, (lo, hi)) in t.iter_mut().zip(bounds) {
+            *v = v.clamp(*lo, *hi);
+        }
+    };
+    let mut t = t0;
+    project(&mut t);
+    let (mut f, mut g) = eval(&t)?;
     let mut h = vec![vec![0.0; m]; m];
     for (i, row) in h.iter_mut().enumerate() {
         row[i] = 1.0;
@@ -733,7 +746,7 @@ fn maximise(kernel: &GpKernel, x: &[Vec<f64>], y: &[f64], alpha: f64) -> Result<
         let pg: f64 = t
             .iter()
             .zip(&g)
-            .zip(&bounds)
+            .zip(bounds)
             .map(|((v, gi), (lo, hi))| {
                 let p = (v - gi).clamp(*lo, *hi) - v;
                 p.abs()
@@ -746,7 +759,7 @@ fn maximise(kernel: &GpKernel, x: &[Vec<f64>], y: &[f64], alpha: f64) -> Result<
         let active: Vec<bool> = t
             .iter()
             .zip(&g)
-            .zip(&bounds)
+            .zip(bounds)
             .map(|((v, gi), (lo, hi))| (*v <= *lo && *gi > 0.0) || (*v >= *hi && *gi < 0.0))
             .collect();
         let mut p: Vec<f64> = (0..m)
@@ -814,7 +827,7 @@ fn maximise(kernel: &GpKernel, x: &[Vec<f64>], y: &[f64], alpha: f64) -> Result<
             break;
         }
     }
-    Ok(t)
+    Some(t)
 }
 
 #[cfg(test)]

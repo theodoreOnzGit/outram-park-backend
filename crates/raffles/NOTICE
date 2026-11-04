@@ -430,6 +430,45 @@ Verification of all three: verification_and_validation/raven_routes_gh1193.md.
 Status: AI-assisted draft, not reviewed by a human.
 
 
+SMT, THE SURROGATE MODELING TOOLBOX — BSD-3-CLAUSE (gh:#1190, 2026-11-04)
+=======================================================================
+
+  Project:     SMT (Surrogate Modeling Toolbox), "SMT developers" (the
+               copyright holder named in LICENSE.txt)
+  Repository:  https://github.com/SMTorg/smt
+  Commit:      151a3ff3c13733d168b0ca8844ff0a4ff072252a (master,
+               2026-11-03T17:39:02+01:00), accessed 2026-11-04
+  License:     BSD 3-Clause, "Copyright (c) 2017, SMT developers. All rights
+               reserved." Upstream LICENSE.txt preserved verbatim as
+               LICENSE-BSD-SMT (sha256
+               091e8e50d498577a281e312eccc5f72afdc3319a72ee6c781956e96d393e107c);
+               pyproject.toml declares license = "BSD-3-Clause".
+  Ported:      smt/surrogate_models/krg_based/{krg_based,likelihood_eval,
+               distances,hyperparam_optim}.py, smt/kernels/kernels.py
+               (PowExp, Matern52, Matern32), smt/utils/misc.py
+               (standardization), smt/surrogate_models/{krg,kpls,kplsk}.py,
+               smt/applications/mfk.py.
+  Into:        src/surrogate/smt/{mod,core,krg,mfk}.rs (each with its own
+               header). src/surrogate/smt/linalg.rs is NOT a port (plain
+               loops standing in for LAPACK).
+  NOT ported:  SMT's TNC / COBYLA optimisers (scipy): the hyperparameters are
+               fitted by this crate's bounded BFGS on SMT's objective.
+
+  scikit-learn 1.9.1 (BSD-3-Clause), the routine SMT's KPLS calls:
+    Copyright (c) 2007-2026 The scikit-learn developers.
+    The licence text is that of LICENSE-BSD-SKLEARN (above) with the year
+    range 2007-2026; terms identical.
+    Ported: cross_decomposition/_pls.py (PLSRegression.fit, x_rotations_,
+    one target).
+    Into: src/surrogate/smt/pls.rs.
+
+BSD-3-Clause is compatible with (A)GPLv3; the code flows ONE WAY into
+RAFFLES and may not be contributed back to SMT or scikit-learn, or
+redistributed under BSD terms. Verification:
+verification_and_validation/smt_kriging_gh1190.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
 INDEPENDENCE / TRADEMARK
 ========================
 

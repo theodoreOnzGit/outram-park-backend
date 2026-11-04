@@ -28,8 +28,9 @@
 //! now are, as RAVEN ports: [`polynomial_chaos`] (RAVEN's `GaussPolynomialRom`
 //! with its index sets, Smolyak/tensor grids and SciPy's Gauss rules) and
 //! [`gaussian_process`] (RAVEN's `GaussianProcessRegressor` interface over
-//! scikit-learn's numerics). HDMR and the SMT kriging route (gh:#1190) are
-//! not. ~~Neither is the cross-validation
+//! scikit-learn's numerics). ~~HDMR and the SMT kriging route (gh:#1190) are
+//! not.~~ **CORRECTED 2026-11-04 (gh:#1190)** — [`smt`] ports SMT's KRG,
+//! KPLS, KPLSK and MFK co-kriging; HDMR is still not ported. ~~Neither is the cross-validation
 //! machinery;~~ **CORRECTED 2026-10-03** — leave-one-out cross-validation is
 //! now in [`validation`] (polynomial surrogates only; k-fold and the neural
 //! surrogate are not covered). The fitted models still report `r_squared` and
@@ -90,6 +91,7 @@
 pub mod gaussian_process;
 pub mod polynomial;
 pub mod polynomial_chaos;
+pub mod smt;
 pub mod validation;
 
 #[cfg(feature = "burn")]
@@ -98,6 +100,7 @@ pub mod neural;
 pub use gaussian_process::{GaussianProcess, GpConfig, GpKernel, GpOptimizer, RavenKernel};
 pub use polynomial::{MultiOutputPolynomial, PolynomialSurrogate};
 pub use polynomial_chaos::{PolynomialChaos, PolynomialChaosSpec};
+pub use smt::{Mfk, MfkConfig, SmtKriging, SmtKrgConfig};
 
 #[cfg(feature = "burn")]
 pub use neural::{NeuralSurrogate, TrainingConfig, TrainingReport};

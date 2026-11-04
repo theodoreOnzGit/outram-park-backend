@@ -11,7 +11,7 @@
 
 use core::marker::PhantomData;
 
-use super::dataset::Dataset;
+use super::dataset::{Dataset, MultiFidelityDataset};
 use super::quantities::{Channel, Quantities};
 use crate::surrogate::polynomial::MultiOutputPolynomial;
 use crate::surrogate::validation::LeaveOneOut;
@@ -24,11 +24,13 @@ pub type NeuralBackend = burn::backend::Autodiff<burn::backend::NdArray<f32>>;
 
 /// What to fit.
 ///
-/// Routes still to come, each added **with its port** rather than as an
-/// empty variant now (this crate's convention: an unimplemented part has no
-/// public entry point, `RafflesError`'s docs): the SMT kriging route and
-/// `CoKriging` (gh:#1190). ~~`PolynomialChaos` (the RAVEN port, gh:#1193)~~
-/// **landed 2026-11-04**, with `Kriging { route: RavenSklearn }`.
+/// Routes are added **with their ports** rather than as empty variants (this
+/// crate's convention: an unimplemented part has no public entry point,
+/// `RafflesError`'s docs). ~~Still to come: the SMT kriging route and
+/// `CoKriging` (gh:#1190).~~ **Landed 2026-11-04 (gh:#1190):**
+/// `Kriging { route: KrigingRoute::Smt(..) }` and `CoKriging`.
+/// ~~`PolynomialChaos` (the RAVEN port, gh:#1193)~~ **landed 2026-11-04**,
+/// with `Kriging { route: RavenSklearn }`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SurrogateSpec {
     /// One least-squares polynomial per output
@@ -55,24 +57,36 @@ pub enum SurrogateSpec {
         /// Inputs (in SI, the order of `I`'s channels), index set, order, grid.
         spec: crate::surrogate::PolynomialChaosSpec,
     },
-    /// Gaussian-process regression ("kriging"), one GP per output, as
-    /// RAVEN's default `<multioutput>`. Its prediction carries a standard
-    /// deviation.
+    /// Gaussian-process regression ("kriging"), one model per output (as
+    /// RAVEN's default `<multioutput>` and SMT's single-output KRG). Its
+    /// prediction carries a standard deviation.
     Kriging {
-        /// Kernel, alpha, target normalisation, optimiser.
-        config: crate::surrogate::GpConfig,
-        /// Which implementation.
+        /// Which implementation, with its settings.
         route: KrigingRoute,
+    },
+    /// SMT's MFK co-kriging ([`crate::surrogate::Mfk`], gh:#1190), one model
+    /// per output, fitted with [`Surrogate::fit_multi`] to every level of a
+    /// [`MultiFidelityDataset`], lowest fidelity first. Its prediction is the
+    /// highest level's, with a standard deviation.
+    CoKriging {
+        /// SMT's MFK options.
+        config: crate::surrogate::MfkConfig,
     },
 }
 
-/// Which Gaussian-process implementation [`SurrogateSpec::Kriging`] uses.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Which Gaussian-process implementation [`SurrogateSpec::Kriging`] uses,
+/// with that implementation's settings. The two are different models (the
+/// V&V record `smt_kriging_gh1190.md` maps one onto the other and measures
+/// the difference); neither is a configuration of the other.
+#[derive(Debug, Clone, PartialEq)]
 pub enum KrigingRoute {
     /// RAVEN's `GaussianProcessRegressor` interface over scikit-learn's
-    /// numerics ([`crate::surrogate::gaussian_process`], gh:#1193). The SMT
-    /// route (gh:#1190) joins as a second variant when it lands.
-    RavenSklearn,
+    /// numerics ([`crate::surrogate::gaussian_process`], gh:#1193): zero
+    /// mean, a fitted amplitude, raw inputs.
+    RavenSklearn(crate::surrogate::GpConfig),
+    /// SMT's KRG / KPLS / KPLSK ([`crate::surrogate::smt`], gh:#1190): a GLS
+    /// trend, profiled σ², standardised inputs and outputs.
+    Smt(crate::surrogate::SmtKrgConfig),
 }
 
 /// A fitted surrogate from inputs `I` to outputs `O`.
@@ -92,8 +106,14 @@ pub enum Surrogate<I: Quantities, O: Quantities> {
     ),
     /// [`SurrogateSpec::PolynomialChaos`].
     PolynomialChaos(crate::surrogate::PolynomialChaos, PhantomData<fn(I) -> O>),
-    /// [`SurrogateSpec::Kriging`]: one fitted GP per output channel.
+    /// [`SurrogateSpec::Kriging`] with [`KrigingRoute::RavenSklearn`]: one
+    /// fitted GP per output channel.
     Kriging(Vec<crate::surrogate::GaussianProcess>, PhantomData<fn(I) -> O>),
+    /// [`SurrogateSpec::Kriging`] with [`KrigingRoute::Smt`]: one SMT model
+    /// per output channel.
+    SmtKriging(Vec<crate::surrogate::SmtKriging>, PhantomData<fn(I) -> O>),
+    /// [`SurrogateSpec::CoKriging`]: one MFK per output channel.
+    CoKriging(Vec<crate::surrogate::Mfk>, PhantomData<fn(I) -> O>),
 }
 
 /// A surrogate's answer at one input.
@@ -122,6 +142,31 @@ impl<I: Quantities, O: Quantities> Surrogate<I, O> {
         Self::fit_si(spec, &x, &y)
     }
 
+    /// Fits `spec` to the training rows of every level of `data`.
+    ///
+    /// [`SurrogateSpec::CoKriging`] uses all levels, lowest fidelity first;
+    /// every other route is single-fidelity and is fitted to the **highest**
+    /// level's training rows alone (the same-budget comparison). Held-out
+    /// rows of any level are never read.
+    ///
+    /// # Errors
+    /// The route's fitting errors.
+    pub fn fit_multi(spec: &SurrogateSpec, data: &MultiFidelityDataset<I, O>) -> Result<Self> {
+        match spec {
+            SurrogateSpec::CoKriging { config } => {
+                let levels: Vec<(Vec<Vec<f64>>, Vec<Vec<f64>>)> = data.levels().iter().map(Dataset::training_si).collect();
+                let w = O::width();
+                let mut fits = Vec::with_capacity(w);
+                for k in 0..w {
+                    let per: Vec<(Vec<Vec<f64>>, Vec<f64>)> = levels.iter().map(|(x, y)| (x.clone(), y.iter().map(|r| r[k]).collect())).collect();
+                    fits.push(crate::surrogate::Mfk::fit(config, &per)?);
+                }
+                Ok(Self::CoKriging(fits, PhantomData))
+            }
+            _ => Self::fit(spec, data.highest()),
+        }
+    }
+
     /// Fits `spec` to SI rows.
     fn fit_si(spec: &SurrogateSpec, x: &[Vec<f64>], y: &[Vec<f64>]) -> Result<Self> {
         match spec {
@@ -140,12 +185,20 @@ impl<I: Quantities, O: Quantities> Surrogate<I, O> {
                 crate::surrogate::PolynomialChaos::fit(spec, x, y)?,
                 PhantomData,
             )),
-            SurrogateSpec::Kriging { config, route } => match route {
-                KrigingRoute::RavenSklearn => Ok(Self::Kriging(
+            SurrogateSpec::Kriging { route } => match route {
+                KrigingRoute::RavenSklearn(config) => Ok(Self::Kriging(
                     fit_kriging(config, x, y)?,
                     PhantomData,
                 )),
+                KrigingRoute::Smt(config) => Ok(Self::SmtKriging(fit_smt(config, x, y)?, PhantomData)),
             },
+            // Co-kriging needs the levels: `fit_multi`. Given one dataset it
+            // is refused rather than silently fitted as single-fidelity.
+            SurrogateSpec::CoKriging { .. } => Err(RafflesError::InvalidParameter {
+                parameter: "spec".to_string(),
+                value: f64::NAN,
+                reason: "CoKriging is fitted with Surrogate::fit_multi on a MultiFidelityDataset".to_string(),
+            }),
         }
     }
 
@@ -156,7 +209,7 @@ impl<I: Quantities, O: Quantities> Surrogate<I, O> {
             Self::Polynomial(p, _) => Some(p),
             #[cfg(feature = "burn")]
             Self::Neural(..) => None,
-            Self::PolynomialChaos(..) | Self::Kriging(..) => None,
+            Self::PolynomialChaos(..) | Self::Kriging(..) | Self::SmtKriging(..) | Self::CoKriging(..) => None,
         }
     }
 
@@ -195,8 +248,41 @@ impl<I: Quantities, O: Quantities> Surrogate<I, O> {
                 }
                 Ok((m, Some(s)))
             }
+            Self::SmtKriging(models, _) => {
+                let mut m = Vec::with_capacity(models.len());
+                let mut s = Vec::with_capacity(models.len());
+                for k in models {
+                    let (a, v) = k.predict(x)?;
+                    m.push(a);
+                    s.push(v.sqrt());
+                }
+                Ok((m, Some(s)))
+            }
+            Self::CoKriging(models, _) => {
+                let mut m = Vec::with_capacity(models.len());
+                let mut s = Vec::with_capacity(models.len());
+                for k in models {
+                    let (a, v) = k.predict(x)?;
+                    m.push(a);
+                    // SMT's MSE is clipped at 0 for KRG but not for MFK; a
+                    // round-off negative becomes a zero spread here.
+                    s.push(v.max(0.0).sqrt());
+                }
+                Ok((m, Some(s)))
+            }
         }
     }
+}
+
+/// One SMT model per output column.
+fn fit_smt(config: &crate::surrogate::SmtKrgConfig, x: &[Vec<f64>], y: &[Vec<f64>]) -> Result<Vec<crate::surrogate::SmtKriging>> {
+    let w = y.first().map_or(0, Vec::len);
+    (0..w)
+        .map(|k| {
+            let col: Vec<f64> = y.iter().map(|r| r[k]).collect();
+            crate::surrogate::SmtKriging::fit(config, x, &col)
+        })
+        .collect()
 }
 
 /// One GP per output column (RAVEN's `MultiOutputRegressor` default).
@@ -242,6 +328,21 @@ pub struct ValidationReport<O: Quantities> {
 }
 
 impl<O: Quantities> ValidationReport<O> {
+    /// [`of`](Self::of) for a surrogate fitted with
+    /// [`Surrogate::fit_multi`]: validated on the **highest** level's
+    /// held-out rows (and, if asked and the route has one, its LOO).
+    ///
+    /// # Errors
+    /// As [`of`](Self::of).
+    pub fn of_multi<I: Quantities>(
+        surrogate: &Surrogate<I, O>,
+        spec: &SurrogateSpec,
+        data: &MultiFidelityDataset<I, O>,
+        leave_one_out: bool,
+    ) -> Result<Self> {
+        Self::of(surrogate, spec, data.highest(), leave_one_out)
+    }
+
     /// Validates `surrogate`, fitted with `spec` to `data`'s training rows,
     /// on `data`'s held-out rows; and, if `leave_one_out`, by leave-one-out
     /// refits on the training rows.
@@ -377,7 +478,10 @@ fn loo_rmse_si(spec: &SurrogateSpec, x: &[Vec<f64>], y: &[Vec<f64>]) -> Result<O
         SurrogateSpec::PolynomialChaos { .. } => Ok(None),
         // Closed-form LOO at the hyperparameters fitted on all training rows
         // (Rasmussen and Williams 2006, eq. 5.12).
-        SurrogateSpec::Kriging { config, .. } => {
+        // SMT's routes have no LOO here (SMT has none; the closed form below
+        // is for a zero-mean GP, not for SMT's GLS trend), nor has MFK.
+        SurrogateSpec::Kriging { route: KrigingRoute::Smt(_) } | SurrogateSpec::CoKriging { .. } => Ok(None),
+        SurrogateSpec::Kriging { route: KrigingRoute::RavenSklearn(config) } => {
             let gps = fit_kriging(config, x, y)?;
             Ok(Some(
                 gps.iter()
@@ -509,7 +613,7 @@ mod tests {
             .collect();
         let data = Dataset::new(&x, &y, &split, Fidelity::new(1, "quadratic"), "unit test").unwrap();
         let config = GpConfig::raven_with_kernel(GpKernel::raven(RavenKernel::ConstantRbf, 1, false));
-        let spec = SurrogateSpec::Kriging { config: config.clone(), route: KrigingRoute::RavenSklearn };
+        let spec = SurrogateSpec::Kriging { route: KrigingRoute::RavenSklearn(config.clone()) };
         let s = Surrogate::fit(&spec, &data).unwrap();
         let p = s.predict(&X { a: Length::new::<meter>(1.3) }).unwrap();
         let (tx, ty) = data.training_si();
@@ -522,6 +626,64 @@ mod tests {
         assert!(r.coverage_2sigma.is_some() && r.loo_rmse.is_some());
         eprintln!("kriging typed: held-out RMSE {:?} K, LOO RMSE {:?} K, 2σ coverage {:?}",
             r.held_out_rmse.unwrap().t.value, r.loo_rmse.unwrap().t.value, r.coverage_2sigma);
+    }
+
+    /// The SMT routes (gh:#1190) through the typed interface: `Kriging {
+    /// route: Smt }` gives SMT KRG's bits and a σ in the output's units;
+    /// `CoKriging` through `fit_multi` gives MFK's bits; given one dataset,
+    /// co-kriging is refused; any other spec in `fit_multi` is the highest
+    /// level alone; neither SMT route reports a LOO.
+    #[test]
+    fn the_smt_routes_are_typed_end_to_end() {
+        use crate::fidelity::MultiFidelityDataset;
+        use crate::surrogate::{Mfk, MfkConfig, SmtKriging, SmtKrgConfig};
+        let hf = |a: f64| (6.0 * a - 2.0).powi(2) * (12.0 * a - 4.0).sin();
+        let lf = |a: f64| 0.5 * hf(a) + 10.0 * (a - 0.5) - 5.0;
+        let mk = |xs: &[f64], fx: Vec<f64>, rank: u32, held: &[usize]| {
+            let x: Vec<X> = xs.iter().map(|v| X { a: Length::new::<meter>(*v) }).collect();
+            let y: Vec<Y> = fx.iter().map(|v| Y { t: ThermodynamicTemperature::new::<kelvin>(300.0 + v) }).collect();
+            let split: Vec<Split> = (0..xs.len()).map(|i| if held.contains(&i) { Split::HeldOut } else { Split::Training }).collect();
+            Dataset::new(&x, &y, &split, Fidelity::new(rank, "forrester"), "unit test").unwrap()
+        };
+        let xl: Vec<f64> = (0..11).map(|i| f64::from(i) / 10.0).collect();
+        let xh = [0.0, 0.4, 0.6, 1.0, 0.25, 0.75];
+        let low = mk(&xl, xl.iter().map(|a| lf(*a)).collect(), 1, &[]);
+        let high = mk(&xh, xh.iter().map(|a| hf(*a)).collect(), 2, &[4, 5]);
+        let mf = MultiFidelityDataset::new(vec![low.clone(), high.clone()]).unwrap();
+        // SMT KRG on the HF training rows.
+        let kcfg = SmtKrgConfig::smt_defaults();
+        let spec = SurrogateSpec::Kriging { route: KrigingRoute::Smt(kcfg.clone()) };
+        let s = Surrogate::fit(&spec, &high).unwrap();
+        let (tx, ty) = high.training_si();
+        let col: Vec<f64> = ty.iter().map(|r| r[0]).collect();
+        let direct = SmtKriging::fit(&kcfg, &tx, &col).unwrap();
+        let p = s.predict(&X { a: Length::new::<meter>(0.3) }).unwrap();
+        let (m, v) = direct.predict(&[0.3]).unwrap();
+        assert_eq!(p.mean.t.value.to_bits(), m.to_bits());
+        assert_eq!(p.std_dev.unwrap().t.value.to_bits(), v.sqrt().to_bits());
+        assert!(s.as_polynomial().is_none());
+        let r = ValidationReport::of(&s, &spec, &high, true).unwrap();
+        assert!(r.loo_rmse.is_none() && r.coverage_2sigma.is_some());
+        // fit_multi with a single-fidelity spec = the highest level alone.
+        let s2 = Surrogate::fit_multi(&spec, &mf).unwrap();
+        assert_eq!(s2.predict_si(&[0.3]).unwrap(), s.predict_si(&[0.3]).unwrap());
+        // MFK.
+        let mcfg = MfkConfig::smt_defaults();
+        let cspec = SurrogateSpec::CoKriging { config: mcfg.clone() };
+        assert!(Surrogate::fit(&cspec, &high).is_err());
+        let c = Surrogate::fit_multi(&cspec, &mf).unwrap();
+        let (lx, ly) = low.training_si();
+        let lcol: Vec<f64> = ly.iter().map(|r| r[0]).collect();
+        let mfk = Mfk::fit(&mcfg, &[(lx, lcol), (tx, col)]).unwrap();
+        let (cm, cv) = mfk.predict(&[0.3]).unwrap();
+        let (pm, ps) = c.predict_si(&[0.3]).unwrap();
+        assert_eq!((pm[0].to_bits(), ps.unwrap()[0].to_bits()), (cm.to_bits(), cv.max(0.0).sqrt().to_bits()));
+        assert!(c.as_polynomial().is_none());
+        let rc = ValidationReport::of_multi(&c, &cspec, &mf, true).unwrap();
+        assert_eq!(rc.counts, (4, 2));
+        assert!(rc.loo_rmse.is_none() && rc.coverage_2sigma.is_some());
+        eprintln!("typed MFK on Forrester: held-out RMSE {:?} K, KRG {:?} K",
+            rc.held_out_rmse.unwrap().t.value, r.held_out_rmse.unwrap().t.value);
     }
 
     /// The error and coverage helpers on hand-computed rows; NaN propagates
