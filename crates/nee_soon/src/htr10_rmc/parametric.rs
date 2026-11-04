@@ -46,6 +46,7 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::keff::KeffResult;
 use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
+use outram_mc_libs::tally::tally::Tally;
 use uom::si::f64::{Length, ThermodynamicTemperature};
 use uom::si::thermodynamic_temperature::kelvin;
 
@@ -458,6 +459,25 @@ impl ParametricStudy {
         nuclides: &[Nuclide],
         threads: usize,
     ) -> Result<KeffResult, String> {
+        self.transport_with_tally(plan, nuclides, threads, None)
+    }
+
+    /// **As [`Self::transport`], scoring `tally` on the active generations**
+    /// (gh:#1186): e.g. a power tally of `crate::power_shape::McPowerTally`,
+    /// whose filters are in the Monte Carlo frame (cm, `z` up, `0` at the bed
+    /// mid-height). With `None` it is [`Self::transport`], bit for bit (the
+    /// same call). In the delta-tracked bed the tally is scored at every
+    /// tentative collision (`DeltaTallyEstimator`, gh:#598).
+    ///
+    /// # Errors
+    /// [`Self::check`] refuses the settings.
+    pub fn transport_with_tally(
+        &self,
+        plan: &StudyPlan,
+        nuclides: &[Nuclide],
+        threads: usize,
+        tally: Option<&mut Tally>,
+    ) -> Result<KeffResult, String> {
         let core = self.core(plan)?;
         let majorant = Self::majorant(plan, nuclides);
         let mesh = fissile_entropy_mesh(&core);
@@ -469,7 +489,7 @@ impl ParametricStudy {
             Some(&mesh),
             fissile_source_box(&core),
             &self.statistics.keff_settings(threads.max(1)),
-            None,
+            tally,
         ))
     }
 
