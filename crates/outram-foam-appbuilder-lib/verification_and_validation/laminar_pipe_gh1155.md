@@ -1510,6 +1510,84 @@ between the slices; the wall map draws points, not faces.
   checked against its upstream on a shared case; the differential above is
   between the ports and the back-off.
 
+## The dual's boundary faces: per corner, per point, cell-centre, differentially (gh:#1240)
+
+**Issue:** gh:#1240, the lead of gh:#1215. The median dual
+(`outram-park-fork-cfmesh::dual`) gives every wall cell one boundary face
+per boundary-triangle corner (4–7+ per cell); a face's centre-to-owner line
+leaves it at a median 69°, 4 720 of 7 632 wall faces above 65° on the bare
+h 5 mm pipe, and that angle is inherited by every prism stacked on it.
+
+### What was built (2026-11-04)
+
+| `TetDualOptions::dual_kind` | code | upstream (OpenFOAM-dev `852527377c7e`) |
+|---|---|---|
+| `MedianPerCorner` (**default**, unchanged) | `dual::polyhedral_dual_min_faces` | none: this crate's median dual, per-corner quads `[v, em, fc, em]` |
+| `MedianPerPoint` (Route A) | `dual::polyhedral_dual_per_point` | the boundary rule of `polyDualMesh`: feature edges from `simpleMarkFeatures` (`applications/utilities/mesh/manipulation/polyDualMesh/polyDualMesh.C`: patch seams always, normals more than the feature angle apart; every point on a feature edge a feature point), faces from `meshDualiser::createFacesAroundBoundaryPoint` (`meshDualiser.C`: one ring per point, closed at every feature edge), `polyDualMesh::splitFace` (`src/conversion/polyDualMesh/polyDualMesh.C`: fewer than two feature edges, no split) |
+| `CellCentre` (Route B) | `cell_centre_dual` (feature `cell-centre-dual`) → `outram-foam-mesh::poly_dual_mesh` | the same boundary rule, now in the existing port too; its interior (cell-centre rings around interior edges) is unchanged and was already a port of `polyDualMesh::calcDual` |
+
+Both new kinds name the tet boundary into the input regions before the dual
+(`assign_patches_by_region`), so the inlet/wall and outlet/wall seams are
+feature edges, as upstream's patch edges are. Feature angle 45° (the
+`polyDualMesh` CLI default of `outram-foam-cli`; upstream's utility takes it
+as a required argument).
+
+**`outram-foam-mesh::poly_dual_mesh` was changed to upstream's rule** (it
+emitted one quad per boundary face at a feature point, and tested points,
+not edges, against the angle; patch seams were not features): the block V&V
+tests still pass, and the 120° corner-cutting test now runs on a one-patch
+block, since a six-patch block keeps its edges at any angle (upstream's
+rule). New: `boundary_faces_one_per_point_per_sector`.
+
+**Sharing decision.** `outram-foam-mesh` does not depend on this crate, so
+this crate may depend on it, optionally (`cell-centre-dual`), with no cycle:
+Route B *is* the outram-foam-mesh code, converted (`cell_centre_dual.rs`
+only reorders faces and maps types). Route A cannot call it: the cfMesh
+crate builds with no dependency by default, and Route A's interior is the
+median dual's. The ~40-line sector walk is therefore written twice
+(`dual::boundary_faces_per_point`, `poly_dual_mesh::build_boundary_faces_for_point`),
+each citing the other and upstream.
+
+**Deviation kept in both:** upstream puts a dual vertex at the midpoint of
+*feature* edges only; both routes put one on every boundary edge (the
+median dual needs it to close its boundary-edge faces; in outram-foam-mesh
+it reproduces a flat patch exactly).
+
+### Predictions (written 2026-11-04, before any differential run)
+
+Inputs: the gh:#1215 meshes (the demo pipe R 10 mm, L 200 mm, 48 facets, at
+h 4 / 5 / 6 mm; the tet-dual box duct 20 × 20 × 200 mm at h 5 mm), wall-only
+layers first 0.3 mm × 1.2. Baseline (`MedianPerCorner`) numbers are
+gh:#1215's.
+
+| quantity | `MedianPerCorner` | `MedianPerPoint` (A) | `CellCentre` (B) |
+|---|---|---|---|
+| cells | as gh:#1215 (h 5 bare 3 113) | **= corner, exactly** (one per primal point) | = corner exactly, **if** the dual passes the gate (60 %: the centroid rings of slivers may invert a cell; on failure the pipeline falls back to corner with a note) |
+| internal faces | — | **the corner dual's rings exactly** (same interior code); geometry differs only where the feature-edge capture moves boundary vertices differently | one per interior edge as corner, but rings of tet centroids only (about half the vertices) |
+| wall faces per wall cell | 4 or 7+ (h 5: 648 / 624) | **1 for every wall cell** (rim points: 1 wall + 1 inlet face) | 1, as A |
+| wall faces | 7 632 (h 5) | = wall cells ≈ 1 288 | ≈ 1 288 |
+| wall face-to-owner angle | median 69°, p90 74.6°, max 75.1° | **median 15–30°, p90 < 45°, max < 65°**; > 65°: 0–20 | similar to A (±10°) |
+| internal NO (whole mesh) | max 47–57° bare (gh:#1215 snappy rows) | = corner ± 3° | mean within ±5° of corner, max up to +10° (non-planar centroid rings) |
+| max faceSkewness | 0.84–0.89 | within ±0.2 of corner | within ±0.5 |
+| closure | valid | valid | valid if accepted |
+| volume / πR²L (pipe) | (measured here) | **0.5–2 % below corner** at h 5 (the dropped vertex: a ring of radius ≈ 0.4 h on the cylinder sags ≈ (0.4h)²/2R inside); larger at h 6, smaller at h 4 | within 0.3 % of A (same boundary tiling; different interior only) |
+| volume (duct) | exact | **= corner to 1e-6** (flat sides, the 90° edges are features) | = corner to 1e-6 |
+| inlet area / πR² | (measured here) | = corner within 0.5 % (rim points kept, faces planar) | = corner within 0.5 % |
+| determinism | pinned | identical across processes (BTreeMap walk) | identical (HashMaps there are lookups only) |
+| **3 layers, BackOffOnly, h 5**: max NO / > 65° | 81.7° / 4 720 | **60–72° / < 300** | as A ± 5° |
+| 3 layers, SnappyCollapse, coverage | 0 % | **40–100 %** (1 layer 60–100 %) | as A ± 20 points |
+| 3 layers, CfMeshOptimise | 100 %, 48 s | 100 %, **2–10× faster** (fewer low-quality faces) | as A |
+| duct, 2–3 layers | as gh:#1215 | all strategies keep layers; snappy ≥ 80 % | as A |
+| flow, bare h 4 (demo default) u_c/2U, dp/dz/HP | 0.8925, 1.0326 | u_c within ±0.02 of corner; **dp/dz +2 to +5 %** (the smaller section from the volume loss) | as A ± 2 % |
+| flow, h 5, 3 layers BackOffOnly | diverged | **runs** (65 %): u_c 0.90–0.93, dp/dz 0.98–1.04, τ_w within 5 % of HP | runs (50 %), as A ± 3 % |
+
+Where A and B should differ, and why: only in the interior (median corners
+at face and cell centroids against tet centroids), so mesh-level boundary
+quantities (wall-face count, wall angle, volume, inlet area) should agree
+closely and interior non-orthogonality, skewness and validity may not.
+Where A and corner should differ: only at the boundary faces; any change in
+the interior quality beyond the boundary vertex moves is a finding.
+
 ## Reproduce
 
 ```bash

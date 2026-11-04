@@ -92,7 +92,7 @@
 use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
-use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces};
+use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces, polyhedral_dual_per_point, DualKind};
 use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh, BoundaryLayerOptimisationControls};
 use crate::layers::{add_boundary_layers_back_off, LayerOutcome, LayerQualityStrategy};
 use crate::snappy_layers::{add_boundary_layers_snappy, SnappyLayerControls};
@@ -161,6 +161,23 @@ pub struct TetDualOptions {
     /// [`polyhedral_dual`], then to skipping the dual. Ignored if [`Self::dual`]
     /// is `false`.
     pub dual_min_faces: bool,
+    /// **Which dual** the dual stage builds (gh:#1240):
+    /// [`DualKind::MedianPerCorner`] (the default, unchanged),
+    /// [`DualKind::MedianPerPoint`] (one boundary face per point per sector,
+    /// `polyDualMesh`'s boundary rule on the median dual) or
+    /// [`DualKind::CellCentre`] (`polyDualMesh` itself, feature
+    /// `cell-centre-dual`). With named regions
+    /// ([`surface_to_tet_dual_mesh_multipatch`]) the two new kinds classify
+    /// the tet boundary into the regions first, so the patch seams are
+    /// feature edges, as upstream's. [`Self::dual_min_faces`] applies to
+    /// `MedianPerCorner` only.
+    pub dual_kind: DualKind,
+    /// Feature angle of the two new dual kinds, in degrees: a boundary edge
+    /// whose faces' normals differ by more is kept sharp. `45` by default,
+    /// the `polyDualMesh` CLI's (`outram-foam-cli`'s
+    /// `DEFAULT_FEATURE_ANGLE_DEG`; upstream's utility takes it as a
+    /// required argument).
+    pub dual_feature_angle_deg: f64,
     /// Smart-Laplacian smoothing passes ([`laplacian_smooth`]) applied to the
     /// interior after the dual and before the layers. `0` disables it. Safe:
     /// smoothing never inverts a cell and conserves volume exactly.
@@ -234,6 +251,8 @@ impl Default for TetDualOptions {
             max_flips: 20_000,
             dual: true,
             dual_min_faces: true,
+            dual_kind: DualKind::MedianPerCorner,
+            dual_feature_angle_deg: 45.0,
             smooth_passes: 0,
             n_layers: 3,
             first_layer_thickness: 0.04,
@@ -304,6 +323,20 @@ fn layer_note(o: &LayerOutcome) -> String {
         o.mean_total_thickness(),
         o.notes.last().cloned().unwrap_or_default()
     )
+}
+
+/// [`DualKind::CellCentre`]'s dual: `outram-foam-mesh`'s `polyDualMesh`
+/// port (feature `cell-centre-dual`), or an error naming the feature.
+#[cfg(feature = "cell-centre-dual")]
+fn cell_centre(mesh: &VolumeMesh, feature_angle_deg: f64) -> Result<VolumeMesh, String> {
+    crate::cell_centre_dual::cell_centre_dual(mesh, feature_angle_deg)
+}
+
+/// Without the `cell-centre-dual` feature: the error the pipeline turns
+/// into its fall-back note.
+#[cfg(not(feature = "cell-centre-dual"))]
+fn cell_centre(_mesh: &VolumeMesh, _feature_angle_deg: f64) -> Result<VolumeMesh, String> {
+    Err("this build has no `cell-centre-dual` feature".into())
 }
 
 /// Is `mesh` acceptable as a stage output — closed *and* free of inverted cells?
@@ -531,8 +564,29 @@ fn run_pipeline(
         }
     }
 
-    // Stage 5 — polyhedral dual (min-faces preferred, quad-fan fallback, then skip).
-    if opts.dual {
+    // Stage 5 — polyhedral dual. The new kinds (gh:#1240) first; on failure
+    // they fall back to the per-corner median dual with a note.
+    let mut dual_done = false;
+    if opts.dual && opts.dual_kind != DualKind::MedianPerCorner {
+        // Name the tet boundary first, so the dual sees the patch seams.
+        let named = match regions {
+            Some(r) => assign_patches_by_region(&mesh, points, tris, r).unwrap_or_else(|_| mesh.clone()),
+            None => mesh.clone(),
+        };
+        let candidate = match opts.dual_kind {
+            DualKind::MedianPerPoint => Ok(polyhedral_dual_per_point(&named, opts.dual_feature_angle_deg)),
+            _ => cell_centre(&named, opts.dual_feature_angle_deg),
+        };
+        match candidate {
+            Ok(d) if acceptable(&d) => {
+                mesh = d;
+                dual_done = true;
+            }
+            Ok(_) => notes.push(format!("{:?} dual skipped — it would invalidate the mesh; fell back to the per-corner median dual", opts.dual_kind)),
+            Err(e) => notes.push(format!("{:?} dual skipped — {e}; fell back to the per-corner median dual", opts.dual_kind)),
+        }
+    }
+    if opts.dual && !dual_done {
         let mut placed = false;
         if opts.dual_min_faces {
             let d = polyhedral_dual_min_faces(&mesh);
@@ -2059,6 +2113,164 @@ mod tests {
                 let name = if i == 0 { "dual".to_string() } else { format!("layer {i}") };
                 let th = if cnt[i] > 0 { format!("{:.3} mm", 1e3 * thick[i] / cnt[i] as f64) } else { "-".into() };
                 println!("  {name:8}: max non-ortho {:5.1} deg, max skew {:.2}, max aspect {:6.1}, mean thickness {th}", no[i], sk[i], ar[i]);
+            }
+        }
+    }
+
+    /// Per internal face, the non-orthogonality (deg) as [`check_quality`]
+    /// measures it; per boundary face of `patch`, the angle between its normal
+    /// and the line from its owner's centre to its centre (what a prism stacked
+    /// on it inherits); and the number of `patch` faces each owner has.
+    fn face_angles(m: &VolumeMesh, patch: &str) -> (Vec<f64>, Vec<f64>, std::collections::BTreeMap<usize, usize>) {
+        let (_, c) = crate::checks::cell_geometry(m);
+        let mut internal = Vec::new();
+        for f in 0..m.face_count() {
+            if let Some(nb) = m.neighbour[f] {
+                let (d, s) = (c[nb].sub(c[m.owner[f]]), m.face_area_vector(f));
+                internal.push((d.dot(s) / (d.length() * s.length())).clamp(-1.0, 1.0).acos().to_degrees());
+            }
+        }
+        let mut wall = Vec::new();
+        let mut per_cell = std::collections::BTreeMap::new();
+        if let Some(w) = m.patches.iter().find(|q| q.name == patch) {
+            for f in w.start_face..w.start_face + w.n_faces {
+                *per_cell.entry(m.owner[f]).or_insert(0usize) += 1;
+                let (d, s) = (m.face_centroid(f).sub(c[m.owner[f]]), m.face_area_vector(f));
+                wall.push((d.dot(s) / (d.length() * s.length())).clamp(-1.0, 1.0).acos().to_degrees());
+            }
+        }
+        (internal, wall, per_cell)
+    }
+
+    /// `p`-quantile of a sorted list (0 for an empty one).
+    fn quantile(v: &[f64], p: f64) -> f64 {
+        if v.is_empty() {
+            0.0
+        } else {
+            v[((v.len() - 1) as f64 * p).round() as usize]
+        }
+    }
+
+    /// Diagnostic (gh:#1240), `--ignored`, run with `--features
+    /// cell-centre-dual`: **the dual-kind differential table.** Every
+    /// [`DualKind`] on the same tet meshes: the demo pipe (R 10 mm, L 200 mm,
+    /// 48 facets) at h 4 / 5 / 6 mm and the tet-dual box duct 20 × 20 ×
+    /// 200 mm at h 5 mm. Per bare mesh: cells, wall faces per wall cell,
+    /// the internal non-orthogonality distribution and the wall faces'
+    /// face-to-owner angle, faceSkewness, closure, volume and inlet area
+    /// against the analytic section, and a fingerprint; then 1–3 wall layers
+    /// (first 0.3 mm, × 1.2) under each `LayerQualityStrategy`. Filters:
+    /// `CFMESH_CASE`, `CFMESH_DUAL` (`corner`, `point`, `centre`),
+    /// `CFMESH_LAYERS` (e.g. `0` for bare only, `3`), `CFMESH_STRATS`
+    /// (`backoff,snappy,cfmesh`); `CFMESH_DET=1` re-runs each bare mesh.
+    #[test]
+    #[ignore]
+    fn diagnose_dual_kinds_differential() {
+        let (r, l) = (0.01, 0.2);
+        let (p, t, regions) = pipe_surface(r, l, 48);
+        let (bp, bt, br) = box_duct_surface(0.02, l);
+        let polygon = 0.5 * 48.0 * r * r * (2.0 * PI / 48.0).sin();
+        let env = |k: &str| std::env::var(k).ok();
+        let cases: Vec<(String, &[Vec3], &[[usize; 3]], &SurfaceRegions, f64, f64)> = vec![
+            ("pipe h4".into(), &p, &t, &regions, 0.004, PI * r * r),
+            ("pipe h5".into(), &p, &t, &regions, 0.005, PI * r * r),
+            ("pipe h6".into(), &p, &t, &regions, 0.006, PI * r * r),
+            ("duct h5".into(), &bp, &bt, &br, 0.005, 0.02 * 0.02),
+        ];
+        let kinds = [(DualKind::MedianPerCorner, "corner"), (DualKind::MedianPerPoint, "point"), (DualKind::CellCentre, "centre")];
+        let layers: Vec<usize> = env("CFMESH_LAYERS").map_or(vec![0, 1, 2, 3], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        let strats: Vec<(LayerQualityStrategy, &str)> = [(LayerQualityStrategy::BackOffOnly, "backoff"), (LayerQualityStrategy::SnappyCollapse, "snappy"), (LayerQualityStrategy::CfMeshOptimise, "cfmesh")]
+            .into_iter()
+            .filter(|s| env("CFMESH_STRATS").is_none_or(|v| v.split(',').any(|x| x == s.1)))
+            .collect();
+        for (name, sp, st, sr, h, section) in cases {
+            if env("CFMESH_CASE").is_some_and(|o| !name.contains(&o)) {
+                continue;
+            }
+            for (kind, tag) in kinds {
+                if env("CFMESH_DUAL").is_some_and(|o| !o.split(',').any(|x| x == tag)) {
+                    continue;
+                }
+                for &n in &layers {
+                    for (strategy, stag) in &strats {
+                        if n == 0 && *strategy != LayerQualityStrategy::BackOffOnly {
+                            continue;
+                        }
+                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, ..Default::default() };
+                        let t0 = std::time::Instant::now();
+                        let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
+                            Ok(x) => x,
+                            Err(e) => {
+                                println!("{name} {tag} n{n} {stag}: ERROR {e}");
+                                continue;
+                            }
+                        };
+                        let secs = t0.elapsed().as_secs_f64();
+                        let q = check_quality(&m);
+                        let (mut inner, mut wall, per_cell) = face_angles(&m, "walls");
+                        inner.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                        wall.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                        let above = |v: &[f64], a: f64| v.iter().filter(|&&x| x > a).count();
+                        let mean = inner.iter().sum::<f64>() / inner.len().max(1) as f64;
+                        if n == 0 {
+                            let det = env("CFMESH_DET").is_none() || {
+                                let (m2, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
+                                mesh_fingerprint(&m) == mesh_fingerprint(&m2)
+                            };
+                            let mut hist = [0usize; 8];
+                            for &k in per_cell.values() {
+                                hist[k.min(7)] += 1;
+                            }
+                            let inlet: f64 = patch_faces(&m, "inlet").iter().map(|&f| m.face_area_vector(f).length()).sum();
+                            println!(
+                                "{name} {tag} bare: {} cells, {secs:.2} s, valid {}, det {det}, fp {}; wall faces {} on {} cells, per cell 1..7+ {:?}; \
+                                 internal NO mean {mean:.1} p50 {:.1} p90 {:.1} p99 {:.1} max {:.1}, >65 {} >70 {} >75 {}; \
+                                 wall face-to-owner p50 {:.1} p90 {:.1} max {:.1}, >65 {}; skew {:.2}; minDet {:.2e}; \
+                                 V/(section L) {:.5} (48-gon {:.5}); inlet/section {:.5}; notes {:?}",
+                                m.cell_count(),
+                                m.validate().is_ok(),
+                                mesh_fingerprint(&m),
+                                wall.len(),
+                                per_cell.len(),
+                                &hist[1..],
+                                quantile(&inner, 0.5),
+                                quantile(&inner, 0.9),
+                                quantile(&inner, 0.99),
+                                quantile(&inner, 1.0),
+                                above(&inner, 65.0),
+                                above(&inner, 70.0),
+                                above(&inner, 75.0),
+                                quantile(&wall, 0.5),
+                                quantile(&wall, 0.9),
+                                quantile(&wall, 1.0),
+                                above(&wall, 65.0),
+                                q.max_skewness,
+                                q.min_cell_determinant,
+                                m.total_volume() / (section * l),
+                                if name.starts_with("pipe") { m.total_volume() / (polygon * l) } else { f64::NAN },
+                                inlet / section,
+                                rep.stage_notes
+                            );
+                        } else {
+                            let lo = rep.layers.clone().unwrap_or_default();
+                            let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
+                            println!(
+                                "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; notes {:?}",
+                                m.cell_count(),
+                                lo.full_coverage(),
+                                lo.collapsed_point_fraction(),
+                                1e3 * lo.mean_total_thickness(),
+                                quantile(&inner, 1.0),
+                                quantile(&inner, 0.99),
+                                above(&inner, 65.0),
+                                above(&inner, 75.0),
+                                q.max_skewness,
+                                q.min_cell_determinant,
+                                rep.stage_notes
+                            );
+                        }
+                    }
+                }
             }
         }
     }

@@ -287,3 +287,10 @@ pub mod volume_mesh;
 /// default so the base crate stays dependency-free and Android-buildable.
 #[cfg(feature = "foam-export")]
 pub mod foam;
+
+/// The cell-centre (`polyDualMesh`) dual of a [`volume_mesh::VolumeMesh`]
+/// through `outram-foam-mesh` (feature `cell-centre-dual`, gh:#1240): the
+/// pipeline's [`dual::DualKind::CellCentre`]. Off by default, like
+/// `foam-export`, so the base crate stays dependency-free.
+#[cfg(feature = "cell-centre-dual")]
+pub mod cell_centre_dual;

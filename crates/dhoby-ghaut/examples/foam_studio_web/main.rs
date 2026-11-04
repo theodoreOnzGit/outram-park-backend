@@ -307,6 +307,143 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
     Ok(())
 }
 
+/// `--render-dual-kinds`: the gh:#1240 pictures. For each dual kind on the
+/// demo pipe at h 5 mm: the wall faces of one wall cell at mid-length,
+/// unrolled (R θ against z, every face outlined in its own colour, with the
+/// face-to-owner angle of each); the cross-section at mid-length and its
+/// wall zoom, bare; and the x-z inlet rim with 3 wall layers (`BackOffOnly`).
+/// CLI glue (drawing and file output); reached by no test.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
+    use engine::{Tag, TetDualSpec};
+    use outram_blender::csg::plot::slice::PlotBasis;
+    use outram_blender::csg::plot::{annotate::draw_text, ImageData, Rgb};
+    use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, LayerQualityStrategy as S, TetDualOptions, Vec3};
+    use outram_blender::unstructured::convert::foam::from_poly_mesh;
+    use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice};
+    use outram_park_fork_cfmesh::dual::DualKind as D;
+    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
+    let h = 0.005;
+    for (kind, tag) in [(D::MedianPerCorner, "corner"), (D::MedianPerPoint, "point"), (D::CellCentre, "centre")] {
+        // 1. One wall cell's wall faces, from the VolumeMesh itself.
+        let cyl = outram_blender::primitives::cylinder(engine::CYL_SEGMENTS, 0.01, 0.2);
+        let label = |t: [Vec3; 3]| -> String {
+            let flat = (t[0].z - t[1].z).abs() < 1e-12 && (t[1].z - t[2].z).abs() < 1e-12;
+            match (flat, t[0].z < 0.0) {
+                (true, true) => "inlet",
+                (true, false) => "outlet",
+                _ => "walls",
+            }
+            .into()
+        };
+        let opts = TetDualOptions { cell_size: h, n_layers: 0, layer_patches: vec!["walls".into()], dual_kind: kind, ..TetDualOptions::default() };
+        let (vm, _) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
+        let walls = vm.patches.iter().find(|p| p.name == "walls").ok_or("no walls patch")?;
+        let wf: Vec<usize> = (walls.start_face..walls.start_face + walls.n_faces).collect();
+        // The wall cell whose first wall face is nearest (R, 0, 0) (mid-length).
+        let target = Vec3::new(0.01, 0.0, 0.0);
+        let f0 = *wf.iter().min_by(|&&a, &&b| vm.face_centroid(a).sub(target).length().partial_cmp(&vm.face_centroid(b).sub(target).length()).unwrap()).unwrap();
+        let cell = vm.owner[f0];
+        let mine: Vec<usize> = wf.iter().copied().filter(|&f| vm.owner[f] == cell).collect();
+        // Owner centre: volume-weighted, from the cell's faces (fan about the face-centroid mean).
+        let cf: Vec<(usize, bool)> = (0..vm.face_count()).filter_map(|f| if vm.owner[f] == cell { Some((f, true)) } else if vm.neighbour[f] == Some(cell) { Some((f, false)) } else { None }).collect();
+        let apex = cf.iter().fold(Vec3::ZERO, |a, &(f, _)| a.add(vm.face_centroid(f))).scale(1.0 / cf.len() as f64);
+        let (mut vol, mut cen) = (0.0, Vec3::ZERO);
+        for &(f, own) in &cf {
+            let (c, s) = (vm.face_centroid(f), vm.face_area_vector(f));
+            let v = s.dot(c.sub(apex)) / 3.0 * if own { 1.0 } else { -1.0 };
+            vol += v;
+            cen = cen.add(apex.scale(0.25).add(c.scale(0.75)).scale(v));
+        }
+        let cc = cen.scale(1.0 / vol);
+        let (w, hgt) = (800usize, 800usize);
+        let mut img = ImageData::filled(w, hgt, Rgb { r: 255, g: 255, b: 255 });
+        let span = 0.006; // 6 mm window, unrolled
+        let (u0, z0) = (0.01 * vm.face_centroid(f0).y.atan2(vm.face_centroid(f0).x), vm.face_centroid(f0).z);
+        let px = |q: Vec3| -> (f64, f64) {
+            let u = 0.01 * q.y.atan2(q.x) - u0;
+            let z = q.z - z0;
+            ((u / span + 0.5) * w as f64, (0.5 - z / span) * hgt as f64)
+        };
+        let line = |img: &mut ImageData, a: (f64, f64), b: (f64, f64), c: Rgb| {
+            let n = ((b.0 - a.0).abs().max((b.1 - a.1).abs()) as usize).max(1);
+            for i in 0..=n {
+                let t = i as f64 / n as f64;
+                let (x, y) = (a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1));
+                for d in 0..2 {
+                    let (xx, yy) = (x as i64 + d, y as i64);
+                    if xx >= 0 && yy >= 0 && (xx as usize) < w && (yy as usize) < hgt {
+                        img.set(xx as usize, yy as usize, c);
+                    }
+                }
+            }
+        };
+        let palette = [Rgb { r: 200, g: 30, b: 30 }, Rgb { r: 30, g: 120, b: 200 }, Rgb { r: 20, g: 150, b: 60 }, Rgb { r: 200, g: 120, b: 0 }, Rgb { r: 130, g: 40, b: 170 }, Rgb { r: 0, g: 150, b: 150 }, Rgb { r: 120, g: 120, b: 0 }, Rgb { r: 90, g: 90, b: 90 }];
+        let black = Rgb { r: 0, g: 0, b: 0 };
+        // The other wall faces nearby, light grey, for context.
+        for &f in &wf {
+            if vm.face_centroid(f).sub(vm.face_centroid(f0)).length() < span && !mine.contains(&f) {
+                let r = &vm.faces[f];
+                for i in 0..r.len() {
+                    line(&mut img, px(vm.points[r[i]]), px(vm.points[r[(i + 1) % r.len()]]), Rgb { r: 205, g: 205, b: 205 });
+                }
+            }
+        }
+        let mut angles = Vec::new();
+        for (k, &f) in mine.iter().enumerate() {
+            let r = &vm.faces[f];
+            let c = palette[k % palette.len()];
+            for i in 0..r.len() {
+                line(&mut img, px(vm.points[r[i]]), px(vm.points[r[(i + 1) % r.len()]]), c);
+            }
+            let (d, sv) = (vm.face_centroid(f).sub(cc), vm.face_area_vector(f));
+            let a = (d.dot(sv) / (d.length() * sv.length())).clamp(-1.0, 1.0).acos().to_degrees();
+            angles.push(format!("{a:.0}"));
+            let (x, y) = px(vm.face_centroid(f));
+            draw_text(&mut img, x as i64 - 6, y as i64 - 4, &format!("{a:.0}"), c);
+        }
+        let (x, y) = px(cc);
+        for d in -4i64..=4 {
+            for (xx, yy) in [(x as i64 + d, y as i64), (x as i64, y as i64 + d)] {
+                if xx >= 0 && yy >= 0 && (xx as usize) < w && (yy as usize) < hgt {
+                    img.set(xx as usize, yy as usize, black);
+                }
+            }
+        }
+        draw_text(&mut img, 6, 6, &format!("{tag} dual, h 5 mm: wall faces of one wall cell, unrolled (R theta x z), 6 mm window").to_uppercase(), black);
+        draw_text(&mut img, 6, 20, &format!("{} wall faces; face-to-owner angle (deg) at each centre: {}; + owner centre", mine.len(), angles.join(" ")).to_uppercase(), black);
+        let name = format!("dual_{tag}_h5_wall_cell.png");
+        img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
+        println!("wrote {name}: cell {cell}, {} wall faces, angles {:?}", mine.len(), angles);
+
+        // 2. Slices of the solver's PolyMesh: bare cross-section, 3 layers at the rim.
+        for (n, view) in [(0usize, "bare"), (3, "3layers")] {
+            let spec = TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+            let (poly, notes, _) = engine::mesh_unstructured_dual(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, S::BackOffOnly, kind)?;
+            let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
+            let label = format!("{tag} dual h 5 mm {view}");
+            let shots: Vec<(PlotBasis, [f64; 3], [f64; 2], usize, String, &str)> = if n == 0 {
+                vec![
+                    (PlotBasis::Xy, [0.0, 0.0, 10.013], [2.2, 2.2], 900, format!("{label}, {} cells, x-y at z = 10.01 cm", m.n_cells()).to_uppercase(), "xy"),
+                    (PlotBasis::Xy, [0.85, 0.0, 10.013], [0.35, 0.35], 800, format!("{label}, x-y wall zoom (x 0.675-1.025 cm)").to_uppercase(), "xy_wall"),
+                ]
+            } else {
+                vec![(PlotBasis::Xz, [0.75, 0.013, 0.25], [0.6, 0.6], 700, format!("{label} backoff, {} cells, x-z inlet rim (x 0.45-1.05, z 0-0.55 cm)", m.n_cells()).to_uppercase(), "xz_rim")]
+            };
+            for (basis, origin, width, pxl, title, v) in shots {
+                let py = ((pxl as f64) * width[1] / width[0]).round() as usize;
+                let sl = MeshSlice { basis, origin, width, pixels: [pxl, py], colour_by: MeshColourBy::Cell };
+                let img = render_mesh_slice_annotated(&m, &sl, &title);
+                let name = format!("dual_{tag}_h5_{view}_{v}.png");
+                img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
+                println!("wrote {name}; notes {notes:?}");
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The unstructured meshes of the V&V record (gh:#1202): tags and specs.
 /// CLI glue shared by `--render-unstructured`.
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
@@ -600,6 +737,12 @@ fn main() -> Result<(), String> {
                 concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/layer_strategies_gh1215").to_string()
             });
             render_layer_strategies(std::path::Path::new(&out))
+        }
+        Some("--render-dual-kinds") => {
+            let out = args.get(1).cloned().unwrap_or_else(|| {
+                concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/dual_kinds_gh1240").to_string()
+            });
+            render_dual_kinds(std::path::Path::new(&out))
         }
         Some("--render-unstructured") => {
             let out = args.get(1).cloned().unwrap_or_else(|| {
