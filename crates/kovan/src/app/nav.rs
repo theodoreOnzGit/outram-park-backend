@@ -152,8 +152,9 @@ impl DigitiseApp {
         self.history.visit(here);
     }
 
-    /// Show `location`: its page, its concept, and its paper.
-    fn apply_location(&mut self, location: AppLocation) {
+    /// Show `location`: its page, its concept, and its paper (also a
+    /// bookmark's jump, [`super::bookmarks_menu`]).
+    pub(super) fn apply_location(&mut self, location: AppLocation) {
         if is_concept_page(location.view) {
             self.set_shared_concept(location.concept.clone());
         }

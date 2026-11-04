@@ -1212,6 +1212,15 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance
   ([morhetz/gruvbox](https://github.com/morhetz/gruvbox)).
+- **Bookmarks** (top bar → "Bookmarks", beside Setup; GitHub #1210) —
+  "Bookmark this page" keeps the current page (view, concept, paper), the
+  open paper's PDF at the page in view, or the function selected in the
+  Code Review; a fuzzy-find box ranks them by name and target; each can be
+  renamed and deleted, and a click jumps there as a Back/Forward step.
+  Kept in the Kovan folder as `bookmarks/<user>.toml`, one file per user:
+  the reviewer id of the first key in kovan's keystore, else
+  `login:<OS login>`. A file that cannot be read is reported and left as
+  it is. See `src/bookmarks.rs`.
 
 Still open on the `op-9c2e` epic and not implemented: the bibliography
 management window, the "kovan folder" project format (`kovan.toml`), and

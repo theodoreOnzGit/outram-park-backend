@@ -263,6 +263,17 @@ impl CodeReviewView {
         }
     }
 
+    /// The workspace shown, if any (a function bookmark's, GitHub #1210).
+    pub(crate) fn workspace(&self) -> Option<&Path> {
+        self.workspace.as_deref()
+    }
+
+    /// The function selected in the embedded UI's module view, if any (a
+    /// function bookmark's, GitHub #1210).
+    pub(crate) fn selected_function(&self) -> Option<kovan_web::ui::FunctionRef> {
+        self.review.as_ref().and_then(|r| r.selected_function())
+    }
+
     /// Open `entry` (`path/to/file.rs::qual`) of `workspace`, with its
     /// source, once the workspace's data is loaded (GitHub #844: a code
     /// review chosen on the mindmap).
