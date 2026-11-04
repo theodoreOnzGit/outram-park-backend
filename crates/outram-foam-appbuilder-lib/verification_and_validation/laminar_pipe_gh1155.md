@@ -833,7 +833,56 @@ instrument, Re = 100:** `Gauss linear` at h 4 mm u_c/2U 0.97–0.99, dp/dz
 0.96–1.00; unlimited `linearUpwind` u_c 0.95–0.97, dp/dz 1.02–1.05; the
 demo pair (`cellLimited`) as in the table above (0.88–0.93, 1.03–1.08).
 Layers (step 3): h 4 mm with 2 layers (no negative pyramid left) **runs**;
-h 5 mm with 2 layers (105 internal negative pyramids) still diverges. **The structured default moved:**
+h 5 mm with 2 layers (105 internal negative pyramids) still diverges.
+
+**Flow results on the mapped mesh (2026-11-04, Re = 100 nominal, demo
+cylinder; steps, u_c/2U, dp/dz/HP, profile RMS, τ_w/HP; nominal
+instrument):**
+
+| h (mm), layers, cells | `Gauss linear` | `linearUpwind`, Gauss linear grad | `linearUpwind` + `cellLimited … 1` (demo pair) |
+|---|---|---|---|
+| 6, 0, 1 939 | 75, 0.9499, 0.9054, 0.0227, 0.9032 | 19, 0.9029, 1.0010, 0.0474, 0.9991 | 22, 0.8058, 1.0692, 0.0739, 1.0677 |
+| 5, 0, 3 113 | 58, 0.9556, 0.9342, 0.0219, 0.9316 | 18, 0.9029, 1.0118, 0.0478, 1.0101 | 24, 0.9005, 0.9925, 0.0486, 0.9908 |
+| **4, 0, 6 353 (default)** | 63, **0.9811, 0.9673**, 0.0126, 0.9638 | 27, **0.9598, 1.0210**, 0.0214, 1.0193 | 29, **0.8925, 1.0326**, 0.0356, 1.0312 |
+| 3.3, 0, 11 177 | 54, 0.9669, 0.9632, 0.0161, 0.9596 | 33, 0.9661, 0.9932, 0.0198, 0.9911 | 37, 0.9606, 0.9838, 0.0214, 0.9802 |
+| 6, 1, 6 713 | 76, 0.9453, 0.8882, 0.0222, 0.8840 | 20, 0.9000, 0.9809, 0.0476, 0.9763 | 23, 0.8071, 1.0565, 0.0733, 1.0514 |
+| 5, 1, 10 745 | 63, 0.9440, 0.9011, 0.0262, 0.8978 | 21, 0.8954, 0.9704, 0.0509, 0.9677 | 28, 0.8954, 0.9705, 0.0509, 0.9678 |
+| 4, 1, **18 321** (a layer now grows; before, the back-off gave none) | 95, 0.9748, 0.9511, 0.0152, 0.9418 | 74, 0.9522, 1.0015, 0.0248, 0.9932 | 73, 0.8907, 1.0301, 0.0372, 1.0215 |
+
+Instruments at the default (`diagnose_pipe_instruments`): inlet Q now
+**0.9936** U πR², cut section 0.9964 πR²; nominal and own-flow numbers now
+agree to 0.3 % (demo pair 0.8925 / 1.0326 nominal, 0.8951 / 1.0317 own
+flow; `Gauss linear` 0.9813 / 0.9673, 0.9841 / 0.9665; unlimited
+`linearUpwind` 0.9597 / 1.0210, 0.9624 / 1.0201). The first bin reads
+0.8883 against the fit's 0.8925 (no binning bias of note).
+
+**Against the predictions:** `Gauss linear` u_c 0.981 (held, 0.97–0.99),
+dp/dz 0.967 (held, 0.96–1.00); unlimited `linearUpwind` 0.960 (held,
+low edge) / 1.021 (held); demo pair 0.893 (held, 0.88–0.93) / 1.033
+(held, 1.03–1.08). **None of the three is within 2 % on both u_c and dp/dz
+at the default.** The chamfer is fixed (the flow is right to 0.6 %), so
+what is left is the discretisation on this mesh: the refinement series is
+not monotone at 3.3 mm for `Gauss linear` (0.981 → 0.967), and the
+schemes differ from each other by 2–9 % at h = 4 mm, i.e. the mesh is not
+resolved to 2 % by any of them. Wall layers do not help at fixed h (they
+lower `Gauss linear`'s dp/dz by 2–4 %).
+
+**`cellLimited` revisited (coordinator: once the geometry is right),
+against the tutorials, not by the numbers.** The tutorials that pair
+`cellLimited Gauss linear 1` with `linearUpwind grad(U)` (`propeller`,
+`misalignedDuct`, `motorBikeSteady`) are turbulent, high-Re snappy cases
+where the limiter's job is to bound the gradient at sharp fronts; the
+laminar, smooth tutorial on an unstructured mesh (`icoFoam/elbow`) uses
+`Gauss linear` gradients with `Gauss limitedLinearV 1` convection, no
+cell limiter. A minmod cell limiter clips the gradient to zero at every
+smooth extremum, here the whole centreline, which turns `linearUpwind`
+back into first-order upwind on the axis cells: the measured 7 % u_c
+deficit against unlimited `linearUpwind` at h = 4 mm is that, and it
+shrinks with h (0.961 against 0.966 at 3.3 mm), as a clipped-extremum
+error should. The laminar-tutorial reading (no cell limiter for a smooth
+laminar flow) is the one that matches this case; changing the demo on
+that ground is a decision for the maintainer, so the demo keeps the pair
+it was given until then, and the record shows all three. **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
