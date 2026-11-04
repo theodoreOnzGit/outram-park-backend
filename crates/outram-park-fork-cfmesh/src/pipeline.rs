@@ -1511,7 +1511,7 @@ mod tests {
     fn diagnose_inward_boundary_faces_on_layered_pipes() {
         let (r, l) = (0.01, 0.2);
         let (p, t, regions) = pipe_surface(r, l, 48);
-        for (h, n) in [(0.006, 0), (0.004, 0), (0.00334, 0), (0.006, 1), (0.005, 1), (0.005, 2), (0.004, 2)] {
+        for (h, n) in [(0.006, 0), (0.004, 0), (0.00334, 0), (0.006, 1), (0.005, 1), (0.005, 2), (0.004, 2), (0.005, 3), (0.004, 3)] {
             let base = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
             let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
             // Inlet / outlet projected areas against pi R^2, and the volume per
@@ -1549,11 +1549,14 @@ mod tests {
                 }
             }
             println!(
-                "h {h} layers {n}: {} cells, neg pyramids {} (boundary {}), max non-ortho {:.1}, notes {:?}",
+                "h {h} layers {n}: {} cells, neg pyramids {} (boundary {}), max non-ortho {:.1}, max skew {:.2}, min vol {:.3e}, min det {:.3e}, notes {:?}",
                 m.cell_count(),
                 q.n_negative_pyramid_faces,
                 lines.len(),
                 rep.max_non_orthogonality_deg,
+                q.max_skewness,
+                q.min_cell_volume,
+                q.min_cell_determinant,
                 rep.stage_notes
             );
             for li in lines.iter().take(30) {

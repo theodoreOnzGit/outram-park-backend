@@ -882,7 +882,48 @@ shrinks with h (0.961 against 0.966 at 3.3 mm), as a clipped-extremum
 error should. The laminar-tutorial reading (no cell limiter for a smooth
 laminar flow) is the one that matches this case; changing the demo on
 that ground is a decision for the maintainer, so the demo keeps the pair
-it was given until then, and the record shows all three. **The structured default moved:**
+it was given until then, and the record shows all three.
+
+### Step 3: two or more layers (2026-11-04)
+
+**On the mapped mesh, 2 layers run; 3 diverge** (Re = 100, demo cylinder):
+
+| h, layers, cells | demo pair: steps, u_c/2U, dp/dz, RMS, τ_w | `Gauss linear` |
+|---|---|---|
+| 6, 2, 11 487 | 39, 0.8079, 1.0883, 0.0729, 1.0653 | 80, 0.9483, 0.9029, 0.0222, 0.8902 |
+| 5, 2, 18 377 | 39, 0.8983, 0.9892, 0.0500, 0.9862 | 76, 0.9485, 0.9131, 0.0254, 0.9096 |
+| 4, 2, 30 289 | 45, 0.8926, 1.0280, 0.0365, 1.0262 | 80, 0.9754, 0.9516, 0.0157, 0.9482 |
+| 5, 3, 26 009 | **diverged** | **diverged** |
+| 4, 3, 42 257 | **diverged** | **diverged** |
+
+So the earlier 2-layer divergence went with the chamfer (prediction
+"h 5 mm, 2 layers still diverges": **missed**, it runs). The 3-layer
+meshes have no negative volume, no non-positive pyramid and max
+non-orthogonality 82–84° (no worse than the 2-layer ones that run), but
+their **max skewness is 6.6 and 7.2** (2 layers: 2.4 and 4.4; bare and
+1 layer: 0.2–0.8) and their minimum cell determinant 6.6e-3 (cfMesh's
+48-sided pipe, `diagnose_inward_boundary_faces_on_layered_pipes`).
+Upstream's mesh-quality limits for layer addition
+(`etc/caseDicts/mesh/generation/meshQualityDict`, OpenFOAM-dev
+`852527377c7e`, which snappyHexMesh applies while adding layers and
+removes the layer locally where they fail): `maxInternalSkewness 4`,
+`minTetQuality 1e-15` (no non-positive face pyramid),
+`minDeterminant 0.001`, `maxNonOrtho 65` (relaxed for layers to 75 in the
+tutorials). The port's layer back-off checked only closure, negative
+volume and non-orthogonality < 90°.
+
+**Fix:** the back-off now also requires max skewness ≤ 4, no
+non-positive face pyramid and min determinant ≥ 0.001 (upstream's values;
+the non-orthogonality bound stays < 90° because the dual itself sits at
+50–57° and the tutorials' layers are allowed to 75°, so 65° would refuse
+every layer; that choice is this crate's, and said so).
+
+**Predictions (before the run):** the 3-layer meshes back off to thinner
+layers with skewness ≤ 4 and then run; the 2-layer h 5 mm mesh loses its
+105 bad pyramids; the 1-layer meshes are unchanged (skew ≤ 0.8); h 4 mm
+with 2 layers (skew 4.37) backs off slightly. If skewness does not fall
+with thickness, the layerer returns no layers and the pipeline says so,
+and the divergence is then not fixed. **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)

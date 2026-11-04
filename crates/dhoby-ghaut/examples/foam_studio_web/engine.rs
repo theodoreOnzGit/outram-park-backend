@@ -2037,6 +2037,7 @@ mod tests {
         let list: Vec<(f64, usize)> = match sweep.as_str() {
             "bare" => bare.to_vec(),
             "layered" => layered.to_vec(),
+            "multi" => vec![(0.006, 2), (0.005, 2), (0.004, 2), (0.005, 3), (0.004, 3)],
             _ => bare.iter().chain(layered.iter()).copied().collect(),
         };
         println!("convection {which}: {div:?}, grad(U) {grad:?}");
