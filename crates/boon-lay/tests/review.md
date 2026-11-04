@@ -401,3 +401,52 @@ value = "YGWLpu8XUr4kDWEPWuVjxKRuTeHXNgXDDIAp08b7xUa7+hvs5/Pe0CWuMldlm59fuzlu3YM
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 11d1bb5478.
+
+# Review: N_AXIAL (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-n-axial-theodoreonzgit-79f7794a"
+kind = "review"
+origin = "human"
+created = "2026-11-04T11:13:19+08:00"
+modified = "2026-11-04T11:13:19+08:00"
+target = "fn:79f7794a2eef219f"
+
+[review]
+path = "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::N_AXIAL"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T11:13:19+08:00"
+commit = "928aef156d4b270a6f31b7b5405514c510f8c643"
+hash = "sha256:0701774b3dafa0c97c7952cad8b6d2857e2c582ee55cf3a1e9c6d8c77e83ab23"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "io_format"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "is_test_code"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01EXPhstVwAqRb8o6YHVQoXW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "NKSE3nSlyy3BchjYF/NfCRVVDAHtxVwXM2wBmrw2FkkLaSiC5jfZ3kWgvmPNUG4eCnMwyR362h3yez4J8gRuAg=="
+```
+
+checked against table 7 in TRISO ATOPS paper
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 928aef156d.
