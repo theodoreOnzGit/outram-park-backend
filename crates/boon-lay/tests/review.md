@@ -450,3 +450,52 @@ checked against table 7 in TRISO ATOPS paper
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 928aef156d.
+
+# Review: N_RADIAL (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-n-radial-theodoreonzgit-9b0d7758"
+kind = "review"
+origin = "human"
+created = "2026-11-04T11:15:13+08:00"
+modified = "2026-11-04T11:15:13+08:00"
+target = "fn:9b0d7758d9e3ac90"
+
+[review]
+path = "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::N_RADIAL"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T11:15:13+08:00"
+commit = "4004da6611650294e4bb19696bfffe87c923ef87"
+hash = "sha256:59a5e8ce9a05349920ac13580febb3d2df80e6fac745f9b0053099aed23b0db3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "is_test_code"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01EXPhstVwAqRb8o6YHVQoXW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Ysx+qsb9FTiQfpoPRQrMtghn3fVQSfAHGwwehhek1vTUUew+Wl/ErsuQsnKj571fCIe6YW1iUDPsntNS0qZ3Ag=="
+```
+
+checked against table 7
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 4004da6611.
