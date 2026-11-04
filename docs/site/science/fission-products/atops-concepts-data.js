@@ -23,7 +23,9 @@ window.ATOPS_CONCEPTS = {
   // Lessons being written in parallel (gh:#1207). check-concepts.js accepts
   // a lesson that exists OR is listed here; once they land, clear this list
   // and the check requires every one to exist (and its title to match).
-  PENDING_LESSONS: ["decay-clock.html", "walk-on-spheres.html", "chem-air.html", "chem-steam.html", "atops-source-term.html"],
+  // Cleared 2026-11-04: all five landed, so every lesson must now exist and
+  // its title must match.
+  PENDING_LESSONS: [],
   // The link text for each lesson; check-concepts.js fails if a title here
   // differs from the page's own <title> (for a page that exists).
   LESSON_TITLES: {
@@ -39,11 +41,14 @@ window.ATOPS_CONCEPTS = {
     "kernel-many-spheres.html": "Many Booth spheres",
     "barriers-sic.html": "Why SiC matters most",
     "failure-release.html": "From failed particles to release",
-    "decay-clock.html": "Decay clock (new lesson)",
-    "walk-on-spheres.html": "Walk-on-Spheres (new lesson)",
-    "chem-air.html": "Air ingress chemistry (new lesson)",
-    "chem-steam.html": "Steam ingress chemistry (new lesson)",
-    "atops-source-term.html": "The TRISO-ATOPS source term (new lesson)"
+    "decay-clock.html": "An atom's clock",
+    "walk-on-spheres.html": "Walking on spheres",
+    "chem-air.html": "Air on hot graphite",
+    "chem-steam.html": "Steam on graphite and kernels",
+    "atops-source-term.html": "Into the source term",
+    "diffusion-three-ways.html": "Diffusion, three ways",
+    "atops-conservative.html": "Is ATOPS conservative?",
+    "atops-breathing.html": "Breathing"
   },
   STAGES: [
     ["fuel", "Fuel: kernel to particle surface"],
@@ -258,7 +263,7 @@ window.ATOPS_CONCEPTS = {
               { file: "crates/boon-lay/tests/triso_atops_code_to_code.rs", fn: "integrate_graphite_matches_upstream" }],
       c2c: [{ group: "integrate.kernel", cases: "60", dev: "0 (exact)" },
             { group: "integrate.graphite", cases: "60", dev: "0 (exact)" }],
-      lessons: ["atops-accident.html"],
+      lessons: ["atops-accident.html", "diffusion-three-ways.html"],
       demo: "rung=failure&hold=1600&hours=300", demoNote: "a hold that drives the integral"
     },
     {
@@ -274,7 +279,7 @@ window.ATOPS_CONCEPTS = {
       c2c: [{ group: "booth_transient", cases: "8", dev: "3.62e-11" },
             { group: "release_fraction.kernel", cases: "120", dev: "3.32e-4" }],
       c2cNote: "booth_transient widened to 53 cases in the third pass (2026-09-21), which exposed defect 10. release_fraction.kernel's 3.32e-4 is on 16 ill-conditioned cases with widened tolerance (record, 'Ill-conditioned inputs').",
-      lessons: ["atops-accident.html", "failure-release.html"],
+      lessons: ["atops-accident.html", "failure-release.html", "atops-conservative.html"],
       demo: "rung=release&pick=Cs-137&hold=1800&now=500&leak=off", demoNote: "Cs-137 at the end of a hot hold"
     },
     {
@@ -285,7 +290,7 @@ window.ATOPS_CONCEPTS = {
       port: [{ file: "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs", fn: "breakthrough_model_transient" }],
       tests: [{ file: "crates/boon-lay/tests/triso_atops_code_to_code.rs", fn: "breakthrough_model_transient_matches_upstream" }],
       c2c: [{ group: "breakthrough_model_transient", cases: "64", dev: "0 (exact)" }],
-      lessons: ["atops-accident.html", "barriers-sic.html"],
+      lessons: ["atops-accident.html", "barriers-sic.html", "atops-conservative.html"],
       demo: "rung=release&pick=silver&hold=1600&now=200", demoNote: "silver during a hold"
     },
     {
@@ -329,7 +334,7 @@ window.ATOPS_CONCEPTS = {
             { group: "coolant_release.vent_time", cases: "10", dev: "0 (bit-exact)" },
             { group: "coolant_release.mean_dtdt", cases: "12", dev: "1.12e-15" }],
       c2cNote: "Widened to 331 coolant_release cases (1-6 nodes, every hot node, three pressures) in the third pass, 2026-09-21.",
-      lessons: ["atops-accident.html", "atops-source-term.html"],
+      lessons: ["atops-accident.html", "atops-breathing.html", "atops-source-term.html"],
       demo: null, demoNote: "not in the demo: its release rung holds the temperature, so nothing vents (the lesson's widget shows it)"
     },
     {
@@ -355,7 +360,7 @@ window.ATOPS_CONCEPTS = {
               { file: "crates/boon-lay/tests/triso_atops_code_to_code.rs", fn: "accident_case_nodal_kernel_matches_upstream" }],
       c2c: [{ group: "accident_case.total", cases: "54", dev: "3.63e-15" },
             { group: "accident_case.nodal_kernel", cases: "180", dev: "2.44e-9" }],
-      lessons: ["atops-source-term.html", "chem-air.html", "chem-steam.html"],
+      lessons: ["atops-source-term.html", "atops-breathing.html", "chem-air.html", "chem-steam.html"],
       demo: "rung=source-term", demoNote: "the recorded HTR-10 release (sembawang)"
     },
     {
@@ -368,8 +373,24 @@ window.ATOPS_CONCEPTS = {
               { file: "crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs", fn: "atoms_are_conserved_and_small_steps_equal_one_big_step" }],
       c2c: [],
       c2cNote: "Not code-to-code (there is no upstream). Against the ported closed forms from empty: worst relative difference 2.6e-16 (the test's doc comment, 2026-09-29).",
-      lessons: ["atops-coolant.html"],
+      lessons: ["atops-coolant.html", "atops-breathing.html"],
       demo: "rung=release&pick=Cs-137&leak=on", demoNote: "the demo carries the pools through the hold with live_pools, leak on"
+    },
+    {
+      id: "multilayer-diffusion", stage: "extension", title: "Multilayer diffusion on a mesh (NOT a port)",
+      idea: "boon-lay's own finite-volume solution of the diffusion equation through every layer of a particle (gh:#1209): the reference TRISO-ATOPS's analytical formulas are measured against. Booth on the bare kernel is reproduced to the mesh error; intact particles are not zero for Cs at 1600 °C; silver's breakthrough is conservative.",
+      eq: "V_i (c_i' − c_i)/Δt = −Σ_j G_ij (c_i' − c_j') − λ V_i c_i'\nG = A / (Δr₁/2D₁ + Δr₂/2D₂)   (backward Euler, c = 0 at the surface)",
+      upstream: null,
+      port: [{ file: "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs", fn: "step" },
+             { file: "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs", fn: "mean_exit_time" },
+             { file: "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs", fn: "steady_release_to_birth" }],
+      tests: [{ file: "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs", fn: "one_sphere_against_crank" },
+              { file: "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs", fn: "mean_exit_time_against_the_layered_formula" },
+              { file: "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs", fn: "steady_release_to_birth_against_booth" }],
+      c2c: [],
+      c2cNote: "Not code-to-code (no upstream). Verified 2026-11-04 against Crank's series (7.9e-5), the exact layered mean (1.4e-4) and Booth's R/B (6.8e-7); conservation missed its 1e-12 prediction (6.6e-12, round-off).",
+      lessons: ["diffusion-three-ways.html", "atops-conservative.html"],
+      demo: null, demoNote: "not in the demo"
     },
     {
       id: "removal-rates", stage: "extension", title: "RemovalRates: plate-out and clean-up per group or element (NOT a port)",
