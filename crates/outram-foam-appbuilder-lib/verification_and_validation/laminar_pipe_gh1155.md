@@ -457,6 +457,42 @@ and the `FOAM_CFMESH_STAGES` / `FOAM_NON_ORTH` / `FOAM_LAPLACIAN` /
 - **The layered meshes' divergence is spatial, not temporal:** it happens
   at every Δt and corrector count tried. Not investigated further.
 
+### Isolating the miss: geometry, orientation, a manufactured Poisson problem (maintainer direction, 2026-11-04)
+
+The non-orthogonal correction did not move the answer, so the maintainer
+asked for the geometry and the discretisation's geometric terms to be
+checked, cheapest first. Diagnostic: `foam_studio_web/engine.rs`
+`diagnose_geometry_orientation_and_poisson` (`--ignored`), on the O-grid
+7 920, the dual h 4 mm without layers, and the dual h 6 mm with 1 layer.
+
+**Predictions (written 2026-11-04, before running it):**
+
+1. *Closure and volume.* Closure already measured 1e-16 and the Gauss
+   volume 3e-14 per interior cell (the first diagnostic). Σ V: O-grid
+   0.9936 πR²L (the 32-gon), dual 0.97–0.99 (the ~16-gon snapped wall and
+   chamfered rim). Wall area: O-grid 0.9984, dual 0.97–1.0. Non-planarity:
+   O-grid ~1e-16 (planar quads), dual 1e-3–1e-1 (median-dual faces are
+   non-planar), layer prism side faces non-planar too. The port's
+   face and cell centres follow OpenFOAM's triangle decomposition about the
+   face's average point (`face_centre_and_area` / `cell_geometry` in
+   `outram-foam-mesh`, read before writing this), so non-planarity should
+   bias nothing beyond OpenFOAM's own.
+2. *Orientation.* 0 misoriented internal faces and 0 boundary faces on all
+   three meshes (the layer back-off rejects folded faces).
+3. *Poisson.* O-grid: b = 1.00 ± 0.01, RMS < 1 %. Dual: **if b differs from
+   1 by more than 5 %, the Laplacian (or the mesh it sees) is the cause, not
+   PISO**; the two-point check measured the uncorrected operator 12 % low,
+   so I predict the uncorrected solve gives b ≈ 1.1 and the corrected one
+   b ≈ 1.0–1.05. If corrected b ≈ 1, the Laplacian is cleared and the miss
+   is in the momentum/pressure coupling on these meshes.
+4. *Wall snGrad.* Read, not run: `DeltaCoeff::NonOrthogonal.boundary_delta`
+   is the projection n·d (as OpenFOAM's `fvPatch::delta()`), and the
+   momentum matrix is restamped to it on fixed-value/no-slip walls
+   (`non_orthogonal::restamp_vector_delta`). Predicted correct.
+5. *Development length and station.* Durst: 115 mm at Re = 100; the slab
+   is 130–170 mm and the O-grid reads 0.99 there. On the dual the same
+   station; the binned profile is flat at every station, so not the cause.
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by
