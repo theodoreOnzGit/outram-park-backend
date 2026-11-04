@@ -146,3 +146,77 @@ this is the driver file
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 5e8606b71d.
+
+# Review: configurations (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-configurations-theodoreonzgit-0a906b3f"
+kind = "review"
+origin = "human"
+created = "2026-11-04T10:50:33+08:00"
+modified = "2026-11-04T10:50:33+08:00"
+target = "fn:0a906b3f44704108"
+
+[review]
+path = "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::configurations"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T10:50:33+08:00"
+commit = "a461c5d9deb7f2a9694e2b011ae3b2d766ab284d"
+hash = "sha256:0477dcbfb31598d520ea9a9d75e03cdea025f049280a530db210ff1ea2e067e0"
+doc_hash = "sha256:38ac9afbc266def61574a7dd8bb076fdfd0592c862f5ef1286c0c70679dd8706"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+
+[review.callees]
+"fn:04cbe7e951a3ef50" = "sha256:345ee09cfb571ad3eb7be4d63de0422ed36a5c74f207444c5530a4bd9e9ffb03"
+"fn:05c53aa09e3542da" = "sha256:f6c29a369d635851bb790d1b7336f39216c5421501357505c0bc5161a12597eb"
+"fn:24e4f2d2ea7f17f4" = "sha256:050f20680cf2ebc0fb4f0a7e8b3d49a74fc1fe359546321ecb13713346a7c00f"
+"fn:3e752b3c15c4e4fe" = "sha256:d1f72246cf1efe75bc53507767c1fc7af7359636aa5b009d6fba94e241e5bf7a"
+"fn:459395474c5875ce" = "sha256:97f8cd3ee0d1655194b4537bb7ef9d16c1f40e279be6fe6bf1b38d1b7b492abd"
+"fn:51ce89820d2bb919" = "sha256:da5ea635a65fccdf1beba3add5e838fbf7b584f10204b36ac5169f80ef6c5d01"
+"fn:720763535406a854" = "sha256:468363707eb6f8af68dd8e3d9901d7a76231693bf0a5b4e7e8bc5ad5ee6d5cc1"
+"fn:7c47d7977a8d550b" = "sha256:e880f6106e2dfa3cf2d358f74dfd74e3fb91ec284083dadbcbab5330fd266bf1"
+"fn:8a156c01e50ca527" = "sha256:d2f7f9d7c9313ca05aaba643ddb549000f656a5513204fe9d3821fed7183842b"
+"fn:b31dc309195e5890" = "sha256:cb0506150f5656d4007ad3a0423685c53bc604ebe4185be3d7d919078226cab2"
+"fn:b4300d995422f7cf" = "sha256:1ec2c617f1f0e953148c45600858c2e267e666ce1b816c307cb2cd67d91a5f3c"
+"fn:b6670ce65d1534e4" = "sha256:508f9ad6180dc30fa3ca4821e7a704a5852bef8691ecee82828ec72da3d394fa"
+"fn:b754ff5f79ad8f15" = "sha256:00edbc37903be951dbce5ac1e770eee50e2db7c005ea359b3a612e7b3cc237f4"
+"fn:b872687bd30a967d" = "sha256:a0ebdf17d87a0897d282f8e148ec15e3648cb75a06fbbb453256f89835cd2337"
+"fn:d1e19251526ae55a" = "sha256:8b4d5df4512632190138615178de5e3e88d956fa7dedb0f19759c5041ae29adf"
+"fn:e95381509718b938" = "sha256:bd2d0163823daca920081b40fa42e0e840f5ff475e31dca41e6b9e9e87f11010"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01RK4L9ruHdU2JHaWPW4ozsc"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Jj6v2WY4iHVKqbdaI382TCtMeYFTupBM8p60c+XDBUG3ErwxF/2K9HsjHrok0B+yglk8uESFoxC/GM7fUomfAw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+shows the configuration needed to run the case, 
+whether to use paper or upstream
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit a461c5d9de.
