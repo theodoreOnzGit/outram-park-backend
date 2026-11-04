@@ -27,10 +27,16 @@ Idaho National Laboratory.
 
 ## Ownership
 
-**This crate belongs to Adolphus Lye.** They chose the RAFFLES backronym, and
+~~**This crate belongs to Adolphus Lye.** They chose the RAFFLES backronym, and
 the direction, scope and priorities of the crate are theirs to set. Anyone else
 — human or AI assistant — working in here is a contributor, not a decision
-maker: propose changes of direction to them rather than making them.
+maker: propose changes of direction to them rather than making them.~~
+**CORRECTED 2026-11-04 (maintainer direction):** "Adolphus should be okay,
+entirety of outram park is mine also to own (bedok is Yan Ren's)." The
+workspace maintainer owns RAFFLES, as every crate in the workspace except
+`bedok` (Than Yan Ren's). Adolphus Lye chose the RAFFLES backronym and is the
+author of the Bayesian work it draws on; the maintainer's direction calls here
+stand without waiting for their review.
 
 ## Scope
 

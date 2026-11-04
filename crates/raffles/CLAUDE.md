@@ -82,9 +82,20 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 ## Ownership — Adolphus Lye
 
-**This crate belongs to Adolphus Lye**, a colleague of the workspace
+**CORRECTED 2026-11-04 (maintainer direction): "Adolphus should be okay,
+entirety of outram park is mine also to own (bedok is Yan Ren's)."** The
+workspace maintainer owns this crate, as every crate in the workspace except
+`bedok` (Than Yan Ren's). **The direction calls below recorded as "theirs to
+confirm or reverse" (`scram/`, `estimators`, its submodules, and
+`raffles::fidelity::build` running the caller's model, gh:#1194) are confirmed
+by the maintainer**, and new direction from the maintainer needs no further
+sign-off. Adolphus Lye remains the author of the backronym and of the Bayesian
+work the crate draws on; credit them accurately, and use they/them. The text
+below is kept struck through as the history of the earlier position.
+
+~~**This crate belongs to Adolphus Lye**, a colleague of the workspace
 maintainer. They chose the RAFFLES backronym, and **direction, scope and
-priorities for this crate are theirs to set.**
+priorities for this crate are theirs to set.**~~
 
 What that means in practice:
 
