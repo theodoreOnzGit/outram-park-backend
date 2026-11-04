@@ -50,7 +50,7 @@ its large-crowd limit.
 ### The cost, honestly
 
 Following every real jump is hopeless: of order $10^{9}$ jumps per
-second per atom ([walk rung](../../tutorials/triso-atops/walk.html), step 1).
+second per atom ([*Walking on spheres*](../../science/fission-products/walk-on-spheres.html)).
 So we **jump straight to the end of an interval**.
 
 The crate's first engine did exactly that: one Gaussian step per time
@@ -111,7 +111,7 @@ Where to look: the walker, with its walk to a surface, is
 the exit-time sampler is
 [`sample_first_passage_time`](../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs::sample_first_passage_time).
 The full walkthrough, with the sampling code, is in the
-[walk rung](../../tutorials/triso-atops/walk.html), step 3.
+[*Walking on spheres*](../../science/fission-products/walk-on-spheres.html).
 
 **What judgement makes it acceptable.** Inside each hop sphere the
 medium must really be uniform, with one $D$. That holds for concentric
@@ -155,7 +155,7 @@ $D_{\text{SiC}}/D_{\text{PyC}}$. With the Arrhenius factors, that ratio
 is 1/13 to 1/4100 over Cs, Sr, Ag and Kr at 1000 to 1600 °C (Cs: 1/120
 at 1000 °C, 1/440 at 1600 °C), measured with
 `examples/layer_diffusion_table.rs`
-([walk rung](../../tutorials/triso-atops/walk.html) and
+([*Walking on spheres*](../../science/fission-products/walk-on-spheres.html) and
 [interface record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/verification_and_validation/interface_uniform_equilibrium_density.md)).
 
 ---

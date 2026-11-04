@@ -55,6 +55,8 @@
 <summary>Learn more advanced stuff</summary>
 <h3>One temperature per node</h3>
 <p>Each node has one fuel and one graphite temperature. Chapter 3 showed the kernel itself is nearly isothermal (lesson 17: about 2 K across it), so this is a fair lumping inside a particle; across a pebble or a core it is what the nodes are for.</p>
+<h3>What the bridge replaces, and what it leaves alone</h3>
+<p><code>with_<wbr>fuel_<wbr>failure_<wbr>incremental</code> replaces only f<sub>inc</sub>, with boon-lay fuel failure&rsquo;s in-service fraction 1&nbsp;&minus;&nbsp;(1&nbsp;&minus;&nbsp;&phi;<sub>1</sub>)(1&nbsp;&minus;&nbsp;&phi;<sub>2</sub>), where &phi;<sub>1</sub> is the pressure-vessel burst and &phi;<sub>2</sub> the SiC decomposition (lessons 34 and 36). It leaves f<sub>HM</sub>, f<sub>SiC</sub> and f<sub>inc,SiC</sub> as given: &phi;<sub>2</sub> is deliberately not routed into f<sub>inc,SiC</sub>. It is an added route: a run that sets all four fractions by hand is unchanged, and a test pins that.</p>
 <h3>Case A&rsquo;s fractions</h3>
 <p>f<sub>HM</sub> = 2&times;10<sup>&minus;5</sup>, f<sub>SiC</sub> = 10<sup>&minus;4</sup>, f<sub>inc</sub> = 2.3&times;10<sup>&minus;5</sup>, f<sub>inc,SiC</sub> = 3.6&times;10<sup>&minus;5</sup>: the paper&rsquo;s MHTGR specification and AGR-based values (Table 2, p. 7). They are not HTR-10&rsquo;s; the theory book compares them (<a href="../../tutorials/fp-transport-theory/14-triso-atops.html">step 15</a>).</p>
 </details>

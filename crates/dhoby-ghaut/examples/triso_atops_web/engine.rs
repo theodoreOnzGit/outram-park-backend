@@ -6,7 +6,7 @@
 //! milliseconds and the UI never waits.
 //!
 //! **No physics is written here.** Every number is a call into `boon-lay`,
-//! the crate the lessons teach (`tutorials/triso-atops/`):
+//! the crate the lessons teach (the Fission products science lessons, `science/fission-products/`, since 2026-11-04, gh:#1207):
 //!
 //! | rung | call |
 //! |---|---|

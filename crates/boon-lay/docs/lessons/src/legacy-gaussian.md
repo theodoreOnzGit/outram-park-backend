@@ -3,7 +3,7 @@
 > **Research, education and V&V only** ([`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md)).
 > **Review status:** AI-assisted draft, 2026-10-04, not yet human-reviewed.
 
-**Extended deep dive.** [Rung 3](../../tutorials/triso-atops/walk.html) told why the first diffusion
+**Extended deep dive.** [*Walking on spheres*](../../science/fission-products/walk-on-spheres.html) told why the first diffusion
 engine was replaced. The code is still in the crate, beside Walk-on-Spheres,
 which the crate calls "the intended replacement for the diffusion core"
 ([`first_passage/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/mod.rs#L33-L35)).

@@ -6,7 +6,7 @@
 **Extended deep dive.** Covers
 [`nuclide_reaction_and_decay_data`](../../api/boon_lay/nuclide_reaction_and_decay_data/index.html),
 [`decay_xml_info_serde`](../../api/boon_lay/decay_xml_info_serde/index.html)
-and [`prelude`](../../api/boon_lay/prelude/index.html). [Rung 2](../../tutorials/triso-atops/decay.html)
+and [`prelude`](../../api/boon_lay/prelude/index.html). [*An atom's clock*](../../science/fission-products/decay-clock.html)
 used this data; this page shows where it comes from and what can go wrong.
 
 ## Where the numbers live

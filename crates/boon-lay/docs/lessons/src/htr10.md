@@ -8,7 +8,7 @@
 **Extended deep dive.** Covers
 [`fuel_failure::htr10`](../../api/boon_lay/fuel_failure/htr10/index.html) and
 [`fuel_failure::htr10::qualification`](../../api/boon_lay/fuel_failure/htr10/qualification/index.html),
-which [rung 5](../../tutorials/triso-atops/failure.html#step-6-the-htr-10-numbers-and-what-they-are-not)
+which [*An accident, step by step*](../../science/fission-products/failure-accident.html)
 summarises. Tracking issue: gh:#296.
 
 ## What HTR-10 publishes, and what it does not
@@ -39,7 +39,7 @@ and burnup and HTR-Module's in strength and fluence.
 Eight decades across 300 °C, which is why $T_B$ is an input and not a guess.
 
 **Accident, 200 h isothermal, $T_B$ = 776 °C** (2026-09-24): see
-[rung 5, step 6](../../tutorials/triso-atops/failure.html#step-6-the-htr-10-numbers-and-what-they-are-not)
+[*An accident, step by step*](../../science/fission-products/failure-accident.html)
 for the table and its re-measurement.
 
 **Why the normal-operation number must not become `f_inc`.** TRISO-ATOPS's

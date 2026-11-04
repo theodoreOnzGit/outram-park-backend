@@ -38,7 +38,7 @@ with $R$ the gas constant, $T$ in kelvin, and $D_1, Q_1, D_2, Q_2$ per element
 and per layer. The second term matters only at high temperature. This is the
 two-term form of Jiang et al. (2023), *Fission product transport in TRISO
 particles and pebbles*, INL, which the walker uses
-([rung 4](../../tutorials/triso-atops/layers.html), table on p. 13 of the
+([*Migration through the layers*](../../science/fission-products/barriers-migration.html), table on p. 13 of the
 report). The activation energy $Q$ is the "energy cost of one hop", so a large
 $Q$ means a strong temperature dependence. The fast-fluence factor on Cs in
 SiC is in the code but not discussed here.
@@ -51,7 +51,7 @@ Arrhenius diffusion in solids.]`
 ## What the numbers say (the walker's own lookup, zero fluence)
 
 Run 2026-10-04, $D$ in m²/s, from `examples/layer_diffusion_table.rs`
-([record](../../tutorials/triso-atops/layers.html)):
+([record](../../science/fission-products/barriers-migration.html)):
 
 | Nuclide | T (°C) | kernel | buffer | PyC | SiC |
 |---|---|---|---|---|---|
@@ -148,7 +148,7 @@ on the pressure of step 6, not on diffusion
 **Air and steam.** Water or air entering hot graphite is a separate kind of
 chemistry: graphite oxidation and kernel hydrolysis. The crate has three
 cited rate laws and says they are not mechanistic attack models
-([rung 6](../../tutorials/triso-atops/chemistry.html)).
+([*Air on hot graphite*](../../science/fission-products/chem-air.html)).
 
 ## Interfaces: where one layer meets the next
 
@@ -167,7 +167,7 @@ repo supplies no $K$ values
 ([`transmission_probability`](../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs::transmission_probability);
 the derivation is in the module doc of
 [`interface.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs)).
-Why linear in $D$ and not $\sqrt{D}$ is explained on [rung 4](../../tutorials/triso-atops/layers.html#step-2-what-happens-at-an-interface).
+Why linear in $D$ and not $\sqrt{D}$ is explained on [*Migration through the layers*](../../science/fission-products/barriers-migration.html).
 
 ## The simplification ladder for this step
 
