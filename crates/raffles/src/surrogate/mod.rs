@@ -23,8 +23,13 @@
 //! polynomial chaos, co-kriging) land here as `f64` implementations and as a
 //! variant there.
 //!
-//! Gaussian process regression / kriging and the sparse-grid polynomial chaos
-//! route are **not** implemented. ~~Neither is the cross-validation
+//! ~~Gaussian process regression / kriging and the sparse-grid polynomial chaos
+//! route are **not** implemented.~~ **CORRECTED 2026-11-04 (gh:#1193)** — both
+//! now are, as RAVEN ports: [`polynomial_chaos`] (RAVEN's `GaussPolynomialRom`
+//! with its index sets, Smolyak/tensor grids and SciPy's Gauss rules) and
+//! [`gaussian_process`] (RAVEN's `GaussianProcessRegressor` interface over
+//! scikit-learn's numerics). HDMR and the SMT kriging route (gh:#1190) are
+//! not. ~~Neither is the cross-validation
 //! machinery;~~ **CORRECTED 2026-10-03** — leave-one-out cross-validation is
 //! now in [`validation`] (polynomial surrogates only; k-fold and the neural
 //! surrogate are not covered). The fitted models still report `r_squared` and
@@ -75,18 +80,24 @@
 //!
 //! ## Provenance
 //!
-//! No RAVEN code has been ported into this module. When it is, each derived
-//! file carries the attribution header shown in the crate `CLAUDE.md`, naming
+//! ~~No RAVEN code has been ported into this module.~~ **CORRECTED
+//! 2026-11-04** — `polynomial_chaos/` and `gaussian_process.rs` are RAVEN
+//! ports (gh:#1193), with SciPy, NumPy and scikit-learn (BSD-3-Clause) numerics
+//! beside them. Each derived file carries the attribution header shown in the crate `CLAUDE.md`, naming
 //! the upstream file under `ravenframework/SupervisedLearning/`, the commit,
 //! the copyright holder and the licence.
 
+pub mod gaussian_process;
 pub mod polynomial;
+pub mod polynomial_chaos;
 pub mod validation;
 
 #[cfg(feature = "burn")]
 pub mod neural;
 
+pub use gaussian_process::{GaussianProcess, GpConfig, GpKernel, GpOptimizer, RavenKernel};
 pub use polynomial::{MultiOutputPolynomial, PolynomialSurrogate};
+pub use polynomial_chaos::{PolynomialChaos, PolynomialChaosSpec};
 
 #[cfg(feature = "burn")]
 pub use neural::{NeuralSurrogate, TrainingConfig, TrainingReport};

@@ -450,6 +450,9 @@ def gp_cases():
         gp_case("rbf_fit_1d", x5, y5, "RBF", False, "fmin_l_bfgs_b", 1e-10, False, t1),
         gp_case("constant_rbf_anisotropic_fit_2d", x2, y2, "Custom", True, "fmin_l_bfgs_b",
                 1e-10, False, t2, custom="Constant*RBF"),
+        # Added after the first run (V&V record, addendum): the case above
+        # ends on a numerically singular Gram matrix; this one is conditioned.
+        gp_case("matern_fit_2d", x2, y2, "Matern", False, "fmin_l_bfgs_b", 1e-6, False, t2),
     ]
 
 

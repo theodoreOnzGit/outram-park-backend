@@ -18,7 +18,7 @@
 //! | [`HighFidelityModel`] | `y = f(x)`, implemented by the caller (CFD, Monte Carlo, a toy function) |
 //! | [`ParametricModel`] | `y = f_LF(x, θ)`, the object of calibration (Kennedy–O'Hagan gh:#1180, DUD gh:#1192) |
 //! | [`Dataset<I, O>`], [`MultiFidelityDataset`] | runs with provenance, a [`Fidelity`] tag and a [`Split`] fixed at construction |
-//! | [`SurrogateSpec`], [`Surrogate<I, O>`] | what to fit, and the fitted model: `Polynomial` now (one fit per output), `Neural` behind the `burn` feature |
+//! | [`SurrogateSpec`], [`Surrogate<I, O>`] | what to fit, and the fitted model: `Polynomial` (one fit per output), `Neural` behind the `burn` feature, and since gh:#1193 RAVEN's `PolynomialChaos` and `Kriging { route: RavenSklearn }` (with a σ) |
 //! | [`Prediction<O>`] | `mean: O`, `std_dev: Option<O>` (the uncertainty keeps the output's units) |
 //! | [`ValidationReport<O>`] | held-out RMSE and max error per output in output units, LOO RMSE on the training rows, 2σ coverage when a σ exists |
 //! | [`CorrectedModel<L>`], [`ThetaEstimate`], [`discrepancy_dataset`] | `y_LF(x, θ) + δ(x)` |
@@ -41,8 +41,9 @@
 //!   the [`BuildPlan`], and no fit reads a held-out row: the test
 //!   `poisoned_held_out_outputs_do_not_change_the_fit` pins it.
 //! - **Routes are added with their ports, not as placeholders.** Kriging and
-//!   co-kriging (SMT, gh:#1190) and polynomial chaos (RAVEN, gh:#1193) become
-//!   [`SurrogateSpec`] / [`Surrogate`] variants when they land; a sibling
+//!   co-kriging (SMT, gh:#1190) become [`SurrogateSpec`] / [`Surrogate`]
+//!   variants when they land (~~polynomial chaos (RAVEN, gh:#1193)~~ landed
+//!   2026-11-04 with RAVEN's kriging route); a sibling
 //!   `StateSpaceModel` trait comes with the Kalman ports (gh:#1191).
 //!
 //! # Scope note
@@ -75,4 +76,4 @@ pub use quantities::{check_width, Channel, Quantities, SiQuantity};
 pub use space::ParameterSpace;
 #[cfg(feature = "burn")]
 pub use surrogate::NeuralBackend;
-pub use surrogate::{Prediction, Surrogate, SurrogateSpec, ValidationReport};
+pub use surrogate::{KrigingRoute, Prediction, Surrogate, SurrogateSpec, ValidationReport};

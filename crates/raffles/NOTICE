@@ -370,6 +370,66 @@ file comes from before writing its attribution header.
    Status:           AI-assisted draft, not reviewed by a human or the crate owner.
 
 
+SECOND REFERENCE POINT FOR THE gh:#1193 PORTS (2026-11-04)
+==========================================================
+
+src/bayesian/raven_mcmc.rs, src/surrogate/polynomial_chaos/{mod,grid}.rs and
+the RAVEN half of src/surrogate/gaussian_process.rs were read from a newer
+RAVEN than the reference point above:
+
+  Branch:            devel
+  Commit:            8baaae3a97f1392318074ad6d3f8efc26ca81c7e
+  Commit date:       2026-11-03T12:58:18-07:00
+  Date accessed:     2026-11-04
+  LICENSE.txt and NOTICE.txt at that commit: byte-identical to the files
+  preserved here (sha256 49bbe911... and e53e0d10..., as above).
+
+The files ported earlier keep the commit their headers name.
+
+Note on RAVEN's own NOTICE.txt: RAVEN vendors scikit-optimize's GP kernels
+(ravenframework/contrib/SKOpt/GPKernels.py, BSD-3-Clause, Copyright (c)
+2016-2020 The scikit-optimize developers) without a NOTICE.txt entry. None of
+that file is ported here: the kernel values come from scikit-learn (below),
+and RAVEN's `gradient_x` additions are not ported.
+
+
+BSD-3-CLAUSE UPSTREAMS — SCIPY, NUMPY, SCIKIT-LEARN (gh:#1193, 2026-11-04)
+=========================================================================
+
+RAVEN delegates numerics to these libraries; where the RAVEN route needs them,
+the delegated routine is ported too, so the comparison with RAVEN can be
+exact. BSD-3-Clause is compatible with (A)GPLv3; the code flows ONE WAY into
+RAFFLES. Each licence text is preserved verbatim (copied from the installed
+packages' dist-info) and must travel with every distribution:
+
+  SciPy 1.14.1          LICENSE-BSD-SCIPY
+    Copyright (c) 2001-2002 Enthought, Inc. 2003-2024, SciPy Developers.
+    Ported: special/_orthogonal.py (_gen_roots_and_weights, roots_legendre,
+    roots_hermitenorm), special/orthogonal_eval.pxd (eval_legendre_l,
+    eval_hermitenorm), special/special/cephes/{gamma,beta,polevl}.h (the
+    branches eval_legendre reaches).
+    Into: src/surrogate/polynomial_chaos/special.rs.
+
+  NumPy 1.26.4          LICENSE-BSD-NUMPY
+    Copyright (c) 2005-2023, NumPy Developers.
+    Ported: the float64 add reduction's pairwise summation and
+    np.around(x, decimals > 0).
+    Into: src/surrogate/polynomial_chaos/special.rs.
+
+  scikit-learn 1.3.2    LICENSE-BSD-SKLEARN
+    Copyright (c) 2007-2023 The scikit-learn developers.
+    Ported: gaussian_process/_gpr.py (fit, predict, log_marginal_likelihood),
+    gaussian_process/kernels.py (ConstantKernel, RBF, Matern nu 0.5/1.5/2.5,
+    WhiteKernel, Sum, Product), preprocessing/_data.py
+    (_handle_zeros_in_scale).
+    Into: src/surrogate/gaussian_process.rs.
+    NOT ported: scipy's L-BFGS-B (the hyperparameter optimiser is this
+    crate's own bounded BFGS).
+
+Verification of all three: verification_and_validation/raven_routes_gh1193.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
 INDEPENDENCE / TRADEMARK
 ========================
 

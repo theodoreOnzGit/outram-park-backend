@@ -26,9 +26,9 @@ pub type NeuralBackend = burn::backend::Autodiff<burn::backend::NdArray<f32>>;
 ///
 /// Routes still to come, each added **with its port** rather than as an
 /// empty variant now (this crate's convention: an unimplemented part has no
-/// public entry point, `RafflesError`'s docs): `Kriging { kernel, route }`
-/// and `CoKriging` (the SMT port, gh:#1190), `PolynomialChaos` (the RAVEN
-/// port, gh:#1193).
+/// public entry point, `RafflesError`'s docs): the SMT kriging route and
+/// `CoKriging` (gh:#1190). ~~`PolynomialChaos` (the RAVEN port, gh:#1193)~~
+/// **landed 2026-11-04**, with `Kriging { route: RavenSklearn }`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SurrogateSpec {
     /// One least-squares polynomial per output
@@ -47,6 +47,32 @@ pub enum SurrogateSpec {
         /// Width, depth, epochs, learning rate, seed.
         config: crate::surrogate::neural::TrainingConfig,
     },
+    /// RAVEN's polynomial chaos ([`crate::surrogate::PolynomialChaos`],
+    /// gh:#1193), all outputs at once. A projection on RAVEN's quadrature
+    /// grid: the training rows must contain every point of `spec.grid()`
+    /// (within 1e-9, RAVEN's rule); other training rows are ignored.
+    PolynomialChaos {
+        /// Inputs (in SI, the order of `I`'s channels), index set, order, grid.
+        spec: crate::surrogate::PolynomialChaosSpec,
+    },
+    /// Gaussian-process regression ("kriging"), one GP per output, as
+    /// RAVEN's default `<multioutput>`. Its prediction carries a standard
+    /// deviation.
+    Kriging {
+        /// Kernel, alpha, target normalisation, optimiser.
+        config: crate::surrogate::GpConfig,
+        /// Which implementation.
+        route: KrigingRoute,
+    },
+}
+
+/// Which Gaussian-process implementation [`SurrogateSpec::Kriging`] uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KrigingRoute {
+    /// RAVEN's `GaussianProcessRegressor` interface over scikit-learn's
+    /// numerics ([`crate::surrogate::gaussian_process`], gh:#1193). The SMT
+    /// route (gh:#1190) joins as a second variant when it lands.
+    RavenSklearn,
 }
 
 /// A fitted surrogate from inputs `I` to outputs `O`.
@@ -64,6 +90,10 @@ pub enum Surrogate<I: Quantities, O: Quantities> {
         crate::surrogate::neural::NeuralSurrogate<NeuralBackend>,
         PhantomData<fn(I) -> O>,
     ),
+    /// [`SurrogateSpec::PolynomialChaos`].
+    PolynomialChaos(crate::surrogate::PolynomialChaos, PhantomData<fn(I) -> O>),
+    /// [`SurrogateSpec::Kriging`]: one fitted GP per output channel.
+    Kriging(Vec<crate::surrogate::GaussianProcess>, PhantomData<fn(I) -> O>),
 }
 
 /// A surrogate's answer at one input.
@@ -106,6 +136,16 @@ impl<I: Quantities, O: Quantities> Surrogate<I, O> {
                     crate::surrogate::neural::train::<NeuralBackend>(x, y, config, &device)?;
                 Ok(Self::Neural(net, PhantomData))
             }
+            SurrogateSpec::PolynomialChaos { spec } => Ok(Self::PolynomialChaos(
+                crate::surrogate::PolynomialChaos::fit(spec, x, y)?,
+                PhantomData,
+            )),
+            SurrogateSpec::Kriging { config, route } => match route {
+                KrigingRoute::RavenSklearn => Ok(Self::Kriging(
+                    fit_kriging(config, x, y)?,
+                    PhantomData,
+                )),
+            },
         }
     }
 
@@ -116,6 +156,7 @@ impl<I: Quantities, O: Quantities> Surrogate<I, O> {
             Self::Polynomial(p, _) => Some(p),
             #[cfg(feature = "burn")]
             Self::Neural(..) => None,
+            Self::PolynomialChaos(..) | Self::Kriging(..) => None,
         }
     }
 
@@ -143,8 +184,34 @@ impl<I: Quantities, O: Quantities> Surrogate<I, O> {
             Self::Polynomial(p, _) => Ok((p.predict(x)?, None)),
             #[cfg(feature = "burn")]
             Self::Neural(n, _) => Ok((n.predict(x)?, None)),
+            Self::PolynomialChaos(p, _) => Ok((p.predict(x)?, None)),
+            Self::Kriging(gps, _) => {
+                let mut m = Vec::with_capacity(gps.len());
+                let mut s = Vec::with_capacity(gps.len());
+                for gp in gps {
+                    let (a, b) = gp.predict(x)?;
+                    m.push(a);
+                    s.push(b);
+                }
+                Ok((m, Some(s)))
+            }
         }
     }
+}
+
+/// One GP per output column (RAVEN's `MultiOutputRegressor` default).
+fn fit_kriging(
+    config: &crate::surrogate::GpConfig,
+    x: &[Vec<f64>],
+    y: &[Vec<f64>],
+) -> Result<Vec<crate::surrogate::GaussianProcess>> {
+    let w = y.first().map_or(0, Vec::len);
+    (0..w)
+        .map(|k| {
+            let col: Vec<f64> = y.iter().map(|r| r[k]).collect();
+            crate::surrogate::GaussianProcess::fit(config, x, &col)
+        })
+        .collect()
 }
 
 /// How wrong a fitted surrogate is, **on rows it was not fitted to**.
@@ -305,6 +372,22 @@ fn loo_rmse_si(spec: &SurrogateSpec, x: &[Vec<f64>], y: &[Vec<f64>]) -> Result<O
         }
         #[cfg(feature = "burn")]
         SurrogateSpec::Neural { .. } => Ok(None),
+        // A projection on a fixed quadrature grid: dropping a node breaks the
+        // rule, so leave-one-out is not defined for it.
+        SurrogateSpec::PolynomialChaos { .. } => Ok(None),
+        // Closed-form LOO at the hyperparameters fitted on all training rows
+        // (Rasmussen and Williams 2006, eq. 5.12).
+        SurrogateSpec::Kriging { config, .. } => {
+            let gps = fit_kriging(config, x, y)?;
+            Ok(Some(
+                gps.iter()
+                    .map(|gp| {
+                        let r = gp.loo_residuals();
+                        (r.iter().map(|e| e * e).sum::<f64>() / r.len() as f64).sqrt()
+                    })
+                    .collect(),
+            ))
+        }
     }
 }
 
@@ -380,6 +463,65 @@ mod tests {
         assert!(r.coverage_2sigma.is_none());
         let r = ValidationReport::of(&s, &spec, &data, false).unwrap();
         assert!(r.loo_rmse.is_none());
+    }
+
+    /// The two RAVEN routes (gh:#1193) through the typed interface: polynomial
+    /// chaos reproduces the same quadratic the polynomial route does, with no
+    /// σ and no LOO; kriging returns a σ in the output's units, 2σ coverage on
+    /// the held-out rows, and a LOO RMSE; both give the same bits as calling
+    /// the route directly.
+    #[test]
+    fn the_raven_routes_are_typed_end_to_end() {
+        use crate::surrogate::polynomial_chaos::{PceVariable, PolynomialChaosSpec};
+        use crate::surrogate::{GaussianProcess, GpConfig, GpKernel, RavenKernel};
+        let f = |a: f64| 300.0 + 2.0 * a - 0.5 * a * a;
+        let pspec = PolynomialChaosSpec::total_degree(
+            vec![PceVariable::Uniform { lower: 0.0, upper: 4.0 }],
+            2,
+        );
+        let mut xs: Vec<f64> = pspec.grid().unwrap().points.iter().map(|p| p[0]).collect();
+        xs.extend([0.5, 1.3, 2.7, 3.9]);
+        let x: Vec<X> = xs.iter().map(|v| X { a: Length::new::<meter>(*v) }).collect();
+        let y: Vec<Y> = xs
+            .iter()
+            .map(|v| Y { t: ThermodynamicTemperature::new::<kelvin>(f(*v)) })
+            .collect();
+        let split: Vec<Split> = (0..xs.len())
+            .map(|i| if i < 3 { Split::Training } else { Split::HeldOut })
+            .collect();
+        let data = Dataset::new(&x, &y, &split, Fidelity::new(1, "quadratic"), "unit test").unwrap();
+        let spec = SurrogateSpec::PolynomialChaos { spec: pspec.clone() };
+        let s = Surrogate::fit(&spec, &data).unwrap();
+        assert!(s.as_polynomial().is_none());
+        let p = s.predict(&X { a: Length::new::<meter>(1.3) }).unwrap();
+        assert!((p.mean.t.get::<kelvin>() - f(1.3)).abs() < 1e-10);
+        assert!(p.std_dev.is_none());
+        let r = ValidationReport::of(&s, &spec, &data, true).unwrap();
+        assert!(r.held_out_max_error.unwrap().t.value < 1e-10);
+        assert!(r.loo_rmse.is_none() && r.coverage_2sigma.is_none());
+        let (tx, ty) = data.training_si();
+        let direct = crate::surrogate::PolynomialChaos::fit(&pspec, &tx, &ty).unwrap();
+        assert_eq!(s.predict_si(&[1.3]).unwrap().0, direct.predict(&[1.3]).unwrap());
+
+        // Kriging on all but the held-out rows (here: the first 6 train).
+        let split: Vec<Split> = (0..xs.len())
+            .map(|i| if i % 2 == 0 || i < 2 { Split::Training } else { Split::HeldOut })
+            .collect();
+        let data = Dataset::new(&x, &y, &split, Fidelity::new(1, "quadratic"), "unit test").unwrap();
+        let config = GpConfig::raven_with_kernel(GpKernel::raven(RavenKernel::ConstantRbf, 1, false));
+        let spec = SurrogateSpec::Kriging { config: config.clone(), route: KrigingRoute::RavenSklearn };
+        let s = Surrogate::fit(&spec, &data).unwrap();
+        let p = s.predict(&X { a: Length::new::<meter>(1.3) }).unwrap();
+        let (tx, ty) = data.training_si();
+        let col: Vec<f64> = ty.iter().map(|r| r[0]).collect();
+        let gp = GaussianProcess::fit(&config, &tx, &col).unwrap();
+        let (m, sd) = gp.predict(&[1.3]).unwrap();
+        assert_eq!(p.mean.t.get::<kelvin>().to_bits(), m.to_bits());
+        assert_eq!(p.std_dev.unwrap().t.value.to_bits(), sd.to_bits());
+        let r = ValidationReport::of(&s, &spec, &data, true).unwrap();
+        assert!(r.coverage_2sigma.is_some() && r.loo_rmse.is_some());
+        eprintln!("kriging typed: held-out RMSE {:?} K, LOO RMSE {:?} K, 2σ coverage {:?}",
+            r.held_out_rmse.unwrap().t.value, r.loo_rmse.unwrap().t.value, r.coverage_2sigma);
     }
 
     /// The error and coverage helpers on hand-computed rows; NaN propagates

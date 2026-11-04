@@ -234,6 +234,96 @@ the predictions themselves, and after P6 missed they were changed to assert
 the criterion, so that a missed prediction is reported rather than either
 hidden or turned into a moved gate.
 
-## Results
+## Results (measured 2026-11-04, `cargo test --release -p raffles`)
 
-_Filled in after the runs; see the next commit._
+Numbers printed by `tests/raven_routes_gh1193.rs` and the unit tests named
+in each row (`-- --nocapture`). rustc 1.99.1, x86_64 with AVX-512.
+
+### Differential table (port against RAVEN / scipy / numpy / sklearn)
+
+| Comparison | Bit-identical | Worst difference | Cause of the difference |
+|---|---|---|---|
+| MCMC decisions (4 chains, 1596 steps) | 1596 / 1596 | — | — |
+| MCMC proposed + current states | **5600 / 5600** | 0 | — |
+| MCMC `alpha` (absolute) | 1091 / 1596 | 7.1e-15 | `ln pdf`: numpy's AVX-512 `log`/`exp` against `petir`'s; measured separately, numpy's AVX-512 kernels differ from glibc's in ~24 % of arguments, so no libm choice here can match them |
+| MCMC acceptance rate + scaling | **3196 / 3196** | 0 | — |
+| adaptive `lambda` (relative) | 114 / 898 | 1.9e-14 | `exp(alpha)` carries the `alpha` ulps |
+| adaptive ensemble mean + covariance | **12 / 12** | 0 | — |
+| Gauss nodes, n = 1..20, Legendre + Hermite (relative to the rule's largest) | 330 / 420 | 2.2e-16 (1 ulp) | the eigensolver (below) |
+| Gauss weights (relative to the rule's largest) | 33 / 420 | 1.3e-14 | scipy's weights use the derivative at the UNPOLISHED eigenvalues. Shown by substitution: fed scipy's own `eigvals_banded` eigenvalues, the port gives **every node bit-identical** and weights within 5e-16 (the residue is `log`/`exp`). The port's Sturm bisection is within 8e-16 of LAPACK's eigenvalues (GSL's QR, `petir::linalg::eigen_symm`, was within 2.1e-15 and gave 3.4e-14 on the weights, so it was replaced). Exact agreement needs LAPACK `dsterf`, not ported |
+| `eval_legendre`, `eval_hermitenorm` (incl. the cephes series) | **260 / 260** | 0 | — |
+| PCE index sets (5 cases) | all identical | — | — |
+| PCE grid points | 6903 / 6919 | 8.3e-16 | node ulps |
+| PCE grid weights (relative to largest) | 188 / 2321 | 1.8e-15 | rule weights |
+| PCE coefficients (relative to largest) | 18 / 255 | 1.1e-14 | rule weights, summed |
+| PCE mean + variance | 2 / 10 | 2.0e-15 | as above |
+| PCE Sobol, total, partial/variance (absolute) | 8 / 81 | 1.8e-15 | as above |
+| PCE predictions | 0 / 9 | 6.5e-13 | as above, at off-grid points of the order-8 Ishigami expansions |
+| GP mean, fixed hyperparameters (relative to max abs y) | 1 / 19 | 4.4e-16 | unblocked Cholesky against LAPACK `dpotrf`/OpenBLAS; `exp` |
+| GP std, fixed hyperparameters (absolute) | 1 / 19 | 1.1e-13 | the cancellation in `k(x,x) − vᵀv` |
+| GP LML | 1 / 4 | 1.4e-15 | as the mean |
+| GP LML gradient (relative to largest) | 0 / 6 | 1.8e-14 | as the mean |
+| GP fit `rbf_fit_1d` | — | length scale 1.0158032028 vs 1.0158032027 (1.3e-10 rel); LML 5.3e-14 rel; mean 7.8e-11 | a different optimiser (bounded BFGS against L-BFGS-B) at the same optimum; sklearn's stopping tolerance is the looser |
+| GP fit `matern_fit_2d` (added, P16) | — | length scale 2.0e-7 rel; LML 3.0e-14 rel; mean 1.2e-8 | as above |
+| GP fit `constant_rbf_anisotropic_fit_2d` | — | LML 6.5e-3 rel apart; length scales 24.75, 21.10 vs 24.67, 23.16 | **not a valid comparison**: the amplitude ends on its 1e5 bound over alpha 1e-10, so the Gram matrix is singular to working precision; the two codes' LML at the SAME theta differ by 1.0e-2 (10.858 vs 10.926) |
+
+Every code-to-code difference is below the 1e-8 criterion, and every one has
+the cause stated. Flagged for the maintainer: the weights (1.3e-14) and the
+GP std (1.1e-13) are the largest, both explained.
+
+### Predictions scored
+
+| # | Predicted | Measured | |
+|---|---|---|---|
+| P1 | decisions identical | 1596 / 1596 | hit |
+| P2 | states bit-identical | 5600 / 5600 | hit |
+| P3 | `alpha` ≤ 1e-12 abs | 7.1e-15 | hit |
+| P4 | scaling, rate bit-identical | 3196 / 3196 | hit |
+| P5 | ≤ 1e-12 rel | 1.9e-14; mean/cov bit-identical | hit |
+| P6 | nodes/weights ≤ 4 ulp | nodes 1 ulp; **weights 1.3e-14 (~60 ulp)** | **missed** (weights): I did not foresee that the weights inherit the unpolished eigenvalues |
+| P7 | recurrence bit-identical; series ≤ 2 ulp | all bit-identical | hit |
+| P8 | index sets identical | identical | hit |
+| P9 | points bit-identical given equal nodes; weights ≤ 1e-14 | points 8.3e-16 (nodes not all equal), weights 1.8e-15 | hit, conditionally |
+| P10 | ≤ 1e-12 | coefficients 1.1e-14; **predictions 6.5e-13** | hit |
+| P11 | mean ≤ 1e-10 | 4.4e-16 | hit |
+| P12 | std ≤ 1e-9 | 1.1e-13 | hit |
+| P13 | LML ≤ 1e-10, gradient ≤ 1e-8 | 1.4e-15, 1.8e-14 | hit |
+| P14 | ls 1e-4, LML 1e-8 | 1.3e-10, 5.3e-14 | hit |
+| P15 | LML ≥ sklearn's − 1e-6 | 10.855 vs 10.926 | **missed**; case uninformative (ill-conditioned), see the addendum |
+| P16 | ls 1e-4, LML 1e-8 | 2.0e-7, 3.0e-14 | hit |
+
+### Analytic checks
+
+| # | Predicted | Measured (LCG route, Rust only) | |
+|---|---|---|---|
+| A1 | conjugate posterior: mean within 4 SE of 1.0095238, sd within 3 % of 0.4364358 | mean 1.008005 (z = −0.72, batch-means SE 0.0021), sd 0.435763 (−0.15 %); acceptance 0.356, final scale 3.68 | hit |
+| A2 | adaptive, correlated posterior: means within 4 SE, covariance within 8 % | means 0.98728 / −0.96204 vs ±0.97826 (z = 1.05, 1.93); covariance entries −0.008 %, −0.37 %, −0.31 %; acceptance 0.235 (target 0.234) | hit |
+| A3 | clamp: atom at 0 and mean > 4 SE low; reject: no atom, mean within 4 SE of 0.100916 | **clamp: 99.87 % of samples exactly at 0, mean 0.00012** (z = −3325); reject: none at 0, mean 0.10053 (z = −0.99) | hit, and far worse than predicted |
+| A4 | Sudret ≤ 1e-13 abs; cubic ≤ 1e-12 rel | 2.0e-15; 7.9e-14 | hit |
+| A5 | interpolation ≤ 1e-6 · max abs y, std ≤ 1e-3 | ≤ 9.9e-10, std 1.0e-5 (= √alpha) | hit |
+
+**A3 is a finding about RAVEN, not about the port.** With the clamp, a
+proposal past the bound lands ON it and is evaluated there; with the PyMC3
+scale tuning, a chain that reaches the bound is accepted back onto it so
+often that the acceptance rate stays high, the tuner keeps the scale large,
+and the chain is absorbed. RAVEN's own run shows it: in
+`metropolis_bounded_linear_2d`, whose posterior in x0 is a normal (0.1, 0.2)
+truncated to [0, 1], **RAVEN's chain sits exactly at x0 = 0 in 136 of 300
+steps** (from step 6; 40 of the last 100). `BoundHandling::Reject` is the
+correct rule and is offered beside the faithful one.
+
+### Typed interface (`raffles::fidelity`)
+
+`SurrogateSpec::PolynomialChaos` and `SurrogateSpec::Kriging { route:
+KrigingRoute::RavenSklearn }` give the same bits as calling the routes
+directly (`fidelity::surrogate::tests::the_raven_routes_are_typed_end_to_end`);
+kriging's `Prediction::std_dev` is `Some`, in the output's units, and its
+`ValidationReport` carries 2σ coverage and a closed-form LOO RMSE.
+
+### What this does not show
+
+- The LCG route's draws are not compared with RAVEN's (different
+  generators); only A1–A3 check them.
+- The optimiser is not L-BFGS-B, so fits are compared at optima only;
+  `n_restarts_optimizer` is not ported.
+- Nothing here is validation, and no human has reviewed it.

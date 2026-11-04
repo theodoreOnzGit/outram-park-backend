@@ -135,6 +135,14 @@ burn ={ workspace = true, optional = true }
 # clean.
 xml-rs.workspace = true
 
+[dev-dependencies]
+# Reads the committed upstream reference outputs in
+# verification_and_validation/raven_routes_gh1193/references/ (gh:#1193).
+# `float_roundtrip` parses every decimal to the nearest f64 exactly, which the
+# bit-identity comparisons need. Pure Rust; dev-only, so the library's
+# Android and wasm builds are untouched.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+
 [features]
 default = ["long-tests"]
 # Tests that take minutes rather than seconds. ON BY DEFAULT, per the

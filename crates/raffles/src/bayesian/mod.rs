@@ -133,12 +133,17 @@
 use petir::mathf::RealMath;
 pub mod case_studies;
 pub mod mcmc;
+pub mod raven_mcmc;
 pub mod transitional;
 
 use crate::distributions::{ContinuousDistribution1D, Distribution};
 use crate::{RafflesError, Result};
 
 pub use mcmc::{EnsembleMove, MetropolisHastings};
+pub use raven_mcmc::{
+    raven_mcmc, BoundHandling, Draws, LikelihoodForm, RavenMcmcConfig, RavenMcmcKind,
+    RavenMcmcResult, RavenStep,
+};
 pub use transitional::{
     temcmc, tmcmc, StageReport, TemperingCriterion, TransitionKernel, TransitionalConfig,
     TransitionalResult,

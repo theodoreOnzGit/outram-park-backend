@@ -258,10 +258,23 @@ Split across three places:
 | `PolyExponential.py`, `SyntheticHistory.py`, `MultiResolutionTSA.py`, `FeatureSelection/RFE.py` | 4 | 2,180 | **Out** this release |
 
 **Gaussian process is not RAVEN's own.** `SupervisedLearning/ScikitLearn/GaussianProcess/GaussianProcessRegressor.py`
-(401 lines) is a wrapper around `sklearn.gaussian_process`. RAVEN contains no
+(401 lines) is a wrapper around `sklearn.gaussian_process`. ~~RAVEN contains no
 GP implementation to port. If the workspace wants GP surrogates, that is a
 from-scratch implementation informed by the literature, **not** a RAVEN port —
-and it should be scoped separately and honestly as such.
+and it should be scoped separately and honestly as such.~~
+**CORRECTED 2026-11-04 (gh:#1193, re-read at `devel` @ 8baaae3a)** — the wrapper claim holds (the numerics are sklearn's), but RAVEN
+owns more than "a wrapper" suggests: the kernel menu and a custom-kernel string
+parser (`pickKernel`, `customKernel`), its defaults (alpha 1e-10, no restarts,
+no target normalisation; NO kernel, so sklearn's fixed `1.0 * RBF(1.0)`, which
+leaves nothing to optimise), `evaluateGradients`, and a vendored copy of
+scikit-optimize's kernels (`contrib/SKOpt/GPKernels.py`, BSD-3-Clause, absent
+from RAVEN's `NOTICE.txt`). Two behaviours were found by running it: the
+default `<multioutput>` wrapper (`MultiOutputRegressor`) makes RAVEN's GP
+return **no standard deviation**, and the input spec's "the kernel Constant is
+used as default" is wrong. At the maintainer's direction (gh:#1193, "translate
+from raven first") the route was ported as RAVEN's interface over
+scikit-learn's numerics, with BSD attribution:
+`raffles::surrogate::gaussian_process`.
 
 Net: of 24,906 lines in `SupervisedLearning/`, about **1,082** (GaussPolynomialRom +
 HDMRRom) are genuine port candidates.
@@ -270,14 +283,26 @@ HDMRRom) are genuine port candidates.
 
 | Optimiser | Lines | Deps | Assessment |
 |---|---|---|---|
-| `GradientDescent.py` | 873 | numpy | **In, tranche 6.** Plus `gradients/` (FiniteDifference, CentralDifference, SPSA — 587 lines) and `stepManipulators/` (GradientHistory, ConjugateGradient — 984 lines) |
-| `SimulatedAnnealing.py` | 779 | numpy, `pyDOE3.lhs` | **In, tranche 6.** Five cooling schedules; self-contained |
-| `GeneticAlgorithm.py` | 1,484 | numpy, `scipy.special.comb`, xarray | **In, tranche 6**, but it is the largest single file in scope and pulls in 8 operator sub-packages (~1,300 lines) |
-| `BayesianOptimizer.py` | 781 | **`scipy.optimize` + sklearn GP** | **Out.** Cannot be ported without first having a GP and a bounded optimiser. Revisit only after both exist |
-| `RavenSampled.py` | 767 | — | Base class. Mostly orchestration; not ported directly |
+| `GradientDescent.py` | ~~873~~ 871 (at 8baaae3a) | numpy | **In, tranche 6.** Plus `gradients/` (FiniteDifference, CentralDifference, SPSA — 587 lines) and `stepManipulators/` (GradientHistory, ConjugateGradient — 984 lines) |
+| `SimulatedAnnealing.py` | ~~779~~ 777 (at 8baaae3a) | numpy, `pyDOE3.lhs` | **In, tranche 6.** Five cooling schedules; self-contained |
+| `GeneticAlgorithm.py` | ~~1,484~~ 1,772 (at 8baaae3a) | numpy, `scipy.special.comb`, xarray | **In, tranche 6**, but it is the largest single file in scope and pulls in 8 operator sub-packages (~1,300 lines) |
+| `BayesianOptimizer.py` | ~~781~~ 780 | **`scipy.optimize` + sklearn GP** (+ `pyDOE3.lhs`) | **Out.** Cannot be ported without first having a GP and a bounded optimiser. Revisit only after both exist. **CORRECTED 2026-11-04 (gh:#1193, re-read at `devel` @ 8baaae3a)**: confirmed, it accepts only a `GaussianProcessRegressor` ROM (line 226); a GP now exists (`raffles::surrogate::gaussian_process`), the bounded optimiser does not |
+| `RavenSampled.py` | ~~767~~ 1,415 (at 8baaae3a) | — | Base class. Mostly orchestration; not ported directly |
 
 `Optimizer(AdaptiveSampler)` — in RAVEN, **optimisers are samplers**. See
 [§8](#8-design-rule-friction).
+
+### 2.7 Data assimilation — none (added 2026-11-04, gh:#1193)
+
+Searched `ravenframework/` at `devel` @ 8baaae3a for Kalman, ensemble Kalman,
+EnKF, particle filter and assimilation. **RAVEN has no data-assimilation
+capability.** The only hits: the docstring of
+`Models/PostProcessors/Validations/PhysicsGuidedCoverageMapping.py:322`
+(`pcmTdep`, an SVD plus k-nearest-neighbour validation post-processor, not a
+filter), and comments in `SupervisedLearning/ARMA.py:1293` and
+`TSA/ARMA.py:589,600` that borrow from `statsmodels`' Kalman filter to
+simulate a fitted VARMA. FilterPy (gh:#1191) and OpenDA (gh:#1192) carry that
+capability.
 
 ## 3. Detailed in-scope module notes
 
@@ -330,6 +355,15 @@ the hard numerics to SciPy:
 | `scipy.special.orthogonal.p_roots`, `he_roots`, `la_roots`, `j_roots` | **Gauss quadrature nodes and weights.** The standard method is Golub–Welsch: symmetric tridiagonal eigenproblem |
 | `scipy.fftpack.ifft` (Quadratures.py:724) | Inverse FFT, for Clenshaw–Curtis weights |
 | `math.gamma` | Gamma function |
+
+**CORRECTED 2026-11-04 (gh:#1193, re-read at `devel` @ 8baaae3a)**: two things this table omits. (1) `QuadratureSet.__call__`
+rounds every rule's points with `np.around(pts, decimals=15)`
+(`Quadratures.py:586`); a port must too. (2) scipy's weights use the
+polynomial derivative at the UNPOLISHED eigenvalues, so they carry the
+eigensolver's last bits (amplified up to ~100x near ±1); only the nodes are
+polished by the Newton step. The port (`raffles::surrogate::polynomial_chaos::special`)
+uses Sturm bisection, within 1.3e-14 of scipy's weights; exact agreement
+would need LAPACK's `dsterf`.
 
 Golub–Welsch needs a symmetric tridiagonal eigensolver. **A general
 `ndarray-linalg` dependency here would be Android-hostile and must be
@@ -721,6 +755,14 @@ scheme should spend almost nothing on $x_3$, which is directly observable.
 calibration against measured reactor data is a capability the workspace will
 want, and it sits directly on tranche 1 with no new dependencies.
 
+**CORRECTED 2026-11-04 (gh:#1193, re-read at `devel` @ 8baaae3a)**: ported as `raffles::bayesian::raven_mcmc`. Reading and running
+it found what this scoping missed: out-of-bounds proposals are CLAMPED onto the
+bound, not rejected (`Metropolis.py:137-142`), which with the scale tuning
+absorbs a chain at the bound (RAVEN's own chain in the V&V record sits exactly
+on a uniform prior's bound in 136 of 300 steps); adaptive Metropolis without
+`<initial>` raises `TypeError` (`AdaptiveMetropolis.py:215`); and
+`min(0, NaN) = 0` accepts a NaN ratio.
+
 **Verification:** sample a target with a known closed form (a Gaussian, a
 Gaussian mixture, a banana-shaped target) and check recovered moments;
 Gelman–Rubin $\hat{R}$ convergence across chains; the detailed-balance property
@@ -755,7 +797,8 @@ derivatives** of these same functions, which is a much sharper test than
 end-to-end convergence.
 
 **Explicitly deferred: `BayesianOptimizer.py`.** It requires a Gaussian process,
-which RAVEN does not contain, plus `scipy.optimize` for acquisition-function
+which RAVEN does not contain (**CORRECTED 2026-11-04 (gh:#1193, re-read at `devel` @ 8baaae3a)**: RAVEN delegates it to sklearn;
+the delegated GP is now ported, `raffles::surrogate::gaussian_process`), plus `scipy.optimize` for acquisition-function
 maximisation. Not portable from RAVEN. Revisit only if a GP is built separately.
 
 ---
@@ -1064,9 +1107,12 @@ Re-ask these before any port work begins.
 
 7. **Is a Gaussian process wanted, given RAVEN does not have one?**
    [§2.5](#25-surrogate--reduced-order-models) establishes that RAVEN's GP is a
-   sklearn wrapper. If GP surrogates are a goal, that is a separate
+   sklearn wrapper. ~~If GP surrogates are a goal, that is a separate
    from-scratch project (and would unblock `BayesianOptimizer`). It should not
-   be smuggled into a "RAVEN port".
+   be smuggled into a "RAVEN port".~~ **ANSWERED 2026-11-04 (maintainer,
+   gh:#1177/#1193):** wanted; ported as RAVEN's interface over scikit-learn's
+   numerics, named as such (BSD-3-Clause attribution), with SMT (gh:#1190) as
+   a second route.
 
 8. **How much of `BasicStatistics`' standard-error machinery is wanted?** The
    7 standard errors are the most distinctive part of that module and the most
