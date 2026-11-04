@@ -333,6 +333,8 @@
     ["atops-normal-operation.html", "Normal operation, node by node"],
     ["atops-coolant.html", "Into the coolant"],
     ["atops-accident.html", "Accidents: Booth on the integral, and venting"],
+    // gh:#1207 (maintainer direction 2026-11-04): breathing and its assumption.
+    ["atops-breathing.html", "Breathing: how the release leaves the vessel"],
     ["atops-simplifications.html", "Simplifications, side by side"],
     // gh:#1207: the mdBook's rung 8, the hand-off to sembawang and changi.
     ["atops-source-term.html", "Into the source term"]
