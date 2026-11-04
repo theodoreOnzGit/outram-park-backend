@@ -625,7 +625,8 @@ impl PimpleFoam {
                 let nu_eff_f = fvc::interpolate(&self.turbulence.nu_eff(&self.nu));
                 non_orthogonal::restamp_vector_delta(&mut u_eqn, &nu_eff_f, &self.u, lap.delta_coeff());
                 if lap.is_explicit() {
-                    let corr = non_orthogonal::vector_face_correction(&nu_eff_f, &fvc::grad_vec(&self.u), &mesh);
+                    let mut corr = non_orthogonal::vector_face_correction(&nu_eff_f, &fvc::grad_vec(&self.u), &mesh);
+                    lap.limit_vector(&mut corr, &nu_eff_f, &self.u, &mesh);
                     non_orthogonal::add_to_source_vector(u_eqn.source.as_mut_slice(), &corr, &mesh);
                 }
             }
@@ -777,7 +778,8 @@ impl PimpleFoam {
                     // Pressure equation: L·p = source (symmetric SPD → PCG).
                     let mut p_eqn = fvm::laplacian_with_delta(&rauf, &self.p, lap.delta_coeff());
                     let face_corr = if lap.is_explicit() {
-                        let c = non_orthogonal::scalar_face_correction(&rauf, &fvc::grad(&self.p), &mesh);
+                        let mut c = non_orthogonal::scalar_face_correction(&rauf, &fvc::grad(&self.p), &mesh);
+                        lap.limit_scalar(&mut c, &rauf, &self.p, &mesh);
                         non_orthogonal::add_to_source_scalar(p_eqn.source.as_mut_slice(), &c, &mesh);
                         Some(c)
                     } else {

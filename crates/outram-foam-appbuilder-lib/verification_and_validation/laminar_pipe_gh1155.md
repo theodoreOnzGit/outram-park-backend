@@ -287,10 +287,15 @@ large octahedral cells.
 
 **Non-orthogonal correctors.** Upstream practice on meshes above ~70° is
 more correctors and, above ~75–80°, `laplacian Gauss linear limited
-corrected 0.33–0.5`. The `limited` snGrad is not ported
+corrected 0.33–0.5`. ~~The `limited` snGrad is not ported
 (`non_orthogonal::LaplacianCorrection` refuses it), so the unstructured
 case runs `corrected` with **2** correctors (the O-grid keeps 1, so its
-numbers do not move).
+numbers do not move).~~ **Superseded the same day:** the first runs used
+`limited 0` with no correctors on the layered meshes (they diverged with
+`corrected`); the maintainer then directed that the unstructured mesh get
+non-orthogonal correctors and upstream's tutorial settings, `limitedSnGrad`
+was ported, and every unstructured number was re-measured. Both sets are in
+the results below; see "Settings from the OpenFOAM tutorials".
 
 ### Methodology (as run)
 
@@ -335,7 +340,7 @@ settings estimated above 50k cells; meshing takes 0.2–2 s natively.
 | O-grid | 7 920 | 19.7 | 1.99 | corrected, 1 | 27 | **0.9905** | **1.0171** | 0.0112 | 1.0042 | 1.000000000 | 44 |
 | cfMesh h 6 mm, 1 layer | 6 713 | 85.9 | 1.33 | limited 0 | 15 | **0.6105** | **1.2452** | 0.1713 | 1.1976 | 1.000000000 | 34 |
 | O-grid | 13 230 | 23.3 | 2.07 | corrected, 1 | 31 | **0.9928** | **1.0161** | 0.0082 | 1.0057 | 1.000000000 | 85 |
-| cfMesh h 5 mm, 1 layer (demo default) | 10 745 | 83.4 | 1.05 | limited 0 | 53 | **0.6118** | **1.2527** | 0.1733 | 1.2244 | 1.000000000 | 62 |
+| cfMesh h 5 mm, 1 layer (~~demo default~~, see the re-run) | 10 745 | 83.4 | 1.05 | limited 0 | 53 | **0.6118** | **1.2527** | 0.1733 | 1.2244 | 1.000000000 | 62 |
 | O-grid (demo default) | 20 480 | 26.0 | 2.13 | corrected, 1 | 34 | 0.9940 | 1.0151 | 0.0063 | 1.0063 | 1.000000000 | 182 |
 | cfMesh h 5 mm, **2 layers** | 18 377 | 87.7 | 1.88 | either | — | **diverged** | | | | | |
 | cfMesh h 5 mm, no layers | 3 113 | 47.6 | 0.91 | corrected, 2 | 10 | 0.6272 | 1.4757 | 0.1665 | 1.4426 | 0.999999999 | 46 |
@@ -367,6 +372,62 @@ wall layer.
 reported as it is.** The demo offers it, defaulting to the one-layer mesh
 that runs, and the page says that 2 or more layers diverge.
 
+### Settings from the OpenFOAM tutorials, and the re-run (maintainer direction, 2026-11-04)
+
+The table above was run with `limited 0` and no correctors on the layered
+meshes, a setting chosen because `corrected` diverged. The maintainer
+directed that the unstructured mesh get non-orthogonal correctors and that
+the settings follow the OpenFOAM tutorials. OpenFOAM-dev was cloned
+shallowly (`--filter=blob:none`, sparse `tutorials/` and
+`limitedSnGrad/`, commit `852527377c7e`, 2026-11-03) and these were read:
+
+| tutorial (OpenFOAM-dev) | mesh | `laplacianSchemes` / `snGradSchemes` | `nNonOrthogonalCorrectors` | `gradSchemes` | `div(phi,U)` |
+|---|---|---|---|---|---|
+| `legacy/incompressible/icoFoam/elbow` | unstructured (Fluent `elbow.msh`), laminar PISO | `Gauss linear corrected` / `corrected` | **2** | `Gauss linear` | `Gauss limitedLinearV 1` |
+| `legacy/basic/laplacianFoam/flange` | unstructured (ANSYS) | `Gauss linear corrected` / `corrected` | **2** | `Gauss linear` | — |
+| `incompressibleFluid/propeller` (pimpleFoam) | snappyHexMesh, `maxNonOrtho 65`, layers to 75 | `Gauss linear limited corrected 0.33` / `limited corrected 0.33` | 0 (nOuter 2, nCorr 1) | `cellLimited Gauss linear 1` on U | `Gauss linearUpwind grad(U)` |
+| `incompressibleFluid/turbineSiting` (simpleFoam) | snappyHexMesh | `limited corrected 0.33` | 0 | `Gauss linear` | `bounded Gauss upwind` |
+| `incompressibleVoF/cavitatingBullet` | snappyHexMesh | `limited corrected 0.5` | 0 (3 for `pcorr`) | `Gauss linear` | `Gauss linearUpwind grad(U)` |
+| `motorBikeSteady`, `drivaerFastback`, `windAroundBuildings` | snappyHexMesh, `maxNonOrtho 65` | `corrected` | 0 (10 only in `potentialFlow`) | `cellLimited Gauss linear 1` | `bounded Gauss linearUpwind…` |
+| `multiRegion/CHT/misalignedDuct` (fluid) | — | `corrected` | 1 | `cellLimited Gauss linear 1` on U | `Gauss linearUpwind grad(U)` |
+
+No tutorial runs on a `polyDualMesh` or cfMesh mesh in this tree (grep:
+none). **Chosen, and why:** `nNonOrthogonalCorrectors 2` (elbow and
+flange, the two unstructured-mesh cases, elbow being laminar PISO like
+this one); `Gauss linear corrected` up to 70° max non-orthogonality (the
+snappy cases meshed to 65°) and `Gauss linear limited corrected 0.33` above
+it (propeller and turbineSiting, whose layers are allowed to 75°). The
+`limitedSnGrad` limiter, `min(ψ |snGrad_uncorrected| / ((1 − ψ)
+|correction| + small), 1)`, was ported from OpenFOAM-dev
+`limitedSnGrad.C` into `outram_foam_appbuilder_lib::solvers::non_orthogonal`
+(`LaplacianCorrection::Limited`, `limit_scalar_correction`,
+`limit_vector_correction`; test `limited_correction_follows_upstream_limiter`)
+and applied to the pressure, momentum and energy Laplacians. **Not
+followed:** convection stays `Gauss upwind` on both meshes (the demo's
+scheme; changing it would change the structured default), and `cellLimited`
+gradients are not ported. The structured mesh keeps its settings
+(`corrected`, 1 corrector); re-run: 34 steps, 0.9940, 1.0151, unchanged.
+
+**Re-run with those settings (Re = 100, slab 0.65–0.85 L):**
+
+| mesh | cells | max non-ortho (°) | settings | steps | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP | out/in | ms/step |
+|---|---|---|---|---|---|---|---|---|---|---|
+| cfMesh h 6 mm, 1 layer (**demo default now**) | 6 713 | 85.9 | limited corrected 0.33, 2 correctors | 64 | **0.6179** | **1.3355** | 0.1683 | 1.2782 | 1.000000000 | 89 |
+| cfMesh h 5 mm, 1 layer | 10 745 | 83.4 | limited corrected 0.33, 2 | 273 | **0.6216** | **1.3921** | 0.1684 | 1.3417 | 1.000000000 | 148 |
+| cfMesh h 5 mm, 1 layer | 10 745 | 83.4 | limited corrected **0.5**, 2 | not steady in 5000 (metric oscillates at 0.2) | 0.6268 | 1.4495 | 0.1655 | 1.4057 | 1.000000000 | 165 |
+| cfMesh h 5 mm, 2 layers | 18 377 | 87.7 | limited corrected 0.33, 2 (and 3) | **diverged** | | | | | | |
+| cfMesh h 4 / 3.3 mm, no layers | 6 353 / 11 177 | 50.8 / 57.4 | corrected, 2 | 11 / 10 | 0.7022 / 0.7544 | 1.6431 / 1.6895 | 0.133 / 0.107 | 1.62 / 1.67 | 1.000000000 | 120 / 266 |
+
+**Reading it.** The tutorial settings run the one-layer meshes and change
+the answer by little: u_c/2U 0.61 → 0.62, dp/dz 1.25 → 1.34–1.39 × HP (the
+limited correction adds back part of the non-orthogonal flux, and the
+miss grows), at 4–5× the steps. Two or more layers still diverge, with 2 or
+3 correctors. So the missing correctors were not the cause of the miss;
+the dual-mesh diagnosis above stands. The demo's default became the 6 713-
+cell mesh (64 steps, ~6 s natively) because the 10 745-cell one now takes
+273 steps (43 s) for the same answer to 1 %. The headless regression
+`headless_unstructured_pipe_runs_and_is_pinned` pins 0.6179 / 1.3355.
+
 **What was tested about the cause (`--ignored`
 `diagnose_dual_mesh_geometry_and_laplacian` in `foam_studio_web/engine.rs`,
 and the `FOAM_CFMESH_STAGES` / `FOAM_NON_ORTH` / `FOAM_LAPLACIAN` /
@@ -389,7 +450,7 @@ and the `FOAM_CFMESH_STAGES` / `FOAM_NON_ORTH` / `FOAM_LAPLACIAN` /
   RMS 0.07, on the right side of the reference, while the dual of the
   same carve gives 1.64; the tetrahedral mesh (`=tet`) diverges.
 - **Radially the dual is very coarse.** The cross-section at the default
-  (`unstructured_default_wall_only_xy.png`) has 4–5 cells across the
+  (`unstructured_h5_1layer_wall_only_xy.png`) has 4–5 cells across the
   diameter (the O-grid at 8k has 14), and the snapped wall is a ~16-gon,
   not the 48-faceted surface. Part of the miss is resolution, but the bare
   meshes' dp/dz grows with refinement, so not all of it.
@@ -404,9 +465,9 @@ one colour per cell:
 
 | file | what |
 |---|---|
-| `unstructured_default_wall_only_{xy,xz_inlet,xz_corner}.png` | the demo default (h 5 mm, 1 layer, wall only): cross-section at mid-length, x-z slice of the first 4.4 cm, zoom on the inlet corner — **after** |
-| `unstructured_default_whole_boundary_{xy,xz_inlet,xz_corner}.png` | the same settings with layers on the whole boundary (the pre-gh:#1202 behaviour) — **before** |
-| `unstructured_vv_7k_{xy,xz_inlet,xz_corner}.png` | the 6 713-cell V&V mesh (h 6 mm, 1 layer) |
+| `unstructured_h5_1layer_wall_only_{xy,xz_inlet,xz_corner}.png` | h 5 mm, 1 layer, wall only (10 745 cells): cross-section at mid-length, x-z slice of the first 4.4 cm, zoom on the inlet corner — **after** |
+| `unstructured_h5_1layer_whole_boundary_{xy,xz_inlet,xz_corner}.png` | the same settings with layers on the whole boundary (the pre-gh:#1202 behaviour) — **before** |
+| `unstructured_default_7k_{xy,xz_inlet,xz_corner}.png` | the demo default and 6 713-cell V&V mesh (h 6 mm, 1 layer) |
 
 **Checked by eye (2026-11-04):** in the corner zooms, *after* has a thin
 layer column along the wall (x ≈ 0.98–1.0 cm) that stops at z = 0 with no
@@ -428,7 +489,9 @@ typed `wall`), not drawn.
   (`export_polymesh`).
 - 2+ layers diverge; 1 layer runs.
 - No feature-edge capture: bent end faces at the rim, chamfered wall.
-- `limited` snGrad with a coefficient in (0, 1) is not ported.
+- ~~`limited` snGrad with a coefficient in (0, 1) is not ported.~~ Ported
+  2026-11-04. `cellLimited` gradients and `linearUpwind` / `limitedLinearV`
+  convection, which the tutorials use, were not tried here.
 
 ## Reproduce
 

@@ -77,7 +77,8 @@ use outram_foam_basic_lib::prelude::*;
 /// | `Gauss linear orthogonal` | `1/|d|` | none |
 /// | `Gauss linear uncorrected` | `1/(n·d)` | none |
 /// | `Gauss linear corrected` (**default**) | `1/(n·d)` | full |
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// | `Gauss linear limited corrected ψ` (gh:#1202) | `1/(n·d)` | limited face by face |
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LaplacianCorrection {
     /// `1/|d|`, no correction: the port before gh:#1161 (OpenFOAM `orthogonal`).
     Orthogonal,
@@ -85,18 +86,24 @@ pub enum LaplacianCorrection {
     Uncorrected,
     /// `1/(n·d)` plus the explicit `k·∇φ` term (OpenFOAM `corrected`).
     Corrected,
+    /// `1/(n·d)` plus the explicit term **limited** face by face (OpenFOAM
+    /// `limited corrected ψ`, `limitedSnGrad`), `0 < ψ < 1`; see
+    /// [`limit_scalar_correction`].
+    Limited(f64),
 }
 
 impl LaplacianCorrection {
     /// Decode a [`LaplacianScheme`].
     ///
+    /// `Gauss linear limited ψ` (OpenFOAM's `limited corrected ψ`) decodes to
+    /// [`Self::Limited`] for `0 < ψ < 1` (since 2026-11-04, gh:#1202; before,
+    /// it was refused as not ported), to [`Self::Uncorrected`] for `ψ ≤ 0` and
+    /// to [`Self::Corrected`] for `ψ ≥ 1`, as upstream's limiter reduces to
+    /// those (`limitedSnGrad.H`: 0 is uncorrected, 1 is corrected).
+    ///
     /// # Errors
     ///
-    /// [`AppBuilderError::UnsupportedScheme`] for `Gauss linear limited c` with
-    /// `0 < c < 1`: OpenFOAM's `limitedSnGrad` limiter is a face-wise ratio of
-    /// the correction to the uncorrected gradient, not a plain scale, and is not
-    /// ported. `limited 0` decodes to [`Self::Uncorrected`] and `limited 1` to
-    /// [`Self::Corrected`], as upstream's limiter reduces to those.
+    /// None at present; the `Result` is kept for schemes not yet ported.
     pub fn from_scheme(scheme: &LaplacianScheme) -> Result<Self, AppBuilderError> {
         match scheme {
             LaplacianScheme::GaussLinearOrthogonal => Ok(Self::Orthogonal),
@@ -104,11 +111,7 @@ impl LaplacianCorrection {
             LaplacianScheme::GaussLinearCorrected => Ok(Self::Corrected),
             LaplacianScheme::GaussLinearLimited(c) if *c <= 0.0 => Ok(Self::Uncorrected),
             LaplacianScheme::GaussLinearLimited(c) if *c >= 1.0 => Ok(Self::Corrected),
-            LaplacianScheme::GaussLinearLimited(c) => Err(AppBuilderError::UnsupportedScheme {
-                family: "laplacianSchemes",
-                scheme: format!("Gauss linear limited {c}"),
-                reason: "limitedSnGrad's face-wise limiter is not ported; use corrected or uncorrected",
-            }),
+            LaplacianScheme::GaussLinearLimited(c) => Ok(Self::Limited(*c)),
         }
     }
 
@@ -116,13 +119,80 @@ impl LaplacianCorrection {
     pub fn delta_coeff(self) -> fvm::DeltaCoeff {
         match self {
             Self::Orthogonal => fvm::DeltaCoeff::Orthogonal,
-            Self::Uncorrected | Self::Corrected => fvm::DeltaCoeff::NonOrthogonal,
+            Self::Uncorrected | Self::Corrected | Self::Limited(_) => fvm::DeltaCoeff::NonOrthogonal,
         }
     }
 
-    /// Whether the explicit `k·∇φ` term is applied.
+    /// Whether the explicit `k·∇φ` term is applied (limited or not).
     pub fn is_explicit(self) -> bool {
-        matches!(self, Self::Corrected)
+        matches!(self, Self::Corrected | Self::Limited(_))
+    }
+
+    /// Apply this scheme's limiter to a scalar face correction from
+    /// [`scalar_face_correction`] (a no-op unless [`Self::Limited`]). `phi`
+    /// is the field the correction was built from, `gamma` the diffusivity.
+    pub fn limit_scalar(self, corr: &mut [f64], gamma: &SurfaceScalarField, phi: &VolScalarField, mesh: &FvMesh) {
+        if let Self::Limited(psi) = self {
+            limit_scalar_correction(corr, gamma, phi, mesh, psi);
+        }
+    }
+
+    /// Vector counterpart of [`Self::limit_scalar`].
+    pub fn limit_vector(self, corr: &mut [Vector3], gamma: &SurfaceScalarField, u: &VolVectorField, mesh: &FvMesh) {
+        if let Self::Limited(psi) = self {
+            limit_vector_correction(corr, gamma, u, mesh, psi);
+        }
+    }
+}
+
+/// OpenFOAM's `small` (1e-15), the floor in `limitedSnGrad`'s denominator.
+const SMALL: f64 = 1.0e-15;
+
+/// The `limitedSnGrad` limiter of one face, ported from OpenFOAM-dev
+/// `src/finiteVolume/finiteVolume/snGradSchemes/limitedSnGrad/limitedSnGrad.C`
+/// (`limitedSnGrad<Type>::correction`, commit `852527377c7e`, OpenFOAM
+/// Foundation, GPL-3.0):
+///
+/// `limiter = min(ψ |snGrad_uncorrected| / ((1 − ψ) |correction| + small), 1)`,
+///
+/// where `snGrad_uncorrected = deltaCoeffs·(φ_N − φ_P)` with the corrected
+/// scheme's (non-orthogonal) delta coefficients and `correction = k·(∇φ)_f`
+/// is the corrected scheme's explicit part. So the correction never exceeds
+/// `ψ/(1 − ψ)` times the orthogonal part: ψ = 0.5 caps it at the orthogonal
+/// part, ψ = 0.33 at half of it.
+fn limiter(psi: f64, sn_uncorrected: f64, correction: f64) -> f64 {
+    (psi * sn_uncorrected / ((1.0 - psi) * correction + SMALL)).min(1.0)
+}
+
+/// Scale each internal face's correction (`Γ_f |Sf| k·∇φ`, from
+/// [`scalar_face_correction`]) by the `limitedSnGrad` limiter ([`limiter`]).
+/// The limiter compares the per-unit-`Γ|Sf|` correction `k·∇φ` with the
+/// uncorrected snGrad, as upstream's `snGradScheme` does before
+/// `gaussLaplacianScheme` multiplies by `gammaMagSf`.
+pub fn limit_scalar_correction(corr: &mut [f64], gamma: &SurfaceScalarField, phi: &VolScalarField, mesh: &FvMesh, psi: f64) {
+    for (f, c) in corr.iter_mut().enumerate() {
+        let gs = gamma.internal[f] * mesh.face_areas[f];
+        if gs.abs() < 1e-300 {
+            continue;
+        }
+        let dist = fvm::DeltaCoeff::NonOrthogonal.interior_delta(mesh, f);
+        let sn = ((phi.internal[mesh.neighbour[f]] - phi.internal[mesh.owner[f]]) / dist).abs();
+        *c *= limiter(psi, sn, (*c / gs).abs());
+    }
+}
+
+/// Vector counterpart of [`limit_scalar_correction`]: one limiter per face
+/// from the magnitudes of the vector snGrad and the vector correction, as
+/// upstream's `mag()` of a `surfaceVectorField`.
+pub fn limit_vector_correction(corr: &mut [Vector3], gamma: &SurfaceScalarField, u: &VolVectorField, mesh: &FvMesh, psi: f64) {
+    for (f, c) in corr.iter_mut().enumerate() {
+        let gs = gamma.internal[f] * mesh.face_areas[f];
+        if gs.abs() < 1e-300 {
+            continue;
+        }
+        let dist = fvm::DeltaCoeff::NonOrthogonal.interior_delta(mesh, f);
+        let sn = ((u.internal[mesh.neighbour[f]] - u.internal[mesh.owner[f]]) * (1.0 / dist)).mag();
+        *c = *c * limiter(psi, sn, (*c * (1.0 / gs)).mag());
     }
 }
 
@@ -294,7 +364,9 @@ mod tests {
         assert_eq!(C::from_scheme(&LaplacianScheme::GaussLinearOrthogonal).unwrap(), C::Orthogonal);
         assert_eq!(C::from_scheme(&LaplacianScheme::GaussLinearLimited(1.0)).unwrap(), C::Corrected);
         assert_eq!(C::from_scheme(&LaplacianScheme::GaussLinearLimited(0.0)).unwrap(), C::Uncorrected);
-        assert!(C::from_scheme(&LaplacianScheme::GaussLinearLimited(0.33)).is_err());
+        // ~~refused as not ported~~ ported 2026-11-04 (gh:#1202).
+        assert_eq!(C::from_scheme(&LaplacianScheme::GaussLinearLimited(0.33)).unwrap(), C::Limited(0.33));
+        assert!(C::Limited(0.33).is_explicit() && C::Limited(0.33).delta_coeff() == fvm::DeltaCoeff::NonOrthogonal);
         assert!(C::Corrected.is_explicit() && !C::Uncorrected.is_explicit());
         assert_eq!(C::Orthogonal.delta_coeff(), fvm::DeltaCoeff::Orthogonal);
         assert_eq!(C::Uncorrected.delta_coeff(), fvm::DeltaCoeff::NonOrthogonal);
@@ -338,6 +410,48 @@ mod tests {
         let mut sv = vec![Vector3::ZERO; 2];
         add_to_source_vector(&mut sv, &cv, &mesh);
         assert!((sv[0] + sv[1]).mag() < 1e-15);
+    }
+
+    /// The `limitedSnGrad` limiter (gh:#1202), against upstream's formula by
+    /// hand on the sheared pair (45°: k = (0, −1, 0), n·d = 1). For φ = a·x
+    /// with a = (2, −3, 0.5): snGrad_uncorrected = (φ_N − φ_P)/(n·d) = a·(1,1,0)
+    /// = −1, correction k·a = 3. ψ = 0.5: limiter = 0.5·1/(0.5·3) = 1/3, so the
+    /// limited correction is 1 (= |snGrad_uncorrected|, the ψ = 0.5 cap).
+    /// ψ = 0.9: 0.9/(0.1·3) = 3 → 1, unlimited. The vector form with the same
+    /// numbers in one component agrees.
+    #[test]
+    fn limited_correction_follows_upstream_limiter() {
+        let mesh = sheared_pair();
+        let a = Vector3::new(2.0, -3.0, 0.5);
+        let phi = VolScalarField::new(
+            "phi",
+            mesh.clone(),
+            Field::new(mesh.cell_centres.iter().map(|c| a.dot(*c)).collect()),
+            mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect(),
+        );
+        let grad = VolVectorField::new("g", mesh.clone(), Field::new(vec![a; 2]), mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect());
+        let gamma = SurfaceScalarField::uniform("G", mesh.clone(), 2.0);
+        let full = scalar_face_correction(&gamma, &grad, &mesh);
+        assert!((full[0] - 2.0 * 3.0).abs() < 1e-12, "{full:?}");
+        let mut half = full.clone();
+        LaplacianCorrection::Limited(0.5).limit_scalar(&mut half, &gamma, &phi, &mesh);
+        assert!((half[0] - 2.0 * 1.0).abs() < 1e-9, "{half:?}");
+        let mut loose = full.clone();
+        LaplacianCorrection::Limited(0.9).limit_scalar(&mut loose, &gamma, &phi, &mesh);
+        assert_eq!(loose, full);
+        let mut same = full.clone();
+        LaplacianCorrection::Corrected.limit_scalar(&mut same, &gamma, &phi, &mesh);
+        assert_eq!(same, full);
+        // Vector: u = (φ, 0, 0); the correction (3·Γ|S|, 0, 0) is limited alike.
+        let u = VolVectorField::new(
+            "U",
+            mesh.clone(),
+            Field::new(mesh.cell_centres.iter().map(|c| Vector3::new(a.dot(*c), 0.0, 0.0)).collect()),
+            mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+        );
+        let mut cv = vec![Vector3::new(full[0], 0.0, 0.0)];
+        LaplacianCorrection::Limited(0.5).limit_vector(&mut cv, &gamma, &u, &mesh);
+        assert!((cv[0].x - 2.0).abs() < 1e-9 && cv[0].y == 0.0, "{:?}", cv[0]);
     }
 
     /// Re-stamping an orthogonal vector Laplacian to `NonOrthogonal` gives the

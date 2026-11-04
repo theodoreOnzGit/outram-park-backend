@@ -4,7 +4,9 @@
 //! served within one chunk.
 //!
 //! **The physics is not here.** Meshing is `outram_foam_mesh::block_primitives`
-//! (the pipe O-grid and the box block, through the blockMesh port); the
+//! (the pipe O-grid and the box block, through the blockMesh port), or for
+//! the cylinder's unstructured choice the cfMesh port through
+//! `outram_blender::foam_mesh` ([`mesh_unstructured`], gh:#1202); the
 //! solver is `outram_foam_appbuilder_lib`'s `PimpleFoam` with the boundary
 //! conditions and diagnostics of `cases::laminar_pipe`, unchanged. V&V record:
 //! `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
@@ -188,14 +190,17 @@ pub const CELL_PER_R_MIN: f64 = 1.5;
 pub const MAX_LAYERS: usize = 3;
 
 impl TetDualSpec {
-    /// The demo's default for a pipe of radius `radius`: cell R/2, **one**
+    /// The demo's default for a pipe of radius `radius`: cell 0.6 R, **one**
     /// layer of 0.03 R (expansion 1.2 for when more are asked for). On the
-    /// demo pipe that is 10 745 cells, meshed in about 0.5 s. ~~2 layers
-    /// (18 377 cells, nearest the O-grid's 20 480)~~ was the first choice;
-    /// every mesh with 2 or more layers diverged in the solve (2026-11-04,
-    /// the V&V record), so the default is the finest one that runs.
+    /// demo pipe that is 6 713 cells, meshed in about 0.6 s, solved in about
+    /// 6 s natively (64 steps). ~~2 layers (18 377 cells, nearest the O-grid's
+    /// 20 480)~~ was the first choice; every mesh with 2 or more layers
+    /// diverged in the solve (2026-11-04, the V&V record). ~~Then cell R/2
+    /// (10 745 cells)~~: with the tutorial settings (2 correctors, `limited
+    /// corrected 0.33`) it takes 273 steps, 43 s natively, too long for the
+    /// interactive default, for the same answer to 1 % (the V&V record).
     pub fn default_for(radius: f64) -> Self {
-        Self { cell_size: radius / 2.0, n_layers: 1, first_layer: 0.03 * radius, expansion: 1.2 }
+        Self { cell_size: 0.6 * radius, n_layers: 1, first_layer: 0.03 * radius, expansion: 1.2 }
     }
 
     /// Rough cell count of the tet-dual mesh of a pipe (radius `r`, length
@@ -401,6 +406,7 @@ pub fn coil_grid(d: &Design) -> Option<HelicalPipe> {
 
 /// The mesh of a design (checked), and the flow axis (0 x, 1 y, 2 z) with the
 /// signed inlet-to-outlet direction, and the cell length along it \[m\].
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
     mesh_design_noted(d).map(|(p, a, h, _)| (p, a, h))
 }
@@ -573,13 +579,18 @@ pub struct Meshed {
     pub notes: String,
 }
 
-/// Non-orthogonal correctors on the unstructured pipe (see `Engine::start`).
+/// Non-orthogonal correctors on the unstructured pipe (see `Engine::start`):
+/// 2, as OpenFOAM's unstructured-mesh tutorials `elbow` and `flange`.
 pub const NON_ORTH_UNSTRUCTURED: usize = 2;
 /// Above this max non-orthogonality \[deg\] the unstructured pipe runs
-/// `Gauss linear limited 0` (uncorrected) with no correctors (see
-/// `Engine::start`): the layered meshes (86-90°) diverged with the
-/// correction, the bare dual meshes (51-61°) ran with it.
-pub const LIMITED_ZERO_ABOVE_DEG: f64 = 80.0;
+/// `Gauss linear limited corrected` [`LIMITED_COEFF`] (see `Engine::start`).
+/// 70°: between snappyHexMesh's `maxNonOrtho 65` of the tutorials that run
+/// `corrected` and the 75° their layers are allowed in the tutorials that
+/// run `limited corrected 0.33` (propeller). ~~Before the maintainer's
+/// direction of 2026-11-04 this was 80° with `limited 0` and no correctors.~~
+pub const LIMITED_ABOVE_DEG: f64 = 70.0;
+/// ψ of `limited corrected ψ` (propeller, turbineSiting).
+pub const LIMITED_COEFF: f64 = 0.33;
 
 /// Radial bins of the profile plot.
 pub const PROFILE_BINS: usize = 12;
@@ -1039,34 +1050,44 @@ impl Engine {
         // gh:#1161: the lagged correction alone (0 correctors) went unstable
         // at Co ≈ 4 on the 50k O-grid; one corrector is stable there.
         s.solution.pimple.n_non_orthogonal_correctors = 1;
-        // gh:#1202: the tet-dual mesh with prism layers runs at 80-90° max
-        // non-orthogonality. Upstream practice (OpenFOAM user guide,
-        // fvSolution `nNonOrthogonalCorrectors`, and the tutorials on
-        // snappy/cfMesh meshes) is more non-orthogonal correctors and, above
-        // ~75°, `laplacian Gauss linear limited corrected 0.33-0.5`. The
-        // `limited` snGrad is not ported (`non_orthogonal::LaplacianCorrection`
-        // refuses it), so the unstructured mesh gets `corrected` with
-        // NON_ORTH_UNSTRUCTURED correctors.
+        // gh:#1202, maintainer direction: the unstructured mesh gets
+        // non-orthogonal correctors and the laplacian/snGrad scheme upstream's
+        // tutorials use on unstructured and snappy meshes (OpenFOAM-dev
+        // `852527377c7e`, read 2026-11-04; the V&V record lists each):
+        // - `nNonOrthogonalCorrectors 2`: `legacy/incompressible/icoFoam/elbow`
+        //   (laminar PISO on an unstructured Fluent mesh) and
+        //   `legacy/basic/laplacianFoam/flange` (unstructured ANSYS mesh);
+        // - `Gauss linear corrected` up to LIMITED_ABOVE_DEG (elbow, flange,
+        //   and the snappy cases meshed to maxNonOrtho 65: motorBikeSteady,
+        //   drivaerFastback, windAroundBuildings);
+        // - `Gauss linear limited corrected 0.33` above it (propeller,
+        //   turbineSiting: snappy meshes whose layers are allowed to 75°;
+        //   `limitedSnGrad` ported for this, `non_orthogonal::Limited`).
+        // Convection stays upwind on both meshes (the demo's scheme, so the
+        // two meshes are compared under one scheme); the tutorials use
+        // `limitedLinearV 1` (elbow) or `linearUpwind grad(U)`.
         if matches!(self.design.map(|d| d.mesh), Some(PipeMesh::Unstructured(_))) {
             s.solution.pimple.n_non_orthogonal_correctors = NON_ORTH_UNSTRUCTURED;
-            // Above LIMITED_ZERO_ABOVE_DEG the explicit correction diverged
-            // on every layered mesh tried (2026-11-04, the V&V record), at
-            // every time step and corrector count; upstream's answer there
-            // is `limited` with a small coefficient, and `limited 0` (=
-            // `uncorrected`) is the one value of it this port has.
-            if max_non_orthogonality_deg(&s.mesh) > LIMITED_ZERO_ABOVE_DEG {
-                s.schemes.default_laplacian = outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme::GaussLinearLimited(0.0);
-                s.solution.pimple.n_non_orthogonal_correctors = 0;
+            if max_non_orthogonality_deg(&s.mesh) > LIMITED_ABOVE_DEG {
+                s.schemes.default_laplacian = outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme::GaussLinearLimited(LIMITED_COEFF);
             }
             // Native-only experiment knobs for the V&V record (gh:#1202):
-            // FOAM_NON_ORTH (correctors), FOAM_LAPLACIAN=uncorrected.
+            // FOAM_NON_ORTH (correctors), FOAM_LAPLACIAN=uncorrected|corrected|<ψ>.
             #[cfg(not(target_arch = "wasm32"))]
             {
+                use outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme;
                 if let Some(n) = std::env::var("FOAM_NON_ORTH").ok().and_then(|v| v.parse().ok()) {
                     s.solution.pimple.n_non_orthogonal_correctors = n;
                 }
-                if std::env::var("FOAM_LAPLACIAN").as_deref() == Ok("uncorrected") {
-                    s.schemes.default_laplacian = outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme::GaussLinearUncorrected;
+                match std::env::var("FOAM_LAPLACIAN").as_deref() {
+                    Ok("uncorrected") => s.schemes.default_laplacian = LaplacianScheme::GaussLinearUncorrected,
+                    Ok("corrected") => s.schemes.default_laplacian = LaplacianScheme::GaussLinearCorrected,
+                    Ok(v) => {
+                        if let Ok(psi) = v.parse::<f64>() {
+                            s.schemes.default_laplacian = LaplacianScheme::GaussLinearLimited(psi);
+                        }
+                    }
+                    Err(_) => {}
                 }
             }
         }
@@ -1929,8 +1950,8 @@ mod tests {
     /// reaches the steady criterion and conserves mass; its patches arrive
     /// named `inlet`, `outlet`, `walls` (typed wall); its developed numbers
     /// are pinned where the V&V record measured them on 2026-11-04
-    /// (`laminar_pipe_gh1155.md`, gh:#1202 section): u_c/2U 0.6105, dp/dz
-    /// 1.2452 × HP. **Those numbers MISS Hagen–Poiseuille** (the profile is
+    /// (`laminar_pipe_gh1155.md`, gh:#1202 section): u_c/2U 0.6179, dp/dz
+    /// 1.3355 × HP (with the tutorial settings: 2 correctors, `limited corrected 0.33`; ~~0.6105, 1.2452 with `limited 0` and none~~). **Those numbers MISS Hagen–Poiseuille** (the profile is
     /// too flat); they are pinned so that a change is seen, not because they
     /// are right. Deterministic: run twice, the same lines.
     #[test]
@@ -1947,8 +1968,8 @@ mod tests {
         assert!(joined.contains("6713 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
-        assert!((val("uc=") - 0.6105).abs() < 2e-3, "{pipe}");
-        assert!((val("dpdz=") - 1.2452).abs() < 2e-3, "{pipe}");
+        assert!((val("uc=") - 0.6179).abs() < 2e-3, "{pipe}");
+        assert!((val("dpdz=") - 1.3355).abs() < 2e-3, "{pipe}");
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
@@ -1966,7 +1987,7 @@ mod tests {
         assert!(s.estimated_cells(0.01, 0.2) <= MAX_CELLS as f64);
         let d = TetDualSpec::default_for(0.01);
         let e = d.estimated_cells(0.01, 0.2);
-        assert!((e / 10_745.0 - 1.0).abs() < 0.15, "estimate {e} vs measured 10745");
+        assert!((e / 6_713.0 - 1.0).abs() < 0.15, "estimate {e} vs measured 6713");
         assert_eq!(d.clamped(0.01, 0.2), d);
     }
 

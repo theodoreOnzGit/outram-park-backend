@@ -18,11 +18,18 @@
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-coil [out-dir]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-coil [cells] [re] [turns]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --coil-run <m> <re> [linear|upwind] [straight]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-unstructured [h_mm] [layers] [first_mm] [expansion] [re] [length_mm]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --mesh-sweep
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-unstructured [out-dir]
 //! cargo test -p dhoby-ghaut --example foam_studio_web --release
 //! ```
 //!
 //! - **Physics**: none written here. Meshes from
-//!   `outram_foam_mesh::block_primitives` (the pipe O-grid, the box block);
+//!   `outram_foam_mesh::block_primitives` (the pipe O-grid, the box block),
+//!   and, for the cylinder's **Unstructured** choice (gh:#1202), the cfMesh
+//!   port through `outram_blender::foam_mesh` (tet → polyhedral dual →
+//!   wall-only prism layers; it misses Hagen–Poiseuille badly, see the V&V
+//!   record's gh:#1202 section);
 //!   the solve is `outram_foam_appbuilder_lib`'s `PimpleFoam` with
 //!   `cases::laminar_pipe`'s boundary conditions. V&V record:
 //!   `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
@@ -159,7 +166,8 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
     use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice};
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
-    let def = TetDualSpec::default_for(0.01);
+    // The before/after pair at h 5 mm, 1 layer (the default when drawn, 2026-11-04).
+    let def = TetDualSpec { cell_size: 0.005, n_layers: 1, first_layer: 3e-4, expansion: 1.2 };
     // Whole-boundary layers (the pre-gh:#1202 behaviour), for the before picture.
     let whole = {
         use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
@@ -184,8 +192,8 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
     };
     let wall_only = engine::mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], tags, &def)?.0;
     let mut meshes = vec![
-        ("unstructured_default_wall_only", from_poly_mesh(&wall_only.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?, "UNSTRUCTURED DEFAULT, LAYERS ON THE WALL ONLY (AFTER)".to_string()),
-        ("unstructured_default_whole_boundary", whole, "SAME SETTINGS, LAYERS ON THE WHOLE BOUNDARY (BEFORE)".to_string()),
+        ("unstructured_h5_1layer_wall_only", from_poly_mesh(&wall_only.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?, "UNSTRUCTURED H 5 MM, 1 LAYER, ON THE WALL ONLY (AFTER)".to_string()),
+        ("unstructured_h5_1layer_whole_boundary", whole, "SAME SETTINGS, LAYERS ON THE WHOLE BOUNDARY (BEFORE)".to_string()),
     ];
     for (tag, spec) in vv_unstructured_specs() {
         let p = engine::mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec)?.0;
@@ -214,7 +222,7 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn vv_unstructured_specs() -> Vec<(&'static str, engine::TetDualSpec)> {
     // The ~7k member (the ~20k member is the demo default, drawn above).
-    vec![("unstructured_vv_7k", engine::TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 })]
+    vec![("unstructured_default_7k", engine::TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 })]
 }
 
 /// The drawing rule's images of the double-pipe exchanger (gh:#1156): the
