@@ -7509,6 +7509,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
+ "outram-foam-mesh",
  "outram-foam-multiphase",
  "outram-mc-libs",
  "outram-park-fork-coolprop",

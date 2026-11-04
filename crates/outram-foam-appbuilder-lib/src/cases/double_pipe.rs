@@ -24,11 +24,16 @@
 //! | annulus fluid | `tube_outer_wall` | no-slip | coupled |
 //! | annulus fluid | `shell_wall` | no-slip | adiabatic |
 //!
-//! The two streams carry the same volumetric flow rate and the same
-//! properties, so `C_hot = C_cold` (C_r = 1): the stream-to-stream
+//! ~~The two streams carry the same volumetric flow rate and the same
+//! properties, so `C_hot = C_cold` (C_r = 1)~~ **CORRECTED 2026-11-04
+//! (gh:#1178):** by default (`annulus_flow_rate: None`, the demo) the two
+//! streams carry the same volumetric flow rate and the same properties, so
+//! `C_hot = C_cold` (C_r = 1): the stream-to-stream
 //! temperature difference of an ideal counterflow exchanger is then constant
 //! along it whatever the local U does, and ε = NTU/(1 + NTU) with NTU =
-//! UA/C holds for any U(z).
+//! UA/C holds for any U(z). With `annulus_flow_rate: Some(..)` C_r ≠ 1; the
+//! ideal exchanger's ε still depends on U(z) only through ∫ U dA, so ε-NTU
+//! at the local UA remains the comparison.
 //!
 //! # The local UA
 //!
@@ -71,8 +76,14 @@ pub struct DoublePipeExchanger {
     pub nu: KinematicViscosity,
     /// The tube wall's properties.
     pub wall: IncompressibleThermo,
-    /// Volumetric flow rate of each stream.
+    /// Volumetric flow rate of the tube (hot) stream, and of the annulus
+    /// stream too unless [`Self::annulus_flow_rate`] is set.
     pub flow_rate: VolumeRate,
+    /// Volumetric flow rate of the annulus (cold) stream. `None` (the demo)
+    /// gives it the tube's flow rate, so `C_hot = C_cold`; `Some` sets the
+    /// two Reynolds numbers independently (gh:#1178's design grid, where
+    /// `C_r ≠ 1`).
+    pub annulus_flow_rate: Option<VolumeRate>,
     /// Tube (hot) inlet temperature.
     pub t_hot_in: ThermodynamicTemperature,
     /// Annulus (cold) inlet temperature.
@@ -95,13 +106,22 @@ impl DoublePipeExchanger {
             flow_rate: VolumeRate::new::<cubic_meter_per_second>(30.0 * 1.0e-6 / 0.01 * std::f64::consts::PI * 0.005 * 0.005),
             t_hot_in: ThermodynamicTemperature::new::<kelvin>(350.0),
             t_cold_in: ThermodynamicTemperature::new::<kelvin>(300.0),
+            annulus_flow_rate: None,
         }
     }
 
-    /// Heat-capacity rate of each stream, `ρ c_p Q` \[W/K\].
+    /// Heat-capacity rate of the tube stream, `ρ c_p Q` \[W/K\] (of each
+    /// stream when [`Self::annulus_flow_rate`] is `None`).
     #[must_use]
     pub fn capacity_rate(&self) -> f64 {
         self.fluid.rho_cp() * self.flow_rate.get::<cubic_meter_per_second>()
+    }
+
+    /// The annulus stream's volumetric flow rate: [`Self::annulus_flow_rate`],
+    /// or the tube's when that is `None`.
+    #[must_use]
+    pub fn annulus_flow(&self) -> VolumeRate {
+        self.annulus_flow_rate.unwrap_or(self.flow_rate)
     }
 
     /// The three regions coupled: fluids from `inner` and `outer` (the tube
@@ -115,12 +135,12 @@ impl DoublePipeExchanger {
     pub fn build(&self, inner: Arc<FvMesh>, tube: Arc<FvMesh>, outer: Arc<FvMesh>, dt_inner: Time, dt_outer: Time) -> Result<ChtMultiRegionFoam, AppBuilderError> {
         let th = self.t_hot_in.get::<kelvin>();
         let tc = self.t_cold_in.get::<kelvin>();
-        let fluid = |mesh: Arc<FvMesh>, t_in: f64, dt: Time| -> Result<PimpleFoam, AppBuilderError> {
+        let fluid = |mesh: Arc<FvMesh>, t_in: f64, dt: Time, q: VolumeRate| -> Result<PimpleFoam, AppBuilderError> {
             let area = patch_area(&mesh, "inlet")?;
             let flow = PipeFlow {
                 radius: Length::new::<meter>((area / std::f64::consts::PI).sqrt()),
                 length: self.length,
-                bulk_velocity: Velocity::new::<meter_per_second>(self.flow_rate.get::<cubic_meter_per_second>() / area),
+                bulk_velocity: Velocity::new::<meter_per_second>(q.get::<cubic_meter_per_second>() / area),
                 nu: self.nu,
             };
             let mut s = flow.build_solver(mesh.clone(), dt);
@@ -130,8 +150,8 @@ impl DoublePipeExchanger {
             s.energy = Some(e);
             Ok(s)
         };
-        let f_in = fluid(inner.clone(), th, dt_inner)?;
-        let f_out = fluid(outer.clone(), tc, dt_outer)?;
+        let f_in = fluid(inner.clone(), th, dt_inner, self.flow_rate)?;
+        let f_out = fluid(outer.clone(), tc, dt_outer, self.annulus_flow())?;
         let wall = SolidRegion::new("tube", tube.clone(), self.wall, 0.5 * (th + tc));
         let pi = |m: &FvMesh, name: &str| patch_index(m, name);
         let ifaces = vec![
@@ -266,39 +286,7 @@ pub fn report(cht: &ChtMultiRegionFoam, case: &DoublePipeExchanger) -> Exchanger
     let c_min = c_hot.min(c_cold);
     let effectiveness = q_hot / (c_min * (th - tc));
     // Local UA: per-layer interface heat over the bulk difference.
-    let bulk = |f: &PimpleFoam| -> Vec<f64> {
-        let m = &f.mesh;
-        let t = &f.energy.as_ref().expect("fluid with energy").t;
-        let layers = axial_layers(m);
-        let (mut num, mut den) = (vec![0.0; layers.len()], vec![0.0; layers.len()]);
-        for fc in 0..m.n_internal_faces {
-            if m.face_area_vectors[fc].z.abs() > 0.5 * m.face_areas[fc] {
-                let phi = f.phi.internal[fc];
-                let up = if phi >= 0.0 { m.owner[fc] } else { m.neighbour[fc] };
-                if let Some(l) = layers.iter().position(|z| (z - m.cell_centres[up].z).abs() < 1e-9) {
-                    num[l] += phi.abs() * t.internal[up];
-                    den[l] += phi.abs();
-                }
-            }
-        }
-        // The last layer's downstream face is the outlet patch: include
-        // outflow boundary faces too, or that layer has no bulk temperature.
-        for (pi, p) in m.patches.iter().enumerate() {
-            for k in 0..p.size {
-                let gf = p.start + k;
-                let phi = f.phi.boundary[pi].values[k];
-                if phi > 0.0 && m.face_area_vectors[gf].z.abs() > 0.5 * m.face_areas[gf] {
-                    let o = m.owner[gf];
-                    if let Some(l) = layers.iter().position(|z| (z - m.cell_centres[o].z).abs() < 1e-9) {
-                        num[l] += phi * t.internal[o];
-                        den[l] += phi;
-                    }
-                }
-            }
-        }
-        num.iter().zip(&den).map(|(a, b)| if *b > 0.0 { a / b } else { f64::NAN }).collect()
-    };
-    let (bh, bc) = (bulk(&cht.fluids[0]), bulk(&cht.fluids[1]));
+    let (bh, bc) = (layer_bulk_temperatures(&cht.fluids[0]), layer_bulk_temperatures(&cht.fluids[1]));
     let fi = &cht.fluids[0];
     let e = fi.energy.as_ref().expect("fluid with energy");
     let layers = axial_layers(&fi.mesh);
@@ -315,6 +303,215 @@ pub fn report(cht: &ChtMultiRegionFoam, case: &DoublePipeExchanger) -> Exchanger
     let (d1, d2) = (th - t_cold_out, t_hot_out - tc);
     let lmtd = if (d1 - d2).abs() < 1e-12 * d1.abs().max(1e-300) { d1 } else { (d1 - d2) / (d1 / d2).ln() };
     ExchangerReport { t_hot_out, t_cold_out, q_hot, q_cold, q_wall_in, q_wall_out, c_hot, c_cold, effectiveness, ua_local, ua_lmtd: q_hot / lmtd }
+}
+
+/// Mixing-cup temperature of every axial layer of a fluid region \[K\],
+/// layers in [`axial_layers`] order: the flux-weighted temperature of the
+/// upwind cells of the layer's downstream axial faces (internal faces, plus
+/// the outflow patch for the last layer), so it does not depend on the flow
+/// direction. `NaN` for a layer with no axial flux.
+#[must_use]
+pub fn layer_bulk_temperatures(f: &PimpleFoam) -> Vec<f64> {
+    let m = &f.mesh;
+    let t = &f.energy.as_ref().expect("fluid with energy").t;
+    let layers = axial_layers(m);
+    let (mut num, mut den) = (vec![0.0; layers.len()], vec![0.0; layers.len()]);
+    for fc in 0..m.n_internal_faces {
+        if m.face_area_vectors[fc].z.abs() > 0.5 * m.face_areas[fc] {
+            let phi = f.phi.internal[fc];
+            let up = if phi >= 0.0 { m.owner[fc] } else { m.neighbour[fc] };
+            if let Some(l) = layers.iter().position(|z| (z - m.cell_centres[up].z).abs() < 1e-9) {
+                num[l] += phi.abs() * t.internal[up];
+                den[l] += phi.abs();
+            }
+        }
+    }
+    // The last layer's downstream face is the outlet patch: include
+    // outflow boundary faces too, or that layer has no bulk temperature.
+    for (pi, p) in m.patches.iter().enumerate() {
+        for k in 0..p.size {
+            let gf = p.start + k;
+            let phi = f.phi.boundary[pi].values[k];
+            if phi > 0.0 && m.face_area_vectors[gf].z.abs() > 0.5 * m.face_areas[gf] {
+                let o = m.owner[gf];
+                if let Some(l) = layers.iter().position(|z| (z - m.cell_centres[o].z).abs() < 1e-9) {
+                    num[l] += phi * t.internal[o];
+                    den[l] += phi;
+                }
+            }
+        }
+    }
+    num.iter().zip(&den).map(|(a, b)| if *b > 0.0 { a / b } else { f64::NAN }).collect()
+}
+
+/// The exchanger's axial profiles (gh:#1178): per axial layer, the heat
+/// through each interface, its area, the two streams' mixing-cup
+/// temperatures and the two interface temperatures; from them the local
+/// Nusselt number of each side. Layers in [`axial_layers`] order (z
+/// increasing); the two fluids' meshes are conformal, so their layers
+/// coincide.
+///
+/// The interface temperature of a face is the one the matrix saw,
+/// `T_f = T_P + q_f / (κ A_f / d)`, from the face conduction `q_f` and the
+/// same boundary distance `d` ([`LaplacianCorrection::Corrected`]) as
+/// [`report`]; for the mixed coupled condition it is
+/// `w T_ref + (1 − w) T_P`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExchangerProfiles {
+    /// Layer centre z \[m\].
+    pub z: Vec<f64>,
+    /// Heat from the hot fluid into the wall through the inner interface \[W\].
+    pub q_inner: Vec<f64>,
+    /// Heat from the wall into the cold fluid through the outer interface \[W\].
+    pub q_outer: Vec<f64>,
+    /// Inner-interface area of the layer \[m²\].
+    pub area_inner: Vec<f64>,
+    /// Outer-interface area of the layer \[m²\].
+    pub area_outer: Vec<f64>,
+    /// Hot (tube) stream mixing-cup temperature \[K\].
+    pub t_bulk_hot: Vec<f64>,
+    /// Cold (annulus) stream mixing-cup temperature \[K\].
+    pub t_bulk_cold: Vec<f64>,
+    /// Area-mean inner-interface temperature \[K\].
+    pub t_wall_inner: Vec<f64>,
+    /// Area-mean outer-interface temperature \[K\].
+    pub t_wall_outer: Vec<f64>,
+    /// Hydraulic diameter of the tube, `4 A / P` from the mesh (inlet area
+    /// over the inner interface's perimeter) \[m\].
+    pub dh_hot: f64,
+    /// Hydraulic diameter of the annulus, `4 A / P` with both walls wetted
+    /// (inlet area over the outer interface's plus the shell's perimeter) \[m\].
+    pub dh_cold: f64,
+    /// Fluid conductivity \[W/(m K)\].
+    pub k_fluid: f64,
+}
+
+impl ExchangerProfiles {
+    /// Local tube-side Nusselt number per layer,
+    /// `q'' D_h / (k (T_b,hot − T_w,inner))`.
+    #[must_use]
+    pub fn nu_hot(&self) -> Vec<f64> {
+        (0..self.z.len()).map(|l| self.q_inner[l] / self.area_inner[l] * self.dh_hot / (self.k_fluid * (self.t_bulk_hot[l] - self.t_wall_inner[l]))).collect()
+    }
+
+    /// Local annulus-side Nusselt number per layer (heated inner wall),
+    /// `q'' D_h / (k (T_w,outer − T_b,cold))`.
+    #[must_use]
+    pub fn nu_cold(&self) -> Vec<f64> {
+        (0..self.z.len()).map(|l| self.q_outer[l] / self.area_outer[l] * self.dh_cold / (self.k_fluid * (self.t_wall_outer[l] - self.t_bulk_cold[l]))).collect()
+    }
+
+    /// Mean tube-side Nusselt number weighted by the local temperature
+    /// difference: `Σ q / Σ A ΔT` times `D_h / k`, i.e. the uniform h that
+    /// carries the same total heat across the same local differences. This
+    /// is the mean a 1-D model with one h per side needs (gh:#1178 V&V
+    /// record, "Closures").
+    #[must_use]
+    pub fn mean_nu_hot(&self) -> f64 {
+        let q: f64 = self.q_inner.iter().sum();
+        let a_dt: f64 = (0..self.z.len()).map(|l| self.area_inner[l] * (self.t_bulk_hot[l] - self.t_wall_inner[l])).sum();
+        q / a_dt * self.dh_hot / self.k_fluid
+    }
+
+    /// As [`Self::mean_nu_hot`], annulus side.
+    #[must_use]
+    pub fn mean_nu_cold(&self) -> f64 {
+        let q: f64 = self.q_outer.iter().sum();
+        let a_dt: f64 = (0..self.z.len()).map(|l| self.area_outer[l] * (self.t_wall_outer[l] - self.t_bulk_cold[l])).sum();
+        q / a_dt * self.dh_cold / self.k_fluid
+    }
+}
+
+/// Per-layer heat, area and area-mean face temperature of patch `pi` of a
+/// fluid region, layers as `layers`.
+fn patch_layers(f: &PimpleFoam, pi: usize, layers: &[f64]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let lap = LaplacianCorrection::Corrected;
+    let e = f.energy.as_ref().expect("fluid with energy");
+    let m = &f.mesh;
+    let p = &m.patches[pi];
+    let k = e.thermo.kappa();
+    let (mut q, mut a, mut ta) = (vec![0.0; layers.len()], vec![0.0; layers.len()], vec![0.0; layers.len()]);
+    for fi in 0..p.size {
+        let gf = p.start + fi;
+        let o = m.owner[gf];
+        if let Some(l) = layers.iter().position(|z| (z - m.cell_centres[o].z).abs() < 1e-9) {
+            let qf = e.face_conduction(pi, fi, lap).get::<watt>();
+            let d = lap.delta_coeff().boundary_delta(m, gf);
+            let tf = e.t.internal[o] + qf * d / (k * m.face_areas[gf]);
+            q[l] += qf;
+            a[l] += m.face_areas[gf];
+            ta[l] += m.face_areas[gf] * tf;
+        }
+    }
+    let t = ta.iter().zip(&a).map(|(x, y)| x / y).collect();
+    (q, a, t)
+}
+
+/// Measure the axial profiles (see [`ExchangerProfiles`]).
+///
+/// # Panics
+/// If `cht` was not built by [`DoublePipeExchanger::build`].
+#[must_use]
+pub fn profiles(cht: &ChtMultiRegionFoam) -> ExchangerProfiles {
+    let (hot, cold) = (&cht.fluids[0], &cht.fluids[1]);
+    let z = axial_layers(&hot.mesh);
+    let (iw, ow) = (cht.interfaces[0].a.patch, cht.interfaces[1].b.patch);
+    let (q_in, a_in, tw_in) = patch_layers(hot, iw, &z);
+    let (q_out_into_cold, a_out, tw_out) = patch_layers(cold, ow, &z);
+    // The extruded length: the cell-centre span plus one (uniform) layer.
+    let length = {
+        let (lo, hi) = hot.mesh.cell_centres.iter().fold((f64::MAX, f64::MIN), |(a, b), c| (a.min(c.z), b.max(c.z)));
+        (hi - lo) * z.len() as f64 / (z.len() as f64 - 1.0).max(1.0)
+    };
+    let inlet = |f: &PimpleFoam| patch_area(&f.mesh, "inlet").expect("inlet");
+    let wall_area = |f: &PimpleFoam, name: &str| patch_area(&f.mesh, name).expect("wall patch");
+    let dh_hot = 4.0 * inlet(hot) / (wall_area(hot, "tube_inner_wall") / length);
+    let dh_cold = 4.0 * inlet(cold) / ((wall_area(cold, "tube_outer_wall") + wall_area(cold, "shell_wall")) / length);
+    ExchangerProfiles {
+        q_inner: q_in.iter().map(|x| -x).collect(),
+        q_outer: q_out_into_cold,
+        area_inner: a_in,
+        area_outer: a_out,
+        t_bulk_hot: layer_bulk_temperatures(hot),
+        t_bulk_cold: layer_bulk_temperatures(cold),
+        t_wall_inner: tw_in,
+        t_wall_outer: tw_out,
+        dh_hot,
+        dh_cold,
+        k_fluid: hot.energy.as_ref().expect("fluid with energy").thermo.kappa(),
+        z,
+    }
+}
+
+/// Static pressure drop inlet → outlet of a fluid region \[Pa\]:
+/// `ρ (p̄_inlet − p̄_outlet)`, `p̄` the area mean of the kinematic pressure
+/// on the patch (the fixed value where the patch fixes it, else the owner
+/// cell's, which is the face value of zeroGradient). The flow enters with a
+/// uniform profile, so this is the **apparent** drop of a simultaneously
+/// developing flow: fully developed friction plus the entrance's momentum
+/// and excess-friction increment (Shah's K(∞)).
+///
+/// # Panics
+/// If the region has no `inlet` or `outlet` patch.
+#[must_use]
+pub fn pressure_drop(f: &PimpleFoam, density: f64) -> f64 {
+    let m = &f.mesh;
+    let mean = |name: &str| -> f64 {
+        let pi = patch_index(m, name).expect("patch");
+        let p = &m.patches[pi];
+        let (mut s, mut a) = (0.0, 0.0);
+        for fi in 0..p.size {
+            let gf = p.start + fi;
+            let v = match &f.p.boundary[pi].bc {
+                BoundaryCondition::FixedValue(v) => *v,
+                _ => f.p.internal[m.owner[gf]],
+            };
+            s += v * m.face_areas[gf];
+            a += m.face_areas[gf];
+        }
+        s / a
+    };
+    density * (mean("inlet") - mean("outlet"))
 }
 
 #[cfg(test)]

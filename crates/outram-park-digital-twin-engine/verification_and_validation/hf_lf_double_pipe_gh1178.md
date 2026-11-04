@@ -190,6 +190,117 @@ stage 2.
 | P11 | 1-D with interpolated closures, held-out: Q vs CFD | \|ΔQ/Q\| < 3 %, an improvement on (a) at every held-out point | P9 + P10 |
 | P12 | Δp closures, held-out | \|ΔΔp/Δp\| < 3 % per side | f·Re + K is smoother in Re than Nu |
 
-## Results
+## Results (2026-11-03 / 04)
 
-*(added after the runs; see below)*
+Run with
+`cargo run --release -p outram-park-digital-twin-engine --example hf_lf_double_pipe_dataset -- --threads 3`
+on the shared 4-CPU host: the 44 CFD points took ≈ 5 min of wall time on 3
+threads (1.8 s to 93 s per point; flow steady in 18–23 steps, energy in
+69–1043 passes), the 88 TUAS runs ≈ 14 min on one thread (the example now
+runs them on 3). Files, in `hf_lf_double_pipe_gh1178/`:
+
+| file | contents |
+|---|---|
+| `cfd_dataset.csv` | 44 rows: x, split, the CFD outputs (UA_local, Q, ε, outlet T, Δp, the closures Nu_1D, the mesh-convention Nu, G′, ε-NTU at UA_local, cells, steps, passes, wall time), with the provenance header |
+| `cfd_profiles.csv` | per point and axial layer: interface heats and areas, bulk and interface temperatures, local Nu(z) on both sides (3 344 rows) |
+| `one_d_results.csv` | per point: the CFD's UA, Q, ε, ε-NTU; the 1-D model's (a) and (b) UA, Q, ε, ε-NTU, Δp, Nu; the closures used and the point's own |
+
+**Reproducibility.** The CFD is deterministic: T33 re-run gives its
+committed row character for character (test
+`the_committed_dataset_regenerates_bit_for_bit`); the held-out 1-D runs
+regenerate their committed numbers to ≤ 1e-12
+(`the_held_out_one_d_runs_regenerate_the_record`). Energy closes in every
+CFD run (Q_hot = Q_cold to ≤ 2.0e-8 relative).
+
+**Mesh check** (T35's x: Re_hot 90, Re_cold 45, k_wall 100, L 0.1; default
+grid 9 310 cells, 38 layers, against n = 7, nr = (6, 3, 7), 56 layers,
+27 832 cells): UA −1.05 %, Q −0.66 %, Nu_1D,hot −1.26 %, Nu_1D,cold −0.76 %,
+Δp_hot −0.70 %, **Δp_cold +2.28 %** on refinement. So at the most demanding
+point the dataset's heat-transfer numbers carry about 1 % of mesh error, and
+its annulus Δp is low by ≥ 2 %. Not refined further.
+
+### (a) The uncalibrated 1-D model against the CFD and ε-NTU
+
+Ranges over the 44 points (per point: `one_d_results.csv`, and the table
+the example prints). Relative differences, 1-D against CFD unless stated.
+
+| # | quantity | prediction | measured | |
+|---|---|---|---|---|
+| P1 | CFD Nu_cold / TUAS − 1 | +15 to +45 %, positive everywhere | **+25.7 % (T33) to +58.1 % (T12)**, positive at 44/44 | sign met; **range missed at the top** (4 points above +45 %, T06, T08, T10, T12: Re_hot 10, L = 0.3 m, where TUAS's correlation is near its 4.35 floor while the annulus's developed value is higher) |
+| P2 | CFD Nu_hot / TUAS − 1 | −15 to +5 %, mostly CFD lower | −12.3 % (T33) to **+7.8 %** (T28); CFD lower at 31/44 | **missed at the top** (CFD above TUAS by > 5 % at 3 points, T12, T26, T28, all L = 0.3 m with NTU 3.6–5.4. Not investigated further) |
+| P3 | UA, 1-D vs CFD UA_local | 1-D lower everywhere, by 3 to 20 % | **−1.1 % (T21) to −21.4 % (T28)**, lower at 44/44 | sign met; range missed at both ends (6 points under 3 %: T09, T11, T21, T23, T33, T35, all Re_cold 45 with L 0.1; 1 over 20 %, T28) |
+| P4 | Q, 1-D vs CFD | 1-D lower everywhere, \|ΔQ\| ≤ \|ΔUA\| | **−0.9 % (T21) to −6.7 % (T27)**, lower at 44/44; \|ΔQ\| ≤ \|ΔUA\| at 43/44 | sign met; the inequality **missed at T11** (Q −3.3 %, UA −2.0 %): there 2.5 % of the CFD's Q enters by conduction through the hot inlet face (below), which the 1-D model has no counterpart for |
+| P5 | tube Δp, CFD / TUAS − 1 | +1 to +20 %, growing with Re/L | **+3.8 % (T02) to +23.5 % (T25)**, growing with Re/L | sign and trend met; **missed at the top** (Re 90, L 0.1: +23.5 %; the K(∞) = 1.25 estimate gives +17.6 %) |
+| P6 | annulus Δp, CFD / TUAS − 1 | +45 to +70 % | **+43.7 % (T01) to +47.2 % (T09)** | **missed at the bottom.** The CFD's developed annulus f·Re is ≈ 64 × 1.437 = 92 against Shah & London's ≈ 95.6 at r* = 0.6, i.e. ≈ 4 % low; the mesh check moved Δp_cold +2.3 % on refinement, so most of this is the annulus's 5 radial cells. P6's prediction assumed a converged CFD |
+| P7 | CFD ε / ε-NTU(UA_local) − 1 | 0 to −3 %, CFD lower | **−3.9 % (T15) to +2.0 % (T12)**; lower at 36/44 | **missed both ways.** Below −3 %: T15, T03 (k_wall 100, L 0.1): axial wall conduction, λ = k_w A_w/(L C_min) = 0.069 / 0.110, which ε-NTU does not carry. Above 0: 8 points, six at Re_hot 10 (T06, T08–T12) and T26, T28 (+0.3, +0.2 %). At Re_hot 10 the CFD's Q includes heat conducted in through the fixed-temperature hot inlet (0.9 to 2.5 % of Q at Re_hot 10, Pe = 67), and Q / (C_min ΔT) can exceed the ideal exchanger's and even 1 (T08 1.0012, T12 1.0136: the Dirichlet inlet acts as a heat source by conduction). Stage 2's ε definition (Q_hot including conduction) is kept; an enthalpy-only ε would not exceed 1 |
+| P8 | 1-D ε / ε-NTU(own UA) − 1 | 0 to −3 % | **−0.15 % (T10) to −4.8 % (T03)**, lower at 44/44 | sign met; **missed below −3 %** at T03, T15 for the same reason as P7: TUAS's `SolidColumn` conducts axially too |
+
+**Which numbers to quote:** Q, −0.9 to −6.7 % (TUAS low everywhere), and
+UA, −1.1 to −21.4 %. The single largest uncalibrated error is **TUAS's
+annulus Nusselt number, 26–58 % low**, because no annulus correlation exists
+in TUAS and the pipe correlation on D_h stands in for it; the tube side is
+within −12 to +8 %. Pressure drop: tube 4–24 % low (no entrance term),
+annulus 30–32 % low (pipe 64/Re on D_h for an annulus whose f·Re is ≈ 92–96).
+
+### (b) The 1-D model with the CFD closures
+
+| # | quantity | prediction | measured | |
+|---|---|---|---|---|
+| P9 | training: UA vs CFD | \|ΔUA\| < 3 % | **−6.3 % (T27) to +12.7 % (T12)** | **missed.** With each side's mean h carried exactly, the 1-D's series UA and the CFD's UA_local are no longer the same quantity when h(z) varies strongly (the worst points have NTU 4.5–5.4 or the shortest exchangers). Not separated further |
+| P9 | training: Q vs CFD | \|ΔQ\| < 2 % | **−2.2 % (T27) to +1.9 % (T23)** | **missed by 0.2 %** at T27 (Re_hot 90, Re_cold 5, k_wall 100, L 0.1: the strongest axial wall conduction and the most developing tube) |
+| — | training: Δp vs CFD | exact by construction | 0 (to round-off) | the `SimpleReynoldsPower(0, B, −1)` closure reproduces its own Δp, a check of the plumbing only |
+| P10 | held-out: interpolated Nu vs the point's own | \|ΔNu\| < 5 % per side | tube **+1.7 to +4.9 %**, annulus **+0.1 to +3.6 %** | met, narrowly on the tube side (H3, +4.9 %); the interpolation is biased high on both sides at every held-out point |
+| P11 | held-out: Q vs CFD | \|ΔQ\| < 3 %, better than (a) everywhere | **+0.4 % (H6) to +2.5 % (H4)**; better than (a) at 8/8 (by 0.4 to 4.8 points) | met |
+| P12 | held-out: Δp vs CFD | \|ΔΔp\| < 3 % per side | tube +0.5 to +1.7 %, annulus +0.04 to +0.27 % | met |
+
+**Which numbers to quote:** on the held-out points, the closures take the
+1-D duty error from **−2.4 … −5.3 %** (uncalibrated) to **+0.4 … +2.5 %**,
+and Δp from −5 … −14 % (tube) and −31 % (annulus) to within 1.7 %. The
+residual is mostly the interpolation's high bias on the tube-side Nu
+(+1.7 to +4.9 %). UA is not the number to quote for (b) (P9).
+
+### What this does not show
+
+- The CFD itself is not validated here: its V&V is stage 2's (ε-NTU at
+  Re_hot 30 only, −0.8 % at this Δz) plus this rung's mesh check at one
+  point. The dataset carries ≈ 1 % mesh error in the heat transfer and
+  ≥ 2 % in the annulus Δp at the hardest point.
+- No experimental data; the fluids are indicative. Laminar only.
+- The closures are interpolated within the training box only (no
+  extrapolation; `ClosureTable::at` refuses it).
+- The geometry is stage 2's cross-section extruded to 0.1–0.3 m, so stage
+  2's mesh images (`crates/outram-foam-appbuilder-lib/verification_and_validation/cht_double_pipe_gh1156/`)
+  show it; no new geometry was built, and no new images were drawn.
+
+## The rung-3 interface (gh:#1180; the `raffles::fidelity` traits are gh:#1194)
+
+- **x:** `multifidelity::double_pipe::DoublePipeInput { re_hot: Ratio,
+  re_cold: Ratio, k_wall: ThermalConductivity, length: Length }`.
+- **CFD outputs:** `DoublePipeOutput { ua: ThermalConductance, q: Power,
+  effectiveness: Ratio, t_hot_out, t_cold_out: ThermodynamicTemperature,
+  dp_hot, dp_cold: Pressure, nu_hot, nu_cold: Ratio }`.
+- **The dataset:** `dataset::load_committed()` → 44 `DatasetRow { id,
+  split, input, output, extra }`, compiled in (`COMMITTED_CSV`); the split
+  (`design::Split::{Training, HeldOut}`) was fixed before any run and is in
+  every row; the provenance is `dataset::PROVENANCE` (also the CSV's `#`
+  header). The CSV is SI with the unit in every column header.
+- **The 1-D model:** `one_d::evaluate(&x, &θ) -> DoublePipeOutput` (and
+  `one_d::try_evaluate` returning `Result`), θ =
+  `Theta { nu_mult_hot: Ratio, nu_mult_cold: Ratio, wall_resistance:
+  AreaSpecificThermalResistance (m² K/W, on the tube's outer area),
+  friction_mult_hot: Ratio, friction_mult_cold: Ratio }`, nominal
+  `Theta::nominal()` = (1, 1, 0, 1, 1), which is the uncalibrated model
+  above. ≈ 0.4–30 s per call (the explicit TUAS march at Courant 0.5).
+- **Limits a calibration must respect:** `k_wall` must be one of
+  `one_d::WALL_K_LEVELS` {1, 10, 16, 100} W/(m K) (TUAS materials are `fn`
+  pointers); every design point satisfies this.
+
+## Follow-ups
+
+- An annulus Nusselt (and friction) correlation for TUAS, the largest
+  uncalibrated error (P1, P6): gh:#1195.
+- Read while choosing the 1-D model, not exercised here: TUAS's uninsulated
+  shell-and-tube links the outer shell to ambient through the shell-fluid
+  conductance (gh:#1196; no effect on this rung, whose parasitic Nu and
+  ambient h are 0).
+- The annulus Δp's mesh error (P6, mesh check).
