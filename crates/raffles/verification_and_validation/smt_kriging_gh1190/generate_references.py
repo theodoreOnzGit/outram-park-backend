@@ -97,9 +97,47 @@ def krg_record(m, xt, yt, xtest):
         "mean": f(m.predict_values(xtest).ravel()),
         "variance": f(m.predict_variances(xtest).ravel()),
     }
+    rec["cond_r"] = cond_r(m.optimal_par["C"])
     if hasattr(m, "coeff_pls"):
         rec["coeff_pls"] = f(np.atleast_2d(m.coeff_pls))
     return rec
+
+
+def cond_r(c):
+    """cond(R) from SMT's own Cholesky factor (2-norm, numpy)."""
+    return float(np.linalg.cond(c @ c.T))
+
+
+def unblocked_sigma2(xn, yn, theta, nugget, dof, y_std):
+    """sigma^2 from a pure-Python unblocked Cholesky in the port's loop order
+    (crate::bayesian::transitional::cholesky), squar_exp, constant trend: the
+    addendum's demonstration that an ill-conditioned level's gap is the
+    factorisation order."""
+    import math
+
+    n = len(yn)
+    r = [[(1.0 + nugget) if i == j else math.exp(-sum(t * abs(a - b) * abs(a - b) for t, a, b in zip(theta, xn[i], xn[j]))) for j in range(n)] for i in range(n)]
+    lo = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1):
+            s = r[i][j]
+            for k in range(j):
+                s -= lo[i][k] * lo[j][k]
+            lo[i][j] = math.sqrt(s) if i == j else s / lo[j][j]
+
+    def fw(b):
+        z = [0.0] * n
+        for i in range(n):
+            s = b[i]
+            for k in range(i):
+                s -= lo[i][k] * z[k]
+            z[i] = s / lo[i][i]
+        return z
+
+    ft, yt = fw([1.0] * n), fw(list(yn))
+    beta = sum(a * b for a, b in zip(ft, yt)) / sum(a * a for a in ft)
+    rho = [a - b * beta for a, b in zip(yt, ft)]
+    return sum(v * v for v in rho) / dof * y_std * y_std
 
 
 def rlf_gradient(m, theta):
@@ -251,6 +289,12 @@ def forrester_lf(x):
     return 0.5 * ((x * 6 - 2) ** 2) * np.sin((x * 6 - 2) * 2) + (x - 0.5) * 10.0 - 5
 
 
+def forrester_lf_quadratic(x):
+    """Addendum: an LF whose discrepancy is quadratic, so a linear rho and
+    trend do not represent the HF exactly (not one of SMT's problems)."""
+    return 0.5 * ((x * 6 - 2) ** 2) * np.sin((x * 6 - 2) * 2) + 10.0 * (x - 0.5) ** 2 - 5
+
+
 def mfk_record(m, xs, ys, xtest):
     levels = []
     for i in range(m.nlvl):
@@ -262,6 +306,7 @@ def mfk_record(m, xs, ys, xtest):
                 "sigma2": f(np.atleast_1d(p["sigma2"])[0]),
                 "beta": f(p["beta"].ravel()),
                 "gamma": f(p["gamma"].ravel()),
+                "cond_r": cond_r(p["C"]),
             }
         )
     mse, rhos = m.predict_variances_all_levels(xtest)
@@ -306,6 +351,22 @@ def mfk_cases():
         m = mfk_train(xs, ys, theta0=np.array([[0.5], [1.2]]), hyper_opt="NoOp", **extra)
         rec = mfk_record(m, xs, ys, xtest[::5])
         rec.update(name=name, kind="fixed", options={k: v for k, v in extra.items()}, theta0=[[0.5], [1.2]])
+        if name == "mfk_forrester_fixed":
+            xn = (xc - m.X_offset) / m.X_scale
+            yn = (forrester_lf(xc).ravel() - m.y_mean[0]) / m.y_std[0]
+            rec["level0_sigma2_unblocked_cholesky"] = unblocked_sigma2(
+                xn.tolist(), yn.tolist(), [0.5], m.options["nugget"], len(yn) - 1, float(m.y_std[0])
+            )
+        out.append(rec)
+    # Addendum cases (V&V record): well-conditioned theta.
+    for name, xh, lf, extra in (
+        ("mfk_forrester_wellcond_fixed", xe, forrester_lf, {}),
+        ("mfk_forrester_quadratic_lf_linear_fixed", xe6, forrester_lf_quadratic, {"rho_regr": "linear", "poly": "linear"}),
+    ):
+        xs, ys = [xc, xh], [lf(xc), forrester_hf(xh)]
+        m = mfk_train(xs, ys, theta0=np.array([[10.0], [10.0]]), hyper_opt="NoOp", **extra)
+        rec = mfk_record(m, xs, ys, xtest[::5])
+        rec.update(name=name, kind="fixed", options={k: v for k, v in extra.items()}, theta0=[[10.0], [10.0]])
         out.append(rec)
     xs, ys = [xc, xe], [forrester_lf(xc), forrester_hf(xe)]
     STARTS.clear()

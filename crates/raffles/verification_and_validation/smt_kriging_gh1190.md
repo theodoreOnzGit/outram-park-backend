@@ -212,6 +212,41 @@ The polynomial baseline (degree 1) measured UA 11.1 %, Q 25.1 %, ε RMSE
 | D6 | single-fidelity KRG (36 HF rows) against MFK | MFK lower on at least 6 of 9 outputs; KRG UA 8–30 % | KRG must interpolate k_wall between 1 and 100 with no data at 10 |
 | D7 | MFK 2σ coverage on the 8 rows | between 4/8 and 8/8 per output; not a calibrated 95 % | 8 points, and kriging variances from ML θ are usually optimistic |
 
+### Addendum (written after the first run of the port, before these cases were generated)
+
+The first run showed the KRG and KPLS fixed-θ numerics within 1e-13 of SMT
+once one more upstream fact was ported (**finding 7**, found by that run:
+KRG's `_get_pq()` returns (0, 0), so KRG's likelihood and σ² divide by n,
+while MFK's divide by n − p − q; the port had used n − p for both). It also
+showed every MFK fixed-θ level missing the 1e-8 criterion (2.7e-7 on σ² at
+level 0 of `mfk_forrester_fixed`). Checked by hand before changing anything:
+at θ = 0.5 the level-0 correlation matrix (11 points 0.1 apart) has
+**cond(R) = 1.8e10**, and a pure-Python unblocked Cholesky in the port's
+loop order reproduces the port's σ² (96791.98271647282) where LAPACK gives
+SMT's (96791.95642930), so the gap is the factorisation order amplified by
+the conditioning, not a defect. I chose θ = (0.5, 1.2) without checking
+cond(R); that was my error in the case design. The linear-ρ case is worse:
+with `rho_regr = poly = linear` the Forrester HF is **exactly** a linear
+function of the LF and x, so the level-1 residual is zero and its σ²
+(1.5e-14) is round-off; that case cannot test level 1 at all.
+
+So, before generating anything further, the generator now also records
+cond(R) (numpy, from SMT's own Cholesky factor) for every fixed case and
+every fitted optimum, and the comparison criterion is applied as follows,
+**fixed now**: a level with cond(R) ≤ 1e8 is held to 1e-8; a level with
+cond(R) > 1e8 is reported with its gap and cond(R)·ε for scale and is not
+counted as a code-to-code comparison (as gh:#1193 did for its singular
+GP case). Two cases are ADDED, θ chosen as (10, 10) so that neighbouring
+standardised points (≈ 0.3 apart) correlate at about exp(−0.9) ≈ 0.4:
+
+- `mfk_forrester_wellcond_fixed`: the default options at θ = (10, 10);
+- `mfk_forrester_quadratic_lf_linear_fixed`: `rho_regr = poly = linear`, HF
+  at 6 points, and a modified LF `0.5 HF + 10 (x − 0.5)² − 5` so that the HF
+  is not exactly representable (not one of SMT's problems: chosen only to
+  give level 1 a non-zero residual).
+- **P15a** (prediction for both): as P15, i.e. per-level likelihood ≤ 1e-12,
+  σ² ≤ 1e-12, β, γ ≤ 1e-9, mean ≤ 1e-10, variance ≤ 1e-9 σ², σ²_ρ ≤ 1e-9.
+
 ## Results
 
 Not yet run (filled in after the port).
