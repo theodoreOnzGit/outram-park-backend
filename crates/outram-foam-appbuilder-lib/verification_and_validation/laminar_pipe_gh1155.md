@@ -981,7 +981,82 @@ solve from the current U (`FvVectorMatrix::solve_with_guess`, used by
 `PimpleFoam`'s predictor). Predicted: the 3-layer meshes run to steady at
 the default Δt; Gauss–Seidel sweeps per step stay below 100; the
 structured default moves by at most the solver tolerance (u_c, dp/dz to
-4 digits unchanged, 34 ± 1 steps). **The structured default moved:**
+4 digits unchanged, 34 ± 1 steps).
+
+**Result: the structured default is unchanged (34 steps, 0.9940, 1.0154,
+RMS 0.0063, τ_w 1.0066), but the 3-layer meshes still diverge: the
+prediction missed, and the sweep counts were a symptom.** With the warm
+start, the largest |U| per step was 3.9e-3, 1.5e-2, 0.146, 0.30, 0.80,
+52 m/s (U = 5e-3 m/s) before the Gauss–Seidel cap was ever reached, and
+from the second step on it sat in **one cell**: a shrunk dual cell next to
+the layers near the inlet rim (r 9.29 mm, z 2.0 mm, 9 faces, 4.9e-9 m³),
+growing radially. The warm start is kept (it is upstream's behaviour and
+changes no recorded number), but it is not the fix.
+
+The cells with the worst non-orthogonality on these meshes are exactly
+the shrunk dual cells over the layer stack (`diagnose_layer_quality_per_layer`:
+max non-orthogonality in the layers 54°, at the top-layer/dual interface
+75–84°). snappyHexMesh adds layers against its *relaxed* quality controls,
+`maxNonOrtho 75` (the tutorials' `snappyHexMeshDict` `relaxed` block,
+used while layers are added), and collapses the layer where that fails;
+the port allowed anything under 90°.
+
+**Fix (prediction before the run):** the layer back-off uses upstream's
+relaxed `maxNonOrtho 75`. Thinner layers bring the prism centres toward
+the wall and the interface angle down, so the back-off should find a
+thickness: predicted max non-orthogonality ≤ 75° on all layered pipes,
+the 3-layer pipes run to steady, the layers end thinner (first layer
+0.02–0.06 mm).
+
+**Result: missed, and reverted.** With the 75° bound **every 2- and
+3-layer pipe, and even the 1-layer h 4 mm pipe, backed off to no layer at
+all**: the angle at the top-prism/dual face does not fall with a uniform
+thinning (it is set by how far the dual cell's centre sits sideways from
+its wall face, which the bare mesh already has as boundary
+non-orthogonality). snappyHexMesh meets the bound by collapsing the layer
+*locally*; this layerer's prism columns span the whole wall, so it cannot.
+The bound stays < 90°, as before. **Status of step 3: 1 and 2 layers run
+at every h measured; 3 layers diverge**, the instability growing in one
+shrunk dual cell over the layer stack near the inlet rim. What would fix
+it, both upstream practice and not ported: local layer collapse
+(snappy `addLayers`' per-face termination) or cfMesh's
+`refineBoundaryLayers` + `meshOptimizer::untangleMeshFV` after the layers.
+Not tried: a smaller time step for 3 layers (a viscous-number cap of 0.05
+did not diverge in 15 min, but did not finish either), which would hide
+the cell, not fix it.
+
+**Per-layer quality of the layered pipes (2026-11-04, cfMesh's 48-sided
+pipe, 200 mm, `diagnose_layer_quality_per_layer`; OpenFOAM's skewness and
+aspect ratio; requested first layer 0.3 mm, ×1.2):**
+
+| h, layers, cells | region | max non-ortho (°) | max skewness | max aspect ratio | mean thickness |
+|---|---|---|---|---|---|
+| 5, 1, 10 745 | dual / layer 1 | 74.7 / 74.7 | 1.14 / 0.85 | 2.7 / 2.4 | — / 0.290 mm |
+| 5, 2, 18 377 | dual / layer 1 / layer 2 | 79.4 / 54.0 / 79.4 | 1.00 / 0.80 / 0.80 | 2.4 / 5.2 / 4.6 | — / 0.082 / 0.099 mm |
+| 5, 3, 26 009 | dual / 1 / 2 / 3 | 81.7 / 53.9 / 54.2 / 81.7 | 1.01 / 0.80 / 0.80 / 0.80 | 2.5 / 7.1 / 6.3 / 5.5 | — / 0.053 / 0.064 / 0.076 mm |
+| 4, 1, 18 321 | dual / layer 1 | 78.2 / 78.2 | 1.38 / 1.38 | 4.6 / 2.4 | — / 0.284 mm |
+| 4, 2, 30 289 | dual / 1 / 2 | 83.5 / 54.2 / 83.5 | 0.98 / 0.59 / 0.74 | 3.0 / 5.5 / 4.9 | — / 0.070 / 0.084 mm |
+| 4, 3, 42 257 | dual / 1 / 2 / 3 | 84.4 / 54.1 / 54.3 / 84.4 | 0.98 / 0.59 / 0.59 / 0.63 | 3.0 / 7.5 / 6.7 / 6.0 | — / 0.043 / 0.051 / 0.061 mm |
+
+(A face counts for both cells it joins, so the top layer and the dual
+share the interface's angle.) Inside the stack the layers are good
+(54°, skewness < 1, aspect ≤ 7.5). The bad faces are the interface to the
+dual (75–84°). With 2 or 3 layers the total thickness is capped at half
+the shortest wall edge at each point (upstream's `boundaryLayers` rule,
+`boundaryLayersCreateVertices.C`: penetration distance 0.5 × the nearest
+neighbour), so the first layer comes out 0.04–0.08 mm, not the 0.3 mm
+asked; one layer is not capped (0.29 mm).
+
+### Layers against no layers at matched cell count (step 3, second half)
+
+**Predictions (written before the run; from the earlier, pre-warm-start
+rows, which these runs repeat on the current code):** wall layers do
+**not** improve τ_w or dp/dz at matched cell count on this mesh family:
+the pairs below differ by less than 3 % in τ_w/HP and dp/dz/HP, in either
+direction, and the bare mesh at the smaller h is the closer one. Reason:
+at h = 4–6 mm the error is in the core (the profile shape), not in the
+wall gradient, and a layer costs a whole wall's worth of cells that the
+bare mesh spends on the core. **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)

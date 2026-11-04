@@ -2037,6 +2037,7 @@ mod tests {
         let list: Vec<(f64, usize)> = match sweep.as_str() {
             "bare" => bare.to_vec(),
             "layered" => layered.to_vec(),
+            "matched" => vec![(0.004, 0), (0.006, 1), (0.00334, 0), (0.005, 1), (0.006, 2), (0.004, 1), (0.005, 2)],
             "multi" => vec![(0.006, 2), (0.005, 2), (0.004, 2), (0.005, 3), (0.004, 3)],
             _ => bare.iter().chain(layered.iter()).copied().collect(),
         };
