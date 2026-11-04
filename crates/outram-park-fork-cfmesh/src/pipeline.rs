@@ -1361,6 +1361,86 @@ mod tests {
         assert!(same(&l, &crate::layers::add_boundary_layers_adaptive_on_patches(&n, &["walls"], 3, 0.0003, 1.2)), "layers");
     }
 
+    /// FNV-1a over a mesh's point bits, faces, owners and neighbours: a
+    /// bit-identity fingerprint for pinning a mesher's output.
+    pub(crate) fn mesh_fingerprint(m: &VolumeMesh) -> u64 {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut eat = |x: u64| {
+            for b in x.to_le_bytes() {
+                h ^= b as u64;
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        };
+        for p in &m.points {
+            eat(p.x.to_bits());
+            eat(p.y.to_bits());
+            eat(p.z.to_bits());
+        }
+        for (f, ring) in m.faces.iter().enumerate() {
+            eat(ring.len() as u64);
+            for &v in ring {
+                eat(v as u64);
+            }
+            eat(m.owner[f] as u64);
+            eat(m.neighbour[f].map_or(u64::MAX, |n| n as u64));
+        }
+        for pa in &m.patches {
+            eat(pa.start_face as u64);
+            eat(pa.n_faces as u64);
+        }
+        h
+    }
+
+    /// V&V (gh:#1215) — **the default layer strategy is pinned bit for bit.**
+    /// Methodology: the multipatch pipeline with wall-only layers on the demo
+    /// pipe (R 10 mm, L 60 mm, 48 facets) at h 6 / 4 mm with 1–3 layers, and a
+    /// 20 × 20 × 60 mm box duct at h 5 mm with 2 layers; each final mesh is
+    /// fingerprinted (points to the bit, faces, owners, neighbours, patches).
+    /// The fingerprints were recorded on 2026-11-04 on the code *before*
+    /// gh:#1215 (commit `ffda5fb46`) and are asserted here, so introducing
+    /// the layer-quality strategies cannot move a recorded number under
+    /// `LayerQualityStrategy::BackOffOnly`.
+    #[test]
+    fn back_off_only_layers_are_pinned_bit_for_bit() {
+        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
+        let mut got = Vec::new();
+        for (h, n) in [(0.006, 1), (0.006, 2), (0.006, 3), (0.004, 1), (0.004, 2), (0.004, 3)] {
+            let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            got.push((format!("pipe h {h} n {n}"), m.cell_count(), mesh_fingerprint(&m)));
+        }
+        let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(0.02, 0.02, 0.06));
+        let labels: Vec<&str> = bt
+            .iter()
+            .map(|tri| {
+                let z = [bp[tri[0]].z, bp[tri[1]].z, bp[tri[2]].z];
+                if z.iter().all(|&v| v.abs() < 1e-12) {
+                    "inlet"
+                } else if z.iter().all(|&v| (v - 0.06).abs() < 1e-12) {
+                    "outlet"
+                } else {
+                    "walls"
+                }
+            })
+            .collect();
+        let br = SurfaceRegions::from_labels(&labels);
+        let o = TetDualOptions { cell_size: 0.005, n_layers: 2, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+        let (m, _) = surface_to_tet_dual_mesh_multipatch(&bp, &bt, &br, &o).unwrap();
+        got.push(("box duct h 0.005 n 2".into(), m.cell_count(), mesh_fingerprint(&m)));
+        let pinned: [(usize, u64); 7] = [
+            (2025, 14571713154878100336),
+            (3445, 15107328938539315242),
+            (4865, 17913122352869577766),
+            (5511, 11354576510400452468),
+            (9079, 6008187938627271744),
+            (12647, 13850840632559401666),
+            (5813, 7672853737214871962),
+        ];
+        for (g, want) in got.iter().zip(pinned) {
+            assert_eq!((g.1, g.2), want, "{} moved", g.0);
+        }
+    }
+
     /// A pipe surface (radius `r`, length `l`, `n_seg` sides, z ∈ [0, l]) with
     /// each triangle labelled `inlet` (flat at z = 0), `outlet` (flat at
     /// z = l) or `walls`.
