@@ -135,7 +135,15 @@ pub fn run(out_dir: &str) -> Result<String, String> {
         .filter(|((m, s), t)| (*t - m).abs() <= 2.0 * s)
         .count();
     say(&mut log, format!("MFK (UA only): held-out UA relative RMSE {:.2} % (gh:#1190 record: 3.0 %), 2 sigma coverage {cov2}/8", 100.0 * rel_rmse(&mh.iter().map(|p| p.0).collect::<Vec<_>>(), &truth)));
-    let mfk_grid: Vec<(f64, f64)> = grid.iter().map(&mfk_at).collect::<Result<_, _>>()?;
+    // The design sweep through the twin engine's API (gh:#1181).
+    let mfk_grid: Vec<(f64, f64)> = cokriging::sweep(&mfk, &grid)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|p| {
+            let sd = p.std_dev.ok_or("MFK gave no sd")?;
+            Ok((p.mean.ua.get::<watt_per_kelvin>(), sd.ua.get::<watt_per_kelvin>()))
+        })
+        .collect::<Result<_, String>>()?;
     say(
         &mut log,
         format!("MFK on the {}-point grid done", grid.len()),

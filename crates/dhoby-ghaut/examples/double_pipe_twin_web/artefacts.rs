@@ -80,21 +80,24 @@ pub fn index(i_rh: usize, i_rc: usize, i_k: usize, i_l: usize) -> usize {
     ((i_rh * N_RE + i_rc) * K_LEVELS.len() + i_k) * L_LEVELS.len() + i_l
 }
 
-/// The 1215 grid inputs in [`index`] order.
+/// The 1215 grid inputs in [`index`] order: the twin engine's design-sweep
+/// API (gh:#1181, `cokriging::SweepAxes::full_factorial`) on these levels.
 #[must_use]
 pub fn grid() -> Vec<DoublePipeInput> {
-    let (rh, rc) = (re_hot_levels(), re_cold_levels());
-    let mut out = Vec::with_capacity(N_RE * N_RE * K_LEVELS.len() * L_LEVELS.len());
-    for h in rh {
-        for c in rc {
-            for k in K_LEVELS {
-                for l in L_LEVELS {
-                    out.push(DoublePipeInput::si(h, c, k, l));
-                }
-            }
-        }
+    sweep_axes().full_factorial()
+}
+
+/// The grid's levels as the twin engine's sweep axes.
+#[must_use]
+pub fn sweep_axes() -> outram_park_digital_twin_engine::multifidelity::double_pipe::cokriging::SweepAxes {
+    use uom::si::f64::{Length, Ratio, ThermalConductivity};
+    use uom::si::{length::meter, ratio::ratio, thermal_conductivity::watt_per_meter_kelvin};
+    outram_park_digital_twin_engine::multifidelity::double_pipe::cokriging::SweepAxes {
+        re_hot: re_hot_levels().iter().map(|&v| Ratio::new::<ratio>(v)).collect(),
+        re_cold: re_cold_levels().iter().map(|&v| Ratio::new::<ratio>(v)).collect(),
+        k_wall: K_LEVELS.iter().map(|&v| ThermalConductivity::new::<watt_per_meter_kelvin>(v)).collect(),
+        length: L_LEVELS.iter().map(|&v| Length::new::<meter>(v)).collect(),
     }
-    out
 }
 
 /// One grid row. UA in W/K; the KOH mean and sd and δ on ln(UA / (W/K)).
