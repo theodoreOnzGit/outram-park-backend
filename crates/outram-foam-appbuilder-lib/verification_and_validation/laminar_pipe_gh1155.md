@@ -942,7 +942,46 @@ held only for upstream's metric.
 meshes' max skewness falls to 0.5–3 and they are accepted with the full
 thickness again; whether they then run is open: if they still diverge, the
 skewness was not the cause and the next suspects are the layer cells'
-aspect ratio against the explicit non-orthogonal correction. **The structured default moved:**
+aspect ratio against the explicit non-orthogonal correction.
+
+**Result:** held on the metric (3-layer max skewness 0.98–1.01 with
+upstream's definition; the 2-layer h 5 mm mesh backs off slightly and
+loses its 105 bad pyramids), and the 3-layer meshes are the same meshes as
+before, so **they still diverge: skewness was not the cause.**
+
+**Isolation of the 3-layer divergence (h 5 mm, 3 layers, 26 009 cells,
+demo pair, Re = 100, `--headless-unstructured 5 3 0.3 1.2 100`):**
+
+| change | result |
+|---|---|
+| none | diverged |
+| `FOAM_LAPLACIAN=uncorrected` (no explicit non-orthogonal term) | diverged |
+| `FOAM_NON_ORTH=0` | diverged |
+| Re = 20 | diverged |
+| viscous-number cap 0.2 (default 0.5) | diverged |
+| viscous-number cap 0.1 | (not finished in 25 min) |
+| viscous-number cap 0.05 (Δt 10× smaller) | did not diverge in 15 min (killed by the time limit, not steady) |
+
+So it is temporal after all, and not the non-orthogonal correction.
+Instrumented (a temporary print of each linear solve's iterations and
+residual): the pressure PCG converges throughout (60–170 iterations to
+1e-8) until the end; the **momentum predictor's Gauss–Seidel needs 33
+sweeps at first, then 100, 190, 716, then hits its 1 000-sweep cap
+unconverged (residual 2e-2 … 2.0)**, and three steps later the pressure
+solve blows up. The port solves `UEqn` **cold-started from U = 0**
+(`FvVectorMatrix::solve`), so every step it must rebuild the whole field
+by Gauss–Seidel sweeps; on the stretched layer cells (aspect 5–7.5,
+first layer 0.04–0.08 mm) the sweep count to 1e-7 grows past the cap.
+OpenFOAM solves `UEqn == -grad(p)` for U **starting from the current U**
+(every `fvMatrix::solve` iterates on `psi` in place), so its smoother only
+has to remove the change over one step.
+
+**Fix (prediction written before the run):** warm-start the momentum
+solve from the current U (`FvVectorMatrix::solve_with_guess`, used by
+`PimpleFoam`'s predictor). Predicted: the 3-layer meshes run to steady at
+the default Δt; Gauss–Seidel sweeps per step stay below 100; the
+structured default moves by at most the solver tolerance (u_c, dp/dz to
+4 digits unchanged, 34 ± 1 steps). **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)

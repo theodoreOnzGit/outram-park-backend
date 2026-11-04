@@ -1618,4 +1618,72 @@ mod tests {
             check(&m, &format!("box duct layers {n} ({:?})", rep.stage_notes));
         }
     }
+
+    /// Diagnostic (gh:#1202), `--ignored`: mesh quality **per layer** on the
+    /// demo's wall-only layered pipes (R 10 mm, L 200 mm, 48 facets): for the
+    /// dual cells and for each prism layer k (cells `n0 + i·n + k`), the max
+    /// non-orthogonality and OpenFOAM skewness over the cells' faces, the
+    /// max OpenFOAM aspect ratio `(Σ|S_x| + Σ|S_y| + Σ|S_z|)/(6 V^(2/3))`
+    /// (`primitiveMesh::checkClosedCells`), the min determinant, the mean
+    /// layer thickness `V / |S_wall-side|`.
+    #[test]
+    #[ignore]
+    fn diagnose_layer_quality_per_layer() {
+        let (r, l) = (0.01, 0.2);
+        let (p, t, regions) = pipe_surface(r, l, 48);
+        for (h, n) in [(0.005, 1), (0.005, 2), (0.005, 3), (0.004, 1), (0.004, 2), (0.004, 3)] {
+            let base = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+            let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
+            let opts = TetDualOptions { n_layers: n, first_layer_thickness: 0.0003, expansion: 1.2, layer_patches: vec!["walls".into()], ..base.clone() };
+            let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
+            let n0 = bare.cell_count();
+            let (vols, centres) = crate::checks::cell_geometry(&m);
+            let class = |c: usize| if c < n0 { 0 } else { 1 + (c - n0) % n };
+            let k = n + 1;
+            let (mut no, mut sk, mut ar, mut thick, mut cnt) = (vec![0.0_f64; k], vec![0.0_f64; k], vec![0.0_f64; k], vec![0.0_f64; k], vec![0usize; k]);
+            let mut cmpt = vec![[0.0_f64; 3]; m.n_cells];
+            let mut smax = vec![0.0_f64; m.n_cells];
+            for f in 0..m.face_count() {
+                let s = m.face_area_vector(f);
+                let o = m.owner[f];
+                for c in std::iter::once(o).chain(m.neighbour[f]) {
+                    cmpt[c][0] += s.x.abs();
+                    cmpt[c][1] += s.y.abs();
+                    cmpt[c][2] += s.z.abs();
+                    smax[c] = smax[c].max(s.length());
+                }
+                let Some(nb) = m.neighbour[f] else { continue };
+                let d = centres[nb].sub(centres[o]);
+                let cos = (d.dot(s) / (d.length() * s.length())).clamp(-1.0, 1.0);
+                let ang = cos.acos().to_degrees();
+                let fc = m.face_centroid(f);
+                let cpf = fc.sub(centres[o]);
+                let sv = cpf.sub(d.scale(s.dot(cpf) / (s.dot(d) + 1e-300)));
+                let svh = sv.scale(1.0 / (sv.length() + 1e-300));
+                let mut fd = 0.2 * d.length() + 1e-300;
+                for &v in &m.faces[f] {
+                    fd = fd.max(svh.dot(m.points[v].sub(fc)).abs());
+                }
+                let skew = sv.length() / fd;
+                for c in [o, nb] {
+                    no[class(c)] = no[class(c)].max(ang);
+                    sk[class(c)] = sk[class(c)].max(skew);
+                }
+            }
+            for c in 0..m.n_cells {
+                let a = (cmpt[c][0] + cmpt[c][1] + cmpt[c][2]) / (6.0 * vols[c].powf(2.0 / 3.0));
+                ar[class(c)] = ar[class(c)].max(a);
+                if c >= n0 {
+                    thick[class(c)] += vols[c] / smax[c];
+                    cnt[class(c)] += 1;
+                }
+            }
+            println!("h {h} layers {n}: {} cells, notes {:?}", m.cell_count(), rep.stage_notes);
+            for i in 0..k {
+                let name = if i == 0 { "dual".to_string() } else { format!("layer {i}") };
+                let th = if cnt[i] > 0 { format!("{:.3} mm", 1e3 * thick[i] / cnt[i] as f64) } else { "-".into() };
+                println!("  {name:8}: max non-ortho {:5.1} deg, max skew {:.2}, max aspect {:6.1}, mean thickness {th}", no[i], sk[i], ar[i]);
+            }
+        }
+    }
 }

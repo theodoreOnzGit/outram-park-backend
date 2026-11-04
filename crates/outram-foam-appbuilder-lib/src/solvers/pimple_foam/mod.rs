@@ -659,7 +659,9 @@ impl PimpleFoam {
             for c in 0..n {
                 u_eqn.source[c] = u_eqn.source[c] - gp.internal[c] * mesh.cell_volumes[c];
             }
-            let (mut u_pred, _) = u_eqn.solve("U", settings);
+            // Warm-started from the current U, as upstream's fvMatrix::solve
+            // (gh:#1202: the cold start ran out of sweeps on thin wall layers).
+            let (mut u_pred, _) = u_eqn.solve_with_guess("U", &self.u, settings);
             correct_bcs_vec(&mut u_pred, &u_bcs);
             // Restore source (remove pressure contribution) for H(U) computation
             for c in 0..n {

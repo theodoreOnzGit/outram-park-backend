@@ -204,6 +204,7 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
             (PlotBasis::Xy, [0.0, 0.0, 10.013], [2.2, 2.2], 900, format!("{label}, {} CELLS, X-Y AT Z = 10.01 CM", m.n_cells()), "xy"),
             (PlotBasis::Xz, [0.0, 0.013, 2.0], [2.2, 4.4], 500, format!("{label}, X-Z AT Y = 0.013 CM, INLET END"), "xz_inlet"),
             (PlotBasis::Xz, [0.75, 0.013, 0.25], [0.6, 0.6], 700, format!("{label}, X-Z, INLET CORNER (X 0.45-1.05, Z 0-0.55 CM)"), "xz_corner"),
+            (PlotBasis::Xy, [0.85, 0.0, 10.013], [0.35, 0.35], 800, format!("{label}, X-Y WALL ZOOM (X 0.675-1.025 CM) AT Z = 10.01 CM"), "xy_wall"),
         ];
         for (basis, origin, width, px, title, view) in shots {
             let py = ((px as f64) * width[1] / width[0]).round() as usize;
@@ -222,7 +223,15 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn vv_unstructured_specs() -> Vec<(&'static str, engine::TetDualSpec)> {
     // The ~7k member (the ~20k member is the demo default, drawn above).
-    vec![("unstructured_default_7k", engine::TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 })]
+    // 2026-11-04 (gh:#1202): the mapped (feature-edge) meshes, the demo
+    // default bare and with 2 and 3 wall layers.
+    let s = |h: f64, n: usize| engine::TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+    vec![
+        ("unstructured_default_7k", s(0.006, 1)),
+        ("mapped_h4_bare", s(0.004, 0)),
+        ("mapped_h4_2layers", s(0.004, 2)),
+        ("mapped_h4_3layers", s(0.004, 3)),
+    ]
 }
 
 /// The drawing rule's images of the double-pipe exchanger (gh:#1156): the
