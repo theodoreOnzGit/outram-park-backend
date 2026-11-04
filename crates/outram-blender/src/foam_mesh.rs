@@ -102,6 +102,7 @@ use crate::mesh::Mesh;
 // Re-export the backend types callers need, so a user of this bridge does not
 // have to name the `outram-park-fork-cfmesh` crate directly for the common path.
 pub use outram_park_fork_cfmesh::math::Vec3;
+pub use outram_park_fork_cfmesh::layers::{LayerOutcome, LayerQualityStrategy};
 pub use outram_park_fork_cfmesh::pipeline::{TetDualOptions, TetDualReport};
 pub use outram_park_fork_cfmesh::volume_mesh::VolumeMesh;
 

@@ -430,7 +430,7 @@ pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag;
     #[cfg(not(target_arch = "wasm32"))]
     let strategy = layer_strategy_from_env();
     #[cfg(target_arch = "wasm32")]
-    let strategy = outram_park_fork_cfmesh::layers::LayerQualityStrategy::BackOffOnly;
+    let strategy = outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly;
     mesh_unstructured_with(radius, length, centre, tags, spec, strategy).map(|(p, n, _)| (p, n))
 }
 
@@ -443,8 +443,8 @@ pub fn mesh_unstructured_with(
     centre: [f64; 3],
     tags: [Tag; 3],
     spec: &TetDualSpec,
-    strategy: outram_park_fork_cfmesh::layers::LayerQualityStrategy,
-) -> Result<(PolyMesh, Vec<String>, Option<outram_park_fork_cfmesh::layers::LayerOutcome>), String> {
+    strategy: outram_blender::foam_mesh::LayerQualityStrategy,
+) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
     use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
     let s = spec.clamped(radius, length);
     let cyl = outram_blender::primitives::cylinder(CYL_SEGMENTS, radius, length);
@@ -487,8 +487,8 @@ pub fn mesh_unstructured_with(
 /// knob of the differential record, `laminar_pipe_gh1155.md`):
 /// `cfmesh`, `snappy`, or the default back-off for anything else.
 #[cfg(not(target_arch = "wasm32"))]
-fn layer_strategy_from_env() -> outram_park_fork_cfmesh::layers::LayerQualityStrategy {
-    use outram_park_fork_cfmesh::layers::LayerQualityStrategy as S;
+fn layer_strategy_from_env() -> outram_blender::foam_mesh::LayerQualityStrategy {
+    use outram_blender::foam_mesh::LayerQualityStrategy as S;
     match std::env::var("FOAM_LAYER_STRATEGY").as_deref() {
         Ok("cfmesh") => S::CfMeshOptimise,
         Ok("snappy") => S::SnappyCollapse,

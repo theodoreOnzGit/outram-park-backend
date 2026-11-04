@@ -1166,8 +1166,13 @@ what is still open:
   Comparing against OpenFOAM on an exported mesh (`export_polymesh`) is
   the next check that would separate the port from the mesh.
 - ~~2+ layers diverge; 1 layer runs.~~ **1 and 2 layers run; 3 diverge**
-  (one shrunk dual cell over the layer stack, 75–84° interface); local
-  layer collapse is not ported.
+  (one shrunk dual cell over the layer stack, 75–84° interface); ~~local
+  layer collapse is not ported.~~ **UPDATED 2026-11-04 (gh:#1215):** both
+  upstream repairs are ported and compared (section above): 3 layers run
+  under cfMesh's optimiser at h 5 and 4 mm; snappy's collapse removes every
+  layer. The 75–84° is inherited from the bare dual's wall faces (several
+  per wall cell, median 69° to the owner centre), which the default
+  back-off keeps.
 - ~~No feature-edge capture~~: ported (`surface_mapper`), without
   `correctEdgesBetweenPatches` (points that would land a face on the rim
   stay unmapped: 34 at h 6 mm, 126 at 3.3 mm, 0 at the default).
@@ -1274,10 +1279,246 @@ coverage and B on worst-face quality; on the solve both should remove the
 the Hagen–Poiseuille accuracy by more than the 2 % the core's resolution
 already costs.
 
+### Methodology (as run)
+
+- **Mesh level:** `outram-park-fork-cfmesh`
+  `pipeline::tests::diagnose_layer_strategies_differential` (`--ignored`;
+  `CFMESH_CASE` filters, `CFMESH_DET=1` adds a second run per case and
+  compares fingerprints): cfMesh's own 48-sided pipe and the tet-dual duct
+  through the multipatch pipeline under each strategy. Quality is the
+  crate's `check_quality` (OpenFOAM `faceSkewness`, the crate's
+  determinant) plus counts of faces failing snappy's `meshQualityDict`
+  (`checks::faces_failing_mesh_quality`, strict 65° / relaxed 75°), and,
+  for the back-off's full-layer meshes, which single check the layer
+  cells' faces fail. Times are native release on the shared 4-core host,
+  **with other jobs running** (the build and the solves below), so they are
+  upper bounds; the clean h 5 mm, 3-layer run took 0.77 s / 47.3 s / 0.67 s.
+- **Solve level:** Foam Studio `--headless-unstructured h n 0.3 1.2 100`
+  with `FOAM_LAYER_STRATEGY=backoff|cfmesh|snappy` (the demo's cylinder,
+  48 facets; the demo pair `linearUpwind grad(U)` + `cellLimited Gauss
+  linear 1`, 2 correctors), Re = 100, to the steady criterion; nominal
+  instruments, as the gh:#1202 rows.
+- **Sanity:** `pipeline::tests::every_strategy_leaves_a_good_box_duct_alone`
+  (Cartesian duct). **Determinism:** `layer_strategies_are_deterministic`
+  (two calls, and fingerprints recorded once and asserted, so a different
+  process must give the same bits), `back_off_only_layers_are_pinned_bit_for_bit`,
+  and `CFMESH_DET=1` on every case of the h 6 mm rows (all `det true`).
+
+### Results (2026-11-04)
+
+**Mesh level** (pipe R 10 mm, L 200 mm; requested first layer 0.3 mm,
+× 1.2; "first" and "total" are means over the wall points that carry the
+full count; NO = non-orthogonality; fails = faces failing snappy's strict
+/ relaxed controls; coverage = wall faces with all N layers):
+
+| case | strategy | cells | time (s) | max NO (°) | > 65° / > 75° | max skew | min det | fails strict / relaxed | coverage | first / total (mm) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| h 6, 1 | BackOff | 6 713 | 1.0 | 77.0 | 1 956 / 260 | 1.88 | 9.5e-3 | 2 116 / 424 | 1.000 | 0.299 / 0.299 |
+| | CfMesh | 6 713 | 186 | 73.4 | 6 / 0 | 0.85 | 0.167 | 18 / 12 | 1.000 | 0.960 / 0.960 |
+| | Snappy | 2 195 | 0.9 | 61.1 | 0 / 0 | 0.89 | 5.1e-2 | 6 / 6 | 0.054 (98.7 % of points collapsed) | 0.300 / 0.300 |
+| h 6, 2 | BackOff | 11 487 | 0.8 | 84.2 | 2 308 / 1 112 | 2.04 | 2.2e-3 | 3 924 / 2 738 | 1.000 | 0.149 / 0.328 |
+| | CfMesh | 11 487 | 203 | 74.9 | 18 / 0 | 1.19 | 5.5e-2 | 36 / 18 | 1.000 | 0.440 / 0.968 |
+| | Snappy | 1 939 | 0.9 | 56.2 | 0 / 0 | 0.89 | 0.141 | 6 / 6 | 0 | — |
+| h 6, 3 | BackOff | 1 939 (**no layer**: the back-off found none in 10 tries) | 1.4 | 56.2 | 0 / 0 | 0.89 | 0.141 | 6 / 6 | 0 | — |
+| | CfMesh | 16 261 | 212 | 75.8 | 24 / 4 | 1.47 | 2.3e-2 | 74 / 54 | 1.000 | 0.267 / — |
+| | Snappy | 2 419 | 1.0 | 63.0 | 0 / 0 | 0.89 | 0.141 | 6 / 6 | 0 (97.5 % collapsed; 118 points kept, tapered) | — |
+| h 6, 4 | BackOff | 1 939 (no layer) | 1.7 | 56.2 | 0 / 0 | 0.89 | 0.141 | 6 / 6 | 0 | — |
+| | CfMesh | 21 035 | 171 | 76.3 | 134 / 4 | 1.64 | 1.1e-2 | 810 / 684 | 1.000 | 0.181 / — |
+| | Snappy | 1 939 | 0.8 | 56.2 | 0 / 0 | 0.89 | 0.141 | 6 / 6 | 0 | — |
+| h 5, 1 | BackOff | 10 745 | 0.4 | 74.7 | 4 672 / 0 | 1.14 | 5.5e-2 | 6 072 / 1 400 | 1.000 | 0.294 / 0.294 |
+| | CfMesh | 10 745 | 27 | 63.4 | 0 / 0 | 0.77 | 0.132 | 0 / 0 | 1.000 | 0.765 / 0.765 |
+| | Snappy | 3 113 | 0.6 | 47.0 | 0 / 0 | 0.84 | 0.203 | 152 / 152 | 0 | — |
+| h 5, 2 | BackOff | 18 377 | 0.7 | 79.4 | 4 720 / 3 088 | 1.00 | 1.7e-2 | 7 496 / 5 864 | 1.000 | 0.077 / — |
+| | CfMesh | 18 377 | 46 | 65.1 | 8 / 0 | 0.80 | 0.104 | 1 248 / 1 240 | 1.000 | 0.349 / 0.768 |
+| | Snappy | 3 113 | 0.7 | 47.0 | 0 / 0 | 0.84 | 0.203 | 152 / 152 | 0 | — |
+| h 5, 3 | BackOff | 26 009 | 0.7 | 81.7 | 4 720 / 3 911 | 1.01 | 6.8e-3 | 7 792 / 6 983 | 1.000 | 0.048 / 0.176 |
+| | CfMesh | 26 009 | 48 | 66.2 | 24 / 0 | 0.80 | 4.6e-2 | 1 272 / 1 248 | 1.000 | 0.211 / 0.769 |
+| | Snappy | 3 113 | 0.7 | 47.0 | 0 / 0 | 0.84 | 0.203 | 152 / 152 | 0 | — |
+| h 5, 4 | BackOff | 33 641 | 0.9 | 82.1 | 4 720 / 4 016 | 1.01 | 3.3e-3 | 8 644 / 7 988 | 1.000 | 0.033 / 0.176 |
+| | CfMesh | 33 641 | 85 | 66.7 | 32 / 0 | 0.81 | 2.4e-2 | 1 280 / 1 248 | 1.000 | 0.143 / 0.769 |
+| | Snappy | 3 113 | 0.7 | 47.0 | 0 / 0 | 0.84 | 0.203 | 152 / 152 | 0 | — |
+| h 4, 1 | BackOff | 18 321 | 0.8 | 78.2 | 6 320 / 3 464 | 1.38 | 5.1e-3 | 7 782 / 4 926 | 1.000 | 0.286 / 0.286 |
+| | CfMesh | 18 321 | 722 | 66.9 | 16 / 0 | 0.60 | 0.108 | 76 / 60 | 1.000 | 0.624 / 0.624 |
+| | Snappy | 6 353 | 1.4 | 50.6 | 0 / 0 | 0.84 | 0.142 | 192 / 192 | 0 | — |
+| h 4, 2 | BackOff | 30 289 | 1.3 | 83.5 | 6 736 / 5 872 | 0.98 | 1.7e-2 | 11 848 / 10 984 | 1.000 | 0.064 / 0.141 |
+| | CfMesh | 30 289 | 772 | 69.6 | 16 / 0 | 0.62 | 9.1e-2 | 1 406 / 1 390 | 1.000 | 0.285 / 0.627 |
+| | Snappy | 6 353 | 1.1 | 50.6 | 0 / 0 | 0.84 | 0.142 | 192 / 192 | 0 | — |
+| h 4, 3 | BackOff | 42 257 | 1.6 | 84.4 | 6 752 / 6 288 | 0.98 | 6.6e-3 | 12 456 / 12 008 | 1.000 | 0.039 / 0.141 |
+| | CfMesh | 42 257 | 853 | 70.5 | 16 / 0 | 0.62 | 3.8e-2 | 1 762 / 1 746 | 1.000 | 0.172 / 0.627 |
+| | Snappy | 6 353 | 1.1 | 50.6 | 0 / 0 | 0.84 | 0.142 | 192 / 192 | 0 | — |
+| h 4, 4 | BackOff | 54 225 | 1.8 | 84.8 | 6 752 / 6 304 | 0.98 | 3.2e-3 | 13 048 / 12 608 | 1.000 | 0.026 / 0.141 |
+| | CfMesh | 54 225 | 720 | 70.9 | 16 / 0 | 0.65 | 1.9e-2 | 1 852 / 1 836 | 1.000 | 0.117 / 0.627 |
+| | Snappy | 6 353 | 1.1 | 50.6 | 0 / 0 | 0.84 | 0.142 | 192 / 192 | 0 | — |
+| duct h 5, 2 | BackOff | 19 281 | 0.6 | 80.2 | 2 560 / 2 560 | 0.88 | 7.3e-2 | 2 560 / 2 560 | 1.000 | 0.147 / 0.323 |
+| | CfMesh | 19 281 | 24 | 62.7 | 0 / 0 | 0.58 | 0.148 | **0 / 0** | 1.000 | 0.332 / 0.731 |
+| | Snappy (`featureAngle` 100 and 60) | 3 921 | 0.6 | 25.6 | 0 / 0 | 0.69 | 0.304 | 0 / 0 | 0 | — |
+| duct h 5, 3 | BackOff | 26 961 | 0.8 | 80.4 | 2 560 / 2 560 | 0.77 | 1.8e-2 | 7 632 / 7 632 | 1.000 | 0.057 / 0.207 |
+| | CfMesh | 26 961 | 24 | 64.9 | 0 / 0 | 0.56 | 0.118 | **0 / 0** | 1.000 | 0.202 / 0.734 |
+| | Snappy (100 and 60) | 3 921 | 0.6 | 25.6 | 0 / 0 | 0.69 | 0.304 | 0 / 0 | 0 | — |
+
+Which of snappy's checks the back-off's full-layer meshes fail, counted on
+faces of layer cells, one check at a time (the reason snappy collapses):
+
+| case | NO > 65 | NO > 75 | tet sign | twist | det | face weight | vol ratio |
+|---|---|---|---|---|---|---|---|
+| pipe h 6, 1 | 1 956 | 260 | 14 | 4 | 24 | 4 | 2 |
+| pipe h 5, 1 | 4 672 | 0 | 0 | 0 | 0 | 0 | 1 232 |
+| pipe h 5, 3 | 4 720 | 3 911 | 0 | 8 | 352 | 2 560 | 2 536 |
+| pipe h 4, 3 | 6 752 | 6 288 | 192 | 0 | 744 | 4 800 | 4 752 |
+| duct h 5, 2 | 2 560 | 2 560 | 2 560 | 0 | 0 | 0 | 0 |
+| duct h 5, 3 | 2 560 | 2 560 | 0 | 0 | 0 | 1 328 | 4 368 |
+
+(Skewness 4 / 20 failed nowhere.) Snappy's first pass runs the strict
+65°: on the pipe, 4 720 of the 7 632 wall faces at h 5 mm sit above it
+already with one layer.
+
+**The cause of the 75–84° (found by this comparison, `diagnose_wall_faces_per_dual_cell`).**
+On the bare tet dual each wall-adjacent cell owns **4 or 7+ wall faces**
+(h 5 mm pipe: 7 632 wall faces on 1 288 cells; 648 cells with 4, 624 with
+7 or more; the duct the same, 672 / 624), one piece per boundary-triangle
+corner, and the line from a piece's centre to its owner's centre leaves
+the piece at a median 69° from its normal (90th percentile 74.6°, max
+75.1°; 4 720 pieces above 65°, exactly the 4 720 of the layered rows; duct
+median 58°, 2 560 above 65°). A prism stacked on a piece inherits that
+angle at its top face; no thinning changes it, which is why the back-off
+cannot and why snappy removes everything. OpenFOAM's `polyDualMesh` gives a
+boundary point's dual cell one boundary face per patch (the polygon around
+the point), not one per triangle corner; this crate's face-minimal dual
+does not merge the pieces even where they are coplanar (the flat duct). Not
+changed here (recorded as the lead for the next step; see "Open").
+
+**Solve level** (Re = 100, demo pair, nominal instruments; steps, u_c/2U,
+(−dp/dz)/HP, profile RMS, τ_w/HP; meshing time):
+
+| h (mm), N | BackOffOnly | CfMeshOptimise | SnappyCollapse |
+|---|---|---|---|
+| 5, 3 | **diverged** (as gh:#1202) | **ran: 425 steps**, 0.9215, 0.9977, 0.0321, 0.9935 (mesh 79 s) | = the bare mesh (all collapsed): 24, 0.9005, 0.9925, 0.0486, 0.9908 |
+| 4, 3 | **diverged** | **ran: 54 steps**, 0.8935, 0.9968, 0.0305, 0.9903 (mesh 888 s; 198 bad faces left) | = bare (demo default): 29, 0.8925, 1.0326, 0.0356, 1.0312 |
+| 5, 2 | 117, 0.8990, 0.9946, 0.0500, 0.9785 (gh:#1202's row, reproduced) | 31, 0.9253, 0.9976, 0.0340, 0.9935 (76 s) | = bare: 24, 0.9005, 0.9925, 0.0486, 0.9908 |
+| 4, 2 | 45, 0.8926, 1.0280, 0.0365, 1.0262 (gh:#1202's row) | 51, 0.8927, 0.9918, 0.0309, 0.9895 (869 s) | = bare: 29, 0.8925, 1.0326, 0.0356, 1.0312 |
+| 6, 2 | 39, 0.8079, 1.0883, 0.0729, 1.0653 (gh:#1202's row) | 31, 0.8522, 1.0168, 0.0502, 1.0125 (186 s) | = bare: 22, 0.8058, 1.0692, 0.0739, 1.0677 |
+| 6, 3 | no layer (the back-off found none) = bare: 22, 0.8058, 1.0692, 0.0739, 1.0677 | **5 000 steps, not steady** (the step cap; it did not diverge): 0.8537, 1.0378, 0.0495, 1.0136 (204 s) | 2.5 % of the wall points kept (wedge cells where layers end): 22, 0.8033, **1.1212**, 0.0723, 1.1112 |
+| 5, 1 | 28, 0.8954, 0.9705, 0.0509, 0.9678 (gh:#1202's row) | 24, 0.9179, 0.9999, 0.0350, 0.9964 (50 s) | = bare: 24, 0.9005, 0.9925, 0.0486, 0.9908 |
+
+Reading it: under cfMesh every case that meshed also ran except h 6 mm with
+3 layers (not steady in 5 000 steps); its dp/dz and τ_w sit within 0.5 % of
+Hagen–Poiseuille at h 5 mm and h 4 mm (thick layers at the wall, but u_c
+still 8–11 % low: the core). Snappy's 3 % of kept layers at h 6 mm *raise*
+dp/dz by 5 % over the bare mesh: a layer that ends inside the wall leaves
+wedge cells, the worst place for them.
+
+The structured default was re-run: 20 480 cells, 34 steps, u_c/2U
+**0.9940**, dp/dz **1.0154**, RMS 0.0063, τ_w 1.0066, unchanged. The
+unstructured default (h 4 mm, no layer) is unchanged by the determinism fix
+(its fingerprint did not move) and by the strategies (it has no layer):
+0.8925 / 1.0326, as `headless_unstructured_pipe_runs_and_is_pinned` pins.
+
+**Sanity and determinism.** On the Cartesian duct every strategy leaves
+the mesh alone, as predicted (`every_strategy_leaves_a_good_box_duct_alone`:
+snappy converges in one iteration, bit-identical to the back-off; cfMesh
+flags no low-quality face, moves no interior point, keeps the side-middle
+thickness to 1e-12). All three strategies are reproducible (pinned
+fingerprints; `det true` on every `CFMESH_DET=1` case).
+
+### Against the predictions
+
+| prediction | result | verdict |
+|---|---|---|
+| CfMesh coverage 100 % | 100 % everywhere | held |
+| Snappy coverage 1 layer 60–95 %, 2–3 layers 0–50 % | **0–5 %**: 5.4 % at h 6 mm with 1 layer, 0 elsewhere | **missed** (lower than the low edge at 1 layer) |
+| what collapses snappy: face weight and volume ratio, not non-orthogonality | **non-orthogonality first** (4 672 of 7 632 faces above 65° with one layer at h 5 mm; the strict 65° pass removes them before the relaxed 75° could apply); weight and volume ratio fail too from 2–3 layers | **missed** |
+| CfMesh thickness 0.8–1.0 × the back-off's | **2.5–4.4 × thicker** (h 5 mm, 3 layers: total 0.77 mm against 0.18; first layer 0.21 against 0.05; with 1 layer 0.77 mm against the 0.3 mm asked): the optimisers move the layer's inner points freely, and cfMesh's thickness control (`refineBoundaryLayers`' `maxFirstLayerThickness`) is not ported | **missed** |
+| CfMesh max NO 65–78° | 63.4–76.3° | held |
+| Snappy max NO ≤ 75° | 47–63° (nothing left to be bad) | held, trivially |
+| skewness ≈ 1 | 0.6–2.0 | held |
+| CfMesh 3 layers runs at h 5 mm (55 %) | **runs** (425 steps) and at h 4 mm (54 steps); at h 6 mm not steady in 5 000 steps (no divergence) | held at 5 and 4 mm |
+| Snappy 3 layers runs (70 %) | runs, but only because no layer is left | held in letter, not in substance |
+| u_c, dp/dz within ±2 % of the back-off where both run | CfMesh against BackOff at the same h: N = 2, dp/dz +0.3 % (5 mm), −3.5 % (4 mm), −6.6 % (6 mm), u_c +2.9 %, 0.0 %, +5.5 %; N = 1 at 5 mm, dp/dz +3.0 %, u_c +2.5 % | **missed** at h 4 and 6 mm on dp/dz, and at 5 and 6 mm on u_c: the thicker cfMesh layers change the near-wall resolution, and at h 6 mm they move both toward Hagen–Poiseuille |
+| determinism | identical | held |
+| meshing time: CfMesh 2–20 × | **30–900 ×** (27 s to 15 min) | **missed** |
+| Cartesian duct sanity | as predicted | held |
+| `featureAngle` 60 unextrudes the duct's long edges | no visible effect: the strict quality pass already removes every layer | not testable here |
+
+### Where A and B agree and where they differ, and why
+
+- **Agree:** both repair what the back-off cannot: the 3-layer pipes run
+  under both, and both end with max non-orthogonality below 76°.
+- **Differ, completely, on coverage:** cfMesh keeps 100 %, snappy 0 %. The
+  reason is upstream's design, not a port difference: snappy only removes
+  (a point once unextruded stays so) and its first 20 iterations hold 65°,
+  which most faces of this dual's wall cells exceed *before any layer is
+  added*; cfMesh only moves points and never removes a layer.
+- **Differ on thickness:** snappy keeps the requested (capped) thickness
+  where it keeps a layer; cfMesh's layers end 2.5–4.4 × thicker than the
+  back-off's and up to 2.5 × the request (module docs).
+- **Differ on cost:** cfMesh's volume optimiser on tetrahedra of the
+  polyhedral cells is 30–900 × the back-off; snappy costs a few rebuilds.
+
+### Recommendation (for the maintainer; the default is not changed)
+
+Keep **`BackOffOnly` as the default** for the demo's offered settings
+(it is what the recorded numbers use, and for 1–2 layers it runs), and
+**do not adopt either new strategy as the default yet**:
+`SnappyCollapse` removes every layer on this mesh family, so it is
+equivalent to asking for none; `CfMeshOptimise` makes 3 layers run but
+costs minutes at h 4 mm (too slow for the browser demo, which meshes on the
+reader's phone) and does not hold the requested thickness. The comparison
+points at the cause instead: the dual's wall cells carry 4–8 wall faces
+each, one per triangle corner, where OpenFOAM's `polyDualMesh` would give
+one. **Recommended next step:** merge each dual cell's wall pieces into one
+face per patch (port `polyDualMesh`'s boundary faces), predicted to bring
+the interface non-orthogonality to the bare interior's 50–57° and let all
+three strategies keep their layers; then re-run this table.
+
+### Images (drawn from the `PolyMesh` the solver gets)
+
+In `laminar_pipe_gh1155/layer_strategies_gh1215/`, written by
+`cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies`
+(the demo pipe, h 5 mm, 3 layers, one colour per cell), for each of
+`backoff`, `cfmesh`, `snappy`: `layers_<s>_h5_3_xz_rim.png` (x-z zoom on
+the inlet rim), `_xy.png` (cross-section at mid-length), `_xy_wall.png`
+(3.5 mm wall zoom of that section) and `_wallmap.png` (every wall point,
+angle against z, inlet at the top: red no layer, orange fewer than asked,
+blue all three, darker the thicker, 0–1 mm).
+
+**Checked by eye (2026-11-04):** `backoff` wall zoom: three thin prisms,
+total 0.25–0.4 mm along the section, under the dual cell; rim: the same thin stack ends on
+the inlet at z = 0 and its columns lean (the uniform back-off to 0.36 of
+the cap). `cfmesh` wall zoom: three layers about 0.27, 0.33 and 0.40 mm
+from the wall in (total about 1 mm here), the dual cell above them shrunk to make room; rim:
+the stack is 0.7–1 mm thick down to the inlet, columns straight, the dual
+cells behind it reshaped (the interior points moved, compare the rim of
+`backoff`). `snappy`: no layer anywhere (the bare dual), and its wall map
+is all red; cfMesh's all blue, thickness varying in bands along the
+48 facets. **Not checked:** the 3-D shape of the reshaped dual cells
+between the slices; the wall map draws points, not faces.
+
+### Open (gh:#1215)
+
+- The dual's boundary faces (above): the lead.
+- CfMesh's thickness: port `refineBoundaryLayers`' `maxFirstLayerThickness`
+  / `thicknessRatio`, so the requested first layer is honoured.
+- CfMesh's cost: the volume optimiser runs on up to 2 point-layers of
+  cells around ~1 000–5 000 low-quality faces for 10 passes; it is threaded
+  natively (Jacobi, results independent of the thread count) but would
+  need to be bounded before a browser could use it.
+- Not ported (module docs): cfMesh's LP `meshUntangler`, boundary moves and
+  `meshSurfaceOptimizer`; snappy's medial-axis mover and `handleWarpedFaces`.
+- `octree.rs` still numbers cells in `HashSet` order (only with
+  `refinement_levels > 0`).
+- Upstream (OpenFOAM, cfMesh) is not installed here, so neither port was
+  checked against its upstream on a shared case; the differential above is
+  between the ports and the back-off.
+
 ## Reproduce
 
 ```bash
 cargo test --release -p outram-foam-appbuilder-lib --test laminar_pipe_hagen_poiseuille \
     -- --ignored --nocapture measure_gh1155
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-mesh
+# gh:#1215, the layer strategies
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_layer_strategies_differential
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_wall_faces_per_dual_cell
+FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies
 ```

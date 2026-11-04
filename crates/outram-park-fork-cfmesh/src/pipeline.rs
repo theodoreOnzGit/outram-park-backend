@@ -1581,6 +1581,51 @@ mod tests {
             got.push((a.cell_count(), mesh_fingerprint(&a)));
         }
         eprintln!("strategy fingerprints {got:?}");
+        // Recorded 2026-11-04 (serial smoothing); the threaded smoothing
+        // must give the same bits.
+        assert_eq!(got, vec![(7725, 11521056484853145326), (957, 10164118906460112537)]);
+    }
+
+    /// Diagnostic (gh:#1215), `--ignored`: how many wall faces each
+    /// wall-adjacent cell of the bare tet dual owns, and the angle between
+    /// a wall face's normal and the line from its centre to its owner's
+    /// centre (what a prism stacked on the face inherits as the
+    /// top-prism/dual non-orthogonality).
+    #[test]
+    #[ignore]
+    fn diagnose_wall_faces_per_dual_cell() {
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let (bp, bt, br) = box_duct_surface(0.02, 0.2);
+        for (name, sp, st, sr, h) in [("pipe h5", &p, &t, &regions, 0.005), ("pipe h4", &p, &t, &regions, 0.004), ("duct h5", &bp, &bt, &br, 0.005)] {
+            let o = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+            let (m, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
+            let (_, centres) = crate::checks::cell_geometry(&m);
+            let walls = m.patches.iter().find(|q| q.name == "walls").unwrap();
+            let mut per_cell: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
+            let mut angles = Vec::new();
+            for f in walls.start_face..walls.start_face + walls.n_faces {
+                *per_cell.entry(m.owner[f]).or_insert(0) += 1;
+                let s = m.face_area_vector(f);
+                let d = centres[m.owner[f]].sub(m.face_centroid(f));
+                angles.push((-d.dot(s) / (d.length() * s.length())).clamp(-1.0, 1.0).acos().to_degrees());
+            }
+            let mut hist = [0usize; 8];
+            for &n in per_cell.values() {
+                hist[n.min(7)] += 1;
+            }
+            angles.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let q = |f: f64| angles[((angles.len() - 1) as f64 * f) as usize];
+            println!(
+                "{name}: {} wall faces on {} cells; cells by wall-face count 1..7+: {:?}; face-to-owner angle median {:.1}, 90th {:.1}, max {:.1} deg; > 65 deg: {}",
+                walls.n_faces,
+                per_cell.len(),
+                &hist[1..],
+                q(0.5),
+                q(0.9),
+                q(1.0),
+                angles.iter().filter(|&&a| a > 65.0).count()
+            );
+        }
     }
 
     /// Diagnostic (gh:#1215), `--ignored`: **the differential table.** Every

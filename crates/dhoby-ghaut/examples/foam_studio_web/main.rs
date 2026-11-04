@@ -225,16 +225,17 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
 /// strategy on the demo pipe at h 5 mm with 3 wall layers: the inlet rim
 /// (x-z zoom), a wall zoom of the cross-section at mid-length, and an
 /// unrolled map of the wall (angle against z) coloured by the layers each
-/// wall point got and how thin its column is against its cap. CLI glue: the
+/// wall point got and how thick its column is. CLI glue: the
 /// meshes come from `engine::mesh_unstructured_with`, the slices from
 /// `render_mesh_slice_annotated`; reached by no test (drawing only).
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
     use engine::{Tag, TetDualSpec};
     use outram_blender::csg::plot::slice::PlotBasis;
     use outram_blender::csg::plot::{annotate::draw_text, ImageData};
     use outram_blender::unstructured::convert::foam::from_poly_mesh;
     use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice};
-    use outram_park_fork_cfmesh::layers::LayerQualityStrategy as S;
+    use outram_blender::foam_mesh::LayerQualityStrategy as S;
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
     let h_mm: f64 = std::env::var("FOAM_RENDER_H_MM").ok().and_then(|v| v.parse().ok()).unwrap_or(5.0);
@@ -262,17 +263,18 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
         let mut img = ImageData::filled(w, hgt + 2 * margin, outram_blender::csg::plot::Rgb { r: 255, g: 255, b: 255 });
         for (p, n, t, cap) in &o.points {
             let theta = p.y.atan2(p.x); // -pi..pi
-            let z = p.z; // the pipeline's frame: 0..0.2 m
+            let z = p.z + 0.1; // the pipeline's frame is z in [-0.1, 0.1] m
             let x = ((theta + std::f64::consts::PI) / (2.0 * std::f64::consts::PI) * (w - 1) as f64) as i64;
             let y = margin as i64 + ((z / 0.2) * (hgt - 1) as f64) as i64;
-            // Colour: no layer red; full count blue, darker the thinner the
-            // column is against its cap; fewer than requested orange.
+            // Colour: no layer red; fewer than requested orange; the full
+            // count blue, darker the thicker the column (0 to 1 mm).
             let c = if *n == 0 {
                 outram_blender::csg::plot::Rgb { r: 220, g: 30, b: 30 }
             } else if *n < o.n_layers_requested {
                 outram_blender::csg::plot::Rgb { r: 240, g: 150, b: 20 }
             } else {
-                let f = (t / cap).clamp(0.0, 1.0);
+                let _ = cap;
+                let f = (t / 1e-3).clamp(0.0, 1.0);
                 outram_blender::csg::plot::Rgb { r: (40.0 + 160.0 * (1.0 - f)) as u8, g: (90.0 + 120.0 * (1.0 - f)) as u8, b: 230 }
             };
             for dx in -2..=2 {
@@ -285,13 +287,13 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
             }
         }
         let black = outram_blender::csg::plot::Rgb { r: 0, g: 0, b: 0 };
-        draw_text(&mut img, 6, 6, &format!("{label}: WALL MAP, ANGLE (X, -180..180 DEG) AGAINST Z (Y, 0 AT TOP .. 20 CM)").to_uppercase(), black);
+        draw_text(&mut img, 6, 6, &format!("{label}: WALL MAP, ANGLE (X) AGAINST Z (Y, INLET AT TOP)").to_uppercase(), black);
         draw_text(
             &mut img,
             6,
             (hgt + margin + 12) as i64,
             &format!(
-                "RED NO LAYER, ORANGE FEWER, BLUE ALL 3 (PALER = THINNER VS CAP). FULL {:.1} %, NONE {:.1} %, MEAN TOTAL {:.3} MM",
+                "RED NONE, ORANGE FEWER, BLUE ALL (DARKER = THICKER, 0-1 MM). FULL {:.1}%, NONE {:.1}%, MEAN {:.3} MM",
                 100.0 * o.full_coverage(),
                 100.0 * o.collapsed_point_fraction(),
                 1e3 * o.mean_total_thickness()
