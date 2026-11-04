@@ -586,8 +586,8 @@ impl FoamApp {
                 "Solver: OUTRAM PARK's port of OpenFOAM's pimpleFoam (laminar, PISO, upwind, Gauss linear corrected), \
                  in a background worker. Steady runs are pseudo-transient. The pipe case is checked against \
                  Hagen–Poiseuille and the Durst et al. (2005) development length in the V&V record laminar_pipe_gh1155.md. \
-                 On the unstructured (cfMesh polyhedral) mesh the same case misses it badly: the profile is too flat \
-                 (centreline 0.62 × 2U) and the pressure gradient 34 % high, with upstream's settings for such meshes (2 non-orthogonal correctors, limited corrected 0.33); the record's gh:#1202 section says what was tested. \
+                 The unstructured (cfMesh polyhedral) mesh runs Gauss linear convection with 2 non-orthogonal correctors: upwind there smeared \
+                 momentum across oblique faces and flattened the profile. It still reads about 6 % low at the default (centreline and pressure gradient), 3 % at the finest cell; see the record's gh:#1202 section. \
                  The exchanger adds the energy equation and a port of chtMultiRegionFoam's coupled-temperature interface; \
                  checked against the composite slab, the Graetz Nusselt numbers and ε-NTU in cht_double_pipe_gh1156.md. \
                  The coil section is checked against Mishra & Gupta (1979)'s laminar coil friction factor, as a function of the \

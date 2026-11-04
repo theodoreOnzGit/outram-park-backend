@@ -190,17 +190,18 @@ pub const CELL_PER_R_MIN: f64 = 1.5;
 pub const MAX_LAYERS: usize = 3;
 
 impl TetDualSpec {
-    /// The demo's default for a pipe of radius `radius`: cell 0.6 R, **one**
-    /// layer of 0.03 R (expansion 1.2 for when more are asked for). On the
-    /// demo pipe that is 6 713 cells, meshed in about 0.6 s, solved in about
-    /// 6 s natively (64 steps). ~~2 layers (18 377 cells, nearest the O-grid's
-    /// 20 480)~~ was the first choice; every mesh with 2 or more layers
-    /// diverged in the solve (2026-11-04, the V&V record). ~~Then cell R/2
-    /// (10 745 cells)~~: with the tutorial settings (2 correctors, `limited
-    /// corrected 0.33`) it takes 273 steps, 43 s natively, too long for the
-    /// interactive default, for the same answer to 1 % (the V&V record).
+    /// The demo's default for a pipe of radius `radius`: cell 0.4 R, **no
+    /// layer** (first layer 0.03 R and expansion 1.2 for when layers are asked
+    /// for). On the demo pipe: 6 353 cells, meshed in about 0.5 s, 61 steps
+    /// and about 9 s natively with `Gauss linear` convection, u_c/2U 0.942,
+    /// dp/dz 0.941 × HP (the V&V record). History, all 2026-11-04: ~~2 layers,
+    /// cell R/2 (18 377 cells)~~ diverged in the solve, as every mesh with 2+
+    /// layers did; ~~1 layer, cell R/2 (10 745)~~ and ~~1 layer, cell 0.6 R
+    /// (6 713)~~ ran but, with one layer, sit further from Hagen–Poiseuille
+    /// than the bare mesh of the same cell size (0.85 against 0.86 at 6 mm,
+    /// 0.87 against 0.89 at 5 mm).
     pub fn default_for(radius: f64) -> Self {
-        Self { cell_size: 0.6 * radius, n_layers: 1, first_layer: 0.03 * radius, expansion: 1.2 }
+        Self { cell_size: 0.4 * radius, n_layers: 0, first_layer: 0.03 * radius, expansion: 1.2 }
     }
 
     /// Rough cell count of the tet-dual mesh of a pipe (radius `r`, length
@@ -1068,6 +1069,16 @@ impl Engine {
         // `limitedLinearV 1` (elbow) or `linearUpwind grad(U)`.
         if matches!(self.design.map(|d| d.mesh), Some(PipeMesh::Unstructured(_))) {
             s.solution.pimple.n_non_orthogonal_correctors = NON_ORTH_UNSTRUCTURED;
+            // Convection: `Gauss linear` on the unstructured mesh (gh:#1202,
+            // 2026-11-04). Upwind on faces oblique to the flow adds cross-stream
+            // false diffusion of order U·h (Patankar 1980, §5.6), 10-15× ν here:
+            // it flattened the developed profile to u_c/2U 0.62. The tutorials on
+            // unstructured meshes use second-order upwind-biased schemes
+            // (`limitedLinearV 1`, elbow; `linearUpwind grad(U)`, propeller), which
+            // are not ported; `Gauss linear` is the second-order scheme the port
+            // has (the coil demo uses it too). The O-grid, whose faces are aligned
+            // with the flow, keeps upwind and its recorded numbers.
+            s.schemes.default_div = outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinear;
             if max_non_orthogonality_deg(&s.mesh) > LIMITED_ABOVE_DEG {
                 s.schemes.default_laplacian = outram_foam_appbuilder_lib::io::fv_schemes::LaplacianScheme::GaussLinearLimited(LIMITED_COEFF);
             }
@@ -1822,6 +1833,232 @@ mod tests {
         }
     }
 
+    /// Diagnostic for the V&V record (gh:#1202), `--ignored`: the checks the
+    /// maintainer listed, on the O-grid and on cfMesh duals (with and without a
+    /// wall layer). Predictions written before the first run (2026-11-04) are
+    /// in the record. Per mesh it prints:
+    /// - Σ V against the polygon prism πR²L·(n/2π)sin(2π/n) is not known for
+    ///   the dual, so against πR²L, and the wall area against 2πRL;
+    /// - face non-planarity: max over faces of the largest vertex distance
+    ///   from the plane through the face centre with the face normal, over
+    ///   √|S|;
+    /// - orientation: internal faces with S·(C_N − C_P) ≤ 0, boundary faces
+    ///   with S·(C_f − C_P) ≤ 0;
+    /// - a manufactured Poisson problem −∇²u = 4, u = 0 on the walls,
+    ///   zero-gradient at the ends (exact u = R_w² − r² for a circular wall),
+    ///   solved with the port's `laplacian_with_delta(NonOrthogonal)` plus the
+    ///   explicit correction iterated 20 times (and once without it): the fit
+    ///   u = a − b r² over cells with r < 0.7 R in the middle half, where b
+    ///   must be 1 whatever the wall's exact radius, and the RMS of
+    ///   u − (a − r²) over all cells relative to a.
+    #[test]
+    #[ignore]
+    fn diagnose_geometry_orientation_and_poisson() {
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::fit_line;
+        use outram_foam_appbuilder_lib::solvers::non_orthogonal;
+        use outram_foam_basic_lib::prelude::*;
+        let (r, l) = (0.01, 0.2);
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+        let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
+        let cases: Vec<(&str, PolyMesh)> = vec![
+            ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
+            ("dual h=4 mm, no layer", mesh_unstructured(r, l, [0.0, 0.0, 0.1], tags, &spec(0.004, 0)).unwrap().0),
+            ("dual h=6 mm, 1 layer", mesh_unstructured(r, l, [0.0, 0.0, 0.1], tags, &spec(0.006, 1)).unwrap().0),
+        ];
+        for (name, poly) in cases {
+            let m = Arc::new(poly.to_fv_mesh().unwrap());
+            // 1. Volume, wall area, non-planarity.
+            let vol: f64 = m.cell_volumes.iter().sum();
+            let wall: f64 = m.patches.iter().filter(|p| p.name == "walls").map(|p| (0..p.size).map(|i| m.face_areas[p.start + i]).sum::<f64>()).sum();
+            let mut nonplanar = 0.0_f64;
+            for (fi, f) in poly.faces.iter().enumerate() {
+                let n = m.face_area_vectors[fi] * (1.0 / m.face_areas[fi].max(1e-300));
+                let dev = f.verts.iter().map(|&v| (poly.points[v] - m.face_centres[fi]).dot(n).abs()).fold(0.0_f64, f64::max);
+                nonplanar = nonplanar.max(dev / m.face_areas[fi].sqrt().max(1e-300));
+            }
+            // 2. Orientation.
+            let bad_int = (0..m.n_internal_faces).filter(|&f| m.face_area_vectors[f].dot(m.cell_centres[m.neighbour[f]] - m.cell_centres[m.owner[f]]) <= 0.0).count();
+            let bad_bnd = (m.n_internal_faces..m.face_area_vectors.len()).filter(|&f| m.face_area_vectors[f].dot(m.face_centres[f] - m.cell_centres[m.owner[f]]) <= 0.0).count();
+            println!(
+                "{name}: {} cells; V/(pi R^2 L) {:.5}; wall/(2 pi R L) {:.5}; max non-planarity {:.3e}; misoriented internal {bad_int}, boundary {bad_bnd}",
+                m.n_cells,
+                vol / (std::f64::consts::PI * r * r * l),
+                wall / (2.0 * std::f64::consts::PI * r * l),
+                nonplanar
+            );
+            // 3. Poisson −∇²u = 4.
+            for corrected in [false, true] {
+                let bcs = |m: &FvMesh| -> Vec<PatchField<f64>> {
+                    m.patches.iter().map(|p| if p.name == "walls" { PatchField::fixed_value(p.size, 0.0) } else { PatchField::zero_gradient(p.size) }).collect()
+                };
+                let mut u = VolScalarField::new("u", m.clone(), Field::new(vec![0.0; m.n_cells]), bcs(&m));
+                // Interpolated, so the boundary faces carry Γ = 1 too (`SurfaceScalarField::uniform` sets
+                // the internal faces only; the first run had no Dirichlet term at all).
+                let gamma = fvc::interpolate(&VolScalarField::uniform("g", m.clone(), 1.0));
+                for _ in 0..if corrected { 20 } else { 1 } {
+                    let mut eqn = fvm::laplacian_with_delta(&gamma, &u, fvm::DeltaCoeff::NonOrthogonal);
+                    for c in 0..m.n_cells {
+                        eqn.source[c] += 4.0 * m.cell_volumes[c];
+                    }
+                    if corrected {
+                        let corr = non_orthogonal::scalar_face_correction(&gamma, &fvc::grad(&u), &m);
+                        non_orthogonal::add_to_source_scalar(eqn.source.as_mut_slice(), &corr, &m);
+                    }
+                    let (sol, perf) = eqn.solve_cg_with_guess("u", &u, SolverSettings { tolerance: 1e-12, max_iter: 20_000 });
+                    let umax = sol.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+                    if !corrected {
+                        let (gs, gperf) = eqn.solve("u", SolverSettings { tolerance: 1e-10, max_iter: 200_000 });
+                        let gmax = gs.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+                        let nfix: usize = u.boundary.iter().filter(|b| matches!(b.bc, BoundaryCondition::FixedValue(_))).map(|b| b.values.len()).sum();
+                        let offsum = eqn.ldu.upper.iter().sum::<f64>();
+                        println!(
+                            "  (CG: {} it, residual {:.2e}, max |u| {umax:.3e}; GS: {} it, residual {:.2e}, max |u| {gmax:.3e}; diag sum {:.3e}, 2*upper sum {:.3e}, fixed faces {nfix})",
+                            perf.n_iterations,
+                            perf.final_residual,
+                            gperf.n_iterations,
+                            gperf.final_residual,
+                            eqn.ldu.diag.iter().sum::<f64>(),
+                            2.0 * offsum
+                        );
+                    }
+                    let mut next = VolScalarField::new("u", m.clone(), sol.internal.clone(), bcs(&m));
+                    for (pi, p) in m.patches.iter().enumerate() {
+                        if p.name != "walls" {
+                            for fi in 0..p.size {
+                                next.boundary[pi].values[fi] = next.internal[m.owner[p.start + fi]];
+                            }
+                        }
+                    }
+                    u = next;
+                }
+                let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
+                let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
+                    .filter(|&c| r2(c) < 0.49 * r * r && (m.cell_centres[c].z - 0.1).abs() < 0.05)
+                    .map(|c| (r2(c), u.internal[c], m.cell_volumes[c]))
+                    .collect();
+                let (a, b) = fit_line(&pts);
+                let rms = ((0..m.n_cells).map(|c| (u.internal[c] - (a + b * r2(c))).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt() / a;
+                println!(
+                    "  Poisson ({}): fit u = a - b r^2: b {:.4} (exact 1), a/R^2 {:.4}; RMS of u - fit over all cells / a {:.4}",
+                    if corrected { "corrected, 20 passes" } else { "uncorrected" },
+                    -b,
+                    a / (r * r),
+                    rms
+                );
+            }
+        }
+    }
+
+    /// Diagnostic (gh:#1202), `--ignored`: does the unstructured miss depend
+    /// on Re (convection) or the momentum interpolation? The 6 713-cell dual
+    /// at Re = 20 and 100, and the bare h 4 mm dual at Re = 20; prints the
+    /// headless pipe lines.
+    #[test]
+    #[ignore]
+    fn diagnose_unstructured_reynolds_dependence() {
+        for (h, n, re) in [(0.006, 1, 20.0), (0.004, 0, 20.0), (0.006, 1, 100.0)] {
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+            let lines = headless(d, re, Mode::Steady, 2000).unwrap_or_else(|e| vec![e]);
+            println!("h {h} layers {n} Re {re}:");
+            for l in lines.iter().filter(|l| l.starts_with("# pipe") || l.starts_with("# binned") || l.contains("steps,")) {
+                println!("  {l}");
+            }
+        }
+        // Development along the pipe (check 5): u_c/2U against z on the dual
+        // and on the O-grid, Re = 100, to steady; and the dual with central
+        // (`Gauss linear`) convection instead of upwind, to test upwind's
+        // cross-stream false diffusion on faces oblique to the flow.
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient};
+        use outram_foam_appbuilder_lib::io::fv_schemes::DivScheme;
+        use uom::si::acceleration::meter_per_second_squared;
+        let dual6 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let dual4 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        for (name, d, linear) in [
+            ("dual h 6 mm, 1 layer, upwind", dual6, false),
+            ("dual h 6 mm, 1 layer, Gauss linear", dual6, true),
+            ("dual h 4 mm, no layer, Gauss linear", dual4, true),
+            ("O-grid 7920, upwind", Design { target_cells: 8000, ..Design::default() }, false),
+            ("O-grid 7920, Gauss linear", Design { target_cells: 8000, ..Design::default() }, true),
+        ] {
+            let mut e = Engine::default();
+            e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |_| {});
+            e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
+            if let (true, Some(Case::Pipe(s, _))) = (linear, e.case.as_mut()) {
+                s.schemes.default_div = DivScheme::GaussLinear;
+            }
+            let mut steady = false;
+            for _ in 0..400 {
+                e.serve(Request::Step { id: 1, steps: 5 }, &mut |ev| {
+                    if let Event::Progress(p) = ev {
+                        steady = p.steady;
+                    }
+                });
+                if steady {
+                    break;
+                }
+            }
+            if let Some(Case::Pipe(s, flow)) = &e.case {
+                let row: Vec<String> = [0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.75, 0.9]
+                    .iter()
+                    .map(|f| format!("{f}:{:.3}", centreline_velocity(s, flow, (0.0, 0.0), f * 0.2, 0.01).get::<meter_per_second>() / (2.0 * U_IN)))
+                    .collect();
+                let g = pressure_gradient(s, 0.13, 0.17).get::<meter_per_second_squared>() / flow.hagen_poiseuille_gradient().get::<meter_per_second_squared>();
+                println!("{name}: steady {steady} after {} steps; dp/dz/HP {g:.4}; u_c/2U at z/L: {}", e.steps, row.join(" "));
+            }
+        }
+    }
+
+    /// Diagnostic (gh:#1202), `--ignored`: the unstructured pipe at Re = 100
+    /// with `Gauss linear` convection over a refinement series, with and
+    /// without a wall layer. Prints the headless pipe lines.
+    #[test]
+    #[ignore]
+    fn diagnose_unstructured_linear_refinement() {
+        use outram_foam_appbuilder_lib::io::fv_schemes::DivScheme;
+        for (h, n) in [(0.006, 0), (0.005, 0), (0.004, 0), (0.00334, 0), (0.006, 1), (0.005, 1), (0.004, 1)] {
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+            let mut e = Engine::default();
+            let mut cells = 0;
+            e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |ev| {
+                if let Event::Meshed(me) = ev {
+                    cells = me.n_cells;
+                }
+            });
+            e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
+            if let Some(Case::Pipe(s, _)) = e.case.as_mut() {
+                s.schemes.default_div = DivScheme::GaussLinear;
+            }
+            let t0 = bugis::web_demo::platform::now_s();
+            let mut out = String::new();
+            for _ in 0..600 {
+                let mut done = false;
+                e.serve(Request::Step { id: 1, steps: 5 }, &mut |ev| match ev {
+                    Event::Progress(p) => done = p.steady,
+                    Event::Error(m) => {
+                        out = m;
+                        done = true;
+                    }
+                    _ => {}
+                });
+                if done {
+                    break;
+                }
+            }
+            let wall = bugis::web_demo::platform::now_s() - t0;
+            if let Some(Case::Pipe(s, flow)) = &e.case {
+                use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient, profile_rms, wall_shear_stress};
+                use uom::si::acceleration::meter_per_second_squared;
+                let uc = centreline_velocity(s, flow, (0.0, 0.0), 0.15, 0.01).get::<meter_per_second>() / (2.0 * U_IN);
+                let g = pressure_gradient(s, 0.13, 0.17).get::<meter_per_second_squared>() / flow.hagen_poiseuille_gradient().get::<meter_per_second_squared>();
+                let rms = profile_rms(s, flow, (0.0, 0.0), 0.13, 0.17);
+                let tau = wall_shear_stress(s, 0.13, 0.17) / flow.hagen_poiseuille_wall_shear();
+                println!("h {h} layers {n}: {cells} cells, {} steps, {wall:.1} s: uc {uc:.4} dpdz {g:.4} rms {rms:.4} tau {tau:.4} {out}", e.steps);
+            } else {
+                println!("h {h} layers {n}: {cells} cells: {out}");
+            }
+        }
+    }
+
     #[test]
     fn requests_and_events_survive_the_wire() {
         let reqs = [
@@ -1946,17 +2183,20 @@ mod tests {
     }
 
     /// The headless regression of the **unstructured** pipe (gh:#1202): the
-    /// cfMesh dual with one wall layer, h = 6 mm (6713 cells), at Re = 100,
-    /// reaches the steady criterion and conserves mass; its patches arrive
-    /// named `inlet`, `outlet`, `walls` (typed wall); its developed numbers
-    /// are pinned where the V&V record measured them on 2026-11-04
-    /// (`laminar_pipe_gh1155.md`, gh:#1202 section): u_c/2U 0.6179, dp/dz
-    /// 1.3355 × HP (with the tutorial settings: 2 correctors, `limited corrected 0.33`; ~~0.6105, 1.2452 with `limited 0` and none~~). **Those numbers MISS Hagen–Poiseuille** (the profile is
-    /// too flat); they are pinned so that a change is seen, not because they
-    /// are right. Deterministic: run twice, the same lines.
+    /// cfMesh dual, the demo default (h = 4 mm, no layer, 6353 cells), at
+    /// Re = 100, reaches the steady criterion and conserves mass; its patches
+    /// arrive named `inlet`, `outlet`, `walls` (typed wall); its developed
+    /// numbers are pinned where the V&V record measured them on 2026-11-04
+    /// (`laminar_pipe_gh1155.md`, gh:#1202 section) with `Gauss linear`
+    /// convection and 2 correctors: u_c/2U 0.9416, dp/dz 0.9414 × HP, 6 %
+    /// low, converging with refinement (0.969 / 0.975 at h = R/3). Earlier
+    /// pins, struck: ~~h 6 mm, 1 layer, upwind: 0.6105 / 1.2452 (`limited 0`),
+    /// then 0.6179 / 1.3355 (`limited corrected 0.33`, 2 correctors)~~.
+    /// Pinned so that a change is seen. Deterministic: run twice, the same
+    /// lines.
     #[test]
     fn headless_unstructured_pipe_runs_and_is_pinned() {
-        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
         let (poly, _, _, _) = mesh_design_noted(&d).unwrap();
         let fv = poly.to_fv_mesh().unwrap();
         let mut names: Vec<(&str, outram_foam_basic_lib::mesh::PatchKind)> = fv.patches.iter().map(|p| (p.name.as_str(), p.kind)).collect();
@@ -1965,11 +2205,11 @@ mod tests {
         assert_eq!(names[2].1, outram_foam_basic_lib::mesh::PatchKind::Wall);
         let lines = headless(d, 100.0, Mode::Steady, 200).unwrap();
         let joined = lines.join("\n");
-        assert!(joined.contains("6713 cells"), "{joined}");
+        assert!(joined.contains("6353 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
-        assert!((val("uc=") - 0.6179).abs() < 2e-3, "{pipe}");
-        assert!((val("dpdz=") - 1.3355).abs() < 2e-3, "{pipe}");
+        assert!((val("uc=") - 0.9416).abs() < 2e-3, "{pipe}");
+        assert!((val("dpdz=") - 0.9414).abs() < 2e-3, "{pipe}");
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
@@ -1987,7 +2227,7 @@ mod tests {
         assert!(s.estimated_cells(0.01, 0.2) <= MAX_CELLS as f64);
         let d = TetDualSpec::default_for(0.01);
         let e = d.estimated_cells(0.01, 0.2);
-        assert!((e / 6_713.0 - 1.0).abs() < 0.15, "estimate {e} vs measured 6713");
+        assert!((e / 6_353.0 - 1.0).abs() < 0.15, "estimate {e} vs measured 6353");
         assert_eq!(d.clamped(0.01, 0.2), d);
     }
 

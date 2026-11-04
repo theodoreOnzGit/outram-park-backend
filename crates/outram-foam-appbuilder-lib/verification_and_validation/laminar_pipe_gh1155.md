@@ -493,6 +493,73 @@ checked, cheapest first. Diagnostic: `foam_studio_web/engine.rs`
    is 130–170 mm and the O-grid reads 0.99 there. On the dual the same
    station; the binned profile is flat at every station, so not the cause.
 
+**Results (2026-11-04)** (`diagnose_geometry_orientation_and_poisson`,
+`diagnose_unstructured_reynolds_dependence`,
+`diagnose_unstructured_linear_refinement`, all `--ignored` in
+`foam_studio_web/engine.rs`):
+
+| check | O-grid 7 920 | dual h 4 mm, no layer | dual h 6 mm, 1 layer | verdict against the prediction |
+|---|---|---|---|---|
+| 1. Σ V / πR²L | 0.98862 | 0.97866 | **0.94155** | O-grid: the 24-gon of this grid (0.9886), not the 32-gon I wrote; dual as predicted, the layered mesh lower |
+| 1. wall area / 2πRL | 0.99715 | 0.99254 | 0.98018 | held |
+| 1. max non-planarity / √\|S\| | 7e-14 | 0.31 | **1.05** | held in kind, larger than predicted on the layered mesh |
+| 2. misoriented internal / boundary faces | 0 / 0 | 0 / 0 | 0 / **19** | **missed on the layered mesh**: 19 boundary faces whose normal points back past their cell centre |
+| 3. Poisson, uncorrected: b (exact 1), a/R² | 1.0008, 0.969 | 0.959, 1.060 | 1.018, 1.112 | dual within 4–11 %, **not** the 30–40 % flow miss |
+| 3. Poisson, corrected (20 passes): b, a/R², RMS/a | 1.012, 0.989, 0.004 | 0.983, 0.992, 0.015 | 1.077, 1.010, 0.018 | held: **the Laplacian and the mesh it sees are within 2–8 %** |
+| 4. wall snGrad distance | n·d (read) | n·d | n·d | held (read, not measured) |
+| 5. development, u_c/2U at z/L 0.2 / 0.45 / 0.75 / 0.9 | 0.880 / 0.969 / 0.990 / 0.993 | — | 0.617 / 0.618 / 0.618 / 0.618 | the dual flow is **developed** by 0.2 L, to the wrong profile: not a development-length or station problem |
+
+(The first Poisson run built Γ with `SurfaceScalarField::uniform`, which sets
+the internal faces only; the walls got no Dirichlet term and every solve
+diverged, the O-grid's too. The harness was fixed to interpolate Γ; the
+numbers above are from the fixed run.)
+
+**So none of checks 1–5 explains the flow miss; the Re dependence did.**
+At Re = 20 the 6 713-cell dual gave u_c/2U 0.73 and dp/dz 0.99 × HP, at
+Re = 100 0.62 and 1.34: the error grows with convection. On the dual's
+faces, oblique to the flow, **first-order upwind adds cross-stream false
+diffusion** of order U·h·sin 2θ / 4 (Patankar 1980, *Numerical Heat
+Transfer and Fluid Flow*, §5.6; De Vahl Davis & Mallinson 1976), here about
+U·h/4 ≈ 1.5e-5 m²/s against ν = 1e-6: it carries momentum from the core to
+the wall, flattens the developed profile and raises the wall shear and dp/dz.
+On the O-grid the faces are aligned with the flow and the term vanishes,
+which is why upwind is harmless there. Test: the same meshes with `Gauss
+linear` convection (second order, no false diffusion):
+
+| mesh (Re = 100, `Gauss linear`, corrected, 2 correctors) | cells | steps | wall (s, native) | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP |
+|---|---|---|---|---|---|---|---|
+| dual h 6 mm, no layer | 1 939 | 70 | 2.2 | 0.8623 | 0.8549 | 0.0858 | 0.8185 |
+| dual h 5 mm, no layer | 3 113 | 55 | 3.0 | 0.8856 | 0.8868 | 0.0715 | 0.8665 |
+| dual h 4 mm, no layer (**demo default**) | 6 353 | 61 | 8.6 | **0.9416** | **0.9414** | 0.0395 | 0.9257 |
+| dual h 3.3 mm (R/3), no layer | 11 177 | 54 | 16.2 | **0.9685** | **0.9754** | 0.0192 | 0.9634 |
+| dual h 6 mm, 1 layer (limited corrected 0.33) | 6 713 | 146 | 13.7 | 0.8503 | 0.8292 | 0.0872 | 0.7957 |
+| dual h 5 mm, 1 layer (limited corrected 0.33) | 10 745 | 75 | 11.4 | 0.8726 | 0.8572 | 0.0751 | 0.8266 |
+| O-grid 7 920, upwind (unchanged) | 7 920 | 27 | — | 0.9905 | 1.0171 | 0.0112 | 1.0042 |
+| O-grid 7 920, `Gauss linear` (control) | 7 920 | 29 | — | 0.992 (z = 0.75 L) | 1.0146 | — | — |
+
+(At h 4 mm "1 layer" gave the bare mesh: the layerer added none, as the
+sweep recorded.) **With central convection the unstructured pipe converges
+toward Hagen–Poiseuille with refinement, from below:** the miss falls from
+14 % (h 6 mm) to 6 % (h 4 mm) to 3 % (h 3.3 mm) on u_c and dp/dz alike,
+while the O-grid control barely moves (1.0171 → 1.0146). The wall layer does
+not help at these resolutions (0.85 against 0.86 bare at 6 mm). The demo now
+runs the unstructured pipe with `Gauss linear` convection (the tutorials'
+`limitedLinearV 1` / `linearUpwind grad(U)`, bounded second-order schemes, are
+not ported; `Gauss linear` is the second-order scheme the port has, and the
+coil demo already uses it), 2 non-orthogonal correctors and `corrected`
+(the bare meshes are at 51–57°) or `limited corrected 0.33` above 70°, and
+its default is the bare h 4 mm mesh. The structured mesh keeps upwind, and
+its recorded numbers (34 steps, 0.9940, 1.0151 at 20k) did not move.
+
+**Does the unstructured pipe "match" Hagen–Poiseuille?** Not to the O-grid's
+1 %: 6 % low at the default, 3 % low at the finest cell the mesher handles
+(h = R/3; below that the cfMesh pipeline skips stages, see the sweep). The
+trend is monotone toward 1 but three points on an irregular mesh family
+give no reliable order or extrapolation. **That is the maintainer's call
+for the merge.** Still open: the 19 inward boundary faces of the layered
+mesh (check 2), the 2+ layer divergence, the mesher's degradation below
+R/3, and a bounded second-order convection scheme.
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by
@@ -503,7 +570,7 @@ one colour per cell:
 |---|---|
 | `unstructured_h5_1layer_wall_only_{xy,xz_inlet,xz_corner}.png` | h 5 mm, 1 layer, wall only (10 745 cells): cross-section at mid-length, x-z slice of the first 4.4 cm, zoom on the inlet corner — **after** |
 | `unstructured_h5_1layer_whole_boundary_{xy,xz_inlet,xz_corner}.png` | the same settings with layers on the whole boundary (the pre-gh:#1202 behaviour) — **before** |
-| `unstructured_default_7k_{xy,xz_inlet,xz_corner}.png` | the demo default and 6 713-cell V&V mesh (h 6 mm, 1 layer) |
+| `unstructured_default_7k_{xy,xz_inlet,xz_corner}.png` | the 6 713-cell V&V mesh (h 6 mm, 1 layer; ~~the demo default~~ until the convection fix, after which the default is the bare h 4 mm mesh, whose cells are those of the "after" images without the wall column) |
 
 **Checked by eye (2026-11-04):** in the corner zooms, *after* has a thin
 layer column along the wall (x ≈ 0.98–1.0 cm) that stops at z = 0 with no
