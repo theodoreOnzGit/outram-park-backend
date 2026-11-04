@@ -754,7 +754,41 @@ unit test `fvc::interpolate::tests::linear_weight_projects_on_the_face_normal_as
 | dual h 4 mm, `linearUpwind` + `cellLimited` (demo), nominal / own flow | 0.8534, 0.9983 / 0.8897, 1.0196 | **0.8540, 0.9915** / 0.8904, 1.0127 | held: not the cause |
 
 The fix is kept because it is upstream's formula, not for what it does to
-the numbers (which is little). **The structured default moved:**
+the numbers (which is little).
+
+### Feature-edge capture: the chamfered rim at its source (coordinator's direction, 2026-11-04)
+
+**Upstream read first.** cfMesh (`6cf1d211f9cf`)
+`tetMeshGenerator::generateMesh` runs `mapMeshToSurface` (every boundary
+vertex to the surface), then `mapEdgesAndCorners`
+(`meshSurfaceEdgeExtractorNonTopo`: `edgeExtractor` distributes the
+boundary faces into patches, then
+`meshSurfaceMapper::mapVerticesOntoSurfacePatches`: a vertex of one patch
+goes to the nearest point of that patch, a vertex between two patches onto
+the feature edge between them (`mapEdgeNodes`), a vertex of three or more
+to the nearest corner (`mapCorners`), each move capped by
+`findMappingDistance`; then `correctEdgesBetweenPatches`), and only then
+the boundary layers. The port's pipeline snapped the *carved* mesh and
+then built the dual, whose boundary vertices are averages, and never
+mapped again: hence the chamfer and the ~16-gon. Ported as
+`outram_park_fork_cfmesh::surface_mapper::map_vertices_onto_surface_patches`
+(the face distribution is the crate's nearest-triangle rule, not
+`edgeExtractor`'s optimisation; `correctEdgesBetweenPatches` and the
+surface untangler are not ported) and run in the multipatch pipeline
+after the dual, before the layers (`TetDualOptions::feature_edges`, on by
+default; `false` is the ablation). The single-patch entry points do not
+run it.
+
+**Predictions (written before the first run), pipe R 10 mm, 48 facets:**
+
+| quantity | before | prediction |
+|---|---|---|
+| inlet projected area / πR², h 4 mm | 0.9396 | 0.99–0.998 (the 48-gon is 0.9971) |
+| section area / πR², h 4 mm | 0.9796 | 0.99–0.998 |
+| the stage is kept (mesh valid) at h 6 / 5 / 4 / 3.3 mm | — | kept at all four; if one is refused, it is a face with all its vertices on the rim (`correctEdgesBetweenPatches` not ported) |
+| max non-orthogonality, bare h 4 mm | 51° | rises, 55–75° (wall cells stretched outward) |
+| inward boundary faces with 1 layer, h 6 mm | 20 | fewer, 0–10: the tangled prisms sat on the chamfer |
+| nominal u_c/2U, dp/dz at the demo default | 0.854, 0.992 | u_c 0.88–0.93 (the +6 % flow, but the `cellLimited` axis flattening stays), dp/dz 1.03–1.08 | **The structured default moved:**
 ~~dp/dz 1.0151~~ **1.0154**; u_c 0.9940 and the 34 steps are unchanged.
 
 ### Mesh images (drawn from the `PolyMesh` the solver gets)

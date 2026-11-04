@@ -187,6 +187,15 @@ pub struct TetDualOptions {
     /// whole boundary, as [`Self::wall_patch`] says. Ignored by the
     /// single-patch entry points, whose boundary is one patch.
     pub layer_patches: Vec<String>,
+    /// **Feature-edge capture** (gh:#1202), for
+    /// [`surface_to_tet_dual_mesh_multipatch`] only: after the dual (and any
+    /// smoothing) and before the layers, map the boundary vertices onto the
+    /// surface patch by patch and onto the feature edges between patches
+    /// ([`crate::surface_mapper::map_vertices_onto_surface_patches`], cfMesh's
+    /// `meshSurfaceEdgeExtractorNonTopo`), so a pipe's rim is sharp and its
+    /// inlet spans the section. **On by default**; `false` is the explicit
+    /// ablation (the chamfered boundary the pipeline gave before).
+    pub feature_edges: bool,
 }
 
 impl Default for TetDualOptions {
@@ -215,6 +224,7 @@ impl Default for TetDualOptions {
             expansion: 1.3,
             wall_patch: "walls".to_string(),
             layer_patches: Vec::new(),
+            feature_edges: true,
         }
     }
 }
@@ -509,6 +519,19 @@ fn run_pipeline(
         mesh = m;
         if !kept {
             notes.push("smoothing skipped — unexpectedly invalid (should not happen)".into());
+        }
+    }
+
+    // Stage 6b — feature-edge capture (gh:#1202): cfMesh maps the boundary
+    // onto the surface patches and their feature edges after the volume mesh
+    // exists and before the layers (`tetMeshGenerator::generateMesh`:
+    // `mapMeshToSurface`, `mapEdgesAndCorners`, then `generateBoudaryLayers`).
+    if let (true, Some(regions)) = (opts.feature_edges && opts.dual, regions) {
+        let mapped = crate::surface_mapper::map_vertices_onto_surface_patches(&mesh, points, tris, regions);
+        let (m, kept) = keep_if_ok(mesh, mapped);
+        mesh = m;
+        if !kept {
+            notes.push("feature-edge capture skipped — mapping the boundary onto the patches would invalidate the mesh".into());
         }
     }
 
