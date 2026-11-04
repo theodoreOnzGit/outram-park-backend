@@ -137,7 +137,8 @@ fn admit_endorse_retire_unretire_and_revoke_through_the_panel() {
     let admit = UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: false };
     choose(&mut p, B, "b1");
     let probs = p.problems(&admit);
-    assert!(probs.iter().any(|x| x.contains("admitted maintainer")), "{probs:?}");
+    // ~~"admitted maintainer"~~ (#1211): validating a key is the founder's.
+    assert!(probs.iter().any(|x| x.contains("Only the founder (github:")), "{probs:?}");
     assert!(probs.iter().any(|x| x.contains("passphrase")), "{probs:?}");
     assert!(!p.submit(admit.clone()));
     choose(&mut p, BY, "k1");
@@ -421,9 +422,11 @@ fn a_novice_needs_a_second_sign_off_until_promoted() {
 /// oneself, and (after the handover) any roster action by the former
 /// founder; the founder's earlier stamp of `twice` is still valid; the
 /// roster shows Bob as Maintainer and the founder as "Reviewer · founder
-/// (stepped down)"; Bob's admission of Carol is verified.
+/// (stepped down)"; ~~Bob's admission of Carol is verified~~ **CORRECTED
+/// 2026-11-04** (#1211): admitting Carol is refused for Bob (not the
+/// founder) and for the founder (stepped down), and she stays unadmitted.
 ///
-/// Result (2026-10-22): passes.
+/// Result (2026-10-22): passes. Result (2026-11-04, after #1211): passes.
 #[test]
 fn scope_change_and_handover_through_the_panel() {
     let r = Repo::new();
@@ -456,7 +459,11 @@ fn scope_change_and_handover_through_the_panel() {
     // Tentative (`leaf` underneath is unstamped, #1106), and still standing.
     assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Tentative), "A's past stamps keep their standing");
     assert!(p.problems(&UserAction::MarkNovice { reviewer: B.into(), scope: vec![] }).iter().any(|x| x.contains("admitted maintainer")));
-    // Carol registers; Bob admits her.
+    // Carol registers. ~~Bob admits her~~ (GitHub #1211, 2026-11-04):
+    // validating a key is the founder's alone, so Bob, a maintainer now,
+    // is refused, and so is the founder, who stepped down (the founder
+    // signs as a maintainer). Until a founder-succession record exists
+    // (#1022) nobody can admit after such a handover.
     let ks = Keystore::at(store.path());
     let (cf, _) = generate("github:carol", "c1", &today(), PASS).unwrap();
     ks.save(&cf).unwrap();
@@ -465,14 +472,189 @@ fn scope_change_and_handover_through_the_panel() {
     p.load();
     p.wait();
     choose(&mut p, B, "b1");
-    p.passphrase = PASS.into();
-    assert!(p.submit(UserAction::Admit { reviewer: "github:carol".into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: false }));
-    p.wait();
-    assert!(p.error.is_none(), "{:?}", p.error);
-    assert_eq!(
-        registry(&r).reviewer("github:carol").unwrap().admission,
-        Admission::Admitted { by: B.into(), key: "b1".into() }
-    );
+    let admit_carol = UserAction::Admit { reviewer: "github:carol".into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: false };
+    assert!(p.problems(&admit_carol).iter().any(|x| x.contains("github:bob is not the founder")), "{:?}", p.problems(&admit_carol));
+    assert!(!p.submit(admit_carol.clone()));
+    choose(&mut p, BY, "k1");
+    assert!(p.problems(&admit_carol).iter().any(|x| x.contains("admitted maintainer")), "{:?}", p.problems(&admit_carol));
+    assert!(matches!(registry(&r).reviewer("github:carol").unwrap().admission, Admission::NotAdmitted(_)));
+    choose(&mut p, B, "b1");
     assert!(p.problems(&UserAction::ChangeRole { reviewer: B.into(), role: Role::Maintainer }).iter().any(|x| x.contains("role already")));
     assert_eq!(UserAction::ChangeRole { reviewer: B.into(), role: Role::Reviewer }.label(), "Step down to reviewer");
+}
+
+/// The keyfile's passphrase in these tests (throwaway).
+const NEW_PASS: &str = "carol's handed-over test passphrase";
+
+/// **Pathway (b), issue a validated keyfile (GitHub #1211).** Methodology:
+/// on the stamp layer's git fixture, the founder `BY` (key `k1`) and Bob
+/// (`b1`), admitted as a maintainer by the founder, in one temporary
+/// keystore; the keyfile goes to another temporary folder. Through the
+/// User management panel (workers, passphrases):
+///
+/// Pass:
+/// 1. the form refuses with the reason: Bob's key (a maintainer, not the
+///    founder), passphrases that differ, no file chosen, no scope;
+///    `submit_issue` starts nothing;
+/// 2. the founder issues Carol's keyfile: the notice names her and the
+///    file; the form starts afresh (its passphrases empty); the registry
+///    reads Carol admitted by `BY` key `k1`, her key `k1` trusted
+///    (covered by the admission), with the scope typed;
+/// 3. the file is a `kovan-ed25519-key-v1` key file, owner-only (0600),
+///    whose text holds neither passphrase; a wrong passphrase does not
+///    unlock it;
+/// 4. **round trip**: it imports through the existing key import path
+///    (`Keystore::import`, as "Import a key" does) into a fresh keystore,
+///    and the imported key signs a stamp the registry verifies as Carol's;
+/// 5. issuing for Carol again is refused (registered already: validate
+///    her key instead), and an existing destination is refused by the
+///    library, nothing written;
+/// 6. (unix) when `kovan_root.toml` cannot be written, the keyfile just
+///    written is removed again and the root is unchanged.
+///
+/// Result (2026-11-04): passes.
+#[test]
+fn founder_issues_a_validated_keyfile_that_imports() {
+    use kovan_common::review::signing::keystore::{KeyFile, KEY_FILE_FORMAT};
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    let fk = founder_key(&r, store.path());
+    bob_registers(&r, store.path(), "b1");
+    apply_action(r.path(), &fk, &UserAction::Admit { reviewer: B.into(), role: Role::Maintainer, scope: vec![], novice: false }, &today()).unwrap();
+    r.commit("admit bob as a maintainer");
+    let mut p = UserPanel::new(r.path().into(), Keystore::at(store.path()), SharedKeySession::default());
+    p.wait();
+
+    // 1. Refusals.
+    choose(&mut p, B, "b1");
+    p.issue.reviewer = "github:carol".into();
+    p.issue.name = "Carol".into();
+    p.issue.passphrase = NEW_PASS.into();
+    p.issue.confirm = "something else".into();
+    let probs = p.issue_problems();
+    for want in ["github:bob is not the founder", "differ", "Choose where to save", "needs a scope", "Type your own"] {
+        assert!(probs.iter().any(|x| x.contains(want)), "{want:?} not in {probs:?}");
+    }
+    assert!(!p.submit_issue());
+    p.request_issue_destination();
+    assert_eq!(p.take_issue_pick().as_deref(), Some("github_carol--k1.kovankey"));
+    assert_eq!(p.take_issue_pick(), None, "asked once");
+    let dest = out.path().join("carol.kovankey");
+    p.issue_destination(dest.clone());
+    p.issue.confirm = NEW_PASS.into();
+    p.issue.scope = "crates/demo/**".into();
+    choose(&mut p, BY, "k1");
+    p.passphrase = PASS.into();
+    assert_eq!(p.issue_problems(), Vec::<String>::new());
+
+    // 2. Issue.
+    assert!(p.submit_issue());
+    p.wait();
+    assert!(p.error.is_none(), "{:?}", p.error);
+    let n = p.notices.last().unwrap().clone();
+    assert!(n.contains("Issued and admitted github:carol as reviewer") && n.contains("carol.kovankey"), "{n}");
+    assert!(p.issue.passphrase.is_empty() && p.issue.confirm.is_empty() && p.issue.dest.is_none(), "the form starts afresh");
+    assert!(p.take_changed());
+    let reg = registry(&r);
+    let carol = reg.reviewer("github:carol").unwrap();
+    assert_eq!(carol.admission, Admission::Admitted { by: BY.into(), key: "k1".into() });
+    assert_eq!(carol.key("k1").unwrap().status, KeyStatus::Admitted);
+    assert_eq!(carol.scope, vec!["crates/demo/**"]);
+
+    // 3. The file.
+    let text = std::fs::read_to_string(&dest).unwrap();
+    assert!(!text.contains(NEW_PASS) && !text.contains(PASS));
+    let kf = KeyFile::from_toml(&text).unwrap();
+    assert_eq!((kf.format.as_str(), kf.reviewer.as_str(), kf.key.as_str()), (KEY_FILE_FORMAT, "github:carol", "k1"));
+    assert!(kf.unlock("not it").is_err());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        assert_eq!(std::fs::metadata(&dest).unwrap().permissions().mode() & 0o777, 0o600);
+    }
+
+    // 4. Round trip through the existing import path.
+    let carols_machine = tempfile::tempdir().unwrap();
+    let root = ReviewRoot::parse(&r.read(ROOT_FILE)).unwrap();
+    let (imported, ck) = Keystore::at(carols_machine.path()).import(&dest, NEW_PASS, &root).unwrap();
+    assert_eq!((imported.reviewer.as_str(), imported.key.as_str(), imported.already_present), ("github:carol", "k1", false));
+    assert!(n.contains(&imported.fingerprint), "the notice shows the fingerprint to compare");
+    r.commit("carol issued");
+    let req = crate::stamping::StampRequest {
+        function: format!("{}::leaf", super::super::tests::LIB),
+        by: "github:carol".into(),
+        checklist: super::super::tests::clean(),
+        ..Default::default()
+    };
+    let mut d = crate::stamping::draft_stamp(r.path(), &req).unwrap();
+    ck.sign_review(&mut d.entry).unwrap();
+    crate::stamping::write_review(r.path(), &d.entry, "Carol's first stamp, with the issued key.").unwrap();
+    r.commit("carol stamps leaf");
+    let s = r.state("leaf").unwrap();
+    assert_eq!(s.state, Some(StateKind::Valid), "{}", s.reason);
+
+    // 5. Again: refused.
+    p.issue.reviewer = "github:carol".into();
+    assert!(p.issue_problems().iter().any(|x| x.contains("in kovan_root.toml already")));
+    let req = issue::IssueRequest {
+        reviewer: "github:dan".into(),
+        name: None,
+        key_id: "k1".into(),
+        role: Role::Maintainer,
+        scope: vec![],
+        novice: false,
+    };
+    let before = r.read(ROOT_FILE);
+    let e = issue::issue_keyfile(r.path(), &fk, &req, NEW_PASS, &dest, &today()).unwrap_err();
+    assert!(e.contains("exists already"), "{e}");
+    assert_eq!(r.read(ROOT_FILE), before, "nothing written");
+    let bad = issue::IssueRequest { key_id: "k 1".into(), ..req.clone() };
+    assert!(issue::issue_keyfile(r.path(), &fk, &bad, NEW_PASS, &out.path().join("d.kovankey"), &today()).unwrap_err().contains("key id"));
+
+    // 6. The root cannot be written: the keyfile is removed again.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let rootfile = r.path().join(ROOT_FILE);
+        std::fs::set_permissions(&rootfile, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let dan = out.path().join("dan.kovankey");
+        let res = issue::issue_keyfile(r.path(), &fk, &issue::IssueRequest { novice: false, ..req }, NEW_PASS, &dan, &today());
+        std::fs::set_permissions(&rootfile, std::fs::Permissions::from_mode(0o644)).unwrap();
+        // Root (uid 0) ignores the mode: then the write succeeded instead.
+        if let Err(e) = res {
+            assert!(e.contains("was removed again"), "{e}");
+            assert!(!dan.exists());
+            assert_eq!(r.read(ROOT_FILE), before);
+        }
+    }
+}
+
+/// A novice issued through the library: the novice roster event is in the
+/// same write, signed by the founder; a maintainer can never be issued as
+/// a novice (the form's request drops it); the notice says "novice
+/// reviewer".
+///
+/// Result (2026-11-04): passes.
+#[test]
+fn an_issued_novice_carries_the_novice_event() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    let fk = founder_key(&r, store.path());
+    let mut form = issue::IssueForm::default();
+    form.reviewer = " github:nina ".into();
+    form.novice = true;
+    form.scope = "crates/demo/**".into();
+    let req = form.request();
+    assert_eq!((req.reviewer.as_str(), req.novice, req.name.clone()), ("github:nina", true, None));
+    form.role = Role::Maintainer;
+    let m = form.request();
+    assert!(!m.novice && m.scope.is_empty());
+    let done = issue::issue_keyfile(r.path(), &fk, &req, NEW_PASS, &out.path().join("n.kovankey"), &today()).unwrap();
+    assert!(done.notice().contains("as novice reviewer"));
+    let reg = registry(&r);
+    let nina = reg.reviewer("github:nina").unwrap();
+    assert!(nina.is_admitted() && nina.novice_now().is_some());
+    assert!(reg.warnings().is_empty(), "{:?}", reg.warnings());
 }
