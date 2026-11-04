@@ -1203,7 +1203,7 @@ id = "review-step-theodoreonzgit-f37cec30"
 kind = "review"
 origin = "human"
 created = "2026-11-04T15:10:06+08:00"
-modified = "2026-11-04T15:10:06+08:00"
+modified = "2026-11-04T15:12:09+08:00"
 target = "fn:f37cec301c5918a4"
 
 [review]
@@ -1211,8 +1211,8 @@ path = "crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-11-04"
-signed_at = "2026-11-04T15:10:06+08:00"
-commit = "508266ffe1786f728488c25bc7926741af3811d2"
+signed_at = "2026-11-04T15:12:10+08:00"
+commit = "1e369368ecaf4bc2cf6eaaf52c222dc7a2033d19"
 hash = "sha256:679dafd954ddb4359227d970029a9de1bfa6d1f77031b39d113ada4194c1d936"
 doc_hash = "sha256:a6a6b9300a8a9f32c4d619e6859afd4ff4ef70d2f30aadfb9d8cee48c61d7c26"
 cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
@@ -1238,23 +1238,18 @@ unintended_function = "no"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = [
-    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
-    "https://claude.ai/code/session_01EXPhstVwAqRb8o6YHVQoXW",
-]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "sPy+XR3I6KfxK2DDkVg3XJAYM7WaX1Vw/7mrsz2apinpxsQU18zEGyvwFwBwqqCwgXR2BLUv9l/f63VyAA7YDg=="
+value = "5ArXiWBQH/QffcwHHsP0j0IwyAzs2ODtqPIerEBfDf/zHAIPJ594hYXwOHjnHFZsxNK9UHdPgG8t9m8VzbqDBA=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
 kind = "implements"
 ```
 
+SUPER IMPORTANT. This is where the numerical integration happens for each of the pools
+
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 508266ffe1.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 1e369368ec.
