@@ -140,6 +140,68 @@ pub struct CodeReviewSettings {
     /// roots, ignored by older readers.
     #[serde(default, rename = "roster_event", skip_serializing_if = "Vec::is_empty")]
     pub roster_events: Vec<RosterEvent>,
+    /// `[[code_review.organisation_retirement]]` (GitHub #1211, maintainer
+    /// 2026-11-04: "removal is retire"): founder-signed retirements of a
+    /// developing-organisation or reviewer-organisation record. The retired
+    /// record stays in its list, shown retired; from the retirement's date
+    /// it no longer counts ([`crate::review::ivv`]). Append-only. Additive:
+    /// absent in older roots, ignored by older readers (which therefore
+    /// still count a retired record).
+    #[serde(default, rename = "organisation_retirement", skip_serializing_if = "Vec::is_empty")]
+    pub organisation_retirements: Vec<OrganisationRetirement>,
+}
+
+/// Which organisation list a retirement names (GitHub #1211).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrganisationList {
+    /// `[[code_review.developing_organisation]]`.
+    DevelopingOrganisation,
+    /// `[[reviewer.organisation]]` of `reviewer`.
+    ReviewerOrganisation,
+}
+
+impl OrganisationList {
+    /// The wire name.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DevelopingOrganisation => "developing_organisation",
+            Self::ReviewerOrganisation => "reviewer_organisation",
+        }
+    }
+}
+
+/// One `[[code_review.organisation_retirement]]` entry (GitHub #1211): from
+/// `date` on, the organisation record whose `signature` is `record` no
+/// longer counts. Signed by the **founder** over
+/// [`crate::review::signing::organisation_retirement_bytes`]
+/// (`kovan-organisation-retirement-v1`). The record is named by its own
+/// signature, which is unique to its content; an unsigned record counts for
+/// nothing already and is never retired.
+///
+/// ```toml
+/// [[code_review.organisation_retirement]]
+/// list = "reviewer_organisation"
+/// reviewer = "github:v"
+/// record = "<the retired record's signature>"
+/// date = "2026-11-04"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganisationRetirement {
+    pub list: OrganisationList,
+    /// For [`OrganisationList::ReviewerOrganisation`]: whose record.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewer: Option<String>,
+    /// The retired record's `signature`.
+    pub record: String,
+    /// `YYYY-MM-DD`: the record no longer counts from this date.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 /// What a roster event changes.
