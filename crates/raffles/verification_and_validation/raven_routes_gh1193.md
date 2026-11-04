@@ -212,6 +212,28 @@ on the scale of the quantity's neighbours, and say so.
 | A4 | PCE reproduction | cubic within 1e-12 relative; Sudret indices, mean, variance within 1e-13 absolute | the grid integrates the products exactly |
 | A5 | GP interpolation | `abs(mean − y)` ≤ 1e-6 · max abs(y) at every training point; std ≤ 1e-3 | alpha = 1e-10 |
 
+### Addendum to the predictions (written after the first run, before this case was generated)
+
+The first run showed that `constant_rbf_anisotropic_fit_2d` ends where the
+amplitude sits on its upper bound (1e5) with alpha 1e-10, so the Gram matrix
+is singular to working precision and the LML there is round-off: this port's
+LML at sklearn's own optimum is 10.858 where sklearn reports 10.926. That case
+cannot test the fit (P15 is reported as missed, with that cause). One
+well-conditioned fit case is therefore ADDED, chosen without running it:
+
+- `matern_fit_2d`: RAVEN's `Matern` (ν = 2.5, isotropic, length scale from 1,
+  bounds 1e-5..1e5), alpha 1e-6, the 2-D design of the other cases.
+- **P16** (prediction): fitted length scale within 1e-4 relative of
+  sklearn's; LML within 1e-8 relative.
+
+**Gates versus predictions.** The tests gate on the criterion fixed before
+the run: bit-identical, or below 1e-8 relative (or absolute, on the stated
+scale) with the cause explained. The tighter numbers in the table above are
+predictions, scored hit or miss below; the first draft of the tests asserted
+the predictions themselves, and after P6 missed they were changed to assert
+the criterion, so that a missed prediction is reported rather than either
+hidden or turned into a moved gate.
+
 ## Results
 
 _Filled in after the runs; see the next commit._
