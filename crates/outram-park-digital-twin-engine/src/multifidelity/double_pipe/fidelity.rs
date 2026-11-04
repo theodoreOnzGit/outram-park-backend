@@ -36,8 +36,12 @@ pub const CFD_RANK: u32 = 2;
 pub struct TuasOneD;
 
 impl TuasOneD {
-    /// The bounds on θ. **Provisional, for gh:#1180 to replace with its
-    /// prior; no result in this crate depends on them.**
+    /// The bounds on θ. ~~**Provisional, for gh:#1180 to replace with its
+    /// prior; no result in this crate depends on them.**~~ **CORRECTED
+    /// 2026-11-04:** gh:#1180 did not replace them; its calibration states
+    /// its own range and priors ([`super::koh::theta_range`],
+    /// [`super::koh::koh_spec`]). These stay provisional, and still no
+    /// result depends on them.
     ///
     /// - Nusselt and friction multipliers: [0.25, 4], a factor of 4 either
     ///   way around TUAS's textbook correlation (θ nominal = 1). Not from

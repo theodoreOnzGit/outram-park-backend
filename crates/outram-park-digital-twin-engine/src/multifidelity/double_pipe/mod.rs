@@ -45,6 +45,7 @@ pub mod cokriging;
 pub mod dataset;
 pub mod design;
 pub mod fidelity;
+pub mod koh;
 pub mod lf_grid;
 pub mod one_d;
 pub mod study;

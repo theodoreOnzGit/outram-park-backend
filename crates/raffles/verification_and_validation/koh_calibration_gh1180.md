@@ -164,7 +164,10 @@ posterior (SEPIA's default priors), then the KOH posterior over
 it is Kennedy & O'Hagan's own plug-in of the emulator's hyperparameters
 (KOH 2001, §4.5; the "modular" approach of Liu, Bayarri & Berger 2009),
 taken here for cost (each joint evaluation would factor a 264 × 264
-matrix).
+matrix). **Sampler settings, added after D7's first run showed 3 moves per
+stage under-mixing and before any double-pipe run:** emulator stage TMCMC
+population 600 × 10 moves per stage (seed 1180), calibration stage 2 000 ×
+10 (seed 1181).
 
 **What is reported:** the posterior on θ (and its correlations); δ(x) over
 the design; the predictive of ln UA at the 8 held-out x (a mixture over 400
@@ -201,3 +204,47 @@ coverage). The **uncalibrated** values are θ = (1, 1, 0).
 | K10 | no-δ calibration | ln θ_c higher than with δ and its sd below half the KOH sd | without δ, θ must explain all the misfit and is over-confident |
 | K11 | independent: CFD Nu ratios | the KOH posterior median θ_c lies inside the CFD's own annulus ratio range [1.26, 1.58]; θ_h inside the tube's [0.88, 1.08] | if θ is physically identified, it recovers what the CFD's Nusselt numbers say |
 | K12 | independent: calibrated 1-D Q at the held-out points (no δ) | \|ΔQ/Q\| < 2.5 % at all 8 (uncalibrated −2.4 … −5.3 %) | Q follows UA, damped (gh:#1178 P4) |
+
+## 5. Results: differential tests (2026-11-04)
+
+Run with `cargo test --release -p raffles --test koh_sepia_gh1180 -j 2`
+(4 tests, 53 s; 4 CPUs shared). References from
+`koh_sepia_gh1180/generate_references.py` (SEPIA `309890423a12`, Python
+3.11.17, numpy 1.26.4, scipy 1.10.1; SEPIA's MCMC run took 46 s).
+
+| # | quantity | prediction | measured | |
+|---|---|---|---|---|
+| D1 | transforms, u, w | bit-identical | **bit-identical** in every number | met (after reproducing numpy's zero-started pairwise sum, checked on 1 800 random arrays) |
+| D2 | log-likelihood / log posterior, 15 sets | < 1e-10 relative | worst **6.8e-10** (no_d set 4), 1.4e-10 (no_d set 1); every with_d and sim_only set ≤ 2.6e-11 | **missed at 2 of 15 sets.** Cause: SEPIA's own round-off. At set 4 SEPIA is 5.9e-10 from the independent dense density and the port 9.7e-11; the gap is upstream's LU inverse of an ill-conditioned `SigW` (λ_WOs, λ_Ws ≥ 1000). Inside the workspace 1e-8 code-to-code allowance, which the test asserts. **Flagged for the maintainer** |
+| D3 | log prior | bit-identical | bit-identical at **9 of 15**, ≤ 1e-14 relative at the rest | **missed.** numpy 1.26.4's vectorised `exp`/`log` differ from glibc's by one ulp on 20–24 % of arguments (measured on 200 000 of each); Rust uses glibc's. Bit identity would need numpy's SIMD kernels ported |
+| D4 | dense check | SEPIA = dense to < 1e-9; port within 1e-10 of both | SEPIA–dense worst 5.9e-10; **port–dense worst 9.7e-11** | met (the port is closer to the exact density than SEPIA) |
+| D5 | predictive mean / covariance | < 1e-8 | mean worst 5.0e-13 (no δ) / 5.5e-13 (with δ); covariance worst 1.0e-12 / 2.6e-13 of the largest diagonal | met |
+| D6 | upstream `uvPred` vs `uvPredSep` | < 1e-9 | 4.9e-13 | met; `uvPredSep` with δ fails upstream (`ValueError: operands could not be broadcast together with shapes (20,20) (10,10)`, asserted) |
+| D7 | TMCMC vs SEPIA MCMC, 11 parameters free | criterion of §3 | **first run (3 moves/stage) MISSED**: θ₁ 0.3615 vs 0.3823, \|Δ\| 0.0208 > bound 0.0058. A diagnostic showed the population's mean log posterior still rising with the move count (101.1 / 104.4 at 3 moves, 107.8 / 106.9 at 10, 108.9 at 20 with population 4 000). **Protocol fixed, criterion kept:** at 20 moves θ₁ 0.38416 ± 0.03093 vs SEPIA 0.38232 ± 0.03082 (\|Δ\| 0.0019, bound 0.0054, sd ratio 1.004); θ₂ 0.69681 ± 0.01664 vs 0.69755 ± 0.01705 (\|Δ\| 0.0007, bound 0.0030, ratio 0.976) | met after the protocol fix |
+
+The toy's truth is θ = (0.3, 0.7); both samplers put θ₁ near 0.38 ± 0.03
+because δ = 0.25 x² is partly absorbed by θ₁ (which scales a term linear in
+x): the KOH confounding, on a problem small enough to see it.
+
+**The typed route** (`raffles::fidelity::koh`, unit test
+`the_typed_route_calibrates_an_analytic_pair`): LF 1 + k a against HF
+1 + 1.4 a + 0.05 a², 9 training rows: posterior median k = 1.438
+(prediction [1.2, 1.6], met); both held-out values inside the 95 %
+interval (HF 1.42450 in [1.40595, 1.45658]; 2.15200 in [2.11358, 2.19203]).
+
+## 6. Results: the double pipe (2026-11-04)
+
+Full record, tables and interpretation:
+`crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_koh_gh1180.md`
+(run output committed beside it). In one paragraph: the KOH predictive
+gives the 8 held-out CFD UAs with **1.28 % relative RMSE and 8/8 inside
+the 95 % interval** (MFK, gh:#1190: 3.0 %). The θ posterior is
+ln θ_h +0.164 ± 0.116, ln θ_c +0.336 ± 0.171, r_f 5.4e-4 ± 2.5e-4 m² K/W
+(uncalibrated 0, 0, 0), corr(h, c) −0.70. **θ is only partly identified**:
+θ_c's median (1.39) falls inside the CFD's own annulus Nusselt ratio range,
+but θ_h (1.18) lies above the tube range and r_f (truly 0 in the CFD) stays
+prior-like; δ re-absorbs any θ reset (ablation with δ moves the RMSE by at
+most 0.42 points, without δ by up to 11), and the posterior-mean θ used
+without δ over-predicts the marched duty by up to 6.7 %. Predictions met:
+K1, K4, K7, K9; missed: K2, K3, K5, K6 (better than predicted), K8, K10
+(by 0.6 % of its bound), K11 (θ_h half), K12.

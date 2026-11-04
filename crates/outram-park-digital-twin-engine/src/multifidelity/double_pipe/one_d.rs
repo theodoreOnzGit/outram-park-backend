@@ -416,6 +416,30 @@ pub fn try_evaluate(x: &DoublePipeInput, theta: &Theta) -> Result<DoublePipeOutp
     Ok(run(x, NusseltSpec::Fixed(Ratio::new::<ratio>(nu_hot), nu_cold), LossSpec::Textbook(theta.friction_mult_hot, theta.friction_mult_cold))?.output)
 }
 
+/// The 1-D model's UA at (x, θ) **without the time march**: the component
+/// is built with θ's Nusselt numbers ([`try_evaluate`]'s folding), its
+/// lateral connections made once at the initial state, and UA read off
+/// TUAS's two nodal conductances by [`run`]'s formula. With constant fluid
+/// and wall properties the conductances do not depend on temperature, so
+/// this is the march's UA (pinned bit for bit by
+/// `march_free_ua_is_the_marched_ua`). Microseconds instead of seconds,
+/// which is what makes gh:#1180's simulator design affordable.
+///
+/// # Errors
+/// [`build`]'s or TUAS errors.
+pub fn ua(x: &DoublePipeInput, theta: &Theta) -> Result<ThermalConductance, OneDError> {
+    let (nt, ns) = textbook_nusselt(x)?;
+    let nu_hot = fold_fouling(nt.get::<ratio>() * theta.nu_mult_hot.get::<ratio>(), fouling_to_si(theta.wall_resistance));
+    let nu_cold = ns * theta.nu_mult_cold;
+    let mut s = build(x, NusseltSpec::Fixed(Ratio::new::<ratio>(nu_hot), nu_cold))?;
+    let (mh, mc) = mass_flows(x);
+    s.lateral_and_miscellaneous_connections(false, mh, mc)?;
+    let g_t = s.get_single_tube_side_fluid_array_node_to_inner_pipe_shell_nodal_conductance(false)?;
+    let g_s = s.get_shell_side_fluid_to_single_inner_pipe_shell_nodal_conductance(false)?;
+    let nodes = fixed::layers(x.length.get::<meter>());
+    Ok(ThermalConductance::new::<watt_per_kelvin>((nodes as f64) / (1.0 / g_t.get::<watt_per_kelvin>() + 1.0 / g_s.get::<watt_per_kelvin>())))
+}
+
 /// [`try_evaluate`], for callers that hold x on the design grid.
 ///
 /// # Panics
@@ -460,6 +484,29 @@ pub fn eps_ntu(x: &DoublePipeInput, ua: ThermalConductance) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// [`ua`] against the marched [`try_evaluate`] at three x and three θ
+    /// (nominal, and two with every heat-transfer component moved).
+    /// **Prediction:** bit-identical (same conductances, same formula).
+    /// **Result (2026-11-04):** bit-identical at all 9 (asserted with `==`).
+    #[test]
+    fn march_free_ua_is_the_marched_ua() {
+        let r = |v: f64| Ratio::new::<ratio>(v);
+        let mut a = Theta::nominal();
+        a.nu_mult_hot = r(1.3);
+        a.nu_mult_cold = r(0.7);
+        a.wall_resistance = super::super::fouling_si(4.0e-4);
+        let mut b = Theta::nominal();
+        b.nu_mult_hot = r(0.8);
+        b.nu_mult_cold = r(1.6);
+        b.friction_mult_hot = r(2.0);
+        for x in [DoublePipeInput::si(30.0, 15.0, 10.0, 0.1), DoublePipeInput::si(90.0, 5.0, 100.0, 0.1), DoublePipeInput::si(10.0, 45.0, 1.0, 0.1)] {
+            for th in [Theta::nominal(), a, b] {
+                assert_eq!(ua(&x, &th).unwrap(), try_evaluate(&x, &th).unwrap().ua, "{x:?} {th:?}");
+            }
+        }
+        assert!(ua(&DoublePipeInput::si(30.0, 15.0, 3.0, 0.1), &Theta::nominal()).is_err());
+    }
 
     /// θ nominal through `FixedNusselt` is the same model as giving TUAS
     /// its own `PipeGnielinskiGeneric` directly (module docs): the march,
