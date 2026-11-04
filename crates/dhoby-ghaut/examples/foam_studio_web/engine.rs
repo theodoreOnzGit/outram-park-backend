@@ -2184,6 +2184,47 @@ mod tests {
         }
     }
 
+    /// Diagnostic (gh:#1202), `--ignored`: the port's linear interpolation
+    /// weight `|C_N − C_f| / |C_N − C_O|` against upstream's
+    /// `surfaceInterpolation::makeWeights`, `|S·(C_N − C_f)| / (|S·(C_f − C_O)|
+    /// + |S·(C_N − C_f)|)`, on the demo meshes: faces that differ, the worst
+    /// difference, and port weights outside [0, 1].
+    #[test]
+    #[ignore]
+    fn diagnose_interpolation_weights() {
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+        let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
+        let cases: Vec<(&str, PolyMesh)> = vec![
+            ("O-grid 20480 (structured default)", mesh_design(&Design::default()).unwrap().0),
+            ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
+            ("dual h 4 mm", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec(0.004, 0)).unwrap().0),
+        ];
+        for (name, poly) in cases {
+            let m = poly.to_fv_mesh().unwrap();
+            let (mut n_diff, mut worst, mut outside, mut sum) = (0usize, 0.0_f64, 0usize, 0.0);
+            for f in 0..m.n_internal_faces {
+                let (co, cn, cf, s) = (m.cell_centres[m.owner[f]], m.cell_centres[m.neighbour[f]], m.face_centres[f], m.face_area_vectors[f]);
+                let w_port = (cn - cf).mag() / (cn - co).mag();
+                let (so, sn) = (s.dot(cf - co).abs(), s.dot(cn - cf).abs());
+                let w_of = sn / (so + sn);
+                let d = (w_port - w_of).abs();
+                if d > 1e-12 {
+                    n_diff += 1;
+                }
+                worst = worst.max(d);
+                sum += d;
+                if !(0.0..=1.0).contains(&w_port) {
+                    outside += 1;
+                }
+            }
+            println!(
+                "{name}: {} internal faces; differ (>1e-12) {n_diff}; mean |dw| {:.3e}; max |dw| {worst:.3e}; port w outside [0,1] {outside}",
+                m.n_internal_faces,
+                sum / m.n_internal_faces as f64
+            );
+        }
+    }
+
     #[test]
     fn requests_and_events_survive_the_wire() {
         let reqs = [

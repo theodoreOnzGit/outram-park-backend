@@ -713,6 +713,35 @@ low: **11 % against its own flow**, with an RMS three times
 against its own flow. So the `linearUpwind` + `cellLimited` profile is a
 numerics problem, and the remaining 4 % of the nominal miss is the inlet.
 
+### Port defect: the linear interpolation weights (found 2026-11-04, step 4 "gradient reconstruction")
+
+**Upstream is the specification.** OpenFOAM-dev `852527377c7e`
+`surfaceInterpolation::makeWeights` sets the owner weight of an internal
+face to `w = |S·(C_N − C_f)| / (|S·(C_f − C_O)| + |S·(C_N − C_f)|)`
+(projections on the face normal; the distance form `dNei/(dOwn + dNei)`
+only as a fallback when the projections vanish). The port
+(`outram_foam_basic_lib::fvc::interpolate::linear_weight`, and a copy,
+`non_orthogonal::owner_weight`, used by the explicit non-orthogonal
+correction) uses `|C_N − C_f| / |C_N − C_O|`, which is neither: on any
+face whose centre is off the line between the cell centres it is a
+different number. Every `fvc::interpolate`, so every Gauss gradient, the
+`Gauss linear` convection, `rAU` and `HbyA` interpolation and the face
+flux, uses it. **Measured** (`diagnose_interpolation_weights`, geometry
+only): the structured default O-grid 20 480: 30 720 of 59 904 internal
+faces differ, mean |Δw| 3.9e-3, max 0.157; the O-grid 7 920: mean 4.4e-3,
+max 0.139; the dual h 4 mm: 32 136 of 33 636 differ, mean 1.8e-2, max
+0.150. No port weight falls outside [0, 1]. The same copy is in
+`outram-park-fork-coolprop` and `tampines-steam-tables`
+(`openfoam_source/fv_operators/fvc/interpolate.rs`), not changed here.
+
+**Predictions (written before the fix is run):**
+
+| case | prediction |
+|---|---|
+| structured default 20 480 (34 steps, 0.9940, 1.0151) | **moves**, by less than 0.3 % on each (the faces that differ are the square/ring transition, mean Δw 4e-3); step count ±3 |
+| dual h 4 mm, `Gauss linear`, measured-flow u_c, dp/dz (0.9820, 0.9616) | each moves by less than 0.01 |
+| dual h 4 mm, `linearUpwind` + `cellLimited` (0.8897, 1.0196) | u_c up by 0–0.03: **not** the main cause. My leading explanation of its low u_c is now the limiter itself: at a smooth extremum (the centreline maximum of u_z) minmod `cellLimited` sets the limiter to 0 (the neighbours are all below the cell, so `max − U = 0`), the gradient vanishes, and `linearUpwind` falls back to first-order upwind on the axis cells, whose false diffusion flattens the peak. That is upstream's behaviour, not a port defect, and the unlimited `linearUpwind` (u_c 0.9597, dp/dz 1.0218 against its own flow, from the sweep's nominal numbers) shows the size of it |
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by
