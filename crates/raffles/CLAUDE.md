@@ -532,7 +532,8 @@ enough?") is a separate question and is not answered by any of the above.
 
 The crate is Android-clean, and stays that way. Its dependencies are
 `thiserror`, `petir` (the RNG — see below; ~~`outram-mc-libs`~~ **CORRECTED
-2026-10-02**), `xml-rs` (the MEF reader), and the optional `burn`
+2026-10-02**), `xml-rs` (the MEF reader), `uom` (no_std; the `fidelity` API,
+since 2026-11-04, gh:#1194), and the optional `burn`
 (see "Machine learning" below); all three build for `aarch64-linux-android` —
 `cargo check -p raffles --all-targets --features burn --target
 aarch64-linux-android` was clean on 2026-09-16 (burn 0.21.0, rustc 1.94.1).
@@ -761,6 +762,32 @@ dependencies.
 run-directory management; databases; RAVEN's optimisers; adaptive /
 model-in-the-loop samplers (they need the model-evaluation loop this crate
 deliberately does not own).
+
+**`src/fidelity/` was added on 2026-11-04 at the workspace maintainer's
+direction, not the crate owner's** (GitHub issue #1194, epic #1177: "I want a
+common interface (struct, enum or otherwise) for high fidelity to surrogate
+model", then "Integrate uom into the trait interface"). It is recorded here,
+like `scram/` and `estimators`, as a direction call that is **Adolphus Lye's to
+confirm or reverse**. What it changes about this crate's scope, stated plainly:
+
+- **`fidelity::build` evaluates the caller's model**, through the caller's own
+  `HighFidelityModel` implementation, which the sentence below ("the caller
+  runs their own model and hands RAFFLES arrays of numbers") did not allow.
+  There is still no physics here: the model lives in the caller's crate.
+- **Physical quantities cross this API as `uom` types** (traits with
+  associated `Input`, `Output`, `Theta: Quantities`; `quantities!` derives the
+  mapping). The numerics underneath stay on SI `f64`.
+- **Traits are the seam between crates, consumed generically, never `dyn`**
+  (root `AGENTS.md`, "Crate-level interfaces may follow SOLID principles");
+  the routes RAFFLES provides are the enum `fidelity::Surrogate`.
+- **New surrogate routes join as `SurrogateSpec` / `Surrogate` variants when
+  their port lands** (kriging and co-kriging with SMT, gh:#1190; polynomial
+  chaos with RAVEN, gh:#1193), never as empty placeholder variants.
+- **Bit-identity with the underlying route is the contract**: the typed path
+  must give the same bits as calling `PolynomialSurrogate` directly (pinned in
+  `fidelity::build`'s tests). The held-out split never reaches a fit (pinned
+  by a poisoning test). V&V record:
+  `verification_and_validation/fidelity_interface_gh1194.md`.
 
 ~~input-file / XML parsing; plotting and reporting~~ **CORRECTED 2026-09-22**
 — brought into scope for `src/scram/` by the maintainer's "everything except

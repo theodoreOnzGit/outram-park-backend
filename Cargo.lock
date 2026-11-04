@@ -7517,6 +7517,7 @@ dependencies = [
  "outram-park-fork-offbeat",
  "petir",
  "postcard",
+ "raffles",
  "sembawang",
  "serde",
  "serde_json",
@@ -8310,6 +8311,7 @@ dependencies = [
  "burn",
  "petir",
  "thiserror 2.0.21",
+ "uom",
  "xml-rs",
 ]
 

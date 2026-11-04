@@ -13,6 +13,15 @@
 //! - **[`validation`]** — leave-one-out cross-validation and jackknife+
 //!   prediction intervals for [`PolynomialSurrogate`] (added 2026-10-03,
 //!   GitHub #499).
+//! - **[`MultiOutputPolynomial`]** — one [`PolynomialSurrogate`] per output
+//!   column, each bit-identical to the scalar fit (added 2026-11-04, gh:#1194).
+//!
+//! **The typed, common interface to these routes is [`crate::fidelity`]**
+//! (gh:#1194): `uom` records in and out, a `Dataset` with its held-out split
+//! fixed at construction, `SurrogateSpec` / `Surrogate<I, O>` over the routes
+//! here, and a `ValidationReport` on the held-out rows. New routes (kriging,
+//! polynomial chaos, co-kriging) land here as `f64` implementations and as a
+//! variant there.
 //!
 //! Gaussian process regression / kriging and the sparse-grid polynomial chaos
 //! route are **not** implemented. ~~Neither is the cross-validation
@@ -53,7 +62,8 @@
 //! ## Design
 //!
 //! Enum dispatch, as everywhere else in this crate — never
-//! `Box<dyn Surrogate>`. No lifetime parameters.
+//! `Box<dyn Surrogate>`. No lifetime parameters. The dispatch enum is
+//! [`crate::fidelity::Surrogate`].
 //!
 //! ## Verification requirement
 //!
@@ -76,7 +86,7 @@ pub mod validation;
 #[cfg(feature = "burn")]
 pub mod neural;
 
-pub use polynomial::PolynomialSurrogate;
+pub use polynomial::{MultiOutputPolynomial, PolynomialSurrogate};
 
 #[cfg(feature = "burn")]
 pub use neural::{NeuralSurrogate, TrainingConfig, TrainingReport};

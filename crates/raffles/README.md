@@ -47,7 +47,8 @@ maker: propose changes of direction to them rather than making them.
 | `estimators` | Basic estimators moved from `outram-mc-libs` 2026-10-02 (GitHub #500, at the workspace maintainer's direction; owner review outstanding): sample mean and standard error, seed pooling, Shannon entropy over counts, running-sum (batch) uncertainty and batch prediction, first-order error propagation. Bit-identical to the outram-mc originals by contract |
 | `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS, or a **ZBDD** for scale; coherent **and** non-coherent), derive its **prime implicants** where cut sets would be conservative, quantify the top event by rare-event, MCUB, exact inclusion-exclusion **or a BDD**, and rank the basic events by the five standard importance measures. Handles house events, **fault trees with confidence-box basic events** (`scram::pba`, `scram::pbox_tree`: gate-by-gate p-box propagation, independent or Fréchet unknown dependence chosen per gate, after Lye et al. 2024; verified against the original R scripts, `docs/computing-with-confidence-verification.md`), **common-cause-failure groups** (all four models, applied by default) **substitutions** (delete terms, recovery rules, exchange events) and **alignments** (per-phase mission time and house events) and **uncertainty analysis** (Monte Carlo over the seven MEF random deviates), and **reads SCRAM's own Model Exchange Format input models** including `<define-component>` private namespaces and `<xi:include>`; no preprocessor |
 | `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
-| `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
+| `surrogate` | Reduced-order models — polynomial regression (scalar, and multi-output by one fit per output), and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
+| `fidelity` | One typed interface from a high-fidelity model to a surrogate (gh:#1194): `uom` records (`Quantities`, derived by `quantities!`), `ParameterSpace` bounds and priors, the caller-implemented traits `HighFidelityModel` and `ParametricModel` (consumed generically, never `dyn`), `Dataset` with its held-out split fixed at construction, `SurrogateSpec` / `Surrogate<I, O>` over the polynomial and neural routes, `Prediction`, `ValidationReport` (held-out RMSE, max error, LOO RMSE, 2σ coverage), `CorrectedModel` (y_LF(x, θ) + δ(x)) and `build`. Kriging, polynomial chaos and co-kriging join as variants when their ports land (gh:#1190, gh:#1193). V&V: `verification_and_validation/fidelity_interface_gh1194.md` |
 
 **Out of scope:** physics of any kind, simulation drivers, job scheduling,
 databases, plotting. RAVEN is a whole workflow application; RAFFLES ports only
@@ -174,9 +175,14 @@ Rust as trait objects. Per the workspace design rules:
 ## Units
 
 RAFFLES quantities are dimensionless by nature — probabilities, quantiles,
-variance fractions, correlation coefficients, counts — so `uom` is deliberately
-not used. Sample values are plain `f64` in whatever units the caller's model
-uses; RAFFLES never interprets them physically. Probabilities and Sobol indices
+variance fractions, correlation coefficients, counts — so ~~`uom` is
+deliberately not used~~ **CORRECTED 2026-11-04 (gh:#1194)** `uom` is not used
+by the statistical modules. Their sample values are plain `f64` in whatever
+units the caller's model uses; RAFFLES never interprets them physically. The
+exception is **`fidelity`**, the interface to a caller's physical models
+(maintainer: "Integrate uom into the trait interface"): its inputs, outputs,
+parameters, bounds, predictions and errors are `uom` quantities at the API,
+stored as SI base values inside, with an exact round trip. Probabilities and Sobol indices
 lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 
 ## Optional features
@@ -189,8 +195,10 @@ lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 cargo build -p raffles --release --features burn
 ```
 
-Nothing in `src/surrogate.rs` consumes `burn` yet; the feature wires the
-dependency up so that work can start behind a flag. GPU backends (`wgpu`,
+~~Nothing in `src/surrogate.rs` consumes `burn` yet; the feature wires the
+dependency up so that work can start behind a flag.~~ **CORRECTED 2026-11-04**
+(checked against `src/`): `surrogate::neural`, `gnn::mpnn`, `gnn::training`
+and the `Neural` route of `fidelity::Surrogate` consume it. GPU backends (`wgpu`,
 `vulkan`, `metal`, `webgpu`) are deliberately out of scope for this first pass.
 
 ## Android / Termux
@@ -199,7 +207,8 @@ The crate is **Android-clean by construction** and must stay that way. Its
 dependencies are `thiserror`, `petir` (the RNG; ~~`outram-mc-libs`~~
 **CORRECTED 2026-10-02** — the generator moved from `outram-mc-libs` into
 `petir`, and RAFFLES no longer depends on any physics crate), `xml-rs` (the
-MEF reader, previously omitted from this list), and — only when the
+MEF reader, previously omitted from this list), `uom` (no_std, the
+`fidelity` API, since 2026-11-04), and — only when the
 optional `burn` feature is turned on — `burn` with its `ndarray` backend. Every
 one of them is pure Rust: there is no `ndarray-linalg`, no BLAS/LAPACK, no C or
 Fortran toolchain, no GUI.
