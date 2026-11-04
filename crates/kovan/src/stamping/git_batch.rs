@@ -292,6 +292,18 @@ impl GitBatch {
         text
     }
 
+    /// [`Self::show`] with the blob's object id, when the batch read it
+    /// (`None` when it fell back to `git show`). Not kept in the batch: the
+    /// caller keeps what it derives (the test-run hashes,
+    /// [`super::hash_store`]), not every file's text.
+    pub(crate) fn show_with_id(&mut self, rev: &str, file: &str) -> Option<(Option<String>, String)> {
+        match self.object(&format!("{rev}:./{file}")) {
+            Some(Some(o)) if o.kind == "blob" => Some((Some(o.id), String::from_utf8_lossy(&o.data).into_owned())),
+            Some(None) => None,
+            _ => git::show(&self.root, rev, file).map(|t| (None, t)),
+        }
+    }
+
     /// The full commit id `rev` names: [`git::rev_parse`]'s answer, `None`
     /// for its error.
     pub(crate) fn resolve(&mut self, rev: &str) -> Option<String> {
@@ -393,11 +405,20 @@ impl GitBatch {
         if let Some(l) = self.kept.logs.get(file) {
             return l.clone();
         }
-        let l = git::git(&self.root, &["log", "--format=%x00%H%x1f%P%x1f%ct%x1f%B", &head, "--", file])
-            .ok()
-            .map(|out| Arc::new(LogCommit::parse_all(&out)));
+        let l = run_file_log(&self.root, &head, file);
         self.kept.logs.insert(file.to_string(), l.clone());
         l
+    }
+
+    /// Run the [`Self::file_log`]s of `files` not yet kept side by side
+    /// (#1198), and keep them: the same command, so the same answers.
+    pub(crate) fn prefetch_file_logs(&mut self, files: &BTreeSet<String>) {
+        let Some(head) = self.head() else { return };
+        let todo: Vec<String> = files.iter().filter(|f| !self.kept.logs.contains_key(*f)).cloned().collect();
+        let root = self.root.clone();
+        for (f, l) in side_by_side(todo, |f| run_file_log(&root, &head, f)) {
+            self.kept.logs.insert(f, l);
+        }
     }
 
     /// A stamp commit kept for this `HEAD` (`Some(answer)`), or `None`.
@@ -430,41 +451,92 @@ impl GitBatch {
     /// working tree (each as [`blame_range`] gives it alone), with one
     /// `blame` for all of them.
     pub(crate) fn blame(&mut self, file: &str, ranges: &BTreeSet<[u32; 2]>) -> BTreeMap<[u32; 2], Vec<String>> {
-        let ranges: Vec<[u32; 2]> = ranges.iter().copied().collect();
-        let key = match (self.head(), std::fs::read(self.root.join(file))) {
-            (Some(_), Ok(bytes)) => {
-                let mailmap = std::fs::read(self.root.join(".mailmap")).unwrap_or_default();
-                Some((file.to_string(), bytes_hash(&bytes), bytes_hash(&mailmap), ranges.clone()))
-            }
-            _ => None,
-        };
+        let key = self.blame_key(file, ranges);
         if let Some(b) = key.as_ref().and_then(|k| self.kept.blame.get(k)) {
             return (**b).clone();
         }
-        let mut args: Vec<String> = vec!["blame".into(), "--line-porcelain".into()];
-        for [a, b] in &ranges {
-            args.push("-L".into());
-            args.push(format!("{a},{b}"));
-        }
-        args.extend(["--".into(), file.into()]);
-        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-        let out: BTreeMap<[u32; 2], Vec<String>> = match git::git(&self.root, &refs) {
-            Ok(out) => {
-                let by_line = porcelain_mails(&out);
-                ranges
-                    .iter()
-                    .map(|&[a, b]| ([a, b], tidy_mails((a..=b).filter_map(|l| by_line.get(&l).cloned()).collect())))
-                    .collect()
-            }
-            // One range git refuses (past the end of the file, say) fails
-            // the whole call: ask range by range, as before.
-            Err(_) => ranges.iter().map(|&[a, b]| ([a, b], blame_range(&self.root, file, a, b))).collect(),
-        };
+        let out = run_blame(&self.root, file, ranges);
         if let Some(k) = key {
             self.kept.blame.insert(k, Arc::new(out.clone()));
         }
         out
     }
+
+    /// What a [`Self::blame`] is kept under: the file's working-tree text
+    /// and `.mailmap` with `HEAD` (`None`: not kept).
+    fn blame_key(&mut self, file: &str, ranges: &BTreeSet<[u32; 2]>) -> Option<BlameKey> {
+        let ranges: Vec<[u32; 2]> = ranges.iter().copied().collect();
+        match (self.head(), std::fs::read(self.root.join(file))) {
+            (Some(_), Ok(bytes)) => {
+                let mailmap = std::fs::read(self.root.join(".mailmap")).unwrap_or_default();
+                Some((file.to_string(), bytes_hash(&bytes), bytes_hash(&mailmap), ranges))
+            }
+            _ => None,
+        }
+    }
+
+    /// Run the [`Self::blame`]s of `wanted` not yet kept side by side
+    /// (#1198), and keep them: the same command, so the same answers.
+    pub(crate) fn prefetch_blames(&mut self, wanted: &BTreeMap<String, BTreeSet<[u32; 2]>>) {
+        let mut todo = Vec::new();
+        for (file, ranges) in wanted {
+            if let Some(k) = self.blame_key(file, ranges) {
+                if !self.kept.blame.contains_key(&k) {
+                    todo.push((k, ranges.clone()));
+                }
+            }
+        }
+        let root = self.root.clone();
+        for ((k, _), out) in side_by_side(todo, |(k, ranges)| run_blame(&root, &k.0, ranges)) {
+            self.kept.blame.insert(k, Arc::new(out));
+        }
+    }
+}
+
+/// `git log` of `file` from `head` ([`GitBatch::file_log`]).
+fn run_file_log(root: &Path, head: &str, file: &str) -> Option<Arc<Vec<LogCommit>>> {
+    git::git(root, &["log", "--format=%x00%H%x1f%P%x1f%ct%x1f%B", head, "--", file])
+        .ok()
+        .map(|out| Arc::new(LogCommit::parse_all(&out)))
+}
+
+/// One `blame` for every range of `file` ([`GitBatch::blame`]).
+fn run_blame(root: &Path, file: &str, ranges: &BTreeSet<[u32; 2]>) -> BTreeMap<[u32; 2], Vec<String>> {
+    let mut args: Vec<String> = vec!["blame".into(), "--line-porcelain".into()];
+    for [a, b] in ranges {
+        args.push("-L".into());
+        args.push(format!("{a},{b}"));
+    }
+    args.extend(["--".into(), file.into()]);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    match git::git(root, &refs) {
+        Ok(out) => {
+            let by_line = porcelain_mails(&out);
+            ranges
+                .iter()
+                .map(|&[a, b]| ([a, b], tidy_mails((a..=b).filter_map(|l| by_line.get(&l).cloned()).collect())))
+                .collect()
+        }
+        // One range git refuses (past the end of the file, say) fails
+        // the whole call: ask range by range, as before.
+        Err(_) => ranges.iter().map(|&[a, b]| ([a, b], blame_range(root, file, a, b))).collect(),
+    }
+}
+
+/// `f` of each of `items` on worker threads (two cores left free), paired
+/// with its item.
+pub(crate) fn side_by_side<T: Send + Sync, R: Send>(items: Vec<T>, f: impl Fn(&T) -> R + Sync) -> Vec<(T, R)> {
+    if items.is_empty() {
+        return Vec::new();
+    }
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get().saturating_sub(2)).max(1);
+    let per = items.len().div_ceil(threads).max(1);
+    let f = &f;
+    let results: Vec<R> = std::thread::scope(|scope| {
+        let handles: Vec<_> = items.chunks(per).map(|part| scope.spawn(move || part.iter().map(f).collect::<Vec<_>>())).collect();
+        handles.into_iter().flat_map(|h| h.join().expect("git runs do not panic")).collect()
+    });
+    items.into_iter().zip(results).collect()
 }
 
 impl Drop for GitBatch {
