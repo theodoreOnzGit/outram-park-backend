@@ -661,6 +661,58 @@ first bin is what the binning bias would affect.
 | (c′) inlet flux against U πR² | **0.92–0.96.** My hypothesis, from a geometry check made just before the coordinator's message (cfMesh's own 48-sided pipe, `diagnose_inward_boundary_faces_on_layered_pipes`): the inlet patch's projected area is 0.9396 πR² at h 4 mm (0.8656 at 6 mm, 0.8915 at 5 mm, 0.9718 at 3.3 mm), because the rim is chamfered (no feature-edge capture) and the chamfer faces are `walls`. `Gauss linear`'s u_c and dp/dz tracked these ratios to 0.3–1 %. If so, the miss is the flow rate the case carries, not the profile |
 | (a′) the RMS against u_HP built from the **measured** flow rate and section area (U_b = Q/A, R_eq = √(A/π)) | below (a) |
 
+**Results (2026-11-04, `diagnose_pipe_instruments` in
+`foam_studio_web/engine.rs`, `--ignored`; Re = 100 nominal, to steady).**
+Q is the inlet face flux (exact: out/in = 1 ± 1e-9); A the exact area of
+the section the 0.75 L plane cuts (Σ of the cut polygons).
+
+| instrument | dual h 4 mm, `linearUpwind` + `cellLimited` (demo) | dual h 4 mm, `Gauss linear` | O-grid 7 920, upwind (control) |
+|---|---|---|---|
+| binned first bin, u/2U (bin's mean r/R) | 0.8491 (0.000) | 0.9279 (0.000) | 0.9740 (0.130) |
+| (b) fit r < R/2, a/2U (**the headline**) | 0.8534 | 0.9418 | 0.9905 |
+| (b′) fit r < 0.9 R | 0.8862 | 0.9423 | 0.9932 |
+| (a) RMS (u − u_HP)/2U at cell centres, nominal U, R | 0.0574 | 0.0395 | 0.0112 |
+| (a′) the same with U_b = Q/A, R_eq = √(A/π) | 0.0385 | 0.0120 | 0.0056 |
+| (c) Σ u_z A over the cut / Q | 1.0088 | 1.0133 | 1.0000 |
+| inlet Q / (U πR²) | **0.9396** | **0.9396** | 0.9886 |
+| cut area / πR² | 0.9796 | 0.9796 | 0.9886 |
+| u_c / 2U_b, U_b = Q/A | **0.8897** | **0.9820** | 0.9905 |
+| (−dp/dz) / (8νU_b/R_eq²) | **1.0196** | **0.9616** | 1.0055 |
+| nominal u_c/2U, dp/dz/HP | 0.8534, 0.9983 | 0.9418, 0.9414 | 0.9905, 1.0171 |
+
+**Against the predictions.** The binning bias is not what moved u_c: the
+headline is a fit, and the first bin reads within 0.4–1.5 % of it (held).
+(b′) is within 0.02 of (b) on `Gauss linear` and the O-grid, but **0.033
+above** on the demo setting: its profile is not parabolic (held / missed).
+(c) closes to 1–1.3 % on the dual (midpoint quadrature over cut cells of
+a curved profile; exact on the O-grid) (held, looser). The inlet carries
+**0.9396 U πR²** on the demo mesh, as predicted from the cfMesh-only
+geometry, while the section is 0.9796 πR²: **the case runs at 4.1 % less
+flow than U over its own section**, because the chamfered rim's faces are
+`walls`, not `inlet` (feature-edge capture is not ported). (a′) < (a)
+(held).
+
+**Which instrument the 2 % bar should use, from the physics.**
+Hagen–Poiseuille relates the centreline velocity and the gradient to the
+flow rate through the section: u_c = 2Q/A, −dp/dz = 8μQ/(πR⁴). The
+nominal normalisation assumes Q = U πR², which is a property of the
+mesh's inlet patch, not of the solution; on the dual it is false by 6 %.
+So, for "does the solver reproduce Hagen–Poiseuille", the right
+instrument is **(b), the fit intercept, normalised by the flow the case
+carries: u_c/2U_b and dp/dz/(8νU_b/R_eq²) with U_b = Q/A** (both exact
+quantities), with (a′) beside it as the whole-profile check. The nominal
+numbers stay reported, because they are what the demo shows and they say
+the demo runs at Re ≈ 94, not 100: **that is a defect of the case**
+(the inlet does not span the pipe) and it is listed to fix, not normalised
+away. On the O-grid the two normalisations differ by the 24-gon's area
+(1.1 %), so the structured record keeps its nominal numbers.
+
+**Verdict.** The instruments agree that the demo setting's u_c really is
+low: **11 % against its own flow**, with an RMS three times
+`Gauss linear`'s. `Gauss linear` on the same mesh is −1.8 % / −3.8 %
+against its own flow. So the `linearUpwind` + `cellLimited` profile is a
+numerics problem, and the remaining 4 % of the nominal miss is the inlet.
+
 ### Mesh images (drawn from the `PolyMesh` the solver gets)
 
 In `laminar_pipe_gh1155/unstructured_gh1202/`, written by

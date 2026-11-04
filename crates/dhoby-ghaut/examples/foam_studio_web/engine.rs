@@ -2085,6 +2085,105 @@ mod tests {
         }
     }
 
+    /// Diagnostic (gh:#1202, coordinator's instrument check), `--ignored`:
+    /// the u_c and profile instruments side by side on the unstructured
+    /// default and on the O-grid 7 920 control, Re = 100, to steady. Per
+    /// mesh and scheme it prints: the binned first bin; the fit
+    /// u = a − b r² over r < R/2 (the headline) and over r < 0.9 R; the RMS
+    /// of (u − u_HP(r))/2U at each cell centre over 0.65–0.85 L with the
+    /// nominal U and R, and with the measured U_b = Q/A and R_eq = √(A/π);
+    /// the slab flow against the inlet flux; the inlet flux against U πR²;
+    /// the slab section area against πR²; and u_c, dp/dz normalised by the
+    /// measured flow (2 U_b; 8 ν U_b / R_eq²).
+    #[test]
+    #[ignore]
+    fn diagnose_pipe_instruments() {
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, fit_line, patch_flux, pressure_gradient, radial_profile_binned};
+        use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, GradScheme};
+        use uom::si::acceleration::meter_per_second_squared;
+        let dual = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let ogrid = Design { target_cells: 8000, ..Design::default() };
+        let lu = (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0)));
+        let lin = (DivScheme::GaussLinear, None);
+        for (name, d, scheme) in [("dual h 4 mm, linearUpwind+cellLimited", dual, Some(lu)), ("dual h 4 mm, Gauss linear", dual, Some(lin)), ("O-grid 7920, upwind (its setting)", ogrid, None)] {
+            let mut e = Engine::default();
+            e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |_| {});
+            e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
+            if let (Some((div, grad)), Some(Case::Pipe(s, _))) = (scheme, e.case.as_mut()) {
+                s.schemes.default_div = div;
+                s.schemes.grad_u = grad;
+            }
+            for _ in 0..400 {
+                let mut done = false;
+                e.serve(Request::Step { id: 1, steps: 5 }, &mut |ev| {
+                    if let Event::Progress(p) = ev {
+                        done = p.steady;
+                    }
+                });
+                if done {
+                    break;
+                }
+            }
+            let Some(Case::Pipe(s, flow)) = &e.case else { panic!("no pipe") };
+            let m = &s.mesh;
+            let (r, l, u) = (0.01, 0.2, U_IN);
+            let (z0, z1) = (0.65 * l, 0.85 * l);
+            let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
+            let fit = |rmax: f64| {
+                let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
+                    .filter(|&c| (m.cell_centres[c].z - 0.75 * l).abs() < 0.05 * l && r2(c) < rmax * rmax * r * r)
+                    .map(|c| (r2(c), s.u.internal[c].z, m.cell_volumes[c]))
+                    .collect();
+                fit_line(&pts).0 / (2.0 * u)
+            };
+            let head = centreline_velocity(s, flow, (0.0, 0.0), 0.75 * l, 0.05 * l).get::<meter_per_second>() / (2.0 * u);
+            let bins = radial_profile_binned(s, flow, (0.0, 0.0), 0.75 * l, self_hz(d, &e), PROFILE_BINS);
+            let bin0 = bins.first().map_or(f64::NAN, |b| b.1 / 2.0);
+            let slab: Vec<usize> = (0..m.n_cells).filter(|&c| (z0..=z1).contains(&m.cell_centres[c].z)).collect();
+            let vol: f64 = slab.iter().map(|&c| m.cell_volumes[c]).sum();
+            let area = vol / (z1 - z0);
+            let q_slab = slab.iter().map(|&c| s.u.internal[c].z * m.cell_volumes[c]).sum::<f64>() / (z1 - z0);
+            let q_in = -patch_flux(s, "inlet");
+            // The section the probe plane (0.75 L) cuts, exactly: Σ of the
+            // cut polygons' areas; and Σ u_z A over them (midpoint quadrature).
+            let a_cut: f64 = e.cross.iter().map(|c| outram_foam_mesh::section::polygon_area(&c.polygon).abs()).sum();
+            let q_cut: f64 = e.cross.iter().map(|c| s.u.internal[c.cell].z * outram_foam_mesh::section::polygon_area(&c.polygon).abs()).sum();
+            println!("  cut at 0.75 L: area / pi R^2 {:.4}; sum u A / inlet Q {:.4} (slab-volume area / pi R^2 {:.4})", a_cut / (std::f64::consts::PI * r * r), q_cut / q_in, area / (std::f64::consts::PI * r * r));
+            let area = a_cut;
+            let ub = q_in / area;
+            let r_eq2 = area / std::f64::consts::PI;
+            let rms = |uu: f64, rr2: f64| {
+                (slab.iter().map(|&c| ((s.u.internal[c].z - 2.0 * uu * (1.0 - r2(c) / rr2)) / (2.0 * uu)).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt()
+            };
+            let g = pressure_gradient(s, z0, z1).get::<meter_per_second_squared>();
+            let nu = flow.nu.get::<uom::si::kinematic_viscosity::square_meter_per_second>();
+            let hp_nom = flow.hagen_poiseuille_gradient().get::<meter_per_second_squared>();
+            let hp_meas = 8.0 * nu * ub / r_eq2;
+            println!(
+                "{name}: {} cells, {} steps\n  binned bin0 u/2U {bin0:.4} (bin centre r/R {:.3}); fit r<R/2 {head:.4} (recomputed {:.4}); fit r<0.9R {:.4}\n  RMS nominal {:.4}; RMS measured-flow {:.4}\n  slab Q / inlet Q {:.6}; inlet Q / (U pi R^2) {:.4}; slab area / pi R^2 {:.4}\n  u_c / 2U_b {:.4}; dp/dz / (8 nu U_b / R_eq^2) {:.4}; (nominal: u_c/2U {head:.4}, dp/dz/HP {:.4})",
+                m.n_cells,
+                e.steps,
+                bins.first().map_or(f64::NAN, |b| b.0),
+                fit(0.5),
+                fit(0.9),
+                rms(u, r * r),
+                rms(ub, r_eq2),
+                q_slab / q_in,
+                q_in / (u * std::f64::consts::PI * r * r),
+                area / (std::f64::consts::PI * r * r),
+                head * u / ub,
+                g / hp_meas,
+                g / hp_nom,
+            );
+        }
+        fn self_hz(d: Design, e: &Engine) -> f64 {
+            match d.mesh {
+                PipeMesh::Structured => 0.5 * e.cell_len,
+                PipeMesh::Unstructured(_) => e.cell_len,
+            }
+        }
+    }
+
     #[test]
     fn requests_and_events_survive_the_wire() {
         let reqs = [
