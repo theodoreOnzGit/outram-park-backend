@@ -278,9 +278,11 @@
     ["fragment-flight.html", "A fragment's flight"],
     ["lattice-cascade.html", "The lattice's side: cascade and recombination"],
     ["decay-again.html", "Then it decays: the same story again"],
+    ["decay-clock.html", "An atom's clock: sampling a decay"],
     ["decay-or-move.html", "Settled: decay or move?"],
     ["atom-hop.html", "How an atom hops"],
     ["atoms-swap.html", "Atoms swapping: how hops become diffusion"],
+    ["walk-on-spheres.html", "Walking on spheres"],
     // Chapter 3, "TRISO kernel" (maintainer design 2026-10-20).
     ["kernel-polycrystal.html", "Real UO2 is not neat rows"],
     ["kernel-chemistry.html", "Chemistry decides the fate"],
@@ -314,6 +316,10 @@
     ["failure-accident.html", "An accident, step by step"],
     ["failure-release.html", "From failed particles to release"],
     ["failure-leaves-out.html", "What the model leaves out"],
+    // gh:#1207: the TRISO-ATOPS mdBook's rung 6 (chemical attack), after
+    // what the failure model leaves out.
+    ["chem-air.html", "Air on hot graphite"],
+    ["chem-steam.html", "Steam on graphite and bare kernels"],
     // Chapter 5, "Integrating it in TRISO-ATOPS" (maintainer direction
     // 2026-10-22: chapters 3 and 4 brought together inside TRISO-ATOPS).
     ["atops-big-picture.html", "TRISO-ATOPS: the big picture"],
@@ -323,7 +329,9 @@
     ["atops-normal-operation.html", "Normal operation, node by node"],
     ["atops-coolant.html", "Into the coolant"],
     ["atops-accident.html", "Accidents: Booth on the integral, and venting"],
-    ["atops-simplifications.html", "Simplifications, side by side"]
+    ["atops-simplifications.html", "Simplifications, side by side"],
+    // gh:#1207: the mdBook's rung 8, the hand-off to sembawang and changi.
+    ["atops-source-term.html", "Into the source term"]
   ];
   var TRACKS = {
     neutronics: ["Neutronics", LESSONS, "glossary.html"],
