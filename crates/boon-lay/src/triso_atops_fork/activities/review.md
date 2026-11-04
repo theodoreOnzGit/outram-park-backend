@@ -638,19 +638,19 @@ id = "review-clean-up-theodoreonzgit-1365b3b5"
 kind = "review"
 origin = "human"
 created = "2026-11-02T13:26:30+08:00"
-modified = "2026-11-02T13:26:30+08:00"
+modified = "2026-11-04T15:15:53+08:00"
 target = "fn:1365b3b5318e0a5d"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::clean_up"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-11-02"
-signed_at = "2026-11-02T13:26:31+08:00"
-commit = "e4e84814e8b351269093bb54f63d7834bfc5d843"
+date = "2026-11-04"
+signed_at = "2026-11-04T15:15:53+08:00"
+commit = "57c15041aee75278b58ac7425c0097e1291a6d91"
 hash = "sha256:c942284721244108e667ca31e29958749cc2bb1be0458b653a2b2f3da2bf3d67"
 doc_hash = "sha256:a09bb66dc21dd22bdf65b64e83cce12a6038e8e36da5d8f0f85b6de95caacdd5"
-cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+cargo_lock = "sha256:a5440ad885b8bef2745cbba37122e65f7eaa556c34dbc4a462d93afb860c2895"
 
 [review.callees]
 "fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
@@ -670,17 +670,10 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = [
-    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
-    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
-]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "JVB2omsEH5q6BieXOXWkHhoEVVaW3sKijfj7Ccjrt0f33hZUlpOaZaZKKHzpncC/snqd25Qx1I2WdsgjDPw2AQ=="
+value = "lFHNF2K7gc4pvHG6kaCJs566Vt2qj+YfT+DFW3bMHqE69zedosTcL+aMsDIrG7a4XRGzgaOCVY7rMwmuYgPWDw=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -688,10 +681,11 @@ kind = "implements"
 ```
 
 follow upstream, checked against clean_up python code
+This is the analytical integral (see doc comments)
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-02, commit e4e84814e8.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit 57c15041ae.
 
 # Review: circulating (github:theodoreOnzGit)
 
