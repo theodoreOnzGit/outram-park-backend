@@ -2424,6 +2424,7 @@ dependencies = [
  "outram-park-fork-dwsim-libs",
  "outram-park-fork-liggghts",
  "petir",
+ "raffles",
  "sembawang",
  "serde",
  "sha2",

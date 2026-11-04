@@ -201,6 +201,14 @@ bash crates/dhoby-ghaut/web/helical_sg/build.sh "$OUT/demos/helical-sg"
 for f in index.html worker.js helical_sg_web.js helical_sg_web_bg.wasm; do
   [[ -f "$OUT/demos/helical-sg/$f" ]] || { echo "missing demos/helical-sg/$f" >&2; exit 1; }
 done
+# The double-pipe high-fidelity -> low-fidelity twin (gh:#1182): the TUAS
+# 1-D double pipe evaluated live in a Web Worker, beside the committed
+# Kennedy-O'Hagan, co-kriging, CFD and filtering artefacts compiled into the
+# wasm; no data files.
+bash crates/dhoby-ghaut/web/double_pipe_twin/build.sh "$OUT/demos/double-pipe-twin"
+for f in index.html worker.js double_pipe_twin_web.js double_pipe_twin_web_bg.wasm; do
+  [[ -f "$OUT/demos/double-pipe-twin/$f" ]] || { echo "missing demos/double-pipe-twin/$f" >&2; exit 1; }
+done
 # Foam Studio (gh:#1155): a pipe or duct meshed (O-grid / box blockMesh) and
 # solved by the pimpleFoam port in a Web Worker, one chunk of time steps per
 # message; no data files.
