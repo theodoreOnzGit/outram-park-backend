@@ -731,3 +731,52 @@ value = "dSKEhFVjaAXMa1fqbpEYNi+Ovt0b+D43X5aJ/X6dMPsRIa7v2s5pp0k54mtDLf5wCIaqa4L
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit bd12783b37.
+
+# Review: YEAR_S (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-year-s-theodoreonzgit-24b9b783"
+kind = "review"
+origin = "human"
+created = "2026-11-04T11:31:08+08:00"
+modified = "2026-11-04T11:31:08+08:00"
+target = "fn:24b9b78394837b0c"
+
+[review]
+path = "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::YEAR_S"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-04"
+signed_at = "2026-11-04T11:31:09+08:00"
+commit = "dea820e8ef1347f9eca6a877e12b5f48a642b1ad"
+hash = "sha256:c5e3fcdec29fdbc79637fd69a373b67e0c4ba62e4ac8aace394259ea282aacba"
+doc_hash = "sha256:03c61bcd9127d2e3f670731d9a5cbcbc5f9b95b01df0f2eb17b1a5c3fe1a44bd"
+cargo_lock = "sha256:bc3449b029ba47af926e4ca500be454f3e3f738a3cf88c5ee3c1c3fddeaa5dfd"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01EXPhstVwAqRb8o6YHVQoXW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "DE+gdHA0eNK4/oXWdWwi67XEkQ00hmlN8F8Ogi2zjS0Yucim6s98IGFjf3p5nfkK6Z/n3fXr5kxAVjGS++XdDw=="
+```
+
+just does unit conversion
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-04, commit dea820e8ef.
