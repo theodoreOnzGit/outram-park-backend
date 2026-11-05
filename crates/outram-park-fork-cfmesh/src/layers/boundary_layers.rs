@@ -95,6 +95,7 @@ use crate::surface_optimizer::check_inverted_vertices;
 use crate::topology::TopoMesh;
 use crate::volume_mesh::{from_cell_faces_wound, VolumeMesh};
 use std::collections::{BTreeMap, BTreeSet};
+use petir::mathf::RealMath;
 
 /// `boundaryLayers` settings (the `boundaryLayers` sub-dictionary of
 /// `meshDict` this upstream line reads).
@@ -423,7 +424,7 @@ pub fn angle_between_faces(points: &[Vec3], f1: &[usize], f2: &[usize]) -> Optio
         let n_nei = points[nei[1]].sub(points[nei[0]]).cross(points[nei[2]].sub(points[nei[0]]));
         let n_nei = n_nei.scale(1.0 / (n_nei.length() + VSMALL));
         let dot = n_own.dot(n_nei).clamp(-1.0, 1.0);
-        angle += if *vol > -VSMALL { dot.acos() + std::f64::consts::PI } else { (-dot).acos() };
+        angle += if *vol > -VSMALL { dot.r_acos() + std::f64::consts::PI } else { (-dot).r_acos() };
     }
     Some(angle / tets.len() as f64)
 }

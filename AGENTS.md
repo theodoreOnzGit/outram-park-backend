@@ -48,6 +48,21 @@ gh issue comment <number> --body "..."           # progress
   or proc macros; write functions, generics and enums, so the code is
   readable in review and visible to kovan. Using std and dependency macros
   is fine. Full rule: `CLAUDE.md`, "Avoid writing macros".
+- **Transcendental maths goes through PETIR, everywhere (HARD RULE,**
+  maintainer 2026-11-05). In every crate's non-test code, call `exp`, `ln`,
+  `log10`, `log2`, `powi`, `powf`, and transcendentals such as
+  `sin`, `cos`, `tan`, `acos`, `atan2`, `sinh`, `tanh`, `hypot`, `cbrt`
+  and the rest through `petir::mathf::RealMath` (`x.r_exp()`,
+  `x.r_acos()`, `x.r_powi(n)`, ...), never the inherent `f64`/`f32`
+  methods (`x.exp()`). The inherent methods take their last bit from the
+  platform's C library (glibc, MSVC, Apple, wasm), so a run gives different
+  bits on different machines; PETIR's are one implementation everywhere
+  (gh:#985). A raw call compiles and runs silently, so the gate
+  `crates/petir/tests/no_platform_libm.rs` (`cargo test --release -p petir
+  --test no_platform_libm`) must stay green: run it after adding maths, and
+  fix any line it lists in code you add. It went red twice on 2026-11-05
+  (#1290: 41 calls, then 4 more from new cfMesh code). Full rationale:
+  `crates/petir/AGENTS.md` and `crates/petir/src/mathf.rs`.
 - **Never declare modules through a macro (HARD RULE,** maintainer
   2026-11-04): every `mod` is a plain line in source, never `mod $m;` in a
   `macro_rules!`. kovan reads `mod` lines without expanding macros, so a
