@@ -2467,6 +2467,13 @@ mod tests {
     /// mesh with no fold it should not, so predict 0 for both. Max
     /// non-orthogonality: both lower than the unsmoothed mesh. Mean point
     /// displacement: of the same order (within a factor of 3).
+    ///
+    /// Results (2026-11-05; 1 381 cells, 3 791 inside points): unsmoothed,
+    /// max non-orthogonality 83.80°, max skewness 0.571, 336 bad faces;
+    /// `laplacianPC` ×5: 59.44°, 0.366, 0 bad faces, 0 inverted cells, mean
+    /// displacement 0.1114 (max 0.2396); smart Laplacian ×5: 73.68°, 0.464,
+    /// 0 bad faces, 0 inverted cells, mean 0.0758 (max 0.3518). Every
+    /// prediction held.
     #[test]
     #[ignore]
     fn diagnose_laplace_pc_against_smart_laplacian() {

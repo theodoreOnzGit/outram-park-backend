@@ -2540,6 +2540,56 @@ All four meshes have 7 025 cells and 100 % layer coverage.
   - bad faces within ±50 % of the boundary-moves run's 27: **missed
     narrowly** (41; the limit was 40.5).
 
+**The solve (no prediction was written for it before the run; measured
+2026-11-05).** Foam Studio's own cylinder (`FOAM_DUAL_KIND=centre
+FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh … --headless-unstructured 5
+3 0.3 1.2 100`, with `FOAM_CFMESH_BMOVES`, a native knob added to
+`examples/foam_studio_web/engine.rs`), the same session:
+
+| quantity | baseline | boundary moves |
+|---|---|---|
+| meshing (shared host) | 23.6 s | 17.3 s |
+| first untangle | 2 858 → 26 | 2 858 → 0 |
+| max non-orthogonality | 56.4° | 55.2° |
+| mean total thickness | 0.975 mm | 0.973 mm |
+| steps to steady | 26 | 38 |
+| u_c/2U at 0.75 L | **0.9314** | **0.9013** |
+| −dp/dz / HP | **1.0055** | **0.9703** |
+| τ_w / HP | 1.0057 | 0.9705 |
+| profile RMS (u − u_HP)/2U | 0.0320 | 0.0493 |
+
+The baseline reproduces gh:#1241's 0.9314 / 1.0055 / 1.0057 and 26 steps
+exactly. **With boundary moves the solve is further from Hagen–Poiseuille
+on every measure** (−3.2 % on u_c, −3.5 % on dp/dz), although the mesh has
+a third of the bad faces. The likely cause, not yet isolated: the
+unconstrained boundary passes take the rim and wall points off the pipe's
+surface and the inlet plane (inlet area 1.7 % → 3.0 % below πR² in the
+diagnostic above), and the solve normalises by the nominal πR² and
+R. That is one more reason not to adopt the moves without a projection back
+onto the surface.
+
+**Images (drawn from the mesh the solver gets).** In
+`laminar_pipe_gh1155/gh1255/bmoves0/` (baseline) and `gh1255/bmoves1/`
+(boundary moves): `layers_cfmesh_h5_3_{xz_rim,xy,xy_wall,wallmap}.png`.
+They were written by `FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners
+FOAM_CFMESH_BMOVES=0|1 cargo run --release -p dhoby-ghaut --example
+foam_studio_web -- --render-layer-strategies <dir>`, Foam Studio's cylinder
+(the back-off and snappy images it also writes are unchanged meshes and
+were not kept).
+
+- **Checked by eye (2026-11-05):**
+  - `xz_rim`: in the baseline the inlet is the straight line z = 0. With
+    boundary moves the inlet faces near the rim (x 0.7–1.0 cm) **bow out of
+    the inlet plane**, up to z ≈ 0.02 cm at x ≈ 0.98 cm, and the three
+    layer cells at the rim follow. This is the inlet-area loss in the
+    table, seen directly. It is the most likely reason for the solve's
+    shift; that was not isolated.
+  - `xy_wall` at mid-length (z = 10.01 cm): the two runs are the same
+    picture, three thin layers under one dual cell. The moves are local to
+    the rim.
+- **Not checked:** the rim's 3-D shape away from the y = 0.013 cm slice; the
+  outlet.
+
 **What it means.** Upstream's boundary moves remove the boundary-held faces
 that gh:#1241 left in place: 29 → 0 in the first untangle, and 77 → 27 at
 the end. The faces left at the end come from the layer split and the
@@ -2594,6 +2644,39 @@ gh:#1255 section).**
 - `CFMESH_LPU=1 CFMESH_BMOVES=1`: bad faces at the end 27 ± 10, as the
   boundary-moves run.
 
+**Results (2026-11-05,** same command as the gh:#1255 section, with
+`CFMESH_LPU`; the three runs in one session on a host shared with two other
+agents' builds, so the times are loaded but comparable with each other).
+
+| quantity | baseline | LP untangler | LP untangler + boundary moves |
+|---|---|---|---|
+| meshing | 30.9 s | 28.2 s | 20.0 s |
+| first untangle: bad faces | 2 861 → 29 | 2 861 → 29 | 2 861 → 0 (3 global, 3 boundary passes) |
+| bad faces at the end | 77 | 77 | 36 |
+| faces failing OpenFOAM's checks | 77 | 77 | 35 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 57.5° / 53.0° | 58.0° / 52.7° |
+| mean total thickness | 0.977 mm | 0.980 mm | 0.981 mm |
+| V/(section L), inlet/section | 0.98887, 0.98287 | 0.98887, 0.98287 | 0.98829, 0.97221 |
+
+The baseline reproduces the gh:#1255 baseline's mesh numbers exactly: the
+defaults are unchanged.
+
+**Against the predictions.**
+- LP untangler, first untangle 29 ± 3: **held** (29).
+- LP untangler, end 77 ± 5: **held** (77).
+- LP untangler, time ± 30 %: **held** (−9 %).
+- With boundary moves, end 27 ± 10: **held** (36; gh:#1255's boundary
+  moves alone gave 27).
+
+**What it means.** On this mesh the LP untangler changes little: it moves
+the nodes of inverted tetrahedra, and the faces this pipe keeps are
+boundary-held, which only the boundary loop can reach. It is cheap (no
+time cost measurable on a loaded host) and it makes every tetrahedron of a
+feasible simplex positive in one step (`mesh_untangler_lp_guarantee`),
+which Knupp's metric does not promise. It stays opt-in. Recommendation:
+switch it on together with the boundary moves if the maintainer adopts
+those, since that is what upstream runs.
+
 ## Reproduce
 
 ```bash
@@ -2612,6 +2695,13 @@ cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --li
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
 FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
+# gh:#1255, gh:#1256, gh:#1260 (CFMESH_BMOVES, CFMESH_LAPLACE, CFMESH_LPU = 0 or 1)
+CFMESH_BMOVES=1 CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies <dir>
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_laplace_pc_against_smart_laplacian
+# gh:#1261
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_cfmesh_against_openfoam_checks
 # gh:#1241
 CFMESH_STEPS=1 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_corners_rim
 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_snappy_cascade

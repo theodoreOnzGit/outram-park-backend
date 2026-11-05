@@ -569,3 +569,117 @@ Every item follows the same rules:
 - `checkMeshDict`: there is no `meshDict` reader.
 
 If a `meshDict` reader is wanted, it is a new item after 20.
+
+## 5. Progress against the plan
+
+### Items 1, 2, 6, 7 (gh:#1255, #1256, #1260, #1261), 2026-11-05
+
+Each item lands opt-in: the default pipeline's output is unchanged. The pins
+`back_off_only_layers_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`
+and `layer_strategies_are_deterministic` pass after every item. The pipe
+differentials are in
+`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`
+(sections gh:#1255/#1256 and gh:#1260). Every prediction was written and
+committed before its run, and the misses are recorded where they occurred.
+
+- **Item 1 (gh:#1255), `mesh_optimizer`:**
+  - `UntangleControls`, `untangle_mesh_fv_with` (the boundary loop),
+    `PartTetMesh::{near_boundary, optimise_boundary_volume_optimizer,
+    optimise_boundary_surface_laplace}`, `optimize_mesh_near_boundaries`,
+    `face_dot_products`, `face_skewness`, `find_worst_quality_faces`,
+    `optimize_mesh_fv_best_quality`;
+  - control `BoundaryLayerOptimisationControls::untangle_boundary_moves`;
+  - the eigen split reuses `outram_foam_basic_lib::primitives::eigen`. That
+    dependency is now non-optional; the crate still checks for
+    `wasm32-unknown-unknown` and `aarch64-linux-android` (`--lib`).
+  - Tests: `boundary_moves_repair_a_dent_interior_moves_cannot`,
+    `optimize_mesh_near_boundaries_moves_only_the_near_wall_region`,
+    `worst_quality_faces_and_best_quality_optimiser`.
+- **Item 2 (gh:#1256), `mesh_optimizer`:**
+  - `laplace_smoother` (`laplacian`, `laplacianPC`, `laplacianWPC`),
+    `laplace_smoother_surface`, `vertex_type`, `MeshOptimizer` (the lock
+    API, `removeUserConstraints`, `enforceConstraints` →
+    `ConstraintViolation`, `optimizeMeshFV`);
+  - control `BoundaryLayerOptimisationControls::optimize_mesh_fv_laplace`.
+  - Tests: `laplace_smoother_fixed_point_and_one_pass`,
+    `lock_api_and_enforce_constraints`; differential
+    `diagnose_laplace_pc_against_smart_laplacian`.
+- **Item 6 (gh:#1260), new module `mesh_untangler`:**
+  - `CutRegion`, `Plane`, `mesh_untangler`, `sort_edges_into_chains`;
+  - `PartTetMesh::optimise_using_mesh_untangler`, `UntangleControls::mesh_untangler`;
+  - control `BoundaryLayerOptimisationControls::untangle_mesh_untangler`.
+  - Tests: `sort_edges_into_chains_closes_faces`,
+    `cut_region_of_the_corner_simplex`, `mesh_untangler_lp_guarantee`,
+    `three_smoothers_on_the_same_simplices`,
+    `untangle_with_and_without_the_lp_untangler`.
+- **Item 7 (gh:#1261), new modules `poly_mesh_gen_checks` and
+  `mesh_subsets`:**
+  - every `polyMeshGenChecks` function, `MeshQualitySettings`,
+    `find_bad_faces_with`;
+  - `MeshSubsets`, and the subset locks and recorded `badFaces`,
+    `badCells`, `badPoints` on `MeshOptimizer`.
+  - Tests: `analytic_checks`, `upper_triangular_detects_a_swap`,
+    `find_bad_faces_with_default_settings_is_find_bad_faces`,
+    `subsets_follow_upstream`, `subset_locks_and_recorded_subsets`;
+    differential `pipeline::tests::diagnose_cfmesh_against_openfoam_checks`.
+
+**Findings on the way, not fixed (each would change a default):**
+- `optimise_using_knupp_metric` counts its passes differently from
+  upstream (doc comment);
+- this crate's meshes are not in OpenFOAM's upper-triangular face order
+  (`cartesian_box` numbers its internal faces by direction).
+
+**Upstream defects found:**
+- `lockPointsInSubset` calls `lockCells` with point labels. The port locks
+  the points instead and says so.
+- `optimiseUsingMeshUntangler` never re-marks inverted tetrahedra, so it is
+  one pass. Kept, documented.
+
+**Differential results (2026-11-05).**
+
+- **gh:#1256, `laplacianPC` against `smooth::laplacian_smooth`.** Setup: the
+  graded sphere, R 3, cell 1.0, one level within 1.0 of the wall; 1 381
+  cells, 3 791 inside points; five passes each.
+
+  | quantity | unsmoothed | `laplacianPC` | smart Laplacian |
+  |---|---|---|---|
+  | max non-orthogonality | 83.8° | 59.4° | 73.7° |
+  | max skewness | 0.571 | 0.366 | 0.464 |
+  | `findBadFaces` | 336 | 0 | 0 |
+  | inverted cells | 0 | 0 | 0 |
+  | mean point displacement | — | 0.111 | 0.076 |
+  | max point displacement | — | 0.240 | 0.352 |
+
+  Every prediction held: 0 inverted cells for both, both lower than the
+  unsmoothed mesh, mean displacements within a factor of 3. cfMesh's
+  unconditional point-cell Laplacian does better here than the smart one.
+  The smart Laplacian refuses any move that inverts a cell, and so stops
+  short.
+- **gh:#1261, cfMesh against OpenFOAM checks.** Setup: the 48-sided pipe at
+  h 5 mm, default dual, bare (3 113 cells) and with 3 back-off layers
+  (26 009 cells); OpenFOAM's thresholds for both.
+
+  | check | bare: cfMesh / OpenFOAM, only cfMesh / only OpenFOAM | 3 layers: same columns |
+  |---|---|---|
+  | volume ratio 0.01 | 0 / 0, 0 / 0 | 2 536 / 2 536, 0 / 0 |
+  | twist 0.02 | 152 / 152, 0 / 0 | 160 / 160, 0 / 0 |
+  | determinant 0.001 | 0 / 0, 0 / 0 | **0 / 352**, 0 / 352 |
+
+  Volume ratio and twist agree face for face (held). The dual has no
+  boundary triangles, so the predicted cfMesh-only boundary-triangle faces
+  could not occur. The determinant agrees on the bare mesh. With layers,
+  OpenFOAM flags 352 faces and cfMesh none (held: OpenFOAM ≥ cfMesh).
+  OpenFOAM drops a wall cell's boundary faces from its tensor; cfMesh keeps
+  them, and a thin prism with its wall face counted is not degenerate.
+- **gh:#1260, the per-point smoothers on the same simplices
+  (`three_smoothers_on_the_same_simplices`).** Smallest tetrahedron volume
+  on the jittered star:
+
+  | smoother | min volume |
+  |---|---|
+  | Knupp | 0.1522 |
+  | volume optimiser | 0.1418 |
+  | LP untangler | 0.1386 |
+
+  All three are positive. The predicted ordering "LP ≥ Knupp" **missed**.
+  On the pipe, see the gh:#1260 section of the V&V record.

@@ -2378,6 +2378,13 @@ mod tests {
     ///   within a few cells, and OpenFOAM's flags more cells at the wall
     ///   (it drops the boundary faces, so a wall cell's tensor loses a
     ///   direction): OpenFOAM's count ≥ cfMesh's.
+    ///
+    /// Results (2026-11-05): bare, 3 113 cells, no boundary triangles:
+    /// volume ratio 0 / 0, twist 152 / 152 (the same faces), determinant
+    /// 0 / 0. With 3 layers, 26 009 cells: volume ratio 2 536 / 2 536 and
+    /// twist 160 / 160 (the same faces), determinant **0 (cfMesh) / 352
+    /// (OpenFOAM)**. Every prediction held; the boundary-triangle case did
+    /// not arise (the dual has none).
     #[test]
     #[ignore]
     fn diagnose_cfmesh_against_openfoam_checks() {
