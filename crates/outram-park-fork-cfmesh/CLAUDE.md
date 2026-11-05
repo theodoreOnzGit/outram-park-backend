@@ -253,10 +253,10 @@ tet-dual) and the images are in
 and the `surfaceMeshRefinement` / `edgeMeshRefinement` sources, in
 upstream's place; each is **off unless the `MeshDict` asks**
 (`min_cell_size`, `surface_mesh_refinement`, `edge_mesh_refinement`,
-`subset_cell_size`, `local_refinement_subsets`). `anisotropicSources` is a
-hook only: `mesh_octree_creator::source_surface_geometry` /
-`source_edge_mesh_geometry` return the source unchanged until gh:#1279
-fills them; change the bodies, not the call sites.
+`subset_cell_size`, `local_refinement_subsets`). `MeshDict::anisotropic_sources`
+moves the sources through gh:#1279's `anisotropic`
+(`mesh_octree_creator::source_surface_geometry` /
+`source_edge_mesh_geometry`); the generators do not read it.
 
 `MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
 read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and

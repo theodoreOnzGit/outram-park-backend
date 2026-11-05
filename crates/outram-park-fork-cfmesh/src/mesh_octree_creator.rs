@@ -80,10 +80,10 @@
 //! ([`MeshOctreeCreator::refine_boxes_intersecting_surfaces`],
 //! [`MeshOctreeCreator::refine_boxes_intersecting_edge_meshes`]) and the
 //! automatic refinement ([`crate::mesh_octree_automatic_refinement`], on
-//! with `minCellSize`) are ported; each is off unless the dict asks. Still
-//! not ported: `anisotropicSources` (gh:#1279's; the hook is
-//! [`source_surface_geometry`] / [`source_edge_mesh_geometry`]) and the MPI
-//! load balancing. Object refinement is [`crate::object_refinement`].
+//! with `minCellSize`) are ported; each is off unless the dict asks.
+//! `anisotropicSources` moves the sources ([`source_surface_geometry`] /
+//! [`source_edge_mesh_geometry`], through gh:#1279's
+//! [`crate::anisotropic`]). Still not ported: the MPI load balancing. Object refinement is [`crate::object_refinement`].
 
 use crate::mesh_octree::{BoundBox, CubeType, MeshOctree, TriSurf, SMALL, VSMALL};
 use crate::mesh_octree_automatic_refinement::{AutomaticRefinementReport, MeshOctreeAutomaticRefinement};
@@ -158,6 +158,10 @@ pub struct MeshDict {
     /// `removeCellsIntersectingPatches`: patch or facet-subset names whose
     /// leaves are dropped (when DATA boxes are used).
     pub remove_cells_intersecting_patches: Vec<String>,
+    /// `anisotropicSources` ([`crate::anisotropic::CoordinateModifier`],
+    /// gh:#1279). Read here only by the refinement sources, which upstream
+    /// maps into the modified space; the generators do not read it.
+    pub anisotropic_sources: Option<crate::anisotropic::CoordinateModifier>,
 }
 
 /// A `subsetCellSize` entry.
@@ -223,20 +227,30 @@ pub struct EdgeMeshRefinement {
     pub refinement_thickness: f64,
 }
 
-/// The **anisotropic-sources hook** for a surface refinement source
-/// (upstream: `surfaceMeshGeometryModification(origSurf, meshDict)
-/// .modifyGeometry()` when the dict has `anisotropicSources`). Anisotropic
-/// meshing is gh:#1279's; until it lands the `MeshDict` has no
-/// `anisotropicSources` and this returns the surface unchanged. #1279
-/// replaces the body, nothing else.
-pub fn source_surface_geometry(_dict: &MeshDict, surf: &Arc<TriSurf>) -> Arc<TriSurf> {
-    Arc::clone(surf)
+/// A surface refinement source as `refineBoxesIntersectingSurfaces` uses
+/// it: with `anisotropicSources` in the dict,
+/// `surfaceMeshGeometryModification(origSurf, meshDict).modifyGeometry()`
+/// ([`crate::anisotropic::modify_surface`], gh:#1279), else the source
+/// unchanged.
+pub fn source_surface_geometry(dict: &MeshDict, surf: &Arc<TriSurf>) -> Arc<TriSurf> {
+    match &dict.anisotropic_sources {
+        Some(cm) => Arc::new(crate::anisotropic::modify_surface(surf, cm, true)),
+        None => Arc::clone(surf),
+    }
 }
 
-/// The anisotropic-sources hook for an edge-mesh source
-/// (`edgeMeshGeometryModification`); see [`source_surface_geometry`].
-pub fn source_edge_mesh_geometry(_dict: &MeshDict, em: &Arc<EdgeMesh>) -> Arc<EdgeMesh> {
-    Arc::clone(em)
+/// An edge-mesh source as `refineBoxesIntersectingEdgeMeshes` uses it:
+/// with `anisotropicSources`, `edgeMeshGeometryModification::modifyGeometry`
+/// ([`crate::anisotropic::modify_points`]), else unchanged.
+pub fn source_edge_mesh_geometry(dict: &MeshDict, em: &Arc<EdgeMesh>) -> Arc<EdgeMesh> {
+    match &dict.anisotropic_sources {
+        Some(cm) => {
+            let mut m = (**em).clone();
+            crate::anisotropic::modify_points(&mut m.points, cm);
+            Arc::new(m)
+        }
+        None => Arc::clone(em),
+    }
 }
 
 /// The additional levels of a refinement source's `cellSize`, by the loop
@@ -1238,6 +1252,43 @@ pub(crate) mod tests {
         assert!(!crossed.is_empty() && crossed.iter().all(|&lv| lv >= 6));
         assert!((0..plain.number_of_leaves()).all(|l| plain.has_contained_triangles(l) || plain.return_leaf(l).coords.level <= 4));
         assert!(thick.number_of_leaves() > thin.number_of_leaves());
+    }
+
+    /// gh:#1264/#1265 remainders: `anisotropicSources` on the refinement
+    /// sources. **Prediction:** without it the sources are passed through
+    /// (the same `Arc`); with a box scaling the source surface and edge mesh
+    /// are exactly `anisotropic::modify_surface` / `modify_points` of the
+    /// originals, and the segment moves (its first point, (1.3, 2.1, 4.1),
+    /// is outside the box, the second too, so only points inside
+    /// `[3, 5]^3` would move by the box alone: recorded, not predicted).
+    ///
+    /// **Result (2026-11-05):** pass-through and equality held. The
+    /// segment's end moved from x 6.7 to 5.7 although it is outside the
+    /// box: gh:#1279's box scaling displaces every point beyond the box by
+    /// the box's whole stretch (its semantics, not this hook's).
+    #[test]
+    fn anisotropic_sources_move_the_refinement_sources() {
+        use crate::anisotropic::{BoxScaling, CoordinateModifier, Modification};
+        let surf = sphere3();
+        let em = Arc::new(EdgeMesh { points: vec![Vec3::new(1.3, 2.1, 4.1), Vec3::new(6.7, 5.9, 4.1)], edges: vec![[0, 1]] });
+        let plain = MeshDict::with_max_cell_size(1.0);
+        assert!(Arc::ptr_eq(&source_surface_geometry(&plain, &surf), &surf));
+        assert!(Arc::ptr_eq(&source_edge_mesh_geometry(&plain, &em), &em));
+        let cm = CoordinateModifier::new(vec![Modification::Box(BoxScaling {
+            name: "b".into(),
+            centre: Vec3::new(4.0, 4.0, 4.0),
+            length: Vec3::new(2.0, 2.0, 2.0),
+            scale: Vec3::new(2.0, 1.0, 1.0),
+        })])
+        .expect("modifier");
+        let d = MeshDict { anisotropic_sources: Some(cm.clone()), ..plain };
+        assert_eq!(*source_surface_geometry(&d, &surf), crate::anisotropic::modify_surface(&surf, &cm, true));
+        let mut pts = em.points.clone();
+        crate::anisotropic::modify_points(&mut pts, &cm);
+        let moved = source_edge_mesh_geometry(&d, &em);
+        println!("edge source under the box scaling: {:?} -> {:?}", em.points, moved.points);
+        assert_eq!(moved.points, pts);
+        assert_ne!(moved.points, em.points);
     }
 
     /// V&V (gh:#1264 remainder), differential: `subsetCellSize` and a

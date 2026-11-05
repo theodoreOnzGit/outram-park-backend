@@ -18,7 +18,7 @@ miss, `gh:#1278: record the proximity miss` and the irregular-edge commit).
 | `help::numberOfFaceGroups`, `numberOfEdgeGroups` | `mesh_octree_automatic_refinement::{number_of_face_groups, number_of_edge_groups}` | — |
 | `meshOctreeCreator::refineBoxesIntersectingSurfaces` / `EdgeMeshes` | `MeshOctreeCreator::refine_boxes_intersecting_{surfaces, edge_meshes}`, `MeshDict::{surface,edge}_mesh_refinement`, `EdgeMesh` | off (empty lists) |
 | `subsetCellSize`, subset `localRefinement` entries | `MeshDict::{subset_cell_size, local_refinement_subsets}` | off |
-| `anisotropicSources` on the sources | **hook only**: `mesh_octree_creator::{source_surface_geometry, source_edge_mesh_geometry}` return the source unchanged; gh:#1279 fills the body | — |
+| `anisotropicSources` on the sources | `mesh_octree_creator::{source_surface_geometry, source_edge_mesh_geometry}` through gh:#1279's `anisotropic` (`MeshDict::anisotropic_sources`; first a pass-through hook, filled after merging gh:#1279; test `anisotropic_sources_move_the_refinement_sources`) | off |
 | `meshOctreeAddressing`: `createOctreeEdges`, `faceEdges`, `nodeEdges`, `edgeFaces`, `edgeLeaves`, `leafEdges`, `leafLeaves`, `nodeFaces`, `isIntersectedFace`, `isIntersectedEdge`, `edgeIntersections` | `MeshOctreeAddressing::{edge_addressing, leaf_leaves, node_faces, is_intersected_face, is_intersected_edge, edge_intersections}`, `OctreeEdges`, `cartesian_mesh::do_face_and_triangle_intersect` | computed on demand |
 | `checkGluedRegions` (`checkForGluedMesh`) | `MeshOctreeAddressing::check_glued_regions`, run by `from_dict` | off |
 | `checkAndFixIrregularConnections` (no upstream caller) | `MeshOctreeAddressing::check_and_fix_irregular_connections` | not called |
@@ -186,7 +186,8 @@ What was checked in them is listed in the section below.
 
 ## Pins
 
-All existing pins passed unchanged: the full crate lib suite (197 passed, 0
+All existing pins passed unchanged: the full crate lib suite (197 passed before
+merging the shared branch, 215 after it and the anisotropic hook; 0
 failed, 16 ignored, `cargo test --release -p outram-park-fork-cfmesh
 --lib`), including `back_off_only_layers_are_pinned_bit_for_bit`,
 `octree_path_is_pinned_bit_for_bit`, `layer_strategies_are_deterministic`,

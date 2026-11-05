@@ -96,7 +96,7 @@ _Subtotal: 8015 lines._
 | `octrees/meshOctree (serial: meshOctree.C/H/I.H, InsideCalculations, NeighbourSearches, CubePatches, FindNearestSurfacePoint, Slot)` | 2303 | ported (2026-11-05, gh:#1262, #1263) | `mesh_octree` (`MeshOctree`, `OctreeSlot`, `TriSurf`), `mesh_octree_queries` | ~~partial: `octree` re-implementation only; missing nearest-point queries, neighbour searches, `findLeafContainingVertex`~~ **CORRECTED 2026-11-05:** transcribed beside `octree` (which is unchanged). Every serial member function is in Rust, ~~quadtree excluded~~ the quadtree included since gh:#1275 (`MeshOctree::new_quadtree`, the 2D neighbour searches). `findNearestSurfacePoint` keeps upstream's stopping rule (misses the nearest triangle for 4–7 % of points off the surface, measured); `NearestSearch::Exact` is the port's exact variant, bit-identical to the brute force, and `patches` / `snap` can route through it (`SurfaceSearch::Octree`, opt-in). |
 | `octrees/meshOctree: meshOctreeParallelCommunication.C` | 448 | not applicable | — | MPI; the crate is serial. |
 | `octrees/meshOctree/meshOctreeCube` | 3078 | ported (2026-11-05, gh:#1262) | `mesh_octree` (`CubeCoordinates`, `OctreeCube`, `CubeType`) | ~~partial: coordinates and refinement only~~ **CORRECTED 2026-11-05:** intersections, cube types, `refineCube`, `findContainedEdges` and the recursive leaf functions transcribed. Not ported: ~~`refineCube2D` (quadtree, item 21)~~ (ported 2026-11-05, gh:#1275: `refine_cube` on a quadtree), the MPI functions, the unused Hilbert tables. `octree::Cell` is unchanged. |
-| `octrees/meshOctree/meshOctreeCreator (serial)` | 2118 | ~~partial (2026-11-05, gh:#1264, #1265)~~ **ported (2026-11-05, gh:#1264/#1265 remainders)** | `mesh_octree_creator::MeshOctreeCreator`, `MeshDict`, `EdgeMesh`; `octree::refine_near_boundary(_banded)` kept | ~~missing `maxCellSize` / `boundaryCellSize` sizing, `localRefinement`, `objectRefinements`, `refineBoxesContainedInObjects`, `createOctreeWithRefinedBoundary`, `refineBoxesNearDataBoxes`~~ **CORRECTED 2026-11-05:** all of those transcribed, plus `patchCellSize`. ~~Still missing: `refineBoxesIntersectingSurfaces` / `EdgeMeshes` (refinement sources), `subsetCellSize`, `anisotropicSources`, the automatic refinement call.~~ **CORRECTED 2026-11-05:** the sources, `subsetCellSize` (and subset `localRefinement` entries) and the automatic refinement call are transcribed, all off unless the `MeshDict` asks. `anisotropicSources` is a hook (`source_surface_geometry`, `source_edge_mesh_geometry`) for group K (gh:#1279). Source files are values, not read. Results: `verification_and_validation/octree_remainders_gh1278/`. |
+| `octrees/meshOctree/meshOctreeCreator (serial)` | 2118 | ~~partial (2026-11-05, gh:#1264, #1265)~~ **ported (2026-11-05, gh:#1264/#1265 remainders)** | `mesh_octree_creator::MeshOctreeCreator`, `MeshDict`, `EdgeMesh`; `octree::refine_near_boundary(_banded)` kept | ~~missing `maxCellSize` / `boundaryCellSize` sizing, `localRefinement`, `objectRefinements`, `refineBoxesContainedInObjects`, `createOctreeWithRefinedBoundary`, `refineBoxesNearDataBoxes`~~ **CORRECTED 2026-11-05:** all of those transcribed, plus `patchCellSize`. ~~Still missing: `refineBoxesIntersectingSurfaces` / `EdgeMeshes` (refinement sources), `subsetCellSize`, `anisotropicSources`, the automatic refinement call.~~ **CORRECTED 2026-11-05:** the sources, `subsetCellSize` (and subset `localRefinement` entries) and the automatic refinement call are transcribed, all off unless the `MeshDict` asks. `anisotropicSources` moves the sources through group K's `anisotropic` (gh:#1279; `source_surface_geometry`, `source_edge_mesh_geometry`, `MeshDict::anisotropic_sources`). Source files are values, not read. Results: `verification_and_validation/octree_remainders_gh1278/`. |
 | `octrees/meshOctree/meshOctreeCreator: LoadDistribution.C` | 56 | not applicable | — | MPI load balance. |
 | `octrees/meshOctree/meshOctreeModifier (serial)` | 1469 | ported (2026-11-05, gh:#1263) | `mesh_octree_modifier`; `octree::balance_2to1` kept | ~~partial: missing `reduceMemoryConsumption`, `markAdditionalLayers`, `refineSelectedBoxesAndAdditionalLayers`~~ **CORRECTED 2026-11-05:** all serial functions transcribed. Upstream's 1-irregularity is over nodes, edges and faces; `octree::balance_2to1` balances over faces only. |
 | `octrees/meshOctree/meshOctreeModifier: DistributeLeaves, LoadDistribution, ParallelRefinement, UpdateCommunicationPattern` | 920 | not applicable | — | MPI. |
@@ -1056,8 +1056,8 @@ all existing pins pass unchanged. Record, misses and PNGs:
   `edgeMeshRefinement` sources, `subsetCellSize` and subset
   `localRefinement`. Differential: the sphere as its own surface source
   gives the `boundaryCellSize` octree leaf for leaf; `subsetCellSize` gives
-  the `patchCellSize` octree leaf for leaf. `anisotropicSources` is a hook
-  for gh:#1279.
+  the `patchCellSize` octree leaf for leaf. `anisotropicSources` moves the
+  sources through gh:#1279's `anisotropic` (merged the same day).
 - **gh:#1266 remainders:** the octree edges and their five maps,
   `leafLeaves`, `nodeFaces`, `isIntersectedFace/Edge`, `edgeIntersections`,
   `checkGluedRegions`, `checkAndFixIrregularConnections`, and
@@ -1071,8 +1071,7 @@ all existing pins pass unchanged. Record, misses and PNGs:
   connections' node test is dead code; `checkGluedRegions` leaves the
   addressing it built on the old box types; the sources' `cellSize` loop
   gives one more level at exact powers of two.
-- **Still not ported in group B:** nothing serial. `anisotropicSources`
-  (group K, gh:#1279) is a hook. Not wired into any pipeline: the
+- **Still not ported in group B:** nothing serial. Not wired into any pipeline: the
   `cartesianMesh` generator calls `cartesian_mesh_extractor`, not the
   dict-driven `cartesian_mesh_extractor_from_dict`, so the new
   `meshDict` entries reach the generators only through
