@@ -1399,7 +1399,8 @@ pub(crate) mod tests {
             assert!(m.patches.iter().all(|x| x.n_faces > 0));
             assert!(rep.notes.iter().any(|n| n.starts_with("patchAssignment: edgeExtractor")));
             if p_kind {
-                assert!(rep.notes.iter().any(|n| n.contains("meshSurfaceEdgeExtractorFUN without")));
+                // gh:#1281: FUN now builds its fundamental sheets.
+                assert!(rep.notes.iter().any(|n| n.contains("meshSurfaceEdgeExtractorFUN: createFundamentalSheetsJFS")));
             }
         }
     }

@@ -261,6 +261,7 @@
 //! > `RESPONSIBLE_USE.md`. For education / research / V&V only; not for reactor
 //! > operation, licensing, or safety-critical decisions.
 
+pub mod anisotropic;
 pub mod cartesian;
 pub mod cartesian_mesh;
 pub mod carve;
@@ -277,6 +278,7 @@ pub mod mesh_octree_modifier;
 pub mod mesh_octree_queries;
 pub mod mesh_optimizer;
 pub mod mesh_untangler;
+pub mod mesh_utilities;
 pub mod mesh_subsets;
 pub mod mesh_surface_edge_extractor_fun;
 pub mod poly_mesh_gen_checks;
