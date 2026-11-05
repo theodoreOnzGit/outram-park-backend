@@ -7549,6 +7549,9 @@ cargo +nightly doc --release --lib …  ->  Cargo-reported library JSON path
 
 Cargo's artifact messages supply the JSON path, including the library name,
 configured target directory and any build-target subdirectory (gh:#779).
+`KOVAN_RUSTDOC_TOOLCHAIN` selects the nightly toolchain (default: `nightly`).
+CI pins it alongside rustdoc-md to keep the JSON producer and reader paired.
+
 # Filename: `<crate>-api.md`, not `api.md`
 
 Named after its own crate directory (2026-08-17 onward) rather than the bare

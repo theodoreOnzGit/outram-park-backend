@@ -101,6 +101,8 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_NET_RETRY: 2
   RUST_BACKTRACE: short
+  # Keep the rustdoc JSON producer paired with the verified rustdoc-md version.
+  KOVAN_RUSTDOC_TOOLCHAIN: nightly-2026-11-05
   KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
 
 # One run at a time; a second start waits rather than cancelling a run that
@@ -158,8 +160,8 @@ jobs:
       - name: Install API-doc test prerequisites
         shell: bash
         run: |
-          rustup toolchain install nightly --profile minimal
-          cargo install rustdoc-md --locked
+          rustup toolchain install "$KOVAN_RUSTDOC_TOOLCHAIN" --profile minimal
+          cargo install rustdoc-md --version 0.2.0 --locked
 
       - name: Build kovan-cli
         run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli

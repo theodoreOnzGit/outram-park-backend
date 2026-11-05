@@ -11,6 +11,9 @@
 //!
 //! Cargo's artifact messages supply the JSON path, including the library name,
 //! configured target directory and any build-target subdirectory (gh:#779).
+//! `KOVAN_RUSTDOC_TOOLCHAIN` selects the nightly toolchain (default: `nightly`).
+//! CI pins it alongside rustdoc-md to keep the JSON producer and reader paired.
+//!
 //! # Filename: `<crate>-api.md`, not `api.md`
 //!
 //! Named after its own crate directory (2026-08-17 onward) rather than the bare
@@ -86,24 +89,25 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
     }
 
     let manifest = dunce::canonicalize(crate_path.join("Cargo.toml"))?;
-    ensure_nightly()?;
+    let toolchain = std::env::var("KOVAN_RUSTDOC_TOOLCHAIN").unwrap_or_else(|_| "nightly".into());
+    ensure_nightly(&toolchain)?;
     ensure_rustdoc_md()?;
 
     let mut doc = Command::new("cargo");
-    doc.args([
-        "+nightly",
-        "doc",
-        "--release",
-        "--lib",
-        "--message-format=json-render-diagnostics",
-        "--no-deps",
-        "-Z",
-        "unstable-options",
-        "--output-format",
-        "json",
-    ])
-    .arg("--manifest-path")
-    .arg(&manifest);
+    doc.arg(format!("+{toolchain}"))
+        .args([
+            "doc",
+            "--release",
+            "--lib",
+            "--message-format=json-render-diagnostics",
+            "--no-deps",
+            "-Z",
+            "unstable-options",
+            "--output-format",
+            "json",
+        ])
+        .arg("--manifest-path")
+        .arg(&manifest);
     if private {
         doc.arg("--document-private-items");
     }
@@ -114,7 +118,7 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
         .map_err(|error| io::Error::new(error.kind(), format!("could not run cargo: {error}")))?;
     if !output.status.success() {
         return Err(io::Error::other(format!(
-            "cargo +nightly doc failed for {crate_dir} (exit {})",
+            "cargo +{toolchain} doc failed for {crate_dir} (exit {})",
             output.status
         )));
     }
@@ -247,10 +251,10 @@ fn rustdoc_json_path(output: &[u8], manifest: &Path) -> io::Result<PathBuf> {
     }
 }
 
-/// Fail with an actionable message if no nightly toolchain is installed.
-fn ensure_nightly() -> io::Result<()> {
+/// Fail with an actionable message if the selected nightly is unavailable.
+fn ensure_nightly(toolchain: &str) -> io::Result<()> {
     let output = Command::new("rustup")
-        .args(["toolchain", "list"])
+        .args(["run", toolchain, "rustdoc", "--version"])
         .output()
         .map_err(|error| {
             io::Error::new(
@@ -258,13 +262,15 @@ fn ensure_nightly() -> io::Result<()> {
                 format!("could not run rustup: {error} -- rustup is required to select nightly"),
             )
         })?;
-    if String::from_utf8_lossy(&output.stdout).contains("nightly") {
+    if output.status.success() {
         return Ok(());
     }
     Err(io::Error::new(
         io::ErrorKind::NotFound,
-        "no nightly toolchain installed -- rustdoc's JSON output is nightly-only. \
-         Run: rustup toolchain install nightly",
+        format!(
+            "documentation toolchain {toolchain} is unavailable -- rustdoc's JSON output is nightly-only. \
+             Run: rustup toolchain install {toolchain}"
+        ),
     ))
 }
 
@@ -323,7 +329,7 @@ fn crates_in_scope(workspace_root: &Path, scope: Scope) -> io::Result<Vec<String
 ///
 /// # Why one crate's failure does not stop the rest
 ///
-/// Each crate is a separate `cargo +nightly doc` invocation, and one that fails
+/// Each crate is a separate nightly `cargo doc` invocation, and one that fails
 /// to compile says nothing about the other thirty-six. Aborting on the first
 /// error would leave the suite half-regenerated with no summary of what
 /// happened. Failures are collected, reported by name at the end, and turned
@@ -501,10 +507,7 @@ mod tests {
     #[test]
     fn generates_docs_with_a_configured_build_target_and_output_directory() {
         let tmp = doc_workspace("\n[lib]\nname = 'example_core'\n");
-        let version = Command::new("rustc")
-            .args(["+nightly", "-vV"])
-            .output()
-            .unwrap();
+        let version = Command::new("rustc").arg("-vV").output().unwrap();
         assert!(version.status.success());
         let version = String::from_utf8(version.stdout).unwrap();
         let host = version
@@ -612,6 +615,18 @@ mod tests {
         assert_eq!(
             rustdoc_json_path(messages.as_bytes(), manifest).unwrap(),
             json
+        );
+    }
+
+    #[test]
+    fn a_missing_selected_toolchain_reports_its_install_command() {
+        let toolchain = "nightly-2000-01-01";
+        let error = ensure_nightly(toolchain).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+        assert!(
+            error
+                .to_string()
+                .contains("rustup toolchain install nightly-2000-01-01")
         );
     }
 
