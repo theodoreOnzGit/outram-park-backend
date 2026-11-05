@@ -66,3 +66,9 @@ dual_h5_2layers_phone 25 s: Foam Studio · 18377 cells · step 39 · 447 ms/step
 dual_h5_2layers_phone 27 s: Foam Studio · 18377 cells · step 43 · 425 ms/step · solving | frames median 116.7 p95 250.0 max 250.0 ms
 dual_h5_2layers_phone 29 s: Foam Studio · 18377 cells · step 47 · 419 ms/step · solving | frames median 116.7 p95 216.7 max 216.7 ms
 dual_h5_2layers_phone 32 s: Foam Studio · 18377 cells · step 51 · 596 ms/step · solving | frames median 116.6 p95 183.4 max 183.4 ms
+dual_h5_2layers_phone 34 s: Foam Studio · 18377 cells · step 56 · 424 ms/step · solving | frames median 100.1 p95 183.2 max 183.2 ms
+dual_h5_2layers_phone 36 s: Foam Studio · 18377 cells · step 60 · 410 ms/step · solving | frames median 116.7 p95 133.4 max 133.4 ms
+dual_h5_2layers_phone 39 s: Foam Studio · 18377 cells · step 65 · 423 ms/step · solving | frames median 116.6 p95 150.1 max 150.1 ms
+dual_h5_2layers_phone 41 s: Foam Studio · 18377 cells · step 69 · 704 ms/step · solving | frames median 116.7 p95 183.3 max 183.3 ms
+dual_h5_2layers_phone 43 s: Foam Studio · 18377 cells · step 74 · 427 ms/step · solving | frames median 100.0 p95 183.3 max 183.3 ms
+dual_h5_2layers_phone 46 s: Foam Studio · 18377 cells · step 78 · 406 ms/step · solving | frames median 116.6 p95 183.3 max 183.3 ms
