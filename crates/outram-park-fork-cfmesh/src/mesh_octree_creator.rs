@@ -73,9 +73,10 @@
 //! `surfaceMeshRefinement` and `edgeMeshRefinement` sources,
 //! `meshOctreeAutomaticRefinement` (curvature and proximity, its own item in
 //! `docs/upstream_coverage.md`), `anisotropicSources`, and the MPI load
-//! balancing. Object refinement (`objectRefinements`) is gh:#1265.
+//! balancing. Object refinement is [`crate::object_refinement`].
 
 use crate::mesh_octree::{CubeType, MeshOctree, SMALL, VSMALL};
+use crate::object_refinement::ObjectRefinement;
 use std::collections::BTreeMap;
 
 /// A `patchCellSize` entry (`patchRefinement`): the cell size on one
@@ -116,6 +117,8 @@ pub struct MeshDict {
     pub patch_cell_size: Vec<PatchRefinement>,
     /// `localRefinement`.
     pub local_refinement: Vec<LocalRefinement>,
+    /// `objectRefinements` ([`crate::object_refinement`], gh:#1265).
+    pub object_refinements: Vec<ObjectRefinement>,
     /// `keepCellsIntersectingBoundary` (read by the extractor, gh:#1266).
     pub keep_cells_intersecting_boundary: bool,
 }
@@ -354,6 +357,23 @@ impl MeshOctreeCreator {
         mesh_octree_inside_outside(o);
     }
 
+    /// `refineBoxesContainedInObjects`: see [`crate::object_refinement`].
+    pub fn refine_boxes_contained_in_objects(&self, o: &mut MeshOctree) {
+        let Some(dict) = &self.dict else {
+            return;
+        };
+        if dict.object_refinements.is_empty() {
+            return;
+        }
+        crate::object_refinement::refine_boxes_contained_in_objects(
+            o,
+            &dict.object_refinements,
+            dict.max_cell_size,
+            self.global_ref_level,
+            self.hex_refinement,
+        );
+    }
+
     /// `createOctreeBoxes`: size the root, refine to the boundary requests,
     /// mark inside/outside, refine `INSIDE` and `UNKNOWN` leaves to
     /// `maxCellSize`, refine inside the refinement objects, and refine the
@@ -365,6 +385,7 @@ impl MeshOctreeCreator {
         self.refine_boundary(o);
         mesh_octree_inside_outside(o);
         self.refine_inside_and_unknown_boxes(o);
+        self.refine_boxes_contained_in_objects(o);
         self.refine_boxes_near_data_boxes(o, 1);
     }
 

@@ -276,6 +276,7 @@ pub mod mesh_octree_queries;
 pub mod mesh_optimizer;
 pub mod snappy_layers;
 pub mod boundary_layer_optimisation;
+pub mod object_refinement;
 pub mod octree;
 pub mod patches;
 pub mod pipeline;
