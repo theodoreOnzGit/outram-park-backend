@@ -230,3 +230,45 @@ layer lie in neither drawn plane (no orange), so I have not seen them; no
 - `terminateLayersAtConcaveEdges_` is set but never read (not ported).
 - On tet-dual meshes the rim polygons fold, so upstream's concavity rule
   merges the pipe's patches into one group (P3).
+
+# gh:#1271 remainder: `refineEdgeHexCell`, `refineCornerHexCell` and the two-direction face split
+
+**Upstream:** `refineBoundaryLayersFaces.C` (`refineFace`, `generateNewFaces`),
+`refineBoundaryLayersCells.C` (`generateNewCells`, `refineEdgeHexCell`,
+`refineCornerHexCell::generateNewPoints`).
+
+**What upstream does (read before predicting):** every quad face is split
+into a grid: an internal face in the directions of its boundary edges (the
+most layers of the boundary faces there), a boundary face in the direction
+of an edge it shares with a face of another layer (that face's count). A
+face split in two directions gets interior points by transfinite
+interpolation, `u` and `v` the distance fractions along the two hairs at
+the corner where both start. A cell is split by the number of its boundary
+faces with more than one layer: 1 a prism split, 2 `refineEdgeHexCell` (an
+`nI x nJ` grid, no new points), 3 `refineCornerHexCell` (`nI x nJ x nK`,
+interior points by trilinear interpolation with `u, v, w` from the three
+hairs at the cell's boundary corner). A face whose count differs from its
+hairs' gets the extra hair points appended to its last piece.
+
+## Predictions (written 2026-11-05, before the general split was written)
+
+- **R1 (six-patch box, patch-wise layer, `nLayers` 3, ratio 1).** Face cells
+  split in 3, edge cells in 9, corner cells in 27: 64 + 288 + 432 + 216 =
+  **1 000 cells**, a 10 x 10 x 10 tensor grid (coordinates in {0, 1/24,
+  2/24, 1/8, 1/4, 1/2, …} to 1e-12); volume 1 (1e-12); closed; 0
+  non-positive.
+- **R2 (walls/inlet/outlet box, patch-wise, `nLayers` 3).** 64 + 3 x 96 +
+  9 x 32 = **640 cells**; volume 1; closed; 0 non-positive.
+- **R3 (`cartesian_mesh`, 60 mm pipe at 2 mm, `nLayers` 3, ratio 1.2).** No
+  `NotPorted`: 1 600 + 3 x 1 024 + 9 x 64 = **5 248 cells**, closed, 0
+  non-positive at the end, volume error within 1e-4 (relative to the
+  analytic value) of the unrefined −0.659 %.
+- **R4 (pin).** The one-group prism refinement on the tet-dual pipe and the
+  box keeps its output bit for bit (fingerprints recorded before the
+  change: `prism_refinement_is_pinned_bit_for_bit`); the
+  `build_layered_variable` differential still holds.
+- **R5 (differential, R1's box).** Every hair's split points equal those of
+  `build_layered_variable_with_columns` on a column of the same start,
+  direction and length with `d = 0, 1, 2, 3` to 1e-15; the face interior
+  points equal the tensor-grid points to 1e-15 (bilinear on a rectangle is
+  exact).

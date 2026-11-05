@@ -841,4 +841,19 @@ mod tests {
             write_slice_png(m, 1, 1e-4, [0.0065, 0.0105, -0.0005, 0.0035], &[], &inv, &t, &dir.join(format!("pipe_{name}_xz_rim.png")));
         }
     }
+
+    /// Pin (gh:#1271 remainder): the prism-only refinement's output on the
+    /// one-group layered pipe and box, fingerprints recorded before the
+    /// two-direction split was ported; the general split must not move
+    /// them.
+    #[test]
+    fn prism_refinement_is_pinned_bit_for_bit() {
+        use crate::pipeline::tests::mesh_fingerprint;
+        let (_, l, _) = layered_pipe();
+        let (r, _) = refine_boundary_layers(&l, &walls(3, Some(1.2), None)).unwrap();
+        let (bl, _) = boundary_layers_add_layer(&named_box(0.25), &["walls"], &BoundaryLayersControls::default()).unwrap();
+        let (br, _) = refine_boundary_layers(&bl, &walls(3, Some(1.2), None)).unwrap();
+        println!("fingerprints: pipe {:#018x}, box {:#018x}", mesh_fingerprint(&r), mesh_fingerprint(&br));
+        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0x677a875f14ca046b, 0x687256342d92ed50));
+    }
 }
