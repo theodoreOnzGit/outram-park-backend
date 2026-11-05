@@ -110,6 +110,8 @@ use crate::volume_mesh::VolumeMesh;
 pub mod tet_mesh;
 /// cfMesh `cartesianMesh` (gh:#1274).
 pub mod cartesian_mesh;
+/// cfMesh `cartesian2DMesh` (gh:#1275).
+pub mod cartesian_2d_mesh;
 /// cfMesh's `pMesh` workflow (`voronoiMeshGenerator`, gh:#1273).
 pub mod p_mesh;
 
