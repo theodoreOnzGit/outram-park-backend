@@ -9,17 +9,17 @@
 //!
 //! Presentation only: the stream's temperature, mass flow and residence time
 //! come from the caller's model. The tracer direction follows the sign of the
-//! mass flow and its speed the residence time, as [`PipeVisual`] documents.
+//! mass flow and its speed the residence time, as [`PipeArt`] documents.
 
 use crate::animation::TracerTrain;
-use crate::components::{PipeBendVisual, PipeScalars, PipeScale, PipeVisual};
+use crate::components::{PipeBendVisual, PipeScalars, PipeScale, PipeArt};
 use egui::{Pos2, Ui, Vec2};
 use uom::si::f64::{MassRate, ThermodynamicTemperature, Time};
 
 /// One fluid stream's state: everything a routed pipe needs to draw itself.
 ///
 /// The caller supplies real state from its own model, which is the contract
-/// [`PipeVisual::from_scalars`] documents. None of these is invented here.
+/// [`PipeArt::from_scalars`] documents. None of these is invented here.
 #[derive(Debug, Clone, Copy)]
 pub struct PipeStream {
     /// Bulk fluid temperature, which colours the pipe.
@@ -40,8 +40,8 @@ pub struct PipeStream {
 
 impl PipeStream {
     /// One straight leg of this stream, from `from` to `to`.
-    pub fn run(&self, from: Pos2, to: Pos2) -> PipeVisual {
-        PipeVisual::from_scalars(
+    pub fn run(&self, from: Pos2, to: Pos2) -> PipeArt {
+        PipeArt::from_scalars(
             PipeScalars {
                 temperature: self.temperature,
                 mass_flow: self.mass_flow,
@@ -90,7 +90,7 @@ fn elbow(ui: &mut Ui, stream: &PipeStream, corner: Pos2, d_in: Vec2, d_out: Vec2
     ));
 }
 
-/// Draw a whole routed pipe path: one [`PipeVisual`] per straight leg and one
+/// Draw a whole routed pipe path: one [`PipeArt`] per straight leg and one
 /// [`PipeBendVisual`] per interior corner.
 ///
 /// `path` is the run's **centreline**, corner to corner, in screen points; the

@@ -25,11 +25,24 @@ binds here in full.
   I'm ok with dependencies"):** the whole widget library moves here, including
   the widgets that read `tampines` / `nee_soon` state. Those physics crates are
   **optional dependencies behind their own features** (std), so the no_std
-  core and the plain `egui` feature stay physics-free.
+  core and the plain `egui` feature stay physics-free. **CORRECTED 2026-11-05
+  (maintainers: "bugis should be standalone"; "widget art can live in bugis, the combination of logic and art can live inside the digital twin engine"):** the widget library is split.
+  The **art** (drawing from plain numbers) stays here behind `widgets`; every
+  widget that holds a physics component (`PipeVisual`, `CondenserVisual`,
+  `CoolingTowerVisual`, `HeatExchangerVisual`, `PumpVisual`,
+  `SteamGeneratorVisual`, `TurbineVisual`, `ValveVisual`,
+  `ReactorVesselVisual`, `PipeComponent`) moved to
+  `outram_park_digital_twin_engine::components` and draws through the art type
+  of the same stem here (`PipeArt`, `CondenserArt`, ...). Every physics
+  dependency went with them. `cargo publish` resolves optional and dev dependencies too, and
+  the physics crates dev-depend on bugis for their GUI examples' theme, so
+  those optional edges were publish-time cycles. **bugis depends on no
+  workspace crate except `petir`** (bottom of the graph); keep it that way,
+  dev-dependencies included.
 - **Moved modules (gh:#1112, 2026-11-02) keep their own rules here.**
   `animation` (feature `animation`), `ascii` (feature `ascii`), the widget
-  library `components` (feature `widgets`) and `app_scaffold` (feature
-  `app_scaffold`) came from
+  library `components` (feature `widgets`; since 2026-11-05 the art only, see
+  above) and `app_scaffold` (feature `app_scaffold`) came from
   `outram-park-digital-twin-engine`, which re-exports each at its old path.
   The engine `CLAUDE.md`'s rules move with them and bind here: **animation is
   derived from physics state, never hardcoded** (HARD RULE); **tracer state

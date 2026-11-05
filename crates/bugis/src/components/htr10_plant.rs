@@ -12,16 +12,16 @@
 //! Every connection runs between ports the widgets report from their own
 //! drawing code ([`Htr10ReactorSchematic::duct_port`],
 //! [`Htr10SteamGeneratorVisual::gas_port`], `steam_port`, `feedwater_port`,
-//! [`TurbineVisual::ports`], [`CondenserVisual::ports`],
-//! [`PumpVisual::centrifugal_ports`]), so a pipe lands on the nozzle actually
+//! [`TurbineArt::ports`], [`CondenserArt::ports`],
+//! [`PumpArt::centrifugal_ports`]), so a pipe lands on the nozzle actually
 //! drawn.
 
 use crate::animation::TracerTrain;
 use crate::components::pipe_route::{route, PipeStream};
 use crate::components::pump::PumpKind;
 use crate::components::{
-    CondenserDisplayRange, CondenserKind, CondenserScalars, CondenserVisual, Htr10ReactorSchematic,
-    Htr10SteamGeneratorVisual, PumpVisual, TurbineFlowPath, TurbineVisual,
+    CondenserDisplayRange, CondenserKind, CondenserScalars, CondenserArt, Htr10ReactorSchematic,
+    Htr10SteamGeneratorVisual, PumpArt, TurbineFlowPath, TurbineArt,
 };
 use egui::{Pos2, Rect, Ui, UiBuilder, Vec2};
 use uom::si::f64::{AngularVelocity, MassRate, ThermodynamicTemperature, Time};
@@ -139,7 +139,7 @@ pub fn draw_htr10_plant(
         steam_port.y + 0.15 * vw + 0.5 * turbine_size.y,
     );
     let turbine_ports =
-        TurbineVisual::ports(turbine_centre, turbine_size, TurbineFlowPath::SingleFlow);
+        TurbineArt::ports(turbine_centre, turbine_size, TurbineFlowPath::SingleFlow);
 
     let condenser_kind = CondenserKind::TwoPass;
     let condenser_size = Vec2::new(0.6 * vw, 0.5 * vw);
@@ -150,12 +150,12 @@ pub fn draw_htr10_plant(
         ),
         condenser_size,
     );
-    let condenser_ports = CondenserVisual::ports(condenser_kind, condenser_box);
+    let condenser_ports = CondenserArt::ports(condenser_kind, condenser_box);
 
     // The pump sits below the feedwater nozzle (its discharge rises to it)
     // and left of the condensate line (its suction faces right).
     let pump_size = Vec2::new(0.32 * vw, 0.32 * vw);
-    let probe = PumpVisual::centrifugal_ports(Rect::from_min_size(Pos2::ZERO, pump_size));
+    let probe = PumpArt::centrifugal_ports(Rect::from_min_size(Pos2::ZERO, pump_size));
     let pump_top = (feed_port.y + 0.10 * vw).max(condenser_ports.condensate_out.y + 0.10 * vw);
     let pump_box = Rect::from_min_size(
         Pos2::new(
@@ -164,7 +164,7 @@ pub fn draw_htr10_plant(
         ),
         pump_size,
     );
-    let pump_ports = PumpVisual::centrifugal_ports(pump_box);
+    let pump_ports = PumpArt::centrifugal_ports(pump_box);
 
     // Pipe centrelines, corner to corner.
     let main_steam_path = [
@@ -239,7 +239,7 @@ pub fn draw_htr10_plant(
     ui.put(reactor_rect.translate(shift), reactor);
 
     ui.add(
-        TurbineVisual::from_scalars(
+        TurbineArt::from_scalars(
             secondary.turbine_speed,
             Some(secondary.steam_temp),
             at(turbine_centre),
@@ -253,7 +253,7 @@ pub fn draw_htr10_plant(
     // No labels on this condenser: on the plant canvas they crowd the loop
     // (maintainer direction, 2026-09-22).
     ui.add(
-        CondenserVisual::from_scalars(
+        CondenserArt::from_scalars(
             condenser_kind,
             at(condenser_box.center()),
             condenser_size,
@@ -274,7 +274,7 @@ pub fn draw_htr10_plant(
         )
         .without_labels(),
     );
-    ui.add(PumpVisual::from_scalars(
+    ui.add(PumpArt::from_scalars(
         PumpKind::Centrifugal,
         at(pump_box.center()),
         pump_size,

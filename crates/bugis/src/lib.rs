@@ -30,9 +30,14 @@
 //!   threads, crash modal, CSV, frame metrics, pacing;
 //! - `web_demo` (feature `web_demo`, from `dhoby-ghaut`): the browser demos'
 //!   mobile-first view, panel, docks and worker plumbing;
-//! - `components` (feature `widgets`): the widget library, which reads
+//! - `components` (feature `widgets`): the widget art. ~~It reads
 //!   `tampines`, `tampines-steam-tables`, `outram-park-fork-dwsim-libs` and
-//!   `nee_soon` state through optional features of the same names.
+//!   `nee_soon` state through optional features of the same names.~~
+//!   **CORRECTED 2026-11-05** (maintainer: "widget art can live in bugis, the
+//!   combination of logic and art can live inside the digital twin engine"):
+//!   the art draws from plain numbers; the physics-backed widgets are
+//!   `outram_park_digital_twin_engine::components`. bugis depends on no
+//!   workspace crate but `petir`.
 //!
 //! The crate is `no_std` exactly when the `std` feature (implied by each of
 //! those) is off.
@@ -89,11 +94,17 @@ pub mod animation;
 #[cfg(feature = "ascii")]
 pub mod ascii;
 
-/// The widget library (feature `widgets`): one `egui::Widget` per visual
-/// process object, each composing its physics counterpart (`tampines`,
-/// `nee_soon`, …) with visual-only fields. Moved from
+/// The widget art (feature `widgets`): one `egui::Widget` per visual process
+/// object, drawn from plain numbers. Moved from
 /// `outram-park-digital-twin-engine`'s `components/` (gh:#1112, 2026-11-02),
 /// which re-exports it at its old path.
+///
+/// ~~each composing its physics counterpart (`tampines`, `nee_soon`, …) with
+/// visual-only fields~~ **CORRECTED 2026-11-05** (maintainer: "widget art can
+/// live in bugis, the combination of logic and art can live inside the
+/// digital twin engine"): the widgets that hold physics state moved to
+/// `outram_park_digital_twin_engine::components` and draw through the art
+/// types here; bugis depends on no physics crate.
 #[cfg(feature = "widgets")]
 pub mod components;
 

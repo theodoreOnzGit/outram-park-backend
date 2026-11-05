@@ -1,5 +1,14 @@
 //! Visual **steam** turbine.
 //!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this file is the art, [`TurbineArt`], drawn from plain numbers. The widget that
+//! wraps the physics component, `TurbineVisual`, lives in
+//! `outram_park_digital_twin_engine::components::turbine` and draws through
+//! [`TurbineArt`]. The state sources below (`TurbineVisualState`)
+//! are that widget's; each reduces to the shaft speed and casing temperature
+//! [`TurbineArt`] draws.
+//!
 //! Renders a multi-stage axial turbine as rows of blades whose height grows
 //! monotonically from inlet to exhaust — the annulus opens out along the flow,
 //! as it does in a real machine where steam expands from short high-pressure
@@ -10,18 +19,18 @@
 //!
 //! ## Where the physics comes from
 //!
-//! [`TurbineVisualState`] is an enum (not a trait object, per the workspace's
+//! The engine's `TurbineVisualState` is an enum (not a trait object, per the workspace's
 //! mandatory design rules) because the set of state sources is closed and
 //! growing:
 //!
-//! - [`TurbineVisualState::SteamGenerator`] wraps
-//!   [`ThreePhaseElectricGeneratorTurbine`] from `tampines-steam-tables`. This
+//! - `TurbineVisualState::SteamGenerator` wraps
+//!   `ThreePhaseElectricGeneratorTurbine` from `tampines-steam-tables`. This
 //!   is a **working** lumped model: an explicit torque balance advances rotor
 //!   angular velocity, and per-phase EMF, current and total electrical power
 //!   are read off it. It is the only variant that can report a real shaft
 //!   speed, so it is the only one whose blades genuinely spin.
-//! - [`TurbineVisualState::SteamThermo`] wraps
-//!   [`tampines::components::Turbine`], which carries the inlet steam state and
+//! - `TurbineVisualState::SteamThermo` wraps
+//!   `tampines::components::Turbine`, which carries the inlet steam state and
 //!   an adiabatic efficiency. It supplies the casing colour but **no** rotation
 //!   — `Turbine::expand_to` is not implemented yet, so there is no shaft speed
 //!   to draw and the rotor is rendered stationary rather than at a fabricated
@@ -38,7 +47,7 @@
 //! simulation time, and widgets are rebuilt every repaint — a clock owned by
 //! the widget would reset to zero each frame and the turbine would never turn.
 //! The **application** owns the clock and passes it in via
-//! [`TurbineVisual::at_time`].
+//! [`TurbineArt::at_time`].
 //!
 //! ## Provenance
 //!
@@ -52,8 +61,6 @@ use crate::colour_maps::color32::steam_quality_colour_mark_1;
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use std::f64::consts::PI;
-use tampines::components::Turbine;
-use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, AngularVelocity, ThermodynamicTemperature, Time};
 use uom::si::ratio::ratio;
@@ -170,7 +177,7 @@ pub enum TurbineFlowPath {
 /// Classic practice puts impulse stages at the high-pressure admission end and
 /// reaction stages towards the low-pressure exhaust.
 ///
-/// [`TurbineVisual`] reproduces that *trend* so the drawing is not uniform
+/// [`TurbineArt`] reproduces that *trend* so the drawing is not uniform
 /// nonsense, but the specific angles below are illustrative and are **not
 /// derived from any turbine design**. They must not be presented, cited, or
 /// re-used as though they were. When the detailed turbine model lands
@@ -321,31 +328,12 @@ fn placeholder_stage_quality(stage_fraction: f32) -> f32 {
     1.0 - 0.14 * f
 }
 
-/// Where a [`TurbineVisual`] gets the physics it renders.
-///
-/// Enum dispatch, not a trait object, per the workspace's mandatory "no trait
-/// objects" Rust design rule. See the module docs for why each variant exists
-/// and what it can and cannot show.
-#[derive(Debug, Clone, PartialEq)]
-pub enum TurbineVisualState {
-    /// Steam turbine coupled to a three-phase synchronous generator. Reports a
-    /// real, torque-balance-derived shaft speed, so the rotor spins.
-    SteamGenerator(ThreePhaseElectricGeneratorTurbine),
-    /// Steam turbine known only by its thermodynamic inlet state. Colours the
-    /// casing; cannot report a shaft speed, so the rotor is drawn stationary.
-    SteamThermo(Turbine),
-    /// Plain scalars from the caller, no physics model: a shaft speed, which
-    /// turns the rotor, and optionally an inlet steam temperature, which
-    /// colours the casing. The one variant that can do both. For a GUI test
-    /// bench, or any caller whose own model already knows these two numbers.
-    /// Added 2026-09-22.
-    Scalars {
-        /// Shaft angular velocity; the rotor phase is `shaft_speed * t`.
-        shaft_speed: AngularVelocity,
-        /// Inlet steam temperature for the casing colour, if known.
-        steam_temperature: Option<ThermodynamicTemperature>,
-    },
-}
+// ~~`TurbineVisualState`~~ MOVED 2026-11-05 to
+// `outram_park_digital_twin_engine::components::turbine` (maintainer: "widget
+// art can live in bugis, the combination of logic and art can live inside the
+// digital twin engine"): its generator and thermodynamic variants hold
+// `tampines-steam-tables` and `tampines` models. Each reduces to the shaft
+// speed and casing temperature [`TurbineArt`] draws.
 
 /// Visual representation of a steam turbine.
 ///
@@ -354,9 +342,12 @@ pub enum TurbineVisualState {
 /// `screen_vector` the box size, so the machine can be positioned absolutely
 /// on a schematic canvas. Blade-row radii and the stepped silhouette are
 /// derived from that box; the *rotation* is derived from physics.
-pub struct TurbineVisual {
-    /// The physics state this widget renders.
-    pub state: TurbineVisualState,
+pub struct TurbineArt {
+    /// Shaft angular velocity; the rotor phase is `shaft_speed * t`. Zero
+    /// draws the rotor stationary.
+    pub shaft_speed: AngularVelocity,
+    /// Inlet steam temperature for the casing colour, if known.
+    pub steam_temperature: Option<ThermodynamicTemperature>,
     /// On-screen centre position.
     pub screen_position: Pos2,
     /// On-screen size of the whole machine, in points.
@@ -376,61 +367,13 @@ pub struct TurbineVisual {
     pub max_temp: ThermodynamicTemperature,
 }
 
-impl TurbineVisual {
-    /// Wrap a [`ThreePhaseElectricGeneratorTurbine`] — the variant with a real
-    /// shaft speed, so the rotor spins at `omega * t`.
-    ///
-    /// `min_temp`/`max_temp` bound the casing colour map; a generator-backed
-    /// turbine has no steam temperature of its own, so the casing is drawn in
-    /// neutral grey and the range is carried only so the two variants stay
-    /// interchangeable in a gallery.
-    pub fn new_generator(
-        generator: ThreePhaseElectricGeneratorTurbine,
-        screen_position: Pos2,
-        screen_vector: Vec2,
-        min_temp: ThermodynamicTemperature,
-        max_temp: ThermodynamicTemperature,
-    ) -> Self {
-        Self {
-            state: TurbineVisualState::SteamGenerator(generator),
-            screen_position,
-            screen_vector,
-            flow_path: TurbineFlowPath::default(),
-            simulation_time: Time::ZERO,
-            min_temp,
-            max_temp,
-        }
-    }
-
-    /// Wrap a [`tampines::components::Turbine`] — colour only, no rotation
-    /// (see the module docs).
-    ///
-    /// Argument order matches the other visual components, so this is a
-    /// drop-in for the former `TurbineVisual::new`.
-    pub fn new_thermo(
-        physics: Turbine,
-        screen_position: Pos2,
-        screen_vector: Vec2,
-        min_temp: ThermodynamicTemperature,
-        max_temp: ThermodynamicTemperature,
-    ) -> Self {
-        Self {
-            state: TurbineVisualState::SteamThermo(physics),
-            screen_position,
-            screen_vector,
-            flow_path: TurbineFlowPath::default(),
-            simulation_time: Time::ZERO,
-            min_temp,
-            max_temp,
-        }
-    }
-
+impl TurbineArt {
     /// A turbine from plain scalars, no physics model: the rotor turns at
     /// `shaft_speed` (phase `shaft_speed * t`, with `t` from [`Self::at_time`])
     /// and the casing takes the colour of `steam_temperature` when one is
-    /// given, grey when not. See [`TurbineVisualState::Scalars`].
+    /// given, grey when not. (`shaft_speed`, `steam_temperature`).
     ///
-    /// Like [`crate::components::PumpVisual::from_scalars`]: the caller owns
+    /// Like [`crate::components::PumpArt::from_scalars`]: the caller owns
     /// the numbers, and the motion is derived from the speed it passes, never
     /// from a rate chosen here.
     pub fn from_scalars(
@@ -442,10 +385,8 @@ impl TurbineVisual {
         max_temp: ThermodynamicTemperature,
     ) -> Self {
         Self {
-            state: TurbineVisualState::Scalars {
-                shaft_speed,
-                steam_temperature,
-            },
+            shaft_speed,
+            steam_temperature,
             screen_position,
             screen_vector,
             flow_path: TurbineFlowPath::default(),
@@ -489,39 +430,26 @@ impl TurbineVisual {
 
     /// Current rotor phase angle, `theta = omega * t`.
     ///
-    /// Returns zero for [`TurbineVisualState::SteamThermo`], which has no
-    /// shaft-speed model — a stationary rotor is the honest rendering of "not
+    /// Zero at zero shaft speed, which is what the engine passes for a
+    /// thermodynamic-only turbine with no shaft-speed model — a stationary rotor is the honest rendering of "not
     /// known", and is visibly distinct from a turning one.
     pub fn rotor_angle(&self) -> Angle {
-        match &self.state {
-            TurbineVisualState::SteamGenerator(g) => (g.get_omega() * self.simulation_time).into(),
-            TurbineVisualState::SteamThermo(_) => Angle::ZERO,
-            TurbineVisualState::Scalars { shaft_speed, .. } => {
-                (*shaft_speed * self.simulation_time).into()
-            }
-        }
+        (self.shaft_speed * self.simulation_time).into()
     }
 
-    /// Casing colour source: the inlet steam temperature, when the variant
-    /// knows one.
+    /// Casing colour source: the inlet steam temperature, when known.
     ///
-    /// [`TurbineVisualState::SteamGenerator`] is an electromechanical model
-    /// with no steam path, so it returns `None` and the casing renders neutral
-    /// grey rather than a fabricated temperature colour.
+    /// `None` (the engine's generator-only state, an electromechanical model
+    /// with no steam path) renders the casing neutral grey rather than a
+    /// fabricated temperature colour.
     pub fn casing_temperature(&self) -> Option<ThermodynamicTemperature> {
-        match &self.state {
-            TurbineVisualState::SteamGenerator(_) => None,
-            TurbineVisualState::SteamThermo(t) => Some(t.inlet.get_temperature()),
-            TurbineVisualState::Scalars {
-                steam_temperature, ..
-            } => *steam_temperature,
-        }
+        self.steam_temperature
     }
 }
 
-impl Widget for TurbineVisual {
+impl Widget for TurbineArt {
     /// Draws `2 * BLADE_ROWS_PER_SIDE + 1` stator rows of growing radius, then
-    /// the rotor blades on top at the current [`TurbineVisual::rotor_angle`].
+    /// the rotor blades on top at the current [`TurbineArt::rotor_angle`].
     ///
     /// Only blades on the far half of their circular path are painted (those
     /// with `sin(theta + phase) > 0`), which is what reads as a rotor turning
@@ -808,7 +736,7 @@ impl Widget for TurbineVisual {
     }
 }
 
-/// Where a steam line meets [`TurbineVisual`]'s casing.
+/// Where a steam line meets [`TurbineArt`]'s casing.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TurbinePorts {
     /// Steam admission, at the top of the annulus.
@@ -817,7 +745,7 @@ pub struct TurbinePorts {
     pub exhaust_out: Pos2,
 }
 
-impl TurbineVisual {
+impl TurbineArt {
     /// Port positions for a turbine drawn at `screen_position` (its centre)
     /// with box `screen_vector`, the same two arguments its constructors take.
     ///
@@ -863,11 +791,19 @@ mod tests {
         )
     }
 
-    fn generator_visual(omega_rad_s: f64) -> TurbineVisual {
-        let mut g = ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator();
-        g.set_omega(AngularVelocity::new::<radian_per_second>(omega_rad_s));
+    /// A turbine art turning at `omega_rad_s` with no steam temperature, as
+    /// the engine draws a generator-backed turbine. (The generator itself is
+    /// tested in `outram_park_digital_twin_engine::components::turbine`.)
+    fn generator_visual(omega_rad_s: f64) -> TurbineArt {
         let (min, max) = range();
-        TurbineVisual::new_generator(g, Pos2::ZERO, Vec2::new(200.0, 100.0), min, max)
+        TurbineArt::from_scalars(
+            AngularVelocity::new::<radian_per_second>(omega_rad_s),
+            None,
+            Pos2::ZERO,
+            Vec2::new(200.0, 100.0),
+            min,
+            max,
+        )
     }
 
     /// The rotor phase must be the physical product `theta = omega * t`, not a
@@ -1010,16 +946,9 @@ mod tests {
         );
     }
 
-    /// A fresh 250 MW preset starts from rest, so its rotor must not turn until
-    /// the model is actually advanced.
-    #[test]
-    fn fresh_preset_starts_at_rest() {
-        let (min, max) = range();
-        let g = ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator();
-        let v = TurbineVisual::new_generator(g, Pos2::ZERO, Vec2::new(200.0, 100.0), min, max)
-            .at_time(Time::new::<second>(60.0));
-        assert_eq!(v.rotor_angle().get::<radian>(), 0.0);
-    }
+    // `fresh_preset_starts_at_rest` MOVED 2026-11-05 to
+    // `outram_park_digital_twin_engine::components::turbine`: it builds the
+    // `tampines-steam-tables` 250 MW generator.
 }
 
 #[cfg(test)]
@@ -1169,7 +1098,7 @@ mod port_tests {
     #[test]
     fn single_flow_ports_are_left_inlet_and_right_exhaust() {
         let (centre, size) = (Pos2::new(200.0, 100.0), Vec2::new(160.0, 60.0));
-        let p = TurbineVisual::ports(centre, size, TurbineFlowPath::SingleFlow);
+        let p = TurbineArt::ports(centre, size, TurbineFlowPath::SingleFlow);
         let rect = Rect::from_center_size(centre, size);
         assert!(p.steam_in.x < centre.x && p.steam_in.x > rect.left());
         assert!(
@@ -1185,7 +1114,7 @@ mod port_tests {
     #[test]
     fn scalar_turbine_turns_at_its_speed_and_takes_its_colour() {
         let t = |v| ThermodynamicTemperature::new::<kelvin>(v);
-        let v = TurbineVisual::from_scalars(
+        let v = TurbineArt::from_scalars(
             AngularVelocity::new::<radian_per_second>(2.0),
             Some(t(700.0)),
             Pos2::ZERO,

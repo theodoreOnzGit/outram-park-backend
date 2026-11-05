@@ -56,9 +56,12 @@ chem-eng-real-time-process-control-simulator.workspace = true
 # drives the blade animation. That is library code, not an example, so it
 # cannot be a dev-dependency. No new weight in the tree -- `tampines` already
 # depends on this crate transitively.
-# NOTE 2026-11-02 (gh:#1112): `TurbineVisual` moved to `bugis::components`
+# ~~NOTE 2026-11-02 (gh:#1112): `TurbineVisual` moved to `bugis::components`
 # (feature `widgets`, which now carries this edge for the library). Kept here
-# because the examples and binaries name the crate directly.
+# because the examples and binaries name the crate directly.~~
+# CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
+# physics half of `TurbineVisual` is back in this crate's `components`, so
+# this entry carries the library edge again.
 tampines-steam-tables.workspace = true
 
 # TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
@@ -129,9 +132,12 @@ csv.workspace = true
 # so promoting it does not endanger the Android build. The
 # examples (htgr_sim_v1's schematic, widget_studio's heat-exchanger tab) reach
 # it through this entry, so it is no longer declared as a dev-dependency.
-# NOTE 2026-11-02 (gh:#1112): `HeatExchangerVisual` moved to
+# ~~NOTE 2026-11-02 (gh:#1112): `HeatExchangerVisual` moved to
 # `bugis::components` (feature `widgets` carries this edge for the library);
-# the entry stays for the examples named above.
+# the entry stays for the examples named above.~~
+# CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
+# physics half of `HeatExchangerVisual` (and `HeatExchangerKindArrangement`) is
+# back in this crate's `components`, so this edge is the library's again.
 outram-park-fork-dwsim-libs.workspace = true
 
 # OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
@@ -169,7 +175,12 @@ thiserror.workspace = true
 # Cargo.toml's note on `web-time`.
 web-time.workspace = true
 egui.workspace = true
-# `widgets`: the widget library, re-exported as `components` (gh:#1112).
+# `widgets`: the widget ART, re-exported by `components` (gh:#1112).
+# CORRECTED 2026-11-05 (maintainer: "widget art can live in bugis, the
+# combination of logic and art can live inside the digital twin engine"): the
+# widgets that hold physics state (`PipeVisual`, `CondenserVisual`, ...) live
+# in this crate's `src/components/` and draw through the bugis art; bugis's
+# `widgets` feature no longer pulls any physics crate.
 # `app_scaffold`: re-exported as `app_scaffold`.
 bugis = { workspace = true, features = ["widgets", "app_scaffold"] }
 eframe.workspace = true

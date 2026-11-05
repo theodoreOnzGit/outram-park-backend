@@ -1,5 +1,13 @@
 //! Schematic surface-condenser art.
 //!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this file is the art, [`CondenserArt`], drawn from plain numbers. The widget that
+//! wraps the physics component, `CondenserArt`, lives in
+//! `outram_park_digital_twin_engine::components::condenser` and draws through
+//! [`CondenserArt`]. Below, "the physics-backed path" is that widget's; here it is
+//! [`CondenserArt::unpainted`].
+//!
 //! A condenser is the cold end of a Rankine cycle, and the only interesting
 //! thing about it is the phase change: turbine exhaust steam arrives at the top
 //! of a shell held well below atmospheric pressure, gives up its latent heat to
@@ -33,7 +41,7 @@
 //! pool — is coloured by the shared
 //! [`crate::components::temperature_colour`] map, so a condenser grades
 //! temperature identically to every other widget in this library. The same two
-//! axes already coexist in [`crate::components::TurbineVisual`].
+//! axes already coexist in [`crate::components::TurbineArt`].
 //!
 //! One consequence worth watching for: the drops falling off the bundle are
 //! drawn at the **condensing** temperature and the pool at the **condensate**
@@ -42,27 +50,27 @@
 //!
 //! # Dispatch
 //!
-//! [`CondenserKind`] and [`CondenserVisualState`] are enums, not trait objects,
+//! [`CondenserKind`] and [`CondenserArtState`] are enums, not trait objects,
 //! per the workspace's mandatory "no trait objects" Rust design rule: both sets
 //! are closed and known at compile time, so adding a member is a variant and
 //! the compiler then points at every match that needs handling.
 //!
 //! # What is drawn from real state, and what is left neutral
 //!
-//! [`tampines::components::Condenser`] stores an **operating pressure** and a
+//! `tampines::components::Condenser` stores an **operating pressure** and a
 //! **target outlet quality** — a set-point — and nothing else. It has no fluid
 //! state, no cooling-water side and no hotwell level, and its `condense`
 //! returns `TampinesError::NotYetImplemented`. So the physics-backed path
-//! ([`CondenserVisual::new`], whose signature is preserved) draws the complete
+//! (the engine's `CondenserArt::new`, drawn here as [`CondenserArt::unpainted`]) draws the complete
 //! machine in neutral metal tones with **no** temperature or quality colour at
 //! all, and labels only the operating pressure it really holds. The target
 //! outlet quality is readable through
-//! [`CondenserVisual::target_outlet_quality`] but is deliberately never
+//! the engine's `CondenserArt::target_outlet_quality` but is deliberately never
 //! painted: it is what the condenser is *asked* to achieve, not what the fluid
 //! *is*, and colouring the condensate by it would be fabricating state.
 //!
-//! The state-driven path is [`CondenserVisual::from_scalars`], the same
-//! contract as [`crate::components::PipeVisual::from_scalars`]: the caller
+//! The state-driven path is [`CondenserArt::from_scalars`], the same
+//! contract as [`crate::components::PipeArt::from_scalars`]: the caller
 //! passes **real state from its own model** — exhaust quality, condensing and
 //! condensate temperatures, cooling-water inlet and outlet temperatures, and
 //! optionally the hotwell level. That is a narrower interface, not a fabricated
@@ -86,7 +94,6 @@ use crate::colour_maps::color32::steam_quality_colour_mark_1;
 use crate::components::temperature_colour;
 use egui::{Align2, Color32, CornerRadius, FontId, Painter, Pos2, Rect, Response, Sense, Shape};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
-use tampines::components::Condenser;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
 use uom::si::pressure::kilopascal;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -410,7 +417,7 @@ pub struct CondenserDisplayRange {
 ///
 /// Every field is **real state the caller already has**, not a placeholder —
 /// see the module documentation and
-/// [`crate::components::PipeVisual::from_scalars`] for why this narrower
+/// [`crate::components::PipeArt::from_scalars`] for why this narrower
 /// interface exists. Nothing here is invented by the widget.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CondenserScalars {
@@ -450,20 +457,21 @@ pub struct CondenserScalars {
     pub hotwell_level_frac: Option<f32>,
 }
 
-/// Where a [`CondenserVisual`] gets the state it renders.
+/// Where a [`CondenserArt`] gets the state it renders.
 ///
 /// Enum dispatch, not a trait object, per the workspace's mandatory "no trait
 /// objects" Rust design rule.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CondenserVisualState {
-    /// Backed by a [`tampines::components::Condenser`] alone.
+pub enum CondenserArtState {
+    /// No fluid state at all: what the engine's physics-backed `CondenserArt`
+    /// draws for a `tampines::components::Condenser`.
     ///
     /// That component holds an operating pressure and a **target** outlet
     /// quality and nothing else — no fluid state, no cooling-water side, no
     /// hotwell level — so this path draws the complete machine in neutral metal
     /// tones and paints no temperature or quality anywhere. See the module
     /// documentation.
-    Physics(Condenser),
+    Unpainted,
     /// Backed by caller-supplied scalars from the caller's own plant model,
     /// graded against the accompanying [`CondenserDisplayRange`].
     Scalars(CondenserScalars, CondenserDisplayRange),
@@ -473,7 +481,7 @@ pub enum CondenserVisualState {
 /// wherever no honest source exists.
 ///
 /// Resolved once per repaint so that every "we do not know this" decision is
-/// taken in one place ([`CondenserVisualState::resolve`]) rather than scattered
+/// taken in one place ([`CondenserArtState::resolve`]) rather than scattered
 /// through the drawing code.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct DrawnCondenser {
@@ -530,15 +538,15 @@ impl DrawnCondenser {
     }
 }
 
-impl CondenserVisualState {
+impl CondenserArtState {
     /// The colours and fractions the artwork is drawn from.
     ///
-    /// [`Self::Physics`] resolves to [`DrawnCondenser::UNKNOWN`] — that is the
+    /// [`Self::Unpainted`] resolves to [`DrawnCondenser::UNKNOWN`] — that is the
     /// whole point of the variant, and it is why the physics path is neutral
     /// rather than quietly plausible.
     fn resolve(&self) -> DrawnCondenser {
         match self {
-            Self::Physics(_) => DrawnCondenser::UNKNOWN,
+            Self::Unpainted => DrawnCondenser::UNKNOWN,
             Self::Scalars(s, range) => DrawnCondenser {
                 exhaust_quality: Some(s.exhaust_quality),
                 condensing_temp: Some(s.condensing_temp),
@@ -557,29 +565,28 @@ impl CondenserVisualState {
 /// Visual representation of a surface condenser, in one of two cooling-water
 /// arrangements.
 ///
-/// Built either from a [`tampines::components::Condenser`] ([`Self::new`],
+/// Built either unpainted ([`Self::unpainted`], what the engine draws for a
+/// `tampines::components::Condenser`,
 /// which draws the machine neutrally because that component holds no fluid
 /// state) or from the caller's own scalar plant state ([`Self::from_scalars`]).
 /// See the module documentation for what each path is allowed to paint.
 ///
 /// The artwork letterboxes to [`CondenserKind::native_aspect_ratio`] inside the
 /// box it is given, so it never stretches.
-pub struct CondenserVisual {
+pub struct CondenserArt {
     kind: CondenserKind,
-    state: CondenserVisualState,
+    state: CondenserArtState,
     screen_position: Pos2,
     screen_vector: Vec2,
     show_labels: bool,
     operating_pressure: Option<Pressure>,
 }
 
-impl CondenserVisual {
-    /// Wrap a [`Condenser`] with the given screen geometry.
+impl CondenserArt {
+    /// The machine with no fluid state, at the given screen geometry.
     ///
-    /// **Signature preserved** from the original placeholder widget, so every
-    /// existing call site keeps working unchanged.
-    ///
-    /// This is the physics-backed path. [`Condenser`] stores only an operating
+    /// This is what the engine's physics-backed `CondenserArt::new` draws.
+    /// `tampines::components::Condenser` stores only an operating
     /// pressure and a target outlet quality, so the machine is drawn complete
     /// but **uncoloured**: neutral grey tubes, waterboxes, steam space and
     /// hotwell, with the operating pressure labelled because that is real
@@ -591,11 +598,13 @@ impl CondenserVisual {
     ///
     /// Defaults to [`CondenserKind::TwoPass`]; change it with
     /// [`Self::with_kind`].
-    pub fn new(physics: Condenser, screen_position: Pos2, screen_vector: Vec2) -> Self {
+    /// The operating pressure, which that component does hold, is attached by
+    /// the caller with [`Self::with_operating_pressure`].
+    pub fn unpainted(screen_position: Pos2, screen_vector: Vec2) -> Self {
         Self {
             kind: CondenserKind::TwoPass,
-            operating_pressure: Some(physics.pressure),
-            state: CondenserVisualState::Physics(physics),
+            operating_pressure: None,
+            state: CondenserArtState::Unpainted,
             screen_position,
             screen_vector,
             show_labels: true,
@@ -622,7 +631,7 @@ impl CondenserVisual {
     ) -> Self {
         Self {
             kind,
-            state: CondenserVisualState::Scalars(scalars, range),
+            state: CondenserArtState::Scalars(scalars, range),
             screen_position,
             screen_vector,
             show_labels: true,
@@ -664,7 +673,7 @@ impl CondenserVisual {
     }
 
     /// Where this visual gets its state.
-    pub fn state(&self) -> &CondenserVisualState {
+    pub fn state(&self) -> &CondenserArtState {
         &self.state
     }
 
@@ -673,32 +682,18 @@ impl CondenserVisual {
     /// synthesising one.
     pub fn scalars(&self) -> Option<CondenserScalars> {
         match self.state {
-            CondenserVisualState::Physics(_) => None,
-            CondenserVisualState::Scalars(s, _) => Some(s),
+            CondenserArtState::Unpainted => None,
+            CondenserArtState::Scalars(s, _) => Some(s),
         }
     }
 
     /// The shell-side operating pressure, if one is known.
     ///
-    /// `Some` on the physics path (read from [`Condenser::pressure`]) and on
+    /// `Some` on the engine's physics path (read from the component's
+    /// `pressure`) and on
     /// any visual given [`Self::with_operating_pressure`]; `None` otherwise.
     pub fn operating_pressure(&self) -> Option<Pressure> {
         self.operating_pressure
-    }
-
-    /// The wrapped component's **target** outlet quality, dimensionless in
-    /// `[0, 1]`, or `None` on the scalar path.
-    ///
-    /// Exposed for a caller that wants to display the set-point, and
-    /// deliberately **never painted** by this widget: it is what the condenser
-    /// is asked to achieve, not what the fluid is. Colouring the condensate by
-    /// it would be fabricating state. The quantity the artwork actually paints
-    /// is [`CondenserScalars::exhaust_quality`], which the caller supplies.
-    pub fn target_outlet_quality(&self) -> Option<f64> {
-        match self.state {
-            CondenserVisualState::Physics(c) => Some(c.target_outlet_quality),
-            CondenserVisualState::Scalars(..) => None,
-        }
     }
 
     /// Draw a small label, unless labels are switched off.
@@ -746,8 +741,8 @@ impl CondenserVisual {
     }
 }
 
-impl Widget for CondenserVisual {
-    /// Draws the condenser for [`CondenserVisual::kind`]: shell, exhaust neck,
+impl Widget for CondenserArt {
+    /// Draws the condenser for [`CondenserArt::kind`]: shell, exhaust neck,
     /// steam space, tube bundle, tubesheets, waterboxes, air offtake, and the
     /// hotwell with its condensate pool.
     ///
@@ -767,7 +762,7 @@ impl Widget for CondenserVisual {
     }
 }
 
-impl CondenserVisual {
+impl CondenserArt {
     /// Draws the whole machine into `rect`.
     ///
     /// Layout, as fractions of `rect` (chosen for legibility, dimensioned from
@@ -1177,7 +1172,7 @@ impl CondenserVisual {
     }
 }
 
-/// Where the pipes meet a [`CondenserVisual`].
+/// Where the pipes meet a [`CondenserArt`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CondenserPorts {
     /// Turbine exhaust in, at the top centre of the shell.
@@ -1186,7 +1181,7 @@ pub struct CondenserPorts {
     pub condensate_out: Pos2,
 }
 
-impl CondenserVisual {
+impl CondenserArt {
     /// Port positions for a condenser of `kind` whose box is `box_rect`, taken
     /// from the same letterboxed rect the widget paints in.
     pub fn ports(kind: CondenserKind, box_rect: Rect) -> CondenserPorts {
@@ -1227,8 +1222,8 @@ mod tests {
         }
     }
 
-    fn visual(kind: CondenserKind) -> CondenserVisual {
-        CondenserVisual::from_scalars(
+    fn visual(kind: CondenserKind) -> CondenserArt {
+        CondenserArt::from_scalars(
             kind,
             Pos2::new(100.0, 200.0),
             Vec2::new(320.0, 220.0),
@@ -1536,17 +1531,18 @@ mod tests {
         }
     }
 
-    /// The physics-backed path must paint **nothing** it cannot see.
+    /// The unpainted path (the engine's physics-backed one) must paint
+    /// **nothing** it cannot see.
     ///
     /// **Methodology.** `tampines::components::Condenser` stores an operating
-    /// pressure and a target outlet quality only. Wrap one with
-    /// [`CondenserVisual::new`] — the preserved three-argument signature — and
+    /// pressure and a target outlet quality only, so its widget draws
+    /// [`CondenserArt::unpainted`] with that pressure. Build one and
     /// require: the resolved drawing state to carry no quality, no
     /// temperatures, no display range and no hotwell level; every resolved
     /// colour to be [`UNKNOWN_FLUID`] rather than a point on either colour
-    /// scale; the operating pressure to survive as real stored state; and the
-    /// target outlet quality to be reachable through its accessor while
-    /// [`CondenserVisual::scalars`] stays `None`.
+    /// scale; the operating pressure to survive as real stored state; and
+    /// [`CondenserArt::scalars`] to stay `None`. (The target-outlet-quality
+    /// half moved to the engine's `CondenserArt` test, 2026-11-05.)
     ///
     /// **Result (2026-08-12):** a condenser at 6.6 kPa with target outlet
     /// quality 0.0 resolved to `DrawnCondenser::UNKNOWN`; the steam,
@@ -1558,10 +1554,10 @@ mod tests {
     /// is neutral by construction, so a future change that starts fabricating a
     /// temperature to colour with fails here.
     #[test]
-    fn the_physics_path_paints_nothing_it_cannot_see() {
+    fn the_unpainted_path_paints_nothing_it_cannot_see() {
         let pressure = Pressure::new::<kilopascal>(6.6);
-        let condenser = Condenser::new(pressure, 0.0);
-        let visual = CondenserVisual::new(condenser, Pos2::new(0.0, 0.0), Vec2::new(320.0, 220.0));
+        let visual = CondenserArt::unpainted(Pos2::new(0.0, 0.0), Vec2::new(320.0, 220.0))
+            .with_operating_pressure(pressure);
 
         let drawn = visual.state.resolve();
         assert_eq!(drawn, DrawnCondenser::UNKNOWN);
@@ -1583,7 +1579,6 @@ mod tests {
 
         assert!(visual.scalars().is_none());
         assert_eq!(visual.operating_pressure(), Some(pressure));
-        assert_eq!(visual.target_outlet_quality(), Some(0.0));
         assert_eq!(visual.kind(), CondenserKind::TwoPass);
         assert_eq!(visual.size(), Vec2::new(320.0, 220.0));
     }
@@ -1599,7 +1594,6 @@ mod tests {
             assert_eq!(v.size(), Vec2::new(320.0, 220.0));
             // The scalar path implies no operating pressure until one is given.
             assert!(v.operating_pressure().is_none());
-            assert!(v.target_outlet_quality().is_none());
         }
 
         let with_pressure = visual(CondenserKind::SinglePass)
@@ -1677,7 +1671,7 @@ mod tests {
     fn a_missing_hotwell_level_stays_missing() {
         let mut s = scalars();
         s.hotwell_level_frac = None;
-        let v = CondenserVisual::from_scalars(
+        let v = CondenserArt::from_scalars(
             CondenserKind::TwoPass,
             Pos2::ZERO,
             Vec2::new(320.0, 220.0),
@@ -1756,7 +1750,7 @@ mod port_tests {
     fn condenser_ports_are_top_and_bottom_centre() {
         let b = Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(120.0, 100.0));
         for kind in [CondenserKind::TwoPass, CondenserKind::SinglePass] {
-            let p = CondenserVisual::ports(kind, b);
+            let p = CondenserArt::ports(kind, b);
             let r = kind.fit_native_aspect(b);
             assert_eq!(p.steam_in, Pos2::new(r.center().x, r.top()));
             assert_eq!(p.condensate_out, Pos2::new(r.center().x, r.bottom()));

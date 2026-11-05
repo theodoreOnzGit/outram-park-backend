@@ -1,5 +1,18 @@
 //! Schematic cooling-tower art, one architecture per draught type.
 //!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this file is the art, [`CoolingTowerArt`], drawn from plain numbers. The widget that
+//! wraps the physics component, `CoolingTowerVisual`, lives in
+//! `outram_park_digital_twin_engine::components::cooling_tower` and draws through
+//! [`CoolingTowerArt`]. Below, "the physics-backed path" is that widget's; here it is
+//! [`CoolingTowerArt::inlet_only`].
+//!
+//! The air states here are [`AirReadout`]s, the psychrometric numbers the art
+//! draws (dry bulb, relative humidity, humidity ratio); the engine fills them
+//! from `tampines::humid_air::HumidAirState`, CoolProp-resolved. The engine's
+//! `CoolingTowerScalars` (full air states) converts to [`CoolingTowerArtScalars`].
+//!
 //! A cooling tower is a **psychrometric** machine, not a heat exchanger with a
 //! wall in it: warm circulating water is broken up over a fill pack and put in
 //! direct contact with air, and most of the cooling comes from evaporating a
@@ -22,7 +35,7 @@
 //!
 //! # Where the psychrometrics come from
 //!
-//! Both air states are [`tampines::humid_air::HumidAirState`], which is a
+//! Both air states are read from `tampines::humid_air::HumidAirState`, which is a
 //! `uom`-typed wrapper over
 //! `outram_park_fork_coolprop::humid_air::ha_props` — this workspace's
 //! `HAPropsSI` port, humid air as a real-gas mixture per ASHRAE RP-1485. The
@@ -33,36 +46,37 @@
 //!
 //! **The wet-bulb temperature is the one exception, and it is supplied by the
 //! caller.** The CoolProp backend can produce it
-//! (`HumidAirParam::TWetBulb`), but [`tampines::humid_air::HumidAirState`] has
+//! (`HumidAirParam::TWetBulb`), but `tampines::humid_air::HumidAirState` has
 //! no field for it and `tampines` does not re-export the raw `ha_props` entry
 //! point, so there is nothing on the state object to read. Solving for it here
 //! would be new physics inside a presentation crate, which this crate's
 //! `CLAUDE.md` forbids — the fix belongs in `tampines`, not in this file. Until
-//! then [`CoolingTowerScalars::inlet_wet_bulb`] is a caller-supplied scalar,
+//! then [`CoolingTowerArtScalars::inlet_wet_bulb`] is a caller-supplied scalar,
 //! exactly like every other quantity on the
-//! [`crate::components::PipeVisual::from_scalars`] path: real state from the
+//! [`crate::components::PipeArt::from_scalars`] path: real state from the
 //! caller's own model, not a placeholder.
 //!
 //! # What the physics component can and cannot supply
 //!
-//! [`tampines::components::CoolingTower`] holds a **real** ambient air inlet
+//! `tampines::components::CoolingTower` holds a **real** ambient air inlet
 //! state, a real circulating-water inlet temperature and flow rate, and a
 //! **target** approach — a set-point. Its `evaluate` returns
 //! `TampinesError::NotYetImplemented`, so there is no water outlet temperature
 //! and **no exit air state at all**.
 //!
-//! [`CoolingTowerVisual::new`] therefore draws the air inlet and the hot water
+//! Its widget (the engine's `CoolingTowerVisual::new`, drawn here by
+//! [`CoolingTowerArt::inlet_only`]) therefore draws the air inlet and the hot water
 //! it really knows about, and leaves everything downstream of the fill
 //! deliberately blank: the basin is neutral grey, no approach is reported (only
 //! the target, labelled as a target), and **no plume is drawn**. An invented
 //! ambient condition or an assumed saturated exit would make a plume appear out
 //! of nothing, which is exactly the failure this crate refuses. For a fully
 //! painted tower, pass the state you actually have to
-//! [`CoolingTowerVisual::from_scalars`].
+//! [`CoolingTowerArt::from_scalars`].
 //!
 //! # Dispatch
 //!
-//! [`CoolingTowerKind`] and [`CoolingTowerVisualState`] are enums, not trait
+//! [`CoolingTowerKind`] and [`CoolingTowerArtState`] are enums, not trait
 //! objects, per the workspace's mandatory "no trait objects" Rust design rule.
 //!
 //! # Simulation time is application-owned
@@ -70,8 +84,8 @@
 //! An induced-draught tower has a fan, and it is drawn at
 //! `theta = omega * t` from a caller-supplied shaft speed and the
 //! **application's** simulation clock — the same contract as
-//! [`crate::components::PumpVisual`] and
-//! [`crate::components::TurbineVisual`], and for the same reason: widgets are
+//! [`crate::components::PumpArt`] and
+//! [`crate::components::TurbineArt`], and for the same reason: widgets are
 //! rebuilt every repaint, so a clock owned by the widget would reset to zero
 //! each frame. `CoolingTower` carries no fan speed, so the default is zero and
 //! the fan is drawn **stationary but complete** rather than at a fabricated
@@ -93,8 +107,6 @@ use crate::components::temperature_colour;
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense, Shape};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
 use std::f32::consts::TAU;
-use tampines::components::CoolingTower;
-use tampines::humid_air::HumidAirState;
 use uom::si::f64::{
     Angle, AngularVelocity, Ratio, TemperatureInterval, ThermodynamicTemperature, Time, VolumeRate,
 };
@@ -201,7 +213,7 @@ impl CoolingTowerKind {
     ///
     /// `false` for [`Self::NaturalDraught`], which is the whole point of it: a
     /// fan speed passed to a natural-draught tower is ignored, and
-    /// [`CoolingTowerVisual::fan_angle`] returns `None`.
+    /// [`CoolingTowerArt::fan_angle`] returns `None`.
     pub fn has_fan(self) -> bool {
         match self {
             Self::NaturalDraught => false,
@@ -299,7 +311,7 @@ pub fn cooling_range(
 /// this ramp shows how near it is.
 ///
 /// A relative humidity above 1 saturates at full opacity rather than growing
-/// further: `HumidAirState` describes single-phase moist air, so exit air
+/// further: `AirReadout` describes single-phase moist air, so exit air
 /// already carrying condensed droplets is outside what the caller's own state
 /// object can represent. A **non-finite** relative humidity draws no plume,
 /// which is the visible outcome — a NaN in the caller's model must not appear
@@ -436,31 +448,48 @@ const UNKNOWN_FLUID: Color32 = Color32::GRAY;
 
 // ── State ───────────────────────────────────────────────────────────────────
 
+/// The psychrometric numbers the cooling-tower art draws for one air stream.
+///
+/// Read off a CoolProp-resolved `tampines::humid_air::HumidAirState` by the
+/// engine's cooling-tower widget; real state, never invented here.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AirReadout {
+    /// Dry-bulb temperature: the colour of the air arrows.
+    pub t_dry_bulb: ThermodynamicTemperature,
+    /// Relative humidity `R` in `[0, 1]`: drives the plume (exit air) and is
+    /// reported.
+    pub relative_humidity: Ratio,
+    /// Humidity ratio `W` [kg water / kg dry air], reported for the inlet air
+    /// when known; `None` reports nothing.
+    pub humidity_ratio: Option<Ratio>,
+}
+
 /// Scalar state of a cooling tower, as the caller's own model holds it.
 ///
 /// Every field is **real state the caller already has** — see the module
-/// documentation and [`crate::components::PipeVisual::from_scalars`] for why
+/// documentation and [`crate::components::PipeArt::from_scalars`] for why
 /// this narrower interface exists. Nothing here is invented by the widget.
 ///
-/// The two air states are full [`tampines::humid_air::HumidAirState`] values,
-/// so the caller resolves them through the CoolProp-backed psychrometrics
-/// (`tampines::humid_air::state_from_t_p_r` and friends) and this widget only
+/// The two air states are [`AirReadout`]s read off full
+/// `tampines::humid_air::HumidAirState` values, which the caller resolves
+/// through the CoolProp-backed psychrometrics
+/// (`tampines::humid_air::state_from_t_p_r` and friends); this widget only
 /// reads properties off them.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CoolingTowerScalars {
+pub struct CoolingTowerArtScalars {
     /// Ambient air drawn in at the base.
     ///
     /// Its dry-bulb temperature colours the inlet-air arrows and its relative
     /// humidity is reported next to them.
-    pub air_inlet: HumidAirState,
+    pub air_inlet: AirReadout,
     /// Air leaving the tower, past the drift eliminators.
     ///
     /// Its dry-bulb temperature colours the exit-air arrows and its **relative
     /// humidity drives the plume** through [`plume_opacity`].
-    pub air_outlet: HumidAirState,
+    pub air_outlet: AirReadout,
     /// Wet-bulb temperature of the entering air.
     ///
-    /// Supplied by the caller because [`HumidAirState`] carries no wet-bulb
+    /// Supplied by the caller because [`AirReadout`] carries no wet-bulb
     /// field — see the module documentation. Sets the approach through
     /// [`approach_to_wet_bulb`], and is drawn as a marker on the water-side
     /// scale that the cold water can approach but not cross.
@@ -477,22 +506,39 @@ pub struct CoolingTowerScalars {
     pub water_flow_rate: VolumeRate,
 }
 
-/// Where a [`CoolingTowerVisual`] gets the state it renders.
+/// The inlet side of a cooling tower and its target approach: everything a
+/// `tampines::components::CoolingTower` holds (its `evaluate` is not
+/// implemented, so it has no outlet side).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CoolingTowerInlet {
+    /// Ambient air drawn in at the base.
+    pub air_inlet: AirReadout,
+    /// Warm water returning from the plant to the distribution deck.
+    pub water_inlet_temperature: ThermodynamicTemperature,
+    /// Circulating-water volumetric flow rate.
+    pub water_flow_rate: VolumeRate,
+    /// The **target** approach, a set-point: reported as a target and never
+    /// used to colour anything.
+    pub target_approach: TemperatureInterval,
+}
+
+/// Where a [`CoolingTowerArt`] gets the state it renders.
 ///
 /// Enum dispatch, not a trait object, per the workspace's mandatory "no trait
 /// objects" Rust design rule.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CoolingTowerVisualState {
-    /// Backed by a [`tampines::components::CoolingTower`].
+pub enum CoolingTowerArtState {
+    /// What a `tampines::components::CoolingTower` holds (drawn for it by the
+    /// engine's physics-backed widget): the inlet side only.
     ///
     /// Its air inlet state, water inlet temperature and water flow rate are
     /// real and are drawn. Its `evaluate` is not implemented, so there is no
     /// water outlet temperature and no exit air state — the basin stays
     /// neutral, no approach is reported, and no plume is drawn. See the module
     /// documentation.
-    Physics(CoolingTower),
+    Inlet(CoolingTowerInlet),
     /// Backed by caller-supplied scalars from the caller's own plant model.
-    Scalars(CoolingTowerScalars),
+    Scalars(CoolingTowerArtScalars),
 }
 
 /// The quantities the artwork is actually painted from, with `None` wherever no
@@ -502,8 +548,8 @@ pub enum CoolingTowerVisualState {
 /// in one place rather than scattered through the drawing code.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct DrawnTower {
-    air_inlet: Option<HumidAirState>,
-    air_outlet: Option<HumidAirState>,
+    air_inlet: Option<AirReadout>,
+    air_outlet: Option<AirReadout>,
     inlet_wet_bulb: Option<ThermodynamicTemperature>,
     water_inlet_temp: Option<ThermodynamicTemperature>,
     water_outlet_temp: Option<ThermodynamicTemperature>,
@@ -555,7 +601,7 @@ impl DrawnTower {
     }
 }
 
-impl CoolingTowerVisualState {
+impl CoolingTowerArtState {
     /// The quantities the artwork is drawn from, and the display range they are
     /// graded against.
     fn resolve(
@@ -564,7 +610,7 @@ impl CoolingTowerVisualState {
         max_temp: ThermodynamicTemperature,
     ) -> DrawnTower {
         match self {
-            Self::Physics(tower) => DrawnTower {
+            Self::Inlet(tower) => DrawnTower {
                 // Real, CoolProp-resolved state on the component.
                 air_inlet: Some(tower.air_inlet),
                 water_inlet_temp: Some(tower.water_inlet_temperature),
@@ -598,8 +644,8 @@ impl CoolingTowerVisualState {
 /// Visual representation of a cooling tower, in one of two draught
 /// architectures.
 ///
-/// Built either from a [`tampines::components::CoolingTower`] ([`Self::new`],
-/// whose signature is preserved) or from the caller's own psychrometric plant
+/// Built either from the inlet side alone ([`Self::inlet_only`], what the
+/// engine draws for a `tampines::components::CoolingTower`) or from the caller's own psychrometric plant
 /// state ([`Self::from_scalars`]). See the module documentation for what each
 /// path is allowed to paint — in particular, why the physics path draws no
 /// plume.
@@ -609,9 +655,9 @@ impl CoolingTowerVisualState {
 /// diverging (blue at min, neutral white at the *midpoint*, red at max), set
 /// them about a reference that matters rather than clamping to the extremes
 /// seen.
-pub struct CoolingTowerVisual {
+pub struct CoolingTowerArt {
     kind: CoolingTowerKind,
-    state: CoolingTowerVisualState,
+    state: CoolingTowerArtState,
     screen_position: Pos2,
     screen_vector: Vec2,
     min_temp: ThermodynamicTemperature,
@@ -621,14 +667,12 @@ pub struct CoolingTowerVisual {
     show_labels: bool,
 }
 
-impl CoolingTowerVisual {
-    /// Wrap a [`CoolingTower`] with the given screen geometry and
-    /// colour-mapping temperature range.
+impl CoolingTowerArt {
+    /// Draw the inlet side alone ([`CoolingTowerInlet`]) with the given screen
+    /// geometry and colour-mapping temperature range.
     ///
-    /// **Signature preserved** from the original placeholder widget, so every
-    /// existing call site keeps working unchanged.
-    ///
-    /// This is the physics-backed path. The component's ambient air inlet, hot
+    /// This is what the engine's physics-backed `CoolingTowerVisual::new`
+    /// draws. The component's ambient air inlet, hot
     /// water inlet temperature and water flow rate are real and are drawn; its
     /// `evaluate` is not implemented, so the cold water leaving the basin and
     /// the air leaving the top are **not known** and are left neutral, with no
@@ -639,8 +683,8 @@ impl CoolingTowerVisual {
     ///
     /// Defaults to [`CoolingTowerKind::NaturalDraught`]; change it with
     /// [`Self::with_kind`].
-    pub fn new(
-        physics: CoolingTower,
+    pub fn inlet_only(
+        inlet: CoolingTowerInlet,
         screen_position: Pos2,
         screen_vector: Vec2,
         min_temp: ThermodynamicTemperature,
@@ -648,7 +692,7 @@ impl CoolingTowerVisual {
     ) -> Self {
         Self {
             kind: CoolingTowerKind::NaturalDraught,
-            state: CoolingTowerVisualState::Physics(physics),
+            state: CoolingTowerArtState::Inlet(inlet),
             screen_position,
             screen_vector,
             min_temp,
@@ -673,11 +717,11 @@ impl CoolingTowerVisual {
         screen_vector: Vec2,
         min_temp: ThermodynamicTemperature,
         max_temp: ThermodynamicTemperature,
-        scalars: CoolingTowerScalars,
+        scalars: CoolingTowerArtScalars,
     ) -> Self {
         Self {
             kind,
-            state: CoolingTowerVisualState::Scalars(scalars),
+            state: CoolingTowerArtState::Scalars(scalars),
             screen_position,
             screen_vector,
             min_temp,
@@ -731,25 +775,17 @@ impl CoolingTowerVisual {
     }
 
     /// Where this visual gets its state.
-    pub fn state(&self) -> &CoolingTowerVisualState {
+    pub fn state(&self) -> &CoolingTowerArtState {
         &self.state
     }
 
     /// The scalar state the artwork is drawn from, or `None` on the
     /// physics-backed path — which has none, and says so rather than
     /// synthesising one.
-    pub fn scalars(&self) -> Option<CoolingTowerScalars> {
+    pub fn scalars(&self) -> Option<CoolingTowerArtScalars> {
         match self.state {
-            CoolingTowerVisualState::Physics(_) => None,
-            CoolingTowerVisualState::Scalars(s) => Some(s),
-        }
-    }
-
-    /// The wrapped component, or `None` on the scalar path.
-    pub fn physics(&self) -> Option<CoolingTower> {
-        match self.state {
-            CoolingTowerVisualState::Physics(c) => Some(c),
-            CoolingTowerVisualState::Scalars(_) => None,
+            CoolingTowerArtState::Inlet(_) => None,
+            CoolingTowerArtState::Scalars(s) => Some(s),
         }
     }
 
@@ -781,16 +817,16 @@ impl CoolingTowerVisual {
         Some(approach_to_wet_bulb(s.water_outlet_temp, s.inlet_wet_bulb))
     }
 
-    /// The wrapped component's **target** approach — a set-point, not an
-    /// achieved value — or `None` on the scalar path.
+    /// The inlet-only (physics-backed) state's **target** approach — a
+    /// set-point, not an achieved value — or `None` on the scalar path.
     ///
     /// Displayed only with the word "target" beside it and never used to colour
     /// anything: painting the basin by a target would be drawing a result the
     /// plant has not produced.
     pub fn target_approach(&self) -> Option<TemperatureInterval> {
         match self.state {
-            CoolingTowerVisualState::Physics(c) => Some(c.target_approach),
-            CoolingTowerVisualState::Scalars(_) => None,
+            CoolingTowerArtState::Inlet(c) => Some(c.target_approach),
+            CoolingTowerArtState::Scalars(_) => None,
         }
     }
 
@@ -830,8 +866,8 @@ impl CoolingTowerVisual {
     }
 }
 
-impl Widget for CoolingTowerVisual {
-    /// Draws the cooling tower for [`CoolingTowerVisual::kind`], coloured by
+impl Widget for CoolingTowerArt {
+    /// Draws the cooling tower for [`CoolingTowerArt::kind`], coloured by
     /// the shared [`crate::components::temperature_colour`] map, with the plume
     /// drawn from the exit air's relative humidity (see [`plume_opacity`]).
     ///
@@ -858,7 +894,7 @@ impl Widget for CoolingTowerVisual {
 
 // ── Shared internals ────────────────────────────────────────────────────────
 
-impl CoolingTowerVisual {
+impl CoolingTowerArt {
     /// Draws what is inside every cooling tower, whatever pulls the air
     /// through it: the hot-water distribution deck and its sprays, the fill
     /// pack, the rain zone, and the cold-water basin.
@@ -1099,13 +1135,21 @@ impl CoolingTowerVisual {
         }
 
         if let Some(air) = drawn.air_inlet {
-            put(format!(
-                "air in  {:.1} degC  RH {:.0} %  W {:.4} kg/kg",
-                air.t_dry_bulb
-                    .get::<uom::si::thermodynamic_temperature::degree_celsius>(),
-                air.relative_humidity.get::<percent>(),
-                air.humidity_ratio.get::<ratio>()
-            ));
+            match air.humidity_ratio {
+                Some(w) => put(format!(
+                    "air in  {:.1} degC  RH {:.0} %  W {:.4} kg/kg",
+                    air.t_dry_bulb
+                        .get::<uom::si::thermodynamic_temperature::degree_celsius>(),
+                    air.relative_humidity.get::<percent>(),
+                    w.get::<ratio>()
+                )),
+                None => put(format!(
+                    "air in  {:.1} degC  RH {:.0} %",
+                    air.t_dry_bulb
+                        .get::<uom::si::thermodynamic_temperature::degree_celsius>(),
+                    air.relative_humidity.get::<percent>()
+                )),
+            }
         }
         match drawn.air_outlet {
             Some(air) => put(format!(
@@ -1127,7 +1171,7 @@ impl CoolingTowerVisual {
 
 // ── 1. Natural draught (hyperbolic shell) ───────────────────────────────────
 
-impl CoolingTowerVisual {
+impl CoolingTowerArt {
     /// Draws the natural-draught hyperbolic tower.
     ///
     /// Bottom to top: the cold-water basin at ground level; the annular air
@@ -1290,7 +1334,7 @@ impl CoolingTowerVisual {
 
 // ── 2. Mechanical induced draught (fan cell) ────────────────────────────────
 
-impl CoolingTowerVisual {
+impl CoolingTowerArt {
     /// Draws the mechanical induced-draught cell.
     ///
     /// A box with air-inlet louvres down each side, the same internals as the
@@ -1447,10 +1491,7 @@ impl CoolingTowerVisual {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tampines::humid_air::state_from_t_p_r;
     use uom::si::angular_velocity::radian_per_second;
-    use uom::si::f64::Pressure;
-    use uom::si::pressure::kilopascal;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::time::second;
     use uom::si::volume_rate::cubic_meter_per_second;
@@ -1459,21 +1500,23 @@ mod tests {
         ThermodynamicTemperature::new::<degree_celsius>(v)
     }
 
-    /// A CoolProp-resolved humid-air state at 101.325 kPa.
-    fn air(t_degc: f64, rh: f64) -> HumidAirState {
-        state_from_t_p_r(
-            degc(t_degc),
-            Pressure::new::<kilopascal>(101.325),
-            Ratio::new::<ratio>(rh),
-        )
-        .expect("humid-air state must resolve on the liquid-water branch")
+    /// An air readout at the given dry bulb and relative humidity. The art
+    /// never reads `W` in these tests, so it is left unknown rather than made
+    /// up; the CoolProp-resolved states are tested in the engine
+    /// (`outram_park_digital_twin_engine::components::cooling_tower`).
+    fn air(t_degc: f64, rh: f64) -> AirReadout {
+        AirReadout {
+            t_dry_bulb: degc(t_degc),
+            relative_humidity: Ratio::new::<ratio>(rh),
+            humidity_ratio: None,
+        }
     }
 
     /// Illustrative tower state: 32 degC / 60 % ambient air in, saturated air
     /// out at 38 degC, water cooled 40 -> 30 degC against a 25.4 degC wet
     /// bulb. Demonstration values only, from no design.
-    fn scalars() -> CoolingTowerScalars {
-        CoolingTowerScalars {
+    fn scalars() -> CoolingTowerArtScalars {
+        CoolingTowerArtScalars {
             air_inlet: air(32.0, 0.60),
             air_outlet: air(38.0, 1.00),
             inlet_wet_bulb: degc(25.4),
@@ -1483,23 +1526,14 @@ mod tests {
         }
     }
 
-    fn visual(kind: CoolingTowerKind) -> CoolingTowerVisual {
-        CoolingTowerVisual::from_scalars(
+    fn visual(kind: CoolingTowerKind) -> CoolingTowerArt {
+        CoolingTowerArt::from_scalars(
             kind,
             Pos2::new(100.0, 200.0),
             Vec2::new(300.0, 400.0),
             degc(0.0),
             degc(100.0),
             scalars(),
-        )
-    }
-
-    fn physics_tower() -> CoolingTower {
-        CoolingTower::new(
-            air(32.0, 0.60),
-            degc(40.0),
-            VolumeRate::new::<cubic_meter_per_second>(12.0),
-            TemperatureInterval::new::<kelvin_interval>(4.0),
         )
     }
 
@@ -1663,7 +1697,7 @@ mod tests {
     /// the exit air at or very near saturation. Require [`plume_opacity`] to be
     /// zero at and below [`PLUME_VISIBLE_RH_MIN`], to rise monotonically from
     /// there, to reach exactly 1.0 at saturation, to saturate rather than grow
-    /// beyond `R = 1` (a `HumidAirState` cannot describe air already carrying
+    /// beyond `R = 1` (a `AirReadout` cannot describe air already carrying
     /// droplets), and to draw nothing for a non-finite relative humidity.
     /// Swept over 201 relative humidities from -0.5 to 1.5.
     ///
@@ -1749,65 +1783,6 @@ mod tests {
         assert_eq!(v.cooling_range(), Some(range));
     }
 
-    /// The physics-backed path must draw what the component really holds and
-    /// **nothing** downstream of it.
-    ///
-    /// **Methodology.** `tampines::components::CoolingTower` holds a real
-    /// CoolProp-resolved air inlet state, a real water inlet temperature and
-    /// flow rate, and a *target* approach; its `evaluate` returns
-    /// `NotYetImplemented`, so there is no exit air state and no water outlet
-    /// temperature. Wrap one with [`CoolingTowerVisual::new`] — the preserved
-    /// five-argument signature — and require: the air inlet, water inlet
-    /// temperature and flow to survive into the drawing state; the exit air,
-    /// wet bulb and water outlet to be `None`; the plume opacity to be exactly
-    /// zero, so no plume is drawn; the achieved approach and the range to be
-    /// `None` while the target approach is reported separately; and the
-    /// unknown cold-water colour to be neutral grey rather than a point on the
-    /// temperature scale.
-    ///
-    /// **Result (2026-08-12):** the wrapped 32 degC / 60 % RH inlet air and
-    /// 40 degC / 12 m^3/s water survived unchanged; exit air, wet bulb and
-    /// water outlet were `None`; plume opacity 0.0; `approach()` and
-    /// `cooling_range()` were `None` while `target_approach()` returned 4.0 K;
-    /// the basin colour was `Color32::GRAY` (160, 160, 160). Interpretation:
-    /// the physics path cannot grow a plume or an approach out of nothing, and
-    /// a future change that starts inventing an ambient condition fails here.
-    #[test]
-    fn the_physics_path_draws_no_plume_and_no_approach() {
-        let tower = physics_tower();
-        let visual = CoolingTowerVisual::new(
-            tower,
-            Pos2::new(0.0, 0.0),
-            Vec2::new(300.0, 400.0),
-            degc(0.0),
-            degc(100.0),
-        );
-        let drawn = visual.state.resolve(visual.min_temp, visual.max_temp);
-
-        assert_eq!(drawn.air_inlet, Some(tower.air_inlet));
-        assert_eq!(drawn.water_inlet_temp, Some(tower.water_inlet_temperature));
-        assert_eq!(drawn.water_flow_rate, Some(tower.water_flow_rate));
-        assert!(drawn.is_circulating());
-
-        assert_eq!(drawn.air_outlet, None);
-        assert_eq!(drawn.inlet_wet_bulb, None);
-        assert_eq!(drawn.water_outlet_temp, None);
-        assert_eq!(drawn.plume(), 0.0, "no exit air state means no plume");
-        assert_eq!(drawn.colour(drawn.water_outlet_temp), UNKNOWN_FLUID);
-        assert_eq!(drawn.falling_water_colour(0.5), UNKNOWN_FLUID);
-
-        assert_eq!(visual.approach(), None);
-        assert_eq!(visual.cooling_range(), None);
-        assert_eq!(
-            visual.target_approach(),
-            Some(TemperatureInterval::new::<kelvin_interval>(4.0))
-        );
-        assert!(visual.scalars().is_none());
-        assert_eq!(visual.physics(), Some(tower));
-        assert_eq!(visual.kind(), CoolingTowerKind::NaturalDraught);
-        assert_eq!(visual.size(), Vec2::new(300.0, 400.0));
-    }
-
     /// The scalar path must pass the caller's state through untouched — this is
     /// real model state, not a placeholder, so nothing may be substituted.
     #[test]
@@ -1817,7 +1792,6 @@ mod tests {
             assert_eq!(v.scalars(), Some(scalars()));
             assert_eq!(v.kind(), *kind);
             assert_eq!(v.size(), Vec2::new(300.0, 400.0));
-            assert!(v.physics().is_none());
             assert!(v.target_approach().is_none());
         }
     }
@@ -1871,56 +1845,40 @@ mod tests {
         );
     }
 
-    /// The supplied air states must really be CoolProp-resolved psychrometry,
-    /// not free-floating numbers.
-    ///
-    /// **Methodology.** `tampines::humid_air::state_from_t_p_r` wraps
-    /// `outram_park_fork_coolprop::humid_air::ha_props` (ASHRAE RP-1485).
-    /// Resolve 32 degC / 60 % RH at 101.325 kPa and require the state to come
-    /// back with the requested dry-bulb and relative humidity, a physically
-    /// sensible humidity ratio, and a saturated state at the same temperature
-    /// to carry strictly more water and more enthalpy.
-    ///
-    /// **Result (2026-08-12):** 32.000 degC at RH 0.600 gave W = 0.018121
-    /// kg/kg and h = 78.56 kJ/kg dry air; the saturated state at the same
-    /// temperature gave W = 0.030800 kg/kg and h = 110.98 kJ/kg dry air.
-    /// Interpretation: the widget is reading a real psychrometric state, so
-    /// the plume and the air colours are anchored to the CoolProp port rather
-    /// than to display constants.
-    #[test]
-    fn the_air_states_come_from_the_coolprop_psychrometrics() {
-        let humid = air(32.0, 0.60);
-        assert!((humid.t_dry_bulb.get::<degree_celsius>() - 32.0).abs() < 1e-6);
-        assert!((humid.relative_humidity.get::<ratio>() - 0.60).abs() < 1e-6);
-        assert!(humid.humidity_ratio.get::<ratio>() > 0.0);
+    // `the_physics_path_draws_no_plume_and_no_approach` and
+    // `the_air_states_come_from_the_coolprop_psychrometrics` MOVED 2026-11-05
+    // to `outram_park_digital_twin_engine::components::cooling_tower`: they
+    // need a `tampines` cooling tower and CoolProp humid air.
 
-        let saturated = air(32.0, 1.00);
-        println!(
-            "32 degC: W = {:.6} at RH 0.60, W = {:.6} at RH 1.00",
-            humid.humidity_ratio.get::<ratio>(),
-            saturated.humidity_ratio.get::<ratio>()
+    /// The inlet-only art draws the inlet side and nothing downstream of it.
+    #[test]
+    fn the_inlet_only_path_draws_no_plume_and_no_approach() {
+        let inlet = CoolingTowerInlet {
+            air_inlet: air(32.0, 0.60),
+            water_inlet_temperature: degc(40.0),
+            water_flow_rate: VolumeRate::new::<cubic_meter_per_second>(12.0),
+            target_approach: TemperatureInterval::new::<kelvin_interval>(4.0),
+        };
+        let visual = CoolingTowerArt::inlet_only(
+            inlet,
+            Pos2::new(200.0, 250.0),
+            Vec2::new(300.0, 400.0),
+            degc(0.0),
+            degc(100.0),
         );
-        println!(
-            "enthalpy {:.2} -> {:.2} kJ/kg dry air",
-            humid
-                .enthalpy
-                .get::<uom::si::available_energy::joule_per_kilogram>()
-                / 1000.0,
-            saturated
-                .enthalpy
-                .get::<uom::si::available_energy::joule_per_kilogram>()
-                / 1000.0
-        );
-        assert!(
-            saturated.humidity_ratio > humid.humidity_ratio,
-            "saturated air must carry more water"
-        );
-        assert!(
-            saturated.enthalpy > humid.enthalpy,
-            "saturated air must carry more enthalpy"
-        );
-        assert_eq!(plume_opacity(saturated.relative_humidity), 1.0);
-        assert_eq!(plume_opacity(humid.relative_humidity), 0.0);
+        let drawn = visual.state.resolve(visual.min_temp, visual.max_temp);
+        assert_eq!(drawn.air_inlet, Some(inlet.air_inlet));
+        assert_eq!(drawn.water_inlet_temp, Some(degc(40.0)));
+        assert!(drawn.is_circulating());
+        assert_eq!(drawn.air_outlet, None);
+        assert_eq!(drawn.water_outlet_temp, None);
+        assert_eq!(drawn.plume(), 0.0, "no exit air state means no plume");
+        assert_eq!(drawn.falling_water_colour(0.5), UNKNOWN_FLUID);
+        assert_eq!(visual.approach(), None);
+        assert_eq!(visual.cooling_range(), None);
+        assert_eq!(visual.target_approach(), Some(inlet.target_approach));
+        assert!(visual.scalars().is_none());
+        assert!(crate::components::shapes_drawn_by(visual) > 0);
     }
 
     /// A tower with nothing circulating must not be drawn with water falling
@@ -1929,7 +1887,7 @@ mod tests {
     fn a_stopped_tower_is_drawn_stopped() {
         let mut s = scalars();
         s.water_flow_rate = VolumeRate::ZERO;
-        let v = CoolingTowerVisual::from_scalars(
+        let v = CoolingTowerArt::from_scalars(
             CoolingTowerKind::InducedDraught,
             Pos2::ZERO,
             Vec2::new(300.0, 400.0),
