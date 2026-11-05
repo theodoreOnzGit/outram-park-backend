@@ -32,6 +32,7 @@
 
 //! Van der Merwe's scaled sigma points (FilterPy's `MerweScaledSigmaPoints`).
 
+use petir::mathf::RealMath;
 use super::numpy_ops::Matrix;
 use crate::{RafflesError, Result};
 
@@ -59,7 +60,7 @@ impl MerweScaledSigmaPoints {
     #[must_use]
     pub fn new(n: usize, alpha: f64, beta: f64, kappa: f64) -> Self {
         let nf = n as f64;
-        let a2 = alpha.powf(core::hint::black_box(2.0));
+        let a2 = alpha.r_powf(core::hint::black_box(2.0));
         let lambda = a2 * (nf + kappa) - nf;
         let c = 0.5 / (nf + lambda);
         let mut wc = vec![c; 2 * n + 1];
@@ -88,7 +89,7 @@ impl MerweScaledSigmaPoints {
             return Err(RafflesError::DimensionMismatch { expected: n, found: x.len() });
         }
         let nf = n as f64;
-        let lambda = self.alpha.powf(core::hint::black_box(2.0)) * (nf + self.kappa) - nf;
+        let lambda = self.alpha.r_powf(core::hint::black_box(2.0)) * (nf + self.kappa) - nf;
         let u = p.scale(lambda + nf).cholesky_upper()?;
         let mut s = Matrix::zeros(2 * n + 1, n);
         s.set_row(0, x)?;

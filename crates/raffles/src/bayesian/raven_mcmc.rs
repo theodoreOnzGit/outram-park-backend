@@ -459,11 +459,11 @@ where
         RavenMcmcKind::AdaptiveMetropolis { adaptive_interval } => Some(adaptive_interval),
         RavenMcmcKind::Metropolis => None,
     };
-    let mut lambda = 2.38_f64.powi(2) / d as f64;
+    let mut lambda = 2.38_f64.r_powi(2) / d as f64;
     let mut ens_cov: Vec<Vec<f64>> = (0..d)
         .map(|i| {
             (0..d)
-                .map(|j| if i == j { prior_std(prior, i).powi(2) } else { 0.0 })
+                .map(|j| if i == j { prior_std(prior, i).r_powi(2) } else { 0.0 })
                 .collect()
         })
         .collect();

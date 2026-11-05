@@ -48,6 +48,7 @@
 //! RAVEN's index sets, quadrature sparse grids and orthonormal polynomials
 //! for polynomial chaos.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use super::special::{eval_hermitenorm, eval_legendre, gauss_rule, numpy_around, GaussRule};
@@ -203,10 +204,10 @@ pub fn index_set(kind: IndexSetKind, order: usize, importance: &[f64]) -> Vec<Ve
                 tot <= target
             }
             IndexSetKind::HyperbolicCross => {
-                let target = (l + 1.0).powf(wsum / (n as f64).max(1.0));
+                let target = (l + 1.0).r_powf(wsum / (n as f64).max(1.0));
                 let mut tot = 1.0;
                 for (e, v) in i.iter().enumerate() {
-                    tot *= (*v as f64 + 1.0).powf(w[e]);
+                    tot *= (*v as f64 + 1.0).r_powf(w[e]);
                 }
                 tot <= target
             }
