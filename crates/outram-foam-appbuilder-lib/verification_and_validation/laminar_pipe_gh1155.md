@@ -2097,6 +2097,68 @@ Two things upstream has that the port does not:
 - BackOffOnly and CfMeshOptimise unchanged to the bit (they never mix
   counts).
 
+**What was changed.** `layers::build_layered_faces` (upstream's
+`nFaceLayers` cells per face, the last spanning the rest of each column,
+its side split at the neighbour's levels), used by `SnappyCollapse`
+under `SnappyLayerControls::face_cells = FaceLayerCells::Upstream` (the
+new default of that strategy); `FaceLayerCells::MostOfItsPoints` keeps
+the gh:#1215 builder callable. `setup_layer_info_truncation` now returns
+the face counts it computed. Each layer iteration writes a note (faces
+unextruded by `truncateDisplacement`, failing faces, wall faces using one
+and how many of them are pinched, points still extruded).
+
+**Results (2026-11-05,** `diagnose_snappy_cascade`, h 5 mm, `Corners`;
+wall-face non-planarity of the bare mesh p50 0.064, p90 0.144 mm; the
+per-point total (cap) p10 0.26, p50 0.42 mm, so the first layer is
+0.45 × cap at N = 2 and 0.27 × cap at N = 3, p50 0.115 mm):
+
+| case | rule | iteration 1: failing faces / wall faces unmarked (of 1 304) | then | coverage | cells |
+|---|---|---|---|---|---|
+| point N 1 | both | 205 / 22 | 4 more iterations, 8–23 faces each | 0.914 (bit-identical) | 4 305 |
+| point N 2 | gh:#1215 | 1 877 / 40 | 38 faces a step for 20 steps, every one pinched | **0** | 3 113 |
+| point N 2 | **upstream** | 1 877 / 40 | 10–24 a step, every one next to an unextruded point, converged at 22 | **0.429** | 4 233 |
+| point N 3 | both | 2 056 / 188 | iteration 2: `truncateDisplacement` unextrudes 468 pinched faces at once | 0 | 3 113 |
+| centre N 1 | both | 37 / 22 | 22 iterations | 0.626 (bit-identical) | 3 929 |
+| centre N 2 | gh:#1215 | 2 917 / 344 | 336 pinched faces in iteration 2 | 0 | 3 113 |
+| centre N 2 | **upstream** | 2 917 / 344 | 172 by `truncateDisplacement`, then 24–48 a step for 20 steps | 0 | 3 113 |
+| centre N 3 | both | 3 096 / 492 | 468 by `truncateDisplacement` | 0 | 3 113 |
+
+**Against the predictions.** Iteration 1 a minority of the wall (< 40 %):
+held (3–38 %; the failing *faces* are 1 877–3 096, not 100–750, because a
+failing face fails every layer cell around it). Most failing wall faces
+pinched from iteration 2 on: held (100 % under the gh:#1215 rule). The
+cascade stops with upstream's rule, coverage ≥ 50 % at 2 and 3 layers:
+**missed** (point N 2: 0 → 0.429; centre N 2 and both N 3 stay 0). N = 1
+bit-identical: held. BackOff and CfMesh unchanged: held (their pins pass).
+
+**The explanation, in three parts.** (1) *A port defect, fixed:* the
+gh:#1215 builder gave a face next to an unextruded point N cells each
+pinched to zero thickness there; they fail the tet check and unextrude
+their neighbours, ring by ring (the 2-layer cascade on the per-point
+dual). (2) *Upstream's own rule on these faces:* `truncateDisplacement`
+unextrudes every face with two separate unextruded runs; on 10–14-vertex
+wall polygons with a scattered unextruded set that is most faces, so once
+iteration 1 leaves 27–65 % of the points scattered, one pass empties the
+wall (N = 3, and centre N = 2). Upstream applies the same rule
+(`snappyLayerDriver.C` `nPinched`, read); on snappy's own hex wall faces
+two separate runs on a quad are rare. (3) *Why iteration 1 fails so
+much:* the layers are thinner than the wall faces are warped (at N = 3
+the median first layer 0.115 mm against a p90 non-planarity 0.144 mm),
+and a thin prism on a warped polygon fails `minTetQuality` and
+`minTwist`; the check formulas are upstream's (`checkFaceTets`,
+`checkFaceTwist` read side by side with `checks.rs`), the port's
+difference is the vertex-average face centre against upstream's
+area-weighted one (not isolated). Not ported, and the next lead:
+`medialAxisMeshMover::shrinkMesh` (`scaleMesh` under the quality checks,
+`errorReduction 0.75`) and its thickness smoothing; upstream feeds the
+honoured displacement back instead of unextruding.
+
+Tests: `layers::tests::per_face_layer_counts_conform_and_repartition`
+(a box with one unextruded corner: closed, no inverted cell, volume 1 to
+1e-12, 27 + 3 × 51 + 3 cells; equal counts give the old builder bit for
+bit); `pipeline::tests::layer_strategies_are_deterministic` and
+`every_strategy_leaves_a_good_box_duct_alone` pass unchanged.
+
 ### Item 5: `octree.rs` determinism
 
 **Prediction (written 2026-11-05, before the fix's first run):** the

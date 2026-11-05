@@ -76,7 +76,7 @@
 //! What collapses layers at such a rim is the quality check.
 
 use crate::checks::{faces_failing_mesh_quality, MeshQualityControls};
-use crate::layers::{build_layered_variable, layer_setup, LayerOutcome, LayerQualityStrategy, LayerSetup};
+use crate::layers::{build_layered_faces, build_layered_variable, layer_setup, LayerOutcome, LayerQualityStrategy, LayerSetup};
 use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
 use petir::mathf::RealMath;
 use std::collections::{BTreeMap, BTreeSet};
@@ -116,6 +116,27 @@ pub struct SnappyLayerControls {
     /// `meshQualityControls.relaxed.maxNonOrtho` [degrees] (cfg: 75); the
     /// other relaxed values are the strict ones, as in the cfg.
     pub relaxed_max_non_ortho_deg: f64,
+    /// How many cells a wall face gets where its points' layer counts
+    /// differ (gh:#1241): [`FaceLayerCells::Upstream`] (default) or the
+    /// gh:#1215 port's [`FaceLayerCells::MostOfItsPoints`], kept callable
+    /// for the differential comparison.
+    pub face_cells: FaceLayerCells,
+}
+
+/// The cells of a wall face whose points carry different layer counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaceLayerCells {
+    /// `addPatchCellLayer`'s rule: `nFaceLayers` cells from
+    /// `setupLayerInfoTruncation` (1 next to an unextruded point with
+    /// `nBufferCellsNoExtrude 0`), the last spanning the rest of each column
+    /// ([`crate::layers::build_layered_faces`]).
+    Upstream,
+    /// The gh:#1215 port: as many cells as the face's most-layered point,
+    /// each pinched to zero thickness at a point with fewer layers
+    /// ([`crate::layers::build_layered_variable`]). A port defect (gh:#1241:
+    /// the pinched stacks fail the tet check and unextrude their neighbours
+    /// in turn); kept for the comparison.
+    MostOfItsPoints,
 }
 
 impl Default for SnappyLayerControls {
@@ -129,6 +150,7 @@ impl Default for SnappyLayerControls {
             min_thickness: 0.0,
             quality: MeshQualityControls::default(),
             relaxed_max_non_ortho_deg: 75.0,
+            face_cells: FaceLayerCells::Upstream,
         }
     }
 }
@@ -309,7 +331,7 @@ fn truncate_displacement(pp: &Patch, thickness: &[f64], min_thickness: f64, stat
 }
 
 /// `setupLayerInfoTruncation`: the per-point layer counts.
-fn setup_layer_info_truncation(pp: &Patch, n_layers: &[usize], status: &[ExtrudeMode], n_buffer: i64) -> Vec<usize> {
+fn setup_layer_info_truncation(pp: &Patch, n_layers: &[usize], status: &[ExtrudeMode], n_buffer: i64) -> (Vec<usize>, Vec<usize>) {
     let nf = pp.faces.len();
     let mut face_layers: Vec<i64> = vec![-1; nf];
     let mut point_layers = vec![0usize; pp.points.len()];
@@ -325,7 +347,7 @@ fn setup_layer_info_truncation(pp: &Patch, n_layers: &[usize], status: &[Extrude
             }
         }
         point_layers.copy_from_slice(n_layers);
-        return point_layers;
+        return (point_layers, face_layers.iter().map(|&v| v as usize).collect());
     }
     let mut max_level = vec![0usize; nf];
     for (fi, f) in pp.faces.iter().enumerate() {
@@ -370,7 +392,7 @@ fn setup_layer_info_truncation(pp: &Patch, n_layers: &[usize], status: &[Extrude
             }
         }
     }
-    point_layers
+    (point_layers, face_layers.iter().map(|&v| v as usize).collect())
 }
 
 /// [`LayerQualityStrategy::SnappyCollapse`]: grow `n_layers` layers on
@@ -413,11 +435,14 @@ pub fn add_boundary_layers_snappy(
             quality.max_non_ortho_deg = controls.relaxed_max_non_ortho_deg;
         }
         let thickness: Vec<f64> = (0..np).map(|p| if status[p] == ExtrudeMode::NoExtrude { 0.0 } else { s.cap[&pp.points[p]] }).collect();
-        truncate_displacement(&pp, &thickness, controls.min_thickness, &mut status, &mut pnl);
-        let point_layers = setup_layer_info_truncation(&pp, &pnl, &status, controls.n_buffer_cells_no_extrude);
+        let n_truncated = truncate_displacement(&pp, &thickness, controls.min_thickness, &mut status, &mut pnl);
+        let (point_layers, face_layers) = setup_layer_info_truncation(&pp, &pnl, &status, controls.n_buffer_cells_no_extrude);
         let counts: BTreeMap<usize, usize> = pp.points.iter().enumerate().map(|(i, &p)| (p, point_layers[i])).collect();
         let totals: BTreeMap<usize, f64> = pp.points.iter().map(|&p| (p, s.cap[&p])).collect();
-        let layered = build_layered_variable(mesh, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &totals, &counts);
+        let layered = match controls.face_cells {
+            FaceLayerCells::Upstream => build_layered_faces(mesh, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &totals, &counts, &face_layers),
+            FaceLayerCells::MostOfItsPoints => build_layered_variable(mesh, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &totals, &counts),
+        };
         let wrong = faces_failing_mesh_quality(&layered, &quality);
         // checkAndUnmark: cells added for each wall face, in order.
         let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); layered.n_cells];
@@ -430,19 +455,31 @@ pub fn add_boundary_layers_snappy(
         let mut next_cell = mesh.n_cells;
         let mut n_changed = 0;
         let mut n_wrong_layer = 0;
+        let mut n_wrong_pinched = 0;
         for (fi, f) in pp.faces.iter().enumerate() {
-            let m_f = f.iter().map(|&p| point_layers[p]).max().unwrap_or(0);
+            let m_f = match controls.face_cells {
+                FaceLayerCells::Upstream => face_layers[fi],
+                FaceLayerCells::MostOfItsPoints => f.iter().map(|&p| point_layers[p]).max().unwrap_or(0),
+            };
+            let pinched = f.iter().any(|&p| point_layers[p] < m_f);
             let cells = next_cell..next_cell + m_f;
             next_cell += m_f;
             let uses_wrong = cells.clone().any(|c| cell_faces[c].iter().any(|&g| wrong[g]));
             if uses_wrong {
                 n_wrong_layer += 1;
+                n_wrong_pinched += usize::from(pinched);
                 if unmark_face(&pp.faces[fi], &mut status, &mut pnl) {
                     n_changed += 1;
                 }
             }
         }
         remaining = n_wrong_layer;
+        // Per-iteration trace (gh:#1241): what failed and where.
+        notes.push(format!(
+            "iteration {iterations}: {n_truncated} faces unextruded by truncateDisplacement first; {} failing faces; {n_wrong_layer} wall faces use one ({n_wrong_pinched} of them with a point of fewer layers), {n_changed} unmarked; {} of {np} points extruded",
+            wrong.iter().filter(|&&b| b).count(),
+            status.iter().filter(|&&m| m != ExtrudeMode::NoExtrude).count()
+        ));
         last = Some((layered, counts, totals));
         if n_changed == 0 {
             converged = true;
@@ -505,13 +542,13 @@ mod tests {
         let mut pnl = vec![3usize; 14];
         unmark(0, &mut status, &mut pnl);
         unmark(1, &mut status, &mut pnl);
-        let pl = setup_layer_info_truncation(&pp, &pnl, &status, 0);
+        let pl = setup_layer_info_truncation(&pp, &pnl, &status, 0).0;
         assert_eq!(pl, vec![0, 0, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
-        let pl = setup_layer_info_truncation(&pp, &pnl, &status, -1);
+        let pl = setup_layer_info_truncation(&pp, &pnl, &status, -1).0;
         assert_eq!(pl, vec![0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
         // nBuffer 2: level 1 grows 2 rings (faces 1, 2 -> 1), level 2 grows
         // 3 rings (faces 3, 4, 5 -> 2); face 0 keeps its seed 1.
-        let pl = setup_layer_info_truncation(&pp, &pnl, &status, 2);
+        let pl = setup_layer_info_truncation(&pp, &pnl, &status, 2).0;
         assert_eq!(pl, vec![0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]);
     }
 

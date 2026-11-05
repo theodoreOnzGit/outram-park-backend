@@ -2456,6 +2456,101 @@ mod tests {
         }
     }
 
+    /// Diagnostic (gh:#1241 item 3), `--ignored`: snappy's unextrusion,
+    /// iteration by iteration, under both face-cell rules
+    /// (`FaceLayerCells::Upstream`, `MostOfItsPoints`), on the `Corners`
+    /// pipes (`CFMESH_DUAL`: point, centre; `CFMESH_HS`, `CFMESH_LAYERS`).
+    /// Prints each iteration's note and the coverage.
+    #[test]
+    #[ignore]
+    fn diagnose_snappy_cascade() {
+        use crate::snappy_layers::{FaceLayerCells, SnappyLayerControls};
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let env = |k: &str| std::env::var(k).ok();
+        let hs: Vec<f64> = env("CFMESH_HS").map_or(vec![0.005], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        let layers: Vec<usize> = env("CFMESH_LAYERS").map_or(vec![1, 2, 3], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        let kinds = [(DualKind::MedianPerPoint, "point"), (DualKind::CellCentre, "centre")];
+        for h in hs {
+            for (kind, tag) in kinds {
+                if env("CFMESH_DUAL").is_some_and(|o| !o.split(',').any(|x| x == tag)) {
+                    continue;
+                }
+                {
+                    // Wall-face non-planarity of the bare mesh against the layers' thickness.
+                    let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+                    let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+                    let mut warp: Vec<f64> = patch_faces(&bare, "walls")
+                        .iter()
+                        .map(|&f| {
+                            let (s, c) = (bare.face_area_vector(f), bare.face_centroid(f));
+                            let nrm = s.scale(1.0 / s.length());
+                            bare.faces[f].iter().map(|&v| bare.points[v].sub(c).dot(nrm).abs()).fold(0.0, f64::max)
+                        })
+                        .collect();
+                    warp.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    let st = crate::layers::layer_setup(&bare, &["walls"], 3, 3e-4, 1.2).unwrap();
+                    let mut caps: Vec<f64> = st.cap.values().copied().collect();
+                    caps.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    println!(
+                        "h {:.0} {tag}: wall-face non-planarity p50 {:.3} p90 {:.3} max {:.3} mm; per-point total (cap) p10 {:.3} p50 {:.3} mm; profile d {:?}",
+                        h * 1e3,
+                        1e3 * quantile(&warp, 0.5),
+                        1e3 * quantile(&warp, 0.9),
+                        1e3 * quantile(&warp, 1.0),
+                        1e3 * quantile(&caps, 0.1),
+                        1e3 * quantile(&caps, 0.5),
+                        st.d
+                    );
+                }
+                for &n in &layers {
+                    for rule in [FaceLayerCells::MostOfItsPoints, FaceLayerCells::Upstream] {
+                        let o = TetDualOptions {
+                            cell_size: h,
+                            n_layers: n,
+                            first_layer_thickness: 3e-4,
+                            expansion: 1.2,
+                            layer_patches: vec!["walls".into()],
+                            layer_strategy: LayerQualityStrategy::SnappyCollapse,
+                            dual_kind: kind,
+                            dual_feature_points: FeaturePointRule::Corners,
+                            snappy_layers: SnappyLayerControls { face_cells: rule, ..Default::default() },
+                            ..Default::default()
+                        };
+                        let t0 = std::time::Instant::now();
+                        let (m, rep) = match surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o) {
+                            Ok(x) => x,
+                            Err(e) => {
+                                println!("h {h} {tag} n{n} {rule:?}: ERROR {e}");
+                                continue;
+                            }
+                        };
+                        let lo = rep.layers.clone().unwrap_or_default();
+                        let q = check_quality(&m);
+                        println!(
+                            "h {:.0} {tag} n{n} {rule:?}: {} cells, {:.1} s, cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm, NO max {:.1}, minDet {:.1e}, neg {}, fp {}",
+                            h * 1e3,
+                            m.cell_count(),
+                            t0.elapsed().as_secs_f64(),
+                            lo.full_coverage(),
+                            lo.collapsed_point_fraction(),
+                            1e3 * lo.mean_total_thickness(),
+                            q.max_non_orthogonality_deg,
+                            q.min_cell_determinant,
+                            q.n_negative_volume_cells,
+                            mesh_fingerprint(&m)
+                        );
+                        for note in lo.notes.iter().filter(|s| s.starts_with("iteration")).take(8) {
+                            println!("    {note}");
+                        }
+                        if let Some(last) = lo.notes.last() {
+                            println!("    {last}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// V&V (gh:#1241 item 1) — the `correct_edges` stage in the pipeline.
     /// Methodology: the demo pipe shortened to L 60 mm (R 10 mm, 48 facets),
     /// h 6 mm, `MedianPerPoint` with `Corners`, bare, with and without
