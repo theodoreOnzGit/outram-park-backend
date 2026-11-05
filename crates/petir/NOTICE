@@ -836,6 +836,36 @@ notice and the copyright lines of the files it was ported from.
   with the deviations listed in each file (none changes an output).
 
 ================================================================================
+DERIVED WORK — Upstream: EGSnrc (National Research Council Canada)
+================================================================================
+
+Ported from EGSnrc's egs++ class library at the direction recorded on GitHub
+issue #1289 (2026-11-05). Each ported file names its upstream files and
+carries their copyright lines in its header.
+
+  Project    : EGSnrc
+  Upstream   : https://github.com/nrc-cnrc/EGSnrc
+  Commit     : bd49a47aae3938f49f4100b8e018091861408b19 (2026-09-28)
+  Licence    : GNU Affero General Public License, version 3 or (at your
+               option) any later version (AGPL-3.0-or-later)
+
+  src/rng/alias_table.rs  <- HEN_HOUSE/egs++/egs_alias_table.h, .cpp
+                             (EGS_AliasTable, EGS_SimpleAliasTable) and the
+                             constants `epsilon`, `loopMax` of
+                             HEN_HOUSE/egs++/egs_functions.h
+    Copyright  : "Copyright (C) 2015 National Research Council Canada"
+                 (egs_alias_table.h and .cpp)
+    Author     : Iwan Kawrakow, 2005
+    Contributors (as the headers list them): Ernesto Mainegra-Hing,
+                 Marc Chamberland (.h); Ernesto Mainegra-Hing, Frederic
+                 Tessier, Blake Walters, Reid Townson (.cpp)
+
+  The ported files are AGPL-3.0-only, exercising the "or later" option by
+  choosing version 3; the crate already conveys as an AGPL-3.0-only combined
+  work (gh:#973). The flow is ONE-WAY. Verified bit-identical against
+  upstream compiled and run: verification_and_validation/egsnrc_alias_table/.
+
+================================================================================
 NOT AFFILIATED
 ================================================================================
 

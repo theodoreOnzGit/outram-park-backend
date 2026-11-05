@@ -36,6 +36,10 @@
 
 pub mod lcg;
 
+// EGSnrc's Walker alias tables (gh:#1289), AGPL-3.0-or-later upstream; see
+// the module's header and NOTICE.
+pub mod alias_table;
+
 // ---------------------------------------------------------------------------
 // The `rand` pieces RustBCA uses (gh:#995, maintainer direction 2026-10-20).
 // ---------------------------------------------------------------------------
@@ -67,6 +71,9 @@ mod traits;
 mod uniform;
 mod ziggurat_tables;
 
+pub use alias_table::{
+    AccuracyGoal, AliasTableKind, EgsAliasTable, EgsSimpleAliasTable,
+};
 pub use chacha::ChaCha8Rng;
 pub use normal::{standard_normal, Normal, NormalError};
 pub use traits::{Rng, RngExt, SeedableRng, StandardSample};
