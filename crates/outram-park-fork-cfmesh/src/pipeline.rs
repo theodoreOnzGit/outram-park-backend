@@ -2285,7 +2285,16 @@ pub(crate) mod tests {
                         if n == 0 && *strategy != LayerQualityStrategy::BackOffOnly {
                             continue;
                         }
-                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, cfmesh_layer_optimisation: BoundaryLayerOptimisationControls { stop_untangling_on_stall: env("CFMESH_STALL").as_deref() != Some("0"), ..Default::default() }, ..Default::default() };
+                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, cfmesh_layer_optimisation: BoundaryLayerOptimisationControls {
+                            stop_untangling_on_stall: env("CFMESH_STALL").as_deref() != Some("0"),
+                            // CFMESH_BMOVES=1: untangleMeshFV's boundary loop (gh:#1255).
+                            untangle_boundary_moves: env("CFMESH_BMOVES").as_deref() == Some("1"),
+                            // CFMESH_LAPLACE=1: optimizeMeshFV's laplacianPC (gh:#1256).
+                            optimize_mesh_fv_laplace: env("CFMESH_LAPLACE").as_deref() == Some("1"),
+                            // CFMESH_LPU=1: the LP meshUntangler (gh:#1260).
+                            untangle_mesh_untangler: env("CFMESH_LPU").as_deref() == Some("1"),
+                            ..Default::default()
+                        }, ..Default::default() };
                         let t0 = std::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
                             Ok(x) => x,
@@ -2365,7 +2374,7 @@ pub(crate) mod tests {
                                 );
                             }
                             println!(
-                                "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; notes {:?}",
+                                "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; V/(section L) {:.5}, inlet/section {:.5}; notes {:?}",
                                 m.cell_count(),
                                 lo.full_coverage(),
                                 lo.collapsed_point_fraction(),
@@ -2376,12 +2385,79 @@ pub(crate) mod tests {
                                 above(&inner, 75.0),
                                 q.max_skewness,
                                 q.min_cell_determinant,
+                                m.total_volume() / (section * l),
+                                patch_faces(&m, "inlet").iter().map(|&f| m.face_area_vector(f).length()).sum::<f64>() / section,
                                 rep.stage_notes
                             );
                         }
                     }
                 }
             }
+        }
+    }
+
+    /// Differential (gh:#1261), `--ignored`: cfMesh's `checkMinTwist`,
+    /// `checkCellDeterminant` and `checkMinVolRatio`
+    /// ([`crate::poly_mesh_gen_checks`]) against OpenFOAM's definitions
+    /// ([`crate::checks::faces_failing_mesh_quality`], one control at a
+    /// time) on the same meshes: the 48-sided pipe (R 10 mm, L 200 mm) at h
+    /// 5 mm, bare and with 3 back-off layers (the default dual and layer
+    /// strategy), at OpenFOAM's thresholds (twist 0.02, determinant 0.001,
+    /// volume ratio 0.01) for both.
+    ///
+    /// Predictions (written 2026-11-05, before the run):
+    /// - **volume ratio:** the same formula on the same volumes (`min/max`
+    ///   of the two cells' |V|), so the same faces, exactly;
+    /// - **twist:** the same formula on internal faces (unit triangle
+    ///   normals against the unit centre-to-centre direction). On boundary
+    ///   faces the two differ: cfMesh gives a triangular boundary face a
+    ///   zero direction, so with `minTwist` 0.02 every boundary triangle
+    ///   fails, and OpenFOAM checks no triangle. So the cfMesh set ⊇ the
+    ///   OpenFOAM set, and the extra faces are exactly the boundary
+    ///   triangles (if the dual has any);
+    /// - **determinant:** different definitions (cfMesh: all faces,
+    ///   normalised by Σ|S| and 1/27; OpenFOAM: internal faces only, by
+    ///   their mean area). They should agree on the bare mesh's interior to
+    ///   within a few cells, and OpenFOAM's flags more cells at the wall
+    ///   (it drops the boundary faces, so a wall cell's tensor loses a
+    ///   direction): OpenFOAM's count ≥ cfMesh's.
+    ///
+    /// Results (2026-11-05): bare, 3 113 cells, no boundary triangles:
+    /// volume ratio 0 / 0, twist 152 / 152 (the same faces), determinant
+    /// 0 / 0. With 3 layers, 26 009 cells: volume ratio 2 536 / 2 536 and
+    /// twist 160 / 160 (the same faces), determinant **0 (cfMesh) / 352
+    /// (OpenFOAM)**. Every prediction held; the boundary-triangle case did
+    /// not arise (the dual has none).
+    #[test]
+    #[ignore]
+    fn diagnose_cfmesh_against_openfoam_checks() {
+        use crate::checks::{faces_failing_mesh_quality, MeshQualityControls};
+        use crate::poly_mesh_gen_checks::{check_cell_determinant, check_min_twist, check_min_vol_ratio};
+        let (r, l) = (0.01, 0.2);
+        let (p, t, regions) = pipe_surface(r, l, 48);
+        let off = MeshQualityControls { max_non_ortho_deg: 180.0, max_boundary_skewness: -1.0, max_internal_skewness: -1.0, min_tet_quality: None, min_twist: -2.0, min_determinant: -1.0, min_face_weight: -1.0, min_vol_ratio: -1.0 };
+        for n in [0usize, 3] {
+            let o = TetDualOptions { cell_size: 0.005, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).expect("pipe meshes");
+            let all = vec![true; m.face_count()];
+            let cmp = |name: &str, cf: &[bool], of: &[bool]| {
+                let both = (0..m.face_count()).filter(|&f| cf[f] && of[f]).count();
+                let only_cf = (0..m.face_count()).filter(|&f| cf[f] && !of[f]).collect::<Vec<_>>();
+                let only_of = (0..m.face_count()).filter(|&f| !cf[f] && of[f]).collect::<Vec<_>>();
+                let tri_bnd = only_cf.iter().filter(|&&f| m.neighbour[f].is_none() && m.faces[f].len() == 3).count();
+                println!(
+                    "pipe h5 n{n} {name}: cfMesh {} OpenFOAM {} both {both}; only cfMesh {} ({} boundary triangles); only OpenFOAM {}",
+                    cf.iter().filter(|&&b| b).count(),
+                    of.iter().filter(|&&b| b).count(),
+                    only_cf.len(),
+                    tri_bnd,
+                    only_of.len()
+                );
+            };
+            println!("pipe h5 n{n}: {} cells, {} faces ({} boundary triangles)", m.n_cells, m.face_count(), (m.n_internal_faces()..m.face_count()).filter(|&f| m.faces[f].len() == 3).count());
+            cmp("volume ratio 0.01", &check_min_vol_ratio(&m, 0.01, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_vol_ratio: 0.01, ..off.clone() }));
+            cmp("twist 0.02", &check_min_twist(&m, 0.02, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_twist: 0.02, ..off.clone() }));
+            cmp("determinant 0.001", &check_cell_determinant(&m, 0.001, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_determinant: 0.001, ..off.clone() }));
         }
     }
 

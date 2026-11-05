@@ -262,6 +262,7 @@
 //! > operation, licensing, or safety-critical decisions.
 
 pub mod cartesian;
+pub mod cartesian_mesh;
 pub mod carve;
 pub mod checks;
 pub mod correct_edges;
@@ -269,9 +270,17 @@ pub mod delaunay;
 pub mod dual;
 pub mod layers;
 pub mod math;
+pub mod mesh_octree;
+pub mod mesh_octree_creator;
+pub mod mesh_octree_modifier;
+pub mod mesh_octree_queries;
 pub mod mesh_optimizer;
+pub mod mesh_untangler;
+pub mod mesh_subsets;
+pub mod poly_mesh_gen_checks;
 pub mod snappy_layers;
 pub mod boundary_layer_optimisation;
+pub mod object_refinement;
 pub mod octree;
 pub mod patches;
 pub mod pipeline;

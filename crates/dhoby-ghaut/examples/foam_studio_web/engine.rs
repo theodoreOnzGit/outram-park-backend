@@ -612,6 +612,18 @@ pub fn mesh_unstructured_dual(
     // correctEdgesBetweenPatches before the feature-edge capture.
     #[cfg(not(target_arch = "wasm32"))]
     let opts = TetDualOptions { correct_edges: std::env::var("FOAM_CORRECT_EDGES").as_deref() == Ok("1"), ..opts };
+    // Native-only knobs (gh:#1255, gh:#1256): FOAM_CFMESH_BMOVES=1, cfMesh's
+    // untangleMeshFV boundary moves; FOAM_CFMESH_LAPLACE=1, optimizeMeshFV's
+    // laplacianPC pass. Both only change the cfMesh layer strategy.
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = TetDualOptions {
+        cfmesh_layer_optimisation: outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls {
+            untangle_boundary_moves: std::env::var("FOAM_CFMESH_BMOVES").as_deref() == Ok("1"),
+            optimize_mesh_fv_laplace: std::env::var("FOAM_CFMESH_LAPLACE").as_deref() == Ok("1"),
+            ..opts.cfmesh_layer_optimisation.clone()
+        },
+        ..opts
+    };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);

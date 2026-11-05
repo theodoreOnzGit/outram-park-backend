@@ -2635,6 +2635,242 @@ measurement.
   cfMesh's test reads them as tangled.
 - Upstream (cfMesh) is not installed here; the port was not run against it.
 
+## cfMesh's `untangleMeshFV` boundary moves and `optimizeMeshFV`'s Laplace pass on the pipe (gh:#1255, gh:#1256)
+
+Two upstream behaviours that the `CfMeshOptimise` strategy lacked (gh:#1241
+item 4) are now ported. Each sits behind a control in
+`BoundaryLayerOptimisationControls` that is off by default:
+
+- `untangle_boundary_moves` (gh:#1255): `untangleMeshFV`'s boundary loop
+  (`tetMeshOptimisation::optimiseBoundaryVolumeOptimizer(nonShrinking)`,
+  `optimiseBoundarySurfaceLaplace`), in every untangle of the strategy;
+- `optimize_mesh_fv_laplace` (gh:#1256): `optimizeMeshFV`'s `laplacianPC`
+  (5 passes) before `optimiseFinalMesh`'s first untangle and before
+  `optimizeBoundaryLayer`'s, the latter with the layer cells locked.
+
+Upstream: DAFoam/cfmesh `e944f6ba695f`, `optimizeMeshFV.C`,
+`tetMeshOptimisation.C`, `meshOptimizerOptimizePoint.C`. Port:
+`crates/outram-park-fork-cfmesh/src/mesh_optimizer.rs`.
+
+**Case.** The gh:#1241 item 4 case: the 48-sided pipe, R 10 mm, L 200 mm,
+`CellCentre` + `Corners`, h 5 mm, 3 layers, first layer 0.3 mm, expansion
+1.2, `CfMeshOptimise` with the untangle stall bound on (the default).
+Baseline (gh:#1241, bound on): 13.3 s alone on the host; 2 861 → 29 bad
+faces in the first untangle, all 29 touching a boundary point; 77 bad faces
+at the end; max non-orthogonality 57.5°; mean total thickness 0.977 mm.
+
+**Predictions (written 2026-11-05, before any run on the pipe).**
+
+- **Boundary moves** (`CFMESH_BMOVES=1`):
+  - the first untangle ends with **fewer than 29** bad faces, at most 10,
+    because the 29 are boundary-held and the boundary loop moves exactly
+    those points;
+  - **fewer than 77** bad faces at the end;
+  - max non-orthogonality within ±3° of 57.5°;
+  - meshing time 10–40 s: the boundary passes add volume-optimiser calls,
+    and fewer futile interior passes remain;
+  - the domain volume V/(πR² L) changes by less than 0.5 %, and the inlet
+    area by less than 1 %. Some change is expected: the first global
+    iteration keeps points in their tangent planes, but the Laplace passes
+    of global iterations 2–4 do not.
+- **Laplace pass** (`CFMESH_LAPLACE=1`):
+  - `laplacianPC` moves every inside point, layer tops included, to the
+    mean of its cells' centres. On a 3-layer stack under a dual cell that
+    pulls the tops inward, so the **mean total thickness rises by more than
+    50 %** (above 1.47 mm);
+  - bad faces at the end: no prediction (not enough is known);
+  - time within ±5 s of the baseline.
+- **Both on**: thickness as in the Laplace run; bad faces as in the
+  boundary-moves run, within ±50 %.
+- **The defaults are unchanged.** `back_off_only_layers_are_pinned_bit_for_bit`,
+  `octree_path_is_pinned_bit_for_bit` and `layer_strategies_are_deterministic`
+  pass; checked before this run, and they do.
+
+**Results (2026-11-05,** `diagnose_dual_kinds_differential` with
+`CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3
+CFMESH_STRATS=cfmesh CFMESH_FP=corners` and `CFMESH_BMOVES` /
+`CFMESH_LAPLACE`; native release, 2 cargo jobs, **the host shared with two
+other agents' builds**, so the times are an upper bound and only roughly
+comparable with gh:#1241's 13.3 s, which was taken alone on the host).
+All four meshes have 7 025 cells and 100 % layer coverage.
+
+| quantity | baseline | boundary moves | Laplace pass | both |
+|---|---|---|---|---|
+| meshing | 18.3 s | **9.9 s** | **6.7 s** | 7.0 s |
+| first untangle: bad faces | 2 861 → 29 | **2 861 → 0** (3 global, 3 boundary passes, 424 boundary nodes) | 29 → 29 (the Laplace pass took 2 861 to 29) | 29 → 0 |
+| final untangle: bad faces (touching a boundary point) | 29 → 29 (29) | 1 → 4 (4) | 29 → 29 (29) | 2 → 4 (7) |
+| bad faces at the end (`findBadFaces`) | 77 | **27** | 77 | 41 |
+| faces failing OpenFOAM's checks (`checks::faces_failing_mesh_quality`) | 77 | **25** | 77 | 45 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 56.6° / 53.1° | 57.3° / 52.2° | 57.1° / 51.9° |
+| max skewness (OpenFOAM) | 1.77 | 2.14 | 1.78 | 2.14 |
+| min determinant | 3.42e-2 | 2.68e-2 | 3.77e-2 | 2.68e-2 |
+| mean total thickness | 0.977 mm | 0.971 mm | **1.442 mm** | 1.437 mm |
+| V/(section L) | 0.98887 | 0.98833 | 0.98887 | 0.98807 |
+| inlet area / section | 0.98287 | **0.96950** | 0.98287 | 0.97021 |
+
+**Against the predictions.**
+
+- Boundary moves:
+  - first untangle ≤ 10 bad faces: **held** (0);
+  - fewer than 77 at the end: **held** (27);
+  - max non-orthogonality ±3°: held (−0.9°);
+  - time 10–40 s: **missed, on the fast side** (9.9 s). The interior
+    passes the boundary loop saves cost more than the boundary passes add;
+  - volume change < 0.5 %: held (−0.055 %);
+  - inlet area change < 1 %: **missed** (−1.36 %: 0.98287 → 0.96950).
+    The boundary moves of global iterations 2–4 (`optimiseBoundarySurfaceLaplace`)
+    are unconstrained and pull rim points off the inlet plane and the
+    48-gon. Upstream does the same; it has no projection after
+    `untangleMeshFV`.
+- Laplace pass:
+  - thickness > 1.47 mm: **missed narrowly** (1.442 mm, +47.6 %, predicted
+    > +50 %); the direction and the mechanism held;
+  - time within ±5 s: **missed** (6.7 s against 18.3 s). The Laplace pass
+    alone took the first untangle's 2 861 bad faces to 29, so that untangle
+    had little left to do;
+  - bad faces at the end: no prediction; 77, the same as the baseline.
+- Both on:
+  - thickness as the Laplace run: held (1.437 mm);
+  - bad faces within ±50 % of the boundary-moves run's 27: **missed
+    narrowly** (41; the limit was 40.5).
+
+**The solve (no prediction was written for it before the run; measured
+2026-11-05).** Foam Studio's own cylinder (`FOAM_DUAL_KIND=centre
+FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh … --headless-unstructured 5
+3 0.3 1.2 100`, with `FOAM_CFMESH_BMOVES`, a native knob added to
+`examples/foam_studio_web/engine.rs`), the same session:
+
+| quantity | baseline | boundary moves |
+|---|---|---|
+| meshing (shared host) | 23.6 s | 17.3 s |
+| first untangle | 2 858 → 26 | 2 858 → 0 |
+| max non-orthogonality | 56.4° | 55.2° |
+| mean total thickness | 0.975 mm | 0.973 mm |
+| steps to steady | 26 | 38 |
+| u_c/2U at 0.75 L | **0.9314** | **0.9013** |
+| −dp/dz / HP | **1.0055** | **0.9703** |
+| τ_w / HP | 1.0057 | 0.9705 |
+| profile RMS (u − u_HP)/2U | 0.0320 | 0.0493 |
+
+The baseline reproduces gh:#1241's 0.9314 / 1.0055 / 1.0057 and 26 steps
+exactly. **With boundary moves the solve is further from Hagen–Poiseuille
+on every measure** (−3.2 % on u_c, −3.5 % on dp/dz), although the mesh has
+a third of the bad faces. The likely cause, not yet isolated: the
+unconstrained boundary passes take the rim and wall points off the pipe's
+surface and the inlet plane (inlet area 1.7 % → 3.0 % below πR² in the
+diagnostic above), and the solve normalises by the nominal πR² and
+R. That is one more reason not to adopt the moves without a projection back
+onto the surface.
+
+**Images (drawn from the mesh the solver gets).** In
+`laminar_pipe_gh1155/gh1255/bmoves0/` (baseline) and `gh1255/bmoves1/`
+(boundary moves): `layers_cfmesh_h5_3_{xz_rim,xy,xy_wall,wallmap}.png`.
+They were written by `FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners
+FOAM_CFMESH_BMOVES=0|1 cargo run --release -p dhoby-ghaut --example
+foam_studio_web -- --render-layer-strategies <dir>`, Foam Studio's cylinder
+(the back-off and snappy images it also writes are unchanged meshes and
+were not kept).
+
+- **Checked by eye (2026-11-05):**
+  - `xz_rim`: in the baseline the inlet is the straight line z = 0. With
+    boundary moves the inlet faces near the rim (x 0.7–1.0 cm) **bow out of
+    the inlet plane**, up to z ≈ 0.02 cm at x ≈ 0.98 cm, and the three
+    layer cells at the rim follow. This is the inlet-area loss in the
+    table, seen directly. It is the most likely reason for the solve's
+    shift; that was not isolated.
+  - `xy_wall` at mid-length (z = 10.01 cm): the two runs are the same
+    picture, three thin layers under one dual cell. The moves are local to
+    the rim.
+- **Not checked:** the rim's 3-D shape away from the y = 0.013 cm slice; the
+  outlet.
+
+**What it means.** Upstream's boundary moves remove the boundary-held faces
+that gh:#1241 left in place: 29 → 0 in the first untangle, and 77 → 27 at
+the end. The faces left at the end come from the layer split and the
+relaxed final untangle, not from the first untangle. The cost is the inlet:
+3 % of πR² is lost against 1.7 % before. That is a geometry loss a
+surface projection would have to undo; upstream's `meshSurfaceOptimizer`
+(the surface track, gh:#1258/#1259) is where it belongs. The Laplace pass
+is upstream's first step and does most of the untangling's work cheaply,
+but it thickens the layers by 48 %. Upstream would then refine its layer
+from the thickness `optimiseLayer` leaves. This port's step 3 splits the
+hair it is given, so the requested 0.98 mm stack is no longer what comes
+out.
+
+**Recommendation (for the maintainer; nothing is changed).** Keep both
+controls off by default for now. `untangle_boundary_moves` is the stronger
+candidate for `CfMeshOptimise`'s default: it is faster, and it leaves a
+third of the bad faces. It should be adopted only with a surface projection
+after it, so the inlet does not shrink. Turn `optimize_mesh_fv_laplace` on
+only once step 3 splits to the requested thickness rather than to the hair
+it is handed.
+
+## cfMesh's LP `meshUntangler` on the pipe (gh:#1260)
+
+`mesh_untangler.rs` ports `meshUntangler` (the feasible region of a
+point's simplex, cut plane by plane from the bounding box; the point goes to
+the mean of its corners) and `sortEdgesIntoChains`, and
+`PartTetMesh::optimise_using_mesh_untangler` ports
+`tetMeshOptimisation::optimiseUsingMeshUntangler`. The pass runs between
+the Knupp untangler and the volume optimiser in `untangleMeshFV`, as
+upstream does, behind `UntangleControls::mesh_untangler` and
+`BoundaryLayerOptimisationControls::untangle_mesh_untangler`
+(`CFMESH_LPU=1`). Both are off by default.
+
+Upstream behaviour kept: `optimiseUsingMeshUntangler` never re-marks the
+inverted tetrahedra it re-checks (the Knupp loop does), so its second pass
+finds none and returns. In effect it is one pass. A port defect found in
+passing and **not fixed** (it would change the default output):
+`optimise_using_knupp_metric` increments its pass counter on every pass,
+where upstream's short-circuit `||` does so only when the inverted count did
+not fall.
+
+**Predictions (written 2026-11-05, before the run; same case as the
+gh:#1255 section).**
+
+- `CFMESH_LPU=1`:
+  - the first untangle still ends at 29 bad faces (± 3): the 29 are
+    boundary-held, and the untangler moves only interior points;
+  - bad faces at the end 77 ± 5;
+  - meshing time within ± 30 % of the baseline run of the same session.
+    The LP pass runs only on the nodes of inverted tetrahedra, and a few
+    dozen plane cuts per node are cheap.
+- `CFMESH_LPU=1 CFMESH_BMOVES=1`: bad faces at the end 27 ± 10, as the
+  boundary-moves run.
+
+**Results (2026-11-05,** same command as the gh:#1255 section, with
+`CFMESH_LPU`; the three runs in one session on a host shared with two other
+agents' builds, so the times are loaded but comparable with each other).
+
+| quantity | baseline | LP untangler | LP untangler + boundary moves |
+|---|---|---|---|
+| meshing | 30.9 s | 28.2 s | 20.0 s |
+| first untangle: bad faces | 2 861 → 29 | 2 861 → 29 | 2 861 → 0 (3 global, 3 boundary passes) |
+| bad faces at the end | 77 | 77 | 36 |
+| faces failing OpenFOAM's checks | 77 | 77 | 35 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 57.5° / 53.0° | 58.0° / 52.7° |
+| mean total thickness | 0.977 mm | 0.980 mm | 0.981 mm |
+| V/(section L), inlet/section | 0.98887, 0.98287 | 0.98887, 0.98287 | 0.98829, 0.97221 |
+
+The baseline reproduces the gh:#1255 baseline's mesh numbers exactly: the
+defaults are unchanged.
+
+**Against the predictions.**
+- LP untangler, first untangle 29 ± 3: **held** (29).
+- LP untangler, end 77 ± 5: **held** (77).
+- LP untangler, time ± 30 %: **held** (−9 %).
+- With boundary moves, end 27 ± 10: **held** (36; gh:#1255's boundary
+  moves alone gave 27).
+
+**What it means.** On this mesh the LP untangler changes little: it moves
+the nodes of inverted tetrahedra, and the faces this pipe keeps are
+boundary-held, which only the boundary loop can reach. It is cheap (no
+time cost measurable on a loaded host) and it makes every tetrahedron of a
+feasible simplex positive in one step (`mesh_untangler_lp_guarantee`),
+which Knupp's metric does not promise. It stays opt-in. Recommendation:
+switch it on together with the boundary moves if the maintainer adopts
+those, since that is what upstream runs.
+
 ## Reproduce
 
 ```bash
@@ -2653,6 +2889,13 @@ cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --li
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
 FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
+# gh:#1255, gh:#1256, gh:#1260 (CFMESH_BMOVES, CFMESH_LAPLACE, CFMESH_LPU = 0 or 1)
+CFMESH_BMOVES=1 CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies <dir>
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_laplace_pc_against_smart_laplacian
+# gh:#1261
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_cfmesh_against_openfoam_checks
 # gh:#1241
 CFMESH_STEPS=1 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_corners_rim
 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_snappy_cascade

@@ -104,8 +104,10 @@ this crate). `dual_feature_points` picks upstream's two rules
 (`OnFeatureEdge`, the utility's; `Corners`, the class's); with
 `OnFeatureEdge` no back-off layer grows on a pipe (cfMesh's border cap is 0
 at a rim vertex collinear with its neighbours). The ~40-line sector walk is
-written in both crates (this one builds dependency-free); change one, change
-the other. Comparison and recommendation: the gh:#1240 section of
+written in both crates (~~this one builds dependency-free~~ **CORRECTED
+2026-11-05, gh:#1255:** this crate now depends on `outram-foam-basic-lib`
+for OpenFOAM's `eigenValues`, but still not on `outram-foam-mesh` by
+default); change one, change the other. Comparison and recommendation: the gh:#1240 section of
 `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 Changing the default needs the maintainer.
 
@@ -126,3 +128,17 @@ the engine, it does not build its own map.** `surface_optimizer` holds
 default; changing that needs the maintainer). Note (gh:#1258): by cfMesh's
 inverted-vertex test 40 % of the median/cell-centre duals' boundary points
 are reflex corners of non-convex boundary polygons before any mapping.
+
+## cfMesh's octree, ported beside `octree.rs` (gh:#1262–#1266, 2026-11-05)
+
+`mesh_octree` (cubes, slot, surface intersections), `mesh_octree_queries`,
+`mesh_octree_modifier`, `mesh_octree_creator` (`MeshDict`, inside/outside),
+`object_refinement` and `cartesian_mesh` (`meshOctreeAddressing`,
+`cartesianMeshExtractor`) transcribe DAFoam/cfmesh `e944f6ba695f`. They do
+**not** replace `octree.rs`, whose fingerprint pin must not move. Keep both
+routes callable: on the same leaves, `cartesian_mesh_extractor` and
+`octree::build_mesh` build the same faces ring for ring (pinned). The
+`decomposeCells` step is shared with `correct_edges` (`decompose_cells`);
+change it once. Upstream's `findNearestSurfacePoint` is not exact;
+`NearestSearch::Exact` is the port's exact variant. Record and images:
+`verification_and_validation/cartesian_octree_gh1262/`.
