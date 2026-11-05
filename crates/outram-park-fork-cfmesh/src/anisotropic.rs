@@ -499,4 +499,42 @@ mod tests {
         println!("bounding box signed volume {boxv}");
         assert!((boxv - 27.0).abs() < 1e-9, "{boxv}");
     }
+
+    /// The 2D channel ribbon `[0, 1] x [0, 0.25]` (regions walls, inlet,
+    /// outlet), as `cartesian_2d_mesh`'s tests build it.
+    pub(crate) fn channel_ribbon() -> (Vec<Vec3>, Vec<[usize; 3]>, crate::patches::SurfaceRegions) {
+        let p = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 0.25, 0.0), Vec3::new(0.0, 0.25, 0.0)];
+        let e = [[0, 1], [1, 2], [2, 3], [3, 0]];
+        let (pts, tris, r) = crate::tri_surface_2d::extrude_2d_edges(&p, &e, Some(&[0, 2, 0, 1])).unwrap();
+        let names = ["walls", "inlet", "outlet"];
+        let labels: Vec<&str> = r.iter().map(|&i| names[i]).collect();
+        (pts, tris, crate::patches::SurfaceRegions::from_labels(&labels))
+    }
+
+    /// gh:#1279 remainder, prediction W0 of
+    /// `verification_and_validation/anisotropic_gh1279/README.md`: with no
+    /// `anisotropicSources` every generator's output is the one recorded
+    /// **before** the anisotropic workflow was wired (fingerprints taken on
+    /// the unwired code, 2026-11-05): `cartesian_mesh`, `tet_mesh` and
+    /// `p_mesh` on the 24-sided pipe (R 10 mm, L 60 mm) at 4 mm,
+    /// `cartesian_2d_mesh` on the channel ribbon at 0.05.
+    #[test]
+    fn generators_without_anisotropic_sources_are_pinned_bit_for_bit() {
+        use crate::mesh_octree_creator::MeshDict;
+        use crate::pipeline::tests::mesh_fingerprint;
+        let (p, t, r) = crate::pipeline::tet_mesh::tests::pipe_surface(0.01, 0.06, 24);
+        let dict = MeshDict::with_max_cell_size(0.004);
+        let c = crate::pipeline::cartesian_mesh::CartesianMeshGeneratorOptions { dict: dict.clone(), ..Default::default() };
+        let (mc, _) = crate::pipeline::cartesian_mesh::cartesian_mesh(&p, &t, Some(&r), &c).unwrap();
+        let o = crate::pipeline::tet_mesh::TetMeshOptions { dict: dict.clone(), ..Default::default() };
+        let (mt, _) = crate::pipeline::tet_mesh::tet_mesh(&p, &t, Some(&r), &o).unwrap();
+        let (mp, _) = crate::pipeline::p_mesh::p_mesh(&p, &t, Some(&r), &o).unwrap();
+        let (cp, ct, cr) = channel_ribbon();
+        let o2 = crate::pipeline::cartesian_2d_mesh::Cartesian2DMeshOptions { dict: MeshDict::with_max_cell_size(0.05), ..Default::default() };
+        let (m2, _) = crate::pipeline::cartesian_2d_mesh::cartesian_2d_mesh(&cp, &ct, Some(&cr), &o2).unwrap();
+        let got = [mesh_fingerprint(&mc), mesh_fingerprint(&mt), mesh_fingerprint(&mp), mesh_fingerprint(&m2)];
+        println!("fingerprints cartesian {} tet {} p {} 2D {}; cells {} {} {} {}", got[0], got[1], got[2], got[3], mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells);
+        assert_eq!(got, [17611812511072804258, 6523714470801621594, 3039883993825308236, 4427172929438988611]);
+        assert_eq!((mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells), (560, 4576, 1529, 120));
+    }
 }
