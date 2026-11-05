@@ -730,6 +730,71 @@ Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/
 
 Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md).
 
+## Kovan-reviewed functions are closed to modification (HARD RULE)
+
+**Maintainer direction, 2026-11-05:** "for functions kovan reviewed, apply O
+from SOLID as far as possible. open to extension, closed to modification.
+Cos i don't want to review them again. Refactoring should only be done if
+confirmed by human maintainer/founder/reviewer."
+
+**A function carrying a human review stamp in kovan is not edited**: not its
+body, signature, doc comment or behaviour, and not by a refactor, rename,
+reformat, macro removal or "small cleanup". Any change voids the stamp and
+puts it back in the maintainer's review queue, the scarcest resource here
+("Human review is the bottleneck").
+
+- **Extend instead.** Add a new function, a new type, a wrapper that calls the
+  reviewed one, a new module, or a `with_*` / `without_*` builder beside it.
+  New behaviour lives in new, unreviewed code that calls the reviewed code
+  unchanged.
+- **Design new code so it extends without edits.** Note that adding a variant
+  to a reviewed enum forces edits to every reviewed `match` on it: prefer a
+  new type or a new function over a new variant there. Where an edit to
+  reviewed code is genuinely unavoidable, that is the case below.
+- **Modifying a reviewed function needs explicit confirmation first,** from a
+  human maintainer, founder or reviewer, for that change. Ask before editing,
+  say which reviewed functions it touches and why extension does not work,
+  and record the confirmation in the GitHub issue. This includes fixing a
+  defect: report it and ask; do not patch it silently. Agents never decide
+  this alone, and a general instruction ("refactor X", "remove the macros",
+  #1253) does not count as confirmation for the reviewed functions inside it.
+- **How to tell whether a function is reviewed:** its folder's `review.md`
+  holds a `kind = "review"` block whose `target` is the function's `fn:` id
+  (the id is in the same folder's `kovan.toml`); kovan's Code Review shows the
+  same state. Check before editing any function, not only the ones you
+  expect to be reviewed.
+- **Unreviewed code** is outside this rule, but still change it as little as
+  the task needs.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+**Maintainer direction, 2026-11-05:** "the use of macros makes code more
+difficult to read/review ... avoid use of macros". Do not write new
+`macro_rules!` or proc macros in this workspace. Write functions, generics,
+enums and plain `match` arms instead, even when that repeats a few lines:
+a reviewer reads them as written, rust-analyzer resolves them, and kovan's
+call graph and stamps see every function. A macro hides its expansion from
+all three.
+
+- **Using** macros from std and dependencies (`vec!`, `format!`, `assert!`,
+  `#[derive(..)]`, `#[test]`, serde's derives) is fine; this rule is about
+  writing them.
+- ~~**Existing macros** (32 files across 16 crates on 2026-11-05) are not
+  mass-refactored. Replace one with plain code when you change the code
+  around it, and never inside a kovan-reviewed function without the
+  confirmation the rule above requires. `monte_carlo_web`'s `rung_table!` is the first candidate.~~
+  **CHANGED 2026-11-05 (maintainer: "refactor out the custom macros for me
+  workspace wide"):** every hand-written `macro_rules!` was replaced with
+  plain code that day (#1253), behaviour unchanged, including inside the
+  reviewed `outram_mc_libs::physics::transport_csg::transport_history_vr`
+  (confirmed by the maintainer for that refactor). One is left:
+  `raffles`' exported `quantities!`, used by
+  `outram-park-digital-twin-engine`; its removal is a public API change
+  awaiting the maintainer (#1253). Text inside string literals and doc
+  comments (`kovan-codegen`'s generated output) is not a macro here.
+- **If a macro seems unavoidable**, ask the maintainer first and say why
+  plain code does not work.
+
 ## Never declare modules through a macro (HARD RULE)
 
 **Maintainer direction, 2026-11-04.** Every `mod` in this workspace is a

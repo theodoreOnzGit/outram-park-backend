@@ -9,13 +9,10 @@ use crate::raster::{Basis, Preset, RasterInfo, Slicer};
 use crate::walkdemo::{split, Outgoing};
 use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
 
-/// One colour per record, oldest first.
-pub const RECORD_COLOURS: [Color32; 4] = [
-    Color32::from_rgb(235, 235, 235),
-    Color32::from_rgb(140, 146, 160),
-    Color32::from_rgb(120, 170, 255),
-    Color32::from_rgb(255, 170, 90),
-];
+/// One colour per record, oldest first, from the theme (`bugis::Ink`).
+pub fn record_colour(ink: &bugis::Ink, ri: usize) -> Color32 {
+    [ink.text, ink.muted, ink.accent(0), ink.accent(1)][ri.min(3)]
+}
 
 /// What the worker said about one treatment's universe.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -211,7 +208,7 @@ impl ShortcutsView {
         ui.strong("Recorded, k against delta tracking on the same record");
         for (ri, r) in RECORDS.iter().enumerate() {
             egui::CollapsingHeader::new(
-                RichText::new(format!("{} · {}", r.date, r.stats)).color(RECORD_COLOURS[ri]),
+                RichText::new(format!("{} · {}", r.date, r.stats)).color(record_colour(&bugis::Ink::of_ui(ui), ri)),
             )
             .default_open(ri == 0)
             .show(ui, |ui| {
@@ -268,7 +265,7 @@ impl ShortcutsView {
             egui::Align2::LEFT_BOTTOM,
             msg,
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(250, 200, 80),
+            ui.visuals().warn_fg_color,
         );
         // The treatment, finger-sized, on the main view (the panel is folded on a phone).
         let n = SHORT.len();
@@ -279,7 +276,7 @@ impl ShortcutsView {
             rect.left_top() + Vec2::new(4.0, 50.0),
             Vec2::new(cols as f32 * (bw + 4.0) + 12.0, rows as f32 * 38.0 + 8.0),
         );
-        pic.rect_filled(strip, 6.0, Color32::from_rgba_unmultiplied(14, 16, 20, 215));
+        pic.rect_filled(strip, 6.0, bugis::Ink::of_ui(ui).backing);
         let mut pick = None;
         for (i, s) in SHORT.iter().enumerate() {
             let b = Rect::from_min_size(
@@ -322,11 +319,11 @@ impl ShortcutsView {
         let g = pic.layout(
             self.built_line(),
             egui::FontId::proportional(11.5),
-            Color32::from_rgb(190, 196, 210),
+            ui.visuals().text_color(),
             (rect.width() - 24.0).max(100.0),
         );
         let gy = rect.bottom() - 38.0 - g.size().y;
-        pic.galley(Pos2::new(rect.left() + 12.0, gy), g, Color32::WHITE);
+        pic.galley(Pos2::new(rect.left() + 12.0, gy), g, ui.visuals().text_color());
         draw_chart(painter, chart, self.t);
         out
     }
@@ -338,8 +335,9 @@ impl ShortcutsView {
 /// from [`bias`], which is tested.
 pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
     let p = painter.with_clip_rect(rect);
-    p.rect_filled(rect, 4.0, Color32::from_rgb(20, 23, 29));
-    let text = Color32::from_rgb(210, 216, 226);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    p.rect_filled(rect, 4.0, ink.card);
+    let text = ink.text;
     let font = |s: f32| egui::FontId::proportional(s);
     p.text(
         rect.left_top() + Vec2::new(8.0, 6.0),
@@ -353,24 +351,24 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
         egui::Align2::LEFT_TOP,
         "every record: re-measurement pending (#582)",
         font(11.0),
-        Color32::from_rgb(250, 200, 80),
+        ink.warn,
     );
     // Legend, one colour per record.
     let mut x = rect.left() + 8.0;
     for (ri, r) in RECORDS.iter().enumerate() {
-        let g = p.layout_no_wrap(r.date.to_string(), font(11.0), RECORD_COLOURS[ri]);
+        let g = p.layout_no_wrap(r.date.to_string(), font(11.0), record_colour(&ink, ri));
         if x + g.size().x + 14.0 > rect.right() {
             break;
         }
         p.circle_filled(
             Pos2::new(x + 4.0, rect.top() + 46.0),
             4.0,
-            RECORD_COLOURS[ri],
+            record_colour(&ink, ri),
         );
         p.galley(
             Pos2::new(x + 11.0, rect.top() + 39.0),
             g,
-            RECORD_COLOURS[ri],
+            record_colour(&ink, ri),
         );
         x += 90.0;
     }
@@ -387,9 +385,9 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
     ] {
         let xt = px(tick);
         let c = if tick == 0.0 {
-            Color32::from_rgb(150, 156, 170)
+            ink.muted
         } else {
-            Color32::from_rgb(44, 48, 58)
+            ink.grid
         };
         p.line_segment(
             [Pos2::new(xt, plot.top()), Pos2::new(xt, plot.bottom())],
@@ -401,7 +399,7 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
                 egui::Align2::CENTER_TOP,
                 format!("{tick:+.0}"),
                 font(10.0),
-                Color32::from_rgb(150, 156, 170),
+                ink.muted,
             );
         }
     }
@@ -415,7 +413,7 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
                     Pos2::new(rect.right() - 2.0, yc + row_h * 0.5),
                 ),
                 3.0,
-                Color32::from_rgb(38, 44, 58),
+                ink.grid,
             );
         }
         p.text(
@@ -433,7 +431,7 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
                     p.circle_stroke(
                         Pos2::new(px(0.0), yc + dy),
                         3.0,
-                        Stroke::new(1.2, RECORD_COLOURS[ri]),
+                        Stroke::new(1.2, record_colour(&ink, ri)),
                     );
                 }
                 continue;
@@ -442,9 +440,9 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
                 let y = yc + dy;
                 p.line_segment(
                     [Pos2::new(px(d - s), y), Pos2::new(px(d + s), y)],
-                    Stroke::new(1.6, RECORD_COLOURS[ri]),
+                    Stroke::new(1.6, record_colour(&ink, ri)),
                 );
-                p.circle_filled(Pos2::new(px(d), y), 3.4, RECORD_COLOURS[ri]);
+                p.circle_filled(Pos2::new(px(d), y), 3.4, record_colour(&ink, ri));
             }
             if let Some(sp) = r.arms.iter().find(|a| a.t == t).and_then(|a| a.speed) {
                 speeds.push((ri, sp));
@@ -462,7 +460,7 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
                 egui::Align2::RIGHT_CENTER,
                 s,
                 font(11.5),
-                RECORD_COLOURS[ri],
+                record_colour(&ink, ri),
             );
         }
     }
@@ -471,7 +469,7 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
         egui::Align2::CENTER_BOTTOM,
         "pcm vs delta; right: speed vs delta (newest record)",
         font(10.5),
-        Color32::from_rgb(150, 156, 170),
+        ink.muted,
     );
 }
 

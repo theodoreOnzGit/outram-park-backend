@@ -94,25 +94,28 @@ export function unlock(title) {
            validated; not for operation, licensing or safety decisions.</p>
       </div>`;
 
+    // Gruvbox Dark, the palette every web demo's page takes from bugis
+    // (dark0_hard ground, light1 text, dark2 borders, bright blue accent,
+    // bright red errors, gray notes), 2026-11-05.
     const style = document.createElement("style");
     style.textContent = `
       #gate { position: fixed; inset: 0; z-index: 9999; display: flex;
               align-items: center; justify-content: center; padding: 16px;
-              background: #0e1014; color: #d8dce4;
+              background: #1d2021; color: #ebdbb2;
               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
       .gate-card { width: 100%; max-width: 26em; }
       .gate-card h1 { font-size: 1.25rem; margin: 0 0 .5em; }
-      .gate-card p { margin: 0 0 1em; color: #aab2c0; }
+      .gate-card p { margin: 0 0 1em; color: #d5c4a1; }
       #gate-form { display: flex; gap: 8px; flex-wrap: wrap; }
       #gate-input { flex: 1 1 12em; min-width: 0; padding: .7em .8em;
                     font-size: 16px; /* 16px stops iOS zooming on focus */
-                    border-radius: 8px; border: 1px solid #39414f;
-                    background: #161a21; color: #e8ecf4; }
+                    border-radius: 8px; border: 1px solid #504945;
+                    background: #282828; color: #ebdbb2; }
       #gate-form button { padding: .7em 1.2em; font-size: 16px;
                           border-radius: 8px; border: 0; cursor: pointer;
-                          background: #3b6ea5; color: #fff; }
-      #gate-error { color: #e48; margin-top: 1em; }
-      .gate-note { font-size: .85rem; margin-top: 1.5em; color: #78808e; }`;
+                          background: #83a598; color: #1d2021; }
+      #gate-error { color: #fb4934; margin-top: 1em; }
+      .gate-note { font-size: .85rem; margin-top: 1.5em; color: #928374; }`;
 
     document.head.appendChild(style);
     document.body.appendChild(wrap);

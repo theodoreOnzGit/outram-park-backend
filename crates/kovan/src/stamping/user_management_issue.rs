@@ -6,8 +6,11 @@
 //! same write, and saves it encrypted under a passphrase the founder types,
 //! to hand over. Pathway (a), validating a key the person generated
 //! themselves, is the existing admission ([`super::UserAction::Admit`]).
-//! Both are refused unless the signing key is the founder's
-//! ([`super::founder_signer`]).
+//! ~~Both are refused unless the signing key is the founder's
+//! ([`super::founder_signer`]).~~ **CORRECTED 2026-11-05 (GitHub #1249):**
+//! both are open to any admitted maintainer, a founder included
+//! ([`super::maintainer_signer`]). "Founder" in the diagram below reads
+//! "the signing maintainer".
 //!
 //! ```text
 //!  founder's key (session) ─┐
@@ -50,7 +53,7 @@ use kovan_common::review::signing::registry::Registry;
 use kovan_common::review::types::reviewer_id_kind;
 use zeroize::Zeroize;
 
-use super::{founder_signer, globs, roster_event, ROOT_FILE};
+use super::{globs, maintainer_signer, roster_event, ROOT_FILE};
 use crate::stamping::write_text;
 
 /// What the keyfile admits (no secret: safe to clone and print).
@@ -152,8 +155,8 @@ pub fn issue_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, req: &Iss
     match signer {
         None => p.push("No signing key: set one up from a Stamp, or import one below.".into()),
         Some(s) => {
-            if let Err(e) = founder_signer(&Registry::build(root), s, date) {
-                p.push(format!("{e} Only the founder issues a validated keyfile."));
+            if let Err(e) = maintainer_signer(&Registry::build(root), s, date) {
+                p.push(format!("{e} A founder or an admitted maintainer issues a validated keyfile."));
             }
         }
     }

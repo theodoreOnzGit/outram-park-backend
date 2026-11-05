@@ -127,23 +127,11 @@ mod packing;
 #[cfg(not(target_os = "android"))]
 mod htr10;
 
-// THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
-// for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
-// rung is adding its directory, its `mod` line above and one line here.
+// THE RUNG TABLE, in ladder order: `table.rs`, written out by hand (one
+// variant and one `match` arm per rung; see `rungs.rs` for what a new rung
+// adds). ~~It was the `rung_table!` macro until 2026-11-05.~~
 #[cfg(not(target_os = "android"))]
-rung_table! {
-    godiva: Godiva,
-    natu: Natu,
-    jemima: Jemima,
-    hst009: Hst009,
-    ugraphite: Ugraphite,
-    lumped: Lumped,
-    lct008: Lct008,
-    triso: Triso,
-    dhshort: DhShort,
-    packing: Packing,
-    htr10: Htr10,
-}
+mod table;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule — a blanked file gives "main function not found").
@@ -254,6 +242,13 @@ fn main() -> Result<(), String> {
             hst009::render::render_all(dir)?;
             htr10::render::render_all(dir)?;
             godiva::render::render_all(dir)
+        }
+        Some("--render-pour") => {
+            let csv = std::fs::read_to_string(arg(1).ok_or("--render-pour <csv> <fuel fraction> <dir>")?).map_err(|e| e.to_string())?;
+            let f: f64 = arg(2).and_then(|v| v.parse().ok()).ok_or("--render-pour needs a fuel fraction")?;
+            let dir = std::path::Path::new(arg(3).ok_or("--render-pour needs an output directory")?);
+            println!("{}", htr10::core::pour::render_review(&csv, f, dir)?);
+            Ok(())
         }
         Some("--bake-htr10-core") => htr10::core::bake::bake_cli(&args),
         Some("--htr10-product-shas") => htr10::core::bake::product_shas_cli(&args),

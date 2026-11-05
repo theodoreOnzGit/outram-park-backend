@@ -572,6 +572,8 @@ impl PoolState {
                     }
                 }
             }
+            // Pool members never pour (the page's own worker does).
+            CoreEv::Pour(_) | CoreEv::PourDiagnostics(_) => {}
             CoreEv::Failed { message, epoch } => {
                 self.busy[w] = false;
                 if matches!(self.phase, PoolPhase::Processing | PoolPhase::Assembling) {
@@ -787,6 +789,38 @@ impl PoolState {
         Ok(())
     }
 
+    /// **Hand every worker the reader's pour and rebuild the core on it**
+    /// (gh:#1244; only between runs, like [`Self::set_layers`]): each live
+    /// worker gets the bed, then the rebuild, in that order.
+    ///
+    /// # Errors
+    /// The data are not ready, or a run is going.
+    pub fn use_pour(&mut self, b: &super::pour::PouredBed) -> Result<(), String> {
+        if self.phase != PoolPhase::Ready {
+            return Err("the data are not ready".into());
+        }
+        if self.run.as_ref().is_some_and(RunState::going) {
+            return Err("a run is going".into());
+        }
+        let layers = super::random_bed::USER_POUR;
+        self.layers = layers;
+        self.phase = PoolPhase::Assembling;
+        self.run = None;
+        for w in (0..self.workers).filter(|&w| self.alive[w]) {
+            self.out.push((w, CoreReq::pour_bed(b)));
+            self.out.push((w, CoreReq::Layers { layers }));
+        }
+        Ok(())
+    }
+
+    /// Before the first assembly: every worker gets the reader's pour, so a
+    /// pool started on [`super::random_bed::USER_POUR`] builds it.
+    pub fn send_pour_first(&mut self, b: &super::pour::PouredBed) {
+        for w in 0..self.workers {
+            self.out.push((w, CoreReq::pour_bed(b)));
+        }
+    }
+
     /// **Rebuild every worker's core with the control rods at `rods`**
     /// (gh:#1025; only between runs, like [`Self::set_layers`]). The pool is
     /// assembling until every live worker has reported its rebuilt core.
@@ -995,6 +1029,10 @@ impl CorePool {
             dhoby_ghaut::web_demo::platform::now_s(),
         )
         .with_temperatures(temps.to_kelvin());
+        let mut state = state;
+        if let Some(b) = super::random_bed::poured() {
+            state.send_pour_first(&b);
+        }
         Ok(Self { links, state, plan })
     }
 
@@ -1066,6 +1104,30 @@ mod tests {
     /// jobs once, every product reaches every other worker exactly once and
     /// never back to its maker, and a worker's assembly is sent only after
     /// every product has been sent to it.
+    #[test]
+    /// The reader's pour (gh:#1244): between runs every live worker gets the
+    /// bed and then the rebuild, in that order; not while the pool is
+    /// assembling; and a pool started with a pour sends it before anything.
+    fn a_pour_reaches_every_worker_before_its_rebuild() {
+        let b = super::super::pour::poured_bed(&[0.0, 0.0, -0.1, 0.0, 0.0, 0.03], 0.57, 3).expect("bed");
+        let mut p = PoolState::ready(3, String::new(), 0.0);
+        assert!(p.use_pour(&b).is_ok());
+        assert_eq!(p.phase, PoolPhase::Assembling);
+        assert_eq!(p.layers, super::super::random_bed::USER_POUR);
+        let out = p.outbox(10);
+        for w in 0..3 {
+            let mine: Vec<&CoreReq> = out.iter().filter(|(v, _)| *v == w).map(|(_, r)| r).collect();
+            assert!(matches!(mine.as_slice(), [CoreReq::PourBed { version: 3, .. }, CoreReq::Layers { layers: 1 }]), "worker {w}");
+            assert_eq!(mine[0].poured_bed().expect("bed"), b);
+        }
+        assert!(p.use_pour(&b).is_err(), "not while assembling");
+        let mut q = PoolState::new(2, Vec::new(), Vec::new(), 1, 0.0);
+        q.send_pour_first(&b);
+        let out = q.outbox(10);
+        assert!(matches!(out.first(), Some((0, CoreReq::PourBed { .. }))));
+        assert!(matches!(out.get(1), Some((1, CoreReq::PourBed { .. }))));
+    }
+
     #[test]
     fn every_product_reaches_every_other_worker_before_its_assembly() {
         let costs = vec![5.0, 1.0, 3.0, 2.0, 2.0];

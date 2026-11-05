@@ -1176,3 +1176,11 @@ cargo test  -p outram-mc-libs --lib --release
 
 After implementing any module, update `src/prelude.rs` with new public items,
 then `cargo check -p outram-mc-libs` to verify.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

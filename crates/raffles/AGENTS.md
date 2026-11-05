@@ -49,3 +49,11 @@ The maintainer's direction separates that failure from intended calibration:
   a benchmark the result is judged against): tuning to make that check pass is
   still forbidden. Calibrating to the very data that is supposed to test the
   model destroys the test.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

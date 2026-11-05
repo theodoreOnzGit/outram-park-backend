@@ -46,7 +46,7 @@ use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::vv::jemima;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Natu;
 
 /// Half-length of the bar along x, cm.
@@ -175,13 +175,13 @@ impl McRung for Natu {
         let b = view.to_screen(rect, HALF_X, HALF_YZ);
         let r = Rect::from_two_pos(a, b);
         painter.rect_filled(r, 0.0, URANIUM);
-        painter.rect_stroke(r, 0.0, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)), StrokeKind::Outside);
+        painter.rect_stroke(r, 0.0, Stroke::new(1.5, bugis::Ink::of_ctx(painter.ctx()).accent(3)), StrokeKind::Outside);
         painter.text(
             r.center_top() + Vec2::new(0.0, -6.0),
             egui::Align2::CENTER_BOTTOM,
             format!("natural uranium metal, {} × {} × {} cm · vacuum outside (leaks)", 2.0 * HALF_X, 2.0 * HALF_YZ, 2.0 * HALF_YZ),
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(190, 170, 230),
+            bugis::Ink::of_ctx(painter.ctx()).accent(3),
         );
     }
     fn notes() -> &'static [&'static str] {

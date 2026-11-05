@@ -435,13 +435,16 @@ pub enum RetirementProblem {
     BadReviewer,
     /// No signed record in its list has the signature it names.
     UnknownRecord,
-    /// Unsigned, or its signature does not count: only the founder's, by a
-    /// trusted key active at its date while the founder is a maintainer.
+    /// Unsigned, or its signature does not count: only a founder's (in
+    /// standing on its date, GitHub #1248), by a trusted key active at its
+    /// date while that founder is a maintainer.
     Unverified(SignerProblem),
 }
 
 /// The founder's signature over `msg`, dated `date`: a maintainer's
-/// ([`maintainer_signature`]) whose reviewer is the declared founder.
+/// ([`maintainer_signature`]) whose reviewer is ~~the declared founder~~ a
+/// founder in standing on `date` (GitHub #1248: any current founder, and
+/// a retired one for records dated before the retirement).
 fn founder_signature(
     registry: &Registry,
     signer: Option<&KeySigner>,
@@ -450,9 +453,10 @@ fn founder_signature(
     date: &str,
 ) -> Result<(String, String), SignerProblem> {
     let (who, key) = maintainer_signature(registry, signer, signature, msg, date)?;
-    match &registry.founder {
-        Ok(f) if *f == who => Ok((who, key)),
-        _ => Err(SignerProblem::NotEligible(who)),
+    if registry.is_founder_on(&who, date) {
+        Ok((who, key))
+    } else {
+        Err(SignerProblem::NotEligible(who))
     }
 }
 

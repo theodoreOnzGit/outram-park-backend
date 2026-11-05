@@ -21,11 +21,33 @@ pub struct SweepPoint {
     pub detail: String,
 }
 
+/// Which theme colour a curve is drawn in (`bugis::Ink`), so a recorded
+/// sweep reads on Dark and Light alike.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Hue {
+    /// The reference: the text colour.
+    Reference,
+    /// A gauge, not a reference: the muted text colour.
+    Gauge,
+    /// Theme accent `i` (`bugis::Theme::accent`).
+    Accent(usize),
+}
+
+impl Hue {
+    pub fn colour(self, ink: &bugis::Ink) -> Color32 {
+        match self {
+            Hue::Reference => ink.text,
+            Hue::Gauge => ink.muted,
+            Hue::Accent(i) => ink.accent(i),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SweepCurve {
     pub label: String,
     pub style: LineStyle,
-    pub colour: Color32,
+    pub colour: Hue,
     pub points: Vec<SweepPoint>,
 }
 
@@ -54,9 +76,10 @@ impl RecordedSweep {
 pub fn draw(painter: &egui::Painter, rect: Rect, s: &RecordedSweep, at: f64, text: f32) {
     let f = egui::FontId::proportional(text);
     let small = egui::FontId::proportional((text * 0.85).max(8.0));
-    let grey = Color32::from_rgb(170, 176, 190);
-    painter.rect_filled(rect, 4.0, Color32::from_rgb(18, 21, 28));
-    painter.text(rect.left_top() + Vec2::new(8.0, 5.0), egui::Align2::LEFT_TOP, s.title, f, Color32::WHITE);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    let grey = ink.muted;
+    painter.rect_filled(rect, 4.0, ink.card);
+    painter.text(rect.left_top() + Vec2::new(8.0, 5.0), egui::Align2::LEFT_TOP, s.title, f, ink.text);
     let pts = || s.curves.iter().flat_map(|c| c.points.iter());
     let (mut x0, mut x1, mut y0, mut y1) = (f64::INFINITY, f64::NEG_INFINITY, f64::INFINITY, f64::NEG_INFINITY);
     for p in pts() {
@@ -78,7 +101,7 @@ pub fn draw(painter: &egui::Painter, rect: Rect, s: &RecordedSweep, at: f64, tex
     let p = |x: f64, y: f64| {
         Pos2::new(plot.left() + ((x - x0) / (x1 - x0)) as f32 * plot.width(), plot.bottom() - ((y - y0) / (y1 - y0)) as f32 * plot.height())
     };
-    let gridc = Color32::from_rgb(40, 45, 56);
+    let gridc = ink.grid;
     let px_per = plot.width() as f64 / (x1 - x0);
     let xstep = [10.0, 20.0, 25.0, 50.0].into_iter().find(|st| st * px_per >= 48.0).unwrap_or(50.0);
     let mut x = (x0 / xstep).ceil() * xstep;
@@ -101,25 +124,25 @@ pub fn draw(painter: &egui::Painter, rect: Rect, s: &RecordedSweep, at: f64, tex
     let clip = painter.with_clip_rect(plot.expand(6.0));
     // k = 1.
     if y0 < 1.0 && y1 > 1.0 {
-        clip.line_segment([p(x0, 1.0), p(x1, 1.0)], Stroke::new(1.0, Color32::from_rgb(90, 96, 110)));
+        clip.line_segment([p(x0, 1.0), p(x1, 1.0)], Stroke::new(1.0, ink.border));
     }
     for c in &s.curves {
         let line: Vec<Pos2> = c.points.iter().map(|q| p(q.x, q.k)).collect();
         match c.style {
             LineStyle::Published => {
-                clip.add(egui::Shape::line(line, Stroke::new(3.0, c.colour)));
+                clip.add(egui::Shape::line(line, Stroke::new(3.0, c.colour.colour(&ink))));
             }
-            LineStyle::Ours => clip.extend(egui::Shape::dotted_line(&line, c.colour, 5.0, 1.4)),
-            LineStyle::Reference => clip.extend(egui::Shape::dashed_line(&line, Stroke::new(1.4, c.colour), 7.0, 5.0)),
+            LineStyle::Ours => clip.extend(egui::Shape::dotted_line(&line, c.colour.colour(&ink), 5.0, 1.4)),
+            LineStyle::Reference => clip.extend(egui::Shape::dashed_line(&line, Stroke::new(1.4, c.colour.colour(&ink)), 7.0, 5.0)),
         }
         if c.style == LineStyle::Ours {
             for q in &c.points {
-                clip.line_segment([p(q.x, q.k - q.sigma), p(q.x, q.k + q.sigma)], Stroke::new(1.2, c.colour));
-                clip.circle_stroke(p(q.x, q.k), 3.0, Stroke::new(1.3, c.colour));
+                clip.line_segment([p(q.x, q.k - q.sigma), p(q.x, q.k + q.sigma)], Stroke::new(1.2, c.colour.colour(&ink)));
+                clip.circle_stroke(p(q.x, q.k), 3.0, Stroke::new(1.3, c.colour.colour(&ink)));
             }
         }
         for q in c.points.iter().filter(|q| q.tag == Some(at)) {
-            clip.circle_stroke(p(q.x, q.k), 7.0, Stroke::new(2.0, Color32::WHITE));
+            clip.circle_stroke(p(q.x, q.k), 7.0, Stroke::new(2.0, ink.text));
         }
     }
     let mut ly = plot.bottom() + text * 1.7 + 8.0;
@@ -128,12 +151,28 @@ pub fn draw(painter: &egui::Painter, rect: Rect, s: &RecordedSweep, at: f64, tex
         let seg = [a, a + Vec2::new(24.0, 0.0)];
         match c.style {
             LineStyle::Published => {
-                painter.line_segment(seg, Stroke::new(3.0, c.colour));
+                painter.line_segment(seg, Stroke::new(3.0, c.colour.colour(&ink)));
             }
-            LineStyle::Ours => painter.extend(egui::Shape::dotted_line(&seg, c.colour, 5.0, 1.4)),
-            LineStyle::Reference => painter.extend(egui::Shape::dashed_line(&seg, Stroke::new(1.4, c.colour), 7.0, 5.0)),
+            LineStyle::Ours => painter.extend(egui::Shape::dotted_line(&seg, c.colour.colour(&ink), 5.0, 1.4)),
+            LineStyle::Reference => painter.extend(egui::Shape::dashed_line(&seg, Stroke::new(1.4, c.colour.colour(&ink)), 7.0, 5.0)),
         }
-        painter.text(a + Vec2::new(30.0, 0.0), egui::Align2::LEFT_CENTER, &c.label, small.clone(), Color32::from_rgb(210, 216, 226));
+        painter.text(a + Vec2::new(30.0, 0.0), egui::Align2::LEFT_CENTER, &c.label, small.clone(), ink.text);
         ly += text * 1.3;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Each hue is the theme's own colour, so a curve follows Dark / Light.
+    #[test]
+    fn hues_follow_the_theme() {
+        for t in bugis::Theme::ALL {
+            let ink = bugis::Ink::of(&t.visuals());
+            assert_eq!(Hue::Reference.colour(&ink), ink.text);
+            assert_eq!(Hue::Gauge.colour(&ink), ink.muted);
+            assert_eq!(Hue::Accent(1).colour(&ink), ink.accent(1));
+        }
     }
 }

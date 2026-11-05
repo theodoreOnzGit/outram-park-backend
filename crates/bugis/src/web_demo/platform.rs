@@ -31,6 +31,36 @@ pub fn set_title(ctx: &egui::Context, title: &str) {
     ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.to_owned()));
 }
 
+/// The value [`page_theme`] writes for a theme: `"dark"` or `"light"`.
+pub fn page_theme_name(theme: crate::Theme) -> &'static str {
+    if theme.is_dark() {
+        "dark"
+    } else {
+        "light"
+    }
+}
+
+/// **Tell the page which Gruvbox theme the app is drawn in** (2026-11-05):
+/// `data-theme="dark"|"light"` on `<html>`, so the page's own HTML (the
+/// References button and panel, the loading screen) styles itself to match
+/// with `:root[data-theme=light]` rules. Writes only on a change, so it is
+/// cheap every frame; [`super::panel::Panel::show`] calls it. A no-op
+/// natively. Returns whether it wrote.
+pub fn page_theme(ctx: &egui::Context) -> bool {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static LAST: AtomicU8 = AtomicU8::new(0);
+    let theme = crate::Theme::current(&ctx.global_style().visuals);
+    let code = if theme.is_dark() { 1 } else { 2 };
+    if LAST.swap(code, Ordering::Relaxed) == code {
+        return false;
+    }
+    #[cfg(target_arch = "wasm32")]
+    if let Some(el) = web_sys::window().and_then(|w| w.document()).and_then(|d| d.document_element()) {
+        let _ = el.set_attribute("data-theme", page_theme_name(theme));
+    }
+    true
+}
+
 /// The page's URL query as `(key, value)` pairs (`?rung=godiva&mode=run`);
 /// natively, the command line's `--key value` pairs, its twin. A bare key
 /// (`?autostart`) has an empty value.
@@ -179,4 +209,21 @@ pub fn autostart() -> bool {
         return true;
     }
     query_value(&query_pairs(), "autostart").is_some()
+}
+
+#[cfg(test)]
+mod page_theme_tests {
+    use super::*;
+
+    /// The page is told the theme by name, and the call is safe natively
+    /// (a no-op there; the write-on-change is per process, so its return is
+    /// not asserted: other tests draw panels in parallel).
+    #[test]
+    fn the_page_is_told_the_theme_by_name() {
+        assert_eq!(page_theme_name(crate::Theme::GruvboxDark), "dark");
+        assert_eq!(page_theme_name(crate::Theme::GruvboxLight), "light");
+        let ctx = egui::Context::default();
+        crate::Theme::GruvboxLight.apply(&ctx);
+        let _ = page_theme(&ctx);
+    }
 }

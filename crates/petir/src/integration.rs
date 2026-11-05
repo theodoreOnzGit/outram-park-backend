@@ -112,7 +112,7 @@ use alloc::vec::Vec;
 use crate::real::Real;
 
 use crate::scalar::{DBL_EPSILON, DBL_MIN};
-use crate::zip::zip_flat;
+use crate::zip::{zip3, zip4, zip5};
 use crate::{PetirError, Result};
 
 /// Which Gauss-Kronrod rule to apply.
@@ -272,12 +272,12 @@ where
     // indices `jtw = 2j + 1`, which is what `skip(1).step_by(2)` walks. The
     // `take` reproduces upstream's `j < (n - 1) / 2` bound, which for the
     // even-length tables stops one short of the strided sequence.
-    for (&x_j, &wgk_j, &wg_j, f1, f2) in zip_flat!(
+    for (&x_j, &wgk_j, &wg_j, f1, f2) in zip5(
         xgk.iter().skip(1).step_by(2),
         wgk.iter().skip(1).step_by(2),
         wg.iter(),
         fv1.iter_mut().skip(1).step_by(2),
-        fv2.iter_mut().skip(1).step_by(2)
+        fv2.iter_mut().skip(1).step_by(2),
     )
     .take((n - 1) / 2)
     {
@@ -293,11 +293,11 @@ where
     }
 
     // The points Kronrod adds: upstream's even indices `jtwm1 = 2j`.
-    for (&x_j, &wgk_j, f1, f2) in zip_flat!(
+    for (&x_j, &wgk_j, f1, f2) in zip4(
         xgk.iter().step_by(2),
         wgk.iter().step_by(2),
         fv1.iter_mut().step_by(2),
-        fv2.iter_mut().step_by(2)
+        fv2.iter_mut().step_by(2),
     )
     .take(n / 2)
     {
@@ -315,7 +315,7 @@ where
     // `wgk_head` is `wgk[0 .. n-1]`, so the zip runs exactly upstream's
     // `n - 1` times; `fv1`/`fv2` are longer and their last entry is never
     // written, exactly as upstream leaves it.
-    for (&w, &a_j, &b_j) in zip_flat!(wgk_head.iter(), fv1.iter(), fv2.iter()) {
+    for (&w, &a_j, &b_j) in zip3(wgk_head.iter(), fv1.iter(), fv2.iter()) {
         result_asc += w * ((a_j - mean).abs() + (b_j - mean).abs());
     }
 

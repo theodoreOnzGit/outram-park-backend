@@ -51,3 +51,21 @@ therefore a bound: |LEAPR - TAPE| below ~380 pcm at 2 sigma at N = 12.
 
 **New record value (the default model), N = 12: k = 0.995309 +- 0.001098**,
 +18 +- 152 pcm from the 2026-10-07 record's 0.995125 +- 0.001055.
+
+### HTTR critical (2026-11-05), partial
+
+| Arm | k | data / transport |
+|---|---|---|
+| **LEAPR (default)** | **1.02387 +- 0.00049** | 476 s / 3725 s, 34 threads alone |
+| TAPE | **not measured**: stopped by the maintainer before it finished, to test a refactor on develop first | |
+
+Against the start-up core record's tape-law value 1.02400 +- 0.00049 (a
+different commit and machine): **-13 +- 69 pcm**, consistent with the -40 pcm
+(-100 to +20) predicted for the law change, but not a paired measurement: the
+paired TAPE arm is still to run. Two earlier attempts at both arms side by side
+on 17 threads each were stopped by the 2 h background limit before transport
+finished (`logs/*_killed_2h.log`).
+
+**Still to run (gh:#1145):** the HTTR critical TAPE arm and the subcritical
+pair; the DEM-bed point; the rod curves; the other HTR-10 heights; then the web
+demo's reference lines.

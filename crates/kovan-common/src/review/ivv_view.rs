@@ -334,11 +334,12 @@ pub fn next_step(m: &Rung5Miss) -> &'static str {
         }
         // ~~"a maintainer signs … (Code Review > Organisations & IV&V)"~~
         // CORRECTED 2026-11-04 (#1211): the founder signs, in User management.
+        // CORRECTED 2026-11-05 (#1248): ~~the founder~~ a founder (several).
         Rung5Miss::ReviewerOrganisation(_) => {
-            "the founder signs the reviewer's organisation (Code Review > User management)"
+            "a founder signs the reviewer's organisation (Code Review > User management)"
         }
         Rung5Miss::DevelopingOrganisation(_) => {
-            "the founder signs the developing organisation (Code Review > User management)"
+            "a founder signs the developing organisation (Code Review > User management)"
         }
         Rung5Miss::SameOrganisation { .. } => {
             "IV&V must come from an organisation separate from the developing one"
@@ -406,7 +407,8 @@ pub fn ivv_queue(ev: &Evaluation) -> Vec<IvvQueueRow> {
             RecordList::RosterEvent => {
                 "a maintainer signs a new entry (append-only: the old entry stays)"
             }
-            _ => "the founder signs a new entry (append-only: the old entry stays)",
+            // ~~the founder~~ a founder (GitHub #1248).
+            _ => "a founder signs a new entry (append-only: the old entry stays)",
         };
         out.push(IvvQueueRow {
             function: None,

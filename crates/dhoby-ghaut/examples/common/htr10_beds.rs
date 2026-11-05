@@ -289,8 +289,9 @@ pub mod draw {
         CONE_HEIGHT_M, CORE_RADIUS_M, TUBE_RADIUS_M, VALVE_Z_M,
     };
 
-    pub const WALL: Color32 = Color32::from_rgb(150, 156, 170);
-    pub const PEBBLE: Color32 = Color32::from_rgb(120, 128, 140);
+    /// The pebble fill: Gruvbox grey, which reads on both themes. The wall,
+    /// the valve and the outlines take the painter's theme (`bugis::Ink`).
+    pub const PEBBLE: Color32 = bugis::palette::GRAY;
 
     /// The vessel's inner wall in a side cut (barrel up to `top_m`, conus,
     /// tube to the valve), shifted `dx_cm` across. GUI drawing (exempt).
@@ -306,11 +307,11 @@ pub mod draw {
                 .iter()
                 .map(|&(r, z)| view.to_screen(rect, dx_cm + side * 100.0 * r, 100.0 * z))
                 .collect();
-            p.add(egui::Shape::line(line, Stroke::new(1.5, WALL)));
+            p.add(egui::Shape::line(line, Stroke::new(1.5, bugis::Ink::of_ctx(p.ctx()).muted)));
         }
         let a = view.to_screen(rect, dx_cm - 100.0 * TUBE_RADIUS_M, 100.0 * VALVE_Z_M);
         let b = view.to_screen(rect, dx_cm + 100.0 * TUBE_RADIUS_M, 100.0 * VALVE_Z_M);
-        p.line_segment([a, b], Stroke::new(1.5, Color32::from_rgb(200, 120, 90)));
+        p.line_segment([a, b], Stroke::new(1.5, bugis::Ink::of_ctx(p.ctx()).accent(1)));
     }
 
     /// The wall in a plan cut at height `z_m`. GUI drawing (exempt).
@@ -319,12 +320,13 @@ pub mod draw {
         p.circle_stroke(
             c,
             (100.0 * wall_radius_at(z_m) * view.scale) as f32,
-            Stroke::new(1.5, WALL),
+            Stroke::new(1.5, bugis::Ink::of_ctx(p.ctx()).muted),
         );
     }
 
     /// Cut circles, shifted `dx_cm` across. GUI drawing (exempt).
     pub fn cuts(p: &Painter, rect: Rect, view: &View, dx_cm: f64, cuts: &[Cut], fill: Color32) {
+        let gap = bugis::Ink::of_ctx(p.ctx()).bg;
         for c in cuts {
             let s = view.to_screen(rect, dx_cm + 100.0 * f64::from(c.u), 100.0 * f64::from(c.v));
             let r = (100.0 * f64::from(c.r) * view.scale) as f32;
@@ -333,7 +335,7 @@ pub mod draw {
                     s,
                     r.max(0.6),
                     fill,
-                    Stroke::new(0.5, Color32::from_rgb(30, 32, 38)),
+                    Stroke::new(0.5, gap),
                 );
             }
         }
@@ -350,6 +352,7 @@ pub mod draw {
         base: Color32,
     ) {
         let r = (100.0 * RADIUS_M * view.scale) as f32;
+        let gap = bugis::Ink::of_ctx(p.ctx()).bg;
         for c in kept {
             let s = view.to_screen(rect, 100.0 * f64::from(c[0]), 100.0 * f64::from(c[1]));
             if !rect.expand(r).contains(s) {
@@ -365,7 +368,7 @@ pub mod draw {
                 s,
                 r.max(0.6),
                 f,
-                Stroke::new(0.5, Color32::from_rgb(25, 27, 32)),
+                Stroke::new(0.5, gap),
             );
         }
     }

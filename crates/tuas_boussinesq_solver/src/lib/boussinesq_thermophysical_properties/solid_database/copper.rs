@@ -58,9 +58,9 @@ pub fn copper_specific_heat_capacity_zou_zweibaum_spline(
     // we need to build it ONCE and read from it
     //
     let thermal_cond_temperature_values_kelvin =
-        c!(200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
+        vec![200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0];
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
-        c!(355.7047, 373.6018, 384.7875, 392.6174, 398.2103, 407.1588, 417.2260);
+        vec![355.7047, 373.6018, 384.7875, 392.6174, 398.2103, 407.1588, 417.2260];
 
     let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
@@ -95,9 +95,9 @@ pub fn copper_thermal_conductivity_zou_zweibaum_spline(
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
-    let thermal_cond_temperature_values_kelvin = c!(250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
+    let thermal_cond_temperature_values_kelvin = vec![250.0, 300.0, 350.0, 400.0, 500.0, 1000.0];
     let thermal_conductivity_values_watt_per_meter_kelin =
-        c!(406.0, 401.0, 369.0, 393.0, 386.0, 352.0);
+        vec![406.0, 401.0, 369.0, 393.0, 386.0, 352.0];
 
     let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
@@ -136,9 +136,9 @@ pub fn copper_specific_enthalpy(temperature: ThermodynamicTemperature
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
     let specific_enthalpy_temperature_values_kelvin =
-        c!(200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
+        vec![200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0];
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
-        c!(355.7047, 373.6018, 384.7875, 392.6174, 398.2103, 407.1588, 417.2260);
+        vec![355.7047, 373.6018, 384.7875, 392.6174, 398.2103, 407.1588, 417.2260];
 
     let s = NaturalCubicSpline::new(
         &specific_enthalpy_temperature_values_kelvin,
@@ -168,7 +168,7 @@ pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     // the idea is basically to evaluate enthalpy at the
     // following temperatures
-    let temperature_values_kelvin: Vec<f64> = c!(200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
+    let temperature_values_kelvin: Vec<f64> = vec![200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0];
 
     // and then use that to formulate a spline,
     // with the spline, i'll evaluate enthalpy from temperature

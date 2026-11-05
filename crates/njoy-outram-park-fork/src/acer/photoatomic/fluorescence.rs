@@ -186,12 +186,8 @@ pub fn alax(
     };
 
     let mut fluor = vec![0.0f64; 4 * nflo];
-    // Column-major setter: row `r` (0-based), column `c` (0-based).
-    macro_rules! set {
-        ($r:expr, $c:expr, $v:expr) => {
-            fluor[$r + nflo * $c] = $v
-        };
-    }
+    // Column-major layout: element (row `r`, column `c`), both 0-based, is
+    // `fluor[r + nflo * c]`.
 
     if (12..20).contains(&iz) {
         // ── 11 < Z < 20: every K transition averaged (`:586-611`) ───────────
@@ -212,14 +208,14 @@ pub fn alax(
                 heat[i] -= photoelectric[i] * sum1 * sum2 / EMEV;
             }
         }
-        set!(0, 0, ek / EMEV);
-        set!(1, 0, ek / EMEV);
-        set!(0, 1, rhok);
-        set!(1, 1, 1.0);
-        set!(0, 2, 0.0);
-        set!(1, 2, (1.0 - rhok) * sum1);
-        set!(0, 3, 0.0);
-        set!(1, 3, sum2 / EMEV);
+        fluor[0] = ek / EMEV;
+        fluor[1] = ek / EMEV;
+        fluor[nflo] = rhok;
+        fluor[1 + nflo] = 1.0;
+        fluor[nflo * 2] = 0.0;
+        fluor[1 + nflo * 2] = (1.0 - rhok) * sum1;
+        fluor[nflo * 3] = 0.0;
+        fluor[1 + nflo * 3] = sum2 / EMEV;
     } else if (20..31).contains(&iz) {
         // ── 19 < Z < 31: L2, L3 resolved, the rest averaged (`:613-671`) ────
         let (mut el2, mut pl2, mut el3, mut pl3) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
@@ -252,27 +248,27 @@ pub fn alax(
         let tot = (pl2 + pl3 + sum1) / (1.0 - rhok);
         let mut y = 0.0f64;
         let mut phi = rhok;
-        set!(0, 0, ek / EMEV);
-        set!(0, 1, phi);
-        set!(0, 2, y);
-        set!(0, 3, 0.0);
+        fluor[0] = ek / EMEV;
+        fluor[nflo] = phi;
+        fluor[nflo * 2] = y;
+        fluor[nflo * 3] = 0.0;
         phi += pl3 / tot;
         y += (1.0 - rhok) * pl3;
-        set!(1, 0, ek / EMEV);
-        set!(1, 1, phi);
-        set!(1, 2, y);
-        set!(1, 3, el3 / EMEV);
+        fluor[1] = ek / EMEV;
+        fluor[1 + nflo] = phi;
+        fluor[1 + nflo * 2] = y;
+        fluor[1 + nflo * 3] = el3 / EMEV;
         phi += pl2 / tot;
         y += (1.0 - rhok) * pl2;
-        set!(2, 0, ek / EMEV);
-        set!(2, 1, phi);
-        set!(2, 2, y);
-        set!(2, 3, el2 / EMEV);
+        fluor[2] = ek / EMEV;
+        fluor[2 + nflo] = phi;
+        fluor[2 + nflo * 2] = y;
+        fluor[2 + nflo * 3] = el2 / EMEV;
         y += (1.0 - rhok) * sum1;
-        set!(3, 0, ek / EMEV);
-        set!(3, 1, 1.0);
-        set!(3, 2, y);
-        set!(3, 3, sum2 / EMEV);
+        fluor[3] = ek / EMEV;
+        fluor[3 + nflo] = 1.0;
+        fluor[3 + nflo * 2] = y;
+        fluor[3 + nflo * 3] = sum2 / EMEV;
     } else {
         // ── Z >= 31: an averaged L line plus the resolved K lines (`:673-799`)
         let rholt = rhol[0] * rhol[1] * rhol[2];
@@ -357,43 +353,43 @@ pub fn alax(
                     / EMEV;
             }
         }
-        set!(0, 0, elav / EMEV);
-        set!(0, 1, rholt);
-        set!(0, 2, 0.0);
-        set!(0, 3, 0.0);
+        fluor[0] = elav / EMEV;
+        fluor[nflo] = rholt;
+        fluor[nflo * 2] = 0.0;
+        fluor[nflo * 3] = 0.0;
         let mut y = (1.0 - rholt) * ylt;
-        set!(1, 0, elav / EMEV);
-        set!(1, 1, 1.0);
-        set!(1, 2, y);
-        set!(1, 3, flt / EMEV);
+        fluor[1] = elav / EMEV;
+        fluor[1 + nflo] = 1.0;
+        fluor[1 + nflo * 2] = y;
+        fluor[1 + nflo * 3] = flt / EMEV;
         let phik = 1.0 / rhok - 1.0;
         let tot = (pl2 + pl3 + sum11 + sum21) / phik;
         let mut phi = 1.0f64;
         phi += pl3 / tot;
         y += phik * pl3;
-        set!(2, 0, ek / EMEV);
-        set!(2, 1, phi);
-        set!(2, 2, y);
-        set!(2, 3, el3 / EMEV);
+        fluor[2] = ek / EMEV;
+        fluor[2 + nflo] = phi;
+        fluor[2 + nflo * 2] = y;
+        fluor[2 + nflo * 3] = el3 / EMEV;
         phi += pl2 / tot;
         y += phik * pl2;
-        set!(3, 0, ek / EMEV);
-        set!(3, 1, phi);
-        set!(3, 2, y);
-        set!(3, 3, el2 / EMEV);
+        fluor[3] = ek / EMEV;
+        fluor[3 + nflo] = phi;
+        fluor[3 + nflo * 2] = y;
+        fluor[3 + nflo * 3] = el2 / EMEV;
         phi += sum11 / tot;
         y += phik * sum11;
-        set!(4, 0, ek / EMEV);
-        set!(4, 1, phi);
-        set!(4, 2, y);
-        set!(4, 3, sum12 / EMEV);
+        fluor[4] = ek / EMEV;
+        fluor[4 + nflo] = phi;
+        fluor[4 + nflo * 2] = y;
+        fluor[4 + nflo * 3] = sum12 / EMEV;
         if iz >= 37 {
             phi += sum21 / tot;
             y += phik * sum21;
-            set!(5, 0, ek / EMEV);
-            set!(5, 1, phi);
-            set!(5, 2, y);
-            set!(5, 3, sum22 / EMEV);
+            fluor[5] = ek / EMEV;
+            fluor[5 + nflo] = phi;
+            fluor[5 + nflo * 2] = y;
+            fluor[5 + nflo * 3] = sum22 / EMEV;
         }
     }
     Ok(fluor)

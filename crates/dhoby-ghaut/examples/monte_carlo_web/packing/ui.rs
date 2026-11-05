@@ -354,13 +354,14 @@ impl PackingView {
         }
         let (r_p, big_r, target, _) = params();
         let half = big_r + r_p;
+        let ink = bugis::Ink::of_ui(ui);
         let s = self.view.scale as f32;
         let to = |x: f64, y: f64| self.view.to_screen(rect, x, y);
         // The cube RSA packs, and the fuel zone pack_in_ball keeps.
         p.rect_stroke(
             Rect::from_two_pos(to(-half, half), to(half, -half)),
             0.0,
-            Stroke::new(1.0, Color32::from_rgb(90, 96, 110)),
+            Stroke::new(1.0, ink.border),
             egui::StrokeKind::Inside,
         );
         p.circle_filled(
@@ -371,7 +372,7 @@ impl PackingView {
         p.circle_stroke(
             to(0.0, 0.0),
             big_r as f32 * s,
-            Stroke::new(1.5, Color32::from_rgb(170, 176, 190)),
+            Stroke::new(1.5, ink.muted),
         );
         let n = (self.shown.floor() as usize).min(self.placements.len());
         let r2 = (r_p * r_p) as f32;
@@ -401,17 +402,17 @@ impl PackingView {
             );
         }
         let c = self.counts();
-        let white = Color32::from_rgb(225, 230, 240);
+        let white = ink.text;
         let mut lines: Vec<(String, Color32)> = Vec::new();
         let mut line = |text: String, colour: Color32| lines.push((text, colour));
         match &self.plan {
             None => line(
                 "pack_in_ball is running in the worker…".into(),
-                Color32::from_rgb(250, 200, 80),
+                ink.warn,
             ),
             Some(_) if self.attempt != self.wanted_attempt() => line(
                 "replaying the packer in the worker…".into(),
-                Color32::from_rgb(250, 200, 80),
+                ink.warn,
             ),
             Some((attempts, _)) => {
                 let a = self.attempt.and_then(|i| attempts.get(i)).copied();
@@ -439,8 +440,8 @@ impl PackingView {
                     c.kept, c.ball_fraction
                 );
                 let colour = match (self.mode, c.placed == self.placements.len()) {
-                    (CutMode::Drop, true) => Color32::from_rgb(255, 110, 110),
-                    (CutMode::Fix, true) => Color32::from_rgb(130, 220, 140),
+                    (CutMode::Drop, true) => ink.error,
+                    (CutMode::Fix, true) => ink.ok,
                     _ => white,
                 };
                 line(ball, colour);
@@ -465,7 +466,7 @@ impl PackingView {
         }
         line(
             "slice z = 0 of the real packing; counts over all particles".into(),
-            Color32::from_rgb(150, 156, 170),
+            ink.muted,
         );
         // The numbers on a dark backdrop, wrapped to the view, so they read
         // over the particles with the panel folded.
@@ -483,7 +484,7 @@ impl PackingView {
                 Vec2::new(w + 12.0, h + 6.0),
             ),
             5.0,
-            Color32::from_rgba_unmultiplied(14, 16, 20, 200),
+            ink.backing,
         );
         let mut y = top;
         for g in galleys {
@@ -505,7 +506,7 @@ impl PackingView {
                 Vec2::new(3.0 * (bw + 4.0) + 12.0, 42.0),
             ),
             6.0,
-            Color32::from_rgba_unmultiplied(14, 16, 20, 215),
+            ink.backing,
         );
         for (k, (m, l)) in labels.iter().enumerate() {
             let b = Rect::from_min_size(
@@ -571,14 +572,15 @@ pub struct Counts {
 /// [`PackingView::counts`] and the replay.
 fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64) {
     let p = painter.with_clip_rect(rect);
-    p.rect_filled(rect, 4.0, Color32::from_rgb(20, 23, 29));
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    p.rect_filled(rect, 4.0, ink.card);
     let total = v.placements.len().max(1);
     let n = (v.shown.floor() as usize).min(v.placements.len());
     let (r_p, big_r, _, _) = params();
     let vol = 4.0 / 3.0 * std::f64::consts::PI * r_p.r_powi(3);
     let cube = (2.0 * (big_r + r_p)).r_powi(3);
     let unit_ball = (r_p / big_r).r_powi(3);
-    let grey = Color32::from_rgb(150, 156, 170);
+    let grey = ink.muted;
     let font = |s: f32| egui::FontId::proportional(s);
     let (top, bottom) = rect.split_top_bottom_at_fraction(0.6);
     // Packing fractions.
@@ -591,7 +593,7 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
         egui::Align2::LEFT_TOP,
         "packing fraction as placement goes",
         font(12.5),
-        Color32::from_rgb(210, 216, 226),
+        ink.text,
     );
     let ymax = 0.40;
     let at = |i: usize, f: f64| {
@@ -604,7 +606,7 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
         let yy = at(0, f).y;
         p.line_segment(
             [Pos2::new(a.left(), yy), Pos2::new(a.right(), yy)],
-            Stroke::new(1.0, Color32::from_rgb(40, 44, 54)),
+            Stroke::new(1.0, ink.grid),
         );
         p.text(
             Pos2::new(a.left() - 4.0, yy),
@@ -617,7 +619,7 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
     // Target (dashed) and RSA's limit.
     p.add(egui::Shape::dashed_line(
         &[at(0, target), at(total, target)],
-        Stroke::new(1.2, Color32::from_rgb(130, 220, 140)),
+        Stroke::new(1.2, ink.accent(5)),
         6.0,
         4.0,
     ));
@@ -644,32 +646,32 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
         .collect();
     p.add(egui::Shape::line(
         cube_line,
-        Stroke::new(1.6, Color32::from_rgb(120, 170, 255)),
+        Stroke::new(1.6, ink.accent(0)),
     ));
     p.add(egui::Shape::line(
         ball_line,
-        Stroke::new(1.6, Color32::from_rgb(230, 126, 40)),
+        Stroke::new(1.6, ink.accent(1)),
     ));
     p.text(
         a.right_top() + Vec2::new(-4.0, 2.0),
         egui::Align2::RIGHT_TOP,
         "cube (all placed)",
         font(10.5),
-        Color32::from_rgb(120, 170, 255),
+        ink.accent(0),
     );
     p.text(
         a.right_top() + Vec2::new(-4.0, 16.0),
         egui::Align2::RIGHT_TOP,
         "whole in the ball",
         font(10.5),
-        Color32::from_rgb(230, 126, 40),
+        ink.accent(1),
     );
     p.text(
         a.right_top() + Vec2::new(-4.0, 30.0),
         egui::Align2::RIGHT_TOP,
         "asked",
         font(10.5),
-        Color32::from_rgb(130, 220, 140),
+        ink.accent(5),
     );
     // Trials per placement, running mean over a window.
     let b = Rect::from_min_max(
@@ -681,7 +683,7 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
         egui::Align2::LEFT_TOP,
         "trials per placement (mean of 200)",
         font(12.5),
-        Color32::from_rgb(210, 216, 226),
+        ink.text,
     );
     let w = 200usize;
     let mut pts = Vec::new();
@@ -707,7 +709,7 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
     }
     p.line_segment(
         [b.left_bottom(), b.right_bottom()],
-        Stroke::new(1.0, Color32::from_rgb(60, 64, 74)),
+        Stroke::new(1.0, ink.border),
     );
     p.text(
         Pos2::new(b.left() - 4.0, b.top()),
@@ -725,7 +727,7 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
     );
     p.add(egui::Shape::line(
         pts,
-        Stroke::new(1.6, Color32::from_rgb(250, 200, 80)),
+        Stroke::new(1.6, ink.accent(4)),
     ));
     p.text(
         Pos2::new(b.center().x, rect.bottom() - 3.0),
