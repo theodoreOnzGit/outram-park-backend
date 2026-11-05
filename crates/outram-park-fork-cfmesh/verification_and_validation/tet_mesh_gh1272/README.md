@@ -170,10 +170,13 @@ show cut edges only); the patch of each boundary face (not coloured).
 
 See the `pipeline::tet_mesh` docs for the step-by-step table.
 
-- `surfaceMorpherCells`, `topologicalCleaner` (topology track): skipped.
-- `meshSurfaceOptimizer::untangleSurface` / `optimizeSurface` and
+- ~~`surfaceMorpherCells`, `topologicalCleaner` (topology track): skipped.~~
+  **CORRECTED 2026-11-05:** called since gh:#1267 landed (re-measurement
+  below).
+- ~~`meshSurfaceOptimizer::untangleSurface` / `optimizeSurface` and
   `meshOptimizer::optimizeSurface` (surface track): skipped. Tangled mapping
-  moves are reverted instead.
+  moves are reverted instead.~~ **CORRECTED 2026-11-05:** called since
+  gh:#1259 landed; nothing is reverted any more.
 - `edgeExtractor` (patch assignment): the nearest triangle stands in.
 - `boundaryLayers`, `refineBoundaryLayers` (layers track): not offered. The
   workflow runs as upstream does without a `boundaryLayers` dict.
@@ -212,3 +215,34 @@ the gaps.
 - R3. Volume error within ±3 % on the sphere and ±2 % on the pipe (the
   boundary now reaches the surface).
 - R4. `untangleSurface` leaves 0 inverted points after the projection.
+
+**Results (2026-11-05, same tests and setups):**
+
+| case | route | cells | volume error | non-positive | non-manifold boundary points | max non-orth | max skew | time |
+|---|---|---|---|---|---|---|---|---|
+| sphere | `tet_mesh` | 12 840 | **−1.36 %** | 0 | 0 | 51.56° | 0.437 | 0.19 s |
+| sphere | baseline | 21 888 | −1.72 % | 0 | — | 80.23° | 0.402 | 2.56 s |
+| pipe | `tet_mesh` | 31 136 | **−0.29 %** | 0 | 0 | 67.16° | 0.624 | 1.53 s |
+| pipe | baseline | 57 600 | −0.54 % | 0 | — | 68.42° | 0.412 | 0.32 s |
+
+- R1 held: one `surfacePreparation` pass. The morpher removed 1 128 cells
+  (sphere) and 3 424 (pipe); no non-manifold boundary point is left.
+- R2 held.
+- R3 held, inside both bounds: −1.36 % and −0.29 %. `tetMesh` as upstream is
+  now closer to the surface than the crate's tets at the same cell size,
+  with 41–46 % fewer cells and a lower maximum non-orthogonality on the
+  sphere (51.6° against 80.2°).
+- R4 held: `untangleSurface` took the pipe from 27 inverted points to 0;
+  the sphere had none.
+- Pipe patches after renaming: inlet 332, outlet 332, walls 3 424 faces.
+  `correctEdgesBetweenPatches` changed nothing on this mesh.
+- Upstream steps still not in the workflow: `edgeExtractor` (the nearest
+  triangle stands in), `boundaryLayers` / `refineBoundaryLayers` (no dict),
+  `symmetryPlaneOptimisation`.
+
+The images above were regenerated after this re-run.
+~~"In the `tet_mesh` images the boundary is still on the octree"~~
+**CORRECTED 2026-11-05:** the boundary now lies on the surface trace all
+round in `sphere_xz_tet_mesh.png`, `sphere_xy_tet_mesh.png` and
+`pipe_xy_tet_mesh.png` (checked), with no fold and no detached tets. The
+template images are unchanged.

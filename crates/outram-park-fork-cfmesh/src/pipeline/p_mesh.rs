@@ -30,13 +30,14 @@
 //! ([`crate::voronoi_mesh_extractor`]) and upstream's differences:
 //!
 //! - `surfaceTopology` is `surfaceMorpherCells` alone (no
-//!   `topologicalCleaner` loop); not ported, noted.
+//!   `topologicalCleaner` loop).
 //! - `surfaceProjection` runs `preMapVertices` first (not ported, surface
 //!   track; noted).
-//! - `edgeExtraction` uses `meshSurfaceEdgeExtractorFUN` (not ported; the
-//!   same stand-in as `tetMesh`) and `optimiseMeshSurface` also untangles.
+//! - `edgeExtraction` uses `meshSurfaceEdgeExtractorFUN` (not ported;
+//!   `surface_mapper`'s patch mapping stands in), and `optimiseMeshSurface`
+//!   untangles once more after `optimizeSurface`.
 //! - `meshOptimisation` runs `meshSurfaceOptimizer::optimizeSurface` before
-//!   the volume optimiser (not ported, noted).
+//!   the volume optimiser, in place of `meshOptimizer::optimizeSurface`.
 //! - `workflowCompleted` is never called: the meta data stays on the mesh
 //!   (upstream as written).
 //!
@@ -58,7 +59,7 @@ pub fn p_mesh_restart(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Sur
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::mesh_octree_creator::MeshDict;
     use crate::pipeline::tet_mesh::create_octree;
@@ -260,9 +261,10 @@ mod tests {
     }
 
     /// V&V (gh:#1273), prediction 5: the `pMesh` workflow on the sphere and
-    /// the pipe against `tetMesh`. Results (2026-11-05): −0.97 % (sphere,
-    /// 1 749 cells) and −0.05 % (pipe, 4 303 cells), 0 non-positive;
-    /// prediction 5 missed the other way (record: `p_mesh_gh1273/`).
+    /// the pipe against `tetMesh`. Results (2026-11-05), with gh:#1267 /
+    /// #1259 wired in: −1.54 % (sphere, 1 749 cells) and −0.35 % (pipe,
+    /// 4 303 cells), 0 non-positive. Before they landed: −0.97 % / −0.05 %.
+    /// Record: `p_mesh_gh1273/`.
     #[test]
     fn diagnose_p_mesh_workflow() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);

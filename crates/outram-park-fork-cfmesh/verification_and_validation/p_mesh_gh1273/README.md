@@ -76,6 +76,34 @@ The second needs `--features cell-centre-dual`.
 - `pMesh` never calls `workflowCompleted`, so the meta data stays on the
   mesh. This is asserted, and is upstream as written.
 
+### Re-measurement after the topology and surface tracks landed
+
+The table above was measured with the gaps (no `surfaceMorpherCells`, and
+tangled moves reverted instead of untangled). Since gh:#1267 and gh:#1259
+merged, `pMesh` calls `surfaceMorpherCells`, `untangleSurface` and
+`optimizeSurface` in upstream's places. **I wrote no prediction for this
+re-run** (the `tetMesh` predictions R1–R4 were written; I did not extend
+them to `pMesh`), so these numbers are a measurement, not a test of a
+prediction.
+
+| case | cells | volume error | non-positive | max non-orth | max skew | time |
+|---|---|---|---|---|---|---|
+| sphere 0.5 m | 1 749 | **−1.54 %** | 0 | 18.1° | 0.508 | 0.14 s |
+| pipe 2 mm | 4 303 | **−0.35 %** | 0 | **75.9°** | 0.861 | 2.05 s |
+
+- `surfaceMorpherCells` removed no cell on either case (the Voronoi
+  template already has one boundary face per cell's side), and
+  `untangleSurface` found no inverted point.
+- The volume errors moved from −0.97 % / −0.05 % to −1.54 % / −0.35 %.
+  The only steps that changed are the surface optimiser's, so the movement
+  is theirs; which moves cause it was not traced. Recorded, not tuned.
+- **The pipe's maximum non-orthogonality rose from 24.5° to 75.9°**, and
+  `optimizeLowQualityFaces` left its 16 low-quality faces at 16. Where the
+  bad faces are has not been located; it needs a look before this mesh is
+  used for a solve.
+- The images were regenerated after this re-run and show the same picture
+  as described below.
+
 ## Images
 
 Written by `examples/tet_mesh_images.rs` (command in `../tet_mesh_gh1272/`).
@@ -97,6 +125,8 @@ Written by `examples/tet_mesh_images.rs` (command in `../tet_mesh_gh1272/`).
 
 ## Not ported (see the `pipeline::p_mesh` docs)
 
-`surfaceMorpherCells`, `preMapVertices`, `meshSurfaceEdgeExtractorFUN`,
-`meshSurfaceOptimizer` (`optimizeSurface`, `untangleSurface`),
+~~`surfaceMorpherCells`,~~ `preMapVertices`, `meshSurfaceEdgeExtractorFUN`,
+~~`meshSurfaceOptimizer` (`optimizeSurface`, `untangleSurface`),~~
 `edgeExtractor`, `boundaryLayers`, `refineBoundaryLayers`.
+**CORRECTED 2026-11-05:** `surfaceMorpherCells` (gh:#1267) and
+`meshSurfaceOptimizer` (gh:#1259) are called since they landed.

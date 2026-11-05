@@ -153,13 +153,15 @@ change it once. Upstream's `findNearestSurfacePoint` is not exact;
 body. Their templates are `tet_creator_octree` + `tet_mesh_extractor_octree`
 and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
 `rename_boundary_patches` are the workflow's own steps. They do **not**
-change `surface_to_tet_dual_mesh`. Steps whose upstream callees belong to
-other tracks (`surfaceMorpherCells`, `topologicalCleaner`,
-`meshSurfaceOptimizer`, `edgeExtractor`, `boundaryLayers`) call what exists
-and say so in `TetMeshReport::notes`; when one of those lands, wire it in
-there and **re-measure** the records in
-`verification_and_validation/tet_mesh_gh1272/` and `p_mesh_gh1273/`. Today
-`tet_mesh`'s volume error (+26.7 % on the sphere) measures exactly those
-missing steps. The octree tet template has non-manifold boundary points
-(upstream's own tets in coarse `BOUNDARY` leaves), so `polyDualMesh`
-(`CellCentre`) refuses it on the sphere and the pipe.
+change `surface_to_tet_dual_mesh`. They call the topology track's
+`surfaceMorpherCells` / `topologicalCleaner` and the surface track's
+`meshSurfaceOptimizer` in upstream's places. Steps still missing
+(`edgeExtractor`, `boundaryLayers`, `preMapVertices`,
+`meshSurfaceEdgeExtractorFUN`) call what exists and say so in
+`TetMeshReport::notes`. When one of those lands, wire it in there and
+**re-measure** the records in `verification_and_validation/tet_mesh_gh1272/`
+and `p_mesh_gh1273/` (wiring the first two tracks moved `tet_mesh`'s sphere
+volume error from +26.7 % to −1.36 %). The raw octree tet template has
+non-manifold boundary points (upstream's own tets in coarse `BOUNDARY`
+leaves), which `surfacePreparation` removes; `polyDualMesh` (`CellCentre`)
+refuses the raw template on the sphere and the pipe.

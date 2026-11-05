@@ -37,12 +37,12 @@
 //! | step | upstream | here |
 //! |---|---|---|
 //! | `templateGeneration` | `tetMeshExtractorOctree` | [`crate::tet_creator_octree`], [`crate::tet_mesh_extractor_octree`] (ported) |
-//! | `surfaceTopology` | `surfaceMorpherCells` + `topologicalCleaner` | **not ported** (topology track, gh:#1267): skipped, noted |
-//! | `surfaceProjection` | `meshSurfaceMapper::mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | `surface_mapper::map_vertices_onto_surface_untangled`: the mapping, with tangled moves reverted instead of untangled |
+//! | `surfaceTopology` | `surfaceMorpherCells` + `topologicalCleaner` (repeated while the cleaner changes the mesh) | `topology::{surface_morpher_cells, topological_cleaner}` (gh:#1267) |
+//! | `surfaceProjection` | `meshSurfaceMapper::mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | `surface_optimizer::map_mesh_to_surface` (gh:#1259) |
 //! | `patchAssignment` | `edgeExtractor` | **not ported** (not this track): `patches::assign_patches_by_region` (nearest triangle) stands in |
-//! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, `meshSurfaceOptimizer::optimizeSurface` | the first as ported: `correct_edges::correct_edges_between_patches` then `surface_mapper::map_vertices_onto_surface_patches_untangled_given` (moves that tangle a cell reverted); the second **not ported** (surface track, gh:#1259) |
+//! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, `meshSurfaceOptimizer::optimizeSurface` | `correct_edges::correct_edges_between_patches` then `surface_mapper::map_vertices_onto_surface_patches_given` (`decomposeBoundaryFaces`, `remapBoundaryPoints`); `surface_optimizer::optimise_mesh_surface` |
 //! | `boundaryLayerGeneration` | `boundaryLayers`, only with a `boundaryLayers` dict | no such dict here: nothing to do, as upstream without one |
-//! | `meshOptimisation` | `meshOptimizer`: `optimizeSurface`, `optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, `untangleMeshFV` | `mesh_optimizer` with upstream's boundary moves and LP untangler on; `optimizeSurface` **not ported** (surface track); `optimizeBoundaryLayer` has no layer to act on |
+//! | `meshOptimisation` | `meshOptimizer`: `optimizeSurface`, `optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, `untangleMeshFV` | `mesh_optimizer` (`optimize_surface`, and the volume drivers with upstream's boundary moves and LP untangler on); `optimizeBoundaryLayer` has no layer to act on |
 //! | `boundaryLayerRefinement` | `refineBoundaryLayers`, only with a `boundaryLayers` dict | nothing to do |
 //! | (always) | `renumberMesh`, `renameBoundaryPatches` | [`crate::renumber_mesh`], [`crate::rename_boundary_patches`] (ported) |
 //!
@@ -563,11 +563,12 @@ pub(crate) mod tests {
     /// the crate's `tetrahedralize` + `flip_to_delaunay` on the sphere
     /// (0.5 m) and the pipe (2 mm), at equal cell size. Records tet count,
     /// volume error against the surface, `check_quality`, run time.
-    /// Results (2026-11-05): volume error sphere +26.69 % (baseline −1.72 %),
-    /// pipe +22.33 % (−0.54 %), 0 non-positive cells, closed; cells 13 968 /
-    /// 35 416 against 21 888 / 57 600. The error measures the unported
-    /// `surfaceMorpherCells` / `untangleSurface` (record:
-    /// `verification_and_validation/tet_mesh_gh1272/README.md`).
+    /// Results (2026-11-05), with gh:#1267 / #1259 wired in: volume error
+    /// sphere −1.36 % (baseline −1.72 %), pipe −0.29 % (−0.54 %), 0
+    /// non-positive cells, closed, 0 non-manifold boundary points; cells
+    /// 12 840 / 31 136 against 21 888 / 57 600. (Before those tracks landed:
+    /// +26.69 % / +22.33 %, the missing steps.) Record:
+    /// `verification_and_validation/tet_mesh_gh1272/README.md`.
     #[test]
     fn diagnose_tet_mesh_against_the_crate_tets() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
@@ -593,7 +594,7 @@ pub(crate) mod tests {
             println!("{name}: tet_mesh cells {} vol {:.6e} err {err:+.3} % nonpos {} validate {v:?} non-orth {:.2} skew {:.3} time {dt:.2} s", m.n_cells, m.total_volume(), n_nonpositive_cells(&m), q.max_non_orthogonality_deg, q.max_skewness);
             println!("{name}: template cells {} vol {:.6e} non-orth {:.2} skew {:.3}", tm.n_cells, tm.total_volume(), qt.max_non_orthogonality_deg, qt.max_skewness);
             println!("{name}: baseline cells {} vol {:.6e} err {berr:+.3} % nonpos {} non-orth {:.2} skew {:.3} time {bt:.2} s", b.n_cells, b.total_volume(), n_nonpositive_cells(&b), qb.max_non_orthogonality_deg, qb.max_skewness);
-            println!("{name}: patches {:?} types {:?}", m.patches.iter().map(|x| (x.name.clone(), x.n_faces)).collect::<Vec<_>>(), rep.patch_types);
+            println!("{name}: patches {:?} types {:?}; non-manifold boundary points {}", m.patches.iter().map(|x| (x.name.clone(), x.n_faces)).collect::<Vec<_>>(), rep.patch_types, crate::pipeline::p_mesh::tests::non_manifold_boundary_points(&m));
             for n in &rep.notes {
                 println!("  {n}");
             }

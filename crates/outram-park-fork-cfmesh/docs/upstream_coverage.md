@@ -61,7 +61,7 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
 | `executables/tetMesh` | 65 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh::{tet_mesh, tet_mesh_restart}`; `pipeline::surface_to_tet_dual_mesh(_multipatch)` kept | Thin `main` over `tetMeshGenerator`. Settings are typed (`TetMeshOptions`); no `meshDict` reader. |
-| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle. No `boundaryLayers` dict and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
+| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`. No `boundaryLayers` dict and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
 | `meshLibrary/tetMesh/tetMeshExtractorOctree` | 386 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_mesh_extractor_octree` (with the shared `polyMeshGen` assembly `poly_mesh_from_cells`) | Beside `tet::tetrahedralize` + `delaunay::flip_to_delaunay` (§3); compared on the sphere and the pipe. |
 | `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_creator_octree` | All five tet routines. Upstream's unguarded reads are counted (`TetCreatorDefects`), zero on every run. |
 | `executables/cartesianMesh` | 62 | not ported | — | Thin `main` over `cartesianMeshGenerator`. |
@@ -705,24 +705,27 @@ miss are `verification_and_validation/tet_mesh_gh1272/README.md` and
   - `edgeExtraction` calls the ported `meshSurfaceEdgeExtractorNonTopo`
     route (`correct_edges` + `surface_mapper`).
   - **Gaps, called through what exists and noted per run:**
-    `surfaceMorpherCells` + `topologicalCleaner` (topology track),
+    ~~`surfaceMorpherCells` + `topologicalCleaner` (topology track),
     `meshSurfaceOptimizer` and `meshOptimizer::optimizeSurface` (surface
-    track), `edgeExtractor`, `boundaryLayers` / `refineBoundaryLayers`
-    (layers track), `symmetryPlaneOptimisation`.
+    track),~~ `edgeExtractor`, `boundaryLayers` / `refineBoundaryLayers`
+    (layers track), `symmetryPlaneOptimisation`. **CORRECTED 2026-11-05:**
+    the struck steps are called since gh:#1267 and gh:#1259 merged.
   - **Differential (sphere 0.5 m / pipe 2 mm), against `tetrahedralize` +
-    `flip_to_delaunay`:** volume error +26.7 % / +22.3 % against
-    −1.72 % / −0.54 %; cells 13 968 / 35 416 against 21 888 / 57 600; the
-    octree template's non-orthogonality is 0. The volume error measures
-    the missing `surfaceMorpherCells` and `untangleSurface`: the boundary
-    stays on the DATA leaves.
+    `flip_to_delaunay`:** volume error ~~+26.7 % / +22.3 %~~ **−1.36 % /
+    −0.29 %** against −1.72 % / −0.54 %; cells ~~13 968 / 35 416~~
+    **12 840 / 31 136** against 21 888 / 57 600; the octree template's
+    non-orthogonality is 0. The struck numbers were measured before
+    gh:#1267 / #1259 landed, with the boundary left on the DATA leaves.
 - **Item 19 (gh:#1273), `pMesh`:** new module `voronoi_mesh_extractor`;
   `pipeline::p_mesh::{p_mesh, p_mesh_restart}`.
   - On the same tets the Voronoi cells are exactly the interior tet
     vertices, and equal `CellCentre`'s cells to 9.8e-15 where
     `polyDualMesh` accepts the tets (box). It refuses the sphere and pipe
     templates (96 / 2 240 non-manifold boundary points).
-  - The workflow: −0.97 % (sphere) and −0.05 % (pipe) volume error, no
-    negative cell.
+  - The workflow: ~~−0.97 % (sphere) and −0.05 % (pipe)~~ **−1.54 % and
+    −0.35 %** (after gh:#1267 / #1259 were wired in) volume error, no
+    negative cell. The pipe's maximum non-orthogonality rose to 75.9° on
+    that re-run (not yet located).
 
 **Findings on the way, not fixed:**
 - the octree tet template has non-manifold boundary points, made by
