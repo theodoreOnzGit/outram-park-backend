@@ -1562,8 +1562,8 @@ mod tests {
     /// nodes, both cells become `BOUNDARY`, pass 2 finds (0, 0): passes
     /// `[(1, 0), (0, 0)]`, no cells left.
     ///
-    /// **Result (2026-11-05):** see the assertion; recorded in the V&V
-    /// README.
+    /// **Result (2026-11-05): as predicted.** Leaves 362 and 419: passes
+    /// `[(1, 0), (0, 0)]`, no cell left.
     #[test]
     fn irregular_edge_between_two_diagonal_cells_is_removed() {
         let (o, _) = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) });

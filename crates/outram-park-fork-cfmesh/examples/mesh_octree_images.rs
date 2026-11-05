@@ -9,7 +9,11 @@
 //!
 //! ```text
 //! cargo run --release -p outram-park-fork-cfmesh --example mesh_octree_images -- <out_dir>
+//! cargo run --release -p outram-park-fork-cfmesh --example mesh_octree_images -- <out_dir> remainders
 //! ```
+//!
+//! The second form draws only the octree remainders (gh:#1278 automatic
+//! refinement, gh:#1264–#1266 sources, glued regions, cell selection).
 //!
 //! Every image is rendered from the **assembled** structure: each pixel
 //! asks the octree for the leaf containing it (`findLeafContainingVertex`),
@@ -24,12 +28,13 @@
 //! writer but depends on this crate). `main` and drawing glue: no test
 //! reaches them (workspace rule exception for GUI/CLI glue).
 
-use outram_park_fork_cfmesh::cartesian_mesh::{cartesian_mesh_extractor, CartesianMeshOptions};
+use outram_park_fork_cfmesh::cartesian_mesh::{cartesian_mesh_extractor, cartesian_mesh_extractor_from_dict, CartesianMeshOptions};
 use outram_park_fork_cfmesh::math::Vec3;
 use outram_park_fork_cfmesh::mesh_octree::{CubeType, MeshOctree, TriSurf};
-use outram_park_fork_cfmesh::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
+use outram_park_fork_cfmesh::mesh_octree_automatic_refinement::MeshOctreeAutomaticRefinement;
+use outram_park_fork_cfmesh::mesh_octree_creator::{EdgeMesh, EdgeMeshRefinement, MeshDict, MeshOctreeCreator};
 use outram_park_fork_cfmesh::object_refinement::{ObjectRefinement, ObjectShape};
-use outram_park_fork_cfmesh::shapes::{box_surface, cylinder_surface, sphere_surface};
+use outram_park_fork_cfmesh::shapes::{box_surface, box_surface_subdivided, cylinder_surface, sphere_surface};
 use outram_park_fork_cfmesh::volume_mesh::VolumeMesh;
 use std::sync::Arc;
 
@@ -409,9 +414,112 @@ fn creator(surf: Arc<TriSurf>, dict: MeshDict) -> MeshOctree {
     o
 }
 
+/// The octree remainders (gh:#1278 second half, gh:#1264/#1265/#1266
+/// remainders): automatic refinement, refinement sources, glued regions and
+/// the patch cell-selection options.
+fn remainders(out: &str) {
+    let p = |n: &str| format!("{out}/{n}");
+    let sized = |surf: Arc<TriSurf>, dict: &MeshDict| {
+        let mut o = MeshOctree::new(surf);
+        let mut c = MeshOctreeCreator::new(&o, Some(dict.clone()));
+        c.set_root_cube_size_and_ref_parameters(&mut o);
+        c.refine_boundary(&mut o);
+        o
+    };
+
+    // Proximity: slab [0,1]^2 x [0, 0.05], maxCellSize 0.125, minCellSize 0.005.
+    let (sp, st, _) = box_surface_subdivided(Vec3::ZERO, Vec3::new(1.0, 1.0, 0.05), 0.02);
+    let slab = Arc::new(TriSurf::new(sp, st, None));
+    let dict = MeshDict { min_cell_size: Some(0.005), ..MeshDict::with_max_cell_size(0.125) };
+    let before = sized(Arc::clone(&slab), &dict);
+    let mut after = before.clone();
+    let mut a = MeshOctreeAutomaticRefinement::new(&after, dict.min_cell_size, dict.max_cell_size, false, false);
+    a.proximity_refinement(&mut after);
+    let xz = Slice { axis: 1, at: 0.5001, lo: (-0.05, -0.2), hi: (1.05, 0.25), px: 900 };
+    let xz_zoom = Slice { axis: 1, at: 0.5001, lo: (0.35, -0.05), hi: (0.5, 0.1), px: 800 };
+    draw(&before, &xz, Colouring::Level, None, "SLAB GAP 0.05 BEFORE PROXIMITY", &p("slab_xz_level_before.png"));
+    draw(&after, &xz, Colouring::Level, None, "SLAB GAP 0.05 PROXIMITY", &p("slab_xz_level.png"));
+    draw(&after, &xz_zoom, Colouring::Level, None, "SLAB GAP ZOOM", &p("slab_xz_level_zoom.png"));
+
+    // Curvature: sphere R 3, maxCellSize 1, minCellSize 0.1.
+    let (qp, qt) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+    let sphere = Arc::new(TriSurf::new(qp, qt, None));
+    let sd = MeshDict { min_cell_size: Some(0.1), ..MeshDict::with_max_cell_size(1.0) };
+    let s0 = sized(Arc::clone(&sphere), &sd);
+    let mut s1 = s0.clone();
+    MeshOctreeAutomaticRefinement::new(&s1, sd.min_cell_size, sd.max_cell_size, false, false).curvature_refinement(&mut s1);
+    let sxz = Slice { axis: 1, at: 0.01, lo: (-4.0, -4.0), hi: (4.0, 4.0), px: 800 };
+    draw(&s0, &sxz, Colouring::Level, None, "SPHERE R3 BEFORE CURVATURE", &p("sphere_xz_level_before_curvature.png"));
+    draw(&s1, &sxz, Colouring::Level, None, "SPHERE R3 CURVATURE", &p("sphere_xz_level_curvature.png"));
+
+    // Edge-mesh source in the cube [0, 8]^3 (z = 4.1), 2 levels, thickness 0 and 1.
+    let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(8.0, 8.0, 8.0));
+    let cube = Arc::new(TriSurf::new(bp, bt, None));
+    let (s, e) = (Vec3::new(1.3, 2.1, 4.1), Vec3::new(6.7, 5.9, 4.1));
+    for (th, name) in [(0.0, "edge_source_xy_level.png"), (1.0, "edge_source_thick_xy_level.png")] {
+        let d = MeshDict {
+            edge_mesh_refinement: vec![EdgeMeshRefinement {
+                name: "line".into(),
+                edge_mesh: Arc::new(EdgeMesh { points: vec![s, e], edges: vec![[0, 1]] }),
+                cell_size: None,
+                additional_levels: Some(2),
+                refinement_thickness: th,
+            }],
+            ..MeshDict::with_max_cell_size(1.0)
+        };
+        let o = creator(Arc::clone(&cube), d);
+        let z = Slice { axis: 2, at: 4.1, lo: (-0.5, -0.5), hi: (8.5, 8.5), px: 800 };
+        draw(&o, &z, Colouring::Level, None, &format!("EDGE SOURCE THICKNESS {th}"), &p(name));
+    }
+
+    // Glued regions: two unit cubes 0.05 apart, DATA boxes kept.
+    let (mut gp, mut gt) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+    let (gp2, gt2) = box_surface(Vec3::new(1.05, 0.0, 0.0), Vec3::new(2.05, 1.0, 1.0));
+    let off = gp.len();
+    gp.extend(gp2);
+    gt.extend(gt2.iter().map(|t| [t[0] + off, t[1] + off, t[2] + off]));
+    let regions: Vec<usize> = (0..gt.len()).map(|i| i / 12).collect();
+    let boxes = Arc::new(TriSurf::new(gp, gt, Some(regions)));
+    let gd = MeshDict { keep_cells_intersecting_boundary: true, ..MeshDict::with_max_cell_size(0.2) };
+    let go = creator(boxes, gd.clone());
+    let opts = CartesianMeshOptions { use_data_boxes: true, ..CartesianMeshOptions::default() };
+    let glued = cartesian_mesh_extractor_from_dict(&go, &opts, &gd);
+    let checked = cartesian_mesh_extractor_from_dict(&go, &opts, &MeshDict { check_for_glued_mesh: true, ..gd });
+    let gz = Slice { axis: 2, at: 0.5001, lo: (-0.3, -0.3), hi: (2.35, 1.3), px: 900 };
+    draw(&go, &gz, Colouring::Type, Some(&glued.mesh), "TWO BOXES GLUED", &p("two_boxes_xy_glued.png"));
+    draw(&go, &gz, Colouring::Type, Some(&checked.mesh), "TWO BOXES CHECKFORGLUEDMESH", &p("two_boxes_xy_checked.png"));
+
+    // removeCellsIntersectingPatches [inlet] on the pipe, DATA boxes kept.
+    let (pp, pt) = cylinder_surface(Vec3::ZERO, 0.01, 0.06, 48);
+    let pr: Vec<usize> = pt
+        .iter()
+        .map(|t| {
+            let z = [pp[t[0]].z, pp[t[1]].z, pp[t[2]].z];
+            let flat = (z[0] - z[1]).abs() < 1e-12 && (z[1] - z[2]).abs() < 1e-12;
+            match (flat, z[0] < 0.03) {
+                (true, true) => 1,
+                (true, false) => 2,
+                _ => 0,
+            }
+        })
+        .collect();
+    let pipe_surf = Arc::new(TriSurf::new(pp, pt, Some(pr)));
+    let inlet = pipe_surf.patches[1].name.clone();
+    let pd = MeshDict { boundary_cell_size: Some(0.001), ..MeshDict::with_max_cell_size(0.004) };
+    let po = creator(pipe_surf, pd);
+    let rd = MeshDict { keep_cells_intersecting_boundary: true, remove_cells_intersecting_patches: vec![inlet], ..MeshDict::default() };
+    let pm = cartesian_mesh_extractor_from_dict(&po, &opts, &rd);
+    let pxz = Slice { axis: 1, at: 0.0001, lo: (-0.015, -0.005), hi: (0.015, 0.012), px: 800 };
+    draw(&po, &pxz, Colouring::Type, Some(&pm.mesh), "PIPE DATA BOXES REMOVE INLET", &p("pipe_xz_remove_inlet.png"));
+}
+
 fn main() {
     let out = std::env::args().nth(1).unwrap_or_else(|| "mesh_octree_images".into());
     std::fs::create_dir_all(&out).expect("output dir");
+    if std::env::args().nth(2).as_deref() == Some("remainders") {
+        remainders(&out);
+        return;
+    }
     let p = |n: &str| format!("{out}/{n}");
 
     // Sphere R 3 m, maxCellSize 1.0, boundaryCellSize 0.25 (gh:#1264 test).
