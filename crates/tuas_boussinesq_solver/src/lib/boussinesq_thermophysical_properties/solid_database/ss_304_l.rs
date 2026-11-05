@@ -37,9 +37,9 @@ pub fn steel_304_l_spline_specific_heat_capacity_ciet_zweibaum(
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
     let thermal_cond_temperature_values_kelvin =
-        c!(250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0);
+        vec![250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0];
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
-        c!(443.3375, 457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746, 551.6812);
+        vec![443.3375, 457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746, 551.6812];
 
     let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
@@ -220,12 +220,12 @@ pub fn steel_304_l_spline_thermal_conductivity(
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
     let thermal_cond_temperature_values_kelvin =
-        c!(250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0);
+        vec![250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0];
     let thermal_conductivity_values_watt_per_meter_kelin =
-        c!(14.31, 14.94, 15.58, 16.21, 16.85, 17.48, 20.02, 23.83);
-    //let cp_values_watt_per_meter_kelin = c!(443.3375,
+        vec![14.31, 14.94, 15.58, 16.21, 16.85, 17.48, 20.02, 23.83];
+    //let cp_values_watt_per_meter_kelin = vec![443.3375,
     //    457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746,
-    //    551.6812);
+    //    551.6812];
 
     let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
@@ -318,7 +318,7 @@ pub fn verify_libreoffice_splines_work() {
     }
 
     let thermal_cond_temperature_values_kelvin =
-        c!(250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0);
+        vec![250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0];
 
     for temperature_value_kelvin in thermal_cond_temperature_values_kelvin.iter() {
         let temperature = ThermodynamicTemperature::new::<kelvin>(*temperature_value_kelvin);
@@ -393,9 +393,9 @@ pub fn steel_304_l_spline_specific_enthalpy_ciet_zweibaum(
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
     let specific_enthalpy_temperature_values_kelvin =
-        c!(250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0);
+        vec![250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0];
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
-        c!(443.3375, 457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746, 551.6812);
+        vec![443.3375, 457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746, 551.6812];
 
     let s = NaturalCubicSpline::new(
         &specific_enthalpy_temperature_values_kelvin,
@@ -557,7 +557,7 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
     // the idea is basically to evaluate enthalpy at the
     // following temperatures
     let temperature_values_kelvin: Vec<f64> =
-        c!(250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0);
+        vec![250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 700.0, 1000.0];
 
     // and then use that to formulate a spline,
     // with the spline, i'll evaluate enthalpy from temperature
