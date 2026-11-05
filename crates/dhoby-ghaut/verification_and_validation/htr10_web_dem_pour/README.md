@@ -120,18 +120,30 @@ Predictions were written first, in `PREDICTION.md`.
 - 18 ms per step while the pebbles fall loose, rising to 36 ms as they pack;
 - the worst probe answer 410 ms and the worst frame gap 233 ms.
 
-Assuming the dense phase keeps the native pour's step count (32 000) at about 40 ms, a full-cap pour in this browser takes about **20–25 min**. This is an extrapolation, not a measured settle.
+~~Assuming the dense phase keeps the native pour's step count (32 000) at about 40 ms, a full-cap pour in this browser takes about **20–25 min**. This is an extrapolation, not a measured settle.~~ **SUPERSEDED the same day:** measured on an idle machine at 17.5 min (above).
+
+**The cap, in the browser, end to end, on an idle machine** (`headless_cap_pour_idle.json`, `?autostart&pour=30687&workers=2`, built from develop `79896c3ad`, load average 1.0 before and 2.6–5.3 during):
+- **A measured settle:** 32 614 steps in **1 051 s (17.5 min)**, at 15–41 ms per step. This replaces the 20–25 min extrapolation below.
+- **Packing:** surface 206.1 cm, whole-core φ 0.6081, bulk φ 0.6100.
+- **The bed:** 28 191 core pebbles, 16 068 fuel (57.0 %), 10 pebbles cut at the 95 % line.
+- **g(r), measured in the worker** in 0.74 s, over 8 461 interior centres to 5 d: contact peak 19.49, g(√2 d) 0.587, g(√3 d) 1.297, g(2 d) 1.190. These are random packing values, at the reference's (19.56 / 0.599 / 1.286 / 1.190).
+- **The pool:** both workers built the core on it in 24.5 s (majorant 18.4 s), with wasm memory 498 and 685 MB. Generations 0–2 gave k = 1.154, 1.196, 1.147. A 28 000-pebble core is well past the 16 890-pebble critical loading, so k > 1 is expected; this is not a physics result.
+- **No lag, measured:**
+  - **frame gaps:** over the whole 1 550 s (pour, diagnostics, data processing, assembly, generations), the worst was **233 ms**, and only **5 of 50 388 frames** took over 100 ms;
+  - **probe:** the wheel-event probe answered with median 214 ms, 95th percentile 301 ms, worst 338 ms.
+  
+  This is with SwiftShader software rendering. The DEM demo's record shows most such time is the browser's own rasterising, and no GPU is available here. The UI never froze, so it meets the no-lag rule as far as this machine can measure. The earlier 450 ms and 2.45 s gaps came on the loaded machine.
 
 ## WGSL
 
 The maintainer said "Use WGSL from the LIGGGHTS fork if it needs speed up". This change **does not add a GPU timestep**:
 - **Nothing to reuse.** The fork's only WGSL kernel is the g(r) histogram, which is native-only. Its timestep deliberately has no GPU path: it is kept bit-identical to the scalar reference, which reproduces upstream LIGGGHTS (`outram-park-fork-liggghts/CLAUDE.md`, `compute`'s docs).
 - **What one would take.** A GPU timestep would be new physics code with its own verification (shear history on the GPU, agreement with the CPU path to be shown statistically rather than bit for bit).
-- **The case for it.** A full core pours in the browser in about 20–25 min (extrapolated above); 4 000 pebbles take 4 min.
+- **The case for it.** A full core at the cap pours in the browser in **17.5 min** (measured above; the earlier 20–25 min was an extrapolation). 4 000 pebbles take 4 min.
 - **Next step.** The decision is gh:#1250, for the maintainer.
 
 ## Not done here
 
 - No pour-to-pour scatter of k.
 - No k_eff on a full poured core in the browser.
-- The no-lag measurement on an idle machine.
+- ~~The no-lag measurement on an idle machine.~~ Done above; a measurement with a real GPU is not possible in this container.
