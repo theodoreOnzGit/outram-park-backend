@@ -183,7 +183,7 @@ and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
 change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
-(~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices`,
+(~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
 ~~`meshSurfaceEdgeExtractorFUN`~~ `createFundamentalSheetsJFS`) call what
 exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
 (gh:#1269):** `patchAssignment` runs `edge_extractor` (cfMesh's
@@ -199,3 +199,21 @@ volume error from +26.7 % to −1.36 %). The raw octree tet template has
 non-manifold boundary points (upstream's own tets in coarse `BOUNDARY`
 leaves), which `surfacePreparation` removes; `polyDualMesh` (`CellCentre`)
 refuses the raw template on the sphere and the pipe.
+
+## cfMesh's `cartesianMesh` (gh:#1274, 2026-11-05)
+
+`pipeline::cartesian_mesh` is `cartesianMeshGenerator`, a new entry point
+beside `tet_mesh`. It shares `create_octree`, `SavedMesh`,
+`PatchAssignment` and `face_regions` with it. Its template is
+`cartesian_mesh::cartesian_mesh_extractor`, and its `surfaceProjection`
+runs `premap_vertices` (`preMapVertices`, ported for it).
+
+**Upstream adds one boundary layer to every cartesianMesh, with no dict**
+(`addLayerForAllPatches`). Here that is `layers::boundary_layers` on all
+patches as **one group**. Upstream's patch-wise groups are not ported, so
+on multi-patch surfaces the rim layer differs from upstream.
+`without_boundary_layer` is the explicit ablation.
+
+The record (the differential against `carve_box` + `snap` and the
+tet-dual) and the images are in
+`verification_and_validation/cartesian_mesh_gh1274/`.

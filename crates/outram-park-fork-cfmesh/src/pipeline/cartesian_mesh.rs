@@ -466,6 +466,12 @@ pub(crate) mod tests {
         (n_hex, n_away)
     }
 
+    /// Volume enclosed by the triangulated surface (divergence theorem):
+    /// the floor any mesh of it can reach.
+    pub(crate) fn surface_volume(p: &[Vec3], t: &[[usize; 3]]) -> f64 {
+        t.iter().map(|x| p[x[0]].dot(p[x[1]].cross(p[x[2]])) / 6.0).sum()
+    }
+
     fn sphere_exact() -> f64 {
         4.0 / 3.0 * PI * 27.0
     }
@@ -501,6 +507,7 @@ pub(crate) mod tests {
     fn diagnose_cartesian_mesh_on_the_sphere() {
         let (p, t) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
         let exact = sphere_exact();
+        println!("faceted surface volume {:.6} ({:+.3} % of analytic)", surface_volume(&p, &t), (surface_volume(&p, &t) - exact) / exact * 100.0);
         let opts = CartesianMeshGeneratorOptions { dict: MeshDict::with_max_cell_size(0.5), ..Default::default() };
         let t0 = Instant::now();
         let (m, rep) = cartesian_mesh(&p, &t, None, &opts).unwrap();
@@ -516,6 +523,7 @@ pub(crate) mod tests {
         let t0 = Instant::now();
         let (ma, _) = cartesian_mesh(&p, &t, None, &ablated).unwrap();
         println!("{}", row("sphere", "cartesian_mesh without layer", &ma, exact, t0.elapsed().as_secs_f64()));
+        println!("layer volume change (with - without) / without: {:.3e}", (m.total_volume() - ma.total_volume()) / ma.total_volume());
         let t0 = Instant::now();
         let cs = snap_to_surface(&carve_box(&p, &t, 0.5), &p, &t);
         println!("{}", row("sphere", "carve_box + snap", &cs, exact, t0.elapsed().as_secs_f64()));
@@ -530,13 +538,15 @@ pub(crate) mod tests {
 
     /// V&V (gh:#1274), prediction C8: the pipe (R 10 mm, L 60 mm, 48 sides,
     /// `maxCellSize` 2 mm) and the Foam Studio pipe (L 200 mm, `maxCellSize`
-    /// 5 mm), same differential. Results: the README.
+    /// 5 mm, and again with `boundaryCellSize` 1.25 mm), same differential;
+    /// the baselines run at the boundary cell size. Results: the README.
     #[test]
     fn diagnose_cartesian_mesh_on_the_pipes() {
-        for (name, l, h) in [("pipe 60 mm", 0.06, 0.002), ("Foam Studio pipe 200 mm", 0.2, 0.005)] {
+        for (name, l, h, hb) in [("pipe 60 mm", 0.06, 0.002, None), ("Foam Studio pipe 200 mm", 0.2, 0.005, None), ("Foam Studio pipe 200 mm, boundaryCellSize 1.25 mm", 0.2, 0.005, Some(0.00125))] {
             let (p, t, r) = pipe_surface(0.01, l, 48);
             let exact = pipe_exact(0.01, l, 48);
-            let opts = CartesianMeshGeneratorOptions { dict: MeshDict::with_max_cell_size(h), ..Default::default() };
+            println!("{name}: faceted surface volume rel. to the 48-gon prism {:+.3e}", (surface_volume(&p, &t) - exact) / exact);
+            let opts = CartesianMeshGeneratorOptions { dict: MeshDict { boundary_cell_size: hb, ..MeshDict::with_max_cell_size(h) }, ..Default::default() };
             let t0 = Instant::now();
             let (m, rep) = cartesian_mesh(&p, &t, Some(&r), &opts).unwrap();
             let dt = t0.elapsed().as_secs_f64();
@@ -552,6 +562,8 @@ pub(crate) mod tests {
             let t0 = Instant::now();
             let (ma, _) = cartesian_mesh(&p, &t, Some(&r), &ablated).unwrap();
             println!("{}", row(name, "cartesian_mesh without layer", &ma, exact, t0.elapsed().as_secs_f64()));
+            println!("  layer volume change (with - without) / without: {:.3e}; non-positive right after the layer {}", (m.total_volume() - ma.total_volume()) / ma.total_volume(), rep.n_nonpositive_after_layer);
+            let h = hb.unwrap_or(h);
             let t0 = Instant::now();
             let cs = snap_to_surface(&carve_box(&p, &t, h), &p, &t);
             println!("{}", row(name, "carve_box + snap", &cs, exact, t0.elapsed().as_secs_f64()));
