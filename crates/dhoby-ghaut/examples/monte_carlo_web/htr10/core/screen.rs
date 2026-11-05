@@ -628,7 +628,7 @@ impl CoreScreen {
         // The reader's pour, while it is being poured or not yet used: the
         // pebbles themselves, not the core (gh:#1244).
         if self.pour.shown && self.pour.last.is_some() && (self.pour.running() || self.layers as usize != super::random_bed::USER_POUR) {
-            draw_pour(painter, rect, &self.slicer.view, self.pour.last.as_ref().map_or(&[][..], |s| &s.centres[..]));
+            draw_pour(painter, rect, &self.slicer.view, self.pour.last.as_ref().map_or(&[][..], |s| &s.centres[..]), ui.visuals());
             return;
         }
         self.slicer.param = self.layers;
@@ -922,14 +922,30 @@ impl CoreScreen {
         }
         if let Some(s) = &self.pour.last {
             if !s.settled && !running {
-                ui.colored_label(Color32::from_rgb(250, 200, 80), "This pour has not settled: a bed used now is a snapshot of falling pebbles.");
+                ui.colored_label(ui.visuals().warn_fg_color, "This pour has not settled: a bed used now is a snapshot of falling pebbles.");
             }
         }
         if let Some(e) = &self.pour.error {
-            ui.colored_label(Color32::from_rgb(240, 110, 100), e);
+            ui.colored_label(ui.visuals().error_fg_color, e);
         }
         if let Some(b) = &self.pour.bed {
             ui.label(super::pour::describe(b));
+        }
+        // Post-pour diagnostics (maintainer 2026-11-05): packing fractions and g(r).
+        if self.pour.last.is_some() && !running && self.pour.diagnostics.is_none() && !self.pour.finished() && ui.button("Measure this pour (φ, g(r))").clicked() {
+            self.pour.measure();
+        }
+        if let Some(d) = &self.pour.diagnostics {
+            egui::CollapsingHeader::new("Pour diagnostics: packing fraction and g(r)").default_open(true).show(ui, |ui| {
+                for l in d.lines() {
+                    ui.label(l);
+                }
+                if !d.g.is_empty() {
+                    rdf_plot(ui, d);
+                }
+            });
+        } else if self.pour.finished() {
+            ui.weak("Measuring the pour (φ, g(r)) in the worker…");
         }
         ui.weak("The pour is the LIGGGHTS port's (µ 0.1, E 5e8 Pa, dt 35 µs) on one thread in this page's worker; a full core takes tens of minutes in a browser. The core is then built as the baked DEM bed is, TRISO packed at random.");
         if running {
@@ -1202,15 +1218,16 @@ impl CoreScreen {
 /// pour's height (`z_core = z_DEM − h/2`, `h` the top of the highest pebble,
 /// the explicit bed's frame). GUI drawing, not reached by a test (the test
 /// rule's exception).
-fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::view::View, centres_m: &[f32]) {
+fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::view::View, centres_m: &[f32], visuals: &egui::Visuals) {
     use outram_park_fork_liggghts::htr10_fill::{wall_radius_at, VALVE_Z_M};
+    let theme = bugis::Theme::current(visuals);
     let r = super::pour::R_CM;
-    painter.rect_filled(rect, 0.0, Color32::from_rgb(18, 20, 24));
+    painter.rect_filled(rect, 0.0, visuals.extreme_bg_color);
     let top = centres_m.chunks_exact(3).map(|c| 100.0 * f64::from(c[2]) + r).fold(2.0 * r, f64::max);
     let shift = 0.5 * top.min(super::pour::HEIGHT_LIMIT_CM);
     let at = |x: f64, z: f64| view.to_screen(rect, x, z - shift);
     // The wall, from the valve to the cavity top.
-    let wall = egui::Stroke::new(1.5, Color32::from_rgb(170, 150, 120));
+    let wall = egui::Stroke::new(1.5, theme.accent(4));
     let z_hi = nee_soon::htr10_rmc::core_model::HTR10_CORE_CAVITY_CM;
     let n = 120;
     for side in [-1.0, 1.0] {
@@ -1225,9 +1242,9 @@ fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::
     let line = |z: f64, c: Color32| {
         painter.line_segment([at(-90.0, z), at(90.0, z)], egui::Stroke::new(1.0, c));
     };
-    line(0.0, Color32::from_rgb(120, 120, 130));
-    line(super::pour::HEIGHT_LIMIT_CM, Color32::from_rgb(240, 110, 100));
-    line(z_hi, Color32::from_rgb(170, 150, 120));
+    line(0.0, visuals.weak_text_color());
+    line(super::pour::HEIGHT_LIMIT_CM, visuals.error_fg_color);
+    line(z_hi, theme.accent(4));
     let scale = (at(1.0, 0.0).x - at(0.0, 0.0).x).abs();
     for c in centres_m.chunks_exact(3) {
         let (x, y, z) = (100.0 * f64::from(c[0]), 100.0 * f64::from(c[1]), 100.0 * f64::from(c[2]));
@@ -1235,7 +1252,7 @@ fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::
             continue;
         }
         let rr = (r * r - y * y).sqrt() * f64::from(scale);
-        let col = if z > 0.0 { Color32::from_rgb(200, 205, 215) } else { Color32::from_rgb(130, 135, 145) };
+        let col = if z > 0.0 { visuals.text_color() } else { visuals.weak_text_color() };
         painter.circle_filled(at(x, z), rr.max(1.0) as f32, col);
     }
     painter.text(
@@ -1243,8 +1260,49 @@ fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::
         egui::Align2::LEFT_CENTER,
         "95 %",
         egui::FontId::proportional(12.0),
-        Color32::from_rgb(240, 110, 100),
+        visuals.error_fg_color,
     );
+}
+
+/// **The pour's g(r)**, with the reference random bed's points
+/// ([`super::pour::REFERENCE_G`]) marked, √2 d (where a crystal would peak),
+/// √3 d and 2 d as guides, and g = 1. Colours from the Gruvbox theme
+/// (bugis). GUI drawing, not reached by a test (the test rule's exception);
+/// its numbers are `pour::diagnostics`, which is.
+fn rdf_plot(ui: &mut egui::Ui, d: &super::pour::PourDiagnostics) {
+    let theme = bugis::Theme::current(ui.visuals());
+    let fg = ui.visuals().text_color();
+    let faint = ui.visuals().weak_text_color();
+    let w = ui.available_width().max(160.0);
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(w, 170.0), egui::Sense::hover());
+    let p = ui.painter_at(rect);
+    p.rect_filled(rect, 4.0, ui.visuals().extreme_bg_color);
+    let plot = Rect::from_min_max(rect.min + Vec2::new(34.0, 8.0), rect.max - Vec2::new(8.0, 22.0));
+    let x_max = d.r_max_d.max(1.0);
+    // Log-free linear axis, clipped at 6 so the second shell reads; the
+    // contact peak's height is in the line above.
+    let y_max = 6.0;
+    let at = |x: f64, y: f64| Pos2::new(plot.left() + (x / x_max) as f32 * plot.width(), plot.bottom() - (y.min(y_max) / y_max) as f32 * plot.height());
+    for (x, label) in [(1.0, "d"), (2f64.sqrt(), "√2"), (3f64.sqrt(), "√3"), (2.0, "2d")] {
+        if x <= x_max {
+            p.line_segment([at(x, 0.0), at(x, y_max)], egui::Stroke::new(0.5, faint));
+            p.text(at(x, 0.0) + Vec2::new(0.0, 3.0), egui::Align2::CENTER_TOP, label, egui::FontId::proportional(10.0), faint);
+        }
+    }
+    p.line_segment([at(0.0, 1.0), at(x_max, 1.0)], egui::Stroke::new(0.5, faint));
+    for y in [0.0, 1.0, 2.0, 4.0, 6.0] {
+        p.text(Pos2::new(plot.left() - 4.0, at(0.0, y).y), egui::Align2::RIGHT_CENTER, format!("{y}"), egui::FontId::proportional(10.0), faint);
+    }
+    let pts: Vec<Pos2> = d.r_over_d.iter().zip(&d.g).filter(|(_, g)| g.is_finite()).map(|(&x, &g)| at(x, g)).collect();
+    p.add(egui::Shape::line(pts, egui::Stroke::new(1.5, theme.accent(0))));
+    let [g2, g3, g4, _] = super::pour::REFERENCE_G;
+    for (x, g) in [(2f64.sqrt(), g2), (3f64.sqrt(), g3), (2.0, g4)] {
+        if x <= x_max {
+            p.circle_stroke(at(x, g), 3.5, egui::Stroke::new(1.5, theme.accent(1)));
+        }
+    }
+    p.text(plot.right_top(), egui::Align2::RIGHT_TOP, "g(r): yours (line), reference bed (circles)", egui::FontId::proportional(10.5), fg);
+    p.text(Pos2::new(plot.center().x, rect.bottom() - 2.0), egui::Align2::CENTER_BOTTOM, "r / d", egui::FontId::proportional(10.0), faint);
 }
 
 fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {

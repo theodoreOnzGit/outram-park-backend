@@ -1292,6 +1292,11 @@ impl McApp {
                         c.pour.on_event(e, now_s());
                     }
                 }
+                (_, Event::Core(crate::htr10::core::CoreEv::PourDiagnostics(w))) => {
+                    if let Some(c) = self.core.as_mut() {
+                        c.pour.on_diagnostics(&w);
+                    }
+                }
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;

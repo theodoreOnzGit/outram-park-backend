@@ -573,7 +573,7 @@ impl PoolState {
                 }
             }
             // Pool members never pour (the page's own worker does).
-            CoreEv::Pour(_) => {}
+            CoreEv::Pour(_) | CoreEv::PourDiagnostics(_) => {}
             CoreEv::Failed { message, epoch } => {
                 self.busy[w] = false;
                 if matches!(self.phase, PoolPhase::Processing | PoolPhase::Assembling) {

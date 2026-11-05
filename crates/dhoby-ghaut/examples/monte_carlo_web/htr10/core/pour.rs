@@ -169,6 +169,185 @@ pub fn describe(b: &PouredBed) -> String {
     s
 }
 
+/// Fewest interior centres a `g(r)` is taken over ([`diagnostics`]).
+pub const RDF_MIN_CENTRES: usize = 200;
+
+/// The reference random bed's `g(r)` at the second-shell points and its
+/// contact peak (core region, `bed_rdf_check`, as `htr10_fill::seed_loose`'s
+/// doc records them for `htr10_conus_presettled_mu10_mur00.csv`): g(√2 d),
+/// g(√3 d), g(2 d), peak.
+pub const REFERENCE_G: [f64; 4] = [0.599, 1.286, 1.190, 19.56];
+/// The reference bed's whole-core φ (V&V § 4.9) and the published 0.61
+/// (IAEA-TECDOC-1382, quoted, not measured).
+pub const REFERENCE_PHI: f64 = 0.6047;
+pub const PUBLISHED_PHI: f64 = 0.61;
+
+/// **What a finished pour is, measured** (gh:#1244, maintainer: "post pour,
+/// give diagnostics like packing fraction and rdf graph"), computed in the
+/// worker ([`diagnostics`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PourDiagnostics {
+    /// Pebbles, and those centred above the floor.
+    pub n: usize,
+    pub n_core: usize,
+    /// Bed surface (99th percentile core centre + r) \[cm\].
+    pub surface_cm: f64,
+    /// Whole-core φ `N V / (π R² h)` (gh:#216's instrument, against 0.61).
+    pub phi_whole_core: f64,
+    /// Bulk solid fraction of the filled vessel, `4 r` clear of each end
+    /// (`dem_web`'s `vessel_bulk_fraction`).
+    pub phi_bulk: f64,
+    /// `g(r)` over the core (`z > 0`), `r` in diameters, and the `r_max` used
+    /// \[d\]; empty when the bed is too shallow ([`diagnostics`]).
+    pub r_over_d: Vec<f64>,
+    pub g: Vec<f64>,
+    pub r_max_d: f64,
+    /// Interior centres the histogram was taken over.
+    pub rdf_centres: usize,
+    /// Mean contact coordination (`Rdf::contact_coordination`).
+    pub coordination: f64,
+    /// Measurement time in the worker, s.
+    pub secs: f64,
+}
+
+/// `g` at `x` diameters: the mean of the three bins around it (as
+/// `bed_rdf_check` reads it); NaN without a `g(r)`.
+pub fn g_at(d: &PourDiagnostics, x: f64) -> f64 {
+    let Some(i) = d.r_over_d.iter().position(|r| *r >= x) else { return f64::NAN };
+    let lo = i.saturating_sub(1);
+    let hi = (i + 1).min(d.g.len() - 1);
+    d.g[lo..=hi].iter().sum::<f64>() / (hi - lo + 1) as f64
+}
+
+/// **The pour's diagnostics** from its centres (m, flattened): both packing
+/// fractions, and `g(r)` of the pebbles above the floor by
+/// `outram_park_fork_liggghts::rdf::radial_distribution` (one thread), in
+/// the bed's own cylinder from its centres, as `bed_rdf_check` measures the
+/// reference bed. The estimator only counts centres at least `r_max` from
+/// every face, so `r_max` is the reference's 5 d (the same instrument, so the
+/// numbers compare) whenever at least [`RDF_MIN_CENTRES`] centres are that
+/// far inside; a shallower bed steps it down by d/4 until they are, to 2.5 d
+/// (just past the 2 d peak); below that there is no `g(r)`, and the page
+/// says why. A reduced `r_max` is printed with the result.
+///
+/// (A first version reduced `r_max` until a third of the core's centres
+/// were inside; on the reference bed that chose 4.25 d and moved g(2 d) from
+/// the recorded 1.190 to 1.120, i.e. it was not the reference's instrument.)
+pub fn diagnostics(centres_m: &[f32]) -> PourDiagnostics {
+    use outram_park_fork_liggghts::compute::ComputeType;
+    use outram_park_fork_liggghts::htr10_fill::{surface_height_m, whole_core_fraction, PEBBLE_RADIUS_M};
+    use outram_park_fork_liggghts::particle::Vec3;
+    use outram_park_fork_liggghts::rdf::{radial_distribution, RdfDomain, RdfSettings};
+    let t0 = dhoby_ghaut::web_demo::platform::now_s();
+    let all: Vec<Vec3> = centres_m.chunks_exact(3).map(|c| Vec3::new(f64::from(c[0]), f64::from(c[1]), f64::from(c[2]))).collect();
+    let c64: Vec<[f64; 3]> = all.iter().map(|c| [c.x, c.y, c.z]).collect();
+    let core: Vec<Vec3> = all.iter().copied().filter(|c| c.z > 0.0).collect();
+    let d = 2.0 * PEBBLE_RADIUS_M;
+    let domain = RdfDomain::from_positions(&core);
+    let mut r_max_d = 5.0;
+    let interior = |r_max: f64| core.iter().filter(|p| domain.is_interior(**p, r_max)).count();
+    while r_max_d > 2.5 && interior(r_max_d * d) < RDF_MIN_CENTRES {
+        r_max_d -= 0.25;
+    }
+    let (mut r_over_d, mut g, mut rdf_centres, mut coordination) = (Vec::new(), Vec::new(), 0, f64::NAN);
+    if !core.is_empty() && interior(r_max_d * d) > 0 {
+        let settings = RdfSettings { r_max: r_max_d * d, n_bins: (50.0 * r_max_d) as usize, domain };
+        let rdf = radial_distribution(&core, settings, ComputeType::CpuSingleThread);
+        r_over_d = rdf.r.iter().map(|r| r / d).collect();
+        g = rdf.g.clone();
+        rdf_centres = interior(r_max_d * d);
+        coordination = rdf.contact_coordination().unwrap_or(f64::NAN);
+    } else {
+        r_max_d = 0.0;
+    }
+    PourDiagnostics {
+        n: all.len(),
+        n_core: core.len(),
+        surface_cm: surface_height_m(&all).map_or(f64::NAN, |h| 100.0 * h),
+        phi_whole_core: whole_core_fraction(&all),
+        phi_bulk: engine::vessel_bulk_fraction(&c64),
+        r_over_d,
+        g,
+        r_max_d,
+        rdf_centres,
+        coordination,
+        secs: dhoby_ghaut::web_demo::platform::now_s() - t0,
+    }
+}
+
+impl PourDiagnostics {
+    /// As numbers for the wire, and back ([`Self::from_words`]).
+    pub fn to_words(&self) -> Vec<f64> {
+        let mut w = vec![
+            self.n as f64,
+            self.n_core as f64,
+            self.surface_cm,
+            self.phi_whole_core,
+            self.phi_bulk,
+            self.r_max_d,
+            self.rdf_centres as f64,
+            self.coordination,
+            self.secs,
+            self.g.len() as f64,
+        ];
+        w.extend(&self.r_over_d);
+        w.extend(&self.g);
+        w
+    }
+    pub fn from_words(w: &[f64]) -> Result<Self, String> {
+        const HEAD: usize = 10;
+        let n = *w.get(HEAD - 1).ok_or("pour diagnostics: short")? as usize;
+        if w.len() != HEAD + 2 * n {
+            return Err(format!("pour diagnostics: {} words for {n} bins", w.len()));
+        }
+        Ok(Self {
+            n: w[0] as usize,
+            n_core: w[1] as usize,
+            surface_cm: w[2],
+            phi_whole_core: w[3],
+            phi_bulk: w[4],
+            r_max_d: w[5],
+            rdf_centres: w[6] as usize,
+            coordination: w[7],
+            secs: w[8],
+            r_over_d: w[HEAD..HEAD + n].to_vec(),
+            g: w[HEAD + n..].to_vec(),
+        })
+    }
+
+    /// The page's lines: packing fractions against the reference bed and the
+    /// published figure, and the g(r) points that tell random from ordered.
+    pub fn lines(&self) -> Vec<String> {
+        let mut v = vec![
+            format!(
+                "Packing: whole-core φ {:.4} (the reference full core 0.6047; published 0.61, quoted) · bulk φ {:.4} · surface {:.1} cm · {} pebbles, {} above the floor",
+                self.phi_whole_core,
+                self.phi_bulk,
+                self.surface_cm,
+                super::random_bed::grouped(self.n),
+                super::random_bed::grouped(self.n_core)
+            ),
+        ];
+        if self.g.is_empty() {
+            v.push("g(r): the bed is too shallow for one (a centre must stand 2.5 pebble diameters clear of every face of the bed).".into());
+        } else {
+            let [r2, r3, r4, rp] = REFERENCE_G;
+            let peak = self.g.iter().copied().fold(0.0, f64::max);
+            v.push(format!(
+                "g(r) over {} interior centres to {:.2} d: contact peak {peak:.2} (ref {rp}), g(√2 d) {:.3} (ref {r2}; an FCC crystal peaks here), g(√3 d) {:.3} (ref {r3}), g(2 d) {:.3} (ref {r4}), contact coordination {:.2}. The split √3 d / 2 d peak with a √2 d trough is a random packing.",
+                self.rdf_centres,
+                self.r_max_d,
+                g_at(self, 2f64.sqrt()),
+                g_at(self, 3f64.sqrt()),
+                g_at(self, 2.0),
+                self.coordination
+            ));
+        }
+        v.push(format!("Measured in the worker in {:.1} s.", self.secs));
+        v
+    }
+}
+
 /// Compute per request the page aims for, ms: the page's worker also draws
 /// the slice, so a chunk is kept short (`dem_web`'s `CHUNK_MS` rule).
 pub const CHUNK_MS: f64 = 250.0;
@@ -199,6 +378,8 @@ pub struct PourUi {
     pub finished_s: Option<f64>,
     /// The bed in use (handed to the workers), and how many were made.
     pub bed: Option<PouredBed>,
+    /// The finished pour's diagnostics, once the worker has measured them.
+    pub diagnostics: Option<PourDiagnostics>,
     versions: u32,
     pub error: Option<String>,
     out: Vec<super::CoreReq>,
@@ -220,6 +401,7 @@ impl Default for PourUi {
             started_s: 0.0,
             finished_s: None,
             bed: None,
+            diagnostics: None,
             versions: 0,
             error: None,
             out: Vec::new(),
@@ -244,6 +426,7 @@ impl PourUi {
         self.error = None;
         self.started_s = now_s;
         self.finished_s = None;
+        self.diagnostics = None;
     }
     /// A pour has been asked for.
     pub fn started(&self) -> bool {
@@ -273,6 +456,12 @@ impl PourUi {
                 self.last = Some(s);
                 if done && self.finished_s.is_none() {
                     self.finished_s = Some(now_s);
+                    // Measure it once, in the worker.
+                    if let Some(s) = &self.last {
+                        self.out.push(super::CoreReq::PourDiagnostics {
+                            centres_m: dhoby_ghaut::web_demo::link::Floats::from_vec(s.centres.iter().map(|&c| f64::from(c)).collect()),
+                        });
+                    }
                 }
                 if report {
                     log::info!("htr10 core: pour: {}", self.lines(now_s).join(" | "));
@@ -309,6 +498,29 @@ impl PourUi {
         self.versions += 1;
         self.bed = Some(b.clone());
         Ok(b)
+    }
+    /// Take in the worker's diagnostics (and log them for an unattended
+    /// check).
+    pub fn on_diagnostics(&mut self, w: &[f64]) {
+        match PourDiagnostics::from_words(w) {
+            Ok(d) => {
+                for l in d.lines() {
+                    log::info!("htr10 core: pour diagnostics: {l}");
+                }
+                self.diagnostics = Some(d);
+            }
+            Err(e) => self.error = Some(e),
+        }
+    }
+    /// Ask the worker to measure the current pour now (a paused or used
+    /// one; a finished pour is measured by itself).
+    pub fn measure(&mut self) {
+        if let Some(s) = &self.last {
+            self.diagnostics = None;
+            self.out.push(super::CoreReq::PourDiagnostics {
+                centres_m: dhoby_ghaut::web_demo::link::Floats::from_vec(s.centres.iter().map(|&c| f64::from(c)).collect()),
+            });
+        }
     }
     /// Queue a request for the page's own worker.
     pub fn queue(&mut self, r: super::CoreReq) {
@@ -430,6 +642,42 @@ mod tests {
         assert!(m > MIN_PEBBLES);
     }
 
+    /// The diagnostics on the reference pour reproduce its recorded
+    /// figures: whole-core φ 0.604688 (V&V § 4.9 bake re-run) and the g(r)
+    /// points `bed_rdf_check` recorded (same estimator, domain and bins);
+    /// the wire round-trips; a shallow bed has no g(r) and says so.
+    #[test]
+    fn the_diagnostics_reproduce_the_reference_bed() {
+        let csv = include_str!("../../../../../../reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv");
+        let c: Vec<f32> = csv
+            .lines()
+            .skip(1)
+            .filter(|l| !l.trim().is_empty())
+            .flat_map(|l| {
+                let v: Vec<f64> = l.split(',').map(|x| x.trim().parse().expect("number")).collect();
+                [v[1] as f32, v[2] as f32, v[3] as f32]
+            })
+            .collect();
+        let d = diagnostics(&c);
+        for l in d.lines() {
+            println!("{l}");
+        }
+        println!("measured in {:.2} s", d.secs);
+        // f32 centres (as the worker streams them), so φ to 4 places.
+        assert!((d.phi_whole_core - 0.604688).abs() < 2e-4, "{}", d.phi_whole_core);
+        assert_eq!(d.r_max_d, 5.0);
+        let peak = d.g.iter().copied().fold(0.0, f64::max);
+        let [r2, r3, r4, rp] = REFERENCE_G;
+        assert!((g_at(&d, 2f64.sqrt()) - r2).abs() < 0.01, "{}", g_at(&d, 2f64.sqrt()));
+        assert!((g_at(&d, 3f64.sqrt()) - r3).abs() < 0.01, "{}", g_at(&d, 3f64.sqrt()));
+        assert!((g_at(&d, 2.0) - r4).abs() < 0.01, "{}", g_at(&d, 2.0));
+        assert!((peak - rp).abs() < 0.2, "{peak}");
+        assert_eq!(PourDiagnostics::from_words(&d.to_words()).expect("words"), d);
+        let shallow = diagnostics(&[0.0, 0.0, 0.03, 0.07, 0.0, 0.03]);
+        assert!(shallow.g.is_empty() && shallow.lines()[1].contains("too shallow"));
+        assert!(PourDiagnostics::from_words(&[1.0]).is_err());
+    }
+
     /// A pour becomes a bed: the pebbles above the 95 % line are cut, fuel is
     /// the fraction asked for above the floor and none below, and the wire
     /// form round-trips.
@@ -504,7 +752,9 @@ mod tests {
         p.set_paused(false);
         assert_eq!(p.take_out().len(), 1);
         p.on_event(engine::Event::Progress(snap(1, 30, 50.0, true)), 3.0);
-        assert!(p.take_out().is_empty() && p.finished() && !p.running());
+        // Settled: no further chunk, one measurement asked for.
+        assert!(matches!(p.take_out().as_slice(), [super::super::CoreReq::PourDiagnostics { .. }]));
+        assert!(p.finished() && !p.running());
         assert_eq!(p.finished_s, Some(3.0));
         assert!(p.lines(9.0)[0].contains("settled"));
         let b1 = p.make_bed().expect("bed");

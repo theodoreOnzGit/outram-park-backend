@@ -232,6 +232,9 @@ pub enum CoreReq {
     /// The reader's DEM pour (gh:#1244): start one, or step it a chunk
     /// (`dem_web`'s engine, [`pour::engine`]). Sent to the page's own worker.
     Pour(pour::engine::Request),
+    /// Measure a pour's centres (m, flattened): packing fractions and g(r)
+    /// ([`pour::diagnostics`]); the reply is [`CoreEv::PourDiagnostics`].
+    PourDiagnostics { centres_m: Floats },
     /// The bed [`random_bed::USER_POUR`] means from now on
     /// ([`pour::PouredBed::to_wire`]); no reply. Then [`CoreReq::Layers`]
     /// rebuilds the core on it.
@@ -354,6 +357,8 @@ pub enum CoreEv {
     Failed { message: String, epoch: u32 },
     /// The reader's pour, a chunk on (gh:#1244).
     Pour(pour::engine::Event),
+    /// A pour's diagnostics ([`pour::PourDiagnostics::to_words`]).
+    PourDiagnostics(Vec<f64>),
 }
 
 /// The model a worker transports through.
@@ -683,6 +688,10 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
             }
             CoreReq::Product { job, data } => w.store(job, data),
             CoreReq::Pour(r) => w.pour.serve(r, &mut |e| send(CoreEv::Pour(e))),
+            CoreReq::PourDiagnostics { centres_m } => {
+                let c: Vec<f32> = centres_m.to_vec().iter().map(|&v| v as f32).collect();
+                send(CoreEv::PourDiagnostics(pour::diagnostics(&c).to_words()));
+            }
             r @ CoreReq::PourBed { .. } => random_bed::set_poured(r.poured_bed()?),
             CoreReq::Assemble { layers, temps } => {
                 let mut tapes_s = 0.0;
@@ -823,6 +832,10 @@ pub mod web {
                     js::set(o, "kind", "core_pour");
                     js::set(o, "data", js::f64s(&r.to_wire()));
                 }
+                CoreReq::PourDiagnostics { centres_m } => {
+                    js::set(o, "kind", "core_pour_diag");
+                    js::set(o, "data", centres_m.js());
+                }
                 CoreReq::PourBed { centres_cm, fuel, version, cut, fuel_fraction } => {
                     js::set(o, "kind", "core_pour_bed");
                     js::set(o, "data", centres_cm.js());
@@ -873,6 +886,7 @@ pub mod web {
                     })
                 }),
                 "core_pour" => pour::engine::Request::from_wire(&js::get_f64s(v, "data")).map(CoreReq::Pour),
+                "core_pour_diag" => floats("data").map(|centres_m| CoreReq::PourDiagnostics { centres_m }),
                 "core_pour_bed" => floats("data").and_then(|centres_cm| {
                     let h = js::get_f64s(v, "head");
                     if h.len() != 3 {
@@ -931,6 +945,10 @@ pub mod web {
                     js::set(o, "message", message.as_str());
                     js::set(o, "epoch", *epoch as f64);
                 }
+                CoreEv::PourDiagnostics(w) => {
+                    js::set(o, "kind", "core_pour_diag");
+                    js::set(o, "data", js::f64s(w));
+                }
                 CoreEv::Pour(e) => {
                     let (d, t) = e.to_wire();
                     js::set(o, "kind", "core_pour");
@@ -981,6 +999,7 @@ pub mod web {
                     epoch: epoch(),
                 }),
                 "core_pour" => pour::engine::Event::from_wire(&js::get_f64s(v, "data"), &js::get_str(v, "text")).map(CoreEv::Pour),
+                "core_pour_diag" => Ok(CoreEv::PourDiagnostics(js::get_f64s(v, "data"))),
                 _ => return None,
             })
         }
@@ -1017,6 +1036,10 @@ pub mod web {
                 if let Ok(mut w) = core.write() {
                     w.pour.serve(r, &mut |e| send(CoreEv::Pour(e)));
                 }
+            }
+            CoreReq::PourDiagnostics { centres_m } => {
+                let c: Vec<f32> = centres_m.to_vec().iter().map(|&v| v as f32).collect();
+                send(CoreEv::PourDiagnostics(pour::diagnostics(&c).to_words()));
             }
             r @ CoreReq::PourBed { .. } => match r.poured_bed() {
                 Ok(b) => random_bed::set_poured(b),
