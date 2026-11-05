@@ -65,70 +65,79 @@ struct Nuc {
 /// branches)`.
 type Raw = (String, Option<f64>, Option<f64>, Vec<(String, f64)>);
 
-macro_rules! read_lib {
-    ($lib:ident, $m:ident, $f:ident) => {{
-        $lib::decay_xml_info_serde::$m::$f()
-            .nuclides
-            .into_iter()
-            .map(|n| {
-                let br = n.raw_decay_data.iter().filter_map(|d| d.target.clone().map(|t| (t, d.branching_ratio))).collect();
-                (n.name, n.half_life_seconds, n.decay_energy_electronvolt, br)
-            })
-            .collect::<Vec<Raw>>()
-    }};
+/// Library A (`openmc-endf-8-depletion-lib-a`): one element's records as `Raw`.
+fn raw_from_lib_a(lib: openmc_endf_8_depletion_lib_a::decay_xml_info_serde::SerdeNuclideVec) -> Vec<Raw> {
+    lib.nuclides
+        .into_iter()
+        .map(|n| {
+            let br = n.raw_decay_data.iter().filter_map(|d| d.target.clone().map(|t| (t, d.branching_ratio))).collect();
+            (n.name, n.half_life_seconds, n.decay_energy_electronvolt, br)
+        })
+        .collect::<Vec<Raw>>()
+}
+
+/// Library B (`openmc-endf-8-depletion-lib-b`): one element's records as `Raw`.
+fn raw_from_lib_b(lib: openmc_endf_8_depletion_lib_b::decay_xml_info_serde::SerdeNuclideVec) -> Vec<Raw> {
+    lib.nuclides
+        .into_iter()
+        .map(|n| {
+            let br = n.raw_decay_data.iter().filter_map(|d| d.target.clone().map(|t| (t, d.branching_ratio))).collect();
+            (n.name, n.half_life_seconds, n.decay_energy_electronvolt, br)
+        })
+        .collect::<Vec<Raw>>()
 }
 
 fn raw_data() -> Vec<Raw> {
     use openmc_endf_8_depletion_lib_a as a;
     use openmc_endf_8_depletion_lib_b as b;
     let mut v = Vec::new();
-    v.extend(read_lib!(a, titanium, get_titanium_xml_serde_data));
-    v.extend(read_lib!(a, vanadium, get_vanadium_xml_serde_data));
-    v.extend(read_lib!(a, chromium, get_chromium_xml_serde_data));
-    v.extend(read_lib!(a, manganese, get_manganese_xml_serde_data));
-    v.extend(read_lib!(a, iron, get_iron_xml_serde_data));
-    v.extend(read_lib!(a, cobalt, get_cobalt_xml_serde_data));
-    v.extend(read_lib!(a, nickel, get_nickel_xml_serde_data));
-    v.extend(read_lib!(a, copper, get_copper_xml_serde_data));
-    v.extend(read_lib!(a, zinc, get_zinc_xml_serde_data));
-    v.extend(read_lib!(a, gallium, get_gallium_xml_serde_data));
-    v.extend(read_lib!(a, germanium, get_germanium_xml_serde_data));
-    v.extend(read_lib!(a, arsenic, get_arsenic_xml_serde_data));
-    v.extend(read_lib!(a, selenium, get_selenium_xml_serde_data));
-    v.extend(read_lib!(a, bromine, get_bromine_xml_serde_data));
-    v.extend(read_lib!(a, krypton, get_krypton_xml_serde_data));
-    v.extend(read_lib!(a, rubidium, get_rubidium_xml_serde_data));
-    v.extend(read_lib!(a, strontium, get_strontium_xml_serde_data));
-    v.extend(read_lib!(a, yttrium, get_yttrium_xml_serde_data));
-    v.extend(read_lib!(a, zirconium, get_zirconium_xml_serde_data));
-    v.extend(read_lib!(a, niobium, get_niobium_xml_serde_data));
-    v.extend(read_lib!(a, molybdenum, get_molybdenum_xml_serde_data));
-    v.extend(read_lib!(a, technetium, get_technetium_xml_serde_data));
-    v.extend(read_lib!(a, ruthenium, get_ruthenium_xml_serde_data));
-    v.extend(read_lib!(a, rhodium, get_rhodium_xml_serde_data));
-    v.extend(read_lib!(a, palladium, get_palladium_xml_serde_data));
-    v.extend(read_lib!(a, silver, get_silver_xml_serde_data));
-    v.extend(read_lib!(b, cadmium, get_cadmium_xml_serde_data));
-    v.extend(read_lib!(b, indium, get_indium_xml_serde_data));
-    v.extend(read_lib!(b, tin, get_tin_xml_serde_data));
-    v.extend(read_lib!(b, antimony, get_antimony_xml_serde_data));
-    v.extend(read_lib!(b, tellurium, get_tellurium_xml_serde_data));
-    v.extend(read_lib!(b, iodine, get_iodine_xml_serde_data));
-    v.extend(read_lib!(b, xenon, get_xenon_xml_serde_data));
-    v.extend(read_lib!(b, cesium, get_cesium_xml_serde_data));
-    v.extend(read_lib!(b, barium, get_barium_xml_serde_data));
-    v.extend(read_lib!(b, lanthanum, get_lanthanum_xml_serde_data));
-    v.extend(read_lib!(b, cerium, get_cerium_xml_serde_data));
-    v.extend(read_lib!(b, praseodymium, get_praseodymium_xml_serde_data));
-    v.extend(read_lib!(b, neodymium, get_neodymium_xml_serde_data));
-    v.extend(read_lib!(b, promethium, get_promethium_xml_serde_data));
-    v.extend(read_lib!(b, samarium, get_samarium_xml_serde_data));
-    v.extend(read_lib!(b, europium, get_europium_xml_serde_data));
-    v.extend(read_lib!(b, gadolinium, get_gadolinium_xml_serde_data));
-    v.extend(read_lib!(b, terbium, get_terbium_xml_serde_data));
-    v.extend(read_lib!(b, dysprosium, get_dysprosium_xml_serde_data));
-    v.extend(read_lib!(b, holmium, get_holmium_xml_serde_data));
-    v.extend(read_lib!(b, erbium, get_erbium_xml_serde_data));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::titanium::get_titanium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::vanadium::get_vanadium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::chromium::get_chromium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::manganese::get_manganese_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::iron::get_iron_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::cobalt::get_cobalt_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::nickel::get_nickel_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::copper::get_copper_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::zinc::get_zinc_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::gallium::get_gallium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::germanium::get_germanium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::arsenic::get_arsenic_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::selenium::get_selenium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::bromine::get_bromine_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::krypton::get_krypton_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::rubidium::get_rubidium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::strontium::get_strontium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::yttrium::get_yttrium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::zirconium::get_zirconium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::niobium::get_niobium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::molybdenum::get_molybdenum_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::technetium::get_technetium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::ruthenium::get_ruthenium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::rhodium::get_rhodium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::palladium::get_palladium_xml_serde_data()));
+    v.extend(raw_from_lib_a(a::decay_xml_info_serde::silver::get_silver_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::cadmium::get_cadmium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::indium::get_indium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::tin::get_tin_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::antimony::get_antimony_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::tellurium::get_tellurium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::iodine::get_iodine_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::xenon::get_xenon_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::cesium::get_cesium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::barium::get_barium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::lanthanum::get_lanthanum_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::cerium::get_cerium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::praseodymium::get_praseodymium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::neodymium::get_neodymium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::promethium::get_promethium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::samarium::get_samarium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::europium::get_europium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::gadolinium::get_gadolinium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::terbium::get_terbium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::dysprosium::get_dysprosium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::holmium::get_holmium_xml_serde_data()));
+    v.extend(raw_from_lib_b(b::decay_xml_info_serde::erbium::get_erbium_xml_serde_data()));
     v
 }
 

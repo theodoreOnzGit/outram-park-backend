@@ -36,3 +36,11 @@ SEMBAWANG boundary question below, which concerns severe-accident progression.
 - **Dependencies are declared when code calls into them**, not before
   (RAFFLES for the probabilistic machinery, per the roadmap).
 - **No dose.** BISHAN ends at what is released.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

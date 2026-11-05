@@ -153,21 +153,23 @@ impl PhaseThermo {
     #[must_use]
     pub fn props(&self, p: f64, t: f64) -> PointProps {
         let (p, t) = (Pressure::new::<pascal>(p), ThermodynamicTemperature::new::<kelvin>(t));
-        macro_rules! eval {
-            ($s:expr) => {
-                PointProps {
-                    rho: $s.rho(p, t).get::<kilogram_per_cubic_meter>(),
-                    psi: ($s.psi(p, t) * Pressure::new::<pascal>(1.0))
-                        .get::<kilogram_per_cubic_meter>(),
-                    cp: $s.cp(p, t).get::<joule_per_kilogram_kelvin>(),
-                    mu: $s.mu(p, t).get::<pascal_second>(),
-                    kappa: $s.kappa(p, t).get::<watt_per_meter_kelvin>(),
-                }
-            };
-        }
         match self {
-            Self::Polynomial(s) => eval!(s),
-            Self::PerfectGasConst(s) => eval!(s),
+            Self::Polynomial(s) => PointProps {
+                rho: s.rho(p, t).get::<kilogram_per_cubic_meter>(),
+                psi: (s.psi(p, t) * Pressure::new::<pascal>(1.0))
+                    .get::<kilogram_per_cubic_meter>(),
+                cp: s.cp(p, t).get::<joule_per_kilogram_kelvin>(),
+                mu: s.mu(p, t).get::<pascal_second>(),
+                kappa: s.kappa(p, t).get::<watt_per_meter_kelvin>(),
+            },
+            Self::PerfectGasConst(s) => PointProps {
+                rho: s.rho(p, t).get::<kilogram_per_cubic_meter>(),
+                psi: (s.psi(p, t) * Pressure::new::<pascal>(1.0))
+                    .get::<kilogram_per_cubic_meter>(),
+                cp: s.cp(p, t).get::<joule_per_kilogram_kelvin>(),
+                mu: s.mu(p, t).get::<pascal_second>(),
+                kappa: s.kappa(p, t).get::<watt_per_meter_kelvin>(),
+            },
         }
     }
 }

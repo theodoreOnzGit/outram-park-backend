@@ -27,7 +27,8 @@
 //! records are signed by an admitted maintainer~~ **CORRECTED 2026-11-04**
 //! (GitHub #1211, maintainer direction): kovan writes them, and their
 //! retirements, signed by the **founder** only (`[code_review] founder`,
-//! [`super::user_management::founder_signer`]); a separation attestation
+//! [`super::user_management::founder_signer`]; since GitHub #1248 any
+//! founder in standing on the record's date); a separation attestation
 //! is still signed by the independent reviewer alone (maintainer:
 //! "agree"), naming a public GitHub issue as its audit record. Kovan checks
 //! the URL's form and never fetches it (offline; Leak Before Break: it is
@@ -360,7 +361,7 @@ pub struct RecordRow {
     /// For an attestation: the audit record as written.
     pub audit_record: Option<String>,
     /// GitHub #1211: how it stands against the founder-only rule, when it
-    /// is signed by a maintainer who is not the founder (it still counts,
+    /// is signed by a maintainer who is not a founder on its date (GitHub #1248) (it still counts,
     /// as before; the maintainer decides).
     pub note: Option<String>,
     /// GitHub #1211: "retired from <date> by <founder> (key <k>)" for each
@@ -386,7 +387,12 @@ pub struct Overview {
     /// Every reviewer id with its role.
     pub reviewers: Vec<(String, Role)>,
     /// The declared founder, if any (who signs organisation records).
+    /// ~~The~~ GitHub #1248: the first declared founder; [`Self::founders`]
+    /// are the ones who sign now.
     pub founder: Option<String>,
+    /// GitHub #1248: the founders in standing now (any of them signs
+    /// organisation records).
+    pub founders: Vec<String>,
 }
 
 /// Read `<root>/kovan_root.toml` into an [`Overview`], signatures checked.
@@ -395,15 +401,17 @@ pub fn overview(root: &Path) -> Result<Overview, String> {
     Ok(overview_of(&r))
 }
 
-/// `signed_by` and `note` of an organisation record.
-fn signer_words(s: Option<&KeySigner>, sig: Option<&String>, founder: Option<&str>) -> (String, Option<String>) {
+/// `signed_by` and `note` of an organisation record dated `date`: the note
+/// when its signer was not a founder then (GitHub #1248: ~~not the
+/// founder~~ any founder in standing on its date).
+fn signer_words(s: Option<&KeySigner>, sig: Option<&String>, reg: &Registry, date: &str) -> (String, Option<String>) {
     match (s, sig) {
         (Some(s), Some(_)) => {
             let who = s.reviewer.as_deref().unwrap_or("(unnamed)");
-            let note = (Some(who) != founder).then(|| {
+            let note = (!reg.is_founder_on(who, date)).then(|| {
                 format!(
-                    "signed by {who}, not the founder: still counts as before #1211 (kovan writes \
-                     new records founder-signed only); the maintainer decides whether to retire it"
+                    "signed by {who}, not a founder on {date}: still counts as before #1211 (kovan \
+                     writes new records founder-signed only); the maintainer decides whether to retire it"
                 )
             });
             (format!("{who} {}", s.key), note)
@@ -454,13 +462,13 @@ pub fn overview_of(r: &ReviewRoot) -> Overview {
             .map(record_warning)
             .collect(),
         reviewers: r.reviewers.iter().map(|x| (x.id.clone(), x.role)).collect(),
-        founder: founder.clone(),
+        founder,
+        founders: reg.current_founders(),
         ..Overview::default()
     };
-    let f = founder.as_deref();
     if let Some(cr) = &r.code_review {
         for e in &cr.developing_organisation {
-            let (signed_by, note) = signer_words(e.signer.as_ref(), e.signature.as_ref(), f);
+            let (signed_by, note) = signer_words(e.signer.as_ref(), e.signature.as_ref(), &reg, &e.date);
             let (retired, is_retired, retire) = retirement_words(
                 r,
                 &reg,
@@ -488,7 +496,7 @@ pub fn overview_of(r: &ReviewRoot) -> Overview {
     }
     for rv in &r.reviewers {
         for e in &rv.organisations {
-            let (signed_by, note) = signer_words(e.signer.as_ref(), e.signature.as_ref(), f);
+            let (signed_by, note) = signer_words(e.signer.as_ref(), e.signature.as_ref(), &reg, &e.date);
             let (retired, is_retired, retire) = retirement_words(
                 r,
                 &reg,
