@@ -50,7 +50,13 @@
 //! The prism stack of each wall face is 1:1 with that face; adjacent stacks
 //! share their side faces automatically (matched by [`from_cell_faces`]). The
 //! operation is a **repartition** of the same region, so it preserves the mesh
-//! volume exactly.
+//! volume ~~exactly~~. **CORRECTED 2026-11-05 (gh:#1270):** exactly when every
+//! patch a layer ends on is planar. A border point slides along the other
+//! patch's averaged normal plane; where that patch is not planar (the
+//! default dual's pipe ends spread 0.47 mm along the axis at h 5 mm), the
+//! end surface moves and the volume changes: −4.7e-7 relative on the
+//! Foam Studio pipe, one layer (cfMesh's route: +2.5e-7, all of it in the
+//! end patches; `boundary_layers::tests::diagnose_cfmesh_layer_on_the_foam_studio_pipe`).
 //!
 //! # v1 scope
 //!
@@ -70,6 +76,11 @@
 //! Deterministic since 2026-11-04: point and cell numbering no longer follow a
 //! randomly seeded hash set, so the same input gives the same mesh in every
 //! run (the reproducibility defect class of the HTR-10 neighbour grid).
+
+pub mod boundary_layers;
+pub mod refine_boundary_layers;
+pub mod extrude_layer;
+pub mod triangulate_non_planar_base_faces;
 
 use crate::checks::check_quality;
 use crate::math::Vec3;
@@ -289,7 +300,9 @@ pub(crate) enum LayerVertex {
 ///   pipe wall meets its inlet) moves along the sum of its layer faces' area
 ///   vectors with the component along the non-layer faces' unit normal
 ///   removed, so it **stays in the non-layer patch's plane** and that patch is
-///   only re-partitioned, never moved; its thickness is capped at 0.9 × its
+///   only re-partitioned, never moved (**CORRECTED 2026-11-05, gh:#1270:**
+///   when that patch is planar; on a non-planar one the point leaves its
+///   surface, see the module documentation); its thickness is capped at 0.9 × its
 ///   distance to the edge opposite it in each adjacent non-layer face
 ///   (upstream's "limit distances");
 /// - a point that touches **two** non-layer patches moves along the boundary
@@ -555,15 +568,19 @@ pub(crate) fn layer_setup(
         return None;
     }
 
-    // Boundary faces around each point (cfMesh `pointFaces`), in face order.
-    let mut point_faces: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for f in 0..mesh.face_count() {
-        if patch_of[f] != usize::MAX {
-            for &p in &mesh.faces[f] {
-                point_faces.entry(p).or_default().push(f);
+    // Boundary faces around each point (cfMesh `pointFaces`), in face order,
+    // as mesh face labels: from the shared surface engine (gh:#1257; this
+    // stage built its own map before, identical element for element:
+    // `surface_engine::tests::engine_matches_the_crates_earlier_boundary_maps_on_the_pipe`).
+    let engine = crate::surface_engine::SurfaceEngine::new(mesh);
+    let point_faces = |v: usize| -> Vec<usize> {
+        match engine.bp.get(v) {
+            Some(&b) if b != crate::surface_engine::NOT_BOUNDARY => {
+                engine.point_faces[b].iter().map(|&bf| engine.boundary_faces[bf]).filter(|&f| patch_of[f] != usize::MAX).collect()
             }
+            _ => Vec::new(),
         }
-    }
+    };
 
     // Wall points and their (averaged) inward normal.
     let mut wall_pts: BTreeSet<usize> = BTreeSet::new();
@@ -585,7 +602,7 @@ pub(crate) fn layer_setup(
     let mut kind: BTreeMap<usize, LayerVertex> = BTreeMap::new();
     let mut border_cap: BTreeMap<usize, f64> = BTreeMap::new();
     for &wp in &wall_pts {
-        let faces = &point_faces[&wp];
+        let faces = &point_faces(wp);
         let mut others: Vec<usize> = Vec::new();
         for &f in faces {
             let pi = patch_of[f];
@@ -637,7 +654,7 @@ pub(crate) fn layer_setup(
                     let k = ring.len();
                     let Some(pos) = ring.iter().position(|&q| q == wp) else { continue };
                     for q in [ring[(pos + k - 1) % k], ring[(pos + 1) % k]] {
-                        let on = |pi: usize| point_faces.get(&q).is_some_and(|fs| fs.iter().any(|&g| patch_of[g] == pi));
+                        let on = |pi: usize| point_faces(q).iter().any(|&g| patch_of[g] == pi);
                         if on(others[0]) && on(others[1]) {
                             target = Some(q);
                             break 'search;
@@ -781,8 +798,24 @@ pub(crate) fn build_layered_variable(
     per_point_total: &BTreeMap<usize, f64>,
     counts: &BTreeMap<usize, usize>,
 ) -> VolumeMesh {
+    build_layered_variable_with_columns(mesh, wall_faces, wall_pts, inward, d, per_point_total, counts).0
+}
+
+/// [`build_layered_variable`] with each wall point's column of new point
+/// labels (wall first), for callers that name the new faces
+/// ([`boundary_layers`], gh:#1270). The same code path.
+pub(crate) fn build_layered_variable_with_columns(
+    mesh: &VolumeMesh,
+    wall_faces: &[usize],
+    wall_pts: &BTreeSet<usize>,
+    inward: &BTreeMap<usize, Vec3>,
+    d: &[f64],
+    per_point_total: &BTreeMap<usize, f64>,
+    counts: &BTreeMap<usize, usize>,
+) -> (VolumeMesh, BTreeMap<usize, Vec<usize>>) {
     let (points, column) = layer_columns(mesh, wall_pts, inward, d, per_point_total, counts);
-    assemble_layered(mesh, wall_faces, wall_pts, points, &column, counts)
+    let m = assemble_layered(mesh, wall_faces, wall_pts, points, &column, counts);
+    (m, column)
 }
 
 /// The point list of a layered mesh: the non-wall points in order, then each

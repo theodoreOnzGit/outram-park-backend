@@ -134,6 +134,44 @@ Predictions were written first, in `PREDICTION.md`.
   
   This is with SwiftShader software rendering. The DEM demo's record shows most such time is the browser's own rasterising, and no GPU is available here. The UI never froze, so it meets the no-lag rule as far as this machine can measure. The earlier 450 ms and 2.45 s gaps came on the loaded machine.
 
+## The GPU engine (gh:#1250, 2026-11-05)
+
+**What it is.** The maintainer asked for "a wgsl option for LIGGGHTS, within the LIGGGHTS crate, use this as a second option for the pour web demo". So the panel has an **Engine** choice: "CPU (one thread)" (the default) or "GPU (WebGPU)".
+- **The GPU engine:** `outram_park_fork_liggghts::gpu::dem`, the same contact law, walls and integrator as WGSL compute shaders, run through `htr10_fill::Htr10GpuFill` in the page's worker.
+- **Precision:** f32, with double-f32 positions and overlaps. Not bit-identical to the CPU.
+- **Without WebGPU** the page says so, and the CPU pour still works.
+- **Timings:** every finished pour goes into a timing table with its engine.
+
+**Verified natively** (`tests/gpu_dem.rs`, on lavapipe, i.e. Mesa's software Vulkan). Tolerances were written before the first run, and all five cases met them on the third run:
+
+| Case | GPU vs CPU |
+|---|---|
+| Head-on pair | 8.8e-9 |
+| Oblique pair with friction and spin | 1.8e-7 |
+| Resting ball | 4.8e-13 m |
+| Cylinder bounce | 1.65e-6 |
+| 4 000-pebble pour, early (median pebble) | 6.8e-7 m |
+| 4 000-pebble pour, settled φ | 0.4459 (CPU 0.4465) |
+
+Two compiler behaviours had to be beaten to get there; the test's docs give the history.
+- A reassociating shader compiler cancelled the compensated arithmetic. Every ordered partial now goes through `keep`.
+- Chrome's compiler refused a NaN bit pattern in a constant, which made every pipeline invalid in the browser.
+
+**Verified in the browser** (headless Chromium 141 with `--enable-unsafe-webgpu`; WebGPU on SwiftShader; `headless_pour4000_{gpu,cpu}_console.log`). 4 000 pebbles on each engine, same seed:
+
+| | GPU (WebGPU) | CPU |
+|---|---|---|
+| settled after | 22 620 steps | 20 720 steps |
+| surface | 15.4 cm | 15.4 cm |
+| bulk φ | 0.5984 | 0.5973 |
+| bed | 1 526 core pebbles, 869 fuel | 1 536 core pebbles |
+
+The GPU pour was used as the bed, and its diagnostics ran; a 4 000-pebble bed is too shallow for g(r), and the page says so. The page stayed live throughout: the worst frame gap was 67 ms during a GPU pour.
+
+**No timing is claimed here.** This container has no GPU (WebGPU runs on SwiftShader, natively lavapipe), so its times say nothing about a real GPU. The page's timing table shows each device's own.
+
+**Still owed.** The packing fraction and g(r) at the record's loading, GPU against several CPU seeds (`examples/gpu_pour_compare.rs`, the maintainer's acceptance criterion), has not been run yet.
+
 ## WGSL
 
 The maintainer said "Use WGSL from the LIGGGHTS fork if it needs speed up". This change **does not add a GPU timestep**:
@@ -141,6 +179,7 @@ The maintainer said "Use WGSL from the LIGGGHTS fork if it needs speed up". This
 - **What one would take.** A GPU timestep would be new physics code with its own verification (shear history on the GPU, agreement with the CPU path to be shown statistically rather than bit for bit).
 - **The case for it.** A full core at the cap pours in the browser in **17.5 min** (measured above; the earlier 20–25 min was an extrapolation). 4 000 pebbles take 4 min.
 - **Next step.** The decision is gh:#1250, for the maintainer.
+- **CHANGED 2026-11-05:** the maintainer chose to keep the CPU pour as the default (the page shows its measured time) **and** to add the GPU engine as a second option; see the section above.
 
 ## Not done here
 
