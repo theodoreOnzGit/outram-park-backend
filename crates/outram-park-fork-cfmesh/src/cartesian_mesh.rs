@@ -1336,6 +1336,10 @@ mod tests {
     /// internal mesh face appears once in `leafLeaves` per side; and
     /// `nodeFaces` lists every face at every node. `from_dict` with the
     /// default dict is `new` field for field.
+    ///
+    /// **Result (2026-11-05): as predicted.** Sphere 13 356 octree edges,
+    /// pipe 27 762; each equal, pair for pair, to the extracted mesh's
+    /// edges; every map check held.
     #[test]
     fn octree_edges_match_the_extracted_mesh_edges() {
         for (name, surf, dict) in [
@@ -1391,6 +1395,13 @@ mod tests {
     /// `edgeIntersections` point. The reverse need not hold (two
     /// same-level leaves sharing a triangle count as crossed without a
     /// geometric test); counts recorded.
+    ///
+    /// **Result (2026-11-05): as predicted.** Faces: 5 268 crossed
+    /// geometrically, 5 292 reported, 0 missed; edges: 2 634 crossed, 2 652
+    /// reported, 0 missed, every crossed edge with an intersection point.
+    /// 24 faces and 18 edges are reported but not crossed: upstream's
+    /// same-level shortcut answers without the geometric test (each case
+    /// not examined).
     #[test]
     fn intersected_faces_and_edges_against_brute_force() {
         let (o, _) = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) });
@@ -1479,6 +1490,10 @@ mod tests {
     /// not permissible and it becomes `BOUNDARY`: **two** components. The
     /// removed leaves at least cover the gap faces (25 per side, a 5 x 5
     /// patch of 0.2 cells over the unit face); total recorded.
+    ///
+    /// **Result (2026-11-05): as predicted.** 432 cells in one component
+    /// without the check; with it 72 leaves become `BOUNDARY` and 360 cells
+    /// remain in **two** components; the mesh is closed.
     #[test]
     fn glued_regions_are_separated() {
         let base = MeshDict { keep_cells_intersecting_boundary: true, ..MeshDict::with_max_cell_size(0.2) };
@@ -1511,6 +1526,11 @@ mod tests {
     /// irregularities; the passes end with (0, 0); the fixed mesh is
     /// closed and has no more cells than before. Edge counts on the sphere
     /// and the pipe (no DATA boxes) recorded, not predicted.
+    ///
+    /// **Result (2026-11-05):** one pass, (0, 0), on both: no octree edge
+    /// carries more than two cell–boundary faces, cells unchanged (3 248
+    /// and 6 584). The node prediction holds trivially here; it is shown by
+    /// reading the code (module docs), not by a case that would have fired.
     #[test]
     fn irregular_connections_check() {
         for (name, surf, dict) in [
@@ -1532,6 +1552,48 @@ mod tests {
         }
     }
 
+    /// V&V (gh:#1266 remainder): an irregular connection that fires.
+    ///
+    /// **Prediction (written before the first run):** on the sphere's
+    /// octree, keep only two same-level `INSIDE` leaves that touch along
+    /// one edge (diagonal in x-y) as cells, their face neighbours
+    /// `BOUNDARY`. Their shared octree edge has four cell–`BOUNDARY` faces
+    /// (two per cell), so pass 1 finds exactly 1 irregular edge and 0
+    /// nodes, both cells become `BOUNDARY`, pass 2 finds (0, 0): passes
+    /// `[(1, 0), (0, 0)]`, no cells left.
+    ///
+    /// **Result (2026-11-05):** see the assertion; recorded in the V&V
+    /// README.
+    #[test]
+    fn irregular_edge_between_two_diagonal_cells_is_removed() {
+        let (o, _) = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) });
+        let inside = |l: usize| !o.has_contained_triangles(l) && o.return_leaf(l).cube_type & CubeType::INSIDE != 0;
+        let (a, b) = (0..o.number_of_leaves())
+            .filter(|&l| inside(l))
+            .find_map(|l| {
+                let cc = o.return_leaf(l).coords;
+                let d = crate::mesh_octree::CubeCoordinates::new(cc.x + 1, cc.y + 1, cc.z, cc.level);
+                let m = o.find_leaf_label_for_position(&d)?;
+                (inside(m) && o.return_leaf(m).coords.level == cc.level).then_some((l, m))
+            })
+            .expect("a diagonal pair");
+        let mut bt = vec![BoxType::NONE; o.number_of_leaves()];
+        bt[a] = BoxType::MESHCELL;
+        bt[b] = BoxType::MESHCELL;
+        for l in [a, b] {
+            for nei in o.find_neighbours_for_leaf(&o.return_leaf(l).coords).into_iter().flatten() {
+                if bt[nei] & BoxType::MESHCELL == 0 {
+                    bt[nei] = BoxType::BOUNDARY;
+                }
+            }
+        }
+        let mut addr = MeshOctreeAddressing::from_box_type(&o, false, bt);
+        let passes = addr.check_and_fix_irregular_connections(&o);
+        println!("diagonal pair {a}, {b}: passes {passes:?}");
+        assert_eq!(passes, vec![(1, 0), (0, 0)]);
+        assert!(addr.box_type.iter().all(|&t| t & BoxType::MESHCELL == 0));
+    }
+
     /// V&V (gh:#1266 remainder): `nonManifoldMeshing`.
     ///
     /// **Predictions (written before the first run):** on the sphere (no
@@ -1539,6 +1601,9 @@ mod tests {
     /// mesh as `keepCellsIntersectingBoundary`. With one `INSIDE` leaf
     /// without triangles retyped `UNKNOWN`, the plain DATA-box mesh loses
     /// exactly that cell and the non-manifold one keeps it.
+    ///
+    /// **Result (2026-11-05): as predicted** (5 896 = 5 896; then 5 896
+    /// and 5 895).
     #[test]
     fn non_manifold_meshing_keeps_unknown_leaves() {
         let (mut o, _) = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) });
@@ -1570,6 +1635,10 @@ mod tests {
     /// default: they hold triangles). A facet subset holding the inlet's
     /// facets gives the same meshes. Both meshes are closed. Keep is
     /// ignored with DATA boxes, remove without (upstream's `else if`).
+    ///
+    /// **Result (2026-11-05): as predicted.** 704 leaves hold an inlet
+    /// triangle; cells 6 584 -> 7 288 with keep, 12 864 -> 12 160 with
+    /// remove; the subset name gives the same faces; both meshes closed.
     #[test]
     fn keep_and_remove_cells_intersecting_patches() {
         let mut s = (*pipe(0.01, 0.06, 48)).clone();

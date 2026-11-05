@@ -1162,6 +1162,10 @@ pub(crate) mod tests {
     /// - the source's `cellSize` loop (`source_add_levels`) differs from
     ///   `boundaryCellSize`'s at exact powers of two: `cellSize` 0.25 gives
     ///   3 levels (triangle leaves at level 7), not 2. Upstream as written.
+    ///
+    /// **Result (2026-11-05): as predicted.** Both routes give the same
+    /// 10 816 leaves in the same order (the gh:#1264 pin); the `cellSize`
+    /// 0.25 source puts triangle leaves at level 7 (40 944 leaves).
     #[test]
     fn surface_source_matches_boundary_refinement_on_the_same_triangles() {
         let a = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) }).0;
@@ -1196,6 +1200,10 @@ pub(crate) mod tests {
     /// every leaf the segment crosses (`intersectsLine`) is at level >= 6,
     /// and without the source no leaf off the boundary is finer than 4.
     /// With `refinementThickness` 1.0 more leaves are refined than without.
+    ///
+    /// **Result (2026-11-05): as predicted.** Leaves: 2 024 without the
+    /// source, 2 892 with it, 9 220 with the 1.0 thickness; the 38 leaves
+    /// the segment crosses are all at level 6.
     #[test]
     fn edge_mesh_source_refines_the_leaves_it_crosses() {
         let (p, t) = crate::shapes::box_surface(Vec3::ZERO, Vec3::new(8.0, 8.0, 8.0));
@@ -1241,6 +1249,11 @@ pub(crate) mod tests {
     /// region-1 facets give identical octrees, leaf for leaf, for a cell
     /// size of 0.5 mm, and for 1 additional level with a 1 mm thickness.
     /// An unknown subset name refines nothing (upstream warns).
+    ///
+    /// **Result (2026-11-05): as predicted.** 20 952 leaves plain; 27 672 by
+    /// `patchCellSize` and by `subsetCellSize`, leaf for leaf; 23 864 by
+    /// either `localRefinement` form; the unknown subset leaves the plain
+    /// octree.
     #[test]
     fn subset_cell_size_matches_patch_cell_size_on_the_same_facets() {
         let pipe = crate::mesh_octree_queries::tests::pipe(0.01, 0.06, 48);

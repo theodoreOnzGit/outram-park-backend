@@ -606,6 +606,14 @@ pub(crate) mod tests {
     /// plate leaves with centres in `[0.3, 0.7]^2` end at **level 7**, the
     /// gap holds 3.2 leaves, and the stopping rule holds everywhere below
     /// level 9.
+    ///
+    /// **Second case result: as predicted.** Plate leaves before: 200 at
+    /// level 4; after: 264 at 6, 8 320 at 7, 1 504 at 8; the 1 352 interior
+    /// ones all at level 7, gap / h = 3.2; 2 224 boxes marked in 4 passes;
+    /// stopping rule held for every leaf. The 1 504 level-8 leaves lie
+    /// outside the interior square (not predicted; where exactly and why is
+    /// in the images, `slab_xz_level.png`, and was not investigated
+    /// further).
     #[test]
     fn proximity_refines_two_close_plates_until_the_gap_is_resolved() {
         // (gap, maxCellSize, minCellSize, root side, global level, maxRefLevel, interior levels expected)
@@ -672,6 +680,11 @@ pub(crate) mod tests {
     /// estimate to move it. So: before, every triangle leaf at level 4;
     /// after, **every triangle leaf at level 5**; and on exit every
     /// triangle leaf below level 8 satisfies `h <= 0.2835 / (κ + SMALL)`.
+    ///
+    /// **Result (2026-11-05): as predicted.** 176 triangle leaves at level 4
+    /// before, 680 at level 5 after, in one pass (176 marked); per-leaf `κ`
+    /// 0.3343–0.3354 (+0.3 % to +0.6 % against `1 / R`); criterion held
+    /// on every leaf.
     #[test]
     fn curvature_refines_a_sphere_to_the_curvature_criterion() {
         let dict = MeshDict { min_cell_size: Some(0.1), ..MeshDict::with_max_cell_size(1.0) };
@@ -708,6 +721,19 @@ pub(crate) mod tests {
     /// `maxRefLevel_` is 0 and the report is empty. On the 3-patch pipe
     /// (corners at the rims) the corner and partition criteria are reached;
     /// counts recorded, not predicted.
+    ///
+    /// **Result (2026-11-05):** sphere as predicted (5 104 leaves, 680
+    /// triangle leaves, all at level 5); without `minCellSize` the report is
+    /// empty. Pipe (R 10 mm, `maxCellSize` 4 mm, `minCellSize` 0.5 mm,
+    /// `maxRefLevel_` 8): 1 576 -> 11 824 leaves, triangle leaves at levels
+    /// 6 (1 516), 7 (264), 8 (518) and **9 (64)**; curvature marked 229,
+    /// proximity 4, corners 0, partitions 0, in 4 passes. The pipe has no
+    /// corners (each rim point has two patch-boundary edges, a corner needs
+    /// three), and no leaf sees two patches that do not border, so the
+    /// corner and partition criteria were reached but marked nothing. The
+    /// 64 leaves at level 9 are one past `maxRefLevel_`: upstream's
+    /// `markAdditionalLayers(refineBox, 1)` and the 1-irregularity
+    /// closure refine neighbours without the level test (as written).
     #[test]
     fn create_octree_boxes_runs_automatic_refinement_only_with_min_cell_size() {
         let on = MeshDict { min_cell_size: Some(0.1), ..MeshDict::with_max_cell_size(1.0) };
