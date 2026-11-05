@@ -35,8 +35,10 @@
 //!   track; noted).
 //! - `edgeExtraction` uses `meshSurfaceEdgeExtractorFUN` (~~not ported;
 //!   `surface_mapper`'s patch mapping stands in~~ **UPDATED 2026-11-05,
-//!   gh:#1269:** [`crate::mesh_surface_edge_extractor_fun`], without its
-//!   fundamental sheets, whose `extrudeLayer` is not ported), and
+//!   gh:#1269:** [`crate::mesh_surface_edge_extractor_fun`], ~~without its
+//!   fundamental sheets, whose `extrudeLayer` is not ported~~ **with its
+//!   fundamental sheets since gh:#1281** (`TetMeshOptions::fun_sheets`,
+//!   `FunSheets::Without` is the ablation)), and
 //!   `optimiseMeshSurface` untangles once more after `optimizeSurface`.
 //! - `meshOptimisation` runs `meshSurfaceOptimizer::optimizeSurface` before
 //!   the volume optimiser, in place of `meshOptimizer::optimizeSurface`.
@@ -270,13 +272,22 @@ pub(crate) mod tests {
     /// `meshSurfaceEdgeExtractorFUN`'s order wired in: sphere −1.537 %
     /// (unchanged), pipe −0.325 %, max non-orthogonality 55.29° (was
     /// 75.9°). Record: `p_mesh_gh1273/`, `edge_extractor_gh1269/`.
+    /// **Re-measured 2026-11-05 (gh:#1281)** with `createFundamentalSheetsJFS`
+    /// (default): pipe 9 781 cells, −0.320 %, 58.24°, skew 0.690; the
+    /// `FunSheets::Without` row (also run here) reproduces 4 303 / −0.325 %
+    /// / 55.29° / 0.577; sphere unchanged (no regions, FUN not run).
     #[test]
     fn diagnose_p_mesh_workflow() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
         let (pp, pt, pr) = pipe_surface(0.01, 0.06, 48);
         let pipe_vol = 0.5 * 48.0 * 0.01f64.powi(2) * (2.0 * PI / 48.0).sin() * 0.06;
-        for (name, p, t, r, h, exact) in [("sphere", &sp, &st, None, 0.5, 4.0 / 3.0 * PI * 27.0), ("pipe", &pp, &pt, Some(&pr), 0.002, pipe_vol)] {
-            let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(h), ..Default::default() };
+        use crate::mesh_surface_edge_extractor_fun::FunSheets;
+        for (name, p, t, r, h, exact, fun) in [
+            ("sphere", &sp, &st, None, 0.5, 4.0 / 3.0 * PI * 27.0, FunSheets::Jfs),
+            ("pipe", &pp, &pt, Some(&pr), 0.002, pipe_vol, FunSheets::Jfs),
+            ("pipe without sheets", &pp, &pt, Some(&pr), 0.002, pipe_vol, FunSheets::Without),
+        ] {
+            let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(h), fun_sheets: fun, ..Default::default() };
             let t0 = std::time::Instant::now();
             let (m, rep) = p_mesh(p, t, r, &opts).unwrap();
             let dt = t0.elapsed().as_secs_f64();

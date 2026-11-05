@@ -295,6 +295,7 @@ pub mod snap;
 pub mod surface_engine;
 pub mod surface_mapper;
 pub mod surface_optimizer;
+pub mod symmetry_plane_optimisation;
 pub mod tet;
 pub mod tet_creator_octree;
 pub mod tet_mesh_extractor_octree;

@@ -85,6 +85,11 @@ pub struct TetMeshOptions {
     /// How `patchAssignment` distributes the boundary faces (gh:#1269):
     /// upstream's `edgeExtractor` by default.
     pub patch_assignment: PatchAssignment,
+    /// `pMesh`'s `meshSurfaceEdgeExtractorFUN`: whether its
+    /// `createFundamentalSheetsJFS` runs (gh:#1281). Upstream (`Jfs`) by
+    /// default; `Without` is the gh:#1269 behaviour, kept for the
+    /// differential.
+    pub fun_sheets: crate::mesh_surface_edge_extractor_fun::FunSheets,
 }
 
 /// The `patchAssignment` step's rule (gh:#1269).
@@ -109,6 +114,7 @@ impl Default for TetMeshOptions {
             rename_boundary: None,
             enforce_geometry_constraints: false,
             patch_assignment: PatchAssignment::EdgeExtractor,
+            fun_sheets: crate::mesh_surface_edge_extractor_fun::FunSheets::Jfs,
         }
     }
 }
@@ -381,11 +387,29 @@ pub(crate) fn run_generator(
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
                     ));
                 } else if let Some(r) = regions {
-                    // meshSurfaceEdgeExtractorFUN: (fundamental sheets, not
-                    // ported), smoothMeshSurface, remapBoundaryPoints
-                    let fr = crate::mesh_surface_edge_extractor_fun::mesh_surface_edge_extractor_fun(m, points, tris, r, &given);
+                    // meshSurfaceEdgeExtractorFUN(mesh, octree, false):
+                    // createFundamentalSheetsJFS, smoothMeshSurface,
+                    // remapBoundaryPoints (gh:#1281)
+                    let old_types: Vec<(String, String)> = m.patches.iter().map(|p| p.name.clone()).zip(types.iter().cloned()).collect();
+                    let (fr, g) = crate::mesh_surface_edge_extractor_fun::mesh_surface_edge_extractor_fun(m, points, tris, r, &given, opts.fun_sheets, false);
+                    given = g;
+                    // The sheets rebuild the patches; each keeps its type by name.
+                    types = m.patches.iter().map(|p| old_types.iter().find(|(n, _)| *n == p.name).map_or("patch".to_string(), |(_, t)| t.clone())).collect();
+                    let sheets = match &fr.sheets {
+                        None => "without createFundamentalSheetsJFS (FunSheets::Without)".to_string(),
+                        Some(Ok(s)) => format!(
+                            "createFundamentalSheetsJFS: topology ok {}, wrapper sheet {}, feature-edge sheet {} faces / {} new points / {} edge + {} corner cells",
+                            s.topology_ok,
+                            s.initial_sheet.as_ref().map_or("none".to_string(), |i| format!("{} faces", i.n_extruded_faces)),
+                            s.feature_edge_sheets.iter().map(|f| f.n_extruded_faces).sum::<usize>(),
+                            s.feature_edge_sheets.iter().map(|f| f.n_new_points).sum::<usize>(),
+                            s.feature_edge_sheets.iter().map(|f| f.n_edge_cells).sum::<usize>(),
+                            s.feature_edge_sheets.iter().map(|f| f.n_corner_cells).sum::<usize>()
+                        ),
+                        Some(Err(e)) => format!("createFundamentalSheetsJFS stopped ({e}); went on without the sheets"),
+                    };
                     rep.notes.push(format!(
-                        "edgeExtraction: meshSurfaceEdgeExtractorFUN without createFundamentalSheetsJFS (extrudeLayer not ported): optimizeSurface (inverted {} -> {}), then mapVerticesOntoSurfacePatches",
+                        "edgeExtraction: meshSurfaceEdgeExtractorFUN: {sheets}; optimizeSurface (inverted {} -> {}), then mapVerticesOntoSurfacePatches",
                         fr.smoothing.n_inverted_first, fr.smoothing.n_inverted_last
                     ));
                 }
@@ -431,8 +455,15 @@ pub(crate) fn run_generator(
     let m = mesh.ok_or("the workflow produced no mesh")?;
     let r = renumber_mesh(&m, &cells_from_mesh(&m));
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), false);
-    if !renamed.symmetry_planes_not_optimised.is_empty() {
-        rep.notes.push(format!("renameBoundaryPatches: symmetryPlaneOptimisation not ported; {:?} not flattened", renamed.symmetry_planes_not_optimised));
+    if !renamed.symmetry.planes.is_empty() {
+        let sy = &renamed.symmetry;
+        rep.notes.push(format!(
+            "renameBoundaryPatches: symmetryPlaneOptimisation on {} plane(s): {} points moved{}, {} invalid faces",
+            sy.planes.len(),
+            sy.n_points_moved,
+            if sy.problematic { " (skipped: a patch is not planar)" } else { "" },
+            sy.invalid_faces.len()
+        ));
     }
     if kind == Template::Tet {
         w.workflow_completed();
