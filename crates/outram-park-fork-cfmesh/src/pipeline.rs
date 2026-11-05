@@ -1771,6 +1771,39 @@ pub(crate) mod tests {
         }
     }
 
+    /// Images (gh:#1285), `--ignored`, feature `cell-centre-dual`: the
+    /// internal-face order of the pipe's mesh before and after the final
+    /// step. Each internal face `f` is a dot at (x = f, y = owner), red when
+    /// `owner > neighbour`; an upper-triangular mesh is one rising staircase.
+    /// The geometry does not change, so no slice is drawn (a slice of the
+    /// two meshes is the same picture; `upper_triangular_order_moves_no_geometry`
+    /// checks that numerically). PNGs go to `CFMESH_IMG_DIR` (default: the
+    /// gh:#1285 V&V folder). Drawing only, nothing asserted.
+    #[cfg(feature = "cell-centre-dual")]
+    #[test]
+    #[ignore]
+    fn render_gh1285_face_order() {
+        let dir = std::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/upper_triangular_gh1285").to_string());
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() };
+        for (name, ordered) in [("before", false), ("after", true)] {
+            let (m, _) = run_pipeline(&p, &t, &o, Some(&regions), ordered).unwrap();
+            let (w, h) = (700usize, 700usize);
+            let mut rgb = vec![255u8; 3 * w * h];
+            let ni = m.n_internal_faces();
+            for f in 0..ni {
+                let o = m.owner[f];
+                let x = f * (w - 1) / ni.max(1);
+                let y = h - 1 - o * (h - 1) / m.n_cells.max(1);
+                let c = if o > m.neighbour[f].unwrap() { [220u8, 30, 30] } else { [0u8, 0, 0] };
+                rgb[3 * (y * w + x)..3 * (y * w + x) + 3].copy_from_slice(&c);
+            }
+            let path = std::path::Path::new(&dir).join(format!("face_order_h4_{name}.png"));
+            crate::surface_optimizer::render_gh1259::write_png(&path, w, h, &rgb);
+            println!("wrote {} ({} internal faces, {} cells)", path.display(), ni, m.n_cells);
+        }
+    }
+
     /// V&V (gh:#1215) — **the default layer strategy is pinned bit for bit.**
     /// Methodology: the multipatch pipeline with wall-only layers on the demo
     /// pipe (R 10 mm, L 60 mm, 48 facets) at h 6 / 4 mm with 1–3 layers, and a
@@ -1792,6 +1825,12 @@ pub(crate) mod tests {
     /// (7 cases). The fingerprints below are the deterministic ones; the h 4
     /// mm and box-duct values equal the first recording (the flip order did
     /// not change those meshes), the h 6 mm ones do not.
+    /// **Re-pinned 2026-11-05 (gh:#1285):** the pipeline now ends in OpenFOAM's
+    /// upper-triangular face order (`renumber_mesh::upper_triangular`); the
+    /// geometry is unchanged (`upper_triangular_order_moves_no_geometry`:
+    /// same points, cells and boundary faces, total volume bit for bit),
+    /// but the fingerprint hashes the face order, so it moved. Cell counts
+    /// did not. Old values struck through beside the new ones.
     #[test]
     fn back_off_only_layers_are_pinned_bit_for_bit() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
@@ -1819,14 +1858,18 @@ pub(crate) mod tests {
         let o = TetDualOptions { cell_size: 0.005, n_layers: 2, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&bp, &bt, &br, &o).unwrap();
         got.push(("box duct h 0.005 n 2".into(), m.cell_count(), mesh_fingerprint(&m)));
+        // gh:#1285, old -> new: ~~7691211397797103741~~, ~~6777344945964783458~~,
+        // ~~8963858472090204797~~, ~~11354576510400452468~~,
+        // ~~6008187938627271744~~, ~~13850840632559401666~~,
+        // ~~7672853737214871962~~ (pre-gh:#1285 face order).
         let pinned: [(usize, u64); 7] = [
-            (2025, 7691211397797103741),
-            (3445, 6777344945964783458),
-            (4865, 8963858472090204797),
-            (5511, 11354576510400452468),
-            (9079, 6008187938627271744),
-            (12647, 13850840632559401666),
-            (5813, 7672853737214871962),
+            (2025, 6256401714239669657),
+            (3445, 7331035643881703750),
+            (4865, 18337414743125392665),
+            (5511, 12495095278579800432),
+            (9079, 10932642480450119360),
+            (12647, 13769222349618449910),
+            (5813, 15315517425586397770),
         ];
         for g in &got {
             eprintln!("fingerprint {g:?}");
@@ -1918,8 +1961,10 @@ pub(crate) mod tests {
         }
         eprintln!("strategy fingerprints {got:?}");
         // Recorded 2026-11-04 (serial smoothing); the threaded smoothing
-        // must give the same bits.
-        assert_eq!(got, vec![(7725, 11521056484853145326), (957, 10164118906460112537)]);
+        // must give the same bits. gh:#1285 (face order only, geometry
+        // unchanged): ~~(7725, 11521056484853145326), (957,
+        // 10164118906460112537)~~.
+        assert_eq!(got, vec![(7725, 5422758738504758818), (957, 18444736245533413537)]);
     }
 
     /// Diagnostic (gh:#1215), `--ignored`: how many wall faces each
@@ -2750,11 +2795,15 @@ pub(crate) mod tests {
     fn dual_kinds_are_pinned_bit_for_bit() {
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
         let cases = [
-            (DualKind::MedianPerCorner, FeaturePointRule::OnFeatureEdge, 7632, 16736591880388189566u64),
-            (DualKind::MedianPerPoint, FeaturePointRule::OnFeatureEdge, 1320, 5331245050290215594),
-            (DualKind::CellCentre, FeaturePointRule::OnFeatureEdge, 1320, 1937584253539663578),
-            (DualKind::MedianPerPoint, FeaturePointRule::Corners, 1304, 3093209209138859925),
-            (DualKind::CellCentre, FeaturePointRule::Corners, 1304, 10005039613933009028),
+            // gh:#1285 (face order only, geometry unchanged), old pins:
+            // ~~16736591880388189566~~, ~~5331245050290215594~~,
+            // ~~1937584253539663578~~, ~~3093209209138859925~~,
+            // ~~10005039613933009028~~.
+            (DualKind::MedianPerCorner, FeaturePointRule::OnFeatureEdge, 7632, 12398942909958749874u64),
+            (DualKind::MedianPerPoint, FeaturePointRule::OnFeatureEdge, 1320, 11035141598418972758),
+            (DualKind::CellCentre, FeaturePointRule::OnFeatureEdge, 1320, 5798262695090360502),
+            (DualKind::MedianPerPoint, FeaturePointRule::Corners, 1304, 6679129286926630001),
+            (DualKind::CellCentre, FeaturePointRule::Corners, 1304, 2459340814925991440),
         ];
         let mut got = Vec::new();
         for (kind, fp, n_wall, pin) in cases {
@@ -2916,7 +2965,10 @@ pub(crate) mod tests {
         println!("octree fingerprints {got:?}");
         assert_eq!(got, OCTREE_PINS);
     }
-    const OCTREE_PINS: (usize, u64, usize, u64) = (2528, 16070505555120789497, 664, 24335298658873933);
+    /// gh:#1285: the octree mesh itself (`refine_near_boundary_banded`) is
+    /// not a pipeline output and kept its pin; the pipeline's pipe moved
+    /// with the face order (~~24335298658873933~~).
+    const OCTREE_PINS: (usize, u64, usize, u64) = (2528, 16070505555120789497, 664, 2018287953755369937);
 
     /// Feature edges of `m`'s boundary (edges between two boundary faces in
     /// different patches), the number at each boundary point, and the

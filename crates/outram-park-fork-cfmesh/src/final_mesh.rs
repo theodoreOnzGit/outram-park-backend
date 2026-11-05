@@ -396,15 +396,16 @@ mod tests {
     /// The Foam Studio unstructured default's cfMesh mesh (per-corner
     /// median dual, h 4 mm, no layer, L 200 mm `pipe_surface`) keeps the
     /// fingerprint recorded in gh:#1240 / gh:#1241,
-    /// 18084991279620725399, through the gh:#1283 code paths (every new
-    /// control off).
+    /// ~~18084991279620725399~~ (**re-pinned 2026-11-05, gh:#1285:**
+    /// 13281953444677737411, the same mesh in the upper-triangular face
+    /// order), through the gh:#1283 code paths (every new control off).
     #[test]
     fn foam_studio_default_mesh_keeps_its_fingerprint() {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
         let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         assert_eq!(m.cell_count(), 6353);
-        assert_eq!(crate::pipeline::tests::mesh_fingerprint(&m), 18084991279620725399);
+        assert_eq!(crate::pipeline::tests::mesh_fingerprint(&m), 13281953444677737411);
     }
 }
 

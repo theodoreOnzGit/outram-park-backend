@@ -936,11 +936,15 @@ mod tests {
     /// owner < neighbour, so only the ordering half fails. The check is now
     /// made on the box with its internal faces sorted into that order
     /// (passes), then with two of them swapped (fails), and the unsorted box
-    /// is recorded failing on order only.
+    /// is recorded failing on order only. **UPDATED 2026-11-05 (gh:#1285):**
+    /// ~~`cartesian_box` fails it~~ `cartesian_box` now ends in that order
+    /// (`renumber_mesh::upper_triangular`) and passes as built (asserted);
+    /// the sort below is then the identity.
     #[test]
     fn upper_triangular_detects_a_swap() {
         let raw = cartesian_box(Vec3::ZERO, Vec3::new(2.0, 2.0, 1.0), [2, 2, 1]);
         let (fail_raw, bad_raw) = check_upper_triangular(&raw);
+        assert!(!fail_raw, "gh:#1285: cartesian_box is upper-triangular as built");
         let n_int = raw.n_internal_faces();
         assert!((0..n_int).all(|f| raw.owner[f] < raw.neighbour[f].unwrap()));
         println!("cartesian_box as built: upper-triangular {}, flagged {:?}", !fail_raw, (0..bad_raw.len()).filter(|&f| bad_raw[f]).collect::<Vec<_>>());

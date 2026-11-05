@@ -325,6 +325,20 @@ are not ported; the report says so at each step.~~ **UPDATED 2026-11-05
 layer is patch-wise. Record:
 `verification_and_validation/cartesian_2d_mesh_gh1275/`.
 
+## Every mesh leaves in OpenFOAM's upper-triangular face order (gh:#1285, 2026-11-05)
+
+`renumber_mesh::upper_triangular` (steps 2–3 of upstream's `renumberMesh`
+with the cell labels kept) is the **last step** of the tet-dual pipeline
+(`pipeline::run_pipeline`) and of `cartesian::cartesian_box`. One final
+step, not one per builder: every stage rebuilds its mesh from cell face
+lists, so an order set inside a stage does not survive the next. A new
+public route that returns a `VolumeMesh` ends with it too
+(`poly_mesh_gen_checks::check_upper_triangular` must pass). The four
+upstream workflows end with the full `renumberMesh` (cell walk too). The
+geometry is unchanged by it (`upper_triangular_order_moves_no_geometry`);
+fingerprints that hash face order moved once. Record:
+`verification_and_validation/upper_triangular_gh1285/`.
+
 ## Avoid writing macros (workspace rule, 2026-11-05)
 
 Maintainer direction: macros make code harder to read and review. Do not
