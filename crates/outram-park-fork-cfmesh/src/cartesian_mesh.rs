@@ -53,22 +53,36 @@
 //! cells are `BOUNDARY` leaves: they get nodes (so the boundary faces of
 //! finer neighbours can be built) but no cell.
 //!
+//! # The dictionary options (gh:#1266 remainder)
+//!
+//! [`MeshOctreeAddressing::from_dict`] and
+//! [`cartesian_mesh_extractor_from_dict`] read `nonManifoldMeshing`,
+//! `keepCellsIntersectingPatches`, `removeCellsIntersectingPatches`
+//! ([`CellSelection`]) and `checkForGluedMesh`
+//! ([`MeshOctreeAddressing::check_glued_regions`]) from a [`MeshDict`];
+//! with none set they are [`MeshOctreeAddressing::new`] and
+//! [`cartesian_mesh_extractor`]. The octree edges and their maps
+//! ([`MeshOctreeAddressing::edge_addressing`]), `leafLeaves`, `nodeFaces`,
+//! `isIntersectedFace` / `isIntersectedEdge` / `edgeIntersections` and
+//! `checkAndFixIrregularConnections` (no upstream caller) are methods.
+//!
 //! # Not ported
 //!
-//! `nonManifoldMeshing`, `removeCellsIntersectingPatches`,
+//! ~~`nonManifoldMeshing`, `removeCellsIntersectingPatches`,
 //! `keepCellsIntersectingPatches`, `checkGluedRegions`
 //! (`checkForGluedMesh`), `checkAndFixIrregularConnections`, the octree
 //! edges and their addressing (`createOctreeEdges` and the five
 //! edge-related maps), `isIntersectedFace` / `isIntersectedEdge`,
-//! `leafLeaves`, `nodeFaces`, the quadtree's empty patches and everything
-//! parallel. All boundary faces go to one patch, `defaultFaces`
-//! (upstream's `polyMeshGen` leaves them unnamed until the generator
-//! assigns patches).
+//! `leafLeaves`, `nodeFaces`,~~ (**ported 2026-11-05**, above) the
+//! quadtree's empty patches and everything parallel. All boundary faces go
+//! to one patch, `defaultFaces` (upstream's `polyMeshGen` leaves them
+//! unnamed until the generator assigns patches).
 
 use crate::math::Vec3;
-use crate::mesh_octree::{CubeType, MeshOctree, EDGE_NODES, FACE_EDGES, FACE_NODES};
+use crate::mesh_octree::{help, CubeType, MeshOctree, TriSurf, EDGE_NODES, FACE_EDGES, FACE_NODES, SMALL};
 use crate::mesh_octree_creator::MeshDict;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// `meshOctreeAddressing::octreeCubeTypes`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,8 +138,30 @@ impl MeshOctreeAddressing {
     /// demand-driven member computed: used boxes, node labels and points,
     /// node leaves and types, octree faces and leaf faces.
     pub fn new(o: &MeshOctree, use_data_boxes: bool) -> Self {
+        Self::from_box_type(o, use_data_boxes, find_used_boxes(o, use_data_boxes, &CellSelection::default()))
+    }
+
+    /// `meshOctreeAddressing(octree, meshDict, useDATABoxes)` with the
+    /// dictionary entries it reads: `keepCellsIntersectingBoundary` and
+    /// `nonManifoldMeshing` turn DATA boxes on; `nonManifoldMeshing`,
+    /// `keepCellsIntersectingPatches` and `removeCellsIntersectingPatches`
+    /// change `findUsedBoxes` ([`CellSelection`]); `checkForGluedMesh` runs
+    /// [`MeshOctreeAddressing::check_glued_regions`] at the end of the
+    /// constructor, as upstream. With a dict that sets none of them this is
+    /// [`MeshOctreeAddressing::new`].
+    pub fn from_dict(o: &MeshOctree, dict: &MeshDict, use_data_boxes: bool) -> Self {
+        let sel = CellSelection::from_dict(dict);
+        let use_data_boxes = use_data_boxes || dict.keep_cells_intersecting_boundary || sel.non_manifold_meshing;
+        let mut a = Self::from_box_type(o, use_data_boxes, find_used_boxes(o, use_data_boxes, &sel));
+        if use_data_boxes && dict.check_for_glued_mesh {
+            a.check_glued_regions(o);
+        }
+        a
+    }
+
+    /// Everything after `findUsedBoxes`, from the given box types.
+    fn from_box_type(o: &MeshOctree, use_data_boxes: bool, box_type: Vec<u8>) -> Self {
         let n = o.number_of_leaves();
-        let box_type = find_used_boxes(o, use_data_boxes);
         let mut a = MeshOctreeAddressing {
             use_data_boxes,
             box_type,
@@ -405,10 +441,423 @@ impl MeshOctreeAddressing {
             }
         }
     }
+
+    /// `calculateNodeFaces`: the octree faces at each node, ascending
+    /// (`reverseAddressing` of `octreeFaces`).
+    pub fn node_faces(&self) -> Vec<Vec<usize>> {
+        let mut nf = vec![Vec::new(); self.number_of_nodes()];
+        for (f, ring) in self.octree_faces.iter().enumerate() {
+            for &p in ring {
+                nf[p].push(f);
+            }
+        }
+        nf
+    }
+
+    /// `calculateLeafLeaves`: the leaves across each leaf's internal octree
+    /// faces, in face order (a leaf appears once per shared face).
+    pub fn leaf_leaves(&self) -> Vec<Vec<usize>> {
+        let mut ll = vec![Vec::new(); self.leaf_faces.len()];
+        for f in 0..self.octree_faces.len() {
+            if let Some(nei) = self.octree_face_neighbour[f] {
+                let own = self.octree_face_owner[f];
+                ll[own].push(nei);
+                ll[nei].push(own);
+            }
+        }
+        ll
+    }
+
+    /// `createOctreeEdges`, `calculateEdgeFaces`, `calculateEdgeLeaves` and
+    /// `calculateLeafEdges` ([`OctreeEdges`]).
+    pub fn edge_addressing(&self) -> OctreeEdges {
+        let nn = self.number_of_nodes();
+        let mut edges: Vec<[usize; 2]> = Vec::new();
+        let mut node_edges: Vec<Vec<usize>> = vec![Vec::new(); nn];
+        let mut face_edges: Vec<Vec<usize>> = Vec::with_capacity(self.octree_faces.len());
+        for ring in &self.octree_faces {
+            let k = ring.len();
+            let mut fe = Vec::with_capacity(k);
+            for i in 0..k {
+                let (s, e) = (ring[i], ring[(i + 1) % k]);
+                // OpenFOAM's `edge ==` ignores the direction.
+                let found = node_edges[s].iter().copied().find(|&j| {
+                    let ed = edges[j];
+                    (ed[0] == s && ed[1] == e) || (ed[0] == e && ed[1] == s)
+                });
+                match found {
+                    Some(j) => fe.push(j),
+                    None => {
+                        fe.push(edges.len());
+                        node_edges[s].push(edges.len());
+                        node_edges[e].push(edges.len());
+                        edges.push([s, e]);
+                    }
+                }
+            }
+            face_edges.push(fe);
+        }
+        let mut edge_faces = vec![Vec::new(); edges.len()];
+        for (f, fe) in face_edges.iter().enumerate() {
+            for &e in fe {
+                edge_faces[e].push(f);
+            }
+        }
+        let mut edge_leaves: Vec<Vec<usize>> = vec![Vec::new(); edges.len()];
+        for (e, ef) in edge_faces.iter().enumerate() {
+            for &f in ef {
+                let own = self.octree_face_owner[f];
+                if !edge_leaves[e].contains(&own) {
+                    edge_leaves[e].push(own);
+                }
+                if let Some(nei) = self.octree_face_neighbour[f] {
+                    if !edge_leaves[e].contains(&nei) {
+                        edge_leaves[e].push(nei);
+                    }
+                }
+            }
+        }
+        let mut leaf_edges = vec![Vec::new(); self.leaf_faces.len()];
+        for (e, el) in edge_leaves.iter().enumerate() {
+            for &l in el {
+                leaf_edges[l].push(e);
+            }
+        }
+        OctreeEdges { edges, face_edges, node_edges, edge_faces, edge_leaves, leaf_edges }
+    }
+
+    /// Triangles appearing in every one of `leaves` (`nAppearances` equal to
+    /// the number of leaves), ascending. Empty if a leaf has none.
+    fn shared_triangles(o: &MeshOctree, leaves: &[usize]) -> Vec<usize> {
+        let mut count: BTreeMap<usize, usize> = BTreeMap::new();
+        for &l in leaves {
+            for t in o.contained_triangles(l) {
+                *count.entry(t).or_insert(0) += 1;
+            }
+        }
+        count.into_iter().filter(|&(_, c)| c == leaves.len()).map(|(t, _)| t).collect()
+    }
+
+    /// `isIntersectedFace`: an internal octree face is crossed by the
+    /// surface if a triangle is in both its leaves and the leaves are at the
+    /// same level, or the triangle meets the face geometrically
+    /// (`help::doFaceAndTriangleIntersect`).
+    pub fn is_intersected_face(&self, o: &MeshOctree, f: usize) -> bool {
+        let Some(nei) = self.octree_face_neighbour[f] else {
+            return false;
+        };
+        let own = self.octree_face_owner[f];
+        for t in Self::shared_triangles(o, &[own, nei]) {
+            if o.return_leaf(own).coords.level == o.return_leaf(nei).coords.level {
+                return true;
+            }
+            if do_face_and_triangle_intersect(&o.surface, t, &self.octree_faces[f], &self.octree_points) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// `isIntersectedEdge`: every leaf at the edge holds triangles, and one
+    /// triangle is in all of them, with the leaves at one level or the
+    /// triangle crossing the edge (`triLineIntersection`).
+    pub fn is_intersected_edge(&self, o: &MeshOctree, ea: &OctreeEdges, e: usize) -> bool {
+        let leaves = &ea.edge_leaves[e];
+        if leaves.iter().any(|&l| !o.has_contained_triangles(l)) {
+            return false;
+        }
+        let l0 = o.return_leaf(leaves[0]).coords.level;
+        let same_level = leaves.iter().all(|&l| o.return_leaf(l).coords.level == l0);
+        let [s, en] = ea.edges[e];
+        for t in Self::shared_triangles(o, leaves) {
+            if same_level {
+                return true;
+            }
+            let tr = o.surface.triangles[t];
+            let p = &o.surface.points;
+            if help::tri_line_intersection(p[tr[0]], p[tr[1]], p[tr[2]], self.octree_points[s], self.octree_points[en]).is_some() {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// `edgeIntersections`: the distinct points where the triangles shared
+    /// by every leaf at edge `e` cross it (tolerance `SMALL x` its length).
+    pub fn edge_intersections(&self, o: &MeshOctree, ea: &OctreeEdges, e: usize) -> Vec<Vec3> {
+        let leaves = &ea.edge_leaves[e];
+        if leaves.iter().any(|&l| !o.has_contained_triangles(l)) {
+            return Vec::new();
+        }
+        let [s, en] = ea.edges[e];
+        let (ps, pe) = (self.octree_points[s], self.octree_points[en]);
+        let tol = SMALL * ps.sub(pe).length();
+        let mut out: Vec<Vec3> = Vec::new();
+        for t in Self::shared_triangles(o, leaves) {
+            let tr = o.surface.triangles[t];
+            let p = &o.surface.points;
+            if let Some(x) = help::tri_line_intersection(p[tr[0]], p[tr[1]], p[tr[2]], ps, pe) {
+                if out.iter().all(|y| y.sub(x).length() > tol) {
+                    out.push(x);
+                }
+            }
+        }
+        out
+    }
+
+    /// `checkGluedRegions` (`checkForGluedMesh`): a `MESHCELL` leaf holding
+    /// triangles keeps its cell only if, walking its edges from one of its
+    /// `INNERNODE` corners over edges with an `INSIDE` leaf without
+    /// triangles, the inner corners reached border every `MESHCELL` face
+    /// neighbour; otherwise it becomes `BOUNDARY`. Returns the leaves
+    /// changed.
+    ///
+    /// As upstream, the node and face addressing is **not** rebuilt after
+    /// the change (upstream computes it inside the check and never clears
+    /// it): the extractor then reads faces built with the old types, and a
+    /// removed leaf's faces to `MESHCELL` neighbours become their boundary
+    /// faces.
+    pub fn check_glued_regions(&mut self, o: &MeshOctree) -> Vec<usize> {
+        let ea = self.edge_addressing();
+        let mut remove: Vec<usize> = Vec::new();
+        for leaf in 0..self.box_type.len() {
+            if !(o.has_contained_triangles(leaf) && self.box_type[leaf] & BoxType::MESHCELL != 0) {
+                continue;
+            }
+            let row = self.node_labels[leaf].expect("used leaf");
+            let mut inner: BTreeSet<usize> = BTreeSet::new();
+            if let Some(&n0) = row.iter().find(|&&n| n != usize::MAX && self.node_type[n] & BoxType::INNERNODE != 0) {
+                inner.insert(n0);
+            }
+            loop {
+                let mut finished = true;
+                for &e in &ea.leaf_edges[leaf] {
+                    let [s, en] = ea.edges[e];
+                    let both_inner = self.node_type[s] & BoxType::INNERNODE != 0 && self.node_type[en] & BoxType::INNERNODE != 0;
+                    if !both_inner || inner.contains(&s) == inner.contains(&en) {
+                        continue;
+                    }
+                    let found_inside = ea.edge_leaves[e]
+                        .iter()
+                        .any(|&l| !o.has_contained_triangles(l) && o.return_leaf(l).cube_type & CubeType::INSIDE != 0);
+                    if found_inside {
+                        inner.insert(s);
+                        inner.insert(en);
+                        finished = false;
+                    }
+                }
+                if finished {
+                    break;
+                }
+            }
+            let permissible: BTreeSet<usize> = inner.iter().flat_map(|&n| self.node_leaves[n].iter().flatten().copied()).collect();
+            if inner.is_empty() {
+                remove.push(leaf);
+                continue;
+            }
+            let cc = o.return_leaf(leaf).coords;
+            for dir in 0..6 {
+                let mut neis = Vec::new();
+                o.find_neighbours_in_direction(&cc, dir, &mut neis);
+                if neis.iter().flatten().any(|&nei| self.box_type[nei] & BoxType::MESHCELL != 0 && !permissible.contains(&nei)) {
+                    remove.push(leaf);
+                }
+            }
+        }
+        remove.dedup();
+        for &l in &remove {
+            self.box_type[l] = BoxType::BOUNDARY;
+        }
+        remove
+    }
+
+    /// `checkAndFixIrregularConnections` (no caller upstream at this
+    /// commit): leaves at an octree edge shared by more than two
+    /// `MESHCELL`–`BOUNDARY` faces become `BOUNDARY`, as do the cells at a
+    /// node where the boundary faces form two groups, until none is found;
+    /// then the node and face addressing are rebuilt from the box types.
+    /// Returns, per pass, the irregular (edges, nodes) found (the last is
+    /// 0).
+    ///
+    /// **Upstream defect, transcribed:** the node test marks a node only if
+    /// the walk over its boundary faces found, for **every** edge of every
+    /// face, another boundary face at the node. A face's edges away from
+    /// the node never have one, so the test never fires (`watertightSurface`
+    /// is always false once a node has a boundary face).
+    pub fn check_and_fix_irregular_connections(&mut self, o: &MeshOctree) -> Vec<(usize, usize)> {
+        let ea = self.edge_addressing();
+        let node_faces = self.node_faces();
+        let n_faces = self.octree_faces.len();
+        let mut passes = Vec::new();
+        loop {
+            let (mut n_edge_irr, mut n_node_irr) = (0usize, 0usize);
+            let mut boundary_face = vec![false; n_faces];
+            for (f, bf) in boundary_face.iter_mut().enumerate() {
+                let Some(nei) = self.octree_face_neighbour[f] else {
+                    continue;
+                };
+                let own = self.octree_face_owner[f];
+                let (bo, bn) = (self.box_type[own], self.box_type[nei]);
+                if (bn & BoxType::BOUNDARY != 0 && bo & BoxType::MESHCELL != 0) || (bo & BoxType::BOUNDARY != 0 && bn & BoxType::MESHCELL != 0) {
+                    *bf = true;
+                }
+            }
+            for (e, ef) in ea.edge_faces.iter().enumerate() {
+                if ef.iter().filter(|&&f| boundary_face[f]).count() > 2 {
+                    n_edge_irr += 1;
+                    for &l in &ea.edge_leaves[e] {
+                        self.box_type[l] = BoxType::BOUNDARY;
+                    }
+                }
+            }
+            for nf in &node_faces {
+                let mut at: BTreeSet<usize> = nf.iter().copied().filter(|&f| boundary_face[f]).collect();
+                let mut n_groups = 0;
+                let mut watertight = true;
+                while let Some(&first) = at.iter().next() {
+                    at.remove(&first);
+                    let mut front = vec![first];
+                    while let Some(fl) = front.pop() {
+                        for &e in &ea.face_edges[fl] {
+                            let mut found = false;
+                            for &fj in &ea.edge_faces[e] {
+                                if at.remove(&fj) {
+                                    found = true;
+                                    front.push(fj);
+                                }
+                            }
+                            if !found {
+                                watertight = false;
+                                break;
+                            }
+                        }
+                    }
+                    n_groups += 1;
+                }
+                if watertight && n_groups > 1 {
+                    n_node_irr += 1;
+                    for &f in nf {
+                        if !boundary_face[f] {
+                            continue;
+                        }
+                        let own = self.octree_face_owner[f];
+                        if self.box_type[own] & BoxType::MESHCELL != 0 {
+                            self.box_type[own] = BoxType::BOUNDARY;
+                        }
+                        if let Some(nei) = self.octree_face_neighbour[f] {
+                            if self.box_type[nei] & BoxType::MESHCELL != 0 {
+                                self.box_type[nei] = BoxType::BOUNDARY;
+                            }
+                        }
+                    }
+                }
+            }
+            passes.push((n_edge_irr, n_node_irr));
+            if n_edge_irr + n_node_irr == 0 {
+                break;
+            }
+        }
+        // clearNodeAddressing, clearOctreeFaces, clearAddressing: rebuilt
+        // from the box types on next use (here, at once).
+        let rebuilt = Self::from_box_type(o, self.use_data_boxes, self.box_type.clone());
+        *self = rebuilt;
+        passes
+    }
 }
 
-/// `findUsedBoxes` (module docs).
-fn find_used_boxes(o: &MeshOctree, use_data_boxes: bool) -> Vec<u8> {
+/// `meshOctreeAddressing`'s edge addressing: `octreeEdges` and its five maps.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OctreeEdges {
+    /// `octreeEdges`: start and end node, in the direction first met.
+    pub edges: Vec<[usize; 2]>,
+    /// `faceEdges`: edge `i` of a face joins its points `i` and `i + 1`.
+    pub face_edges: Vec<Vec<usize>>,
+    /// `nodeEdges`.
+    pub node_edges: Vec<Vec<usize>>,
+    /// `edgeFaces`, ascending.
+    pub edge_faces: Vec<Vec<usize>>,
+    /// `edgeLeaves`: owners and neighbours of the edge's faces, first-seen
+    /// order.
+    pub edge_leaves: Vec<Vec<usize>>,
+    /// `leafEdges`, ascending.
+    pub leaf_edges: Vec<Vec<usize>>,
+}
+
+/// `help::doFaceAndTriangleIntersect`: does a triangle edge cross the face
+/// (fanned about OpenFOAM's `face::centre`), or a face edge cross the
+/// triangle?
+pub fn do_face_and_triangle_intersect(surf: &TriSurf, t: usize, ring: &[usize], points: &[Vec3]) -> bool {
+    let c = crate::correct_edges::foam_face_centre(points, ring);
+    let tr = surf.triangles[t];
+    let tp = [surf.points[tr[0]], surf.points[tr[1]], surf.points[tr[2]]];
+    let k = ring.len();
+    for e in 0..3 {
+        let (s, en) = (tp[e], tp[(e + 1) % 3]);
+        for i in 0..k {
+            if help::tri_line_intersection(points[ring[i]], points[ring[(i + 1) % k]], c, s, en).is_some() {
+                return true;
+            }
+        }
+    }
+    for i in 0..k {
+        if help::tri_line_intersection(tp[0], tp[1], tp[2], points[ring[i]], points[ring[(i + 1) % k]]).is_some() {
+            return true;
+        }
+    }
+    false
+}
+
+/// The `meshDict` entries `findUsedBoxes` reads besides
+/// `keepCellsIntersectingBoundary` (gh:#1266 remainder). Patches are named
+/// by name; a name also matches a facet subset of that name, as upstream
+/// (`findPatches` is a regular expression upstream, an exact match here).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CellSelection {
+    /// `nonManifoldMeshing`: `UNKNOWN` leaves become cells, and DATA boxes
+    /// are used.
+    pub non_manifold_meshing: bool,
+    /// `keepCellsIntersectingPatches` (read only without DATA boxes).
+    pub keep_cells_intersecting_patches: Vec<String>,
+    /// `removeCellsIntersectingPatches` (read only with DATA boxes).
+    pub remove_cells_intersecting_patches: Vec<String>,
+}
+
+impl CellSelection {
+    /// The entries a [`MeshDict`] sets.
+    pub fn from_dict(dict: &MeshDict) -> Self {
+        CellSelection {
+            non_manifold_meshing: dict.non_manifold_meshing,
+            keep_cells_intersecting_patches: dict.keep_cells_intersecting_patches.clone(),
+            remove_cells_intersecting_patches: dict.remove_cells_intersecting_patches.clone(),
+        }
+    }
+}
+
+/// The facets named by `names`: every facet of a patch called so, and every
+/// facet of a facet subset called so.
+fn facets_named(o: &MeshOctree, names: &[String]) -> Vec<bool> {
+    let ts = &o.surface;
+    let mut flag = vec![false; ts.size()];
+    for name in names {
+        let active: Vec<usize> = ts.find_patches(name);
+        for (t, r) in ts.regions.iter().enumerate() {
+            if active.contains(r) {
+                flag[t] = true;
+            }
+        }
+    }
+    for name in names {
+        if let Some(id) = ts.facet_subsets.index(name) {
+            for t in ts.facet_subsets.elements(id) {
+                flag[t] = true;
+            }
+        }
+    }
+    flag
+}
+
+/// `findUsedBoxes` (module docs; [`CellSelection`] for the options).
+fn find_used_boxes(o: &MeshOctree, use_data_boxes: bool, sel: &CellSelection) -> Vec<u8> {
     let n = o.number_of_leaves();
     let mut bt = vec![BoxType::NONE; n];
     for (l, b) in bt.iter_mut().enumerate() {
@@ -417,10 +866,32 @@ fn find_used_boxes(o: &MeshOctree, use_data_boxes: bool) -> Vec<u8> {
             *b |= BoxType::MESHCELL;
         }
     }
+    if sel.non_manifold_meshing {
+        for (l, b) in bt.iter_mut().enumerate() {
+            if o.return_leaf(l).cube_type & CubeType::UNKNOWN != 0 {
+                *b |= BoxType::MESHCELL;
+            }
+        }
+    }
     if use_data_boxes {
         for (l, b) in bt.iter_mut().enumerate() {
             if o.has_contained_triangles(l) || o.has_contained_edges(l) {
                 *b |= BoxType::MESHCELL;
+            }
+        }
+        if !sel.remove_cells_intersecting_patches.is_empty() {
+            let remove = facets_named(o, &sel.remove_cells_intersecting_patches);
+            for (l, b) in bt.iter_mut().enumerate() {
+                if o.contained_triangles(l).iter().any(|&t| remove[t]) {
+                    *b = BoxType::NONE;
+                }
+            }
+        }
+    } else if !sel.keep_cells_intersecting_patches.is_empty() {
+        let keep = facets_named(o, &sel.keep_cells_intersecting_patches);
+        for (l, b) in bt.iter_mut().enumerate() {
+            if o.contained_triangles(l).iter().any(|&t| keep[t]) {
+                *b = BoxType::MESHCELL;
             }
         }
     }
@@ -474,7 +945,19 @@ pub struct CartesianMesh {
 /// drop unused points (`removeUnusedVertices`). Internal faces come first,
 /// each oriented out of its lower-numbered cell.
 pub fn cartesian_mesh_extractor(o: &MeshOctree, opts: &CartesianMeshOptions) -> CartesianMesh {
-    let a = MeshOctreeAddressing::new(o, opts.use_data_boxes);
+    extract_from_addressing(o, opts, MeshOctreeAddressing::new(o, opts.use_data_boxes))
+}
+
+/// `cartesianMeshExtractor(octree, meshDict, mesh)`: the extractor with
+/// the addressing built from the dictionary
+/// ([`MeshOctreeAddressing::from_dict`]: `nonManifoldMeshing`,
+/// `keep`/`removeCellsIntersectingPatches`, `checkForGluedMesh`). With a
+/// dict that sets none of those, identical to [`cartesian_mesh_extractor`].
+pub fn cartesian_mesh_extractor_from_dict(o: &MeshOctree, opts: &CartesianMeshOptions, dict: &MeshDict) -> CartesianMesh {
+    extract_from_addressing(o, opts, MeshOctreeAddressing::from_dict(o, dict, opts.use_data_boxes))
+}
+
+fn extract_from_addressing(o: &MeshOctree, opts: &CartesianMeshOptions, a: MeshOctreeAddressing) -> CartesianMesh {
     let n = o.number_of_leaves();
     let mut leaf_cell = vec![None; n];
     let mut n_cells = 0;
@@ -577,6 +1060,7 @@ mod tests {
     use crate::mesh_octree_creator::tests::{create, sphere3};
     use crate::mesh_octree_queries::tests::pipe;
     use std::collections::{BTreeMap, BTreeSet};
+    use std::sync::Arc;
 
     /// Per-cell volumes by the divergence theorem over each cell's faces.
     fn cell_volumes(m: &VolumeMesh) -> Vec<f64> {
@@ -799,5 +1283,323 @@ mod tests {
         }
         let opts = CartesianMeshOptions::from_dict(&MeshDict { keep_cells_intersecting_boundary: true, ..MeshDict::with_max_cell_size(1.0) });
         assert!(opts.use_data_boxes);
+    }
+
+    /// Connected components of the cell graph (over internal faces).
+    fn cell_components(m: &VolumeMesh) -> usize {
+        let mut parent: Vec<usize> = (0..m.n_cells).collect();
+        fn find(p: &mut [usize], x: usize) -> usize {
+            let mut r = x;
+            while p[r] != r {
+                r = p[r];
+            }
+            let mut y = x;
+            while p[y] != r {
+                let n = p[y];
+                p[y] = r;
+                y = n;
+            }
+            r
+        }
+        for f in 0..m.face_count() {
+            if let Some(n) = m.neighbour[f] {
+                let (a, b) = (find(&mut parent, m.owner[f]), find(&mut parent, n));
+                if a != b {
+                    parent[a] = b;
+                }
+            }
+        }
+        (0..m.n_cells).filter(|&c| find(&mut parent, c) == c).count()
+    }
+
+    /// Unordered point-coordinate pairs of a mesh's face edges, rounded.
+    fn edge_keys(points: &[Vec3], faces: &[Vec<usize>], scale: f64) -> BTreeSet<([i64; 3], [i64; 3])> {
+        let q = |p: Vec3| [(p.x / scale * 1e12).round() as i64, (p.y / scale * 1e12).round() as i64, (p.z / scale * 1e12).round() as i64];
+        let mut out = BTreeSet::new();
+        for f in faces {
+            for i in 0..f.len() {
+                let (a, b) = (q(points[f[i]]), q(points[f[(i + 1) % f.len()]]));
+                out.insert((a.min(b), a.max(b)));
+            }
+        }
+        out
+    }
+
+    /// V&V (gh:#1266 remainder), differential: the octree edges and their
+    /// maps against the edges of the extracted mesh.
+    ///
+    /// **Predictions (written before the first run):** every octree face is
+    /// a face of the extracted mesh (each has a `MESHCELL` side), so on the
+    /// sphere and the pipe the octree edges are exactly the mesh's face
+    /// edges (same count, same coordinate pairs); every edge has at least
+    /// one face, each face's edge `i` joins its points `i`, `i + 1`; each
+    /// internal mesh face appears once in `leafLeaves` per side; and
+    /// `nodeFaces` lists every face at every node. `from_dict` with the
+    /// default dict is `new` field for field.
+    #[test]
+    fn octree_edges_match_the_extracted_mesh_edges() {
+        for (name, surf, dict) in [
+            ("sphere", sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) }),
+            ("pipe", pipe(0.01, 0.06, 48), MeshDict { boundary_cell_size: Some(0.001), ..MeshDict::with_max_cell_size(0.004) }),
+        ] {
+            let (o, _) = create(surf, dict);
+            let a = MeshOctreeAddressing::new(&o, false);
+            let b = MeshOctreeAddressing::from_dict(&o, &MeshDict::default(), false);
+            assert_eq!((&a.box_type, &a.node_labels, &a.octree_faces, &a.octree_face_owner), (&b.box_type, &b.node_labels, &b.octree_faces, &b.octree_face_owner));
+            let ea = a.edge_addressing();
+            let cm = cartesian_mesh_extractor(&o, &CartesianMeshOptions::default());
+            let scale = o.root_box.span().x;
+            let oct = edge_keys(&a.octree_points, &a.octree_faces, scale);
+            let msh = edge_keys(&cm.mesh.points, &cm.mesh.faces, scale);
+            println!("{name}: octree edges {}, distinct by coordinates {}, mesh edges {}", ea.edges.len(), oct.len(), msh.len());
+            assert_eq!(ea.edges.len(), oct.len());
+            assert_eq!(oct, msh);
+            for (f, fe) in ea.face_edges.iter().enumerate() {
+                let ring = &a.octree_faces[f];
+                for (i, &e) in fe.iter().enumerate() {
+                    let (p, q) = (ring[i], ring[(i + 1) % ring.len()]);
+                    let ed = ea.edges[e];
+                    assert!((ed == [p, q]) || (ed == [q, p]));
+                    assert!(ea.edge_faces[e].contains(&f));
+                }
+            }
+            assert!(ea.edge_faces.iter().all(|ef| !ef.is_empty()));
+            assert!(ea.edge_leaves.iter().all(|el| !el.is_empty() && el.len() <= 4));
+            for (l, le) in ea.leaf_edges.iter().enumerate() {
+                assert!(le.iter().all(|&e| ea.edge_leaves[e].contains(&l)));
+            }
+            let ll = a.leaf_leaves();
+            let n_pairs: usize = ll.iter().map(|v| v.len()).sum();
+            assert_eq!(n_pairs, 2 * a.octree_face_neighbour.iter().filter(|n| n.is_some()).count());
+            let nf = a.node_faces();
+            let total: usize = nf.iter().map(|v| v.len()).sum();
+            assert_eq!(total, a.octree_faces.iter().map(|f| f.len()).sum::<usize>());
+        }
+    }
+
+    /// V&V (gh:#1266 remainder), differential: `isIntersectedFace`,
+    /// `isIntersectedEdge` and `edgeIntersections` against a brute force
+    /// over **every** surface triangle.
+    ///
+    /// **Predictions (written before the first run):** sphere R 3 with
+    /// DATA boxes kept. A triangle that geometrically crosses an internal
+    /// octree face (`doFaceAndTriangleIntersect`, brute force over all
+    /// triangles) lies in both the face's leaves, so `isIntersectedFace`
+    /// reports every such face (0 missed); likewise every octree edge a
+    /// triangle crosses (`triLineIntersection`) whose leaves all hold
+    /// triangles is reported by `isIntersectedEdge`, with at least one
+    /// `edgeIntersections` point. The reverse need not hold (two
+    /// same-level leaves sharing a triangle count as crossed without a
+    /// geometric test); counts recorded.
+    #[test]
+    fn intersected_faces_and_edges_against_brute_force() {
+        let (o, _) = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) });
+        let a = MeshOctreeAddressing::new(&o, true);
+        let ea = a.edge_addressing();
+        let s = &o.surface;
+        let (mut n_geo_f, mut n_rep_f, mut missed_f) = (0, 0, 0);
+        for f in 0..a.octree_faces.len() {
+            let Some(nei) = a.octree_face_neighbour[f] else {
+                continue;
+            };
+            let own = a.octree_face_owner[f];
+            let rep = a.is_intersected_face(&o, f);
+            if rep {
+                n_rep_f += 1;
+                assert!(o.has_contained_triangles(own) && o.has_contained_triangles(nei));
+            }
+            if !(o.has_contained_triangles(own) && o.has_contained_triangles(nei)) {
+                continue;
+            }
+            if (0..s.size()).any(|t| do_face_and_triangle_intersect(s, t, &a.octree_faces[f], &a.octree_points)) {
+                n_geo_f += 1;
+                if !rep {
+                    missed_f += 1;
+                }
+            }
+        }
+        let (mut n_geo_e, mut n_rep_e, mut missed_e, mut no_point) = (0, 0, 0, 0);
+        for e in 0..ea.edges.len() {
+            let rep = a.is_intersected_edge(&o, &ea, e);
+            if rep {
+                n_rep_e += 1;
+            }
+            if ea.edge_leaves[e].iter().any(|&l| !o.has_contained_triangles(l)) {
+                assert!(!rep);
+                continue;
+            }
+            let [p, q] = ea.edges[e];
+            let crossed = (0..s.size()).any(|t| {
+                let tr = s.triangles[t];
+                help::tri_line_intersection(s.points[tr[0]], s.points[tr[1]], s.points[tr[2]], a.octree_points[p], a.octree_points[q]).is_some()
+            });
+            if crossed {
+                n_geo_e += 1;
+                if !rep {
+                    missed_e += 1;
+                }
+                if a.edge_intersections(&o, &ea, e).is_empty() {
+                    no_point += 1;
+                }
+            }
+        }
+        println!(
+            "sphere faces: reported {n_rep_f}, geometric {n_geo_f}, missed {missed_f}; edges: reported {n_rep_e}, geometric {n_geo_e}, missed {missed_e}, no intersection point {no_point}"
+        );
+        assert_eq!((missed_f, missed_e, no_point), (0, 0, 0));
+        assert!(n_geo_f > 0 && n_geo_e > 0);
+    }
+
+    /// Two unit boxes `0.05` apart (each 12 triangles, one patch each).
+    fn two_boxes() -> Arc<TriSurf> {
+        let (mut p, mut t) = crate::shapes::box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let (p2, t2) = crate::shapes::box_surface(Vec3::new(1.05, 0.0, 0.0), Vec3::new(2.05, 1.0, 1.0));
+        let off = p.len();
+        p.extend(p2);
+        t.extend(t2.iter().map(|tr| [tr[0] + off, tr[1] + off, tr[2] + off]));
+        let regions = (0..t.len()).map(|i| i / 12).collect();
+        Arc::new(TriSurf::new(p, t, Some(regions)))
+    }
+
+    /// V&V (gh:#1266 remainder): `checkForGluedMesh` (`checkGluedRegions`).
+    ///
+    /// # Methodology
+    ///
+    /// Two unit cubes 0.05 apart, `maxCellSize` 0.2 (4 x the gap),
+    /// `keepCellsIntersectingBoundary` on. The root is sized to side 3.2
+    /// (global level 4, cells 0.2) centred on `x = 1.025`, so a level
+    /// plane runs through the middle of the gap and the leaves on each
+    /// side hold one cube's face each.
+    ///
+    /// **Predictions (written before the first run):** without the check
+    /// the DATA leaves either side of the gap are face neighbours and the
+    /// mesh is **one** connected component (the cubes are glued); with it,
+    /// a DATA leaf facing the gap has no inner corner at the gap (its gap
+    /// nodes touch only DATA leaves), so its neighbour across the gap is
+    /// not permissible and it becomes `BOUNDARY`: **two** components. The
+    /// removed leaves at least cover the gap faces (25 per side, a 5 x 5
+    /// patch of 0.2 cells over the unit face); total recorded.
+    #[test]
+    fn glued_regions_are_separated() {
+        let base = MeshDict { keep_cells_intersecting_boundary: true, ..MeshDict::with_max_cell_size(0.2) };
+        let (o, _) = create(two_boxes(), base.clone());
+        assert!((o.root_box.span().x - 3.2).abs() < 1e-12);
+        let opts = CartesianMeshOptions::from_dict(&base);
+        let glued = cartesian_mesh_extractor_from_dict(&o, &opts, &base);
+        let checked_dict = MeshDict { check_for_glued_mesh: true, ..base.clone() };
+        let mut a = MeshOctreeAddressing::from_dict(&o, &MeshDict { check_for_glued_mesh: false, ..base.clone() }, true);
+        let removed = a.check_glued_regions(&o);
+        let checked = cartesian_mesh_extractor_from_dict(&o, &opts, &checked_dict);
+        checked.mesh.validate().expect("closed after the glued check");
+        let (c0, c1) = (cell_components(&glued.mesh), cell_components(&checked.mesh));
+        println!(
+            "two boxes: cells {} -> {}, components {c0} -> {c1}, leaves made BOUNDARY {}",
+            glued.mesh.n_cells,
+            checked.mesh.n_cells,
+            removed.len()
+        );
+        assert_eq!(glued.mesh.n_cells - checked.mesh.n_cells, removed.len());
+        assert_eq!((c0, c1), (1, 2));
+        assert!(removed.len() >= 50);
+    }
+
+    /// V&V (gh:#1266 remainder): `checkAndFixIrregularConnections`.
+    ///
+    /// **Predictions (written before the first run):** the node test never
+    /// fires (module docs: upstream's `watertightSurface` is false at every
+    /// node with a boundary face), so every pass reports 0 node
+    /// irregularities; the passes end with (0, 0); the fixed mesh is
+    /// closed and has no more cells than before. Edge counts on the sphere
+    /// and the pipe (no DATA boxes) recorded, not predicted.
+    #[test]
+    fn irregular_connections_check() {
+        for (name, surf, dict) in [
+            ("sphere", sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) }),
+            ("pipe", pipe(0.01, 0.06, 48), MeshDict { boundary_cell_size: Some(0.001), ..MeshDict::with_max_cell_size(0.004) }),
+        ] {
+            let (o, _) = create(surf, dict);
+            let mut a = MeshOctreeAddressing::new(&o, false);
+            let n0 = a.box_type.iter().filter(|&&b| b & BoxType::MESHCELL != 0).count();
+            let passes = a.check_and_fix_irregular_connections(&o);
+            let n1 = a.box_type.iter().filter(|&&b| b & BoxType::MESHCELL != 0).count();
+            let m = extract_from_addressing(&o, &CartesianMeshOptions::default(), a);
+            m.mesh.validate().unwrap_or_else(|e| panic!("{name}: {e}"));
+            println!("{name}: irregular (edges, nodes) per pass {passes:?}; cells {n0} -> {n1}");
+            assert!(passes.iter().all(|&(_, nodes)| nodes == 0));
+            assert_eq!(passes.last(), Some(&(0, 0)));
+            assert!(n1 <= n0);
+            assert_eq!(m.mesh.n_cells, n1);
+        }
+    }
+
+    /// V&V (gh:#1266 remainder): `nonManifoldMeshing`.
+    ///
+    /// **Predictions (written before the first run):** on the sphere (no
+    /// `UNKNOWN` leaves, gh:#1264) `nonManifoldMeshing` gives the same
+    /// mesh as `keepCellsIntersectingBoundary`. With one `INSIDE` leaf
+    /// without triangles retyped `UNKNOWN`, the plain DATA-box mesh loses
+    /// exactly that cell and the non-manifold one keeps it.
+    #[test]
+    fn non_manifold_meshing_keeps_unknown_leaves() {
+        let (mut o, _) = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) });
+        let opts = CartesianMeshOptions::default();
+        let nm = MeshDict { non_manifold_meshing: true, ..MeshDict::default() };
+        let keep = MeshDict { keep_cells_intersecting_boundary: true, ..MeshDict::default() };
+        let a = cartesian_mesh_extractor_from_dict(&o, &opts, &nm).mesh;
+        let b = cartesian_mesh_extractor_from_dict(&o, &opts, &keep).mesh;
+        assert_eq!((a.n_cells, &a.faces, &a.points), (b.n_cells, &b.faces, &b.points));
+        let l = (0..o.number_of_leaves()).find(|&l| !o.has_contained_triangles(l) && o.return_leaf(l).cube_type & CubeType::INSIDE != 0).unwrap();
+        let ci = o.leaves[l];
+        o.slot.cubes[ci].cube_type = CubeType::UNKNOWN;
+        let a2 = cartesian_mesh_extractor_from_dict(&o, &opts, &nm).mesh;
+        let b2 = cartesian_mesh_extractor_from_dict(&o, &opts, &keep).mesh;
+        println!("non-manifold: cells {} (keep {}); with one UNKNOWN leaf {} (keep {})", a.n_cells, b.n_cells, a2.n_cells, b2.n_cells);
+        assert_eq!((a2.n_cells, b2.n_cells), (a.n_cells, a.n_cells - 1));
+        a2.validate().expect("closed");
+    }
+
+    /// V&V (gh:#1266 remainder): `keepCellsIntersectingPatches` and
+    /// `removeCellsIntersectingPatches`, by patch name and by facet-subset
+    /// name.
+    ///
+    /// **Predictions (written before the first run):** pipe, inlet patch
+    /// (region 1). `removeCellsIntersectingPatches` [inlet] with DATA boxes
+    /// removes exactly the leaves holding an inlet triangle from the DATA
+    /// mesh; `keepCellsIntersectingPatches` [inlet] without DATA boxes adds
+    /// exactly those leaves to the default mesh (none of them is a cell by
+    /// default: they hold triangles). A facet subset holding the inlet's
+    /// facets gives the same meshes. Both meshes are closed. Keep is
+    /// ignored with DATA boxes, remove without (upstream's `else if`).
+    #[test]
+    fn keep_and_remove_cells_intersecting_patches() {
+        let mut s = (*pipe(0.01, 0.06, 48)).clone();
+        let inlet = s.patches[1].name.clone();
+        let id = s.facet_subsets.add("inlet_set");
+        for t in 0..s.size() {
+            if s.regions[t] == 1 {
+                s.facet_subsets.add_element(id, t);
+            }
+        }
+        let (o, _) = create(Arc::new(s), MeshDict { boundary_cell_size: Some(0.001), ..MeshDict::with_max_cell_size(0.004) });
+        let n_inlet = (0..o.number_of_leaves()).filter(|&l| o.contained_triangles(l).iter().any(|&t| o.surface.regions[t] == 1)).count();
+        let opts = CartesianMeshOptions::default();
+        let run = |d: MeshDict| cartesian_mesh_extractor_from_dict(&o, &opts, &d).mesh;
+        let plain = run(MeshDict::default());
+        let data = run(MeshDict { keep_cells_intersecting_boundary: true, ..MeshDict::default() });
+        let removed = run(MeshDict { keep_cells_intersecting_boundary: true, remove_cells_intersecting_patches: vec![inlet.clone()], ..MeshDict::default() });
+        let removed_s = run(MeshDict { keep_cells_intersecting_boundary: true, remove_cells_intersecting_patches: vec!["inlet_set".into()], ..MeshDict::default() });
+        let kept = run(MeshDict { keep_cells_intersecting_patches: vec![inlet.clone()], ..MeshDict::default() });
+        let kept_s = run(MeshDict { keep_cells_intersecting_patches: vec!["inlet_set".into()], ..MeshDict::default() });
+        let ignored = run(MeshDict { keep_cells_intersecting_boundary: true, keep_cells_intersecting_patches: vec![inlet], ..MeshDict::default() });
+        println!(
+            "pipe: inlet leaves {n_inlet}; cells plain {}, keep [inlet] {}, DATA {}, DATA remove [inlet] {}",
+            plain.n_cells, kept.n_cells, data.n_cells, removed.n_cells
+        );
+        assert_eq!(removed.n_cells, data.n_cells - n_inlet);
+        assert_eq!(kept.n_cells, plain.n_cells + n_inlet);
+        assert_eq!((&removed.faces, &kept.faces), (&removed_s.faces, &kept_s.faces));
+        assert_eq!(ignored.faces, data.faces);
+        removed.validate().expect("remove closed");
+        kept.validate().expect("keep closed");
     }
 }

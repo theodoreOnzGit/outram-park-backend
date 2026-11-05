@@ -102,6 +102,60 @@ pub fn box_surface(min: Vec3, max: Vec3) -> TriSoup {
     (v, t)
 }
 
+/// Axis-aligned box `[min, max]` with each face split into a grid of
+/// squares of side at most `h` (two triangles each), points shared along
+/// the box edges, outward-wound. For tests that need triangles much smaller
+/// than the box (the proximity group count of
+/// [`crate::mesh_octree_automatic_refinement`]). Region of each triangle:
+/// the face, in the order −Z, +Z, −Y, +Y, −X, +X.
+///
+/// # Panics
+///
+/// If `h` is not positive.
+pub fn box_surface_subdivided(min: Vec3, max: Vec3, h: f64) -> (Vec<Vec3>, Vec<[usize; 3]>, Vec<usize>) {
+    assert!(h > 0.0, "h must be positive");
+    let span = max.sub(min);
+    let n = [(span.x / h).ceil().max(1.0) as usize, (span.y / h).ceil().max(1.0) as usize, (span.z / h).ceil().max(1.0) as usize];
+    // Lattice points on the box surface, keyed by integer position.
+    let mut index: std::collections::BTreeMap<[usize; 3], usize> = std::collections::BTreeMap::new();
+    let mut pts: Vec<Vec3> = Vec::new();
+    let mut id = |k: [usize; 3], pts: &mut Vec<Vec3>| -> usize {
+        *index.entry(k).or_insert_with(|| {
+            let c = |a: usize| [min.x, min.y, min.z][a] + [span.x, span.y, span.z][a] * k[a] as f64 / n[a] as f64;
+            pts.push(Vec3::new(c(0), c(1), c(2)));
+            pts.len() - 1
+        })
+    };
+    let mut tris = Vec::new();
+    let mut regions = Vec::new();
+    // (normal axis, side 0/1, region)
+    for (region, (axis, side)) in [(2, 0), (2, 1), (1, 0), (1, 1), (0, 0), (0, 1)].into_iter().enumerate() {
+        let (u, v) = match axis {
+            0 => (1, 2),
+            1 => (0, 2),
+            _ => (0, 1),
+        };
+        for i in 0..n[u] {
+            for j in 0..n[v] {
+                let mut corner = |di: usize, dj: usize| {
+                    let mut k = [0usize; 3];
+                    k[axis] = side * n[axis];
+                    k[u] = i + di;
+                    k[v] = j + dj;
+                    id(k, &mut pts)
+                };
+                let (a, b, c, d) = (corner(0, 0), corner(1, 0), corner(1, 1), corner(0, 1));
+                tris.push([a, b, c]);
+                tris.push([a, c, d]);
+                regions.push(region);
+                regions.push(region);
+            }
+        }
+    }
+    orient_outward(&pts, &mut tris);
+    (pts, tris, regions)
+}
+
 /// UV sphere of `radius` about `centre` — `n_lat` latitude bands (pole to pole),
 /// `n_lon` longitude segments. Outward-wound; a triangulated pebble/particle.
 ///
