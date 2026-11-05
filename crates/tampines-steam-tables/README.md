@@ -142,9 +142,10 @@ reviewed by a human.
 
 # FHR Educational Simulator 
 
-**`fhr_sim_v2` moved to the `tampines` crate**
-(`crates/tampines/examples/fhr_sim_v2/`) -- run it from there with
-`cargo run --release -p tampines --example fhr_sim_v2`. It now runs its
+**`fhr_sim_v2` moved to the ~~`tampines`~~ `nee_soon` crate**
+(~~`crates/tampines/examples/fhr_sim_v2/`~~ `crates/nee_soon/examples/fhr_sim_v2/`;
+**CORRECTED 2026-11-05**, moved again (maintainer, 2026-11-05: "nee_soon depends on tampines, never the reverse")) -- run it from there with
+`cargo run --release -p nee_soon --example fhr_sim_v2`. It now runs its
 reactor kinetics through `teh-o-prke`'s Nordheim-Fuchs exact timestepper
 (10 ms timestep) instead of the numerical six-group PRKE solver this crate
 used to host. `fhr_sim_v1` remains in this crate (`examples/fhr_sim_v1/`).
@@ -202,7 +203,7 @@ a Fluoride Salt Cooled High Temperature Reactor (FHR) educational
 simulator. The secondary loop just runs at steady state (no transient 
 calculations for simplicity.
 ```bash
-cargo run --release -p tampines --example fhr_sim_v2
+cargo run --release -p nee_soon --example fhr_sim_v2
 ```
 
 ### Running the test suite
@@ -261,7 +262,7 @@ windows defender blocks the fhr_sim_v2 from being run. In those cases,
 it's better to use windows subsystem for linux (WSL), then run:
 
 ```bash
-cargo run --release -p tampines --example fhr_sim_v2
+cargo run --release -p nee_soon --example fhr_sim_v2
 ```
 
 **No system BLAS is required** (corrected 2026-08-11). This section used to tell

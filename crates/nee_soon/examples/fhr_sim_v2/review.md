@@ -1,8 +1,8 @@
-# Review record: crates/tampines/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop
+# Review record: crates/nee_soon/examples/fhr_sim_v2
 
 ```toml
 [kovan]
-id = "review-record-crates-tampines-examples-fhr-sim-v2-app-thermal-hydraulics-backend-secondary-loop"
+id = "review-record-crates-tampines-examples-fhr-sim-v2"
 kind = "note"
 origin = "kovan"
 created = "2026-10-11T15:00:45Z"

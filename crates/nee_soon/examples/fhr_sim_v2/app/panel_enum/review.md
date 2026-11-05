@@ -1,8 +1,8 @@
-# Review record: crates/tampines/examples/fhr_sim_v2/app/graph_data
+# Review record: crates/nee_soon/examples/fhr_sim_v2/app/panel_enum
 
 ```toml
 [kovan]
-id = "review-record-crates-tampines-examples-fhr-sim-v2-app-graph-data"
+id = "review-record-crates-tampines-examples-fhr-sim-v2-app-panel-enum"
 kind = "note"
 origin = "kovan"
 created = "2026-10-11T15:00:45Z"

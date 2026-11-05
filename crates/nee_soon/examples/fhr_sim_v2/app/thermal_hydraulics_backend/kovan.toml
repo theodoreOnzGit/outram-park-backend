@@ -1,7 +1,7 @@
 schema_version = 1
 kind = "code_folder"
-crate = "tampines"
-dir = "crates/tampines/examples/fhr_sim_v2/app/thermal_hydraulics_backend"
+crate = "nee_soon"
+dir = "crates/nee_soon/examples/fhr_sim_v2/app/thermal_hydraulics_backend"
 
 [module."components.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::components"

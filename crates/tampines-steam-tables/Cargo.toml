@@ -199,8 +199,9 @@ path = "examples/fhr_sim_v1/main.rs"
 name = "depressurisation"
 path = "examples/depressurisation/main.rs"
 
-# fhr_sim_v2 moved to crates/tampines/examples/fhr_sim_v2/ (op-dt3.7) -- its
-# Nordheim-Fuchs kinetics reconstruction lives there.
+# fhr_sim_v2 moved to ~~crates/tampines/examples/fhr_sim_v2/ (op-dt3.7)~~
+# crates/nee_soon/examples/fhr_sim_v2/ (CORRECTED 2026-11-05, moved again
+# (maintainer, 2026-11-05: "nee_soon depends on tampines, never the reverse")) -- its Nordheim-Fuchs kinetics reconstruction lives there.
 
 [[example]]
 name = "rankine_cycle"

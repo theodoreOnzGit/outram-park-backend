@@ -1,10 +1,10 @@
 schema_version = 1
 kind = "code_folder"
-crate = "tampines"
-dir = "crates/tampines/examples/fhr_sim_v2"
+crate = "nee_soon"
+dir = "crates/nee_soon/examples/fhr_sim_v2"
 test_ids = [
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
 ]
 
 [module."main.rs"]

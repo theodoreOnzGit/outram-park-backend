@@ -5,8 +5,8 @@ dir = "crates/teh-o-prke/src/zero_power_prke/six_group_precursor_prke"
 test_ids = [
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::prke_test_zero_reactivity",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::test_pu239_total_delayed_frac",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::test_u233_total_delayed_frac",

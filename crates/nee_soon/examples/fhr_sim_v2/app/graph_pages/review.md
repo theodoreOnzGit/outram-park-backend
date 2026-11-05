@@ -1,4 +1,4 @@
-# Review record: crates/tampines/examples/fhr_sim_v2/app/graph_pages
+# Review record: crates/nee_soon/examples/fhr_sim_v2/app/graph_pages
 
 ```toml
 [kovan]

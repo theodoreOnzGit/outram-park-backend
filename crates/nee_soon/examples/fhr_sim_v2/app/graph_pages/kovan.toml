@@ -1,7 +1,7 @@
 schema_version = 1
 kind = "code_folder"
-crate = "tampines"
-dir = "crates/tampines/examples/fhr_sim_v2/app/graph_pages"
+crate = "nee_soon"
+dir = "crates/nee_soon/examples/fhr_sim_v2/app/graph_pages"
 
 [module."mod.rs"]
 path = "example:fhr_sim_v2::app::graph_pages"

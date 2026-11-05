@@ -6601,6 +6601,13 @@ dependencies = [
 name = "nee_soon"
 version = "0.0.5"
 dependencies = [
+ "bugis",
+ "eframe",
+ "egui",
+ "egui_extras",
+ "egui_plot",
+ "env_logger",
+ "ndarray",
  "njoy-outram-park-fork",
  "outram-blender",
  "outram-foam-appbuilder-lib",
@@ -6613,6 +6620,7 @@ dependencies = [
  "tampines-steam-tables",
  "teh-o-prke",
  "thiserror 2.0.21",
+ "tuas_boussinesq_solver",
  "uom",
 ]
 
@@ -9678,18 +9686,9 @@ name = "tampines"
 version = "0.0.4"
 dependencies = [
  "boon-lay",
- "bugis",
  "chem-eng-real-time-process-control-simulator",
- "eframe",
- "egui",
- "egui_extras",
- "egui_plot",
- "env_logger",
  "farrer-park",
  "getrandom 0.3.4",
- "local-ip-address",
- "ndarray",
- "nee_soon",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-foam-multiphase",
@@ -9697,9 +9696,7 @@ dependencies = [
  "outram-park-fork-dwsim-libs",
  "petir",
  "raffles",
- "serde",
  "tampines-steam-tables",
- "teh-o-prke",
  "thiserror 2.0.21",
  "tuas_boussinesq_solver",
  "uom",
