@@ -124,12 +124,13 @@ pub fn colour_bar(painter: &egui::Painter, rect: Rect, scale: &Scale, label: &st
         let r = Rect::from_min_size(Pos2::new(bar.left() + w * i as f32, bar.top()), egui::vec2(w + 0.5, bar.height()));
         painter.rect_filled(r, 0.0, scale.colour(v));
     }
-    painter.rect_stroke(bar, 0.0, Stroke::new(1.0, Color32::from_gray(140)), egui::StrokeKind::Inside);
+    let ink = crate::Ink::of_ctx(painter.ctx());
+    painter.rect_stroke(bar, 0.0, Stroke::new(1.0, ink.border), egui::StrokeKind::Inside);
     let font = egui::FontId::proportional(text_px);
     let y = bar.bottom() + 2.0;
-    painter.text(Pos2::new(bar.left(), y), egui::Align2::LEFT_TOP, fmt(scale.min), font.clone(), Color32::LIGHT_GRAY);
-    painter.text(Pos2::new(bar.right(), y), egui::Align2::RIGHT_TOP, fmt(scale.max), font.clone(), Color32::LIGHT_GRAY);
-    painter.text(Pos2::new(bar.center().x, y), egui::Align2::CENTER_TOP, label, font, Color32::LIGHT_GRAY);
+    painter.text(Pos2::new(bar.left(), y), egui::Align2::LEFT_TOP, fmt(scale.min), font.clone(), ink.text);
+    painter.text(Pos2::new(bar.right(), y), egui::Align2::RIGHT_TOP, fmt(scale.max), font.clone(), ink.text);
+    painter.text(Pos2::new(bar.center().x, y), egui::Align2::CENTER_TOP, label, font, ink.text);
 }
 
 /// Three significant figures, switching to an exponent outside 1e-3..1e4.

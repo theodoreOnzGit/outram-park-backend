@@ -49,9 +49,12 @@
 //!
 //! every move limited to `√(4 max_f |c_f − p|²)` over the point's boundary
 //! faces (`findMappingDistance`), and patch nodes first, then edge nodes,
-//! then corners, as upstream. Not ported: upstream's
+//! then corners, as upstream. ~~Not ported: upstream's
 //! `correctEdgesBetweenPatches` (topological repair of faces whose every
-//! vertex lands on a feature edge) and the surface untangler that follows;
+//! vertex lands on a feature edge)~~ **UPDATED 2026-11-05 (gh:#1241):**
+//! `correctEdgesBetweenPatches` is ported in [`crate::correct_edges`] and
+//! runs before this stage when `TetDualOptions::correct_edges` is on
+//! (off by default). Not ported: the surface untangler that follows;
 //! the pipeline keeps the mapped mesh only if it is valid, and says so
 //! otherwise.
 //!
@@ -77,12 +80,36 @@ pub fn map_vertices_onto_surface_patches(
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
 ) -> VolumeMesh {
-    // Patch (region) of every boundary face, by its nearest triangle.
+    map_impl(mesh, points, tris, regions, None)
+}
+
+/// The patch of every boundary face by its nearest surface triangle (the
+/// rule [`map_vertices_onto_surface_patches`] uses), `None` for internal
+/// faces: the assignment cfMesh's `edgeExtractor` would hand
+/// [`crate::correct_edges::correct_edges_between_patches`].
+pub fn boundary_face_regions(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Vec<Option<usize>> {
+    (0..mesh.face_count())
+        .map(|f| mesh.neighbour[f].is_none().then(|| regions.region_of_tri[nearest_triangle(mesh.face_centroid(f), points, tris)]))
+        .collect()
+}
+
+fn map_impl(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    given: Option<&[Option<usize>]>,
+) -> VolumeMesh {
+    // Patch (region) of every boundary face: as given (upstream's mesh
+    // patches), or by its nearest triangle.
     let mut face_region: BTreeMap<usize, usize> = BTreeMap::new();
     for f in 0..mesh.face_count() {
         if mesh.neighbour[f].is_none() {
-            let t = nearest_triangle(mesh.face_centroid(f), points, tris);
-            face_region.insert(f, regions.region_of_tri[t]);
+            let r = match given.and_then(|g| g[f]) {
+                Some(r) => r,
+                None => regions.region_of_tri[nearest_triangle(mesh.face_centroid(f), points, tris)],
+            };
+            face_region.insert(f, r);
         }
     }
     // Point -> its boundary faces and their patches.
@@ -242,9 +269,12 @@ pub fn map_vertices_onto_surface_patches(
 /// at most `passes` times. Returns the mesh and the number of boundary
 /// points left unmapped.
 ///
-/// This stands in for the two upstream steps that are not ported:
+/// This stands in for ~~the two upstream steps that are not ported:
 /// `correctEdgesBetweenPatches`, which re-splits a face lying on a feature
-/// edge, and `meshSurfaceOptimizer::untangleSurface`. Where upstream repairs
+/// edge, and~~ `meshSurfaceOptimizer::untangleSurface`, which is not ported
+/// (**UPDATED 2026-11-05, gh:#1241:** `correctEdgesBetweenPatches` is now
+/// [`crate::correct_edges`], run before this when
+/// `TetDualOptions::correct_edges` is on). Where upstream repairs
 /// the face, this leaves that bit of the boundary where the dual put it.
 pub fn map_vertices_onto_surface_patches_untangled(
     mesh: &VolumeMesh,
@@ -253,7 +283,51 @@ pub fn map_vertices_onto_surface_patches_untangled(
     regions: &SurfaceRegions,
     passes: usize,
 ) -> (VolumeMesh, usize) {
-    let mut mapped = map_vertices_onto_surface_patches(mesh, points, tris, regions);
+    untangled_impl(mesh, points, tris, regions, passes, None)
+}
+
+/// [`map_vertices_onto_surface_patches_untangled`] with the patch of every
+/// boundary face given (`face_region[f]`, `None` for internal faces), as
+/// upstream's mapper reads the mesh's patches: after
+/// [`crate::correct_edges::correct_edges_between_patches`] the children of a
+/// split face keep their parent's patch, which their own centroids need not
+/// be nearest to.
+pub fn map_vertices_onto_surface_patches_untangled_given(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    passes: usize,
+    face_region: &[Option<usize>],
+) -> (VolumeMesh, usize) {
+    untangled_impl(mesh, points, tris, regions, passes, Some(face_region))
+}
+
+fn untangled_impl(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    passes: usize,
+    given: Option<&[Option<usize>]>,
+) -> (VolumeMesh, usize) {
+    let mapped = map_impl(mesh, points, tris, regions, given);
+    // With given patches (after correctEdgesBetweenPatches) a tangled cell
+    // may be a pyramid with no boundary face of its own: revert the
+    // boundary points of all its faces. Without, the historical rule.
+    revert_tangled(mesh, mapped, passes, given.is_some())
+}
+
+/// Undo the boundary moves of `mapped` (against `orig`) at every cell with
+/// a non-positive face pyramid, at most `passes` times: the points of the
+/// cell's boundary faces, or with `whole_cell` every boundary point on any
+/// of its faces. Returns the mesh and the number of points reverted.
+fn revert_tangled(orig: &VolumeMesh, mut mapped: VolumeMesh, passes: usize, whole_cell: bool) -> (VolumeMesh, usize) {
+    let boundary_pts: BTreeSet<usize> = if whole_cell {
+        (0..orig.face_count()).filter(|&f| orig.neighbour[f].is_none()).flat_map(|f| orig.faces[f].iter().copied()).collect()
+    } else {
+        BTreeSet::new()
+    };
     let mut reverted: BTreeSet<usize> = BTreeSet::new();
     for _ in 0..passes {
         let bad = cells_with_nonpositive_pyramids(&mapped);
@@ -262,10 +336,15 @@ pub fn map_vertices_onto_surface_patches_untangled(
         }
         let mut changed = false;
         for f in 0..mapped.face_count() {
-            if mapped.neighbour[f].is_none() && bad.contains(&mapped.owner[f]) {
+            let hit = if whole_cell {
+                bad.contains(&mapped.owner[f]) || mapped.neighbour[f].is_some_and(|n| bad.contains(&n))
+            } else {
+                mapped.neighbour[f].is_none() && bad.contains(&mapped.owner[f])
+            };
+            if hit {
                 for &v in &mapped.faces[f] {
-                    if reverted.insert(v) {
-                        mapped.points[v] = mesh.points[v];
+                    if (!whole_cell || boundary_pts.contains(&v)) && reverted.insert(v) {
+                        mapped.points[v] = orig.points[v];
                         changed = true;
                     }
                 }
@@ -276,6 +355,24 @@ pub fn map_vertices_onto_surface_patches_untangled(
         }
     }
     (mapped, reverted.len())
+}
+
+/// cfMesh `meshSurfaceMapper::mapVerticesOntoSurface`
+/// (`meshSurfaceMapperMapVertices.C`, v1.1 `e944f6ba695f`): every boundary
+/// point to the nearest point of the surface, whatever its patch, with no
+/// distance limit; `tetMeshGenerator::mapMeshToSurface` runs it before the
+/// patches are extracted. Upstream then untangles the surface
+/// (`meshSurfaceOptimizer::untangleSurface`, not ported); here the moves of
+/// the points of any cell it tangles are undone (whole cells, at most
+/// `passes` times). Returns the mesh and the number of points left where
+/// they were.
+pub fn map_vertices_onto_surface_untangled(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], passes: usize) -> (VolumeMesh, usize) {
+    let mut mapped = mesh.clone();
+    let bnd: BTreeSet<usize> = (0..mesh.face_count()).filter(|&f| mesh.neighbour[f].is_none()).flat_map(|f| mesh.faces[f].iter().copied()).collect();
+    for &v in &bnd {
+        mapped.points[v] = crate::snap::closest_point_on_surface(mesh.points[v], points, tris);
+    }
+    revert_tangled(mesh, mapped, passes, true)
 }
 
 /// The cells of `m` with a non-positive face pyramid about their centre

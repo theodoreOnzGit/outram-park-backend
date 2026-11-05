@@ -296,7 +296,9 @@ impl Slicer {
     pub fn colour(&self, m: u8) -> Color32 {
         match m {
             VOID => Color32::from_rgb(232, 236, 244),
-            OUTSIDE => Color32::from_rgb(14, 16, 20),
+            // Outside the model: transparent, so the page's own (theme)
+            // background shows; materials keep their palette in both themes.
+            OUTSIDE => Color32::TRANSPARENT,
             OVERLAP => Color32::from_rgb(255, 0, 255),
             i => self.info.palette.get(i as usize).map_or(Color32::GRAY, |c| c.0),
         }

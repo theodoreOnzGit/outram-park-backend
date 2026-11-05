@@ -51,7 +51,7 @@ use uom::si::f64::{Length, ThermodynamicTemperature};
 use uom::si::thermodynamic_temperature::kelvin;
 
 use super::control_rod::N_CONTROL_RODS;
-use super::core_design::Htr10CoreDesign;
+use super::core_design::{Htr10CoreDesign, TrisoPacking};
 use super::core_model::{
     assemble_explicit_triso_with, mat, AssembledCore,
 };
@@ -255,6 +255,12 @@ impl ParametricStudy {
     pub fn design(&self) -> Htr10CoreDesign {
         Htr10CoreDesign {
             rod_insertions: self.rod_insertions,
+            // A DEM (explicit) bed packs its TRISO at random (gh:#1243,
+            // maintainer 2026-11-05); the Şeker bed keeps the lattice.
+            triso_packing: match self.bed {
+                StudyBed::Seker { .. } => TrisoPacking::Lattice,
+                StudyBed::Explicit { .. } => TrisoPacking::DEM_DEFAULT,
+            },
             ..Htr10CoreDesign::default()
         }
         .with_temperature_zones()

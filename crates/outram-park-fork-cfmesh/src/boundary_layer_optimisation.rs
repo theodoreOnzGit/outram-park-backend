@@ -87,7 +87,7 @@
 
 use crate::layers::{assemble_layered, layer_columns, layer_setup, LayerOutcome, LayerQualityStrategy, LayerSetup, LayerVertex};
 use crate::math::Vec3;
-use crate::mesh_optimizer::{find_bad_faces, find_low_quality_faces, optimize_low_quality_faces, untangle_mesh_fv};
+use crate::mesh_optimizer::{bad_faces_at_the_boundary, find_bad_faces, find_low_quality_faces, optimize_low_quality_faces, untangle_mesh_fv, untangle_mesh_fv_bounded};
 use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
 use petir::mathf::RealMath;
 use std::collections::{BTreeMap, BTreeSet};
@@ -99,6 +99,12 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct BoundaryLayerOptimisationControls {
     /// `maxNumIterations`: passes of `optimiseLayer`'s loop.
     pub max_num_iterations: usize,
+    /// End `untangleMeshFV`'s global loop when a global iteration removes no
+    /// bad face (gh:#1241, [`crate::mesh_optimizer::untangle_mesh_fv_bounded`]):
+    /// upstream's boundary moves between global iterations are not ported,
+    /// so the later ones repeat futile interior passes. `true` by default;
+    /// `false` runs all ten, as before.
+    pub stop_untangling_on_stall: bool,
     /// `nSmoothNormals`: smoothing passes over the hair directions.
     pub n_smooth_normals: usize,
     /// `relThicknessTol`: the largest change of layer height between
@@ -116,6 +122,7 @@ impl Default for BoundaryLayerOptimisationControls {
     fn default() -> Self {
         BoundaryLayerOptimisationControls {
             max_num_iterations: 5,
+            stop_untangling_on_stall: true,
             n_smooth_normals: 5,
             rel_thickness_tol: 0.15,
             feature_size_factor: 0.3,
@@ -538,6 +545,14 @@ fn wall_neighbours(orig: &VolumeMesh, s: &LayerSetup) -> Vec<(usize, usize)> {
     out.into_iter().collect()
 }
 
+/// One optimiser call's profile, for the notes (gh:#1241).
+fn profile(r: &crate::mesh_optimizer::OptimiserReport) -> String {
+    format!(
+        "{} passes in {} global, {} nodes smoothed, {:.1} s smoothing / {:.1} s regions / {:.1} s checks",
+        r.iterations, r.global_iterations, r.nodes_smoothed, r.seconds_smooth, r.seconds_build, r.seconds_check
+    )
+}
+
 /// `boundaryLayerOptimisation::optimiseLayer`.
 fn optimise_layer(m: &mut VolumeMesh, hairs: &mut Hairs, c: &BoundaryLayerOptimisationControls, patch_of: &[usize]) -> usize {
     let cf = crate::mesh_optimizer::cell_faces(m);
@@ -598,10 +613,11 @@ pub fn add_boundary_layers_cfmesh(
     let none = vec![false; m1.points.len()];
 
     // 2. tetMeshGenerator::optimiseFinalMesh.
-    let r = untangle_mesh_fv(&mut m1, &none, 10, 50, 2, false);
-    notes.push(format!("optimizeMeshFV/untangleMeshFV: bad faces {} -> {}", r.flagged_before, r.flagged_after));
+    let stall = controls.stop_untangling_on_stall;
+    let r = untangle_mesh_fv_bounded(&mut m1, &none, 10, 50, 2, false, stall);
+    notes.push(format!("optimizeMeshFV/untangleMeshFV: bad faces {} -> {}; {}", r.flagged_before, r.flagged_after, profile(&r)));
     let r = optimize_low_quality_faces(&mut m1, &none, 10);
-    notes.push(format!("optimizeLowQualityFaces: low-quality faces {} -> {} ({} passes)", r.flagged_before, r.flagged_after, r.iterations));
+    notes.push(format!("optimizeLowQualityFaces: low-quality faces {} -> {} ({} passes); {}", r.flagged_before, r.flagged_after, r.iterations, profile(&r)));
     let passes = optimise_layer(&mut m1, &mut hairs, controls, &patch_of);
     let n_thinned = hairs.thinned.iter().filter(|&&t| t).count();
     notes.push(format!("optimiseLayer: {passes} pass(es), {n_thinned} hairs thinned in the last"));
@@ -615,9 +631,10 @@ pub fn add_boundary_layers_cfmesh(
     }
     let r1 = untangle_mesh_fv(&mut m1, &layer_locked, 1, 50, 0, false);
     let r2 = untangle_mesh_fv(&mut m1, &layer_locked, 2, 50, 0, false);
-    notes.push(format!("optimizeBoundaryLayer untangle (layer locked): bad faces {} -> {}", r1.flagged_before, r2.flagged_after));
-    let r = untangle_mesh_fv(&mut m1, &none, 10, 50, 2, false);
-    notes.push(format!("final untangleMeshFV: bad faces {} -> {}", r.flagged_before, r.flagged_after));
+    notes.push(format!("optimizeBoundaryLayer untangle (layer locked): bad faces {} -> {}; {}; {}", r1.flagged_before, r2.flagged_after, profile(&r1), profile(&r2)));
+    let r = untangle_mesh_fv_bounded(&mut m1, &none, 10, 50, 2, false, stall);
+    let (_, at_bnd) = bad_faces_at_the_boundary(&m1);
+    notes.push(format!("final untangleMeshFV: bad faces {} -> {} ({at_bnd} touch a boundary point); {}", r.flagged_before, r.flagged_after, profile(&r)));
 
     // 3. refBoundaryLayers: split each hair by the grading.
     let mut moved = mesh.clone();
@@ -654,10 +671,10 @@ pub fn add_boundary_layers_cfmesh(
         }
     }
     let r = optimize_low_quality_faces(&mut mn, &in_layer, 10);
-    notes.push(format!("untangleBoundaryLayer optimizeLowQualityFaces (layer locked): {} -> {}", r.flagged_before, r.flagged_after));
+    notes.push(format!("untangleBoundaryLayer optimizeLowQualityFaces (layer locked): {} -> {}; {}", r.flagged_before, r.flagged_after, profile(&r)));
     let none_n = vec![false; mn.points.len()];
     let r = untangle_mesh_fv(&mut mn, &none_n, 2, 50, 1, true);
-    notes.push(format!("untangleBoundaryLayer untangleMeshFV (relaxed): {} -> {}", r.flagged_before, r.flagged_after));
+    notes.push(format!("untangleBoundaryLayer untangleMeshFV (relaxed): {} -> {}; {}", r.flagged_before, r.flagged_after, profile(&r)));
 
     // The hairs after the last untangle (the split points may have moved).
     for &wp in &s.wall_pts {

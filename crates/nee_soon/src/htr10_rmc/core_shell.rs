@@ -504,6 +504,12 @@ impl CoreShell {
         }
     }
 
+    /// Whole TRISO particles a fuel zone holds (the lattice's count; a random
+    /// packing holds the same, gh:#1243).
+    pub(super) fn triso_particles(&self) -> usize {
+        self.triso_particles
+    }
+
     /// Append the explicit reflector (no-op without one). Call once, after
     /// or before the bed tiles; its root cells go to the end of universe 0.
     pub(super) fn add_reflector(&mut self) {
@@ -563,6 +569,7 @@ impl CoreShell {
         lat_pitch: f64,
         lat_height: f64,
         bed: PebbleBed,
+        extra_lattices: Vec<RectLattice>,
     ) -> AssembledCore {
         assert!(self.reflector_built, "call add_reflector before finish");
         let Self {
@@ -590,7 +597,12 @@ impl CoreShell {
             surfaces,
             cells,
             universes,
-            lattices: vec![Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)],
+            // Lattice 0 the bed, 1 the TRISO lattice, then any random TRISO
+            // packings' tracking lattices (gh:#1243), 2 onward.
+            lattices: [Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)]
+                .into_iter()
+                .chain(extra_lattices.into_iter().map(Lattice::Rect))
+                .collect(),
             root_universe: 0,
         };
         let (c, u) = (geometry.cells.len(), geometry.universes.len());

@@ -143,13 +143,13 @@ impl McRung for Hst009 {
         painter.circle_filled(o, model::R_REFLECTOR as f32 * s, WATER);
         painter.circle_filled(o, model::R_TANK as f32 * s, TANK);
         painter.circle_filled(o, model::R_SOLUTION as f32 * s, SOLUTION);
-        painter.circle_stroke(o, model::R_REFLECTOR as f32 * s, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)));
+        painter.circle_stroke(o, model::R_REFLECTOR as f32 * s, Stroke::new(1.5, bugis::Ink::of_ctx(painter.ctx()).accent(3)));
         painter.text(
             o + Vec2::new(0.0, -(model::R_REFLECTOR as f32) * s - 6.0),
             egui::Align2::CENTER_BOTTOM,
             format!("solution r = {} cm · Al tank to {} cm · water to {} cm · vacuum outside", model::R_SOLUTION, model::R_TANK, model::R_REFLECTOR),
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(190, 170, 230),
+            bugis::Ink::of_ctx(painter.ctx()).accent(3),
         );
     }
     fn notes() -> &'static [&'static str] {

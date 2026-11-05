@@ -179,9 +179,9 @@ impl App {
 
     fn side_panel(&mut self, ui: &mut egui::Ui) {
         ui.label("Fukushima Daiichi Unit 1 (GE BWR/3, Mark I) after the 11 March 2011 earthquake: station blackout, core damage, venting.");
-        ui.label(RichText::new("AI draft, not validated. Research and education only; never for operation, licensing, safety decisions or emergency response.").small().color(Color32::from_rgb(255, 190, 120)));
+        ui.label(RichText::new("AI draft, not validated. Research and education only; never for operation, licensing, safety decisions or emergency response.").small().color(ui.visuals().warn_fg_color));
         if let Some(e) = &self.error {
-            ui.colored_label(Color32::LIGHT_RED, e);
+            ui.colored_label(ui.visuals().error_fg_color, e);
         }
         ui.separator();
         ui.heading("Run");
@@ -306,7 +306,7 @@ impl App {
             ui.heading("The recorded sequence");
             for (t_s, label) in events(self.unit) {
                 let done = f.t_s >= t_s;
-                ui.label(RichText::new(format!("{} {}", if done { "✔" } else { "·" }, label)).small().color(if done { Color32::LIGHT_GREEN } else { Color32::GRAY }));
+                ui.label(RichText::new(format!("{} {}", if done { "✔" } else { "·" }, label)).small().color(if done { bugis::Ink::of_ui(ui).ok } else { ui.visuals().weak_text_color() }));
             }
             ui.label(RichText::new(if self.unit == Unit::One {
                 "Times from the INPO 11-005 timeline, not yet checked against the report."
@@ -325,13 +325,17 @@ impl App {
     /// The plant schematic, in metres on the view.
     fn plant(&mut self, ui: &mut egui::Ui, rect: Rect) {
         let Some(f) = self.frame.clone() else {
-            ui.painter().text(rect.center(), Align2::CENTER_CENTER, "Starting the plant…", FontId::proportional(20.0), Color32::WHITE);
+            ui.painter().text(rect.center(), Align2::CENTER_CENTER, "Starting the plant…", FontId::proportional(20.0), ui.visuals().text_color());
             return;
         };
         let v = self.view;
         let to = |x: f64, y: f64| v.to_screen(rect, x, y);
         let px = |m: f64| (m * v.scale) as f32;
         let painter = ui.painter_at(rect);
+        // The schematic is a picture with its own fills (the building's fill
+        // encodes its hydrogen state, the water and core the temperature
+        // colour map), so its strokes and the labels on it keep fixed colours
+        // in both themes; only the page around it follows the theme.
         let stroke = Stroke::new(2.0, Color32::from_gray(200));
         // Reactor building outline (operating floor at the top).
         let rb = Rect::from_two_pos(to(-13.0, -8.2), to(13.0, 27.0));
@@ -504,7 +508,7 @@ impl App {
                 let ev = events(self.unit);
                 let n = if self.unit == Unit::One { ev.len() - 1 } else { ev.len() };
                 for (t_s, _) in ev.iter().take(n) {
-                    p.vline(VLine::new("", t_s / 3600.0).color(Color32::from_gray(90)));
+                    p.vline(VLine::new("", t_s / 3600.0).color(bugis::Ink::of_ctx(p.ctx()).border));
                 }
             };
             let spec: [(&str, &str, Vec<(usize, &str)>); 4] = [
@@ -547,7 +551,7 @@ impl eframe::App for App {
             self.side_panel(ui);
         });
         self.panel = panel;
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(Color32::from_rgb(14, 16, 20))).show(ui, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().extreme_bg_color)).show(ui, |ui| {
             let rect = ui.max_rect();
             // Bottom bar: the two views.
             let bar = Rect::from_min_size(Pos2::new(rect.center().x - 110.0, rect.bottom() - 48.0), Vec2::new(220.0, 40.0));
@@ -571,7 +575,7 @@ impl eframe::App for App {
             if let Some(f) = &self.frame {
                 // Under the 52 px button row on a phone, beside it on a wide screen.
                 let at = if rect.width() < 700.0 { Vec2::new(10.0, 58.0) } else { Vec2::new(if self.panel.open { 8.0 } else { 156.0 }, 14.0) };
-                ui.painter().text(rect.left_top() + at, Align2::LEFT_TOP, clock(f.t_s), FontId::proportional(15.0), Color32::WHITE);
+                ui.painter().text(rect.left_top() + at, Align2::LEFT_TOP, clock(f.t_s), FontId::proportional(15.0), ui.visuals().text_color());
             }
             ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| {
                 ui.horizontal(|ui| {

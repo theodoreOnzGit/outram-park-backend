@@ -239,11 +239,13 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
     let h_mm: f64 = std::env::var("FOAM_RENDER_H_MM").ok().and_then(|v| v.parse().ok()).unwrap_or(5.0);
-    let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers: 3, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::BASE };
+    // FOAM_RENDER_N (gh:#1241): the layer count, 3 unless set.
+    let n_layers: usize = std::env::var("FOAM_RENDER_N").ok().and_then(|v| v.parse().ok()).unwrap_or(3);
+    let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::BASE };
     for (strategy, tag) in [(S::BackOffOnly, "backoff"), (S::CfMeshOptimise, "cfmesh"), (S::SnappyCollapse, "snappy")] {
         let (poly, _, outcome) = engine::mesh_unstructured_with(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, strategy)?;
         let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
-        let label = format!("{tag} h {h_mm} mm 3 layers");
+        let label = format!("{tag} h {h_mm} mm {n_layers} layers");
         let shots = [
             (PlotBasis::Xz, [0.75, 0.013, 0.25], [0.6, 0.6], 700, format!("{label}, {} cells, x-z inlet rim (x 0.45-1.05, z 0-0.55 cm)", m.n_cells()).to_uppercase(), "xz_rim"),
             (PlotBasis::Xy, [0.0, 0.0, 10.013], [2.2, 2.2], 900, format!("{label}, x-y at z = 10.01 cm").to_uppercase(), "xy"),
@@ -253,7 +255,7 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
             let py = ((px as f64) * width[1] / width[0]).round() as usize;
             let sl = MeshSlice { basis, origin, width, pixels: [px, py], colour_by: MeshColourBy::Cell };
             let img = render_mesh_slice_annotated(&m, &sl, &title);
-            let name = format!("layers_{tag}_h{h_mm}_3_{view}.png");
+            let name = format!("layers_{tag}_h{h_mm}_{n_layers}_{view}.png");
             img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
             println!("wrote {name}");
         }
@@ -300,7 +302,7 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
             ),
             black,
         );
-        let name = format!("layers_{tag}_h{h_mm}_3_wallmap.png");
+        let name = format!("layers_{tag}_h{h_mm}_{n_layers}_wallmap.png");
         img.write_png(&out.join(&name)).map_err(|e| format!("{e:?}"))?;
         println!("wrote {name}: full {:.3}, none {:.3}, mean total {:.4} mm; {:?}", o.full_coverage(), o.collapsed_point_fraction(), 1e3 * o.mean_total_thickness(), o.notes);
     }
@@ -327,6 +329,9 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
     let h = 0.005;
     // FOAM_DUAL_FP=corners: the polyDualMesh class's feature points, file suffix `_corners`.
     let sfx = if std::env::var("FOAM_DUAL_FP").as_deref() == Ok("corners") { "_corners" } else { "" };
+    // FOAM_CORRECT_EDGES=1 (gh:#1241): correctEdgesBetweenPatches, file suffix `_ce`.
+    let ce = std::env::var("FOAM_CORRECT_EDGES").as_deref() == Ok("1");
+    let sfx = if ce { format!("{sfx}_ce") } else { sfx.to_string() };
     for (kind, tag) in [(D::MedianPerCorner, "corner"), (D::MedianPerPoint, "point"), (D::CellCentre, "centre")] {
         // 1. One wall cell's wall faces, from the VolumeMesh itself.
         let cyl = outram_blender::primitives::cylinder(engine::CYL_SEGMENTS, 0.01, 0.2);
@@ -339,7 +344,7 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
             }
             .into()
         };
-        let opts = TetDualOptions { cell_size: h, n_layers: 0, layer_patches: vec!["walls".into()], dual_kind: kind, dual_feature_points: if std::env::var("FOAM_DUAL_FP").as_deref() == Ok("corners") { outram_park_fork_cfmesh::dual::FeaturePointRule::Corners } else { outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge }, ..TetDualOptions::default() };
+        let opts = TetDualOptions { cell_size: h, n_layers: 0, layer_patches: vec!["walls".into()], dual_kind: kind, dual_feature_points: if std::env::var("FOAM_DUAL_FP").as_deref() == Ok("corners") { outram_park_fork_cfmesh::dual::FeaturePointRule::Corners } else { outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge }, correct_edges: ce, ..TetDualOptions::default() };
         let (vm, _) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
         let walls = vm.patches.iter().find(|p| p.name == "walls").ok_or("no walls patch")?;
         let wf: Vec<usize> = (walls.start_face..walls.start_face + walls.n_faces).collect();
