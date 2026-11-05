@@ -1963,8 +1963,10 @@ pub(crate) mod tests {
         // Recorded 2026-11-04 (serial smoothing); the threaded smoothing
         // must give the same bits. gh:#1285 (face order only, geometry
         // unchanged): ~~(7725, 11521056484853145326), (957,
-        // 10164118906460112537)~~.
-        assert_eq!(got, vec![(7725, 5422758738504758818), (957, 18444736245533413537)]);
+        // 10164118906460112537)~~. gh:#1284 (Knupp makes one pass, as
+        // upstream; CfMeshOptimise only, SnappyCollapse unchanged):
+        // ~~(7725, 5422758738504758818)~~.
+        assert_eq!(got, vec![(7725, 18177691582502802893), (957, 18444736245533413537)]);
     }
 
     /// Diagnostic (gh:#1215), `--ignored`: how many wall faces each

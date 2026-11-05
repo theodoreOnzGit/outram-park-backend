@@ -2832,11 +2832,13 @@ upstream does, behind `UntangleControls::mesh_untangler` and
 
 Upstream behaviour kept: `optimiseUsingMeshUntangler` never re-marks the
 inverted tetrahedra it re-checks (the Knupp loop does), so its second pass
-finds none and returns. In effect it is one pass. A port defect found in
+finds none and returns. In effect it is one pass. ~~A port defect found in
 passing and **not fixed** (it would change the default output):
 `optimise_using_knupp_metric` increments its pass counter on every pass,
 where upstream's short-circuit `||` does so only when the inverted count did
-not fall.
+not fall.~~ **FIXED 2026-11-05 (gh:#1284):** the reading was incomplete:
+upstream's Knupp loop never counts the tetrahedra it re-checks, so, like
+the LP untangler, it makes one pass. See the gh:#1284 section.
 
 **Predictions (written 2026-11-05, before the run; same case as the
 gh:#1255 section).**
@@ -3644,6 +3646,88 @@ with every optional control off). Before: 7 025 cells, first untangle
   fingerprint moves (some untangle call meets a tetrahedron the first Knupp
   pass does not repair); its `SnappyCollapse` fingerprint and every
   `BackOffOnly` pin do not (no Knupp call).
+
+### Results (2026-11-05, after gh:#1285; same session, host lightly loaded)
+
+The fix in a unit test first (`mesh_optimizer::tests::knupp_metric_makes_one_pass_as_upstream`):
+a 4 × 4 × 4 box with three interior points pushed through their
+neighbours, 40 inverted tetrahedra; one call leaves 2 with `nIterations`
+1, 5 and 50, the three runs bit-identical. So the case is one where the
+pre-gh:#1284 loop would have gone on to a second pass.
+
+**The gh:#1255 baseline** (the predictions' case), before → after:
+
+| quantity | before (same session) | after |
+|---|---|---|
+| cells | 7 025 | 7 025 |
+| meshing | 13.6 s | 14.0 s |
+| first untangle | 2 861 → 29 (13 passes, 27 708 nodes) | 2 861 → 29 (13 passes, 27 708 nodes) |
+| `optimiseLayer`: hairs thinned in the last pass | 2 560 | 2 559 |
+| bad faces at the end (`findBadFaces`) | 77 | 77 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 57.5° / 53.3° |
+| mean total thickness | 0.977 mm (9.766e-4 m) | 0.978 mm (9.782e-4 m) |
+| V/(section L), inlet/section | 0.98887, 0.98287 | 0.98887, 0.98287 |
+
+**gh:#1283's `CfMeshOptimise` rows** (`diagnose_final_mesh_differential`,
+`CFMESH_VARIANTS=base,upE,upEnl`, 3 layers), struck values from the table
+above:
+
+| route, h | NO max / p99 (°) | bad | cM | thick (mm) | time (s) |
+|---|---|---|---|---|---|
+| `base` h 4 | 65.4 / ~~50.9~~ 52.0 | 48 | 240 | ~~0.737~~ 0.738 | ~~91~~ 29.3 |
+| `base` h 5 | 57.5 / 53.3 | 77 | 77 | ~~0.977~~ 0.978 | ~~40~~ 13.7 |
+| `base` h 6 | 75.7 / ~~50.0~~ 50.1 | 13 | 76 | ~~1.262~~ 1.261 | ~~26~~ 9.4 |
+| `upE` h 4 / 5 / 6 | unchanged (73.0 / 33.7; 44.5 / 30.8; 89.6 / 32.9) | 0 / 0 / 1 | 16 / 0 / 28 | 1.099 / 1.491 / 1.910 | ~~14 / 1.2 / 6.8~~ 7.1 / 1.5 / 4.5 |
+| `upEnl` h 4 | ~~84.6~~ 84.8 / 49.3 | 0 | ~~13~~ 15 | 0.671 | ~~36~~ 16.3 |
+| `upEnl` h 5 | ~~44.9 / 44.2~~ 45.0 / 44.3 | 0 | 0 | ~~0.895~~ 0.896 | ~~16~~ 5.9 |
+| `upEnl` h 6 | 84.5 / 43.4 | 12 | 42 | ~~1.178~~ 1.179 | ~~17~~ 6.8 |
+
+The bare (0-layer) rows of `base`, `upE` and `upEnl` came out exactly as
+in the gh:#1283 table (NO, bad, cM, flux to the digits printed): the bare
+routes' untangles there met no tetrahedron that one Knupp pass left
+inverted. The times in the struck column were taken on a host shared with
+two other builds (load 6–9); today's on a lightly loaded one (load ~3), so
+the time column compares hosts, not the fix: the before/after pair at h 5
+(13.6 → 14.0 s, same session) is the fix's own time. **Attribution:**
+between the gh:#1283 recording and these rows two changes landed, this
+one and the workspace's PETIR routing of transcendental calls (merged from
+`develop` at `a593a5b84`); gh:#1285's reorder runs after the layer stage
+and does not reach these numbers. Only the h 5 before/after pair, taken in
+this session on the merged code, isolates gh:#1284; the other struck
+values may carry some of the PETIR change too (not separated).
+
+**Pins.** `layer_strategies_are_deterministic`: `CfMeshOptimise`
+~~5422758738504758818~~ → 18177691582502802893 (7 725 cells, unchanged);
+`SnappyCollapse` 18444736245533413537 unchanged. Every `BackOffOnly` pin
+unchanged.
+
+### Against the predictions
+
+- Bad faces 77 ± 10, equal or more: **held** (77).
+- First untangle 2 861 → 29 ± 5: **held** (29).
+- NO within ±2°: **held** (unchanged at h 5; +0.2° at most elsewhere).
+  Thickness ±2 %: **held** (+0.1 %).
+- Time −0 to −20 %: **missed in sign, inside the noise** (+2.9 %,
+  13.6 → 14.0 s). The second Knupp passes the old loop made were few: the
+  pass count of the first untangle is unchanged (13), and the volume
+  optimiser dominates the smoothing time.
+- Pins: **held** (`CfMeshOptimise` moved, `SnappyCollapse` and the
+  back-off pins did not).
+
+**What it means.** On these meshes the port's extra Knupp passes did
+almost nothing: one hair's thinning and 0.1 % of layer thickness. The
+change is for fidelity to upstream, not for the numbers. The rows that
+depend on `CfMeshOptimise` above this section were measured before
+gh:#1284; where re-measured here they moved by at most the amounts in the
+table, and the solves of the gh:#1283 section were not re-run for this
+change alone (the gh:#1298 section re-runs the default's).
+
+**Images.** None drawn: the mesh moved by 1.6 µm of mean layer thickness
+(0.977 → 0.978 mm), below one pixel of the gh:#1283 rim close-ups
+(8.6 µm per pixel), so a new image would be the old one.
+
+**Tests.** `cargo test --release -p outram-park-fork-cfmesh --features
+cell-centre-dual --lib`: 240 passed, 0 failed, 25 ignored (2026-11-05).
 
 ## Foam Studio's new unstructured default: upstream's sequence without the Laplace pass (gh:#1298, epic gh:#1251)
 
