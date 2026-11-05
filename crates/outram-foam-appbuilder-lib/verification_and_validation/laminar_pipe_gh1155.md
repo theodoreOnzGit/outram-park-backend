@@ -1988,6 +1988,61 @@ a local viscous number ν Δt / Δ² far above 0.5.
    non-orthogonal correction on the layer faces, or the time step by the
    *local* cell size; to be decided by what the run shows, not before.
 
+### Item 3: snappy's cascade at 2+ layers
+
+**Upstream read first (2026-11-05).** OpenFOAM-dev `852527377c7e`:
+`snappyLayerDriver::checkAndUnmark` runs `meshCheck::checkMesh` on the
+whole layered mesh and unextrudes *every point* of a patch face whose
+added cells use a failing face; `meshCheck::checkFaceTets` and
+`checkFaceTwist` (`polyMeshCheckQuality.C`) are the formulas the port has
+(tet sign with the cell and face centres exchanged; twist against
+`fc − cc` on a boundary face), so no formula defect is expected there.
+Two things upstream has that the port does not:
+
+1. `addPatchCellLayer::setRefinement` gives a patch face **`nFaceLayers`
+   cells** (from `setupLayerInfoTruncation`: 1 on a face touching an
+   unextruded point with `nBufferCellsNoExtrude 0`), the first spanning
+   the rest of each column (`offset = addedPoints.size() − nFaceLayers`).
+   The port computes `nFaceLayers` and then ignores it: every face gets
+   as many cells as its most-layered point, so a face next to one
+   unextruded point gets N cells **each pinched to zero thickness** at
+   that point (a collapsed edge per layer).
+2. The medial-axis mover shrinks the mesh under the quality checks
+   (`medialAxisMeshMover::shrinkMesh` → `motionSmootherAlgo::scaleMesh`,
+   `errorReduction 0.75`, `nRelaxIter` tries, then the displacement
+   is zeroed only where faces still fail) and feeds the honoured
+   displacement back (`patchDisp = oldPatchPos − localPoints`). The port
+   keeps the full cap at every extruded point.
+
+**Predictions (written 2026-11-05, before the diagnostic's first run),**
+`CellCentre` + `Corners`, h 5 mm, 2 and 3 layers:
+
+- iteration 1 (every point extruded, uniform stacks): 100–750 failing
+  faces, tet quality and twist, as gh:#1240 found; the wall faces they
+  unmark are a minority (< 40 %) of the wall;
+- iteration 2 onward: **most failing faces are in the pinched stacks**
+  next to unextruded points (> 70 % of the wall faces unmarked from
+  iteration 2 on have a pinched cell), and the unmarked set grows ring by
+  ring until coverage is 0: that is the cascade (80 %);
+- with upstream's `nFaceLayers` (one wedge cell per face where a layer
+  ends), the cascade stops: coverage at 2 and 3 layers ≥ 50 % (60 %),
+  and N = 1 unchanged to the bit (no face of a 1-layer stack has fewer
+  layers than its points: `nFaceLayers` = 1 = the count);
+- BackOffOnly and CfMeshOptimise unchanged to the bit (they never mix
+  counts).
+
+### Item 5: `octree.rs` determinism
+
+**Prediction (written 2026-11-05, before the fix's first run):** the
+octree path (`refinement_levels > 0`) numbers its leaves in `HashSet`
+order, seeded per process: three processes give three fingerprints
+(90 %: a `HashSet` of a few hundred tuples practically never iterates in
+the same order twice). With `BTreeSet` / `BTreeMap` (cells in
+(level, i, j, k) order) three processes give one fingerprint, the cell
+count is unchanged (the leaf *set* does not depend on the order), and the
+default meshes (`refinement_levels = 0`) are untouched, the unstructured
+default's fingerprint included.
+
 ## Reproduce
 
 ```bash
