@@ -1064,6 +1064,31 @@ where
     delta_keff_result(k_mean, k_std, k_by_generation)
 }
 
+/// One history outcome, as a track file would record it (gh:#784): a
+/// [`TraceEvent::State`] at position `r`, direction `u`, energy `e`, with unit
+/// weight, no clock and no cell (`usize::MAX`).
+///
+/// Draws no random number, so recording it leaves the history unchanged.
+fn record_outcome<O: FnMut(TraceEvent)>(
+    observe: &mut O,
+    r: Position,
+    u: Direction,
+    e: f64,
+    event: TrackEvent,
+    material: Option<usize>,
+) {
+    observe(TraceEvent::State(TrackState {
+        r,
+        u,
+        energy: e,
+        time: 0.0,
+        weight: 1.0,
+        cell: usize::MAX,
+        material,
+        event,
+    }));
+}
+
 /// Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to
 /// death by delta tracking, banking fission neutrons. Returns the fission
 /// production ν̄ summed over the history's fission events.
@@ -1110,21 +1135,6 @@ where
         let mut events = 0u32;
         let mut urr_e_last = e;
         observe(TraceEvent::Start { r, u, e });
-        // An outcome, as a track file would record it (gh:#784).
-        macro_rules! outcome {
-            ($event:expr, $material:expr) => {
-                observe(TraceEvent::State(TrackState {
-                    r,
-                    u,
-                    energy: e,
-                    time: 0.0,
-                    weight: 1.0,
-                    cell: usize::MAX,
-                    material: $material,
-                    event: $event,
-                }))
-            };
-        }
 
         'history: loop {
             events += 1;
@@ -1152,14 +1162,18 @@ where
             ) else {
                 // A vacuum domain's escape is a leak; anything else is a lost
                 // history (budget exhausted, or a point the lookup could not place).
-                outcome!(
+                record_outcome(
+                    observe,
+                    r,
+                    u,
+                    e,
                     match domain {
                         DeltaDomain::SphereVacuum { .. } | DeltaDomain::CylinderVacuum { .. } => {
                             TrackEvent::Leak
                         }
                         DeltaDomain::Cube { .. } | DeltaDomain::Sphere { .. } => TrackEvent::Lost,
                     },
-                    None
+                    None,
                 );
                 break 'history; // leaked / virtual budget exhausted
             };
@@ -1209,10 +1223,10 @@ where
                         e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
-                outcome!(TrackEvent::Fission, Some(m));
+                record_outcome(observe, r, u, e, TrackEvent::Fission, Some(m));
                 break 'history; // fission absorbs the incident neutron
             } else if xi < x.absorption {
-                outcome!(TrackEvent::Absorption, Some(m));
+                record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                 break 'history; // radiative capture
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
@@ -1308,7 +1322,7 @@ where
                     nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
                 ];
                 if n_emit == 0 {
-                    outcome!(TrackEvent::Absorption, Some(m));
+                    record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                     break 'history;
                 }
                 for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
@@ -1320,7 +1334,7 @@ where
                 // The other neutron-emitting reactions (GitHub #365 audit).
                 let o = nuc.sample_other_emission(e, u, seed);
                 if o.n_emit == 0 {
-                    outcome!(TrackEvent::Absorption, Some(m));
+                    record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                     break 'history;
                 }
                 for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
@@ -1368,7 +1382,7 @@ where
             }
             // Every branch that does not end the history scatters: the
             // outgoing state is the one the next flight starts from.
-            outcome!(TrackEvent::Scatter, Some(m));
+            record_outcome(observe, r, u, e, TrackEvent::Scatter, Some(m));
         }
     }
     production
