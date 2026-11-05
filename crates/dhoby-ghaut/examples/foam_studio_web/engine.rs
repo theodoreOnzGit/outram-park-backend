@@ -620,8 +620,25 @@ pub fn mesh_unstructured_dual(
         cfmesh_layer_optimisation: outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls {
             untangle_boundary_moves: std::env::var("FOAM_CFMESH_BMOVES").as_deref() == Ok("1"),
             optimize_mesh_fv_laplace: std::env::var("FOAM_CFMESH_LAPLACE").as_deref() == Ok("1"),
+            // gh:#1260: FOAM_CFMESH_LPU=1, the LP meshUntangler.
+            untangle_mesh_untangler: std::env::var("FOAM_CFMESH_LPU").as_deref() == Ok("1"),
+            // gh:#1259: FOAM_CFMESH_OPTSURF=1, optimizeSurface(2) inside optimiseLayer.
+            optimise_surface: std::env::var("FOAM_CFMESH_OPTSURF").as_deref() == Ok("1"),
+            // gh:#1283: FOAM_CFMESH_PROJECT=each|after, the boundary moves
+            // projected back onto the surface (not upstream).
+            boundary_projection: match std::env::var("FOAM_CFMESH_PROJECT").as_deref() {
+                Ok("each") => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::EachPass,
+                Ok("after") => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::AfterUntangle,
+                _ => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::Off,
+            },
             ..opts.cfmesh_layer_optimisation.clone()
         },
+        // gh:#1259: FOAM_UNTANGLE_SURFACE=1, cfMesh's meshSurfaceOptimizer in
+        // the feature-edge capture; gh:#1283: FOAM_OPTIMISE_FINAL=1, cfMesh's
+        // optimiseFinalMesh (on the bare mesh, or opening the CfMeshOptimise
+        // layer stage with optimizeSurface).
+        untangle_surface: std::env::var("FOAM_UNTANGLE_SURFACE").as_deref() == Ok("1"),
+        optimise_final_mesh: std::env::var("FOAM_OPTIMISE_FINAL").as_deref() == Ok("1"),
         ..opts
     };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;

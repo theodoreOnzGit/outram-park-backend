@@ -84,7 +84,7 @@ pub fn map_vertices_onto_surface_patches(
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
 ) -> VolumeMesh {
-    map_impl(mesh, points, tris, regions, None)
+    map_impl(mesh, points, tris, regions, None, None)
 }
 
 /// [`map_vertices_onto_surface_patches`] with the patch of every boundary
@@ -98,7 +98,25 @@ pub fn map_vertices_onto_surface_patches_given(
     regions: &SurfaceRegions,
     face_region: &[Option<usize>],
 ) -> VolumeMesh {
-    map_impl(mesh, points, tris, regions, Some(face_region))
+    map_impl(mesh, points, tris, regions, Some(face_region), None)
+}
+
+/// [`map_vertices_onto_surface_patches_given`] for the boundary points with
+/// `only[v]` set; every other point stays where it is (gh:#1283). The
+/// patch, edge and corner classes and the mapping-distance bound are those
+/// of the whole boundary, as upstream's `meshSurfaceMapper` computes them;
+/// only the moves are restricted. Used to put back onto the surface the
+/// points `untangleMeshFV`'s boundary loop moved
+/// ([`crate::final_mesh::BoundaryProjection`]).
+pub fn map_points_onto_surface_patches_given(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    face_region: &[Option<usize>],
+    only: &[bool],
+) -> VolumeMesh {
+    map_impl(mesh, points, tris, regions, Some(face_region), Some(only))
 }
 
 /// The patch of every boundary face by its nearest surface triangle (the
@@ -250,7 +268,9 @@ fn map_impl(
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
     given: Option<&[Option<usize>]>,
+    only: Option<&[bool]>,
 ) -> VolumeMesh {
+    let selected = |v: usize| only.is_none_or(|o| o[v]);
     // The boundary's addressing from the shared engine (gh:#1257): patch
     // of every boundary face as given (upstream's mesh patches), or by its
     // nearest triangle; then each point's faces and sorted patches.
@@ -293,6 +313,9 @@ fn map_impl(
     for b in 0..engine.n_boundary_points() {
         let v = engine.boundary_points[b];
         let ps = patches_of(b);
+        if !selected(v) {
+            continue;
+        }
         match ps.len() {
             1 => new_points[v] = q.nearest_in_region(mesh.points[v], ps[0]),
             2 => edge_nodes.push((b, ps)),
@@ -382,7 +405,7 @@ fn untangled_impl(
     passes: usize,
     given: Option<&[Option<usize>]>,
 ) -> (VolumeMesh, usize) {
-    let mapped = map_impl(mesh, points, tris, regions, given);
+    let mapped = map_impl(mesh, points, tris, regions, given, None);
     // With given patches (after correctEdgesBetweenPatches) a tangled cell
     // may be a pyramid with no boundary face of its own: revert the
     // boundary points of all its faces. Without, the historical rule.

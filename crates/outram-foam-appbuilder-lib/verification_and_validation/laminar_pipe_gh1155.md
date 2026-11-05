@@ -2871,6 +2871,157 @@ which Knupp's metric does not promise. It stays opt-in. Recommendation:
 switch it on together with the boundary moves if the maintainer adopts
 those, since that is what upstream runs.
 
+## Integration: the boundary moves on the surface, and upstream's whole `tetMeshGenerator` sequence (gh:#1283, epic gh:#1251)
+
+### What upstream does (read 2026-11-05, before any code)
+
+DAFoam/cfmesh `e944f6ba695f`. The question was how upstream keeps boundary
+points on the surface during and after `untangleMeshFV`'s boundary loop and
+`optimiseFinalMesh`.
+
+- **During `untangleMeshFV`, nothing that consults the surface**
+  (`optimizeMeshFV.C`, `tetMeshOptimisation.C`). The boundary loop calls
+  `optimiseBoundaryVolumeOptimizer(true)` while `nGlobalIter < 2`. Its
+  `nonShrinking` branch eigen-splits the normal tensor of the simplex's
+  boundary triangles:
+  - one dominant eigenvalue (a surface point): the normal component of the
+    move is dropped (tangent plane);
+  - two (an edge point): only the component along the edge is kept
+    (tangent line);
+  - otherwise (a corner): the point is not moved.
+
+  From `nGlobalIter = 2` to 4 it calls `optimiseBoundarySurfaceLaplace`,
+  and after that `optimiseBoundaryVolumeOptimizer(false)`, **both
+  unconstrained**. No `meshSurfaceMapper` call follows.
+- **`optimiseFinalMesh`** (`tetMeshGenerator.C`) is
+  `meshOptimizer::optimizeSurface(octree)` (`meshSurfaceOptimizer::
+  optimizeSurface`, then `mapVerticesOntoSurfacePatches`), then
+  `optimizeMeshFV` (`laplacianPC` × 5, `untangleMeshFV(10, 50, 2)`),
+  `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, and
+  `untangleMeshFV`. The surface mapping comes **first**; nothing maps after
+  the untangles.
+- **The one place upstream maps a finished mesh back onto the surface** is
+  `projectSurfaceAfterBackScaling`: `mapVerticesOntoSurface`, then
+  `optimiseFinalMesh` again. It runs only with `anisotropicSources`.
+
+So upstream itself bows the inlet whenever an untangle reaches global
+iteration 2 with bad faces left. The projection gh:#1283 asks for is **not
+upstream**: it is a port-side addition in the spirit of
+`projectSurfaceAfterBackScaling` (map, then let the optimiser repair the
+cells).
+
+### What was built (2026-11-05; every default unchanged)
+
+- `final_mesh::BoundaryProjection` (`Off`, the default; `EachPass`;
+  `AfterUntangle`), in `BoundaryLayerOptimisationControls::boundary_projection`.
+  - `EachPass`: after every boundary pass, the points that pass moved are
+    mapped back onto their patches by the patch mapper
+    (`surface_mapper::map_points_onto_surface_patches_given`, the
+    `mapVerticesOntoSurfacePatches` port restricted to those points). The
+    next global iteration's interior passes see the result.
+  - `AfterUntangle`: the same mapping once, when each untangle has
+    finished, with no untangling after it. This is the isolation case: the
+    cells the moves changed, without the moves' departure from the surface.
+- `mesh_optimizer::untangle_mesh_fv_projected`: `untangleMeshFV` with a
+  hook after each boundary pass. With a no-op hook it is
+  `untangle_mesh_fv_with` bit for bit.
+- `final_mesh::optimise_final_mesh` and `TetDualOptions::optimise_final_mesh`:
+  upstream's `optimiseFinalMesh` on a mesh with no `CfMeshOptimise` layer,
+  after the capture. With a `CfMeshOptimise` layer, the strategy runs it
+  itself, and the option makes it open with `optimizeSurface`
+  (`BoundaryLayerOptimisationControls::optimize_surface_first`), as
+  upstream.
+- `boundary_layer_optimisation::add_boundary_layers_cfmesh_on_surface`:
+  the strategy given the surface. The pipeline passes it; with both new
+  controls off it returns the old result bit for bit.
+- Foam Studio native knobs (`examples/foam_studio_web/engine.rs`), beside
+  `FOAM_CFMESH_BMOVES` / `FOAM_CFMESH_LAPLACE`:
+  - `FOAM_UNTANGLE_SURFACE=1`;
+  - `FOAM_OPTIMISE_FINAL=1`;
+  - `FOAM_CFMESH_LPU=1`;
+  - `FOAM_CFMESH_PROJECT=each|after`;
+  - `FOAM_CFMESH_OPTSURF=1` (`optimise_surface` inside `optimiseLayer`).
+
+**Pins checked after the change, before any measurement:**
+`back_off_only_layers_are_pinned_bit_for_bit`,
+`dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`
+and `layer_strategies_are_deterministic` pass.
+
+### Predictions (written 2026-11-05, before any run on the pipe)
+
+The case is the Foam Studio pipe (48 sides, R 10 mm, L 200 mm),
+`CellCentre` + `Corners`, layers first 0.3 mm × 1.2 with `CfMeshOptimise`.
+The diagnostic is `final_mesh::diagnose_gh1283::diagnose_final_mesh_differential`.
+
+**gh:#1283, h 5 mm, 3 layers.**
+
+- `bm` (boundary moves; reproduces gh:#1255): inlet/πR² 0.9695, inlet
+  points off the plane by up to ~2e-4 m, 27 `findBadFaces`.
+- `bmE` (moves + `EachPass`):
+  - the largest inlet |z| < 1e-9 m;
+  - inlet/πR² back to 0.9829 ± 0.002;
+  - `findBadFaces` between 27 and 77 (central ~45): the projection undoes
+    part of what the moves fixed;
+  - max non-orthogonality within ±3° of 57.5°.
+- `bmA` (moves + `AfterUntangle`):
+  - inlet planar to 1e-9 m;
+  - inlet/πR² 0.9829 ± 0.002;
+  - `findBadFaces` 40–90, above `bmE`, since nothing repairs the cells
+    after the projection.
+- **The solve.** Baseline 0.9314 / 1.0055 (u_c/2U, dp/dz/HP); boundary
+  moves 0.9013 / 0.9703.
+  - The inlet flux is U·Σ S_f·ẑ, so the inlet loss alone
+    (0.983 → 0.970 of πR²) accounts for −1.3 % on both.
+  - The rest, about −2 %, I attribute to changed cells.
+  - So `bmA` and `bmE` recover about 1.3 points of the 3.2 / 3.5 % and
+    stay about 2 % low. **The gh:#1283 gate (solve within 0.5 % of
+    baseline) fails** on both. If it passes, bowing was the whole story and
+    this split is wrong.
+
+**Upstream's whole sequence (h 4 / 5 / 6 mm, 0 and 3 layers).** `us` is
+`untangle_surface` alone. `up` is `untangle_surface` + `optimise_final_mesh`
++ Laplace + boundary moves + LP untangler, no projection. `upE` is `up` with
+`EachPass`. `upEnl` is `upE` without the Laplace pass.
+
+- **0 layers.**
+  - `us` reproduces gh:#1259:
+    - inlet 0.9934 / 0.9920 / 0.9789;
+    - NO max 79.9 / 69.9 / 85.2°;
+    - 0 / 0 / 3 pyramids.
+  - `up`:
+    - the interior follows the boundary, so NO max falls below 65° at
+      every h, and no pyramid ≤ 0;
+    - `findBadFaces` ≤ 5;
+    - inlet/πR² 0.98–0.993;
+    - the inlet stays planar to 1e-9 unless an untangle reaches global
+      iteration 2 (then up to 1e-4 m);
+    - 2–20 s.
+  - `upE`: as `up`, inlet planar to 1e-9 at every h.
+  - `upEnl`: NO max 5–15° above `upE`.
+- **3 layers.**
+  - `base` reproduces gh:#1241/#1255 at h 5 (77 bad faces, NO 57.5°,
+    thickness 0.977 mm).
+  - `us`: the strategy starts from a boundary with 70–85° NO;
+    `findBadFaces` 50–150, NO max 60–80°.
+  - `up`:
+    - thickness about +48 % (the Laplace pass, gh:#1256: ~1.44 mm at h 5);
+    - `findBadFaces` ≤ 45;
+    - inlet bowed (|z| ~1e-4 m).
+  - `upE`: inlet planar to 1e-9, `findBadFaces` 30–80, thickness ~1.44 mm.
+  - `upEnl`: thickness 0.97 ± 0.05 mm, `findBadFaces` 30–80.
+  - Times 5–40 s.
+
+**`optimise_surface` inside `CfMeshOptimise`** (task 3; h 5, 3 layers,
+otherwise defaults, on against off). It moves wall and inlet points in
+their tangent planes, with the rim (a feature edge) locked, so:
+
+- inlet/πR² changes by < 0.1 % and the inlet stays planar to 1e-12;
+- V/πR²L changes by < 0.1 % (the wall's tangent planes cut the 48-gon's
+  facets, so points move along flat facets: no loss);
+- `findBadFaces` changes by at most ±20 %;
+- thickness ±5 %;
+- the solve within 0.5 % of baseline.
+
 ## Reproduce
 
 ```bash
