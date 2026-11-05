@@ -79,3 +79,9 @@ env_logger = { workspace = true }
 name = "mesh_studio"
 path = "examples/mesh_studio/main.rs"
 required-features = ["foam-export"]
+
+# gh:#1269: the edgeExtractor differential images use the cell-centre dual.
+[[example]]
+name = "edge_extractor_images"
+path = "examples/edge_extractor_images.rs"
+required-features = ["cell-centre-dual"]

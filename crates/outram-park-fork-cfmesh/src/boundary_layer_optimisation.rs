@@ -95,7 +95,7 @@
 use crate::layers::{assemble_layered, layer_columns, layer_setup, LayerOutcome, LayerQualityStrategy, LayerSetup, LayerVertex};
 use crate::math::Vec3;
 use crate::mesh_optimizer::{
-    bad_faces_at_the_boundary, find_bad_faces, find_low_quality_faces, optimize_low_quality_faces, untangle_mesh_fv_with, vertex_type, LaplaceKind, MeshOptimizer,
+    bad_faces_at_the_boundary, find_bad_faces, find_low_quality_faces, optimize_low_quality_faces, vertex_type, LaplaceKind, MeshOptimizer,
     UntangleControls,
 };
 use crate::surface_engine::SurfaceEngine;
@@ -152,6 +152,17 @@ pub struct BoundaryLayerOptimisationControls {
     /// upstream's call has no octree). **`false` by default** so the
     /// recorded `CfMeshOptimise` meshes are unchanged.
     pub optimise_surface: bool,
+    /// Put the boundary points `untangleMeshFV`'s boundary loop moves back
+    /// onto the surface (gh:#1283, [`crate::final_mesh::BoundaryProjection`]).
+    /// **Not upstream**, and only effective with
+    /// [`Self::untangle_boundary_moves`] and a surface
+    /// ([`add_boundary_layers_cfmesh_on_surface`]). `Off` by default.
+    pub boundary_projection: crate::final_mesh::BoundaryProjection,
+    /// Start `optimiseFinalMesh` as upstream does, with
+    /// `meshOptimizer::optimizeSurface(octree)` on the one-layer mesh
+    /// (gh:#1283, [`crate::mesh_optimizer::optimize_surface`]); needs a
+    /// surface. `false` by default (the recorded meshes are unchanged).
+    pub optimize_surface_first: bool,
 }
 
 impl Default for BoundaryLayerOptimisationControls {
@@ -167,6 +178,8 @@ impl Default for BoundaryLayerOptimisationControls {
             feature_size_factor: 0.3,
             recalculate_normals: true,
             optimise_surface: false,
+            boundary_projection: crate::final_mesh::BoundaryProjection::Off,
+            optimize_surface_first: false,
         }
     }
 }
@@ -667,6 +680,25 @@ pub fn add_boundary_layers_cfmesh(
     expansion: f64,
     controls: &BoundaryLayerOptimisationControls,
 ) -> (VolumeMesh, LayerOutcome) {
+    add_boundary_layers_cfmesh_on_surface(mesh, layer_patches, n_layers, first_thickness, expansion, controls, None)
+}
+
+/// [`add_boundary_layers_cfmesh`] with the surface the mesh's boundary lies
+/// on (`(points, triangles, regions)`, gh:#1283): with it,
+/// [`BoundaryLayerOptimisationControls::optimize_surface_first`] and
+/// [`BoundaryLayerOptimisationControls::boundary_projection`] take effect.
+/// With `None`, or both off, the result is [`add_boundary_layers_cfmesh`]'s
+/// bit for bit.
+pub fn add_boundary_layers_cfmesh_on_surface(
+    mesh: &VolumeMesh,
+    layer_patches: &[&str],
+    n_layers: usize,
+    first_thickness: f64,
+    expansion: f64,
+    controls: &BoundaryLayerOptimisationControls,
+    surface: Option<(&[Vec3], &[[usize; 3]], &crate::patches::SurfaceRegions)>,
+) -> (VolumeMesh, LayerOutcome) {
+    use crate::final_mesh::{projection_note, untangle_on_surface, BoundaryProjector};
     let strategy = LayerQualityStrategy::CfMeshOptimise;
     let Some(s) = layer_setup(mesh, layer_patches, n_layers, first_thickness, expansion) else {
         return (from_cell_faces(mesh.points.clone(), &cells_faces(mesh)), LayerOutcome::none(strategy, n_layers));
@@ -677,6 +709,13 @@ pub fn add_boundary_layers_cfmesh(
     let d1 = [0.0, s.d[n_layers]];
     let (pts, column) = layer_columns(mesh, &s.wall_pts, &s.inward, &d1, &s.cap, &ones);
     let mut m1 = assemble_layered(mesh, &s.wall_faces, &s.wall_pts, pts, &column, &ones);
+    let projector1 = surface.map(|(p, t, r)| BoundaryProjector::new(&m1, p, t, r));
+    let proj = controls.boundary_projection;
+    if let (true, Some(pr)) = (controls.optimize_surface_first, projector1.as_ref()) {
+        // optimiseFinalMesh's first call, before the hairs are read.
+        let r = pr.optimize_surface(&mut m1);
+        notes.push(format!("optimiseFinalMesh: optimizeSurface: inverted points {} -> {}", r.n_inverted_first, r.n_inverted_last));
+    }
     // Patch of each boundary face of the one-layer mesh: layer faces (the
     // prisms' wall faces) are patch 0, everything else patch 1 (only the
     // grouping matters to `calculateNormalVectors`).
@@ -711,8 +750,8 @@ pub fn add_boundary_layers_cfmesh(
         MeshOptimizer::new(&m1).optimize_laplacian(&mut m1, LaplaceKind::PointCells, 5);
         notes.push("optimizeMeshFV: laplacianPC x5 (gh:#1256)".into());
     }
-    let r = untangle_mesh_fv_with(&mut m1, &none, &untangle(10, 2, false, stall));
-    notes.push(format!("optimizeMeshFV/untangleMeshFV: bad faces {} -> {}; {}", r.flagged_before, r.flagged_after, profile(&r)));
+    let (r, pr) = untangle_on_surface(&mut m1, &none, &untangle(10, 2, false, stall), proj, projector1.as_ref());
+    notes.push(format!("optimizeMeshFV/untangleMeshFV: bad faces {} -> {}; {}{}", r.flagged_before, r.flagged_after, profile(&r), projection_note(proj, &pr)));
     let r = optimize_low_quality_faces(&mut m1, &none, 10);
     notes.push(format!("optimizeLowQualityFaces: low-quality faces {} -> {} ({} passes); {}", r.flagged_before, r.flagged_after, r.iterations, profile(&r)));
     let passes = optimise_layer(&mut m1, &mut hairs, controls, &patch_of);
@@ -736,12 +775,12 @@ pub fn add_boundary_layers_cfmesh(
         }
         opt.optimize_laplacian(&mut m1, LaplaceKind::PointCells, 5);
     }
-    let r1 = untangle_mesh_fv_with(&mut m1, &layer_locked, &untangle(1, 0, false, false));
-    let r2 = untangle_mesh_fv_with(&mut m1, &layer_locked, &untangle(2, 0, false, false));
+    let (r1, _) = untangle_on_surface(&mut m1, &layer_locked, &untangle(1, 0, false, false), proj, projector1.as_ref());
+    let (r2, _) = untangle_on_surface(&mut m1, &layer_locked, &untangle(2, 0, false, false), proj, projector1.as_ref());
     notes.push(format!("optimizeBoundaryLayer untangle (layer locked): bad faces {} -> {}; {}; {}", r1.flagged_before, r2.flagged_after, profile(&r1), profile(&r2)));
-    let r = untangle_mesh_fv_with(&mut m1, &none, &untangle(10, 2, false, stall));
+    let (r, pr) = untangle_on_surface(&mut m1, &none, &untangle(10, 2, false, stall), proj, projector1.as_ref());
     let (_, at_bnd) = bad_faces_at_the_boundary(&m1);
-    notes.push(format!("final untangleMeshFV: bad faces {} -> {} ({at_bnd} touch a boundary point); {}", r.flagged_before, r.flagged_after, profile(&r)));
+    notes.push(format!("final untangleMeshFV: bad faces {} -> {} ({at_bnd} touch a boundary point); {}{}", r.flagged_before, r.flagged_after, profile(&r), projection_note(proj, &pr)));
 
     // 3. refBoundaryLayers: split each hair by the grading.
     let mut moved = mesh.clone();
@@ -780,8 +819,9 @@ pub fn add_boundary_layers_cfmesh(
     let r = optimize_low_quality_faces(&mut mn, &in_layer, 10);
     notes.push(format!("untangleBoundaryLayer optimizeLowQualityFaces (layer locked): {} -> {}; {}", r.flagged_before, r.flagged_after, profile(&r)));
     let none_n = vec![false; mn.points.len()];
-    let r = untangle_mesh_fv_with(&mut mn, &none_n, &untangle(2, 1, true, false));
-    notes.push(format!("untangleBoundaryLayer untangleMeshFV (relaxed): {} -> {}; {}", r.flagged_before, r.flagged_after, profile(&r)));
+    let projector_n = surface.map(|(p, t, r)| BoundaryProjector::new(&mn, p, t, r));
+    let (r, pr) = untangle_on_surface(&mut mn, &none_n, &untangle(2, 1, true, false), proj, projector_n.as_ref());
+    notes.push(format!("untangleBoundaryLayer untangleMeshFV (relaxed): {} -> {}; {}{}", r.flagged_before, r.flagged_after, profile(&r), projection_note(proj, &pr)));
 
     // The hairs after the last untangle (the split points may have moved).
     for &wp in &s.wall_pts {

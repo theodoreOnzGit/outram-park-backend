@@ -1376,14 +1376,37 @@ impl Default for UntangleControls {
 /// belongs to the lock API (gh:#1256). The LP mesh untangler is not ported
 /// yet (gh:#1260).
 pub fn untangle_mesh_fv_with(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleControls) -> OptimiserReport {
-    untangle_impl(mesh, locked, controls, false).0
+    untangle_impl(mesh, locked, controls, false, &mut |_: &mut VolumeMesh, _: &[bool]| {}).0
+}
+
+/// [`untangle_mesh_fv_with`] with a **projector** called after every pass
+/// of the boundary loop (gh:#1283): `project(mesh, moved)` gets the mesh
+/// and the points that pass moved, and may move them again (back onto the
+/// surface, [`crate::final_mesh::BoundaryProjection::EachPass`]). The faces
+/// of the moved points are already marked changed, so the next global
+/// iteration's interior passes see whatever the projection does to them.
+/// **Not upstream:** `untangleMeshFV` has no such step (it keeps a point on
+/// its surface only through `optimiseBoundaryVolumeOptimizer(true)`'s
+/// tangent-plane constraint in global iterations 0 and 1). Also returns
+/// the points any boundary pass moved. With a projector that does nothing
+/// this is [`untangle_mesh_fv_with`], bit for bit.
+pub fn untangle_mesh_fv_projected<P: FnMut(&mut VolumeMesh, &[bool])>(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleControls, project: &mut P) -> (OptimiserReport, Vec<bool>) {
+    let mut moved = vec![false; mesh.points.len()];
+    let mut hook = |m: &mut VolumeMesh, pass: &[bool]| {
+        for (a, &b) in moved.iter_mut().zip(pass) {
+            *a |= b;
+        }
+        project(m, pass);
+    };
+    let rep = untangle_impl(mesh, locked, controls, false, &mut hook).0;
+    (rep, moved)
 }
 
 /// [`untangle_mesh_fv_with`]; with `enforce_constraints` (and
 /// `boundary_moves`), stop at the boundary loop's first check that finds a
 /// bad face and return those faces (upstream's `enforceConstraints_`
 /// branch).
-fn untangle_impl(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleControls, enforce_constraints: bool) -> (OptimiserReport, Option<Vec<bool>>) {
+fn untangle_impl<P: FnMut(&mut VolumeMesh, &[bool])>(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleControls, enforce_constraints: bool, project: &mut P) -> (OptimiserReport, Option<Vec<bool>>) {
     let c = *controls;
     let pc = point_cells(mesh);
     let cf = cell_faces(mesh);
@@ -1469,7 +1492,10 @@ fn untangle_impl(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleCont
                     tm.optimise_boundary_volume_optimizer(3, false);
                 }
                 rep.seconds_smooth += since(t);
+                let before = mesh.points.clone();
                 changed = tm.update_orig(mesh, &pc, &cf);
+                let pass: Vec<bool> = before.iter().zip(&mesh.points).map(|(a, b)| a != b).collect();
+                project(mesh, &pass);
                 rep.surface_iterations += 1;
             }
         }
@@ -1920,7 +1946,7 @@ impl MeshOptimizer {
     /// named [`Self::bad_points_subset_name`] and throws).
     pub fn untangle_mesh_fv(&self, mesh: &mut VolumeMesh, controls: &UntangleControls) -> Result<OptimiserReport, ConstraintViolation> {
         let locked = self.locked_points();
-        match untangle_impl(mesh, &locked, controls, self.enforce_constraints) {
+        match untangle_impl(mesh, &locked, controls, self.enforce_constraints, &mut |_: &mut VolumeMesh, _: &[bool]| {}) {
             (rep, None) => Ok(rep),
             (rep, Some(bad)) => {
                 let mut points: Vec<usize> = (0..mesh.face_count()).filter(|&f| bad[f]).flat_map(|f| mesh.faces[f].clone()).collect();

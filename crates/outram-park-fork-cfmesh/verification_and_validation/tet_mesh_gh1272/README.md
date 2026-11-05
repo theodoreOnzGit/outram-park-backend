@@ -246,3 +246,24 @@ The images above were regenerated after this re-run.
 round in `sphere_xz_tet_mesh.png`, `sphere_xy_tet_mesh.png` and
 `pipe_xy_tet_mesh.png` (checked), with no fold and no detached tets. The
 template images are unchanged.
+
+## Re-measurement with `edgeExtractor` wired in (gh:#1269, 2026-11-05)
+
+`patchAssignment` now runs the ported `edgeExtractor`
+(`edge_extractor::extract_patches`); the nearest triangle is the ablation
+`PatchAssignment::NearestTriangle`. ~~"Upstream steps still not in the
+workflow: `edgeExtractor` (the nearest triangle stands in)"~~ **CORRECTED
+2026-11-05 (gh:#1269)** for `edgeExtractor`. Predictions and the full
+differential: `../edge_extractor_gh1269/README.md`.
+
+| case | patch assignment | cells | volume error | max non-orth | max skew | patches inlet / outlet / walls |
+|---|---|---:|---:|---:|---:|---|
+| sphere | `edgeExtractor` (one patch) | 12 840 | −1.362 % | 51.56° | 0.437 | — |
+| pipe | `edgeExtractor` (default) | 31 136 | **−0.291 %** | 67.16° | 0.634 | 330 / 331 / 3 427 |
+| pipe | nearest triangle | 31 136 | −0.289 % | 67.16° | 0.624 | 332 / 332 / 3 424 |
+
+11 pipe faces change patch; the inlet's projected area moves from 0.99480 to
+0.99361 πR² (the 48-gon is 0.99715), away from the polygon. The images were
+regenerated; only `pipe_xz_tet_mesh.png` changed (and `pipe_xy_p_mesh.png`
+in `../p_mesh_gh1273/`). Checked in it: the boundary follows the surface
+trace, the four rim corners are filled, no fold.

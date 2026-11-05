@@ -138,6 +138,24 @@ default; changing that needs the maintainer). Note (gh:#1258): by cfMesh's
 inverted-vertex test 40 % of the median/cell-centre duals' boundary points
 are reflex corners of non-convex boundary polygons before any mapping.
 
+## `optimiseFinalMesh` and the boundary-move projection (gh:#1283, 2026-11-05)
+
+`final_mesh` holds upstream's `optimiseFinalMesh` for a mesh with no
+`CfMeshOptimise` layer (`TetDualOptions::optimise_final_mesh`) and
+`BoundaryProjection` (`EachPass`, `AfterUntangle`), which maps the points
+`untangleMeshFV`'s boundary loop moved back onto their patches. **The
+projection is not upstream.** Upstream's `untangleMeshFV` keeps points on
+the surface only through `optimiseBoundaryVolumeOptimizer(true)`'s tangent
+constraint and calls no mapper afterwards. All three switches are off by
+default, and
+`final_mesh::tests::foam_studio_default_mesh_keeps_its_fingerprint` pins
+Foam Studio's default mesh.
+
+Use the projection only with `untangle_surface`. On the `revert_tangled`
+capture it re-maps the points that capture left off the surface on
+purpose and tangles the mesh (h 4 and h 6 mm on the pipe). Record: the
+gh:#1283 section of `laminar_pipe_gh1155.md`.
+
 ## cfMesh's octree, ported beside `octree.rs` (gh:#1262–#1266, 2026-11-05)
 
 `mesh_octree` (cubes, slot, surface intersections), `mesh_octree_queries`,
@@ -165,9 +183,16 @@ and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
 change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
-(`edgeExtractor`, `boundaryLayers`, `preMapVertices`,
-`meshSurfaceEdgeExtractorFUN`) call what exists and say so in
-`TetMeshReport::notes`. When one of those lands, wire it in there and
+(~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices`,
+~~`meshSurfaceEdgeExtractorFUN`~~ `createFundamentalSheetsJFS`) call what
+exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
+(gh:#1269):** `patchAssignment` runs `edge_extractor` (cfMesh's
+`edgeExtractor`, default) and `pMesh`'s `edgeExtraction` runs
+`mesh_surface_edge_extractor_fun` (without the fundamental sheets, which
+need `extrudeLayer`); `PatchAssignment::NearestTriangle` keeps the old
+nearest-triangle rule callable for the differential. The tet-dual pipeline
+still names patches by the nearest triangle. Record:
+`verification_and_validation/edge_extractor_gh1269/`. When one of those lands, wire it in there and
 **re-measure** the records in `verification_and_validation/tet_mesh_gh1272/`
 and `p_mesh_gh1273/` (wiring the first two tracks moved `tet_mesh`'s sphere
 volume error from +26.7 % to −1.36 %). The raw octree tet template has

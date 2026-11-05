@@ -130,3 +130,27 @@ Written by `examples/tet_mesh_images.rs` (command in `../tet_mesh_gh1272/`).
 `edgeExtractor`, `boundaryLayers`, `refineBoundaryLayers`.
 **CORRECTED 2026-11-05:** `surfaceMorpherCells` (gh:#1267) and
 `meshSurfaceOptimizer` (gh:#1259) are called since they landed.
+**CORRECTED again 2026-11-05 (gh:#1269):** `edgeExtractor` is called, and
+`meshSurfaceEdgeExtractorFUN` is, without its fundamental sheets (see the
+next section).
+
+## Re-measurement with `edgeExtractor` and `meshSurfaceEdgeExtractorFUN` (gh:#1269, 2026-11-05)
+
+`patchAssignment` runs the ported `edgeExtractor`; `edgeExtraction` runs
+`meshSurfaceEdgeExtractorFUN` in upstream's order (`optimizeSurface`, then
+`mapVerticesOntoSurfacePatches`; the stand-in mapped first) without its
+fundamental sheets (`createFundamentalSheetsJFS` needs `extrudeLayer`, not
+ported).
+
+| case | route | cells | volume error | max non-orth | max skew |
+|---|---|---:|---:|---:|---:|
+| pipe | before gh:#1269 | 4 303 | −0.35 % | 75.9° | — |
+| pipe | nearest triangle + FUN order | 4 303 | −0.324 % | 64.46° | 0.493 |
+| pipe | `edgeExtractor` + FUN order (default) | 4 303 | **−0.325 %** | **55.29°** | 0.577 |
+| sphere | default | 1 749 | −1.537 % | 18.06° | 0.508 |
+
+The 75.9° maximum, not located in the run above, came down to 64.5° with
+the order alone and to 55.3° with `edgeExtractor` (still not located).
+Record: `../edge_extractor_gh1269/README.md`. Images regenerated:
+`pipe_xy_p_mesh.png` changed (the other two are bit-identical), not
+re-inspected beyond the boundary meeting the surface trace all round.

@@ -28,15 +28,17 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Status | Upstream lines | Share | Rows |
 |---|---:|---:|---:|
-| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ 36,553 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ 28.2 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ 40 |
-| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ 38,266 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ 29.5 % | ~~27~~ ~~25~~ ~~23~~ 16 |
-| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ 32,277 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ 24.9 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ 57 |
+| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ ~~36,553~~ 41,405 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ ~~28.2 %~~ 31.9 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ ~~40~~ 41 |
+| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ ~~38,266~~ 38,673 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ ~~29.5 %~~ 29.8 % | ~~27~~ ~~25~~ ~~23~~ ~~16~~ 17 |
+| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ ~~32,277~~ 27,018 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ ~~24.9 %~~ 20.8 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ ~~57~~ 55 |
 | not applicable | 22,642 | 17.5 % | 25 |
 | **total** | **129,738** | 100 % | 138 |
 
 **Updated 2026-11-05** after gh:#1255, #1256, #1260 and #1261, and again after gh:#1267/#1268 and gh:#1270/#1271 (~~these two tables count those items only; the octree track's gh:#1264–#1266 rows are updated in §2~~ **CORRECTED 2026-11-05, see the next paragraph:** groups A–C now count gh:#1262–#1266 too) (the struck-through numbers are the audit's; §5 has what moved). The `partial` lines overstate what is ported. They count each partly-ported unit whole: for example, the 4,441 lines of `polyMeshGenChecks` for 9 of its 34 function definitions.
 
 **Updated again 2026-11-05** after gh:#1272 and #1273, merged with gh:#1267/#1268's counts. **CORRECTED at the same time:** these totals had not followed the rows already marked ported by gh:#1258 (`partTriMesh`, group C, 1,331) and gh:#1262–#1266 (group B, and `cartesianMeshExtractor` in group A). Groups A, B and C were recounted from their rows; group G moves by gh:#1267's `surfaceMorpherCells` and gh:#1272's `renameBoundaryPatches`; group I is gh:#1267/#1268's; group H is gh:#1270/#1271's. **Not re-checked:** groups D–M against their rows (other rows changed by gh:#1257–#1266, for example `meshSurfaceEngine`, `meshSurfacePartitioner`, `meshSurfaceCheckInvertedVertices` in G and `FrontalMarking` in L, may not be in their group's totals).
+
+**Updated 2026-11-05 after gh:#1269:** `edgeExtractor` (4,852) from not ported to ported, `meshSurfaceEdgeExtractorFUN` (407) from not ported to partial; both in group G. Only those two rows moved.
 
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
@@ -46,7 +48,7 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | D. Quality checks | ~~0~~ 4,441 | ~~4,441~~ 0 | 0 | 0 |
 | E. Volume optimiser | ~~1,141~~ 3,599 | ~~5,244~~ 4,456 | ~~2,404~~ 734 | 798 |
 | F. Surface optimiser | 0 | 0 | 2,811 | 522 |
-| G. Surface tools | ~~2,208~~ ~~3,347~~ 3,739 | 4,082 | ~~10,962~~ ~~9,823~~ 9,431 | 969 |
+| G. Surface tools | ~~2,208~~ ~~3,347~~ ~~3,739~~ 8,591 | ~~4,082~~ 4,489 | ~~10,962~~ ~~9,823~~ ~~9,431~~ 4,172 | 969 |
 | H. Boundary layers | ~~0~~ 989 | 9,395 | ~~3,261~~ 2,272 | 0 |
 | I. Topology repair | ~~0~~ 5,283 | ~~1,396~~ 0 | ~~3,887~~ 0 | 0 |
 | J. triSurface tools, helper classes | ~~0~~ 425 | 0 | ~~7,639~~ 7,214 | 233 |
@@ -61,14 +63,14 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
 | `executables/tetMesh` | 65 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh::{tet_mesh, tet_mesh_restart}`; `pipeline::surface_to_tet_dual_mesh(_multipatch)` kept | Thin `main` over `tetMeshGenerator`. Settings are typed (`TetMeshOptions`); no `meshDict` reader. |
-| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`. No `boundaryLayers` dict and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
+| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; ~~only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`~~ **UPDATED 2026-11-05 (gh:#1269):** `extractPatches` calls `edge_extractor::extract_patches` (the nearest triangle is the ablation `PatchAssignment::NearestTriangle`). No `boundaryLayers` dict and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
 | `meshLibrary/tetMesh/tetMeshExtractorOctree` | 386 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_mesh_extractor_octree` (with the shared `polyMeshGen` assembly `poly_mesh_from_cells`) | Beside `tet::tetrahedralize` + `delaunay::flip_to_delaunay` (§3); compared on the sphere and the pipe. |
 | `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_creator_octree` | All five tet routines. Upstream's unguarded reads are counted (`TetCreatorDefects`), zero on every run. |
 | `executables/cartesianMesh` | 62 | not ported | — | Thin `main` over `cartesianMeshGenerator`. |
 | `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | not ported | — (`carve`, `snap`, `octree` are the crate's own stages) | No `cartesianMesh` workflow. `pipeline` mirrors its staging loosely. |
 | `meshLibrary/cartesianMesh/cartesianMeshExtractor` | 800 | ported (2026-11-05, gh:#1266) | `cartesian_mesh::cartesian_mesh_extractor`; `octree::build_mesh` kept | ~~partial: re-implemented only; missing `decomposeSplitHexesIntoTetsAndPyramids`, `createPointsAndAddressing`, cell-type bookkeeping~~ **CORRECTED 2026-11-05:** transcribed beside `octree::build_mesh`. On the same leaves the two build the same faces ring for ring (sphere and pipe, `verification_and_validation/cartesian_octree_gh1262/README.md`). Quadtree empty patches not ported. |
 | `executables/pMesh` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh::{p_mesh, p_mesh_restart}` | Thin `main` over `voronoiMeshGenerator`. |
-| `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (not ported). Results: `verification_and_validation/p_mesh_gh1273/`. |
+| `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (~~not ported~~ **CORRECTED 2026-11-05, gh:#1269:** called, `tet_mesh::untangle_again`, since gh:#1259 merged). `edgeExtraction` is `meshSurfaceEdgeExtractorFUN` without its fundamental sheets (gh:#1269). Results: `verification_and_validation/p_mesh_gh1273/`. |
 | `meshLibrary/voronoiMesh/voronoiMeshExtractor` | 674 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `voronoi_mesh_extractor`; `cell_centre_dual`, `dual::polyhedral_dual*` kept | Tet-centroid dual of `tetCreatorOctree` tets, cells only at interior vertices. Equal to `CellCentre`'s interior cells to 9.8e-15 where `polyDualMesh` accepts the tets (§3). |
 | `executables/cartesian2DMesh` | 66 | not ported | — |  |
 | `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | not ported | — |  |
@@ -164,7 +166,7 @@ _Subtotal: 3333 lines._
 |---|---:|---|---|---|
 | `surfaceTools/meshSurfaceEngine (serial)` | 3086 | ~~partial~~ **ported (2026-11-05, gh:#1257)** | ~~ad hoc boundary maps in `layers::layer_setup`, `correct_edges`, `surface_mapper`~~ `surface_engine::SurfaceEngine` | ~~No shared engine. Missing as a reusable object: …~~ Every serial accessor and `meshSurfaceEngineModifier` (`moveBoundaryVertex(NoUpdate)`, `updateGeometry`). Not ported: the `activePatch` constructor (no caller here). Built eagerly (no lifetimes); the caller owns the points. `layer_setup`, `correct_edges` and `surface_mapper` now read their boundary maps from it. |
 | `surfaceTools/meshSurfaceEngine: ParallelAddressing.C` | 775 | not applicable | — | MPI. |
-| `surfaceTools/meshSurfaceMapper (mapVerticesOntoSurface(Patches), mapCorners, mapEdgeNodes, findMappingDistance)` | 1175 | ported | `surface_mapper::map_vertices_onto_surface_patches(_untangled(_given))`, `map_vertices_onto_surface_untangled`; `surface_mapper::SurfaceQueries`, `map_edge_node` | `mapVerticesOntoSurface` has no `untangleSurface` after it (moves undone instead). `findMappingDistance` uses vertex-average face centres here, OpenFOAM centres upstream (kept, so the pins hold). Surface queries are brute force (upstream: `meshOctree`). |
+| `surfaceTools/meshSurfaceMapper (mapVerticesOntoSurface(Patches), mapCorners, mapEdgeNodes, findMappingDistance)` | 1175 | ported | `surface_mapper::map_vertices_onto_surface_patches(_untangled(_given))`, `map_vertices_onto_surface_untangled`; `surface_mapper::SurfaceQueries`, `map_edge_node` | `mapVerticesOntoSurface` has no `untangleSurface` after it (moves undone instead). `mapVerticesOntoSurfacePatches(nodesToMap)` (a subset) is `surface_mapper::map_points_onto_patches` (gh:#1269; gh:#1283's `map_points_onto_surface_patches_given` goes through it too; the whole-surface mapping now calls it with no subset, operation for operation as before, pinned by the dual-kind fingerprints). `findMappingDistance` uses vertex-average face centres here, OpenFOAM centres upstream (kept, so the pins hold). Surface queries are brute force (upstream: `meshOctree`). |
 | `surfaceTools/meshSurfaceMapper: PremapVertices.C` | 302 | not ported | — | `preMapVertices` (cartesianMesh, cartesian2DMesh, pMesh). |
 | `surfaceTools/meshSurfaceMapper: parMapperHelper.H` | 194 | not applicable | — | MPI. |
 | `surfaceTools/meshSurfaceMapper2D` | 1189 | not ported | — | 2D workflow. |
@@ -173,9 +175,9 @@ _Subtotal: 3333 lines._
 | `surfaceTools/meshSurfaceCheckEdgeTypes` | 483 | partial | `correct_edges` (tet test) | `classifyEdges` tet test only. Missing: the `meshSurfaceCheckInvertedVertices` (UNDETERMINED) branch, the `convexEdges`/`concaveEdges` accessors as a reusable class. |
 | `surfaceTools/meshSurfaceCheckInvertedVertices` | 555 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::check_inverted_vertices`, `is_face_convex_and_ok` (`surface_mapper::cells_with_nonpositive_pyramids` is a cell test, not this) | On the crate's per-point / cell-centre duals of the 48-sided pipe (h 6 mm) it flags 554 of 1 390 boundary points before any mapping, 550 of them as reflex corners of 156 non-convex boundary polygons (the differential test in `surface_optimizer`). Not yet wired into `correct_edges`' UNDETERMINED edge class. |
 | `surfaceTools/meshSurfacePartitioner` | 513 | ~~partial~~ **ported (2026-11-05, gh:#1257)** | `surface_engine::SurfacePartitioner` | ~~Corners (>2 feature edges) and edge points (2). Missing: `patchPatches`, `edgeGroups`, as a reusable class.~~ All of it, serial: corners, edge points, `pointPatches`, `patchPatches`, `featureEdges`, `numberOfFeatureEdgesAtPoint`. **CORRECTED 2026-11-05:** `meshSurfacePartitioner.H` at `e944f6ba695f` has no `edgeGroups`; the earlier row named a member that does not exist there. |
-| `surfaceTools/edgeExtraction/edgeExtractor` | 4852 | not ported | — (`patches::assign_patches_by_region`: nearest triangle only) | Refines the face→patch assignment (`extractEdges`, `updateMeshPatches`, corners). |
+| `surfaceTools/edgeExtraction/edgeExtractor` | 4852 | ~~not ported~~ **ported (2026-11-05, gh:#1269)** | ~~— (`patches::assign_patches_by_region`: nearest triangle only)~~ `edge_extractor::{EdgeExtractor, extract_patches}`; wired into `pipeline::tet_mesh` / `p_mesh` (`PatchAssignment`) | Refines the face→patch assignment. Every member the workflows call (constructor, `extractEdges`, `updateMeshPatches`, `faceEvaluator`) plus `moveVerticesTowardsDiscontinuities`, `projectDeterminedFeatureVertices`, `untangleSurface`, `surfaceWithPatches`, `markPatchPoints`. Not ported, no caller upstream: `findEdgeCandidates` (only prints; indexes mesh edges with surface edge labels), `checkConcaveEdgeCells` (needs `triSurfaceClassifyEdges`), `findCornerCandidates` (discards its result), `checkCorners` (calls `::exit(0)` part-way), `cornerEvaluator` (never constructed). Results: `verification_and_validation/edge_extractor_gh1269/`. |
 | `surfaceTools/meshSurfaceEdgeExtractor` | 406 | not ported | — | Older topological extractor; no generator in `meshLibrary/` calls it. |
-| `surfaceTools/meshSurfaceEdgeExtractorFUN` | 407 | not ported | — | Fundamental-sheets extractor (used with `createFundamentalSheets`). |
+| `surfaceTools/meshSurfaceEdgeExtractorFUN` | 407 | ~~not ported~~ **partial (2026-11-05, gh:#1269)** | `mesh_surface_edge_extractor_fun` (called by `pipeline::p_mesh`) | Fundamental-sheets extractor (used with `createFundamentalSheets`). Ported: the constructor's `smoothMeshSurface` and `remapBoundaryPoints`. Missing: `createBasicFundamentalSheets` (`createFundamentalSheetsJFS`, which needs `extrudeLayer`, item 26); `distributeBoundaryFaces` and `improveQualityOfFundamentalSheets` have no caller. |
 | `surfaceTools/meshSurfaceEdgeExtractor2D` | 311 | not ported | — | 2D workflow. |
 | `surfaceTools/createFundamentalSheets (base, FJ, JFS)` | 908 | not ported | — | Layer of cells at feature edges for `meshSurfaceEdgeExtractorFUN`. |
 | `surfaceTools/renameBoundaryPatches` | 392 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `rename_boundary_patches` (`RenameBoundary`, `regex_full_match`) | `renameBoundary` / patch `type`. Types travel beside the mesh (`VolumeMesh` has none). `checkSymmetryPlanes` calls `symmetryPlaneOptimisation` (not ported): reported, not run. The patch-name regex supports the common subset (module docs). |
@@ -296,7 +298,7 @@ These are not gaps. They are different routes to the same stage, so the plan in 
 | Inside/outside | `meshOctreeInsideOutside`: front marking from the surface-intersecting (DATA) boxes | `carve`, `octree::inside`: ray parity; the upstream route is now beside it (`mesh_octree_creator`, gh:#1264) | Different test. ~~unmeasured near it~~ **Measured 2026-11-05:** the same answer on every leaf that does not cross the surface (sphere, pipe). |
 | Background mesh | `meshOctreeCreator` sizing (`maxCellSize`, `boundaryCellSize`, local and object refinement), `cartesianMeshExtractor` + `decomposeSplitHexes` | `carve::carve_box` (uniform), `octree::refine_near_boundary(_banded)` (N levels near the wall), hanging nodes spliced into the face rings; the upstream route is now beside it (`mesh_octree_creator`, `cartesian_mesh`, gh:#1264–#1266), not yet wired into `pipeline` | The crate's route has no size-driven refinement, and its split hexes stay polyhedra. |
 | First surface fit | `meshSurfaceMapper::preMapVertices` + `mapVerticesOntoSurface`, then `meshSurfaceOptimizer::untangleSurface` | `snap::snap_to_surface` (one closest-point projection); in the multipatch pipeline `surface_mapper::map_vertices_onto_surface_untangled` | Tangled cells are repaired by **undoing** the moves (`revert_tangled`), not by untangling. |
-| Patch assignment | `edgeExtractor` refines nearest-triangle patches | `patches::assign_patches_by_region` (nearest triangle only) | No refinement of the assignment. |
+| Patch assignment | `edgeExtractor` refines nearest-triangle patches | `patches::assign_patches_by_region` (nearest triangle only) | No refinement of the assignment. **Updated 2026-11-05 (gh:#1269):** the upstream route is beside it (`edge_extractor`) and is the default of `pipeline::tet_mesh` / `p_mesh`; the tet-dual pipeline still uses the nearest triangle. Differential in `verification_and_validation/edge_extractor_gh1269/`. |
 | Volume smoothing | `meshOptimizer::laplaceSmoother` (`laplacianPC`: point-cell centres) | `smooth::laplacian_smooth` (Freitag's smart Laplacian: edge neighbours, move only if no cell inverts) | Different smoother, not a port. |
 | Layer creation | `boundaryLayers`: new vertices, one layer at about half the local edge length, then split by `refineBoundaryLayers` | `layers` (`BackOffOnly`): wall points shrink inward by the requested profile, with per-point caps and a global back-off. `CfMeshOptimise` puts the ported `boundaryLayerOptimisation` on the crate's columns. `SnappyCollapse` is OpenFOAM's | Only the border rules (`layer_setup`) and the optimisation are cfMesh's. All three strategies share `layers::layer_setup` / `build_layered_variable` (crate `CLAUDE.md`). |
 | Quality metrics | `polyMeshGenChecks` (cfMesh definitions) | `mesh_optimizer` (cfMesh's, for the optimiser) and `checks` (OpenFOAM's `checkMesh`, for reports and the snappy strategy) | Centres: vertex-average face centre here, area-weighted upstream (`mesh_optimizer` docs). |
@@ -707,9 +709,10 @@ miss are `verification_and_validation/tet_mesh_gh1272/README.md` and
   - **Gaps, called through what exists and noted per run:**
     ~~`surfaceMorpherCells` + `topologicalCleaner` (topology track),
     `meshSurfaceOptimizer` and `meshOptimizer::optimizeSurface` (surface
-    track),~~ `edgeExtractor`, `boundaryLayers` / `refineBoundaryLayers`
+    track),~~ ~~`edgeExtractor`,~~ `boundaryLayers` / `refineBoundaryLayers`
     (layers track), `symmetryPlaneOptimisation`. **CORRECTED 2026-11-05:**
-    the struck steps are called since gh:#1267 and gh:#1259 merged.
+    the struck steps are called since gh:#1267 and gh:#1259 merged
+    (`edgeExtractor` since gh:#1269).
   - **Differential (sphere 0.5 m / pipe 2 mm), against `tetrahedralize` +
     `flip_to_delaunay`:** volume error ~~+26.7 % / +22.3 %~~ **−1.36 % /
     −0.29 %** against −1.72 % / −0.54 %; cells ~~13 968 / 35 416~~
@@ -836,3 +839,33 @@ geometry. Results and methodology are in the gh:#1270 and gh:#1271 sections of
 - `createNewVertex` sets `dist = 0.9 dst` when `dst < dist`;
 - a two-patch corner moves half the edge whatever `blHeightFactor` is;
 - `nDistinctLayers` counts groups emptied by the patch clearing.
+
+### Items 15 and 15b (gh:#1269), 2026-11-05
+
+New modules `edge_extractor` (`edgeExtractor`, its `faceEvaluator`) and
+`mesh_surface_edge_extractor_fun` (`meshSurfaceEdgeExtractorFUN` without
+`createFundamentalSheetsJFS`); `surface_mapper::map_points_onto_patches`
+(`mapVerticesOntoSurfacePatches(nodesToMap)`, the whole-surface mapping now
+goes through it unchanged). Wired into `pipeline::tet_mesh` / `p_mesh` in
+upstream's order: this **changes their default output** (as upstream's
+workflow does); `TetMeshOptions::patch_assignment =
+PatchAssignment::NearestTriangle` is the ablation. The tet-dual pipeline is
+unchanged. Pins passing: `back_off_only_layers_are_pinned_bit_for_bit`,
+`dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`,
+`layer_strategies_are_deterministic`, `correct_edges_is_pinned_bit_for_bit`,
+`tet_mesh_stop_and_restart_reproduce_the_full_run`. Predictions were
+committed before the runs; record with the misses:
+`verification_and_validation/edge_extractor_gh1269/README.md`, with PNGs.
+
+- **Item 15b** (`edgeExtractorCorners.C`): the `faceEvaluator` half is
+  ported (the workflows call it). `cornerEvaluator`, `findCornerCandidates`
+  and `checkCorners` have no caller; `checkCorners` calls `::exit(0)`
+  part-way. Not ported.
+- **Differential, Foam Studio pipe (`CellCentre` + `Corners`, h 4/5/6
+  mm):** 16 / 0 / 5 faces change patch, all at the rims; inlet
+  `|Σ S_z|/πR²` 0.98830 → 0.98765, 0.98760 → 0.98762, 0.97508 → 0.97486
+  (predicted closer to the 48-gon's 0.99715: **missed**). At 5 mm the
+  normal-alignment and topology steps move the same 16 faces and back.
+- **`tet_mesh` pipe:** −0.289 % → −0.291 %, 11 faces moved; **`p_mesh`
+  pipe:** −0.35 % → −0.325 %, max non-orthogonality 75.9° → 55.3° (64.5°
+  from FUN's order alone).

@@ -34,7 +34,9 @@
 //!
 //! Every boundary face belongs to the patch of its nearest surface triangle
 //! (the crate's [`crate::patches`] rule; upstream's `edgeExtractor` refines
-//! this assignment further, which is not ported). Then, per boundary point,
+//! this assignment further, ~~which is not ported~~ **ported 2026-11-05,
+//! gh:#1269, as [`crate::edge_extractor`]; the `_given` entry points take
+//! its assignment**). Then, per boundary point,
 //! with `P` the set of patches of the boundary faces around it:
 //!
 //! - `|P| = 1` (cfMesh's patch node): moved to the nearest point of the
@@ -84,7 +86,7 @@ pub fn map_vertices_onto_surface_patches(
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
 ) -> VolumeMesh {
-    map_impl(mesh, points, tris, regions, None)
+    map_impl(mesh, points, tris, regions, None, None)
 }
 
 /// [`map_vertices_onto_surface_patches`] with the patch of every boundary
@@ -98,12 +100,32 @@ pub fn map_vertices_onto_surface_patches_given(
     regions: &SurfaceRegions,
     face_region: &[Option<usize>],
 ) -> VolumeMesh {
-    map_impl(mesh, points, tris, regions, Some(face_region))
+    map_impl(mesh, points, tris, regions, Some(face_region), None)
+}
+
+/// [`map_vertices_onto_surface_patches_given`] for the boundary points with
+/// `only[v]` set; every other point stays where it is (gh:#1283). The
+/// patch, edge and corner classes and the mapping-distance bound are those
+/// of the whole boundary, as upstream's `meshSurfaceMapper` computes them;
+/// only the moves are restricted. Used to put back onto the surface the
+/// points `untangleMeshFV`'s boundary loop moved
+/// ([`crate::final_mesh::BoundaryProjection`]).
+pub fn map_points_onto_surface_patches_given(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    face_region: &[Option<usize>],
+    only: &[bool],
+) -> VolumeMesh {
+    map_impl(mesh, points, tris, regions, Some(face_region), Some(only))
 }
 
 /// The patch of every boundary face by its nearest surface triangle (the
 /// rule [`map_vertices_onto_surface_patches`] uses), `None` for internal
-/// faces: the assignment cfMesh's `edgeExtractor` would hand
+/// faces: ~~the assignment cfMesh's `edgeExtractor` would hand~~ the
+/// stand-in for `edgeExtractor`'s assignment (ported since gh:#1269 as
+/// [`crate::edge_extractor`], whose result differs at the rims) handed to
 /// [`crate::correct_edges::correct_edges_between_patches`].
 pub fn boundary_face_regions(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Vec<Option<usize>> {
     (0..mesh.face_count())
@@ -250,6 +272,7 @@ fn map_impl(
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
     given: Option<&[Option<usize>]>,
+    only: Option<&[bool]>,
 ) -> VolumeMesh {
     // The boundary's addressing from the shared engine (gh:#1257): patch
     // of every boundary face as given (upstream's mesh patches), or by its
@@ -264,14 +287,37 @@ fn map_impl(
         })
         .collect();
     let part = SurfacePartitioner::with_face_patches(&engine, face_region);
+    let q = SurfaceQueries::new(points, tris, regions);
+    let mut new_points = mesh.points.clone();
+    // gh:#1283's `only` (mesh point labels) as the boundary-point selection
+    // of `map_points_onto_patches` (gh:#1269): the same rule, one copy.
+    let selected: Option<Vec<bool>> = only.map(|o| engine.boundary_points.iter().map(|&v| o[v]).collect());
+    map_points_onto_patches(&engine, &part, &q, &mut new_points, selected.as_deref());
+    VolumeMesh {
+        points: new_points,
+        faces: mesh.faces.clone(),
+        owner: mesh.owner.clone(),
+        neighbour: mesh.neighbour.clone(),
+        n_cells: mesh.n_cells,
+        patches: mesh.patches.clone(),
+    }
+}
+
+/// The mapping of [`map_vertices_onto_surface_patches`] on points held by
+/// the caller, in place: `engine` is the mesh's surface, `part` its
+/// partition into the surface's regions, and only boundary points `b` with
+/// `selected[b]` move when `selected` is given (upstream's
+/// `mapVerticesOntoSurfacePatches(nodesToMap)`, which `edgeExtractor::
+/// checkFacePatchesGeometry` calls, gh:#1269). With `None` it is the
+/// whole-surface mapping operation for operation: each patch node reads its
+/// own position before writing it, so reading `new_points` in place equals
+/// reading the original points (pinned by the dual-kind fingerprints).
+pub(crate) fn map_points_onto_patches(engine: &SurfaceEngine, part: &SurfacePartitioner, q: &SurfaceQueries, new_points: &mut [Vec3], selected: Option<&[bool]>) {
     let patches_of = |b: usize| -> Vec<usize> {
         let mut s = part.point_patches[b].clone();
         s.sort_unstable();
         s
     };
-    let q = SurfaceQueries::new(points, tris, regions);
-
-    let mut new_points = mesh.points.clone();
     // findMappingDistance: 4 x the largest squared distance from the point
     // to the centres of its boundary faces, on the current geometry (the
     // vertex average here; upstream's faceCentres are OpenFOAM centres:
@@ -291,10 +337,13 @@ fn map_impl(
     let (mut edge_nodes, mut corners) = (Vec::new(), Vec::new());
     // Patch nodes (upstream maps these without a distance limit).
     for b in 0..engine.n_boundary_points() {
+        if selected.is_some_and(|s| !s[b]) {
+            continue;
+        }
         let v = engine.boundary_points[b];
         let ps = patches_of(b);
         match ps.len() {
-            1 => new_points[v] = q.nearest_in_region(mesh.points[v], ps[0]),
+            1 => new_points[v] = q.nearest_in_region(new_points[v], ps[0]),
             2 => edge_nodes.push((b, ps)),
             _ => corners.push((b, ps)),
         }
@@ -319,14 +368,6 @@ fn map_impl(
     }
     for (v, p) in mapped_corners {
         new_points[v] = p;
-    }
-    VolumeMesh {
-        points: new_points,
-        faces: mesh.faces.clone(),
-        owner: mesh.owner.clone(),
-        neighbour: mesh.neighbour.clone(),
-        n_cells: mesh.n_cells,
-        patches: mesh.patches.clone(),
     }
 }
 
@@ -382,7 +423,7 @@ fn untangled_impl(
     passes: usize,
     given: Option<&[Option<usize>]>,
 ) -> (VolumeMesh, usize) {
-    let mapped = map_impl(mesh, points, tris, regions, given);
+    let mapped = map_impl(mesh, points, tris, regions, given, None);
     // With given patches (after correctEdgesBetweenPatches) a tangled cell
     // may be a pyramid with no boundary face of its own: revert the
     // boundary points of all its faces. Without, the historical rule.
