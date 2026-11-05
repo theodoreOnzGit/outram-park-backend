@@ -104,8 +104,10 @@ this crate). `dual_feature_points` picks upstream's two rules
 (`OnFeatureEdge`, the utility's; `Corners`, the class's); with
 `OnFeatureEdge` no back-off layer grows on a pipe (cfMesh's border cap is 0
 at a rim vertex collinear with its neighbours). The ~40-line sector walk is
-written in both crates (this one builds dependency-free); change one, change
-the other. Comparison and recommendation: the gh:#1240 section of
+written in both crates (~~this one builds dependency-free~~ **CORRECTED
+2026-11-05, gh:#1255:** this crate now depends on `outram-foam-basic-lib`
+for OpenFOAM's `eigenValues`, but still not on `outram-foam-mesh` by
+default); change one, change the other. Comparison and recommendation: the gh:#1240 section of
 `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 Changing the default needs the maintainer.
 
