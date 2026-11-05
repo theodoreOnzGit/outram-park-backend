@@ -232,6 +232,9 @@ impl GpuSetup {
         if ps.is_empty() {
             return Err("no particles".into());
         }
+        if ps.len() >= 1 << 24 {
+            return Err("the GPU path holds fewer than 2^24 particles (an index is held as an f32 value)".into());
+        }
         let r_max = ps.iter().map(|p| p.radius).fold(0.0, f64::max);
         let edge = 2.0 * r_max;
         let (mut lo, mut hi) = (Vec3::new(f64::MAX, f64::MAX, f64::MAX), Vec3::new(f64::MIN, f64::MIN, f64::MIN));
@@ -370,11 +373,11 @@ impl GpuDem {
         };
         let ft = zeros("dem force/torque", n * 2 * 16);
         let cells = zeros("dem cells", u64::from(p.dims[3]) * u64::from(1 + CELL_CAP) * 4);
-        // Every slot starts empty: neighbour 0xffffffff, wall not live.
+        // Every slot starts empty: neighbour −1, wall not live.
         let slots = (u64::from(K_SLOTS) + 3) * n;
         let mut empty: Vec<[f32; 4]> = Vec::with_capacity(slots as usize);
         for _ in 0..n {
-            empty.extend((0..K_SLOTS).map(|_| [0.0, 0.0, 0.0, f32::from_bits(u32::MAX)]));
+            empty.extend((0..K_SLOTS).map(|_| [0.0, 0.0, 0.0, -1.0]));
             empty.extend((0..3).map(|_| [0.0f32; 4]));
         }
         let hist = [0, 1].map(|k| {
@@ -649,6 +652,17 @@ mod tests {
     fn system(ps: Vec<Particle>, boundaries: Vec<Boundary>) -> GranularSystem {
         let m = GranularMaterial::new(5e8, 0.2, 0.5, 0.1).expect("material");
         GranularSystem::new(ps, boundaries, GranularContactModel::hertz_history(m), Vec3::new(0.0, 0.0, -9.81), 3.5e-5).expect("system")
+    }
+
+    /// The shader avoids what Chrome's compiler (Tint) refuses and naga
+    /// accepts, found 2026-11-05: a NaN bit pattern in a constant
+    /// (`bitcast<f32>(0xffffffff)` made every pipeline invalid in the
+    /// browser). Indices are f32 values, never bit patterns.
+    #[test]
+    fn the_shader_has_no_bit_pattern_floats() {
+        let src = include_str!("shaders/dem.wgsl");
+        let code: String = src.lines().filter(|l| !l.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n");
+        assert!(!code.contains("bitcast<f32>"), "a bit-pattern float in dem.wgsl");
     }
 
     /// The set-up holds the state to the hi + lo split's precision, sizes

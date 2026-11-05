@@ -449,7 +449,14 @@ impl Htr10GpuFill {
     /// A setting the CPU pour refuses, or one the GPU path does not hold.
     pub async fn new_async(settings: Htr10FillSettings, ctx: crate::gpu::GpuContext) -> Result<Self, String> {
         let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
+        // A browser reports a shader or pipeline it rejects only through an
+        // error scope (the dispatches are then silently dropped and nothing
+        // moves), so the set-up is checked here and refused with the reason.
+        let scope = ctx.device.push_error_scope(wgpu::ErrorFilter::Validation);
         let dem = crate::gpu::dem::GpuDem::new(ctx, cpu.system())?;
+        if let Some(e) = scope.pop().await {
+            return Err(format!("the browser rejected the GPU kernels: {e}"));
+        }
         let states = dem.states_async().await;
         Ok(Self { dem, settings, steps: 0, peak_ke_ratio: 0.0, states, mass: pebble_mass() })
     }

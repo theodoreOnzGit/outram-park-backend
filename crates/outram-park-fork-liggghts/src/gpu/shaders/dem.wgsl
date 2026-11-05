@@ -46,8 +46,8 @@ struct P {
 @group(0) @binding(2) var<storage, read_write> ft: array<vec4<f32>>;
 // Cell counts [0, total), then `cap` items per cell.
 @group(0) @binding(3) var<storage, read_write> cells: array<atomic<u32>>;
-// Shear slots: per particle `k_slots` pair slots (xyz spring, w = bitcast
-// neighbour index, 0xffffffff empty), then 3 wall slots (w = 1 live).
+// Shear slots: per particle `k_slots` pair slots (xyz spring, w = the
+// neighbour index as an f32 value, −1 empty), then 3 wall slots (w = 1 live).
 @group(0) @binding(4) var<storage, read_write> h_old: array<vec4<f32>>;
 @group(0) @binding(5) var<storage, read_write> h_new: array<vec4<f32>>;
 // Mesh triangles, six vec4s each: a (hi), a (lo), b − a, c − a, normal,
@@ -57,7 +57,12 @@ struct P {
 // [0] cell overflow, [1] contact-slot overflow.
 @group(0) @binding(7) var<storage, read_write> errs: array<atomic<u32>>;
 
-const EMPTY: u32 = 0xffffffffu;
+// An empty pair slot. The neighbour index is held as an f32 VALUE (exact
+// below 2^24), not a bit pattern: `bitcast<f32>(0xffffffff)` is a NaN, which
+// Chrome's compiler refuses in a constant (every pipeline was invalid and
+// the browser dropped every dispatch, 2026-11-05), and small indices as bit
+// patterns are denormals some GPUs flush to zero.
+const EMPTY: f32 = -1.0;
 const SQRT_FIVE_OVER_SIX: f32 = 0.9128709291752769;
 const INERTIA: f32 = 0.4;
 
@@ -344,8 +349,8 @@ fn find_prior(i: u32, j: u32) -> vec3<f32> {
     let base = i * (prm.k_slots + 3u);
     for (var s = 0u; s < prm.k_slots; s = s + 1u) {
         let h = h_old[base + s];
-        let nb = bitcast<u32>(h.w);
-        if (nb == j) { return h.xyz; }
+        let nb = h.w;
+        if (nb == f32(j)) { return h.xyz; }
         if (nb == EMPTY) { break; }
     }
     return vec3<f32>(0.0);
@@ -410,7 +415,7 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
                     f = f + o.force;
                     t = t + o.torque;
                     if (used < prm.k_slots) {
-                        h_new[base + used] = vec4<f32>(o.shear, bitcast<f32>(j));
+                        h_new[base + used] = vec4<f32>(o.shear, f32(j));
                         used = used + 1u;
                     } else {
                         atomicAdd(&errs[1], 1u);
@@ -420,7 +425,7 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
         }
     }
     for (var s = used; s < prm.k_slots; s = s + 1u) {
-        h_new[base + s] = vec4<f32>(0.0, 0.0, 0.0, bitcast<f32>(EMPTY));
+        h_new[base + s] = vec4<f32>(0.0, 0.0, 0.0, EMPTY);
     }
 
     let p = pi.hi.xyz + pi.lo.xyz;
