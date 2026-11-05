@@ -71,3 +71,26 @@ pub use chacha::ChaCha8Rng;
 pub use normal::{standard_normal, Normal, NormalError};
 pub use traits::{Rng, RngExt, SeedableRng, StandardSample};
 pub use uniform::{open01, Uniform, UniformError};
+
+// ---------------------------------------------------------------------------
+// A third lineage: EGSnrc's generators (gh:#1289, 2026-11-05).
+// ---------------------------------------------------------------------------
+//
+// | module | upstream (EGSnrc, NRC, AGPL-3.0-or-later) |
+// |---|---|
+// | `ranmar` | `HEN_HOUSE/egs++/egs_rndm.{h,cpp}` (`EGS_Ranmar`, `EGS_RandomGenerator`) |
+// | `ranlux` | `HEN_HOUSE/src/ranlux.mortran`, `ranlux.macros` (egs++ has no RANLUX) |
+//
+// Both implement `Rng` with one draw per word (not upstream; see
+// `ranmar::top24`): `random::<f64>()` returns exactly upstream's
+// `getUniform`. The low bits of each word are zero, so `Normal` (whose
+// ziggurat reads them) must not be fed these generators. Every stream is
+// bit-identical to upstream compiled and run:
+// `tests/egsnrc_rndm_vs_upstream.rs`, V&V record
+// `verification_and_validation/egsnrc_rndm/README.md`.
+
+pub mod ranlux;
+pub mod ranmar;
+
+pub use ranlux::{Ranlux, RanluxError, RanluxState};
+pub use ranmar::{Ranmar, RanmarError, RanmarState};

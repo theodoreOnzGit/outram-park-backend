@@ -836,6 +836,48 @@ notice and the copyright lines of the files it was ported from.
   with the deviations listed in each file (none changes an output).
 
 ================================================================================
+DERIVED WORK — EGSnrc (RANMAR and RANLUX random number generators)
+================================================================================
+
+`src/rng/ranmar.rs` and `src/rng/ranlux.rs` port EGSnrc's random number
+generators, at the maintainer's direction recorded on GitHub issue #1289
+(2026-11-05). Each file's header names the upstream files, the commit and the
+copyright lines.
+
+  Project    : EGSnrc
+  Upstream   : https://github.com/nrc-cnrc/EGSnrc
+  Commit     : bd49a47aae3938f49f4100b8e018091861408b19 (2026-09-28)
+  Files      : HEN_HOUSE/egs++/egs_rndm.h, HEN_HOUSE/egs++/egs_rndm.cpp
+               (RANMAR, class EGS_Ranmar; base class EGS_RandomGenerator);
+               HEN_HOUSE/src/ranlux.mortran, HEN_HOUSE/src/ranlux.macros
+               (RANLUX; egs++ has none)
+  Licence    : GNU Affero General Public License, version 3 or (at your
+               option) any later version; used here under AGPL-3.0-only
+  Copyright  : "Copyright (C) 2015 National Research Council Canada"
+               (all four files).
+               egs_rndm.h: Author Iwan Kawrakow, 2005; Contributors Reid
+               Townson. egs_rndm.cpp: Author Iwan Kawrakow, 2005;
+               Contributors Hubert Ho, Reid Townson. ranlux.mortran and
+               ranlux.macros: Authors Iwan Kawrakow, 2000, Dave Rogers, 2000;
+               "Parts of the EGS code that originate from SLAC are
+               distributed by NRC under the terms of the AGPL 3.0 licence,
+               in agreement with SLAC."
+
+  Original algorithms, as upstream credits them:
+    RANMAR — "the Zaman & Marsaglia ranmar generator" (egs_rndm.cpp):
+      G. Marsaglia, A. Zaman and W. W. Tsang, Statistics & Probability
+      Letters 9 (1990) 35-39.
+    RANLUX — "Subtract-and-borrow random number generator proposed by
+      Marsaglia and Zaman, implemented by F. James with the name RCARRY in
+      1991, and later improved by Martin Luescher in 1993 to produce 'Luxury
+      Pseudorandom Numbers'. Fortran 77 coded by F. James, 1993."
+      (ranlux.mortran): M. Luscher, Computer Physics Communications 79, 100
+      (1994); F. James, Computer Physics Communications 79, 111 (1994).
+
+  Every stream is bit-identical to upstream compiled and run:
+  verification_and_validation/egsnrc_rndm/README.md.
+
+================================================================================
 NOT AFFILIATED
 ================================================================================
 
