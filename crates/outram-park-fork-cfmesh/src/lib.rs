@@ -281,6 +281,7 @@ pub mod smooth;
 pub mod snap;
 pub mod surface_engine;
 pub mod surface_mapper;
+pub mod surface_optimizer;
 pub mod tet;
 pub mod volume_mesh;
 
