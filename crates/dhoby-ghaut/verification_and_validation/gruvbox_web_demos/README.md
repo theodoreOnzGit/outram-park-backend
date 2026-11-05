@@ -90,7 +90,39 @@ Light" in the side panel.
 | `helical_sg_phone_dark.png` | same | 390 × 844 | panel folded, plots stacked, readable. The "hot in (falls)" label overlaps the status lines at the top: a layout matter that predates this change |
 | `double_pipe_twin_dark.png`, `double_pipe_twin_light.png` | double-pipe twin | 1280 × 800 | readout lines, legend, bands and CFD point legible in both |
 
-Not looked at in a browser: delta tracking, dispersion, Foam Studio,
+~~Not looked at in a browser: delta tracking, dispersion, Foam Studio,
 Fukushima, Monte Carlo, nuclear data and TRISO-ATOPS (several need the
 published ENDF data or a long run). They compile for wasm32 and their tests
-pass (see the hand-off), but nobody has looked at them in Light.
+pass (see the hand-off), but nobody has looked at them in Light.~~
+**CHECKED 2026-11-05, the same day.** The seven were opened in a browser, with
+the same setup as above, at 1280 × 800, after 15 s, then with one click on
+"Gruvbox Light". No page errors were logged. Found and fixed in the same
+change:
+
+- **Foam Studio's theme selector** was at the bottom of its long side panel,
+  so the click missed it. It now sits under the heading, as in every other
+  demo.
+- **The bar behind a bottom dock's tab** showed the canvas's clear colour,
+  near-black even in Light (Foam Studio's "Convergence"). `Dock::toggle` now
+  paints the header in the theme's panel colour, which fixes every demo with
+  a dock.
+- **The HTML References button and panel**, and the page behind the canvas,
+  stayed dark in Light. `web_demo::platform::page_theme` (called from
+  `Panel::show`) now sets `data-theme` on `<html>` when the theme changes.
+  Every `web/*/index.html` has `:root[data-theme="light"]` rules for them.
+  Re-checked on TRISO-ATOPS.
+- **Fukushima's password gate** (`outram-park-digital-twin-engine/web/gate.js`,
+  shared with the CIET and HTGR demos) had its own dark palette. It is now
+  Gruvbox Dark. The demo behind the gate was not opened: there is no
+  password here.
+
+| image | demo | what I checked |
+|---|---|---|
+| `delta_tracking_{dark,light}.png` | delta tracking (loading) | panel, processing list, loading card with progress bar and warning text follow the theme |
+| `dispersion_{dark,light}.png` | dispersion, plume rung | panel, plume on the theme background; the concentration ramp is the data map and stays; source and arrow follow the theme |
+| `foam_studio_{dark,light}.png` | Foam Studio, pipe | the selector at the top, mesh edges, axes, dock tab and bar, plot cards, after the two fixes |
+| `fukushima_{dark,light}.png` | Fukushima | only the password gate (old palette in these shots, taken before its fix) |
+| `nuclear_data_{dark,light}.png` | nuclear data, RECONR | σ(E) series as accents, grid, axes, legend, panel table |
+| `triso_atops_{dark,light}.png` | TRISO-ATOPS, particle | layer colours are the material encoding and stay; legend, scale bar and the References button follow the theme (light shot after the page fix) |
+| `monte_carlo_{dark,light}.png` | Monte Carlo, Godiva (loading) | panel, loading card, recorded tracks; the sphere's fill is the material colour and stays |
+

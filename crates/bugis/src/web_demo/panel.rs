@@ -49,6 +49,8 @@ impl Panel {
     /// frame laid out at the corrected size.
     pub fn show(&mut self, ui: &mut egui::Ui, heading: &str, contents: impl FnOnce(&mut egui::Ui)) {
         let resized = super::platform::keep_canvas_at_device_pixels(ui.ctx());
+        // The page's HTML follows the app's theme (`data-theme` on <html>).
+        let _ = super::platform::page_theme(ui.ctx());
         if !self.decided && !resized {
             self.open = ui.max_rect().width() >= NARROW_PX;
             self.decided = true;

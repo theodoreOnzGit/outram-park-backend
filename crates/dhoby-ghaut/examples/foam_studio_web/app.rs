@@ -322,6 +322,9 @@ impl FoamApp {
 
     /// The side panel. GUI (exempt).
     fn side_panel(&mut self, ui: &mut egui::Ui) {
+        // Under the heading, where every other web demo puts it (2026-11-05).
+        bugis::selector(ui, &mut self.theme);
+        ui.separator();
         let mut changed = false;
         ui.label(RichText::new("1 · Shape").strong());
         ui.horizontal_wrapped(|ui| {
@@ -622,8 +625,6 @@ impl FoamApp {
             )
             .small(),
         );
-        ui.add_space(8.0);
-        bugis::selector(ui, &mut self.theme);
     }
 
     /// The 3-D viewport. GUI drawing (exempt).

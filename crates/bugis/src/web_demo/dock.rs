@@ -115,6 +115,10 @@ impl Dock {
     /// dock's header, for the caller's own buttons.
     pub fn toggle(&mut self, ui: &mut egui::Ui, split: &Split) -> Rect {
         let h = split.header;
+        // The header strip in the theme's panel colour: otherwise the part
+        // beside the button shows the canvas's clear colour, near-black even
+        // in Gruvbox Light (found 2026-11-05, Foam Studio's dock).
+        ui.painter().rect_filled(h, 0.0, ui.visuals().panel_fill);
         let (button, rest, label) = match (self.edge, self.open) {
             (Edge::Bottom, open) => {
                 let w = (h.width() * 0.45).min(230.0);
