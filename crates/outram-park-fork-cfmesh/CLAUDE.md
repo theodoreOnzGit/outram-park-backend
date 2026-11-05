@@ -183,7 +183,7 @@ and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
 change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
-(~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices`,
+(~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
 ~~`meshSurfaceEdgeExtractorFUN`~~ `createFundamentalSheetsJFS`) call what
 exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
 (gh:#1269):** `patchAssignment` runs `edge_extractor` (cfMesh's
@@ -199,3 +199,35 @@ volume error from +26.7 % to −1.36 %). The raw octree tet template has
 non-manifold boundary points (upstream's own tets in coarse `BOUNDARY`
 leaves), which `surfacePreparation` removes; `polyDualMesh` (`CellCentre`)
 refuses the raw template on the sphere and the pipe.
+
+## cfMesh's triangulated-surface tools (gh:#1276–#1278, 2026-11-05)
+
+`surface` (`features`, `checks`, `cleanup`, `curvature`) ports
+`triSurfaceTools/` and the surface utilities. **`mesh_octree::TriSurf` is
+the crate's one triangulated-surface type** (it now carries upstream's
+patches, stored feature edges, subsets and addressing): extend it, never
+add a second one. A tool that changes points or facets builds a new
+`TriSurf` (`from_parts`, `surface::rebuild`), so the addressing cannot go
+stale as upstream's cached addressing does. No pipeline calls the module.
+Several upstream tools are defective (listed in `src/surface.rs`); where the
+text cannot work (`subsetToPatch`), the port follows the intent and says
+so. `meshOctreeAutomaticRefinement` is not ported. Record and images:
+`verification_and_validation/surface_tools_gh1276/`.
+
+## cfMesh's `cartesianMesh` (gh:#1274, 2026-11-05)
+
+`pipeline::cartesian_mesh` is `cartesianMeshGenerator`, a new entry point
+beside `tet_mesh`. It shares `create_octree`, `SavedMesh`,
+`PatchAssignment` and `face_regions` with it. Its template is
+`cartesian_mesh::cartesian_mesh_extractor`, and its `surfaceProjection`
+runs `premap_vertices` (`preMapVertices`, ported for it).
+
+**Upstream adds one boundary layer to every cartesianMesh, with no dict**
+(`addLayerForAllPatches`). Here that is `layers::boundary_layers` on all
+patches as **one group**. Upstream's patch-wise groups are not ported, so
+on multi-patch surfaces the rim layer differs from upstream.
+`without_boundary_layer` is the explicit ablation.
+
+The record (the differential against `carve_box` + `snap` and the
+tet-dual) and the images are in
+`verification_and_validation/cartesian_mesh_gh1274/`.

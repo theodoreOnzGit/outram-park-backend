@@ -28,9 +28,9 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Status | Upstream lines | Share | Rows |
 |---|---:|---:|---:|
-| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ ~~36,553~~ 41,405 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ ~~28.2 %~~ 31.9 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ ~~40~~ 41 |
-| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ ~~38,266~~ 38,673 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ ~~29.5 %~~ 29.8 % | ~~27~~ ~~25~~ ~~23~~ ~~16~~ 17 |
-| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ ~~32,277~~ 27,018 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ ~~24.9 %~~ 20.8 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ ~~57~~ 55 |
+| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ ~~36,553~~ ~~41,405~~ ~~42,349~~ 53,277 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ ~~28.2 %~~ ~~31.9 %~~ ~~32.6 %~~ 41.1 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ ~~40~~ ~~41~~ ~~44~~ 65 |
+| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ ~~38,266~~ ~~38,673~~ 35,766 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ ~~29.5 %~~ ~~29.8 %~~ 27.6 % | ~~27~~ ~~25~~ ~~23~~ ~~16~~ ~~17~~ 16 |
+| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ ~~32,277~~ ~~27,018~~ ~~26,074~~ 18,053 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ ~~24.9 %~~ ~~20.8 %~~ ~~20.1 %~~ 13.9 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ ~~57~~ ~~55~~ ~~52~~ 32 |
 | not applicable | 22,642 | 17.5 % | 25 |
 | **total** | **129,738** | 100 % | 138 |
 
@@ -38,23 +38,27 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 **Updated again 2026-11-05** after gh:#1272 and #1273, merged with gh:#1267/#1268's counts. **CORRECTED at the same time:** these totals had not followed the rows already marked ported by gh:#1258 (`partTriMesh`, group C, 1,331) and gh:#1262–#1266 (group B, and `cartesianMeshExtractor` in group A). Groups A, B and C were recounted from their rows; group G moves by gh:#1267's `surfaceMorpherCells` and gh:#1272's `renameBoundaryPatches`; group I is gh:#1267/#1268's; group H is gh:#1270/#1271's. **Not re-checked:** groups D–M against their rows (other rows changed by gh:#1257–#1266, for example `meshSurfaceEngine`, `meshSurfacePartitioner`, `meshSurfaceCheckInvertedVertices` in G and `FrontalMarking` in L, may not be in their group's totals).
 
+**Updated 2026-11-05 after gh:#1274:** `executables/cartesianMesh` (62) and `cartesianMeshGenerator` (580) in group A, and `meshSurfaceMapperPremapVertices.C` (302) in group G, from not ported to ported (944 lines, 3 rows). Only those rows moved.
+
 **Updated 2026-11-05 after gh:#1269:** `edgeExtractor` (4,852) from not ported to ported, `meshSurfaceEdgeExtractorFUN` (407) from not ported to partial; both in group G. Only those two rows moved.
+
+**Updated 2026-11-05 after gh:#1276, #1277 and #1278 (wave 3, items 22–24 in part):** 12 rows of group J (6,749 lines: every `triSurfaceTools` row except the two 2D ones and `triSurfaceMetaData`, and `quadricFitting`), `meshes/triSurf` in group C (2,907, partial → ported) and 8 utilities in group M (1,272) are ported. Only those 21 rows moved.
 
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
-| A. Workflows | ~~0~~ 5,333 | ~~1,423~~ 0 | ~~5,154~~ 1,244 | 1,438 |
+| A. Workflows | ~~0~~ ~~5,333~~ 5,975 | ~~1,423~~ 0 | ~~5,154~~ ~~1,244~~ 602 | 1,438 |
 | B. Octree | ~~0~~ 10,689 | ~~13,041~~ 5,236 | ~~3,860~~ 976 | 2,111 |
-| C. Mesh data structures | ~~0~~ ~~442~~ 2,055 | 12,767 | ~~3,538~~ ~~3,096~~ 1,483 | 3,354 |
+| C. Mesh data structures | ~~0~~ ~~442~~ ~~2,055~~ 4,962 | ~~12,767~~ 9,860 | ~~3,538~~ ~~3,096~~ 1,483 | 3,354 |
 | D. Quality checks | ~~0~~ 4,441 | ~~4,441~~ 0 | 0 | 0 |
 | E. Volume optimiser | ~~1,141~~ 3,599 | ~~5,244~~ 4,456 | ~~2,404~~ 734 | 798 |
 | F. Surface optimiser | 0 | 0 | 2,811 | 522 |
-| G. Surface tools | ~~2,208~~ ~~3,347~~ ~~3,739~~ 8,591 | ~~4,082~~ 4,489 | ~~10,962~~ ~~9,823~~ ~~9,431~~ 4,172 | 969 |
+| G. Surface tools | ~~2,208~~ ~~3,347~~ ~~3,739~~ ~~8,591~~ 8,893 | ~~4,082~~ 4,489 | ~~10,962~~ ~~9,823~~ ~~9,431~~ ~~4,172~~ 3,870 | 969 |
 | H. Boundary layers | ~~0~~ 989 | 9,395 | ~~3,261~~ 2,272 | 0 |
 | I. Topology repair | ~~0~~ 5,283 | ~~1,396~~ 0 | ~~3,887~~ 0 | 0 |
-| J. triSurface tools, helper classes | ~~0~~ 425 | 0 | ~~7,639~~ 7,214 | 233 |
+| J. triSurface tools, helper classes | ~~0~~ ~~425~~ 7,174 | 0 | ~~7,639~~ ~~7,214~~ 465 | 233 |
 | K. Anisotropic meshing | 0 | 0 | 2,559 | 0 |
 | L. Helpers, containers, MPI, I/O | 0 | 2,330 | 1,482 | 11,782 |
-| M. Top-level utilities | 0 | 0 | 2,071 | 1,435 |
+| M. Top-level utilities | ~~0~~ 1,272 | 0 | ~~2,071~~ 799 | 1,435 |
 
 ## 2. Per-unit table
 
@@ -66,8 +70,8 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; ~~only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`~~ **UPDATED 2026-11-05 (gh:#1269):** `extractPatches` calls `edge_extractor::extract_patches` (the nearest triangle is the ablation `PatchAssignment::NearestTriangle`). No `boundaryLayers` dict and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
 | `meshLibrary/tetMesh/tetMeshExtractorOctree` | 386 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_mesh_extractor_octree` (with the shared `polyMeshGen` assembly `poly_mesh_from_cells`) | Beside `tet::tetrahedralize` + `delaunay::flip_to_delaunay` (§3); compared on the sphere and the pipe. |
 | `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_creator_octree` | All five tet routines. Upstream's unguarded reads are counted (`TetCreatorDefects`), zero on every run. |
-| `executables/cartesianMesh` | 62 | not ported | — | Thin `main` over `cartesianMeshGenerator`. |
-| `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | not ported | — (`carve`, `snap`, `octree` are the crate's own stages) | No `cartesianMesh` workflow. `pipeline` mirrors its staging loosely. |
+| `executables/cartesianMesh` | 62 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh::{cartesian_mesh, cartesian_mesh_restart}` | Thin `main` over `cartesianMeshGenerator`. Settings typed (`CartesianMeshGeneratorOptions`). |
+| `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh`; `carve`, `snap`, `octree` kept | ~~No `cartesianMesh` workflow.~~ Every member in Rust. Gaps it calls through: `boundaryLayers` is the one-group route (patch-wise groups not ported); `refineBoundaryLayers` refuses two-direction cells; no `anisotropicSources` / `triSurfacePatchManipulator`. Results: `verification_and_validation/cartesian_mesh_gh1274/`. |
 | `meshLibrary/cartesianMesh/cartesianMeshExtractor` | 800 | ported (2026-11-05, gh:#1266) | `cartesian_mesh::cartesian_mesh_extractor`; `octree::build_mesh` kept | ~~partial: re-implemented only; missing `decomposeSplitHexesIntoTetsAndPyramids`, `createPointsAndAddressing`, cell-type bookkeeping~~ **CORRECTED 2026-11-05:** transcribed beside `octree::build_mesh`. On the same leaves the two build the same faces ring for ring (sphere and pipe, `verification_and_validation/cartesian_octree_gh1262/README.md`). Quadtree empty patches not ported. |
 | `executables/pMesh` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh::{p_mesh, p_mesh_restart}` | Thin `main` over `voronoiMeshGenerator`. |
 | `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (~~not ported~~ **CORRECTED 2026-11-05, gh:#1269:** called, `tet_mesh::untangle_again`, since gh:#1259 merged). `edgeExtraction` is `meshSurfaceEdgeExtractorFUN` without its fundamental sheets (gh:#1269). Results: `verification_and_validation/p_mesh_gh1273/`. |
@@ -119,7 +123,7 @@ _Subtotal: 19012 lines._
 | `meshes/partTriMesh (serial)` | 1331 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::PartTriMesh`, `PartTriMeshSimplex` | Surface tri mesh for `meshSurfaceOptimizer`: both constructors, `updateVertex`, `updateVertices`, the simplex and its normal. |
 | `meshes/partTriMesh: ParallelAddressing.C` | 538 | not applicable | — | MPI. |
 | `meshes/primitives/partTet` | 507 | not applicable | `[usize; 4]` + `mesh_optimizer::tet_volume` | Primitive, replaced by an index array. |
-| `meshes/triSurf` | 2907 | partial | `(Vec<Vec3>, Vec<[usize; 3]>)` + `patches::SurfaceRegions` | Points, facets and region (patch) per facet. Missing: feature edges, facet/point/edge subsets, `triSurfAddressing` (edges, edgeFacets, pointFacets, facetEdges). |
+| `meshes/triSurf` | 2907 | ~~partial~~ **ported (2026-11-05, gh:#1276)** | `mesh_octree::TriSurf` (`SurfacePatch`; subsets as `mesh_subsets::SubsetGroup`) | ~~Points, facets and region (patch) per facet. Missing: feature edges, facet/point/edge subsets, `triSurfAddressing` (edges, edgeFacets, pointFacets, facetEdges).~~ Points, facets, regions, patches, stored feature edges, point/facet/feature-edge subsets, the whole `triSurfAddressing` (`facetNormals`, `facetCentres`, `pointNormals`, `facetFacetsEdges` computed on demand). Not ported: the FMS/FTR/STL readers and writers (file formats). `topologyCheck` is the panics of `TriSurf::from_parts`. |
 
 _Subtotal: 19659 lines._
 
@@ -167,7 +171,7 @@ _Subtotal: 3333 lines._
 | `surfaceTools/meshSurfaceEngine (serial)` | 3086 | ~~partial~~ **ported (2026-11-05, gh:#1257)** | ~~ad hoc boundary maps in `layers::layer_setup`, `correct_edges`, `surface_mapper`~~ `surface_engine::SurfaceEngine` | ~~No shared engine. Missing as a reusable object: …~~ Every serial accessor and `meshSurfaceEngineModifier` (`moveBoundaryVertex(NoUpdate)`, `updateGeometry`). Not ported: the `activePatch` constructor (no caller here). Built eagerly (no lifetimes); the caller owns the points. `layer_setup`, `correct_edges` and `surface_mapper` now read their boundary maps from it. |
 | `surfaceTools/meshSurfaceEngine: ParallelAddressing.C` | 775 | not applicable | — | MPI. |
 | `surfaceTools/meshSurfaceMapper (mapVerticesOntoSurface(Patches), mapCorners, mapEdgeNodes, findMappingDistance)` | 1175 | ported | `surface_mapper::map_vertices_onto_surface_patches(_untangled(_given))`, `map_vertices_onto_surface_untangled`; `surface_mapper::SurfaceQueries`, `map_edge_node` | `mapVerticesOntoSurface` has no `untangleSurface` after it (moves undone instead). `mapVerticesOntoSurfacePatches(nodesToMap)` (a subset) is `surface_mapper::map_points_onto_patches` (gh:#1269; gh:#1283's `map_points_onto_surface_patches_given` goes through it too; the whole-surface mapping now calls it with no subset, operation for operation as before, pinned by the dual-kind fingerprints). `findMappingDistance` uses vertex-average face centres here, OpenFOAM centres upstream (kept, so the pins hold). Surface queries are brute force (upstream: `meshOctree`). |
-| `surfaceTools/meshSurfaceMapper: PremapVertices.C` | 302 | not ported | — | `preMapVertices` (cartesianMesh, cartesian2DMesh, pMesh). |
+| `surfaceTools/meshSurfaceMapper: PremapVertices.C` | 302 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `premap_vertices::{pre_map_vertices, face_metric_in_patch}` | `preMapVertices` (cartesianMesh, cartesian2DMesh, pMesh). Serial; the MPI exchange is not applicable. Called by `pipeline::cartesian_mesh`; `pipeline::p_mesh` still notes it as missing (not wired, to keep the edgeExtractor track's file untouched; re-measure when wired). |
 | `surfaceTools/meshSurfaceMapper: parMapperHelper.H` | 194 | not applicable | — | MPI. |
 | `surfaceTools/meshSurfaceMapper2D` | 1189 | not ported | — | 2D workflow. |
 | `surfaceTools/meshSurfaceEdgeExtractorNonTopo` | 198 | ported | `pipeline` (`correct_edges` then `surface_mapper`) | `decomposeBoundaryFaces` + `remapBoundaryPoints`. |
@@ -217,22 +221,22 @@ _Subtotal: 5283 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `triSurfaceTools/triSurfaceChecks` | 1253 | not ported | — | `checkSurfaceMesh`. |
-| `triSurfaceTools/triSurfaceDetectFeatureEdges` | 277 | not ported | — | Workspace has `outram-foam-mesh` `snapping::detect_feature_edges` (private) and `outram-blender` `measure::sharp_edges` (this crate cannot depend on blender). |
-| `triSurfaceTools/triSurfacePatchManipulator` | 509 | not ported | — | Split a surface into patches at feature edges. |
-| `triSurfaceTools/triSurfaceClassifyEdges` | 575 | not ported | — |  |
-| `triSurfaceTools/triSurfacePartitioner` | 598 | not ported | — |  |
-| `triSurfaceTools/triSurfaceCurvatureEstimator` | 1229 | not ported | — | Feeds `meshOctreeAutomaticRefinement`. |
-| `triSurfaceTools/triSurfaceCleanupDuplicates` | 454 | not ported | — |  |
-| `triSurfaceTools/triSurfaceCleanupDuplicateTriangles` | 235 | not ported | — |  |
-| `triSurfaceTools/triSurfaceCopyParts` | 412 | not ported | — |  |
-| `triSurfaceTools/triSurfaceRemoveFacets` | 377 | not ported | — |  |
-| `triSurfaceTools/triSurfaceImportSurfaceAsSubset` | 343 | not ported | — |  |
+| `triSurfaceTools/triSurfaceChecks` | 1253 | **ported (2026-11-05, gh:#1277)** | `surface::checks` | ~~not ported~~ With `help::doTrianglesIntersect` (distance form) and `doTrianglesOverlap`. Upstream defect fixed: the subset form of `checkForNonManifoldEdges` runs the hole check. |
+| `triSurfaceTools/triSurfaceDetectFeatureEdges` | 277 | **ported (2026-11-05, gh:#1276)** | `surface::features::TriSurfaceDetectFeatureEdges` | ~~not ported~~ Differential against `outram-foam-mesh`'s `snapping::detect_feature_edges` (~~private~~ made `pub` for it, 2026-11-05): equal on closed, consistently wound surfaces. |
+| `triSurfaceTools/triSurfacePatchManipulator` | 509 | **ported (2026-11-05, gh:#1276)** | `surface::features::TriSurfacePatchManipulator` | ~~not ported~~ Split a surface into patches at feature edges. The `meshDict` update is `patches_for_patch` (no dictionary). |
+| `triSurfaceTools/triSurfaceClassifyEdges` | 575 | **ported (2026-11-05, gh:#1276)** | `surface::features::TriSurfaceClassifyEdges` | ~~not ported~~ |
+| `triSurfaceTools/triSurfacePartitioner` | 598 | **ported (2026-11-05, gh:#1276)** | `surface::features::TriSurfacePartitioner` | ~~not ported~~ |
+| `triSurfaceTools/triSurfaceCurvatureEstimator` | 1229 | **ported (2026-11-05, gh:#1278)** | `surface::curvature::TriSurfaceCurvatureEstimator` | ~~not ported~~ Feeds `meshOctreeAutomaticRefinement` (not ported). The VTK debug output is not ported. |
+| `triSurfaceTools/triSurfaceCleanupDuplicates` | 454 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::cleanup_duplicates` | ~~not ported~~ |
+| `triSurfaceTools/triSurfaceCleanupDuplicateTriangles` | 235 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::cleanup_duplicate_triangles` | ~~not ported~~ |
+| `triSurfaceTools/triSurfaceCopyParts` | 412 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::copy_surface_parts` | ~~not ported~~ |
+| `triSurfaceTools/triSurfaceRemoveFacets` | 377 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::TriSurfaceRemoveFacets` | ~~not ported~~ |
+| `triSurfaceTools/triSurfaceImportSurfaceAsSubset` | 343 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::import_surface_as_subset` | ~~not ported~~ |
 | `triSurfaceTools/triSurfaceExtrude2DEdges` | 201 | not ported | — | 2D workflow. |
 | `triSurfaceTools/triSurface2DCheck` | 264 | not ported | — | 2D workflow. |
 | `triSurfaceTools/triSurfaceMetaData` | 233 | not applicable | — | FMS metadata. |
 | `helperClasses/sortEdgesIntoChains` | 425 | ported (gh:#1260) | `mesh_untangler::sort_edges_into_chains` | ~~not ported~~. Used by `tieBreak` (and upstream by `checkIrregularSurfaceConnections`, item 14). |
-| `helperClasses/geometry/quadricFitting` | 487 | not ported | — | Feeds `triSurfaceCurvatureEstimator`. |
+| `helperClasses/geometry/quadricFitting` | 487 | **ported (2026-11-05, gh:#1278)** | `surface::curvature::QuadricFitting`, `lu_solve` | ~~not ported~~ Feeds `triSurfaceCurvatureEstimator`, its only caller, which uses the constructor with a given normal; the eigenvector constructor (`calculateNormalVector`) has no caller and is not ported. |
 
 _Subtotal: 7872 lines._
 
@@ -272,15 +276,15 @@ _Subtotal: 15594 lines._
 | `improveSymmetryPlanes` | 65 | not ported | — |  |
 | `scaleMesh` | 83 | not ported | — |  |
 | `scaleSurfaceMesh` | 81 | not ported | — |  |
-| `surfaceFeatureEdges` | 103 | not ported | — | `triSurfaceDetectFeatureEdges` + `triSurfacePatchManipulator`. |
-| `checkSurfaceMesh` | 242 | not ported | — |  |
-| `copySurfaceParts` | 87 | not ported | — |  |
+| `surfaceFeatureEdges` | 103 | **ported (2026-11-05, gh:#1276)** | `surface::features::surface_feature_edges` | `triSurfaceDetectFeatureEdges` + `triSurfacePatchManipulator`. |
+| `checkSurfaceMesh` | 242 | **ported (2026-11-05, gh:#1277)** | `surface::checks::check_surface_mesh` |  |
+| `copySurfaceParts` | 87 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::copy_surface_parts` |  |
 | `extrudeEdgesInto2DSurface` | 82 | not ported | — |  |
-| `importSurfaceAsSubset` | 89 | not ported | — |  |
-| `mergeSurfacePatches` | 402 | not ported | — |  |
-| `patchesToSubsets` | 91 | not ported | — |  |
-| `removeSurfaceFacets` | 80 | not ported | — |  |
-| `subsetToPatch` | 178 | not ported | — |  |
+| `importSurfaceAsSubset` | 89 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::import_surface_as_subset` |  |
+| `mergeSurfacePatches` | 402 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::merge_surface_patches`, `patch_ids` |  |
+| `patchesToSubsets` | 91 | **ported (2026-11-05, gh:#1276)** | `surface::features::patches_to_subsets` |  |
+| `removeSurfaceFacets` | 80 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::remove_surface_facets` |  |
+| `subsetToPatch` | 178 | **ported (2026-11-05, gh:#1276)** | `surface::features::subset_to_patch` (upstream's intent: its text discards the result) |  |
 | `surfaceGenerateBoundingBox` | 185 | not ported | — |  |
 | `FMSToSurface, FMSToVTK, FLMAToSurface, surfaceToFMS, meshToFPMA` | 1318 | not applicable | — | FMS/FLMA/FPMA/VTK file formats. |
 | `preparePar` | 117 | not applicable | — | MPI decomposition. |
@@ -869,3 +873,99 @@ committed before the runs; record with the misses:
 - **`tet_mesh` pipe:** −0.289 % → −0.291 %, 11 faces moved; **`p_mesh`
   pipe:** −0.35 % → −0.325 %, max non-orthogonality 75.9° → 55.3° (64.5°
   from FUN's order alone).
+
+### Items 22, 23 and 24 in part (gh:#1276, #1277, #1278), 2026-11-05
+
+New module `surface` (`features`, `checks`, `cleanup`, `curvature`) on the
+crate's one surface type: `mesh_octree::TriSurf` is extended with upstream's
+patch list, stored feature edges, point/facet/feature-edge subsets and the
+rest of `triSurfAddressing` (no second surface type). Nothing in the
+pipelines calls the new module: no default changes. `outram-foam-mesh`'s
+`snapping::detect_feature_edges` is now `pub` (the differential) and a
+dev-dependency here. Predictions were committed before the runs; record with
+the misses and PNGs: `verification_and_validation/surface_tools_gh1276/README.md`.
+
+- **Item 22 (gh:#1276):** the unlabelled 48-sided pipe at 45° has 96
+  feature edges and splits into exactly 3 patches (48/48/96 facets; the
+  prediction said 192 for the wall, my arithmetic: missed and corrected).
+  The feature edges equal `outram-foam-mesh`'s on the pipe (45°: 96; 5°:
+  144) and the box (12); they differ where predicted: a flipped facet (the
+  port 12, foam-mesh 13: upstream negates the cosine of an inconsistently
+  wound pair) and an open pipe (the port 96, foam-mesh 48: upstream stores
+  open edges as feature edges).
+- **Item 23 (gh:#1277):** the box with a duplicated point, a duplicated
+  facet, a flipped facet and a stray triangle is reported (7 open-edge
+  entries, 9 non-manifold, 2 parts, points [6, 8] collocated, 5 orientation
+  groups, all as predicted) and cleaned to 12 facets, 8 points and a volume
+  of **exactly 8**. The flip is the port's own step: cfMesh has no tool that
+  reorients facets. `checkSurfaceMesh` passes the clean box and pipe; the
+  prediction that upstream's overlap test would flag every coplanar facet
+  pair **missed** (0 flagged).
+- **Item 24, part (gh:#1278):** `triSurfaceCurvatureEstimator` and
+  `quadricFitting`. Sphere R 3, mean curvature against −1/R: median error
+  0.37 % (24 × 48) and 0.087 % (48 × 96), max 0.66 % and 0.16 %, falling
+  4.3× per doubling. **Not ported:** `meshOctreeAutomaticRefinement` (976),
+  so the proximity test of item 24 is not run.
+
+**Upstream defects found (not fixed upstream; the port's handling is in each
+doc comment):** `subsetToPatch` discards the patches it builds;
+`checkForNonManifoldEdges(triSurf&)` runs the hole check;
+`triSurfaceCleanupDuplicates` reads stale `pointFacets` and leaves feature
+edges and point subsets on old labels; `triSurfaceRemoveFacets` reads
+whichever addressing is cached; `triSurfaceCopyParts` and
+`triSurfaceClassifyEdges` read index `-1`; `mergeSurfacePatches` copies
+subsets by loop index; `calculateEdgeCurvature` measures the turn with the
+edges' stored directions, which gives 23.0/R instead of 1.0007/R at the 4
+rim points of the 48-sided pipe where the point numbering wraps (measured).
+Behaviours as written but not as named: `checkAngles` flags near-180°
+angles, `addSurfaceAsSubset` compares a cosine with 5° in radians, and
+`doTrianglesOverlap` keeps the outside of each clipping edge for two
+same-wound facets (no overlap reported even for a genuine one, measured).
+
+### Item 20 (gh:#1274), 2026-11-05
+
+This item adds three things, with no default changed:
+
+- a new entry point, `pipeline::cartesian_mesh` (`cartesianMeshGenerator`);
+- `premap_vertices` (`preMapVertices`, `faceMetricInPatch`);
+- `layers::refine_boundary_layers::points_in_bnd_layer` (`pointsInBndLayer`).
+
+It reuses `tet_mesh`'s `create_octree`, `SavedMesh`, `PatchAssignment` and
+`face_regions`, and calls `edge_extractor` (gh:#1269) in
+`patchAssignment`.
+
+- **Differential (sphere R 3 at 0.5 m):**
+
+  | | `cartesian_mesh` | `carve_box` + `snap` | tet-dual |
+  |---|---|---|---|
+  | volume error | −1.938 % | −1.719 % | −1.719 % |
+  | cells | 1 128 | 912 | 5 269 |
+  | max non-orthogonality | 15.6° | 24.1° | 72.5° |
+
+  All three are closed, with 0 non-positive cells.
+- **Pipes:**
+  - 60 mm pipe at 2 mm: −0.659 %.
+  - Foam Studio pipe at 5 mm: **−9.96 %**. The core is 2 x 2 cells, so the
+    mesh is under-resolved.
+  - Foam Studio pipe with 1.25 mm boundary cells: −0.156 %.
+- **The plan's test:**
+  - All cells away from the wall are hexes on the sphere: held.
+  - `validate()` holds and no pyramid is non-positive: held.
+  - The volume error is recorded.
+- **Caveats met:**
+  - The one-group layer inverts 32 cells on one pipe and 64 on the other.
+    `meshOptimisation` repairs all of them.
+  - The morpher is not on this route: upstream does not call it.
+  - `NotPorted` is not hit, because the one-group layer has no cells with
+    two base faces.
+- **Misses:** C1 (template volume), C5 (sphere), C7 (`carve_box` + `snap`
+  is closer in volume), C8 (Foam Studio at 5 mm) and C9 (no `NotPorted`).
+  Each is explained in
+  `verification_and_validation/cartesian_mesh_gh1274/README.md`.
+- **Still not ported on this route:**
+  - the patch-wise `boundaryLayers` groups;
+  - `refineEdgeHexCell` and `refineCornerHexCell`;
+  - `optimiseLayer`;
+  - the surface optimiser's `enforceConstraints`;
+  - `anisotropicSources`;
+  - `triSurfacePatchManipulator`.
