@@ -38,17 +38,14 @@ use uom::si::velocity::meter_per_second;
 
 /// Relative-closeness assertion with `approx`'s spelling; tampines has no
 /// `approx` dev-dependency, and this keeps it that way.
-macro_rules! assert_relative_eq {
-    ($a:expr, $b:expr, max_relative = $tol:expr) => {{
-        let (a, b): (f64, f64) = ($a, $b);
-        let scale = a.abs().max(b.abs());
-        assert!(
-            (a - b).abs() <= $tol * scale,
-            "{a} vs {b}: relative difference {} > {}",
-            (a - b).abs() / scale,
-            $tol
-        );
-    }};
+fn assert_relative_eq(a: f64, b: f64, max_relative: f64) {
+    let scale = a.abs().max(b.abs());
+    assert!(
+        (a - b).abs() <= max_relative * scale,
+        "{a} vs {b}: relative difference {} > {}",
+        (a - b).abs() / scale,
+        max_relative
+    );
 }
 
 fn r(x: f64) -> Ratio {
@@ -85,15 +82,15 @@ fn bundle(pd: Option<f64>, g: Relap5DimensionlessGroups) -> Relap5NusseltSelecti
 /// `11.279716078773951`. `Pe = 0` gives exactly 5.
 #[test]
 fn seban_shimazaki_matches_hand_calculation() {
-    assert_relative_eq!(
+    assert_relative_eq(
         seban_shimazaki_liquid_metal_nusselt(100.0),
         5.995267926383743,
-        max_relative = 1e-10
+        1e-10
     );
-    assert_relative_eq!(
+    assert_relative_eq(
         seban_shimazaki_liquid_metal_nusselt(1000.0),
         11.279716078773951,
-        max_relative = 1e-10
+        1e-10
     );
     assert_eq!(seban_shimazaki_liquid_metal_nusselt(0.0), 5.0);
 }
@@ -106,22 +103,22 @@ fn seban_shimazaki_matches_hand_calculation() {
 #[test]
 fn kazimi_carelli_matches_hand_calculation_and_clips() {
     let kc = kazimi_carelli_rod_bundle_liquid_metal_nusselt;
-    assert_relative_eq!(kc(1.2, 100.0), 5.05791656017895, max_relative = 1e-10);
-    assert_relative_eq!(kc(1.2, 100.0), 5.05793, max_relative = 1e-5);
-    assert_relative_eq!(kc(1.3, 500.0), 8.163613972978698, max_relative = 1e-10);
+    assert_relative_eq(kc(1.2, 100.0), 5.05791656017895, 1e-10);
+    assert_relative_eq(kc(1.2, 100.0), 5.05793, 1e-5);
+    assert_relative_eq(kc(1.3, 500.0), 8.163613972978698, 1e-10);
     assert_eq!(kazimi_carelli_pitch_to_diameter(Some(1.0)), 1.1);
     assert_eq!(kazimi_carelli_pitch_to_diameter(Some(1.5)), 1.4);
     assert_eq!(kazimi_carelli_pitch_to_diameter(Some(1.25)), 1.25);
     assert_eq!(kazimi_carelli_pitch_to_diameter(None), 1.1);
-    assert_relative_eq!(
+    assert_relative_eq(
         kc(kazimi_carelli_pitch_to_diameter(Some(1.0)), 100.0),
         4.731711944565632,
-        max_relative = 1e-10
+        1e-10
     );
-    assert_relative_eq!(
+    assert_relative_eq(
         kc(kazimi_carelli_pitch_to_diameter(Some(1.5)), 100.0),
         6.045742504749947,
-        max_relative = 1e-10
+        1e-10
     );
 }
 
@@ -133,7 +130,7 @@ fn inayatov_multiplier_clips() {
     assert_eq!(inayatov_pitch_to_diameter(Some(0.9)), 1.1);
     assert_eq!(inayatov_pitch_to_diameter(Some(1.3)), 1.3);
     assert_eq!(inayatov_pitch_to_diameter(Some(2.0)), 1.6);
-    assert_relative_eq!(inayatov_bundle_coefficient(Some(1.3)), 0.0299, max_relative = 1e-14);
+    assert_relative_eq(inayatov_bundle_coefficient(Some(1.3)), 0.0299, 1e-14);
 }
 
 /// Geometry 101, laminar/turbulent crossover. `Pr = 1`, heated, `Gr = 0`:
@@ -149,21 +146,21 @@ fn pipe_switches_laminar_to_turbulent_at_the_crossover() {
     assert_eq!(s.nusselt.get::<ratio>(), 4.36);
     let s = pipe(groups(710.0, 1.0, 0.0));
     assert_eq!(s.regime, Relap5HeatTransferRegime::ForcedTurbulent);
-    assert_relative_eq!(s.nusselt.get::<ratio>(), 4.392730049578013, max_relative = 1e-10);
+    assert_relative_eq(s.nusselt.get::<ratio>(), 4.392730049578013, 1e-10);
 
     assert_eq!(pipe(groups(260.0, 7.0, 0.0)).regime, Relap5HeatTransferRegime::ForcedLaminar);
     let s = pipe(groups(270.0, 7.0, 0.0));
     assert_eq!(s.regime, Relap5HeatTransferRegime::ForcedTurbulent);
-    assert_relative_eq!(s.nusselt.get::<ratio>(), 4.414261563439074, max_relative = 1e-10);
+    assert_relative_eq(s.nusselt.get::<ratio>(), 4.414261563439074, 1e-10);
 
     let cooled = Relap5DimensionlessGroups {
         heating_direction: FluidHeatingDirection::FluidCooled,
         ..groups(1e4, 7.0, 0.0)
     };
-    assert_relative_eq!(
+    assert_relative_eq(
         pipe(cooled).nusselt.get::<ratio>(),
         65.35175396357931,
-        max_relative = 1e-10
+        1e-10
     );
 }
 
@@ -176,16 +173,16 @@ fn pipe_switches_laminar_to_turbulent_at_the_crossover() {
 fn pipe_selects_free_convection_at_low_re_high_gr() {
     let s = pipe(groups(100.0, 7.0, 1e6 / 7.0));
     assert_eq!(s.regime, Relap5HeatTransferRegime::FreeConvection);
-    assert_relative_eq!(s.nusselt.get::<ratio>(), 19.976669857906355, max_relative = 1e-10);
+    assert_relative_eq(s.nusselt.get::<ratio>(), 19.976669857906355, 1e-10);
     assert_eq!(pipe(groups(100.0, 7.0, 0.0)).regime, Relap5HeatTransferRegime::ForcedLaminar);
     let long = Relap5DimensionlessGroups {
         free_convection_length_over_hydraulic_diameter: r(2.0),
         ..groups(100.0, 7.0, 1e6 / 7.0)
     };
-    assert_relative_eq!(
+    assert_relative_eq(
         pipe(long).nusselt.get::<ratio>(),
         19.976669857906355 / 2.0,
-        max_relative = 1e-10
+        1e-10
     );
 }
 
@@ -198,10 +195,10 @@ fn pipe_selects_free_convection_at_low_re_high_gr() {
 fn pipe_switches_to_liquid_metal_below_prandtl_0_1() {
     let s = pipe(groups(1e4, 0.1, 0.0));
     assert_eq!(s.regime, Relap5HeatTransferRegime::ForcedTurbulent);
-    assert_relative_eq!(s.nusselt.get::<ratio>(), 14.51201892304445, max_relative = 1e-10);
+    assert_relative_eq(s.nusselt.get::<ratio>(), 14.51201892304445, 1e-10);
     let s = pipe(groups(1e4, 0.0999, 1e12));
     assert_eq!(s.regime, Relap5HeatTransferRegime::LiquidMetal);
-    assert_relative_eq!(s.nusselt.get::<ratio>(), 11.274691803332587, max_relative = 1e-10);
+    assert_relative_eq(s.nusselt.get::<ratio>(), 11.274691803332587, 1e-10);
 }
 
 /// Geometry 110. Ordinary fluid, `P/D = 1.3, Re = 5e4, Pr = 1.5`, heated:
@@ -214,29 +211,29 @@ fn pipe_switches_to_liquid_metal_below_prandtl_0_1() {
 #[test]
 fn rod_bundle_applies_inayatov_and_liquid_metal_forms_with_clipping() {
     let g = groups(5e4, 1.5, 0.0);
-    assert_relative_eq!(
+    assert_relative_eq(
         bundle(Some(1.3), g).nusselt.get::<ratio>(),
         201.9685257588318,
-        max_relative = 1e-10
+        1e-10
     );
-    assert_relative_eq!(
+    assert_relative_eq(
         bundle(None, g).nusselt.get::<ratio>(),
         170.8964448728577,
-        max_relative = 1e-10
+        1e-10
     );
-    assert_relative_eq!(
+    assert_relative_eq(
         bundle(Some(2.0), g).nusselt.get::<ratio>(),
         248.576647087793,
-        max_relative = 1e-10
+        1e-10
     );
     let lm = groups(1e4, 0.05, 0.0);
     let s = bundle(Some(1.3), lm);
     assert_eq!(s.regime, Relap5HeatTransferRegime::LiquidMetal);
-    assert_relative_eq!(s.nusselt.get::<ratio>(), 8.163613972978698, max_relative = 1e-10);
-    assert_relative_eq!(
+    assert_relative_eq(s.nusselt.get::<ratio>(), 8.163613972978698, 1e-10);
+    assert_relative_eq(
         bundle(None, lm).nusselt.get::<ratio>(),
         6.149678180777782,
-        max_relative = 1e-10
+        1e-10
     );
     assert_eq!(bundle(Some(1.5), lm).nusselt, bundle(Some(1.4), lm).nusselt);
     // shared legs
@@ -284,24 +281,24 @@ fn wall_heat_transfer_forms_groups_and_h() {
     let out =
         relap5_wall_heat_transfer(Relap5HeatTransferGeometry::InternalPipe, &water_like(1.0, 310.0))
             .unwrap();
-    assert_relative_eq!(out.groups.reynolds.get::<ratio>(), 20000.0, max_relative = 1e-12);
-    assert_relative_eq!(out.groups.prandtl.get::<ratio>(), 6.966666666666667, max_relative = 1e-12);
-    assert_relative_eq!(out.groups.grashof.get::<ratio>(), 156960.0, max_relative = 1e-12);
+    assert_relative_eq(out.groups.reynolds.get::<ratio>(), 20000.0, 1e-12);
+    assert_relative_eq(out.groups.prandtl.get::<ratio>(), 6.966666666666667, 1e-12);
+    assert_relative_eq(out.groups.grashof.get::<ratio>(), 156960.0, 1e-12);
     assert_eq!(out.selection.regime, Relap5HeatTransferRegime::ForcedTurbulent);
-    assert_relative_eq!(
+    assert_relative_eq(
         out.heat_transfer_coefficient.get::<watt_per_square_meter_kelvin>(),
         4138.882524473211,
-        max_relative = 1e-10
+        1e-10
     );
 
     let slow =
         relap5_wall_heat_transfer(Relap5HeatTransferGeometry::InternalPipe, &water_like(0.001, 310.0))
             .unwrap();
     assert_eq!(slow.selection.regime, Relap5HeatTransferRegime::FreeConvection);
-    assert_relative_eq!(
+    assert_relative_eq(
         slow.heat_transfer_coefficient.get::<watt_per_square_meter_kelvin>(),
         20.463677824860387 * 30.0,
-        max_relative = 1e-10
+        1e-10
     );
 
     let long = Relap5WallConvectionInputs {
@@ -309,15 +306,15 @@ fn wall_heat_transfer_forms_groups_and_h() {
         ..water_like(0.001, 310.0)
     };
     let long = relap5_wall_heat_transfer(Relap5HeatTransferGeometry::InternalPipe, &long).unwrap();
-    assert_relative_eq!(
+    assert_relative_eq(
         long.heat_transfer_coefficient.get::<watt_per_square_meter_kelvin>(),
         550.0767090383441,
-        max_relative = 1e-10
+        1e-10
     );
 
     let cooled = water_like(1.0, 290.0).dimensionless_groups().unwrap();
     assert_eq!(cooled.heating_direction, FluidHeatingDirection::FluidCooled);
-    assert_relative_eq!(cooled.grashof.get::<ratio>(), 156960.0, max_relative = 1e-12);
+    assert_relative_eq(cooled.grashof.get::<ratio>(), 156960.0, 1e-12);
 }
 
 /// Unphysical inputs are rejected rather than producing NaN.
