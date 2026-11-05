@@ -1,0 +1,7 @@
+structured_desktop 3 s: Foam Studio · 20480 cells · step 1 · 529 ms/step · solving | frames median 100.0 p95 383.3 max 383.3 ms
+structured_desktop 6 s: Foam Studio · 20480 cells · step 6 · 450 ms/step · solving | frames median 133.3 p95 233.3 max 233.3 ms
+structured_desktop 8 s: Foam Studio · 20480 cells · step 10 · 595 ms/step · solving | frames median 133.3 p95 166.6 max 166.6 ms
+structured_desktop 11 s: Foam Studio · 20480 cells · step 14 · 376 ms/step · solving | frames median 133.4 p95 200.0 max 200.0 ms
+structured_desktop 13 s: Foam Studio · 20480 cells · step 19 · 460 ms/step · solving | frames median 133.4 p95 200.0 max 200.0 ms
+structured_desktop 15 s: Foam Studio · 20480 cells · step 26 · 243 ms/step · solving | frames median 133.3 p95 266.8 max 266.8 ms
+structured_desktop 18 s: Foam Studio · 20480 cells · step 32 · 257 ms/step · solving | frames median 116.7 p95 166.8 max 166.8 ms
