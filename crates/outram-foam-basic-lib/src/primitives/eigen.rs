@@ -83,7 +83,7 @@
 //!   tensor has no orthogonal eigenbasis to restore.
 
 use crate::polynomial::{CubicEqn, RootType};
-use crate::primitives::{SymmTensor, Tensor, Vector3, SMALL, VGREAT};
+use crate::primitives::{SymmTensor, Tensor, Vector3, ROOT_SMALL, SMALL, VGREAT};
 
 /// Eigenvalues of a general (possibly non-symmetric) 3x3 tensor, ascending.
 ///
@@ -144,8 +144,47 @@ pub fn eigen_values_checked(t: Tensor) -> (Vector3, bool) {
 /// A real symmetric tensor is guaranteed a real spectrum, so unlike
 /// [`eigen_values`] there is no complex case to report — any complex root here
 /// would be round-off in the cubic solve, not physics.
+///
+/// # Upstream: the effectively-diagonal shortcut (gh:#1288)
+///
+/// Port of OpenFOAM (ESI, www.openfoam.com) v2306
+/// `src/OpenFOAM/primitives/SymmTensor/symmTensor/symmTensor.C`,
+/// `Foam::eigenValues(const symmTensor&)`, lines 97-149: **when
+/// `xy² + xz² + yz² < ROOTSMALL` (`√SMALL` ≈ 3.16e-8) upstream returns the
+/// diagonal, sorted, without solving the cubic.** The port had the cubic
+/// path only, so a diagonal tensor with a repeated root went through the
+/// ill-conditioned double-root solve. The threshold is upstream's and is
+/// **absolute**, not relative to the tensor's size: every off-diagonal
+/// below about 1.8e-4 in magnitude is treated as zero. That is upstream's
+/// behaviour and is kept; a caller whose tensors are small, or that needs
+/// a small shear on a near-identity tensor, should know it.
+///
+/// OpenFOAM-dev (Foundation, `tensor.C`) reaches the same answer on a
+/// diagonal tensor by a different route: `cubicEqn::roots(true)`
+/// short-circuits `d == 0` and clamps a positive discriminant to zero for
+/// a known-real spectrum. That cubic is not the one this crate ports (it
+/// ports ESI's, with the Kahan `p` and the `VSMALL` discriminant clamp).
+///
+/// **V&V (gh:#1288, 2026-11-05).** *Methodology:* the cubic coefficients
+/// for `diag(4, 4, 0)` are `b = -8`, `c = 16`, `d = 0`; upstream ESI v2306
+/// takes the diagonal branch (all off-diagonals zero), so it returns
+/// `(0, 4, 4)` exactly; OpenFOAM-dev takes `d == 0` then a zero
+/// discriminant in `quadraticEqn(1, -8, 16)`, also `(0, 4, 4)` exactly.
+/// *Prediction, written before the fix was run:* the port then returns
+/// `(0, 4, 4)` bit for bit, as do `diag(2, 2, 5)`, `diag(0, 0, 3)` and
+/// `diag(-1, 3, 3)`; a tensor with any off-diagonal above the threshold is
+/// unchanged bit for bit. *Result:* see
+/// `tests::diagonal_repeated_roots_take_upstreams_diagonal_branch`.
 #[must_use]
 pub fn eigen_values_symm(t: SymmTensor) -> Vector3 {
+    // Upstream: `if ((sqr(T.xy()) + sqr(T.xz()) + sqr(T.yz())) < ROOTSMALL)`
+    // return the ascending diagonal.
+    if t.xy * t.xy + t.xz * t.xz + t.yz * t.yz < ROOT_SMALL {
+        let mut lambda = [t.xx, t.yy, t.zz];
+        sort3(&mut lambda);
+        return Vector3::new(lambda[0], lambda[1], lambda[2]);
+    }
+
     let b = -t.xx - t.yy - t.zz;
     let c = t.xx * t.yy + t.xx * t.zz + t.yy * t.zz - t.xy * t.xy - t.yz * t.yz - t.xz * t.xz;
     let d = -t.xx * t.yy * t.zz - 2.0 * t.xy * t.yz * t.xz
@@ -604,11 +643,24 @@ mod tests {
     fn a_near_degenerate_spectrum_still_gives_an_orthonormal_basis() {
         // C = F^T F for F = diag(1.4, 1, 1), formed by multiplication so the
         // repeated eigenvalue is split by round-off exactly as it would be in a
-        // real kinematics chain.
+        // real kinematics chain. UPDATED 2026-11-05 (gh:#1288): the stretch
+        // is now along a direction 30° from x in the x-y plane. A diagonal C
+        // takes upstream's effectively-diagonal branch since gh:#1288 and
+        // would return the exact spectrum, so it no longer reaches the
+        // split-root path this test exists for.
         let a = 1.4_f64;
-        let c = SymmTensor::new(a * a, 0.0, 0.0, 1.0 * 1.0, 0.0, 1.0 * 1.0);
+        let (s, co) = (30.0_f64.to_radians().sin(), 30.0_f64.to_radians().cos());
+        let c = SymmTensor::new(
+            a * a * co * co + s * s,
+            (a * a - 1.0) * co * s,
+            0.0,
+            a * a * s * s + co * co,
+            0.0,
+            1.0 * 1.0,
+        );
 
         let l = eigen_values_symm(c);
+        println!("near-degenerate rotated C: {:.17e} {:.17e} {:.17e}", l.x, l.y, l.z);
         let v = eigen_vectors_symm(c);
         let rows = [v.row_x(), v.row_y(), v.row_z()];
 
@@ -678,5 +730,83 @@ mod tests {
         let t = Tensor::new(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
         let (_l, complex) = eigen_values_checked(t);
         assert!(complex, "a rotation has a complex spectrum and must say so");
+    }
+
+    /// **Diagonal tensors with repeated roots take upstream's diagonal
+    /// branch (gh:#1288).**
+    ///
+    /// *Methodology:* `eigen_values_symm` on four diagonal tensors with a
+    /// repeated or zero root, compared bit for bit (`assert_eq!` on `f64`)
+    /// against the ascending diagonal. Reference: OpenFOAM ESI v2306
+    /// `eigenValues(const symmTensor&)`, whose first branch returns the
+    /// sorted diagonal when `xy² + xz² + yz² < ROOTSMALL`; OpenFOAM-dev's
+    /// `cubicEqn::roots(true)` gives the same values for these four by its
+    /// `d == 0` and real-clamp branches. Pass criterion: bit identity.
+    ///
+    /// *Prediction (written before the run):* every case exact, including
+    /// `diag(4, 4, 0)`, which returned `(-1.68e-8, -0, 4)` before the fix
+    /// (gh:#1275 D1, gh:#1288).
+    ///
+    /// *Result (2026-11-05):* RESULT_DIAG
+    #[test]
+    fn diagonal_repeated_roots_take_upstreams_diagonal_branch() {
+        for (d, want) in [
+            ([4.0, 4.0, 0.0], [0.0, 4.0, 4.0]),
+            ([2.0, 2.0, 5.0], [2.0, 2.0, 5.0]),
+            ([0.0, 0.0, 3.0], [0.0, 0.0, 3.0]),
+            ([3.0, -1.0, 3.0], [-1.0, 3.0, 3.0]),
+        ] {
+            let l = eigen_values_symm(SymmTensor::from_diag(d[0], d[1], d[2]));
+            assert_eq!([l.x, l.y, l.z], want, "diag{d:?}");
+        }
+    }
+
+    /// **Above the threshold the cubic path still runs (gh:#1288).**
+    ///
+    /// *Methodology:* `diag(4, 4, 0)` rotated 30° about x, which mixes the
+    /// 4 and the 0 so `yz ≈ 1.73` and the diagonal branch must not fire.
+    /// Upstream ESI v2306 sends it to the cubic, so the repeated root
+    /// carries the `√ε` error the module docs describe. Pass criterion:
+    /// spectrum within 1e-7 of `(0, 4, 4)` (the `√ε` bound, not a tuned
+    /// number) and trace preserved to 1e-12.
+    ///
+    /// *Prediction (written before the run):* passes, with a worst error
+    /// of order 1e-8: this is the case the fix does **not** help, by
+    /// upstream's design.
+    ///
+    /// *Result (2026-11-05):* RESULT_ROT
+    #[test]
+    fn a_rotated_repeated_root_still_goes_through_the_cubic() {
+        let (s, c) = (30.0_f64.to_radians().sin(), 30.0_f64.to_radians().cos());
+        // R = rotation about x by 30°; R diag(4, 4, 0) R^T written out.
+        let st = SymmTensor::new(4.0, 0.0, 0.0, 4.0 * c * c, 4.0 * c * s, 4.0 * s * s);
+        assert!(st.yz * st.yz >= ROOT_SMALL, "must not take the diagonal branch");
+        let l = eigen_values_symm(st);
+        let err = l.x.abs().max((l.y - 4.0).abs()).max((l.z - 4.0).abs());
+        println!("rotated diag(4,4,0): {:e} {:e} {:e}, worst error {err:e}", l.x, l.y, l.z);
+        assert!(err < 1e-7, "spectrum {l:?}, worst error {err:e}");
+        assert!((l.x + l.y + l.z - 8.0).abs() < 1e-12);
+    }
+
+    /// **Upstream's threshold is absolute: a small shear on the identity is
+    /// dropped (gh:#1288).**
+    ///
+    /// *Methodology:* `C = FᵀF` with `F = I + γ e_x⊗e_y`, `γ = 1e-5`, so
+    /// `C.xy = γ` and `xy² = 1e-10 < ROOTSMALL`. Upstream ESI v2306 returns
+    /// the diagonal `(1, 1, 1 + γ²)`, while the exact spectrum is
+    /// `1 + γ²/2 ± γ√(1 + γ²/4)` and 1, i.e. about `1 ± 1e-5`. This pins
+    /// that the port does what upstream does, so a caller relying on small
+    /// shears of a near-identity tensor (finite-strain kinematics) is told
+    /// by a test rather than by a wrong answer. Pass criterion: bit identity
+    /// with the sorted diagonal.
+    ///
+    /// *Result (2026-11-05):* returns `(1, 1, 1 + 1e-10)`; the exact
+    /// eigenvalues differ from that by about `1e-5`, the whole shear.
+    #[test]
+    fn a_small_shear_below_rootsmall_is_dropped_as_upstream_does() {
+        let g = 1e-5_f64;
+        let c = SymmTensor::new(1.0, g, 0.0, 1.0 + g * g, 0.0, 1.0);
+        let l = eigen_values_symm(c);
+        assert_eq!([l.x, l.y, l.z], [1.0, 1.0, 1.0 + g * g]);
     }
 }
