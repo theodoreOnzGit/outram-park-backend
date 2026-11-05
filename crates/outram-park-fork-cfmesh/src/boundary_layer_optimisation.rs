@@ -203,8 +203,11 @@ struct Hair {
 /// The layer's hairs and their neighbourhoods on the one-layer mesh.
 struct Hairs {
     hairs: Vec<Hair>,
-    /// Hair of each wall point (by the point's index in the one-layer mesh).
-    at_point: BTreeMap<usize, usize>,
+    /// `hairEdgesAtBndPoint`: every hair starting at a boundary point (by
+    /// the point's mesh index), in hair order. ~~One hair per point~~
+    /// **CHANGED 2026-11-05 (gh:#1293):** all of them, as upstream; the
+    /// `CfMeshOptimise` mesh has exactly one per wall point.
+    at_point: BTreeMap<usize, Vec<usize>>,
     /// `hairEdgesNearHairEdge`: hairs across a side face of a layer cell.
     near: Vec<Vec<usize>>,
     /// The one-layer mesh's surface (gh:#1257): `pointFaces` around each
@@ -270,14 +273,14 @@ impl Hairs {
                 LayerVertex::Edge => BOUNDARY | ATEDGE,
                 LayerVertex::Corner => BOUNDARY | ATCORNER | FEATUREEDGE,
             };
-            at_point.insert(col[0], hairs.len());
+            at_point.insert(col[0], vec![hairs.len()]);
             hairs.push(Hair { start: col[0], end: col[1], kind });
         }
         let engine = SurfaceEngine::new(m);
         // Hairs across side faces: wall-face edges (p, q).
         let mut near_set: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); hairs.len()];
         for (wp, nb) in wall_neighbours(orig, s) {
-            let (hi, hj) = (at_point[&column[&wp][0]], at_point[&column[&nb][0]]);
+            let (hi, hj) = (at_point[&column[&wp][0]][0], at_point[&column[&nb][0]][0]);
             near_set[hi].insert(hj);
         }
         let near = near_set.into_iter().map(|s| s.into_iter().collect()).collect();
@@ -295,8 +298,8 @@ impl Hairs {
     /// [`optimize_boundary_layer`] (gh:#1280). Returns the hairs, whether
     /// each mesh face is a layer base face (`isBndLayerBase`), the layer
     /// cells (`bndLayerCells`) and how many hairs share a start point with
-    /// an earlier one (upstream keeps them all in `hairEdgesAtBndPoint`;
-    /// here [`Self::at_point`] keeps the first).
+    /// an earlier one (all are kept in [`Self::at_point`], as upstream's
+    /// `hairEdgesAtBndPoint`; ~~the first only~~ before gh:#1293).
     fn from_mesh(m: &VolumeMesh) -> (Self, Vec<bool>, Vec<usize>, usize) {
         let detected = detect_boundary_layers(m);
         let engine = SurfaceEngine::new(m);
@@ -310,7 +313,7 @@ impl Hairs {
             }
         }
         let mut hairs = Vec::with_capacity(detected.hair_edges.len());
-        let mut at_point = BTreeMap::new();
+        let mut at_point: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
         let mut shared = 0usize;
         for &[s, e] in &detected.hair_edges {
             let bpi = engine.bp[s];
@@ -332,11 +335,11 @@ impl Hairs {
             if kind & BOUNDARY == 0 {
                 kind |= INSIDE;
             }
-            if at_point.contains_key(&s) {
+            let row = at_point.entry(s).or_default();
+            if !row.is_empty() {
                 shared += 1;
-            } else {
-                at_point.insert(s, hairs.len());
             }
+            row.push(hairs.len());
             hairs.push(Hair { start: s, end: e, kind });
         }
         // bpFacesHelper: faces of the cells owning a boundary face, at each
@@ -353,10 +356,7 @@ impl Hairs {
                 }
             }
         }
-        let mut hairs_at: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-        for (h, hair) in hairs.iter().enumerate() {
-            hairs_at.entry(hair.start).or_default().push(h);
-        }
+        let hairs_at = &at_point;
         let same = |a: [usize; 2], b: [usize; 2]| (a[0] == b[0] && a[1] == b[1]) || (a[0] == b[1] && a[1] == b[0]);
         let mut near = vec![Vec::new(); hairs.len()];
         for (h, hair) in hairs.iter().enumerate() {
@@ -633,13 +633,17 @@ impl Hairs {
                     }
                     let own = m.owner[bf];
                     max_t = max_t.min(self.thickness_over_cell(m, h, &cf[own], bf, c));
-                    for &p in &m.faces[bf] {
-                        let Some(&j) = self.at_point.get(&p) else { continue };
-                        if j == h {
-                            continue;
+                    // The hairs of `bf`'s cell (`hairEdgesAtBndFace`), each
+                    // matched in `hairEdgesAtBndPoint` (gh:#1293; before,
+                    // the first hair at each point of `bf`, of any cell).
+                    for nhe in hair_edges_at_bnd_face(m, &cf[own], bf).into_iter().flatten() {
+                        for &j in self.at_point.get(&nhe[0]).map_or(&[][..], Vec::as_slice) {
+                            if j == h || !face_has_edge(&nhe, self.hairs[j].start, self.hairs[j].end) {
+                                continue;
+                            }
+                            influencers.push(j);
+                            max_t = max_t.min(self.thickness_against(m, h, j, c));
                         }
-                        influencers.push(j);
-                        max_t = max_t.min(self.thickness_against(m, h, j, c));
                     }
                 }
                 if length[h] > max_t {
@@ -673,6 +677,61 @@ impl Hairs {
         }
         self.hairs.iter().zip(&self.thinned).any(|(h, &t)| t && ending[&h.end] > 2)
     }
+}
+
+/// `boundaryLayerOptimisation::hairEdgesAtBndFace(cellI, baseFaceI)`
+/// (gh:#1293): at each point of the base face `base`, the edge of the cell
+/// (faces `cell_faces`) that leaves the face there (the edge common to the
+/// two other cell faces on the base face's edges at the point), oriented
+/// from the point. Upstream `break`s at the first point where the cell is
+/// not prism-like there (an edge of `base` not on exactly two cell faces,
+/// or no common edge) and leaves the rest of its list default-constructed
+/// (`edge()`, labels -1, with which it then indexes `bp`); here those
+/// entries are `None`, and the caller skips them.
+fn hair_edges_at_bnd_face(m: &VolumeMesh, cell_faces: &[usize], base: usize) -> Vec<Option<[usize; 2]>> {
+    let same = |a: (usize, usize), b: (usize, usize)| (a.0 == b.0 && a.1 == b.1) || (a.0 == b.1 && a.1 == b.0);
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    let mut edge_faces: Vec<Vec<usize>> = Vec::new();
+    let mut base_edges: Vec<usize> = Vec::new();
+    for &f in cell_faces {
+        let ring = &m.faces[f];
+        let k = ring.len();
+        for i in 0..k {
+            let e = (ring[i], ring[(i + 1) % k]);
+            let pos = match edges.iter().position(|&x| same(x, e)) {
+                Some(p) => p,
+                None => {
+                    edges.push(e);
+                    edge_faces.push(Vec::new());
+                    edges.len() - 1
+                }
+            };
+            edge_faces[pos].push(f);
+            if f == base {
+                base_edges.push(pos);
+            }
+        }
+    }
+    let bf = &m.faces[base];
+    let k = bf.len();
+    let mut out = vec![None; k];
+    if base_edges.len() != k {
+        return out;
+    }
+    for p in 0..k {
+        let (next, prev) = (base_edges[p], base_edges[(p + k - 1) % k]);
+        if edge_faces[next].len() != 2 || edge_faces[prev].len() != 2 {
+            break;
+        }
+        let other_next = if edge_faces[next][0] == base { edge_faces[next][1] } else { edge_faces[next][0] };
+        let other_prev = if edge_faces[prev][0] == base { edge_faces[prev][1] } else { edge_faces[prev][0] };
+        let Some(common) = (0..edges.len()).find(|&e| edge_faces[e].contains(&other_next) && edge_faces[e].contains(&other_prev)) else {
+            break;
+        };
+        let e = edges[common];
+        out[p] = Some(if e.0 == bf[p] { [e.0, e.1] } else { [e.1, e.0] });
+    }
+    out
 }
 
 fn face_has_edge(ring: &[usize], a: usize, b: usize) -> bool {
@@ -974,7 +1033,8 @@ pub struct OptimizeBoundaryLayerReport {
     /// Hair edges `detectBoundaryLayers` found.
     pub n_hairs: usize,
     /// Hairs sharing a start point with an earlier hair (see
-    /// `Hairs::from_mesh`).
+    /// `Hairs::from_mesh`; all are kept and used, as upstream, since
+    /// gh:#1293).
     pub n_shared_start: usize,
     /// Layer cells (`bndLayerCells`), locked during the untangles.
     pub n_layer_cells: usize,
@@ -1077,6 +1137,13 @@ mod tests {
     /// bad faces grow 122 -> 262 over five passes, while the edge cells'
     /// boundary hairs thin from 0.125 to 2.5e-4. See
     /// `mesh_utilities::tests::generate_boundary_layers_with_optimise_layer_on_the_box`.
+    ///
+    /// **FIXED 2026-11-05 (gh:#1293):** the thickness step now takes the
+    /// neighbour hairs from the base face's own cell (`hairEdgesAtBndFace`,
+    /// [`hair_edges_at_bnd_face`]) instead of the first hair at each point.
+    /// Re-run: 0 bad faces and 0 points off the planes after every stage
+    /// and every pass, volume 1, the full `optimize_boundary_layer` with
+    /// and without boundary moves leaves 0 bad faces and volume 1.
     #[test]
     #[ignore = "diagnostic: prints the stages, asserts nothing"]
     fn diagnose_optimise_layer_on_the_patch_wise_box() {

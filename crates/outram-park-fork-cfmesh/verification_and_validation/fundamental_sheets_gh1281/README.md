@@ -94,9 +94,12 @@ the OpenFOAM `plane` helpers analytically (held).
   -> 0.106, min 0.125 -> 0.0225, smallest cell 2.10e-3 -> 1.12e-4, 0 bad
   faces at the end, **volume 1.00373**: the edge cells' boundary hairs
   thin to 2.5e-4, 262 faces go bad, and the untangles' boundary moves
-  repair them off the box planes. Cause not established (upstream not
+  repair them off the box planes. ~~Cause not established (upstream not
   run; first suspect: one hair kept per shared start point). Pinned as
-  measured, not as a criterion; diagnostic
+  measured, not as a criterion~~ **FIXED 2026-11-05 (gh:#1293, section
+  below):** a port defect in `optimiseThicknessVariation`'s neighbour
+  hairs; now volume 1 to 1e-12, every boundary point on its plane, gated;
+  diagnostic
   `boundary_layer_optimisation::tests::diagnose_optimise_layer_on_the_patch_wise_box`.
 - `generate_boundary_layers_with_optimise_layer_on_the_pipe` (R 10 mm, L
   60 mm, h 6 mm, `walls`): off 0 bad faces (**predicted some: missed**,
@@ -152,6 +155,18 @@ smoothing and `calculateNormalVectors` already follow upstream.
 3. Pipe (`..._on_the_pipe`): the pipe's layer has no box edges, but its
    end caps make patch-border points with more than one hair; thinned
    count and mean thickness move by under 5 %, 0 bad faces stays.
+
+**Results (2026-11-05, after the fix; `--release`):**
+
+| prediction | result |
+|---|---|
+| 1. `CfMeshOptimise` bit for bit | **held.** `layer_strategies_are_deterministic` passes on its 2026-11-04 fingerprints (7725 cells), as do `back_off_only_layers_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`, `correct_edges_is_pinned_bit_for_bit`, `foam_studio_default_mesh_keeps_its_fingerprint`, `dual_kinds_are_pinned_bit_for_bit` (`--features cell-centre-dual`) and both `*_stop_and_restart_reproduce_the_full_run`. No pin moved, so the upstream rule is applied unconditionally: no gate, no named variant. |
+| 2. box | **held, and better than predicted.** `optimiseLayer` stops after **1** pass (was 5), 48 of 294 hairs thinned (was 236); thickness min **0.125** (was 0.0225; prediction >1e-2) / mean 0.1289 (off-run 0.1382) / max 0.1475; **0 bad faces after every stage of every pass** (was 122 -> 262; prediction <122); 0 boundary points off their planes at every stage; smallest cell 1.95e-3 (was 1.12e-4); **volume 1.000000000000** (gate 1e-12, now asserted with the planes in `generate_boundary_layers_with_optimise_layer_on_the_box`). |
+| 3. pipe | **held trivially:** the pipe's layer has **no** hairs sharing a start point (`n_shared_start` 0), so it is unchanged to the digit: 1241 of 1658 thinned, mean 1.062e-3, 0 bad faces, smallest cell 4.77e-10. My premise (end caps give shared starts) was wrong: the layer is on `walls` only. |
+
+Upstream was not run (not installed here); by its source, its
+`optimiseThicknessVariation` uses exactly the neighbours the port now
+uses, so the box should not move under upstream either.
 
 ### `createFundamentalSheets` (gh:#1281)
 
