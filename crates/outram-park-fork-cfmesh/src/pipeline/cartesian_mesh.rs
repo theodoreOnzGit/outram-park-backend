@@ -41,15 +41,19 @@
 //! | `templateGeneration` | `cartesianMeshExtractor` (`decomposePolyhedraIntoTetsAndPyrs`, default off) | [`crate::cartesian_mesh::cartesian_mesh_extractor`] (gh:#1266) |
 //! | `surfaceTopology` | repeat `checkIrregularSurfaceConnections`, `checkNonMappableCellConnections::removeCells`, `checkCellConnectionsOverFaces::checkCellGroups` while any changes the mesh; then `checkBoundaryFacesSharingTwoEdges::improveTopology` | `topology::{check_and_fix_irregular_connections, remove_non_mappable_cells, check_cell_connections_over_faces, BoundaryFacesSharingTwoEdges}` (gh:#1268). **No `surfaceMorpherCells`**: upstream's `cartesianMeshGenerator` does not call it |
 //! | `surfaceProjection` | `meshSurfaceMapper::preMapVertices` (3 iterations), `mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | [`crate::premap_vertices`] (ported here), `surface_optimizer::map_mesh_to_surface` |
-//! | `patchAssignment` | `edgeExtractor` | **stand-in** ([`extract_patches`]): `patches::assign_patches_by_region` (nearest triangle), as `tet_mesh`; the hook for gh:#1269 |
+//! | `patchAssignment` | `edgeExtractor` | [`extract_patches`]: [`crate::edge_extractor::extract_patches`] (gh:#1269); [`PatchAssignment::NearestTriangle`] is the ablation, as in `tet_mesh` |
 //! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, then `meshSurfaceOptimizer::optimizeSurface` | `correct_edges` + `surface_mapper` (as `tet_mesh`), `surface_optimizer::optimise_mesh_surface` |
 //! | `boundaryLayerGeneration` | `boundaryLayers::addLayerForAllPatches` (**always**, no dict needed) | `layers::boundary_layers::boundary_layers_add_layer` on every patch as **one group**: upstream's route for a single patch; on several patches upstream's patch-wise groups are not ported (noted) |
 //! | `meshOptimisation` | `meshSurfaceOptimizer::optimizeSurface`; `meshOptimizer::optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(true)`, `untangleMeshFV`; `projectSurfaceAfterBackScaling` | `optimise_mesh_surface`; `MeshOptimizer` with boundary moves and the LP untangler; `optimizeBoundaryLayer` acts only with `optimiseLayer` (default off, not offered); no `anisotropicSources`, so no back-scaling |
 //! | `boundaryLayerRefinement` | with a `boundaryLayers` dict: `refineBoundaryLayers`, lock `pointsInBndLayer`, `untangleBoundaryLayer` | `layers::refine_boundary_layers`, `points_in_bnd_layer`, `MeshOptimizer` (`optimizeLowQualityFaces`, `removeUserConstraints`, `untangleMeshFV(2, 50, 1, true)`); a [`crate::layers::refine_boundary_layers::RefineError::NotPorted`] is a note and leaves the mesh unrefined |
 //! | (always) | `renumberMesh`, `renameBoundaryPatches` | [`crate::renumber_mesh`], [`crate::rename_boundary_patches`] |
 //!
-//! Every gap is a line in [`CartesianMeshReport::notes`]. The one ablation
-//! is explicit: [`CartesianMeshGeneratorOptions::without_boundary_layer`].
+//! Every gap is a line in [`CartesianMeshReport::notes`]. The ablations are
+//! explicit: [`CartesianMeshGeneratorOptions::without_boundary_layer`] and
+//! [`CartesianMeshGeneratorOptions::patch_assignment`]. gh:#1283's
+//! `final_mesh::optimise_final_mesh` (the tet-dual pipeline's opt-in, with a
+//! projection that is not upstream) is not used: `meshOptimisation` calls
+//! `MeshOptimizer` as `tet_mesh` does.
 
 use crate::cartesian_mesh::{cartesian_mesh_extractor, CartesianMeshOptions};
 use crate::correct_edges::correct_edges_between_patches;
@@ -59,7 +63,8 @@ use crate::math::Vec3;
 use crate::mesh_octree_creator::MeshDict;
 use crate::mesh_optimizer::{MeshOptimizer, UntangleControls};
 use crate::patches::{assign_patches_by_region, SurfaceRegions};
-use crate::pipeline::tet_mesh::{create_octree, face_regions, SavedMesh};
+use crate::mesh_octree::MeshOctree;
+use crate::pipeline::tet_mesh::{create_octree, face_regions, PatchAssignment, SavedMesh};
 use crate::premap_vertices::pre_map_vertices;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
@@ -90,6 +95,9 @@ pub struct CartesianMeshGeneratorOptions {
     pub boundary_layers: Option<RefineBoundaryLayersSettings>,
     /// `boundaryLayers`' creation settings (`blHeightFactor`, minimum).
     pub layer_heights: BoundaryLayersControls,
+    /// How `patchAssignment` distributes the boundary faces: upstream's
+    /// `edgeExtractor` by default (gh:#1269).
+    pub patch_assignment: PatchAssignment,
     /// **Ablation, not upstream:** skip `boundaryLayerGeneration` (upstream
     /// always adds the layer). Default `false`.
     pub without_boundary_layer: bool,
@@ -107,6 +115,7 @@ impl Default for CartesianMeshGeneratorOptions {
             boundary_layers: None,
             layer_heights: BoundaryLayersControls::default(),
             without_boundary_layer: false,
+            patch_assignment: PatchAssignment::EdgeExtractor,
         }
     }
 }
@@ -192,16 +201,39 @@ pub fn cartesian_surface_preparation(m: &mut VolumeMesh) -> Result<(usize, usize
     Ok((passes, n0 - m.n_cells))
 }
 
-/// `cartesianMeshGenerator::extractPatches`: upstream runs `edgeExtractor`
-/// (gh:#1269, being ported). **Hook:** when it lands, call it here; until
-/// then the nearest triangle stands in, as in `tet_mesh`. Returns the note.
-pub fn extract_patches(m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>) -> Result<String, String> {
-    match regions {
-        Some(r) => {
-            *m = assign_patches_by_region(m, points, tris, r)?;
-            Ok("patchAssignment: edgeExtractor not ported (gh:#1269); nearest-triangle patches (patches::assign_patches_by_region)".into())
+/// `cartesianMeshGenerator::extractPatches`: `edgeExtractor(mesh,
+/// octree)`, `extractEdges`, `updateMeshPatches`
+/// ([`crate::edge_extractor::extract_patches`], gh:#1269), or the
+/// nearest-triangle ablation [`PatchAssignment::NearestTriangle`]. Returns
+/// the patch types (`None`: keep one `patch` type per patch) and the note.
+pub fn extract_patches(
+    m: &mut VolumeMesh,
+    o: &MeshOctree,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: Option<&SurfaceRegions>,
+    reg: &SurfaceRegions,
+    rule: PatchAssignment,
+) -> Result<(Option<Vec<String>>, String), String> {
+    match rule {
+        PatchAssignment::EdgeExtractor => {
+            let (mm, ty, er) = crate::edge_extractor::extract_patches(m, o, reg)?;
+            *m = mm;
+            Ok((
+                Some(ty),
+                format!(
+                    "patchAssignment: edgeExtractor: {} faces moved from the nearest-patch distribution (normal alignment {:?}, topology {:?}, geometry: inverted {:?}, moved {:?}); unset reads {} / {}",
+                    er.n_faces_moved_from_initial, er.normal_alignment_moves, er.topology_kept, er.geometry_inverted, er.geometry_moves, er.n_unset_neighbour_patch_reads, er.n_failed_region_searches
+                ),
+            ))
         }
-        None => Ok("patchAssignment: no regions given; one patch".into()),
+        PatchAssignment::NearestTriangle => match regions {
+            Some(r) => {
+                *m = assign_patches_by_region(m, points, tris, r)?;
+                Ok((None, "patchAssignment: PatchAssignment::NearestTriangle (ablation of edgeExtractor): nearest-triangle patches".into()))
+            }
+            None => Ok((None, "patchAssignment: no regions given; one patch".into())),
+        },
     }
 }
 
@@ -294,8 +326,8 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                 ));
             }
             WorkflowStep::PatchAssignment => {
-                let note = extract_patches(m, points, tris, regions)?;
-                types = vec!["patch".to_string(); m.patches.len()];
+                let (ty, note) = extract_patches(m, &o, points, tris, regions, reg, opts.patch_assignment)?;
+                types = ty.unwrap_or_else(|| vec!["patch".to_string(); m.patches.len()]);
                 rep.notes.push(note);
             }
             WorkflowStep::EdgeExtraction => {

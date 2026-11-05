@@ -280,6 +280,7 @@ pub mod mesh_untangler;
 pub mod mesh_subsets;
 pub mod mesh_surface_edge_extractor_fun;
 pub mod poly_mesh_gen_checks;
+pub mod premap_vertices;
 pub mod snappy_layers;
 pub mod boundary_layer_optimisation;
 pub mod object_refinement;
