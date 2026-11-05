@@ -73,7 +73,8 @@
 //! centroids ([`crate::surface_mapper::map_vertices_onto_surface_patches_untangled_given`]).
 
 use crate::math::Vec3;
-use crate::surface_engine::{SurfaceEngine, SurfacePartitioner, NOT_BOUNDARY, VSMALL};
+use crate::surface_engine::{NOT_BOUNDARY, VSMALL};
+use crate::topology::{decompose_cells, TopoMesh};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -113,59 +114,6 @@ pub fn foam_face_centre(points: &[Vec3], ring: &[usize]) -> Vec3 {
     }
 }
 
-/// A mesh being repaired: faces with owner, neighbour and (boundary) patch.
-struct Work {
-    points: Vec<Vec3>,
-    faces: Vec<Vec<usize>>,
-    owner: Vec<usize>,
-    neighbour: Vec<Option<usize>>,
-    region: Vec<Option<usize>>,
-    n_cells: usize,
-}
-
-impl Work {
-    /// Replace each face in `split` by its children (same owner, neighbour
-    /// and patch; the rings keep the parent's winding).
-    fn apply_splits(&mut self, split: &BTreeMap<usize, Vec<Vec<usize>>>) {
-        let mut faces = Vec::with_capacity(self.faces.len());
-        let (mut owner, mut neighbour, mut region) = (Vec::new(), Vec::new(), Vec::new());
-        for f in 0..self.faces.len() {
-            let children = match split.get(&f) {
-                Some(c) => c.clone(),
-                None => vec![self.faces[f].clone()],
-            };
-            for c in children {
-                faces.push(c);
-                owner.push(self.owner[f]);
-                neighbour.push(self.neighbour[f]);
-                region.push(self.region[f]);
-            }
-        }
-        self.faces = faces;
-        self.owner = owner;
-        self.neighbour = neighbour;
-        self.region = region;
-    }
-
-    /// `decomposeFaces`: the fan of face `f` about a new point at its centre.
-    fn fan(&mut self, f: usize) -> Vec<Vec<usize>> {
-        let ring = self.faces[f].clone();
-        let c = self.points.len();
-        self.points.push(foam_face_centre(&self.points, &ring));
-        (0..ring.len()).map(|i| vec![ring[i], ring[(i + 1) % ring.len()], c]).collect()
-    }
-
-    /// The surface of the mesh being repaired and its partition by the
-    /// face patches (`None` is one more patch), from the shared engine
-    /// (gh:#1257; this stage built its own edge -> faces map before).
-    fn surface(&self) -> (SurfaceEngine, SurfacePartitioner) {
-        let unassigned = self.region.iter().flatten().max().map_or(0, |m| m + 1);
-        let patch_of: Vec<usize> = self.region.iter().map(|r| r.unwrap_or(unassigned)).collect();
-        let engine = SurfaceEngine::from_parts(&self.points, &self.faces, &self.owner, &self.neighbour, &patch_of);
-        let part = SurfacePartitioner::new(&engine);
-        (engine, part)
-    }
-}
 
 
 /// Run cfMesh's `correctEdgesBetweenPatches` on `mesh`, whose boundary face
@@ -178,13 +126,14 @@ pub fn correct_edges_between_patches(
     face_region: &[Option<usize>],
     names: &[String],
 ) -> (VolumeMesh, Vec<Option<usize>>, CorrectEdgesReport) {
-    let mut w = Work {
+    let mut w = TopoMesh {
         points: mesh.points.clone(),
         faces: mesh.faces.clone(),
         owner: mesh.owner.clone(),
         neighbour: mesh.neighbour.clone(),
         region: face_region.to_vec(),
         n_cells: mesh.n_cells,
+        patch_names: names.to_vec(),
     };
     let mut rep = CorrectEdgesReport::default();
     let mut decompose_cell = vec![false; mesh.n_cells];
@@ -314,171 +263,16 @@ pub fn correct_edges_between_patches(
     (out, regions, rep)
 }
 
-/// `decomposeCells::decomposeMesh` on the marked cells: fan every face of a
-/// marked cell that shares more than one edge with the same face
-/// (`checkFaceConnections`), then split the marked cells into pyramids.
-/// Returns the number of faces fanned. Shared by
-/// [`correct_edges_between_patches`] and
-/// [`crate::cartesian_mesh`]'s `decomposeSplitHexes` (gh:#1266; moved out of
-/// `correct_edges_between_patches` unchanged).
-fn decompose_cells(w: &mut Work, decompose_cell: &[bool]) -> usize {
-    let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); w.n_cells];
-    for f in 0..w.faces.len() {
-        cell_faces[w.owner[f]].push(f);
-        if let Some(n) = w.neighbour[f] {
-            cell_faces[n].push(f);
-        }
-    }
-    let mut split = BTreeMap::new();
-    for c in (0..w.n_cells).filter(|&c| decompose_cell[c]) {
-        let mut edge_faces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
-        for &f in &cell_faces[c] {
-            let ring = &w.faces[f];
-            for i in 0..ring.len() {
-                let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
-                edge_faces.entry((a.min(b), a.max(b))).or_default().push(f);
-            }
-        }
-        for &f in &cell_faces[c] {
-            let ring = w.faces[f].clone();
-            let mut nei: BTreeSet<usize> = BTreeSet::new();
-            for i in 0..ring.len() {
-                let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
-                let other = edge_faces[&(a.min(b), a.max(b))].iter().copied().find(|&g| g != f).unwrap_or(f);
-                if !nei.insert(other) && !split.contains_key(&f) {
-                    let fan = w.fan(f);
-                    split.insert(f, fan);
-                }
-            }
-        }
-    }
-    let n = split.len();
-    w.apply_splits(&split);
-    pyramids(w, decompose_cell);
-    n
-}
-
-/// [`decompose_cells`] and `decomposeFaces` on a bare mesh (gh:#1266,
-/// `cartesianMeshExtractor::decomposeSplitHexesIntoTetsAndPyramids`): fan
-/// the faces in `fan_faces` about their OpenFOAM centre, then decompose the
-/// marked cells. Returns the new points, faces, owners, neighbours and cell
-/// count; boundary faces keep their order after the internal faces.
-#[allow(clippy::type_complexity)]
-pub(crate) fn decompose_faces_and_cells(
-    points: Vec<Vec3>,
-    faces: Vec<Vec<usize>>,
-    owner: Vec<usize>,
-    neighbour: Vec<Option<usize>>,
-    n_cells: usize,
-    fan_faces: &[bool],
-    decompose_cell: &[bool],
-) -> (Vec<Vec3>, Vec<Vec<usize>>, Vec<usize>, Vec<Option<usize>>, usize) {
-    let region = vec![None; faces.len()];
-    let mut w = Work { points, faces, owner, neighbour, region, n_cells };
-    let mut split = BTreeMap::new();
-    for (f, &d) in fan_faces.iter().enumerate() {
-        if d {
-            let fan = w.fan(f);
-            split.insert(f, fan);
-        }
-    }
-    w.apply_splits(&split);
-    if decompose_cell.iter().any(|&d| d) {
-        decompose_cells(&mut w, decompose_cell);
-    }
-    (w.points, w.faces, w.owner, w.neighbour, w.n_cells)
-}
-
-/// `decomposeCellIntoPyramids` for every marked cell: one pyramid per face,
-/// apex at the average of the cell's vertices (`findTopVertex`). Unmarked
-/// cells keep their order (renumbered past the removed ones); the pyramids
-/// are appended cell by cell, face by face (`removeDecomposedCells`,
-/// `addNewCells`). Internal faces keep owner < neighbour.
-fn pyramids(w: &mut Work, mark: &[bool]) {
-    let mut new_id = vec![usize::MAX; w.n_cells];
-    let mut next = 0usize;
-    for c in 0..w.n_cells {
-        if !mark[c] {
-            new_id[c] = next;
-            next += 1;
-        }
-    }
-    // Faces of each marked cell, outward rings.
-    let mut cell_faces: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for f in 0..w.faces.len() {
-        if mark[w.owner[f]] {
-            cell_faces.entry(w.owner[f]).or_default().push(f);
-        }
-        if let Some(n) = w.neighbour[f] {
-            if mark[n] {
-                cell_faces.entry(n).or_default().push(f);
-            }
-        }
-    }
-    // Pyramid id of (cell, face).
-    let mut pyr: BTreeMap<(usize, usize), usize> = BTreeMap::new();
-    for (&c, fs) in &cell_faces {
-        for &f in fs {
-            pyr.insert((c, f), next);
-            next += 1;
-        }
-    }
-    let n_old = w.faces.len();
-    let (mut faces, mut owner, mut neighbour, mut region) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-    let mut push = |ring: Vec<usize>, o: usize, n: Option<usize>, r: Option<usize>| {
-        let (ring, o, n) = match n {
-            Some(nb) if nb < o => (ring.into_iter().rev().collect(), nb, Some(o)),
-            _ => (ring, o, n),
-        };
-        faces.push(ring);
-        owner.push(o);
-        neighbour.push(n);
-        region.push(r);
-    };
-    for f in 0..n_old {
-        let o = w.owner[f];
-        let o2 = if mark[o] { pyr[&(o, f)] } else { new_id[o] };
-        let n2 = w.neighbour[f].map(|n| if mark[n] { pyr[&(n, f)] } else { new_id[n] });
-        push(w.faces[f].clone(), o2, n2, w.region[f]);
-    }
-    for (&c, fs) in &cell_faces {
-        let verts: BTreeSet<usize> = fs.iter().flat_map(|&f| w.faces[f].iter().copied()).collect();
-        let apex_p = verts.iter().fold(Vec3::ZERO, |a, &v| a.add(w.points[v])).scale(1.0 / verts.len() as f64);
-        let apex = w.points.len();
-        w.points.push(apex_p);
-        // Directed edges of the outward rings: a -> b in face f's pyramid;
-        // the side triangle [b, a, apex] points from that pyramid into the
-        // one holding b -> a.
-        let mut directed: BTreeMap<(usize, usize), usize> = BTreeMap::new();
-        for &f in fs {
-            let mut ring = w.faces[f].clone();
-            if w.owner[f] != c {
-                ring.reverse();
-            }
-            for i in 0..ring.len() {
-                directed.insert((ring[i], ring[(i + 1) % ring.len()]), f);
-            }
-        }
-        for (&(a, b), &f) in &directed {
-            if a < b {
-                let g = directed[&(b, a)];
-                push(vec![b, a, apex], pyr[&(c, f)], Some(pyr[&(c, g)]), None);
-            }
-        }
-    }
-    // Internal faces first again (the pipeline's prefix rule).
-    let idx: Vec<usize> = (0..faces.len()).filter(|&f| neighbour[f].is_some()).chain((0..faces.len()).filter(|&f| neighbour[f].is_none())).collect();
-    w.faces = idx.iter().map(|&f| faces[f].clone()).collect();
-    w.owner = idx.iter().map(|&f| owner[f]).collect();
-    w.neighbour = idx.iter().map(|&f| neighbour[f]).collect();
-    w.region = idx.iter().map(|&f| region[f]).collect();
-    w.n_cells = next;
-}
+/// `decomposeCells::decomposeMesh` and the bare-mesh form the octree track
+/// uses: one shared copy in [`crate::topology`] (gh:#1267 moved it there
+/// unchanged; `cartesian_mesh` reaches it through this path).
+pub(crate) use crate::topology::decompose_faces_and_cells;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cartesian::cartesian_box;
+    use crate::topology::decompose_cells_into_pyramids;
 
     /// A flat triangle's centre is its vertex average; a square's too.
     #[test]
@@ -515,8 +309,8 @@ mod tests {
         assert_eq!(out.cell_count(), 8);
         assert!((out.total_volume() - 1.0).abs() < 1e-12);
 
-        let mut w = Work { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8 };
-        pyramids(&mut w, &[true; 8]);
+        let mut w = TopoMesh { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8, patch_names: Vec::new() };
+        decompose_cells_into_pyramids(&mut w, &[true; 8]);
         let v = VolumeMesh { points: w.points, faces: w.faces, owner: w.owner, neighbour: w.neighbour, n_cells: w.n_cells, patches: vec![] };
         assert_eq!(v.cell_count(), 48);
         v.validate().unwrap();
@@ -524,6 +318,37 @@ mod tests {
         assert!(v.owner.iter().zip(&v.neighbour).all(|(&o, n)| n.is_none_or(|n| o < n)));
         assert_eq!(crate::checks::check_quality(&v).n_negative_volume_cells, 0);
     }
+
+    /// Pin (gh:#1267): `correct_edges_between_patches` bit for bit, on the
+    /// mesh the pipeline hands it. Methodology: the demo pipe shortened to
+    /// L 60 mm (R 10 mm, 48 facets), h 6 mm, `MedianPerPoint` with
+    /// `Corners`, bare; pre-mapped and given its patches as the pipeline
+    /// does (`surface_to_tet_dual_mesh_multipatch` with `correct_edges`),
+    /// then corrected. The fingerprint covers the mesh (points bit for bit,
+    /// rings, owner, neighbour, patches), the per-face patch and the report.
+    /// Recorded 2026-11-05 **before** the pyramid decomposition moved into
+    /// [`crate::topology`], and asserted after: the move must not change a
+    /// bit (prediction: it does not, the code is moved unchanged).
+    #[test]
+    fn correct_edges_is_pinned_bit_for_bit() {
+        use crate::dual::{DualKind, FeaturePointRule};
+        use crate::pipeline::tests::{mesh_fingerprint, pipe_surface};
+        use crate::pipeline::{surface_to_tet_dual_mesh_multipatch, TetDualOptions};
+        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
+        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+        let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        let (pre, _) = crate::surface_mapper::map_vertices_onto_surface_untangled(&bare, &p, &t, 10);
+        let given = crate::surface_mapper::boundary_face_regions(&pre, &p, &t, &regions);
+        let (out, reg, rep) = correct_edges_between_patches(&pre, &given, &regions.names);
+        let mut h = mesh_fingerprint(&out);
+        for r in &reg {
+            h = h.rotate_left(7) ^ r.map_or(u64::MAX, |r| r as u64);
+        }
+        let got = (out.cell_count(), rep.n_concave_faces, rep.n_patch_corrected_faces, rep.n_connection_faces, rep.n_decomposed_cells, h);
+        println!("correct_edges pin {got:?}");
+        assert_eq!(got, CORRECT_EDGES_PIN);
+    }
+    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 714198749002929189);
 
     /// V&V (gh:#1241) — `patchCorrection` by hand. One unit cube, its top
     /// face in patch 1 and the rest in patch 0: the top's four edges are

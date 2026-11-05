@@ -3364,6 +3364,146 @@ the NaN faces (not drawn).
 - `docs/outram-park-fork-cfmesh-api.md` was not regenerated (no
   `kovan-cli` run).
 
+## cfMesh's `boundaryLayers` creation route against the crate's back-off, differentially (gh:#1270)
+
+**What was built (2026-11-05).** `layers::boundary_layers::boundary_layers_add_layer` ports
+cfMesh `e944f6ba695f` `boundaryLayers::addLayerForPatch`. It creates one layer on the named
+patches, and treats them as one group. It is opt-in, beside the three strategies, and changes
+no default.
+
+It reuses `layer_setup`'s border classification and `build_layered_variable`'s columns. It adds
+upstream's point placement (`createNewVertex`):
+- a `PATCHNODE` moves along the unit point normal by 0.5 x the shortest distance to a
+  neighbouring boundary point;
+- an `EDGENODE` moves in the other patch's plane, with upstream's 0.9 cap;
+- a two-patch corner moves half way along the shared edge.
+
+Not ported:
+- patch-wise layers across concave feature edges (`createLayerCells`);
+- `addWrapperLayer`;
+- `checkTopologyOfBoundaryFaces`;
+- 2D and MPI.
+
+**Methodology.** Both routes run on the same bare mesh, with one layer on `walls`. The crate's
+`BackOffOnly` is asked for 1 m (0.125 m on the box), so its own cap (0.5 x the shortest wall
+edge) decides the thickness.
+
+Quantities: cells, volume, per-point column length and direction, and `check_quality`. The
+cases are:
+- the carved unit box (h 0.25 m, `walls` on four sides);
+- the demo pipe shortened to L 60 mm (h 6 mm, default dual);
+- the Foam Studio pipe (R 10 mm, L 200 mm, 48 facets, h 5 mm, bare).
+
+Tests: `layers::boundary_layers::tests::{cfmesh_layer_on_a_carved_box_by_hand,
+cfmesh_layer_against_back_off_on_the_box, cfmesh_layer_against_back_off_on_the_pipe,
+diagnose_cfmesh_layer_on_the_foam_studio_pipe}`.
+
+**Predictions (in the tests' doc comments, committed in `c8e89890f` before the first run).**
+- Box:
+  - 128 cells, volume 1;
+  - the end patches re-partitioned, not moved;
+  - columns 0.125 m everywhere except the 8 corners, where they are 0.9 h/√2 = 0.159 m;
+  - against the back-off, lengths equal at 72 points, the corners different, and directions
+    different only at 24 flat points (the crate smooths).
+- Pipe:
+  - volume conserved to 1e-12;
+  - equal cell counts;
+  - at every `PATCHNODE` the crate's column equals cfMesh's x 0.6^(tries − 1);
+  - the rim different;
+  - cfMesh's skewness and inverted cells unknown in advance, to be recorded.
+
+**Results (2026-11-05).**
+
+| case | route | cells | dV/V | first layer min/mean/max [mm] | max non-ortho | max skew | inverted | non-positive pyramids |
+|---|---|---:|---:|---|---:|---:|---:|---:|
+| box h 0.25 | cfMesh | 128 | −1e-15 | 125/128/159 | 23.9° | 1.28 | 0 | — |
+| box h 0.25 | back-off (1 try) | 128 | 0 | 125 | 21.7° | 1.37 | 0 | — |
+| pipe L 60 h 6 | cfMesh | 2 025 | 2e-16 | 0.002/0.609/1.179 | 106.9° | 51.3 | **56** | 716 |
+| pipe L 60 h 6 | back-off (3 tries) | 2 025 | −4e-16 | 0.001/0.220/0.424 | 80.9° | 0.92 | 0 | 0 |
+| Foam Studio pipe | cfMesh | 10 745 | **2.45e-7** | 0.032/0.491/0.857 | 102.5° | 8.42 | **304** | 3 964 |
+| Foam Studio pipe | back-off (3 tries) | 10 745 | **−4.72e-7** | 0.011/0.176/0.309 | 78.6° | 1.01 | 0 | 0 |
+
+**Against the predictions.**
+- **Box:** every prediction held.
+- **Pipes, held:**
+  - the `PATCHNODE` ratio is 0.36 = 0.6² at every point, to 1e-15: both routes take
+    0.5 x the shortest neighbour edge, and the crate backed off twice;
+  - the rim differs, as predicted.
+- **Volume on the Foam Studio pipe: miss** (predicted 1e-12). Located:
+  - the wall patch's Σ c·S/3 is bit for bit the bare mesh's;
+  - all of the change is in `inlet` and `outlet`, whose points on this dual spread 0.47 mm
+    along the axis;
+  - sliding a rim point in the averaged plane of a non-planar end patch moves that surface.
+
+  The crate's default route has the same defect class (−4.7e-7). The `layers` module docs
+  claimed exact conservation; that claim is corrected in this change (struck through).
+- **Quality:** cfMesh's single layer of half the local edge, along the unsmoothed point normal,
+  inverts 56 (304) cells of the curved dual wall. Upstream repairs that afterwards
+  (`meshOptimizer`, `boundaryLayerOptimisation`); this route does not. Of the two routes, only
+  the back-off layer passes upstream's mesh-quality limits as built.
+
+**Images** (drawn from the assembled meshes, `--ignored` test
+`layers::refine_boundary_layers::tests::draw_layer_images`), in
+`crates/outram-park-fork-cfmesh/verification_and_validation/boundary_layers_gh1270/`:
+- `box_cfmesh_layer_yz.png`, `box_refined_3_yz.png`;
+- `pipe_{bare,cfmesh_layer,backoff_layer,cfmesh_refined_3}_{xy,xy_wall,xz_rim}.png`, with the
+  faces of inverted cells in orange.
+
+**Checked by eye:**
+- **Box:** one layer, then three graded layers, along all four walls. The corner columns run
+  along the diagonal, and the end-face cut is flat.
+- **Pipe, cfMesh layer (`_xy`):** a layer all round the wall at mid-length. Orange inverted
+  cells sit where the thick layer meets an inner dual face.
+- **Pipe, refined (`_xz_rim`):** three layers ending on the flat inlet.
+
+**Not checked:** the 3D shape of the inverted cells; the cuts show only their faces in one plane.
+
+## cfMesh's `detectBoundaryLayers` and `refineBoundaryLayers`, differentially (gh:#1271)
+
+**What was built (2026-11-05).** Two pieces, in `layers::refine_boundary_layers`.
+
+- **`detect_boundary_layers`** ports `detectBoundaryLayers` whole (serial). Its components:
+  - the layer-cell selector;
+  - grouping across boundary edges whose owners differ and share a face;
+  - patch clearing;
+  - hair edges.
+- **`refine_boundary_layers`** ports the settings, `analyseLayers` and `generateNewVertices`.
+  - **Settings:** global and per-patch `nLayers`, `thicknessRatio` and
+    `maxFirstLayerThickness`, plus `allowDiscontinuity`.
+  - **Split:** prism layer cells only. A cell needing upstream's `refineEdgeHexCell` or
+    `refineCornerHexCell`, or with mixed counts on its hairs, is refused with `NotPorted`.
+  - **Not ported:** special mode, the cell subset, 2D and MPI.
+
+**Methodology and predictions** (committed before the run in `c8e89890f`):
+- **Pipe** (L 60 mm, h 6 mm, cfMesh's layer from gh:#1270), split into 3 layers at ratio 1.2 on
+  `walls` (1 elsewhere). Compared with `build_layered_variable` given the bare pipe, the same
+  wall faces, the same columns (direction, length) and `d` = 0, 1, 2.2, 3.64:
+  - split points within 1e-12 of the column length, and not all bit for bit;
+  - cells: gh:#1270's + 2 x wall faces;
+  - volume unchanged;
+  - no inverted cell.
+- **Detect** on the same mesh: exactly the layer cells; `walls` only; one hair per wall point.
+- **`maxFirstLayerThickness`** at 0.1 x the shortest column: the first layer is the cap, the
+  second 1.2 x the cap, to 1e-12 relative.
+- **Box:** all three patches in one layer group; `NotPorted`.
+
+**Results (2026-11-05).**
+
+| check | result |
+|---|---|
+| split points vs `build_layered_variable` | worst \|Δ\| / column length **4.6e-15**; 5 621 of 5 824 points bit for bit (held) |
+| refined pipe | 2 025 -> 4 865 cells (1 420 split), volume unchanged (1e-12), closed, every face named (held) |
+| inverted cells after the split | **56**, not 0 (miss: they are gh:#1270's input cells, unchanged by the split) |
+| detect on the cfMesh-layered pipe | 1 420 layer cells = exactly the added ones, 1 456 hairs, `walls` only (held); 51 groups, 50 of them empty (numbered by `groupMarking` before the patch clearing, as upstream's `nFirstLayers_`) |
+| `maxFirstLayerThickness` | first layer = cap and second = 1.2 x cap to **3e-12** relative (**miss on the tolerance**: a 1.6e-7 m layer from positions ~1e-2 m carries ~1e-18 m of round-off; now checked to 1e-14 x the pipe length) |
+| box | **3 groups, not 1** (miss: a wall face and the inlet side face of a rim prism share an owner, and the operator only joins faces whose owners differ); the rim prism's inlet-side hairs carry 1 layer, so the walls refine: 256 cells, 64 split, volume 1, closed (miss: predicted `NotPorted`) |
+
+**Interpretation.** On straight one-cell columns, upstream's split
+`t1 (1 − r^j)/(1 − r)` and the crate's `L d_j/d_n` are the same points to round-off, so the
+crate's column builder is upstream's split for one count per column. The box shows why upstream
+needs `refineEdgeHexCell` only where two layered patches meet at a cell: with `inlet` unlayered,
+no cell needs it.
+
 ## Reproduce
 
 ```bash
@@ -3387,6 +3527,12 @@ CFMESH_BMOVES=1 CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_
 FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies <dir>
 cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_laplace_pc_against_smart_laplacian
+# gh:#1270, gh:#1271 (cfMesh boundaryLayers, detect/refineBoundaryLayers; images)
+cargo test --release -p outram-park-fork-cfmesh --lib -- --nocapture layers::boundary_layers layers::refine_boundary_layers
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_cfmesh_layer_on_the_foam_studio_pipe
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored draw_layer_images
+# gh:#1267 (topology images)
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored draw_topology_images
 # gh:#1261
 cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_cfmesh_against_openfoam_checks
 # gh:#1241

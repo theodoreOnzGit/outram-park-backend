@@ -293,7 +293,14 @@ pub mod surface_engine;
 pub mod surface_mapper;
 pub mod surface_optimizer;
 pub mod tet;
+pub mod tet_creator_octree;
+pub mod tet_mesh_extractor_octree;
+pub mod rename_boundary_patches;
+pub mod renumber_mesh;
+pub mod topology;
+pub mod voronoi_mesh_extractor;
 pub mod volume_mesh;
+pub mod workflow_controls;
 
 /// Bridge to the real `outram-foam-basic-lib` `PolyMesh` (feature
 /// `foam-export`) — the volume-mesh output path to the CFD/TH solver. Off by

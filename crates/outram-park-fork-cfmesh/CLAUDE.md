@@ -74,6 +74,15 @@ lives in the gh:#1215 section of
 Changing the default needs the maintainer, and re-measuring every number that
 depends on it.
 
+cfMesh's own **creation** route (`boundaryLayers::addLayerForPatch`, one
+layer at half the local edge) is `layers::boundary_layers`, and its split
+(`detectBoundaryLayers`, `refineBoundaryLayers`) is
+`layers::refine_boundary_layers` (gh:#1270, #1271). Both are opt-in; no
+pipeline option calls them. They also build through `layer_setup` and
+`build_layered_variable`. Upstream's layer is not quality-checked: on the
+pipe it inverts cells. The record is in the gh:#1270 and gh:#1271 sections
+of the same V&V file.
+
 `SnappyCollapse` builds layer cells by upstream's `nFaceLayers` rule
 (`layers::build_layered_faces`, `FaceLayerCells::Upstream`, gh:#1241); the
 gh:#1215 rule (`MostOfItsPoints`, cells pinched at an unextruded point) is
@@ -156,7 +165,30 @@ gh:#1283 section of `laminar_pipe_gh1155.md`.
 **not** replace `octree.rs`, whose fingerprint pin must not move. Keep both
 routes callable: on the same leaves, `cartesian_mesh_extractor` and
 `octree::build_mesh` build the same faces ring for ring (pinned). The
-`decomposeCells` step is shared with `correct_edges` (`decompose_cells`);
+`decomposeCells` step is shared with `correct_edges` (`decompose_cells`;
+**MOVED 2026-11-05, gh:#1267:** it now lives in `topology::decompose_cells`,
+which `correct_edges`, `cartesian_mesh` and the `topology` checks all call,
+pinned by `correct_edges::tests::correct_edges_is_pinned_bit_for_bit`);
 change it once. Upstream's `findNearestSurfacePoint` is not exact;
 `NearestSearch::Exact` is the port's exact variant. Record and images:
 `verification_and_validation/cartesian_octree_gh1262/`.
+
+## cfMesh's `tetMesh` and `pMesh`, beside the tet-dual pipeline (gh:#1272, #1273, 2026-11-05)
+
+`pipeline::tet_mesh` (`tetMeshGenerator`) and `pipeline::p_mesh`
+(`voronoiMeshGenerator`) are new entry points that share one generator
+body. Their templates are `tet_creator_octree` + `tet_mesh_extractor_octree`
+and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
+`rename_boundary_patches` are the workflow's own steps. They do **not**
+change `surface_to_tet_dual_mesh`. They call the topology track's
+`surfaceMorpherCells` / `topologicalCleaner` and the surface track's
+`meshSurfaceOptimizer` in upstream's places. Steps still missing
+(`edgeExtractor`, `boundaryLayers`, `preMapVertices`,
+`meshSurfaceEdgeExtractorFUN`) call what exists and say so in
+`TetMeshReport::notes`. When one of those lands, wire it in there and
+**re-measure** the records in `verification_and_validation/tet_mesh_gh1272/`
+and `p_mesh_gh1273/` (wiring the first two tracks moved `tet_mesh`'s sphere
+volume error from +26.7 % to −1.36 %). The raw octree tet template has
+non-manifold boundary points (upstream's own tets in coarse `BOUNDARY`
+leaves), which `surfacePreparation` removes; `polyDualMesh` (`CellCentre`)
+refuses the raw template on the sphere and the pipe.

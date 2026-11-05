@@ -105,6 +105,12 @@ use crate::snap::snap_to_surface;
 use crate::tet::tetrahedralize;
 use crate::volume_mesh::VolumeMesh;
 
+/// cfMesh's `tetMesh` workflow (`tetMeshGenerator`, gh:#1272), beside
+/// [`surface_to_tet_dual_mesh`].
+pub mod tet_mesh;
+/// cfMesh's `pMesh` workflow (`voronoiMeshGenerator`, gh:#1273).
+pub mod p_mesh;
+
 /// Tuning knobs for [`surface_to_tet_dual_mesh`] and the primitive wrappers.
 ///
 /// Every optional stage can be turned off. Lengths are in **metres**, angles in
