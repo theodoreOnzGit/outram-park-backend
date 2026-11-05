@@ -337,7 +337,7 @@ fn layer_note(o: &LayerOutcome) -> String {
         o.n_layers_requested,
         100.0 * o.collapsed_point_fraction(),
         o.mean_total_thickness(),
-        o.notes.last().cloned().unwrap_or_default()
+        o.notes.join(" | ")
     )
 }
 
@@ -2242,7 +2242,7 @@ mod tests {
                         if n == 0 && *strategy != LayerQualityStrategy::BackOffOnly {
                             continue;
                         }
-                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
+                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, cfmesh_layer_optimisation: BoundaryLayerOptimisationControls { stop_untangling_on_stall: env("CFMESH_STALL").as_deref() != Some("0"), ..Default::default() }, ..Default::default() };
                         let t0 = std::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
                             Ok(x) => x,

@@ -608,6 +608,10 @@ pub fn mesh_unstructured_dual(
         Ok("corners") => TetDualOptions { dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners, ..opts },
         _ => opts,
     };
+    // Native-only knob (gh:#1241): FOAM_CORRECT_EDGES=1, cfMesh's
+    // correctEdgesBetweenPatches before the feature-edge capture.
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = TetDualOptions { correct_edges: std::env::var("FOAM_CORRECT_EDGES").as_deref() == Ok("1"), ..opts };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);
@@ -953,6 +957,54 @@ pub struct Engine {
     coil: Option<HelicalPipe>,
     /// Where the cross-section plane is on the flow axis \[m\].
     probe_x: f64,
+    /// OpenFOAM's `adjustTimeStep` with this `maxCo` on the pipe
+    /// (gh:#1241; [`courant_numbers`], [`adjusted_delta_t`]); `None` (the
+    /// default) keeps the fixed pseudo-time step every recorded number used.
+    /// Natively `FOAM_MAX_CO` sets it at the start of a run.
+    pub max_co: Option<f64>,
+    /// `maxDeltaT` of the adjustable step: the pipe's fixed step.
+    max_dt: f64,
+}
+
+/// OpenFOAM's Courant number of an incompressible case (OpenFOAM-dev
+/// `852527377c7e`, `src/finiteVolume/cfdTools/incompressible/CourantNo.H`):
+/// `CoNum = ½ Δt max_c(Σ_f |φ_f| / V_c)` and `meanCoNum = ½ Δt Σ_c Σ_f
+/// |φ_f| / Σ_c V_c`, the sum over every face of the cell, boundary faces
+/// included (`fvc::surfaceSum(mag(phi))`). Returns `(CoNum, meanCoNum)`.
+pub fn courant_numbers(s: &outram_foam_appbuilder_lib::solvers::pimple_foam::PimpleFoam) -> (f64, f64) {
+    let m = &s.mesh;
+    let mut sum = vec![0.0_f64; m.n_cells];
+    for f in 0..m.n_internal_faces {
+        let a = s.phi.internal[f].abs();
+        sum[m.owner[f]] += a;
+        sum[m.neighbour[f]] += a;
+    }
+    for (pi, p) in m.patches.iter().enumerate() {
+        for i in 0..p.size {
+            sum[m.owner[p.start + i]] += s.phi.boundary[pi].values[i].abs();
+        }
+    }
+    let dt = s.control.delta_t;
+    let co = (0..m.n_cells).map(|c| sum[c] / m.cell_volumes[c]).fold(0.0_f64, f64::max);
+    let mean = sum.iter().sum::<f64>() / m.cell_volumes.iter().sum::<f64>();
+    (0.5 * co * dt, 0.5 * mean * dt)
+}
+
+/// OpenFOAM's time-step update (OpenFOAM-dev `852527377c7e`,
+/// `src/finiteVolume/cfdTools/general/include/setDeltaT.H`):
+/// `maxDeltaTFact = maxCo / (CoNum + small)`, `deltaTFact = min(min(
+/// maxDeltaTFact, 1 + 0.1 maxDeltaTFact), 1.2)`, `Δt = min(deltaTFact Δt,
+/// maxDeltaT)`; and with `initial` the first step's
+/// (`setInitialDeltaT.H`): `Δt = min(maxCo Δt / CoNum, min(Δt, maxDeltaT))`
+/// when `CoNum > small`.
+pub fn adjusted_delta_t(dt: f64, co_num: f64, max_co: f64, max_dt: f64, initial: bool) -> f64 {
+    const SMALL: f64 = 1e-15;
+    if initial {
+        return if co_num > SMALL { (max_co * dt / co_num).min(dt.min(max_dt)) } else { dt };
+    }
+    let fact = max_co / (co_num + SMALL);
+    let dt_fact = fact.min(1.0 + 0.1 * fact).min(1.2);
+    (dt_fact * dt).min(max_dt)
 }
 
 fn axis_of(i: usize) -> Axis {
@@ -1299,6 +1351,13 @@ impl Engine {
                 }
             }
         }
+        // gh:#1241: adjustTimeStep (off unless asked for); its maxDeltaT is
+        // this fixed step.
+        self.max_dt = s.control.delta_t;
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.max_co.is_none() {
+            self.max_co = std::env::var("FOAM_MAX_CO").ok().and_then(|v| v.parse().ok());
+        }
         self.case = Some(Case::Pipe(s, flow));
         self.steps = 0;
         self.time = 0.0;
@@ -1445,8 +1504,19 @@ impl Engine {
         let mut change = f64::INFINITY;
         match self.case.as_mut().ok_or("no case")? {
             Case::Pipe(s, flow) => {
+                // gh:#1241: OpenFOAM's adjustTimeStep, when asked for; the
+                // fixed step otherwise. maxDeltaT: the step the case set.
+                let max_dt = self.max_dt;
                 for _ in 0..steps.max(1) {
+                    if let (Some(max_co), true) = (self.max_co, self.steps + done == 0) {
+                        let (co, _) = courant_numbers(s);
+                        s.control.delta_t = adjusted_delta_t(s.control.delta_t, co, max_co, max_dt, true);
+                    }
                     change = flow.step(s).map_err(|_| diverged())?;
+                    if let Some(max_co) = self.max_co {
+                        let (co, _) = courant_numbers(s);
+                        s.control.delta_t = adjusted_delta_t(s.control.delta_t, co, max_co, max_dt, false);
+                    }
                     if !change.is_finite() {
                         return Err(diverged());
                     }
@@ -2339,7 +2409,15 @@ mod tests {
             };
             let mut history: Vec<String> = Vec::new();
             let mut first_over = false;
-            for step in 1..=300 {
+            // `co1`, `co4`: OpenFOAM's adjustTimeStep at that maxCo (gh:#1241).
+            let max_co: Option<f64> = abl.strip_prefix("co").and_then(|v| v.parse().ok());
+            let max_dt = s.control.delta_t;
+            let n_steps = std::env::var("FOAM_DIAG_STEPS").ok().and_then(|v| v.parse().ok()).unwrap_or(300usize);
+            for step in 1..=n_steps {
+                if let Some(mc) = max_co {
+                    let (co, _) = courant_numbers(s);
+                    s.control.delta_t = adjusted_delta_t(s.control.delta_t, co, mc, max_dt, step == 1);
+                }
                 let r = flow.step(s);
                 let um: Vec<f64> = s.u.internal.as_slice().iter().map(|v| v.mag()).collect();
                 let (cmax, umax) = um.iter().enumerate().fold((0, 0.0_f64), |a, (c, &v)| if v.is_nan() || v > a.1 { (c, if v.is_nan() { f64::INFINITY } else { v }) } else { a });
@@ -2395,10 +2473,10 @@ mod tests {
                     }
                     break;
                 }
-                if step == 300 {
-                    println!("  no blow-up in 300 steps; max |U| {}", describe(cmax, umax));
+                if step == n_steps {
+                    println!("  no blow-up in {n_steps} steps (dt now {:.3e} s); max |U| {}", s.control.delta_t, describe(cmax, umax));
                 }
-                if step == 300 || r.is_err() || !umax.is_finite() || umax > 20.0 * U_IN {
+                if step == n_steps || r.is_err() || !umax.is_finite() || umax > 20.0 * U_IN {
                     // The worst cell and its neighbours: U (radial, axial), p, net flux.
                     let mut net = vec![0.0_f64; m.n_cells];
                     let mut absf = vec![0.0_f64; m.n_cells];
@@ -2907,6 +2985,42 @@ mod tests {
         let again = headless(d, 100.0, Mode::Steady, 200).unwrap();
         let strip = |v: &[String]| v.iter().filter(|l| l.starts_with("# pipe")).cloned().collect::<Vec<_>>();
         assert_eq!(strip(&again), strip(&lines), "deterministic");
+    }
+
+    /// gh:#1241 — OpenFOAM's time-step update by hand
+    /// (`setInitialDeltaT.H`, `setDeltaT.H`): at Co 4 with `maxCo 1` the first
+    /// step is cut to a quarter; later steps fall by `maxCo / Co` when Co is
+    /// too large, grow by at most `1 + 0.1 maxCo/Co` and 1.2, and never pass
+    /// `maxDeltaT`; Co 0 leaves the first step alone. Then the pipe with
+    /// `max_co = 1` (the small O-grid, Re 100, 20 steps): after the first
+    /// step Co stays within the growth bound of 1 (≤ 1.2), and the run with
+    /// the option off keeps the fixed step.
+    #[test]
+    fn adjust_time_step_follows_openfoam() {
+        assert!((adjusted_delta_t(2.0, 4.0, 1.0, 2.0, true) - 0.5).abs() < 1e-15);
+        assert_eq!(adjusted_delta_t(2.0, 0.0, 1.0, 2.0, true), 2.0);
+        assert!((adjusted_delta_t(1.0, 4.0, 1.0, 10.0, false) - 0.25).abs() < 1e-12);
+        assert!((adjusted_delta_t(1.0, 0.5, 1.0, 10.0, false) - 1.2).abs() < 1e-12);
+        assert!((adjusted_delta_t(1.0, 0.9, 1.0, 10.0, false) - (1.0 + 0.1 / 0.9)).abs() < 1e-12);
+        assert_eq!(adjusted_delta_t(1.0, 0.1, 1.0, 1.1, false), 1.1);
+        for max_co in [None, Some(1.0)] {
+            let mut e = Engine { max_co, ..Engine::default() };
+            e.serve(Request::Mesh { id: 1, design: small_pipe(), probe: 0.75 }, &mut |_| {});
+            e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
+            let dt0 = match &e.case {
+                Some(Case::Pipe(s, _)) => s.control.delta_t,
+                _ => panic!("no pipe"),
+            };
+            for _ in 0..4 {
+                e.serve(Request::Step { id: 1, steps: 5 }, &mut |_| {});
+            }
+            let Some(Case::Pipe(s, _)) = &e.case else { panic!("no pipe") };
+            let (co, mean) = courant_numbers(s);
+            match max_co {
+                None => assert_eq!(s.control.delta_t, dt0),
+                Some(m) => assert!(co <= 1.2 * m && mean < co && s.control.delta_t < dt0, "Co {co}, dt {} of {dt0}", s.control.delta_t),
+            }
+        }
     }
 
     /// The unstructured controls are clamped (a phone cannot ask for a mesh

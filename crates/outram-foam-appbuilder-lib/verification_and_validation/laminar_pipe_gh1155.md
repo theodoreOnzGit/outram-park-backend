@@ -2311,6 +2311,31 @@ pins unchanged; the `CfMeshOptimise` pin in
 `layer_strategies_are_deterministic` changes only if its box duct needs
 a second global iteration.
 
+**Results (2026-11-05), the same mesh, old run (`false`) against the
+bound (`true`):**
+
+| quantity | all 10 global iterations | stop on a stall | verdict |
+|---|---|---|---|
+| meshing (test pipe, alone on the host) | 110.5 s | **13.3 s** | held (10–30 s) |
+| first untangle: bad faces, passes, global, nodes, smoothing | 2 861 → 29, 61, 10, 184 956, 54.5 s | 2 861 → 29, 13, 2, 27 708, 8.0 s | — |
+| final untangle | 29 → 29, 60 passes, 10 global, 50.8 s | 29 → 29, 6 passes, 1 global, 1.8 s; **all 29 touch a boundary point** | held (the faces left are boundary-held) |
+| bad faces at the end (`findBadFaces`) | 77 | 77 | held |
+| low-quality faces at the end | 0 | 1 | — |
+| max non-orthogonality | 57.2° | 57.5° | held (± 2°) |
+| mean total thickness | 1.066 mm | 0.977 mm | **missed** (−8.4 %, predicted ± 2 %) |
+| min determinant | 5.7e-2 | 3.4e-2 | — |
+| Foam Studio solve (h 5, 3 layers; its own cylinder): meshing, steps, u_c/2U, dp/dz, τ_w | 167 s (gh:#1240), 26, 0.9314, 1.0050, 1.0056 | **18.1 s**, 26, 0.9314, 1.0055, 1.0057 | held (± 0.5 %) |
+
+The layers are 8 % thinner because the first untangle's later passes,
+now not run, kept moving the interior points around the stack. The
+remaining cost (13–18 s) is still too much for a phone; what upstream
+does that the port still does not: the LP `meshUntangler` and the
+boundary moves between global iterations (they would remove the 29
+boundary-held faces, not just stop trying), and `meshSurfaceOptimizer`
+inside `optimiseLayer`. Tests: `pipeline::tests::layer_strategies_are_deterministic`
+passes with its old `CfMeshOptimise` pin (the box duct needs no second
+global iteration); `mesh_optimizer::tests::*` unchanged.
+
 ### Item 5: `octree.rs` determinism
 
 **Prediction (written 2026-11-05, before the fix's first run):** the
@@ -2332,6 +2357,90 @@ the same pair three times (16070505555120789497, 24335298658873933),
 now pinned. Cell counts equal before and after. Held. The defaults: see
 the end of this section.
 
+### Both Foam Studio defaults, re-checked after every change above (2026-11-05)
+
+- Structured (`--headless`, 20 480 cells): 34 steps, u_c/2U **0.9940**,
+  dp/dz **1.0154**, RMS 0.0063, τ_w 1.0066: unchanged.
+- Unstructured (`--headless-unstructured 4 0 0.3 1.2 100`, 6 353 cells):
+  29 steps, **0.8925 / 1.0326**, RMS 0.0356, τ_w 1.0312: unchanged; its
+  cfMesh-pipeline fingerprint (L 200 mm, `pipe_surface`) is
+  **18084991279620725399**, as in gh:#1240.
+- Pins that passed: `headless_pipe_reaches_steady_hagen_poiseuille`,
+  `headless_unstructured_pipe_runs_and_is_pinned`,
+  `mesher_choices_default_to_the_recorded_mesher_and_follow_the_url`,
+  `back_off_only_layers_are_pinned_bit_for_bit`,
+  `dual_kinds_are_pinned_bit_for_bit`, `layer_strategies_are_deterministic`,
+  `tet_dual_stages_are_deterministic`. Every new option is off or keeps
+  the recorded behaviour on the defaults: `correct_edges` off,
+  `FOAM_MAX_CO` unset, the octree path unused at `refinement_levels = 0`,
+  `FaceLayerCells` and the untangle bound used only by the snappy and
+  cfMesh strategies.
+
+### Images (drawn from the mesh the solver gets)
+
+In `laminar_pipe_gh1155/gh1241/`, written by
+`FOAM_DUAL_FP=corners FOAM_CORRECT_EDGES=1 … --render-dual-kinds` (files
+`dual_<kind>_corners_ce_*`: `correct_edges` on the `Corners` duals, h 5
+mm, bare and with three back-off layers) and by `FOAM_DUAL_KIND=point
+FOAM_DUAL_FP=corners FOAM_RENDER_N=2 … --render-layer-strategies`
+(files `layers_<strategy>_h5_2_*`: the per-point dual with two layers
+under the back-off, cfMesh with the untangle bound, and snappy with
+upstream's per-face cells).
+
+**Checked by eye (2026-11-05):** `layers_snappy_h5_2_wallmap.png`: the
+two layers survive on the middle third of the pipe (z ≈ 70–130 mm, blue)
+and are gone toward both ends (red), with an orange band (fewer layers)
+at each front: the unextrusion walks in from the inlet and outlet rims,
+iteration by iteration, 8–16 wall faces a step (the iteration notes),
+and stops when the relaxed checks apply. `layers_snappy_h5_2_xy_wall.png`
+(z = 100 mm): two thin prisms (≈ 0.2 mm in all) under the dual cell, no
+wedge. `dual_point_corners_ce_h5_3layers_xz_rim.png` (`correct_edges` on,
+three back-off layers): the stack ends cleanly on the inlet at z = 0, the
+dual cells behind it whole; the fanned faces and the pyramids are not
+visible in an x-z slice. The `cfmesh` images show the 0.77 mm two-layer
+stack (bounded untangle). **Not checked:** the pyramids' 3-D shape at the
+rim; the `centre` renders beyond their file listing.
+
+### Recommendation (for the maintainer; nothing is changed)
+
+**Do not make `CellCentre` + `Corners` the unstructured default yet,
+with any layer strategy.** (1) The `Corners` rim is a chain of chords:
+the projected inlet is 0.956 / 0.983 / 0.948 πR² at h 4 / 5 / 6 mm, and
+cfMesh's `correctEdgesBetweenPatches` does not repair it (item 1); the
+current default (per-corner, h 4 mm, bare) gives u_c/2U 0.8925 against
+0.8502 for `CellCentre` + `Corners` bare at the same h. (2) The
+3-layer result that would justify it (`CfMeshOptimise`: u_c/2U 0.9314,
+dp/dz 1.0055, τ_w 1.0057, the closest to Hagen–Poiseuille of any
+unstructured row) now meshes in 13–18 s natively instead of 110–370 s
+(item 4), still too slow for the browser demo on a phone. (3)
+`BackOffOnly` with 3 layers runs once the time step follows OpenFOAM's
+Courant number (`maxCo` 4: 155 steps, 0.8998 / 1.0271; item 2) but its
+rim cell keeps a 1.8 U radial velocity, a mesh defect (face weight
+0.008) the back-off does not check. What would change the
+recommendation: keeping the rim vertices while dropping the collinear
+border cap (the `OnFeatureEdge`/`Corners` trade-off of gh:#1240), and
+porting the boundary moves of `untangleMeshFV`. Separately, **adopting
+`adjustTimeStep` (`maxCo` 4) for unstructured layered meshes** is
+recommended: the steady state did not depend on it (0.8998 / 1.0271 at
+`maxCo` 1 and 4) and it is what upstream runs; it changes no default
+until the maintainer decides.
+
+### Open (gh:#1241)
+
+- The `Corners` rim's chord loss (all h) and the rim tangles at h 4 / 6
+  mm: upstream's `meshSurfaceOptimizer::untangleSurface`, the LP
+  `meshUntangler` and `untangleMeshFV`'s boundary moves are not ported.
+- The rim cell's decoupled radial velocity on thin back-off layers
+  (face weight 0.008 < OpenFOAM's `minFaceWeight 0.05`): the back-off
+  checks no face weight.
+- Snappy at 3 layers: upstream's pinch rule empties the wall after
+  iteration 1 fails thin prisms on warped polygons; the medial-axis
+  shrink with `scaleMesh` is not ported.
+- `CfMeshOptimise` still 13–18 s; the mean layer thickness moved −8 %
+  with the bound.
+- Upstream (OpenFOAM, cfMesh) is not installed here; no port above was
+  run against its upstream on a shared case.
+
 ## Reproduce
 
 ```bash
@@ -2350,4 +2459,10 @@ cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --li
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
 FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
+# gh:#1241
+CFMESH_STEPS=1 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_corners_rim
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_snappy_cascade
+FOAM_DIAG_ABL=base,upwind,linear,nolimit,dt4,dt10,dt30,uncorrected,nonorth0,co4 cargo test --release -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_three_layer_divergence
+FOAM_MAX_CO=4 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners CFMESH_STALL=0 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
 ```

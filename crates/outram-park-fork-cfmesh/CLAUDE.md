@@ -74,6 +74,14 @@ lives in the gh:#1215 section of
 Changing the default needs the maintainer, and re-measuring every number that
 depends on it.
 
+`SnappyCollapse` builds layer cells by upstream's `nFaceLayers` rule
+(`layers::build_layered_faces`, `FaceLayerCells::Upstream`, gh:#1241); the
+gh:#1215 rule (`MostOfItsPoints`, cells pinched at an unextruded point) is
+a port defect kept callable for the comparison. cfMesh's
+`correctEdgesBetweenPatches` is `correct_edges.rs`, opt-in through
+`TetDualOptions::correct_edges` (gh:#1241: it does not repair the
+`Corners` rim, and costs 13–330 s on the demo pipe).
+
 **Reproducibility is pinned across processes, not just within one.** A test
 that runs the pipeline twice in one process cannot see `HashMap` iteration
 order (seeded per process); `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
