@@ -830,7 +830,7 @@ pub fn cylinder_tet_dual(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::f64::consts::PI;
 
@@ -1838,7 +1838,7 @@ mod tests {
     /// A pipe surface (radius `r`, length `l`, `n_seg` sides, z ∈ [0, l]) with
     /// each triangle labelled `inlet` (flat at z = 0), `outlet` (flat at
     /// z = l) or `walls`.
-    fn pipe_surface(r: f64, l: f64, n_seg: usize) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
+    pub(crate) fn pipe_surface(r: f64, l: f64, n_seg: usize) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
         let (p, t) = cylinder_surface(Vec3::ZERO, r, l, n_seg);
         let labels: Vec<&str> = t
             .iter()
