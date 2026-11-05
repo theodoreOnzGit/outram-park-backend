@@ -227,3 +227,24 @@ y = 0.1 mm, the inlet rim at x = 10 mm, z = 0).
 
 **Not checked:** the outlet rim; the 3D shape of the sheets; a solve on
 this mesh.
+
+## Re-measurement with `preMapVertices` wired in (gh:#1274 remainder, 2026-11-05)
+
+`voronoiMeshGenerator::mapMeshToSurface` calls
+`meshSurfaceMapper::preMapVertices()` (3 iterations) before
+`mapVerticesOntoSurface` and `untangleSurface`; `p_mesh` skipped it (noted)
+since `premap_vertices` (gh:#1274) had not been wired here. It is now.
+`tetMesh` does not call it upstream and is unchanged.
+
+**Predictions (written 2026-11-05, before the run).** Sphere 0.5 m and
+pipe 48 at 2 mm, the `diagnose_p_mesh_workflow` setups:
+
+- **Q1.** `preMapVertices` finds a patch for every boundary point and leaves
+  the mean distance to the surface between 1/8 and 1/2 of its start (as on
+  `cartesianMesh`, C3 of gh:#1274).
+- **Q2.** Cell counts unchanged (sphere 1 749, pipe 9 781): it moves points
+  only.
+- **Q3.** Volume errors move by less than 0.2 points (sphere −1.537 %,
+  pipe −0.320 %).
+- **Q4.** Max non-orthogonality rises by no more than 5° (18.06°, 58.24°).
+- **Q5.** Closed, 0 non-positive cells.
