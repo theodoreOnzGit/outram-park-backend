@@ -26,12 +26,18 @@ const CASES = [
   { name: 'centre_corners_h5_2layers_desktop', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&layerq=backoff&route=legacy&autostart=1', vp: [1280, 900] },
   { name: 'centre_corners_h5_2layers_phone', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&layerq=backoff&route=legacy&autostart=1', vp: [390, 844] },
   { name: 'centre_corners_h5_3layers_cfmesh_desktop', q: 'mesh=unstructured&h=5&layers=3&dual=centre&fp=corners&layerq=cfmesh&route=legacy&autostart=1', vp: [1280, 900] },
-  // gh:#1298: the new default (h 4 mm, no layer), desktop and phone, and
-  // its 3-layer case at h 5 mm; the old default as the ablation.
-  { name: 'default_gh1298_desktop', q: 'mesh=unstructured&autostart=1', vp: [1280, 900] },
-  { name: 'default_gh1298_phone', q: 'mesh=unstructured&autostart=1', vp: [390, 844] },
+  // gh:#1298: the new mesher bare at h 4 mm (the default until the
+  // maintainer's gh:#1298 decision; since then reached by h=4&layers=0),
+  // desktop and phone, and its 3-layer case at h 5 mm; the old default as
+  // the ablation.
+  { name: 'default_gh1298_desktop', q: 'mesh=unstructured&h=4&layers=0&autostart=1', vp: [1280, 900] },
+  { name: 'default_gh1298_phone', q: 'mesh=unstructured&h=4&layers=0&autostart=1', vp: [390, 844] },
   { name: 'default_gh1298_h5_3layers_desktop', q: 'mesh=unstructured&h=5&layers=3&autostart=1', vp: [1280, 900] },
   { name: 'default_gh1298_h5_3layers_phone', q: 'mesh=unstructured&h=5&layers=3&autostart=1', vp: [390, 844] },
+  // gh:#1298, maintainer decision: the default is h 5 mm with 3 layers,
+  // loaded with no size in the URL, desktop and phone.
+  { name: 'default_h5_3layers_desktop', q: 'mesh=unstructured&autostart=1', vp: [1280, 900] },
+  { name: 'default_h5_3layers_phone', q: 'mesh=unstructured&autostart=1', vp: [390, 844] },
   { name: 'legacy_default_desktop', q: `mesh=unstructured&${LEGACY}&autostart=1`, vp: [1280, 900] },
 ];
 // BROWSER_CASES=name1,name2 runs only those (all when unset).

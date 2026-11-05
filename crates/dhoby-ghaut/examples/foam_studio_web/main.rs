@@ -215,8 +215,10 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
 }
 
 /// `--render-default` (gh:#1298): the drawing rule's images of the demo's
-/// unstructured default (`TetDualSpec::default_for`, h 4 mm bare) and of
-/// the same mesher with 3 wall layers at h 5 mm, beside the pre-gh:#1298
+/// unstructured mesher (`TetDualSpec::BASE`) bare at h 4 mm (~~the
+/// default~~ the default until the maintainer's gh:#1298 decision) and with
+/// 3 wall layers at h 5 mm (`TetDualSpec::default_for`, the default since
+/// that decision, 2026-11-05), beside the pre-gh:#1298
 /// default (`TetDualSpec::PRE_GH1298`), from the `PolyMesh` the solver
 /// gets, with the shots of `--render-unstructured`. CLI glue (file output);
 /// reached by no test (drawing only).
@@ -228,9 +230,9 @@ fn render_default(out: &std::path::Path) -> Result<(), String> {
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
     let def = TetDualSpec::default_for(0.01);
     let cases = [
-        ("default_gh1298_h4_bare", def, "GH1298 DEFAULT: CELL-CENTRE DUAL, CORNERS, UPSTREAM SEQUENCE, H 4 MM, NO LAYER"),
-        ("default_gh1298_h5_3layers", TetDualSpec { cell_size: 0.005, n_layers: 3, ..def }, "GH1298 DEFAULT MESHER, H 5 MM, 3 LAYERS (CFMESH OPTIMISE)"),
-        ("pre_gh1298_h4_bare", TetDualSpec { cell_size: def.cell_size, n_layers: 0, first_layer: def.first_layer, expansion: def.expansion, ..TetDualSpec::PRE_GH1298 }, "PRE-GH1298 DEFAULT (ABLATION): PER-CORNER DUAL, H 4 MM, NO LAYER"),
+        ("default_gh1298_h4_bare", TetDualSpec { cell_size: 0.004, n_layers: 0, ..def }, "GH1298 MESHER, H 4 MM, NO LAYER (DEFAULT UNTIL THE GH1298 DECISION)"),
+        ("default_gh1298_h5_3layers", def, "GH1298 DEFAULT: H 5 MM, 3 LAYERS (CFMESH OPTIMISE)"),
+        ("pre_gh1298_h4_bare", TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: def.first_layer, expansion: def.expansion, ..TetDualSpec::PRE_GH1298 }, "PRE-GH1298 DEFAULT (ABLATION): PER-CORNER DUAL, H 4 MM, NO LAYER"),
     ];
     let mut meshes = Vec::new();
     for (tag, spec, label) in cases {

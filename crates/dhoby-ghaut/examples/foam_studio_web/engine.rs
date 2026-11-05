@@ -212,7 +212,10 @@ pub enum CfMeshRoute {
 impl TetDualSpec {
     /// The mesher choices every spec starts from. Literal specs end with
     /// `..TetDualSpec::BASE`; only the four numbers above are meaningful
-    /// in it.
+    /// in it. ~~Its numbers are h 4 mm, no layer~~ **CHANGED 2026-11-05
+    /// (gh:#1298, maintainer decision):** its numbers are the demo default's
+    /// on the demo pipe ([`Self::default_for`]`(0.01)`): h 5 mm, 3 layers,
+    /// first layer 0.3 mm, × 1.2.
     ///
     /// ~~The per-corner dual, the utility's feature points and the back-off
     /// layer stage, i.e. the mesher every recorded number before gh:#1240's
@@ -222,8 +225,8 @@ impl TetDualSpec {
     /// and [`CfMeshRoute::UpstreamNoLaplace`]. The old choices are
     /// [`Self::PRE_GH1298`], the named ablation.
     pub const BASE: Self = Self {
-        cell_size: 0.004,
-        n_layers: 0,
+        cell_size: 0.005,
+        n_layers: 3,
         first_layer: 3e-4,
         expansion: 1.2,
         dual: outram_park_fork_cfmesh::dual::DualKind::CellCentre,
@@ -237,8 +240,12 @@ impl TetDualSpec {
     /// feature points, the back-off layer stage and
     /// [`CfMeshRoute::PreGh1298`]. Every Foam Studio number recorded before
     /// gh:#1298 was taken on it; specs that reproduce those records end
-    /// with `..TetDualSpec::PRE_GH1298`.
+    /// with `..TetDualSpec::PRE_GH1298`. Its numbers stay the old
+    /// default's (h 4 mm, no layer) now that [`Self::BASE`]'s are h 5 mm
+    /// with 3 layers.
     pub const PRE_GH1298: Self = Self {
+        cell_size: 0.004,
+        n_layers: 0,
         dual: outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner,
         feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge,
         layer_quality: outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly,
@@ -304,6 +311,22 @@ impl TetDualSpec {
         Ok(Self { dual, feature_points, layer_quality, route, ..self })
     }
 
+    /// `self` with the cell size and layer count a page URL names
+    /// (gh:#1202): `h=` in mm, `layers=` (at most [`MAX_LAYERS`]); a value
+    /// that does not parse leaves the control as it is. `h=4&layers=0` is
+    /// the bare h 4 mm case, the default until the maintainer's gh:#1298
+    /// decision.
+    pub fn with_size_query(self, h_mm: Option<&str>, layers: Option<&str>) -> Self {
+        let mut s = self;
+        if let Some(h) = h_mm.and_then(|v| v.parse::<f64>().ok()) {
+            s.cell_size = h * 1e-3;
+        }
+        if let Some(n) = layers.and_then(|v| v.parse::<usize>().ok()) {
+            s.n_layers = n.min(MAX_LAYERS);
+        }
+        s
+    }
+
     /// `self` with the route a page URL names (gh:#1298): `route=legacy`
     /// is [`CfMeshRoute::PreGh1298`], `route=upstream` the default;
     /// anything else leaves it as it is.
@@ -365,9 +388,15 @@ pub const CELL_PER_R_MIN: f64 = 1.5;
 pub const MAX_LAYERS: usize = 3;
 
 impl TetDualSpec {
-    /// The demo's default for a pipe of radius `radius`: cell 0.4 R, **no
+    /// The demo's default for a pipe of radius `radius`. ~~Cell 0.4 R, **no
     /// layer** (first layer 0.03 R and expansion 1.2 for when layers are asked
-    /// for). On the demo pipe: 6 353 cells, meshed in about 0.5 s; ~~61 steps
+    /// for).~~ **CHANGED 2026-11-05 (gh:#1298, maintainer decision): cell
+    /// 0.5 R, 3 wall layers, first layer 0.03 R, expansion 1.2**, on
+    /// [`Self::BASE`]'s mesher. On the demo pipe (h 5 mm): see the gh:#1298
+    /// layer-case numbers at the end of this comment; the pin is
+    /// `headless_unstructured_default_is_pinned`. The bare cell 0.4 R case
+    /// below stays reachable (page URL `h=4&layers=0`). History of the bare
+    /// 0.4 R default: On the demo pipe: 6 353 cells, meshed in about 0.5 s; ~~61 steps
     /// and about 9 s natively with `Gauss linear` convection, u_c/2U 0.942,
     /// dp/dz 0.941 × HP~~ **UPDATED 2026-11-04 (gh:#1202)**, with the
     /// feature-edge capture (the inlet now spans 0.9936 πR², was 0.9396) and
@@ -384,9 +413,16 @@ impl TetDualSpec {
     /// ([`Self::BASE`]: cell-centre dual, corners, upstream's sequence):
     /// 6 353 cells, meshed in 2.4 s natively, 27 steps, u_c/2U 0.8832,
     /// dp/dz 1.0649 × HP, inlet flux 0.99391 πR² (the V&V record's
-    /// gh:#1298 section; the pin is `headless_unstructured_default_is_pinned`).
+    /// gh:#1298 section; ~~the pin is `headless_unstructured_default_is_pinned`~~
+    /// no longer pinned: it missed its dp/dz prediction, 1.00–1.04).
+    ///
+    /// **The default since the maintainer's gh:#1298 decision (2026-11-05):**
+    /// cell 0.5 R, 3 layers, first 0.03 R, × 1.2: 7 049 cells, 26 steps,
+    /// u_c/2U 0.9394, dp/dz 1.0062 × HP (gh:#1298's layer-case run, and the
+    /// V&V record's re-run of the default; pinned by
+    /// `headless_unstructured_default_is_pinned`).
     pub fn default_for(radius: f64) -> Self {
-        Self { cell_size: 0.4 * radius, n_layers: 0, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
+        Self { cell_size: 0.5 * radius, n_layers: 3, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
     }
 
     /// Rough cell count of the tet-dual mesh of a pipe (radius `r`, length
@@ -2972,7 +3008,11 @@ mod tests {
     /// was taken on~~ **gh:#1298:** the default is the cell-centre dual,
     /// corners only, cfMesh's optimiser and upstream's sequence; the old
     /// default is `PRE_GH1298`, reachable from the URL; both cross the
-    /// clamp and the wire codes unchanged.
+    /// clamp and the wire codes unchanged. **gh:#1298, maintainer decision
+    /// (2026-11-05):** the default case is h 5 mm with 3 layers (~~h 4 mm,
+    /// no layer~~), which the clamp and the 50k cap leave alone; the URL's
+    /// `h=4&layers=0` reaches the bare h 4 mm case, and `PRE_GH1298` keeps
+    /// the old default's numbers.
     #[test]
     fn mesher_choices_default_to_upstreams_sequence_and_follow_the_url() {
         use outram_blender::foam_mesh::LayerQualityStrategy as L;
@@ -2980,10 +3020,20 @@ mod tests {
         let d = TetDualSpec::default_for(0.01);
         assert_eq!((d.dual, d.feature_points, d.layer_quality, d.route), (D::CellCentre, F::Corners, L::CfMeshOptimise, CfMeshRoute::UpstreamNoLaplace));
         assert_eq!(d.choice_codes(), [2.0, 1.0, 1.0, 0.0]);
+        assert_eq!((d.cell_size, d.n_layers, d.first_layer, d.expansion), (0.005, 3, 0.03 * 0.01, 1.2));
+        assert_eq!((TetDualSpec::BASE.cell_size, TetDualSpec::BASE.n_layers), (d.cell_size, d.n_layers));
+        assert_eq!(d.clamped(0.01, 0.2), d, "the clamp and the 50k cap leave the default alone");
+        // The bare h 4 mm case, the default before the gh:#1298 decision,
+        // from the URL; and a value that does not parse changes nothing.
+        let bare = d.with_size_query(Some("4"), Some("0"));
+        assert_eq!(bare, TetDualSpec { cell_size: 0.004, n_layers: 0, ..d });
+        assert_eq!(bare.clamped(0.01, 0.2), bare);
+        assert_eq!(d.with_size_query(Some("x"), None), d);
+        assert_eq!(d.with_size_query(None, Some("9")).n_layers, MAX_LAYERS);
         // The ablation is the pre-gh:#1298 default, choice for choice.
         let old = TetDualSpec::PRE_GH1298;
         assert_eq!((old.dual, old.feature_points, old.layer_quality, old.route), (D::MedianPerCorner, F::OnFeatureEdge, L::BackOffOnly, CfMeshRoute::PreGh1298));
-        assert_eq!((old.cell_size, old.n_layers, old.first_layer, old.expansion), (TetDualSpec::BASE.cell_size, 0, 3e-4, 1.2));
+        assert_eq!((old.cell_size, old.n_layers, old.first_layer, old.expansion), (0.004, 0, 3e-4, 1.2));
         // The URL reaches it, and back.
         let q = d.with_query(Some("corner"), Some("edges"), Some("backoff")).with_route_query(Some("legacy"));
         assert_eq!(q.choice_codes(), [0.0, 0.0, 0.0, 1.0]);
@@ -3194,22 +3244,27 @@ mod tests {
     }
 
     /// gh:#1298 — the **new unstructured default** (`TetDualSpec::default_for`:
-    /// h 4 mm, no layer, the cell-centre dual with corners, upstream's
-    /// sequence without the Laplace pass), Re 100, steady. Pinned where the
-    /// V&V record measured it on 2026-11-05 (`laminar_pipe_gh1155.md`,
-    /// gh:#1298 section): 6 353 cells, u_c/2U 0.8832, dp/dz 1.0649 × HP
-    /// (the prediction was 0.86–0.91 and 1.00–1.04: u_c held, dp/dz missed
-    /// high). Mass conserved; deterministic.
+    /// ~~h 4 mm, no layer~~ **h 5 mm, 3 wall layers (first 0.3 mm, × 1.2)
+    /// since the maintainer's decision of 2026-11-05**, the cell-centre dual
+    /// with corners, cfMesh's layer optimiser, upstream's sequence without
+    /// the Laplace pass), Re 100, steady. Pinned where the V&V record
+    /// measured it on 2026-11-05 (`laminar_pipe_gh1155.md`, gh:#1298
+    /// section, "The default becomes h 5 mm with 3 layers"): **7 049 cells,
+    /// u_c/2U 0.9394, dp/dz 1.0062 × HP** (predicted from gh:#1298's layer
+    /// case: 7 049 ± 30, 0.9394 ± 0.002, 1.0062 ± 0.002). Old pin, struck:
+    /// ~~h 4 mm bare: 6 353 cells, u_c/2U 0.8832, dp/dz 1.0649 × HP~~ (its
+    /// prediction was 0.86–0.91 and 1.00–1.04: u_c held, dp/dz missed high;
+    /// the miss stays in the record). Mass conserved; deterministic.
     #[test]
     fn headless_unstructured_default_is_pinned() {
         let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() };
         let lines = headless(d, 100.0, Mode::Steady, 200).unwrap();
         let joined = lines.join("\n");
-        assert!(joined.contains("6353 cells"), "{joined}");
+        assert!(joined.contains("7049 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
-        assert!((val("uc=") - 0.8832).abs() < 2e-3, "{pipe}");
-        assert!((val("dpdz=") - 1.0649).abs() < 2e-3, "{pipe}");
+        assert!((val("uc=") - 0.9394).abs() < 2e-3, "{pipe}");
+        assert!((val("dpdz=") - 1.0062).abs() < 2e-3, "{pipe}");
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
@@ -3263,8 +3318,15 @@ mod tests {
         assert!(s.estimated_cells(0.01, 0.2) <= MAX_CELLS as f64);
         let d = TetDualSpec::default_for(0.01);
         let e = d.estimated_cells(0.01, 0.2);
-        assert!((e / 6_353.0 - 1.0).abs() < 0.15, "estimate {e} vs measured 6353");
+        // ~~The default (h 4 bare): within 15 % of 6 353~~; since the
+        // gh:#1298 decision the default is h 5 mm with 3 layers: 7 188
+        // estimated against 7 049 measured, far under the 50k cap, so the
+        // clamp leaves h at 5 mm. The bare h 4 mm case keeps its check.
+        assert!((e / 7_049.0 - 1.0).abs() < 0.10, "estimate {e} vs measured 7049");
+        assert!(e < MAX_CELLS as f64);
         assert_eq!(d.clamped(0.01, 0.2), d);
+        let bare = TetDualSpec { cell_size: 0.004, n_layers: 0, ..d }.estimated_cells(0.01, 0.2);
+        assert!((bare / 6_353.0 - 1.0).abs() < 0.15, "estimate {bare} vs measured 6353");
         // gh:#1298: the polyDualMesh estimate against the --mesh-sweep
         // counts of the new default with 3 layers (h 6 / 5 / 4 mm: 4 417 /
         // 7 049 / 12 509 cells), and the per-corner one against its own

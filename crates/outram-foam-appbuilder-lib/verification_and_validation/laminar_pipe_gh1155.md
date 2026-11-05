@@ -1076,7 +1076,7 @@ quality limits, warm-started momentum; Re = 100; nominal instrument;
 | cells | mesh | demo pair: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** | `Gauss linear`: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** |
 |---|---|---|---|
 | 6 353 | h 4 mm, no layer (~~**default**~~ the default until gh:#1298; now the ablation `TetDualSpec::PRE_GH1298`) | 29, 0.8925, **1.0326**, 0.0356, **1.0312** | 63, 0.9811, **0.9673**, 0.0126, **0.9638** |
-| 6 353 | **gh:#1298 default** (cell-centre dual, corners, upstream's sequence), h 4 mm, no layer (2026-11-05) | 27, 0.8832, **1.0649**, 0.0363, **1.0652** | not run |
+| 6 353 | ~~**gh:#1298 default**~~ gh:#1298 mesher (cell-centre dual, corners, upstream's sequence), h 4 mm, no layer (2026-11-05; the default until the maintainer's decision the same day, which made it h 5 mm with 3 layers: 7 049 cells, 26, 0.9394, 1.0062, 0.0278, 1.0090) | 27, 0.8832, **1.0649**, 0.0363, **1.0652** | not run |
 | 6 713 | h 6 mm, 1 layer | 23, 0.8071, 1.0565, 0.0733, 1.0514 | 76, 0.9453, 0.8882, 0.0222, 0.8840 |
 | 11 177 | h 3.3 mm, no layer | 37, 0.9606, **0.9838**, 0.0214, **0.9802** | 54, 0.9669, **0.9632**, 0.0161, **0.9596** |
 | 10 745 | h 5 mm, 1 layer | 28, 0.8954, 0.9705, 0.0509, 0.9678 | 63, 0.9440, 0.9011, 0.0262, 0.8978 |
@@ -3739,6 +3739,13 @@ cell-centre-dual --lib`: 240 passed, 0 failed, 25 ignored (2026-11-05).
 **Maintainer-approved 2026-11-05.** gh:#1283's recommendation 2 (route
 `upEnl`) becomes Foam Studio's default.
 
+> **Default case changed the same day (maintainer decision on gh:#1298,
+> 2026-11-05):** the default keeps this mesher but is **h 5 mm with 3
+> layers**, not h 4 mm bare; see "The default becomes h 5 mm with 3 layers"
+> at the end of this section. Below, "the default" with h 4 mm and no layer
+> means the default as first set by gh:#1298; those rows and the h 4 mm
+> dp/dz miss stay as recorded.
+
 ### What changed
 
 - `examples/foam_studio_web/engine.rs`: `TetDualSpec::BASE` is now the
@@ -3824,14 +3831,14 @@ them, so I expect small shifts from those only.
 
 ### Results (2026-11-05)
 
-**The default** (h 4 mm, no layer), against the old default (the ablation,
+~~**The default**~~ **The gh:#1298 mesher bare** (h 4 mm, no layer; the default until the maintainer's decision below), against the old default (the ablation,
 `TetDualSpec::PRE_GH1298`, still pinned by
 `headless_unstructured_pipe_runs_and_is_pinned`):
 
 | mesher | cells | max NO (°) | inlet flux / πR² | meshing (native) | steps | u_c/2U | dp/dz / HP | RMS | τ_w / HP |
 |---|---|---|---|---|---|---|---|---|---|
 | ~~per-corner dual, `OnFeatureEdge`, back-off, pre-gh:#1298 route (the old default)~~ ablation | 6 353 | 52.3 (gh:#1202) | — | ~0.5 s | 29 | 0.8925 | 1.0326 | 0.0356 | 1.0312 |
-| **new default** (`CellCentre` + `Corners`, `CfMeshOptimise`, upstream's sequence without Laplace) | 6 353 | 52.5 | 0.99391 | 2.4 s | 27 | **0.8832** | **1.0649** | 0.0363 | 1.0652 |
+| ~~**new default**~~ gh:#1298 mesher bare (`CellCentre` + `Corners`, `CfMeshOptimise`, upstream's sequence without Laplace) | 6 353 | 52.5 | 0.99391 | 2.4 s | 27 | **0.8832** | **1.0649** | 0.0363 | 1.0652 |
 
 **The layer case** (h 5 mm, 3 layers, first 0.3 mm, × 1.2): 7 049 cells,
 100 % coverage, mean total thickness 0.896 mm, max NO 45.1°, inlet flux
@@ -3863,9 +3870,9 @@ sweep, 3 layers: h 6 / 5 / 4 mm 4 613 / 7 188 / 12 507 against 4 417 /
 
 | case | cells | meshed | steady | steps | UI frames while meshing (median / max) | page errors |
 |---|---|---|---|---|---|---|
-| new default, desktop 1280×900 | 6 353 | 7 s | 14 s | 27 | 16.7 / 117 ms | 0 |
-| new default, **phone** 390×844 | 6 353 | 8 s | 13 s | 27 | 16.7 / 100 ms | 0 |
-| new mesher, h 5, 3 layers, desktop | 7 049 | 23 s | 28 s | 26 | 16.7 / 100 ms | 0 |
+| ~~new default~~ gh:#1298 mesher bare h 4, desktop 1280×900 | 6 353 | 7 s | 14 s | 27 | 16.7 / 117 ms | 0 |
+| ~~new default~~ gh:#1298 mesher bare h 4, **phone** 390×844 | 6 353 | 8 s | 13 s | 27 | 16.7 / 100 ms | 0 |
+| new mesher, h 5, 3 layers, desktop (the default since the maintainer's decision) | 7 049 | 23 s | 28 s | 26 | 16.7 / 100 ms | 0 |
 | new mesher, h 5, 3 layers, **phone** | 7 049 | 22 s | 26 s | 26 | 16.7 / 233 ms | 0 |
 | old default (ablation, `route=legacy&dual=corner&fp=edges&layerq=backoff`), desktop | 6 353 | 2 s | 10 s | 29 | 16.7 / 167 ms | 0 |
 
@@ -3937,6 +3944,8 @@ phone and a real GPU (software WebGL only).
   at h 5 mm (0.9394 / 1.0062, 7 049 cells, 23 s in a browser), or bring
   back the Laplace pass once the layer split honours the requested
   thickness (`upE`: 0.8985 / 1.0137 bare). Nothing was tuned here.
+  **Decided 2026-11-05 by the maintainer: the first** (the default is h 5
+  mm with 3 layers; next subsection).
 - h 6 mm with 2 layers: the layer stage is refused on the new route and the
   bare mesh returned (sweep); not investigated.
 
@@ -3989,6 +3998,72 @@ I expect the same mesh and at most a round-off change in the solve.
    20–25 s (gh:#1298: 22–23 s); UI median frame 16.7 ms (60 fps) while the
    worker meshes; 0 page errors. `h=4&layers=0` gives the bare row:
    6 353 cells, 27 steps.
+
+**What changed (code).** `examples/foam_studio_web/engine.rs`:
+`TetDualSpec::default_for` is cell 0.5 R, 3 layers (was 0.4 R, 0);
+`TetDualSpec::BASE`'s numbers are the same h 5 mm, 3 layers;
+`TetDualSpec::PRE_GH1298` spells out the old default's h 4 mm, no layer, so
+the ablation is unchanged; new `TetDualSpec::with_size_query` (the page's
+`h=` / `layers=`, used by `app.rs`). `app.rs`: the panel starts from
+`default_for(0.01)` as before, so native, URL and panel agree; the layer
+note's time now quotes gh:#1298 (6 s native, 22 s browser) instead of
+gh:#1283's 12 s. `main.rs`: `--headless-unstructured` with no arguments
+runs the new default (it starts from `default_for`); `--render-default`
+draws the bare h 4 mm case explicitly and the default as the 3-layer case.
+
+**Results (2026-11-05, release, this host, load ~1.6).**
+
+| quantity | predicted | measured | |
+|---|---|---|---|
+| cells | 7 049 ± 30 | 7 049 | held |
+| max NO / skewness | — | 45.1° / 1.97 | |
+| inlet flux / πR² | — | 0.99196 | |
+| layer coverage, mean thickness | — | 100 %, 0.896 mm | |
+| bad faces at the end (`findBadFaces`) | — | 0 | |
+| meshing (native) | 4–10 s | 6.1 s | held |
+| steps to steady | 26 ± 2 | 26 | held |
+| u_c/2U | 0.9394 ± 0.002 | **0.9394** | held |
+| dp/dz / HP | 1.0062 ± 0.002 | **1.0062** | held |
+| RMS, τ_w / HP | — | 0.0278, 1.0090 | |
+| mass (out/in − 1) | < 1e-8 | < 1e-8 (pin) | held |
+| `estimated_cells` | 7 188, within 10 % | 7 188 (+2.0 %) | held |
+| cap / clamp | h stays 5 mm | `clamped(default) == default` | held |
+| browser desktop: cells, steps, meshing | 7 049, 26, 20–25 s | 7 049, 26, 22 s | held |
+| browser phone: cells, steps, meshing | 7 049, 26, 20–25 s | 7 049, 26, **22 s** | held |
+| UI median frame while meshing | 16.7 ms | 16.7 ms (both widths) | held |
+| page errors | 0 | 0 | held |
+| `h=4&layers=0` (browser, desktop) | 6 353 cells, 27 steps | 6 353, 27 (8 s meshed) | held |
+| `--headless-unstructured 4 0` (native) | the gh:#1298 bare row | 6 353 cells, 27 steps, 0.8832 / 1.0649, 2.3 s | held |
+
+The default and gh:#1298's layer-case run give the same numbers to the
+printed digits: `default_for(0.01)`'s lengths equal `5e-3` and `3e-4`
+exactly (checked: `0.5 * 0.01 == 5 * 1e-3`, `0.03 * 0.01 == 0.3 * 1e-3` in
+`f64`). The browser log is
+`crates/dhoby-ghaut/verification_and_validation/foam_studio_unstructured_web/browser_check_gh1298_default_h5.txt`.
+
+**Moved pins (old → new):** `headless_unstructured_default_is_pinned`
+6 353 → 7 049 cells, u_c/2U 0.8832 → 0.9394, dp/dz 1.0649 → 1.0062 (old
+values struck in its doc comment); `unstructured_specs_are_clamped`: the
+default's estimate is checked against 7 049 (±10 %; was 6 353 ±15 %, which
+is now checked on the bare h 4 mm spec); `mesher_choices_…`: the default's
+numbers (5 mm, 3, 0.3 mm, 1.2), `PRE_GH1298`'s (4 mm, 0), the clamp leaving
+the default alone and the `h=4&layers=0` URL; `layer_warning_matches_the_record`:
+the default shows the upstream-sequence note with 6 s, 0.939 and 1.006.
+The ablation pin `headless_unstructured_pipe_runs_and_is_pinned` is
+unchanged (0.8925 / 1.0326). No cfMesh pin moves.
+
+**Images:** `laminar_pipe_gh1155/default_gh1298/default_gh1298_h4_bare_*`
+and `default_gh1298_h5_3layers_*` re-rendered with the new labels ("GH1298
+MESHER, H 4 MM, NO LAYER (DEFAULT UNTIL THE GH1298 DECISION)", "GH1298
+DEFAULT: H 5 MM, 3 LAYERS"); the meshes are the same (6 353 and 7 049
+cells). Checked by eye: `default_gh1298_h5_3layers_xy_wall`
+shows the three layers at the wall, as before; `default_gh1298_h4_bare_xy`
+and `_xz_corner` as before. The `pre_gh1298_*` images are unchanged.
+
+**Tests (2026-11-05, release):** `cargo test --release -j 2 -p dhoby-ghaut
+--example foam_studio_web`: 19 passed, 7 ignored. `cargo test --release -p
+petir --test no_platform_libm`: 4 passed. No cfMesh code changed, so no
+cfMesh pin was run.
 
 ## Reproduce
 
@@ -4045,8 +4120,11 @@ CFMESH_VARIANTS=base,upE,upEnl cargo test --release -p outram-park-fork-cfmesh -
 # gh:#1298 (the new default; since gh:#1298 the FOAM_* knobs above keep the
 # route's value when unset, so a pre-gh:#1298 command needs
 # FOAM_CFMESH_ROUTE=legacy FOAM_DUAL_KIND=corner FOAM_DUAL_FP=edges FOAM_LAYER_STRATEGY=backoff)
+# the default: h 5 mm, 3 layers since the maintainer's gh:#1298 decision
 cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured
 cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+# the bare h 4 mm case (the default until that decision)
+cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 4 0
 cargo run --release -p dhoby-ghaut --example foam_studio_web -- --mesh-sweep
 cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-default
 ```

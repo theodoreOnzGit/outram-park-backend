@@ -135,14 +135,14 @@ impl FoamApp {
             app.mode = Mode::Transient;
         }
         // `?mesh=unstructured` (gh:#1202): the cylinder on the cfMesh mesh, for
-        // links and browser checks; `&h=` cell size and `&layers=` in mm / count.
+        // links and browser checks; `&h=` cell size and `&layers=` in mm / count
+        // (the default h 5 mm, 3 layers since gh:#1298; `h=4&layers=0` the
+        // bare case that was the default before).
         if bugis::web_demo::platform::query_value(&q, "mesh") == Some("unstructured") {
-            if let Some(h) = bugis::web_demo::platform::query_value(&q, "h").and_then(|v| v.parse::<f64>().ok()) {
-                app.unstructured.cell_size = h * 1e-3;
-            }
-            if let Some(n) = bugis::web_demo::platform::query_value(&q, "layers").and_then(|v| v.parse::<usize>().ok()) {
-                app.unstructured.n_layers = n.min(MAX_LAYERS);
-            }
+            app.unstructured = app.unstructured.with_size_query(
+                bugis::web_demo::platform::query_value(&q, "h"),
+                bugis::web_demo::platform::query_value(&q, "layers"),
+            );
             // `&dual=point|centre`, `&fp=corners`, `&layerq=cfmesh|snappy`
             // (gh:#1240 browser controls).
             app.unstructured = app.unstructured.with_query(
@@ -1066,7 +1066,7 @@ fn layer_warning(c: &TetDualSpec) -> Option<&'static str> {
     match (c.n_layers, c.layer_quality) {
         (0, _) => None,
         (_, L::CfMeshOptimise) if upstream => Some(
-            "cfMesh's layer optimiser with upstream's sequence: about 12 s natively at 5 mm with 3 layers (gh:#1283), longer in a browser. On the cell-centre dual, corners only, it ran at u_c/2U 0.939, dp/dz 1.006 x Hagen-Poiseuille, with 0 bad faces; the layers come out about 0.9 mm for 0.98 mm asked.",
+            "cfMesh's layer optimiser with upstream's sequence (the default): about 6 s natively at 5 mm with 3 layers, about 22 s in a browser (gh:#1298). On the cell-centre dual, corners only, it ran at u_c/2U 0.939, dp/dz 1.006 x Hagen-Poiseuille, with 0 bad faces; the layers come out about 0.9 mm for 0.98 mm asked.",
         ),
         (_, L::CfMeshOptimise) => Some(
             "cfMesh's layer optimiser takes minutes (140-370 s natively at 5 mm, 3 layers; slower in a browser) and makes the layers thicker than asked (its thickness control is not ported). With the cell-centre dual, corners only, 3 layers ran at 5 mm: u_c/2U 0.931, dp/dz 1.005 x Hagen-Poiseuille (gh:#1240).",
@@ -1106,7 +1106,11 @@ mod tests {
         };
         let default_with = |n: usize| TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) };
         assert!(layer_warning(&default_with(0)).is_none());
-        assert!(layer_warning(&default_with(3)).unwrap().contains("upstream's sequence"));
+        // gh:#1298: the default itself (h 5 mm, 3 layers) shows the
+        // upstream-sequence note, with the gh:#1298 record's numbers.
+        let note = layer_warning(&TetDualSpec::default_for(0.01).clamped(0.01, 0.2)).unwrap();
+        assert!(note.contains("upstream's sequence (the default)") && note.contains("about 6 s") && note.contains("0.939") && note.contains("1.006"), "{note}");
+        assert_eq!(layer_warning(&default_with(3)), Some(note));
         assert!(layer_warning(&spec(0, None, None, Some("cfmesh"))).is_none());
         assert!(layer_warning(&spec(1, None, None, None)).is_none());
         assert!(layer_warning(&spec(2, None, None, None)).unwrap().contains("2 layers run"));

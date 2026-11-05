@@ -35,7 +35,48 @@ responsive on desktop and phone? Covers gh:#1202, #1215 and #1240.
   page errors, and the UI thread keeps drawing. The no-lag rule requires that
   meshing and solving run in the worker.
 
+## Results: the default after the maintainer's gh:#1298 decision, h 5 mm with 3 layers (2026-11-05)
+
+**Maintainer decision on gh:#1298 (2026-11-05):** the default keeps the
+gh:#1298 mesher but is **h 5 mm with 3 wall layers** (first 0.3 mm, × 1.2),
+because the bare h 4 mm default missed its dp/dz prediction (1.0649 × HP)
+while this case measured 0.9394 / 1.0062. Loaded with no size in the URL
+(`mesh=unstructured&autostart=1`); `h=4&layers=0` gives the bare case.
+Built from `claude/outram-foam-8ookor` at `d73f11f61` plus the working tree
+(page stamp `-dirty`), wasm-bindgen 0.2.129. Host: 4 cores, load ~1.6, no
+other build running. Log: `browser_check_gh1298_default_h5.txt`.
+
+| case | cells | meshed | steady | steps | UI frames while meshing (median / max) | page errors |
+|---|---|---|---|---|---|---|
+| **default** (h 5 mm, 3 layers), desktop 1280×900 | 7 049 | 22 s | 29 s | 26 | 16.7 / 183 ms (the page's first frame; ≤ 67 ms after) | 0 |
+| **default**, **phone** 390×844 | 7 049 | 22 s | 27 s | 26 | 16.7 / 16.8 ms | 0 |
+| bare h 4 mm (`h=4&layers=0`), desktop (re-run; screenshots kept from the first run) | 6 353 | 8 s | 13 s | 27 | 16.7 / 183 ms (first frame) | 0 |
+
+- Predictions (V&V record, gh:#1298, written before the run): 7 049 cells,
+  26 steps, meshing 20–25 s, median 16.7 ms, 0 errors; the bare URL 6 353
+  cells / 27 steps. **All held.**
+- **Phone meshing time: 22 s** for the default (against 8 s for the old
+  bare h 4 default). It is above the "under ~20 s" I had taken as
+  phone-acceptable for gh:#1298; the UI stays at 60 fps throughout (the
+  meshing is in the worker).
+- The side panel opens with cell size 5.00 mm, 3 wall layers, 0.30 mm,
+  1.200; the estimate reads "≈ 7k cells estimated" with no "cell size
+  raised" note (the 50k cap does not touch the default); the layer note
+  reads "cfMesh's layer optimiser with upstream's sequence (the default):
+  about 6 s natively ... about 22 s in a browser".
+- Screenshots: `default_h5_3layers_{desktop,phone}_{solving,final}.png`.
+  Checked by eye: the phone view has the panel folded ("Controls »"), the
+  +/−/Reset buttons, the solved pipe and the dock with the profile against
+  Hagen–Poiseuille and the cross-section (7 049 cells); the desktop panel
+  as described above, "7049 cells · max non-orthogonality 45.1° · max
+  skewness 1.97", "meshed in 20.88 s".
+
 ## Results: the gh:#1298 default (2026-11-05)
+
+> ~~The "new default" rows below are the default~~ **SUPERSEDED the same
+> day by the maintainer's decision above:** the "new default" rows are the
+> gh:#1298 mesher bare at h 4 mm, now reached by `h=4&layers=0`
+> (`browser_check.js` cases `default_gh1298_*` say so since).
 
 **gh:#1298 made the cell-centre dual with corners, cfMesh's optimiser and
 upstream's sequence (without the Laplace pass) the unstructured default.**
@@ -45,8 +86,8 @@ running. Log: `browser_check_gh1298.txt`.
 
 | case | cells | meshed | steady | steps | UI frames while meshing (median / max) | page errors |
 |---|---|---|---|---|---|---|
-| **new default** (h 4 mm, no layer), desktop | 6 353 | 7 s | 14 s | 27 | 16.7 / 117 ms | 0 |
-| **new default**, **phone** | 6 353 | 8 s | 13 s | 27 | 16.7 / 100 ms | 0 |
+| ~~**new default**~~ gh:#1298 mesher bare (h 4 mm, no layer), desktop | 6 353 | 7 s | 14 s | 27 | 16.7 / 117 ms | 0 |
+| ~~**new default**~~ gh:#1298 mesher bare, **phone** | 6 353 | 8 s | 13 s | 27 | 16.7 / 100 ms | 0 |
 | new mesher, h 5 mm, 3 layers, desktop | 7 049 | 23 s | 28 s | 26 | 16.7 / 100 ms | 0 |
 | new mesher, h 5 mm, 3 layers, **phone** | 7 049 | 22 s | 26 s | 26 | 16.7 / 233 ms | 0 |
 | ~~old default~~ the ablation (`route=legacy&dual=corner&fp=edges&layerq=backoff`), desktop | 6 353 | 2 s | 10 s | 29 | 16.7 / 167 ms | 0 |
@@ -54,7 +95,7 @@ running. Log: `browser_check_gh1298.txt`.
 - Cells and steps equal the native runs (gh:#1298 section of
   `laminar_pipe_gh1155.md`: 6 353 cells / 27 steps; 7 049 / 26; the
   ablation 29 steps as its pin).
-- **Meshing is phone-acceptable for the default: 8 s on the phone
+- **Meshing is phone-acceptable for ~~the default~~ the bare h 4 mm case: 8 s on the phone
   viewport** (prediction 3–15 s, held), against 2 s for the old default.
   The 3-layer case takes 22–23 s, where the old route's cfMesh 3-layer case
   took 646 s (row struck below).
