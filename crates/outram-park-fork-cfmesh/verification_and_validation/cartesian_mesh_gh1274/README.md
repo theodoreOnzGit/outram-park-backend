@@ -203,7 +203,7 @@ upstream workflow. The "without layer" row is the ablation.
      patch-wise groups are not ported.
    - In `pipe_xz_rim_cartesian_mesh.png` the rim layer cell is pinched
      diagonally into the corner. Upstream's separate wall and inlet
-     columns would not do that.
+     columns would not do that. **RE-MEASURED 2026-11-05:** with the patch-wise layer (now the default) the rim is not pinched; the regenerated image shows separate columns.
 3. **`refine_boundary_layers` returns `NotPorted` for two-direction
    cells: not met**, for the reason in C9.
 
@@ -229,7 +229,7 @@ cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images -
 - One layer of thin cells follows the wall, with radial spokes from the
   former template corners.
 - The core stays a hex grid.
-- At the pipe rim the layer cell is pinched diagonally (caveat 2).
+- ~~At the pipe rim the layer cell is pinched diagonally (caveat 2).~~ **REGENERATED 2026-11-05 (gh:#1270 remainder):** the rim images now show the patch-wise layer (wall and inlet layers with an edge cell); the one-group pinch is in `patch_wise_layers_gh1270/pipe_otopology_layer_stage_xz_rim.png`.
 
 **What I could not check:** 3D views, and the patch of each face (faces are
 not coloured by patch).

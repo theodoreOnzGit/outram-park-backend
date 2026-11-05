@@ -478,6 +478,14 @@ fn main() {
     draw(&o2, &xy, Colouring::Type, Some(&m2), "CHANNEL CARTESIAN2DMESH", &p2("channel_2d_xy.png"));
     let xz = Slice { axis: 1, at: 0.1, lo: (-0.05, -0.5), hi: (1.05, 0.6), px: 900 };
     draw(&o2, &xz, Colouring::Type, Some(&m2), "CHANNEL CARTESIAN2DMESH", &p2("channel_2d_xz.png"));
+    // gh:#1275 remainder: the patch-wise layer refined into 3 (2D mode), and
+    // the inlet corner zoomed.
+    let s3 = outram_park_fork_cfmesh::layers::refine_boundary_layers::RefineBoundaryLayersSettings { n_layers: 3, ..Default::default() };
+    let (m2r, _) = cartesian_2d_mesh(&rp, &rt, Some(&reg), &Cartesian2DMeshOptions { dict: dict.clone(), boundary_layers: Some(s3), ..Default::default() }).expect("2D refined");
+    draw(&o2, &xy, Colouring::Type, Some(&m2r), "CHANNEL CARTESIAN2DMESH NLAYERS 3", &p2("channel_2d_refined_3_xy.png"));
+    let corner = Slice { axis: 2, at: 0.5 * dz, lo: (-0.01, -0.01), hi: (0.09, 0.09), px: 900 };
+    draw(&o2, &corner, Colouring::Type, Some(&m2), "CHANNEL CARTESIAN2DMESH INLET CORNER", &p2("channel_2d_corner_xy.png"));
+    draw(&o2, &corner, Colouring::Type, Some(&m2r), "CHANNEL NLAYERS 3 INLET CORNER", &p2("channel_2d_refined_3_corner_xy.png"));
     let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(1.0, 0.25, 0.5));
     let o3 = create_octree(&bp, &bt, None, &dict);
     let (m3, _) = cartesian_mesh(&bp, &bt, None, &CartesianMeshGeneratorOptions { dict: dict.clone(), ..Default::default() }).expect("3D");

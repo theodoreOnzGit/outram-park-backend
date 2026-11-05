@@ -40,10 +40,10 @@
 //! | `surfaceTopology` | as `cartesianMesh` | [`super::cartesian_mesh::cartesian_surface_preparation`] |
 //! | `surfaceProjection` | `meshSurfaceMapper2D`: `adjustZCoordinates`, `preMapVertices`, `mapVerticesOntoSurface` | [`crate::surface_mapper_2d`] |
 //! | `patchAssignment` | `meshSurfaceEdgeExtractor2D::distributeBoundaryFaces` | [`crate::surface_mapper_2d::distribute_boundary_faces`] |
-//! | `edgeExtraction` | `remapBoundaryPoints`, then `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`) | [`crate::surface_mapper_2d::remap_boundary_points`]; **`optimizeSurface2D` / `untangleSurface2D` not ported** (noted) |
+//! | `edgeExtraction` | `remapBoundaryPoints`, then `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`) | [`crate::surface_mapper_2d::remap_boundary_points`]; ~~**`optimizeSurface2D` / `untangleSurface2D` not ported** (noted)~~ [`optimise_mesh_surface_2d`] (gh:#1275 remainder) |
 //! | `boundaryLayerGeneration` | `boundaryLayers` with `activate2DMode`, `addLayerForAllPatches` (always) | ~~`layers::boundary_layers` on every non-empty patch as **one group**, the empty patches untreated (what 2D mode does to them); patch-wise groups not ported~~ **UPDATED 2026-11-05 (gh:#1270 remainder):** `BoundaryLayers::activate_2d_mode` and the patch-wise `add_layer_for_all_patches` |
-//! | `meshOptimisation` | `optimiseMeshSurface` again | **not ported** (noted): nothing moves |
-//! | `boundaryLayerRefinement` | with a dict: `refineBoundaryLayers` in 2D mode, `untangleSurface2D` | **not ported** (2D mode): a dict gives a note, no split |
+//! | `meshOptimisation` | `optimiseMeshSurface` again | ~~**not ported** (noted): nothing moves~~ [`optimise_mesh_surface_2d`] |
+//! | `boundaryLayerRefinement` | with a dict: `refineBoundaryLayers` in 2D mode, `untangleSurface2D` | ~~**not ported** (2D mode): a dict gives a note, no split~~ `refine_boundary_layers_2d`, then `untangle_surface_2d` (gh:#1275 remainder) |
 //! | (always) | `renumberMesh`, `renameBoundaryPatches(mesh, dict, true)` | as `cartesian_mesh`, empty patches allowed |
 //!
 //! Reused from the 3D workflow where upstream reuses it: the extractor, the
@@ -54,6 +54,8 @@
 
 use crate::cartesian_mesh::{create_empty_patches, CartesianMeshOptions};
 use crate::layers::boundary_layers::{BoundaryLayersControls, LayerRequest};
+use crate::layers::refine_boundary_layers::{refine_boundary_layers_2d, RefineBoundaryLayersSettings, RefineError};
+use crate::surface_optimizer::{optimize_surface_2d, untangle_surface_2d, Surface2DReport};
 use crate::pipeline::cartesian_mesh::LayerTopology;
 use crate::math::Vec3;
 use crate::mesh_octree::{MeshOctree, TriSurf};
@@ -81,9 +83,10 @@ pub struct Cartesian2DMeshOptions {
     pub decompose_polyhedra_into_tets_and_pyrs: bool,
     /// `boundaryLayers` creation settings.
     pub layer_heights: BoundaryLayersControls,
-    /// A `boundaryLayers` dict with refinement settings is present (the 2D
-    /// refinement is not ported: a note).
-    pub refine_boundary_layers_requested: bool,
+    /// The `boundaryLayers` dict's refinement settings (`None`: no dict, no
+    /// refinement). ~~`refine_boundary_layers_requested: bool` (the 2D
+    /// refinement was not ported)~~ replaced in gh:#1275's remainder.
+    pub boundary_layers: Option<RefineBoundaryLayersSettings>,
     /// **Ablation, not upstream:** skip `boundaryLayerGeneration`.
     pub without_boundary_layer: bool,
     /// Patch-wise layer (upstream) or the one-group ablation (gh:#1270
@@ -99,7 +102,7 @@ impl Default for Cartesian2DMeshOptions {
             rename_boundary: None,
             decompose_polyhedra_into_tets_and_pyrs: false,
             layer_heights: BoundaryLayersControls::default(),
-            refine_boundary_layers_requested: false,
+            boundary_layers: None,
             without_boundary_layer: false,
             layer_topology: LayerTopology::PatchWise,
         }
@@ -131,6 +134,22 @@ pub struct Cartesian2DMeshReport {
     pub n_layer_cells: usize,
     /// Non-positive cells right after the layer.
     pub n_nonpositive_after_layer: usize,
+    /// `optimizeSurface2D` / `untangleSurface2D` of each `optimiseMeshSurface`
+    /// call (`edgeExtraction`, then `meshOptimisation`).
+    pub surface_2d: Vec<(Surface2DReport, Surface2DReport)>,
+    /// Cells `refineBoundaryLayers` split.
+    pub n_cells_refined: usize,
+    /// `refineBoundaryLayers` refused (this port's `NotPorted`).
+    pub refine_error: Option<String>,
+}
+
+/// `cartesian2DMeshGenerator::optimiseMeshSurface`:
+/// `meshSurfaceOptimizer(mse, octree)`'s `optimizeSurface2D()` (5
+/// iterations) and `untangleSurface2D()` (gh:#1275 remainder).
+pub fn optimise_mesh_surface_2d(m: &mut VolumeMesh, o: &MeshOctree) -> Result<(Surface2DReport, Surface2DReport), String> {
+    let a = optimize_surface_2d(m, o, 5)?;
+    let b = untangle_surface_2d(m)?;
+    Ok((a, b))
 }
 
 /// `meshOctree(surf, true)` and `createOctreeBoxes`: the quadtree.
@@ -238,7 +257,9 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
             WorkflowStep::EdgeExtraction => {
                 let n = remap_boundary_points(m, &o)?;
                 rep.n_corner_edges = n;
-                rep.notes.push(format!("edgeExtraction: remapBoundaryPoints ({n} corner edges); optimiseMeshSurface (optimizeSurface2D, untangleSurface2D) NOT PORTED, skipped"));
+                let (a, b) = optimise_mesh_surface_2d(m, &o)?;
+                rep.notes.push(format!("edgeExtraction: remapBoundaryPoints ({n} corner edges); optimiseMeshSurface: optimizeSurface2D ({} outline, {} bottom points), untangleSurface2D bad faces {:?}", a.n_edge_points, a.n_partition_points, b.bad_faces));
+                rep.surface_2d.push((a, b));
             }
             WorkflowStep::BoundaryLayerGeneration => {
                 if opts.without_boundary_layer {
@@ -255,14 +276,27 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
                     }
                 }
             }
-            WorkflowStep::MeshOptimisation => rep.notes.push("meshOptimisation: optimiseMeshSurface (optimizeSurface2D, untangleSurface2D) NOT PORTED; nothing moves".into()),
-            WorkflowStep::BoundaryLayerRefinement => {
-                if opts.refine_boundary_layers_requested {
-                    rep.notes.push("boundaryLayerRefinement: refineBoundaryLayers::activate2DMode NOT PORTED; the layer is left unrefined".into());
-                } else {
-                    rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into());
-                }
+            WorkflowStep::MeshOptimisation => {
+                let (a, b) = optimise_mesh_surface_2d(m, &o)?;
+                rep.notes.push(format!("meshOptimisation: optimiseMeshSurface: optimizeSurface2D ({} outline, {} bottom points), untangleSurface2D bad faces {:?}", a.n_edge_points, a.n_partition_points, b.bad_faces));
+                rep.surface_2d.push((a, b));
             }
+            WorkflowStep::BoundaryLayerRefinement => match &opts.boundary_layers {
+                None => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
+                Some(s) => match refine_boundary_layers_2d(m, s) {
+                    Ok((mm, rr)) => {
+                        *m = mm;
+                        types.resize(m.patches.len(), "patch".to_string());
+                        rep.n_cells_refined = rr.n_cells_split;
+                        let u = untangle_surface_2d(m)?;
+                        rep.notes.push(format!("boundaryLayerRefinement: refineBoundaryLayers (2D mode) split {} cells ({} edge hexahedra); untangleSurface2D bad faces {:?}", rr.n_cells_split, rr.n_edge_hex_cells, u.bad_faces));
+                    }
+                    Err(RefineError::NotPorted(msg)) => {
+                        rep.notes.push(format!("boundaryLayerRefinement: refineBoundaryLayers NOT PORTED for this mesh ({msg}); the layer is left unrefined"));
+                        rep.refine_error = Some(msg);
+                    }
+                },
+            },
             _ => {}
         }
     }
@@ -447,5 +481,120 @@ mod tests {
             let b = e.z_min_to_z_max[i];
             assert_eq!((moved[a].x, moved[a].y), (moved[b].x, moved[b].y));
         }
+    }
+
+    fn one_cell_thick(m: &VolumeMesh) -> bool {
+        let e2d = PolyMeshGen2DEngine::new(m);
+        e2d.is_ok_and(|e| m.points.iter().enumerate().all(|(i, _)| e.z_min_point[i] ^ e.z_max_point[i]))
+    }
+
+    /// V&V (gh:#1275 remainder), predictions S1–S4 of
+    /// `verification_and_validation/cartesian_2d_mesh_gh1275/README.md`.
+    #[test]
+    fn channel_2d_surface_optimisation_and_refined_layers() {
+        let (p, t, r) = channel_ribbon();
+        let dz = p[4].z;
+        let dict = MeshDict::with_max_cell_size(0.05);
+        // S1, edgeExtraction: the template's optimiseMeshSurface moves nothing
+        let stop = Cartesian2DMeshOptions { dict: dict.clone(), workflow: WorkflowSettings { stop_after: Some(WorkflowStep::PatchAssignment), restart_from_latest_step: false }, ..Default::default() };
+        let (mut m0, _) = cartesian_2d_mesh(&p, &t, Some(&r), &stop).unwrap();
+        let o = create_quadtree(&p, &t, Some(&r), &dict);
+        crate::surface_mapper_2d::remap_boundary_points(&mut m0, &o).unwrap();
+        let before = m0.points.clone();
+        let (a, b) = optimise_mesh_surface_2d(&mut m0, &o).unwrap();
+        let moved = before.iter().zip(&m0.points).map(|(x, y)| x.sub(*y).length()).fold(0.0f64, f64::max);
+        println!("S1 edgeExtraction: optimizeSurface2D {} outline + {} bottom points, largest move {moved:.3e}; untangleSurface2D {:?}", a.n_edge_points, a.n_partition_points, b.bad_faces);
+        // Miss of S1 (predicted < 1e-12): which points moved, and whether
+        // the outline stayed on the straight sides.
+        let on_side = |q: Vec3| q.x.abs() < 1e-12 || (q.x - L).abs() < 1e-12 || q.y.abs() < 1e-12 || (q.y - H).abs() < 1e-12;
+        let (mut out_max, mut in_max, mut off_side) = (0.0f64, 0.0f64, 0usize);
+        for (x, y) in before.iter().zip(&m0.points) {
+            let d = x.sub(*y).length();
+            if on_side(*x) {
+                out_max = out_max.max(d);
+                off_side += usize::from(!on_side(*y));
+            } else {
+                in_max = in_max.max(d);
+            }
+        }
+        let area0 = m0.total_volume() / dz;
+        println!("S1 edgeExtraction: largest move of an outline point {out_max:.3e} ({off_side} left the sides), of an inner point {in_max:.3e}; area {area0:.15}; non-positive {}", n_nonpositive_cells(&m0));
+        assert_eq!(off_side, 0);
+        assert!((area0 - L * H).abs() < 1e-12);
+        assert_eq!(n_nonpositive_cells(&m0), 0);
+        // S1, S2: the finished channel
+        let opts = Cartesian2DMeshOptions { dict: dict.clone(), ..Default::default() };
+        let (m, rep) = cartesian_2d_mesh(&p, &t, Some(&r), &opts).unwrap();
+        for n in rep.notes.iter().filter(|n| n.starts_with("edgeExtraction") || n.starts_with("meshOptimisation")) {
+            println!("  {n}");
+        }
+        let area = m.total_volume() / dz;
+        let q = crate::checks::check_quality(&m);
+        println!("S1 finished: {} cells, area {area:.15} ({:+.3e}), non-positive {}, max non-orth {:.2}, max skew {:.3}", m.n_cells, (area - L * H) / (L * H), n_nonpositive_cells(&m), q.max_non_orthogonality_deg, q.max_skewness);
+        m.validate().unwrap();
+        assert!(one_cell_thick(&m));
+        assert!((area - L * H).abs() < 1e-12);
+        assert_eq!(n_nonpositive_cells(&m), 0);
+        let mut mm = m.clone();
+        let u = untangle_surface_2d(&mut mm).unwrap();
+        println!("S2: untangleSurface2D on the finished channel: bad faces {:?}", u.bad_faces);
+        assert_eq!(u.bad_faces, vec![0]);
+        // S3: drag one bottom point past its neighbour
+        let e2d = PolyMeshGen2DEngine::new(&m).unwrap();
+        let engine = crate::surface_engine::SurfaceEngine::new(&m);
+        let part = crate::surface_engine::SurfacePartitioner::new(&engine);
+        let k = (0..e2d.z_min_point_labels.len())
+            .find(|&k| {
+                let v = e2d.z_min_point_labels[k];
+                let b = engine.bp[v];
+                part.point_patches[b].len() == 1 && m.points[v].x > 0.4 && m.points[v].x < 0.6
+            })
+            .expect("an interior bottom point");
+        let (v, w) = (e2d.z_min_point_labels[k], e2d.z_min_to_z_max[k]);
+        let mut d = m.clone();
+        d.points[v].x += 0.08;
+        d.points[w].x += 0.08;
+        let n_bad0 = crate::mesh_optimizer::find_bad_faces(&d).iter().filter(|&&x| x).count();
+        let u = untangle_surface_2d(&mut d).unwrap();
+        let n_bad1 = crate::mesh_optimizer::find_bad_faces(&d).iter().filter(|&&x| x).count();
+        println!("S3: dragged point {v} by 0.08: bad faces {n_bad0} -> {n_bad1}; iterations {:?}; non-positive {}", u.bad_faces, n_nonpositive_cells(&d));
+        assert!(n_bad0 > 0);
+        assert_eq!(n_bad1, 0);
+        // S4: nLayers 3
+        let s = crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings { n_layers: 3, ..Default::default() };
+        let opts3 = Cartesian2DMeshOptions { dict, boundary_layers: Some(s), ..Default::default() };
+        let (m3, rep3) = cartesian_2d_mesh(&p, &t, Some(&r), &opts3).unwrap();
+        for n in rep3.notes.iter().filter(|n| n.starts_with("boundaryLayerRefinement")) {
+            println!("  {n}");
+        }
+        let area3 = m3.total_volume() / dz;
+        println!("S4: {} cells, area {area3:.15}, non-positive {}, refine error {:?}", m3.n_cells, n_nonpositive_cells(&m3), rep3.refine_error);
+        m3.validate().unwrap();
+        assert!(one_cell_thick(&m3));
+        assert_eq!(m3.n_cells, 240);
+        assert!((area3 - L * H).abs() < 1e-12);
+        assert_eq!(n_nonpositive_cells(&m3), 0);
+    }
+
+    /// V&V (gh:#1275 remainder), prediction S5: stop and restart.
+    #[test]
+    fn cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run() {
+        let (p, t, r) = channel_ribbon();
+        let s = crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings { n_layers: 3, ..Default::default() };
+        let base = Cartesian2DMeshOptions { dict: MeshDict::with_max_cell_size(0.05), boundary_layers: Some(s), ..Default::default() };
+        let (full, rep) = cartesian_2d_mesh(&p, &t, Some(&r), &base).unwrap();
+        assert!(rep.meta == MeshMetaData::default());
+        for at in [WorkflowStep::EdgeExtraction, WorkflowStep::BoundaryLayerGeneration] {
+            let stop = Cartesian2DMeshOptions { workflow: WorkflowSettings { stop_after: Some(at), restart_from_latest_step: false }, ..base.clone() };
+            let (stopped, srep) = cartesian_2d_mesh(&p, &t, Some(&r), &stop).unwrap();
+            assert_eq!(srep.stopped_after, Some(at));
+            let saved = SavedMesh { mesh: stopped, patch_types: srep.patch_types.clone(), meta: srep.meta.clone() };
+            let restart = Cartesian2DMeshOptions { workflow: WorkflowSettings { stop_after: None, restart_from_latest_step: true }, ..base.clone() };
+            let (resumed, rrep) = cartesian_2d_mesh_restart(&p, &t, Some(&r), &restart, &saved).unwrap();
+            println!("stopped after {at:?}: resumed at {:?}, same mesh {}", rrep.steps_run.first(), crate::tet_mesh_extractor_octree::same_mesh(&resumed, &full));
+            assert!(crate::tet_mesh_extractor_octree::same_mesh(&resumed, &full));
+        }
+        let (again, _) = cartesian_2d_mesh(&p, &t, Some(&r), &base).unwrap();
+        assert!(crate::tet_mesh_extractor_octree::same_mesh(&again, &full));
     }
 }

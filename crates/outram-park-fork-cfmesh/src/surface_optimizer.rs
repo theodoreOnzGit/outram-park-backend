@@ -658,8 +658,9 @@ pub struct UntangleReport {
 ///
 /// The partitioner's patches must be the surface's region indices when a
 /// mapper is given (`mapEdgeNodes` asks for the nearest point of each
-/// patch). Not ported: `optimizeSurface2D`, `untangleSurface2D`,
-/// `enforceConstraints` (upstream throws and writes a point subset; there
+/// patch). Not ported: ~~`optimizeSurface2D`, `untangleSurface2D`,~~
+/// (**ported 2026-11-05, gh:#1275 remainder**: [`optimize_surface_2d`],
+/// [`untangle_surface_2d`]) `enforceConstraints` (upstream throws and writes a point subset; there
 /// is no subset here), and the parallel exchanges.
 #[derive(Debug, Clone)]
 pub struct MeshSurfaceOptimizer {
