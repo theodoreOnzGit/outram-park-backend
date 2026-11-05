@@ -393,6 +393,22 @@ mod tests {
         let f3 = xy_set(m3.points.iter().copied().filter(near));
         let common = f2.iter().filter(|x| f3.binary_search(x).is_ok()).count();
         println!("final: 2D x-y nodes {}; 3D mid-plane nodes {}; in both (1e-9) {common}", f2.len(), f3.len());
+        // the 3D mid-plane after the optimiser: nodes within 0.01 of z = 0.25
+        let slab: Vec<Vec3> = m3.points.iter().copied().filter(|q| (q.z - zmid).abs() < 0.01).collect();
+        let zdev = slab.iter().fold(0.0f64, |a, q| a.max((q.z - zmid).abs()));
+        let mut dmax = 0.0f64;
+        let mut dsum = 0.0;
+        let bottoms: Vec<Vec3> = m.points.iter().copied().filter(|q| q.z == 0.0).collect();
+        for q in &bottoms {
+            let d = slab.iter().map(|s| ((s.x - q.x).powi(2) + (s.y - q.y).powi(2)).sqrt()).fold(f64::MAX, f64::min);
+            dmax = dmax.max(d);
+            dsum += d;
+        }
+        println!(
+            "final: 3D slab |z - 0.25| < 0.01 holds {} nodes (max |z - 0.25| {zdev:.3e}); 2D node to nearest slab node in x-y: mean {:.3e}, max {dmax:.3e} (cell 0.047)",
+            slab.len(),
+            dsum / bottoms.len() as f64
+        );
         assert!(s2 == s3, "template x-y layout equals the 3D mid-plane");
         assert_eq!(nonpos, 0);
         assert_eq!(one_thick, m.n_cells);

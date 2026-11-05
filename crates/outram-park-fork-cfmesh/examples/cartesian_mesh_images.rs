@@ -8,8 +8,11 @@
 //! before it is trusted).
 //!
 //! ```text
-//! cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images -- <out_dir>
+//! cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images -- <out_dir> [<out_dir_2d>]
 //! ```
+//!
+//! With a second directory it also draws the 2D channel of
+//! `cartesian2DMesh` (gh:#1275) and the 3D channel's mid-plane.
 //!
 //! Each image is the octree's leaf types under the slice, the mesh faces cut
 //! by the slice plane (blue) and the surface trace (black), all from the
@@ -23,7 +26,10 @@ use outram_park_fork_cfmesh::math::Vec3;
 use outram_park_fork_cfmesh::mesh_octree::{CubeType, MeshOctree};
 use outram_park_fork_cfmesh::mesh_octree_creator::MeshDict;
 use outram_park_fork_cfmesh::patches::SurfaceRegions;
+use outram_park_fork_cfmesh::pipeline::cartesian_2d_mesh::{cartesian_2d_mesh, create_quadtree, Cartesian2DMeshOptions};
 use outram_park_fork_cfmesh::pipeline::cartesian_mesh::{cartesian_mesh, CartesianMeshGeneratorOptions};
+use outram_park_fork_cfmesh::shapes::box_surface;
+use outram_park_fork_cfmesh::tri_surface_2d::extrude_2d_edges;
 use outram_park_fork_cfmesh::pipeline::tet_mesh::create_octree;
 use outram_park_fork_cfmesh::shapes::{cylinder_surface, sphere_surface};
 use outram_park_fork_cfmesh::snap::snap_to_surface;
@@ -452,4 +458,29 @@ fn main() {
         draw(&o, &xy, Colouring::Type, Some(&cm), &format!("{} CARTESIANMESH", tag.to_uppercase()), &p(&format!("{tag}_xy_cartesian_mesh.png")));
         draw(&o, &rim, Colouring::Type, Some(&cm), &format!("{} CARTESIANMESH RIM", tag.to_uppercase()), &p(&format!("{tag}_xz_rim_cartesian_mesh.png")));
     }
+
+    // gh:#1275: the 2D channel [0, 1] x [0, 0.25] at 0.05, and the 3D box
+    // channel (z in [0, 0.5]) at its mid-plane.
+    let Some(out2) = std::env::args().nth(2) else { return };
+    std::fs::create_dir_all(&out2).expect("output dir");
+    let p2 = |n: &str| format!("{out2}/{n}");
+    let q = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 0.25, 0.0), Vec3::new(0.0, 0.25, 0.0)];
+    let e = [[0, 1], [1, 2], [2, 3], [3, 0]];
+    let (rp, rt, rr) = extrude_2d_edges(&q, &e, Some(&[0, 2, 0, 1])).expect("ribbon");
+    let names = ["walls", "inlet", "outlet"];
+    let labels: Vec<&str> = rr.iter().map(|&i| names[i]).collect();
+    let reg = SurfaceRegions::from_labels(&labels);
+    let dict = MeshDict::with_max_cell_size(0.05);
+    let o2 = create_quadtree(&rp, &rt, Some(&reg), &dict);
+    let (m2, _) = cartesian_2d_mesh(&rp, &rt, Some(&reg), &Cartesian2DMeshOptions { dict: dict.clone(), ..Default::default() }).expect("2D");
+    let dz = rp[4].z;
+    let xy = Slice { axis: 2, at: 0.5 * dz, lo: (-0.05, -0.425), hi: (1.05, 0.675), px: 900 };
+    draw(&o2, &xy, Colouring::Type, Some(&m2), "CHANNEL CARTESIAN2DMESH", &p2("channel_2d_xy.png"));
+    let xz = Slice { axis: 1, at: 0.1, lo: (-0.05, -0.5), hi: (1.05, 0.6), px: 900 };
+    draw(&o2, &xz, Colouring::Type, Some(&m2), "CHANNEL CARTESIAN2DMESH", &p2("channel_2d_xz.png"));
+    let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(1.0, 0.25, 0.5));
+    let o3 = create_octree(&bp, &bt, None, &dict);
+    let (m3, _) = cartesian_mesh(&bp, &bt, None, &CartesianMeshGeneratorOptions { dict: dict.clone(), ..Default::default() }).expect("3D");
+    let mid = Slice { axis: 2, at: 0.2501, lo: (-0.05, -0.425), hi: (1.05, 0.675), px: 900 };
+    draw(&o3, &mid, Colouring::Type, Some(&m3), "CHANNEL 3D CARTESIANMESH MID-PLANE", &p2("channel_3d_midplane_xy.png"));
 }

@@ -65,3 +65,125 @@ front and back in `frontAndBack`, meshed by `cartesian_mesh`.
 - **D6.** The area (volume / thickness) is within 1e-9 of L x H = 0.25:
   the outline is axis-aligned, so mapping is exact, and the layer
   conserves the volume.
+
+## Results (2026-11-05, `cargo test --release`)
+
+Tests: `pipeline::cartesian_2d_mesh::tests::{channel_2d_against_the_3d_mid_plane,
+quadtree_leaves_span_the_root_in_z}`,
+`tri_surface_2d::tests::extruded_outline_is_a_2d_surface`.
+
+| | 2D (`cartesian_2d_mesh`) | 3D (`cartesian_mesh`, box z in [0, 0.5]) |
+|---|---:|---:|
+| template cells | 72 | 576 (8 layers of 72) |
+| template nodes in x-y (2D) / on z = 0.25 (3D) | 95 | 95, **identical to 1e-9** |
+| final cells | 116 (72 + 44 layer cells) | — |
+| final nodes, z = 0 / z = dz | 139 / 139 | 139 within 0.01 of z = 0.25 |
+| area (volume / dz) against L x H = 0.25 | +4.4e-16 relative | — |
+| non-positive cells | 0 | 0 |
+| max non-orthogonality, skewness | 34.26°, 0.817 | — |
+
+Patches: walls 36, outlet 4, inlet 4, bottomEmptyFaces 116,
+topEmptyFaces 116 (types patch, patch, patch, empty, empty).
+
+### Predictions against results
+
+- **D1 missed on the rectangle; held otherwise.**
+  - Its normal covariance is `diag(4, 4, 0)`. `outram_foam_basic_lib`'s
+    `eigen_values_symm` returns `(-1.68e-8, -0, 4)` for it instead of
+    `(0, 4, 4)`, so `is2DSurface` reports "3D space". The double root is
+    lost in the cubic solve; the defect is in that crate, not in this port.
+  - The channel ribbon, whose covariance is the same `diag(4, 4, 0)`,
+    passed in the workflow run. Round-off in the unit normals decides
+    which way the check goes.
+  - An irregular quadrilateral passes. The sphere and the tilted ribbon
+    fail, as predicted.
+  - In the workflow the check only writes a note, as upstream's only
+    writes a warning, so the mesh is not affected.
+- **D2 held.** Every quadtree leaf has `posZ = -10` and spans the root box
+  in z, with at most 8 face neighbours. Each of the 72 template cells has
+  one face in each empty patch. Each point pairs with exactly one point
+  across the thickness.
+- **D3 held.** The mesh is closed. All 278 points lie exactly on z = 0 or
+  z = 0.10308 (139 each), and every cell has one bottom and one top face.
+  0 non-positive cells. Patches as predicted.
+- **D4 held.** The 2D template's 95 x-y nodes are, to 1e-9, the 3D
+  template's 95 nodes on z = 0.25. This is the issue's "x-y layout
+  identical to item 20's mid-plane". The root boxes share their x-y
+  extent; in z they differ (the ribbon's z centre is 0.0515, the box's
+  0.25).
+- **D5 missed.** I predicted at least half the final nodes would still
+  coincide. Only 4 of 139 do, to 1e-9.
+  - The 3D mid-plane still has 139 nodes within 0.01 of z = 0.25 (the
+    largest deviation is 4.0e-7). In x-y they are a mean 8.2 mm and a
+    maximum 28.5 mm (0.6 cell) from the nearest 2D node.
+  - The cause is that the two finished workflows differ.
+    - 3D: `meshOptimisation` runs `optimizeMeshFV`, whose Laplacian moves
+      every interior node. Its layer also covers the front and back.
+    - 2D: upstream's `meshOptimisation` is only `optimiseMeshSurface`
+      (2D), which is not ported here. Nothing moves inside.
+  - Compare `channel_2d_xy.png` with `channel_3d_midplane_xy.png`.
+- **D6 held:** the area is 0.25 to +4.4e-16.
+
+### Where the 2D workflow meets the known caveats
+
+1. **The morpher's −22 %:** not met. `cartesian2DMeshGenerator` does not
+   call `surfaceMorpherCells`.
+2. **The one-group layer:** used, over walls, inlet and outlet as one
+   group with the empty patches untreated. 0 cells inverted on this
+   straight channel. At the four corners the corner cell is pinched
+   diagonally (`channel_2d_xy.png`): this is the same multi-patch
+   difference from upstream's patch-wise layer as in 3D.
+3. **`refine_boundary_layers` `NotPorted`:** not reached. The 2D
+   refinement (`activate2DMode`) is not ported at all, so a
+   `boundaryLayers` dict gives a note and no split.
+
+## Images (`examples/cartesian_mesh_images.rs`, second argument)
+
+```text
+cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images -- crates/outram-park-fork-cfmesh/verification_and_validation/cartesian_mesh_gh1274 crates/outram-park-fork-cfmesh/verification_and_validation/cartesian_2d_mesh_gh1275
+```
+
+| file | what |
+|---|---|
+| `channel_2d_xy.png` | the 2D mesh, x-y at mid-thickness, over the quadtree's leaf types |
+| `channel_2d_xz.png` | x-z at y = 0.1: one cell thick; every leaf spans the root box in z |
+| `channel_3d_midplane_xy.png` | the 3D `cartesian_mesh` of the box channel, x-y at z = 0.2501 |
+
+**What I checked in them:**
+
+- The 2D mesh fills the outline, and its boundary lies on the outline.
+- The quadtree leaves are columns over the whole root height
+  (`channel_2d_xz.png`), and the mesh is one band from z = 0 to 0.103.
+- The 2D and 3D cores share the same x-y grid.
+- The 3D layout is smoothed (curved lines near the inlet and the outlet),
+  where the 2D layout is not.
+- The corner cells are pinched diagonally in both.
+
+**What I could not check:** 3D views; patch colours.
+
+## Upstream defects and quirks found (none filed)
+
+- `cartesianMeshExtractor`'s empty-patch test reads
+  `mag(n.z) > mag(n.x + n.y)`. It sums the components, where a magnitude
+  was probably meant: a face with `n = (1, -1, 0.1)` counts as
+  z-dominated. Ported as written; it does not matter on axis-aligned
+  quadtree faces.
+- `meshSurfaceMapper2D::mapCorners()` (no arguments) looks up mesh point
+  labels in `corners()`, which holds boundary-point labels. Nothing calls
+  it.
+- `meshSurfaceEdgeExtractor2D::distributeBoundaryFaces` leaves the patch
+  of an inactive face that is at neither z unset. The port returns `Err`
+  there.
+- `outram_foam_basic_lib::primitives::eigen::eigen_values_symm` returns
+  `(-1.68e-8, -0, 4)` for `diag(4, 4, 0)` (D1). This is a defect in
+  another crate.
+
+## Not done in this issue
+
+- `meshSurfaceOptimizer::optimizeSurface2D` and `untangleSurface2D`
+  (about 270 upstream lines). With them, the 2D `edgeExtraction` and
+  `meshOptimisation` steps would smooth the side.
+- `refineBoundaryLayers` 2D mode.
+- The patch-wise layer.
+- A 2D stop and restart test. The workflow controls are the shared,
+  tested code.

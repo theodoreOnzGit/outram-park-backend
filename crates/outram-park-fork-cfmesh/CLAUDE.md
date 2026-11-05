@@ -217,3 +217,19 @@ on multi-patch surfaces the rim layer differs from upstream.
 The record (the differential against `carve_box` + `snap` and the
 tet-dual) and the images are in
 `verification_and_validation/cartesian_mesh_gh1274/`.
+
+## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
+
+`pipeline::cartesian_2d_mesh` is `cartesian2DMeshGenerator`. Its input is
+a ribbon surface (`tri_surface_2d::extrude_2d_edges`). Its octree is the
+**quadtree**: `MeshOctree::new_quadtree`, a root cube at `posZ = -10`
+whose every cube spans the root box in z, with 4 children and the slots
+4–7 set to `NO_CUBE`. **Any code that walks `sub_cubes` must skip
+`NO_CUBE`**, or use `existing_sub_cubes`.
+
+The 2D addressing is `poly_mesh_gen_2d_engine`, and the 2D mapping is
+`surface_mapper_2d`.
+
+`optimizeSurface2D`, `untangleSurface2D` and the 2D `refineBoundaryLayers`
+are not ported; the report says so at each step. Record:
+`verification_and_validation/cartesian_2d_mesh_gh1275/`.
