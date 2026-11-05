@@ -92,13 +92,6 @@ use crate::scip::{PositionEncoding, ScipIndex, Sym};
 
 use super::index_control::RunControl;
 
-/// `ctl.say(format!(...))`: stderr and the run's progress log.
-macro_rules! say {
-    ($ctl:expr, $($t:tt)*) => {
-        $ctl.say(format!($($t)*))
-    };
-}
-
 /// The file name of a folder index.
 pub const KOVAN_TOML: &str = "kovan.toml";
 
@@ -421,15 +414,14 @@ fn summarise(changes: &[Change], unchanged: usize, ctl: &RunControl) {
             Change::Write { why, rel, .. } => (*why, rel),
             Change::Remove { rel } => ("orphan removed", rel),
         };
-        say!(ctl, "index:   {rel}: {k}");
+        ctl.say(format!("index:   {rel}: {k}"));
         *by.entry(k).or_default() += 1;
     }
     let parts: Vec<String> = by.iter().map(|(k, n)| format!("{n} {k}")).collect();
-    say!(ctl,
-        "index: {unchanged} unchanged{}{}",
+    ctl.say(format!("index: {unchanged} unchanged{}{}",
         if parts.is_empty() { "" } else { ", " },
         parts.join(", ")
-    );
+    ));
 }
 
 /// Pin check (module doc, step 1). Returns the installed version.
@@ -446,16 +438,14 @@ fn check_pin(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Optio
         _ => None,
     };
     match (&pinned, &installed) {
-        (Some(p), Some(i)) if p != i => say!(ctl,
-            "index: WARNING: kovan_root.toml pins rust-analyzer {p}, the installed one is {i}; \
+        (Some(p), Some(i)) if p != i => ctl.say(format!("index: WARNING: kovan_root.toml pins rust-analyzer {p}, the installed one is {i}; \
              the index is regenerated with {i} and may differ from CI's"
-        ),
+        )),
         // Only for a root that exists and reads: before "Index fresh"
         // creates one there is nothing to pin into (#780).
-        (None, Some(i)) if !opts.pin_rust_analyzer && matches!(parsed, Some(Ok(_))) => say!(ctl,
-            "index: kovan_root.toml pins no rust-analyzer; this run's version ({i}) is recorded under \
+        (None, Some(i)) if !opts.pin_rust_analyzer && matches!(parsed, Some(Ok(_))) => ctl.say(format!("index: kovan_root.toml pins no rust-analyzer; this run's version ({i}) is recorded under \
              [[code_review.rust_analyzer_used]] (`--pin-rust-analyzer` would also pin it)"
-        ),
+        )),
         _ => {}
     }
     if opts.pin_rust_analyzer {
@@ -469,7 +459,7 @@ fn check_pin(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Optio
             .rust_analyzer = Some(i.clone());
         let new = r.write_into(&text).map_err(|e| IndexCmdError::Other(e.to_string()))?;
         std::fs::write(&root_file, new).map_err(|e| IndexCmdError::Other(e.to_string()))?;
-        say!(ctl, "index: pinned rust-analyzer {i} in kovan_root.toml");
+        ctl.say(format!("index: pinned rust-analyzer {i} in kovan_root.toml"));
     }
     Ok(installed)
 }
@@ -609,10 +599,9 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     if let (Some(i), Some(_)) = (&installed, &opts.scip) {
         // The index says `1.98.0 (88d9e12 2026-08-18)`; compare the version.
         if ix.tool_version.split_whitespace().next() != Some(i.as_str()) {
-            say!(ctl,
-                "index: the index was written by rust-analyzer {}, the installed one is {i}: regenerating it",
+            ctl.say(format!("index: the index was written by rust-analyzer {}, the installed one is {i}: regenerating it",
                 ix.tool_version
-            );
+            ));
             ix = scip_of(&root)?;
         }
     }
@@ -639,12 +628,12 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         )));
     }
     for c in &not_in_scip {
-        say!(ctl, "index: WARNING: {c} has source files and no document in the SCIP index: rust-analyzer did not index it, so its link index is empty and its functions have no callees or reaching tests");
+        ctl.say(format!("index: WARNING: {c} has source files and no document in the SCIP index: rust-analyzer did not index it, so its link index is empty and its functions have no callees or reaching tests"));
         // What the index does hold for that folder, so a path written in an
         // unexpected form (absolute, `..`, another case) is visible (#820).
         let dir = members.iter().find(|(n, _)| n == c).map(|(_, d)| d.as_str()).unwrap_or("");
         let seen = ix.paths_mentioning(dir, 3);
-        say!(ctl, "index:   SCIP paths mentioning {dir}: {} (project root {})", if seen.is_empty() { "none".to_string() } else { seen.join(", ") }, ix.project_root);
+        ctl.say(format!("index:   SCIP paths mentioning {dir}: {} (project root {})", if seen.is_empty() { "none".to_string() } else { seen.join(", ") }, ix.project_root));
     }
     // 3. Links.
     ctl.phase(format!("building the link index of {} crate(s)", scope.len()), scope.len());
@@ -692,7 +681,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
                 hashed.insert(file.clone(), h);
                 items.insert(file.clone(), i);
             }
-            Err(e) => say!(ctl, "index: {file}: {e}; its functions are left out"),
+            Err(e) => ctl.say(format!("index: {file}: {e}; its functions are left out")),
         }
         sources.insert(file, text);
     }
@@ -701,10 +690,10 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     let reviews = read_reviews(&root, &members, &scope);
     let existing = read_existing(&root, &members, &scope);
     for p in &existing.recovered {
-        say!(ctl, "index: {p} is unreadable; its [test_run] was recovered from HEAD");
+        ctl.say(format!("index: {p} is unreadable; its [test_run] was recovered from HEAD"));
     }
     for p in &existing.pending {
-        say!(ctl, "index: {p} is unreadable and HEAD has no readable copy; its test evidence is now PENDING");
+        ctl.say(format!("index: {p} is unreadable and HEAD has no readable copy; its test evidence is now PENDING"));
     }
     let commit = head_commit(&root, ctl);
     let used_at = used_commit(&commit);
@@ -743,7 +732,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         match classify(existing.texts.get(&rel).map(String::as_str), &text) {
             Existing::Unchanged => unchanged += 1,
             Existing::Foreign { kind } => {
-                say!(ctl, "index: {rel} is a `{kind}` kovan.toml, not a code index: left alone, folder not indexed")
+                ctl.say(format!("index: {rel} is a `{kind}` kovan.toml, not a code index: left alone, folder not indexed"))
             }
             e => changes.push(Change::Write { rel, text, why: e.label() }),
         }
@@ -756,22 +745,22 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     }
     let r = &built.report;
     if !r.unhashed.is_empty() {
-        say!(ctl, "index: {} function(s) have no hash yet (nested in another fn or made by a macro) and are left out; their calls count for the enclosing function", r.unhashed.len());
+        ctl.say(format!("index: {} function(s) have no hash yet (nested in another fn or made by a macro) and are left out; their calls count for the enclosing function", r.unhashed.len()));
     }
     for s in &r.skipped_items {
-        say!(ctl, "index: {s} is a type or constant sharing its name with a function in the same file; it is left out");
+        ctl.say(format!("index: {s} is a type or constant sharing its name with a function in the same file; it is left out"));
     }
     for m in &r.moved {
-        say!(ctl, "index: {} moved {} -> {} (matched by hash; acknowledge the move in kovan)", m.id, m.from.as_deref().unwrap_or("?"), m.to);
+        ctl.say(format!("index: {} moved {} -> {} (matched by hash; acknowledge the move in kovan)", m.id, m.from.as_deref().unwrap_or("?"), m.to));
     }
     for u in &r.unmatched {
-        say!(ctl, "index: {} ({}) names no function: {}", u.id, u.path.as_deref().unwrap_or("callee"), u.why);
+        ctl.say(format!("index: {} ({}) names no function: {}", u.id, u.path.as_deref().unwrap_or("callee"), u.why));
     }
     if !r.outside_without_id.is_empty() {
-        say!(ctl, "index: {} callee(s) outside the crates in scope have no known id and are left out of `callees`; index the whole workspace to include them", r.outside_without_id.len());
+        ctl.say(format!("index: {} callee(s) outside the crates in scope have no known id and are left out of `callees`; index the whole workspace to include them", r.outside_without_id.len()));
     }
     for (name, bytes, files, defs) in &sizes {
-        say!(ctl, "index: {name}/{LINKS_FILE}: {bytes} bytes, {files} files, {defs} definitions");
+        ctl.say(format!("index: {name}/{LINKS_FILE}: {bytes} bytes, {files} files, {defs} definitions"));
     }
     if opts.draft_upstream {
         print_drafts(&doc, &reviews);
@@ -798,7 +787,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
             commit: used_at,
         };
         let rec = record_rust_analyzer_used(&root, &used).map_err(IndexCmdError::Other)?;
-        say!(ctl, "index: {}", rec.describe(&used));
+        ctl.say(format!("index: {}", rec.describe(&used)));
     }
     Ok(summary)
 }
@@ -810,7 +799,7 @@ fn head_commit(root: &Path, ctl: &RunControl) -> String {
     match git(root, &["rev-parse", "--verify", "HEAD"]) {
         Ok(c) => c.trim().to_string(),
         Err(e) => {
-            say!(ctl, "index: no HEAD commit ({e}); new function ids are minted with the all-zero commit");
+            ctl.say(format!("index: no HEAD commit ({e}); new function ids are minted with the all-zero commit"));
             NO_COMMIT.to_string()
         }
     }
@@ -929,7 +918,7 @@ fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Ind
             let (fi, report) = refresh_folder(&krate, &dir, previous.as_ref(), &files, rd, &claims, &commit);
             flagged += report.out_of_date.len();
             for u in &report.unparsed {
-                say!(ctl, "index --refresh: {u} does not parse; its entries are kept and marked out of date");
+                ctl.say(format!("index --refresh: {u} does not parse; its entries are kept and marked out of date"));
             }
             let new = fi.to_toml().map_err(|e| e.to_string())?;
             match classify(Some(&text), &new) {
@@ -940,11 +929,11 @@ fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Ind
         let rs_dirs: BTreeSet<String> =
             code_files(root, &members, m).iter().map(|p| parent(p).to_string()).collect();
         for d in rs_dirs.difference(&indexed_dirs) {
-            say!(ctl, "index --refresh: {d} has .rs files and no kovan.toml: run `kovan-cli index`");
+            ctl.say(format!("index --refresh: {d} has .rs files and no kovan.toml: run `kovan-cli index`"));
         }
     }
     if flagged > 0 {
-        say!(ctl, "index --refresh: {flagged} function(s) marked \"index out of date: run kovan-cli index\" (new or edited; callees and reaching tests not recomputed)");
+        ctl.say(format!("index --refresh: {flagged} function(s) marked \"index out of date: run kovan-cli index\" (new or edited; callees and reaching tests not recomputed)"));
     }
     summarise(&changes, unchanged, ctl);
     let mut summary =
