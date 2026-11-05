@@ -451,6 +451,9 @@ impl PourTiming {
     }
 }
 
+/// The fewest steps a GPU chunk takes (see `PourUi::on_event`).
+pub const GPU_MIN_CHUNK: usize = 200;
+
 /// Compute per request the page aims for, ms: the page's worker also draws
 /// the slice, so a chunk is kept short (`dem_web`'s `CHUNK_MS` rule).
 pub const CHUNK_MS: f64 = 250.0;
@@ -573,7 +576,13 @@ impl PourUi {
             engine::Event::Progress(s) if s.id == self.id => {
                 self.in_flight = false;
                 if s.ms_per_step > 0.0 {
-                    self.chunk = ((CHUNK_MS / s.ms_per_step) as usize).clamp(1, 4000);
+                    // The GPU pour runs asynchronously in the worker, so a
+                    // long chunk does not stall it; its cost per step
+                    // includes reading the whole state back, which a short
+                    // chunk would repeat every few steps (6 steps a chunk
+                    // in the first browser run, 2026-11-05).
+                    let floor = if self.running_gpu { GPU_MIN_CHUNK } else { 1 };
+                    self.chunk = ((CHUNK_MS / s.ms_per_step) as usize).clamp(floor, 4000);
                 }
                 let done = s.settled || s.gave_up;
                 // The console gets a line every 2 000 steps and at the end,
@@ -888,6 +897,8 @@ mod tests {
         assert!(matches!(p.take_out().as_slice(), [super::super::CoreReq::PourGpu(engine::Request::Start { .. })]));
         p.on_event(engine::Event::Progress(snap(1, 0, 0.0, false)), 0.0);
         assert!(matches!(p.take_out().as_slice(), [super::super::CoreReq::PourGpu(engine::Request::Step { .. })]));
+        p.on_event(engine::Event::Progress(snap(1, 20, 40.0, false)), 1.0);
+        assert!(matches!(p.take_out().as_slice(), [super::super::CoreReq::PourGpu(engine::Request::Step { steps: GPU_MIN_CHUNK, .. })]), "a GPU chunk is at least {GPU_MIN_CHUNK} steps");
         p.on_event(engine::Event::Progress(snap(1, 20, 5.0, true)), 12.0);
         assert_eq!(p.timings.len(), 1);
         assert!(p.timings[0].gpu && p.timings[0].settled);
