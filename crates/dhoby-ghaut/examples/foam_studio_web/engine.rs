@@ -166,6 +166,109 @@ pub struct TetDualSpec {
     pub first_layer: f64,
     /// Layer-to-layer growth.
     pub expansion: f64,
+    /// How the polyhedral dual builds its wall faces (gh:#1240): one per
+    /// boundary-triangle corner (the default), or upstream `polyDualMesh`'s
+    /// one per point per patch, as a median or a cell-centre dual.
+    pub dual: outram_park_fork_cfmesh::dual::DualKind,
+    /// Which boundary points the two `polyDualMesh` duals keep (gh:#1240):
+    /// the utility's rule (every point on a feature edge, the default) or
+    /// the class's (corners only). Ignored by the per-corner dual.
+    pub feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule,
+    /// What the layer stage does about cells that fail the quality checks
+    /// (gh:#1215): back off the thickness (the default), cfMesh's layer
+    /// optimiser, or snappyHexMesh's local collapse.
+    pub layer_quality: outram_blender::foam_mesh::LayerQualityStrategy,
+}
+
+impl TetDualSpec {
+    /// The mesher choices every spec starts from: the per-corner dual, the
+    /// utility's feature points and the back-off layer stage, i.e. the mesher
+    /// every recorded number before gh:#1240's browser controls was taken
+    /// on. Literal specs end with `..TetDualSpec::BASE`; only the four
+    /// numbers above are meaningful in it.
+    pub const BASE: Self = Self {
+        cell_size: 0.004,
+        n_layers: 0,
+        first_layer: 3e-4,
+        expansion: 1.2,
+        dual: outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner,
+        feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge,
+        layer_quality: outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly,
+    };
+
+    /// The three mesher choices as the small integers the worker messages
+    /// carry: `[dual, feature points, layer quality]`.
+    pub fn choice_codes(&self) -> [f64; 3] {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        let d = match self.dual {
+            D::MedianPerCorner => 0.0,
+            D::MedianPerPoint => 1.0,
+            D::CellCentre => 2.0,
+        };
+        let f = match self.feature_points {
+            F::OnFeatureEdge => 0.0,
+            F::Corners => 1.0,
+        };
+        let l = match self.layer_quality {
+            L::BackOffOnly => 0.0,
+            L::CfMeshOptimise => 1.0,
+            L::SnappyCollapse => 2.0,
+        };
+        [d, f, l]
+    }
+
+    /// `self` with the choices [`Self::choice_codes`] wrote; an unknown code
+    /// is an error, not a silent default.
+    pub fn with_choice_codes(self, c: [f64; 3]) -> Result<Self, String> {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        let dual = match c[0] as u8 {
+            0 => D::MedianPerCorner,
+            1 => D::MedianPerPoint,
+            2 => D::CellCentre,
+            k => return Err(format!("unknown dual kind code {k}")),
+        };
+        let feature_points = match c[1] as u8 {
+            0 => F::OnFeatureEdge,
+            1 => F::Corners,
+            k => return Err(format!("unknown feature-point rule code {k}")),
+        };
+        let layer_quality = match c[2] as u8 {
+            0 => L::BackOffOnly,
+            1 => L::CfMeshOptimise,
+            2 => L::SnappyCollapse,
+            k => return Err(format!("unknown layer strategy code {k}")),
+        };
+        Ok(Self { dual, feature_points, layer_quality, ..self })
+    }
+
+    /// `self` with the choices a page URL names (gh:#1240 browser controls):
+    /// `dual=point|centre`, `fp=corners`, `layerq=cfmesh|snappy`; anything
+    /// else leaves a choice as it is.
+    pub fn with_query(self, dual: Option<&str>, fp: Option<&str>, layerq: Option<&str>) -> Self {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        let mut s = self;
+        match dual {
+            Some("corner") => s.dual = D::MedianPerCorner,
+            Some("point") => s.dual = D::MedianPerPoint,
+            Some("centre") => s.dual = D::CellCentre,
+            _ => {}
+        }
+        match fp {
+            Some("edges") => s.feature_points = F::OnFeatureEdge,
+            Some("corners") => s.feature_points = F::Corners,
+            _ => {}
+        }
+        match layerq {
+            Some("backoff") => s.layer_quality = L::BackOffOnly,
+            Some("cfmesh") => s.layer_quality = L::CfMeshOptimise,
+            Some("snappy") => s.layer_quality = L::SnappyCollapse,
+            _ => {}
+        }
+        s
+    }
 }
 
 /// Facets of the cylinder surface handed to cfMesh (the blender primitive's
@@ -205,7 +308,7 @@ impl TetDualSpec {
     /// than the bare mesh of the same cell size (0.85 against 0.86 at 6 mm,
     /// 0.87 against 0.89 at 5 mm).
     pub fn default_for(radius: f64) -> Self {
-        Self { cell_size: 0.4 * radius, n_layers: 0, first_layer: 0.03 * radius, expansion: 1.2 }
+        Self { cell_size: 0.4 * radius, n_layers: 0, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
     }
 
     /// Rough cell count of the tet-dual mesh of a pipe (radius `r`, length
@@ -229,6 +332,7 @@ impl TetDualSpec {
             n_layers: self.n_layers.min(MAX_LAYERS),
             first_layer: self.first_layer.clamp(1e-3 * r, 0.1 * r),
             expansion: self.expansion.clamp(1.0, 1.5),
+            ..*self
         };
         while s.estimated_cells(r, l) > MAX_CELLS as f64 && s.cell_size < r / CELL_PER_R_MIN {
             s.cell_size = (s.cell_size * 1.05).min(r / CELL_PER_R_MIN);
@@ -427,10 +531,12 @@ pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
 /// the solver and the section cutter take. Returns the stage notes of the
 /// pipeline too (what it skipped).
 pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag; 3], spec: &TetDualSpec) -> Result<(PolyMesh, Vec<String>), String> {
+    // The spec's layer strategy (the page's control, gh:#1240), unless the
+    // native knob FOAM_LAYER_STRATEGY names one (the V&V tooling).
     #[cfg(not(target_arch = "wasm32"))]
-    let strategy = layer_strategy_from_env();
+    let strategy = layer_strategy_from_env().unwrap_or(spec.layer_quality);
     #[cfg(target_arch = "wasm32")]
-    let strategy = outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly;
+    let strategy = spec.layer_quality;
     mesh_unstructured_with(radius, length, centre, tags, spec, strategy).map(|(p, n, _)| (p, n))
 }
 
@@ -445,10 +551,11 @@ pub fn mesh_unstructured_with(
     spec: &TetDualSpec,
     strategy: outram_blender::foam_mesh::LayerQualityStrategy,
 ) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
+    // The spec's dual kind unless the native knob FOAM_DUAL_KIND names one.
     #[cfg(not(target_arch = "wasm32"))]
-    let dual = dual_kind_from_env();
+    let dual = dual_kind_from_env().unwrap_or(spec.dual);
     #[cfg(target_arch = "wasm32")]
-    let dual = outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner;
+    let dual = spec.dual;
     mesh_unstructured_dual(radius, length, centre, tags, spec, strategy, dual)
 }
 
@@ -492,9 +599,10 @@ pub fn mesh_unstructured_dual(
         Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
         _ => opts,
     };
-    let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, ..opts };
+    let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, dual_feature_points: s.feature_points, ..opts };
     // Native-only knob (gh:#1240): FOAM_DUAL_FP=corners, the polyDualMesh
-    // class's feature points, for the two new dual kinds.
+    // class's feature points, for the two new dual kinds; it overrides the
+    // spec's choice for the V&V tooling.
     #[cfg(not(target_arch = "wasm32"))]
     let opts = match std::env::var("FOAM_DUAL_FP").as_deref() {
         Ok("corners") => TetDualOptions { dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners, ..opts },
@@ -510,29 +618,35 @@ pub fn mesh_unstructured_dual(
 }
 
 /// The layer strategy `FOAM_LAYER_STRATEGY` names (native only, gh:#1215; the
-/// knob of the differential record, `laminar_pipe_gh1155.md`):
-/// `cfmesh`, `snappy`, or the default back-off for anything else.
+/// knob of the differential record, `laminar_pipe_gh1155.md`): `cfmesh`,
+/// `snappy` or `backoff`; ~~the default back-off for anything else~~
+/// **CHANGED 2026-11-05 (gh:#1240 browser controls):** `None` when unset or
+/// unrecognised, so the spec's own choice (the page's control) applies.
 #[cfg(not(target_arch = "wasm32"))]
-fn layer_strategy_from_env() -> outram_blender::foam_mesh::LayerQualityStrategy {
+fn layer_strategy_from_env() -> Option<outram_blender::foam_mesh::LayerQualityStrategy> {
     use outram_blender::foam_mesh::LayerQualityStrategy as S;
     match std::env::var("FOAM_LAYER_STRATEGY").as_deref() {
-        Ok("cfmesh") => S::CfMeshOptimise,
-        Ok("snappy") => S::SnappyCollapse,
-        _ => S::BackOffOnly,
+        Ok("cfmesh") => Some(S::CfMeshOptimise),
+        Ok("snappy") => Some(S::SnappyCollapse),
+        Ok("backoff") => Some(S::BackOffOnly),
+        _ => None,
     }
 }
 
 /// The dual kind `FOAM_DUAL_KIND` names (native only, gh:#1240; the knob of
 /// the differential record, `laminar_pipe_gh1155.md`): `point`
-/// (`MedianPerPoint`), `centre` (`CellCentre`), or the default per-corner
-/// median dual for anything else.
+/// (`MedianPerPoint`), `centre` (`CellCentre`) or `corner`; ~~the default
+/// per-corner median dual for anything else~~ **CHANGED 2026-11-05 (browser
+/// controls):** `None` when unset or unrecognised, so the spec's choice
+/// applies.
 #[cfg(not(target_arch = "wasm32"))]
-fn dual_kind_from_env() -> outram_park_fork_cfmesh::dual::DualKind {
+fn dual_kind_from_env() -> Option<outram_park_fork_cfmesh::dual::DualKind> {
     use outram_park_fork_cfmesh::dual::DualKind as D;
     match std::env::var("FOAM_DUAL_KIND").as_deref() {
-        Ok("point") => D::MedianPerPoint,
-        Ok("centre") => D::CellCentre,
-        _ => D::MedianPerCorner,
+        Ok("point") => Some(D::MedianPerPoint),
+        Ok("centre") => Some(D::CellCentre),
+        Ok("corner") => Some(D::MedianPerCorner),
+        _ => None,
     }
 }
 
@@ -1544,8 +1658,11 @@ impl Request {
                 let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], a[3], b[0], b[1], b[2], design.target_cells as f64, *probe];
                 d.extend(design.tags.iter().map(|t| t.code()));
                 match design.mesh {
-                    PipeMesh::Structured => d.extend([0.0; 5]),
-                    PipeMesh::Unstructured(s) => d.extend([1.0, s.cell_size, s.n_layers as f64, s.first_layer, s.expansion]),
+                    PipeMesh::Structured => d.extend([0.0; 8]),
+                    PipeMesh::Unstructured(s) => {
+                        d.extend([1.0, s.cell_size, s.n_layers as f64, s.first_layer, s.expansion]);
+                        d.extend(s.choice_codes());
+                    }
                 }
                 d
             }
@@ -1578,10 +1695,13 @@ impl Request {
                     _ => Shape::Coil { tube_radius: a[0], coil_diameter: a[1], pitch: a[2], turns: a[3], centre },
                 };
                 let mesh = if r.f()? == 0.0 {
-                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?];
+                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?];
                     PipeMesh::Structured
                 } else {
-                    PipeMesh::Unstructured(TetDualSpec { cell_size: r.f()?, n_layers: r.n()?, first_layer: r.f()?, expansion: r.f()? })
+                    PipeMesh::Unstructured(
+                        TetDualSpec { cell_size: r.f()?, n_layers: r.n()?, first_layer: r.f()?, expansion: r.f()?, ..TetDualSpec::BASE }
+                            .with_choice_codes([r.f()?, r.f()?, r.f()?])?,
+                    )
                 };
                 Ok(Request::Mesh { id, design: Design { shape, tags, target_cells, mesh }, probe })
             }
@@ -1867,7 +1987,7 @@ mod tests {
         }
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
-            ("dual h=4 mm bare", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }).unwrap().0),
+            ("dual h=4 mm bare", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }).unwrap().0),
         ];
         for (name, poly) in cases {
             let m = poly.to_fv_mesh().unwrap();
@@ -1941,7 +2061,7 @@ mod tests {
         use outram_foam_appbuilder_lib::solvers::non_orthogonal;
         use outram_foam_basic_lib::prelude::*;
         let (r, l) = (0.01, 0.2);
-        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE };
         let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
@@ -2040,7 +2160,7 @@ mod tests {
     #[ignore]
     fn diagnose_unstructured_reynolds_dependence() {
         for (h, n, re) in [(0.006, 1, 20.0), (0.004, 0, 20.0), (0.006, 1, 100.0)] {
-            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
             let lines = headless(d, re, Mode::Steady, 2000).unwrap_or_else(|e| vec![e]);
             println!("h {h} layers {n} Re {re}:");
             for l in lines.iter().filter(|l| l.starts_with("# pipe") || l.starts_with("# binned") || l.contains("steps,")) {
@@ -2054,8 +2174,8 @@ mod tests {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient};
         use outram_foam_appbuilder_lib::io::fv_schemes::DivScheme;
         use uom::si::acceleration::meter_per_second_squared;
-        let dual6 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
-        let dual4 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let dual6 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
+        let dual4 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
         for (name, d, linear) in [
             ("dual h 6 mm, 1 layer, upwind", dual6, false),
             ("dual h 6 mm, 1 layer, Gauss linear", dual6, true),
@@ -2120,7 +2240,7 @@ mod tests {
         };
         println!("convection {which}: {div:?}, grad(U) {grad:?}");
         for (h, n) in list {
-            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
             let mut e = Engine::default();
             let mut cells = 0;
             e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |ev| {
@@ -2180,7 +2300,7 @@ mod tests {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, fit_line, patch_flux, pressure_gradient, radial_profile_binned};
         use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, GradScheme};
         use uom::si::acceleration::meter_per_second_squared;
-        let dual = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let dual = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
         let ogrid = Design { target_cells: 8000, ..Design::default() };
         let lu = (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0)));
         let lin = (DivScheme::GaussLinear, None);
@@ -2271,7 +2391,7 @@ mod tests {
     #[test]
     #[ignore]
     fn diagnose_interpolation_weights() {
-        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE };
         let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 20480 (structured default)", mesh_design(&Design::default()).unwrap().0),
@@ -2305,6 +2425,24 @@ mod tests {
     }
 
     #[test]
+    fn mesher_choices_default_to_the_recorded_mesher_and_follow_the_url() {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        // The default is the mesher every recorded number was taken on.
+        let d = TetDualSpec::default_for(0.01);
+        assert_eq!((d.dual, d.feature_points, d.layer_quality), (D::MedianPerCorner, F::OnFeatureEdge, L::BackOffOnly));
+        assert_eq!(d.choice_codes(), [0.0, 0.0, 0.0]);
+        // Clamping keeps the choices.
+        let q = d.with_query(Some("centre"), Some("corners"), Some("cfmesh"));
+        assert_eq!((q.dual, q.feature_points, q.layer_quality), (D::CellCentre, F::Corners, L::CfMeshOptimise));
+        assert_eq!(q.clamped(0.01, 0.2).choice_codes(), [2.0, 1.0, 1.0]);
+        // Unknown URL values leave the choices alone; named ones reset them.
+        assert_eq!(q.with_query(Some("bogus"), None, Some("?")), q);
+        let back = q.with_query(Some("corner"), Some("edges"), Some("backoff"));
+        assert_eq!(back.choice_codes(), [0.0, 0.0, 0.0]);
+    }
+
+    #[test]
     fn requests_and_events_survive_the_wire() {
         let reqs = [
             Request::Mesh { id: 3, design: Design::default(), probe: 0.5 },
@@ -2322,6 +2460,20 @@ mod tests {
             Request::Mesh { id: 5, design: Design::exchanger(), probe: 0.3 },
             Request::Mesh { id: 6, design: Design::coil(), probe: 0.6 },
             Request::Mesh { id: 7, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() }, probe: 0.4 },
+            // gh:#1240 browser controls: every non-default mesher choice crosses the wire.
+            Request::Mesh {
+                id: 8,
+                design: Design {
+                    mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("centre"), Some("corners"), Some("cfmesh"))),
+                    ..Design::default()
+                },
+                probe: 0.4,
+            },
+            Request::Mesh {
+                id: 9,
+                design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("point"), None, Some("snappy"))), ..Design::default() },
+                probe: 0.4,
+            },
             Request::Step { id: 3, steps: 7 },
             Request::Probe { id: 3, probe: 0.9 },
         ];
@@ -2329,6 +2481,11 @@ mod tests {
             assert_eq!(Request::from_wire(&r.to_wire()).unwrap(), r);
         }
         assert!(Request::from_wire(&[9.0, 1.0]).is_err());
+        // An unknown mesher-choice code is refused, not silently defaulted.
+        let mut w = Request::Mesh { id: 8, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() }, probe: 0.4 }.to_wire();
+        let n = w.len();
+        w[n - 3] = 7.0;
+        assert!(Request::from_wire(&w).is_err());
         assert!(Request::from_wire(&[0.0]).is_err());
         let sec = Section { axis: 1, offset: 0.5, polygons: vec![vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]], frame: None };
         let framed = Section { frame: Some([1.0, 2.0, 3.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]), ..sec.clone() };
@@ -2442,7 +2599,7 @@ mod tests {
     /// lines.
     #[test]
     fn headless_unstructured_pipe_runs_and_is_pinned() {
-        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
         let (poly, _, _, _) = mesh_design_noted(&d).unwrap();
         let fv = poly.to_fv_mesh().unwrap();
         let mut names: Vec<(&str, outram_foam_basic_lib::mesh::PatchKind)> = fv.patches.iter().map(|p| (p.name.as_str(), p.kind)).collect();
@@ -2468,7 +2625,7 @@ mod tests {
     /// that freezes it) and the estimate follows the measured sweep.
     #[test]
     fn unstructured_specs_are_clamped() {
-        let s = TetDualSpec { cell_size: 1e-5, n_layers: 9, first_layer: 1.0, expansion: 3.0 }.clamped(0.01, 0.2);
+        let s = TetDualSpec { cell_size: 1e-5, n_layers: 9, first_layer: 1.0, expansion: 3.0, ..TetDualSpec::BASE }.clamped(0.01, 0.2);
         assert!(s.cell_size >= 0.01 / CELL_PER_R_MAX - 1e-15 && s.n_layers == MAX_LAYERS && s.first_layer <= 1e-3 + 1e-15 && s.expansion == 1.5);
         assert!(s.estimated_cells(0.01, 0.2) <= MAX_CELLS as f64);
         let d = TetDualSpec::default_for(0.01);

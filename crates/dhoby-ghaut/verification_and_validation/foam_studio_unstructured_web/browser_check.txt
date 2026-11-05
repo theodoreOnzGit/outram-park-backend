@@ -1,0 +1,102 @@
+structured_desktop 3 s: Foam Studio · 20480 cells · step 1 · 529 ms/step · solving | frames median 100.0 p95 383.3 max 383.3 ms
+structured_desktop 6 s: Foam Studio · 20480 cells · step 6 · 450 ms/step · solving | frames median 133.3 p95 233.3 max 233.3 ms
+structured_desktop 8 s: Foam Studio · 20480 cells · step 10 · 595 ms/step · solving | frames median 133.3 p95 166.6 max 166.6 ms
+structured_desktop 11 s: Foam Studio · 20480 cells · step 14 · 376 ms/step · solving | frames median 133.4 p95 200.0 max 200.0 ms
+structured_desktop 13 s: Foam Studio · 20480 cells · step 19 · 460 ms/step · solving | frames median 133.4 p95 200.0 max 200.0 ms
+structured_desktop 15 s: Foam Studio · 20480 cells · step 26 · 243 ms/step · solving | frames median 133.3 p95 266.8 max 266.8 ms
+structured_desktop 18 s: Foam Studio · 20480 cells · step 32 · 257 ms/step · solving | frames median 116.7 p95 166.8 max 166.8 ms
+structured_desktop 20 s: Foam Studio · 20480 cells · step 34 · 370 ms/step · steady | frames median 16.7 p95 100.1 max 133.2 ms
+RESULT structured_desktop: meshed 2 s, steady 20 s, worst frame 383 ms, title "Foam Studio · 20480 cells · step 34 · 370 ms/step · steady", errors 0
+dual_h5_0layers_desktop 4 s: Foam Studio · 3113 cells · step 3 · 134 ms/step · solving | frames median 133.3 p95 416.6 max 416.6 ms
+dual_h5_0layers_desktop 6 s: Foam Studio · 3113 cells · step 19 · 124 ms/step · solving | frames median 183.3 p95 200.0 max 200.0 ms
+dual_h5_0layers_desktop 8 s: Foam Studio · 3113 cells · step 24 · 124 ms/step · steady | frames median 16.7 p95 216.7 max 250.0 ms
+RESULT dual_h5_0layers_desktop: meshed 3 s, steady 8 s, worst frame 417 ms, title "Foam Studio · 3113 cells · step 24 · 124 ms/step · steady", errors 0
+dual_h5_1layer_desktop 4 s: Foam Studio · 10745 cells · step 1 · 405 ms/step · solving | frames median 83.3 p95 266.6 max 349.9 ms
+dual_h5_1layer_desktop 7 s: Foam Studio · 10745 cells · step 7 · 346 ms/step · solving | frames median 183.3 p95 250.0 max 250.0 ms
+dual_h5_1layer_desktop 9 s: Foam Studio · 10745 cells · step 14 · 396 ms/step · solving | frames median 200.1 p95 300.1 max 300.1 ms
+dual_h5_1layer_desktop 12 s: Foam Studio · 10745 cells · step 20 · 396 ms/step · solving | frames median 183.3 p95 200.0 max 200.0 ms
+dual_h5_1layer_desktop 14 s: Foam Studio · 10745 cells · step 24 · 894 ms/step · solving | frames median 183.3 p95 316.7 max 316.7 ms
+dual_h5_1layer_desktop 16 s: Foam Studio · 10745 cells · step 28 · 251 ms/step · steady | frames median 16.7 p95 166.7 max 216.7 ms
+RESULT dual_h5_1layer_desktop: meshed 3 s, steady 16 s, worst frame 350 ms, title "Foam Studio · 10745 cells · step 28 · 251 ms/step · steady", errors 0
+dual_h5_2layers_desktop 2 s: Foam Studio | frames median 50.0 p95 150.0 max 416.6 ms
+dual_h5_2layers_desktop 6 s: Foam Studio · 18377 cells · step 2 · 437 ms/step · solving | frames median 200.0 p95 283.3 max 283.3 ms
+dual_h5_2layers_desktop 8 s: Foam Studio · 18377 cells · step 7 · 460 ms/step · solving | frames median 183.3 p95 216.7 max 216.7 ms
+dual_h5_2layers_desktop 11 s: Foam Studio · 18377 cells · step 10 · 854 ms/step · solving | frames median 166.8 p95 200.0 max 200.0 ms
+dual_h5_2layers_desktop 13 s: Foam Studio · 18377 cells · step 13 · 477 ms/step · solving | frames median 183.3 p95 300.0 max 300.0 ms
+dual_h5_2layers_desktop 15 s: Foam Studio · 18377 cells · step 17 · 518 ms/step · solving | frames median 216.6 p95 366.6 max 366.6 ms
+dual_h5_2layers_desktop 18 s: Foam Studio · 18377 cells · step 20 · 568 ms/step · solving | frames median 183.3 p95 266.6 max 266.6 ms
+dual_h5_2layers_desktop 21 s: Foam Studio · 18377 cells · step 23 · 960 ms/step · solving | frames median 166.6 p95 200.0 max 200.0 ms
+dual_h5_2layers_desktop 23 s: Foam Studio · 18377 cells · step 26 · 510 ms/step · solving | frames median 183.3 p95 249.9 max 249.9 ms
+dual_h5_2layers_desktop 26 s: Foam Studio · 18377 cells · step 29 · 734 ms/step · solving | frames median 183.4 p95 250.0 max 250.0 ms
+dual_h5_2layers_desktop 28 s: Foam Studio · 18377 cells · step 32 · 458 ms/step · solving | frames median 183.3 p95 266.7 max 266.7 ms
+dual_h5_2layers_desktop 31 s: Foam Studio · 18377 cells · step 36 · 429 ms/step · solving | frames median 183.3 p95 233.4 max 233.4 ms
+dual_h5_2layers_desktop 33 s: Foam Studio · 18377 cells · step 40 · 963 ms/step · solving | frames median 200.0 p95 233.3 max 233.3 ms
+dual_h5_2layers_desktop 36 s: Foam Studio · 18377 cells · step 43 · 450 ms/step · solving | frames median 183.3 p95 216.7 max 216.7 ms
+dual_h5_2layers_desktop 38 s: Foam Studio · 18377 cells · step 47 · 411 ms/step · solving | frames median 183.3 p95 200.1 max 200.1 ms
+dual_h5_2layers_desktop 41 s: Foam Studio · 18377 cells · step 51 · 478 ms/step · solving | frames median 183.4 p95 333.3 max 333.3 ms
+dual_h5_2layers_desktop 43 s: Foam Studio · 18377 cells · step 56 · 505 ms/step · solving | frames median 183.3 p95 233.3 max 233.3 ms
+dual_h5_2layers_desktop 46 s: Foam Studio · 18377 cells · step 60 · 509 ms/step · solving | frames median 200.0 p95 300.0 max 300.0 ms
+dual_h5_2layers_desktop 48 s: Foam Studio · 18377 cells · step 65 · 500 ms/step · solving | frames median 200.0 p95 300.0 max 300.0 ms
+dual_h5_2layers_desktop 51 s: Foam Studio · 18377 cells · step 69 · 456 ms/step · solving | frames median 183.3 p95 316.6 max 316.6 ms
+dual_h5_2layers_desktop 54 s: Foam Studio · 18377 cells · step 73 · 536 ms/step · solving | frames median 166.7 p95 200.1 max 200.1 ms
+dual_h5_2layers_desktop 56 s: Foam Studio · 18377 cells · step 76 · 538 ms/step · solving | frames median 183.4 p95 200.0 max 200.0 ms
+dual_h5_2layers_desktop 59 s: Foam Studio · 18377 cells · step 80 · 464 ms/step · solving | frames median 216.7 p95 400.0 max 400.0 ms
+dual_h5_2layers_desktop 61 s: Foam Studio · 18377 cells · step 84 · 480 ms/step · solving | frames median 166.6 p95 366.6 max 366.6 ms
+dual_h5_2layers_desktop 64 s: Foam Studio · 18377 cells · step 88 · 676 ms/step · solving | frames median 183.3 p95 283.4 max 283.4 ms
+dual_h5_2layers_desktop 66 s: Foam Studio · 18377 cells · step 91 · 751 ms/step · solving | frames median 183.4 p95 416.6 max 416.6 ms
+dual_h5_2layers_desktop 69 s: Foam Studio · 18377 cells · step 95 · 408 ms/step · solving | frames median 183.4 p95 216.7 max 216.7 ms
+dual_h5_2layers_desktop 71 s: Foam Studio · 18377 cells · step 100 · 453 ms/step · solving | frames median 150.1 p95 200.0 max 200.0 ms
+dual_h5_2layers_desktop 73 s: Foam Studio · 18377 cells · step 103 · 452 ms/step · solving | frames median 200.1 p95 333.3 max 333.3 ms
+dual_h5_2layers_desktop 76 s: Foam Studio · 18377 cells · step 107 · 453 ms/step · solving | frames median 183.3 p95 500.0 max 500.0 ms
+dual_h5_2layers_desktop 78 s: Foam Studio · 18377 cells · step 110 · 677 ms/step · solving | frames median 183.3 p95 216.6 max 216.6 ms
+dual_h5_2layers_desktop 81 s: Foam Studio · 18377 cells · step 113 · 862 ms/step · solving | frames median 183.3 p95 250.0 max 250.0 ms
+dual_h5_2layers_desktop 83 s: Foam Studio · 18377 cells · step 116 · 515 ms/step · solving | frames median 200.0 p95 366.7 max 366.7 ms
+dual_h5_2layers_desktop 85 s: Foam Studio · 18377 cells · step 117 · 466 ms/step · steady | frames median 16.7 p95 16.8 max 183.3 ms
+RESULT dual_h5_2layers_desktop: meshed 4 s, steady 85 s, worst frame 500 ms, title "Foam Studio · 18377 cells · step 117 · 466 ms/step · steady", errors 0
+dual_h5_2layers_phone 3 s: Foam Studio · 18377 cells · step 0 · 0 ms/step · solving | frames median 16.7 p95 116.7 max 283.4 ms
+dual_h5_2layers_phone 6 s: Foam Studio · 18377 cells · step 6 · 631 ms/step · solving | frames median 116.7 p95 216.7 max 216.7 ms
+dual_h5_2layers_phone 8 s: Foam Studio · 18377 cells · step 10 · 598 ms/step · solving | frames median 133.3 p95 299.9 max 299.9 ms
+dual_h5_2layers_phone 11 s: Foam Studio · 18377 cells · step 14 · 731 ms/step · solving | frames median 116.7 p95 216.6 max 216.6 ms
+dual_h5_2layers_phone 13 s: Foam Studio · 18377 cells · step 18 · 414 ms/step · solving | frames median 133.3 p95 233.3 max 233.3 ms
+dual_h5_2layers_phone 16 s: Foam Studio · 18377 cells · step 23 · 467 ms/step · solving | frames median 133.3 p95 283.4 max 283.4 ms
+dual_h5_2layers_phone 18 s: Foam Studio · 18377 cells · step 27 · 457 ms/step · solving | frames median 133.4 p95 449.9 max 449.9 ms
+dual_h5_2layers_phone 20 s: Foam Studio · 18377 cells · step 32 · 407 ms/step · solving | frames median 116.7 p95 400.0 max 400.0 ms
+dual_h5_2layers_phone 23 s: Foam Studio · 18377 cells · step 35 · 791 ms/step · solving | frames median 116.6 p95 150.1 max 150.1 ms
+dual_h5_2layers_phone 25 s: Foam Studio · 18377 cells · step 39 · 447 ms/step · solving | frames median 133.3 p95 283.4 max 283.4 ms
+dual_h5_2layers_phone 27 s: Foam Studio · 18377 cells · step 43 · 425 ms/step · solving | frames median 116.7 p95 250.0 max 250.0 ms
+dual_h5_2layers_phone 29 s: Foam Studio · 18377 cells · step 47 · 419 ms/step · solving | frames median 116.7 p95 216.7 max 216.7 ms
+dual_h5_2layers_phone 32 s: Foam Studio · 18377 cells · step 51 · 596 ms/step · solving | frames median 116.6 p95 183.4 max 183.4 ms
+dual_h5_2layers_phone 34 s: Foam Studio · 18377 cells · step 56 · 424 ms/step · solving | frames median 100.1 p95 183.2 max 183.2 ms
+dual_h5_2layers_phone 36 s: Foam Studio · 18377 cells · step 60 · 410 ms/step · solving | frames median 116.7 p95 133.4 max 133.4 ms
+dual_h5_2layers_phone 39 s: Foam Studio · 18377 cells · step 65 · 423 ms/step · solving | frames median 116.6 p95 150.1 max 150.1 ms
+dual_h5_2layers_phone 41 s: Foam Studio · 18377 cells · step 69 · 704 ms/step · solving | frames median 116.7 p95 183.3 max 183.3 ms
+dual_h5_2layers_phone 43 s: Foam Studio · 18377 cells · step 74 · 427 ms/step · solving | frames median 100.0 p95 183.3 max 183.3 ms
+dual_h5_2layers_phone 46 s: Foam Studio · 18377 cells · step 78 · 406 ms/step · solving | frames median 116.6 p95 183.3 max 183.3 ms
+dual_h5_2layers_phone 48 s: Foam Studio · 18377 cells · step 83 · 386 ms/step · solving | frames median 100.1 p95 150.0 max 150.0 ms
+dual_h5_2layers_phone 50 s: Foam Studio · 18377 cells · step 88 · 394 ms/step · solving | frames median 116.6 p95 150.0 max 150.0 ms
+dual_h5_2layers_phone 53 s: Foam Studio · 18377 cells · step 92 · 508 ms/step · solving | frames median 116.6 p95 166.7 max 166.7 ms
+dual_h5_2layers_phone 55 s: Foam Studio · 18377 cells · step 96 · 548 ms/step · solving | frames median 100.0 p95 116.7 max 150.0 ms
+dual_h5_2layers_phone 57 s: Foam Studio · 18377 cells · step 99 · 515 ms/step · solving | frames median 100.0 p95 166.6 max 166.6 ms
+dual_h5_2layers_phone 60 s: Foam Studio · 18377 cells · step 104 · 415 ms/step · solving | frames median 116.7 p95 200.0 max 200.0 ms
+dual_h5_2layers_phone 62 s: Foam Studio · 18377 cells · step 109 · 425 ms/step · solving | frames median 100.0 p95 116.7 max 133.4 ms
+dual_h5_2layers_phone 64 s: Foam Studio · 18377 cells · step 113 · 541 ms/step · solving | frames median 100.1 p95 183.3 max 183.3 ms
+dual_h5_2layers_phone 66 s: Foam Studio · 18377 cells · step 117 · 446 ms/step · steady | frames median 100.1 p95 166.6 max 166.6 ms
+RESULT dual_h5_2layers_phone: meshed 2 s, steady 66 s, worst frame 450 ms, title "Foam Studio · 18377 cells · step 117 · 446 ms/step · steady", errors 0
+centre_corners_h5_2layers_desktop 3 s: Foam Studio · 5721 cells · step 2 · 247 ms/step · solving | frames median 16.7 p95 166.7 max 350.0 ms
+centre_corners_h5_2layers_desktop 5 s: Foam Studio · 5721 cells · step 10 · 207 ms/step · solving | frames median 100.0 p95 249.9 max 249.9 ms
+centre_corners_h5_2layers_desktop 8 s: Foam Studio · 5721 cells · step 18 · 199 ms/step · solving | frames median 100.1 p95 150.0 max 150.0 ms
+centre_corners_h5_2layers_desktop 10 s: Foam Studio · 5721 cells · step 26 · 183 ms/step · solving | frames median 116.6 p95 133.3 max 133.3 ms
+centre_corners_h5_2layers_desktop 12 s: Foam Studio · 5721 cells · step 32 · 155 ms/step · steady | frames median 16.7 p95 149.9 max 233.3 ms
+RESULT centre_corners_h5_2layers_desktop: meshed 2 s, steady 12 s, worst frame 350 ms, title "Foam Studio · 5721 cells · step 32 · 155 ms/step · steady", errors 0
+centre_corners_h5_2layers_phone 2 s: Foam Studio · 5721 cells · step 4 · 242 ms/step · solving | frames median 16.7 p95 83.4 max 216.7 ms
+centre_corners_h5_2layers_phone 5 s: Foam Studio · 5721 cells · step 12 · 224 ms/step · solving | frames median 49.9 p95 83.4 max 100.0 ms
+centre_corners_h5_2layers_phone 7 s: Foam Studio · 5721 cells · step 21 · 287 ms/step · solving | frames median 50.0 p95 83.3 max 116.6 ms
+centre_corners_h5_2layers_phone 9 s: Foam Studio · 5721 cells · step 30 · 214 ms/step · solving | frames median 16.8 p95 83.3 max 83.4 ms
+centre_corners_h5_2layers_phone 11 s: Foam Studio · 5721 cells · step 32 · 214 ms/step · steady | frames median 16.7 p95 50.0 max 83.3 ms
+RESULT centre_corners_h5_2layers_phone: meshed 2 s, steady 11 s, worst frame 217 ms, title "Foam Studio · 5721 cells · step 32 · 214 ms/step · steady", errors 0
+centre_corners_h5_3layers_cfmesh_desktop 2 s: Foam Studio | frames median 16.7 p95 83.4 max 400.0 ms
+centre_corners_h5_3layers_cfmesh_desktop 4 s: Foam Studio | frames median 16.7 p95 50.1 max 66.6 ms
+centre_corners_h5_3layers_cfmesh_desktop 6 s: Foam Studio | frames median 16.7 p95 66.7 max 83.3 ms
+centre_corners_h5_3layers_cfmesh_desktop 8 s: Foam Studio | frames median 16.7 p95 66.7 max 100.0 ms
+centre_corners_h5_3layers_cfmesh_desktop 10 s: Foam Studio | frames median 16.7 p95 66.6 max 66.7 ms
+centre_corners_h5_3layers_cfmesh_desktop 12 s: Foam Studio | frames median 16.7 p95 66.7 max 100.0 ms
