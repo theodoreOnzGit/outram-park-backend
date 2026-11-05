@@ -103,6 +103,39 @@ pub struct Htr10CoreDesign {
     /// the record's geometry, cell for cell. `super::zones::zoned_material_set`
     /// supplies the materials it needs.
     pub temperature_zones: bool,
+    /// How the TRISO particles sit in a fuel zone (gh:#1243): the record's
+    /// regular lattice, or random. Read by the explicit (DEM) bed only; the
+    /// Şeker bed always uses the lattice. Default [`TrisoPacking::Lattice`].
+    pub triso_packing: TrisoPacking,
+}
+
+/// **How the TRISO particles sit in a fuel zone** (gh:#1243).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TrisoPacking {
+    /// The record's regular cubic lattice, the same in every fuel pebble.
+    #[default]
+    Lattice,
+    /// **Random sequential addition** of exactly the lattice's particle count
+    /// (so the fuel mass is unchanged), every particle wholly inside the fuel
+    /// zone (`outram_mc_libs::dh_universe::pack_count_in_ball`), each packing
+    /// wrapped in OpenMC's tracking lattice
+    /// (`outram_mc_libs::pebble_beds::triso_lattice::create_triso_lattice`).
+    /// `realisations` different packings (seeds `seed`, `seed + 1`, ...);
+    /// fuel pebble number i takes packing i mod `realisations`.
+    Random {
+        /// Different packings, 1..=64.
+        realisations: usize,
+        /// Seed of the first.
+        seed: u64,
+    },
+}
+
+impl TrisoPacking {
+    /// The browser demos' DEM-bed packing (gh:#1243): 8 random packings.
+    pub const DEM_DEFAULT: Self = Self::Random {
+        realisations: 8,
+        seed: 20_261_105,
+    };
 }
 
 impl Default for Htr10CoreDesign {
@@ -115,6 +148,7 @@ impl Default for Htr10CoreDesign {
             particles_per_pebble: PARTICLES_PER_PEBBLE,
             rod_insertions: [0.0; N_CONTROL_RODS],
             temperature_zones: false,
+            triso_packing: TrisoPacking::Lattice,
         }
     }
 }
@@ -218,6 +252,11 @@ impl Htr10CoreDesign {
         }
         if self.particles_per_pebble == 0 {
             return Err("a fuel pebble needs at least one TRISO particle".into());
+        }
+        if let TrisoPacking::Random { realisations, .. } = self.triso_packing {
+            if !(1..=64).contains(&realisations) {
+                return Err(format!("{realisations} random TRISO packings: 1..=64"));
+            }
         }
         Ok(())
     }

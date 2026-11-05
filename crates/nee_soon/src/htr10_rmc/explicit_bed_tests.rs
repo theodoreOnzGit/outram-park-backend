@@ -542,3 +542,83 @@ fn the_dem_bed_cut_to_the_lattice_ball_count_is_the_beds_view_cut() {
         eb.max_wall_penetration
     );
 }
+
+/// **Random TRISO packing in a DEM bed** (gh:#1243), read from the assembled
+/// geometry: three separate fuel balls with two random packings. Pass:
+/// - the geometry carries the bed, the record's TRISO lattice and the two
+///   tracking lattices (4 lattices), and the fuel balls fill lattices 2, 3,
+///   2 in order (packing i mod 2);
+/// - in each fuel zone, the fraction of 40 000 uniform points that locate in
+///   UO₂ kernel is the analytic `n (r_kernel / r_zone)³` (the same particle
+///   count as the lattice, so the same fuel) within 5σ of its binomial noise;
+/// - the record's lattice packing, on the same centres, passes the same check.
+#[test]
+fn random_triso_packing_holds_the_lattices_particles() {
+    use crate::htr10_rmc::core_design::{Htr10CoreDesign, TrisoPacking};
+    let r = PEBBLE_RADIUS_CM;
+    let cm = [[0.0, 0.0, r], [12.0, 0.0, r], [-12.0, 8.196, r]];
+    let centres: Vec<[Length; 3]> = cm.iter().map(|c| c.map(|v| m(v / 100.0))).collect();
+    let fuel = [true, true, true];
+    for packing in [TrisoPacking::Random { realisations: 2, seed: 5 }, TrisoPacking::Lattice] {
+        let design = Htr10CoreDesign {
+            triso_packing: packing,
+            ..Htr10CoreDesign::default()
+        };
+        let core = assemble_explicit_triso_from_centres_with(&centres, &fuel, 1, 0, &design);
+        let g = &core.geometry;
+        let random = matches!(packing, TrisoPacking::Random { .. });
+        assert_eq!(g.lattices.len(), if random { 4 } else { 2 });
+        let fills: Vec<usize> = g
+            .cells
+            .iter()
+            .filter(|c| (TILE_FUEL_ZONE_CELL_ID..TILE_FUEL_SHELL_CELL_ID).contains(&c.id))
+            .filter_map(|c| match c.fill {
+                outram_mc_libs::geometry::cell::CellFill::Lattice(l) => Some(l),
+                _ => None,
+            })
+            .collect();
+        // Every piece of ball j (one per tile it reaches) takes packing j
+        // mod 2: the pieces of one ball all fill the same lattice.
+        let Some(PebbleBed::Explicit(eb)) = core.bed.as_ref() else {
+            panic!("an explicit bed")
+        };
+        assert!(fills.len() >= 3, "{fills:?}");
+        assert!(fills.iter().all(|&l| if random { l == 2 || l == 3 } else { l == 1 }), "{fills:?}");
+        if random {
+            for (j, c) in eb.centres.iter().enumerate().take(3) {
+                let path = g
+                    .locate(Position::new(c[0], c[1], c[2]), DIR, SurfaceToken::NONE)
+                    .expect("ball centre located");
+                let lat = path.levels.iter().find_map(|l| l.lattice.filter(|&x| x >= 1));
+                assert_eq!(lat, Some(2 + j % 2), "ball {j}'s centre is in packing {}", j % 2);
+            }
+        }
+        let n = core.triso_particles.expect("particles") as f64;
+        let rk = design.triso_radii_cm[0];
+        let rz = design.fuel_zone_radius_cm;
+        let expect = n * (rk / rz).r_powi(3);
+        let mut rng = Rng(3);
+        for i in 0..3 {
+            let c = eb.centres[i];
+            let (mut hits, mut total) = (0usize, 0usize);
+            while total < 40_000 {
+                let p = [rng.next(), rng.next(), rng.next()].map(|u| (2.0 * u - 1.0) * rz);
+                if p[0] * p[0] + p[1] * p[1] + p[2] * p[2] >= rz * rz {
+                    continue;
+                }
+                total += 1;
+                let at = Position::new(c[0] + p[0], c[1] + p[1], c[2] + p[2]);
+                let path = g.locate(at, DIR, SurfaceToken::NONE).expect("located");
+                if path.material == Some(mat::KERNEL) {
+                    hits += 1;
+                }
+            }
+            let f = hits as f64 / total as f64;
+            let sigma = (expect * (1.0 - expect) / total as f64).sqrt();
+            assert!(
+                (f - expect).abs() < 5.0 * sigma,
+                "{packing:?} ball {i}: kernel fraction {f:.5} vs {expect:.5} ± {sigma:.5}"
+            );
+        }
+    }
+}

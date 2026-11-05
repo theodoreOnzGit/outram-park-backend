@@ -100,6 +100,9 @@ pub fn build_core_with(code: usize, rods: &[f64; N_CONTROL_RODS]) -> Result<Asse
     if code == DEM_BED {
         let c = dem_centres()?;
         let fuel = paper_fuel_assignment(&c);
+        // The DEM bed packs its TRISO at random (gh:#1243), as the worker
+        // pool's `ParametricStudy` builds it, so the picture is the core run.
+        design.triso_packing = nee_soon::htr10_rmc::core_design::TrisoPacking::DEM_DEFAULT;
         Ok(assemble_explicit_triso_from_centres_with(&c, &fuel, super::RINGS, 0, &design))
     } else if rods == &WITHDRAWN {
         Ok(assemble_explicit_triso(super::RINGS, code.clamp(10, 20), 0))
