@@ -71,6 +71,9 @@
 //! randomly seeded hash set, so the same input gives the same mesh in every
 //! run (the reproducibility defect class of the HTR-10 neighbour grid).
 
+pub mod boundary_layers;
+pub mod refine_boundary_layers;
+
 use crate::checks::check_quality;
 use crate::math::Vec3;
 use crate::volume_mesh::{cells_faces, from_cell_faces, from_cell_faces_wound, VolumeMesh};
@@ -785,8 +788,24 @@ pub(crate) fn build_layered_variable(
     per_point_total: &BTreeMap<usize, f64>,
     counts: &BTreeMap<usize, usize>,
 ) -> VolumeMesh {
+    build_layered_variable_with_columns(mesh, wall_faces, wall_pts, inward, d, per_point_total, counts).0
+}
+
+/// [`build_layered_variable`] with each wall point's column of new point
+/// labels (wall first), for callers that name the new faces
+/// ([`boundary_layers`], gh:#1270). The same code path.
+pub(crate) fn build_layered_variable_with_columns(
+    mesh: &VolumeMesh,
+    wall_faces: &[usize],
+    wall_pts: &BTreeSet<usize>,
+    inward: &BTreeMap<usize, Vec3>,
+    d: &[f64],
+    per_point_total: &BTreeMap<usize, f64>,
+    counts: &BTreeMap<usize, usize>,
+) -> (VolumeMesh, BTreeMap<usize, Vec<usize>>) {
     let (points, column) = layer_columns(mesh, wall_pts, inward, d, per_point_total, counts);
-    assemble_layered(mesh, wall_faces, wall_pts, points, &column, counts)
+    let m = assemble_layered(mesh, wall_faces, wall_pts, points, &column, counts);
+    (m, column)
 }
 
 /// The point list of a layered mesh: the non-wall points in order, then each
