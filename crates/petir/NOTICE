@@ -839,8 +839,8 @@ notice and the copyright lines of the files it was ported from.
 DERIVED WORK — Upstream: EGSnrc (National Research Council Canada)
 ================================================================================
 
-Ported from EGSnrc's egs++ class library at the direction recorded on GitHub
-issue #1289 (2026-11-05). Each ported file names its upstream files and
+Ported from EGSnrc's egs++ class library (and, for RANLUX, its Mortran
+sources) at the direction recorded on GitHub issue #1289 (2026-11-05). Each ported file names its upstream files and
 carries their copyright lines in its header.
 
   Project    : EGSnrc
@@ -868,12 +868,38 @@ carries their copyright lines in its header.
     Contributors (as the headers list them): Ernesto Mainegra-Hing,
                  Reid Townson
 
+  src/rng/ranmar.rs       <- HEN_HOUSE/egs++/egs_rndm.h, .cpp
+                             (RANMAR: EGS_Ranmar, base EGS_RandomGenerator)
+  src/rng/ranlux.rs       <- HEN_HOUSE/src/ranlux.mortran, ranlux.macros
+                             (RANLUX; egs++ has none)
+    Copyright  : "Copyright (C) 2015 National Research Council Canada"
+               (all four files).
+               egs_rndm.h: Author Iwan Kawrakow, 2005; Contributors Reid
+               Townson. egs_rndm.cpp: Author Iwan Kawrakow, 2005;
+               Contributors Hubert Ho, Reid Townson. ranlux.mortran and
+               ranlux.macros: Authors Iwan Kawrakow, 2000, Dave Rogers, 2000;
+               "Parts of the EGS code that originate from SLAC are
+               distributed by NRC under the terms of the AGPL 3.0 licence,
+               in agreement with SLAC."
+
+  Original algorithms, as upstream credits them:
+    RANMAR — "the Zaman & Marsaglia ranmar generator" (egs_rndm.cpp):
+      G. Marsaglia, A. Zaman and W. W. Tsang, Statistics & Probability
+      Letters 9 (1990) 35-39.
+    RANLUX — "Subtract-and-borrow random number generator proposed by
+      Marsaglia and Zaman, implemented by F. James with the name RCARRY in
+      1991, and later improved by Martin Luescher in 1993 to produce 'Luxury
+      Pseudorandom Numbers'. Fortran 77 coded by F. James, 1993."
+      (ranlux.mortran): M. Luscher, Computer Physics Communications 79, 100
+      (1994); F. James, Computer Physics Communications 79, 111 (1994).
+
   The ported files are AGPL-3.0-only, exercising the "or later" option by
   choosing version 3; the crate already conveys as an AGPL-3.0-only combined
   work (gh:#973). The flow is ONE-WAY. Verified bit-identical against
-  upstream compiled and run: verification_and_validation/egsnrc_alias_table/
-  and verification_and_validation/egsnrc_interpolator/. Deviations from
-  upstream are listed in each file (none changes an output wherever
+  upstream compiled and run: verification_and_validation/egsnrc_alias_table/,
+  verification_and_validation/egsnrc_interpolator/ and
+  verification_and_validation/egsnrc_rndm/ (getGaussian: see its README).
+  Deviations from upstream are listed in each file (none changes an output wherever
   upstream's behaviour is defined).
 
 ================================================================================
