@@ -2502,6 +2502,139 @@ The solve (u_c/2U, dp/dz against Hagen–Poiseuille) is not part of this
 differential: it runs in `dhoby-ghaut`'s Foam Studio and is not cheap on a
 shared 4-core machine; see "Open".
 
+### Methodology (as run)
+
+`surface_optimizer::tests_gh1259::diagnose_untangle_surface_differential`
+(`--ignored`, feature `cell-centre-dual`): for each pipe and h, the
+multipatch pipeline twice on the same surface, `CellCentre` + `Corners`,
+no layers, `feature_edges` on, `untangle_surface` off and on. Unmapped =
+the count in the capture's "left unmapped" note (0 when there is none);
+inlet = |Σ S_f·ẑ| over the `inlet` patch / πR²; pyramids =
+`surface_mapper::cells_with_nonpositive_pyramids`; inverted =
+`check_inverted_vertices` on the returned mesh; NO = `checks::check_quality`'s
+max non-orthogonality. `CFMESH_CE=1` runs both routes with `correct_edges`
+on.
+
+### Results (2026-11-05, `correct_edges` off)
+
+| case | h | route | capture | unmapped | inlet/πR² | V/πR²L | pyramids ≤ 0 | inverted pts (first → last untangle) | max NO (°) | s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 24-sided L 60 | 4 | revert | kept | 0 | 0.97015 | 0.98314 | 0 | 1437 | 52.8 | 0.1 |
+| | | untangle | kept | 0 | 0.97206 | 0.98120 | 0 | 1437 → 805; 132 → 128 | 74.5 | 0.2 |
+| | 5 | revert | kept | 0 | 0.97702 | 0.98012 | 0 | 914 | 48.9 | 0.0 |
+| | | untangle | kept | 0 | 0.98537 | 0.97788 | 0 | 922 → 697; 156 → 83 | 71.5 | 0.2 |
+| | 6 | revert | kept | 32 | 0.93850 | 0.96940 | 0 | 558 | 56.0 | 0.0 |
+| | | untangle | kept | 0 | 0.96948 | 0.96925 | **6** | 560 → 536; 107 → 90 | 83.0 | 0.1 |
+| 48-sided L 60 | 4 | revert | kept | 128 | 0.95583 | 0.98899 | 0 | 1411 | 52.3 | 0.1 |
+| | | untangle | kept | 0 | **0.99343** | 0.99028 | 0 | 1395 → 896; 211 → 200 | 79.5 | 0.3 |
+| | 5 | revert | kept | 0 | 0.98287 | 0.98883 | 0 | 880 | 47.7 | 0.0 |
+| | | untangle | kept | 0 | **0.99208** | 0.98665 | 0 | 888 → 618; 127 → 104 | 70.4 | 0.2 |
+| | 6 | revert | kept | 32 | 0.94786 | 0.97806 | 0 | 556 | 56.5 | 0.0 |
+| | | untangle | kept | 0 | **0.97901** | 0.97777 | **6** | 554 → 500; 108 → 89 | 84.7 | 0.1 |
+| Foam Studio (48, L 200) | 4 | revert | kept | 128 | 0.95583 | 0.99122 | 0 | 4299 | 52.3 | 0.3 |
+| | | untangle | kept | 0 | **0.99340** | 0.99023 | 0 | 4283 → 906; 238 → 200 | 79.9 | 0.8 |
+| | 5 | revert | kept | 0 | 0.98287 | 0.98887 | 0 | 2714 | 47.7 | 0.1 |
+| | | untangle | kept | 0 | **0.99202** | 0.98606 | 0 | 2722 → 682; 138 → 88 | 69.9 | 0.5 |
+| | 6 | revert | kept | 64 | 0.94786 | 0.98081 | 0 | 1654 | 57.9 | 0.5 |
+| | | untangle | kept | 0 | **0.97892** | 0.97732 | **3** | 1655 → 473; 101 → 91 | 85.2 | 0.7 |
+
+"first → last" lists the two `untangleSurface` runs: `mapMeshToSurface`'s
+(2 extra layers) and the one `optimizeSurface` ends with. The 24-gon's own
+area is 0.98862 πR², the 48-gon's 0.99715 πR². The revert route's
+Foam Studio numbers equal gh:#1241's (128 / 0 / 64 unmapped; inlet
+0.95583 / 0.98287 / 0.94786): the shared mapper is unchanged by gh:#1257.
+
+### Against the predictions
+
+- Unmapped 0 where kept: **held** (nothing is reverted).
+- At least one of h 4 / h 6 rejected: **missed**, every capture was kept.
+- Inverted points fall, not to 0: **held** (to 83–200 after `optimizeSurface`).
+- Inlet 0.975–0.990 at every h, 0.983 ± 0.005 at h 5: **missed high** on
+  the 48-sided pipes (0.979–0.993; h 5 0.992), held on the 24-sided one
+  (0.969–0.985). The chord loss shrank: `optimizeSurface` smooths the rim's
+  edge points along the feature edge (`newEdgePositionLaplacian`) and maps
+  them back onto the surface's feature edge (`mapEdgeNodes`), which spreads
+  them more evenly and puts them on the 48-gon's sides; the prediction
+  assumed the rim chords stay where the dual put them.
+- Pyramids 0 to a few tens: **held** (0 at h 4 and 5, 3–6 at h 6).
+- Seconds to tens of seconds: **missed** (0.1–0.8 s).
+- **Not predicted:** the maximum non-orthogonality rises from 48–58° to
+  70–85°. Only boundary points move, the interior does not follow, and
+  `keep_if_ok` checks closure and inverted cells only. At h 6 three to six
+  cells keep a non-positive face pyramid. Upstream runs the volume
+  optimiser afterwards (`optimiseFinalMesh`), which this route does not.
+
+### Results with `correct_edges` on (2026-11-05, Foam Studio pipe only)
+
+`CFMESH_CE=1 CFMESH_CASE=foam`. The revert route reproduces gh:#1241's
+`correct_edges` rows (h 4 rejected, 0.92496; h 6 60 unmapped, 0.95138).
+
+| h | route | capture | cells | unmapped | inlet/πR² | V/πR²L | pyramids ≤ 0 | inverted after | max NO (°) | s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4 | revert | **rejected** | 6 353 | — | 0.92496 | 0.97207 | 0 | 4184 | 53.4 | 238.0 |
+| 4 | untangle | kept | 7 329 | 0 | **0.99340** | 0.99033 | 0 | 96 | 88.4 | 1.4 |
+| 5 | revert | kept | 3 593 | 0 | 0.98094 | 0.98888 | 0 | 2666 | 71.9 | 0.1 |
+| 5 | untangle | kept | 3 593 | 0 | **0.99202** | 0.98615 | 0 | 78 | 74.4 | 0.5 |
+| 6 | revert | kept | 2 701 | 60 | 0.95138 | 0.98150 | 0 | 1612 | 74.3 | 25.0 |
+| 6 | untangle | kept | 2 529 | 0 | **0.97896** | 0.97786 | **0** | 52 | 85.6 | 0.9 |
+
+With `correct_edges` the untangle route leaves no non-positive pyramid at
+h 6 (3 without), and is 25–170× faster than the revert route, whose cost
+is `untangleMeshFV` on the pyramids the pre-map leaves inverted (the
+untangled surface leaves none to fix). Max non-orthogonality reaches 88°.
+
+### Images (drawn from the mesh the pipeline returns)
+
+In `laminar_pipe_gh1155/gh1259/`, written by
+`surface_optimizer::render_gh1259::render_untangle_surface_inlets`
+(`--ignored`): `inlet_{revert,untangle}_h{4,5,6}.png` (the whole inlet
+patch, x-y) and `…_rim.png` (x 6–10.5 mm, y ±2.25 mm), Foam Studio pipe,
+`CellCentre` + `Corners`, bare. Black: inlet face edges; red: the input
+48-gon; blue squares: inlet points off the z = 0 plane. They are drawn by a
+small PNG writer in that test, not by the gh:#1241 `dhoby-ghaut` renderers:
+building the Foam Studio example filled the shared disk on 2026-11-05 and
+was abandoned.
+
+**Checked by eye (2026-11-05):** `inlet_revert_h4_rim.png`: the rim chord
+at y = 0 runs about 0.2 mm inside the 48-gon (the reverted cell);
+`inlet_untangle_h4_rim.png`: the rim lies on the 48-gon, its vertices on
+the polygon's corners or sides. `inlet_revert_h6.png`: a notch at the
+upper right, six off-plane (reverted) points; `inlet_untangle_h6.png`: the
+rim follows the 48-gon all round, four rim points still marked off the
+plane (on the rim, not inside), and **every inlet face has moved**: the
+dual's regular octagons are now irregular polygons. That is the smoothing
+of the ~40 % of points cfMesh calls inverted (gh:#1258), not only the rim's.
+**Not checked:** the wall and outlet patches, the cells behind the inlet
+(where the non-orthogonality rises), and any layered mesh.
+
+### Recommendation (for the maintainer; nothing is changed)
+
+`untangle_surface` removes the rim tangles and most of the chord loss
+(Foam Studio inlet 0.956 / 0.983 / 0.948 → 0.993 / 0.992 / 0.979 πR²,
+nothing left unmapped), at < 1 s. It is **not** ready as a default: it
+leaves 3–6 cells with a non-positive pyramid at h 6 mm and raises the
+maximum non-orthogonality to 70–85°, because the interior does not follow
+the boundary. Upstream follows the surface steps with `optimiseFinalMesh`
+(`untangleMeshFV` with its boundary moves and the LP `meshUntangler`, both
+gh:#1255/#1256 territory); combining the two, then the solve, is the next
+measurement.
+
+### Open (gh:#1259)
+
+- The solve (u_c/2U, dp/dz) on the untangled meshes: not run. It runs in
+  `dhoby-ghaut`'s Foam Studio example, which could not be built on the
+  shared machine (the disk filled); a `FOAM_UNTANGLE_SURFACE` knob for it
+  was written and withdrawn uncompiled. Next: add that knob beside
+  `FOAM_CORRECT_EDGES` in `examples/foam_studio_web/engine.rs` and run
+  `--headless-unstructured 4 0 0.3 1.2 100` with `FOAM_DUAL_KIND=centre
+  FOAM_DUAL_FP=corners`.
+- `optimise_surface` inside `CfMeshOptimise` was run once (h 6 mm, one
+  layer, valid, 863 cells); not measured against it off.
+- The 40 % "inverted" boundary points of the median / cell-centre duals:
+  whether to make the dual's boundary polygons convex, or to accept that
+  cfMesh's test reads them as tangled.
+- Upstream (cfMesh) is not installed here; the port was not run against it.
+
 ## Reproduce
 
 ```bash
@@ -2526,4 +2659,8 @@ cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --li
 FOAM_DIAG_ABL=base,upwind,linear,nolimit,dt4,dt10,dt30,uncorrected,nonorth0,co4 cargo test --release -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_three_layer_divergence
 FOAM_MAX_CO=4 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners CFMESH_STALL=0 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+# gh:#1259
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_untangle_surface_differential
+CFMESH_CE=1 CFMESH_CASE=foam cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_untangle_surface_differential
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture render_untangle_surface_inlets
 ```

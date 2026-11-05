@@ -141,7 +141,7 @@ _Subtotal: 4441 lines._
 | `.../advancedSmoothers/volumeOptimizer` | 603 | ported | `mesh_optimizer::volume_optimizer`, `vo_func`, `vo_gradients`, `vo_stabilisation` | `optimizeNodePosition` checked: divide and conquer, then Newton/steepest descent, kept only if no worse. |
 | `.../advancedSmoothers/meshUntangler` | 1233 | not ported | — | LP untangler: the feasible region (cut by the opposite-face planes) and `cutRegion` with `tieBreak`. |
 | `.../advancedSmoothers/quadricMetric` | 329 | not ported | — | No upstream workflow calls it (`grep` of `meshLibrary/`: only its own files). |
-| `smoothers/geometry/meshOptimizer/boundaryLayerOptimisation` | 2866 | partial | `boundary_layer_optimisation` | Ported: `calculateHairEdges`, `optimiseLayersAtExittingFaces`, `optimiseLayer`, the normals and thickness routines. Missing: the `meshSurfaceOptimizer::optimizeSurface(2)` call inside `optimiseLayer` (the wall points never move); hair classes come from `layers::LayerVertex`, not `detectBoundaryLayers`. |
+| `smoothers/geometry/meshOptimizer/boundaryLayerOptimisation` | 2866 | partial | `boundary_layer_optimisation` | Ported: `calculateHairEdges`, `optimiseLayersAtExittingFaces`, `optimiseLayer`, the normals and thickness routines. ~~Missing: the `meshSurfaceOptimizer::optimizeSurface(2)` call inside `optimiseLayer` (the wall points never move);~~ **UPDATED 2026-11-05 (gh:#1259):** the `optimizeSurface(2)` call is ported, opt-in (`BoundaryLayerOptimisationControls::optimise_surface`, off by default). Hair classes come from `layers::LayerVertex`, not `detectBoundaryLayers`. |
 | `smoothers/geometry/meshOptimizer/symmetryPlaneOptimisation` | 405 | not ported | — |  |
 
 _Subtotal: 9587 lines._
@@ -150,7 +150,7 @@ _Subtotal: 9587 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `smoothers/geometry/meshSurfaceOptimizer (serial)` | 2266 | not ported | — (`surface_mapper::revert_tangled` undoes moves instead of untangling) | `untangleSurface`, `optimizeSurface`, `untangleSurface2D`, `optimizeSurface2D`, Laplacian(FC/WFC), edge-node smoothing, `lockBoundaryFaces`/`Points`/`FeatureEdges`. |
+| `smoothers/geometry/meshSurfaceOptimizer (serial)` | 2266 | ~~not ported~~ **partial (2026-11-05, gh:#1259)** | `surface_optimizer::MeshSurfaceOptimizer`, `map_mesh_to_surface`, `optimise_mesh_surface`; `mesh_optimizer::optimize_surface` (`meshOptimizerOptimizeSurface.C`) | Ported (3-D, serial): `untangleSurface` (both forms), `optimizeSurface`, Laplacian FC, `surfaceOptimizer` smoothing, edge-node smoothing, `lockBoundaryFaces`/`Points`/`FeatureEdges`, `removeUserConstraints`, the mapper calls. Not ported: `untangleSurface2D`, `optimizeSurface2D`, `enforceConstraints` (no point subsets), `newPositionLaplacian`/`LaplacianWFC` (no 3-D caller). All opt-in (`TetDualOptions::untangle_surface`); differential against `revert_tangled` in `laminar_pipe_gh1155.md` (gh:#1259). |
 | `smoothers/geometry/meshSurfaceOptimizer: OptimizePointParallel.C` | 522 | not applicable | — | MPI. |
 | `.../advancedSurfaceSmoothers/surfaceOptimizer` | 545 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::optimize_point` | The 2D (in-plane) volume-optimiser analogue `untangleSurface` uses; `matrix2D`'s solve inline. |
 

@@ -108,3 +108,21 @@ written in both crates (this one builds dependency-free); change one, change
 the other. Comparison and recommendation: the gh:#1240 section of
 `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 Changing the default needs the maintainer.
+
+## The mesh surface: one engine, never another boundary map (gh:#1257, 2026-11-05)
+
+`surface_engine::SurfaceEngine` is cfMesh's `meshSurfaceEngine` (serial):
+boundary faces, points, edges, `pointFaces`, `pointPoints`, `edgeFaces`,
+`faceEdges`, point/face normals and face centres, and the modifier.
+`SurfacePartitioner` is `meshSurfacePartitioner` (corners, edge points,
+feature edges, `pointPatches`). `layers::layer_setup`, `correct_edges`,
+`surface_mapper` and `boundary_layer_optimisation`'s hairs read their
+boundary maps from it; **a new stage that needs boundary addressing uses
+the engine, it does not build its own map.** `surface_optimizer` holds
+`partTriMesh`, `surfaceOptimizer`, `meshSurfaceCheckInvertedVertices`
+(gh:#1258) and `meshSurfaceOptimizer` (gh:#1259), opt-in through
+`TetDualOptions::untangle_surface` and
+`BoundaryLayerOptimisationControls::optimise_surface` (both off by
+default; changing that needs the maintainer). Note (gh:#1258): by cfMesh's
+inverted-vertex test 40 % of the median/cell-centre duals' boundary points
+are reflex corners of non-convex boundary polygons before any mapping.

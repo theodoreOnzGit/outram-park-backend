@@ -54,7 +54,10 @@
 //! vertex lands on a feature edge)~~ **UPDATED 2026-11-05 (gh:#1241):**
 //! `correctEdgesBetweenPatches` is ported in [`crate::correct_edges`] and
 //! runs before this stage when `TetDualOptions::correct_edges` is on
-//! (off by default). Not ported: the surface untangler that follows;
+//! (off by default). ~~Not ported: the surface untangler that follows;~~
+//! **UPDATED 2026-11-05 (gh:#1259):** the untangler is
+//! [`crate::surface_optimizer::MeshSurfaceOptimizer`], used instead of the
+//! revert when `TetDualOptions::untangle_surface` is on (off by default);
 //! the pipeline keeps the mapped mesh only if it is valid, and says so
 //! otherwise.
 //!
@@ -337,10 +340,12 @@ fn map_impl(
 ///
 /// This stands in for ~~the two upstream steps that are not ported:
 /// `correctEdgesBetweenPatches`, which re-splits a face lying on a feature
-/// edge, and~~ `meshSurfaceOptimizer::untangleSurface`, which is not ported
+/// edge, and~~ `meshSurfaceOptimizer::untangleSurface`~~, which is not ported~~
 /// (**UPDATED 2026-11-05, gh:#1241:** `correctEdgesBetweenPatches` is now
 /// [`crate::correct_edges`], run before this when
-/// `TetDualOptions::correct_edges` is on). Where upstream repairs
+/// `TetDualOptions::correct_edges` is on; **gh:#1259:** `untangleSurface`
+/// is now [`crate::surface_optimizer`], the pipeline's alternative to this
+/// function under `TetDualOptions::untangle_surface`). Where upstream repairs
 /// the face, this leaves that bit of the boundary where the dual put it.
 pub fn map_vertices_onto_surface_patches_untangled(
     mesh: &VolumeMesh,

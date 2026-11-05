@@ -1451,6 +1451,15 @@ mod tests_gh1259 {
     /// ({0, 2, 6}, the gh:#1258 test), 0 at the last; the centre ends
     /// inside the hexagon in its plane (z = 0 to 1e-12), every top triangle
     /// positive about +z; one smoothing pass; the ring and apex unmoved.
+    /// **Result (2026-11-05):** 1 inverted at the first check, not 3 —
+    /// **missed**: `untangleSurface` checks only the selected points, and
+    /// a locked point is never selected, so ring points 2 and 6 (locked
+    /// feature-edge points) are not checked at all; the rest held (0 at
+    /// the last check, one pass, centre to (1.33e-5, 1.16e-5, 0), the
+    /// point gh:#1258's `surfaceOptimizer` test found, ring
+    /// unmoved). The apex did move — **missed**: it is a free bottom point
+    /// two rings from the centre, which the two extra layers select; it
+    /// moved 1.8e-5 in its tangent plane (the bottom's point normal, −z).
     #[test]
     fn untangle_surface_repairs_a_dragged_fan() {
         let mut m = bipyramid(Vec3::new(1.5, 0.0, 0.0));
@@ -1458,10 +1467,15 @@ mod tests_gh1259 {
         let e = SurfaceEngine::new(&m);
         let part = SurfacePartitioner::new(&e);
         let mut so = MeshSurfaceOptimizer::new(e, part, None);
+        // A user lock removed again leaves nothing locked.
+        so.lock_boundary_points(&[0]);
+        assert!(so.locked(0));
+        so.remove_user_constraints();
+        assert!(!so.locked(0));
         so.lock_feature_edges();
         let r = so.untangle_surface(&mut m.points, 2);
         println!("{r:?}; centre {:?}", m.points[0]);
-        assert_eq!(r.n_inverted_first, 3);
+        assert_eq!(r.n_inverted_first, 1);
         assert_eq!(r.n_inverted_last, 0);
         assert_eq!(r.passes, 1);
         assert!(m.points[0].z.abs() < 1e-12);
@@ -1469,9 +1483,13 @@ mod tests_gh1259 {
             let (a, b) = (m.points[1 + k], m.points[1 + (k + 1) % 6]);
             assert!(a.sub(m.points[0]).cross(b.sub(m.points[0])).z > 0.0, "top triangle {k}");
         }
-        for v in 1..8 {
+        for v in 1..7 {
             assert_eq!(m.points[v], orig[v]);
         }
+        // The apex is two rings from the centre, so `untangleSurface`'s two
+        // extra layers select it and the Laplace pass moves it in its plane.
+        let d = m.points[7].sub(orig[7]);
+        assert!(d.length() < 1e-4 && d.z.abs() < 1e-12, "{d:?}");
         m.validate().unwrap();
     }
 
@@ -1519,6 +1537,7 @@ mod tests_gh1259 {
     }
 
     /// Projected inlet area |Σ S_f·ẑ| over the `inlet` patch, / πR².
+    #[cfg(feature = "cell-centre-dual")]
     fn inlet_fraction(m: &VolumeMesh, r: f64) -> f64 {
         let q = m.patches.iter().find(|q| q.name == "inlet").unwrap();
         let a: f64 = (q.start_face..q.start_face + q.n_faces).map(|f| m.face_area_vector(f).z).sum();
@@ -1542,7 +1561,14 @@ mod tests_gh1259 {
     fn diagnose_untangle_surface_differential() {
         let cases: [(&str, usize, f64); 3] = [("pipe24 L60", 24, 0.06), ("pipe48 L60", 48, 0.06), ("foam studio L200", 48, 0.2)];
         let hs: Vec<f64> = std::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        // CFMESH_CE=1: correct_edges on in both routes; CFMESH_CASE: only
+        // the cases whose name contains it.
+        let ce = std::env::var("CFMESH_CE").as_deref() == Ok("1");
+        let only = std::env::var("CFMESH_CASE").ok();
         for (name, n_seg, l) in cases {
+            if only.as_deref().is_some_and(|c| !name.contains(c)) {
+                continue;
+            }
             let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, l, n_seg);
             for &h in &hs {
                 for untangle in [false, true] {
@@ -1552,6 +1578,7 @@ mod tests_gh1259 {
                         dual_kind: DualKind::CellCentre,
                         dual_feature_points: FeaturePointRule::Corners,
                         untangle_surface: untangle,
+                        correct_edges: ce,
                         ..Default::default()
                     };
                     let t0 = std::time::Instant::now();
@@ -1568,9 +1595,10 @@ mod tests_gh1259 {
                     let inv = check_inverted_vertices(&e, &SurfacePartitioner::new(&e), &m.points, None).len();
                     let note = rep.stage_notes.iter().find(|n| n.starts_with("untangleSurface")).cloned().unwrap_or_default();
                     println!(
-                        "{name} h {:.0} {}: {} cells, capture {}, unmapped {unmapped}, inlet/piR2 {:.5}, V/piR2L {:.5}, nonpos pyramids {npyr}, inverted pts {inv}, NO max {:.1}, {secs:.1} s; {note}",
+                        "{name} h {:.0} {}{}: {} cells, capture {}, unmapped {unmapped}, inlet/piR2 {:.5}, V/piR2L {:.5}, nonpos pyramids {npyr}, inverted pts {inv}, NO max {:.1}, {secs:.1} s; {note}",
                         h * 1e3,
                         if untangle { "untangleSurface" } else { "revert_tangled" },
+                        if ce { " +correct_edges" } else { "" },
                         m.cell_count(),
                         if skipped { "REJECTED" } else { "kept" },
                         inlet_fraction(&m, 0.01),
@@ -1578,6 +1606,170 @@ mod tests_gh1259 {
                         crate::checks::check_quality(&m).max_non_orthogonality_deg,
                     );
                 }
+            }
+        }
+    }
+}
+
+/// Diagnostic images for gh:#1259 (`--ignored`): the inlet patch of the
+/// Foam Studio pipe (48-sided, R 10 mm, L 200 mm), `CellCentre` +
+/// `Corners`, bare, at h 4, 5 and 6 mm, under `revert_tangled` and
+/// `untangleSurface`, drawn from the `VolumeMesh` the pipeline returns:
+/// every inlet face's edges in x-y (black), the 48-gon of the input
+/// surface (red), reverted / off-plane points marked (blue: an inlet point
+/// with |z| > 1e-9 m). Two views per mesh: the whole inlet and a rim
+/// close-up (x 6–10.5 mm, y −2.25–2.25 mm). PNGs are written to
+/// `CFMESH_IMG_DIR` (default: the gh:#1259 folder of the V&V record).
+///
+/// The `dhoby-ghaut` renderers of gh:#1241 were not used: building the
+/// Foam Studio example filled the shared disk (2026-11-05). These images
+/// are drawn by this test with a small uncompressed PNG writer; CLI-like
+/// glue, the drawing itself is not asserted.
+#[cfg(all(test, feature = "cell-centre-dual"))]
+mod render_gh1259 {
+    use super::*;
+    use crate::dual::{DualKind, FeaturePointRule};
+    use crate::pipeline::{surface_to_tet_dual_mesh_multipatch, TetDualOptions};
+    use crate::volume_mesh::VolumeMesh;
+    use petir::mathf::RealMath;
+
+    fn crc32(data: &[u8]) -> u32 {
+        let mut c = 0xffff_ffffu32;
+        for &b in data {
+            c ^= b as u32;
+            for _ in 0..8 {
+                c = if c & 1 != 0 { 0xedb8_8320 ^ (c >> 1) } else { c >> 1 };
+            }
+        }
+        !c
+    }
+
+    /// An 8-bit RGB PNG with stored (uncompressed) deflate blocks.
+    fn write_png(path: &std::path::Path, w: usize, h: usize, rgb: &[u8]) {
+        let mut raw = Vec::with_capacity(h * (3 * w + 1));
+        for y in 0..h {
+            raw.push(0u8);
+            raw.extend_from_slice(&rgb[3 * w * y..3 * w * (y + 1)]);
+        }
+        let mut z = vec![0x78u8, 0x01];
+        let (mut a, mut b) = (1u32, 0u32);
+        for &x in &raw {
+            a = (a + x as u32) % 65521;
+            b = (b + a) % 65521;
+        }
+        let mut chunks = raw.chunks(65535).peekable();
+        while let Some(ch) = chunks.next() {
+            z.push(u8::from(chunks.peek().is_none()));
+            let n = ch.len() as u16;
+            z.extend_from_slice(&n.to_le_bytes());
+            z.extend_from_slice(&(!n).to_le_bytes());
+            z.extend_from_slice(ch);
+        }
+        z.extend_from_slice(&((b << 16) | a).to_be_bytes());
+        let mut out = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+        let mut chunk = |ty: &[u8], data: &[u8]| {
+            out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            let mut td = ty.to_vec();
+            td.extend_from_slice(data);
+            out.extend_from_slice(&td);
+            out.extend_from_slice(&crc32(&td).to_be_bytes());
+        };
+        let mut ihdr = Vec::new();
+        ihdr.extend_from_slice(&(w as u32).to_be_bytes());
+        ihdr.extend_from_slice(&(h as u32).to_be_bytes());
+        ihdr.extend_from_slice(&[8, 2, 0, 0, 0]);
+        chunk(b"IHDR", &ihdr);
+        chunk(b"IDAT", &z);
+        chunk(b"IEND", &[]);
+        std::fs::write(path, out).unwrap();
+    }
+
+    struct Canvas {
+        w: usize,
+        h: usize,
+        px: Vec<u8>,
+        x0: f64,
+        y0: f64,
+        span: f64,
+    }
+
+    impl Canvas {
+        fn new(w: usize, h: usize, x0: f64, y0: f64, span: f64) -> Self {
+            Canvas { w, h, px: vec![255; 3 * w * h], x0, y0, span }
+        }
+        fn to_px(&self, x: f64, y: f64) -> (f64, f64) {
+            ((x - self.x0) / self.span * self.w as f64, (1.0 - (y - self.y0) / self.span) * self.h as f64)
+        }
+        fn dot(&mut self, x: i64, y: i64, c: [u8; 3]) {
+            if x >= 0 && y >= 0 && (x as usize) < self.w && (y as usize) < self.h {
+                let i = 3 * (y as usize * self.w + x as usize);
+                self.px[i..i + 3].copy_from_slice(&c);
+            }
+        }
+        fn line(&mut self, a: Vec3, b: Vec3, c: [u8; 3]) {
+            let (p, q) = (self.to_px(a.x, a.y), self.to_px(b.x, b.y));
+            let n = ((q.0 - p.0).abs().max((q.1 - p.1).abs()) as usize).clamp(1, 20_000);
+            for i in 0..=n {
+                let t = i as f64 / n as f64;
+                self.dot((p.0 + t * (q.0 - p.0)) as i64, (p.1 + t * (q.1 - p.1)) as i64, c);
+            }
+        }
+        fn mark(&mut self, a: Vec3, c: [u8; 3]) {
+            let p = self.to_px(a.x, a.y);
+            for dx in -3..=3 {
+                for dy in -3..=3 {
+                    self.dot(p.0 as i64 + dx, p.1 as i64 + dy, c);
+                }
+            }
+        }
+    }
+
+    fn draw(m: &VolumeMesh, path: &std::path::Path, x0: f64, y0: f64, span: f64) {
+        let mut c = Canvas::new(900, 900, x0, y0, span);
+        for k in 0..48 {
+            let (a0, a1) = (k as f64 * std::f64::consts::TAU / 48.0, (k + 1) as f64 * std::f64::consts::TAU / 48.0);
+            c.line(Vec3::new(0.01 * a0.r_cos(), 0.01 * a0.r_sin(), 0.0), Vec3::new(0.01 * a1.r_cos(), 0.01 * a1.r_sin(), 0.0), [220, 30, 30]);
+        }
+        let q = m.patches.iter().find(|q| q.name == "inlet").unwrap();
+        for f in q.start_face..q.start_face + q.n_faces {
+            let r = &m.faces[f];
+            for i in 0..r.len() {
+                c.line(m.points[r[i]], m.points[r[(i + 1) % r.len()]], [0, 0, 0]);
+            }
+        }
+        for f in q.start_face..q.start_face + q.n_faces {
+            for &v in &m.faces[f] {
+                if m.points[v].z.abs() > 1e-9 {
+                    c.mark(m.points[v], [30, 90, 230]);
+                }
+            }
+        }
+        write_png(path, c.w, c.h, &c.px);
+    }
+
+    #[test]
+    #[ignore]
+    fn render_untangle_surface_inlets() {
+        let dir = std::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/gh1259").to_string()
+        });
+        let dir = std::path::PathBuf::from(dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
+        for h_mm in [4usize, 5, 6] {
+            for (untangle, tag) in [(false, "revert"), (true, "untangle")] {
+                let o = TetDualOptions {
+                    cell_size: h_mm as f64 * 1e-3,
+                    n_layers: 0,
+                    dual_kind: DualKind::CellCentre,
+                    dual_feature_points: FeaturePointRule::Corners,
+                    untangle_surface: untangle,
+                    ..Default::default()
+                };
+                let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+                draw(&m, &dir.join(format!("inlet_{tag}_h{h_mm}.png")), -0.0105, -0.0105, 0.021);
+                draw(&m, &dir.join(format!("inlet_{tag}_h{h_mm}_rim.png")), 0.006, -0.00225, 0.0045);
+                println!("wrote inlet_{tag}_h{h_mm}(.png, _rim.png)");
             }
         }
     }
