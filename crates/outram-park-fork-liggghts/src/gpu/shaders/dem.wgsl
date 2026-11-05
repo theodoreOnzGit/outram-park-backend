@@ -82,7 +82,10 @@ fn cell_index(c: vec3<i32>) -> u32 {
 // 2026-11-05: the hi + lo positions came back with lo = 0) cancels them
 // algebraically: `lo − ((t + lo) − t)` becomes 0. Multiplying an
 // intermediate by `prm.one`, a 1 the compiler cannot see, makes it opaque,
-// so it is computed as written. Exact: x · 1 = x.
+// so it is computed as written. Exact: x · 1 = x. EVERY partial sum whose
+// order matters is kept, not only the identities: `(a − X) + (b − bb)`
+// regrouped as `(a + b) − …` loses a tiny `b` in `a + b` (it lost the
+// cylinder radius's lo part, 2.4e-8 m, until every partial was kept).
 fn keep(x: f32) -> f32 {
     return x * prm.one.x;
 }
@@ -95,7 +98,7 @@ fn keep3(x: vec3<f32>) -> vec3<f32> {
 fn two_sum(a: vec3<f32>, b: vec3<f32>) -> array<vec3<f32>, 2> {
     let s = keep3(a + b);
     let bb = keep3(s - a);
-    let e = (a - keep3(s - bb)) + (b - bb);
+    let e = keep3(a - keep3(s - bb)) + keep3(b - bb);
     return array<vec3<f32>, 2>(s, e);
 }
 
@@ -142,19 +145,19 @@ fn kick(@builtin(global_invocation_id) gid: vec3<u32>) {
 // δ = (r_i + r_j) − |x_i − x_j| cancels two numbers near 2r: in plain f32
 // it keeps only ~4e-9 m (1e-5 of a 0.4 mm collision overlap, 4e-4 of a
 // 10 µm resting one). Carried as hi + lo pairs (Dekker / Knuth error-free
-// transformations; `fma` gives the exact product error), δ keeps ~1e-7 of
+// transformations; Dekker's split gives the exact product error), δ keeps ~1e-7 of
 // itself, which is f32's own resolution of the result.
 
 fn ts(a: f32, b: f32) -> vec2<f32> {
     let s = keep(a + b);
     let bb = keep(s - a);
-    return vec2<f32>(s, (a - keep(s - bb)) + (b - bb));
+    return vec2<f32>(s, keep(a - keep(s - bb)) + keep(b - bb));
 }
 
 // (a.x + a.y) + (b.x + b.y), renormalised.
 fn dd_add(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
     let s = ts(a.x, b.x);
-    let lo = keep(s.y + a.y + b.y);
+    let lo = keep(keep(s.y + a.y) + b.y);
     let h = keep(s.x + lo);
     return vec2<f32>(h, lo - keep(h - s.x));
 }
@@ -167,11 +170,20 @@ fn dd_sqrt(a: vec2<f32>) -> vec2<f32> {
     return ts(h, (r.x + r.y) / (2.0 * h));
 }
 
+// The exact error of a·a (Dekker's split product, which needs no fused
+// multiply-add: `fma` was not exact on every driver, 2026-11-05).
+fn sq_err(a: f32, p: f32) -> f32 {
+    let c = keep(4097.0 * a);
+    let hi = keep(c - keep(c - a));
+    let lo = keep(a - hi);
+    return keep(keep(keep(keep(hi * hi) - p) + keep(2.0 * hi * lo)) + keep(lo * lo));
+}
+
 // (a.x + a.y)², to double-f32.
 fn dd_sq(a: vec2<f32>) -> vec2<f32> {
     let p = keep(a.x * a.x);
-    let e = fma(a.x, a.x, -p);
-    let lo = keep(e + 2.0 * a.x * a.y);
+    let e = sq_err(a.x, p);
+    let lo = keep(e + keep(2.0 * a.x * a.y));
     let h = keep(p + lo);
     return vec2<f32>(h, lo - keep(h - p));
 }

@@ -35,6 +35,20 @@
 //!   neither pour could count as settled (φ NaN on both). It now pours
 //!   **4 000**. Its early-time result passed as predicted: median 6.85e-7 m.
 //!
+//! **Second run: 4 of 5 passed once the compiler was stopped from
+//! reassociating** (`keep` in `dem.wgsl`; lavapipe had dropped every lo
+//! part): head-on 9.5e-7, oblique 1.1e-6 / 7.7e-7, resting ball 8.8e-10 m,
+//! the 4 000 pour settled to φ 0.4465 on both (surface 15.30 / 15.27 cm).
+//! The cylinder bounce (3b) measured 6.0e-5, then 4.7e-5 after more
+//! partials were kept, against 1e-5. A single-contact force check located
+//! it in the cylinder's double-f32 overlap (the flat wall's force agrees to
+//! 1.4e-8); one partial sum there is still regrouped by the compiler.
+//! ~~1e-5~~ **The maintainer then set the acceptance criterion (2026-11-05:
+//! "we don't need bit identity"; "the key thing ... is the packing fraction
+//! and rdf"):** 3b's bound is now 1e-4, recorded as what the cylinder path
+//! attains, and the gate that decides is packing fraction and g(r)
+//! (case 4 here and `examples/gpu_pour_compare.rs`).
+//!
 //! Skips (passes, printing why) when no GPU adapter exists; on a headless
 //! Linux host Mesa's lavapipe (`mesa-vulkan-drivers`) provides one.
 
@@ -155,7 +169,7 @@ fn a_ball_bounces_off_the_cylinder_as_on_the_cpu() {
     let dw = rel(c.angular_velocity, s.angular_velocity, c.angular_velocity.norm());
     eprintln!("cylinder bounce: CPU v {:?}, GPU v {:?}, rel {dv:.2e}, spin rel {dw:.2e}", c.velocity, s.velocity);
     assert!(c.velocity.x < 0.0, "it bounced");
-    assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
+    assert!(dv < 1e-4 && dw < 1e-4, "{dv} {dw}");
 }
 
 #[test]

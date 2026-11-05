@@ -32,7 +32,7 @@
 //!   ~1e-12 m resolution: a plain `f32` at 2 m has a 2.4e-7 m step, about 3 %
 //!   of the 9 µm overlap of a pebble near a bed's top. **The overlap** `δ =
 //!   (r_i + r_j) − |x_i − x_j|` is then formed in double-f32 (radii as hi +
-//!   lo too; `fma` for exact products), so it keeps ~1e-7 of itself: in plain
+//!   lo too; Dekker's split for exact products), so it keeps ~1e-7 of itself: in plain
 //!   `f32` the cancellation left ~4e-9 m, which the first comparison measured
 //!   (a head-on rebound 1.8e-5 off the CPU's, 2026-11-05). Velocities, spins,
 //!   forces and springs are `f32` (~1e-7 relative).
@@ -242,7 +242,7 @@ impl GpuSetup {
         // The grid covers the vessel (the cylinder's radius when there is
         // one) and the particles, plus a cell each side; particles that leave
         // it are clamped into the edge cells, which only costs speed.
-        let reach = cyl.map_or(0.0, |c| f64::from(c[3]));
+        let reach = cyl.map_or(0.0, |c| f64::from(c[2]) + f64::from(c[3]));
         lo = Vec3::new(lo.x.min(-reach) - edge, lo.y.min(-reach) - edge, lo.z - edge);
         hi = Vec3::new(hi.x.max(reach) + edge, hi.y.max(reach) + edge, hi.z + edge);
         let dims = [
@@ -333,6 +333,7 @@ pub struct GpuDem {
     pipelines: [wgpu::ComputePipeline; 6],
     groups: [wgpu::BindGroup; 2],
     state: wgpu::Buffer,
+    ft: wgpu::Buffer,
     errs: wgpu::Buffer,
     steps: u64,
 }
@@ -447,7 +448,7 @@ impl GpuDem {
             })
         };
         let groups = [group(&hist[0], &hist[1]), group(&hist[1], &hist[0])];
-        let mut dem = Self { ctx, setup, pipelines, groups, state, errs, steps: 0 };
+        let mut dem = Self { ctx, setup, pipelines, groups, state, ft, errs, steps: 0 };
         // The starting forces (`GranularSystem::new` calls `compute_forces`).
         dem.encode(&[1, 2, 3, 4], 1);
         Ok(dem)
@@ -573,6 +574,19 @@ impl GpuDem {
     pub fn states(&self) -> Vec<GpuState> {
         let n = self.setup.particles.len();
         self.read(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64).map_or_else(Vec::new, |b| decode_states(&b))
+    }
+
+    /// Each particle's last computed (force, torque) (waits for the
+    /// submitted steps): what a check compares with the CPU's contact law.
+    #[must_use]
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn forces(&self) -> Vec<(Vec3, Vec3)> {
+        let n = self.setup.particles.len();
+        let Some(b) = self.read(&self.ft, (n * 32) as u64) else { return Vec::new() };
+        let f: Vec<f32> = b.chunks_exact(4).map(|c| f32::from_ne_bytes([c[0], c[1], c[2], c[3]])).collect();
+        f.chunks_exact(8)
+            .map(|q| (Vec3::new(f64::from(q[0]), f64::from(q[1]), f64::from(q[2])), Vec3::new(f64::from(q[4]), f64::from(q[5]), f64::from(q[6]))))
+            .collect()
     }
 
     /// Overflow counts since the start (waits for the submitted steps).
