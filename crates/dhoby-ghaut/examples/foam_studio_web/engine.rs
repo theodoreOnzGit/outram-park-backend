@@ -641,7 +641,16 @@ pub fn mesh_unstructured_dual(
         optimise_final_mesh: std::env::var("FOAM_OPTIMISE_FINAL").as_deref() == Ok("1"),
         ..opts
     };
-    let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
+    #[allow(unused_mut)]
+    let (mut vm, mut report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
+    // Native-only V&V note (gh:#1283): the inflow area the uniform inlet
+    // velocity sees, |Σ S_f·ẑ| over the inlet faces / πR² (a bowed inlet
+    // has more face area than flux; the solve's Q is U_IN times this).
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(q) = vm.patches.iter().find(|q| q.name == Tag::Inlet.name()) {
+        let a: f64 = (q.start_face..q.start_face + q.n_faces).map(|f| vm.face_area_vector(f).z).sum();
+        report.stage_notes.push(format!("inlet flux area |sum S.z|/piR2 = {:.5}", a.abs() / (std::f64::consts::PI * radius * radius)));
+    }
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);
     }

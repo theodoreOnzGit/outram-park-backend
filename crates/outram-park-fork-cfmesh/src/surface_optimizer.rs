@@ -1626,7 +1626,7 @@ mod tests_gh1259 {
 /// are drawn by this test with a small uncompressed PNG writer; CLI-like
 /// glue, the drawing itself is not asserted.
 #[cfg(all(test, feature = "cell-centre-dual"))]
-mod render_gh1259 {
+pub(crate) mod render_gh1259 {
     use super::*;
     use crate::dual::{DualKind, FeaturePointRule};
     use crate::pipeline::{surface_to_tet_dual_mesh_multipatch, TetDualOptions};
@@ -1724,7 +1724,7 @@ mod render_gh1259 {
         }
     }
 
-    fn draw(m: &VolumeMesh, path: &std::path::Path, x0: f64, y0: f64, span: f64) {
+    pub(crate) fn draw(m: &VolumeMesh, path: &std::path::Path, x0: f64, y0: f64, span: f64) {
         let mut c = Canvas::new(900, 900, x0, y0, span);
         for k in 0..48 {
             let (a0, a1) = (k as f64 * std::f64::consts::TAU / 48.0, (k + 1) as f64 * std::f64::consts::TAU / 48.0);

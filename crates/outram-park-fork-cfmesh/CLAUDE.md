@@ -129,6 +129,24 @@ default; changing that needs the maintainer). Note (gh:#1258): by cfMesh's
 inverted-vertex test 40 % of the median/cell-centre duals' boundary points
 are reflex corners of non-convex boundary polygons before any mapping.
 
+## `optimiseFinalMesh` and the boundary-move projection (gh:#1283, 2026-11-05)
+
+`final_mesh` holds upstream's `optimiseFinalMesh` for a mesh with no
+`CfMeshOptimise` layer (`TetDualOptions::optimise_final_mesh`) and
+`BoundaryProjection` (`EachPass`, `AfterUntangle`), which maps the points
+`untangleMeshFV`'s boundary loop moved back onto their patches. **The
+projection is not upstream.** Upstream's `untangleMeshFV` keeps points on
+the surface only through `optimiseBoundaryVolumeOptimizer(true)`'s tangent
+constraint and calls no mapper afterwards. All three switches are off by
+default, and
+`final_mesh::tests::foam_studio_default_mesh_keeps_its_fingerprint` pins
+Foam Studio's default mesh.
+
+Use the projection only with `untangle_surface`. On the `revert_tangled`
+capture it re-maps the points that capture left off the surface on
+purpose and tangles the mesh (h 4 and h 6 mm on the pipe). Record: the
+gh:#1283 section of `laminar_pipe_gh1155.md`.
+
 ## cfMesh's octree, ported beside `octree.rs` (gh:#1262–#1266, 2026-11-05)
 
 `mesh_octree` (cubes, slot, surface intersections), `mesh_octree_queries`,

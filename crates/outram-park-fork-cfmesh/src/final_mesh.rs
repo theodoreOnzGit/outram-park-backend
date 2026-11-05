@@ -362,6 +362,20 @@ mod tests {
             assert!(n.contains(o), "{n} should be {o}");
         }
     }
+
+    /// The Foam Studio unstructured default's cfMesh mesh (per-corner
+    /// median dual, h 4 mm, no layer, L 200 mm `pipe_surface`) keeps the
+    /// fingerprint recorded in gh:#1240 / gh:#1241,
+    /// 18084991279620725399, through the gh:#1283 code paths (every new
+    /// control off).
+    #[test]
+    fn foam_studio_default_mesh_keeps_its_fingerprint() {
+        let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
+        let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() };
+        let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        assert_eq!(m.cell_count(), 6353);
+        assert_eq!(crate::pipeline::tests::mesh_fingerprint(&m), 18084991279620725399);
+    }
 }
 
 /// The gh:#1283 differential (`--ignored`, feature `cell-centre-dual`): the
@@ -388,6 +402,8 @@ pub(crate) mod diagnose_gh1283 {
     /// - `base`: today's defaults (`revert_tangled` capture; layers:
     ///   `CfMeshOptimise` as recorded);
     /// - `us`: + `untangle_surface` (gh:#1259);
+    /// - `os`: `base` with `optimise_surface` inside `optimiseLayer`
+    ///   (gh:#1259's third wiring);
     /// - `bm`: + boundary moves (gh:#1255), `revert_tangled` capture;
     /// - `bmE` / `bmA`: `bm` with the projection `EachPass` /
     ///   `AfterUntangle`;
@@ -416,6 +432,7 @@ pub(crate) mod diagnose_gh1283 {
         match name {
             "base" => base.clone(),
             "us" => TetDualOptions { untangle_surface: true, ..base.clone() },
+            "os" => with(BoundaryLayerOptimisationControls { optimise_surface: true, ..BoundaryLayerOptimisationControls::default() }, false, false),
             "bm" => with(bm, false, false),
             "bmE" => with(proj(&bm, BoundaryProjection::EachPass), false, false),
             "bmA" => with(proj(&bm, BoundaryProjection::AfterUntangle), false, false),
@@ -462,7 +479,9 @@ pub(crate) mod diagnose_gh1283 {
                             })
                         })
                         .collect();
-                    no.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    let n_nan = no.iter().filter(|x| x.is_nan()).count();
+                    no.retain(|x| !x.is_nan());
+                    no.sort_by(|a, b| a.total_cmp(b));
                     let q99 = no[((no.len() - 1) as f64 * 0.99).round() as usize];
                     let inlet = m.patches.iter().find(|q| q.name == "inlet").unwrap();
                     let ifaces = inlet.start_face..inlet.start_face + inlet.n_faces;
@@ -481,9 +500,9 @@ pub(crate) mod diagnose_gh1283 {
                     let bad = crate::mesh_optimizer::find_bad_faces(&m).iter().filter(|&&b| b).count();
                     let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
                     let thick = rep.layers.as_ref().map_or(0.0, |lo| 1e3 * lo.mean_total_thickness());
-                    let skipped = rep.stage_notes.iter().any(|s| s.contains("skipped"));
+                    let skipped = rep.stage_notes.iter().any(|s| s.contains("skipped") && !s.starts_with("Delaunay"));
                     println!(
-                        "h {:.0} n{n} {name}: {} cells, {secs:.1} s, NO max {:.1} p99 {:.1}, pyr<=0 {npyr}, inlet/piR2 {:.5}, inlet |z| max {z_in:.2e}, off-surface max {off:.2e}, findBadFaces {bad}, checkMesh fail {strict}, thick {thick:.3} mm, V/piR2L {:.5}, skipped {skipped}, fp {}",
+                        "h {:.0} n{n} {name}: {} cells, {secs:.1} s, NaN-NO faces {n_nan}, NO max {:.1} p99 {:.1}, pyr<=0 {npyr}, inlet/piR2 {:.5}, inlet |z| max {z_in:.2e}, off-surface max {off:.2e}, findBadFaces {bad}, checkMesh fail {strict}, thick {thick:.3} mm, V/piR2L {:.5}, skipped {skipped}, fp {}",
                         h * 1e3,
                         m.cell_count(),
                         no[no.len() - 1],
@@ -499,6 +518,38 @@ pub(crate) mod diagnose_gh1283 {
                     }
                 }
             }
+        }
+    }
+
+    /// Diagnostic images for gh:#1283 (`--ignored`): the inlet patch of
+    /// the Foam Studio pipe, drawn from the `VolumeMesh` the pipeline
+    /// returns with gh:#1259's renderer (black: inlet face edges; red: the
+    /// input 48-gon; blue squares: inlet points with |z| > 1e-9 m), whole
+    /// and rim close-up (x 6–10.5 mm, y ±2.25 mm). Meshes: h 5 mm, 3
+    /// layers, `base`, `bm`, `bmE`, `upE`; h 4 / 5 / 6 mm bare, `us`, `up`
+    /// and `upE`. To `CFMESH_IMG_DIR` (default: the gh:#1283 folder of the
+    /// V&V record). Drawing glue: nothing is asserted.
+    #[test]
+    #[ignore]
+    fn render_final_mesh_inlets() {
+        let dir = std::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/gh1283").to_string()
+        });
+        let dir = std::path::PathBuf::from(dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
+        let mut jobs: Vec<(usize, usize, &str)> = vec![(5, 3, "base"), (5, 3, "bm"), (5, 3, "bmE"), (5, 3, "upE")];
+        for h in [4, 5, 6] {
+            jobs.push((h, 0, "us"));
+            jobs.push((h, 0, "up"));
+            jobs.push((h, 0, "upE"));
+        }
+        for (h_mm, n, name) in jobs {
+            let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &variant(name, h_mm as f64 * 1e-3, n)).unwrap();
+            let stem = format!("inlet_{name}_h{h_mm}_n{n}");
+            crate::surface_optimizer::render_gh1259::draw(&m, &dir.join(format!("{stem}.png")), -0.0105, -0.0105, 0.021);
+            crate::surface_optimizer::render_gh1259::draw(&m, &dir.join(format!("{stem}_rim.png")), 0.006, -0.00225, 0.0045);
+            println!("wrote {stem}(.png, _rim.png)");
         }
     }
 }
