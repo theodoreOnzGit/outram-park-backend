@@ -43,11 +43,16 @@
 //! partials were kept, against 1e-5. A single-contact force check located
 //! it in the cylinder's double-f32 overlap (the flat wall's force agrees to
 //! 1.4e-8); one partial sum there is still regrouped by the compiler.
-//! ~~1e-5~~ **The maintainer then set the acceptance criterion (2026-11-05:
-//! "we don't need bit identity"; "the key thing ... is the packing fraction
-//! and rdf"):** 3b's bound is now 1e-4, recorded as what the cylinder path
-//! attains, and the gate that decides is packing fraction and g(r)
-//! (case 4 here and `examples/gpu_pour_compare.rs`).
+//! The maintainer then set the acceptance criterion (2026-11-05: "we don't
+//! need bit identity"; "the key thing ... is the packing fraction and
+//! rdf"): the gate that decides is packing fraction and g(r) (case 4 here
+//! and `examples/gpu_pour_compare.rs`). ~~3b's bound moved to 1e-4~~
+//! **REVERTED the same day:** with every ordered partial sum kept (not only
+//! the identities), the third run met every ORIGINAL tolerance: head-on
+//! 8.8e-9, oblique 1.8e-7 / 3.2e-7, resting ball 4.8e-13 m, cylinder
+//! 1.65e-6 / 9.7e-6; the 4 000 pour settled to φ 0.4459 (CPU 0.4465),
+//! surface 15.24 cm (CPU 15.30). Timing on lavapipe (software Vulkan, 4
+//! vCPU): 4.0 ms/step against the CPU's 7.0 on 4 threads, early phase.
 //!
 //! Skips (passes, printing why) when no GPU adapter exists; on a headless
 //! Linux host Mesa's lavapipe (`mesa-vulkan-drivers`) provides one.
@@ -134,7 +139,7 @@ fn an_oblique_pair_with_friction_and_spin_matches_the_cpu() {
         let dv = rel(c.velocity, s.velocity, c.velocity.norm());
         let dw = rel(c.angular_velocity, s.angular_velocity, c.angular_velocity.norm());
         eprintln!("oblique: dv {dv:.2e}, dw {dw:.2e}; CPU w {:?}, GPU w {:?}", c.angular_velocity, s.angular_velocity);
-        assert!(dv < 1e-4 && dw < 1e-4, "{dv} {dw}");
+        assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
     }
 }
 
@@ -169,7 +174,7 @@ fn a_ball_bounces_off_the_cylinder_as_on_the_cpu() {
     let dw = rel(c.angular_velocity, s.angular_velocity, c.angular_velocity.norm());
     eprintln!("cylinder bounce: CPU v {:?}, GPU v {:?}, rel {dv:.2e}, spin rel {dw:.2e}", c.velocity, s.velocity);
     assert!(c.velocity.x < 0.0, "it bounced");
-    assert!(dv < 1e-4 && dw < 1e-4, "{dv} {dw}");
+    assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
 }
 
 #[test]
