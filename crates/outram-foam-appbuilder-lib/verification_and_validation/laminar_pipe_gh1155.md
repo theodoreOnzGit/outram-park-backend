@@ -2117,6 +2117,39 @@ Centre h 5, N 3 at `maxCo 1`: runs to the steady criterion within the
 2-layer row: 0.900, 1.029), no cell above 2.1 U. At `maxCo 4`: bounded,
 with the rim mode (|U| 3–6 U at that cell), not steady-clean (60 %).
 
+**The fix as built.** `foam_studio_web/engine.rs`: `courant_numbers`
+(`CourantNo.H`) and `adjusted_delta_t` (`setInitialDeltaT.H` and
+`setDeltaT.H`, `maxDeltaT` = the case's fixed step), applied after each
+pipe step when `Engine::max_co` is set (natively `FOAM_MAX_CO`); off by
+default, so both Foam Studio defaults keep their fixed step. Test:
+`adjust_time_step_follows_openfoam` (hand values; with `maxCo 1` the
+small O-grid's Co stays ≤ 1.2 and Δt falls; off, Δt stays).
+
+**Results (2026-11-05,** `FOAM_MAX_CO=… FOAM_DUAL_KIND=centre
+FOAM_DUAL_FP=corners foam_studio_web --headless-unstructured 5 3 0.3 1.2
+100`, 7 025 cells):
+
+| maxCo | steps to steady | solve (s) | final Δt (s) | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP | rim cell (r 9.33 mm, z 198.2 mm) |
+|---|---|---|---|---|---|---|---|---|
+| fixed step (Co ≈ 40) | diverged at 13 | — | 2.0 | — | — | — | — | blows up |
+| 4 | 155 | 27.6 | 0.186 | 0.8998 | 1.0271 | 0.0482 | 1.0290 | \|U\| 1.87 U, u_r = **+1.80 U** |
+| 1 | 519 | 74.1 | — | 0.8998 | 1.0271 | 0.0482 | 1.0290 | (same steady state) |
+
+Against the predictions: runs at `maxCo 1` within the cap — **held**;
+u_c/2U and dp/dz in range — **held** (and equal to the 2-layer mesh's
+0.9001 / 1.0294 within 0.3 %); no cell above 2.1 U — held, narrowly
+(1.87 U); `maxCo 4` bounded but not steady-clean — **missed**: it reaches
+the same steady state to four digits in 155 steps. The rim cell still
+carries a radial velocity of 1.8 U in the steady state (where u_r ≈ 0
+physically): the mesh's decoupled mode, now bounded, not removed. So
+the time step was why it *diverged*; the face-weight defect at the rim
+is still there and is a mesher matter (the back-off checks no
+`minFaceWeight`; thinner layers make it worse, cfMesh's thicker ones
+avoid it).
+
+Both defaults re-checked after the change: see the end of this
+section.
+
 ### Item 3: snappy's cascade at 2+ layers
 
 **Upstream read first (2026-11-05).** OpenFOAM-dev `852527377c7e`:
@@ -2244,6 +2277,39 @@ meshing time is in the three `untangleMeshFV(10, 50, 2)` calls, and in
 them the volume optimiser's per-node search (not the region builds or the
 checks); those calls run ≥ 8 of their 10 global iterations and end with
 bad faces left; the faces left touch boundary points.
+
+**Profile (2026-11-05,** `diagnose_dual_kinds_differential`, centre,
+`Corners`, h 5 mm, 3 layers, cfMesh; each optimiser call now reports its
+passes, global iterations, nodes smoothed and seconds in smoothing /
+region builds / checks; native release, 4 cores, alone on the host):
+110.5 s in all. The first `untangleMeshFV(10, 50, 2)`: bad faces
+2 861 → 29 in 61 passes over **all 10** global iterations, 184 956 nodes
+smoothed, **54.5 s** smoothing, 0.8 s regions, 0.2 s checks. The final
+`untangleMeshFV(10, 50, 2)`: **29 → 29** in 60 passes over 10 global
+iterations, 168 996 nodes, **50.8 s** smoothing. Everything else: 3 s.
+So 95 % of the time is the volume optimiser inside the two full untangles,
+and the second achieves nothing. Against the predictions: ≥ 60 % in the
+untangles — held (95 %); smoothing, not regions or checks — held; ≥ 8 of
+10 global iterations with faces left — held (10, 29 left).
+
+**The bound, and its predictions (written 2026-11-05, before its first
+run).** Upstream's boundary moves (`tetMeshOptimisation::
+optimiseBoundaryVolumeOptimizer`, `optimiseBoundarySurfaceLaplace`) are
+what make a later global iteration differ; without them a global
+iteration that removes no bad face is followed by more of the same.
+`mesh_optimizer::untangle_mesh_fv_bounded(…, stop_on_stall)` ends the
+global loop there; `BoundaryLayerOptimisationControls::
+stop_untangling_on_stall` (default `true`; `false` is the old run, kept)
+applies it to the cfMesh strategy's two full untangles. The quality
+targets (`findBadFaces`, `findLowQualityFaces`) are untouched. Predicted
+on the same mesh: meshing 110 s → 10–30 s; bad faces at the end 77 ± 10
+(the stall happens after the count stops falling, so what is left is the
+same kind of face); max non-orthogonality within ±2°, mean total
+thickness within ±2 %; the h 5 mm, 3-layer solve within ±0.5 % on u_c,
+dp/dz and τ_w of 0.9314 / 1.0050 / 1.0056; the back-off and snappy
+pins unchanged; the `CfMeshOptimise` pin in
+`layer_strategies_are_deterministic` changes only if its box duct needs
+a second global iteration.
 
 ### Item 5: `octree.rs` determinism
 
