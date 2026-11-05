@@ -30,6 +30,8 @@ In `monte_carlo_web`'s HTR-10 whole core (`?rung=htr10&mode=watch&view=core`), t
 3. **Hand it to every worker.** Each worker gets the bed (`CoreReq::PourBed`), and then the rebuild (`Layers` with the bed code `USER_POUR`).
 4. **Build the core.** It is built as the baked DEM bed is: `ParametricStudy` with `StudyBed::Explicit` and random TRISO (gh:#1243). The Monte Carlo then runs on it as on any other bed.
 
+**The default** (`DEFAULT_PEBBLES`, 19 347; maintainer, 2026-11-05: "default to the record's loading, ~16,900 core pebbles"): HTR-10's first-criticality loading of 16 890 core pebbles, plus the conus and tube's 2 457. A fresh pour's own split may differ by a few, and the page prints the core count it got. ~~The slider started at 8 000~~ (changed the same day).
+
 **The cap** (`max_pebbles`, 30 687): the conus and tube's 2 457 (the reference pour's count below the floor), plus a core filled at a fresh pour's measured whole-core φ 0.5954 (`htr10_fill::seed_loose`'s doc) up to the 95 % line. It is a prediction; the cut in step 1 backs it.
 
 **Diagnostics after the pour** (maintainer, 2026-11-05: "Post pour, give diagnostics like packing fraction and rdf graph"). `pour::diagnostics` runs in the worker once a pour settles, or on "Measure". It gives:

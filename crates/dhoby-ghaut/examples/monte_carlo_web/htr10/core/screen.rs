@@ -883,7 +883,9 @@ impl CoreScreen {
                     .text("pebbles to pour"),
             );
             ui.weak(format!(
-                "Up to {} pebbles: the conus and tube's 2 457 plus a core filled at φ {} to {:.1} cm, 95 % of the {:.3} cm cavity. Any pebble that still stands above that line is removed when the bed is used.",
+                "Starts at {} (the first-criticality loading's {} core pebbles plus the conus and tube's 2 457). Up to {} pebbles: the conus and tube plus a core filled at φ {} to {:.1} cm, 95 % of the {:.3} cm cavity. Any pebble that still stands above that line is removed when the bed is used.",
+                super::random_bed::grouped(super::pour::DEFAULT_PEBBLES),
+                super::random_bed::grouped(super::pour::RECORD_CORE_PEBBLES),
                 super::random_bed::grouped(max as usize),
                 super::pour::FRESH_POUR_PHI,
                 super::pour::HEIGHT_LIMIT_CM,

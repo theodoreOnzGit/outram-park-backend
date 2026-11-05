@@ -48,6 +48,18 @@ pub const FRESH_POUR_PHI: f64 = 0.5954;
 /// `the_cap_is_derived_from_the_reference_pour`).
 pub const BELOW_FLOOR_PEBBLES: usize = 2_457;
 
+/// Core pebbles of the record's loading the page starts at (maintainer
+/// 2026-11-05: "default to the record's loading, ~16,900 core pebbles"):
+/// HTR-10's first-criticality loading, 16 890 balls (`htr10_fill`'s
+/// settings doc).
+pub const RECORD_CORE_PEBBLES: usize = 16_890;
+
+/// The pour the page starts at: [`RECORD_CORE_PEBBLES`] in the core plus the
+/// conus and tube's [`BELOW_FLOOR_PEBBLES`] (the reference pour's count; a
+/// fresh pour's own split may differ by a few, and the page prints the core
+/// count it got).
+pub const DEFAULT_PEBBLES: usize = RECORD_CORE_PEBBLES + BELOW_FLOOR_PEBBLES;
+
 /// The fewest pebbles the page pours: enough to fill the tube and conus and
 /// put a layer in the core.
 pub const MIN_PEBBLES: usize = 3_000;
@@ -388,7 +400,7 @@ pub struct PourUi {
 impl Default for PourUi {
     fn default() -> Self {
         Self {
-            n: 8_000.0,
+            n: DEFAULT_PEBBLES as f64,
             fuel: nee_soon::htr10_rmc::table1::FUEL_BALL_FRACTION,
             seed: 1,
             shown: false,
@@ -640,6 +652,9 @@ mod tests {
         println!("max pebbles {m}");
         assert_eq!(m, 30_687);
         assert!(m > MIN_PEBBLES);
+        assert_eq!(DEFAULT_PEBBLES, 19_347);
+        assert!(DEFAULT_PEBBLES < m);
+        assert_eq!(PourUi::default().n, DEFAULT_PEBBLES as f64);
     }
 
     /// The diagnostics on the reference pour reproduce its recorded
