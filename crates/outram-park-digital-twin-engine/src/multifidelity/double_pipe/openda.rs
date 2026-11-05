@@ -14,6 +14,7 @@
 //! **No new physics:** the 1-D model is TUAS's march-free UA
 //! ([`one_d::ua`], gh:#1180's `TuasOneDUa`); this module composes it with
 //! the ported optimiser.
+use petir::mathf::RealMath;
 use raffles::openda::{CostFunction, Dud, Predictor, StochVector, WeightedLeastSquares};
 use raffles::{RafflesError, Result};
 use uom::si::ratio::ratio;
@@ -30,8 +31,8 @@ pub const SIGMA_LN_UA: f64 = 0.0105;
 #[must_use]
 pub fn theta_of(p: &[f64]) -> Theta {
     let mut t = Theta::nominal();
-    t.nu_mult_hot = uom::si::f64::Ratio::new::<ratio>(p[0].exp());
-    t.nu_mult_cold = uom::si::f64::Ratio::new::<ratio>(p[1].exp());
+    t.nu_mult_hot = uom::si::f64::Ratio::new::<ratio>(p[0].r_exp());
+    t.nu_mult_cold = uom::si::f64::Ratio::new::<ratio>(p[1].r_exp());
     t.wall_resistance = fouling_si(p[2]);
     t
 }
@@ -55,7 +56,7 @@ impl Predictor for LnUaPredictor {
         let th = theta_of(p);
         self.inputs
             .iter()
-            .map(|x| one_d::ua(x, &th).map(|u| u.get::<watt_per_kelvin>().ln()).map_err(|e| RafflesError::ModelEvaluation { model: "TUAS 1-D UA".into(), reason: e.to_string() }))
+            .map(|x| one_d::ua(x, &th).map(|u| u.get::<watt_per_kelvin>().r_ln()).map_err(|e| RafflesError::ModelEvaluation { model: "TUAS 1-D UA".into(), reason: e.to_string() }))
             .collect()
     }
 }
@@ -109,7 +110,7 @@ pub fn dud_calibration(background: bool) -> Result<DudCalibration> {
     let rows = load_committed();
     let train = split(&rows, Split::Training);
     let held = split(&rows, Split::HeldOut);
-    let y: Vec<f64> = train.iter().map(|r| r.output.ua.get::<watt_per_kelvin>().ln()).collect();
+    let y: Vec<f64> = train.iter().map(|r| r.output.ua.get::<watt_per_kelvin>().r_ln()).collect();
     let pred = LnUaPredictor::new(train.iter().map(|r| r.input).collect());
     let mut f = WeightedLeastSquares::new(pred.clone(), StochVector::independent(y.clone(), vec![SIGMA_LN_UA; y.len()])?, prior()?, 0.5, background);
     let mut d = Dud::default();
@@ -222,7 +223,7 @@ mod tests {
         // gh:#1180's posterior mean (with delta), for the same metrics.
         let rows = load_committed();
         let train = split(&rows, Split::Training);
-        let y: Vec<f64> = train.iter().map(|r| r.output.ua.get::<watt_per_kelvin>().ln()).collect();
+        let y: Vec<f64> = train.iter().map(|r| r.output.ua.get::<watt_per_kelvin>().r_ln()).collect();
         let pred = LnUaPredictor::new(train.iter().map(|r| r.input).collect());
         for (label, th) in [("uncalibrated", [0.0, 0.0, 0.0]), ("KOH with-delta mean", [0.164, 0.336, 5.43e-4]), ("KOH no-delta mean", [-0.025, 0.777, 8.51e-4])] {
             let fit = pred.predict(&th).unwrap();
