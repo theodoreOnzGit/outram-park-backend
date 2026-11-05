@@ -156,6 +156,12 @@ capture it re-maps the points that capture left off the surface on
 purpose and tangles the mesh (h 4 and h 6 mm on the pipe). Record: the
 gh:#1283 section of `laminar_pipe_gh1155.md`.
 
+**The stage gate refuses degenerate faces (gh:#1286, 2026-11-05).**
+`pipeline::acceptable` (what `keep_if_ok` applies to every stage) checks
+closure, cell volumes, and now cfMesh's `checkFaceAreas(VSMALL)` and
+finite points. Upstream has no such gate; it is the port's. A new stage
+check goes there, not into a stage of its own.
+
 ## cfMesh's octree, ported beside `octree.rs` (gh:#1262–#1266, 2026-11-05)
 
 `mesh_octree` (cubes, slot, surface intersections), `mesh_octree_queries`,
@@ -184,12 +190,18 @@ change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
 (~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
-~~`meshSurfaceEdgeExtractorFUN`~~ `createFundamentalSheetsJFS`) call what
+~~`meshSurfaceEdgeExtractorFUN`~~ ~~`createFundamentalSheetsJFS`~~) call what
 exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
+(gh:#1280, #1281):** `extrudeLayer` (`layers::extrude_layer`) and
+`createFundamentalSheets` (`fundamental_sheets`) are ported, and `pMesh`'s
+FUN runs `createFundamentalSheetsJFS` by default
+(`TetMeshOptions::fun_sheets`; `FunSheets::Without` is the ablation, the
+gh:#1269 route); `renameBoundaryPatches` runs `symmetryPlaneOptimisation`.
+Record: `verification_and_validation/fundamental_sheets_gh1281/`. **UPDATED 2026-11-05
 (gh:#1269):** `patchAssignment` runs `edge_extractor` (cfMesh's
 `edgeExtractor`, default) and `pMesh`'s `edgeExtraction` runs
-`mesh_surface_edge_extractor_fun` (without the fundamental sheets, which
-need `extrudeLayer`); `PatchAssignment::NearestTriangle` keeps the old
+`mesh_surface_edge_extractor_fun` (~~without the fundamental sheets, which
+need `extrudeLayer`~~ with them since gh:#1281); `PatchAssignment::NearestTriangle` keeps the old
 nearest-triangle rule callable for the differential. The tet-dual pipeline
 still names patches by the nearest triangle. Record:
 `verification_and_validation/edge_extractor_gh1269/`. When one of those lands, wire it in there and

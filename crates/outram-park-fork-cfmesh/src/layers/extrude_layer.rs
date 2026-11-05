@@ -683,12 +683,12 @@ mod tests {
     }
 
     /// V&V (gh:#1280), analytic: an internal plane of 9 faces (x = 1/3 of a
-    /// 3×3×3 box) named from both sides. **Prediction:** 18 layer cells
-    /// (two per face, the original face between them), 16 front points ×
-    /// 2 groups = 32 new points, the four plane edges on the boundary get
-    /// 4 × 3 × 2 = 24 new boundary quads... (see the result), volume 1 to
-    /// 1e-12 except for the boundary quads' pinch — written as: closed, all
-    /// cells positive.
+    /// 3×3×3 box) named from both sides. **Prediction (written 2026-11-05,
+    /// before the first run):** 18 layer cells (two per face, the original
+    /// face between them), 16 front points × 2 groups = 32 new points, no
+    /// unpatched face, closed, all cells positive. (A guess at the new
+    /// boundary-quad count was drafted with it and left unfinished; it is
+    /// not asserted.) **Result: held.**
     #[test]
     fn internal_sheet_from_both_sides() {
         let w = box_topo(3);
