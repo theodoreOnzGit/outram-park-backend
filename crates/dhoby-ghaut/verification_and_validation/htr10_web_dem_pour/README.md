@@ -106,6 +106,15 @@ Predictions were written first, in `PREDICTION.md`.
 - **The run:** generations 0–3 gave k = 0.187, 0.175, 0.204, 0.190. A 17 cm bed is far from critical; these numbers show the poured core transports, and are not a physics result.
 - **Responsiveness:** the main-thread probe's worst answer was 756 ms, and the worst frame gap 450 ms, with 1 863 frames over 100 ms of 14 661. These were measured on the shared machine with SwiftShader software rendering; the DEM demo's record attributes most of such time to the browser's own rasterising. **This does not demonstrate the no-lag rule.** A clean measurement on an idle machine with a GPU is still owed.
 
+**Diagnostics in the browser** (`headless_pour8000_diagnostics.json`, `pour=8000`, one worker):
+- **The pour:** settled at 20 013 steps in 339 s, at 13–24 ms per step.
+- **The bed:** 5 528 core pebbles, 3 150 of them fuel; top 45.9 cm.
+- **Packing:** whole-core φ 0.5639, bulk φ 0.6022.
+- **g(r):** the bed is 44 cm deep, so r_max stepped down to 3.25 d, over 309 interior centres. Contact peak 20.23; g(√2 d) 0.592, g(√3 d) 1.263, g(2 d) 1.136. These are random-packing features, from fewer centres than the reference's 7 071 and a smaller r_max, so they are noisier.
+- **Cost:** under 0.05 s in the worker.
+- **No pool in this run.** Its URL had no `autostart`, so no pool was started; the page sat idle on the settled pour from 339 s to the 1 200 s timeout.
+- **Responsiveness:** the worst frame gap was **2 450 ms**, at 914 s, with the page idle. At that time the machine was compiling the full test suite and the other demos (load average 6–7 on 4 vCPU). Over 100 ms: 947 of 34 779 frames. Contention is the likely cause, but **this was not shown**; the no-lag check on an idle machine is still owed.
+
 **The browser at the cap** (300 s sample, `pour=30687`, one worker; `headless_pour30687_300s.json`):
 - 12 006 steps in 255 s;
 - 18 ms per step while the pebbles fall loose, rising to 36 ms as they pack;

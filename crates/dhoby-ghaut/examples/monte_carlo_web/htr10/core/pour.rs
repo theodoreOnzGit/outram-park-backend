@@ -355,7 +355,7 @@ impl PourDiagnostics {
                 self.coordination
             ));
         }
-        v.push(format!("Measured in the worker in {:.1} s.", self.secs));
+        v.push(format!("Measured in the worker in {:.2} s.", self.secs));
         v
     }
 }
