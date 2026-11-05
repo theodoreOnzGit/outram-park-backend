@@ -22,6 +22,7 @@
 //! **No new physics:** every relation evaluated is TUAS's (conductances,
 //! Gnielinski), dwsim-libs' (ε-NTU) or an existing function of [`one_d`];
 //! this module composes them and runs the filters.
+use petir::mathf::RealMath;
 use std::marker::PhantomData;
 
 use raffles::distributions::seeded::sample_normal;
@@ -53,7 +54,7 @@ pub const BURN_IN: usize = 30;
 /// The true r_f at step `s` (k = s + 1).
 #[must_use]
 pub fn truth_r_f(step: usize) -> f64 {
-    R_INF * (1.0 - (-((step + 1) as f64) / TAU_STEPS).exp())
+    R_INF * (1.0 - (-((step + 1) as f64) / TAU_STEPS).r_exp())
 }
 
 raffles::quantities! {
@@ -235,8 +236,8 @@ pub fn base_nusselt(x: &DoublePipeInput, base: ClosureBase) -> Result<(f64, f64)
 /// # Errors
 /// TUAS errors (e.g. a non-positive folded Nusselt number).
 pub fn outlets(x: &DoublePipeInput, base: (f64, f64), ln_h: f64, ln_c: f64, r_f: f64) -> Result<[f64; 2]> {
-    let nu_hot = one_d::fold_fouling(base.0 * ln_h.exp(), r_f);
-    let nu_cold = base.1 * ln_c.exp();
+    let nu_hot = one_d::fold_fouling(base.0 * ln_h.r_exp(), r_f);
+    let nu_cold = base.1 * ln_c.r_exp();
     if !(nu_hot > 0.0 && nu_cold > 0.0) {
         return Err(model_err(format!("non-positive Nusselt number ({nu_hot}, {nu_cold})")));
     }
@@ -370,7 +371,7 @@ pub fn run<S: FoulingStateLike>(model: &FoulingModel<S>, zs: &[OutletTemperature
         let p = &st.posterior.covariance_si;
         let tr = truth_r_f(k);
         let e = if r_f_only_nees {
-            (m[ir] - tr).powi(2) / p.get(ir, ir)
+            (m[ir] - tr).r_powi(2) / p.get(ir, ir)
         } else {
             let mut truth = vec![0.0; n];
             truth[ir] = tr;
@@ -379,7 +380,7 @@ pub fn run<S: FoulingStateLike>(model: &FoulingModel<S>, zs: &[OutletTemperature
         trace.push([tr, m[ir], p.get(ir, ir).sqrt(), e, st.nis]);
     }
     let after = &trace[BURN_IN..];
-    let rms = |t: &[[f64; 5]]| (t.iter().map(|v| (v[1] - v[0]).powi(2)).sum::<f64>() / t.len() as f64).sqrt();
+    let rms = |t: &[[f64; 5]]| (t.iter().map(|v| (v[1] - v[0]).r_powi(2)).sum::<f64>() / t.len() as f64).sqrt();
     let mean = |t: &[[f64; 5]], i: usize| t.iter().map(|v| v[i]).sum::<f64>() / t.len() as f64;
     let fin: raffles::fidelity::Gaussian<S> = a.estimate()?;
     let pf = &fin.covariance_si;

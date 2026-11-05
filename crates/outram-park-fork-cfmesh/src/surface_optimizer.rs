@@ -61,6 +61,7 @@
 use crate::math::Vec3;
 use crate::surface_engine::{ring_area_vector, SurfaceEngine, SurfacePartitioner, VSMALL};
 use std::collections::{BTreeMap, BTreeSet};
+use petir::mathf::RealMath;
 
 const ROOTVSMALL: f64 = 1.0e-150;
 const SMALL: f64 = 1.0e-15;
@@ -398,7 +399,7 @@ fn evaluate_gradients(pts: &[Vec3], trias: &[[usize; 3]], k: f64) -> ([f64; 2], 
         let mut hgas: T2 = [[0.0; 2]; 2];
         for i in 0..2 {
             for j in 0..2 {
-                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.powi(3));
+                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.r_powi(3));
             }
         }
         let gl = [4.0 * p0.x - 2.0 * p1.x - 2.0 * p2.x, 4.0 * p0.y - 2.0 * p1.y - 2.0 * p2.y];
