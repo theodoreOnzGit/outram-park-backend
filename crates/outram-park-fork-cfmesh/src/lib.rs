@@ -264,6 +264,7 @@
 pub mod cartesian;
 pub mod carve;
 pub mod checks;
+pub mod correct_edges;
 pub mod delaunay;
 pub mod dual;
 pub mod layers;

@@ -166,6 +166,109 @@ pub struct TetDualSpec {
     pub first_layer: f64,
     /// Layer-to-layer growth.
     pub expansion: f64,
+    /// How the polyhedral dual builds its wall faces (gh:#1240): one per
+    /// boundary-triangle corner (the default), or upstream `polyDualMesh`'s
+    /// one per point per patch, as a median or a cell-centre dual.
+    pub dual: outram_park_fork_cfmesh::dual::DualKind,
+    /// Which boundary points the two `polyDualMesh` duals keep (gh:#1240):
+    /// the utility's rule (every point on a feature edge, the default) or
+    /// the class's (corners only). Ignored by the per-corner dual.
+    pub feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule,
+    /// What the layer stage does about cells that fail the quality checks
+    /// (gh:#1215): back off the thickness (the default), cfMesh's layer
+    /// optimiser, or snappyHexMesh's local collapse.
+    pub layer_quality: outram_blender::foam_mesh::LayerQualityStrategy,
+}
+
+impl TetDualSpec {
+    /// The mesher choices every spec starts from: the per-corner dual, the
+    /// utility's feature points and the back-off layer stage, i.e. the mesher
+    /// every recorded number before gh:#1240's browser controls was taken
+    /// on. Literal specs end with `..TetDualSpec::BASE`; only the four
+    /// numbers above are meaningful in it.
+    pub const BASE: Self = Self {
+        cell_size: 0.004,
+        n_layers: 0,
+        first_layer: 3e-4,
+        expansion: 1.2,
+        dual: outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner,
+        feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge,
+        layer_quality: outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly,
+    };
+
+    /// The three mesher choices as the small integers the worker messages
+    /// carry: `[dual, feature points, layer quality]`.
+    pub fn choice_codes(&self) -> [f64; 3] {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        let d = match self.dual {
+            D::MedianPerCorner => 0.0,
+            D::MedianPerPoint => 1.0,
+            D::CellCentre => 2.0,
+        };
+        let f = match self.feature_points {
+            F::OnFeatureEdge => 0.0,
+            F::Corners => 1.0,
+        };
+        let l = match self.layer_quality {
+            L::BackOffOnly => 0.0,
+            L::CfMeshOptimise => 1.0,
+            L::SnappyCollapse => 2.0,
+        };
+        [d, f, l]
+    }
+
+    /// `self` with the choices [`Self::choice_codes`] wrote; an unknown code
+    /// is an error, not a silent default.
+    pub fn with_choice_codes(self, c: [f64; 3]) -> Result<Self, String> {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        let dual = match c[0] as u8 {
+            0 => D::MedianPerCorner,
+            1 => D::MedianPerPoint,
+            2 => D::CellCentre,
+            k => return Err(format!("unknown dual kind code {k}")),
+        };
+        let feature_points = match c[1] as u8 {
+            0 => F::OnFeatureEdge,
+            1 => F::Corners,
+            k => return Err(format!("unknown feature-point rule code {k}")),
+        };
+        let layer_quality = match c[2] as u8 {
+            0 => L::BackOffOnly,
+            1 => L::CfMeshOptimise,
+            2 => L::SnappyCollapse,
+            k => return Err(format!("unknown layer strategy code {k}")),
+        };
+        Ok(Self { dual, feature_points, layer_quality, ..self })
+    }
+
+    /// `self` with the choices a page URL names (gh:#1240 browser controls):
+    /// `dual=point|centre`, `fp=corners`, `layerq=cfmesh|snappy`; anything
+    /// else leaves a choice as it is.
+    pub fn with_query(self, dual: Option<&str>, fp: Option<&str>, layerq: Option<&str>) -> Self {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        let mut s = self;
+        match dual {
+            Some("corner") => s.dual = D::MedianPerCorner,
+            Some("point") => s.dual = D::MedianPerPoint,
+            Some("centre") => s.dual = D::CellCentre,
+            _ => {}
+        }
+        match fp {
+            Some("edges") => s.feature_points = F::OnFeatureEdge,
+            Some("corners") => s.feature_points = F::Corners,
+            _ => {}
+        }
+        match layerq {
+            Some("backoff") => s.layer_quality = L::BackOffOnly,
+            Some("cfmesh") => s.layer_quality = L::CfMeshOptimise,
+            Some("snappy") => s.layer_quality = L::SnappyCollapse,
+            _ => {}
+        }
+        s
+    }
 }
 
 /// Facets of the cylinder surface handed to cfMesh (the blender primitive's
@@ -205,7 +308,7 @@ impl TetDualSpec {
     /// than the bare mesh of the same cell size (0.85 against 0.86 at 6 mm,
     /// 0.87 against 0.89 at 5 mm).
     pub fn default_for(radius: f64) -> Self {
-        Self { cell_size: 0.4 * radius, n_layers: 0, first_layer: 0.03 * radius, expansion: 1.2 }
+        Self { cell_size: 0.4 * radius, n_layers: 0, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
     }
 
     /// Rough cell count of the tet-dual mesh of a pipe (radius `r`, length
@@ -229,6 +332,7 @@ impl TetDualSpec {
             n_layers: self.n_layers.min(MAX_LAYERS),
             first_layer: self.first_layer.clamp(1e-3 * r, 0.1 * r),
             expansion: self.expansion.clamp(1.0, 1.5),
+            ..*self
         };
         while s.estimated_cells(r, l) > MAX_CELLS as f64 && s.cell_size < r / CELL_PER_R_MIN {
             s.cell_size = (s.cell_size * 1.05).min(r / CELL_PER_R_MIN);
@@ -427,10 +531,12 @@ pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
 /// the solver and the section cutter take. Returns the stage notes of the
 /// pipeline too (what it skipped).
 pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag; 3], spec: &TetDualSpec) -> Result<(PolyMesh, Vec<String>), String> {
+    // The spec's layer strategy (the page's control, gh:#1240), unless the
+    // native knob FOAM_LAYER_STRATEGY names one (the V&V tooling).
     #[cfg(not(target_arch = "wasm32"))]
-    let strategy = layer_strategy_from_env();
+    let strategy = layer_strategy_from_env().unwrap_or(spec.layer_quality);
     #[cfg(target_arch = "wasm32")]
-    let strategy = outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly;
+    let strategy = spec.layer_quality;
     mesh_unstructured_with(radius, length, centre, tags, spec, strategy).map(|(p, n, _)| (p, n))
 }
 
@@ -445,10 +551,11 @@ pub fn mesh_unstructured_with(
     spec: &TetDualSpec,
     strategy: outram_blender::foam_mesh::LayerQualityStrategy,
 ) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
+    // The spec's dual kind unless the native knob FOAM_DUAL_KIND names one.
     #[cfg(not(target_arch = "wasm32"))]
-    let dual = dual_kind_from_env();
+    let dual = dual_kind_from_env().unwrap_or(spec.dual);
     #[cfg(target_arch = "wasm32")]
-    let dual = outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner;
+    let dual = spec.dual;
     mesh_unstructured_dual(radius, length, centre, tags, spec, strategy, dual)
 }
 
@@ -492,14 +599,19 @@ pub fn mesh_unstructured_dual(
         Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
         _ => opts,
     };
-    let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, ..opts };
+    let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, dual_feature_points: s.feature_points, ..opts };
     // Native-only knob (gh:#1240): FOAM_DUAL_FP=corners, the polyDualMesh
-    // class's feature points, for the two new dual kinds.
+    // class's feature points, for the two new dual kinds; it overrides the
+    // spec's choice for the V&V tooling.
     #[cfg(not(target_arch = "wasm32"))]
     let opts = match std::env::var("FOAM_DUAL_FP").as_deref() {
         Ok("corners") => TetDualOptions { dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners, ..opts },
         _ => opts,
     };
+    // Native-only knob (gh:#1241): FOAM_CORRECT_EDGES=1, cfMesh's
+    // correctEdgesBetweenPatches before the feature-edge capture.
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = TetDualOptions { correct_edges: std::env::var("FOAM_CORRECT_EDGES").as_deref() == Ok("1"), ..opts };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);
@@ -510,29 +622,35 @@ pub fn mesh_unstructured_dual(
 }
 
 /// The layer strategy `FOAM_LAYER_STRATEGY` names (native only, gh:#1215; the
-/// knob of the differential record, `laminar_pipe_gh1155.md`):
-/// `cfmesh`, `snappy`, or the default back-off for anything else.
+/// knob of the differential record, `laminar_pipe_gh1155.md`): `cfmesh`,
+/// `snappy` or `backoff`; ~~the default back-off for anything else~~
+/// **CHANGED 2026-11-05 (gh:#1240 browser controls):** `None` when unset or
+/// unrecognised, so the spec's own choice (the page's control) applies.
 #[cfg(not(target_arch = "wasm32"))]
-fn layer_strategy_from_env() -> outram_blender::foam_mesh::LayerQualityStrategy {
+fn layer_strategy_from_env() -> Option<outram_blender::foam_mesh::LayerQualityStrategy> {
     use outram_blender::foam_mesh::LayerQualityStrategy as S;
     match std::env::var("FOAM_LAYER_STRATEGY").as_deref() {
-        Ok("cfmesh") => S::CfMeshOptimise,
-        Ok("snappy") => S::SnappyCollapse,
-        _ => S::BackOffOnly,
+        Ok("cfmesh") => Some(S::CfMeshOptimise),
+        Ok("snappy") => Some(S::SnappyCollapse),
+        Ok("backoff") => Some(S::BackOffOnly),
+        _ => None,
     }
 }
 
 /// The dual kind `FOAM_DUAL_KIND` names (native only, gh:#1240; the knob of
 /// the differential record, `laminar_pipe_gh1155.md`): `point`
-/// (`MedianPerPoint`), `centre` (`CellCentre`), or the default per-corner
-/// median dual for anything else.
+/// (`MedianPerPoint`), `centre` (`CellCentre`) or `corner`; ~~the default
+/// per-corner median dual for anything else~~ **CHANGED 2026-11-05 (browser
+/// controls):** `None` when unset or unrecognised, so the spec's choice
+/// applies.
 #[cfg(not(target_arch = "wasm32"))]
-fn dual_kind_from_env() -> outram_park_fork_cfmesh::dual::DualKind {
+fn dual_kind_from_env() -> Option<outram_park_fork_cfmesh::dual::DualKind> {
     use outram_park_fork_cfmesh::dual::DualKind as D;
     match std::env::var("FOAM_DUAL_KIND").as_deref() {
-        Ok("point") => D::MedianPerPoint,
-        Ok("centre") => D::CellCentre,
-        _ => D::MedianPerCorner,
+        Ok("point") => Some(D::MedianPerPoint),
+        Ok("centre") => Some(D::CellCentre),
+        Ok("corner") => Some(D::MedianPerCorner),
+        _ => None,
     }
 }
 
@@ -839,6 +957,54 @@ pub struct Engine {
     coil: Option<HelicalPipe>,
     /// Where the cross-section plane is on the flow axis \[m\].
     probe_x: f64,
+    /// OpenFOAM's `adjustTimeStep` with this `maxCo` on the pipe
+    /// (gh:#1241; [`courant_numbers`], [`adjusted_delta_t`]); `None` (the
+    /// default) keeps the fixed pseudo-time step every recorded number used.
+    /// Natively `FOAM_MAX_CO` sets it at the start of a run.
+    pub max_co: Option<f64>,
+    /// `maxDeltaT` of the adjustable step: the pipe's fixed step.
+    max_dt: f64,
+}
+
+/// OpenFOAM's Courant number of an incompressible case (OpenFOAM-dev
+/// `852527377c7e`, `src/finiteVolume/cfdTools/incompressible/CourantNo.H`):
+/// `CoNum = ½ Δt max_c(Σ_f |φ_f| / V_c)` and `meanCoNum = ½ Δt Σ_c Σ_f
+/// |φ_f| / Σ_c V_c`, the sum over every face of the cell, boundary faces
+/// included (`fvc::surfaceSum(mag(phi))`). Returns `(CoNum, meanCoNum)`.
+pub fn courant_numbers(s: &outram_foam_appbuilder_lib::solvers::pimple_foam::PimpleFoam) -> (f64, f64) {
+    let m = &s.mesh;
+    let mut sum = vec![0.0_f64; m.n_cells];
+    for f in 0..m.n_internal_faces {
+        let a = s.phi.internal[f].abs();
+        sum[m.owner[f]] += a;
+        sum[m.neighbour[f]] += a;
+    }
+    for (pi, p) in m.patches.iter().enumerate() {
+        for i in 0..p.size {
+            sum[m.owner[p.start + i]] += s.phi.boundary[pi].values[i].abs();
+        }
+    }
+    let dt = s.control.delta_t;
+    let co = (0..m.n_cells).map(|c| sum[c] / m.cell_volumes[c]).fold(0.0_f64, f64::max);
+    let mean = sum.iter().sum::<f64>() / m.cell_volumes.iter().sum::<f64>();
+    (0.5 * co * dt, 0.5 * mean * dt)
+}
+
+/// OpenFOAM's time-step update (OpenFOAM-dev `852527377c7e`,
+/// `src/finiteVolume/cfdTools/general/include/setDeltaT.H`):
+/// `maxDeltaTFact = maxCo / (CoNum + small)`, `deltaTFact = min(min(
+/// maxDeltaTFact, 1 + 0.1 maxDeltaTFact), 1.2)`, `Δt = min(deltaTFact Δt,
+/// maxDeltaT)`; and with `initial` the first step's
+/// (`setInitialDeltaT.H`): `Δt = min(maxCo Δt / CoNum, min(Δt, maxDeltaT))`
+/// when `CoNum > small`.
+pub fn adjusted_delta_t(dt: f64, co_num: f64, max_co: f64, max_dt: f64, initial: bool) -> f64 {
+    const SMALL: f64 = 1e-15;
+    if initial {
+        return if co_num > SMALL { (max_co * dt / co_num).min(dt.min(max_dt)) } else { dt };
+    }
+    let fact = max_co / (co_num + SMALL);
+    let dt_fact = fact.min(1.0 + 0.1 * fact).min(1.2);
+    (dt_fact * dt).min(max_dt)
 }
 
 fn axis_of(i: usize) -> Axis {
@@ -1185,6 +1351,13 @@ impl Engine {
                 }
             }
         }
+        // gh:#1241: adjustTimeStep (off unless asked for); its maxDeltaT is
+        // this fixed step.
+        self.max_dt = s.control.delta_t;
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.max_co.is_none() {
+            self.max_co = std::env::var("FOAM_MAX_CO").ok().and_then(|v| v.parse().ok());
+        }
         self.case = Some(Case::Pipe(s, flow));
         self.steps = 0;
         self.time = 0.0;
@@ -1331,8 +1504,19 @@ impl Engine {
         let mut change = f64::INFINITY;
         match self.case.as_mut().ok_or("no case")? {
             Case::Pipe(s, flow) => {
+                // gh:#1241: OpenFOAM's adjustTimeStep, when asked for; the
+                // fixed step otherwise. maxDeltaT: the step the case set.
+                let max_dt = self.max_dt;
                 for _ in 0..steps.max(1) {
+                    if let (Some(max_co), true) = (self.max_co, self.steps + done == 0) {
+                        let (co, _) = courant_numbers(s);
+                        s.control.delta_t = adjusted_delta_t(s.control.delta_t, co, max_co, max_dt, true);
+                    }
                     change = flow.step(s).map_err(|_| diverged())?;
+                    if let Some(max_co) = self.max_co {
+                        let (co, _) = courant_numbers(s);
+                        s.control.delta_t = adjusted_delta_t(s.control.delta_t, co, max_co, max_dt, false);
+                    }
                     if !change.is_finite() {
                         return Err(diverged());
                     }
@@ -1544,8 +1728,11 @@ impl Request {
                 let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], a[3], b[0], b[1], b[2], design.target_cells as f64, *probe];
                 d.extend(design.tags.iter().map(|t| t.code()));
                 match design.mesh {
-                    PipeMesh::Structured => d.extend([0.0; 5]),
-                    PipeMesh::Unstructured(s) => d.extend([1.0, s.cell_size, s.n_layers as f64, s.first_layer, s.expansion]),
+                    PipeMesh::Structured => d.extend([0.0; 8]),
+                    PipeMesh::Unstructured(s) => {
+                        d.extend([1.0, s.cell_size, s.n_layers as f64, s.first_layer, s.expansion]);
+                        d.extend(s.choice_codes());
+                    }
                 }
                 d
             }
@@ -1578,10 +1765,13 @@ impl Request {
                     _ => Shape::Coil { tube_radius: a[0], coil_diameter: a[1], pitch: a[2], turns: a[3], centre },
                 };
                 let mesh = if r.f()? == 0.0 {
-                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?];
+                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?];
                     PipeMesh::Structured
                 } else {
-                    PipeMesh::Unstructured(TetDualSpec { cell_size: r.f()?, n_layers: r.n()?, first_layer: r.f()?, expansion: r.f()? })
+                    PipeMesh::Unstructured(
+                        TetDualSpec { cell_size: r.f()?, n_layers: r.n()?, first_layer: r.f()?, expansion: r.f()?, ..TetDualSpec::BASE }
+                            .with_choice_codes([r.f()?, r.f()?, r.f()?])?,
+                    )
                 };
                 Ok(Request::Mesh { id, design: Design { shape, tags, target_cells, mesh }, probe })
             }
@@ -1867,7 +2057,7 @@ mod tests {
         }
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
-            ("dual h=4 mm bare", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }).unwrap().0),
+            ("dual h=4 mm bare", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }).unwrap().0),
         ];
         for (name, poly) in cases {
             let m = poly.to_fv_mesh().unwrap();
@@ -1937,11 +2127,9 @@ mod tests {
     #[test]
     #[ignore]
     fn diagnose_geometry_orientation_and_poisson() {
-        use outram_foam_appbuilder_lib::cases::laminar_pipe::fit_line;
-        use outram_foam_appbuilder_lib::solvers::non_orthogonal;
         use outram_foam_basic_lib::prelude::*;
         let (r, l) = (0.01, 0.2);
-        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE };
         let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
@@ -1971,63 +2159,361 @@ mod tests {
             );
             // 3. Poisson −∇²u = 4.
             for corrected in [false, true] {
-                let bcs = |m: &FvMesh| -> Vec<PatchField<f64>> {
-                    m.patches.iter().map(|p| if p.name == "walls" { PatchField::fixed_value(p.size, 0.0) } else { PatchField::zero_gradient(p.size) }).collect()
-                };
-                let mut u = VolScalarField::new("u", m.clone(), Field::new(vec![0.0; m.n_cells]), bcs(&m));
-                // Interpolated, so the boundary faces carry Γ = 1 too (`SurfaceScalarField::uniform` sets
-                // the internal faces only; the first run had no Dirichlet term at all).
-                let gamma = fvc::interpolate(&VolScalarField::uniform("g", m.clone(), 1.0));
-                for _ in 0..if corrected { 20 } else { 1 } {
-                    let mut eqn = fvm::laplacian_with_delta(&gamma, &u, fvm::DeltaCoeff::NonOrthogonal);
-                    for c in 0..m.n_cells {
-                        eqn.source[c] += 4.0 * m.cell_volumes[c];
-                    }
-                    if corrected {
-                        let corr = non_orthogonal::scalar_face_correction(&gamma, &fvc::grad(&u), &m);
-                        non_orthogonal::add_to_source_scalar(eqn.source.as_mut_slice(), &corr, &m);
-                    }
-                    let (sol, perf) = eqn.solve_cg_with_guess("u", &u, SolverSettings { tolerance: 1e-12, max_iter: 20_000 });
-                    let umax = sol.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
-                    if !corrected {
-                        let (gs, gperf) = eqn.solve("u", SolverSettings { tolerance: 1e-10, max_iter: 200_000 });
-                        let gmax = gs.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
-                        let nfix: usize = u.boundary.iter().filter(|b| matches!(b.bc, BoundaryCondition::FixedValue(_))).map(|b| b.values.len()).sum();
-                        let offsum = eqn.ldu.upper.iter().sum::<f64>();
-                        println!(
-                            "  (CG: {} it, residual {:.2e}, max |u| {umax:.3e}; GS: {} it, residual {:.2e}, max |u| {gmax:.3e}; diag sum {:.3e}, 2*upper sum {:.3e}, fixed faces {nfix})",
-                            perf.n_iterations,
-                            perf.final_residual,
-                            gperf.n_iterations,
-                            gperf.final_residual,
-                            eqn.ldu.diag.iter().sum::<f64>(),
-                            2.0 * offsum
-                        );
-                    }
-                    let mut next = VolScalarField::new("u", m.clone(), sol.internal.clone(), bcs(&m));
-                    for (pi, p) in m.patches.iter().enumerate() {
-                        if p.name != "walls" {
-                            for fi in 0..p.size {
-                                next.boundary[pi].values[fi] = next.internal[m.owner[p.start + fi]];
-                            }
-                        }
-                    }
-                    u = next;
-                }
-                let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
-                let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
-                    .filter(|&c| r2(c) < 0.49 * r * r && (m.cell_centres[c].z - 0.1).abs() < 0.05)
-                    .map(|c| (r2(c), u.internal[c], m.cell_volumes[c]))
-                    .collect();
-                let (a, b) = fit_line(&pts);
-                let rms = ((0..m.n_cells).map(|c| (u.internal[c] - (a + b * r2(c))).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt() / a;
+                let (b, a_r2, rms, _) = manufactured_poisson(&m, r, if corrected { 20 } else { 1 }, corrected, true);
                 println!(
                     "  Poisson ({}): fit u = a - b r^2: b {:.4} (exact 1), a/R^2 {:.4}; RMS of u - fit over all cells / a {:.4}",
                     if corrected { "corrected, 20 passes" } else { "uncorrected" },
-                    -b,
-                    a / (r * r),
+                    b,
+                    a_r2,
                     rms
                 );
+            }
+        }
+    }
+
+
+    /// The gh:#1202 manufactured Poisson problem on a frozen mesh: −∇²u = 4
+    /// with u = 0 on `walls` and zero gradient on the ends (exact u = R² − r²
+    /// on a circular section), solved once uncorrected or with `passes`
+    /// deferred non-orthogonal correction passes. Returns the fit u = a − b r²
+    /// over the core (r < 0.7 R, 0.05 m about z = 0.1 m) as (b, a/R², RMS of
+    /// u − fit over all cells / a) and the max |Δu| of each pass.
+    fn manufactured_poisson(m: &Arc<outram_foam_basic_lib::prelude::FvMesh>, r: f64, passes: usize, corrected: bool, verbose: bool) -> (f64, f64, f64, Vec<f64>) {
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::fit_line;
+        use outram_foam_appbuilder_lib::solvers::non_orthogonal;
+        use outram_foam_basic_lib::prelude::*;
+        let vol: f64 = m.cell_volumes.iter().sum();
+        let mut changes = Vec::new();
+        let bcs = |m: &FvMesh| -> Vec<PatchField<f64>> {
+            m.patches.iter().map(|p| if p.name == "walls" { PatchField::fixed_value(p.size, 0.0) } else { PatchField::zero_gradient(p.size) }).collect()
+        };
+        let mut u = VolScalarField::new("u", m.clone(), Field::new(vec![0.0; m.n_cells]), bcs(&m));
+        // Interpolated, so the boundary faces carry Γ = 1 too (`SurfaceScalarField::uniform` sets
+        // the internal faces only; the first run had no Dirichlet term at all).
+        let gamma = fvc::interpolate(&VolScalarField::uniform("g", m.clone(), 1.0));
+        for _ in 0..passes {
+            let mut eqn = fvm::laplacian_with_delta(&gamma, &u, fvm::DeltaCoeff::NonOrthogonal);
+            for c in 0..m.n_cells {
+                eqn.source[c] += 4.0 * m.cell_volumes[c];
+            }
+            if corrected {
+                let corr = non_orthogonal::scalar_face_correction(&gamma, &fvc::grad(&u), &m);
+                non_orthogonal::add_to_source_scalar(eqn.source.as_mut_slice(), &corr, &m);
+            }
+            let (sol, perf) = eqn.solve_cg_with_guess("u", &u, SolverSettings { tolerance: 1e-12, max_iter: 20_000 });
+            let umax = sol.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+            if !corrected && verbose {
+                let (gs, gperf) = eqn.solve("u", SolverSettings { tolerance: 1e-10, max_iter: 200_000 });
+                let gmax = gs.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+                let nfix: usize = u.boundary.iter().filter(|b| matches!(b.bc, BoundaryCondition::FixedValue(_))).map(|b| b.values.len()).sum();
+                let offsum = eqn.ldu.upper.iter().sum::<f64>();
+                println!(
+                    "  (CG: {} it, residual {:.2e}, max |u| {umax:.3e}; GS: {} it, residual {:.2e}, max |u| {gmax:.3e}; diag sum {:.3e}, 2*upper sum {:.3e}, fixed faces {nfix})",
+                    perf.n_iterations,
+                    perf.final_residual,
+                    gperf.n_iterations,
+                    gperf.final_residual,
+                    eqn.ldu.diag.iter().sum::<f64>(),
+                    2.0 * offsum
+                );
+            }
+            let mut next = VolScalarField::new("u", m.clone(), sol.internal.clone(), bcs(&m));
+            for (pi, p) in m.patches.iter().enumerate() {
+                if p.name != "walls" {
+                    for fi in 0..p.size {
+                        next.boundary[pi].values[fi] = next.internal[m.owner[p.start + fi]];
+                    }
+                }
+            }
+            let change = next.internal.as_slice().iter().zip(u.internal.as_slice()).fold(0.0_f64, |a, (x, y)| a.max((x - y).abs()));
+            changes.push(change);
+            u = next;
+        }
+        let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
+        let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
+            .filter(|&c| r2(c) < 0.49 * r * r && (m.cell_centres[c].z - 0.1).abs() < 0.05)
+            .map(|c| (r2(c), u.internal[c], m.cell_volumes[c]))
+            .collect();
+        let (a, b) = fit_line(&pts);
+        let rms = ((0..m.n_cells).map(|c| (u.internal[c] - (a + b * r2(c))).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt() / a;
+        let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
+        let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
+            .filter(|&c| r2(c) < 0.49 * r * r && (m.cell_centres[c].z - 0.1).abs() < 0.05)
+            .map(|c| (r2(c), u.internal[c], m.cell_volumes[c]))
+            .collect();
+        let (a, b) = fit_line(&pts);
+        let rms = ((0..m.n_cells).map(|c| (u.internal[c] - (a + b * r2(c))).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt() / a;
+        (-b, a / (r * r), rms, changes)
+    }
+
+    /// Diagnostic (gh:#1241 item 2), `--ignored`: why 3 back-off layers
+    /// diverge on the per-point duals although the mesh passes the layer
+    /// checks. Per mesh (`FOAM_DIAG_CASES` filters by label): the frozen
+    /// mesh's thin cells (Δ = V / max |S_f|) and their local viscous number
+    /// ν Δt / Δ² and Courant number 2U Δt / Δ at the run's Δt; the
+    /// manufactured Poisson problem uncorrected and with 20 correction
+    /// passes (the change of each pass); then the flow, one step at a time,
+    /// until max |U| exceeds 20 U or 300 steps: the step it happens and the
+    /// five cells with the largest |U| then, with their quality.
+    #[test]
+    #[ignore]
+    fn diagnose_three_layer_divergence() {
+        use outram_park_fork_cfmesh::dual::{DualKind, FeaturePointRule};
+        use outram_blender::foam_mesh::LayerQualityStrategy as S;
+        let spec = |h: f64, n: usize, dual: DualKind| Design {
+            mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, dual, feature_points: FeaturePointRule::Corners, layer_quality: S::BackOffOnly }),
+            ..Design::default()
+        };
+        let cases = [
+            ("centre h5 N3", spec(0.005, 3, DualKind::CellCentre)),
+            ("point h5 N3", spec(0.005, 3, DualKind::MedianPerPoint)),
+            ("centre h5 N2 (runs)", spec(0.005, 2, DualKind::CellCentre)),
+            ("centre h4 N3", spec(0.004, 3, DualKind::CellCentre)),
+            ("centre h6 N3", spec(0.006, 3, DualKind::CellCentre)),
+        ];
+        let filter = std::env::var("FOAM_DIAG_CASES").ok();
+        // Ablations (FOAM_DIAG_ABL, comma list; default `base`): `upwind`
+        // (div(phi,U) Gauss upwind), `nolimit` (grad(U) Gauss linear, no
+        // cellLimited), `linear` (div Gauss linear), `dt4` (Δt / 4),
+        // `uncorrected` (laplacian), `nonorth0` (no corrector).
+        let abls: Vec<String> = std::env::var("FOAM_DIAG_ABL").map_or(vec!["base".into()], |v| v.split(',').map(String::from).collect());
+        for (name, d) in cases {
+            if filter.as_deref().is_some_and(|f| !f.split(',').any(|x| name.starts_with(x))) {
+                continue;
+            }
+            for abl in &abls {
+            let mut e = Engine::default();
+            e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |_| {});
+            e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
+            let Some(Case::Pipe(s, flow)) = e.case.as_mut() else {
+                println!("{name}: no pipe case");
+                continue;
+            };
+            {
+                use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, LaplacianScheme};
+                match abl.as_str() {
+                    "upwind" => s.schemes.default_div = DivScheme::GaussUpwind,
+                    "linear" => s.schemes.default_div = DivScheme::GaussLinear,
+                    "nolimit" => s.schemes.grad_u = None,
+                    "dt4" => s.control.delta_t *= 0.25,
+                    "dt100" => s.control.delta_t *= 0.01,
+                    "dt10" => s.control.delta_t *= 0.1,
+                    "dt30" => s.control.delta_t /= 30.0,
+                    "uncorrected" => s.schemes.default_laplacian = LaplacianScheme::GaussLinearUncorrected,
+                    "nonorth0" => s.solution.pimple.n_non_orthogonal_correctors = 0,
+                    _ => {}
+                }
+            }
+            let name = format!("{name} [{abl}]");
+            let m = s.mesh.clone();
+            let dt = s.control.delta_t;
+            let nu = flow.nu.get::<uom::si::kinematic_viscosity::square_meter_per_second>();
+            // Thin dimension, wall cells, per-cell quality.
+            let mut smax = vec![0.0_f64; m.n_cells];
+            let mut no_max = vec![0.0_f64; m.n_cells];
+            let mut w_min = vec![0.5_f64; m.n_cells];
+            let mut vr_min = vec![1.0_f64; m.n_cells];
+            let mut wall_cell = vec![false; m.n_cells];
+            for f in 0..m.face_areas.len() {
+                let o = m.owner[f];
+                smax[o] = smax[o].max(m.face_areas[f]);
+                if f < m.n_internal_faces {
+                    let n = m.neighbour[f];
+                    smax[n] = smax[n].max(m.face_areas[f]);
+                    let dv = m.cell_centres[n] - m.cell_centres[o];
+                    let sf = m.face_area_vectors[f];
+                    let no = (dv.dot(sf) / (dv.mag() * sf.mag())).clamp(-1.0, 1.0).acos().to_degrees();
+                    let d_o = sf.dot(m.face_centres[f] - m.cell_centres[o]).abs();
+                    let d_n = sf.dot(m.cell_centres[n] - m.face_centres[f]).abs();
+                    let w = d_o.min(d_n) / (d_o + d_n);
+                    let vr = m.cell_volumes[o].min(m.cell_volumes[n]) / m.cell_volumes[o].max(m.cell_volumes[n]);
+                    for c in [o, n] {
+                        no_max[c] = no_max[c].max(no);
+                        w_min[c] = w_min[c].min(w);
+                        vr_min[c] = vr_min[c].min(vr);
+                    }
+                }
+            }
+            for p in m.patches.iter().filter(|p| p.name == "walls") {
+                for i in 0..p.size {
+                    wall_cell[m.owner[p.start + i]] = true;
+                }
+            }
+            let thin: Vec<f64> = (0..m.n_cells).map(|c| m.cell_volumes[c] / smax[c]).collect();
+            let visc: Vec<f64> = thin.iter().map(|t| nu * dt / (t * t)).collect();
+            let mut order: Vec<usize> = (0..m.n_cells).collect();
+            order.sort_by(|&a, &b| visc[b].partial_cmp(&visc[a]).unwrap());
+            let rank_of = |c: usize| order.iter().position(|&x| x == c).unwrap();
+            println!(
+                "{name}: {} cells, dt {dt:.3e} s; thin min {:.3e} m; local viscous number max {:.1} (p99 {:.1}); local Co max {:.2}; max NO {:.1}, min weight {:.3}, min vol ratio {:.4}",
+                m.n_cells,
+                thin.iter().cloned().fold(f64::MAX, f64::min),
+                visc[order[0]],
+                visc[order[m.n_cells / 100]],
+                2.0 * U_IN * dt / thin.iter().cloned().fold(f64::MAX, f64::min),
+                no_max.iter().cloned().fold(0.0, f64::max),
+                w_min.iter().cloned().fold(1.0, f64::min),
+                vr_min.iter().cloned().fold(1.0, f64::min),
+            );
+            for (passes, corrected) in [(1, false), (20, true)] {
+                let (b, a, rms, ch) = manufactured_poisson(&m, 0.01, passes, corrected, false);
+                let chs: Vec<String> = ch.iter().map(|x| format!("{x:.1e}")).collect();
+                println!("  Poisson {}: b {b:.4} a/R2 {a:.4} rms {rms:.4}; pass changes {}", if corrected { "corrected" } else { "uncorrected" }, chs.join(" "));
+            }
+            // FOAM_DIAG_CELL_AT=r_mm,z_mm: every face of the cell nearest that point.
+            if let Some(at) = std::env::var("FOAM_DIAG_CELL_AT").ok() {
+                let v: Vec<f64> = at.split(',').filter_map(|x| x.parse().ok()).collect();
+                let c = (0..m.n_cells)
+                    .min_by(|&a, &b| {
+                        let da = (m.cell_centres[a].x.hypot(m.cell_centres[a].y) * 1e3 - v[0]).abs() + (m.cell_centres[a].z * 1e3 - v[1]).abs();
+                        let db = (m.cell_centres[b].x.hypot(m.cell_centres[b].y) * 1e3 - v[0]).abs() + (m.cell_centres[b].z * 1e3 - v[1]).abs();
+                        da.partial_cmp(&db).unwrap()
+                    })
+                    .unwrap();
+                let cc = m.cell_centres[c];
+                println!("  cell {c} at r {:.3} z {:.3} mm, V {:.3e}, thin {:.3e}:", cc.x.hypot(cc.y) * 1e3, cc.z * 1e3, m.cell_volumes[c], thin[c]);
+                for f in 0..m.face_areas.len() {
+                    let (o, n) = (m.owner[f], if f < m.n_internal_faces { Some(m.neighbour[f]) } else { None });
+                    if o != c && n != Some(c) {
+                        continue;
+                    }
+                    let patch = m.patches.iter().find(|p| f >= p.start && f < p.start + p.size).map_or("internal", |p| p.name.as_str());
+                    let sgn = if o == c { 1.0 } else { -1.0 };
+                    let pyr = sgn * m.face_area_vectors[f].dot(m.face_centres[f] - cc) / 3.0;
+                    let other = match n { Some(n) if o == c => Some(n), Some(_) => Some(o), None => None };
+                    println!(
+                        "    face {f} ({patch}) |S| {:.2e}, pyramid/V {:.3}, centre r {:.3} z {:.3} mm{}",
+                        m.face_areas[f],
+                        pyr / m.cell_volumes[c],
+                        m.face_centres[f].x.hypot(m.face_centres[f].y) * 1e3,
+                        m.face_centres[f].z * 1e3,
+                        other.map_or(String::new(), |x| format!(", to cell {x} (thin {:.2e}, V {:.2e}, wall {})", thin[x], m.cell_volumes[x], wall_cell[x]))
+                    );
+                }
+            }
+            let describe = |c: usize, umag: f64| {
+                let x = m.cell_centres[c];
+                format!(
+                    "cell {c}: |U|/U {:.2e}, r {:.3} z {:.1} mm, wall {}, thin {:.3e} m, visc {:.1} (rank {}), NO {:.1}, weight {:.3}, volRatio {:.4}",
+                    umag / U_IN,
+                    x.x.hypot(x.y) * 1e3,
+                    x.z * 1e3,
+                    wall_cell[c],
+                    thin[c],
+                    visc[c],
+                    rank_of(c),
+                    no_max[c],
+                    w_min[c],
+                    vr_min[c]
+                )
+            };
+            let mut history: Vec<String> = Vec::new();
+            let mut first_over = false;
+            // `co1`, `co4`: OpenFOAM's adjustTimeStep at that maxCo (gh:#1241).
+            let max_co: Option<f64> = abl.strip_prefix("co").and_then(|v| v.parse().ok());
+            let max_dt = s.control.delta_t;
+            let n_steps = std::env::var("FOAM_DIAG_STEPS").ok().and_then(|v| v.parse().ok()).unwrap_or(300usize);
+            for step in 1..=n_steps {
+                if let Some(mc) = max_co {
+                    let (co, _) = courant_numbers(s);
+                    s.control.delta_t = adjusted_delta_t(s.control.delta_t, co, mc, max_dt, step == 1);
+                }
+                let r = flow.step(s);
+                let um: Vec<f64> = s.u.internal.as_slice().iter().map(|v| v.mag()).collect();
+                let (cmax, umax) = um.iter().enumerate().fold((0, 0.0_f64), |a, (c, &v)| if v.is_nan() || v > a.1 { (c, if v.is_nan() { f64::INFINITY } else { v }) } else { a });
+                if step <= 5 || step % 10 == 0 {
+                    history.push(format!("{step}:{:.2e}@{cmax}", umax / U_IN));
+                }
+                // OpenFOAM's Courant number (CourantNo.H): half dt sum|phi_f| / V.
+                if step == 1 || step == 5 || (umax > 3.0 * U_IN && !first_over) {
+                    let mut sum = vec![0.0_f64; m.n_cells];
+                    for f in 0..m.n_internal_faces {
+                        let a = s.phi.internal[f].abs();
+                        sum[m.owner[f]] += a;
+                        sum[m.neighbour[f]] += a;
+                    }
+                    for (pi, p) in m.patches.iter().enumerate() {
+                        for i in 0..p.size {
+                            sum[m.owner[p.start + i]] += s.phi.boundary[pi].values[i].abs();
+                        }
+                    }
+                    let dt_now = s.control.delta_t;
+                    let co: Vec<f64> = (0..m.n_cells).map(|c| 0.5 * dt_now * sum[c] / m.cell_volumes[c]).collect();
+                    let (cm, cv) = co.iter().enumerate().fold((0, 0.0_f64), |a, (c, &v)| if v > a.1 { (c, v) } else { a });
+                    let mut sorted = co.clone();
+                    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    println!(
+                        "  step {step}: Courant max {cv:.2} at {}; p99 {:.2}, mean {:.3}; Co of cell {cmax} {:.2}",
+                        describe(cm, um[cm]),
+                        sorted[sorted.len() * 99 / 100],
+                        sorted.iter().sum::<f64>() / sorted.len() as f64,
+                        co[cmax]
+                    );
+                }
+                if umax > 3.0 * U_IN && !first_over {
+                    first_over = true;
+                    println!("  first above 3 U at step {step}: {}", describe(cmax, umax));
+                    for f in 0..m.n_internal_faces {
+                        let (o, n) = (m.owner[f], m.neighbour[f]);
+                        if o == cmax || n == cmax {
+                            let other = if o == cmax { n } else { o };
+                            let sf = m.face_area_vectors[f];
+                            let d_o = sf.dot(m.face_centres[f] - m.cell_centres[o]).abs();
+                            let d_n = sf.dot(m.cell_centres[n] - m.face_centres[f]).abs();
+                            println!("    face {f} to {}: weight {:.3}, |S| {:.2e}", describe(other, um[other]), d_o.min(d_n) / (d_o + d_n), m.face_areas[f]);
+                        }
+                    }
+                }
+                if r.is_err() || !umax.is_finite() || umax > 20.0 * U_IN {
+                    println!("  blow-up at step {step} ({}): max |U| at {}", if r.is_err() { "solver error" } else { "|U| > 20 U" }, describe(cmax, umax));
+                    let mut idx: Vec<usize> = (0..m.n_cells).filter(|&c| um[c].is_finite()).collect();
+                    idx.sort_by(|&a, &b| um[b].partial_cmp(&um[a]).unwrap());
+                    for &c in idx.iter().take(5) {
+                        println!("    {}", describe(c, um[c]));
+                    }
+                    break;
+                }
+                if step == n_steps {
+                    println!("  no blow-up in {n_steps} steps (dt now {:.3e} s); max |U| {}", s.control.delta_t, describe(cmax, umax));
+                }
+                if step == n_steps || r.is_err() || !umax.is_finite() || umax > 20.0 * U_IN {
+                    // The worst cell and its neighbours: U (radial, axial), p, net flux.
+                    let mut net = vec![0.0_f64; m.n_cells];
+                    let mut absf = vec![0.0_f64; m.n_cells];
+                    for f in 0..m.n_internal_faces {
+                        net[m.owner[f]] += s.phi.internal[f];
+                        net[m.neighbour[f]] -= s.phi.internal[f];
+                        absf[m.owner[f]] += s.phi.internal[f].abs();
+                        absf[m.neighbour[f]] += s.phi.internal[f].abs();
+                    }
+                    for (pi, p) in m.patches.iter().enumerate() {
+                        for i in 0..p.size {
+                            net[m.owner[p.start + i]] += s.phi.boundary[pi].values[i];
+                            absf[m.owner[p.start + i]] += s.phi.boundary[pi].values[i].abs();
+                        }
+                    }
+                    let show = |c: usize| {
+                        let x = m.cell_centres[c];
+                        let rr = x.x.hypot(x.y).max(1e-300);
+                        let u = s.u.internal[c];
+                        let ur = (u.x * x.x + u.y * x.y) / rr;
+                        format!(
+                            "cell {c} (r {:.3} z {:.2} mm, V {:.2e}, wall {}): u_r/U {:.2}, u_z/U {:.2}, |U|/U {:.2}, p {:.3e}, net flux / sum|flux| {:.2e}",
+                            rr * 1e3, x.z * 1e3, m.cell_volumes[c], wall_cell[c], ur / U_IN, u.z / U_IN, u.mag() / U_IN, s.p.internal[c], net[c] / absf[c].max(1e-300)
+                        )
+                    };
+                    let c0 = cmax.min(m.n_cells - 1);
+                    println!("  worst: {}", show(c0));
+                    for f in 0..m.n_internal_faces {
+                        let (o, n) = (m.owner[f], m.neighbour[f]);
+                        if o == c0 || n == c0 {
+                            let other = if o == c0 { n } else { o };
+                            println!("    via face {f} (phi {:.2e}): {}", s.phi.internal[f], show(other));
+                        }
+                    }
+                }
+            }
+            println!("  history (step:max|U|/U@cell): {}", history.join(" "));
             }
         }
     }
@@ -2040,7 +2526,7 @@ mod tests {
     #[ignore]
     fn diagnose_unstructured_reynolds_dependence() {
         for (h, n, re) in [(0.006, 1, 20.0), (0.004, 0, 20.0), (0.006, 1, 100.0)] {
-            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
             let lines = headless(d, re, Mode::Steady, 2000).unwrap_or_else(|e| vec![e]);
             println!("h {h} layers {n} Re {re}:");
             for l in lines.iter().filter(|l| l.starts_with("# pipe") || l.starts_with("# binned") || l.contains("steps,")) {
@@ -2054,8 +2540,8 @@ mod tests {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient};
         use outram_foam_appbuilder_lib::io::fv_schemes::DivScheme;
         use uom::si::acceleration::meter_per_second_squared;
-        let dual6 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
-        let dual4 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let dual6 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
+        let dual4 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
         for (name, d, linear) in [
             ("dual h 6 mm, 1 layer, upwind", dual6, false),
             ("dual h 6 mm, 1 layer, Gauss linear", dual6, true),
@@ -2120,7 +2606,7 @@ mod tests {
         };
         println!("convection {which}: {div:?}, grad(U) {grad:?}");
         for (h, n) in list {
-            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
             let mut e = Engine::default();
             let mut cells = 0;
             e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |ev| {
@@ -2180,7 +2666,7 @@ mod tests {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, fit_line, patch_flux, pressure_gradient, radial_profile_binned};
         use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, GradScheme};
         use uom::si::acceleration::meter_per_second_squared;
-        let dual = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let dual = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
         let ogrid = Design { target_cells: 8000, ..Design::default() };
         let lu = (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0)));
         let lin = (DivScheme::GaussLinear, None);
@@ -2271,7 +2757,7 @@ mod tests {
     #[test]
     #[ignore]
     fn diagnose_interpolation_weights() {
-        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE };
         let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 20480 (structured default)", mesh_design(&Design::default()).unwrap().0),
@@ -2305,6 +2791,24 @@ mod tests {
     }
 
     #[test]
+    fn mesher_choices_default_to_the_recorded_mesher_and_follow_the_url() {
+        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+        use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+        // The default is the mesher every recorded number was taken on.
+        let d = TetDualSpec::default_for(0.01);
+        assert_eq!((d.dual, d.feature_points, d.layer_quality), (D::MedianPerCorner, F::OnFeatureEdge, L::BackOffOnly));
+        assert_eq!(d.choice_codes(), [0.0, 0.0, 0.0]);
+        // Clamping keeps the choices.
+        let q = d.with_query(Some("centre"), Some("corners"), Some("cfmesh"));
+        assert_eq!((q.dual, q.feature_points, q.layer_quality), (D::CellCentre, F::Corners, L::CfMeshOptimise));
+        assert_eq!(q.clamped(0.01, 0.2).choice_codes(), [2.0, 1.0, 1.0]);
+        // Unknown URL values leave the choices alone; named ones reset them.
+        assert_eq!(q.with_query(Some("bogus"), None, Some("?")), q);
+        let back = q.with_query(Some("corner"), Some("edges"), Some("backoff"));
+        assert_eq!(back.choice_codes(), [0.0, 0.0, 0.0]);
+    }
+
+    #[test]
     fn requests_and_events_survive_the_wire() {
         let reqs = [
             Request::Mesh { id: 3, design: Design::default(), probe: 0.5 },
@@ -2322,6 +2826,20 @@ mod tests {
             Request::Mesh { id: 5, design: Design::exchanger(), probe: 0.3 },
             Request::Mesh { id: 6, design: Design::coil(), probe: 0.6 },
             Request::Mesh { id: 7, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() }, probe: 0.4 },
+            // gh:#1240 browser controls: every non-default mesher choice crosses the wire.
+            Request::Mesh {
+                id: 8,
+                design: Design {
+                    mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("centre"), Some("corners"), Some("cfmesh"))),
+                    ..Design::default()
+                },
+                probe: 0.4,
+            },
+            Request::Mesh {
+                id: 9,
+                design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("point"), None, Some("snappy"))), ..Design::default() },
+                probe: 0.4,
+            },
             Request::Step { id: 3, steps: 7 },
             Request::Probe { id: 3, probe: 0.9 },
         ];
@@ -2329,6 +2847,11 @@ mod tests {
             assert_eq!(Request::from_wire(&r.to_wire()).unwrap(), r);
         }
         assert!(Request::from_wire(&[9.0, 1.0]).is_err());
+        // An unknown mesher-choice code is refused, not silently defaulted.
+        let mut w = Request::Mesh { id: 8, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() }, probe: 0.4 }.to_wire();
+        let n = w.len();
+        w[n - 3] = 7.0;
+        assert!(Request::from_wire(&w).is_err());
         assert!(Request::from_wire(&[0.0]).is_err());
         let sec = Section { axis: 1, offset: 0.5, polygons: vec![vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]], frame: None };
         let framed = Section { frame: Some([1.0, 2.0, 3.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]), ..sec.clone() };
@@ -2442,7 +2965,7 @@ mod tests {
     /// lines.
     #[test]
     fn headless_unstructured_pipe_runs_and_is_pinned() {
-        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2 }), ..Design::default() };
+        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
         let (poly, _, _, _) = mesh_design_noted(&d).unwrap();
         let fv = poly.to_fv_mesh().unwrap();
         let mut names: Vec<(&str, outram_foam_basic_lib::mesh::PatchKind)> = fv.patches.iter().map(|p| (p.name.as_str(), p.kind)).collect();
@@ -2464,11 +2987,47 @@ mod tests {
         assert_eq!(strip(&again), strip(&lines), "deterministic");
     }
 
+    /// gh:#1241 — OpenFOAM's time-step update by hand
+    /// (`setInitialDeltaT.H`, `setDeltaT.H`): at Co 4 with `maxCo 1` the first
+    /// step is cut to a quarter; later steps fall by `maxCo / Co` when Co is
+    /// too large, grow by at most `1 + 0.1 maxCo/Co` and 1.2, and never pass
+    /// `maxDeltaT`; Co 0 leaves the first step alone. Then the pipe with
+    /// `max_co = 1` (the small O-grid, Re 100, 20 steps): after the first
+    /// step Co stays within the growth bound of 1 (≤ 1.2), and the run with
+    /// the option off keeps the fixed step.
+    #[test]
+    fn adjust_time_step_follows_openfoam() {
+        assert!((adjusted_delta_t(2.0, 4.0, 1.0, 2.0, true) - 0.5).abs() < 1e-15);
+        assert_eq!(adjusted_delta_t(2.0, 0.0, 1.0, 2.0, true), 2.0);
+        assert!((adjusted_delta_t(1.0, 4.0, 1.0, 10.0, false) - 0.25).abs() < 1e-12);
+        assert!((adjusted_delta_t(1.0, 0.5, 1.0, 10.0, false) - 1.2).abs() < 1e-12);
+        assert!((adjusted_delta_t(1.0, 0.9, 1.0, 10.0, false) - (1.0 + 0.1 / 0.9)).abs() < 1e-12);
+        assert_eq!(adjusted_delta_t(1.0, 0.1, 1.0, 1.1, false), 1.1);
+        for max_co in [None, Some(1.0)] {
+            let mut e = Engine { max_co, ..Engine::default() };
+            e.serve(Request::Mesh { id: 1, design: small_pipe(), probe: 0.75 }, &mut |_| {});
+            e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
+            let dt0 = match &e.case {
+                Some(Case::Pipe(s, _)) => s.control.delta_t,
+                _ => panic!("no pipe"),
+            };
+            for _ in 0..4 {
+                e.serve(Request::Step { id: 1, steps: 5 }, &mut |_| {});
+            }
+            let Some(Case::Pipe(s, _)) = &e.case else { panic!("no pipe") };
+            let (co, mean) = courant_numbers(s);
+            match max_co {
+                None => assert_eq!(s.control.delta_t, dt0),
+                Some(m) => assert!(co <= 1.2 * m && mean < co && s.control.delta_t < dt0, "Co {co}, dt {} of {dt0}", s.control.delta_t),
+            }
+        }
+    }
+
     /// The unstructured controls are clamped (a phone cannot ask for a mesh
     /// that freezes it) and the estimate follows the measured sweep.
     #[test]
     fn unstructured_specs_are_clamped() {
-        let s = TetDualSpec { cell_size: 1e-5, n_layers: 9, first_layer: 1.0, expansion: 3.0 }.clamped(0.01, 0.2);
+        let s = TetDualSpec { cell_size: 1e-5, n_layers: 9, first_layer: 1.0, expansion: 3.0, ..TetDualSpec::BASE }.clamped(0.01, 0.2);
         assert!(s.cell_size >= 0.01 / CELL_PER_R_MAX - 1e-15 && s.n_layers == MAX_LAYERS && s.first_layer <= 1e-3 + 1e-15 && s.expansion == 1.5);
         assert!(s.estimated_cells(0.01, 0.2) <= MAX_CELLS as f64);
         let d = TetDualSpec::default_for(0.01);

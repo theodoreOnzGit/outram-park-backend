@@ -1685,7 +1685,11 @@ p90, max; count above 65°).
 | | centre E / C | 3 921 | 1 460 | 1 132 / 164 | 7.1 / 32.9 | 0.0 / 7.9 / 11.0 (C: 13.8), 0 | 0.88 | 1.00000 | 1.00000 |
 
 All closed and valid; fingerprints identical across processes for every
-row. (The h 6 mm corner row carries gh:#1215's note "34 boundary points
+row. **CORRECTED 2026-11-05 (gh:#1241):** the "inlet/πR²" column is
+Σ|S_f| over the inlet faces, which counts a bent face's tilt as area; the
+projected section |Σ S_f·ẑ|/πR² of the `C` rows is 0.95583 (h 4, not
+1.00816), 0.98287 (h 5, planar, the same) and 0.94786 (h 6, not
+0.98572). See the gh:#1241 section. (The h 6 mm corner row carries gh:#1215's note "34 boundary points
 left unmapped" by the feature-edge capture; the C rows at h 4 and h 6 mm
 carry 128 and 64.)
 
@@ -1884,6 +1888,559 @@ rim the unmapped points of the `C` meshes sit.
   was checked against it on a shared case.
 - `octree.rs`'s `HashSet` numbering (refinement path): untouched.
 
+## Follow-ups of gh:#1240: rim repair, the 3-layer divergence, snappy's cascade, cfMesh's cost, octree order (gh:#1241)
+
+**Issue:** gh:#1241. Five items, worked in order; each has its
+predictions written (and committed) before its runs.
+
+### Item 1: cfMesh's `correctEdgesBetweenPatches` and the `Corners` rim
+
+**Upstream read first (2026-11-05).** cfMesh v1.1 (`DAFoam/cfmesh`
+`e944f6ba695f`), `meshLibrary/utilities/surfaceTools/correctEdgesBetweenPatches/`
+(`correctEdgesBetweenPatches.C`, `…DistributeFaces.C`), called from
+`meshSurfaceEdgeExtractorNonTopo::decomposeBoundaryFaces`, which
+`tetMeshGenerator::mapEdgesAndCorners` runs after `extractPatches` and
+before `mapVerticesOntoSurfacePatches`. It does **not** move points. It
+changes topology, in two steps (a third, `decomposeProblematicFaces`, is
+commented out upstream):
+
+1. `decomposeConcaveFaces`: an internal face touching a concave (or
+   undetermined) boundary point and having boundary edges in two or more
+   patches is split into a triangle fan about its centre
+   (`decomposeFaces`), and both its cells are marked.
+2. `patchCorrection`: a boundary face with a vertex that is an *edge
+   point* (exactly two feature edges, `meshSurfacePartitioner`) whose two
+   edges in the face are **both** feature edges is split: a quad into two
+   triangles at that vertex, a larger face into a fan about its centre;
+   triangles are left alone. Its owner is marked.
+3. Every marked cell is split into pyramids, one per face, apex at the
+   average of the cell's vertices (`decomposeCells::decomposeCellIntoPyramids`,
+   `findTopVertex`), after splitting any face that meets another face of
+   the same cell on more than one edge (`checkFaceConnections`).
+
+**Measured before any change** (`diagnose_corners_rim`, bare pipes,
+`Corners`, both per-point kinds give the same boundary; with and without
+the feature-edge capture). This replaces a misreading in the gh:#1240
+table: its "inlet/πR²" is Σ|S_f| over the inlet faces, which counts a
+non-planar face's tilt as area. The projected section |Σ S_f·ẑ| is what
+the flow sees:
+
+| h | Σ\|S\|/πR² | \|Σ S·ẑ\|/πR² | inlet points off the plane | rim vertices (at a 48-gon corner) | reverted by the capture | `patchCorrection` candidates (inlet) |
+|---|---|---|---|---|---|---|
+| 4 | 1.00816 | **0.95583** | 24 (up to 1.0 mm) | 48 (0) | 128 | 72 (16) |
+| 5 | 0.98287 | 0.98287 | 0 | 44 (0) | 0 | 32 (4) |
+| 6 | 0.98572 | **0.94786** | 6 (up to 1.5 mm) | 23 (3) | 64 | 24 (4) |
+
+So the `Corners` rim has **two** errors, not one: (a) at h 4 and 6 mm the
+capture reverts the points of cells it tangles, and the inlet is left
+bent (projected section −4.4 % and −5.2 %); (b) at every h the rim is a
+chain of chords between edge midpoints, none at a 48-gon corner (the
+48-gon itself is 0.99715 πR²), which at h 5 mm costs −1.7 % with a planar
+inlet. `correctEdgesBetweenPatches` addresses (a) at most: it adds no
+rim vertex, so it cannot address (b).
+
+**Predictions (written 2026-11-05, before the port's first run).** Port
+as a stage between the patch naming and the capture, off by default
+(`TetDualOptions::correct_edges`), on the same h 4 / 5 / 6 mm `Corners`
+pipes, both per-point kinds:
+
+| quantity | h 4 | h 5 | h 6 |
+|---|---|---|---|
+| `decomposeConcaveFaces` faces | 0 (every feature edge of a pipe is convex) | 0 | 0 |
+| `patchCorrection` faces | = the candidates above (72 / 32 / 24), ± 10 % (the fan of one face can change its neighbour's count) | | |
+| reverted by the capture | 128 → **0–20** | 0 | 64 → **0–10** |
+| inlet points off the plane | 24 → 0–4 | 0 | 6 → 0–2 |
+| \|Σ S·ẑ\|/πR² (predicted inlet area) | 0.956 → **0.985–0.993** (48 rim chords at r ≈ 9.98 mm; evenly spaced at 48-gon edge midpoints would give 0.99288) | **0.983 ± 0.002, unchanged** (no rim vertex added) | 0.948 → **0.970–0.988** (23 chords: a regular 23-gon is 0.98774) |
+| Σ\|S\| − \|Σ S·ẑ\| | → < 2e-3 | 0 | → < 5e-3 |
+| V/πR²L | 0.99122 → 0.992–0.996 | 0.98887 ± 0.0005 | 0.98081 → 0.984–0.990 |
+| cells | + the pyramids: each marked cell of F faces becomes F cells, about +1 000–2 000 at h 4 | +300–800 | +200–600 |
+| max internal non-orthogonality | rises (pyramids on a large dual cell; 55–75°) | | |
+| closure, determinism | closed; identical across processes | | |
+
+Not expected: any change at all with `correct_edges` off (every
+existing pin unchanged), or on the per-corner default.
+
+**What was built.** `outram-park-fork-cfmesh::correct_edges` (the three
+steps above, upstream file and commit in its header) and
+`TetDualOptions::correct_edges` (off by default). Upstream runs it on a
+boundary already mapped onto the surface (`tetMeshGenerator::
+mapMeshToSurface`: every boundary point to its nearest surface point,
+then `untangleSurface`), with the patches `edgeExtractor` assigned, and
+the patch mapper reads those patches. The port does the same in that
+order: `surface_mapper::map_vertices_onto_surface_untangled` (the
+pre-map; `untangleSurface` is not ported, so a cell it tangles keeps its
+points), the nearest-triangle patches, `correct_edges_between_patches`
+(children keep the parent's patch), then the mapper with those patches
+(`map_vertices_onto_surface_patches_untangled_given`). The first run
+showed pyramids inverted (the apex, the vertex average of a non-convex
+rim cell, outside it); upstream leaves that to the final optimiser
+(`optimiseFinalMesh`, `untangleMeshFV` 10 / 50 / 2), which the port runs
+right after the capture (only interior points move: the LP untangler and
+the boundary moves are not ported).
+
+**Results (2026-11-05,** `diagnose_corners_rim` with
+`CFMESH_STEPS=1`; per-point and cell-centre give the same boundary):
+
+| h | `correct_edges` | concave faces / faces split / fanned / cells → pyramids | cells (point, centre) | reverted | \|Σ S·ẑ\|/πR² | Σ\|S\|/πR² | V/πR²L | meshing (s) |
+|---|---|---|---|---|---|---|---|---|
+| 4 | off | — | 6 353 | 128 | 0.95583 | 1.00816 | 0.99122 | 0.4 |
+| 4 | on | 32 / 56 / 272 (point), 128 (centre) / 40 | 6 353 (**the capture is rejected**: 16 / 11 cells still inverted after `untangleMeshFV`, so the mesh is the uncaptured one) | — | 0.92496 | 0.96468 | 0.97207 | 330 / 232 |
+| 5 | off | — | 3 113 | 0 | 0.98287 | 0.98287 | 0.98887 | 0.1 |
+| 5 | on | 0 / 8 / 128, 48 / 8 | 4 305, 3 593 | 0 | **0.98094** | 0.98094 | 0.98888 | 0.2 |
+| 6 | off | — | 1 939 | 64 | 0.94786 | 0.98572 | 0.98081 | 0.5 |
+| 6 | on | 4 / 20 / 148, 12 / 72 / 15, 19 | 3 348, 2 701 | 56, 60 | **0.95138** | 0.95205 | 0.98155 | 32 / 13 |
+
+**Against the predictions:** concave faces 0 — **missed** (4–32: the
+pre-mapped rim is a zigzag of wall faces folded onto the inlet, whose
+feature edges are partly concave); faces split = candidates ± 10 % —
+missed low (16–56 of 24–72: the pre-map changes the patches, and the
+concave step splits some first); reverted 128 → 0–20 and 64 → 0–10 —
+**missed** (h 4: the capture is rejected outright, worse than before;
+h 6: 56–60); inlet 0.985–0.993 (h 4) and 0.970–0.988 (h 6) — **missed**
+(0.925 and 0.951); h 5 unchanged ± 0.002 — missed by 0.0019 low; cells
+up — held where the capture is kept; max non-orthogonality up — held
+(h 6: 57° → 74–82°).
+
+**Reading it.** The port is upstream's algorithm (the unit tests pin
+`patchCorrection` by hand on a cube, and a box is left alone), and it
+does what upstream's code says; it does not repair this rim, for two
+reasons that are not in `correctEdgesBetweenPatches`: (a) at every h the
+`Corners` rim is a chain of chords between tet-edge midpoints that
+misses the 48-gon's corners (h 5: 44 chords, all vertices at r 9.979–
+9.993 mm, the inlet planar and still −1.7 %), and no topology step adds
+a rim vertex; `OnFeatureEdge` keeps the rim points and its inlet is
+0.991 at h 5; (b) at h 4 and 6 mm the mapped rim cells tangle, and what
+upstream untangles them with (`untangleSurface`, the LP `meshUntangler`
+and `untangleMeshFV`'s boundary moves) is not ported. Kept off by
+default (it also costs 13–330 s); `TetDualOptions::correct_edges`
+keeps it callable. **The gh:#1240 table's "inlet/πR²" for `Corners` is
+corrected above**: it is Σ|S_f| (1.00816 at h 4), the projected section
+the flow sees is 0.95583.
+
+Tests: `correct_edges::tests::{patch_correction_splits_a_face_with_two_feature_edges_at_an_edge_point,
+a_box_is_left_alone_and_pyramids_conserve_volume, face_centre_matches_openfoam_on_simple_faces}`,
+`pipeline::tests::correct_edges_runs_in_the_pipeline_and_is_off_by_default`
+(L 60 mm, h 6 mm: 605 → 1 727 cells, closed, none inverted).
+
+### Item 2: the BackOffOnly 3-layer divergence
+
+**Predictions (written 2026-11-05, before the diagnostic's first run).**
+Meshes: `CellCentre` and `MedianPerPoint` with `Corners`, h 5 mm, 3
+back-off layers (diverge in gh:#1240); the same with 2 layers on
+`CellCentre` (runs) as the control. The solver's Δt is set from the
+*mean* cell size (`pseudo_time_step`: Co ≈ 4 on the cell length, the
+viscous number ν Δt / h² ≤ 0.5 on h = (V/N)^⅓), so a thin layer cell sees
+a local viscous number ν Δt / Δ² far above 0.5.
+
+1. *Where it starts.* The first cells to blow up are layer cells (a
+   prism with a wall face, or the top prism of a stack), not dual cells
+   of the core: 80 %.
+2. *Local numbers.* The diverging meshes' largest local viscous number
+   (Δ = V / max |S_f| of the cell) is 10–100 × the running 2-layer mesh's;
+   the blow-up cell is within the 1 % of cells with the largest one: 60 %.
+3. *Frozen mesh, pure diffusion* (the gh:#1202 manufactured Poisson
+   problem, −∇²u = 4, u = 0 on the wall): the uncorrected operator gives
+   b within 10 % of 1 on every mesh (the layer checks pass, and the
+   Laplacian was within 2–8 % on the gh:#1202 meshes); the 20 deferred
+   non-orthogonal correction passes converge on every mesh too, because
+   the face non-orthogonality is ≤ 66°. So the Laplacian is **not** the
+   cause: 70 %.
+4. *Cause, if 1–3 hold:* the explicit parts of the PISO step (the lagged
+   non-orthogonal correction of the momentum Laplacian and the explicit
+   `linearUpwind` correction) on cells whose local viscous number is
+   O(10²–10³); OpenFOAM keeps Δt from a Courant number on every cell
+   (`CourantNo.H`, max over cells of ½ Σ|φ_f| Δt / V) and recommends
+   `limited` snGrad on such meshes. Expected fix: limit the
+   non-orthogonal correction on the layer faces, or the time step by the
+   *local* cell size; to be decided by what the run shows, not before.
+
+**Results of the diagnostic (2026-11-05,** `foam_studio_web/engine.rs`
+`diagnose_three_layer_divergence`, Re 100, the demo pair, `Corners`):
+
+| mesh | cells | Δt (s) | thin min (m) | local ν Δt/Δ² max | min face weight / vol ratio | Poisson b uncorr. / corr. (20 passes, change of pass 20) | blow-up (\|U\| > 20 U) |
+|---|---|---|---|---|---|---|---|
+| centre h 5, N 3 | 7 025 | 2.0 | 4.7e-5 | 899 | 0.008 / 0.0135 | 0.931 / 0.988 (2.6e-14) | step 13 |
+| point h 5, N 3 | 7 025 | 2.0 | 6.5e-5 | 468 | 0.018 / 0.0120 | 0.909 / 0.988 (1.2e-16) | step 16 |
+| centre h 5, N 2 (runs) | 5 721 | 2.0 | 7.8e-5 | 330 | 0.017 / 0.0135 | 0.931 / 0.988 (2.6e-14) | none in 300 |
+| centre h 4, N 3 | 12 461 | 1.46 | 2.4e-5 | 2 644 | 0.006 / 0.0117 | 0.960 / 0.983 (6.0e-9) | step 21 |
+| centre h 6, N 3 | 4 420 | 2.4 | 2.9e-5 | 2 776 | 0.024 / 0.0060 | 1.020 / 1.084 (2.3e-14) | step 24 |
+
+Where it starts (centre h 5, N 3): the first cell above 3 U (step 8) is
+a **dual cell at the inlet rim** (r 9.33, z 1.8 mm; the same cell at the
+outlet rim in the mirrored runs), not a layer cell; it has no wall face,
+local viscous number 4.4, and one face (|S| 7.7e-6 m², the largest of
+its seven) to the **top prism of the stack** (Δ 7e-5 m, volume 0.11 of
+its own, face weight 0.064); its other neighbours are the rim's dual
+cells with face weights 0.008–0.06 to their own top prisms. At Δt / 10
+the run holds 300 steps but that cell carries **u_r = −4.75 U** (radially
+inward, five times the bulk velocity) with the face fluxes around it
+small and continuity closed to 1e-10: the cell velocity is decoupled
+from the fluxes. The pressure there: −7.7e-5 against 1.0e-4 in the top
+prism next to it and ≈ 1e-5 in the other neighbours; a Gauss gradient
+whose face values come 94 % from the prism carries that jump into the
+cell's velocity.
+
+Ablations on centre h 5, N 3 (the first cell above 3 U; blow-up step):
+`linearUpwind` + `cellLimited` (base) 8; 13 · `Gauss upwind` 8; 13 ·
+`Gauss linear` 6; 10 · no limiter 7; 13 · `uncorrected` laplacian 5; 8 ·
+no non-orthogonal corrector (same as base) · **Δt / 4: 8; 13** ·
+**Δt / 10: none in 300 (the 4.8 U rim mode stays)** · **Δt / 30: none,
+max |U| 1.80 U on the axis** · Δt / 100: none. OpenFOAM's Courant number
+(`CourantNo.H`, ½ Δt Σ|φ_f| / V) at the demo's Δt is **37–41** (max, in
+the outlet cells by the axis; mean 2.3–2.9) on the 3-layer *and* the
+2-layer mesh; Δt / 30 is Co ≈ 1.
+
+**Against the predictions.** 1, layer cells first: **missed** (a rim dual
+cell next to the top prism). 2, local viscous number: the diverging
+meshes are 1.4–8 × the running one, not 10–100 ×, and the blow-up cell is
+not among the 1 % largest (rank 4 883 of 7 025): **missed**. 3, the
+Laplacian is not the cause: **held** (b within 10 % uncorrected except
+h 6 corrected 1.084; every correction pass sequence converges). 4, the
+cause in the explicit terms: **missed** (no scheme or corrector ablation
+changes it); the time step does.
+
+**Cause.** A pressure–velocity decoupled mode at the rim cell next to the
+thinnest top prism, where the mesh fails what the back-off does not
+check: OpenFOAM's `minFaceWeight 0.05` (0.008 here) and nearly
+`minVolRatio 0.01` (0.0135). It grows when Δt is set as it is now, from a
+nominal length (`pseudo_time_step`), which on these meshes is a Courant
+number of 37–41 by OpenFOAM's definition; the PISO step that upstream
+runs under `adjustTimeStep` / `maxCo` never sees that. With 2 layers the
+top prism is thicker (weights ≥ 0.017) and the same Co 40 is survived.
+
+**Predictions for the fix (written 2026-11-05, before its first run).**
+Port OpenFOAM's `CourantNo.H` and `setInitialDeltaT.H` / `setDeltaT.H`
+(`maxDeltaFactor` 1.2, `1 + 0.1 maxCo/Co`) as an opt-in of Foam Studio's
+pipe (`FOAM_MAX_CO`, off by default, so both defaults are unchanged).
+Centre h 5, N 3 at `maxCo 1`: runs to the steady criterion within the
+5 000-step cap (70 %), u_c/2U 0.89–0.93 and dp/dz 0.98–1.04 × HP (the
+2-layer row: 0.900, 1.029), no cell above 2.1 U. At `maxCo 4`: bounded,
+with the rim mode (|U| 3–6 U at that cell), not steady-clean (60 %).
+
+**The fix as built.** `foam_studio_web/engine.rs`: `courant_numbers`
+(`CourantNo.H`) and `adjusted_delta_t` (`setInitialDeltaT.H` and
+`setDeltaT.H`, `maxDeltaT` = the case's fixed step), applied after each
+pipe step when `Engine::max_co` is set (natively `FOAM_MAX_CO`); off by
+default, so both Foam Studio defaults keep their fixed step. Test:
+`adjust_time_step_follows_openfoam` (hand values; with `maxCo 1` the
+small O-grid's Co stays ≤ 1.2 and Δt falls; off, Δt stays).
+
+**Results (2026-11-05,** `FOAM_MAX_CO=… FOAM_DUAL_KIND=centre
+FOAM_DUAL_FP=corners foam_studio_web --headless-unstructured 5 3 0.3 1.2
+100`, 7 025 cells):
+
+| maxCo | steps to steady | solve (s) | final Δt (s) | u_c/2U | (−dp/dz)/HP | profile RMS | τ_w/HP | rim cell (r 9.33 mm, z 198.2 mm) |
+|---|---|---|---|---|---|---|---|---|
+| fixed step (Co ≈ 40) | diverged at 13 | — | 2.0 | — | — | — | — | blows up |
+| 4 | 155 | 27.6 | 0.186 | 0.8998 | 1.0271 | 0.0482 | 1.0290 | \|U\| 1.87 U, u_r = **+1.80 U** |
+| 1 | 519 | 74.1 | — | 0.8998 | 1.0271 | 0.0482 | 1.0290 | (same steady state) |
+
+Against the predictions: runs at `maxCo 1` within the cap — **held**;
+u_c/2U and dp/dz in range — **held** (and equal to the 2-layer mesh's
+0.9001 / 1.0294 within 0.3 %); no cell above 2.1 U — held, narrowly
+(1.87 U); `maxCo 4` bounded but not steady-clean — **missed**: it reaches
+the same steady state to four digits in 155 steps. The rim cell still
+carries a radial velocity of 1.8 U in the steady state (where u_r ≈ 0
+physically): the mesh's decoupled mode, now bounded, not removed. So
+the time step was why it *diverged*; the face-weight defect at the rim
+is still there and is a mesher matter (the back-off checks no
+`minFaceWeight`; thinner layers make it worse, cfMesh's thicker ones
+avoid it).
+
+Both defaults re-checked after the change: see the end of this
+section.
+
+### Item 3: snappy's cascade at 2+ layers
+
+**Upstream read first (2026-11-05).** OpenFOAM-dev `852527377c7e`:
+`snappyLayerDriver::checkAndUnmark` runs `meshCheck::checkMesh` on the
+whole layered mesh and unextrudes *every point* of a patch face whose
+added cells use a failing face; `meshCheck::checkFaceTets` and
+`checkFaceTwist` (`polyMeshCheckQuality.C`) are the formulas the port has
+(tet sign with the cell and face centres exchanged; twist against
+`fc − cc` on a boundary face), so no formula defect is expected there.
+Two things upstream has that the port does not:
+
+1. `addPatchCellLayer::setRefinement` gives a patch face **`nFaceLayers`
+   cells** (from `setupLayerInfoTruncation`: 1 on a face touching an
+   unextruded point with `nBufferCellsNoExtrude 0`), the first spanning
+   the rest of each column (`offset = addedPoints.size() − nFaceLayers`).
+   The port computes `nFaceLayers` and then ignores it: every face gets
+   as many cells as its most-layered point, so a face next to one
+   unextruded point gets N cells **each pinched to zero thickness** at
+   that point (a collapsed edge per layer).
+2. The medial-axis mover shrinks the mesh under the quality checks
+   (`medialAxisMeshMover::shrinkMesh` → `motionSmootherAlgo::scaleMesh`,
+   `errorReduction 0.75`, `nRelaxIter` tries, then the displacement
+   is zeroed only where faces still fail) and feeds the honoured
+   displacement back (`patchDisp = oldPatchPos − localPoints`). The port
+   keeps the full cap at every extruded point.
+
+**Predictions (written 2026-11-05, before the diagnostic's first run),**
+`CellCentre` + `Corners`, h 5 mm, 2 and 3 layers:
+
+- iteration 1 (every point extruded, uniform stacks): 100–750 failing
+  faces, tet quality and twist, as gh:#1240 found; the wall faces they
+  unmark are a minority (< 40 %) of the wall;
+- iteration 2 onward: **most failing faces are in the pinched stacks**
+  next to unextruded points (> 70 % of the wall faces unmarked from
+  iteration 2 on have a pinched cell), and the unmarked set grows ring by
+  ring until coverage is 0: that is the cascade (80 %);
+- with upstream's `nFaceLayers` (one wedge cell per face where a layer
+  ends), the cascade stops: coverage at 2 and 3 layers ≥ 50 % (60 %),
+  and N = 1 unchanged to the bit (no face of a 1-layer stack has fewer
+  layers than its points: `nFaceLayers` = 1 = the count);
+- BackOffOnly and CfMeshOptimise unchanged to the bit (they never mix
+  counts).
+
+**What was changed.** `layers::build_layered_faces` (upstream's
+`nFaceLayers` cells per face, the last spanning the rest of each column,
+its side split at the neighbour's levels), used by `SnappyCollapse`
+under `SnappyLayerControls::face_cells = FaceLayerCells::Upstream` (the
+new default of that strategy); `FaceLayerCells::MostOfItsPoints` keeps
+the gh:#1215 builder callable. `setup_layer_info_truncation` now returns
+the face counts it computed. Each layer iteration writes a note (faces
+unextruded by `truncateDisplacement`, failing faces, wall faces using one
+and how many of them are pinched, points still extruded).
+
+**Results (2026-11-05,** `diagnose_snappy_cascade`, h 5 mm, `Corners`;
+wall-face non-planarity of the bare mesh p50 0.064, p90 0.144 mm; the
+per-point total (cap) p10 0.26, p50 0.42 mm, so the first layer is
+0.45 × cap at N = 2 and 0.27 × cap at N = 3, p50 0.115 mm):
+
+| case | rule | iteration 1: failing faces / wall faces unmarked (of 1 304) | then | coverage | cells |
+|---|---|---|---|---|---|
+| point N 1 | both | 205 / 22 | 4 more iterations, 8–23 faces each | 0.914 (bit-identical) | 4 305 |
+| point N 2 | gh:#1215 | 1 877 / 40 | 38 faces a step for 20 steps, every one pinched | **0** | 3 113 |
+| point N 2 | **upstream** | 1 877 / 40 | 10–24 a step, every one next to an unextruded point, converged at 22 | **0.429** | 4 233 |
+| point N 3 | both | 2 056 / 188 | iteration 2: `truncateDisplacement` unextrudes 468 pinched faces at once | 0 | 3 113 |
+| centre N 1 | both | 37 / 22 | 22 iterations | 0.626 (bit-identical) | 3 929 |
+| centre N 2 | gh:#1215 | 2 917 / 344 | 336 pinched faces in iteration 2 | 0 | 3 113 |
+| centre N 2 | **upstream** | 2 917 / 344 | 172 by `truncateDisplacement`, then 24–48 a step for 20 steps | 0 | 3 113 |
+| centre N 3 | both | 3 096 / 492 | 468 by `truncateDisplacement` | 0 | 3 113 |
+
+**Against the predictions.** Iteration 1 a minority of the wall (< 40 %):
+held (3–38 %; the failing *faces* are 1 877–3 096, not 100–750, because a
+failing face fails every layer cell around it). Most failing wall faces
+pinched from iteration 2 on: held (100 % under the gh:#1215 rule). The
+cascade stops with upstream's rule, coverage ≥ 50 % at 2 and 3 layers:
+**missed** (point N 2: 0 → 0.429; centre N 2 and both N 3 stay 0). N = 1
+bit-identical: held. BackOff and CfMesh unchanged: held (their pins pass).
+
+**The explanation, in three parts.** (1) *A port defect, fixed:* the
+gh:#1215 builder gave a face next to an unextruded point N cells each
+pinched to zero thickness there; they fail the tet check and unextrude
+their neighbours, ring by ring (the 2-layer cascade on the per-point
+dual). (2) *Upstream's own rule on these faces:* `truncateDisplacement`
+unextrudes every face with two separate unextruded runs; on 10–14-vertex
+wall polygons with a scattered unextruded set that is most faces, so once
+iteration 1 leaves 27–65 % of the points scattered, one pass empties the
+wall (N = 3, and centre N = 2). Upstream applies the same rule
+(`snappyLayerDriver.C` `nPinched`, read); on snappy's own hex wall faces
+two separate runs on a quad are rare. (3) *Why iteration 1 fails so
+much:* the layers are thinner than the wall faces are warped (at N = 3
+the median first layer 0.115 mm against a p90 non-planarity 0.144 mm),
+and a thin prism on a warped polygon fails `minTetQuality` and
+`minTwist`; the check formulas are upstream's (`checkFaceTets`,
+`checkFaceTwist` read side by side with `checks.rs`), the port's
+difference is the vertex-average face centre against upstream's
+area-weighted one (not isolated). Not ported, and the next lead:
+`medialAxisMeshMover::shrinkMesh` (`scaleMesh` under the quality checks,
+`errorReduction 0.75`) and its thickness smoothing; upstream feeds the
+honoured displacement back instead of unextruding.
+
+Tests: `layers::tests::per_face_layer_counts_conform_and_repartition`
+(a box with one unextruded corner: closed, no inverted cell, volume 1 to
+1e-12, 27 + 3 × 51 + 3 cells; equal counts give the old builder bit for
+bit); `pipeline::tests::layer_strategies_are_deterministic` and
+`every_strategy_leaves_a_good_box_duct_alone` pass unchanged.
+
+### Item 4: the cost of `CfMeshOptimise`
+
+**Upstream read first (2026-11-05).** cfMesh v1.1 `meshOptimizer::
+untangleMeshFV` (`optimizeMeshFV.C`): per global iteration, an inner loop
+(Knupp, the LP `meshUntangler`, the volume optimiser on the cells around
+the bad faces, `nGlobalIter/2 + 1` layers) until no bad face or five
+passes past the fewest; then, **if bad faces remain, a loop that moves
+boundary points** (`optimiseBoundaryVolumeOptimizer(true)` for the first
+two global iterations, `optimiseBoundarySurfaceLaplace` up to the fifth,
+`optimiseBoundaryVolumeOptimizer(false)` after), and only then the next
+global iteration. `optimizeLowQualityFaces`, `optimiseUsingVolumeOptimizer
+(10)`, `partTetMesh`'s growth and `findBadFaces` with `changedFace` match
+the port line for line (read side by side). The port has no LP untangler
+and no boundary moves: a bad face held by boundary points cannot be fixed,
+and the global loop then runs all its iterations on a growing region.
+
+**Predictions (written 2026-11-05, before profiling):** on `CellCentre` +
+`Corners`, h 5 mm, 3 layers (140–370 s in gh:#1240): ≥ 60 % of the
+meshing time is in the three `untangleMeshFV(10, 50, 2)` calls, and in
+them the volume optimiser's per-node search (not the region builds or the
+checks); those calls run ≥ 8 of their 10 global iterations and end with
+bad faces left; the faces left touch boundary points.
+
+**Profile (2026-11-05,** `diagnose_dual_kinds_differential`, centre,
+`Corners`, h 5 mm, 3 layers, cfMesh; each optimiser call now reports its
+passes, global iterations, nodes smoothed and seconds in smoothing /
+region builds / checks; native release, 4 cores, alone on the host):
+110.5 s in all. The first `untangleMeshFV(10, 50, 2)`: bad faces
+2 861 → 29 in 61 passes over **all 10** global iterations, 184 956 nodes
+smoothed, **54.5 s** smoothing, 0.8 s regions, 0.2 s checks. The final
+`untangleMeshFV(10, 50, 2)`: **29 → 29** in 60 passes over 10 global
+iterations, 168 996 nodes, **50.8 s** smoothing. Everything else: 3 s.
+So 95 % of the time is the volume optimiser inside the two full untangles,
+and the second achieves nothing. Against the predictions: ≥ 60 % in the
+untangles — held (95 %); smoothing, not regions or checks — held; ≥ 8 of
+10 global iterations with faces left — held (10, 29 left).
+
+**The bound, and its predictions (written 2026-11-05, before its first
+run).** Upstream's boundary moves (`tetMeshOptimisation::
+optimiseBoundaryVolumeOptimizer`, `optimiseBoundarySurfaceLaplace`) are
+what make a later global iteration differ; without them a global
+iteration that removes no bad face is followed by more of the same.
+`mesh_optimizer::untangle_mesh_fv_bounded(…, stop_on_stall)` ends the
+global loop there; `BoundaryLayerOptimisationControls::
+stop_untangling_on_stall` (default `true`; `false` is the old run, kept)
+applies it to the cfMesh strategy's two full untangles. The quality
+targets (`findBadFaces`, `findLowQualityFaces`) are untouched. Predicted
+on the same mesh: meshing 110 s → 10–30 s; bad faces at the end 77 ± 10
+(the stall happens after the count stops falling, so what is left is the
+same kind of face); max non-orthogonality within ±2°, mean total
+thickness within ±2 %; the h 5 mm, 3-layer solve within ±0.5 % on u_c,
+dp/dz and τ_w of 0.9314 / 1.0050 / 1.0056; the back-off and snappy
+pins unchanged; the `CfMeshOptimise` pin in
+`layer_strategies_are_deterministic` changes only if its box duct needs
+a second global iteration.
+
+**Results (2026-11-05), the same mesh, old run (`false`) against the
+bound (`true`):**
+
+| quantity | all 10 global iterations | stop on a stall | verdict |
+|---|---|---|---|
+| meshing (test pipe, alone on the host) | 110.5 s | **13.3 s** | held (10–30 s) |
+| first untangle: bad faces, passes, global, nodes, smoothing | 2 861 → 29, 61, 10, 184 956, 54.5 s | 2 861 → 29, 13, 2, 27 708, 8.0 s | — |
+| final untangle | 29 → 29, 60 passes, 10 global, 50.8 s | 29 → 29, 6 passes, 1 global, 1.8 s; **all 29 touch a boundary point** | held (the faces left are boundary-held) |
+| bad faces at the end (`findBadFaces`) | 77 | 77 | held |
+| low-quality faces at the end | 0 | 1 | — |
+| max non-orthogonality | 57.2° | 57.5° | held (± 2°) |
+| mean total thickness | 1.066 mm | 0.977 mm | **missed** (−8.4 %, predicted ± 2 %) |
+| min determinant | 5.7e-2 | 3.4e-2 | — |
+| Foam Studio solve (h 5, 3 layers; its own cylinder): meshing, steps, u_c/2U, dp/dz, τ_w | 167 s (gh:#1240), 26, 0.9314, 1.0050, 1.0056 | **18.1 s**, 26, 0.9314, 1.0055, 1.0057 | held (± 0.5 %) |
+
+The layers are 8 % thinner because the first untangle's later passes,
+now not run, kept moving the interior points around the stack. The
+remaining cost (13–18 s) is still too much for a phone; what upstream
+does that the port still does not: the LP `meshUntangler` and the
+boundary moves between global iterations (they would remove the 29
+boundary-held faces, not just stop trying), and `meshSurfaceOptimizer`
+inside `optimiseLayer`. Tests: `pipeline::tests::layer_strategies_are_deterministic`
+passes with its old `CfMeshOptimise` pin (the box duct needs no second
+global iteration); `mesh_optimizer::tests::*` unchanged.
+
+### Item 5: `octree.rs` determinism
+
+**Prediction (written 2026-11-05, before the fix's first run):** the
+octree path (`refinement_levels > 0`) numbers its leaves in `HashSet`
+order, seeded per process: three processes give three fingerprints
+(90 %: a `HashSet` of a few hundred tuples practically never iterates in
+the same order twice). With `BTreeSet` / `BTreeMap` (cells in
+(level, i, j, k) order) three processes give one fingerprint, the cell
+count is unchanged (the leaf *set* does not depend on the order), and the
+default meshes (`refinement_levels = 0`) are untouched, the unstructured
+default's fingerprint included.
+
+**Results (2026-11-05,** `pipeline::tests::octree_path_is_pinned_bit_for_bit`,
+three separate processes each): before the change, a 1 m box at 0.25 m
+with 2 levels (2 528 cells) and the L 60 mm pipe at h 6 mm with one level
+(664 cells) gave **three different fingerprints each** (box
+7249328437174530281, 11578423670580479500, 9835399971238429003); after,
+the same pair three times (16070505555120789497, 24335298658873933),
+now pinned. Cell counts equal before and after. Held. The defaults: see
+the end of this section.
+
+### Both Foam Studio defaults, re-checked after every change above (2026-11-05)
+
+- Structured (`--headless`, 20 480 cells): 34 steps, u_c/2U **0.9940**,
+  dp/dz **1.0154**, RMS 0.0063, τ_w 1.0066: unchanged.
+- Unstructured (`--headless-unstructured 4 0 0.3 1.2 100`, 6 353 cells):
+  29 steps, **0.8925 / 1.0326**, RMS 0.0356, τ_w 1.0312: unchanged; its
+  cfMesh-pipeline fingerprint (L 200 mm, `pipe_surface`) is
+  **18084991279620725399**, as in gh:#1240.
+- Pins that passed: `headless_pipe_reaches_steady_hagen_poiseuille`,
+  `headless_unstructured_pipe_runs_and_is_pinned`,
+  `mesher_choices_default_to_the_recorded_mesher_and_follow_the_url`,
+  `back_off_only_layers_are_pinned_bit_for_bit`,
+  `dual_kinds_are_pinned_bit_for_bit`, `layer_strategies_are_deterministic`,
+  `tet_dual_stages_are_deterministic`. Every new option is off or keeps
+  the recorded behaviour on the defaults: `correct_edges` off,
+  `FOAM_MAX_CO` unset, the octree path unused at `refinement_levels = 0`,
+  `FaceLayerCells` and the untangle bound used only by the snappy and
+  cfMesh strategies.
+
+### Images (drawn from the mesh the solver gets)
+
+In `laminar_pipe_gh1155/gh1241/`, written by
+`FOAM_DUAL_FP=corners FOAM_CORRECT_EDGES=1 … --render-dual-kinds` (files
+`dual_<kind>_corners_ce_*`: `correct_edges` on the `Corners` duals, h 5
+mm, bare and with three back-off layers) and by `FOAM_DUAL_KIND=point
+FOAM_DUAL_FP=corners FOAM_RENDER_N=2 … --render-layer-strategies`
+(files `layers_<strategy>_h5_2_*`: the per-point dual with two layers
+under the back-off, cfMesh with the untangle bound, and snappy with
+upstream's per-face cells).
+
+**Checked by eye (2026-11-05):** `layers_snappy_h5_2_wallmap.png`: the
+two layers survive on the middle third of the pipe (z ≈ 70–130 mm, blue)
+and are gone toward both ends (red), with an orange band (fewer layers)
+at each front: the unextrusion walks in from the inlet and outlet rims,
+iteration by iteration, 8–16 wall faces a step (the iteration notes),
+and stops when the relaxed checks apply. `layers_snappy_h5_2_xy_wall.png`
+(z = 100 mm): two thin prisms (≈ 0.2 mm in all) under the dual cell, no
+wedge. `dual_point_corners_ce_h5_3layers_xz_rim.png` (`correct_edges` on,
+three back-off layers): the stack ends cleanly on the inlet at z = 0, the
+dual cells behind it whole; the fanned faces and the pyramids are not
+visible in an x-z slice. The `cfmesh` images show the 0.77 mm two-layer
+stack (bounded untangle). **Not checked:** the pyramids' 3-D shape at the
+rim; the `centre` renders beyond their file listing.
+
+### Recommendation (for the maintainer; nothing is changed)
+
+**Do not make `CellCentre` + `Corners` the unstructured default yet,
+with any layer strategy.** (1) The `Corners` rim is a chain of chords:
+the projected inlet is 0.956 / 0.983 / 0.948 πR² at h 4 / 5 / 6 mm, and
+cfMesh's `correctEdgesBetweenPatches` does not repair it (item 1); the
+current default (per-corner, h 4 mm, bare) gives u_c/2U 0.8925 against
+0.8502 for `CellCentre` + `Corners` bare at the same h. (2) The
+3-layer result that would justify it (`CfMeshOptimise`: u_c/2U 0.9314,
+dp/dz 1.0055, τ_w 1.0057, the closest to Hagen–Poiseuille of any
+unstructured row) now meshes in 13–18 s natively instead of 110–370 s
+(item 4), still too slow for the browser demo on a phone. (3)
+`BackOffOnly` with 3 layers runs once the time step follows OpenFOAM's
+Courant number (`maxCo` 4: 155 steps, 0.8998 / 1.0271; item 2) but its
+rim cell keeps a 1.8 U radial velocity, a mesh defect (face weight
+0.008) the back-off does not check. What would change the
+recommendation: keeping the rim vertices while dropping the collinear
+border cap (the `OnFeatureEdge`/`Corners` trade-off of gh:#1240), and
+porting the boundary moves of `untangleMeshFV`. Separately, **adopting
+`adjustTimeStep` (`maxCo` 4) for unstructured layered meshes** is
+recommended: the steady state did not depend on it (0.8998 / 1.0271 at
+`maxCo` 1 and 4) and it is what upstream runs; it changes no default
+until the maintainer decides.
+
+### Open (gh:#1241)
+
+- The `Corners` rim's chord loss (all h) and the rim tangles at h 4 / 6
+  mm: upstream's `meshSurfaceOptimizer::untangleSurface`, the LP
+  `meshUntangler` and `untangleMeshFV`'s boundary moves are not ported.
+- The rim cell's decoupled radial velocity on thin back-off layers
+  (face weight 0.008 < OpenFOAM's `minFaceWeight 0.05`): the back-off
+  checks no face weight.
+- Snappy at 3 layers: upstream's pinch rule empties the wall after
+  iteration 1 fails thin prisms on warped polygons; the medial-axis
+  shrink with `scaleMesh` is not ported.
+- `CfMeshOptimise` still 13–18 s; the mean layer thickness moved −8 %
+  with the bound.
+- Upstream (OpenFOAM, cfMesh) is not installed here; no port above was
+  run against its upstream on a shared case.
+
 ## Reproduce
 
 ```bash
@@ -1902,4 +2459,10 @@ cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --li
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
 FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
+# gh:#1241
+CFMESH_STEPS=1 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_corners_rim
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_snappy_cascade
+FOAM_DIAG_ABL=base,upwind,linear,nolimit,dt4,dt10,dt30,uncorrected,nonorth0,co4 cargo test --release -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_three_layer_divergence
+FOAM_MAX_CO=4 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners CFMESH_STALL=0 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
 ```

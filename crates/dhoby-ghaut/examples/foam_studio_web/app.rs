@@ -144,6 +144,13 @@ impl FoamApp {
             if let Some(n) = bugis::web_demo::platform::query_value(&q, "layers").and_then(|v| v.parse::<usize>().ok()) {
                 app.unstructured.n_layers = n.min(MAX_LAYERS);
             }
+            // `&dual=point|centre`, `&fp=corners`, `&layerq=cfmesh|snappy`
+            // (gh:#1240 browser controls).
+            app.unstructured = app.unstructured.with_query(
+                bugis::web_demo::platform::query_value(&q, "dual"),
+                bugis::web_demo::platform::query_value(&q, "fp"),
+                bugis::web_demo::platform::query_value(&q, "layerq"),
+            );
             if matches!(app.design.shape, Shape::Cylinder { .. }) {
                 app.design.mesh = PipeMesh::Unstructured(app.unstructured);
             }
@@ -459,21 +466,37 @@ impl FoamApp {
                 touched |= ui.add(egui::Slider::new(&mut f, (1e-3 * radius * 1e3)..=(0.1 * radius * 1e3)).text("first layer").suffix(" mm").logarithmic(true)).changed();
                 s.first_layer = f * 1e-3;
                 touched |= ui.add(egui::Slider::new(&mut s.expansion, 1.0..=1.5).text("expansion")).changed();
+                // gh:#1240 / #1215 mesher choices, as on the native knobs.
+                {
+                    use outram_blender::foam_mesh::LayerQualityStrategy as L;
+                    use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+                    ui.label(RichText::new("wall faces of the dual").small());
+                    ui.horizontal_wrapped(|ui| {
+                        for (k, label) in [(D::MedianPerCorner, "per corner"), (D::MedianPerPoint, "per point"), (D::CellCentre, "cell-centre")] {
+                            touched |= ui.selectable_value(&mut s.dual, k, label).changed();
+                        }
+                    });
+                    if s.dual != D::MedianPerCorner {
+                        let mut corners = s.feature_points == F::Corners;
+                        if ui.checkbox(&mut corners, "keep corners only (polyDualMesh class rule)").changed() {
+                            s.feature_points = if corners { F::Corners } else { F::OnFeatureEdge };
+                            touched = true;
+                        }
+                    }
+                    ui.label(RichText::new("bad layer cells").small());
+                    ui.horizontal_wrapped(|ui| {
+                        for (k, label) in [(L::BackOffOnly, "back off"), (L::CfMeshOptimise, "cfMesh optimise (slow)"), (L::SnappyCollapse, "snappy collapse")] {
+                            touched |= ui.selectable_value(&mut s.layer_quality, k, label).changed();
+                        }
+                    });
+                }
                 let c = s.clamped(radius, length);
                 if touched {
                     self.design.mesh = PipeMesh::Unstructured(*s);
                     self.dirty = true;
                 }
-                if c.n_layers >= 2 {
-                    ui.label(
-                        RichText::new(if c.n_layers >= 3 {
-                            "3 layers: the solve diverges on the meshes tried (one dual cell over the layer stack, the V&V record, gh:#1202). 0-2 layers run."
-                        } else {
-                            "2 layers run; on this mesh they do not bring the pipe closer to Hagen–Poiseuille than a finer bare mesh (the V&V record, gh:#1202)."
-                        })
-                            .small()
-                            .color(Color32::from_rgb(250, 189, 47)),
-                    );
+                if let Some(w) = layer_warning(&c) {
+                    ui.label(RichText::new(w).small().color(Color32::from_rgb(250, 189, 47)));
                 }
                 let est = c.estimated_cells(radius, length);
                 ui.label(RichText::new(format!("≈ {:.0}k cells estimated{}", est / 1e3, if c.cell_size > s.cell_size * 1.001 { " (cell size raised to stay under the cap)" } else { "" })).small());
@@ -1011,5 +1034,55 @@ impl eframe::App for FoamApp {
         if self.running || self.meshing {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
+    }
+}
+
+/// The warning the mesh panel shows under the layer controls: what the V&V
+/// record (`laminar_pipe_gh1155.md`, gh:#1202, #1215, #1240) measured for
+/// this many layers with these mesher choices, at the demo pipe. `None` when
+/// there is nothing to warn about.
+fn layer_warning(c: &TetDualSpec) -> Option<&'static str> {
+    use outram_blender::foam_mesh::LayerQualityStrategy as L;
+    use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+    let polydual_corners = c.dual != D::MedianPerCorner && c.feature_points == F::Corners;
+    match (c.n_layers, c.layer_quality) {
+        (0, _) => None,
+        (_, L::CfMeshOptimise) => Some(
+            "cfMesh's layer optimiser takes minutes (140-370 s natively at 5 mm, 3 layers; slower in a browser) and makes the layers thicker than asked (its thickness control is not ported). With the cell-centre dual, corners only, 3 layers ran at 5 mm: u_c/2U 0.931, dp/dz 1.005 x Hagen-Poiseuille (gh:#1240).",
+        ),
+        (_, L::SnappyCollapse) => Some("snappy's collapse removes every layer at 2 or more on these meshes (and most at 1): you get a bare mesh (gh:#1215, #1240)."),
+        (_, L::BackOffOnly) if c.dual != D::MedianPerCorner && c.feature_points == F::OnFeatureEdge => {
+            Some("with this dual and every edge point kept, the back-off grows no layer on the pipe (collinear rim points cap the thickness at 0): tick \"keep corners only\" (gh:#1240).")
+        }
+        (n, L::BackOffOnly) if n >= 3 => Some(if polydual_corners {
+            "3 layers with the back-off diverge in the solve on these duals too (gh:#1240); use cfMesh optimise for 3, or 1-2 layers here."
+        } else {
+            "3 layers: the solve diverges on the meshes tried (one dual cell over the layer stack, gh:#1202). 0-2 layers run."
+        }),
+        (2, L::BackOffOnly) => Some("2 layers run; on this mesh they do not bring the pipe closer to Hagen–Poiseuille than a finer bare mesh (gh:#1202)."),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::layer_warning;
+    use crate::engine::TetDualSpec;
+
+    /// The mesh panel warns according to the recorded results (gh:#1202,
+    /// #1215, #1240): nothing for a bare mesh, the minutes for cfMesh, the
+    /// zero-thickness cap for a polyDualMesh dual with every edge point kept,
+    /// and the 3-layer back-off divergence.
+    #[test]
+    fn layer_warning_matches_the_record() {
+        let spec = |n: usize, dual: Option<&str>, fp: Option<&str>, lq: Option<&str>| TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) }.with_query(dual, fp, lq);
+        assert!(layer_warning(&spec(0, None, None, Some("cfmesh"))).is_none());
+        assert!(layer_warning(&spec(1, None, None, None)).is_none());
+        assert!(layer_warning(&spec(2, None, None, None)).unwrap().contains("2 layers run"));
+        assert!(layer_warning(&spec(3, None, None, None)).unwrap().contains("diverges"));
+        assert!(layer_warning(&spec(3, Some("centre"), Some("corners"), Some("cfmesh"))).unwrap().contains("minutes"));
+        assert!(layer_warning(&spec(1, Some("point"), None, None)).unwrap().contains("keep corners only"));
+        assert!(layer_warning(&spec(3, Some("centre"), Some("corners"), None)).unwrap().contains("cfMesh optimise for 3"));
+        assert!(layer_warning(&spec(2, None, None, Some("snappy"))).unwrap().contains("removes every layer"));
     }
 }
