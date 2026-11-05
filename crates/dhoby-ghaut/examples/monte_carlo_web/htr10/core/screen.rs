@@ -897,6 +897,14 @@ impl CoreScreen {
                 ui.add(egui::DragValue::new(&mut self.pour.seed).range(1..=1_000_000));
             });
         });
+        // gh:#1250 (maintainer, 2026-11-05): the pour stays on the CPU, so the
+        // page says how long it takes before the reader starts one.
+        let n = self.pour.n.round() as usize;
+        ui.label(format!(
+            "A pour of {} takes {} in a browser (one thread; measured: 4 000 in 4 min, 8 000 in 6 min, 30 687 in 17.5 min on a 4-core machine). The page stays usable while it pours; the baked bed above is ready now.",
+            super::random_bed::grouped(n),
+            super::pour::minutes(super::pour::expected_pour_s(n))
+        ));
         let mut f = 100.0 * self.pour.fuel;
         ui.add(egui::Slider::new(&mut f, 0.0..=100.0).step_by(1.0).fixed_decimals(0).suffix(" %").text("fuel pebbles (rest moderator)"));
         self.pour.fuel = f / 100.0;
@@ -905,7 +913,9 @@ impl CoreScreen {
             "Fuel : moderator = {ratio} : 1 above the floor (the record is 57 : 43); the conus and tube hold moderator balls only, as the paper's rule says."
         ));
         ui.horizontal_wrapped(|ui| {
-            if ui.button(if self.pour.last.is_some() { "Pour again" } else { "Pour" }).clicked() {
+            let verb = if self.pour.last.is_some() { "Pour again" } else { "Pour" };
+            let label = format!("{verb} ({})", super::pour::minutes(super::pour::expected_pour_s(self.pour.n.round() as usize)));
+            if ui.button(label).clicked() {
                 self.pour.start(now);
             }
             if self.pour.last.is_some() && !self.pour.finished() {

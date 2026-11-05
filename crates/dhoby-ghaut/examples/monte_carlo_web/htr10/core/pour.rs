@@ -60,6 +60,38 @@ pub const RECORD_CORE_PEBBLES: usize = 16_890;
 /// count it got).
 pub const DEFAULT_PEBBLES: usize = RECORD_CORE_PEBBLES + BELOW_FLOOR_PEBBLES;
 
+/// **Measured browser pours** (gh:#1244 record, headless Chromium, one
+/// thread, a 4-vCPU container; maintainer chose on gh:#1250, 2026-11-05, to
+/// keep the CPU pour and say how long it takes): pebbles, seconds to settle.
+/// The 4 000 and 8 000 pours ran on a loaded machine, the 30 687 on an idle
+/// one, so the table is an upper bound for a desktop of that class.
+pub const MEASURED_BROWSER_POURS: [(usize, f64); 3] = [(4_000, 242.0), (8_000, 339.0), (30_687, 1_051.0)];
+
+/// **How long a pour of `n` pebbles takes in a browser**, s: straight lines
+/// between the [`MEASURED_BROWSER_POURS`] (no fit), the first line extended
+/// below 4 000. A guide for the reader before they press Pour, not a
+/// promise: a phone or a busy machine is slower.
+pub fn expected_pour_s(n: usize) -> f64 {
+    let m = MEASURED_BROWSER_POURS;
+    let x = n as f64;
+    let seg = if n <= m[1].0 { (m[0], m[1]) } else { (m[1], m[2]) };
+    let ((x0, y0), (x1, y1)) = ((seg.0 .0 as f64, seg.0 .1), (seg.1 .0 as f64, seg.1 .1));
+    let y = y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+    y.max(0.0)
+}
+
+/// A time as the page prints it: "4 min", "about 1 min", "under a minute".
+pub fn minutes(s: f64) -> String {
+    let m = (s / 60.0).round();
+    if s < 45.0 {
+        "under a minute".into()
+    } else if m <= 1.0 {
+        "about 1 min".into()
+    } else {
+        format!("about {m:.0} min")
+    }
+}
+
 /// The fewest pebbles the page pours: enough to fill the tube and conus and
 /// put a layer in the core.
 pub const MIN_PEBBLES: usize = 3_000;
@@ -655,6 +687,16 @@ mod tests {
         assert_eq!(DEFAULT_PEBBLES, 19_347);
         assert!(DEFAULT_PEBBLES < m);
         assert_eq!(PourUi::default().n, DEFAULT_PEBBLES as f64);
+        // The time guide passes through every measured pour and rises with n.
+        for (n, t) in MEASURED_BROWSER_POURS {
+            assert!((expected_pour_s(n) - t).abs() < 1e-9, "{n}");
+        }
+        assert!(expected_pour_s(MIN_PEBBLES) > 0.0 && expected_pour_s(MIN_PEBBLES) < 242.0);
+        let d = expected_pour_s(DEFAULT_PEBBLES);
+        assert!(d > 339.0 && d < 1051.0, "{d}");
+        assert_eq!(minutes(1051.0), "about 18 min");
+        assert_eq!(minutes(70.0), "about 1 min");
+        assert_eq!(minutes(30.0), "under a minute");
     }
 
     /// The diagnostics on the reference pour reproduce its recorded
