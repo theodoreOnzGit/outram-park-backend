@@ -286,9 +286,28 @@ fn orthonormalise(q: Tensor) -> Tensor {
             rows[i] = rows[i] / m;
         } else {
             // The row collapsed: it was (numerically) a duplicate of an earlier
-            // one. Any direction orthogonal to those already fixed will serve,
-            // since the eigenvalue is degenerate there.
-            rows[i] = orthogonal_complement(&rows[..i]);
+            // one, and the eigenvalue is degenerate there.
+            //
+            // FIXED 2026-11-05 (gh:#1288): when row 1 collapses onto row 0
+            // and row 2 belongs to a distinct eigenvalue, the replacement
+            // must also be orthogonal to row 2, or it can land on row 2's
+            // eigenvector. Before, the complement of row 0 alone was used:
+            // on C = R diag(1.96, 1, 1) Rᵀ (30° about z) row 1 came back with
+            // an eigen-residual of 0.48. `a_near_degenerate_spectrum_still_gives_an_orthonormal_basis`
+            // reaches this branch.
+            let later = if i == 1 {
+                let r2 = rows[2] - rows[0] * rows[2].dot(rows[0]);
+                (r2.mag() > 1.0e-6).then(|| r2 / r2.mag())
+            } else {
+                None
+            };
+            rows[i] = match later {
+                Some(r2) => {
+                    let c = r2.cross(rows[0]);
+                    c / c.mag()
+                }
+                None => orthogonal_complement(&rows[..i]),
+            };
         }
     }
 
@@ -626,6 +645,15 @@ mod tests {
     /// was wrong by 1.2e11 on a tensor of magnitude 1e11 — a total loss, not a
     /// small error.
     ///
+    /// **UPDATED 2026-11-05 (gh:#1288).** `C` is now the same stretch along a
+    /// direction 30° from x, because a diagonal `C` takes upstream's diagonal
+    /// branch and no longer reaches the split-root path. On it the cubic
+    /// splits the pair as `0.99999996774` and `1.00000003226`, and row 1
+    /// had an eigen-residual of **0.48**: Gram-Schmidt replaced the
+    /// collapsed row with a vector orthogonal to row 0 only, which can be
+    /// the 1.96 eigenvector. `orthonormalise` now also makes it orthogonal to
+    /// row 2, and the test passes at the bounds above.
+    ///
     /// The 1.86e-8 residual is not slack in the eigenvectors: it is the
     /// **eigenvalue** error, and it is irreducible for this method. A repeated
     /// root of a polynomial is ill-conditioned — a perturbation `δ` in the
@@ -747,7 +775,9 @@ mod tests {
     /// `diag(4, 4, 0)`, which returned `(-1.68e-8, -0, 4)` before the fix
     /// (gh:#1275 D1, gh:#1288).
     ///
-    /// *Result (2026-11-05):* RESULT_DIAG
+    /// *Result (2026-11-05):* all four bit-identical to the sorted diagonal;
+    /// prediction met. Before the fix `diag(4, 4, 0)` gave
+    /// `(-1.676e-8, -0, 4)`.
     #[test]
     fn diagonal_repeated_roots_take_upstreams_diagonal_branch() {
         for (d, want) in [
@@ -761,31 +791,42 @@ mod tests {
         }
     }
 
-    /// **Above the threshold the cubic path still runs (gh:#1288).**
+    /// **Above the threshold the cubic path runs, and loses a root as
+    /// upstream does (gh:#1288).**
     ///
     /// *Methodology:* `diag(4, 4, 0)` rotated 30° about x, which mixes the
     /// 4 and the 0 so `yz ≈ 1.73` and the diagonal branch must not fire.
-    /// Upstream ESI v2306 sends it to the cubic, so the repeated root
-    /// carries the `√ε` error the module docs describe. Pass criterion:
-    /// spectrum within 1e-7 of `(0, 4, 4)` (the `√ε` bound, not a tuned
-    /// number) and trace preserved to 1e-12.
+    /// Upstream ESI v2306 sends it to `cubicEqn::roots()`. Pass criterion:
+    /// the spectrum this port returns, pinned to 1e-12 absolute.
     ///
-    /// *Prediction (written before the run):* passes, with a worst error
-    /// of order 1e-8: this is the case the fix does **not** help, by
-    /// upstream's design.
+    /// *Prediction (written before the run, committed in 04bb3f76d):* the
+    /// spectrum within `√ε` (1e-7) of `(0, 4, 4)`. **Missed.**
     ///
-    /// *Result (2026-11-05):* RESULT_ROT
+    /// *Result (2026-11-05):* `(-1.676e-8, -0, 4)`, the same as `diag(4, 4, 0)`
+    /// gave before the fix: one of the two 4s is lost. Cause, traced by
+    /// reading upstream: round-off leaves the discriminant slightly
+    /// **positive**, above `VSMALL`, so ESI's `cubicEqn::roots()` takes
+    /// `oneRealTwoComplex` and returns the pair `4 ± (-0)i` as
+    /// `Roots<1>(complex, xRe), Roots<1>(complex, xIm)`. ESI's
+    /// `eigenValues(const symmTensor&)` then stores `roots[i]` for a complex
+    /// root (with a warning), so slot 2 holds the **imaginary part**. The
+    /// port's cubic and this routine match ESI v2306 line for line, so
+    /// upstream returns the same (by transcription; OpenFOAM was not run).
+    /// It is an upstream defect, kept here as the specification.
+    /// OpenFOAM-dev avoids it: its `eigenValues(const symmTensor&)` calls
+    /// `cubicEqn::roots(true)`, which clamps a positive discriminant to zero
+    /// for a known-real spectrum (`twoReal` branch). Porting that is a
+    /// choice of upstream for the maintainer, not made here.
     #[test]
-    fn a_rotated_repeated_root_still_goes_through_the_cubic() {
+    fn a_rotated_repeated_root_goes_through_the_cubic_as_upstream() {
         let (s, c) = (30.0_f64.to_radians().sin(), 30.0_f64.to_radians().cos());
         // R = rotation about x by 30°; R diag(4, 4, 0) R^T written out.
         let st = SymmTensor::new(4.0, 0.0, 0.0, 4.0 * c * c, 4.0 * c * s, 4.0 * s * s);
         assert!(st.yz * st.yz >= ROOT_SMALL, "must not take the diagonal branch");
         let l = eigen_values_symm(st);
-        let err = l.x.abs().max((l.y - 4.0).abs()).max((l.z - 4.0).abs());
-        println!("rotated diag(4,4,0): {:e} {:e} {:e}, worst error {err:e}", l.x, l.y, l.z);
-        assert!(err < 1e-7, "spectrum {l:?}, worst error {err:e}");
-        assert!((l.x + l.y + l.z - 8.0).abs() < 1e-12);
+        println!("rotated diag(4,4,0): {:e} {:e} {:e}", l.x, l.y, l.z);
+        assert!((l.x + 1.676_380_642_679_047_2e-8).abs() < 1e-12, "{l:?}");
+        assert!(l.y.abs() < 1e-12 && (l.z - 4.0).abs() < 1e-12, "{l:?}");
     }
 
     /// **Upstream's threshold is absolute: a small shear on the identity is
