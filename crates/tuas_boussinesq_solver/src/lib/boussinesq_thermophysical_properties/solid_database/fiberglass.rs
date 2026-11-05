@@ -66,9 +66,9 @@ pub fn fiberglass_thermal_conductivity_zou_zweibaum_spline(
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
-    let thermal_cond_temperature_values_kelvin = c!(250.0, 293.15, 350.0, 400.0, 500.0, 600.0);
+    let thermal_cond_temperature_values_kelvin = vec![250.0, 293.15, 350.0, 400.0, 500.0, 600.0];
     let thermal_conductivity_values_watt_per_meter_kelvin =
-        c!(0.028616, 0.033060, 0.038916, 0.044066, 0.054366, 0.064666);
+        vec![0.028616, 0.033060, 0.038916, 0.044066, 0.054366, 0.064666];
 
     let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
@@ -139,7 +139,7 @@ pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     // the idea is basically to evaluate enthalpy at the
     // following temperatures
-    let temperature_values_kelvin: Vec<f64> = c!(200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
+    let temperature_values_kelvin: Vec<f64> = vec![200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0];
 
     // and then use that to formulate a spline,
     // with the spline, i'll evaluate enthalpy from temperature

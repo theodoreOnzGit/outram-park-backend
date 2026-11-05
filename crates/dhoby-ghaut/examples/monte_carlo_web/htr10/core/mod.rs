@@ -40,6 +40,7 @@
 //! what the Watch view animates: neutrons of the run itself.
 
 pub mod pool;
+pub mod pour;
 pub mod random_bed;
 pub mod screen;
 #[cfg(not(target_arch = "wasm32"))]
@@ -110,9 +111,8 @@ pub const RECORD_RUN: KeffConfig = KeffConfig {
 /// # Errors
 /// The DEM pour cannot be read.
 pub fn study(code: usize, rods: &[f64; random_bed::N_RODS], temps: &ZoneTemperatures) -> Result<ParametricStudy, String> {
-    let bed = if code == random_bed::DEM_BED {
-        let centres = random_bed::dem_centres()?;
-        let is_fuel = nee_soon::htr10_rmc::explicit_bed::paper_fuel_assignment(&centres);
+    let bed = if random_bed::is_dem(code) {
+        let (centres, is_fuel) = random_bed::explicit_bed(code)?;
         StudyBed::Explicit { centres, is_fuel }
     } else {
         StudyBed::Seker { layers: code.clamp(10, 20) }
@@ -229,6 +229,48 @@ pub enum CoreReq {
         data: Floats,
         epoch: u32,
     },
+    /// The reader's DEM pour (gh:#1244): start one, or step it a chunk
+    /// (`dem_web`'s engine, [`pour::engine`]). Sent to the page's own worker.
+    Pour(pour::engine::Request),
+    /// Measure a pour's centres (m, flattened): packing fractions and g(r)
+    /// ([`pour::diagnostics`]); the reply is [`CoreEv::PourDiagnostics`].
+    PourDiagnostics { centres_m: Floats },
+    /// The bed [`random_bed::USER_POUR`] means from now on
+    /// ([`pour::PouredBed::to_wire`]); no reply. Then [`CoreReq::Layers`]
+    /// rebuilds the core on it.
+    PourBed {
+        centres_cm: Floats,
+        fuel: Vec<f64>,
+        version: u32,
+        cut: usize,
+        fuel_fraction: f64,
+    },
+}
+
+impl CoreReq {
+    /// The bed a [`CoreReq::PourBed`] carries.
+    ///
+    /// # Errors
+    /// Not a `PourBed`, or a malformed one.
+    pub fn poured_bed(&self) -> Result<pour::PouredBed, String> {
+        match self {
+            CoreReq::PourBed { centres_cm, fuel, version, cut, fuel_fraction } => {
+                pour::PouredBed::from_wire(&centres_cm.to_vec(), fuel, *version, *cut, *fuel_fraction)
+            }
+            _ => Err("not a poured bed".into()),
+        }
+    }
+    /// The request that hands `b` to a worker.
+    pub fn pour_bed(b: &pour::PouredBed) -> Self {
+        let (cm, fuel) = b.to_wire();
+        CoreReq::PourBed {
+            centres_cm: Floats::from_vec(cm),
+            fuel,
+            version: b.version,
+            cut: b.cut,
+            fuel_fraction: b.fuel_fraction,
+        }
+    }
 }
 
 /// The epoch of a request that belongs to no run (processing, assembly).
@@ -313,6 +355,10 @@ pub enum CoreEv {
     /// or [`NO_RUN`]. The page decides whether that fails the pool (while
     /// the data are being built) or only the run.
     Failed { message: String, epoch: u32 },
+    /// The reader's pour, a chunk on (gh:#1244).
+    Pour(pour::engine::Event),
+    /// A pour's diagnostics ([`pour::PourDiagnostics::to_words`]).
+    PourDiagnostics(Vec<f64>),
 }
 
 /// The model a worker transports through.
@@ -340,6 +386,8 @@ pub struct CoreWorker {
     /// cache is IndexedDB, read per job.
     #[cfg(not(target_arch = "wasm32"))]
     pub cache: DataStore,
+    /// The reader's DEM pour, when this is the page's own worker (gh:#1244).
+    pub pour: pour::engine::Engine,
 }
 
 /// **Run job `i` through the shared cache** (gh:#818): a tape's RECONR +
@@ -499,7 +547,9 @@ impl CoreWorker {
     /// the lattice, or 0 for the DEM random bed).
     pub fn set_layers(&mut self, layers: usize) -> Result<(), String> {
         let m = self.model.as_mut().ok_or("the model is not built")?;
-        if m.layers != layers {
+        // The reader's pour is rebuilt every time: the page asks only when
+        // it has handed over a new one.
+        if m.layers != layers || layers == random_bed::USER_POUR {
             m.core = study(layers, &m.rods, &m.temps)?.core(&m.plan)?;
             m.layers = layers;
         }
@@ -637,6 +687,12 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
                 }
             }
             CoreReq::Product { job, data } => w.store(job, data),
+            CoreReq::Pour(r) => w.pour.serve(r, &mut |e| send(CoreEv::Pour(e))),
+            CoreReq::PourDiagnostics { centres_m } => {
+                let c: Vec<f32> = centres_m.to_vec().iter().map(|&v| v as f32).collect();
+                send(CoreEv::PourDiagnostics(pour::diagnostics(&c).to_words()));
+            }
+            r @ CoreReq::PourBed { .. } => random_bed::set_poured(r.poured_bed()?),
             CoreReq::Assemble { layers, temps } => {
                 let mut tapes_s = 0.0;
                 let mut rep = w.assemble(layers, &ZoneTemperatures::from_kelvin(temps), |t| {
@@ -772,6 +828,20 @@ pub mod web {
                     js::set(o, "data", data.js());
                     js::set(o, "epoch", *epoch as f64);
                 }
+                CoreReq::Pour(r) => {
+                    js::set(o, "kind", "core_pour");
+                    js::set(o, "data", js::f64s(&r.to_wire()));
+                }
+                CoreReq::PourDiagnostics { centres_m } => {
+                    js::set(o, "kind", "core_pour_diag");
+                    js::set(o, "data", centres_m.js());
+                }
+                CoreReq::PourBed { centres_cm, fuel, version, cut, fuel_fraction } => {
+                    js::set(o, "kind", "core_pour_bed");
+                    js::set(o, "data", centres_cm.js());
+                    js::set(o, "fuel", js::f64s(fuel));
+                    js::set(o, "head", js::f64s(&[*version as f64, *cut as f64, *fuel_fraction]));
+                }
             }
         }
         /// `None` if `kind` is not a core request.
@@ -813,6 +883,21 @@ pub mod web {
                         cfg,
                         data: floats("data")?,
                         epoch: n("epoch") as u32,
+                    })
+                }),
+                "core_pour" => pour::engine::Request::from_wire(&js::get_f64s(v, "data")).map(CoreReq::Pour),
+                "core_pour_diag" => floats("data").map(|centres_m| CoreReq::PourDiagnostics { centres_m }),
+                "core_pour_bed" => floats("data").and_then(|centres_cm| {
+                    let h = js::get_f64s(v, "head");
+                    if h.len() != 3 {
+                        return Err("core_pour_bed: bad head".into());
+                    }
+                    Ok(CoreReq::PourBed {
+                        centres_cm,
+                        fuel: js::get_f64s(v, "fuel"),
+                        version: h[0] as u32,
+                        cut: h[1] as usize,
+                        fuel_fraction: h[2],
                     })
                 }),
                 _ => return None,
@@ -860,6 +945,16 @@ pub mod web {
                     js::set(o, "message", message.as_str());
                     js::set(o, "epoch", *epoch as f64);
                 }
+                CoreEv::PourDiagnostics(w) => {
+                    js::set(o, "kind", "core_pour_diag");
+                    js::set(o, "data", js::f64s(w));
+                }
+                CoreEv::Pour(e) => {
+                    let (d, t) = e.to_wire();
+                    js::set(o, "kind", "core_pour");
+                    js::set(o, "data", js::f64s(&d));
+                    js::set(o, "text", t.as_str());
+                }
             }
         }
         pub fn from_js(kind: &str, v: &JsValue) -> Option<Result<Self, String>> {
@@ -903,6 +998,8 @@ pub mod web {
                     message: js::get_str(v, "message"),
                     epoch: epoch(),
                 }),
+                "core_pour" => pour::engine::Event::from_wire(&js::get_f64s(v, "data"), &js::get_str(v, "text")).map(CoreEv::Pour),
+                "core_pour_diag" => Ok(CoreEv::PourDiagnostics(js::get_f64s(v, "data"))),
                 _ => return None,
             })
         }
@@ -935,6 +1032,19 @@ pub mod web {
                     w.store(job, data);
                 }
             }
+            CoreReq::Pour(r) => {
+                if let Ok(mut w) = core.write() {
+                    w.pour.serve(r, &mut |e| send(CoreEv::Pour(e)));
+                }
+            }
+            CoreReq::PourDiagnostics { centres_m } => {
+                let c: Vec<f32> = centres_m.to_vec().iter().map(|&v| v as f32).collect();
+                send(CoreEv::PourDiagnostics(pour::diagnostics(&c).to_words()));
+            }
+            r @ CoreReq::PourBed { .. } => match r.poured_bed() {
+                Ok(b) => random_bed::set_poured(b),
+                Err(e) => fail(e),
+            },
             CoreReq::Process { jobs: list, temps } => {
                 let core = core.clone();
                 let temps = ZoneTemperatures::from_kelvin(temps);

@@ -8,15 +8,10 @@
 //! screen points (log or linear y) and is what the tests check; [`paint`]
 //! draws the axes, the series and the legend.
 use petir::mathf::RealMath;
-use egui::{Color32, Pos2, Rect, Stroke};
+use egui::{Pos2, Rect, Stroke};
 
-/// Series colours, Gruvbox bright: blue, orange, aqua, purple.
-pub const COLOURS: [Color32; 4] = [
-    Color32::from_rgb(131, 165, 152),
-    Color32::from_rgb(254, 128, 25),
-    Color32::from_rgb(142, 192, 124),
-    Color32::from_rgb(211, 134, 155),
-];
+// Series colours: `Ink::accent(i)` of the painter's theme (blue, orange,
+// aqua, purple, …; Gruvbox bright on Dark, faded on Light).
 
 /// Named series sharing one x axis (step or time).
 #[derive(Debug, Clone, PartialEq)]
@@ -123,13 +118,14 @@ pub fn plot_points(h: &History, i: usize, plot: Rect, log_y: bool, range: (f64, 
 pub fn paint(painter: &egui::Painter, rect: Rect, h: &History, log_y: bool, x_label: &str, text_px: f32) {
     let font = egui::FontId::proportional(text_px);
     let plot = Rect::from_min_max(rect.min + egui::vec2(text_px * 3.6, 4.0), rect.max - egui::vec2(6.0, text_px * 2.6));
-    painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+    let ink = crate::Ink::of_ctx(painter.ctx());
+    painter.rect_filled(rect, 4.0, ink.backing);
     if plot.width() < 20.0 || plot.height() < 20.0 {
         return;
     }
-    painter.rect_stroke(plot, 0.0, Stroke::new(1.0, Color32::from_gray(90)), egui::StrokeKind::Inside);
+    painter.rect_stroke(plot, 0.0, Stroke::new(1.0, ink.border), egui::StrokeKind::Inside);
     let Some(range) = h.y_range(log_y) else {
-        painter.text(plot.center(), egui::Align2::CENTER_CENTER, "no data yet", font, Color32::GRAY);
+        painter.text(plot.center(), egui::Align2::CENTER_CENTER, "no data yet", font, ink.muted);
         return;
     };
     let ticks: Vec<f64> = if log_y {
@@ -146,13 +142,13 @@ pub fn paint(painter: &egui::Painter, rect: Rect, h: &History, log_y: bool, x_la
     };
     for t in ticks {
         let y = plot.bottom() - ((t - range.0) / (range.1 - range.0)) as f32 * plot.height();
-        painter.line_segment([Pos2::new(plot.left(), y), Pos2::new(plot.right(), y)], Stroke::new(0.5, Color32::from_gray(55)));
+        painter.line_segment([Pos2::new(plot.left(), y), Pos2::new(plot.right(), y)], Stroke::new(0.5, ink.grid));
         let label = if log_y { format!("1e{t:.0}") } else { super::field::fmt(t) };
-        painter.text(Pos2::new(plot.left() - 3.0, y), egui::Align2::RIGHT_CENTER, label, font.clone(), Color32::GRAY);
+        painter.text(Pos2::new(plot.left() - 3.0, y), egui::Align2::RIGHT_CENTER, label, font.clone(), ink.muted);
     }
     let mut lx = plot.left() + 4.0;
     for i in 0..h.ys.len() {
-        let c = COLOURS[i % COLOURS.len()];
+        let c = ink.accent(i);
         let pts = plot_points(h, i, plot, log_y, range);
         if pts.len() >= 2 {
             painter.add(egui::Shape::line(pts, Stroke::new(1.5, c)));
@@ -162,7 +158,7 @@ pub fn paint(painter: &egui::Painter, rect: Rect, h: &History, log_y: bool, x_la
         painter.galley(Pos2::new(lx, plot.top() + 2.0), g, c);
         lx += w + 12.0;
     }
-    painter.text(Pos2::new(plot.center().x, rect.bottom() - 2.0), egui::Align2::CENTER_BOTTOM, x_label, font, Color32::GRAY);
+    painter.text(Pos2::new(plot.center().x, rect.bottom() - 2.0), egui::Align2::CENTER_BOTTOM, x_label, font, ink.muted);
 }
 
 #[cfg(test)]

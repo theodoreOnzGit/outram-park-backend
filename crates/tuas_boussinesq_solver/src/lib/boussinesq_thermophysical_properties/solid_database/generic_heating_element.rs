@@ -79,10 +79,10 @@ Result<SpecificHeatCapacity,TuasLibError> {
         temperature, 
         ThermodynamicTemperature::new::<degree_celsius>(39.819), 
         ThermodynamicTemperature::new::<degree_celsius>(9.88))?;
-    let pyrogel_cp_temperature_values_degc = c!(
-        9.883, 24.019, 39.819);
-    let pyrogel_cp_values_joule_per_kg_kelvin = c!(
-        883.261, 898.311, 983.814);
+    let pyrogel_cp_temperature_values_degc = vec![
+        9.883, 24.019, 39.819];
+    let pyrogel_cp_values_joule_per_kg_kelvin = vec![
+        883.261, 898.311, 983.814];
     let s = CubicSpline::from_nodes(&pyrogel_cp_temperature_values_degc, 
         &pyrogel_cp_values_joule_per_kg_kelvin);
 
@@ -107,7 +107,7 @@ pub fn tungsten_spline_data(temperature: ThermodynamicTemperature,)
         temperature, 
         ThermodynamicTemperature::new::<degree_celsius>(327.0), 
         ThermodynamicTemperature::new::<degree_celsius>(35.0))?;
-    let specific_power_temperature_values_degc = c!(35.426,
+    let specific_power_temperature_values_degc = vec![35.426,
         42.085,
         50.609,
         59.132,
@@ -138,8 +138,8 @@ pub fn tungsten_spline_data(temperature: ThermodynamicTemperature,)
         279.148,
         304.186,
         326.294
-        );
-    let specific_power_values_milliwatts_per_milligram = c!(
+        ];
+    let specific_power_values_milliwatts_per_milligram = vec![
         0.261,
         0.274,
         0.285,
@@ -171,7 +171,7 @@ pub fn tungsten_spline_data(temperature: ThermodynamicTemperature,)
         0.29,
         0.286,
         0.283
-            );
+            ];
 
     let s = CubicSpline::from_nodes(&specific_power_temperature_values_degc, 
         &specific_power_values_milliwatts_per_milligram);
@@ -202,12 +202,12 @@ pub fn tungsten_thermal_conductivity(
     let temperature_value_degc: f64 = temperature.get::<degree_celsius>();
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
-    let thermal_cond_temperature_values_degc = c!(
+    let thermal_cond_temperature_values_degc = vec![
         0.0, 100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 650.0
-        );
-    let thermal_conductivity_values_milliwatt_per_meter_kelvin = c!(
+        ];
+    let thermal_conductivity_values_milliwatt_per_meter_kelvin = vec![
         20.0, 24.0, 28.0, 33.0, 40.0, 49.0, 62.0, 69.0
-        );
+        ];
 
     let s = CubicSpline::from_nodes(&thermal_cond_temperature_values_degc, 
         &thermal_conductivity_values_milliwatt_per_meter_kelvin);
@@ -231,8 +231,8 @@ pub (crate) fn tungsten_spline_temp_attempt_1_from_specific_enthalpy(
     // the idea is basically to evaluate enthalpy at the 
     // following temperatures
     let temperature_values_kelvin: Vec<f64>
-    = c!(200.0 ,250.0, 300.0, 350.0, 
-        400.0, 500.0, 1000.0);
+    = vec![200.0 ,250.0, 300.0, 350.0, 
+        400.0, 500.0, 1000.0];
 
     // and then use that to formulate a spline,
     // with the spline, i'll evaluate enthalpy from temperature

@@ -772,282 +772,2195 @@ pub enum Tag {
     A,
 }
 
-/// Declares [`Params`] from one list, so its fields, their defaults (the
-/// documented constants above), their tags and the order they cross the
-/// worker wire in cannot drift apart. A test checks each tag against the
-/// constant's doc comment.
-macro_rules! params {
-    ($($field:ident = $default:ident, $tag:ident,)*) => {
-        /// Every scalar input of the model, as one value (gh:#1033): what a
-        /// caller changes to run the plant with a corrected or perturbed
-        /// input, without recompiling. [`Params::default`] is the constants
-        /// above, field for field (`thermal_power_w` is [`THERMAL_POWER_W`],
-        /// and so on), so their tags and sources are the defaults'. Left as
-        /// constants: the node and train counts, which size arrays
-        /// ([`AXIAL_NODES`], [`IC_TRAINS`]), and physical constants (molar
-        /// masses, [`R_GAS`], [`P_ATM`]).
-        ///
-        /// It travels whole in each part's snapshot, so a worker steps with
-        /// the plant's inputs and one worker still equals three.
-        #[derive(Clone, Copy, Debug, PartialEq)]
-        pub struct Params {
-            $(pub $field: f64,)*
-            /// [`RING_FACTORS`].
-            pub ring_factors: [f64; 3],
-        }
-
-        impl Default for Params {
-            fn default() -> Self {
-                Self { $($field: $default,)* ring_factors: RING_FACTORS }
-            }
-        }
-
-        impl Params {
-            pub fn write(&self, w: &mut Writer) {
-                w.f(&[$(self.$field,)*]);
-                w.f(&self.ring_factors);
-            }
-            pub fn read(r: &mut Reader) -> Self {
-                Self { $($field: r.f(),)* ring_factors: [r.f(), r.f(), r.f()] }
-            }
-
-            /// Every scalar input by field name, with its tag (the
-            /// default's, from its doc comment), in declaration order.
-            pub const INPUTS: &[(&str, Tag)] = &[$((stringify!($field), Tag::$tag),)*];
-
-            /// The input named `name` (a field name from [`Params::INPUTS`]).
-            pub fn get(&self, name: &str) -> Option<f64> {
-                match name {
-                    $(stringify!($field) => Some(self.$field),)*
-                    _ => None,
-                }
-            }
-
-            /// Sets the input named `name`; `false` if there is none.
-            pub fn set(&mut self, name: &str, value: f64) -> bool {
-                match name {
-                    $(stringify!($field) => { self.$field = value; true })*
-                    _ => false,
-                }
-            }
-        }
-    };
+/// Every scalar input of the model, as one value (gh:#1033): what a
+/// caller changes to run the plant with a corrected or perturbed
+/// input, without recompiling. [`Params::default`] is the constants
+/// above, field for field (`thermal_power_w` is [`THERMAL_POWER_W`],
+/// and so on), so their tags and sources are the defaults'. Left as
+/// constants: the node and train counts, which size arrays
+/// ([`AXIAL_NODES`], [`IC_TRAINS`]), and physical constants (molar
+/// masses, [`R_GAS`], [`P_ATM`]).
+///
+/// It travels whole in each part's snapshot, so a worker steps with
+/// the plant's inputs and one worker still equals three. The fields, their
+/// defaults, their tags ([`Params::INPUTS`]) and the order they cross the
+/// worker wire in are written out below in one order; a test checks each tag
+/// against the constant's doc comment.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Params {
+    pub thermal_power_w: f64,
+    pub assemblies: f64,
+    pub rods_per_assembly: f64,
+    pub active_length_m: f64,
+    pub clad_outer_r_m: f64,
+    pub clad_wall_m: f64,
+    pub pellet_r_m: f64,
+    pub uo2_density: f64,
+    pub zr_density: f64,
+    pub channel_inner_width_m: f64,
+    pub channel_wall_m: f64,
+    pub channel_length_m: f64,
+    pub uo2_cp: f64,
+    pub zr_cp: f64,
+    pub uo2_k: f64,
+    pub gap_h: f64,
+    pub boiling_h: f64,
+    pub cosine_extrapolation: f64,
+    pub rpv_radius_m: f64,
+    pub rpv_height_m: f64,
+    pub rpv_wall_m: f64,
+    pub internals_envelope_m2: f64,
+    pub concrete_density: f64,
+    pub concrete_ablation_k: f64,
+    pub concrete_h2o_fraction: f64,
+    pub concrete_co2_fraction: f64,
+    pub concrete_cp: f64,
+    pub concrete_ablation_j_per_kg: f64,
+    pub cavity_area_m2: f64,
+    pub cavity_h: f64,
+    pub cavity_emissivity: f64,
+    pub zr_co2_heat_j_per_kg: f64,
+    pub baf_m: f64,
+    pub lower_plenum_free: f64,
+    pub upper_free: f64,
+    pub core_other_area_m2: f64,
+    pub normal_level_above_taf_m: f64,
+    pub initial_pressure_pa: f64,
+    pub msiv_closure_s: f64,
+    pub bypass_gain_kg_s_pa: f64,
+    pub relief_valves: f64,
+    pub relief_open_pa: f64,
+    pub relief_close_pa: f64,
+    pub safety_open_pa: f64,
+    pub safety_close_pa: f64,
+    pub relief_throat_m2: f64,
+    pub ic_autostart_pa: f64,
+    pub ic_ua_w_per_k: f64,
+    pub ic_shell_water_kg: f64,
+    pub fire_engine_shutoff_pa: f64,
+    pub fire_engine_max_kg_s: f64,
+    pub injection_temperature_k: f64,
+    pub hot_leak_gas_k: f64,
+    pub hot_leak_m2: f64,
+    pub msl_lines: f64,
+    pub msl_inner_radius_m: f64,
+    pub msl_wall_m: f64,
+    pub msl_insulation_h: f64,
+    pub msl_lm_a1: f64,
+    pub msl_lm_b1: f64,
+    pub msl_lm_c: f64,
+    pub internals_kg: f64,
+    pub internals_area_m2: f64,
+    pub internals_h: f64,
+    pub internals_loss_h: f64,
+    pub lower_head_failure_k: f64,
+    pub breach_m2: f64,
+    pub debris_quench_s: f64,
+    pub quench_h: f64,
+    pub quench_tau_s: f64,
+    pub lower_head_thickness_m: f64,
+    pub debris_to_head_w_m2_k: f64,
+    pub core_plate_m: f64,
+    pub core_plate_beam_m: f64,
+    pub water_emissivity: f64,
+    pub flpup: f64,
+    pub control_rods: f64,
+    pub blade_steel_kg: f64,
+    pub blade_area_m2: f64,
+    pub ss_ox_a: f64,
+    pub ss_ox_b: f64,
+    pub ss_ox_min_k: f64,
+    pub ss_melt_k: f64,
+    pub ss_fusion_j_per_kg: f64,
+    pub debris_k: f64,
+    pub fuel_melt_k: f64,
+    pub fuel_fusion_j_per_kg: f64,
+    pub concrete_oxide_fusion_j_per_mol: f64,
+    pub concrete_oxide_m: f64,
+    pub bur_xh2ign: f64,
+    pub bur_xcoign: f64,
+    pub bur_xo2ig: f64,
+    pub bur_xmscig: f64,
+    pub bur_xh2cc: f64,
+    pub bur_xcocc: f64,
+    pub bur_cc_slope: f64,
+    pub bur_cc_y0: f64,
+    pub h2_combustion_j_per_mol: f64,
+    pub co_combustion_j_per_mol: f64,
+    pub fdi_surface_tension: f64,
+    pub fdi_hpme_velocity: f64,
+    pub candling_uo2_fraction: f64,
+    pub pool_melt_k: f64,
+    pub pool_nu_a: f64,
+    pub pool_nu_n: f64,
+    pub pool_k: f64,
+    pub pool_mu: f64,
+    pub pool_beta: f64,
+    pub pool_cp: f64,
+    pub pool_rho: f64,
+    pub blade_b4c_kg: f64,
+    pub b4c_rate_a: f64,
+    pub b4c_rate_b: f64,
+    pub b4c_max_fraction: f64,
+    pub ss_x_fe: f64,
+    pub ss_x_cr: f64,
+    pub ss_x_ni: f64,
+    pub penetration_wall_m: f64,
+    pub corsor_k0_per_min: f64,
+    pub corsor_q_kcal_per_mol: f64,
+    pub corsor_uo2_k0_per_min: f64,
+    pub corsor_uo2_q_kcal_per_mol: f64,
+    pub cs_inventory_kg: f64,
+    pub i_inventory_kg: f64,
+    pub te_inventory_kg: f64,
+    pub dw_floor_m2: f64,
+    pub ww_pool_surface_m2: f64,
+    pub head_failure_wall_k: f64,
+    pub lm_p0: f64,
+    pub lm_slope: f64,
+    pub lm_c: f64,
+    pub creep_fail_strain: f64,
+    pub debris_porosity: f64,
+    pub debris_particle_m: f64,
+    pub lp_bottom_level_m: f64,
+    pub breach_diameter_m: f64,
+    pub zr_melt_k: f64,
+    pub clad_breach_k: f64,
+    pub min_metal_m: f64,
+    pub rod_collapse_k: f64,
+    pub rod_collapse_max_k: f64,
+    pub damage_a: f64,
+    pub damage_b: f64,
+    pub assembly_pitch_m: f64,
+    pub radial_exchange: f64,
+    pub axial_exchange: f64,
+    pub shroud_thickness_m: f64,
+    pub zro2_density: f64,
+    pub bubble_rise_m_s: f64,
+    pub max_pool_void: f64,
+    pub fission_share_u235: f64,
+    pub fission_share_pu239: f64,
+    pub operating_time_s: f64,
+    pub fissions_per_fissile_atom: f64,
+    pub q_u235_mev: f64,
+    pub q_pu239_mev: f64,
+    pub q_u238_mev: f64,
+    pub u239_per_fission: f64,
+    pub e_u239_mev: f64,
+    pub e_np239_mev: f64,
+    pub u239_decay_per_s: f64,
+    pub np239_decay_per_s: f64,
+    pub uh_low_a: f64,
+    pub uh_low_b_k: f64,
+    pub uh_high_a: f64,
+    pub uh_high_b_k: f64,
+    pub uh_low_max_k: f64,
+    pub uh_high_min_k: f64,
+    pub oxidation_min_k: f64,
+    pub h2o_h2_diffusivity_a: f64,
+    pub h2o_h2_diffusivity_b: f64,
+    pub oxidation_heat_j_per_kg_zr: f64,
+    pub drywell_volume_m3: f64,
+    pub dw_wall_area_m2: f64,
+    pub dw_wall_h: f64,
+    pub dw_wall_c: f64,
+    pub dw_wall_height_m: f64,
+    pub dw_gap_m: f64,
+    pub dw_gap_emissivity: f64,
+    pub dw_concrete_m: f64,
+    pub concrete_k: f64,
+    pub rb_wall_h: f64,
+    pub ww_shell_area_m2: f64,
+    pub ww_shell_c: f64,
+    pub ww_shell_height_m: f64,
+    pub wetwell_gas_m3: f64,
+    pub pool_water_m3: f64,
+    pub containment_design_pa: f64,
+    pub initial_containment_pa: f64,
+    pub initial_drywell_k: f64,
+    pub initial_pool_k: f64,
+    pub vent_submergence_pa: f64,
+    pub downcomer_area_m2: f64,
+    pub downcomer_count: f64,
+    pub discharge_coefficient: f64,
+    pub vacuum_breaker_pa: f64,
+    pub vacuum_breaker_m2: f64,
+    pub vent_rupture_disk_pa: f64,
+    pub vent_area_m2: f64,
+    pub flange_leak_pa: f64,
+    pub flange_leak_m2: f64,
+    pub reactor_building_m3: f64,
+    pub h2_flammable: f64,
+    pub h2_explosion: f64,
+    pub rcic_rated_kg_s: f64,
+    pub hpci_rated_kg_s: f64,
+    pub pump_efficiency: f64,
+    pub turbine_efficiency: f64,
+    pub turbine_min_pa: f64,
+    pub level_l2_above_taf_m: f64,
+    pub level_l8_above_taf_m: f64,
+    pub msl_nozzle_above_taf_m: f64,
+    pub carryover_band_m: f64,
+    /// [`RING_FACTORS`].
+    pub ring_factors: [f64; 3],
 }
 
-params! {
-    thermal_power_w = THERMAL_POWER_W, P,
-    assemblies = ASSEMBLIES, P,
-    rods_per_assembly = RODS_PER_ASSEMBLY, U,
-    active_length_m = ACTIVE_LENGTH_M, U,
-    clad_outer_r_m = CLAD_OUTER_R_M, U,
-    clad_wall_m = CLAD_WALL_M, U,
-    pellet_r_m = PELLET_R_M, U,
-    uo2_density = UO2_DENSITY, A,
-    zr_density = ZR_DENSITY, P,
-    channel_inner_width_m = CHANNEL_INNER_WIDTH_M, U,
-    channel_wall_m = CHANNEL_WALL_M, U,
-    channel_length_m = CHANNEL_LENGTH_M, U,
-    uo2_cp = UO2_CP, A,
-    zr_cp = ZR_CP, A,
-    uo2_k = UO2_K, A,
-    gap_h = GAP_H, A,
-    boiling_h = BOILING_H, A,
-    cosine_extrapolation = COSINE_EXTRAPOLATION, A,
-    rpv_radius_m = RPV_RADIUS_M, U,
-    rpv_height_m = RPV_HEIGHT_M, U,
-    rpv_wall_m = RPV_WALL_M, A,
-    internals_envelope_m2 = INTERNALS_ENVELOPE_M2, A,
-    concrete_density = CONCRETE_DENSITY, P,
-    concrete_ablation_k = CONCRETE_ABLATION_K, P,
-    concrete_h2o_fraction = CONCRETE_H2O_FRACTION, P,
-    concrete_co2_fraction = CONCRETE_CO2_FRACTION, P,
-    concrete_cp = CONCRETE_CP, A,
-    concrete_ablation_j_per_kg = CONCRETE_ABLATION_J_PER_KG, A,
-    cavity_area_m2 = CAVITY_AREA_M2, A,
-    cavity_h = CAVITY_H, A,
-    cavity_emissivity = CAVITY_EMISSIVITY, P,
-    zr_co2_heat_j_per_kg = ZR_CO2_HEAT_J_PER_KG, P,
-    baf_m = BAF_M, A,
-    lower_plenum_free = LOWER_PLENUM_FREE, A,
-    upper_free = UPPER_FREE, A,
-    core_other_area_m2 = CORE_OTHER_AREA_M2, A,
-    normal_level_above_taf_m = NORMAL_LEVEL_ABOVE_TAF_M, U,
-    initial_pressure_pa = INITIAL_PRESSURE_PA, P,
-    msiv_closure_s = MSIV_CLOSURE_S, U,
-    bypass_gain_kg_s_pa = BYPASS_GAIN_KG_S_PA, A,
-    relief_valves = RELIEF_VALVES, U,
-    relief_open_pa = RELIEF_OPEN_PA, U,
-    relief_close_pa = RELIEF_CLOSE_PA, U,
-    safety_open_pa = SAFETY_OPEN_PA, U,
-    safety_close_pa = SAFETY_CLOSE_PA, U,
-    relief_throat_m2 = RELIEF_THROAT_M2, A,
-    ic_autostart_pa = IC_AUTOSTART_PA, P,
-    ic_ua_w_per_k = IC_UA_W_PER_K, A,
-    ic_shell_water_kg = IC_SHELL_WATER_KG, A,
-    fire_engine_shutoff_pa = FIRE_ENGINE_SHUTOFF_PA, A,
-    fire_engine_max_kg_s = FIRE_ENGINE_MAX_KG_S, A,
-    injection_temperature_k = INJECTION_TEMPERATURE_K, A,
-    hot_leak_gas_k = HOT_LEAK_GAS_K, A,
-    hot_leak_m2 = HOT_LEAK_M2, A,
-    msl_lines = MSL_LINES, A,
-    msl_inner_radius_m = MSL_INNER_RADIUS_M, A,
-    msl_wall_m = MSL_WALL_M, A,
-    msl_insulation_h = MSL_INSULATION_H, A,
-    msl_lm_a1 = MSL_LM_A1, P,
-    msl_lm_b1 = MSL_LM_B1, P,
-    msl_lm_c = MSL_LM_C, P,
-    internals_kg = INTERNALS_KG, A,
-    internals_area_m2 = INTERNALS_AREA_M2, A,
-    internals_h = INTERNALS_H, A,
-    internals_loss_h = INTERNALS_LOSS_H, A,
-    lower_head_failure_k = LOWER_HEAD_FAILURE_K, A,
-    breach_m2 = BREACH_M2, A,
-    debris_quench_s = DEBRIS_QUENCH_S, A,
-    quench_h = QUENCH_H, P,
-    quench_tau_s = QUENCH_TAU_S, P,
-    lower_head_thickness_m = LOWER_HEAD_THICKNESS_M, A,
-    debris_to_head_w_m2_k = DEBRIS_TO_HEAD_W_M2_K, A,
-    core_plate_m = CORE_PLATE_M, A,
-    core_plate_beam_m = CORE_PLATE_BEAM_M, A,
-    water_emissivity = WATER_EMISSIVITY, A,
-    flpup = FLPUP, P,
-    control_rods = CONTROL_RODS, U,
-    blade_steel_kg = BLADE_STEEL_KG, A,
-    blade_area_m2 = BLADE_AREA_M2, A,
-    ss_ox_a = SS_OX_A, P,
-    ss_ox_b = SS_OX_B, P,
-    ss_ox_min_k = SS_OX_MIN_K, P,
-    ss_melt_k = SS_MELT_K, P,
-    ss_fusion_j_per_kg = SS_FUSION_J_PER_KG, P,
-    debris_k = DEBRIS_K, A,
-    fuel_melt_k = FUEL_MELT_K, P,
-    fuel_fusion_j_per_kg = FUEL_FUSION_J_PER_KG, P,
-    concrete_oxide_fusion_j_per_mol = CONCRETE_OXIDE_FUSION_J_PER_MOL, A,
-    concrete_oxide_m = CONCRETE_OXIDE_M, A,
-    bur_xh2ign = BUR_XH2IGN, P,
-    bur_xcoign = BUR_XCOIGN, P,
-    bur_xo2ig = BUR_XO2IG, P,
-    bur_xmscig = BUR_XMSCIG, P,
-    bur_xh2cc = BUR_XH2CC, P,
-    bur_xcocc = BUR_XCOCC, P,
-    bur_cc_slope = BUR_CC_SLOPE, P,
-    bur_cc_y0 = BUR_CC_Y0, P,
-    h2_combustion_j_per_mol = H2_COMBUSTION_J_PER_MOL, P,
-    co_combustion_j_per_mol = CO_COMBUSTION_J_PER_MOL, P,
-    fdi_surface_tension = FDI_SURFACE_TENSION, A,
-    fdi_hpme_velocity = FDI_HPME_VELOCITY, P,
-    candling_uo2_fraction = CANDLING_UO2_FRACTION, P,
-    pool_melt_k = POOL_MELT_K, P,
-    pool_nu_a = POOL_NU_A, P,
-    pool_nu_n = POOL_NU_N, P,
-    pool_k = POOL_K, A,
-    pool_mu = POOL_MU, A,
-    pool_beta = POOL_BETA, A,
-    pool_cp = POOL_CP, A,
-    pool_rho = POOL_RHO, A,
-    blade_b4c_kg = BLADE_B4C_KG, A,
-    b4c_rate_a = B4C_RATE_A, P,
-    b4c_rate_b = B4C_RATE_B, P,
-    b4c_max_fraction = B4C_MAX_FRACTION, P,
-    ss_x_fe = SS_X_FE, P,
-    ss_x_cr = SS_X_CR, P,
-    ss_x_ni = SS_X_NI, P,
-    penetration_wall_m = PENETRATION_WALL_M, A,
-    corsor_k0_per_min = CORSOR_K0_PER_MIN, P,
-    corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
-    corsor_uo2_k0_per_min = CORSOR_UO2_K0_PER_MIN, P,
-    corsor_uo2_q_kcal_per_mol = CORSOR_UO2_Q_KCAL_PER_MOL, P,
-    cs_inventory_kg = CS_INVENTORY_KG, P,
-    i_inventory_kg = I_INVENTORY_KG, P,
-    te_inventory_kg = TE_INVENTORY_KG, A,
-    dw_floor_m2 = DW_FLOOR_M2, A,
-    ww_pool_surface_m2 = WW_POOL_SURFACE_M2, A,
-    head_failure_wall_k = HEAD_FAILURE_WALL_K, A,
-    lm_p0 = LM_P0, P,
-    lm_slope = LM_SLOPE, P,
-    lm_c = LM_C, P,
-    creep_fail_strain = CREEP_FAIL_STRAIN, P,
-    debris_porosity = DEBRIS_POROSITY, A,
-    debris_particle_m = DEBRIS_PARTICLE_M, A,
-    lp_bottom_level_m = LP_BOTTOM_LEVEL_M, A,
-    breach_diameter_m = BREACH_DIAMETER_M, A,
-    zr_melt_k = ZR_MELT_K, U,
-    clad_breach_k = CLAD_BREACH_K, A,
-    min_metal_m = MIN_METAL_M, A,
-    rod_collapse_k = ROD_COLLAPSE_K, A,
-    rod_collapse_max_k = ROD_COLLAPSE_MAX_K, A,
-    damage_a = DAMAGE_A, P,
-    damage_b = DAMAGE_B, P,
-    assembly_pitch_m = ASSEMBLY_PITCH_M, U,
-    radial_exchange = RADIAL_EXCHANGE, A,
-    axial_exchange = AXIAL_EXCHANGE, A,
-    shroud_thickness_m = SHROUD_THICKNESS_M, A,
-    zro2_density = ZRO2_DENSITY, P,
-    bubble_rise_m_s = BUBBLE_RISE_M_S, A,
-    max_pool_void = MAX_POOL_VOID, A,
-    fission_share_u235 = FISSION_SHARE_U235, A,
-    fission_share_pu239 = FISSION_SHARE_PU239, A,
-    operating_time_s = OPERATING_TIME_S, A,
-    fissions_per_fissile_atom = FISSIONS_PER_FISSILE_ATOM, A,
-    q_u235_mev = Q_U235_MEV, A,
-    q_pu239_mev = Q_PU239_MEV, A,
-    q_u238_mev = Q_U238_MEV, A,
-    u239_per_fission = U239_PER_FISSION, A,
-    e_u239_mev = E_U239_MEV, P,
-    e_np239_mev = E_NP239_MEV, P,
-    u239_decay_per_s = U239_DECAY_PER_S, P,
-    np239_decay_per_s = NP239_DECAY_PER_S, P,
-    uh_low_a = UH_LOW_A, P,
-    uh_low_b_k = UH_LOW_B_K, P,
-    uh_high_a = UH_HIGH_A, P,
-    uh_high_b_k = UH_HIGH_B_K, P,
-    uh_low_max_k = UH_LOW_MAX_K, P,
-    uh_high_min_k = UH_HIGH_MIN_K, P,
-    oxidation_min_k = OXIDATION_MIN_K, P,
-    h2o_h2_diffusivity_a = H2O_H2_DIFFUSIVITY_A, P,
-    h2o_h2_diffusivity_b = H2O_H2_DIFFUSIVITY_B, P,
-    oxidation_heat_j_per_kg_zr = OXIDATION_HEAT_J_PER_KG_ZR, P,
-    drywell_volume_m3 = DRYWELL_VOLUME_M3, U,
-    dw_wall_area_m2 = DW_WALL_AREA_M2, A,
-    dw_wall_h = DW_WALL_H, A,
-    dw_wall_c = DW_WALL_C, A,
-    dw_wall_height_m = DW_WALL_HEIGHT_M, A,
-    dw_gap_m = DW_GAP_M, A,
-    dw_gap_emissivity = DW_GAP_EMISSIVITY, A,
-    dw_concrete_m = DW_CONCRETE_M, A,
-    concrete_k = CONCRETE_K, A,
-    rb_wall_h = RB_WALL_H, A,
-    ww_shell_area_m2 = WW_SHELL_AREA_M2, A,
-    ww_shell_c = WW_SHELL_C, A,
-    ww_shell_height_m = WW_SHELL_HEIGHT_M, A,
-    wetwell_gas_m3 = WETWELL_GAS_M3, P,
-    pool_water_m3 = POOL_WATER_M3, P,
-    containment_design_pa = CONTAINMENT_DESIGN_PA, P,
-    initial_containment_pa = INITIAL_CONTAINMENT_PA, A,
-    initial_drywell_k = INITIAL_DRYWELL_K, A,
-    initial_pool_k = INITIAL_POOL_K, A,
-    vent_submergence_pa = VENT_SUBMERGENCE_PA, A,
-    downcomer_area_m2 = DOWNCOMER_AREA_M2, A,
-    downcomer_count = DOWNCOMER_COUNT, A,
-    discharge_coefficient = DISCHARGE_COEFFICIENT, A,
-    vacuum_breaker_pa = VACUUM_BREAKER_PA, A,
-    vacuum_breaker_m2 = VACUUM_BREAKER_M2, A,
-    vent_rupture_disk_pa = VENT_RUPTURE_DISK_PA, A,
-    vent_area_m2 = VENT_AREA_M2, A,
-    flange_leak_pa = FLANGE_LEAK_PA, A,
-    flange_leak_m2 = FLANGE_LEAK_M2, A,
-    reactor_building_m3 = REACTOR_BUILDING_M3, A,
-    h2_flammable = H2_FLAMMABLE, P,
-    h2_explosion = H2_EXPLOSION, A,
-    rcic_rated_kg_s = RCIC_RATED_KG_S, U,
-    hpci_rated_kg_s = HPCI_RATED_KG_S, U,
-    pump_efficiency = PUMP_EFFICIENCY, A,
-    turbine_efficiency = TURBINE_EFFICIENCY, A,
-    turbine_min_pa = TURBINE_MIN_PA, A,
-    level_l2_above_taf_m = LEVEL_L2_ABOVE_TAF_M, P,
-    level_l8_above_taf_m = LEVEL_L8_ABOVE_TAF_M, A,
-    msl_nozzle_above_taf_m = MSL_NOZZLE_ABOVE_TAF_M, A,
-    carryover_band_m = CARRYOVER_BAND_M, A,
+impl Default for Params {
+    fn default() -> Self {
+        Self {
+            thermal_power_w: THERMAL_POWER_W,
+            assemblies: ASSEMBLIES,
+            rods_per_assembly: RODS_PER_ASSEMBLY,
+            active_length_m: ACTIVE_LENGTH_M,
+            clad_outer_r_m: CLAD_OUTER_R_M,
+            clad_wall_m: CLAD_WALL_M,
+            pellet_r_m: PELLET_R_M,
+            uo2_density: UO2_DENSITY,
+            zr_density: ZR_DENSITY,
+            channel_inner_width_m: CHANNEL_INNER_WIDTH_M,
+            channel_wall_m: CHANNEL_WALL_M,
+            channel_length_m: CHANNEL_LENGTH_M,
+            uo2_cp: UO2_CP,
+            zr_cp: ZR_CP,
+            uo2_k: UO2_K,
+            gap_h: GAP_H,
+            boiling_h: BOILING_H,
+            cosine_extrapolation: COSINE_EXTRAPOLATION,
+            rpv_radius_m: RPV_RADIUS_M,
+            rpv_height_m: RPV_HEIGHT_M,
+            rpv_wall_m: RPV_WALL_M,
+            internals_envelope_m2: INTERNALS_ENVELOPE_M2,
+            concrete_density: CONCRETE_DENSITY,
+            concrete_ablation_k: CONCRETE_ABLATION_K,
+            concrete_h2o_fraction: CONCRETE_H2O_FRACTION,
+            concrete_co2_fraction: CONCRETE_CO2_FRACTION,
+            concrete_cp: CONCRETE_CP,
+            concrete_ablation_j_per_kg: CONCRETE_ABLATION_J_PER_KG,
+            cavity_area_m2: CAVITY_AREA_M2,
+            cavity_h: CAVITY_H,
+            cavity_emissivity: CAVITY_EMISSIVITY,
+            zr_co2_heat_j_per_kg: ZR_CO2_HEAT_J_PER_KG,
+            baf_m: BAF_M,
+            lower_plenum_free: LOWER_PLENUM_FREE,
+            upper_free: UPPER_FREE,
+            core_other_area_m2: CORE_OTHER_AREA_M2,
+            normal_level_above_taf_m: NORMAL_LEVEL_ABOVE_TAF_M,
+            initial_pressure_pa: INITIAL_PRESSURE_PA,
+            msiv_closure_s: MSIV_CLOSURE_S,
+            bypass_gain_kg_s_pa: BYPASS_GAIN_KG_S_PA,
+            relief_valves: RELIEF_VALVES,
+            relief_open_pa: RELIEF_OPEN_PA,
+            relief_close_pa: RELIEF_CLOSE_PA,
+            safety_open_pa: SAFETY_OPEN_PA,
+            safety_close_pa: SAFETY_CLOSE_PA,
+            relief_throat_m2: RELIEF_THROAT_M2,
+            ic_autostart_pa: IC_AUTOSTART_PA,
+            ic_ua_w_per_k: IC_UA_W_PER_K,
+            ic_shell_water_kg: IC_SHELL_WATER_KG,
+            fire_engine_shutoff_pa: FIRE_ENGINE_SHUTOFF_PA,
+            fire_engine_max_kg_s: FIRE_ENGINE_MAX_KG_S,
+            injection_temperature_k: INJECTION_TEMPERATURE_K,
+            hot_leak_gas_k: HOT_LEAK_GAS_K,
+            hot_leak_m2: HOT_LEAK_M2,
+            msl_lines: MSL_LINES,
+            msl_inner_radius_m: MSL_INNER_RADIUS_M,
+            msl_wall_m: MSL_WALL_M,
+            msl_insulation_h: MSL_INSULATION_H,
+            msl_lm_a1: MSL_LM_A1,
+            msl_lm_b1: MSL_LM_B1,
+            msl_lm_c: MSL_LM_C,
+            internals_kg: INTERNALS_KG,
+            internals_area_m2: INTERNALS_AREA_M2,
+            internals_h: INTERNALS_H,
+            internals_loss_h: INTERNALS_LOSS_H,
+            lower_head_failure_k: LOWER_HEAD_FAILURE_K,
+            breach_m2: BREACH_M2,
+            debris_quench_s: DEBRIS_QUENCH_S,
+            quench_h: QUENCH_H,
+            quench_tau_s: QUENCH_TAU_S,
+            lower_head_thickness_m: LOWER_HEAD_THICKNESS_M,
+            debris_to_head_w_m2_k: DEBRIS_TO_HEAD_W_M2_K,
+            core_plate_m: CORE_PLATE_M,
+            core_plate_beam_m: CORE_PLATE_BEAM_M,
+            water_emissivity: WATER_EMISSIVITY,
+            flpup: FLPUP,
+            control_rods: CONTROL_RODS,
+            blade_steel_kg: BLADE_STEEL_KG,
+            blade_area_m2: BLADE_AREA_M2,
+            ss_ox_a: SS_OX_A,
+            ss_ox_b: SS_OX_B,
+            ss_ox_min_k: SS_OX_MIN_K,
+            ss_melt_k: SS_MELT_K,
+            ss_fusion_j_per_kg: SS_FUSION_J_PER_KG,
+            debris_k: DEBRIS_K,
+            fuel_melt_k: FUEL_MELT_K,
+            fuel_fusion_j_per_kg: FUEL_FUSION_J_PER_KG,
+            concrete_oxide_fusion_j_per_mol: CONCRETE_OXIDE_FUSION_J_PER_MOL,
+            concrete_oxide_m: CONCRETE_OXIDE_M,
+            bur_xh2ign: BUR_XH2IGN,
+            bur_xcoign: BUR_XCOIGN,
+            bur_xo2ig: BUR_XO2IG,
+            bur_xmscig: BUR_XMSCIG,
+            bur_xh2cc: BUR_XH2CC,
+            bur_xcocc: BUR_XCOCC,
+            bur_cc_slope: BUR_CC_SLOPE,
+            bur_cc_y0: BUR_CC_Y0,
+            h2_combustion_j_per_mol: H2_COMBUSTION_J_PER_MOL,
+            co_combustion_j_per_mol: CO_COMBUSTION_J_PER_MOL,
+            fdi_surface_tension: FDI_SURFACE_TENSION,
+            fdi_hpme_velocity: FDI_HPME_VELOCITY,
+            candling_uo2_fraction: CANDLING_UO2_FRACTION,
+            pool_melt_k: POOL_MELT_K,
+            pool_nu_a: POOL_NU_A,
+            pool_nu_n: POOL_NU_N,
+            pool_k: POOL_K,
+            pool_mu: POOL_MU,
+            pool_beta: POOL_BETA,
+            pool_cp: POOL_CP,
+            pool_rho: POOL_RHO,
+            blade_b4c_kg: BLADE_B4C_KG,
+            b4c_rate_a: B4C_RATE_A,
+            b4c_rate_b: B4C_RATE_B,
+            b4c_max_fraction: B4C_MAX_FRACTION,
+            ss_x_fe: SS_X_FE,
+            ss_x_cr: SS_X_CR,
+            ss_x_ni: SS_X_NI,
+            penetration_wall_m: PENETRATION_WALL_M,
+            corsor_k0_per_min: CORSOR_K0_PER_MIN,
+            corsor_q_kcal_per_mol: CORSOR_Q_KCAL_PER_MOL,
+            corsor_uo2_k0_per_min: CORSOR_UO2_K0_PER_MIN,
+            corsor_uo2_q_kcal_per_mol: CORSOR_UO2_Q_KCAL_PER_MOL,
+            cs_inventory_kg: CS_INVENTORY_KG,
+            i_inventory_kg: I_INVENTORY_KG,
+            te_inventory_kg: TE_INVENTORY_KG,
+            dw_floor_m2: DW_FLOOR_M2,
+            ww_pool_surface_m2: WW_POOL_SURFACE_M2,
+            head_failure_wall_k: HEAD_FAILURE_WALL_K,
+            lm_p0: LM_P0,
+            lm_slope: LM_SLOPE,
+            lm_c: LM_C,
+            creep_fail_strain: CREEP_FAIL_STRAIN,
+            debris_porosity: DEBRIS_POROSITY,
+            debris_particle_m: DEBRIS_PARTICLE_M,
+            lp_bottom_level_m: LP_BOTTOM_LEVEL_M,
+            breach_diameter_m: BREACH_DIAMETER_M,
+            zr_melt_k: ZR_MELT_K,
+            clad_breach_k: CLAD_BREACH_K,
+            min_metal_m: MIN_METAL_M,
+            rod_collapse_k: ROD_COLLAPSE_K,
+            rod_collapse_max_k: ROD_COLLAPSE_MAX_K,
+            damage_a: DAMAGE_A,
+            damage_b: DAMAGE_B,
+            assembly_pitch_m: ASSEMBLY_PITCH_M,
+            radial_exchange: RADIAL_EXCHANGE,
+            axial_exchange: AXIAL_EXCHANGE,
+            shroud_thickness_m: SHROUD_THICKNESS_M,
+            zro2_density: ZRO2_DENSITY,
+            bubble_rise_m_s: BUBBLE_RISE_M_S,
+            max_pool_void: MAX_POOL_VOID,
+            fission_share_u235: FISSION_SHARE_U235,
+            fission_share_pu239: FISSION_SHARE_PU239,
+            operating_time_s: OPERATING_TIME_S,
+            fissions_per_fissile_atom: FISSIONS_PER_FISSILE_ATOM,
+            q_u235_mev: Q_U235_MEV,
+            q_pu239_mev: Q_PU239_MEV,
+            q_u238_mev: Q_U238_MEV,
+            u239_per_fission: U239_PER_FISSION,
+            e_u239_mev: E_U239_MEV,
+            e_np239_mev: E_NP239_MEV,
+            u239_decay_per_s: U239_DECAY_PER_S,
+            np239_decay_per_s: NP239_DECAY_PER_S,
+            uh_low_a: UH_LOW_A,
+            uh_low_b_k: UH_LOW_B_K,
+            uh_high_a: UH_HIGH_A,
+            uh_high_b_k: UH_HIGH_B_K,
+            uh_low_max_k: UH_LOW_MAX_K,
+            uh_high_min_k: UH_HIGH_MIN_K,
+            oxidation_min_k: OXIDATION_MIN_K,
+            h2o_h2_diffusivity_a: H2O_H2_DIFFUSIVITY_A,
+            h2o_h2_diffusivity_b: H2O_H2_DIFFUSIVITY_B,
+            oxidation_heat_j_per_kg_zr: OXIDATION_HEAT_J_PER_KG_ZR,
+            drywell_volume_m3: DRYWELL_VOLUME_M3,
+            dw_wall_area_m2: DW_WALL_AREA_M2,
+            dw_wall_h: DW_WALL_H,
+            dw_wall_c: DW_WALL_C,
+            dw_wall_height_m: DW_WALL_HEIGHT_M,
+            dw_gap_m: DW_GAP_M,
+            dw_gap_emissivity: DW_GAP_EMISSIVITY,
+            dw_concrete_m: DW_CONCRETE_M,
+            concrete_k: CONCRETE_K,
+            rb_wall_h: RB_WALL_H,
+            ww_shell_area_m2: WW_SHELL_AREA_M2,
+            ww_shell_c: WW_SHELL_C,
+            ww_shell_height_m: WW_SHELL_HEIGHT_M,
+            wetwell_gas_m3: WETWELL_GAS_M3,
+            pool_water_m3: POOL_WATER_M3,
+            containment_design_pa: CONTAINMENT_DESIGN_PA,
+            initial_containment_pa: INITIAL_CONTAINMENT_PA,
+            initial_drywell_k: INITIAL_DRYWELL_K,
+            initial_pool_k: INITIAL_POOL_K,
+            vent_submergence_pa: VENT_SUBMERGENCE_PA,
+            downcomer_area_m2: DOWNCOMER_AREA_M2,
+            downcomer_count: DOWNCOMER_COUNT,
+            discharge_coefficient: DISCHARGE_COEFFICIENT,
+            vacuum_breaker_pa: VACUUM_BREAKER_PA,
+            vacuum_breaker_m2: VACUUM_BREAKER_M2,
+            vent_rupture_disk_pa: VENT_RUPTURE_DISK_PA,
+            vent_area_m2: VENT_AREA_M2,
+            flange_leak_pa: FLANGE_LEAK_PA,
+            flange_leak_m2: FLANGE_LEAK_M2,
+            reactor_building_m3: REACTOR_BUILDING_M3,
+            h2_flammable: H2_FLAMMABLE,
+            h2_explosion: H2_EXPLOSION,
+            rcic_rated_kg_s: RCIC_RATED_KG_S,
+            hpci_rated_kg_s: HPCI_RATED_KG_S,
+            pump_efficiency: PUMP_EFFICIENCY,
+            turbine_efficiency: TURBINE_EFFICIENCY,
+            turbine_min_pa: TURBINE_MIN_PA,
+            level_l2_above_taf_m: LEVEL_L2_ABOVE_TAF_M,
+            level_l8_above_taf_m: LEVEL_L8_ABOVE_TAF_M,
+            msl_nozzle_above_taf_m: MSL_NOZZLE_ABOVE_TAF_M,
+            carryover_band_m: CARRYOVER_BAND_M,
+            ring_factors: RING_FACTORS,
+        }
+    }
+}
+
+impl Params {
+    pub fn write(&self, w: &mut Writer) {
+        w.f(&[
+            self.thermal_power_w,
+            self.assemblies,
+            self.rods_per_assembly,
+            self.active_length_m,
+            self.clad_outer_r_m,
+            self.clad_wall_m,
+            self.pellet_r_m,
+            self.uo2_density,
+            self.zr_density,
+            self.channel_inner_width_m,
+            self.channel_wall_m,
+            self.channel_length_m,
+            self.uo2_cp,
+            self.zr_cp,
+            self.uo2_k,
+            self.gap_h,
+            self.boiling_h,
+            self.cosine_extrapolation,
+            self.rpv_radius_m,
+            self.rpv_height_m,
+            self.rpv_wall_m,
+            self.internals_envelope_m2,
+            self.concrete_density,
+            self.concrete_ablation_k,
+            self.concrete_h2o_fraction,
+            self.concrete_co2_fraction,
+            self.concrete_cp,
+            self.concrete_ablation_j_per_kg,
+            self.cavity_area_m2,
+            self.cavity_h,
+            self.cavity_emissivity,
+            self.zr_co2_heat_j_per_kg,
+            self.baf_m,
+            self.lower_plenum_free,
+            self.upper_free,
+            self.core_other_area_m2,
+            self.normal_level_above_taf_m,
+            self.initial_pressure_pa,
+            self.msiv_closure_s,
+            self.bypass_gain_kg_s_pa,
+            self.relief_valves,
+            self.relief_open_pa,
+            self.relief_close_pa,
+            self.safety_open_pa,
+            self.safety_close_pa,
+            self.relief_throat_m2,
+            self.ic_autostart_pa,
+            self.ic_ua_w_per_k,
+            self.ic_shell_water_kg,
+            self.fire_engine_shutoff_pa,
+            self.fire_engine_max_kg_s,
+            self.injection_temperature_k,
+            self.hot_leak_gas_k,
+            self.hot_leak_m2,
+            self.msl_lines,
+            self.msl_inner_radius_m,
+            self.msl_wall_m,
+            self.msl_insulation_h,
+            self.msl_lm_a1,
+            self.msl_lm_b1,
+            self.msl_lm_c,
+            self.internals_kg,
+            self.internals_area_m2,
+            self.internals_h,
+            self.internals_loss_h,
+            self.lower_head_failure_k,
+            self.breach_m2,
+            self.debris_quench_s,
+            self.quench_h,
+            self.quench_tau_s,
+            self.lower_head_thickness_m,
+            self.debris_to_head_w_m2_k,
+            self.core_plate_m,
+            self.core_plate_beam_m,
+            self.water_emissivity,
+            self.flpup,
+            self.control_rods,
+            self.blade_steel_kg,
+            self.blade_area_m2,
+            self.ss_ox_a,
+            self.ss_ox_b,
+            self.ss_ox_min_k,
+            self.ss_melt_k,
+            self.ss_fusion_j_per_kg,
+            self.debris_k,
+            self.fuel_melt_k,
+            self.fuel_fusion_j_per_kg,
+            self.concrete_oxide_fusion_j_per_mol,
+            self.concrete_oxide_m,
+            self.bur_xh2ign,
+            self.bur_xcoign,
+            self.bur_xo2ig,
+            self.bur_xmscig,
+            self.bur_xh2cc,
+            self.bur_xcocc,
+            self.bur_cc_slope,
+            self.bur_cc_y0,
+            self.h2_combustion_j_per_mol,
+            self.co_combustion_j_per_mol,
+            self.fdi_surface_tension,
+            self.fdi_hpme_velocity,
+            self.candling_uo2_fraction,
+            self.pool_melt_k,
+            self.pool_nu_a,
+            self.pool_nu_n,
+            self.pool_k,
+            self.pool_mu,
+            self.pool_beta,
+            self.pool_cp,
+            self.pool_rho,
+            self.blade_b4c_kg,
+            self.b4c_rate_a,
+            self.b4c_rate_b,
+            self.b4c_max_fraction,
+            self.ss_x_fe,
+            self.ss_x_cr,
+            self.ss_x_ni,
+            self.penetration_wall_m,
+            self.corsor_k0_per_min,
+            self.corsor_q_kcal_per_mol,
+            self.corsor_uo2_k0_per_min,
+            self.corsor_uo2_q_kcal_per_mol,
+            self.cs_inventory_kg,
+            self.i_inventory_kg,
+            self.te_inventory_kg,
+            self.dw_floor_m2,
+            self.ww_pool_surface_m2,
+            self.head_failure_wall_k,
+            self.lm_p0,
+            self.lm_slope,
+            self.lm_c,
+            self.creep_fail_strain,
+            self.debris_porosity,
+            self.debris_particle_m,
+            self.lp_bottom_level_m,
+            self.breach_diameter_m,
+            self.zr_melt_k,
+            self.clad_breach_k,
+            self.min_metal_m,
+            self.rod_collapse_k,
+            self.rod_collapse_max_k,
+            self.damage_a,
+            self.damage_b,
+            self.assembly_pitch_m,
+            self.radial_exchange,
+            self.axial_exchange,
+            self.shroud_thickness_m,
+            self.zro2_density,
+            self.bubble_rise_m_s,
+            self.max_pool_void,
+            self.fission_share_u235,
+            self.fission_share_pu239,
+            self.operating_time_s,
+            self.fissions_per_fissile_atom,
+            self.q_u235_mev,
+            self.q_pu239_mev,
+            self.q_u238_mev,
+            self.u239_per_fission,
+            self.e_u239_mev,
+            self.e_np239_mev,
+            self.u239_decay_per_s,
+            self.np239_decay_per_s,
+            self.uh_low_a,
+            self.uh_low_b_k,
+            self.uh_high_a,
+            self.uh_high_b_k,
+            self.uh_low_max_k,
+            self.uh_high_min_k,
+            self.oxidation_min_k,
+            self.h2o_h2_diffusivity_a,
+            self.h2o_h2_diffusivity_b,
+            self.oxidation_heat_j_per_kg_zr,
+            self.drywell_volume_m3,
+            self.dw_wall_area_m2,
+            self.dw_wall_h,
+            self.dw_wall_c,
+            self.dw_wall_height_m,
+            self.dw_gap_m,
+            self.dw_gap_emissivity,
+            self.dw_concrete_m,
+            self.concrete_k,
+            self.rb_wall_h,
+            self.ww_shell_area_m2,
+            self.ww_shell_c,
+            self.ww_shell_height_m,
+            self.wetwell_gas_m3,
+            self.pool_water_m3,
+            self.containment_design_pa,
+            self.initial_containment_pa,
+            self.initial_drywell_k,
+            self.initial_pool_k,
+            self.vent_submergence_pa,
+            self.downcomer_area_m2,
+            self.downcomer_count,
+            self.discharge_coefficient,
+            self.vacuum_breaker_pa,
+            self.vacuum_breaker_m2,
+            self.vent_rupture_disk_pa,
+            self.vent_area_m2,
+            self.flange_leak_pa,
+            self.flange_leak_m2,
+            self.reactor_building_m3,
+            self.h2_flammable,
+            self.h2_explosion,
+            self.rcic_rated_kg_s,
+            self.hpci_rated_kg_s,
+            self.pump_efficiency,
+            self.turbine_efficiency,
+            self.turbine_min_pa,
+            self.level_l2_above_taf_m,
+            self.level_l8_above_taf_m,
+            self.msl_nozzle_above_taf_m,
+            self.carryover_band_m,
+        ]);
+        w.f(&self.ring_factors);
+    }
+
+    pub fn read(r: &mut Reader) -> Self {
+        Self {
+            thermal_power_w: r.f(),
+            assemblies: r.f(),
+            rods_per_assembly: r.f(),
+            active_length_m: r.f(),
+            clad_outer_r_m: r.f(),
+            clad_wall_m: r.f(),
+            pellet_r_m: r.f(),
+            uo2_density: r.f(),
+            zr_density: r.f(),
+            channel_inner_width_m: r.f(),
+            channel_wall_m: r.f(),
+            channel_length_m: r.f(),
+            uo2_cp: r.f(),
+            zr_cp: r.f(),
+            uo2_k: r.f(),
+            gap_h: r.f(),
+            boiling_h: r.f(),
+            cosine_extrapolation: r.f(),
+            rpv_radius_m: r.f(),
+            rpv_height_m: r.f(),
+            rpv_wall_m: r.f(),
+            internals_envelope_m2: r.f(),
+            concrete_density: r.f(),
+            concrete_ablation_k: r.f(),
+            concrete_h2o_fraction: r.f(),
+            concrete_co2_fraction: r.f(),
+            concrete_cp: r.f(),
+            concrete_ablation_j_per_kg: r.f(),
+            cavity_area_m2: r.f(),
+            cavity_h: r.f(),
+            cavity_emissivity: r.f(),
+            zr_co2_heat_j_per_kg: r.f(),
+            baf_m: r.f(),
+            lower_plenum_free: r.f(),
+            upper_free: r.f(),
+            core_other_area_m2: r.f(),
+            normal_level_above_taf_m: r.f(),
+            initial_pressure_pa: r.f(),
+            msiv_closure_s: r.f(),
+            bypass_gain_kg_s_pa: r.f(),
+            relief_valves: r.f(),
+            relief_open_pa: r.f(),
+            relief_close_pa: r.f(),
+            safety_open_pa: r.f(),
+            safety_close_pa: r.f(),
+            relief_throat_m2: r.f(),
+            ic_autostart_pa: r.f(),
+            ic_ua_w_per_k: r.f(),
+            ic_shell_water_kg: r.f(),
+            fire_engine_shutoff_pa: r.f(),
+            fire_engine_max_kg_s: r.f(),
+            injection_temperature_k: r.f(),
+            hot_leak_gas_k: r.f(),
+            hot_leak_m2: r.f(),
+            msl_lines: r.f(),
+            msl_inner_radius_m: r.f(),
+            msl_wall_m: r.f(),
+            msl_insulation_h: r.f(),
+            msl_lm_a1: r.f(),
+            msl_lm_b1: r.f(),
+            msl_lm_c: r.f(),
+            internals_kg: r.f(),
+            internals_area_m2: r.f(),
+            internals_h: r.f(),
+            internals_loss_h: r.f(),
+            lower_head_failure_k: r.f(),
+            breach_m2: r.f(),
+            debris_quench_s: r.f(),
+            quench_h: r.f(),
+            quench_tau_s: r.f(),
+            lower_head_thickness_m: r.f(),
+            debris_to_head_w_m2_k: r.f(),
+            core_plate_m: r.f(),
+            core_plate_beam_m: r.f(),
+            water_emissivity: r.f(),
+            flpup: r.f(),
+            control_rods: r.f(),
+            blade_steel_kg: r.f(),
+            blade_area_m2: r.f(),
+            ss_ox_a: r.f(),
+            ss_ox_b: r.f(),
+            ss_ox_min_k: r.f(),
+            ss_melt_k: r.f(),
+            ss_fusion_j_per_kg: r.f(),
+            debris_k: r.f(),
+            fuel_melt_k: r.f(),
+            fuel_fusion_j_per_kg: r.f(),
+            concrete_oxide_fusion_j_per_mol: r.f(),
+            concrete_oxide_m: r.f(),
+            bur_xh2ign: r.f(),
+            bur_xcoign: r.f(),
+            bur_xo2ig: r.f(),
+            bur_xmscig: r.f(),
+            bur_xh2cc: r.f(),
+            bur_xcocc: r.f(),
+            bur_cc_slope: r.f(),
+            bur_cc_y0: r.f(),
+            h2_combustion_j_per_mol: r.f(),
+            co_combustion_j_per_mol: r.f(),
+            fdi_surface_tension: r.f(),
+            fdi_hpme_velocity: r.f(),
+            candling_uo2_fraction: r.f(),
+            pool_melt_k: r.f(),
+            pool_nu_a: r.f(),
+            pool_nu_n: r.f(),
+            pool_k: r.f(),
+            pool_mu: r.f(),
+            pool_beta: r.f(),
+            pool_cp: r.f(),
+            pool_rho: r.f(),
+            blade_b4c_kg: r.f(),
+            b4c_rate_a: r.f(),
+            b4c_rate_b: r.f(),
+            b4c_max_fraction: r.f(),
+            ss_x_fe: r.f(),
+            ss_x_cr: r.f(),
+            ss_x_ni: r.f(),
+            penetration_wall_m: r.f(),
+            corsor_k0_per_min: r.f(),
+            corsor_q_kcal_per_mol: r.f(),
+            corsor_uo2_k0_per_min: r.f(),
+            corsor_uo2_q_kcal_per_mol: r.f(),
+            cs_inventory_kg: r.f(),
+            i_inventory_kg: r.f(),
+            te_inventory_kg: r.f(),
+            dw_floor_m2: r.f(),
+            ww_pool_surface_m2: r.f(),
+            head_failure_wall_k: r.f(),
+            lm_p0: r.f(),
+            lm_slope: r.f(),
+            lm_c: r.f(),
+            creep_fail_strain: r.f(),
+            debris_porosity: r.f(),
+            debris_particle_m: r.f(),
+            lp_bottom_level_m: r.f(),
+            breach_diameter_m: r.f(),
+            zr_melt_k: r.f(),
+            clad_breach_k: r.f(),
+            min_metal_m: r.f(),
+            rod_collapse_k: r.f(),
+            rod_collapse_max_k: r.f(),
+            damage_a: r.f(),
+            damage_b: r.f(),
+            assembly_pitch_m: r.f(),
+            radial_exchange: r.f(),
+            axial_exchange: r.f(),
+            shroud_thickness_m: r.f(),
+            zro2_density: r.f(),
+            bubble_rise_m_s: r.f(),
+            max_pool_void: r.f(),
+            fission_share_u235: r.f(),
+            fission_share_pu239: r.f(),
+            operating_time_s: r.f(),
+            fissions_per_fissile_atom: r.f(),
+            q_u235_mev: r.f(),
+            q_pu239_mev: r.f(),
+            q_u238_mev: r.f(),
+            u239_per_fission: r.f(),
+            e_u239_mev: r.f(),
+            e_np239_mev: r.f(),
+            u239_decay_per_s: r.f(),
+            np239_decay_per_s: r.f(),
+            uh_low_a: r.f(),
+            uh_low_b_k: r.f(),
+            uh_high_a: r.f(),
+            uh_high_b_k: r.f(),
+            uh_low_max_k: r.f(),
+            uh_high_min_k: r.f(),
+            oxidation_min_k: r.f(),
+            h2o_h2_diffusivity_a: r.f(),
+            h2o_h2_diffusivity_b: r.f(),
+            oxidation_heat_j_per_kg_zr: r.f(),
+            drywell_volume_m3: r.f(),
+            dw_wall_area_m2: r.f(),
+            dw_wall_h: r.f(),
+            dw_wall_c: r.f(),
+            dw_wall_height_m: r.f(),
+            dw_gap_m: r.f(),
+            dw_gap_emissivity: r.f(),
+            dw_concrete_m: r.f(),
+            concrete_k: r.f(),
+            rb_wall_h: r.f(),
+            ww_shell_area_m2: r.f(),
+            ww_shell_c: r.f(),
+            ww_shell_height_m: r.f(),
+            wetwell_gas_m3: r.f(),
+            pool_water_m3: r.f(),
+            containment_design_pa: r.f(),
+            initial_containment_pa: r.f(),
+            initial_drywell_k: r.f(),
+            initial_pool_k: r.f(),
+            vent_submergence_pa: r.f(),
+            downcomer_area_m2: r.f(),
+            downcomer_count: r.f(),
+            discharge_coefficient: r.f(),
+            vacuum_breaker_pa: r.f(),
+            vacuum_breaker_m2: r.f(),
+            vent_rupture_disk_pa: r.f(),
+            vent_area_m2: r.f(),
+            flange_leak_pa: r.f(),
+            flange_leak_m2: r.f(),
+            reactor_building_m3: r.f(),
+            h2_flammable: r.f(),
+            h2_explosion: r.f(),
+            rcic_rated_kg_s: r.f(),
+            hpci_rated_kg_s: r.f(),
+            pump_efficiency: r.f(),
+            turbine_efficiency: r.f(),
+            turbine_min_pa: r.f(),
+            level_l2_above_taf_m: r.f(),
+            level_l8_above_taf_m: r.f(),
+            msl_nozzle_above_taf_m: r.f(),
+            carryover_band_m: r.f(),
+            ring_factors: [r.f(), r.f(), r.f()],
+        }
+    }
+
+    /// Every scalar input by field name, with its tag (the
+    /// default's, from its doc comment), in declaration order.
+    pub const INPUTS: &[(&str, Tag)] = &[
+        ("thermal_power_w", Tag::P),
+        ("assemblies", Tag::P),
+        ("rods_per_assembly", Tag::U),
+        ("active_length_m", Tag::U),
+        ("clad_outer_r_m", Tag::U),
+        ("clad_wall_m", Tag::U),
+        ("pellet_r_m", Tag::U),
+        ("uo2_density", Tag::A),
+        ("zr_density", Tag::P),
+        ("channel_inner_width_m", Tag::U),
+        ("channel_wall_m", Tag::U),
+        ("channel_length_m", Tag::U),
+        ("uo2_cp", Tag::A),
+        ("zr_cp", Tag::A),
+        ("uo2_k", Tag::A),
+        ("gap_h", Tag::A),
+        ("boiling_h", Tag::A),
+        ("cosine_extrapolation", Tag::A),
+        ("rpv_radius_m", Tag::U),
+        ("rpv_height_m", Tag::U),
+        ("rpv_wall_m", Tag::A),
+        ("internals_envelope_m2", Tag::A),
+        ("concrete_density", Tag::P),
+        ("concrete_ablation_k", Tag::P),
+        ("concrete_h2o_fraction", Tag::P),
+        ("concrete_co2_fraction", Tag::P),
+        ("concrete_cp", Tag::A),
+        ("concrete_ablation_j_per_kg", Tag::A),
+        ("cavity_area_m2", Tag::A),
+        ("cavity_h", Tag::A),
+        ("cavity_emissivity", Tag::P),
+        ("zr_co2_heat_j_per_kg", Tag::P),
+        ("baf_m", Tag::A),
+        ("lower_plenum_free", Tag::A),
+        ("upper_free", Tag::A),
+        ("core_other_area_m2", Tag::A),
+        ("normal_level_above_taf_m", Tag::U),
+        ("initial_pressure_pa", Tag::P),
+        ("msiv_closure_s", Tag::U),
+        ("bypass_gain_kg_s_pa", Tag::A),
+        ("relief_valves", Tag::U),
+        ("relief_open_pa", Tag::U),
+        ("relief_close_pa", Tag::U),
+        ("safety_open_pa", Tag::U),
+        ("safety_close_pa", Tag::U),
+        ("relief_throat_m2", Tag::A),
+        ("ic_autostart_pa", Tag::P),
+        ("ic_ua_w_per_k", Tag::A),
+        ("ic_shell_water_kg", Tag::A),
+        ("fire_engine_shutoff_pa", Tag::A),
+        ("fire_engine_max_kg_s", Tag::A),
+        ("injection_temperature_k", Tag::A),
+        ("hot_leak_gas_k", Tag::A),
+        ("hot_leak_m2", Tag::A),
+        ("msl_lines", Tag::A),
+        ("msl_inner_radius_m", Tag::A),
+        ("msl_wall_m", Tag::A),
+        ("msl_insulation_h", Tag::A),
+        ("msl_lm_a1", Tag::P),
+        ("msl_lm_b1", Tag::P),
+        ("msl_lm_c", Tag::P),
+        ("internals_kg", Tag::A),
+        ("internals_area_m2", Tag::A),
+        ("internals_h", Tag::A),
+        ("internals_loss_h", Tag::A),
+        ("lower_head_failure_k", Tag::A),
+        ("breach_m2", Tag::A),
+        ("debris_quench_s", Tag::A),
+        ("quench_h", Tag::P),
+        ("quench_tau_s", Tag::P),
+        ("lower_head_thickness_m", Tag::A),
+        ("debris_to_head_w_m2_k", Tag::A),
+        ("core_plate_m", Tag::A),
+        ("core_plate_beam_m", Tag::A),
+        ("water_emissivity", Tag::A),
+        ("flpup", Tag::P),
+        ("control_rods", Tag::U),
+        ("blade_steel_kg", Tag::A),
+        ("blade_area_m2", Tag::A),
+        ("ss_ox_a", Tag::P),
+        ("ss_ox_b", Tag::P),
+        ("ss_ox_min_k", Tag::P),
+        ("ss_melt_k", Tag::P),
+        ("ss_fusion_j_per_kg", Tag::P),
+        ("debris_k", Tag::A),
+        ("fuel_melt_k", Tag::P),
+        ("fuel_fusion_j_per_kg", Tag::P),
+        ("concrete_oxide_fusion_j_per_mol", Tag::A),
+        ("concrete_oxide_m", Tag::A),
+        ("bur_xh2ign", Tag::P),
+        ("bur_xcoign", Tag::P),
+        ("bur_xo2ig", Tag::P),
+        ("bur_xmscig", Tag::P),
+        ("bur_xh2cc", Tag::P),
+        ("bur_xcocc", Tag::P),
+        ("bur_cc_slope", Tag::P),
+        ("bur_cc_y0", Tag::P),
+        ("h2_combustion_j_per_mol", Tag::P),
+        ("co_combustion_j_per_mol", Tag::P),
+        ("fdi_surface_tension", Tag::A),
+        ("fdi_hpme_velocity", Tag::P),
+        ("candling_uo2_fraction", Tag::P),
+        ("pool_melt_k", Tag::P),
+        ("pool_nu_a", Tag::P),
+        ("pool_nu_n", Tag::P),
+        ("pool_k", Tag::A),
+        ("pool_mu", Tag::A),
+        ("pool_beta", Tag::A),
+        ("pool_cp", Tag::A),
+        ("pool_rho", Tag::A),
+        ("blade_b4c_kg", Tag::A),
+        ("b4c_rate_a", Tag::P),
+        ("b4c_rate_b", Tag::P),
+        ("b4c_max_fraction", Tag::P),
+        ("ss_x_fe", Tag::P),
+        ("ss_x_cr", Tag::P),
+        ("ss_x_ni", Tag::P),
+        ("penetration_wall_m", Tag::A),
+        ("corsor_k0_per_min", Tag::P),
+        ("corsor_q_kcal_per_mol", Tag::P),
+        ("corsor_uo2_k0_per_min", Tag::P),
+        ("corsor_uo2_q_kcal_per_mol", Tag::P),
+        ("cs_inventory_kg", Tag::P),
+        ("i_inventory_kg", Tag::P),
+        ("te_inventory_kg", Tag::A),
+        ("dw_floor_m2", Tag::A),
+        ("ww_pool_surface_m2", Tag::A),
+        ("head_failure_wall_k", Tag::A),
+        ("lm_p0", Tag::P),
+        ("lm_slope", Tag::P),
+        ("lm_c", Tag::P),
+        ("creep_fail_strain", Tag::P),
+        ("debris_porosity", Tag::A),
+        ("debris_particle_m", Tag::A),
+        ("lp_bottom_level_m", Tag::A),
+        ("breach_diameter_m", Tag::A),
+        ("zr_melt_k", Tag::U),
+        ("clad_breach_k", Tag::A),
+        ("min_metal_m", Tag::A),
+        ("rod_collapse_k", Tag::A),
+        ("rod_collapse_max_k", Tag::A),
+        ("damage_a", Tag::P),
+        ("damage_b", Tag::P),
+        ("assembly_pitch_m", Tag::U),
+        ("radial_exchange", Tag::A),
+        ("axial_exchange", Tag::A),
+        ("shroud_thickness_m", Tag::A),
+        ("zro2_density", Tag::P),
+        ("bubble_rise_m_s", Tag::A),
+        ("max_pool_void", Tag::A),
+        ("fission_share_u235", Tag::A),
+        ("fission_share_pu239", Tag::A),
+        ("operating_time_s", Tag::A),
+        ("fissions_per_fissile_atom", Tag::A),
+        ("q_u235_mev", Tag::A),
+        ("q_pu239_mev", Tag::A),
+        ("q_u238_mev", Tag::A),
+        ("u239_per_fission", Tag::A),
+        ("e_u239_mev", Tag::P),
+        ("e_np239_mev", Tag::P),
+        ("u239_decay_per_s", Tag::P),
+        ("np239_decay_per_s", Tag::P),
+        ("uh_low_a", Tag::P),
+        ("uh_low_b_k", Tag::P),
+        ("uh_high_a", Tag::P),
+        ("uh_high_b_k", Tag::P),
+        ("uh_low_max_k", Tag::P),
+        ("uh_high_min_k", Tag::P),
+        ("oxidation_min_k", Tag::P),
+        ("h2o_h2_diffusivity_a", Tag::P),
+        ("h2o_h2_diffusivity_b", Tag::P),
+        ("oxidation_heat_j_per_kg_zr", Tag::P),
+        ("drywell_volume_m3", Tag::U),
+        ("dw_wall_area_m2", Tag::A),
+        ("dw_wall_h", Tag::A),
+        ("dw_wall_c", Tag::A),
+        ("dw_wall_height_m", Tag::A),
+        ("dw_gap_m", Tag::A),
+        ("dw_gap_emissivity", Tag::A),
+        ("dw_concrete_m", Tag::A),
+        ("concrete_k", Tag::A),
+        ("rb_wall_h", Tag::A),
+        ("ww_shell_area_m2", Tag::A),
+        ("ww_shell_c", Tag::A),
+        ("ww_shell_height_m", Tag::A),
+        ("wetwell_gas_m3", Tag::P),
+        ("pool_water_m3", Tag::P),
+        ("containment_design_pa", Tag::P),
+        ("initial_containment_pa", Tag::A),
+        ("initial_drywell_k", Tag::A),
+        ("initial_pool_k", Tag::A),
+        ("vent_submergence_pa", Tag::A),
+        ("downcomer_area_m2", Tag::A),
+        ("downcomer_count", Tag::A),
+        ("discharge_coefficient", Tag::A),
+        ("vacuum_breaker_pa", Tag::A),
+        ("vacuum_breaker_m2", Tag::A),
+        ("vent_rupture_disk_pa", Tag::A),
+        ("vent_area_m2", Tag::A),
+        ("flange_leak_pa", Tag::A),
+        ("flange_leak_m2", Tag::A),
+        ("reactor_building_m3", Tag::A),
+        ("h2_flammable", Tag::P),
+        ("h2_explosion", Tag::A),
+        ("rcic_rated_kg_s", Tag::U),
+        ("hpci_rated_kg_s", Tag::U),
+        ("pump_efficiency", Tag::A),
+        ("turbine_efficiency", Tag::A),
+        ("turbine_min_pa", Tag::A),
+        ("level_l2_above_taf_m", Tag::P),
+        ("level_l8_above_taf_m", Tag::A),
+        ("msl_nozzle_above_taf_m", Tag::A),
+        ("carryover_band_m", Tag::A),
+    ];
+
+    /// The input named `name` (a field name from [`Params::INPUTS`]).
+    pub fn get(&self, name: &str) -> Option<f64> {
+        match name {
+            "thermal_power_w" => Some(self.thermal_power_w),
+            "assemblies" => Some(self.assemblies),
+            "rods_per_assembly" => Some(self.rods_per_assembly),
+            "active_length_m" => Some(self.active_length_m),
+            "clad_outer_r_m" => Some(self.clad_outer_r_m),
+            "clad_wall_m" => Some(self.clad_wall_m),
+            "pellet_r_m" => Some(self.pellet_r_m),
+            "uo2_density" => Some(self.uo2_density),
+            "zr_density" => Some(self.zr_density),
+            "channel_inner_width_m" => Some(self.channel_inner_width_m),
+            "channel_wall_m" => Some(self.channel_wall_m),
+            "channel_length_m" => Some(self.channel_length_m),
+            "uo2_cp" => Some(self.uo2_cp),
+            "zr_cp" => Some(self.zr_cp),
+            "uo2_k" => Some(self.uo2_k),
+            "gap_h" => Some(self.gap_h),
+            "boiling_h" => Some(self.boiling_h),
+            "cosine_extrapolation" => Some(self.cosine_extrapolation),
+            "rpv_radius_m" => Some(self.rpv_radius_m),
+            "rpv_height_m" => Some(self.rpv_height_m),
+            "rpv_wall_m" => Some(self.rpv_wall_m),
+            "internals_envelope_m2" => Some(self.internals_envelope_m2),
+            "concrete_density" => Some(self.concrete_density),
+            "concrete_ablation_k" => Some(self.concrete_ablation_k),
+            "concrete_h2o_fraction" => Some(self.concrete_h2o_fraction),
+            "concrete_co2_fraction" => Some(self.concrete_co2_fraction),
+            "concrete_cp" => Some(self.concrete_cp),
+            "concrete_ablation_j_per_kg" => Some(self.concrete_ablation_j_per_kg),
+            "cavity_area_m2" => Some(self.cavity_area_m2),
+            "cavity_h" => Some(self.cavity_h),
+            "cavity_emissivity" => Some(self.cavity_emissivity),
+            "zr_co2_heat_j_per_kg" => Some(self.zr_co2_heat_j_per_kg),
+            "baf_m" => Some(self.baf_m),
+            "lower_plenum_free" => Some(self.lower_plenum_free),
+            "upper_free" => Some(self.upper_free),
+            "core_other_area_m2" => Some(self.core_other_area_m2),
+            "normal_level_above_taf_m" => Some(self.normal_level_above_taf_m),
+            "initial_pressure_pa" => Some(self.initial_pressure_pa),
+            "msiv_closure_s" => Some(self.msiv_closure_s),
+            "bypass_gain_kg_s_pa" => Some(self.bypass_gain_kg_s_pa),
+            "relief_valves" => Some(self.relief_valves),
+            "relief_open_pa" => Some(self.relief_open_pa),
+            "relief_close_pa" => Some(self.relief_close_pa),
+            "safety_open_pa" => Some(self.safety_open_pa),
+            "safety_close_pa" => Some(self.safety_close_pa),
+            "relief_throat_m2" => Some(self.relief_throat_m2),
+            "ic_autostart_pa" => Some(self.ic_autostart_pa),
+            "ic_ua_w_per_k" => Some(self.ic_ua_w_per_k),
+            "ic_shell_water_kg" => Some(self.ic_shell_water_kg),
+            "fire_engine_shutoff_pa" => Some(self.fire_engine_shutoff_pa),
+            "fire_engine_max_kg_s" => Some(self.fire_engine_max_kg_s),
+            "injection_temperature_k" => Some(self.injection_temperature_k),
+            "hot_leak_gas_k" => Some(self.hot_leak_gas_k),
+            "hot_leak_m2" => Some(self.hot_leak_m2),
+            "msl_lines" => Some(self.msl_lines),
+            "msl_inner_radius_m" => Some(self.msl_inner_radius_m),
+            "msl_wall_m" => Some(self.msl_wall_m),
+            "msl_insulation_h" => Some(self.msl_insulation_h),
+            "msl_lm_a1" => Some(self.msl_lm_a1),
+            "msl_lm_b1" => Some(self.msl_lm_b1),
+            "msl_lm_c" => Some(self.msl_lm_c),
+            "internals_kg" => Some(self.internals_kg),
+            "internals_area_m2" => Some(self.internals_area_m2),
+            "internals_h" => Some(self.internals_h),
+            "internals_loss_h" => Some(self.internals_loss_h),
+            "lower_head_failure_k" => Some(self.lower_head_failure_k),
+            "breach_m2" => Some(self.breach_m2),
+            "debris_quench_s" => Some(self.debris_quench_s),
+            "quench_h" => Some(self.quench_h),
+            "quench_tau_s" => Some(self.quench_tau_s),
+            "lower_head_thickness_m" => Some(self.lower_head_thickness_m),
+            "debris_to_head_w_m2_k" => Some(self.debris_to_head_w_m2_k),
+            "core_plate_m" => Some(self.core_plate_m),
+            "core_plate_beam_m" => Some(self.core_plate_beam_m),
+            "water_emissivity" => Some(self.water_emissivity),
+            "flpup" => Some(self.flpup),
+            "control_rods" => Some(self.control_rods),
+            "blade_steel_kg" => Some(self.blade_steel_kg),
+            "blade_area_m2" => Some(self.blade_area_m2),
+            "ss_ox_a" => Some(self.ss_ox_a),
+            "ss_ox_b" => Some(self.ss_ox_b),
+            "ss_ox_min_k" => Some(self.ss_ox_min_k),
+            "ss_melt_k" => Some(self.ss_melt_k),
+            "ss_fusion_j_per_kg" => Some(self.ss_fusion_j_per_kg),
+            "debris_k" => Some(self.debris_k),
+            "fuel_melt_k" => Some(self.fuel_melt_k),
+            "fuel_fusion_j_per_kg" => Some(self.fuel_fusion_j_per_kg),
+            "concrete_oxide_fusion_j_per_mol" => Some(self.concrete_oxide_fusion_j_per_mol),
+            "concrete_oxide_m" => Some(self.concrete_oxide_m),
+            "bur_xh2ign" => Some(self.bur_xh2ign),
+            "bur_xcoign" => Some(self.bur_xcoign),
+            "bur_xo2ig" => Some(self.bur_xo2ig),
+            "bur_xmscig" => Some(self.bur_xmscig),
+            "bur_xh2cc" => Some(self.bur_xh2cc),
+            "bur_xcocc" => Some(self.bur_xcocc),
+            "bur_cc_slope" => Some(self.bur_cc_slope),
+            "bur_cc_y0" => Some(self.bur_cc_y0),
+            "h2_combustion_j_per_mol" => Some(self.h2_combustion_j_per_mol),
+            "co_combustion_j_per_mol" => Some(self.co_combustion_j_per_mol),
+            "fdi_surface_tension" => Some(self.fdi_surface_tension),
+            "fdi_hpme_velocity" => Some(self.fdi_hpme_velocity),
+            "candling_uo2_fraction" => Some(self.candling_uo2_fraction),
+            "pool_melt_k" => Some(self.pool_melt_k),
+            "pool_nu_a" => Some(self.pool_nu_a),
+            "pool_nu_n" => Some(self.pool_nu_n),
+            "pool_k" => Some(self.pool_k),
+            "pool_mu" => Some(self.pool_mu),
+            "pool_beta" => Some(self.pool_beta),
+            "pool_cp" => Some(self.pool_cp),
+            "pool_rho" => Some(self.pool_rho),
+            "blade_b4c_kg" => Some(self.blade_b4c_kg),
+            "b4c_rate_a" => Some(self.b4c_rate_a),
+            "b4c_rate_b" => Some(self.b4c_rate_b),
+            "b4c_max_fraction" => Some(self.b4c_max_fraction),
+            "ss_x_fe" => Some(self.ss_x_fe),
+            "ss_x_cr" => Some(self.ss_x_cr),
+            "ss_x_ni" => Some(self.ss_x_ni),
+            "penetration_wall_m" => Some(self.penetration_wall_m),
+            "corsor_k0_per_min" => Some(self.corsor_k0_per_min),
+            "corsor_q_kcal_per_mol" => Some(self.corsor_q_kcal_per_mol),
+            "corsor_uo2_k0_per_min" => Some(self.corsor_uo2_k0_per_min),
+            "corsor_uo2_q_kcal_per_mol" => Some(self.corsor_uo2_q_kcal_per_mol),
+            "cs_inventory_kg" => Some(self.cs_inventory_kg),
+            "i_inventory_kg" => Some(self.i_inventory_kg),
+            "te_inventory_kg" => Some(self.te_inventory_kg),
+            "dw_floor_m2" => Some(self.dw_floor_m2),
+            "ww_pool_surface_m2" => Some(self.ww_pool_surface_m2),
+            "head_failure_wall_k" => Some(self.head_failure_wall_k),
+            "lm_p0" => Some(self.lm_p0),
+            "lm_slope" => Some(self.lm_slope),
+            "lm_c" => Some(self.lm_c),
+            "creep_fail_strain" => Some(self.creep_fail_strain),
+            "debris_porosity" => Some(self.debris_porosity),
+            "debris_particle_m" => Some(self.debris_particle_m),
+            "lp_bottom_level_m" => Some(self.lp_bottom_level_m),
+            "breach_diameter_m" => Some(self.breach_diameter_m),
+            "zr_melt_k" => Some(self.zr_melt_k),
+            "clad_breach_k" => Some(self.clad_breach_k),
+            "min_metal_m" => Some(self.min_metal_m),
+            "rod_collapse_k" => Some(self.rod_collapse_k),
+            "rod_collapse_max_k" => Some(self.rod_collapse_max_k),
+            "damage_a" => Some(self.damage_a),
+            "damage_b" => Some(self.damage_b),
+            "assembly_pitch_m" => Some(self.assembly_pitch_m),
+            "radial_exchange" => Some(self.radial_exchange),
+            "axial_exchange" => Some(self.axial_exchange),
+            "shroud_thickness_m" => Some(self.shroud_thickness_m),
+            "zro2_density" => Some(self.zro2_density),
+            "bubble_rise_m_s" => Some(self.bubble_rise_m_s),
+            "max_pool_void" => Some(self.max_pool_void),
+            "fission_share_u235" => Some(self.fission_share_u235),
+            "fission_share_pu239" => Some(self.fission_share_pu239),
+            "operating_time_s" => Some(self.operating_time_s),
+            "fissions_per_fissile_atom" => Some(self.fissions_per_fissile_atom),
+            "q_u235_mev" => Some(self.q_u235_mev),
+            "q_pu239_mev" => Some(self.q_pu239_mev),
+            "q_u238_mev" => Some(self.q_u238_mev),
+            "u239_per_fission" => Some(self.u239_per_fission),
+            "e_u239_mev" => Some(self.e_u239_mev),
+            "e_np239_mev" => Some(self.e_np239_mev),
+            "u239_decay_per_s" => Some(self.u239_decay_per_s),
+            "np239_decay_per_s" => Some(self.np239_decay_per_s),
+            "uh_low_a" => Some(self.uh_low_a),
+            "uh_low_b_k" => Some(self.uh_low_b_k),
+            "uh_high_a" => Some(self.uh_high_a),
+            "uh_high_b_k" => Some(self.uh_high_b_k),
+            "uh_low_max_k" => Some(self.uh_low_max_k),
+            "uh_high_min_k" => Some(self.uh_high_min_k),
+            "oxidation_min_k" => Some(self.oxidation_min_k),
+            "h2o_h2_diffusivity_a" => Some(self.h2o_h2_diffusivity_a),
+            "h2o_h2_diffusivity_b" => Some(self.h2o_h2_diffusivity_b),
+            "oxidation_heat_j_per_kg_zr" => Some(self.oxidation_heat_j_per_kg_zr),
+            "drywell_volume_m3" => Some(self.drywell_volume_m3),
+            "dw_wall_area_m2" => Some(self.dw_wall_area_m2),
+            "dw_wall_h" => Some(self.dw_wall_h),
+            "dw_wall_c" => Some(self.dw_wall_c),
+            "dw_wall_height_m" => Some(self.dw_wall_height_m),
+            "dw_gap_m" => Some(self.dw_gap_m),
+            "dw_gap_emissivity" => Some(self.dw_gap_emissivity),
+            "dw_concrete_m" => Some(self.dw_concrete_m),
+            "concrete_k" => Some(self.concrete_k),
+            "rb_wall_h" => Some(self.rb_wall_h),
+            "ww_shell_area_m2" => Some(self.ww_shell_area_m2),
+            "ww_shell_c" => Some(self.ww_shell_c),
+            "ww_shell_height_m" => Some(self.ww_shell_height_m),
+            "wetwell_gas_m3" => Some(self.wetwell_gas_m3),
+            "pool_water_m3" => Some(self.pool_water_m3),
+            "containment_design_pa" => Some(self.containment_design_pa),
+            "initial_containment_pa" => Some(self.initial_containment_pa),
+            "initial_drywell_k" => Some(self.initial_drywell_k),
+            "initial_pool_k" => Some(self.initial_pool_k),
+            "vent_submergence_pa" => Some(self.vent_submergence_pa),
+            "downcomer_area_m2" => Some(self.downcomer_area_m2),
+            "downcomer_count" => Some(self.downcomer_count),
+            "discharge_coefficient" => Some(self.discharge_coefficient),
+            "vacuum_breaker_pa" => Some(self.vacuum_breaker_pa),
+            "vacuum_breaker_m2" => Some(self.vacuum_breaker_m2),
+            "vent_rupture_disk_pa" => Some(self.vent_rupture_disk_pa),
+            "vent_area_m2" => Some(self.vent_area_m2),
+            "flange_leak_pa" => Some(self.flange_leak_pa),
+            "flange_leak_m2" => Some(self.flange_leak_m2),
+            "reactor_building_m3" => Some(self.reactor_building_m3),
+            "h2_flammable" => Some(self.h2_flammable),
+            "h2_explosion" => Some(self.h2_explosion),
+            "rcic_rated_kg_s" => Some(self.rcic_rated_kg_s),
+            "hpci_rated_kg_s" => Some(self.hpci_rated_kg_s),
+            "pump_efficiency" => Some(self.pump_efficiency),
+            "turbine_efficiency" => Some(self.turbine_efficiency),
+            "turbine_min_pa" => Some(self.turbine_min_pa),
+            "level_l2_above_taf_m" => Some(self.level_l2_above_taf_m),
+            "level_l8_above_taf_m" => Some(self.level_l8_above_taf_m),
+            "msl_nozzle_above_taf_m" => Some(self.msl_nozzle_above_taf_m),
+            "carryover_band_m" => Some(self.carryover_band_m),
+            _ => None,
+        }
+    }
+
+    /// Sets the input named `name`; `false` if there is none.
+    pub fn set(&mut self, name: &str, value: f64) -> bool {
+        match name {
+            "thermal_power_w" => {
+                self.thermal_power_w = value;
+                true
+            }
+            "assemblies" => {
+                self.assemblies = value;
+                true
+            }
+            "rods_per_assembly" => {
+                self.rods_per_assembly = value;
+                true
+            }
+            "active_length_m" => {
+                self.active_length_m = value;
+                true
+            }
+            "clad_outer_r_m" => {
+                self.clad_outer_r_m = value;
+                true
+            }
+            "clad_wall_m" => {
+                self.clad_wall_m = value;
+                true
+            }
+            "pellet_r_m" => {
+                self.pellet_r_m = value;
+                true
+            }
+            "uo2_density" => {
+                self.uo2_density = value;
+                true
+            }
+            "zr_density" => {
+                self.zr_density = value;
+                true
+            }
+            "channel_inner_width_m" => {
+                self.channel_inner_width_m = value;
+                true
+            }
+            "channel_wall_m" => {
+                self.channel_wall_m = value;
+                true
+            }
+            "channel_length_m" => {
+                self.channel_length_m = value;
+                true
+            }
+            "uo2_cp" => {
+                self.uo2_cp = value;
+                true
+            }
+            "zr_cp" => {
+                self.zr_cp = value;
+                true
+            }
+            "uo2_k" => {
+                self.uo2_k = value;
+                true
+            }
+            "gap_h" => {
+                self.gap_h = value;
+                true
+            }
+            "boiling_h" => {
+                self.boiling_h = value;
+                true
+            }
+            "cosine_extrapolation" => {
+                self.cosine_extrapolation = value;
+                true
+            }
+            "rpv_radius_m" => {
+                self.rpv_radius_m = value;
+                true
+            }
+            "rpv_height_m" => {
+                self.rpv_height_m = value;
+                true
+            }
+            "rpv_wall_m" => {
+                self.rpv_wall_m = value;
+                true
+            }
+            "internals_envelope_m2" => {
+                self.internals_envelope_m2 = value;
+                true
+            }
+            "concrete_density" => {
+                self.concrete_density = value;
+                true
+            }
+            "concrete_ablation_k" => {
+                self.concrete_ablation_k = value;
+                true
+            }
+            "concrete_h2o_fraction" => {
+                self.concrete_h2o_fraction = value;
+                true
+            }
+            "concrete_co2_fraction" => {
+                self.concrete_co2_fraction = value;
+                true
+            }
+            "concrete_cp" => {
+                self.concrete_cp = value;
+                true
+            }
+            "concrete_ablation_j_per_kg" => {
+                self.concrete_ablation_j_per_kg = value;
+                true
+            }
+            "cavity_area_m2" => {
+                self.cavity_area_m2 = value;
+                true
+            }
+            "cavity_h" => {
+                self.cavity_h = value;
+                true
+            }
+            "cavity_emissivity" => {
+                self.cavity_emissivity = value;
+                true
+            }
+            "zr_co2_heat_j_per_kg" => {
+                self.zr_co2_heat_j_per_kg = value;
+                true
+            }
+            "baf_m" => {
+                self.baf_m = value;
+                true
+            }
+            "lower_plenum_free" => {
+                self.lower_plenum_free = value;
+                true
+            }
+            "upper_free" => {
+                self.upper_free = value;
+                true
+            }
+            "core_other_area_m2" => {
+                self.core_other_area_m2 = value;
+                true
+            }
+            "normal_level_above_taf_m" => {
+                self.normal_level_above_taf_m = value;
+                true
+            }
+            "initial_pressure_pa" => {
+                self.initial_pressure_pa = value;
+                true
+            }
+            "msiv_closure_s" => {
+                self.msiv_closure_s = value;
+                true
+            }
+            "bypass_gain_kg_s_pa" => {
+                self.bypass_gain_kg_s_pa = value;
+                true
+            }
+            "relief_valves" => {
+                self.relief_valves = value;
+                true
+            }
+            "relief_open_pa" => {
+                self.relief_open_pa = value;
+                true
+            }
+            "relief_close_pa" => {
+                self.relief_close_pa = value;
+                true
+            }
+            "safety_open_pa" => {
+                self.safety_open_pa = value;
+                true
+            }
+            "safety_close_pa" => {
+                self.safety_close_pa = value;
+                true
+            }
+            "relief_throat_m2" => {
+                self.relief_throat_m2 = value;
+                true
+            }
+            "ic_autostart_pa" => {
+                self.ic_autostart_pa = value;
+                true
+            }
+            "ic_ua_w_per_k" => {
+                self.ic_ua_w_per_k = value;
+                true
+            }
+            "ic_shell_water_kg" => {
+                self.ic_shell_water_kg = value;
+                true
+            }
+            "fire_engine_shutoff_pa" => {
+                self.fire_engine_shutoff_pa = value;
+                true
+            }
+            "fire_engine_max_kg_s" => {
+                self.fire_engine_max_kg_s = value;
+                true
+            }
+            "injection_temperature_k" => {
+                self.injection_temperature_k = value;
+                true
+            }
+            "hot_leak_gas_k" => {
+                self.hot_leak_gas_k = value;
+                true
+            }
+            "hot_leak_m2" => {
+                self.hot_leak_m2 = value;
+                true
+            }
+            "msl_lines" => {
+                self.msl_lines = value;
+                true
+            }
+            "msl_inner_radius_m" => {
+                self.msl_inner_radius_m = value;
+                true
+            }
+            "msl_wall_m" => {
+                self.msl_wall_m = value;
+                true
+            }
+            "msl_insulation_h" => {
+                self.msl_insulation_h = value;
+                true
+            }
+            "msl_lm_a1" => {
+                self.msl_lm_a1 = value;
+                true
+            }
+            "msl_lm_b1" => {
+                self.msl_lm_b1 = value;
+                true
+            }
+            "msl_lm_c" => {
+                self.msl_lm_c = value;
+                true
+            }
+            "internals_kg" => {
+                self.internals_kg = value;
+                true
+            }
+            "internals_area_m2" => {
+                self.internals_area_m2 = value;
+                true
+            }
+            "internals_h" => {
+                self.internals_h = value;
+                true
+            }
+            "internals_loss_h" => {
+                self.internals_loss_h = value;
+                true
+            }
+            "lower_head_failure_k" => {
+                self.lower_head_failure_k = value;
+                true
+            }
+            "breach_m2" => {
+                self.breach_m2 = value;
+                true
+            }
+            "debris_quench_s" => {
+                self.debris_quench_s = value;
+                true
+            }
+            "quench_h" => {
+                self.quench_h = value;
+                true
+            }
+            "quench_tau_s" => {
+                self.quench_tau_s = value;
+                true
+            }
+            "lower_head_thickness_m" => {
+                self.lower_head_thickness_m = value;
+                true
+            }
+            "debris_to_head_w_m2_k" => {
+                self.debris_to_head_w_m2_k = value;
+                true
+            }
+            "core_plate_m" => {
+                self.core_plate_m = value;
+                true
+            }
+            "core_plate_beam_m" => {
+                self.core_plate_beam_m = value;
+                true
+            }
+            "water_emissivity" => {
+                self.water_emissivity = value;
+                true
+            }
+            "flpup" => {
+                self.flpup = value;
+                true
+            }
+            "control_rods" => {
+                self.control_rods = value;
+                true
+            }
+            "blade_steel_kg" => {
+                self.blade_steel_kg = value;
+                true
+            }
+            "blade_area_m2" => {
+                self.blade_area_m2 = value;
+                true
+            }
+            "ss_ox_a" => {
+                self.ss_ox_a = value;
+                true
+            }
+            "ss_ox_b" => {
+                self.ss_ox_b = value;
+                true
+            }
+            "ss_ox_min_k" => {
+                self.ss_ox_min_k = value;
+                true
+            }
+            "ss_melt_k" => {
+                self.ss_melt_k = value;
+                true
+            }
+            "ss_fusion_j_per_kg" => {
+                self.ss_fusion_j_per_kg = value;
+                true
+            }
+            "debris_k" => {
+                self.debris_k = value;
+                true
+            }
+            "fuel_melt_k" => {
+                self.fuel_melt_k = value;
+                true
+            }
+            "fuel_fusion_j_per_kg" => {
+                self.fuel_fusion_j_per_kg = value;
+                true
+            }
+            "concrete_oxide_fusion_j_per_mol" => {
+                self.concrete_oxide_fusion_j_per_mol = value;
+                true
+            }
+            "concrete_oxide_m" => {
+                self.concrete_oxide_m = value;
+                true
+            }
+            "bur_xh2ign" => {
+                self.bur_xh2ign = value;
+                true
+            }
+            "bur_xcoign" => {
+                self.bur_xcoign = value;
+                true
+            }
+            "bur_xo2ig" => {
+                self.bur_xo2ig = value;
+                true
+            }
+            "bur_xmscig" => {
+                self.bur_xmscig = value;
+                true
+            }
+            "bur_xh2cc" => {
+                self.bur_xh2cc = value;
+                true
+            }
+            "bur_xcocc" => {
+                self.bur_xcocc = value;
+                true
+            }
+            "bur_cc_slope" => {
+                self.bur_cc_slope = value;
+                true
+            }
+            "bur_cc_y0" => {
+                self.bur_cc_y0 = value;
+                true
+            }
+            "h2_combustion_j_per_mol" => {
+                self.h2_combustion_j_per_mol = value;
+                true
+            }
+            "co_combustion_j_per_mol" => {
+                self.co_combustion_j_per_mol = value;
+                true
+            }
+            "fdi_surface_tension" => {
+                self.fdi_surface_tension = value;
+                true
+            }
+            "fdi_hpme_velocity" => {
+                self.fdi_hpme_velocity = value;
+                true
+            }
+            "candling_uo2_fraction" => {
+                self.candling_uo2_fraction = value;
+                true
+            }
+            "pool_melt_k" => {
+                self.pool_melt_k = value;
+                true
+            }
+            "pool_nu_a" => {
+                self.pool_nu_a = value;
+                true
+            }
+            "pool_nu_n" => {
+                self.pool_nu_n = value;
+                true
+            }
+            "pool_k" => {
+                self.pool_k = value;
+                true
+            }
+            "pool_mu" => {
+                self.pool_mu = value;
+                true
+            }
+            "pool_beta" => {
+                self.pool_beta = value;
+                true
+            }
+            "pool_cp" => {
+                self.pool_cp = value;
+                true
+            }
+            "pool_rho" => {
+                self.pool_rho = value;
+                true
+            }
+            "blade_b4c_kg" => {
+                self.blade_b4c_kg = value;
+                true
+            }
+            "b4c_rate_a" => {
+                self.b4c_rate_a = value;
+                true
+            }
+            "b4c_rate_b" => {
+                self.b4c_rate_b = value;
+                true
+            }
+            "b4c_max_fraction" => {
+                self.b4c_max_fraction = value;
+                true
+            }
+            "ss_x_fe" => {
+                self.ss_x_fe = value;
+                true
+            }
+            "ss_x_cr" => {
+                self.ss_x_cr = value;
+                true
+            }
+            "ss_x_ni" => {
+                self.ss_x_ni = value;
+                true
+            }
+            "penetration_wall_m" => {
+                self.penetration_wall_m = value;
+                true
+            }
+            "corsor_k0_per_min" => {
+                self.corsor_k0_per_min = value;
+                true
+            }
+            "corsor_q_kcal_per_mol" => {
+                self.corsor_q_kcal_per_mol = value;
+                true
+            }
+            "corsor_uo2_k0_per_min" => {
+                self.corsor_uo2_k0_per_min = value;
+                true
+            }
+            "corsor_uo2_q_kcal_per_mol" => {
+                self.corsor_uo2_q_kcal_per_mol = value;
+                true
+            }
+            "cs_inventory_kg" => {
+                self.cs_inventory_kg = value;
+                true
+            }
+            "i_inventory_kg" => {
+                self.i_inventory_kg = value;
+                true
+            }
+            "te_inventory_kg" => {
+                self.te_inventory_kg = value;
+                true
+            }
+            "dw_floor_m2" => {
+                self.dw_floor_m2 = value;
+                true
+            }
+            "ww_pool_surface_m2" => {
+                self.ww_pool_surface_m2 = value;
+                true
+            }
+            "head_failure_wall_k" => {
+                self.head_failure_wall_k = value;
+                true
+            }
+            "lm_p0" => {
+                self.lm_p0 = value;
+                true
+            }
+            "lm_slope" => {
+                self.lm_slope = value;
+                true
+            }
+            "lm_c" => {
+                self.lm_c = value;
+                true
+            }
+            "creep_fail_strain" => {
+                self.creep_fail_strain = value;
+                true
+            }
+            "debris_porosity" => {
+                self.debris_porosity = value;
+                true
+            }
+            "debris_particle_m" => {
+                self.debris_particle_m = value;
+                true
+            }
+            "lp_bottom_level_m" => {
+                self.lp_bottom_level_m = value;
+                true
+            }
+            "breach_diameter_m" => {
+                self.breach_diameter_m = value;
+                true
+            }
+            "zr_melt_k" => {
+                self.zr_melt_k = value;
+                true
+            }
+            "clad_breach_k" => {
+                self.clad_breach_k = value;
+                true
+            }
+            "min_metal_m" => {
+                self.min_metal_m = value;
+                true
+            }
+            "rod_collapse_k" => {
+                self.rod_collapse_k = value;
+                true
+            }
+            "rod_collapse_max_k" => {
+                self.rod_collapse_max_k = value;
+                true
+            }
+            "damage_a" => {
+                self.damage_a = value;
+                true
+            }
+            "damage_b" => {
+                self.damage_b = value;
+                true
+            }
+            "assembly_pitch_m" => {
+                self.assembly_pitch_m = value;
+                true
+            }
+            "radial_exchange" => {
+                self.radial_exchange = value;
+                true
+            }
+            "axial_exchange" => {
+                self.axial_exchange = value;
+                true
+            }
+            "shroud_thickness_m" => {
+                self.shroud_thickness_m = value;
+                true
+            }
+            "zro2_density" => {
+                self.zro2_density = value;
+                true
+            }
+            "bubble_rise_m_s" => {
+                self.bubble_rise_m_s = value;
+                true
+            }
+            "max_pool_void" => {
+                self.max_pool_void = value;
+                true
+            }
+            "fission_share_u235" => {
+                self.fission_share_u235 = value;
+                true
+            }
+            "fission_share_pu239" => {
+                self.fission_share_pu239 = value;
+                true
+            }
+            "operating_time_s" => {
+                self.operating_time_s = value;
+                true
+            }
+            "fissions_per_fissile_atom" => {
+                self.fissions_per_fissile_atom = value;
+                true
+            }
+            "q_u235_mev" => {
+                self.q_u235_mev = value;
+                true
+            }
+            "q_pu239_mev" => {
+                self.q_pu239_mev = value;
+                true
+            }
+            "q_u238_mev" => {
+                self.q_u238_mev = value;
+                true
+            }
+            "u239_per_fission" => {
+                self.u239_per_fission = value;
+                true
+            }
+            "e_u239_mev" => {
+                self.e_u239_mev = value;
+                true
+            }
+            "e_np239_mev" => {
+                self.e_np239_mev = value;
+                true
+            }
+            "u239_decay_per_s" => {
+                self.u239_decay_per_s = value;
+                true
+            }
+            "np239_decay_per_s" => {
+                self.np239_decay_per_s = value;
+                true
+            }
+            "uh_low_a" => {
+                self.uh_low_a = value;
+                true
+            }
+            "uh_low_b_k" => {
+                self.uh_low_b_k = value;
+                true
+            }
+            "uh_high_a" => {
+                self.uh_high_a = value;
+                true
+            }
+            "uh_high_b_k" => {
+                self.uh_high_b_k = value;
+                true
+            }
+            "uh_low_max_k" => {
+                self.uh_low_max_k = value;
+                true
+            }
+            "uh_high_min_k" => {
+                self.uh_high_min_k = value;
+                true
+            }
+            "oxidation_min_k" => {
+                self.oxidation_min_k = value;
+                true
+            }
+            "h2o_h2_diffusivity_a" => {
+                self.h2o_h2_diffusivity_a = value;
+                true
+            }
+            "h2o_h2_diffusivity_b" => {
+                self.h2o_h2_diffusivity_b = value;
+                true
+            }
+            "oxidation_heat_j_per_kg_zr" => {
+                self.oxidation_heat_j_per_kg_zr = value;
+                true
+            }
+            "drywell_volume_m3" => {
+                self.drywell_volume_m3 = value;
+                true
+            }
+            "dw_wall_area_m2" => {
+                self.dw_wall_area_m2 = value;
+                true
+            }
+            "dw_wall_h" => {
+                self.dw_wall_h = value;
+                true
+            }
+            "dw_wall_c" => {
+                self.dw_wall_c = value;
+                true
+            }
+            "dw_wall_height_m" => {
+                self.dw_wall_height_m = value;
+                true
+            }
+            "dw_gap_m" => {
+                self.dw_gap_m = value;
+                true
+            }
+            "dw_gap_emissivity" => {
+                self.dw_gap_emissivity = value;
+                true
+            }
+            "dw_concrete_m" => {
+                self.dw_concrete_m = value;
+                true
+            }
+            "concrete_k" => {
+                self.concrete_k = value;
+                true
+            }
+            "rb_wall_h" => {
+                self.rb_wall_h = value;
+                true
+            }
+            "ww_shell_area_m2" => {
+                self.ww_shell_area_m2 = value;
+                true
+            }
+            "ww_shell_c" => {
+                self.ww_shell_c = value;
+                true
+            }
+            "ww_shell_height_m" => {
+                self.ww_shell_height_m = value;
+                true
+            }
+            "wetwell_gas_m3" => {
+                self.wetwell_gas_m3 = value;
+                true
+            }
+            "pool_water_m3" => {
+                self.pool_water_m3 = value;
+                true
+            }
+            "containment_design_pa" => {
+                self.containment_design_pa = value;
+                true
+            }
+            "initial_containment_pa" => {
+                self.initial_containment_pa = value;
+                true
+            }
+            "initial_drywell_k" => {
+                self.initial_drywell_k = value;
+                true
+            }
+            "initial_pool_k" => {
+                self.initial_pool_k = value;
+                true
+            }
+            "vent_submergence_pa" => {
+                self.vent_submergence_pa = value;
+                true
+            }
+            "downcomer_area_m2" => {
+                self.downcomer_area_m2 = value;
+                true
+            }
+            "downcomer_count" => {
+                self.downcomer_count = value;
+                true
+            }
+            "discharge_coefficient" => {
+                self.discharge_coefficient = value;
+                true
+            }
+            "vacuum_breaker_pa" => {
+                self.vacuum_breaker_pa = value;
+                true
+            }
+            "vacuum_breaker_m2" => {
+                self.vacuum_breaker_m2 = value;
+                true
+            }
+            "vent_rupture_disk_pa" => {
+                self.vent_rupture_disk_pa = value;
+                true
+            }
+            "vent_area_m2" => {
+                self.vent_area_m2 = value;
+                true
+            }
+            "flange_leak_pa" => {
+                self.flange_leak_pa = value;
+                true
+            }
+            "flange_leak_m2" => {
+                self.flange_leak_m2 = value;
+                true
+            }
+            "reactor_building_m3" => {
+                self.reactor_building_m3 = value;
+                true
+            }
+            "h2_flammable" => {
+                self.h2_flammable = value;
+                true
+            }
+            "h2_explosion" => {
+                self.h2_explosion = value;
+                true
+            }
+            "rcic_rated_kg_s" => {
+                self.rcic_rated_kg_s = value;
+                true
+            }
+            "hpci_rated_kg_s" => {
+                self.hpci_rated_kg_s = value;
+                true
+            }
+            "pump_efficiency" => {
+                self.pump_efficiency = value;
+                true
+            }
+            "turbine_efficiency" => {
+                self.turbine_efficiency = value;
+                true
+            }
+            "turbine_min_pa" => {
+                self.turbine_min_pa = value;
+                true
+            }
+            "level_l2_above_taf_m" => {
+                self.level_l2_above_taf_m = value;
+                true
+            }
+            "level_l8_above_taf_m" => {
+                self.level_l8_above_taf_m = value;
+                true
+            }
+            "msl_nozzle_above_taf_m" => {
+                self.msl_nozzle_above_taf_m = value;
+                true
+            }
+            "carryover_band_m" => {
+                self.carryover_band_m = value;
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 // ── Units 2 and 3 (gh:#1101) ────────────────────────────────────────────────

@@ -2083,6 +2083,50 @@ pub fn pack_in_ball(
     })
 }
 
+/// **Exactly `n` whole particles packed at random in a ball** (gh:#1243):
+/// the centres of the first `n` particles RSA placed wholly inside a ball of
+/// `radius`, in the order RSA placed them.
+///
+/// For a model that must hold a given particle count (the HTR-10 fuel zone's
+/// 8335, which its regular lattice also holds), not a given fraction:
+/// [`pack_in_ball`] hits a fraction to 0.2 %, which would change the fuel
+/// mass. This asks [`pack_in_ball`] for a little more than `n` (2 % over,
+/// raised until enough are kept) and keeps the first `n`. RSA adds particles
+/// one at a time at uniformly random free positions, so stopping its sequence
+/// after `n` is RSA run to `n`: the kept set is an RSA packing, not a biased
+/// subset. Deterministic in `(particle_radius, radius, n, seed)`.
+///
+/// # Errors
+/// [`DhError::Packing`] if RSA cannot place `n` whole particles (a fraction
+/// near RSA's jamming limit), or `n` is zero.
+pub fn pack_count_in_ball(
+    particle_radius: f64,
+    radius: f64,
+    n: usize,
+    seed: u64,
+) -> Result<Vec<Position>, DhError> {
+    if n == 0 {
+        return Err(DhError::Packing("asked for no particles".into()));
+    }
+    let unit = (particle_radius / radius).r_powi(3);
+    let mut over = 1.02;
+    for _ in 0..8 {
+        let target = n as f64 * unit * over;
+        if target > 0.38 {
+            break;
+        }
+        let packed = pack_in_ball(particle_radius, radius, target, seed)?;
+        let kept = packed.packing.spheres();
+        if kept.len() >= n {
+            return Ok(kept[..n].iter().map(|s| s.center).collect());
+        }
+        over *= 1.0 + 1.5 * (n as f64 / kept.len() as f64 - 1.0).max(0.01);
+    }
+    Err(DhError::Packing(format!(
+        "RSA could not place {n} whole particles of radius {particle_radius} cm in a ball of {radius} cm"
+    )))
+}
+
 /// Volume-homogenise the five TRISO layers into one particle material.
 /// Build the **kernel-level** CLS medium for a TRISO pebble: the inclusion is
 /// the fuel kernel at full density, and the matrix is the four coating layers
@@ -2178,6 +2222,34 @@ fn homogenise_particle(materials: &[Material], spec: TrisoSpec) -> Result<Materi
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **Exactly n whole, non-overlapping particles** (gh:#1243): the HTR-10
+    /// fuel zone's 8335 particles of 0.0455 cm in a 2.5 cm ball, every one
+    /// wholly inside, no two overlapping (all pairs checked), the same
+    /// centres for the same seed and other centres for another.
+    #[test]
+    fn pack_count_in_ball_places_exactly_n_whole_particles() {
+        let (r, big, n) = (0.0455, 2.5, 8335);
+        let a = pack_count_in_ball(r, big, n, 7).expect("pack");
+        assert_eq!(a.len(), n);
+        assert!(a.iter().all(|c| is_whole_in_ball(*c, r, big)));
+        let mut sorted: Vec<&Position> = a.iter().collect();
+        sorted.sort_by(|p, q| p.x.total_cmp(&q.x));
+        for (i, p) in sorted.iter().enumerate() {
+            for q in &sorted[i + 1..] {
+                if q.x - p.x >= 2.0 * r {
+                    break;
+                }
+                let d2 = (p.x - q.x).r_powi(2) + (p.y - q.y).r_powi(2) + (p.z - q.z).r_powi(2);
+                assert!(d2 >= (2.0 * r).r_powi(2) * (1.0 - 1e-12), "overlap");
+            }
+        }
+        let b = pack_count_in_ball(r, big, n, 7).expect("pack");
+        assert!(a.iter().zip(&b).all(|(p, q)| p.x.to_bits() == q.x.to_bits()));
+        let c = pack_count_in_ball(r, big, n, 8).expect("pack");
+        assert!(a.iter().zip(&c).any(|(p, q)| p.x.to_bits() != q.x.to_bits()));
+        assert!(pack_count_in_ball(r, big, 0, 7).is_err());
+    }
     use crate::material::material::NuclideComponent;
 
     /// Seven graphite-ish materials in the index order [`DhUniverse::pebble`]

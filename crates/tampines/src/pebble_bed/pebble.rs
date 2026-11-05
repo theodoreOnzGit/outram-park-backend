@@ -839,24 +839,19 @@ mod tests {
     use uom::si::volume::cubic_centimeter;
 
     /// Asserts that `measured` matches `expected` to within `max_relative`
-    /// relative error. See the identical macro in [`super::super::triso`] for
+    /// relative error. See the identical helper in [`super::super::triso`] for
     /// why `tampines` does not use the `approx` crate here.
-    macro_rules! assert_relative_eq {
-        ($expected:expr, $measured:expr, max_relative = $tolerance:expr) => {{
-            let expected: f64 = $expected;
-            let measured: f64 = $measured;
-            let relative_error = if expected == 0.0 {
-                measured.abs()
-            } else {
-                ((measured - expected) / expected).abs()
-            };
-            assert!(
-                relative_error < $tolerance,
-                "expected {expected}, measured {measured}, relative error \
-                 {relative_error:e} exceeds {}",
-                $tolerance
-            );
-        }};
+    fn assert_relative_eq(expected: f64, measured: f64, max_relative: f64) {
+        let relative_error = if expected == 0.0 {
+            measured.abs()
+        } else {
+            ((measured - expected) / expected).abs()
+        };
+        assert!(
+            relative_error < max_relative,
+            "expected {expected}, measured {measured}, relative error \
+             {relative_error:e} exceeds {max_relative}"
+        );
     }
 
     /// V&V test: the published HTR-10 particle count follows from the
@@ -921,7 +916,7 @@ mod tests {
              (deviation {:.4}%)",
             100.0 * (count - 8335.0) / 8335.0
         );
-        assert_relative_eq!(8335.0, count, max_relative = 1e-3);
+        assert_relative_eq(8335.0, count, 1e-3);
     }
 
     /// V&V test: the HTR-10 particle volume fraction of the fuelled zone.
@@ -958,7 +953,7 @@ mod tests {
              total particle volume {} cm^3, volume fraction {measured}",
             8335.0 * particle_cm3
         );
-        assert_relative_eq!(hand_fraction, measured, max_relative = 1e-12);
+        assert_relative_eq(hand_fraction, measured, 1e-12);
         assert!(measured < 0.2, "HTR-10 dispersion should be dilute");
     }
 
@@ -1044,10 +1039,10 @@ mod tests {
                                  [{series_bound}, {parallel_bound}]"
                             );
                             if kappa == 1.0 {
-                                assert_relative_eq!(
+                                assert_relative_eq(
                                     k_matrix_value,
                                     effective,
-                                    max_relative = 1e-12
+                                    1e-12
                                 );
                             }
                         }
@@ -1219,7 +1214,7 @@ mod tests {
             shell_term.value
         );
         assert_eq!(shell_term.value, 0.0);
-        assert_relative_eq!(analytic, measured, max_relative = 1e-12);
+        assert_relative_eq(analytic, measured, 1e-12);
     }
 
     /// V&V test: zero power gives a uniform pebble, kernel included.
@@ -1445,7 +1440,7 @@ mod tests {
             "a = R: centre rise {centre_rise:.6} K, volume-average rise {average_rise:.6} K, \
              mean/centre {mean_to_centre:.16} (analytic 2/5)"
         );
-        assert_relative_eq!(0.4, mean_to_centre, max_relative = 1e-12);
+        assert_relative_eq(0.4, mean_to_centre, 1e-12);
     }
 
     /// V&V test: the HTR-10 pebble's **volume-average** temperature at

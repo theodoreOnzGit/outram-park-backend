@@ -71,7 +71,13 @@ fn retire_unretire_cycles_keep_every_event() {
     assert_eq!(kinds, vec![Created, Retired, Unretired, Retired, Unretired]);
 
     let reg = founder_with(vec![k1.clone()]);
-    assert!(reg.warnings().is_empty(), "{:?}", reg.warnings());
+    // GitHub #1249: unsigned retirements from before the cut-off still
+    // count, and are shown (they were silent before).
+    assert_eq!(
+        history_warnings(&reg, FOUNDER, "k1"),
+        vec![HistoryProblem::UnsignedRetirementLegacy { index: 1 }, HistoryProblem::UnsignedRetirementLegacy { index: 3 }]
+    );
+    assert_eq!(reg.warnings().len(), 2, "{:?}", reg.warnings());
     let kt = reg.reviewer(FOUNDER).unwrap().key("k1").unwrap();
     assert!(!kt.is_retired());
     assert_eq!(
@@ -134,7 +140,11 @@ fn unretire_needs_possession() {
         assert!(reg.reviewer(FOUNDER).unwrap().key("k1").unwrap().is_retired());
         assert_eq!(
             history_warnings(&reg, FOUNDER, "k1"),
-            vec![HistoryProblem::BadEventSignature { index: 2, event: KeyEventKind::Unretired, problem: want }]
+            vec![
+                HistoryProblem::BadEventSignature { index: 2, event: KeyEventKind::Unretired, problem: want },
+                // GitHub #1249: the unsigned (pre-cut-off) retirement, flagged.
+                HistoryProblem::UnsignedRetirementLegacy { index: 1 },
+            ]
         );
         assert!(!verify_review(&signed(&old, F, "2026-10-20"), &reg).is_verified());
     }
@@ -189,7 +199,10 @@ fn tampered_entries_show_in_warnings() {
     assert!(kt.is_retired());
     assert!(matches!(
         history_warnings(&reg, FOUNDER, "k3")[..],
-        [HistoryProblem::BadEventSignature { index: 3, event: KeyEventKind::Unretired, .. }]
+        [
+            HistoryProblem::BadEventSignature { index: 3, event: KeyEventKind::Unretired, .. },
+            HistoryProblem::UnsignedRetirementLegacy { index: 2 }
+        ]
     ));
     // Deleting the retirement leaves an un-retirement with nothing open.
     let mut deleted = k3.clone();
@@ -209,6 +222,9 @@ fn tampered_entries_show_in_warnings() {
             HistoryProblem::OutOfOrder { index: 1 },
             HistoryProblem::RetiredWhileRetired { index: 2 },
             HistoryProblem::CreatedNotFirst { index: 3 },
+            // GitHub #1249: both unsigned, pre-cut-off retirements, flagged.
+            HistoryProblem::UnsignedRetirementLegacy { index: 1 },
+            HistoryProblem::UnsignedRetirementLegacy { index: 2 },
         ]
     );
     let mut no_created = k1.clone();
@@ -216,13 +232,20 @@ fn tampered_entries_show_in_warnings() {
     let reg = founder_with(vec![no_created]);
     assert_eq!(
         history_warnings(&reg, FOUNDER, "k1"),
-        vec![HistoryProblem::MissingCreated, HistoryProblem::BadDate { index: 0, date: "then".into() }]
+        vec![
+            HistoryProblem::MissingCreated,
+            HistoryProblem::BadDate { index: 0, date: "then".into() },
+            // GitHub #1249: an unsigned retirement with a malformed date is
+            // not an old one (kovan never wrote one), so it has no effect.
+            HistoryProblem::RetirementNoEffect { index: 0, problem: SignerProblem::Unsigned },
+        ]
     );
-    // A malformed retirement date voids the key from the start.
-    assert_eq!(
-        unverified(verify_review(&signed(&u1, F, "2026-01-01"), &reg)),
-        UnverifiedReason::KeyRetired { key: "k1".into(), since: None }
-    );
+    // ~~A malformed retirement date voids the key from the start.~~
+    // CORRECTED 2026-11-05 (GitHub #1249): a retirement with a malformed
+    // date is not an old one (kovan never wrote one; the v1 undated form
+    // migrates to "" and still voids from the start), and kovan cannot sign
+    // one, so it has no effect.
+    assert!(verify_review(&signed(&u1, F, "2026-01-01"), &reg).is_verified());
 
     // `admitted` belongs on the first key only.
     let (founder, f, mut alice, _a) = founder_and_alice();
@@ -439,11 +462,15 @@ fn legacy_v1_fields_migrate_into_history() {
     let reg = Registry::build(&loaded);
     assert_eq!(
         reg.warnings(),
-        vec![Warning::KeyReset {
-            reviewer: FOUNDER.into(),
-            key: "k3".into(),
-            status: KeyStatus::ResetTrustedOnFirstUse
-        }]
+        vec![
+            // GitHub #1249: the v1 unsigned retirement still counts, flagged.
+            Warning::KeyHistory {
+                reviewer: FOUNDER.into(),
+                key: "k1".into(),
+                problem: HistoryProblem::UnsignedRetirementLegacy { index: 1 }
+            },
+            Warning::KeyReset { reviewer: FOUNDER.into(), key: "k3".into(), status: KeyStatus::ResetTrustedOnFirstUse }
+        ]
     );
     let r = reg.reviewer(FOUNDER).unwrap();
     assert_eq!(r.key("k2").unwrap().status, KeyStatus::Endorsed { by_reviewer: FOUNDER.into(), by_key: "k1".into() });
@@ -494,7 +521,10 @@ fn legacy_v1_fields_migrate_into_history() {
     assert_eq!(conflicts.len(), 1);
     assert_eq!((conflicts[0].reviewer.as_str(), conflicts[0].key.as_str()), (FOUNDER, "k1"));
     let reg = Registry::build(&r);
-    assert_eq!(history_warnings(&reg, FOUNDER, "k1"), vec![HistoryProblem::LegacyFieldsIgnored]);
+    assert_eq!(
+        history_warnings(&reg, FOUNDER, "k1"),
+        vec![HistoryProblem::LegacyFieldsIgnored, HistoryProblem::UnsignedRetirementLegacy { index: 1 }]
+    );
     assert!(!reg.reviewer(FOUNDER).unwrap().key("k1").unwrap().is_retired());
     r.migrate_key_history();
     assert!(r.reviewers[0].keys[0].retired, "conflicting legacy fields are kept, not merged");

@@ -28,7 +28,7 @@ use outram_mc_libs::material::material::Material;
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::vv::hst009 as model;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Hst009;
 
 /// `(label shown, nuclide name, tape)` in [`model::NUCLIDES`] order.
@@ -143,13 +143,13 @@ impl McRung for Hst009 {
         painter.circle_filled(o, model::R_REFLECTOR as f32 * s, WATER);
         painter.circle_filled(o, model::R_TANK as f32 * s, TANK);
         painter.circle_filled(o, model::R_SOLUTION as f32 * s, SOLUTION);
-        painter.circle_stroke(o, model::R_REFLECTOR as f32 * s, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)));
+        painter.circle_stroke(o, model::R_REFLECTOR as f32 * s, Stroke::new(1.5, bugis::Ink::of_ctx(painter.ctx()).accent(3)));
         painter.text(
             o + Vec2::new(0.0, -(model::R_REFLECTOR as f32) * s - 6.0),
             egui::Align2::CENTER_BOTTOM,
             format!("solution r = {} cm · Al tank to {} cm · water to {} cm · vacuum outside", model::R_SOLUTION, model::R_TANK, model::R_REFLECTOR),
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(190, 170, 230),
+            bugis::Ink::of_ctx(painter.ctx()).accent(3),
         );
     }
     fn notes() -> &'static [&'static str] {
@@ -180,7 +180,7 @@ impl McRung for Hst009 {
         crate::keff::five_route_reference(
             "hst009",
             "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-10-15, at 50911476b7, with U-236",
-            crate::route1_label!("32 seeds x 5000 x [40+120]"),
+            crate::keff::ROUTE1_LABEL_32X5000,
             5000.0 * 120.0,
             ("ICSBEP HEU-SOL-THERM-009 case 1 benchmark k, as tabulated by van der Marck (2006)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )

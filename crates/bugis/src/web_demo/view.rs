@@ -3,7 +3,7 @@
 //! bar (mobile-first rule, items 1, 2 and 5).
 
 use petir::mathf::RealMath;
-use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
+use egui::{Pos2, Rect, RichText, Stroke, Vec2};
 
 /// World (cm, y up) to screen (pixels, y down) for a 2D picture centred on a
 /// subject of known half-width.
@@ -198,7 +198,8 @@ pub fn scale_bar_sized(painter: &egui::Painter, rect: Rect, view: &View, text_px
     let x0 = rect.left() + 16.0;
     let y0 = rect.bottom() - 12.0;
     let x1 = x0 + (bar_cm * view.scale) as f32;
-    painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, Color32::WHITE));
+    let ink = crate::Ink::of_ctx(painter.ctx()).text;
+    painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, ink));
     let label = if bar_cm < 0.1 { format!("{:.0} µm", bar_cm * 1e4) } else { format!("{bar_cm} cm") };
-    painter.text(Pos2::new(x0, y0 - 4.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(text_px), Color32::WHITE);
+    painter.text(Pos2::new(x0, y0 - 4.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(text_px), ink);
 }

@@ -137,8 +137,8 @@ silently.** It aims to be **tamper-evident, not tamper-proof**:
   desktop kovan, and by `kovan-cli review ivv` (read-only); desktop kovan's
   Code Review tab signs the records (~~"Organisations & IV&V" window~~
   **CORRECTED 2026-11-04**, gh #1211: sections of Code Review ▸ User
-  management; organisation records and their retirements signed by the
-  founder only, attestations by the reviewer; records signed earlier by
+  management; organisation records and their retirements signed by ~~the
+  founder~~ a founder (GitHub #1248: founders are a list) only, attestations by the reviewer; records signed earlier by
   another maintainer still count) and its stamp
   dialog names the attestation a review relies on. Concept areas are not
   resolved by kovan yet, so no function reaches rung 5 in those views.
