@@ -1685,7 +1685,11 @@ p90, max; count above 65°).
 | | centre E / C | 3 921 | 1 460 | 1 132 / 164 | 7.1 / 32.9 | 0.0 / 7.9 / 11.0 (C: 13.8), 0 | 0.88 | 1.00000 | 1.00000 |
 
 All closed and valid; fingerprints identical across processes for every
-row. (The h 6 mm corner row carries gh:#1215's note "34 boundary points
+row. **CORRECTED 2026-11-05 (gh:#1241):** the "inlet/πR²" column is
+Σ|S_f| over the inlet faces, which counts a bent face's tilt as area; the
+projected section |Σ S_f·ẑ|/πR² of the `C` rows is 0.95583 (h 4, not
+1.00816), 0.98287 (h 5, planar, the same) and 0.94786 (h 6, not
+0.98572). See the gh:#1241 section. (The h 6 mm corner row carries gh:#1215's note "34 boundary points
 left unmapped" by the feature-edge capture; the C rows at h 4 and h 6 mm
 carry 128 and 64.)
 
@@ -1956,6 +1960,68 @@ pipes, both per-point kinds:
 Not expected: any change at all with `correct_edges` off (every
 existing pin unchanged), or on the per-corner default.
 
+**What was built.** `outram-park-fork-cfmesh::correct_edges` (the three
+steps above, upstream file and commit in its header) and
+`TetDualOptions::correct_edges` (off by default). Upstream runs it on a
+boundary already mapped onto the surface (`tetMeshGenerator::
+mapMeshToSurface`: every boundary point to its nearest surface point,
+then `untangleSurface`), with the patches `edgeExtractor` assigned, and
+the patch mapper reads those patches. The port does the same in that
+order: `surface_mapper::map_vertices_onto_surface_untangled` (the
+pre-map; `untangleSurface` is not ported, so a cell it tangles keeps its
+points), the nearest-triangle patches, `correct_edges_between_patches`
+(children keep the parent's patch), then the mapper with those patches
+(`map_vertices_onto_surface_patches_untangled_given`). The first run
+showed pyramids inverted (the apex, the vertex average of a non-convex
+rim cell, outside it); upstream leaves that to the final optimiser
+(`optimiseFinalMesh`, `untangleMeshFV` 10 / 50 / 2), which the port runs
+right after the capture (only interior points move: the LP untangler and
+the boundary moves are not ported).
+
+**Results (2026-11-05,** `diagnose_corners_rim` with
+`CFMESH_STEPS=1`; per-point and cell-centre give the same boundary):
+
+| h | `correct_edges` | concave faces / faces split / fanned / cells → pyramids | cells (point, centre) | reverted | \|Σ S·ẑ\|/πR² | Σ\|S\|/πR² | V/πR²L | meshing (s) |
+|---|---|---|---|---|---|---|---|---|
+| 4 | off | — | 6 353 | 128 | 0.95583 | 1.00816 | 0.99122 | 0.4 |
+| 4 | on | 32 / 56 / 272 (point), 128 (centre) / 40 | 6 353 (**the capture is rejected**: 16 / 11 cells still inverted after `untangleMeshFV`, so the mesh is the uncaptured one) | — | 0.92496 | 0.96468 | 0.97207 | 330 / 232 |
+| 5 | off | — | 3 113 | 0 | 0.98287 | 0.98287 | 0.98887 | 0.1 |
+| 5 | on | 0 / 8 / 128, 48 / 8 | 4 305, 3 593 | 0 | **0.98094** | 0.98094 | 0.98888 | 0.2 |
+| 6 | off | — | 1 939 | 64 | 0.94786 | 0.98572 | 0.98081 | 0.5 |
+| 6 | on | 4 / 20 / 148, 12 / 72 / 15, 19 | 3 348, 2 701 | 56, 60 | **0.95138** | 0.95205 | 0.98155 | 32 / 13 |
+
+**Against the predictions:** concave faces 0 — **missed** (4–32: the
+pre-mapped rim is a zigzag of wall faces folded onto the inlet, whose
+feature edges are partly concave); faces split = candidates ± 10 % —
+missed low (16–56 of 24–72: the pre-map changes the patches, and the
+concave step splits some first); reverted 128 → 0–20 and 64 → 0–10 —
+**missed** (h 4: the capture is rejected outright, worse than before;
+h 6: 56–60); inlet 0.985–0.993 (h 4) and 0.970–0.988 (h 6) — **missed**
+(0.925 and 0.951); h 5 unchanged ± 0.002 — missed by 0.0019 low; cells
+up — held where the capture is kept; max non-orthogonality up — held
+(h 6: 57° → 74–82°).
+
+**Reading it.** The port is upstream's algorithm (the unit tests pin
+`patchCorrection` by hand on a cube, and a box is left alone), and it
+does what upstream's code says; it does not repair this rim, for two
+reasons that are not in `correctEdgesBetweenPatches`: (a) at every h the
+`Corners` rim is a chain of chords between tet-edge midpoints that
+misses the 48-gon's corners (h 5: 44 chords, all vertices at r 9.979–
+9.993 mm, the inlet planar and still −1.7 %), and no topology step adds
+a rim vertex; `OnFeatureEdge` keeps the rim points and its inlet is
+0.991 at h 5; (b) at h 4 and 6 mm the mapped rim cells tangle, and what
+upstream untangles them with (`untangleSurface`, the LP `meshUntangler`
+and `untangleMeshFV`'s boundary moves) is not ported. Kept off by
+default (it also costs 13–330 s); `TetDualOptions::correct_edges`
+keeps it callable. **The gh:#1240 table's "inlet/πR²" for `Corners` is
+corrected above**: it is Σ|S_f| (1.00816 at h 4), the projected section
+the flow sees is 0.95583.
+
+Tests: `correct_edges::tests::{patch_correction_splits_a_face_with_two_feature_edges_at_an_edge_point,
+a_box_is_left_alone_and_pyramids_conserve_volume, face_centre_matches_openfoam_on_simple_faces}`,
+`pipeline::tests::correct_edges_runs_in_the_pipeline_and_is_off_by_default`
+(L 60 mm, h 6 mm: 605 → 1 727 cells, closed, none inverted).
+
 ### Item 2: the BackOffOnly 3-layer divergence
 
 **Predictions (written 2026-11-05, before the diagnostic's first run).**
@@ -2042,6 +2108,15 @@ the same order twice). With `BTreeSet` / `BTreeMap` (cells in
 count is unchanged (the leaf *set* does not depend on the order), and the
 default meshes (`refinement_levels = 0`) are untouched, the unstructured
 default's fingerprint included.
+
+**Results (2026-11-05,** `pipeline::tests::octree_path_is_pinned_bit_for_bit`,
+three separate processes each): before the change, a 1 m box at 0.25 m
+with 2 levels (2 528 cells) and the L 60 mm pipe at h 6 mm with one level
+(664 cells) gave **three different fingerprints each** (box
+7249328437174530281, 11578423670580479500, 9835399971238429003); after,
+the same pair three times (16070505555120789497, 24335298658873933),
+now pinned. Cell counts equal before and after. Held. The defaults: see
+the end of this section.
 
 ## Reproduce
 

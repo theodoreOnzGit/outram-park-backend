@@ -77,8 +77,11 @@ depends on it.
 **Reproducibility is pinned across processes, not just within one.** A test
 that runs the pipeline twice in one process cannot see `HashMap` iteration
 order (seeded per process); `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
-asserts fingerprints recorded once. `octree.rs` still numbers cells in
-`HashSet` order (the `refinement_levels > 0` path): not yet fixed.
+asserts fingerprints recorded once. ~~`octree.rs` still numbers cells in
+`HashSet` order (the `refinement_levels > 0` path): not yet fixed.~~
+**FIXED 2026-11-05 (gh:#1241):** the octree's leaves are a `BTreeSet`;
+`pipeline::tests::octree_path_is_pinned_bit_for_bit` pins it (before the
+fix three processes gave three fingerprints).
 
 ## The dual's boundary faces: three dual kinds, kept side by side (gh:#1240, 2026-11-04)
 
