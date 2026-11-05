@@ -860,10 +860,21 @@ carries their copyright lines in its header.
                  Marc Chamberland (.h); Ernesto Mainegra-Hing, Frederic
                  Tessier, Blake Walters, Reid Townson (.cpp)
 
+  src/interp_egs.rs       <- HEN_HOUSE/egs++/egs_interpolator.h, .cpp
+                             (EGS_Interpolator) and `loopMax` from
+                             HEN_HOUSE/egs++/egs_functions.h
+    Copyright  : "Copyright (C) 2015 National Research Council Canada"
+    Author     : Iwan Kawrakow, 2005
+    Contributors (as the headers list them): Ernesto Mainegra-Hing,
+                 Reid Townson
+
   The ported files are AGPL-3.0-only, exercising the "or later" option by
   choosing version 3; the crate already conveys as an AGPL-3.0-only combined
   work (gh:#973). The flow is ONE-WAY. Verified bit-identical against
-  upstream compiled and run: verification_and_validation/egsnrc_alias_table/.
+  upstream compiled and run: verification_and_validation/egsnrc_alias_table/
+  and verification_and_validation/egsnrc_interpolator/. Deviations from
+  upstream are listed in each file (none changes an output wherever
+  upstream's behaviour is defined).
 
 ================================================================================
 NOT AFFILIATED

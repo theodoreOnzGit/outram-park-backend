@@ -425,6 +425,26 @@ forbids). That is a separate question from porting a pure-Rust routine out of
 it, which is fine and is what `dense.rs` did — do not conflate the two, as an
 earlier session did.
 
+### EGSnrc's fast interpolator (2026-11-05)
+
+`src/interp_egs.rs` ports EGSnrc's `EGS_Interpolator`
+(`HEN_HOUSE/egs++/egs_interpolator.{h,cpp}`, commit `bd49a47a`,
+AGPL-3.0-or-later, NRC). **Maintainer direction: gh:#1289.** It binds future
+work as follows:
+
+- **It is additive and must not be merged with `interp`.** GSL's linear
+  interpolant searches arbitrary knots and refuses extrapolation; EGSnrc's
+  uses uniform bins, precomputed `a[i] + b[i]*x` and clamps out of range.
+- **Pinned bit for bit against upstream compiled and run**:
+  `tests/egs_interpolator_vs_egsnrc.rs`, 13 cases, every coefficient, every
+  function-call abscissa and 5.9 million evaluation outputs identical
+  (`verification_and_validation/egsnrc_interpolator/`). Do not reorder
+  `values[j] - b[j]*(xmin + dx*j)`, `ax + bx*x` or `a[i] + b[i]*x`, and do
+  not fuse them.
+- **Upstream's function and `a`/`b` constructors are defective** (they pass
+  `Xmax` for `Xmin` and always `egsFatal`; measured). The port follows the
+  `initialize` methods; do not "restore" the constructors.
+
 ### The three lineages, and saying which one you are in
 
 Every module declares itself as **ported**, **lifted verbatim**, or
