@@ -291,8 +291,12 @@ whose every cube spans the root box in z, with 4 children and the slots
 The 2D addressing is `poly_mesh_gen_2d_engine`, and the 2D mapping is
 `surface_mapper_2d`.
 
-`optimizeSurface2D`, `untangleSurface2D` and the 2D `refineBoundaryLayers`
-are not ported; the report says so at each step. Record:
+~~`optimizeSurface2D`, `untangleSurface2D` and the 2D `refineBoundaryLayers`
+are not ported; the report says so at each step.~~ **UPDATED 2026-11-05
+(gh:#1275 remainder):** all three are ported
+(`surface_optimizer::{optimize_surface_2d, untangle_surface_2d}`,
+`refine_boundary_layers_2d`) and called where upstream calls them; the
+layer is patch-wise. Record:
 `verification_and_validation/cartesian_2d_mesh_gh1275/`.
 
 ## Avoid writing macros (workspace rule, 2026-11-05)

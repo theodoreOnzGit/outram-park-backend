@@ -186,10 +186,118 @@ cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images -
 
 ## Not done in this issue
 
-- `meshSurfaceOptimizer::optimizeSurface2D` and `untangleSurface2D`
+- ~~`meshSurfaceOptimizer::optimizeSurface2D` and `untangleSurface2D`
   (about 270 upstream lines). With them, the 2D `edgeExtraction` and
-  `meshOptimisation` steps would smooth the side.
-- `refineBoundaryLayers` 2D mode.
-- The patch-wise layer.
-- A 2D stop and restart test. The workflow controls are the shared,
-  tested code.
+  `meshOptimisation` steps would smooth the side.~~ **Done in the
+  gh:#1275 remainder, below.**
+- ~~`refineBoundaryLayers` 2D mode.~~ **Done, below.**
+- ~~The patch-wise layer.~~ **Done in gh:#1270's remainder**
+  (`patch_wise_layers_gh1270/README.md`, P9).
+- ~~A 2D stop and restart test.~~ **Done, below.**
+
+# gh:#1275 remainder: `optimizeSurface2D`, `untangleSurface2D`, the 2D `refineBoundaryLayers`
+
+**Upstream:** `meshSurfaceOptimizerOptimizeSurface.C` (`optimizeSurface2D`,
+`untangleSurface2D`), `meshSurfaceMapper2DMapVertices.C`
+(`mapVerticesOntoSurfacePatches(edgesToMap)`), `refineBoundaryLayers.C`
+(`activate2DMode`), `detectBoundaryLayersFunctions.C` and
+`refineBoundaryLayersFunctions.C` (the 2D branches),
+`cartesian2DMeshGenerator.C` (`optimiseMeshSurface` in `edgeExtraction`
+and `meshOptimisation`; `refBoundaryLayers` with `untangleSurface2D`).
+
+**Port:** `surface_optimizer::{optimize_surface_2d, untangle_surface_2d}`,
+`surface_mapper_2d::map_edges_onto_surface_patches_2d` (the selected-edge
+form; the all-edge function now calls it),
+`layers::refine_boundary_layers::{refine_boundary_layers_2d,
+detect_boundary_layers_mode}`.
+
+**What upstream does (read before predicting):** `optimizeSurface2D`
+smooths the z-min outline points along the outline and maps the edges
+across the thickness back onto their patches, then smooths the z-min points
+inside the bottom patch, copying every move to the z-max point across.
+`untangleSurface2D` smooths, up to 20 times, the z-min points of the bad
+faces. The 2D refinement only takes the empty faces out of every layer; the
+rest is the 3D split.
+
+## Predictions (written 2026-11-05, before the 2D steps were wired or run)
+
+The channel `[0, 1] x [0, 0.25]` at 0.05, as above.
+
+- **S1.** In `edgeExtraction` the template is a uniform grid with a straight
+  outline: `optimizeSurface2D` moves no point by more than 1e-12. In
+  `meshOptimisation` (after the patch-wise layer, whose cells are half a
+  cell thick) the smoothing moves the points next to the layer, so the
+  final layout changes; the outline stays on the straight sides (area L x H
+  to 1e-12), one cell thick, closed, 0 non-positive cells.
+- **S2.** `untangleSurface2D` on the finished channel finds 0 bad faces at
+  its first check and stops.
+- **S3.** A finished channel with one interior z-min point (and its z-max
+  partner) moved past its neighbour: at least one bad face, which
+  `untangle_surface_2d` reduces to 0.
+- **S4.** With a `boundaryLayers` dict of `nLayers` 3: the 44 layer cells
+  over the outline split into 3, the 4 corner edge cells into 9: 120 − 48 +
+  132 + 36 = **240 cells**; one cell thick; area L x H to 1e-12; closed; 0
+  non-positive.
+- **S5.** Stopped after `edgeExtraction`, and after
+  `boundaryLayerGeneration`, then restarted: the uninterrupted mesh bit for
+  bit; two runs bit for bit.
+- **S6 (re-measuring D5).** With the 2D smoothing the final 2D layout is
+  closer to the 3D mid-plane: the maximum distance to the nearest 2D node
+  falls below the 28.5 mm (0.6 cell) of D5.
+
+## Results (2026-11-05, `cargo test --release`)
+
+Tests: `pipeline::cartesian_2d_mesh::tests::{channel_2d_surface_optimisation_and_refined_layers,
+cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run,
+channel_2d_against_the_3d_mid_plane}`.
+
+- **S1 missed on the first half, held on the second.** On the mapped
+  template (after `remapBoundaryPoints`) `optimizeSurface2D` moves 40
+  outline and 51 bottom points by up to **3.6e-2** (an outline point) and
+  3.4e-2 (an inner point), against the predicted 1e-12: the cell is 0.047,
+  so this is most of a cell. No outline point leaves its straight side, the
+  area stays 0.25 to the last digit, and no cell is non-positive. My
+  premise, that the mapped template is a uniform grid, is wrong where
+  `remapBoundaryPoints` stretches the boundary cells across the gap
+  between the template and the surface; I have not checked the spacing
+  point by point. The finished channel: 120 cells, area 0.25 (+2.2e-16),
+  one cell thick, closed, 0 non-positive, max non-orthogonality 4.00°
+  (9.94° before), max skewness 0.012 (0.051).
+- **S2 held.** `untangleSurface2D` on the finished channel: bad faces `[0]`.
+- **S3 held.** One bottom point (and its top partner) dragged 0.08 in x:
+  5 bad faces, `untangle_surface_2d` iterations `[5, 0]`, 0 bad faces and 0
+  non-positive cells after.
+- **S4 held.** `nLayers` 3: 48 cells split (44 prisms, 4 edge hexahedra
+  across the thickness), 240 cells, area 0.25, one cell thick, closed, 0
+  non-positive; `untangleSurface2D` after it found `[0]`.
+- **S5 held.** Stopped after `edgeExtraction` (resumed at
+  `boundaryLayerGeneration`) and after `boundaryLayerGeneration` (resumed
+  at `meshOptimisation`): the uninterrupted mesh bit for bit, with the
+  `nLayers` 3 dict; two runs bit for bit.
+- **S6 held.** The 2D layout against the 3D box channel's mid-plane (both
+  now with the patch-wise layer, the 3D one in four groups): 147 2D nodes,
+  nearest 3D slab node mean 1.7 mm, **max 6.9 mm (0.15 cell)**, was 28.5 mm
+  (0.6 cell) in D5. Only 4 nodes coincide to 1e-9, as before.
+
+**D5 re-measured:** ~~mean 8.2 mm, max 28.5 mm (0.6 cell)~~ mean 1.7 mm,
+max 6.9 mm (0.15 cell), with `optimiseMeshSurface` (2D) and the
+patch-wise layer in both routes. The record above D5 is kept as it was
+measured.
+
+### Images (regenerated)
+
+`cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images
+-- crates/outram-park-fork-cfmesh/verification_and_validation/cartesian_mesh_gh1274
+crates/outram-park-fork-cfmesh/verification_and_validation/cartesian_2d_mesh_gh1275`
+
+| file | what |
+|---|---|
+| `channel_2d_xy.png`, `channel_2d_xz.png` | regenerated: the patch-wise layer and the 2D surface smoothing |
+| `channel_2d_corner_xy.png` | the inlet corner: wall and inlet layers with the edge cell between them |
+| `channel_2d_refined_3_xy.png`, `channel_2d_refined_3_corner_xy.png` | `nLayers` 3: three layers on each side, a 3 x 3 block at the corner |
+
+**What I checked:** the refined corner shows three inlet and three wall
+layers meeting in a 3 x 3 block; the outline stays on the surface trace.
+**What I could not check:** the octree overlay makes the whole-channel
+image hard to read; I checked the corners in the zooms only.
+

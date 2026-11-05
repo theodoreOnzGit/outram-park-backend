@@ -85,7 +85,7 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (~~not ported~~ **CORRECTED 2026-11-05, gh:#1269:** called, `tet_mesh::untangle_again`, since gh:#1259 merged). `edgeExtraction` is `meshSurfaceEdgeExtractorFUN` ~~without its fundamental sheets (gh:#1269)~~, with them since gh:#1281. Results: `verification_and_validation/p_mesh_gh1273/`. |
 | `meshLibrary/voronoiMesh/voronoiMeshExtractor` | 674 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `voronoi_mesh_extractor`; `cell_centre_dual`, `dual::polyhedral_dual*` kept | Tet-centroid dual of `tetCreatorOctree` tets, cells only at interior vertices. Equal to `CellCentre`'s interior cells to 9.8e-15 where `polyDualMesh` accepts the tets (§3). |
 | `executables/cartesian2DMesh` | 66 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh::{cartesian_2d_mesh, cartesian_2d_mesh_restart}` | Thin `main`. |
-| `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh` | Every member in Rust. Steps whose callees are gaps say so in the report: `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`), the 2D `refineBoundaryLayers`; the layer is ~~the one-group route~~ **patch-wise with `activate2DMode` (gh:#1270 remainder)**. Results: `verification_and_validation/cartesian_2d_mesh_gh1275/`. |
+| `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh` | Every member in Rust. ~~Steps whose callees are gaps say so in the report: `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`), the 2D `refineBoundaryLayers`;~~ **UPDATED 2026-11-05 (gh:#1275 remainder):** `optimiseMeshSurface` and the 2D `refineBoundaryLayers` are ported and called; the layer is ~~the one-group route~~ **patch-wise with `activate2DMode` (gh:#1270 remainder)**. Results: `verification_and_validation/cartesian_2d_mesh_gh1275/`. |
 | `meshLibrary/utilities/workflowControls` | 477 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `workflow_controls` | `stopAfter` / restart of a workflow step; a member of all four generators. The meta data and the saved mesh are values, not files. |
 | `meshLibrary/utilities/checkMeshDict` | 1438 | not applicable | `pipeline::TetDualOptions`, `BoundaryLayerOptimisationControls` | Validation of a `meshDict`; settings here are typed Rust structs. Revisit if a `meshDict` reader is ever added (§4, "Not planned"). |
 
@@ -166,7 +166,7 @@ _Subtotal: 9587 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `smoothers/geometry/meshSurfaceOptimizer (serial)` | 2266 | ~~not ported~~ **partial (2026-11-05, gh:#1259)** | `surface_optimizer::MeshSurfaceOptimizer`, `map_mesh_to_surface`, `optimise_mesh_surface`; `mesh_optimizer::optimize_surface` (`meshOptimizerOptimizeSurface.C`) | Ported (3-D, serial): `untangleSurface` (both forms), `optimizeSurface`, Laplacian FC, `surfaceOptimizer` smoothing, edge-node smoothing, `lockBoundaryFaces`/`Points`/`FeatureEdges`, `removeUserConstraints`, the mapper calls. Not ported: `untangleSurface2D`, `optimizeSurface2D`, `enforceConstraints` (no point subsets), `newPositionLaplacian`/`LaplacianWFC` (no 3-D caller). All opt-in (`TetDualOptions::untangle_surface`); differential against `revert_tangled` in `laminar_pipe_gh1155.md` (gh:#1259). |
+| `smoothers/geometry/meshSurfaceOptimizer (serial)` | 2266 | ~~not ported~~ **partial (2026-11-05, gh:#1259)** | `surface_optimizer::MeshSurfaceOptimizer`, `map_mesh_to_surface`, `optimise_mesh_surface`; `mesh_optimizer::optimize_surface` (`meshOptimizerOptimizeSurface.C`) | Ported (3-D, serial): `untangleSurface` (both forms), `optimizeSurface`, Laplacian FC, `surfaceOptimizer` smoothing, edge-node smoothing, `lockBoundaryFaces`/`Points`/`FeatureEdges`, `removeUserConstraints`, the mapper calls. Not ported: ~~`untangleSurface2D`, `optimizeSurface2D`~~ (**ported 2026-11-05, gh:#1275 remainder**: `optimize_surface_2d`, `untangle_surface_2d`, wired into `cartesian_2d_mesh`), `enforceConstraints` (no point subsets), `newPositionLaplacian`/`LaplacianWFC` (no 3-D caller). All opt-in (`TetDualOptions::untangle_surface`); differential against `revert_tangled` in `laminar_pipe_gh1155.md` (gh:#1259). |
 | `smoothers/geometry/meshSurfaceOptimizer: OptimizePointParallel.C` | 522 | not applicable | — | MPI. |
 | `.../advancedSurfaceSmoothers/surfaceOptimizer` | 545 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::optimize_point` | The 2D (in-plane) volume-optimiser analogue `untangleSurface` uses; `matrix2D`'s solve inline. |
 
@@ -203,7 +203,7 @@ _Subtotal: 18221 lines._
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
 | `boundaryLayers/boundaryLayers` | 4229 | ~~partial~~ **ported (2026-11-05, gh:#1270 remainder)** | `layers::layer_setup`, `layers::add_boundary_layers_adaptive_on_patches`; **`layers::boundary_layers::boundary_layers_add_layer` (2026-11-05, gh:#1270)** | Ported: the per-patch border rules; ~~missing `boundaryLayersCreateVertices`, `boundaryLayerCells`~~ **CORRECTED 2026-11-05 (gh:#1270):** the one-group creation route (`findPatchVertices`, `createNewVertex`, `createNewVertices(boolList)`, `createNewFacesAndCells`) is ported beside the crate's shrink. ~~Missing: `findPatchesToBeTreatedTogether`, the patch-wise route (`createNewVertices(labelList)`, `createLayerCells`, `boundaryLayerCells.C`), `checkTopologyOfBndFaces`, `addWrapperLayer`, 2D, MPI.~~ **UPDATED 2026-11-05 (gh:#1270 remainder):** the class is `layers::boundary_layers::BoundaryLayers` with all of it: `findPatchesToBeTreatedTogether`, the patch-wise route, `activate2DMode`, `createOTopologyLayers`, `addWrapperLayer` (an upstream defect followed to its intent), `checkTopologyOfBoundaryFaces`; `isSharedEdgeConvex`, `angleBetweenFaces`. Wired into all four workflows and `generateBoundaryLayers`. Not applicable: the MPI branches. Record: `verification_and_validation/patch_wise_layers_gh1270/`. |
-| `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::refine_boundary_layers::refine_boundary_layers` (2026-11-05, gh:#1271); `layers::build_layered_variable` | ~~Only "split each hair by the grading"~~ **CORRECTED 2026-11-05 (gh:#1271):** the settings (global and per-patch `nLayers`, `thicknessRatio`, `maxFirstLayerThickness`, `allowDiscontinuity`), `analyseLayers` and `generateNewVertices` are ported, with the split of prism layer cells. Missing: `refineEdgeHexCell`, `refineCornerHexCell` and the general `refineBoundaryLayersFaces`/`Cells` (refused as `NotPorted`), `activateSpecialMode`, `pointsInBndLayer`, 2D, MPI. |
+| `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::refine_boundary_layers::refine_boundary_layers` (2026-11-05, gh:#1271); `layers::build_layered_variable` | ~~Only "split each hair by the grading"~~ **CORRECTED 2026-11-05 (gh:#1271):** the settings (global and per-patch `nLayers`, `thicknessRatio`, `maxFirstLayerThickness`, `allowDiscontinuity`), `analyseLayers` and `generateNewVertices` are ported, with the split of prism layer cells. Missing: ~~`refineEdgeHexCell`, `refineCornerHexCell` and the general `refineBoundaryLayersFaces`/`Cells` (refused as `NotPorted`)~~ (**ported 2026-11-05, gh:#1271 remainder**: `refineFace`, `generateNewFaces`, `generateNewCells` by `refType`, the edge and corner hexes; only the appended-points case of a face whose count differs from its hairs' is refused), `activateSpecialMode`, ~~`pointsInBndLayer`~~ (ported, gh:#1274), 2D, MPI. |
 | `boundaryLayers/detectBoundaryLayers` | 989 | ported (2026-11-05, gh:#1271) | `layers::refine_boundary_layers::detect_boundary_layers` | ~~not ported~~ Serial. |
 | `boundaryLayers/extrudeLayer` | 1915 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `layers::extrude_layer` | Serial (the MPI half is not applicable). Edge and corner cells (self-intersecting layers) transcribed, not reached by any test. |
 | `boundaryLayers/triangulateNonPlanarBaseFaces` | 357 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `layers::triangulate_non_planar_base_faces` | No upstream caller at this commit; none here. |
@@ -1109,3 +1109,30 @@ Studio unchanged.
   2.9e-15).
 
 Record: `verification_and_validation/patch_wise_layers_gh1270/README.md`.
+
+### gh:#1271 remainder: `refineEdgeHexCell`, `refineCornerHexCell`, the two-direction split, 2026-11-05
+
+`refine_boundary_layers` now ports `refineFace` / `generateNewFaces` and
+`generateNewCells` by upstream's `refType`; the edge and corner hexahedra
+are split as one lattice filled from their faces' grids (upstream's
+transfinite face points, trilinear interior points). The prism path is
+pinned bit for bit. Six-patch box with the patch-wise layer, `nLayers` 3:
+1 000 cells, the exact tensor grid; the cartesian 60 mm pipe now refines
+(5 248 cells, closed, 0 non-positive). The row stays partial (2D, the
+appended-points case, `activateSpecialMode`). Record:
+`verification_and_validation/patch_wise_layers_gh1270/README.md`.
+
+### gh:#1275 remainder: `optimizeSurface2D`, `untangleSurface2D`, the 2D `refineBoundaryLayers`, 2026-11-05
+
+`surface_optimizer::{optimize_surface_2d, untangle_surface_2d}` (about
+270 upstream lines), `surface_mapper_2d::map_edges_onto_surface_patches_2d`
+(the selected-edge mapping; the all-edge form calls it) and
+`refine_boundary_layers_2d` (`activate2DMode`: the empty faces out of every
+layer, the rest the general split). `cartesian_2d_mesh` calls
+`optimiseMeshSurface` in `edgeExtraction` and `meshOptimisation` and the 2D
+refinement with `untangleSurface2D`; `Cartesian2DMeshOptions::boundary_layers`
+replaces `refine_boundary_layers_requested`. The channel stays one cell
+thick with its area exact; `nLayers` 3 gives 240 cells; stop and restart
+reproduce the run. The `meshSurfaceOptimizer` row stays partial
+(`enforceConstraints`, `newPositionLaplacian(WFC)`). Record:
+`verification_and_validation/cartesian_2d_mesh_gh1275/README.md`.

@@ -633,7 +633,11 @@ pub(crate) mod tests {
     /// `nLayers` 3, `refineBoundaryLayers` splits the sphere's one-group
     /// layer (one base face per layer cell); on the pipe the rim cells
     /// carry two base faces and this port refuses (`NotPorted`), as its
-    /// docs say. Results: the README.
+    /// docs say. Results: the README. **UPDATED 2026-11-05 (gh:#1271
+    /// remainder):** the patch-wise layer's rim edge cells are split by
+    /// `refineEdgeHexCell` now (prediction R3 of
+    /// `patch_wise_layers_gh1270/README.md`): 5 248 cells, closed, 0
+    /// non-positive, asserted.
     #[test]
     fn cartesian_mesh_with_refined_layers() {
         let s = RefineBoundaryLayersSettings { n_layers: 3, thickness_ratio: 1.2, ..Default::default() };
@@ -654,6 +658,11 @@ pub(crate) mod tests {
         println!("{}", row("pipe 60 mm", "cartesian_mesh nLayers 3", &pm, pipe_exact(0.01, 0.06, 48), 0.0));
         pm.validate().unwrap();
         println!("refine errors: sphere {:?}, pipe {:?}", rep.refine_error, prep.refine_error);
+        assert_eq!((rep.refine_error.as_ref(), prep.refine_error.as_ref()), (None, None));
+        assert_eq!((m.n_cells, pm.n_cells), (2184, 5248));
+        assert_eq!(n_nonpositive_cells(&pm), 0);
+        let e = (pm.total_volume() - pipe_exact(0.01, 0.06, 48)) / pipe_exact(0.01, 0.06, 48);
+        println!("pipe volume error {:+.6e}", e);
     }
 
     /// V&V (gh:#1274): `stopAfter` and restart. A run stopped after
@@ -791,5 +800,16 @@ pub(crate) mod tests {
                 write_slice_png(&m, 2, 0.0317, [-0.0108, 0.0108, -0.0108, 0.0108], &[(0.0, 0.0, 0.01)], &c, &t, &dir.join(format!("pipe_{tag}_{stage}_xy.png")));
             }
         }
+        // gh:#1271 remainder: the refined layers (nLayers 3, ratio 1.2)
+        let s3 = RefineBoundaryLayersSettings { n_layers: 3, thickness_ratio: 1.2, ..Default::default() };
+        let opts = CartesianMeshGeneratorOptions { dict: MeshDict::with_max_cell_size(0.002), boundary_layers: Some(s3.clone()), ..Default::default() };
+        let (m, _) = cartesian_mesh(&pp, &pt, Some(&pr), &opts).unwrap();
+        let c = colour_of(&m);
+        let t = format!("cartesian_mesh pipe 60 mm, patch-wise, nLayers 3 ratio 1.2: {} cells, {} non-positive (orange)", m.n_cells, n_nonpositive_cells(&m));
+        write_slice_png(&m, 1, 1e-4, [0.0065, 0.0105, -0.0005, 0.0035], &[], &c, &t, &dir.join("pipe_refined_3_xz_rim.png"));
+        write_slice_png(&m, 2, 0.0317, [-0.0108, 0.0108, -0.0108, 0.0108], &[(0.0, 0.0, 0.01)], &c, &t, &dir.join("pipe_refined_3_xy.png"));
+        let (b6r, _) = crate::layers::refine_boundary_layers::refine_boundary_layers(&b6.mesh, &RefineBoundaryLayersSettings { n_layers: 3, ..Default::default() }).unwrap();
+        let c = colour_of(&b6r);
+        write_slice_png(&b6r, 0, 0.0625, bw, &[], &c, "six-patch box, patch-wise layer refined into 3: y-z at x 0.0625 (through the x0 layer: edge and corner hexes)", &dir.join("box6_refined_3_yz.png"));
     }
 }
