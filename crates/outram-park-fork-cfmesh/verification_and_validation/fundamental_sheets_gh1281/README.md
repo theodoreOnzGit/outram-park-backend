@@ -94,9 +94,12 @@ the OpenFOAM `plane` helpers analytically (held).
   -> 0.106, min 0.125 -> 0.0225, smallest cell 2.10e-3 -> 1.12e-4, 0 bad
   faces at the end, **volume 1.00373**: the edge cells' boundary hairs
   thin to 2.5e-4, 262 faces go bad, and the untangles' boundary moves
-  repair them off the box planes. Cause not established (upstream not
+  repair them off the box planes. ~~Cause not established (upstream not
   run; first suspect: one hair kept per shared start point). Pinned as
-  measured, not as a criterion; diagnostic
+  measured, not as a criterion~~ **FIXED 2026-11-05 (gh:#1293, section
+  below):** a port defect in `optimiseThicknessVariation`'s neighbour
+  hairs; now volume 1 to 1e-12, every boundary point on its plane, gated;
+  diagnostic
   `boundary_layer_optimisation::tests::diagnose_optimise_layer_on_the_patch_wise_box`.
 - `generate_boundary_layers_with_optimise_layer_on_the_pipe` (R 10 mm, L
   60 mm, h 6 mm, `walls`): off 0 bad faces (**predicted some: missed**,
@@ -106,6 +109,64 @@ the OpenFOAM `plane` helpers analytically (held).
   re-measured on the patch-wise layer: 1241 of 1658 hairs thinned,
   thickness mean 1.264e-3 -> 1.062e-3 (-16 %), max -7 %, 0 bad faces,
   smallest cell 9.37e-10 -> 4.77e-10 (halved), volume unchanged.
+
+### Hairs at shared start points (gh:#1293)
+
+**What upstream does** (read 2026-11-05, DAFoam/cfmesh `e944f6ba695f`,
+`boundaryLayerOptimisationThickness.C`, `optimiseThicknessVariation`): for
+hair `heI` and each boundary face `bf` at its start point that does not
+hold its end, it takes **the hairs of `bf`'s owner cell**
+(`hairEdgesAtBndFace(cell, bf)`: at each point of `bf`, the cell edge
+leaving `bf` there) and compares `heI` only with the hairs in
+`hairEdgesAtBndPoint_` that **equal** those cell edges. Every hair at a
+point is kept (`detectBoundaryLayers::generateHairEdges` drops only
+duplicate edges).
+
+**Where the port departs:** `Hairs::optimise_thickness_variation` took, at
+each point of `bf`, `Hairs::at_point[p]`: the *first* hair starting at
+`p`, whatever cell it belongs to. On the patch-wise box a box-edge point
+starts two or three hairs (one per patch's layer; 76 of 294 hairs share a
+start point), so an edge hair was compared with the other patch's hair at
+the **same** point (`|dv| = 0`, which `calculateThickness` turns into
+"take the shorter length") or with a hair of another cell, and not with
+the hair of its own cell. `hairEdgesNearHairEdge` (from_mesh), the normal
+smoothing and `calculateNormalVectors` already follow upstream.
+
+**Predictions (written 2026-11-05, before the fix was run):**
+
+1. `CfMeshOptimise` is unchanged **bit for bit**: its one-layer mesh has
+   one hair per wall point, the only boundary faces at a wall point that do
+   not hold the hair are its prisms' wall faces, and their cell edges are
+   exactly the `at_point` hairs. `layer_strategies_are_deterministic` and
+   every other pin pass. No gate is then needed (if this misses, the old
+   rule stays the default and the upstream rule becomes a named variant).
+2. Box (`generate_boundary_layers_with_optimise_layer_on_the_box`): the
+   edge cells' `BOUNDARY | ATEDGE` hairs stop collapsing: smallest hair
+   **above 1e-2** (was 2.5e-4 on the diagnostic, 0.0225 at the end),
+   fewer bad faces after `optimiseLayer` than the 262 recorded (sign
+   certain if the departure is the cause, magnitude not: I predict
+   under 122, the first-pass count), no boundary point off its plane at
+   any stage, and **volume 1 to 1e-12**. Mean thickness rises from 0.106
+   toward the off-run's 0.138 (still at most it). Confidence is moderate:
+   the geometric decay (×0.1–0.35 per pass) looks like the
+   `featureSizeFactor` limit, which this departure feeds only through the
+   wrong neighbour; if the box still moves, the remaining cause is
+   elsewhere and is recorded as such.
+3. Pipe (`..._on_the_pipe`): the pipe's layer has no box edges, but its
+   end caps make patch-border points with more than one hair; thinned
+   count and mean thickness move by under 5 %, 0 bad faces stays.
+
+**Results (2026-11-05, after the fix; `--release`):**
+
+| prediction | result |
+|---|---|
+| 1. `CfMeshOptimise` bit for bit | **held.** `layer_strategies_are_deterministic` passes on its 2026-11-04 fingerprints (7725 cells), as do `back_off_only_layers_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`, `correct_edges_is_pinned_bit_for_bit`, `foam_studio_default_mesh_keeps_its_fingerprint`, `dual_kinds_are_pinned_bit_for_bit` (`--features cell-centre-dual`) and both `*_stop_and_restart_reproduce_the_full_run`. No pin moved, so the upstream rule is applied unconditionally: no gate, no named variant. |
+| 2. box | **held, and better than predicted.** `optimiseLayer` stops after **1** pass (was 5), 48 of 294 hairs thinned (was 236); thickness min **0.125** (was 0.0225; prediction >1e-2) / mean 0.1289 (off-run 0.1382) / max 0.1475; **0 bad faces after every stage of every pass** (was 122 -> 262; prediction <122); 0 boundary points off their planes at every stage; smallest cell 1.95e-3 (was 1.12e-4); **volume 1.000000000000** (gate 1e-12, now asserted with the planes in `generate_boundary_layers_with_optimise_layer_on_the_box`). |
+| 3. pipe | **held trivially:** the pipe's layer has **no** hairs sharing a start point (`n_shared_start` 0), so it is unchanged to the digit: 1241 of 1658 thinned, mean 1.062e-3, 0 bad faces, smallest cell 4.77e-10. My premise (end caps give shared starts) was wrong: the layer is on `walls` only. |
+
+Upstream was not run (not installed here); by its source, its
+`optimiseThicknessVariation` uses exactly the neighbours the port now
+uses, so the box should not move under upstream either.
 
 ### `createFundamentalSheets` (gh:#1281)
 

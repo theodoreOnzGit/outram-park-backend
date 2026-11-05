@@ -373,9 +373,20 @@ mod tests {
     /// the same on a patch-wise box is **not established** (cfMesh was not
     /// run); a port defect in the hair handling at shared start points
     /// (`Hairs::at_point` keeps one hair per point, upstream keeps all) is
-    /// the first suspect. The volume is pinned below as measured, so a fix
-    /// shows; it is not a pass criterion. The buffer layer is not ported
+    /// the first suspect. ~~The volume is pinned below as measured, so a fix
+    /// shows; it is not a pass criterion.~~ The buffer layer is not ported
     /// and the report says so.
+    ///
+    /// **FIXED 2026-11-05 (gh:#1293)**, predictions committed before the
+    /// run (V&V README, gh:#1293 section): the suspect was the defect.
+    /// `optimiseThicknessVariation` compared each hair with the *first*
+    /// hair at each point of a base face, of any cell; upstream compares
+    /// it with the hairs of the face's own cell (`hairEdgesAtBndFace`).
+    /// With upstream's rule: **one** `optimiseLayer` pass, 48 of 294 hairs
+    /// thinned, thickness min 0.125 / mean 0.1289 / max 0.1475 (off-run
+    /// 0.125 / 0.1382 / 0.1666), 0 bad faces at every stage (was 122 ->
+    /// 262), smallest cell 1.95e-3 (was 1.12e-4), **volume 1 to 1e-12 and
+    /// every boundary point on its plane**, now asserted as the gate.
     #[test]
     fn generate_boundary_layers_with_optimise_layer_on_the_box() {
         let m0 = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
@@ -386,9 +397,21 @@ mod tests {
         assert!(rb.boundary_layer.ran);
         b.validate().unwrap();
         assert_eq!(b.n_cells, a.n_cells, "optimizeBoundaryLayer moves points only");
-        // Measured, not a criterion (see the doc comment): prediction (2)
-        // missed on the patch-wise layer.
-        assert!((b.total_volume() - 1.003_731_410_684).abs() < 1e-9, "volume {}", b.total_volume());
+        // ~~Measured, not a criterion: prediction (2) missed on the
+        // patch-wise layer (1.003_731_410_684).~~ gh:#1293: the gate, as
+        // predicted before the first run: volume 1 and every boundary
+        // point on a box plane.
+        assert!((b.total_volume() - 1.0).abs() < 1e-12, "volume {}", b.total_volume());
+        let eng = crate::surface_engine::SurfaceEngine::new(&b);
+        let off_plane = eng
+            .boundary_points
+            .iter()
+            .filter(|&&p| {
+                let q = b.points[p];
+                [q.x, q.y, q.z].iter().all(|&c| c.abs() > 1e-12 && (c - 1.0).abs() > 1e-12)
+            })
+            .count();
+        assert_eq!(off_plane, 0, "boundary points off the box planes");
         let (sa, sb) = (layer_stats(&a), layer_stats(&b));
         assert_eq!(sb.4, 0, "bad faces");
         assert!(sb.3 <= sa.3 && sb.2 <= sa.2, "optimiseLayer only thins: {sa:?} -> {sb:?}");
