@@ -108,3 +108,17 @@ written in both crates (this one builds dependency-free); change one, change
 the other. Comparison and recommendation: the gh:#1240 section of
 `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 Changing the default needs the maintainer.
+
+## cfMesh's octree, ported beside `octree.rs` (gh:#1262–#1266, 2026-11-05)
+
+`mesh_octree` (cubes, slot, surface intersections), `mesh_octree_queries`,
+`mesh_octree_modifier`, `mesh_octree_creator` (`MeshDict`, inside/outside),
+`object_refinement` and `cartesian_mesh` (`meshOctreeAddressing`,
+`cartesianMeshExtractor`) transcribe DAFoam/cfmesh `e944f6ba695f`. They do
+**not** replace `octree.rs`, whose fingerprint pin must not move. Keep both
+routes callable: on the same leaves, `cartesian_mesh_extractor` and
+`octree::build_mesh` build the same faces ring for ring (pinned). The
+`decomposeCells` step is shared with `correct_edges` (`decompose_cells`);
+change it once. Upstream's `findNearestSurfacePoint` is not exact;
+`NearestSearch::Exact` is the port's exact variant. Record and images:
+`verification_and_validation/cartesian_octree_gh1262/`.

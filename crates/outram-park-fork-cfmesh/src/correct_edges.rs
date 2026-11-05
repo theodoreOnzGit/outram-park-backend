@@ -283,39 +283,7 @@ pub fn correct_edges_between_patches(
 
     // 3. decomposeCells: checkFaceConnections, then pyramids.
     if decompose_cell.iter().any(|&d| d) {
-        let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); w.n_cells];
-        for f in 0..w.faces.len() {
-            cell_faces[w.owner[f]].push(f);
-            if let Some(n) = w.neighbour[f] {
-                cell_faces[n].push(f);
-            }
-        }
-        let mut split = BTreeMap::new();
-        for c in (0..w.n_cells).filter(|&c| decompose_cell[c]) {
-            let mut edge_faces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
-            for &f in &cell_faces[c] {
-                let ring = &w.faces[f];
-                for i in 0..ring.len() {
-                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
-                    edge_faces.entry((a.min(b), a.max(b))).or_default().push(f);
-                }
-            }
-            for &f in &cell_faces[c] {
-                let ring = w.faces[f].clone();
-                let mut nei: BTreeSet<usize> = BTreeSet::new();
-                for i in 0..ring.len() {
-                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
-                    let other = edge_faces[&(a.min(b), a.max(b))].iter().copied().find(|&g| g != f).unwrap_or(f);
-                    if !nei.insert(other) && !split.contains_key(&f) {
-                        let fan = w.fan(f);
-                        split.insert(f, fan);
-                    }
-                }
-            }
-        }
-        rep.n_connection_faces = split.len();
-        w.apply_splits(&split);
-        pyramids(&mut w, &decompose_cell);
+        rep.n_connection_faces = decompose_cells(&mut w, &decompose_cell);
         rep.n_decomposed_cells = decompose_cell.iter().filter(|&&d| d).count();
     }
 
@@ -344,6 +312,81 @@ pub fn correct_edges_between_patches(
     };
     let regions = order.iter().map(|&f| w.region[f]).collect();
     (out, regions, rep)
+}
+
+/// `decomposeCells::decomposeMesh` on the marked cells: fan every face of a
+/// marked cell that shares more than one edge with the same face
+/// (`checkFaceConnections`), then split the marked cells into pyramids.
+/// Returns the number of faces fanned. Shared by
+/// [`correct_edges_between_patches`] and
+/// [`crate::cartesian_mesh`]'s `decomposeSplitHexes` (gh:#1266; moved out of
+/// `correct_edges_between_patches` unchanged).
+fn decompose_cells(w: &mut Work, decompose_cell: &[bool]) -> usize {
+    let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); w.n_cells];
+    for f in 0..w.faces.len() {
+        cell_faces[w.owner[f]].push(f);
+        if let Some(n) = w.neighbour[f] {
+            cell_faces[n].push(f);
+        }
+    }
+    let mut split = BTreeMap::new();
+    for c in (0..w.n_cells).filter(|&c| decompose_cell[c]) {
+        let mut edge_faces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+        for &f in &cell_faces[c] {
+            let ring = &w.faces[f];
+            for i in 0..ring.len() {
+                let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                edge_faces.entry((a.min(b), a.max(b))).or_default().push(f);
+            }
+        }
+        for &f in &cell_faces[c] {
+            let ring = w.faces[f].clone();
+            let mut nei: BTreeSet<usize> = BTreeSet::new();
+            for i in 0..ring.len() {
+                let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                let other = edge_faces[&(a.min(b), a.max(b))].iter().copied().find(|&g| g != f).unwrap_or(f);
+                if !nei.insert(other) && !split.contains_key(&f) {
+                    let fan = w.fan(f);
+                    split.insert(f, fan);
+                }
+            }
+        }
+    }
+    let n = split.len();
+    w.apply_splits(&split);
+    pyramids(w, decompose_cell);
+    n
+}
+
+/// [`decompose_cells`] and `decomposeFaces` on a bare mesh (gh:#1266,
+/// `cartesianMeshExtractor::decomposeSplitHexesIntoTetsAndPyramids`): fan
+/// the faces in `fan_faces` about their OpenFOAM centre, then decompose the
+/// marked cells. Returns the new points, faces, owners, neighbours and cell
+/// count; boundary faces keep their order after the internal faces.
+#[allow(clippy::type_complexity)]
+pub(crate) fn decompose_faces_and_cells(
+    points: Vec<Vec3>,
+    faces: Vec<Vec<usize>>,
+    owner: Vec<usize>,
+    neighbour: Vec<Option<usize>>,
+    n_cells: usize,
+    fan_faces: &[bool],
+    decompose_cell: &[bool],
+) -> (Vec<Vec3>, Vec<Vec<usize>>, Vec<usize>, Vec<Option<usize>>, usize) {
+    let region = vec![None; faces.len()];
+    let mut w = Work { points, faces, owner, neighbour, region, n_cells };
+    let mut split = BTreeMap::new();
+    for (f, &d) in fan_faces.iter().enumerate() {
+        if d {
+            let fan = w.fan(f);
+            split.insert(f, fan);
+        }
+    }
+    w.apply_splits(&split);
+    if decompose_cell.iter().any(|&d| d) {
+        decompose_cells(&mut w, decompose_cell);
+    }
+    (w.points, w.faces, w.owner, w.neighbour, w.n_cells)
 }
 
 /// `decomposeCellIntoPyramids` for every marked cell: one pyramid per face,

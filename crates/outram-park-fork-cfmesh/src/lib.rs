@@ -262,6 +262,7 @@
 //! > operation, licensing, or safety-critical decisions.
 
 pub mod cartesian;
+pub mod cartesian_mesh;
 pub mod carve;
 pub mod checks;
 pub mod correct_edges;
