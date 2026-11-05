@@ -196,7 +196,7 @@ and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
 change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
-(~~`edgeExtractor`,~~ ~~`boundaryLayers`~~ (**with a `boundaryLayers` dict since gh:#1270's remainder**, `TetMeshOptions::boundary_layers`), `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
+(~~`edgeExtractor`,~~ ~~`boundaryLayers`~~ (**with a `boundaryLayers` dict since gh:#1270's remainder**, `TetMeshOptions::boundary_layers`), ~~`preMapVertices`~~ (**ported 2026-11-05, gh:#1274**, as `premap_vertices`; ~~but not yet called by `p_mesh`~~ **called by `p_mesh` since gh:#1274's remainder**),
 ~~`meshSurfaceEdgeExtractorFUN`~~ ~~`createFundamentalSheetsJFS`~~) call what
 exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
 (gh:#1280, #1281):** `extrudeLayer` (`layers::extrude_layer`) and

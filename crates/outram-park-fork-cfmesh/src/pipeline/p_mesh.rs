@@ -31,8 +31,8 @@
 //!
 //! - `surfaceTopology` is `surfaceMorpherCells` alone (no
 //!   `topologicalCleaner` loop).
-//! - `surfaceProjection` runs `preMapVertices` first (not ported, surface
-//!   track; noted).
+//! - `surfaceProjection` runs `preMapVertices` first (~~not ported, surface
+//!   track; noted~~ **wired 2026-11-05, gh:#1274 remainder:** `premap_vertices`, 3 iterations).
 //! - `edgeExtraction` uses `meshSurfaceEdgeExtractorFUN` (~~not ported;
 //!   `surface_mapper`'s patch mapping stands in~~ **UPDATED 2026-11-05,
 //!   gh:#1269:** [`crate::mesh_surface_edge_extractor_fun`], ~~without its

@@ -203,6 +203,10 @@ pub struct TetMeshReport {
     /// What `edgeExtractor` did (`None` with
     /// [`PatchAssignment::NearestTriangle`]).
     pub edge_extractor: Option<crate::edge_extractor::EdgeExtractorReport>,
+    /// `pMesh`'s `preMapVertices`: mean boundary-point distance to the
+    /// surface before and after (`None` for `tetMesh`, which does not call
+    /// it).
+    pub premap_mean_distance: Option<(f64, f64)>,
     /// Layer cells `boundaryLayers` added (0 without a dict).
     pub n_layer_cells: usize,
     /// `refineBoundaryLayers` refused (this port's `NotPorted`).
@@ -306,6 +310,7 @@ pub(crate) fn run_generator(
         n_inverted_after_projection: 0,
         n_inverted_after_edge_extraction: 0,
         edge_extractor: None,
+        premap_mean_distance: None,
         n_layer_cells: 0,
         refine_error: None,
     };
@@ -384,7 +389,11 @@ pub(crate) fn run_generator(
             }
             WorkflowStep::SurfaceProjection => {
                 if kind == Template::Voronoi {
-                    rep.notes.push("surfaceProjection: meshSurfaceMapper::preMapVertices not ported (surface track); skipped".into());
+                    // meshSurfaceMapper::preMapVertices() (pMesh only;
+                    // gh:#1274 remainder, was skipped)
+                    let pr = crate::premap_vertices::pre_map_vertices(m, &o, points, tris, reg, 3);
+                    rep.premap_mean_distance = Some(pr.mean_distance);
+                    rep.notes.push(format!("surfaceProjection: preMapVertices (mean distance {:.3e} -> {:.3e})", pr.mean_distance.0, pr.mean_distance.1));
                 }
                 // mapVerticesOntoSurface, then untangleSurface
                 let (mm, u) = map_mesh_to_surface(m, points, tris, reg);

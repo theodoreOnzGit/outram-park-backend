@@ -125,9 +125,9 @@ Written by `examples/tet_mesh_images.rs` (command in `../tet_mesh_gh1272/`).
 
 ## Not ported (see the `pipeline::p_mesh` docs)
 
-~~`surfaceMorpherCells`,~~ `preMapVertices`, `meshSurfaceEdgeExtractorFUN`,
+~~`surfaceMorpherCells`,~~ ~~`preMapVertices`~~ (wired, gh:#1274 remainder), `meshSurfaceEdgeExtractorFUN`,
 ~~`meshSurfaceOptimizer` (`optimizeSurface`, `untangleSurface`),~~
-`edgeExtractor`, `boundaryLayers`, `refineBoundaryLayers`.
+`edgeExtractor`, ~~`boundaryLayers`, `refineBoundaryLayers`~~ (with a `boundaryLayers` dict since gh:#1270/#1271 remainders).
 **CORRECTED 2026-11-05:** `surfaceMorpherCells` (gh:#1267) and
 `meshSurfaceOptimizer` (gh:#1259) are called since they landed.
 **CORRECTED again 2026-11-05 (gh:#1269):** `edgeExtractor` is called, and
@@ -185,9 +185,11 @@ the test runs both routes on the pipe).
 
 | case | route | cells | volume error | non-positive | max non-orth | max skew | time |
 |---|---|---:|---:|---:|---:|---:|---:|
-| pipe | `FunSheets::Without` (gh:#1269) | 4 303 | −0.325 % | 0 | 55.29° | 0.577 | 0.37 s |
-| pipe | **JFS (default)** | **9 781** | **−0.320 %** | 0 | **58.24°** | **0.690** | 0.52 s |
-| sphere | (no regions: FUN not run) | 1 749 | −1.537 % | 0 | 18.06° | 0.508 | 0.24 s |
+| pipe | `FunSheets::Without` (gh:#1269) | 4 303 | −0.325 % | 0 | ~~55.29°~~ 55.30° | ~~0.577~~ 0.574 | 0.37 s |
+| pipe | **JFS (default)** | **9 781** | **−0.320 %** | 0 | **~~58.24°~~ 58.23°** | **~~0.690~~ 0.686** | 0.52 s |
+| sphere | (no regions: FUN not run) | 1 749 | ~~−1.537 %~~ −1.484 % | 0 | ~~18.06°~~ 18.21° | 0.508 | 0.24 s |
+
+**RE-MEASURED 2026-11-05 (gh:#1274 remainder):** the struck numbers were taken without `preMapVertices`; the others with it (section below).
 
 The `Without` row reproduces the gh:#1269 row exactly, so the route kept
 for the differential is the old one.
@@ -248,3 +250,24 @@ pipe 48 at 2 mm, the `diagnose_p_mesh_workflow` setups:
   pipe −0.320 %).
 - **Q4.** Max non-orthogonality rises by no more than 5° (18.06°, 58.24°).
 - **Q5.** Closed, 0 non-positive cells.
+
+**Results (2026-11-05,** `cargo test --release -p outram-park-fork-cfmesh
+--features cell-centre-dual --lib -- diagnose_p_mesh_workflow --nocapture`**).**
+
+| case | cells | volume error | non-positive | max non-orth | max skew | mean distance before / after `preMapVertices` |
+|---|---:|---:|---:|---:|---:|---|
+| sphere 0.5 m | 1 749 | −1.484 % (was −1.537 %) | 0 | 18.21° (18.06°) | 0.508 (0.508) | 0.1734 / 0.02170 m (ratio 0.125) |
+| pipe 2 mm, JFS (default) | 9 781 | −0.320 % (−0.320 %) | 0 | 58.23° (58.24°) | 0.686 (0.690) | 0.875 / 0.110 mm (0.125) |
+| pipe 2 mm, `FunSheets::Without` | 4 303 | −0.325 % (−0.325 %) | 0 | 55.30° (55.29°) | 0.574 (0.577) | 0.875 / 0.110 mm (0.125) |
+
+- **Q1 held on the distance**, ratio 0.1251 (sphere) and 0.1254 (pipe), just
+  inside the 1/8 bound. Whether every point found a patch is **not
+  checked** (the report carries no count).
+- **Q2, Q3, Q4, Q5 held.** Cells unchanged; the volume error moved by
+  0.053 points on the sphere and by less than 0.001 on the pipe;
+  non-orthogonality within 0.2°; closed, 0 non-positive.
+- The pipe barely moves because its boundary is mapped and untangled after
+  the premap anyway; the sphere's error improves by 0.05 points.
+
+Images regenerated (`examples/tet_mesh_images.rs`).
+
