@@ -154,6 +154,13 @@ jobs:
           key: kovan-nightly-tests
           cache-on-failure: true
 
+      # The api-docs regression tests run the real documentation pipeline.
+      - name: Install API-doc test prerequisites
+        shell: bash
+        run: |
+          rustup toolchain install nightly --profile minimal
+          cargo install rustdoc-md --locked
+
       - name: Build kovan-cli
         run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli
 

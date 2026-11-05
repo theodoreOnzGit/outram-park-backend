@@ -84,6 +84,13 @@ jobs:
           key: full-ubuntu-latest
           cache-on-failure: true
 
+      # The api-docs regression tests run the real documentation pipeline.
+      - name: Install API-doc test prerequisites
+        shell: bash
+        run: |
+          rustup toolchain install nightly --profile minimal
+          cargo install rustdoc-md --locked
+
       # DO NOT add `--test-threads=1`. The TUAS natural-circulation cases are a
       # workspace HARD RULE: they must run in parallel, and serialising them
       # turns a long job into an impossible one.

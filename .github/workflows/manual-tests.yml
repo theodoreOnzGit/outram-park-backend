@@ -122,6 +122,13 @@ jobs:
           key: manual-${{ inputs.scope || 'full' }}-ubuntu-latest
           cache-on-failure: true
 
+      # The api-docs regression tests run the real documentation pipeline.
+      - name: Install API-doc test prerequisites
+        shell: bash
+        run: |
+          rustup toolchain install nightly --profile minimal
+          cargo install rustdoc-md --locked
+
       - name: Show what will run
         run: |
           echo "event  : ${{ github.event_name }}"
