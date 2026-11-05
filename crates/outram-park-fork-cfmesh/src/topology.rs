@@ -706,7 +706,7 @@ pub fn merge_two_faces(f1: &[usize], f2: &[usize]) -> Result<Vec<usize>, Topolog
 
 /// `help::removeEdgesFromFace`: drop the points of `f` between two of the
 /// given edges.
-fn remove_edges_from_face(f: &[usize], remove: &[(usize, usize)]) -> Vec<usize> {
+pub(crate) fn remove_edges_from_face(f: &[usize], remove: &[(usize, usize)]) -> Vec<usize> {
     let k = f.len();
     let mut found = vec![false; k];
     for &e in remove {
@@ -718,7 +718,7 @@ fn remove_edges_from_face(f: &[usize], remove: &[(usize, usize)]) -> Vec<usize> 
 }
 
 /// `help::createFaceFromRemovedPart`: the part of `orig` that `cut` lost.
-fn create_face_from_removed_part(orig: &[usize], cut: &[usize]) -> Vec<usize> {
+pub(crate) fn create_face_from_removed_part(orig: &[usize], cut: &[usize]) -> Vec<usize> {
     if cut.is_empty() {
         return orig.to_vec();
     }

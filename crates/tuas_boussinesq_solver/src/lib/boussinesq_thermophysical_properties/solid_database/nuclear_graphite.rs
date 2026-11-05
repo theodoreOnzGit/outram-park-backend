@@ -157,14 +157,14 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
 
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
-    let cp_temperature_values_kelvin = c!(
+    let cp_temperature_values_kelvin = vec![
         300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
         1500.0, 1600.0, 1700.0, 1800.0, 1900.0, 2000.0
-    );
-    let cp_values_joule_per_kilogram_kelvin = c!(
+    ];
+    let cp_values_joule_per_kilogram_kelvin = vec![
         713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40, 1760.40, 1810.64, 1851.96,
         1886.42, 1915.49, 1940.26, 1961.58, 1980.06, 1996.20, 2010.39, 2022.93
-    );
+    ];
 
     let s = NaturalCubicSpline::new(
         &cp_temperature_values_kelvin,
@@ -506,14 +506,14 @@ pub fn nuclear_graphite_specific_enthalpy(
 ) -> Result<AvailableEnergy, TuasLibError> {
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
-    let cp_temperature_values_kelvin = c!(
+    let cp_temperature_values_kelvin = vec![
         300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
         1500.0, 1600.0, 1700.0, 1800.0, 1900.0, 2000.0
-    );
-    let cp_values_joule_per_kilogram_kelvin = c!(
+    ];
+    let cp_values_joule_per_kilogram_kelvin = vec![
         713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40, 1760.40, 1810.64, 1851.96,
         1886.42, 1915.49, 1940.26, 1961.58, 1980.06, 1996.20, 2010.39, 2022.93
-    );
+    ];
 
     let s = NaturalCubicSpline::new(
         &cp_temperature_values_kelvin,
@@ -549,10 +549,10 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
     h_graphite: AvailableEnergy,
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     // evaluate enthalpy at the cp-table node temperatures
-    let temperature_values_kelvin: Vec<f64> = c!(
+    let temperature_values_kelvin: Vec<f64> = vec![
         300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
         1500.0, 1600.0, 1700.0, 1800.0, 1900.0, 2000.0
-    );
+    ];
 
     let temperature_vec_len = temperature_values_kelvin.len();
 

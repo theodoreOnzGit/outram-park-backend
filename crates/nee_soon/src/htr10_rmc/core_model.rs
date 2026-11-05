@@ -1439,7 +1439,7 @@ pub fn assemble_explicit_triso_with(
     sh.universes = universes;
     // THE REFLECTOR, explicit: see `CoreShell::add_reflector`.
     sh.add_reflector();
-    sh.finish(bed_lattice, tiles, lat_pitch, lat_height, bed)
+    sh.finish(bed_lattice, tiles, lat_pitch, lat_height, bed, Vec::new())
 }
 
 /// One universe per `(fuel mask, presence mask)` in `keys_used` (sorted): bit

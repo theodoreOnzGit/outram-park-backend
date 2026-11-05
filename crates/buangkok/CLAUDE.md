@@ -95,3 +95,11 @@ has been declared, and there is no validation.
 - **Units:** `uom` 0.38 has no sievert quantity (checked 2026-09-28). Decide
   how dose is typed before the first API, and do not use `AvailableEnergy`
   (J/kg) as a stand-in.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

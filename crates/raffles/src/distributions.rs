@@ -2773,30 +2773,26 @@ mod tests {
         let ga = Gamma::new(3.5, 2.0, 0.25).unwrap();
         let be = Beta::new(2.0, 5.0, -1.0, 4.0).unwrap();
 
-        macro_rules! check {
-            ($concrete:expr, $variant:expr) => {{
-                let c = $concrete;
-                let e = $variant;
-                assert_eq!(c.mean(), e.mean());
-                assert_eq!(c.variance(), e.variance());
-                assert_eq!(c.support(), e.support());
-                for i in 1..100 {
-                    let p = i as f64 / 100.0;
-                    let x = c.ppf(p).unwrap();
-                    assert_eq!(c.pdf(x), e.pdf(x));
-                    assert_eq!(c.cdf(x), e.cdf(x));
-                    assert_eq!(c.ppf(p).unwrap(), e.ppf(p).unwrap());
-                }
-            }};
+        fn check<C: ContinuousDistribution1D>(c: C, e: Distribution) {
+            assert_eq!(c.mean(), e.mean());
+            assert_eq!(c.variance(), e.variance());
+            assert_eq!(c.support(), e.support());
+            for i in 1..100 {
+                let p = i as f64 / 100.0;
+                let x = c.ppf(p).unwrap();
+                assert_eq!(c.pdf(x), e.pdf(x));
+                assert_eq!(c.cdf(x), e.cdf(x));
+                assert_eq!(c.ppf(p).unwrap(), e.ppf(p).unwrap());
+            }
         }
 
-        check!(u, Distribution::Uniform(u));
-        check!(n, Distribution::Normal(n));
-        check!(ln, Distribution::LogNormal(ln));
-        check!(tr, Distribution::Triangular(tr));
-        check!(ex, Distribution::Exponential(ex));
-        check!(we, Distribution::Weibull(we));
-        check!(ga, Distribution::Gamma(ga));
-        check!(be, Distribution::Beta(be));
+        check(u, Distribution::Uniform(u));
+        check(n, Distribution::Normal(n));
+        check(ln, Distribution::LogNormal(ln));
+        check(tr, Distribution::Triangular(tr));
+        check(ex, Distribution::Exponential(ex));
+        check(we, Distribution::Weibull(we));
+        check(ga, Distribution::Gamma(ga));
+        check(be, Distribution::Beta(be));
     }
 }

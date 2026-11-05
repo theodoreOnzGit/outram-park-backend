@@ -197,6 +197,22 @@ zone temperatures, statistics, data):
 
 Record and images: `verification_and_validation/htr10_zone_temperatures/`.
 
+**Random TRISO packing in DEM-bed pebbles (gh:#1243, 2026-11-05).**
+`Htr10CoreDesign::triso_packing` is `Lattice` (the default, the record's
+regular lattice) or `Random { realisations, seed }`:
+- only the explicit (DEM) bed builder reads it; the Şeker bed always uses
+  the lattice;
+- each realisation is exactly the lattice's particle count, packed by RSA
+  (`outram_mc_libs::dh_universe::pack_count_in_ball`) and wrapped in a
+  tracking lattice (`create_triso_lattice`), as geometry lattices 2 and up;
+  fuel ball j takes realisation j mod K;
+- `ParametricStudy` uses `TrisoPacking::DEM_DEFAULT` (8 realisations) for an
+  explicit bed, so the browser demo's DEM beds are random. Native runs
+  outside the study keep the lattice, and so does the one DEM-bed k on
+  record (0.989293).
+
+Record and images: `verification_and_validation/htr10_random_triso/`.
+
 **HTR-10 coupled TH transients (gh:#1151, moved here 2026-11-03).**
 Maintainer: "any neutronics and TH shld live in nee soon"; "Tampines will
 have fixed or user determined heat sources". `htr10_th_transient` holds the
@@ -290,3 +306,11 @@ claims" named in `docs/real-time-multifidelity-scoping.md` item 9.
 cargo build --release -p nee_soon
 cargo test  --release -p nee_soon
 ```
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

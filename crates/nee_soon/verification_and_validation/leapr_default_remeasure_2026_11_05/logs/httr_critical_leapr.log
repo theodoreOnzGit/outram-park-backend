@@ -1,0 +1,86 @@
+HTTR start-up core, CRITICAL state
+  rods (bottom above fuel bottom, cm): RodPositions { c: 177.5, r1: 177.5, r2: 177.5, r3: 404.9 }
+  graphite S(a,b) Reactor30P, thermal Bound, tracking Delta, impurity B-11 true
+  library: ENDF/B-VIII.0 for every nuclide
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  S(a,b): graphite tsl-reactor-graphite-30P.endf (MAT 32) on graphite carbon; C-in-SiC and Si-in-SiC on the SiC; U-in-UO2 on U-234/235/238 and O-in-UO2 on O-16 (LEAPR); Fe metal on Fe-56 and Al metal on Al-27 (LEAPR); everything else free gas
+  U_UO2    LEAPR 12.7s
+  O_UO2    LEAPR 19.3s
+  c_Graphite LEAPR 29.8s
+  c_SiC      LEAPR 28.9s
+  Si_SiC     LEAPR 14.7s
+  Al_metal LEAPR 8.4s
+  Fe_metal LEAPR 9.9s
+  U234   21.1s
+  U235   130.8s
+  U238   94.0s
+  O16    4.1s
+  O17    64.3ms
+  C12    1.0s
+  C13    215.7ms
+  C12    1.0s
+  C13    213.4ms
+  C12    1.0s
+  C13    213.1ms
+  B10    167.7ms
+  B11    1.1s
+  Si28   1.7s
+  Si29   1.6s
+  Si30   1.3s
+  Si28   1.7s
+  Si29   1.6s
+  Si30   1.4s
+  He3    67.1ms
+  He4    39.1ms
+  Al27   2.1s
+  P31    965.9ms
+  S32    353.3ms
+  S33    134.2ms
+  S34    83.8ms
+  S36    56.4ms
+  Ti46   721.2ms
+  Ti47   354.1ms
+  Ti48   755.2ms
+  Ti49   405.0ms
+  Ti50   282.0ms
+  Cr50   3.0s
+  Cr52   2.7s
+  Cr53   2.7s
+  Cr54   1.7s
+  Mn55   10.6s
+  Fe54   9.8s
+  Fe56   11.9s
+  Fe57   7.7s
+  Fe58   7.4s
+  Ni58   5.0s
+  Ni60   4.3s
+  Ni61   2.1s
+  Ni62   3.1s
+  Ni64   1.7s
+  Cu63   4.0s
+  Cu65   3.5s
+  nuclear data processed in 475.5 s
+  geometry: 667 cells, 94 universes, 115 lattices; 4770 fuel rods x 181818 particles
+  compact majorant: 278068 nodes (402.6 s)
+  seed 20261016: k = 1.02387 +/- 0.00049  (3725 s, final entropy 7.684 bits)
+    entropy at each tenth of the run [bits]: 7.683 7.701 7.679 7.670 7.668 7.666 7.681 7.682 7.690 7.684
+    active halves: 1.02396 +/- 0.00067 then 1.02378 +/- 0.00071 (difference -18 pcm)
+
+  k_eff = 1.02387 +/- 0.00049 (1 seed(s))
+  VALIDATION vs IRPhEP benchmark, fully-loaded critical (R1 §3.1.5.1): 1.0025 (-0.0060/+0.0071): +2137 pcm (+3.01 benchmark sigma)
+  VERIFICATION vs R1's MCNP5 (+/-0.0001), ENDF/B-VIII.0 here against each library there:
+    ENDF/B-V.2                   1.0198: +407 pcm
+    ENDF/B-VI.8                  1.0222: +167 pcm
+    ENDF/B-VII.0                 1.0229: +97 pcm
+    JEFF-3.1                     1.0236: +27 pcm
+    JENDL-3.3 (+ENDF/B thermal)  1.0178: +607 pcm
+    ENDF/B-VII.0 (MCNPX)         1.0231: +77 pcm
+  hardware: llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 34 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM
+
+  --- timing, data processing vs transport ---
+  hardware     : llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 34 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM
+  nuclear data :    475.5 s
+  transport    :   3725.3 s
+  total        :   4200.8 s
+  diagnostics  : verification_and_validation/local_perf/run-httr-keff-1793850085.md
+EXIT=0

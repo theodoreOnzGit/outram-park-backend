@@ -110,8 +110,6 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::zip::zip_flat;
-
 /// Upstream's `N`, the cap on the AGM descent.
 const NMAX: usize = 16;
 
@@ -237,7 +235,7 @@ pub fn elljac(u: f64, m: f64) -> Jacobi {
     let (Some(mu_lo), Some(mu_hi), Some(nu_lo)) = (mu.get(..n), mu.get(1..=n), nu.get(..n)) else {
         return Jacobi::NAN;
     };
-    for (&mu_k, &mu_k1, &nu_k) in zip_flat!(mu_lo, mu_hi, nu_lo).rev() {
+    for ((&mu_k, &mu_k1), &nu_k) in mu_lo.iter().zip(mu_hi).zip(nu_lo).rev() {
         let (c_next, d_next) = (c, d);
         c = d_next * c_next;
         let r = c_next * c_next / mu_k1;

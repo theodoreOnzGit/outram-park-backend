@@ -28,9 +28,9 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Status | Upstream lines | Share | Rows |
 |---|---:|---:|---:|
-| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ ~~36,553~~ ~~41,405~~ ~~42,349~~ ~~53,277~~ ~~56,269~~ 63,379 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ ~~28.2 %~~ ~~31.9 %~~ ~~32.6 %~~ ~~41.1 %~~ ~~43.4 %~~ 48.9 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ ~~40~~ ~~41~~ ~~44~~ ~~65~~ ~~71~~ 85 |
-| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ ~~38,266~~ ~~38,673~~ ~~35,766~~ ~~36,030~~ 35,781 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ ~~29.5 %~~ ~~29.8 %~~ ~~27.6 %~~ ~~27.8 %~~ 27.6 % | ~~27~~ ~~25~~ ~~23~~ ~~16~~ ~~17~~ ~~16~~ 17 |
-| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ ~~32,277~~ ~~27,018~~ ~~26,074~~ ~~18,053~~ ~~14,797~~ 7,936 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ ~~24.9 %~~ ~~20.8 %~~ ~~20.1 %~~ ~~13.9 %~~ ~~11.4 %~~ 6.1 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ ~~57~~ ~~55~~ ~~52~~ ~~32~~ ~~25~~ 11 |
+| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ ~~36,553~~ ~~41,405~~ ~~42,349~~ ~~53,277~~ ~~56,269~~ ~~63,379~~ ~~69,591~~ 73,820 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ ~~28.2 %~~ ~~31.9 %~~ ~~32.6 %~~ ~~41.1 %~~ ~~43.4 %~~ ~~48.9 %~~ ~~53.6 %~~ 56.9 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ ~~40~~ ~~41~~ ~~44~~ ~~65~~ ~~71~~ ~~85~~ ~~88~~ 89 |
+| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ ~~38,266~~ ~~38,673~~ ~~35,766~~ ~~36,030~~ ~~35,781~~ ~~30,545~~ 26,316 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ ~~29.5 %~~ ~~29.8 %~~ ~~27.6 %~~ ~~27.8 %~~ ~~27.6 %~~ ~~23.5 %~~ 20.3 % | ~~27~~ ~~25~~ ~~23~~ ~~16~~ ~~17~~ ~~16~~ ~~17~~ ~~15~~ 14 |
+| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ ~~32,277~~ ~~27,018~~ ~~26,074~~ ~~18,053~~ ~~14,797~~ ~~7,936~~ 6,960 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ ~~24.9 %~~ ~~20.8 %~~ ~~20.1 %~~ ~~13.9 %~~ ~~11.4 %~~ ~~6.1 %~~ 5.4 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ ~~57~~ ~~55~~ ~~52~~ ~~32~~ ~~25~~ ~~11~~ 10 |
 | not applicable | 22,642 | 17.5 % | 25 |
 | **total** | **129,738** | 100 % | 138 |
 
@@ -46,18 +46,22 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 **Updated 2026-11-05 after gh:#1280, #1281 and #1279 (items 25–27):** to ported: `symmetryPlaneOptimisation` (405, E); `createFundamentalSheets` (908) and `meshSurfaceEdgeExtractorFUN` (407, partial before) (G); `extrudeLayer` (1,915) and `triangulateNonPlanarBaseFaces` (357) (H); the four `anisotropicMeshing` rows (2,559, K); `improveMeshQuality`, `improveSymmetryPlanes`, `scaleMesh`, `scaleSurfaceMesh`, `surfaceGenerateBoundingBox` (559, M). To partial: `generateBoundaryLayers` (158, M). Only those 15 rows moved.
 
+**Updated 2026-11-05 after gh:#1270's remainder** (merged after the octree remainders; the totals combine both): `boundaryLayers/boundaryLayers` (4,229, H) from partial to ported (serial; its MPI branches are not applicable). Only that row moved.
+
 **Updated 2026-11-05 after gh:#1276, #1277 and #1278 (wave 3, items 22–24 in part):** 12 rows of group J (6,749 lines: every `triSurfaceTools` row except the two 2D ones and `triSurfaceMetaData`, and `quadricFitting`), `meshes/triSurf` in group C (2,907, partial → ported) and 8 utilities in group M (1,272) are ported. Only those 21 rows moved.
+
+**Updated 2026-11-05 after the octree remainders (gh:#1278 second half, gh:#1264–#1266 remainders):** group B's `meshOctreeCreator` (2,118) and `meshOctreeAddressing` (3,118) partial → ported, `meshOctreeAutomaticRefinement` (976) not ported → ported. Group B is now wholly ported apart from its MPI rows. Only those 3 rows moved.
 
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
 | A. Workflows | ~~0~~ ~~5,333~~ ~~5,975~~ 6,577 | ~~1,423~~ 0 | ~~5,154~~ ~~1,244~~ ~~602~~ 0 | 1,438 |
-| B. Octree | ~~0~~ 10,689 | ~~13,041~~ 5,236 | ~~3,860~~ 976 | 2,111 |
+| B. Octree | ~~0~~ ~~10,689~~ 16,901 | ~~13,041~~ ~~5,236~~ 0 | ~~3,860~~ ~~976~~ 0 | 2,111 |
 | C. Mesh data structures | ~~0~~ ~~442~~ ~~2,055~~ ~~4,962~~ 5,651 | ~~12,767~~ 9,860 | ~~3,538~~ ~~3,096~~ ~~1,483~~ 794 | 3,354 |
 | D. Quality checks | ~~0~~ 4,441 | ~~4,441~~ 0 | 0 | 0 |
 | E. Volume optimiser | ~~1,141~~ ~~3,599~~ 4,004 | ~~5,244~~ 4,456 | ~~2,404~~ ~~734~~ 329 | 798 |
 | F. Surface optimiser | 0 | 0 | 2,811 | 522 |
 | G. Surface tools | ~~2,208~~ ~~3,347~~ ~~3,739~~ ~~8,591~~ ~~8,893~~ ~~10,393~~ 11,708 | ~~4,082~~ ~~4,489~~ 4,082 | ~~10,962~~ ~~9,823~~ ~~9,431~~ ~~4,172~~ ~~3,870~~ ~~2,370~~ 1,462 | 969 |
-| H. Boundary layers | ~~0~~ ~~989~~ 3,261 | 9,395 | ~~3,261~~ ~~2,272~~ 0 | 0 |
+| H. Boundary layers | ~~0~~ ~~989~~ ~~3,261~~ 7,490 | ~~9,395~~ 5,166 | ~~3,261~~ ~~2,272~~ 0 | 0 |
 | I. Topology repair | ~~0~~ 5,283 | ~~1,396~~ 0 | ~~3,887~~ 0 | 0 |
 | J. triSurface tools, helper classes | ~~0~~ ~~425~~ ~~7,174~~ 7,375 | ~~0~~ 264 | ~~7,639~~ ~~7,214~~ ~~465~~ 0 | 233 |
 | K. Anisotropic meshing | ~~0~~ 2,559 | 0 | ~~2,559~~ 0 | 0 |
@@ -71,17 +75,17 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
 | `executables/tetMesh` | 65 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh::{tet_mesh, tet_mesh_restart}`; `pipeline::surface_to_tet_dual_mesh(_multipatch)` kept | Thin `main` over `tetMeshGenerator`. Settings are typed (`TetMeshOptions`); no `meshDict` reader. |
-| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; ~~only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`~~ **UPDATED 2026-11-05 (gh:#1269):** `extractPatches` calls `edge_extractor::extract_patches` (the nearest triangle is the ablation `PatchAssignment::NearestTriangle`). No `boundaryLayers` dict and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
+| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; ~~only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`~~ **UPDATED 2026-11-05 (gh:#1269):** `extractPatches` calls `edge_extractor::extract_patches` (the nearest triangle is the ablation `PatchAssignment::NearestTriangle`). ~~No `boundaryLayers` dict~~ **A `boundaryLayers` dict since gh:#1270's remainder (`TetMeshOptions::boundary_layers`)**, and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
 | `meshLibrary/tetMesh/tetMeshExtractorOctree` | 386 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_mesh_extractor_octree` (with the shared `polyMeshGen` assembly `poly_mesh_from_cells`) | Beside `tet::tetrahedralize` + `delaunay::flip_to_delaunay` (§3); compared on the sphere and the pipe. |
 | `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_creator_octree` | All five tet routines. Upstream's unguarded reads are counted (`TetCreatorDefects`), zero on every run. |
 | `executables/cartesianMesh` | 62 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh::{cartesian_mesh, cartesian_mesh_restart}` | Thin `main` over `cartesianMeshGenerator`. Settings typed (`CartesianMeshGeneratorOptions`). |
-| `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh`; `carve`, `snap`, `octree` kept | ~~No `cartesianMesh` workflow.~~ Every member in Rust. Gaps it calls through: `boundaryLayers` is the one-group route (patch-wise groups not ported); `refineBoundaryLayers` refuses two-direction cells; no `anisotropicSources` / `triSurfacePatchManipulator`. Results: `verification_and_validation/cartesian_mesh_gh1274/`. |
+| `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh`; `carve`, `snap`, `octree` kept | ~~No `cartesianMesh` workflow.~~ Every member in Rust. Gaps it calls through: ~~`boundaryLayers` is the one-group route (patch-wise groups not ported)~~ (**patch-wise since gh:#1270's remainder**); `refineBoundaryLayers` refuses two-direction cells; no `anisotropicSources` / `triSurfacePatchManipulator`. Results: `verification_and_validation/cartesian_mesh_gh1274/`. |
 | `meshLibrary/cartesianMesh/cartesianMeshExtractor` | 800 | ported (2026-11-05, gh:#1266) | `cartesian_mesh::cartesian_mesh_extractor`; `octree::build_mesh` kept | ~~partial: re-implemented only; missing `decomposeSplitHexesIntoTetsAndPyramids`, `createPointsAndAddressing`, cell-type bookkeeping~~ **CORRECTED 2026-11-05:** transcribed beside `octree::build_mesh`. On the same leaves the two build the same faces ring for ring (sphere and pipe, `verification_and_validation/cartesian_octree_gh1262/README.md`). ~~Quadtree empty patches not ported.~~ **2026-11-05 (gh:#1275):** the quadtree's empty patches are `cartesian_mesh::create_empty_patches`, called by the 2D generator right after the extractor. |
 | `executables/pMesh` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh::{p_mesh, p_mesh_restart}` | Thin `main` over `voronoiMeshGenerator`. |
 | `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (~~not ported~~ **CORRECTED 2026-11-05, gh:#1269:** called, `tet_mesh::untangle_again`, since gh:#1259 merged). `edgeExtraction` is `meshSurfaceEdgeExtractorFUN` ~~without its fundamental sheets (gh:#1269)~~, with them since gh:#1281. Results: `verification_and_validation/p_mesh_gh1273/`. |
 | `meshLibrary/voronoiMesh/voronoiMeshExtractor` | 674 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `voronoi_mesh_extractor`; `cell_centre_dual`, `dual::polyhedral_dual*` kept | Tet-centroid dual of `tetCreatorOctree` tets, cells only at interior vertices. Equal to `CellCentre`'s interior cells to 9.8e-15 where `polyDualMesh` accepts the tets (§3). |
 | `executables/cartesian2DMesh` | 66 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh::{cartesian_2d_mesh, cartesian_2d_mesh_restart}` | Thin `main`. |
-| `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh` | Every member in Rust. Steps whose callees are gaps say so in the report: `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`), the 2D `refineBoundaryLayers`; the layer is the one-group route. Results: `verification_and_validation/cartesian_2d_mesh_gh1275/`. |
+| `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh` | Every member in Rust. Steps whose callees are gaps say so in the report: `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`), the 2D `refineBoundaryLayers`; the layer is ~~the one-group route~~ **patch-wise with `activate2DMode` (gh:#1270 remainder)**. Results: `verification_and_validation/cartesian_2d_mesh_gh1275/`. |
 | `meshLibrary/utilities/workflowControls` | 477 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `workflow_controls` | `stopAfter` / restart of a workflow step; a member of all four generators. The meta data and the saved mesh are values, not files. |
 | `meshLibrary/utilities/checkMeshDict` | 1438 | not applicable | `pipeline::TetDualOptions`, `BoundaryLayerOptimisationControls` | Validation of a `meshDict`; settings here are typed Rust structs. Revisit if a `meshDict` reader is ever added (§4, "Not planned"). |
 
@@ -94,14 +98,14 @@ _Subtotal: 8015 lines._
 | `octrees/meshOctree (serial: meshOctree.C/H/I.H, InsideCalculations, NeighbourSearches, CubePatches, FindNearestSurfacePoint, Slot)` | 2303 | ported (2026-11-05, gh:#1262, #1263) | `mesh_octree` (`MeshOctree`, `OctreeSlot`, `TriSurf`), `mesh_octree_queries` | ~~partial: `octree` re-implementation only; missing nearest-point queries, neighbour searches, `findLeafContainingVertex`~~ **CORRECTED 2026-11-05:** transcribed beside `octree` (which is unchanged). Every serial member function is in Rust, ~~quadtree excluded~~ the quadtree included since gh:#1275 (`MeshOctree::new_quadtree`, the 2D neighbour searches). `findNearestSurfacePoint` keeps upstream's stopping rule (misses the nearest triangle for 4–7 % of points off the surface, measured); `NearestSearch::Exact` is the port's exact variant, bit-identical to the brute force, and `patches` / `snap` can route through it (`SurfaceSearch::Octree`, opt-in). |
 | `octrees/meshOctree: meshOctreeParallelCommunication.C` | 448 | not applicable | — | MPI; the crate is serial. |
 | `octrees/meshOctree/meshOctreeCube` | 3078 | ported (2026-11-05, gh:#1262) | `mesh_octree` (`CubeCoordinates`, `OctreeCube`, `CubeType`) | ~~partial: coordinates and refinement only~~ **CORRECTED 2026-11-05:** intersections, cube types, `refineCube`, `findContainedEdges` and the recursive leaf functions transcribed. Not ported: ~~`refineCube2D` (quadtree, item 21)~~ (ported 2026-11-05, gh:#1275: `refine_cube` on a quadtree), the MPI functions, the unused Hilbert tables. `octree::Cell` is unchanged. |
-| `octrees/meshOctree/meshOctreeCreator (serial)` | 2118 | partial (2026-11-05, gh:#1264, #1265) | `mesh_octree_creator::MeshOctreeCreator`, `MeshDict`; `octree::refine_near_boundary(_banded)` kept | ~~missing `maxCellSize` / `boundaryCellSize` sizing, `localRefinement`, `objectRefinements`, `refineBoxesContainedInObjects`, `createOctreeWithRefinedBoundary`, `refineBoxesNearDataBoxes`~~ **CORRECTED 2026-11-05:** all of those transcribed, plus `patchCellSize`. Still missing: `refineBoxesIntersectingSurfaces` / `EdgeMeshes` (refinement sources), `subsetCellSize`, `anisotropicSources`, the automatic refinement call. |
+| `octrees/meshOctree/meshOctreeCreator (serial)` | 2118 | ~~partial (2026-11-05, gh:#1264, #1265)~~ **ported (2026-11-05, gh:#1264/#1265 remainders)** | `mesh_octree_creator::MeshOctreeCreator`, `MeshDict`, `EdgeMesh`; `octree::refine_near_boundary(_banded)` kept | ~~missing `maxCellSize` / `boundaryCellSize` sizing, `localRefinement`, `objectRefinements`, `refineBoxesContainedInObjects`, `createOctreeWithRefinedBoundary`, `refineBoxesNearDataBoxes`~~ **CORRECTED 2026-11-05:** all of those transcribed, plus `patchCellSize`. ~~Still missing: `refineBoxesIntersectingSurfaces` / `EdgeMeshes` (refinement sources), `subsetCellSize`, `anisotropicSources`, the automatic refinement call.~~ **CORRECTED 2026-11-05:** the sources, `subsetCellSize` (and subset `localRefinement` entries) and the automatic refinement call are transcribed, all off unless the `MeshDict` asks. `anisotropicSources` moves the sources through group K's `anisotropic` (gh:#1279; `source_surface_geometry`, `source_edge_mesh_geometry`, `MeshDict::anisotropic_sources`). Source files are values, not read. Results: `verification_and_validation/octree_remainders_gh1278/`. |
 | `octrees/meshOctree/meshOctreeCreator: LoadDistribution.C` | 56 | not applicable | — | MPI load balance. |
 | `octrees/meshOctree/meshOctreeModifier (serial)` | 1469 | ported (2026-11-05, gh:#1263) | `mesh_octree_modifier`; `octree::balance_2to1` kept | ~~partial: missing `reduceMemoryConsumption`, `markAdditionalLayers`, `refineSelectedBoxesAndAdditionalLayers`~~ **CORRECTED 2026-11-05:** all serial functions transcribed. Upstream's 1-irregularity is over nodes, edges and faces; `octree::balance_2to1` balances over faces only. |
 | `octrees/meshOctree/meshOctreeModifier: DistributeLeaves, LoadDistribution, ParallelRefinement, UpdateCommunicationPattern` | 920 | not applicable | — | MPI. |
-| `octrees/meshOctree/meshOctreeAddressing (serial)` | 3118 | partial (2026-11-05, gh:#1266) | `cartesian_mesh::MeshOctreeAddressing`; `octree::build_mesh` kept | ~~missing `octreeFaces`, `nodeLabels`/`nodeLeaves`~~ **CORRECTED 2026-11-05:** used boxes, node labels, points, node leaves, node types, octree faces, leaf faces, `findEdgeCentre`, `cubesAroundEdge` transcribed. Still missing: octree edges and their five maps, `leafLeaves`, `nodeFaces`, `isIntersectedFace/Edge`, `checkGluedRegions`, `IrregularConnections`. |
+| `octrees/meshOctree/meshOctreeAddressing (serial)` | 3118 | partial (2026-11-05, gh:#1266) | `cartesian_mesh::MeshOctreeAddressing`; `octree::build_mesh` kept | ~~missing `octreeFaces`, `nodeLabels`/`nodeLeaves`~~ **CORRECTED 2026-11-05:** used boxes, node labels, points, node leaves, node types, octree faces, leaf faces, `findEdgeCentre`, `cubesAroundEdge` transcribed. ~~Still missing: octree edges and their five maps, `leafLeaves`, `nodeFaces`, `isIntersectedFace/Edge`, `checkGluedRegions`, `IrregularConnections`.~~ **CORRECTED 2026-11-05 (gh:#1266 remainder): status partial -> ported.** Octree edges and their five maps (`edge_addressing`), `leafLeaves`, `nodeFaces`, `isIntersectedFace/Edge`, `edgeIntersections`, `checkGluedRegions` (`from_dict`, `checkForGluedMesh`), `checkAndFixIrregularConnections` (no upstream caller; its node test is dead code upstream) and `findUsedBoxes`' `nonManifoldMeshing` / `keep`/`removeCellsIntersectingPatches` (`CellSelection`) are transcribed. Results: `verification_and_validation/octree_remainders_gh1278/`. |
 | `octrees/meshOctree/meshOctreeAddressing: ParallelAddressing.C` | 687 | not applicable | — | MPI. |
 | `octrees/meshOctree/meshOctreeInsideOutside` | 955 | ported (2026-11-05, gh:#1264) | `mesh_octree_creator::mesh_octree_inside_outside`; `octree::inside` kept | ~~partial, ray parity only~~ **CORRECTED 2026-11-05:** frontal marking transcribed (serial). Against ray parity: 0 disagreements on every non-DATA leaf of the sphere and the pipe. |
-| `octrees/meshOctree/meshOctreeAutomaticRefinement` | 976 | not ported | — | Curvature- and proximity-based refinement. |
+| `octrees/meshOctree/meshOctreeAutomaticRefinement` | 976 | ~~not ported~~ **ported (2026-11-05, gh:#1278)** | `mesh_octree_automatic_refinement` (with `help::numberOfFaceGroups` / `numberOfEdgeGroups`) | Curvature- and proximity-based refinement; corners and partitions. Runs from `createOctreeBoxes` when `MeshDict::min_cell_size` is set (off by default, as upstream without `minCellSize`). The unused `octreeAddressing()` member is not built. Results: `verification_and_validation/octree_remainders_gh1278/`. |
 | `octrees/meshOctree/refinementControls/objectRefinement` | 2572 | ported (2026-11-05, gh:#1265) | `object_refinement` | ~~not ported~~ **CORRECTED 2026-11-05:** box, sphere, cone, hollow cone, line (an enum). Dictionary I/O not ported (typed fields instead). |
 | `octrees/meshOctree/refinementControls/patchRefinement` | 312 | ported (2026-11-05, gh:#1265) | `mesh_octree_creator::PatchRefinement` | ~~not ported~~ **CORRECTED 2026-11-05:** by region index, not by name. |
 
@@ -198,7 +202,7 @@ _Subtotal: 18221 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `boundaryLayers/boundaryLayers` | 4229 | partial | `layers::layer_setup`, `layers::add_boundary_layers_adaptive_on_patches`; **`layers::boundary_layers::boundary_layers_add_layer` (2026-11-05, gh:#1270)** | Ported: the per-patch border rules; ~~missing `boundaryLayersCreateVertices`, `boundaryLayerCells`~~ **CORRECTED 2026-11-05 (gh:#1270):** the one-group creation route (`findPatchVertices`, `createNewVertex`, `createNewVertices(boolList)`, `createNewFacesAndCells`) is ported beside the crate's shrink. Missing: `findPatchesToBeTreatedTogether`, the patch-wise route (`createNewVertices(labelList)`, `createLayerCells`, `boundaryLayerCells.C`), `checkTopologyOfBndFaces`, `addWrapperLayer`, 2D, MPI. |
+| `boundaryLayers/boundaryLayers` | 4229 | ~~partial~~ **ported (2026-11-05, gh:#1270 remainder)** | `layers::layer_setup`, `layers::add_boundary_layers_adaptive_on_patches`; **`layers::boundary_layers::boundary_layers_add_layer` (2026-11-05, gh:#1270)** | Ported: the per-patch border rules; ~~missing `boundaryLayersCreateVertices`, `boundaryLayerCells`~~ **CORRECTED 2026-11-05 (gh:#1270):** the one-group creation route (`findPatchVertices`, `createNewVertex`, `createNewVertices(boolList)`, `createNewFacesAndCells`) is ported beside the crate's shrink. ~~Missing: `findPatchesToBeTreatedTogether`, the patch-wise route (`createNewVertices(labelList)`, `createLayerCells`, `boundaryLayerCells.C`), `checkTopologyOfBndFaces`, `addWrapperLayer`, 2D, MPI.~~ **UPDATED 2026-11-05 (gh:#1270 remainder):** the class is `layers::boundary_layers::BoundaryLayers` with all of it: `findPatchesToBeTreatedTogether`, the patch-wise route, `activate2DMode`, `createOTopologyLayers`, `addWrapperLayer` (an upstream defect followed to its intent), `checkTopologyOfBoundaryFaces`; `isSharedEdgeConvex`, `angleBetweenFaces`. Wired into all four workflows and `generateBoundaryLayers`. Not applicable: the MPI branches. Record: `verification_and_validation/patch_wise_layers_gh1270/`. |
 | `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::refine_boundary_layers::refine_boundary_layers` (2026-11-05, gh:#1271); `layers::build_layered_variable` | ~~Only "split each hair by the grading"~~ **CORRECTED 2026-11-05 (gh:#1271):** the settings (global and per-patch `nLayers`, `thicknessRatio`, `maxFirstLayerThickness`, `allowDiscontinuity`), `analyseLayers` and `generateNewVertices` are ported, with the split of prism layer cells. Missing: `refineEdgeHexCell`, `refineCornerHexCell` and the general `refineBoundaryLayersFaces`/`Cells` (refused as `NotPorted`), `activateSpecialMode`, `pointsInBndLayer`, 2D, MPI. |
 | `boundaryLayers/detectBoundaryLayers` | 989 | ported (2026-11-05, gh:#1271) | `layers::refine_boundary_layers::detect_boundary_layers` | ~~not ported~~ Serial. |
 | `boundaryLayers/extrudeLayer` | 1915 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `layers::extrude_layer` | Serial (the MPI half is not applicable). Edge and corner cells (self-intersecting layers) transcribed, not reached by any test. |
@@ -230,7 +234,7 @@ _Subtotal: 5283 lines._
 | `triSurfaceTools/triSurfacePatchManipulator` | 509 | **ported (2026-11-05, gh:#1276)** | `surface::features::TriSurfacePatchManipulator` | ~~not ported~~ Split a surface into patches at feature edges. The `meshDict` update is `patches_for_patch` (no dictionary). |
 | `triSurfaceTools/triSurfaceClassifyEdges` | 575 | **ported (2026-11-05, gh:#1276)** | `surface::features::TriSurfaceClassifyEdges` | ~~not ported~~ |
 | `triSurfaceTools/triSurfacePartitioner` | 598 | **ported (2026-11-05, gh:#1276)** | `surface::features::TriSurfacePartitioner` | ~~not ported~~ |
-| `triSurfaceTools/triSurfaceCurvatureEstimator` | 1229 | **ported (2026-11-05, gh:#1278)** | `surface::curvature::TriSurfaceCurvatureEstimator` | ~~not ported~~ Feeds `meshOctreeAutomaticRefinement` (not ported). The VTK debug output is not ported. |
+| `triSurfaceTools/triSurfaceCurvatureEstimator` | 1229 | **ported (2026-11-05, gh:#1278)** | `surface::curvature::TriSurfaceCurvatureEstimator` | ~~not ported~~ Feeds `meshOctreeAutomaticRefinement` (~~not ported~~ **ported 2026-11-05, gh:#1278**). The VTK debug output is not ported. |
 | `triSurfaceTools/triSurfaceCleanupDuplicates` | 454 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::cleanup_duplicates` | ~~not ported~~ |
 | `triSurfaceTools/triSurfaceCleanupDuplicateTriangles` | 235 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::cleanup_duplicate_triangles` | ~~not ported~~ |
 | `triSurfaceTools/triSurfaceCopyParts` | 412 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::copy_surface_parts` | ~~not ported~~ |
@@ -259,7 +263,7 @@ _Subtotal: 2559 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `helperFunctions: GeometryQueries.H + GeometryQueriesI.H` | 2330 | partial | `boundary_layer_optimisation` (`nearest_point_on_line`, `tri_segment_intersection`, `segment_face_intersection`), `snap::closest_point_on_triangle`, `math::Vec3` | Ported where used: `nearestPointOnTheEdge`, `lineFaceIntersection`, `triLineIntersection`. Not re-checked one by one: the rest (`isFaceConvex`, `pointInTetrahedron`, `boundBoxLineIntersection`, …). |
+| `helperFunctions: GeometryQueries.H + GeometryQueriesI.H` | 2330 | partial | `boundary_layer_optimisation` (`nearest_point_on_line`, `tri_segment_intersection`, `segment_face_intersection`), `snap::closest_point_on_triangle`, `math::Vec3` | Ported where used: `nearestPointOnTheEdge`, `lineFaceIntersection`, `triLineIntersection`; **added 2026-11-05:** `numberOfFaceGroups`, `numberOfEdgeGroups` (`mesh_octree_automatic_refinement`), `doFaceAndTriangleIntersect` (`cartesian_mesh`); the octree's own transcriptions are in `mesh_octree::help`. Not re-checked one by one: the rest (`isFaceConvex`, `pointInTetrahedron`, `boundBoxLineIntersection`, …). |
 | `helperFunctions: FrontalMarking` | 653 | ported (2026-11-05, gh:#1264) | `mesh_octree_creator::{frontal_marking, group_marking}` | ~~not ported~~ **CORRECTED 2026-11-05:** serial `frontalMarking` and `groupMarking` as generic functions (closures, no `dyn`). |
 | `helperFunctions: TopologyManipulation.H + I.H` | 829 | not ported | — | Not re-checked: some modules write their own face merging / reversal; none cites these functions. |
 | `helperFunctions: helperFunctions.H` | 46 | not applicable | — | Umbrella header. |
@@ -908,8 +912,9 @@ the misses and PNGs: `verification_and_validation/surface_tools_gh1276/README.md
 - **Item 24, part (gh:#1278):** `triSurfaceCurvatureEstimator` and
   `quadricFitting`. Sphere R 3, mean curvature against −1/R: median error
   0.37 % (24 × 48) and 0.087 % (48 × 96), max 0.66 % and 0.16 %, falling
-  4.3× per doubling. **Not ported:** `meshOctreeAutomaticRefinement` (976),
-  so the proximity test of item 24 is not run.
+  4.3× per doubling. ~~**Not ported:** `meshOctreeAutomaticRefinement` (976),
+  so the proximity test of item 24 is not run.~~ **UPDATED 2026-11-05:**
+  ported and run; see "Item 24, rest" below.
 
 **Upstream defects found (not fixed upstream; the port's handling is in each
 doc comment):** `subsetToPatch` discards the patches it builds;
@@ -1031,3 +1036,76 @@ non-quadtree octree takes every old branch, and all the pins pass.
   wired into any generator.
 - Record, predictions against results (misses included) and images:
   `verification_and_validation/fundamental_sheets_gh1281/README.md`.
+
+### Item 24, rest, and the octree remainders (gh:#1278, gh:#1264–#1266), 2026-11-05
+
+No default changes: every new step is off unless the `MeshDict` asks, and
+all existing pins pass unchanged. Record, misses and PNGs:
+`verification_and_validation/octree_remainders_gh1278/README.md`.
+
+- **gh:#1278, second half:** `meshOctreeAutomaticRefinement`
+  (`mesh_octree_automatic_refinement`), on with `MeshDict::min_cell_size`,
+  called from `createOctreeBoxes` in upstream's place.
+  - Proximity, two plates 0.05 apart, `maxCellSize` 0.125: interior plate
+    leaves at level 7, 3.2 leaves across the gap, **as predicted**. The
+    first case (gap 0.1, `maxCellSize` 0.25 on the same 1 m plate)
+    **missed**: nothing is refined, because at that size every leaf's
+    `1.732 h` range reaches a side wall that joins the plates into one
+    group. Upstream's criterion as written; kept as a pinned case.
+  - Curvature, sphere R 3: triangle leaves from level 4 to level 5
+    (`h <= 0.2835 / κ`, `κ` 0.334–0.335), **as predicted**.
+- **gh:#1264/#1265 remainders:** `surfaceMeshRefinement` /
+  `edgeMeshRefinement` sources, `subsetCellSize` and subset
+  `localRefinement`. Differential: the sphere as its own surface source
+  gives the `boundaryCellSize` octree leaf for leaf; `subsetCellSize` gives
+  the `patchCellSize` octree leaf for leaf. `anisotropicSources` moves the
+  sources through gh:#1279's `anisotropic` (merged the same day).
+- **gh:#1266 remainders:** the octree edges and their five maps,
+  `leafLeaves`, `nodeFaces`, `isIntersectedFace/Edge`, `edgeIntersections`,
+  `checkGluedRegions`, `checkAndFixIrregularConnections`, and
+  `findUsedBoxes`' `nonManifoldMeshing` / `keep`/`removeCellsIntersectingPatches`
+  (`cartesian_mesh_extractor_from_dict`). Octree edges equal the extracted
+  mesh's edges (sphere 13 356, pipe 27 762); the glued check splits two
+  cubes 0.05 apart into two components; every prediction held.
+- **Upstream defects found:** the corner criterion skips the
+  `maxRefLevel_` test; the extra layer and the regularity closure exceed
+  `maxRefLevel_` (64 pipe leaves at `maxRefLevel_ + 1`); the irregular
+  connections' node test is dead code; `checkGluedRegions` leaves the
+  addressing it built on the old box types; the sources' `cellSize` loop
+  gives one more level at exact powers of two.
+- **Still not ported in group B:** nothing serial. Not wired into any pipeline: the
+  `cartesianMesh` generator calls `cartesian_mesh_extractor`, not the
+  dict-driven `cartesian_mesh_extractor_from_dict`, so the new
+  `meshDict` entries reach the generators only through
+  `pipeline::tet_mesh::create_octree` (the sources and `minCellSize`), not
+  the extractor's cell selection; `subsetCellSize` cannot reach them yet,
+  because `create_octree` rebuilds the surface without facet subsets.
+
+### gh:#1270 remainder: the patch-wise `boundaryLayers`, 2026-11-05
+
+`layers::boundary_layers::BoundaryLayers` is upstream's class (serial):
+`findPatchesToBeTreatedTogether`, `createNewVertices(labelList)`,
+`createLayerCells` (edge and corner cells), `activate2DMode`,
+`createOTopologyLayers`, `addWrapperLayer`, `checkTopologyOfBoundaryFaces`;
+`create_new_vertex` is now the one `createNewVertex` both routes call, and
+`generate_layer` the one `generateBoundaryLayers` step all workflows call.
+Wired as upstream: `cartesian_mesh` and `cartesian_2d_mesh` always (2D
+mode for the latter; `LayerTopology::OTopology` is the ablation),
+`tet_mesh` / `p_mesh` with a `boundaryLayers` dict, the
+`generateBoundaryLayers` utility. Defaults of the tet-dual pipeline and Foam
+Studio unchanged.
+
+- **Box, one patch per side:** 216 cells (96 face, 48 edge, 8 corner), the
+  predicted 6 x 6 x 6 tensor grid, volume 1.
+- **Tet-dual pipe:** upstream's concavity rule merges the three patches into
+  one group (24 of 72 rim edges fold past 135°); the displacements equal the
+  one-group route's bit for bit (1 658 of 1 658).
+- **Cartesian pipe 60 mm:** three groups, 2 688 cells (64 edge cells), the
+  rim no longer pinched; −0.659 %, closed, 0 non-positive at the end.
+  `cartesian_mesh` records re-measured (struck through in
+  `cartesian_mesh_gh1274/README.md`).
+- **Misses:** the tet-dual pipe's grouping (P3); "bit for bit" against the
+  O-topology route on the sphere (labels and round-off differ; volumes to
+  2.9e-15).
+
+Record: `verification_and_validation/patch_wise_layers_gh1270/README.md`.

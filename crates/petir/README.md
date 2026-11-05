@@ -155,7 +155,7 @@ things:
    declarations itself and compares the index against the length, rather than
    trusting that a literal looks safe. Everything else goes through `get` /
    `first` / `last` / `split_first` / `split_last`, a slice pattern, or a
-   `zip` — which is what the crate-internal `zip_flat!` exists for, so a
+   `zip` — which is what the crate-internal `zip2` … `zip8` functions (`crate::zip`) exist for, so a
    five-way parallel-array loop does not have to bind `((((a, b), c), d), e)`.
 
 Why it is worth the trouble: on `thumbv7em-none-eabihf` a panic is not a stack

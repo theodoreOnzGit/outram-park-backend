@@ -78,3 +78,11 @@ holds OpenMC's depletion integrators, and `outram-mc-libs` depends on it.
 - Release builds only: `cargo test -p outram-park-fork-onix --release`.
 - Regenerate `docs/outram-park-fork-onix-api.md` with
   `kovan-cli api-docs outram-park-fork-onix` when a public doc comment changes.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

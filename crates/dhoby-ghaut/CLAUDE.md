@@ -52,7 +52,7 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 **Maintainer direction, 2026-11-04**, the workspace rule of the same name in
 the root `CLAUDE.md`, restated here because this crate is where it bit. Every
 `mod` is a plain `mod name;` line: never `mod $m;` inside a `macro_rules!`
-such as `rung_table!`. kovan reads `mod` lines without expanding macros, so
+(`rung_table!`, removed 2026-11-05, was one). kovan reads `mod` lines without expanding macros, so
 the HTR-10 web demo and nine other `monte_carlo_web` rungs had no
 `kovan.toml` and were missing from review until their `mod` lines moved into
 `main.rs`. A macro may still generate the enums and dispatch over modules
@@ -168,17 +168,26 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    and update the counts its test pins.
 2. ~~**One line** in the `rung_table!` invocation in `main.rs`
    (`<module>: <Marker>,`, in ladder order). The macro declares the module and
-   generates the `Rung` enum and all dispatch~~ **CHANGED 2026-11-04:**
+   generates the `Rung` enum and all dispatch~~ ~~**CHANGED 2026-11-04:**
    **two lines** in `main.rs`: a plain `mod <module>;` (with the
    `#[cfg(not(target_os = "android"))]` the others carry) and
    `<module>: <Marker>,` in the `rung_table!` invocation, in ladder order.
    The macro generates the `Rung` enum and all dispatch; the engine, app,
-   worker and message format need no change. **The macro must never declare
-   the module (HARD RULE, root `CLAUDE.md`, "Never declare modules through a
-   macro"):** kovan reads `mod` lines without expanding macros, and until
-   this change every rung but `triso` (which `delta_tracking_web` loads by
-   `#[path]`) was missing from kovan, the HTR-10 rung among them. The same
-   holds for every example and library here: no `mod $m;` in a macro.
+   worker and message format need no change.~~ **CHANGED 2026-11-05 (gh:#1252,
+   #1253, maintainer: "refactor out the custom macros"):** `rung_table!` is
+   gone, written out by hand in `examples/monte_carlo_web/table.rs`. A new rung
+   adds a plain `mod <module>;` line in `main.rs` (with the
+   `#[cfg(not(target_os = "android"))]` the others carry), and in `table.rs`
+   one `Rung` variant, its entry in `ALL` (ladder order), a variant in
+   `Builder` and in `Loaded`, and **one `match` arm in every dispatch method**
+   of `Rung`, `Builder` and `Loaded` (the compiler names each `match` that is
+   missing the arm); the engine, app, worker and message format need no
+   change. **No macro may declare the module (HARD RULE, root `CLAUDE.md`,
+   "Never declare modules through a macro"):** kovan reads `mod` lines without
+   expanding macros, and until 2026-11-04 every rung but `triso` (which
+   `delta_tracking_web` loads by `#[path]`) was missing from kovan, the HTR-10
+   rung among them. The same holds for every example and library here: no
+   `mod $m;` in a macro.
 3. The lesson page `crates/outram-mc-libs/docs/tutorial/src/<rung>.md`, listed
    in that book's `SUMMARY.md` and in the "every page must exist" list of
    `scripts/build-pages.sh`; it links the demo as
@@ -289,3 +298,11 @@ current value is. Show the chosen path as text so the user can see it.
 **Why.** A typed path is error-prone and undiscoverable: the user has to know
 the exact folder and spell it. The maintainer asked for pickers everywhere
 after the workbench's first build had typed ENDF and kovan-root fields.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".
