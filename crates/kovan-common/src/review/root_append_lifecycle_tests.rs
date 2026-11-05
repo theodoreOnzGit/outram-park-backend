@@ -218,3 +218,71 @@ fn roster_events_append_as_text_and_are_append_only() {
     removed.code_review.as_mut().unwrap().roster_events.clear();
     assert_eq!(history_append_only(&r2, &removed), vec![HistoryWarning::RecordRemoved { list: RecordList::RosterEvent, index: 0 }]);
 }
+
+/// **The founder records as text (GitHub #1248).** Methodology: the
+/// commented fixture; the founder `github:m` admits Alice as a maintainer
+/// and signs an `add` of her, then a ballot and a vote are appended (signed
+/// by `github:m`), each with [`append_founder_change`],
+/// [`append_founder_ballot`], [`append_founder_vote`]. Pass: every existing
+/// byte is kept (the old text is a prefix of the new), each record reads
+/// back as written, Alice is a founder from `LATER`; a second ballot with
+/// the same id, a vote naming no ballot and an `add` naming no reviewer
+/// are refused with nothing written; `declare_founder` is refused for a
+/// root that declares `founders = [...]` only, and `record_admission`
+/// refuses a reviewer listed there.
+///
+/// Result (2026-11-05): passes.
+#[test]
+fn founder_records_append_as_text_and_read_back() {
+    use crate::review::root::{FounderBallot, FounderChange, FounderChangeKind, FounderVote, Role};
+    let (text, mk, _ak) = fixture();
+    let mut alice = ReviewRoot::parse(&text).unwrap().reviewer("github:a").unwrap().clone();
+    alice.role = Role::Maintainer;
+    alice.scope = Vec::new();
+    alice.admitted = Some(DAY.into());
+    mk.admit(&mut alice).unwrap();
+    let text = record_admission(&text, &alice).unwrap();
+    let mut add = FounderChange {
+        event: FounderChangeKind::Add,
+        founder: "github:a".into(),
+        date: LATER.into(),
+        reviewed_in: None,
+        signer: None,
+        signature: None,
+    };
+    mk.sign_founder_change(&mut add).unwrap();
+    let t1 = append_founder_change(&text, &add).unwrap();
+    assert!(t1.starts_with(&text) && t1.contains("# Root. Comments must survive."));
+    let mut b = FounderBallot { id: "b1".into(), opened: LATER.into(), signer: None, signature: None };
+    mk.sign_founder_ballot(&mut b).unwrap();
+    let t2 = append_founder_ballot(&t1, &b).unwrap();
+    let mut v = FounderVote { ballot: "b1".into(), candidate: "github:a".into(), date: LATER.into(), signer: None, signature: None };
+    mk.sign_founder_vote(&mut v, &b).unwrap();
+    let t3 = append_founder_vote(&t2, &v).unwrap();
+    assert!(t3.starts_with(&t2) && t2.starts_with(&t1));
+    let parsed = ReviewRoot::parse(&t3).unwrap();
+    let c = parsed.code_review.as_ref().unwrap();
+    assert_eq!(c.founder_changes, vec![add.clone()]);
+    assert_eq!(c.founder_ballots, vec![b.clone()]);
+    assert_eq!(c.founder_votes, vec![v.clone()]);
+    let reg = Registry::build(&parsed);
+    assert!(reg.is_founder_on("github:a", LATER) && !reg.is_founder_on("github:a", DAY));
+    assert_eq!(append_founder_ballot(&t3, &b), Err(AppendError::BallotExists("b1".into())));
+    let nowhere = FounderVote { ballot: "zz".into(), ..v.clone() };
+    assert_eq!(append_founder_vote(&t3, &nowhere), Err(AppendError::UnknownBallot("zz".into())));
+    let nobody = FounderChange { founder: "github:nobody".into(), ..add.clone() };
+    assert_eq!(append_founder_change(&t3, &nobody), Err(AppendError::UnknownReviewer("github:nobody".into())));
+    assert!(AppendError::BallotExists("b1".into()).to_string().contains("b1"));
+    assert!(AppendError::UnknownBallot("zz".into()).to_string().contains("zz"));
+
+    // `founders = [...]` only: trust on first use happened already.
+    let listed = "[code_review]\nfounders = [\"github:m\"]\n";
+    assert_eq!(declare_founder(listed, "github:x"), Err(AppendError::FounderAlreadyDeclared("github:m".into())));
+    let (f2, _) = generate("github:m", "k1", DAY, PASS).unwrap();
+    let t = append_reviewer(listed, &unadmitted_reviewer("github:m", None, f2.reviewer_key())).unwrap();
+    let mut m = ReviewRoot::parse(&t).unwrap().reviewer("github:m").unwrap().clone();
+    m.role = Role::Maintainer;
+    m.admitted = Some(DAY.into());
+    mk.admit(&mut m).unwrap();
+    assert_eq!(record_admission(&t, &m), Err(AppendError::AlreadyAdmitted("github:m".into())));
+}

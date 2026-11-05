@@ -758,19 +758,25 @@ Every action signs with the session key, and the passphrase is asked only
 while it is locked:
 
 - **Admit** (validate a reviewer's own key): as Reviewer, Novice reviewer or
-  Maintainer. ~~Any admitted maintainer~~ **Since 2026-11-04 (GitHub
-  #1211) the founder only**; admissions signed earlier by another
+  Maintainer. ~~Any admitted maintainer~~ ~~**Since 2026-11-04 (GitHub
+  #1211) the founder only**~~ **CORRECTED 2026-11-05 (GitHub #1249): a
+  founder or any admitted maintainer**; admissions signed earlier by any
   maintainer still count.
-- **Issue a validated keyfile** (founder only, #1211): generate a key for
-  another person, admit it in the same write, and save it encrypted under a
-  passphrase the founder types (save picker), to hand over; it imports with
-  "Import a key".
+- **Issue a validated keyfile** (~~founder only, #1211~~ a founder or any
+  admitted maintainer, #1249): generate a key for another person, admit it
+  in the same write, and save it encrypted under a passphrase the signer
+  types (save picker), to hand over; it imports with "Import a key".
 - **Organisations & IV&V** (#1211, formerly a separate window): the
   founder signs or retires organisation records (retire appends a signed
   `[[code_review.organisation_retirement]]`; the record stays listed,
   marked retired, and no longer counts); a reviewer signs their separation
   attestation.
 - **Key actions:** endorse, retire, un-retire, revoke or mark compromised.
+  ~~Retire is unsigned~~ **Since 2026-11-05 (GitHub #1249) retire is
+  signed** by the key's owner, a founder or a maintainer. From
+  `SIGNED_KEY_RETIREMENT_FROM` (2026-11-06) an unsigned retirement has no
+  effect and shows as a warning; an older unsigned one keeps counting and
+  is flagged forever.
 - **Revoke** a reviewer.
 - **Change standing**, as signed `[[code_review.roster_event]]` entries
   (`kovan-roster-event-v1`): edit scope, make maintainer or step down, hand
@@ -784,14 +790,40 @@ reviewer"** until a trusted reviewer or a maintainer also stamps the
 function. The rules are in `kovan_common::review::signing::registry`'s module
 doc.
 
-**After a founder hands over and steps down,** nobody can admit or sign
+~~**After a founder hands over and steps down,** nobody can admit or sign
 organisation records from kovan (#1211 makes them founder-only, and the
-founder signs as a maintainer) until founder succession (GitHub #1022).
+founder signs as a maintainer) until founder succession (GitHub #1022).~~
+**CORRECTED 2026-11-05 (GitHub #1249):** any maintainer admits, so a
+handover no longer stops admissions; organisation records stay
+founder-only.
 
-**If no maintainer is available,** there is no bypass of the signatures. The
+~~**If no maintainer is available,** there is no bypass of the signatures. The
 repository owners' route is a reviewed commit declaring a new founder. That
 re-roots trust today; a founder-succession record that keeps the old chain
-valid is GitHub #1022.
+valid is GitHub #1022.~~ **CORRECTED 2026-11-05 (GitHub #1248):**
+
+- **Founders are a list** (`[code_review] founders = [...]`; the old
+  `founder = "…"` reads as a one-person list). Any current founder signs
+  organisation records.
+- **Founders & lineage** (a section of User management): a founder adds
+  another founder or retires one (themselves included), each a signed
+  `[[code_review.founder_change]]`. A retired founder keeps founder standing
+  for everything dated before the retirement, so the old chain still
+  verifies. The section shows the founders, the retired founders and the
+  **lineage fingerprint** (SHA-256 of the first founders and every founder
+  change that took effect; derived, no new file).
+- **No founder with an active key?** The maintainers with an active key on
+  the opening day elect one (`[[code_review.founder_ballot]]`,
+  `[[code_review.founder_vote]]`): more than half of them; with a single
+  maintainer only after 14 days; ballots run 30 days, and at the close the
+  earliest-admitted voter's candidate wins if it is one of the two leading.
+  A ballot is refused or void while any founder has an active key, and
+  every ballot shows in the warnings strip.
+- **Nobody at all with an active key?** Only then does an unsigned
+  `[[code_review.founder_change]]` made by a reviewed commit count, shown
+  forever as "trust root replaced by repository commit".
+- Forks, recognising other lineages and the recognised-lineages table are
+  deferred (GitHub #1248, "Scope split").
 
 ### `review justify` / `review justifications` — agents' unsigned justifications (`stamping::justify`, GitHub #1019)
 
@@ -863,7 +895,7 @@ Signing happens in desktop kovan. ~~The Code Review tab's **Organisations &
 IV&V** window lets a maintainer sign developing-organisation and
 reviewer-organisation records~~ **CORRECTED 2026-11-04** (GitHub #1211):
 the **Organisations & IV&V** sections of Code Review ▸ User management let
-the **founder** sign, and retire, developing-organisation and
+~~the **founder**~~ **any founder** (GitHub #1248) sign, and retire, developing-organisation and
 reviewer-organisation records (records signed earlier by another
 maintainer still count, and are marked so), and an independent reviewer sign a separation
 attestation naming a GitHub issue as its audit record. The stamp dialog lets
