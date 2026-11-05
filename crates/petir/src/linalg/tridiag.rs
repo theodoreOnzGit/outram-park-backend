@@ -59,7 +59,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::zip::zip_flat;
+use crate::zip::{zip2, zip3};
 use crate::{PetirError, Result};
 
 /// Solve a symmetric tridiagonal system `A x = b`.
@@ -149,7 +149,7 @@ pub fn solve_symm_tridiag(diag: &[f64], offdiag: &[f64], b: &[f64]) -> Result<Ve
     // Upstream's `for (i = 1; i < n - 1; i++)`. At step `i` the zip supplies
     // `diag[i]`, `offdiag[i - 1]` and `offdiag[i]`; it runs `n - 2` times
     // because `offdiag_tail` is the shortest of the three.
-    for (&di, &e_prev, &ei) in zip_flat!(diag_tail.iter(), offdiag.iter(), offdiag_tail.iter()) {
+    for (&di, &e_prev, &ei) in zip3(diag_tail.iter(), offdiag.iter(), offdiag_tail.iter()) {
         let a = di - e_prev * g_prev;
         if a == 0.0 {
             return Err(PetirError::ZeroDivide);
@@ -177,11 +177,11 @@ pub fn solve_symm_tridiag(diag: &[f64], offdiag: &[f64], b: &[f64]) -> Result<Ve
     let mut z: Vec<f64> = Vec::with_capacity(n);
     let mut z_prev = b0;
     z.push(z_prev);
-    for (&bi, &g) in zip_flat!(b_tail.iter(), gamma.iter()) {
+    for (&bi, &g) in zip2(b_tail.iter(), gamma.iter()) {
         z_prev = bi - g * z_prev;
         z.push(z_prev);
     }
-    let c: Vec<f64> = zip_flat!(z.iter(), alpha.iter())
+    let c: Vec<f64> = zip2(z.iter(), alpha.iter())
         .map(|(&zi, &ai)| zi / ai)
         .collect();
 
@@ -193,7 +193,7 @@ pub fn solve_symm_tridiag(diag: &[f64], offdiag: &[f64], b: &[f64]) -> Result<Ve
     let mut x: Vec<f64> = Vec::with_capacity(n);
     let mut x_next = c_last;
     x.push(x_next);
-    for (&ci, &g) in zip_flat!(c_head.iter().rev(), gamma.iter().rev()) {
+    for (&ci, &g) in zip2(c_head.iter().rev(), gamma.iter().rev()) {
         x_next = ci - g * x_next;
         x.push(x_next);
     }

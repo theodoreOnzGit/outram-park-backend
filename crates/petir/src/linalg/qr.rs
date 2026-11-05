@@ -536,12 +536,12 @@ pub(crate) fn reconstruct(qr: &QrDecomposition) -> Result<Matrix> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zip::zip_flat;
+    use crate::zip::{zip2, zip3};
     use alloc::vec;
 
     fn max_abs_diff(a: &Matrix, b: &Matrix) -> f64 {
         let mut worst = 0.0_f64;
-        for (ra, rb) in zip_flat!(a.row_iter(), b.row_iter()) {
+        for (ra, rb) in zip2(a.row_iter(), b.row_iter()) {
             for (&x, &y) in ra.iter().zip(rb.iter()) {
                 let d = (x - y).abs();
                 if d > worst {
@@ -635,7 +635,7 @@ mod tests {
             .least_squares(&b)
             .unwrap();
         let ax = a.mul_vec(&fit.solution).unwrap();
-        for (&bi, &axi, &ri) in zip_flat!(b.iter(), ax.iter(), fit.residual.iter()) {
+        for (&bi, &axi, &ri) in zip3(b.iter(), ax.iter(), fit.residual.iter()) {
             assert!(
                 (bi - axi - ri).abs() < 1e-12,
                 "residual {ri} != b - Ax = {}",
