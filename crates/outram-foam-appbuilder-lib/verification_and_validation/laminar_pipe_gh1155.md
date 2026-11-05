@@ -2054,6 +2054,69 @@ a local viscous number ν Δt / Δ² far above 0.5.
    non-orthogonal correction on the layer faces, or the time step by the
    *local* cell size; to be decided by what the run shows, not before.
 
+**Results of the diagnostic (2026-11-05,** `foam_studio_web/engine.rs`
+`diagnose_three_layer_divergence`, Re 100, the demo pair, `Corners`):
+
+| mesh | cells | Δt (s) | thin min (m) | local ν Δt/Δ² max | min face weight / vol ratio | Poisson b uncorr. / corr. (20 passes, change of pass 20) | blow-up (\|U\| > 20 U) |
+|---|---|---|---|---|---|---|---|
+| centre h 5, N 3 | 7 025 | 2.0 | 4.7e-5 | 899 | 0.008 / 0.0135 | 0.931 / 0.988 (2.6e-14) | step 13 |
+| point h 5, N 3 | 7 025 | 2.0 | 6.5e-5 | 468 | 0.018 / 0.0120 | 0.909 / 0.988 (1.2e-16) | step 16 |
+| centre h 5, N 2 (runs) | 5 721 | 2.0 | 7.8e-5 | 330 | 0.017 / 0.0135 | 0.931 / 0.988 (2.6e-14) | none in 300 |
+| centre h 4, N 3 | 12 461 | 1.46 | 2.4e-5 | 2 644 | 0.006 / 0.0117 | 0.960 / 0.983 (6.0e-9) | step 21 |
+| centre h 6, N 3 | 4 420 | 2.4 | 2.9e-5 | 2 776 | 0.024 / 0.0060 | 1.020 / 1.084 (2.3e-14) | step 24 |
+
+Where it starts (centre h 5, N 3): the first cell above 3 U (step 8) is
+a **dual cell at the inlet rim** (r 9.33, z 1.8 mm; the same cell at the
+outlet rim in the mirrored runs), not a layer cell; it has no wall face,
+local viscous number 4.4, and one face (|S| 7.7e-6 m², the largest of
+its seven) to the **top prism of the stack** (Δ 7e-5 m, volume 0.11 of
+its own, face weight 0.064); its other neighbours are the rim's dual
+cells with face weights 0.008–0.06 to their own top prisms. At Δt / 10
+the run holds 300 steps but that cell carries **u_r = −4.75 U** (radially
+inward, five times the bulk velocity) with the face fluxes around it
+small and continuity closed to 1e-10: the cell velocity is decoupled
+from the fluxes. The pressure there: −7.7e-5 against 1.0e-4 in the top
+prism next to it and ≈ 1e-5 in the other neighbours; a Gauss gradient
+whose face values come 94 % from the prism carries that jump into the
+cell's velocity.
+
+Ablations on centre h 5, N 3 (the first cell above 3 U; blow-up step):
+`linearUpwind` + `cellLimited` (base) 8; 13 · `Gauss upwind` 8; 13 ·
+`Gauss linear` 6; 10 · no limiter 7; 13 · `uncorrected` laplacian 5; 8 ·
+no non-orthogonal corrector (same as base) · **Δt / 4: 8; 13** ·
+**Δt / 10: none in 300 (the 4.8 U rim mode stays)** · **Δt / 30: none,
+max |U| 1.80 U on the axis** · Δt / 100: none. OpenFOAM's Courant number
+(`CourantNo.H`, ½ Δt Σ|φ_f| / V) at the demo's Δt is **37–41** (max, in
+the outlet cells by the axis; mean 2.3–2.9) on the 3-layer *and* the
+2-layer mesh; Δt / 30 is Co ≈ 1.
+
+**Against the predictions.** 1, layer cells first: **missed** (a rim dual
+cell next to the top prism). 2, local viscous number: the diverging
+meshes are 1.4–8 × the running one, not 10–100 ×, and the blow-up cell is
+not among the 1 % largest (rank 4 883 of 7 025): **missed**. 3, the
+Laplacian is not the cause: **held** (b within 10 % uncorrected except
+h 6 corrected 1.084; every correction pass sequence converges). 4, the
+cause in the explicit terms: **missed** (no scheme or corrector ablation
+changes it); the time step does.
+
+**Cause.** A pressure–velocity decoupled mode at the rim cell next to the
+thinnest top prism, where the mesh fails what the back-off does not
+check: OpenFOAM's `minFaceWeight 0.05` (0.008 here) and nearly
+`minVolRatio 0.01` (0.0135). It grows when Δt is set as it is now, from a
+nominal length (`pseudo_time_step`), which on these meshes is a Courant
+number of 37–41 by OpenFOAM's definition; the PISO step that upstream
+runs under `adjustTimeStep` / `maxCo` never sees that. With 2 layers the
+top prism is thicker (weights ≥ 0.017) and the same Co 40 is survived.
+
+**Predictions for the fix (written 2026-11-05, before its first run).**
+Port OpenFOAM's `CourantNo.H` and `setInitialDeltaT.H` / `setDeltaT.H`
+(`maxDeltaFactor` 1.2, `1 + 0.1 maxCo/Co`) as an opt-in of Foam Studio's
+pipe (`FOAM_MAX_CO`, off by default, so both defaults are unchanged).
+Centre h 5, N 3 at `maxCo 1`: runs to the steady criterion within the
+5 000-step cap (70 %), u_c/2U 0.89–0.93 and dp/dz 0.98–1.04 × HP (the
+2-layer row: 0.900, 1.029), no cell above 2.1 U. At `maxCo 4`: bounded,
+with the rim mode (|U| 3–6 U at that cell), not steady-clean (60 %).
+
 ### Item 3: snappy's cascade at 2+ layers
 
 **Upstream read first (2026-11-05).** OpenFOAM-dev `852527377c7e`:

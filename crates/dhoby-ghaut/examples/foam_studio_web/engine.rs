@@ -2057,8 +2057,6 @@ mod tests {
     #[test]
     #[ignore]
     fn diagnose_geometry_orientation_and_poisson() {
-        use outram_foam_appbuilder_lib::cases::laminar_pipe::fit_line;
-        use outram_foam_appbuilder_lib::solvers::non_orthogonal;
         use outram_foam_basic_lib::prelude::*;
         let (r, l) = (0.01, 0.2);
         let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE };
@@ -2091,63 +2089,353 @@ mod tests {
             );
             // 3. Poisson −∇²u = 4.
             for corrected in [false, true] {
-                let bcs = |m: &FvMesh| -> Vec<PatchField<f64>> {
-                    m.patches.iter().map(|p| if p.name == "walls" { PatchField::fixed_value(p.size, 0.0) } else { PatchField::zero_gradient(p.size) }).collect()
-                };
-                let mut u = VolScalarField::new("u", m.clone(), Field::new(vec![0.0; m.n_cells]), bcs(&m));
-                // Interpolated, so the boundary faces carry Γ = 1 too (`SurfaceScalarField::uniform` sets
-                // the internal faces only; the first run had no Dirichlet term at all).
-                let gamma = fvc::interpolate(&VolScalarField::uniform("g", m.clone(), 1.0));
-                for _ in 0..if corrected { 20 } else { 1 } {
-                    let mut eqn = fvm::laplacian_with_delta(&gamma, &u, fvm::DeltaCoeff::NonOrthogonal);
-                    for c in 0..m.n_cells {
-                        eqn.source[c] += 4.0 * m.cell_volumes[c];
-                    }
-                    if corrected {
-                        let corr = non_orthogonal::scalar_face_correction(&gamma, &fvc::grad(&u), &m);
-                        non_orthogonal::add_to_source_scalar(eqn.source.as_mut_slice(), &corr, &m);
-                    }
-                    let (sol, perf) = eqn.solve_cg_with_guess("u", &u, SolverSettings { tolerance: 1e-12, max_iter: 20_000 });
-                    let umax = sol.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
-                    if !corrected {
-                        let (gs, gperf) = eqn.solve("u", SolverSettings { tolerance: 1e-10, max_iter: 200_000 });
-                        let gmax = gs.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
-                        let nfix: usize = u.boundary.iter().filter(|b| matches!(b.bc, BoundaryCondition::FixedValue(_))).map(|b| b.values.len()).sum();
-                        let offsum = eqn.ldu.upper.iter().sum::<f64>();
-                        println!(
-                            "  (CG: {} it, residual {:.2e}, max |u| {umax:.3e}; GS: {} it, residual {:.2e}, max |u| {gmax:.3e}; diag sum {:.3e}, 2*upper sum {:.3e}, fixed faces {nfix})",
-                            perf.n_iterations,
-                            perf.final_residual,
-                            gperf.n_iterations,
-                            gperf.final_residual,
-                            eqn.ldu.diag.iter().sum::<f64>(),
-                            2.0 * offsum
-                        );
-                    }
-                    let mut next = VolScalarField::new("u", m.clone(), sol.internal.clone(), bcs(&m));
-                    for (pi, p) in m.patches.iter().enumerate() {
-                        if p.name != "walls" {
-                            for fi in 0..p.size {
-                                next.boundary[pi].values[fi] = next.internal[m.owner[p.start + fi]];
-                            }
-                        }
-                    }
-                    u = next;
-                }
-                let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
-                let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
-                    .filter(|&c| r2(c) < 0.49 * r * r && (m.cell_centres[c].z - 0.1).abs() < 0.05)
-                    .map(|c| (r2(c), u.internal[c], m.cell_volumes[c]))
-                    .collect();
-                let (a, b) = fit_line(&pts);
-                let rms = ((0..m.n_cells).map(|c| (u.internal[c] - (a + b * r2(c))).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt() / a;
+                let (b, a_r2, rms, _) = manufactured_poisson(&m, r, if corrected { 20 } else { 1 }, corrected, true);
                 println!(
                     "  Poisson ({}): fit u = a - b r^2: b {:.4} (exact 1), a/R^2 {:.4}; RMS of u - fit over all cells / a {:.4}",
                     if corrected { "corrected, 20 passes" } else { "uncorrected" },
-                    -b,
-                    a / (r * r),
+                    b,
+                    a_r2,
                     rms
                 );
+            }
+        }
+    }
+
+
+    /// The gh:#1202 manufactured Poisson problem on a frozen mesh: −∇²u = 4
+    /// with u = 0 on `walls` and zero gradient on the ends (exact u = R² − r²
+    /// on a circular section), solved once uncorrected or with `passes`
+    /// deferred non-orthogonal correction passes. Returns the fit u = a − b r²
+    /// over the core (r < 0.7 R, 0.05 m about z = 0.1 m) as (b, a/R², RMS of
+    /// u − fit over all cells / a) and the max |Δu| of each pass.
+    fn manufactured_poisson(m: &Arc<outram_foam_basic_lib::prelude::FvMesh>, r: f64, passes: usize, corrected: bool, verbose: bool) -> (f64, f64, f64, Vec<f64>) {
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::fit_line;
+        use outram_foam_appbuilder_lib::solvers::non_orthogonal;
+        use outram_foam_basic_lib::prelude::*;
+        let vol: f64 = m.cell_volumes.iter().sum();
+        let mut changes = Vec::new();
+        let bcs = |m: &FvMesh| -> Vec<PatchField<f64>> {
+            m.patches.iter().map(|p| if p.name == "walls" { PatchField::fixed_value(p.size, 0.0) } else { PatchField::zero_gradient(p.size) }).collect()
+        };
+        let mut u = VolScalarField::new("u", m.clone(), Field::new(vec![0.0; m.n_cells]), bcs(&m));
+        // Interpolated, so the boundary faces carry Γ = 1 too (`SurfaceScalarField::uniform` sets
+        // the internal faces only; the first run had no Dirichlet term at all).
+        let gamma = fvc::interpolate(&VolScalarField::uniform("g", m.clone(), 1.0));
+        for _ in 0..passes {
+            let mut eqn = fvm::laplacian_with_delta(&gamma, &u, fvm::DeltaCoeff::NonOrthogonal);
+            for c in 0..m.n_cells {
+                eqn.source[c] += 4.0 * m.cell_volumes[c];
+            }
+            if corrected {
+                let corr = non_orthogonal::scalar_face_correction(&gamma, &fvc::grad(&u), &m);
+                non_orthogonal::add_to_source_scalar(eqn.source.as_mut_slice(), &corr, &m);
+            }
+            let (sol, perf) = eqn.solve_cg_with_guess("u", &u, SolverSettings { tolerance: 1e-12, max_iter: 20_000 });
+            let umax = sol.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+            if !corrected && verbose {
+                let (gs, gperf) = eqn.solve("u", SolverSettings { tolerance: 1e-10, max_iter: 200_000 });
+                let gmax = gs.internal.as_slice().iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+                let nfix: usize = u.boundary.iter().filter(|b| matches!(b.bc, BoundaryCondition::FixedValue(_))).map(|b| b.values.len()).sum();
+                let offsum = eqn.ldu.upper.iter().sum::<f64>();
+                println!(
+                    "  (CG: {} it, residual {:.2e}, max |u| {umax:.3e}; GS: {} it, residual {:.2e}, max |u| {gmax:.3e}; diag sum {:.3e}, 2*upper sum {:.3e}, fixed faces {nfix})",
+                    perf.n_iterations,
+                    perf.final_residual,
+                    gperf.n_iterations,
+                    gperf.final_residual,
+                    eqn.ldu.diag.iter().sum::<f64>(),
+                    2.0 * offsum
+                );
+            }
+            let mut next = VolScalarField::new("u", m.clone(), sol.internal.clone(), bcs(&m));
+            for (pi, p) in m.patches.iter().enumerate() {
+                if p.name != "walls" {
+                    for fi in 0..p.size {
+                        next.boundary[pi].values[fi] = next.internal[m.owner[p.start + fi]];
+                    }
+                }
+            }
+            let change = next.internal.as_slice().iter().zip(u.internal.as_slice()).fold(0.0_f64, |a, (x, y)| a.max((x - y).abs()));
+            changes.push(change);
+            u = next;
+        }
+        let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
+        let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
+            .filter(|&c| r2(c) < 0.49 * r * r && (m.cell_centres[c].z - 0.1).abs() < 0.05)
+            .map(|c| (r2(c), u.internal[c], m.cell_volumes[c]))
+            .collect();
+        let (a, b) = fit_line(&pts);
+        let rms = ((0..m.n_cells).map(|c| (u.internal[c] - (a + b * r2(c))).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt() / a;
+        let r2 = |c: usize| m.cell_centres[c].x.powi(2) + m.cell_centres[c].y.powi(2);
+        let pts: Vec<(f64, f64, f64)> = (0..m.n_cells)
+            .filter(|&c| r2(c) < 0.49 * r * r && (m.cell_centres[c].z - 0.1).abs() < 0.05)
+            .map(|c| (r2(c), u.internal[c], m.cell_volumes[c]))
+            .collect();
+        let (a, b) = fit_line(&pts);
+        let rms = ((0..m.n_cells).map(|c| (u.internal[c] - (a + b * r2(c))).powi(2) * m.cell_volumes[c]).sum::<f64>() / vol).sqrt() / a;
+        (-b, a / (r * r), rms, changes)
+    }
+
+    /// Diagnostic (gh:#1241 item 2), `--ignored`: why 3 back-off layers
+    /// diverge on the per-point duals although the mesh passes the layer
+    /// checks. Per mesh (`FOAM_DIAG_CASES` filters by label): the frozen
+    /// mesh's thin cells (Δ = V / max |S_f|) and their local viscous number
+    /// ν Δt / Δ² and Courant number 2U Δt / Δ at the run's Δt; the
+    /// manufactured Poisson problem uncorrected and with 20 correction
+    /// passes (the change of each pass); then the flow, one step at a time,
+    /// until max |U| exceeds 20 U or 300 steps: the step it happens and the
+    /// five cells with the largest |U| then, with their quality.
+    #[test]
+    #[ignore]
+    fn diagnose_three_layer_divergence() {
+        use outram_park_fork_cfmesh::dual::{DualKind, FeaturePointRule};
+        use outram_blender::foam_mesh::LayerQualityStrategy as S;
+        let spec = |h: f64, n: usize, dual: DualKind| Design {
+            mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, dual, feature_points: FeaturePointRule::Corners, layer_quality: S::BackOffOnly }),
+            ..Design::default()
+        };
+        let cases = [
+            ("centre h5 N3", spec(0.005, 3, DualKind::CellCentre)),
+            ("point h5 N3", spec(0.005, 3, DualKind::MedianPerPoint)),
+            ("centre h5 N2 (runs)", spec(0.005, 2, DualKind::CellCentre)),
+            ("centre h4 N3", spec(0.004, 3, DualKind::CellCentre)),
+            ("centre h6 N3", spec(0.006, 3, DualKind::CellCentre)),
+        ];
+        let filter = std::env::var("FOAM_DIAG_CASES").ok();
+        // Ablations (FOAM_DIAG_ABL, comma list; default `base`): `upwind`
+        // (div(phi,U) Gauss upwind), `nolimit` (grad(U) Gauss linear, no
+        // cellLimited), `linear` (div Gauss linear), `dt4` (Δt / 4),
+        // `uncorrected` (laplacian), `nonorth0` (no corrector).
+        let abls: Vec<String> = std::env::var("FOAM_DIAG_ABL").map_or(vec!["base".into()], |v| v.split(',').map(String::from).collect());
+        for (name, d) in cases {
+            if filter.as_deref().is_some_and(|f| !f.split(',').any(|x| name.starts_with(x))) {
+                continue;
+            }
+            for abl in &abls {
+            let mut e = Engine::default();
+            e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |_| {});
+            e.serve(Request::Start { id: 1, reynolds: 100.0, mode: Mode::Steady }, &mut |_| {});
+            let Some(Case::Pipe(s, flow)) = e.case.as_mut() else {
+                println!("{name}: no pipe case");
+                continue;
+            };
+            {
+                use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, LaplacianScheme};
+                match abl.as_str() {
+                    "upwind" => s.schemes.default_div = DivScheme::GaussUpwind,
+                    "linear" => s.schemes.default_div = DivScheme::GaussLinear,
+                    "nolimit" => s.schemes.grad_u = None,
+                    "dt4" => s.control.delta_t *= 0.25,
+                    "dt100" => s.control.delta_t *= 0.01,
+                    "dt10" => s.control.delta_t *= 0.1,
+                    "dt30" => s.control.delta_t /= 30.0,
+                    "uncorrected" => s.schemes.default_laplacian = LaplacianScheme::GaussLinearUncorrected,
+                    "nonorth0" => s.solution.pimple.n_non_orthogonal_correctors = 0,
+                    _ => {}
+                }
+            }
+            let name = format!("{name} [{abl}]");
+            let m = s.mesh.clone();
+            let dt = s.control.delta_t;
+            let nu = flow.nu.get::<uom::si::kinematic_viscosity::square_meter_per_second>();
+            // Thin dimension, wall cells, per-cell quality.
+            let mut smax = vec![0.0_f64; m.n_cells];
+            let mut no_max = vec![0.0_f64; m.n_cells];
+            let mut w_min = vec![0.5_f64; m.n_cells];
+            let mut vr_min = vec![1.0_f64; m.n_cells];
+            let mut wall_cell = vec![false; m.n_cells];
+            for f in 0..m.face_areas.len() {
+                let o = m.owner[f];
+                smax[o] = smax[o].max(m.face_areas[f]);
+                if f < m.n_internal_faces {
+                    let n = m.neighbour[f];
+                    smax[n] = smax[n].max(m.face_areas[f]);
+                    let dv = m.cell_centres[n] - m.cell_centres[o];
+                    let sf = m.face_area_vectors[f];
+                    let no = (dv.dot(sf) / (dv.mag() * sf.mag())).clamp(-1.0, 1.0).acos().to_degrees();
+                    let d_o = sf.dot(m.face_centres[f] - m.cell_centres[o]).abs();
+                    let d_n = sf.dot(m.cell_centres[n] - m.face_centres[f]).abs();
+                    let w = d_o.min(d_n) / (d_o + d_n);
+                    let vr = m.cell_volumes[o].min(m.cell_volumes[n]) / m.cell_volumes[o].max(m.cell_volumes[n]);
+                    for c in [o, n] {
+                        no_max[c] = no_max[c].max(no);
+                        w_min[c] = w_min[c].min(w);
+                        vr_min[c] = vr_min[c].min(vr);
+                    }
+                }
+            }
+            for p in m.patches.iter().filter(|p| p.name == "walls") {
+                for i in 0..p.size {
+                    wall_cell[m.owner[p.start + i]] = true;
+                }
+            }
+            let thin: Vec<f64> = (0..m.n_cells).map(|c| m.cell_volumes[c] / smax[c]).collect();
+            let visc: Vec<f64> = thin.iter().map(|t| nu * dt / (t * t)).collect();
+            let mut order: Vec<usize> = (0..m.n_cells).collect();
+            order.sort_by(|&a, &b| visc[b].partial_cmp(&visc[a]).unwrap());
+            let rank_of = |c: usize| order.iter().position(|&x| x == c).unwrap();
+            println!(
+                "{name}: {} cells, dt {dt:.3e} s; thin min {:.3e} m; local viscous number max {:.1} (p99 {:.1}); local Co max {:.2}; max NO {:.1}, min weight {:.3}, min vol ratio {:.4}",
+                m.n_cells,
+                thin.iter().cloned().fold(f64::MAX, f64::min),
+                visc[order[0]],
+                visc[order[m.n_cells / 100]],
+                2.0 * U_IN * dt / thin.iter().cloned().fold(f64::MAX, f64::min),
+                no_max.iter().cloned().fold(0.0, f64::max),
+                w_min.iter().cloned().fold(1.0, f64::min),
+                vr_min.iter().cloned().fold(1.0, f64::min),
+            );
+            for (passes, corrected) in [(1, false), (20, true)] {
+                let (b, a, rms, ch) = manufactured_poisson(&m, 0.01, passes, corrected, false);
+                let chs: Vec<String> = ch.iter().map(|x| format!("{x:.1e}")).collect();
+                println!("  Poisson {}: b {b:.4} a/R2 {a:.4} rms {rms:.4}; pass changes {}", if corrected { "corrected" } else { "uncorrected" }, chs.join(" "));
+            }
+            // FOAM_DIAG_CELL_AT=r_mm,z_mm: every face of the cell nearest that point.
+            if let Some(at) = std::env::var("FOAM_DIAG_CELL_AT").ok() {
+                let v: Vec<f64> = at.split(',').filter_map(|x| x.parse().ok()).collect();
+                let c = (0..m.n_cells)
+                    .min_by(|&a, &b| {
+                        let da = (m.cell_centres[a].x.hypot(m.cell_centres[a].y) * 1e3 - v[0]).abs() + (m.cell_centres[a].z * 1e3 - v[1]).abs();
+                        let db = (m.cell_centres[b].x.hypot(m.cell_centres[b].y) * 1e3 - v[0]).abs() + (m.cell_centres[b].z * 1e3 - v[1]).abs();
+                        da.partial_cmp(&db).unwrap()
+                    })
+                    .unwrap();
+                let cc = m.cell_centres[c];
+                println!("  cell {c} at r {:.3} z {:.3} mm, V {:.3e}, thin {:.3e}:", cc.x.hypot(cc.y) * 1e3, cc.z * 1e3, m.cell_volumes[c], thin[c]);
+                for f in 0..m.face_areas.len() {
+                    let (o, n) = (m.owner[f], if f < m.n_internal_faces { Some(m.neighbour[f]) } else { None });
+                    if o != c && n != Some(c) {
+                        continue;
+                    }
+                    let patch = m.patches.iter().find(|p| f >= p.start && f < p.start + p.size).map_or("internal", |p| p.name.as_str());
+                    let sgn = if o == c { 1.0 } else { -1.0 };
+                    let pyr = sgn * m.face_area_vectors[f].dot(m.face_centres[f] - cc) / 3.0;
+                    let other = match n { Some(n) if o == c => Some(n), Some(_) => Some(o), None => None };
+                    println!(
+                        "    face {f} ({patch}) |S| {:.2e}, pyramid/V {:.3}, centre r {:.3} z {:.3} mm{}",
+                        m.face_areas[f],
+                        pyr / m.cell_volumes[c],
+                        m.face_centres[f].x.hypot(m.face_centres[f].y) * 1e3,
+                        m.face_centres[f].z * 1e3,
+                        other.map_or(String::new(), |x| format!(", to cell {x} (thin {:.2e}, V {:.2e}, wall {})", thin[x], m.cell_volumes[x], wall_cell[x]))
+                    );
+                }
+            }
+            let describe = |c: usize, umag: f64| {
+                let x = m.cell_centres[c];
+                format!(
+                    "cell {c}: |U|/U {:.2e}, r {:.3} z {:.1} mm, wall {}, thin {:.3e} m, visc {:.1} (rank {}), NO {:.1}, weight {:.3}, volRatio {:.4}",
+                    umag / U_IN,
+                    x.x.hypot(x.y) * 1e3,
+                    x.z * 1e3,
+                    wall_cell[c],
+                    thin[c],
+                    visc[c],
+                    rank_of(c),
+                    no_max[c],
+                    w_min[c],
+                    vr_min[c]
+                )
+            };
+            let mut history: Vec<String> = Vec::new();
+            let mut first_over = false;
+            for step in 1..=300 {
+                let r = flow.step(s);
+                let um: Vec<f64> = s.u.internal.as_slice().iter().map(|v| v.mag()).collect();
+                let (cmax, umax) = um.iter().enumerate().fold((0, 0.0_f64), |a, (c, &v)| if v.is_nan() || v > a.1 { (c, if v.is_nan() { f64::INFINITY } else { v }) } else { a });
+                if step <= 5 || step % 10 == 0 {
+                    history.push(format!("{step}:{:.2e}@{cmax}", umax / U_IN));
+                }
+                // OpenFOAM's Courant number (CourantNo.H): half dt sum|phi_f| / V.
+                if step == 1 || step == 5 || (umax > 3.0 * U_IN && !first_over) {
+                    let mut sum = vec![0.0_f64; m.n_cells];
+                    for f in 0..m.n_internal_faces {
+                        let a = s.phi.internal[f].abs();
+                        sum[m.owner[f]] += a;
+                        sum[m.neighbour[f]] += a;
+                    }
+                    for (pi, p) in m.patches.iter().enumerate() {
+                        for i in 0..p.size {
+                            sum[m.owner[p.start + i]] += s.phi.boundary[pi].values[i].abs();
+                        }
+                    }
+                    let dt_now = s.control.delta_t;
+                    let co: Vec<f64> = (0..m.n_cells).map(|c| 0.5 * dt_now * sum[c] / m.cell_volumes[c]).collect();
+                    let (cm, cv) = co.iter().enumerate().fold((0, 0.0_f64), |a, (c, &v)| if v > a.1 { (c, v) } else { a });
+                    let mut sorted = co.clone();
+                    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    println!(
+                        "  step {step}: Courant max {cv:.2} at {}; p99 {:.2}, mean {:.3}; Co of cell {cmax} {:.2}",
+                        describe(cm, um[cm]),
+                        sorted[sorted.len() * 99 / 100],
+                        sorted.iter().sum::<f64>() / sorted.len() as f64,
+                        co[cmax]
+                    );
+                }
+                if umax > 3.0 * U_IN && !first_over {
+                    first_over = true;
+                    println!("  first above 3 U at step {step}: {}", describe(cmax, umax));
+                    for f in 0..m.n_internal_faces {
+                        let (o, n) = (m.owner[f], m.neighbour[f]);
+                        if o == cmax || n == cmax {
+                            let other = if o == cmax { n } else { o };
+                            let sf = m.face_area_vectors[f];
+                            let d_o = sf.dot(m.face_centres[f] - m.cell_centres[o]).abs();
+                            let d_n = sf.dot(m.cell_centres[n] - m.face_centres[f]).abs();
+                            println!("    face {f} to {}: weight {:.3}, |S| {:.2e}", describe(other, um[other]), d_o.min(d_n) / (d_o + d_n), m.face_areas[f]);
+                        }
+                    }
+                }
+                if r.is_err() || !umax.is_finite() || umax > 20.0 * U_IN {
+                    println!("  blow-up at step {step} ({}): max |U| at {}", if r.is_err() { "solver error" } else { "|U| > 20 U" }, describe(cmax, umax));
+                    let mut idx: Vec<usize> = (0..m.n_cells).filter(|&c| um[c].is_finite()).collect();
+                    idx.sort_by(|&a, &b| um[b].partial_cmp(&um[a]).unwrap());
+                    for &c in idx.iter().take(5) {
+                        println!("    {}", describe(c, um[c]));
+                    }
+                    break;
+                }
+                if step == 300 {
+                    println!("  no blow-up in 300 steps; max |U| {}", describe(cmax, umax));
+                }
+                if step == 300 || r.is_err() || !umax.is_finite() || umax > 20.0 * U_IN {
+                    // The worst cell and its neighbours: U (radial, axial), p, net flux.
+                    let mut net = vec![0.0_f64; m.n_cells];
+                    let mut absf = vec![0.0_f64; m.n_cells];
+                    for f in 0..m.n_internal_faces {
+                        net[m.owner[f]] += s.phi.internal[f];
+                        net[m.neighbour[f]] -= s.phi.internal[f];
+                        absf[m.owner[f]] += s.phi.internal[f].abs();
+                        absf[m.neighbour[f]] += s.phi.internal[f].abs();
+                    }
+                    for (pi, p) in m.patches.iter().enumerate() {
+                        for i in 0..p.size {
+                            net[m.owner[p.start + i]] += s.phi.boundary[pi].values[i];
+                            absf[m.owner[p.start + i]] += s.phi.boundary[pi].values[i].abs();
+                        }
+                    }
+                    let show = |c: usize| {
+                        let x = m.cell_centres[c];
+                        let rr = x.x.hypot(x.y).max(1e-300);
+                        let u = s.u.internal[c];
+                        let ur = (u.x * x.x + u.y * x.y) / rr;
+                        format!(
+                            "cell {c} (r {:.3} z {:.2} mm, V {:.2e}, wall {}): u_r/U {:.2}, u_z/U {:.2}, |U|/U {:.2}, p {:.3e}, net flux / sum|flux| {:.2e}",
+                            rr * 1e3, x.z * 1e3, m.cell_volumes[c], wall_cell[c], ur / U_IN, u.z / U_IN, u.mag() / U_IN, s.p.internal[c], net[c] / absf[c].max(1e-300)
+                        )
+                    };
+                    let c0 = cmax.min(m.n_cells - 1);
+                    println!("  worst: {}", show(c0));
+                    for f in 0..m.n_internal_faces {
+                        let (o, n) = (m.owner[f], m.neighbour[f]);
+                        if o == c0 || n == c0 {
+                            let other = if o == c0 { n } else { o };
+                            println!("    via face {f} (phi {:.2e}): {}", s.phi.internal[f], show(other));
+                        }
+                    }
+                }
+            }
+            println!("  history (step:max|U|/U@cell): {}", history.join(" "));
             }
         }
     }
