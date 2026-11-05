@@ -33,9 +33,11 @@
 //!   `topologicalCleaner` loop).
 //! - `surfaceProjection` runs `preMapVertices` first (not ported, surface
 //!   track; noted).
-//! - `edgeExtraction` uses `meshSurfaceEdgeExtractorFUN` (not ported;
-//!   `surface_mapper`'s patch mapping stands in), and `optimiseMeshSurface`
-//!   untangles once more after `optimizeSurface`.
+//! - `edgeExtraction` uses `meshSurfaceEdgeExtractorFUN` (~~not ported;
+//!   `surface_mapper`'s patch mapping stands in~~ **UPDATED 2026-11-05,
+//!   gh:#1269:** [`crate::mesh_surface_edge_extractor_fun`], without its
+//!   fundamental sheets, whose `extrudeLayer` is not ported), and
+//!   `optimiseMeshSurface` untangles once more after `optimizeSurface`.
 //! - `meshOptimisation` runs `meshSurfaceOptimizer::optimizeSurface` before
 //!   the volume optimiser, in place of `meshOptimizer::optimizeSurface`.
 //! - `workflowCompleted` is never called: the meta data stays on the mesh
@@ -264,7 +266,10 @@ pub(crate) mod tests {
     /// the pipe against `tetMesh`. Results (2026-11-05), with gh:#1267 /
     /// #1259 wired in: −1.54 % (sphere, 1 749 cells) and −0.35 % (pipe,
     /// 4 303 cells), 0 non-positive. Before they landed: −0.97 % / −0.05 %.
-    /// Record: `p_mesh_gh1273/`.
+    /// **Re-measured 2026-11-05 (gh:#1269)** with `edgeExtractor` and
+    /// `meshSurfaceEdgeExtractorFUN`'s order wired in: sphere −1.537 %
+    /// (unchanged), pipe −0.325 %, max non-orthogonality 55.29° (was
+    /// 75.9°). Record: `p_mesh_gh1273/`, `edge_extractor_gh1269/`.
     #[test]
     fn diagnose_p_mesh_workflow() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);

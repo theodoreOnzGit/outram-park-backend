@@ -39,7 +39,7 @@
 //! | `templateGeneration` | `tetMeshExtractorOctree` | [`crate::tet_creator_octree`], [`crate::tet_mesh_extractor_octree`] (ported) |
 //! | `surfaceTopology` | `surfaceMorpherCells` + `topologicalCleaner` (repeated while the cleaner changes the mesh) | `topology::{surface_morpher_cells, topological_cleaner}` (gh:#1267) |
 //! | `surfaceProjection` | `meshSurfaceMapper::mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | `surface_optimizer::map_mesh_to_surface` (gh:#1259) |
-//! | `patchAssignment` | `edgeExtractor` | **not ported** (not this track): `patches::assign_patches_by_region` (nearest triangle) stands in |
+//! | `patchAssignment` | `edgeExtractor` | ~~**not ported** (not this track): `patches::assign_patches_by_region` (nearest triangle) stands in~~ **UPDATED 2026-11-05 (gh:#1269):** [`crate::edge_extractor::extract_patches`]; the nearest triangle stays callable as the ablation [`PatchAssignment::NearestTriangle`] |
 //! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, `meshSurfaceOptimizer::optimizeSurface` | `correct_edges::correct_edges_between_patches` then `surface_mapper::map_vertices_onto_surface_patches_given` (`decomposeBoundaryFaces`, `remapBoundaryPoints`); `surface_optimizer::optimise_mesh_surface` |
 //! | `boundaryLayerGeneration` | `boundaryLayers`, only with a `boundaryLayers` dict | no such dict here: nothing to do, as upstream without one |
 //! | `meshOptimisation` | `meshOptimizer`: `optimizeSurface`, `optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, `untangleMeshFV` | `mesh_optimizer` (`optimize_surface`, and the volume drivers with upstream's boundary moves and LP untangler on); `optimizeBoundaryLayer` has no layer to act on |
@@ -82,6 +82,22 @@ pub struct TetMeshOptions {
     pub rename_boundary: Option<RenameBoundary>,
     /// `enforceGeometryConstraints` (upstream default `false`).
     pub enforce_geometry_constraints: bool,
+    /// How `patchAssignment` distributes the boundary faces (gh:#1269):
+    /// upstream's `edgeExtractor` by default.
+    pub patch_assignment: PatchAssignment,
+}
+
+/// The `patchAssignment` step's rule (gh:#1269).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PatchAssignment {
+    /// Upstream: [`crate::edge_extractor`] (`edgeExtractor::extractEdges`,
+    /// `updateMeshPatches`).
+    #[default]
+    EdgeExtractor,
+    /// Ablation: each boundary face to the region of the triangle nearest
+    /// its vertex average (`patches::assign_patches_by_region`, the stand-in
+    /// before gh:#1269), kept for the differential.
+    NearestTriangle,
 }
 
 impl Default for TetMeshOptions {
@@ -92,6 +108,7 @@ impl Default for TetMeshOptions {
             workflow: WorkflowSettings::default(),
             rename_boundary: None,
             enforce_geometry_constraints: false,
+            patch_assignment: PatchAssignment::EdgeExtractor,
         }
     }
 }
@@ -138,6 +155,9 @@ pub struct TetMeshReport {
     pub n_inverted_after_projection: usize,
     /// Inverted boundary points left after `optimiseMeshSurface`.
     pub n_inverted_after_edge_extraction: usize,
+    /// What `edgeExtractor` did (`None` with
+    /// [`PatchAssignment::NearestTriangle`]).
+    pub edge_extractor: Option<crate::edge_extractor::EdgeExtractorReport>,
 }
 
 /// The surface region of every boundary face of `m`, from its patch name
@@ -236,6 +256,7 @@ pub(crate) fn run_generator(
         n_cells_removed_by_morpher: 0,
         n_inverted_after_projection: 0,
         n_inverted_after_edge_extraction: 0,
+        edge_extractor: None,
     };
     let mut mesh: Option<VolumeMesh> = None;
     let mut types: Vec<String> = Vec::new();
@@ -320,11 +341,29 @@ pub(crate) fn run_generator(
                 rep.n_inverted_after_projection = u.n_inverted_last;
                 rep.notes.push(format!("surfaceProjection: mapVerticesOntoSurface + untangleSurface: inverted points {} -> {}", u.n_inverted_first, u.n_inverted_last));
             }
+            WorkflowStep::PatchAssignment if opts.patch_assignment == PatchAssignment::EdgeExtractor => {
+                // extractPatches: edgeExtractor(mesh, octree), extractEdges,
+                // updateMeshPatches (one patch per surface patch)
+                let (mm, ty, er) = crate::edge_extractor::extract_patches(m, &o, reg)?;
+                *m = mm;
+                types = ty;
+                rep.notes.push(format!(
+                    "patchAssignment: edgeExtractor: {} faces moved from the nearest-patch distribution (normal alignment {:?}, topology {:?}, geometry: inverted {:?}, moved {:?}); unset reads {} / {}",
+                    er.n_faces_moved_from_initial,
+                    er.normal_alignment_moves,
+                    er.topology_kept,
+                    er.geometry_inverted,
+                    er.geometry_moves,
+                    er.n_unset_neighbour_patch_reads,
+                    er.n_failed_region_searches
+                ));
+                rep.edge_extractor = Some(er);
+            }
             WorkflowStep::PatchAssignment => match regions {
                 Some(r) => {
                     *m = assign_patches_by_region(m, points, tris, r)?;
                     types = vec!["patch".to_string(); m.patches.len()];
-                    rep.notes.push("patchAssignment: edgeExtractor not ported; nearest-triangle patches (patches::assign_patches_by_region)".into());
+                    rep.notes.push("patchAssignment: PatchAssignment::NearestTriangle (ablation of edgeExtractor): nearest-triangle patches (patches::assign_patches_by_region)".into());
                 }
                 None => rep.notes.push("patchAssignment: no regions given; one patch".into()),
             },
@@ -342,8 +381,13 @@ pub(crate) fn run_generator(
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
                     ));
                 } else if let Some(r) = regions {
-                    *m = map_vertices_onto_surface_patches_given(m, points, tris, r, &given);
-                    rep.notes.push("edgeExtraction: meshSurfaceEdgeExtractorFUN not ported; surface_mapper's patch mapping stands in".into());
+                    // meshSurfaceEdgeExtractorFUN: (fundamental sheets, not
+                    // ported), smoothMeshSurface, remapBoundaryPoints
+                    let fr = crate::mesh_surface_edge_extractor_fun::mesh_surface_edge_extractor_fun(m, points, tris, r, &given);
+                    rep.notes.push(format!(
+                        "edgeExtraction: meshSurfaceEdgeExtractorFUN without createFundamentalSheetsJFS (extrudeLayer not ported): optimizeSurface (inverted {} -> {}), then mapVerticesOntoSurfacePatches",
+                        fr.smoothing.n_inverted_first, fr.smoothing.n_inverted_last
+                    ));
                 }
                 // optimiseMeshSurface (pMesh untangles once more after it)
                 let u = optimise_mesh_surface(m, points, tris, reg, &given);
@@ -567,8 +611,13 @@ pub(crate) mod tests {
     /// sphere −1.36 % (baseline −1.72 %), pipe −0.29 % (−0.54 %), 0
     /// non-positive cells, closed, 0 non-manifold boundary points; cells
     /// 12 840 / 31 136 against 21 888 / 57 600. (Before those tracks landed:
-    /// +26.69 % / +22.33 %, the missing steps.) Record:
-    /// `verification_and_validation/tet_mesh_gh1272/README.md`.
+    /// +26.69 % / +22.33 %, the missing steps.) **Re-measured 2026-11-05
+    /// (gh:#1269)** with `edgeExtractor` wired in: sphere unchanged
+    /// (−1.362 %, one patch), pipe −0.291 % (was −0.289 %), 31 136 cells,
+    /// max non-orthogonality 67.16° (unchanged), patches inlet 330 / outlet
+    /// 331 / walls 3 427 (were 332 / 332 / 3 424). Record:
+    /// `verification_and_validation/tet_mesh_gh1272/README.md`,
+    /// `edge_extractor_gh1269/README.md`.
     #[test]
     fn diagnose_tet_mesh_against_the_crate_tets() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
