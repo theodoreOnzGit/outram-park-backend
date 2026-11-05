@@ -48,7 +48,7 @@ use crate::history::History;
 use crate::keff::{Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, RecordedCurve};
 use crate::raster::{Basis, Preset, RasterInfo, RasterReq};
 use crate::rungs::{LoadedRung, McRung, RungBuilder, RungInfo};
-use crate::sweep::{RecordedSweep, SweepCurve, SweepPoint};
+use crate::sweep::{Hue, RecordedSweep, SweepCurve, SweepPoint};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Rect};
 use outram_mc_libs::geometry::position::Position;
@@ -216,11 +216,11 @@ impl McRung for Htr10 {
             x_label: "height (cm); ours at the height with the same ball count",
             curves: {
                 let mut c = vec![
-                lit("RMC (Li, Yu & Wei 2014): the reference", Color32::from_rgb(235, 235, 235), RMC_KEFF_VS_HEIGHT),
-                lit("MCNP vacuum (Şeker & Çolak 2003; Li 2014 Table 3): a gauge", Color32::from_rgb(150, 150, 160), MCNP_TABLE3_KEFF_VS_HEIGHT),
-                lit("MCNP helium (Şeker & Çolak 2003; Li 2014 Table 4): a gauge", Color32::from_rgb(110, 160, 140), MCNP_TABLE4_KEFF_VS_HEIGHT),
-                ours(SEKER_CSV, "VIII.0", Color32::from_rgb(120, 170, 255), "ours, ENDF/B-VIII.0 (2026-10-07, at dbb9e26eb1), ±1σ".into(), "(2026-10-07, at dbb9e26eb1)"),
-                ours(SEKER_CSV, "VII.0", Color32::from_rgb(255, 170, 90), "ours, ENDF/B-VII.0 (2026-10-07, at dbb9e26eb1), ±1σ".into(), "(2026-10-07, at dbb9e26eb1)"),
+                lit("RMC (Li, Yu & Wei 2014): the reference", Hue::Reference, RMC_KEFF_VS_HEIGHT),
+                lit("MCNP vacuum (Şeker & Çolak 2003; Li 2014 Table 3): a gauge", Hue::Gauge, MCNP_TABLE3_KEFF_VS_HEIGHT),
+                lit("MCNP helium (Şeker & Çolak 2003; Li 2014 Table 4): a gauge", Hue::Accent(2), MCNP_TABLE4_KEFF_VS_HEIGHT),
+                ours(SEKER_CSV, "VIII.0", Hue::Accent(0), "ours, ENDF/B-VIII.0 (2026-10-07, at dbb9e26eb1), ±1σ".into(), "(2026-10-07, at dbb9e26eb1)"),
+                ours(SEKER_CSV, "VII.0", Hue::Accent(1), "ours, ENDF/B-VII.0 (2026-10-07, at dbb9e26eb1), ±1σ".into(), "(2026-10-07, at dbb9e26eb1)"),
                 ];
                 // A library absent from the table has no curve.
                 c.retain(|c| !c.points.is_empty());

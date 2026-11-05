@@ -667,10 +667,11 @@ impl CoreScreen {
         // failure are in the bottom panel (`Self::status`).
         let mut y = rect.top() + if rect.width() < 560.0 { 108.0 } else { 52.0 };
         for t in self.picture_lines() {
-            let c = Color32::from_rgb(220, 226, 236);
+            let ink = bugis::Ink::of_ui(ui);
+            let c = ink.text;
             let g = painter.layout(t, egui::FontId::proportional(12.5), c, (rect.width() - 24.0).max(100.0));
             let bg = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y - 2.0), g.size() + Vec2::new(8.0, 4.0));
-            painter.rect_filled(bg, 4.0, Color32::from_rgba_unmultiplied(14, 16, 20, 200));
+            painter.rect_filled(bg, 4.0, ink.backing);
             let h = g.size().y;
             painter.galley(Pos2::new(rect.left() + 12.0, y), g, c);
             y += h + 6.0;
@@ -778,18 +779,18 @@ impl CoreScreen {
             }
         });
         if let Some(w) = triso_warning(&self.temps_c) {
-            ui.colored_label(Color32::from_rgb(255, 110, 90), w);
+            ui.colored_label(ui.visuals().error_fg_color, w);
         }
         match temperatures_to_apply(&self.temps, &self.temps_c) {
             Err(e) => {
-                ui.colored_label(Color32::from_rgb(255, 110, 90), e);
+                ui.colored_label(ui.visuals().error_fg_color, e);
             }
             Ok(None) => {
                 ui.weak("The core is built at these temperatures.");
             }
             Ok(Some(want)) => {
                 ui.colored_label(
-                    Color32::from_rgb(250, 200, 80),
+                    ui.visuals().warn_fg_color,
                     "Not applied yet. Apply reprocesses each changed zone's nuclides (RECONR, BROADR, HEATR, PURR) and thermal laws (LEAPR) at its temperature: minutes for the fuel, seconds for most; zones you did not change load from this browser's cache.",
                 );
                 let label = if self.pool.is_some() { "Apply: restart the pool at these temperatures" } else { "Apply (the pool starts at these temperatures)" };
@@ -862,7 +863,7 @@ impl CoreScreen {
         if self.pour.shown {
             self.pour_ui(ui, busy);
         } else if self.layers as usize == super::random_bed::DEM_BED {
-            ui.colored_label(Color32::from_rgb(250, 200, 80), DEM_CAVEAT);
+            ui.colored_label(ui.visuals().warn_fg_color, DEM_CAVEAT);
             ui.label(dem_record_line());
         }
     }
@@ -1006,13 +1007,13 @@ impl CoreScreen {
         let built = self.pool_rods();
         if self.pool.is_some() && built.map(f64::to_bits) != self.rods.rods.map(f64::to_bits) {
             ui.colored_label(
-                Color32::from_rgb(250, 200, 80),
+                ui.visuals().warn_fg_color,
                 format!("The workers' core still has: {}. It is rebuilt with yours once they rest, or when you start a run.", crate::htr10::rods::summary(&built)),
             );
         }
         egui::CollapsingHeader::new("Recorded k_eff at this setting (native runs)").default_open(true).show(ui, |ui| {
             if !self.temps.is_uniform() || (celsius(self.temps.get(Htr10Zone::FuelPebble)) - 27.0).abs() > 1e-9 {
-                ui.colored_label(Color32::from_rgb(250, 200, 80), "Every record below is at 27 °C in every zone: it is not a reference for these temperatures.");
+                ui.colored_label(ui.visuals().warn_fg_color, "Every record below is at 27 °C in every zone: it is not a reference for these temperatures.");
             }
             if self.rods.rods == [0.0; 10] && !super::random_bed::is_dem(self.layers as usize) {
                 if let Some((k, s, rmc)) = record_row(self.layers as usize) {
@@ -1085,7 +1086,7 @@ impl CoreScreen {
         let narrow = row.width() < 300.0;
         let button = |ui: &mut egui::Ui, r: Rect, label: String| ui.put(r, egui::Button::new(egui::RichText::new(label).size(15.0))).clicked();
         let note = |t: String, c: Color32| (t, c);
-        let grey = Color32::from_rgb(170, 176, 190);
+        let grey = bugis::Ink::of_ui(ui).muted;
         let mut text: Option<(String, Color32)> = None;
         let bw = row.width().min(330.0);
         let one = Rect::from_min_size(row.min, Vec2::new(bw, h));
@@ -1205,7 +1206,7 @@ impl CoreScreen {
         // Laid out as every k_eff run's bottom panel (`keffplot::body_layout`):
         // plots, the text pane (status and console) and the one-line strip.
         let (plots, pane, strip) = keffplot::body_layout(rect);
-        keffplot::draw_strip(painter, strip, line, Color32::from_rgb(210, 216, 226), text);
+        keffplot::draw_strip(painter, strip, line, bugis::Ink::of_ui(ui).text, text);
         let ceiling = run.and_then(RunState::entropy_bins).map(|b| (b as f64).r_log2());
         keffplot::draw_pair(painter, plots, &pts, shape, &refs, ceiling, (text * 0.92).max(9.0));
         keffplot::draw_text_pane(ui, painter, pane, &self.status(), &self.console(), "", (text * 0.9).max(9.0), "core-console");
@@ -1309,7 +1310,8 @@ fn rdf_plot(ui: &mut egui::Ui, d: &super::pour::PourDiagnostics) {
 
 fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
     let s = &p.state;
-    let white = Color32::from_rgb(220, 226, 236);
+    // Named colours: `keffplot::themed` gives each its theme colour when drawn.
+    let white = crate::keffplot::STATUS;
     let mut v = Vec::new();
     let el = now_s() - s.started_s;
     match &s.phase {
@@ -1356,10 +1358,10 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
             // gh:#1025: what the workers' core holds (set in "Control rods").
             v.push((format!("Control rods: {}", crate::htr10::rods::summary(&s.rods)), white));
             if s.layers == super::random_bed::DEM_BED {
-                v.push((DEM_CAVEAT.to_string(), Color32::from_rgb(250, 200, 80)));
+                v.push((DEM_CAVEAT.to_string(), crate::keffplot::AMBER));
                 v.push((dem_record_line(), white));
             }
-            let amber = Color32::from_rgb(250, 200, 80);
+            let amber = crate::keffplot::AMBER;
             if s.live_workers() < s.workers {
                 v.push((dead_line(s), amber));
             }
@@ -1369,7 +1371,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                     v.push((format!("This is {}.", run.describe()), amber));
                 }
                 if let Some(e) = &run.failed {
-                    v.push((format!("⚠ {e}"), Color32::from_rgb(255, 110, 110)));
+                    v.push((format!("⚠ {e}"), crate::keffplot::RED));
                 }
                 match run.gens.last() {
                     None if run.failed.is_some() => {}
@@ -1397,7 +1399,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
         }
         PoolPhase::Failed(e) => v.push((
             format!("⚠ {e}"),
-            Color32::from_rgb(255, 110, 110),
+            crate::keffplot::RED,
         )),
     }
     v
@@ -1460,8 +1462,8 @@ fn pool_panel(
 ) -> Option<PoolAction> {
     let s = &mut p.state;
     ui.label(format!("Pool: {}", p.plan.reason));
-    let red = Color32::from_rgb(255, 110, 110);
-    let amber = Color32::from_rgb(250, 200, 80);
+    let red = ui.visuals().error_fg_color;
+    let amber = ui.visuals().warn_fg_color;
     if let PoolPhase::Failed(e) = &s.phase {
         ui.colored_label(red, e);
         if ui

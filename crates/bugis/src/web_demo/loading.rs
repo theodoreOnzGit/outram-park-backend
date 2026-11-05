@@ -3,7 +3,7 @@
 //! folded (mobile-first rule, item 6), and as a table in the panel.
 
 use crate::web_demo::platform::now_s;
-use egui::{Color32, Pos2, Rect, Stroke, StrokeKind, Vec2};
+use egui::{Pos2, Rect, Stroke, StrokeKind, Vec2};
 
 pub struct Loading {
     /// `(label, anything)` per job, in processing order; the label is shown.
@@ -78,7 +78,7 @@ impl Loading {
                 if let Some(s) = self.job_secs[i] {
                     ui.label(format!("done in {s:.1} s"));
                 } else if let Some(t0) = self.job_started[i] {
-                    ui.colored_label(Color32::from_rgb(250, 200, 80), format!("processing… {:.0} s", now - t0));
+                    ui.colored_label(ui.visuals().warn_fg_color, format!("processing… {:.0} s", now - t0));
                 } else {
                     ui.weak("queued");
                 }
@@ -98,28 +98,29 @@ impl Loading {
         let now = now_s();
         let w = (rect.width() - 32.0).min(440.0);
         let f = |s: f32| egui::FontId::proportional(s);
-        let note_galley = note.map(|n| painter.layout(n.to_string(), f(12.0), Color32::from_rgb(250, 200, 80), w - 32.0));
+        let ink = crate::Ink::of_ctx(painter.ctx());
+        let note_galley = note.map(|n| painter.layout(n.to_string(), f(12.0), ink.warn, w - 32.0));
         let extra = note_galley.as_ref().map_or(0.0, |g| g.size().y + 10.0);
         let card = Rect::from_center_size(rect.center(), Vec2::new(w, 112.0 + extra));
-        painter.rect_filled(card, 8.0, Color32::from_rgba_unmultiplied(14, 16, 22, 235));
-        painter.rect_stroke(card, 8.0, Stroke::new(1.0, Color32::from_rgb(70, 80, 100)), StrokeKind::Inside);
+        painter.rect_filled(card, 8.0, ink.card);
+        painter.rect_stroke(card, 8.0, Stroke::new(1.0, ink.border), StrokeKind::Inside);
         let left = card.left() + 16.0;
-        painter.text(Pos2::new(left, card.top() + 14.0), egui::Align2::LEFT_TOP, title, f(17.0), Color32::WHITE);
-        painter.text(Pos2::new(left, card.top() + 40.0), egui::Align2::LEFT_TOP, self.status_line(), f(13.0), Color32::from_rgb(200, 205, 215));
+        painter.text(Pos2::new(left, card.top() + 14.0), egui::Align2::LEFT_TOP, title, f(17.0), ink.text);
+        painter.text(Pos2::new(left, card.top() + 40.0), egui::Align2::LEFT_TOP, self.status_line(), f(13.0), ink.text);
         let bar = Rect::from_min_size(Pos2::new(left, card.top() + 66.0), Vec2::new(w - 32.0, 12.0));
-        painter.rect_filled(bar, 6.0, Color32::from_rgb(40, 46, 58));
+        painter.rect_filled(bar, 6.0, ink.grid);
         let mut fill = bar;
         fill.set_width(bar.width() * self.fraction(now));
-        painter.rect_filled(fill, 6.0, Color32::from_rgb(110, 160, 255));
+        painter.rect_filled(fill, 6.0, ink.accent(0));
         painter.text(
             Pos2::new(left, card.top() + 86.0),
             egui::Align2::LEFT_TOP,
             format!("rough · {:.0} % · {:.0} s elapsed", 100.0 * self.fraction(now), now - self.started),
             f(12.0),
-            Color32::from_rgb(150, 158, 175),
+            ink.muted,
         );
         if let Some(g) = note_galley {
-            painter.galley(Pos2::new(left, card.top() + 108.0), g, Color32::from_rgb(250, 200, 80));
+            painter.galley(Pos2::new(left, card.top() + 108.0), g, ink.warn);
         }
     }
 }

@@ -83,13 +83,13 @@ impl McRung for Godiva {
         let r = model::RADIUS_CM;
         let o = view.to_screen(rect, 0.0, 0.0);
         painter.circle_filled(o, (r * view.scale) as f32, Color32::from_rgb(70, 64, 58));
-        painter.circle_stroke(o, (r * view.scale) as f32, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)));
+        painter.circle_stroke(o, (r * view.scale) as f32, Stroke::new(1.5, bugis::Ink::of_ctx(painter.ctx()).accent(3)));
         painter.text(
             o + Vec2::new(0.0, -(r * view.scale) as f32 - 6.0),
             egui::Align2::CENTER_BOTTOM,
             format!("HEU metal sphere, r = {r} cm · vacuum outside (leaks)"),
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(190, 170, 230),
+            bugis::Ink::of_ctx(painter.ctx()).accent(3),
         );
     }
     fn notes() -> &'static [&'static str] {
