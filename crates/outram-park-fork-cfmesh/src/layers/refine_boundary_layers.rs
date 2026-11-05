@@ -66,8 +66,7 @@
 //! that is a layer cell for two base faces whose hairs both carry more than
 //! one layer (upstream's `refineEdgeHexCell`, `refineCornerHexCell`) or whose
 //! hairs carry different counts is refused with
-//! [`RefineError::NotPorted`]. `activateSpecialMode`, `pointsInBndLayer`,
-//! the cell subset, the 2D mode and the MPI branches are not ported.
+//! [`RefineError::NotPorted`]. `activateSpecialMode`, the cell subset, the 2D mode and the MPI branches are not ported.
 //!
 //! The split cells follow [`super::build_layered_variable`]'s face winding
 //! (wall ring, top ring reversed, side quads); the layers of one cell are
@@ -567,6 +566,27 @@ pub fn refine_boundary_layers(mesh: &VolumeMesh, s: &RefineBoundaryLayersSetting
     let (out, _) = w.into_volume_mesh();
     let n_split = base_of.len();
     Ok((out, RefineReport { detected, n_layers_at_bnd_face: n_at_bf, hair_points, n_cells_split: n_split }))
+}
+
+/// cfMesh `refineBoundaryLayers::pointsInBndLayer(labelLongList&)`
+/// (gh:#1274): every point of every hair, its two ends included
+/// (`newVerticesForSplitEdge_` holds a row of `nLayers + 1` points per
+/// hair, one-layer hairs too), ascending. The report holds the hairs as
+/// positions in `refined` (the mesh [`refine_boundary_layers`] returned);
+/// each is looked up there by its exact coordinates, so the labels are
+/// those of `refined`.
+pub fn points_in_bnd_layer(refined: &VolumeMesh, report: &RefineReport) -> Vec<usize> {
+    let key = |p: Vec3| (p.x.to_bits(), p.y.to_bits(), p.z.to_bits());
+    let at: BTreeMap<(u64, u64, u64), usize> = refined.points.iter().enumerate().map(|(i, &p)| (key(p), i)).collect();
+    let mut out: BTreeSet<usize> = BTreeSet::new();
+    for hair in &report.hair_points {
+        for &p in hair {
+            if let Some(&i) = at.get(&key(p)) {
+                out.insert(i);
+            }
+        }
+    }
+    out.into_iter().collect()
 }
 
 #[cfg(test)]

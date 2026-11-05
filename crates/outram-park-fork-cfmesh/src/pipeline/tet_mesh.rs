@@ -143,7 +143,7 @@ pub struct TetMeshReport {
 /// The surface region of every boundary face of `m`, from its patch name
 /// (`None` for internal faces). With one region, every boundary face is in
 /// it (the whole boundary is one patch before `extractPatches`).
-fn face_regions(m: &VolumeMesh, reg: &SurfaceRegions) -> Vec<Option<usize>> {
+pub(crate) fn face_regions(m: &VolumeMesh, reg: &SurfaceRegions) -> Vec<Option<usize>> {
     let mut out = vec![None; m.face_count()];
     for p in &m.patches {
         let r = reg.names.iter().position(|n| *n == p.name).or(if reg.names.len() == 1 { Some(0) } else { None });
