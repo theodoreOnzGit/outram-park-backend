@@ -135,7 +135,7 @@ fn mesh_sweep() -> Result<(), String> {
     println!("h_mm layers cells wall_faces est_cells max_nonortho_deg max_skew mesh_s notes");
     for h_mm in [6.0, 5.0, 4.0, 3.3, 2.5, 2.0] {
         for layers in [0, 1, 2, 3] {
-            let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers: layers, first_layer: 3e-4, expansion: 1.2 };
+            let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers: layers, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::BASE };
             let t0 = std::time::Instant::now();
             let (poly, notes) = engine::mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &spec)?;
             let s = t0.elapsed().as_secs_f64();
@@ -170,7 +170,7 @@ fn render_unstructured(out: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
     // The before/after pair at h 5 mm, 1 layer (the default when drawn, 2026-11-04).
-    let def = TetDualSpec { cell_size: 0.005, n_layers: 1, first_layer: 3e-4, expansion: 1.2 };
+    let def = TetDualSpec { cell_size: 0.005, n_layers: 1, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::BASE };
     // Whole-boundary layers (the pre-gh:#1202 behaviour), for the before picture.
     let whole = {
         use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
@@ -239,7 +239,7 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
     let h_mm: f64 = std::env::var("FOAM_RENDER_H_MM").ok().and_then(|v| v.parse().ok()).unwrap_or(5.0);
-    let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers: 3, first_layer: 3e-4, expansion: 1.2 };
+    let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers: 3, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::BASE };
     for (strategy, tag) in [(S::BackOffOnly, "backoff"), (S::CfMeshOptimise, "cfmesh"), (S::SnappyCollapse, "snappy")] {
         let (poly, _, outcome) = engine::mesh_unstructured_with(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, strategy)?;
         let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
@@ -421,7 +421,7 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
 
         // 2. Slices of the solver's PolyMesh: bare cross-section, 3 layers at the rim.
         for (n, view) in [(0usize, "bare"), (3, "3layers")] {
-            let spec = TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+            let spec = TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::BASE };
             let (poly, notes, _) = engine::mesh_unstructured_dual(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, S::BackOffOnly, kind)?;
             let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
             let label = format!("{tag} dual h 5 mm {view}");
@@ -453,7 +453,7 @@ fn vv_unstructured_specs() -> Vec<(&'static str, engine::TetDualSpec)> {
     // The ~7k member (the ~20k member is the demo default, drawn above).
     // 2026-11-04 (gh:#1202): the mapped (feature-edge) meshes, the demo
     // default bare and with 2 and 3 wall layers.
-    let s = |h: f64, n: usize| engine::TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2 };
+    let s = |h: f64, n: usize| engine::TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::BASE };
     vec![
         ("unstructured_default_7k", s(0.006, 1)),
         ("mapped_h4_bare", s(0.004, 0)),
@@ -725,7 +725,7 @@ fn main() -> Result<(), String> {
             // [cell_mm] [layers] [first_mm] [expansion] [re] [length_mm]
             let f = |i: usize, d: f64| args.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(d);
             let def = engine::TetDualSpec::default_for(0.01);
-            let spec = engine::TetDualSpec { cell_size: f(1, def.cell_size * 1e3) * 1e-3, n_layers: f(2, def.n_layers as f64) as usize, first_layer: f(3, def.first_layer * 1e3) * 1e-3, expansion: f(4, def.expansion) };
+            let spec = engine::TetDualSpec { cell_size: f(1, def.cell_size * 1e3) * 1e-3, n_layers: f(2, def.n_layers as f64) as usize, first_layer: f(3, def.first_layer * 1e3) * 1e-3, expansion: f(4, def.expansion), ..def };
             let length = f(6, 200.0) * 1e-3;
             let d = engine::Design { shape: engine::Shape::Cylinder { radius: 0.01, length, centre: [0.0, 0.0, 0.5 * length] }, mesh: engine::PipeMesh::Unstructured(spec), ..engine::Design::default() };
             for l in engine::headless(d, f(5, 100.0), engine::Mode::Steady, 5000)? {

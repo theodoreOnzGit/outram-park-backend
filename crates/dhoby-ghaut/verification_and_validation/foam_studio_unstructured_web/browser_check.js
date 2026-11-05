@@ -17,8 +17,13 @@ const CASES = [
   { name: 'dual_h5_1layer_desktop', q: 'mesh=unstructured&h=5&layers=1&autostart=1', vp: [1280, 900] },
   { name: 'dual_h5_2layers_desktop', q: 'mesh=unstructured&h=5&layers=2&autostart=1', vp: [1280, 900] },
   { name: 'dual_h5_2layers_phone', q: 'mesh=unstructured&h=5&layers=2&autostart=1', vp: [390, 844] },
+  // gh:#1240 browser controls: upstream polyDualMesh wall faces (cell-centre
+  // dual, corners only), with the back-off and with cfMesh's optimiser.
+  { name: 'centre_corners_h5_2layers_desktop', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&autostart=1', vp: [1280, 900] },
+  { name: 'centre_corners_h5_2layers_phone', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&autostart=1', vp: [390, 844] },
+  { name: 'centre_corners_h5_3layers_cfmesh_desktop', q: 'mesh=unstructured&h=5&layers=3&dual=centre&fp=corners&layerq=cfmesh&autostart=1', vp: [1280, 900] },
 ];
-const TIMEOUT_MS = 15 * 60 * 1000;
+const TIMEOUT_MS = 25 * 60 * 1000;
 
 (async () => {
   const [base, out] = [process.argv[2], process.argv[3]];
