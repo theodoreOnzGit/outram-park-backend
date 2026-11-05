@@ -116,3 +116,10 @@ centre_corners_h5_3layers_cfmesh_desktop 40 s: Foam Studio | frames median 16.7 
 centre_corners_h5_3layers_cfmesh_desktop 42 s: Foam Studio | frames median 16.7 p95 83.2 max 83.4 ms
 centre_corners_h5_3layers_cfmesh_desktop 44 s: Foam Studio | frames median 16.7 p95 66.8 max 100.0 ms
 centre_corners_h5_3layers_cfmesh_desktop 46 s: Foam Studio | frames median 16.7 p95 66.7 max 83.4 ms
+centre_corners_h5_3layers_cfmesh_desktop 48 s: Foam Studio | frames median 16.7 p95 66.7 max 66.7 ms
+centre_corners_h5_3layers_cfmesh_desktop 50 s: Foam Studio | frames median 16.7 p95 83.3 max 100.0 ms
+centre_corners_h5_3layers_cfmesh_desktop 52 s: Foam Studio | frames median 16.7 p95 83.3 max 100.0 ms
+centre_corners_h5_3layers_cfmesh_desktop 54 s: Foam Studio | frames median 16.7 p95 66.7 max 83.4 ms
+centre_corners_h5_3layers_cfmesh_desktop 56 s: Foam Studio | frames median 16.7 p95 66.7 max 83.4 ms
+centre_corners_h5_3layers_cfmesh_desktop 58 s: Foam Studio | frames median 16.7 p95 66.7 max 66.7 ms
+centre_corners_h5_3layers_cfmesh_desktop 60 s: Foam Studio | frames median 16.7 p95 66.7 max 99.9 ms
