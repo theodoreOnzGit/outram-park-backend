@@ -392,13 +392,34 @@ fn cell_centre(_mesh: &VolumeMesh, _feature_angle_deg: f64, _rule: FeaturePointR
     Err("this build has no `cell-centre-dual` feature".into())
 }
 
-/// Is `mesh` acceptable as a stage output — closed *and* free of inverted cells?
+/// Is `mesh` acceptable as a stage output — closed, free of inverted cells,
+/// and free of degenerate faces?
 ///
 /// This is the graceful-degradation gate: a stage's result is kept only if it
 /// passes this, otherwise the previous mesh is retained. Stronger than a bare
 /// `validate()` because a tangled cell can be closed yet negative-volume.
+///
+/// **gh:#1286 (2026-11-05):** also refused, a mesh with a non-finite point
+/// or a face whose area is below `VSMALL` (cfMesh's
+/// `polyMeshGenChecks::checkFaceAreas(mesh, false, VSMALL)`, the check
+/// upstream's `meshOptimizer::findBadFaces` runs; ported as
+/// [`crate::poly_mesh_gen_checks::check_face_areas`]). A zero-area face
+/// has no normal, so its non-orthogonality is NaN and the FV solve cannot
+/// use it; the gate checked closure and cell volumes only, and kept such a
+/// mesh (the Foam Studio pipe, h 4 mm, `CellCentre` + `Corners`, boundary
+/// moves + `BoundaryProjection::EachPass`: two collinear inlet-plane
+/// triangles). Upstream has no acceptance gate (it flags the face as bad
+/// and goes on); this one is the port's.
 fn acceptable(mesh: &VolumeMesh) -> bool {
-    mesh.validate().is_ok() && check_quality(mesh).n_negative_volume_cells == 0
+    mesh.validate().is_ok() && check_quality(mesh).n_negative_volume_cells == 0 && faces_are_non_degenerate(mesh)
+}
+
+/// gh:#1286: every point finite, and no face with area below `VSMALL`
+/// ([`crate::poly_mesh_gen_checks::check_face_areas`]; a non-finite
+/// area would compare false there, so points are checked first).
+pub(crate) fn faces_are_non_degenerate(mesh: &VolumeMesh) -> bool {
+    mesh.points.iter().all(|p| p.x.is_finite() && p.y.is_finite() && p.z.is_finite())
+        && !crate::poly_mesh_gen_checks::check_face_areas(mesh, 1e-300, None).0
 }
 
 /// Keep `candidate` iff it is [`acceptable`], else fall back to `current`.
@@ -914,6 +935,36 @@ pub fn cylinder_tet_dual(
 pub(crate) mod tests {
     use super::*;
     use std::f64::consts::PI;
+
+    /// gh:#1286, analytic: a closed 3×1×1 box with one more internal face
+    /// between cells 0 and 1 whose three points are collinear (zero area:
+    /// it adds nothing to the closure sums, so `validate()` and the cell
+    /// volumes pass) is refused by `acceptable`, and `keep_if_ok` keeps the
+    /// previous mesh. The same box without it is accepted.
+    #[test]
+    fn zero_area_face_is_not_acceptable() {
+        let good = crate::cartesian::cartesian_box(Vec3::ZERO, Vec3::new(3.0, 1.0, 1.0), [3, 1, 1]);
+        assert!(acceptable(&good));
+        let on_edge: Vec<usize> = (0..good.point_count()).filter(|&i| good.points[i].y == 0.0 && good.points[i].z == 0.0).collect();
+        assert!(on_edge.len() >= 3);
+        let mut bad = good.clone();
+        bad.faces.insert(0, vec![on_edge[0], on_edge[1], on_edge[2]]);
+        bad.owner.insert(0, 0);
+        bad.neighbour.insert(0, Some(1));
+        for p in &mut bad.patches {
+            p.start_face += 1;
+        }
+        assert!(bad.validate().is_ok());
+        assert_eq!(check_quality(&bad).n_negative_volume_cells, 0);
+        assert!(!acceptable(&bad));
+        let (kept, ok) = keep_if_ok(good.clone(), bad);
+        assert!(!ok);
+        assert_eq!(kept.face_count(), good.face_count());
+        let mut nan = good.clone();
+        nan.points[0].x = f64::NAN;
+        assert!(!faces_are_non_degenerate(&nan));
+    }
+
 
     // ---- Verification (not validation) test suite --------------------------
     //

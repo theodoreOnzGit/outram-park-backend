@@ -3138,7 +3138,10 @@ the tangle the revert had undone.
 - At h 4 with `EachPass` the mesh stays closed with no negative cell, so
   the pipeline keeps it. It has 2 faces with an undefined (NaN)
   non-orthogonality angle, an internal face at 139.8°, 18 cells with a
-  non-positive pyramid and 210 bad faces.
+  non-positive pyramid and 210 bad faces. **Since gh:#1286 (2026-11-05)
+  the pipeline refuses it** (the 2 faces have zero area) and returns the
+  bare mesh, so the h 4 `bmE` cells of the table describe the mesh before
+  that fix.
 - At h 4 (`AfterUntangle`) and h 6 (both) the layered mesh is invalid,
   and the pipeline returns the bare mesh.
 - At h 5 that capture leaves no point unmapped, and the projection works.
@@ -3354,15 +3357,91 @@ the NaN faces (not drawn).
   move fixed, and the stall bound stops the untangle there. A projection
   that respected cell validity (upstream's `mapVerticesOntoSurface` has
   no such check either) or more global iterations might clear them.
-- `bmE` at h 4 keeps a mesh with NaN face angles because the pipeline's
+- ~~`bmE` at h 4 keeps a mesh with NaN face angles because the pipeline's
   `acceptable` checks closure and cell volumes only. Whether
-  `keep_if_ok` should also refuse zero-area faces is for the maintainer.
+  `keep_if_ok` should also refuse zero-area faces is for the maintainer.~~
+  **FIXED 2026-11-05 (gh:#1286):** `acceptable` now refuses a face below
+  `VSMALL` (cfMesh's `checkFaceAreas`) and a non-finite point; `bmE` at
+  h 4 returns the bare mesh. See the gh:#1286 section below.
 - The layer split (step 3) creates 52 bad faces from a one-layer mesh
   with none (`bmE`, h 5): refBoundaryLayers' straight split of a leaning
   hair.
 - Upstream (cfMesh) is not installed here; nothing was run against it.
 - `docs/outram-park-fork-cfmesh-api.md` was not regenerated (no
   `kovan-cli` run).
+
+## The pipeline's acceptance gate refuses zero-area faces (gh:#1286, epic gh:#1251)
+
+**The defect.** gh:#1283's `bmE` route at h 4 mm, 3 layers (above:
+`CellCentre` + `Corners`, boundary moves, `BoundaryProjection::EachPass`,
+the default `revert_tangled` capture) was kept by the pipeline with two
+faces whose non-orthogonality was NaN.
+
+**What the faces are (measured 2026-11-05,** before any fix, by a probe
+on the same case, `surface_to_tet_dual_mesh_multipatch`): two internal
+triangles, faces 33 638 and 33 674 of 78 110, one in each inlet/outlet
+plane (z = 0 and z = 0.2 m). Each has three collinear points on the rim,
+so its area is exactly 0 and it has no normal. Their cells are a
+1.3e-9 m³ cell and a 9e-14 / 7e-14 m³ sliver. No point is non-finite.
+cfMesh's `checkFaceAreas(VSMALL)` fails on the mesh, and `checkGeometry`
+fails 4 of its 9 checks.
+
+**Upstream against the port (read 2026-11-05).** Upstream has **no
+acceptance gate**: no `tetMeshGenerator` step refuses a mesh. Its
+`meshOptimizer::findBadFaces` runs `checkFacePyramids(VSMALL)`,
+`checkFaceFlatness(0.8)`, `checkCellPartTetrahedra(VSMALL)` and
+**`checkFaceAreas(VSMALL)`**, and hands the flagged faces to the
+untangler, which here could not clear them (210 bad faces at the end).
+The port's gate (`pipeline::acceptable`, which `keep_if_ok` applies to
+every stage) checked closure (`validate`) and cell volumes only; a
+zero-area face adds nothing to either.
+
+**The fix.** `acceptable` also refuses a mesh with a non-finite point or a
+face below `VSMALL` (`poly_mesh_gen_checks::check_face_areas`, the ported
+upstream check, through `pipeline::faces_are_non_degenerate`). Rejecting,
+not repairing: the stage's result is dropped and the previous mesh kept,
+as for any other refused stage. Upstream's repair for such a face would be
+the untangler, which already failed on it here.
+
+**Predictions (written 2026-11-05, before the run with the fix).**
+
+- `bmE`, h 4 mm, 3 layers: the layer stage is refused, the pipeline
+  returns the bare mesh with the "boundary layers skipped" note (as `bmA`
+  at h 4 in the table above), with no face below `VSMALL` and no NaN angle.
+- The pins (`back_off_only_layers_are_pinned_bit_for_bit`,
+  `dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`,
+  `layer_strategies_are_deterministic`,
+  `correct_edges_is_pinned_bit_for_bit`,
+  `foam_studio_default_mesh_keeps_its_fingerprint`, the tet_mesh / p_mesh
+  restart pins) hold: none of those meshes has a zero-area face, so no
+  stage that was kept is refused.
+
+**Results (2026-11-05,** `cargo test --release -p outram-park-fork-cfmesh
+--features cell-centre-dual --lib`, the tests named below).
+
+- `final_mesh::diagnose_gh1283::gh1286_zero_area_layer_mesh_is_refused`
+  (the `bmE` case, 45–55 s): **held**. The layer stage is refused ("boundary
+  layers skipped — the wall is too tight for any valid layer"), and the
+  pipeline returns the bare h 4 mesh, 6 353 cells (the default bare h 4
+  count in the tables above), with no face below `VSMALL` and every
+  internal face's non-orthogonality finite. Before the fix the same call
+  returned 12 461 cells with the two zero-area faces.
+- `pipeline::tests::zero_area_face_is_not_acceptable` (analytic: a closed
+  3×1×1 box plus one collinear internal triangle, which passes `validate`
+  and the volume check): refused, and `keep_if_ok` keeps the previous mesh;
+  a NaN point is refused too.
+- **Pins: held.** `back_off_only_layers_are_pinned_bit_for_bit`,
+  `dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`,
+  `layer_strategies_are_deterministic`, `correct_edges_is_pinned_bit_for_bit`,
+  `foam_studio_default_mesh_keeps_its_fingerprint` and
+  `tet_mesh_stop_and_restart_reproduce_the_full_run` pass. (`tet_mesh` and
+  `p_mesh` do not go through `acceptable`; their gate is unchanged.)
+
+**What it changes.** Only meshes that had a zero-area face or a non-finite
+point. `bmE` at h 4 is now the `rej.` cell of the gh:#1283 table (that
+row's h 4 entries describe the mesh before this fix). Not checked: which
+other non-default routes in the gh:#1283 table had a zero-area face (only
+`bmE` h 4 showed NaN angles in its diagnostic).
 
 ## cfMesh's `boundaryLayers` creation route against the crate's back-off, differentially (gh:#1270)
 

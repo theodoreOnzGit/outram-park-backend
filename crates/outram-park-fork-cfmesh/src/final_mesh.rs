@@ -443,6 +443,37 @@ pub(crate) mod diagnose_gh1283 {
         }
     }
 
+    /// V&V (gh:#1286): the mesh with zero-area faces is refused. The case
+    /// is gh:#1283's `bmE` at h 4 mm with 3 layers (Foam Studio pipe,
+    /// `CellCentre` + `Corners`, boundary moves, `EachPass`, the default
+    /// `revert_tangled` capture), which the pipeline kept before the fix:
+    /// two internal triangles in the inlet planes (faces 33638 and 33674 of
+    /// 78 110; owner 1.3e-9 m³, neighbour 9e-14 / 7e-14 m³), each with three
+    /// collinear points on the rim, area exactly 0, so non-orthogonality
+    /// NaN; `checkFaceAreas(VSMALL)` fails and `checkGeometry` fails 4
+    /// checks. **Prediction (written 2026-11-05, before the run with the
+    /// fix):** the layer stage is refused, the pipeline returns the bare
+    /// mesh with the "boundary layers skipped" note (as `bmA` at h 4 in the
+    /// gh:#1283 table), and that mesh has no face below `VSMALL` and no NaN
+    /// angle. Result: in the gh:#1286 section of
+    /// `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+    #[test]
+    fn gh1286_zero_area_layer_mesh_is_refused() {
+        let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
+        let o = variant("bmE", 0.004, 3);
+        let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        assert!(rep.stage_notes.iter().any(|s| s.starts_with("boundary layers skipped")), "{:?}", rep.stage_notes);
+        assert!(!crate::poly_mesh_gen_checks::check_face_areas(&m, 1e-300, None).0);
+        let (_, centres) = crate::checks::cell_geometry(&m);
+        for f in 0..m.face_count() {
+            if let Some(nb) = m.neighbour[f] {
+                let (d, s) = (centres[nb].sub(centres[m.owner[f]]), m.face_area_vector(f));
+                assert!((d.dot(s) / (d.length() * s.length())).is_finite(), "face {f}");
+            }
+        }
+        println!("gh1286: {} cells, notes {:?}", m.cell_count(), rep.stage_notes);
+    }
+
     #[test]
     #[ignore]
     fn diagnose_final_mesh_differential() {
