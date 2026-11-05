@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-digital-twin-engine"
-version = "0.0.3"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -56,9 +56,12 @@ chem-eng-real-time-process-control-simulator.workspace = true
 # drives the blade animation. That is library code, not an example, so it
 # cannot be a dev-dependency. No new weight in the tree -- `tampines` already
 # depends on this crate transitively.
-# NOTE 2026-11-02 (gh:#1112): `TurbineVisual` moved to `bugis::components`
+# ~~NOTE 2026-11-02 (gh:#1112): `TurbineVisual` moved to `bugis::components`
 # (feature `widgets`, which now carries this edge for the library). Kept here
-# because the examples and binaries name the crate directly.
+# because the examples and binaries name the crate directly.~~
+# CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
+# physics half of `TurbineVisual` is back in this crate's `components`, so
+# this entry carries the library edge again.
 tampines-steam-tables.workspace = true
 
 # TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
@@ -129,9 +132,12 @@ csv.workspace = true
 # so promoting it does not endanger the Android build. The
 # examples (htgr_sim_v1's schematic, widget_studio's heat-exchanger tab) reach
 # it through this entry, so it is no longer declared as a dev-dependency.
-# NOTE 2026-11-02 (gh:#1112): `HeatExchangerVisual` moved to
+# ~~NOTE 2026-11-02 (gh:#1112): `HeatExchangerVisual` moved to
 # `bugis::components` (feature `widgets` carries this edge for the library);
-# the entry stays for the examples named above.
+# the entry stays for the examples named above.~~
+# CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
+# physics half of `HeatExchangerVisual` (and `HeatExchangerKindArrangement`) is
+# back in this crate's `components`, so this edge is the library's again.
 outram-park-fork-dwsim-libs.workspace = true
 
 # OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
@@ -169,7 +175,12 @@ thiserror.workspace = true
 # Cargo.toml's note on `web-time`.
 web-time.workspace = true
 egui.workspace = true
-# `widgets`: the widget library, re-exported as `components` (gh:#1112).
+# `widgets`: the widget ART, re-exported by `components` (gh:#1112).
+# CORRECTED 2026-11-05 (maintainer: "widget art can live in bugis, the
+# combination of logic and art can live inside the digital twin engine"): the
+# widgets that hold physics state (`PipeVisual`, `CondenserVisual`, ...) live
+# in this crate's `src/components/` and draw through the bugis art; bugis's
+# `widgets` feature no longer pulls any physics crate.
 # `app_scaffold`: re-exported as `app_scaffold`.
 bugis = { workspace = true, features = ["widgets", "app_scaffold"] }
 eframe.workspace = true
@@ -351,6 +362,44 @@ path = "src/bin/ciet_v2_opcua_client/main.rs"
 name = "ciet_web"
 path = "examples/ciet_web/main.rs"
 
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986): a GE BWR/3
+# with isolation condensers in a Mark I containment, from the scram through
+# core damage, hydrogen, venting and the reactor-building explosion. Built on
+# `bugis::web_demo` and this crate's widgets; the plant (`sembawang::
+# bwr_mark1`), core and containment step on three Web Workers
+# (web/fukushima/, published at demos/fukushima/). AI draft, not validated.
+# MOVED 2026-11-05 from dhoby-ghaut (maintainer: "if web examples live in
+# dhoby ghaut, and this causes the dependency cycle, let the web examples
+# deploy from digital twin engine instead"); it came there from the
+# outram-park repository on 2026-10-27.
+#
+#   cargo run -p outram-park-digital-twin-engine --example fukushima_web --release [-- --headless 108000 600]
+[[example]]
+name = "fukushima_web"
+path = "examples/fukushima_web/main.rs"
+
+# The double-pipe high-fidelity -> low-fidelity twin (gh:#1182, rung 5 of
+# epic gh:#1177): the TUAS 1-D double pipe evaluated live in a Web Worker
+# (this crate's `one_d::ua`), beside the committed Kennedy-O'Hagan predictive
+# (eta + delta, gh:#1180), the co-kriging sweep (gh:#1190), the 44 CFD design
+# points (gh:#1178) and gh:#1191's filtering traces (web/double_pipe_twin/,
+# published at demos/double-pipe-twin/). raffles (a normal dependency here)
+# natively, for `--generate-artefacts` only. Carries an Android stub `main`.
+# AI draft. MOVED 2026-11-05 from dhoby-ghaut, as fukushima_web above.
+#
+#   cargo run -p outram-park-digital-twin-engine --example double_pipe_twin_web --release [-- --headless]
+[[example]]
+name = "double_pipe_twin_web"
+path = "examples/double_pipe_twin_web/main.rs"
+
+# The web-demo framework the two demos above are built on (side panel, view,
+# zoom buttons, worker link), from bugis's `web_demo` feature (it is what
+# `dhoby_ghaut::web_demo` re-exports). Example-only; off Android, where the
+# engine's egui stack is off too. On wasm its wasm-bindgen family comes in
+# through bugis's own wasm32 table.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+bugis = { workspace = true, features = ["web_demo"] }
+
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { workspace = true }
 # The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#986).
@@ -378,6 +427,8 @@ web-sys = { workspace = true, features = [
   "Window", "Document", "Element", "HtmlCanvasElement",
   "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
   "DedicatedWorkerGlobalScope", "MessageEvent", "Performance",
+  # fukushima_web / double_pipe_twin_web (moved from dhoby-ghaut 2026-11-05).
+  "ErrorEvent",
 ] }
 
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────

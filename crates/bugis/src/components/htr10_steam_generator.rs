@@ -1,7 +1,7 @@
 //! HTR-10 steam generator — a schematic of its *general structure*.
 //!
 //! A dedicated widget rather than a variant of
-//! [`crate::components::SteamGeneratorVisual`], because it draws a specific
+//! [`crate::components::SteamGeneratorArt`], because it draws a specific
 //! internal arrangement rather than a generic once-through helical unit. The
 //! generic widget stays as it was and keeps serving every other caller.
 //!
@@ -32,7 +32,7 @@
 //! ```
 //!
 //! The winding is drawn in the same stylisation as
-//! [`crate::components::SteamGeneratorVisual`]'s generic helical-coil unit, so
+//! [`crate::components::SteamGeneratorArt`]'s generic helical-coil unit, so
 //! the two read as the same kind of machine.
 //!
 //! ## What this is and is not
@@ -713,7 +713,7 @@ impl Widget for Htr10SteamGeneratorVisual {
 
             // The coil, drawn as a continuous winding rather than as separate
             // tube sections — the same stylisation
-            // `SteamGeneratorVisual::draw_helical_coil` uses, so the two read
+            // `SteamGeneratorArt::draw_helical_coil` uses, so the two read
             // as the same kind of machine. Deliberately simplified: it says
             // "helix" without pretending to be a tube layout.
             //

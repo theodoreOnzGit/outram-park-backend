@@ -1,5 +1,13 @@
 //! Visual **pump**.
 //!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this file is the art, [`PumpArt`], drawn from plain numbers. The widget that
+//! wraps the physics component, `PumpVisual`, lives in
+//! `outram_park_digital_twin_engine::components::pump` and draws through
+//! [`PumpArt`]. Below, "the physics-backed path" is that widget's; here it is
+//! [`PumpArt::at_rest`].
+//!
 //! Three machines that all raise the pressure of a liquid, drawn as three
 //! genuinely different pieces of artwork because they are three genuinely
 //! different machines — see [`PumpKind`]. Each carries its own
@@ -15,11 +23,11 @@
 //! a wall clock inside the widget.
 //!
 //! Like [`crate::animation::TracerTrain`] and
-//! [`crate::components::TurbineVisual`], the clock is **application-owned**.
+//! [`crate::components::TurbineArt`], the clock is **application-owned**.
 //! Visual components here are consumed by value and rebuilt on every repaint,
 //! so a clock owned by the widget would reset to zero each frame and the
 //! impeller would never turn. The application advances its own
-//! [`uom::si::f64::Time`] and passes it in via [`PumpVisual::at_time`].
+//! [`uom::si::f64::Time`] and passes it in via [`PumpArt::at_time`].
 //!
 //! A consequence worth stating because it is a *feature*: a pump given zero
 //! shaft speed draws a **stationary but complete** impeller — every vane in its
@@ -29,13 +37,13 @@
 //!
 //! ## Where the state comes from
 //!
-//! **Scalar-fed, deliberately.** [`tampines::components::Pump`] carries an
+//! **Scalar-fed, deliberately.** `tampines::components::Pump` carries an
 //! operating-point specification and an efficiency, but its `evaluate` returns
 //! `TampinesError::NotYetImplemented` — there is no outlet state, no head, no
 //! shaft speed and no fluid temperature to read off it. Rather than fabricate
 //! those, this widget takes the two scalars it draws (shaft angular velocity,
 //! fluid temperature) directly from the caller, exactly as
-//! [`crate::components::PipeVisual::from_scalars`] does, and treats a wrapped
+//! [`crate::components::PipeArt::from_scalars`] does, and treats a wrapped
 //! `Pump` as optional API compatibility rather than a state source. When
 //! `Pump::evaluate` lands, the head/flow it returns is what should size the
 //! discharge and grade the passage, and this module should compose it.
@@ -66,7 +74,6 @@ use petir::mathf::RealMath;
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use std::f32::consts::TAU;
-use tampines::components::Pump;
 use uom::si::f64::{Angle, AngularVelocity, ThermodynamicTemperature, Time};
 use uom::ConstZero;
 
@@ -391,17 +398,12 @@ impl PumpKind {
 ///
 /// Scalar-fed by design — see the module docs for why, and for what should
 /// replace it once `tampines::components::Pump::evaluate` is implemented.
-pub struct PumpVisual {
+pub struct PumpArt {
     /// Which machine to draw.
     pub kind: PumpKind,
-    /// The wrapped TAMPINES component, when the caller has one.
-    ///
-    /// Carried for API compatibility and future composition **only**: it
-    /// contributes nothing to the drawing today, because `Pump::evaluate`
-    /// returns `NotYetImplemented` and the struct itself holds no fluid state,
-    /// no head and no shaft speed. Drawing anything from its efficiency or
-    /// specification would be fabricating a reading.
-    pub physics: Option<Pump>,
+    // ~~`physics: Option<Pump>`~~ MOVED 2026-11-05 to the engine's
+    // `PumpVisual`: it never contributed to the drawing (`Pump::evaluate`
+    // returns `NotYetImplemented`), and bugis depends on no physics crate.
     /// On-screen centre position.
     pub screen_position: Pos2,
     /// On-screen size of the whole machine, in points.
@@ -415,7 +417,7 @@ pub struct PumpVisual {
     pub shaft_speed: AngularVelocity,
     /// Elapsed simulation time, owned and advanced by the **application**.
     ///
-    /// Combined with [`PumpVisual::shaft_speed`] to give the rotor phase
+    /// Combined with [`PumpArt::shaft_speed`] to give the rotor phase
     /// `theta = omega * simulation_time`. See the module docs for why the
     /// widget must not own this clock.
     pub simulation_time: Time,
@@ -432,28 +434,27 @@ pub struct PumpVisual {
 
 /// Default cold end of the colour scale when a caller supplies no range, in
 /// kelvin. Only ever used together with [`DEFAULT_MAX_TEMP_K`], and only for
-/// the back-compatible [`PumpVisual::new`] path, which supplies no fluid
+/// the back-compatible [`PumpArt::at_rest`] path (the engine's `PumpVisual::new`), which supplies no fluid
 /// temperature either — so nothing is actually graded against it.
 const DEFAULT_MIN_TEMP_K: f64 = 300.0;
 
 /// Default hot end of the colour scale. See [`DEFAULT_MIN_TEMP_K`].
 const DEFAULT_MAX_TEMP_K: f64 = 600.0;
 
-impl PumpVisual {
-    /// Wrap a [`tampines::components::Pump`] with screen geometry.
+impl PumpArt {
+    /// A pump at rest with screen geometry: what the engine's
+    /// `PumpVisual::new` draws for a `tampines::components::Pump`.
     ///
-    /// Kept signature-compatible with the previous version of this widget, so
-    /// existing schematics keep building. The result draws a
-    /// [`PumpKind::Centrifugal`] machine at rest, in neutral grey: the wrapped
+    /// The result draws a
+    /// [`PumpKind::Centrifugal`] machine at rest, in neutral grey: that
     /// component reports no shaft speed and no fluid state, and this
-    /// constructor invents neither. Chain [`PumpVisual::with_kind`],
-    /// [`PumpVisual::with_shaft_speed`], [`PumpVisual::at_time`] and
-    /// [`PumpVisual::with_fluid_temperature`] to drive it from a real model.
-    pub fn new(physics: Pump, screen_position: Pos2, screen_vector: Vec2) -> Self {
+    /// constructor invents neither. Chain [`PumpArt::with_kind`],
+    /// [`PumpArt::with_shaft_speed`], [`PumpArt::at_time`] and
+    /// [`PumpArt::with_fluid_temperature`] to drive it from a real model.
+    pub fn at_rest(screen_position: Pos2, screen_vector: Vec2) -> Self {
         use uom::si::thermodynamic_temperature::kelvin;
         Self {
             kind: PumpKind::default(),
-            physics: Some(physics),
             screen_position,
             screen_vector,
             shaft_speed: AngularVelocity::ZERO,
@@ -469,7 +470,7 @@ impl PumpVisual {
     ///
     /// This is the primary constructor — see the module docs for why the
     /// widget is scalar-fed rather than reading a TAMPINES pump. It is the
-    /// same contract as [`crate::components::PipeVisual::from_scalars`]: the
+    /// same contract as [`crate::components::PipeArt::from_scalars`]: the
     /// caller passes **real** state from its own model; this is not a stub and
     /// values must not be fabricated to feed it.
     ///
@@ -493,7 +494,6 @@ impl PumpVisual {
     ) -> Self {
         Self {
             kind,
-            physics: None,
             screen_position,
             screen_vector,
             shaft_speed,
@@ -517,7 +517,7 @@ impl PumpVisual {
     }
 
     /// Set the application-owned simulation clock. Builder-style, matching
-    /// [`crate::components::TurbineVisual::at_time`].
+    /// [`crate::components::TurbineArt::at_time`].
     pub fn at_time(mut self, simulation_time: Time) -> Self {
         self.simulation_time = simulation_time;
         self
@@ -685,7 +685,7 @@ fn cambered_blade(root: Pos2, tip: Pos2, camber: f32, points: usize) -> Vec<Pos2
         .collect()
 }
 
-impl PumpVisual {
+impl PumpArt {
     /// Rotor phase in radians as `f32`, for the drawing code.
     fn theta_rad(&self) -> f32 {
         self.rotor_angle().get::<uom::si::angle::radian>() as f32
@@ -1178,13 +1178,13 @@ impl PumpVisual {
     }
 }
 
-impl Widget for PumpVisual {
-    /// Draws the machine selected by [`PumpVisual::kind`], letterboxed inside
+impl Widget for PumpArt {
+    /// Draws the machine selected by [`PumpArt::kind`], letterboxed inside
     /// `screen_vector` to that kind's native proportions.
     ///
     /// The rotating element is placed at
-    /// [`PumpVisual::rotor_angle`] = `omega * t`; every wetted passage is
-    /// filled from [`PumpVisual::fluid_colour`], so a pump grades temperature
+    /// [`PumpArt::rotor_angle`] = `omega * t`; every wetted passage is
+    /// filled from [`PumpArt::fluid_colour`], so a pump grades temperature
     /// identically to every other widget in [`crate::components`].
     fn ui(self, ui: &mut Ui) -> Response {
         let box_rect = Rect::from_center_size(self.screen_position, self.screen_vector);
@@ -1203,7 +1203,7 @@ impl Widget for PumpVisual {
     }
 }
 
-/// Where the pipes meet a centrifugal [`PumpVisual`]'s casing.
+/// Where the pipes meet a centrifugal [`PumpArt`]'s casing.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PumpPorts {
     /// Suction, on the casing at the impeller axis, on the right.
@@ -1212,7 +1212,7 @@ pub struct PumpPorts {
     pub discharge: Pos2,
 }
 
-impl PumpVisual {
+impl PumpArt {
     /// Port positions for a [`PumpKind::Centrifugal`] pump whose box is
     /// `box_rect` (the rect its `screen_position`/`screen_vector` describe).
     ///
@@ -1235,7 +1235,6 @@ mod tests {
     use super::*;
     use uom::si::angle::radian;
     use uom::si::angular_velocity::radian_per_second;
-    use uom::si::ratio::ratio;
     use uom::si::thermodynamic_temperature::kelvin;
     use uom::si::time::second;
 
@@ -1243,8 +1242,8 @@ mod tests {
         ThermodynamicTemperature::new::<kelvin>(v)
     }
 
-    fn pump(kind: PumpKind, omega_rad_s: f64, t_s: f64) -> PumpVisual {
-        PumpVisual::from_scalars(
+    fn pump(kind: PumpKind, omega_rad_s: f64, t_s: f64) -> PumpArt {
+        PumpArt::from_scalars(
             kind,
             Pos2::ZERO,
             Vec2::new(200.0, 200.0),
@@ -1618,26 +1617,19 @@ mod tests {
         assert_eq!(PumpKind::default(), PumpKind::Centrifugal);
     }
 
-    /// Wrapping a TAMPINES [`Pump`] must not invent state it does not have:
-    /// `Pump::evaluate` is unimplemented, so there is no fluid temperature and
-    /// no shaft speed to read, and the widget must say so rather than colour
-    /// itself from a fabricated number.
+    /// A pump at rest (the engine's TAMPINES-backed path) invents no state:
+    /// no fluid temperature, no shaft speed. The TAMPINES half of this check,
+    /// `wrapping_a_tampines_pump_invents_no_state`, MOVED 2026-11-05 to
+    /// `outram_park_digital_twin_engine::components::pump`.
     #[test]
-    fn wrapping_a_tampines_pump_invents_no_state() {
-        use outram_park_fork_dwsim_libs::pump::modes::PumpSpecification;
-        use uom::si::f64::{Pressure, Ratio};
-        use uom::si::pressure::megapascal;
-
-        let physics = Pump::new(
-            PumpSpecification::DeltaP(Pressure::new::<megapascal>(0.3)),
-            Ratio::new::<ratio>(0.8),
-        );
-        let v = PumpVisual::new(physics, Pos2::ZERO, Vec2::new(44.0, 44.0));
+    fn a_pump_at_rest_invents_no_state() {
+        let v = PumpArt::at_rest(Pos2::new(30.0, 30.0), Vec2::new(44.0, 44.0));
         assert_eq!(v.kind, PumpKind::Centrifugal);
         assert!(v.fluid_temperature.is_none());
         assert_eq!(v.fluid_colour(), UNKNOWN_FLUID);
         assert!(!v.is_turning());
         assert_eq!(v.rotor_angle().get::<radian>(), 0.0);
+        assert!(crate::components::shapes_drawn_by(v) > 0);
     }
 
     /// A known fluid temperature must grade through the **shared** map, so a
@@ -1666,7 +1658,7 @@ mod tests {
     /// documented way to drive the widget from a model.
     #[test]
     fn builders_compose() {
-        let v = PumpVisual::from_scalars(
+        let v = PumpArt::from_scalars(
             PumpKind::Centrifugal,
             Pos2::ZERO,
             Vec2::splat(100.0),
@@ -1710,7 +1702,7 @@ mod port_tests {
     #[test]
     fn centrifugal_ports_are_top_left_discharge_and_right_suction() {
         let b = Rect::from_min_size(Pos2::new(10.0, 20.0), Vec2::new(80.0, 80.0));
-        let p = PumpVisual::centrifugal_ports(b);
+        let p = PumpArt::centrifugal_ports(b);
         let fitted = PumpKind::Centrifugal.fit_native_aspect(b);
         assert_eq!(p.discharge.y, fitted.top(), "discharge at the nozzle top");
         assert!(p.discharge.x < fitted.center().x, "discharge on the left");

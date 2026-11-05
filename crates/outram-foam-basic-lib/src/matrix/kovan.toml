@@ -302,7 +302,7 @@ test_ids = [
     "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_covers_interval_and_advances_time",
     "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_validates_inputs",
     "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_converges_and_energy_responds_to_heating",
-    "crates/tampines/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop/vibe_code_mass_balance.rs::main_steam_turbtest",
+    "crates/nee_soon/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop/vibe_code_mass_balance.rs::main_steam_turbtest",
 ]
 
 [module."mod.rs"]

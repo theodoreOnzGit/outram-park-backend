@@ -66,7 +66,7 @@ path = "src/bin/dhoby-ghaut/main.rs"
 # Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
 # none of which belong in the browser demos that build this library for wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.3", default-features = false }
+kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.4", default-features = false }
 # The recipe schema (`src/workbench/recipe.rs`): serde for the settings
 # tables, toml to read/write them, uom for the quantities that leave it.
 serde = { workspace = true }
@@ -187,23 +187,22 @@ nee_soon = { workspace = true }
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
 outram-park-fork-liggghts = { workspace = true }
-# The Fukushima Daiichi Unit 1 demo (gh:#986; moved here from the
-# outram-park repository 2026-10-27 so this site can publish it): the
-# digital-twin engine's widget library for the plant drawing, tampines'
-# valve, and the DWSIM port's valve characteristic. ~~IAPWS-IF97 for the
-# vessel, teh-o-prke's decay heat~~ and OFFBEAT's MATPRO heat capacities
-# MOVED 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to
-# sembawang"): the plant physics is now `sembawang::bwr_mark1`, which
-# carries those three edges, and the demo consumes it. All wasm in-scope;
-# no cycle: none of them depends on dhoby-ghaut.
-outram-park-digital-twin-engine = { workspace = true }
-sembawang = { workspace = true }
-tampines = { workspace = true }
+# ~~The Fukushima Daiichi Unit 1 demo (gh:#986): the digital-twin engine's
+# widget library, tampines' valve, sembawang's `bwr_mark1` and egui_plot ...
+# "no cycle: none of them depends on dhoby-ghaut".~~ CORRECTED 2026-11-05
+# (maintainer: "if web examples live in dhoby ghaut, and this causes the
+# dependency cycle, let the web examples deploy from digital twin engine
+# instead"): the engine DOES depend on dhoby-ghaut (a wasm dev-dependency),
+# and `cargo publish` resolves dev-dependencies, so this was a cycle. The
+# `fukushima_web` and `double_pipe_twin_web` examples, their `web/` pages and
+# the gh:#1182 V&V record moved to `outram-park-digital-twin-engine`, and the
+# dev-dependencies only they used went with them: the engine, sembawang,
+# tampines (still a normal dependency below for the studios), egui_plot (the
+# wasm entry; native egui_plot is a normal dependency) and, in the native
+# table, raffles.
+# The DWSIM port's heat-exchanger correlations, for Foam Studio's 1-D
+# comparison (`foam_studio_web/engine.rs`).
 outram-park-fork-dwsim-libs = { workspace = true }
-# ~~Native only (in the table below)~~ MOVED here 2026-10-27: the Fukushima
-# demo's page draws its time histories with egui_plot in the browser, and
-# egui_plot is wasm-safe (it is egui widgets and nothing else).
-egui_plot = { workspace = true }
 # Foam Studio (`foam_studio_web`, gh:#1155): the O-grid / box meshers and
 # the pimpleFoam port, run in the page's worker too. All wasm in-scope (the
 # stage 0 gate, gh:#1154, ran them in a Worker with no host imports).
@@ -227,13 +226,9 @@ outram-park-fork-cfmesh = { workspace = true, features = ["foam-export", "cell-c
 # moved to the shared table 2026-10-05 for the `htr10` rung, gh:#528.)
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 env_logger = { workspace = true }
-# The double-pipe twin demo's `--generate-artefacts` (gh:#1182): the
-# Kennedy-O'Hagan calibration and the co-kriging fit, run natively once from
-# raffles::fidelity (the calls gh:#1180's and gh:#1190's tests make). Native
-# only: the browser reads their committed results and never fits. Already in
-# this tree through the digital-twin engine and tampines, so no build work
-# is added; AGPL-3.0-only like this crate.
-raffles = { workspace = true }
+# ~~raffles, for the double-pipe twin demo's `--generate-artefacts`
+# (gh:#1182)~~ MOVED 2026-11-05 with that example to
+# outram-park-digital-twin-engine (where raffles is a normal dependency).
 # Authoring frontend (math/mesh/primitives) plus its volume-meshing bridge.
 #
 # ~~The `mc-export` feature is still required here because `outram_blender::sim`
@@ -282,8 +277,9 @@ web-sys = { workspace = true, features = [
     # The physics Web Worker that keeps the page live while ENDF data process.
     "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
     "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
-    # The Fukushima demo's solver workers time each step (gh:#986).
-    "Performance",
+    # ~~The Fukushima demo's solver workers time each step (gh:#986).~~
+    # "Performance" removed 2026-11-05: that demo moved to the digital-twin
+    # engine, and nothing left here uses it.
 ] }
 
 # The Monte Carlo demo -- one app, a rung of the tutorial ladder at a time
@@ -375,32 +371,12 @@ path = "examples/dem_web/main.rs"
 name = "helical_sg_web"
 path = "examples/helical_sg_web/main.rs"
 
-# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986): a GE BWR/3
-# with isolation condensers in a Mark I containment, from the scram through
-# core damage, hydrogen, venting and the reactor-building explosion. Built on
-# `dhoby_ghaut::web_demo` and the digital-twin engine's widgets; the plant,
-# core and containment step on three Web Workers (web/fukushima/). Moved from
-# the outram-park repository on 2026-10-27. AI draft, not validated.
-#
-#   cargo run -p dhoby-ghaut --example fukushima_web --release [-- --headless 108000 600]
-[[example]]
-name = "fukushima_web"
-path = "examples/fukushima_web/main.rs"
+# ~~fukushima_web~~ MOVED 2026-11-05 to outram-park-digital-twin-engine
+# (see the dev-dependency note above).
 
 [[example]]
 name = "foam_studio_web"
 path = "examples/foam_studio_web/main.rs"
 
-# The double-pipe high-fidelity -> low-fidelity twin (gh:#1182, rung 5 of
-# epic gh:#1177): the TUAS 1-D double pipe evaluated live in a Web Worker
-# (the digital-twin engine's `one_d::ua`), beside the committed
-# Kennedy-O'Hagan predictive (eta + delta, gh:#1180), the co-kriging sweep
-# (gh:#1190), the 44 CFD design points (gh:#1178) and gh:#1191's filtering
-# traces (web/double_pipe_twin/, demos/double-pipe-twin/). Uses the
-# dev-dependencies already present (twin engine, uom); raffles natively, for
-# `--generate-artefacts` only. Carries an Android stub `main`. AI draft.
-#
-#   cargo run -p dhoby-ghaut --example double_pipe_twin_web --release [-- --headless]
-[[example]]
-name = "double_pipe_twin_web"
-path = "examples/double_pipe_twin_web/main.rs"
+# ~~double_pipe_twin_web~~ MOVED 2026-11-05 to
+# outram-park-digital-twin-engine (see the dev-dependency note above).

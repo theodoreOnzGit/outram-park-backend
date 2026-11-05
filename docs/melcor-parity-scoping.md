@@ -599,7 +599,7 @@ returns `(e_decay_t_plus_delta_t - e_decay_t)/timestep`, and with
 papers over it with `.abs()`:
 `crates/teh-o-prke/examples/fhr_sim_v1/app/prke_backend/mod.rs:334-336`,
 `crates/tampines-steam-tables/examples/fhr_sim_v1/app/prke_backend/mod.rs:334-336`,
-`crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs:720-722`,
+~~`crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs:720-722`~~ `crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs:720-722` (moved 2026-11-05),
 `crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs:720-722`.
 With `.abs()` the magnitude is correct, so the shipped GUI examples get the
 right number **by accident**; any new caller that omits it gets negative decay

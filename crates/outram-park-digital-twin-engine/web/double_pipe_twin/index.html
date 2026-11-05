@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!-- __BUILD__ is the commit, written by build.sh: every file URL carries it,
+     so each deploy is fetched fresh and the page, its wasm and its worker
+     always come from the same build. -->
+<html lang="en" data-build="__BUILD__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Double-pipe twin · OUTRAM PARK</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1d2021; color: #ebdbb2;
+               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #double_pipe_twin_canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+  #loading .spin { width: 28px; height: 28px; margin: 0 auto 16px; border-radius: 50%;
+                   border: 3px solid #504945; border-top-color: #83a598; animation: s 0.9s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  noscript, .err { color: #fb4934; }
+  #loading a, #refs a { color: #83a598; }
+  /* References: a collapsed button fixed in the corner, so the full-page main view is untouched;
+     opened, the list scrolls inside a box that never exceeds the screen width. */
+  #refs { position: fixed; right: 8px; bottom: 8px; z-index: 10; max-width: calc(100vw - 16px); font-size: 13px; }
+  #refs summary { cursor: pointer; width: max-content; margin-left: auto; padding: 6px 10px;
+                  background: #282828; border: 1px solid #504945; border-radius: 6px; }
+  #refs .refs-body { width: min(36em, calc(100vw - 16px)); max-height: 55vh; overflow: auto; margin-top: 4px;
+                     padding: 2px 12px; background: #1d2021; border: 1px solid #504945; border-radius: 6px;
+                     overflow-wrap: anywhere; }
+  #refs h2 { font-size: 14px; margin: 8px 0; }
+  #refs p { margin: 0 0 8px; padding-left: 2em; text-indent: -2em; }
+  /* Gruvbox Light when the app is (bugis sets data-theme on <html>, 2026-11-05). */
+  :root[data-theme="light"] body { background: #f9f5d7; color: #3c3836; }
+  :root[data-theme="light"] #refs summary { background: #fbf1c7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs .refs-body { background: #f9f5d7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs a, :root[data-theme="light"] #loading a { color: #076678; }
+</style>
+</head>
+<body>
+<canvas id="double_pipe_twin_canvas"></canvas>
+<div id="loading">
+  <div class="box">
+    <div class="spin"></div>
+    <p><strong>Loading the WebAssembly module…</strong></p>
+    <p>A digital twin of a laminar double-pipe heat exchanger: OUTRAM PARK's TUAS 1-D model, evaluated live in a
+      background worker in this tab, corrected toward a conjugate-heat-transfer CFD by a Kennedy–O'Hagan calibration
+      with a discrepancy δ(x). The calibration, the co-kriging sweep and the CFD runs were computed beforehand and are
+      shown as committed.</p>
+    <p>Research, education and V&amp;V only. Not for reactor operation, licensing, safety decisions or emergency response.</p>
+    <noscript>This demo needs JavaScript and WebAssembly.</noscript>
+  </div>
+</div>
+<details id="refs">
+  <summary>References</summary>
+  <div class="refs-body">
+    <h2>Methods (each ported and differential-tested in raffles; records linked below)</h2>
+    <p>Kennedy, M. C., &amp; O'Hagan, A. (2001). Bayesian calibration of computer models. <i>Journal of the Royal Statistical Society: Series B</i>, 63(3), 425–464. https://doi.org/10.1111/1467-9868.00294</p>
+    <p>Kennedy, M. C., &amp; O'Hagan, A. (2000). Predicting the output from a complex computer code when fast approximations are available. <i>Biometrika</i>, 87(1), 1–13. https://doi.org/10.1093/biomet/87.1.1</p>
+    <p>Higdon, D., Gattiker, J., Williams, B., &amp; Rightley, M. (2008). Computer model calibration using high-dimensional output. <i>Journal of the American Statistical Association</i>, 103(482), 570–583. https://doi.org/10.1198/016214507000000888 (GPMSA, whose Python successor SEPIA was ported.)</p>
+    <p>Le Gratiet, L. (2013). Bayesian analysis of hierarchical multifidelity codes. <i>SIAM/ASA Journal on Uncertainty Quantification</i>, 1(1), 244–269. https://doi.org/10.1137/120884122 (SMT's MFK, ported.)</p>
+    <p>Wan, E. A., &amp; van der Merwe, R. (2000). The unscented Kalman filter for nonlinear estimation. In <i>Proceedings of the IEEE Adaptive Systems for Signal Processing, Communications, and Control Symposium</i>, 153–158. https://doi.org/10.1109/ASSPCC.2000.882463 (FilterPy's UKF, ported.)</p>
+    <p>The 1-D correlations are TUAS's own (<code>PipeGnielinskiGeneric</code> on both sides, Churchill friction), cited in its source; not re-checked here.</p>
+    <p>Records (method, predictions, results, misses):
+      <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_twin_web_gh1182/README.md">this demo</a>,
+      <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-park-digital-twin-engine/verification_and_validation/hf_lf_double_pipe_gh1178.md">CFD dataset (gh:#1178)</a>,
+      <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_koh_gh1180.md">KOH (gh:#1180)</a>,
+      <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/raffles/verification_and_validation/smt_kriging_gh1190.md">MFK (gh:#1190)</a>,
+      <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_filtering_gh1191.md">filtering (gh:#1191)</a>.</p>
+  </div>
+</details>
+<script type="module">
+  import init from "./double_pipe_twin_web.js?v=__BUILD__";
+  init({ module_or_path: "./double_pipe_twin_web_bg.wasm?v=__BUILD__" }).catch((e) => {
+    const el = document.getElementById("loading");
+    if (el) el.innerHTML = '<p class="err">Could not start: ' + String(e) + "</p>";
+    console.error(e);
+  });
+</script>
+</body>
+</html>

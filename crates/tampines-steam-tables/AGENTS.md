@@ -85,7 +85,7 @@ License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:
 cargo build --release                           # build the library
 cargo test --release --lib                      # unit/verification tests (938 test fns; see the note below)
 cargo test --release <name>                     # run a subset by substring match
-cargo run --release --example fhr_sim_v1        # earlier FHR educational simulator (fhr_sim_v2 moved to crates/tampines/examples/)
+cargo run --release --example fhr_sim_v1        # earlier FHR educational simulator (fhr_sim_v2 moved to ~~crates/tampines/examples/~~ crates/nee_soon/examples/, CORRECTED 2026-11-05)
 ```
 
 **No system BLAS is needed.** ~~This crate's `[dependencies]` are only `approx`,

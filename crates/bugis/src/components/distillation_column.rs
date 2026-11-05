@@ -2,10 +2,10 @@
 //!
 //! No physics counterpart exists in `outram-park-fork-dwsim-libs` shaped for
 //! a widget to hold by value (`DynamicColumnProfiles` is a plain-data struct
-//! computed fresh from a [`DynamicColumnState`](outram_park_fork_dwsim_libs::columns::dynamic::DynamicColumnState)
-//! each step, not a long-lived component object the way [`tampines::components::Valve`]
+//! computed fresh from a `outram_park_fork_dwsim_libs::columns::dynamic::DynamicColumnState`
+//! each step, not a long-lived component object the way `tampines::components::Valve`
 //! is). So this widget follows the crate's other scalar-backed pattern
-//! instead — [`PipeVisual::from_scalars`](crate::components::pipe::PipeVisual::from_scalars) is
+//! instead — `PipeArt::from_scalars` (in `outram_park_digital_twin_engine::components::pipe`) is
 //! the precedent cited in the crate `CLAUDE.md` ("scalar-backed widgets are
 //! not placeholders... callers pass *real* state from their own model"): the
 //! caller supplies real per-stage temperature/composition slices read
@@ -210,41 +210,11 @@ mod tests {
     use super::*;
     use egui::{Pos2, Vec2};
 
-    /// The integration this widget exists for: a headless
-    /// [`CrudePlant`](outram_park_fork_dwsim_libs::petroleum::crude_plant::CrudePlant)
-    /// snapshot must feed it directly, with no arithmetic in between. If this
-    /// stops compiling, the widget and the plant have drifted apart.
-    #[test]
-    fn a_crude_plant_snapshot_drives_the_widget() {
-        use outram_park_fork_dwsim_libs::petroleum::crude_distillation::{
-            BlackOilCrude, CrudeColumnConfig,
-        };
-        use outram_park_fork_dwsim_libs::petroleum::crude_plant::CrudePlant;
-
-        let plant = CrudePlant::new(
-            &BlackOilCrude::light_sweet(),
-            &CrudeColumnConfig::atmospheric_default(),
-            8,
-        )
-        .expect("the reference crude column must build");
-        let snap = plant.snapshot().expect("snapshot");
-
-        let draws: Vec<(usize, &str)> = snap
-            .cuts
-            .iter()
-            .map(|(stage, _, cut)| (*stage, cut.label()))
-            .collect();
-        let w = DistillationColumnVisual::from_scalars(
-            &snap.stage_temperature_k,
-            &snap.lightest_liquid_fraction,
-            Pos2::new(0.0, 0.0),
-            Vec2::new(120.0, 400.0),
-        )
-        .with_side_draws(&draws);
-
-        assert_eq!(w.stage_temperature_k.len(), snap.n_stages);
-        assert_eq!(w.side_draws.len(), 5, "overhead + 3 draws + residue");
-    }
+    // ~~`a_crude_plant_snapshot_drives_the_widget`~~ MOVED 2026-11-05 to
+    // `outram_park_digital_twin_engine::components` (maintainer: "widget art
+    // can live in bugis, the combination of logic and art can live inside
+    // the digital twin engine"): it builds a DWSIM `CrudePlant`, and bugis
+    // depends on no physics crate.
 
     /// A side draw naming a stage the column does not have is ignored rather
     /// than clamped onto the nearest tray, so a mismatched slice cannot

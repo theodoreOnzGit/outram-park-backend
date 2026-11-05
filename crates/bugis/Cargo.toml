@@ -4,7 +4,7 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "AGPL-3.0-only"
-description = "BUGIS (Browser-based User Graphics Interaction System) — colour theming for the OUTRAM PARK GUIs, no_std + alloc: the Gruvbox palette and roles, temperature and Crameri colour maps, and (feature egui) the shared Gruvbox Dark/Light egui theme and selector; the workspace's central GUI crate, with tracer animation, ASCII schematics and the egui widget library behind std features."
+description = "BUGIS (Browser-based User Graphics Interaction System) — colour theming for the OUTRAM PARK GUIs, no_std + alloc: the Gruvbox palette and roles, temperature and Crameri colour maps, and (feature egui) the shared Gruvbox Dark/Light egui theme and selector; the workspace's central GUI crate, with tracer animation, ASCII schematics, the egui widget art, the app scaffold and the web-demo framework behind std features; standalone, depending on no workspace crate but PETIR."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -59,28 +59,25 @@ web_demo = [
     "dep:js-sys",
     "dep:web-sys",
 ]
-# One feature per physics crate the widget library reads (maintainer,
+# ~~One feature per physics crate the widget library reads (maintainer,
 # 2026-11-02: "Integrate them, I'm ok with dependencies"). Each is std and
-# optional, so the no_std core and the plain `egui` feature stay physics-free.
-tampines = ["std", "dep:tampines"]
-tampines-steam-tables = ["std", "dep:tampines-steam-tables"]
-outram-park-fork-dwsim-libs = ["std", "dep:outram-park-fork-dwsim-libs"]
-nee_soon = ["std", "dep:nee_soon"]
-# The widget library (moved from the engine's `components/`): one egui widget
-# per process object. It needs every physics feature above: `pipe.rs`, the
-# base the other widgets compose, reads `tampines` state, and the module tree
-# is one unit, so splitting it by physics crate would mean editing the moved
-# files rather than moving them.
-widgets = [
-    "std",
-    "egui",
-    "animation",
-    "dep:uom",
-    "tampines",
-    "tampines-steam-tables",
-    "outram-park-fork-dwsim-libs",
-    "nee_soon",
-]
+# optional, so the no_std core and the plain `egui` feature stay physics-free.~~
+# CORRECTED 2026-11-05 (maintainers: "bugis should be standalone"; "widget art
+# can live in bugis, the combination of logic and art can live inside the
+# digital twin engine"): the `tampines`, `tampines-steam-tables`,
+# `outram-park-fork-dwsim-libs` and `nee_soon` features and dependencies are
+# gone, and so is the `tuas_boussinesq_solver` dev-dependency. `cargo publish`
+# resolves optional and dev dependencies too, and those crates dev-depend on
+# bugis for their GUI examples' theme, so each was a dependency cycle in the
+# lockstep release (`scripts/release-lockstep.sh`). The widgets that read
+# physics state (`PipeVisual`, `CondenserVisual`, ...) moved to
+# `outram_park_digital_twin_engine::components` and draw through the art types
+# here (`PipeArt`, `CondenserArt`, ...).
+#
+# The widget art (from the engine's `components/`): one `egui::Widget` per
+# process object, drawn from plain numbers. ~~It needs every physics feature
+# above~~ (no longer, 2026-11-05).
+widgets = ["std", "egui", "animation", "dep:uom"]
 
 [dependencies]
 petir = { workspace = true }
@@ -89,18 +86,6 @@ egui = { workspace = true, optional = true }
 # up). The workspace entry is `default-features = false`, so this adds no std
 # requirement of its own.
 uom = { workspace = true, optional = true }
-# Physics state the widgets draw (features of the same names). Std crates;
-# never on in the no_std core. No cycle: none of them depends on bugis except
-# as a dev-dependency (their GUI examples take the theme from here), which
-# Cargo permits.
-tampines = { workspace = true, optional = true }
-# `TurbineVisual` renders the generator model's torque-balance shaft speed.
-tampines-steam-tables = { workspace = true, optional = true }
-# `HeatExchangerVisual` names `FlowArrangement`, which tampines does not
-# re-export; the pump, steam-generator and distillation-column widgets read it
-# too.
-outram-park-fork-dwsim-libs = { workspace = true, optional = true }
-nee_soon = { workspace = true, optional = true }
 # `app_scaffold::csv_logging` / `csv_display` write real CSV (was an engine
 # dependency, bead op-wqk.22.2). Pure Rust.
 csv = { workspace = true, optional = true }
@@ -129,10 +114,3 @@ web-sys = { workspace = true, optional = true, features = [
     "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "FileList", "File",
     "Blob", "BlobPropertyBag", "Url",
 ] }
-
-[dev-dependencies]
-# Test-only: two widget tests moved from the engine (`components::pipe`,
-# `components::pipe_component`) build a real `tampines` pipe from TUAS's
-# `SolidMaterial`, as they did there (gh:#1112). Pure Rust, no BLAS. No cycle:
-# TUAS takes bugis only as a dev-dependency, for its GUI examples' theme.
-tuas_boussinesq_solver = { workspace = true }

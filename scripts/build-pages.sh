@@ -233,8 +233,9 @@ done
 # The double-pipe high-fidelity -> low-fidelity twin (gh:#1182): the TUAS
 # 1-D double pipe evaluated live in a Web Worker, beside the committed
 # Kennedy-O'Hagan, co-kriging, CFD and filtering artefacts compiled into the
-# wasm; no data files.
-bash crates/dhoby-ghaut/web/double_pipe_twin/build.sh "$OUT/demos/double-pipe-twin"
+# wasm; no data files. Built from the digital-twin engine since 2026-11-05
+# (moved from dhoby-ghaut to break a dependency cycle); same URL.
+bash crates/outram-park-digital-twin-engine/web/double_pipe_twin/build.sh "$OUT/demos/double-pipe-twin"
 for f in index.html worker.js double_pipe_twin_web.js double_pipe_twin_web_bg.wasm; do
   [[ -f "$OUT/demos/double-pipe-twin/$f" ]] || { echo "missing demos/double-pipe-twin/$f" >&2; exit 1; }
 done
@@ -270,10 +271,11 @@ for f in index.html htgr_worker.js gate.js htgr_sim_v1.js htgr_sim_v1_bg.wasm; d
   [[ -f "$OUT/demos/htgr/$f" ]] || { echo "missing demos/htgr/$f" >&2; exit 1; }
 done
 # The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986), moved here
-# from the outram-park repository on 2026-10-27: dhoby-ghaut's fukushima_web
-# example, the plant on three Web Workers. Gated and listed exactly like the
-# HTGR demo above, by the same gate.js.
-bash crates/dhoby-ghaut/web/fukushima/build.sh "$OUT/demos/fukushima"
+# from the outram-park repository on 2026-10-27: ~~dhoby-ghaut's~~ the
+# digital-twin engine's (since 2026-11-05) fukushima_web example, the plant on
+# three Web Workers. Gated and listed exactly like the HTGR demo above, by the
+# same gate.js. Same URL as before the move.
+bash crates/outram-park-digital-twin-engine/web/fukushima/build.sh "$OUT/demos/fukushima"
 for f in index.html fukushima_worker.js gate.js fukushima_web.js fukushima_web_bg.wasm; do
   [[ -f "$OUT/demos/fukushima/$f" ]] || { echo "missing demos/fukushima/$f" >&2; exit 1; }
 done

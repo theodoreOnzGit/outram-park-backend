@@ -1,4 +1,12 @@
-//! Visual pipe.
+//! Visual pipe: the art.
+//!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this file draws a pipe run from plain data, [`PipeArt`]. The wrapper
+//! around a `tampines::components::Pipe`, `PipeArt`, lives in
+//! `outram_park_digital_twin_engine::components::pipe`; it reads the pipe's
+//! cells, wall and geometry and draws through [`PipeArt`]. Below, "physics"
+//! means [`PipeArtState::Cells`], the per-cell data that wrapper hands over.
 //!
 //! Renders a pipe run as a coloured line whose colour comes from the fluid
 //! temperature and whose optional tracer marks come from the mass flow --
@@ -7,16 +15,17 @@
 //!
 //! ## Two ways to supply the state
 //!
-//! [`PipeVisualState`] is an enum (not a trait object, per the workspace's
+//! [`PipeArtState`] is an enum (not a trait object, per the workspace's
 //! mandatory design rules) with two variants, because digital-twin
 //! applications reach this widget from two directions:
 //!
-//! - [`PipeVisualState::Physics`] wraps a full
-//!   [`tampines::components::Pipe`]. The pipe's per-cell temperature profile
-//!   is read straight off its flow backend, so the run is drawn as one
+//! - [`PipeArtState::Cells`] (~~`Physics` wrapping a full
+//!   `tampines::components::Pipe`~~, CORRECTED 2026-11-05: the engine's
+//!   `PipeArt` reads the pipe and hands its cells over). The pipe's
+//!   per-cell temperature profile is read off its flow backend, so the run is drawn as one
 //!   coloured segment **per finite-volume cell** -- cell count drives
 //!   displayed cells, cell temperature drives cell colour.
-//! - [`PipeVisualState::Scalars`] takes a [`PipeScalars`] triple
+//! - [`PipeArtState::Scalars`] takes a [`PipeScalars`] triple
 //!   (temperature, mass flow, residence time) directly. A
 //!   `tampines::components::Pipe` can only be built around a
 //!   `SinglePhaseFluidArray` or `CompressibleFluidArray`, which is a heavy
@@ -34,7 +43,6 @@ use petir::mathf::RealMath;
 use crate::animation::TracerTrain;
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
-use tampines::components::{Pipe, PipeBackend};
 use uom::si::angle::radian;
 use uom::si::area::square_meter;
 use uom::si::f64::{Angle, Area, Length, MassRate, ThermodynamicTemperature, Time};
@@ -55,10 +63,10 @@ const PIPE_WALL_WIDTH: f32 = 5.0;
 const TRACER_LENGTH_FRACTION: f32 = 0.06;
 
 /// Scalar fluid state for a pipe run whose physics is not a
-/// [`tampines::components::Pipe`].
+/// `tampines::components::Pipe`.
 ///
 /// Every field is the caller's own real model state -- see
-/// [`PipeVisualState::Scalars`] for why this narrower interface exists.
+/// [`PipeArtState::Scalars`] for why this narrower interface exists.
 #[derive(Debug, Clone, Copy)]
 pub struct PipeScalars {
     /// Bulk fluid temperature of the run, used for the colour map.
@@ -71,15 +79,41 @@ pub struct PipeScalars {
     pub residence_time: Time,
 }
 
-/// Where a [`PipeVisual`] gets the physics it renders.
+/// Per-cell state of a pipe run with real geometry, as a physics model holds
+/// it: what [`PipeArtState::Cells`] draws.
+///
+/// The digital-twin engine's `PipeArt` fills this from a
+/// `tampines::components::Pipe` (its flow backend's cell temperatures, the
+/// TUAS shell's wall temperatures, the backend's phase, the bore, length and
+/// inclination). Every field is real model state; nothing here is invented by
+/// the art.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PipeCells {
+    /// Fluid temperature per finite-volume cell, inlet -> outlet. Empty when
+    /// the backend cannot report a profile, which draws a neutral grey run.
+    pub cell_temperatures: Vec<ThermodynamicTemperature>,
+    /// Metal wall temperature per shell node, inlet -> outlet, or `None` when
+    /// the backend carries no solid structure (unknown, never cold).
+    pub wall_temperatures: Option<Vec<ThermodynamicTemperature>>,
+    /// How the backend's fluid phase is shaded.
+    pub phase_shade: PipePhaseShade,
+    /// Flow cross-sectional area, from the bore.
+    pub cross_sectional_area: Area,
+    /// Physical run length.
+    pub run_length: Length,
+    /// Inclination from horizontal, positive uphill.
+    pub inclination: Angle,
+}
+
+/// Where a [`PipeArt`] gets the state it renders.
 ///
 /// Enum dispatch, not a trait object, per the workspace's mandatory
 /// "no trait objects" Rust design rule.
 #[derive(Debug, Clone)]
-pub enum PipeVisualState {
-    /// Backed by a full TAMPINES pipe, drawn one coloured segment per
-    /// finite-volume cell.
-    Physics(Pipe),
+pub enum PipeArtState {
+    /// Per-cell state read off a full TAMPINES pipe (by the engine's
+    /// `PipeArt`), drawn one coloured segment per finite-volume cell.
+    Cells(PipeCells),
     /// Backed by caller-supplied scalars, drawn as a single coloured run.
     Scalars(PipeScalars),
 }
@@ -164,9 +198,9 @@ impl PipePhaseShade {
 /// `screen_vector` gives the pipe's on-screen direction and length (from
 /// `screen_position` to `screen_position + screen_vector`), which is also the
 /// direction a positive mass flow's tracers travel.
-pub struct PipeVisual {
+pub struct PipeArt {
     /// The physics state this widget renders.
-    pub state: PipeVisualState,
+    pub state: PipeArtState,
     /// On-screen anchor position (the inlet endpoint of the pipe).
     pub screen_position: Pos2,
     /// On-screen direction and length, from `screen_position` to the outlet.
@@ -203,19 +237,19 @@ pub struct PipeVisual {
     pub tracer: Option<TracerTrain>,
 }
 
-impl PipeVisual {
-    /// Wrap a [`Pipe`] with the given screen geometry and colour-mapping
-    /// temperature range. The run renders one coloured segment per
-    /// finite-volume cell of the pipe's flow backend.
-    pub fn new(
-        physics: Pipe,
+impl PipeArt {
+    /// Draw a run from per-cell model state ([`PipeCells`]) with the given
+    /// screen geometry and colour-mapping temperature range. The run renders
+    /// one coloured segment per finite-volume cell.
+    pub fn from_cells(
+        cells: PipeCells,
         screen_position: Pos2,
         screen_vector: Vec2,
         min_temp: ThermodynamicTemperature,
         max_temp: ThermodynamicTemperature,
     ) -> Self {
         Self {
-            state: PipeVisualState::Physics(physics),
+            state: PipeArtState::Cells(cells),
             screen_position,
             screen_vector,
             min_temp,
@@ -228,7 +262,7 @@ impl PipeVisual {
     }
 
     /// Build a pipe run from caller-supplied [`PipeScalars`] rather than a
-    /// full [`Pipe`] -- the connector-line path described in the module docs.
+    /// full pipe -- the connector-line path described in the module docs.
     pub fn from_scalars(
         scalars: PipeScalars,
         screen_position: Pos2,
@@ -237,7 +271,7 @@ impl PipeVisual {
         max_temp: ThermodynamicTemperature,
     ) -> Self {
         Self {
-            state: PipeVisualState::Scalars(scalars),
+            state: PipeArtState::Scalars(scalars),
             screen_position,
             screen_vector,
             min_temp,
@@ -257,7 +291,7 @@ impl PipeVisual {
     }
 
     /// Set the metal temperature at or above which the wall is drawn red.
-    /// Builder-style. See [`PipeVisual::wall_alarm_temp`] for why there is no
+    /// Builder-style. See [`PipeArt::wall_alarm_temp`] for why there is no
     /// default limit.
     pub fn with_wall_alarm(mut self, alarm: ThermodynamicTemperature) -> Self {
         self.wall_alarm_temp = Some(alarm);
@@ -279,55 +313,41 @@ impl PipeVisual {
 
     /// Flow cross-sectional area, from the pipe's bore.
     ///
-    /// `None` for [`PipeVisualState::Scalars`], which carries no geometry —
+    /// `None` for [`PipeArtState::Scalars`], which carries no geometry —
     /// those runs fall back to [`PipeScale::min_thickness_points`] rather than
     /// inventing a bore.
     pub fn cross_sectional_area(&self) -> Option<Area> {
         match &self.state {
-            PipeVisualState::Scalars(_) => None,
-            PipeVisualState::Physics(pipe) => {
-                let d = pipe.diameter;
-                Some(std::f64::consts::FRAC_PI_4 * d * d)
-            }
+            PipeArtState::Scalars(_) => None,
+            PipeArtState::Cells(c) => Some(c.cross_sectional_area),
         }
     }
 
     /// Physical run length, `None` for scalar-backed runs (no geometry).
     pub fn run_length(&self) -> Option<Length> {
         match &self.state {
-            PipeVisualState::Scalars(_) => None,
-            PipeVisualState::Physics(pipe) => Some(pipe.length),
+            PipeArtState::Scalars(_) => None,
+            PipeArtState::Cells(c) => Some(c.run_length),
         }
     }
 
     /// Inclination from horizontal, positive uphill. `None` for scalar runs.
     pub fn inclination(&self) -> Option<Angle> {
         match &self.state {
-            PipeVisualState::Scalars(_) => None,
-            PipeVisualState::Physics(pipe) => Some(pipe.inclination),
+            PipeArtState::Scalars(_) => None,
+            PipeArtState::Cells(c) => Some(c.inclination),
         }
     }
 
     /// Per-cell **metal wall** temperatures along the run, inlet -> outlet.
     ///
-    /// `None` when the backend carries no solid structure to report. Only the
-    /// TUAS pre-built [`PipeBackend::InsulatedPipe`] couples a pipe shell to
-    /// its fluid; the bare arrays model the fluid alone, and a wall
-    /// temperature for them would have to be invented.
-    ///
-    /// That distinction is the point: a pipe whose wall temperature is unknown
-    /// must be drawn as unknown, never as cold.
+    /// `None` when the model carries no solid structure to report (see
+    /// [`PipeCells::wall_temperatures`]): a pipe whose wall temperature is
+    /// unknown must be drawn as unknown, never as cold.
     pub fn wall_temperatures(&self) -> Option<Vec<ThermodynamicTemperature>> {
         match &self.state {
-            PipeVisualState::Scalars(_) => None,
-            PipeVisualState::Physics(pipe) => match &pipe.backend {
-                PipeBackend::Lumped(_)
-                | PipeBackend::Compressible(_)
-                | PipeBackend::SteamHem(_) => None,
-                PipeBackend::InsulatedPipe(component) => {
-                    component.clone().pipe_shell_temperature().ok()
-                }
-            },
+            PipeArtState::Scalars(_) => None,
+            PipeArtState::Cells(c) => c.wall_temperatures.clone(),
         }
     }
 
@@ -337,7 +357,7 @@ impl PipeVisual {
     /// array, so the fluid cell is mapped proportionally onto the shell rather
     /// than assumed index-for-index. Returns `None` when the backend reports no
     /// wall at all.
-    fn wall_temperature_at(
+    pub fn wall_temperature_at(
         walls: &[ThermodynamicTemperature],
         i: usize,
         n: usize,
@@ -361,22 +381,12 @@ impl PipeVisual {
         })
     }
 
-    /// How this backend's fluid phase is shaded.
-    ///
-    /// Derived from the backend, which is the only phase information available
-    /// without reading a per-cell quality: a lumped liquid array cannot boil, a
-    /// CoolProp compressible array is being used for a gas, and the HEM array
-    /// is the one that genuinely carries two-phase state.
+    /// How the fluid's phase is shaded: [`PipeCells::phase_shade`], or
+    /// liquid for caller-supplied scalars, which say nothing about phase.
     pub fn phase_shade(&self) -> PipePhaseShade {
         match &self.state {
-            // Caller-supplied scalars say nothing about phase.
-            PipeVisualState::Scalars(_) => PipePhaseShade::Liquid,
-            PipeVisualState::Physics(pipe) => match &pipe.backend {
-                PipeBackend::Lumped(_) => PipePhaseShade::Liquid,
-                PipeBackend::Compressible(_) => PipePhaseShade::Gas,
-                PipeBackend::SteamHem(_) => PipePhaseShade::TwoPhase,
-                PipeBackend::InsulatedPipe(_) => PipePhaseShade::Liquid,
-            },
+            PipeArtState::Scalars(_) => PipePhaseShade::Liquid,
+            PipeArtState::Cells(c) => c.phase_shade,
         }
     }
 
@@ -401,53 +411,27 @@ impl PipeVisual {
 
     /// Per-cell fluid temperatures along the run, inlet -> outlet.
     ///
-    /// For [`PipeVisualState::Physics`] this is the flow backend's
-    /// finite-volume temperature profile; for [`PipeVisualState::Scalars`]
-    /// it is the single supplied bulk temperature. Returns an empty vector
-    /// if a backend cannot report its profile (a fresh array with no cells,
-    /// or a backend error) -- callers render nothing rather than a
-    /// fabricated colour in that case.
+    /// For [`PipeArtState::Cells`] this is the model's finite-volume
+    /// temperature profile; for [`PipeArtState::Scalars`] it is the single
+    /// supplied bulk temperature. Empty if the model reported no profile --
+    /// the run is then drawn grey rather than in a fabricated colour.
     pub fn cell_temperatures(&self) -> Vec<ThermodynamicTemperature> {
         match &self.state {
-            PipeVisualState::Scalars(s) => vec![s.temperature],
-            PipeVisualState::Physics(pipe) => match &pipe.backend {
-                PipeBackend::Lumped(array) => array.get_temperature_vector().unwrap_or_default(),
-                PipeBackend::Compressible(array) => array
-                    .t
-                    .internal
-                    .iter()
-                    .map(|t_k| ThermodynamicTemperature::new::<kelvin>(*t_k))
-                    .collect(),
-                // Same field shape as the compressible array: both are ports of
-                // rhoPimpleFoam over different equations of state, so the
-                // temperature field is read identically.
-                PipeBackend::SteamHem(array) => array
-                    .t
-                    .internal
-                    .iter()
-                    .map(|t_k| ThermodynamicTemperature::new::<kelvin>(*t_k))
-                    .collect(),
-                // The TUAS pre-built component owns its fluid array; its
-                // getters need &mut, so read from a clone rather than forcing
-                // every caller of this &self method to hold a mutable pipe.
-                PipeBackend::InsulatedPipe(component) => component
-                    .clone()
-                    .pipe_fluid_array_temperature()
-                    .unwrap_or_default(),
-            },
+            PipeArtState::Scalars(s) => vec![s.temperature],
+            PipeArtState::Cells(c) => c.cell_temperatures.clone(),
         }
     }
 }
 
-impl Widget for PipeVisual {
+impl Widget for PipeArt {
     /// Draws the run as a rectangle divided into one box per finite-volume
-    /// cell (see [`PipeVisual::cell_temperatures`]), then any tracer marks.
+    /// cell (see [`PipeArt::cell_temperatures`]), then any tracer marks.
     ///
     /// Length and thickness both come from the real pipe geometry via
     /// [`PipeScale`] — length from the run length, thickness from the flow
     /// cross-sectional area — and the run is drawn at the pipe's inclination.
     /// Each cell box is filled by its own temperature, then lightened
-    /// according to [`PipeVisual::phase_shade`] so a gas-filled pipe reads
+    /// according to [`PipeArt::phase_shade`] so a gas-filled pipe reads
     /// paler than a liquid one at the same temperature.
     ///
     /// Cell colours come from [`crate::components::temperature_colour`] over the
@@ -458,7 +442,7 @@ impl Widget for PipeVisual {
         let (length_pts, thickness_pts) = self.drawn_size();
         let half_t = 0.5 * thickness_pts;
 
-        // Run direction. A physics-backed pipe knows its inclination, so the
+        // Run direction. A cell-backed pipe knows its inclination, so the
         // run is drawn at that slope -- this is what lets a natural-circulation
         // loop read correctly, with hot legs rising and cold legs falling.
         // Screen y grows downwards, so a positive (uphill) inclination must
@@ -720,9 +704,9 @@ impl CoaxialDuctGeometry {
 /// Visual representation of a **coaxial duct** run: two streams, one inside
 /// the other, drawn as a longitudinal section.
 ///
-/// The counterpart of [`PipeVisual`] for the case a single-bore pipe cannot
+/// The counterpart of [`PipeArt`] for the case a single-bore pipe cannot
 /// represent — a supply and a return sharing one duct body. Both streams take
-/// [`PipeScalars`], the same narrow interface [`PipeVisualState::Scalars`]
+/// [`PipeScalars`], the same narrow interface [`PipeArtState::Scalars`]
 /// uses, so a simulator whose loop physics is its own lumped model supplies
 /// that model's real state and gets correct colour and tracer motion.
 ///
@@ -738,7 +722,7 @@ impl CoaxialDuctGeometry {
 /// reverses its tracers** instead of continuing to animate a direction the
 /// model no longer has.
 ///
-/// **Scale.** Unlike [`PipeVisual`], drawn thickness is **not** derived from
+/// **Scale.** Unlike [`PipeArt`], drawn thickness is **not** derived from
 /// flow area through a [`PipeScale`]: a coaxial duct's whole readability
 /// depends on the *ratio* of its two bores, which a per-stream area scale
 /// would destroy. Thickness is set directly by
@@ -992,53 +976,8 @@ mod tests {
         }
     }
 
-    /// A physics-backed pipe of the given bore (mm), length (m) and
-    /// inclination (degrees), on the default scale.
-    fn physics_pipe(bore_mm: f64, length_m: f64, incline_deg: f64) -> PipeVisual {
-        use tampines::components::PipeBackend;
-        use tampines::single_phase::{LiquidMaterial, SinglePhaseFluidArray};
-        use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
-        use uom::si::angle::degree;
-        use uom::si::f64::{Pressure, Ratio};
-        use uom::si::length::millimeter;
-        use uom::si::pressure::atmosphere;
-        use uom::si::ratio::ratio;
-
-        let diameter = Length::new::<millimeter>(bore_mm);
-        let length = Length::new::<meter>(length_m);
-        let incline = Angle::new::<degree>(incline_deg);
-        let array = SinglePhaseFluidArray::new_cylinder(
-            length,
-            diameter,
-            // 900 K: FLiBe melts around 732 K, and TUAS rejects an initial
-            // temperature below its valid range rather than extrapolating the
-            // property correlations. Do not lower this.
-            ThermodynamicTemperature::new::<kelvin>(900.0),
-            Pressure::new::<atmosphere>(1.0),
-            SolidMaterial::SteelSS304L,
-            LiquidMaterial::FLiBe,
-            Ratio::new::<ratio>(0.0),
-            4,
-            incline,
-        );
-        let pipe = tampines::components::Pipe::new(
-            PipeBackend::Lumped(array),
-            diameter,
-            length,
-            Length::new::<millimeter>(0.045),
-            incline,
-        );
-        PipeVisual::new(
-            pipe,
-            Pos2::ZERO,
-            Vec2::new(100.0, 0.0),
-            ThermodynamicTemperature::new::<kelvin>(300.0),
-            ThermodynamicTemperature::new::<kelvin>(900.0),
-        )
-    }
-
-    fn visual(state: PipeVisualState) -> PipeVisual {
-        PipeVisual {
+    fn visual(state: PipeArtState) -> PipeArt {
+        PipeArt {
             state,
             screen_position: Pos2::ZERO,
             screen_vector: Vec2::new(100.0, 0.0),
@@ -1053,7 +992,7 @@ mod tests {
 
     #[test]
     fn scalar_state_reports_its_single_temperature() {
-        let v = visual(PipeVisualState::Scalars(scalars(350.0)));
+        let v = visual(PipeArtState::Scalars(scalars(350.0)));
         let temps = v.cell_temperatures();
         assert_eq!(temps.len(), 1);
         assert_eq!(temps[0].get::<kelvin>(), 350.0);
@@ -1061,57 +1000,54 @@ mod tests {
 
     #[test]
     fn from_scalars_builds_a_scalar_backed_run() {
-        let v = PipeVisual::from_scalars(
+        let v = PipeArt::from_scalars(
             scalars(360.0),
             Pos2::ZERO,
             Vec2::new(10.0, 0.0),
             ThermodynamicTemperature::new::<kelvin>(300.0),
             ThermodynamicTemperature::new::<kelvin>(400.0),
         );
-        assert!(matches!(v.state, PipeVisualState::Scalars(_)));
+        assert!(matches!(v.state, PipeArtState::Scalars(_)));
         assert!(v.tracer.is_none());
     }
 
     #[test]
     fn with_tracer_attaches_an_application_owned_train() {
-        let v = visual(PipeVisualState::Scalars(scalars(350.0))).with_tracer(TracerTrain::new(3));
+        let v = visual(PipeArtState::Scalars(scalars(350.0))).with_tracer(TracerTrain::new(3));
         let tracer = v.tracer.expect("tracer should be attached");
         assert_eq!(tracer.count(), 3);
     }
 
-    /// Drawn thickness must be proportional to the flow CROSS-SECTIONAL AREA,
-    /// not the diameter — doubling the bore quadruples the area, so the pipe
-    /// must draw four times as thick, not twice.
-    ///
-    /// **Methodology:** build two physics-backed pipes differing only in bore
-    /// (50 mm and 100 mm), read `drawn_size()`, and compare the thickness
-    /// ratio against the area ratio of 4.
-    ///
-    /// **Result (2026-08-05):** ratio 4.000, to within 1e-3. Both are above
-    /// the minimum-thickness floor, so the floor does not mask the test.
-    #[test]
-    fn thickness_is_proportional_to_cross_sectional_area() {
-        let thick = |bore_mm: f64| -> f32 {
-            let v = physics_pipe(bore_mm, 3.0, 0.0);
-            v.drawn_size().1
-        };
-        let (small, large) = (thick(50.0), thick(100.0));
-        assert!(
-            small > PipeScale::default().min_thickness_points,
-            "test would be masked by the thickness floor"
-        );
-        assert!(
-            (large / small - 4.0).abs() < 1e-3,
-            "expected 4x thickness for 2x bore, got {}",
-            large / small
-        );
-    }
+    // `thickness_is_proportional_to_cross_sectional_area` and
+    // `length_is_proportional_to_run_length` MOVED 2026-11-05 to
+    // `outram_park_digital_twin_engine::components::pipe`: they build a
+    // TAMPINES pipe on a TUAS material, and bugis depends on neither.
 
-    /// Drawn length must be proportional to the real run length.
+    /// Cell-backed art takes its drawn size from the supplied geometry and
+    /// draws one box per cell.
     #[test]
-    fn length_is_proportional_to_run_length() {
-        let len = |m: f64| physics_pipe(50.0, m, 0.0).drawn_size().0;
-        assert!((len(6.0) / len(3.0) - 2.0).abs() < 1e-3);
+    fn a_cell_backed_run_sizes_from_its_geometry_and_draws() {
+        use uom::si::area::square_meter;
+        let k = |v: f64| ThermodynamicTemperature::new::<kelvin>(v);
+        let cells = |area_m2: f64, length_m: f64| PipeCells {
+            cell_temperatures: vec![k(320.0), k(340.0), k(360.0)],
+            wall_temperatures: None,
+            phase_shade: PipePhaseShade::Liquid,
+            cross_sectional_area: Area::new::<square_meter>(area_m2),
+            run_length: Length::new::<meter>(length_m),
+            inclination: Angle::new::<radian>(0.0),
+        };
+        let art = |a: f64, l: f64| {
+            PipeArt::from_cells(cells(a, l), Pos2::new(10.0, 10.0), Vec2::new(100.0, 0.0), k(300.0), k(400.0))
+        };
+        let (l1, t1) = art(0.002, 3.0).drawn_size();
+        let (l2, t2) = art(0.008, 6.0).drawn_size();
+        assert!((t2 / t1 - 4.0).abs() < 1e-3);
+        assert!((l2 / l1 - 2.0).abs() < 1e-3);
+        assert_eq!(art(0.002, 3.0).cell_temperatures().len(), 3);
+        assert!(art(0.002, 3.0).wall_temperatures().is_none());
+        assert_eq!(art(0.002, 3.0).inclination(), Some(Angle::new::<radian>(0.0)));
+        assert!(crate::components::shapes_drawn_by(art(0.002, 3.0)) >= 4);
     }
 
     /// A divider sits between two solid cells and must key off their MEAN,
@@ -1130,8 +1066,8 @@ mod tests {
         let k = |v: f64| ThermodynamicTemperature::new::<kelvin>(v);
         let walls = vec![k(300.0), k(600.0), k(900.0), k(1000.0)];
         let n = 4;
-        let a = PipeVisual::wall_temperature_at(&walls, 1, n).unwrap();
-        let b = PipeVisual::wall_temperature_at(&walls, 2, n).unwrap();
+        let a = PipeArt::wall_temperature_at(&walls, 1, n).unwrap();
+        let b = PipeArt::wall_temperature_at(&walls, 2, n).unwrap();
         assert_eq!(a.get::<kelvin>(), 600.0);
         assert_eq!(b.get::<kelvin>(), 900.0);
         let mean = 0.5 * (a.get::<kelvin>() + b.get::<kelvin>());
@@ -1148,13 +1084,13 @@ mod tests {
         // 2 wall nodes spread over 8 fluid cells: first half cold, second hot.
         let walls = vec![k(300.0), k(900.0)];
         assert_eq!(
-            PipeVisual::wall_temperature_at(&walls, 0, 8)
+            PipeArt::wall_temperature_at(&walls, 0, 8)
                 .unwrap()
                 .get::<kelvin>(),
             300.0
         );
         assert_eq!(
-            PipeVisual::wall_temperature_at(&walls, 7, 8)
+            PipeArt::wall_temperature_at(&walls, 7, 8)
                 .unwrap()
                 .get::<kelvin>(),
             900.0
@@ -1165,7 +1101,7 @@ mod tests {
     /// given a fabricated one.
     #[test]
     fn no_wall_array_reports_none() {
-        assert!(PipeVisual::wall_temperature_at(&[], 0, 4).is_none());
+        assert!(PipeArt::wall_temperature_at(&[], 0, 4).is_none());
     }
 
     /// Phase shading must lighten a gas relative to a liquid at the same
@@ -1186,7 +1122,7 @@ mod tests {
     /// cell maps to hotness 0.5 over a [300, 400] K display range.
     #[test]
     fn cell_temperature_drives_hotness() {
-        let v = visual(PipeVisualState::Scalars(scalars(350.0)));
+        let v = visual(PipeArtState::Scalars(scalars(350.0)));
         let t = v.cell_temperatures()[0];
         assert_eq!(hotness_from_temperature(t, v.min_temp, v.max_temp), 0.5);
     }

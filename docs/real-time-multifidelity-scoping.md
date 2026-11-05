@@ -136,7 +136,7 @@ Full inventory of simulator-shaped targets found:
 | `triso_simulator`, `boon_lay_decay_simulator`, `first_passage_realtime` | `crates/boon-lay/examples/` | fuel/source-term, GUI |
 
 **Four near-clone FHR simulators exist across four crates.** `fhr.md:19-32`
-records three; the fourth (`crates/tampines/examples/fhr_sim_v2`) is a second
+records three; the fourth (~~`crates/tampines/examples/fhr_sim_v2`~~ `crates/nee_soon/examples/fhr_sim_v2`, moved 2026-11-05) is a second
 copy of the canonical one. This is a maintenance liability and a real-time
 liability both — see §5.4.
 

@@ -1,49 +1,71 @@
-//! Visual valve.
+//! Visual valve: the art.
 //!
-//! Wraps [`tampines::components::Valve`] with screen geometry. Colours
-//! itself by opening percentage (fully closed = grey, fully open = green) --
-//! [`Valve::current_kv`] is real/working, so this is real data, not a
-//! placeholder.
+//! Colours itself by opening fraction (fully closed = grey, fully open =
+//! green). ~~Wraps [`tampines::components::Valve`] with screen geometry.~~
+//! **CORRECTED 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this file holds the drawing only, given a plain opening fraction. The
+//! physics wrapper, `ValveVisual` around `tampines::components::Valve`, lives
+//! in `outram_park_digital_twin_engine::components::valve` and draws through
+//! [`ValveArt`].
 
 use egui::{Color32, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use tampines::components::Valve;
-use uom::si::ratio::ratio;
 
-/// Visual representation of a [`Valve`].
-pub struct ValveVisual {
-    /// The underlying physics component.
-    pub physics: Valve,
+/// The drawing of a valve, from a plain opening fraction.
+pub struct ValveArt {
+    /// Opening, dimensionless: `0.0` fully closed, `1.0` fully open. Values
+    /// outside `[0, 1]` are clamped when drawn.
+    pub opening: f32,
     /// On-screen centre position.
     pub screen_position: Pos2,
     /// On-screen size.
     pub screen_vector: Vec2,
 }
 
-impl ValveVisual {
-    /// Wrap a [`Valve`] with the given screen geometry.
-    pub fn new(physics: Valve, screen_position: Pos2, screen_vector: Vec2) -> Self {
+impl ValveArt {
+    /// A valve drawing at the given opening fraction and screen geometry.
+    pub fn new(opening: f32, screen_position: Pos2, screen_vector: Vec2) -> Self {
         Self {
-            physics,
+            opening,
             screen_position,
             screen_vector,
         }
     }
-}
 
-impl Widget for ValveVisual {
-    /// Minimal-static rendering: a filled rectangle, green fraction of which
-    /// scales with opening percentage (`0%` -> all grey, `100%` -> all
-    /// green).
-    fn ui(self, ui: &mut Ui) -> Response {
-        let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
-        let response = ui.allocate_rect(rect, Sense::hover());
-        let opening = (self.physics.opening_percent.get::<ratio>() / 100.0).clamp(0.0, 1.0) as f32;
-        let colour = Color32::from_rgb(
+    /// The fill colour for this opening: grey when closed, green when open.
+    pub fn colour(&self) -> Color32 {
+        let opening = self.opening.clamp(0.0, 1.0);
+        Color32::from_rgb(
             (128.0 * (1.0 - opening)) as u8,
             (128.0 + 127.0 * opening) as u8,
             (128.0 * (1.0 - opening)) as u8,
-        );
-        ui.painter().rect_filled(rect, 2.0, colour);
+        )
+    }
+}
+
+impl Widget for ValveArt {
+    /// Minimal-static rendering: a filled rectangle, green fraction of which
+    /// scales with opening (`0` -> all grey, `1` -> all green).
+    fn ui(self, ui: &mut Ui) -> Response {
+        let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
+        let response = ui.allocate_rect(rect, Sense::hover());
+        ui.painter().rect_filled(rect, 2.0, self.colour());
         response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Closed is grey, open is green, and out-of-range openings clamp.
+    #[test]
+    fn opening_grades_grey_to_green_and_draws() {
+        let at = |o: f32| ValveArt::new(o, Pos2::new(20.0, 20.0), Vec2::new(10.0, 10.0));
+        assert_eq!(at(0.0).colour(), Color32::from_rgb(128, 128, 128));
+        assert_eq!(at(1.0).colour(), Color32::from_rgb(0, 255, 0));
+        assert_eq!(at(-1.0).colour(), at(0.0).colour());
+        assert_eq!(at(2.0).colour(), at(1.0).colour());
+        assert!(crate::components::shapes_drawn_by(at(0.5)) > 0);
     }
 }

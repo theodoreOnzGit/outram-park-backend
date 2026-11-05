@@ -13,7 +13,8 @@
 
 The Fukushima Unit 1 simulator, ~~`crates/dhoby-ghaut/examples/fukushima_web/`~~
 `sembawang::bwr_mark1` (`crates/sembawang/src/bwr_mark1/`, moved 2026-10-29 by
-F2, gh:#1033; the `dhoby-ghaut` `fukushima_web` demo draws it), is
+F2, gh:#1033; the ~~`dhoby-ghaut`~~ `outram-park-digital-twin-engine` (moved
+2026-11-05) `fukushima_web` demo draws it), is
 a reduced model. Against BSAF Phase II (NEA No. 7525) it misses, uncalibrated:
 
 | | Model | BSAF Phase II, Unit 1 |

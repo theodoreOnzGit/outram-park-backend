@@ -10,7 +10,7 @@
 //! wraps a `nee_soon` kinetics model and colours a single rectangle by lumped
 //! fuel temperature — this widget takes **fourteen independent temperatures**
 //! and owns no physics. It is deliberately scalar-fed, for the same reason
-//! [`crate::components::pipe::PipeVisual::from_scalars`] is: an FHR simulator
+//! [`crate::components::pipe::PipeArt::from_scalars`] is: an FHR simulator
 //! already holds these temperatures in its own plant model, and requiring a
 //! particular physics type here would force every caller to adopt it.
 //!

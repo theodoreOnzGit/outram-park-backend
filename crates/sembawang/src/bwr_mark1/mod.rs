@@ -1,6 +1,7 @@
 //! The plant: Fukushima Daiichi Unit 1 after the earthquake's scram.
 //!
-//! A BWR/3 in a Mark I containment. This is the model the `dhoby-ghaut`
+//! A BWR/3 in a Mark I containment. This is the model the ~~`dhoby-ghaut`~~
+//! `outram-park-digital-twin-engine` (since 2026-11-05)
 //! `fukushima_web` demo draws and steps; it moved here from that example on
 //! 2026-10-29 (gh:#1033, maintainer: "Physics libraries go to sembawang").
 //! Where it stands against the BSAF Unit 1 bands: [`compare`].
