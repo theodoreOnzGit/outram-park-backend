@@ -93,7 +93,7 @@ use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
 use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces, polyhedral_dual_per_point_with, DualKind, FeaturePointRule};
-use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh, BoundaryLayerOptimisationControls};
+use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh_on_surface, BoundaryLayerOptimisationControls};
 use crate::layers::{add_boundary_layers_back_off, LayerOutcome, LayerQualityStrategy};
 use crate::snappy_layers::{add_boundary_layers_snappy, SnappyLayerControls};
 use crate::math::Vec3;
@@ -104,6 +104,16 @@ use crate::smooth::laplacian_smooth;
 use crate::snap::snap_to_surface;
 use crate::tet::tetrahedralize;
 use crate::volume_mesh::VolumeMesh;
+
+/// cfMesh's `tetMesh` workflow (`tetMeshGenerator`, gh:#1272), beside
+/// [`surface_to_tet_dual_mesh`].
+pub mod tet_mesh;
+/// cfMesh `cartesianMesh` (gh:#1274).
+pub mod cartesian_mesh;
+/// cfMesh `cartesian2DMesh` (gh:#1275).
+pub mod cartesian_2d_mesh;
+/// cfMesh's `pMesh` workflow (`voronoiMeshGenerator`, gh:#1273).
+pub mod p_mesh;
 
 /// Tuning knobs for [`surface_to_tet_dual_mesh`] and the primitive wrappers.
 ///
@@ -229,6 +239,29 @@ pub struct TetDualOptions {
     /// defaults) are unchanged until the maintainer decides. Ignored unless
     /// [`Self::feature_edges`] is on.
     pub correct_edges: bool,
+    /// **cfMesh's `meshSurfaceOptimizer` in the feature-edge capture**
+    /// (gh:#1259): instead of undoing the moves that tangle a cell
+    /// (`revert_tangled`), run upstream's surface steps in
+    /// `tetMeshGenerator`'s order: `mapMeshToSurface` (every boundary point
+    /// to the surface, then `untangleSurface`,
+    /// [`crate::surface_optimizer::map_mesh_to_surface`]), the patch
+    /// mapping (`mapVerticesOntoSurfacePatches`, after
+    /// [`Self::correct_edges`] when that is on), then `optimiseMeshSurface`
+    /// (`optimizeSurface`, [`crate::surface_optimizer::optimise_mesh_surface`]).
+    /// **Off by default** (the recorded meshes are unchanged). Ignored
+    /// unless [`Self::feature_edges`] is on.
+    pub untangle_surface: bool,
+    /// **cfMesh's `optimiseFinalMesh`** (gh:#1283,
+    /// [`crate::final_mesh::optimise_final_mesh`]), for
+    /// [`surface_to_tet_dual_mesh_multipatch`] only: `optimizeSurface`,
+    /// `optimizeMeshFV`, `optimizeLowQualityFaces`, `untangleMeshFV`, with
+    /// the boundary moves, Laplace pass, LP untangler and projection that
+    /// [`Self::cfmesh_layer_optimisation`] sets. On a mesh with no
+    /// `CfMeshOptimise` layer it runs after the feature-edge capture; the
+    /// `CfMeshOptimise` layer stage runs it itself, and with this on it also
+    /// starts with `optimizeSurface`, as upstream. The result is kept only
+    /// if valid. **Off by default** (the recorded meshes are unchanged).
+    pub optimise_final_mesh: bool,
     /// **How the layer stage meets upstream's mesh-quality limits**
     /// (gh:#1215): [`LayerQualityStrategy::BackOffOnly`] (the default, this
     /// crate's global uniform back-off, unchanged),
@@ -276,6 +309,8 @@ impl Default for TetDualOptions {
             layer_patches: Vec::new(),
             feature_edges: true,
             correct_edges: false,
+            untangle_surface: false,
+            optimise_final_mesh: false,
             layer_strategy: LayerQualityStrategy::BackOffOnly,
             snappy_layers: SnappyLayerControls::default(),
             cfmesh_layer_optimisation: BoundaryLayerOptimisationControls::default(),
@@ -319,11 +354,15 @@ pub struct TetDualReport {
 }
 
 /// Grow the layers on `patches` with `opts.layer_strategy` (gh:#1215).
-fn grow_layers(mesh: &VolumeMesh, patches: &[&str], opts: &TetDualOptions) -> (VolumeMesh, LayerOutcome) {
+fn grow_layers(mesh: &VolumeMesh, patches: &[&str], opts: &TetDualOptions, surface: Option<(&[Vec3], &[[usize; 3]], &SurfaceRegions)>) -> (VolumeMesh, LayerOutcome) {
     let (n, t, e) = (opts.n_layers, opts.first_layer_thickness.max(1e-6), opts.expansion.max(1.0));
     match opts.layer_strategy {
         LayerQualityStrategy::BackOffOnly => add_boundary_layers_back_off(mesh, patches, n, t, e),
-        LayerQualityStrategy::CfMeshOptimise => add_boundary_layers_cfmesh(mesh, patches, n, t, e, &opts.cfmesh_layer_optimisation),
+        LayerQualityStrategy::CfMeshOptimise => {
+            // gh:#1283: optimiseFinalMesh starts with optimizeSurface.
+            let c = BoundaryLayerOptimisationControls { optimize_surface_first: opts.cfmesh_layer_optimisation.optimize_surface_first || opts.optimise_final_mesh, ..opts.cfmesh_layer_optimisation.clone() };
+            add_boundary_layers_cfmesh_on_surface(mesh, patches, n, t, e, &c, surface)
+        }
         LayerQualityStrategy::SnappyCollapse => add_boundary_layers_snappy(mesh, patches, n, t, e, &opts.snappy_layers),
     }
 }
@@ -355,13 +394,34 @@ fn cell_centre(_mesh: &VolumeMesh, _feature_angle_deg: f64, _rule: FeaturePointR
     Err("this build has no `cell-centre-dual` feature".into())
 }
 
-/// Is `mesh` acceptable as a stage output — closed *and* free of inverted cells?
+/// Is `mesh` acceptable as a stage output — closed, free of inverted cells,
+/// and free of degenerate faces?
 ///
 /// This is the graceful-degradation gate: a stage's result is kept only if it
 /// passes this, otherwise the previous mesh is retained. Stronger than a bare
 /// `validate()` because a tangled cell can be closed yet negative-volume.
+///
+/// **gh:#1286 (2026-11-05):** also refused, a mesh with a non-finite point
+/// or a face whose area is below `VSMALL` (cfMesh's
+/// `polyMeshGenChecks::checkFaceAreas(mesh, false, VSMALL)`, the check
+/// upstream's `meshOptimizer::findBadFaces` runs; ported as
+/// [`crate::poly_mesh_gen_checks::check_face_areas`]). A zero-area face
+/// has no normal, so its non-orthogonality is NaN and the FV solve cannot
+/// use it; the gate checked closure and cell volumes only, and kept such a
+/// mesh (the Foam Studio pipe, h 4 mm, `CellCentre` + `Corners`, boundary
+/// moves + `BoundaryProjection::EachPass`: two collinear inlet-plane
+/// triangles). Upstream has no acceptance gate (it flags the face as bad
+/// and goes on); this one is the port's.
 fn acceptable(mesh: &VolumeMesh) -> bool {
-    mesh.validate().is_ok() && check_quality(mesh).n_negative_volume_cells == 0
+    mesh.validate().is_ok() && check_quality(mesh).n_negative_volume_cells == 0 && faces_are_non_degenerate(mesh)
+}
+
+/// gh:#1286: every point finite, and no face with area below `VSMALL`
+/// ([`crate::poly_mesh_gen_checks::check_face_areas`]; a non-finite
+/// area would compare false there, so points are checked first).
+pub(crate) fn faces_are_non_degenerate(mesh: &VolumeMesh) -> bool {
+    mesh.points.iter().all(|p| p.x.is_finite() && p.y.is_finite() && p.z.is_finite())
+        && !crate::poly_mesh_gen_checks::check_face_areas(mesh, 1e-300, None).0
 }
 
 /// Keep `candidate` iff it is [`acceptable`], else fall back to `current`.
@@ -642,7 +702,37 @@ fn run_pipeline(
     // onto the surface patches and their feature edges after the volume mesh
     // exists and before the layers (`tetMeshGenerator::generateMesh`:
     // `mapMeshToSurface`, `mapEdgesAndCorners`, then `generateBoudaryLayers`).
-    if let (true, Some(regions)) = (opts.feature_edges && opts.dual, regions) {
+    if let (true, true, Some(regions)) = (opts.feature_edges && opts.dual, opts.untangle_surface, regions) {
+        // gh:#1259: upstream's surface steps, nothing reverted.
+        let (pre, r1) = crate::surface_optimizer::map_mesh_to_surface(&mesh, points, tris, regions);
+        let given = crate::surface_mapper::boundary_face_regions(&pre, points, tris, regions);
+        let (corrected, given) = if opts.correct_edges {
+            let (c, g, rep) = crate::correct_edges::correct_edges_between_patches(&pre, &given, &regions.names);
+            notes.push(format!(
+                "correctEdgesBetweenPatches: {} concave faces, {} boundary faces split, {} faces fanned for connections, {} cells into pyramids",
+                rep.n_concave_faces, rep.n_patch_corrected_faces, rep.n_connection_faces, rep.n_decomposed_cells
+            ));
+            (c, g)
+        } else {
+            (pre, given)
+        };
+        let mut mapped = crate::surface_mapper::map_vertices_onto_surface_patches_given(&corrected, points, tris, regions, &given);
+        let r2 = crate::surface_optimizer::optimise_mesh_surface(&mut mapped, points, tris, regions, &given);
+        notes.push(format!(
+            "untangleSurface (mapMeshToSurface): inverted points {} -> {} in {} passes; optimizeSurface's untangleSurface: {} -> {}",
+            r1.n_inverted_first, r1.n_inverted_last, r1.passes, r2.n_inverted_first, r2.n_inverted_last
+        ));
+        if opts.correct_edges && !crate::surface_mapper::cells_with_nonpositive_pyramids(&mapped).is_empty() {
+            let locked = vec![false; mapped.point_count()];
+            let r = crate::mesh_optimizer::untangle_mesh_fv(&mut mapped, &locked, 10, 50, 2, false);
+            notes.push(format!("correctEdgesBetweenPatches: untangleMeshFV {} -> {} bad faces in {} passes", r.flagged_before, r.flagged_after, r.iterations));
+        }
+        let (m, kept) = keep_if_ok(mesh, mapped);
+        mesh = m;
+        if !kept {
+            notes.push("feature-edge capture (untangleSurface) skipped — the mapped and smoothed boundary would invalidate the mesh".into());
+        }
+    } else if let (true, Some(regions)) = (opts.feature_edges && opts.dual, regions) {
         let (mapped, n_reverted) = if opts.correct_edges {
             // tetMeshGenerator::mapEdgesAndCorners: correctEdgesBetweenPatches,
             // then mapVerticesOntoSurfacePatches on the patches it kept.
@@ -683,6 +773,20 @@ fn run_pipeline(
         }
     }
 
+    // Stage 6c — cfMesh's optimiseFinalMesh on the bare mesh (gh:#1283),
+    // unless the CfMeshOptimise layer stage will run it.
+    let cfmesh_layers = opts.n_layers > 0 && opts.layer_strategy == LayerQualityStrategy::CfMeshOptimise;
+    if let (true, false, Some(regions)) = (opts.optimise_final_mesh, cfmesh_layers, regions) {
+        let mut optimised = mesh.clone();
+        let n = crate::final_mesh::optimise_final_mesh(&mut optimised, points, tris, regions, &opts.cfmesh_layer_optimisation);
+        notes.extend(n);
+        let (m, kept) = keep_if_ok(mesh, optimised);
+        mesh = m;
+        if !kept {
+            notes.push("optimiseFinalMesh skipped — it would invalidate the mesh".into());
+        }
+    }
+
     // Stage 7 — adaptive prism boundary layers on the wall patch.
     let mut layer_outcome: Option<LayerOutcome> = None;
     let selective = regions.filter(|_| !opts.layer_patches.is_empty());
@@ -698,7 +802,7 @@ fn run_pipeline(
                 if n_layer_faces == 0 {
                     notes.push(format!("boundary layers skipped — no boundary face is on {:?}", opts.layer_patches));
                 } else {
-                    let (layered, outcome) = grow_layers(&named, &names, opts);
+                    let (layered, outcome) = grow_layers(&named, &names, opts, Some((points, tris, regions)));
                     let before = mesh.cell_count();
                     let (m, kept) = keep_if_ok(mesh, layered);
                     mesh = m;
@@ -726,7 +830,7 @@ fn run_pipeline(
                 opts.wall_patch
             ));
         } else {
-            let (layered, outcome) = grow_layers(&mesh, &[opts.wall_patch.as_str()], opts);
+            let (layered, outcome) = grow_layers(&mesh, &[opts.wall_patch.as_str()], opts, regions.map(|r| (points, tris, r)));
             // The adaptive layerer already backs off to a valid mesh, but it can
             // return the input rebuilt (no layers) when the wall is too tight;
             // either way `acceptable` keeps only a valid result.
@@ -830,9 +934,39 @@ pub fn cylinder_tet_dual(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::f64::consts::PI;
+
+    /// gh:#1286, analytic: a closed 3×1×1 box with one more internal face
+    /// between cells 0 and 1 whose three points are collinear (zero area:
+    /// it adds nothing to the closure sums, so `validate()` and the cell
+    /// volumes pass) is refused by `acceptable`, and `keep_if_ok` keeps the
+    /// previous mesh. The same box without it is accepted.
+    #[test]
+    fn zero_area_face_is_not_acceptable() {
+        let good = crate::cartesian::cartesian_box(Vec3::ZERO, Vec3::new(3.0, 1.0, 1.0), [3, 1, 1]);
+        assert!(acceptable(&good));
+        let on_edge: Vec<usize> = (0..good.point_count()).filter(|&i| good.points[i].y == 0.0 && good.points[i].z == 0.0).collect();
+        assert!(on_edge.len() >= 3);
+        let mut bad = good.clone();
+        bad.faces.insert(0, vec![on_edge[0], on_edge[1], on_edge[2]]);
+        bad.owner.insert(0, 0);
+        bad.neighbour.insert(0, Some(1));
+        for p in &mut bad.patches {
+            p.start_face += 1;
+        }
+        assert!(bad.validate().is_ok());
+        assert_eq!(check_quality(&bad).n_negative_volume_cells, 0);
+        assert!(!acceptable(&bad));
+        let (kept, ok) = keep_if_ok(good.clone(), bad);
+        assert!(!ok);
+        assert_eq!(kept.face_count(), good.face_count());
+        let mut nan = good.clone();
+        nan.points[0].x = f64::NAN;
+        assert!(!faces_are_non_degenerate(&nan));
+    }
+
 
     // ---- Verification (not validation) test suite --------------------------
     //
@@ -1643,7 +1777,7 @@ mod tests {
         let hex = crate::patches::assign_patches_by_region(&carve_box(&bp, &bt, 0.005), &bp, &bt, &br).unwrap();
         let (back, bo) = crate::layers::add_boundary_layers_back_off(&hex, &["walls"], 3, 3e-4, 1.2);
         let (snap, so) = add_boundary_layers_snappy(&hex, &["walls"], 3, 3e-4, 1.2, &SnappyLayerControls::default());
-        let (cfm, co) = add_boundary_layers_cfmesh(&hex, &["walls"], 3, 3e-4, 1.2, &BoundaryLayerOptimisationControls::default());
+        let (cfm, co) = crate::boundary_layer_optimisation::add_boundary_layers_cfmesh(&hex, &["walls"], 3, 3e-4, 1.2, &BoundaryLayerOptimisationControls::default());
         assert_eq!(bo.full_coverage(), 1.0);
         assert_eq!((so.full_coverage(), so.iterations, so.collapsed_point_fraction()), (1.0, 1, 0.0), "{:?}", so.notes);
         assert_eq!(mesh_fingerprint(&snap), mesh_fingerprint(&back), "snappy = back-off on a good duct");
@@ -1838,7 +1972,7 @@ mod tests {
     /// A pipe surface (radius `r`, length `l`, `n_seg` sides, z ∈ [0, l]) with
     /// each triangle labelled `inlet` (flat at z = 0), `outlet` (flat at
     /// z = l) or `walls`.
-    fn pipe_surface(r: f64, l: f64, n_seg: usize) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
+    pub(crate) fn pipe_surface(r: f64, l: f64, n_seg: usize) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
         let (p, t) = cylinder_surface(Vec3::ZERO, r, l, n_seg);
         let labels: Vec<&str> = t
             .iter()
@@ -2242,7 +2376,16 @@ mod tests {
                         if n == 0 && *strategy != LayerQualityStrategy::BackOffOnly {
                             continue;
                         }
-                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, cfmesh_layer_optimisation: BoundaryLayerOptimisationControls { stop_untangling_on_stall: env("CFMESH_STALL").as_deref() != Some("0"), ..Default::default() }, ..Default::default() };
+                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, cfmesh_layer_optimisation: BoundaryLayerOptimisationControls {
+                            stop_untangling_on_stall: env("CFMESH_STALL").as_deref() != Some("0"),
+                            // CFMESH_BMOVES=1: untangleMeshFV's boundary loop (gh:#1255).
+                            untangle_boundary_moves: env("CFMESH_BMOVES").as_deref() == Some("1"),
+                            // CFMESH_LAPLACE=1: optimizeMeshFV's laplacianPC (gh:#1256).
+                            optimize_mesh_fv_laplace: env("CFMESH_LAPLACE").as_deref() == Some("1"),
+                            // CFMESH_LPU=1: the LP meshUntangler (gh:#1260).
+                            untangle_mesh_untangler: env("CFMESH_LPU").as_deref() == Some("1"),
+                            ..Default::default()
+                        }, ..Default::default() };
                         let t0 = std::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
                             Ok(x) => x,
@@ -2322,7 +2465,7 @@ mod tests {
                                 );
                             }
                             println!(
-                                "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; notes {:?}",
+                                "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; V/(section L) {:.5}, inlet/section {:.5}; notes {:?}",
                                 m.cell_count(),
                                 lo.full_coverage(),
                                 lo.collapsed_point_fraction(),
@@ -2333,12 +2476,79 @@ mod tests {
                                 above(&inner, 75.0),
                                 q.max_skewness,
                                 q.min_cell_determinant,
+                                m.total_volume() / (section * l),
+                                patch_faces(&m, "inlet").iter().map(|&f| m.face_area_vector(f).length()).sum::<f64>() / section,
                                 rep.stage_notes
                             );
                         }
                     }
                 }
             }
+        }
+    }
+
+    /// Differential (gh:#1261), `--ignored`: cfMesh's `checkMinTwist`,
+    /// `checkCellDeterminant` and `checkMinVolRatio`
+    /// ([`crate::poly_mesh_gen_checks`]) against OpenFOAM's definitions
+    /// ([`crate::checks::faces_failing_mesh_quality`], one control at a
+    /// time) on the same meshes: the 48-sided pipe (R 10 mm, L 200 mm) at h
+    /// 5 mm, bare and with 3 back-off layers (the default dual and layer
+    /// strategy), at OpenFOAM's thresholds (twist 0.02, determinant 0.001,
+    /// volume ratio 0.01) for both.
+    ///
+    /// Predictions (written 2026-11-05, before the run):
+    /// - **volume ratio:** the same formula on the same volumes (`min/max`
+    ///   of the two cells' |V|), so the same faces, exactly;
+    /// - **twist:** the same formula on internal faces (unit triangle
+    ///   normals against the unit centre-to-centre direction). On boundary
+    ///   faces the two differ: cfMesh gives a triangular boundary face a
+    ///   zero direction, so with `minTwist` 0.02 every boundary triangle
+    ///   fails, and OpenFOAM checks no triangle. So the cfMesh set ⊇ the
+    ///   OpenFOAM set, and the extra faces are exactly the boundary
+    ///   triangles (if the dual has any);
+    /// - **determinant:** different definitions (cfMesh: all faces,
+    ///   normalised by Σ|S| and 1/27; OpenFOAM: internal faces only, by
+    ///   their mean area). They should agree on the bare mesh's interior to
+    ///   within a few cells, and OpenFOAM's flags more cells at the wall
+    ///   (it drops the boundary faces, so a wall cell's tensor loses a
+    ///   direction): OpenFOAM's count ≥ cfMesh's.
+    ///
+    /// Results (2026-11-05): bare, 3 113 cells, no boundary triangles:
+    /// volume ratio 0 / 0, twist 152 / 152 (the same faces), determinant
+    /// 0 / 0. With 3 layers, 26 009 cells: volume ratio 2 536 / 2 536 and
+    /// twist 160 / 160 (the same faces), determinant **0 (cfMesh) / 352
+    /// (OpenFOAM)**. Every prediction held; the boundary-triangle case did
+    /// not arise (the dual has none).
+    #[test]
+    #[ignore]
+    fn diagnose_cfmesh_against_openfoam_checks() {
+        use crate::checks::{faces_failing_mesh_quality, MeshQualityControls};
+        use crate::poly_mesh_gen_checks::{check_cell_determinant, check_min_twist, check_min_vol_ratio};
+        let (r, l) = (0.01, 0.2);
+        let (p, t, regions) = pipe_surface(r, l, 48);
+        let off = MeshQualityControls { max_non_ortho_deg: 180.0, max_boundary_skewness: -1.0, max_internal_skewness: -1.0, min_tet_quality: None, min_twist: -2.0, min_determinant: -1.0, min_face_weight: -1.0, min_vol_ratio: -1.0 };
+        for n in [0usize, 3] {
+            let o = TetDualOptions { cell_size: 0.005, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).expect("pipe meshes");
+            let all = vec![true; m.face_count()];
+            let cmp = |name: &str, cf: &[bool], of: &[bool]| {
+                let both = (0..m.face_count()).filter(|&f| cf[f] && of[f]).count();
+                let only_cf = (0..m.face_count()).filter(|&f| cf[f] && !of[f]).collect::<Vec<_>>();
+                let only_of = (0..m.face_count()).filter(|&f| !cf[f] && of[f]).collect::<Vec<_>>();
+                let tri_bnd = only_cf.iter().filter(|&&f| m.neighbour[f].is_none() && m.faces[f].len() == 3).count();
+                println!(
+                    "pipe h5 n{n} {name}: cfMesh {} OpenFOAM {} both {both}; only cfMesh {} ({} boundary triangles); only OpenFOAM {}",
+                    cf.iter().filter(|&&b| b).count(),
+                    of.iter().filter(|&&b| b).count(),
+                    only_cf.len(),
+                    tri_bnd,
+                    only_of.len()
+                );
+            };
+            println!("pipe h5 n{n}: {} cells, {} faces ({} boundary triangles)", m.n_cells, m.face_count(), (m.n_internal_faces()..m.face_count()).filter(|&f| m.faces[f].len() == 3).count());
+            cmp("volume ratio 0.01", &check_min_vol_ratio(&m, 0.01, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_vol_ratio: 0.01, ..off.clone() }));
+            cmp("twist 0.02", &check_min_twist(&m, 0.02, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_twist: 0.02, ..off.clone() }));
+            cmp("determinant 0.001", &check_cell_determinant(&m, 0.001, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_determinant: 0.001, ..off.clone() }));
         }
     }
 

@@ -82,7 +82,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 /// A leaf cell: `(level, i, j, k)`. A level-`L` cell has edge `base / 2^L` and
 /// occupies finest-resolution integer coordinates `[i·m, (i+1)·m]` per axis,
 /// with `m = 2^(MAX_LEVEL − L)`.
-type Cell = (u8, i64, i64, i64);
+pub(crate) type Cell = (u8, i64, i64, i64);
 
 /// Carve the closed surface (`points`, `tris`) at `base_cell_size`, then refine
 /// the near-surface cells up to `max_level` levels finer, returning the graded
@@ -411,7 +411,7 @@ fn empty() -> VolumeMesh {
 /// recorded face edge is inserted into that face's ring — and only then
 /// allocates point indices and orients the rings. Splitting the pass this way is
 /// what makes the hanging-node set knowable before any ring is finalised.
-fn build_mesh(leaves: &BTreeSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8) -> VolumeMesh {
+pub(crate) fn build_mesh(leaves: &BTreeSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8) -> VolumeMesh {
     let h_fine = base_cs / (1u32 << max_level) as f64; // finest cell edge
     let span = |level: u8| 1i64 << (max_level - level); // finest units per cell edge
 
@@ -627,7 +627,7 @@ fn conforming_ring(
 }
 
 /// Point-in-closed-surface test by ray parity (Möller–Trumbore).
-fn inside(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> bool {
+pub(crate) fn inside(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> bool {
     let dir = Vec3::new(0.131_537, 0.755_605, 0.642_020);
     let mut crossings = 0usize;
     for t in tris {

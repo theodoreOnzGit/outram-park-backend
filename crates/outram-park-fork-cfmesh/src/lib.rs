@@ -261,27 +261,58 @@
 //! > `RESPONSIBLE_USE.md`. For education / research / V&V only; not for reactor
 //! > operation, licensing, or safety-critical decisions.
 
+pub mod anisotropic;
 pub mod cartesian;
+pub mod cartesian_mesh;
 pub mod carve;
 pub mod checks;
 pub mod correct_edges;
 pub mod delaunay;
 pub mod dual;
+pub mod edge_extractor;
 pub mod layers;
 pub mod math;
+pub mod mesh_octree;
+pub mod mesh_octree_automatic_refinement;
+pub mod mesh_octree_creator;
+pub mod mesh_octree_modifier;
+pub mod mesh_octree_queries;
 pub mod mesh_optimizer;
+pub mod mesh_untangler;
+pub mod mesh_utilities;
+pub mod mesh_subsets;
+pub mod mesh_surface_edge_extractor_fun;
+pub mod poly_mesh_gen_2d_engine;
+pub mod poly_mesh_gen_checks;
+pub mod premap_vertices;
 pub mod snappy_layers;
 pub mod boundary_layer_optimisation;
+pub mod object_refinement;
 pub mod octree;
 pub mod patches;
+pub mod final_mesh;
+pub mod fundamental_sheets;
 pub mod pipeline;
 pub mod reactor;
 pub mod shapes;
 pub mod smooth;
 pub mod snap;
+pub mod surface;
+pub mod surface_engine;
 pub mod surface_mapper;
+pub mod surface_mapper_2d;
+pub mod surface_optimizer;
+pub mod symmetry_plane_optimisation;
 pub mod tet;
+pub mod tet_creator_octree;
+pub mod tet_mesh_extractor_octree;
+pub mod rename_boundary_patches;
+pub mod renumber_mesh;
+pub mod topology;
+pub mod tri_surface_2d;
+pub mod voronoi_mesh_extractor;
 pub mod volume_mesh;
+pub mod workflow_controls;
 
 /// Bridge to the real `outram-foam-basic-lib` `PolyMesh` (feature
 /// `foam-export`) — the volume-mesh output path to the CFD/TH solver. Off by
