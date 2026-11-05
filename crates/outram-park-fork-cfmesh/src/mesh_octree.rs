@@ -98,6 +98,7 @@
 //! [`ROOTVSMALL`], [`VGREAT`]).
 
 use crate::math::Vec3;
+use crate::mesh_subsets::{SubsetGroup, SubsetKind};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
@@ -200,6 +201,22 @@ impl BoundBox {
 /// `edge_facets[e]` lists the facets of edge `e` in ascending facet order,
 /// `facet_edges[f][i]` is the edge `(tri[i], tri[(i + 1) % 3])`, and
 /// `point_edges[p]` the edges at point `p` in ascending edge order.
+///
+/// **Extended 2026-11-05 (gh:#1276):** this is now the crate's one port of
+/// the whole `triSurf` (`triSurfPoints`, `triSurfFacets`,
+/// `triSurfFeatureEdges`, `triSurfAddressing`): it also carries the patch
+/// list ([`SurfacePatch`], upstream's `geometricSurfacePatchList`), the
+/// stored feature edges (`featureEdges_`), the point, facet and
+/// feature-edge subsets (as [`crate::mesh_subsets::SubsetGroup`]s,
+/// upstream's `std::map<label, meshSubset>`) and `point_facets`. The
+/// geometric addressing (`facetNormals`, `facetCentres`, `pointNormals`,
+/// `facetFacetsEdges`) is computed on demand by the methods below. The
+/// surface tools that use them are [`crate::surface`].
+///
+/// Upstream's addressing is demand-driven and cached, and some tools change
+/// the facets without clearing it (see [`crate::surface`]'s defect list).
+/// Here a tool that changes points or facets builds a new `TriSurf`
+/// ([`TriSurf::from_parts`]), so the addressing always matches the facets.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TriSurf {
     /// Vertex positions.
@@ -216,6 +233,38 @@ pub struct TriSurf {
     pub facet_edges: Vec<[usize; 3]>,
     /// Edges at each point.
     pub point_edges: Vec<Vec<usize>>,
+    /// Facets at each point, ascending (`pointFacets`, upstream's
+    /// `reverseAddressing` of the facets).
+    pub point_facets: Vec<Vec<usize>>,
+    /// The patches (`patches_`); `regions[f]` indexes this list.
+    pub patches: Vec<SurfacePatch>,
+    /// The stored feature edges (`featureEdges_`), as upstream's `edge`:
+    /// start and end point, not sorted. Not the same list as `edges`.
+    pub feature_edges: Vec<[usize; 2]>,
+    /// `pointSubsets_`.
+    pub point_subsets: SubsetGroup,
+    /// `facetSubsets_`.
+    pub facet_subsets: SubsetGroup,
+    /// `featureEdgeSubsets_` (labels index `feature_edges`).
+    pub edge_subsets: SubsetGroup,
+}
+
+/// `geometricSurfacePatch`: a patch name and its geometric type
+/// (`"patch"`, `"wall"`, `"symmetryPlane"`, …). Upstream's `index()` is the
+/// patch's position in [`TriSurf::patches`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SurfacePatch {
+    /// `name()`.
+    pub name: String,
+    /// `geometricType()`.
+    pub geometric_type: String,
+}
+
+impl SurfacePatch {
+    /// A patch of geometric type `"patch"`.
+    pub fn new(name: &str) -> Self {
+        SurfacePatch { name: name.to_string(), geometric_type: "patch".to_string() }
+    }
 }
 
 impl TriSurf {
@@ -281,6 +330,15 @@ impl TriSurf {
                 point_edges[ed[1]].push(e);
             }
         }
+        // Default patch list: upstream's `triSurfFacets(triangles)` names its
+        // one patch "patch"; a labelled soup gets "patch0", "patch1", … (the
+        // port's choice: there is no file to read names from).
+        let n_patches = regions.iter().copied().max().map_or(1, |m| m + 1);
+        let patches = if n_patches == 1 {
+            vec![SurfacePatch::new("patch")]
+        } else {
+            (0..n_patches).map(|i| SurfacePatch::new(&format!("patch{i}"))).collect()
+        };
         TriSurf {
             points,
             triangles,
@@ -289,12 +347,156 @@ impl TriSurf {
             edge_facets,
             facet_edges,
             point_edges,
+            point_facets,
+            patches,
+            feature_edges: Vec::new(),
+            point_subsets: SubsetGroup::new(SubsetKind::Point),
+            facet_subsets: SubsetGroup::new(SubsetKind::Face),
+            edge_subsets: SubsetGroup::new(SubsetKind::FeatureEdge),
+        }
+    }
+
+    /// `triSurf(triangles, patches, featureEdges, points)`: a surface with a
+    /// given patch list and stored feature edges, and no subsets. The
+    /// addressing is built from scratch.
+    ///
+    /// # Panics
+    ///
+    /// As [`TriSurf::new`], and if a region or a feature-edge point is out
+    /// of range (upstream's `topologyCheck`, which is fatal there too).
+    pub fn from_parts(
+        points: Vec<Vec3>,
+        triangles: Vec<[usize; 3]>,
+        regions: Vec<usize>,
+        patches: Vec<SurfacePatch>,
+        feature_edges: Vec<[usize; 2]>,
+    ) -> Self {
+        let np = points.len();
+        for (f, &r) in regions.iter().enumerate() {
+            assert!(r < patches.len().max(1), "facet {f} names patch {r} of {}", patches.len());
+        }
+        for fe in &feature_edges {
+            assert!(fe[0] < np && fe[1] < np, "feature edge {fe:?} out of scope 0 {np}");
+        }
+        let mut s = TriSurf::new(points, triangles, Some(regions));
+        s.patches = patches;
+        s.feature_edges = feature_edges;
+        s
+    }
+
+    /// A surface labelled by [`crate::patches::SurfaceRegions`]: the
+    /// patches take its names (geometric type `"patch"`).
+    pub fn with_surface_regions(points: Vec<Vec3>, triangles: Vec<[usize; 3]>, regions: &crate::patches::SurfaceRegions) -> Self {
+        let patches = regions.names.iter().map(|n| SurfacePatch::new(n)).collect();
+        TriSurf::from_parts(points, triangles, regions.region_of_tri.clone(), patches, Vec::new())
+    }
+
+    /// The patch labelling as [`crate::patches::SurfaceRegions`].
+    pub fn surface_regions(&self) -> crate::patches::SurfaceRegions {
+        crate::patches::SurfaceRegions {
+            names: self.patches.iter().map(|p| p.name.clone()).collect(),
+            region_of_tri: self.regions.clone(),
         }
     }
 
     /// Number of triangles.
     pub fn size(&self) -> usize {
         self.triangles.len()
+    }
+
+    /// `nPoints()`.
+    pub fn n_points(&self) -> usize {
+        self.points.len()
+    }
+
+    /// `patchNames()`.
+    pub fn patch_names(&self) -> Vec<String> {
+        self.patches.iter().map(|p| p.name.clone()).collect()
+    }
+
+    /// `findPatches(name)`: the patches called `name`. Upstream matches a
+    /// regular expression; the port matches the name exactly.
+    pub fn find_patches(&self, name: &str) -> Vec<usize> {
+        self.patches.iter().enumerate().filter(|(_, p)| p.name == name).map(|(i, _)| i).collect()
+    }
+
+    /// The surface edge joining `a` and `b` (either order), found through
+    /// `pointEdges` as upstream's tools find a feature edge's label.
+    pub fn find_edge(&self, a: usize, b: usize) -> Option<usize> {
+        self.point_edges.get(a)?.iter().copied().find(|&e| {
+            let ed = self.edges[e];
+            (ed[0] == a && ed[1] == b) || (ed[0] == b && ed[1] == a)
+        })
+    }
+
+    /// `labelledTri::normal`: the area vector `½ (b − a) × (c − a)`.
+    pub fn facet_area_vector(&self, f: usize) -> Vec3 {
+        let t = self.triangles[f];
+        let (a, b, c) = (self.points[t[0]], self.points[t[1]], self.points[t[2]]);
+        b.sub(a).cross(c.sub(a)).scale(0.5)
+    }
+
+    /// `calculateFacetNormals` for one facet: `v / (|v| + VSMALL)`.
+    pub fn facet_normal(&self, f: usize) -> Vec3 {
+        let v = self.facet_area_vector(f);
+        v.scale(1.0 / (v.length() + VSMALL))
+    }
+
+    /// `facetNormals()`.
+    pub fn facet_normals(&self) -> Vec<Vec3> {
+        (0..self.size()).map(|f| self.facet_normal(f)).collect()
+    }
+
+    /// `facetCentres()`: the vertex average.
+    pub fn facet_centres(&self) -> Vec<Vec3> {
+        self.triangles
+            .iter()
+            .map(|t| self.points[t[0]].add(self.points[t[1]]).add(self.points[t[2]]).scale(1.0 / 3.0))
+            .collect()
+    }
+
+    /// `pointNormals()`: the normalised sum of the facet normals at each
+    /// point (zero where the sum is below `VSMALL`).
+    pub fn point_normals(&self) -> Vec<Vec3> {
+        let fnrm = self.facet_normals();
+        self.point_facets
+            .iter()
+            .map(|pf| {
+                let n = pf.iter().fold(Vec3::ZERO, |s, &f| s.add(fnrm[f]));
+                let d = n.length();
+                if d > VSMALL {
+                    n.scale(1.0 / d)
+                } else {
+                    Vec3::ZERO
+                }
+            })
+            .collect()
+    }
+
+    /// `facetFacetsEdges()`: for each facet, every facet sharing one of its
+    /// edges, itself included. Upstream lists them in `labelHashSet`
+    /// order; the port lists them ascending.
+    pub fn facet_facets_edges(&self) -> Vec<Vec<usize>> {
+        self.facet_edges
+            .iter()
+            .map(|fe| {
+                let s: BTreeSet<usize> = fe.iter().flat_map(|&e| self.edge_facets[e].iter().copied()).collect();
+                s.into_iter().collect()
+            })
+            .collect()
+    }
+
+    /// The stored feature edges as flags on the surface edges (`triSurfacePatchManipulator::allocateFeatureEdges`,
+    /// `triSurfaceClassifyEdges`' first loop): `true` for every surface edge
+    /// equal to a stored feature edge.
+    pub fn stored_feature_edge_flags(&self) -> Vec<bool> {
+        let mut flags = vec![false; self.edges.len()];
+        for fe in &self.feature_edges {
+            if let Some(e) = self.find_edge(fe[0], fe[1]) {
+                flags[e] = true;
+            }
+        }
+        flags
     }
 
     /// Is edge `e` a **feature edge** in upstream's octree sense: shared by

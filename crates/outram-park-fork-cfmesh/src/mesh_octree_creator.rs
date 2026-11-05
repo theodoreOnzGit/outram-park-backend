@@ -69,7 +69,9 @@
 //! index** of the [`crate::mesh_octree::TriSurf`] (upstream matches patch
 //! names, with regular expressions).
 //!
-//! Not ported: `subsetCellSize` (no facet subsets on `TriSurf`),
+//! Not ported: `subsetCellSize` (~~no facet subsets on `TriSurf`~~
+//! **CORRECTED 2026-11-05, gh:#1276:** `TriSurf` now carries facet subsets;
+//! the `subsetCellSize` refinement itself is still not ported),
 //! `surfaceMeshRefinement` and `edgeMeshRefinement` sources,
 //! `meshOctreeAutomaticRefinement` (curvature and proximity, its own item in
 //! `docs/upstream_coverage.md`), `anisotropicSources`, and the MPI load

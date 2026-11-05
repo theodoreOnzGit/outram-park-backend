@@ -293,6 +293,7 @@ pub mod reactor;
 pub mod shapes;
 pub mod smooth;
 pub mod snap;
+pub mod surface;
 pub mod surface_engine;
 pub mod surface_mapper;
 pub mod surface_mapper_2d;

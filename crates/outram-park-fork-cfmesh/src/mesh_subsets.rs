@@ -51,6 +51,8 @@ pub enum SubsetKind {
     Face,
     /// `POINTSUBSET`.
     Point,
+    /// `FEATUREEDGESUBSET` (a `triSurf`'s feature-edge subsets, gh:#1276).
+    FeatureEdge,
 }
 
 /// `meshSubset`: a name, a kind and an ascending set of labels.
