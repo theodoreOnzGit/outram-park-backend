@@ -43,7 +43,7 @@
 //! | `surfaceProjection` | `meshSurfaceMapper::preMapVertices` (3 iterations), `mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | [`crate::premap_vertices`] (ported here), `surface_optimizer::map_mesh_to_surface` |
 //! | `patchAssignment` | `edgeExtractor` | [`extract_patches`]: [`crate::edge_extractor::extract_patches`] (gh:#1269); [`PatchAssignment::NearestTriangle`] is the ablation, as in `tet_mesh` |
 //! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, then `meshSurfaceOptimizer::optimizeSurface` | `correct_edges` + `surface_mapper` (as `tet_mesh`), `surface_optimizer::optimise_mesh_surface` |
-//! | `boundaryLayerGeneration` | `boundaryLayers::addLayerForAllPatches` (**always**, no dict needed) | `layers::boundary_layers::boundary_layers_add_layer` on every patch as **one group**: upstream's route for a single patch; on several patches upstream's patch-wise groups are not ported (noted) |
+//! | `boundaryLayerGeneration` | `boundaryLayers::addLayerForAllPatches` (**always**, no dict needed) | ~~`layers::boundary_layers::boundary_layers_add_layer` on every patch as **one group**: upstream's route for a single patch; on several patches upstream's patch-wise groups are not ported (noted)~~ **UPDATED 2026-11-05 (gh:#1270 remainder):** `layers::boundary_layers::BoundaryLayers::add_layer_for_all_patches`, patch-wise as upstream (groups, edge and corner cells); [`LayerTopology::OTopology`] keeps the one-group layer callable |
 //! | `meshOptimisation` | `meshSurfaceOptimizer::optimizeSurface`; `meshOptimizer::optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(true)`, `untangleMeshFV`; `projectSurfaceAfterBackScaling` | `optimise_mesh_surface`; `MeshOptimizer` with boundary moves and the LP untangler; `optimizeBoundaryLayer` acts only with `optimiseLayer` (default off, not offered); no `anisotropicSources`, so no back-scaling |
 //! | `boundaryLayerRefinement` | with a `boundaryLayers` dict: `refineBoundaryLayers`, lock `pointsInBndLayer`, `untangleBoundaryLayer` | `layers::refine_boundary_layers`, `points_in_bnd_layer`, `MeshOptimizer` (`optimizeLowQualityFaces`, `removeUserConstraints`, `untangleMeshFV(2, 50, 1, true)`); a [`crate::layers::refine_boundary_layers::RefineError::NotPorted`] is a note and leaves the mesh unrefined |
 //! | (always) | `renumberMesh`, `renameBoundaryPatches` | [`crate::renumber_mesh`], [`crate::rename_boundary_patches`] |
@@ -57,7 +57,7 @@
 
 use crate::cartesian_mesh::{cartesian_mesh_extractor, CartesianMeshOptions};
 use crate::correct_edges::correct_edges_between_patches;
-use crate::layers::boundary_layers::{boundary_layers_add_layer, BoundaryLayersControls};
+use crate::layers::boundary_layers::{generate_layer, BoundaryLayers, BoundaryLayersControls, LayerRequest};
 use crate::layers::refine_boundary_layers::{points_in_bnd_layer, refine_boundary_layers, RefineBoundaryLayersSettings, RefineError};
 use crate::math::Vec3;
 use crate::mesh_octree_creator::MeshDict;
@@ -101,6 +101,74 @@ pub struct CartesianMeshGeneratorOptions {
     /// **Ablation, not upstream:** skip `boundaryLayerGeneration` (upstream
     /// always adds the layer). Default `false`.
     pub without_boundary_layer: bool,
+    /// `boundaryLayers`' grouping: patch-wise (upstream's default, gh:#1270
+    /// remainder) or [`LayerTopology::OTopology`] (all patches one group:
+    /// this route's layer before the patch-wise port, kept for the
+    /// differential).
+    pub layer_topology: LayerTopology,
+}
+
+/// How `boundaryLayers::addLayerForAllPatches` groups the patches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LayerTopology {
+    /// Upstream's default: groups by `findPatchesToBeTreatedTogether`, edge
+    /// and corner cells where groups meet.
+    #[default]
+    PatchWise,
+    /// `createOTopologyLayers`: every patch in one group.
+    OTopology,
+}
+
+/// The `boundaryLayerGeneration` step shared by the workflows:
+/// [`generate_layer`] (patch-wise) or, for [`LayerTopology::OTopology`],
+/// the same with `createOTopologyLayers` first. Returns the mesh, the
+/// layer cells added and the report line.
+pub(crate) fn boundary_layer_generation(m: &VolumeMesh, request: &LayerRequest, c: &BoundaryLayersControls, topology: LayerTopology, layers_2d: bool) -> Result<(VolumeMesh, usize, String), String> {
+    match topology {
+        LayerTopology::PatchWise => {
+            let (mm, g) = generate_layer(m, request, c, layers_2d)?;
+            Ok((mm, g.n_layer_cells, g.summary()))
+        }
+        LayerTopology::OTopology => {
+            let mut bl = BoundaryLayers::new(m.clone(), *c);
+            if layers_2d {
+                bl.activate_2d_mode()?;
+            }
+            bl.create_o_topology_layers();
+            let o = bl.add_layer_for_all_patches().map_err(|e| format!("boundaryLayers: {e:?}"))?;
+            let n = bl.mesh.n_cells - m.n_cells;
+            Ok((bl.mesh, n, format!("createOTopologyLayers (ablation of the patch-wise layer): one group {:?}, {} layer cells", o.groups, o.n_face_cells)))
+        }
+    }
+}
+
+/// `refBoundaryLayers` of `cartesianMesh`, `tetMesh` and `pMesh`:
+/// `refineBoundaryLayers` with the dict's settings, lock
+/// `pointsInBndLayer`, `untangleBoundaryLayer` (`optimizeLowQualityFaces`,
+/// `removeUserConstraints`, `untangleMeshFV(2, 50, 1, true)`). Returns the
+/// report line and the refusal, if any (the mesh is then unchanged).
+pub(crate) fn ref_boundary_layers(m: &mut VolumeMesh, s: &RefineBoundaryLayersSettings, controls: &UntangleControls) -> Result<(String, Option<String>, usize), String> {
+    match refine_boundary_layers(m, s) {
+        Ok((mm, rr)) => {
+            *m = mm;
+            let lp = points_in_bnd_layer(m, &rr);
+            let mut opt = MeshOptimizer::new(m);
+            opt.lock_points(&lp);
+            let a = opt.optimize_low_quality_faces(m, 10);
+            opt.remove_user_constraints();
+            let c = UntangleControls { max_global_iterations: 2, max_iterations: 50, max_surface_iterations: 1, relaxed: true, ..*controls };
+            let b = opt.untangle_mesh_fv(m, &c).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+            Ok((
+                format!(
+                    "boundaryLayerRefinement: refineBoundaryLayers split {} cells; untangleBoundaryLayer: optimizeLowQualityFaces {} -> {} ({} points locked), untangleMeshFV(2, 50, 1, relaxed) {} -> {}",
+                    rr.n_cells_split, a.flagged_before, a.flagged_after, lp.len(), b.flagged_before, b.flagged_after
+                ),
+                None,
+                lp.len(),
+            ))
+        }
+        Err(RefineError::NotPorted(msg)) => Ok((format!("boundaryLayerRefinement: refineBoundaryLayers NOT PORTED for this mesh ({msg}); the layer is left unrefined"), Some(msg), 0)),
+    }
 }
 
 impl Default for CartesianMeshGeneratorOptions {
@@ -115,6 +183,7 @@ impl Default for CartesianMeshGeneratorOptions {
             boundary_layers: None,
             layer_heights: BoundaryLayersControls::default(),
             without_boundary_layer: false,
+            layer_topology: LayerTopology::PatchWise,
             patch_assignment: PatchAssignment::EdgeExtractor,
         }
     }
@@ -352,22 +421,15 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                 if opts.without_boundary_layer {
                     rep.notes.push("boundaryLayerGeneration: ABLATED (without_boundary_layer); upstream always adds the layer".into());
                 } else {
-                    let names: Vec<String> = m.patches.iter().map(|p| p.name.clone()).collect();
-                    let refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
-                    match boundary_layers_add_layer(m, &refs, &opts.layer_heights) {
-                        Some((mm, out)) => {
+                    match boundary_layer_generation(m, &LayerRequest::AllPatches, &opts.layer_heights, opts.layer_topology, false) {
+                        Ok((mm, n, line)) => {
                             *m = mm;
-                            types = vec!["patch".to_string(); m.patches.len()];
-                            rep.n_layer_cells = out.wall_faces.len();
+                            types.resize(m.patches.len(), "patch".to_string());
+                            rep.n_layer_cells = n;
                             rep.n_nonpositive_after_layer = n_nonpositive_cells(m);
-                            rep.notes.push(format!(
-                                "boundaryLayerGeneration: addLayerForAllPatches as one group over {names:?}: {} layer cells, {} non-positive cells{}",
-                                rep.n_layer_cells,
-                                rep.n_nonpositive_after_layer,
-                                if names.len() > 1 { "; upstream's patch-wise groups (findPatchesToBeTreatedTogether, otherVrts_) are NOT ported, so the layer at feature edges between patches differs from upstream" } else { "" }
-                            ));
+                            rep.notes.push(format!("boundaryLayerGeneration: {line}; {} non-positive cells", rep.n_nonpositive_after_layer));
                         }
-                        None => rep.notes.push("boundaryLayerGeneration: boundaryLayers refused (no treated face, or a point at three untreated patches); no layer".into()),
+                        Err(e) => rep.notes.push(format!("boundaryLayerGeneration: boundaryLayers stopped ({e}); no layer")),
                     }
                 }
             }
@@ -390,29 +452,13 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             }
             WorkflowStep::BoundaryLayerRefinement => match &opts.boundary_layers {
                 None => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
-                Some(s) => match refine_boundary_layers(m, s) {
-                    Ok((mm, rr)) => {
-                        *m = mm;
-                        types.resize(m.patches.len(), "patch".to_string());
-                        let lp = points_in_bnd_layer(m, &rr);
-                        rep.n_points_in_bnd_layer = lp.len();
-                        // untangleBoundaryLayer (untangleLayers, default true)
-                        let mut opt = MeshOptimizer::new(m);
-                        opt.lock_points(&lp);
-                        let a = opt.optimize_low_quality_faces(m, 10);
-                        opt.remove_user_constraints();
-                        let c = UntangleControls { max_global_iterations: 2, max_iterations: 50, max_surface_iterations: 1, relaxed: true, ..controls };
-                        let b = opt.untangle_mesh_fv(m, &c).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
-                        rep.notes.push(format!(
-                            "boundaryLayerRefinement: refineBoundaryLayers split {} cells; untangleBoundaryLayer: optimizeLowQualityFaces {} -> {} ({} points locked), untangleMeshFV(2, 50, 1, relaxed) {} -> {}",
-                            rr.n_cells_split, a.flagged_before, a.flagged_after, lp.len(), b.flagged_before, b.flagged_after
-                        ));
-                    }
-                    Err(RefineError::NotPorted(msg)) => {
-                        rep.notes.push(format!("boundaryLayerRefinement: refineBoundaryLayers NOT PORTED for this mesh ({msg}); the layer is left unrefined"));
-                        rep.refine_error = Some(msg);
-                    }
-                },
+                Some(s) => {
+                    let (line, refused, n_locked) = ref_boundary_layers(m, s, &controls)?;
+                    types.resize(m.patches.len(), "patch".to_string());
+                    rep.n_points_in_bnd_layer = n_locked;
+                    rep.refine_error = refused;
+                    rep.notes.push(line);
+                }
             },
             _ => {}
         }
@@ -631,5 +677,119 @@ pub(crate) mod tests {
         assert!(crate::tet_mesh_extractor_octree::same_mesh(&again, &full));
         let names: Vec<&str> = full.patches.iter().map(|x| x.name.as_str()).collect();
         assert_eq!(names, vec!["inlet", "outlet", "walls"]);
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P7 of
+    /// `verification_and_validation/patch_wise_layers_gh1270/README.md`:
+    /// the patch-wise layer (upstream's default) against the one-group
+    /// O-topology ablation. On the sphere (one patch) the two are the same
+    /// mesh bit for bit; on the 60 mm pipe at 2 mm the rows of both are
+    /// recorded. Results: the README.
+    #[test]
+    fn cartesian_mesh_patch_wise_against_o_topology() {
+        let (p, t) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        let opts = CartesianMeshGeneratorOptions { dict: MeshDict::with_max_cell_size(0.5), ..Default::default() };
+        let (m, _) = cartesian_mesh(&p, &t, None, &opts).unwrap();
+        let o_top = CartesianMeshGeneratorOptions { layer_topology: LayerTopology::OTopology, ..opts.clone() };
+        let (mo, _) = cartesian_mesh(&p, &t, None, &o_top).unwrap();
+        println!("{}", row("sphere", "cartesian_mesh (patch-wise)", &m, sphere_exact(), 0.0));
+        // Not `same_mesh`: the patch-wise route numbers its points as
+        // upstream (new labels appended), the one-group route as
+        // `build_layered_variable` does (columns last), so the labels differ.
+        // The geometry: the sorted point set and the sorted cell volumes.
+        let sorted_points = |x: &VolumeMesh| {
+            let mut v: Vec<[u64; 3]> = x.points.iter().map(|q| [q.x.to_bits(), q.y.to_bits(), q.z.to_bits()]).collect();
+            v.sort_unstable();
+            v
+        };
+        let sorted_vols = |x: &VolumeMesh| {
+            let mut v = crate::checks::cell_geometry(x).0;
+            v.sort_by(f64::total_cmp);
+            v
+        };
+        let (a, b) = (sorted_vols(&m), sorted_vols(&mo));
+        let worst = a.iter().zip(&b).map(|(x, y)| (x - y).abs() / x.abs().max(1e-300)).fold(0.0f64, f64::max);
+        let same_points = sorted_points(&m) == sorted_points(&mo);
+        println!("sphere: patch-wise against O-topology: same mesh (labels) {}, same point set bit for bit {same_points}, worst relative cell-volume difference {worst:.3e}", crate::tet_mesh_extractor_octree::same_mesh(&m, &mo));
+        assert_eq!(m.n_cells, mo.n_cells);
+        assert!(worst < 1e-9);
+        let (pp, pt, pr) = pipe_surface(0.01, 0.06, 48);
+        let exact = pipe_exact(0.01, 0.06, 48);
+        for topo in [LayerTopology::PatchWise, LayerTopology::OTopology] {
+            let opts = CartesianMeshGeneratorOptions { dict: MeshDict::with_max_cell_size(0.002), layer_topology: topo, ..Default::default() };
+            let t0 = Instant::now();
+            let (pm, rep) = cartesian_mesh(&pp, &pt, Some(&pr), &opts).unwrap();
+            for n in rep.notes.iter().filter(|n| n.starts_with("boundaryLayerGeneration") || n.starts_with("meshOptimisation")) {
+                println!("  {topo:?}: {n}");
+            }
+            println!("{}", row("pipe 60 mm, 2 mm", &format!("cartesian_mesh {topo:?}"), &pm, exact, t0.elapsed().as_secs_f64()));
+            pm.validate().unwrap();
+            assert_eq!(n_nonpositive_cells(&pm), 0);
+        }
+    }
+
+    /// Images (gh:#1270 remainder), `--ignored`: drawn from the assembled
+    /// meshes into `verification_and_validation/patch_wise_layers_gh1270/`.
+    /// Boundary faces cut by the plane are coloured by patch (inlet red,
+    /// walls blue, outlet green, others grey); faces of non-positive cells
+    /// orange.
+    #[test]
+    #[ignore]
+    fn draw_patch_wise_layer_images() {
+        use crate::layers::boundary_layers::tests::{named_box, six_patch_box};
+        use crate::layers::boundary_layers::{BoundaryLayers, BoundaryLayersControls};
+        use crate::topology::tests::write_slice_png;
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/patch_wise_layers_gh1270");
+        let colour_of = |m: &VolumeMesh| {
+            let (vols, _) = crate::checks::cell_geometry(m);
+            let mut patch = vec![None; m.face_count()];
+            for p in &m.patches {
+                let c = match p.name.as_str() {
+                    "inlet" | "x0" => [214u8, 39, 40],
+                    "walls" | "y0" | "y1" | "z0" | "z1" => [31, 119, 180],
+                    "outlet" | "x1" => [44, 160, 44],
+                    _ => [127, 127, 127],
+                };
+                for f in p.start_face..p.start_face + p.n_faces {
+                    patch[f] = Some(c);
+                }
+            }
+            let per_face: Vec<Option<[u8; 3]>> = (0..m.face_count())
+                .map(|f| if vols[m.owner[f]] <= 0.0 || m.neighbour[f].is_some_and(|n| vols[n] <= 0.0) { Some([255u8, 127, 14]) } else { patch[f] })
+                .collect();
+            move |f: usize| per_face[f]
+        };
+        let bw = [-0.05, 1.05, -0.05, 1.05];
+        let mut b6 = BoundaryLayers::new(six_patch_box(0.25), BoundaryLayersControls::default());
+        b6.add_layer_for_all_patches().unwrap();
+        let c = colour_of(&b6.mesh);
+        write_slice_png(&b6.mesh, 0, 0.375, bw, &[], &c, "box, one patch per side, patch-wise layer: y-z at x 0.375 (216 cells)", &dir.join("box6_patch_wise_yz.png"));
+        let mut b3 = BoundaryLayers::new(named_box(0.25), BoundaryLayersControls::default());
+        b3.add_layer_for_all_patches().unwrap();
+        let c = colour_of(&b3.mesh);
+        write_slice_png(&b3.mesh, 1, 0.375, bw, &[], &c, "box walls/inlet/outlet, patch-wise: x-z at y 0.375 (192 cells)", &dir.join("box3_patch_wise_xz.png"));
+        let mut b3o = BoundaryLayers::new(named_box(0.25), BoundaryLayersControls::default());
+        b3o.create_o_topology_layers();
+        b3o.add_layer_for_all_patches().unwrap();
+        let c = colour_of(&b3o.mesh);
+        write_slice_png(&b3o.mesh, 1, 0.375, bw, &[], &c, "box walls/inlet/outlet, O-topology (one group): x-z at y 0.375 (160 cells)", &dir.join("box3_o_topology_xz.png"));
+
+        let (pp, pt, pr) = pipe_surface(0.01, 0.06, 48);
+        for topo in [LayerTopology::PatchWise, LayerTopology::OTopology] {
+            for (stage, stop) in [("layer_stage", Some(WorkflowStep::BoundaryLayerGeneration)), ("final", None)] {
+                let opts = CartesianMeshGeneratorOptions {
+                    dict: MeshDict::with_max_cell_size(0.002),
+                    layer_topology: topo,
+                    workflow: WorkflowSettings { stop_after: stop, restart_from_latest_step: false },
+                    ..Default::default()
+                };
+                let (m, _) = cartesian_mesh(&pp, &pt, Some(&pr), &opts).unwrap();
+                let c = colour_of(&m);
+                let tag = format!("{topo:?}").to_lowercase();
+                let t = format!("cartesian_mesh pipe 60 mm at 2 mm, {topo:?}, {stage}: {} cells, {} non-positive (orange)", m.n_cells, n_nonpositive_cells(&m));
+                write_slice_png(&m, 1, 1e-4, [0.0065, 0.0105, -0.0005, 0.0035], &[], &c, &t, &dir.join(format!("pipe_{tag}_{stage}_xz_rim.png")));
+                write_slice_png(&m, 2, 0.0317, [-0.0108, 0.0108, -0.0108, 0.0108], &[(0.0, 0.0, 0.01)], &c, &t, &dir.join(format!("pipe_{tag}_{stage}_xy.png")));
+            }
+        }
     }
 }

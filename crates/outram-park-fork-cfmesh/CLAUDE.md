@@ -77,8 +77,15 @@ depends on it.
 cfMesh's own **creation** route (`boundaryLayers::addLayerForPatch`, one
 layer at half the local edge) is `layers::boundary_layers`, and its split
 (`detectBoundaryLayers`, `refineBoundaryLayers`) is
-`layers::refine_boundary_layers` (gh:#1270, #1271). Both are opt-in; no
-pipeline option calls them. They also build through `layer_setup` and
+`layers::refine_boundary_layers` (gh:#1270, #1271). ~~Both are opt-in; no
+pipeline option calls them.~~ **UPDATED 2026-11-05 (gh:#1270 remainder):**
+the tet-dual pipeline still does not call them; the four upstream workflows
+do, as upstream (below). The patch-wise route
+(`layers::boundary_layers::BoundaryLayers`, edge and corner cells where
+patch groups meet) builds its cells as upstream lists them, not through
+`build_layered_variable`, whose columns cannot hold edge or corner cells;
+the one-group route and `addWrapperLayer` still build through it.
+`create_new_vertex` is the one `createNewVertex`: both routes call it. ~~They also build~~ The one-group route and the split build through `layer_setup` and
 `build_layered_variable`. Upstream's layer is not quality-checked: on the
 pipe it inverts cells. The record is in the gh:#1270 and gh:#1271 sections
 of the same V&V file.
@@ -189,7 +196,7 @@ and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
 change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
-(~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
+(~~`edgeExtractor`,~~ ~~`boundaryLayers`~~ (**with a `boundaryLayers` dict since gh:#1270's remainder**, `TetMeshOptions::boundary_layers`), `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
 ~~`meshSurfaceEdgeExtractorFUN`~~ ~~`createFundamentalSheetsJFS`~~) call what
 exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
 (gh:#1280, #1281):** `extrudeLayer` (`layers::extrude_layer`) and
@@ -235,10 +242,14 @@ beside `tet_mesh`. It shares `create_octree`, `SavedMesh`,
 runs `premap_vertices` (`preMapVertices`, ported for it).
 
 **Upstream adds one boundary layer to every cartesianMesh, with no dict**
-(`addLayerForAllPatches`). Here that is `layers::boundary_layers` on all
+(`addLayerForAllPatches`). ~~Here that is `layers::boundary_layers` on all
 patches as **one group**. Upstream's patch-wise groups are not ported, so
-on multi-patch surfaces the rim layer differs from upstream.
-`without_boundary_layer` is the explicit ablation.
+on multi-patch surfaces the rim layer differs from upstream.~~ **UPDATED
+2026-11-05 (gh:#1270 remainder):** patch-wise, as upstream
+(`boundary_layer_generation`, shared by the four workflows);
+`LayerTopology::OTopology` keeps the one-group layer callable for the
+differential. `without_boundary_layer` is the explicit ablation. Record:
+`verification_and_validation/patch_wise_layers_gh1270/`.
 
 The record (the differential against `carve_box` + `snap` and the
 tet-dual) and the images are in

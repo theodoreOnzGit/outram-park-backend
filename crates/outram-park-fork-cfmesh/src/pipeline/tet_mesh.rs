@@ -41,9 +41,9 @@
 //! | `surfaceProjection` | `meshSurfaceMapper::mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | `surface_optimizer::map_mesh_to_surface` (gh:#1259) |
 //! | `patchAssignment` | `edgeExtractor` | ~~**not ported** (not this track): `patches::assign_patches_by_region` (nearest triangle) stands in~~ **UPDATED 2026-11-05 (gh:#1269):** [`crate::edge_extractor::extract_patches`]; the nearest triangle stays callable as the ablation [`PatchAssignment::NearestTriangle`] |
 //! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, `meshSurfaceOptimizer::optimizeSurface` | `correct_edges::correct_edges_between_patches` then `surface_mapper::map_vertices_onto_surface_patches_given` (`decomposeBoundaryFaces`, `remapBoundaryPoints`); `surface_optimizer::optimise_mesh_surface` |
-//! | `boundaryLayerGeneration` | `boundaryLayers`, only with a `boundaryLayers` dict | no such dict here: nothing to do, as upstream without one |
+//! | `boundaryLayerGeneration` | `boundaryLayers`, only with a `boundaryLayers` dict | ~~no such dict here: nothing to do, as upstream without one~~ **UPDATED 2026-11-05 (gh:#1270 remainder):** with [`TetMeshOptions::boundary_layers`], `layers::boundary_layers::generate_layer` (`nLayers > 0`: `addLayerForAllPatches`, patch-wise; else `addLayerForPatch` per `patchBoundaryLayers` patch, in name order); none by default |
 //! | `meshOptimisation` | `meshOptimizer`: `optimizeSurface`, `optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, `untangleMeshFV` | `mesh_optimizer` (`optimize_surface`, and the volume drivers with upstream's boundary moves and LP untangler on); `optimizeBoundaryLayer` has no layer to act on |
-//! | `boundaryLayerRefinement` | `refineBoundaryLayers`, only with a `boundaryLayers` dict | nothing to do |
+//! | `boundaryLayerRefinement` | `refineBoundaryLayers`, `pointsInBndLayer`, `untangleBoundaryLayer`, only with a `boundaryLayers` dict | ~~nothing to do~~ with the dict, `cartesian_mesh`'s `ref_boundary_layers` (gh:#1270 remainder) |
 //! | (always) | `renumberMesh`, `renameBoundaryPatches` | [`crate::renumber_mesh`], [`crate::rename_boundary_patches`] (ported) |
 //!
 //! Every gap is a line in [`TetMeshReport::notes`]. `anisotropicSources`
@@ -90,6 +90,9 @@ pub struct TetMeshOptions {
     /// default; `Without` is the gh:#1269 behaviour, kept for the
     /// differential.
     pub fun_sheets: crate::mesh_surface_edge_extractor_fun::FunSheets,
+    /// `meshDict`'s `boundaryLayers` dictionary (`None`: absent, no layer
+    /// and no refinement, upstream's default).
+    pub boundary_layers: Option<BoundaryLayersDict>,
 }
 
 /// The `patchAssignment` step's rule (gh:#1269).
@@ -115,6 +118,42 @@ impl Default for TetMeshOptions {
             enforce_geometry_constraints: false,
             patch_assignment: PatchAssignment::EdgeExtractor,
             fun_sheets: crate::mesh_surface_edge_extractor_fun::FunSheets::Jfs,
+            boundary_layers: None,
+        }
+    }
+}
+
+/// `meshDict`'s `boundaryLayers` dictionary as `tetMesh`, `pMesh` and the
+/// `generateBoundaryLayers` utility read it (gh:#1270 remainder).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BoundaryLayersDict {
+    /// `nLayers`, if the entry is present.
+    pub n_layers: Option<usize>,
+    /// `refineBoundaryLayers::readSettings`: `nLayers` (again: keep it equal
+    /// to [`BoundaryLayersDict::n_layers`], or use
+    /// [`BoundaryLayersDict::with_n_layers`]), `thicknessRatio`,
+    /// `maxFirstLayerThickness`, `patchBoundaryLayers`.
+    pub settings: crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings,
+    /// `boundaryLayerHeightFactor`, `boundaryLayerMinHeight`.
+    pub heights: crate::layers::boundary_layers::BoundaryLayersControls,
+}
+
+impl BoundaryLayersDict {
+    /// A dict with the global `nLayers` entry `n`.
+    pub fn with_n_layers(n: usize) -> Self {
+        let settings = crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings { n_layers: n, ..Default::default() };
+        BoundaryLayersDict { n_layers: Some(n), settings, heights: Default::default() }
+    }
+
+    /// The generators' `generateBoundaryLayers`: `nLayers` present and
+    /// above 0, every patch; present and 0, none; absent, each
+    /// `patchBoundaryLayers` patch (name order: the typed map does not keep
+    /// the dictionary's order, which upstream's `toc()` walks).
+    pub fn request(&self) -> Option<crate::layers::boundary_layers::LayerRequest> {
+        use crate::layers::boundary_layers::LayerRequest;
+        match self.n_layers {
+            Some(n) => (n > 0).then_some(LayerRequest::AllPatches),
+            None => (!self.settings.patches.is_empty()).then(|| LayerRequest::Patches(self.settings.patches.keys().cloned().collect())),
         }
     }
 }
@@ -164,6 +203,10 @@ pub struct TetMeshReport {
     /// What `edgeExtractor` did (`None` with
     /// [`PatchAssignment::NearestTriangle`]).
     pub edge_extractor: Option<crate::edge_extractor::EdgeExtractorReport>,
+    /// Layer cells `boundaryLayers` added (0 without a dict).
+    pub n_layer_cells: usize,
+    /// `refineBoundaryLayers` refused (this port's `NotPorted`).
+    pub refine_error: Option<String>,
 }
 
 /// The surface region of every boundary face of `m`, from its patch name
@@ -263,6 +306,8 @@ pub(crate) fn run_generator(
         n_inverted_after_projection: 0,
         n_inverted_after_edge_extraction: 0,
         edge_extractor: None,
+        n_layer_cells: 0,
+        refine_error: None,
     };
     let mut mesh: Option<VolumeMesh> = None;
     let mut types: Vec<String> = Vec::new();
@@ -424,7 +469,17 @@ pub(crate) fn run_generator(
                 rep.n_inverted_after_edge_extraction = last;
                 rep.notes.push(format!("edgeExtraction: optimiseMeshSurface: inverted points {} -> {last}", u.n_inverted_first));
             }
-            WorkflowStep::BoundaryLayerGeneration => rep.notes.push("boundaryLayerGeneration: no boundaryLayers dict; nothing to do".into()),
+            WorkflowStep::BoundaryLayerGeneration => match opts.boundary_layers.as_ref().map(|d| (d.request(), d)) {
+                None => rep.notes.push("boundaryLayerGeneration: no boundaryLayers dict; nothing to do".into()),
+                Some((None, _)) => rep.notes.push("boundaryLayerGeneration: boundaryLayers dict with nLayers 0 and no patchBoundaryLayers; nothing to do".into()),
+                Some((Some(req), d)) => {
+                    let (mm, n, line) = crate::pipeline::cartesian_mesh::boundary_layer_generation(m, &req, &d.heights, crate::pipeline::cartesian_mesh::LayerTopology::PatchWise, false)?;
+                    *m = mm;
+                    types.resize(m.patches.len(), "patch".to_string());
+                    rep.n_layer_cells = n;
+                    rep.notes.push(format!("boundaryLayerGeneration: {line}; {} non-positive cells", crate::pipeline::cartesian_mesh::n_nonpositive_cells(m)));
+                }
+            },
             WorkflowStep::MeshOptimisation => {
                 let given = face_regions(m, reg);
                 if kind == Template::Voronoi {
@@ -444,11 +499,20 @@ pub(crate) fn run_generator(
                 let r2 = opt.optimize_low_quality_faces(m, 10);
                 let r3 = opt.untangle_mesh_fv(m, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
                 rep.notes.push(format!(
-                    "meshOptimisation: optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer: no layers",
+                    "meshOptimisation: optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer(false): acts only with optimiseLayer (off, upstream default)",
                     r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
                 ));
             }
-            WorkflowStep::BoundaryLayerRefinement => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
+            WorkflowStep::BoundaryLayerRefinement => match &opts.boundary_layers {
+                None => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
+                Some(d) => {
+                    let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
+                    let (line, refused, _) = crate::pipeline::cartesian_mesh::ref_boundary_layers(m, &d.settings, &controls)?;
+                    types.resize(m.patches.len(), "patch".to_string());
+                    rep.refine_error = refused;
+                    rep.notes.push(line);
+                }
+            },
             _ => {}
         }
     }
@@ -707,5 +771,43 @@ pub(crate) mod tests {
         assert!(crate::tet_mesh_extractor_octree::same_mesh(&again, &full));
         let names: Vec<&str> = full.patches.iter().map(|x| x.name.as_str()).collect();
         assert_eq!(names, vec!["inlet", "outlet", "walls"]);
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P10 of
+    /// `verification_and_validation/patch_wise_layers_gh1270/README.md`:
+    /// `tetMesh` and `pMesh` on the sphere R 3 (24 x 48, `maxCellSize`
+    /// 0.75) with a `boundaryLayers` dict of `nLayers` 1 against the same
+    /// run without: one layer cell per boundary face, closed, no
+    /// non-positive cell at the end; with `nLayers` 0 nothing is added.
+    #[test]
+    fn tet_and_p_mesh_with_a_boundary_layers_dict() {
+        let (p, t) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        let base = TetMeshOptions { dict: MeshDict::with_max_cell_size(0.75), ..Default::default() };
+        let with = TetMeshOptions { boundary_layers: Some(BoundaryLayersDict::with_n_layers(1)), ..base.clone() };
+        let zero = TetMeshOptions { boundary_layers: Some(BoundaryLayersDict::with_n_layers(0)), ..base.clone() };
+        for kind in [Template::Tet, Template::Voronoi] {
+            let (m0, _) = run_generator(kind, &p, &t, None, &base, None).unwrap();
+            let (m1, rep) = run_generator(kind, &p, &t, None, &with, None).unwrap();
+            let (mz, _) = run_generator(kind, &p, &t, None, &zero, None).unwrap();
+            let nbf = m0.n_boundary_faces();
+            for n in rep.notes.iter().filter(|n| n.starts_with("boundaryLayer")) {
+                println!("  {kind:?}: {n}");
+            }
+            let q = check_quality(&m1);
+            println!(
+                "{kind:?}: without {} cells, {nbf} boundary faces, V {:.4}; with nLayers 1: {} cells ({} layer cells), V {:.4}, non-positive {}, non-ortho {:.1}",
+                m0.n_cells,
+                m0.total_volume(),
+                m1.n_cells,
+                rep.n_layer_cells,
+                m1.total_volume(),
+                crate::pipeline::cartesian_mesh::n_nonpositive_cells(&m1),
+                q.max_non_orthogonality_deg
+            );
+            m1.validate().unwrap();
+            assert_eq!((m1.n_cells, rep.n_layer_cells), (m0.n_cells + nbf, nbf));
+            assert_eq!(crate::pipeline::cartesian_mesh::n_nonpositive_cells(&m1), 0);
+            assert!(crate::tet_mesh_extractor_octree::same_mesh(&mz, &m0));
+        }
     }
 }

@@ -103,6 +103,130 @@ gh:#1270 one-group tests.
   sphere (one patch), one layer cell per boundary face; 0 non-positive cells
   after `meshOptimisation`; closed.
 
-## Results
+## Results (2026-11-05, `cargo test --release`)
 
-(to be filled from the runs)
+Tests: `layers::boundary_layers::tests::{patch_wise_layer_on_the_six_patch_box,
+patch_wise_against_o_topology_on_the_named_box,
+patch_wise_displacements_equal_the_one_group_route_on_the_pipe,
+add_layer_for_patch_in_sequence_on_the_box, wrapper_layer_has_zero_thickness,
+check_topology_of_boundary_faces_on_forced_groups, edge_convexity_by_hand}`,
+`pipeline::cartesian_mesh::tests::{cartesian_mesh_patch_wise_against_o_topology,
+diagnose_cartesian_mesh_on_the_sphere, diagnose_cartesian_mesh_on_the_pipes,
+cartesian_mesh_with_refined_layers}`,
+`pipeline::cartesian_2d_mesh::tests::channel_2d_against_the_3d_mid_plane`,
+`pipeline::tet_mesh::tests::tet_and_p_mesh_with_a_boundary_layers_dict`,
+`mesh_utilities::tests::generate_boundary_layers_on_a_box`.
+
+- **P1 held.** Six groups; 216 cells (96 face, 48 edge, 8 corner), 0
+  unmatched; volume 1.000000000000000; closed; 0 non-positive; every
+  displacement 0.125 and every coordinate on the 7-value grid (1e-12); 36
+  faces per patch (`box6_patch_wise_yz.png`).
+- **P2 held.** Groups `walls`, `outlet`, `inlet`; 192 cells (96 face, 32
+  edge, 0 corner); volume 0.999999999999999; closed; 0 non-positive. The
+  O-topology route gives 160 cells, equal to the one-group
+  `boundary_layers_add_layer` on all three patches in points, faces and
+  owners (`box3_patch_wise_xz.png`, `box3_o_topology_xz.png`).
+- **P3 missed on the grouping, held on the differential.** Upstream's rule
+  puts all three pipe patches in **one** group on the tet-dual pipe: of its
+  72 rim edges, 24 are not convex by the tet test and have
+  `angleBetweenFaces` above 135° (min/median/max 87.9/91.3/226.1°); 12
+  per end survive the inverted-vertex filter, and one concave edge is
+  enough to merge a pair. The dual's rim polygons fold, so upstream would
+  build an O-topology layer here. With one group: 2 261 cells (605 + 1 656
+  face cells, 0 edge cells), 0 unmatched, volume change 0 relative, **66**
+  non-positive cells (the one-group layer on `walls` alone: 56; outside the
+  ±20 % I predicted), max non-orthogonality 143.6°, skewness 51.3. Every
+  displacement equals the one-group route's for the same group, **1 658 of
+  1 658 bit for bit** (held). The three-group differential is on the
+  cartesian pipe (P7).
+- **P4 held.** 80 then 100 cells, volume 1, closed; a treated patch adds
+  nothing; an unknown name is an error.
+- **P5 held.** 96 layer cells, 160 cells, the 96 of zero volume, total 1,
+  closed; a second call adds nothing (patch 0 treated).
+- **P6 held.** The box: `Ok(0)`, mesh unchanged. The pipe with `walls` and
+  `inlet` forced together: `CriticalNotTested { n_decomposed: 12 }`.
+- **P7 held in substance; missed "bit for bit" on the sphere.** The sphere
+  (one group) has the same 1 128 cells, −1.938 %, 15.60°, 0.470 as the
+  O-topology ablation; the cell volumes agree to 2.9e-15 relative, but
+  neither the labels nor the point bits are equal: the patch-wise route
+  numbers new points as upstream (appended) and computes `p − dist n`, the
+  one-group route renumbers as `build_layered_variable` does and builds
+  `x + |d| d/|d|` (round-off). The 60 mm pipe at 2 mm, three groups
+  (`inlet`, `outlet`, `walls`):
+
+  | route | cells | layer cells (face / edge) | volume error | non-positive after the layer | final non-positive | max non-orth | max skew |
+  |---|---:|---:|---:|---:|---:|---:|---:|
+  | patch-wise (upstream) | 2 688 | 1 024 / 64 | −0.659 % | 32 | 0 | 30.18° | 0.481 |
+  | O-topology (ablation; the gh:#1274 route) | 2 624 | 1 024 / 0 | −0.659 % | 32 | 0 | 35.69° | 0.487 |
+
+  The rim is no longer pinched: `pipe_patchwise_layer_stage_xz_rim.png`
+  shows the wall column, the inlet layer and the edge cell in the corner;
+  `pipe_otopology_layer_stage_xz_rim.png` the diagonal pinch. **New:** the
+  layer now changes the volume (with − without): 2.7e-6 (60 mm pipe),
+  2.5e-6 (Foam Studio 5 mm), 1.2e-6 (1.25 mm), where the one-group layer
+  changed it by exactly 0: the rim's new boundary points `p + d_inlet` lie
+  on the wall facet's averaged plane, not on the facet.
+- **P8 held.** With `nLayers` 3 the pipe's refinement is refused: "cell
+  2624 is a layer cell for two base faces (7420, 8444)" (an edge cell), so
+  the layer stays one cell thick. The sphere refines (528 split, 2 184
+  cells).
+- **P9 held.** The channel: groups `walls`, `outlet`, `inlet`; 48 layer
+  cells (44 face, 4 edge); still one cell thick (120 of 120 cells with one
+  bottom and one top face); area 0.25 to 2.2e-16; closed; 0 non-positive;
+  the empty patches 72 → 120 faces each (the edge cells' end faces).
+- **P10 held.** Sphere R 3 at 0.75: `tetMesh` 3 960 → 4 776 cells (816
+  layer cells, one per boundary face; 471 non-positive right after the
+  layer, 0 at the end); `pMesh` 489 → 767 (278; 0 and 0). `nLayers` 0
+  gives the dict-less mesh bit for bit.
+- **`generateBoundaryLayers` (other track's utility, re-measured):** the
+  4 x 4 x 4 box now gives 216 cells (was 160 by the one-group stand-in);
+  0 bad faces, volume 1 (its doc comment corrected).
+
+### Re-measured `cartesian_mesh` (gh:#1274 record)
+
+| case | cells | volume error | max non-orth | max skew | non-positive after the layer |
+|---|---:|---:|---:|---:|---:|
+| sphere 0.5 m | 1 128 | −1.938 % | 15.60° | 0.470 | 0 |
+| pipe 60 mm, 2 mm | 2 688 | −0.659 % | 30.18° | 0.481 | 32 |
+| Foam Studio pipe, 5 mm | 536 | −9.959 % | 12.01° | 0.489 | 16 |
+| Foam Studio pipe, 5 / 1.25 mm | 22 320 | −0.156 % | 35.28° | 0.495 | 64 |
+
+Every mesh is closed with 0 non-positive cells at the end.
+
+## Images
+
+Regenerate: `cargo test --release -p outram-park-fork-cfmesh --lib --
+draw_patch_wise_layer_images --ignored`. Boundary faces cut by the plane are
+coloured by patch (inlet red, walls blue, outlet green); faces of
+non-positive cells orange.
+
+| file | what |
+|---|---|
+| `box6_patch_wise_yz.png` | six-patch box, y-z at x 0.375: the 6 x 6 tensor grid |
+| `box3_patch_wise_xz.png`, `box3_o_topology_xz.png` | walls/inlet/outlet box, x-z at y 0.375: patch-wise against O-topology |
+| `pipe_{patchwise,otopology}_{layer_stage,final}_xz_rim.png` | cartesian pipe 60 mm at 2 mm, inlet rim, x-z at y 0.1 mm, right after `boundaryLayerGeneration` and at the end |
+| `pipe_{patchwise,otopology}_{layer_stage,final}_xy.png` | the same, x-y at z 31.7 mm |
+
+**What I checked:** the six-patch box is the predicted tensor grid; at the
+pipe rim the patch-wise layer has a wall column, an inlet layer and a
+square edge cell in the corner, where the O-topology layer's one rim cell
+is pinched diagonally; the x-y section keeps a hex core with one layer
+ring. **What I could not check:** the 32 non-positive cells right after the
+layer lie in neither drawn plane (no orange), so I have not seen them; no
+3D view.
+
+## Upstream defects and quirks found
+
+- `addWrapperLayer` writes the new labels to a local `newLabelForVertex`
+  that shadows the member `newLabelForVertex_` read by
+  `createNewFacesAndCells` (defect; the port follows the intent).
+- `checkTopologyOfBoundaryFaces` and `addWrapperLayer` have no caller;
+  the former stops with "Critical. Not tested" whenever it cuts a face
+  into two real parts (ported as an error).
+- `voronoiMeshGenerator::generateBoudaryLayers` constructs a second,
+  unused `boundaryLayers` (harmless).
+- Patch-wise `addLayerForAllPatches` does not mark the patches treated
+  (ported as written).
+- `terminateLayersAtConcaveEdges_` is set but never read (not ported).
+- On tet-dual meshes the rim polygons fold, so upstream's concavity rule
+  merges the pipe's patches into one group (P3).

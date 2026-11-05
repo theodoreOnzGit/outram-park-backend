@@ -95,21 +95,29 @@ has 0 non-positive cells.
 | sphere 0.5 m | `cartesian_mesh`, `without_boundary_layer` | 600 | −1.938 % | 0 | 33.38° | 0.260 | 0.13 s |
 | sphere 0.5 m | `carve_box` + `snap` | 912 | −1.719 % | 0 | 24.08° | 0.237 | 0.04 s |
 | sphere 0.5 m | tet-dual (no layers) | 5 269 | −1.719 % | 0 | 72.46° | 1.095 | 2.89 s |
-| pipe 60 mm, 2 mm | `cartesian_mesh` | 2 624 | −0.659 % | 0 | 35.69° | 0.487 | 0.31 s |
+| pipe 60 mm, 2 mm | `cartesian_mesh` | ~~2 624~~ **2 688** | −0.659 % | 0 | ~~35.69°~~ **30.18°** | ~~0.487~~ **0.481** | 0.31 s |
 | pipe 60 mm, 2 mm | without layer | 1 600 | −0.659 % | 0 | 51.62° | 0.644 | 0.16 s |
 | pipe 60 mm, 2 mm | `carve_box` + `snap` | 2 400 | −0.544 % | 0 | 17.12° | 0.201 | 0.01 s |
 | pipe 60 mm, 2 mm | tet-dual (no layers) | 13 411 | −0.544 % | 0 | 59.67° | 0.894 | 0.83 s |
-| Foam Studio pipe, 5 mm | `cartesian_mesh` | 520 | **−9.960 %** | 0 | 38.47° | 0.485 | 0.06 s |
+| Foam Studio pipe, 5 mm | `cartesian_mesh` | ~~520~~ **536** | **~~−9.960 %~~ −9.959 %** | 0 | ~~38.47°~~ **12.01°** | ~~0.485~~ **0.489** | 0.06 s |
 | Foam Studio pipe, 5 mm | without layer | 200 | −9.960 % | 0 | 28.12° | 0.576 | 0.05 s |
 | Foam Studio pipe, 5 mm | `carve_box` + `snap` | 480 | −3.073 % | 0 | 10.83° | 0.270 | 0.00 s |
 | Foam Studio pipe, 5 mm | tet-dual (no layers) | 3 113 | −3.073 % | 0 | 47.92° | 0.905 | 0.12 s |
-| Foam Studio pipe, 5 / 1.25 mm | `cartesian_mesh` | 22 208 | −0.156 % | 0 | 34.81° | 0.493 | 1.37 s |
+| Foam Studio pipe, 5 / 1.25 mm | `cartesian_mesh` | ~~22 208~~ **22 320** | −0.156 % | 0 | ~~34.81°~~ **35.28°** | ~~0.493~~ **0.495** | 1.37 s |
 | Foam Studio pipe, 5 / 1.25 mm | without layer | 13 000 | −0.156 % | 0 | 56.54° | 0.664 | 1.19 s |
 | Foam Studio pipe, 5 / 1.25 mm | `carve_box` + `snap` (1.25 mm) | 33 280 | −0.082 % | 0 | 14.08° | 0.223 | 0.08 s |
 | Foam Studio pipe, 5 / 1.25 mm | tet-dual (1.25 mm, no layers) | 177 249 | −0.082 % | 0 | 66.47° | 0.953 | 16.6 s |
 
 The volumes of `carve_box` + `snap` and the tet-dual are equal on every case:
 the tet-dual tetrahedralises the same snapped carve, so this is expected.
+
+**RE-MEASURED 2026-11-05 (gh:#1270 remainder):** the `cartesian_mesh`
+rows were taken with the one-group layer (`addLayerForAllPatches` as one
+group, the port's stand-in). The patch-wise layer is now ported and is the
+default, as upstream; the struck numbers are the old ones, the bold the new.
+The sphere (one patch) is unchanged. The old route is callable as
+`LayerTopology::OTopology`. Record:
+`verification_and_validation/patch_wise_layers_gh1270/README.md`.
 
 **Which number to quote:** the `cartesian_mesh` row with the layer is the
 upstream workflow. The "without layer" row is the ablation.
@@ -134,7 +142,8 @@ upstream workflow. The "without layer" row is the ablation.
   - The one-group layer inverted **no** cell on the sphere (predicted
     1–200).
   - It inverted 32 cells on the 60 mm pipe, 64 on the Foam Studio pipe at
-    1.25 mm, and 0 at 5 mm. This is the known caveat (gh:#1270: 56 / 304
+    1.25 mm, and 0 at 5 mm. **RE-MEASURED 2026-11-05 with the patch-wise
+    layer:** 32, 64 and ~~0~~ **16** (5 mm). This is the known caveat (gh:#1270: 56 / 304
     on the tet-dual pipes).
   - After `meshOptimisation` every mesh has 0 non-positive cells. The
     untangler's own count reads 0 bad faces on entry, so the repair
@@ -143,7 +152,10 @@ upstream workflow. The "without layer" row is the ablation.
     isolated**.
 - **C6 held:** −1.938 % on the sphere, inside 2 %. Against the faceted
   surface the error is −1.23 %. The layer changes the volume by **exactly
-  0** in floating point (with minus without, on all three cases): the wall
+  0** in floating point (with minus without, on all three cases;
+  **CORRECTED 2026-11-05:** with the patch-wise layer, 0 on the sphere but
+  2.7e-6, 2.5e-6 and 1.2e-6 relative on the three pipes, because the rim's
+  new boundary points lie on the wall's averaged plane, not on its facet): the wall
   points do not move, and the old points move inward with their cells.
 - **C7 missed.** `carve_box` + `snap` is closer in volume (−1.719 %), with 0
   non-positive cells and lower skewness (0.237 against 0.470).
@@ -163,7 +175,10 @@ upstream workflow. The "without layer" row is the ablation.
   - Its boundary has 8 points around the circle, and the inscribed octagon
     is −10.0 %.
   - With `boundaryCellSize` 1.25 mm the error is −0.156 %.
-- **C9 missed on the pipe.** I predicted `NotPorted` at the rim. Instead
+- **C9 missed on the pipe** (**RE-MEASURED 2026-11-05: now held**: with
+  the patch-wise layer the rim edge cells are layer cells for two base
+  faces and the port returns `NotPorted`, as predicted; then gh:#1271's
+  remainder, below in `patch_wise_layers_gh1270`). I predicted `NotPorted` at the rim. Instead
   the pipe refined (1 024 cells split, 0 non-positive, closed), as did the
   sphere (528 cells split, 2 184 cells).
   - The reason: the port's **one-group** layer gives every layer cell

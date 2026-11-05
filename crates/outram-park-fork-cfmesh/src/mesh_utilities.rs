@@ -40,7 +40,7 @@
 //! Each is a composition of ported classes; nothing here re-implements a
 //! step.
 
-use crate::layers::boundary_layers::{boundary_layers_add_layer, BoundaryLayersControls, BoundaryLayersOutcome};
+use crate::layers::boundary_layers::{generate_layer, BoundaryLayersControls, GeneratedLayer, LayerRequest};
 use crate::layers::refine_boundary_layers::{refine_boundary_layers, RefineBoundaryLayersSettings, RefineError, RefineReport};
 use crate::mesh_optimizer::{optimize_mesh_fv_best_quality, MeshOptimizer, OptimiserReport, UntangleControls};
 use crate::symmetry_plane_optimisation::{symmetry_plane_optimisation, SymmetryReport};
@@ -127,8 +127,9 @@ pub struct GenerateBoundaryLayersSettings {
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenerateBoundaryLayersReport {
     /// `generateLayer`; `None` where `boundaryLayers` stops (no face, or a
-    /// point at three untreated patches).
-    pub layer: Option<BoundaryLayersOutcome>,
+    /// point at three untreated patches). **Since gh:#1270's remainder**
+    /// the patch-wise route (was the one-group `BoundaryLayersOutcome`).
+    pub layer: Option<GeneratedLayer>,
     /// `meshOptimisation`: `optimizeMeshFV`, `optimizeLowQualityFaces`,
     /// `untangleMeshFV`, (`optimizeBoundaryLayer`: not run, see
     /// [`generate_boundary_layers`]), `untangleMeshFV`.
@@ -138,8 +139,11 @@ pub struct GenerateBoundaryLayersReport {
 }
 
 /// `generateBoundaryLayers` (not 2D): `generateLayer`
-/// ([`boundary_layers_add_layer`], all patches as one group: upstream's
-/// patch-wise groups are not ported, see `layers::boundary_layers`),
+/// (~~`boundary_layers_add_layer`, all patches as one group: upstream's
+/// patch-wise groups are not ported, see `layers::boundary_layers`~~
+/// **UPDATED 2026-11-05, gh:#1270 remainder:** [`generate_layer`],
+/// patch-wise as upstream: `addLayerForAllPatches`, or
+/// `addLayerForPatch` per named patch),
 /// `meshOptimisation`, `layerRefinement` ([`refine_boundary_layers`]).
 ///
 /// **Partial.** `meshOptimizer::optimizeBoundaryLayer` and
@@ -149,14 +153,13 @@ pub struct GenerateBoundaryLayersReport {
 /// mesh, so they are skipped and the report says so. The other steps are
 /// upstream's.
 pub fn generate_boundary_layers(mesh: &VolumeMesh, s: &GenerateBoundaryLayersSettings) -> (VolumeMesh, GenerateBoundaryLayersReport) {
-    let names: Vec<String> = match &s.patches {
-        Some(p) => p.clone(),
-        None => mesh.patches.iter().map(|p| p.name.clone()).collect(),
+    let request = match &s.patches {
+        Some(p) => LayerRequest::Patches(p.clone()),
+        None => LayerRequest::AllPatches,
     };
-    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-    let (mut m, layer) = match boundary_layers_add_layer(mesh, &refs, &s.controls) {
-        Some((m, o)) => (m, Some(o)),
-        None => (mesh.clone(), None),
+    let (mut m, layer) = match generate_layer(mesh, &request, &s.controls, false) {
+        Ok((m, g)) => (m, Some(g)),
+        Err(_) => (mesh.clone(), None),
     };
     // meshOptimisation(mesh)
     let opt = MeshOptimizer::new(&m);
@@ -249,8 +252,14 @@ mod tests {
     /// (96 faces, one layer cell each): 64 + 96 cells; the optimisation
     /// steps leave 0 bad faces; closed, every cell positive, volume 1 to
     /// 1e-12 (no boundary point moves: the layer is grown inward).
-    /// **Results (2026-11-05): held.** 160 cells, volume 1, smallest cell
+    /// **Results (2026-11-05): held.** ~~160 cells~~, volume 1, smallest cell
     /// 3.08e-3, 0 bad faces (no optimiser step had anything to do).
+    /// **CORRECTED 2026-11-05 (gh:#1270 remainder):** "one group" was the
+    /// port's stand-in, not upstream: `addLayerForAllPatches` is
+    /// patch-wise, and the six faces of a box meet at convex 90° edges, so
+    /// they are six groups with edge and corner cells: 64 + 96 + 48 + 8 =
+    /// **216 cells** (the patch-wise box test, prediction P1 of
+    /// `verification_and_validation/patch_wise_layers_gh1270/`).
     #[test]
     fn generate_boundary_layers_on_a_box() {
         let m0 = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
@@ -258,8 +267,8 @@ mod tests {
         m.validate().unwrap();
         let (vols, _) = cell_geometry(&m);
         let bad = find_bad_faces(&m).iter().filter(|&&x| x).count();
-        println!("generateBoundaryLayers: cells {} volume {} min vol {:e} bad {bad}; layer {:?} faces; optimisation {:?}", m.n_cells, m.total_volume(), vols.iter().cloned().fold(f64::MAX, f64::min), rep.layer.as_ref().map(|l| l.wall_faces.len()), rep.optimisation);
-        assert_eq!(m.n_cells, 64 + 96);
+        println!("generateBoundaryLayers: cells {} volume {} min vol {:e} bad {bad}; layer {:?} faces; optimisation {:?}", m.n_cells, m.total_volume(), vols.iter().cloned().fold(f64::MAX, f64::min), rep.layer.as_ref().map(|l| l.n_layer_cells), rep.optimisation);
+        assert_eq!(m.n_cells, 216);
         assert_eq!(bad, 0);
         assert!(vols.iter().all(|&v| v > 0.0));
         assert!((m.total_volume() - 1.0).abs() < 1e-12);

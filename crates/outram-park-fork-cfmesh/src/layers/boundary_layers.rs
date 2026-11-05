@@ -916,6 +916,66 @@ impl BoundaryLayers {
     }
 }
 
+/// Which `boundaryLayers` calls a workflow makes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LayerRequest {
+    /// `addLayerForAllPatches` (`cartesianMesh` always; `tetMesh`, `pMesh`,
+    /// `generateBoundaryLayers` with `nLayers > 0` or with no dict).
+    AllPatches,
+    /// `addLayerForPatch` for each name in turn (`patchBoundaryLayers`).
+    Patches(Vec<String>),
+}
+
+/// What [`generate_layer`] did.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GeneratedLayer {
+    /// The `addLayerForAllPatches` outcome.
+    pub all: Option<PatchWiseOutcome>,
+    /// Each `addLayerForPatch` call: the patch and the one-group outcome
+    /// (`None`: already treated, or empty).
+    pub per_patch: Vec<(String, Option<BoundaryLayersOutcome>)>,
+    /// Cells added.
+    pub n_layer_cells: usize,
+}
+
+impl GeneratedLayer {
+    /// One line for a workflow report.
+    pub fn summary(&self) -> String {
+        match &self.all {
+            Some(o) => format!(
+                "addLayerForAllPatches: groups {:?}; {} layer cells ({} face, {} edge, {} corner), {} unmatched boundary faces",
+                o.groups, self.n_layer_cells, o.n_face_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces
+            ),
+            None => format!("addLayerForPatch {:?}: {} layer cells", self.per_patch.iter().map(|(n, o)| (n.clone(), o.as_ref().map_or(0, |x| x.wall_faces.len()))).collect::<Vec<_>>(), self.n_layer_cells),
+        }
+    }
+}
+
+/// The `boundaryLayers` part of `generateBoundaryLayers`' `generateLayer`
+/// and of `tetMeshGenerator` / `voronoiMeshGenerator` /
+/// `cartesianMeshGenerator` / `cartesian2DMeshGenerator`'s
+/// `generateBoundaryLayers`: a [`BoundaryLayers`] on `mesh` (patch-wise),
+/// `activate2DMode` if asked, then the request.
+pub fn generate_layer(mesh: &VolumeMesh, request: &LayerRequest, c: &BoundaryLayersControls, layers_2d: bool) -> Result<(VolumeMesh, GeneratedLayer), String> {
+    let n0 = mesh.n_cells;
+    let mut bl = BoundaryLayers::new(mesh.clone(), *c);
+    if layers_2d {
+        bl.activate_2d_mode()?;
+    }
+    let mut out = GeneratedLayer::default();
+    match request {
+        LayerRequest::AllPatches => out.all = Some(bl.add_layer_for_all_patches().map_err(|e| format!("boundaryLayers: {e:?}"))?),
+        LayerRequest::Patches(names) => {
+            for n in names {
+                let o = bl.add_layer_for_patch(n).map_err(|e| format!("boundaryLayers: {e:?}"))?;
+                out.per_patch.push((n.clone(), o));
+            }
+        }
+    }
+    out.n_layer_cells = bl.mesh.n_cells - n0;
+    Ok((bl.mesh, out))
+}
+
 /// cfMesh `createNewVertices(labelList)` and `createLayerCells` on `mesh`
 /// for the untreated patches `labels` with the groups `treat_with` (see
 /// [`BoundaryLayers::add_layer_for_all_patches`]). The cells are built as
@@ -1476,5 +1536,206 @@ pub(crate) mod tests {
     fn diagnose_cfmesh_layer_on_the_foam_studio_pipe() {
         let bare = bare_pipe(0.2, 0.005);
         pipe_differential(&bare, "Foam Studio pipe L 200 mm h 5 mm");
+    }
+
+    /// The unit box carved at `h` with one patch per side (`z0`, `z1`,
+    /// `y0`, `y1`, `x1`, `x0` in `box_surface`'s triangle order).
+    pub(crate) fn six_patch_box(h: f64) -> VolumeMesh {
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let regions = SurfaceRegions::from_labels(&["z0", "z0", "z1", "z1", "y0", "y0", "y1", "y1", "x1", "x1", "x0", "x0"]);
+        assign_patches_by_region(&carve_box(&p, &t, h), &p, &t, &regions).unwrap()
+    }
+
+    fn n_nonpositive(m: &VolumeMesh) -> usize {
+        crate::checks::cell_geometry(m).0.iter().filter(|&&v| v <= 0.0).count()
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P1: the patch-wise layer on the
+    /// six-patch box (record: `verification_and_validation/patch_wise_layers_gh1270/`).
+    #[test]
+    fn patch_wise_layer_on_the_six_patch_box() {
+        let m = six_patch_box(0.25);
+        let mut bl = BoundaryLayers::new(m, BoundaryLayersControls::default());
+        let o = bl.add_layer_for_all_patches().unwrap();
+        let l = &bl.mesh;
+        println!("B6: groups {:?}; cells {} (face {}, edge {}, corner {}), unmatched {}, V {:.15}, non-positive {}", o.groups, l.n_cells, o.n_face_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces, l.total_volume(), n_nonpositive(l));
+        assert_eq!(o.groups.len(), 6);
+        assert!(o.groups.iter().all(|g| g.len() == 1));
+        assert_eq!((l.n_cells, o.n_face_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces), (216, 96, 48, 8, 0));
+        l.validate().unwrap();
+        assert!((l.total_volume() - 1.0).abs() < 1e-12);
+        assert_eq!(n_nonpositive(l), 0);
+        for p in &o.points {
+            for d in p.displacements.values() {
+                assert!((d.length() - 0.125).abs() < 1e-12, "{p:?}");
+            }
+        }
+        let grid = [0.0, 0.125, 0.25, 0.5, 0.75, 0.875, 1.0];
+        for q in &l.points {
+            for c in [q.x, q.y, q.z] {
+                assert!(grid.iter().any(|g| (g - c).abs() < 1e-12), "{q:?}");
+            }
+        }
+        assert!(l.patches.iter().all(|p| p.n_faces == 36), "{:?}", l.patches);
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P2: the box with `walls`,
+    /// `inlet`, `outlet`, patch-wise against O-topology.
+    #[test]
+    fn patch_wise_against_o_topology_on_the_named_box() {
+        let m = named_box(0.25);
+        let mut bl = BoundaryLayers::new(m.clone(), BoundaryLayersControls::default());
+        let o = bl.add_layer_for_all_patches().unwrap();
+        let l = &bl.mesh;
+        println!("B3 patch-wise: groups {:?}; cells {} (face {}, edge {}, corner {}), unmatched {}, V {:.15}, non-positive {}", o.groups, l.n_cells, o.n_face_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces, l.total_volume(), n_nonpositive(l));
+        assert_eq!(o.groups.len(), 3);
+        assert_eq!((l.n_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces), (192, 32, 0, 0));
+        l.validate().unwrap();
+        assert!((l.total_volume() - 1.0).abs() < 1e-12);
+        assert_eq!(n_nonpositive(l), 0);
+        let mut ot = BoundaryLayers::new(m.clone(), BoundaryLayersControls::default());
+        ot.create_o_topology_layers();
+        let oo = ot.add_layer_for_all_patches().unwrap();
+        let (one, _) = boundary_layers_add_layer(&m, &["walls", "inlet", "outlet"], &BoundaryLayersControls::default()).unwrap();
+        println!("B3 O-topology: {} cells ({} face cells)", ot.mesh.n_cells, oo.n_face_cells);
+        assert_eq!(ot.mesh.n_cells, 160);
+        assert_eq!((&ot.mesh.points, &ot.mesh.faces, &ot.mesh.owner), (&one.points, &one.faces, &one.owner));
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P3: on the pipe, each group's
+    /// displacement against the one-group route on that group alone.
+    #[test]
+    fn patch_wise_displacements_equal_the_one_group_route_on_the_pipe() {
+        let bare = bare_pipe(0.06, 0.006);
+        let mut bl = BoundaryLayers::new(bare.clone(), BoundaryLayersControls::default());
+        let o = bl.add_layer_for_all_patches().unwrap();
+        let l = &bl.mesh;
+        let nb: usize = bare.patches.iter().map(|p| p.n_faces).sum();
+        let v0 = bare.total_volume();
+        println!(
+            "P patch-wise: groups {:?}; bare {} cells, {nb} boundary faces; {} cells (face {}, edge {}, corner {}), unmatched {}, dV/V {:.3e}, non-positive {}",
+            o.groups,
+            bare.n_cells,
+            l.n_cells,
+            o.n_face_cells,
+            o.n_edge_cells,
+            o.n_corner_cells,
+            o.n_unmatched_boundary_faces,
+            (l.total_volume() - v0) / v0,
+            n_nonpositive(l)
+        );
+        let q = check_quality(l);
+        println!("  non-ortho {:.1}, skew {:.2}, neg pyramids {}", q.max_non_orthogonality_deg, q.max_skewness, q.n_negative_pyramid_faces);
+        println!("  edge classification (convex, concave) by patch pair: {:?} (patches {:?})", bl.edge_classification, bare.patches.iter().map(|p| p.name.clone()).collect::<Vec<_>>());
+        // why the rim edges are concave: the tet test and the angle, per edge
+        let engine = SurfaceEngine::new(&bare);
+        let (mut not_convex, mut wide, mut angles) = (0, 0, Vec::new());
+        for ef in &engine.edge_faces {
+            if ef.len() != 2 || engine.face_patches[ef[0]] == engine.face_patches[ef[1]] {
+                continue;
+            }
+            let (f1, f2) = (&engine.face_rings[ef[0]], &engine.face_rings[ef[1]]);
+            let a = angle_between_faces(&bare.points, f1, f2).unwrap();
+            angles.push(a.to_degrees());
+            not_convex += usize::from(!is_shared_edge_convex(&bare.points, f1, f2));
+            wide += usize::from(a > 0.75 * std::f64::consts::PI);
+        }
+        angles.sort_by(f64::total_cmp);
+        println!("  rim edges {}: not convex by the tet test {not_convex}, angle > 135° {wide}; angle min/median/max {:.1}/{:.1}/{:.1}°", angles.len(), angles[0], angles[angles.len() / 2], angles[angles.len() - 1]);
+        let (mut n_cmp, mut n_bit) = (0, 0);
+        for (key, g) in o.groups.iter().enumerate() {
+            let refs: Vec<&str> = g.iter().map(|s| s.as_str()).collect();
+            let (_, one) = boundary_layers_add_layer(&bare, &refs, &BoundaryLayersControls::default()).unwrap();
+            for lp in &one.points {
+                let pw = o.points.iter().find(|p| p.point == lp.point).expect("point in the patch-wise layer");
+                let d = pw.displacements[&key];
+                n_cmp += 1;
+                if d == lp.moved.sub(lp.wall) {
+                    n_bit += 1;
+                }
+            }
+        }
+        let (_, onew) = boundary_layers_add_layer(&bare, &["walls"], &BoundaryLayersControls::default()).unwrap();
+        let mut ow = bare.clone();
+        ow = boundary_layers_add_layer(&ow, &["walls"], &BoundaryLayersControls::default()).unwrap().0;
+        println!("  displacements bit for bit {n_bit} of {n_cmp}; one-group walls: {} points, non-positive {}", onew.points.len(), n_nonpositive(&ow));
+        assert_eq!(n_bit, n_cmp);
+        assert_eq!((o.n_corner_cells, o.n_unmatched_boundary_faces), (0, 0));
+        assert_eq!(l.n_cells, bare.n_cells + nb + o.n_edge_cells);
+        l.validate().unwrap();
+        assert!(((l.total_volume() - v0) / v0).abs() < 1e-5);
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P4: `addLayerForPatch` in
+    /// sequence on the six-patch box.
+    #[test]
+    fn add_layer_for_patch_in_sequence_on_the_box() {
+        let mut bl = BoundaryLayers::new(six_patch_box(0.25), BoundaryLayersControls::default());
+        bl.add_layer_for_patch("x0").unwrap().unwrap();
+        let n1 = bl.mesh.n_cells;
+        bl.add_layer_for_patch("y0").unwrap().unwrap();
+        let n2 = bl.mesh.n_cells;
+        assert!(bl.add_layer_for_patch("x0").unwrap().is_none());
+        println!("x0 then y0: {n1} then {n2} cells, V {:.15}", bl.mesh.total_volume());
+        assert_eq!((n1, n2), (80, 100));
+        bl.mesh.validate().unwrap();
+        assert!((bl.mesh.total_volume() - 1.0).abs() < 1e-12);
+        assert_eq!(bl.add_layer_for_patch("nowhere"), Err(BoundaryLayersError::UnknownPatch("nowhere".into())));
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P5: `addWrapperLayer`.
+    #[test]
+    fn wrapper_layer_has_zero_thickness() {
+        let mut bl = BoundaryLayers::new(six_patch_box(0.25), BoundaryLayersControls::default());
+        let n = bl.add_wrapper_layer();
+        let (vols, _) = crate::checks::cell_geometry(&bl.mesh);
+        let n_zero = vols.iter().filter(|v| v.abs() < 1e-15).count();
+        println!("wrapper: {n} layer cells, {} cells, {n_zero} of zero volume, V {:.15}", bl.mesh.n_cells, bl.mesh.total_volume());
+        assert_eq!((n, bl.mesh.n_cells, n_zero), (96, 160, 96));
+        assert!((bl.mesh.total_volume() - 1.0).abs() < 1e-12);
+        bl.mesh.validate().unwrap();
+        assert_eq!(bl.add_wrapper_layer(), 0);
+    }
+
+    /// V&V (gh:#1270 remainder), prediction P6:
+    /// `checkTopologyOfBoundaryFaces` with groups forced.
+    #[test]
+    fn check_topology_of_boundary_faces_on_forced_groups() {
+        let m = six_patch_box(0.25);
+        let mut bl = BoundaryLayers::new(m.clone(), BoundaryLayersControls::default());
+        bl.analyse();
+        let (x0, y0) = (m.patches.iter().position(|p| p.name == "x0").unwrap(), m.patches.iter().position(|p| p.name == "y0").unwrap());
+        bl.treat_with[x0] = vec![x0, y0];
+        bl.treat_with[y0] = vec![x0, y0];
+        assert_eq!(bl.check_topology_of_boundary_faces(&[x0]), Ok(0));
+        assert_eq!((&bl.mesh.points, &bl.mesh.faces), (&m.points, &m.faces));
+
+        let bare = bare_pipe(0.06, 0.006);
+        let mut bp = BoundaryLayers::new(bare.clone(), BoundaryLayersControls::default());
+        bp.analyse();
+        let (w, i) = (bare.patches.iter().position(|p| p.name == "walls").unwrap(), bare.patches.iter().position(|p| p.name == "inlet").unwrap());
+        bp.treat_with[w] = vec![w.min(i), w.max(i)];
+        bp.treat_with[i] = vec![w.min(i), w.max(i)];
+        let r = bp.check_topology_of_boundary_faces(&[w]);
+        println!("pipe, walls+inlet forced: {r:?}");
+        assert!(matches!(r, Err(BoundaryLayersError::CriticalNotTested { n_decomposed }) if n_decomposed > 0));
+    }
+
+    /// `isSharedEdgeConvex` and `angleBetweenFaces` by hand: two unit
+    /// squares at a convex 90° edge (angle π/2) and folded the other way
+    /// (concave, 3π/2).
+    #[test]
+    fn edge_convexity_by_hand() {
+        let p = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 0.0, 1.0), Vec3::new(1.0, 0.0, 1.0), Vec3::new(0.0, 0.0, -1.0), Vec3::new(1.0, 0.0, -1.0)];
+        // bottom face z = 0 wound down (outward -z of a body above), side
+        // face y = 0 wound outward -y: convex edge (0, 1)
+        let bottom = [0, 3, 2, 1];
+        let side = [0, 1, 5, 4];
+        assert!(is_shared_edge_convex(&p, &bottom, &side));
+        assert!((angle_between_faces(&p, &bottom, &side).unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+        let fold = [1, 7, 6, 0];
+        assert!(!is_shared_edge_convex(&p, &bottom, &fold));
+        println!("folded angle {}", angle_between_faces(&p, &bottom, &fold).unwrap());
+        assert!((angle_between_faces(&p, &bottom, &fold).unwrap() - 1.5 * std::f64::consts::PI).abs() < 1e-12);
     }
 }
