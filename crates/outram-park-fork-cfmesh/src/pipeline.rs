@@ -93,7 +93,7 @@ use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
 use crate::dual::{polyhedral_dual, polyhedral_dual_min_faces, polyhedral_dual_per_point_with, DualKind, FeaturePointRule};
-use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh, BoundaryLayerOptimisationControls};
+use crate::boundary_layer_optimisation::{add_boundary_layers_cfmesh_on_surface, BoundaryLayerOptimisationControls};
 use crate::layers::{add_boundary_layers_back_off, LayerOutcome, LayerQualityStrategy};
 use crate::snappy_layers::{add_boundary_layers_snappy, SnappyLayerControls};
 use crate::math::Vec3;
@@ -247,6 +247,17 @@ pub struct TetDualOptions {
     /// **Off by default** (the recorded meshes are unchanged). Ignored
     /// unless [`Self::feature_edges`] is on.
     pub untangle_surface: bool,
+    /// **cfMesh's `optimiseFinalMesh`** (gh:#1283,
+    /// [`crate::final_mesh::optimise_final_mesh`]), for
+    /// [`surface_to_tet_dual_mesh_multipatch`] only: `optimizeSurface`,
+    /// `optimizeMeshFV`, `optimizeLowQualityFaces`, `untangleMeshFV`, with
+    /// the boundary moves, Laplace pass, LP untangler and projection that
+    /// [`Self::cfmesh_layer_optimisation`] sets. On a mesh with no
+    /// `CfMeshOptimise` layer it runs after the feature-edge capture; the
+    /// `CfMeshOptimise` layer stage runs it itself, and with this on it also
+    /// starts with `optimizeSurface`, as upstream. The result is kept only
+    /// if valid. **Off by default** (the recorded meshes are unchanged).
+    pub optimise_final_mesh: bool,
     /// **How the layer stage meets upstream's mesh-quality limits**
     /// (gh:#1215): [`LayerQualityStrategy::BackOffOnly`] (the default, this
     /// crate's global uniform back-off, unchanged),
@@ -295,6 +306,7 @@ impl Default for TetDualOptions {
             feature_edges: true,
             correct_edges: false,
             untangle_surface: false,
+            optimise_final_mesh: false,
             layer_strategy: LayerQualityStrategy::BackOffOnly,
             snappy_layers: SnappyLayerControls::default(),
             cfmesh_layer_optimisation: BoundaryLayerOptimisationControls::default(),
@@ -338,11 +350,15 @@ pub struct TetDualReport {
 }
 
 /// Grow the layers on `patches` with `opts.layer_strategy` (gh:#1215).
-fn grow_layers(mesh: &VolumeMesh, patches: &[&str], opts: &TetDualOptions) -> (VolumeMesh, LayerOutcome) {
+fn grow_layers(mesh: &VolumeMesh, patches: &[&str], opts: &TetDualOptions, surface: Option<(&[Vec3], &[[usize; 3]], &SurfaceRegions)>) -> (VolumeMesh, LayerOutcome) {
     let (n, t, e) = (opts.n_layers, opts.first_layer_thickness.max(1e-6), opts.expansion.max(1.0));
     match opts.layer_strategy {
         LayerQualityStrategy::BackOffOnly => add_boundary_layers_back_off(mesh, patches, n, t, e),
-        LayerQualityStrategy::CfMeshOptimise => add_boundary_layers_cfmesh(mesh, patches, n, t, e, &opts.cfmesh_layer_optimisation),
+        LayerQualityStrategy::CfMeshOptimise => {
+            // gh:#1283: optimiseFinalMesh starts with optimizeSurface.
+            let c = BoundaryLayerOptimisationControls { optimize_surface_first: opts.cfmesh_layer_optimisation.optimize_surface_first || opts.optimise_final_mesh, ..opts.cfmesh_layer_optimisation.clone() };
+            add_boundary_layers_cfmesh_on_surface(mesh, patches, n, t, e, &c, surface)
+        }
         LayerQualityStrategy::SnappyCollapse => add_boundary_layers_snappy(mesh, patches, n, t, e, &opts.snappy_layers),
     }
 }
@@ -732,6 +748,20 @@ fn run_pipeline(
         }
     }
 
+    // Stage 6c — cfMesh's optimiseFinalMesh on the bare mesh (gh:#1283),
+    // unless the CfMeshOptimise layer stage will run it.
+    let cfmesh_layers = opts.n_layers > 0 && opts.layer_strategy == LayerQualityStrategy::CfMeshOptimise;
+    if let (true, false, Some(regions)) = (opts.optimise_final_mesh, cfmesh_layers, regions) {
+        let mut optimised = mesh.clone();
+        let n = crate::final_mesh::optimise_final_mesh(&mut optimised, points, tris, regions, &opts.cfmesh_layer_optimisation);
+        notes.extend(n);
+        let (m, kept) = keep_if_ok(mesh, optimised);
+        mesh = m;
+        if !kept {
+            notes.push("optimiseFinalMesh skipped — it would invalidate the mesh".into());
+        }
+    }
+
     // Stage 7 — adaptive prism boundary layers on the wall patch.
     let mut layer_outcome: Option<LayerOutcome> = None;
     let selective = regions.filter(|_| !opts.layer_patches.is_empty());
@@ -747,7 +777,7 @@ fn run_pipeline(
                 if n_layer_faces == 0 {
                     notes.push(format!("boundary layers skipped — no boundary face is on {:?}", opts.layer_patches));
                 } else {
-                    let (layered, outcome) = grow_layers(&named, &names, opts);
+                    let (layered, outcome) = grow_layers(&named, &names, opts, Some((points, tris, regions)));
                     let before = mesh.cell_count();
                     let (m, kept) = keep_if_ok(mesh, layered);
                     mesh = m;
@@ -775,7 +805,7 @@ fn run_pipeline(
                 opts.wall_patch
             ));
         } else {
-            let (layered, outcome) = grow_layers(&mesh, &[opts.wall_patch.as_str()], opts);
+            let (layered, outcome) = grow_layers(&mesh, &[opts.wall_patch.as_str()], opts, regions.map(|r| (points, tris, r)));
             // The adaptive layerer already backs off to a valid mesh, but it can
             // return the input rebuilt (no layers) when the wall is too tight;
             // either way `acceptable` keeps only a valid result.
@@ -1692,7 +1722,7 @@ pub(crate) mod tests {
         let hex = crate::patches::assign_patches_by_region(&carve_box(&bp, &bt, 0.005), &bp, &bt, &br).unwrap();
         let (back, bo) = crate::layers::add_boundary_layers_back_off(&hex, &["walls"], 3, 3e-4, 1.2);
         let (snap, so) = add_boundary_layers_snappy(&hex, &["walls"], 3, 3e-4, 1.2, &SnappyLayerControls::default());
-        let (cfm, co) = add_boundary_layers_cfmesh(&hex, &["walls"], 3, 3e-4, 1.2, &BoundaryLayerOptimisationControls::default());
+        let (cfm, co) = crate::boundary_layer_optimisation::add_boundary_layers_cfmesh(&hex, &["walls"], 3, 3e-4, 1.2, &BoundaryLayerOptimisationControls::default());
         assert_eq!(bo.full_coverage(), 1.0);
         assert_eq!((so.full_coverage(), so.iterations, so.collapsed_point_fraction()), (1.0, 1, 0.0), "{:?}", so.notes);
         assert_eq!(mesh_fingerprint(&snap), mesh_fingerprint(&back), "snappy = back-off on a good duct");

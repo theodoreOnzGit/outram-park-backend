@@ -285,6 +285,7 @@ pub mod boundary_layer_optimisation;
 pub mod object_refinement;
 pub mod octree;
 pub mod patches;
+pub mod final_mesh;
 pub mod pipeline;
 pub mod reactor;
 pub mod shapes;
