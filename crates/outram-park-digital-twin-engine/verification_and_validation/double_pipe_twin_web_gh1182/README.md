@@ -1,9 +1,11 @@
 # Double-pipe twin browser demo (gh:#1182): record
 
 Rung 5 of epic gh:#1177. This is a browser demo of the high-fidelity to low-fidelity
-twin of the laminar double-pipe exchanger. It runs in `dhoby-ghaut`
+twin of the laminar double-pipe exchanger. It runs in ~~`dhoby-ghaut`~~
+`outram-park-digital-twin-engine` (**MOVED 2026-11-05** with this record, its
+example and its page, (maintainer, 2026-11-05: "if web examples live in dhoby ghaut, and this causes the dependency cycle, let the web examples deploy from digital twin engine instead"))
 (`examples/double_pipe_twin_web/`, `web/double_pipe_twin/`) and is published at
-`demos/double-pipe-twin/`.
+`demos/double-pipe-twin/` (unchanged).
 
 **Research, education and V&V only.** This is an AI draft and has not been reviewed. It
 validates nothing new: every calibrated number it shows comes from gh:#1180 / #1190 /
@@ -53,6 +55,10 @@ Generated on 2026-11-04 at commit `eab3fa739` plus this change's generator:
 ```
 cargo run --release -p dhoby-ghaut --example double_pipe_twin_web -- --generate-artefacts
 ```
+
+(As run, from `dhoby-ghaut`. Since 2026-11-05 the same generator is
+`cargo run --release -p outram-park-digital-twin-engine --example double_pipe_twin_web -- --generate-artefacts`;
+not re-run since the move.)
 
 The run took 1114 s: the MFK took 122 s, the KOH calibration 722 s and the grid
 predictive 270 s. Its stdout is `generate_stdout_2026-11-04.txt` and its log is
@@ -121,7 +127,7 @@ These are pinned against the committed files by tests (section 5):
 
 ## 5. Checks run
 
-**Tests** (`cargo test --release -p dhoby-ghaut --example double_pipe_twin_web -j 2`):
+**Tests** (`cargo test --release -p dhoby-ghaut --example double_pipe_twin_web -j 2`; since 2026-11-05 `-p outram-park-digital-twin-engine`):
 11 passed.
 - `artefacts`: the grid holds every design point; the committed files parse and are
   ordered (harness bounds); P-B is confidently wrong in the committed trace.

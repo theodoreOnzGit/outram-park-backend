@@ -1,6 +1,6 @@
 //! The page: an egui app that only draws (the engine is elsewhere).
 //!
-//! Built on `dhoby_ghaut::web_demo` (the side panel that folds, the main
+//! Built on `bugis::web_demo` (the side panel that folds, the main
 //! view's zoom buttons, the link to the engine) and drawn with the
 //! digital-twin engine's widget library (`PipeVisual`, `ValveVisual`,
 //! `InstrumentationVisual`, `TemperatureLegend`, its hot-to-cold colour map).
@@ -15,10 +15,10 @@ use crate::physics::core::RINGS;
 use crate::physics::params::*;
 use crate::physics::{Frame, Mode, Unit, EVENTS};
 use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, StrokeKind, Vec2};
-use dhoby_ghaut::web_demo::link::Link;
-use dhoby_ghaut::web_demo::panel::Panel;
-use dhoby_ghaut::web_demo::platform::{query_pairs, query_value, set_title};
-use dhoby_ghaut::web_demo::view::{apply_zoom, zoom_buttons, View};
+use bugis::web_demo::link::Link;
+use bugis::web_demo::panel::Panel;
+use bugis::web_demo::platform::{query_pairs, query_value, set_title};
+use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 use outram_park_digital_twin_engine::components::{

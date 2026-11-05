@@ -60,7 +60,8 @@ early, in-vessel H2 ~3x low~~ **CORRECTED 2026-11-02** (checked against
 lower head ~2 h early (5.48 h against 7.45-17.16 h) and the building
 explosion never happening; in-vessel H2 at 25 h is inside its band
 (`bwr_mark1::compare`; `cargo run --release -p
-dhoby-ghaut --example fukushima_web -- --compare`). **Still does not exist:**
+~~dhoby-ghaut~~ outram-park-digital-twin-engine --example fukushima_web -- --compare`,
+the example moved there 2026-11-05). **Still does not exist:**
 ~~MCCI, aerosol physics, in-plant fission-product transport,~~ (**CORRECTED
 2026-11-02**: MCCI, sectional aerosol physics and in-plant fission-product
 transport exist since 2026-10-29: `cavity`, `rn_volume`, `containment_fp`) a general

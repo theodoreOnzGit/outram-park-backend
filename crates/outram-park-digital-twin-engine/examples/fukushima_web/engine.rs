@@ -1,6 +1,6 @@
 //! The physics engine, off the UI thread (the "no lagging" rule): natively a
 //! thread, in the browser a Web Worker running the same wasm module, both
-//! through `dhoby_ghaut::web_demo::link`. The page only draws.
+//! through `bugis::web_demo::link`. The page only draws.
 //!
 //! ## Parallelism, after the CIET Educational Simulator's browser demo
 //!
@@ -45,8 +45,8 @@ use crate::physics::containment::ContainmentResult;
 use crate::physics::core::{Core, CoreResult, CoreSnapshot};
 use crate::physics::wire::{Reader, Writer};
 use crate::physics::{ContainmentWorker, Frame, Mechanisms, Mode, Plant, PlantContainment, Unit};
-use dhoby_ghaut::web_demo::link::Floats;
-use dhoby_ghaut::web_demo::platform::now_s;
+use bugis::web_demo::link::Floats;
+use bugis::web_demo::platform::now_s;
 
 /// Longest a tick steps before answering, ms (a frame's worth, so the page
 /// hears often even when the physics cannot keep up).
@@ -353,7 +353,7 @@ pub fn decode_frame(v: &[f64]) -> Frame {
 // ─── Natively: one engine thread, the parts stepped inline ────────────────
 
 #[cfg(not(target_arch = "wasm32"))]
-impl dhoby_ghaut::web_demo::link::NativeEngine for Runner {
+impl bugis::web_demo::link::NativeEngine for Runner {
     type Req = Request;
     type Ev = Event;
     fn handle(&mut self, req: Request, post: &mut impl FnMut(Event)) {
@@ -375,7 +375,7 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for Runner {
 /// The three-worker step natively, on the existing engine threads
 /// (`link::start_native`; no new threading machinery), to time it against
 /// the inline step (gh:#1099, maintainer's request). Each solver is a
-/// [`NativeEngine`](dhoby_ghaut::web_demo::link::NativeEngine) answering
+/// [`NativeEngine`](bugis::web_demo::link::NativeEngine) answering
 /// [`solve`]; the plant thread sends both requests, then polls both links
 /// until both replies are in, as the browser's plant worker waits for its
 /// two workers. The link's engine loop sleeps 3 ms when it finds no
@@ -384,7 +384,7 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for Runner {
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native_workers {
     use super::*;
-    use dhoby_ghaut::web_demo::link::{start_native, Link, NativeEngine};
+    use bugis::web_demo::link::{start_native, Link, NativeEngine};
 
     /// One solver worker natively: role 0 core, 1 containment.
     pub struct Solver {
@@ -474,7 +474,7 @@ pub mod native_workers {
 #[cfg(target_arch = "wasm32")]
 pub mod web {
     use super::*;
-    use dhoby_ghaut::web_demo::link::{js, Message, Poster, WorkerEngine};
+    use bugis::web_demo::link::{js, Message, Poster, WorkerEngine};
     use std::sync::{Arc, RwLock};
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::{JsCast as _, JsValue};
@@ -633,7 +633,7 @@ pub mod web {
             let w = web_sys::Worker::new_with_options(WORKER_JS, &opts).map_err(|e| format!("{e:?}"))?;
             let st = state.clone();
             // `Closure<dyn FnMut>` is wasm-bindgen's only callback type: a
-            // framework boundary, as in dhoby-ghaut's link.
+            // framework boundary, as in the web-demo framework's link (`bugis::web_demo::link`).
             let on_msg = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
                 if ev.data().is_string() {
                     let go = st.write().map(|mut r| {

@@ -16,16 +16,16 @@
 
 use crate::artefacts::{self, Artefacts, CfdPoint, GridRow, TraceStep, K_LEVELS, L_LEVELS, N_RE};
 use crate::engine::{Event, Operating, Point, Request, Slice};
-use dhoby_ghaut::web_demo::link::Link;
-use dhoby_ghaut::web_demo::panel::Panel;
-use dhoby_ghaut::web_demo::platform::{now_s, set_title};
-use dhoby_ghaut::web_demo::view::{apply_zoom, zoom_buttons, View};
+use bugis::web_demo::link::Link;
+use bugis::web_demo::panel::Panel;
+use bugis::web_demo::platform::{now_s, set_title};
+use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
 use egui::{Color32, Pos2, Rect, RichText, Sense, Shape, Stroke, StrokeKind, Vec2};
 
 type TLink = Link<Request, Event>;
 
 /// The V&V records the panel links.
-pub const RECORD_URL: &str = "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/README.md";
+pub const RECORD_URL: &str = "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_twin_web_gh1182/README.md";
 pub const KOH_URL: &str = "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_koh_gh1180.md";
 pub const FILTER_URL: &str = "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-park-digital-twin-engine/verification_and_validation/double_pipe_filtering_gh1191.md";
 /// The CFD itself, live, in Foam Studio on the same site.
@@ -489,13 +489,13 @@ impl TwinApp {
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<TLink, String> = {
             let ctx = cc.egui_ctx.clone();
-            Ok(dhoby_ghaut::web_demo::link::start_native(
+            Ok(bugis::web_demo::link::start_native(
                 crate::engine::Engine::default(),
                 move || ctx.request_repaint(),
             ))
         };
         #[cfg(target_arch = "wasm32")]
-        let link = dhoby_ghaut::web_demo::link::start_web::<Request, Event>(
+        let link = bugis::web_demo::link::start_web::<Request, Event>(
             cc.egui_ctx.clone(),
             "./worker.js",
             |m| Event::Error { id: 0, message: m },
@@ -504,8 +504,8 @@ impl TwinApp {
             Ok(l) => (Some(l), None),
             Err(e) => (None, Some(e)),
         };
-        let q = dhoby_ghaut::web_demo::platform::query_pairs();
-        let get = |k: &str| dhoby_ghaut::web_demo::platform::query_value(&q, k);
+        let q = bugis::web_demo::platform::query_pairs();
+        let get = |k: &str| bugis::web_demo::platform::query_value(&q, k);
         let mut app = Self {
             theme: bugis::Theme::default(),
             link,

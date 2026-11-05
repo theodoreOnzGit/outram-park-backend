@@ -1,5 +1,14 @@
 //! **Fukushima Daiichi Unit 1 station-blackout demo** (AI draft, 2026-10-21).
 //!
+//! **MOVED AGAIN 2026-11-05** (maintainer: "if web examples live in dhoby
+//! ghaut, and this causes the dependency cycle, let the web examples deploy
+//! from digital twin engine instead") from `dhoby-ghaut` to
+//! `outram-park-digital-twin-engine`, with its web page
+//! (`web/fukushima/`): dhoby-ghaut's dev-dependency on this engine closed a
+//! publish-time cycle with the engine's dependency on dhoby-ghaut. The
+//! published URL (`demos/fukushima/`) is unchanged; `dhoby_ghaut::web_demo` paths
+//! became `bugis::web_demo` (the module dhoby-ghaut re-exported).
+//!
 //! A GE BWR/3 with isolation condensers in a Mark I containment, from the
 //! earthquake's scram through the station blackout, core damage, hydrogen,
 //! venting and the reactor-building explosion, after the recorded sequence or
@@ -16,12 +25,12 @@
 //! prefix; the model, the engine and its tests are unchanged.
 //!
 //! ```text
-//! cargo run --release -p dhoby-ghaut --example fukushima_web
-//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --headless 108000 600
-//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --compare   # BSAF table (gh:#1032)
-//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --headless 108000 600 --lumped-containment
-//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --bench-workers [skip] [steps]   # gh:#1099
-//! crates/dhoby-ghaut/web/fukushima/build.sh      # the browser demo, into dist/
+//! cargo run --release -p outram-park-digital-twin-engine --example fukushima_web
+//! cargo run --release -p outram-park-digital-twin-engine --example fukushima_web -- --headless 108000 600
+//! cargo run --release -p outram-park-digital-twin-engine --example fukushima_web -- --compare   # BSAF table (gh:#1032)
+//! cargo run --release -p outram-park-digital-twin-engine --example fukushima_web -- --headless 108000 600 --lumped-containment
+//! cargo run --release -p outram-park-digital-twin-engine --example fukushima_web -- --bench-workers [skip] [steps]   # gh:#1099
+//! crates/outram-park-digital-twin-engine/web/fukushima/build.sh      # the browser demo, into dist/
 //! ```
 //!
 //! The browser build is published, password-gated, at `demos/fukushima/` on
@@ -102,7 +111,7 @@ fn main() -> Result<(), String> {
         Box::new(|cc| {
             bugis::Theme::default().apply(&cc.egui_ctx); // Gruvbox Dark (`bugis`)
             let ctx = cc.egui_ctx.clone();
-            let link = dhoby_ghaut::web_demo::link::start_native(engine::Runner::default(), move || ctx.request_repaint());
+            let link = bugis::web_demo::link::start_native(engine::Runner::default(), move || ctx.request_repaint());
             Ok(Box::new(app::App::new(link)))
         }),
     )
@@ -120,7 +129,7 @@ fn main() {
         match scope.name().as_str() {
             "core" => engine::web::solver_main(0),
             "containment" => engine::web::solver_main(1),
-            _ => dhoby_ghaut::web_demo::link::worker_main::<engine::Runner>(),
+            _ => bugis::web_demo::link::worker_main::<engine::Runner>(),
         }
         return;
     }
@@ -144,7 +153,7 @@ fn main() {
                 web_options,
                 Box::new(|cc| {
                     bugis::Theme::default().apply(&cc.egui_ctx); // Gruvbox Dark (`bugis`)
-                    let link = dhoby_ghaut::web_demo::link::start_web(cc.egui_ctx.clone(), engine::web::WORKER_JS, engine::Event::Error)?;
+                    let link = bugis::web_demo::link::start_web(cc.egui_ctx.clone(), engine::web::WORKER_JS, engine::Event::Error)?;
                     Ok(Box::new(app::App::new(link)))
                 }),
             )

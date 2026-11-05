@@ -172,7 +172,7 @@ impl Engine {
     /// # Errors
     /// A wall conductivity TUAS cannot represent, or a TUAS error.
     pub fn slice(&self, id: u32, at: Operating) -> Result<Slice, String> {
-        let t0 = dhoby_ghaut::web_demo::platform::now_s();
+        let t0 = bugis::web_demo::platform::now_s();
         let (point, mut evaluations) = self.point(&at.input_at(at.re_hot.get::<ratio>()), 1)?;
         let mut sweep = Vec::with_capacity(N_SWEEP);
         for re in sweep_re() {
@@ -185,7 +185,7 @@ impl Engine {
             at: at.to_si(),
             point,
             sweep,
-            ms: (dhoby_ghaut::web_demo::platform::now_s() - t0) * 1e3,
+            ms: (bugis::web_demo::platform::now_s() - t0) * 1e3,
             evaluations,
         })
     }
@@ -245,7 +245,7 @@ pub fn headless_csv(at: Operating) -> Result<String, String> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl dhoby_ghaut::web_demo::link::NativeEngine for Engine {
+impl bugis::web_demo::link::NativeEngine for Engine {
     type Req = Request;
     type Ev = Event;
     fn handle(&mut self, req: Request, post: &mut impl FnMut(Event)) {
@@ -254,13 +254,13 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for Engine {
 }
 
 #[cfg(target_arch = "wasm32")]
-impl dhoby_ghaut::web_demo::link::WorkerEngine for Engine {
+impl bugis::web_demo::link::WorkerEngine for Engine {
     type Req = Request;
     type Ev = Event;
     fn handle(
         state: &std::sync::Arc<std::sync::RwLock<Self>>,
         req: Request,
-        post: dhoby_ghaut::web_demo::link::Poster<Event>,
+        post: bugis::web_demo::link::Poster<Event>,
     ) {
         if let Ok(mut e) = state.write() {
             e.serve(req, &mut |ev| post.post(ev));
@@ -371,7 +371,7 @@ impl Event {
 #[cfg(target_arch = "wasm32")]
 mod web {
     use super::{Event, Request};
-    use dhoby_ghaut::web_demo::link::{js, Message};
+    use bugis::web_demo::link::{js, Message};
     use wasm_bindgen::JsValue;
 
     fn wrap(d: &[f64], text: &str) -> JsValue {

@@ -17,8 +17,10 @@
 //! gh:#1191's committed `traces.csv`; both are read as they are.
 //!
 //! The record (methodology, provenance, the regenerated held-out numbers
-//! against gh:#1180's and gh:#1190's): `crates/dhoby-ghaut/
-//! verification_and_validation/double_pipe_twin_web_gh1182/README.md`.
+//! against gh:#1180's and gh:#1190's): ~~`crates/dhoby-ghaut/...`~~
+//! `crates/outram-park-digital-twin-engine/verification_and_validation/
+//! double_pipe_twin_web_gh1182/README.md` (moved with this example from
+//! dhoby-ghaut, 2026-11-05).
 
 // The generator's writers and the native tests' fields are unused in the
 // browser build.
@@ -39,7 +41,7 @@ pub const THETA_CSV: &str = include_str!(
     "../../verification_and_validation/double_pipe_twin_web_gh1182/koh_theta_samples.csv"
 );
 /// gh:#1191's committed filtering traces (the twin engine's V&V folder).
-pub const TRACES_CSV: &str = include_str!("../../../outram-park-digital-twin-engine/verification_and_validation/double_pipe_filtering_gh1191/traces.csv");
+pub const TRACES_CSV: &str = include_str!("../../verification_and_validation/double_pipe_filtering_gh1191/traces.csv");
 
 /// Grid points along each Reynolds number.
 pub const N_RE: usize = 9;

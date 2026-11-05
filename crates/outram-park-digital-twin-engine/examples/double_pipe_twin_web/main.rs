@@ -3,15 +3,24 @@
 //! corrected toward the conjugate-heat-transfer CFD by the Kennedy–O'Hagan
 //! calibration of gh:#1180 (η + δ, with its interval), beside the CFD design
 //! points (gh:#1178), the co-kriging sweep (gh:#1190) and the filtering
-//! traces (gh:#1191). Built on `dhoby_ghaut::web_demo` (side panel, view,
+//! traces (gh:#1191). Built on `bugis::web_demo` (side panel, view,
 //! zoom buttons, worker plumbing); published at `demos/double-pipe-twin/`
 //! (`web/double_pipe_twin/`).
 //!
+//! **MOVED 2026-11-05** (maintainer: "if web examples live in dhoby
+//! ghaut, and this causes the dependency cycle, let the web examples deploy
+//! from digital twin engine instead") from `dhoby-ghaut` to
+//! `outram-park-digital-twin-engine`, with its web page
+//! (`web/double_pipe_twin/`): dhoby-ghaut's dev-dependency on this engine closed a
+//! publish-time cycle with the engine's dependency on dhoby-ghaut. The
+//! published URL (`demos/double-pipe-twin/`) is unchanged; `dhoby_ghaut::web_demo` paths
+//! became `bugis::web_demo` (the module dhoby-ghaut re-exported).
+//!
 //! ```text
-//! cargo run -p dhoby-ghaut --example double_pipe_twin_web --release
-//! cargo run -p dhoby-ghaut --example double_pipe_twin_web --release -- --headless
-//! cargo run -p dhoby-ghaut --example double_pipe_twin_web --release -- --generate-artefacts [dir]
-//! cargo test -p dhoby-ghaut --example double_pipe_twin_web --release
+//! cargo run -p outram-park-digital-twin-engine --example double_pipe_twin_web --release
+//! cargo run -p outram-park-digital-twin-engine --example double_pipe_twin_web --release -- --headless
+//! cargo run -p outram-park-digital-twin-engine --example double_pipe_twin_web --release -- --generate-artefacts [dir]
+//! cargo test -p outram-park-digital-twin-engine --example double_pipe_twin_web --release
 //! ```
 //!
 //! - **Physics**: none written here. The live 1-D is the twin engine's
@@ -85,7 +94,7 @@ fn main() {
         .dyn_ref::<web_sys::DedicatedWorkerGlobalScope>()
         .is_some()
     {
-        dhoby_ghaut::web_demo::link::worker_main::<engine::Engine>();
+        bugis::web_demo::link::worker_main::<engine::Engine>();
         return;
     }
     let web_options = eframe::WebOptions {

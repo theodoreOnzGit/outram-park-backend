@@ -4,8 +4,12 @@
 # directory (default web/fukushima/dist/). scripts/build-pages.sh calls this
 # to publish it on the backend GitHub Pages site under demos/fukushima/.
 #
-#   crates/dhoby-ghaut/web/fukushima/build.sh [out-dir]
-#   python3 -m http.server -d crates/dhoby-ghaut/web/fukushima/dist 8000
+#   crates/outram-park-digital-twin-engine/web/fukushima/build.sh [out-dir]
+#   python3 -m http.server -d crates/outram-park-digital-twin-engine/web/fukushima/dist 8000
+#
+# MOVED 2026-11-05 from crates/dhoby-ghaut/web/ with its example (maintainer:
+# "let the web examples deploy from digital twin engine instead"); the
+# published path under demos/ is unchanged.
 #
 # The demo is PASSWORD-GATED by the workspace's one shared gate,
 # crates/outram-park-digital-twin-engine/web/gate.js (copied in at build
@@ -29,7 +33,7 @@ if [[ "$have" != "$want" ]]; then
 fi
 
 cd "$root"
-cargo build --release --target wasm32-unknown-unknown -p dhoby-ghaut --example fukushima_web
+cargo build --release --target wasm32-unknown-unknown -p outram-park-digital-twin-engine --example fukushima_web
 
 rm -rf "$dist"
 mkdir -p "$dist"

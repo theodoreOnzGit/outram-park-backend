@@ -4,8 +4,12 @@
 # web/double_pipe_twin/dist/). scripts/build-pages.sh calls this to publish it on the
 # backend GitHub Pages site under demos/double-pipe-twin/.
 #
-#   crates/dhoby-ghaut/web/double_pipe_twin/build.sh [out-dir]
-#   python3 -m http.server -d crates/dhoby-ghaut/web/double_pipe_twin/dist 8000
+#   crates/outram-park-digital-twin-engine/web/double_pipe_twin/build.sh [out-dir]
+#   python3 -m http.server -d crates/outram-park-digital-twin-engine/web/double_pipe_twin/dist 8000
+#
+# MOVED 2026-11-05 from crates/dhoby-ghaut/web/ with its example (maintainer:
+# "let the web examples deploy from digital twin engine instead"); the
+# published path under demos/ is unchanged.
 #
 # Needs the wasm32-unknown-unknown target and the wasm-bindgen CLI at EXACTLY
 # the version Cargo.lock pins for the wasm-bindgen crate. Release build
@@ -28,7 +32,7 @@ if [[ "$have" != "$want" ]]; then
 fi
 
 cd "$root"
-cargo build --release --target wasm32-unknown-unknown -p dhoby-ghaut --example double_pipe_twin_web
+cargo build --release --target wasm32-unknown-unknown -p outram-park-digital-twin-engine --example double_pipe_twin_web
 
 rm -rf "$dist"
 mkdir -p "$dist"

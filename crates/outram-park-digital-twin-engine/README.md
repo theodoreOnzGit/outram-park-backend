@@ -247,6 +247,21 @@ cargo run --release --example ciet_web -- --headless 600 10 8   # CSV trace, 8 k
 crates/outram-park-digital-twin-engine/web/ciet/build.sh        # the browser demo
 ```
 
+### Two more browser demos, moved from `dhoby-ghaut` (2026-11-05)
+
+`fukushima_web` (the Fukushima Daiichi Unit 1 station blackout, plant model
+`sembawang::bwr_mark1`, published password-gated at `demos/fukushima/`) and
+`double_pipe_twin_web` (the double-pipe high-to-low-fidelity twin, gh:#1182,
+`demos/double-pipe-twin/`, record
+[`verification_and_validation/double_pipe_twin_web_gh1182/`](verification_and_validation/double_pipe_twin_web_gh1182/README.md))
+moved here with their `web/` pages (maintainer, 2026-11-05: "if web examples live in dhoby ghaut, and this causes the dependency cycle, let the web examples deploy from digital twin engine instead"). Both are
+built on `bugis::web_demo`; the published URLs are unchanged.
+
+```bash
+crates/outram-park-digital-twin-engine/web/fukushima/build.sh
+crates/outram-park-digital-twin-engine/web/double_pipe_twin/build.sh
+```
+
 Documentation:
 
 - [`src/bin/ciet_educational_simulator_v2/README.md`](src/bin/ciet_educational_simulator_v2/README.md)
