@@ -17,6 +17,8 @@
 //     (findBadFaces, findBadFacesRelaxed, findLowQualityFaces,
 //      checkFaceDotProduct, checkFaceSkewness, checkFacePyramids,
 //      checkFaceFlatness, checkCellPartTetrahedra, checkFaceAreas)
+//   meshLibrary/utilities/smoothers/geometry/meshOptimizer/
+//     meshOptimizerOptimizeSurface.C (optimizeSurface; gh:#1259)
 // Source: the cfMesh v1.1 line as carried by github.com/DAFoam/cfmesh, commit
 // e944f6ba695fcefce73ad306074f6b3c0ea432ae (2026-02-17). The crate's other
 // files cite wyldckat/cfMesh 6cf1d211f9cf (v1.0, 2014), which has no
@@ -1505,6 +1507,23 @@ pub fn optimize_mesh_near_boundaries(mesh: &mut VolumeMesh, locked: &[bool], max
             break;
         }
     }
+    rep
+}
+
+/// cfMesh `meshOptimizer::optimizeSurface(octree)` (gh:#1259):
+/// `meshSurfaceOptimizer::optimizeSurface()` on the boundary of `mesh`
+/// (boundary face `f` in surface region `face_region[f]`), then every
+/// boundary point mapped back onto its patches
+/// (`mapVerticesOntoSurfacePatches`). Opt-in: no default path calls it.
+pub fn optimize_surface(
+    mesh: &mut VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &crate::patches::SurfaceRegions,
+    face_region: &[Option<usize>],
+) -> crate::surface_optimizer::UntangleReport {
+    let rep = crate::surface_optimizer::optimise_mesh_surface(mesh, points, tris, regions, face_region);
+    *mesh = crate::surface_mapper::map_vertices_onto_surface_patches_given(mesh, points, tris, regions, face_region);
     rep
 }
 

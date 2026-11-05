@@ -60,7 +60,10 @@ use crate::patches::{assign_patches_by_region, SurfaceRegions};
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
 use crate::correct_edges::correct_edges_between_patches;
-use crate::surface_mapper::{boundary_face_regions, map_vertices_onto_surface_patches_untangled, map_vertices_onto_surface_patches_untangled_given, map_vertices_onto_surface_untangled};
+use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
+use crate::surface_mapper::{map_vertices_onto_surface_patches_given, SurfaceQueries};
+use crate::surface_optimizer::{map_mesh_to_surface, optimise_mesh_surface, MeshSurfaceOptimizer, UntangleReport};
+use crate::topology::{surface_morpher_cells, topological_cleaner, TopoMesh};
 use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
 use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
 use crate::volume_mesh::VolumeMesh;
@@ -79,19 +82,16 @@ pub struct TetMeshOptions {
     pub rename_boundary: Option<RenameBoundary>,
     /// `enforceGeometryConstraints` (upstream default `false`).
     pub enforce_geometry_constraints: bool,
-    /// Passes of the revert loop that stands in for `untangleSurface`.
-    pub untangle_passes: usize,
 }
 
 impl Default for TetMeshOptions {
-    /// `maxCellSize` 1, upstream's defaults elsewhere, 10 revert passes.
+    /// `maxCellSize` 1, upstream's defaults elsewhere.
     fn default() -> Self {
         TetMeshOptions {
             dict: MeshDict::with_max_cell_size(1.0),
             workflow: WorkflowSettings::default(),
             rename_boundary: None,
             enforce_geometry_constraints: false,
-            untangle_passes: 10,
         }
     }
 }
@@ -129,10 +129,44 @@ pub struct TetMeshReport {
     pub n_tets: usize,
     /// Reads upstream leaves undefined (zero on every recorded run).
     pub creator_defects: TetCreatorDefects,
-    /// Boundary points whose surface projection was reverted.
-    pub n_projection_reverted: usize,
-    /// Boundary points whose patch mapping was reverted.
-    pub n_edge_mapping_reverted: usize,
+    /// Passes of `surfacePreparation` (the morpher, then the cleaner while
+    /// it changes the mesh).
+    pub n_surface_preparation_passes: usize,
+    /// Cells `surfaceMorpherCells` removed, over all passes.
+    pub n_cells_removed_by_morpher: usize,
+    /// Inverted boundary points `untangleSurface` left after the projection.
+    pub n_inverted_after_projection: usize,
+    /// Inverted boundary points left after `optimiseMeshSurface`.
+    pub n_inverted_after_edge_extraction: usize,
+}
+
+/// The surface region of every boundary face of `m`, from its patch name
+/// (`None` for internal faces). With one region, every boundary face is in
+/// it (the whole boundary is one patch before `extractPatches`).
+fn face_regions(m: &VolumeMesh, reg: &SurfaceRegions) -> Vec<Option<usize>> {
+    let mut out = vec![None; m.face_count()];
+    for p in &m.patches {
+        let r = reg.names.iter().position(|n| *n == p.name).or(if reg.names.len() == 1 { Some(0) } else { None });
+        for x in out.iter_mut().skip(p.start_face).take(p.n_faces) {
+            *x = r;
+        }
+    }
+    out
+}
+
+/// `meshSurfaceOptimizer(mse, octree).untangleSurface()` (2 additional
+/// layers) on `m`'s boundary, the second untangle of `pMesh`'s
+/// `optimiseMeshSurface`.
+fn untangle_again(m: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, given: &[Option<usize>]) -> (VolumeMesh, UntangleReport) {
+    let mut out = m.clone();
+    let q = SurfaceQueries::new(points, tris, reg);
+    let unassigned = reg.names.len();
+    let patch_of: Vec<usize> = given.iter().map(|r| r.unwrap_or(unassigned)).collect();
+    let engine = SurfaceEngine::from_parts(&out.points, &out.faces, &out.owner, &out.neighbour, &patch_of);
+    let part = SurfacePartitioner::new(&engine);
+    let mut opt = MeshSurfaceOptimizer::new(engine, part, Some(q));
+    let rep = opt.untangle_surface(&mut out.points, 2);
+    (out, rep)
 }
 
 /// Which template the shared generator builds.
@@ -183,6 +217,9 @@ pub(crate) fn run_generator(
         return Err(format!("maxCellSize must be > 0 (got {})", opts.dict.max_cell_size));
     }
     let o = create_octree(points, tris, regions, &opts.dict);
+    // without named regions the surface is one patch
+    let single = SurfaceRegions::single("defaultFaces", tris.len());
+    let reg = regions.unwrap_or(&single);
     let meta = saved.map(|s| s.meta.clone()).unwrap_or_default();
     let mut w = WorkflowControls::new(opts.workflow, meta);
     let mut rep = TetMeshReport {
@@ -195,8 +232,10 @@ pub(crate) fn run_generator(
         template_volume: 0.0,
         n_tets: 0,
         creator_defects: TetCreatorDefects::default(),
-        n_projection_reverted: 0,
-        n_edge_mapping_reverted: 0,
+        n_surface_preparation_passes: 0,
+        n_cells_removed_by_morpher: 0,
+        n_inverted_after_projection: 0,
+        n_inverted_after_edge_extraction: 0,
     };
     let mut mesh: Option<VolumeMesh> = None;
     let mut types: Vec<String> = Vec::new();
@@ -246,18 +285,40 @@ pub(crate) fn run_generator(
         }
         let m = mesh.as_mut().ok_or("no mesh: the workflow resumed after a step that saved none")?;
         match step {
-            WorkflowStep::SurfaceTopology => rep.notes.push(match kind {
-                Template::Tet => "surfaceTopology: surfaceMorpherCells + topologicalCleaner not ported (topology track); skipped".into(),
-                Template::Voronoi => "surfaceTopology: surfaceMorpherCells not ported (topology track); skipped".into(),
-            }),
+            WorkflowStep::SurfaceTopology => {
+                // surfacePreparation: tetMesh repeats surfaceMorpherCells
+                // while topologicalCleaner changes the mesh; pMesh runs the
+                // morpher once
+                let mut w = TopoMesh::from_volume_mesh(m);
+                let mut passes = 0;
+                let mut removed = 0;
+                loop {
+                    passes += 1;
+                    let sm = surface_morpher_cells(&mut w).map_err(|e| format!("surfaceMorpherCells: {e:?}"))?;
+                    removed += sm.n_cells_removed;
+                    if kind == Template::Voronoi || !topological_cleaner(&mut w).changed {
+                        break;
+                    }
+                }
+                let (mm, _) = w.into_volume_mesh();
+                *m = mm;
+                types = vec!["patch".to_string(); m.patches.len()];
+                rep.n_surface_preparation_passes = passes;
+                rep.n_cells_removed_by_morpher = removed;
+                rep.notes.push(format!(
+                    "surfaceTopology: {} ({passes} passes, {removed} cells removed by the morpher)",
+                    if kind == Template::Tet { "surfaceMorpherCells + topologicalCleaner" } else { "surfaceMorpherCells" }
+                ));
+            }
             WorkflowStep::SurfaceProjection => {
                 if kind == Template::Voronoi {
                     rep.notes.push("surfaceProjection: meshSurfaceMapper::preMapVertices not ported (surface track); skipped".into());
                 }
-                let (mm, n) = map_vertices_onto_surface_untangled(m, points, tris, opts.untangle_passes);
+                // mapVerticesOntoSurface, then untangleSurface
+                let (mm, u) = map_mesh_to_surface(m, points, tris, reg);
                 *m = mm;
-                rep.n_projection_reverted = n;
-                rep.notes.push(format!("surfaceProjection: mapVerticesOntoSurface; untangleSurface not ported, {n} boundary points reverted instead"));
+                rep.n_inverted_after_projection = u.n_inverted_last;
+                rep.notes.push(format!("surfaceProjection: mapVerticesOntoSurface + untangleSurface: inverted points {} -> {}", u.n_inverted_first, u.n_inverted_last));
             }
             WorkflowStep::PatchAssignment => match regions {
                 Some(r) => {
@@ -265,54 +326,57 @@ pub(crate) fn run_generator(
                     types = vec!["patch".to_string(); m.patches.len()];
                     rep.notes.push("patchAssignment: edgeExtractor not ported; nearest-triangle patches (patches::assign_patches_by_region)".into());
                 }
-                None => rep.notes.push("patchAssignment: no regions given; one patch defaultFaces".into()),
+                None => rep.notes.push("patchAssignment: no regions given; one patch".into()),
             },
             WorkflowStep::EdgeExtraction => {
-                match (regions, kind) {
-                    (Some(r), Template::Tet) => {
-                        // meshSurfaceEdgeExtractorNonTopo, ported as the
-                        // crate pipeline runs it: decomposeBoundaryFaces
-                        // (correctEdgesBetweenPatches), then
-                        // remapBoundaryPoints on the patches it kept
-                        let given = boundary_face_regions(m, points, tris, r);
-                        let (corrected, given, cr) = correct_edges_between_patches(m, &given, &r.names);
-                        let (mm, n) = map_vertices_onto_surface_patches_untangled_given(&corrected, points, tris, r, opts.untangle_passes, &given);
-                        *m = mm;
-                        types = vec!["patch".to_string(); m.patches.len()];
-                        rep.n_edge_mapping_reverted = n;
-                        rep.notes.push(format!(
-                            "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids; {n} points reverted",
-                            cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
-                        ));
-                    }
-                    (Some(r), Template::Voronoi) => {
-                        let (mm, n) = map_vertices_onto_surface_patches_untangled(m, points, tris, r, opts.untangle_passes);
-                        *m = mm;
-                        rep.n_edge_mapping_reverted = n;
-                        rep.notes.push(format!("edgeExtraction: meshSurfaceEdgeExtractorFUN not ported; surface_mapper's patch mapping stands in ({n} points reverted)"));
-                    }
-                    (None, _) => {}
+                let mut given = face_regions(m, reg);
+                if let (Some(r), Template::Tet) = (regions, kind) {
+                    // meshSurfaceEdgeExtractorNonTopo: decomposeBoundaryFaces
+                    // (correctEdgesBetweenPatches), then remapBoundaryPoints
+                    let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
+                    given = g;
+                    *m = map_vertices_onto_surface_patches_given(&corrected, points, tris, r, &given);
+                    types = vec!["patch".to_string(); m.patches.len()];
+                    rep.notes.push(format!(
+                        "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
+                        cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
+                    ));
+                } else if let Some(r) = regions {
+                    *m = map_vertices_onto_surface_patches_given(m, points, tris, r, &given);
+                    rep.notes.push("edgeExtraction: meshSurfaceEdgeExtractorFUN not ported; surface_mapper's patch mapping stands in".into());
                 }
-                rep.notes.push("edgeExtraction: meshSurfaceOptimizer::optimizeSurface not ported (surface track); skipped".into());
+                // optimiseMeshSurface (pMesh untangles once more after it)
+                let u = optimise_mesh_surface(m, points, tris, reg, &given);
+                let mut last = u.n_inverted_last;
+                if kind == Template::Voronoi {
+                    let (mm, u2) = untangle_again(m, points, tris, reg, &given);
+                    *m = mm;
+                    last = u2.n_inverted_last;
+                }
+                rep.n_inverted_after_edge_extraction = last;
+                rep.notes.push(format!("edgeExtraction: optimiseMeshSurface: inverted points {} -> {last}", u.n_inverted_first));
             }
             WorkflowStep::BoundaryLayerGeneration => rep.notes.push("boundaryLayerGeneration: no boundaryLayers dict; nothing to do".into()),
             WorkflowStep::MeshOptimisation => {
+                let given = face_regions(m, reg);
                 if kind == Template::Voronoi {
-                    rep.notes.push("meshOptimisation: meshSurfaceOptimizer::optimizeSurface not ported (surface track); skipped".into());
+                    // meshSurfaceOptimizer::optimizeSurface on its own
+                    optimise_mesh_surface(m, points, tris, reg, &given);
                 }
                 let mut opt = MeshOptimizer::new(m);
                 if opts.enforce_geometry_constraints {
                     opt.set_enforce_constraints("badPoints");
                 }
                 if kind == Template::Tet {
-                    rep.notes.push("meshOptimisation: meshOptimizer::optimizeSurface not ported (surface track); skipped".into());
+                    // meshOptimizer::optimizeSurface(octree)
+                    crate::mesh_optimizer::optimize_surface(m, points, tris, reg, &given);
                 }
                 let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
                 let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
                 let r2 = opt.optimize_low_quality_faces(m, 10);
                 let r3 = opt.untangle_mesh_fv(m, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
                 rep.notes.push(format!(
-                    "meshOptimisation: optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer: no layers",
+                    "meshOptimisation: optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer: no layers",
                     r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
                 ));
             }

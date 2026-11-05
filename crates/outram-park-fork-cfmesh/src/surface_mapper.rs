@@ -54,7 +54,10 @@
 //! vertex lands on a feature edge)~~ **UPDATED 2026-11-05 (gh:#1241):**
 //! `correctEdgesBetweenPatches` is ported in [`crate::correct_edges`] and
 //! runs before this stage when `TetDualOptions::correct_edges` is on
-//! (off by default). Not ported: the surface untangler that follows;
+//! (off by default). ~~Not ported: the surface untangler that follows;~~
+//! **UPDATED 2026-11-05 (gh:#1259):** the untangler is
+//! [`crate::surface_optimizer::MeshSurfaceOptimizer`], used instead of the
+//! revert when `TetDualOptions::untangle_surface` is on (off by default);
 //! the pipeline keeps the mapped mesh only if it is valid, and says so
 //! otherwise.
 //!
@@ -84,6 +87,20 @@ pub fn map_vertices_onto_surface_patches(
     map_impl(mesh, points, tris, regions, None)
 }
 
+/// [`map_vertices_onto_surface_patches`] with the patch of every boundary
+/// face given (`face_region[f]`, `None` for internal faces), with nothing
+/// undone afterwards: upstream's `mapVerticesOntoSurfacePatches` as
+/// `meshSurfaceEdgeExtractorNonTopo::remapBoundaryPoints` runs it.
+pub fn map_vertices_onto_surface_patches_given(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    face_region: &[Option<usize>],
+) -> VolumeMesh {
+    map_impl(mesh, points, tris, regions, Some(face_region))
+}
+
 /// The patch of every boundary face by its nearest surface triangle (the
 /// rule [`map_vertices_onto_surface_patches`] uses), `None` for internal
 /// faces: the assignment cfMesh's `edgeExtractor` would hand
@@ -101,7 +118,7 @@ pub fn boundary_face_regions(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize;
 /// (`findNearestSurfacePointInRegion`, `findNearestEdgePoint`); here they
 /// are brute force, as before.
 #[derive(Debug, Clone)]
-pub(crate) struct SurfaceQueries {
+pub struct SurfaceQueries {
     points: Vec<Vec3>,
     tris: Vec<[usize; 3]>,
     region_tris: Vec<Vec<usize>>,
@@ -110,7 +127,7 @@ pub(crate) struct SurfaceQueries {
 }
 
 impl SurfaceQueries {
-    pub(crate) fn new(points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Self {
+    pub fn new(points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Self {
         let n_regions = regions.names.len();
         let mut region_tris: Vec<Vec<usize>> = vec![Vec::new(); n_regions];
         let mut edge_tris: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
@@ -323,10 +340,12 @@ fn map_impl(
 ///
 /// This stands in for ~~the two upstream steps that are not ported:
 /// `correctEdgesBetweenPatches`, which re-splits a face lying on a feature
-/// edge, and~~ `meshSurfaceOptimizer::untangleSurface`, which is not ported
+/// edge, and~~ `meshSurfaceOptimizer::untangleSurface`~~, which is not ported~~
 /// (**UPDATED 2026-11-05, gh:#1241:** `correctEdgesBetweenPatches` is now
 /// [`crate::correct_edges`], run before this when
-/// `TetDualOptions::correct_edges` is on). Where upstream repairs
+/// `TetDualOptions::correct_edges` is on; **gh:#1259:** `untangleSurface`
+/// is now [`crate::surface_optimizer`], the pipeline's alternative to this
+/// function under `TetDualOptions::untangle_surface`). Where upstream repairs
 /// the face, this leaves that bit of the boundary where the dual put it.
 pub fn map_vertices_onto_surface_patches_untangled(
     mesh: &VolumeMesh,

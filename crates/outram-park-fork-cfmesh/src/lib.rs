@@ -296,6 +296,7 @@ pub mod tet_creator_octree;
 pub mod tet_mesh_extractor_octree;
 pub mod rename_boundary_patches;
 pub mod renumber_mesh;
+pub mod topology;
 pub mod voronoi_mesh_extractor;
 pub mod volume_mesh;
 pub mod workflow_controls;

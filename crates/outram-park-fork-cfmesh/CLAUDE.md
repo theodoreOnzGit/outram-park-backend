@@ -111,6 +111,24 @@ default); change one, change the other. Comparison and recommendation: the gh:#1
 `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 Changing the default needs the maintainer.
 
+## The mesh surface: one engine, never another boundary map (gh:#1257, 2026-11-05)
+
+`surface_engine::SurfaceEngine` is cfMesh's `meshSurfaceEngine` (serial):
+boundary faces, points, edges, `pointFaces`, `pointPoints`, `edgeFaces`,
+`faceEdges`, point/face normals and face centres, and the modifier.
+`SurfacePartitioner` is `meshSurfacePartitioner` (corners, edge points,
+feature edges, `pointPatches`). `layers::layer_setup`, `correct_edges`,
+`surface_mapper` and `boundary_layer_optimisation`'s hairs read their
+boundary maps from it; **a new stage that needs boundary addressing uses
+the engine, it does not build its own map.** `surface_optimizer` holds
+`partTriMesh`, `surfaceOptimizer`, `meshSurfaceCheckInvertedVertices`
+(gh:#1258) and `meshSurfaceOptimizer` (gh:#1259), opt-in through
+`TetDualOptions::untangle_surface` and
+`BoundaryLayerOptimisationControls::optimise_surface` (both off by
+default; changing that needs the maintainer). Note (gh:#1258): by cfMesh's
+inverted-vertex test 40 % of the median/cell-centre duals' boundary points
+are reflex corners of non-convex boundary polygons before any mapping.
+
 ## cfMesh's octree, ported beside `octree.rs` (gh:#1262–#1266, 2026-11-05)
 
 `mesh_octree` (cubes, slot, surface intersections), `mesh_octree_queries`,
@@ -120,7 +138,10 @@ Changing the default needs the maintainer.
 **not** replace `octree.rs`, whose fingerprint pin must not move. Keep both
 routes callable: on the same leaves, `cartesian_mesh_extractor` and
 `octree::build_mesh` build the same faces ring for ring (pinned). The
-`decomposeCells` step is shared with `correct_edges` (`decompose_cells`);
+`decomposeCells` step is shared with `correct_edges` (`decompose_cells`;
+**MOVED 2026-11-05, gh:#1267:** it now lives in `topology::decompose_cells`,
+which `correct_edges`, `cartesian_mesh` and the `topology` checks all call,
+pinned by `correct_edges::tests::correct_edges_is_pinned_bit_for_bit`);
 change it once. Upstream's `findNearestSurfacePoint` is not exact;
 `NearestSearch::Exact` is the port's exact variant. Record and images:
 `verification_and_validation/cartesian_octree_gh1262/`.

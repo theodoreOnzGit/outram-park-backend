@@ -235,6 +235,18 @@ pub struct TetDualOptions {
     /// defaults) are unchanged until the maintainer decides. Ignored unless
     /// [`Self::feature_edges`] is on.
     pub correct_edges: bool,
+    /// **cfMesh's `meshSurfaceOptimizer` in the feature-edge capture**
+    /// (gh:#1259): instead of undoing the moves that tangle a cell
+    /// (`revert_tangled`), run upstream's surface steps in
+    /// `tetMeshGenerator`'s order: `mapMeshToSurface` (every boundary point
+    /// to the surface, then `untangleSurface`,
+    /// [`crate::surface_optimizer::map_mesh_to_surface`]), the patch
+    /// mapping (`mapVerticesOntoSurfacePatches`, after
+    /// [`Self::correct_edges`] when that is on), then `optimiseMeshSurface`
+    /// (`optimizeSurface`, [`crate::surface_optimizer::optimise_mesh_surface`]).
+    /// **Off by default** (the recorded meshes are unchanged). Ignored
+    /// unless [`Self::feature_edges`] is on.
+    pub untangle_surface: bool,
     /// **How the layer stage meets upstream's mesh-quality limits**
     /// (gh:#1215): [`LayerQualityStrategy::BackOffOnly`] (the default, this
     /// crate's global uniform back-off, unchanged),
@@ -282,6 +294,7 @@ impl Default for TetDualOptions {
             layer_patches: Vec::new(),
             feature_edges: true,
             correct_edges: false,
+            untangle_surface: false,
             layer_strategy: LayerQualityStrategy::BackOffOnly,
             snappy_layers: SnappyLayerControls::default(),
             cfmesh_layer_optimisation: BoundaryLayerOptimisationControls::default(),
@@ -648,7 +661,37 @@ fn run_pipeline(
     // onto the surface patches and their feature edges after the volume mesh
     // exists and before the layers (`tetMeshGenerator::generateMesh`:
     // `mapMeshToSurface`, `mapEdgesAndCorners`, then `generateBoudaryLayers`).
-    if let (true, Some(regions)) = (opts.feature_edges && opts.dual, regions) {
+    if let (true, true, Some(regions)) = (opts.feature_edges && opts.dual, opts.untangle_surface, regions) {
+        // gh:#1259: upstream's surface steps, nothing reverted.
+        let (pre, r1) = crate::surface_optimizer::map_mesh_to_surface(&mesh, points, tris, regions);
+        let given = crate::surface_mapper::boundary_face_regions(&pre, points, tris, regions);
+        let (corrected, given) = if opts.correct_edges {
+            let (c, g, rep) = crate::correct_edges::correct_edges_between_patches(&pre, &given, &regions.names);
+            notes.push(format!(
+                "correctEdgesBetweenPatches: {} concave faces, {} boundary faces split, {} faces fanned for connections, {} cells into pyramids",
+                rep.n_concave_faces, rep.n_patch_corrected_faces, rep.n_connection_faces, rep.n_decomposed_cells
+            ));
+            (c, g)
+        } else {
+            (pre, given)
+        };
+        let mut mapped = crate::surface_mapper::map_vertices_onto_surface_patches_given(&corrected, points, tris, regions, &given);
+        let r2 = crate::surface_optimizer::optimise_mesh_surface(&mut mapped, points, tris, regions, &given);
+        notes.push(format!(
+            "untangleSurface (mapMeshToSurface): inverted points {} -> {} in {} passes; optimizeSurface's untangleSurface: {} -> {}",
+            r1.n_inverted_first, r1.n_inverted_last, r1.passes, r2.n_inverted_first, r2.n_inverted_last
+        ));
+        if opts.correct_edges && !crate::surface_mapper::cells_with_nonpositive_pyramids(&mapped).is_empty() {
+            let locked = vec![false; mapped.point_count()];
+            let r = crate::mesh_optimizer::untangle_mesh_fv(&mut mapped, &locked, 10, 50, 2, false);
+            notes.push(format!("correctEdgesBetweenPatches: untangleMeshFV {} -> {} bad faces in {} passes", r.flagged_before, r.flagged_after, r.iterations));
+        }
+        let (m, kept) = keep_if_ok(mesh, mapped);
+        mesh = m;
+        if !kept {
+            notes.push("feature-edge capture (untangleSurface) skipped — the mapped and smoothed boundary would invalidate the mesh".into());
+        }
+    } else if let (true, Some(regions)) = (opts.feature_edges && opts.dual, regions) {
         let (mapped, n_reverted) = if opts.correct_edges {
             // tetMeshGenerator::mapEdgesAndCorners: correctEdgesBetweenPatches,
             // then mapVerticesOntoSurfacePatches on the patches it kept.

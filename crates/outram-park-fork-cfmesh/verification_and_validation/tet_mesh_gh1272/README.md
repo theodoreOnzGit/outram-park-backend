@@ -192,3 +192,23 @@ See the `pipeline::tet_mesh` docs for the step-by-step table.
   (`BOUNDARY`) leaves (finding above). Kept as upstream.
 - `workflowControls` records each step twice in `completedSteps`, and a
   `stopAfter` of the last step never triggers. Kept.
+
+## Re-measurement after the topology and surface tracks landed
+
+gh:#1267 (`surfaceMorpherCells`, `topologicalCleaner`) and gh:#1259
+(`meshSurfaceOptimizer`: `untangleSurface`, `optimizeSurface`,
+`meshOptimizer::optimizeSurface`) merged into the branch after the run
+above. The workflow now calls them in upstream's places, and
+`remapBoundaryPoints` maps without reverting (upstream has no revert; the
+untangler follows it). The table above stays as the record of the run with
+the gaps.
+
+**Predictions (written 2026-11-05, before the re-run):**
+
+- R1. `surfacePreparation` removes the 288 tets in BOUNDARY leaves and the
+  boundary cells with all points on the boundary; after it, no
+  non-manifold boundary point is left.
+- R2. All cells positive and the mesh closed on both cases.
+- R3. Volume error within ±3 % on the sphere and ±2 % on the pipe (the
+  boundary now reaches the surface).
+- R4. `untangleSurface` leaves 0 inverted points after the projection.
