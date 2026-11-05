@@ -29,8 +29,14 @@ exactly as if it were here.
 | publishing, upgrading dependencies, or needing consolidation history | [`docs/workspace-maintenance.md`](docs/workspace-maintenance.md) |
 | wanting the reasoning and worked examples behind a rule | [`docs/claude-md-rationale/`](docs/claude-md-rationale/) |
 
-Each member crate has its own `CLAUDE.md` and, where relevant, a `docs/`
-folder. **The crate's own file is the authority for that crate.**
+Each member crate has its own agent instructions and, where relevant, a
+`docs/` folder. **The crate's own instructions are the authority for that
+crate.** Since 2026-11-05 (maintainer: "every crate should use this
+structure") they live in the crate's **`AGENTS.md`**, which binds every
+agent, Claude included; the crate's `CLAUDE.md` is a short pointer whose
+`@AGENTS.md` line imports it. **Edit a crate's rules in its `AGENTS.md`,
+never in its `CLAUDE.md`.** A link elsewhere to `crates/<crate>/CLAUDE.md`
+still reaches the rules through that pointer.
 
 ## Scope boundary: this file governs `outram-park-backend` ONLY — never a parent folder (HARD RULE)
 
@@ -887,13 +893,14 @@ README states:
 - the **research, education and V&V only** banner from `RESPONSIBLE_USE.md`;
 - the **Bookkeeping status** table (both axes unchecked).
 
-The same change also adds the crate's own `CLAUDE.md`, the member line in the
+The same change also adds the crate's own `AGENTS.md` (its rules) and the
+standard `CLAUDE.md` pointer importing it (copy any crate's), the member line in the
 root `Cargo.toml`, its row in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md),
 its row in `docs/ecosystem-naming.md` when it is a named domain, and updates
 every member **count** in this file. `crates/bishan/` is the placeholder
 pattern: `Cargo.toml`, `src/lib.rs` with a `SCOPE` constant and one test,
-`README.md` and `CLAUDE.md`.
+`README.md`, `AGENTS.md` and the `CLAUDE.md` pointer.
 
 ## Literature and the Kovan corpus (brief)
 
