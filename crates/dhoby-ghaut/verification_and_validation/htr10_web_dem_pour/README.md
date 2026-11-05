@@ -32,6 +32,95 @@ In `monte_carlo_web`'s HTR-10 whole core (`?rung=htr10&mode=watch&view=core`), t
 
 **The cap** (`max_pebbles`, 30 687): the conus and tube's 2 457 (the reference pour's count below the floor), plus a core filled at a fresh pour's measured whole-core φ 0.5954 (`htr10_fill::seed_loose`'s doc) up to the 95 % line. It is a prediction; the cut in step 1 backs it.
 
-## Methodology and results
+**Diagnostics after the pour** (maintainer, 2026-11-05: "Post pour, give diagnostics like packing fraction and rdf graph"). `pour::diagnostics` runs in the worker once a pour settles, or on "Measure". It gives:
+- the whole-core φ, gh:#216's instrument against the published 0.61;
+- the vessel bulk φ;
+- g(r) of the core pebbles by `outram_park_fork_liggghts::rdf`, the same instrument as `bed_rdf_check`: r_max 5 d, 250 bins, the bed's own cylinder. r_max is stepped down to 2.5 d only for a bed too shallow to put 200 centres 5 d from every face.
 
-See below; predictions were written first in `PREDICTION.md`.
+The panel prints these values beside the reference bed's, and draws g(r) with the reference's √2 d, √3 d and 2 d points marked.
+
+## Methodology
+
+Predictions were written first, in `PREDICTION.md`.
+
+1. **Unit tests** (`cargo test --release -p dhoby-ghaut --example monte_carlo_web -- pour random_bed`, 11 tests). They check:
+   - the cap from the reference CSV;
+   - the cut and the fuel rule;
+   - the wire round-trip;
+   - the page's chunk protocol;
+   - the pool sends each worker the bed before its rebuild;
+   - a handed-over pour builds cell for cell as the baked bed does;
+   - the review images are written.
+
+   `the_diagnostics_reproduce_the_reference_bed` runs the diagnostics on the reference pour and compares them with its recorded figures.
+2. **The cap, natively.** `htr10_fresh_fill --n 30687 --threads 3`, the page's maximum, made into a bed at 57 % fuel and drawn with `monte_carlo_web --render-pour` (`images/`). g(r) is by `bed_rdf_check`.
+3. **The browser, end to end.** Headless Chromium 141 with SwiftShader, driven by `nuclear_data_cache_web/run_headless_932.mjs`:
+   - `?rung=htr10&mode=watch&view=core&autostart&pour=4000&workers=2`: pour, use, then two workers process the data, build the core on the pour and run k_eff generations;
+   - `pour=30687` for 300 s, to sample the browser's cost per step at the cap;
+   - `pour=8000` with the diagnostics build.
+
+**Hardware, for every timing:** a cloud container with 4 vCPU (Intel Xeon, model not exposed) and 15 GiB, rustc 1.99.1, release build. **The machine was shared** between the runs: load average 6–11, with the native pour on 3 threads, the browser runs and a build of the other demos. Every time is an upper bound for an idle machine.
+
+## Results (2026-11-05)
+
+**Unit tests: 11 passed.** On the reference pour the diagnostics give:
+
+| quantity | recorded | measured |
+|---|---|---|
+| whole-core φ | 0.604688 | 0.6047 |
+| g(√2 d) | 0.599 | 0.599 |
+| g(√3 d) | 1.286 | 1.286 |
+| g(2 d) | 1.190 | 1.190 |
+| contact peak | 19.56 | 19.56 |
+
+1.3 s natively, one thread.
+
+**A first r_max rule was replaced.** The first version reduced r_max until a third of the core's centres were interior. On the reference bed that chose 4.25 d and gave g(2 d) = 1.120. It was not the reference's instrument, so it was replaced by the rule above.
+
+**The cap pour, natively** (`native_max_pour_30687.log`):
+
+| quantity | predicted | measured |
+|---|---|---|
+| surface (99th pct + r) | 205–215 cm | **206.37 cm**, under the 210.73 cm line |
+| whole-core φ | 0.59–0.60 | **0.6074**, outside the range |
+| steps to settle | 25 000–40 000 | **32 000** |
+| cost per step, 3 threads | 15–20 ms | **36 ms** on average (shared machine) |
+| wall time | 10–20 min | **20.3 min** (1 145 s) |
+| pebbles cut at the line | 0–300 | **7** |
+
+- **φ came out above the predicted range.** The pour packs denser than the fresh 16 890-pebble pour the cap assumed (0.5954), so the cap leaves 4 cm spare under the line, rather than overshooting.
+- **The bed made from it:** 28 195 core pebbles, 16 071 of them fuel (57.0 %), top 210.6 cm.
+- **g(r)** (`bed_rdf_check`): contact peak 19.47, g(√2 d) 0.594, g(√3 d) 1.299, g(2 d) 1.187. This is a random packing, as the reference is.
+- **Images, checked by eye** (`images/`):
+  - `pour_core_xz.png`: the bed fills the cavity to its top with a helium gap under the top reflector; the conus and the discharge tube are full; the reflector, boronated bricks and bottom structures sit where the baked bed's images have them.
+  - `pour_bed_xz.png`: whole pebbles, no overlaps visible, fuel pebbles (with TRISO) mixed through the height.
+  - `pour_fuel_pebble_xy.png`: one fuel pebble, TRISO packed at random, all whole inside the fuel zone.
+  - **Not checked:** the control-rod channels (no slice cuts a rod).
+
+**The browser, end to end** (`headless_pour4000_end_to_end.json`, exit 0):
+- **The pour:** 4 000 pebbles settled at 20 722 steps in **242 s** wall, at 9.6–10 ms per step. Bulk φ 0.597. The whole-core φ of 0.443 is low because the bed is only 2.5 diameters deep (the 4 000-pebble case in the DEM demo's record shows the same).
+- **The bed:** 1 536 core pebbles, 875 fuel (57.0 %), top 17.4 cm.
+- **Processing and assembly:** the two workers processed the 36 jobs with no cache and built the core on the pour. Each took 46 s to assemble, 38 s of it the majorant. Their wasm memory was 446 and 685 MB. Assembly finished 644 s after the pool started.
+- **The run:** generations 0–3 gave k = 0.187, 0.175, 0.204, 0.190. A 17 cm bed is far from critical; these numbers show the poured core transports, and are not a physics result.
+- **Responsiveness:** the main-thread probe's worst answer was 756 ms, and the worst frame gap 450 ms, with 1 863 frames over 100 ms of 14 661. These were measured on the shared machine with SwiftShader software rendering; the DEM demo's record attributes most of such time to the browser's own rasterising. **This does not demonstrate the no-lag rule.** A clean measurement on an idle machine with a GPU is still owed.
+
+**The browser at the cap** (300 s sample, `pour=30687`, one worker; `headless_pour30687_300s.json`):
+- 12 006 steps in 255 s;
+- 18 ms per step while the pebbles fall loose, rising to 36 ms as they pack;
+- the worst probe answer 410 ms and the worst frame gap 233 ms.
+
+Assuming the dense phase keeps the native pour's step count (32 000) at about 40 ms, a full-cap pour in this browser takes about **20–25 min**. This is an extrapolation, not a measured settle.
+
+## WGSL
+
+The maintainer said "Use WGSL from the LIGGGHTS fork if it needs speed up". This change **does not add a GPU timestep**:
+- **Nothing to reuse.** The fork's only WGSL kernel is the g(r) histogram, which is native-only. Its timestep deliberately has no GPU path: it is kept bit-identical to the scalar reference, which reproduces upstream LIGGGHTS (`outram-park-fork-liggghts/CLAUDE.md`, `compute`'s docs).
+- **What one would take.** A GPU timestep would be new physics code with its own verification (shear history on the GPU, agreement with the CPU path to be shown statistically rather than bit for bit).
+- **The case for it.** A full core pours in the browser in about 20–25 min (extrapolated above); 4 000 pebbles take 4 min.
+- **Next step.** The decision is gh:#1250, for the maintainer.
+
+## Not done here
+
+- No pour-to-pour scatter of k.
+- No k_eff on a full poured core in the browser.
+- The no-lag measurement on an idle machine.
