@@ -30,6 +30,7 @@
 //! **JAMA's singular value decomposition**, in JAMA's rounding order
 //! (gh:#1192). Matrices are `Vec<Vec<f64>>`, Java's `double[][]`.
 
+use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 
 /// A Java `double[][]`.
@@ -233,8 +234,8 @@ pub fn svd(arg: &[Vec<f64>]) -> Result<JamaSvd> {
     }
 
     let pp = p - 1;
-    let eps = 2.0_f64.powi(-52);
-    let tiny = 2.0_f64.powi(-966);
+    let eps = 2.0_f64.r_powi(-52);
+    let tiny = 2.0_f64.r_powi(-966);
     while p > 0 {
         let mut k: i64 = p as i64 - 2;
         while k >= -1 {

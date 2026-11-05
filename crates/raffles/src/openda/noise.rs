@@ -36,6 +36,7 @@
 //! **OpenDA's Gaussian uncertainty** (`StochVector`) and the source of its
 //! random draws (gh:#1192).
 
+use petir::mathf::RealMath;
 use super::jama::Rows;
 use super::linalg;
 use crate::distributions::seeded::sample_normal;
@@ -254,7 +255,7 @@ impl StochVector {
         }
         let mut prob = 1.0;
         for t in &diff {
-            prob *= (0.5 / std::f64::consts::PI).sqrt() * (-0.5 * t * t).exp();
+            prob *= (0.5 / std::f64::consts::PI).sqrt() * (-0.5 * t * t).r_exp();
         }
         Ok(prob / sqrt_det_cov)
     }

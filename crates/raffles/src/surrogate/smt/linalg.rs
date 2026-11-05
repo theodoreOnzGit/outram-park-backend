@@ -16,6 +16,8 @@
 
 /// Solves `L z = b` for lower-triangular `L`.
 #[must_use]
+use petir::mathf::RealMath;
+
 pub fn forward(l: &[Vec<f64>], b: &[f64]) -> Vec<f64> {
     let n = b.len();
     let mut z = vec![0.0; n];
@@ -103,7 +105,7 @@ pub fn householder_qr(a: &[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
             taus[j] = 0.0;
             continue;
         }
-        let norm = alpha.hypot(xnorm);
+        let norm = alpha.r_hypot(xnorm);
         let beta = if alpha >= 0.0 { -norm } else { norm };
         taus[j] = (beta - alpha) / beta;
         let scale = 1.0 / (alpha - beta);

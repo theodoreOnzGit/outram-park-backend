@@ -42,6 +42,7 @@
 //! squared-exponential covariance, the log-likelihood, the log prior and the
 //! predictive distribution of (δ, η) at new x.
 
+use petir::mathf::RealMath;
 use super::data::{pairwise_sum, KohData};
 use crate::bayesian::transitional::cholesky;
 use crate::{RafflesError, Result};
@@ -145,14 +146,14 @@ impl ParamPrior {
             }
             PriorDist::Gamma { a, b } => {
                 for v in x {
-                    lp += (a - 1.0) * v.ln() - b * v;
+                    lp += (a - 1.0) * v.r_ln() - b * v;
                 }
                 lp
             }
             PriorDist::BetaRho { a, b } => {
                 for v in x {
-                    let rho = (-0.25 * v).exp().min(0.999);
-                    lp += (a - 1.0) * rho.ln() + (b - 1.0) * (1.0 - rho).ln();
+                    let rho = (-0.25 * v).r_exp().min(0.999);
+                    lp += (a - 1.0) * rho.r_ln() + (b - 1.0) * (1.0 - rho).r_ln();
                 }
                 lp
             }
@@ -214,7 +215,7 @@ pub fn cov_self(a: &[Vec<f64>], beta: &[f64], lamz: f64) -> Vec<Vec<f64>> {
     for i in 0..n {
         c[i][i] = 1.0 / lamz;
         for j in i + 1..n {
-            let v = (-sq_dot(&a[i], &a[j], beta)).exp() / lamz;
+            let v = (-sq_dot(&a[i], &a[j], beta)).r_exp() / lamz;
             c[i][j] = v;
             c[j][i] = v;
         }
@@ -225,7 +226,7 @@ pub fn cov_self(a: &[Vec<f64>], beta: &[f64], lamz: f64) -> Vec<Vec<f64>> {
 /// `SepiaDistCov(a, b).compute_cov_mat(beta, lamz)`: the cross covariance.
 #[must_use]
 pub fn cov_cross(a: &[Vec<f64>], b: &[Vec<f64>], beta: &[f64], lamz: f64) -> Vec<Vec<f64>> {
-    a.iter().map(|ai| b.iter().map(|bj| (-sq_dot(ai, bj, beta)).exp() / lamz).collect()).collect()
+    a.iter().map(|ai| b.iter().map(|bj| (-sq_dot(ai, bj, beta)).r_exp() / lamz).collect()).collect()
 }
 
 fn sq_dot(a: &[f64], b: &[f64], beta: &[f64]) -> f64 {
@@ -268,7 +269,7 @@ fn do_log_lik(c: &[Vec<f64>], w: &[f64]) -> f64 {
     let Some(l) = chol(c) else {
         return f64::NEG_INFINITY;
     };
-    let log_det = pairwise_sum(&l.iter().enumerate().map(|(i, r)| r[i].ln()).collect::<Vec<f64>>());
+    let log_det = pairwise_sum(&l.iter().enumerate().map(|(i, r)| r[i].r_ln()).collect::<Vec<f64>>());
     let p1 = chol_solve(&l, w);
     let q = pairwise_sum(&p1.iter().zip(w).map(|(a, b)| a * b).collect::<Vec<f64>>());
     -log_det - 0.5 * q
