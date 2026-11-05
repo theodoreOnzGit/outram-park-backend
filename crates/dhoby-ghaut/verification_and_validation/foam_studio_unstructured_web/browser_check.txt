@@ -5,3 +5,10 @@ structured_desktop 11 s: Foam Studio · 20480 cells · step 14 · 376 ms/step ·
 structured_desktop 13 s: Foam Studio · 20480 cells · step 19 · 460 ms/step · solving | frames median 133.4 p95 200.0 max 200.0 ms
 structured_desktop 15 s: Foam Studio · 20480 cells · step 26 · 243 ms/step · solving | frames median 133.3 p95 266.8 max 266.8 ms
 structured_desktop 18 s: Foam Studio · 20480 cells · step 32 · 257 ms/step · solving | frames median 116.7 p95 166.8 max 166.8 ms
+structured_desktop 20 s: Foam Studio · 20480 cells · step 34 · 370 ms/step · steady | frames median 16.7 p95 100.1 max 133.2 ms
+RESULT structured_desktop: meshed 2 s, steady 20 s, worst frame 383 ms, title "Foam Studio · 20480 cells · step 34 · 370 ms/step · steady", errors 0
+dual_h5_0layers_desktop 4 s: Foam Studio · 3113 cells · step 3 · 134 ms/step · solving | frames median 133.3 p95 416.6 max 416.6 ms
+dual_h5_0layers_desktop 6 s: Foam Studio · 3113 cells · step 19 · 124 ms/step · solving | frames median 183.3 p95 200.0 max 200.0 ms
+dual_h5_0layers_desktop 8 s: Foam Studio · 3113 cells · step 24 · 124 ms/step · steady | frames median 16.7 p95 216.7 max 250.0 ms
+RESULT dual_h5_0layers_desktop: meshed 3 s, steady 8 s, worst frame 417 ms, title "Foam Studio · 3113 cells · step 24 · 124 ms/step · steady", errors 0
+dual_h5_1layer_desktop 4 s: Foam Studio · 10745 cells · step 1 · 405 ms/step · solving | frames median 83.3 p95 266.6 max 349.9 ms
