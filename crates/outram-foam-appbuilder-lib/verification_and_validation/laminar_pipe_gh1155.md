@@ -2441,6 +2441,67 @@ until the maintainer decides.
 - Upstream (OpenFOAM, cfMesh) is not installed here; no port above was
   run against its upstream on a shared case.
 
+## cfMesh's surface untangler against `revert_tangled`, differentially (gh:#1259)
+
+**Issue:** gh:#1259 (epic gh:#1251), the gh:#1241 rim-tangle gap. It builds
+on gh:#1257 (`surface_engine`: `meshSurfaceEngine`, `meshSurfacePartitioner`)
+and gh:#1258 (`surface_optimizer`: `partTriMesh`, `surfaceOptimizer`,
+`meshSurfaceCheckInvertedVertices`).
+
+### What was ported (2026-11-05)
+
+From cfMesh v1.1 (`DAFoam/cfmesh` `e944f6ba695f`),
+`meshLibrary/utilities/smoothers/geometry/meshSurfaceOptimizer/` (serial, 3-D):
+`untangleSurface` (both forms), `optimizeSurface`, the Laplace (face centre)
+and `surfaceOptimizer` smoothers, edge-point smoothing, the locks, and the
+mapper calls it makes (`mapVerticesOntoSurface`, `mapEdgeNodes`). Not ported:
+`optimizeSurface2D`, `untangleSurface2D`, `enforceConstraints`, MPI. It is
+`outram-park-fork-cfmesh::surface_optimizer::MeshSurfaceOptimizer`, wired in
+three places, all **off by default**:
+
+- the feature-edge capture, `TetDualOptions::untangle_surface`: upstream's
+  `tetMeshGenerator` order, `mapMeshToSurface` (every boundary point to the
+  surface, then `untangleSurface` with 2 extra layers), the patch mapping
+  (after `correct_edges` when on), then `optimiseMeshSurface`
+  (`optimizeSurface(5)`, which ends with `untangleSurface(0)`); nothing is
+  reverted, and the pipeline keeps the uncaptured mesh if the result is
+  invalid;
+- `boundary_layer_optimisation::optimise_layer`,
+  `BoundaryLayerOptimisationControls::optimise_surface`:
+  `optimizeSurface(2)` in each pass, exiting faces and feature edges locked;
+- `mesh_optimizer::optimize_surface`: `meshOptimizer::optimizeSurface`
+  (`optimizeSurface`, then `mapVerticesOntoSurfacePatches`).
+
+### What gh:#1258 found first
+
+cfMesh's inverted-vertex test (`meshSurfaceCheckInvertedVertices`) flags a
+point that is a reflex corner of a boundary face
+(`(e_prev × e_next)·n < −0.05`). On the 48-sided pipe at h 6 mm the
+per-point and cell-centre duals' boundaries have **554 of 1 390 points
+inverted before any mapping**, 550 of them reflex corners of 156 non-convex
+boundary polygons (15 inlet, 15 outlet, 126 walls). So `untangleSurface`
+starts with a large part of the boundary selected, not only the rim.
+
+### Predictions (written 2026-11-05, before any differential run)
+
+Cases: the 24- and 48-sided pipes (R 10 mm, L 60 mm) and the Foam Studio
+pipe (48-sided, L 200 mm), h 4, 5 and 6 mm, `CellCentre` + `Corners`, bare
+(no layers). Routes: `revert_tangled` (today's capture) and
+`untangle_surface`.
+
+| quantity | `revert_tangled` | `untangle_surface` |
+|---|---|---|
+| boundary points left unmapped | Foam Studio 128 / 0 / 64 at h 4 / 5 / 6 (gh:#1241); the L 60 pipes of the same order at h 4 and 6, 0 at h 5 | **0** where the capture is kept (nothing is reverted) |
+| capture kept (valid mesh) | always (it reverts until valid) | **at least one of h 4 / h 6 rejected** on some pipe: boundary points move with the interior fixed, and nothing but `keep_if_ok` checks the cells |
+| inverted points after `untangleSurface` | — | falls, **not to 0** (the median-dual polygons' reflex corners are structural); the loop stops on its no-progress test, not on 0 |
+| projected inlet / πR² | Foam Studio 0.956 / 0.983 / 0.948 (gh:#1241) | where kept: **0.975–0.990** at every h (the tangles gone, but no rim vertex is added, so the chord loss stays: 0.983 ± 0.005 at h 5) |
+| non-positive pyramids | 0 (the revert's own criterion) | where kept: 0 to a few tens (`keep_if_ok` does not check pyramids) |
+| meshing time | < 1 s | seconds to tens of seconds (brute-force surface queries for every moved point) |
+
+The solve (u_c/2U, dp/dz against Hagen–Poiseuille) is not part of this
+differential: it runs in `dhoby-ghaut`'s Foam Studio and is not cheap on a
+shared 4-core machine; see "Open".
+
 ## Reproduce
 
 ```bash

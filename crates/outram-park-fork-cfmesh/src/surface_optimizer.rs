@@ -623,6 +623,471 @@ pub fn check_inverted_vertices(engine: &SurfaceEngine, part: &SurfacePartitioner
     inverted
 }
 
+// ---------------------------------------------------------------------------
+// meshSurfaceOptimizer (gh:#1259)
+// ---------------------------------------------------------------------------
+
+/// `meshSurfaceOptimizer::vertexTypes`: a point inside a patch.
+pub const PARTITION: u8 = 1;
+/// A feature-edge point.
+pub const EDGE: u8 = 2;
+/// A corner (never moved).
+pub const VERTEX_CORNER: u8 = 4;
+/// A point the caller locked.
+pub const LOCKED: u8 = 16;
+
+/// What [`MeshSurfaceOptimizer::untangle_surface`] did.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct UntangleReport {
+    /// Whether any point was smoothed.
+    pub changed: bool,
+    /// Inverted points at the first check.
+    pub n_inverted_first: usize,
+    /// Inverted points at the last check (0: untangled).
+    pub n_inverted_last: usize,
+    /// Global iterations run (upstream stops at 10).
+    pub global_iterations: usize,
+    /// Smoothing passes run, over all global iterations.
+    pub passes: usize,
+}
+
+/// cfMesh `meshSurfaceOptimizer` (serial, 3-D): untangles and smooths the
+/// boundary points of a mesh within the surface, optionally mapping them
+/// back onto the input surface (upstream's octree constructors; here
+/// [`crate::surface_mapper::SurfaceQueries`]).
+///
+/// The partitioner's patches must be the surface's region indices when a
+/// mapper is given (`mapEdgeNodes` asks for the nearest point of each
+/// patch). Not ported: `optimizeSurface2D`, `untangleSurface2D`,
+/// `enforceConstraints` (upstream throws and writes a point subset; there
+/// is no subset here), and the parallel exchanges.
+#[derive(Debug, Clone)]
+pub struct MeshSurfaceOptimizer {
+    /// The surface (geometry kept current with the points).
+    pub engine: SurfaceEngine,
+    /// Its partition into patches.
+    pub part: SurfacePartitioner,
+    vertex_type: Vec<u8>,
+    tri_mesh: Option<PartTriMesh>,
+    mapper: Option<crate::surface_mapper::SurfaceQueries>,
+}
+
+/// `plane::nearestPoint` for the plane through `base` with unit normal `n`.
+fn plane_nearest(base: Vec3, n: Vec3, p: Vec3) -> Vec3 {
+    p.sub(n.scale(p.sub(base).dot(n)))
+}
+
+impl MeshSurfaceOptimizer {
+    /// The optimiser on `engine` partitioned by `part`, mapping onto
+    /// `mapper` when given. Corners are `CORNER`, edge points `EDGE`, the
+    /// rest `PARTITION` (`classifySurfaceVertices`).
+    pub fn new(engine: SurfaceEngine, part: SurfacePartitioner, mapper: Option<crate::surface_mapper::SurfaceQueries>) -> Self {
+        let mut vertex_type = vec![PARTITION; engine.n_boundary_points()];
+        for &b in &part.corners {
+            vertex_type[b] = VERTEX_CORNER;
+        }
+        for &b in &part.edge_points {
+            vertex_type[b] = EDGE;
+        }
+        MeshSurfaceOptimizer { engine, part, vertex_type, tri_mesh: None, mapper }
+    }
+
+    /// `lockBoundaryFaces`: the points of these boundary faces never move.
+    pub fn lock_boundary_faces(&mut self, faces: &[usize]) {
+        for &bf in faces {
+            for &v in &self.engine.face_rings[bf] {
+                self.vertex_type[self.engine.bp[v]] |= LOCKED;
+            }
+        }
+    }
+
+    /// `lockBoundaryPoints` (boundary labels).
+    pub fn lock_boundary_points(&mut self, points: &[usize]) {
+        for &b in points {
+            self.vertex_type[b] |= LOCKED;
+        }
+    }
+
+    /// `lockFeatureEdges`: lock every edge point and corner.
+    pub fn lock_feature_edges(&mut self) {
+        for t in self.vertex_type.iter_mut() {
+            if *t & (EDGE | VERTEX_CORNER) != 0 {
+                *t |= LOCKED;
+            }
+        }
+    }
+
+    /// `removeUserConstraints`.
+    pub fn remove_user_constraints(&mut self) {
+        for t in self.vertex_type.iter_mut() {
+            *t &= !LOCKED;
+        }
+    }
+
+    fn locked(&self, b: usize) -> bool {
+        self.vertex_type[b] & LOCKED != 0
+    }
+
+    /// `findInvertedVertices`: mark the inverted points among the active
+    /// ones (`smooth`), then `n_layers` rings of `pointPoints` around
+    /// them; the number inverted.
+    fn find_inverted_vertices(&self, points: &[Vec3], smooth: &mut [bool], n_layers: usize) -> usize {
+        let inverted = check_inverted_vertices(&self.engine, &self.part, points, Some(smooth));
+        let mut n = 0;
+        for (b, s) in smooth.iter_mut().enumerate() {
+            *s = inverted.contains(&self.engine.boundary_points[b]);
+            n += usize::from(*s);
+        }
+        if n == 0 {
+            return 0;
+        }
+        for _ in 0..n_layers {
+            let orig = smooth.to_vec();
+            for (b, &o) in orig.iter().enumerate() {
+                if o {
+                    for &q in &self.engine.point_points[b] {
+                        smooth[q] = true;
+                    }
+                }
+            }
+        }
+        n
+    }
+
+    /// `newEdgePositionLaplacian`: the average of the two feature-edge
+    /// neighbours (unchanged unless there are exactly two).
+    fn new_edge_position_laplacian(&self, points: &[Vec3], b: usize) -> Vec3 {
+        let v = self.engine.boundary_points[b];
+        if self.locked(b) {
+            return points[v];
+        }
+        let others: Vec<usize> = self.engine.point_edges[b]
+            .iter()
+            .filter(|e| self.part.feature_edges.contains(e))
+            .map(|&e| {
+                let [a, c] = self.engine.edges[e];
+                if a == v {
+                    c
+                } else {
+                    a
+                }
+            })
+            .collect();
+        if others.len() != 2 {
+            return points[v];
+        }
+        points[others[0]].add(points[others[1]]).scale(0.5)
+    }
+
+    /// `newPositionLaplacianFC`: the average of the point's face centres,
+    /// projected onto its tangent plane when `transform`.
+    fn new_position_laplacian_fc(&self, points: &[Vec3], b: usize, transform: bool) -> Vec3 {
+        let v = self.engine.boundary_points[b];
+        if self.locked(b) {
+            return points[v];
+        }
+        let pf = &self.engine.point_faces[b];
+        let mut sum = Vec3::ZERO;
+        if transform {
+            let n = self.engine.point_normals[b];
+            if mag_sqr(n) < VSMALL {
+                return points[v];
+            }
+            let n = n.scale(1.0 / n.length());
+            for &bf in pf {
+                sum = sum.add(plane_nearest(points[v], n, self.engine.face_centres[bf]));
+            }
+        } else {
+            for &bf in pf {
+                sum = sum.add(self.engine.face_centres[bf]);
+            }
+        }
+        sum.scale(1.0 / pf.len() as f64)
+    }
+
+    /// `transformIntoPlane`: the point's simplex in the tangent plane
+    /// (x along the first simplex point that does not project onto the
+    /// centre).
+    fn transform_into_plane(&self, b: usize, base: Vec3, n: Vec3) -> Option<(Vec3, Vec3, Vec<Vec3>, Vec<[usize; 3]>)> {
+        let tm = self.tri_mesh.as_ref()?;
+        let tp = tm.mesh_surface_point_label_in_tri_mesh[b];
+        if tp == NO_POINT {
+            return None;
+        }
+        let simplex = PartTriMeshSimplex::new(tm, tp)?;
+        let p = simplex.centre_point();
+        let mut axes = None;
+        for &sp in &simplex.pts {
+            let q = plane_nearest(base, n, sp);
+            let d = q.sub(p).length();
+            if d > VSMALL {
+                let x = q.sub(p).scale(1.0 / d);
+                let y = n.cross(x);
+                axes = Some((x, y.scale(1.0 / y.length())));
+                break;
+            }
+        }
+        let (x, y) = axes?;
+        let pts = simplex.pts.iter().map(|&sp| Vec3::new(sp.sub(p).dot(x), sp.sub(p).dot(y), 0.0)).collect();
+        Some((x, y, pts, simplex.trias))
+    }
+
+    /// `newPositionSurfaceOptimizer` (`tol` 0.001).
+    fn new_position_surface_optimizer(&self, points: &[Vec3], b: usize) -> Vec3 {
+        let v = self.engine.boundary_points[b];
+        if self.locked(b) {
+            return points[v];
+        }
+        let n = self.engine.point_normals[b];
+        if mag_sqr(n) < VSMALL {
+            return points[v];
+        }
+        let n = n.scale(1.0 / n.length());
+        let Some((x, y, mut pts, trias)) = self.transform_into_plane(b, points[v], n) else {
+            return points[v];
+        };
+        let q = optimize_point(&mut pts, &trias, 0.001);
+        let new_p = points[v].add(x.scale(q.x)).add(y.scale(q.y));
+        if new_p.x.is_finite() && new_p.y.is_finite() && new_p.z.is_finite() {
+            new_p
+        } else {
+            points[v]
+        }
+    }
+
+    /// `smoothEdgePoints`.
+    fn smooth_edge_points(&mut self, points: &mut [Vec3], edge_points: &[usize]) {
+        let new: Vec<(usize, Vec3)> =
+            edge_points.iter().filter(|&&b| !self.locked(b)).map(|&b| (b, self.new_edge_position_laplacian(points, b))).collect();
+        for (b, p) in new {
+            self.engine.move_boundary_vertex_no_update(points, b, p);
+        }
+        self.engine.update_geometry(points, edge_points);
+    }
+
+    /// `smoothLaplacianFC`.
+    fn smooth_laplacian_fc(&mut self, points: &mut [Vec3], selected: &[usize], transform: bool) {
+        let new: Vec<(usize, Vec3)> =
+            selected.iter().filter(|&&b| !self.locked(b)).map(|&b| (b, self.new_position_laplacian_fc(points, b, transform))).collect();
+        for (b, p) in new {
+            self.engine.move_boundary_vertex_no_update(points, b, p);
+        }
+        self.engine.update_geometry(points, selected);
+    }
+
+    /// `smoothSurfaceOptimizer`. The triangulation is built on first use
+    /// and afterwards updated only at `selected`, as upstream's.
+    fn smooth_surface_optimizer(&mut self, points: &mut [Vec3], selected: &[usize]) {
+        if self.tri_mesh.is_none() {
+            self.tri_mesh = Some(PartTriMesh::new(&self.engine, &self.part, points));
+        }
+        if let Some(tm) = self.tri_mesh.as_mut() {
+            tm.update_vertices(&self.engine, points, selected);
+        }
+        let new: Vec<Vec3> = selected.iter().map(|&b| self.new_position_surface_optimizer(points, b)).collect();
+        for (&b, p) in selected.iter().zip(new) {
+            self.engine.move_boundary_vertex_no_update(points, b, p);
+        }
+        self.engine.update_geometry(points, selected);
+    }
+
+    /// `findMappingDistance` with upstream's face centres.
+    fn mapping_distance(&self, points: &[Vec3], b: usize) -> f64 {
+        let p = points[self.engine.boundary_points[b]];
+        4.0 * self.engine.point_faces[b].iter().map(|&bf| mag_sqr(self.engine.face_centres[bf].sub(p))).fold(0.0, f64::max)
+    }
+
+    /// `meshSurfaceMapper::mapEdgeNodes(nodes)`.
+    fn map_edge_nodes(&mut self, points: &mut [Vec3], nodes: &[usize]) {
+        let Some(q) = self.mapper.as_ref() else { return };
+        let dist: Vec<f64> = nodes.iter().map(|&b| self.mapping_distance(points, b)).collect();
+        for (&b, &max2) in nodes.iter().zip(&dist) {
+            let mut ps = self.part.point_patches[b].clone();
+            ps.sort_unstable();
+            let v = self.engine.boundary_points[b];
+            points[v] = crate::surface_mapper::map_edge_node(q, points[v], &ps, max2);
+        }
+        self.engine.update_geometry(points, nodes);
+    }
+
+    /// `meshSurfaceMapper::mapVerticesOntoSurface(nodes)`: each to the
+    /// nearest point of the surface, whatever its patch.
+    fn map_vertices_onto_surface(&mut self, points: &mut [Vec3], nodes: &[usize]) {
+        let Some(q) = self.mapper.as_ref() else { return };
+        for &b in nodes {
+            let v = self.engine.boundary_points[b];
+            points[v] = q.nearest(points[v]);
+        }
+        self.engine.update_geometry(points, nodes);
+    }
+
+    /// `untangleSurface(selectedBoundaryPoints, nAdditionalLayers)`.
+    pub fn untangle_surface_selected(&mut self, points: &mut [Vec3], selected: &[usize], n_additional_layers: usize) -> UntangleReport {
+        let nbp = self.engine.n_boundary_points();
+        let mut rep = UntangleReport::default();
+        let mut smooth = vec![false; nbp];
+        for &b in selected {
+            if !self.locked(b) {
+                smooth[b] = true;
+            }
+        }
+        let mut remap = true;
+        let mut n_inverted;
+        let mut min_inverted = nbp;
+        let mut history: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+        let mut min_points: Vec<Vec3> = vec![Vec3::ZERO; nbp];
+        let mut first = true;
+        loop {
+            let (mut n_iter, mut n_after_refresh) = (0usize, 0usize);
+            loop {
+                n_inverted = self.find_inverted_vertices(points, &mut smooth, n_additional_layers);
+                if first {
+                    rep.n_inverted_first = n_inverted;
+                    first = false;
+                }
+                if n_inverted == 0 {
+                    break;
+                }
+                if n_inverted < min_inverted {
+                    min_inverted = n_inverted;
+                    n_after_refresh = 0;
+                    for (b, mp) in min_points.iter_mut().enumerate() {
+                        *mp = points[self.engine.boundary_points[b]];
+                    }
+                }
+                n_after_refresh += 1;
+                history.push_back(n_inverted);
+                if history.len() > 2 {
+                    history.pop_front();
+                }
+                if !history.contains(&min_inverted) || n_after_refresh > 2 {
+                    break;
+                }
+                rep.changed = true;
+                rep.passes += 1;
+                let (mut moved, mut moved_edge) = (Vec::new(), Vec::new());
+                for (b, &s) in smooth.iter().enumerate() {
+                    if !s {
+                        continue;
+                    }
+                    if self.vertex_type[b] & PARTITION != 0 {
+                        moved.push(b);
+                    } else if self.vertex_type[b] & EDGE != 0 {
+                        moved_edge.push(b);
+                    }
+                }
+                self.smooth_edge_points(points, &moved_edge);
+                if remap {
+                    self.map_edge_nodes(points, &moved_edge);
+                }
+                self.engine.update_geometry(points, &moved_edge);
+                self.smooth_laplacian_fc(points, &moved, true);
+                self.engine.update_geometry(points, &moved);
+                self.smooth_surface_optimizer(points, &moved);
+                if remap {
+                    self.map_vertices_onto_surface(points, &moved);
+                }
+                self.engine.update_geometry(points, &moved);
+                n_iter += 1;
+                if !(n_inverted > 0 && n_iter < 20) {
+                    break;
+                }
+            }
+            if n_inverted > 0 {
+                for (b, &mp) in min_points.iter().enumerate() {
+                    self.engine.move_boundary_vertex_no_update(points, b, mp);
+                }
+                self.engine.update_geometry_all(points);
+                let moved: Vec<usize> = (0..nbp).filter(|&b| smooth[b]).collect();
+                self.smooth_laplacian_fc(points, &moved, false);
+                if remap {
+                    self.map_vertices_onto_surface(points, &moved);
+                }
+                self.engine.update_geometry(points, &moved);
+                if rep.global_iterations > 5 {
+                    remap = false;
+                }
+            }
+            rep.global_iterations += 1;
+            if !(n_inverted > 0 && rep.global_iterations < 10) {
+                break;
+            }
+        }
+        rep.n_inverted_last = n_inverted;
+        rep
+    }
+
+    /// `untangleSurface(nAdditionalLayers)`: every boundary point (upstream's
+    /// default is 2 layers).
+    pub fn untangle_surface(&mut self, points: &mut [Vec3], n_additional_layers: usize) -> UntangleReport {
+        let all: Vec<usize> = (0..self.engine.n_boundary_points()).collect();
+        self.untangle_surface_selected(points, &all, n_additional_layers)
+    }
+
+    /// `optimizeSurface(nIterations)`: `n_iterations` passes of edge-point
+    /// smoothing (mapped back onto the feature edges when there is a
+    /// mapper), then of Laplace (face centres, in plane) and
+    /// `surfaceOptimizer` smoothing of the patch points, then
+    /// `untangleSurface(0)`.
+    pub fn optimize_surface(&mut self, points: &mut [Vec3], n_iterations: usize) -> UntangleReport {
+        let (mut edge, mut partition) = (Vec::new(), Vec::new());
+        for b in 0..self.engine.n_boundary_points() {
+            if self.locked(b) {
+                continue;
+            }
+            if self.vertex_type[b] & EDGE != 0 {
+                edge.push(b);
+            } else if self.vertex_type[b] & PARTITION != 0 {
+                partition.push(b);
+            }
+        }
+        for _ in 0..n_iterations {
+            self.smooth_edge_points(points, &edge);
+            self.map_edge_nodes(points, &edge);
+            self.engine.update_geometry(points, &edge);
+        }
+        for _ in 0..n_iterations {
+            self.smooth_laplacian_fc(points, &partition, true);
+            self.smooth_surface_optimizer(points, &partition);
+        }
+        self.untangle_surface(points, 0)
+    }
+}
+
+/// `tetMeshGenerator::mapMeshToSurface`: every boundary point of `mesh` to
+/// the nearest point of the surface (`mapVerticesOntoSurface`), then
+/// `meshSurfaceOptimizer(mse, octree).untangleSurface()` (2 additional
+/// layers, mapping back onto the surface). The whole boundary is one patch
+/// here, as upstream's at that stage (before `extractPatches`).
+pub fn map_mesh_to_surface(mesh: &crate::volume_mesh::VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
+    let mut m = mesh.clone();
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions);
+    let one = vec![0usize; m.face_count()];
+    let mut engine = SurfaceEngine::from_parts(&m.points, &m.faces, &m.owner, &m.neighbour, &one);
+    for b in 0..engine.n_boundary_points() {
+        let v = engine.boundary_points[b];
+        m.points[v] = q.nearest(m.points[v]);
+    }
+    engine.update_geometry_all(&m.points);
+    let part = SurfacePartitioner::new(&engine);
+    let mut opt = MeshSurfaceOptimizer::new(engine, part, Some(q));
+    let rep = opt.untangle_surface(&mut m.points, 2);
+    (m, rep)
+}
+
+/// `tetMeshGenerator::optimiseMeshSurface`:
+/// `meshSurfaceOptimizer(mse, octree).optimizeSurface()` (5 iterations) on
+/// `mesh`, whose boundary face `f` is in surface region `face_region[f]`.
+pub fn optimise_mesh_surface(mesh: &mut crate::volume_mesh::VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions);
+    let unassigned = regions.names.len();
+    let patch_of: Vec<usize> = face_region.iter().map(|r| r.unwrap_or(unassigned)).collect();
+    let engine = SurfaceEngine::from_parts(&mesh.points, &mesh.faces, &mesh.owner, &mesh.neighbour, &patch_of);
+    let part = SurfacePartitioner::new(&engine);
+    let mut opt = MeshSurfaceOptimizer::new(engine, part, Some(q));
+    opt.optimize_surface(&mut mesh.points, 5)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -910,6 +1375,210 @@ mod tests {
             let names: Vec<&str> = m.patches.iter().map(|q| q.name.as_str()).collect();
             println!("  unmapped faces failing isFaceConvexAndOk per patch {names:?}: {per_patch:?}; most negative (e_prev x e_next).n = {worst:.3}");
             assert!(!inv.is_empty());
+        }
+    }
+}
+
+#[cfg(test)]
+mod diag {
+    use super::*;
+    /// Diagnostic, `--ignored`: print the first non-convex boundary faces
+    /// of the per-point `Corners` dual of the pipe (h 6 mm).
+    #[test]
+    #[ignore]
+    fn diagnose_reflex_dual_faces() {
+        use crate::dual::{DualKind, FeaturePointRule};
+        let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.06, 48);
+        let o = crate::pipeline::TetDualOptions { cell_size: 0.006, n_layers: 0, feature_edges: false, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+        let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        let e = SurfaceEngine::new(&m);
+        let mut shown = 0;
+        for (bf, r) in e.face_rings.iter().enumerate() {
+            let (ok, oks) = is_face_convex_and_ok(&m.points, r);
+            if ok || shown >= 4 {
+                continue;
+            }
+            shown += 1;
+            println!("face {bf} patch {} ring {} pts ok {oks:?}", e.face_patches[bf], r.len());
+            for &v in r {
+                let x = m.points[v];
+                println!("   {v}: ({:.5}, {:.5}, {:.5}) r {:.5}", x.x * 1e3, x.y * 1e3, x.z * 1e3, (x.x * x.x + x.y * x.y).sqrt() * 1e3);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_gh1259 {
+    use super::*;
+    use crate::dual::{DualKind, FeaturePointRule};
+    use crate::pipeline::{surface_to_tet_dual_mesh_multipatch, TetDualOptions};
+    use crate::volume_mesh::VolumeMesh;
+    use petir::mathf::RealMath;
+
+    fn bipyramid(c: Vec3) -> VolumeMesh {
+        let mut points = vec![c];
+        for k in 0..6 {
+            let a = k as f64 * std::f64::consts::PI / 3.0;
+            points.push(Vec3::new(a.r_cos(), a.r_sin(), 0.0));
+        }
+        points.push(Vec3::new(0.0, 0.0, -1.0));
+        let mut faces = Vec::new();
+        for k in 0..6 {
+            faces.push(vec![0, 1 + k, 1 + (k + 1) % 6]);
+        }
+        for k in 0..6 {
+            faces.push(vec![7, 1 + (k + 1) % 6, 1 + k]);
+        }
+        let n = faces.len();
+        VolumeMesh {
+            points,
+            faces,
+            owner: vec![0; n],
+            neighbour: vec![None; n],
+            n_cells: 1,
+            patches: vec![
+                crate::volume_mesh::BoundaryPatch { name: "top".into(), start_face: 0, n_faces: 6 },
+                crate::volume_mesh::BoundaryPatch { name: "bottom".into(), start_face: 6, n_faces: 6 },
+            ],
+        }
+    }
+
+    /// V&V (gh:#1259) — `untangleSurface` by hand, no mapper, feature
+    /// edges locked (so only the top's centre may move; the apex is a
+    /// patch point of the bottom and is not inverted). Predicted
+    /// (2026-11-05, before the first run): 3 inverted at the first check
+    /// ({0, 2, 6}, the gh:#1258 test), 0 at the last; the centre ends
+    /// inside the hexagon in its plane (z = 0 to 1e-12), every top triangle
+    /// positive about +z; one smoothing pass; the ring and apex unmoved.
+    #[test]
+    fn untangle_surface_repairs_a_dragged_fan() {
+        let mut m = bipyramid(Vec3::new(1.5, 0.0, 0.0));
+        let orig = m.points.clone();
+        let e = SurfaceEngine::new(&m);
+        let part = SurfacePartitioner::new(&e);
+        let mut so = MeshSurfaceOptimizer::new(e, part, None);
+        so.lock_feature_edges();
+        let r = so.untangle_surface(&mut m.points, 2);
+        println!("{r:?}; centre {:?}", m.points[0]);
+        assert_eq!(r.n_inverted_first, 3);
+        assert_eq!(r.n_inverted_last, 0);
+        assert_eq!(r.passes, 1);
+        assert!(m.points[0].z.abs() < 1e-12);
+        for k in 0..6 {
+            let (a, b) = (m.points[1 + k], m.points[1 + (k + 1) % 6]);
+            assert!(a.sub(m.points[0]).cross(b.sub(m.points[0])).z > 0.0, "top triangle {k}");
+        }
+        for v in 1..8 {
+            assert_eq!(m.points[v], orig[v]);
+        }
+        m.validate().unwrap();
+    }
+
+    /// V&V (gh:#1259) — the pipeline option, and `optimiseLayer`'s and
+    /// `meshOptimizer`'s hooks reached. On the 48-sided pipe (R 10 mm, L
+    /// 60 mm) at h 6 mm, `MedianPerPoint` + `Corners`, bare: with
+    /// `untangle_surface` off no note mentions `untangleSurface`; with it
+    /// on the stage reports, and the mesh the pipeline returns is valid
+    /// (closed, no inverted cell: `keep_if_ok` guarantees it, either the
+    /// smoothed capture or the mesh before it). Predicted (2026-11-05,
+    /// before the first run): the note shows the inverted count falling
+    /// but **not to 0** (550 of the points are reflex corners of the
+    /// dual's non-convex boundary polygons, gh:#1258, and in-plane
+    /// smoothing of the points does not straighten a median-dual face's
+    /// midpoint corners). `mesh_optimizer::optimize_surface` on that mesh
+    /// keeps it closed. `CfMeshOptimise` with `optimise_surface` on
+    /// returns a valid mesh with layers.
+    #[test]
+    fn untangle_surface_option_is_off_by_default_and_runs() {
+        let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.06, 48);
+        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+        assert!(!o.untangle_surface);
+        let (_, rep0) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        assert!(rep0.stage_notes.iter().all(|n| !n.contains("untangleSurface")));
+        let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &TetDualOptions { untangle_surface: true, ..o.clone() }).unwrap();
+        println!("{:?}", rep.stage_notes);
+        assert!(rep.stage_notes.iter().any(|n| n.starts_with("untangleSurface")));
+        m.validate().unwrap();
+        assert_eq!(crate::checks::check_quality(&m).n_negative_volume_cells, 0);
+
+        let given = crate::surface_mapper::boundary_face_regions(&m, &p, &t, &regions);
+        let mut m2 = m.clone();
+        let r = crate::mesh_optimizer::optimize_surface(&mut m2, &p, &t, &regions, &given);
+        println!("meshOptimizer::optimizeSurface: {r:?}; valid {:?}", m2.validate().is_ok());
+
+        let mut lo = o.clone();
+        lo.n_layers = 1;
+        lo.first_layer_thickness = 3e-4;
+        lo.layer_patches = vec!["walls".into()];
+        lo.layer_strategy = crate::layers::LayerQualityStrategy::CfMeshOptimise;
+        lo.cfmesh_layer_optimisation.optimise_surface = true;
+        let (ml, repl) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &lo).unwrap();
+        println!("CfMeshOptimise + optimise_surface: {} cells; {:?}", ml.cell_count(), repl.stage_notes);
+        ml.validate().unwrap();
+    }
+
+    /// Projected inlet area |Σ S_f·ẑ| over the `inlet` patch, / πR².
+    fn inlet_fraction(m: &VolumeMesh, r: f64) -> f64 {
+        let q = m.patches.iter().find(|q| q.name == "inlet").unwrap();
+        let a: f64 = (q.start_face..q.start_face + q.n_faces).map(|f| m.face_area_vector(f).z).sum();
+        a.abs() / (std::f64::consts::PI * r * r)
+    }
+
+    /// Differential (gh:#1259), `--ignored`: `untangleSurface` (the
+    /// `untangle_surface` route) against `revert_tangled` (the default
+    /// capture) on the 24- and 48-sided pipes (R 10 mm, L 60 mm) and the
+    /// Foam Studio pipe (48-sided, L 200 mm) at h 4, 5 and 6 mm,
+    /// `CellCentre` + `Corners`, bare. Prints per case: boundary points
+    /// left unmapped (reverted; the untangle route reverts none, but the
+    /// pipeline keeps the uncaptured mesh if the result is invalid),
+    /// whether the capture was kept, the projected inlet area / πR², cells
+    /// with a non-positive pyramid, the inverted-point counts, and time.
+    /// Predictions and results: the gh:#1259 section of
+    /// `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+    #[cfg(feature = "cell-centre-dual")]
+    #[test]
+    #[ignore]
+    fn diagnose_untangle_surface_differential() {
+        let cases: [(&str, usize, f64); 3] = [("pipe24 L60", 24, 0.06), ("pipe48 L60", 48, 0.06), ("foam studio L200", 48, 0.2)];
+        let hs: Vec<f64> = std::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        for (name, n_seg, l) in cases {
+            let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, l, n_seg);
+            for &h in &hs {
+                for untangle in [false, true] {
+                    let o = TetDualOptions {
+                        cell_size: h,
+                        n_layers: 0,
+                        dual_kind: DualKind::CellCentre,
+                        dual_feature_points: FeaturePointRule::Corners,
+                        untangle_surface: untangle,
+                        ..Default::default()
+                    };
+                    let t0 = std::time::Instant::now();
+                    let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+                    let secs = t0.elapsed().as_secs_f64();
+                    let unmapped = rep
+                        .stage_notes
+                        .iter()
+                        .find_map(|n| n.strip_prefix("feature-edge capture: ").and_then(|r| r.split_whitespace().next()).and_then(|x| x.parse::<usize>().ok()))
+                        .unwrap_or(0);
+                    let skipped = rep.stage_notes.iter().any(|n| n.contains("capture") && n.contains("skipped"));
+                    let npyr = crate::surface_mapper::cells_with_nonpositive_pyramids(&m).len();
+                    let e = SurfaceEngine::new(&m);
+                    let inv = check_inverted_vertices(&e, &SurfacePartitioner::new(&e), &m.points, None).len();
+                    let note = rep.stage_notes.iter().find(|n| n.starts_with("untangleSurface")).cloned().unwrap_or_default();
+                    println!(
+                        "{name} h {:.0} {}: {} cells, capture {}, unmapped {unmapped}, inlet/piR2 {:.5}, V/piR2L {:.5}, nonpos pyramids {npyr}, inverted pts {inv}, NO max {:.1}, {secs:.1} s; {note}",
+                        h * 1e3,
+                        if untangle { "untangleSurface" } else { "revert_tangled" },
+                        m.cell_count(),
+                        if skipped { "REJECTED" } else { "kept" },
+                        inlet_fraction(&m, 0.01),
+                        m.total_volume() / (std::f64::consts::PI * 1e-4 * l),
+                        crate::checks::check_quality(&m).max_non_orthogonality_deg,
+                    );
+                }
+            }
         }
     }
 }

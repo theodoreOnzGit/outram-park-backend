@@ -84,6 +84,20 @@ pub fn map_vertices_onto_surface_patches(
     map_impl(mesh, points, tris, regions, None)
 }
 
+/// [`map_vertices_onto_surface_patches`] with the patch of every boundary
+/// face given (`face_region[f]`, `None` for internal faces), with nothing
+/// undone afterwards: upstream's `mapVerticesOntoSurfacePatches` as
+/// `meshSurfaceEdgeExtractorNonTopo::remapBoundaryPoints` runs it.
+pub fn map_vertices_onto_surface_patches_given(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    face_region: &[Option<usize>],
+) -> VolumeMesh {
+    map_impl(mesh, points, tris, regions, Some(face_region))
+}
+
 /// The patch of every boundary face by its nearest surface triangle (the
 /// rule [`map_vertices_onto_surface_patches`] uses), `None` for internal
 /// faces: the assignment cfMesh's `edgeExtractor` would hand
@@ -101,7 +115,7 @@ pub fn boundary_face_regions(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize;
 /// (`findNearestSurfacePointInRegion`, `findNearestEdgePoint`); here they
 /// are brute force, as before.
 #[derive(Debug, Clone)]
-pub(crate) struct SurfaceQueries {
+pub struct SurfaceQueries {
     points: Vec<Vec3>,
     tris: Vec<[usize; 3]>,
     region_tris: Vec<Vec<usize>>,
@@ -110,7 +124,7 @@ pub(crate) struct SurfaceQueries {
 }
 
 impl SurfaceQueries {
-    pub(crate) fn new(points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Self {
+    pub fn new(points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Self {
         let n_regions = regions.names.len();
         let mut region_tris: Vec<Vec<usize>> = vec![Vec::new(); n_regions];
         let mut edge_tris: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
