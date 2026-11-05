@@ -33,7 +33,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::KeffSettings;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct DhShort;
 
 /// The treatments the live run offers (indices into [`model::TREATMENTS`]):

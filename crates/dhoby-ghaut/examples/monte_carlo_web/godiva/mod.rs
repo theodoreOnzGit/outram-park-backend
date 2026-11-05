@@ -14,7 +14,7 @@ use crate::rungs::{McRung, RungBuilder, RungInfo};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Rect, Stroke, Vec2};
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Godiva;
 
 /// The recorded tracks the page ships (`--bake-tracks godiva`, gh:#859).
@@ -45,7 +45,7 @@ pub const REFERENCE: Reference = Reference {
 /// five-route study (OpenMC on NJOY2016's data), read from the committed
 /// campaign summary.
 pub fn reference_with_code() -> Reference {
-    Reference { code: crate::keff::route1_reference("godiva", crate::route1_label!("32 seeds x 5000 x [40+120]")), ..REFERENCE }
+    Reference { code: crate::keff::route1_reference("godiva", crate::keff::ROUTE1_LABEL_32X5000), ..REFERENCE }
 }
 
 impl McRung for Godiva {

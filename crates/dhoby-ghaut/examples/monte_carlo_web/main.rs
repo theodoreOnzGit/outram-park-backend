@@ -127,23 +127,11 @@ mod packing;
 #[cfg(not(target_os = "android"))]
 mod htr10;
 
-// THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
-// for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
-// rung is adding its directory, its `mod` line above and one line here.
+// THE RUNG TABLE, in ladder order: `table.rs`, written out by hand (one
+// variant and one `match` arm per rung; see `rungs.rs` for what a new rung
+// adds). ~~It was the `rung_table!` macro until 2026-11-05.~~
 #[cfg(not(target_os = "android"))]
-rung_table! {
-    godiva: Godiva,
-    natu: Natu,
-    jemima: Jemima,
-    hst009: Hst009,
-    ugraphite: Ugraphite,
-    lumped: Lumped,
-    lct008: Lct008,
-    triso: Triso,
-    dhshort: DhShort,
-    packing: Packing,
-    htr10: Htr10,
-}
+mod table;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule — a blanked file gives "main function not found").
