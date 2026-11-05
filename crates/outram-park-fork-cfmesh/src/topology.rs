@@ -1304,28 +1304,14 @@ pub fn check_cell_connections_over_faces(w: &mut TopoMesh) -> bool {
     true
 }
 
-/// Face-connected cell groups (`help::groupMarking`).
+/// Face-connected cell groups: `help::groupMarking` as ported in
+/// [`crate::mesh_octree_creator::group_marking`] (gh:#1264), with
+/// `meshConnectionsNeighbourOperator` (the cells across each face) and the
+/// select-all `meshConnectionsSelectorOperator`.
 fn cell_groups(w: &TopoMesh) -> (Vec<usize>, usize) {
     let cc = w.cell_cells();
-    let mut group = vec![usize::MAX; w.n_cells];
-    let mut n = 0usize;
-    for c0 in 0..w.n_cells {
-        if group[c0] != usize::MAX {
-            continue;
-        }
-        group[c0] = n;
-        let mut front = vec![c0];
-        while let Some(c) = front.pop() {
-            for &o in &cc[c] {
-                if group[o] == usize::MAX {
-                    group[o] = n;
-                    front.push(o);
-                }
-            }
-        }
-        n += 1;
-    }
-    (group, n)
+    let (group, n) = crate::mesh_octree_creator::group_marking(w.n_cells, |c| cc[c].clone(), |_| true);
+    (group.into_iter().map(|g| g.expect("every cell is selected")).collect(), n)
 }
 
 /// cfMesh `checkNonMappableCellConnections` cell types.
@@ -1728,6 +1714,8 @@ mod tests {
     /// ends into two convex quads [5,0,3,4] and [1,2,3,0] of area 1.5 each,
     /// wound as the hexagon. A unit square is convex and comes back whole;
     /// a face with two concave vertices is upstream's fatal error.
+    ///
+    /// Result (2026-11-05): as predicted.
     #[test]
     fn face_decomposition_by_hand() {
         let p = pts2(&[(0.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 1.0), (1.0, 2.0), (0.0, 2.0)]);
@@ -1763,6 +1751,12 @@ mod tests {
     /// about a new centre; removing cell 0 leaves 7 cells, volume 7/8,
     /// closed, every boundary face in the one patch `walls` (the box has
     /// exactly one patch, so it is kept); with two patches, `defaultFaces`.
+    ///
+    /// Result (2026-11-05): all held except the patch: **miss**, the
+    /// prediction misread the input. `cartesian_box` names its six sides
+    /// (six patches), so `removeCells` collapses them into `defaultFaces`,
+    /// as upstream's `reorderBoundaryFaces` does. A one-patch mesh keeps
+    /// its patch (checked below on the box with its sides merged).
     #[test]
     fn face_fans_and_cell_removal_on_a_box() {
         let m = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [2, 2, 2]);
@@ -1796,15 +1790,147 @@ mod tests {
         let mut w3 = base.clone();
         let mut rm = vec![false; 8];
         rm[0] = true;
-        assert!(!w3.remove_cells(&rm));
+        assert!(w3.remove_cells(&rm));
         assert_eq!(w3.n_cells, 7);
-        assert_eq!(w3.patch_names, vec!["walls".to_string()]);
+        assert_eq!(w3.patch_names, vec!["defaultFaces".to_string()]);
+        let mut one_patch = base.clone();
+        one_patch.patch_names = vec!["walls".into()];
+        for (r, n) in one_patch.region.iter_mut().zip(&one_patch.neighbour) {
+            *r = n.is_none().then_some(0);
+        }
+        assert!(!one_patch.remove_cells(&rm));
+        assert_eq!(one_patch.patch_names, vec!["walls".to_string()]);
         assert!(closed(&w3));
         assert!((volume(&w3) - 0.875).abs() < 1e-14);
-        let mut w4 = base.clone();
-        w4.patch_names.push("other".into());
-        assert!(w4.remove_cells(&rm));
-        assert_eq!(w4.patch_names, vec!["defaultFaces".to_string()]);
+    }
+
+    /// Draw the cut of `m` by the plane `x[axis] = at` as a PNG (a PPM
+    /// raster converted by ImageMagick `convert`, which adds the caption):
+    /// each face's crossing segment, internal faces grey, boundary faces red
+    /// (or `colour(face)` when it gives one), plus reference circles
+    /// `(centre_u, centre_v, r)` dashed blue, in the window
+    /// `[u0, u1] x [v0, v1]` of the other two axes (in axis order). Used by
+    /// the `--ignored` image tests (gh:#1267, #1270, #1271).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn write_slice_png(
+        m: &VolumeMesh,
+        axis: usize,
+        at: f64,
+        window: [f64; 4],
+        circles: &[(f64, f64, f64)],
+        colour: &dyn Fn(usize) -> Option<[u8; 3]>,
+        title: &str,
+        path: &std::path::Path,
+    ) {
+        let (ua, va) = match axis {
+            0 => (1, 2),
+            1 => (0, 2),
+            _ => (0, 1),
+        };
+        let c = |p: Vec3, i: usize| [p.x, p.y, p.z][i];
+        let [u0, u1, v0, v1] = window;
+        let s = 1000.0 / (u1 - u0).max(v1 - v0);
+        let (wd, ht) = (((u1 - u0) * s).ceil() as usize, ((v1 - v0) * s).ceil() as usize);
+        let mut px = vec![[255u8; 3]; wd * ht];
+        let mut dot = |x: f64, y: f64, col: [u8; 3], r: i64| {
+            let (xi, yi) = (x.round() as i64, y.round() as i64);
+            for dy in -r..=r {
+                for dx in -r..=r {
+                    let (a, b) = (xi + dx, yi + dy);
+                    if a >= 0 && b >= 0 && (a as usize) < wd && (b as usize) < ht {
+                        px[b as usize * wd + a as usize] = col;
+                    }
+                }
+            }
+        };
+        let tx = |u: f64| (u - u0) * s;
+        let ty = |v: f64| ht as f64 - (v - v0) * s;
+        let mut segs: Vec<(bool, [u8; 3], (f64, f64), (f64, f64))> = Vec::new();
+        for f in 0..m.face_count() {
+            let ring = &m.faces[f];
+            let k = ring.len();
+            let mut hits = Vec::new();
+            for i in 0..k {
+                let (a, b) = (m.points[ring[i]], m.points[ring[(i + 1) % k]]);
+                let (da, db) = (c(a, axis) - at, c(b, axis) - at);
+                if (da < 0.0) != (db < 0.0) {
+                    let t = da / (da - db);
+                    let p = a.add(b.sub(a).scale(t));
+                    hits.push((tx(c(p, ua)), ty(c(p, va))));
+                }
+            }
+            let bnd = m.neighbour[f].is_none();
+            let col = colour(f).unwrap_or(if bnd { [214, 39, 40] } else { [150, 150, 150] });
+            for pair in hits.chunks(2) {
+                if pair.len() == 2 {
+                    segs.push((bnd || colour(f).is_some(), col, pair[0], pair[1]));
+                }
+            }
+        }
+        segs.sort_by_key(|s| s.0);
+        for (thick, col, a, b) in segs {
+            let n = ((b.0 - a.0).abs().max((b.1 - a.1).abs()).ceil() as usize).max(1);
+            for i in 0..=n {
+                let t = i as f64 / n as f64;
+                dot(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, col, i64::from(thick));
+            }
+        }
+        for &(cu, cv, r) in circles {
+            let n = (2.0 * std::f64::consts::PI * r * s).ceil() as usize;
+            for i in 0..n {
+                if (i / 6) % 2 == 0 {
+                    let th = 2.0 * std::f64::consts::PI * i as f64 / n as f64;
+                    dot(tx(cu + r * th.cos()), ty(cv + r * th.sin()), [31, 119, 180], 0);
+                }
+            }
+        }
+        let mut ppm = format!("P6\n{wd} {ht}\n255\n").into_bytes();
+        for p in &px {
+            ppm.extend_from_slice(p);
+        }
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let ppm_path = path.with_extension("ppm");
+        std::fs::write(&ppm_path, ppm).unwrap();
+        let names = ["x", "y", "z"];
+        let caption = format!(
+            "{title}\ncut {} = {at} m; window {} [{u0}, {u1}], {} [{v0}, {v1}] m; red/coloured: boundary or marked faces, grey: internal, blue dashed: reference",
+            names[axis], names[ua], names[va]
+        );
+        let ok = std::process::Command::new("convert")
+            .arg(&ppm_path)
+            .args(["-background", "white", "-gravity", "south", "-splice", "0x56", "-pointsize", "15", "-annotate", "+0+6"])
+            .arg(&caption)
+            .arg(path)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        std::fs::remove_file(&ppm_path).ok();
+        assert!(ok, "ImageMagick convert failed for {}", path.display());
+    }
+
+    /// Images (gh:#1267), `--ignored`: x-z cuts at y = 0.3 m (through cell
+    /// centres of the 0.6 m carve) of the carved sphere, after
+    /// `surfaceMorpherCells`, and after `topologicalCleaner`, with the
+    /// R 3 m sphere dashed; and the raw 3x3x3 box after the cleaner, cut at
+    /// y = 0.5. Written to
+    /// `verification_and_validation/topology_gh1267/`.
+    #[test]
+    #[ignore]
+    fn draw_topology_images() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/topology_gh1267");
+        let none = |_f: usize| None;
+        let w0 = carved_sphere();
+        let win = [-3.6, 3.6, -3.6, 3.6];
+        let circ = [(0.0, 0.0, 3.0)];
+        write_slice_png(&w0.clone().into_volume_mesh().0, 1, 0.3, win, &circ, &none, "carved sphere R 3 m, h 0.6 m", &dir.join("sphere_carved_xz.png"));
+        let mut w = w0.clone();
+        surface_morpher_cells(&mut w).unwrap();
+        write_slice_png(&w.clone().into_volume_mesh().0, 1, 0.3, win, &circ, &none, "after surfaceMorpherCells", &dir.join("sphere_morphed_xz.png"));
+        topological_cleaner(&mut w);
+        write_slice_png(&w.clone().into_volume_mesh().0, 1, 0.3, win, &circ, &none, "after topologicalCleaner", &dir.join("sphere_cleaned_xz.png"));
+        let mut b = TopoMesh::from_volume_mesh(&cartesian_box(Vec3::ZERO, Vec3::new(3.0, 3.0, 3.0), [3, 3, 3]));
+        topological_cleaner(&mut b);
+        write_slice_png(&b.into_volume_mesh().0, 1, 0.5, [-0.2, 3.2, -0.2, 3.2], &[], &none, "3x3x3 box after topologicalCleaner", &dir.join("box_cleaned_xz.png"));
     }
 
     /// The carved sphere of the plan (R 3 m, h 0.6 m, `carve_box`).
@@ -1828,6 +1954,21 @@ mod tests {
     ///   non-planar, so their centroid-fan volume differs), non-zero
     ///   when any face merged;
     /// - the boundary is one patch, `defaultFaces`.
+    ///
+    /// Results (2026-11-05): 552 cells, none removed; 276 internal faces
+    /// shrunk, 760 boundary faces merged, 3 passes; closed, every cell
+    /// volume positive; 272 boundary cells, **each with exactly one boundary
+    /// face** (held); the volume equals the kept cells' sum (held). **Miss:**
+    /// the volume fell from 119.232 to 93.024 m³ (−22 %, predicted under
+    /// 1 %). `diagnose_morpher_volume_by_step` locates it: the internal-face
+    /// step conserves the volume exactly, and the boundary merge carries
+    /// all of it. A staircase corner's exposed faces merge into one
+    /// non-planar polygon, and a non-planar face's volume contribution is
+    /// taken through its centroid (here and in OpenFOAM/cfMesh alike), so
+    /// the merged face measures as a chamfer across the corner. The
+    /// morphed boundary is not a surface to measure: upstream maps it onto
+    /// the geometry next (`cartesianMeshGenerator::mapMeshToSurface`). The
+    /// number is pinned below, not a pass criterion.
     #[test]
     fn surface_morpher_cells_on_the_carved_sphere() {
         let w0 = carved_sphere();
@@ -1864,9 +2005,35 @@ mod tests {
         );
         assert_eq!(w.patch_names, vec!["defaultFaces".to_string()]);
         assert!(((v1 - kept_sum) / v1).abs() < 1e-12);
-        assert!(((v1 - (v0 - removed_v)) / v1).abs() < 0.01);
-        assert!(rep.n_boundary_faces_merged > 0);
+        assert_eq!(rep, SurfaceMorpherReport { iterations: 3, n_cells_removed: 0, n_internal_faces_morphed: 276, n_internal_faces_removed: 0, n_boundary_faces_merged: 760 });
+        assert!((v1 - 93.024).abs() < 1e-9);
         assert_eq!(multi, 0);
+    }
+
+    /// Diagnostic (gh:#1267): where the morpher's volume goes. The carved
+    /// sphere through each morpher step alone: the internal-face step must
+    /// conserve the volume exactly (a split of planar faces); the boundary
+    /// merge carries all of the change.
+    #[test]
+    fn diagnose_morpher_volume_by_step() {
+        let w0 = carved_sphere();
+        let v0 = volume(&w0);
+        let mut w = w0.clone();
+        let bv = w.boundary_vertex();
+        let mut rep = SurfaceMorpherReport::default();
+        assert!(morph_internal_faces(&mut w, &bv, &mut rep));
+        let v_int = volume(&w);
+        let mut bc = vec![false; w.n_cells];
+        for f in 0..w.faces.len() {
+            if w.neighbour[f].is_none() {
+                bc[w.owner[f]] = true;
+            }
+        }
+        morph_boundary_faces(&mut w, &bc, &mut rep).unwrap();
+        let v_merge = volume(&w);
+        println!("carved {v0:.9}; after morphInternalFaces {v_int:.9}; after one morphBoundaryFaces {v_merge:.9}; {rep:?}");
+        assert!(((v_int - v0) / v0).abs() < 1e-12);
+        assert!(closed(&w));
     }
 
     /// V&V (gh:#1267) — `topologicalCleaner` after the morpher on the carved
@@ -1879,6 +2046,12 @@ mod tests {
     /// previous test); on the raw box the 8 corner cells (3 boundary faces)
     /// and 12 edge cells (2) are non-mappable, so `changed`; one connected
     /// region remains in both.
+    ///
+    /// Results (2026-11-05), every prediction held. Morphed sphere: nothing
+    /// to clean (`changed` false, 552 cells, volume unchanged, smallest
+    /// cell 0.036 m³). Box: 20 non-mappable cells and 24 internal faces
+    /// fanned (each with three boundary points), 20 cells into pyramids:
+    /// 271 cells, volume 27 to 1e-12, closed, one region.
     #[test]
     fn topological_cleaner_on_the_morphed_sphere_and_a_box() {
         let mut w = carved_sphere();
@@ -1905,6 +2078,7 @@ mod tests {
         println!("cleaner on 3x3x3 box: {} cells, volume {:.15}; {rep:?}", b.n_cells, volume(&b));
         assert_eq!(rep.n_non_mappable_cells, 20);
         assert!(rep.changed);
+        assert_eq!((b.n_cells, rep.n_non_mappable_faces, rep.n_decomposed_cells), (271, 24, 20));
         assert!(closed(&b));
         assert!((volume(&b) - 27.0).abs() < 1e-12);
         assert_eq!(cell_groups(&b).1, 1);
@@ -1938,6 +2112,8 @@ mod tests {
     /// removed, volume 2, closed); the cell-connection check then finds two
     /// regions of one cell each and keeps the first (the cube at the
     /// origin): 1 cell, volume 1.
+    ///
+    /// Result (2026-11-05): as predicted.
     #[test]
     fn irregular_vertex_between_two_cubes() {
         let mut w = two_cubes_at_a_vertex();
@@ -1967,6 +2143,8 @@ mod tests {
     /// first run: `findPoints` = {m}; m is in no internal face, so it is
     /// removable: `improveTopology` removes it (1 point) and fans nothing;
     /// the result is the plain hex, every face a quad, volume 1, closed.
+    ///
+    /// Result (2026-11-05): as predicted.
     #[test]
     fn boundary_faces_sharing_two_edges_by_hand() {
         let mut w = TopoMesh::from_volume_mesh(&cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [1, 1, 1]));
@@ -1997,6 +2175,8 @@ mod tests {
     /// in the first pass (upstream's rule; a one-cell-thick mesh is not
     /// mappable). On a 3x3x3 box no cell has all its vertices on the
     /// boundary: nothing is removed.
+    ///
+    /// Result (2026-11-05): as predicted.
     #[test]
     fn non_mappable_cell_connections() {
         let mut row = TopoMesh::from_volume_mesh(&cartesian_box(Vec3::ZERO, Vec3::new(3.0, 1.0, 1.0), [3, 1, 1]));
@@ -2011,6 +2191,8 @@ mod tests {
     /// Predicted before the first run: on a 3x3x3 box no irregular vertex,
     /// no non-mappable cell, no point in two boundary faces, one region:
     /// the mesh is unchanged, every bit.
+    ///
+    /// Result (2026-11-05): as predicted.
     #[test]
     fn clean_box_is_left_bit_identical() {
         let base = TopoMesh::from_volume_mesh(&cartesian_box(Vec3::ZERO, Vec3::new(3.0, 3.0, 3.0), [3, 3, 3]));

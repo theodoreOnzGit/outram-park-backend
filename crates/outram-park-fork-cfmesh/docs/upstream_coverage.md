@@ -28,13 +28,13 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Status | Upstream lines | Share | Rows |
 |---|---:|---:|---:|
-| ported | ~~3,349~~ 11,115 | ~~2.6 %~~ 8.6 % | ~~6~~ 12 |
-| partial | ~~54,119~~ 48,890 | ~~41.7 %~~ 37.7 % | ~~27~~ 25 |
-| not ported | ~~49,628~~ 47,091 | ~~38.3 %~~ 36.3 % | ~~80~~ 76 |
+| ported | ~~3,349~~ ~~11,115~~ 17,537 | ~~2.6 %~~ ~~8.6 %~~ 13.5 % | ~~6~~ ~~12~~ 21 |
+| partial | ~~54,119~~ ~~48,890~~ 47,494 | ~~41.7 %~~ ~~37.7 %~~ 36.6 % | ~~27~~ ~~25~~ 23 |
+| not ported | ~~49,628~~ ~~47,091~~ 42,065 | ~~38.3 %~~ ~~36.3 %~~ 32.4 % | ~~80~~ ~~76~~ 69 |
 | not applicable | 22,642 | 17.5 % | 25 |
 | **total** | **129,738** | 100 % | 138 |
 
-**Updated 2026-11-05** after gh:#1255, #1256, #1260 and #1261 (the struck-through numbers are the audit's; §5 has what moved). The `partial` lines overstate what is ported. They count each partly-ported unit whole: for example, the 4,441 lines of `polyMeshGenChecks` for 9 of its 34 function definitions.
+**Updated 2026-11-05** after gh:#1255, #1256, #1260 and #1261, and again after gh:#1267/#1268 (these two tables count those items only; the octree track's gh:#1264–#1266 rows are updated in §2) (the struck-through numbers are the audit's; §5 has what moved). The `partial` lines overstate what is ported. They count each partly-ported unit whole: for example, the 4,441 lines of `polyMeshGenChecks` for 9 of its 34 function definitions.
 
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
@@ -44,9 +44,9 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | D. Quality checks | ~~0~~ 4,441 | ~~4,441~~ 0 | 0 | 0 |
 | E. Volume optimiser | ~~1,141~~ 3,599 | ~~5,244~~ 4,456 | ~~2,404~~ 734 | 798 |
 | F. Surface optimiser | 0 | 0 | 2,811 | 522 |
-| G. Surface tools | 2,208 | 4,082 | 10,962 | 969 |
+| G. Surface tools | ~~2,208~~ 3,347 | 4,082 | ~~10,962~~ 9,823 | 969 |
 | H. Boundary layers | 0 | 9,395 | 3,261 | 0 |
-| I. Topology repair | 0 | 1,396 | 3,887 | 0 |
+| I. Topology repair | ~~0~~ 5,283 | ~~1,396~~ 0 | ~~3,887~~ 0 | 0 |
 | J. triSurface tools, helper classes | ~~0~~ 425 | 0 | ~~7,639~~ 7,214 | 233 |
 | K. Anisotropic meshing | 0 | 0 | 2,559 | 0 |
 | L. Helpers, containers, MPI, I/O | 0 | 2,330 | 1,482 | 11,782 |
@@ -177,7 +177,7 @@ _Subtotal: 3333 lines._
 | `surfaceTools/meshSurfaceEdgeExtractor2D` | 311 | not ported | — | 2D workflow. |
 | `surfaceTools/createFundamentalSheets (base, FJ, JFS)` | 908 | not ported | — | Layer of cells at feature edges for `meshSurfaceEdgeExtractorFUN`. |
 | `surfaceTools/renameBoundaryPatches` | 392 | not ported | — (`patches` names come from `SurfaceRegions`) | `renameBoundary` / patch `type` from `meshDict`. |
-| `surfaceTools/surfaceMorpherCells` | 1139 | not ported | — | `surfacePreparation`: one boundary face per cell. |
+| `surfaceTools/surfaceMorpherCells` | 1139 | ported (2026-11-05, gh:#1267) | `topology::surface_morpher_cells` | ~~not ported~~ `surfacePreparation`: one boundary face per cell. Serial; adds an iteration guard upstream lacks. |
 | `intersectionTools/findCellsIntersectingSurface` | 501 | not ported | — | No caller in `meshLibrary/` at this commit (grep). |
 
 _Subtotal: 18221 lines._
@@ -198,14 +198,14 @@ _Subtotal: 12656 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `smoothers/topology/topologicalCleaner` | 857 | not ported | — | `surfacePreparation`. |
-| `smoothers/topology/checkIrregularSurfaceConnections` | 1153 | not ported | — | cartesianMesh. |
-| `smoothers/topology/checkBoundaryFacesSharingTwoEdges` | 649 | not ported | — | cartesianMesh. |
-| `smoothers/topology/checkCellConnectionsOverFaces` | 369 | not ported | — | cartesianMesh. |
-| `smoothers/topology/checkNonMappableCellConnections` | 437 | not ported | — | cartesianMesh. |
-| `decomposeCells` | 755 | partial | `correct_edges` (`checkFaceConnections`, `findTopVertex`, `decomposeCellIntoPyramids`) | Missing: the general `decomposeMesh` driver (`addNewCells`, `removeDecomposedCells`, `storeBoundaryFaces`). |
-| `faceDecomposition: decomposeFaces` | 641 | partial | `correct_edges` (triangle fan) | Missing: `decomposeConcaveInternalFaces`, `decomposeMeshFaces` as a driver. |
-| `faceDecomposition: faceDecomposition` | 422 | not ported | — | Concave face → convex parts. |
+| `smoothers/topology/topologicalCleaner` | 857 | ported (2026-11-05, gh:#1267) | `topology::topological_cleaner` | ~~not ported~~ `surfacePreparation`. Serial. |
+| `smoothers/topology/checkIrregularSurfaceConnections` | 1153 | ported (2026-11-05, gh:#1268) | `topology::{irregular_vertices, check_and_fix_irregular_connections}` | ~~not ported~~ cartesianMesh. Serial (the MPI dual-edge exchange is not applicable). |
+| `smoothers/topology/checkBoundaryFacesSharingTwoEdges` | 649 | ported (2026-11-05, gh:#1268) | `topology::BoundaryFacesSharingTwoEdges` | ~~not ported~~ cartesianMesh. Upstream defect kept: `improveTopology` never marks a cell (`decomposeCell[owner[faceI]];` assigns nothing), so only faces are fanned. |
+| `smoothers/topology/checkCellConnectionsOverFaces` | 369 | ported (2026-11-05, gh:#1268) | `topology::check_cell_connections_over_faces` (through `mesh_octree_creator::group_marking`) | ~~not ported~~ cartesianMesh. |
+| `smoothers/topology/checkNonMappableCellConnections` | 437 | ported (2026-11-05, gh:#1268) | `topology::{non_mappable_cells, remove_non_mappable_cells}` | ~~not ported~~ cartesianMesh. |
+| `decomposeCells` | 755 | ported (2026-11-05, gh:#1267) | `topology::{decompose_cells, decompose_cells_into_pyramids}` | ~~partial: missing the `decomposeMesh` driver~~ The driver is `decompose_cells`, the one shared copy (used by `correct_edges`, `cartesian_mesh` and the topology checks). Fan points are numbered as found, not in face order (point numbering only). |
+| `faceDecomposition: decomposeFaces` | 641 | ported (2026-11-05, gh:#1267) | `topology::TopoMesh::{decompose_mesh_faces, decompose_concave_internal_faces}` | ~~partial~~ `newFacesForFace` (the face-subset update) is not returned. |
+| `faceDecomposition: faceDecomposition` | 422 | ported (2026-11-05, gh:#1267) | `topology::{concave_vertex, is_face_convex, is_face_planar, decompose_face, decompose_face_into_triangles}` | ~~not ported~~ Concave face → convex parts. |
 
 _Subtotal: 5283 lines._
 
@@ -683,3 +683,64 @@ committed before its run, and the misses are recorded where they occurred.
 
   All three are positive. The predicted ordering "LP ≥ Knupp" **missed**.
   On the pipe, see the gh:#1260 section of the V&V record.
+
+### Items 13 and 14 (gh:#1267, #1268), 2026-11-05
+
+New module `topology`, opt-in (no pipeline stage calls it; the defaults
+are unchanged and the four pins pass).
+
+- **Item 13 (gh:#1267):** `TopoMesh` (the `polyMeshGen` working form, with
+  `removeCells`, `removeFaces`, `replaceBoundary`, `removeUnusedVertices`),
+  `decompose_cells` (the `decomposeMesh` driver, now the one shared copy:
+  moved from `correct_edges`, where the octree track had split it out for
+  `cartesian_mesh`), `decompose_mesh_faces`,
+  `decompose_concave_internal_faces`, the `faceDecomposition` functions,
+  `surface_morpher_cells`, `topological_cleaner`.
+  - **Differential (the move):** `correct_edges` before and after,
+    bit for bit. `correct_edges_is_pinned_bit_for_bit` fingerprints the
+    corrected pipe mesh (L 60 mm, h 6 mm, `MedianPerPoint`/`Corners`:
+    1 727 cells, 8 concave faces, 16 split, 112 fanned, 14 cells into
+    pyramids). Recorded before the move, asserted after: held; the
+    `cartesian_mesh` tests also pass unchanged.
+  - **Tests:** `face_decomposition_by_hand`,
+    `face_fans_and_cell_removal_on_a_box`,
+    `surface_morpher_cells_on_the_carved_sphere`,
+    `topological_cleaner_on_the_morphed_sphere_and_a_box`,
+    `diagnose_morpher_volume_by_step`.
+  - **Results against the plan's test** (carved sphere R 3 m, h 0.6 m,
+    552 cells). After the morpher, every boundary cell has exactly one
+    boundary face (held), the mesh is closed (held), and the volume equals
+    the sum of the kept cells (held; none was removed).
+  - **Misses, recorded in the tests:**
+    - The volume fell from 119.232 to 93.024 m³ (predicted under 1 %).
+      Its cause is located: `morphInternalFaces` conserves the volume
+      exactly, while `morphBoundaryFaces` merges a staircase corner's faces
+      into one non-planar face. A centroid fan measures that face as a
+      chamfer.
+    - `cartesian_box` has six patches, not one, so `removeCells`
+      collapses them into `defaultFaces`. This is upstream behaviour; the
+      prediction misread the input.
+  - **Images:** `verification_and_validation/topology_gh1267/`.
+- **Item 14 (gh:#1268):** `irregular_vertices`,
+  `check_and_fix_irregular_connections`, `BoundaryFacesSharingTwoEdges`,
+  `non_mappable_cells`, `remove_non_mappable_cells`,
+  `check_cell_connections_over_faces` (through the octree track's
+  `group_marking`).
+  - **Tests:** `irregular_vertex_between_two_cubes`,
+    `boundary_faces_sharing_two_edges_by_hand`,
+    `non_mappable_cell_connections`, `clean_box_is_left_bit_identical`.
+    Every prediction held.
+  - **Not reached by a test:** the face-fanning branch of
+    `improve_topology`. It needs a point in two boundary faces that is
+    also in an internal face without boundary edges on both sides; no
+    hand-built manifold mesh gave one.
+
+**Upstream defect found (kept, documented):**
+`checkBoundaryFacesSharingTwoEdges::improveTopology` writes
+`decomposeCell[owner[faceI]];` without assigning, so no cell is
+decomposed.
+
+**Upstream quirk (harmless):**
+`checkInvalidConnectionsForVerticesCells` appends one copy of the point
+per group and relabels from the second copy on, so the first copy is
+never used.

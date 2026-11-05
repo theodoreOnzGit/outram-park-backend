@@ -120,7 +120,10 @@ Changing the default needs the maintainer.
 **not** replace `octree.rs`, whose fingerprint pin must not move. Keep both
 routes callable: on the same leaves, `cartesian_mesh_extractor` and
 `octree::build_mesh` build the same faces ring for ring (pinned). The
-`decomposeCells` step is shared with `correct_edges` (`decompose_cells`);
+`decomposeCells` step is shared with `correct_edges` (`decompose_cells`;
+**MOVED 2026-11-05, gh:#1267:** it now lives in `topology::decompose_cells`,
+which `correct_edges`, `cartesian_mesh` and the `topology` checks all call,
+pinned by `correct_edges::tests::correct_edges_is_pinned_bit_for_bit`);
 change it once. Upstream's `findNearestSurfacePoint` is not exact;
 `NearestSearch::Exact` is the port's exact variant. Record and images:
 `verification_and_validation/cartesian_octree_gh1262/`.
