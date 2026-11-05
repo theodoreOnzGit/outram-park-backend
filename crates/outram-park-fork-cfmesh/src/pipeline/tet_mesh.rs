@@ -40,7 +40,7 @@
 //! | `surfaceTopology` | `surfaceMorpherCells` + `topologicalCleaner` | **not ported** (topology track, gh:#1267): skipped, noted |
 //! | `surfaceProjection` | `meshSurfaceMapper::mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | `surface_mapper::map_vertices_onto_surface_untangled`: the mapping, with tangled moves reverted instead of untangled |
 //! | `patchAssignment` | `edgeExtractor` | **not ported** (not this track): `patches::assign_patches_by_region` (nearest triangle) stands in |
-//! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, `meshSurfaceOptimizer::optimizeSurface` | `surface_mapper::map_vertices_onto_surface_patches_untangled` stands in for the first; the second is **not ported** (surface track, gh:#1259) |
+//! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, `meshSurfaceOptimizer::optimizeSurface` | the first as ported: `correct_edges::correct_edges_between_patches` then `surface_mapper::map_vertices_onto_surface_patches_untangled_given` (moves that tangle a cell reverted); the second **not ported** (surface track, gh:#1259) |
 //! | `boundaryLayerGeneration` | `boundaryLayers`, only with a `boundaryLayers` dict | no such dict here: nothing to do, as upstream without one |
 //! | `meshOptimisation` | `meshOptimizer`: `optimizeSurface`, `optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, `untangleMeshFV` | `mesh_optimizer` with upstream's boundary moves and LP untangler on; `optimizeSurface` **not ported** (surface track); `optimizeBoundaryLayer` has no layer to act on |
 //! | `boundaryLayerRefinement` | `refineBoundaryLayers`, only with a `boundaryLayers` dict | nothing to do |
@@ -59,7 +59,8 @@ use crate::mesh_optimizer::{MeshOptimizer, UntangleControls};
 use crate::patches::{assign_patches_by_region, SurfaceRegions};
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
-use crate::surface_mapper::{map_vertices_onto_surface_patches_untangled, map_vertices_onto_surface_untangled};
+use crate::correct_edges::correct_edges_between_patches;
+use crate::surface_mapper::{boundary_face_regions, map_vertices_onto_surface_patches_untangled, map_vertices_onto_surface_patches_untangled_given, map_vertices_onto_surface_untangled};
 use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
 use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
 use crate::volume_mesh::VolumeMesh;
@@ -267,14 +268,30 @@ pub(crate) fn run_generator(
                 None => rep.notes.push("patchAssignment: no regions given; one patch defaultFaces".into()),
             },
             WorkflowStep::EdgeExtraction => {
-                if let Some(r) = regions {
-                    let (mm, n) = map_vertices_onto_surface_patches_untangled(m, points, tris, r, opts.untangle_passes);
-                    *m = mm;
-                    rep.n_edge_mapping_reverted = n;
-                    rep.notes.push(format!(
-                        "edgeExtraction: {} not ported; surface_mapper's patch mapping stands in ({n} points reverted)",
-                        if kind == Template::Tet { "meshSurfaceEdgeExtractorNonTopo" } else { "meshSurfaceEdgeExtractorFUN" }
-                    ));
+                match (regions, kind) {
+                    (Some(r), Template::Tet) => {
+                        // meshSurfaceEdgeExtractorNonTopo, ported as the
+                        // crate pipeline runs it: decomposeBoundaryFaces
+                        // (correctEdgesBetweenPatches), then
+                        // remapBoundaryPoints on the patches it kept
+                        let given = boundary_face_regions(m, points, tris, r);
+                        let (corrected, given, cr) = correct_edges_between_patches(m, &given, &r.names);
+                        let (mm, n) = map_vertices_onto_surface_patches_untangled_given(&corrected, points, tris, r, opts.untangle_passes, &given);
+                        *m = mm;
+                        types = vec!["patch".to_string(); m.patches.len()];
+                        rep.n_edge_mapping_reverted = n;
+                        rep.notes.push(format!(
+                            "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids; {n} points reverted",
+                            cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
+                        ));
+                    }
+                    (Some(r), Template::Voronoi) => {
+                        let (mm, n) = map_vertices_onto_surface_patches_untangled(m, points, tris, r, opts.untangle_passes);
+                        *m = mm;
+                        rep.n_edge_mapping_reverted = n;
+                        rep.notes.push(format!("edgeExtraction: meshSurfaceEdgeExtractorFUN not ported; surface_mapper's patch mapping stands in ({n} points reverted)"));
+                    }
+                    (None, _) => {}
                 }
                 rep.notes.push("edgeExtraction: meshSurfaceOptimizer::optimizeSurface not ported (surface track); skipped".into());
             }
@@ -363,7 +380,11 @@ pub(crate) mod tests {
     /// zero); the extracted mesh closed; on the uniform octree only
     /// around-edge tets (point count = nodes + centres) and the volume
     /// equals the `MESHCELL` leaves minus `h^3/6` per region-boundary leaf
-    /// face. Results: `README.md` of that folder.
+    /// face. Results (2026-11-05): sphere 13 968 tets, 0 negative, 0 defects,
+    /// 144 dropped; **missed** the uniform premise (coarse BOUNDARY leaves give
+    /// sub-nodes) and the volume (145.5 against 142.5 m^3: 288 tets, 3.0 m^3,
+    /// lie in BOUNDARY leaves, pinned); pipe 195 136 tets, 0 negative, closed.
+    /// Full record: `README.md` of that folder.
     #[test]
     fn tet_creator_on_the_sphere_and_the_pipe() {
         // sphere, uniform
@@ -478,7 +499,11 @@ pub(crate) mod tests {
     /// the crate's `tetrahedralize` + `flip_to_delaunay` on the sphere
     /// (0.5 m) and the pipe (2 mm), at equal cell size. Records tet count,
     /// volume error against the surface, `check_quality`, run time.
-    /// Results: `verification_and_validation/tet_mesh_gh1272/README.md`.
+    /// Results (2026-11-05): volume error sphere +26.69 % (baseline −1.72 %),
+    /// pipe +22.33 % (−0.54 %), 0 non-positive cells, closed; cells 13 968 /
+    /// 35 416 against 21 888 / 57 600. The error measures the unported
+    /// `surfaceMorpherCells` / `untangleSurface` (record:
+    /// `verification_and_validation/tet_mesh_gh1272/README.md`).
     #[test]
     fn diagnose_tet_mesh_against_the_crate_tets() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);

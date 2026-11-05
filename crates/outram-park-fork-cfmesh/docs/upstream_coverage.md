@@ -28,23 +28,25 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Status | Upstream lines | Share | Rows |
 |---|---:|---:|---:|
-| ported | ~~3,349~~ 11,115 | ~~2.6 %~~ 8.6 % | ~~6~~ 12 |
-| partial | ~~54,119~~ 48,890 | ~~41.7 %~~ 37.7 % | ~~27~~ 25 |
-| not ported | ~~49,628~~ 47,091 | ~~38.3 %~~ 36.3 % | ~~80~~ 76 |
+| ported | ~~3,349~~ ~~11,115~~ 29,142 | ~~2.6 %~~ ~~8.6 %~~ 22.5 % | ~~6~~ ~~12~~ 30 |
+| partial | ~~54,119~~ ~~48,890~~ 39,662 | ~~41.7 %~~ ~~37.7 %~~ 30.6 % | ~~27~~ ~~25~~ 18 |
+| not ported | ~~49,628~~ ~~47,091~~ 38,292 | ~~38.3 %~~ ~~36.3 %~~ 29.5 % | ~~80~~ ~~76~~ 65 |
 | not applicable | 22,642 | 17.5 % | 25 |
 | **total** | **129,738** | 100 % | 138 |
 
 **Updated 2026-11-05** after gh:#1255, #1256, #1260 and #1261 (the struck-through numbers are the audit's; §5 has what moved). The `partial` lines overstate what is ported. They count each partly-ported unit whole: for example, the 4,441 lines of `polyMeshGenChecks` for 9 of its 34 function definitions.
 
+**Updated again 2026-11-05** after gh:#1272 and #1273. **CORRECTED at the same time:** these totals had not followed the rows already marked ported by gh:#1258 (`partTriMesh`, group C, 1,331) and gh:#1262–#1266 (group B, and `cartesianMeshExtractor` in group A). Groups A, B and C were recounted from their rows; the other groups were changed only by gh:#1272's `renameBoundaryPatches` (G). **Not re-checked:** groups D–M against their rows (other rows changed by gh:#1257–#1266, for example `meshSurfaceEngine`, `meshSurfacePartitioner`, `meshSurfaceCheckInvertedVertices` in G and `FrontalMarking` in L, may not be in their group's totals).
+
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
-| A. Workflows | 0 | 1,423 | 5,154 | 1,438 |
-| B. Octree | 0 | 13,041 | 3,860 | 2,111 |
-| C. Mesh data structures | ~~0~~ 442 | 12,767 | ~~3,538~~ 3,096 | 3,354 |
+| A. Workflows | ~~0~~ 5,333 | ~~1,423~~ 0 | ~~5,154~~ 1,244 | 1,438 |
+| B. Octree | ~~0~~ 10,689 | ~~13,041~~ 5,236 | ~~3,860~~ 976 | 2,111 |
+| C. Mesh data structures | ~~0~~ ~~442~~ 2,055 | 12,767 | ~~3,538~~ ~~3,096~~ 1,483 | 3,354 |
 | D. Quality checks | ~~0~~ 4,441 | ~~4,441~~ 0 | 0 | 0 |
 | E. Volume optimiser | ~~1,141~~ 3,599 | ~~5,244~~ 4,456 | ~~2,404~~ 734 | 798 |
 | F. Surface optimiser | 0 | 0 | 2,811 | 522 |
-| G. Surface tools | 2,208 | 4,082 | 10,962 | 969 |
+| G. Surface tools | ~~2,208~~ 2,600 | 4,082 | ~~10,962~~ 10,570 | 969 |
 | H. Boundary layers | 0 | 9,395 | 3,261 | 0 |
 | I. Topology repair | 0 | 1,396 | 3,887 | 0 |
 | J. triSurface tools, helper classes | ~~0~~ 425 | 0 | ~~7,639~~ 7,214 | 233 |
@@ -58,19 +60,19 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `executables/tetMesh` | 65 | partial | `pipeline::surface_to_tet_dual_mesh(_multipatch)` | Thin `main` over `tetMeshGenerator`; the crate's entry point is a different workflow (§3). No `meshDict` reader. |
-| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | partial | `boundary_layer_optimisation::add_boundary_layers_cfmesh`, `surface_mapper`, `pipeline` | Ported: the call order of `mapMeshToSurface` → `mapEdgesAndCorners` (surface_mapper) and `optimiseFinalMesh` → `refBoundaryLayers` (boundary_layer_optimisation). Missing: `createTetMesh` (octree tets), `surfacePreparation`, `extractPatches`, `optimiseMeshSurface`, `generateBoundaryLayers` via `boundaryLayers`, `projectSurfaceAfterBackScaling`, `renumberMesh`, `replaceBoundaries`. |
-| `meshLibrary/tetMesh/tetMeshExtractorOctree` | 386 | not ported | — (`tet::tetrahedralize` + `delaunay::flip_to_delaunay` instead) | Deliberate difference, §3. |
-| `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | not ported | — (`tet::tetrahedralize`) | Octree-vertex/centre tets that feed `tetMesh` and `pMesh`. Deliberate difference, §3. |
+| `executables/tetMesh` | 65 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh::{tet_mesh, tet_mesh_restart}`; `pipeline::surface_to_tet_dual_mesh(_multipatch)` kept | Thin `main` over `tetMeshGenerator`. Settings are typed (`TetMeshOptions`); no `meshDict` reader. |
+| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle. No `boundaryLayers` dict and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
+| `meshLibrary/tetMesh/tetMeshExtractorOctree` | 386 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_mesh_extractor_octree` (with the shared `polyMeshGen` assembly `poly_mesh_from_cells`) | Beside `tet::tetrahedralize` + `delaunay::flip_to_delaunay` (§3); compared on the sphere and the pipe. |
+| `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_creator_octree` | All five tet routines. Upstream's unguarded reads are counted (`TetCreatorDefects`), zero on every run. |
 | `executables/cartesianMesh` | 62 | not ported | — | Thin `main` over `cartesianMeshGenerator`. |
 | `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | not ported | — (`carve`, `snap`, `octree` are the crate's own stages) | No `cartesianMesh` workflow. `pipeline` mirrors its staging loosely. |
 | `meshLibrary/cartesianMesh/cartesianMeshExtractor` | 800 | ported (2026-11-05, gh:#1266) | `cartesian_mesh::cartesian_mesh_extractor`; `octree::build_mesh` kept | ~~partial: re-implemented only; missing `decomposeSplitHexesIntoTetsAndPyramids`, `createPointsAndAddressing`, cell-type bookkeeping~~ **CORRECTED 2026-11-05:** transcribed beside `octree::build_mesh`. On the same leaves the two build the same faces ring for ring (sphere and pipe, `verification_and_validation/cartesian_octree_gh1262/README.md`). Quadtree empty patches not ported. |
-| `executables/pMesh` | 65 | not ported | — | Thin `main` over `voronoiMeshGenerator`. |
-| `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | not ported | — | Workflow as `tetMesh`, plus `preMapVertices` and a second `untangleSurface`. |
-| `meshLibrary/voronoiMesh/voronoiMeshExtractor` | 674 | not ported | closest analogue: `cell_centre_dual`, `dual::polyhedral_dual*` | Tet-centroid dual of `tetCreatorOctree` tets, cells only at interior vertices. §3. |
+| `executables/pMesh` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh::{p_mesh, p_mesh_restart}` | Thin `main` over `voronoiMeshGenerator`. |
+| `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (not ported). Results: `verification_and_validation/p_mesh_gh1273/`. |
+| `meshLibrary/voronoiMesh/voronoiMeshExtractor` | 674 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `voronoi_mesh_extractor`; `cell_centre_dual`, `dual::polyhedral_dual*` kept | Tet-centroid dual of `tetCreatorOctree` tets, cells only at interior vertices. Equal to `CellCentre`'s interior cells to 9.8e-15 where `polyDualMesh` accepts the tets (§3). |
 | `executables/cartesian2DMesh` | 66 | not ported | — |  |
 | `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | not ported | — |  |
-| `meshLibrary/utilities/workflowControls` | 477 | not ported | — | `stopAfter` / restart of a workflow step from `meshDict`; a member of all four generators. |
+| `meshLibrary/utilities/workflowControls` | 477 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `workflow_controls` | `stopAfter` / restart of a workflow step; a member of all four generators. The meta data and the saved mesh are values, not files. |
 | `meshLibrary/utilities/checkMeshDict` | 1438 | not applicable | `pipeline::TetDualOptions`, `BoundaryLayerOptimisationControls` | Validation of a `meshDict`; settings here are typed Rust structs. Revisit if a `meshDict` reader is ever added (§4, "Not planned"). |
 
 _Subtotal: 8015 lines._
@@ -105,8 +107,8 @@ _Subtotal: 19012 lines._
 | `meshes/primitives/meshSubsets` | 442 | ported (gh:#1261) | `mesh_subsets::{MeshSubset, SubsetGroup, MeshSubsets}`; `mesh_optimizer::MeshOptimizer::lock_*_in_subset` | ~~not ported~~. A value beside `VolumeMesh` (31 struct literals would need a new field), not inside it. Subset file I/O (`polyMeshGen::read`/`write`) not ported. |
 | `meshes/polyMeshGenAddressing (serial)` | 2576 | partial | `mesh_optimizer::point_cells`, `cell_faces`, `checks::cell_geometry`, ad hoc maps per module | No shared addressing object: each module rebuilds what it needs. Missing as a reusable set: `edges`, `edgeFaces`, `faceEdges`, `pointPoints`, `cellCells`, `cellEdges`. |
 | `meshes/polyMeshGenAddressing: ParallelAddressing.C` | 974 | not applicable | — | MPI. |
-| `meshes/polyMeshGenModifier (AddCells, RemoveCells, RemoveFaces, RemoveUnusedVertices, ReorderBoundaryFaces, ReplaceBoundary, AddCellByCell, .H)` | 1862 | partial | `volume_mesh::from_cell_faces`, `patches::assign_patches_by_region` | Replaced: every stage rebuilds the mesh from cell face lists. Not a line-by-line port. |
-| `meshes/polyMeshGenModifier: RenumberMesh.C` | 282 | not ported | — | Cuthill–McKee renumbering. No Rust renumbering found in the workspace. |
+| `meshes/polyMeshGenModifier (AddCells, RemoveCells, RemoveFaces, RemoveUnusedVertices, ReorderBoundaryFaces, ReplaceBoundary, AddCellByCell, .H)` | 1862 | partial | `volume_mesh::from_cell_faces`, `patches::assign_patches_by_region`; `tet_mesh_extractor_octree::poly_mesh_from_cells` (gh:#1272) | Replaced: every stage rebuilds the mesh from cell face lists. Not a line-by-line port. **Added 2026-11-05 (gh:#1272):** `ReorderBoundaryFaces`, `RemoveUnusedVertices` (serial) and `ReplaceBoundary` (serial, in `rename_boundary_patches`) are transcribed. |
+| `meshes/polyMeshGenModifier: RenumberMesh.C` | 282 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `renumber_mesh::renumber_mesh`, with `calcCellCells` | ~~Cuthill–McKee renumbering. No Rust renumbering found in the workspace.~~ **CORRECTED 2026-11-05:** upstream's comment says Cuthill–McKee, but `LongList::remove` pops the last element, so the walk is depth-first; ported as written. Cells' face lists come from the caller (`cells_from_mesh`: ascending face order). |
 | `meshes/polyMeshGenModifier: ZipUpCells.C` | 794 | not ported | — (`octree::conforming_ring` splices hanging nodes during assembly) | No caller in `meshLibrary/` at this commit (grep). Not planned. |
 | `meshes/polyMeshGenModifier: AddBufferCells, AddProcessorFaces` | 437 | not applicable | — | MPI. |
 | `meshes/polyMeshGen2DEngine` | 689 | not ported | — | 2D workflow. |
@@ -176,7 +178,7 @@ _Subtotal: 3333 lines._
 | `surfaceTools/meshSurfaceEdgeExtractorFUN` | 407 | not ported | — | Fundamental-sheets extractor (used with `createFundamentalSheets`). |
 | `surfaceTools/meshSurfaceEdgeExtractor2D` | 311 | not ported | — | 2D workflow. |
 | `surfaceTools/createFundamentalSheets (base, FJ, JFS)` | 908 | not ported | — | Layer of cells at feature edges for `meshSurfaceEdgeExtractorFUN`. |
-| `surfaceTools/renameBoundaryPatches` | 392 | not ported | — (`patches` names come from `SurfaceRegions`) | `renameBoundary` / patch `type` from `meshDict`. |
+| `surfaceTools/renameBoundaryPatches` | 392 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `rename_boundary_patches` (`RenameBoundary`, `regex_full_match`) | `renameBoundary` / patch `type`. Types travel beside the mesh (`VolumeMesh` has none). `checkSymmetryPlanes` calls `symmetryPlaneOptimisation` (not ported): reported, not run. The patch-name regex supports the common subset (module docs). |
 | `surfaceTools/surfaceMorpherCells` | 1139 | not ported | — | `surfacePreparation`: one boundary face per cell. |
 | `intersectionTools/findCellsIntersectingSurface` | 501 | not ported | — | No caller in `meshLibrary/` at this commit (grep). |
 
@@ -289,8 +291,8 @@ These are not gaps. They are different routes to the same stage, so the plan in 
 
 | Stage | Upstream | This crate | What differs |
 |---|---|---|---|
-| Volume tets | `tetCreatorOctree` + `tetMeshExtractorOctree`: tets from the octree's vertices and cube centres (`tetMesh`, `pMesh`) | `tet::tetrahedralize` (centroid subdivision of carved or graded cells), then `delaunay::flip_to_delaunay` | Different tets and point set. The crate's tets are not Delaunay before the flips (`delaunay` docs). Upstream's `tetMesh` stops at tets; the crate goes on to a dual. |
-| Polyhedral cells | `pMesh`: `voronoiMeshExtractor`, one cell per interior tet vertex, corners at tet **centroids**, no cells at boundary vertices; boundary then mapped and untangled | `dual::polyhedral_dual*` (median dual: edge midpoints, face and cell centroids), `dual::polyhedral_dual_per_point`, `cell_centre_dual` (OpenFOAM `polyDualMesh` through `outram-foam-mesh`); selected by `TetDualOptions::dual_kind` | The crate's duals keep boundary-vertex cells and build boundary faces themselves. `CellCentre` is the nearest to `voronoiMeshExtractor` (same dual corners inside). |
+| Volume tets | `tetCreatorOctree` + `tetMeshExtractorOctree`: tets from the octree's vertices and cube centres (`tetMesh`, `pMesh`) | `tet::tetrahedralize` (centroid subdivision of carved or graded cells), then `delaunay::flip_to_delaunay` | Different tets and point set. The crate's tets are not Delaunay before the flips (`delaunay` docs). Upstream's `tetMesh` stops at tets; the crate goes on to a dual. **Updated 2026-11-05 (gh:#1272):** the upstream route is now beside it (`tet_creator_octree`, `pipeline::tet_mesh`); measured differences in `verification_and_validation/tet_mesh_gh1272/`. |
+| Polyhedral cells | `pMesh`: `voronoiMeshExtractor`, one cell per interior tet vertex, corners at tet **centroids**, no cells at boundary vertices; boundary then mapped and untangled | `dual::polyhedral_dual*` (median dual: edge midpoints, face and cell centroids), `dual::polyhedral_dual_per_point`, `cell_centre_dual` (OpenFOAM `polyDualMesh` through `outram-foam-mesh`); selected by `TetDualOptions::dual_kind` | The crate's duals keep boundary-vertex cells and build boundary faces themselves. `CellCentre` is the nearest to `voronoiMeshExtractor` (same dual corners inside). **Updated 2026-11-05 (gh:#1273):** `voronoi_mesh_extractor` and `pipeline::p_mesh` are now beside them; on the same tets the interior cells equal `CellCentre`'s to 9.8e-15 (box), where `polyDualMesh` accepts the tets. |
 | Inside/outside | `meshOctreeInsideOutside`: front marking from the surface-intersecting (DATA) boxes | `carve`, `octree::inside`: ray parity; the upstream route is now beside it (`mesh_octree_creator`, gh:#1264) | Different test. ~~unmeasured near it~~ **Measured 2026-11-05:** the same answer on every leaf that does not cross the surface (sphere, pipe). |
 | Background mesh | `meshOctreeCreator` sizing (`maxCellSize`, `boundaryCellSize`, local and object refinement), `cartesianMeshExtractor` + `decomposeSplitHexes` | `carve::carve_box` (uniform), `octree::refine_near_boundary(_banded)` (N levels near the wall), hanging nodes spliced into the face rings; the upstream route is now beside it (`mesh_octree_creator`, `cartesian_mesh`, gh:#1264–#1266), not yet wired into `pipeline` | The crate's route has no size-driven refinement, and its split hexes stay polyhedra. |
 | First surface fit | `meshSurfaceMapper::preMapVertices` + `mapVerticesOntoSurface`, then `meshSurfaceOptimizer::untangleSurface` | `snap::snap_to_surface` (one closest-point projection); in the multipatch pipeline `surface_mapper::map_vertices_onto_surface_untangled` | Tangled cells are repaired by **undoing** the moves (`revert_tangled`), not by untangling. |
@@ -683,3 +685,55 @@ committed before its run, and the misses are recorded where they occurred.
 
   All three are positive. The predicted ordering "LP ≥ Knupp" **missed**.
   On the pipe, see the gh:#1260 section of the V&V record.
+
+### Items 18 and 19 (gh:#1272, #1273), 2026-11-05
+
+New entry points; no default changed. The three pins
+(`back_off_only_layers_are_pinned_bit_for_bit`,
+`octree_path_is_pinned_bit_for_bit`, `layer_strategies_are_deterministic`)
+pass. Predictions were committed before the runs; the records with every
+miss are `verification_and_validation/tet_mesh_gh1272/README.md` and
+`verification_and_validation/p_mesh_gh1273/README.md`, with PNG slices.
+
+- **Item 18 (gh:#1272), `tetMesh`:**
+  - new modules `tet_creator_octree`, `tet_mesh_extractor_octree` (with the
+    shared `polyMeshGen` assembly: owners from cells,
+    `reorderBoundaryFaces`, `removeUnusedVertices`), `workflow_controls`,
+    `rename_boundary_patches` (with `replaceBoundary`), `renumber_mesh`;
+  - `pipeline::tet_mesh::{tet_mesh, tet_mesh_restart, TetMeshOptions,
+    TetMeshReport, SavedMesh, create_octree}`.
+  - `edgeExtraction` calls the ported `meshSurfaceEdgeExtractorNonTopo`
+    route (`correct_edges` + `surface_mapper`).
+  - **Gaps, called through what exists and noted per run:**
+    `surfaceMorpherCells` + `topologicalCleaner` (topology track),
+    `meshSurfaceOptimizer` and `meshOptimizer::optimizeSurface` (surface
+    track), `edgeExtractor`, `boundaryLayers` / `refineBoundaryLayers`
+    (layers track), `symmetryPlaneOptimisation`.
+  - **Differential (sphere 0.5 m / pipe 2 mm), against `tetrahedralize` +
+    `flip_to_delaunay`:** volume error +26.7 % / +22.3 % against
+    −1.72 % / −0.54 %; cells 13 968 / 35 416 against 21 888 / 57 600; the
+    octree template's non-orthogonality is 0. The volume error measures
+    the missing `surfaceMorpherCells` and `untangleSurface`: the boundary
+    stays on the DATA leaves.
+- **Item 19 (gh:#1273), `pMesh`:** new module `voronoi_mesh_extractor`;
+  `pipeline::p_mesh::{p_mesh, p_mesh_restart}`.
+  - On the same tets the Voronoi cells are exactly the interior tet
+    vertices, and equal `CellCentre`'s cells to 9.8e-15 where
+    `polyDualMesh` accepts the tets (box). It refuses the sphere and pipe
+    templates (96 / 2 240 non-manifold boundary points).
+  - The workflow: −0.97 % (sphere) and −0.05 % (pipe) volume error, no
+    negative cell.
+
+**Findings on the way, not fixed:**
+- the octree tet template has non-manifold boundary points, made by
+  upstream's `createTetsFromFacesWithCentreNode` in coarse `BOUNDARY`
+  leaves (as written upstream);
+- `meshSurfaceMapperPremapVertices.C` (item 19's list) belongs to the
+  surface track and is not ported.
+
+**Upstream defects found:**
+- `renumberMesh` is a depth-first walk, not Cuthill–McKee (its comment);
+- `tetCreatorOctree` reads possibly empty `VRWGraph` rows and `-1` labels
+  unguarded (counted here, zero on every run);
+- `workflowControls` records each step twice and never stops after the
+  last step.

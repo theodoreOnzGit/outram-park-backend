@@ -104,6 +104,9 @@ mod tests {
     /// `verification_and_validation/p_mesh_gh1273/README.md`: the Voronoi
     /// extraction on the sphere (0.5 m) and the graded pipe (2 mm / 1 mm),
     /// against the median dual (`MedianPerCorner`) of the same tets.
+    /// Results (2026-11-05): cells = interior points (1 749 sphere, 26 587
+    /// pipe), 0 non-positive, closed; median-dual volumes equal to 3.8e-15 on
+    /// the uniform sphere (prediction 3 missed), up to 41 % apart on the pipe.
     #[test]
     fn voronoi_extractor_cells_are_the_interior_tet_vertices() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
@@ -197,7 +200,9 @@ mod tests {
     /// equals the `CellCentre` (`polyDualMesh`) cell of its tet vertex:
     /// same face count, volume to 1e-12 relative. `polyDualMesh` refuses a
     /// tet mesh with a non-manifold boundary point; such cases are recorded
-    /// (count of those points) and skipped. Results: the V&V README.
+    /// (count of those points) and skipped. Results (2026-11-05): sphere and
+    /// pipe refused (96 / 2 240 non-manifold points); box: 1 241 cells, same
+    /// face counts, volumes to 9.8e-15.
     #[cfg(feature = "cell-centre-dual")]
     #[test]
     fn voronoi_cells_equal_the_cell_centre_dual_inside() {
@@ -255,7 +260,9 @@ mod tests {
     }
 
     /// V&V (gh:#1273), prediction 5: the `pMesh` workflow on the sphere and
-    /// the pipe against `tetMesh` (results in the V&V record).
+    /// the pipe against `tetMesh`. Results (2026-11-05): −0.97 % (sphere,
+    /// 1 749 cells) and −0.05 % (pipe, 4 303 cells), 0 non-positive;
+    /// prediction 5 missed the other way (record: `p_mesh_gh1273/`).
     #[test]
     fn diagnose_p_mesh_workflow() {
         let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);

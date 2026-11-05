@@ -28,6 +28,75 @@ cells):
    the volume error is larger than `tetMesh`'s (the boundary is further
    from the surface before mapping, and `preMapVertices` is not ported).
 
-## Results
+## Results (2026-11-05, `cargo test --release`)
 
-(Filled in after the runs.)
+Tests: `pipeline::p_mesh::tests::{voronoi_extractor_cells_are_the_interior_tet_vertices,
+voronoi_cells_equal_the_cell_centre_dual_inside, diagnose_p_mesh_workflow}`.
+The second needs `--features cell-centre-dual`.
+
+### The extractor on the same tets
+
+| case | tets | tet-mesh points | interior points | Voronoi cells | boundary edges | volume, Voronoi / tets | non-positive |
+|---|---|---|---|---|---|---|---|
+| sphere 0.5 m | 13 968 | 3 215 | 1 749 | 1 749 | 4 248 | 109.31 / 145.50 m^3 | 0 |
+| pipe 2 mm / 1 mm | 195 136 | 41 501 | 26 587 | 26 587 | 45 456 | 1.8185e-5 / 2.1213e-5 m^3 | 0 |
+
+- Prediction 1 held: one cell per interior tet vertex, closed, all
+  positive.
+- **Prediction 2 held where it could be tested.**
+  - `polyDualMesh` refuses the sphere and pipe templates. They have 96 and
+    2 240 non-manifold boundary points (see the `tetMesh` record: tets in
+    coarse BOUNDARY leaves).
+  - On a box (`[0.05, 0.95]^3`, `maxCellSize` 0.1), which is manifold,
+    every Voronoi cell equals the `CellCentre` cell of its vertex: the same
+    face count on all 1 241, and the volume to **9.8e-15** relative.
+- **Prediction 3 missed on the sphere.** On the uniform BCC interior the
+  median-dual cells have the same volumes as the Voronoi cells (3.8e-15),
+  though their corners differ. On the graded pipe they differ by up to
+  41 %, as predicted.
+- Prediction 4 held: the Voronoi volume is smaller (one tet layer missing).
+
+### The workflow
+
+| case | cells | volume error | non-positive | max non-orth | max skew | time | projection reverts |
+|---|---|---|---|---|---|---|---|
+| sphere 0.5 m | 1 749 | **−0.97 %** | 0 | 28.0° | 0.536 | 0.34 s | 0 |
+| pipe 2 mm | 4 303 | **−0.05 %** | 0 | 24.5° | 0.746 | 1.63 s | 900 |
+
+- **Prediction 5 missed, the other way.** `pMesh` is far closer to the
+  surface than `tetMesh` (−0.97 % against +26.7 % on the sphere). It is
+  also closer than the crate's uniform 0.5 m baseline (−1.72 %).
+  - Its boundary starts one tet layer inside the tet template's boundary.
+    That puts it close to the surface, partly inside and partly outside
+    (`sphere_xz_voronoi_template.png`; template volume 109.31 m^3,
+    −3.3 %). Mapping it onto the surface tangles almost nothing (0 reverts
+    on the sphere).
+  - `tetMesh`'s boundary starts outside, on the DATA leaves' outer faces.
+  - The optimiser repaired 16 bad faces (sphere) and 112 (pipe).
+- `pMesh` never calls `workflowCompleted`, so the meta data stays on the
+  mesh. This is asserted, and is upstream as written.
+
+## Images
+
+Written by `examples/tet_mesh_images.rs` (command in `../tet_mesh_gh1272/`).
+
+| file | what |
+|---|---|
+| `sphere_xz_voronoi_template.png` | sphere, the Voronoi template, x-z at y = 0.01 |
+| `sphere_xz_p_mesh.png` | the `p_mesh` result |
+| `pipe_xy_p_mesh.png` | pipe at 2 mm, mid-length x-y |
+
+**What I checked:**
+
+- Inside, the cells show the truncated-octahedron pattern of the BCC dual
+  (squares and octagons in the slice).
+- Before mapping, the outer cells straddle the surface trace; after mapping
+  they reach it all round, with no fold.
+
+**Not checked:** 3D views, and the boundary patches.
+
+## Not ported (see the `pipeline::p_mesh` docs)
+
+`surfaceMorpherCells`, `preMapVertices`, `meshSurfaceEdgeExtractorFUN`,
+`meshSurfaceOptimizer` (`optimizeSurface`, `untangleSurface`),
+`edgeExtractor`, `boundaryLayers`, `refineBoundaryLayers`.

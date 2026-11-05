@@ -40,6 +40,155 @@ crate's `carve_box` + `snap` + `tetrahedralize` + `flip_to_delaunay`
 8. `renumberMesh` leaves the internal faces upper-triangular; the patches
    keep their faces.
 
-## Results
+## Results (2026-11-05, `cargo test --release`)
 
-(Filled in after the runs; see below.)
+Tests: `pipeline::tet_mesh::tests::{tet_creator_on_the_sphere_and_the_pipe,
+diagnose_tet_mesh_against_the_crate_tets,
+tet_mesh_stop_and_restart_reproduce_the_full_run}`,
+`renumber_mesh::tests::renumber_mesh_is_upper_triangular_and_depth_first`,
+`rename_boundary_patches::tests::*`, `workflow_controls::tests::*`.
+
+### The tet creator and extractor (predictions 1–3)
+
+| case | leaves | nodes | tet points | tets | dropped by `checkAndAppendTet` | negative | defects |
+|---|---|---|---|---|---|---|---|
+| sphere, 0.5 m | 2 584 | 2 277 | 4 877 | 13 968 | 144 | 0 | 0 |
+| pipe 48, 2 mm / 1 mm | 21 288 | 21 449 | 55 595 | 195 136 | 2 496 | 0 | 0 |
+
+- **Prediction 1 missed (its premise was wrong).** The octree is not
+  uniform. The `MESHCELL` leaves are all level 5, but 96 of the 360
+  `BOUNDARY` leaves next to them are coarser (level 4, `OUTSIDE`).
+  Sub-nodes appear at their corners (4 877 points, not 3 557). Positivity
+  and zero defects held.
+- **Prediction 2 missed, then explained exactly.** The tet volume is
+  145.5 m^3, not 142.5 (the `MESHCELL` leaves minus `h^3/6` per
+  region-boundary face, 840 faces).
+  - The extra 3.0 m^3 = 24 h^3 is 288 tets whose centroids lie in the
+    coarse `BOUNDARY` leaves.
+  - `createTetsFromFacesWithCentreNode` builds the four tets
+    `(node, sub-node, sub-node, face centre)` without a cube label, so they
+    pass `checkAndAppendTet` even where the leaf is not a cell. That is
+    upstream's code as written.
+  - These tets hang off the mesh at single points (the diamonds in
+    `sphere_xz_tet_template.png`). They make 96 non-manifold boundary points
+    on the sphere and 2 240 on the pipe.
+  - Pinned: 13 968 tets, 288 outside, 144 dropped. The volume equals the
+    expected value plus the outside tets to 1e-12.
+- Prediction 3 held. On the graded pipe the split-edge and face-centre tets
+  appear (55 595 points against 21 449 nodes), all positive, with no defect.
+- Every face lies in at most two tets, and the mesh is closed in both cases.
+
+### The workflow against the crate's tets (predictions 4–7)
+
+Both routes use the same cell size: 0.5 m for the sphere (`maxCellSize`)
+and 2 mm for the pipe. The baseline is `carve_box` + `snap` +
+`tetrahedralize` + `flip_to_delaunay`. Volume error is against 113.0973 m^3
+(sphere) and the 48-gon prism, 1.8796e-5 m^3 (pipe).
+
+| case | route | cells | volume error | non-positive | max non-orth | max skew | time |
+|---|---|---|---|---|---|---|---|
+| sphere | `tet_mesh` | 13 968 | **+26.69 %** | 0 | 57.09° | 1.640 | 0.12 s |
+| sphere | template only | 13 968 | +28.65 % | 0 | 0.00° | 0.125 | — |
+| sphere | baseline | 21 888 | −1.72 % | 0 | 80.23° | 0.402 | 2.66 s |
+| pipe | `tet_mesh` | 35 416 | **+22.33 %** | 0 | 66.15° | 1.198 | 1.40 s |
+| pipe | template only | 34 560 | +22.58 % | 0 | 0.00° | 0.125 | — |
+| pipe | baseline | 57 600 | −0.54 % | 0 | 68.42° | 0.412 | 0.34 s |
+
+- **Prediction 4 missed badly.** All cells are positive and the meshes are
+  closed (held). But the volume error is +26.7 % (sphere) and +22.3 %
+  (pipe), far outside the 1.72–8 % I predicted.
+  - The cause is visible in `sphere_xz_tet_mesh.png`: the boundary stays on
+    the octree, outside the surface.
+  - The stand-in for `untangleSurface` reverts the moves of every cell the
+    mapping tangles. On this template that is 1 238 boundary points on the
+    sphere and 3 539 on the pipe: nearly all of them.
+  - The template's boundary is the DATA leaves' outer faces, each with a
+    pyramid cut to the leaf centre, so the leaf centres are boundary points
+    too. Projecting both the corners and the centres onto the surface
+    flattens the boundary tets.
+  - Upstream removes those cells first (`surfaceMorpherCells`,
+    `topologicalCleaner`: the topology track), and untangles instead of
+    reverting (`meshSurfaceOptimizer`: the surface track).
+  - **This number measures the missing steps, not the ported ones.**
+    Re-measure once they land.
+- **Prediction 5 missed.** The cell ratio is 0.64 (sphere) and 0.61 (pipe),
+  not 1.0–1.6.
+- Prediction 6 held, more strongly than predicted: the template's
+  non-orthogonality is exactly 0. Its tets are the BCC lattice's congruent
+  disphenoids, whose centroid is their circumcentre.
+- **Prediction 7 missed on the sphere** (0.12 s against 2.66 s: the
+  optimiser found no bad face). It held on the pipe (1.40 s against
+  0.34 s), mostly spent in `correctEdgesBetweenPatches`, which made 156
+  pyramids.
+- Prediction 8 held (`renumber_mesh` test): the internal faces are
+  upper-triangular and the patches keep their faces.
+
+### Workflow controls and restart
+
+`tet_mesh_stop_and_restart_reproduce_the_full_run` (pipe, 24 sides, 4 mm):
+
+- Stopped after `surfaceProjection`, the mesh is neither renumbered nor
+  renamed (one patch, `defaultFaces`).
+- Restarted from that mesh and its meta data, the run resumes at
+  `patchAssignment` and gives the uninterrupted run's mesh **bit for bit**.
+- Two runs give the same mesh bit for bit.
+
+## Images (`examples/tet_mesh_images.rs`)
+
+```text
+cargo run --release -p outram-park-fork-cfmesh --example tet_mesh_images -- crates/outram-park-fork-cfmesh/verification_and_validation/tet_mesh_gh1272
+```
+
+The example also writes three Voronoi images; they were moved to
+`../p_mesh_gh1273/`. Each image shows the mesh edges cut by the slice
+(blue), the surface (black) and the octree leaf types underneath.
+
+| file | what |
+|---|---|
+| `sphere_xz_tet_template.png` | sphere, the extracted octree tets, x-z at y = 0.01 |
+| `sphere_xz_tet_mesh.png`, `sphere_xy_tet_mesh.png` | the `tet_mesh` result, x-z and x-y |
+| `pipe_xy_tet_mesh.png`, `pipe_xz_tet_mesh.png` | pipe, `tet_mesh` at 2 mm, mid-length x-y and axial x-z (the x-z image is stretched along z) |
+| `pipe_xy_graded_tet_template.png` | pipe, the graded template (1 mm boundary cells), by level |
+
+**What I checked in them:**
+
+- The template fills the INSIDE and DATA leaves with the BCC pattern (two
+  diagonals per leaf in the slice). It stops at the DATA leaves' outer
+  faces, outside the surface.
+- The isolated diamonds outside the band are the 288 tets in coarse
+  BOUNDARY leaves (finding above). In the `tet_mesh` result they are
+  stretched toward the surface.
+- In the `tet_mesh` images the boundary is still on the octree: the
+  +26.7 % / +22.3 % volume error is the DATA band.
+- The graded template refines one level at a time, and the tets follow the
+  levels.
+
+**What I could not check:** 3D views; the inside of a cell (the slices
+show cut edges only); the patch of each boundary face (not coloured).
+
+## Not ported, called through what exists, or skipped
+
+See the `pipeline::tet_mesh` docs for the step-by-step table.
+
+- `surfaceMorpherCells`, `topologicalCleaner` (topology track): skipped.
+- `meshSurfaceOptimizer::untangleSurface` / `optimizeSurface` and
+  `meshOptimizer::optimizeSurface` (surface track): skipped. Tangled mapping
+  moves are reverted instead.
+- `edgeExtractor` (patch assignment): the nearest triangle stands in.
+- `boundaryLayers`, `refineBoundaryLayers` (layers track): not offered. The
+  workflow runs as upstream does without a `boundaryLayers` dict.
+- `symmetryPlaneOptimisation` in `renameBoundaryPatches`: reported, not run.
+- `anisotropicSources`, `triSurfacePatchManipulator`, and `meshDict` and
+  mesh file I/O (a restart holds the mesh in memory).
+
+## Upstream defects found (none filed; for the maintainer)
+
+- `renumberMesh` is documented as Cuthill–McKee, but it pops the last
+  element (`LongList::remove`): it is a depth-first walk. Kept.
+- `tetCreatorOctree` reads `VRWGraph` rows that may be empty, and
+  `nodeLabels` that may be `-1`, without a guard (undefined in a release
+  build). The port counts such reads: zero on every run here.
+- `createTetsFromFacesWithCentreNode` creates tets inside non-cell
+  (`BOUNDARY`) leaves (finding above). Kept as upstream.
+- `workflowControls` records each step twice in `completedSteps`, and a
+  `stopAfter` of the last step never triggers. Kept.

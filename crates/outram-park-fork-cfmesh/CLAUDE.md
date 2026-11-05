@@ -124,3 +124,21 @@ routes callable: on the same leaves, `cartesian_mesh_extractor` and
 change it once. Upstream's `findNearestSurfacePoint` is not exact;
 `NearestSearch::Exact` is the port's exact variant. Record and images:
 `verification_and_validation/cartesian_octree_gh1262/`.
+
+## cfMesh's `tetMesh` and `pMesh`, beside the tet-dual pipeline (gh:#1272, #1273, 2026-11-05)
+
+`pipeline::tet_mesh` (`tetMeshGenerator`) and `pipeline::p_mesh`
+(`voronoiMeshGenerator`) are new entry points that share one generator
+body. Their templates are `tet_creator_octree` + `tet_mesh_extractor_octree`
+and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
+`rename_boundary_patches` are the workflow's own steps. They do **not**
+change `surface_to_tet_dual_mesh`. Steps whose upstream callees belong to
+other tracks (`surfaceMorpherCells`, `topologicalCleaner`,
+`meshSurfaceOptimizer`, `edgeExtractor`, `boundaryLayers`) call what exists
+and say so in `TetMeshReport::notes`; when one of those lands, wire it in
+there and **re-measure** the records in
+`verification_and_validation/tet_mesh_gh1272/` and `p_mesh_gh1273/`. Today
+`tet_mesh`'s volume error (+26.7 % on the sphere) measures exactly those
+missing steps. The octree tet template has non-manifold boundary points
+(upstream's own tets in coarse `BOUNDARY` leaves), so `polyDualMesh`
+(`CellCentre`) refuses it on the sphere and the pipe.
