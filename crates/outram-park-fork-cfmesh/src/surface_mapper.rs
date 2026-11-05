@@ -274,7 +274,6 @@ fn map_impl(
     given: Option<&[Option<usize>]>,
     only: Option<&[bool]>,
 ) -> VolumeMesh {
-    let selected = |v: usize| only.is_none_or(|o| o[v]);
     // The boundary's addressing from the shared engine (gh:#1257): patch
     // of every boundary face as given (upstream's mesh patches), or by its
     // nearest triangle; then each point's faces and sorted patches.
@@ -290,7 +289,10 @@ fn map_impl(
     let part = SurfacePartitioner::with_face_patches(&engine, face_region);
     let q = SurfaceQueries::new(points, tris, regions);
     let mut new_points = mesh.points.clone();
-    map_points_onto_patches(&engine, &part, &q, &mut new_points, None);
+    // gh:#1283's `only` (mesh point labels) as the boundary-point selection
+    // of `map_points_onto_patches` (gh:#1269): the same rule, one copy.
+    let selected: Option<Vec<bool>> = only.map(|o| engine.boundary_points.iter().map(|&v| o[v]).collect());
+    map_points_onto_patches(&engine, &part, &q, &mut new_points, selected.as_deref());
     VolumeMesh {
         points: new_points,
         faces: mesh.faces.clone(),
@@ -340,9 +342,6 @@ pub(crate) fn map_points_onto_patches(engine: &SurfaceEngine, part: &SurfacePart
         }
         let v = engine.boundary_points[b];
         let ps = patches_of(b);
-        if !selected(v) {
-            continue;
-        }
         match ps.len() {
             1 => new_points[v] = q.nearest_in_region(new_points[v], ps[0]),
             2 => edge_nodes.push((b, ps)),
