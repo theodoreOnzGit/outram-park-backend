@@ -223,7 +223,7 @@ mod tests {
         // gh:#1180's posterior mean (with delta), for the same metrics.
         let rows = load_committed();
         let train = split(&rows, Split::Training);
-        let y: Vec<f64> = train.iter().map(|r| r.output.ua.get::<watt_per_kelvin>().ln()).collect();
+        let y: Vec<f64> = train.iter().map(|r| r.output.ua.get::<watt_per_kelvin>().r_ln()).collect();
         let pred = LnUaPredictor::new(train.iter().map(|r| r.input).collect());
         for (label, th) in [("uncalibrated", [0.0, 0.0, 0.0]), ("KOH with-delta mean", [0.164, 0.336, 5.43e-4]), ("KOH no-delta mean", [-0.025, 0.777, 8.51e-4])] {
             let fit = pred.predict(&th).unwrap();

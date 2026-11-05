@@ -14,8 +14,9 @@
 //! QR, a symmetric eigenvalue routine for condition estimates, and a small
 //! inverse.
 
-/// Solves `L z = b` for lower-triangular `L`.
 use petir::mathf::RealMath;
+
+/// Solves `L z = b` for lower-triangular `L`.
 #[must_use]
 pub fn forward(l: &[Vec<f64>], b: &[f64]) -> Vec<f64> {
     let n = b.len();
