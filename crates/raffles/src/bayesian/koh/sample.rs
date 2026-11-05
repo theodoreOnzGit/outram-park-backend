@@ -17,6 +17,7 @@
 //! "likelihood" `ln post − ln base`. At β = 1 the tempered target is
 //! exactly SEPIA's posterior; only the tempering path differs.
 
+use petir::mathf::RealMath;
 use super::model::{EmulatorFactor, KohForm, KohModel, KohParams, ParamPrior, PriorDist};
 use crate::bayesian::transitional::{tmcmc, TemperingCriterion, TransitionKernel, TransitionalConfig};
 use crate::bayesian::IndependentPrior;
@@ -133,7 +134,7 @@ impl KohModel {
     fn decode(gs: &[Group], start: &KohParams, phi: &[f64]) -> KohParams {
         let mut out = start.clone();
         let mut k = 0;
-        let rho = |v: f64| -4.0 * v.ln();
+        let rho = |v: f64| -4.0 * v.r_ln();
         for g in gs {
             match g {
                 Group::Theta => {

@@ -1206,7 +1206,7 @@ impl TwoPhaseSolver {
                 .get::<ratio>();
             let kd_tot_u = phi2.min(max_phi2)
                 * self.kd_fs[mk][c]
-                * fm.normalized[c].max(1e-9).powi(2)
+                * fm.normalized[c].max(1e-9).r_powi(2)
                 * fm.mag_u[c];
             for k in 0..2 {
                 self.kd_fs[k][c] = self.contact[k][c] * kd_tot_u / self.fluids[k].mag_u[c].max(1e-9);

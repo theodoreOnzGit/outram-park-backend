@@ -16,6 +16,7 @@
 //! run: `crates/raffles/verification_and_validation/koh_calibration_gh1180.md`
 //! §4; results there and in
 //! `verification_and_validation/double_pipe_koh_gh1180.md`.
+use petir::mathf::RealMath;
 use raffles::bayesian::koh::{KohForm, KohFree, KohSampleConfig};
 use raffles::fidelity::koh::{CalibratedParameter, KohSpec, ObservationError, Scale, ThetaPrior};
 use raffles::fidelity::{Dataset, Fidelity, ParameterSpace, ParametricModel, Split as RafflesSplit};
@@ -72,12 +73,12 @@ pub fn ua_dataset(rows: &[DatasetRow]) -> Result<Dataset<DoublePipeInput, UaOutp
 pub fn theta_range() -> (Theta, Theta) {
     let r = |v: f64| Ratio::new::<ratio>(v);
     let mut lo = Theta::nominal();
-    lo.nu_mult_hot = r((-0.6_f64).exp());
-    lo.nu_mult_cold = r((-0.9_f64).exp());
+    lo.nu_mult_hot = r((-0.6_f64).r_exp());
+    lo.nu_mult_cold = r((-0.9_f64).r_exp());
     lo.wall_resistance = fouling_si(0.0);
     let mut hi = Theta::nominal();
-    hi.nu_mult_hot = r(0.6_f64.exp());
-    hi.nu_mult_cold = r(0.9_f64.exp());
+    hi.nu_mult_hot = r(0.6_f64.r_exp());
+    hi.nu_mult_cold = r(0.9_f64.r_exp());
     hi.wall_resistance = fouling_si(1.0e-3);
     (lo, hi)
 }
