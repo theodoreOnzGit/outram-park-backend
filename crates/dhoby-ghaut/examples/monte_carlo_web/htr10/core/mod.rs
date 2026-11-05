@@ -232,6 +232,10 @@ pub enum CoreReq {
     /// The reader's DEM pour (gh:#1244): start one, or step it a chunk
     /// (`dem_web`'s engine, [`pour::engine`]). Sent to the page's own worker.
     Pour(pour::engine::Request),
+    /// The same on the GPU (gh:#1250): `outram_park_fork_liggghts::
+    /// htr10_fill::Htr10GpuFill`, WebGPU in the browser. Replies as
+    /// [`CoreEv::Pour`], or an error when there is no WebGPU.
+    PourGpu(pour::engine::Request),
     /// Measure a pour's centres (m, flattened): packing fractions and g(r)
     /// ([`pour::diagnostics`]); the reply is [`CoreEv::PourDiagnostics`].
     PourDiagnostics { centres_m: Floats },
@@ -388,6 +392,36 @@ pub struct CoreWorker {
     pub cache: DataStore,
     /// The reader's DEM pour, when this is the page's own worker (gh:#1244).
     pub pour: pour::engine::Engine,
+    /// The GPU pour natively (gh:#1250; in the browser it lives in the
+    /// worker's `GPU_POUR`, because the browser's GPU objects are not `Send`).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub gpu_pour: Option<(u32, outram_park_fork_liggghts::htr10_fill::Htr10GpuFill)>,
+}
+
+/// Serve a GPU pour request natively (blocking on the device), replying as
+/// the CPU pour does.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn serve_gpu_pour(w: &mut CoreWorker, r: pour::engine::Request, send: &mut impl FnMut(CoreEv)) {
+    use outram_park_fork_liggghts::htr10_fill::Htr10GpuFill;
+    use pour::engine::{Event, Request};
+    match r {
+        Request::Start { id, n, seed } => match Htr10GpuFill::new(pour::engine::settings(n, seed)) {
+            Ok(f) => {
+                let p = f.progress();
+                send(CoreEv::Pour(Event::Progress(pour::gpu_snapshot(id, &f, p, 0.0))));
+                w.gpu_pour = Some((id, f));
+            }
+            Err(e) => send(CoreEv::Pour(Event::Error(format!("the GPU pour could not start: {e}")))),
+        },
+        Request::Step { id, steps } => {
+            if let Some((pid, f)) = w.gpu_pour.as_mut().filter(|(pid, _)| *pid == id) {
+                let t0 = dhoby_ghaut::web_demo::platform::now_s();
+                let p = f.advance(steps.max(1));
+                let ms = (dhoby_ghaut::web_demo::platform::now_s() - t0) * 1000.0 / steps.max(1) as f64;
+                send(CoreEv::Pour(Event::Progress(pour::gpu_snapshot(*pid, f, p, ms))));
+            }
+        }
+    }
 }
 
 /// **Run job `i` through the shared cache** (gh:#818): a tape's RECONR +
@@ -688,6 +722,7 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
             }
             CoreReq::Product { job, data } => w.store(job, data),
             CoreReq::Pour(r) => w.pour.serve(r, &mut |e| send(CoreEv::Pour(e))),
+            CoreReq::PourGpu(r) => serve_gpu_pour(w, r, &mut send),
             CoreReq::PourDiagnostics { centres_m } => {
                 let c: Vec<f32> = centres_m.to_vec().iter().map(|&v| v as f32).collect();
                 send(CoreEv::PourDiagnostics(pour::diagnostics(&c).to_words()));
@@ -787,6 +822,56 @@ pub mod web {
         })
     }
 
+    thread_local! {
+        /// The browser's GPU pour (its GPU objects are not `Send`, so it
+        /// lives with this worker's thread), and the newest pour id asked for.
+        static GPU_POUR: std::cell::RefCell<Option<(u32, outram_park_fork_liggghts::htr10_fill::Htr10GpuFill)>> = const { std::cell::RefCell::new(None) };
+        static GPU_LATEST: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    }
+
+    /// Serve a GPU pour request in the browser: WebGPU, without blocking.
+    /// The pour is taken out while a chunk runs and put back only if no
+    /// newer pour has started meanwhile.
+    async fn gpu_pour(r: pour::engine::Request, send: impl Fn(CoreEv)) {
+        use outram_park_fork_liggghts::htr10_fill::Htr10GpuFill;
+        use pour::engine::{Event, Request};
+        let now = dhoby_ghaut::web_demo::platform::now_s;
+        match r {
+            Request::Start { id, n, seed } => {
+                GPU_LATEST.with(|l| l.set(id));
+                GPU_POUR.with(|g| g.borrow_mut().take());
+                let Some(ctx) = outram_park_fork_liggghts::gpu::probe_async().await else {
+                    return send(CoreEv::Pour(Event::Error(pour::NO_WEBGPU.into())));
+                };
+                log::info!("htr10 core: GPU pour on {} ({:?})", ctx.info.name, ctx.info.backend);
+                match Htr10GpuFill::new_async(pour::engine::settings(n, seed), ctx).await {
+                    Ok(f) => {
+                        let p = f.progress();
+                        send(CoreEv::Pour(Event::Progress(pour::gpu_snapshot(id, &f, p, 0.0))));
+                        if GPU_LATEST.with(|l| l.get()) == id {
+                            GPU_POUR.with(|g| *g.borrow_mut() = Some((id, f)));
+                        }
+                    }
+                    Err(e) => send(CoreEv::Pour(Event::Error(format!("the GPU pour could not start: {e}")))),
+                }
+            }
+            Request::Step { id, steps } => {
+                let taken = GPU_POUR.with(|g| {
+                    let mut g = g.borrow_mut();
+                    if g.as_ref().is_some_and(|(pid, _)| *pid == id) { g.take() } else { None }
+                });
+                let Some((pid, mut f)) = taken else { return };
+                let t0 = now();
+                let p = f.advance_async(steps.max(1)).await;
+                let ms = (now() - t0) * 1000.0 / steps.max(1) as f64;
+                send(CoreEv::Pour(Event::Progress(pour::gpu_snapshot(pid, &f, p, ms))));
+                if GPU_LATEST.with(|l| l.get()) == pid {
+                    GPU_POUR.with(|g| *g.borrow_mut() = Some((pid, f)));
+                }
+            }
+        }
+    }
+
     impl CoreReq {
         pub fn to_js(&self, o: &js_sys::Object) {
             match self {
@@ -830,6 +915,10 @@ pub mod web {
                 }
                 CoreReq::Pour(r) => {
                     js::set(o, "kind", "core_pour");
+                    js::set(o, "data", js::f64s(&r.to_wire()));
+                }
+                CoreReq::PourGpu(r) => {
+                    js::set(o, "kind", "core_pour_gpu");
                     js::set(o, "data", js::f64s(&r.to_wire()));
                 }
                 CoreReq::PourDiagnostics { centres_m } => {
@@ -886,6 +975,7 @@ pub mod web {
                     })
                 }),
                 "core_pour" => pour::engine::Request::from_wire(&js::get_f64s(v, "data")).map(CoreReq::Pour),
+                "core_pour_gpu" => pour::engine::Request::from_wire(&js::get_f64s(v, "data")).map(CoreReq::PourGpu),
                 "core_pour_diag" => floats("data").map(|centres_m| CoreReq::PourDiagnostics { centres_m }),
                 "core_pour_bed" => floats("data").and_then(|centres_cm| {
                     let h = js::get_f64s(v, "head");
@@ -1037,6 +1127,7 @@ pub mod web {
                     w.pour.serve(r, &mut |e| send(CoreEv::Pour(e)));
                 }
             }
+            CoreReq::PourGpu(r) => wasm_bindgen_futures::spawn_local(gpu_pour(r, move |e| send(e))),
             CoreReq::PourDiagnostics { centres_m } => {
                 let c: Vec<f32> = centres_m.to_vec().iter().map(|&v| v as f32).collect();
                 send(CoreEv::PourDiagnostics(pour::diagnostics(&c).to_words()));

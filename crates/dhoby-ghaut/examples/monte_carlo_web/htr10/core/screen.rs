@@ -257,10 +257,20 @@ static FORCED_WORKERS: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock:
 /// `?bed=dem` as the page was opened: start on the DEM random bed.
 static FORCED_DEM: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 static FORCED_POUR: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+/// `&engine=gpu` with `?pour=N`: pour on the GPU (gh:#1250).
+static FORCED_POUR_GPU: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 /// `?pour=N` (gh:#1244): pour N pebbles on arrival and use the bed once it
 /// settles; the pool waits for it. How an unattended browser check drives
 /// the pour end to end.
+pub fn forced_pour_gpu() -> bool {
+    *FORCED_POUR_GPU.get_or_init(|| {
+        let q = dhoby_ghaut::web_demo::platform::query_pairs();
+        dhoby_ghaut::web_demo::platform::query_value(&q, "engine") == Some("gpu")
+    })
+}
+
+/// `?pour=N`: see [`forced_pour_gpu`] for `&engine=gpu`.
 pub fn forced_pour() -> Option<usize> {
     *FORCED_POUR.get_or_init(|| {
         let q = dhoby_ghaut::web_demo::platform::query_pairs();
@@ -281,6 +291,7 @@ pub fn forced_dem() -> bool {
 pub fn remember_query() -> Option<usize> {
     let _ = forced_dem();
     let _ = forced_pour();
+    let _ = forced_pour_gpu();
     *FORCED_WORKERS.get_or_init(|| {
         let q = dhoby_ghaut::web_demo::platform::query_pairs();
         dhoby_ghaut::web_demo::platform::query_value(&q, "workers").and_then(|v| v.parse().ok())
@@ -468,7 +479,11 @@ impl CoreScreen {
             temps_c: Htr10Zone::ALL.map(|z| celsius(ZoneTemperatures::record().get(z))),
             temps_linked: false,
             pour: match forced_pour() {
-                Some(n) => super::pour::PourUi::auto(n),
+                Some(n) => {
+                    let mut p = super::pour::PourUi::auto(n);
+                    p.gpu = forced_pour_gpu();
+                    p
+                }
                 None => super::pour::PourUi::default(),
             },
         }
@@ -899,12 +914,24 @@ impl CoreScreen {
         });
         // gh:#1250 (maintainer, 2026-11-05): the pour stays on the CPU, so the
         // page says how long it takes before the reader starts one.
+        // gh:#1250: a second engine for the same pour, and the time each took.
+        ui.add_enabled_ui(!running, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Engine:");
+                ui.selectable_value(&mut self.pour.gpu, false, "CPU (one thread)");
+                ui.selectable_value(&mut self.pour.gpu, true, "GPU (WebGPU)");
+            });
+        });
         let n = self.pour.n.round() as usize;
-        ui.label(format!(
-            "A pour of {} takes {} in a browser (one thread; measured: 4 000 in 4 min, 8 000 in 6 min, 30 687 in 17.5 min on a 4-core machine). The page stays usable while it pours; the baked bed above is ready now.",
-            super::random_bed::grouped(n),
-            super::pour::minutes(super::pour::expected_pour_s(n))
-        ));
+        if self.pour.gpu {
+            ui.label("GPU: the same LIGGGHTS-port physics as WGSL compute shaders (outram-park-fork-liggghts gpu::dem), in f32 with double-f32 overlaps. Not bit-identical to the CPU; it is checked against CPU pours on packing fraction and g(r). Its speed depends on your device: the table below shows what each pour took.");
+        } else {
+            ui.label(format!(
+                "A pour of {} takes {} in a browser (one thread; measured: 4 000 in 4 min, 8 000 in 6 min, 30 687 in 17.5 min on a 4-core machine). The page stays usable while it pours; the baked bed above is ready now.",
+                super::random_bed::grouped(n),
+                super::pour::minutes(super::pour::expected_pour_s(n))
+            ));
+        }
         let mut f = 100.0 * self.pour.fuel;
         ui.add(egui::Slider::new(&mut f, 0.0..=100.0).step_by(1.0).fixed_decimals(0).suffix(" %").text("fuel pebbles (rest moderator)"));
         self.pour.fuel = f / 100.0;
@@ -914,7 +941,11 @@ impl CoreScreen {
         ));
         ui.horizontal_wrapped(|ui| {
             let verb = if self.pour.last.is_some() { "Pour again" } else { "Pour" };
-            let label = format!("{verb} ({})", super::pour::minutes(super::pour::expected_pour_s(self.pour.n.round() as usize)));
+            let label = if self.pour.gpu {
+                format!("{verb} on the GPU")
+            } else {
+                format!("{verb} ({})", super::pour::minutes(super::pour::expected_pour_s(self.pour.n.round() as usize)))
+            };
             if ui.button(label).clicked() {
                 self.pour.start(now);
             }
@@ -943,6 +974,14 @@ impl CoreScreen {
         }
         if let Some(b) = &self.pour.bed {
             ui.label(super::pour::describe(b));
+        }
+        if !self.pour.timings.is_empty() {
+            egui::CollapsingHeader::new("Timings: CPU against GPU (this device)").default_open(true).show(ui, |ui| {
+                for t in &self.pour.timings {
+                    ui.label(t.line());
+                }
+                ui.weak("Pour the same count on each engine to compare; a different count or seed is a different pour.");
+            });
         }
         // Post-pour diagnostics (maintainer 2026-11-05): packing fractions and g(r).
         if self.pour.last.is_some() && !running && self.pour.diagnostics.is_none() && !self.pour.finished() && ui.button("Measure this pour (φ, g(r))").clicked() {

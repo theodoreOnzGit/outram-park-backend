@@ -58,8 +58,17 @@
 //! the even planes' normals and the odd planes' points, so it has no
 //! effect. Kept (the plane is not used).
 //!
-//! **No pipeline calls this module**: wiring `anisotropicSources` into a
-//! generator (and `projectSurfaceAfterBackScaling`) is not done here.
+//! ~~**No pipeline calls this module**: wiring `anisotropicSources` into a
+//! generator (and `projectSurfaceAfterBackScaling`) is not done here.~~
+//! **UPDATED 2026-11-05 (gh:#1279 remainder):** the four generators
+//! (`pipeline::{cartesian_mesh, tet_mesh, p_mesh, cartesian_2d_mesh}`)
+//! read [`crate::mesh_octree_creator::MeshDict::anisotropic_sources`] as
+//! upstream: the octree on the modified surface
+//! ([`modified_surface_points`]), the revert at the end of the first
+//! `optimiseFinalMesh` and `projectSurfaceAfterBackScaling`
+//! ([`revert_and_project`], then `optimiseFinalMesh` again) in 3D, the
+//! revert inside `generateBoundaryLayers` in 2D. Record:
+//! `verification_and_validation/anisotropic_gh1279/`.
 
 use crate::math::Vec3;
 
@@ -329,6 +338,52 @@ pub fn modify_surface(surf: &crate::mesh_octree::TriSurf, cm: &CoordinateModifie
     s
 }
 
+/// The generators' constructors (gh:#1279 remainder): with
+/// `anisotropicSources`, `surfaceMeshGeometryModification(surf,
+/// meshDict).modifyGeometry()`, the surface's points moved forward, on
+/// which the octree is then built; `None` without sources (upstream keeps
+/// the original surface, `modSurfacePtr_` null).
+pub fn modified_surface_points(points: &[Vec3], sources: Option<&CoordinateModifier>) -> Option<Vec<Vec3>> {
+    sources.map(|cm| {
+        let mut q = points.to_vec();
+        modify_points(&mut q, cm);
+        q
+    })
+}
+
+/// What [`revert_and_project`] did.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BackScalingReport {
+    /// Mesh points reverted (`revertGeometryModification`: all of them).
+    pub n_points_reverted: usize,
+    /// Largest move `mapVerticesOntoSurface` made: how far the reverted
+    /// boundary was from the original surface.
+    pub max_projection_move: f64,
+}
+
+/// The 3D generators' back-scaling (`cartesianMeshGenerator`,
+/// `tetMeshGenerator`, `voronoiMeshGenerator`): the end of the first
+/// `optimiseFinalMesh`, `polyMeshGenGeometryModification::
+/// revertGeometryModification` (every mesh point backward), then the
+/// mapping part of `projectSurfaceAfterBackScaling`:
+/// `meshSurfaceMapper::mapVerticesOntoSurface`, every boundary point to the
+/// nearest point of the **original** surface `(points, tris)`. Upstream
+/// searches a new octree on the original surface
+/// (`createOctreeWithRefinedBoundary(20, 30)`); here
+/// [`crate::snap::snap_to_surface_with`] with [`SurfaceSearch::Octree`]
+/// (bit-identical to the brute-force nearest point, gh:#1263). The caller
+/// then runs its `optimiseFinalMesh` again on the original surface.
+///
+/// [`SurfaceSearch::Octree`]: crate::mesh_octree_queries::SurfaceSearch::Octree
+pub fn revert_and_project(m: &mut crate::volume_mesh::VolumeMesh, cm: &CoordinateModifier, points: &[Vec3], tris: &[[usize; 3]]) -> BackScalingReport {
+    revert_points(&mut m.points, cm);
+    let mapped = crate::snap::snap_to_surface_with(m, points, tris, crate::mesh_octree_queries::SurfaceSearch::Octree);
+    let max_projection_move = mapped.points.iter().zip(&m.points).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
+    let n_points_reverted = m.points.len();
+    *m = mapped;
+    BackScalingReport { n_points_reverted, max_projection_move }
+}
+
 /// `scaleMesh` / `scaleSurfaceMesh`: every point times `factor`.
 pub fn scale_points(points: &mut [Vec3], factor: f64) {
     for p in points.iter_mut() {
@@ -498,5 +553,297 @@ mod tests {
         let boxv = crate::shapes::surface_volume(&out.points, &out.triangles[s.triangles.len()..]);
         println!("bounding box signed volume {boxv}");
         assert!((boxv - 27.0).abs() < 1e-9, "{boxv}");
+    }
+
+    /// The 2D channel ribbon `[0, 1] x [0, 0.25]` (regions walls, inlet,
+    /// outlet), as `cartesian_2d_mesh`'s tests build it.
+    pub(crate) fn channel_ribbon() -> (Vec<Vec3>, Vec<[usize; 3]>, crate::patches::SurfaceRegions) {
+        let p = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 0.25, 0.0), Vec3::new(0.0, 0.25, 0.0)];
+        let e = [[0, 1], [1, 2], [2, 3], [3, 0]];
+        let (pts, tris, r) = crate::tri_surface_2d::extrude_2d_edges(&p, &e, Some(&[0, 2, 0, 1])).unwrap();
+        let names = ["walls", "inlet", "outlet"];
+        let labels: Vec<&str> = r.iter().map(|&i| names[i]).collect();
+        (pts, tris, crate::patches::SurfaceRegions::from_labels(&labels))
+    }
+
+    /// gh:#1279 remainder, prediction W0 of
+    /// `verification_and_validation/anisotropic_gh1279/README.md`: with no
+    /// `anisotropicSources` every generator's output is the one recorded
+    /// **before** the anisotropic workflow was wired (fingerprints taken on
+    /// the unwired code, 2026-11-05): `cartesian_mesh`, `tet_mesh` and
+    /// `p_mesh` on the 24-sided pipe (R 10 mm, L 60 mm) at 4 mm,
+    /// `cartesian_2d_mesh` on the channel ribbon at 0.05.
+    #[test]
+    fn generators_without_anisotropic_sources_are_pinned_bit_for_bit() {
+        use crate::mesh_octree_creator::MeshDict;
+        use crate::pipeline::tests::mesh_fingerprint;
+        let (p, t, r) = crate::pipeline::tet_mesh::tests::pipe_surface(0.01, 0.06, 24);
+        let dict = MeshDict::with_max_cell_size(0.004);
+        let c = crate::pipeline::cartesian_mesh::CartesianMeshGeneratorOptions { dict: dict.clone(), ..Default::default() };
+        let (mc, _) = crate::pipeline::cartesian_mesh::cartesian_mesh(&p, &t, Some(&r), &c).unwrap();
+        let o = crate::pipeline::tet_mesh::TetMeshOptions { dict: dict.clone(), ..Default::default() };
+        let (mt, _) = crate::pipeline::tet_mesh::tet_mesh(&p, &t, Some(&r), &o).unwrap();
+        let (mp, _) = crate::pipeline::p_mesh::p_mesh(&p, &t, Some(&r), &o).unwrap();
+        let (cp, ct, cr) = channel_ribbon();
+        let o2 = crate::pipeline::cartesian_2d_mesh::Cartesian2DMeshOptions { dict: MeshDict::with_max_cell_size(0.05), ..Default::default() };
+        let (m2, _) = crate::pipeline::cartesian_2d_mesh::cartesian_2d_mesh(&cp, &ct, Some(&cr), &o2).unwrap();
+        let got = [mesh_fingerprint(&mc), mesh_fingerprint(&mt), mesh_fingerprint(&mp), mesh_fingerprint(&m2)];
+        println!("fingerprints cartesian {} tet {} p {} 2D {}; cells {} {} {} {}", got[0], got[1], got[2], got[3], mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells);
+        assert_eq!(got, [17611812511072804258, 6523714470801621594, 3039883993825308236, 4427172929438988611]);
+        assert_eq!((mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells), (560, 4576, 1529, 120));
+    }
+
+    /// The slab of the gh:#1279 remainder's setup S: `|z| <= 1` compressed
+    /// by 0.5 in z once reverted (the forward map stretches it by 2).
+    pub(crate) fn slab() -> CoordinateModifier {
+        CoordinateModifier::new(vec![Modification::Box(BoxScaling { name: "slab".into(), centre: Vec3::ZERO, length: Vec3::new(8.0, 8.0, 2.0), scale: Vec3::new(1.0, 1.0, 0.5) })]).unwrap()
+    }
+
+    /// Per cell `rings` cells or more from the wall (`rings` 1: touching
+    /// none of the wall points; 2: also sharing no point with a cell that
+    /// does): (is a hexahedron, bounding-box min, max).
+    fn interior_cells(m: &crate::volume_mesh::VolumeMesh, skip_patch: &dyn Fn(&str) -> bool, rings: usize) -> Vec<(bool, Vec3, Vec3)> {
+        let mut wall = vec![false; m.points.len()];
+        for p in m.patches.iter().filter(|p| !skip_patch(&p.name)) {
+            for f in p.start_face..p.start_face + p.n_faces {
+                for &v in &m.faces[f] {
+                    wall[v] = true;
+                }
+            }
+        }
+        let cf = crate::volume_mesh::cells_faces(m);
+        for _ in 1..rings {
+            let near: Vec<usize> = cf.iter().filter(|c| c.iter().flatten().any(|&v| wall[v])).flat_map(|c| c.iter().flatten().copied().collect::<Vec<_>>()).collect();
+            for v in near {
+                wall[v] = true;
+            }
+        }
+        let mut out = Vec::new();
+        for c in cf {
+            if c.iter().flatten().any(|&v| wall[v]) {
+                continue;
+            }
+            let hex = c.len() == 6 && c.iter().all(|f| f.len() == 4);
+            let mut lo = Vec3::new(f64::MAX, f64::MAX, f64::MAX);
+            let mut hi = Vec3::new(f64::MIN, f64::MIN, f64::MIN);
+            for &v in c.iter().flatten() {
+                let p = m.points[v];
+                lo = Vec3::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
+                hi = Vec3::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
+            }
+            out.push((hex, lo, hi));
+        }
+        out
+    }
+
+    /// (count, mean z-extent / mean x-extent, smallest and largest per-cell
+    /// dz/dx) of the cells `pick` keeps.
+    fn extent_ratio(cells: &[(bool, Vec3, Vec3)], pick: &dyn Fn(&(bool, Vec3, Vec3)) -> bool) -> (usize, f64, f64, f64) {
+        let sel: Vec<_> = cells.iter().filter(|c| pick(c)).collect();
+        let (mut sx, mut sz, mut lo, mut hi) = (0.0, 0.0, f64::MAX, f64::MIN);
+        for (_, a, b) in &sel {
+            let (dx, dz) = (b.x - a.x, b.z - a.z);
+            sx += dx;
+            sz += dz;
+            lo = lo.min(dz / dx);
+            hi = hi.max(dz / dx);
+        }
+        (sel.len(), sz / sx, lo, hi)
+    }
+
+    /// Largest distance of a boundary point of `m` from the surface.
+    fn max_boundary_distance(m: &crate::volume_mesh::VolumeMesh, p: &[Vec3], t: &[[usize; 3]]) -> f64 {
+        let mut d: f64 = 0.0;
+        for f in m.n_internal_faces()..m.face_count() {
+            for &v in &m.faces[f] {
+                d = d.max(crate::snap::closest_point_on_surface(m.points[v], p, t).sub(m.points[v]).length());
+            }
+        }
+        d
+    }
+
+    /// The meshes of the gh:#1279 remainder's V&V on setup S (sphere R 3 m,
+    /// `maxCellSize` 0.5): (name, isotropic control, with the slab).
+    pub(crate) fn sphere_runs() -> Vec<(&'static str, crate::volume_mesh::VolumeMesh, crate::volume_mesh::VolumeMesh, Vec<String>)> {
+        use crate::mesh_octree_creator::MeshDict;
+        use crate::pipeline::cartesian_mesh::{cartesian_mesh, CartesianMeshGeneratorOptions};
+        use crate::pipeline::tet_mesh::{tet_mesh, TetMeshOptions};
+        let (p, t) = crate::shapes::sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        let iso = MeshDict::with_max_cell_size(0.5);
+        let ani = MeshDict { anisotropic_sources: Some(slab()), ..iso.clone() };
+        let mut out = Vec::new();
+        let c = |d: &MeshDict| cartesian_mesh(&p, &t, None, &CartesianMeshGeneratorOptions { dict: d.clone(), ..Default::default() }).unwrap();
+        let (a, b) = (c(&iso), c(&ani));
+        out.push(("cartesian_mesh", a.0, b.0, b.1.notes));
+        let tm = |d: &MeshDict| tet_mesh(&p, &t, None, &TetMeshOptions { dict: d.clone(), ..Default::default() }).unwrap();
+        let (a, b) = (tm(&iso), tm(&ani));
+        out.push(("tet_mesh", a.0, b.0, b.1.notes));
+        let pm = |d: &MeshDict| crate::pipeline::p_mesh::p_mesh(&p, &t, None, &TetMeshOptions { dict: d.clone(), ..Default::default() }).unwrap();
+        let (a, b) = (pm(&iso), pm(&ani));
+        out.push(("p_mesh", a.0, b.0, b.1.notes));
+        out
+    }
+
+    /// The 2D run of W7: the channel ribbon at 0.05, `x <= 0.5` stretched
+    /// by 2 (isotropic control, with the box).
+    pub(crate) fn channel_runs() -> (crate::volume_mesh::VolumeMesh, crate::volume_mesh::VolumeMesh, Vec<String>) {
+        use crate::mesh_octree_creator::MeshDict;
+        use crate::pipeline::cartesian_2d_mesh::{cartesian_2d_mesh, Cartesian2DMeshOptions};
+        let (p, t, r) = channel_ribbon();
+        let half = CoordinateModifier::new(vec![Modification::Box(BoxScaling { name: "half".into(), centre: Vec3::new(0.25, 0.125, 0.0), length: Vec3::new(0.5, 1.0, 1.0), scale: Vec3::new(0.5, 1.0, 1.0) })]).unwrap();
+        let iso = MeshDict::with_max_cell_size(0.05);
+        let ani = MeshDict { anisotropic_sources: Some(half), ..iso.clone() };
+        let (a, _) = cartesian_2d_mesh(&p, &t, Some(&r), &Cartesian2DMeshOptions { dict: iso, ..Default::default() }).unwrap();
+        let (b, rb) = cartesian_2d_mesh(&p, &t, Some(&r), &Cartesian2DMeshOptions { dict: ani, ..Default::default() }).unwrap();
+        (a, b, rb.notes)
+    }
+
+    /// V&V (gh:#1279 remainder), predictions W1–W8 of
+    /// `verification_and_validation/anisotropic_gh1279/README.md`: the
+    /// slab `boxScaling` on the sphere through `cartesian_mesh`, `tet_mesh`
+    /// and `p_mesh` against isotropic control runs, the half-channel box
+    /// through `cartesian_2d_mesh`, and an anisotropic restart. Asserts the
+    /// closure, the positive cells, the restart, and the predictions that
+    /// held; the rest is recorded in the README.
+    #[test]
+    fn anisotropic_sources_through_the_generators() {
+        let (sp, st) = crate::shapes::sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        let exact = 4.0 / 3.0 * std::f64::consts::PI * 27.0;
+        let nonpos = |m: &crate::volume_mesh::VolumeMesh| crate::checks::cell_geometry(m).0.iter().filter(|&&v| v <= 0.0).count();
+        let e = 1e-9;
+        let in_slab = |c: &(bool, Vec3, Vec3)| c.1.z >= -1.0 - e && c.2.z <= 1.0 + e;
+        let outside = |c: &(bool, Vec3, Vec3)| c.1.z >= 1.0 - e || c.2.z <= -1.0 + e;
+        let no_skip = |_: &str| false;
+        println!("| generator | run | rings | cells | volume error | non-positive | closed | interior cells in slab: n, mean dz/mean dx, min..max | outside: n, ratio, min..max | max boundary distance |");
+        println!("|---|---|---|---|---|---|---|---|---|---|");
+        for (name, iso, ani, notes) in sphere_runs() {
+            for n in &notes {
+                println!("  {name}: {n}");
+            }
+            for (run, m, rings) in [("isotropic", &iso, 1), ("slab", &ani, 1), ("isotropic", &iso, 2), ("slab", &ani, 2)] {
+                let cells = interior_cells(m, &no_skip, rings);
+                let hex_only = name == "cartesian_mesh";
+                let pick_in = |c: &(bool, Vec3, Vec3)| in_slab(c) && (!hex_only || c.0);
+                let pick_out = |c: &(bool, Vec3, Vec3)| outside(c) && (!hex_only || c.0);
+                let a = extent_ratio(&cells, &pick_in);
+                let b = extent_ratio(&cells, &pick_out);
+                println!(
+                    "| {name} | {run} | {rings} | {} | {:+.3} % | {} | {} | {}, {:.6}, {:.6}..{:.6} | {}, {:.6}, {:.6}..{:.6} | {:.3e} |",
+                    m.n_cells,
+                    (m.total_volume() - exact) / exact * 100.0,
+                    nonpos(m),
+                    if m.validate().is_ok() { "yes" } else { "NO" },
+                    a.0,
+                    a.1,
+                    a.2,
+                    a.3,
+                    b.0,
+                    b.1,
+                    b.2,
+                    b.3,
+                    max_boundary_distance(m, &sp, &st)
+                );
+            }
+            ani.validate().unwrap();
+            assert_eq!(nonpos(&ani), 0, "{name}");
+        }
+        // 2D
+        let (iso2, ani2, notes2) = channel_runs();
+        for n in &notes2 {
+            println!("  cartesian_2d_mesh: {n}");
+        }
+        let empty = |s: &str| s.ends_with("EmptyFaces");
+        let zt = ani2.points.iter().map(|q| q.z).fold(f64::MIN, f64::max);
+        for (run, m) in [("isotropic", &iso2), ("half box", &ani2)] {
+            let cells = interior_cells(m, &empty, 2);
+            // dx/dy here: swap the roles of z and y in extent_ratio
+            let yz: Vec<(bool, Vec3, Vec3)> = cells.iter().map(|(h, a, b)| (*h, Vec3::new(a.y, a.x, a.x), Vec3::new(b.y, b.x, b.x))).collect();
+            let left = extent_ratio(&yz, &|c| c.2.z <= 0.5 + e);
+            let right = extent_ratio(&yz, &|c| c.1.z >= 0.5 - e);
+            let area = m.total_volume() / zt;
+            println!(
+                "2D {run}: cells {} area {area:.15} ({:+.3e}) non-positive {} closed {} | interior x <= 0.5: {} cells, dx/dy {:.6} ({:.6}..{:.6}) | x >= 0.5: {} cells, dx/dy {:.6} ({:.6}..{:.6}) | z in [{}, {zt}]",
+                m.n_cells,
+                (area - 0.25) / 0.25,
+                nonpos(m),
+                m.validate().is_ok(),
+                left.0,
+                left.1,
+                left.2,
+                left.3,
+                right.0,
+                right.1,
+                right.2,
+                right.3,
+                m.points.iter().map(|q| q.z).fold(f64::MAX, f64::min)
+            );
+        }
+        ani2.validate().unwrap();
+        assert_eq!(nonpos(&ani2), 0);
+        // W8: restart of an anisotropic cartesian_mesh run
+        use crate::pipeline::cartesian_mesh::{cartesian_mesh, cartesian_mesh_restart, CartesianMeshGeneratorOptions};
+        use crate::workflow_controls::{WorkflowSettings, WorkflowStep};
+        let base = CartesianMeshGeneratorOptions { dict: crate::mesh_octree_creator::MeshDict { anisotropic_sources: Some(slab()), ..crate::mesh_octree_creator::MeshDict::with_max_cell_size(0.5) }, ..Default::default() };
+        let (full, _) = cartesian_mesh(&sp, &st, None, &base).unwrap();
+        let stop = CartesianMeshGeneratorOptions { workflow: WorkflowSettings { stop_after: Some(WorkflowStep::EdgeExtraction), restart_from_latest_step: false }, ..base.clone() };
+        let (stopped, srep) = cartesian_mesh(&sp, &st, None, &stop).unwrap();
+        let zmax = stopped.points.iter().map(|q| q.z).fold(f64::MIN, f64::max);
+        println!("W8: the mesh stopped after edgeExtraction reaches z {zmax:.4} (modified space: the sphere's top is at 5)");
+        let saved = crate::pipeline::tet_mesh::SavedMesh { mesh: stopped, patch_types: srep.patch_types.clone(), meta: srep.meta.clone() };
+        let restart = CartesianMeshGeneratorOptions { workflow: WorkflowSettings { stop_after: None, restart_from_latest_step: true }, ..base.clone() };
+        let (resumed, _) = cartesian_mesh_restart(&sp, &st, None, &restart, &saved).unwrap();
+        let same = crate::tet_mesh_extractor_octree::same_mesh(&resumed, &full);
+        println!("W8: restarted run equals the full run bit for bit: {same}");
+        assert!(same);
+        assert!(zmax > 4.0);
+    }
+
+    /// Images (gh:#1279 remainder), `--ignored`: x-z slices at y = 0.05 of
+    /// the sphere meshes (isotropic control and slab) of the three 3D
+    /// generators, and x-y slices of the 2D channel, into
+    /// `verification_and_validation/anisotropic_gh1279/`. Drawn from the
+    /// assembled meshes; the dashed circle is the analytic sphere.
+    #[test]
+    #[ignore]
+    fn draw_anisotropic_images() {
+        use crate::topology::tests::write_slice_png;
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/anisotropic_gh1279");
+        let none = |_: usize| None;
+        for (name, iso, ani, _) in sphere_runs() {
+            for (run, m) in [("isotropic", &iso), ("slab", &ani)] {
+                let t = format!("{name} sphere R 3 m, maxCellSize 0.5, {run}{}: x-z at y 0.05, {} cells", if run == "slab" { " (boxScaling |z| <= 1, scale z 0.5)" } else { "" }, m.n_cells);
+                write_slice_png(m, 1, 0.05, [-3.4, 3.4, -3.4, 3.4], &[(0.0, 0.0, 3.0)], &none, &t, &dir.join(format!("sphere_xz_{name}_{run}.png")));
+            }
+        }
+        let (iso2, ani2, _) = channel_runs();
+        for (run, m) in [("isotropic", &iso2), ("half_box", &ani2)] {
+            let zt = m.points.iter().map(|q| q.z).fold(f64::MIN, f64::max);
+            let t = format!("cartesian_2d_mesh channel 1 x 0.25, maxCellSize 0.05, {run}: x-y mid-plane, {} cells", m.n_cells);
+            write_slice_png(m, 2, 0.5 * zt, [-0.05, 1.05, -0.05, 0.30], &[], &none, &t, &dir.join(format!("channel_xy_{run}.png")));
+        }
+    }
+
+    /// gh:#1279 remainder, the check behind W1's miss (README): on the
+    /// isotropic control (sphere, 0.5), the hexahedra two rings from the
+    /// wall are exact cubes after every step up to `boundaryLayerGeneration`
+    /// and stop being so only in `meshOptimisation` (the optimiser's
+    /// smoothing, upstream's design). Recorded 2026-11-05: ratio 1.000000
+    /// through `boundaryLayerGeneration` (32, then 184 cells), 0.930..1.074
+    /// after `meshOptimisation`.
+    #[test]
+    fn interior_hexes_stay_cubes_until_mesh_optimisation() {
+        use crate::pipeline::cartesian_mesh::{cartesian_mesh, CartesianMeshGeneratorOptions};
+        use crate::workflow_controls::{WorkflowSettings, WorkflowStep};
+        let (p, t) = crate::shapes::sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        for st in [WorkflowStep::TemplateGeneration, WorkflowStep::SurfaceTopology, WorkflowStep::SurfaceProjection, WorkflowStep::PatchAssignment, WorkflowStep::EdgeExtraction, WorkflowStep::BoundaryLayerGeneration, WorkflowStep::MeshOptimisation] {
+            let o = CartesianMeshGeneratorOptions { dict: crate::mesh_octree_creator::MeshDict::with_max_cell_size(0.5), workflow: WorkflowSettings { stop_after: Some(st), restart_from_latest_step: false }, ..Default::default() };
+            let (m, _) = cartesian_mesh(&p, &t, None, &o).unwrap();
+            let c = interior_cells(&m, &|_: &str| false, 2);
+            let r = extent_ratio(&c, &|c| c.0);
+            println!("after {st:?}: {} cells, ring-2 hexes {} ratio {:.6} {:.6}..{:.6}", m.n_cells, r.0, r.1, r.2, r.3);
+            if st != WorkflowStep::MeshOptimisation {
+                assert!((r.2 - 1.0).abs() < 1e-12 && (r.3 - 1.0).abs() < 1e-12, "{st:?}");
+            }
+        }
     }
 }

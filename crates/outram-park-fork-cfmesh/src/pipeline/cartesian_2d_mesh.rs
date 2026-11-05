@@ -48,9 +48,20 @@
 //!
 //! Reused from the 3D workflow where upstream reuses it: the extractor, the
 //! four connectivity checks, `boundaryLayers`, `renumberMesh`,
-//! `renameBoundaryPatches`, `workflowControls`. `anisotropicSources`,
+//! `renameBoundaryPatches`, `workflowControls`. ~~`anisotropicSources`,~~
 //! `triSurfacePatchManipulator` and `triSurfaceCleanupDuplicateTriangles`
 //! (only run on a surface with feature edges) are not supported.
+//!
+//! **`anisotropicSources` (UPDATED 2026-11-05, gh:#1279 remainder):** as
+//! upstream, the quadtree is built on the modified surface; the revert is
+//! at the end of `boundaryLayerGeneration` (after the layer; also with the
+//! layer ablated or refused), followed by a new quadtree on the original
+//! surface ([`refined_quadtree`]), `remapBoundaryPoints` and
+//! `optimiseMeshSurface`, and the later steps use that quadtree. There is
+//! no `projectSurfaceAfterBackScaling` in 2D. As upstream, a run stopped
+//! before `boundaryLayerGeneration` returns the mesh in the modified space,
+//! and a restart that resumes after it keeps the modified quadtree (an
+//! upstream quirk, kept). Record: `verification_and_validation/anisotropic_gh1279/`.
 
 use crate::cartesian_mesh::{create_empty_patches, CartesianMeshOptions};
 use crate::layers::boundary_layers::{BoundaryLayersControls, LayerRequest};
@@ -161,6 +172,18 @@ pub fn create_quadtree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Su
     o
 }
 
+/// `meshOctree(surf, true)` and `meshOctreeCreator(octree)
+/// .createOctreeWithRefinedBoundary(20)` (15 triangles per leaf, the
+/// header's default): the search quadtree `generateBoundaryLayers` builds
+/// on the original surface after the anisotropic revert (gh:#1279
+/// remainder).
+pub fn refined_quadtree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>) -> MeshOctree {
+    let surf = TriSurf::new(points.to_vec(), tris.to_vec(), regions.map(|r| r.region_of_tri.clone()));
+    let mut o = MeshOctree::new_quadtree(Arc::new(surf));
+    MeshOctreeCreator::new(&o, None).create_octree_with_refined_boundary(&mut o, 20, 15);
+    o
+}
+
 /// cfMesh `cartesian2DMesh` on the ribbon `(points, tris)` with optional
 /// named regions (module docs).
 pub fn cartesian_2d_mesh(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>, opts: &Cartesian2DMeshOptions) -> Result<(VolumeMesh, Cartesian2DMeshReport), String> {
@@ -185,7 +208,14 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
         rep.notes.push(format!("triSurface2DCheck: {w} (upstream writes badSurfaceWithSubsets.fms and continues)"));
         rep.surface_check = Some(w);
     }
-    let o = create_quadtree(points, tris, regions, &opts.dict);
+    // the constructor: with anisotropicSources the quadtree is built on the
+    // modified surface (surfaceMeshGeometryModification)
+    let mod_points = crate::anisotropic::modified_surface_points(points, opts.dict.anisotropic_sources.as_ref());
+    let mut mod_active = mod_points.is_some();
+    if mod_active {
+        rep.notes.push("constructor: anisotropicSources: surfaceMeshGeometryModification, the quadtree on the modified surface".into());
+    }
+    let mut o = create_quadtree(mod_points.as_deref().unwrap_or(points), tris, regions, &opts.dict);
     let single = SurfaceRegions::single("defaultFaces", tris.len());
     let reg = regions.unwrap_or(&single);
     let meta = saved.map(|s| s.meta.clone()).unwrap_or_default();
@@ -274,6 +304,25 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
                         }
                         Err(e) => rep.notes.push(format!("boundaryLayerGeneration: boundaryLayers stopped ({e}); no layer")),
                     }
+                }
+                // generateBoundaryLayers' end, while modSurfacePtr_ is set:
+                // revertGeometryModification, a new quadtree on the original
+                // surface (createOctreeWithRefinedBoundary(20)), then
+                // mapEdgesAndCorners and optimiseMeshSurface on it
+                if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
+                    mod_active = false;
+                    crate::anisotropic::revert_points(&mut m.points, cm);
+                    o = refined_quadtree(points, tris, regions);
+                    let n = remap_boundary_points(m, &o)?;
+                    let (a, b) = optimise_mesh_surface_2d(m, &o)?;
+                    rep.notes.push(format!(
+                        "boundaryLayerGeneration: revertGeometryModification ({} points); quadtree on the original surface (createOctreeWithRefinedBoundary(20)); remapBoundaryPoints ({n} corner edges); optimiseMeshSurface: optimizeSurface2D ({} outline, {} bottom points), untangleSurface2D bad faces {:?}",
+                        m.points.len(),
+                        a.n_edge_points,
+                        a.n_partition_points,
+                        b.bad_faces
+                    ));
+                    rep.surface_2d.push((a, b));
                 }
             }
             WorkflowStep::MeshOptimisation => {

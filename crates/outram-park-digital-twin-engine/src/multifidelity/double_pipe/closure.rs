@@ -14,6 +14,7 @@
 //! Log coordinates because developing laminar Nu and f·Re are close to
 //! power laws in the Graetz number (V&V record, "Closures"). It refuses
 //! held-out points and points outside the table.
+use petir::mathf::RealMath;
 use uom::si::f64::Ratio;
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
@@ -54,11 +55,11 @@ impl Closures {
     }
 
     fn ln(&self) -> [f64; 4] {
-        [self.nu_hot, self.nu_cold, self.loss_hot, self.loss_cold].map(|r| r.get::<ratio>().ln())
+        [self.nu_hot, self.nu_cold, self.loss_hot, self.loss_cold].map(|r| r.get::<ratio>().r_ln())
     }
 
     fn from_ln(v: [f64; 4]) -> Self {
-        let e = |x: f64| Ratio::new::<ratio>(x.exp());
+        let e = |x: f64| Ratio::new::<ratio>(x.r_exp());
         Self { nu_hot: e(v[0]), nu_cold: e(v[1]), loss_hot: e(v[2]), loss_cold: e(v[3]) }
     }
 }
@@ -96,7 +97,7 @@ pub struct ClosureTable {
 }
 
 fn ln_x(x: &DoublePipeInput) -> [f64; 4] {
-    x.to_si().map(f64::ln)
+    x.to_si().map(<f64 as petir::mathf::RealMath>::r_ln)
 }
 
 impl ClosureTable {
@@ -155,7 +156,7 @@ impl ClosureTable {
     /// The table's levels in SI (Re_hot, Re_cold, k_wall, L).
     #[must_use]
     pub fn levels_si(&self) -> [Vec<f64>; 4] {
-        self.levels.clone().map(|l| l.into_iter().map(f64::exp).collect())
+        self.levels.clone().map(|l| l.into_iter().map(<f64 as petir::mathf::RealMath>::r_exp).collect())
     }
 
     /// Interpolate at `x` (multilinear in the logs).

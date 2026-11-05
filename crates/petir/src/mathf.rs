@@ -53,9 +53,19 @@
 //! `exp2` and `sin_cos` call site. `r_sin_cos` is `(r_sin, r_cos)`, not
 //! `libm::sincos`, so it is bit-identical to the two separate methods.
 //!
-//! **Only `exp`, `ln` and `powf` take the ARM route.** ARM optimized-routines
-//! publishes no scalar-double `log10`, `cbrt`, trig or hyperbolic functions,
-//! so the rest are `libm`: deterministic — one fixed implementation on every
+//! **Only `exp`, `ln` and `powf` take the ARM route.** ~~ARM optimized-routines
+//! publishes no scalar-double `log10`, `cbrt`, trig or hyperbolic functions,~~
+//! **CORRECTED 2026-11-05:** ARM optimized-routines (commit `20859d3`) now
+//! publishes scalar-double `log2`, `exp2`, `exp10` and `erf` in `math/`, and
+//! `log10`, `cbrt`, the inverse trig, hyperbolic, `expm1` and `log1p` in
+//! `math/aarch64/experimental/` (plain C); still no scalar-double `sin`,
+//! `cos` or `tan`. They were
+//! measured on gh:#1292 (2026-11-05): on PETIR's default x86-64 build (no
+//! FMA) those are slower than the `libm` crate for `cbrt`, `atan2`, `atan`, `asin`,
+//! `acos`, `tanh`, `sinh`, `expm1` and `log1p` (1.8-5.8x) and less accurate
+//! (1.0-2.5 ulp against 0.5-2.1), and transcendentals other than `exp`/`ln`
+//! were under 1 % of a Godiva transport run, so they stay on `libm`.
+//! So the rest are `libm`: deterministic — one fixed implementation on every
 //! target — but not fast, and not glibc's bits. They are here so that a crate
 //! choosing determinism can get it by a rename; that is a trade a crate makes
 //! knowingly, which is why the `r_` prefix stays and nothing shadows `std`.

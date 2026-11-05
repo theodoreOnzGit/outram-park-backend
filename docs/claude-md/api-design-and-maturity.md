@@ -72,7 +72,7 @@ would deadlock the work. Benchmark agreement is the reward for a good API, not
 its entry fee. (Rationale recorded 2026-09-05; revisit if it proves too
 lenient.)
 
-**The tolerance is per-crate, and lives in that crate's own `CLAUDE.md`.**
+**The tolerance is per-crate, and lives in that crate's own `AGENTS.md` (its `CLAUDE.md` imports it, since 2026-11-05).**
 There is no workspace-wide number: 500 pcm means something in `outram-mc-libs`
 and nothing in `outram-park-fork-dwsim-libs`. Each crate states its own bar,
 the reference it is measured against, and the evidence class above that it
@@ -85,7 +85,7 @@ and do not begin enforcing the dogfooding rule on the strength of your own
 assessment.
 
 **The bar moves, and that is expected.** Record every revision as a dated
-entry in the crate's own `CLAUDE.md`, **keeping the superseded ones** — an
+entry in the crate's own `AGENTS.md`, **keeping the superseded ones** — an
 agent reading the crate later needs to know not just today's bar but that it
 moved, or it will misread older results as failures against a standard that
 did not exist when they were produced.

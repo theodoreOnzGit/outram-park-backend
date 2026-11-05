@@ -68,6 +68,7 @@
 //! same projection.
 
 use crate::math::Vec3;
+use petir::mathf::RealMath;
 use crate::mesh_octree::{
     help, mag_sqr, BoundBox, CubeCoordinates, CubeType, MeshOctree, EDGE_NODES, FACE_NODES, NO_CUBE, ROOT,
     SMALL, VGREAT, VSMALL,
@@ -470,7 +471,7 @@ impl MeshOctree {
     /// A triangle in several leaves is listed once per leaf, as upstream.
     pub fn find_triangles_in_box(&self, bb: &BoundBox) -> Vec<usize> {
         let c = bb.min.add(bb.max).scale(0.5);
-        let d_sq = (0.5 * (bb.max.x - bb.min.x)).powi(2);
+        let d_sq = (0.5 * (bb.max.x - bb.min.x)).r_powi(2);
         let mut out = Vec::new();
         for ci in self.leaves_in_box(bb) {
             if let Some(r) = self.cube(ci).contained_elements {
@@ -491,7 +492,7 @@ impl MeshOctree {
     /// within half the box's x extent of its centre.
     pub fn find_edges_in_box(&self, bb: &BoundBox) -> Vec<usize> {
         let c = bb.min.add(bb.max).scale(0.5);
-        let d_sq = (0.5 * (bb.max.x - bb.min.x)).powi(2);
+        let d_sq = (0.5 * (bb.max.x - bb.min.x)).r_powi(2);
         let mut out = Vec::new();
         for ci in self.leaves_in_box(bb) {
             if let Some(r) = self.cube(ci).contained_edges {

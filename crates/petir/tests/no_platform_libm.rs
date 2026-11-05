@@ -92,6 +92,9 @@ const EXCLUDED_LINES: &[(&str, &str, &str)] = &[
     ("chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/conversion.rs", "p_c.iter().map(|&p| (p * t_s).exp())", "Cplx::exp, own type, PETIR inside"),
     ("chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/conversion.rs", "z_c.iter().map(|&z| (z * t_s).exp())", "Cplx::exp, own type, PETIR inside"),
     ("chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/conversion.rs", "let w_d = Cplx::new(0.0, w_c * t_s).exp();", "Cplx::exp, own type, PETIR inside"),
+    // The double-pipe closure table's own `Closures::ln` (`closure.rs`: its
+    // body is on `r_ln`), not `f64::ln` (2026-11-05).
+    ("outram-park-digital-twin-engine/src/multifidelity/double_pipe/closure.rs", "values[idx] = c.ln();", "Closures::ln, own type, PETIR inside"),
     ("chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/conversion.rs", "p_d.iter().map(|&p| p.ln()", "Cplx::ln, own type, PETIR inside"),
     ("chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/conversion.rs", "z_d.iter().map(|&z| z.ln()", "Cplx::ln, own type, PETIR inside"),
     ("chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/verification_tests.rs", "Cplx::new(0.0, -w * t).exp()", "Cplx::exp, own type, PETIR inside"),

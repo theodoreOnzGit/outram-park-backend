@@ -33,13 +33,17 @@
 //! Process-noise matrices for kinematic models (FilterPy's
 //! `Q_discrete_white_noise`, `Q_continuous_white_noise`).
 
+use petir::mathf::RealMath;
 use super::numpy_ops::Matrix;
 use crate::{RafflesError, Result};
 
 fn table(dim: usize, dt: f64, continuous: bool) -> Result<Vec<Vec<f64>>> {
     // Python's `dt**k` is C `pow(dt, k)`; `black_box` keeps LLVM from
-    // folding a constant exponent into multiplies, so this is libm's pow too.
-    let p = |k: f64| dt.powf(core::hint::black_box(k));
+    // folding a constant exponent into multiplies. ~~so this is libm's pow
+    // too~~ Since 2026-11-05 (gh:#985) this is PETIR's `powf`, its port of
+    // ARM optimized-routines, the `pow` glibc ships: the same bits as the
+    // platform on glibc, and the same on every platform.
+    let p = |k: f64| dt.r_powf(core::hint::black_box(k));
     let q = match (dim, continuous) {
         (2, false) => vec![vec![0.25 * p(4.0), 0.5 * p(3.0)], vec![0.5 * p(3.0), p(2.0)]],
         (3, false) => vec![
