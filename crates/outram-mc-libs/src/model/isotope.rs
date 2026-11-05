@@ -136,72 +136,500 @@ pub enum IsotopeError {
     BadName(String),
 }
 
-macro_rules! elements {
-    ($( $name:ident = $z:literal, $sym:literal ;)*) => {
-        /// A chemical element, for **natural** isotopic mixtures
-        /// ([`Element::natural`]) and for naming the element of an
-        /// [`Isotope`]. Discriminant = proton number.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-        #[repr(u8)]
-        pub enum Element {
-            $(
-                #[doc = concat!("Z = ", stringify!($z), " (", $sym, ").")]
-                $name = $z,
-            )*
-        }
-
-        impl Element {
-            /// The element with proton number `z` (1..=118, hydrogen to
-            /// oganesson); `None` outside that range.
-            pub fn from_z(z: u8) -> Option<Self> {
-                match z {
-                    $( $z => Some(Self::$name), )*
-                    _ => None,
-                }
-            }
-
-            /// Chemical symbol (`"U"`, `"B"`).
-            pub fn symbol(self) -> &'static str {
-                match self {
-                    $( Self::$name => $sym, )*
-                }
-            }
-        }
-    };
+/// A chemical element, for **natural** isotopic mixtures
+/// ([`Element::natural`]) and for naming the element of an
+/// [`Isotope`]. Discriminant = proton number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum Element {
+    /// Z = 1 (H).
+    Hydrogen = 1,
+    /// Z = 2 (He).
+    Helium = 2,
+    /// Z = 3 (Li).
+    Lithium = 3,
+    /// Z = 4 (Be).
+    Beryllium = 4,
+    /// Z = 5 (B).
+    Boron = 5,
+    /// Z = 6 (C).
+    Carbon = 6,
+    /// Z = 7 (N).
+    Nitrogen = 7,
+    /// Z = 8 (O).
+    Oxygen = 8,
+    /// Z = 9 (F).
+    Fluorine = 9,
+    /// Z = 10 (Ne).
+    Neon = 10,
+    /// Z = 11 (Na).
+    Sodium = 11,
+    /// Z = 12 (Mg).
+    Magnesium = 12,
+    /// Z = 13 (Al).
+    Aluminium = 13,
+    /// Z = 14 (Si).
+    Silicon = 14,
+    /// Z = 15 (P).
+    Phosphorus = 15,
+    /// Z = 16 (S).
+    Sulfur = 16,
+    /// Z = 17 (Cl).
+    Chlorine = 17,
+    /// Z = 18 (Ar).
+    Argon = 18,
+    /// Z = 19 (K).
+    Potassium = 19,
+    /// Z = 20 (Ca).
+    Calcium = 20,
+    /// Z = 21 (Sc).
+    Scandium = 21,
+    /// Z = 22 (Ti).
+    Titanium = 22,
+    /// Z = 23 (V).
+    Vanadium = 23,
+    /// Z = 24 (Cr).
+    Chromium = 24,
+    /// Z = 25 (Mn).
+    Manganese = 25,
+    /// Z = 26 (Fe).
+    Iron = 26,
+    /// Z = 27 (Co).
+    Cobalt = 27,
+    /// Z = 28 (Ni).
+    Nickel = 28,
+    /// Z = 29 (Cu).
+    Copper = 29,
+    /// Z = 30 (Zn).
+    Zinc = 30,
+    /// Z = 31 (Ga).
+    Gallium = 31,
+    /// Z = 32 (Ge).
+    Germanium = 32,
+    /// Z = 33 (As).
+    Arsenic = 33,
+    /// Z = 34 (Se).
+    Selenium = 34,
+    /// Z = 35 (Br).
+    Bromine = 35,
+    /// Z = 36 (Kr).
+    Krypton = 36,
+    /// Z = 37 (Rb).
+    Rubidium = 37,
+    /// Z = 38 (Sr).
+    Strontium = 38,
+    /// Z = 39 (Y).
+    Yttrium = 39,
+    /// Z = 40 (Zr).
+    Zirconium = 40,
+    /// Z = 41 (Nb).
+    Niobium = 41,
+    /// Z = 42 (Mo).
+    Molybdenum = 42,
+    /// Z = 43 (Tc).
+    Technetium = 43,
+    /// Z = 44 (Ru).
+    Ruthenium = 44,
+    /// Z = 45 (Rh).
+    Rhodium = 45,
+    /// Z = 46 (Pd).
+    Palladium = 46,
+    /// Z = 47 (Ag).
+    Silver = 47,
+    /// Z = 48 (Cd).
+    Cadmium = 48,
+    /// Z = 49 (In).
+    Indium = 49,
+    /// Z = 50 (Sn).
+    Tin = 50,
+    /// Z = 51 (Sb).
+    Antimony = 51,
+    /// Z = 52 (Te).
+    Tellurium = 52,
+    /// Z = 53 (I).
+    Iodine = 53,
+    /// Z = 54 (Xe).
+    Xenon = 54,
+    /// Z = 55 (Cs).
+    Caesium = 55,
+    /// Z = 56 (Ba).
+    Barium = 56,
+    /// Z = 57 (La).
+    Lanthanum = 57,
+    /// Z = 58 (Ce).
+    Cerium = 58,
+    /// Z = 59 (Pr).
+    Praseodymium = 59,
+    /// Z = 60 (Nd).
+    Neodymium = 60,
+    /// Z = 61 (Pm).
+    Promethium = 61,
+    /// Z = 62 (Sm).
+    Samarium = 62,
+    /// Z = 63 (Eu).
+    Europium = 63,
+    /// Z = 64 (Gd).
+    Gadolinium = 64,
+    /// Z = 65 (Tb).
+    Terbium = 65,
+    /// Z = 66 (Dy).
+    Dysprosium = 66,
+    /// Z = 67 (Ho).
+    Holmium = 67,
+    /// Z = 68 (Er).
+    Erbium = 68,
+    /// Z = 69 (Tm).
+    Thulium = 69,
+    /// Z = 70 (Yb).
+    Ytterbium = 70,
+    /// Z = 71 (Lu).
+    Lutetium = 71,
+    /// Z = 72 (Hf).
+    Hafnium = 72,
+    /// Z = 73 (Ta).
+    Tantalum = 73,
+    /// Z = 74 (W).
+    Tungsten = 74,
+    /// Z = 75 (Re).
+    Rhenium = 75,
+    /// Z = 76 (Os).
+    Osmium = 76,
+    /// Z = 77 (Ir).
+    Iridium = 77,
+    /// Z = 78 (Pt).
+    Platinum = 78,
+    /// Z = 79 (Au).
+    Gold = 79,
+    /// Z = 80 (Hg).
+    Mercury = 80,
+    /// Z = 81 (Tl).
+    Thallium = 81,
+    /// Z = 82 (Pb).
+    Lead = 82,
+    /// Z = 83 (Bi).
+    Bismuth = 83,
+    /// Z = 84 (Po).
+    Polonium = 84,
+    /// Z = 85 (At).
+    Astatine = 85,
+    /// Z = 86 (Rn).
+    Radon = 86,
+    /// Z = 87 (Fr).
+    Francium = 87,
+    /// Z = 88 (Ra).
+    Radium = 88,
+    /// Z = 89 (Ac).
+    Actinium = 89,
+    /// Z = 90 (Th).
+    Thorium = 90,
+    /// Z = 91 (Pa).
+    Protactinium = 91,
+    /// Z = 92 (U).
+    Uranium = 92,
+    /// Z = 93 (Np).
+    Neptunium = 93,
+    /// Z = 94 (Pu).
+    Plutonium = 94,
+    /// Z = 95 (Am).
+    Americium = 95,
+    /// Z = 96 (Cm).
+    Curium = 96,
+    /// Z = 97 (Bk).
+    Berkelium = 97,
+    /// Z = 98 (Cf).
+    Californium = 98,
+    /// Z = 99 (Es).
+    Einsteinium = 99,
+    /// Z = 100 (Fm).
+    Fermium = 100,
+    /// Z = 101 (Md).
+    Mendelevium = 101,
+    /// Z = 102 (No).
+    Nobelium = 102,
+    /// Z = 103 (Lr).
+    Lawrencium = 103,
+    /// Z = 104 (Rf).
+    Rutherfordium = 104,
+    /// Z = 105 (Db).
+    Dubnium = 105,
+    /// Z = 106 (Sg).
+    Seaborgium = 106,
+    /// Z = 107 (Bh).
+    Bohrium = 107,
+    /// Z = 108 (Hs).
+    Hassium = 108,
+    /// Z = 109 (Mt).
+    Meitnerium = 109,
+    /// Z = 110 (Ds).
+    Darmstadtium = 110,
+    /// Z = 111 (Rg).
+    Roentgenium = 111,
+    /// Z = 112 (Cn).
+    Copernicium = 112,
+    /// Z = 113 (Nh).
+    Nihonium = 113,
+    /// Z = 114 (Fl).
+    Flerovium = 114,
+    /// Z = 115 (Mc).
+    Moscovium = 115,
+    /// Z = 116 (Lv).
+    Livermorium = 116,
+    /// Z = 117 (Ts).
+    Tennessine = 117,
+    /// Z = 118 (Og).
+    Oganesson = 118,
 }
 
-elements! {
-    Hydrogen = 1, "H"; Helium = 2, "He"; Lithium = 3, "Li"; Beryllium = 4, "Be";
-    Boron = 5, "B"; Carbon = 6, "C"; Nitrogen = 7, "N"; Oxygen = 8, "O";
-    Fluorine = 9, "F"; Neon = 10, "Ne"; Sodium = 11, "Na"; Magnesium = 12, "Mg";
-    Aluminium = 13, "Al"; Silicon = 14, "Si"; Phosphorus = 15, "P"; Sulfur = 16, "S";
-    Chlorine = 17, "Cl"; Argon = 18, "Ar"; Potassium = 19, "K"; Calcium = 20, "Ca";
-    Scandium = 21, "Sc"; Titanium = 22, "Ti"; Vanadium = 23, "V"; Chromium = 24, "Cr";
-    Manganese = 25, "Mn"; Iron = 26, "Fe"; Cobalt = 27, "Co"; Nickel = 28, "Ni";
-    Copper = 29, "Cu"; Zinc = 30, "Zn"; Gallium = 31, "Ga"; Germanium = 32, "Ge";
-    Arsenic = 33, "As"; Selenium = 34, "Se"; Bromine = 35, "Br"; Krypton = 36, "Kr";
-    Rubidium = 37, "Rb"; Strontium = 38, "Sr"; Yttrium = 39, "Y"; Zirconium = 40, "Zr";
-    Niobium = 41, "Nb"; Molybdenum = 42, "Mo"; Technetium = 43, "Tc"; Ruthenium = 44, "Ru";
-    Rhodium = 45, "Rh"; Palladium = 46, "Pd"; Silver = 47, "Ag"; Cadmium = 48, "Cd";
-    Indium = 49, "In"; Tin = 50, "Sn"; Antimony = 51, "Sb"; Tellurium = 52, "Te";
-    Iodine = 53, "I"; Xenon = 54, "Xe"; Caesium = 55, "Cs"; Barium = 56, "Ba";
-    Lanthanum = 57, "La"; Cerium = 58, "Ce"; Praseodymium = 59, "Pr"; Neodymium = 60, "Nd";
-    Promethium = 61, "Pm"; Samarium = 62, "Sm"; Europium = 63, "Eu"; Gadolinium = 64, "Gd";
-    Terbium = 65, "Tb"; Dysprosium = 66, "Dy"; Holmium = 67, "Ho"; Erbium = 68, "Er";
-    Thulium = 69, "Tm"; Ytterbium = 70, "Yb"; Lutetium = 71, "Lu"; Hafnium = 72, "Hf";
-    Tantalum = 73, "Ta"; Tungsten = 74, "W"; Rhenium = 75, "Re"; Osmium = 76, "Os";
-    Iridium = 77, "Ir"; Platinum = 78, "Pt"; Gold = 79, "Au"; Mercury = 80, "Hg";
-    Thallium = 81, "Tl"; Lead = 82, "Pb"; Bismuth = 83, "Bi"; Polonium = 84, "Po";
-    Astatine = 85, "At"; Radon = 86, "Rn"; Francium = 87, "Fr"; Radium = 88, "Ra";
-    Actinium = 89, "Ac"; Thorium = 90, "Th"; Protactinium = 91, "Pa"; Uranium = 92, "U";
-    Neptunium = 93, "Np"; Plutonium = 94, "Pu"; Americium = 95, "Am"; Curium = 96, "Cm";
-    Berkelium = 97, "Bk"; Californium = 98, "Cf"; Einsteinium = 99, "Es"; Fermium = 100, "Fm";
-    Mendelevium = 101, "Md"; Nobelium = 102, "No"; Lawrencium = 103, "Lr";
-    Rutherfordium = 104, "Rf"; Dubnium = 105, "Db"; Seaborgium = 106, "Sg"; Bohrium = 107, "Bh";
-    Hassium = 108, "Hs"; Meitnerium = 109, "Mt"; Darmstadtium = 110, "Ds";
-    Roentgenium = 111, "Rg"; Copernicium = 112, "Cn"; Nihonium = 113, "Nh";
-    Flerovium = 114, "Fl"; Moscovium = 115, "Mc"; Livermorium = 116, "Lv";
-    Tennessine = 117, "Ts"; Oganesson = 118, "Og";
+impl Element {
+    /// The element with proton number `z` (1..=118, hydrogen to
+    /// oganesson); `None` outside that range.
+    pub fn from_z(z: u8) -> Option<Self> {
+        match z {
+            1 => Some(Self::Hydrogen),
+            2 => Some(Self::Helium),
+            3 => Some(Self::Lithium),
+            4 => Some(Self::Beryllium),
+            5 => Some(Self::Boron),
+            6 => Some(Self::Carbon),
+            7 => Some(Self::Nitrogen),
+            8 => Some(Self::Oxygen),
+            9 => Some(Self::Fluorine),
+            10 => Some(Self::Neon),
+            11 => Some(Self::Sodium),
+            12 => Some(Self::Magnesium),
+            13 => Some(Self::Aluminium),
+            14 => Some(Self::Silicon),
+            15 => Some(Self::Phosphorus),
+            16 => Some(Self::Sulfur),
+            17 => Some(Self::Chlorine),
+            18 => Some(Self::Argon),
+            19 => Some(Self::Potassium),
+            20 => Some(Self::Calcium),
+            21 => Some(Self::Scandium),
+            22 => Some(Self::Titanium),
+            23 => Some(Self::Vanadium),
+            24 => Some(Self::Chromium),
+            25 => Some(Self::Manganese),
+            26 => Some(Self::Iron),
+            27 => Some(Self::Cobalt),
+            28 => Some(Self::Nickel),
+            29 => Some(Self::Copper),
+            30 => Some(Self::Zinc),
+            31 => Some(Self::Gallium),
+            32 => Some(Self::Germanium),
+            33 => Some(Self::Arsenic),
+            34 => Some(Self::Selenium),
+            35 => Some(Self::Bromine),
+            36 => Some(Self::Krypton),
+            37 => Some(Self::Rubidium),
+            38 => Some(Self::Strontium),
+            39 => Some(Self::Yttrium),
+            40 => Some(Self::Zirconium),
+            41 => Some(Self::Niobium),
+            42 => Some(Self::Molybdenum),
+            43 => Some(Self::Technetium),
+            44 => Some(Self::Ruthenium),
+            45 => Some(Self::Rhodium),
+            46 => Some(Self::Palladium),
+            47 => Some(Self::Silver),
+            48 => Some(Self::Cadmium),
+            49 => Some(Self::Indium),
+            50 => Some(Self::Tin),
+            51 => Some(Self::Antimony),
+            52 => Some(Self::Tellurium),
+            53 => Some(Self::Iodine),
+            54 => Some(Self::Xenon),
+            55 => Some(Self::Caesium),
+            56 => Some(Self::Barium),
+            57 => Some(Self::Lanthanum),
+            58 => Some(Self::Cerium),
+            59 => Some(Self::Praseodymium),
+            60 => Some(Self::Neodymium),
+            61 => Some(Self::Promethium),
+            62 => Some(Self::Samarium),
+            63 => Some(Self::Europium),
+            64 => Some(Self::Gadolinium),
+            65 => Some(Self::Terbium),
+            66 => Some(Self::Dysprosium),
+            67 => Some(Self::Holmium),
+            68 => Some(Self::Erbium),
+            69 => Some(Self::Thulium),
+            70 => Some(Self::Ytterbium),
+            71 => Some(Self::Lutetium),
+            72 => Some(Self::Hafnium),
+            73 => Some(Self::Tantalum),
+            74 => Some(Self::Tungsten),
+            75 => Some(Self::Rhenium),
+            76 => Some(Self::Osmium),
+            77 => Some(Self::Iridium),
+            78 => Some(Self::Platinum),
+            79 => Some(Self::Gold),
+            80 => Some(Self::Mercury),
+            81 => Some(Self::Thallium),
+            82 => Some(Self::Lead),
+            83 => Some(Self::Bismuth),
+            84 => Some(Self::Polonium),
+            85 => Some(Self::Astatine),
+            86 => Some(Self::Radon),
+            87 => Some(Self::Francium),
+            88 => Some(Self::Radium),
+            89 => Some(Self::Actinium),
+            90 => Some(Self::Thorium),
+            91 => Some(Self::Protactinium),
+            92 => Some(Self::Uranium),
+            93 => Some(Self::Neptunium),
+            94 => Some(Self::Plutonium),
+            95 => Some(Self::Americium),
+            96 => Some(Self::Curium),
+            97 => Some(Self::Berkelium),
+            98 => Some(Self::Californium),
+            99 => Some(Self::Einsteinium),
+            100 => Some(Self::Fermium),
+            101 => Some(Self::Mendelevium),
+            102 => Some(Self::Nobelium),
+            103 => Some(Self::Lawrencium),
+            104 => Some(Self::Rutherfordium),
+            105 => Some(Self::Dubnium),
+            106 => Some(Self::Seaborgium),
+            107 => Some(Self::Bohrium),
+            108 => Some(Self::Hassium),
+            109 => Some(Self::Meitnerium),
+            110 => Some(Self::Darmstadtium),
+            111 => Some(Self::Roentgenium),
+            112 => Some(Self::Copernicium),
+            113 => Some(Self::Nihonium),
+            114 => Some(Self::Flerovium),
+            115 => Some(Self::Moscovium),
+            116 => Some(Self::Livermorium),
+            117 => Some(Self::Tennessine),
+            118 => Some(Self::Oganesson),
+            _ => None,
+        }
+    }
+
+    /// Chemical symbol (`"U"`, `"B"`).
+    pub fn symbol(self) -> &'static str {
+        match self {
+            Self::Hydrogen => "H",
+            Self::Helium => "He",
+            Self::Lithium => "Li",
+            Self::Beryllium => "Be",
+            Self::Boron => "B",
+            Self::Carbon => "C",
+            Self::Nitrogen => "N",
+            Self::Oxygen => "O",
+            Self::Fluorine => "F",
+            Self::Neon => "Ne",
+            Self::Sodium => "Na",
+            Self::Magnesium => "Mg",
+            Self::Aluminium => "Al",
+            Self::Silicon => "Si",
+            Self::Phosphorus => "P",
+            Self::Sulfur => "S",
+            Self::Chlorine => "Cl",
+            Self::Argon => "Ar",
+            Self::Potassium => "K",
+            Self::Calcium => "Ca",
+            Self::Scandium => "Sc",
+            Self::Titanium => "Ti",
+            Self::Vanadium => "V",
+            Self::Chromium => "Cr",
+            Self::Manganese => "Mn",
+            Self::Iron => "Fe",
+            Self::Cobalt => "Co",
+            Self::Nickel => "Ni",
+            Self::Copper => "Cu",
+            Self::Zinc => "Zn",
+            Self::Gallium => "Ga",
+            Self::Germanium => "Ge",
+            Self::Arsenic => "As",
+            Self::Selenium => "Se",
+            Self::Bromine => "Br",
+            Self::Krypton => "Kr",
+            Self::Rubidium => "Rb",
+            Self::Strontium => "Sr",
+            Self::Yttrium => "Y",
+            Self::Zirconium => "Zr",
+            Self::Niobium => "Nb",
+            Self::Molybdenum => "Mo",
+            Self::Technetium => "Tc",
+            Self::Ruthenium => "Ru",
+            Self::Rhodium => "Rh",
+            Self::Palladium => "Pd",
+            Self::Silver => "Ag",
+            Self::Cadmium => "Cd",
+            Self::Indium => "In",
+            Self::Tin => "Sn",
+            Self::Antimony => "Sb",
+            Self::Tellurium => "Te",
+            Self::Iodine => "I",
+            Self::Xenon => "Xe",
+            Self::Caesium => "Cs",
+            Self::Barium => "Ba",
+            Self::Lanthanum => "La",
+            Self::Cerium => "Ce",
+            Self::Praseodymium => "Pr",
+            Self::Neodymium => "Nd",
+            Self::Promethium => "Pm",
+            Self::Samarium => "Sm",
+            Self::Europium => "Eu",
+            Self::Gadolinium => "Gd",
+            Self::Terbium => "Tb",
+            Self::Dysprosium => "Dy",
+            Self::Holmium => "Ho",
+            Self::Erbium => "Er",
+            Self::Thulium => "Tm",
+            Self::Ytterbium => "Yb",
+            Self::Lutetium => "Lu",
+            Self::Hafnium => "Hf",
+            Self::Tantalum => "Ta",
+            Self::Tungsten => "W",
+            Self::Rhenium => "Re",
+            Self::Osmium => "Os",
+            Self::Iridium => "Ir",
+            Self::Platinum => "Pt",
+            Self::Gold => "Au",
+            Self::Mercury => "Hg",
+            Self::Thallium => "Tl",
+            Self::Lead => "Pb",
+            Self::Bismuth => "Bi",
+            Self::Polonium => "Po",
+            Self::Astatine => "At",
+            Self::Radon => "Rn",
+            Self::Francium => "Fr",
+            Self::Radium => "Ra",
+            Self::Actinium => "Ac",
+            Self::Thorium => "Th",
+            Self::Protactinium => "Pa",
+            Self::Uranium => "U",
+            Self::Neptunium => "Np",
+            Self::Plutonium => "Pu",
+            Self::Americium => "Am",
+            Self::Curium => "Cm",
+            Self::Berkelium => "Bk",
+            Self::Californium => "Cf",
+            Self::Einsteinium => "Es",
+            Self::Fermium => "Fm",
+            Self::Mendelevium => "Md",
+            Self::Nobelium => "No",
+            Self::Lawrencium => "Lr",
+            Self::Rutherfordium => "Rf",
+            Self::Dubnium => "Db",
+            Self::Seaborgium => "Sg",
+            Self::Bohrium => "Bh",
+            Self::Hassium => "Hs",
+            Self::Meitnerium => "Mt",
+            Self::Darmstadtium => "Ds",
+            Self::Roentgenium => "Rg",
+            Self::Copernicium => "Cn",
+            Self::Nihonium => "Nh",
+            Self::Flerovium => "Fl",
+            Self::Moscovium => "Mc",
+            Self::Livermorium => "Lv",
+            Self::Tennessine => "Ts",
+            Self::Oganesson => "Og",
+        }
+    }
 }
 
 impl Element {
@@ -274,28 +702,104 @@ impl std::fmt::Display for Species {
 pub mod isotopes {
     use super::Isotope;
 
-    macro_rules! iso {
-        ($( $name:ident = $z:literal, $a:literal ;)*) => {
-            $(
-                #[doc = concat!("Z = ", stringify!($z), ", A = ", stringify!($a), ".")]
-                pub const $name: Isotope = Isotope::known($z, $a);
-            )*
-        };
-    }
-
-    iso! {
-        H1 = 1, 1; H2 = 1, 2; He3 = 2, 3; He4 = 2, 4; Li6 = 3, 6; Li7 = 3, 7; Be9 = 4, 9;
-        B10 = 5, 10; B11 = 5, 11; C12 = 6, 12; C13 = 6, 13; N14 = 7, 14; N15 = 7, 15;
-        O16 = 8, 16; O17 = 8, 17; O18 = 8, 18; F19 = 9, 19; Na23 = 11, 23;
-        Al27 = 13, 27; Si28 = 14, 28; Si29 = 14, 29; Si30 = 14, 30; Mn55 = 25, 55;
-        Fe54 = 26, 54; Fe56 = 26, 56; Fe57 = 26, 57; Fe58 = 26, 58;
-        Cu63 = 29, 63; Cu65 = 29, 65;
-        Zr90 = 40, 90; Zr91 = 40, 91; Zr92 = 40, 92; Zr94 = 40, 94; Zr96 = 40, 96;
-        Xe135 = 54, 135; Cs137 = 55, 137; Sm149 = 62, 149;
-        Th232 = 90, 232; U233 = 92, 233; U234 = 92, 234; U235 = 92, 235; U236 = 92, 236;
-        U238 = 92, 238; Pu238 = 94, 238; Pu239 = 94, 239; Pu240 = 94, 240; Pu241 = 94, 241;
-        Pu242 = 94, 242; Am241 = 95, 241;
-    }
+    /// Z = 1, A = 1.
+    pub const H1: Isotope = Isotope::known(1, 1);
+    /// Z = 1, A = 2.
+    pub const H2: Isotope = Isotope::known(1, 2);
+    /// Z = 2, A = 3.
+    pub const He3: Isotope = Isotope::known(2, 3);
+    /// Z = 2, A = 4.
+    pub const He4: Isotope = Isotope::known(2, 4);
+    /// Z = 3, A = 6.
+    pub const Li6: Isotope = Isotope::known(3, 6);
+    /// Z = 3, A = 7.
+    pub const Li7: Isotope = Isotope::known(3, 7);
+    /// Z = 4, A = 9.
+    pub const Be9: Isotope = Isotope::known(4, 9);
+    /// Z = 5, A = 10.
+    pub const B10: Isotope = Isotope::known(5, 10);
+    /// Z = 5, A = 11.
+    pub const B11: Isotope = Isotope::known(5, 11);
+    /// Z = 6, A = 12.
+    pub const C12: Isotope = Isotope::known(6, 12);
+    /// Z = 6, A = 13.
+    pub const C13: Isotope = Isotope::known(6, 13);
+    /// Z = 7, A = 14.
+    pub const N14: Isotope = Isotope::known(7, 14);
+    /// Z = 7, A = 15.
+    pub const N15: Isotope = Isotope::known(7, 15);
+    /// Z = 8, A = 16.
+    pub const O16: Isotope = Isotope::known(8, 16);
+    /// Z = 8, A = 17.
+    pub const O17: Isotope = Isotope::known(8, 17);
+    /// Z = 8, A = 18.
+    pub const O18: Isotope = Isotope::known(8, 18);
+    /// Z = 9, A = 19.
+    pub const F19: Isotope = Isotope::known(9, 19);
+    /// Z = 11, A = 23.
+    pub const Na23: Isotope = Isotope::known(11, 23);
+    /// Z = 13, A = 27.
+    pub const Al27: Isotope = Isotope::known(13, 27);
+    /// Z = 14, A = 28.
+    pub const Si28: Isotope = Isotope::known(14, 28);
+    /// Z = 14, A = 29.
+    pub const Si29: Isotope = Isotope::known(14, 29);
+    /// Z = 14, A = 30.
+    pub const Si30: Isotope = Isotope::known(14, 30);
+    /// Z = 25, A = 55.
+    pub const Mn55: Isotope = Isotope::known(25, 55);
+    /// Z = 26, A = 54.
+    pub const Fe54: Isotope = Isotope::known(26, 54);
+    /// Z = 26, A = 56.
+    pub const Fe56: Isotope = Isotope::known(26, 56);
+    /// Z = 26, A = 57.
+    pub const Fe57: Isotope = Isotope::known(26, 57);
+    /// Z = 26, A = 58.
+    pub const Fe58: Isotope = Isotope::known(26, 58);
+    /// Z = 29, A = 63.
+    pub const Cu63: Isotope = Isotope::known(29, 63);
+    /// Z = 29, A = 65.
+    pub const Cu65: Isotope = Isotope::known(29, 65);
+    /// Z = 40, A = 90.
+    pub const Zr90: Isotope = Isotope::known(40, 90);
+    /// Z = 40, A = 91.
+    pub const Zr91: Isotope = Isotope::known(40, 91);
+    /// Z = 40, A = 92.
+    pub const Zr92: Isotope = Isotope::known(40, 92);
+    /// Z = 40, A = 94.
+    pub const Zr94: Isotope = Isotope::known(40, 94);
+    /// Z = 40, A = 96.
+    pub const Zr96: Isotope = Isotope::known(40, 96);
+    /// Z = 54, A = 135.
+    pub const Xe135: Isotope = Isotope::known(54, 135);
+    /// Z = 55, A = 137.
+    pub const Cs137: Isotope = Isotope::known(55, 137);
+    /// Z = 62, A = 149.
+    pub const Sm149: Isotope = Isotope::known(62, 149);
+    /// Z = 90, A = 232.
+    pub const Th232: Isotope = Isotope::known(90, 232);
+    /// Z = 92, A = 233.
+    pub const U233: Isotope = Isotope::known(92, 233);
+    /// Z = 92, A = 234.
+    pub const U234: Isotope = Isotope::known(92, 234);
+    /// Z = 92, A = 235.
+    pub const U235: Isotope = Isotope::known(92, 235);
+    /// Z = 92, A = 236.
+    pub const U236: Isotope = Isotope::known(92, 236);
+    /// Z = 92, A = 238.
+    pub const U238: Isotope = Isotope::known(92, 238);
+    /// Z = 94, A = 238.
+    pub const Pu238: Isotope = Isotope::known(94, 238);
+    /// Z = 94, A = 239.
+    pub const Pu239: Isotope = Isotope::known(94, 239);
+    /// Z = 94, A = 240.
+    pub const Pu240: Isotope = Isotope::known(94, 240);
+    /// Z = 94, A = 241.
+    pub const Pu241: Isotope = Isotope::known(94, 241);
+    /// Z = 94, A = 242.
+    pub const Pu242: Isotope = Isotope::known(94, 242);
+    /// Z = 95, A = 241.
+    pub const Am241: Isotope = Isotope::known(95, 241);
 }
 
 #[cfg(test)]

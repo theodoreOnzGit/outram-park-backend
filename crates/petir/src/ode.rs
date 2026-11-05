@@ -100,7 +100,7 @@ use alloc::vec::Vec;
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::zip::zip_flat;
+use crate::zip::{zip3, zip4, zip5, zip6, zip7, zip8};
 use crate::{PetirError, Result};
 
 // --- Runge-Kutta-Fehlberg 4(5) tableau, from ode-initval2/rkf45.c -----------
@@ -202,25 +202,25 @@ where
 
     // k1
     f(t, y, &mut k);
-    for (s, tp, &yi, &ki) in zip_flat!(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
+    for (s, tp, &yi, &ki) in zip4(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
         *s = ki;
         *tp = yi + 0.5 * h * ki;
     }
     // k2
     f(t + 0.5 * h, &tmp, &mut k);
-    for (s, tp, &yi, &ki) in zip_flat!(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
+    for (s, tp, &yi, &ki) in zip4(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
         *s += 2.0 * ki;
         *tp = yi + 0.5 * h * ki;
     }
     // k3
     f(t + 0.5 * h, &tmp, &mut k);
-    for (s, tp, &yi, &ki) in zip_flat!(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
+    for (s, tp, &yi, &ki) in zip4(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
         *s += 2.0 * ki;
         *tp = yi + h * ki;
     }
     // k4
     f(t + h, &tmp, &mut k);
-    for (s, o, &yi, &ki) in zip_flat!(sum.iter_mut(), out.iter_mut(), y.iter(), k.iter()) {
+    for (s, o, &yi, &ki) in zip4(sum.iter_mut(), out.iter_mut(), y.iter(), k.iter()) {
         *s += ki;
         *o = yi + (h / 6.0) * *s;
     }
@@ -286,43 +286,41 @@ where
 
     // k1
     f(t, y, &mut k1);
-    for (tp, &yi, &a) in zip_flat!(tmp.iter_mut(), y.iter(), k1.iter()) {
+    for (tp, &yi, &a) in zip3(tmp.iter_mut(), y.iter(), k1.iter()) {
         *tp = yi + AH[0] * h * a;
     }
     // k2
     f(t + AH[0] * h, &tmp, &mut k2);
-    for (tp, &yi, &a, &b) in zip_flat!(tmp.iter_mut(), y.iter(), k1.iter(), k2.iter()) {
+    for (tp, &yi, &a, &b) in zip4(tmp.iter_mut(), y.iter(), k1.iter(), k2.iter()) {
         *tp = yi + h * (B3[0] * a + B3[1] * b);
     }
     // k3
     f(t + AH[1] * h, &tmp, &mut k3);
-    for (tp, &yi, &a, &b, &c) in
-        zip_flat!(tmp.iter_mut(), y.iter(), k1.iter(), k2.iter(), k3.iter())
-    {
+    for (tp, &yi, &a, &b, &c) in zip5(tmp.iter_mut(), y.iter(), k1.iter(), k2.iter(), k3.iter()) {
         *tp = yi + h * (B4[0] * a + B4[1] * b + B4[2] * c);
     }
     // k4
     f(t + AH[2] * h, &tmp, &mut k4);
-    for (tp, &yi, &a, &b, &c, &d) in zip_flat!(
-        tmp.iter_mut(),
-        y.iter(),
-        k1.iter(),
-        k2.iter(),
-        k3.iter(),
-        k4.iter()
-    ) {
-        *tp = yi + h * (B5[0] * a + B5[1] * b + B5[2] * c + B5[3] * d);
-    }
-    // k5
-    f(t + AH[3] * h, &tmp, &mut k5);
-    for (tp, &yi, &a, &b, &c, &d, &e) in zip_flat!(
+    for (tp, &yi, &a, &b, &c, &d) in zip6(
         tmp.iter_mut(),
         y.iter(),
         k1.iter(),
         k2.iter(),
         k3.iter(),
         k4.iter(),
-        k5.iter()
+    ) {
+        *tp = yi + h * (B5[0] * a + B5[1] * b + B5[2] * c + B5[3] * d);
+    }
+    // k5
+    f(t + AH[3] * h, &tmp, &mut k5);
+    for (tp, &yi, &a, &b, &c, &d, &e) in zip7(
+        tmp.iter_mut(),
+        y.iter(),
+        k1.iter(),
+        k2.iter(),
+        k3.iter(),
+        k4.iter(),
+        k5.iter(),
     ) {
         *tp = yi + h * (B6[0] * a + B6[1] * b + B6[2] * c + B6[3] * d + B6[4] * e);
     }
@@ -334,7 +332,7 @@ where
     // Upstream splits this into two loops over the same six arrays; fused here
     // because the zip is what costs, not the arithmetic, and neither term
     // depends on the other.
-    for (o, er, &yi, &a, &c3, &c4, &c5, &c6) in zip_flat!(
+    for (o, er, &yi, &a, &c3, &c4, &c5, &c6) in zip8(
         out.iter_mut(),
         yerr.iter_mut(),
         y.iter(),
@@ -342,7 +340,7 @@ where
         k3.iter(),
         k4.iter(),
         k5.iter(),
-        k6.iter()
+        k6.iter(),
     ) {
         // Fifth-order solution.
         let d = C1 * a + C3 * c3 + C4 * c4 + C5 * c5 + C6 * c6;
@@ -489,7 +487,7 @@ where
 
         // Component-wise error against the mixed tolerance.
         let mut worst_ratio = 0.0_f64;
-        for (&yn, &en, &yi) in zip_flat!(step.y.iter(), step.yerr.iter(), y.iter()) {
+        for (&yn, &en, &yi) in zip3(step.y.iter(), step.yerr.iter(), y.iter()) {
             if !yn.is_finite() || !en.is_finite() {
                 return Err(PetirError::Domain);
             }
