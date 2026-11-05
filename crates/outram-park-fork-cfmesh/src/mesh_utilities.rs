@@ -337,7 +337,13 @@ mod tests {
     /// only lowers a length; the normal smoothing keeps lengths), so the
     /// on-run's max and mean hair length are at most the off-run's.
     ///
-    /// **Results:** RESULT_BOX
+    /// **Results (2026-11-05): all three held.** Off: bit for bit the
+    /// recorded run (160 cells, 0 bad faces, 98 hairs, thickness min 0.145
+    /// / mean 0.186 / max 0.267, smallest cell 3.08e-3). On: 98 hairs, 96
+    /// layer cells, one `optimiseLayer` pass, 92 hairs thinned; thickness
+    /// min 0.129 / mean 0.146 / max 0.184 (mean -21 %, max -31 %); 0 bad
+    /// faces; smallest cell 5.01e-3 (up from 3.08e-3); volume 1. The buffer
+    /// layer is not ported and the report says so.
     #[test]
     fn generate_boundary_layers_with_optimise_layer_on_the_box() {
         let m0 = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
@@ -363,7 +369,15 @@ mod tests {
     /// cells on the pipe, gh:#1270); (2) on: it runs, and leaves fewer bad
     /// faces than off, with mean hair length no larger; not necessarily 0.
     ///
-    /// **Results:** RESULT_PIPE
+    /// **Results (2026-11-05): (1) missed, (2) held only in part.** Off:
+    /// 2025 cells, **0 bad faces** (prediction 1 missed: `meshOptimisation`'s
+    /// untangles repair what the raw layer inverts), 1456 hairs, thickness
+    /// min 1.61e-6 / mean 1.160e-3 / max 1.798e-3, smallest cell 6.61e-10.
+    /// On: it runs (1456 hairs, 1420 layer cells, one pass, 1042 thinned);
+    /// 0 bad faces (not fewer: there were none to remove); mean thickness
+    /// 9.73e-4 (-16 %), max 1.508e-3 (-16 %), min unchanged; smallest cell
+    /// 3.11e-10 (**halved**); volume unchanged to 13 digits (wall points do
+    /// not move).
     #[test]
     fn generate_boundary_layers_with_optimise_layer_on_the_pipe() {
         let m0 = crate::layers::boundary_layers::tests::bare_pipe(0.06, 0.006);
