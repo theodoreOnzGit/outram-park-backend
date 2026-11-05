@@ -272,3 +272,38 @@ hairs' gets the extra hair points appended to its last piece.
   direction and length with `d = 0, 1, 2, 3` to 1e-15; the face interior
   points equal the tensor-grid points to 1e-15 (bilinear on a rectangle is
   exact).
+
+## Results (2026-11-05, `cargo test --release`)
+
+Tests: `layers::refine_boundary_layers::tests::{edge_and_corner_hexes_refine_the_six_patch_box,
+edge_hexes_refine_the_named_box, prism_refinement_is_pinned_bit_for_bit,
+split_points_match_build_layered_variable}` and
+`pipeline::cartesian_mesh::tests::cartesian_mesh_with_refined_layers`.
+
+- **R1 held.** 1 000 cells (152 split: 96 prisms, 48 edge hexes, 8 corner
+  hexes); volume 1.000000000000002; closed; 0 non-positive; 100 faces per
+  patch; every coordinate on the 10-value grid to 3.3e-16
+  (`box6_refined_3_yz.png`).
+- **R2 held.** 640 cells (32 edge hexes, no corner); volume 1; closed; 0
+  non-positive.
+- **R3 held.** The 60 mm pipe with `nLayers` 3, ratio 1.2: no refusal
+  (1 088 cells split, 64 of them rim edge hexes), 5 248 cells, closed, 0
+  non-positive, volume error −0.6590 % (unrefined −0.659 %); max skewness
+  1.03 (0.48 unrefined). `pipe_refined_3_xz_rim.png`: three wall layers and
+  three inlet layers meet in a 3 x 3 block at the rim.
+- **R4 held.** Both prism fingerprints unchanged
+  (`0x677a875f14ca046b`, `0x687256342d92ed50`); the
+  `build_layered_variable` differential unchanged (4.6e-15 of the column,
+  5 621 of 5 824 bit for bit).
+- **R5 held, with a weaker instrument than predicted.** The test compares
+  each hair's split points with the column `x + d (L j / 3)` written out in
+  the test (the formula `layers::layer_columns` evaluates), not with a call
+  to `build_layered_variable_with_columns`: equal bit for bit on every hair.
+  Every interior face point lies on the tensor grid to 3.3e-16.
+
+**Not ported (refused as `NotPorted`, none hit by these cases):** a face
+whose split count differs from its hairs' point count (upstream appends
+the extra points to the last piece), two- or three-base cells that are not
+hexahedra, `activateSpecialMode`, the cell subset. The 2D mode is item 3.
+**Port difference kept from gh:#1271:** non-quad faces holding a hair get
+its points inserted; upstream leaves them unsplit.

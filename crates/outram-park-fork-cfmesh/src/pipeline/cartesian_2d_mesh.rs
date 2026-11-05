@@ -52,7 +52,7 @@
 //! `triSurfacePatchManipulator` and `triSurfaceCleanupDuplicateTriangles`
 //! (only run on a surface with feature edges) are not supported.
 
-use crate::cartesian_mesh::{cartesian_mesh_extractor, create_empty_patches, CartesianMeshOptions};
+use crate::cartesian_mesh::{create_empty_patches, CartesianMeshOptions};
 use crate::layers::boundary_layers::{BoundaryLayersControls, LayerRequest};
 use crate::pipeline::cartesian_mesh::LayerTopology;
 use crate::math::Vec3;
@@ -278,6 +278,7 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cartesian_mesh::cartesian_mesh_extractor;
     use crate::pipeline::cartesian_mesh::{cartesian_mesh, CartesianMeshGeneratorOptions};
     use crate::poly_mesh_gen_2d_engine::PolyMeshGen2DEngine;
     use crate::tri_surface_2d::extrude_2d_edges;

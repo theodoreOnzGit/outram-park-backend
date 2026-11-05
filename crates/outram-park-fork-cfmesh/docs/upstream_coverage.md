@@ -203,7 +203,7 @@ _Subtotal: 18221 lines._
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
 | `boundaryLayers/boundaryLayers` | 4229 | ~~partial~~ **ported (2026-11-05, gh:#1270 remainder)** | `layers::layer_setup`, `layers::add_boundary_layers_adaptive_on_patches`; **`layers::boundary_layers::boundary_layers_add_layer` (2026-11-05, gh:#1270)** | Ported: the per-patch border rules; ~~missing `boundaryLayersCreateVertices`, `boundaryLayerCells`~~ **CORRECTED 2026-11-05 (gh:#1270):** the one-group creation route (`findPatchVertices`, `createNewVertex`, `createNewVertices(boolList)`, `createNewFacesAndCells`) is ported beside the crate's shrink. ~~Missing: `findPatchesToBeTreatedTogether`, the patch-wise route (`createNewVertices(labelList)`, `createLayerCells`, `boundaryLayerCells.C`), `checkTopologyOfBndFaces`, `addWrapperLayer`, 2D, MPI.~~ **UPDATED 2026-11-05 (gh:#1270 remainder):** the class is `layers::boundary_layers::BoundaryLayers` with all of it: `findPatchesToBeTreatedTogether`, the patch-wise route, `activate2DMode`, `createOTopologyLayers`, `addWrapperLayer` (an upstream defect followed to its intent), `checkTopologyOfBoundaryFaces`; `isSharedEdgeConvex`, `angleBetweenFaces`. Wired into all four workflows and `generateBoundaryLayers`. Not applicable: the MPI branches. Record: `verification_and_validation/patch_wise_layers_gh1270/`. |
-| `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::refine_boundary_layers::refine_boundary_layers` (2026-11-05, gh:#1271); `layers::build_layered_variable` | ~~Only "split each hair by the grading"~~ **CORRECTED 2026-11-05 (gh:#1271):** the settings (global and per-patch `nLayers`, `thicknessRatio`, `maxFirstLayerThickness`, `allowDiscontinuity`), `analyseLayers` and `generateNewVertices` are ported, with the split of prism layer cells. Missing: `refineEdgeHexCell`, `refineCornerHexCell` and the general `refineBoundaryLayersFaces`/`Cells` (refused as `NotPorted`), `activateSpecialMode`, `pointsInBndLayer`, 2D, MPI. |
+| `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::refine_boundary_layers::refine_boundary_layers` (2026-11-05, gh:#1271); `layers::build_layered_variable` | ~~Only "split each hair by the grading"~~ **CORRECTED 2026-11-05 (gh:#1271):** the settings (global and per-patch `nLayers`, `thicknessRatio`, `maxFirstLayerThickness`, `allowDiscontinuity`), `analyseLayers` and `generateNewVertices` are ported, with the split of prism layer cells. Missing: ~~`refineEdgeHexCell`, `refineCornerHexCell` and the general `refineBoundaryLayersFaces`/`Cells` (refused as `NotPorted`)~~ (**ported 2026-11-05, gh:#1271 remainder**: `refineFace`, `generateNewFaces`, `generateNewCells` by `refType`, the edge and corner hexes; only the appended-points case of a face whose count differs from its hairs' is refused), `activateSpecialMode`, ~~`pointsInBndLayer`~~ (ported, gh:#1274), 2D, MPI. |
 | `boundaryLayers/detectBoundaryLayers` | 989 | ported (2026-11-05, gh:#1271) | `layers::refine_boundary_layers::detect_boundary_layers` | ~~not ported~~ Serial. |
 | `boundaryLayers/extrudeLayer` | 1915 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `layers::extrude_layer` | Serial (the MPI half is not applicable). Edge and corner cells (self-intersecting layers) transcribed, not reached by any test. |
 | `boundaryLayers/triangulateNonPlanarBaseFaces` | 357 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `layers::triangulate_non_planar_base_faces` | No upstream caller at this commit; none here. |
@@ -1109,3 +1109,15 @@ Studio unchanged.
   2.9e-15).
 
 Record: `verification_and_validation/patch_wise_layers_gh1270/README.md`.
+
+### gh:#1271 remainder: `refineEdgeHexCell`, `refineCornerHexCell`, the two-direction split, 2026-11-05
+
+`refine_boundary_layers` now ports `refineFace` / `generateNewFaces` and
+`generateNewCells` by upstream's `refType`; the edge and corner hexahedra
+are split as one lattice filled from their faces' grids (upstream's
+transfinite face points, trilinear interior points). The prism path is
+pinned bit for bit. Six-patch box with the patch-wise layer, `nLayers` 3:
+1 000 cells, the exact tensor grid; the cartesian 60 mm pipe now refines
+(5 248 cells, closed, 0 non-positive). The row stays partial (2D, the
+appended-points case, `activateSpecialMode`). Record:
+`verification_and_validation/patch_wise_layers_gh1270/README.md`.
