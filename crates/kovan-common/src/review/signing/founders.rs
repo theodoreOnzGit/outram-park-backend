@@ -64,8 +64,9 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{Days, NaiveDate};
 use sha2::{Digest as _, Sha256};
+
+use crate::zotero::date::{civil_from_days, days_from_civil};
 
 use super::super::root::{FounderBallot, FounderChangeKind, FounderVote, KeyEventKind, ReviewRoot, Role};
 use super::registry::{find_signer, ReviewerTrust, SignerProblem};
@@ -77,10 +78,30 @@ pub const BALLOT_DAYS: u64 = 30;
 /// visible before their own vote counts.
 pub const SOLE_MAINTAINER_WAIT_DAYS: u64 = 14;
 
-/// `date` plus `days`, as `YYYY-MM-DD`; `None` for a malformed date.
+/// `date` plus `days`, as `YYYY-MM-DD`; `None` for a malformed date, for
+/// one that does not exist (`2026-02-30`), or for a result past year 9999.
+///
+/// Pure integer calendar arithmetic (the crate's own `days_from_civil` /
+/// `civil_from_days`), so it runs on every target, wasm included.
+/// ~~It used `chrono`~~ **CHANGED 2026-11-05** (maintainer): chrono stays
+/// desktop-only; the Pages wasm build had failed on this import. Pinned
+/// against `chrono` itself, over every day of 1999-2101, by the founders
+/// tests.
 pub fn add_days(date: &str, days: u64) -> Option<String> {
-    let d = NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;
-    Some(d.checked_add_days(Days::new(days))?.format("%Y-%m-%d").to_string())
+    if !is_date(date) {
+        return None;
+    }
+    let field = |range: std::ops::Range<usize>| date[range].parse::<i64>().ok();
+    let (y, m, d) = (field(0..4)?, field(5..7)?, field(8..10)?);
+    let day = days_from_civil(y, m, d);
+    if civil_from_days(day) != (y, m, d) {
+        return None;
+    }
+    let (y, m, d) = civil_from_days(day.checked_add(i64::try_from(days).ok()?)?);
+    if y > 9999 {
+        return None;
+    }
+    Some(format!("{y:04}-{m:02}-{d:02}"))
 }
 
 /// The votes a ballot needs: more than half of the electorate.
