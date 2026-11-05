@@ -204,7 +204,7 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
         rep.steps_run.push(step);
         if step == WorkflowStep::TemplateGeneration {
             let cmo = CartesianMeshOptions { decompose_split_hexes: opts.decompose_polyhedra_into_tets_and_pyrs, use_data_boxes: opts.dict.keep_cells_intersecting_boundary };
-            let cm = cartesian_mesh_extractor(&o, &cmo);
+            let cm = crate::cartesian_mesh::cartesian_mesh_extractor_from_dict(&o, &cmo, &opts.dict);
             let (m, ty) = create_empty_patches(&cm.mesh, &o.root_box)?;
             rep.n_template_cells = m.n_cells;
             rep.notes.push(format!(
