@@ -2441,6 +2441,1148 @@ until the maintainer decides.
 - Upstream (OpenFOAM, cfMesh) is not installed here; no port above was
   run against its upstream on a shared case.
 
+## cfMesh's surface untangler against `revert_tangled`, differentially (gh:#1259)
+
+**Issue:** gh:#1259 (epic gh:#1251), the gh:#1241 rim-tangle gap. It builds
+on gh:#1257 (`surface_engine`: `meshSurfaceEngine`, `meshSurfacePartitioner`)
+and gh:#1258 (`surface_optimizer`: `partTriMesh`, `surfaceOptimizer`,
+`meshSurfaceCheckInvertedVertices`).
+
+### What was ported (2026-11-05)
+
+From cfMesh v1.1 (`DAFoam/cfmesh` `e944f6ba695f`),
+`meshLibrary/utilities/smoothers/geometry/meshSurfaceOptimizer/` (serial, 3-D):
+`untangleSurface` (both forms), `optimizeSurface`, the Laplace (face centre)
+and `surfaceOptimizer` smoothers, edge-point smoothing, the locks, and the
+mapper calls it makes (`mapVerticesOntoSurface`, `mapEdgeNodes`). Not ported:
+`optimizeSurface2D`, `untangleSurface2D`, `enforceConstraints`, MPI. It is
+`outram-park-fork-cfmesh::surface_optimizer::MeshSurfaceOptimizer`, wired in
+three places, all **off by default**:
+
+- the feature-edge capture, `TetDualOptions::untangle_surface`: upstream's
+  `tetMeshGenerator` order, `mapMeshToSurface` (every boundary point to the
+  surface, then `untangleSurface` with 2 extra layers), the patch mapping
+  (after `correct_edges` when on), then `optimiseMeshSurface`
+  (`optimizeSurface(5)`, which ends with `untangleSurface(0)`); nothing is
+  reverted, and the pipeline keeps the uncaptured mesh if the result is
+  invalid;
+- `boundary_layer_optimisation::optimise_layer`,
+  `BoundaryLayerOptimisationControls::optimise_surface`:
+  `optimizeSurface(2)` in each pass, exiting faces and feature edges locked;
+- `mesh_optimizer::optimize_surface`: `meshOptimizer::optimizeSurface`
+  (`optimizeSurface`, then `mapVerticesOntoSurfacePatches`).
+
+### What gh:#1258 found first
+
+cfMesh's inverted-vertex test (`meshSurfaceCheckInvertedVertices`) flags a
+point that is a reflex corner of a boundary face
+(`(e_prev × e_next)·n < −0.05`). On the 48-sided pipe at h 6 mm the
+per-point and cell-centre duals' boundaries have **554 of 1 390 points
+inverted before any mapping**, 550 of them reflex corners of 156 non-convex
+boundary polygons (15 inlet, 15 outlet, 126 walls). So `untangleSurface`
+starts with a large part of the boundary selected, not only the rim.
+
+### Predictions (written 2026-11-05, before any differential run)
+
+Cases: the 24- and 48-sided pipes (R 10 mm, L 60 mm) and the Foam Studio
+pipe (48-sided, L 200 mm), h 4, 5 and 6 mm, `CellCentre` + `Corners`, bare
+(no layers). Routes: `revert_tangled` (today's capture) and
+`untangle_surface`.
+
+| quantity | `revert_tangled` | `untangle_surface` |
+|---|---|---|
+| boundary points left unmapped | Foam Studio 128 / 0 / 64 at h 4 / 5 / 6 (gh:#1241); the L 60 pipes of the same order at h 4 and 6, 0 at h 5 | **0** where the capture is kept (nothing is reverted) |
+| capture kept (valid mesh) | always (it reverts until valid) | **at least one of h 4 / h 6 rejected** on some pipe: boundary points move with the interior fixed, and nothing but `keep_if_ok` checks the cells |
+| inverted points after `untangleSurface` | — | falls, **not to 0** (the median-dual polygons' reflex corners are structural); the loop stops on its no-progress test, not on 0 |
+| projected inlet / πR² | Foam Studio 0.956 / 0.983 / 0.948 (gh:#1241) | where kept: **0.975–0.990** at every h (the tangles gone, but no rim vertex is added, so the chord loss stays: 0.983 ± 0.005 at h 5) |
+| non-positive pyramids | 0 (the revert's own criterion) | where kept: 0 to a few tens (`keep_if_ok` does not check pyramids) |
+| meshing time | < 1 s | seconds to tens of seconds (brute-force surface queries for every moved point) |
+
+The solve (u_c/2U, dp/dz against Hagen–Poiseuille) is not part of this
+differential: it runs in `dhoby-ghaut`'s Foam Studio and is not cheap on a
+shared 4-core machine; see "Open".
+
+### Methodology (as run)
+
+`surface_optimizer::tests_gh1259::diagnose_untangle_surface_differential`
+(`--ignored`, feature `cell-centre-dual`): for each pipe and h, the
+multipatch pipeline twice on the same surface, `CellCentre` + `Corners`,
+no layers, `feature_edges` on, `untangle_surface` off and on. Unmapped =
+the count in the capture's "left unmapped" note (0 when there is none);
+inlet = |Σ S_f·ẑ| over the `inlet` patch / πR²; pyramids =
+`surface_mapper::cells_with_nonpositive_pyramids`; inverted =
+`check_inverted_vertices` on the returned mesh; NO = `checks::check_quality`'s
+max non-orthogonality. `CFMESH_CE=1` runs both routes with `correct_edges`
+on.
+
+### Results (2026-11-05, `correct_edges` off)
+
+| case | h | route | capture | unmapped | inlet/πR² | V/πR²L | pyramids ≤ 0 | inverted pts (first → last untangle) | max NO (°) | s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 24-sided L 60 | 4 | revert | kept | 0 | 0.97015 | 0.98314 | 0 | 1437 | 52.8 | 0.1 |
+| | | untangle | kept | 0 | 0.97206 | 0.98120 | 0 | 1437 → 805; 132 → 128 | 74.5 | 0.2 |
+| | 5 | revert | kept | 0 | 0.97702 | 0.98012 | 0 | 914 | 48.9 | 0.0 |
+| | | untangle | kept | 0 | 0.98537 | 0.97788 | 0 | 922 → 697; 156 → 83 | 71.5 | 0.2 |
+| | 6 | revert | kept | 32 | 0.93850 | 0.96940 | 0 | 558 | 56.0 | 0.0 |
+| | | untangle | kept | 0 | 0.96948 | 0.96925 | **6** | 560 → 536; 107 → 90 | 83.0 | 0.1 |
+| 48-sided L 60 | 4 | revert | kept | 128 | 0.95583 | 0.98899 | 0 | 1411 | 52.3 | 0.1 |
+| | | untangle | kept | 0 | **0.99343** | 0.99028 | 0 | 1395 → 896; 211 → 200 | 79.5 | 0.3 |
+| | 5 | revert | kept | 0 | 0.98287 | 0.98883 | 0 | 880 | 47.7 | 0.0 |
+| | | untangle | kept | 0 | **0.99208** | 0.98665 | 0 | 888 → 618; 127 → 104 | 70.4 | 0.2 |
+| | 6 | revert | kept | 32 | 0.94786 | 0.97806 | 0 | 556 | 56.5 | 0.0 |
+| | | untangle | kept | 0 | **0.97901** | 0.97777 | **6** | 554 → 500; 108 → 89 | 84.7 | 0.1 |
+| Foam Studio (48, L 200) | 4 | revert | kept | 128 | 0.95583 | 0.99122 | 0 | 4299 | 52.3 | 0.3 |
+| | | untangle | kept | 0 | **0.99340** | 0.99023 | 0 | 4283 → 906; 238 → 200 | 79.9 | 0.8 |
+| | 5 | revert | kept | 0 | 0.98287 | 0.98887 | 0 | 2714 | 47.7 | 0.1 |
+| | | untangle | kept | 0 | **0.99202** | 0.98606 | 0 | 2722 → 682; 138 → 88 | 69.9 | 0.5 |
+| | 6 | revert | kept | 64 | 0.94786 | 0.98081 | 0 | 1654 | 57.9 | 0.5 |
+| | | untangle | kept | 0 | **0.97892** | 0.97732 | **3** | 1655 → 473; 101 → 91 | 85.2 | 0.7 |
+
+"first → last" lists the two `untangleSurface` runs: `mapMeshToSurface`'s
+(2 extra layers) and the one `optimizeSurface` ends with. The 24-gon's own
+area is 0.98862 πR², the 48-gon's 0.99715 πR². The revert route's
+Foam Studio numbers equal gh:#1241's (128 / 0 / 64 unmapped; inlet
+0.95583 / 0.98287 / 0.94786): the shared mapper is unchanged by gh:#1257.
+
+### Against the predictions
+
+- Unmapped 0 where kept: **held** (nothing is reverted).
+- At least one of h 4 / h 6 rejected: **missed**, every capture was kept.
+- Inverted points fall, not to 0: **held** (to 83–200 after `optimizeSurface`).
+- Inlet 0.975–0.990 at every h, 0.983 ± 0.005 at h 5: **missed high** on
+  the 48-sided pipes (0.979–0.993; h 5 0.992), held on the 24-sided one
+  (0.969–0.985). The chord loss shrank: `optimizeSurface` smooths the rim's
+  edge points along the feature edge (`newEdgePositionLaplacian`) and maps
+  them back onto the surface's feature edge (`mapEdgeNodes`), which spreads
+  them more evenly and puts them on the 48-gon's sides; the prediction
+  assumed the rim chords stay where the dual put them.
+- Pyramids 0 to a few tens: **held** (0 at h 4 and 5, 3–6 at h 6).
+- Seconds to tens of seconds: **missed** (0.1–0.8 s).
+- **Not predicted:** the maximum non-orthogonality rises from 48–58° to
+  70–85°. Only boundary points move, the interior does not follow, and
+  `keep_if_ok` checks closure and inverted cells only. At h 6 three to six
+  cells keep a non-positive face pyramid. Upstream runs the volume
+  optimiser afterwards (`optimiseFinalMesh`), which this route does not.
+
+### Results with `correct_edges` on (2026-11-05, Foam Studio pipe only)
+
+`CFMESH_CE=1 CFMESH_CASE=foam`. The revert route reproduces gh:#1241's
+`correct_edges` rows (h 4 rejected, 0.92496; h 6 60 unmapped, 0.95138).
+
+| h | route | capture | cells | unmapped | inlet/πR² | V/πR²L | pyramids ≤ 0 | inverted after | max NO (°) | s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4 | revert | **rejected** | 6 353 | — | 0.92496 | 0.97207 | 0 | 4184 | 53.4 | 238.0 |
+| 4 | untangle | kept | 7 329 | 0 | **0.99340** | 0.99033 | 0 | 96 | 88.4 | 1.4 |
+| 5 | revert | kept | 3 593 | 0 | 0.98094 | 0.98888 | 0 | 2666 | 71.9 | 0.1 |
+| 5 | untangle | kept | 3 593 | 0 | **0.99202** | 0.98615 | 0 | 78 | 74.4 | 0.5 |
+| 6 | revert | kept | 2 701 | 60 | 0.95138 | 0.98150 | 0 | 1612 | 74.3 | 25.0 |
+| 6 | untangle | kept | 2 529 | 0 | **0.97896** | 0.97786 | **0** | 52 | 85.6 | 0.9 |
+
+With `correct_edges` the untangle route leaves no non-positive pyramid at
+h 6 (3 without), and is 25–170× faster than the revert route, whose cost
+is `untangleMeshFV` on the pyramids the pre-map leaves inverted (the
+untangled surface leaves none to fix). Max non-orthogonality reaches 88°.
+
+### Images (drawn from the mesh the pipeline returns)
+
+In `laminar_pipe_gh1155/gh1259/`, written by
+`surface_optimizer::render_gh1259::render_untangle_surface_inlets`
+(`--ignored`): `inlet_{revert,untangle}_h{4,5,6}.png` (the whole inlet
+patch, x-y) and `…_rim.png` (x 6–10.5 mm, y ±2.25 mm), Foam Studio pipe,
+`CellCentre` + `Corners`, bare. Black: inlet face edges; red: the input
+48-gon; blue squares: inlet points off the z = 0 plane. They are drawn by a
+small PNG writer in that test, not by the gh:#1241 `dhoby-ghaut` renderers:
+building the Foam Studio example filled the shared disk on 2026-11-05 and
+was abandoned.
+
+**Checked by eye (2026-11-05):** `inlet_revert_h4_rim.png`: the rim chord
+at y = 0 runs about 0.2 mm inside the 48-gon (the reverted cell);
+`inlet_untangle_h4_rim.png`: the rim lies on the 48-gon, its vertices on
+the polygon's corners or sides. `inlet_revert_h6.png`: a notch at the
+upper right, six off-plane (reverted) points; `inlet_untangle_h6.png`: the
+rim follows the 48-gon all round, four rim points still marked off the
+plane (on the rim, not inside), and **every inlet face has moved**: the
+dual's regular octagons are now irregular polygons. That is the smoothing
+of the ~40 % of points cfMesh calls inverted (gh:#1258), not only the rim's.
+**Not checked:** the wall and outlet patches, the cells behind the inlet
+(where the non-orthogonality rises), and any layered mesh.
+
+### Recommendation (for the maintainer; nothing is changed)
+
+`untangle_surface` removes the rim tangles and most of the chord loss
+(Foam Studio inlet 0.956 / 0.983 / 0.948 → 0.993 / 0.992 / 0.979 πR²,
+nothing left unmapped), at < 1 s. It is **not** ready as a default: it
+leaves 3–6 cells with a non-positive pyramid at h 6 mm and raises the
+maximum non-orthogonality to 70–85°, because the interior does not follow
+the boundary. Upstream follows the surface steps with `optimiseFinalMesh`
+(`untangleMeshFV` with its boundary moves and the LP `meshUntangler`, both
+gh:#1255/#1256 territory); combining the two, then the solve, is the next
+measurement.
+
+### Open (gh:#1259)
+
+- The solve (u_c/2U, dp/dz) on the untangled meshes: not run. It runs in
+  `dhoby-ghaut`'s Foam Studio example, which could not be built on the
+  shared machine (the disk filled); a `FOAM_UNTANGLE_SURFACE` knob for it
+  was written and withdrawn uncompiled. Next: add that knob beside
+  `FOAM_CORRECT_EDGES` in `examples/foam_studio_web/engine.rs` and run
+  `--headless-unstructured 4 0 0.3 1.2 100` with `FOAM_DUAL_KIND=centre
+  FOAM_DUAL_FP=corners`.
+- `optimise_surface` inside `CfMeshOptimise` was run once (h 6 mm, one
+  layer, valid, 863 cells); not measured against it off.
+- The 40 % "inverted" boundary points of the median / cell-centre duals:
+  whether to make the dual's boundary polygons convex, or to accept that
+  cfMesh's test reads them as tangled.
+- Upstream (cfMesh) is not installed here; the port was not run against it.
+
+## cfMesh's `untangleMeshFV` boundary moves and `optimizeMeshFV`'s Laplace pass on the pipe (gh:#1255, gh:#1256)
+
+Two upstream behaviours that the `CfMeshOptimise` strategy lacked (gh:#1241
+item 4) are now ported. Each sits behind a control in
+`BoundaryLayerOptimisationControls` that is off by default:
+
+- `untangle_boundary_moves` (gh:#1255): `untangleMeshFV`'s boundary loop
+  (`tetMeshOptimisation::optimiseBoundaryVolumeOptimizer(nonShrinking)`,
+  `optimiseBoundarySurfaceLaplace`), in every untangle of the strategy;
+- `optimize_mesh_fv_laplace` (gh:#1256): `optimizeMeshFV`'s `laplacianPC`
+  (5 passes) before `optimiseFinalMesh`'s first untangle and before
+  `optimizeBoundaryLayer`'s, the latter with the layer cells locked.
+
+Upstream: DAFoam/cfmesh `e944f6ba695f`, `optimizeMeshFV.C`,
+`tetMeshOptimisation.C`, `meshOptimizerOptimizePoint.C`. Port:
+`crates/outram-park-fork-cfmesh/src/mesh_optimizer.rs`.
+
+**Case.** The gh:#1241 item 4 case: the 48-sided pipe, R 10 mm, L 200 mm,
+`CellCentre` + `Corners`, h 5 mm, 3 layers, first layer 0.3 mm, expansion
+1.2, `CfMeshOptimise` with the untangle stall bound on (the default).
+Baseline (gh:#1241, bound on): 13.3 s alone on the host; 2 861 → 29 bad
+faces in the first untangle, all 29 touching a boundary point; 77 bad faces
+at the end; max non-orthogonality 57.5°; mean total thickness 0.977 mm.
+
+**Predictions (written 2026-11-05, before any run on the pipe).**
+
+- **Boundary moves** (`CFMESH_BMOVES=1`):
+  - the first untangle ends with **fewer than 29** bad faces, at most 10,
+    because the 29 are boundary-held and the boundary loop moves exactly
+    those points;
+  - **fewer than 77** bad faces at the end;
+  - max non-orthogonality within ±3° of 57.5°;
+  - meshing time 10–40 s: the boundary passes add volume-optimiser calls,
+    and fewer futile interior passes remain;
+  - the domain volume V/(πR² L) changes by less than 0.5 %, and the inlet
+    area by less than 1 %. Some change is expected: the first global
+    iteration keeps points in their tangent planes, but the Laplace passes
+    of global iterations 2–4 do not.
+- **Laplace pass** (`CFMESH_LAPLACE=1`):
+  - `laplacianPC` moves every inside point, layer tops included, to the
+    mean of its cells' centres. On a 3-layer stack under a dual cell that
+    pulls the tops inward, so the **mean total thickness rises by more than
+    50 %** (above 1.47 mm);
+  - bad faces at the end: no prediction (not enough is known);
+  - time within ±5 s of the baseline.
+- **Both on**: thickness as in the Laplace run; bad faces as in the
+  boundary-moves run, within ±50 %.
+- **The defaults are unchanged.** `back_off_only_layers_are_pinned_bit_for_bit`,
+  `octree_path_is_pinned_bit_for_bit` and `layer_strategies_are_deterministic`
+  pass; checked before this run, and they do.
+
+**Results (2026-11-05,** `diagnose_dual_kinds_differential` with
+`CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3
+CFMESH_STRATS=cfmesh CFMESH_FP=corners` and `CFMESH_BMOVES` /
+`CFMESH_LAPLACE`; native release, 2 cargo jobs, **the host shared with two
+other agents' builds**, so the times are an upper bound and only roughly
+comparable with gh:#1241's 13.3 s, which was taken alone on the host).
+All four meshes have 7 025 cells and 100 % layer coverage.
+
+| quantity | baseline | boundary moves | Laplace pass | both |
+|---|---|---|---|---|
+| meshing | 18.3 s | **9.9 s** | **6.7 s** | 7.0 s |
+| first untangle: bad faces | 2 861 → 29 | **2 861 → 0** (3 global, 3 boundary passes, 424 boundary nodes) | 29 → 29 (the Laplace pass took 2 861 to 29) | 29 → 0 |
+| final untangle: bad faces (touching a boundary point) | 29 → 29 (29) | 1 → 4 (4) | 29 → 29 (29) | 2 → 4 (7) |
+| bad faces at the end (`findBadFaces`) | 77 | **27** | 77 | 41 |
+| faces failing OpenFOAM's checks (`checks::faces_failing_mesh_quality`) | 77 | **25** | 77 | 45 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 56.6° / 53.1° | 57.3° / 52.2° | 57.1° / 51.9° |
+| max skewness (OpenFOAM) | 1.77 | 2.14 | 1.78 | 2.14 |
+| min determinant | 3.42e-2 | 2.68e-2 | 3.77e-2 | 2.68e-2 |
+| mean total thickness | 0.977 mm | 0.971 mm | **1.442 mm** | 1.437 mm |
+| V/(section L) | 0.98887 | 0.98833 | 0.98887 | 0.98807 |
+| inlet area / section | 0.98287 | **0.96950** | 0.98287 | 0.97021 |
+
+**CORRECTED 2026-11-05 (gh:#1283): what the last row measures.**
+`diagnose_dual_kinds_differential` sums |S_f| over the inlet faces, which
+is the area of the inlet surface, bowed or not. It is not the inlet
+flux. The solve's inflow is U·Σ S_f·ẑ, so the instrument for the flow the
+case runs at is the projected area |Σ S_f·ẑ| / πR². On the same mesh
+(`final_mesh::diagnose_gh1283`, route `bm`) that is **0.95668**, against
+0.98287 for the baseline: the boundary moves cost **2.66 %** of the flow,
+not 1.36 %. The other numbers in this table are unaffected.
+
+**Against the predictions.**
+
+- Boundary moves:
+  - first untangle ≤ 10 bad faces: **held** (0);
+  - fewer than 77 at the end: **held** (27);
+  - max non-orthogonality ±3°: held (−0.9°);
+  - time 10–40 s: **missed, on the fast side** (9.9 s). The interior
+    passes the boundary loop saves cost more than the boundary passes add;
+  - volume change < 0.5 %: held (−0.055 %);
+  - inlet area change < 1 %: **missed** (−1.36 %: 0.98287 → 0.96950).
+    The boundary moves of global iterations 2–4 (`optimiseBoundarySurfaceLaplace`)
+    are unconstrained and pull rim points off the inlet plane and the
+    48-gon. Upstream does the same; it has no projection after
+    `untangleMeshFV`.
+- Laplace pass:
+  - thickness > 1.47 mm: **missed narrowly** (1.442 mm, +47.6 %, predicted
+    > +50 %); the direction and the mechanism held;
+  - time within ±5 s: **missed** (6.7 s against 18.3 s). The Laplace pass
+    alone took the first untangle's 2 861 bad faces to 29, so that untangle
+    had little left to do;
+  - bad faces at the end: no prediction; 77, the same as the baseline.
+- Both on:
+  - thickness as the Laplace run: held (1.437 mm);
+  - bad faces within ±50 % of the boundary-moves run's 27: **missed
+    narrowly** (41; the limit was 40.5).
+
+**The solve (no prediction was written for it before the run; measured
+2026-11-05).** Foam Studio's own cylinder (`FOAM_DUAL_KIND=centre
+FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh … --headless-unstructured 5
+3 0.3 1.2 100`, with `FOAM_CFMESH_BMOVES`, a native knob added to
+`examples/foam_studio_web/engine.rs`), the same session:
+
+| quantity | baseline | boundary moves |
+|---|---|---|
+| meshing (shared host) | 23.6 s | 17.3 s |
+| first untangle | 2 858 → 26 | 2 858 → 0 |
+| max non-orthogonality | 56.4° | 55.2° |
+| mean total thickness | 0.975 mm | 0.973 mm |
+| steps to steady | 26 | 38 |
+| u_c/2U at 0.75 L | **0.9314** | **0.9013** |
+| −dp/dz / HP | **1.0055** | **0.9703** |
+| τ_w / HP | 1.0057 | 0.9705 |
+| profile RMS (u − u_HP)/2U | 0.0320 | 0.0493 |
+
+The baseline reproduces gh:#1241's 0.9314 / 1.0055 / 1.0057 and 26 steps
+exactly. **With boundary moves the solve is further from Hagen–Poiseuille
+on every measure** (−3.2 % on u_c, −3.5 % on dp/dz), although the mesh has
+a third of the bad faces. The likely cause, not yet isolated: the
+unconstrained boundary passes take the rim and wall points off the pipe's
+surface and the inlet plane (~~inlet area 1.7 % → 3.0 % below πR² in the
+diagnostic above~~ **CORRECTED 2026-11-05, gh:#1283:** those are |S_f|
+sums; the projected inlet area, which sets the inflow, falls from 1.7 % to
+4.3 % below πR²), and the solve normalises by the nominal πR² and
+R. That is one more reason not to adopt the moves without a projection back
+onto the surface.
+
+**Images (drawn from the mesh the solver gets).** In
+`laminar_pipe_gh1155/gh1255/bmoves0/` (baseline) and `gh1255/bmoves1/`
+(boundary moves): `layers_cfmesh_h5_3_{xz_rim,xy,xy_wall,wallmap}.png`.
+They were written by `FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners
+FOAM_CFMESH_BMOVES=0|1 cargo run --release -p dhoby-ghaut --example
+foam_studio_web -- --render-layer-strategies <dir>`, Foam Studio's cylinder
+(the back-off and snappy images it also writes are unchanged meshes and
+were not kept).
+
+- **Checked by eye (2026-11-05):**
+  - `xz_rim`: in the baseline the inlet is the straight line z = 0. With
+    boundary moves the inlet faces near the rim (x 0.7–1.0 cm) **bow out of
+    the inlet plane**, up to z ≈ 0.02 cm at x ≈ 0.98 cm, and the three
+    layer cells at the rim follow. This is the inlet-area loss in the
+    table, seen directly. It is the most likely reason for the solve's
+    shift; that was not isolated.
+  - `xy_wall` at mid-length (z = 10.01 cm): the two runs are the same
+    picture, three thin layers under one dual cell. The moves are local to
+    the rim.
+- **Not checked:** the rim's 3-D shape away from the y = 0.013 cm slice; the
+  outlet.
+
+**What it means.** Upstream's boundary moves remove the boundary-held faces
+that gh:#1241 left in place: 29 → 0 in the first untangle, and 77 → 27 at
+the end. The faces left at the end come from the layer split and the
+relaxed final untangle, not from the first untangle. The cost is the inlet:
+~~3 % of πR² is lost against 1.7 % before~~ **CORRECTED 2026-11-05
+(gh:#1283):** 4.3 % of πR² of projected inlet area (the flux) is lost
+against 1.7 % before. That is a geometry loss a
+surface projection would have to undo; upstream's `meshSurfaceOptimizer`
+(the surface track, gh:#1258/#1259) is where it belongs. The Laplace pass
+is upstream's first step and does most of the untangling's work cheaply,
+but it thickens the layers by 48 %. Upstream would then refine its layer
+from the thickness `optimiseLayer` leaves. This port's step 3 splits the
+hair it is given, so the requested 0.98 mm stack is no longer what comes
+out.
+
+**Recommendation (for the maintainer; nothing is changed).** Keep both
+controls off by default for now. `untangle_boundary_moves` is the stronger
+candidate for `CfMeshOptimise`'s default: it is faster, and it leaves a
+third of the bad faces. It should be adopted only with a surface projection
+after it, so the inlet does not shrink. Turn `optimize_mesh_fv_laplace` on
+only once step 3 splits to the requested thickness rather than to the hair
+it is handed.
+
+## cfMesh's LP `meshUntangler` on the pipe (gh:#1260)
+
+`mesh_untangler.rs` ports `meshUntangler` (the feasible region of a
+point's simplex, cut plane by plane from the bounding box; the point goes to
+the mean of its corners) and `sortEdgesIntoChains`, and
+`PartTetMesh::optimise_using_mesh_untangler` ports
+`tetMeshOptimisation::optimiseUsingMeshUntangler`. The pass runs between
+the Knupp untangler and the volume optimiser in `untangleMeshFV`, as
+upstream does, behind `UntangleControls::mesh_untangler` and
+`BoundaryLayerOptimisationControls::untangle_mesh_untangler`
+(`CFMESH_LPU=1`). Both are off by default.
+
+Upstream behaviour kept: `optimiseUsingMeshUntangler` never re-marks the
+inverted tetrahedra it re-checks (the Knupp loop does), so its second pass
+finds none and returns. In effect it is one pass. A port defect found in
+passing and **not fixed** (it would change the default output):
+`optimise_using_knupp_metric` increments its pass counter on every pass,
+where upstream's short-circuit `||` does so only when the inverted count did
+not fall.
+
+**Predictions (written 2026-11-05, before the run; same case as the
+gh:#1255 section).**
+
+- `CFMESH_LPU=1`:
+  - the first untangle still ends at 29 bad faces (± 3): the 29 are
+    boundary-held, and the untangler moves only interior points;
+  - bad faces at the end 77 ± 5;
+  - meshing time within ± 30 % of the baseline run of the same session.
+    The LP pass runs only on the nodes of inverted tetrahedra, and a few
+    dozen plane cuts per node are cheap.
+- `CFMESH_LPU=1 CFMESH_BMOVES=1`: bad faces at the end 27 ± 10, as the
+  boundary-moves run.
+
+**Results (2026-11-05,** same command as the gh:#1255 section, with
+`CFMESH_LPU`; the three runs in one session on a host shared with two other
+agents' builds, so the times are loaded but comparable with each other).
+
+| quantity | baseline | LP untangler | LP untangler + boundary moves |
+|---|---|---|---|
+| meshing | 30.9 s | 28.2 s | 20.0 s |
+| first untangle: bad faces | 2 861 → 29 | 2 861 → 29 | 2 861 → 0 (3 global, 3 boundary passes) |
+| bad faces at the end | 77 | 77 | 36 |
+| faces failing OpenFOAM's checks | 77 | 77 | 35 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 57.5° / 53.0° | 58.0° / 52.7° |
+| mean total thickness | 0.977 mm | 0.980 mm | 0.981 mm |
+| V/(section L), inlet/section | 0.98887, 0.98287 | 0.98887, 0.98287 | 0.98829, 0.97221 |
+
+The baseline reproduces the gh:#1255 baseline's mesh numbers exactly: the
+defaults are unchanged.
+
+**Against the predictions.**
+- LP untangler, first untangle 29 ± 3: **held** (29).
+- LP untangler, end 77 ± 5: **held** (77).
+- LP untangler, time ± 30 %: **held** (−9 %).
+- With boundary moves, end 27 ± 10: **held** (36; gh:#1255's boundary
+  moves alone gave 27).
+
+**What it means.** On this mesh the LP untangler changes little: it moves
+the nodes of inverted tetrahedra, and the faces this pipe keeps are
+boundary-held, which only the boundary loop can reach. It is cheap (no
+time cost measurable on a loaded host) and it makes every tetrahedron of a
+feasible simplex positive in one step (`mesh_untangler_lp_guarantee`),
+which Knupp's metric does not promise. It stays opt-in. Recommendation:
+switch it on together with the boundary moves if the maintainer adopts
+those, since that is what upstream runs.
+
+## Integration: the boundary moves on the surface, and upstream's whole `tetMeshGenerator` sequence (gh:#1283, epic gh:#1251)
+
+### What upstream does (read 2026-11-05, before any code)
+
+DAFoam/cfmesh `e944f6ba695f`. The question was how upstream keeps boundary
+points on the surface during and after `untangleMeshFV`'s boundary loop and
+`optimiseFinalMesh`.
+
+- **During `untangleMeshFV`, nothing that consults the surface**
+  (`optimizeMeshFV.C`, `tetMeshOptimisation.C`). The boundary loop calls
+  `optimiseBoundaryVolumeOptimizer(true)` while `nGlobalIter < 2`. Its
+  `nonShrinking` branch eigen-splits the normal tensor of the simplex's
+  boundary triangles:
+  - one dominant eigenvalue (a surface point): the normal component of the
+    move is dropped (tangent plane);
+  - two (an edge point): only the component along the edge is kept
+    (tangent line);
+  - otherwise (a corner): the point is not moved.
+
+  From `nGlobalIter = 2` to 4 it calls `optimiseBoundarySurfaceLaplace`,
+  and after that `optimiseBoundaryVolumeOptimizer(false)`, **both
+  unconstrained**. No `meshSurfaceMapper` call follows.
+- **`optimiseFinalMesh`** (`tetMeshGenerator.C`) is
+  `meshOptimizer::optimizeSurface(octree)` (`meshSurfaceOptimizer::
+  optimizeSurface`, then `mapVerticesOntoSurfacePatches`), then
+  `optimizeMeshFV` (`laplacianPC` × 5, `untangleMeshFV(10, 50, 2)`),
+  `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, and
+  `untangleMeshFV`. The surface mapping comes **first**; nothing maps after
+  the untangles.
+- **The one place upstream maps a finished mesh back onto the surface** is
+  `projectSurfaceAfterBackScaling`: `mapVerticesOntoSurface`, then
+  `optimiseFinalMesh` again. It runs only with `anisotropicSources`.
+
+So upstream itself bows the inlet whenever an untangle reaches global
+iteration 2 with bad faces left. The projection gh:#1283 asks for is **not
+upstream**: it is a port-side addition in the spirit of
+`projectSurfaceAfterBackScaling` (map, then let the optimiser repair the
+cells).
+
+### What was built (2026-11-05; every default unchanged)
+
+- `final_mesh::BoundaryProjection` (`Off`, the default; `EachPass`;
+  `AfterUntangle`), in `BoundaryLayerOptimisationControls::boundary_projection`.
+  - `EachPass`: after every boundary pass, the points that pass moved are
+    mapped back onto their patches by the patch mapper
+    (`surface_mapper::map_points_onto_surface_patches_given`, the
+    `mapVerticesOntoSurfacePatches` port restricted to those points). The
+    next global iteration's interior passes see the result.
+  - `AfterUntangle`: the same mapping once, when each untangle has
+    finished, with no untangling after it. This is the isolation case: the
+    cells the moves changed, without the moves' departure from the surface.
+- `mesh_optimizer::untangle_mesh_fv_projected`: `untangleMeshFV` with a
+  hook after each boundary pass. With a no-op hook it is
+  `untangle_mesh_fv_with` bit for bit.
+- `final_mesh::optimise_final_mesh` and `TetDualOptions::optimise_final_mesh`:
+  upstream's `optimiseFinalMesh` on a mesh with no `CfMeshOptimise` layer,
+  after the capture. With a `CfMeshOptimise` layer, the strategy runs it
+  itself, and the option makes it open with `optimizeSurface`
+  (`BoundaryLayerOptimisationControls::optimize_surface_first`), as
+  upstream.
+- `boundary_layer_optimisation::add_boundary_layers_cfmesh_on_surface`:
+  the strategy given the surface. The pipeline passes it; with both new
+  controls off it returns the old result bit for bit.
+- Foam Studio native knobs (`examples/foam_studio_web/engine.rs`), beside
+  `FOAM_CFMESH_BMOVES` / `FOAM_CFMESH_LAPLACE`:
+  - `FOAM_UNTANGLE_SURFACE=1`;
+  - `FOAM_OPTIMISE_FINAL=1`;
+  - `FOAM_CFMESH_LPU=1`;
+  - `FOAM_CFMESH_PROJECT=each|after`;
+  - `FOAM_CFMESH_OPTSURF=1` (`optimise_surface` inside `optimiseLayer`).
+
+**Pins checked after the change, before any measurement:**
+`back_off_only_layers_are_pinned_bit_for_bit`,
+`dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`
+and `layer_strategies_are_deterministic` pass.
+
+### Predictions (written 2026-11-05, before any run on the pipe)
+
+The case is the Foam Studio pipe (48 sides, R 10 mm, L 200 mm),
+`CellCentre` + `Corners`, layers first 0.3 mm × 1.2 with `CfMeshOptimise`.
+The diagnostic is `final_mesh::diagnose_gh1283::diagnose_final_mesh_differential`.
+
+**gh:#1283, h 5 mm, 3 layers.**
+
+- `bm` (boundary moves; reproduces gh:#1255): inlet/πR² 0.9695, inlet
+  points off the plane by up to ~2e-4 m, 27 `findBadFaces`.
+- `bmE` (moves + `EachPass`):
+  - the largest inlet |z| < 1e-9 m;
+  - inlet/πR² back to 0.9829 ± 0.002;
+  - `findBadFaces` between 27 and 77 (central ~45): the projection undoes
+    part of what the moves fixed;
+  - max non-orthogonality within ±3° of 57.5°.
+- `bmA` (moves + `AfterUntangle`):
+  - inlet planar to 1e-9 m;
+  - inlet/πR² 0.9829 ± 0.002;
+  - `findBadFaces` 40–90, above `bmE`, since nothing repairs the cells
+    after the projection.
+- **The solve.** Baseline 0.9314 / 1.0055 (u_c/2U, dp/dz/HP); boundary
+  moves 0.9013 / 0.9703.
+  - The inlet flux is U·Σ S_f·ẑ, so the inlet loss alone
+    (0.983 → 0.970 of πR²) accounts for −1.3 % on both.
+  - The rest, about −2 %, I attribute to changed cells.
+  - So `bmA` and `bmE` recover about 1.3 points of the 3.2 / 3.5 % and
+    stay about 2 % low. **The gh:#1283 gate (solve within 0.5 % of
+    baseline) fails** on both. If it passes, bowing was the whole story and
+    this split is wrong.
+
+**Upstream's whole sequence (h 4 / 5 / 6 mm, 0 and 3 layers).** `us` is
+`untangle_surface` alone. `up` is `untangle_surface` + `optimise_final_mesh`
++ Laplace + boundary moves + LP untangler, no projection. `upE` is `up` with
+`EachPass`. `upEnl` is `upE` without the Laplace pass.
+
+- **0 layers.**
+  - `us` reproduces gh:#1259:
+    - inlet 0.9934 / 0.9920 / 0.9789;
+    - NO max 79.9 / 69.9 / 85.2°;
+    - 0 / 0 / 3 pyramids.
+  - `up`:
+    - the interior follows the boundary, so NO max falls below 65° at
+      every h, and no pyramid ≤ 0;
+    - `findBadFaces` ≤ 5;
+    - inlet/πR² 0.98–0.993;
+    - the inlet stays planar to 1e-9 unless an untangle reaches global
+      iteration 2 (then up to 1e-4 m);
+    - 2–20 s.
+  - `upE`: as `up`, inlet planar to 1e-9 at every h.
+  - `upEnl`: NO max 5–15° above `upE`.
+- **3 layers.**
+  - `base` reproduces gh:#1241/#1255 at h 5 (77 bad faces, NO 57.5°,
+    thickness 0.977 mm).
+  - `us`: the strategy starts from a boundary with 70–85° NO;
+    `findBadFaces` 50–150, NO max 60–80°.
+  - `up`:
+    - thickness about +48 % (the Laplace pass, gh:#1256: ~1.44 mm at h 5);
+    - `findBadFaces` ≤ 45;
+    - inlet bowed (|z| ~1e-4 m).
+  - `upE`: inlet planar to 1e-9, `findBadFaces` 30–80, thickness ~1.44 mm.
+  - `upEnl`: thickness 0.97 ± 0.05 mm, `findBadFaces` 30–80.
+  - Times 5–40 s.
+
+**`optimise_surface` inside `CfMeshOptimise`** (task 3; h 5, 3 layers,
+otherwise defaults, on against off). It moves wall and inlet points in
+their tangent planes, with the rim (a feature edge) locked, so:
+
+- inlet/πR² changes by < 0.1 % and the inlet stays planar to 1e-12;
+- V/πR²L changes by < 0.1 % (the wall's tangent planes cut the 48-gon's
+  facets, so points move along flat facets: no loss);
+- `findBadFaces` changes by at most ±20 %;
+- thickness ±5 %;
+- the solve within 0.5 % of baseline.
+
+### Methodology (as run, 2026-11-05)
+
+**Meshes.** `final_mesh::diagnose_gh1283::diagnose_final_mesh_differential`
+(`--ignored`, feature `cell-centre-dual`, release), the routes of
+`diagnose_gh1283::variant`, on `pipeline::tests::pipe_surface(0.01, 0.2,
+48)`. Per mesh:
+
+- NO: internal-face non-orthogonality from cell centres (max and p99);
+- pyr ≤ 0: `surface_mapper::cells_with_nonpositive_pyramids`;
+- flux: **|Σ S_f·ẑ| over the `inlet` patch / πR²**, the area the uniform
+  inlet velocity sees;
+- |z|: the largest |z| of an inlet point;
+- off: the largest distance of any boundary point from the input surface;
+- bad: `findBadFaces`;
+- cM: OpenFOAM's `checkMesh` failures
+  (`checks::faces_failing_mesh_quality`, defaults);
+- thick: the layers' mean total thickness (requested 0.98 mm).
+
+`os` is `base` with `optimise_surface` inside `optimiseLayer`.
+
+**Solves.** Foam Studio's own cylinder (`outram_blender` primitive, the
+same 48-gon). Common to every run:
+`FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners`, then
+`foam_studio_web --headless-unstructured <h> <n> 0.3 1.2 100`, Re 100,
+steady.
+
+- 3-layer runs add `FOAM_LAYER_STRATEGY=cfmesh`.
+- The route knobs: `bm` = `FOAM_CFMESH_BMOVES=1`; `E` / `A` add
+  `FOAM_CFMESH_PROJECT=each` / `after`; `us` = `FOAM_UNTANGLE_SURFACE=1`;
+  `up` = `us` + `FOAM_OPTIMISE_FINAL=1 FOAM_CFMESH_BMOVES=1
+  FOAM_CFMESH_LPU=1 FOAM_CFMESH_LAPLACE=1`; `nl` drops the Laplace knob;
+  `os` = `FOAM_CFMESH_OPTSURF=1`.
+- No run diverged, so **`FOAM_MAX_CO` was not used**. It is the
+  `BackOffOnly` 3-layer case that needs it (gh:#1241), not
+  `CfMeshOptimise`.
+- The new native stage note `inlet flux area |sum S.z|/piR2` is computed
+  on the mesh the solver gets.
+
+**Timings.** The host (4 cores) was shared with two other agents' builds
+throughout (load average 6–9), so times are upper bounds and only roughly
+comparable with each other.
+
+### Results: the meshes (2026-11-05)
+
+**Bare (0 layers).** Each cell gives h 4 / h 5 / h 6. Cells: 6 353 /
+3 113 / 1 939 on every route. `up` and `upE` are the same mesh (same
+fingerprint) at h 4 and h 5.
+
+| route | NO max (°) | NO p99 (°) | pyr ≤ 0 | flux / πR² | inlet \|z\| max (m) | off-surface max (m) | bad | cM | time (s) |
+|---|---|---|---|---|---|---|---|---|---|
+| `base` | 52.3 / 47.7 / 57.9 | 51.4 / 47.0 / 47.6 | 0 / 0 / 0 | 0.95583 / 0.98287 / 0.94786 | 1.0e-3 / 0 / 1.5e-3 | 9.9e-4 / 1.4e-13 / 1.4e-3 | 832 / 8 / 8 | 56 / 8 / 4 | 0.4 / 0.2 / 0.5 |
+| `us` | 79.9 / 69.9 / 85.2 | 51.0 / 45.7 / 54.3 | 0 / 0 / **3** | 0.99340 / 0.99202 / 0.97892 | 0 / 0 / 8.4e-4 | 8.9e-5 / 1.5e-4 / 3.3e-4 | 64 / 0 / 14 | 64 / 32 / 27 | 0.8 / 0.5 / 0.7 |
+| `up` | **39.6 / 31.8 / 37.6** | 31.4 / 26.0 / 31.1 | 0 / 0 / 0 | 0.99392 / 0.99198 / **0.93072** | 0 / 0 / **1.1e-3** | 1.6e-13 / 1.4e-13 / 1.9e-4 | **0 / 0 / 0** | 0 / 0 / 0 | 1.5 / 0.7 / 1.1 |
+| `upE` | 39.6 / 31.8 / 37.6 | 31.4 / 26.0 / 31.1 | 0 / 0 / **2** | 0.99392 / 0.99198 / **0.97956** | **0 / 0 / 0** | 1.6e-13 / 1.4e-13 / 1.8e-13 | 0 / 0 / **2** | 0 / 0 / 2 | 1.3 / 0.9 / 1.4 |
+| `upEnl` | 52.7 / 50.7 / 64.4 | 50.8 / 45.6 / 49.6 | 0 / 0 / 2 | 0.99392 / 0.99198 / 0.97960 | 0 / 0 / 0 | 1.6e-13 / 1.4e-13 / 3.9e-6 | 0 / 0 / 2 | 0 / 0 / 2 | 5.2 / 2.1 / 2.4 |
+
+Three things in the bare runs:
+
+- **Pure upstream bows the inlet at h 6 (`up`).**
+  - The first untangle needed a boundary pass. It ran in global iteration
+    1, so `optimiseBoundaryVolumeOptimizer(true)` applied: tangent
+    constrained.
+  - It still moved a rim point 2.1 mm along the wall, and an inlet face
+    now spans onto the wall.
+  - The inflow falls to 0.931 πR².
+  - `EachPass` keeps the inlet planar (0.9796), but the projection
+    re-creates the 2 bad faces the move had fixed, and the stall bound
+    stops the untangle there (2 → 2).
+- **The Laplace pass carries the non-orthogonality.** `upEnl` gives
+  51–64° where `upE` gives 32–40°.
+- **On a bare mesh, `base` with `findBadFaces` 832 at h 4 is the
+  revert capture's 128 unmapped points.** OpenFOAM's `checkMesh` fails 56
+  faces.
+
+**Three layers** (requested total 0.98 mm). Each cell gives h 4 / h 5 /
+h 6. "rej." means the pipeline rejected the layered mesh and returned the
+bare one.
+
+| route | NO max (°) | NO p99 (°) | pyr ≤ 0 | flux / πR² | inlet \|z\| max (m) | bad | cM | thick (mm) | time (s) |
+|---|---|---|---|---|---|---|---|---|---|
+| `base` | 65.4 / 57.5 / 75.7 | 50.9 / 53.3 / 50.0 | 0 / 0 / 0 | 0.94492 / 0.98287 / 0.93782 | 1.1e-3 / 0 / 1.7e-3 | 48 / 77 / 13 | 240 / 77 / 76 | 0.737 / 0.977 / 1.262 | 91 / 40 / 26 |
+| `bm` | 56.7 / 56.6 / 76.6 | 50.9 / 53.1 / 50.1 | 0 / 0 / 0 | 0.93517 / **0.95668** / 0.96212 | 1.2e-3 / **1.25e-3** / 1.8e-3 | 80 / 27 / 38 | 296 / 25 / 109 | 0.724 / 0.971 / 1.245 | 27 / 29 / 14 |
+| `bmE` | **139.8** (2 NaN faces) / 59.1 / rej. | 51.1 / 53.2 / — | **18** / 0 / — | 0.98672 / **0.98383** / — | 2.7e-4 / **6e-23** / — | 210 / 52 / — | 325 / 52 / — | 0.747 / 0.970 / — | 85 / 19 / 28 |
+| `bmA` | rej. / 57.0 / rej. | — / 53.2 / — | — / 0 / — | — / 0.98381 / — | — / 6e-23 / — | — / 52 / — | — / 52 / — | — / 0.969 / — | 81 / 22 / 25 |
+| `us` | 83.8 / 49.9 / 81.0 | 49.1 / 44.1 / 43.5 | 0 / 0 / 0 | 0.99340 / 0.99202 / 0.96870 | 0 / 0 / 8.0e-4 | 1 / **0** / 0 | 41 / 8 / 34 | 0.643 / 0.862 / 1.133 | 41 / 17 / 16 |
+| `up` (= `upE` at h 4, 5) | 73.0 / **44.5** / 80.6 | 33.7 / **30.8** / 33.4 | 0 / 0 / 0 | 0.99392 / 0.99198 / **0.93154** | 0 / 0 / 8.1e-4 | **0 / 0** / 1 | 16 / **0** / 28 | **1.099 / 1.491 / 1.910** | 15 / **1.2** / 3.9 |
+| `upE` | 73.0 / 44.5 / 89.6 | 33.7 / 30.8 / 32.9 | 0 / 0 / 0 | 0.99392 / 0.99198 / 0.97811 | 0 / 0 / 6.1e-5 | 0 / 0 / 1 | 16 / 0 / 28 | 1.099 / 1.491 / 1.910 | 14 / 1.2 / 6.8 |
+| `upEnl` | 84.6 / 44.9 / 84.5 | 49.3 / 44.2 / 43.4 | 0 / 0 / 0 | 0.99394 / 0.99198 / 0.97784 | 0 / 0 / 5.8e-5 | 0 / 0 / 12 | 13 / 0 / 42 | 0.671 / 0.895 / 1.178 | 36 / 16 / 17 |
+| `os` | 74.1 / 55.8 / 84.3 | 49.5 / 43.8 / 43.3 | 0 / 0 / 0 | 0.94832 / 0.98287 / 0.94347 | 1.0e-3 / 0 / 1.5e-3 | 8 / **0** / 3 | 96 / **0** / 46 | 0.673 / 0.895 / 1.218 | 34 / 26 / 16 |
+
+V/πR²L, h 5, 3 layers: `base` 0.98887, `bm` 0.98833, `bmE` / `bmA`
+0.98888, `us` 0.98606, `up` 0.98875, `os` 0.98847. The rest is in the
+diagnostic's output.
+
+**Why `bmE` / `bmA` break at h 4 and h 6.** On the `revert_tangled`
+capture, 128 (h 4) and 64 (h 6) boundary points are deliberately left off
+the surface: mapping them had tangled a cell (gh:#1241). The boundary
+passes move them, and the projection puts them on the surface, re-creating
+the tangle the revert had undone.
+
+- At h 4 with `EachPass` the mesh stays closed with no negative cell, so
+  the pipeline keeps it. It has 2 faces with an undefined (NaN)
+  non-orthogonality angle, an internal face at 139.8°, 18 cells with a
+  non-positive pyramid and 210 bad faces. **Since gh:#1286 (2026-11-05)
+  the pipeline refuses it** (the 2 faces have zero area) and returns the
+  bare mesh, so the h 4 `bmE` cells of the table describe the mesh before
+  that fix.
+- At h 4 (`AfterUntangle`) and h 6 (both) the layered mesh is invalid,
+  and the pipeline returns the bare mesh.
+- At h 5 that capture leaves no point unmapped, and the projection works.
+
+**The projection is safe only on a captured boundary, that is with
+`untangle_surface` (`upE`)**, which is upstream's order anyway.
+
+### Results: the solves (2026-11-05, Foam Studio cylinder, Re 100)
+
+u_c/2U at 0.75 L; −dp/dz / HP and τ_w / HP over 0.65–0.85 L; RMS is
+(u_z − u_HP)/2U over the same slab. The Hagen–Poiseuille value of each is 1.
+
+| mesh | route | cells | max NO (°) | flux / πR² | steps | u_c/2U | dp/dz / HP | τ_w / HP | RMS | meshing (s) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| h 5, 3 layers | `base` | 7 025 | 56.4 | 0.98287 | 26 | **0.9314** | **1.0055** | 1.0057 | 0.0320 | 35.3 |
+| | `bm` | 7 025 | 55.2 | **0.95007** | 38 | 0.9013 | 0.9703 | 0.9705 | 0.0493 | 31.5 |
+| | `bmE` | 7 025 | 59.7 | 0.98386 | 40 | **0.9323** | **1.0066** | 1.0067 | 0.0315 | 22.6 |
+| | `bmA` | 7 025 | 57.2 | 0.98381 | 40 | 0.9323 | 1.0065 | 1.0067 | 0.0315 | 25.4 |
+| | `os` | 7 025 | 56.2 | 0.98287 | 26 | 0.9314 | 0.9967 | 0.9986 | 0.0321 | 34.9 |
+| | `us` | 7 049 | 50.0 | 0.99204 | 26 | 0.9423 | 1.0117 | 1.0129 | 0.0270 | 15.1 |
+| | `up` | 7 049 | 44.9 | 0.99196 | 24 | **0.9679** | 0.9836 | 0.9859 | **0.0186** | **1.3** |
+| | `upE` | 7 049 | 44.9 | 0.99196 | 24 | 0.9679 | 0.9836 | 0.9859 | 0.0186 | 1.2 |
+| | `upEnl` | 7 049 | 45.0 | 0.99196 | 26 | 0.9394 | 1.0063 | 1.0090 | 0.0277 | 12.3 |
+| h 4, bare | `base` | 6 353 | 52.3 | 0.95583 | 28 | 0.8502 | 1.0190 | 1.0197 | 0.0526 | 0.2 |
+| | `us` | 6 353 | 78.9 | 0.99341 | 27 | 0.8781 | 1.0389 | 1.0388 | 0.0392 | 0.7 |
+| | `up` = `upE` | 6 353 | 40.6 | 0.99391 | 27 | 0.8985 | 1.0137 | 1.0143 | 0.0282 | 1.3 |
+| h 5, bare | `base` | 3 113 | 47.6 | 0.98287 | 27 | 0.9004 | 1.0134 | 1.0147 | 0.0482 | 0.1 |
+| | `us` | 3 113 | 68.2 | 0.99204 | 29 | 0.9123 | 1.0355 | 1.0366 | 0.0426 | 0.4 |
+| | `up` = `upE` | 3 113 | 32.2 | 0.99196 | 24 | 0.9483 | 0.9700 | 0.9725 | 0.0259 | 0.8 |
+| h 6, bare | `base` | 1 939 | 57.9 | 0.94786 | 20 | 0.7653 | 1.0973 | 1.1020 | 0.0903 | 0.4 |
+| | `us` | 1 939 | 77.6 | 0.97891 | 20 | 0.7849 | 1.1118 | 1.1132 | 0.0806 | 0.7 |
+| | `up` | 1 939 | 38.3 | **0.93073** | 25 | 0.7911 | 0.9599 | 0.9640 | 0.0804 | 1.3 |
+| | `upE` | 1 939 | 38.3 | 0.97956 | 24 | **0.8297** | 1.0125 | 1.0168 | 0.0584 | 1.4 |
+
+The `base` 3-layer run reproduces gh:#1241/#1255 exactly (0.9314 /
+1.0055 / 1.0057, 26 steps), and `bm` reproduces gh:#1255's 0.9013 /
+0.9703 / 0.9705, 38 steps. The Foam Studio and diagnostic surfaces agree
+on every flux value they share (base h 5: 0.98287 both), except `bm`
+(0.95007 against 0.95668). Their meshes differ slightly, Foam Studio's
+max NO 56.4° against 57.5°.
+
+### gh:#1283: the gate, and where the solve shift came from
+
+**Gate** (boundary moves on, h 5 mm, 3 layers; the issue's case):
+
+- inlet planar to 1e-9 m: **held**, |z| ≤ 6e-23 m with `EachPass` and
+  `AfterUntangle`;
+- solve within 0.5 % of baseline: **held**:
+  - u_c/2U 0.9323 against 0.9314 (+0.10 %);
+  - dp/dz 1.0066 against 1.0055 (+0.11 %);
+  - τ_w +0.10 %, RMS 0.0315 against 0.0320.
+
+It reaches steady in 40 steps against 26.
+
+**Isolation.** `AfterUntangle` keeps the cells the moves made and removes
+only their departure from the surface. It gives the same solve as
+`EachPass` to 1e-4, and is within 0.11 % of the baseline. So at h 5:
+
+| | u_c/2U | dp/dz |
+|---|---|---|
+| boundary moves, total shift | −3.23 % | −3.50 % |
+| from the boundary leaving the surface (`bm` − `bmA`) | **−3.33 %** | **−3.60 %** |
+| from the changed cells (`bmA` − `base`) | **+0.10 %** | **+0.10 %** |
+| inflow area alone (flux 0.95007 / 0.98287) | −3.34 % | −3.34 % |
+
+The shift is the **inflow**: a uniform inlet velocity through an inlet
+whose projected area fell 3.34 % carries 3.34 % less flow, and u_c and
+dp/dz scale with the flow. The changed cells contribute +0.1 %.
+
+**Against the predictions.**
+
+- `bm` inlet |z| ~2e-4 m: **missed, larger** (1.25e-3 m). 2e-4 was what
+  gh:#1255's x-z slice at y = 0.13 mm showed; the bow is largest
+  elsewhere on the rim.
+- `bm` inlet/πR² 0.9695: **missed**; 0.95668 by the flux instrument (the
+  0.9695 was the |S_f| sum, see the correction in the gh:#1255 section).
+- `bmE` |z| < 1e-9: **held**.
+- `bmE` inlet 0.9829 ± 0.002: **held** (0.98383).
+- `bmE` bad faces 27–77, central ~45: **held** (52).
+- `bmE` NO ±3° of 57.5°: **held** (59.1° diagnostic, 59.7° Foam Studio).
+- `bmA` planar and inlet: **held**.
+- `bmA` bad faces 40–90, above `bmE`: **held in range, missed in
+  order** (52, equal). The first untangle already ends at 0 bad faces on
+  the one-layer mesh in both routes; all 52 appear at the layer split.
+- Solve recovers only ~1.3 points, gate **fails**: **missed**. The gate
+  passes, and the "−2 % from changed cells" was wrong: they contribute
+  +0.1 %. The prediction rested on gh:#1255's |S_f| instrument (a 1.36 %
+  loss); the real inflow loss is 3.34 %, and it explains the whole shift.
+
+### Upstream's whole sequence: against the predictions
+
+- **0 layers.**
+  - `us` reproduces gh:#1259: **held** (inlet, NO and pyramids equal to
+    the gh:#1259 rows).
+  - `up`, NO max below 65° at every h: **held** (39.6 / 31.8 / 37.6°).
+  - `up`, no pyramid ≤ 0: **held**.
+  - `up`, bad ≤ 5: **held** (0 / 0 / 0).
+  - `up`, inlet 0.98–0.993: **held at h 4, h 5** (0.99392 slightly
+    above), **missed at h 6** (0.931, the bow).
+  - `up`, planar unless an untangle reaches global iteration 2: **missed
+    in mechanism**. At h 6 the bow comes from global iteration 1, the
+    tangent-constrained pass, which still slid a rim point 2.1 mm.
+  - `up`, 2–20 s: **missed, faster** (0.7–1.5 s).
+  - `upE` planar at every h: **held**.
+  - `upEnl` NO 5–15° above `upE`: **missed, larger** (13–27°).
+- **3 layers.**
+  - `base` reproduces: **held**.
+  - `us`, bad 50–150 and NO 60–80°: **missed, better**. Bad 1 / 0 / 0,
+    NO 50–84°. Starting from an untangled boundary, the strategy's
+    untangles clear what `base` leaves.
+  - `up`, thickness ~1.44 mm: **held** (1.491 mm at h 5, +53 %).
+  - `up`, bad ≤ 45: **held** (0 / 0 / 1).
+  - `up`, inlet bowed: **missed at h 4, h 5** (no boundary pass was
+    needed: the Laplace pass and `untangle_surface` left no
+    boundary-held face), **held at h 6** (0.932).
+  - `upE` planar: **held at h 4, h 5**, **missed at h 6** (|z| 6.1e-5 m).
+    The off-plane point was not moved by a boundary pass; the cause is not
+    isolated. The bare `us` mesh at h 6 already has inlet points 8e-4 m
+    off the plane (gh:#1259's "four rim points").
+  - `upE` bad 30–80: **missed, better** (0 / 0 / 1).
+  - `upEnl` thickness 0.97 ± 0.05 mm: **missed at h 5** (0.895 mm),
+    **missed at h 4** (0.671), **missed at h 6** (1.178).
+  - `upEnl` bad 30–80: **missed, better** (0 / 0 / 12).
+  - Times 5–40 s: **missed, faster** for `up` (1.2–15 s).
+- **`optimise_surface` in `CfMeshOptimise` (task 3)**, h 5, against
+  `base`:
+  - inlet change < 0.1 % and planar: **held** (0.98287, |z| 3.6e-21);
+  - V change < 0.1 %: **held** (−0.04 %);
+  - bad faces ±20 %: **missed, much better** (77 → 0; checkMesh 77 → 0);
+  - thickness ±5 %: **missed** (0.977 → 0.895 mm, −8.4 %);
+  - solve within 0.5 %: **held on u_c** (0.9314 both), **missed on dp/dz**
+    (1.0055 → 0.9967, −0.88 %; τ_w −0.71 %).
+  - It also leaves wall points up to 0.15 mm off the faceted surface
+    (`os` off-surface 1.49e-4 m, `base` 1.4e-13). Upstream's call has no
+    octree, so nothing maps them back, and the tangent planes at the
+    48-gon's facet edges cut inside it: my "no loss" reasoning was wrong.
+  - At h 4 / h 6 the bad faces fall 48 → 8 and 13 → 3.
+
+### Images (drawn from the mesh the pipeline / solver gets)
+
+In `laminar_pipe_gh1155/gh1283/`:
+
+- `inlet_<route>_h<h>_n<layers>{,_rim}.png`: written by
+  `final_mesh::diagnose_gh1283::render_final_mesh_inlets` (the
+  pipeline's `VolumeMesh`; black: inlet faces; red: the input 48-gon;
+  blue: inlet points with |z| > 1e-9 m). Recompressed losslessly
+  (zlib 9, pixels verified identical).
+- `foam_<case>_{xz_rim,xy,xy_wall,wallmap}.png`: Foam Studio's
+  `--render-layer-strategies` (the `PolyMesh` the solver gets), the
+  `CfMeshOptimise` meshes only, for `n3_base`, `n3_bmE`, `n3_upE`,
+  `n0_base`, `n0_upE`, all at h 5 mm.
+
+**Checked by eye (2026-11-05):**
+
+- `inlet_bm_h5_n3.png`: about 140 inlet points off the plane over the
+  outer half of the inlet, and triangle fans folded at the rim (4 and 8
+  o'clock). In `_rim` the rim vertices are off the 48-gon.
+- `inlet_bmE_h5_n3_rim.png`: no point off the plane; the four rim
+  vertices lie on the 48-gon.
+- `inlet_up_h6_n0.png`: about a dozen off-plane points in the upper
+  right, where one face spans from the inlet onto the wall (the 0.931
+  flux).
+- `inlet_upE_h5_n3.png`: the three-layer stack follows the 48-gon all
+  round, with no off-plane point; the interior polygons are near-regular.
+- `foam_n3_bmE_xz_rim.png`: the inlet is the straight line z = 0, but
+  the layer columns at the rim lean inward by ~0.3 mm over the first
+  2.5 mm.
+- `foam_n3_upE_xz_rim.png`: flat inlet, upright layer columns, a 1.5 mm
+  stack.
+- `foam_n3_upE_xy_wall.png`: three layers of about 0.4–0.5 mm each
+  under one dual cell at mid-length.
+- `foam_n0_upE_xz_rim.png`: a flat inlet meeting a straight wall.
+
+**Not checked:** the outlet; `wallmap` images; the h 4 and h 6 layered
+meshes (no Foam Studio render was made for them); the h 4 `bmE` mesh with
+the NaN faces (not drawn).
+
+### Recommendation (for the maintainer; no default is changed)
+
+1. **gh:#1283's projection: adopt `EachPass` only together with
+   `untangle_surface`.**
+   - With it, the boundary moves stop costing flow: the h 5 gate passes,
+     and h 6 bare goes from 0.931 to 0.980 πR².
+   - On the `revert_tangled` capture it wrecks h 4 and h 6, because it
+     re-maps the points that capture left off the surface on purpose.
+   - It is not upstream: upstream has the same bow (`up` h 6).
+2. **Upstream's whole sequence (`upE`) is the strongest candidate seen on
+   this pipe.**
+   - Bare: max NO 32–40° (from 48–58°) and 0 `findBadFaces` at h 4 / 5.
+   - h 5, 3 layers: 0 bad faces and 0 `checkMesh` failures (from 77);
+     u_c/2U 0.9679 (from 0.9314), RMS 0.0186 (from 0.0320); meshing 1.2 s
+     against 35 s.
+   - Two costs:
+     - dp/dz moves from +0.55 % to **−1.64 %** of HP;
+     - the layer stack is **1.49 mm against 0.98 mm requested** (the
+       Laplace pass, gh:#1256).
+
+   Without the Laplace pass (`upEnl`) the stack is 0.895 mm and the solve
+   is 0.9394 / 1.0063 (RMS 0.0277), still with 0 bad faces, in 12 s.
+   Recommendation: `upEnl` as the next default candidate, `upE` once
+   step 3 splits to the requested thickness.
+3. **`optimise_surface` in `optimiseLayer`** (task 3) clears h 5's 77 bad
+   faces on its own, but thins the stack 8 % and leaves wall points off
+   the faceted surface. Keep it off unless it runs with a mapping back.
+4. Keep `bm` (moves without projection) off: it is the case gh:#1255
+   measured, and its inlet loss now has a measured cause.
+
+### Open (gh:#1283)
+
+- h 6 `upE`, 3 layers: an inlet point 6.1e-5 m off the plane that no
+  boundary pass moved. Not isolated.
+- h 6 `upE` bare: the projection re-creates the 2 faces the boundary
+  move fixed, and the stall bound stops the untangle there. A projection
+  that respected cell validity (upstream's `mapVerticesOntoSurface` has
+  no such check either) or more global iterations might clear them.
+- ~~`bmE` at h 4 keeps a mesh with NaN face angles because the pipeline's
+  `acceptable` checks closure and cell volumes only. Whether
+  `keep_if_ok` should also refuse zero-area faces is for the maintainer.~~
+  **FIXED 2026-11-05 (gh:#1286):** `acceptable` now refuses a face below
+  `VSMALL` (cfMesh's `checkFaceAreas`) and a non-finite point; `bmE` at
+  h 4 returns the bare mesh. See the gh:#1286 section below.
+- The layer split (step 3) creates 52 bad faces from a one-layer mesh
+  with none (`bmE`, h 5): refBoundaryLayers' straight split of a leaning
+  hair.
+- Upstream (cfMesh) is not installed here; nothing was run against it.
+- `docs/outram-park-fork-cfmesh-api.md` was not regenerated (no
+  `kovan-cli` run).
+
+## The pipeline's acceptance gate refuses zero-area faces (gh:#1286, epic gh:#1251)
+
+**The defect.** gh:#1283's `bmE` route at h 4 mm, 3 layers (above:
+`CellCentre` + `Corners`, boundary moves, `BoundaryProjection::EachPass`,
+the default `revert_tangled` capture) was kept by the pipeline with two
+faces whose non-orthogonality was NaN.
+
+**What the faces are (measured 2026-11-05,** before any fix, by a probe
+on the same case, `surface_to_tet_dual_mesh_multipatch`): two internal
+triangles, faces 33 638 and 33 674 of 78 110, one in each inlet/outlet
+plane (z = 0 and z = 0.2 m). Each has three collinear points on the rim,
+so its area is exactly 0 and it has no normal. Their cells are a
+1.3e-9 m³ cell and a 9e-14 / 7e-14 m³ sliver. No point is non-finite.
+cfMesh's `checkFaceAreas(VSMALL)` fails on the mesh, and `checkGeometry`
+fails 4 of its 9 checks.
+
+**Upstream against the port (read 2026-11-05).** Upstream has **no
+acceptance gate**: no `tetMeshGenerator` step refuses a mesh. Its
+`meshOptimizer::findBadFaces` runs `checkFacePyramids(VSMALL)`,
+`checkFaceFlatness(0.8)`, `checkCellPartTetrahedra(VSMALL)` and
+**`checkFaceAreas(VSMALL)`**, and hands the flagged faces to the
+untangler, which here could not clear them (210 bad faces at the end).
+The port's gate (`pipeline::acceptable`, which `keep_if_ok` applies to
+every stage) checked closure (`validate`) and cell volumes only; a
+zero-area face adds nothing to either.
+
+**The fix.** `acceptable` also refuses a mesh with a non-finite point or a
+face below `VSMALL` (`poly_mesh_gen_checks::check_face_areas`, the ported
+upstream check, through `pipeline::faces_are_non_degenerate`). Rejecting,
+not repairing: the stage's result is dropped and the previous mesh kept,
+as for any other refused stage. Upstream's repair for such a face would be
+the untangler, which already failed on it here.
+
+**Predictions (written 2026-11-05, before the run with the fix).**
+
+- `bmE`, h 4 mm, 3 layers: the layer stage is refused, the pipeline
+  returns the bare mesh with the "boundary layers skipped" note (as `bmA`
+  at h 4 in the table above), with no face below `VSMALL` and no NaN angle.
+- The pins (`back_off_only_layers_are_pinned_bit_for_bit`,
+  `dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`,
+  `layer_strategies_are_deterministic`,
+  `correct_edges_is_pinned_bit_for_bit`,
+  `foam_studio_default_mesh_keeps_its_fingerprint`, the tet_mesh / p_mesh
+  restart pins) hold: none of those meshes has a zero-area face, so no
+  stage that was kept is refused.
+
+**Results (2026-11-05,** `cargo test --release -p outram-park-fork-cfmesh
+--features cell-centre-dual --lib`, the tests named below).
+
+- `final_mesh::diagnose_gh1283::gh1286_zero_area_layer_mesh_is_refused`
+  (the `bmE` case, 45–55 s): **held**. The layer stage is refused ("boundary
+  layers skipped — the wall is too tight for any valid layer"), and the
+  pipeline returns the bare h 4 mesh, 6 353 cells (the default bare h 4
+  count in the tables above), with no face below `VSMALL` and every
+  internal face's non-orthogonality finite. Before the fix the same call
+  returned 12 461 cells with the two zero-area faces.
+- `pipeline::tests::zero_area_face_is_not_acceptable` (analytic: a closed
+  3×1×1 box plus one collinear internal triangle, which passes `validate`
+  and the volume check): refused, and `keep_if_ok` keeps the previous mesh;
+  a NaN point is refused too.
+- **Pins: held.** `back_off_only_layers_are_pinned_bit_for_bit`,
+  `dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`,
+  `layer_strategies_are_deterministic`, `correct_edges_is_pinned_bit_for_bit`,
+  `foam_studio_default_mesh_keeps_its_fingerprint` and
+  `tet_mesh_stop_and_restart_reproduce_the_full_run` pass. (`tet_mesh` and
+  `p_mesh` do not go through `acceptable`; their gate is unchanged.)
+
+**What it changes.** Only meshes that had a zero-area face or a non-finite
+point. `bmE` at h 4 is now the `rej.` cell of the gh:#1283 table (that
+row's h 4 entries describe the mesh before this fix). Not checked: which
+other non-default routes in the gh:#1283 table had a zero-area face (only
+`bmE` h 4 showed NaN angles in its diagnostic).
+
+## cfMesh's `boundaryLayers` creation route against the crate's back-off, differentially (gh:#1270)
+
+**What was built (2026-11-05).** `layers::boundary_layers::boundary_layers_add_layer` ports
+cfMesh `e944f6ba695f` `boundaryLayers::addLayerForPatch`. It creates one layer on the named
+patches, and treats them as one group. It is opt-in, beside the three strategies, and changes
+no default.
+
+It reuses `layer_setup`'s border classification and `build_layered_variable`'s columns. It adds
+upstream's point placement (`createNewVertex`):
+- a `PATCHNODE` moves along the unit point normal by 0.5 x the shortest distance to a
+  neighbouring boundary point;
+- an `EDGENODE` moves in the other patch's plane, with upstream's 0.9 cap;
+- a two-patch corner moves half way along the shared edge.
+
+Not ported:
+- patch-wise layers across concave feature edges (`createLayerCells`);
+- `addWrapperLayer`;
+- `checkTopologyOfBoundaryFaces`;
+- 2D and MPI.
+
+**Methodology.** Both routes run on the same bare mesh, with one layer on `walls`. The crate's
+`BackOffOnly` is asked for 1 m (0.125 m on the box), so its own cap (0.5 x the shortest wall
+edge) decides the thickness.
+
+Quantities: cells, volume, per-point column length and direction, and `check_quality`. The
+cases are:
+- the carved unit box (h 0.25 m, `walls` on four sides);
+- the demo pipe shortened to L 60 mm (h 6 mm, default dual);
+- the Foam Studio pipe (R 10 mm, L 200 mm, 48 facets, h 5 mm, bare).
+
+Tests: `layers::boundary_layers::tests::{cfmesh_layer_on_a_carved_box_by_hand,
+cfmesh_layer_against_back_off_on_the_box, cfmesh_layer_against_back_off_on_the_pipe,
+diagnose_cfmesh_layer_on_the_foam_studio_pipe}`.
+
+**Predictions (in the tests' doc comments, committed in `c8e89890f` before the first run).**
+- Box:
+  - 128 cells, volume 1;
+  - the end patches re-partitioned, not moved;
+  - columns 0.125 m everywhere except the 8 corners, where they are 0.9 h/√2 = 0.159 m;
+  - against the back-off, lengths equal at 72 points, the corners different, and directions
+    different only at 24 flat points (the crate smooths).
+- Pipe:
+  - volume conserved to 1e-12;
+  - equal cell counts;
+  - at every `PATCHNODE` the crate's column equals cfMesh's x 0.6^(tries − 1);
+  - the rim different;
+  - cfMesh's skewness and inverted cells unknown in advance, to be recorded.
+
+**Results (2026-11-05).**
+
+| case | route | cells | dV/V | first layer min/mean/max [mm] | max non-ortho | max skew | inverted | non-positive pyramids |
+|---|---|---:|---:|---|---:|---:|---:|---:|
+| box h 0.25 | cfMesh | 128 | −1e-15 | 125/128/159 | 23.9° | 1.28 | 0 | — |
+| box h 0.25 | back-off (1 try) | 128 | 0 | 125 | 21.7° | 1.37 | 0 | — |
+| pipe L 60 h 6 | cfMesh | 2 025 | 2e-16 | 0.002/0.609/1.179 | 106.9° | 51.3 | **56** | 716 |
+| pipe L 60 h 6 | back-off (3 tries) | 2 025 | −4e-16 | 0.001/0.220/0.424 | 80.9° | 0.92 | 0 | 0 |
+| Foam Studio pipe | cfMesh | 10 745 | **2.45e-7** | 0.032/0.491/0.857 | 102.5° | 8.42 | **304** | 3 964 |
+| Foam Studio pipe | back-off (3 tries) | 10 745 | **−4.72e-7** | 0.011/0.176/0.309 | 78.6° | 1.01 | 0 | 0 |
+
+**Against the predictions.**
+- **Box:** every prediction held.
+- **Pipes, held:**
+  - the `PATCHNODE` ratio is 0.36 = 0.6² at every point, to 1e-15: both routes take
+    0.5 x the shortest neighbour edge, and the crate backed off twice;
+  - the rim differs, as predicted.
+- **Volume on the Foam Studio pipe: miss** (predicted 1e-12). Located:
+  - the wall patch's Σ c·S/3 is bit for bit the bare mesh's;
+  - all of the change is in `inlet` and `outlet`, whose points on this dual spread 0.47 mm
+    along the axis;
+  - sliding a rim point in the averaged plane of a non-planar end patch moves that surface.
+
+  The crate's default route has the same defect class (−4.7e-7). The `layers` module docs
+  claimed exact conservation; that claim is corrected in this change (struck through).
+- **Quality:** cfMesh's single layer of half the local edge, along the unsmoothed point normal,
+  inverts 56 (304) cells of the curved dual wall. Upstream repairs that afterwards
+  (`meshOptimizer`, `boundaryLayerOptimisation`); this route does not. Of the two routes, only
+  the back-off layer passes upstream's mesh-quality limits as built.
+
+**Images** (drawn from the assembled meshes, `--ignored` test
+`layers::refine_boundary_layers::tests::draw_layer_images`), in
+`crates/outram-park-fork-cfmesh/verification_and_validation/boundary_layers_gh1270/`:
+- `box_cfmesh_layer_yz.png`, `box_refined_3_yz.png`;
+- `pipe_{bare,cfmesh_layer,backoff_layer,cfmesh_refined_3}_{xy,xy_wall,xz_rim}.png`, with the
+  faces of inverted cells in orange.
+
+**Checked by eye:**
+- **Box:** one layer, then three graded layers, along all four walls. The corner columns run
+  along the diagonal, and the end-face cut is flat.
+- **Pipe, cfMesh layer (`_xy`):** a layer all round the wall at mid-length. Orange inverted
+  cells sit where the thick layer meets an inner dual face.
+- **Pipe, refined (`_xz_rim`):** three layers ending on the flat inlet.
+
+**Not checked:** the 3D shape of the inverted cells; the cuts show only their faces in one plane.
+
+## cfMesh's `detectBoundaryLayers` and `refineBoundaryLayers`, differentially (gh:#1271)
+
+**What was built (2026-11-05).** Two pieces, in `layers::refine_boundary_layers`.
+
+- **`detect_boundary_layers`** ports `detectBoundaryLayers` whole (serial). Its components:
+  - the layer-cell selector;
+  - grouping across boundary edges whose owners differ and share a face;
+  - patch clearing;
+  - hair edges.
+- **`refine_boundary_layers`** ports the settings, `analyseLayers` and `generateNewVertices`.
+  - **Settings:** global and per-patch `nLayers`, `thicknessRatio` and
+    `maxFirstLayerThickness`, plus `allowDiscontinuity`.
+  - **Split:** prism layer cells only. A cell needing upstream's `refineEdgeHexCell` or
+    `refineCornerHexCell`, or with mixed counts on its hairs, is refused with `NotPorted`.
+  - **Not ported:** special mode, the cell subset, 2D and MPI.
+
+**Methodology and predictions** (committed before the run in `c8e89890f`):
+- **Pipe** (L 60 mm, h 6 mm, cfMesh's layer from gh:#1270), split into 3 layers at ratio 1.2 on
+  `walls` (1 elsewhere). Compared with `build_layered_variable` given the bare pipe, the same
+  wall faces, the same columns (direction, length) and `d` = 0, 1, 2.2, 3.64:
+  - split points within 1e-12 of the column length, and not all bit for bit;
+  - cells: gh:#1270's + 2 x wall faces;
+  - volume unchanged;
+  - no inverted cell.
+- **Detect** on the same mesh: exactly the layer cells; `walls` only; one hair per wall point.
+- **`maxFirstLayerThickness`** at 0.1 x the shortest column: the first layer is the cap, the
+  second 1.2 x the cap, to 1e-12 relative.
+- **Box:** all three patches in one layer group; `NotPorted`.
+
+**Results (2026-11-05).**
+
+| check | result |
+|---|---|
+| split points vs `build_layered_variable` | worst \|Δ\| / column length **4.6e-15**; 5 621 of 5 824 points bit for bit (held) |
+| refined pipe | 2 025 -> 4 865 cells (1 420 split), volume unchanged (1e-12), closed, every face named (held) |
+| inverted cells after the split | **56**, not 0 (miss: they are gh:#1270's input cells, unchanged by the split) |
+| detect on the cfMesh-layered pipe | 1 420 layer cells = exactly the added ones, 1 456 hairs, `walls` only (held); 51 groups, 50 of them empty (numbered by `groupMarking` before the patch clearing, as upstream's `nFirstLayers_`) |
+| `maxFirstLayerThickness` | first layer = cap and second = 1.2 x cap to **3e-12** relative (**miss on the tolerance**: a 1.6e-7 m layer from positions ~1e-2 m carries ~1e-18 m of round-off; now checked to 1e-14 x the pipe length) |
+| box | **3 groups, not 1** (miss: a wall face and the inlet side face of a rim prism share an owner, and the operator only joins faces whose owners differ); the rim prism's inlet-side hairs carry 1 layer, so the walls refine: 256 cells, 64 split, volume 1, closed (miss: predicted `NotPorted`) |
+
+**Interpretation.** On straight one-cell columns, upstream's split
+`t1 (1 − r^j)/(1 − r)` and the crate's `L d_j/d_n` are the same points to round-off, so the
+crate's column builder is upstream's split for one count per column. The box shows why upstream
+needs `refineEdgeHexCell` only where two layered patches meet at a cell: with `inlet` unlayered,
+no cell needs it.
+
 ## Reproduce
 
 ```bash
@@ -2459,10 +3601,35 @@ cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --li
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
 FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
+# gh:#1255, gh:#1256, gh:#1260 (CFMESH_BMOVES, CFMESH_LAPLACE, CFMESH_LPU = 0 or 1)
+CFMESH_BMOVES=1 CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+FOAM_CFMESH_BMOVES=1 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies <dir>
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_laplace_pc_against_smart_laplacian
+# gh:#1270, gh:#1271 (cfMesh boundaryLayers, detect/refineBoundaryLayers; images)
+cargo test --release -p outram-park-fork-cfmesh --lib -- --nocapture layers::boundary_layers layers::refine_boundary_layers
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_cfmesh_layer_on_the_foam_studio_pipe
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored draw_layer_images
+# gh:#1267 (topology images)
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored draw_topology_images
+# gh:#1261
+cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_cfmesh_against_openfoam_checks
 # gh:#1241
 CFMESH_STEPS=1 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_corners_rim
 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_snappy_cascade
 FOAM_DIAG_ABL=base,upwind,linear,nolimit,dt4,dt10,dt30,uncorrected,nonorth0,co4 cargo test --release -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_three_layer_divergence
 FOAM_MAX_CO=4 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners CFMESH_STALL=0 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+# gh:#1259
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_untangle_surface_differential
+CFMESH_CE=1 CFMESH_CASE=foam cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_untangle_surface_differential
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture render_untangle_surface_inlets
+# gh:#1283 (routes: base, us, os, bm, bmE, bmA, up, upE, upEnl)
+CFMESH_NOTES=1 cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_final_mesh_differential
+CFMESH_HS=0.005 CFMESH_LAYERS=3 CFMESH_VARIANTS=base,bm,bmE,bmA cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_final_mesh_differential
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture render_final_mesh_inlets
+FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh FOAM_CFMESH_BMOVES=1 FOAM_CFMESH_PROJECT=each cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh FOAM_UNTANGLE_SURFACE=1 FOAM_OPTIMISE_FINAL=1 FOAM_CFMESH_BMOVES=1 FOAM_CFMESH_LPU=1 FOAM_CFMESH_LAPLACE=1 FOAM_CFMESH_PROJECT=each cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_UNTANGLE_SURFACE=1 FOAM_OPTIMISE_FINAL=1 FOAM_CFMESH_BMOVES=1 FOAM_CFMESH_LPU=1 FOAM_CFMESH_LAPLACE=1 FOAM_CFMESH_PROJECT=each cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 0 0.3 1.2 100
+FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_RENDER_N=3 FOAM_CFMESH_BMOVES=1 FOAM_CFMESH_PROJECT=each cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies <dir>
 ```
