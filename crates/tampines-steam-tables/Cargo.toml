@@ -1,6 +1,6 @@
 [package]
 name = "tampines-steam-tables"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
     "Ong Kay Chen Theodore",
     "Ethan Yew Hoe, Wong",
