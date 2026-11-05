@@ -40,6 +40,7 @@
 //! Each is a composition of ported classes; nothing here re-implements a
 //! step.
 
+use crate::boundary_layer_optimisation::{optimize_boundary_layer, untangle_boundary_layer, BoundaryLayerOptimisationControls, OptimizeBoundaryLayerReport, OptimizeBoundaryLayerSettings};
 use crate::layers::boundary_layers::{boundary_layers_add_layer, BoundaryLayersControls, BoundaryLayersOutcome};
 use crate::layers::refine_boundary_layers::{refine_boundary_layers, RefineBoundaryLayersSettings, RefineError, RefineReport};
 use crate::mesh_optimizer::{optimize_mesh_fv_best_quality, MeshOptimizer, OptimiserReport, UntangleControls};
@@ -121,6 +122,12 @@ pub struct GenerateBoundaryLayersSettings {
     /// `refineBoundaryLayers` settings; `None` when `meshDict` has no
     /// `boundaryLayers` dictionary (no refinement).
     pub refine: Option<RefineBoundaryLayersSettings>,
+    /// `boundaryLayers/optimiseLayer`: whether `meshOptimisation`'s
+    /// `optimizeBoundaryLayer` does anything. Upstream's default is
+    /// `false` (gh:#1280).
+    pub optimise_layer: bool,
+    /// `boundaryLayers/optimisationParameters` for `optimizeBoundaryLayer`.
+    pub layer_optimisation: BoundaryLayerOptimisationControls,
 }
 
 /// What [`generate_boundary_layers`] did.
@@ -130,11 +137,17 @@ pub struct GenerateBoundaryLayersReport {
     /// point at three untreated patches).
     pub layer: Option<BoundaryLayersOutcome>,
     /// `meshOptimisation`: `optimizeMeshFV`, `optimizeLowQualityFaces`,
-    /// `untangleMeshFV`, (`optimizeBoundaryLayer`: not run, see
-    /// [`generate_boundary_layers`]), `untangleMeshFV`.
+    /// `untangleMeshFV`, then (after `optimizeBoundaryLayer`)
+    /// `untangleMeshFV`.
     pub optimisation: Vec<OptimiserReport>,
+    /// `meshOptimisation`'s `optimizeBoundaryLayer` (gh:#1280).
+    pub boundary_layer: OptimizeBoundaryLayerReport,
     /// `layerRefinement`'s `refineBoundaryLayers`.
     pub refinement: Option<Result<RefineReport, RefineError>>,
+    /// `layerRefinement`'s `untangleBoundaryLayer`, after a refinement
+    /// (gh:#1280): `optimizeLowQualityFaces`, `untangleMeshFV(2, 50, 1,
+    /// relaxed)`.
+    pub untangle_layer: Vec<OptimiserReport>,
 }
 
 /// `generateBoundaryLayers` (not 2D): `generateLayer`
@@ -142,12 +155,19 @@ pub struct GenerateBoundaryLayersReport {
 /// patch-wise groups are not ported, see `layers::boundary_layers`),
 /// `meshOptimisation`, `layerRefinement` ([`refine_boundary_layers`]).
 ///
-/// **Partial.** `meshOptimizer::optimizeBoundaryLayer` and
+/// ~~**Partial.** `meshOptimizer::optimizeBoundaryLayer` and
 /// `untangleBoundaryLayer` exist in this crate only inside the
 /// `CfMeshOptimise` layer strategy (`boundary_layer_optimisation`), built
 /// around its own layer columns; they are not callable on an arbitrary
-/// mesh, so they are skipped and the report says so. The other steps are
-/// upstream's.
+/// mesh, so they are skipped and the report says so.~~ **UPDATED
+/// 2026-11-05 (gh:#1280):** both are now callable on any mesh
+/// ([`optimize_boundary_layer`], [`untangle_boundary_layer`], reusing the
+/// strategy's `optimiseLayer`) and run where upstream runs them:
+/// `optimizeBoundaryLayer` between `meshOptimisation`'s two
+/// `untangleMeshFV`s (it does nothing unless
+/// [`GenerateBoundaryLayersSettings::optimise_layer`], as upstream), and
+/// `untangleBoundaryLayer` after `refineBoundaryLayers`. Still missing:
+/// `optimizeBoundaryLayer`'s buffer layer (`activateSpecialMode`), and 2D.
 pub fn generate_boundary_layers(mesh: &VolumeMesh, s: &GenerateBoundaryLayersSettings) -> (VolumeMesh, GenerateBoundaryLayersReport) {
     let names: Vec<String> = match &s.patches {
         Some(p) => p.clone(),
@@ -165,16 +185,22 @@ pub fn generate_boundary_layers(mesh: &VolumeMesh, s: &GenerateBoundaryLayersSet
     optimisation.push(opt.optimize_mesh_fv(&mut m, 5, &c).unwrap_or_else(|e| e.report));
     optimisation.push(opt.optimize_low_quality_faces(&mut m, 10));
     optimisation.push(opt.untangle_mesh_fv(&mut m, &c).unwrap_or_else(|e| e.report));
+    // optimizeBoundaryLayer() (addBufferLayer = true)
+    let bl = OptimizeBoundaryLayerSettings { optimise_layer: s.optimise_layer, add_buffer_layer: true, controls: s.layer_optimisation.clone(), untangle: c };
+    let boundary_layer = optimize_boundary_layer(&mut m, &bl);
+    let opt = MeshOptimizer::new(&m);
     optimisation.push(opt.untangle_mesh_fv(&mut m, &c).unwrap_or_else(|e| e.report));
-    // layerRefinement
+    // layerRefinement: refineLayers, then untangleBoundaryLayer
+    let mut untangle_layer = Vec::new();
     let refinement = s.refine.as_ref().map(|r| match refine_boundary_layers(&m, r) {
         Ok((refined, rep)) => {
             m = refined;
+            untangle_layer = untangle_boundary_layer(&mut m, &c);
             Ok(rep)
         }
         Err(e) => Err(e),
     });
-    (m, GenerateBoundaryLayersReport { layer, optimisation, refinement })
+    (m, GenerateBoundaryLayersReport { layer, optimisation, boundary_layer, refinement, untangle_layer })
 }
 
 #[cfg(test)]
@@ -263,5 +289,90 @@ mod tests {
         assert_eq!(bad, 0);
         assert!(vols.iter().all(|&v| v > 0.0));
         assert!((m.total_volume() - 1.0).abs() < 1e-12);
+    }
+
+    /// Hair-length statistics (min, mean, max) of the layer
+    /// `detectBoundaryLayers` finds, and the bad-face count.
+    fn layer_stats(m: &VolumeMesh) -> (usize, f64, f64, f64, usize) {
+        let d = crate::layers::refine_boundary_layers::detect_boundary_layers(m);
+        let t: Vec<f64> = d.hair_edges.iter().map(|h| m.points[h[1]].sub(m.points[h[0]]).length()).collect();
+        let (mn, mx) = t.iter().fold((f64::MAX, 0.0f64), |(a, b), &x| (a.min(x), b.max(x)));
+        let bad = find_bad_faces(m).iter().filter(|&&x| x).count();
+        (t.len(), mn, t.iter().sum::<f64>() / t.len().max(1) as f64, mx, bad)
+    }
+
+    /// `generateBoundaryLayers` before (`optimiseLayer` off, upstream's
+    /// default) and after (`optimiseLayer` on) on `m0`'s `patches`.
+    fn before_after(m0: &VolumeMesh, patches: Option<Vec<String>>, label: &str) -> [(VolumeMesh, GenerateBoundaryLayersReport); 2] {
+        let off = GenerateBoundaryLayersSettings { patches: patches.clone(), ..Default::default() };
+        let on = GenerateBoundaryLayersSettings { patches, optimise_layer: true, ..Default::default() };
+        let a = generate_boundary_layers(m0, &off);
+        let b = generate_boundary_layers(m0, &on);
+        for (name, (m, r)) in [("off", &a), ("on", &b)] {
+            let (n, mn, mean, mx, bad) = layer_stats(m);
+            let (vols, _) = cell_geometry(m);
+            let vmin = vols.iter().cloned().fold(f64::MAX, f64::min);
+            println!(
+                "{label} optimiseLayer {name}: cells {} volume {:.12e} min cell vol {vmin:e}; hairs {n}, thickness min {mn:e} mean {mean:e} max {mx:e}; bad faces {bad}; boundary layer {:?}",
+                m.n_cells,
+                m.total_volume(),
+                (r.boundary_layer.ran, r.boundary_layer.n_hairs, r.boundary_layer.n_shared_start, r.boundary_layer.n_layer_cells, r.boundary_layer.passes, r.boundary_layer.n_thinned, &r.boundary_layer.notes)
+            );
+        }
+        [a, b]
+    }
+
+    /// V&V (gh:#1280 remainder): `generateBoundaryLayers` now runs
+    /// `meshOptimizer::optimizeBoundaryLayer` where upstream does
+    /// (`meshOptimisation`, between the two `untangleMeshFV`s), on the 4³
+    /// unit box, all patches, with `optimiseLayer` off (upstream's default)
+    /// and on.
+    ///
+    /// **Predictions (written 2026-11-05, before the first run):**
+    /// (1) off: identical to `generate_boundary_layers_on_a_box` (160
+    /// cells, 0 bad faces, volume 1), and `optimizeBoundaryLayer` does not
+    /// run; (2) on: it runs, 160 cells, volume 1 to 1e-12 (wall points do
+    /// not move; there is no bad face for an untangle to act on), 0 bad
+    /// faces; (3) `optimiseLayer` only shortens hairs (its thickness step
+    /// only lowers a length; the normal smoothing keeps lengths), so the
+    /// on-run's max and mean hair length are at most the off-run's.
+    ///
+    /// **Results:** RESULT_BOX
+    #[test]
+    fn generate_boundary_layers_with_optimise_layer_on_the_box() {
+        let m0 = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
+        let [(a, ra), (b, rb)] = before_after(&m0, None, "box 4^3");
+        let (plain, _) = generate_boundary_layers(&m0, &GenerateBoundaryLayersSettings::default());
+        assert_eq!(a.points, plain.points, "off must be the recorded run");
+        assert!(!ra.boundary_layer.ran);
+        assert!(rb.boundary_layer.ran);
+        b.validate().unwrap();
+        assert_eq!(b.n_cells, 160);
+        assert!((b.total_volume() - 1.0).abs() < 1e-12);
+        let (sa, sb) = (layer_stats(&a), layer_stats(&b));
+        assert_eq!(sb.4, 0, "bad faces");
+        assert!(sb.3 <= sa.3 && sb.2 <= sa.2, "optimiseLayer only thins: {sa:?} -> {sb:?}");
+    }
+
+    /// V&V (gh:#1280 remainder): as the box test, on the bare pipe (R 10
+    /// mm, L 60 mm, h 6 mm, default dual), layer on `walls`.
+    ///
+    /// **Predictions (written 2026-11-05, before the first run):**
+    /// (1) off: `optimizeBoundaryLayer` does not run; the layer has bad
+    /// faces left (upstream's layer is not quality-checked and inverts
+    /// cells on the pipe, gh:#1270); (2) on: it runs, and leaves fewer bad
+    /// faces than off, with mean hair length no larger; not necessarily 0.
+    ///
+    /// **Results:** RESULT_PIPE
+    #[test]
+    fn generate_boundary_layers_with_optimise_layer_on_the_pipe() {
+        let m0 = crate::layers::boundary_layers::tests::bare_pipe(0.06, 0.006);
+        let [(a, ra), (b, rb)] = before_after(&m0, Some(vec!["walls".into()]), "pipe");
+        assert!(!ra.boundary_layer.ran);
+        assert!(rb.boundary_layer.ran);
+        b.validate().unwrap();
+        let (sa, sb) = (layer_stats(&a), layer_stats(&b));
+        assert!(sb.2 <= sa.2, "mean hair length {sa:?} -> {sb:?}");
+        assert!(sb.4 <= sa.4, "bad faces {} -> {}", sa.4, sb.4);
     }
 }
