@@ -2492,6 +2492,108 @@ at the end; max non-orthogonality 57.5°; mean total thickness 0.977 mm.
   `octree_path_is_pinned_bit_for_bit` and `layer_strategies_are_deterministic`
   pass; checked before this run, and they do.
 
+**Results (2026-11-05,** `diagnose_dual_kinds_differential` with
+`CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3
+CFMESH_STRATS=cfmesh CFMESH_FP=corners` and `CFMESH_BMOVES` /
+`CFMESH_LAPLACE`; native release, 2 cargo jobs, **the host shared with two
+other agents' builds**, so the times are an upper bound and only roughly
+comparable with gh:#1241's 13.3 s, which was taken alone on the host).
+All four meshes have 7 025 cells and 100 % layer coverage.
+
+| quantity | baseline | boundary moves | Laplace pass | both |
+|---|---|---|---|---|
+| meshing | 18.3 s | **9.9 s** | **6.7 s** | 7.0 s |
+| first untangle: bad faces | 2 861 → 29 | **2 861 → 0** (3 global, 3 boundary passes, 424 boundary nodes) | 29 → 29 (the Laplace pass took 2 861 to 29) | 29 → 0 |
+| final untangle: bad faces (touching a boundary point) | 29 → 29 (29) | 1 → 4 (4) | 29 → 29 (29) | 2 → 4 (7) |
+| bad faces at the end (`findBadFaces`) | 77 | **27** | 77 | 41 |
+| faces failing OpenFOAM's checks (`checks::faces_failing_mesh_quality`) | 77 | **25** | 77 | 45 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 56.6° / 53.1° | 57.3° / 52.2° | 57.1° / 51.9° |
+| max skewness (OpenFOAM) | 1.77 | 2.14 | 1.78 | 2.14 |
+| min determinant | 3.42e-2 | 2.68e-2 | 3.77e-2 | 2.68e-2 |
+| mean total thickness | 0.977 mm | 0.971 mm | **1.442 mm** | 1.437 mm |
+| V/(section L) | 0.98887 | 0.98833 | 0.98887 | 0.98807 |
+| inlet area / section | 0.98287 | **0.96950** | 0.98287 | 0.97021 |
+
+**Against the predictions.**
+
+- Boundary moves:
+  - first untangle ≤ 10 bad faces: **held** (0);
+  - fewer than 77 at the end: **held** (27);
+  - max non-orthogonality ±3°: held (−0.9°);
+  - time 10–40 s: **missed, on the fast side** (9.9 s). The interior
+    passes the boundary loop saves cost more than the boundary passes add;
+  - volume change < 0.5 %: held (−0.055 %);
+  - inlet area change < 1 %: **missed** (−1.36 %: 0.98287 → 0.96950).
+    The boundary moves of global iterations 2–4 (`optimiseBoundarySurfaceLaplace`)
+    are unconstrained and pull rim points off the inlet plane and the
+    48-gon. Upstream does the same; it has no projection after
+    `untangleMeshFV`.
+- Laplace pass:
+  - thickness > 1.47 mm: **missed narrowly** (1.442 mm, +47.6 %, predicted
+    > +50 %); the direction and the mechanism held;
+  - time within ±5 s: **missed** (6.7 s against 18.3 s). The Laplace pass
+    alone took the first untangle's 2 861 bad faces to 29, so that untangle
+    had little left to do;
+  - bad faces at the end: no prediction; 77, the same as the baseline.
+- Both on:
+  - thickness as the Laplace run: held (1.437 mm);
+  - bad faces within ±50 % of the boundary-moves run's 27: **missed
+    narrowly** (41; the limit was 40.5).
+
+**What it means.** Upstream's boundary moves remove the boundary-held faces
+that gh:#1241 left in place: 29 → 0 in the first untangle, and 77 → 27 at
+the end. The faces left at the end come from the layer split and the
+relaxed final untangle, not from the first untangle. The cost is the inlet:
+3 % of πR² is lost against 1.7 % before. That is a geometry loss a
+surface projection would have to undo; upstream's `meshSurfaceOptimizer`
+(the surface track, gh:#1258/#1259) is where it belongs. The Laplace pass
+is upstream's first step and does most of the untangling's work cheaply,
+but it thickens the layers by 48 %. Upstream would then refine its layer
+from the thickness `optimiseLayer` leaves. This port's step 3 splits the
+hair it is given, so the requested 0.98 mm stack is no longer what comes
+out.
+
+**Recommendation (for the maintainer; nothing is changed).** Keep both
+controls off by default for now. `untangle_boundary_moves` is the stronger
+candidate for `CfMeshOptimise`'s default: it is faster, and it leaves a
+third of the bad faces. It should be adopted only with a surface projection
+after it, so the inlet does not shrink. Turn `optimize_mesh_fv_laplace` on
+only once step 3 splits to the requested thickness rather than to the hair
+it is handed.
+
+## cfMesh's LP `meshUntangler` on the pipe (gh:#1260)
+
+`mesh_untangler.rs` ports `meshUntangler` (the feasible region of a
+point's simplex, cut plane by plane from the bounding box; the point goes to
+the mean of its corners) and `sortEdgesIntoChains`, and
+`PartTetMesh::optimise_using_mesh_untangler` ports
+`tetMeshOptimisation::optimiseUsingMeshUntangler`. The pass runs between
+the Knupp untangler and the volume optimiser in `untangleMeshFV`, as
+upstream does, behind `UntangleControls::mesh_untangler` and
+`BoundaryLayerOptimisationControls::untangle_mesh_untangler`
+(`CFMESH_LPU=1`). Both are off by default.
+
+Upstream behaviour kept: `optimiseUsingMeshUntangler` never re-marks the
+inverted tetrahedra it re-checks (the Knupp loop does), so its second pass
+finds none and returns. In effect it is one pass. A port defect found in
+passing and **not fixed** (it would change the default output):
+`optimise_using_knupp_metric` increments its pass counter on every pass,
+where upstream's short-circuit `||` does so only when the inverted count did
+not fall.
+
+**Predictions (written 2026-11-05, before the run; same case as the
+gh:#1255 section).**
+
+- `CFMESH_LPU=1`:
+  - the first untangle still ends at 29 bad faces (± 3): the 29 are
+    boundary-held, and the untangler moves only interior points;
+  - bad faces at the end 77 ± 5;
+  - meshing time within ± 30 % of the baseline run of the same session.
+    The LP pass runs only on the nodes of inverted tetrahedra, and a few
+    dozen plane cuts per node are cheap.
+- `CFMESH_LPU=1 CFMESH_BMOVES=1`: bad faces at the end 27 ± 10, as the
+  boundary-moves run.
+
 ## Reproduce
 
 ```bash

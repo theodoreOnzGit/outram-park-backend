@@ -2248,6 +2248,8 @@ mod tests {
                             untangle_boundary_moves: env("CFMESH_BMOVES").as_deref() == Some("1"),
                             // CFMESH_LAPLACE=1: optimizeMeshFV's laplacianPC (gh:#1256).
                             optimize_mesh_fv_laplace: env("CFMESH_LAPLACE").as_deref() == Some("1"),
+                            // CFMESH_LPU=1: the LP meshUntangler (gh:#1260).
+                            untangle_mesh_untangler: env("CFMESH_LPU").as_deref() == Some("1"),
                             ..Default::default()
                         }, ..Default::default() };
                         let t0 = std::time::Instant::now();

@@ -65,12 +65,25 @@
 //!   side of every opposite face).
 //! - [`untangle_mesh_fv`] (`meshOptimizer::untangleMeshFV`) and
 //!   [`optimize_low_quality_faces`] (`meshOptimizer::optimizeLowQualityFaces`).
+//! - (gh:#1255) [`untangle_mesh_fv_with`] and [`UntangleControls`]: the
+//!   boundary loop of `untangleMeshFV` ([`PartTetMesh::optimise_boundary_volume_optimizer`],
+//!   [`PartTetMesh::optimise_boundary_surface_laplace`]), opt-in;
+//!   [`optimize_mesh_near_boundaries`] with [`PartTetMesh::near_boundary`];
+//!   [`optimize_mesh_fv_best_quality`] with [`find_worst_quality_faces`].
+//! - (gh:#1256) [`laplace_smoother`] (`laplaceSmoother`: `laplacian`,
+//!   `laplacianPC`, `laplacianWPC`, `laplacianSurface`) and [`MeshOptimizer`]
+//!   (the lock API, `enforceConstraints`, `optimizeMeshFV`).
+//! - (gh:#1260) [`PartTetMesh::optimise_using_mesh_untangler`]: the LP
+//!   `meshUntangler` ([`crate::mesh_untangler`]), opt-in through
+//!   [`UntangleControls::mesh_untangler`].
 //!
-//! **Not ported, said so where it matters:** the LP-based `meshUntangler`
+//! ~~**Not ported, said so where it matters:** the LP-based `meshUntangler`
 //! (`tmo.optimiseUsingMeshUntangler()`, the middle of the three smoothers in
 //! `untangleMeshFV`), the boundary-point moves of `untangleMeshFV`'s second
 //! loop (`optimiseBoundaryVolumeOptimizer`, `optimiseBoundarySurfaceLaplace`:
-//! boundary points never move here), `tetMatcher` (a tetrahedral cell is
+//! boundary points never move here),~~ **CHANGED 2026-11-05:** both are
+//! ported (gh:#1260, gh:#1255) and off by default, so the recorded results
+//! stand. **Not ported:** `tetMatcher` (a tetrahedral cell is
 //! decomposed like any other; this crate's tet-dual meshes have none), and
 //! the parallel buffer layers. Centres are this crate's: the face centre is
 //! the vertex average and the cell centre the pyramid-decomposition centroid
@@ -427,9 +440,72 @@ impl PartTetMesh {
         }
     }
 
+    /// `tetMeshOptimisation::optimiseUsingMeshUntangler(nIterations)`
+    /// (upstream default 5): the LP untangler ([`crate::mesh_untangler::mesh_untangler`])
+    /// on every smoothable node of an inverted tetrahedron, until none is
+    /// left or the count stops falling (`while ((nNegative <
+    /// nNegativeBefore) || (++nIter < nIterations))`, short-circuit kept).
+    ///
+    /// **Upstream behaviour kept:** unlike the Knupp loop, the re-check never
+    /// sets `helper[tetI] = true`, so the list of inverted tetrahedra carried
+    /// to the next pass is empty and that pass returns at once: in effect one
+    /// pass, whatever `nIterations` is.
+    pub fn optimise_using_mesh_untangler(&mut self, n_iterations: usize) {
+        let mut inverted: Vec<bool> = self.tets.iter().map(|t| self.tet_vol(t) < VSMALL).collect();
+        let mut n_iter = 0usize;
+        loop {
+            let mut negative_node = vec![false; self.points.len()];
+            let mut n_negative = 0usize;
+            for (t, &inv) in inverted.iter().enumerate() {
+                if inv {
+                    n_negative += 1;
+                    for &v in &self.tets[t] {
+                        negative_node[v] = true;
+                    }
+                }
+            }
+            if n_negative == 0 {
+                return;
+            }
+            let nodes: Vec<usize> =
+                (0..self.points.len()).filter(|&n| negative_node[n] && self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
+            let moved = self.smooth_nodes(&nodes, |pts, tets, c| {
+                crate::mesh_untangler::mesh_untangler(pts, tets, c);
+            });
+            self.update_vertices(&moved);
+            let before = n_negative;
+            n_negative = (0..self.tets.len()).filter(|&t| inverted[t] && self.tet_vol(&self.tets[t]) < VSMALL).count();
+            if n_negative == 0 {
+                return;
+            }
+            // upstream: invertedTets.transfer(helper), helper all false.
+            inverted = vec![false; self.tets.len()];
+            if n_negative < before {
+                continue;
+            }
+            n_iter += 1;
+            if n_iter >= n_iterations {
+                return;
+            }
+        }
+    }
+
+    /// The number of tetrahedra with volume below `VSMALL` (the count the
+    /// untanglers work on).
+    pub fn n_inverted_tets(&self) -> usize {
+        self.tets.iter().filter(|t| self.tet_vol(t) < VSMALL).count()
+    }
+
     /// `tetMeshOptimisation::optimiseUsingKnuppMetric(nIterations)`: move the
     /// points of inverted tetrahedra until none is left or the count stops
     /// falling.
+    ///
+    /// **Port defect found 2026-11-05 (gh:#1260), not fixed:** fixing it
+    /// would change the default `CfMeshOptimise` output, which needs the
+    /// maintainer. Upstream's `while ((nNegative < nNegativeBefore) ||
+    /// (++nIter < nIterations))` increments `nIter` only when the count did
+    /// not fall; this loop increments it on every pass, so after passes that
+    /// did reduce the count it can stop sooner than upstream.
     pub fn optimise_using_knupp_metric(&mut self, n_iterations: usize) {
         let mut inverted: Vec<bool> = self.tets.iter().map(|t| self.tet_vol(t) < VSMALL).collect();
         let mut n_iter = 0usize;
@@ -1271,12 +1347,16 @@ pub struct UntangleControls {
     /// is this port's behaviour before gh:#1255 (boundary points never
     /// move) and keeps every recorded result; upstream always runs it.
     pub boundary_moves: bool,
+    /// Run the LP `meshUntangler` between the Knupp untangler and the volume
+    /// optimiser (`tmo.optimiseUsingMeshUntangler()`, gh:#1260). `false`
+    /// is this port's behaviour before gh:#1260; upstream always runs it.
+    pub mesh_untangler: bool,
 }
 
 impl Default for UntangleControls {
     /// Upstream's defaults, with this port's switches off.
     fn default() -> Self {
-        UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, relaxed: false, stop_on_stall: false, boundary_moves: false }
+        UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, relaxed: false, stop_on_stall: false, boundary_moves: false, mesh_untangler: false }
     }
 }
 
@@ -1337,6 +1417,9 @@ fn untangle_impl(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleCont
             rep.nodes_smoothed += tm.n_smooth_nodes();
             let t = stamp();
             tm.optimise_using_knupp_metric(5);
+            if c.mesh_untangler {
+                tm.optimise_using_mesh_untangler(5);
+            }
             tm.optimise_using_volume_optimizer(10);
             rep.seconds_smooth += since(t);
             changed = tm.update_orig(mesh, &pc, &cf);

@@ -57,8 +57,10 @@
 //!
 //! 1. one layer at the per-point cap (the same columns as
 //!    [`LayerQualityStrategy::BackOffOnly`]'s first try, no global back-off);
-//! 2. `optimiseFinalMesh`: `optimizeMeshFV` (its Laplace pass is not ported;
-//!    its `untangleMeshFV(10, 50, 2)` is), `optimizeLowQualityFaces(10)`,
+//! 2. `optimiseFinalMesh`: `optimizeMeshFV` (~~its Laplace pass is not
+//!    ported~~ **CHANGED 2026-11-05, gh:#1256:** its `laplacianPC` pass is
+//!    ported and runs with [`BoundaryLayerOptimisationControls::optimize_mesh_fv_laplace`],
+//!    off by default; its `untangleMeshFV(10, 50, 2)` is), `optimizeLowQualityFaces(10)`,
 //!    `optimizeBoundaryLayer` (`optimiseLayer`, then the layer cells' points
 //!    locked and `untangleMeshFV(1, 50, 0)` and `untangleMeshFV(2, 50, 0)` on
 //!    the rest), `untangleMeshFV(10, 50, 2)`;
@@ -70,8 +72,11 @@
 //!
 //! **Not ported, said so:** `meshSurfaceOptimizer::optimizeSurface(2)` inside
 //! `optimiseLayer` (it moves the wall points on the surface; here the wall
-//! points never move), the Laplace smoothing of `optimizeMeshFV`, everything
-//! in [`crate::mesh_optimizer`]'s list, and the parallel exchanges. The hair
+//! points never move), ~~the Laplace smoothing of `optimizeMeshFV`~~ (ported,
+//! gh:#1256, opt-in), everything in [`crate::mesh_optimizer`]'s list, and
+//! the parallel exchanges. `untangleMeshFV`'s boundary moves are ported and
+//! opt-in ([`BoundaryLayerOptimisationControls::untangle_boundary_moves`],
+//! gh:#1255). The hair
 //! classification is this crate's border classification ([`LayerVertex`]):
 //! a hair at a point touching only layer faces is `INSIDE`; one at a point
 //! touching one layer-free patch is `BOUNDARY | ATEDGE` (it lies in that
@@ -104,9 +109,11 @@ pub struct BoundaryLayerOptimisationControls {
     pub max_num_iterations: usize,
     /// End `untangleMeshFV`'s global loop when a global iteration removes no
     /// bad face (gh:#1241, [`crate::mesh_optimizer::untangle_mesh_fv_bounded`]):
-    /// upstream's boundary moves between global iterations are not ported,
-    /// so the later ones repeat futile interior passes. `true` by default;
-    /// `false` runs all ten, as before.
+    /// ~~upstream's boundary moves between global iterations are not
+    /// ported~~ **CHANGED 2026-11-05 (gh:#1255):** upstream's boundary moves
+    /// are ported but off by default ([`Self::untangle_boundary_moves`]);
+    /// without them the later global iterations repeat futile interior
+    /// passes. `true` by default; `false` runs all ten, as before.
     pub stop_untangling_on_stall: bool,
     /// Run `untangleMeshFV`'s boundary loop in every untangle of this
     /// strategy (gh:#1255, [`UntangleControls::boundary_moves`]): boundary
@@ -119,6 +126,10 @@ pub struct BoundaryLayerOptimisationControls {
     /// `optimizeBoundaryLayer`'s, the latter with the layer cells locked.
     /// `false` by default (the recorded behaviour: no Laplace pass).
     pub optimize_mesh_fv_laplace: bool,
+    /// Run the LP `meshUntangler` in every untangle of this strategy
+    /// (gh:#1260, [`UntangleControls::mesh_untangler`]). `false` by default
+    /// (the recorded behaviour: Knupp then the volume optimiser only).
+    pub untangle_mesh_untangler: bool,
     /// `nSmoothNormals`: smoothing passes over the hair directions.
     pub n_smooth_normals: usize,
     /// `relThicknessTol`: the largest change of layer height between
@@ -139,6 +150,7 @@ impl Default for BoundaryLayerOptimisationControls {
             stop_untangling_on_stall: true,
             untangle_boundary_moves: false,
             optimize_mesh_fv_laplace: false,
+            untangle_mesh_untangler: false,
             n_smooth_normals: 5,
             rel_thickness_tol: 0.15,
             feature_size_factor: 0.3,
@@ -642,6 +654,7 @@ pub fn add_boundary_layers_cfmesh(
         relaxed,
         stop_on_stall,
         boundary_moves: bmoves,
+        mesh_untangler: controls.untangle_mesh_untangler,
     };
     if controls.optimize_mesh_fv_laplace {
         MeshOptimizer::new(&m1).optimize_laplacian(&mut m1, LaplaceKind::PointCells, 5);
