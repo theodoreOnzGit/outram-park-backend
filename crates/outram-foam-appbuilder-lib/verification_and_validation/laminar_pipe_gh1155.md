@@ -2222,6 +2222,29 @@ Tests: `layers::tests::per_face_layer_counts_conform_and_repartition`
 bit); `pipeline::tests::layer_strategies_are_deterministic` and
 `every_strategy_leaves_a_good_box_duct_alone` pass unchanged.
 
+### Item 4: the cost of `CfMeshOptimise`
+
+**Upstream read first (2026-11-05).** cfMesh v1.1 `meshOptimizer::
+untangleMeshFV` (`optimizeMeshFV.C`): per global iteration, an inner loop
+(Knupp, the LP `meshUntangler`, the volume optimiser on the cells around
+the bad faces, `nGlobalIter/2 + 1` layers) until no bad face or five
+passes past the fewest; then, **if bad faces remain, a loop that moves
+boundary points** (`optimiseBoundaryVolumeOptimizer(true)` for the first
+two global iterations, `optimiseBoundarySurfaceLaplace` up to the fifth,
+`optimiseBoundaryVolumeOptimizer(false)` after), and only then the next
+global iteration. `optimizeLowQualityFaces`, `optimiseUsingVolumeOptimizer
+(10)`, `partTetMesh`'s growth and `findBadFaces` with `changedFace` match
+the port line for line (read side by side). The port has no LP untangler
+and no boundary moves: a bad face held by boundary points cannot be fixed,
+and the global loop then runs all its iterations on a growing region.
+
+**Predictions (written 2026-11-05, before profiling):** on `CellCentre` +
+`Corners`, h 5 mm, 3 layers (140–370 s in gh:#1240): ≥ 60 % of the
+meshing time is in the three `untangleMeshFV(10, 50, 2)` calls, and in
+them the volume optimiser's per-node search (not the region builds or the
+checks); those calls run ≥ 8 of their 10 global iterations and end with
+bad faces left; the faces left touch boundary points.
+
 ### Item 5: `octree.rs` determinism
 
 **Prediction (written 2026-11-05, before the fix's first run):** the
