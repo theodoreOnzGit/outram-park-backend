@@ -267,7 +267,33 @@ upstream's place; each is **off unless the `MeshDict` asks**
 `subset_cell_size`, `local_refinement_subsets`). `MeshDict::anisotropic_sources`
 moves the sources through gh:#1279's `anisotropic`
 (`mesh_octree_creator::source_surface_geometry` /
-`source_edge_mesh_geometry`); the generators do not read it.
+`source_edge_mesh_geometry`); ~~the generators do not read it~~ the
+generators read it too since gh:#1279's remainder (next section).
+
+## `anisotropicSources` in the four generators (gh:#1279 remainder, 2026-11-05)
+
+`cartesian_mesh`, `tet_mesh`, `p_mesh` and `cartesian_2d_mesh` apply
+`MeshDict::anisotropic_sources` where upstream's generators do:
+
+- **Constructor.** The octree is built on the modified surface
+  (`anisotropic::modified_surface_points`). Every step up to the revert
+  maps, extracts and optimises against that surface.
+- **3D generators.** At the end of `meshOptimisation`'s first
+  `optimiseFinalMesh` they revert, then run
+  `projectSurfaceAfterBackScaling` (`anisotropic::revert_and_project`,
+  then `optimiseFinalMesh` again on the original surface).
+- **2D generator.** The revert is at the end of `boundaryLayerGeneration`,
+  followed by a new quadtree on the original surface
+  (`cartesian_2d_mesh::refined_quadtree`), `remapBoundaryPoints` and
+  `optimiseMeshSurface`.
+
+A run stopped before the revert returns the mesh in the modified space,
+as upstream does. Without sources, all four outputs are pinned to their
+pre-wiring fingerprints
+(`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`):
+**do not move that pin.**
+
+Record and images: `verification_and_validation/anisotropic_gh1279/`.
 
 `MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
 read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and
