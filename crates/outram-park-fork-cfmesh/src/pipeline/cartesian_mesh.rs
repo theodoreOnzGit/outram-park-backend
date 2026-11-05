@@ -55,7 +55,7 @@
 //! projection that is not upstream) is not used: `meshOptimisation` calls
 //! `MeshOptimizer` as `tet_mesh` does.
 
-use crate::cartesian_mesh::{cartesian_mesh_extractor, CartesianMeshOptions};
+use crate::cartesian_mesh::{cartesian_mesh_extractor_from_dict, CartesianMeshOptions};
 use crate::correct_edges::correct_edges_between_patches;
 use crate::layers::boundary_layers::{generate_layer, BoundaryLayers, BoundaryLayersControls, LayerRequest};
 use crate::layers::refine_boundary_layers::{points_in_bnd_layer, refine_boundary_layers, RefineBoundaryLayersSettings, RefineError};
@@ -366,7 +366,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
         rep.steps_run.push(step);
         if step == WorkflowStep::TemplateGeneration {
             let cmo = CartesianMeshOptions { decompose_split_hexes: opts.decompose_polyhedra_into_tets_and_pyrs, use_data_boxes: opts.dict.keep_cells_intersecting_boundary };
-            let cm = cartesian_mesh_extractor(&o, &cmo);
+            let cm = cartesian_mesh_extractor_from_dict(&o, &cmo, &opts.dict);
             rep.n_template_cells = cm.mesh.n_cells;
             rep.template_volume = cm.mesh.total_volume();
             rep.notes.push(format!("templateGeneration: cartesianMeshExtractor: {} cells, {} decomposed", cm.mesh.n_cells, cm.n_decomposed_cells));
