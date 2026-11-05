@@ -216,6 +216,10 @@ outram-foam-mesh = { workspace = true }
 # (cfMesh and outram-foam-basic-lib are pure Rust); `gpu` stays native only,
 # in the table below, so the browser build pulls no wgpu from here.
 outram-blender = { workspace = true, features = ["foam-mesh", "foam-export"] }
+# gh:#1240: the cfMesh port's dual kinds (`dual::DualKind`), the cell-centre
+# one through outram-foam-mesh's polyDualMesh (`cell-centre-dual`, pure Rust,
+# wasm in-scope); the same crate outram-blender's `foam-mesh` pulls.
+outram-park-fork-cfmesh = { workspace = true, features = ["foam-export", "cell-centre-dual"] }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature

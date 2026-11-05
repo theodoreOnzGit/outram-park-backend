@@ -79,3 +79,21 @@ that runs the pipeline twice in one process cannot see `HashMap` iteration
 order (seeded per process); `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
 asserts fingerprints recorded once. `octree.rs` still numbers cells in
 `HashSet` order (the `refinement_levels > 0` path): not yet fixed.
+
+## The dual's boundary faces: three dual kinds, kept side by side (gh:#1240, 2026-11-04)
+
+`TetDualOptions::dual_kind` picks the dual: `MedianPerCorner` (default,
+unchanged: one boundary face per boundary-triangle corner, 4–8 per wall
+cell, median 69° to the owner), `MedianPerPoint` (`dual::polyhedral_dual_per_point`:
+OpenFOAM-dev `852527377c7e` `polyDualMesh`'s boundary rule on the median
+dual, one face per point per feature-bounded sector) and `CellCentre`
+(`cell_centre_dual`, feature `cell-centre-dual`: `outram-foam-mesh`'s
+`poly_dual_mesh` itself; this crate may depend on it, it does not depend on
+this crate). `dual_feature_points` picks upstream's two rules
+(`OnFeatureEdge`, the utility's; `Corners`, the class's); with
+`OnFeatureEdge` no back-off layer grows on a pipe (cfMesh's border cap is 0
+at a rim vertex collinear with its neighbours). The ~40-line sector walk is
+written in both crates (this one builds dependency-free); change one, change
+the other. Comparison and recommendation: the gh:#1240 section of
+`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+Changing the default needs the maintainer.

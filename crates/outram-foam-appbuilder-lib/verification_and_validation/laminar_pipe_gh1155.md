@@ -1495,7 +1495,7 @@ between the slices; the wall map draws points, not faces.
 
 ### Open (gh:#1215)
 
-- The dual's boundary faces (above): the lead.
+- ~~The dual's boundary faces (above): the lead.~~ **Done 2026-11-04, gh:#1240** (section below): ported as two dual kinds, default unchanged.
 - CfMesh's thickness: port `refineBoundaryLayers`' `maxFirstLayerThickness`
   / `thicknessRatio`, so the requested first layer is honoured.
 - CfMesh's cost: the volume optimiser runs on up to 2 point-layers of
@@ -1510,6 +1510,380 @@ between the slices; the wall map draws points, not faces.
   checked against its upstream on a shared case; the differential above is
   between the ports and the back-off.
 
+## The dual's boundary faces: per corner, per point, cell-centre, differentially (gh:#1240)
+
+**Issue:** gh:#1240, the lead of gh:#1215. The median dual
+(`outram-park-fork-cfmesh::dual`) gives every wall cell one boundary face
+per boundary-triangle corner (4–7+ per cell); a face's centre-to-owner line
+leaves it at a median 69°, 4 720 of 7 632 wall faces above 65° on the bare
+h 5 mm pipe, and that angle is inherited by every prism stacked on it.
+
+### What was built (2026-11-04)
+
+| `TetDualOptions::dual_kind` | code | upstream (OpenFOAM-dev `852527377c7e`) |
+|---|---|---|
+| `MedianPerCorner` (**default**, unchanged) | `dual::polyhedral_dual_min_faces` | none: this crate's median dual, per-corner quads `[v, em, fc, em]` |
+| `MedianPerPoint` (Route A) | `dual::polyhedral_dual_per_point` | the boundary rule of `polyDualMesh`: feature edges from `simpleMarkFeatures` (`applications/utilities/mesh/manipulation/polyDualMesh/polyDualMesh.C`: patch seams always, normals more than the feature angle apart; every point on a feature edge a feature point), faces from `meshDualiser::createFacesAroundBoundaryPoint` (`meshDualiser.C`: one ring per point, closed at every feature edge), `polyDualMesh::splitFace` (`src/conversion/polyDualMesh/polyDualMesh.C`: fewer than two feature edges, no split) |
+| `CellCentre` (Route B) | `cell_centre_dual` (feature `cell-centre-dual`) → `outram-foam-mesh::poly_dual_mesh` | the same boundary rule, now in the existing port too; its interior (cell-centre rings around interior edges) is unchanged and was already a port of `polyDualMesh::calcDual` |
+
+Both new kinds name the tet boundary into the input regions before the dual
+(`assign_patches_by_region`), so the inlet/wall and outlet/wall seams are
+feature edges, as upstream's patch edges are. Feature angle 45° (the
+`polyDualMesh` CLI default of `outram-foam-cli`; upstream's utility takes it
+as a required argument).
+
+**`outram-foam-mesh::poly_dual_mesh` was changed to upstream's rule** (it
+emitted one quad per boundary face at a feature point, and tested points,
+not edges, against the angle; patch seams were not features): the block V&V
+tests still pass, and the 120° corner-cutting test now runs on a one-patch
+block, since a six-patch block keeps its edges at any angle (upstream's
+rule). New: `boundary_faces_one_per_point_per_sector`.
+
+**Sharing decision.** `outram-foam-mesh` does not depend on this crate, so
+this crate may depend on it, optionally (`cell-centre-dual`), with no cycle:
+Route B *is* the outram-foam-mesh code, converted (`cell_centre_dual.rs`
+only reorders faces and maps types). Route A cannot call it: the cfMesh
+crate builds with no dependency by default, and Route A's interior is the
+median dual's. The ~40-line sector walk is therefore written twice
+(`dual::boundary_faces_per_point`, `poly_dual_mesh::build_boundary_faces_for_point`),
+each citing the other and upstream.
+
+**Deviation kept in both:** upstream puts a dual vertex at the midpoint of
+*feature* edges only; both routes put one on every boundary edge (the
+median dual needs it to close its boundary-edge faces; in outram-foam-mesh
+it reproduces a flat patch exactly).
+
+### Predictions (written 2026-11-04, before any differential run)
+
+Inputs: the gh:#1215 meshes (the demo pipe R 10 mm, L 200 mm, 48 facets, at
+h 4 / 5 / 6 mm; the tet-dual box duct 20 × 20 × 200 mm at h 5 mm), wall-only
+layers first 0.3 mm × 1.2. Baseline (`MedianPerCorner`) numbers are
+gh:#1215's.
+
+| quantity | `MedianPerCorner` | `MedianPerPoint` (A) | `CellCentre` (B) |
+|---|---|---|---|
+| cells | as gh:#1215 (h 5 bare 3 113) | **= corner, exactly** (one per primal point) | = corner exactly, **if** the dual passes the gate (60 %: the centroid rings of slivers may invert a cell; on failure the pipeline falls back to corner with a note) |
+| internal faces | — | **the corner dual's rings exactly** (same interior code); geometry differs only where the feature-edge capture moves boundary vertices differently | one per interior edge as corner, but rings of tet centroids only (about half the vertices) |
+| wall faces per wall cell | 4 or 7+ (h 5: 648 / 624) | **1 for every wall cell** (rim points: 1 wall + 1 inlet face) | 1, as A |
+| wall faces | 7 632 (h 5) | = wall cells ≈ 1 288 | ≈ 1 288 |
+| wall face-to-owner angle | median 69°, p90 74.6°, max 75.1° | **median 15–30°, p90 < 45°, max < 65°**; > 65°: 0–20 | similar to A (±10°) |
+| internal NO (whole mesh) | max 47–57° bare (gh:#1215 snappy rows) | = corner ± 3° | mean within ±5° of corner, max up to +10° (non-planar centroid rings) |
+| max faceSkewness | 0.84–0.89 | within ±0.2 of corner | within ±0.5 |
+| closure | valid | valid | valid if accepted |
+| volume / πR²L (pipe) | (measured here) | **0.5–2 % below corner** at h 5 (the dropped vertex: a ring of radius ≈ 0.4 h on the cylinder sags ≈ (0.4h)²/2R inside); larger at h 6, smaller at h 4 | within 0.3 % of A (same boundary tiling; different interior only) |
+| volume (duct) | exact | **= corner to 1e-6** (flat sides, the 90° edges are features) | = corner to 1e-6 |
+| inlet area / πR² | (measured here) | = corner within 0.5 % (rim points kept, faces planar) | = corner within 0.5 % |
+| determinism | pinned | identical across processes (BTreeMap walk) | identical (HashMaps there are lookups only) |
+| **3 layers, BackOffOnly, h 5**: max NO / > 65° | 81.7° / 4 720 | **60–72° / < 300** | as A ± 5° |
+| 3 layers, SnappyCollapse, coverage | 0 % | **40–100 %** (1 layer 60–100 %) | as A ± 20 points |
+| 3 layers, CfMeshOptimise | 100 %, 48 s | 100 %, **2–10× faster** (fewer low-quality faces) | as A |
+| duct, 2–3 layers | as gh:#1215 | all strategies keep layers; snappy ≥ 80 % | as A |
+| flow, bare h 4 (demo default) u_c/2U, dp/dz/HP | 0.8925, 1.0326 | u_c within ±0.02 of corner; **dp/dz +2 to +5 %** (the smaller section from the volume loss) | as A ± 2 % |
+| flow, h 5, 3 layers BackOffOnly | diverged | **runs** (65 %): u_c 0.90–0.93, dp/dz 0.98–1.04, τ_w within 5 % of HP | runs (50 %), as A ± 3 % |
+
+Where A and B should differ, and why: only in the interior (median corners
+at face and cell centroids against tet centroids), so mesh-level boundary
+quantities (wall-face count, wall angle, volume, inlet area) should agree
+closely and interior non-orthogonality, skewness and validity may not.
+Where A and corner should differ: only at the boundary faces; any change in
+the interior quality beyond the boundary vertex moves is a finding.
+
+### First runs, a defect found, and a second variant (2026-11-04)
+
+The bare-mesh rows and the BackOffOnly / SnappyCollapse layer rows were run
+first (results below). **BackOffOnly grew no layer on either new route**, at
+any h and any N. The cause, found with `diagnose_back_off_on_dual_kinds`
+(the back-off's candidates at the cap × 0.6^k on the bare h 5 mm pipe):
+**16 faces with a non-positive pyramid at every thickness down to 1 % of
+the cap**, and a per-point cap of 0 m somewhere. They sit on the inlet and
+outlet rims. With `FeaturePointRule::OnFeatureEdge` (OpenFOAM's
+`polyDualMesh` *utility*: every point on a feature edge keeps its vertex),
+a rim point's inlet face is `[v, em₁, fc, …, em₂]` with `em₁`, `v`, `em₂`
+on the rim; on a straight stretch of the 48-gon they are collinear, and the
+layer stage's border limit (cfMesh `boundaryLayers::createNewVertices`,
+"limit distances": 0.9 × the distance from the point to the segment between
+its two neighbours in the non-layer face, ported as upstream has it) is
+then **0**. A zero-thickness column next to full ones folds the layer cell
+there. cfMesh's rule assumes the vertex is not collinear with its
+neighbours; nothing in it is wrong for cfMesh's own meshes.
+
+OpenFOAM has a second `polyDualMesh`: the **class**
+(`src/conversion/polyDualMesh/polyDualMesh.C`, the one the brief names).
+Its `calcFeatures` keeps only points with **more than two** feature edges;
+a point on a feature line is dropped and its ring split along the line
+(`splitFace`), so the inlet and wall faces of a rim point meet on the chord
+`em₁–em₂`, which on a straight stretch passes through the dropped point.
+Both rules are now callable (`TetDualOptions::dual_feature_points`:
+`OnFeatureEdge`, the default, and `Corners`; the same enum in
+`outram-foam-mesh` as `FeaturePoints`), and both are run below.
+
+**Predictions for `Corners`, written before its differential rows (one
+diagnostic already run, said here so the prediction is not mistaken for a
+blind one):** the diagnostic showed the h 5 mm back-off candidates with no
+bad pyramid and max non-orthogonality 55° (1 layer) and 54–66° (3 layers,
+× 0.6 and × 1). Predicted for the table: bare cell counts, wall faces per
+wall cell, internal NO and the wall face-to-owner angle as `OnFeatureEdge`
+(± 1° on the medians); volume and inlet area within 2e-4 of `OnFeatureEdge`
+(the rim chords cut only at the 48-gon's corners); BackOffOnly now grows
+full layers at 1–3 layers at h 4 / 5 / 6 with max NO < 70°; SnappyCollapse
+coverage ≥ 80 % at 1 layer and ≥ 50 % at 3 layers; the 3-layer h 5 mm solve
+runs, u_c/2U 0.90–0.94, dp/dz 0.98–1.04 × HP.
+
+### Methodology (as run)
+
+- **Mesh level:** `outram-park-fork-cfmesh`
+  `pipeline::tests::diagnose_dual_kinds_differential` (`--ignored
+  --features cell-centre-dual`; filters `CFMESH_CASE`, `CFMESH_DUAL`,
+  `CFMESH_LAYERS`, `CFMESH_STRATS`, `CFMESH_FP=corners`; `CFMESH_DET=1`
+  re-runs each bare mesh in the same process). Internal non-orthogonality
+  as `check_quality` measures it (owner-to-neighbour centre line against
+  the face normal), per face; the **wall face-to-owner angle** is the
+  same instrument on a wall face with the face centre in place of the
+  neighbour (what a prism stacked on the face inherits at its top);
+  faceSkewness is OpenFOAM's (`check_quality`); volume and inlet area
+  against πR²L and πR² (also against the 48-gon). For full-coverage
+  back-off meshes, which of snappy's `meshQualityDict` checks the layer
+  cells' faces fail, one at a time. `diagnose_back_off_on_dual_kinds`
+  prints the back-off's candidates at cap × 0.6^k.
+- **Solve level:** Foam Studio `--headless-unstructured h n 0.3 1.2 100`
+  with `FOAM_DUAL_KIND=corner|point|centre`, `FOAM_DUAL_FP=corners` and
+  `FOAM_LAYER_STRATEGY`, the demo pair, Re 100, to the steady criterion
+  (5 000-step cap); nominal instruments as the gh:#1202 / #1215 rows.
+- **Determinism:** each bare mesh was fingerprinted in three separate
+  processes (two differential runs and a direct run of the test binary):
+  identical every time; pinned by `dual_kinds_are_pinned_bit_for_bit`.
+- Times are native release on the shared 4-core host with other jobs
+  running (upper bounds).
+
+### Results (2026-11-04)
+
+**Bare meshes** (no layer). `E` = `FeaturePointRule::OnFeatureEdge`
+(the default of the new kinds), `C` = `Corners`. Wall faces per wall cell
+as counts of cells with 1 / 2 / 3 / 4 / 7+; NO = internal
+non-orthogonality (mean, max); wall angle = face-to-owner angle (median,
+p90, max; count above 65°).
+
+| case | dual | cells | wall faces (cells) | per wall cell | NO mean / max (°) | wall angle p50 / p90 / max (°), > 65 | skew | V/πR²L | inlet/πR² |
+|---|---|---|---|---|---|---|---|---|---|
+| pipe h 4 | corner | 6 353 | 11 968 (2 020) | 0 / 8 / 16 / 1 016 / 980 | 11.4 / 50.6 | 68.3 / 77.0 / 77.6, 6 720 | 0.84 | 0.99545 | 0.99355 |
+| | point E | 6 353 | 2 036 | 2 004 / 16 | 11.4 / 50.6 | 26.7 / 48.9 / 74.4, 16 | 0.85 | 0.99217 | 0.99355 |
+| | centre E | 6 353 | 2 036 | 2 004 / 16 | 11.9 / 52.4 | 26.9 / 48.2 / 77.0, 16 | 0.91 | 0.99217 | 0.99355 |
+| | point C | 6 353 | 2 036 | 2 004 / 16 | 11.5 / 50.6 | 26.7 / 48.9 / 78.7, 16 | 0.85 | 0.99122 | **1.00816** |
+| | centre C | 6 353 | 2 036 | 2 004 / 16 | 12.0 / 52.3 | 27.6 / 48.2 / 81.7, 16 | 0.92 | 0.99122 | **1.00816** |
+| pipe h 5 | corner | 3 113 | 7 632 (1 288) | 0 / 0 / 16 / 648 / 624 | 16.3 / 47.0 | 69.3 / 74.6 / 75.1, 4 720 | 0.84 | 0.99387 | 0.99056 |
+| | point E | 3 113 | 1 320 | 1 256 / 32 | 16.3 / 47.0 | 25.6 / 44.3 / 67.4, 16 | 0.86 | 0.98892 | 0.99145 |
+| | centre E | 3 113 | 1 320 | 1 256 / 32 | 16.7 / 47.7 | 26.2 / 43.8 / 70.5, 16 | 0.92 | 0.98892 | 0.99145 |
+| | point C | 3 113 | 1 304 | 1 272 / 16 | 16.3 / 47.0 | 25.6 / 43.9 / 45.6, **0** | 0.86 | 0.98887 | 0.98287 |
+| | centre C | 3 113 | 1 304 | 1 272 / 16 | 16.7 / 47.7 | 26.2 / 43.3 / 45.5, **0** | 0.92 | 0.98887 | 0.98287 |
+| pipe h 6 | corner | 1 939 | 4 774 (807) | 0 / 8 / 0 / 403 / 386 (+10 with 6) | 11.1 / 56.2 | 60.1 / 74.5 / 81.4, 2 026 | 0.89 | 0.99056 | 0.99008 |
+| | point E | 1 939 | 828 | 790 / 13 / 4 | 11.1 / 56.5 | 11.6 / 40.6 / 85.6, 8 | 0.96 | 0.98216 | 0.98956 |
+| | centre E | 1 939 | 828 | 790 / 13 / 4 | 12.0 / 57.7 | 11.0 / 39.4 / 86.6, 10 | 1.02 | 0.98216 | 0.98956 |
+| | point C | 1 939 | 827 | 793 / 11 / 4 | 11.2 / 56.7 | 11.6 / 40.6 / 77.7, 4 | 0.90 | 0.98081 | 0.98572 |
+| | centre C | 1 939 | 827 | 793 / 11 / 4 | 12.0 / 57.9 | 11.0 / 39.4 / 80.9, 2 | 1.09 | 0.98081 | 0.98572 |
+| duct h 5 | corner | 3 921 | 7 680 (1 296) | 0 / 0 / 0 / 672 / 624 | 6.0 / 25.6 | 58.4 / 72.6 / 72.6, 2 560 | 0.69 | 1.00000 | 1.00000 |
+| | point E / C | 3 921 | 1 460 | 1 132 / 164 | 6.0 / 25.3 | 0.0 / 8.4 / 11.4 (C: 14.3), 0 | 0.74 | 1.00000 | 1.00000 |
+| | centre E / C | 3 921 | 1 460 | 1 132 / 164 | 7.1 / 32.9 | 0.0 / 7.9 / 11.0 (C: 13.8), 0 | 0.88 | 1.00000 | 1.00000 |
+
+All closed and valid; fingerprints identical across processes for every
+row. (The h 6 mm corner row carries gh:#1215's note "34 boundary points
+left unmapped" by the feature-edge capture; the C rows at h 4 and h 6 mm
+carry 128 and 64.)
+
+**Layers, `Corners` rule** (wall-only, first 0.3 mm × 1.2; coverage = wall
+faces with all N layers; NO max; faces > 65°; minDet). The corner rows
+are gh:#1215's, reproduced in the same run.
+
+| case | dual | BackOffOnly N = 1 | N = 2 | N = 3 | SnappyCollapse N = 1 / 2 / 3 coverage |
+|---|---|---|---|---|---|
+| pipe h 5 | corner | 1.0, 74.7°, 4 672, 5.5e-2 | 1.0, 79.4°, 4 720 | 1.0, 81.7°, 4 720, 6.8e-3 | 0 / 0 / 0 |
+| | point C | **1.0, 55.2°, 0**, 5.4e-2 | 1.0, 66.0°, 747, 1.1e-3 | **1.0, 66.0°, 747**, 1.1e-3 | **0.914** / 0 / 0 |
+| | centre C | **1.0, 55.2°, 0**, 2.2e-2 | **1.0, 55.0°, 0**, 1.5e-2 | **1.0, 55.0°, 0**, 5.6e-3 | 0.626 / 0 / 0 |
+| pipe h 4 | corner | 1.0, 78.2°, 6 320 | 1.0, 83.5°, 6 736 | 1.0, 84.4°, 6 752 | 0 / 0 / 0 |
+| | point C | 1.0, 63.7°, 0 | 1.0, 68.1°, 32 | 1.0, 69.8°, 32, 9.3e-3 | 0.953 / 0 / 0 |
+| | centre C | 1.0, 71.8°, 24 | 1.0, 72.2°, 32 | 1.0, 74.3°, 32, 5.1e-3 | 0.580 / 0 / 0 |
+| pipe h 6 | corner | 1.0, 77.0°, 1 956 | 1.0, 84.2°, 2 308 | none (back-off found none) | 0.054 / 0 / 0 |
+| | point C | 1.0, 73.6°, 3 | 1.0, 74.1°, 5 | 1.0, 73.2°, 8 | 0.363 / 0 / 0 |
+| | centre C | 1.0, 77.3°, 5 | 1.0, 78.0°, 9 | 1.0, 77.1°, 10 | 0.363 / 0 / 0 |
+| duct h 5 | corner | 1.0, 71.2°, 2 560 | (gh:#1215) 80.2° | 80.4° | 0 / 0 / 0 |
+| | point C | 1.0, 45.7°, 0 | 1.0, 62.1°, 0 | 1.0, 62.1°, 0 | 0.989 / 0 / 0 |
+| | centre C | 1.0, 50.8°, 0 | 1.0, 53.4°, 0 | 1.0, 53.4°, 0 | 0.989 / 0 / 0 |
+
+**Layers, `OnFeatureEdge` rule** (the first runs): BackOffOnly grew **no
+layer on any pipe** of either new kind at any h and N (the duct, with no
+rim on a curve, took full layers: point N = 3 at 62.1°); SnappyCollapse
+covered 96–97 % (point) and 70–97 % (centre) at N = 1, 65 % at h 6 mm, and
+0 at N = 2 and 3. The cause is above (first runs): 16 rim faces with a
+non-positive pyramid at every thickness, from the zero border cap at a
+collinear rim vertex.
+
+Which of snappy's checks the layer cells' faces fail (back-off, full
+coverage, h 5 mm, `Corners`), one at a time:
+
+| case | NO > 65 | tet quality | twist | det | face weight | vol ratio |
+|---|---|---|---|---|---|---|
+| pipe corner N = 1 / 3 | 4 672 / 4 720 | 0 / 0 | 0 / 8 | 0 / 352 | 0 / 2 560 | 1 232 / 2 536 |
+| pipe point N = 1 / 3 | **0 / 0** | 29 / 132 | 8 / 29 | 0 / 0 | 0 / 156 | 0 / 0 |
+| pipe centre N = 1 / 3 | **0 / 0** | 29 / 141 | 8 / 30 | 0 / 144 | 0 / 164 | 0 / 0 |
+| duct point N = 1 / 3 | 0 / 0 | 16 / 744 | 0 / 32 | 0 / 0 | 0 / 0 | 0 / 0 |
+| duct centre N = 1 / 3 | 0 / 0 | 16 / 744 | 0 / 16 | 0 / 0 | 0 / 0 | 0 / 0 |
+
+**CfMeshOptimise, `Corners`, h 5 mm:** point N = 1: 100 %, 279 s, mean
+total 0.89 mm, NO max 56.1°, 29 bad faces left; N = 3: 100 %, 249 s,
+0.89 mm, 57.7°, 77 left. Centre N = 1: 100 %, 135 s, 1.06 mm, 56.1°;
+N = 3: 100 %, 140 s, 1.07 mm, 57.2°, 77 left. (gh:#1215's corner rows:
+27 s and 48 s, NO 63.4° and 66.2°.)
+
+**Solve level** (Re 100, demo pair; steps, u_c/2U, (−dp/dz)/HP, profile
+RMS, τ_w/HP):
+
+| h, N, strategy | corner | point E | centre E | point C | centre C |
+|---|---|---|---|---|---|
+| 4, bare (demo default) | 29, 0.8925, 1.0326, 0.0356, 1.0312 | 29, 0.9003, 1.0579, 0.0322, 1.0586 | 27, 0.8819, 1.0621, 0.0372, 1.0628 | 29, 0.8677, 1.0152, 0.0485, 1.0158 | 28, 0.8502, 1.0190, 0.0526, 1.0197 |
+| 5, bare | 24, 0.9005, 0.9925, 0.0486, 0.9908 | 23, 0.9145, 1.0340, 0.0436, 1.0357 | 28, 0.9081, 1.0227, 0.0446, 1.0240 | 24, 0.9068, 1.0246, 0.0471, 1.0263 | 27, 0.9004, 1.0134, 0.0482, 1.0147 |
+| 5, 1, BackOff | 28, 0.8954, 0.9705, 0.0509, 0.9678 | (no layer: = bare) | (= bare) | 23, 0.9070, 1.0391, 0.0466, 1.0411 | 29, 0.9005, 1.0331, 0.0479, 1.0351 |
+| 5, 1, Snappy | = bare | — | — | 23, 0.9070, 1.0391, 0.0466, 1.0411 (91 % covered) | 29, 0.9004, 1.0136, 0.0485, 1.0298 (63 %) |
+| 5, 2, BackOff | 117, 0.8990, 0.9946, 0.0500, 0.9785 | — | — | **diverged** | 32, 0.9001, 1.0294, 0.0481, 1.0313 |
+| 5, 3, BackOff | **diverged** | (= bare) | (= bare) | **diverged** | **diverged** |
+| 4, 3, BackOff | **diverged** | — | — | **diverged** | **diverged** |
+| 6, 3, BackOff | no layer | — | — | **diverged** | **diverged** |
+| 5, 3, CfMesh | 425, 0.9215, 0.9977, 0.0321, 0.9935 (mesh 79 s) | — | — | **runs: 22, 0.9182, 1.0068, 0.0361, 1.0109** (mesh 373 s) | **runs: 26, 0.9314, 1.0050, 0.0322, 1.0056** (mesh 167 s) |
+
+The structured default was re-run: 34 steps, u_c/2U **0.9940**, dp/dz
+**1.0154**, RMS 0.0063, τ_w 1.0066, unchanged. The unstructured default
+(per-corner, h 4 mm, no layer) is unchanged: 0.8925 / 1.0326, as
+`headless_unstructured_pipe_runs_and_is_pinned` asserts (it passes), and
+its cfMesh-pipeline fingerprint (L 200 mm, `pipe_surface`)
+18084991279620725399 is the same in all three processes; the per-corner
+code path is untouched (`back_off_only_layers_are_pinned_bit_for_bit`,
+`layer_strategies_are_deterministic` pass with their old pins).
+
+### Against the predictions
+
+| prediction | result | verdict |
+|---|---|---|
+| cells = corner exactly | equal at every h, both kinds, both rules | held |
+| centre passes the gate (60 %) | passed everywhere, no fall-back | held |
+| internal faces = corner's rings (A) | NO distribution equal to 0.1° (mean, p50, p90, p99, max) at every h | held |
+| 1 wall face per wall cell | 97–99 % of wall cells have 1, the rest 2 (3 for 4 cells at h 6 mm): the rim (1 wall + 1 inlet) is as predicted, the 2-face cells are where the feature angle (45°) splits a wall point's ring on a fold of the snapped tet surface, and on the duct the long-edge points (2 sides) | held in substance; "1 for every cell" missed by 1–3 % |
+| wall angle median 15–30°, p90 < 45°, max < 65° | median 11–28°, p90 39–49°; max 67–87° with `E`, 45.5° at h 5 with `C` but 78–82° at h 4 / h 6 | median held; p90 missed at h 4 (48.9°); max missed except h 5 `C` |
+| B wall angle ± 10° of A | within 1° on the medians | held |
+| internal NO of B: mean ± 5°, max up to +10° | mean +0.4–0.9°, max +0.7–1.7° | held |
+| skewness ± 0.2 / ± 0.5 | A +0.01–0.07, B +0.07–0.20 | held |
+| volume 0.5–2 % below corner at h 5 | −0.50 % (h 5), −0.33 % (h 4), −0.85 % (h 6) | held at h 5 and 6; h 4 below the low edge |
+| B volume within 0.3 % of A | **identical** to 5 digits: the boundary tiling and the mapped boundary vertices are the same in both, and only boundary faces enter the volume | held |
+| duct volume = corner | 1.00000 | held |
+| inlet area within 0.5 % of corner | `E`: +0.09 %, 0.0, −0.05 %; `C`: **+1.5 % (h 4), −0.8 % (h 5), −0.4 % (h 6)** | held with `E`; **missed** with `C` (predicted 2e-4) |
+| deterministic | identical across three processes | held |
+| BackOff 3 layers h 5: max NO 60–72°, > 65° < 300 | `E`: **no layer at all**; `C`: point 66.0° / 747, centre 55.0° / 0 | `E` **missed**; `C` held for centre, point missed on the count |
+| Snappy coverage 40–100 % at 3 layers | **0 everywhere** (N = 1: 36–99 %) | **missed** |
+| CfMesh 2–10× faster | 3–6× **slower** (135–279 s against 27–48 s) | **missed** |
+| duct, all strategies keep layers | BackOff and CfMesh yes; snappy only at N = 1 | missed for snappy at N ≥ 2 |
+| flow bare h 4: u_c ± 0.02, dp/dz +2 to +5 % | `E`: u_c +0.008 / −0.011, dp/dz +2.5 / +2.9 %; `C`: u_c −0.025 / −0.042, dp/dz −1.7 / −1.3 % | `E` held; `C` missed on both |
+| h 5, 3 layers BackOff runs (65 %) | **diverged** on both kinds (with `C`; with `E` no layer grew) | **missed** |
+| (not predicted) 3 layers under CfMeshOptimise | **run on both kinds with `C`**: point 22 steps, centre 26 (corner: 425); centre u_c 0.9314, dp/dz 1.0050, τ_w 1.0056 | — |
+
+### Where the routes agree and differ, and why
+
+- **A against corner:** same cells and the same interior rings (NO
+  distribution equal); they differ only at the boundary, as intended: one
+  face per point instead of 4–8, wall angle median 69° → 26° (h 5). The
+  volume is 0.3–0.9 % lower because the merged face drops the vertex `v`
+  on the curved wall and the face centroid sits inside the cylinder by
+  the sagitta of a ring of radius ≈ 0.4 h. The flow changes follow the
+  section: at h 4 mm dp/dz rises 2.5 % (0.33 % less area, and the near-wall
+  cells now centred on the wall points), at h 5 mm by 4.2 %.
+- **B against A:** identical boundary (volume, inlet area, wall-face
+  counts to the face); they differ in the interior only, where the
+  cell-centre rings (tet centroids) are slightly less orthogonal (+0.4–0.9°
+  mean) and more skewed (+0.07–0.2) than the median rings, and the dual
+  cells' centres sit elsewhere, which moves u_c by 0.7–2 % against A at the
+  same h. With layers, B is the better of the two on the pipe at h 5 mm
+  (55° against 66° at N = 2–3, no face above 65°) and the worse at h 4 and
+  6 mm (72–78° against 64–74°); its 2-layer h 5 mm solve runs where A's
+  diverges.
+- **`E` against `C`:** `E` keeps a vertex at every rim point; on a straight
+  stretch of the 48-gon it is collinear with its two feature-edge
+  neighbours, and cfMesh's border cap is then zero: no back-off layer can
+  grow. `C` drops those vertices (the `polyDualMesh` class) and every
+  back-off grows, but the rim becomes a chain of chords that the
+  feature-edge capture then maps less well: 128 / 64 boundary points left
+  unmapped at h 4 / 6 mm (none with `E`), and the inlet area off by +1.5 %
+  / −0.8 % / −0.4 %. That is the likely cause of `C`'s 3.6 % lower u_c at h 4 mm (not isolated).
+- **Snappy at N ≥ 2:** with the non-orthogonality gone, what still fails
+  is snappy's `minTetQuality` and `minTwist` on 100–750 layer faces (the
+  side faces of a prism on a 10–14-vertex, non-planar wall polygon), and
+  its unextrusion loop then removes every point within 2–3 iterations.
+  That the whole wall goes from a few hundred failing faces is the
+  port's loop as run (each removal leaves wedge cells whose faces fail in
+  turn); it was not traced face by face here. **Open.**
+- **3-layer divergence** with BackOff on the new duals, whose mesh passes
+  the layer checks (NO ≤ 66°, minDet ≥ 1e-3): not explained here. The
+  corner dual's 3-layer divergence was attributed (gh:#1202) to one
+  shrunk dual cell over the stack; on the per-point duals the smallest
+  determinant is 1.1e-3 (point, 2–3 layers) and 5.6e-3 (centre, 3 layers),
+  against 1.5e-2 on the centre 2-layer mesh that runs. **Open.**
+
+### Recommendation (for the maintainer; the default is not changed)
+
+**Keep `MedianPerCorner` as the default for now.** The boundary-face defect
+is real and the port fixes it (wall angle 69° → 26°, the 65° failures gone
+from every layer face), and **three layers now run**, but only through
+cfMesh's optimiser: `CellCentre` + `Corners` + `CfMeshOptimise` at h 5 mm
+reaches steady in 26 steps with u_c/2U 0.9314, dp/dz 1.0050 and τ_w 1.0056
+× Hagen–Poiseuille, the closest to HP of any unstructured row in this
+record, but its meshing took 167 s (with other jobs running), too slow for
+the browser demo. (Its total layer thickness, 1.07 mm, is the requested
+0.3 × (1 + 1.2 + 1.44) = 1.09 mm here; the first layer's thickness was not
+measured.) With the back-off,
+three layers still diverge and snappy still collapses at two. **The
+candidate to adopt next is `CellCentre` with `Corners`**: at h 5 mm its
+back-off layers keep every face ≤ 55° and 2 layers run (u_c 0.900, dp/dz
+1.029). Before a default change: (1) fix the rim mapping of the chord chain
+(port cfMesh's `correctEdgesBetweenPatches`, already open), (2) trace the
+3-layer back-off divergence, (3) understand snappy's tet-quality cascade,
+(4) bound cfMesh's optimiser cost. Changing the default re-pins
+`headless_unstructured_pipe_runs_and_is_pinned` and re-measures every
+unstructured number in this record.
+
+### Images (drawn from the mesh the solver gets)
+
+In `laminar_pipe_gh1155/dual_kinds_gh1240/`, written by
+`cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds`
+(and again with `FOAM_DUAL_FP=corners`, files `dual_<kind>_corners_*`):
+`dual_<kind>_h5_wall_cell.png` (the wall faces of the wall cell at
+mid-length, unrolled, each face's face-to-owner angle at its centre, the
+owner centre marked), `_bare_xy.png` and `_bare_xy_wall.png` (cross-section
+at mid-length and its wall zoom), `_3layers_xz_rim.png` (inlet rim, three
+back-off layers).
+
+**Checked by eye (2026-11-04):** `corner` wall cell: 8 wall faces around
+the point (52–57° by this picture's owner centre, a vertex-weighted
+estimate; the table's 69° median is over all wall faces with the
+volume-weighted centres); `point` and `centre`: one octagon-like face
+around the point, 1° from its owner. Corner 3-layer rim: three thin
+prisms under the wall cells down to the inlet (gh:#1215's picture).
+Point-`C` 3-layer rim: three layers 0.26–0.43 mm, ending cleanly on the
+inlet at z = 0, the rim cell's column leaning inward; with `E` the rim
+picture is the bare mesh (no layer grew). `centre` bare wall zoom: one
+large wall cell spanning the zoom, its wall side a polyline of the face
+chords. **Not checked:** the 3-D shape of the rim cells, and where on the
+rim the unmapped points of the `C` meshes sit.
+
+### Open (gh:#1240)
+
+- The 3-layer divergence on the per-point duals (above), and snappy's
+  collapse at N ≥ 2.
+- `Corners` and the feature-edge capture: port cfMesh's
+  `correctEdgesBetweenPatches` (gh:#1202's open item), then re-measure the
+  inlet area.
+- cfMesh's border cap on a vertex collinear with its neighbours (zero):
+  upstream's rule as written; with `OnFeatureEdge` it stops every back-off
+  layer. A change to it would be a deviation from cfMesh, for the
+  maintainer.
+- Upstream OpenFOAM `polyDualMesh` is not installed here, so neither route
+  was checked against it on a shared case.
+- `octree.rs`'s `HashSet` numbering (refinement path): untouched.
+
 ## Reproduce
 
 ```bash
@@ -1521,4 +1895,11 @@ cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture d
 cargo test --release -p outram-park-fork-cfmesh --lib -- --ignored --nocapture diagnose_wall_faces_per_dual_cell
 FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies
+# gh:#1240, the dual kinds
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+CFMESH_FP=corners cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_back_off_on_dual_kinds
+FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
+FOAM_DUAL_FP=corners cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-dual-kinds
 ```

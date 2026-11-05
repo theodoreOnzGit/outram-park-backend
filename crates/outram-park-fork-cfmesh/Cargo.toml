@@ -39,12 +39,17 @@ maturity = 2
 # it is off by default so the base build pulls nothing.
 [features]
 foam-export = ["dep:outram-foam-basic-lib"]
+# The cell-centre dual (gh:#1240, `dual::DualKind::CellCentre`): OpenFOAM's
+# `polyDualMesh` as ported in `outram-foam-mesh` (pure Rust, Android- and
+# wasm-safe). outram-foam-mesh does not depend on this crate: no cycle.
+cell-centre-dual = ["dep:outram-foam-mesh", "dep:outram-foam-basic-lib"]
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
 outram-foam-basic-lib = { workspace = true, optional = true }
+outram-foam-mesh = { workspace = true, optional = true }
 
 [dev-dependencies]
 

@@ -24,7 +24,8 @@
 //                       preserved) to a tight tolerance, and each interior dual
 //                       cube has the analytic volume h^3;
 //   (V&V-4) feature   — with a feature angle > 90° the block's sharp edges are
-//                       (incorrectly) merged, cutting the corners and *reducing*
+//                       (incorrectly) merged (on the block with ONE patch:
+//                       since gh:#1240 patch seams are features at any angle), cutting the corners and *reducing*
 //                       the total volume; this demonstrates the feature-angle
 //                       control is live.
 //   (V&V-5) FvMesh    — the emitted outram-foam-basic-lib FvMesh validates and
@@ -138,9 +139,21 @@ fn interior_dual_cells_are_unit_cubes() {
 
 /// (V&V-4) feature-angle control: merging away the block's 90° edges cuts the
 /// corners and reduces the enclosed volume.
+///
+/// ~~On the six-patch block.~~ **CHANGED 2026-11-04 (gh:#1240):** patch seams
+/// are now feature edges whatever the angle (upstream `simpleMarkFeatures`,
+/// step 1), so the six-patch block keeps its edges at 120° too; the angle
+/// test runs on the block with its boundary in ONE patch, and the six-patch
+/// block is checked to keep its volume at 120°.
 #[test]
 fn large_feature_angle_cuts_corners_and_loses_volume() {
-    let primal = PolyMesh::structured_hex_block(3, 3, 3, 3.0, 3.0, 3.0);
+    let mut primal = PolyMesh::structured_hex_block(3, 3, 3, 3.0, 3.0, 3.0);
+    let six = primal.clone();
+    let n_bnd = primal.faces.len() - primal.n_internal_faces;
+    let start = primal.n_internal_faces;
+    primal.patches.truncate(1);
+    primal.patches[0].start = start;
+    primal.patches[0].size = n_bnd;
     let preserved = poly_dual_mesh(&primal, 45.0)
         .expect("dual45")
         .total_volume();
@@ -157,6 +170,49 @@ fn large_feature_angle_cuts_corners_and_loses_volume() {
     );
     // Sanity: still positive and not absurd.
     assert!(merged > 0.0 && merged < preserved);
+    // Patch seams are features at any angle (upstream's rule).
+    let seams = poly_dual_mesh(&six, 120.0).expect("dual120, six patches").total_volume();
+    assert!((seams - 27.0).abs() < 1e-7, "six-patch block keeps its edges at 120°: {seams}");
+}
+
+/// (V&V, gh:#1240) **one boundary face per point per feature-bounded
+/// sector** (upstream `meshDualiser::createFacesAroundBoundaryPoint`).
+/// Methodology: the dual of a 3×3×3 block (six patches, 45°). Prediction
+/// (written before the first run, 2026-11-04): a face-interior point's dual
+/// cell has exactly 1 boundary face, a point on a block edge 2 (one per
+/// side), a corner 3; each boundary face lies in one patch; the boundary
+/// area equals the cube's 54 m² and the volume 27 m³ to round-off (every
+/// sector is planar on a flat side).
+#[test]
+fn boundary_faces_one_per_point_per_sector() {
+    let primal = PolyMesh::structured_hex_block(3, 3, 3, 3.0, 3.0, 3.0);
+    let dual = poly_dual_mesh(&primal, 45.0).unwrap();
+    let mut per_cell = vec![0usize; dual.n_cells];
+    let mut area = 0.0;
+    for f in 0..dual.faces.len() {
+        if dual.neighbour[f].is_none() {
+            per_cell[dual.owner[f]] += 1;
+            assert!(dual.face_patch[f].is_some());
+            let lp = &dual.faces[f];
+            let mut a = outram_foam_basic_lib::primitives::Vector3::default();
+            for i in 1..lp.len() - 1 {
+                a += (dual.points[lp[i]] - dual.points[lp[0]]).cross(dual.points[lp[i + 1]] - dual.points[lp[0]]) * 0.5;
+            }
+            area += a.mag();
+        }
+    }
+    let on_bnd = |i: usize| (i == 0 || i == 3) as usize;
+    for k in 0..4 {
+        for j in 0..4 {
+            for i in 0..4 {
+                let p = i + 4 * (j + 4 * k);
+                let n = on_bnd(i) + on_bnd(j) + on_bnd(k);
+                assert_eq!(per_cell[p], n, "point ({i},{j},{k}) boundary faces");
+            }
+        }
+    }
+    assert!((area - 54.0).abs() < 1e-9, "boundary area {area}");
+    assert!((dual.total_volume() - 27.0).abs() < 1e-9);
 }
 
 /// (V&V-5) The emitted FvMesh validates and preserves the dual volume.

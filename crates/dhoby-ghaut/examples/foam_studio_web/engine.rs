@@ -445,6 +445,25 @@ pub fn mesh_unstructured_with(
     spec: &TetDualSpec,
     strategy: outram_blender::foam_mesh::LayerQualityStrategy,
 ) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    let dual = dual_kind_from_env();
+    #[cfg(target_arch = "wasm32")]
+    let dual = outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner;
+    mesh_unstructured_dual(radius, length, centre, tags, spec, strategy, dual)
+}
+
+/// [`mesh_unstructured_with`] with the dual kind named too (gh:#1240):
+/// the native knob `FOAM_DUAL_KIND` of [`mesh_unstructured_with`] goes
+/// through here, and so does `--render-dual-kinds`.
+pub fn mesh_unstructured_dual(
+    radius: f64,
+    length: f64,
+    centre: [f64; 3],
+    tags: [Tag; 3],
+    spec: &TetDualSpec,
+    strategy: outram_blender::foam_mesh::LayerQualityStrategy,
+    dual: outram_park_fork_cfmesh::dual::DualKind,
+) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
     use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
     let s = spec.clamped(radius, length);
     let cyl = outram_blender::primitives::cylinder(CYL_SEGMENTS, radius, length);
@@ -473,7 +492,14 @@ pub fn mesh_unstructured_with(
         Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
         _ => opts,
     };
-    let opts = TetDualOptions { layer_strategy: strategy, ..opts };
+    let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, ..opts };
+    // Native-only knob (gh:#1240): FOAM_DUAL_FP=corners, the polyDualMesh
+    // class's feature points, for the two new dual kinds.
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = match std::env::var("FOAM_DUAL_FP").as_deref() {
+        Ok("corners") => TetDualOptions { dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners, ..opts },
+        _ => opts,
+    };
     let (mut vm, report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
     for p in &mut vm.points {
         *p = Vec3::new(p.x + centre[0], p.y + centre[1], p.z + centre[2]);
@@ -493,6 +519,20 @@ fn layer_strategy_from_env() -> outram_blender::foam_mesh::LayerQualityStrategy 
         Ok("cfmesh") => S::CfMeshOptimise,
         Ok("snappy") => S::SnappyCollapse,
         _ => S::BackOffOnly,
+    }
+}
+
+/// The dual kind `FOAM_DUAL_KIND` names (native only, gh:#1240; the knob of
+/// the differential record, `laminar_pipe_gh1155.md`): `point`
+/// (`MedianPerPoint`), `centre` (`CellCentre`), or the default per-corner
+/// median dual for anything else.
+#[cfg(not(target_arch = "wasm32"))]
+fn dual_kind_from_env() -> outram_park_fork_cfmesh::dual::DualKind {
+    use outram_park_fork_cfmesh::dual::DualKind as D;
+    match std::env::var("FOAM_DUAL_KIND").as_deref() {
+        Ok("point") => D::MedianPerPoint,
+        Ok("centre") => D::CellCentre,
+        _ => D::MedianPerCorner,
     }
 }
 
