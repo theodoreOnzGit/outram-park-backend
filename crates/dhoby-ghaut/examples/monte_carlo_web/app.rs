@@ -1,5 +1,5 @@
-//! The egui front end: one app, a rung at a time (the table is `rung_table!`
-//! in `main.rs`; the contract each rung meets is in [`crate::rungs`]).
+//! The egui front end: one app, a rung at a time (the table is `table.rs`
+//! (written by hand); the contract each rung meets is in [`crate::rungs`]).
 //!
 //! Built on the library's web-demo framework ([`dhoby_ghaut::web_demo`]): its
 //! [`Panel`], [`View`] and zoom buttons give the mobile-first layout, and its

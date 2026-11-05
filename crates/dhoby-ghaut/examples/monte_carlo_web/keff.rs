@@ -160,12 +160,14 @@ pub struct CodeReference {
 
 /// The codes of route 1, with the versions and commits the five-route record
 /// states (`five_route_keff_2026_09_29.md`, "Routes").
-#[macro_export]
-macro_rules! route1_label {
-    ($size:literal) => {
-        concat!("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, ", $size, ", 2026-10-15")
-    };
-}
+///
+/// ~~This was the `route1_label!` macro, taking the run size as a literal.~~
+/// **CHANGED 2026-11-05 (gh:#1253):** two plain constants, one per run size
+/// the rungs cite; the strings are the macro's `concat!` expansions.
+/// Route 1's label at the run size `32 seeds x 5000 x [40+120]`.
+pub const ROUTE1_LABEL_32X5000: &str = "OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, 32 seeds x 5000 x [40+120], 2026-10-15";
+/// Route 1's label at the run size `32 seeds x 10000 x [40+120], all 35 nuclides` (LCT-008).
+pub const ROUTE1_LABEL_32X10000_ALL35: &str = "OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, 32 seeds x 10000 x [40+120], all 35 nuclides, 2026-10-15";
 
 /// Route 1's recorded `k` of `case`, read from the committed campaign summary.
 pub fn route1_reference(case: &str, label: &'static str) -> Option<CodeReference> {

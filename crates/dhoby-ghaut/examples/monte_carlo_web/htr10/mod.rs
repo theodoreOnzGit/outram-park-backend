@@ -55,7 +55,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::pebble_beds::keff_delta::{DeltaDomain, DeltaPowerIteration};
 use outram_mc_libs::physics::keff::KeffSettings;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Htr10;
 
 /// The 2026-10-07 k-vs-height table (both libraries, N = 10–20, 10 000 ×
