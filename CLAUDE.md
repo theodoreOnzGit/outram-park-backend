@@ -779,10 +779,19 @@ all three.
 - **Using** macros from std and dependencies (`vec!`, `format!`, `assert!`,
   `#[derive(..)]`, `#[test]`, serde's derives) is fine; this rule is about
   writing them.
-- **Existing macros** (32 files across 16 crates on 2026-11-05) are not
+- ~~**Existing macros** (32 files across 16 crates on 2026-11-05) are not
   mass-refactored. Replace one with plain code when you change the code
   around it, and never inside a kovan-reviewed function without the
-  confirmation the rule above requires. `monte_carlo_web`'s `rung_table!` is the first candidate.
+  confirmation the rule above requires. `monte_carlo_web`'s `rung_table!` is the first candidate.~~
+  **CHANGED 2026-11-05 (maintainer: "refactor out the custom macros for me
+  workspace wide"):** every hand-written `macro_rules!` was replaced with
+  plain code that day (#1253), behaviour unchanged, including inside the
+  reviewed `outram_mc_libs::physics::transport_csg::transport_history_vr`
+  (confirmed by the maintainer for that refactor). One is left:
+  `raffles`' exported `quantities!`, used by
+  `outram-park-digital-twin-engine`; its removal is a public API change
+  awaiting the maintainer (#1253). Text inside string literals and doc
+  comments (`kovan-codegen`'s generated output) is not a macro here.
 - **If a macro seems unavoidable**, ask the maintainer first and say why
   plain code does not work.
 
