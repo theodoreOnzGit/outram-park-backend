@@ -3583,6 +3583,68 @@ crate's column builder is upstream's split for one count per column. The box sho
 needs `refineEdgeHexCell` only where two layered patches meet at a cell: with `inlet` unlayered,
 no cell needs it.
 
+## `optimiseUsingKnuppMetric` counts its passes as upstream does (gh:#1284, epic gh:#1251)
+
+### What upstream does (read 2026-11-05, before any code)
+
+`tetMeshOptimisation::optimiseUsingKnuppMetric(nIterations = 5)`, DAFoam/cfmesh
+`e944f6ba695f`, `tetMeshOptimisation.C` lines 53–191 (the same text in
+wyldckat/cfMesh v1.0 and the full v1.1 tree):
+
+1. mark the tetrahedra with `mag < VSMALL` (`invertedTets`);
+2. loop: count the marked ones (`nNegative`), return if none; move every
+   unlocked `SMOOTH` node of a marked tetrahedron with `knuppMetric`;
+3. "check which tets have been repaired": `nNegativeBefore = nNegative;
+   nNegative = 0;`, then mark (`helper`) the tetrahedra still below
+   `VSMALL` **without ever incrementing `nNegative`**. The same loop in
+   `optimiseUsingMeshUntangler` has `++nNegative`; this one does not;
+4. `if (nNegative == 0) return;` — always taken, so the `while
+   ((nNegative < nNegativeBefore) || (++nIter < nIterations))` is never
+   reached.
+
+**Upstream therefore runs exactly one Knupp pass per call** whenever an
+inverted tetrahedron exists, whatever `nIterations` is. It looks like an
+upstream defect; upstream is the specification, so the port follows it.
+
+**What the port did.** It counted the repaired tetrahedra (`n_negative += 1`
+in step 3) and so ran the loop: another pass while the count fell, and up to
+`n_iterations` passes in all. gh:#1260's note (the port increments `n_iter`
+on every pass where upstream's `||` short-circuits) was right about the
+condition but missed that upstream never reaches it.
+
+**The fix.** `PartTetMesh::optimise_using_knupp_metric` keeps upstream's
+loop as written, the uncounted step 3 included, so it returns after the
+first pass. Caller: `untangle_mesh_fv` (every `CfMeshOptimise` untangle and
+`optimiseFinalMesh`'s untangles), as upstream's `untangleMeshFV`.
+
+### Predictions (written 2026-11-05, before the fix was run)
+
+Case: the gh:#1255 baseline, `diagnose_dual_kinds_differential` with
+`CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3
+CFMESH_STRATS=cfmesh CFMESH_FP=corners` (R 10 mm, L 200 mm, 48 sides,
+`CellCentre` + `Corners`, h 5 mm, 3 layers 0.3 mm × 1.2, `CfMeshOptimise`
+with every optional control off). Before: 7 025 cells, first untangle
+2 861 → 29, 77 bad faces at the end, max / p99 NO 57.5° / 53.3°, thickness
+0.977 mm, 18.3 s on a shared host.
+
+- **Mechanism.** Fewer Knupp passes per untangle iteration: the port ran a
+  second pass only where the first left an inverted tetrahedron, so the
+  change is confined to the iterations with stubborn inversions; the volume
+  optimiser that follows each Knupp call repairs most of what Knupp leaves.
+- **Bad faces at the end:** 77, within ±10 (77 ± 10). Sign: equal or more
+  (fewer untangling moves per iteration), not fewer.
+- **First untangle:** 2 861 → 29 ± 5 (the 29 are boundary-held, out of
+  Knupp's reach).
+- **Max non-orthogonality:** within ±2° of 57.5°. Thickness within ±2 % of
+  0.977 mm.
+- **Meshing time:** −0 to −20 % (Knupp passes saved; each Knupp pass costs
+  less than a volume-optimiser pass, so the saving is small); a rise would
+  mean the untangle needed more outer iterations.
+- **Pins:** `layer_strategies_are_deterministic`'s `CfMeshOptimise`
+  fingerprint moves (some untangle call meets a tetrahedron the first Knupp
+  pass does not repair); its `SnappyCollapse` fingerprint and every
+  `BackOffOnly` pin do not (no Knupp call).
+
 ## Reproduce
 
 ```bash
