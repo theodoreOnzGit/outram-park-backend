@@ -491,7 +491,7 @@ pub fn surface_to_tet_dual_mesh(
     tris: &[[usize; 3]],
     opts: &TetDualOptions,
 ) -> Result<(VolumeMesh, TetDualReport), String> {
-    run_pipeline(points, tris, opts, None)
+    run_pipeline(points, tris, opts, None, true)
 }
 
 /// The same pipeline as [`surface_to_tet_dual_mesh`], but carrying the input
@@ -566,17 +566,23 @@ pub fn surface_to_tet_dual_mesh_multipatch(
     opts: &TetDualOptions,
 ) -> Result<(VolumeMesh, TetDualReport), String> {
     regions.validate(tris.len())?;
-    run_pipeline(points, tris, opts, Some(regions))
+    run_pipeline(points, tris, opts, Some(regions), true)
 }
 
 /// Shared implementation of the two public entry points. `regions = None` is the
 /// historical single-`"walls"` behaviour (no classification pass at all, so it
 /// costs nothing); `Some(_)` adds the final [`assign_patches_by_region`] step.
-fn run_pipeline(
+///
+/// `upper_triangular` (gh:#1285) is `true` on every public route: the last
+/// step puts the faces in OpenFOAM's upper-triangular order
+/// ([`crate::renumber_mesh::upper_triangular`]). `false` is the pre-gh:#1285
+/// face order, kept for the test that compares the two.
+pub(crate) fn run_pipeline(
     points: &[Vec3],
     tris: &[[usize; 3]],
     opts: &TetDualOptions,
     regions: Option<&SurfaceRegions>,
+    upper_triangular: bool,
 ) -> Result<(VolumeMesh, TetDualReport), String> {
     if opts.cell_size <= 0.0 {
         return Err(format!("cell_size must be > 0 (got {})", opts.cell_size));
@@ -870,6 +876,15 @@ fn run_pipeline(
             Ok(named) => mesh = named,
             Err(e) => notes.push(format!("named boundary patches skipped — {e}")),
         }
+    }
+
+    // Final step (gh:#1285) — OpenFOAM's upper-triangular face order, as
+    // upstream's renumberMesh leaves it, with the cell labels kept. One
+    // step here rather than in each builder: every stage above rebuilds
+    // its mesh from cell face lists, so an order set inside one is lost at
+    // the next. Points and boundary faces are untouched.
+    if upper_triangular {
+        mesh = crate::renumber_mesh::upper_triangular(&mesh);
     }
 
     // Final gate — never hand back a mesh that is not closed.
@@ -1665,6 +1680,95 @@ pub(crate) mod tests {
             eat(pa.n_faces as u64);
         }
         h
+    }
+
+    /// V&V (gh:#1285) — **the upper-triangular face order moves no
+    /// geometry.** Methodology: the pipeline with and without its final
+    /// [`crate::renumber_mesh::upper_triangular`] step (the private
+    /// `run_pipeline` flag), on the demo pipe (R 10 mm, L 200 mm, 48 facets)
+    /// at h 4 / 5 / 6 mm with no layer (Foam Studio's mesh before gh:#1298),
+    /// at h 5 mm with 3 back-off layers, and on the `CellCentre` + `Corners`
+    /// dual (feature `cell-centre-dual`). Compared: total volume (bits),
+    /// each cell's volume (labels are kept, so cell by cell), the face-area
+    /// multiset, the patch face sets, and `checkUpperTriangular` before and
+    /// after. Predictions and results:
+    /// `verification_and_validation/upper_triangular_gh1285/README.md`.
+    #[test]
+    fn upper_triangular_order_moves_no_geometry() {
+        let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
+        let mut cases = vec![
+            ("h4 bare", TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() }),
+            ("h5 bare", TetDualOptions { cell_size: 0.005, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() }),
+            ("h6 bare", TetDualOptions { cell_size: 0.006, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() }),
+            ("h5 n3", TetDualOptions { cell_size: 0.005, n_layers: 3, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() }),
+        ];
+        if cfg!(feature = "cell-centre-dual") {
+            cases.push((
+                "h5 CellCentre+Corners",
+                TetDualOptions {
+                    cell_size: 0.005,
+                    n_layers: 0,
+                    layer_patches: vec!["walls".into()],
+                    dual_kind: DualKind::CellCentre,
+                    dual_feature_points: FeaturePointRule::Corners,
+                    ..Default::default()
+                },
+            ));
+        }
+        for (name, o) in cases {
+            let (a, _) = run_pipeline(&p, &t, &o, Some(&regions), false).unwrap();
+            let (b, rep) = run_pipeline(&p, &t, &o, Some(&regions), true).unwrap();
+            let before = crate::poly_mesh_gen_checks::check_upper_triangular(&a).0;
+            let after = crate::poly_mesh_gen_checks::check_upper_triangular(&b).0;
+            assert!(!after, "{name}: not upper-triangular after the step");
+            assert_eq!(a.points, b.points, "{name}: points");
+            assert_eq!((a.n_cells, a.face_count(), a.n_internal_faces()), (b.n_cells, b.face_count(), b.n_internal_faces()));
+            assert_eq!(a.total_volume().to_bits(), b.total_volume().to_bits(), "{name}: total volume bit for bit");
+            assert_eq!(rep.total_volume.to_bits(), a.total_volume().to_bits());
+            let (va, _) = crate::checks::cell_geometry(&a);
+            let (vb, _) = crate::checks::cell_geometry(&b);
+            let (mut same_v, mut worst_v) = (0usize, 0.0f64);
+            for (x, y) in va.iter().zip(&vb) {
+                same_v += (x.to_bits() == y.to_bits()) as usize;
+                worst_v = worst_v.max((x - y).abs() / x.abs());
+            }
+            let areas = |m: &VolumeMesh| {
+                let mut v: Vec<f64> = (0..m.face_count()).map(|f| m.face_area_vector(f).length()).collect();
+                v.sort_by(|x, y| x.partial_cmp(y).unwrap());
+                v
+            };
+            let (aa, ab) = (areas(&a), areas(&b));
+            let (mut same_a, mut worst_a) = (0usize, 0.0f64);
+            for (x, y) in aa.iter().zip(&ab) {
+                same_a += (x.to_bits() == y.to_bits()) as usize;
+                worst_a = worst_a.max((x - y).abs() / x.abs());
+            }
+            let flipped = (0..a.n_internal_faces()).filter(|&f| a.owner[f] > a.neighbour[f].unwrap()).count();
+            println!(
+                "gh1285 {name}: cells {}, internal faces {}, upper-triangular before {} after {}, faces reversed {flipped}; cell volumes bit-identical {same_v}/{} (worst rel {worst_v:e}); face areas bit-identical {same_a}/{} (worst rel {worst_a:e})",
+                a.n_cells,
+                a.n_internal_faces(),
+                !before,
+                !after,
+                va.len(),
+                aa.len()
+            );
+            assert!(worst_v < 1e-12 && worst_a < 1e-12, "{name}: round-off only");
+            // Foam Studio's solver mesh: `outram_blender`'s `to_poly_mesh`
+            // stable-sorts the internal faces by (owner, neighbour). On the
+            // old order that sort gives exactly the new order (no face is
+            // reversed), so the solver's polyMesh is the same either way.
+            let mut sorted: Vec<usize> = (0..a.n_internal_faces()).collect();
+            sorted.sort_by_key(|&f| (a.owner[f], a.neighbour[f]));
+            let same_as_sorted = flipped == 0 && sorted.iter().enumerate().all(|(i, &f)| a.faces[f] == b.faces[i] && a.owner[f] == b.owner[i] && a.neighbour[f] == b.neighbour[i]);
+            println!("gh1285 {name}: the new internal faces are to_poly_mesh's stable sort of the old ones: {same_as_sorted}");
+            for (pa, pb) in a.patches.iter().zip(&b.patches) {
+                assert_eq!((pa.name.as_str(), pa.start_face, pa.n_faces), (pb.name.as_str(), pb.start_face, pb.n_faces));
+                for f in pa.start_face..pa.start_face + pa.n_faces {
+                    assert_eq!((&a.faces[f], a.owner[f]), (&b.faces[f], b.owner[f]), "{name}: boundary face {f}");
+                }
+            }
+        }
     }
 
     /// V&V (gh:#1215) — **the default layer strategy is pinned bit for bit.**
@@ -2652,6 +2756,7 @@ pub(crate) mod tests {
             (DualKind::MedianPerPoint, FeaturePointRule::Corners, 1304, 3093209209138859925),
             (DualKind::CellCentre, FeaturePointRule::Corners, 1304, 10005039613933009028),
         ];
+        let mut got = Vec::new();
         for (kind, fp, n_wall, pin) in cases {
             let o = TetDualOptions { cell_size: 0.005, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
             let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
@@ -2662,7 +2767,11 @@ pub(crate) mod tests {
             if kind != DualKind::MedianPerCorner {
                 assert!(per_cell.values().all(|&k| k <= 2), "{kind:?} {fp:?}");
             }
-            assert_eq!(mesh_fingerprint(&m), pin, "{kind:?} {fp:?} moved");
+            eprintln!("dual fingerprint {kind:?} {fp:?} {}", mesh_fingerprint(&m));
+            got.push((kind, fp, mesh_fingerprint(&m), pin));
+        }
+        for (kind, fp, g, pin) in got {
+            assert_eq!(g, pin, "{kind:?} {fp:?} moved");
         }
     }
 

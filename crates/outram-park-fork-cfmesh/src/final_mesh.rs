@@ -249,11 +249,14 @@ mod tests {
     }
 
     /// A short pipe (R 10 mm, L 40 mm, 24 sides) at h 5 mm, bare, the
-    /// default dual: small enough for the default test run.
+    /// default dual: small enough for the default test run. In the
+    /// pipeline's face order before gh:#1285 (`upper_triangular: false`),
+    /// the order these tests' cases were recorded on (the shake below picks
+    /// its points in face order).
     fn small_pipe() -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions, VolumeMesh) {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.04, 24);
         let o = TetDualOptions { cell_size: 0.005, n_layers: 0, ..Default::default() };
-        let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        let (m, _) = crate::pipeline::run_pipeline(&p, &t, &o, Some(&regions), false).unwrap();
         (p, t, regions, m)
     }
 
@@ -296,13 +299,59 @@ mod tests {
     /// `untangle_mesh_fv_with`; `EachPass` with boundary moves leaves the
     /// inlet planar to 1e-9 m (the gh:#1283 gate), on a mesh whose interior
     /// points were shaken so that the untangle has work to do.
+    ///
+    /// **gh:#1285 (2026-11-05).** The shake picks every third interior
+    /// point **in face order**, so it is a different case on the
+    /// upper-triangular mesh. The recorded case (`small_pipe`'s mesh in the
+    /// pipeline's pre-gh:#1285 face order, `upper_triangular: false`) is
+    /// kept and asserted as before. On the same mesh in the gh:#1285 order
+    /// the shake picks other points: `EachPass` still keeps the inlet
+    /// planar (asserted), but **`AfterUntangle` does not**: a rim point
+    /// (r 9.967 mm) that the boundary passes slid 1.9 mm up the wall is
+    /// mapped back only to z = 1.78e-4 m by the one projection at the end.
+    /// That is a measured limit of `AfterUntangle`, recorded in
+    /// `verification_and_validation/upper_triangular_gh1285/README.md`, and
+    /// not asserted away.
     #[test]
     fn projected_untangle_keeps_the_inlet_planar() {
-        let (p, t, regions, m0) = small_pipe();
-        let pr = BoundaryProjector::new(&m0, &p, &t, &regions);
+        let (p, t, regions, recorded) = small_pipe();
+        let reordered = crate::renumber_mesh::upper_triangular(&recorded);
+        for (case, m0) in [("recorded", recorded), ("gh1285 order", reordered)] {
+            let pr = BoundaryProjector::new(&m0, &p, &t, &regions);
+            let shaken = shake_interior(&m0);
+            let none = vec![false; m0.points.len()];
+            // One interior pass per global iteration, so bad faces are left
+            // for the boundary loop.
+            let c = UntangleControls { boundary_moves: true, max_global_iterations: 4, max_iterations: 1, ..UntangleControls::default() };
+            let mut a = shaken.clone();
+            let ra = crate::mesh_optimizer::untangle_mesh_fv_with(&mut a, &none, &c);
+            let mut b = shaken.clone();
+            let (rb, _) = untangle_on_surface(&mut b, &none, &c, BoundaryProjection::Off, Some(&pr));
+            assert_eq!(a.points, b.points, "Off is the plain untangle");
+            assert_eq!(ra.flagged_after, rb.flagged_after);
+            let mut e = shaken.clone();
+            let (re, pe) = untangle_on_surface(&mut e, &none, &c, BoundaryProjection::EachPass, Some(&pr));
+            let mut g = shaken.clone();
+            let (_, pg) = untangle_on_surface(&mut g, &none, &c, BoundaryProjection::AfterUntangle, Some(&pr));
+            let plain_off = inlet_off_plane(&a, &m0, &pr, &regions);
+            let after_off = inlet_off_plane(&g, &m0, &pr, &regions);
+            println!("{case}: plain (inlet off plane {plain_off:e}): {} -> {}, {} boundary passes; EachPass: {} -> {}, {pe:?}; AfterUntangle {pg:?}, off plane {after_off:e}", ra.flagged_before, ra.flagged_after, ra.surface_iterations, re.flagged_before, re.flagged_after);
+            assert!(ra.surface_iterations > 0, "the case exercises the boundary loop");
+            assert!(inlet_off_plane(&e, &m0, &pr, &regions) < 1e-9, "{case}: EachPass: inlet off plane by {:e}", inlet_off_plane(&e, &m0, &pr, &regions));
+            if case == "recorded" {
+                assert!(after_off < 1e-9, "AfterUntangle: inlet off plane by {after_off:e}");
+            } else {
+                // the measured miss (doc comment); a change in it is seen
+                assert!(after_off > 1e-5, "{case}: AfterUntangle now keeps the inlet planar ({after_off:e}): update the record");
+            }
+            assert_eq!(pe.points_moved > 0, ra.surface_iterations > 0, "boundary points move exactly when a boundary pass runs");
+        }
+    }
+
+    /// The test shake: every third interior point, in face order, pushed
+    /// 1.5 times its distance from the face centre away from it.
+    fn shake_interior(m0: &VolumeMesh) -> VolumeMesh {
         let mut shaken = m0.clone();
-        // Pull every boundary point 30 % of the way to its nearest interior
-        // neighbour's position, so cells next to the boundary tangle.
         let mut on_bnd = vec![false; m0.points.len()];
         for f in 0..m0.face_count() {
             if m0.neighbour[f].is_none() {
@@ -326,26 +375,7 @@ mod tests {
                 }
             }
         }
-        let none = vec![false; m0.points.len()];
-        // One interior pass per global iteration, so bad faces are left
-        // for the boundary loop.
-        let c = UntangleControls { boundary_moves: true, max_global_iterations: 4, max_iterations: 1, ..UntangleControls::default() };
-        let mut a = shaken.clone();
-        let ra = crate::mesh_optimizer::untangle_mesh_fv_with(&mut a, &none, &c);
-        let mut b = shaken.clone();
-        let (rb, _) = untangle_on_surface(&mut b, &none, &c, BoundaryProjection::Off, Some(&pr));
-        assert_eq!(a.points, b.points, "Off is the plain untangle");
-        assert_eq!(ra.flagged_after, rb.flagged_after);
-        let mut e = shaken.clone();
-        let (re, pe) = untangle_on_surface(&mut e, &none, &c, BoundaryProjection::EachPass, Some(&pr));
-        let mut g = shaken.clone();
-        let (_, pg) = untangle_on_surface(&mut g, &none, &c, BoundaryProjection::AfterUntangle, Some(&pr));
-        let plain_off = inlet_off_plane(&a, &m0, &pr, &regions);
-        println!("plain (inlet off plane {plain_off:e}): {} -> {}, {} boundary passes; EachPass: {} -> {}, {pe:?}; AfterUntangle {pg:?}", ra.flagged_before, ra.flagged_after, ra.surface_iterations, re.flagged_before, re.flagged_after);
-        assert!(ra.surface_iterations > 0, "the case exercises the boundary loop");
-        assert!(inlet_off_plane(&e, &m0, &pr, &regions) < 1e-9, "EachPass: inlet off plane by {:e}", inlet_off_plane(&e, &m0, &pr, &regions));
-        assert!(inlet_off_plane(&g, &m0, &pr, &regions) < 1e-9, "AfterUntangle: inlet off plane by {:e}", inlet_off_plane(&g, &m0, &pr, &regions));
-        assert_eq!(pe.points_moved > 0, ra.surface_iterations > 0, "boundary points move exactly when a boundary pass runs");
+        shaken
     }
 
     /// `optimise_final_mesh` on the bare small pipe returns a closed mesh
