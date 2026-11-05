@@ -11,8 +11,8 @@
 //! cargo run --release -p outram-park-fork-cfmesh --example surface_tools_images -- <out_dir>
 //! ```
 //!
-//! Each image shows the assembled surface from two sides (front-right and
-//! back-left, an orthographic view, facets painted back to front and shaded
+//! Each image shows the assembled surface from two sides (from above and
+//! from below; the L prism from two sides above; an orthographic view, facets painted back to front and shaded
 //! by their normal), coloured by **patch** unless the title says otherwise;
 //! black lines are the stored feature edges, grey lines every other edge.
 //! - `pipe_patches_45deg.png`: the unlabelled pipe after `surfaceFeatureEdges`
@@ -308,7 +308,7 @@ fn shade(c: Rgb, f: f64) -> Rgb {
 
 /// Draw `s` from two sides, facets coloured by `fc`, each facet edge in the
 /// colour `ec` gives it (`None`: grey). `legend` lines go under the title.
-fn render<F: Fn(usize) -> Option<Rgb>>(s: &TriSurf, fc: &[Rgb], ec: &F, title: &str, legend: &[(&str, Rgb)], path: &str) {
+fn render<F: Fn(usize) -> Option<Rgb>>(s: &TriSurf, fc: &[Rgb], ec: &F, title: &str, legend: &[(&str, Rgb)], views: [Vec3; 2], path: &str) {
     let (w, h, top) = (640usize, 600usize, 70usize);
     let mut img = Image::new(2 * w, h + top, [255, 255, 255]);
     img.text(10, 8, title, 3, [0, 0, 0]);
@@ -318,7 +318,6 @@ fn render<F: Fn(usize) -> Option<Rgb>>(s: &TriSurf, fc: &[Rgb], ec: &F, title: &
         img.text(lx + 18, 42, name, 2, [0, 0, 0]);
         lx += 18 + 8 * name.len() + 20;
     }
-    let views = [Vec3::new(1.0, -1.5, 1.0), Vec3::new(-1.0, 1.5, 0.6)];
     let nrm = s.facet_normals();
     for (vi, eye) in views.iter().enumerate() {
         let d = eye.scale(-1.0).normalize();
@@ -351,7 +350,7 @@ fn render<F: Fn(usize) -> Option<Rgb>>(s: &TriSurf, fc: &[Rgb], ec: &F, title: &
                 img.line(px(t[i]), px(t[(i + 1) % 3]), c);
             }
         }
-        img.text(vi * w + 10, top + 4, if vi == 0 { "FRONT-RIGHT" } else { "BACK-LEFT" }, 2, [80, 80, 80]);
+        img.text(vi * w + 10, top + 4, &format!("VIEW FROM ({:.1} {:.1} {:.1}). DARKER: FACET FACES AWAY", eye.x, eye.y, eye.z), 2, [80, 80, 80]);
     }
     img.write_png(path);
 }
@@ -430,7 +429,7 @@ fn main() {
             st.find_edge(a0, b0).filter(|&k| fl[k]).map(|_| [0, 0, 0])
         };
         let title = format!("UNLABELLED PIPE R1 L4 48 SIDES: SURFACEFEATUREEDGES AT {a:.0} DEG: {} PATCHES", s.patches.len());
-        render(&s, &by_patch(&s), &ec, &title, &[("BLACK: FEATURE EDGES", [0, 0, 0])], &format!("{out}/pipe_patches_{a:.0}deg.png"));
+        render(&s, &by_patch(&s), &ec, &title, &[("BLACK: FEATURE EDGES", [0, 0, 0])], [Vec3::new(1.0, -1.5, 1.0), Vec3::new(-1.0, 1.5, -1.0)], &format!("{out}/pipe_patches_{a:.0}deg.png"));
     }
     let (sb, dup, flipped) = seeded_box();
     let holes: Vec<usize> = check_for_holes(&sb);
@@ -449,6 +448,7 @@ fn main() {
         &open,
         "GH1277 BOX WITH SEEDED DEFECTS (BEFORE CLEANING)",
         &[("DUP FACET", [220, 30, 30]), ("FLIPPED", [240, 220, 30]), ("STRAY", [220, 40, 220]), ("ON OPEN EDGE", [255, 150, 40])],
+        [Vec3::new(1.0, -1.5, 1.0), Vec3::new(-1.0, 1.5, -1.0)],
         &format!("{out}/box_seeded_defects.png"),
     );
     let mut o = MeshOctree::new(Arc::new(sb.clone()));
@@ -469,7 +469,7 @@ fn main() {
     rf.remove_facets(&mut c);
     let vol = outram_park_fork_cfmesh::shapes::surface_volume(&c.points, &c.triangles);
     let none = |_e: usize| None;
-    render(&c, &by_patch(&c), &none, &format!("GH1277 BOX AFTER CLEANING: {} FACETS {} POINTS VOLUME {vol}", c.size(), c.n_points()), &[], &format!("{out}/box_cleaned.png"));
+    render(&c, &by_patch(&c), &none, &format!("GH1277 BOX AFTER CLEANING: {} FACETS {} POINTS VOLUME {vol}", c.size(), c.n_points()), &[], [Vec3::new(1.0, -1.5, 1.0), Vec3::new(-1.0, 1.5, -1.0)], &format!("{out}/box_cleaned.png"));
     let mut lo = MeshOctree::new(Arc::new(l_prism()));
     let mut cr = MeshOctreeCreator::new(&lo, Some(MeshDict::with_max_cell_size(0.25)));
     cr.create_octree_boxes(&mut lo);
@@ -491,6 +491,7 @@ fn main() {
         &ec,
         "L PRISM: TRISURFACECLASSIFYEDGES",
         &[("CONVEX", [0, 60, 230]), ("CONCAVE", [230, 0, 0]), ("FLAT", [200, 200, 200])],
+        [Vec3::new(1.0, -1.5, 1.0), Vec3::new(1.5, 1.0, 1.2)],
         &format!("{out}/l_prism_edge_types.png"),
     );
 }

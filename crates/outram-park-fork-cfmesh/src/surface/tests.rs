@@ -581,8 +581,8 @@ fn sphere_curvature_against_one_over_r() {
 /// but upstream measures the angle with the edges' stored directions
 /// (lower to higher point label), so at the two points per rim where the
 /// numbering wraps (the first and last rim point) both edges start (or
-/// end) there and the angle is π − 2π/48: `k ≈ 22.98 / R` there. So 92 of
-/// the 96 rim points give 1.000714 (to 1e-9) and 4 give 22.98; every other
+/// end) there and the angle is π − 2π/48: `k ≈ 22.98 / R` there (measured: 23.016, my 22.98 was a slip in the hand arithmetic; the test computes the value from the formula). So 92 of
+/// the 96 rim points give 1.000714 (to 1e-9) and 4 give the wrapped value; every other
 /// point 0. The flat cap points' mean curvature in the cap patch is 0 to
 /// 1e-9.
 #[test]

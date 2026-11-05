@@ -199,3 +199,17 @@ volume error from +26.7 % to −1.36 %). The raw octree tet template has
 non-manifold boundary points (upstream's own tets in coarse `BOUNDARY`
 leaves), which `surfacePreparation` removes; `polyDualMesh` (`CellCentre`)
 refuses the raw template on the sphere and the pipe.
+
+## cfMesh's triangulated-surface tools (gh:#1276–#1278, 2026-11-05)
+
+`surface` (`features`, `checks`, `cleanup`, `curvature`) ports
+`triSurfaceTools/` and the surface utilities. **`mesh_octree::TriSurf` is
+the crate's one triangulated-surface type** (it now carries upstream's
+patches, stored feature edges, subsets and addressing): extend it, never
+add a second one. A tool that changes points or facets builds a new
+`TriSurf` (`from_parts`, `surface::rebuild`), so the addressing cannot go
+stale as upstream's cached addressing does. No pipeline calls the module.
+Several upstream tools are defective (listed in `src/surface.rs`); where the
+text cannot work (`subsetToPatch`), the port follows the intent and says
+so. `meshOctreeAutomaticRefinement` is not ported. Record and images:
+`verification_and_validation/surface_tools_gh1276/`.
