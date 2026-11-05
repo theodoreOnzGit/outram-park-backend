@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walk: Cs-137 from kernel to coolant</title>
+<meta name="description" content="A guided walk through TRISO-ATOPS in normal operation: one Cs-137 atom's path from the kernel, through the failed-particle release and the matrix graphite, into the circulating helium and onto the walls, each step linked to its concept card, lesson and demo state.">
+<link rel="stylesheet" href="../../style.css">
+<link rel="stylesheet" href="atops-concepts.css">
+<script src="atops-concepts-data.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-walk-recorded.js" defer></script>
+<script src="atops-walk-numbers.js" defer></script>
+<script src="atops-concepts.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 concept walks (gh:#1207 part 2), walk 1 of 3.
+     Numbers: atops-data.js (lesson_triso_atops, MHTGR Case A, a 1 Ci node at
+     900 °C, no clean-up) and atops-walk-recorded.js (the demo's headless
+     release output, HTR-10 inventory). Bound by data-q; check-concepts.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+
+<h1>Walk: Cs-137 from kernel to coolant</h1>
+<p class="kicker">Fission products · concept walk 1 of 3</p>
+
+<p>Follow caesium-137 through TRISO-ATOPS in normal operation, one model at a time. Each step names the idea, links its card on the <a href="atops-concepts.html">concept map</a> (equation, code, test, recorded numbers), the lesson that teaches it, and a demo link that opens on the matching state.</p>
+<p class="note">Two sets of numbers appear, and they are not the same case. The MHTGR Case A node (from <code>atops-data.js</code>, the lesson generator): 1&nbsp;Ci of inventory at 900&nbsp;&deg;C over <span data-q="caseA.runYears">…</span>, no clean-up. The demo&rsquo;s HTR-10 case (its headless output, <code>atops-walk-recorded.js</code>): HTR-10&rsquo;s core inventory with NP-MHTGR particle geometry, at 776&nbsp;&deg;C, leak on. Neither is a plant calculation.</p>
+
+<ol class="cc-steps">
+<li data-concept="nuclide-groups" data-lesson="atops-groups.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0">
+<h3>Which group is it?</h3>
+<p>Caesium is Z&nbsp;=&nbsp;<span data-q="cs.z">…</span>, so TRISO-ATOPS puts Cs-137 in the <b><span data-q="cs.group">…</span></b> group with Rb and Sr. Its half-life is <span data-q="cs.t12y">…</span>, long against the irradiation, so it is flagged long-lived. Those two facts choose every model below.</p>
+</li>
+<li data-concept="diffusion" data-lesson="atops-diffusion.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0">
+<h3>How fast it diffuses</h3>
+<p>At 900&nbsp;&deg;C the code&rsquo;s Arrhenius law gives caesium <span data-q="cs.dKernel900">…</span> in the kernel and <span data-q="cs.dGraphite900">…</span> in the matrix graphite. These two numbers drive the next two steps.</p>
+</li>
+<li data-concept="booth-long" data-lesson="atops-release-models.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0">
+<h3>Out of a failed particle: Booth</h3>
+<p>Only failed particles release caesium; intact SiC holds it. From a failed one, the long-lived Booth series gives the fraction that has diffused out of an equivalent sphere of <span data-q="caseA.aBooth">…</span>: <span data-q="cs.rb900">…</span> at 900&nbsp;&deg;C, <span data-q="cs.rb1200">…</span> at 1200&nbsp;&deg;C. The 5000-term series cannot go below <span data-q="booth.floor">…</span>.</p>
+</li>
+<li data-concept="release-rate" data-lesson="atops-normal-operation.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0">
+<h3>The release rate</h3>
+<p>Multiply by the failed fractions (all four, for a metal) and the birth rate A/(1&nbsp;&minus;&nbsp;e<sup>&minus;&lambda;t</sup>). For the 1&nbsp;Ci node: R&nbsp;=&nbsp;<span data-q="node.Cs137.release">…</span> atoms/s. In the demo&rsquo;s HTR-10 core it is <span data-q="demo.Cs137.0.release_atoms_per_s">…</span> atoms/s.</p>
+</li>
+<li data-concept="graphite-attenuation" data-lesson="atops-release-models.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0">
+<h3>Held up in the graphite</h3>
+<p>The atoms still have to cross the fuel element&rsquo;s matrix graphite. The slab series gives an attenuation factor; the lesson&rsquo;s table (3 years in the graphite) has Af&nbsp;=&nbsp;<span data-q="cs.af900">…</span> at 900&nbsp;&deg;C and <span data-q="cs.af1200">…</span> at 1200&nbsp;&deg;C. Cool graphite holds caesium; hot graphite lets it through.</p>
+</li>
+<li data-concept="graphite-holdup" data-lesson="atops-coolant.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0&amp;leak=off">
+<h3>Split: to the helium, or kept</h3>
+<p><code>base_activities</code> splits R into the source into the helium, S&nbsp;=&nbsp;R/Af&nbsp;=&nbsp;<span data-q="node.Cs137.source">…</span> atoms/s, and the inventory the graphite keeps, G&nbsp;=&nbsp;<span data-q="node.Cs137.graphite">…</span> atoms (1&nbsp;Ci node). In the demo&rsquo;s HTR-10 core the graphite holds <span data-q="demo.Cs137.0.graphite_bq">…</span> Bq.</p>
+</li>
+<li data-concept="routing" data-lesson="atops-coolant.html" data-demo="rung=release&amp;pick=metal&amp;now=0&amp;leak=off">
+<h3>Routed as a metal</h3>
+<p>Caesium plates out and is never cleaned up: the purification system takes only noble gases and halogens. Even with it switched on, the 1&nbsp;Ci node&rsquo;s clean-up pool for Cs-137 is <span data-q="nodeHps.Cs137.cleanUp">…</span>. The demo draws that as a dashed, labelled arrow.</p>
+</li>
+<li data-concept="circulating" data-lesson="atops-coolant.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0&amp;leak=off">
+<h3>Circulating in the helium</h3>
+<p>S feeds the circulating pool, which plate-out empties fast (k<sub>plate</sub>&nbsp;=&nbsp;<span data-q="caseA.kPlate">…</span>) and decay empties slowly: C&nbsp;=&nbsp;<span data-q="node.Cs137.circulating">…</span> atoms on the node. In the HTR-10 case, <span data-q="demo.Cs137.0.circulating_bq">…</span> Bq circulate.</p>
+</li>
+<li data-concept="plate-out" data-lesson="atops-coolant.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0&amp;leak=off">
+<h3>On the walls</h3>
+<p>Plated atoms leave only by decay, on a <span data-q="cs.t12y">…</span> half-life, while circulating atoms are swept onto the walls at k<sub>plate</sub>; so over the run the plate-out pool grows far past the circulating one: P&nbsp;=&nbsp;<span data-q="node.Cs137.plateOut">…</span> atoms against C&nbsp;=&nbsp;<span data-q="node.Cs137.circulating">…</span>. HTR-10 case: <span data-q="demo.Cs137.0.plated_bq">…</span> Bq on the walls. That pool is what an accident can lift off (walk 2).</p>
+</li>
+<li data-concept="normal-operation-node" data-lesson="atops-normal-operation.html" data-demo="rung=release&amp;pick=all&amp;now=0">
+<h3>One call does all of it</h3>
+<p><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node"><code>normal_<wbr>operation_<wbr>node</code></a> chains every step above for one nuclide at one node, and agrees with upstream to 3.1e-11 on all six outputs (its card has the record). The demo link opens all nuclides at once: the uniform routing across a group is easier to see there.</p>
+</li>
+</ol>
+
+<p><b>What this walk does not show:</b> the temperature changing (walk 2), silver getting through intact SiC (walk 3), and validation: nothing here is compared with a measured release.</p>
+
+<nav class="cc-walknav" aria-label="Concept walks">
+  <a class="btn ghost" href="atops-concepts.html">&larr; Back to the map</a>
+  <a class="btn" href="atops-walk-accident.html">Walk 2: what an accident releases &rarr;</a>
+</nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

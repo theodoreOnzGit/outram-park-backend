@@ -39,7 +39,6 @@ gh issue comment <number> --body "..."           # progress
   crates.io's rate limits are spread over the run instead of hitting at the
   end. Ideally a script drives this (`scripts/release-lockstep.sh`); the agent
   manages it.
-
 - **Kovan-reviewed functions are closed to modification (HARD RULE,**
   maintainer 2026-11-05): extend with new code instead; never edit a
   function carrying a kovan review stamp (body, signature, docs, refactor,
@@ -53,6 +52,54 @@ gh issue comment <number> --body "..."           # progress
   2026-11-04): every `mod` is a plain line in source, never `mod $m;` in a
   `macro_rules!`. kovan reads `mod` lines without expanding macros, so a
   macro-declared module is missing from review. Full rule: `CLAUDE.md`.
+
+## Crate-level interfaces may follow SOLID principles (maintainer, 2026-11-03)
+
+**Maintainer direction:** "At the crate level I am ok with interfaces using
+SOLID principles … the reason is so we don't introduce lifetimes
+unnecessarily."
+
+- **A crate may define a trait as its public interface.** Callers in other
+  crates implement it, and the crate consumes it **generically** (`M: Trait` or
+  `impl Trait`), never as `dyn Trait`. This covers dependency inversion (a
+  library states what it needs, and a downstream physics crate supplies it),
+  interface segregation (small traits, one job each), and open/closed (a new
+  implementer needs no edit to the library). Example: `raffles::fidelity`'s
+  `HighFidelityModel` and `ParametricModel` (gh:#1194).
+- **Why:** a generic trait bound lets the library own its implementer by value
+  or hold it in an `Arc`, so no lifetime parameter is needed. The alternatives
+  this replaces each drag in `'a`: a struct holding `&'a dyn Trait`, a borrowed
+  callback `&'a dyn Fn`, or a framework of borrowed references between
+  objects.
+- **What does not change:** the [Rust design rules](docs/claude-md/rust-design-rules.md)
+  still bind. There are still no trait objects (`Box<dyn>`, `&dyn`,
+  `Arc<dyn>`), no `Box<T>`, and no lifetime parameters. A closed set of
+  variants that the crate itself provides (its models, schemes, routes) is
+  still an enum. Traits are for the open seam *between* crates; enums are for
+  dispatch *within* a crate.
+
+- **Differential testing whenever there is more than one way to compute the same
+  thing** (maintainer, 2026-11-04, gh:#1215). Some situations where it applies:
+  - a port alongside its upstream;
+  - two ports of the same upstream algorithm;
+  - two strategies for the same job, e.g. cfMesh layer thinning vs snappy
+    layer collapse;
+  - a new solver path beside an old one.
+
+  In each case, run every route on the **same inputs** and compare their
+  outputs quantity by quantity. Then:
+  1. **Write the predicted agreement before running.** Say which quantities
+     should match exactly and which only within a stated tolerance, and why.
+  2. **Explain every difference.** An unexplained difference is a finding to
+     investigate, never noise to average away.
+  3. **Test upstream first where it is runnable.** When upstream can be run
+     (OpenFOAM, GeN-Foam, NJOY, cfMesh), the port is checked against it on
+     shared cases. Bit-identity is the goal; below `1e-8` relative is
+     acceptable only with an explained cause, per `CLAUDE.md`.
+  4. **Keep the alternative routes callable** as named options, so the
+     comparison can be re-run. Pin the agreement with a test.
+
+  Record the methodology and the comparison table in the V&V record.
 
 ## Non-Interactive Shell Commands
 

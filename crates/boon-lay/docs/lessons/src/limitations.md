@@ -68,7 +68,7 @@ number most likely to be misused
 - **No oxidation-failure model.** Measured KORA failures in air are added by
   hand downstream (`sembawang`); the mechanistic attack chain is gh:#441,
   with SiC oxidation gh:#443 and exposed-kernel air oxidation gh:#444
-  ([rung 6](../../tutorials/triso-atops/chemistry.html)).
+  ([*Air on hot graphite*](../../science/fission-products/chem-air.html)).
 - **Chemistry is three transcribed correlations**, each used outside its
   fitted range in an accident; the hydrolysis fit is clamped to the whole
   inventory at water-ingress pressures (gh:#418).
@@ -81,7 +81,7 @@ number most likely to be misused
 - **The decay data and TRISO-ATOPS's half-lives come from different
   sources** (ENDF/B-VIII.0 via OpenMC's chain, and the IAEA Live Chart).
 - **Accident release is venting-only**: an isothermal hold releases exactly
-  0 Bq (gh:#446; [rung 7](../../tutorials/triso-atops/coolant.html)).
+  0 Bq (gh:#446; [*Into the coolant*](../../science/fission-products/atops-coolant.html)).
 - **The GPU path is unverified**, and the CPU path is the reference
   ([compute backends](./compute-backends.md)).
 

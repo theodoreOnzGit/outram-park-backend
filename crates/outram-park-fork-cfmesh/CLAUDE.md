@@ -57,6 +57,58 @@ rule 1): blender depends on this crate, optionally, to export into it, and
 Cargo counts optional dependencies when it looks for cycles. Mesh types stay
 defined here; the converters live in `outram_blender::unstructured::convert`.
 
+## Layer quality: three strategies, kept side by side (gh:#1215, 2026-11-04)
+
+`TetDualOptions::layer_strategy` picks how the layer stage meets upstream's
+mesh-quality limits: `BackOffOnly` (default; this crate's global uniform
+back-off), `CfMeshOptimise` (port of cfMesh v1.1 `boundaryLayerOptimisation`
+and `meshOptimizer`, from `github.com/DAFoam/cfmesh` `e944f6ba695f`, because
+`wyldckat/cfMesh` v1.0 has no `boundaryLayerOptimisation`) and
+`SnappyCollapse` (port of OpenFOAM-dev `852527377c7e` `snappyLayerDriver`'s
+per-point `extrudeMode` loop). They share `layers::layer_setup` and
+`layers::build_layered_variable`; never give one strategy its own copy of the
+column geometry. Keep all three callable: the maintainer's differential-testing
+rule (`AGENTS.md`) compares them on the same inputs, and the comparison table
+lives in the gh:#1215 section of
+`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+Changing the default needs the maintainer, and re-measuring every number that
+depends on it.
+
+`SnappyCollapse` builds layer cells by upstream's `nFaceLayers` rule
+(`layers::build_layered_faces`, `FaceLayerCells::Upstream`, gh:#1241); the
+gh:#1215 rule (`MostOfItsPoints`, cells pinched at an unextruded point) is
+a port defect kept callable for the comparison. cfMesh's
+`correctEdgesBetweenPatches` is `correct_edges.rs`, opt-in through
+`TetDualOptions::correct_edges` (gh:#1241: it does not repair the
+`Corners` rim, and costs 13–330 s on the demo pipe).
+
+**Reproducibility is pinned across processes, not just within one.** A test
+that runs the pipeline twice in one process cannot see `HashMap` iteration
+order (seeded per process); `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
+asserts fingerprints recorded once. ~~`octree.rs` still numbers cells in
+`HashSet` order (the `refinement_levels > 0` path): not yet fixed.~~
+**FIXED 2026-11-05 (gh:#1241):** the octree's leaves are a `BTreeSet`;
+`pipeline::tests::octree_path_is_pinned_bit_for_bit` pins it (before the
+fix three processes gave three fingerprints).
+
+## The dual's boundary faces: three dual kinds, kept side by side (gh:#1240, 2026-11-04)
+
+`TetDualOptions::dual_kind` picks the dual: `MedianPerCorner` (default,
+unchanged: one boundary face per boundary-triangle corner, 4–8 per wall
+cell, median 69° to the owner), `MedianPerPoint` (`dual::polyhedral_dual_per_point`:
+OpenFOAM-dev `852527377c7e` `polyDualMesh`'s boundary rule on the median
+dual, one face per point per feature-bounded sector) and `CellCentre`
+(`cell_centre_dual`, feature `cell-centre-dual`: `outram-foam-mesh`'s
+`poly_dual_mesh` itself; this crate may depend on it, it does not depend on
+this crate). `dual_feature_points` picks upstream's two rules
+(`OnFeatureEdge`, the utility's; `Corners`, the class's); with
+`OnFeatureEdge` no back-off layer grows on a pipe (cfMesh's border cap is 0
+at a rim vertex collinear with its neighbours). The ~40-line sector walk is
+written in both crates (this one builds dependency-free); change one, change
+the other. Comparison and recommendation: the gh:#1240 section of
+`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+Changing the default needs the maintainer.
+
 ## Avoid writing macros (workspace rule, 2026-11-05)
 
 Maintainer direction: macros make code harder to read and review. Do not

@@ -15,7 +15,8 @@
 //! This crate is no longer the empty scaffold its first commits described.
 //! Every module below — [`distributions`], [`samplers`], [`sensitivity`],
 //! [`bayesian`], [`distance`], [`abc`], [`imprecise`], [`model_selection`],
-//! [`scram`], [`gnn`] and [`surrogate`] — carries working, unit-tested code
+//! [`scram`], [`gnn`], [`surrogate`] and [`fidelity`] (the typed
+//! high-fidelity-to-surrogate interface, gh:#1194) — carries working, unit-tested code
 //! whose verification methodology and measured results are recorded in the doc
 //! comments of the tests themselves.
 //!
@@ -162,9 +163,12 @@ pub mod bayesian;
 pub mod distance;
 pub mod distributions;
 pub mod estimators;
+pub mod fidelity;
+pub mod filtering;
 pub mod gnn;
 pub mod imprecise;
 pub mod model_selection;
+pub mod openda;
 pub mod samplers;
 pub mod scram;
 pub mod sensitivity;
@@ -208,6 +212,17 @@ pub enum RafflesError {
         expected: usize,
         /// The length or dimension actually supplied.
         found: usize,
+    },
+
+    /// A caller's model, evaluated through [`fidelity::HighFidelityModel`]
+    /// or [`fidelity::ParametricModel`], failed (added 2026-11-04,
+    /// gh:#1194). The implementing crate maps its own error into this.
+    #[error("model `{model}` failed: {reason}")]
+    ModelEvaluation {
+        /// Which model, as its implementer names it.
+        model: String,
+        /// Its own error message.
+        reason: String,
     },
 }
 

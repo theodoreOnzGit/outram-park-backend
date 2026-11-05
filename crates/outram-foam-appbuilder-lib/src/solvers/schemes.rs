@@ -43,15 +43,21 @@
 //! |---|---|---|
 //! | ddt | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
 //! | ddtCorr ([`ddt_corr_scheme`]) | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
-//! | div | `GaussUpwind`, `GaussLinear` | `GaussLinearUpwind`, `GaussVanLeer`, `GaussMUSCL`, `GaussLimitedLinear` |
+//! | div | `GaussUpwind`, `GaussLinear`, `GaussLinearUpwind` (gh:#1202) | `GaussVanLeer`, `GaussMUSCL`, `GaussLimitedLinear` |
+//! | grad of U ([`grad_vec_scheme`]) | `GaussLinear`, `CellLimitedGaussLinear` (gh:#1202) | `LeastSquares`, `FourthOrder` |
 //!
-//! The limited/TVD `div` schemes need a face limiter driven by a reconstructed
+//! ~~The limited/TVD `div` schemes need a face limiter driven by a reconstructed
 //! upwind gradient; `outram-foam-basic-lib` provides the limiter functions
 //! (`limiters::FluxLimiter`) but not the face-`r` reconstruction for a vector
-//! field, so they are declared unsupported rather than approximated.
+//! field, so they are declared unsupported rather than approximated.~~
+//! **UPDATED 2026-11-04 (gh:#1202):** `Gauss linearUpwind grad(U)` is ported
+//! (OpenFOAM-dev `852527377c7e`, `linearUpwind.C`, the vector
+//! specialisation), with the `cellLimited Gauss linear k` gradient the
+//! tutorials pair it with (`cellLimitedGrad.C`, minmod). The TVD schemes
+//! (`vanLeer`, `MUSCL`, `limitedLinear`) are still unsupported.
 
 use crate::error::AppBuilderError;
-use crate::io::fv_schemes::{DdtScheme, DivScheme};
+use crate::io::fv_schemes::{DdtScheme, DivScheme, GradScheme};
 use outram_foam_basic_lib::prelude::*;
 use std::sync::Arc;
 
@@ -251,6 +257,8 @@ pub fn ddt_vec_scheme(
 /// # Arguments
 ///
 /// * `scheme` — the `divSchemes` selection for `div(phi,U)`.
+/// * `grad`   — the `grad(U)` scheme ([`crate::io::fv_schemes::FvSchemes::grad_u_scheme`]);
+///   consulted only by [`DivScheme::GaussLinearUpwind`].
 /// * `phi`    — face flux φ = U·S_f [m³/s] (volumetric) or ρU·S_f [kg/s]
 ///   (mass); the scheme is agnostic, the units follow `phi`.
 /// * `u`      — the transported velocity field [m/s].
@@ -280,14 +288,22 @@ pub fn ddt_vec_scheme(
 ///   linear and upwind face values coincide (both equal the owner value), and on
 ///   a fixed-value patch `fvm::div_vec` already uses the prescribed value, so
 ///   there is no correction to apply either way.
+/// * [`DivScheme::GaussLinearUpwind`] — OpenFOAM's `linearUpwind`
+///   (gh:#1202): upwind weights in the implicit matrix plus the explicit
+///   correction `φ_f (C_f − C_u)·(∇U)_u` of [`linear_upwind_correction`],
+///   `u` the upwind cell and `∇U` the [`grad_vec_scheme`] gradient. Second
+///   order, upwind-biased; exact for a linear field when the gradient is.
+///   The `String` (upstream's gradient scheme name, e.g. `grad(U)`) is not
+///   looked up: the port has one velocity gradient entry, `grad`.
 ///
 /// # Errors
 ///
-/// [`AppBuilderError::UnsupportedScheme`] for the limited/TVD schemes
-/// (`linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear`) — see the module
-/// documentation.
+/// [`AppBuilderError::UnsupportedScheme`] for the TVD schemes (`vanLeer`,
+/// `MUSCL`, `limitedLinear`), and for `linearUpwind` with an unsupported
+/// gradient — see the module documentation.
 pub fn div_vec_scheme(
     scheme: &DivScheme,
+    grad: &GradScheme,
     phi: &SurfaceScalarField,
     u: &VolVectorField,
     mesh: Arc<FvMesh>,
@@ -295,8 +311,8 @@ pub fn div_vec_scheme(
     let unsupported = |name: &str| AppBuilderError::UnsupportedScheme {
         family: "divSchemes",
         scheme: name.to_string(),
-        reason: "limited/TVD convection needs a face limiter driven by a reconstructed \
-                 upwind gradient, which is not yet implemented for vector fields",
+        reason: "TVD convection (vanLeer, MUSCL, limitedLinear) needs a face limiter \
+                 driven by a reconstructed upwind ratio, which is not yet ported",
     };
 
     match scheme {
@@ -319,11 +335,199 @@ pub fn div_vec_scheme(
             }
             Ok(mat)
         }
-        DivScheme::GaussLinearUpwind(g) => Err(unsupported(&format!("Gauss linearUpwind {g}"))),
+        DivScheme::GaussLinearUpwind(_) => {
+            let mut mat = fvm::div_vec(phi, u, mesh.clone());
+            let g = grad_vec_scheme(grad, u)?;
+            let corr = linear_upwind_correction(phi, &g);
+            for (f, c) in corr.iter().enumerate() {
+                // upstream: fvm += fvc::surfaceIntegrate(faceFlux*correction),
+                // i.e. source −= Σ_f φ_f c_f with the owner/neighbour signs
+                // (the same convention as the `GaussLinear` arm above).
+                let d = *c * phi.internal[f];
+                mat.source[mesh.owner[f]] -= d;
+                mat.source[mesh.neighbour[f]] += d;
+            }
+            Ok(mat)
+        }
         DivScheme::GaussVanLeer => Err(unsupported("Gauss vanLeer")),
         DivScheme::GaussMUSCL => Err(unsupported("Gauss MUSCL")),
         DivScheme::GaussLimitedLinear(k) => Err(unsupported(&format!("Gauss limitedLinear {k}"))),
     }
+}
+
+/// The `grad(U)` gradient of `u` by `scheme` (gh:#1202).
+///
+/// * [`GradScheme::GaussLinear`] — `fvc::grad_vec`, unchanged (OpenFOAM
+///   `gaussGrad`): `(1/V) Σ_f S_f ⊗ u_f`.
+/// * [`GradScheme::CellLimitedGaussLinear`]`(k)` — that gradient limited by
+///   [`cell_limited_grad_vec`].
+///
+/// Returns `∂u_j/∂x_i` in `T_ij` (the OpenFOAM index order of `grad_vec`).
+///
+/// # Errors
+/// [`AppBuilderError::UnsupportedScheme`] for `leastSquares` and `fourth`
+/// (not ported for vector fields).
+pub fn grad_vec_scheme(scheme: &GradScheme, u: &VolVectorField) -> Result<VolTensorField, AppBuilderError> {
+    match scheme {
+        GradScheme::GaussLinear => Ok(fvc::grad_vec(u)),
+        GradScheme::CellLimitedGaussLinear(k) => Ok(cell_limited_grad_vec(u, fvc::grad_vec(u), *k)),
+        GradScheme::LeastSquares => Err(AppBuilderError::UnsupportedScheme {
+            family: "gradSchemes",
+            scheme: "leastSquares".to_string(),
+            reason: "the least-squares gradient is ported for scalar fields only",
+        }),
+        GradScheme::FourthOrder => Err(AppBuilderError::UnsupportedScheme {
+            family: "gradSchemes",
+            scheme: "fourth".to_string(),
+            reason: "not ported",
+        }),
+    }
+}
+
+/// Component `i` (0 = x, 1 = y, 2 = z) of a vector.
+fn cmpt(v: Vector3, i: usize) -> f64 {
+    match i {
+        0 => v.x,
+        1 => v.y,
+        _ => v.z,
+    }
+}
+
+/// Port of OpenFOAM's `cellLimitedGrad<vector, minmod>::calcGrad`
+/// (OpenFOAM-dev `852527377c7e`,
+/// `src/finiteVolume/finiteVolume/gradSchemes/limitedGradSchemes/cellLimitedGrad/cellLimitedGrad.{C,H}`,
+/// limiter `gradientLimiters/minmodGradientLimiter.H`).
+///
+/// For each cell and each velocity component `j`:
+///
+/// 1. `max_j`, `min_j`: the largest and smallest `u_j` over the cell and
+///    every face neighbour; across a boundary face the neighbour is the
+///    boundary face value (the paired cell's value across a cyclic seam, as
+///    upstream's `patchNeighbourField`). Then `max_j −= u_j`, `min_j −= u_j`.
+/// 2. If `k < 1`: widen both by `(1/k − 1)(max_j − min_j)`.
+/// 3. For every face of the cell, the extrapolated change
+///    `e_j = ((C_f − C)·∇u)_j`; if `e_j > small` the ratio `r = max_j/e_j`,
+///    if `e_j < −small` `r = min_j/e_j`, otherwise the face is skipped; the
+///    cell's limiter `l_j = min(l_j, min(r, 1))` (minmod), starting at 1.
+/// 4. `(∇u)_ij ← l_j (∇u)_ij`: each component's gradient is scaled by its
+///    own limiter (upstream's `cmptMultiply` on each row).
+///
+/// With `k < small` (1e-15, OpenFOAM's `small`) the gradient is returned
+/// unlimited, as upstream.
+///
+/// # Arguments
+/// * `u`    — the field whose gradient this is (cell and boundary values).
+/// * `grad` — its unlimited gradient (usually `fvc::grad_vec(u)`).
+/// * `k`    — the limiter coefficient in `[0, 1]`.
+///
+/// # Panics
+/// If `k` is outside `[0, 1]` (upstream stops with a `FatalIOError`).
+pub fn cell_limited_grad_vec(u: &VolVectorField, mut grad: VolTensorField, k: f64) -> VolTensorField {
+    assert!((0.0..=1.0).contains(&k), "cellLimited coefficient {k} must be in [0, 1]");
+    const SMALL: f64 = 1.0e-15;
+    if k < SMALL {
+        return grad;
+    }
+    let mesh = u.mesh.clone();
+    let n = mesh.n_cells;
+    let as3 = |v: Vector3| [v.x, v.y, v.z];
+    let mut max_v: Vec<[f64; 3]> = (0..n).map(|c| as3(u.internal[c])).collect();
+    let mut min_v = max_v.clone();
+    let widen = |c: usize, v: Vector3, max_v: &mut [[f64; 3]], min_v: &mut [[f64; 3]]| {
+        for i in 0..3 {
+            max_v[c][i] = max_v[c][i].max(cmpt(v, i));
+            min_v[c][i] = min_v[c][i].min(cmpt(v, i));
+        }
+    };
+    for f in 0..mesh.n_internal_faces {
+        let (o, nb) = (mesh.owner[f], mesh.neighbour[f]);
+        widen(o, u.internal[nb], &mut max_v, &mut min_v);
+        widen(nb, u.internal[o], &mut max_v, &mut min_v);
+    }
+    let u_b = fvc::interpolate(u);
+    for (pi, p) in mesh.patches.iter().enumerate() {
+        for fi in 0..p.size {
+            let gf = p.start + fi;
+            let partner = if p.kind == PatchKind::Cyclic { mesh.cyclic_partner_face(gf) } else { None };
+            let v = match partner {
+                Some(pf) => u.internal[mesh.owner[pf]],
+                None => u_b.boundary[pi].values[fi],
+            };
+            widen(mesh.owner[gf], v, &mut max_v, &mut min_v);
+        }
+    }
+    for c in 0..n {
+        for i in 0..3 {
+            let ui = cmpt(u.internal[c], i);
+            max_v[c][i] -= ui;
+            min_v[c][i] -= ui;
+            if k < 1.0 {
+                let w = (1.0 / k - 1.0) * (max_v[c][i] - min_v[c][i]);
+                max_v[c][i] += w;
+                min_v[c][i] -= w;
+            }
+        }
+    }
+    let mut lim = vec![[1.0_f64; 3]; n];
+    let limit_face = |c: usize, cf: Vector3, lim: &mut [[f64; 3]], g: &VolTensorField| {
+        let e = Tensor::vec_mat(cf - mesh.cell_centres[c], g.internal[c]);
+        for i in 0..3 {
+            let ei = cmpt(e, i);
+            let r = if ei > SMALL {
+                max_v[c][i] / ei
+            } else if ei < -SMALL {
+                min_v[c][i] / ei
+            } else {
+                continue;
+            };
+            lim[c][i] = lim[c][i].min(r.min(1.0));
+        }
+    };
+    for f in 0..mesh.n_internal_faces {
+        limit_face(mesh.owner[f], mesh.face_centres[f], &mut lim, &grad);
+        limit_face(mesh.neighbour[f], mesh.face_centres[f], &mut lim, &grad);
+    }
+    for f in mesh.n_internal_faces..mesh.owner.len() {
+        limit_face(mesh.owner[f], mesh.face_centres[f], &mut lim, &grad);
+    }
+    for (c, [lx, ly, lz]) in lim.into_iter().enumerate() {
+        let t = &mut grad.internal[c];
+        t.xx *= lx;
+        t.yx *= lx;
+        t.zx *= lx;
+        t.xy *= ly;
+        t.yy *= ly;
+        t.zy *= ly;
+        t.xz *= lz;
+        t.yz *= lz;
+        t.zz *= lz;
+    }
+    grad
+}
+
+/// Port of OpenFOAM's `linearUpwind<vector>::correction` (OpenFOAM-dev
+/// `852527377c7e`,
+/// `src/finiteVolume/interpolation/surfaceInterpolation/schemes/linearUpwind/linearUpwind.C`):
+/// on each internal face, the explicit correction to the upwind face value,
+///
+/// ```text
+///   c_f = (C_f − C_u) · (∇U)_u,   u = owner if φ_f > 0, else neighbour
+/// ```
+///
+/// (`(d·∇U)_j = Σ_i d_i ∂U_j/∂x_i`); the face value is `U_u + c_f`.
+/// Non-coupled boundary faces carry no correction (upstream leaves them at
+/// zero); cyclic seams are not corrected here either (upstream corrects
+/// coupled patches; no case in this crate runs `linearUpwind` on one).
+/// At `φ_f = 0` upstream takes the **neighbour** while the upwind weights
+/// take the owner; the convective flux is zero there either way.
+pub fn linear_upwind_correction(phi: &SurfaceScalarField, grad: &VolTensorField) -> Vec<Vector3> {
+    let mesh = &grad.mesh;
+    (0..mesh.n_internal_faces)
+        .map(|f| {
+            let c = if phi.internal[f] > 0.0 { mesh.owner[f] } else { mesh.neighbour[f] };
+            Tensor::vec_mat(mesh.face_centres[f] - mesh.cell_centres[c], grad.internal[c])
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -442,8 +646,9 @@ mod tests {
         phi.internal[0] = 1.0;
         phi.internal[1] = 1.0;
 
-        let up = div_vec_scheme(&DivScheme::GaussUpwind, &phi, &u, mesh.clone()).unwrap();
-        let lin = div_vec_scheme(&DivScheme::GaussLinear, &phi, &u, mesh.clone()).unwrap();
+        let g = GradScheme::GaussLinear;
+        let up = div_vec_scheme(&DivScheme::GaussUpwind, &g, &phi, &u, mesh.clone()).unwrap();
+        let lin = div_vec_scheme(&DivScheme::GaussLinear, &g, &phi, &u, mesh.clone()).unwrap();
 
         let expected = [-0.5, 0.0, 0.5];
         for (c, want) in expected.iter().enumerate() {
@@ -475,10 +680,9 @@ mod tests {
             DivScheme::GaussVanLeer,
             DivScheme::GaussMUSCL,
             DivScheme::GaussLimitedLinear(1.0),
-            DivScheme::GaussLinearUpwind("grad(U)".to_string()),
         ] {
             assert!(
-                div_vec_scheme(&s, &phi, &u, mesh.clone()).is_err(),
+                div_vec_scheme(&s, &GradScheme::GaussLinear, &phi, &u, mesh.clone()).is_err(),
                 "{s:?} must be reported as unsupported"
             );
         }
@@ -541,5 +745,159 @@ mod tests {
         );
         assert!(ddt_corr_scheme(&DdtScheme::LocalEuler, &u0, None, &p0, None, 1.0).is_err());
         assert_eq!(DdtCorrForm::default(), DdtCorrForm::MatchDdtScheme);
+    }
+
+    /// 3 cells along x of widths 1, 2, 1 m (faces at x = 0, 1, 3, 4; centres
+    /// 0.5, 2, 3.5), unit face area; patches `left` (x = 0) and `right`
+    /// (x = 4). `dy` shifts the internal face centres off the x axis by
+    /// (0, dy, 0) to make the faces skewed.
+    fn uneven_line_mesh(dy: f64) -> Arc<FvMesh> {
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(3)
+                .n_internal_faces(2)
+                .owner(vec![0, 1, 0, 2])
+                .neighbour(vec![1, 2])
+                .patches(vec![
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Patch),
+                    BoundaryPatch::new("right", 3, 1, PatchKind::Patch),
+                ])
+                .cell_volumes(vec![1.0, 2.0, 1.0])
+                .cell_centres(vec![vx(0.5), vx(2.0), vx(3.5)])
+                .face_area_vectors(vec![vx(1.0), vx(1.0), vx(-1.0), vx(1.0)])
+                .face_centres(vec![
+                    Vector3::new(1.0, dy, 0.0),
+                    Vector3::new(3.0, dy, 0.0),
+                    vx(0.0),
+                    vx(4.0),
+                ])
+                .build()
+                .unwrap(),
+        )
+    }
+
+    /// A vector field with the given cell values and fixed values on the two
+    /// patches of a line mesh.
+    fn field_with_ends(mesh: &Arc<FvMesh>, cells: Vec<Vector3>, left: Vector3, right: Vector3) -> VolVectorField {
+        VolVectorField::new(
+            "U",
+            mesh.clone(),
+            Field::new(cells),
+            vec![PatchField::fixed_value_vec(1, left), PatchField::fixed_value_vec(1, right)],
+        )
+    }
+
+    /// V&V (verification) — `Gauss linearUpwind grad(U)` (gh:#1202) gives the
+    /// hand-computed corrections and is exact for a linear field.
+    ///
+    /// **Methodology.** Reference (analytical, by hand): on the uneven line
+    /// mesh (widths 1, 2, 1 m), `U_x = 1 + 2x` gives cells 2, 5, 8 m/s and
+    /// end values 1, 9. The Gauss linear gradient is exactly 2 in every cell
+    /// (cell 1: (−3 + 7)/2), so the linearUpwind face values must be the exact
+    /// 3 and 7 m/s at x = 1, 3. With φ = +1 m³/s (upwind = owner) the
+    /// corrections are c = 3 − 2 = 1 and 7 − 5 = 2, so `source_LU −
+    /// source_upwind` = [−1, 1 − 2, +2] = [−1, −1, +2] m⁴/s²; with φ = −1
+    /// (upwind = neighbour) c = (1 − 2)·2 = −2 and (3 − 3.5)·2 = −1, again
+    /// face values 3 and 7. A second check, for skewed faces: face centres
+    /// moved off the axis by 0.3 m and `U = A·x` for a full tensor A, with the
+    /// exact gradient Aᵀ supplied, must give `U_u + c_f = A·C_f` on every face
+    /// (the correction's geometry, independent of the gradient). Pass: |Δ| <
+    /// 1e-12, implicit coefficients unchanged.
+    ///
+    /// **Results (2026-11-04, release).** As expected to |Δ| ≤ 1e-15: the
+    /// corrections are [1, 2] and [−2, −1], the source difference is
+    /// [−1, −1, 2], the matrix coefficients are unchanged, and the skewed
+    /// check reproduces A·C_f.
+    #[test]
+    fn linear_upwind_matches_hand_values_and_is_exact_for_linear_fields() {
+        let mesh = uneven_line_mesh(0.0);
+        let u = field_with_ends(&mesh, vec![vx(2.0), vx(5.0), vx(8.0)], vx(1.0), vx(9.0));
+        let g = fvc::grad_vec(&u);
+        for c in 0..3 {
+            assert!((g.internal[c].xx - 2.0).abs() < 1e-14, "grad[{c}] = {:?}", g.internal[c]);
+        }
+        let mut phi = SurfaceScalarField::zeros("phi", mesh.clone());
+        phi.internal[0] = 1.0;
+        phi.internal[1] = 1.0;
+        let c = linear_upwind_correction(&phi, &g);
+        assert!((c[0].x - 1.0).abs() < 1e-14 && (c[1].x - 2.0).abs() < 1e-14, "{c:?}");
+        let lu = DivScheme::GaussLinearUpwind("grad(U)".into());
+        let gl = GradScheme::GaussLinear;
+        let up = div_vec_scheme(&DivScheme::GaussUpwind, &gl, &phi, &u, mesh.clone()).unwrap();
+        let m = div_vec_scheme(&lu, &gl, &phi, &u, mesh.clone()).unwrap();
+        for (cell, want) in [-1.0, -1.0, 2.0].iter().enumerate() {
+            assert!((m.source[cell].x - up.source[cell].x - want).abs() < 1e-14, "cell {cell}");
+            assert_eq!(m.ldu.diag[cell], up.ldu.diag[cell]);
+        }
+        for f in 0..2 {
+            assert_eq!(m.ldu.upper[f], up.ldu.upper[f]);
+            assert_eq!(m.ldu.lower[f], up.ldu.lower[f]);
+        }
+        phi.internal[0] = -1.0;
+        phi.internal[1] = -1.0;
+        let c = linear_upwind_correction(&phi, &g);
+        assert!((c[0].x + 2.0).abs() < 1e-14 && (c[1].x + 1.0).abs() < 1e-14, "{c:?}");
+
+        // Skewed faces, full tensor A, exact gradient Aᵀ supplied.
+        let mesh = uneven_line_mesh(0.3);
+        let a = Tensor::new(1.0, -2.0, 0.5, 0.3, 4.0, -1.0, 2.0, 0.0, 3.0);
+        let cells: Vec<Vector3> = mesh.cell_centres.iter().map(|x| a.mat_vec(*x)).collect();
+        let mut g = fvc::grad_vec(&field_with_ends(&mesh, cells.clone(), Vector3::ZERO, Vector3::ZERO));
+        for c in 0..3 {
+            g.internal[c] = a.transpose();
+        }
+        for sign in [1.0, -1.0] {
+            let mut phi = SurfaceScalarField::zeros("phi", mesh.clone());
+            phi.internal[0] = sign;
+            phi.internal[1] = sign;
+            let c = linear_upwind_correction(&phi, &g);
+            for f in 0..2 {
+                let up = if sign > 0.0 { mesh.owner[f] } else { mesh.neighbour[f] };
+                let exact = a.mat_vec(mesh.face_centres[f]);
+                assert!((cells[up] + c[f] - exact).mag() < 1e-13, "face {f} sign {sign}");
+            }
+        }
+    }
+
+    /// V&V (verification) — `cellLimited Gauss linear k` (gh:#1202) limits
+    /// each component by the hand-computed minmod factor and leaves a linear
+    /// component alone.
+    ///
+    /// **Methodology.** Reference (by hand, upstream `cellLimitedGrad.C`): on
+    /// the uniform 3-cell line (centres 0.5, 1.5, 2.5 m), `U_x` = 0, 1, 1.2
+    /// with end values −1 and 1.4, `U_y` = x (cells 0.5, 1.5, 2.5, ends 0
+    /// and 3). Gauss gradients of `U_x`: 1.5, 0.6, 0.3. Cell 1: neighbours
+    /// span [0, 1.2], so max − U = 0.2, min − U = −1; the face at x = 2
+    /// extrapolates +0.3, r = 0.2/0.3, limiter 2/3, gradient 0.4; the face at
+    /// x = 1 extrapolates −0.3, r = 3.3 (no limit). Cells 0 and 2: r = 4/3 on
+    /// both faces, not limited. `U_y` is linear: every r ≥ 1, unlimited (1).
+    /// With k = 0.5 cell 1's bounds widen by (1/k − 1)(0.2 + 1) = 1.2, r =
+    /// 1.4/0.3, not limited. With k = 0 nothing is limited. Pass |Δ| < 1e-14.
+    ///
+    /// **Results (2026-11-04, release).** As predicted: ∂U_x/∂x = [1.5, 0.4,
+    /// 0.3] at k = 1, [1.5, 0.6, 0.3] at k = 0.5 and 0, ∂U_y/∂x = 1 in every
+    /// cell throughout.
+    #[test]
+    fn cell_limited_gradient_matches_hand_values() {
+        let mesh = line_mesh();
+        let v = |x: f64, y: f64| Vector3::new(x, y, 0.0);
+        let u = field_with_ends(&mesh, vec![v(0.0, 0.5), v(1.0, 1.5), v(1.2, 2.5)], v(-1.0, 0.0), v(1.4, 3.0));
+        let raw = fvc::grad_vec(&u);
+        let gx = |g: &VolTensorField| [g.internal[0].xx, g.internal[1].xx, g.internal[2].xx];
+        let close = |a: [f64; 3], b: [f64; 3]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 1e-14);
+        assert!(close(gx(&raw), [1.5, 0.6, 0.3]), "{:?}", gx(&raw));
+        let k1 = grad_vec_scheme(&GradScheme::CellLimitedGaussLinear(1.0), &u).unwrap();
+        assert!(close(gx(&k1), [1.5, 0.4, 0.3]), "{:?}", gx(&k1));
+        let k05 = cell_limited_grad_vec(&u, raw.clone(), 0.5);
+        assert!(close(gx(&k05), [1.5, 0.6, 0.3]), "{:?}", gx(&k05));
+        let k0 = cell_limited_grad_vec(&u, raw.clone(), 0.0);
+        assert!(close(gx(&k0), [1.5, 0.6, 0.3]));
+        for g in [&k1, &k05, &k0] {
+            for c in 0..3 {
+                assert!((g.internal[c].xy - 1.0).abs() < 1e-14, "dUy/dx cell {c}");
+            }
+        }
+        assert_eq!(grad_vec_scheme(&GradScheme::GaussLinear, &u).unwrap().internal.as_slice(), raw.internal.as_slice());
+        assert!(grad_vec_scheme(&GradScheme::LeastSquares, &u).is_err());
     }
 }

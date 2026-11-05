@@ -64,7 +64,7 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 
 | Module | What |
 |---|---|
-| `double_pipe` | `DoublePipeExchanger`: a counterflow double-pipe heat exchanger as three `ChtMultiRegionFoam` regions (tube fluid, tube wall, annulus fluid) on the conformal meshes of `outram_foam_mesh::block_primitives::DoublePipe`, with the march-freeze-iterate procedure and the report (outlet temperatures, stream and interface heats, effectiveness, local UA) the V&V and the Foam Studio demo use (gh:#1156). |
+| `double_pipe` | `DoublePipeExchanger`: a counterflow double-pipe heat exchanger as three `ChtMultiRegionFoam` regions (tube fluid, tube wall, annulus fluid) on the conformal meshes of `outram_foam_mesh::block_primitives::DoublePipe`, with the march-freeze-iterate procedure and the report (outlet temperatures, stream and interface heats, effectiveness, local UA) the V&V and the Foam Studio demo use (gh:#1156). Since gh:#1178: an independent annulus flow rate (`annulus_flow_rate`, `None` keeps C_r = 1), the axial `profiles` (per-layer interface heat, bulk and interface temperatures, local and ΔT-weighted mean Nusselt numbers on both sides) and the apparent `pressure_drop`, which `outram-park-digital-twin-engine::multifidelity::double_pipe` reads closures from. |
 | `helical_coil` | `CoilFlow` (Re, d/D_c, Dean number), `CoilCells` (per-cell arc position and Frenet frame, from `outram_foam_mesh::block_primitives::HelicalPipe::locate`), `arc_pressure_gradient` (−dp/ds over an arc window) and `dean_section` (axial-peak shift, secondary speed, core outflow, vortex-pair sign): laminar flow in a helical coil on `laminar_pipe`'s boundary conditions, developing from a uniform inlet (gh:#1157; V&V in `verification_and_validation/helical_coil_dean_gh1157.md`). |
 | `laminar_pipe` | `PipeFlow`: a laminar internal flow on any mesh with `inlet` / `outlet` / wall patches (uniform inlet along the inward normal, p = 0 outlet, no-slip walls) solved by `PimpleFoam`, with Hagen–Poiseuille, f = 64/Re and the Durst et al. (2005) development length as references, and the fits (centreline velocity, −dp/dz, development length, fluxes, continuity) the pipe V&V and the Foam Studio demo use (gh:#1155). |
 
@@ -104,7 +104,8 @@ The `ddt` and `div` entries of `FvSchemes` are honoured by `PimpleFoam`:
 |---|---|---|
 | `ddtSchemes` | `Euler` (default), `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` → `AppBuilderError::UnsupportedScheme` |
 | Rhie–Chow `ddtCorr` (`ddt_corr_scheme`, follows `ddtSchemes`) | `Euler`, `Backward` (BDF2 form, since 2026-11-01), `SteadyState` (zero) | as above |
-| `divSchemes` | `GaussUpwind` (default), `GaussLinear` | `linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear` → `AppBuilderError::UnsupportedScheme` |
+| `divSchemes` | `GaussUpwind` (default), `GaussLinear`, `GaussLinearUpwind` (since 2026-11-04, gh:#1202, OpenFOAM-dev `linearUpwind.C`) | `vanLeer`, `MUSCL`, `limitedLinear` → `AppBuilderError::UnsupportedScheme` |
+| `gradSchemes`, the `grad(U)` entry (`FvSchemes::grad_u`, else `default_grad`) | `GaussLinear` (default), `CellLimitedGaussLinear(k)` (since 2026-11-04, `cellLimitedGrad<vector, minmod>`) | `leastSquares`, `fourth` → `UnsupportedScheme` |
 
 An unimplemented selection is an **error, never a silent fallback**. Measured
 effect of choosing `Gauss linear` on the Re = 100 lid-driven cavity, 20×20 mesh
@@ -121,8 +122,12 @@ Re = 100 cavity: upwind RMS against Ghia 0.0363 → **0.0207** (max 0.0634 →
 icoFoam at Re = 10, max |ΔU| / U_lid 0.0144 → **0.0062**. The earlier numbers
 here are the record of the pre-fix solver.
 
-`grad`, `laplacian`, `snGrad` and `interpolation` selections are still only
-**stored** — no solver consults them. (Nothing is *parsed* from disk either:
+~~`grad`, `laplacian`, `snGrad` and `interpolation` selections are still only
+**stored** — no solver consults them.~~ **CORRECTED 2026-11-04:** the
+`laplacian` selection is honoured by `PimpleFoam` since gh:#1161, and the
+`grad(U)` selection since gh:#1202 (by `linearUpwind` and by the momentum
+Laplacian's non-orthogonal correction, as upstream's `correctedSnGrad`);
+`snGrad` and `interpolation` are still only **stored**. (Nothing is *parsed* from disk either:
 `FvSchemes::read` is `todo!()`, so the struct is built in Rust.)
 
 ## Case I/O (`io`)
@@ -157,7 +162,7 @@ translation order are in
 | `multi_region` | **Implemented + verified end-to-end** for 0-D and mesh-based diffusion↔TH coupling with Doppler feedback. Two **degraded scaffolds** remain (see Limitations): exact conservative mesh-to-mesh mapping, and actual mesh-point motion. |
 | `thermal_hydraulics::closures` | Correlation leaves ported with unit tests against published values: `fs_drag` (**verified**, analytic `f·Re → 64`), `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`. `turbulence` is **partial** (closure algebra only; the k/ε transport equations and `correctNut` orchestration are deferred). |
 | `thermal_hydraulics::phase` / `structure` | Field-state + structure/power-model kernels **implemented** (with tests). |
-| `thermal_hydraulics::solver` | `one_phase` porous UEqn/pEqn/EEqn driver **implemented** — but a **constant-fluid-property slice only** (`he = Cp·T`, fixed-surface-temperature structure coupling). **New work, not port (gh:#1149, 2026-11-03):** an optional `PorousConductivity` makes `alphaEff = λ(T)/Cp` per region (off by default; the constant path is pinned bit for bit). `onePhaseLegacy` and the **two-phase (MULES) solver are not implemented.** |
+| `thermal_hydraulics::solver` | `one_phase` porous UEqn/pEqn/EEqn driver **implemented** — but a **constant-fluid-property slice only** (`he = Cp·T`, fixed-surface-temperature structure coupling). **New work, not port (gh:#1149, 2026-11-03):** an optional `PorousConductivity` makes `alphaEff = λ(T)/Cp` per region (off by default; the constant path is pinned bit for bit). `onePhaseLegacy` ~~and the **two-phase (MULES) solver are not implemented.**~~ is not implemented. **`two_phase` (gh:#1218, 2026-11-04):** GeN-Foam's `twoPhase` with `implicitUpwind` alpha (MULES not ported), runs `1D_boiling`. |
 | `thermal_hydraulics::solid_conduction` | **New work, not port (gh:#1149, 2026-11-03).** 2-D R-Z (OpenFOAM-style wedge) or planar solid conduction over homogenised regions: `λ(T)`, `ρc_p(T)` by enum, Picard per steady solve and per backward-Euler step (enthalpy-form storage), fixed / convective / radiative boundaries, gas gaps with two-surface radiation between regions (Kugeler et al. 2017 §9.4). **Verified** against closed forms (uniform-source cylinder, composite cylinder with a radiating gap, Kirchhoff `λ0(1+βT)`, transient slab series, 2-D manufactured solution: observed order 2.00 in space, 1.01 in time). Drawings: `verification_and_validation/solid_conduction_rz/`. ~~HTR-10 geometry is a later part of gh:#1149.~~ **UPDATED 2026-11-03:** the HTR-10 geometry is built on it by `htr10_rz` (below); held cells (`set_fixed_temperatures`, the gas side as a prescribed temperature) added and verified. **2026-11-03 (gh:#1173):** a radiative-plus-enclosure-natural-convection boundary (`SolidBoundary::RadiativeAndConvective`, `EnclosureNaturalConvection`: MacGregor & Emery 1969, air from `air_properties`, checked against CoolProp within 2 %), the HTR-10 RPV side wall's default. Not validated against any reactor. |
 | `thermal_hydraulics::thermophysical` | Bespoke **hydrogen** (H/H₂) property package implemented; not yet wired as the `one_phase` solver's fluid package. Other fluids come from basic-lib thermo / tampines-steam-tables. |
 | `thermal_hydraulics::boundary_conditions` | `blackbody_radiation`, `velocity_rundown`, `time_field_table` implemented; **`nusselt_baffle` is a scaffold — every method is `unimplemented!()`.** |
@@ -239,6 +244,18 @@ This crate is at an early stage of a large port. The following are **known,
 real limitations** as of version 0.1.1 — grounded in the code, not aspirational.
 
 ### Verification & validation
+
+- **Open (gh:#1202, 2026-11-04): the laminar pipe on cfMesh's tet-dual mesh
+  is a few per cent off Hagen–Poiseuille.** At the Foam Studio default
+  (h 4 mm, 6 353 cells, `linearUpwind grad(U)` + `cellLimited Gauss linear
+  1`) u_c/2U is 0.893 and dp/dz 1.033 × HP; with `Gauss linear`, 0.981 and
+  0.967. The structured O-grid is within 1–2 %. Fixed on the way: the
+  interpolation weights (now upstream's `makeWeights`), the chamfered rim
+  (feature-edge capture in the cfMesh port; the inlet carried 6 % too
+  little flow), the inward boundary faces and the 2-layer divergence.
+  Still open: 3 wall layers diverge; layers do not improve τ_w or dp/dz at
+  matched cell count; the remaining gap is in the core at this resolution.
+  Record: `verification_and_validation/laminar_pipe_gh1155.md`.
 
 - **Unverified until validated (see banner).** Only the cases with an explicit
   V&V test are trusted; everything else is untrusted draft. The currently
@@ -341,7 +358,11 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   `with_cross_sections` for a working model. **SN has no transient** — it
   offers `solve_eigenvalue` only, unlike `diffusion` and `sp3`, which also
   offer `step`.
-- **adjointDiffusion and albedoSP3 are not ported.**
+- ~~**adjointDiffusion and albedoSP3 are not ported.**~~ **CORRECTED 2026-11-04
+  (gh:#1217 audit):** `albedoSP3` is ported as `genfoam::neutronics::albedo`
+  (5 tests; verified against an upstream MSFR run to 0.0 pcm on its boundary
+  row). `adjointDiffusion` is still not ported (checked: no module of that
+  name under `src/genfoam/neutronics/`).
 - **Point kinetics is the bare 0-D reactivity-driven ODE.** The full GeN-Foam
   `pointKineticNeutronics` couplings — temperature/density feedback fields,
   GEM and control-rod-driveline reactivity, external-source power modulation,
@@ -356,10 +377,19 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
 
 ### GeN-Foam thermal-hydraulics
 
-- **The two-phase solver is not implemented.** Only `solver::one_phase` exists,
+- ~~**The two-phase solver is not implemented.** Only `solver::one_phase` exists,
   and only as a **constant-fluid-property** slice (`he = Cp·T`, isotropic drag,
   fixed-surface-temperature structure coupling). `onePhaseLegacy` and the
-  MULES-limited two-phase `alpha`/pressure driver are absent.
+  MULES-limited two-phase `alpha`/pressure driver are absent.~~ **CORRECTED
+  2026-11-04 (gh:#1218):** `solver::two_phase` ports GeN-Foam's `twoPhase`
+  solver with the `implicitUpwind` alpha solver, face-centred momentum with
+  implicit partial elimination, the compressible `p_rgh` equation, both
+  enthalpy equations and `heatDriven` boiling, on basic-lib's `heRhoThermo`
+  stacks; it runs upstream's `1D_boiling` end to end (V&V:
+  `verification_and_validation/genfoam_two_phase/README.md`). **MULES is not
+  ported** (a case selecting it runs `implicitUpwind`, recorded as a
+  deviation), nor `onePhaseLegacy`; `one_phase` is still the
+  constant-property slice. Gap list: `docs/genfoam-port-gap-audit.md`.
 - **The porous fluid thermophysical package is not wired into the solver.** The
   one-phase driver runs on constant properties supplied on the fields; the
   hydrogen property package exists standalone but is not yet the solver's EOS.

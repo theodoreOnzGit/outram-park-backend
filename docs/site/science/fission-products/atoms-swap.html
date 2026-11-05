@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atoms swapping</title>
-<meta name="description" content="Fission products, lesson 9: how hops become diffusion in a crystal. An atom trades places with a vacancy, slips between sites, pushes a neighbour out, or swaps directly; traps hold atoms back, and radiation supplies extra vacancies. With the cited diffusion correlations boon-lay carries.">
+<meta name="description" content="Fission products, lesson 10: how hops become diffusion in a crystal. An atom trades places with a vacancy, slips between sites, pushes a neighbour out, or swaps directly; traps hold atoms back, and radiation supplies extra vacancies. With the cited diffusion correlations boon-lay carries.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="cascade-data.js" defer></script>
@@ -13,7 +13,7 @@
 <script src="fragment-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 2, lesson 9 (page F; maintainer design
+<!-- Fission products, chapter 2, lesson 10 (page F; maintainer design
      2026-10-20 with the same day's corrections: "how diffusion occurs, oh
      atoms swapping"; mechanisms in plain words, Turnbull's terms in the
      folded section). Mechanism demo: hop-physics.js / hop-worker.js;
@@ -26,14 +26,14 @@
 <h1>Atoms swapping: how hops become diffusion</h1>
 <p class="kicker lesson-progress">Fission products</p>
 
-<p>Lesson 8 had one atom hopping into an empty neighbouring site. But a crystal is packed: nearly every site is full. So <b>where does a hopping atom go?</b> It has to swap with something.</p>
+<p>Lesson 9 had one atom hopping into an empty neighbouring site. But a crystal is packed: nearly every site is full. So <b>where does a hopping atom go?</b> It has to swap with something.</p>
 
 <section class="widget-card">
   <h3>Who swaps with what</h3>
   <div class="widget" id="swap">
     <canvas aria-label="A square lattice of grey atoms. In the vacancy view an empty site wanders by trading places with neighbours, and a brown atom moves only when the empty site passes it. Other views: a small red atom slipping between sites; a red atom pushing a lattice atom out into a gap; four atoms rotating in a ring. A plot view compares Arrhenius lines for four mechanisms."></canvas>
   </div>
-  <p class="note">The vacancy and interstitial views are the kinetic Monte Carlo of lesson 8 (the pace is slowed to watch); push-out and ring are <b>cartoons</b>. The Arrhenius plots run in a Web Worker with <b>illustrative</b> barriers. The mechanisms are those listed in <a href="#ref-tian2026mate664">(Tian group, University of Alberta, 2026)</a>, Lecture 04, &ldquo;Diffusion in solids&rdquo;, and Lecture 10, &ldquo;Diffusion models in solids&rdquo;.</p>
+  <p class="note">The vacancy and interstitial views are the kinetic Monte Carlo of lesson 9 (the pace is slowed to watch); push-out and ring are <b>cartoons</b>. The Arrhenius plots run in a Web Worker with <b>illustrative</b> barriers. The mechanisms are those listed in <a href="#ref-tian2026mate664">(Tian group, University of Alberta, 2026)</a>, Lecture 04, &ldquo;Diffusion in solids&rdquo;, and Lecture 10, &ldquo;Diffusion models in solids&rdquo;.</p>
 </section>
 
 <p><b>Predict first.</b> An atom can only move when an empty site is next to it. Does that make diffusion slower, and does it change how steeply it rises with temperature?</p>
@@ -65,7 +65,7 @@
 
 <p>Each correlation is a straight line (one Arrhenius term) or a bent one (two terms, or a switch between two). Different atoms in different materials have very different barriers.</p>
 
-<p><b>Where next:</b> how these coefficients turn into how much of a fission product leaves a TRISO particle is boon-lay&rsquo;s book, <a href="../../tutorials/fp-transport-theory/">Fission Product Transport Theory</a>, and its <a href="../../tutorials/triso-atops/">TRISO-ATOPS tutorial</a> (the Booth model and TRISO release).</p>
+<p><b>Where next:</b> how these coefficients turn into how much of a fission product leaves a TRISO particle is boon-lay&rsquo;s book, <a href="../../tutorials/fp-transport-theory/">Fission Product Transport Theory</a>, and its <a href="../../science/index.html#fission-products">TRISO-ATOPS tutorial</a> (the Booth model and TRISO release).</p>
 
 <details class="optional">
 <summary>Learn more advanced stuff</summary>

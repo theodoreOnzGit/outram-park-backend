@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walk: why silver is different</title>
+<meta name="description" content="A guided walk through TRISO-ATOPS's silver model: the one group released through intact SiC, by a breakthrough model with a time lag, so it is zero at normal operation in the demo and rises steeply with temperature.">
+<link rel="stylesheet" href="../../style.css">
+<link rel="stylesheet" href="atops-concepts.css">
+<script src="atops-concepts-data.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-walk-recorded.js" defer></script>
+<script src="atops-walk-numbers.js" defer></script>
+<script src="atops-concepts.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 concept walks (gh:#1207 part 2), walk 3 of 3.
+     Numbers: atops-data.js (lesson_triso_atops, MHTGR Case A: breakthrough and
+     <R/B> on 50 °C steps, a 1 Ci node against temperature, heat-ups) and
+     atops-walk-recorded.js (the demo's headless release output). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+
+<h1>Walk: why silver is different</h1>
+<p class="kicker">Fission products · concept walk 3 of 3</p>
+
+<p>Every other group in TRISO-ATOPS leaves only from failed particles. Silver is the exception: it diffuses through intact SiC. The model for that is a membrane with a time lag, and the lag is why silver can be exactly zero in one run and dominant in a hotter one.</p>
+
+<ol class="cc-steps">
+<li data-concept="nuclide-groups" data-lesson="atops-groups.html" data-demo="rung=release&amp;pick=silver&amp;now=0">
+<h3>Its own group</h3>
+<p>Ag (and Pd with it) is the <b><span data-q="ag.group">…</span></b> group. Ag-110m has a half-life of <span data-q="ag.t12d">…</span>, long-lived against a few days, short against the 40-year run.</p>
+</li>
+<li data-concept="diffusion" data-lesson="barriers-sic.html" data-demo="rung=release&amp;pick=silver&amp;now=0">
+<h3>Its own diffusion law, in SiC</h3>
+<p>Silver is the only species the code gives a law for intact SiC: <span data-q="ag.dSic900">…</span> at 900&nbsp;&deg;C, <span data-q="ag.dSic1600">…</span> at 1600&nbsp;&deg;C. Its 215&nbsp;kJ/mol activation energy makes it climb steeply with temperature.</p>
+</li>
+<li data-concept="breakthrough-ag" data-lesson="atops-release-models.html" data-demo="rung=release&amp;pick=silver&amp;now=0">
+<h3>Breakthrough, with a time lag</h3>
+<p>The SiC layer is treated as a membrane: nothing comes through until the diffusion front crosses it, then steady permeation. Over the MHTGR irradiation the code&rsquo;s breakthrough fraction is <span data-q="ag.bt750">…</span> at 750&nbsp;&deg;C, <span data-q="ag.bt800">…</span> at 800&nbsp;&deg;C, <span data-q="ag.bt850">…</span> at 850&nbsp;&deg;C, <span data-q="ag.bt900">…</span> at 900&nbsp;&deg;C and <span data-q="ag.bt1000">…</span> at 1000&nbsp;&deg;C. Below the lag the series and the lag term cancel to zero.</p>
+</li>
+<li data-concept="release-rate" data-lesson="atops-normal-operation.html" data-demo="rung=release&amp;pick=silver&amp;now=0">
+<h3>From every particle</h3>
+<p>For volatiles and metals the release rate is weighted by the failed fractions. For silver the weight is 1: the breakthrough model already speaks for intact particles. So a 1&nbsp;Ci node releases <span data-q="ag.r750">…</span> atoms/s at 750&nbsp;&deg;C, <span data-q="ag.r800">…</span> at 800&nbsp;&deg;C and <span data-q="ag.r900">…</span> at 900&nbsp;&deg;C: from exactly nothing to the same order as caesium&rsquo;s <span data-q="node.Cs137.release">…</span> (from failed particles only) within 150&nbsp;&deg;C.</p>
+</li>
+<li data-concept="breakthrough-ag" data-lesson="barriers-sic.html" data-demo="rung=release&amp;pick=Ag-110m&amp;now=0&amp;leak=off">
+<h3>Zero at normal operation in the demo</h3>
+<p>The demo runs HTR-10&rsquo;s inventory at 776&nbsp;&deg;C. There the breakthrough has not started, and every silver pool at the end of normal operation is exactly zero: source <span data-q="demo.Ag110m.0.source_atoms_per_s">…</span> atoms/s, circulating <span data-q="demo.Ag110m.0.circulating_bq">…</span> Bq, plated <span data-q="demo.Ag110m.0.plated_bq">…</span> Bq. A zero like this is a modelling result, not a measurement: it depends on the time lag and the irradiation temperature.</p>
+</li>
+<li data-concept="booth-long" data-lesson="atops-release-models.html" data-demo="rung=release&amp;pick=Cs-137&amp;now=0&amp;leak=off">
+<h3>Compare caesium at the same moment</h3>
+<p>Caesium, held by intact SiC and released only from failed particles, is not zero there: <span data-q="demo.Cs137.0.circulating_bq">…</span> Bq circulate. Silver is the group that switches from nothing to something with temperature alone.</p>
+</li>
+<li data-concept="breakthrough-transient" data-lesson="atops-accident.html" data-demo="rung=release&amp;pick=Ag-110m&amp;hold=1800&amp;now=500&amp;leak=off">
+<h3>Hot: the lag is crossed</h3>
+<p>Heat the core and the lag is crossed in hours, not years. In the demo&rsquo;s 1800&nbsp;&deg;C hold, by <span data-q="demo.holdEnd">…</span> Ag-110m enters the helium at <span data-q="demo.Ag110m.end.source_atoms_per_s">…</span> atoms/s and <span data-q="demo.Ag110m.end.plated_bq">…</span> Bq has plated out. (The demo&rsquo;s hold uses normal operation&rsquo;s steady model at the hold temperature, not the accident model.) In the lesson&rsquo;s accident model, on the integral of D, the 1600&nbsp;&deg;C heat-up releases <span data-q="acc1600.Ag110m.rfKernel">…</span> of the silver by the end of its hold.</p>
+</li>
+<li data-concept="plate-out" data-lesson="atops-coolant.html" data-demo="rung=release&amp;pick=silver&amp;hold=1800&amp;now=500&amp;leak=off">
+<h3>Then it is a metal again</h3>
+<p>Once in the helium, silver is routed like the other metals: it plates out and the purification system never takes it. In the accident it leaves with the circulating pool and the lift-off share (walk 2).</p>
+</li>
+</ol>
+
+<p><b>What this walk does not show:</b> whether real silver release follows this model. Silver transport through SiC is not well understood (grain-boundary and palladium-assisted paths are not in the model), and nothing here is compared with a measured release.</p>
+
+<nav class="cc-walknav" aria-label="Concept walks">
+  <a class="btn ghost" href="atops-walk-accident.html">&larr; Walk 2: the accident</a>
+  <a class="btn" href="atops-concepts.html">Back to the map</a>
+</nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

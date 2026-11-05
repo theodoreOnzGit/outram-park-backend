@@ -27,20 +27,43 @@ use crate::fields::surface_field::SurfaceField;
 use crate::fields::vol_field::VolField;
 use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
-/// Linear interpolation weight for the **owner** cell at internal face `f`.
+/// Linear interpolation weight for the **owner** cell at internal face `f`:
+/// OpenFOAM's `surfaceInterpolation::makeWeights` (OpenFOAM-dev
+/// `852527377c7e`,
+/// `src/finiteVolume/interpolation/surfaceInterpolation/surfaceInterpolation/surfaceInterpolation.C`),
 ///
-/// `w = |C_N − C_f| / |C_N − C_O|`
+/// `w = |S_f·(C_N − C_f)| / (|S_f·(C_f − C_O)| + |S_f·(C_N − C_f)|)`,
 ///
-/// Returns 0.5 for degenerate (zero-length) cell-centre vectors.
+/// the distances measured along the face normal, falling back to the
+/// distance form `|C_N − C_f| / (|C_f − C_O| + |C_N − C_f|)` when the
+/// projections vanish (upstream's `SfdNei/vGreat < SfdOwnNei` test), and to
+/// 0.5 when both vanish.
+///
+/// ~~`w = |C_N − C_f| / |C_N − C_O|`~~ **CORRECTED 2026-11-04 (gh:#1202):**
+/// that was the port's form, which is neither of upstream's: it differs
+/// wherever the face centre is off the line between the cell centres
+/// (mean |Δw| 4e-3, max 0.16 on the Foam Studio O-grid; mean 1.8e-2 on the
+/// cfMesh dual). Every interpolated field moved with the fix; the re-measured
+/// numbers are in `outram-foam-appbuilder-lib`'s
+/// `verification_and_validation/laminar_pipe_gh1155.md`.
 #[inline]
-fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
+pub fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
     let co = mesh.cell_centres[mesh.owner[f]];
     let cn = mesh.cell_centres[mesh.neighbour[f]];
-    let denom = (cn - co).mag();
-    if denom < 1e-300 {
-        return 0.5;
+    let cf = mesh.face_centres[f];
+    let s = mesh.face_area_vectors[f];
+    let sfd_own = s.dot(cf - co).abs();
+    let sfd_nei = s.dot(cn - cf).abs();
+    let sum = sfd_own + sfd_nei;
+    if sfd_nei / 1.0e300 < sum {
+        return sfd_nei / sum;
     }
-    (cn - mesh.face_centres[f]).mag() / denom
+    let (d_own, d_nei) = ((cf - co).mag(), (cn - cf).mag());
+    if d_own + d_nei > 0.0 {
+        d_nei / (d_own + d_nei)
+    } else {
+        0.5
+    }
 }
 
 /// Linear interpolation of a `VolField` to face centres → `SurfaceField`.
@@ -281,5 +304,34 @@ mod tests {
             "right={}",
             p_f.boundary[1].values[0]
         );
+    }
+
+    /// V&V (verification, gh:#1202) — `linear_weight` is upstream's
+    /// `makeWeights`. Hand values: cells at x = 0 and 1, face normal +x.
+    /// Face centre (0.3, 0.4, 0): projections 0.3 and 0.7, so w = 0.7 (the
+    /// old distance form gave |C_N − C_f| = √0.65 = 0.806). Face centre
+    /// (0.25, 0, 0) on the line: 0.75 either way. Degenerate (zero normal):
+    /// the distance fallback, 0.75. Results (2026-11-04): as stated, |Δ| <
+    /// 1e-15.
+    #[test]
+    fn linear_weight_projects_on_the_face_normal_as_upstream() {
+        let mesh = |cf: Vector3, s: Vector3| {
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![BoundaryPatch::new("right", 1, 1, PatchKind::Wall), BoundaryPatch::new("left", 2, 1, PatchKind::Wall)])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)])
+                .face_area_vectors(vec![s, Vector3::new(1.0, 0.0, 0.0), Vector3::new(-1.0, 0.0, 0.0)])
+                .face_centres(vec![cf, Vector3::new(1.5, 0.0, 0.0), Vector3::new(-0.5, 0.0, 0.0)])
+                .build()
+                .unwrap()
+        };
+        let x = Vector3::new(1.0, 0.0, 0.0);
+        assert!((linear_weight(&mesh(Vector3::new(0.3, 0.4, 0.0), x), 0) - 0.7).abs() < 1e-15);
+        assert!((linear_weight(&mesh(Vector3::new(0.25, 0.0, 0.0), x), 0) - 0.75).abs() < 1e-15);
+        assert!((linear_weight(&mesh(Vector3::new(0.25, 0.0, 0.0), Vector3::ZERO), 0) - 0.75).abs() < 1e-15);
     }
 }

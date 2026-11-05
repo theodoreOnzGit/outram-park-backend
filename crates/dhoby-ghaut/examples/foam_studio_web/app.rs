@@ -9,7 +9,7 @@
 //! drawing); its geometry comes from the tested `render` and
 //! `bugis::web_demo::{field, residual}`, and its messages from the tested
 //! `engine`.
-use crate::engine::{CoilNo, Design, Event, Exch, Meshed, Mode, Progress, Request, Section, Shape, Tag, DEFAULT_CELLS, MAX_CELLS, T_COLD_IN, T_HOT_IN, U_IN};
+use crate::engine::{CoilNo, Design, Event, Exch, Meshed, Mode, PipeMesh, Progress, Request, Section, Shape, Tag, TetDualSpec, CELL_PER_R_MAX, CELL_PER_R_MIN, DEFAULT_CELLS, MAX_CELLS, MAX_LAYERS, T_COLD_IN, T_HOT_IN, U_IN};
 use crate::render::{plane_to_3d, project_section, Orbit};
 use bugis::web_demo::dock::{Dock, Edge};
 use bugis::web_demo::field::{self, ColourMap, Scale};
@@ -66,6 +66,9 @@ pub struct FoamApp {
     title: String,
     /// `?autostart`: run as soon as the first mesh arrives (browser checks).
     autostart: bool,
+    /// The unstructured mesher's settings, kept while the structured mesh is
+    /// chosen (gh:#1202).
+    unstructured: TetDualSpec,
 }
 
 impl FoamApp {
@@ -111,6 +114,7 @@ impl FoamApp {
             status: String::new(),
             title: String::new(),
             autostart: bugis::web_demo::platform::autostart(),
+            unstructured: TetDualSpec::default_for(0.01),
         };
         let q = bugis::web_demo::platform::query_pairs();
         if let Some(n) = bugis::web_demo::platform::query_value(&q, "cells").and_then(|v| v.parse::<usize>().ok()) {
@@ -130,6 +134,26 @@ impl FoamApp {
         }
         if bugis::web_demo::platform::query_value(&q, "mode") == Some("transient") {
             app.mode = Mode::Transient;
+        }
+        // `?mesh=unstructured` (gh:#1202): the cylinder on the cfMesh mesh, for
+        // links and browser checks; `&h=` cell size and `&layers=` in mm / count.
+        if bugis::web_demo::platform::query_value(&q, "mesh") == Some("unstructured") {
+            if let Some(h) = bugis::web_demo::platform::query_value(&q, "h").and_then(|v| v.parse::<f64>().ok()) {
+                app.unstructured.cell_size = h * 1e-3;
+            }
+            if let Some(n) = bugis::web_demo::platform::query_value(&q, "layers").and_then(|v| v.parse::<usize>().ok()) {
+                app.unstructured.n_layers = n.min(MAX_LAYERS);
+            }
+            // `&dual=point|centre`, `&fp=corners`, `&layerq=cfmesh|snappy`
+            // (gh:#1240 browser controls).
+            app.unstructured = app.unstructured.with_query(
+                bugis::web_demo::platform::query_value(&q, "dual"),
+                bugis::web_demo::platform::query_value(&q, "fp"),
+                bugis::web_demo::platform::query_value(&q, "layerq"),
+            );
+            if matches!(app.design.shape, Shape::Cylinder { .. }) {
+                app.design.mesh = PipeMesh::Unstructured(app.unstructured);
+            }
         }
         app.send_mesh();
         app
@@ -414,16 +438,96 @@ impl FoamApp {
         }
         ui.separator();
         ui.label(RichText::new("3 · Mesh").strong());
-        ui.horizontal_wrapped(|ui| {
-            for (n, label) in [(2_000, "~2k"), (5_000, "~5k"), (10_000, "~10k"), (DEFAULT_CELLS, "20k"), (MAX_CELLS, "≤50k batch")] {
-                if ui.selectable_label(self.design.target_cells == n, label).clicked() {
-                    self.design.target_cells = n;
+        // gh:#1202: the cylinder can be meshed structured (the O-grid) or
+        // unstructured (cfMesh tet → polyhedral dual → wall prism layers).
+        // Unstructured changes are applied with the Generate button: a mesh
+        // takes seconds, and every slider step would queue one.
+        let mut regenerate = false;
+        if let Shape::Cylinder { radius, length, .. } = self.design.shape {
+            ui.horizontal_wrapped(|ui| {
+                let st = self.design.mesh == PipeMesh::Structured;
+                if ui.selectable_label(st, RichText::new("Structured (O-grid)").size(16.0)).clicked() && !st {
+                    self.design.mesh = PipeMesh::Structured;
                     changed = true;
                 }
+                if ui.selectable_label(!st, RichText::new("Unstructured (polyhedral + layers)").size(16.0)).clicked() && st {
+                    self.design.mesh = PipeMesh::Unstructured(self.unstructured);
+                    changed = true;
+                }
+            });
+            if let PipeMesh::Unstructured(_) = self.design.mesh {
+                let s = &mut self.unstructured;
+                let mut touched = false;
+                let mut v = s.cell_size * 1e3;
+                touched |= ui.add(egui::Slider::new(&mut v, (radius / CELL_PER_R_MAX * 1e3)..=(radius / CELL_PER_R_MIN * 1e3)).text("cell size").suffix(" mm")).changed();
+                s.cell_size = v * 1e-3;
+                touched |= ui.add(egui::Slider::new(&mut s.n_layers, 0..=MAX_LAYERS).text("wall layers")).changed();
+                let mut f = s.first_layer * 1e3;
+                touched |= ui.add(egui::Slider::new(&mut f, (1e-3 * radius * 1e3)..=(0.1 * radius * 1e3)).text("first layer").suffix(" mm").logarithmic(true)).changed();
+                s.first_layer = f * 1e-3;
+                touched |= ui.add(egui::Slider::new(&mut s.expansion, 1.0..=1.5).text("expansion")).changed();
+                // gh:#1240 / #1215 mesher choices, as on the native knobs.
+                {
+                    use outram_blender::foam_mesh::LayerQualityStrategy as L;
+                    use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+                    ui.label(RichText::new("wall faces of the dual").small());
+                    ui.horizontal_wrapped(|ui| {
+                        for (k, label) in [(D::MedianPerCorner, "per corner"), (D::MedianPerPoint, "per point"), (D::CellCentre, "cell-centre")] {
+                            touched |= ui.selectable_value(&mut s.dual, k, label).changed();
+                        }
+                    });
+                    if s.dual != D::MedianPerCorner {
+                        let mut corners = s.feature_points == F::Corners;
+                        if ui.checkbox(&mut corners, "keep corners only (polyDualMesh class rule)").changed() {
+                            s.feature_points = if corners { F::Corners } else { F::OnFeatureEdge };
+                            touched = true;
+                        }
+                    }
+                    ui.label(RichText::new("bad layer cells").small());
+                    ui.horizontal_wrapped(|ui| {
+                        for (k, label) in [(L::BackOffOnly, "back off"), (L::CfMeshOptimise, "cfMesh optimise (slow)"), (L::SnappyCollapse, "snappy collapse")] {
+                            touched |= ui.selectable_value(&mut s.layer_quality, k, label).changed();
+                        }
+                    });
+                }
+                let c = s.clamped(radius, length);
+                if touched {
+                    self.design.mesh = PipeMesh::Unstructured(*s);
+                    self.dirty = true;
+                }
+                if let Some(w) = layer_warning(&c) {
+                    ui.label(RichText::new(w).small().color(Color32::from_rgb(250, 189, 47)));
+                }
+                let est = c.estimated_cells(radius, length);
+                ui.label(RichText::new(format!("≈ {:.0}k cells estimated{}", est / 1e3, if c.cell_size > s.cell_size * 1.001 { " (cell size raised to stay under the cap)" } else { "" })).small());
+                regenerate = ui.add_enabled(self.dirty && !self.meshing, egui::Button::new(RichText::new("Generate mesh").size(16.0))).clicked();
+            } else {
+                ui.horizontal_wrapped(|ui| {
+                    for (n, label) in [(2_000, "~2k"), (5_000, "~5k"), (10_000, "~10k"), (DEFAULT_CELLS, "20k"), (MAX_CELLS, "≤50k batch")] {
+                        if ui.selectable_label(self.design.target_cells == n, label).clicked() {
+                            self.design.target_cells = n;
+                            changed = true;
+                        }
+                    }
+                });
             }
-        });
+        } else {
+            ui.horizontal_wrapped(|ui| {
+                for (n, label) in [(2_000, "~2k"), (5_000, "~5k"), (10_000, "~10k"), (DEFAULT_CELLS, "20k"), (MAX_CELLS, "≤50k batch")] {
+                    if ui.selectable_label(self.design.target_cells == n, label).clicked() {
+                        self.design.target_cells = n;
+                        changed = true;
+                    }
+                }
+            });
+        }
+        let unstructured = matches!((self.design.shape, self.design.mesh), (Shape::Cylinder { .. }, PipeMesh::Unstructured(_)));
         ui.label(
             RichText::new(match self.design.shape {
+                Shape::Cylinder { .. } if unstructured => {
+                    "cfMesh port: a Cartesian carve snapped to the cylinder, cut into tetrahedra, turned into polyhedra (one cell per tet vertex), \
+                     then prism layers grown on the wall only (the inlet and outlet stay layer-free). Meshing runs in the worker; it takes seconds."
+                }
                 Shape::Cylinder { .. } => "O-grid: a square core and a ring of radial cells; the wall is a polygon on the circle.",
                 Shape::Box { .. } => "One hex block, near-cubic cells.",
                 Shape::DoublePipe { .. } => "Three region meshes, face to face: an O-grid in the tube, a ring for the wall, a ring for the annulus (the same cells around).",
@@ -434,10 +538,20 @@ impl FoamApp {
         if changed {
             self.dirty = true;
             self.cam = Self::camera_for(&self.design);
+        }
+        // An unstructured mesh is generated on request (the button above, or
+        // Run); every other change re-meshes at once, as before.
+        if (changed && !unstructured) || regenerate {
             self.send_mesh();
+        } else if changed && unstructured {
+            self.status = "unstructured settings changed: press Generate mesh (or Run)".into();
         }
         if let Some(m) = &self.mesh {
-            ui.label(format!("{} cells · max non-orthogonality {:.1}°", m.n_cells, m.max_non_ortho_deg));
+            ui.label(format!("{} cells · max non-orthogonality {:.1}° · max skewness {:.2}", m.n_cells, m.max_non_ortho_deg, m.max_skewness));
+            ui.label(RichText::new(format!("meshed in {:.2} s{}", m.mesh_s, if self.dirty { " · settings changed since" } else { "" })).small());
+            if !m.notes.is_empty() {
+                ui.label(RichText::new(format!("mesher: {}", m.notes)).small().color(Color32::from_rgb(250, 189, 47)));
+            }
             if m.n_cells as f64 > 1.05 * DEFAULT_CELLS as f64 {
                 ui.label(RichText::new("Over 20k cells: a batch run of about a minute; the progress bar shows how far.").color(Color32::from_rgb(250, 189, 47)));
             }
@@ -499,6 +613,8 @@ impl FoamApp {
                 "Solver: OUTRAM PARK's port of OpenFOAM's pimpleFoam (laminar, PISO, upwind, Gauss linear corrected), \
                  in a background worker. Steady runs are pseudo-transient. The pipe case is checked against \
                  Hagen–Poiseuille and the Durst et al. (2005) development length in the V&V record laminar_pipe_gh1155.md. \
+                 The unstructured (cfMesh polyhedral) mesh runs Gauss linear convection with 2 non-orthogonal correctors: upwind there smeared \
+                 momentum across oblique faces and flattened the profile. It still reads about 6 % low at the default (centreline and pressure gradient), 3 % at the finest cell; see the record's gh:#1202 section. \
                  The exchanger adds the energy equation and a port of chtMultiRegionFoam's coupled-temperature interface; \
                  checked against the composite slab, the Graetz Nusselt numbers and ε-NTU in cht_double_pipe_gh1156.md. \
                  The coil section is checked against Mishra & Gupta (1979)'s laminar coil friction factor, as a function of the \
@@ -595,6 +711,13 @@ impl FoamApp {
             painter.rect_filled(f, 4.0, Color32::from_rgb(131, 165, 152));
             painter.text(b.center(), egui::Align2::CENTER_CENTER, format!("batch run {:.0} %", 100.0 * self.batch_frac), egui::FontId::proportional(12.0), Color32::WHITE);
         }
+        // Meshing in the worker (an unstructured mesh takes seconds): say so on
+        // the main view, where it shows with the panel folded.
+        if self.meshing {
+            let b = Rect::from_min_size(Pos2::new(rect.left() + 16.0, rect.top() + 110.0), Vec2::new((rect.width() - 32.0).min(320.0), 24.0));
+            painter.rect_filled(b, 4.0, Color32::from_rgba_unmultiplied(40, 40, 40, 220));
+            painter.text(b.center(), egui::Align2::CENTER_CENTER, "meshing in the background…", egui::FontId::proportional(13.0), Color32::WHITE);
+        }
         if let Some(z) = bugis::web_demo::view::zoom_buttons(ui, rect) {
             match z {
                 Zoom::In => self.cam.zoom(1.5),
@@ -614,8 +737,11 @@ impl FoamApp {
     fn dock_body(&self, ui: &egui::Ui, body: Rect) {
         let painter = ui.painter().with_clip_rect(body);
         let wide = body.width() > 700.0;
-        let n = 3.0;
-        let rects: Vec<Rect> = (0..3)
+        // The pipe gets a fourth panel: the mesh picture (gh:#1202).
+        let pipe = !self.is_coil() && !self.is_exchanger();
+        let k = if pipe { 4 } else { 3 };
+        let n = k as f32;
+        let rects: Vec<Rect> = (0..k)
             .map(|i| {
                 if wide {
                     let w = body.width() / n;
@@ -650,7 +776,54 @@ impl FoamApp {
             residual::paint(&painter, rects[0], &self.residuals, true, "time [s] (steady when the blue line < 1e-3)", 11.0);
             residual::paint(&painter, rects[1], &self.probe_hist, false, "time [s]", 11.0);
             self.profile(&painter, rects[2]);
+            self.mesh_picture(&painter, rects[3]);
         }
+    }
+
+    /// The mesh the solver gets, flat (gh:#1202): the cross-section at the
+    /// probe on the left, the axial slice's first part (inlet end, two
+    /// diameters long) on the right, cell outlines from the engine's
+    /// sections. GUI drawing (exempt).
+    fn mesh_picture(&self, painter: &egui::Painter, rect: Rect) {
+        painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+        let f = egui::FontId::proportional(11.0);
+        let (Some(me), Shape::Cylinder { radius, centre, length }) = (&self.mesh, self.design.shape) else {
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "mesh: mesh a cylinder", f, Color32::GRAY);
+            return;
+        };
+        let inner = rect.shrink(6.0);
+        let half = Rect::from_min_size(inner.min, Vec2::new(0.5 * inner.width() - 3.0, inner.height() - 14.0));
+        let right = Rect::from_min_size(Pos2::new(inner.center().x + 3.0, inner.top()), half.size());
+        let stroke = Stroke::new(0.6, Color32::from_gray(180));
+        // Cross-section: in-plane (x, y) about the pipe centre.
+        let k = 0.5 * half.width().min(half.height()) / radius as f32;
+        for p in &me.cross.polygons {
+            let pts: Vec<Pos2> = p.iter().map(|q| Pos2::new(half.center().x + (q[0] - centre[0] as f32) * k, half.center().y - (q[1] - centre[1] as f32) * k)).collect();
+            if pts.len() >= 3 {
+                painter.add(egui::Shape::closed_line(pts, stroke));
+            }
+        }
+        // Axial slice (x, z) from the inlet end, 4 R long, x across.
+        let z0 = centre[2] - 0.5 * length;
+        let span = (4.0 * radius).min(length);
+        let ka = (right.height() / span as f32).min(right.width() / (2.0 * radius) as f32);
+        let clip = painter.with_clip_rect(right);
+        for p in &me.axial.polygons {
+            if p.iter().all(|q| f64::from(q[1]) > z0 + span) {
+                continue;
+            }
+            let pts: Vec<Pos2> = p.iter().map(|q| Pos2::new(right.center().x + (q[0] - centre[0] as f32) * ka, right.top() + (q[1] - z0 as f32) * ka)).collect();
+            if pts.len() >= 3 {
+                clip.add(egui::Shape::closed_line(pts, stroke));
+            }
+        }
+        painter.text(
+            Pos2::new(rect.center().x, rect.bottom() - 2.0),
+            egui::Align2::CENTER_BOTTOM,
+            format!("cross-section · axial slice from the inlet (down), {:.0} mm · {} cells", span * 1e3, me.n_cells),
+            f,
+            Color32::GRAY,
+        );
     }
 
     /// The exchanger's terminal temperatures, heats and effectiveness against
@@ -773,13 +946,22 @@ impl FoamApp {
                 painter.circle_filled(to(r.min(1.0), f64::from(*u) / U_IN), 1.6, Color32::from_rgb(131, 165, 152));
             }
         }
+        // The binned profile (gh:#1202): cell centres near the slice, binned
+        // in r (`laminar_pipe::radial_profile_binned`); works on either mesh.
+        let bins: Vec<Pos2> = p.profile.chunks(2).map(|q| to(f64::from(q[0]).min(1.0), f64::from(q[1]))).collect();
+        if bins.len() >= 2 {
+            painter.add(egui::Shape::line(bins.clone(), Stroke::new(1.5, Color32::WHITE)));
+        }
+        for b in bins {
+            painter.circle_filled(b, 3.0, Color32::WHITE);
+        }
         let f = egui::FontId::proportional(11.0);
         painter.text(Pos2::new(plot.left() - 3.0, plot.top()), egui::Align2::RIGHT_TOP, "2.2", f.clone(), Color32::GRAY);
         painter.text(Pos2::new(plot.left() - 3.0, plot.bottom()), egui::Align2::RIGHT_BOTTOM, "0", f.clone(), Color32::GRAY);
         painter.text(
             Pos2::new(plot.center().x, rect.bottom() - 2.0),
             egui::Align2::CENTER_BOTTOM,
-            "u_axial/U against r/R; orange: Hagen–Poiseuille",
+            "u_axial/U vs r/R · dots: cells cut by the slice · white: cell centres binned in r · orange: Hagen–Poiseuille",
             f,
             Color32::GRAY,
         );
@@ -852,5 +1034,55 @@ impl eframe::App for FoamApp {
         if self.running || self.meshing {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
+    }
+}
+
+/// The warning the mesh panel shows under the layer controls: what the V&V
+/// record (`laminar_pipe_gh1155.md`, gh:#1202, #1215, #1240) measured for
+/// this many layers with these mesher choices, at the demo pipe. `None` when
+/// there is nothing to warn about.
+fn layer_warning(c: &TetDualSpec) -> Option<&'static str> {
+    use outram_blender::foam_mesh::LayerQualityStrategy as L;
+    use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
+    let polydual_corners = c.dual != D::MedianPerCorner && c.feature_points == F::Corners;
+    match (c.n_layers, c.layer_quality) {
+        (0, _) => None,
+        (_, L::CfMeshOptimise) => Some(
+            "cfMesh's layer optimiser takes minutes (140-370 s natively at 5 mm, 3 layers; slower in a browser) and makes the layers thicker than asked (its thickness control is not ported). With the cell-centre dual, corners only, 3 layers ran at 5 mm: u_c/2U 0.931, dp/dz 1.005 x Hagen-Poiseuille (gh:#1240).",
+        ),
+        (_, L::SnappyCollapse) => Some("snappy's collapse removes every layer at 2 or more on these meshes (and most at 1): you get a bare mesh (gh:#1215, #1240)."),
+        (_, L::BackOffOnly) if c.dual != D::MedianPerCorner && c.feature_points == F::OnFeatureEdge => {
+            Some("with this dual and every edge point kept, the back-off grows no layer on the pipe (collinear rim points cap the thickness at 0): tick \"keep corners only\" (gh:#1240).")
+        }
+        (n, L::BackOffOnly) if n >= 3 => Some(if polydual_corners {
+            "3 layers with the back-off diverge in the solve on these duals too (gh:#1240); use cfMesh optimise for 3, or 1-2 layers here."
+        } else {
+            "3 layers: the solve diverges on the meshes tried (one dual cell over the layer stack, gh:#1202). 0-2 layers run."
+        }),
+        (2, L::BackOffOnly) => Some("2 layers run; on this mesh they do not bring the pipe closer to Hagen–Poiseuille than a finer bare mesh (gh:#1202)."),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::layer_warning;
+    use crate::engine::TetDualSpec;
+
+    /// The mesh panel warns according to the recorded results (gh:#1202,
+    /// #1215, #1240): nothing for a bare mesh, the minutes for cfMesh, the
+    /// zero-thickness cap for a polyDualMesh dual with every edge point kept,
+    /// and the 3-layer back-off divergence.
+    #[test]
+    fn layer_warning_matches_the_record() {
+        let spec = |n: usize, dual: Option<&str>, fp: Option<&str>, lq: Option<&str>| TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) }.with_query(dual, fp, lq);
+        assert!(layer_warning(&spec(0, None, None, Some("cfmesh"))).is_none());
+        assert!(layer_warning(&spec(1, None, None, None)).is_none());
+        assert!(layer_warning(&spec(2, None, None, None)).unwrap().contains("2 layers run"));
+        assert!(layer_warning(&spec(3, None, None, None)).unwrap().contains("diverges"));
+        assert!(layer_warning(&spec(3, Some("centre"), Some("corners"), Some("cfmesh"))).unwrap().contains("minutes"));
+        assert!(layer_warning(&spec(1, Some("point"), None, None)).unwrap().contains("keep corners only"));
+        assert!(layer_warning(&spec(3, Some("centre"), Some("corners"), None)).unwrap().contains("cfMesh optimise for 3"));
+        assert!(layer_warning(&spec(2, None, None, Some("snappy"))).unwrap().contains("removes every layer"));
     }
 }

@@ -1,5 +1,5 @@
 //! **The data of the Fission products chapter 5, "Integrating it in
-//! TRISO-ATOPS"** (lessons 39-46; maintainer direction 2026-10-22: the
+//! TRISO-ATOPS"** (lessons 45-53; maintainer direction 2026-10-22: the
 //! planned "Inside the codes" Part A, recast as the chapter that brings
 //! chapters 3 and 4 together inside TRISO-ATOPS). Writes `atops-data.js` in
 //! `docs/site/science/fission-products/`.
@@ -53,7 +53,7 @@
 //!   the port inherits from upstream. (2026-10-22, gh:#1015: still so under
 //!   the default `TrisoAtopsVariant::Upstream`, which this generator runs via
 //!   `PlantConstants::new`; the paper's grouping is the opt-in
-//!   `atops2026paper` variant, which lessons 40-42 and 45 mention in prose.)
+//!   `atops2026paper` variant, which lessons 46-48 and 51 mention in prose.)
 //! - Q2 HIT: Cs kernel 700, graphite 550; Sr 700, 800; Ag graphite 475 on
 //!   the 25 °C grid (490 in the code); no clamp on the Kr kernel, the Ag
 //!   kernel or Ag in SiC.
@@ -173,7 +173,7 @@ mod native {
         println!("  Q2: Ag in SiC flat below {cs:?}");
         writeln!(js, "  dSicAg: {},", arr(grid.iter().map(|&t| d_sic_ag(t)))).unwrap();
 
-        // Release models (lesson 42).
+        // Release models (lesson 48).
         let tr: Vec<f64> = (0..=24).map(|i| 600.0 + 50.0 * i as f64).collect();
         writeln!(js, "  rbT: {},", arr(tr.iter().copied())).unwrap();
         writeln!(js, "  rb: [").unwrap();
@@ -192,7 +192,7 @@ mod native {
         let t3 = years(3.0);
         writeln!(js, "  attenuation: {{ Cs: {}, Sr: {}, Ag: {} }},", arr(tr.iter().map(|&t| attenuation(55, t, t3))), arr(tr.iter().map(|&t| attenuation(38, t, t3))), arr(tr.iter().map(|&t| attenuation(47, t, t3)))).unwrap();
 
-        // Normal operation per node (lesson 43) and the coolant (44).
+        // Normal operation per node (lesson 49) and the coolant (44).
         let f = fractions_a();
         let doubled = boon_lay::triso_atops_fork::activities::source_terms::FailureFractions { heavy_metal: 2.0 * f.heavy_metal, sic: 2.0 * f.sic, incremental: 2.0 * f.incremental, incremental_sic: 2.0 * f.incremental_sic };
         let phi1 = htr10::end_of_irradiation_failure(temp(776.0)).get::<ratio>();
@@ -222,7 +222,7 @@ mod native {
         writeln!(js, "  ],").unwrap();
         writeln!(js, "  poolFields: [\"release\",\"source\",\"graphite\",\"circulating\",\"plateOut\",\"cleanUp\"],").unwrap();
 
-        // Accidents (lesson 45).
+        // Accidents (lesson 51).
         writeln!(js, "  accidents: [").unwrap();
         for peak in [1400.0, 1600.0, 1800.0] {
             let (h, t) = heatup(900.0, peak);

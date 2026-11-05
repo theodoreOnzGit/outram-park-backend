@@ -1,5 +1,5 @@
 // Cited and pending values for chapter 4 "TRISO layer migration and
-// particle failure" (lessons 29-38), in ONE place. Hand-edited, not
+// particle failure" (lessons 31-40), in ONE place. Hand-edited, not
 // generated: each entry names its source and where in it; `src: null` means
 // "source pending" and the page says so. Checked by check-fission.js.
 //
@@ -29,7 +29,7 @@ window.BARRIER_RECORDED = {
     fang: "Fang et al. (2021), Sci. Technol. Nucl. Install., doi:10.1155/2021/6627789 (CC BY)",
     panama: "Verfondern & Nabielek (1990), PANAMA-I report, HTA-IB-03/90 (restricted: equations only)"
   },
-  // Lesson 29, history.
+  // Lesson 31, history.
   history: [
     { src: "fang", page: "2", quote: "The research and design of coated fuel particles have gone through two stages. In the initial design, the coated fuel particle structure is of Bi-isotropic (BISO) type, i.e., a loose and a dense pyrolytic carbon layer on the outer coating of the active core." },
     { src: "fang", page: "2", quote: "the BISO fuel particle gradually exposed its structural shortcomings; these were mainly reflected in the high level of heavy metal contamination during the coating deposition and the low retention ability for certain metal FPs (such as strontium). Based on the BISO fuel particle, the tri-isotropic (TRISO) fuel particle is designed." },
@@ -40,7 +40,7 @@ window.BARRIER_RECORDED = {
   // Fort St. Vrain used: not in the three sources read. Candidate: Demkowicz,
   // Liu & Hunn, J. Nucl. Mater. 515 (2019), not in the corpus.
   historyPending: ["the year and programme in which SiC was first added", "which particle types Dragon, Peach Bottom and Fort St. Vrain used"],
-  // Lesson 29: Kugeler Table 5, "Design functions of the ceramic coating
+  // Lesson 31: Kugeler Table 5, "Design functions of the ceramic coating
   // layers of the TRISO-coated fuel particle", pp. 32-33 (verbatim cells).
   layerJobs: {
     page: "32-33",
@@ -49,7 +49,7 @@ window.BARRIER_RECORDED = {
     sic: ["Primary barrier to fission products, retains all gaseous and solid fission products (except Ag) at normal operating temperatures < 1 250 °C and in accidents up to 1 600 °C.", "Load bearing layer for particle."],
     opyc: ["Creates compressive stress on SiC due to irradiation-induced shrinkage.", "Retains gaseous fission products.", "Provides bonding layer with carbonaceous fuel element matrix."]
   },
-  // Lesson 29 and 31: Kugeler p. 42, 131I release in 1600 °C heating tests
+  // Lesson 31 and 33: Kugeler p. 42, 131I release in 1600 °C heating tests
   // (Schenk et al. 1991 as Kugeler cites it). Levels as Kugeler states them.
   iodine: {
     page: "42",
@@ -61,14 +61,14 @@ window.BARRIER_RECORDED = {
     quote: "between these are nine orders of magnitude in release",
     quotePage: "43"
   },
-  // Lesson 31: Wichner p. 13 (verbatim).
+  // Lesson 33: Wichner p. 13 (verbatim).
   wichner: [
     { page: "13", quote: "Diffusivities of metallic FPs through the PyC coatings, which completely stop the fission gases, are sufficiently high so that an intact SiC coating is required to prevent diffusive release of the metals from fuel particles." },
     { page: "13", quote: "intact Triso particles retain Cs and Sr to temperatures well above that expected in normal operation, but that silver is readily released above ~1423 K (1150°C)." }
   ],
-  // Lesson 31: Kugeler p. 41 (verbatim).
+  // Lesson 33: Kugeler p. 41 (verbatim).
   kernelSr: { page: "41", quote: "Only the fission product 90Sr is strongly retained in the oxide kernels at this temperature, but this is not the case for carbide kernels." },
-  // Lesson 38, still pending.
+  // Lesson 40, still pending.
   pending: {
     pdLanthanideAttack: null,  // named in the theory book step 4 from proprietary-folder sources; not open here
     amoebaEffect: null,        // kernel migration in UO2; not modelled anywhere in the workspace

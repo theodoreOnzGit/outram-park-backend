@@ -31,6 +31,14 @@ use super::traits::EquationOfState;
 ///
 /// The polynomial gives specific volume as a function of T.  ψ = 0 (incompressible).
 /// h_eos = p·v = p/ρ  (enthalpy departure for incompressible EOS).
+///
+/// **KNOWN DEFECT, recorded 2026-11-04 (gh:#1218), code not changed here:**
+/// the "Mirrors `Foam::icoPolynomial`" claim above is false. OpenFOAM v2506
+/// `icoPolynomialI.H` returns `rhoCoeffs_.value(T)` as the **density** (line
+/// 83) and `0` for `H`, `Z` and the other departures (lines 94-171). The
+/// identical copy in `outram-foam-basic-lib::thermophysics::eos` was corrected
+/// in that change; this copy is left as it is because this crate's tests were
+/// not run there (draft issue in the gh:#1218 hand-off).
 #[derive(Debug, Clone, Copy)]
 pub struct IcoPolynomial<const N: usize> {
     mol_weight: MolarMass,

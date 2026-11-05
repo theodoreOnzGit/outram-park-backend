@@ -305,7 +305,7 @@ pub fn assign_patches_by_region(
 /// Index of the surface triangle closest to `p`, by exact point-to-triangle
 /// distance. Triangles whose bounding box is already further than the current
 /// best are rejected without the full distance evaluation.
-fn nearest_triangle(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> usize {
+pub(crate) fn nearest_triangle(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> usize {
     let mut best = 0usize;
     let mut best_d2 = f64::MAX;
     for (i, t) in tris.iter().enumerate() {

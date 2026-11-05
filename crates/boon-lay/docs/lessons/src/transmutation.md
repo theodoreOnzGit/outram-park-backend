@@ -5,7 +5,7 @@
 
 **Extended deep dive.** Covers
 [`lagrangian_transmutation_and_fission_simulator`](../../api/boon_lay/lagrangian_transmutation_and_fission_simulator/index.html)
-and `first_passage::depletion`, which the ladder names at [rung 2](../../tutorials/triso-atops/decay.html)
+and `first_passage::depletion`, which the ladder names at [*An atom's clock*](../../science/fission-products/decay-clock.html)
 and walks past.
 
 ## The problem

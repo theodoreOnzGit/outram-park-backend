@@ -128,7 +128,7 @@ and the MHTGR example tracks chosen nuclides.
 Hold the flux constant (or set it to zero after shutdown). Then $A$ is
 constant and, for a **pure decay chain**, the Bateman equations solve it in
 closed form. The crate uses exactly this as its check
-([decay rung](../../tutorials/triso-atops/decay.html)): the Th-232 chain
+([*An atom's clock*](../../science/fission-products/decay-clock.html)): the Th-232 chain
 Ra-228, Ac-228, Th-228, Ra-224, Rn-220, Po-216, Pb-212, Bi-212 to stable
 Pb-208 is walked and each identity asserted. That test checks the chain's
 **order**, not the branching frequencies.

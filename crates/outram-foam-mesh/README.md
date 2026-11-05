@@ -112,6 +112,12 @@ OpenFOAM-dev C++, with upstream `File.C:line` provenance in the module docs).
   - **dualisation does not create non-orthogonality** — the dual of a uniform
     hex block measures exactly 0 deg and 0 skewness, so a polyhedral dual that
     measures 80 deg+ inherited that from its primal, not from the dual step.
+    ~~(hex blocks only)~~ **Since gh:#1240 (2026-11-04)** `poly_dual_mesh` also
+    runs on tetrahedral meshes (through `outram-park-fork-cfmesh`'s
+    `DualKind::CellCentre`): on the cfMesh pipe at h 5 mm its internal
+    non-orthogonality is 16.7° mean, 47.7° max, and its boundary follows
+    upstream (one face per point per feature-bounded sector, patch seams are
+    features, `FeaturePoints` rule). Not compared against an OpenFOAM run.
 
 **Unit-tested ≠ validated.** These are AI-assisted translations checked against
 the upstream source and analytical geometry, not yet validated against OpenFOAM

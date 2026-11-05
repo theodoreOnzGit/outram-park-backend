@@ -1,4 +1,4 @@
-//! Lesson 32's reference: boon-lay's own multilayer Walk-on-Spheres walker
+//! Lesson 34's reference: boon-lay's own multilayer Walk-on-Spheres walker
 //! (`WoSWalker::walk_until_released`, the engine of
 //! `first_passage::walk_on_spheres`) carrying atoms from the kernel through
 //! buffer, IPyC, SiC and OPyC of the HTR-10 particle, at one uniform

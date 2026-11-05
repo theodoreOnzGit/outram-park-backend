@@ -327,6 +327,18 @@ built from, concatenated, with one zone per region:
 
 Follow-ups (50k browser run, higher-order T convection, buoyancy, non-conformal interfaces): gh:#1171.
 
+**Added 2026-11-04 (gh:#1178, the design grid of rung 1 of gh:#1177):** run
+with unequal flow rates (`annulus_flow_rate`) over Re_hot 10–90,
+Re_cold 5–45, k_wall 1–100 and L 0.1–0.3 m, ε_CFD against ε-NTU(UA_local)
+ranges from −3.9 % to +2.0 %, not only the −0.8 % measured here at
+Re_hot = 30. Two effects this record's grid did not reach: axial wall
+conduction at k_wall = 100 and L = 0.1 m (λ ≈ 0.07–0.11) lowers ε by up to
+4 %; and at Re_hot = 10 (Pe = 67) 0.9–2.5 % of `report`'s `q_hot` enters by
+conduction through the fixed-temperature hot inlet, so the ε defined here
+(Q_hot including conduction, over C_min ΔT) can exceed the ideal value and
+even 1 (1.0136 at the worst point). The definition is unchanged; see
+`crates/outram-park-digital-twin-engine/verification_and_validation/hf_lf_double_pipe_gh1178.md`.
+
 **Not checked by eye:** any slice other than mid-length and the inlet end
 (the outlet end and every other layer are covered only by the volume and
 the pairing assertions), and the 50k batch grid.

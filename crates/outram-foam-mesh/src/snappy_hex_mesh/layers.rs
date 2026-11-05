@@ -45,6 +45,16 @@
 //! quality-limited collapse (in OpenFOAM the `EXTRUDE`/`NOEXTRUDE` unextrusion
 //! loop, `snappyLayerDriver.C:217`).
 //!
+//! **CORRECTED 2026-11-04 (gh:#1215):** the "quality-limited collapse" here is
+//! a *global* reduction of the layer count ([`add_layers`] tries `n`, then
+//! `n − 1`, … everywhere); there is no per-point `extrudeMode` and no local
+//! unextrusion, as "Honest scope" below says. The per-point port of
+//! `snappyLayerDriver`'s loop (`extrudeMode`, `handleFeatureAngle`,
+//! `setupLayerInfoTruncation`, `checkAndUnmark`) is
+//! `outram_park_fork_cfmesh::snappy_layers`; it was not factored into a shared
+//! place because this module works on `PolyPatchMesh` / `CastellatedMesh`
+//! and that crate builds without `outram-foam-basic-lib`.
+//!
 //! ## Algorithm implemented here — interior shrink-and-insert
 //!
 //! Unlike a bare outward extrusion (which would push the domain boundary out

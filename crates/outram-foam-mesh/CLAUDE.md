@@ -57,6 +57,17 @@ rule 1): blender depends on this crate, optionally, to export into it, and
 Cargo counts optional dependencies when it looks for cycles. Mesh types stay
 defined here; the converters live in `outram_blender::unstructured::convert`.
 
+## `poly_dual_mesh` boundary faces follow upstream (gh:#1240, 2026-11-04)
+
+Boundary faces are one per point per feature-bounded sector
+(`meshDualiser::createFacesAroundBoundaryPoint`), patch seams are feature
+edges at any angle (`simpleMarkFeatures`), and `poly_dual_mesh_with` takes
+`FeaturePoints::{OnFeatureEdge, Corners}` (the `polyDualMesh` utility's and
+class's rules). `outram-park-fork-cfmesh` calls it (`DualKind::CellCentre`)
+on tetrahedral meshes, and keeps its own copy of the sector walk for its
+median dual: change both together. This crate must not depend on
+`outram-park-fork-cfmesh` (that crate depends on this one, optionally).
+
 ## Avoid writing macros (workspace rule, 2026-11-05)
 
 Maintainer direction: macros make code harder to read and review. Do not

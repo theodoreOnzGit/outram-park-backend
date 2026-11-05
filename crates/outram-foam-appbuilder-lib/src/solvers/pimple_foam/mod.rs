@@ -612,6 +612,7 @@ impl PimpleFoam {
             )?;
             let div_term = crate::solvers::schemes::div_vec_scheme(
                 &self.schemes.default_div,
+                self.schemes.grad_u_scheme(),
                 &self.phi,
                 &self.u,
                 mesh.clone(),
@@ -625,7 +626,12 @@ impl PimpleFoam {
                 let nu_eff_f = fvc::interpolate(&self.turbulence.nu_eff(&self.nu));
                 non_orthogonal::restamp_vector_delta(&mut u_eqn, &nu_eff_f, &self.u, lap.delta_coeff());
                 if lap.is_explicit() {
-                    let corr = non_orthogonal::vector_face_correction(&nu_eff_f, &fvc::grad_vec(&self.u), &mesh);
+                    // upstream `correctedSnGrad::fullGradCorrection` takes the
+                    // gradient from the `grad(U)` scheme (gh:#1202); with the
+                    // default `Gauss linear` this is `fvc::grad_vec` unchanged.
+                    let grad_u = crate::solvers::schemes::grad_vec_scheme(self.schemes.grad_u_scheme(), &self.u)?;
+                    let mut corr = non_orthogonal::vector_face_correction(&nu_eff_f, &grad_u, &mesh);
+                    lap.limit_vector(&mut corr, &nu_eff_f, &self.u, &mesh);
                     non_orthogonal::add_to_source_vector(u_eqn.source.as_mut_slice(), &corr, &mesh);
                 }
             }
@@ -653,7 +659,9 @@ impl PimpleFoam {
             for c in 0..n {
                 u_eqn.source[c] = u_eqn.source[c] - gp.internal[c] * mesh.cell_volumes[c];
             }
-            let (mut u_pred, _) = u_eqn.solve("U", settings);
+            // Warm-started from the current U, as upstream's fvMatrix::solve
+            // (gh:#1202: the cold start ran out of sweeps on thin wall layers).
+            let (mut u_pred, _) = u_eqn.solve_with_guess("U", &self.u, settings);
             correct_bcs_vec(&mut u_pred, &u_bcs);
             // Restore source (remove pressure contribution) for H(U) computation
             for c in 0..n {
@@ -777,7 +785,8 @@ impl PimpleFoam {
                     // Pressure equation: L·p = source (symmetric SPD → PCG).
                     let mut p_eqn = fvm::laplacian_with_delta(&rauf, &self.p, lap.delta_coeff());
                     let face_corr = if lap.is_explicit() {
-                        let c = non_orthogonal::scalar_face_correction(&rauf, &fvc::grad(&self.p), &mesh);
+                        let mut c = non_orthogonal::scalar_face_correction(&rauf, &fvc::grad(&self.p), &mesh);
+                        lap.limit_scalar(&mut c, &rauf, &self.p, &mesh);
                         non_orthogonal::add_to_source_scalar(p_eqn.source.as_mut_slice(), &c, &mesh);
                         Some(c)
                     } else {

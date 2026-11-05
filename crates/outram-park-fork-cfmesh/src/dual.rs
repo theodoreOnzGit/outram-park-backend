@@ -16,6 +16,14 @@
 //       Licence: modified BSD (3-clause), which is GPL-3.0-compatible; see the
 //       crate NOTICE. This file contains no voro++ code.
 //
+//   [1b] OpenFOAM-dev commit 852527377c7e, the boundary faces of the dual
+//       (gh:#1240): `meshDualiser::createFacesAroundBoundaryPoint`
+//       (applications/utilities/mesh/manipulation/polyDualMesh/meshDualiser.C),
+//       `simpleMarkFeatures` (.../polyDualMesh/polyDualMesh.C) and
+//       `polyDualMesh::splitFace` / `calcFeatures`
+//       (src/conversion/polyDualMesh/polyDualMesh.C).
+//       Copyright (C) 2011-2026 OpenFOAM Foundation. Licence: GPL-3.0-or-later.
+//
 //   [3] The median / Donald (vertex-centred) dual is standard finite-volume
 //       literature, e.g. T. J. Barth, "Aspects of Unstructured Grids and
 //       Finite-Volume Solvers", VKI Lecture Series 1994-05.
@@ -83,7 +91,10 @@
 //!    cells have more than 6 faces, and the face-minimal variant has strictly
 //!    fewer faces than the quad-fan one.
 //!
-//! **There is no orthogonality or skewness test for this crate's dual.** No
+//! **There is no orthogonality or skewness test for this crate's dual.**
+//! (**UPDATED 2026-11-04, gh:#1240:** still no gate, but the pipeline's
+//! ignored `diagnose_dual_kinds_differential` measures both for every
+//! [`DualKind`] on the pipe and duct.) No
 //! test in this module calls [`crate::checks::check_quality`], so the
 //! non-orthogonality and skewness of a median dual produced here are
 //! **unmeasured** at the module level. The only numbers this crate records for
@@ -144,7 +155,7 @@
 
 use crate::math::Vec3;
 use crate::volume_mesh::{from_cell_faces, VolumeMesh};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Build the polyhedral **median dual** of `mesh`: one polyhedral cell per
 /// primal vertex. See the module docs for the construction and its guarantees.
@@ -215,7 +226,7 @@ pub fn polyhedral_dual(mesh: &VolumeMesh) -> VolumeMesh {
         // Per-cell edge midpoints, and for each edge the two incident face
         // centroids (an edge touches exactly two faces of a manifold cell).
         let mut mid_idx: HashMap<(usize, usize), usize> = HashMap::new();
-        let mut edge_faces: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+        let mut edge_faces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
         for &f in faces {
             let ring = &mesh.faces[f];
             let k = ring.len();
@@ -309,6 +320,120 @@ pub fn polyhedral_dual(mesh: &VolumeMesh) -> VolumeMesh {
 /// assert!(dual.validate().is_ok());
 /// ```
 pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
+    min_faces_dual(mesh, None)
+}
+
+/// Which polyhedral dual the pipeline's dual stage builds (gh:#1240).
+///
+/// All three make one dual cell per primal vertex. They differ in where the
+/// dual's corners sit and in how the domain boundary is tiled; the
+/// differential comparison of the three is in the gh:#1240 section of
+/// `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DualKind {
+    /// The **median** dual ([`polyhedral_dual_min_faces`], with
+    /// [`polyhedral_dual`] as fallback), one boundary face per primal
+    /// boundary-face **corner** (`[v, edge-mid, face-centroid, edge-mid]`).
+    /// The default: what every recorded number before gh:#1240 used. A wall
+    /// cell of a tetrahedral primal gets 4–8 boundary faces, each at a median
+    /// 69° to its owner (gh:#1215).
+    #[default]
+    MedianPerCorner,
+    /// The median dual with **one boundary face per primal boundary point
+    /// per feature-bounded sector** ([`polyhedral_dual_per_point`]), the
+    /// boundary rule of OpenFOAM's `polyDualMesh` ported onto the median
+    /// dual (Route A of gh:#1240).
+    MedianPerPoint,
+    /// OpenFOAM's **cell-centre** dual (`polyDualMesh`), through
+    /// `outram-foam-mesh`'s `poly_dual_mesh` (Route B of gh:#1240); needs
+    /// this crate's `cell-centre-dual` feature, and falls back to
+    /// [`DualKind::MedianPerCorner`] with a stage note without it.
+    CellCentre,
+}
+
+/// The median dual of `mesh` (interior exactly as [`polyhedral_dual_min_faces`])
+/// with the boundary tiled by **one dual face per primal boundary point per
+/// feature-bounded sector**, the rule of OpenFOAM's `polyDualMesh` (gh:#1240,
+/// Route A).
+///
+/// Upstream (OpenFOAM-dev `852527377c7e`), ported:
+///
+/// - **Feature edges** (`simpleMarkFeatures`, polyDualMesh.C): a boundary edge
+///   whose two boundary faces are in different `mesh.patches` (always), or
+///   whose unit face normals satisfy `n0 · n1 < cos(feature_angle_deg)`;
+///   every point on a feature edge is a feature point.
+/// - **Boundary faces** (`meshDualiser::createFacesAroundBoundaryPoint`): the
+///   boundary faces around a point are walked in order; at a non-feature point
+///   they give one polygon `[fc, em, fc, em, …]` (the point itself dropped);
+///   at a feature point a face is closed at every feature edge, one per sector,
+///   `[v, em(feature), fc, em, …, fc, em(feature)]`, so a point on a sharp
+///   line keeps the line and no face spans two patches. Fewer than two
+///   feature edges at a point: the ring is kept whole
+///   (`polyDualMesh::splitFace`).
+///
+/// **What differs from upstream, and why.** The interior is this crate's
+/// median dual, not the cell-centre dual; every boundary edge carries an
+/// edge-midpoint dual vertex (the median dual's boundary-edge face closes
+/// through it), where upstream has one only on feature edges.
+///
+/// **Shared code.** The same boundary rule is in `outram-foam-mesh`'s
+/// `poly_dual_mesh::build_boundary_faces_for_point` (Route B). It cannot be
+/// called from here: this crate builds with no dependency by default and
+/// `outram-foam-mesh` is optional (`cell-centre-dual`), so the ~40 lines of
+/// sector walking are written in both, each citing the other and upstream.
+///
+/// Volume: merging the corner quads drops the point `v` from the face, so on
+/// a curved patch the face cuts below `v` and the volume is no longer the
+/// primal's exactly (it is on a flat patch). The non-feature case assumes the
+/// boundary faces around a point form one ring (a manifold surface); a point
+/// where they do not keeps its per-corner quads.
+///
+/// # Examples
+///
+/// ```
+/// use outram_park_fork_cfmesh::{math::Vec3, shapes::box_surface, carve::carve_box, dual::polyhedral_dual_per_point};
+///
+/// let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+/// let hex = carve_box(&p, &t, 0.5);
+/// let dual = polyhedral_dual_per_point(&hex, 45.0);
+/// assert_eq!(dual.cell_count(), hex.point_count());
+/// assert!((dual.total_volume() - 1.0).abs() < 1e-9); // flat sides: exact
+/// assert!(dual.validate().is_ok());
+/// ```
+pub fn polyhedral_dual_per_point(mesh: &VolumeMesh, feature_angle_deg: f64) -> VolumeMesh {
+    polyhedral_dual_per_point_with(mesh, feature_angle_deg, FeaturePointRule::OnFeatureEdge)
+}
+
+/// Which boundary points keep their own dual vertex (gh:#1240). OpenFOAM has
+/// two `polyDualMesh`s, and they differ here; both are kept callable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FeaturePointRule {
+    /// Every point on a feature edge (the `polyDualMesh` **utility**:
+    /// `simpleMarkFeatures`' `singleCellFeaturePoints`, then
+    /// `meshDualiser`). A point on a sharp line keeps the line exactly: its
+    /// faces are `[v, em, fc, …, em]`, one per side.
+    #[default]
+    OnFeatureEdge,
+    /// Only points with **more than two** feature edges (the `polyDualMesh`
+    /// **class**, `src/conversion/polyDualMesh/polyDualMesh.C`
+    /// `calcFeatures`): a point on a feature line drops out and its ring is
+    /// split along the line's two feature edges (`splitFace`, "multiple
+    /// feature edges but no feature point"), the sides meeting on the chord
+    /// between the two feature-edge midpoints. On a straight line the chord
+    /// passes through the point, so nothing is cut; where the line bends, the
+    /// chord cuts the corner by its sagitta.
+    Corners,
+}
+
+/// [`polyhedral_dual_per_point`] with the feature-point rule named.
+pub fn polyhedral_dual_per_point_with(mesh: &VolumeMesh, feature_angle_deg: f64, rule: FeaturePointRule) -> VolumeMesh {
+    min_faces_dual(mesh, Some((feature_angle_deg, rule)))
+}
+
+/// The face-minimal median dual; `per_point = Some(feature angle)` tiles the
+/// boundary per point per sector ([`polyhedral_dual_per_point`]), `None` per
+/// boundary-face corner ([`polyhedral_dual_min_faces`], unchanged to the bit).
+fn min_faces_dual(mesh: &VolumeMesh, per_point: Option<(f64, FeaturePointRule)>) -> VolumeMesh {
     let n_faces = mesh.face_count();
     let n_cells = mesh.n_cells;
 
@@ -322,8 +447,12 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
     }
 
     // edge -> faces containing it; (cell, edge) -> the (two) faces of that cell
-    // containing the edge; needed to walk each edge's star.
-    let mut edge_faces: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    // containing the edge; needed to walk each edge's star. `edge_faces` is a
+    // BTreeMap because the loop below numbers edge midpoints and emits dual
+    // faces in its order; as a HashMap that order (and so the mesh's
+    // numbering) changed from call to call (gh:#1202, 2026-11-04). The same in
+    // `polyhedral_dual`.
+    let mut edge_faces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
     let mut cell_edge_faces: HashMap<(usize, (usize, usize)), Vec<usize>> = HashMap::new();
     let key = |a: usize, b: usize| if a < b { (a, b) } else { (b, a) };
     for (c, faces) in cell_faces.iter().enumerate() {
@@ -444,6 +573,11 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
         dual_cells[b].push(ring);
     }
 
+    if let Some((angle, rule)) = per_point {
+        boundary_faces_per_point(mesh, angle, rule, &edge_mid, face_base, &mut dual_cells);
+        return from_cell_faces(points, &dual_cells);
+    }
+
     // Boundary dual faces: split each boundary primal face over its vertices.
     for f in 0..n_faces {
         if mesh.neighbour[f].is_some() {
@@ -469,6 +603,139 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
     }
 
     from_cell_faces(points, &dual_cells)
+}
+
+/// The boundary faces of [`polyhedral_dual_per_point`]: per primal boundary
+/// point, one ring per feature-bounded sector (see there). `edge_mid` holds
+/// the dual vertex of every boundary edge's midpoint (the type-A loop made
+/// them), `face_base + f` is the dual vertex of face `f`'s centroid. A point
+/// whose boundary faces do not form a single ring keeps its per-corner quads.
+fn boundary_faces_per_point(
+    mesh: &VolumeMesh,
+    feature_angle_deg: f64,
+    rule: FeaturePointRule,
+    edge_mid: &HashMap<(usize, usize), usize>,
+    face_base: usize,
+    dual_cells: &mut [Vec<Vec<usize>>],
+) {
+    use petir::mathf::RealMath;
+    let key = |a: usize, b: usize| if a < b { (a, b) } else { (b, a) };
+    let n_faces = mesh.face_count();
+    // Patch of every boundary face (patch index; faces outside every patch
+    // share one id).
+    let mut patch_of = vec![usize::MAX; n_faces];
+    for (pi, pa) in mesh.patches.iter().enumerate() {
+        for f in pa.start_face..(pa.start_face + pa.n_faces).min(n_faces) {
+            patch_of[f] = pi;
+        }
+    }
+    // Boundary edge -> its boundary faces; boundary point -> its boundary
+    // faces (both in face order, so the walk below is deterministic).
+    let mut edge_bfaces: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+    let mut point_bfaces: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for f in 0..n_faces {
+        if mesh.neighbour[f].is_some() {
+            continue;
+        }
+        let ring = &mesh.faces[f];
+        let k = ring.len();
+        for i in 0..k {
+            edge_bfaces.entry(key(ring[i], ring[(i + 1) % k])).or_default().push(f);
+            point_bfaces.entry(ring[i]).or_default().push(f);
+        }
+    }
+    // Feature edges (`simpleMarkFeatures`): patch seams, and normals more than
+    // the feature angle apart.
+    let min_cos = feature_angle_deg.to_radians().r_cos();
+    let unit = |f: usize| {
+        let a = mesh.face_area_vector(f);
+        a.scale(1.0 / a.length().max(1e-300))
+    };
+    let mut feature_edge: BTreeMap<(usize, usize), bool> = BTreeMap::new();
+    let mut n_feature_edges = vec![0usize; mesh.points.len()];
+    for (&e, fs) in &edge_bfaces {
+        let feat = fs.len() != 2 || patch_of[fs[0]] != patch_of[fs[1]] || unit(fs[0]).dot(unit(fs[1])) < min_cos;
+        feature_edge.insert(e, feat);
+        if feat {
+            n_feature_edges[e.0] += 1;
+            n_feature_edges[e.1] += 1;
+        }
+    }
+    let feature_point: Vec<bool> = n_feature_edges
+        .iter()
+        .map(|&n| match rule {
+            FeaturePointRule::OnFeatureEdge => n > 0,
+            FeaturePointRule::Corners => n > 2,
+        })
+        .collect();
+    // The two boundary edges of face f at point v: (before v, after v).
+    let edges_at = |f: usize, v: usize| -> ((usize, usize), (usize, usize)) {
+        let ring = &mesh.faces[f];
+        let k = ring.len();
+        let i = ring.iter().position(|&q| q == v).expect("point on its face");
+        (key(ring[(i + k - 1) % k], v), key(v, ring[(i + 1) % k]))
+    };
+    for (&v, bfaces) in &point_bfaces {
+        // Order the faces into a ring: ring[i] and ring[i + 1] share
+        // shared[i] (walking across the edge after v of each face).
+        let mut ring = vec![bfaces[0]];
+        let mut shared = Vec::new();
+        let mut ok = true;
+        loop {
+            let cur = *ring.last().unwrap();
+            let e = edges_at(cur, v).1;
+            let next = edge_bfaces[&e].iter().copied().find(|&g| g != cur);
+            let Some(next) = next else {
+                ok = false;
+                break;
+            };
+            shared.push(e);
+            if next == ring[0] {
+                break;
+            }
+            if ring.len() > bfaces.len() || ring.contains(&next) {
+                ok = false;
+                break;
+            }
+            ring.push(next);
+        }
+        if !ok || ring.len() != bfaces.len() {
+            // Not a single ring (non-manifold point): keep the corner quads.
+            for &f in bfaces {
+                let (e1, e2) = edges_at(f, v);
+                dual_cells[v].push(vec![v, edge_mid[&e1], face_base + f, edge_mid[&e2]]);
+            }
+            continue;
+        }
+        let k = ring.len();
+        let cuts: Vec<usize> = (0..k).filter(|&i| feature_edge[&shared[i]]).collect();
+        if cuts.len() >= 2 {
+            // One face per sector between consecutive feature edges; through
+            // the point itself when it is a feature point, else closed on the
+            // chord between the two feature-edge midpoints (`splitFace`).
+            for c in 0..cuts.len() {
+                let (start, end) = (cuts[c], cuts[(c + 1) % cuts.len()]);
+                let mut face = if feature_point[v] { vec![v, edge_mid[&shared[start]]] } else { vec![edge_mid[&shared[start]]] };
+                let mut i = (start + 1) % k;
+                loop {
+                    face.push(face_base + ring[i]);
+                    face.push(edge_mid[&shared[i]]);
+                    if i == end {
+                        break;
+                    }
+                    i = (i + 1) % k;
+                }
+                dual_cells[v].push(face);
+            }
+        } else {
+            let mut face = Vec::with_capacity(2 * k);
+            for i in 0..k {
+                face.push(face_base + ring[i]);
+                face.push(edge_mid[&shared[i]]);
+            }
+            dual_cells[v].push(face);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -629,5 +896,50 @@ mod tests {
             max_faces > 6,
             "polyhedral cells present (max faces/cell = {max_faces})"
         );
+    }
+
+    /// V&V (gh:#1240) — **Route A: one boundary face per point per sector**.
+    /// Methodology: a unit box carved into 3×3×3 hexes, its boundary in one
+    /// `walls` patch, median dual with per-point boundary faces at 45°.
+    /// Predictions (written before the first run, 2026-11-04): exactly as
+    /// `outram-foam-mesh`'s `boundary_faces_one_per_point_per_sector` on the
+    /// same block: a face-interior point's cell has 1 boundary face, an
+    /// edge point 2, a corner 3 (the 90° edges are features at 45°); the
+    /// interior faces are the per-corner dual's to the bit; volume 1 and
+    /// boundary area 6 to 1e-9 (flat sides); every cell closed.
+    #[test]
+    fn per_point_dual_has_one_boundary_face_per_sector() {
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let hex = carve_box(&p, &t, 1.0 / 3.0);
+        let corner = polyhedral_dual_min_faces(&hex);
+        let point = polyhedral_dual_per_point(&hex, 45.0);
+        point.validate().expect("closed");
+        assert!((point.total_volume() - 1.0).abs() < 1e-9);
+        let mut area = 0.0;
+        let mut per_cell = vec![0usize; point.n_cells];
+        for f in 0..point.face_count() {
+            if point.neighbour[f].is_none() {
+                area += point.face_area_vector(f).length();
+                per_cell[point.owner[f]] += 1;
+            }
+        }
+        assert!((area - 6.0).abs() < 1e-9, "boundary area {area}");
+        for (v, &n) in per_cell.iter().enumerate() {
+            let x = hex.points[v];
+            let on = |c: f64| (c.abs() < 1e-12 || (c - 1.0).abs() < 1e-12) as usize;
+            assert_eq!(n, on(x.x) + on(x.y) + on(x.z), "point {x:?}");
+        }
+        assert_eq!(point.n_internal_faces(), corner.n_internal_faces());
+        assert_eq!(&point.faces[..point.n_internal_faces()], &corner.faces[..corner.n_internal_faces()]);
+        // The class's rule: only the 8 box corners keep their vertex; the
+        // straight edges are split on their chords, which pass through the
+        // dropped points, so the volume is still exact.
+        let corners = polyhedral_dual_per_point_with(&hex, 45.0, FeaturePointRule::Corners);
+        corners.validate().expect("closed");
+        assert!((corners.total_volume() - 1.0).abs() < 1e-9, "{}", corners.total_volume());
+        assert_eq!(corners.n_boundary_faces(), point.n_boundary_faces());
+        // A larger angle merges the 90° edges away: the corners are cut.
+        let merged = polyhedral_dual_per_point(&hex, 120.0);
+        assert!(merged.total_volume() < 1.0 - 1e-3, "merged {}", merged.total_volume());
     }
 }

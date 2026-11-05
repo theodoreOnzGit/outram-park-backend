@@ -264,10 +264,14 @@
 pub mod cartesian;
 pub mod carve;
 pub mod checks;
+pub mod correct_edges;
 pub mod delaunay;
 pub mod dual;
 pub mod layers;
 pub mod math;
+pub mod mesh_optimizer;
+pub mod snappy_layers;
+pub mod boundary_layer_optimisation;
 pub mod octree;
 pub mod patches;
 pub mod pipeline;
@@ -275,6 +279,7 @@ pub mod reactor;
 pub mod shapes;
 pub mod smooth;
 pub mod snap;
+pub mod surface_mapper;
 pub mod tet;
 pub mod volume_mesh;
 
@@ -283,3 +288,10 @@ pub mod volume_mesh;
 /// default so the base crate stays dependency-free and Android-buildable.
 #[cfg(feature = "foam-export")]
 pub mod foam;
+
+/// The cell-centre (`polyDualMesh`) dual of a [`volume_mesh::VolumeMesh`]
+/// through `outram-foam-mesh` (feature `cell-centre-dual`, gh:#1240): the
+/// pipeline's [`dual::DualKind::CellCentre`]. Off by default, like
+/// `foam-export`, so the base crate stays dependency-free.
+#[cfg(feature = "cell-centre-dual")]
+pub mod cell_centre_dual;

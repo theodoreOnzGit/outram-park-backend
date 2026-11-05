@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walk: what an accident releases</title>
+<meta name="description" content="A guided walk through TRISO-ATOPS's depressurisation accident, pool by pool: the circulating helium leaves in full, a lift-off share of the plate-out, the purification pool never, and the fuel's release only as far as the coolant vents.">
+<link rel="stylesheet" href="../../style.css">
+<link rel="stylesheet" href="atops-concepts.css">
+<script src="atops-concepts-data.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-walk-recorded.js" defer></script>
+<script src="atops-walk-numbers.js" defer></script>
+<script src="atops-concepts.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 concept walks (gh:#1207 part 2), walk 2 of 3.
+     Numbers: atops-data.js (lesson_triso_atops: a 1 Ci node at 900 °C, and
+     one node through illustrative heat-ups to 1400/1600/1800 °C) and
+     atops-walk-recorded.js (the demo's headless release and source-term
+     output). x_liftoff is checked against sembawang's constant by
+     check-concepts.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+
+<h1>Walk: what an accident releases</h1>
+<p class="kicker">Fission products · concept walk 2 of 3</p>
+
+<p>TRISO-ATOPS&rsquo;s accident is a depressurisation: the circuit breaks, the core heats, and the gas pushed out carries activity with it. What leaves is a sum over pools, and each pool is treated differently. This walk goes pool by pool, then adds them.</p>
+
+<p class="predict">The short version, before the steps: <b>C</b> (circulating) leaves in full; <b>x<sub>liftoff</sub>&middot;P</b> of the plate-out leaves; <b>H</b> (the purification system&rsquo;s pool) never leaves; the <b>fuel and graphite</b> release leaves only as far as the coolant has vented.</p>
+
+<ol class="cc-steps">
+<li data-concept="normal-operation-node" data-lesson="atops-normal-operation.html" data-demo="rung=release&amp;pick=all&amp;now=0&amp;leak=off">
+<h3>Start from normal operation</h3>
+<p>The accident starts from the pools normal operation built up (walk 1). For the 1&nbsp;Ci MHTGR node at 900&nbsp;&deg;C with clean-up on, I-131 has C&nbsp;=&nbsp;<span data-q="nodeHps.I131.circulating">…</span>, H&nbsp;=&nbsp;<span data-q="nodeHps.I131.cleanUp">…</span> atoms, and Cs-137 has P&nbsp;=&nbsp;<span data-q="node.Cs137.plateOut">…</span> atoms on the walls.</p>
+</li>
+<li data-concept="accident-total" data-lesson="atops-source-term.html" data-demo="rung=release&amp;pick=all&amp;now=0&amp;leak=off">
+<h3>C: the circulating helium leaves in full</h3>
+<p>When the boundary breaks, all the circulating activity goes, at once and unscaled by anything. In the demo&rsquo;s HTR-10 case that is <span data-q="demo.Kr88.0.circulating_bq">…</span> Bq of Kr-88, <span data-q="demo.I131.0.circulating_bq">…</span> Bq of I-131 and <span data-q="demo.Cs137.0.circulating_bq">…</span> Bq of Cs-137 at the end of normal operation.</p>
+</li>
+<li data-concept="lift-off" data-lesson="atops-source-term.html" data-demo="rung=release&amp;pick=metal&amp;now=0&amp;leak=off">
+<h3>x<sub>liftoff</sub>&middot;P: a share of the plate-out</h3>
+<p>The blowdown re-entrains a fraction x<sub>liftoff</sub> of what plated out. The code takes it as an input; sembawang&rsquo;s HTR-10 case uses <span data-rs="crates/sembawang/src/htr10.rs:X_LIFTOFF_NP_MHTGR_STAND_IN">0.05</span>, an NP-MHTGR <b>stand-in</b>, not an HTR-10 value. Because the plate-out pool is so large for metals (HTR-10 case: <span data-q="demo.Cs137.0.plated_bq">…</span> Bq of Cs-137 against <span data-q="demo.Cs137.0.circulating_bq">…</span> circulating), this one input can carry the circuit term for caesium.</p>
+</li>
+<li data-concept="clean-up" data-lesson="atops-coolant.html" data-demo="rung=release&amp;pick=halogen&amp;now=0&amp;leak=off">
+<h3>H: the purification pool never leaves</h3>
+<p>What the helium purification system took out stays in its beds: no term in the accident sum reads it. In the HTR-10 case it holds <span data-q="demo.I131.0.hps_bq">…</span> Bq of I-131 and <span data-q="demo.Kr88.0.hps_bq">…</span> Bq of Kr-88, none of which the accident releases. It is still subtracted from what the fuel has left to give (next step).</p>
+</li>
+<li data-concept="release-activity" data-lesson="atops-accident.html" data-demo="rung=release&amp;pick=Cs-137&amp;hold=1600&amp;now=100">
+<h3>The fuel: what is left, times the release fraction</h3>
+<p>The kernels and graphite can only release what normal operation has not already moved: the inventory times the accident failure fraction, minus G, C and P (and H). Then the transient Booth series, on the integral of D, gives the fraction released. In the lesson&rsquo;s heat-up to 1600&nbsp;&deg;C, by the end of the hold (<span data-q="acc1600.holdEndH">…</span>) <span data-q="acc1600.Cs137.rfKernel">…</span> of the caesium available in the kernels has come out.</p>
+</li>
+<li data-concept="integral-d" data-lesson="atops-accident.html" data-demo="rung=failure&amp;hold=1600&amp;hours=100">
+<h3>D&middot;t becomes the integral of D</h3>
+<p>The temperature rises, so each sample&rsquo;s D is different; the code sums them by trapezoids. That is the only way the transient enters the release models. The failure rung shows the same hold for the particle&rsquo;s failure fractions.</p>
+</li>
+<li data-concept="venting" data-lesson="atops-accident.html">
+<h3>Venting: the fuel&rsquo;s release leaves only while the gas is pushed out</h3>
+<p>The fuel and graphite release is multiplied by the fraction of coolant vented, which follows the ideal gas law while the core heats and stops when it cools. In the 1600&nbsp;&deg;C heat-up it reaches <span data-q="acc1600.vent">…</span> by the end of the hold; on the first cooling sample there is <span data-q="acc1600.ventAfter">…</span>. The demo&rsquo;s release rung holds the temperature, so it has no venting to show; the lesson&rsquo;s widget does.</p>
+</li>
+<li data-concept="accident-total" data-lesson="atops-source-term.html" data-demo="rung=source-term">
+<h3>Add the pools</h3>
+<p>Released = vent&nbsp;&times;&nbsp;(kernel&nbsp;+&nbsp;graphite) + C + x<sub>liftoff</sub>&middot;P, and never H. sembawang composes these pieces for HTR-10 in a deliberately pessimistic air-ingress <b>bounding</b> case (<code>htr10_air_ingress_kora_bound</code>: the core held at 1400&nbsp;&deg;C for 140&nbsp;h, every particle exposed, the KORA oxidation failures added, its own choices on top of the port). Its recorded 96&nbsp;h release is <span data-q="st.Cs137.released">…</span> of Cs-137 (core <span data-q="st.Cs137.core">…</span>), <span data-q="st.I131.released">…</span> of I-131 and <span data-q="st.Xe133.released">…</span> of Xe-133. The demo&rsquo;s last rung shows these recorded numbers.</p>
+</li>
+</ol>
+
+<p><b>What the model leaves out</b> (from the cards and lessons): no ingress flow carrying activity out while the core cools (gh:#446), no oxidation path for air or steam in the port (the chemistry is outside it), and no single accident driver in the port: callers compose these pieces (gh:#447). None of this is validated against a measured release.</p>
+
+<nav class="cc-walknav" aria-label="Concept walks">
+  <a class="btn ghost" href="atops-walk-cs137.html">&larr; Walk 1: Cs-137</a>
+  <a class="btn ghost" href="atops-concepts.html">Back to the map</a>
+  <a class="btn" href="atops-walk-silver.html">Walk 3: why silver is different &rarr;</a>
+</nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

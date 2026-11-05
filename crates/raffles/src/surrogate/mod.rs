@@ -13,9 +13,24 @@
 //! - **[`validation`]** — leave-one-out cross-validation and jackknife+
 //!   prediction intervals for [`PolynomialSurrogate`] (added 2026-10-03,
 //!   GitHub #499).
+//! - **[`MultiOutputPolynomial`]** — one [`PolynomialSurrogate`] per output
+//!   column, each bit-identical to the scalar fit (added 2026-11-04, gh:#1194).
 //!
-//! Gaussian process regression / kriging and the sparse-grid polynomial chaos
-//! route are **not** implemented. ~~Neither is the cross-validation
+//! **The typed, common interface to these routes is [`crate::fidelity`]**
+//! (gh:#1194): `uom` records in and out, a `Dataset` with its held-out split
+//! fixed at construction, `SurrogateSpec` / `Surrogate<I, O>` over the routes
+//! here, and a `ValidationReport` on the held-out rows. New routes (kriging,
+//! polynomial chaos, co-kriging) land here as `f64` implementations and as a
+//! variant there.
+//!
+//! ~~Gaussian process regression / kriging and the sparse-grid polynomial chaos
+//! route are **not** implemented.~~ **CORRECTED 2026-11-04 (gh:#1193)** — both
+//! now are, as RAVEN ports: [`polynomial_chaos`] (RAVEN's `GaussPolynomialRom`
+//! with its index sets, Smolyak/tensor grids and SciPy's Gauss rules) and
+//! [`gaussian_process`] (RAVEN's `GaussianProcessRegressor` interface over
+//! scikit-learn's numerics). ~~HDMR and the SMT kriging route (gh:#1190) are
+//! not.~~ **CORRECTED 2026-11-04 (gh:#1190)** — [`smt`] ports SMT's KRG,
+//! KPLS, KPLSK and MFK co-kriging; HDMR is still not ported. ~~Neither is the cross-validation
 //! machinery;~~ **CORRECTED 2026-10-03** — leave-one-out cross-validation is
 //! now in [`validation`] (polynomial surrogates only; k-fold and the neural
 //! surrogate are not covered). The fitted models still report `r_squared` and
@@ -53,7 +68,8 @@
 //! ## Design
 //!
 //! Enum dispatch, as everywhere else in this crate — never
-//! `Box<dyn Surrogate>`. No lifetime parameters.
+//! `Box<dyn Surrogate>`. No lifetime parameters. The dispatch enum is
+//! [`crate::fidelity::Surrogate`].
 //!
 //! ## Verification requirement
 //!
@@ -65,18 +81,26 @@
 //!
 //! ## Provenance
 //!
-//! No RAVEN code has been ported into this module. When it is, each derived
-//! file carries the attribution header shown in the crate `CLAUDE.md`, naming
+//! ~~No RAVEN code has been ported into this module.~~ **CORRECTED
+//! 2026-11-04** — `polynomial_chaos/` and `gaussian_process.rs` are RAVEN
+//! ports (gh:#1193), with SciPy, NumPy and scikit-learn (BSD-3-Clause) numerics
+//! beside them. Each derived file carries the attribution header shown in the crate `CLAUDE.md`, naming
 //! the upstream file under `ravenframework/SupervisedLearning/`, the commit,
 //! the copyright holder and the licence.
 
+pub mod gaussian_process;
 pub mod polynomial;
+pub mod polynomial_chaos;
+pub mod smt;
 pub mod validation;
 
 #[cfg(feature = "burn")]
 pub mod neural;
 
-pub use polynomial::PolynomialSurrogate;
+pub use gaussian_process::{GaussianProcess, GpConfig, GpKernel, GpOptimizer, RavenKernel};
+pub use polynomial::{MultiOutputPolynomial, PolynomialSurrogate};
+pub use polynomial_chaos::{PolynomialChaos, PolynomialChaosSpec};
+pub use smt::{Mfk, MfkConfig, SmtKriging, SmtKrgConfig};
 
 #[cfg(feature = "burn")]
 pub use neural::{NeuralSurrogate, TrainingConfig, TrainingReport};
