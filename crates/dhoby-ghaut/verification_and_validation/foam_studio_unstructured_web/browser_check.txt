@@ -19,3 +19,10 @@ dual_h5_1layer_desktop 14 s: Foam Studio · 10745 cells · step 24 · 894 ms/ste
 dual_h5_1layer_desktop 16 s: Foam Studio · 10745 cells · step 28 · 251 ms/step · steady | frames median 16.7 p95 166.7 max 216.7 ms
 RESULT dual_h5_1layer_desktop: meshed 3 s, steady 16 s, worst frame 350 ms, title "Foam Studio · 10745 cells · step 28 · 251 ms/step · steady", errors 0
 dual_h5_2layers_desktop 2 s: Foam Studio | frames median 50.0 p95 150.0 max 416.6 ms
+dual_h5_2layers_desktop 6 s: Foam Studio · 18377 cells · step 2 · 437 ms/step · solving | frames median 200.0 p95 283.3 max 283.3 ms
+dual_h5_2layers_desktop 8 s: Foam Studio · 18377 cells · step 7 · 460 ms/step · solving | frames median 183.3 p95 216.7 max 216.7 ms
+dual_h5_2layers_desktop 11 s: Foam Studio · 18377 cells · step 10 · 854 ms/step · solving | frames median 166.8 p95 200.0 max 200.0 ms
+dual_h5_2layers_desktop 13 s: Foam Studio · 18377 cells · step 13 · 477 ms/step · solving | frames median 183.3 p95 300.0 max 300.0 ms
+dual_h5_2layers_desktop 15 s: Foam Studio · 18377 cells · step 17 · 518 ms/step · solving | frames median 216.6 p95 366.6 max 366.6 ms
+dual_h5_2layers_desktop 18 s: Foam Studio · 18377 cells · step 20 · 568 ms/step · solving | frames median 183.3 p95 266.6 max 266.6 ms
+dual_h5_2layers_desktop 21 s: Foam Studio · 18377 cells · step 23 · 960 ms/step · solving | frames median 166.6 p95 200.0 max 200.0 ms
