@@ -1,0 +1,541 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Ported from cfMesh (Creative Fields, Ltd.; Franjo Juretic), GPL-3.0:
+//   meshLibrary/tetMesh/tetMeshGenerator/tetMeshGenerator.{C,H}
+//   executables/tetMesh/tetMesh.C
+// Source: the cfMesh v1.1 line as carried by github.com/DAFoam/cfmesh, commit
+// e944f6ba695fcefce73ad306074f6b3c0ea432ae.
+// Copyright (C) Creative Fields, Ltd. Licence: GPL-3.0-or-later (cfMesh files
+// say "either version 3 of the License, or (at your option) any later
+// version"), conveyed here under GPL-3.0-only.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! cfMesh's **`tetMesh`** workflow (`tetMeshGenerator`, gh:#1272): a new
+//! entry point beside [`crate::pipeline::surface_to_tet_dual_mesh`], whose
+//! output it does not change.
+//!
+//! The constructor builds the surface octree (`meshOctreeCreator::
+//! createOctreeBoxes` with the [`MeshDict`]), then `generateMesh` runs the
+//! steps below, each behind [`WorkflowControls::run_current_step`]
+//! (`stopAfter`, restart), then `renumberMesh` and `renameBoundaryPatches`.
+//!
+//! | step | upstream | here |
+//! |---|---|---|
+//! | `templateGeneration` | `tetMeshExtractorOctree` | [`crate::tet_creator_octree`], [`crate::tet_mesh_extractor_octree`] (ported) |
+//! | `surfaceTopology` | `surfaceMorpherCells` + `topologicalCleaner` | **not ported** (topology track, gh:#1267): skipped, noted |
+//! | `surfaceProjection` | `meshSurfaceMapper::mapVerticesOntoSurface`, `meshSurfaceOptimizer::untangleSurface` | `surface_mapper::map_vertices_onto_surface_untangled`: the mapping, with tangled moves reverted instead of untangled |
+//! | `patchAssignment` | `edgeExtractor` | **not ported** (not this track): `patches::assign_patches_by_region` (nearest triangle) stands in |
+//! | `edgeExtraction` | `meshSurfaceEdgeExtractorNonTopo`, `meshSurfaceOptimizer::optimizeSurface` | `surface_mapper::map_vertices_onto_surface_patches_untangled` stands in for the first; the second is **not ported** (surface track, gh:#1259) |
+//! | `boundaryLayerGeneration` | `boundaryLayers`, only with a `boundaryLayers` dict | no such dict here: nothing to do, as upstream without one |
+//! | `meshOptimisation` | `meshOptimizer`: `optimizeSurface`, `optimizeMeshFV`, `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)`, `untangleMeshFV` | `mesh_optimizer` with upstream's boundary moves and LP untangler on; `optimizeSurface` **not ported** (surface track); `optimizeBoundaryLayer` has no layer to act on |
+//! | `boundaryLayerRefinement` | `refineBoundaryLayers`, only with a `boundaryLayers` dict | nothing to do |
+//! | (always) | `renumberMesh`, `renameBoundaryPatches` | [`crate::renumber_mesh`], [`crate::rename_boundary_patches`] (ported) |
+//!
+//! Every gap is a line in [`TetMeshReport::notes`]. `anisotropicSources`
+//! (`projectSurfaceAfterBackScaling`, the geometry modification) and the
+//! surface's feature-edge patches (`triSurfacePatchManipulator`) are not
+//! supported: the surface carries no feature edges and the `MeshDict` no
+//! anisotropic sources.
+
+use crate::math::Vec3;
+use crate::mesh_octree::{MeshOctree, TriSurf};
+use crate::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
+use crate::mesh_optimizer::{MeshOptimizer, UntangleControls};
+use crate::patches::{assign_patches_by_region, SurfaceRegions};
+use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
+use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
+use crate::surface_mapper::{map_vertices_onto_surface_patches_untangled, map_vertices_onto_surface_untangled};
+use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
+use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
+use crate::volume_mesh::VolumeMesh;
+use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
+use std::sync::Arc;
+
+/// Settings of [`tet_mesh`] (and [`crate::pipeline::p_mesh::p_mesh`]): the
+/// `meshDict` entries the workflow reads.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TetMeshOptions {
+    /// The octree settings (`maxCellSize`, `boundaryCellSize`, refinement).
+    pub dict: MeshDict,
+    /// `workflowControls`.
+    pub workflow: WorkflowSettings,
+    /// `renameBoundary`.
+    pub rename_boundary: Option<RenameBoundary>,
+    /// `enforceGeometryConstraints` (upstream default `false`).
+    pub enforce_geometry_constraints: bool,
+    /// Passes of the revert loop that stands in for `untangleSurface`.
+    pub untangle_passes: usize,
+}
+
+impl Default for TetMeshOptions {
+    /// `maxCellSize` 1, upstream's defaults elsewhere, 10 revert passes.
+    fn default() -> Self {
+        TetMeshOptions {
+            dict: MeshDict::with_max_cell_size(1.0),
+            workflow: WorkflowSettings::default(),
+            rename_boundary: None,
+            enforce_geometry_constraints: false,
+            untangle_passes: 10,
+        }
+    }
+}
+
+/// A mesh saved after a step, with its meta data: what a restart reads
+/// (upstream reads it from disk).
+#[derive(Debug, Clone)]
+pub struct SavedMesh {
+    /// The mesh.
+    pub mesh: VolumeMesh,
+    /// The patch types.
+    pub patch_types: Vec<String>,
+    /// The workflow meta data.
+    pub meta: MeshMetaData,
+}
+
+/// What the workflow did.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TetMeshReport {
+    /// One line per step: what ran, what stood in, what is not ported.
+    pub notes: Vec<String>,
+    /// The steps that ran (including a step resumed after loading).
+    pub steps_run: Vec<WorkflowStep>,
+    /// `stopAfter` hit: the workflow stopped after this step.
+    pub stopped_after: Option<WorkflowStep>,
+    /// The mesh's workflow meta data at the end.
+    pub meta: MeshMetaData,
+    /// The type of each patch of the mesh.
+    pub patch_types: Vec<String>,
+    /// Cells of the template mesh (tets, or Voronoi cells).
+    pub n_template_cells: usize,
+    /// Volume of the template mesh.
+    pub template_volume: f64,
+    /// Tets the creator made.
+    pub n_tets: usize,
+    /// Reads upstream leaves undefined (zero on every recorded run).
+    pub creator_defects: TetCreatorDefects,
+    /// Boundary points whose surface projection was reverted.
+    pub n_projection_reverted: usize,
+    /// Boundary points whose patch mapping was reverted.
+    pub n_edge_mapping_reverted: usize,
+}
+
+/// Which template the shared generator builds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Template {
+    /// `tetMeshExtractorOctree`.
+    Tet,
+    /// `voronoiMeshExtractor`.
+    Voronoi,
+}
+
+/// cfMesh `tetMesh`: the workflow on the surface `(points, tris)` with
+/// optional named regions (module docs).
+pub fn tet_mesh(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>, opts: &TetMeshOptions) -> Result<(VolumeMesh, TetMeshReport), String> {
+    run_generator(Template::Tet, points, tris, regions, opts, None)
+}
+
+/// [`tet_mesh`] restarted from a mesh saved after a step
+/// (`restartFromLatestStep` must be set in `opts.workflow`).
+pub fn tet_mesh_restart(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>, opts: &TetMeshOptions, saved: &SavedMesh) -> Result<(VolumeMesh, TetMeshReport), String> {
+    run_generator(Template::Tet, points, tris, regions, opts, Some(saved))
+}
+
+/// The generator's surface octree: `meshOctree(surf)` and
+/// `createOctreeBoxes`.
+pub fn create_octree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>, dict: &MeshDict) -> MeshOctree {
+    let surf = TriSurf::new(points.to_vec(), tris.to_vec(), regions.map(|r| r.region_of_tri.clone()));
+    let mut o = MeshOctree::new(Arc::new(surf));
+    let mut c = MeshOctreeCreator::new(&o, Some(dict.clone()));
+    c.create_octree_boxes(&mut o);
+    o
+}
+
+/// The `generateMesh` both generators share; `kind` picks the template and
+/// the few steps where `voronoiMeshGenerator` differs.
+pub(crate) fn run_generator(
+    kind: Template,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: Option<&SurfaceRegions>,
+    opts: &TetMeshOptions,
+    saved: Option<&SavedMesh>,
+) -> Result<(VolumeMesh, TetMeshReport), String> {
+    if let Some(r) = regions {
+        r.validate(tris.len())?;
+    }
+    if opts.dict.max_cell_size <= 0.0 {
+        return Err(format!("maxCellSize must be > 0 (got {})", opts.dict.max_cell_size));
+    }
+    let o = create_octree(points, tris, regions, &opts.dict);
+    let meta = saved.map(|s| s.meta.clone()).unwrap_or_default();
+    let mut w = WorkflowControls::new(opts.workflow, meta);
+    let mut rep = TetMeshReport {
+        notes: Vec::new(),
+        steps_run: Vec::new(),
+        stopped_after: None,
+        meta: MeshMetaData::default(),
+        patch_types: Vec::new(),
+        n_template_cells: 0,
+        template_volume: 0.0,
+        n_tets: 0,
+        creator_defects: TetCreatorDefects::default(),
+        n_projection_reverted: 0,
+        n_edge_mapping_reverted: 0,
+    };
+    let mut mesh: Option<VolumeMesh> = None;
+    let mut types: Vec<String> = Vec::new();
+    // generateMesh's order (both generators)
+    let steps = [
+        WorkflowStep::TemplateGeneration,
+        WorkflowStep::SurfaceTopology,
+        WorkflowStep::SurfaceProjection,
+        WorkflowStep::PatchAssignment,
+        WorkflowStep::EdgeExtraction,
+        WorkflowStep::BoundaryLayerGeneration,
+        WorkflowStep::MeshOptimisation,
+        WorkflowStep::BoundaryLayerRefinement,
+    ];
+    for step in steps {
+        match w.run_current_step(step) {
+            StepDecision::Skip => continue,
+            StepDecision::Stop => {
+                rep.stopped_after = Some(w.current_step);
+                rep.meta = w.meta.clone();
+                rep.patch_types = types;
+                let m = mesh.ok_or("stopped before a mesh existed")?;
+                return Ok((m, rep));
+            }
+            StepDecision::RunAfterLoading => {
+                let s = saved.ok_or("restart requested without a saved mesh")?;
+                mesh = Some(s.mesh.clone());
+                types = s.patch_types.clone();
+                rep.notes.push(format!("restart: loaded the mesh saved after {}", w.meta.last_step.map_or("?", |x| x.name())));
+            }
+            StepDecision::Run => {}
+        }
+        rep.steps_run.push(step);
+        if step == WorkflowStep::TemplateGeneration {
+            let tc = tet_creator_octree(&o);
+            rep.n_tets = tc.tets.len();
+            rep.creator_defects = tc.defects;
+            let m = match kind {
+                Template::Tet => tet_mesh_extractor_octree(&tc)?.mesh,
+                Template::Voronoi => crate::voronoi_mesh_extractor::voronoi_mesh_extractor(&tc)?.mesh,
+            };
+            rep.n_template_cells = m.n_cells;
+            rep.template_volume = m.total_volume();
+            types = vec!["patch".to_string(); m.patches.len()];
+            mesh = Some(m);
+            continue;
+        }
+        let m = mesh.as_mut().ok_or("no mesh: the workflow resumed after a step that saved none")?;
+        match step {
+            WorkflowStep::SurfaceTopology => rep.notes.push(match kind {
+                Template::Tet => "surfaceTopology: surfaceMorpherCells + topologicalCleaner not ported (topology track); skipped".into(),
+                Template::Voronoi => "surfaceTopology: surfaceMorpherCells not ported (topology track); skipped".into(),
+            }),
+            WorkflowStep::SurfaceProjection => {
+                if kind == Template::Voronoi {
+                    rep.notes.push("surfaceProjection: meshSurfaceMapper::preMapVertices not ported (surface track); skipped".into());
+                }
+                let (mm, n) = map_vertices_onto_surface_untangled(m, points, tris, opts.untangle_passes);
+                *m = mm;
+                rep.n_projection_reverted = n;
+                rep.notes.push(format!("surfaceProjection: mapVerticesOntoSurface; untangleSurface not ported, {n} boundary points reverted instead"));
+            }
+            WorkflowStep::PatchAssignment => match regions {
+                Some(r) => {
+                    *m = assign_patches_by_region(m, points, tris, r)?;
+                    types = vec!["patch".to_string(); m.patches.len()];
+                    rep.notes.push("patchAssignment: edgeExtractor not ported; nearest-triangle patches (patches::assign_patches_by_region)".into());
+                }
+                None => rep.notes.push("patchAssignment: no regions given; one patch defaultFaces".into()),
+            },
+            WorkflowStep::EdgeExtraction => {
+                if let Some(r) = regions {
+                    let (mm, n) = map_vertices_onto_surface_patches_untangled(m, points, tris, r, opts.untangle_passes);
+                    *m = mm;
+                    rep.n_edge_mapping_reverted = n;
+                    rep.notes.push(format!(
+                        "edgeExtraction: {} not ported; surface_mapper's patch mapping stands in ({n} points reverted)",
+                        if kind == Template::Tet { "meshSurfaceEdgeExtractorNonTopo" } else { "meshSurfaceEdgeExtractorFUN" }
+                    ));
+                }
+                rep.notes.push("edgeExtraction: meshSurfaceOptimizer::optimizeSurface not ported (surface track); skipped".into());
+            }
+            WorkflowStep::BoundaryLayerGeneration => rep.notes.push("boundaryLayerGeneration: no boundaryLayers dict; nothing to do".into()),
+            WorkflowStep::MeshOptimisation => {
+                if kind == Template::Voronoi {
+                    rep.notes.push("meshOptimisation: meshSurfaceOptimizer::optimizeSurface not ported (surface track); skipped".into());
+                }
+                let mut opt = MeshOptimizer::new(m);
+                if opts.enforce_geometry_constraints {
+                    opt.set_enforce_constraints("badPoints");
+                }
+                if kind == Template::Tet {
+                    rep.notes.push("meshOptimisation: meshOptimizer::optimizeSurface not ported (surface track); skipped".into());
+                }
+                let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
+                let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+                let r2 = opt.optimize_low_quality_faces(m, 10);
+                let r3 = opt.untangle_mesh_fv(m, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+                rep.notes.push(format!(
+                    "meshOptimisation: optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer: no layers",
+                    r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
+                ));
+            }
+            WorkflowStep::BoundaryLayerRefinement => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
+            _ => {}
+        }
+    }
+    let m = mesh.ok_or("the workflow produced no mesh")?;
+    let r = renumber_mesh(&m, &cells_from_mesh(&m));
+    let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), false);
+    if !renamed.symmetry_planes_not_optimised.is_empty() {
+        rep.notes.push(format!("renameBoundaryPatches: symmetryPlaneOptimisation not ported; {:?} not flattened", renamed.symmetry_planes_not_optimised));
+    }
+    if kind == Template::Tet {
+        w.workflow_completed();
+    }
+    rep.meta = w.meta;
+    rep.patch_types = renamed.patch_types;
+    Ok((renamed.mesh, rep))
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use crate::checks::check_quality;
+    use crate::pipeline::{surface_to_tet_dual_mesh, TetDualOptions};
+    use crate::shapes::{cylinder_surface, sphere_surface};
+    use crate::tet_creator_octree::{tet_creator_octree, tet_volume};
+    use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
+    use crate::cartesian_mesh::{BoxType, MeshOctreeAddressing};
+    use std::f64::consts::PI;
+    use std::time::Instant;
+
+    /// The pipe of the octree tests: R, L, n sides; regions walls (0),
+    /// inlet (z = 0), outlet (z = L).
+    pub(crate) fn pipe_surface(r: f64, l: f64, n: usize) -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions) {
+        let (p, t) = cylinder_surface(Vec3::ZERO, r, l, n);
+        let labels: Vec<&str> = t
+            .iter()
+            .map(|tri| {
+                let z = [p[tri[0]].z, p[tri[1]].z, p[tri[2]].z];
+                let flat = (z[0] - z[1]).abs() < 1e-12 && (z[1] - z[2]).abs() < 1e-12;
+                match (flat, z[0] < 0.5 * l) {
+                    (true, true) => "inlet",
+                    (true, false) => "outlet",
+                    _ => "walls",
+                }
+            })
+            .collect();
+        let regions = SurfaceRegions::from_labels(&labels);
+        (p, t, regions)
+    }
+
+    fn n_nonpositive_cells(m: &VolumeMesh) -> usize {
+        let (vols, _) = crate::checks::cell_geometry(m);
+        vols.iter().filter(|&&v| v <= 0.0).count()
+    }
+
+    /// V&V (gh:#1272), predictions 1–3 of
+    /// `verification_and_validation/tet_mesh_gh1272/README.md`:
+    /// `tetCreatorOctree` and `tetMeshExtractorOctree` on the sphere
+    /// (uniform 0.5 m) and the graded pipe (2 mm, 1 mm boundary cells).
+    ///
+    /// Checks: every tet positive; no undefined read (`TetCreatorDefects`
+    /// zero); the extracted mesh closed; on the uniform octree only
+    /// around-edge tets (point count = nodes + centres) and the volume
+    /// equals the `MESHCELL` leaves minus `h^3/6` per region-boundary leaf
+    /// face. Results: `README.md` of that folder.
+    #[test]
+    fn tet_creator_on_the_sphere_and_the_pipe() {
+        // sphere, uniform
+        let (p, t) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        let o = create_octree(&p, &t, None, &MeshDict::with_max_cell_size(0.5));
+        let tc = tet_creator_octree(&o);
+        let a = MeshOctreeAddressing::new(&o, true);
+        let n_cells = (0..o.number_of_leaves()).filter(|&l| a.box_type[l] & BoxType::MESHCELL != 0).count();
+        let n_neg = tc.tets.iter().filter(|x| tet_volume(&tc.tet_points, x) <= 0.0).count();
+        let mut n_bnd_faces = 0;
+        let mut h = 0.0;
+        for l in 0..o.number_of_leaves() {
+            if a.box_type[l] & BoxType::MESHCELL == 0 {
+                continue;
+            }
+            let cc = o.return_leaf(l).coords;
+            h = cc.size(&o.root_box);
+            for d in 0..6 {
+                let mut n = Vec::new();
+                o.find_neighbours_in_direction(&cc, d, &mut n);
+                let mesh_nei = n.len() == 1 && n[0].is_some_and(|x| a.box_type[x] & BoxType::MESHCELL != 0);
+                if !mesh_nei {
+                    n_bnd_faces += 1;
+                }
+            }
+        }
+        let ex = tet_mesh_extractor_octree(&tc).unwrap();
+        ex.mesh.validate().unwrap();
+        let expect = n_cells as f64 * h * h * h - n_bnd_faces as f64 * h * h * h / 6.0;
+        let vol = ex.mesh.total_volume();
+        println!(
+            "sphere: leaves {} MESHCELL {n_cells} h {h} nodes {} points {} tets {} (dropped {}) negative {n_neg} defects {:?}; \
+             mesh cells {} faces {} points {}; volume {vol:.9} expected {expect:.9} (rel {:.2e}), region-boundary faces {n_bnd_faces}",
+            o.number_of_leaves(),
+            tc.n_nodes,
+            tc.tet_points.len(),
+            tc.tets.len(),
+            tc.n_dropped_tets,
+            tc.defects,
+            ex.mesh.n_cells,
+            ex.mesh.face_count(),
+            ex.mesh.point_count(),
+            ((vol - expect) / expect).abs()
+        );
+        // levels of the used leaves, and where the tets lie
+        let mut hist = std::collections::BTreeMap::new();
+        for l in 0..o.number_of_leaves() {
+            if a.box_type[l] != BoxType::NONE {
+                *hist.entry((a.box_type[l] & BoxType::MESHCELL != 0, o.return_leaf(l).coords.level)).or_insert(0usize) += 1;
+            }
+        }
+        // tets whose centroid lies in a leaf that is not a MESHCELL
+        let mut outside_vol = 0.0;
+        let mut n_outside = 0;
+        for x in &tc.tets {
+            let c = x.iter().fold(Vec3::ZERO, |s, &v| s.add(tc.tet_points[v])).scale(0.25);
+            let leaf = (0..o.number_of_leaves()).find(|&l| o.return_leaf(l).coords.cube_box(&o.root_box).contains(c));
+            if leaf.is_some_and(|l| a.box_type[l] & BoxType::MESHCELL == 0) {
+                n_outside += 1;
+                outside_vol += tet_volume(&tc.tet_points, x);
+            }
+        }
+        println!("sphere: used leaves by (MESHCELL, level): {hist:?}; tets with centroid outside MESHCELL leaves {n_outside}, volume {outside_vol:.6}");
+        // MISSED prediction 1 (uniform octree): the OUTSIDE leaves next to
+        // the DATA band are coarser, so sub-nodes appear; recorded in the
+        // V&V README, not asserted.
+        assert_eq!(n_neg, 0);
+        assert_eq!(tc.defects, TetCreatorDefects::default());
+        assert_eq!(n_nonpositive_cells(&ex.mesh), 0);
+        ex.mesh.validate().unwrap();
+        // MISSED prediction 2, explained: the extra volume is exactly the
+        // tets createTetsFromFacesWithCentreNode builds inside the coarser
+        // BOUNDARY leaves (288 tets, 3.0 m^3 = 24 h^3).
+        assert!(((vol - (expect + outside_vol)) / vol).abs() < 1e-12);
+        assert_eq!((tc.tets.len(), n_outside, tc.n_dropped_tets), (13968, 288, 144), "pinned");
+
+        // pipe, graded
+        let (p, t, r) = pipe_surface(0.01, 0.06, 48);
+        let dict = MeshDict { boundary_cell_size: Some(0.001), ..MeshDict::with_max_cell_size(0.002) };
+        let o = create_octree(&p, &t, Some(&r), &dict);
+        let tc = tet_creator_octree(&o);
+        let n_neg = tc.tets.iter().filter(|x| tet_volume(&tc.tet_points, x) <= 0.0).count();
+        let ex = tet_mesh_extractor_octree(&tc).unwrap();
+        let v = ex.mesh.validate();
+        println!(
+            "pipe: leaves {} nodes {} points {} tets {} (dropped {}) negative {n_neg} defects {:?}; mesh cells {} volume {:.6e} validate {:?}",
+            o.number_of_leaves(),
+            tc.n_nodes,
+            tc.tet_points.len(),
+            tc.tets.len(),
+            tc.n_dropped_tets,
+            tc.defects,
+            ex.mesh.n_cells,
+            ex.mesh.total_volume(),
+            v
+        );
+        assert!(tc.tet_points.len() > tc.n_nodes + 1000, "graded: sub-nodes and centres appear");
+        assert_eq!(n_neg, 0);
+        assert_eq!(tc.defects, TetCreatorDefects::default());
+        v.unwrap();
+    }
+
+    /// Baseline of the differential: the crate's own tets at `cell_size`.
+    fn baseline(p: &[Vec3], t: &[[usize; 3]], cell_size: f64) -> (VolumeMesh, f64) {
+        let opts = TetDualOptions { cell_size, dual: false, n_layers: 0, delaunay: true, feature_edges: false, ..Default::default() };
+        let t0 = Instant::now();
+        let (m, _) = surface_to_tet_dual_mesh(p, t, &opts).unwrap();
+        (m, t0.elapsed().as_secs_f64())
+    }
+
+    /// V&V (gh:#1272), differential and predictions 4–8: `tet_mesh` against
+    /// the crate's `tetrahedralize` + `flip_to_delaunay` on the sphere
+    /// (0.5 m) and the pipe (2 mm), at equal cell size. Records tet count,
+    /// volume error against the surface, `check_quality`, run time.
+    /// Results: `verification_and_validation/tet_mesh_gh1272/README.md`.
+    #[test]
+    fn diagnose_tet_mesh_against_the_crate_tets() {
+        let (sp, st) = sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        let (pp, pt, pr) = pipe_surface(0.01, 0.06, 48);
+        let pipe_vol = 0.5 * 48.0 * 0.01f64.powi(2) * (2.0 * PI / 48.0).sin() * 0.06;
+        let cases: [(&str, &[Vec3], &[[usize; 3]], Option<&SurfaceRegions>, f64, f64); 2] =
+            [("sphere", &sp, &st, None, 0.5, 4.0 / 3.0 * PI * 27.0), ("pipe", &pp, &pt, Some(&pr), 0.002, pipe_vol)];
+        for (name, p, t, r, h, exact) in cases {
+            let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(h), ..Default::default() };
+            let t0 = Instant::now();
+            let (m, rep) = tet_mesh(p, t, r, &opts).unwrap();
+            let dt = t0.elapsed().as_secs_f64();
+            let (b, bt) = baseline(p, t, h);
+            let q = check_quality(&m);
+            let qb = check_quality(&b);
+            let v = m.validate();
+            let err = (m.total_volume() - exact) / exact * 100.0;
+            let berr = (b.total_volume() - exact) / exact * 100.0;
+            // template quality, before mapping
+            let o = create_octree(p, t, r, &opts.dict);
+            let tm = tet_mesh_extractor_octree(&tet_creator_octree(&o)).unwrap().mesh;
+            let qt = check_quality(&tm);
+            println!("{name}: tet_mesh cells {} vol {:.6e} err {err:+.3} % nonpos {} validate {v:?} non-orth {:.2} skew {:.3} time {dt:.2} s", m.n_cells, m.total_volume(), n_nonpositive_cells(&m), q.max_non_orthogonality_deg, q.max_skewness);
+            println!("{name}: template cells {} vol {:.6e} non-orth {:.2} skew {:.3}", tm.n_cells, tm.total_volume(), qt.max_non_orthogonality_deg, qt.max_skewness);
+            println!("{name}: baseline cells {} vol {:.6e} err {berr:+.3} % nonpos {} non-orth {:.2} skew {:.3} time {bt:.2} s", b.n_cells, b.total_volume(), n_nonpositive_cells(&b), qb.max_non_orthogonality_deg, qb.max_skewness);
+            println!("{name}: patches {:?} types {:?}", m.patches.iter().map(|x| (x.name.clone(), x.n_faces)).collect::<Vec<_>>(), rep.patch_types);
+            for n in &rep.notes {
+                println!("  {n}");
+            }
+            v.unwrap();
+            assert_eq!(n_nonpositive_cells(&m), 0, "{name}");
+        }
+    }
+
+    /// V&V (gh:#1272): `stopAfter` and restart through the generator. A run
+    /// stopped after `surfaceProjection`, restarted from its saved mesh, gives
+    /// the same mesh bit for bit as an uninterrupted run; the stopped run is
+    /// neither renumbered nor renamed; the template is deterministic.
+    #[test]
+    fn tet_mesh_stop_and_restart_reproduce_the_full_run() {
+        let (p, t, r) = pipe_surface(0.01, 0.06, 24);
+        let base = TetMeshOptions { dict: MeshDict::with_max_cell_size(0.004), ..Default::default() };
+        let (full, rep) = tet_mesh(&p, &t, Some(&r), &base).unwrap();
+        assert!(rep.meta == MeshMetaData::default(), "workflowCompleted clears the meta data");
+        let stop = TetMeshOptions { workflow: WorkflowSettings { stop_after: Some(WorkflowStep::SurfaceProjection), restart_from_latest_step: false }, ..base.clone() };
+        let (stopped, srep) = tet_mesh(&p, &t, Some(&r), &stop).unwrap();
+        assert_eq!(srep.stopped_after, Some(WorkflowStep::SurfaceProjection));
+        assert_eq!(stopped.patches.len(), 1);
+        assert_eq!(stopped.patches[0].name, "defaultFaces");
+        let saved = SavedMesh { mesh: stopped, patch_types: srep.patch_types.clone(), meta: srep.meta.clone() };
+        let restart = TetMeshOptions { workflow: WorkflowSettings { stop_after: None, restart_from_latest_step: true }, ..base.clone() };
+        let (resumed, rrep) = tet_mesh_restart(&p, &t, Some(&r), &restart, &saved).unwrap();
+        assert_eq!(rrep.steps_run.first(), Some(&WorkflowStep::PatchAssignment));
+        assert!(crate::tet_mesh_extractor_octree::same_mesh(&resumed, &full));
+        let (again, _) = tet_mesh(&p, &t, Some(&r), &base).unwrap();
+        assert!(crate::tet_mesh_extractor_octree::same_mesh(&again, &full));
+        let names: Vec<&str> = full.patches.iter().map(|x| x.name.as_str()).collect();
+        assert_eq!(names, vec!["inlet", "outlet", "walls"]);
+    }
+}
