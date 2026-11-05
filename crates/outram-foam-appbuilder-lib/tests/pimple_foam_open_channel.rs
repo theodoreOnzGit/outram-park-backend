@@ -100,8 +100,8 @@ fn patch_flux(s: &PimpleFoam, name: &str) -> f64 {
 }
 
 /// The channel case at `stop` s; `ablate` selects the pre-gh:#1161 orthogonal
-/// Laplacian.
-fn channel(stop: f64, ablate: bool) -> PimpleFoam {
+/// Laplacian; `tight` solves U and p to 1e-14 instead of the defaults.
+fn channel(stop: f64, ablate: bool, tight: bool) -> PimpleFoam {
     let mesh = Arc::new(
         outram_foam_mesh::block_mesh::block_mesh(DICT)
             .expect("blockMesh")
@@ -139,6 +139,10 @@ fn channel(stop: f64, ablate: bool) -> PimpleFoam {
     if ablate {
         s = s.without_non_orthogonal_correction();
     }
+    if tight {
+        let t = SolverSettings { tolerance: 1e-14, max_iter: 20_000 };
+        s = s.with_linear_solver_settings(t, t);
+    }
     s.run().expect("run");
     s
 }
@@ -150,10 +154,19 @@ fn channel(stop: f64, ablate: bool) -> PimpleFoam {
 /// Prediction (written before the run): below 1e-10 relative in U and p.
 /// Measured 2026-11-03: see the println (recorded in
 /// `verification_and_validation/non_orthogonal_correction_gh1161.md`).
+///
+/// **Both arms are solved to 1e-14 since 2026-11-05.** The warm-started
+/// momentum predictor (gh:#1202, `fd79a96f9`, found by `git bisect` with this
+/// test) lets two arms that differ by round-off stop at different points
+/// inside the default linear tolerances (U 1e-7, p 1e-8): at the defaults
+/// this gave 5.4e-10 in U and 1.6e-8 in p, the solver's tolerance, not the
+/// correction. Solved to 1e-14 they agree to 2.3e-15 and 1.1e-13
+/// (measured 2026-11-05), so the correction is zero to round-off as
+/// claimed, and the 1e-10 bound is unchanged.
 #[test]
 fn cartesian_channel_moves_by_round_off_only() {
-    let a = channel(0.2, false);
-    let b = channel(0.2, true);
+    let a = channel(0.2, false, true);
+    let b = channel(0.2, true, true);
     let du = a.u.internal.as_slice().iter().zip(b.u.internal.as_slice()).fold(0.0_f64, |m, (x, y)| m.max((*x - *y).mag())) / U;
     let pmax = b.p.internal.as_slice().iter().fold(0.0_f64, |m, x| m.max(x.abs()));
     let dp = a.p.internal.as_slice().iter().zip(b.p.internal.as_slice()).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs())) / pmax;
@@ -164,7 +177,7 @@ fn cartesian_channel_moves_by_round_off_only() {
 
 #[test]
 fn plane_poiseuille_with_fixed_pressure_outlet() {
-    let s = channel(2.0, false);
+    let s = channel(2.0, false, false);
     let mesh = s.mesh.clone();
     let n = mesh.n_cells;
 
