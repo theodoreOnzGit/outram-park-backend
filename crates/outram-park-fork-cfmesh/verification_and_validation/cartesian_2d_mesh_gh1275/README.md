@@ -186,10 +186,61 @@ cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images -
 
 ## Not done in this issue
 
-- `meshSurfaceOptimizer::optimizeSurface2D` and `untangleSurface2D`
+- ~~`meshSurfaceOptimizer::optimizeSurface2D` and `untangleSurface2D`
   (about 270 upstream lines). With them, the 2D `edgeExtraction` and
-  `meshOptimisation` steps would smooth the side.
-- `refineBoundaryLayers` 2D mode.
-- The patch-wise layer.
-- A 2D stop and restart test. The workflow controls are the shared,
-  tested code.
+  `meshOptimisation` steps would smooth the side.~~ **Done in the
+  gh:#1275 remainder, below.**
+- ~~`refineBoundaryLayers` 2D mode.~~ **Done, below.**
+- ~~The patch-wise layer.~~ **Done in gh:#1270's remainder**
+  (`patch_wise_layers_gh1270/README.md`, P9).
+- ~~A 2D stop and restart test.~~ **Done, below.**
+
+# gh:#1275 remainder: `optimizeSurface2D`, `untangleSurface2D`, the 2D `refineBoundaryLayers`
+
+**Upstream:** `meshSurfaceOptimizerOptimizeSurface.C` (`optimizeSurface2D`,
+`untangleSurface2D`), `meshSurfaceMapper2DMapVertices.C`
+(`mapVerticesOntoSurfacePatches(edgesToMap)`), `refineBoundaryLayers.C`
+(`activate2DMode`), `detectBoundaryLayersFunctions.C` and
+`refineBoundaryLayersFunctions.C` (the 2D branches),
+`cartesian2DMeshGenerator.C` (`optimiseMeshSurface` in `edgeExtraction`
+and `meshOptimisation`; `refBoundaryLayers` with `untangleSurface2D`).
+
+**Port:** `surface_optimizer::{optimize_surface_2d, untangle_surface_2d}`,
+`surface_mapper_2d::map_edges_onto_surface_patches_2d` (the selected-edge
+form; the all-edge function now calls it),
+`layers::refine_boundary_layers::{refine_boundary_layers_2d,
+detect_boundary_layers_mode}`.
+
+**What upstream does (read before predicting):** `optimizeSurface2D`
+smooths the z-min outline points along the outline and maps the edges
+across the thickness back onto their patches, then smooths the z-min points
+inside the bottom patch, copying every move to the z-max point across.
+`untangleSurface2D` smooths, up to 20 times, the z-min points of the bad
+faces. The 2D refinement only takes the empty faces out of every layer; the
+rest is the 3D split.
+
+## Predictions (written 2026-11-05, before the 2D steps were wired or run)
+
+The channel `[0, 1] x [0, 0.25]` at 0.05, as above.
+
+- **S1.** In `edgeExtraction` the template is a uniform grid with a straight
+  outline: `optimizeSurface2D` moves no point by more than 1e-12. In
+  `meshOptimisation` (after the patch-wise layer, whose cells are half a
+  cell thick) the smoothing moves the points next to the layer, so the
+  final layout changes; the outline stays on the straight sides (area L x H
+  to 1e-12), one cell thick, closed, 0 non-positive cells.
+- **S2.** `untangleSurface2D` on the finished channel finds 0 bad faces at
+  its first check and stops.
+- **S3.** A finished channel with one interior z-min point (and its z-max
+  partner) moved past its neighbour: at least one bad face, which
+  `untangle_surface_2d` reduces to 0.
+- **S4.** With a `boundaryLayers` dict of `nLayers` 3: the 44 layer cells
+  over the outline split into 3, the 4 corner edge cells into 9: 120 − 48 +
+  132 + 36 = **240 cells**; one cell thick; area L x H to 1e-12; closed; 0
+  non-positive.
+- **S5.** Stopped after `edgeExtraction`, and after
+  `boundaryLayerGeneration`, then restarted: the uninterrupted mesh bit for
+  bit; two runs bit for bit.
+- **S6 (re-measuring D5).** With the 2D smoothing the final 2D layout is
+  closer to the 3D mid-plane: the maximum distance to the nearest 2D node
+  falls below the 28.5 mm (0.6 cell) of D5.

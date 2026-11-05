@@ -1088,6 +1088,123 @@ pub fn optimise_mesh_surface(mesh: &mut crate::volume_mesh::VolumeMesh, points: 
     opt.optimize_surface(&mut mesh.points, 5)
 }
 
+/// What [`optimize_surface_2d`] and [`untangle_surface_2d`] did.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Surface2DReport {
+    /// `optimizeSurface2D`: outline points smoothed along the outline
+    /// (`EDGE` z-min points with an active edge).
+    pub n_edge_points: usize,
+    /// `optimizeSurface2D`: z-min points inside the bottom patch smoothed.
+    pub n_partition_points: usize,
+    /// `untangleSurface2D`: bad faces (`findBadFaces`, among the changed
+    /// faces) at each iteration, the last 0 when it untangled.
+    pub bad_faces: Vec<usize>,
+}
+
+/// cfMesh `meshSurfaceOptimizer::optimizeSurface2D(nIterations)` (gh:#1275
+/// remainder) on a mesh one cell thick whose side patch `i` is the surface
+/// region `i`: `nIterations` times, the z-min outline points (`EDGE`, with
+/// an edge across the thickness) by `smoothEdgePoints`, the z-max points
+/// copied across (`polyMeshGen2DEngine::correctPoints`), and the active
+/// edges mapped onto their patches (`meshSurfaceMapper2D::
+/// mapVerticesOntoSurfacePatches(activeEdges)`); then `nIterations` times
+/// the z-min points inside the bottom patch (`PARTITION`) by
+/// `smoothSurfaceOptimizer`, and `correctPoints`. Upstream's default is 5
+/// iterations.
+pub fn optimize_surface_2d(mesh: &mut crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, n_iterations: usize) -> Result<Surface2DReport, String> {
+    let e2d = crate::poly_mesh_gen_2d_engine::PolyMeshGen2DEngine::new(mesh)?;
+    let engine = SurfaceEngine::new(mesh);
+    let part = SurfacePartitioner::new(&engine);
+    let mut opt = MeshSurfaceOptimizer::new(engine, part, None);
+    let (mut moved, mut active, mut update) = (Vec::new(), Vec::new(), Vec::new());
+    for (e, &[s, t]) in opt.engine.edges.iter().enumerate() {
+        if e2d.z_min_point[s] ^ e2d.z_min_point[t] {
+            let b = if e2d.z_min_point[s] { opt.engine.bp[s] } else { opt.engine.bp[t] };
+            if opt.vertex_type[b] & EDGE != 0 {
+                active.push(e);
+                update.push(opt.engine.bp[s]);
+                update.push(opt.engine.bp[t]);
+                moved.push(b);
+            }
+        }
+    }
+    for _ in 0..n_iterations {
+        opt.smooth_edge_points(&mut mesh.points, &moved);
+        e2d.correct_points(&mut mesh.points);
+        let (engine, part) = (opt.engine.clone(), opt.part.clone());
+        crate::surface_mapper_2d::map_edges_onto_surface_patches_2d(mesh, o, &engine, &part, &active)?;
+        opt.engine.update_geometry(&mesh.points, &update);
+    }
+    let partition: Vec<usize> = (0..opt.engine.n_boundary_points()).filter(|&b| e2d.z_min_point[opt.engine.boundary_points[b]] && opt.vertex_type[b] & PARTITION != 0).collect();
+    for _ in 0..n_iterations {
+        opt.smooth_surface_optimizer(&mut mesh.points, &partition);
+        e2d.correct_points(&mut mesh.points);
+        opt.engine.update_geometry_all(&mesh.points);
+    }
+    Ok(Surface2DReport { n_edge_points: moved.len(), n_partition_points: partition.len(), bad_faces: Vec::new() })
+}
+
+/// cfMesh `meshSurfaceOptimizer::untangleSurface2D` (gh:#1275 remainder):
+/// up to 20 times, the bad faces (`findBadFaces`, not relaxed, among the
+/// faces changed by the last pass) activate their z-min points; those are
+/// smoothed 5 times (`smoothEdgePoints` on the `EDGE` ones,
+/// `smoothSurfaceOptimizer` on the `PARTITION` ones), then
+/// `correctPoints`. Stops when no changed face is bad.
+pub fn untangle_surface_2d(mesh: &mut crate::volume_mesh::VolumeMesh) -> Result<Surface2DReport, String> {
+    let e2d = crate::poly_mesh_gen_2d_engine::PolyMeshGen2DEngine::new(mesh)?;
+    let engine = SurfaceEngine::new(mesh);
+    let part = SurfacePartitioner::new(&engine);
+    let mut opt = MeshSurfaceOptimizer::new(engine, part, None);
+    let mut point_faces: Vec<Vec<usize>> = vec![Vec::new(); mesh.points.len()];
+    for (f, ring) in mesh.faces.iter().enumerate() {
+        for &v in ring {
+            point_faces[v].push(f);
+        }
+    }
+    let mut changed = vec![true; mesh.face_count()];
+    let mut rep = Surface2DReport::default();
+    for _ in 0..20 {
+        let bad = crate::mesh_optimizer::find_bad_faces(mesh);
+        let bad_faces: Vec<usize> = (0..mesh.face_count()).filter(|&f| bad[f] && changed[f]).collect();
+        rep.bad_faces.push(bad_faces.len());
+        if bad_faces.is_empty() {
+            break;
+        }
+        let mut active = vec![false; opt.engine.n_boundary_points()];
+        changed = vec![false; mesh.face_count()];
+        for &f in &bad_faces {
+            for &v in &mesh.faces[f] {
+                if e2d.z_min_point[v] {
+                    if let Some(&b) = opt.engine.bp.get(v).filter(|&&b| b != crate::surface_engine::NOT_BOUNDARY) {
+                        active[b] = true;
+                    }
+                    for &g in &point_faces[v] {
+                        changed[g] = true;
+                    }
+                }
+            }
+        }
+        let (mut edge, mut moved) = (Vec::new(), Vec::new());
+        for (b, &a) in active.iter().enumerate() {
+            if !a {
+                continue;
+            }
+            if opt.vertex_type[b] & EDGE != 0 {
+                edge.push(b);
+            } else if opt.vertex_type[b] & PARTITION != 0 {
+                moved.push(b);
+            }
+        }
+        for _ in 0..5 {
+            opt.smooth_edge_points(&mut mesh.points, &edge);
+            opt.smooth_surface_optimizer(&mut mesh.points, &moved);
+        }
+        e2d.correct_points(&mut mesh.points);
+        opt.engine.update_geometry_all(&mesh.points);
+    }
+    Ok(rep)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

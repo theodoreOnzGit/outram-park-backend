@@ -230,8 +230,19 @@ pub fn map_vertices_onto_surface_patches_2d(mesh: &mut VolumeMesh, o: &MeshOctre
     let e2d = PolyMeshGen2DEngine::new(mesh)?;
     let engine = SurfaceEngine::new(mesh);
     let part = SurfacePartitioner::new(&engine);
+    let active = active_boundary_edges(&engine, &e2d);
+    map_edges_onto_surface_patches_2d(mesh, o, &engine, &part, &active)
+}
+
+/// `meshSurfaceMapper2D::mapVerticesOntoSurfacePatches(edgesToMap)`: the
+/// given boundary edges of `engine` (built on `mesh`), as
+/// [`map_vertices_onto_surface_patches_2d`] maps every active edge (the
+/// one copy: that function calls this one). Upstream then updates the
+/// engine's geometry at the moved points; here the caller does
+/// (`optimizeSurface2D`, gh:#1275 remainder). Returns the corner edges.
+pub fn map_edges_onto_surface_patches_2d(mesh: &mut VolumeMesh, o: &MeshOctree, engine: &SurfaceEngine, part: &SurfacePartitioner, edges: &[usize]) -> Result<usize, String> {
     let mut corners = Vec::new();
-    for e in active_boundary_edges(&engine, &e2d) {
+    for &e in edges {
         if engine.edge_patches[e].len() == 2 {
             corners.push(e);
             continue;
@@ -241,7 +252,7 @@ pub fn map_vertices_onto_surface_patches_2d(mesh: &mut VolumeMesh, o: &MeshOctre
             move_edge(&mut mesh.points, [a, b], m);
         }
     }
-    map_corners(mesh, o, &engine, &part, &corners)
+    map_corners(mesh, o, engine, part, &corners)
 }
 
 /// `meshSurfaceEdgeExtractor2D::distributeBoundaryFaces`: the surface's

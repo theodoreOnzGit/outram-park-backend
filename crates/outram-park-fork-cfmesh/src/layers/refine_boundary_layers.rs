@@ -216,6 +216,13 @@ fn hairs_for_face(mesh: &VolumeMesh, cf: &[Vec<usize>], c: usize, bfm: usize) ->
 
 /// cfMesh `detectBoundaryLayers` (serial): see the module documentation.
 pub fn detect_boundary_layers(mesh: &VolumeMesh) -> DetectedLayers {
+    detect_boundary_layers_mode(mesh, false)
+}
+
+/// `detectBoundaryLayers(mse, is2DMesh)`: with `is_2d`, a boundary face all
+/// of whose points are at the smallest z, or all at the largest (not
+/// both), is in no layer (the empty patches; gh:#1275 remainder).
+pub fn detect_boundary_layers_mode(mesh: &VolumeMesh, is_2d: bool) -> DetectedLayers {
     let engine = SurfaceEngine::new(mesh);
     let cf = cell_faces(mesh);
     let nbf = engine.boundary_faces.len();
@@ -240,6 +247,18 @@ pub fn detect_boundary_layers(mesh: &VolumeMesh) -> DetectedLayers {
     };
     let selector = |bf: usize| is_layer_cell(mesh, &cf, owner[bf], engine.boundary_faces[bf]);
     let (mut layer, n_layers) = crate::mesh_octree_creator::group_marking(nbf, neighbours, selector);
+    if is_2d {
+        if let Ok(e2d) = crate::poly_mesh_gen_2d_engine::PolyMeshGen2DEngine::new(mesh) {
+            for (bf, l) in layer.iter_mut().enumerate() {
+                let ring = &engine.face_rings[bf];
+                let all_min = ring.iter().all(|&v| e2d.z_min_point[v]);
+                let all_max = ring.iter().all(|&v| e2d.z_max_point[v]);
+                if all_min ^ all_max {
+                    *l = None;
+                }
+            }
+        }
+    }
     let n_patches = engine.face_patches.iter().copied().max().map_or(0, |m| m + 1);
     // patchToLayer, in patch order: a patch with any face outside a layer
     // has no layer.
@@ -349,8 +368,23 @@ pub struct RefineReport {
 /// documentation for what is ported). With no patch or global count above
 /// one, the mesh comes back unchanged (`Ok` with no split).
 pub fn refine_boundary_layers(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettings) -> Result<(VolumeMesh, RefineReport), RefineError> {
+    refine_boundary_layers_mode(mesh, s, false)
+}
+
+/// `refineBoundaryLayers::activate2DMode` then `refineLayers` (gh:#1275
+/// remainder): as [`refine_boundary_layers`], with the empty patches of a
+/// mesh one cell thick in no layer (their count is 1,
+/// `analyseLayers`; their faces in no layer, `detectBoundaryLayers`). The
+/// layer cells then split by the general rules: the cells over the
+/// outline as prisms, the cells at a corner of the outline as edge
+/// hexahedra across the thickness.
+pub fn refine_boundary_layers_2d(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettings) -> Result<(VolumeMesh, RefineReport), RefineError> {
+    refine_boundary_layers_mode(mesh, s, true)
+}
+
+fn refine_boundary_layers_mode(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettings, is_2d: bool) -> Result<(VolumeMesh, RefineReport), RefineError> {
     let engine = SurfaceEngine::new(mesh);
-    let detected = detect_boundary_layers(mesh);
+    let detected = detect_boundary_layers_mode(mesh, is_2d);
     let names: Vec<String> = mesh.patches.iter().map(|p| p.name.clone()).collect();
     let global_n = if s.n_layers < 2 { 1 } else { s.n_layers };
     let global_r = if s.thickness_ratio < 1.0 { 1.0 } else { s.thickness_ratio };
