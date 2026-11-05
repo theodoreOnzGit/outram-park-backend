@@ -1884,6 +1884,78 @@ rim the unmapped points of the `C` meshes sit.
   was checked against it on a shared case.
 - `octree.rs`'s `HashSet` numbering (refinement path): untouched.
 
+## Follow-ups of gh:#1240: rim repair, the 3-layer divergence, snappy's cascade, cfMesh's cost, octree order (gh:#1241)
+
+**Issue:** gh:#1241. Five items, worked in order; each has its
+predictions written (and committed) before its runs.
+
+### Item 1: cfMesh's `correctEdgesBetweenPatches` and the `Corners` rim
+
+**Upstream read first (2026-11-05).** cfMesh v1.1 (`DAFoam/cfmesh`
+`e944f6ba695f`), `meshLibrary/utilities/surfaceTools/correctEdgesBetweenPatches/`
+(`correctEdgesBetweenPatches.C`, `…DistributeFaces.C`), called from
+`meshSurfaceEdgeExtractorNonTopo::decomposeBoundaryFaces`, which
+`tetMeshGenerator::mapEdgesAndCorners` runs after `extractPatches` and
+before `mapVerticesOntoSurfacePatches`. It does **not** move points. It
+changes topology, in two steps (a third, `decomposeProblematicFaces`, is
+commented out upstream):
+
+1. `decomposeConcaveFaces`: an internal face touching a concave (or
+   undetermined) boundary point and having boundary edges in two or more
+   patches is split into a triangle fan about its centre
+   (`decomposeFaces`), and both its cells are marked.
+2. `patchCorrection`: a boundary face with a vertex that is an *edge
+   point* (exactly two feature edges, `meshSurfacePartitioner`) whose two
+   edges in the face are **both** feature edges is split: a quad into two
+   triangles at that vertex, a larger face into a fan about its centre;
+   triangles are left alone. Its owner is marked.
+3. Every marked cell is split into pyramids, one per face, apex at the
+   average of the cell's vertices (`decomposeCells::decomposeCellIntoPyramids`,
+   `findTopVertex`), after splitting any face that meets another face of
+   the same cell on more than one edge (`checkFaceConnections`).
+
+**Measured before any change** (`diagnose_corners_rim`, bare pipes,
+`Corners`, both per-point kinds give the same boundary; with and without
+the feature-edge capture). This replaces a misreading in the gh:#1240
+table: its "inlet/πR²" is Σ|S_f| over the inlet faces, which counts a
+non-planar face's tilt as area. The projected section |Σ S_f·ẑ| is what
+the flow sees:
+
+| h | Σ\|S\|/πR² | \|Σ S·ẑ\|/πR² | inlet points off the plane | rim vertices (at a 48-gon corner) | reverted by the capture | `patchCorrection` candidates (inlet) |
+|---|---|---|---|---|---|---|
+| 4 | 1.00816 | **0.95583** | 24 (up to 1.0 mm) | 48 (0) | 128 | 72 (16) |
+| 5 | 0.98287 | 0.98287 | 0 | 44 (0) | 0 | 32 (4) |
+| 6 | 0.98572 | **0.94786** | 6 (up to 1.5 mm) | 23 (3) | 64 | 24 (4) |
+
+So the `Corners` rim has **two** errors, not one: (a) at h 4 and 6 mm the
+capture reverts the points of cells it tangles, and the inlet is left
+bent (projected section −4.4 % and −5.2 %); (b) at every h the rim is a
+chain of chords between edge midpoints, none at a 48-gon corner (the
+48-gon itself is 0.99715 πR²), which at h 5 mm costs −1.7 % with a planar
+inlet. `correctEdgesBetweenPatches` addresses (a) at most: it adds no
+rim vertex, so it cannot address (b).
+
+**Predictions (written 2026-11-05, before the port's first run).** Port
+as a stage between the patch naming and the capture, off by default
+(`TetDualOptions::correct_edges`), on the same h 4 / 5 / 6 mm `Corners`
+pipes, both per-point kinds:
+
+| quantity | h 4 | h 5 | h 6 |
+|---|---|---|---|
+| `decomposeConcaveFaces` faces | 0 (every feature edge of a pipe is convex) | 0 | 0 |
+| `patchCorrection` faces | = the candidates above (72 / 32 / 24), ± 10 % (the fan of one face can change its neighbour's count) | | |
+| reverted by the capture | 128 → **0–20** | 0 | 64 → **0–10** |
+| inlet points off the plane | 24 → 0–4 | 0 | 6 → 0–2 |
+| \|Σ S·ẑ\|/πR² (predicted inlet area) | 0.956 → **0.985–0.993** (48 rim chords at r ≈ 9.98 mm; evenly spaced at 48-gon edge midpoints would give 0.99288) | **0.983 ± 0.002, unchanged** (no rim vertex added) | 0.948 → **0.970–0.988** (23 chords: a regular 23-gon is 0.98774) |
+| Σ\|S\| − \|Σ S·ẑ\| | → < 2e-3 | 0 | → < 5e-3 |
+| V/πR²L | 0.99122 → 0.992–0.996 | 0.98887 ± 0.0005 | 0.98081 → 0.984–0.990 |
+| cells | + the pyramids: each marked cell of F faces becomes F cells, about +1 000–2 000 at h 4 | +300–800 | +200–600 |
+| max internal non-orthogonality | rises (pyramids on a large dual cell; 55–75°) | | |
+| closure, determinism | closed; identical across processes | | |
+
+Not expected: any change at all with `correct_edges` off (every
+existing pin unchanged), or on the per-corner default.
+
 ## Reproduce
 
 ```bash
