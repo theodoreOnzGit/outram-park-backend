@@ -582,46 +582,74 @@ pub(crate) mod tests {
     /// - Ablation: without automatic refinement the plate leaves stay at
     ///   level 3 (`h` 0.25, 0.4 leaves across the gap).
     ///
-    /// # Results
+    /// # Results (2026-11-05)
     ///
-    /// Recorded after the first run (see the gh:#1278 section of
-    /// `verification_and_validation/octree_remainders_gh1278/README.md`).
+    /// **First run: the level-6 prediction missed; nothing was refined**
+    /// (plate leaves stayed at level 3, `n_proximity` 0). The prediction
+    /// ignored the side walls: the plate is 1 m wide and at level 3 every
+    /// leaf centre lies within 0.375 of a side wall, inside `s` = 0.433, so
+    /// the wall joins the two plates into **one** group within range and
+    /// upstream's criterion sees one part of the surface. Refinement only
+    /// starts where a leaf's range misses the walls, and the candidates of
+    /// later passes are only the children of refined leaves, so nothing
+    /// ever starts. This is upstream's criterion as written (pinned below as
+    /// the first case). Ablation and stopping rule held.
+    ///
+    /// **Second case (predictions written after the miss, before its run):**
+    /// the same plate width with `maxCellSize` 0.125 (`W / 8`) and gap
+    /// 0.05: root side 2.0 (`1.5625 / 2^4 < 0.125`, global level 4),
+    /// centred at `z = 0.025`, `maxRefLevel_` 9 (`minCellSize` 0.005).
+    /// Interior level-4 centres are 0.4375 from the walls, beyond `s`
+    /// 0.217. Per level, the other plate from a plate leaf's centre: level
+    /// 4, 0.0875 < 0.217; level 5, 0.05625 < 0.108; level 6, 0.040625 <
+    /// 0.0541; level 7 (`h` 0.015625), 0.0484 > 0.0271, **stops**. So the
+    /// plate leaves with centres in `[0.3, 0.7]^2` end at **level 7**, the
+    /// gap holds 3.2 leaves, and the stopping rule holds everywhere below
+    /// level 9.
     #[test]
     fn proximity_refines_two_close_plates_until_the_gap_is_resolved() {
-        let g = 0.1;
-        let dict = MeshDict { min_cell_size: Some(0.01), ..MeshDict::with_max_cell_size(0.25) };
-        let (mut o, _) = boundary_octree(slab(g), &dict);
-        assert_eq!(o.root_box.span().x, 2.0);
-        let before = data_levels(&o);
-        let mut a = MeshOctreeAutomaticRefinement::new(&o, dict.min_cell_size, dict.max_cell_size, false, false);
-        assert_eq!(a.max_ref_level, 8);
-        a.proximity_refinement(&mut o);
-        let after = data_levels(&o);
-        let r = a.report();
-        println!("slab g {g}: DATA levels before {before:?} after {after:?}; report {r:?}");
-        assert_eq!(before.keys().copied().collect::<Vec<_>>(), vec![3], "ablation: plate leaves at level 3");
-        let mut interior: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut h_interior = f64::MAX;
-        for l in 0..o.number_of_leaves() {
-            if !o.has_contained_triangles(l) {
-                continue;
+        // (gap, maxCellSize, minCellSize, root side, global level, maxRefLevel, interior levels expected)
+        let cases: [(f64, f64, f64, f64, u8, u8, Vec<u8>); 2] =
+            [(0.1, 0.25, 0.01, 2.0, 3, 8, vec![3]), (0.05, 0.125, 0.005, 2.0, 4, 9, vec![7])];
+        for (g, max, min, side, global, max_ref, expect) in cases {
+            let dict = MeshDict { min_cell_size: Some(min), ..MeshDict::with_max_cell_size(max) };
+            let (mut o, _) = boundary_octree(slab(g), &dict);
+            assert_eq!(o.root_box.span().x, side);
+            let before = data_levels(&o);
+            let mut a = MeshOctreeAutomaticRefinement::new(&o, dict.min_cell_size, dict.max_cell_size, false, false);
+            assert_eq!(a.max_ref_level, max_ref);
+            a.proximity_refinement(&mut o);
+            let after = data_levels(&o);
+            let r = a.report();
+            println!("slab g {g}, maxCellSize {max}: DATA levels before {before:?} after {after:?}; report {r:?}");
+            assert_eq!(before.keys().copied().collect::<Vec<_>>(), vec![global], "ablation: plate leaves at the global level");
+            let mut interior: BTreeMap<u8, usize> = BTreeMap::new();
+            let mut h_interior = f64::MAX;
+            for l in 0..o.number_of_leaves() {
+                if !o.has_contained_triangles(l) {
+                    continue;
+                }
+                let oc = o.return_leaf(l).coords;
+                let c = oc.centre(&o.root_box);
+                if c.x > 0.3 && c.x < 0.7 && c.y > 0.3 && c.y < 0.7 {
+                    *interior.entry(oc.level).or_insert(0) += 1;
+                    h_interior = h_interior.min(oc.size(&o.root_box));
+                }
+                if oc.level < a.max_ref_level {
+                    let (nf, ne) = proximity_groups(&o, l);
+                    assert!(nf <= 1 && ne <= 1, "leaf {l}: stopping rule ({nf}, {ne})");
+                }
             }
-            let oc = o.return_leaf(l).coords;
-            let c = oc.centre(&o.root_box);
-            if c.x > 0.15 && c.x < 0.85 && c.y > 0.15 && c.y < 0.85 {
-                *interior.entry(oc.level).or_insert(0) += 1;
-                h_interior = h_interior.min(oc.size(&o.root_box));
-            }
-            if oc.level < a.max_ref_level {
-                let (nf, ne) = proximity_groups(&o, l);
-                assert!(nf <= 1 && ne <= 1, "leaf {l}: stopping rule ({nf}, {ne})");
+            println!("  interior plate leaves by level: {interior:?}; gap / h = {}", g / h_interior);
+            assert_eq!(interior.keys().copied().collect::<Vec<_>>(), expect);
+            assert_eq!(r.n_corners + r.n_partitions, 0);
+            if global == 3 {
+                assert_eq!(r.n_proximity, 0, "first case: the walls join the plates within range");
+            } else {
+                assert!(g / h_interior >= 1.232);
+                assert!(r.n_proximity > 0);
             }
         }
-        println!("interior plate leaves by level: {interior:?}; gap / h = {}", g / h_interior);
-        assert_eq!(interior.keys().copied().collect::<Vec<_>>(), vec![6], "interior plate leaves at level 6");
-        assert!(g / h_interior >= 1.232);
-        assert_eq!(r.n_corners + r.n_partitions, 0);
-        assert!(r.n_proximity > 0);
     }
 
     /// V&V (gh:#1278, second half): **curvature refinement** on a sphere.
