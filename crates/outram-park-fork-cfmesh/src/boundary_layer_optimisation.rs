@@ -98,7 +98,8 @@ use crate::mesh_optimizer::{
     bad_faces_at_the_boundary, find_bad_faces, find_low_quality_faces, optimize_low_quality_faces, vertex_type, LaplaceKind, MeshOptimizer,
     UntangleControls,
 };
-use crate::surface_engine::SurfaceEngine;
+use crate::layers::refine_boundary_layers::detect_boundary_layers;
+use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
 use petir::mathf::RealMath;
 use std::collections::{BTreeMap, BTreeSet};
@@ -282,6 +283,106 @@ impl Hairs {
         let near = near_set.into_iter().map(|s| s.into_iter().collect()).collect();
         let n = hairs.len();
         Hairs { hairs, at_point, near, engine, thinned: vec![false; n] }
+    }
+
+    /// `calculateHairEdges` on an arbitrary mesh, as upstream: the hairs are
+    /// `detectBoundaryLayers`' ([`detect_boundary_layers`]), classified by
+    /// the boundary edges and `meshSurfacePartitioner` at their start, and
+    /// `hairEdgesNearHairEdge` is the hair across the opposite edge of
+    /// each quad (of a cell owning a boundary face) that holds the hair.
+    /// [`Self::new`] is the `CfMeshOptimise` strategy's constructor, built
+    /// from this crate's own layer columns; this one is for
+    /// [`optimize_boundary_layer`] (gh:#1280). Returns the hairs, whether
+    /// each mesh face is a layer base face (`isBndLayerBase`), the layer
+    /// cells (`bndLayerCells`) and how many hairs share a start point with
+    /// an earlier one (upstream keeps them all in `hairEdgesAtBndPoint`;
+    /// here [`Self::at_point`] keeps the first).
+    fn from_mesh(m: &VolumeMesh) -> (Self, Vec<bool>, Vec<usize>, usize) {
+        let detected = detect_boundary_layers(m);
+        let engine = SurfaceEngine::new(m);
+        let part = SurfacePartitioner::new(&engine);
+        let mut is_base = vec![false; m.face_count()];
+        let mut layer_cells = BTreeSet::new();
+        for (bf, l) in detected.layer_at_bnd_face.iter().enumerate() {
+            if l.is_some() {
+                is_base[engine.boundary_faces[bf]] = true;
+                layer_cells.insert(engine.face_owners[bf]);
+            }
+        }
+        let mut hairs = Vec::with_capacity(detected.hair_edges.len());
+        let mut at_point = BTreeMap::new();
+        let mut shared = 0usize;
+        for &[s, e] in &detected.hair_edges {
+            let bpi = engine.bp[s];
+            let mut kind = 0u8;
+            for &be in &engine.point_edges[bpi] {
+                let ed = engine.edges[be];
+                if (ed[0] == s && ed[1] == e) || (ed[0] == e && ed[1] == s) {
+                    kind |= BOUNDARY;
+                    if part.feature_edges.contains(&be) {
+                        kind |= FEATUREEDGE;
+                    }
+                }
+                if part.corners.contains(&bpi) {
+                    kind |= ATCORNER;
+                } else if part.edge_points.contains(&bpi) {
+                    kind |= ATEDGE;
+                }
+            }
+            if kind & BOUNDARY == 0 {
+                kind |= INSIDE;
+            }
+            if at_point.contains_key(&s) {
+                shared += 1;
+            } else {
+                at_point.insert(s, hairs.len());
+            }
+            hairs.push(Hair { start: s, end: e, kind });
+        }
+        // bpFacesHelper: faces of the cells owning a boundary face, at each
+        // boundary point they hold.
+        let cf = crate::mesh_optimizer::cell_faces(m);
+        let mut bp_faces: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); engine.boundary_points.len()];
+        for &c in &engine.face_owners {
+            for &f in &cf[c] {
+                for &p in &m.faces[f] {
+                    let b = engine.bp[p];
+                    if b != crate::surface_engine::NOT_BOUNDARY {
+                        bp_faces[b].insert(f);
+                    }
+                }
+            }
+        }
+        let mut hairs_at: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+        for (h, hair) in hairs.iter().enumerate() {
+            hairs_at.entry(hair.start).or_default().push(h);
+        }
+        let same = |a: [usize; 2], b: [usize; 2]| (a[0] == b[0] && a[1] == b[1]) || (a[0] == b[1] && a[1] == b[0]);
+        let mut near = vec![Vec::new(); hairs.len()];
+        for (h, hair) in hairs.iter().enumerate() {
+            let e = [hair.start, hair.end];
+            for &f in &bp_faces[engine.bp[hair.start]] {
+                let ring = &m.faces[f];
+                if ring.len() != 4 {
+                    continue;
+                }
+                let Some(fe) = (0..4).find(|&i| same([ring[i], ring[(i + 1) % 4]], e)) else { continue };
+                let ej = (fe + 2) % 4;
+                let opp = [ring[ej], ring[(ej + 1) % 4]];
+                for p in opp {
+                    if engine.bp[p] == crate::surface_engine::NOT_BOUNDARY {
+                        continue;
+                    }
+                    for &j in hairs_at.get(&p).map_or(&[][..], Vec::as_slice) {
+                        if same([hairs[j].start, hairs[j].end], opp) {
+                            near[h].push(j);
+                        }
+                    }
+                }
+            }
+        }
+        let n = hairs.len();
+        (Hairs { hairs, at_point, near, engine, thinned: vec![false; n] }, is_base, layer_cells.into_iter().collect(), shared)
     }
 
     /// Boundary faces (mesh labels) around mesh point `p`, in face order
@@ -644,9 +745,15 @@ fn surface_optimiser_for_layer(m: &VolumeMesh, patch_of: &[usize]) -> crate::sur
 }
 
 /// `boundaryLayerOptimisation::optimiseLayer`.
-fn optimise_layer(m: &mut VolumeMesh, hairs: &mut Hairs, c: &BoundaryLayerOptimisationControls, patch_of: &[usize]) -> usize {
+///
+/// `patch_of` groups the boundary faces for `calculateNormalVectors`;
+/// `base_patch_of` marks the layer base faces (0) for the surface
+/// optimiser's exiting faces. The `CfMeshOptimise` strategy passes one
+/// array as both; [`optimize_boundary_layer`] passes the mesh patches and
+/// the detected base faces.
+fn optimise_layer(m: &mut VolumeMesh, hairs: &mut Hairs, c: &BoundaryLayerOptimisationControls, patch_of: &[usize], base_patch_of: &[usize]) -> usize {
     let cf = crate::mesh_optimizer::cell_faces(m);
-    let mut surf_opt = c.optimise_surface.then(|| surface_optimiser_for_layer(m, patch_of));
+    let mut surf_opt = c.optimise_surface.then(|| surface_optimiser_for_layer(m, base_patch_of));
     let mut n_iter = 0;
     loop {
         hairs.thinned.iter_mut().for_each(|t| *t = false);
@@ -754,7 +861,7 @@ pub fn add_boundary_layers_cfmesh_on_surface(
     notes.push(format!("optimizeMeshFV/untangleMeshFV: bad faces {} -> {}; {}{}", r.flagged_before, r.flagged_after, profile(&r), projection_note(proj, &pr)));
     let r = optimize_low_quality_faces(&mut m1, &none, 10);
     notes.push(format!("optimizeLowQualityFaces: low-quality faces {} -> {} ({} passes); {}", r.flagged_before, r.flagged_after, r.iterations, profile(&r)));
-    let passes = optimise_layer(&mut m1, &mut hairs, controls, &patch_of);
+    let passes = optimise_layer(&mut m1, &mut hairs, controls, &patch_of, &patch_of);
     let n_thinned = hairs.thinned.iter().filter(|&&t| t).count();
     notes.push(format!("optimiseLayer: {passes} pass(es), {n_thinned} hairs thinned in the last"));
     let mut layer_locked = vec![false; m1.points.len()];
@@ -834,4 +941,199 @@ pub fn add_boundary_layers_cfmesh_on_surface(
     notes.push(format!("at the end: {} bad faces (findBadFaces), {low} low-quality faces (findLowQualityFaces)", outcome.remaining_bad_faces));
     outcome.notes = notes;
     (mn, outcome)
+}
+
+/// `meshOptimizer::optimizeBoundaryLayer`'s settings: what it reads from
+/// `meshDict` plus its argument.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OptimizeBoundaryLayerSettings {
+    /// `boundaryLayers/optimiseLayer`. Upstream's default is **`false`**,
+    /// and then `optimizeBoundaryLayer` returns at once.
+    pub optimise_layer: bool,
+    /// `addBufferLayer` (upstream's default argument `true`): split the
+    /// layer with `refineBoundaryLayers` in `activateSpecialMode` before
+    /// optimising, so the outer cell is a buffer the smoother does not
+    /// touch. **Not ported** (`activateSpecialMode` is not in
+    /// [`crate::layers::refine_boundary_layers`]); the report says so when
+    /// it is asked for.
+    pub add_buffer_layer: bool,
+    /// `boundaryLayerOptimisation::readSettings` (`optimisationParameters`).
+    pub controls: BoundaryLayerOptimisationControls,
+    /// The untangle flags (boundary moves, LP untangler, stall stop) of
+    /// the `optimizeMeshFV(5, 1, 50, 0)` and `untangleMeshFV(2, 50, 0)`
+    /// that follow; the iteration counts are upstream's and are set here.
+    pub untangle: UntangleControls,
+}
+
+/// What [`optimize_boundary_layer`] did.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct OptimizeBoundaryLayerReport {
+    /// `false` when `optimiseLayer` is off (upstream returns at once) or
+    /// no layer was detected.
+    pub ran: bool,
+    /// Hair edges `detectBoundaryLayers` found.
+    pub n_hairs: usize,
+    /// Hairs sharing a start point with an earlier hair (see
+    /// `Hairs::from_mesh`).
+    pub n_shared_start: usize,
+    /// Layer cells (`bndLayerCells`), locked during the untangles.
+    pub n_layer_cells: usize,
+    /// `optimiseLayer` passes.
+    pub passes: usize,
+    /// Hairs thinned in the last pass.
+    pub n_thinned: usize,
+    /// `optimizeMeshFV(5, 1, 50, 0)` and `untangleMeshFV(2, 50, 0)`, with
+    /// the layer cells locked.
+    pub optimisation: Vec<crate::mesh_optimizer::OptimiserReport>,
+    /// What was skipped, and why.
+    pub notes: Vec<String>,
+}
+
+/// cfMesh `meshOptimizer::optimizeBoundaryLayer` on any mesh (gh:#1280):
+/// detect the layer (`detectBoundaryLayers`), run
+/// `boundaryLayerOptimisation::optimiseLayer` on its hairs, lock the layer
+/// cells, `optimizeMeshFV(5, 1, 50, 0)`, `untangleMeshFV(2, 50, 0)`, and
+/// unlock (`removeUserConstraints`).
+///
+/// The `optimiseLayer` body is the one the `CfMeshOptimise` strategy runs
+/// (`optimise_layer`, the hair smoothing and thickness code); only the
+/// hairs are found differently, by upstream's `calculateHairEdges` rather
+/// than from this crate's layer columns. `calculateNormalVectors` groups
+/// by the mesh's own patches, as upstream; the strategy groups layer
+/// faces against the rest.
+///
+/// Not ported: the buffer layer ([`OptimizeBoundaryLayerSettings::add_buffer_layer`]).
+pub fn optimize_boundary_layer(mesh: &mut VolumeMesh, s: &OptimizeBoundaryLayerSettings) -> OptimizeBoundaryLayerReport {
+    let mut rep = OptimizeBoundaryLayerReport::default();
+    if !s.optimise_layer {
+        rep.notes.push("optimiseLayer is off: optimizeBoundaryLayer returns at once, as upstream".into());
+        return rep;
+    }
+    if s.add_buffer_layer {
+        rep.notes.push("addBufferLayer: refineBoundaryLayers::activateSpecialMode is not ported; no buffer layer".into());
+    }
+    let (mut hairs, is_base, layer_cells, shared) = Hairs::from_mesh(mesh);
+    rep.n_hairs = hairs.hairs.len();
+    rep.n_shared_start = shared;
+    rep.n_layer_cells = layer_cells.len();
+    if hairs.hairs.is_empty() {
+        rep.notes.push("detectBoundaryLayers found no layer".into());
+        return rep;
+    }
+    let mut patch_of = vec![usize::MAX; mesh.face_count()];
+    for (bf, &f) in hairs.engine.boundary_faces.iter().enumerate() {
+        patch_of[f] = hairs.engine.face_patches[bf];
+    }
+    let base_patch_of: Vec<usize> = is_base.iter().map(|&b| if b { 0 } else { 1 }).collect();
+    rep.passes = optimise_layer(mesh, &mut hairs, &s.controls, &patch_of, &base_patch_of);
+    rep.n_thinned = hairs.thinned.iter().filter(|&&t| t).count();
+    rep.ran = true;
+    // clearSurface(); lockCells(bndLayerCells)
+    let mut opt = MeshOptimizer::new(mesh);
+    opt.lock_cells(mesh, &layer_cells);
+    let with = |g: usize, i: usize, sf: usize| UntangleControls { max_global_iterations: g, max_iterations: i, max_surface_iterations: sf, ..s.untangle };
+    rep.optimisation.push(opt.optimize_mesh_fv(mesh, 5, &with(1, 50, 0)).unwrap_or_else(|e| e.report));
+    rep.optimisation.push(opt.untangle_mesh_fv(mesh, &with(2, 50, 0)).unwrap_or_else(|e| e.report));
+    opt.remove_user_constraints();
+    rep
+}
+
+/// cfMesh `meshOptimizer::untangleBoundaryLayer` with `untangleLayers`
+/// on (upstream's default): `optimizeLowQualityFaces()`,
+/// `removeUserConstraints()`, `untangleMeshFV(2, 50, 1, true)`. The
+/// `untangleLayers false` branch (check face pyramids and throw) is not
+/// ported. `untangle` carries the flags; the counts are upstream's.
+pub fn untangle_boundary_layer(mesh: &mut VolumeMesh, untangle: &UntangleControls) -> Vec<crate::mesh_optimizer::OptimiserReport> {
+    let mut opt = MeshOptimizer::new(mesh);
+    let r1 = opt.optimize_low_quality_faces(mesh, 10);
+    opt.remove_user_constraints();
+    let c = UntangleControls { max_global_iterations: 2, max_iterations: 50, max_surface_iterations: 1, relaxed: true, ..*untangle };
+    let r2 = opt.untangle_mesh_fv(mesh, &c).unwrap_or_else(|e| e.report);
+    vec![r1, r2]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    /// Boundary points of a unit-box mesh that are on none of its six
+    /// planes.
+    fn off_plane(m: &VolumeMesh) -> Vec<usize> {
+        let e = SurfaceEngine::new(m);
+        e.boundary_points
+            .iter()
+            .cloned()
+            .filter(|&p| {
+                let q = m.points[p];
+                [q.x, q.y, q.z].iter().all(|&c| c.abs() > 1e-12 && (c - 1.0).abs() > 1e-12)
+            })
+            .collect()
+    }
+    /// Diagnostic (gh:#1280 remainder), printed not asserted: the stages of
+    /// `optimiseLayer` on the patch-wise layer of the 4³ box, counting the
+    /// boundary points that leave the box planes. Findings (2026-11-05):
+    /// 294 hairs (150 `INSIDE`, 120 `BOUNDARY | ATEDGE`, 24 `BOUNDARY |
+    /// FEATUREEDGE | ATCORNER`), 76 sharing a start point; one pass keeps
+    /// every point on its plane, the second moves 2 off (up to 4e-4) and
+    /// bad faces grow 122 -> 262 over five passes, while the edge cells'
+    /// boundary hairs thin from 0.125 to 2.5e-4. See
+    /// `mesh_utilities::tests::generate_boundary_layers_with_optimise_layer_on_the_box`.
+    #[test]
+    #[ignore = "diagnostic: prints the stages, asserts nothing"]
+    fn diagnose_optimise_layer_on_the_patch_wise_box() {
+        let m0 = crate::cartesian::cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
+        let (m, _) = crate::mesh_utilities::generate_boundary_layers(&m0, &Default::default());
+        let (hairs, is_base, cells, shared) = Hairs::from_mesh(&m);
+        let mut kinds: BTreeMap<u8, usize> = BTreeMap::new();
+        for h in &hairs.hairs {
+            *kinds.entry(h.kind).or_insert(0) += 1;
+        }
+        println!("DIAG hairs {} shared {shared} base {} cells {} kinds {kinds:?}", hairs.hairs.len(), is_base.iter().filter(|&&b| b).count(), cells.len());
+        let bend = hairs.hairs.iter().filter(|h| hairs.engine.bp[h.end] != crate::surface_engine::NOT_BOUNDARY).count();
+        println!("DIAG hairs ending on the boundary {bend}; off-plane before {}", off_plane(&m).len());
+        let c = BoundaryLayerOptimisationControls::default();
+        let mut m1 = m.clone();
+        hairs.optimise_normals_at_the_boundary(&mut m1, &c);
+        println!("DIAG after normals at boundary: off-plane {}", off_plane(&m1).len());
+        let mut patch_of = vec![usize::MAX; m.face_count()];
+        for (bf, &f) in hairs.engine.boundary_faces.iter().enumerate() {
+            patch_of[f] = hairs.engine.face_patches[bf];
+        }
+        let mut h2 = Hairs::from_mesh(&m).0;
+        let cf = crate::mesh_optimizer::cell_faces(&m1);
+        h2.optimise_thickness_variation(&mut m1, BOUNDARY, &cf, &c);
+        println!("DIAG after thickness BOUNDARY: off-plane {}", off_plane(&m1).len());
+        h2.optimise_normals_inside(&mut m1, &c, &patch_of);
+        println!("DIAG after normals inside: off-plane {}", off_plane(&m1).len());
+        h2.optimise_thickness_variation(&mut m1, INSIDE, &cf, &c);
+        println!("DIAG after thickness INSIDE: off-plane {}, volume {}", off_plane(&m1).len(), m1.total_volume());
+        {
+            let mut m3 = m.clone();
+            let (mut h3, _, _, _) = Hairs::from_mesh(&m3);
+            for pass in 0..5 {
+                h3.thinned.iter_mut().for_each(|t| *t = false);
+                h3.optimise_normals_at_the_boundary(&mut m3, &c);
+                let a = off_plane(&m3).len();
+                h3.optimise_thickness_variation(&mut m3, BOUNDARY, &cf, &c);
+                let b = off_plane(&m3).len();
+                h3.optimise_normals_inside(&mut m3, &c, &patch_of);
+                h3.optimise_thickness_variation(&mut m3, INSIDE, &cf, &c);
+                println!("DIAG pass {pass}: off-plane {a} {b} {}, bad {}", off_plane(&m3).len(), crate::mesh_optimizer::find_bad_faces(&m3).iter().filter(|&&x| x).count());
+                for &p in off_plane(&m3).iter().take(2) {
+                    let hs: Vec<_> = h3.hairs.iter().filter(|h| h.end == p || h.start == p).map(|h| (h.start, h.end, h.kind, m.points[h.start], m.points[h.end], m3.points[h.end])).collect();
+                    println!("DIAG   off {p}: {hs:?}");
+                }
+            }
+        }
+        for bm in [false, true] {
+            let mut m2 = m.clone();
+            let un = UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, boundary_moves: bm, mesh_untangler: true, ..UntangleControls::default() };
+            let s = OptimizeBoundaryLayerSettings { optimise_layer: true, add_buffer_layer: false, controls: c.clone(), untangle: un };
+            let r = optimize_boundary_layer(&mut m2, &s);
+            println!("DIAG full boundary_moves {bm}: off-plane {}, volume {}, reports {:?}", off_plane(&m2).len(), m2.total_volume(), r.optimisation.iter().map(|o| (o.flagged_before, o.flagged_after, o.surface_iterations)).collect::<Vec<_>>());
+        }
+        for &p in off_plane(&m1).iter().take(4) {
+            let hs: Vec<_> = h2.hairs.iter().filter(|h| h.end == p || h.start == p).map(|h| (h.start, h.end, h.kind, m.points[h.start], m.points[h.end], m1.points[h.end])).collect();
+            println!("DIAG off {p}: {hs:?}");
+        }
+    }
 }

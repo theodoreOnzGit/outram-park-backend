@@ -72,9 +72,40 @@ the OpenFOAM `plane` helpers analytically (held).
   equal**; bad faces 3 → 0, matching item 1's untangle (0 left). Held.
 - `improve_symmetry_planes_flattens`: held.
 - `generate_boundary_layers_on_a_box`: 4×4×4 box, all patches: 160 cells,
-  volume 1, 0 bad faces, all positive. Held. **Partial port:**
+  volume 1, 0 bad faces, all positive. Held. ~~**Partial port:**
   `optimizeBoundaryLayer` / `untangleBoundaryLayer` exist only inside the
-  `CfMeshOptimise` strategy and are skipped (stated in the doc comment).
+  `CfMeshOptimise` strategy and are skipped (stated in the doc comment).~~
+  **UPDATED 2026-11-05 (gh:#1280 remainder):** both are now callable on
+  any mesh (`boundary_layer_optimisation::optimize_boundary_layer`, which
+  finds the hairs with `detectBoundaryLayers` as upstream's
+  `calculateHairEdges` does and runs the strategy's own `optimiseLayer`;
+  `untangle_boundary_layer`) and `generate_boundary_layers` calls them
+  where upstream does. `optimizeBoundaryLayer` does nothing unless
+  `optimise_layer` is set (upstream's `optimiseLayer`, default off), so
+  this test is unchanged. Its buffer layer (`activateSpecialMode`) is not
+  ported.
+- `generate_boundary_layers_with_optimise_layer_on_the_box` (predictions
+  written before the run). ~~On the one-group layer: off = the recorded
+  run bit for bit; on: 92 of 98 hairs thinned in one pass, thickness mean
+  0.186 -> 0.146, max 0.267 -> 0.184, smallest cell 3.08e-3 -> 5.01e-3, 0
+  bad faces, volume 1. Held.~~ **Re-measured after gh:#1270's remainder
+  made `generateLayer` patch-wise (216 cells): the volume prediction
+  missed.** On: 5 passes, 236 of 294 hairs thinned, thickness mean 0.138
+  -> 0.106, min 0.125 -> 0.0225, smallest cell 2.10e-3 -> 1.12e-4, 0 bad
+  faces at the end, **volume 1.00373**: the edge cells' boundary hairs
+  thin to 2.5e-4, 262 faces go bad, and the untangles' boundary moves
+  repair them off the box planes. Cause not established (upstream not
+  run; first suspect: one hair kept per shared start point). Pinned as
+  measured, not as a criterion; diagnostic
+  `boundary_layer_optimisation::tests::diagnose_optimise_layer_on_the_patch_wise_box`.
+- `generate_boundary_layers_with_optimise_layer_on_the_pipe` (R 10 mm, L
+  60 mm, h 6 mm, `walls`): off 0 bad faces (**predicted some: missed**,
+  `meshOptimisation`'s untangles repair them); ~~on: 1042 of 1456 hairs
+  thinned, thickness mean 1.160e-3 -> 9.73e-4 (-16 %), max -16 %, 0 bad
+  faces, smallest cell 6.61e-10 -> 3.11e-10 (halved), volume unchanged.~~
+  re-measured on the patch-wise layer: 1241 of 1658 hairs thinned,
+  thickness mean 1.264e-3 -> 1.062e-3 (-16 %), max -7 %, 0 bad faces,
+  smallest cell 9.37e-10 -> 4.77e-10 (halved), volume unchanged.
 
 ### `createFundamentalSheets` (gh:#1281)
 

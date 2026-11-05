@@ -279,7 +279,7 @@ _Subtotal: 15594 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `generateBoundaryLayers` | 158 | ~~not ported~~ **partial (2026-11-05, gh:#1280)** | `mesh_utilities::generate_boundary_layers` | `boundaryLayers` + `refineBoundaryLayers` on an existing mesh. Missing: `optimizeBoundaryLayer`/`untangleBoundaryLayer` (only inside the `CfMeshOptimise` strategy), 2D. |
+| `generateBoundaryLayers` | 158 | ~~not ported~~ **partial (2026-11-05, gh:#1280)** | `mesh_utilities::generate_boundary_layers` | `boundaryLayers` + `refineBoundaryLayers` on an existing mesh. Missing: ~~`optimizeBoundaryLayer`/`untangleBoundaryLayer` (only inside the `CfMeshOptimise` strategy)~~ (**called since 2026-11-05, gh:#1280**: `boundary_layer_optimisation::{optimize_boundary_layer, untangle_boundary_layer}`), `optimizeBoundaryLayer`'s buffer layer (`activateSpecialMode`), 2D. |
 | `improveMeshQuality` | 145 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `mesh_utilities::improve_mesh_quality` |  |
 | `improveSymmetryPlanes` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `mesh_utilities::improve_symmetry_planes` |  |
 | `scaleMesh` | 83 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::scale_points` |  |

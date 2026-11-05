@@ -87,11 +87,15 @@ topEmptyFaces 116 (types patch, patch, patch, empty, empty).
 
 ### Predictions against results
 
-- **D1 missed on the rectangle; held otherwise.**
-  - Its normal covariance is `diag(4, 4, 0)`. `outram_foam_basic_lib`'s
+- ~~**D1 missed on the rectangle; held otherwise.**~~ **CORRECTED
+  2026-11-05 (gh:#1288): D1 holds.** `eigen_values_symm` lacked upstream
+  ESI v2306's effectively-diagonal branch; with it the rectangle's
+  covariance gives `(0, 4, 4)` exactly and `is2DSurface` says 2D
+  (`extruded_outline_is_a_2d_surface` now asserts it).
+  - ~~Its normal covariance is `diag(4, 4, 0)`. `outram_foam_basic_lib`'s
     `eigen_values_symm` returns `(-1.68e-8, -0, 4)` for it instead of
     `(0, 4, 4)`, so `is2DSurface` reports "3D space". The double root is
-    lost in the cubic solve; the defect is in that crate, not in this port.
+    lost in the cubic solve; the defect is in that crate, not in this port.~~
   - The channel ribbon, whose covariance is the same `diag(4, 4, 0)`,
     passed in the workflow run. Round-off in the unit normals decides
     which way the check goes.
@@ -174,9 +178,11 @@ cargo run --release -p outram-park-fork-cfmesh --example cartesian_mesh_images -
 - `meshSurfaceEdgeExtractor2D::distributeBoundaryFaces` leaves the patch
   of an inactive face that is at neither z unset. The port returns `Err`
   there.
-- `outram_foam_basic_lib::primitives::eigen::eigen_values_symm` returns
+- ~~`outram_foam_basic_lib::primitives::eigen::eigen_values_symm` returns
   `(-1.68e-8, -0, 4)` for `diag(4, 4, 0)` (D1). This is a defect in
-  another crate.
+  another crate.~~ **FIXED 2026-11-05 (gh:#1288)** for a diagonal
+  covariance. A covariance with a repeated root and off-diagonals above
+  `ROOTSMALL` still loses a root, as upstream ESI's cubic does.
 
 ## Not done in this issue
 

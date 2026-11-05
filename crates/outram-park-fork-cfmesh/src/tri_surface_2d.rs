@@ -112,14 +112,21 @@ mod tests {
     /// surface (8 triangles, 8 points, height 0.1 x the diagonal); a
     /// sphere and a tilted ribbon are not.
     ///
-    /// **D1 missed on the rectangle (2026-11-05):** its normal covariance
+    /// ~~**D1 missed on the rectangle (2026-11-05):** its normal covariance
     /// is `diag(4, 4, 0)`, and `outram_foam_basic_lib`'s
     /// `eigen_values_symm` returns `(-1.68e-8, -0, 4)` for it, not
     /// `(0, 4, 4)`. So the check reports "3D space". The double root is
     /// lost in the cubic solve: that is a defect in the eigen routine (another
     /// crate's), not in this port. The rectangle's result is printed, not
-    /// asserted. An irregular quadrilateral (distinct eigenvalues) is the
-    /// asserted 2D case.
+    /// asserted.~~ **CORRECTED 2026-11-05 (gh:#1288):** `eigen_values_symm`
+    /// lacked upstream ESI v2306's effectively-diagonal branch
+    /// (`xy² + xz² + yz² < ROOTSMALL` returns the sorted diagonal). With it
+    /// the rectangle gives `(0, 4, 4)` exactly and is 2D; D1 now holds and
+    /// is asserted. A covariance with a repeated root and off-diagonals
+    /// above the threshold still loses a root in upstream's cubic (see
+    /// `a_rotated_repeated_root_goes_through_the_cubic_as_upstream` in
+    /// that crate). An irregular quadrilateral (distinct eigenvalues) is
+    /// the second asserted 2D case.
     #[test]
     fn extruded_outline_is_a_2d_surface() {
         let p = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(4.0, 0.0, 0.0), Vec3::new(4.0, 3.0, 0.0), Vec3::new(0.0, 3.0, 0.0)];
@@ -128,7 +135,7 @@ mod tests {
         assert_eq!((pts.len(), tris.len()), (8, 8));
         assert!(reg.iter().all(|&r| r == 0));
         assert!((pts[4].z - 0.5).abs() < 1e-15, "0.1 x the diagonal 5");
-        println!("rectangle: is2DSurface -> {:?}", is_2d_surface(&pts, &tris));
+        is_2d_surface(&pts, &tris).unwrap();
         let q = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(4.0, 0.5, 0.0), Vec3::new(3.0, 3.0, 0.0), Vec3::new(0.5, 2.0, 0.0)];
         let (qp, qt, _) = extrude_2d_edges(&q, &e, None).unwrap();
         is_2d_surface(&qp, &qt).unwrap();
