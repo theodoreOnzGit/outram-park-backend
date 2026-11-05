@@ -3953,6 +3953,43 @@ moves for gh:#1298: its defaults are unchanged). `cargo test -p
 outram-blender --features foam-mesh --lib foam_mesh`: 14 passed. `cargo
 test -p petir --test no_platform_libm`: 4 passed.
 
+### The default becomes h 5 mm with 3 layers (maintainer decision, 2026-11-05)
+
+**Maintainer decision on gh:#1298, 2026-11-05:** Foam Studio's unstructured
+default keeps the new mesher (`TetDualSpec::BASE`: `CellCentre` +
+`Corners`, `CfMeshOptimise`, `CfMeshRoute::UpstreamNoLaplace`), but the
+default case becomes **3 wall layers at h 5 mm** (first layer 0.3 mm,
+× 1.2). Reason: the bare h 4 mm default missed its prediction (dp/dz
+1.0649 × HP, predicted 1.00–1.04; the old default was 1.0326), while the
+same mesher at h 5 mm with 3 layers measured u_c/2U 0.9394, dp/dz 1.0062
+(7 049 cells, 6.0 s native, 22–23 s in the browser), the closest to
+Hagen–Poiseuille of the cases above. The bare h 4 mm case stays reachable
+(page URL `h=4&layers=0`, native `--headless-unstructured 4 0`) and its
+miss stays recorded above.
+
+**Predictions (written 2026-11-05, before any run of the new default).**
+The source of every number is the gh:#1298 layer-case run above
+(`--headless-unstructured 5 3 0.3 1.2 100`); the default now reaches the
+same spec through `TetDualSpec::default_for(0.01)` (0.5 R, 3 layers, first
+0.03 R, × 1.2), whose lengths may differ from `5e-3` / `0.3e-3` by an ulp.
+I expect the same mesh and at most a round-off change in the solve.
+
+1. **Native default** (`--headless-unstructured`, no arguments): 7 049
+   cells (± 30), 26 steps (± 2), u_c/2U 0.9394 ± 0.002, dp/dz 1.0062 ±
+   0.002 × HP, mass conserved to 1e-8; meshing 4–10 s on this host.
+2. **Estimate and cap:** `estimated_cells` 7 188 (within 10 % of 7 049);
+   the 50k cap (`MAX_CELLS`) and the h range [R/3, R/1.5] leave h at
+   5 mm (`clamped(default) == default`).
+3. **`layer_warning`:** shows the upstream-sequence note for the default;
+   nothing in it contradicts the gh:#1298 record once its time is taken
+   from that record (6 s native, 22–23 s browser) rather than gh:#1283's
+   12 s.
+4. **Browser** (headless Chromium, SwiftShader): the default at desktop and
+   phone width builds 7 049 cells and reaches steady in 26 steps; meshing
+   20–25 s (gh:#1298: 22–23 s); UI median frame 16.7 ms (60 fps) while the
+   worker meshes; 0 page errors. `h=4&layers=0` gives the bare row:
+   6 353 cells, 27 steps.
+
 ## Reproduce
 
 ```bash
