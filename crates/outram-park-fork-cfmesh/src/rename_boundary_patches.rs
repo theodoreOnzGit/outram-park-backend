@@ -46,9 +46,12 @@
 //! [`VolumeMesh`] carries no patch type, so the types travel beside the mesh
 //! as a list, one per patch.
 //!
-//! **Not ported:** `checkSymmetryPlanes` (`symmetryPlaneOptimisation`, which
+//! ~~**Not ported:** `checkSymmetryPlanes` (`symmetryPlaneOptimisation`, which
 //! flattens patches of type `symmetryPlane`); [`rename_boundary_patches`]
-//! reports the `symmetryPlane` patches it did not flatten. The regular
+//! reports the `symmetryPlane` patches it did not flatten.~~ **UPDATED
+//! 2026-11-05 (gh:#1280):** `checkSymmetryPlanes` runs
+//! [`crate::symmetry_plane_optimisation`] last, as upstream; its report is
+//! [`RenamedBoundary::symmetry`]. The regular
 //! expressions support literals, `.`, bracket classes, `*`, `+`, `?`, `|`
 //! and groups `( )`, the subset `meshDict` patterns use; anything else is
 //! taken literally.
@@ -59,6 +62,7 @@
 //! under their own name (no `defaultName`) are not checked against new
 //! names, so a kept name can repeat a new one.
 
+use crate::symmetry_plane_optimisation::{symmetry_plane_optimisation, SymmetryReport};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 
 /// One `newPatchNames` entry's dictionary.
@@ -91,8 +95,8 @@ pub struct RenamedBoundary {
     pub patch_types: Vec<String>,
     /// Patterns that matched no patch (upstream warns).
     pub unmatched: Vec<String>,
-    /// Patches of type `symmetryPlane` left unflattened (not ported).
-    pub symmetry_planes_not_optimised: Vec<String>,
+    /// `checkSymmetryPlanes` (`symmetryPlaneOptimisation`, gh:#1280).
+    pub symmetry: SymmetryReport,
 }
 
 /// `renameBoundaryPatches(mesh, meshDict, allowEmptyPatches)`.
@@ -115,8 +119,8 @@ pub fn rename_boundary_patches(mesh: &VolumeMesh, patch_types: &[String], dict: 
             }
         }
     }
-    let symmetry_planes_not_optimised = out.patches.iter().zip(&types).filter(|(_, t)| t.as_str() == "symmetryPlane").map(|(p, _)| p.name.clone()).collect();
-    RenamedBoundary { mesh: out, patch_types: types, unmatched, symmetry_planes_not_optimised }
+    let symmetry = symmetry_plane_optimisation(&mut out, &types);
+    RenamedBoundary { mesh: out, patch_types: types, unmatched, symmetry }
 }
 
 /// `calculateNewBoundary`; `None` when it returns without replacing.

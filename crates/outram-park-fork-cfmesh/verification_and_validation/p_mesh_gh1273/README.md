@@ -154,3 +154,76 @@ the order alone and to 55.3° with `edgeExtractor` (still not located).
 Record: `../edge_extractor_gh1269/README.md`. Images regenerated:
 `pipe_xy_p_mesh.png` changed (the other two are bit-identical), not
 re-inspected beyond the boundary meeting the surface trace all round.
+
+## Re-measurement with the fundamental sheets (gh:#1281, 2026-11-05)
+
+`meshSurfaceEdgeExtractorFUN` now runs `createFundamentalSheetsJFS`
+(`crate::fundamental_sheets`, on the `extrudeLayer` port of gh:#1280)
+before its smoothing and mapping, as upstream; `TetMeshOptions::fun_sheets
+= FunSheets::Without` keeps the gh:#1269 route for the differential. The
+sphere case passes no regions, so FUN does not run on it (unchanged).
+
+**Predictions (written 2026-11-05, before the run).** Pipe 48, 2 mm:
+
+- JFS's topology check fails on the Voronoi template (rim cells have
+  faces on two patches), so the wrapper sheet is built: one cell per
+  boundary face, then the feature-edge sheet. Cells rise from 4 303 by
+  at least the boundary face count (several thousand).
+- The mesh stays closed with no non-positive cell after the workflow's
+  `meshOptimisation`; the volume error stays within ±0.5 points of
+  −0.325 % (the sheets move boundary points, and FUN maps them back).
+- The sheets are thin (0.4 × the centre-to-vertex distance of the copied
+  faces), so max non-orthogonality and skewness rise above the `Without`
+  route's 55.3° / 0.577.
+- The rims: with the sheets, each wall cell at a rim has one boundary
+  face, so the mapped rim edge is the cell edge between two sheet cells
+  (sharper than without). Checked on the image, not measured.
+
+**Results (2026-11-05,** `cargo test --release -p outram-park-fork-cfmesh
+--features cell-centre-dual --lib -- diagnose_p_mesh_workflow --nocapture`;
+the test runs both routes on the pipe).
+
+| case | route | cells | volume error | non-positive | max non-orth | max skew | time |
+|---|---|---:|---:|---:|---:|---:|---:|
+| pipe | `FunSheets::Without` (gh:#1269) | 4 303 | −0.325 % | 0 | 55.29° | 0.577 | 0.37 s |
+| pipe | **JFS (default)** | **9 781** | **−0.320 %** | 0 | **58.24°** | **0.690** | 0.52 s |
+| sphere | (no regions: FUN not run) | 1 749 | −1.537 % | 0 | 18.06° | 0.508 | 0.24 s |
+
+The `Without` row reproduces the gh:#1269 row exactly, so the route kept
+for the differential is the old one.
+
+- **Missed: the topology check passes** on the Voronoi template (no cell
+  has two boundary faces), so JFS builds **no wrapper sheet**. My
+  prediction assumed rim cells with faces on two patches; that is not a
+  question `isTopologyOk` asks (it counts boundary faces per cell, any
+  patch), and no cell here has two.
+- The feature-edge sheet extrudes 5 478 faces (every internal face of a
+  boundary cell whose other cell is not a boundary cell of the same
+  patch), 8 648 new points, no edge or corner cell. Cells 4 303 → 9 781
+  (+5 478, one per extruded face). The "several thousand" held, through
+  the feature-edge sheet, not the wrapper.
+- Closed, no non-positive cell: **held**. Volume error within ±0.5 points
+  of −0.325 %: **held** (−0.320 %).
+- Max non-orthogonality and skewness above the `Without` route: **held**
+  (58.24° against 55.29°, 0.690 against 0.577).
+- The workflow's optimiser found 0 bad faces on both routes.
+
+**Images** (`examples/tet_mesh_images.rs`, regenerated; the sphere and
+`tetMesh` images are bit-identical to the committed ones, `cmp`):
+`pipe_xy_p_mesh.png` (now with the sheets), `pipe_xy_p_mesh_without_sheets.png`,
+`pipe_xz_rim_p_mesh.png`, `pipe_xz_rim_p_mesh_without_sheets.png` (x-z at
+y = 0.1 mm, the inlet rim at x = 10 mm, z = 0).
+
+**Checked by eye (2026-11-05):**
+
+- `pipe_xy_p_mesh.png`: a ring of thin sheet cells runs inside the wall
+  cells all round; the outer boundary meets the 48-gon trace all round,
+  with no fold.
+- `pipe_xz_rim_p_mesh.png` against `_without_sheets`: without the sheets
+  one cell spans the rim corner (a face on the inlet and one on the wall
+  meet in one cell); with them, a sheet layer runs under the inlet and
+  inside the wall, and a cell edge runs into the rim point. Both reach
+  the rim at (10 mm, 0).
+
+**Not checked:** the outlet rim; the 3D shape of the sheets; a solve on
+this mesh.

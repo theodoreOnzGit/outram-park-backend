@@ -73,10 +73,13 @@
 //! (`checkForGluedMesh`), `checkAndFixIrregularConnections`, the octree
 //! edges and their addressing (`createOctreeEdges` and the five
 //! edge-related maps), `isIntersectedFace` / `isIntersectedEdge`,
-//! `leafLeaves`, `nodeFaces`,~~ (**ported 2026-11-05**, above) the
-//! quadtree's empty patches and everything parallel. All boundary faces go
-//! to one patch, `defaultFaces` (upstream's `polyMeshGen` leaves them
-//! unnamed until the generator assigns patches).
+//! `leafLeaves`, `nodeFaces`, the quadtree's empty patches~~ (**ported
+//! 2026-11-05**: the first group above, the empty patches by gh:#1275)
+//! and everything parallel. All boundary faces of an octree go to one
+//! patch, `defaultFaces` (upstream's `polyMeshGen` leaves them unnamed
+//! until the generator assigns patches). **Quadtree (gh:#1275):** the
+//! faces whose normal is z-dominated go to the empty patches
+//! `unusedFacesBottom` / `unusedFacesTop` ([`create_empty_patches`]).
 
 use crate::math::Vec3;
 use crate::mesh_octree::{help, CubeType, MeshOctree, TriSurf, EDGE_NODES, FACE_EDGES, FACE_NODES, SMALL};
@@ -325,6 +328,9 @@ impl MeshOctreeAddressing {
     /// `findEdgeCentre`: the node at the midpoint of edge `e` of `leaf`, if
     /// a finer used leaf has one there.
     pub fn find_edge_centre(&self, o: &MeshOctree, leaf: usize, e: usize) -> Option<usize> {
+        if o.is_quadtree && e >= 8 {
+            return None;
+        }
         let row = self.node_labels[leaf]?;
         let node = row[EDGE_NODES[e][0]];
         if node == usize::MAX {
@@ -937,6 +943,53 @@ pub struct CartesianMesh {
     pub addressing: MeshOctreeAddressing,
     /// Cells decomposed into tetrahedra and pyramids.
     pub n_decomposed_cells: usize,
+}
+
+/// The quadtree branch of `cartesianMeshExtractor::createPolyMesh`
+/// (gh:#1275): every boundary face whose area vector is z-dominated, by
+/// upstream's test `|n_z| > |n_x + n_y|` (the **sum**, as written), goes to
+/// `unusedFacesBottom` when its centre is within 5 % of the root box's
+/// height of the bottom, `unusedFacesTop` likewise at the top; the rest
+/// stay in `defaultFaces`. Upstream's `FatalError` ("Cannot distribute the
+/// face!!") is the `Err`. Upstream runs this at the end of `createMesh`;
+/// [`cartesian_mesh_extractor`] leaves it to its caller (the 2D generator
+/// calls it right after), so the 3D extractor stays infallible.
+pub fn create_empty_patches(mesh: &VolumeMesh, root_box: &crate::mesh_octree::BoundBox) -> Result<(VolumeMesh, Vec<String>), String> {
+    let t_z = 0.05 * (root_box.max.z - root_box.min.z);
+    let n_int = mesh.n_internal_faces();
+    let mut groups: [Vec<usize>; 3] = Default::default();
+    for f in n_int..mesh.face_count() {
+        let ring = &mesh.faces[f];
+        let n = crate::surface_engine::ring_area_vector(&mesh.points, ring);
+        if n.z.abs() > (n.x + n.y).abs() {
+            let c = crate::correct_edges::foam_face_centre(&mesh.points, ring);
+            if (c.z - root_box.min.z).abs() < t_z {
+                groups[1].push(f);
+            } else if (c.z - root_box.max.z).abs() < t_z {
+                groups[2].push(f);
+            } else {
+                return Err(format!("Cannot distribute the face!! (face {f}, centre z {})", c.z));
+            }
+        } else {
+            groups[0].push(f);
+        }
+    }
+    let mut out = mesh.clone();
+    out.faces.truncate(n_int);
+    out.owner.truncate(n_int);
+    out.neighbour.truncate(n_int);
+    out.patches.clear();
+    let names = ["defaultFaces", "unusedFacesBottom", "unusedFacesTop"];
+    for (g, name) in groups.iter().zip(names) {
+        let start = out.faces.len();
+        for &f in g {
+            out.faces.push(mesh.faces[f].clone());
+            out.owner.push(mesh.owner[f]);
+            out.neighbour.push(None);
+        }
+        out.patches.push(BoundaryPatch { name: name.to_string(), start_face: start, n_faces: g.len() });
+    }
+    Ok((out, vec!["patch".to_string(), "empty".to_string(), "empty".to_string()]))
 }
 
 /// `cartesianMeshExtractor::createMesh`: number the `MESHCELL` leaves as

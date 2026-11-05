@@ -79,6 +79,8 @@
 
 pub mod boundary_layers;
 pub mod refine_boundary_layers;
+pub mod extrude_layer;
+pub mod triangulate_non_planar_base_faces;
 
 use crate::checks::check_quality;
 use crate::math::Vec3;

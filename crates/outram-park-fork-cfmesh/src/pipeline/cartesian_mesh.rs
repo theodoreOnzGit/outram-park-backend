@@ -420,8 +420,16 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
     let m = mesh.ok_or("the workflow produced no mesh")?;
     let r = renumber_mesh(&m, &cells_from_mesh(&m));
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), false);
-    if !renamed.symmetry_planes_not_optimised.is_empty() {
-        rep.notes.push(format!("renameBoundaryPatches: symmetryPlaneOptimisation not ported; {:?} not flattened", renamed.symmetry_planes_not_optimised));
+    // gh:#1280: renameBoundaryPatches now runs symmetryPlaneOptimisation.
+    if !renamed.symmetry.planes.is_empty() {
+        let sy = &renamed.symmetry;
+        rep.notes.push(format!(
+            "renameBoundaryPatches: symmetryPlaneOptimisation on {} plane(s): {} points moved{}, {} invalid faces",
+            sy.planes.len(),
+            sy.n_points_moved,
+            if sy.problematic { " (skipped: a patch is not planar)" } else { "" },
+            sy.invalid_faces.len()
+        ));
     }
     w.workflow_completed();
     rep.meta = w.meta;

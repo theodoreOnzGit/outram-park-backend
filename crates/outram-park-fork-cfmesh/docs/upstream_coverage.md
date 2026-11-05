@@ -28,9 +28,9 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Status | Upstream lines | Share | Rows |
 |---|---:|---:|---:|
-| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ ~~36,553~~ ~~41,405~~ ~~42,349~~ ~~53,277~~ 59,489 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ ~~28.2 %~~ ~~31.9 %~~ ~~32.6 %~~ ~~41.1 %~~ 45.9 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ ~~40~~ ~~41~~ ~~44~~ ~~65~~ 68 |
-| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ ~~38,266~~ ~~38,673~~ ~~35,766~~ 30,530 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ ~~29.5 %~~ ~~29.8 %~~ ~~27.6 %~~ 23.5 % | ~~27~~ ~~25~~ ~~23~~ ~~16~~ ~~17~~ ~~16~~ 14 |
-| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ ~~32,277~~ ~~27,018~~ ~~26,074~~ ~~18,053~~ 17,077 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ ~~24.9 %~~ ~~20.8 %~~ ~~20.1 %~~ ~~13.9 %~~ 13.2 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ ~~57~~ ~~55~~ ~~52~~ ~~32~~ 31 |
+| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ ~~18,526~~ ~~36,553~~ ~~41,405~~ ~~42,349~~ ~~53,277~~ ~~56,269~~ ~~63,379~~ 69,591 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ ~~14.3 %~~ ~~28.2 %~~ ~~31.9 %~~ ~~32.6 %~~ ~~41.1 %~~ ~~43.4 %~~ ~~48.9 %~~ 53.6 % | ~~6~~ ~~12~~ ~~21~~ ~~22~~ ~~40~~ ~~41~~ ~~44~~ ~~65~~ ~~71~~ ~~85~~ 88 |
+| partial | ~~54,119~~ ~~48,890~~ ~~47,494~~ ~~38,266~~ ~~38,673~~ ~~35,766~~ ~~36,030~~ ~~35,781~~ 30,545 | ~~41.7 %~~ ~~37.7 %~~ ~~36.6 %~~ ~~29.5 %~~ ~~29.8 %~~ ~~27.6 %~~ ~~27.8 %~~ ~~27.6 %~~ 23.5 % | ~~27~~ ~~25~~ ~~23~~ ~~16~~ ~~17~~ ~~16~~ ~~17~~ 15 |
+| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ ~~41,076~~ ~~32,277~~ ~~27,018~~ ~~26,074~~ ~~18,053~~ ~~14,797~~ ~~7,936~~ 6,960 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ ~~31.7 %~~ ~~24.9 %~~ ~~20.8 %~~ ~~20.1 %~~ ~~13.9 %~~ ~~11.4 %~~ ~~6.1 %~~ 5.4 % | ~~80~~ ~~76~~ ~~69~~ ~~68~~ ~~57~~ ~~55~~ ~~52~~ ~~32~~ ~~25~~ ~~11~~ 10 |
 | not applicable | 22,642 | 17.5 % | 25 |
 | **total** | **129,738** | 100 % | 138 |
 
@@ -38,9 +38,13 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 **Updated again 2026-11-05** after gh:#1272 and #1273, merged with gh:#1267/#1268's counts. **CORRECTED at the same time:** these totals had not followed the rows already marked ported by gh:#1258 (`partTriMesh`, group C, 1,331) and gh:#1262–#1266 (group B, and `cartesianMeshExtractor` in group A). Groups A, B and C were recounted from their rows; group G moves by gh:#1267's `surfaceMorpherCells` and gh:#1272's `renameBoundaryPatches`; group I is gh:#1267/#1268's; group H is gh:#1270/#1271's. **Not re-checked:** groups D–M against their rows (other rows changed by gh:#1257–#1266, for example `meshSurfaceEngine`, `meshSurfacePartitioner`, `meshSurfaceCheckInvertedVertices` in G and `FrontalMarking` in L, may not be in their group's totals).
 
+**Updated 2026-11-05 after gh:#1275** (merged after gh:#1276–#1278; the totals and groups C and J combine both). To ported: `cartesian2DMesh` (66) and `cartesian2DMeshGenerator` (536) in A, `polyMeshGen2DEngine` (689) in C, `meshSurfaceMapper2D` (1,189) and `meshSurfaceEdgeExtractor2D` (311) in G, `triSurfaceExtrude2DEdges` (201) in J; `triSurface2DCheck` (264, J) to partial. The quadtree is inside rows already counted as ported (B). Only those rows moved.
+
 **Updated 2026-11-05 after gh:#1274:** `executables/cartesianMesh` (62) and `cartesianMeshGenerator` (580) in group A, and `meshSurfaceMapperPremapVertices.C` (302) in group G, from not ported to ported (944 lines, 3 rows). Only those rows moved.
 
 **Updated 2026-11-05 after gh:#1269:** `edgeExtractor` (4,852) from not ported to ported, `meshSurfaceEdgeExtractorFUN` (407) from not ported to partial; both in group G. Only those two rows moved.
+
+**Updated 2026-11-05 after gh:#1280, #1281 and #1279 (items 25–27):** to ported: `symmetryPlaneOptimisation` (405, E); `createFundamentalSheets` (908) and `meshSurfaceEdgeExtractorFUN` (407, partial before) (G); `extrudeLayer` (1,915) and `triangulateNonPlanarBaseFaces` (357) (H); the four `anisotropicMeshing` rows (2,559, K); `improveMeshQuality`, `improveSymmetryPlanes`, `scaleMesh`, `scaleSurfaceMesh`, `surfaceGenerateBoundingBox` (559, M). To partial: `generateBoundaryLayers` (158, M). Only those 15 rows moved.
 
 **Updated 2026-11-05 after gh:#1276, #1277 and #1278 (wave 3, items 22–24 in part):** 12 rows of group J (6,749 lines: every `triSurfaceTools` row except the two 2D ones and `triSurfaceMetaData`, and `quadricFitting`), `meshes/triSurf` in group C (2,907, partial → ported) and 8 utilities in group M (1,272) are ported. Only those 21 rows moved.
 
@@ -48,19 +52,19 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
-| A. Workflows | ~~0~~ ~~5,333~~ 5,975 | ~~1,423~~ 0 | ~~5,154~~ ~~1,244~~ 602 | 1,438 |
+| A. Workflows | ~~0~~ ~~5,333~~ ~~5,975~~ 6,577 | ~~1,423~~ 0 | ~~5,154~~ ~~1,244~~ ~~602~~ 0 | 1,438 |
 | B. Octree | ~~0~~ ~~10,689~~ 16,901 | ~~13,041~~ ~~5,236~~ 0 | ~~3,860~~ ~~976~~ 0 | 2,111 |
-| C. Mesh data structures | ~~0~~ ~~442~~ ~~2,055~~ 4,962 | ~~12,767~~ 9,860 | ~~3,538~~ ~~3,096~~ 1,483 | 3,354 |
+| C. Mesh data structures | ~~0~~ ~~442~~ ~~2,055~~ ~~4,962~~ 5,651 | ~~12,767~~ 9,860 | ~~3,538~~ ~~3,096~~ ~~1,483~~ 794 | 3,354 |
 | D. Quality checks | ~~0~~ 4,441 | ~~4,441~~ 0 | 0 | 0 |
-| E. Volume optimiser | ~~1,141~~ 3,599 | ~~5,244~~ 4,456 | ~~2,404~~ 734 | 798 |
+| E. Volume optimiser | ~~1,141~~ ~~3,599~~ 4,004 | ~~5,244~~ 4,456 | ~~2,404~~ ~~734~~ 329 | 798 |
 | F. Surface optimiser | 0 | 0 | 2,811 | 522 |
-| G. Surface tools | ~~2,208~~ ~~3,347~~ ~~3,739~~ ~~8,591~~ 8,893 | ~~4,082~~ 4,489 | ~~10,962~~ ~~9,823~~ ~~9,431~~ ~~4,172~~ 3,870 | 969 |
-| H. Boundary layers | ~~0~~ 989 | 9,395 | ~~3,261~~ 2,272 | 0 |
+| G. Surface tools | ~~2,208~~ ~~3,347~~ ~~3,739~~ ~~8,591~~ ~~8,893~~ ~~10,393~~ 11,708 | ~~4,082~~ ~~4,489~~ 4,082 | ~~10,962~~ ~~9,823~~ ~~9,431~~ ~~4,172~~ ~~3,870~~ ~~2,370~~ 1,462 | 969 |
+| H. Boundary layers | ~~0~~ ~~989~~ 3,261 | 9,395 | ~~3,261~~ ~~2,272~~ 0 | 0 |
 | I. Topology repair | ~~0~~ 5,283 | ~~1,396~~ 0 | ~~3,887~~ 0 | 0 |
-| J. triSurface tools, helper classes | ~~0~~ ~~425~~ 7,174 | 0 | ~~7,639~~ ~~7,214~~ 465 | 233 |
-| K. Anisotropic meshing | 0 | 0 | 2,559 | 0 |
+| J. triSurface tools, helper classes | ~~0~~ ~~425~~ ~~7,174~~ 7,375 | ~~0~~ 264 | ~~7,639~~ ~~7,214~~ ~~465~~ 0 | 233 |
+| K. Anisotropic meshing | ~~0~~ 2,559 | 0 | ~~2,559~~ 0 | 0 |
 | L. Helpers, containers, MPI, I/O | 0 | 2,330 | 1,482 | 11,782 |
-| M. Top-level utilities | ~~0~~ 1,272 | 0 | ~~2,071~~ 799 | 1,435 |
+| M. Top-level utilities | ~~0~~ ~~1,272~~ 1,831 | ~~0~~ 158 | ~~2,071~~ ~~799~~ 82 | 1,435 |
 
 ## 2. Per-unit table
 
@@ -74,12 +78,12 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_creator_octree` | All five tet routines. Upstream's unguarded reads are counted (`TetCreatorDefects`), zero on every run. |
 | `executables/cartesianMesh` | 62 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh::{cartesian_mesh, cartesian_mesh_restart}` | Thin `main` over `cartesianMeshGenerator`. Settings typed (`CartesianMeshGeneratorOptions`). |
 | `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh`; `carve`, `snap`, `octree` kept | ~~No `cartesianMesh` workflow.~~ Every member in Rust. Gaps it calls through: `boundaryLayers` is the one-group route (patch-wise groups not ported); `refineBoundaryLayers` refuses two-direction cells; no `anisotropicSources` / `triSurfacePatchManipulator`. Results: `verification_and_validation/cartesian_mesh_gh1274/`. |
-| `meshLibrary/cartesianMesh/cartesianMeshExtractor` | 800 | ported (2026-11-05, gh:#1266) | `cartesian_mesh::cartesian_mesh_extractor`; `octree::build_mesh` kept | ~~partial: re-implemented only; missing `decomposeSplitHexesIntoTetsAndPyramids`, `createPointsAndAddressing`, cell-type bookkeeping~~ **CORRECTED 2026-11-05:** transcribed beside `octree::build_mesh`. On the same leaves the two build the same faces ring for ring (sphere and pipe, `verification_and_validation/cartesian_octree_gh1262/README.md`). Quadtree empty patches not ported. |
+| `meshLibrary/cartesianMesh/cartesianMeshExtractor` | 800 | ported (2026-11-05, gh:#1266) | `cartesian_mesh::cartesian_mesh_extractor`; `octree::build_mesh` kept | ~~partial: re-implemented only; missing `decomposeSplitHexesIntoTetsAndPyramids`, `createPointsAndAddressing`, cell-type bookkeeping~~ **CORRECTED 2026-11-05:** transcribed beside `octree::build_mesh`. On the same leaves the two build the same faces ring for ring (sphere and pipe, `verification_and_validation/cartesian_octree_gh1262/README.md`). ~~Quadtree empty patches not ported.~~ **2026-11-05 (gh:#1275):** the quadtree's empty patches are `cartesian_mesh::create_empty_patches`, called by the 2D generator right after the extractor. |
 | `executables/pMesh` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh::{p_mesh, p_mesh_restart}` | Thin `main` over `voronoiMeshGenerator`. |
-| `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (~~not ported~~ **CORRECTED 2026-11-05, gh:#1269:** called, `tet_mesh::untangle_again`, since gh:#1259 merged). `edgeExtraction` is `meshSurfaceEdgeExtractorFUN` without its fundamental sheets (gh:#1269). Results: `verification_and_validation/p_mesh_gh1273/`. |
+| `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (not ported, surface track; noted) and a second `untangleSurface` (~~not ported~~ **CORRECTED 2026-11-05, gh:#1269:** called, `tet_mesh::untangle_again`, since gh:#1259 merged). `edgeExtraction` is `meshSurfaceEdgeExtractorFUN` ~~without its fundamental sheets (gh:#1269)~~, with them since gh:#1281. Results: `verification_and_validation/p_mesh_gh1273/`. |
 | `meshLibrary/voronoiMesh/voronoiMeshExtractor` | 674 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `voronoi_mesh_extractor`; `cell_centre_dual`, `dual::polyhedral_dual*` kept | Tet-centroid dual of `tetCreatorOctree` tets, cells only at interior vertices. Equal to `CellCentre`'s interior cells to 9.8e-15 where `polyDualMesh` accepts the tets (§3). |
-| `executables/cartesian2DMesh` | 66 | not ported | — |  |
-| `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | not ported | — |  |
+| `executables/cartesian2DMesh` | 66 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh::{cartesian_2d_mesh, cartesian_2d_mesh_restart}` | Thin `main`. |
+| `meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator` | 536 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `pipeline::cartesian_2d_mesh` | Every member in Rust. Steps whose callees are gaps say so in the report: `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`), the 2D `refineBoundaryLayers`; the layer is the one-group route. Results: `verification_and_validation/cartesian_2d_mesh_gh1275/`. |
 | `meshLibrary/utilities/workflowControls` | 477 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `workflow_controls` | `stopAfter` / restart of a workflow step; a member of all four generators. The meta data and the saved mesh are values, not files. |
 | `meshLibrary/utilities/checkMeshDict` | 1438 | not applicable | `pipeline::TetDualOptions`, `BoundaryLayerOptimisationControls` | Validation of a `meshDict`; settings here are typed Rust structs. Revisit if a `meshDict` reader is ever added (§4, "Not planned"). |
 
@@ -89,9 +93,9 @@ _Subtotal: 8015 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `octrees/meshOctree (serial: meshOctree.C/H/I.H, InsideCalculations, NeighbourSearches, CubePatches, FindNearestSurfacePoint, Slot)` | 2303 | ported (2026-11-05, gh:#1262, #1263) | `mesh_octree` (`MeshOctree`, `OctreeSlot`, `TriSurf`), `mesh_octree_queries` | ~~partial: `octree` re-implementation only; missing nearest-point queries, neighbour searches, `findLeafContainingVertex`~~ **CORRECTED 2026-11-05:** transcribed beside `octree` (which is unchanged). Every serial member function is in Rust, quadtree excluded. `findNearestSurfacePoint` keeps upstream's stopping rule (misses the nearest triangle for 4–7 % of points off the surface, measured); `NearestSearch::Exact` is the port's exact variant, bit-identical to the brute force, and `patches` / `snap` can route through it (`SurfaceSearch::Octree`, opt-in). |
+| `octrees/meshOctree (serial: meshOctree.C/H/I.H, InsideCalculations, NeighbourSearches, CubePatches, FindNearestSurfacePoint, Slot)` | 2303 | ported (2026-11-05, gh:#1262, #1263) | `mesh_octree` (`MeshOctree`, `OctreeSlot`, `TriSurf`), `mesh_octree_queries` | ~~partial: `octree` re-implementation only; missing nearest-point queries, neighbour searches, `findLeafContainingVertex`~~ **CORRECTED 2026-11-05:** transcribed beside `octree` (which is unchanged). Every serial member function is in Rust, ~~quadtree excluded~~ the quadtree included since gh:#1275 (`MeshOctree::new_quadtree`, the 2D neighbour searches). `findNearestSurfacePoint` keeps upstream's stopping rule (misses the nearest triangle for 4–7 % of points off the surface, measured); `NearestSearch::Exact` is the port's exact variant, bit-identical to the brute force, and `patches` / `snap` can route through it (`SurfaceSearch::Octree`, opt-in). |
 | `octrees/meshOctree: meshOctreeParallelCommunication.C` | 448 | not applicable | — | MPI; the crate is serial. |
-| `octrees/meshOctree/meshOctreeCube` | 3078 | ported (2026-11-05, gh:#1262) | `mesh_octree` (`CubeCoordinates`, `OctreeCube`, `CubeType`) | ~~partial: coordinates and refinement only~~ **CORRECTED 2026-11-05:** intersections, cube types, `refineCube`, `findContainedEdges` and the recursive leaf functions transcribed. Not ported: `refineCube2D` (quadtree, item 21), the MPI functions, the unused Hilbert tables. `octree::Cell` is unchanged. |
+| `octrees/meshOctree/meshOctreeCube` | 3078 | ported (2026-11-05, gh:#1262) | `mesh_octree` (`CubeCoordinates`, `OctreeCube`, `CubeType`) | ~~partial: coordinates and refinement only~~ **CORRECTED 2026-11-05:** intersections, cube types, `refineCube`, `findContainedEdges` and the recursive leaf functions transcribed. Not ported: ~~`refineCube2D` (quadtree, item 21)~~ (ported 2026-11-05, gh:#1275: `refine_cube` on a quadtree), the MPI functions, the unused Hilbert tables. `octree::Cell` is unchanged. |
 | `octrees/meshOctree/meshOctreeCreator (serial)` | 2118 | ~~partial (2026-11-05, gh:#1264, #1265)~~ **ported (2026-11-05, gh:#1264/#1265 remainders)** | `mesh_octree_creator::MeshOctreeCreator`, `MeshDict`, `EdgeMesh`; `octree::refine_near_boundary(_banded)` kept | ~~missing `maxCellSize` / `boundaryCellSize` sizing, `localRefinement`, `objectRefinements`, `refineBoxesContainedInObjects`, `createOctreeWithRefinedBoundary`, `refineBoxesNearDataBoxes`~~ **CORRECTED 2026-11-05:** all of those transcribed, plus `patchCellSize`. ~~Still missing: `refineBoxesIntersectingSurfaces` / `EdgeMeshes` (refinement sources), `subsetCellSize`, `anisotropicSources`, the automatic refinement call.~~ **CORRECTED 2026-11-05:** the sources, `subsetCellSize` (and subset `localRefinement` entries) and the automatic refinement call are transcribed, all off unless the `MeshDict` asks. `anisotropicSources` is a hook (`source_surface_geometry`, `source_edge_mesh_geometry`) for group K (gh:#1279). Source files are values, not read. Results: `verification_and_validation/octree_remainders_gh1278/`. |
 | `octrees/meshOctree/meshOctreeCreator: LoadDistribution.C` | 56 | not applicable | — | MPI load balance. |
 | `octrees/meshOctree/meshOctreeModifier (serial)` | 1469 | ported (2026-11-05, gh:#1263) | `mesh_octree_modifier`; `octree::balance_2to1` kept | ~~partial: missing `reduceMemoryConsumption`, `markAdditionalLayers`, `refineSelectedBoxesAndAdditionalLayers`~~ **CORRECTED 2026-11-05:** all serial functions transcribed. Upstream's 1-irregularity is over nodes, edges and faces; `octree::balance_2to1` balances over faces only. |
@@ -119,7 +123,7 @@ _Subtotal: 19012 lines._
 | `meshes/polyMeshGenModifier: RenumberMesh.C` | 282 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `renumber_mesh::renumber_mesh`, with `calcCellCells` | ~~Cuthill–McKee renumbering. No Rust renumbering found in the workspace.~~ **CORRECTED 2026-11-05:** upstream's comment says Cuthill–McKee, but `LongList::remove` pops the last element, so the walk is depth-first; ported as written. Cells' face lists come from the caller (`cells_from_mesh`: ascending face order). |
 | `meshes/polyMeshGenModifier: ZipUpCells.C` | 794 | not ported | — (`octree::conforming_ring` splices hanging nodes during assembly) | No caller in `meshLibrary/` at this commit (grep). Not planned. |
 | `meshes/polyMeshGenModifier: AddBufferCells, AddProcessorFaces` | 437 | not applicable | — | MPI. |
-| `meshes/polyMeshGen2DEngine` | 689 | not ported | — | 2D workflow. |
+| `meshes/polyMeshGen2DEngine` | 689 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `poly_mesh_gen_2d_engine::PolyMeshGen2DEngine` | Eager, not demand-driven. |
 | `meshes/partTetMesh (serial)` | 2119 | partial | `mesh_optimizer::PartTetMesh` | Ported: `partTetMesh(mesh, locked, badFaces, layers)`, ~~missing~~ the `(mesh, locked, nLayers)` constructor (`near_boundary`, gh:#1255), `BOUNDARY` nodes moved by the boundary smoothers (gh:#1255), `createPointsAndTets`, `partTetMeshSimplex`, `updateVerticesSMP`, `updateOrigMesh`. Missing: `createPolyMesh` (debug output), `tetMatcher` handling. |
 | `meshes/partTetMesh: ParallelAddressing.C` | 535 | not applicable | — | MPI. |
 | `meshes/partTriMesh (serial)` | 1331 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::PartTriMesh`, `PartTriMeshSimplex` | Surface tri mesh for `meshSurfaceOptimizer`: both constructors, `updateVertex`, `updateVertices`, the simplex and its normal. |
@@ -152,7 +156,7 @@ _Subtotal: 4441 lines._
 | `.../advancedSmoothers/meshUntangler` | 1233 | ported (gh:#1260) | `mesh_untangler::{CutRegion, Plane, mesh_untangler}` | ~~not ported~~. `createPolyMeshFromRegion` (debug) not ported; `tieBreak`'s region walk bounded to one lap. |
 | `.../advancedSmoothers/quadricMetric` | 329 | not ported | — | No upstream workflow calls it (`grep` of `meshLibrary/`: only its own files). |
 | `smoothers/geometry/meshOptimizer/boundaryLayerOptimisation` | 2866 | partial | `boundary_layer_optimisation` | Ported: `calculateHairEdges`, `optimiseLayersAtExittingFaces`, `optimiseLayer`, the normals and thickness routines. ~~Missing: the `meshSurfaceOptimizer::optimizeSurface(2)` call inside `optimiseLayer` (the wall points never move);~~ **UPDATED 2026-11-05 (gh:#1259):** the `optimizeSurface(2)` call is ported, opt-in (`BoundaryLayerOptimisationControls::optimise_surface`, off by default). Hair classes come from `layers::LayerVertex`, not `detectBoundaryLayers`. |
-| `smoothers/geometry/meshOptimizer/symmetryPlaneOptimisation` | 405 | not ported | — |  |
+| `smoothers/geometry/meshOptimizer/symmetryPlaneOptimisation` | 405 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `symmetry_plane_optimisation` | Called by `rename_boundary_patches` (`checkSymmetryPlanes`), so by `tet_mesh`, `p_mesh` and `cartesian_mesh`. |
 
 _Subtotal: 9587 lines._
 
@@ -175,7 +179,7 @@ _Subtotal: 3333 lines._
 | `surfaceTools/meshSurfaceMapper (mapVerticesOntoSurface(Patches), mapCorners, mapEdgeNodes, findMappingDistance)` | 1175 | ported | `surface_mapper::map_vertices_onto_surface_patches(_untangled(_given))`, `map_vertices_onto_surface_untangled`; `surface_mapper::SurfaceQueries`, `map_edge_node` | `mapVerticesOntoSurface` has no `untangleSurface` after it (moves undone instead). `mapVerticesOntoSurfacePatches(nodesToMap)` (a subset) is `surface_mapper::map_points_onto_patches` (gh:#1269; gh:#1283's `map_points_onto_surface_patches_given` goes through it too; the whole-surface mapping now calls it with no subset, operation for operation as before, pinned by the dual-kind fingerprints). `findMappingDistance` uses vertex-average face centres here, OpenFOAM centres upstream (kept, so the pins hold). Surface queries are brute force (upstream: `meshOctree`). |
 | `surfaceTools/meshSurfaceMapper: PremapVertices.C` | 302 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `premap_vertices::{pre_map_vertices, face_metric_in_patch}` | `preMapVertices` (cartesianMesh, cartesian2DMesh, pMesh). Serial; the MPI exchange is not applicable. Called by `pipeline::cartesian_mesh`; `pipeline::p_mesh` still notes it as missing (not wired, to keep the edgeExtractor track's file untouched; re-measure when wired). |
 | `surfaceTools/meshSurfaceMapper: parMapperHelper.H` | 194 | not applicable | — | MPI. |
-| `surfaceTools/meshSurfaceMapper2D` | 1189 | not ported | — | 2D workflow. |
+| `surfaceTools/meshSurfaceMapper2D` | 1189 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `surface_mapper_2d` | Serial. The no-argument `mapCorners()` has no caller and is not ported (it also mixes mesh and boundary-point labels). |
 | `surfaceTools/meshSurfaceEdgeExtractorNonTopo` | 198 | ported | `pipeline` (`correct_edges` then `surface_mapper`) | `decomposeBoundaryFaces` + `remapBoundaryPoints`. |
 | `surfaceTools/correctEdgesBetweenPatches` | 835 | ported | `correct_edges::correct_edges_between_patches` | `decomposeProblematicFaces` is commented out upstream. Opt-in (`TetDualOptions::correct_edges`). |
 | `surfaceTools/meshSurfaceCheckEdgeTypes` | 483 | partial | `correct_edges` (tet test) | `classifyEdges` tet test only. Missing: the `meshSurfaceCheckInvertedVertices` (UNDETERMINED) branch, the `convexEdges`/`concaveEdges` accessors as a reusable class. |
@@ -183,10 +187,10 @@ _Subtotal: 3333 lines._
 | `surfaceTools/meshSurfacePartitioner` | 513 | ~~partial~~ **ported (2026-11-05, gh:#1257)** | `surface_engine::SurfacePartitioner` | ~~Corners (>2 feature edges) and edge points (2). Missing: `patchPatches`, `edgeGroups`, as a reusable class.~~ All of it, serial: corners, edge points, `pointPatches`, `patchPatches`, `featureEdges`, `numberOfFeatureEdgesAtPoint`. **CORRECTED 2026-11-05:** `meshSurfacePartitioner.H` at `e944f6ba695f` has no `edgeGroups`; the earlier row named a member that does not exist there. |
 | `surfaceTools/edgeExtraction/edgeExtractor` | 4852 | ~~not ported~~ **ported (2026-11-05, gh:#1269)** | ~~— (`patches::assign_patches_by_region`: nearest triangle only)~~ `edge_extractor::{EdgeExtractor, extract_patches}`; wired into `pipeline::tet_mesh` / `p_mesh` (`PatchAssignment`) | Refines the face→patch assignment. Every member the workflows call (constructor, `extractEdges`, `updateMeshPatches`, `faceEvaluator`) plus `moveVerticesTowardsDiscontinuities`, `projectDeterminedFeatureVertices`, `untangleSurface`, `surfaceWithPatches`, `markPatchPoints`. Not ported, no caller upstream: `findEdgeCandidates` (only prints; indexes mesh edges with surface edge labels), `checkConcaveEdgeCells` (needs `triSurfaceClassifyEdges`), `findCornerCandidates` (discards its result), `checkCorners` (calls `::exit(0)` part-way), `cornerEvaluator` (never constructed). Results: `verification_and_validation/edge_extractor_gh1269/`. |
 | `surfaceTools/meshSurfaceEdgeExtractor` | 406 | not ported | — | Older topological extractor; no generator in `meshLibrary/` calls it. |
-| `surfaceTools/meshSurfaceEdgeExtractorFUN` | 407 | ~~not ported~~ **partial (2026-11-05, gh:#1269)** | `mesh_surface_edge_extractor_fun` (called by `pipeline::p_mesh`) | Fundamental-sheets extractor (used with `createFundamentalSheets`). Ported: the constructor's `smoothMeshSurface` and `remapBoundaryPoints`. Missing: `createBasicFundamentalSheets` (`createFundamentalSheetsJFS`, which needs `extrudeLayer`, item 26); `distributeBoundaryFaces` and `improveQualityOfFundamentalSheets` have no caller. |
-| `surfaceTools/meshSurfaceEdgeExtractor2D` | 311 | not ported | — | 2D workflow. |
-| `surfaceTools/createFundamentalSheets (base, FJ, JFS)` | 908 | not ported | — | Layer of cells at feature edges for `meshSurfaceEdgeExtractorFUN`. |
-| `surfaceTools/renameBoundaryPatches` | 392 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `rename_boundary_patches` (`RenameBoundary`, `regex_full_match`) | `renameBoundary` / patch `type`. Types travel beside the mesh (`VolumeMesh` has none). `checkSymmetryPlanes` calls `symmetryPlaneOptimisation` (not ported): reported, not run. The patch-name regex supports the common subset (module docs). |
+| `surfaceTools/meshSurfaceEdgeExtractorFUN` | 407 | ~~not ported~~ ~~**partial (2026-11-05, gh:#1269)**~~ **ported (2026-11-05, gh:#1281)** | `mesh_surface_edge_extractor_fun` (called by `pipeline::p_mesh`) | Fundamental-sheets extractor (used with `createFundamentalSheets`). Ported: the constructor's `smoothMeshSurface` and `remapBoundaryPoints`. ~~Missing: `createBasicFundamentalSheets` (`createFundamentalSheetsJFS`, which needs `extrudeLayer`, item 26);~~ **gh:#1281:** `createBasicFundamentalSheets` runs (`FunSheets::Without` is the ablation). `distributeBoundaryFaces` and `improveQualityOfFundamentalSheets` have no caller. |
+| `surfaceTools/meshSurfaceEdgeExtractor2D` | 311 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `surface_mapper_2d::{distribute_boundary_faces, remap_boundary_points}` | |
+| `surfaceTools/createFundamentalSheets (base, FJ, JFS)` | 908 | ~~not ported~~ **ported (2026-11-05, gh:#1281)** | `fundamental_sheets` (`SheetsKind` is the run-time selection) | Layer of cells at feature edges for `meshSurfaceEdgeExtractorFUN`. |
+| `surfaceTools/renameBoundaryPatches` | 392 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `rename_boundary_patches` (`RenameBoundary`, `regex_full_match`) | `renameBoundary` / patch `type`. Types travel beside the mesh (`VolumeMesh` has none). ~~`checkSymmetryPlanes` calls `symmetryPlaneOptimisation` (not ported): reported, not run.~~ **gh:#1280:** `checkSymmetryPlanes` runs `symmetry_plane_optimisation`. The patch-name regex supports the common subset (module docs). |
 | `surfaceTools/surfaceMorpherCells` | 1139 | ported (2026-11-05, gh:#1267) | `topology::surface_morpher_cells` | ~~not ported~~ `surfacePreparation`: one boundary face per cell. Serial; adds an iteration guard upstream lacks. |
 | `intersectionTools/findCellsIntersectingSurface` | 501 | not ported | — | No caller in `meshLibrary/` at this commit (grep). |
 
@@ -199,8 +203,8 @@ _Subtotal: 18221 lines._
 | `boundaryLayers/boundaryLayers` | 4229 | partial | `layers::layer_setup`, `layers::add_boundary_layers_adaptive_on_patches`; **`layers::boundary_layers::boundary_layers_add_layer` (2026-11-05, gh:#1270)** | Ported: the per-patch border rules; ~~missing `boundaryLayersCreateVertices`, `boundaryLayerCells`~~ **CORRECTED 2026-11-05 (gh:#1270):** the one-group creation route (`findPatchVertices`, `createNewVertex`, `createNewVertices(boolList)`, `createNewFacesAndCells`) is ported beside the crate's shrink. Missing: `findPatchesToBeTreatedTogether`, the patch-wise route (`createNewVertices(labelList)`, `createLayerCells`, `boundaryLayerCells.C`), `checkTopologyOfBndFaces`, `addWrapperLayer`, 2D, MPI. |
 | `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::refine_boundary_layers::refine_boundary_layers` (2026-11-05, gh:#1271); `layers::build_layered_variable` | ~~Only "split each hair by the grading"~~ **CORRECTED 2026-11-05 (gh:#1271):** the settings (global and per-patch `nLayers`, `thicknessRatio`, `maxFirstLayerThickness`, `allowDiscontinuity`), `analyseLayers` and `generateNewVertices` are ported, with the split of prism layer cells. Missing: `refineEdgeHexCell`, `refineCornerHexCell` and the general `refineBoundaryLayersFaces`/`Cells` (refused as `NotPorted`), `activateSpecialMode`, `pointsInBndLayer`, 2D, MPI. |
 | `boundaryLayers/detectBoundaryLayers` | 989 | ported (2026-11-05, gh:#1271) | `layers::refine_boundary_layers::detect_boundary_layers` | ~~not ported~~ Serial. |
-| `boundaryLayers/extrudeLayer` | 1915 | not ported | — |  |
-| `boundaryLayers/triangulateNonPlanarBaseFaces` | 357 | not ported | — |  |
+| `boundaryLayers/extrudeLayer` | 1915 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `layers::extrude_layer` | Serial (the MPI half is not applicable). Edge and corner cells (self-intersecting layers) transcribed, not reached by any test. |
+| `boundaryLayers/triangulateNonPlanarBaseFaces` | 357 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `layers::triangulate_non_planar_base_faces` | No upstream caller at this commit; none here. |
 
 _Subtotal: 12656 lines._
 
@@ -234,8 +238,8 @@ _Subtotal: 5283 lines._
 | `triSurfaceTools/triSurfaceCopyParts` | 412 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::copy_surface_parts` | ~~not ported~~ |
 | `triSurfaceTools/triSurfaceRemoveFacets` | 377 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::TriSurfaceRemoveFacets` | ~~not ported~~ |
 | `triSurfaceTools/triSurfaceImportSurfaceAsSubset` | 343 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::import_surface_as_subset` | ~~not ported~~ |
-| `triSurfaceTools/triSurfaceExtrude2DEdges` | 201 | not ported | — | 2D workflow. |
-| `triSurfaceTools/triSurface2DCheck` | 264 | not ported | — | 2D workflow. |
+| `triSurfaceTools/triSurfaceExtrude2DEdges` | 201 | ~~not ported~~ **ported (2026-11-05, gh:#1275)** | `tri_surface_2d::extrude_2d_edges` | Optional region per edge (upstream: all `patch0`). |
+| `triSurfaceTools/triSurface2DCheck` | 264 | ~~not ported~~ **partial (2026-11-05, gh:#1275)** | `tri_surface_2d::is_2d_surface` | `is2DSurface` ported; `createSubsets` not. On a rectangle the check is decided by round-off in another crate's eigen routine (gh:#1275 README, D1). |
 | `triSurfaceTools/triSurfaceMetaData` | 233 | not applicable | — | FMS metadata. |
 | `helperClasses/sortEdgesIntoChains` | 425 | ported (gh:#1260) | `mesh_untangler::sort_edges_into_chains` | ~~not ported~~. Used by `tieBreak` (and upstream by `checkIrregularSurfaceConnections`, item 14). |
 | `helperClasses/geometry/quadricFitting` | 487 | **ported (2026-11-05, gh:#1278)** | `surface::curvature::QuadricFitting`, `lu_solve` | ~~not ported~~ Feeds `triSurfaceCurvatureEstimator`, its only caller, which uses the constructor with a given normal; the eigenvector constructor (`calculateNormalVector`) has no caller and is not ported. |
@@ -246,10 +250,10 @@ _Subtotal: 7872 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `anisotropicMeshing/coordinateModification` | 1686 | not ported | — | `anisotropicSources` (box/plane scaling). |
-| `anisotropicMeshing/edgeMeshGeometryModification` | 255 | not ported | — |  |
-| `anisotropicMeshing/polyMeshGenGeometryModification` | 241 | not ported | — |  |
-| `anisotropicMeshing/surfaceMeshGeometryModification` | 377 | not ported | — |  |
+| `anisotropicMeshing/coordinateModification` | 1686 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic` (`Modification`, `BoxScaling`, `PlaneScaling`, `CoordinateModifier`) | `anisotropicSources` (box/plane scaling). The dictionary reader is not ported (structs). No generator calls it. |
+| `anisotropicMeshing/edgeMeshGeometryModification` | 255 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::{modify_points, revert_points}` | An edge mesh's points through the modifier. |
+| `anisotropicMeshing/polyMeshGenGeometryModification` | 241 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::{modify_points, revert_points}` |  |
+| `anisotropicMeshing/surfaceMeshGeometryModification` | 377 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::modify_surface` | A cloned `TriSurf` with moved points (its addressing is topological). |
 
 _Subtotal: 2559 lines._
 
@@ -273,11 +277,11 @@ _Subtotal: 15594 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `generateBoundaryLayers` | 158 | not ported | — | `boundaryLayers` + `refineBoundaryLayers` on an existing mesh. |
-| `improveMeshQuality` | 145 | not ported | — (library calls exist: `untangle_mesh_fv`, `optimize_low_quality_faces`) |  |
-| `improveSymmetryPlanes` | 65 | not ported | — |  |
-| `scaleMesh` | 83 | not ported | — |  |
-| `scaleSurfaceMesh` | 81 | not ported | — |  |
+| `generateBoundaryLayers` | 158 | ~~not ported~~ **partial (2026-11-05, gh:#1280)** | `mesh_utilities::generate_boundary_layers` | `boundaryLayers` + `refineBoundaryLayers` on an existing mesh. Missing: `optimizeBoundaryLayer`/`untangleBoundaryLayer` (only inside the `CfMeshOptimise` strategy), 2D. |
+| `improveMeshQuality` | 145 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `mesh_utilities::improve_mesh_quality` |  |
+| `improveSymmetryPlanes` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1280)** | `mesh_utilities::improve_symmetry_planes` |  |
+| `scaleMesh` | 83 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::scale_points` |  |
+| `scaleSurfaceMesh` | 81 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::scale_points` |  |
 | `surfaceFeatureEdges` | 103 | **ported (2026-11-05, gh:#1276)** | `surface::features::surface_feature_edges` | `triSurfaceDetectFeatureEdges` + `triSurfacePatchManipulator`. |
 | `checkSurfaceMesh` | 242 | **ported (2026-11-05, gh:#1277)** | `surface::checks::check_surface_mesh` |  |
 | `copySurfaceParts` | 87 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::copy_surface_parts` |  |
@@ -287,7 +291,7 @@ _Subtotal: 15594 lines._
 | `patchesToSubsets` | 91 | **ported (2026-11-05, gh:#1276)** | `surface::features::patches_to_subsets` |  |
 | `removeSurfaceFacets` | 80 | **ported (2026-11-05, gh:#1277)** | `surface::cleanup::remove_surface_facets` |  |
 | `subsetToPatch` | 178 | **ported (2026-11-05, gh:#1276)** | `surface::features::subset_to_patch` (upstream's intent: its text discards the result) |  |
-| `surfaceGenerateBoundingBox` | 185 | not ported | — |  |
+| `surfaceGenerateBoundingBox` | 185 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::surface_generate_bounding_box` |  |
 | `FMSToSurface, FMSToVTK, FLMAToSurface, surfaceToFMS, meshToFPMA` | 1318 | not applicable | — | FMS/FLMA/FPMA/VTK file formats. |
 | `preparePar` | 117 | not applicable | — | MPI decomposition. |
 
@@ -972,6 +976,64 @@ It reuses `tet_mesh`'s `create_octree`, `SavedMesh`, `PatchAssignment` and
   - the surface optimiser's `enforceConstraints`;
   - `anisotropicSources`;
   - `triSurfacePatchManipulator`.
+
+### Item 21 (gh:#1275), 2026-11-05
+
+New entry point `pipeline::cartesian_2d_mesh` (`cartesian2DMeshGenerator`).
+The quadtree is in `mesh_octree` / `mesh_octree_queries`, and the empty
+patches in `cartesian_mesh::create_empty_patches`. The new modules are
+`poly_mesh_gen_2d_engine`, `surface_mapper_2d` (`meshSurfaceMapper2D` and
+`meshSurfaceEdgeExtractor2D`) and `tri_surface_2d`. No default changed: a
+non-quadtree octree takes every old branch, and all the pins pass.
+
+- **Test, the channel `[0, 1] x [0, 0.25]` at 0.05:**
+  - It is one cell thick: every point lies exactly on z = 0 or z = Δz, and
+    every cell has one face in each empty patch.
+  - The area is L x H to 4e-16.
+  - It is closed, with 0 non-positive cells.
+  - The template's x-y layout equals the 3D `cartesian_mesh` template's
+    mid-plane, all 95 nodes to 1e-9.
+  - The finished layouts differ by up to 0.6 cell, because the 3D route's
+    Laplacian moves the nodes and the 2D route has none.
+- **Misses:**
+  - D1: `is2DSurface` on a rectangle, through another crate's eigen
+    routine.
+  - D5: the finished layouts.
+- **Not ported:**
+  - `optimizeSurface2D` and `untangleSurface2D`;
+  - the 2D `refineBoundaryLayers`;
+  - the patch-wise layer;
+  - `triSurface2DCheck::createSubsets`;
+  - `utilities/extrudeEdgesInto2DSurface`.
+
+### Items 25, 26 and 27 (gh:#1279, #1280, #1281), and gh:#1286, 2026-11-05
+
+- **gh:#1286.** The tet-dual pipeline's stage gate (`pipeline::acceptable`)
+  now also refuses a face below `VSMALL` (`poly_mesh_gen_checks::check_face_areas`,
+  the check upstream's `findBadFaces` runs) and a non-finite point. It had
+  kept gh:#1283's `bmE` mesh at h 4 mm with two zero-area (collinear)
+  internal triangles. Pins unchanged. Record: the gh:#1286 section of
+  `laminar_pipe_gh1155.md`.
+- **Item 26 (gh:#1280).** `layers::extrude_layer` (`extrudeLayer`),
+  `layers::triangulate_non_planar_base_faces`, `symmetry_plane_optimisation`
+  (wired into `rename_boundary_patches`, as upstream), and
+  `mesh_utilities` (`improveMeshQuality`, `improveSymmetryPlanes`,
+  `generateBoundaryLayers` partial). `patchesToSubsets` / `subsetToPatch`
+  were already ported by the surface track.
+- **Item 27 (gh:#1281).** `fundamental_sheets` (JFS, FJ);
+  `meshSurfaceEdgeExtractorFUN` now runs `createFundamentalSheetsJFS` in
+  `p_mesh` by default (`TetMeshOptions::fun_sheets`; `FunSheets::Without`
+  keeps the gh:#1269 route). `p_mesh` re-measured: pipe 4 303 → 9 781
+  cells, −0.325 % → −0.320 %, max non-orthogonality 55.29° → 58.24°.
+  `helperFunctionsTopologyManipulation` (829, listed with item 27) is not
+  used by these classes (grep) and is not ported.
+- **Item 25 (gh:#1279).** `anisotropic`: box and plane scaling with their
+  inverse, the coordinate modifier and its validity check, the geometry
+  modifications, `scaleMesh`, `scaleSurfaceMesh`,
+  `surfaceGenerateBoundingBox`. Modify then revert: 2.5e-16 at worst. Not
+  wired into any generator.
+- Record, predictions against results (misses included) and images:
+  `verification_and_validation/fundamental_sheets_gh1281/README.md`.
 
 ### Item 24, rest, and the octree remainders (gh:#1278, gh:#1264–#1266), 2026-11-05
 

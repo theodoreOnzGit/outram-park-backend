@@ -180,8 +180,11 @@ See the `pipeline::tet_mesh` docs for the step-by-step table.
 - `edgeExtractor` (patch assignment): the nearest triangle stands in.
 - `boundaryLayers`, `refineBoundaryLayers` (layers track): not offered. The
   workflow runs as upstream does without a `boundaryLayers` dict.
-- `symmetryPlaneOptimisation` in `renameBoundaryPatches`: reported, not run.
-- `anisotropicSources`, `triSurfacePatchManipulator`, and `meshDict` and
+- ~~`symmetryPlaneOptimisation` in `renameBoundaryPatches`: reported, not run.~~
+  **CORRECTED 2026-11-05 (gh:#1280):** run (`symmetry_plane_optimisation`);
+  no case here has a `symmetryPlane` patch, so no number above moves.
+- `anisotropicSources` (~~not ported~~ the classes are ported since
+  gh:#1279, `anisotropic`, but not wired into the workflow), `triSurfacePatchManipulator`, and `meshDict` and
   mesh file I/O (a restart holds the mesh in memory).
 
 ## Upstream defects found (none filed; for the maintainer)
@@ -238,7 +241,8 @@ the gaps.
   `correctEdgesBetweenPatches` changed nothing on this mesh.
 - Upstream steps still not in the workflow: `edgeExtractor` (the nearest
   triangle stands in), `boundaryLayers` / `refineBoundaryLayers` (no dict),
-  `symmetryPlaneOptimisation`.
+  ~~`symmetryPlaneOptimisation`~~ (run since gh:#1280; no `symmetryPlane`
+  patch here).
 
 The images above were regenerated after this re-run.
 ~~"In the `tet_mesh` images the boundary is still on the octree"~~

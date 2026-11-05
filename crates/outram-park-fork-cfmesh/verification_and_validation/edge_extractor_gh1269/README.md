@@ -188,8 +188,10 @@ the faces across the θ = 0 seam (dropped from the unrolled views).
 
 `findEdgeCandidates`, `checkConcaveEdgeCells` (needs `triSurfaceClassifyEdges`),
 `findCornerCandidates`, `checkCorners`, `cornerEvaluator` (no caller upstream
-for any of them); the MPI branches; `createFundamentalSheetsJFS` in
-`meshSurfaceEdgeExtractorFUN` (needs `extrudeLayer`, item 26). The tet-dual
+for any of them); the MPI branches; ~~`createFundamentalSheetsJFS` in
+`meshSurfaceEdgeExtractorFUN` (needs `extrudeLayer`, item 26)~~
+(**CORRECTED 2026-11-05:** ported and run since gh:#1280/#1281, record
+`../fundamental_sheets_gh1281/`). The tet-dual
 pipeline (`surface_to_tet_dual_mesh_multipatch`) still assigns by the
 nearest triangle; the extractor is not wired there (not an upstream
 workflow).

@@ -26,15 +26,20 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-//! cfMesh's **`meshSurfaceEdgeExtractorFUN`** (gh:#1269): the
-//! `edgeExtraction` step of the `pMesh` workflow
+//! cfMesh's **`meshSurfaceEdgeExtractorFUN`** (gh:#1269, completed gh:#1281):
+//! the `edgeExtraction` step of the `pMesh` workflow
 //! (`voronoiMeshGenerator::mapEdgesAndCorners`, `createWrapperSheet =
 //! false`). Its constructor runs:
 //!
-//! 1. `createBasicFundamentalSheets`: `createFundamentalSheetsJFS`, a layer
-//!    of cells along the patch borders. **Not ported**: it is built on
-//!    `extrudeLayer` (1,915 lines, item 26 of `docs/upstream_coverage.md`),
-//!    which is not ported. Reported in [`FunReport::sheets_not_created`].
+//! 1. `createBasicFundamentalSheets`: `createFundamentalSheetsJFS`, layers
+//!    of cells that wrap each patch's cells
+//!    ([`crate::fundamental_sheets`], on `extrudeLayer`,
+//!    [`crate::layers::extrude_layer`]). ~~**Not ported**~~ **PORTED
+//!    2026-11-05 (gh:#1280, #1281)**, and run by default;
+//!    [`FunSheets::Without`] is the ablation (the gh:#1269 behaviour, kept
+//!    for the differential). Upstream aborts on an `extrudeLayer`
+//!    `FatalError`; here the error is reported in [`FunReport::sheets`] and
+//!    the step goes on without the sheets.
 //! 2. `smoothMeshSurface`: `meshSurfaceOptimizer(mse, octree)
 //!    .optimizeSurface()` (5 iterations):
 //!    [`crate::surface_optimizer::optimise_mesh_surface`].
@@ -42,31 +47,74 @@
 //!    .mapVerticesOntoSurfacePatches()`:
 //!    [`crate::surface_mapper::map_vertices_onto_surface_patches_given`].
 //!
-//! Both use the mesh's own patches (`edgeExtractor`'s, in `pMesh`).
-//! `distributeBoundaryFaces` (nearest patch per face centre),
-//! `improveQualityOfFundamentalSheets`, `reviseCorners` and `reviseEdges`
-//! have no caller (the last two are empty upstream); not ported.
+//! All three use the mesh's own patches (`edgeExtractor`'s, in `pMesh`).
+//! The sheets add boundary faces, so the per-face patches change: the new
+//! list is returned. `distributeBoundaryFaces` (nearest patch per face
+//! centre), `improveQualityOfFundamentalSheets`, `reviseCorners` and
+//! `reviseEdges` have no caller (the last two are empty upstream); not
+//! ported.
 
+use crate::fundamental_sheets::{create_fundamental_sheets, SheetsKind, SheetsReport};
+use crate::layers::extrude_layer::ExtrudeLayerError;
 use crate::math::Vec3;
 use crate::patches::SurfaceRegions;
 use crate::surface_mapper::map_vertices_onto_surface_patches_given;
 use crate::surface_optimizer::{optimise_mesh_surface, UntangleReport};
+use crate::topology::TopoMesh;
 use crate::volume_mesh::VolumeMesh;
+
+/// Whether `createBasicFundamentalSheets` runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FunSheets {
+    /// Upstream: `createFundamentalSheetsJFS(mesh, createWrapperSheet)`.
+    #[default]
+    Jfs,
+    /// Ablation: no sheets (the gh:#1269 behaviour).
+    Without,
+}
 
 /// What [`mesh_surface_edge_extractor_fun`] did.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunReport {
-    /// Always `true`: `createFundamentalSheetsJFS` is not ported.
-    pub sheets_not_created: bool,
+    /// The sheets: `None` when ablated, the error when `extrudeLayer`
+    /// stopped (the step then went on without them).
+    pub sheets: Option<Result<SheetsReport, ExtrudeLayerError>>,
     /// `smoothMeshSurface`'s `optimizeSurface`.
     pub smoothing: UntangleReport,
 }
 
-/// `meshSurfaceEdgeExtractorFUN(mesh, octree, false)` on `mesh`, whose
-/// boundary face `f` is in surface region `face_region[f]` (`None` inside),
-/// with the sheet step missing (module docs).
-pub fn mesh_surface_edge_extractor_fun(mesh: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions, face_region: &[Option<usize>]) -> FunReport {
-    let smoothing = optimise_mesh_surface(mesh, points, tris, regions, face_region);
-    *mesh = map_vertices_onto_surface_patches_given(mesh, points, tris, regions, face_region);
-    FunReport { sheets_not_created: true, smoothing }
+/// `meshSurfaceEdgeExtractorFUN(mesh, octree, createWrapperSheet)` on
+/// `mesh`, whose boundary face `f` is in surface region `face_region[f]`
+/// (`None` inside). Returns the report and the per-face regions of the new
+/// mesh.
+pub fn mesh_surface_edge_extractor_fun(
+    mesh: &mut VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    face_region: &[Option<usize>],
+    sheets: FunSheets,
+    create_wrapper_sheet: bool,
+) -> (FunReport, Vec<Option<usize>>) {
+    let mut given = face_region.to_vec();
+    let sheets_result = match sheets {
+        FunSheets::Without => None,
+        FunSheets::Jfs => {
+            let mut w = TopoMesh::from_volume_mesh(mesh);
+            w.region = face_region.to_vec();
+            w.patch_names = regions.names.clone();
+            Some(match create_fundamental_sheets(&w, SheetsKind::Jfs, create_wrapper_sheet) {
+                Ok((out, r)) => {
+                    let (m, g) = out.into_volume_mesh();
+                    *mesh = m;
+                    given = g.into_iter().map(|r| r.filter(|&r| r < regions.names.len())).collect();
+                    Ok(r)
+                }
+                Err(e) => Err(e),
+            })
+        }
+    };
+    let smoothing = optimise_mesh_surface(mesh, points, tris, regions, &given);
+    *mesh = map_vertices_onto_surface_patches_given(mesh, points, tris, regions, &given);
+    (FunReport { sheets: sheets_result, smoothing }, given)
 }

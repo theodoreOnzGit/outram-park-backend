@@ -24,7 +24,11 @@ use outram_park_fork_cfmesh::mesh_octree_creator::MeshDict;
 use outram_park_fork_cfmesh::patches::SurfaceRegions;
 use outram_park_fork_cfmesh::pipeline::p_mesh::p_mesh;
 use outram_park_fork_cfmesh::pipeline::tet_mesh::{create_octree, tet_mesh, TetMeshOptions};
-use outram_park_fork_cfmesh::shapes::{cylinder_surface, sphere_surface};
+use outram_park_fork_cfmesh::cartesian::cartesian_box;
+use outram_park_fork_cfmesh::fundamental_sheets::{create_fundamental_sheets, SheetsKind};
+use outram_park_fork_cfmesh::mesh_surface_edge_extractor_fun::FunSheets;
+use outram_park_fork_cfmesh::shapes::{box_surface, cylinder_surface, sphere_surface};
+use outram_park_fork_cfmesh::topology::TopoMesh;
 use outram_park_fork_cfmesh::tet_creator_octree::tet_creator_octree;
 use outram_park_fork_cfmesh::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
 use outram_park_fork_cfmesh::voronoi_mesh_extractor::voronoi_mesh_extractor;
@@ -457,4 +461,27 @@ fn main() {
     let og = create_octree(&pp, &pt, Some(&pr), &graded);
     let tg = tet_mesh_extractor_octree(&tet_creator_octree(&og)).expect("graded template").mesh;
     draw(&og, &xy, Colouring::Level, Some(&tg), "PIPE GRADED TET TEMPLATE", &p("pipe_xy_graded_tet_template.png"));
+
+    // gh:#1281: pMesh with and without createFundamentalSheetsJFS, and the
+    // rim (inlet corner) in x-z.
+    let without = TetMeshOptions { fun_sheets: FunSheets::Without, ..opts.clone() };
+    let (pw, _) = p_mesh(&pp, &pt, Some(&pr), &without).expect("p_mesh without sheets");
+    draw(&o, &xy, Colouring::Type, Some(&pw), "PIPE PMESH WITHOUT SHEETS", &p("pipe_xy_p_mesh_without_sheets.png"));
+    let rim = Slice { axis: 1, at: 0.0001, lo: (0.004, -0.002), hi: (0.0115, 0.0055), px: 900 };
+    draw(&o, &rim, Colouring::Type, Some(&pm), "PIPE PMESH RIM", &p("pipe_xz_rim_p_mesh.png"));
+    draw(&o, &rim, Colouring::Type, Some(&pw), "PIPE PMESH RIM WITHOUT SHEETS", &p("pipe_xz_rim_p_mesh_without_sheets.png"));
+
+    // gh:#1280/#1281: the fundamental sheets on a 3x3x3 unit box with six
+    // patches (the unit tests' case), z = 0.5 and z = 0.02 slices.
+    let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+    let ob = create_octree(&bp, &bt, None, &MeshDict::with_max_cell_size(0.5));
+    let bw = TopoMesh::from_volume_mesh(&cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [3, 3, 3]));
+    let bz = Slice { axis: 2, at: 0.5, lo: (-0.15, -0.15), hi: (1.15, 1.15), px: 900 };
+    let bz0 = Slice { axis: 2, at: 0.02, lo: (-0.15, -0.15), hi: (1.15, 1.15), px: 900 };
+    for (kind, wrapper, name) in [(SheetsKind::Jfs, false, "jfs"), (SheetsKind::Fj, true, "fj")] {
+        let (w, _) = create_fundamental_sheets(&bw, kind, wrapper).expect("sheets");
+        let (m, _) = w.into_volume_mesh();
+        draw(&ob, &bz, Colouring::Type, Some(&m), &format!("BOX 3X3X3 SHEETS {}", name.to_uppercase()), &p(&format!("box_xy_sheets_{name}.png")));
+        draw(&ob, &bz0, Colouring::Type, Some(&m), &format!("BOX 3X3X3 SHEETS {}", name.to_uppercase()), &p(&format!("box_xy_z002_sheets_{name}.png")));
+    }
 }

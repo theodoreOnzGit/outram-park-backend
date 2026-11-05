@@ -156,6 +156,12 @@ capture it re-maps the points that capture left off the surface on
 purpose and tangles the mesh (h 4 and h 6 mm on the pipe). Record: the
 gh:#1283 section of `laminar_pipe_gh1155.md`.
 
+**The stage gate refuses degenerate faces (gh:#1286, 2026-11-05).**
+`pipeline::acceptable` (what `keep_if_ok` applies to every stage) checks
+closure, cell volumes, and now cfMesh's `checkFaceAreas(VSMALL)` and
+finite points. Upstream has no such gate; it is the port's. A new stage
+check goes there, not into a stage of its own.
+
 ## cfMesh's octree, ported beside `octree.rs` (gh:#1262–#1266, 2026-11-05)
 
 `mesh_octree` (cubes, slot, surface intersections), `mesh_octree_queries`,
@@ -184,12 +190,18 @@ change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
 (~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
-~~`meshSurfaceEdgeExtractorFUN`~~ `createFundamentalSheetsJFS`) call what
+~~`meshSurfaceEdgeExtractorFUN`~~ ~~`createFundamentalSheetsJFS`~~) call what
 exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
+(gh:#1280, #1281):** `extrudeLayer` (`layers::extrude_layer`) and
+`createFundamentalSheets` (`fundamental_sheets`) are ported, and `pMesh`'s
+FUN runs `createFundamentalSheetsJFS` by default
+(`TetMeshOptions::fun_sheets`; `FunSheets::Without` is the ablation, the
+gh:#1269 route); `renameBoundaryPatches` runs `symmetryPlaneOptimisation`.
+Record: `verification_and_validation/fundamental_sheets_gh1281/`. **UPDATED 2026-11-05
 (gh:#1269):** `patchAssignment` runs `edge_extractor` (cfMesh's
 `edgeExtractor`, default) and `pMesh`'s `edgeExtraction` runs
-`mesh_surface_edge_extractor_fun` (without the fundamental sheets, which
-need `extrudeLayer`); `PatchAssignment::NearestTriangle` keeps the old
+`mesh_surface_edge_extractor_fun` (~~without the fundamental sheets, which
+need `extrudeLayer`~~ with them since gh:#1281); `PatchAssignment::NearestTriangle` keeps the old
 nearest-triangle rule callable for the differential. The tet-dual pipeline
 still names patches by the nearest triangle. Record:
 `verification_and_validation/edge_extractor_gh1269/`. When one of those lands, wire it in there and
@@ -255,3 +267,19 @@ edges). Upstream's proximity criterion needs the parts to be separate
 within `1.732 h`: a channel closed at its sides within that range is never
 refined. Record, the misses and the images:
 `verification_and_validation/octree_remainders_gh1278/`.
+
+## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
+
+`pipeline::cartesian_2d_mesh` is `cartesian2DMeshGenerator`. Its input is
+a ribbon surface (`tri_surface_2d::extrude_2d_edges`). Its octree is the
+**quadtree**: `MeshOctree::new_quadtree`, a root cube at `posZ = -10`
+whose every cube spans the root box in z, with 4 children and the slots
+4–7 set to `NO_CUBE`. **Any code that walks `sub_cubes` must skip
+`NO_CUBE`**, or use `existing_sub_cubes`.
+
+The 2D addressing is `poly_mesh_gen_2d_engine`, and the 2D mapping is
+`surface_mapper_2d`.
+
+`optimizeSurface2D`, `untangleSurface2D` and the 2D `refineBoundaryLayers`
+are not ported; the report says so at each step. Record:
+`verification_and_validation/cartesian_2d_mesh_gh1275/`.

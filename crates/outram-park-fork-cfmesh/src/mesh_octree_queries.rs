@@ -69,7 +69,7 @@
 
 use crate::math::Vec3;
 use crate::mesh_octree::{
-    help, mag_sqr, BoundBox, CubeCoordinates, CubeType, MeshOctree, EDGE_NODES, FACE_NODES, ROOT,
+    help, mag_sqr, BoundBox, CubeCoordinates, CubeType, MeshOctree, EDGE_NODES, FACE_NODES, NO_CUBE, ROOT,
     SMALL, VGREAT, VSMALL,
 };
 
@@ -175,9 +175,26 @@ pub const NEAREST_QUERY_MAX_TRIANGLES: usize = 8;
 /// The deepest level [`MeshOctree::for_nearest_queries`] refines to.
 pub const NEAREST_QUERY_MAX_LEVEL: u8 = 12;
 
-fn out_of_range(cc: &CubeCoordinates) -> bool {
+fn out_of_range(cc: &CubeCoordinates, root_z: Option<i64>) -> bool {
     let lim = 1i64 << cc.level;
-    cc.x >= lim || cc.x < 0 || cc.y >= lim || cc.y < 0 || cc.z >= lim || cc.z < 0
+    let z_out = match root_z {
+        // the quadtree: every cube keeps the root's posZ
+        Some(rz) => cc.z != rz,
+        None => cc.z >= lim || cc.z < 0,
+    };
+    cc.x >= lim || cc.x < 0 || cc.y >= lim || cc.y < 0 || z_out
+}
+
+impl MeshOctree {
+    /// The root's `posZ` for a quadtree (`initialCubePtr_->posZ()`),
+    /// `None` for an octree.
+    fn quadtree_root_z(&self) -> Option<i64> {
+        if self.is_quadtree {
+            Some(self.cube(ROOT).coords.z)
+        } else {
+            None
+        }
+    }
 }
 
 impl MeshOctree {
@@ -224,7 +241,7 @@ impl MeshOctree {
     /// cube at `cc`'s level, or the **coarser leaf** covering it if the walk
     /// reaches a leaf first. `None` outside the root.
     pub fn find_cube_for_position(&self, cc: &CubeCoordinates) -> Option<usize> {
-        if out_of_range(cc) {
+        if out_of_range(cc, self.quadtree_root_z()) {
             return None;
         }
         let mut ci = ROOT;
@@ -239,7 +256,7 @@ impl MeshOctree {
                     if cc.y & lim != 0 {
                         sc |= 2;
                     }
-                    if cc.z & lim != 0 {
+                    if !self.is_quadtree && cc.z & lim != 0 {
                         sc |= 4;
                     }
                     ci = subs[sc];
@@ -273,7 +290,7 @@ impl MeshOctree {
             if p.y >= c.y {
                 sc |= 2;
             }
-            if p.z >= c.z {
+            if !self.is_quadtree && p.z >= c.z {
                 sc |= 4;
             }
             ci = subs[sc];
@@ -287,7 +304,9 @@ impl MeshOctree {
         let mut sc = [None; 8];
         if let Some(subs) = self.sub_cubes(ci) {
             for (i, s) in subs.iter().enumerate() {
-                sc[i] = self.cube(*s).cube_label;
+                if *s != NO_CUBE {
+                    sc[i] = self.cube(*s).cube_label;
+                }
             }
         }
         sc
@@ -297,6 +316,9 @@ impl MeshOctree {
     /// at `cc`: the same-level or coarser leaf there, or, if that cube is
     /// refined, its child touching the node.
     pub fn find_neighbour_over_node(&self, cc: &CubeCoordinates, node: usize) -> Option<usize> {
+        if self.is_quadtree {
+            return None;
+        }
         let nc = cc.plus(&self.regularity_positions[18 + node]);
         let nei = self.find_cube_for_position(&nc)?;
         if self.cube(nei).is_leaf() {
@@ -310,18 +332,34 @@ impl MeshOctree {
     /// one same-level-or-coarser leaf, or the two children of a refined
     /// neighbour along that edge. `None` for "outside the root".
     pub fn find_neighbours_over_edge(&self, cc: &CubeCoordinates, e: usize, out: &mut Vec<Option<usize>>) {
+        if self.is_quadtree && e < 8 {
+            out.push(None);
+            return;
+        }
         let nc = cc.plus(&self.regularity_positions[6 + e]);
         match self.find_cube_for_position(&nc) {
             None => {
-                if out_of_range(&nc) {
+                if out_of_range(&nc, self.quadtree_root_z()) {
                     out.push(None);
                 }
             }
             Some(nei) if self.cube(nei).is_leaf() => out.push(self.cube(nei).cube_label),
             Some(nei) => {
                 let sc = self.child_labels(nei);
-                out.push(sc[7 - EDGE_NODES[e][1]]);
-                out.push(sc[7 - EDGE_NODES[e][0]]);
+                if !self.is_quadtree {
+                    out.push(sc[7 - EDGE_NODES[e][1]]);
+                    out.push(sc[7 - EDGE_NODES[e][0]]);
+                } else {
+                    // upstream appends only children that exist, and the
+                    // second only when it differs from the first
+                    let (a, b) = (sc[7 - EDGE_NODES[e][1]], sc[7 - EDGE_NODES[e][0]]);
+                    if a.is_some() {
+                        out.push(a);
+                    }
+                    if b.is_some() && b != a {
+                        out.push(b);
+                    }
+                }
             }
         }
     }
@@ -330,6 +368,10 @@ impl MeshOctree {
     /// (`-x, +x, -y, +y, -z, +z`): one leaf, or the four children of a
     /// refined neighbour on that face.
     pub fn find_neighbours_in_direction(&self, cc: &CubeCoordinates, dir: usize, out: &mut Vec<Option<usize>>) {
+        if self.is_quadtree && dir >= 4 {
+            out.push(None);
+            return;
+        }
         let mut n = *cc;
         match dir {
             0 => n.x -= 1,
@@ -341,7 +383,7 @@ impl MeshOctree {
         }
         match self.find_cube_for_position(&n) {
             None => {
-                if out_of_range(&n) {
+                if out_of_range(&n, self.quadtree_root_z()) {
                     out.push(None);
                 }
             }
@@ -349,6 +391,9 @@ impl MeshOctree {
             Some(nei) => {
                 let sc = self.child_labels(nei);
                 for i in 0..4 {
+                    if self.is_quadtree && sc[7 - FACE_NODES[dir][i]].is_none() {
+                        continue;
+                    }
                     out.push(sc[7 - FACE_NODES[dir][i]]);
                 }
             }
@@ -358,7 +403,8 @@ impl MeshOctree {
     /// `findNeighboursForLeaf`: neighbours over the 6 faces.
     pub fn find_neighbours_for_leaf(&self, cc: &CubeCoordinates) -> Vec<Option<usize>> {
         let mut out = Vec::new();
-        for d in 0..6 {
+        let n_faces = if self.is_quadtree { 4 } else { 6 };
+        for d in 0..n_faces {
             self.find_neighbours_in_direction(cc, d, &mut out);
         }
         out
@@ -368,6 +414,16 @@ impl MeshOctree {
     /// faces, in that order.
     pub fn find_all_leaf_neighbours(&self, cc: &CubeCoordinates) -> Vec<Option<usize>> {
         let mut out = Vec::new();
+        if self.is_quadtree {
+            // a quadtree leaf: neighbours over the 4 z edges, then 4 faces
+            for e in 8..12 {
+                self.find_neighbours_over_edge(cc, e, &mut out);
+            }
+            for d in 0..4 {
+                self.find_neighbours_in_direction(cc, d, &mut out);
+            }
+            return out;
+        }
         for n in 0..8 {
             out.push(self.find_neighbour_over_node(cc, n));
         }
