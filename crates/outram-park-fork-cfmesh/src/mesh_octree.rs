@@ -78,8 +78,13 @@
 //!
 //! # Not ported
 //!
-//! - The **quadtree** (`isQuadtree_`, `refineCube2D`, negative `posZ`): it
-//!   belongs to the 2D workflow (`docs/upstream_coverage.md` §4 item 21).
+//! - ~~The **quadtree** (`isQuadtree_`, `refineCube2D`, negative `posZ`)~~
+//!   **PORTED 2026-11-05 (gh:#1275):** [`MeshOctree::new_quadtree`]. The
+//!   root cube is `(0, 0, -10, 0)`; a negative `posZ` is never refined,
+//!   reduced or shifted in z, and its box spans the root box in z
+//!   (`cubeBox`); [`MeshOctree::refine_cube`] makes 4 children
+//!   (`refineCube2D`), the slots 4–7 holding [`NO_CUBE`] (upstream's
+//!   `nullptr`); the neighbour searches drop the z directions.
 //! - MPI: `procNo`, `refineMissingCube`, `purgeProcessorCubes`,
 //!   `findCoordinatesOfMissingCubes`, the neighbour-processor ranges.
 //! - The Hilbert tables `hOrder_` / `hOrient_`: declared upstream, used by no
@@ -541,19 +546,21 @@ impl CubeCoordinates {
     }
 
     /// `refineForPosition(i)`: the child at Z-order position `i` (bit 0 is
-    /// +x, bit 1 +y, bit 2 +z).
+    /// +x, bit 1 +y, bit 2 +z). A quadtree cube (negative `z`) keeps its `z`.
     pub fn refine_for_position(&self, i: usize) -> Self {
         let ax = (i & 1) as i64;
         let ay = ((i >> 1) & 1) as i64;
         let az = ((i >> 2) & 1) as i64;
-        CubeCoordinates::new(2 * self.x + ax, 2 * self.y + ay, 2 * self.z + az, self.level + 1)
+        let z = if self.z < 0 { self.z } else { 2 * self.z + az };
+        CubeCoordinates::new(2 * self.x + ax, 2 * self.y + ay, z, self.level + 1)
     }
 
     /// `reduceLevelBy(diff)`: the ancestor `diff` levels up (C integer
     /// division, as upstream).
     pub fn reduce_level_by(&self, diff: u8) -> Self {
         let d = 1i64 << diff;
-        CubeCoordinates::new(self.x / d, self.y / d, self.z / d, self.level - diff)
+        let z = if self.z < 0 { self.z } else { self.z / d };
+        CubeCoordinates::new(self.x / d, self.y / d, z, self.level - diff)
     }
 
     /// `reduceToLevel(l)`: the ancestor at level `l`.
@@ -564,7 +571,8 @@ impl CubeCoordinates {
     /// `increaseToLevelMin(l)`: the minimal descendant at level `l`.
     pub fn increase_to_level_min(&self, l: u8) -> Self {
         let d = l - self.level;
-        CubeCoordinates::new(self.x << d, self.y << d, self.z << d, l)
+        let z = if self.z < 0 { self.z } else { self.z << d };
+        CubeCoordinates::new(self.x << d, self.y << d, z, l)
     }
 
     /// `increaseToLevelMax(l)`: the maximal descendant at level `l`.
@@ -573,7 +581,7 @@ impl CubeCoordinates {
         CubeCoordinates::new(
             ((self.x + 1) << d) - 1,
             ((self.y + 1) << d) - 1,
-            ((self.z + 1) << d) - 1,
+            if self.z < 0 { self.z } else { ((self.z + 1) << d) - 1 },
             l,
         )
     }
@@ -583,15 +591,17 @@ impl CubeCoordinates {
         CubeCoordinates::new(self.x + o.x, self.y + o.y, self.z + o.z, self.level + o.level)
     }
 
-    /// `cubeBox`: the cube's corners in the root box.
+    /// `cubeBox`: the cube's corners in the root box. A quadtree cube
+    /// (negative `z`) spans the root box in z.
     pub fn cube_box(&self, root: &BoundBox) -> BoundBox {
         let shift = (1i64 << self.level) as f64;
         let dc = root.span();
-        let dc = Vec3::new(dc.x / shift, dc.y / shift, dc.z / shift);
+        let dz = if self.z >= 0 { dc.z / shift } else { dc.z };
+        let dc = Vec3::new(dc.x / shift, dc.y / shift, dz);
         let min = Vec3::new(
             root.min.x + dc.x * self.x as f64,
             root.min.y + dc.y * self.y as f64,
-            root.min.z + dc.z * self.z as f64,
+            if self.z >= 0 { root.min.z + dc.z * self.z as f64 } else { root.min.z },
         );
         BoundBox::new(min, min.add(dc))
     }
@@ -897,7 +907,13 @@ pub struct MeshOctree {
     /// cube, one level finer than the neighbours searched) of the leaves
     /// sharing it.
     pub vrt_leaves_pos: [[CubeCoordinates; 8]; 8],
+    /// `isQuadtree_` (gh:#1275): the 2D workflow's quadtree.
+    pub is_quadtree: bool,
 }
+
+/// An empty child slot of a quadtree cube (upstream's `nullptr` in
+/// `childCubes_` slots 4–7).
+pub const NO_CUBE: usize = usize::MAX;
 
 /// Index of the root cube in [`OctreeSlot::cubes`].
 pub const ROOT: usize = 0;
@@ -936,7 +952,23 @@ impl MeshOctree {
             octant_vectors,
             regularity_positions,
             vrt_leaves_pos,
+            is_quadtree: false,
         }
+    }
+
+    /// `meshOctree(surf, true)` (gh:#1275): the quadtree of the 2D
+    /// workflow. The root box is [`MeshOctree::new`]'s; the root cube is
+    /// `(0, 0, -10, 0)`, so every cube spans the root box in z.
+    pub fn new_quadtree(surface: Arc<TriSurf>) -> Self {
+        let mut o = MeshOctree::new(surface);
+        o.is_quadtree = true;
+        o.slot.cubes[ROOT].coords = CubeCoordinates::new(0, 0, -10, 0);
+        o
+    }
+
+    /// The children of cube `i` that exist (4 for a quadtree cube).
+    pub fn existing_sub_cubes(&self, i: usize) -> Vec<usize> {
+        self.sub_cubes(i).map_or(Vec::new(), |s| s.into_iter().filter(|&c| c != NO_CUBE).collect())
     }
 
     /// The cube at slot index `i`.
@@ -1012,8 +1044,10 @@ impl MeshOctree {
     pub fn refine_cube(&mut self, ci: usize) {
         let parent = self.slot.cubes[ci].clone();
         self.slot.cubes[ci].cube_label = None;
-        let mut subs = [0usize; 8];
-        for (sc, s) in subs.iter_mut().enumerate() {
+        // refineCube2D: 4 children, slots 4-7 empty
+        let n_sub = if self.is_quadtree { 4 } else { 8 };
+        let mut subs = [NO_CUBE; 8];
+        for (sc, s) in subs.iter_mut().enumerate().take(n_sub) {
             let mut child = OctreeCube::new(parent.coords.refine_for_position(sc));
             child.cube_type = parent.cube_type;
             *s = self.slot.cubes.len();
@@ -1032,7 +1066,7 @@ impl MeshOctree {
         let elements = self.slot.contained_triangles[er].clone();
         for &t in &elements {
             let mut used = false;
-            for sc in 0..8 {
+            for sc in 0..n_sub {
                 if self.slot.cubes[subs[sc]].coords.intersects_triangle_exact(&surf, &root, t) {
                     used = true;
                     in_sub[sc].push(t);
@@ -1042,13 +1076,13 @@ impl MeshOctree {
                 self.slot.n_untransferred += 1;
             }
         }
-        for sc in 0..8 {
+        for sc in 0..n_sub {
             if !in_sub[sc].is_empty() {
                 self.slot.cubes[subs[sc]].contained_elements = Some(self.slot.contained_triangles.len());
                 self.slot.contained_triangles.push(std::mem::take(&mut in_sub[sc]));
             }
         }
-        for &s in &subs {
+        for &s in subs.iter().take(n_sub) {
             if self.slot.cubes[s].has_contained_elements() {
                 self.find_contained_edges(s);
             } else if self.slot.cubes[s].cube_type & CubeType::DATA != 0 {
@@ -1104,7 +1138,9 @@ impl MeshOctree {
             Some(subs) => {
                 self.slot.cubes[ci].cube_label = None;
                 for s in subs {
-                    self.find_leaves(s, leaves);
+                    if s != NO_CUBE {
+                        self.find_leaves(s, leaves);
+                    }
                 }
             }
         }
@@ -1124,7 +1160,9 @@ impl MeshOctree {
                 None => out.push(ci),
                 Some(subs) => {
                     for s in subs {
-                        self.leaves_in_box_from(s, bb, out);
+                        if s != NO_CUBE {
+                            self.leaves_in_box_from(s, bb, out);
+                        }
                     }
                 }
             }
@@ -1153,7 +1191,9 @@ impl MeshOctree {
                 }
                 Some(subs) => {
                     for s in subs {
-                        self.leaves_in_sphere_from(s, c, r, out);
+                        if s != NO_CUBE {
+                            self.leaves_in_sphere_from(s, c, r, out);
+                        }
                     }
                 }
             }
@@ -1172,7 +1212,7 @@ impl MeshOctree {
     /// tree, the root included.
     pub fn count_child_cubes(&self) -> usize {
         fn count(o: &MeshOctree, ci: usize) -> usize {
-            1 + o.sub_cubes(ci).map_or(0, |s| s.iter().map(|&c| count(o, c)).sum())
+            1 + o.existing_sub_cubes(ci).iter().map(|&c| count(o, c)).sum::<usize>()
         }
         count(self, ROOT)
     }
