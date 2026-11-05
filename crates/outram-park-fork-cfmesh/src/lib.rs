@@ -286,6 +286,7 @@ pub mod object_refinement;
 pub mod octree;
 pub mod patches;
 pub mod final_mesh;
+pub mod fundamental_sheets;
 pub mod pipeline;
 pub mod reactor;
 pub mod shapes;
