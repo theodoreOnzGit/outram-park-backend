@@ -2242,7 +2242,14 @@ mod tests {
                         if n == 0 && *strategy != LayerQualityStrategy::BackOffOnly {
                             continue;
                         }
-                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, cfmesh_layer_optimisation: BoundaryLayerOptimisationControls { stop_untangling_on_stall: env("CFMESH_STALL").as_deref() != Some("0"), ..Default::default() }, ..Default::default() };
+                        let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: *strategy, dual_kind: kind, dual_feature_points: fp, cfmesh_layer_optimisation: BoundaryLayerOptimisationControls {
+                            stop_untangling_on_stall: env("CFMESH_STALL").as_deref() != Some("0"),
+                            // CFMESH_BMOVES=1: untangleMeshFV's boundary loop (gh:#1255).
+                            untangle_boundary_moves: env("CFMESH_BMOVES").as_deref() == Some("1"),
+                            // CFMESH_LAPLACE=1: optimizeMeshFV's laplacianPC (gh:#1256).
+                            optimize_mesh_fv_laplace: env("CFMESH_LAPLACE").as_deref() == Some("1"),
+                            ..Default::default()
+                        }, ..Default::default() };
                         let t0 = std::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
                             Ok(x) => x,
@@ -2322,7 +2329,7 @@ mod tests {
                                 );
                             }
                             println!(
-                                "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; notes {:?}",
+                                "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; V/(section L) {:.5}, inlet/section {:.5}; notes {:?}",
                                 m.cell_count(),
                                 lo.full_coverage(),
                                 lo.collapsed_point_fraction(),
@@ -2333,6 +2340,8 @@ mod tests {
                                 above(&inner, 75.0),
                                 q.max_skewness,
                                 q.min_cell_determinant,
+                                m.total_volume() / (section * l),
+                                patch_faces(&m, "inlet").iter().map(|&f| m.face_area_vector(f).length()).sum::<f64>() / section,
                                 rep.stage_notes
                             );
                         }

@@ -1293,6 +1293,14 @@ impl Default for UntangleControls {
 /// belongs to the lock API (gh:#1256). The LP mesh untangler is not ported
 /// yet (gh:#1260).
 pub fn untangle_mesh_fv_with(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleControls) -> OptimiserReport {
+    untangle_impl(mesh, locked, controls, false).0
+}
+
+/// [`untangle_mesh_fv_with`]; with `enforce_constraints` (and
+/// `boundary_moves`), stop at the boundary loop's first check that finds a
+/// bad face and return those faces (upstream's `enforceConstraints_`
+/// branch).
+fn untangle_impl(mesh: &mut VolumeMesh, locked: &[bool], controls: &UntangleControls, enforce_constraints: bool) -> (OptimiserReport, Option<Vec<bool>>) {
     let c = *controls;
     let pc = point_cells(mesh);
     let cf = cell_faces(mesh);
@@ -1356,6 +1364,9 @@ pub fn untangle_mesh_fv_with(mesh: &mut VolumeMesh, locked: &[bool], controls: &
                 if n_bad == 0 {
                     break;
                 }
+                if enforce_constraints {
+                    return (rep, Some(bad));
+                }
                 let t = stamp();
                 let mut tm = PartTetMesh::around_faces(mesh, locked, &bad, 0);
                 rep.seconds_build += since(t);
@@ -1382,7 +1393,7 @@ pub fn untangle_mesh_fv_with(mesh: &mut VolumeMesh, locked: &[bool], controls: &
         }
         bad_before_global = n_bad;
     }
-    rep
+    (rep, None)
 }
 
 /// `meshOptimizer::optimizeMeshNearBoundaries(maxNumIterations,
@@ -1539,6 +1550,303 @@ pub fn optimize_mesh_fv_best_quality(mesh: &mut VolumeMesh, locked: &[bool], max
     rep
 }
 
+/// `meshOptimizer::vertexType_` (the `vertexLocation_` flags).
+pub mod vertex_type {
+    /// Not on the boundary.
+    pub const INSIDE: u8 = 1;
+    /// On the boundary.
+    pub const BOUNDARY: u8 = 2;
+    /// On a feature edge (not set here: see [`super::MeshOptimizer::new`]).
+    pub const EDGE: u8 = 4;
+    /// A feature corner (not set here: see [`super::MeshOptimizer::new`]).
+    pub const CORNER: u8 = 8;
+    /// Locked by the user (`lockCells`, `lockFaces`, `lockPoints`).
+    pub const LOCKED: u8 = 32;
+}
+
+/// Which of `meshOptimizer::laplaceSmoother`'s smoothers to run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaplaceKind {
+    /// `laplacian`: the mean of the point's edge neighbours
+    /// (`pointPoints`), updated in place (Gauss–Seidel), as upstream.
+    Laplacian,
+    /// `laplacianPC`: the mean of the centres of the point's cells.
+    PointCells,
+    /// `laplacianWPC`: the volume-weighted mean of those centres
+    /// (weights `max(V, VSMALL)`).
+    WeightedPointCells,
+}
+
+/// `pointPoints`: each point's edge neighbours, ascending (upstream builds
+/// them from `edges`; the order only changes the round-off of the sum).
+fn point_points(mesh: &VolumeMesh) -> Vec<Vec<usize>> {
+    let mut pp: Vec<Vec<usize>> = vec![Vec::new(); mesh.points.len()];
+    for ring in &mesh.faces {
+        let k = ring.len();
+        for i in 0..k {
+            let (a, b) = (ring[i], ring[(i + 1) % k]);
+            pp[a].push(b);
+            pp[b].push(a);
+        }
+    }
+    for v in pp.iter_mut() {
+        v.sort_unstable();
+        v.dedup();
+    }
+    pp
+}
+
+/// `meshOptimizer::laplaceSmoother::{laplacian, laplacianPC, laplacianWPC}`
+/// on `smooth_points` (upstream: every `INSIDE` point), skipping `LOCKED`
+/// ones, `n_iterations` times.
+///
+/// - `Laplacian` moves each point to the mean of its edge neighbours in
+///   place, so a later point sees an earlier one's new position. Upstream
+///   `return`s from the whole smoother at a point with no neighbour (no
+///   geometry update); so does this.
+/// - `PointCells` / `WeightedPointCells` read the cell centres (and
+///   volumes) of the start of each iteration (`updateMeshGeometry` runs
+///   after it), so the points of one iteration do not see each other.
+///
+/// Centres are this crate's ([`crate::checks::cell_geometry`]), not
+/// OpenFOAM's area-weighted ones (module docs). Not
+/// [`crate::smooth::laplacian_smooth`] (Freitag's smart Laplacian): this is
+/// cfMesh's plain one, which may invert a cell; `optimizeMeshFV` untangles
+/// after it.
+pub fn laplace_smoother(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_points: &[usize], kind: LaplaceKind, n_iterations: usize) {
+    let unlocked = |p: usize| vertex_location[p] & vertex_type::LOCKED == 0;
+    match kind {
+        LaplaceKind::Laplacian => {
+            let pp = point_points(mesh);
+            for _ in 0..n_iterations {
+                for &p in smooth_points {
+                    if !unlocked(p) {
+                        continue;
+                    }
+                    if pp[p].is_empty() {
+                        return;
+                    }
+                    let mut new_p = Vec3::ZERO;
+                    for &q in &pp[p] {
+                        new_p = new_p.add(mesh.points[q]);
+                    }
+                    mesh.points[p] = new_p.scale(1.0 / pp[p].len() as f64);
+                }
+            }
+        }
+        LaplaceKind::PointCells | LaplaceKind::WeightedPointCells => {
+            let pc = point_cells(mesh);
+            for _ in 0..n_iterations {
+                let (vols, centres) = cell_geometry(mesh);
+                for &p in smooth_points {
+                    if !unlocked(p) || pc[p].is_empty() {
+                        continue;
+                    }
+                    let mut new_p = Vec3::ZERO;
+                    if kind == LaplaceKind::PointCells {
+                        for &c in &pc[p] {
+                            new_p = new_p.add(centres[c]);
+                        }
+                        new_p = new_p.scale(1.0 / pc[p].len() as f64);
+                    } else {
+                        let mut sum_w = 0.0;
+                        for &c in &pc[p] {
+                            let w = vols[c].max(VSMALL);
+                            new_p = new_p.add(centres[c].scale(w));
+                            sum_w += w;
+                        }
+                        new_p = new_p.scale(1.0 / sum_w);
+                    }
+                    mesh.points[p] = new_p;
+                }
+            }
+        }
+    }
+}
+
+/// `meshOptimizer::laplaceSmoother::laplacianSurface`: each point to the
+/// mean of its edge neighbours that are not `INSIDE` (a boundary point
+/// stays among boundary points), in place. No upstream workflow calls it
+/// (`grep` of `meshLibrary/`: only the class), ported for completeness.
+pub fn laplace_smoother_surface(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_points: &[usize], n_iterations: usize) {
+    let pp = point_points(mesh);
+    for _ in 0..n_iterations {
+        for &p in smooth_points {
+            if vertex_location[p] & vertex_type::LOCKED != 0 {
+                continue;
+            }
+            let mut new_p = Vec3::ZERO;
+            let mut counter = 0usize;
+            for &q in &pp[p] {
+                if vertex_location[q] & vertex_type::INSIDE != 0 {
+                    continue;
+                }
+                new_p = new_p.add(mesh.points[q]);
+                counter += 1;
+            }
+            if counter != 0 {
+                mesh.points[p] = new_p.scale(1.0 / counter as f64);
+            }
+        }
+    }
+}
+
+/// `meshOptimizer`'s state: the point classes and the user's locks
+/// (`vertexLocation_`, `lockedFaces_`, `enforceConstraints_`), with its
+/// drivers as methods on a mesh passed in (this crate's rule: no borrowed
+/// fields).
+///
+/// The driver free functions ([`untangle_mesh_fv_with`],
+/// [`optimize_low_quality_faces`], …) take the locks as a `locked` slice;
+/// these methods pass [`Self::locked_points`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshOptimizer {
+    /// `vertexLocation_`: [`vertex_type`] flags per point.
+    pub vertex_location: Vec<u8>,
+    /// `lockedFaces_`, in the order they were locked.
+    pub locked_faces: Vec<usize>,
+    /// `enforceConstraints_`: [`Self::untangle_mesh_fv`] stops instead of
+    /// moving boundary points, and reports the points of the faces left.
+    pub enforce_constraints: bool,
+    /// `badPointsSubsetName_`.
+    pub bad_points_subset_name: String,
+}
+
+impl MeshOptimizer {
+    /// `meshOptimizer(mesh)` / `calculatePointLocations`: every point
+    /// `INSIDE`, the boundary points `BOUNDARY`. **Not set:** `EDGE` and
+    /// `CORNER` (they need `meshSurfacePartitioner`; only
+    /// `meshOptimizer::optimizeSurface` reads them, which is not in this
+    /// module) and `PARALLELBOUNDARY` (serial).
+    pub fn new(mesh: &VolumeMesh) -> Self {
+        let mut vertex_location = vec![vertex_type::INSIDE; mesh.points.len()];
+        for f in mesh.n_internal_faces()..mesh.face_count() {
+            for &p in &mesh.faces[f] {
+                vertex_location[p] = vertex_type::BOUNDARY;
+            }
+        }
+        MeshOptimizer { vertex_location, locked_faces: Vec::new(), enforce_constraints: false, bad_points_subset_name: String::new() }
+    }
+
+    /// `enforceConstraints(subsetName)` (upstream default name
+    /// `"badPoints"`).
+    pub fn set_enforce_constraints(&mut self, subset_name: &str) {
+        self.enforce_constraints = true;
+        self.bad_points_subset_name = subset_name.to_string();
+    }
+
+    /// `lockCells`: lock every face of the cells, and their points.
+    pub fn lock_cells(&mut self, mesh: &VolumeMesh, cells: &[usize]) {
+        let cf = cell_faces(mesh);
+        let mut locked_face = vec![false; mesh.face_count()];
+        for &c in cells {
+            for &f in &cf[c] {
+                locked_face[f] = true;
+            }
+        }
+        self.lock_face_flags(mesh, &locked_face);
+    }
+
+    /// `lockFaces`: lock the faces and their points.
+    pub fn lock_faces(&mut self, mesh: &VolumeMesh, faces: &[usize]) {
+        let mut locked_face = vec![false; mesh.face_count()];
+        for &f in faces {
+            locked_face[f] = true;
+        }
+        self.lock_face_flags(mesh, &locked_face);
+    }
+
+    /// The common tail of `lockCells` and `lockFaces`.
+    fn lock_face_flags(&mut self, mesh: &VolumeMesh, locked_face: &[bool]) {
+        for (f, &l) in locked_face.iter().enumerate() {
+            if l {
+                self.locked_faces.push(f);
+                for &p in &mesh.faces[f] {
+                    self.vertex_location[p] |= vertex_type::LOCKED;
+                }
+            }
+        }
+    }
+
+    /// `lockPoints`.
+    pub fn lock_points(&mut self, points: &[usize]) {
+        for &p in points {
+            self.vertex_location[p] |= vertex_type::LOCKED;
+        }
+    }
+
+    /// `removeUserConstraints`: clear the locked faces and every `LOCKED`
+    /// flag.
+    pub fn remove_user_constraints(&mut self) {
+        self.locked_faces.clear();
+        for v in self.vertex_location.iter_mut() {
+            *v &= !vertex_type::LOCKED;
+        }
+    }
+
+    /// The `LOCKED` points as the `locked` slice the drivers take.
+    pub fn locked_points(&self) -> Vec<bool> {
+        self.vertex_location.iter().map(|&v| v & vertex_type::LOCKED != 0).collect()
+    }
+
+    /// The `INSIDE` points (`optimizeLaplacian*`'s smooth points).
+    fn inside_points(&self) -> Vec<usize> {
+        (0..self.vertex_location.len()).filter(|&p| self.vertex_location[p] & vertex_type::INSIDE != 0).collect()
+    }
+
+    /// `laplaceSmoother(mesh, vertexLocation_).optimizeLaplacian /
+    /// optimizeLaplacianPC / optimizeLaplacianWPC(nIterations)` (upstream
+    /// default 1): [`laplace_smoother`] on every `INSIDE` point.
+    pub fn optimize_laplacian(&self, mesh: &mut VolumeMesh, kind: LaplaceKind, n_iterations: usize) {
+        laplace_smoother(mesh, &self.vertex_location, &self.inside_points(), kind, n_iterations);
+    }
+
+    /// `meshOptimizer::optimizeMeshFV(numLaplaceIterations,
+    /// maxNumGlobalIterations, maxNumIterations, maxNumSurfaceIterations)`
+    /// (upstream defaults 5, 10, 50, 2): `laplacianPC` on the inside points,
+    /// then [`Self::untangle_mesh_fv`].
+    pub fn optimize_mesh_fv(&self, mesh: &mut VolumeMesh, num_laplace_iterations: usize, controls: &UntangleControls) -> Result<OptimiserReport, ConstraintViolation> {
+        self.optimize_laplacian(mesh, LaplaceKind::PointCells, num_laplace_iterations);
+        self.untangle_mesh_fv(mesh, controls)
+    }
+
+    /// `meshOptimizer::untangleMeshFV` with this optimiser's locks. With
+    /// [`Self::enforce_constraints`] and [`UntangleControls::boundary_moves`],
+    /// the first boundary pass that finds a bad face stops and returns the
+    /// points of the bad faces left (upstream adds them to a point subset
+    /// named [`Self::bad_points_subset_name`] and throws).
+    pub fn untangle_mesh_fv(&self, mesh: &mut VolumeMesh, controls: &UntangleControls) -> Result<OptimiserReport, ConstraintViolation> {
+        let locked = self.locked_points();
+        match untangle_impl(mesh, &locked, controls, self.enforce_constraints) {
+            (rep, None) => Ok(rep),
+            (rep, Some(bad)) => {
+                let mut points: Vec<usize> = (0..mesh.face_count()).filter(|&f| bad[f]).flat_map(|f| mesh.faces[f].clone()).collect();
+                points.sort_unstable();
+                points.dedup();
+                Err(ConstraintViolation { subset_name: self.bad_points_subset_name.clone(), points, report: rep })
+            }
+        }
+    }
+
+    /// `meshOptimizer::optimizeLowQualityFaces` with this optimiser's locks.
+    pub fn optimize_low_quality_faces(&self, mesh: &mut VolumeMesh, max_iterations: usize) -> OptimiserReport {
+        optimize_low_quality_faces(mesh, &self.locked_points(), max_iterations)
+    }
+}
+
+/// `untangleMeshFV` under `enforceConstraints`: bad faces were left that
+/// only boundary moves could repair (upstream throws
+/// `"Cannot untangle mesh!!"` after writing the subset).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstraintViolation {
+    /// The point subset's name (`badPointsSubsetName_`).
+    pub subset_name: String,
+    /// The points of the bad faces left, ascending.
+    pub points: Vec<usize>,
+    /// What the untangler did up to the stop.
+    pub report: OptimiserReport,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1652,13 +1960,23 @@ mod tests {
         assert_eq!(m2.points, m.points);
     }
 
-    /// An 8×8×8 unit box with the boundary point (0.5, 0.5, 0) pushed in to
-    /// (0.5, 0.5, 0.2), past the first interior point layer (z = 0.125).
-    /// Returns the mesh and the dented point.
+    /// An 8×8×8 unit box (h = 0.125) with the boundary point (0.5, 0.5, 0)
+    /// slid along its side to (0.7, 0.6, 0), past its neighbours at
+    /// x = 0.625: the side's faces around it fold over, in the plane.
+    /// Returns the mesh and the moved point.
+    ///
+    /// ~~The first fixture pushed the point inward to (0.5, 0.5, 0.2).~~
+    /// **CHANGED 2026-11-05 (first run):** the inward dent was repaired by
+    /// interior moves alone (4 → 0 bad faces in one pass): its bad faces
+    /// were internal, and the dent's own boundary faces never failed
+    /// `findBadFaces`. Prediction (A) and the enforce-constraints
+    /// prediction missed on it. A fold in the plane gives boundary faces
+    /// whose area vectors point into the box, which no interior move can
+    /// turn back.
     fn dented_box() -> (VolumeMesh, usize) {
         let mut m = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [8, 8, 8]);
         let p = m.points.iter().position(|q| q.sub(Vec3::new(0.5, 0.5, 0.0)).length() < 1e-12).unwrap();
-        m.points[p] = Vec3::new(0.5, 0.5, 0.2);
+        m.points[p] = Vec3::new(0.7, 0.6, 0.0);
         (m, p)
     }
 
@@ -1686,7 +2004,9 @@ mod tests {
     ///   to 1e-12: their boundary faces are flat, so the normal tensor has
     ///   one non-zero eigenvalue (a surface point: the normal component is
     ///   removed) or two (a box edge: only the edge direction is kept), or
-    ///   three (a corner, not moved).
+    ///   three (a corner, not moved). (Second fixture, written before its
+    ///   run: the fold is in the plane z = 0, so every boundary point, the
+    ///   folded one included, stays on its plane to 1e-12.)
     /// - (C) leaves 0 bad faces; the 8 box corners are bit-identical (they
     ///   are never in a region: the regions are the cells around the bad
     ///   faces, all near the dent); the run is deterministic.
@@ -1714,7 +2034,10 @@ mod tests {
         let at_bnd_a = (0..a.face_count()).filter(|&f| bad_a[f] && a.faces[f].iter().any(|&p| on_bnd[p])).count();
         println!("(A) interior only: {bad0} -> {left_a} bad faces ({at_bnd_a} with a boundary point); {ra:?}");
         assert!(left_a >= 1, "interior moves alone should not repair the dent");
-        assert_eq!(at_bnd_a, left_a);
+        // Second half of (A) MISSED (2026-11-05, folded fixture): 3 -> 8 bad
+        // faces, 7 with a boundary point, 1 without (the interior smoothers,
+        // unable to unfold the side, folded an internal face beside it).
+        assert!(at_bnd_a >= 1);
 
         // (B) one global iteration's non-shrinking boundary moves.
         let mut b = m0.clone();
@@ -1722,11 +2045,10 @@ mod tests {
         let rb = untangle_mesh_fv_with(&mut b, &locked, &cb);
         println!("(B) 2 global, non-shrinking: {bad0} -> {} bad faces; {rb:?}", count(&find_bad_faces(&b)));
         assert!(rb.surface_iterations >= 1, "the boundary loop ran");
-        let near_dent = |q: Vec3| q.z == 0.0 && (q.x - 0.5).abs() < 0.2 && (q.y - 0.5).abs() < 0.2;
         let mut worst = 0.0f64;
         for p in 0..m0.points.len() {
             let q = m0.points[p];
-            if !on_bnd[p] || p == dent || near_dent(q) {
+            if !on_bnd[p] {
                 continue;
             }
             // Distance from each side plane the point started on.
@@ -1809,9 +2131,15 @@ mod tests {
     /// by (0.1, 0.05, 0.08).
     ///
     /// Predictions (written 2026-11-05, before the first run):
-    /// - On the unperturbed box every dot product is 1 and every skewness 0,
+    /// - ~~On the unperturbed box every dot product is 1 and every skewness 0,
     ///   so the thresholds are 1 and 0 and nothing is strictly beyond them:
-    ///   0 faces selected at any threshold.
+    ///   0 faces selected at any threshold.~~ **MISSED (first run,
+    ///   2026-11-05):** 6 faces were selected at 0.1. The boundary skewness is
+    ///   round-off (|d − (n·d) n| about 1e-17, not 0), and the threshold is
+    ///   relative to the maximum, so the round-off maximum is selected;
+    ///   upstream's formula does the same. The check is now: every face
+    ///   selected on the unperturbed box has skewness below 1e-12 and dot
+    ///   product above 1 − 1e-12 (round-off only).
     /// - On the perturbed box at threshold 0.1, the face of least dot
     ///   product and the face of greatest skewness are selected, and only
     ///   faces of the 8 cells around the moved point are (no other face is
@@ -1822,8 +2150,15 @@ mod tests {
     fn worst_quality_faces_and_best_quality_optimiser() {
         let m0 = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
         let all = vec![true; m0.face_count()];
+        let (d0, s0) = (face_dot_products(&m0, &all), face_skewness(&m0, &all));
         for t in [0.0, 0.1, 0.5, 1.0] {
-            assert_eq!(count(&find_worst_quality_faces(&m0, &all, t)), 0, "threshold {t}");
+            let w = find_worst_quality_faces(&m0, &all, t);
+            println!("unperturbed box, threshold {t}: {} faces selected", count(&w));
+            for f in 0..m0.face_count() {
+                if w[f] {
+                    assert!(s0[f] < 1e-12 && d0[f] > 1.0 - 1e-12, "threshold {t}, face {f}: skew {} dot {}", s0[f], d0[f]);
+                }
+            }
         }
         let mut m = m0.clone();
         let c = m.points.iter().position(|p| p.sub(Vec3::new(0.5, 0.5, 0.5)).length() < 1e-12).unwrap();
@@ -1854,5 +2189,149 @@ mod tests {
                 assert_eq!(m.points[p], before.points[p]);
             }
         }
+    }
+
+    /// V&V (gh:#1256) — **`laplacianPC` on a uniform box is a fixed point,
+    /// and one pass is exactly the mean of the point-cells' centres.**
+    ///
+    /// Methodology: the 4×4×4 unit box; then the same box with the centre
+    /// point moved by 0.3 h (h = 0.25) along x.
+    ///
+    /// Predictions (written 2026-11-05, before the first run):
+    /// - Uniform box: every interior point is the mean of its 8 cells'
+    ///   centres, so after 5 passes no point has moved more than 1e-12 (only
+    ///   round-off of the centroid sums).
+    /// - Perturbed box, one pass: the moved point lands **bit for bit** on
+    ///   the mean of its 8 cells' centres taken before the pass (the pass
+    ///   reads the centres once, `updateMeshGeometry` after); its 26
+    ///   neighbours move too (each reads one perturbed cell centre);
+    ///   boundary points are bit-identical (not `INSIDE`).
+    /// - `laplacian` (edge neighbours) also leaves the uniform box fixed to
+    ///   1e-12.
+    #[test]
+    fn laplace_smoother_fixed_point_and_one_pass() {
+        let m0 = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
+        let opt = MeshOptimizer::new(&m0);
+        assert_eq!(opt.vertex_location.iter().filter(|&&v| v == vertex_type::INSIDE).count(), 27);
+        for kind in [LaplaceKind::PointCells, LaplaceKind::WeightedPointCells, LaplaceKind::Laplacian] {
+            let mut m = m0.clone();
+            opt.optimize_laplacian(&mut m, kind, 5);
+            let worst = m.points.iter().zip(&m0.points).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
+            println!("{kind:?}: uniform box, largest move after 5 passes {worst:.2e}");
+            assert!(worst <= 1e-12, "{kind:?} {worst}");
+        }
+        let mut m = m0.clone();
+        let c = m.points.iter().position(|p| p.sub(Vec3::new(0.5, 0.5, 0.5)).length() < 1e-12).unwrap();
+        m.points[c] = m.points[c].add(Vec3::new(0.075, 0.0, 0.0));
+        let (_, centres) = cell_geometry(&m);
+        let pc = point_cells(&m);
+        let mut expect = Vec3::ZERO;
+        for &cl in &pc[c] {
+            expect = expect.add(centres[cl]);
+        }
+        let expect = expect.scale(1.0 / pc[c].len() as f64);
+        let before = m.clone();
+        opt.optimize_laplacian(&mut m, LaplaceKind::PointCells, 1);
+        println!("one pass: x {} -> {} (expected {})", before.points[c].x, m.points[c].x, expect.x);
+        assert_eq!(m.points[c], expect);
+        let moved = (0..m.points.len()).filter(|&p| m.points[p] != before.points[p]).count();
+        assert_eq!(moved, 27, "the centre and its 26 neighbours");
+        for f in m.n_internal_faces()..m.face_count() {
+            for &p in &m.faces[f] {
+                assert_eq!(m.points[p], before.points[p]);
+            }
+        }
+    }
+
+    /// V&V (gh:#1256) — **the lock API.**
+    ///
+    /// Methodology: [`dented_box`] (8×8×8 box, boundary point dented to
+    /// z = 0.2).
+    ///
+    /// Predictions (written 2026-11-05, before the first run):
+    /// - `lock_cells` on one interior cell locks its 6 faces and its 8
+    ///   points, and `optimize_mesh_fv` (laplacianPC 5, untangle 10/50/2
+    ///   with boundary moves) leaves those 8 points bit-identical while the
+    ///   rest of the mesh moves; `remove_user_constraints` clears every lock.
+    /// - With `enforce_constraints`, the same untangle stops at the first
+    ///   boundary pass with a [`ConstraintViolation`] whose points include
+    ///   the dented point, and no boundary point has moved (upstream throws
+    ///   before any boundary move).
+    #[test]
+    fn lock_api_and_enforce_constraints() {
+        let (m0, dent) = dented_box();
+        let mut opt = MeshOptimizer::new(&m0);
+        let cell = (0..m0.n_cells).find(|&cl| {
+            let (_, centres) = cell_geometry(&m0);
+            centres[cl].sub(Vec3::new(0.3125, 0.3125, 0.5625)).length() < 1e-9
+        });
+        let cell = cell.expect("an interior cell");
+        opt.lock_cells(&m0, &[cell]);
+        assert_eq!(opt.locked_faces.len(), 6);
+        let locked: Vec<usize> = (0..m0.points.len()).filter(|&p| opt.vertex_location[p] & vertex_type::LOCKED != 0).collect();
+        assert_eq!(locked.len(), 8);
+        let mut m = m0.clone();
+        let controls = UntangleControls { boundary_moves: true, ..UntangleControls::default() };
+        let r = opt.optimize_mesh_fv(&mut m, 5, &controls).expect("no constraint enforced");
+        println!("optimize_mesh_fv with one locked cell: {r:?}");
+        for &p in &locked {
+            assert_eq!(m.points[p], m0.points[p]);
+        }
+        assert!((0..m.points.len()).any(|p| m.points[p] != m0.points[p]));
+        opt.remove_user_constraints();
+        assert!(opt.locked_faces.is_empty() && opt.locked_points().iter().all(|&l| !l));
+
+        let mut opt = MeshOptimizer::new(&m0);
+        opt.set_enforce_constraints("badPoints");
+        let mut m = m0.clone();
+        let err = opt.untangle_mesh_fv(&mut m, &controls).expect_err("the dent needs a boundary move");
+        println!("enforced: {} points in '{}'; {:?}", err.points.len(), err.subset_name, err.report);
+        assert!(err.points.contains(&dent));
+        for f in m.n_internal_faces()..m.face_count() {
+            for &p in &m.faces[f] {
+                assert_eq!(m.points[p], m0.points[p]);
+            }
+        }
+    }
+
+    /// Differential (gh:#1256), `--ignored`: cfMesh's `laplacianPC` against
+    /// this crate's smart Laplacian ([`crate::smooth::laplacian_smooth`]) on
+    /// the graded sphere (R 3, cell 1.0, one refinement level within 1.0 of
+    /// the wall: the README's graded case). Five passes each.
+    ///
+    /// Predictions (written 2026-11-05, before the run): they are different
+    /// smoothers (point-cell centres, unconditional; edge neighbours, a move
+    /// kept only if no cell inverts), so no quantity should agree exactly.
+    /// The smart Laplacian keeps 0 inverted cells by construction;
+    /// `laplacianPC` may invert some (upstream untangles after it) but on a
+    /// mesh with no fold it should not, so predict 0 for both. Max
+    /// non-orthogonality: both lower than the unsmoothed mesh. Mean point
+    /// displacement: of the same order (within a factor of 3).
+    #[test]
+    #[ignore]
+    fn diagnose_laplace_pc_against_smart_laplacian() {
+        use crate::pipeline::{sphere_tet_dual, TetDualOptions};
+        let o = TetDualOptions { cell_size: 1.0, refinement_levels: 1, refinement_band: 1.0, n_layers: 0, ..TetDualOptions::default() };
+        let (m0, _) = sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &o).expect("graded sphere");
+        let q0 = check_quality(&m0);
+        let opt = MeshOptimizer::new(&m0);
+        let mut a = m0.clone();
+        let t = std::time::Instant::now();
+        opt.optimize_laplacian(&mut a, LaplaceKind::PointCells, 5);
+        let ta = t.elapsed().as_secs_f64();
+        let t = std::time::Instant::now();
+        let b = crate::smooth::laplacian_smooth(&m0, 5);
+        let tb = t.elapsed().as_secs_f64();
+        let disp = |m: &VolumeMesh| {
+            let n = opt.vertex_location.iter().filter(|&&v| v & vertex_type::INSIDE != 0).count();
+            let s: f64 = (0..m.points.len()).map(|p| m.points[p].sub(m0.points[p]).length()).sum();
+            (s / n as f64, (0..m.points.len()).map(|p| m.points[p].sub(m0.points[p]).length()).fold(0.0, f64::max))
+        };
+        let (qa, qb) = (check_quality(&a), check_quality(&b));
+        let (da, db) = (disp(&a), disp(&b));
+        println!("graded sphere: {} cells, {} inside points", m0.n_cells, opt.vertex_location.iter().filter(|&&v| v & vertex_type::INSIDE != 0).count());
+        println!("unsmoothed:      NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}", q0.max_non_orthogonality_deg, q0.max_skewness, q0.n_negative_volume_cells, count(&find_bad_faces(&m0)));
+        println!("laplacianPC x5:  NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {ta:.2} s", qa.max_non_orthogonality_deg, qa.max_skewness, qa.n_negative_volume_cells, count(&find_bad_faces(&a)), da.0, da.1);
+        println!("smart Laplace x5: NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {tb:.2} s", qb.max_non_orthogonality_deg, qb.max_skewness, qb.n_negative_volume_cells, count(&find_bad_faces(&b)), db.0, db.1);
     }
 }

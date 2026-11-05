@@ -2441,6 +2441,57 @@ until the maintainer decides.
 - Upstream (OpenFOAM, cfMesh) is not installed here; no port above was
   run against its upstream on a shared case.
 
+## cfMesh's `untangleMeshFV` boundary moves and `optimizeMeshFV`'s Laplace pass on the pipe (gh:#1255, gh:#1256)
+
+Two upstream behaviours that the `CfMeshOptimise` strategy lacked (gh:#1241
+item 4) are now ported. Each sits behind a control in
+`BoundaryLayerOptimisationControls` that is off by default:
+
+- `untangle_boundary_moves` (gh:#1255): `untangleMeshFV`'s boundary loop
+  (`tetMeshOptimisation::optimiseBoundaryVolumeOptimizer(nonShrinking)`,
+  `optimiseBoundarySurfaceLaplace`), in every untangle of the strategy;
+- `optimize_mesh_fv_laplace` (gh:#1256): `optimizeMeshFV`'s `laplacianPC`
+  (5 passes) before `optimiseFinalMesh`'s first untangle and before
+  `optimizeBoundaryLayer`'s, the latter with the layer cells locked.
+
+Upstream: DAFoam/cfmesh `e944f6ba695f`, `optimizeMeshFV.C`,
+`tetMeshOptimisation.C`, `meshOptimizerOptimizePoint.C`. Port:
+`crates/outram-park-fork-cfmesh/src/mesh_optimizer.rs`.
+
+**Case.** The gh:#1241 item 4 case: the 48-sided pipe, R 10 mm, L 200 mm,
+`CellCentre` + `Corners`, h 5 mm, 3 layers, first layer 0.3 mm, expansion
+1.2, `CfMeshOptimise` with the untangle stall bound on (the default).
+Baseline (gh:#1241, bound on): 13.3 s alone on the host; 2 861 → 29 bad
+faces in the first untangle, all 29 touching a boundary point; 77 bad faces
+at the end; max non-orthogonality 57.5°; mean total thickness 0.977 mm.
+
+**Predictions (written 2026-11-05, before any run on the pipe).**
+
+- **Boundary moves** (`CFMESH_BMOVES=1`):
+  - the first untangle ends with **fewer than 29** bad faces, at most 10,
+    because the 29 are boundary-held and the boundary loop moves exactly
+    those points;
+  - **fewer than 77** bad faces at the end;
+  - max non-orthogonality within ±3° of 57.5°;
+  - meshing time 10–40 s: the boundary passes add volume-optimiser calls,
+    and fewer futile interior passes remain;
+  - the domain volume V/(πR² L) changes by less than 0.5 %, and the inlet
+    area by less than 1 %. Some change is expected: the first global
+    iteration keeps points in their tangent planes, but the Laplace passes
+    of global iterations 2–4 do not.
+- **Laplace pass** (`CFMESH_LAPLACE=1`):
+  - `laplacianPC` moves every inside point, layer tops included, to the
+    mean of its cells' centres. On a 3-layer stack under a dual cell that
+    pulls the tops inward, so the **mean total thickness rises by more than
+    50 %** (above 1.47 mm);
+  - bad faces at the end: no prediction (not enough is known);
+  - time within ±5 s of the baseline.
+- **Both on**: thickness as in the Laplace run; bad faces as in the
+  boundary-moves run, within ±50 %.
+- **The defaults are unchanged.** `back_off_only_layers_are_pinned_bit_for_bit`,
+  `octree_path_is_pinned_bit_for_bit` and `layer_strategies_are_deterministic`
+  pass; checked before this run, and they do.
+
 ## Reproduce
 
 ```bash

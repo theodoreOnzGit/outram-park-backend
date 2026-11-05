@@ -270,6 +270,7 @@ pub mod dual;
 pub mod layers;
 pub mod math;
 pub mod mesh_optimizer;
+pub mod mesh_untangler;
 pub mod snappy_layers;
 pub mod boundary_layer_optimisation;
 pub mod octree;
