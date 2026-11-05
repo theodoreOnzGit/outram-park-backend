@@ -95,8 +95,14 @@ fn cfmesh_features(s: &TriSurf, angle: f64) -> BTreeSet<[(i64, i64, i64); 2]> {
 /// run): at 45° the unlabelled 48-sided pipe has exactly 2 × 48 = 96
 /// feature edges (the rims; side edges turn by 7.5°, cap and quad
 /// diagonals by 0°) and splits into exactly 3 patches, in facet order
-/// bottom cap (48 facets, `patch_0`), top cap (48, `patch_1`), wall (192,
-/// `patch_2`); at 5° each side quad becomes its own patch: 48 + 2 = 50.
+/// bottom cap (48 facets, `patch_0`), top cap (48, `patch_1`), wall
+/// (~~192~~ 96, `patch_2`); at 5° each side quad becomes its own patch:
+/// 48 + 2 = 50.
+///
+/// **Result (2026-11-05): 3 patches, sizes [48, 48, 96]; 96 feature edges;
+/// 50 patches at 5°.** The wall prediction of 192 was my arithmetic error
+/// (192 is the whole surface: 48 segments × 4 triangles, 2 of them on the
+/// wall), not a port defect; corrected after the run.
 #[test]
 fn unlabelled_pipe_splits_into_three_patches() {
     let s = pipe48();
@@ -110,7 +116,7 @@ fn unlabelled_pipe_splits_into_three_patches() {
     for &r in &out.regions {
         sizes[r] += 1;
     }
-    assert_eq!(sizes, vec![48, 48, 192]);
+    assert_eq!(sizes, vec![48, 48, 96]);
     assert_eq!(out.patch_names(), vec!["patch_0", "patch_1", "patch_2"]);
     // Every wall facet spans z; every cap facet is flat.
     for (f, t) in out.triangles.iter().enumerate() {
@@ -408,6 +414,15 @@ fn orientation_against_volume_sign() {
 /// the test is `>= 0`), so 12 of 12 box facets flagged and `n_failed` 1;
 /// on the pipe the cap fans and the side quads are coplanar pairs too, so
 /// every facet is flagged (288). Recorded either way.
+///
+/// **Result (2026-11-05): MISSED.** The box gives 0 overlapping facets and
+/// `n_failed` 0 ("Surface passes all checks"): the clip of a coplanar,
+/// same-wound neighbour sharing an edge comes out empty, so the degenerate
+/// polygon I predicted does not survive. (288 was also wrong as a count:
+/// the pipe has 192 facets.) Re-predicted after the box run, before the
+/// pipe's: 0 on the pipe too, `n_failed` 0. Consistent with
+/// `triangle_pair_helpers`: for two same-wound coplanar facets upstream's
+/// overlap test does not report even a genuine overlap.
 #[test]
 fn check_surface_mesh_on_clean_surfaces() {
     let mut b = box6();
@@ -416,13 +431,13 @@ fn check_surface_mesh_on_clean_surfaces() {
     assert_eq!((r.n_hole_facets, r.n_non_manifold_facets, r.n_manifolds, r.n_disconnected_parts), (0, 0, 1, 1));
     assert_eq!((r.n_small_angle_facets, r.n_collocated_points, r.n_self_intersecting_facets), (0, 0, 0));
     assert_eq!(r.n_orientation_groups, 1);
-    assert_eq!(r.n_overlapping_facets, 12);
-    assert_eq!(r.n_failed, 1);
+    assert_eq!(r.n_overlapping_facets, 0);
+    assert_eq!(r.n_failed, 0);
     let mut p = pipe48();
     let r = check_surface_mesh(&mut p);
     eprintln!("pipe: {r:?}");
     assert_eq!((r.n_hole_facets, r.n_non_manifold_facets, r.n_self_intersecting_facets), (0, 0, 0));
-    assert_eq!(r.n_overlapping_facets, 288);
+    assert_eq!((r.n_overlapping_facets, r.n_failed), (0, 0));
 }
 
 /// V&V (gh:#1277) — `doTrianglesIntersect` / `doTrianglesOverlap` on
@@ -521,4 +536,94 @@ fn removal_copy_import_merge() {
     assert_eq!(merged.regions.iter().filter(|&&r| r == 4).count(), 4);
     assert_eq!(merged.facet_subsets.elements(0), vec![8]);
     assert!((surface_volume(&merged.points, &merged.triangles) - 8.0).abs() == 0.0);
+}
+
+/// Relative errors `|k R + 1|` of the per-point mean, min and max
+/// curvature on the sphere R 3 (one patch), as (max, median) each.
+pub(crate) fn sphere_curvature_errors(n_lat: usize, n_lon: usize) -> [(f64, f64); 3] {
+    use super::curvature::TriSurfaceCurvatureEstimator;
+    let r = 3.0;
+    let (p, t) = crate::shapes::sphere_surface(Vec3::ZERO, r, n_lat, n_lon);
+    let s = TriSurf::new(p, t, None);
+    let c = TriSurfaceCurvatureEstimator::new(&s);
+    let stats = |field: &Vec<Vec<f64>>| {
+        let mut e: Vec<f64> = field.iter().map(|v| (v[0] * r + 1.0).abs()).collect();
+        e.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        (e[e.len() - 1], e[e.len() / 2])
+    };
+    [stats(&c.mean), stats(&c.min), stats(&c.max)]
+}
+
+/// V&V (gh:#1278) — `triSurfaceCurvatureEstimator` on the sphere R 3
+/// against 1/R. Predictions (before the first run): the surface is wound
+/// outward, so the fitted quadric opens downward and every curvature is
+/// negative, `k ≈ −1/R`. The quadric error from the next term of the
+/// sphere, `r⁴/(8R³)`, is about `h²/(4R²)` relative (h the neighbour
+/// distance, πR/24 ≈ 0.39 at 24 × 48): about 0.4 %; the pole points and
+/// their thin neighbour triangles are the worst. Predicted: the median
+/// mean-curvature error below 1 % at 24 × 48 and below 0.3 % at 48 × 96,
+/// the maximum below 3 % and 1 %, and the error falling by about 4× with
+/// the doubling. Recorded either way.
+#[test]
+fn sphere_curvature_against_one_over_r() {
+    let a = sphere_curvature_errors(24, 48);
+    let b = sphere_curvature_errors(48, 96);
+    eprintln!("24x48 (max, median) mean/min/max: {a:?}");
+    eprintln!("48x96 (max, median) mean/min/max: {b:?}");
+    assert!(a[0].1 < 0.01 && b[0].1 < 0.003);
+    assert!(a[0].0 < 0.03 && b[0].0 < 0.01);
+}
+
+/// V&V (gh:#1278) — `calculateEdgeCurvature` on the labelled pipe (R 1,
+/// 48 sides; wall, two caps). Predictions (before the first run): a rim
+/// point has exactly two patch-boundary edges, whose turn is 2π/48 over
+/// the chord 2 sin(π/48), so `k = (π/24)/(2 sin(π/48)) = 1.000714 / R`;
+/// but upstream measures the angle with the edges' stored directions
+/// (lower to higher point label), so at the two points per rim where the
+/// numbering wraps (the first and last rim point) both edges start (or
+/// end) there and the angle is π − 2π/48: `k ≈ 22.98 / R` there. So 92 of
+/// the 96 rim points give 1.000714 (to 1e-9) and 4 give 22.98; every other
+/// point 0. The flat cap points' mean curvature in the cap patch is 0 to
+/// 1e-9.
+#[test]
+fn pipe_rim_edge_curvature() {
+    use super::curvature::TriSurfaceCurvatureEstimator;
+    let s = crate::mesh_octree_queries::tests::pipe(1.0, 4.0, 48);
+    let c = TriSurfaceCurvatureEstimator::new(&s);
+    let chord = 2.0 * (std::f64::consts::PI / 48.0).sin();
+    let good = (std::f64::consts::PI / 24.0) / chord;
+    let wrong = (std::f64::consts::PI - std::f64::consts::PI / 24.0) / chord;
+    let k = &c.edge_point_curvature;
+    let n_good = k.iter().filter(|&&v| (v - good).abs() < 1e-9).count();
+    let n_wrong = k.iter().filter(|&&v| (v - wrong).abs() < 1e-9).count();
+    let n_zero = k.iter().filter(|&&v| v == 0.0).count();
+    eprintln!("good {n_good} wrong {n_wrong} zero {n_zero} of {}; values {good} {wrong}", k.len());
+    assert_eq!((n_good, n_wrong, n_zero), (92, 4, k.len() - 96));
+    for (p, pp) in c.point_patches.iter().enumerate() {
+        for (i, &r) in pp.iter().enumerate() {
+            if r != 0 {
+                assert!(c.mean[p][i].abs() < 1e-9, "cap point {p}: {}", c.mean[p][i]);
+            }
+        }
+    }
+}
+
+/// V&V (gh:#1278) — the 5 × 5 `LUsolve` on a known system. Prediction:
+/// the solution of `A x = A·[1, 2, 3, 4, 5]` for a non-symmetric `A` that
+/// needs a row swap (zero leading entry) is `[1, 2, 3, 4, 5]` to 1e-12.
+#[test]
+fn lu_solve_known_system() {
+    let a = vec![
+        vec![0.0, 2.0, 1.0, 0.0, 3.0],
+        vec![4.0, 1.0, 0.0, 2.0, 1.0],
+        vec![1.0, 0.0, 5.0, 1.0, 0.0],
+        vec![2.0, 3.0, 1.0, 6.0, 1.0],
+        vec![1.0, 1.0, 0.0, 2.0, 7.0],
+    ];
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0];
+    let b: Vec<f64> = a.iter().map(|r| r.iter().zip(&x).map(|(p, q)| p * q).sum()).collect();
+    let y = super::curvature::lu_solve(a, b);
+    for i in 0..5 {
+        assert!((y[i] - x[i]).abs() < 1e-12, "{y:?}");
+    }
 }

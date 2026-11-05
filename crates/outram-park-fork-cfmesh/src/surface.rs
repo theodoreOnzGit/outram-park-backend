@@ -75,6 +75,7 @@
 
 pub mod checks;
 pub mod cleanup;
+pub mod curvature;
 pub mod features;
 #[cfg(test)]
 mod tests;
