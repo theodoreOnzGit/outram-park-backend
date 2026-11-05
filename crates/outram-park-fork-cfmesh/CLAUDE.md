@@ -230,7 +230,9 @@ add a second one. A tool that changes points or facets builds a new
 stale as upstream's cached addressing does. No pipeline calls the module.
 Several upstream tools are defective (listed in `src/surface.rs`); where the
 text cannot work (`subsetToPatch`), the port follows the intent and says
-so. `meshOctreeAutomaticRefinement` is not ported. Record and images:
+so. ~~`meshOctreeAutomaticRefinement` is not ported.~~ **CORRECTED
+2026-11-05:** it is ported (`mesh_octree_automatic_refinement`, next
+section but one). Record and images:
 `verification_and_validation/surface_tools_gh1276/`.
 
 ## cfMesh's `cartesianMesh` (gh:#1274, 2026-11-05)
@@ -254,6 +256,28 @@ differential. `without_boundary_layer` is the explicit ablation. Record:
 The record (the differential against `carve_box` + `snap` and the
 tet-dual) and the images are in
 `verification_and_validation/cartesian_mesh_gh1274/`.
+
+## The octree remainders: automatic refinement, sources, addressing (gh:#1278, #1264–#1266, 2026-11-05)
+
+`mesh_octree_automatic_refinement` is `meshOctreeAutomaticRefinement`
+(curvature, corners, partitions, proximity). `createOctreeBoxes` runs it,
+and the `surfaceMeshRefinement` / `edgeMeshRefinement` sources, in
+upstream's place; each is **off unless the `MeshDict` asks**
+(`min_cell_size`, `surface_mesh_refinement`, `edge_mesh_refinement`,
+`subset_cell_size`, `local_refinement_subsets`). `MeshDict::anisotropic_sources`
+moves the sources through gh:#1279's `anisotropic`
+(`mesh_octree_creator::source_surface_geometry` /
+`source_edge_mesh_geometry`); the generators do not read it.
+
+`MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
+read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and
+`checkForGluedMesh`; with a dict that sets none of them they are `new` and
+`cartesian_mesh_extractor` (tested field for field). The octree edges are
+`MeshOctreeAddressing::edge_addressing` (equal to the extracted mesh's
+edges). Upstream's proximity criterion needs the parts to be separate
+within `1.732 h`: a channel closed at its sides within that range is never
+refined. Record, the misses and the images:
+`verification_and_validation/octree_remainders_gh1278/`.
 
 ## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
 

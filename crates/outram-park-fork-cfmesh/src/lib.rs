@@ -273,6 +273,7 @@ pub mod edge_extractor;
 pub mod layers;
 pub mod math;
 pub mod mesh_octree;
+pub mod mesh_octree_automatic_refinement;
 pub mod mesh_octree_creator;
 pub mod mesh_octree_modifier;
 pub mod mesh_octree_queries;
