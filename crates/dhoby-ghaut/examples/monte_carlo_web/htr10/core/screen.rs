@@ -256,6 +256,17 @@ static FORCED_WORKERS: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock:
 
 /// `?bed=dem` as the page was opened: start on the DEM random bed.
 static FORCED_DEM: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+static FORCED_POUR: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+
+/// `?pour=N` (gh:#1244): pour N pebbles on arrival and use the bed once it
+/// settles; the pool waits for it. How an unattended browser check drives
+/// the pour end to end.
+pub fn forced_pour() -> Option<usize> {
+    *FORCED_POUR.get_or_init(|| {
+        let q = dhoby_ghaut::web_demo::platform::query_pairs();
+        dhoby_ghaut::web_demo::platform::query_value(&q, "pour").and_then(|v| v.parse().ok())
+    })
+}
 
 /// Whether the page was opened with `?bed=dem`.
 pub fn forced_dem() -> bool {
@@ -269,6 +280,7 @@ pub fn forced_dem() -> bool {
 /// once at start-up.
 pub fn remember_query() -> Option<usize> {
     let _ = forced_dem();
+    let _ = forced_pour();
     *FORCED_WORKERS.get_or_init(|| {
         let q = dhoby_ghaut::web_demo::platform::query_pairs();
         dhoby_ghaut::web_demo::platform::query_value(&q, "workers").and_then(|v| v.parse().ok())
@@ -318,6 +330,8 @@ pub struct CoreScreen {
     pub temps_c: [f64; 8],
     /// Whether the sliders move together.
     pub temps_linked: bool,
+    /// The reader's own DEM pour (gh:#1244).
+    pub pour: super::pour::PourUi,
 }
 
 /// `t` in °C.
@@ -453,6 +467,10 @@ impl CoreScreen {
             temps: ZoneTemperatures::record(),
             temps_c: Htr10Zone::ALL.map(|z| celsius(ZoneTemperatures::record().get(z))),
             temps_linked: false,
+            pour: match forced_pour() {
+                Some(n) => super::pour::PourUi::auto(n),
+                None => super::pour::PourUi::default(),
+            },
         }
     }
 
@@ -506,7 +524,16 @@ impl CoreScreen {
 
     /// Each frame: the pool's events, the next track, autostart.
     pub fn pump(&mut self, ctx: &egui::Context) {
-        if self.autostart && self.pool.is_none() {
+        // `?pour=N`: pour, then use the bed once it settles; the pool waits.
+        if self.pour.auto {
+            if !self.pour.started() {
+                self.pour.start(dhoby_ghaut::web_demo::platform::now_s());
+            } else if self.pour.finished() && self.pour.bed.is_none() {
+                self.use_pour();
+            }
+        }
+        let waiting_for_pour = self.pour.auto && self.pour.bed.is_none();
+        if self.autostart && self.pool.is_none() && !waiting_for_pour {
             self.start_pool(ctx);
         }
         let mut autostart_now = false;
@@ -598,6 +625,12 @@ impl CoreScreen {
         >,
     ) {
         self.slicer.view.handle_input(ui, resp);
+        // The reader's pour, while it is being poured or not yet used: the
+        // pebbles themselves, not the core (gh:#1244).
+        if self.pour.shown && self.pour.last.is_some() && (self.pour.running() || self.layers as usize != super::random_bed::USER_POUR) {
+            draw_pour(painter, rect, &self.slicer.view, self.pour.last.as_ref().map_or(&[][..], |s| &s.centres[..]));
+            return;
+        }
         self.slicer.param = self.layers;
         self.slicer.rods = self.pool_rods();
         if let (Some(req), Some(l)) = (self.slicer.pump(rect), link) {
@@ -778,18 +811,33 @@ impl CoreScreen {
     fn bed_ui(&mut self, ui: &mut egui::Ui) {
         let busy = self.busy();
         let dem_code = super::random_bed::DEM_BED as f64;
+        let pour_code = super::random_bed::USER_POUR as f64;
         let mut want = self.layers;
+        let shown = self.pour.shown;
         ui.add_enabled_ui(!busy, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label("Bed:");
-                if ui.selectable_label(self.layers != dem_code, "Şeker lattice (the record's)").clicked() && self.layers == dem_code {
-                    want = super::super::LADDER_N;
+                let lattice = self.layers != dem_code && self.layers != pour_code;
+                if ui.selectable_label(lattice && !shown, "Şeker lattice (the record's)").clicked() {
+                    self.pour.shown = false;
+                    if !lattice {
+                        want = super::super::LADDER_N;
+                    }
                 }
-                if ui.selectable_label(self.layers == dem_code, "DEM random bed").clicked() {
+                if ui.selectable_label(self.layers == dem_code && !shown, "DEM random bed (baked)").clicked() {
+                    self.pour.shown = false;
                     want = dem_code;
                 }
+                if ui.selectable_label(shown, "DEM pour (yours)").clicked() {
+                    self.pour.shown = true;
+                    if self.pour.bed.is_some() {
+                        want = pour_code;
+                    }
+                }
             });
-            if want == dem_code {
+            if self.pour.shown {
+                // The pour's own controls follow, outside this disabled scope.
+            } else if want == dem_code {
                 ui.weak(super::random_bed::label(super::random_bed::DEM_BED));
             } else {
                 let mut n = want;
@@ -811,10 +859,112 @@ impl CoreScreen {
                 }
             }
         }
-        if self.layers as usize == super::random_bed::DEM_BED {
+        if self.pour.shown {
+            self.pour_ui(ui, busy);
+        } else if self.layers as usize == super::random_bed::DEM_BED {
             ui.colored_label(Color32::from_rgb(250, 200, 80), DEM_CAVEAT);
             ui.label(dem_record_line());
         }
+    }
+
+    /// The reader's pour (gh:#1244): pebbles, fuel fraction, seed; Pour,
+    /// Pause/Resume; "Use this bed", which hands it to every worker and
+    /// rebuilds the core on it. GUI drawing (the test rule's exception); its
+    /// decisions are `PourUi`'s and `PoolState::use_pour`, which are tested.
+    fn pour_ui(&mut self, ui: &mut egui::Ui, busy: bool) {
+        let now = dhoby_ghaut::web_demo::platform::now_s();
+        let max = super::pour::max_pebbles() as f64;
+        let running = self.pour.running();
+        ui.add_enabled_ui(!running, |ui| {
+            ui.add(
+                egui::Slider::new(&mut self.pour.n, super::pour::MIN_PEBBLES as f64..=max)
+                    .step_by(100.0)
+                    .fixed_decimals(0)
+                    .text("pebbles to pour"),
+            );
+            ui.weak(format!(
+                "Up to {} pebbles: the conus and tube's 2 457 plus a core filled at φ {} to {:.1} cm, 95 % of the {:.3} cm cavity. Any pebble that still stands above that line is removed when the bed is used.",
+                super::random_bed::grouped(max as usize),
+                super::pour::FRESH_POUR_PHI,
+                super::pour::HEIGHT_LIMIT_CM,
+                nee_soon::htr10_rmc::core_model::HTR10_CORE_CAVITY_CM
+            ));
+            ui.horizontal(|ui| {
+                ui.label("seed");
+                ui.add(egui::DragValue::new(&mut self.pour.seed).range(1..=1_000_000));
+            });
+        });
+        let mut f = 100.0 * self.pour.fuel;
+        ui.add(egui::Slider::new(&mut f, 0.0..=100.0).step_by(1.0).fixed_decimals(0).suffix(" %").text("fuel pebbles (rest moderator)"));
+        self.pour.fuel = f / 100.0;
+        let ratio = if self.pour.fuel < 1.0 { format!("{:.2}", self.pour.fuel / (1.0 - self.pour.fuel)) } else { "∞".into() };
+        ui.weak(format!(
+            "Fuel : moderator = {ratio} : 1 above the floor (the record is 57 : 43); the conus and tube hold moderator balls only, as the paper's rule says."
+        ));
+        ui.horizontal_wrapped(|ui| {
+            if ui.button(if self.pour.last.is_some() { "Pour again" } else { "Pour" }).clicked() {
+                self.pour.start(now);
+            }
+            if self.pour.last.is_some() && !self.pour.finished() {
+                let label = if self.pour.paused { "Resume" } else { "Pause" };
+                if ui.button(label).clicked() {
+                    let p = !self.pour.paused;
+                    self.pour.set_paused(p);
+                }
+            }
+            let usable = self.pour.last.is_some() && !running && !busy;
+            if ui.add_enabled(usable, egui::Button::new("Use this bed for k_eff")).clicked() {
+                self.use_pour();
+            }
+        });
+        for l in self.pour.lines(now) {
+            ui.label(l);
+        }
+        if let Some(s) = &self.pour.last {
+            if !s.settled && !running {
+                ui.colored_label(Color32::from_rgb(250, 200, 80), "This pour has not settled: a bed used now is a snapshot of falling pebbles.");
+            }
+        }
+        if let Some(e) = &self.pour.error {
+            ui.colored_label(Color32::from_rgb(240, 110, 100), e);
+        }
+        if let Some(b) = &self.pour.bed {
+            ui.label(super::pour::describe(b));
+        }
+        ui.weak("The pour is the LIGGGHTS port's (µ 0.1, E 5e8 Pa, dt 35 µs) on one thread in this page's worker; a full core takes tens of minutes in a browser. The core is then built as the baked DEM bed is, TRISO packed at random.");
+        if running {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+        }
+    }
+
+    /// Make the bed from the pour and hand it over: to this page (labels,
+    /// the slice's worker) and, between runs, to every pool worker; before
+    /// the pool starts, it starts on it.
+    fn use_pour(&mut self) {
+        let b = match self.pour.make_bed() {
+            Ok(b) => b,
+            Err(e) => {
+                self.pour.error = Some(e);
+                return;
+            }
+        };
+        log::info!("htr10 core: pour used as the bed: {}", super::pour::describe(&b));
+        super::random_bed::set_poured(b.clone());
+        // The page's own worker draws the slice: it needs the bed too.
+        self.pour.queue(super::CoreReq::pour_bed(&b));
+        let code = super::random_bed::USER_POUR;
+        match self.pool.as_mut() {
+            None => self.layers = code as f64,
+            Some(p) => match p.state.use_pour(&b) {
+                Ok(()) => self.layers = code as f64,
+                Err(e) => self.pour.error = Some(format!("the bed is kept for later: {e}")),
+            },
+        }
+    }
+
+    /// The pour's requests for the page's own worker (the app sends them).
+    pub fn take_pour_out(&mut self) -> Vec<super::CoreReq> {
+        self.pour.take_out()
     }
 
     /// The side panel: the core (bed N and control rods) and its run in one
@@ -846,7 +996,7 @@ impl CoreScreen {
             if !self.temps.is_uniform() || (celsius(self.temps.get(Htr10Zone::FuelPebble)) - 27.0).abs() > 1e-9 {
                 ui.colored_label(Color32::from_rgb(250, 200, 80), "Every record below is at 27 °C in every zone: it is not a reference for these temperatures.");
             }
-            if self.rods.rods == [0.0; 10] && self.layers as usize != super::random_bed::DEM_BED {
+            if self.rods.rods == [0.0; 10] && !super::random_bed::is_dem(self.layers as usize) {
                 if let Some((k, s, rmc)) = record_row(self.layers as usize) {
                     ui.label(format!("Every rod withdrawn, N = {}: {k:.6} ± {s:.6} (10 000 × [5 + 135], 2026-10-07); RMC (Li, Yu & Wei 2014) at equal ball count {rmc:.6}.", self.layers as usize));
                 }
@@ -1001,7 +1151,8 @@ impl CoreScreen {
         // the next run will: its references follow that.
         let (built, layers) = run.map_or((self.pool_rods(), self.layers as usize), |r| (r.rods, r.layers));
         let dem = layers == super::random_bed::DEM_BED;
-        let n = if dem { super::super::LADDER_N as usize } else { layers };
+        // The reader's pour has no recorded reference (`record_row(0)` is none).
+        let n = if dem { super::super::LADDER_N as usize } else if layers == super::random_bed::USER_POUR { 0 } else { layers };
         let mut refs = Vec::new();
         if built == super::random_bed::WITHDRAWN {
             if let Some((k, s, rmc)) = record_row(n) {
@@ -1044,6 +1195,58 @@ impl CoreScreen {
 }
 
 /// What the view says about the pool, one line each.
+/// **The pour as it falls** (gh:#1244), side-on in the core view's frame:
+/// the pebbles cut by the plane `y = 0` (each a disc of its cut radius), the
+/// vessel wall (`htr10_fill::wall_radius_at`), the floor and the 95 % line.
+/// The DEM frame's floor is drawn where the built core would put it at the
+/// pour's height (`z_core = z_DEM − h/2`, `h` the top of the highest pebble,
+/// the explicit bed's frame). GUI drawing, not reached by a test (the test
+/// rule's exception).
+fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::view::View, centres_m: &[f32]) {
+    use outram_park_fork_liggghts::htr10_fill::{wall_radius_at, VALVE_Z_M};
+    let r = super::pour::R_CM;
+    painter.rect_filled(rect, 0.0, Color32::from_rgb(18, 20, 24));
+    let top = centres_m.chunks_exact(3).map(|c| 100.0 * f64::from(c[2]) + r).fold(2.0 * r, f64::max);
+    let shift = 0.5 * top.min(super::pour::HEIGHT_LIMIT_CM);
+    let at = |x: f64, z: f64| view.to_screen(rect, x, z - shift);
+    // The wall, from the valve to the cavity top.
+    let wall = egui::Stroke::new(1.5, Color32::from_rgb(170, 150, 120));
+    let z_hi = nee_soon::htr10_rmc::core_model::HTR10_CORE_CAVITY_CM;
+    let n = 120;
+    for side in [-1.0, 1.0] {
+        let pts: Vec<Pos2> = (0..=n)
+            .map(|i| {
+                let z = 100.0 * VALVE_Z_M + (z_hi - 100.0 * VALVE_Z_M) * i as f64 / n as f64;
+                at(side * 100.0 * wall_radius_at(z / 100.0), z)
+            })
+            .collect();
+        painter.add(egui::Shape::line(pts, wall));
+    }
+    let line = |z: f64, c: Color32| {
+        painter.line_segment([at(-90.0, z), at(90.0, z)], egui::Stroke::new(1.0, c));
+    };
+    line(0.0, Color32::from_rgb(120, 120, 130));
+    line(super::pour::HEIGHT_LIMIT_CM, Color32::from_rgb(240, 110, 100));
+    line(z_hi, Color32::from_rgb(170, 150, 120));
+    let scale = (at(1.0, 0.0).x - at(0.0, 0.0).x).abs();
+    for c in centres_m.chunks_exact(3) {
+        let (x, y, z) = (100.0 * f64::from(c[0]), 100.0 * f64::from(c[1]), 100.0 * f64::from(c[2]));
+        if y.abs() >= r {
+            continue;
+        }
+        let rr = (r * r - y * y).sqrt() * f64::from(scale);
+        let col = if z > 0.0 { Color32::from_rgb(200, 205, 215) } else { Color32::from_rgb(130, 135, 145) };
+        painter.circle_filled(at(x, z), rr.max(1.0) as f32, col);
+    }
+    painter.text(
+        at(92.0, super::pour::HEIGHT_LIMIT_CM),
+        egui::Align2::LEFT_CENTER,
+        "95 %",
+        egui::FontId::proportional(12.0),
+        Color32::from_rgb(240, 110, 100),
+    );
+}
+
 fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
     let s = &p.state;
     let white = Color32::from_rgb(220, 226, 236);

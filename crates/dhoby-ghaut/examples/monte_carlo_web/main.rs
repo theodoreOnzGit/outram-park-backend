@@ -255,6 +255,13 @@ fn main() -> Result<(), String> {
             htr10::render::render_all(dir)?;
             godiva::render::render_all(dir)
         }
+        Some("--render-pour") => {
+            let csv = std::fs::read_to_string(arg(1).ok_or("--render-pour <csv> <fuel fraction> <dir>")?).map_err(|e| e.to_string())?;
+            let f: f64 = arg(2).and_then(|v| v.parse().ok()).ok_or("--render-pour needs a fuel fraction")?;
+            let dir = std::path::Path::new(arg(3).ok_or("--render-pour needs an output directory")?);
+            println!("{}", htr10::core::pour::render_review(&csv, f, dir)?);
+            Ok(())
+        }
         Some("--bake-htr10-core") => htr10::core::bake::bake_cli(&args),
         Some("--htr10-product-shas") => htr10::core::bake::product_shas_cli(&args),
         Some("--bake-tracks") => {

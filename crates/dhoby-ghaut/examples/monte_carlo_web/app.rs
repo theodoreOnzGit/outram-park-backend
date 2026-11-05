@@ -1285,6 +1285,13 @@ impl McApp {
                     Some(c) if c.slicer.awaits(&req) => c.slicer.receive(ctx, req, map, secs),
                     _ => v.receive(ctx, req, map, secs),
                 },
+                // The reader's DEM pour (gh:#1244) runs in this page's own
+                // worker, whatever is on screen.
+                (_, Event::Core(crate::htr10::core::CoreEv::Pour(e))) => {
+                    if let Some(c) = self.core.as_mut() {
+                        c.pour.on_event(e, now_s());
+                    }
+                }
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;
@@ -1422,6 +1429,11 @@ impl eframe::App for McApp {
         // relays, generations and runs go on behind another view or rung.
         if let Some(c) = self.core.as_mut() {
             c.pump(&ctx);
+            for r in c.take_pour_out() {
+                if let Some(link) = &self.link {
+                    link.send(Request::Core(r));
+                }
+            }
         }
         if matches!(self.phase, Phase::Loading(_)) {
             // Elapsed time and the progress bar keep moving between events.

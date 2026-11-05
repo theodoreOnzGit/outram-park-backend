@@ -351,15 +351,18 @@ impl LoadedRung for Loaded {
         // insertion, so the slice is the core with the rods where the page
         // has them.
         let code = req.param.round() as usize;
-        let n = if code == core::random_bed::DEM_BED { code } else { code.clamp(10, 20) };
+        let n = if core::random_bed::is_dem(code) { code } else { code.clamp(10, 20) };
         let rods = req.rods;
-        if self.core.as_ref().is_none_or(|c| c.0 != n || c.2.map(f64::to_bits) != rods.map(f64::to_bits)) {
-            let built = if rods == crate::raster::NO_RODS && n != core::random_bed::DEM_BED {
+        // The reader's pour (gh:#1244) is keyed by its version too, so a new
+        // pour redraws.
+        let key = if n == core::random_bed::USER_POUR { (1 << 20) + core::random_bed::poured_version() as usize } else { n };
+        if self.core.as_ref().is_none_or(|c| c.0 != key || c.2.map(f64::to_bits) != rods.map(f64::to_bits)) {
+            let built = if rods == crate::raster::NO_RODS && !core::random_bed::is_dem(n) {
                 model::core(n)
             } else {
                 core::random_bed::build_core_with(n, &rods)?
             };
-            self.core = Some((n, built, rods));
+            self.core = Some((key, built, rods));
         }
         let (_, core, _) = self.core.as_ref().expect("built above");
         Ok(crate::raster::raster(&core.geometry, req))
