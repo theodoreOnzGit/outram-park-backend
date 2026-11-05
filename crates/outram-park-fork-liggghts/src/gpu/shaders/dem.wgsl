@@ -28,6 +28,7 @@ struct Params {
     valve: vec4<f32>,         // wall point z hi, normal z sign, wall point z lo (one-sided)
     flags_in: vec4<u32>,      // has cylinder, has valve wall, has mesh, tangential damping
     hull: vec4<f32>,          // mesh bounding sphere centre xyz, radius
+    one: vec4<f32>,           // (1, 1, 1, 1), known only at run time: see `keep`
 };
 
 // A particle: position as hi + lo f32 pairs (WebGPU has no f64), radius,
@@ -75,11 +76,26 @@ fn cell_index(c: vec3<i32>) -> u32 {
 
 // ── integrator (`integrator.rs`, fix_nve_sphere) ───────────────────────────
 
+// **Why `keep`.** The error-free transformations below (two-sum, the
+// double-f32 overlap) rely on each rounded intermediate being used as
+// rounded. A shader compiler that reassociates floats (Mesa's lavapipe did,
+// 2026-11-05: the hi + lo positions came back with lo = 0) cancels them
+// algebraically: `lo − ((t + lo) − t)` becomes 0. Multiplying an
+// intermediate by `prm.one`, a 1 the compiler cannot see, makes it opaque,
+// so it is computed as written. Exact: x · 1 = x.
+fn keep(x: f32) -> f32 {
+    return x * prm.one.x;
+}
+
+fn keep3(x: vec3<f32>) -> vec3<f32> {
+    return x * prm.one.xyz;
+}
+
 // Two-sum: a + b = s + e exactly.
 fn two_sum(a: vec3<f32>, b: vec3<f32>) -> array<vec3<f32>, 2> {
-    let s = a + b;
-    let bb = s - a;
-    let e = (a - (s - bb)) + (b - bb);
+    let s = keep3(a + b);
+    let bb = keep3(s - a);
+    let e = (a - keep3(s - bb)) + (b - bb);
     return array<vec3<f32>, 2>(s, e);
 }
 
@@ -97,9 +113,9 @@ fn kick_drift(@builtin(global_invocation_id) gid: vec3<u32>) {
     let w = p.w.xyz + ft[2u * i + 1u].xyz * (half * inv_i);
     // x += dt v, carried exactly in hi + lo.
     let t = two_sum(p.hi.xyz, v * dt);
-    let lo = p.lo.xyz + t[1];
-    let h2 = t[0] + lo;
-    let l2 = lo - (h2 - t[0]);
+    let lo = keep3(p.lo.xyz + t[1]);
+    let h2 = keep3(t[0] + lo);
+    let l2 = lo - keep3(h2 - t[0]);
     p.hi = vec4<f32>(h2, r);
     p.lo = vec4<f32>(l2, m);
     p.v = vec4<f32>(v, p.v.w);
@@ -130,17 +146,17 @@ fn kick(@builtin(global_invocation_id) gid: vec3<u32>) {
 // itself, which is f32's own resolution of the result.
 
 fn ts(a: f32, b: f32) -> vec2<f32> {
-    let s = a + b;
-    let bb = s - a;
-    return vec2<f32>(s, (a - (s - bb)) + (b - bb));
+    let s = keep(a + b);
+    let bb = keep(s - a);
+    return vec2<f32>(s, (a - keep(s - bb)) + (b - bb));
 }
 
 // (a.x + a.y) + (b.x + b.y), renormalised.
 fn dd_add(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
     let s = ts(a.x, b.x);
-    let lo = s.y + a.y + b.y;
-    let h = s.x + lo;
-    return vec2<f32>(h, lo - (h - s.x));
+    let lo = keep(s.y + a.y + b.y);
+    let h = keep(s.x + lo);
+    return vec2<f32>(h, lo - keep(h - s.x));
 }
 
 // √(a.x + a.y), to double-f32 (one Newton step on the f32 root).
@@ -153,11 +169,11 @@ fn dd_sqrt(a: vec2<f32>) -> vec2<f32> {
 
 // (a.x + a.y)², to double-f32.
 fn dd_sq(a: vec2<f32>) -> vec2<f32> {
-    let p = a.x * a.x;
+    let p = keep(a.x * a.x);
     let e = fma(a.x, a.x, -p);
-    let lo = e + 2.0 * a.x * a.y;
-    let h = p + lo;
-    return vec2<f32>(h, lo - (h - p));
+    let lo = keep(e + 2.0 * a.x * a.y);
+    let h = keep(p + lo);
+    return vec2<f32>(h, lo - keep(h - p));
 }
 
 // ── cell list (deterministic: entries sorted by index) ──────────────────────

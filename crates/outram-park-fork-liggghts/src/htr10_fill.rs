@@ -430,7 +430,7 @@ impl Htr10Fill {
 /// state is read back after every [`Self::advance`]). Not bit-identical to
 /// the CPU pour (`gpu::dem`'s trust model); the CPU pour stays the default
 /// and the reference.
-#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+#[cfg(not(target_os = "android"))]
 pub struct Htr10GpuFill {
     dem: crate::gpu::dem::GpuDem,
     settings: Htr10FillSettings,
@@ -440,13 +440,56 @@ pub struct Htr10GpuFill {
     mass: f64,
 }
 
-#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+#[cfg(not(target_os = "android"))]
 impl Htr10GpuFill {
+    /// [`Self::new`] without blocking (the browser's way): `ctx` from
+    /// `gpu::probe_async`.
+    ///
+    /// # Errors
+    /// A setting the CPU pour refuses, or one the GPU path does not hold.
+    pub async fn new_async(settings: Htr10FillSettings, ctx: crate::gpu::GpuContext) -> Result<Self, String> {
+        let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
+        let dem = crate::gpu::dem::GpuDem::new(ctx, cpu.system())?;
+        let states = dem.states_async().await;
+        Ok(Self { dem, settings, steps: 0, peak_ke_ratio: 0.0, states, mass: pebble_mass() })
+    }
+
+    /// [`Self::advance`] without blocking.
+    pub async fn advance_async(&mut self, n: usize) -> FillProgress {
+        let n = n.min(self.settings.max_steps.saturating_sub(self.steps));
+        if n > 0 {
+            self.dem.run(n as u64);
+            self.steps += n;
+            self.states = self.dem.states_async().await;
+            self.after_advance();
+        }
+        self.progress()
+    }
+
+    fn after_advance(&mut self) {
+        let now = self.ke_ratio_core().1;
+        if now.is_finite() {
+            self.peak_ke_ratio = self.peak_ke_ratio.max(now);
+        }
+    }
+
+    /// Table overflows since the start, without blocking.
+    pub async fn errors_async(&self) -> crate::gpu::dem::GpuErrors {
+        self.dem.errors_async().await
+    }
+
+    /// The settings it was built with.
+    #[must_use]
+    pub fn settings(&self) -> Htr10FillSettings {
+        self.settings
+    }
+
     /// Seed the pour exactly as [`Htr10Fill::new`] does and upload it to the
     /// GPU.
     ///
     /// # Errors
     /// No GPU adapter, or a setting the CPU pour refuses.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new(settings: Htr10FillSettings) -> Result<Self, String> {
         let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
         let ctx = crate::gpu::probe().ok_or("no GPU adapter")?;
@@ -456,16 +499,14 @@ impl Htr10GpuFill {
     }
 
     /// Step `n` more times (fewer if `max_steps` is reached) and report.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn advance(&mut self, n: usize) -> FillProgress {
         let n = n.min(self.settings.max_steps.saturating_sub(self.steps));
         if n > 0 {
             self.dem.run(n as u64);
             self.steps += n;
             self.states = self.dem.states();
-            let now = self.ke_ratio_core().1;
-            if now.is_finite() {
-                self.peak_ke_ratio = self.peak_ke_ratio.max(now);
-            }
+            self.after_advance();
         }
         self.progress()
     }
@@ -494,6 +535,7 @@ impl Htr10GpuFill {
 
     /// Table overflows since the start (must be zero for a trusted run).
     #[must_use]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn errors(&self) -> crate::gpu::dem::GpuErrors {
         self.dem.errors()
     }

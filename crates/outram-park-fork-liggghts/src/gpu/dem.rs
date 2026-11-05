@@ -89,6 +89,9 @@ struct Params {
     valve: [f32; 4],
     flags: [u32; 4],
     hull: [f32; 4],
+    /// Ones the shader multiplies intermediates by so no compiler can
+    /// reassociate them away (`keep` in `dem.wgsl`).
+    one: [f32; 4],
 }
 
 /// A particle as the shader holds it (must match `P`).
@@ -262,6 +265,7 @@ impl GpuSetup {
             valve: valve.unwrap_or([0.0; 4]),
             flags: [u32::from(cyl.is_some()), u32::from(valve.is_some()), u32::from(!tris.is_empty()), u32::from(tangential_damping)],
             hull,
+            one: [1.0; 4],
         };
         let particles = ps
             .iter()
@@ -504,7 +508,9 @@ impl GpuDem {
         &self.ctx.info
     }
 
-    fn read(&self, buf: &wgpu::Buffer, bytes: u64) -> Option<Vec<u8>> {
+    /// Copy `bytes` of `buf` into a mappable buffer and submit; the caller
+    /// maps it.
+    fn readback(&self, buf: &wgpu::Buffer, bytes: u64) -> wgpu::Buffer {
         let device = &self.ctx.device;
         let rb = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("dem readback"),
@@ -515,6 +521,44 @@ impl GpuDem {
         let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("dem read") });
         enc.copy_buffer_to_buffer(buf, 0, &rb, 0, bytes);
         self.ctx.queue.submit(Some(enc.finish()));
+        rb
+    }
+
+    /// [`Self::read`] without blocking: the browser's way (it maps the
+    /// buffer between tasks). Natively the device is polled until it does.
+    async fn read_async(&self, buf: &wgpu::Buffer, bytes: u64) -> Option<Vec<u8>> {
+        let rb = self.readback(buf, bytes);
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(super::Mapped::default()));
+        rb.slice(..).map_async(wgpu::MapMode::Read, super::mapped_callback(shared.clone()));
+        #[cfg(not(target_arch = "wasm32"))]
+        self.ctx.device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+        if !super::MappedFuture(shared).await {
+            return None;
+        }
+        let data = rb.slice(..).get_mapped_range().ok()?.to_vec();
+        rb.unmap();
+        Some(data)
+    }
+
+    /// Every particle's state now, without blocking (the browser's
+    /// [`Self::states`]).
+    pub async fn states_async(&self) -> Vec<GpuState> {
+        let n = self.setup.particles.len();
+        match self.read_async(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64).await {
+            Some(b) => decode_states(&b),
+            None => Vec::new(),
+        }
+    }
+
+    /// Overflow counts since the start, without blocking.
+    pub async fn errors_async(&self) -> GpuErrors {
+        decode_errors(self.read_async(&self.errs, 16).await)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn read(&self, buf: &wgpu::Buffer, bytes: u64) -> Option<Vec<u8>> {
+        let device = &self.ctx.device;
+        let rb = self.readback(buf, bytes);
         let slice = rb.slice(..);
         slice.map_async(wgpu::MapMode::Read, |_| {});
         device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
@@ -525,36 +569,44 @@ impl GpuDem {
 
     /// Every particle's state now (waits for the submitted steps).
     #[must_use]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn states(&self) -> Vec<GpuState> {
         let n = self.setup.particles.len();
-        let Some(bytes) = self.read(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64) else {
-            return Vec::new();
-        };
-        bytes
-            .chunks_exact(std::mem::size_of::<GpuParticle>())
-            .map(|b| {
-                let f = |k: usize| f32::from_ne_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);
-                let p = GpuParticle {
-                    hi: [f(0), f(1), f(2), f(3)],
-                    lo: [f(4), f(5), f(6), f(7)],
-                    v: [f(8), f(9), f(10), f(11)],
-                    w: [f(12), f(13), f(14), f(15)],
-                };
-                state_of(&p)
-            })
-            .collect()
+        self.read(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64).map_or_else(Vec::new, |b| decode_states(&b))
     }
 
     /// Overflow counts since the start (waits for the submitted steps).
     #[must_use]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn errors(&self) -> GpuErrors {
-        match self.read(&self.errs, 16) {
-            Some(b) => GpuErrors {
-                cell_overflow: u32::from_ne_bytes([b[0], b[1], b[2], b[3]]),
-                slot_overflow: u32::from_ne_bytes([b[4], b[5], b[6], b[7]]),
-            },
-            None => GpuErrors { cell_overflow: u32::MAX, slot_overflow: u32::MAX },
-        }
+        decode_errors(self.read(&self.errs, 16))
+    }
+}
+
+fn decode_states(bytes: &[u8]) -> Vec<GpuState> {
+    bytes
+        .chunks_exact(std::mem::size_of::<GpuParticle>())
+        .map(|b| {
+            let f = |k: usize| f32::from_ne_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);
+            let p = GpuParticle {
+                hi: [f(0), f(1), f(2), f(3)],
+                lo: [f(4), f(5), f(6), f(7)],
+                v: [f(8), f(9), f(10), f(11)],
+                w: [f(12), f(13), f(14), f(15)],
+            };
+            state_of(&p)
+        })
+        .collect()
+}
+
+/// A failed read reads as overflows (never as a clean run).
+fn decode_errors(b: Option<Vec<u8>>) -> GpuErrors {
+    match b {
+        Some(b) if b.len() >= 8 => GpuErrors {
+            cell_overflow: u32::from_ne_bytes([b[0], b[1], b[2], b[3]]),
+            slot_overflow: u32::from_ne_bytes([b[4], b[5], b[6], b[7]]),
+        },
+        _ => GpuErrors { cell_overflow: u32::MAX, slot_overflow: u32::MAX },
     }
 }
 

@@ -315,7 +315,7 @@ are different claims and this entry keeps them apart.
 ## Scope
 
 Modules: `bonded`, `boundary`, `compute`, `contact`, `coupling`, `gnn_bridge`
-(feature `gnn`), `gpu` (non-Android, non-wasm), `granular`, `granular_system`,
+(feature `gnn`), `gpu` (non-Android; ~~non-wasm~~ wasm since 2026-11-05), `granular`, `granular_system`,
 `htr10_fill`, `integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`,
 `simulation`, `thermal`, `thermal_radiation`, `timestep`.
 
@@ -342,8 +342,19 @@ Three of those are newer than the rest and are worth naming here:
 - **`rdf`** — radial distribution function `g(r)`, i.e. bed *structure* rather
   than bed density. Distinguishes a random packing from a crystallising one,
   which a packing fraction cannot.
-- **`gpu`** — one headless `wgpu` kernel, for the RDF histogram only. The DEM
-  timestep deliberately has **no** GPU path; `compute`'s docs say why.
+- **`gpu`** — ~~one headless `wgpu` kernel, for the RDF histogram only. The DEM
+  timestep deliberately has **no** GPU path; `compute`'s docs say why.~~
+  **CHANGED 2026-11-05 (gh:#1250, maintainer):** the RDF histogram, and
+  `gpu::dem`, the HTR-10 pour's timestep in WGSL (Hertz + history, the
+  cylinder, valve wall and conus mesh), also on the browser's WebGPU
+  (`htr10_fill::Htr10GpuFill`, the second engine of `dhoby-ghaut`'s pour).
+  It is **not bit-identical** to the CPU path (f32 with double-f32 overlaps;
+  `gpu::dem`'s docs), so it is opt-in and the CPU stays the reference; it is
+  judged against CPU pours on packing fraction and g(r)
+  (`examples/gpu_pour_compare.rs`, maintainer: "the key thing ... is the
+  packing fraction and rdf"). Shader rule learnt the hard way: compensated
+  arithmetic must go through `keep` (a run-time 1), or a reassociating
+  shader compiler cancels it (lavapipe did).
 
 **Which engine to use.** There are two, deliberately:
 

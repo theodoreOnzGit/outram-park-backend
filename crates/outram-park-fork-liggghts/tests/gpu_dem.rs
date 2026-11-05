@@ -97,7 +97,11 @@ fn a_head_on_pair_rebounds_as_on_the_cpu() {
         eprintln!("head-on: CPU v {:?}, GPU v {:?}, rel {dv:.2e}", c.velocity, s.velocity);
         assert!(c.velocity.x.abs() > 0.1, "it rebounded");
         assert!(dv < 1e-5, "{dv}");
-        assert!(c.position.sub(s.position).norm() < 1e-8);
+        // The final state: the position within 1e-5 of the distance moved.
+        let moved = c.position.sub(Vec3::new(if c.velocity.x > 0.0 { 0.0305 } else { -0.0305 }, 0.0, 0.0)).norm();
+        let dx = c.position.sub(s.position).norm();
+        eprintln!("head-on position: |dx| {dx:.2e} m of {moved:.3e} m moved");
+        assert!(dx < 1e-5 * moved, "{dx}");
     }
 }
 

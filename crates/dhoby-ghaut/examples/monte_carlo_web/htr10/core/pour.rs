@@ -392,6 +392,65 @@ impl PourDiagnostics {
     }
 }
 
+/// **The GPU pour's report** in `dem_web`'s [`engine::Snapshot`] form, so
+/// the page treats both pours alike (gh:#1250): the same instruments
+/// (`htr10_fill`'s progress, `engine::vessel_bulk_fraction`) over the
+/// GPU's read-back state.
+pub fn gpu_snapshot(
+    id: u32,
+    fill: &outram_park_fork_liggghts::htr10_fill::Htr10GpuFill,
+    p: outram_park_fork_liggghts::htr10_fill::FillProgress,
+    ms_per_step: f64,
+) -> engine::Snapshot {
+    use uom::si::length::meter;
+    use uom::si::time::second;
+    let raw = fill.centres();
+    let c64: Vec<[f64; 3]> = raw.iter().map(|c| [c.x, c.y, c.z]).collect();
+    engine::Snapshot {
+        id,
+        n: fill.settings().n_pebbles,
+        steps: p.steps,
+        time_s: p.time.get::<second>(),
+        ke_ratio: p.ke_ratio_core,
+        phi: p.phi_whole_core,
+        phi_bulk: engine::vessel_bulk_fraction(&c64),
+        surface_m: p.surface_height.get::<meter>(),
+        n_core: p.n_in_core,
+        settled: p.settled,
+        gave_up: p.gave_up,
+        ms_per_step,
+        centres: raw.iter().flat_map(|c| [c.x as f32, c.y as f32, c.z as f32]).collect(),
+    }
+}
+
+/// The message when the browser has no WebGPU.
+pub const NO_WEBGPU: &str = "This browser has no WebGPU, which the GPU pour needs (recent Chrome, Edge or Safari; Firefox behind a flag). The CPU pour works everywhere.";
+
+/// Which engine a pour runs on, and what it took: the page's timing table.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PourTiming {
+    pub gpu: bool,
+    pub n: usize,
+    pub steps: usize,
+    pub wall_s: f64,
+    pub settled: bool,
+}
+
+impl PourTiming {
+    /// One line of the table.
+    pub fn line(&self) -> String {
+        format!(
+            "{}: {} pebbles, {} in {:.0} s ({} steps, {:.1} ms/step)",
+            if self.gpu { "GPU (WebGPU)" } else { "CPU (one thread)" },
+            super::random_bed::grouped(self.n),
+            if self.settled { "settled" } else { "stopped, NOT settled," },
+            self.wall_s,
+            self.steps,
+            1e3 * self.wall_s / self.steps.max(1) as f64
+        )
+    }
+}
+
 /// Compute per request the page aims for, ms: the page's worker also draws
 /// the slice, so a chunk is kept short (`dem_web`'s `CHUNK_MS` rule).
 pub const CHUNK_MS: f64 = 250.0;
@@ -408,6 +467,12 @@ pub struct PourUi {
     pub seed: u64,
     /// Whether the panel shows the pour (the "your pour" bed is selected).
     pub shown: bool,
+    /// Pour on the GPU (WebGPU, `gpu::dem`) rather than the CPU (gh:#1250).
+    pub gpu: bool,
+    /// Whether the current pour runs on the GPU.
+    running_gpu: bool,
+    /// Every finished pour's engine and time, for the side-by-side table.
+    pub timings: Vec<PourTiming>,
     /// Pour on arrival and use the bed once settled (`?pour=N`).
     pub auto: bool,
     id: u32,
@@ -436,6 +501,9 @@ impl Default for PourUi {
             fuel: nee_soon::htr10_rmc::table1::FUEL_BALL_FRACTION,
             seed: 1,
             shown: false,
+            gpu: false,
+            running_gpu: false,
+            timings: Vec::new(),
             auto: false,
             id: 0,
             in_flight: false,
@@ -462,7 +530,8 @@ impl PourUi {
     pub fn start(&mut self, now_s: f64) {
         self.id += 1;
         let n = (self.n.round() as usize).clamp(MIN_PEBBLES, max_pebbles());
-        self.out.push(super::CoreReq::Pour(engine::Request::Start { id: self.id, n, seed: self.seed }));
+        self.running_gpu = self.gpu;
+        self.out.push(self.request(engine::Request::Start { id: self.id, n, seed: self.seed }));
         self.in_flight = true;
         self.paused = false;
         self.chunk = 20;
@@ -472,6 +541,20 @@ impl PourUi {
         self.finished_s = None;
         self.diagnostics = None;
     }
+    /// The request on the current pour's engine.
+    fn request(&self, r: engine::Request) -> super::CoreReq {
+        if self.running_gpu {
+            super::CoreReq::PourGpu(r)
+        } else {
+            super::CoreReq::Pour(r)
+        }
+    }
+
+    /// Whether the current pour runs on the GPU.
+    pub fn running_on_gpu(&self) -> bool {
+        self.running_gpu
+    }
+
     /// A pour has been asked for.
     pub fn started(&self) -> bool {
         self.id > 0
@@ -500,6 +583,9 @@ impl PourUi {
                 self.last = Some(s);
                 if done && self.finished_s.is_none() {
                     self.finished_s = Some(now_s);
+                    if let Some(s) = &self.last {
+                        self.timings.push(PourTiming { gpu: self.running_gpu, n: s.n, steps: s.steps, wall_s: now_s - self.started_s, settled: s.settled });
+                    }
                     // Measure it once, in the worker.
                     if let Some(s) = &self.last {
                         self.out.push(super::CoreReq::PourDiagnostics {
@@ -524,7 +610,7 @@ impl PourUi {
             return;
         }
         self.in_flight = true;
-        self.out.push(super::CoreReq::Pour(engine::Request::Step { id: self.id, steps: self.chunk }));
+        self.out.push(self.request(engine::Request::Step { id: self.id, steps: self.chunk }));
     }
     /// Pause (no further chunk is asked for) or resume.
     pub fn set_paused(&mut self, paused: bool) {
@@ -589,8 +675,9 @@ impl PourUi {
         } else {
             "pouring"
         };
+        let engine = if self.running_gpu { "GPU" } else { "CPU" };
         vec![
-            format!("{} pebbles, {state}: {} steps, {:.2} s simulated, {:.0} s wall", super::random_bed::grouped(s.n), s.steps, s.time_s, wall),
+            format!("{} pebbles on the {engine}, {state}: {} steps, {:.2} s simulated, {:.0} s wall", super::random_bed::grouped(s.n), s.steps, s.time_s, wall),
             format!(
                 "surface {:.1} cm (95 % line {:.1} cm) · whole-core φ {:.4} · bulk φ {:.4}",
                 100.0 * s.surface_m,
@@ -787,6 +874,41 @@ mod tests {
     /// The page pulls the pour one chunk at a time, sized to the cost,
     /// ignores an old pour's report, stops when paused or settled, and makes
     /// numbered beds from the last report.
+    #[test]
+    /// The GPU engine (gh:#1250): the same protocol on `PourGpu` requests,
+    /// each finished pour lands in the timing table with its engine, and the
+    /// native worker pours on the GPU when an adapter exists (skips, saying
+    /// so, when none does).
+    fn the_gpu_engine_uses_its_own_requests_and_records_its_time() {
+        let mut p = PourUi::default();
+        p.gpu = true;
+        p.n = 3_000.0;
+        p.start(0.0);
+        assert!(p.running_on_gpu());
+        assert!(matches!(p.take_out().as_slice(), [super::super::CoreReq::PourGpu(engine::Request::Start { .. })]));
+        p.on_event(engine::Event::Progress(snap(1, 0, 0.0, false)), 0.0);
+        assert!(matches!(p.take_out().as_slice(), [super::super::CoreReq::PourGpu(engine::Request::Step { .. })]));
+        p.on_event(engine::Event::Progress(snap(1, 20, 5.0, true)), 12.0);
+        assert_eq!(p.timings.len(), 1);
+        assert!(p.timings[0].gpu && p.timings[0].settled);
+        assert!(p.timings[0].line().starts_with("GPU (WebGPU): 4 pebbles, settled in 12 s"), "{}", p.timings[0].line());
+        assert!(p.lines(12.0)[0].contains("on the GPU"));
+
+        let mut w = super::super::CoreWorker::default();
+        let mut got = Vec::new();
+        super::super::serve_gpu_pour(&mut w, engine::Request::Start { id: 3, n: 3_000, seed: 1 }, &mut |e| got.push(e));
+        match got.first() {
+            Some(super::super::CoreEv::Pour(engine::Event::Progress(s))) => {
+                assert_eq!((s.id, s.n), (3, 3_000));
+                got.clear();
+                super::super::serve_gpu_pour(&mut w, engine::Request::Step { id: 3, steps: 50 }, &mut |e| got.push(e));
+                assert!(matches!(got.first(), Some(super::super::CoreEv::Pour(engine::Event::Progress(s))) if s.steps == 50 && s.ms_per_step > 0.0));
+            }
+            Some(super::super::CoreEv::Pour(engine::Event::Error(m))) => eprintln!("skipping the native GPU pour: {m}"),
+            _ => panic!("no reply"),
+        }
+    }
+
     #[test]
     fn the_page_pulls_the_pour_and_makes_beds() {
         let mut p = PourUi::auto(1_000_000_000);
