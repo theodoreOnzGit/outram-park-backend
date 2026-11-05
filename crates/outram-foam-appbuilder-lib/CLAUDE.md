@@ -244,10 +244,21 @@ These two are **design targets, not descriptions of the current code.** Both
 were previously written here as though already true; they are not, so do not
 cite them as existing behaviour:
 
-- **`adjustTimeStep` is not implemented.** Every solver's `run()` steps at the
-  fixed `control.delta_t`; `adjust_time_step`, `max_co` and `max_delta_t` are
-  carried on `ControlDict` but consulted nowhere, and there is no
-  `adjust_delta_t` method. Implementing it means adding an adaptive-Δt path to
+- **`adjustTimeStep` is not implemented** ~~. Every solver's `run()` steps at the
+  fixed `control.delta_t`~~ **CORRECTED 2026-11-05** (checked by reading the
+  code): it is not implemented in the `ControlDict`-driven solvers
+  (`solvers::*`). Their `run()` steps at the fixed `control.delta_t`;
+  `adjust_time_step`, `max_co` and `max_delta_t` are carried on
+  `ControlDict` but consulted nowhere, and there is no `adjust_delta_t`
+  method. Two places DO adjust Δt:
+  - the GeN-Foam two-phase solver
+    (`genfoam/thermal_hydraulics/solver/two_phase`, gh:#1218) reads
+    `adjustTimeStep`, `maxCo` and `maxCoTwoPhase` from its own `controlDict`
+    and scales Δt by `maxCo / Co`;
+  - Foam Studio (`dhoby-ghaut/examples/foam_studio_web/engine.rs`, gh:#1241)
+    has an opt-in port of `CourantNo.H` / `setDeltaT` (`FOAM_MAX_CO`).
+
+  Implementing it for `solvers::*` still means adding an adaptive-Δt path to
   each `run()` loop.
 - **No write control is implemented,** because no writer is: every function in
   `io::output` is `todo!()`. `WriteControl::TimeStep` (every N steps) and
