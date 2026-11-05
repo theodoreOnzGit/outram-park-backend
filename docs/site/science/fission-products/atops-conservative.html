@@ -33,7 +33,7 @@
 <p>Read from the port (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity"><code>release_activity</code></a> and <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::release_fraction_transient"><code>release_<wbr>fraction_<wbr>transient</code></a>, upstream readings), for the kernel&rsquo;s inventory:</p>
 <ul>
 <li><b>Caesium, strontium</b> (and the other special metals): released = inventory &times; <b>failed fraction</b> &times; Booth&rsquo;s <i>F</i> on the bare kernel with &int;<i>D</i>&nbsp;d<i>t</i>. So a failed particle is a bare kernel, and an <b>intact particle releases exactly zero</b>.</li>
-<li><b>Silver</b>: released = inventory &times; <b>1</b> (every particle) &times; a planar time-lag formula through the SiC, the &ldquo;breakthrough&rdquo; model: steady flow through a flat SiC layer fed at the kernel&rsquo;s concentration over the kernel&rsquo;s area, never depleted.</li>
+<li><b>Silver</b>: released = inventory &times; <b>1</b> (every particle) &times; a planar time-lag formula <a href="#ref-crank1975diffusion">(Crank, 1975)</a> through the SiC, the &ldquo;breakthrough&rdquo; model: steady flow through a flat SiC layer fed at the kernel&rsquo;s concentration over the kernel&rsquo;s area, never depleted.</li>
 <li>Krypton and the other noble gases use an empirical fit, not a diffusion solution, so there is nothing here to compare it with (and boon-lay has no Kr <i>D</i> in the buffer, gh:#541).</li>
 </ul>
 
@@ -48,7 +48,7 @@
 </section>
 
 <h2>Which <i>D</i>, and why it matters</h2>
-<p>Kernel: TRISO-ATOPS&rsquo;s own correlations. Silver in SiC: TRISO-ATOPS&rsquo;s own, the one its breakthrough formula uses. Every other coating: boon-lay&rsquo;s walker table (Jiang et al. 2023, as boon-lay cites it, no fluence), because <b>TRISO-ATOPS has no coefficient for caesium or strontium in a coating at all</b>: it never moves them through one. The intact-particle numbers below therefore rest on that table. For example, Cs in SiC at 1600&nbsp;&deg;C is <span data-da="dCsSic1600">&hellip;</span>. That table&rsquo;s own uncertainty is not assessed here.</p>
+<p>Kernel: TRISO-ATOPS&rsquo;s own correlations. Silver in SiC: TRISO-ATOPS&rsquo;s own, the one its breakthrough formula uses. Every other coating: boon-lay&rsquo;s walker table (<a href="#ref-jiang2023fission">Jiang et al., 2023</a>, as boon-lay cites it, no fluence), because <b>TRISO-ATOPS has no coefficient for caesium or strontium in a coating at all</b>: it never moves them through one. The intact-particle numbers below therefore rest on that table. For example, Cs in SiC at 1600&nbsp;&deg;C is <span data-da="dCsSic1600">&hellip;</span>. That table&rsquo;s own uncertainty is not assessed here.</p>
 
 <h2>Finding 1: on a failed particle, Booth is exact</h2>
 <p>For caesium and strontium the mesh on the bare kernel reproduces TRISO-ATOPS&rsquo;s Booth to <span data-da="bareWorst">&hellip;</span> at every hold and time. That is expected: with one <i>D</i> for the whole sphere, Booth on &int;<i>D</i>&nbsp;d<i>t</i> <i>is</i> the solution (<a href="diffusion-three-ways.html">why</a>). At 1600&nbsp;&deg;C, 500&nbsp;h: Cs <span data-da="atopsCs1600">&hellip;</span>, Sr <span data-da="atopsSr1600">&hellip;</span> (mesh: <span data-da="bareSr1600">&hellip;</span>). So the formula is not an approximation. Whatever is conservative about it lies in the assumption <b>failed = bare kernel</b>: no coating left to slow anything.</p>
@@ -122,9 +122,9 @@
 <!-- references:begin -->
 <h2>References</h2>
 
-<p class="csl-entry" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &amp; Novascone, S. R. (2023). Fission product transport in TRISO particles and pebbles. Idaho National Lab. (INL), Idaho Falls, ID (United States).</p>
+<p class="csl-entry" id="ref-crank1975diffusion" style="padding-left: 2em; text-indent: -2em;">Crank, J. (1975). <i>The Mathematics of Diffusion</i> (2nd ed.). Clarendon Press.</p>
 
-<p class="csl-entry" style="padding-left: 2em; text-indent: -2em;">Crank, J. (1975). <i>The Mathematics of Diffusion</i> (2nd ed.). Oxford: Clarendon Press. (Chapter 4, the membrane time lag; chapter 6, the sphere.)</p>
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &#38; Novascone, S. R. (2023). <i>Fission product transport in TRISO particles and pebbles</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
 
 <!-- references:end -->
 
