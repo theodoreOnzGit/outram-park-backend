@@ -676,6 +676,8 @@ mod tests {
     /// top triangles flipped: they agree with each other and with its
     /// top-patch normal, −z). The coverage plan's "flags exactly that
     /// point" is therefore predicted to miss: {0, 2, 6}.
+    /// **Result (2026-11-05):** {0, 2, 6}, as predicted; with only the
+    /// centre active, {0}.
     #[test]
     fn inverted_vertices_on_a_dragged_fan() {
         let m = bipyramid(Vec3::ZERO);
@@ -706,6 +708,13 @@ mod tests {
     /// relative-change test (`tol`) stops them. Predicted within 1e-3 of
     /// the radius at `tol` 0.001 (`newPositionSurfaceOptimizer`'s), and
     /// the functional within 1e-6 relative of its value at the centre.
+    /// **Result (2026-11-05):** (a) held: from (1.5, 0) the point went to
+    /// (1.33e-5, 1.16e-5), all six areas 0.43300–0.43302 > 0; (b) held:
+    /// the regular hexagon's centre went to the **same** point (|d| 1.77e-5
+    /// of a unit radius), functional 27.712812921 → 27.712812927 (2e-10
+    /// relative). Same point from both starts because divide and conquer
+    /// discards the starting position (it begins at the box centre): the
+    /// optimiser's answer depends on the ring only.
     #[test]
     fn surface_optimizer_untangles_a_planar_fan() {
         let ring: Vec<Vec3> = (0..6).map(|k| {
@@ -743,6 +752,11 @@ mod tests {
     /// its normal is the side's axis normal to 1e-12; moving that point
     /// with `update_vertex` moves each of its four face centres to the
     /// area-weighted centre of the face's four centre triangles.
+    /// **Result (2026-11-05):** counts, simplex and normal held; the centre
+    /// update first missed by 1 ulp because the test recomputed it from
+    /// the already-updated centre (the centre is a corner of the triangles
+    /// it averages over); against the pre-update centre it is exact. The
+    /// carved box has no inverted vertex.
     #[test]
     fn part_tri_mesh_on_a_carved_box() {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(2.0, 2.0, 2.0));
@@ -750,6 +764,7 @@ mod tests {
         let e = SurfaceEngine::new(&m);
         let part = SurfacePartitioner::new(&e);
         let mut tm = PartTriMesh::new(&e, &part, &m.points);
+        assert!(check_inverted_vertices(&e, &part, &m.points, None).is_empty());
         assert_eq!(tm.points.len(), 194);
         assert_eq!(tm.triangles.len(), 768);
         assert_eq!(tm.point_type.iter().filter(|&&t| t == FACECENTRE).count(), 96);
@@ -763,15 +778,23 @@ mod tests {
         assert_eq!(s.trias.len(), 12);
         let n = s.normal();
         assert!(n.x.abs() < 1e-12 && n.y.abs() < 1e-12 && (n.z - 1.0).abs() < 1e-12, "{n:?}");
+        // The centre is itself a corner of the triangles it is averaged
+        // over, so the expected value is taken with the old centre (first
+        // run asserted it against the updated one and missed by 1 ulp).
+        let mut before = tm.clone();
+        before.points[tp] = Vec3::new(1.1, 1.05, 2.0);
         tm.update_vertex(tp, Vec3::new(1.1, 1.05, 2.0));
+        let mut n_centres = 0;
         for &tri in &tm.point_triangles[tp] {
             let c = tm.triangles[tri].0[2];
             if tm.point_type[c] & FACECENTRE != 0 {
-                let want = centre_of(&tm.points, &tm.triangles, &tm.point_triangles[c]);
+                let want = centre_of(&before.points, &before.triangles, &before.point_triangles[c]);
                 assert_eq!(tm.points[c], want);
                 assert!((tm.points[c].z - 2.0).abs() < 1e-12);
+                n_centres += 1;
             }
         }
+        assert_eq!(n_centres, 8, "two centre triangles per face, four faces");
         // around_points: the four faces at the point and one ring more.
         let inv: BTreeSet<usize> = [e.boundary_points[b]].into_iter().collect();
         let local = PartTriMesh::around_points(&e, &part, &m.points, &inv, 0);
@@ -791,48 +814,102 @@ mod tests {
     /// pipe); at least 80 % of the bad cells that have a boundary face
     /// have an inverted vertex on it; inverted vertices outside every bad
     /// cell exist (a fold of the surface need not put a cell centre behind
-    /// a face).
+    /// a face). The cell-centre dual (feature `cell-centre-dual`) is run
+    /// too when built.
+    ///
+    /// **Result (2026-11-05;** per-point and cell-centre give the same
+    /// boundary, so the same numbers): 1 390 boundary points; mapped
+    /// without the revert, **4** cells with a non-positive pyramid, all 4
+    /// with a boundary face carrying an inverted vertex (12 such vertices):
+    /// the 80 % prediction held (100 %). But **554** vertices are inverted,
+    /// and the same 554 before the mapping: 550 of them are reflex corners
+    /// (`isFaceConvexAndOk`, `(e_prev × e_next)·n < −0.05`) of 156
+    /// boundary faces (15 inlet, 15 outlet, 126 walls), the worst turning
+    /// a right angle backwards. So by cfMesh's own definition this crate's
+    /// dual boundary is "inverted" at 40 % of its points before anything
+    /// is mapped: the dual's boundary polygons are not convex. Not
+    /// predicted; it decides what `untangleSurface` (gh:#1259) will treat.
     #[test]
     fn inverted_vertices_against_nonpositive_pyramids_on_the_pipe() {
         use crate::dual::{DualKind, FeaturePointRule};
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.06, 48);
-        let o = crate::pipeline::TetDualOptions {
-            cell_size: 0.006,
-            n_layers: 0,
-            feature_edges: false,
-            dual_kind: DualKind::MedianPerPoint,
-            dual_feature_points: FeaturePointRule::Corners,
-            ..Default::default()
+        let reflex = |e: &SurfaceEngine, pts: &[Vec3]| -> BTreeSet<usize> {
+            e.face_rings
+                .iter()
+                .flat_map(|r| {
+                    let (_, ok) = is_face_convex_and_ok(pts, r);
+                    r.iter().zip(ok).filter(|(_, o)| !o).map(|(&v, _)| v).collect::<Vec<_>>()
+                })
+                .collect()
         };
-        let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
-        let mapped = crate::surface_mapper::map_vertices_onto_surface_patches(&m, &p, &t, &regions);
-        let bad = crate::surface_mapper::cells_with_nonpositive_pyramids(&mapped);
-        let e = SurfaceEngine::new(&mapped);
-        let part = SurfacePartitioner::new(&e);
-        let inv = check_inverted_vertices(&e, &part, &mapped.points, None);
-        let mut bad_bnd = 0;
-        let mut bad_bnd_with_inv = 0;
-        let mut inv_in_bad: BTreeSet<usize> = BTreeSet::new();
-        for &c in &bad {
-            let fs: Vec<usize> = (0..e.n_boundary_faces()).filter(|&bf| e.face_owners[bf] == c).collect();
-            if fs.is_empty() {
-                continue;
-            }
-            bad_bnd += 1;
-            let hit: Vec<usize> = fs.iter().flat_map(|&bf| e.face_rings[bf].iter().copied()).filter(|v| inv.contains(v)).collect();
-            if !hit.is_empty() {
-                bad_bnd_with_inv += 1;
-            }
-            inv_in_bad.extend(hit);
+        let mut kinds = vec![DualKind::MedianPerPoint];
+        if cfg!(feature = "cell-centre-dual") {
+            kinds.push(DualKind::CellCentre);
         }
-        println!(
-            "pipe h 6 mm Corners per-point, mapped without revert: {} bad cells ({} with a boundary face, {} of them with an inverted vertex); {} inverted vertices, {} on a bad cell's boundary face",
-            bad.len(),
-            bad_bnd,
-            bad_bnd_with_inv,
-            inv.len(),
-            inv_in_bad.len()
-        );
-        assert!(!bad.is_empty() && !inv.is_empty());
+        for kind in kinds {
+            let o = crate::pipeline::TetDualOptions {
+                cell_size: 0.006,
+                n_layers: 0,
+                feature_edges: false,
+                dual_kind: kind,
+                dual_feature_points: FeaturePointRule::Corners,
+                ..Default::default()
+            };
+            let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+            let e0 = SurfaceEngine::new(&m);
+            let inv0 = check_inverted_vertices(&e0, &SurfacePartitioner::new(&e0), &m.points, None);
+            let reflex0 = reflex(&e0, &m.points);
+            let mapped = crate::surface_mapper::map_vertices_onto_surface_patches(&m, &p, &t, &regions);
+            let bad = crate::surface_mapper::cells_with_nonpositive_pyramids(&mapped);
+            let e = SurfaceEngine::new(&mapped);
+            let part = SurfacePartitioner::new(&e);
+            let inv = check_inverted_vertices(&e, &part, &mapped.points, None);
+            let reflex1 = reflex(&e, &mapped.points);
+            let (mut bad_bnd, mut bad_bnd_with_inv) = (0, 0);
+            let mut inv_in_bad: BTreeSet<usize> = BTreeSet::new();
+            for &c in &bad {
+                let fs: Vec<usize> = (0..e.n_boundary_faces()).filter(|&bf| e.face_owners[bf] == c).collect();
+                if fs.is_empty() {
+                    continue;
+                }
+                bad_bnd += 1;
+                let hit: Vec<usize> = fs.iter().flat_map(|&bf| e.face_rings[bf].iter().copied()).filter(|v| inv.contains(v)).collect();
+                if !hit.is_empty() {
+                    bad_bnd_with_inv += 1;
+                }
+                inv_in_bad.extend(hit);
+            }
+            println!(
+                "pipe h 6 mm {kind:?} Corners, {} boundary points. Unmapped: {} inverted ({} reflex face corners). Mapped, no revert: {} inverted ({} reflex), {} cells with a non-positive pyramid ({} with a boundary face, {} of those with an inverted vertex), {} inverted vertices on such a face",
+                e.n_boundary_points(),
+                inv0.len(),
+                reflex0.len(),
+                inv.len(),
+                reflex1.len(),
+                bad.len(),
+                bad_bnd,
+                bad_bnd_with_inv,
+                inv_in_bad.len()
+            );
+            // Where the reflex corners are: per patch, and the worst turn.
+            let mut per_patch = vec![0usize; m.patches.len() + 1];
+            let mut worst = 0.0f64;
+            for (bf, r) in e0.face_rings.iter().enumerate() {
+                let (ok, _) = is_face_convex_and_ok(&m.points, r);
+                if !ok {
+                    per_patch[e0.face_patches[bf]] += 1;
+                    let n = ring_area_vector(&m.points, r).normalize();
+                    let k = r.len();
+                    for i in 0..k {
+                        let a = m.points[r[i]].sub(m.points[r[(i + k - 1) % k]]).normalize();
+                        let b = m.points[r[(i + 1) % k]].sub(m.points[r[i]]).normalize();
+                        worst = worst.min(a.cross(b).dot(n));
+                    }
+                }
+            }
+            let names: Vec<&str> = m.patches.iter().map(|q| q.name.as_str()).collect();
+            println!("  unmapped faces failing isFaceConvexAndOk per patch {names:?}: {per_patch:?}; most negative (e_prev x e_next).n = {worst:.3}");
+            assert!(!inv.is_empty());
+        }
     }
 }

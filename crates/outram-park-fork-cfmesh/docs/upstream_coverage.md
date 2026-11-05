@@ -112,7 +112,7 @@ _Subtotal: 19012 lines._
 | `meshes/polyMeshGen2DEngine` | 689 | not ported | — | 2D workflow. |
 | `meshes/partTetMesh (serial)` | 2119 | partial | `mesh_optimizer::PartTetMesh` | Ported: `partTetMesh(mesh, locked, badFaces, layers)`, `createPointsAndTets`, `partTetMeshSimplex`, `updateVerticesSMP`, `updateOrigMesh`. Missing: the `(mesh, locked, nLayers)` constructor (`optimizeMeshNearBoundaries`), `BOUNDARY` nodes as movable nodes (the boundary optimisers), `createPolyMesh`, `tetMatcher` handling. |
 | `meshes/partTetMesh: ParallelAddressing.C` | 535 | not applicable | — | MPI. |
-| `meshes/partTriMesh (serial)` | 1331 | not ported | — | Surface tri mesh for `meshSurfaceOptimizer`. |
+| `meshes/partTriMesh (serial)` | 1331 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::PartTriMesh`, `PartTriMeshSimplex` | Surface tri mesh for `meshSurfaceOptimizer`: both constructors, `updateVertex`, `updateVertices`, the simplex and its normal. |
 | `meshes/partTriMesh: ParallelAddressing.C` | 538 | not applicable | — | MPI. |
 | `meshes/primitives/partTet` | 507 | not applicable | `[usize; 4]` + `mesh_optimizer::tet_volume` | Primitive, replaced by an index array. |
 | `meshes/triSurf` | 2907 | partial | `(Vec<Vec3>, Vec<[usize; 3]>)` + `patches::SurfaceRegions` | Points, facets and region (patch) per facet. Missing: feature edges, facet/point/edge subsets, `triSurfAddressing` (edges, edgeFacets, pointFacets, facetEdges). |
@@ -152,7 +152,7 @@ _Subtotal: 9587 lines._
 |---|---:|---|---|---|
 | `smoothers/geometry/meshSurfaceOptimizer (serial)` | 2266 | not ported | — (`surface_mapper::revert_tangled` undoes moves instead of untangling) | `untangleSurface`, `optimizeSurface`, `untangleSurface2D`, `optimizeSurface2D`, Laplacian(FC/WFC), edge-node smoothing, `lockBoundaryFaces`/`Points`/`FeatureEdges`. |
 | `smoothers/geometry/meshSurfaceOptimizer: OptimizePointParallel.C` | 522 | not applicable | — | MPI. |
-| `.../advancedSurfaceSmoothers/surfaceOptimizer` | 545 | not ported | — | The 2D (in-plane) volume-optimiser analogue `untangleSurface` uses. |
+| `.../advancedSurfaceSmoothers/surfaceOptimizer` | 545 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::optimize_point` | The 2D (in-plane) volume-optimiser analogue `untangleSurface` uses; `matrix2D`'s solve inline. |
 
 _Subtotal: 3333 lines._
 
@@ -169,7 +169,7 @@ _Subtotal: 3333 lines._
 | `surfaceTools/meshSurfaceEdgeExtractorNonTopo` | 198 | ported | `pipeline` (`correct_edges` then `surface_mapper`) | `decomposeBoundaryFaces` + `remapBoundaryPoints`. |
 | `surfaceTools/correctEdgesBetweenPatches` | 835 | ported | `correct_edges::correct_edges_between_patches` | `decomposeProblematicFaces` is commented out upstream. Opt-in (`TetDualOptions::correct_edges`). |
 | `surfaceTools/meshSurfaceCheckEdgeTypes` | 483 | partial | `correct_edges` (tet test) | `classifyEdges` tet test only. Missing: the `meshSurfaceCheckInvertedVertices` (UNDETERMINED) branch, the `convexEdges`/`concaveEdges` accessors as a reusable class. |
-| `surfaceTools/meshSurfaceCheckInvertedVertices` | 555 | not ported | — (`surface_mapper::cells_with_nonpositive_pyramids` is a cell test, not this) |  |
+| `surfaceTools/meshSurfaceCheckInvertedVertices` | 555 | ~~not ported~~ **ported (2026-11-05, gh:#1258)** | `surface_optimizer::check_inverted_vertices`, `is_face_convex_and_ok` (`surface_mapper::cells_with_nonpositive_pyramids` is a cell test, not this) | On the crate's per-point / cell-centre duals of the 48-sided pipe (h 6 mm) it flags 554 of 1 390 boundary points before any mapping, 550 of them as reflex corners of 156 non-convex boundary polygons (the differential test in `surface_optimizer`). Not yet wired into `correct_edges`' UNDETERMINED edge class. |
 | `surfaceTools/meshSurfacePartitioner` | 513 | ~~partial~~ **ported (2026-11-05, gh:#1257)** | `surface_engine::SurfacePartitioner` | ~~Corners (>2 feature edges) and edge points (2). Missing: `patchPatches`, `edgeGroups`, as a reusable class.~~ All of it, serial: corners, edge points, `pointPatches`, `patchPatches`, `featureEdges`, `numberOfFeatureEdgesAtPoint`. **CORRECTED 2026-11-05:** `meshSurfacePartitioner.H` at `e944f6ba695f` has no `edgeGroups`; the earlier row named a member that does not exist there. |
 | `surfaceTools/edgeExtraction/edgeExtractor` | 4852 | not ported | — (`patches::assign_patches_by_region`: nearest triangle only) | Refines the face→patch assignment (`extractEdges`, `updateMeshPatches`, corners). |
 | `surfaceTools/meshSurfaceEdgeExtractor` | 406 | not ported | — | Older topological extractor; no generator in `meshLibrary/` calls it. |
