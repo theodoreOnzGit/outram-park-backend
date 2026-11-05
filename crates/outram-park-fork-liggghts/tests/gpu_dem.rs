@@ -19,6 +19,22 @@
 //!    and 1 pebble diameter of the CPU pour's (a different realisation once
 //!    chaos acts); no table overflow.
 //!
+//! **First run (2026-11-05, lavapipe): all four failed, for two reasons.**
+//! - *Precision, a real finding.* Head-on 1.76e-5 and oblique spin 1.32e-4
+//!   against 1e-5 and 1e-4. The cause was the overlap `δ = (r_i + r_j) −
+//!   |x_i − x_j|` formed in plain `f32`: a cancellation leaving ~4e-9 m
+//!   (and the radius rounded to `f32`). The kernel now forms every overlap
+//!   in double-f32; **the tolerances above were not changed.**
+//! - *Two cases were built wrong, not the kernel.* Case 3 pushed the ball
+//!   sideways, and without rolling resistance a rolling ball never stops: z
+//!   agreed to 2.5e-9 m, x drifted 5e-4 m as it rolled. It is now two cases:
+//!   **3a** a vertical drop onto the valve wall (rest within 1e-7 m) and
+//!   **3b** a bounce off the cylinder without gravity (velocity within 1e-5
+//!   relative, as case 1). Case 4's 1 500 pebbles all fit below the floor
+//!   (the conus and tube hold ~2 450), so no pebble reached the core and
+//!   neither pour could count as settled (φ NaN on both). It now pours
+//!   **4 000**. Its early-time result passed as predicted: median 6.85e-7 m.
+//!
 //! Skips (passes, printing why) when no GPU adapter exists; on a headless
 //! Linux host Mesa's lavapipe (`mesa-vulkan-drivers`) provides one.
 
@@ -105,9 +121,9 @@ fn an_oblique_pair_with_friction_and_spin_matches_the_cpu() {
 }
 
 #[test]
-fn a_ball_settles_on_the_walls_as_on_the_cpu() {
+fn a_ball_dropped_on_the_valve_wall_rests_as_on_the_cpu() {
     let sys = system(
-        vec![ball(Vec3::new(0.86, 0.0, -0.55), Vec3::new(0.2, 0.0, 0.0), Vec3::zero())],
+        vec![ball(Vec3::new(0.4, 0.1, -0.5), Vec3::zero(), Vec3::zero())],
         vec![
             Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.9).expect("cyl"),
             Boundary::wall(Vec3::new(0.0, 0.0, -0.6), Vec3::new(0.0, 0.0, 1.0)).expect("wall"),
@@ -123,10 +139,26 @@ fn a_ball_settles_on_the_walls_as_on_the_cpu() {
 }
 
 #[test]
+fn a_ball_bounces_off_the_cylinder_as_on_the_cpu() {
+    let sys = system(
+        vec![ball(Vec3::new(0.86, 0.0, 0.0), Vec3::new(0.7, 0.3, 0.0), Vec3::new(0.0, 0.0, 4.0))],
+        vec![Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.9).expect("cyl")],
+        0.0,
+    );
+    let Some((cpu, g)) = both(sys, 600) else { return eprintln!("skipping: no GPU adapter") };
+    let (c, s) = (cpu.particles()[0], g[0]);
+    let dv = rel(c.velocity, s.velocity, c.velocity.norm());
+    let dw = rel(c.angular_velocity, s.angular_velocity, c.angular_velocity.norm());
+    eprintln!("cylinder bounce: CPU v {:?}, GPU v {:?}, rel {dv:.2e}, spin rel {dw:.2e}", c.velocity, s.velocity);
+    assert!(c.velocity.x < 0.0, "it bounced");
+    assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
+}
+
+#[test]
 fn an_htr10_pour_matches_the_cpu_early_and_settled() {
     use outram_park_fork_liggghts::compute::ThreadCount;
     use outram_park_fork_liggghts::htr10_fill::{Htr10Fill, Htr10FillSettings, Htr10GpuFill};
-    let settings = Htr10FillSettings { n_pebbles: 1_500, threads: ThreadCount::Fixed(4), seed: 7, ..Htr10FillSettings::default() };
+    let settings = Htr10FillSettings { n_pebbles: 4_000, threads: ThreadCount::Fixed(4), seed: 7, ..Htr10FillSettings::default() };
     let Ok(mut g) = Htr10GpuFill::new(settings) else { return eprintln!("skipping: no GPU adapter") };
     let mut c = Htr10Fill::new(settings).expect("cpu");
     eprintln!("adapter: {}", g.adapter());

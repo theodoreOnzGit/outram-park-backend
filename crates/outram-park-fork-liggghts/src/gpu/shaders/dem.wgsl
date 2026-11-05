@@ -24,8 +24,8 @@ struct Params {
     origin: vec4<f32>,        // grid origin xyz, cell edge in w
     gravity: vec4<f32>,       // xyz, dt in w
     material: vec4<f32>,      // y_eff, g_eff, beta, mu
-    cyl: vec4<f32>,           // axis point xyz, radius (axis is +z)
-    valve: vec4<f32>,         // wall point z in x, normal z sign in y (one-sided, +z)
+    cyl: vec4<f32>,           // axis point x, y; radius hi, lo (axis is z)
+    valve: vec4<f32>,         // wall point z hi, normal z sign, wall point z lo (one-sided)
     flags_in: vec4<u32>,      // has cylinder, has valve wall, has mesh, tangential damping
     hull: vec4<f32>,          // mesh bounding sphere centre xyz, radius
 };
@@ -33,9 +33,9 @@ struct Params {
 // A particle: position as hi + lo f32 pairs (WebGPU has no f64), radius,
 // mass, velocity, angular velocity.
 struct P {
-    hi: vec4<f32>,  // xyz, radius
+    hi: vec4<f32>,  // xyz, radius (hi)
     lo: vec4<f32>,  // xyz, mass
-    v: vec4<f32>,   // xyz, unused
+    v: vec4<f32>,   // xyz, radius (lo)
     w: vec4<f32>,   // xyz, unused
 };
 
@@ -49,7 +49,9 @@ struct P {
 // neighbour index, 0xffffffff empty), then 3 wall slots (w = 1 live).
 @group(0) @binding(4) var<storage, read_write> h_old: array<vec4<f32>>;
 @group(0) @binding(5) var<storage, read_write> h_new: array<vec4<f32>>;
-// Mesh triangles: a, b, c, normal (xyz each), then a bounds vec4 (centroid, radius).
+// Mesh triangles, six vec4s each: a (hi), a (lo), b − a, c − a, normal,
+// bounds (centroid, radius). The closest point is found in coordinates local
+// to a, so magnitudes are a facet's size, not the vessel's.
 @group(0) @binding(6) var<storage, read_write> tris: array<vec4<f32>>;
 // [0] cell overflow, [1] contact-slot overflow.
 @group(0) @binding(7) var<storage, read_write> errs: array<atomic<u32>>;
@@ -100,7 +102,7 @@ fn kick_drift(@builtin(global_invocation_id) gid: vec3<u32>) {
     let l2 = lo - (h2 - t[0]);
     p.hi = vec4<f32>(h2, r);
     p.lo = vec4<f32>(l2, m);
-    p.v = vec4<f32>(v, 0.0);
+    p.v = vec4<f32>(v, p.v.w);
     p.w = vec4<f32>(w, 0.0);
     ps[i] = p;
 }
@@ -114,9 +116,48 @@ fn kick(@builtin(global_invocation_id) gid: vec3<u32>) {
     let m = p.lo.w;
     let r = p.hi.w;
     let inv_i = 1.0 / (INERTIA * m * r * r);
-    p.v = vec4<f32>(p.v.xyz + ft[2u * i].xyz * (half / m), 0.0);
+    p.v = vec4<f32>(p.v.xyz + ft[2u * i].xyz * (half / m), p.v.w);
     p.w = vec4<f32>(p.w.xyz + ft[2u * i + 1u].xyz * (half * inv_i), 0.0);
     ps[i] = p;
+}
+
+// ── double-f32 arithmetic for the overlap ───────────────────────────────────
+//
+// δ = (r_i + r_j) − |x_i − x_j| cancels two numbers near 2r: in plain f32
+// it keeps only ~4e-9 m (1e-5 of a 0.4 mm collision overlap, 4e-4 of a
+// 10 µm resting one). Carried as hi + lo pairs (Dekker / Knuth error-free
+// transformations; `fma` gives the exact product error), δ keeps ~1e-7 of
+// itself, which is f32's own resolution of the result.
+
+fn ts(a: f32, b: f32) -> vec2<f32> {
+    let s = a + b;
+    let bb = s - a;
+    return vec2<f32>(s, (a - (s - bb)) + (b - bb));
+}
+
+// (a.x + a.y) + (b.x + b.y), renormalised.
+fn dd_add(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    let s = ts(a.x, b.x);
+    let lo = s.y + a.y + b.y;
+    let h = s.x + lo;
+    return vec2<f32>(h, lo - (h - s.x));
+}
+
+// √(a.x + a.y), to double-f32 (one Newton step on the f32 root).
+fn dd_sqrt(a: vec2<f32>) -> vec2<f32> {
+    let h = sqrt(a.x);
+    if (h == 0.0) { return vec2<f32>(0.0); }
+    let r = dd_add(a, -dd_sq(vec2<f32>(h, 0.0)));
+    return ts(h, (r.x + r.y) / (2.0 * h));
+}
+
+// (a.x + a.y)², to double-f32.
+fn dd_sq(a: vec2<f32>) -> vec2<f32> {
+    let p = a.x * a.x;
+    let e = fma(a.x, a.x, -p);
+    let lo = e + 2.0 * a.x * a.y;
+    let h = p + lo;
+    return vec2<f32>(h, lo - (h - p));
 }
 
 // ── cell list (deterministic: entries sorted by index) ──────────────────────
@@ -307,13 +348,19 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
                     let j = atomicLoad(&cells[prm.dims.w + c * prm.cap + s]);
                     if (j == i) { continue; }
                     let pj = ps[j];
-                    // x_i - x_j in hi + lo: the hi difference of two nearby
-                    // centres plus the lo difference.
-                    let delta = (pi.hi.xyz - pj.hi.xyz) + (pi.lo.xyz - pj.lo.xyz);
-                    let rr = length(delta);
+                    // x_i - x_j and |x_i - x_j|² in double-f32.
+                    let dx = dd_add(ts(pi.hi.x, -pj.hi.x), vec2<f32>(pi.lo.x - pj.lo.x, 0.0));
+                    let dy = dd_add(ts(pi.hi.y, -pj.hi.y), vec2<f32>(pi.lo.y - pj.lo.y, 0.0));
+                    let dzz = dd_add(ts(pi.hi.z, -pj.hi.z), vec2<f32>(pi.lo.z - pj.lo.z, 0.0));
+                    let r2 = dd_add(dd_add(dd_sq(dx), dd_sq(dy)), dd_sq(dzz));
+                    let delta = vec3<f32>(dx.x + dx.y, dy.x + dy.y, dzz.x + dzz.y);
+                    let rr = sqrt(r2.x + r2.y);
                     let rj = pj.hi.w;
-                    let radsum = ri + rj;
-                    let delta_n = radsum - rr;
+                    let radsum2 = dd_add(ts(ri, rj), vec2<f32>(pi.v.w + pj.v.w, 0.0));
+                    let radsum = radsum2.x + radsum2.y;
+                    // δ = (R² − r²) / (R + r), the difference taken in double-f32.
+                    let num = dd_add(dd_sq(radsum2), vec2<f32>(-r2.x, -r2.y));
+                    let delta_n = (num.x + num.y) / (radsum + rr);
                     if (delta_n <= 0.0 || rr <= 0.0) { continue; }
                     let rinv = 1.0 / rr;
                     let en = delta * rinv;
@@ -357,28 +404,40 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
         var normal = vec3<f32>(0.0);
         var delta_n = 0.0;
         if (w == 0u && prm.flags_in.x != 0u) {
-            let rad = p.xy - prm.cyl.xy;
-            let rho = length(rad);
-            if (rho > 0.0) {
-                let d = ri - (prm.cyl.w - rho);
-                if (d > 0.0) { hit = true; delta_n = d; normal = vec3<f32>(-rad / rho, 0.0); }
+            // δ = r − (R − ρ), every term in double-f32.
+            let qx = dd_add(ts(pi.hi.x, -prm.cyl.x), vec2<f32>(pi.lo.x, 0.0));
+            let qy = dd_add(ts(pi.hi.y, -prm.cyl.y), vec2<f32>(pi.lo.y, 0.0));
+            let rho = dd_sqrt(dd_add(dd_sq(qx), dd_sq(qy)));
+            if (rho.x > 0.0) {
+                let dd = dd_add(dd_add(ts(ri, -prm.cyl.z), vec2<f32>(pi.v.w - prm.cyl.w, 0.0)), rho);
+                let d = dd.x + dd.y;
+                let rad = vec2<f32>(qx.x + qx.y, qy.x + qy.y);
+                if (d > 0.0) { hit = true; delta_n = d; normal = vec3<f32>(-rad / (rho.x + rho.y), 0.0); }
             }
         } else if (w == 1u && prm.flags_in.y != 0u) {
-            let s = (p.z - prm.valve.x) * prm.valve.y;
-            let d = ri - s;
+            // s = (z − z_wall) n_z, δ = r − s, in double-f32.
+            let sz = dd_add(ts(pi.hi.z, -prm.valve.x), vec2<f32>(pi.lo.z - prm.valve.z, 0.0));
+            let s2 = vec2<f32>(sz.x * prm.valve.y, sz.y * prm.valve.y);
+            let dd = dd_add(ts(ri, -s2.x), vec2<f32>(pi.v.w - s2.y, 0.0));
+            let d = dd.x + dd.y;
             if (d > 0.0) { hit = true; delta_n = d; normal = vec3<f32>(0.0, 0.0, prm.valve.y); }
         } else if (w == 2u && prm.flags_in.z != 0u) {
             if (length(p - prm.hull.xyz) - prm.hull.w < ri) {
                 var best = 3.4e38;
                 var best_n = vec3<f32>(0.0);
                 for (var tt = 0u; tt < prm.n_tris; tt = tt + 1u) {
-                    let bb = tris[5u * tt + 4u];
+                    let bb = tris[6u * tt + 5u];
                     if (length(p - bb.xyz) - bb.w >= ri) { continue; }
-                    let q = closest_on_triangle(p, tris[5u * tt].xyz, tris[5u * tt + 1u].xyz, tris[5u * tt + 2u].xyz);
-                    let dist = length(p - q);
-                    if (dist < best) { best = dist; best_n = tris[5u * tt + 3u].xyz; }
+                    // The particle in coordinates local to vertex a.
+                    let ah = tris[6u * tt].xyz;
+                    let al = tris[6u * tt + 1u].xyz;
+                    let lp = (pi.hi.xyz - ah) + (pi.lo.xyz - al);
+                    let q = closest_on_triangle(lp, vec3<f32>(0.0), tris[6u * tt + 2u].xyz, tris[6u * tt + 3u].xyz);
+                    let dist = length(lp - q);
+                    if (dist < best) { best = dist; best_n = tris[6u * tt + 4u].xyz; }
                 }
-                let d = ri - best;
+                let dd = ts(ri, -best);
+                let d = dd.x + (dd.y + pi.v.w);
                 if (d > 0.0) { hit = true; delta_n = d; normal = best_n; }
             }
         }

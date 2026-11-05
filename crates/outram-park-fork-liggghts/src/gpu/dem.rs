@@ -30,7 +30,11 @@
 //! - **`f32`.** WebGPU has no `f64`. Positions are carried as two `f32`s
 //!   (`hi + lo`, updated by an exact two-sum), so a pair's separation keeps
 //!   ~1e-12 m resolution: a plain `f32` at 2 m has a 2.4e-7 m step, about 3 %
-//!   of the 9 µm overlap of a pebble near a bed's top. Velocities, spins,
+//!   of the 9 µm overlap of a pebble near a bed's top. **The overlap** `δ =
+//!   (r_i + r_j) − |x_i − x_j|` is then formed in double-f32 (radii as hi +
+//!   lo too; `fma` for exact products), so it keeps ~1e-7 of itself: in plain
+//!   `f32` the cancellation left ~4e-9 m, which the first comparison measured
+//!   (a head-on rebound 1.8e-5 off the CPU's, 2026-11-05). Velocities, spins,
 //!   forces and springs are `f32` (~1e-7 relative).
 //! - **Summation order.** Each particle sums its contacts in cell order, not
 //!   the CPU's pair order.
@@ -123,7 +127,8 @@ pub struct GpuErrors {
 pub struct GpuSetup {
     params: Params,
     particles: Vec<GpuParticle>,
-    /// Five `vec4`s per triangle: a, b, c, normal, bounds (centroid, radius).
+    /// Six `vec4`s per triangle: a (hi), a (lo), b − a, c − a, normal,
+    /// bounds (centroid, radius).
     tris: Vec<[f32; 4]>,
 }
 
@@ -169,14 +174,16 @@ impl GpuSetup {
                     if (a.z.abs() - 1.0).abs() > 1e-12 {
                         return Err("the GPU path's cylinder must have a z axis".into());
                     }
-                    cyl = Some([axis_point.x as f32, axis_point.y as f32, 0.0, radius as f32]);
+                    let (rh, rl) = split(radius);
+                    cyl = Some([axis_point.x as f32, axis_point.y as f32, rh, rl]);
                 }
                 Boundary::Wall { point, normal } if valve.is_none() => {
                     let n = normal.scale(1.0 / normal.norm());
                     if (n.z.abs() - 1.0).abs() > 1e-12 {
                         return Err("the GPU path's one-sided wall must have a ±z normal".into());
                     }
-                    valve = Some([point.z as f32, n.z.signum() as f32, 0.0, 0.0]);
+                    let (zh, zl) = split(point.z);
+                    valve = Some([zh, n.z.signum() as f32, zl, 0.0]);
                 }
                 _ => return Err(format!("the GPU path cannot hold this boundary: {b:?}")),
             }
@@ -199,7 +206,15 @@ impl GpuSetup {
                 for t in &mesh.triangles {
                     let c = t.a.add(t.b).add(t.c).scale(1.0 / 3.0);
                     let r = [t.a, t.b, t.c].iter().map(|v| v.sub(c).norm()).fold(0.0, f64::max);
-                    tris.extend([f4(t.a, 0.0), f4(t.b, 0.0), f4(t.c, 0.0), f4(t.normal(), 0.0), f4(c, r * (1.0 + 1e-6) + 1e-9)]);
+                    let (ax, ay, az) = (split(t.a.x), split(t.a.y), split(t.a.z));
+                    tris.extend([
+                        [ax.0, ay.0, az.0, 0.0],
+                        [ax.1, ay.1, az.1, 0.0],
+                        f4(t.b.sub(t.a), 0.0),
+                        f4(t.c.sub(t.a), 0.0),
+                        f4(t.normal(), 0.0),
+                        f4(c, r * (1.0 + 1e-6) + 1e-9),
+                    ]);
                     centroids.push((c, r));
                 }
                 let n = centroids.len().max(1) as f64;
@@ -238,7 +253,7 @@ impl GpuSetup {
             n: ps.len() as u32,
             k_slots: K_SLOTS,
             cap: CELL_CAP,
-            n_tris: (tris.len() / 5) as u32,
+            n_tris: (tris.len() / 6) as u32,
             dims: [dims[0], dims[1], dims[2], total],
             origin: [lo.x as f32, lo.y as f32, lo.z as f32, edge as f32],
             gravity: [g.x as f32, g.y as f32, g.z as f32, sys.dt() as f32],
@@ -255,7 +270,9 @@ impl GpuSetup {
                 GpuParticle {
                     hi: [x.0, y.0, z.0, p.radius as f32],
                     lo: [x.1, y.1, z.1, p.mass as f32],
-                    v: f4(p.velocity, 0.0),
+                    // The radius as hi + lo too: the overlap is a difference
+                    // of radii and a distance (shader, "double-f32").
+                    v: f4(p.velocity, p.radius - f64::from(p.radius as f32)),
                     w: f4(p.angular_velocity, 0.0),
                 }
             })
