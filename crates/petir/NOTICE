@@ -836,6 +836,29 @@ notice and the copyright lines of the files it was ported from.
   with the deviations listed in each file (none changes an output).
 
 ================================================================================
+DERIVED WORK — EGSnrc (Upstream: EGSnrc)
+================================================================================
+
+  Project    : EGSnrc, National Research Council Canada (NRC)
+  Upstream   : https://github.com/nrc-cnrc/EGSnrc
+  Commit     : bd49a47aae3938f49f4100b8e018091861408b19 (2026-09-28)
+  Accessed   : 2026-11-05
+  Licence    : GNU Affero General Public License, version 3 or (at your
+               option) any later version (AGPL-3.0-or-later), as stated in
+               each file's header. Ported files here carry
+               `SPDX-License-Identifier: AGPL-3.0-only`.
+
+  src/interp_egs.rs   HEN_HOUSE/egs++/egs_interpolator.h
+                      HEN_HOUSE/egs++/egs_interpolator.cpp
+                      (and `loopMax` from HEN_HOUSE/egs++/egs_functions.h)
+                      "Copyright (C) 2015 National Research Council Canada"
+                      Author: Iwan Kawrakow, 2005
+                      Contributors: Ernesto Mainegra-Hing, Reid Townson
+
+  The flow is ONE-WAY. Deviations from upstream are listed in the file
+  (none changes an output wherever upstream's behaviour is defined).
+
+================================================================================
 NOT AFFILIATED
 ================================================================================
 
