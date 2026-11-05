@@ -156,7 +156,12 @@ the surface only through `optimiseBoundaryVolumeOptimizer(true)`'s tangent
 constraint and calls no mapper afterwards. All three switches are off by
 default, and
 `final_mesh::tests::foam_studio_default_mesh_keeps_its_fingerprint` pins
-Foam Studio's default mesh.
+~~Foam Studio's default mesh~~ Foam Studio's pre-gh:#1298 default mesh
+(**UPDATED 2026-11-05, gh:#1298:** Foam Studio now turns all three on
+itself, with `CellCentre` + `Corners` and `CfMeshOptimise`
+(`engine::CfMeshRoute::UpstreamNoLaplace`); this crate's
+`TetDualOptions::default()` is unchanged, so its pins and the other
+consumers keep the old pipeline).
 
 Use the projection only with `untangle_surface`. On the `revert_tangled`
 capture it re-maps the points that capture left off the surface on

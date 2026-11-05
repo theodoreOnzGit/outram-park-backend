@@ -175,30 +175,82 @@ pub struct TetDualSpec {
     /// the class's (corners only). Ignored by the per-corner dual.
     pub feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule,
     /// What the layer stage does about cells that fail the quality checks
-    /// (gh:#1215): back off the thickness (the default), cfMesh's layer
-    /// optimiser, or snappyHexMesh's local collapse.
+    /// (gh:#1215): back off the thickness (~~the default~~ the default
+    /// before gh:#1298), cfMesh's layer optimiser (the default since
+    /// gh:#1298), or snappyHexMesh's local collapse.
     pub layer_quality: outram_blender::foam_mesh::LayerQualityStrategy,
+    /// The cfMesh steps around the dual (gh:#1298): upstream's
+    /// `tetMeshGenerator` sequence without the Laplace pass (the default),
+    /// or the route before gh:#1298 (the named ablation).
+    pub route: CfMeshRoute,
+}
+
+/// Which cfMesh steps run around the dual (gh:#1298). The record is the
+/// gh:#1283 and gh:#1298 sections of
+/// `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CfMeshRoute {
+    /// **The default since gh:#1298** (gh:#1283's route `upEnl`): cfMesh's
+    /// `meshSurfaceOptimizer` in the feature-edge capture
+    /// (`TetDualOptions::untangle_surface`), then `optimiseFinalMesh`
+    /// (`TetDualOptions::optimise_final_mesh`: `optimizeSurface`,
+    /// `untangleMeshFV` with the boundary moves and the LP untangler,
+    /// `optimizeLowQualityFaces`, `untangleMeshFV`), with the points the
+    /// boundary passes move mapped back onto the surface after each pass
+    /// (`BoundaryProjection::EachPass`, **not upstream**: upstream lets
+    /// them leave the surface). `optimizeMeshFV`'s Laplace pass is off: it
+    /// thickens the layer stack by about 50 % (gh:#1256). With layers and
+    /// `CfMeshOptimise` the layer stage runs the same optimiser.
+    UpstreamNoLaplace,
+    /// The route before gh:#1298, kept as the explicit ablation: the
+    /// `revert_tangled` feature-edge capture, no `optimiseFinalMesh`, and
+    /// the cfMesh optimiser's own defaults (no boundary moves, no LP
+    /// untangler, no projection).
+    PreGh1298,
 }
 
 impl TetDualSpec {
-    /// The mesher choices every spec starts from: the per-corner dual, the
-    /// utility's feature points and the back-off layer stage, i.e. the mesher
-    /// every recorded number before gh:#1240's browser controls was taken
-    /// on. Literal specs end with `..TetDualSpec::BASE`; only the four
-    /// numbers above are meaningful in it.
+    /// The mesher choices every spec starts from. Literal specs end with
+    /// `..TetDualSpec::BASE`; only the four numbers above are meaningful
+    /// in it.
+    ///
+    /// ~~The per-corner dual, the utility's feature points and the back-off
+    /// layer stage, i.e. the mesher every recorded number before gh:#1240's
+    /// browser controls was taken on.~~ **CHANGED 2026-11-05 (gh:#1298,
+    /// maintainer-approved):** the cell-centre dual (`polyDualMesh`) with
+    /// the class's feature points (corners only), cfMesh's layer optimiser,
+    /// and [`CfMeshRoute::UpstreamNoLaplace`]. The old choices are
+    /// [`Self::PRE_GH1298`], the named ablation.
     pub const BASE: Self = Self {
         cell_size: 0.004,
         n_layers: 0,
         first_layer: 3e-4,
         expansion: 1.2,
+        dual: outram_park_fork_cfmesh::dual::DualKind::CellCentre,
+        feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners,
+        layer_quality: outram_blender::foam_mesh::LayerQualityStrategy::CfMeshOptimise,
+        route: CfMeshRoute::UpstreamNoLaplace,
+    };
+
+    /// **The ablation of gh:#1298**: the mesher choices of [`Self::BASE`]
+    /// before 2026-11-05, i.e. the per-corner median dual, the utility's
+    /// feature points, the back-off layer stage and
+    /// [`CfMeshRoute::PreGh1298`]. Every Foam Studio number recorded before
+    /// gh:#1298 was taken on it; specs that reproduce those records end
+    /// with `..TetDualSpec::PRE_GH1298`.
+    pub const PRE_GH1298: Self = Self {
         dual: outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner,
         feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge,
         layer_quality: outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly,
+        route: CfMeshRoute::PreGh1298,
+        ..Self::BASE
     };
 
-    /// The three mesher choices as the small integers the worker messages
-    /// carry: `[dual, feature points, layer quality]`.
-    pub fn choice_codes(&self) -> [f64; 3] {
+    /// The four mesher choices as the small integers the worker messages
+    /// carry: `[dual, feature points, layer quality, route]` (the route
+    /// since gh:#1298: 0 upstream without Laplace, 1 the pre-gh:#1298
+    /// route).
+    pub fn choice_codes(&self) -> [f64; 4] {
         use outram_blender::foam_mesh::LayerQualityStrategy as L;
         use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
         let d = match self.dual {
@@ -215,12 +267,16 @@ impl TetDualSpec {
             L::CfMeshOptimise => 1.0,
             L::SnappyCollapse => 2.0,
         };
-        [d, f, l]
+        let r = match self.route {
+            CfMeshRoute::UpstreamNoLaplace => 0.0,
+            CfMeshRoute::PreGh1298 => 1.0,
+        };
+        [d, f, l, r]
     }
 
     /// `self` with the choices [`Self::choice_codes`] wrote; an unknown code
     /// is an error, not a silent default.
-    pub fn with_choice_codes(self, c: [f64; 3]) -> Result<Self, String> {
+    pub fn with_choice_codes(self, c: [f64; 4]) -> Result<Self, String> {
         use outram_blender::foam_mesh::LayerQualityStrategy as L;
         use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
         let dual = match c[0] as u8 {
@@ -240,7 +296,23 @@ impl TetDualSpec {
             2 => L::SnappyCollapse,
             k => return Err(format!("unknown layer strategy code {k}")),
         };
-        Ok(Self { dual, feature_points, layer_quality, ..self })
+        let route = match c[3] as u8 {
+            0 => CfMeshRoute::UpstreamNoLaplace,
+            1 => CfMeshRoute::PreGh1298,
+            k => return Err(format!("unknown cfMesh route code {k}")),
+        };
+        Ok(Self { dual, feature_points, layer_quality, route, ..self })
+    }
+
+    /// `self` with the route a page URL names (gh:#1298): `route=legacy`
+    /// is [`CfMeshRoute::PreGh1298`], `route=upstream` the default;
+    /// anything else leaves it as it is.
+    pub fn with_route_query(self, route: Option<&str>) -> Self {
+        match route {
+            Some("legacy") => Self { route: CfMeshRoute::PreGh1298, ..self },
+            Some("upstream") => Self { route: CfMeshRoute::UpstreamNoLaplace, ..self },
+            _ => self,
+        }
     }
 
     /// `self` with the choices a page URL names (gh:#1240 browser controls):
@@ -307,20 +379,34 @@ impl TetDualSpec {
     /// (6 713)~~ ran but, with one layer, sit further from Hagen–Poiseuille
     /// than the bare mesh of the same cell size (0.85 against 0.86 at 6 mm,
     /// 0.87 against 0.89 at 5 mm).
+    ///
+    /// **gh:#1298 (2026-11-05):** the same sizes on the new mesher
+    /// ([`Self::BASE`]: cell-centre dual, corners, upstream's sequence):
+    /// 6 353 cells, meshed in 2.4 s natively, 27 steps, u_c/2U 0.8832,
+    /// dp/dz 1.0649 × HP, inlet flux 0.99391 πR² (the V&V record's
+    /// gh:#1298 section; the pin is `headless_unstructured_default_is_pinned`).
     pub fn default_for(radius: f64) -> Self {
         Self { cell_size: 0.4 * radius, n_layers: 0, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
     }
 
     /// Rough cell count of the tet-dual mesh of a pipe (radius `r`, length
-    /// `l`) with these settings: [`MESH_ESTIMATE`]`.0` dual cells per h³ of
-    /// pipe volume, plus `n_layers` prisms per wall face, the wall carrying
-    /// [`MESH_ESTIMATE`]`.1` faces per h² of wall area. Measured on this
-    /// pipe; used only to refuse settings that would freeze a phone.
+    /// `l`) with these settings: `.0` dual cells per h³ of pipe volume, plus
+    /// `n_layers` prisms per wall face, the wall carrying `.1` faces per h²
+    /// of wall area, from [`MESH_ESTIMATE`] for the per-corner dual and
+    /// [`MESH_ESTIMATE_POLY_DUAL`] for the two `polyDualMesh` duals (one
+    /// wall face per boundary point, gh:#1298: the per-corner coefficient
+    /// overestimated them about fourfold, ~26k shown for 7 025 cells).
+    /// Measured on this pipe; used only to refuse settings that would
+    /// freeze a phone.
     pub fn estimated_cells(&self, r: f64, l: f64) -> f64 {
         let h = self.cell_size.max(1e-12);
         let vol = std::f64::consts::PI * r * r * l;
         let wall = 2.0 * std::f64::consts::PI * r * l;
-        MESH_ESTIMATE.0 * vol / (h * h * h) + self.n_layers as f64 * MESH_ESTIMATE.1 * wall / (h * h)
+        let k = match self.dual {
+            outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner => MESH_ESTIMATE,
+            _ => MESH_ESTIMATE_POLY_DUAL,
+        };
+        k.0 * vol / (h * h * h) + self.n_layers as f64 * k.1 * wall / (h * h)
     }
 
     /// The spec within the limits above, for a pipe of radius `r` and length
@@ -345,6 +431,16 @@ impl TetDualSpec {
 /// the tet-dual pipe mesh: 6.2-6.7 and 13.7-15.2 over h = 4-6 mm in the
 /// `--mesh-sweep` of 2026-11-04 (see [`CELL_PER_R_MAX`]).
 pub const MESH_ESTIMATE: (f64, f64) = (6.5, 15.0);
+
+/// The same two coefficients for the `polyDualMesh` duals (`CellCentre`,
+/// `MedianPerPoint`), the default's since gh:#1298. Measured by
+/// `--mesh-sweep` on the gh:#1298 default (2026-11-05, the demo pipe):
+/// bare cells per h³ 6.67 / 6.19 / 6.47 / 6.39 at h = 6 / 5 / 4 / 3.3 mm
+/// (the per-corner value 6.5 kept: the cell count is the same), wall faces
+/// per h² 2.36 / 2.61 / 2.61 / 2.52 (824 / 1 312 / 2 052 / 2 904 wall
+/// faces; each layer adds one cell per wall face). 2.6 is the h 4–5 mm
+/// value, where the default sits; it overestimates h 6 mm by ~4 %.
+pub const MESH_ESTIMATE_POLY_DUAL: (f64, f64) = (6.5, 2.6);
 
 impl Default for Design {
     /// The stage 0 pipe: D = 20 mm, L = 200 mm, inlet at z−, 20k cells.
@@ -600,46 +696,67 @@ pub fn mesh_unstructured_dual(
         _ => opts,
     };
     let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, dual_feature_points: s.feature_points, ..opts };
-    // Native-only knob (gh:#1240): FOAM_DUAL_FP=corners, the polyDualMesh
-    // class's feature points, for the two new dual kinds; it overrides the
-    // spec's choice for the V&V tooling.
+    // The cfMesh route (gh:#1298): the spec's, unless the native knob
+    // FOAM_CFMESH_ROUTE=legacy|upstream names one (the V&V tooling).
+    #[cfg(not(target_arch = "wasm32"))]
+    let route = match std::env::var("FOAM_CFMESH_ROUTE").as_deref() {
+        Ok("legacy") => CfMeshRoute::PreGh1298,
+        Ok("upstream") => CfMeshRoute::UpstreamNoLaplace,
+        _ => s.route,
+    };
+    #[cfg(target_arch = "wasm32")]
+    let route = s.route;
+    let opts = route_options(opts, route);
+    // Native-only knob (gh:#1240): FOAM_DUAL_FP=corners|edges, the
+    // polyDualMesh class's / utility's feature points, for the two new dual
+    // kinds; it overrides the spec's choice for the V&V tooling.
     #[cfg(not(target_arch = "wasm32"))]
     let opts = match std::env::var("FOAM_DUAL_FP").as_deref() {
         Ok("corners") => TetDualOptions { dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners, ..opts },
+        Ok("edges") => TetDualOptions { dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge, ..opts },
         _ => opts,
     };
     // Native-only knob (gh:#1241): FOAM_CORRECT_EDGES=1, cfMesh's
     // correctEdgesBetweenPatches before the feature-edge capture.
     #[cfg(not(target_arch = "wasm32"))]
     let opts = TetDualOptions { correct_edges: std::env::var("FOAM_CORRECT_EDGES").as_deref() == Ok("1"), ..opts };
-    // Native-only knobs (gh:#1255, gh:#1256): FOAM_CFMESH_BMOVES=1, cfMesh's
-    // untangleMeshFV boundary moves; FOAM_CFMESH_LAPLACE=1, optimizeMeshFV's
-    // laplacianPC pass. Both only change the cfMesh layer strategy.
+    // Native-only knobs, each `1` (on) or `0` (off); **unset keeps the
+    // route's value** (gh:#1298; before it, unset meant off, the route
+    // then being the pre-gh:#1298 one):
+    // - gh:#1255 FOAM_CFMESH_BMOVES, untangleMeshFV's boundary moves;
+    // - gh:#1256 FOAM_CFMESH_LAPLACE, optimizeMeshFV's laplacianPC pass;
+    // - gh:#1260 FOAM_CFMESH_LPU, the LP meshUntangler;
+    // - gh:#1259 FOAM_CFMESH_OPTSURF, optimizeSurface(2) inside optimiseLayer;
+    // - gh:#1283 FOAM_CFMESH_PROJECT=each|after|off, the boundary moves
+    //   projected back onto the surface (not upstream);
+    // - gh:#1259 FOAM_UNTANGLE_SURFACE, cfMesh's meshSurfaceOptimizer in the
+    //   feature-edge capture; gh:#1283 FOAM_OPTIMISE_FINAL, optimiseFinalMesh.
     #[cfg(not(target_arch = "wasm32"))]
-    let opts = TetDualOptions {
-        cfmesh_layer_optimisation: outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls {
-            untangle_boundary_moves: std::env::var("FOAM_CFMESH_BMOVES").as_deref() == Ok("1"),
-            optimize_mesh_fv_laplace: std::env::var("FOAM_CFMESH_LAPLACE").as_deref() == Ok("1"),
-            // gh:#1260: FOAM_CFMESH_LPU=1, the LP meshUntangler.
-            untangle_mesh_untangler: std::env::var("FOAM_CFMESH_LPU").as_deref() == Ok("1"),
-            // gh:#1259: FOAM_CFMESH_OPTSURF=1, optimizeSurface(2) inside optimiseLayer.
-            optimise_surface: std::env::var("FOAM_CFMESH_OPTSURF").as_deref() == Ok("1"),
-            // gh:#1283: FOAM_CFMESH_PROJECT=each|after, the boundary moves
-            // projected back onto the surface (not upstream).
-            boundary_projection: match std::env::var("FOAM_CFMESH_PROJECT").as_deref() {
-                Ok("each") => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::EachPass,
-                Ok("after") => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::AfterUntangle,
-                _ => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::Off,
+    let opts = {
+        let flag = |k: &str, cur: bool| match std::env::var(k).as_deref() {
+            Ok("1") => true,
+            Ok("0") => false,
+            _ => cur,
+        };
+        let c = opts.cfmesh_layer_optimisation.clone();
+        TetDualOptions {
+            cfmesh_layer_optimisation: outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls {
+                untangle_boundary_moves: flag("FOAM_CFMESH_BMOVES", c.untangle_boundary_moves),
+                optimize_mesh_fv_laplace: flag("FOAM_CFMESH_LAPLACE", c.optimize_mesh_fv_laplace),
+                untangle_mesh_untangler: flag("FOAM_CFMESH_LPU", c.untangle_mesh_untangler),
+                optimise_surface: flag("FOAM_CFMESH_OPTSURF", c.optimise_surface),
+                boundary_projection: match std::env::var("FOAM_CFMESH_PROJECT").as_deref() {
+                    Ok("each") => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::EachPass,
+                    Ok("after") => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::AfterUntangle,
+                    Ok("off") => outram_park_fork_cfmesh::final_mesh::BoundaryProjection::Off,
+                    _ => c.boundary_projection,
+                },
+                ..c.clone()
             },
-            ..opts.cfmesh_layer_optimisation.clone()
-        },
-        // gh:#1259: FOAM_UNTANGLE_SURFACE=1, cfMesh's meshSurfaceOptimizer in
-        // the feature-edge capture; gh:#1283: FOAM_OPTIMISE_FINAL=1, cfMesh's
-        // optimiseFinalMesh (on the bare mesh, or opening the CfMeshOptimise
-        // layer stage with optimizeSurface).
-        untangle_surface: std::env::var("FOAM_UNTANGLE_SURFACE").as_deref() == Ok("1"),
-        optimise_final_mesh: std::env::var("FOAM_OPTIMISE_FINAL").as_deref() == Ok("1"),
-        ..opts
+            untangle_surface: flag("FOAM_UNTANGLE_SURFACE", opts.untangle_surface),
+            optimise_final_mesh: flag("FOAM_OPTIMISE_FINAL", opts.optimise_final_mesh),
+            ..opts
+        }
     };
     #[allow(unused_mut)]
     let (mut vm, mut report) = mesh_to_tet_dual_multipatch(&cyl, label, &opts)?;
@@ -657,6 +774,29 @@ pub fn mesh_unstructured_dual(
     let neutral = outram_blender::unstructured::convert::cfmesh::from_volume_mesh(&vm).map_err(|e| format!("{e:?}"))?;
     let foam = outram_blender::unstructured::convert::foam::to_poly_mesh(&neutral).map_err(|e| format!("{e:?}"))?;
     Ok((PolyMesh::from_foam_poly_mesh(&foam), report.stage_notes, report.layers))
+}
+
+/// `opts` with the cfMesh steps of `route` (gh:#1298; see [`CfMeshRoute`]).
+/// [`CfMeshRoute::PreGh1298`] leaves `opts` as they are (every new step
+/// off, `TetDualOptions::default()`'s optimiser controls).
+pub fn route_options(opts: outram_blender::foam_mesh::TetDualOptions, route: CfMeshRoute) -> outram_blender::foam_mesh::TetDualOptions {
+    use outram_blender::foam_mesh::TetDualOptions;
+    use outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls;
+    match route {
+        CfMeshRoute::PreGh1298 => opts,
+        CfMeshRoute::UpstreamNoLaplace => TetDualOptions {
+            untangle_surface: true,
+            optimise_final_mesh: true,
+            cfmesh_layer_optimisation: BoundaryLayerOptimisationControls {
+                untangle_boundary_moves: true,
+                untangle_mesh_untangler: true,
+                optimize_mesh_fv_laplace: false,
+                boundary_projection: outram_park_fork_cfmesh::final_mesh::BoundaryProjection::EachPass,
+                ..opts.cfmesh_layer_optimisation.clone()
+            },
+            ..opts
+        },
+    }
 }
 
 /// The layer strategy `FOAM_LAYER_STRATEGY` names (native only, gh:#1215; the
@@ -1766,7 +1906,7 @@ impl Request {
                 let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], a[3], b[0], b[1], b[2], design.target_cells as f64, *probe];
                 d.extend(design.tags.iter().map(|t| t.code()));
                 match design.mesh {
-                    PipeMesh::Structured => d.extend([0.0; 8]),
+                    PipeMesh::Structured => d.extend([0.0; 9]),
                     PipeMesh::Unstructured(s) => {
                         d.extend([1.0, s.cell_size, s.n_layers as f64, s.first_layer, s.expansion]);
                         d.extend(s.choice_codes());
@@ -1803,12 +1943,12 @@ impl Request {
                     _ => Shape::Coil { tube_radius: a[0], coil_diameter: a[1], pitch: a[2], turns: a[3], centre },
                 };
                 let mesh = if r.f()? == 0.0 {
-                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?];
+                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?];
                     PipeMesh::Structured
                 } else {
                     PipeMesh::Unstructured(
                         TetDualSpec { cell_size: r.f()?, n_layers: r.n()?, first_layer: r.f()?, expansion: r.f()?, ..TetDualSpec::BASE }
-                            .with_choice_codes([r.f()?, r.f()?, r.f()?])?,
+                            .with_choice_codes([r.f()?, r.f()?, r.f()?, r.f()?])?,
                     )
                 };
                 Ok(Request::Mesh { id, design: Design { shape, tags, target_cells, mesh }, probe })
@@ -2095,7 +2235,7 @@ mod tests {
         }
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
-            ("dual h=4 mm bare", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }).unwrap().0),
+            ("dual h=4 mm bare", mesh_unstructured(0.01, 0.2, [0.0, 0.0, 0.1], [Tag::Inlet, Tag::Outlet, Tag::Wall], &TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 }).unwrap().0),
         ];
         for (name, poly) in cases {
             let m = poly.to_fv_mesh().unwrap();
@@ -2167,7 +2307,7 @@ mod tests {
     fn diagnose_geometry_orientation_and_poisson() {
         use outram_foam_basic_lib::prelude::*;
         let (r, l) = (0.01, 0.2);
-        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE };
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 };
         let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 7920", mesh_design(&Design { target_cells: 8000, ..Design::default() }).unwrap().0),
@@ -2299,7 +2439,7 @@ mod tests {
         use outram_park_fork_cfmesh::dual::{DualKind, FeaturePointRule};
         use outram_blender::foam_mesh::LayerQualityStrategy as S;
         let spec = |h: f64, n: usize, dual: DualKind| Design {
-            mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, dual, feature_points: FeaturePointRule::Corners, layer_quality: S::BackOffOnly }),
+            mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, dual, feature_points: FeaturePointRule::Corners, layer_quality: S::BackOffOnly, route: CfMeshRoute::PreGh1298 }),
             ..Design::default()
         };
         let cases = [
@@ -2564,7 +2704,7 @@ mod tests {
     #[ignore]
     fn diagnose_unstructured_reynolds_dependence() {
         for (h, n, re) in [(0.006, 1, 20.0), (0.004, 0, 20.0), (0.006, 1, 100.0)] {
-            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 }), ..Design::default() };
             let lines = headless(d, re, Mode::Steady, 2000).unwrap_or_else(|e| vec![e]);
             println!("h {h} layers {n} Re {re}:");
             for l in lines.iter().filter(|l| l.starts_with("# pipe") || l.starts_with("# binned") || l.contains("steps,")) {
@@ -2578,8 +2718,8 @@ mod tests {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient};
         use outram_foam_appbuilder_lib::io::fv_schemes::DivScheme;
         use uom::si::acceleration::meter_per_second_squared;
-        let dual6 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
-        let dual4 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
+        let dual6 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.006, n_layers: 1, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 }), ..Design::default() };
+        let dual4 = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 }), ..Design::default() };
         for (name, d, linear) in [
             ("dual h 6 mm, 1 layer, upwind", dual6, false),
             ("dual h 6 mm, 1 layer, Gauss linear", dual6, true),
@@ -2644,7 +2784,7 @@ mod tests {
         };
         println!("convection {which}: {div:?}, grad(U) {grad:?}");
         for (h, n) in list {
-            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
+            let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 }), ..Design::default() };
             let mut e = Engine::default();
             let mut cells = 0;
             e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |ev| {
@@ -2704,7 +2844,7 @@ mod tests {
         use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, fit_line, patch_flux, pressure_gradient, radial_profile_binned};
         use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, GradScheme};
         use uom::si::acceleration::meter_per_second_squared;
-        let dual = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
+        let dual = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 }), ..Design::default() };
         let ogrid = Design { target_cells: 8000, ..Design::default() };
         let lu = (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0)));
         let lin = (DivScheme::GaussLinear, None);
@@ -2795,7 +2935,7 @@ mod tests {
     #[test]
     #[ignore]
     fn diagnose_interpolation_weights() {
-        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE };
+        let spec = |h: f64, n: usize| TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 };
         let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
         let cases: Vec<(&str, PolyMesh)> = vec![
             ("O-grid 20480 (structured default)", mesh_design(&Design::default()).unwrap().0),
@@ -2828,22 +2968,39 @@ mod tests {
         }
     }
 
+    /// The mesher choices: ~~the default is the mesher every recorded number
+    /// was taken on~~ **gh:#1298:** the default is the cell-centre dual,
+    /// corners only, cfMesh's optimiser and upstream's sequence; the old
+    /// default is `PRE_GH1298`, reachable from the URL; both cross the
+    /// clamp and the wire codes unchanged.
     #[test]
-    fn mesher_choices_default_to_the_recorded_mesher_and_follow_the_url() {
+    fn mesher_choices_default_to_upstreams_sequence_and_follow_the_url() {
         use outram_blender::foam_mesh::LayerQualityStrategy as L;
         use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
-        // The default is the mesher every recorded number was taken on.
         let d = TetDualSpec::default_for(0.01);
-        assert_eq!((d.dual, d.feature_points, d.layer_quality), (D::MedianPerCorner, F::OnFeatureEdge, L::BackOffOnly));
-        assert_eq!(d.choice_codes(), [0.0, 0.0, 0.0]);
-        // Clamping keeps the choices.
-        let q = d.with_query(Some("centre"), Some("corners"), Some("cfmesh"));
-        assert_eq!((q.dual, q.feature_points, q.layer_quality), (D::CellCentre, F::Corners, L::CfMeshOptimise));
-        assert_eq!(q.clamped(0.01, 0.2).choice_codes(), [2.0, 1.0, 1.0]);
-        // Unknown URL values leave the choices alone; named ones reset them.
-        assert_eq!(q.with_query(Some("bogus"), None, Some("?")), q);
-        let back = q.with_query(Some("corner"), Some("edges"), Some("backoff"));
-        assert_eq!(back.choice_codes(), [0.0, 0.0, 0.0]);
+        assert_eq!((d.dual, d.feature_points, d.layer_quality, d.route), (D::CellCentre, F::Corners, L::CfMeshOptimise, CfMeshRoute::UpstreamNoLaplace));
+        assert_eq!(d.choice_codes(), [2.0, 1.0, 1.0, 0.0]);
+        // The ablation is the pre-gh:#1298 default, choice for choice.
+        let old = TetDualSpec::PRE_GH1298;
+        assert_eq!((old.dual, old.feature_points, old.layer_quality, old.route), (D::MedianPerCorner, F::OnFeatureEdge, L::BackOffOnly, CfMeshRoute::PreGh1298));
+        assert_eq!((old.cell_size, old.n_layers, old.first_layer, old.expansion), (TetDualSpec::BASE.cell_size, 0, 3e-4, 1.2));
+        // The URL reaches it, and back.
+        let q = d.with_query(Some("corner"), Some("edges"), Some("backoff")).with_route_query(Some("legacy"));
+        assert_eq!(q.choice_codes(), [0.0, 0.0, 0.0, 1.0]);
+        assert_eq!(q.clamped(0.01, 0.2).choice_codes(), [0.0, 0.0, 0.0, 1.0]);
+        assert_eq!(q.with_route_query(Some("upstream")).route, CfMeshRoute::UpstreamNoLaplace);
+        // Unknown URL values leave the choices alone.
+        assert_eq!(q.with_query(Some("bogus"), None, Some("?")).with_route_query(Some("?")), q);
+        let back = q.with_query(Some("centre"), Some("corners"), Some("cfmesh")).with_route_query(Some("upstream"));
+        assert_eq!(back, d);
+        // The route's options: the ablation leaves the default options
+        // alone; the default switches on exactly gh:#1283's `upEnl` steps.
+        let o = outram_blender::foam_mesh::TetDualOptions::default();
+        assert_eq!(route_options(o.clone(), CfMeshRoute::PreGh1298), o);
+        let u = route_options(o.clone(), CfMeshRoute::UpstreamNoLaplace);
+        let c = &u.cfmesh_layer_optimisation;
+        assert!(u.untangle_surface && u.optimise_final_mesh && c.untangle_boundary_moves && c.untangle_mesh_untangler && !c.optimize_mesh_fv_laplace);
+        assert_eq!(c.boundary_projection, outram_park_fork_cfmesh::final_mesh::BoundaryProjection::EachPass);
     }
 
     #[test]
@@ -2878,6 +3035,8 @@ mod tests {
                 design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("point"), None, Some("snappy"))), ..Design::default() },
                 probe: 0.4,
             },
+            // gh:#1298: the ablation's route crosses the wire.
+            Request::Mesh { id: 10, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::PRE_GH1298), ..Design::default() }, probe: 0.4 },
             Request::Step { id: 3, steps: 7 },
             Request::Probe { id: 3, probe: 0.9 },
         ];
@@ -2889,6 +3048,11 @@ mod tests {
         let mut w = Request::Mesh { id: 8, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() }, probe: 0.4 }.to_wire();
         let n = w.len();
         w[n - 3] = 7.0;
+        assert!(Request::from_wire(&w).is_err());
+        // gh:#1298: an unknown route code too.
+        let mut w = Request::Mesh { id: 8, design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() }, probe: 0.4 }.to_wire();
+        let n = w.len();
+        w[n - 1] = 5.0;
         assert!(Request::from_wire(&w).is_err());
         assert!(Request::from_wire(&[0.0]).is_err());
         let sec = Section { axis: 1, offset: 0.5, polygons: vec![vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]], frame: None };
@@ -2988,6 +3152,10 @@ mod tests {
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
     }
 
+    /// **Since gh:#1298 this pins the ablation, `TetDualSpec::PRE_GH1298`**
+    /// (the old default mesher); the new default is pinned by
+    /// `headless_unstructured_default_is_pinned`.
+    ///
     /// The headless regression of the **unstructured** pipe (gh:#1202): the
     /// cfMesh dual, the demo default (h = 4 mm, no layer, 6353 cells), at
     /// Re = 100, reaches the steady criterion and conserves mass; its patches
@@ -3003,7 +3171,7 @@ mod tests {
     /// lines.
     #[test]
     fn headless_unstructured_pipe_runs_and_is_pinned() {
-        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::BASE }), ..Design::default() };
+        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: 0.004, n_layers: 0, first_layer: 3e-4, expansion: 1.2, ..TetDualSpec::PRE_GH1298 }), ..Design::default() };
         let (poly, _, _, _) = mesh_design_noted(&d).unwrap();
         let fv = poly.to_fv_mesh().unwrap();
         let mut names: Vec<(&str, outram_foam_basic_lib::mesh::PatchKind)> = fv.patches.iter().map(|p| (p.name.as_str(), p.kind)).collect();
@@ -3017,6 +3185,31 @@ mod tests {
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
         assert!((val("uc=") - 0.8925).abs() < 2e-3, "{pipe}");
         assert!((val("dpdz=") - 1.0326).abs() < 2e-3, "{pipe}");
+        let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
+        let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
+        assert!((out_in - 1.0).abs() < 1e-8, "{last}");
+        let again = headless(d, 100.0, Mode::Steady, 200).unwrap();
+        let strip = |v: &[String]| v.iter().filter(|l| l.starts_with("# pipe")).cloned().collect::<Vec<_>>();
+        assert_eq!(strip(&again), strip(&lines), "deterministic");
+    }
+
+    /// gh:#1298 — the **new unstructured default** (`TetDualSpec::default_for`:
+    /// h 4 mm, no layer, the cell-centre dual with corners, upstream's
+    /// sequence without the Laplace pass), Re 100, steady. Pinned where the
+    /// V&V record measured it on 2026-11-05 (`laminar_pipe_gh1155.md`,
+    /// gh:#1298 section): 6 353 cells, u_c/2U 0.8832, dp/dz 1.0649 × HP
+    /// (the prediction was 0.86–0.91 and 1.00–1.04: u_c held, dp/dz missed
+    /// high). Mass conserved; deterministic.
+    #[test]
+    fn headless_unstructured_default_is_pinned() {
+        let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() };
+        let lines = headless(d, 100.0, Mode::Steady, 200).unwrap();
+        let joined = lines.join("\n");
+        assert!(joined.contains("6353 cells"), "{joined}");
+        let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
+        let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
+        assert!((val("uc=") - 0.8832).abs() < 2e-3, "{pipe}");
+        assert!((val("dpdz=") - 1.0649).abs() < 2e-3, "{pipe}");
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
@@ -3065,13 +3258,25 @@ mod tests {
     /// that freezes it) and the estimate follows the measured sweep.
     #[test]
     fn unstructured_specs_are_clamped() {
-        let s = TetDualSpec { cell_size: 1e-5, n_layers: 9, first_layer: 1.0, expansion: 3.0, ..TetDualSpec::BASE }.clamped(0.01, 0.2);
+        let s = TetDualSpec { cell_size: 1e-5, n_layers: 9, first_layer: 1.0, expansion: 3.0, ..TetDualSpec::PRE_GH1298 }.clamped(0.01, 0.2);
         assert!(s.cell_size >= 0.01 / CELL_PER_R_MAX - 1e-15 && s.n_layers == MAX_LAYERS && s.first_layer <= 1e-3 + 1e-15 && s.expansion == 1.5);
         assert!(s.estimated_cells(0.01, 0.2) <= MAX_CELLS as f64);
         let d = TetDualSpec::default_for(0.01);
         let e = d.estimated_cells(0.01, 0.2);
         assert!((e / 6_353.0 - 1.0).abs() < 0.15, "estimate {e} vs measured 6353");
         assert_eq!(d.clamped(0.01, 0.2), d);
+        // gh:#1298: the polyDualMesh estimate against the --mesh-sweep
+        // counts of the new default with 3 layers (h 6 / 5 / 4 mm: 4 417 /
+        // 7 049 / 12 509 cells), and the per-corner one against its own
+        // (h 5 mm, 3 layers: 26 009 cells, gh:#1285's table). Before
+        // gh:#1298 the polyDualMesh duals got the per-corner estimate,
+        // ~26k for 7 049.
+        for (h, measured) in [(0.006, 4_417.0), (0.005, 7_049.0), (0.004, 12_509.0)] {
+            let e = TetDualSpec { cell_size: h, n_layers: 3, ..d }.estimated_cells(0.01, 0.2);
+            assert!((e / measured - 1.0).abs() < 0.10, "h {h}: estimate {e} vs measured {measured}");
+        }
+        let corner = TetDualSpec { cell_size: 0.005, n_layers: 3, ..TetDualSpec::PRE_GH1298 }.estimated_cells(0.01, 0.2);
+        assert!((corner / 26_009.0 - 1.0).abs() < 0.15, "per-corner estimate {corner} vs 26009");
     }
 
     /// The headless exchanger regression (gh:#1156): a ~2.4k-cell double

@@ -393,7 +393,10 @@ mod tests {
         }
     }
 
-    /// The Foam Studio unstructured default's cfMesh mesh (per-corner
+    /// ~~The Foam Studio unstructured default's~~ The pre-gh:#1298 Foam
+    /// Studio unstructured default's (gh:#1298 moved Foam Studio to the
+    /// cell-centre dual with upstream's sequence; this crate's defaults did
+    /// not change) cfMesh mesh (per-corner
     /// median dual, h 4 mm, no layer, L 200 mm `pipe_surface`) keeps the
     /// fingerprint recorded in gh:#1240 / gh:#1241,
     /// ~~18084991279620725399~~ (**re-pinned 2026-11-05, gh:#1285:**
