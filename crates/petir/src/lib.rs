@@ -121,6 +121,7 @@
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 //! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags` |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
+//! | [`interp_egs`] | ported (EGSnrc, not GSL; AGPL-3.0-or-later) | EGSnrc's `EGS_Interpolator`: precomputed linear interpolation on uniform bins, from a table, a function, existing coefficients, or adaptively; out-of-range clamped (gh:#1289) |
 //! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS, symmetric tridiagonal, and rectangular Householder QR with a least-squares solve |
 //! | [`min`] | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 //! | [`ode`] | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver; implicit backward Euler and BDF2 with a modified-Newton inner solve ([`ode::implicit`], GSL `modnewton1`/`rk1imp` + OpenFOAM `backwardDdtScheme` coefficients, gh:#1065) |
@@ -216,6 +217,9 @@ pub mod gamma_inc;
 pub mod hypot;
 pub mod integration;
 pub mod interp;
+/// EGSnrc's fast uniform-bin interpolator (`EGS_Interpolator`), ported from
+/// EGSnrc (AGPL-3.0-or-later) on gh:#1289.
+pub mod interp_egs;
 pub mod linalg;
 /// `f64` transcendentals as methods (the `RealMath` trait), so a crate can
 /// adopt the deterministic route by renaming rather than rewriting.

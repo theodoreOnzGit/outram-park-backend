@@ -168,7 +168,7 @@ authors = [
     "University of California, Berkeley Thermal Hydraulics Lab",
     "Singapore Nuclear Research and Safety Institute (SNRSI)",
     "National University of Singapore (NUS)",
-    "Repository Contributors",
+    "The OUTRAM PARK backend contributors",
 ]
 # Relicensed GPL-3.0-only -> AGPL-3.0-only on 2026-10-20 (gh:#973), at the
 # maintainer's direction. Crates whose own code is a translation of a COPYLEFT
