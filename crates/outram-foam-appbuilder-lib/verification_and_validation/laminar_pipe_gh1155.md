@@ -1956,6 +1956,38 @@ pipes, both per-point kinds:
 Not expected: any change at all with `correct_edges` off (every
 existing pin unchanged), or on the per-corner default.
 
+### Item 2: the BackOffOnly 3-layer divergence
+
+**Predictions (written 2026-11-05, before the diagnostic's first run).**
+Meshes: `CellCentre` and `MedianPerPoint` with `Corners`, h 5 mm, 3
+back-off layers (diverge in gh:#1240); the same with 2 layers on
+`CellCentre` (runs) as the control. The solver's Δt is set from the
+*mean* cell size (`pseudo_time_step`: Co ≈ 4 on the cell length, the
+viscous number ν Δt / h² ≤ 0.5 on h = (V/N)^⅓), so a thin layer cell sees
+a local viscous number ν Δt / Δ² far above 0.5.
+
+1. *Where it starts.* The first cells to blow up are layer cells (a
+   prism with a wall face, or the top prism of a stack), not dual cells
+   of the core: 80 %.
+2. *Local numbers.* The diverging meshes' largest local viscous number
+   (Δ = V / max |S_f| of the cell) is 10–100 × the running 2-layer mesh's;
+   the blow-up cell is within the 1 % of cells with the largest one: 60 %.
+3. *Frozen mesh, pure diffusion* (the gh:#1202 manufactured Poisson
+   problem, −∇²u = 4, u = 0 on the wall): the uncorrected operator gives
+   b within 10 % of 1 on every mesh (the layer checks pass, and the
+   Laplacian was within 2–8 % on the gh:#1202 meshes); the 20 deferred
+   non-orthogonal correction passes converge on every mesh too, because
+   the face non-orthogonality is ≤ 66°. So the Laplacian is **not** the
+   cause: 70 %.
+4. *Cause, if 1–3 hold:* the explicit parts of the PISO step (the lagged
+   non-orthogonal correction of the momentum Laplacian and the explicit
+   `linearUpwind` correction) on cells whose local viscous number is
+   O(10²–10³); OpenFOAM keeps Δt from a Courant number on every cell
+   (`CourantNo.H`, max over cells of ½ Σ|φ_f| Δt / V) and recommends
+   `limited` snGrad on such meshes. Expected fix: limit the
+   non-orthogonal correction on the layer faces, or the time step by the
+   *local* cell size; to be decided by what the run shows, not before.
+
 ## Reproduce
 
 ```bash
