@@ -187,7 +187,10 @@ pub fn eigen_values_symm(t: SymmTensor) -> Vector3 {
 
     let b = -t.xx - t.yy - t.zz;
     let c = t.xx * t.yy + t.xx * t.zz + t.yy * t.zz - t.xy * t.xy - t.yz * t.yz - t.xz * t.xz;
-    let d = -t.xx * t.yy * t.zz - 2.0 * t.xy * t.yz * t.xz
+    // Upstream's term order (`- xy*yz*zx - xz*zy*yx`), not `- 2 xy yz xz`:
+    // the two products round differently, so the doubled form is not
+    // bit-identical to upstream (gh:#1288).
+    let d = -t.xx * t.yy * t.zz - t.xy * t.yz * t.xz - t.xz * t.yz * t.xy
         + t.xx * t.yz * t.yz
         + t.yy * t.xz * t.xz
         + t.zz * t.xy * t.xy;

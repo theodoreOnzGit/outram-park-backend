@@ -27958,6 +27958,37 @@ A real symmetric tensor is guaranteed a real spectrum, so unlike
 [`eigen_values`] there is no complex case to report — any complex root here
 would be round-off in the cubic solve, not physics.
 
+# Upstream: the effectively-diagonal shortcut (gh:#1288)
+
+Port of OpenFOAM (ESI, www.openfoam.com) v2306
+`src/OpenFOAM/primitives/SymmTensor/symmTensor/symmTensor.C`,
+`Foam::eigenValues(const symmTensor&)`, lines 97-149: **when
+`xy² + xz² + yz² < ROOTSMALL` (`√SMALL` ≈ 3.16e-8) upstream returns the
+diagonal, sorted, without solving the cubic.** The port had the cubic
+path only, so a diagonal tensor with a repeated root went through the
+ill-conditioned double-root solve. The threshold is upstream's and is
+**absolute**, not relative to the tensor's size: every off-diagonal
+below about 1.8e-4 in magnitude is treated as zero. That is upstream's
+behaviour and is kept; a caller whose tensors are small, or that needs
+a small shear on a near-identity tensor, should know it.
+
+OpenFOAM-dev (Foundation, `tensor.C`) reaches the same answer on a
+diagonal tensor by a different route: `cubicEqn::roots(true)`
+short-circuits `d == 0` and clamps a positive discriminant to zero for
+a known-real spectrum. That cubic is not the one this crate ports (it
+ports ESI's, with the Kahan `p` and the `VSMALL` discriminant clamp).
+
+**V&V (gh:#1288, 2026-11-05).** *Methodology:* the cubic coefficients
+for `diag(4, 4, 0)` are `b = -8`, `c = 16`, `d = 0`; upstream ESI v2306
+takes the diagonal branch (all off-diagonals zero), so it returns
+`(0, 4, 4)` exactly; OpenFOAM-dev takes `d == 0` then a zero
+discriminant in `quadraticEqn(1, -8, 16)`, also `(0, 4, 4)` exactly.
+*Prediction, written before the fix was run:* the port then returns
+`(0, 4, 4)` bit for bit, as do `diag(2, 2, 5)`, `diag(0, 0, 3)` and
+`diag(-1, 3, 3)`; a tensor with any off-diagonal above the threshold is
+unchanged bit for bit. *Result:* see
+`tests::diagonal_repeated_roots_take_upstreams_diagonal_branch`.
+
 ```rust
 pub fn eigen_values_symm(t: crate::primitives::SymmTensor) -> crate::primitives::Vector3 { /* ... */ }
 ```
