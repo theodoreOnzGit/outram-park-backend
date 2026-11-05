@@ -39,6 +39,20 @@ gh issue comment <number> --body "..."           # progress
   crates.io's rate limits are spread over the run instead of hitting at the
   end. Ideally a script drives this (`scripts/release-lockstep.sh`); the agent
   manages it.
+- **HARD RULE: a merge to `develop` must compile natively AND for wasm**
+  (maintainer, 2026-11-05). Before merging or pushing to `develop`, run both
+  gates in release mode and merge only when both are clean:
+  - **Native:** `cargo check --release --workspace --lib --tests`.
+  - **Wasm:** `bash scripts/check-wasm.sh`, the `wasm32-unknown-unknown`
+    gate over the in-scope crates.
+
+  **Why:** develop 16240d670 compiled natively but broke the Pages site
+  build. `kovan-common`'s founder ballots (`review/signing/founders.rs`,
+  #1248) used `chrono`, which `Cargo.toml` listed only for native targets,
+  so the wasm build stopped at "unresolved import `chrono`". A native check
+  cannot see a target-gated dependency. Compiling is the bar here, not
+  running: a wasm compile does not make a crate wasm-ready (root
+  `CLAUDE.md`, Portability).
 - **Kovan-reviewed functions are closed to modification (HARD RULE,**
   maintainer 2026-11-05): extend with new code instead; never edit a
   function carrying a kovan review stamp (body, signature, docs, refactor,
