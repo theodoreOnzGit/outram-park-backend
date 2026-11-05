@@ -928,14 +928,32 @@ mod tests {
     }
 
     /// `checkUpperTriangular` against a mesh with two internal faces
-    /// swapped (2×2×1 box: 4 internal faces). Prediction: passes before the
-    /// swap, fails after it.
+    /// swapped (2×2×1 box: 4 internal faces). ~~Prediction: passes before the
+    /// swap, fails after it.~~ **MISSED (first run, 2026-11-05):**
+    /// `cartesian_box` fails it before any swap. It numbers its internal
+    /// faces by direction (every x face, then y, then z), not in OpenFOAM's
+    /// upper-triangular order (by owner, then neighbour); every face has
+    /// owner < neighbour, so only the ordering half fails. The check is now
+    /// made on the box with its internal faces sorted into that order
+    /// (passes), then with two of them swapped (fails), and the unsorted box
+    /// is recorded failing on order only.
     #[test]
     fn upper_triangular_detects_a_swap() {
-        let m = cartesian_box(Vec3::ZERO, Vec3::new(2.0, 2.0, 1.0), [2, 2, 1]);
+        let raw = cartesian_box(Vec3::ZERO, Vec3::new(2.0, 2.0, 1.0), [2, 2, 1]);
+        let (fail_raw, bad_raw) = check_upper_triangular(&raw);
+        let n_int = raw.n_internal_faces();
+        assert!((0..n_int).all(|f| raw.owner[f] < raw.neighbour[f].unwrap()));
+        println!("cartesian_box as built: upper-triangular {}, flagged {:?}", !fail_raw, (0..bad_raw.len()).filter(|&f| bad_raw[f]).collect::<Vec<_>>());
+        let mut order: Vec<usize> = (0..n_int).collect();
+        order.sort_by_key(|&f| (raw.owner[f], raw.neighbour[f]));
+        let mut m = raw.clone();
+        for (i, &f) in order.iter().enumerate() {
+            m.faces[i] = raw.faces[f].clone();
+            m.owner[i] = raw.owner[f];
+            m.neighbour[i] = raw.neighbour[f];
+        }
         assert!(!check_upper_triangular(&m).0);
         assert!(!check_cells_zip_up(&m).0 && !check_points(&m).0 && !check_face_vertices(&m).0);
-        let n_int = m.n_internal_faces();
         assert!(n_int >= 2);
         let mut s = m.clone();
         s.faces.swap(0, n_int - 1);

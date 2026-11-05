@@ -96,6 +96,7 @@
 
 use crate::checks::cell_geometry;
 use crate::math::Vec3;
+use crate::mesh_subsets::MeshSubsets;
 use crate::volume_mesh::VolumeMesh;
 use petir::mathf::RealMath;
 
@@ -1911,6 +1912,82 @@ impl MeshOptimizer {
         }
     }
 
+    /// `lockCellsInSubset(name)`: [`Self::lock_cells`] on the cells of the
+    /// cell subset `name`; `false` (upstream warns "is not a cell subset")
+    /// when there is none.
+    pub fn lock_cells_in_subset(&mut self, mesh: &VolumeMesh, subsets: &MeshSubsets, name: &str) -> bool {
+        match subsets.cells.index(name) {
+            Some(id) => {
+                self.lock_cells(mesh, &subsets.cells.elements(id));
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// `lockFacesInSubset(name)`: [`Self::lock_faces`] on the face subset.
+    pub fn lock_faces_in_subset(&mut self, mesh: &VolumeMesh, subsets: &MeshSubsets, name: &str) -> bool {
+        match subsets.faces.index(name) {
+            Some(id) => {
+                self.lock_faces(mesh, &subsets.faces.elements(id));
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// `lockPointsInSubset(name)`: [`Self::lock_points`] on the point
+    /// subset. **Upstream defect, not copied:** upstream passes the point
+    /// labels to `lockCells` (so it locks the cells whose *indices* equal
+    /// those point labels, or reads past the cell list); this locks the
+    /// points, which is what the function's name and comment say.
+    pub fn lock_points_in_subset(&mut self, subsets: &MeshSubsets, name: &str) -> bool {
+        match subsets.points.index(name) {
+            Some(id) => {
+                self.lock_points(&subsets.points.elements(id));
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// [`Self::untangle_mesh_fv`] recording what upstream records in the
+    /// mesh's subsets: on a [`ConstraintViolation`], the point subset
+    /// [`Self::bad_points_subset_name`] with its points; when bad faces are
+    /// left at the end, the face subset `badFaces` (replaced if it exists)
+    /// and the cell subset `badCells` (added to) with their owners and
+    /// neighbours. (Upstream records the set of its last check, over the
+    /// changed faces; this records a check of every face.)
+    pub fn untangle_mesh_fv_recording(&self, mesh: &mut VolumeMesh, subsets: &mut MeshSubsets, controls: &UntangleControls) -> Result<OptimiserReport, ConstraintViolation> {
+        let r = self.untangle_mesh_fv(mesh, controls);
+        match &r {
+            Err(v) => {
+                let id = subsets.points.add(&v.subset_name);
+                for &p in &v.points {
+                    subsets.points.add_element(id, p);
+                }
+            }
+            Ok(rep) if rep.flagged_after != 0 => {
+                let mode = if controls.relaxed { CheckMode::Relaxed } else { CheckMode::Bad };
+                let bad = flag_faces(mesh, &vec![true; mesh.face_count()], mode);
+                if let Some(old) = subsets.faces.index("badFaces") {
+                    subsets.faces.remove(old);
+                }
+                let fid = subsets.faces.add("badFaces");
+                let cid = subsets.cells.add("badCells");
+                for f in (0..mesh.face_count()).filter(|&f| bad[f]) {
+                    subsets.faces.add_element(fid, f);
+                    subsets.cells.add_element(cid, mesh.owner[f]);
+                    if let Some(n) = mesh.neighbour[f] {
+                        subsets.cells.add_element(cid, n);
+                    }
+                }
+            }
+            Ok(_) => {}
+        }
+        r
+    }
+
     /// `meshOptimizer::optimizeLowQualityFaces` with this optimiser's locks.
     pub fn optimize_low_quality_faces(&self, mesh: &mut VolumeMesh, max_iterations: usize) -> OptimiserReport {
         optimize_low_quality_faces(mesh, &self.locked_points(), max_iterations)
@@ -2416,5 +2493,157 @@ mod tests {
         println!("unsmoothed:      NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}", q0.max_non_orthogonality_deg, q0.max_skewness, q0.n_negative_volume_cells, count(&find_bad_faces(&m0)));
         println!("laplacianPC x5:  NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {ta:.2} s", qa.max_non_orthogonality_deg, qa.max_skewness, qa.n_negative_volume_cells, count(&find_bad_faces(&a)), da.0, da.1);
         println!("smart Laplace x5: NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {tb:.2} s", qb.max_non_orthogonality_deg, qb.max_skewness, qb.n_negative_volume_cells, count(&find_bad_faces(&b)), db.0, db.1);
+    }
+
+    /// Differential (gh:#1260) — **the three per-point smoothers on the same
+    /// simplices.** Methodology: the octahedral star of the tests above with
+    /// the free point at (1.4, 0, 0) (4 of 8 tetrahedra inverted), and the
+    /// same star with its six outer points jittered and the free point at
+    /// (−0.9, 0.7, 0.5); each smoother from the same start.
+    ///
+    /// Predictions (written 2026-11-05, before the first run):
+    /// - every smoother leaves 0 inverted tetrahedra on both stars (Knupp
+    ///   by its metric, the LP untangler by construction, the volume
+    ///   optimiser because its search starts from the bounding-box centre,
+    ///   inside the feasible region of both stars);
+    /// - on the symmetric star the LP untangler lands on the origin to 1e-12
+    ///   and the volume optimiser to 1e-4; ~~Knupp stops as soon as the point
+    ///   is β inside every face, so it is **not** at the origin (more than
+    ///   0.1 from it)~~ **MISSED (first run, 2026-11-05):** Knupp lands
+    ///   exactly on the origin. The start (1.4, 0, 0) is outside the
+    ///   simplex's bounding box, so `knuppMetric` restarts at the box centre,
+    ///   where the metric is already zero;
+    /// - the smallest tetrahedron volume after each, recorded: LP ≥ Knupp
+    ///   (the mean of the feasible region's corners is deeper than "just
+    ///   inside"). ~~LP ≥ Knupp~~ **MISSED (2026-11-05):** on the symmetric
+    ///   star all three are at the origin (min V 0.1667 each, LP 3e-17 lower
+    ///   by round-off); on the jittered star LP 0.1386 < volume optimiser
+    ///   0.1418 < Knupp 0.1522. The mean of the region's corners is not the
+    ///   point of largest smallest volume, and Knupp, restarting at the box
+    ///   centre, happened to land deeper. Positivity (the LP guarantee) holds
+    ///   for all three; the ordering is only recorded.
+    #[test]
+    fn three_smoothers_on_the_same_simplices() {
+        let ax = [Vec3::new(1.0, 0.0, 0.0), Vec3::new(-1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 0.0, -1.0)];
+        let build = |jitter: bool, start: Vec3| {
+            let mut pts: Vec<Vec3> = ax.to_vec();
+            pts.push(Vec3::ZERO);
+            let mut tets = Vec::new();
+            for &(i, j, k) in &[(0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4), (2, 0, 5), (1, 2, 5), (3, 1, 5), (0, 3, 5)] {
+                let mut t = [i, j, k, 6];
+                if tet_volume(pts[t[0]], pts[t[1]], pts[t[2]], pts[6]) < 0.0 {
+                    t.swap(0, 1);
+                }
+                tets.push(t);
+            }
+            if jitter {
+                let j = [[0.1, -0.2, 0.05], [0.15, 0.1, -0.1], [-0.05, 0.2, 0.1], [0.2, -0.1, 0.0], [-0.1, 0.05, -0.2], [0.0, 0.15, 0.1]];
+                for (p, d) in pts.iter_mut().zip(j) {
+                    *p = p.add(Vec3::new(d[0], d[1], d[2]));
+                }
+            }
+            pts[6] = start;
+            (pts, tets)
+        };
+        let min_vol = |pts: &[Vec3], tets: &[[usize; 4]]| tets.iter().map(|t| tet_volume(pts[t[0]], pts[t[1]], pts[t[2]], pts[t[3]])).fold(f64::MAX, f64::min);
+        for (jitter, start) in [(false, Vec3::new(1.4, 0.0, 0.0)), (true, Vec3::new(-0.9, 0.7, 0.5))] {
+            let (p0, tets) = build(jitter, start);
+            let inv0 = tets.iter().filter(|t| tet_volume(p0[t[0]], p0[t[1]], p0[t[2]], p0[t[3]]) <= 0.0).count();
+            let mut k = p0.clone();
+            knupp_metric(&mut k, &tets, 6);
+            let mut l = p0.clone();
+            crate::mesh_untangler::mesh_untangler(&mut l, &tets, 6);
+            let mut v = p0.clone();
+            volume_optimizer(&mut v, &tets, 6, 1e-5);
+            let (mk, ml, mv) = (min_vol(&k, &tets), min_vol(&l, &tets), min_vol(&v, &tets));
+            println!(
+                "star (jitter {jitter}): {inv0} inverted at start; Knupp -> {:?} min V {mk:.4}; LP -> {:?} min V {ml:.4}; volume optimiser -> {:?} min V {mv:.4}",
+                k[6], l[6], v[6]
+            );
+            assert!(mk > 0.0 && ml > 0.0 && mv > 0.0);
+            if !jitter {
+                assert!(l[6].length() < 1e-12);
+                assert!(v[6].length() < 1e-4);
+            }
+        }
+    }
+
+    /// V&V (gh:#1260) — **the untangler pass inside `untangleMeshFV`.**
+    /// Methodology: [`dented_box`] (a boundary point folded in its side),
+    /// `untangle_mesh_fv_with` at upstream's defaults with boundary moves,
+    /// with the LP untangler off and on.
+    ///
+    /// Predictions (written 2026-11-05, before the first run): both end
+    /// with 0 bad faces (the boundary moves do the work the interior
+    /// smoothers cannot); the runs differ in point positions (the LP pass
+    /// moves the nodes of inverted tetrahedra first); each is
+    /// deterministic.
+    #[test]
+    fn untangle_with_and_without_the_lp_untangler() {
+        let (m0, _) = dented_box();
+        let locked = vec![false; m0.points.len()];
+        let mut res = Vec::new();
+        for lpu in [false, true] {
+            let c = UntangleControls { boundary_moves: true, mesh_untangler: lpu, ..UntangleControls::default() };
+            let mut m = m0.clone();
+            let t = std::time::Instant::now();
+            let r = untangle_mesh_fv_with(&mut m, &locked, &c);
+            let secs = t.elapsed().as_secs_f64();
+            let left = count(&find_bad_faces(&m));
+            println!("LP untangler {lpu}: {} -> {left} bad faces, {} passes, {} global, {secs:.2} s", r.flagged_before, r.iterations, r.global_iterations);
+            assert_eq!(left, 0);
+            let mut m2 = m0.clone();
+            let _ = untangle_mesh_fv_with(&mut m2, &locked, &c);
+            assert_eq!(m2.points, m.points);
+            res.push(m.points);
+        }
+        println!("positions differ: {}", res[0] != res[1]);
+    }
+
+    /// The subset API on the optimiser (gh:#1261): `lockCellsInSubset`
+    /// locks what `lockCells` locks; an unknown name locks nothing and says
+    /// so; `untangle_mesh_fv_recording` writes `badPoints` on a constraint
+    /// violation. Predictions (written 2026-11-05, before the first run):
+    /// the same 8 points locked as by `lock_cells` on that cell; `false` for
+    /// a missing subset; the recorded `badPoints` subset holds the folded
+    /// point.
+    #[test]
+    fn subset_locks_and_recorded_subsets() {
+        use crate::mesh_subsets::MeshSubsets;
+        let (m0, dent) = dented_box();
+        let mut subsets = MeshSubsets::default();
+        let id = subsets.cells.add("lockMe");
+        subsets.cells.add_element(id, 100);
+        let mut a = MeshOptimizer::new(&m0);
+        assert!(a.lock_cells_in_subset(&m0, &subsets, "lockMe"));
+        assert!(!a.lock_cells_in_subset(&m0, &subsets, "missing"));
+        let mut b = MeshOptimizer::new(&m0);
+        b.lock_cells(&m0, &[100]);
+        assert_eq!(a.vertex_location, b.vertex_location);
+        assert_eq!(a.locked_points().iter().filter(|&&l| l).count(), 8);
+        let pid = subsets.points.add("pts");
+        subsets.points.add_element(pid, 3);
+        assert!(a.lock_points_in_subset(&subsets, "pts"));
+        assert!(a.locked_points()[3]);
+        let fid = subsets.faces.add("f");
+        subsets.faces.add_element(fid, 0);
+        assert!(a.lock_faces_in_subset(&m0, &subsets, "f"));
+
+        let mut opt = MeshOptimizer::new(&m0);
+        opt.set_enforce_constraints("badPoints");
+        let mut m = m0.clone();
+        let c = UntangleControls { boundary_moves: true, ..UntangleControls::default() };
+        assert!(opt.untangle_mesh_fv_recording(&mut m, &mut subsets, &c).is_err());
+        let bp = subsets.points.index("badPoints").expect("badPoints written");
+        assert!(subsets.points.elements(bp).contains(&dent));
+        // Without boundary moves the folded side stays bad: badFaces and
+        // badCells are written.
+        let mut m = m0.clone();
+        let opt = MeshOptimizer::new(&m0);
+        let r = opt.untangle_mesh_fv_recording(&mut m, &mut subsets, &UntangleControls { max_global_iterations: 2, ..UntangleControls::default() }).unwrap();
+        assert!(r.flagged_after > 0 || count(&find_bad_faces(&m)) > 0);
+        let bf = subsets.faces.index("badFaces").expect("badFaces written");
+        assert_eq!(subsets.faces.elements(bf).len(), count(&find_bad_faces(&m)));
+        assert!(subsets.cells.index("badCells").is_some());
     }
 }
