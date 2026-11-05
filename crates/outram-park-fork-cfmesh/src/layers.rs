@@ -894,6 +894,114 @@ fn prism_stack_variable(w: &[usize], column: &BTreeMap<usize, Vec<usize>>, m_f: 
     }
 }
 
+/// [`build_layered_variable`] with **upstream's per-face layer counts**
+/// (gh:#1241): wall face `wall_faces[i]` gets `face_layers[i]` cells, as
+/// `addPatchCellLayer::setRefinement` gives a patch face `nFaceLayers`
+/// cells (OpenFOAM-dev `852527377c7e`,
+/// `src/polyTopoChange/polyTopoChange/addPatchCellLayer.C`: the face's
+/// layer `i` uses `addedPoints[i + offset]`, `offset = addedPoints.size() −
+/// nFaceLayers`). In this crate's column order (wall first) that is: the
+/// face's cells `0 … L−2` are the wall-side layers of each column, and its
+/// last cell spans the rest of every column up to the column's top. Where a
+/// neighbouring face has more layers the last cell's side is split at the
+/// neighbour's levels (upstream's side faces per edge layer, `edgeLayers` =
+/// the most of the edge's faces), so the faces conform. Every extruded
+/// point must carry at least the layers of each of its faces
+/// (`setupLayerInfoTruncation` guarantees it). With every face's count equal
+/// to its points' it is [`build_layered_variable`] exactly.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn build_layered_faces(
+    mesh: &VolumeMesh,
+    wall_faces: &[usize],
+    wall_pts: &BTreeSet<usize>,
+    inward: &BTreeMap<usize, Vec3>,
+    d: &[f64],
+    per_point_total: &BTreeMap<usize, f64>,
+    counts: &BTreeMap<usize, usize>,
+    face_layers: &[usize],
+) -> VolumeMesh {
+    let (points, column) = layer_columns(mesh, wall_pts, inward, d, per_point_total, counts);
+    let mut new_of = vec![usize::MAX; mesh.points.len()];
+    let mut next = 0usize;
+    for (op, slot) in new_of.iter_mut().enumerate() {
+        if !wall_pts.contains(&op) {
+            *slot = next;
+            next += 1;
+        }
+    }
+    let remap = |op: usize| -> usize {
+        if wall_pts.contains(&op) {
+            *column[&op].last().unwrap()
+        } else {
+            new_of[op]
+        }
+    };
+    let mut cells: Vec<Vec<Vec<usize>>> = cells_faces(mesh).iter().map(|cf| cf.iter().map(|ring| ring.iter().map(|&p| remap(p)).collect()).collect()).collect();
+    // edgeLayers: the most layers of the wall faces on each wall edge.
+    let mut edge_layers: BTreeMap<(usize, usize), usize> = BTreeMap::new();
+    for (i, &f) in wall_faces.iter().enumerate() {
+        let w = &mesh.faces[f];
+        for e in 0..w.len() {
+            let (a, b) = (w[e], w[(e + 1) % w.len()]);
+            let v = edge_layers.entry((a.min(b), a.max(b))).or_insert(0);
+            *v = (*v).max(face_layers[i]);
+        }
+    }
+    for (i, &f) in wall_faces.iter().enumerate() {
+        let w = &mesh.faces[f];
+        let l = face_layers[i];
+        // Position of point p at the face's level s (0 = wall, l = top).
+        let lv = |p: usize, s: usize| -> usize {
+            let c = &column[&p];
+            let n_p = c.len() - 1;
+            if n_p == 0 {
+                c[0]
+            } else if s < l {
+                c[s]
+            } else {
+                c[n_p]
+            }
+        };
+        let k = w.len();
+        for layer in 0..l {
+            let mut faces: Vec<Vec<usize>> = Vec::with_capacity(k + 2);
+            let mut push = |ring: Vec<usize>| {
+                let ring = dedupe_ring(ring);
+                if ring.len() >= 3 {
+                    faces.push(ring);
+                }
+            };
+            push(w.iter().map(|&p| lv(p, layer)).collect());
+            push(w.iter().rev().map(|&p| lv(p, layer + 1)).collect());
+            for e in 0..k {
+                let (p, q) = (w[e], w[(e + 1) % k]);
+                if layer + 1 < l {
+                    push(vec![lv(p, layer), lv(p, layer + 1), lv(q, layer + 1), lv(q, layer)]);
+                    continue;
+                }
+                // The face's last cell: split at the edge's levels.
+                let le = edge_layers[&(p.min(q), p.max(q))];
+                let seq = |x: usize| -> Vec<usize> {
+                    let c = &column[&x];
+                    let n_x = c.len() - 1;
+                    if n_x == 0 {
+                        return vec![c[0]; le - layer + 1];
+                    }
+                    let mut v: Vec<usize> = (layer..le).map(|j| c[j.min(n_x)]).collect();
+                    v.push(c[n_x]);
+                    v
+                };
+                let (sp, sq) = (seq(p), seq(q));
+                for j in 0..sp.len() - 1 {
+                    push(vec![sp[j], sp[j + 1], sq[j + 1], sq[j]]);
+                }
+            }
+            cells.push(faces);
+        }
+    }
+    from_cell_faces_wound(points, &cells)
+}
+
 /// `ring` with cyclically consecutive repeats removed.
 fn dedupe_ring(ring: Vec<usize>) -> Vec<usize> {
     let mut out: Vec<usize> = Vec::with_capacity(ring.len());
@@ -913,6 +1021,40 @@ mod tests {
     use super::*;
     use crate::carve::carve_box;
     use crate::shapes::box_surface;
+
+    /// V&V (gh:#1241) — **upstream's per-face layer counts**
+    /// (`build_layered_faces`, `addPatchCellLayer`'s `nFaceLayers`). A unit
+    /// box carved 3×3×3, 3 layers on `walls`, one wall point not extruded:
+    /// the faces touching it get 1 cell (spanning the columns), every other
+    /// face 3, and every other point 3 layers. Predicted before the first
+    /// run: closed; no inverted cell; the volume is the box's (a
+    /// repartition) to 1e-12; cells = 27 + 3 × (54 − k) + k for the k faces
+    /// at the point; and with every face at 3 the mesh is
+    /// `build_layered_variable`'s bit for bit.
+    #[test]
+    fn per_face_layer_counts_conform_and_repartition() {
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let base = carve_box(&p, &t, 1.0 / 3.0);
+        let s = layer_setup(&base, &["walls"], 3, 0.02, 1.3).unwrap();
+        let totals: BTreeMap<usize, f64> = s.wall_pts.iter().map(|&w| (w, 0.05)).collect();
+        let all3: BTreeMap<usize, usize> = s.wall_pts.iter().map(|&w| (w, 3)).collect();
+        let f3 = vec![3usize; s.wall_faces.len()];
+        let a = build_layered_faces(&base, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &totals, &all3, &f3);
+        let b = build_layered_variable(&base, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &totals, &all3);
+        assert_eq!((a.points.clone(), a.faces.clone(), a.owner.clone(), a.neighbour.clone()), (b.points, b.faces, b.owner, b.neighbour));
+        // Unextrude the first wall point (a box corner in 3 wall faces).
+        let x = *s.wall_pts.iter().next().unwrap();
+        let mut counts = all3.clone();
+        counts.insert(x, 0);
+        let fl: Vec<usize> = s.wall_faces.iter().map(|&f| if base.faces[f].contains(&x) { 1 } else { 3 }).collect();
+        let k = fl.iter().filter(|&&l| l == 1).count();
+        let m = build_layered_faces(&base, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &totals, &counts, &fl);
+        m.validate().expect("closed");
+        assert_eq!(crate::checks::check_quality(&m).n_negative_volume_cells, 0);
+        assert!((m.total_volume() - 1.0).abs() < 1e-12, "{}", m.total_volume());
+        assert_eq!(m.cell_count(), 27 + 3 * (54 - k) + k);
+        assert!(k >= 1);
+    }
 
     /// V&V — headline. Methodology: a unit box carved 3×3×3 (a single `walls`
     /// patch), then 3 graded boundary layers added on `walls`. Pass criteria:

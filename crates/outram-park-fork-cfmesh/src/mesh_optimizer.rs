@@ -932,12 +932,29 @@ pub fn find_bad_faces(mesh: &VolumeMesh) -> Vec<bool> {
 
 /// `polyMeshGenChecks::findLowQualityFaces` on every face: non-orthogonality
 /// above 65° or cfMesh skewness above 2.
+/// The bad faces of `mesh` ([`find_bad_faces`]) and how many of them have
+/// a boundary point (which this port's optimisers never move).
+pub fn bad_faces_at_the_boundary(mesh: &VolumeMesh) -> (usize, usize) {
+    let bad = find_bad_faces(mesh);
+    let mut on_bnd = vec![false; mesh.points.len()];
+    for f in 0..mesh.face_count() {
+        if mesh.neighbour[f].is_none() {
+            for &p in &mesh.faces[f] {
+                on_bnd[p] = true;
+            }
+        }
+    }
+    let n = bad.iter().filter(|&&b| b).count();
+    let touch = (0..mesh.face_count()).filter(|&f| bad[f] && mesh.faces[f].iter().any(|&p| on_bnd[p])).count();
+    (n, touch)
+}
+
 pub fn find_low_quality_faces(mesh: &VolumeMesh) -> Vec<bool> {
     flag_faces(mesh, &vec![true; mesh.face_count()], CheckMode::LowQuality)
 }
 
 /// What one optimiser call did.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct OptimiserReport {
     /// Faces flagged at the first check.
     pub flagged_before: usize,
@@ -945,6 +962,36 @@ pub struct OptimiserReport {
     pub flagged_after: usize,
     /// Inner iterations run.
     pub iterations: usize,
+    /// Global iterations run (`untangleMeshFV` only).
+    pub global_iterations: usize,
+    /// Smoothable nodes summed over every region built (gh:#1241 profile).
+    pub nodes_smoothed: usize,
+    /// Seconds in the checks, the region builds and the smoothers
+    /// (native only; NaN on wasm, which has no clock).
+    pub seconds_check: f64,
+    /// See [`Self::seconds_check`].
+    pub seconds_build: f64,
+    /// See [`Self::seconds_check`].
+    pub seconds_smooth: f64,
+}
+
+/// A clock for the profile (gh:#1241): `std::time::Instant` natively;
+/// wasm32-unknown-unknown has none, so the times there are NaN.
+#[cfg(not(target_arch = "wasm32"))]
+fn stamp() -> Option<std::time::Instant> {
+    Some(std::time::Instant::now())
+}
+#[cfg(target_arch = "wasm32")]
+fn stamp() -> Option<()> {
+    None
+}
+#[cfg(not(target_arch = "wasm32"))]
+fn since(t: Option<std::time::Instant>) -> f64 {
+    t.map_or(f64::NAN, |t| t.elapsed().as_secs_f64())
+}
+#[cfg(target_arch = "wasm32")]
+fn since(_t: Option<()>) -> f64 {
+    f64::NAN
 }
 
 /// `meshOptimizer::optimizeLowQualityFaces(maxNumIterations)`: repeatedly
@@ -958,7 +1005,9 @@ pub fn optimize_low_quality_faces(mesh: &mut VolumeMesh, locked: &[bool], max_it
     let mut changed = vec![true; mesh.face_count()];
     let mut rep = OptimiserReport::default();
     for it in 0..max_iterations {
+        let t = stamp();
         let low = flag_faces(mesh, &changed, CheckMode::LowQuality);
+        rep.seconds_check += since(t);
         let n_bad = low.iter().filter(|&&b| b).count();
         if it == 0 {
             rep.flagged_before = n_bad;
@@ -968,8 +1017,13 @@ pub fn optimize_low_quality_faces(mesh: &mut VolumeMesh, locked: &[bool], max_it
         if n_bad == 0 {
             break;
         }
+        let t = stamp();
         let mut tm = PartTetMesh::around_faces(mesh, locked, &low, 2);
+        rep.seconds_build += since(t);
+        rep.nodes_smoothed += tm.n_smooth_nodes();
+        let t = stamp();
         tm.optimise_using_volume_optimizer(10);
+        rep.seconds_smooth += since(t);
         changed = tm.update_orig(mesh, &pc, &cf);
     }
     rep
@@ -989,8 +1043,32 @@ pub fn untangle_mesh_fv(
     locked: &[bool],
     max_global_iterations: usize,
     max_iterations: usize,
+    max_surface_iterations: usize,
+    relaxed: bool,
+) -> OptimiserReport {
+    untangle_mesh_fv_bounded(mesh, locked, max_global_iterations, max_iterations, max_surface_iterations, relaxed, false)
+}
+
+/// [`untangle_mesh_fv`] with an optional **stop on a stalled global
+/// iteration** (gh:#1241): with `stop_on_stall`, the global loop ends when
+/// a global iteration leaves as many bad faces as the one before (or as it
+/// started with). Upstream moves boundary points between its global
+/// iterations (`optimiseBoundaryVolumeOptimizer`,
+/// `optimiseBoundarySurfaceLaplace`), which is what can change the outcome
+/// of the next one; this port has no boundary moves, so after a stalled
+/// global iteration the next only repeats the interior smoothing on a
+/// larger region. Measured on the demo pipe (gh:#1241 record): a final
+/// untangle went 29 → 29 bad faces over all 10 global iterations, 51 s.
+/// The quality targets (`findBadFaces`) are unchanged; only the number of
+/// futile passes is.
+pub fn untangle_mesh_fv_bounded(
+    mesh: &mut VolumeMesh,
+    locked: &[bool],
+    max_global_iterations: usize,
+    max_iterations: usize,
     _max_surface_iterations: usize,
     relaxed: bool,
+    stop_on_stall: bool,
 ) -> OptimiserReport {
     let pc = point_cells(mesh);
     let cf = cell_faces(mesh);
@@ -999,12 +1077,15 @@ pub fn untangle_mesh_fv(
     let mut rep = OptimiserReport::default();
     let mut first = true;
     let mut n_global = 0usize;
+    let mut bad_before_global = usize::MAX;
     loop {
         let mut n_iter = 0usize;
         let (mut min_bad, mut min_iter) = (usize::MAX, 0usize);
         let mut n_bad;
         loop {
+            let t = stamp();
             let bad = flag_faces(mesh, &changed, mode);
+            rep.seconds_check += since(t);
             n_bad = bad.iter().filter(|&&b| b).count();
             if first {
                 rep.flagged_before = n_bad;
@@ -1018,9 +1099,14 @@ pub fn untangle_mesh_fv(
                 min_bad = n_bad;
                 min_iter = n_iter;
             }
+            let t = stamp();
             let mut tm = PartTetMesh::around_faces(mesh, locked, &bad, n_global / 2 + 1);
+            rep.seconds_build += since(t);
+            rep.nodes_smoothed += tm.n_smooth_nodes();
+            let t = stamp();
             tm.optimise_using_knupp_metric(5);
             tm.optimise_using_volume_optimizer(10);
+            rep.seconds_smooth += since(t);
             changed = tm.update_orig(mesh, &pc, &cf);
             rep.iterations += 1;
             n_iter += 1;
@@ -1029,9 +1115,15 @@ pub fn untangle_mesh_fv(
             }
         }
         n_global += 1;
+        rep.global_iterations = n_global;
         if n_bad == 0 || n_global >= max_global_iterations {
             break;
         }
+        let start = if bad_before_global == usize::MAX { rep.flagged_before } else { bad_before_global };
+        if stop_on_stall && n_bad >= start {
+            break;
+        }
+        bad_before_global = n_bad;
     }
     rep
 }
