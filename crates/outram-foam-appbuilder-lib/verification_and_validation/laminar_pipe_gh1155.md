@@ -3645,6 +3645,77 @@ with every optional control off). Before: 7 025 cells, first untangle
   pass does not repair); its `SnappyCollapse` fingerprint and every
   `BackOffOnly` pin do not (no Knupp call).
 
+## Foam Studio's new unstructured default: upstream's sequence without the Laplace pass (gh:#1298, epic gh:#1251)
+
+**Maintainer-approved 2026-11-05.** gh:#1283's recommendation 2 (route
+`upEnl`) becomes Foam Studio's default.
+
+### What changed
+
+- `examples/foam_studio_web/engine.rs`: `TetDualSpec::BASE` is now the
+  cell-centre dual (`DualKind::CellCentre`) with the class's feature points
+  (`FeaturePointRule::Corners`), `LayerQualityStrategy::CfMeshOptimise`, and
+  the new `CfMeshRoute::UpstreamNoLaplace`:
+  - `TetDualOptions::untangle_surface` (cfMesh's `meshSurfaceOptimizer` in
+    the feature-edge capture);
+  - `TetDualOptions::optimise_final_mesh` (`optimizeSurface`,
+    `untangleMeshFV` with boundary moves and the LP untangler,
+    `optimizeLowQualityFaces`, `untangleMeshFV`);
+  - `BoundaryProjection::EachPass` (not upstream; gh:#1283);
+  - `optimize_mesh_fv_laplace` off (it thickens the stack ~50 %, gh:#1256).
+  The steps are set in Foam Studio (`engine::route_options`), **not** in the
+  cfMesh crate's `TetDualOptions::default()`, which is unchanged: Foam
+  Studio builds its options from that default and overrides them, so the
+  crate's own pins and every other consumer (`outram-blender::foam_mesh`,
+  the `dhoby-ghaut` workbench) keep the old pipeline.
+- The old default is `TetDualSpec::PRE_GH1298` (`CfMeshRoute::PreGh1298`,
+  per-corner dual, `OnFeatureEdge`, `BackOffOnly`), the named ablation:
+  page URL `route=legacy&dual=corner&fp=edges&layerq=backoff`, native knob
+  `FOAM_CFMESH_ROUTE=legacy` (plus `FOAM_DUAL_KIND=corner FOAM_DUAL_FP=edges
+  FOAM_LAYER_STRATEGY=backoff`). The diagnostics that reproduce earlier
+  records now say `..TetDualSpec::PRE_GH1298`.
+- The native knobs `FOAM_CFMESH_*`, `FOAM_UNTANGLE_SURFACE`,
+  `FOAM_OPTIMISE_FINAL` now take `1` / `0` and **leave the route's value
+  when unset** (before, unset meant off). A reproduction command recorded
+  above, run after gh:#1298, therefore needs `FOAM_CFMESH_ROUTE=legacy`.
+- The page: a "cfMesh surface + final optimisation (upstream sequence)"
+  checkbox and `route=` in the URL; the worker message carries a fourth
+  mesher code.
+
+### Predictions (written 2026-11-05, before any run of the new default)
+
+The demo default is h 4 mm (0.4 R), no layer, on Foam Studio's cylinder
+(48 sides, R 10 mm, L 200 mm), Re 100, steady. The sources are gh:#1283's
+`upEnl` rows (cfMesh diagnostic, 2026-11-05) and its `up`/`upE` solve at
+h 4 bare; gh:#1284's Knupp change and gh:#1285's face order come after
+them, so I expect small shifts from those only.
+
+1. **Mesh (default, h 4 bare):** 6 353 cells (every route kept the count);
+   max non-orthogonality 52.7° ± 2° (`upEnl`, Foam Studio's own NO measure
+   may read ~1° lower as in gh:#1283); inlet flux / πR² 0.9939 ± 0.001;
+   0 `findBadFaces`, 0 pyramids ≤ 0.
+2. **Solve (default):** steady in 25–32 steps; u_c/2U **0.86–0.91** (central
+   0.88: between `base` 0.8502 and `upE` 0.8985, nearer `upE` because the
+   inflow is `upE`'s); dp/dz / HP **1.00–1.04** (central 1.02); mass
+   conserved to 1e-8. The pre-gh:#1298 pin (0.8925 / 1.0326, per-corner
+   dual) is not the comparison: that is another dual.
+3. **Meshing time (native, this host, loaded):** 1–6 s (gh:#1283 `upEnl`
+   h 4 bare: 5.2 s on a loaded host; `upE` 1.3 s). Against the old
+   default's ~0.5 s that is 2–10× slower.
+4. **3 layers at h 5 (the layer case):** 7 049 cells ± 30, 0 bad faces,
+   thickness 0.895 ± 0.05 mm, u_c/2U 0.939 ± 0.005, dp/dz 1.006 ± 0.005,
+   10–20 s native.
+5. **`TetDualSpec::estimated_cells`:** the bare coefficient (6.5 per h³)
+   holds for the cell-centre dual (same cell count as the per-corner dual);
+   the layer term needs about **2.6** wall faces per h² of wall (h 5:
+   1 304 wall faces on the `Corners` duals against 7 632 per-corner), not
+   15. With 15 the h 5 / 3-layer estimate is ~26k against ~7k measured.
+6. **Browser (wasm, desktop Chromium headless):** the default meshes in
+   3–15 s (the wasm build is single-threaded and ~2–3× slower than native),
+   then runs; on the phone viewport the same, with the panel folded and the
+   UI responsive while the worker meshes (the meshing is in the worker).
+   **Phone-acceptable** I take as under ~20 s on this host.
+
 ## Reproduce
 
 ```bash
