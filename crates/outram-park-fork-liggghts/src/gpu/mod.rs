@@ -40,6 +40,8 @@
 //!    this module hand-rolls a tiny pure-`std` [`block_on`], the same shape
 //!    `outram-mc-libs` uses.
 
+pub mod dem;
+
 use std::future::Future;
 use std::pin::pin;
 use std::sync::Arc;

@@ -271,6 +271,24 @@ impl GranularSystem {
         self.compute
     }
 
+    /// The analytic boundaries, in the order their contacts are resolved.
+    #[must_use]
+    pub fn boundaries(&self) -> &[Boundary] {
+        &self.boundaries
+    }
+
+    /// The contact model (the GPU backend reads it, gh:#1250).
+    #[must_use]
+    pub fn model(&self) -> &GranularContactModel {
+        &self.model
+    }
+
+    /// Gravitational acceleration \[m/s²\].
+    #[must_use]
+    pub fn gravity(&self) -> Vec3 {
+        self.gravity
+    }
+
     /// The attached moving walls, in their current pose.
     #[must_use]
     pub fn moving_walls(&self) -> &[MovingBoundary] {
