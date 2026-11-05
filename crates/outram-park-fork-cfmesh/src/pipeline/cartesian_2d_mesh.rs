@@ -41,7 +41,7 @@
 //! | `surfaceProjection` | `meshSurfaceMapper2D`: `adjustZCoordinates`, `preMapVertices`, `mapVerticesOntoSurface` | [`crate::surface_mapper_2d`] |
 //! | `patchAssignment` | `meshSurfaceEdgeExtractor2D::distributeBoundaryFaces` | [`crate::surface_mapper_2d::distribute_boundary_faces`] |
 //! | `edgeExtraction` | `remapBoundaryPoints`, then `optimiseMeshSurface` (`optimizeSurface2D`, `untangleSurface2D`) | [`crate::surface_mapper_2d::remap_boundary_points`]; **`optimizeSurface2D` / `untangleSurface2D` not ported** (noted) |
-//! | `boundaryLayerGeneration` | `boundaryLayers` with `activate2DMode`, `addLayerForAllPatches` (always) | `layers::boundary_layers` on every non-empty patch as **one group**, the empty patches untreated (what 2D mode does to them); patch-wise groups not ported |
+//! | `boundaryLayerGeneration` | `boundaryLayers` with `activate2DMode`, `addLayerForAllPatches` (always) | ~~`layers::boundary_layers` on every non-empty patch as **one group**, the empty patches untreated (what 2D mode does to them); patch-wise groups not ported~~ **UPDATED 2026-11-05 (gh:#1270 remainder):** `BoundaryLayers::activate_2d_mode` and the patch-wise `add_layer_for_all_patches` |
 //! | `meshOptimisation` | `optimiseMeshSurface` again | **not ported** (noted): nothing moves |
 //! | `boundaryLayerRefinement` | with a dict: `refineBoundaryLayers` in 2D mode, `untangleSurface2D` | **not ported** (2D mode): a dict gives a note, no split |
 //! | (always) | `renumberMesh`, `renameBoundaryPatches(mesh, dict, true)` | as `cartesian_mesh`, empty patches allowed |
@@ -53,7 +53,8 @@
 //! (only run on a surface with feature edges) are not supported.
 
 use crate::cartesian_mesh::{cartesian_mesh_extractor, create_empty_patches, CartesianMeshOptions};
-use crate::layers::boundary_layers::{boundary_layers_add_layer, BoundaryLayersControls};
+use crate::layers::boundary_layers::{BoundaryLayersControls, LayerRequest};
+use crate::pipeline::cartesian_mesh::LayerTopology;
 use crate::math::Vec3;
 use crate::mesh_octree::{MeshOctree, TriSurf};
 use crate::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
@@ -85,6 +86,9 @@ pub struct Cartesian2DMeshOptions {
     pub refine_boundary_layers_requested: bool,
     /// **Ablation, not upstream:** skip `boundaryLayerGeneration`.
     pub without_boundary_layer: bool,
+    /// Patch-wise layer (upstream) or the one-group ablation (gh:#1270
+    /// remainder).
+    pub layer_topology: LayerTopology,
 }
 
 impl Default for Cartesian2DMeshOptions {
@@ -97,6 +101,7 @@ impl Default for Cartesian2DMeshOptions {
             layer_heights: BoundaryLayersControls::default(),
             refine_boundary_layers_requested: false,
             without_boundary_layer: false,
+            layer_topology: LayerTopology::PatchWise,
         }
     }
 }
@@ -239,21 +244,14 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
                 if opts.without_boundary_layer {
                     rep.notes.push("boundaryLayerGeneration: ABLATED (without_boundary_layer)".into());
                 } else {
-                    let names: Vec<String> = m.patches.iter().enumerate().filter(|(i, p)| types.get(*i).is_none_or(|t| t != "empty") && p.n_faces > 0).map(|(_, p)| p.name.clone()).collect();
-                    let refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
-                    match boundary_layers_add_layer(m, &refs, &opts.layer_heights) {
-                        Some((mm, out)) => {
+                    match crate::pipeline::cartesian_mesh::boundary_layer_generation(m, &LayerRequest::AllPatches, &opts.layer_heights, opts.layer_topology, true) {
+                        Ok((mm, n, line)) => {
                             *m = mm;
-                            rep.n_layer_cells = out.wall_faces.len();
+                            rep.n_layer_cells = n;
                             rep.n_nonpositive_after_layer = n_nonpositive_cells(m);
-                            rep.notes.push(format!(
-                                "boundaryLayerGeneration: activate2DMode + addLayerForAllPatches as one group over {names:?} (empty patches untreated): {} layer cells, {} non-positive cells{}",
-                                rep.n_layer_cells,
-                                rep.n_nonpositive_after_layer,
-                                if names.len() > 1 { "; patch-wise groups NOT ported" } else { "" }
-                            ));
+                            rep.notes.push(format!("boundaryLayerGeneration: activate2DMode, {line}; {} non-positive cells", rep.n_nonpositive_after_layer));
                         }
-                        None => rep.notes.push("boundaryLayerGeneration: boundaryLayers refused; no layer".into()),
+                        Err(e) => rep.notes.push(format!("boundaryLayerGeneration: boundaryLayers stopped ({e}); no layer")),
                     }
                 }
             }

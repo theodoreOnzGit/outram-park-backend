@@ -69,16 +69,26 @@
 //! index** of the [`crate::mesh_octree::TriSurf`] (upstream matches patch
 //! names, with regular expressions).
 //!
-//! Not ported: `subsetCellSize` (~~no facet subsets on `TriSurf`~~
-//! **CORRECTED 2026-11-05, gh:#1276:** `TriSurf` now carries facet subsets;
-//! the `subsetCellSize` refinement itself is still not ported),
+//! ~~Not ported: `subsetCellSize` (no facet subsets on `TriSurf`; corrected
+//! by gh:#1276: the subsets exist, the refinement did not),
 //! `surfaceMeshRefinement` and `edgeMeshRefinement` sources,
 //! `meshOctreeAutomaticRefinement` (curvature and proximity, its own item in
 //! `docs/upstream_coverage.md`), `anisotropicSources`, and the MPI load
-//! balancing. Object refinement is [`crate::object_refinement`].
+//! balancing.~~ **CORRECTED 2026-11-05 (gh:#1264/#1265 remainders,
+//! gh:#1278):** `subsetCellSize` and subset `localRefinement` entries, the
+//! `surfaceMeshRefinement` / `edgeMeshRefinement` sources
+//! ([`MeshOctreeCreator::refine_boxes_intersecting_surfaces`],
+//! [`MeshOctreeCreator::refine_boxes_intersecting_edge_meshes`]) and the
+//! automatic refinement ([`crate::mesh_octree_automatic_refinement`], on
+//! with `minCellSize`) are ported; each is off unless the dict asks.
+//! `anisotropicSources` moves the sources ([`source_surface_geometry`] /
+//! [`source_edge_mesh_geometry`], through gh:#1279's
+//! [`crate::anisotropic`]). Still not ported: the MPI load balancing. Object refinement is [`crate::object_refinement`].
 
-use crate::mesh_octree::{CubeType, MeshOctree, SMALL, VSMALL};
+use crate::mesh_octree::{BoundBox, CubeType, MeshOctree, TriSurf, SMALL, VSMALL};
+use crate::mesh_octree_automatic_refinement::{AutomaticRefinementReport, MeshOctreeAutomaticRefinement};
 use crate::object_refinement::ObjectRefinement;
+use std::sync::Arc;
 use std::collections::BTreeMap;
 
 /// A `patchCellSize` entry (`patchRefinement`): the cell size on one
@@ -123,6 +133,139 @@ pub struct MeshDict {
     pub object_refinements: Vec<ObjectRefinement>,
     /// `keepCellsIntersectingBoundary` (read by the extractor, gh:#1266).
     pub keep_cells_intersecting_boundary: bool,
+    /// `minCellSize`: turns on `meshOctreeAutomaticRefinement`
+    /// ([`crate::mesh_octree_automatic_refinement`], gh:#1278); `None` (the
+    /// default) leaves it off, as upstream without the entry.
+    pub min_cell_size: Option<f64>,
+    /// `subsetCellSize`: a cell size on a facet subset of the surface, by
+    /// subset name (gh:#1264 remainder).
+    pub subset_cell_size: Vec<SubsetRefinement>,
+    /// `localRefinement` entries naming a **facet subset** rather than a
+    /// patch (upstream matches an entry's name against both).
+    pub local_refinement_subsets: Vec<SubsetLocalRefinement>,
+    /// `surfaceMeshRefinement`: surfaces acting as refinement sources.
+    pub surface_mesh_refinement: Vec<SurfaceMeshRefinement>,
+    /// `edgeMeshRefinement`: edge meshes acting as refinement sources.
+    pub edge_mesh_refinement: Vec<EdgeMeshRefinement>,
+    /// `nonManifoldMeshing`: `UNKNOWN` leaves become cells too, and DATA
+    /// boxes are used (read by [`crate::cartesian_mesh`]'s addressing).
+    pub non_manifold_meshing: bool,
+    /// `checkForGluedMesh` (`checkGluedRegions`, with DATA boxes only).
+    pub check_for_glued_mesh: bool,
+    /// `keepCellsIntersectingPatches`: patch or facet-subset names whose
+    /// leaves become cells (when DATA boxes are not used).
+    pub keep_cells_intersecting_patches: Vec<String>,
+    /// `removeCellsIntersectingPatches`: patch or facet-subset names whose
+    /// leaves are dropped (when DATA boxes are used).
+    pub remove_cells_intersecting_patches: Vec<String>,
+    /// `anisotropicSources` ([`crate::anisotropic::CoordinateModifier`],
+    /// gh:#1279). Read here only by the refinement sources, which upstream
+    /// maps into the modified space; the generators do not read it.
+    pub anisotropic_sources: Option<crate::anisotropic::CoordinateModifier>,
+}
+
+/// A `subsetCellSize` entry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubsetRefinement {
+    /// Facet subset name in the surface.
+    pub subset: String,
+    /// Requested cell size.
+    pub cell_size: f64,
+}
+
+/// A `localRefinement` entry that names a facet subset.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubsetLocalRefinement {
+    /// Facet subset name in the surface.
+    pub subset: String,
+    /// `additionalRefinementLevels`; takes precedence over `cell_size`.
+    pub additional_levels: Option<u8>,
+    /// `cellSize`.
+    pub cell_size: Option<f64>,
+    /// `refinementThickness` (0 for none).
+    pub refinement_thickness: f64,
+}
+
+/// `edgeMesh`: points and edges (a refinement source). Upstream reads it
+/// from a file; here it is a value.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EdgeMesh {
+    /// Points.
+    pub points: Vec<crate::math::Vec3>,
+    /// Edges (point labels).
+    pub edges: Vec<[usize; 2]>,
+}
+
+/// A `surfaceMeshRefinement` entry. Upstream reads `surfaceFile`; here the
+/// surface is given.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SurfaceMeshRefinement {
+    /// The entry's name.
+    pub name: String,
+    /// The source surface.
+    pub surface: Arc<TriSurf>,
+    /// `cellSize` (takes precedence over `additional_levels`).
+    pub cell_size: Option<f64>,
+    /// `additionalRefinementLevels`.
+    pub additional_levels: Option<u8>,
+    /// `refinementThickness` (0 for none).
+    pub refinement_thickness: f64,
+}
+
+/// An `edgeMeshRefinement` entry. Upstream reads `edgeFile`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EdgeMeshRefinement {
+    /// The entry's name.
+    pub name: String,
+    /// The source edge mesh.
+    pub edge_mesh: Arc<EdgeMesh>,
+    /// `cellSize` (takes precedence over `additional_levels`).
+    pub cell_size: Option<f64>,
+    /// `additionalRefinementLevels`.
+    pub additional_levels: Option<u8>,
+    /// `refinementThickness` (0 for none).
+    pub refinement_thickness: f64,
+}
+
+/// A surface refinement source as `refineBoxesIntersectingSurfaces` uses
+/// it: with `anisotropicSources` in the dict,
+/// `surfaceMeshGeometryModification(origSurf, meshDict).modifyGeometry()`
+/// ([`crate::anisotropic::modify_surface`], gh:#1279), else the source
+/// unchanged.
+pub fn source_surface_geometry(dict: &MeshDict, surf: &Arc<TriSurf>) -> Arc<TriSurf> {
+    match &dict.anisotropic_sources {
+        Some(cm) => Arc::new(crate::anisotropic::modify_surface(surf, cm, true)),
+        None => Arc::clone(surf),
+    }
+}
+
+/// An edge-mesh source as `refineBoxesIntersectingEdgeMeshes` uses it:
+/// with `anisotropicSources`, `edgeMeshGeometryModification::modifyGeometry`
+/// ([`crate::anisotropic::modify_points`]), else unchanged.
+pub fn source_edge_mesh_geometry(dict: &MeshDict, em: &Arc<EdgeMesh>) -> Arc<EdgeMesh> {
+    match &dict.anisotropic_sources {
+        Some(cm) => {
+            let mut m = (**em).clone();
+            crate::anisotropic::modify_points(&mut m.points, cm);
+            Arc::new(m)
+        }
+        None => Arc::clone(em),
+    }
+}
+
+/// The additional levels of a refinement source's `cellSize`, by the loop
+/// `refineBoxesIntersectingSurfaces` / `EdgeMeshes` use: count the halvings
+/// `s = maxCellSize, maxCellSize/2, ...` with `cs <= s (1 + SMALL)`. **Not**
+/// [`levels_to`]: at a `cellSize` equal to `maxCellSize / 2^k` it gives one
+/// level more (upstream as written; recorded in gh:#1264's V&V).
+pub fn source_add_levels(max_cell_size: f64, cs: f64) -> u8 {
+    let mut add = 0u8;
+    let mut s = max_cell_size;
+    while cs <= s * (1.0 + SMALL) {
+        add += 1;
+        s /= 2.0;
+    }
+    add
 }
 
 impl MeshDict {
@@ -228,6 +371,17 @@ impl MeshOctreeCreator {
                 }
             }
         }
+        // subsetCellSize: upstream warns and skips an unknown subset.
+        for sr in &dict.subset_cell_size {
+            let Some(id) = o.surface.facet_subsets.index(&sr.subset) else {
+                continue;
+            };
+            let cs = sr.cell_size * (self.scaling_factor + SMALL);
+            let level = self.global_ref_level + levels_to(max_size, cs);
+            for t in o.surface.facet_subsets.elements(id) {
+                self.surf_ref_level[t].push((level, 0.0));
+            }
+        }
         for lr in &dict.local_refinement {
             let n = match (lr.additional_levels, lr.cell_size) {
                 (Some(n), _) => n,
@@ -239,6 +393,21 @@ impl MeshOctreeCreator {
                 if o.surface.regions[t] == lr.region {
                     r.push((level, lr.refinement_thickness));
                 }
+            }
+        }
+        // localRefinement entries naming a facet subset.
+        for lr in &dict.local_refinement_subsets {
+            let Some(id) = o.surface.facet_subsets.index(&lr.subset) else {
+                continue;
+            };
+            let n = match (lr.additional_levels, lr.cell_size) {
+                (Some(n), _) => n,
+                (None, Some(cs)) => levels_to(max_size, cs),
+                (None, None) => 0,
+            };
+            let level = self.global_ref_level + n;
+            for t in o.surface.facet_subsets.elements(id) {
+                self.surf_ref_level[t].push((level, lr.refinement_thickness));
             }
         }
     }
@@ -376,15 +545,166 @@ impl MeshOctreeCreator {
         );
     }
 
+    /// The refinement level of each source, `globalRefLevel_` plus the
+    /// source's `cellSize` levels ([`source_add_levels`]) or
+    /// `additionalRefinementLevels`.
+    fn source_level(&self, max_cell_size: f64, cell_size: Option<f64>, additional: Option<u8>) -> u8 {
+        let add = match cell_size {
+            Some(cs) => source_add_levels(max_cell_size, cs),
+            None => additional.unwrap_or(0),
+        };
+        self.global_ref_level + add
+    }
+
+    /// Refine with layers when any marked leaf asks for a thickness, else
+    /// plainly (the tail of both source routines).
+    fn refine_marked(&self, o: &mut MeshOctree, refine: &mut [i32], thick: &[f64], use_n_layers: bool) {
+        if use_n_layers {
+            o.refine_selected_boxes_and_additional_layers(refine, thick);
+        } else {
+            o.refine_selected_boxes(refine, self.hex_refinement);
+        }
+    }
+
+    /// `refineBoxesIntersectingSurfaces`: refine every leaf a source
+    /// surface's triangle intersects (`intersectsTriangleExact`, among the
+    /// leaves overlapping the triangle's box grown by `SMALL x` the root
+    /// span) below the source's level, with `refinementThickness` layers,
+    /// until nothing changes. Returns the passes that refined.
+    pub fn refine_boxes_intersecting_surfaces(&self, o: &mut MeshOctree) -> usize {
+        let Some(dict) = &self.dict else {
+            return 0;
+        };
+        if dict.surface_mesh_refinement.is_empty() {
+            return 0;
+        }
+        let sources: Vec<(Arc<TriSurf>, u8, f64)> = dict
+            .surface_mesh_refinement
+            .iter()
+            .map(|r| (source_surface_geometry(dict, &r.surface), self.source_level(dict.max_cell_size, r.cell_size, r.additional_levels), r.refinement_thickness))
+            .collect();
+        let tol = o.root_box.span().scale(SMALL);
+        let mut n_passes = 0;
+        loop {
+            let n = o.number_of_leaves();
+            let mut refine = vec![0i32; n];
+            let mut thick = vec![0.0f64; n];
+            let (mut changed, mut use_n_layers) = (false, false);
+            for (surf, level, th) in &sources {
+                for (t, tri) in surf.triangles.iter().enumerate() {
+                    let pts = [surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]];
+                    let bb = BoundBox::of_points(&pts);
+                    let bb = BoundBox::new(bb.min.sub(tol), bb.max.add(tol));
+                    for leaf in o.find_leaves_contained_in_box(&bb) {
+                        let oc = o.return_leaf(leaf).coords;
+                        if !oc.intersects_triangle_exact(surf, &o.root_box, t) {
+                            continue;
+                        }
+                        if oc.level < *level {
+                            changed = true;
+                            refine[leaf] = 1;
+                        }
+                        if *th > VSMALL {
+                            use_n_layers = true;
+                            thick[leaf] = thick[leaf].max(*th);
+                        }
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+            self.refine_marked(o, &mut refine, &thick, use_n_layers);
+            n_passes += 1;
+        }
+        n_passes
+    }
+
+    /// `refineBoxesIntersectingEdgeMeshes`: as
+    /// [`MeshOctreeCreator::refine_boxes_intersecting_surfaces`] for the
+    /// edges of the source edge meshes (`intersectsLine`). Returns the
+    /// passes that refined.
+    pub fn refine_boxes_intersecting_edge_meshes(&self, o: &mut MeshOctree) -> usize {
+        let Some(dict) = &self.dict else {
+            return 0;
+        };
+        if dict.edge_mesh_refinement.is_empty() {
+            return 0;
+        }
+        let sources: Vec<(Arc<EdgeMesh>, u8, f64)> = dict
+            .edge_mesh_refinement
+            .iter()
+            .map(|r| (source_edge_mesh_geometry(dict, &r.edge_mesh), self.source_level(dict.max_cell_size, r.cell_size, r.additional_levels), r.refinement_thickness))
+            .collect();
+        let tol = o.root_box.span().scale(SMALL);
+        let mut n_passes = 0;
+        loop {
+            let n = o.number_of_leaves();
+            let mut refine = vec![0i32; n];
+            let mut thick = vec![0.0f64; n];
+            let (mut changed, mut use_n_layers) = (false, false);
+            for (em, level, th) in &sources {
+                for e in &em.edges {
+                    let (sp, ep) = (em.points[e[0]], em.points[e[1]]);
+                    let bb = BoundBox::of_points(&[sp, ep]);
+                    let bb = BoundBox::new(bb.min.sub(tol), bb.max.add(tol));
+                    let mut intersected = Vec::new();
+                    for leaf in o.find_leaves_contained_in_box(&bb) {
+                        let oc = o.return_leaf(leaf).coords;
+                        if oc.intersects_line(&o.root_box, sp, ep) {
+                            intersected.push(leaf);
+                            if oc.level < *level {
+                                refine[leaf] = 1;
+                                changed = true;
+                            }
+                        }
+                    }
+                    if *th > VSMALL {
+                        use_n_layers = true;
+                        for leaf in intersected {
+                            thick[leaf] = thick[leaf].max(*th);
+                        }
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+            self.refine_marked(o, &mut refine, &thick, use_n_layers);
+            n_passes += 1;
+        }
+        n_passes
+    }
+
+    /// The automatic refinement step of `createOctreeBoxes` (upstream runs
+    /// it in serial runs only; the port is serial):
+    /// `meshOctreeAutomaticRefinement` with `useDATABoxes = false`; nothing
+    /// unless the dict sets `minCellSize`.
+    pub fn automatic_refinement(&self, o: &mut MeshOctree) -> AutomaticRefinementReport {
+        let Some(dict) = &self.dict else {
+            return AutomaticRefinementReport::default();
+        };
+        let mut a = MeshOctreeAutomaticRefinement::new(o, dict.min_cell_size, dict.max_cell_size, dict.keep_cells_intersecting_boundary, false);
+        if self.hex_refinement {
+            a.activate_hex_refinement();
+        }
+        a.automatic_refinement(o);
+        a.report()
+    }
+
     /// `createOctreeBoxes`: size the root, refine to the boundary requests,
-    /// mark inside/outside, refine `INSIDE` and `UNKNOWN` leaves to
-    /// `maxCellSize`, refine inside the refinement objects, and refine the
-    /// coarser neighbours of the `DATA` leaves once. The refinement sources
-    /// and the automatic refinement upstream runs between the second and
-    /// third steps are not ported (module docs).
+    /// refine the leaves the source surfaces and edge meshes cross, run the
+    /// automatic (curvature and proximity) refinement, mark inside/outside,
+    /// refine `INSIDE` and `UNKNOWN` leaves to `maxCellSize`, refine inside
+    /// the refinement objects, and refine the coarser neighbours of the
+    /// `DATA` leaves once. The three new middle steps do nothing unless the
+    /// dict asks for them (all off by default).
     pub fn create_octree_boxes(&mut self, o: &mut MeshOctree) {
         self.set_root_cube_size_and_ref_parameters(o);
         self.refine_boundary(o);
+        self.refine_boxes_intersecting_surfaces(o);
+        self.refine_boxes_intersecting_edge_meshes(o);
+        self.automatic_refinement(o);
         mesh_octree_inside_outside(o);
         self.refine_inside_and_unknown_boxes(o);
         self.refine_boxes_contained_in_objects(o);
@@ -829,5 +1149,202 @@ pub(crate) mod tests {
         assert_eq!(levels_to(1.0, 0.5), 1);
         assert_eq!(levels_to(1.0, 0.49), 2);
         assert_eq!(levels_to(1.0, 0.25), 2);
+    }
+
+    fn leaf_coords(o: &MeshOctree) -> Vec<crate::mesh_octree::CubeCoordinates> {
+        (0..o.number_of_leaves()).map(|l| o.return_leaf(l).coords).collect()
+    }
+
+    /// V&V (gh:#1264/#1265 remainders), differential:
+    /// `refineBoxesIntersectingSurfaces` against `refineBoundary` on the
+    /// **same triangles**.
+    ///
+    /// # Methodology
+    ///
+    /// Sphere R 3 m, `maxCellSize` 1.0. Route A: `boundaryCellSize` 0.25
+    /// (level 4 + 2 = 6, gh:#1264). Route B: no boundary size, the sphere
+    /// itself as a `surfaceMeshRefinement` source with
+    /// `additionalRefinementLevels` 2. Both run the whole
+    /// `createOctreeBoxes`.
+    ///
+    /// **Predictions (written before the first run):**
+    /// - A and B give the **same leaves in the same order**: B refines the
+    ///   leaves its triangles cross (`intersectsTriangleExact` over the
+    ///   leaves in each triangle's box), A the leaves holding them (the
+    ///   same test, applied when the parent was split), both through
+    ///   `refineSelectedBoxes` pass by pass;
+    /// - the source's `cellSize` loop (`source_add_levels`) differs from
+    ///   `boundaryCellSize`'s at exact powers of two: `cellSize` 0.25 gives
+    ///   3 levels (triangle leaves at level 7), not 2. Upstream as written.
+    ///
+    /// **Result (2026-11-05): as predicted.** Both routes give the same
+    /// 10 816 leaves in the same order (the gh:#1264 pin); the `cellSize`
+    /// 0.25 source puts triangle leaves at level 7 (40 944 leaves).
+    #[test]
+    fn surface_source_matches_boundary_refinement_on_the_same_triangles() {
+        let a = create(sphere3(), MeshDict { boundary_cell_size: Some(0.25), ..MeshDict::with_max_cell_size(1.0) }).0;
+        let src = |cell_size: Option<f64>, levels: Option<u8>| MeshDict {
+            surface_mesh_refinement: vec![SurfaceMeshRefinement {
+                name: "self".into(),
+                surface: sphere3(),
+                cell_size,
+                additional_levels: levels,
+                refinement_thickness: 0.0,
+            }],
+            ..MeshDict::with_max_cell_size(1.0)
+        };
+        let b = create(sphere3(), src(None, Some(2))).0;
+        println!("boundaryCellSize route {} leaves, surface-source route {} leaves", a.number_of_leaves(), b.number_of_leaves());
+        assert_eq!(leaf_coords(&a), leaf_coords(&b));
+        assert_eq!(source_add_levels(1.0, 0.25), 3);
+        assert_eq!(source_add_levels(1.0, 0.3), 2);
+        assert_eq!(levels_to(1.0, 0.3), 2);
+        let c = create(sphere3(), src(Some(0.25), None)).0;
+        let max_data = (0..c.number_of_leaves()).filter(|&l| c.has_contained_triangles(l)).map(|l| c.return_leaf(l).coords.level).max();
+        println!("cellSize 0.25 source: triangle leaves up to level {max_data:?}, {} leaves", c.number_of_leaves());
+        assert_eq!(max_data, Some(7));
+    }
+
+    /// V&V (gh:#1264/#1265 remainders): `refineBoxesIntersectingEdgeMeshes`
+    /// and `refinementThickness`.
+    ///
+    /// **Predictions (written before the first run):** cube `[0, 8]^3`,
+    /// `maxCellSize` 1 (global level 4, root side 16), one edge-mesh segment
+    /// from (1.3, 2.1, 4.1) to (6.7, 5.9, 4.1) with 2 additional levels:
+    /// every leaf the segment crosses (`intersectsLine`) is at level >= 6,
+    /// and without the source no leaf off the boundary is finer than 4.
+    /// With `refinementThickness` 1.0 more leaves are refined than without.
+    ///
+    /// **Result (2026-11-05): as predicted.** Leaves: 2 024 without the
+    /// source, 2 892 with it, 9 220 with the 1.0 thickness; the 38 leaves
+    /// the segment crosses are all at level 6.
+    #[test]
+    fn edge_mesh_source_refines_the_leaves_it_crosses() {
+        let (p, t) = crate::shapes::box_surface(Vec3::ZERO, Vec3::new(8.0, 8.0, 8.0));
+        let cube = Arc::new(TriSurf::new(p, t, None));
+        let (s, e) = (Vec3::new(1.3, 2.1, 4.1), Vec3::new(6.7, 5.9, 4.1));
+        let dict = |th: f64| MeshDict {
+            edge_mesh_refinement: vec![EdgeMeshRefinement {
+                name: "line".into(),
+                edge_mesh: Arc::new(EdgeMesh { points: vec![s, e], edges: vec![[0, 1]] }),
+                cell_size: None,
+                additional_levels: Some(2),
+                refinement_thickness: th,
+            }],
+            ..MeshDict::with_max_cell_size(1.0)
+        };
+        let plain = create(Arc::clone(&cube), MeshDict::with_max_cell_size(1.0)).0;
+        let thin = create(Arc::clone(&cube), dict(0.0)).0;
+        let thick = create(Arc::clone(&cube), dict(1.0)).0;
+        let crossed: Vec<u8> = (0..thin.number_of_leaves())
+            .filter(|&l| thin.return_leaf(l).coords.intersects_line(&thin.root_box, s, e))
+            .map(|l| thin.return_leaf(l).coords.level)
+            .collect();
+        println!(
+            "edge source: leaves plain {}, source {}, source + thickness 1.0 {}; crossed leaves {} at levels {:?}..{:?}",
+            plain.number_of_leaves(),
+            thin.number_of_leaves(),
+            thick.number_of_leaves(),
+            crossed.len(),
+            crossed.iter().min(),
+            crossed.iter().max()
+        );
+        assert!(!crossed.is_empty() && crossed.iter().all(|&lv| lv >= 6));
+        assert!((0..plain.number_of_leaves()).all(|l| plain.has_contained_triangles(l) || plain.return_leaf(l).coords.level <= 4));
+        assert!(thick.number_of_leaves() > thin.number_of_leaves());
+    }
+
+    /// gh:#1264/#1265 remainders: `anisotropicSources` on the refinement
+    /// sources. **Prediction:** without it the sources are passed through
+    /// (the same `Arc`); with a box scaling the source surface and edge mesh
+    /// are exactly `anisotropic::modify_surface` / `modify_points` of the
+    /// originals, and the segment moves (its first point, (1.3, 2.1, 4.1),
+    /// is outside the box, the second too, so only points inside
+    /// `[3, 5]^3` would move by the box alone: recorded, not predicted).
+    ///
+    /// **Result (2026-11-05):** pass-through and equality held. The
+    /// segment's end moved from x 6.7 to 5.7 although it is outside the
+    /// box: gh:#1279's box scaling displaces every point beyond the box by
+    /// the box's whole stretch (its semantics, not this hook's).
+    #[test]
+    fn anisotropic_sources_move_the_refinement_sources() {
+        use crate::anisotropic::{BoxScaling, CoordinateModifier, Modification};
+        let surf = sphere3();
+        let em = Arc::new(EdgeMesh { points: vec![Vec3::new(1.3, 2.1, 4.1), Vec3::new(6.7, 5.9, 4.1)], edges: vec![[0, 1]] });
+        let plain = MeshDict::with_max_cell_size(1.0);
+        assert!(Arc::ptr_eq(&source_surface_geometry(&plain, &surf), &surf));
+        assert!(Arc::ptr_eq(&source_edge_mesh_geometry(&plain, &em), &em));
+        let cm = CoordinateModifier::new(vec![Modification::Box(BoxScaling {
+            name: "b".into(),
+            centre: Vec3::new(4.0, 4.0, 4.0),
+            length: Vec3::new(2.0, 2.0, 2.0),
+            scale: Vec3::new(2.0, 1.0, 1.0),
+        })])
+        .expect("modifier");
+        let d = MeshDict { anisotropic_sources: Some(cm.clone()), ..plain };
+        assert_eq!(*source_surface_geometry(&d, &surf), crate::anisotropic::modify_surface(&surf, &cm, true));
+        let mut pts = em.points.clone();
+        crate::anisotropic::modify_points(&mut pts, &cm);
+        let moved = source_edge_mesh_geometry(&d, &em);
+        println!("edge source under the box scaling: {:?} -> {:?}", em.points, moved.points);
+        assert_eq!(moved.points, pts);
+        assert_ne!(moved.points, em.points);
+    }
+
+    /// V&V (gh:#1264 remainder), differential: `subsetCellSize` and a
+    /// subset `localRefinement` entry against `patchCellSize` and a patch
+    /// `localRefinement` entry on the **same facets**.
+    ///
+    /// **Prediction (written before the first run):** the pipe's inlet
+    /// (region 1) and a facet subset `inlet_set` holding exactly the
+    /// region-1 facets give identical octrees, leaf for leaf, for a cell
+    /// size of 0.5 mm, and for 1 additional level with a 1 mm thickness.
+    /// An unknown subset name refines nothing (upstream warns).
+    ///
+    /// **Result (2026-11-05): as predicted.** 20 952 leaves plain; 27 672 by
+    /// `patchCellSize` and by `subsetCellSize`, leaf for leaf; 23 864 by
+    /// either `localRefinement` form; the unknown subset leaves the plain
+    /// octree.
+    #[test]
+    fn subset_cell_size_matches_patch_cell_size_on_the_same_facets() {
+        let pipe = crate::mesh_octree_queries::tests::pipe(0.01, 0.06, 48);
+        let mut s = (*pipe).clone();
+        let id = s.facet_subsets.add("inlet_set");
+        for t in 0..s.size() {
+            if s.regions[t] == 1 {
+                s.facet_subsets.add_element(id, t);
+            }
+        }
+        let s = Arc::new(s);
+        let base = MeshDict { boundary_cell_size: Some(0.001), ..MeshDict::with_max_cell_size(0.004) };
+        let by_patch = create(Arc::clone(&s), MeshDict { patch_cell_size: vec![PatchRefinement { region: 1, cell_size: 0.0005 }], ..base.clone() }).0;
+        let by_subset = create(Arc::clone(&s), MeshDict { subset_cell_size: vec![SubsetRefinement { subset: "inlet_set".into(), cell_size: 0.0005 }], ..base.clone() }).0;
+        let lr_patch = create(
+            Arc::clone(&s),
+            MeshDict { local_refinement: vec![LocalRefinement { region: 1, additional_levels: Some(1), cell_size: None, refinement_thickness: 0.001 }], ..base.clone() },
+        )
+        .0;
+        let lr_subset = create(
+            Arc::clone(&s),
+            MeshDict {
+                local_refinement_subsets: vec![SubsetLocalRefinement { subset: "inlet_set".into(), additional_levels: Some(1), cell_size: None, refinement_thickness: 0.001 }],
+                ..base.clone()
+            },
+        )
+        .0;
+        let plain = create(Arc::clone(&s), base.clone()).0;
+        let unknown = create(Arc::clone(&s), MeshDict { subset_cell_size: vec![SubsetRefinement { subset: "nope".into(), cell_size: 0.0005 }], ..base }).0;
+        println!(
+            "pipe leaves: plain {}, patchCellSize {}, subsetCellSize {}, localRefinement patch {} / subset {}",
+            plain.number_of_leaves(),
+            by_patch.number_of_leaves(),
+            by_subset.number_of_leaves(),
+            lr_patch.number_of_leaves(),
+            lr_subset.number_of_leaves()
+        );
+        assert!(by_patch.number_of_leaves() > plain.number_of_leaves());
+        assert_eq!(leaf_coords(&by_patch), leaf_coords(&by_subset));
+        assert_eq!(leaf_coords(&lr_patch), leaf_coords(&lr_subset));
+        assert_eq!(leaf_coords(&plain), leaf_coords(&unknown));
     }
 }

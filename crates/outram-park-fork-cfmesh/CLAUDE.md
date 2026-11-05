@@ -77,8 +77,15 @@ depends on it.
 cfMesh's own **creation** route (`boundaryLayers::addLayerForPatch`, one
 layer at half the local edge) is `layers::boundary_layers`, and its split
 (`detectBoundaryLayers`, `refineBoundaryLayers`) is
-`layers::refine_boundary_layers` (gh:#1270, #1271). Both are opt-in; no
-pipeline option calls them. They also build through `layer_setup` and
+`layers::refine_boundary_layers` (gh:#1270, #1271). ~~Both are opt-in; no
+pipeline option calls them.~~ **UPDATED 2026-11-05 (gh:#1270 remainder):**
+the tet-dual pipeline still does not call them; the four upstream workflows
+do, as upstream (below). The patch-wise route
+(`layers::boundary_layers::BoundaryLayers`, edge and corner cells where
+patch groups meet) builds its cells as upstream lists them, not through
+`build_layered_variable`, whose columns cannot hold edge or corner cells;
+the one-group route and `addWrapperLayer` still build through it.
+`create_new_vertex` is the one `createNewVertex`: both routes call it. ~~They also build~~ The one-group route and the split build through `layer_setup` and
 `build_layered_variable`. Upstream's layer is not quality-checked: on the
 pipe it inverts cells. The record is in the gh:#1270 and gh:#1271 sections
 of the same V&V file.
@@ -189,7 +196,7 @@ and `voronoi_mesh_extractor`; `workflow_controls`, `renumber_mesh` and
 change `surface_to_tet_dual_mesh`. They call the topology track's
 `surfaceMorpherCells` / `topologicalCleaner` and the surface track's
 `meshSurfaceOptimizer` in upstream's places. Steps still missing
-(~~`edgeExtractor`,~~ `boundaryLayers`, `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
+(~~`edgeExtractor`,~~ ~~`boundaryLayers`~~ (**with a `boundaryLayers` dict since gh:#1270's remainder**, `TetMeshOptions::boundary_layers`), `preMapVertices` (**ported 2026-11-05, gh:#1274**, as `premap_vertices`, but not yet called by `p_mesh`),
 ~~`meshSurfaceEdgeExtractorFUN`~~ ~~`createFundamentalSheetsJFS`~~) call what
 exists and say so in `TetMeshReport::notes`. **UPDATED 2026-11-05
 (gh:#1280, #1281):** `extrudeLayer` (`layers::extrude_layer`) and
@@ -223,7 +230,9 @@ add a second one. A tool that changes points or facets builds a new
 stale as upstream's cached addressing does. No pipeline calls the module.
 Several upstream tools are defective (listed in `src/surface.rs`); where the
 text cannot work (`subsetToPatch`), the port follows the intent and says
-so. `meshOctreeAutomaticRefinement` is not ported. Record and images:
+so. ~~`meshOctreeAutomaticRefinement` is not ported.~~ **CORRECTED
+2026-11-05:** it is ported (`mesh_octree_automatic_refinement`, next
+section but one). Record and images:
 `verification_and_validation/surface_tools_gh1276/`.
 
 ## cfMesh's `cartesianMesh` (gh:#1274, 2026-11-05)
@@ -235,14 +244,40 @@ beside `tet_mesh`. It shares `create_octree`, `SavedMesh`,
 runs `premap_vertices` (`preMapVertices`, ported for it).
 
 **Upstream adds one boundary layer to every cartesianMesh, with no dict**
-(`addLayerForAllPatches`). Here that is `layers::boundary_layers` on all
+(`addLayerForAllPatches`). ~~Here that is `layers::boundary_layers` on all
 patches as **one group**. Upstream's patch-wise groups are not ported, so
-on multi-patch surfaces the rim layer differs from upstream.
-`without_boundary_layer` is the explicit ablation.
+on multi-patch surfaces the rim layer differs from upstream.~~ **UPDATED
+2026-11-05 (gh:#1270 remainder):** patch-wise, as upstream
+(`boundary_layer_generation`, shared by the four workflows);
+`LayerTopology::OTopology` keeps the one-group layer callable for the
+differential. `without_boundary_layer` is the explicit ablation. Record:
+`verification_and_validation/patch_wise_layers_gh1270/`.
 
 The record (the differential against `carve_box` + `snap` and the
 tet-dual) and the images are in
 `verification_and_validation/cartesian_mesh_gh1274/`.
+
+## The octree remainders: automatic refinement, sources, addressing (gh:#1278, #1264–#1266, 2026-11-05)
+
+`mesh_octree_automatic_refinement` is `meshOctreeAutomaticRefinement`
+(curvature, corners, partitions, proximity). `createOctreeBoxes` runs it,
+and the `surfaceMeshRefinement` / `edgeMeshRefinement` sources, in
+upstream's place; each is **off unless the `MeshDict` asks**
+(`min_cell_size`, `surface_mesh_refinement`, `edge_mesh_refinement`,
+`subset_cell_size`, `local_refinement_subsets`). `MeshDict::anisotropic_sources`
+moves the sources through gh:#1279's `anisotropic`
+(`mesh_octree_creator::source_surface_geometry` /
+`source_edge_mesh_geometry`); the generators do not read it.
+
+`MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
+read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and
+`checkForGluedMesh`; with a dict that sets none of them they are `new` and
+`cartesian_mesh_extractor` (tested field for field). The octree edges are
+`MeshOctreeAddressing::edge_addressing` (equal to the extracted mesh's
+edges). Upstream's proximity criterion needs the parts to be separate
+within `1.732 h`: a channel closed at its sides within that range is never
+refined. Record, the misses and the images:
+`verification_and_validation/octree_remainders_gh1278/`.
 
 ## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
 
