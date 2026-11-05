@@ -555,15 +555,19 @@ pub(crate) fn layer_setup(
         return None;
     }
 
-    // Boundary faces around each point (cfMesh `pointFaces`), in face order.
-    let mut point_faces: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for f in 0..mesh.face_count() {
-        if patch_of[f] != usize::MAX {
-            for &p in &mesh.faces[f] {
-                point_faces.entry(p).or_default().push(f);
+    // Boundary faces around each point (cfMesh `pointFaces`), in face order,
+    // as mesh face labels: from the shared surface engine (gh:#1257; this
+    // stage built its own map before, identical element for element:
+    // `surface_engine::tests::engine_matches_the_crates_earlier_boundary_maps_on_the_pipe`).
+    let engine = crate::surface_engine::SurfaceEngine::new(mesh);
+    let point_faces = |v: usize| -> Vec<usize> {
+        match engine.bp.get(v) {
+            Some(&b) if b != crate::surface_engine::NOT_BOUNDARY => {
+                engine.point_faces[b].iter().map(|&bf| engine.boundary_faces[bf]).filter(|&f| patch_of[f] != usize::MAX).collect()
             }
+            _ => Vec::new(),
         }
-    }
+    };
 
     // Wall points and their (averaged) inward normal.
     let mut wall_pts: BTreeSet<usize> = BTreeSet::new();
@@ -585,7 +589,7 @@ pub(crate) fn layer_setup(
     let mut kind: BTreeMap<usize, LayerVertex> = BTreeMap::new();
     let mut border_cap: BTreeMap<usize, f64> = BTreeMap::new();
     for &wp in &wall_pts {
-        let faces = &point_faces[&wp];
+        let faces = &point_faces(wp);
         let mut others: Vec<usize> = Vec::new();
         for &f in faces {
             let pi = patch_of[f];
@@ -637,7 +641,7 @@ pub(crate) fn layer_setup(
                     let k = ring.len();
                     let Some(pos) = ring.iter().position(|&q| q == wp) else { continue };
                     for q in [ring[(pos + k - 1) % k], ring[(pos + 1) % k]] {
-                        let on = |pi: usize| point_faces.get(&q).is_some_and(|fs| fs.iter().any(|&g| patch_of[g] == pi));
+                        let on = |pi: usize| point_faces(q).iter().any(|&g| patch_of[g] == pi);
                         if on(others[0]) && on(others[1]) {
                             target = Some(q);
                             break 'search;

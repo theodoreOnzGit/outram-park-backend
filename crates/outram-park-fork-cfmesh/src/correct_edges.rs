@@ -58,12 +58,22 @@
 //! classifies an edge. A new fan point is placed at OpenFOAM's
 //! `face::centre` (area-weighted), as upstream.
 //!
+//! **UPDATED 2026-11-05 (gh:#1257):** the boundary addressing (edges, the
+//! faces at each edge, feature edges, edge points) comes from
+//! [`crate::surface_engine`], not from maps built here. With it the tet test
+//! follows `classifyEdges` exactly: `f0` is the engine's first face of the
+//! edge (the one holding it start -> end), and the edge is concave when
+//! `tet(s, e, c0, c1)` **or** `tet(e, s, c1, c0)` is not below `-VSMALL`
+//! (before: the lower-numbered face and the first tet only; the two tets are
+//! equal analytically, so this can differ from before only at round-off).
+//!
 //! The patch of a boundary face is given by the caller, per face, and the
 //! children of a split face inherit it (`newBoundaryPatches_`); the capture
 //! must then use the same assignment, not re-derive it from the children's
 //! centroids ([`crate::surface_mapper::map_vertices_onto_surface_patches_untangled_given`]).
 
 use crate::math::Vec3;
+use crate::surface_engine::{SurfaceEngine, SurfacePartitioner, NOT_BOUNDARY, VSMALL};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -145,25 +155,18 @@ impl Work {
         (0..ring.len()).map(|i| vec![ring[i], ring[(i + 1) % ring.len()], c]).collect()
     }
 
-    /// Boundary edges (sorted pairs) with the boundary faces on them.
-    fn boundary_edge_faces(&self) -> BTreeMap<(usize, usize), Vec<usize>> {
-        let mut ef: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
-        for f in 0..self.faces.len() {
-            if self.neighbour[f].is_none() {
-                let ring = &self.faces[f];
-                for i in 0..ring.len() {
-                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
-                    ef.entry((a.min(b), a.max(b))).or_default().push(f);
-                }
-            }
-        }
-        ef
+    /// The surface of the mesh being repaired and its partition by the
+    /// face patches (`None` is one more patch), from the shared engine
+    /// (gh:#1257; this stage built its own edge -> faces map before).
+    fn surface(&self) -> (SurfaceEngine, SurfacePartitioner) {
+        let unassigned = self.region.iter().flatten().max().map_or(0, |m| m + 1);
+        let patch_of: Vec<usize> = self.region.iter().map(|r| r.unwrap_or(unassigned)).collect();
+        let engine = SurfaceEngine::from_parts(&self.points, &self.faces, &self.owner, &self.neighbour, &patch_of);
+        let part = SurfacePartitioner::new(&engine);
+        (engine, part)
     }
 }
 
-fn is_feature(ef: &[usize], region: &[Option<usize>]) -> bool {
-    ef.len() == 2 && region[ef[0]] != region[ef[1]]
-}
 
 /// Run cfMesh's `correctEdgesBetweenPatches` on `mesh`, whose boundary face
 /// `f` lies in patch `face_region[f]` (`None` for an internal face). Returns
@@ -188,36 +191,31 @@ pub fn correct_edges_between_patches(
 
     // 1. decomposeConcaveFaces.
     {
-        let ef = w.boundary_edge_faces();
-        let centres: Vec<Option<Vec3>> =
-            (0..w.faces.len()).map(|f| w.neighbour[f].is_none().then(|| foam_face_centre(&w.points, &w.faces[f]))).collect();
+        let (engine, part) = w.surface();
         let mut concave: BTreeSet<usize> = BTreeSet::new();
-        let mut edge_in_patch: BTreeMap<(usize, usize), i64> = BTreeMap::new();
-        for (&(a, b), fs) in &ef {
+        // edgeInPatch: the patch of a non-feature two-face edge, -1 otherwise.
+        let mut edge_in_patch: Vec<i64> = vec![-1; engine.edges.len()];
+        for (e, fs) in engine.edge_faces.iter().enumerate() {
             if fs.len() != 2 {
-                edge_in_patch.insert((a, b), -1);
                 continue;
             }
-            if !is_feature(fs, &w.region) {
-                edge_in_patch.insert((a, b), w.region[fs[0]].map_or(-1, |r| r as i64));
+            if !part.feature_edges.contains(&e) {
+                edge_in_patch[e] = w.region[engine.boundary_faces[fs[0]]].map_or(-1, |r| r as i64);
                 continue;
             }
-            edge_in_patch.insert((a, b), -1);
-            // meshSurfaceCheckEdgeTypes: f0 is the face holding the edge as
-            // s -> e; tet(s, e, c0, c1) not negative is concave.
-            let ring0 = &w.faces[fs[0]];
-            let k = ring0.len();
-            let forward = (0..k).any(|i| ring0[i] == a && ring0[(i + 1) % k] == b);
-            let (s, e) = if forward { (a, b) } else { (b, a) };
-            let (c0, c1) = (centres[fs[0]].unwrap(), centres[fs[1]].unwrap());
-            let (ps, pe) = (w.points[s], w.points[e]);
-            let vol = pe.sub(ps).cross(c0.sub(ps)).dot(c1.sub(ps)) / 6.0;
-            if vol > -1e-300 {
+            // meshSurfaceCheckEdgeTypes::classifyEdges: f0 holds the edge
+            // start -> end (the engine's edgeFaces order); concave when
+            // tet(s, e, c0, c1) or tet(e, s, c1, c0) is not negative.
+            let [s, t] = engine.edges[e];
+            let (c0, c1) = (engine.face_centres[fs[0]], engine.face_centres[fs[1]]);
+            let (ps, pt) = (w.points[s], w.points[t]);
+            let vol0 = pt.sub(ps).cross(c0.sub(ps)).dot(c1.sub(ps)) / 6.0;
+            let vol1 = ps.sub(pt).cross(c1.sub(pt)).dot(c0.sub(pt)) / 6.0;
+            if vol0 > -VSMALL || vol1 > -VSMALL {
                 concave.insert(s);
-                concave.insert(e);
+                concave.insert(t);
             }
         }
-        let bpoints: BTreeSet<usize> = ef.keys().flat_map(|&(a, b)| [a, b]).collect();
         let mut split = BTreeMap::new();
         for f in 0..w.faces.len() {
             let Some(nb) = w.neighbour[f] else { continue };
@@ -227,14 +225,14 @@ pub fn correct_edges_between_patches(
             let mut n_bnd = 0usize;
             let mut patches: Vec<i64> = Vec::new();
             for i in 0..k {
-                if !bpoints.contains(&ring[i]) {
+                if engine.bp[ring[i]] == NOT_BOUNDARY {
                     continue;
                 }
                 if concave.contains(&ring[i]) {
                     has_concave = true;
                 }
-                let (a, b) = (ring[i], ring[(i + 1) % k]);
-                if let Some(&p) = edge_in_patch.get(&(a.min(b), a.max(b))) {
+                if let Some(e) = engine.find_edge(ring[i], ring[(i + 1) % k]) {
+                    let p = edge_in_patch[e];
                     n_bnd += 1;
                     if !patches.contains(&p) {
                         patches.push(p);
@@ -254,17 +252,8 @@ pub fn correct_edges_between_patches(
 
     // 2. patchCorrection.
     {
-        let ef = w.boundary_edge_faces();
-        let mut n_feat: BTreeMap<usize, usize> = BTreeMap::new();
-        let mut feature: BTreeSet<(usize, usize)> = BTreeSet::new();
-        for (&e, fs) in &ef {
-            if is_feature(fs, &w.region) {
-                feature.insert(e);
-                *n_feat.entry(e.0).or_default() += 1;
-                *n_feat.entry(e.1).or_default() += 1;
-            }
-        }
-        let is_f = |a: usize, b: usize| feature.contains(&(a.min(b), a.max(b)));
+        let (engine, part) = w.surface();
+        let is_f = |a: usize, b: usize| engine.find_edge(a, b).is_some_and(|e| part.feature_edges.contains(&e));
         let mut split = BTreeMap::new();
         for f in 0..w.faces.len() {
             if w.neighbour[f].is_some() {
@@ -273,7 +262,7 @@ pub fn correct_edges_between_patches(
             let bf = w.faces[f].clone();
             let k = bf.len();
             for i in 0..k {
-                let edge_point = n_feat.get(&bf[i]) == Some(&2);
+                let edge_point = part.edge_points.contains(&engine.bp[bf[i]]);
                 if edge_point && is_f(bf[i], bf[(i + 1) % k]) && is_f(bf[(i + k - 1) % k], bf[i]) {
                     if k > 4 {
                         let fan = w.fan(f);
