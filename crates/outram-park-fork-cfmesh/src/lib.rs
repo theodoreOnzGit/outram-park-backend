@@ -269,6 +269,7 @@ pub mod delaunay;
 pub mod dual;
 pub mod layers;
 pub mod math;
+pub mod mesh_octree;
 pub mod mesh_optimizer;
 pub mod snappy_layers;
 pub mod boundary_layer_optimisation;
