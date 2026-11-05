@@ -271,13 +271,18 @@ the rim and the "flat" ends reach about a quarter cell up the wall.~~
 (`surface_mapper`, cfMesh's `meshSurfaceMapper::mapVerticesOntoSurfacePatches`
 with edge and corner nodes) and runs in the multipatch pipeline after the dual
 (`TetDualOptions::feature_edges`, on by default): the Foam Studio pipe's rim is
-square and its inlet spans 0.9936 πR² (was 0.9396). Not ported:
-`correctEdgesBetweenPatches`; where mapping would leave a face on a feature
+square and its inlet spans 0.9936 πR² (was 0.9396). ~~Not ported:
+`correctEdgesBetweenPatches`;~~ **CORRECTED 2026-11-05:** `correctEdgesBetweenPatches`
+is ported (`correct_edges`, gh:#1241), opt-in through
+`TetDualOptions::correct_edges`. Where mapping would leave a face on a feature
 edge, those points stay unmapped and the pipeline notes how many. Also since
 2026-11-04: `checks::QualityReport::max_skewness` is OpenFOAM's
 `faceSkewness` (it divided by the centre distance before), and the layer
 back-off applies upstream's layer limits (`maxInternalSkewness 4`, no
 non-positive face pyramid, `minDeterminant 0.001`).
+
+What of upstream cfMesh is ported, partly ported or not, and the porting plan
+for the rest (gh:#1251): [`docs/upstream_coverage.md`](docs/upstream_coverage.md).
 
 Remaining roadmap (beads under the `op-hzs` epic):
 
@@ -295,7 +300,8 @@ Remaining roadmap (beads under the `op-hzs` epic):
 11. ~~**patch-selective** layer insertion (layers currently grow over the whole
     boundary, because patch classification runs last) and~~ **patch-selective
     layers done 2026-11-04 (gh:#1202)**; ~~still to do: feature-edge capture~~
-    feature-edge capture done 2026-11-04 (without `correctEdgesBetweenPatches`);
+    feature-edge capture done 2026-11-04 (without `correctEdgesBetweenPatches`,
+    which followed 2026-11-05 in `correct_edges`, gh:#1241);
     ~~still to do: feature-aware layers and **local layer collapse** (three
     layers on the pipe diverge in the solver; the interface to the dual sits
     at 75–84°, and only a local collapse, snappy-style, can meet upstream's
