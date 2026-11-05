@@ -1,0 +1,27 @@
+OUTRAM PARK backend
+===================
+
+Copyright (C) 2022-2026 Theodore Ong and the OUTRAM PARK backend contributors.
+
+Each contributor keeps the copyright in their own contributions. A
+contribution is licensed to everyone under the project's licence, the GNU
+Affero General Public License version 3 only (AGPL-3.0-only; see LICENSE),
+the same terms the rest of the project is under ("inbound = outbound").
+Contributing does not transfer copyright to the maintainer or to anyone
+else.
+
+Why AGPL-3.0: the project incorporates code that is itself AGPL-3.0, so the
+combined work must be conveyed under the AGPL. Files translated from
+upstream projects under the GPL-3.0 keep their GPL-3.0 headers and are
+conveyed as part of the AGPL combined work under GPLv3 section 13 / AGPLv3
+section 13 (LICENSE.GPL-3.0 ships beside LICENSE). The per-crate record is
+docs/relicensing-agpl-2026-10-20.md.
+
+Third-party code: files ported from upstream projects (OpenFOAM, DWSIM,
+FLEXPART, OpenMC, NJOY, GSL, cfMesh, PFLOTRAN, LIGGGHTS, citeproc-js and
+others) carry their upstream copyright and licence notices in their own
+headers, and those notices govern that code. A crate's own NOTICE file, where
+there is one, records its upstream sources and licence history.
+
+Contributor list: the git history of this repository
+(git shortlog -sne) is the authoritative record of who contributed what.

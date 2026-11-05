@@ -36,6 +36,9 @@ directory: `git log` shows exactly two commit identities,
 which are the same person (the maintainer, Theodore Kay Chen Ong) on two
 machines. As sole author and copyright holder of the code, the relicense
 is theirs to make, and they directed it.
+UPDATED 2026-11-05: that held at the 2026-08-11 relicense. The project now
+has open-source contributors, who keep the copyright in their own
+contributions (root NOTICE).
 
 The pre-existing copyright attribution lines in the source headers (naming
 Theodore Kay Chen Ong, Professor Per F. Peterson, the University of

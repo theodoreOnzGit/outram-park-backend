@@ -396,6 +396,13 @@ pub struct PimpleFoam {
     /// pre-gh:#1067 Euler-only correction; see
     /// `verification_and_validation/bdf2_temporal_order.md` for what it costs.
     pub ddt_corr_form: DdtCorrForm,
+    /// Momentum (U) linear-solver settings: tolerance 1e-7, 1000 iterations
+    /// (`SolverSettings::default()`), what this solver has always used. See
+    /// [`Self::with_linear_solver_settings`].
+    pub u_linear_solver: SolverSettings,
+    /// Pressure (p) linear-solver settings: tolerance 1e-8, 2000 iterations,
+    /// what this solver has always used. See [`Self::with_linear_solver_settings`].
+    pub p_linear_solver: SolverSettings,
     /// Turbulence closure (default [`TurbulenceClosure::Laminar`]).
     ///
     /// Selecting a RAS/LES model replaces the molecular viscous term in the
@@ -478,6 +485,8 @@ impl PimpleFoam {
             u_old_old: None,
             phi_old_old: None,
             ddt_corr_form: DdtCorrForm::default(),
+            u_linear_solver: SolverSettings::default(),
+            p_linear_solver: SolverSettings { tolerance: 1e-8, max_iter: 2_000 },
             turbulence: TurbulenceClosure::default(),
             energy: None,
         }
@@ -532,6 +541,20 @@ impl PimpleFoam {
         self
     }
 
+    /// Solve the momentum and pressure equations to these settings instead
+    /// of the defaults (U 1e-7, p 1e-8). For a check that has to resolve
+    /// differences below the default tolerances: since the momentum predictor
+    /// is warm-started (gh:#1202), two runs that differ by round-off stop at
+    /// different points inside the default tolerance. Upstream reads these
+    /// from `fvSolution`'s `solvers`; this port does not yet
+    /// (gh:#1291).
+    #[must_use]
+    pub fn with_linear_solver_settings(mut self, u: SolverSettings, p: SolverSettings) -> Self {
+        self.u_linear_solver = u;
+        self.p_linear_solver = p;
+        self
+    }
+
     /// Advance the flow (U, p, phi) by one time step using the PIMPLE algorithm.
     ///
     /// Dimensional analysis (integrated FV system):
@@ -547,16 +570,13 @@ impl PimpleFoam {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
         let dt = self.control.delta_t;
-        let settings = SolverSettings::default();
+        let settings = self.u_linear_solver;
         // The pressure Poisson equation is symmetric SPD and elliptic; it is
         // solved with preconditioned conjugate gradient (`solve_cg`), which
         // converges in O(√κ) iterations. An under-solved pEqn leaves residual
         // divergence that accumulates and destabilises the run, so the tolerance
         // is kept tight.
-        let p_settings = SolverSettings {
-            tolerance: 1e-8,
-            max_iter: 2_000,
-        };
+        let p_settings = self.p_linear_solver;
         let n_outer = self.solution.pimple.n_outer_correctors.max(1);
         let n_inner = self.solution.pimple.n_correctors.max(1);
         let n_non_orth = self.solution.pimple.n_non_orthogonal_correctors;
