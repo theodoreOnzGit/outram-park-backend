@@ -36,12 +36,19 @@
 //! the registry already replays; a dedicated two-party event would need its
 //! own rules for the same outcome).
 //!
-//! **No maintainer left?** There is no bypass of the signature rules. The
-//! repository owners' route is an ordinary reviewed commit: they declare a
-//! new founder (`[code_review] founder`, a maintainer entry with no
-//! admission, trusted on first use). Until a founder-succession record
+//! **No maintainer left?** There is no bypass of the signature rules.
+//! ~~The repository owners' route is an ordinary reviewed commit: they
+//! declare a new founder (`[code_review] founder`, a maintainer entry with
+//! no admission, trusted on first use). Until a founder-succession record
 //! exists (GitHub #1022), that re-roots trust, and admissions signed by the
-//! old founder's chain then need re-signing by the new one.
+//! old founder's chain then need re-signing by the new one.~~ **CORRECTED
+//! 2026-11-05 (GitHub #1248, [`founders`]):** founders are a list; a
+//! founder adds another and retires themselves (a retired founder keeps
+//! standing for everything dated before, so the old chain still verifies);
+//! when no founder has an active key the maintainers elect one by signed
+//! ballot; only when nobody at all has an active key does an unsigned
+//! `[[code_review.founder_change]]` by a reviewed commit count, shown
+//! forever as "trust root replaced by repository commit".
 //!
 //! **Organisations & IV&V live here too (GitHub #1211, maintainer
 //! 2026-11-04).** The separate "Organisations & IV&V" window is gone; its
@@ -97,6 +104,9 @@ use super::{write_text, Workspace, ROOT_FILE};
 
 #[path = "user_management_issue.rs"]
 pub mod issue;
+
+#[path = "user_management_founders.rs"]
+pub mod founders;
 
 /// The issue for what the registry cannot express yet.
 /// Today, `YYYY-MM-DD`, local.
@@ -238,6 +248,28 @@ pub fn warning_text(w: &Warning) -> String {
         Warning::RosterEvent { index, reviewer, problem } => {
             format!("Roster event {} about {reviewer} has no effect: {}.", index + 1, roster_problem_text(problem))
         }
+        Warning::FounderListed(p) => match p {
+            FounderProblem::NotDeclared => "No founder is declared.".into(),
+            FounderProblem::Unknown(id) => format!("Listed founder {id} is not a listed reviewer: not a founder."),
+            FounderProblem::NotMaintainer(id) => format!("Listed founder {id} is not a maintainer: not a founder."),
+            FounderProblem::HasAdmission(id) => format!("Listed founder {id} carries an admission: not a founder."),
+        },
+        Warning::FounderChange { index, founder, problem } => format!(
+            "Founder change {} about {founder} has no effect: {}.",
+            index + 1,
+            founders::change_problem_text(problem)
+        ),
+        Warning::TrustRootReplacedByCommit { founder, date, reviewed_in } => format!(
+            "Trust root replaced by repository commit: {founder} is a founder from {date} by an unsigned entry{} (shown forever).",
+            reviewed_in.as_deref().map(|r| format!(" ({r})")).unwrap_or_default()
+        ),
+        Warning::FounderBallot(b) => format!("Founder {}.", founders::ballot_line(b)),
+        Warning::FounderVote { index, voter, problem } => format!(
+            "Founder vote {} by {} does not count: {}.",
+            index + 1,
+            if voter.is_empty() { "(no signer)" } else { voter },
+            founders::vote_problem_text(problem)
+        ),
     }
 }
 
@@ -453,6 +485,9 @@ pub struct Roster {
     pub agents: Vec<AgentRow>,
     /// [`Registry::warnings`], in plain words.
     pub warnings: Vec<String>,
+    /// GitHub #1248: the founders, retired founders, ballots and the
+    /// lineage fingerprint, as of today.
+    pub lineage: founders::LineageView,
 }
 
 impl Roster {
@@ -468,10 +503,11 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
     let registry = Registry::build(root);
     let mut migrated = root.clone();
     migrated.migrate_key_history();
-    let founder = registry.founder.as_ref().ok();
+    // GitHub #1248: ~~the founder~~ the founders in standing now.
+    let current_founders = registry.current_founders();
     let mut reviewers = Vec::new();
     for (r, t) in migrated.reviewers.iter().zip(&registry.reviewers) {
-        let is_founder = founder == Some(&r.id);
+        let is_founder = current_founders.contains(&r.id);
         let (role, scope) = (t.current_role(), t.current_scope().to_vec());
         let novice = t.novice_now().map(|(at, except)| {
             let mut s = format!("novice {}", where_(&at));
@@ -486,6 +522,11 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
             (Role::Reviewer, true) => "Reviewer \u{b7} founder (stepped down)".to_string(),
             (Role::Reviewer, false) => "Reviewer".to_string(),
         };
+        if !is_founder {
+            if let Some(to) = registry.lineage.retired().iter().filter(|s| s.id == r.id).filter_map(|s| s.to.clone()).last() {
+                role_label.push_str(&format!(" \u{b7} founder until {to}"));
+            }
+        }
         if let Some(n) = &novice {
             role_label.push_str(&format!(" \u{b7} {n}"));
         }
@@ -600,6 +641,7 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
             .map(|(id, justifications)| AgentRow { id, justifications })
             .collect(),
         warnings: registry.warnings().iter().map(warning_text).collect(),
+        lineage: founders::lineage_view(&registry, &today()),
     }
 }
 
@@ -645,6 +687,17 @@ pub enum UserAction {
     Attestation(AttestationInput),
     /// Retire an organisation record from today (founder only, #1211).
     RetireOrganisation(OrgRecordRef),
+    /// GitHub #1248: make an admitted maintainer a founder from today
+    /// (signed by a founder).
+    AddFounder { reviewer: String },
+    /// GitHub #1248: `founder` is no longer a founder from today (signed by
+    /// a founder; retiring yourself is allowed).
+    RetireFounder { founder: String },
+    /// GitHub #1248: open a founder ballot today (`id` empty:
+    /// `ballot-<today>`), only while no founder has an active key.
+    OpenBallot { id: String },
+    /// GitHub #1248: vote for `candidate` in ballot `ballot`.
+    Vote { ballot: String, candidate: String },
 }
 
 impl UserAction {
@@ -667,19 +720,32 @@ impl UserAction {
             Self::DevelopingOrganisation { .. } | Self::ReviewerOrganisation { .. } => "Sign and record",
             Self::Attestation(_) => "Sign attestation",
             Self::RetireOrganisation(_) => "Retire record",
+            Self::AddFounder { .. } => "Add founder",
+            Self::RetireFounder { .. } => "Retire founder",
+            Self::OpenBallot { .. } => "Open ballot",
+            Self::Vote { .. } => "Vote",
         }
     }
 }
 
-/// Whether `signer` (reviewer, key) may sign as **the founder** on `date`
-/// (GitHub #1211): the declared `[code_review] founder`, a maintainer then,
-/// with that key trusted and active ([`maintainer_signer`]). `Err` says why
-/// not, naming the founder.
+/// Whether `signer` (reviewer, key) may sign as **a founder** on `date`
+/// (GitHub #1211; GitHub #1248: ~~the declared `[code_review] founder`~~
+/// any founder in standing on `date`), a maintainer then, with that key
+/// trusted and active ([`maintainer_signer`]). `Err` says why not, naming
+/// the founders.
 pub fn founder_signer(registry: &Registry, signer: (&str, &str), date: &str) -> Result<(), String> {
-    match &registry.founder {
-        Err(p) => Err(format!("Only the founder may do this. {}", warning_text(&Warning::NoFounder(p.clone())))),
-        Ok(f) if f != signer.0 => Err(format!("Only the founder ({f}) may do this; {} is not the founder.", signer.0)),
-        Ok(_) => maintainer_signer(registry, signer, date),
+    if registry.is_founder_on(signer.0, date) {
+        return maintainer_signer(registry, signer, date);
+    }
+    let now: Vec<String> = registry.lineage.founders_on(date).map(|s| s.id.clone()).collect();
+    if now.is_empty() {
+        let why = match &registry.founder {
+            Err(p) => format!(" {}", warning_text(&Warning::NoFounder(p.clone()))),
+            Ok(_) => String::new(),
+        };
+        Err(format!("Only a founder may do this, and nobody is a founder now.{why}"))
+    } else {
+        Err(format!("Only a founder ({}) may do this; {} is not a founder.", now.join(", "), signer.0))
     }
 }
 
@@ -896,6 +962,14 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
                 need(Err(e));
             }
         }
+        UserAction::AddFounder { .. }
+        | UserAction::RetireFounder { .. }
+        | UserAction::OpenBallot { .. }
+        | UserAction::Vote { .. } => {
+            for e in founders::founder_action_problems(root, &registry, signer, action, date) {
+                need(Err(e));
+            }
+        }
     }
     p
 }
@@ -1042,6 +1116,10 @@ pub fn apply_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &
         | UserAction::ReviewerOrganisation { .. }
         | UserAction::Attestation(_)
         | UserAction::RetireOrganisation(_) => return apply_organisation_action(root, key, action, date),
+        UserAction::AddFounder { .. }
+        | UserAction::RetireFounder { .. }
+        | UserAction::OpenBallot { .. }
+        | UserAction::Vote { .. } => founders::apply_founder_action(&text, &parsed, key, action, date)?,
     };
     write_text(&path, &new)?;
     Ok(notice)
@@ -1156,6 +1234,8 @@ pub struct UserPanel {
     pub orgs: OrgForms,
     /// "Issue a validated keyfile" (#1211, pathway b).
     pub issue: issue::IssueForm,
+    /// "Founders & lineage" (GitHub #1248).
+    pub founder_forms: founders::FounderForms,
     /// The keyfile's default name, while the host should open a save
     /// picker for it ([`Self::take_issue_pick`]).
     issue_pick: Option<String>,
@@ -1198,6 +1278,7 @@ impl UserPanel {
             error: None,
             orgs: OrgForms::default(),
             issue: issue::IssueForm::default(),
+            founder_forms: founders::FounderForms::default(),
             issue_pick: None,
             job: None,
             acting: None,
@@ -1345,13 +1426,11 @@ impl UserPanel {
         }
     }
 
-    /// Whether the signing key is the founder's (organisation records and
-    /// both key pathways are the founder's, #1211).
+    /// Whether the signing key is ~~the founder's~~ a current founder's
+    /// (GitHub #1248; organisation records are a founder's, #1211).
     pub fn is_founder(&self) -> bool {
         match (&self.data, self.key()) {
-            (Some(Ok(l)), Some(k)) => {
-                k.registered && l.ivv.founder.as_deref() == Some(k.reviewer.as_str())
-            }
+            (Some(Ok(l)), Some(k)) => k.registered && l.ivv.founders.iter().any(|f| *f == k.reviewer),
             _ => false,
         }
     }

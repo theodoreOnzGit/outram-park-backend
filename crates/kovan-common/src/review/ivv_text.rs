@@ -140,7 +140,8 @@ pub fn retirement_problem(p: &RetirementProblem) -> String {
         }
         RetirementProblem::UnknownRecord => "it names no signed organisation record".into(),
         RetirementProblem::Unverified(s) => format!(
-            "it has no valid signature by the founder, so the record still counts: {}",
+            // ~~by the founder~~ GitHub #1248: by a founder on its date.
+            "it has no valid signature by a founder on its date, so the record still counts: {}",
             signer_problem(s)
         ),
     }

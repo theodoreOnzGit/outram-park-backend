@@ -15,7 +15,8 @@
 //!   that header);
 //! - [`declare_founder`]: `founder = "<id>"` right under `[code_review]`, or
 //!   a new `[code_review]` table at the end. Refused when a founder is
-//!   already declared: trust on first use happens once.
+//!   already declared (`founder` or, since GitHub #1248, `founders`): trust
+//!   on first use happens once.
 //! - [`append_developing_organisation`] (GitHub #810): a new
 //!   `[[code_review.developing_organisation]]` block at the end of the file;
 //! - [`append_reviewer_organisation`] and [`append_separation_attestation`]
@@ -36,6 +37,12 @@
 //! - [`append_organisation_retirement`] (GitHub #1211): a new
 //!   `[[code_review.organisation_retirement]]` at the end of the file; the
 //!   retired organisation record is left as it is.
+//! - **Founders (GitHub #1248):** [`append_founder_change`],
+//!   [`append_founder_ballot`] and [`append_founder_vote`] add a
+//!   `[[code_review.founder_change]]`, `[[code_review.founder_ballot]]` or
+//!   `[[code_review.founder_vote]]` at the end of the file, signed by the
+//!   caller first; the registry judges them
+//!   (`signing::founders`).
 //!
 //! No workspace member depends on `toml_edit` directly (checked
 //! 2026-10-10; it is only `toml`'s own dependency), so the splice is by line, and every result is **read back**: the
@@ -51,9 +58,9 @@
 use serde::Serialize;
 
 use super::root::{
-    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, OrganisationRetirement, ReviewRoot,
-    Reviewer, ReviewerKey, ReviewerOrganisation, Revocation, RootError, Role, RosterEvent,
-    SeparationAttestation,
+    CodeReviewSettings, DevelopingOrganisation, FounderBallot, FounderChange, FounderVote, KeyEvent, KeyEventKind,
+    KeySigner, OrganisationRetirement, ReviewRoot, Reviewer, ReviewerKey, ReviewerOrganisation, Revocation, RootError,
+    Role, RosterEvent, SeparationAttestation,
 };
 
 /// Why a registration was refused. Nothing is changed on any refusal.
@@ -87,6 +94,10 @@ pub enum AppendError {
     /// The reviewer already carries a `[reviewer.revoked]` (#1019,
     /// [`append_revocation`]).
     AlreadyRevoked(String),
+    /// A founder ballot with this id exists already (GitHub #1248).
+    BallotExists(String),
+    /// No founder ballot has this id (GitHub #1248).
+    UnknownBallot(String),
 }
 
 impl std::fmt::Display for AppendError {
@@ -114,6 +125,8 @@ impl std::fmt::Display for AppendError {
             ),
             Self::AlreadyAdmitted(id) => write!(f, "{id} is admitted already"),
             Self::AlreadyRevoked(id) => write!(f, "{id} is revoked already"),
+            Self::BallotExists(id) => write!(f, "a founder ballot {id} exists already"),
+            Self::UnknownBallot(id) => write!(f, "no founder ballot {id}"),
             Self::NotReadBack(m) => write!(
                 f,
                 "kovan_root.toml would not read back as intended ({m}); nothing written"
@@ -535,8 +548,8 @@ pub fn record_admission(existing: &str, admitted: &Reviewer) -> Result<String, A
         return Err(AppendError::UnknownReviewer(id.into()));
     };
     let old = &before.reviewers[pos];
-    let founder = before.code_review.as_ref().and_then(|c| c.founder.as_deref());
-    if has_admission(old) || founder == Some(id) {
+    let declared = before.code_review.as_ref().map(|c| c.declared_founders()).unwrap_or_default();
+    if has_admission(old) || declared.iter().any(|f| f == id) {
         return Err(AppendError::AlreadyAdmitted(id.into()));
     }
     let (Some(k0), Some(ev)) = (old.keys.first(), admitted.keys.first().and_then(|k| k.history.last())) else {
@@ -739,10 +752,93 @@ pub fn append_organisation_retirement(existing: &str, r: &OrganisationRetirement
     Ok(text)
 }
 
+/// `existing` with `t` appended at the end as one `[[code_review.<table>]]`
+/// block (the founder tables, GitHub #1248), read back as exactly `expect`
+/// applied to the parsed root.
+fn append_code_review_block(
+    existing: &str,
+    block: &str,
+    what: &str,
+    expect: impl FnOnce(&mut CodeReviewSettings),
+) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let mut text = with_newline(existing);
+    if !text.is_empty() {
+        text.push('\n');
+    }
+    text.push_str(block);
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expect(expected.code_review.get_or_insert_with(Default::default));
+    if after != expected {
+        return Err(AppendError::NotReadBack(what.into()));
+    }
+    Ok(text)
+}
+
+fn signed_lines(block: &mut String, signer: Option<&KeySigner>, signature: Option<&String>) {
+    if let Some(sg) = signer {
+        block.push_str(&signer_line(sg));
+    }
+    if let Some(sig) = signature {
+        block.push_str(&kv("signature", sig));
+    }
+}
+
+/// `existing` with `e` appended as a new `[[code_review.founder_change]]`
+/// (GitHub #1248), signed by the caller (`UnlockedKey::sign_founder_change`)
+/// first, or unsigned for the repository-commit last resort. Refused for a
+/// founder who is not a `[[reviewer]]`.
+pub fn append_founder_change(existing: &str, e: &FounderChange) -> Result<String, AppendError> {
+    if parse(existing)?.reviewer(&e.founder).is_none() {
+        return Err(AppendError::UnknownReviewer(e.founder.clone()));
+    }
+    let mut block = String::from("[[code_review.founder_change]]\n");
+    block.push_str(&kv("event", e.event.as_str()));
+    block.push_str(&kv("founder", &e.founder));
+    block.push_str(&kv("date", &e.date));
+    if let Some(r) = &e.reviewed_in {
+        block.push_str(&kv("reviewed_in", r));
+    }
+    signed_lines(&mut block, e.signer.as_ref(), e.signature.as_ref());
+    append_code_review_block(existing, &block, "[[code_review.founder_change]]", |c| c.founder_changes.push(e.clone()))
+}
+
+/// `existing` with `b` appended as a new `[[code_review.founder_ballot]]`
+/// (GitHub #1248), signed by the caller (`UnlockedKey::sign_founder_ballot`)
+/// first. Refused when a ballot with that id exists.
+pub fn append_founder_ballot(existing: &str, b: &FounderBallot) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    if before.code_review.as_ref().is_some_and(|c| c.founder_ballots.iter().any(|x| x.id == b.id)) {
+        return Err(AppendError::BallotExists(b.id.clone()));
+    }
+    let mut block = String::from("[[code_review.founder_ballot]]\n");
+    block.push_str(&kv("id", &b.id));
+    block.push_str(&kv("opened", &b.opened));
+    signed_lines(&mut block, b.signer.as_ref(), b.signature.as_ref());
+    append_code_review_block(existing, &block, "[[code_review.founder_ballot]]", |c| c.founder_ballots.push(b.clone()))
+}
+
+/// `existing` with `v` appended as a new `[[code_review.founder_vote]]`
+/// (GitHub #1248), signed by the voter (`UnlockedKey::sign_founder_vote`)
+/// first. Refused when no ballot has the id it names.
+pub fn append_founder_vote(existing: &str, v: &FounderVote) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    if !before.code_review.as_ref().is_some_and(|c| c.founder_ballots.iter().any(|x| x.id == v.ballot)) {
+        return Err(AppendError::UnknownBallot(v.ballot.clone()));
+    }
+    let mut block = String::from("[[code_review.founder_vote]]\n");
+    block.push_str(&kv("ballot", &v.ballot));
+    block.push_str(&kv("candidate", &v.candidate));
+    block.push_str(&kv("date", &v.date));
+    signed_lines(&mut block, v.signer.as_ref(), v.signature.as_ref());
+    append_code_review_block(existing, &block, "[[code_review.founder_vote]]", |c| c.founder_votes.push(v.clone()))
+}
+
 /// `existing` with `[code_review] founder = id` (module doc).
 pub fn declare_founder(existing: &str, id: &str) -> Result<String, AppendError> {
     let before = parse(existing)?;
-    if let Some(f) = before.code_review.as_ref().and_then(|c| c.founder.clone()) {
+    if let Some(f) = before.code_review.as_ref().and_then(|c| c.declared_founders().into_iter().next()) {
         return Err(AppendError::FounderAlreadyDeclared(f));
     }
     let q = toml::Value::String(id.to_string()).to_string();

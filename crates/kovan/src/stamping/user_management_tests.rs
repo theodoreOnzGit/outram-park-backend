@@ -750,3 +750,139 @@ fn an_issued_novice_carries_the_novice_event() {
     assert!(nina.is_admitted() && nina.novice_now().is_some());
     assert!(reg.warnings().is_empty(), "{:?}", reg.warnings());
 }
+
+/// **Founders through the tab (GitHub #1248): the handover #1211 broke.**
+/// Methodology: the stamp layer's git fixture; the founder `BY` (`k1`) and
+/// Bob (`b1`), admitted as a maintainer by the founder; throwaway keys in a
+/// temporary keystore. Pass: Bob may not add founders (not a founder);
+/// the founder adds Bob, then retires themselves (signed, same day); the
+/// lineage view then lists Bob as the founder ("added by github:tester"),
+/// the founder as retired ("records dated before keep their founder
+/// standing"), the founder's role label carries "founder until <today>",
+/// and the fingerprint moved; Bob signs a developing-organisation record
+/// (founder-only) and admits Carol; the former founder may no longer add
+/// a founder or sign organisation records; retiring them again is refused.
+///
+/// Result (2026-11-05): passes.
+#[test]
+fn founders_hand_over_through_the_tab() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let fk = founder_key(&r, store.path());
+    bob_registers(&r, store.path(), "b1");
+    apply_action(r.path(), &fk, &UserAction::Admit { reviewer: B.into(), role: Role::Maintainer, scope: vec![], novice: false }, &today()).unwrap();
+    r.commit("admit bob as a maintainer");
+    let bk = Keystore::at(store.path()).load(B, "b1").unwrap().unlock(PASS).unwrap();
+    let root = || ReviewRoot::parse(&r.read(ROOT_FILE)).unwrap();
+    let fp0 = build_roster(&root(), None, None, &[]).lineage.fingerprint;
+    let add_bob = UserAction::AddFounder { reviewer: B.into() };
+    assert_eq!(add_bob.label(), "Add founder");
+    let probs = action_problems(&root(), Some((B, "b1")), &add_bob, &today());
+    assert!(probs.iter().any(|x| x.contains("Only a founder (github:tester)")), "{probs:?}");
+    assert!(action_problems(&root(), Some((BY, "k1")), &UserAction::AddFounder { reviewer: "github:nobody".into() }, &today())
+        .iter()
+        .any(|x| x.contains("not in kovan_root.toml")));
+    let ro = build_roster(&root(), None, None, &[]);
+    assert_eq!(ro.lineage.addable, vec![B.to_string()]);
+    assert!(apply_action(r.path(), &fk, &add_bob, &today()).unwrap().contains("is a founder from"));
+    assert!(action_problems(&root(), Some((BY, "k1")), &add_bob, &today()).iter().any(|x| x.contains("founder already")));
+    let retire_me = UserAction::RetireFounder { founder: BY.into() };
+    assert!(apply_action(r.path(), &fk, &retire_me, &today()).unwrap().contains("keep their founder standing"));
+    r.commit("hand over founder");
+
+    let ro = build_roster(&root(), None, None, &[]);
+    assert_eq!(ro.lineage.founder_ids, vec![B.to_string()]);
+    assert!(ro.lineage.founders[0].contains("added by github:tester"), "{:?}", ro.lineage.founders);
+    assert!(ro.lineage.retired[0].starts_with(BY) && ro.lineage.retired[0].contains("records dated before keep"), "{:?}", ro.lineage.retired);
+    assert!(ro.reviewer(BY).unwrap().role_label.contains(&format!("founder until {}", today())), "{}", ro.reviewer(BY).unwrap().role_label);
+    assert!(ro.reviewer(B).unwrap().founder);
+    assert_ne!(ro.lineage.fingerprint, fp0);
+    assert!(ro.warnings.is_empty(), "{:?}", ro.warnings);
+
+    // Bob acts as the founder now; the former founder cannot.
+    crate::stamping::organisations::add_developing_organisation(r.path(), &bk, "Outram Park", None, &today()).unwrap();
+    assert!(crate::stamping::organisations::add_developing_organisation(r.path(), &fk, "Other", None, &today())
+        .unwrap_err()
+        .contains("not a founder"));
+    assert!(action_problems(&root(), Some((BY, "k1")), &UserAction::AddFounder { reviewer: B.into() }, &today())
+        .iter()
+        .any(|x| x.contains("Only a founder (github:bob)")));
+    assert!(action_problems(&root(), Some((B, "b1")), &retire_me, &today()).iter().any(|x| x.contains("not a founder now")));
+    let ks = Keystore::at(store.path());
+    let (cf, _) = generate("github:carol", "c1", &today(), PASS).unwrap();
+    ks.save(&cf).unwrap();
+    register_key(r.path(), &cf, Some("Carol"), &today()).unwrap();
+    apply_action(r.path(), &bk, &UserAction::Admit { reviewer: "github:carol".into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: false }, &today()).unwrap();
+    assert!(registry(&r).reviewer("github:carol").unwrap().is_admitted());
+}
+
+/// **The maintainer ballot through the tab (GitHub #1248).** Methodology:
+/// the founder `BY` and Bob, an admitted maintainer; throwaway keys. Pass:
+/// Open ballot is refused while the founder has an active key; once the
+/// founder retires their key (signed), Bob opens `ballot-<today>`, which
+/// shows in the warnings strip; Bob, the only maintainer with an active
+/// key, votes for himself: the ballot reads "github:bob elected founder
+/// from <tomorrow + 14>" (the single-maintainer wait), stays open, and
+/// Bob is not a founder before that date; a second vote by Bob and a vote
+/// for someone outside the electorate are refused; a second ballot with
+/// the same id is refused. The texts of the other founder warnings name
+/// what they are about.
+///
+/// Result (2026-11-05): passes.
+#[test]
+fn a_founder_ballot_through_the_tab() {
+    use kovan_common::review::signing::founders::{add_days, FounderChangeProblem, VoteProblem};
+    use kovan_common::review::signing::registry::{FounderProblem, SignerProblem, Warning};
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let fk = founder_key(&r, store.path());
+    bob_registers(&r, store.path(), "b1");
+    apply_action(r.path(), &fk, &UserAction::Admit { reviewer: B.into(), role: Role::Maintainer, scope: vec![], novice: false }, &today()).unwrap();
+    let bk = Keystore::at(store.path()).load(B, "b1").unwrap().unlock(PASS).unwrap();
+    let root = || ReviewRoot::parse(&r.read(ROOT_FILE)).unwrap();
+    // The day after: a key retired on the admission's own day would void
+    // that same-day admission (retirement is from its date, inclusive).
+    let day = add_days(&today(), 1).unwrap();
+    let open = UserAction::OpenBallot { id: String::new() };
+    let probs = action_problems(&root(), Some((B, "b1")), &open, &day);
+    assert!(probs.iter().any(|x| x.contains("Refused: founder github:tester has an active key")), "{probs:?}");
+    apply_action(r.path(), &fk, &UserAction::RetireKey { reviewer: BY.into(), key: "k1".into() }, &day).unwrap();
+    assert_eq!(action_problems(&root(), Some((B, "b1")), &open, &day), Vec::<String>::new());
+    assert!(apply_action(r.path(), &bk, &open, &day).unwrap().contains(&format!("ballot-{day}")));
+    assert!(action_problems(&root(), Some((B, "b1")), &open, &day).iter().any(|x| x.contains("exists already")));
+    let id = format!("ballot-{day}");
+    let ro = build_roster(&root(), None, None, &[]);
+    assert!(ro.warnings.iter().any(|w| w.starts_with("Founder ballot") && w.contains(&id)), "{:?}", ro.warnings);
+    // The roster is "as of today"; the ballot is judged on `day`.
+    let reg = registry(&r);
+    assert!(reg.active_founder_on(&day).is_none() && reg.active_founder_on(&today()).is_some());
+    assert!(reg.lineage.ballots[0].open_on(&day) && !ro.lineage.ballots[0].open, "opens tomorrow");
+    assert_eq!(ro.lineage.ballots[0].electorate, vec![B.to_string()]);
+
+    let outsider = UserAction::Vote { ballot: id.clone(), candidate: BY.into() };
+    assert!(action_problems(&root(), Some((B, "b1")), &outsider, &day).iter().any(|x| x.contains("from the electorate")));
+    let me = UserAction::Vote { ballot: id.clone(), candidate: B.into() };
+    assert_eq!(me.label(), "Vote");
+    apply_action(r.path(), &bk, &me, &day).unwrap();
+    let wait = add_days(&day, 14).unwrap();
+    let ro = build_roster(&root(), None, None, &[]);
+    assert!(ro.lineage.ballots[0].line.contains(&format!("github:bob elected founder from {wait}")), "{}", ro.lineage.ballots[0].line);
+    assert!(registry(&r).lineage.ballots[0].open_on(&day), "still open until the decision date");
+    assert!(ro.lineage.ballots[0].voted == vec![B.to_string()]);
+    let reg = registry(&r);
+    assert!(!reg.is_founder_on(B, &day) && reg.is_founder_on(B, &wait));
+    assert!(action_problems(&root(), Some((B, "b1")), &me, &day).iter().any(|x| x.contains("voted in ballot")));
+
+    for (w, want) in [
+        (Warning::FounderListed(FounderProblem::NotMaintainer("x".into())), "Listed founder x is not a maintainer"),
+        (
+            Warning::FounderChange { index: 0, founder: "x".into(), problem: FounderChangeProblem::LastResortRefused { active: "m".into() } },
+            "and m has one",
+        ),
+        (Warning::TrustRootReplacedByCommit { founder: "z".into(), date: "2026-12-01".into(), reviewed_in: Some("pr/2".into()) }, "Trust root replaced by repository commit: z"),
+        (Warning::FounderVote { index: 1, voter: "v".into(), problem: VoteProblem::Signer(SignerProblem::Unsigned) }, "Founder vote 2 by v does not count"),
+    ] {
+        let t = warning_text(&w);
+        assert!(t.contains(want), "{t}");
+    }
+}

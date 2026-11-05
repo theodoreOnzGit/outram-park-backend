@@ -893,8 +893,8 @@ fn read_root(root: &Path) -> Result<(PathBuf, String), String> {
 /// Register the key in `kf` in `<root>/kovan_root.toml` (appended text,
 /// comments kept: [`kovan_common::review::root_append`]). Trust on first
 /// use is given only to the first reviewer of a root with no reviewer and
-/// either no founder or `[code_review] founder` already naming this
-/// reviewer (what "Index fresh" writes when the keystore holds one
+/// either no founder or `[code_review] founder` (or, GitHub #1248,
+/// `founders`) already naming this reviewer (what "Index fresh" writes when the keystore holds one
 /// identity; added 2026-10-10 for the stamp dialog, #770). Any other root
 /// registers the reviewer as awaiting admission (conservative: a root
 /// whose founder is someone else trusts this reviewer only once a
@@ -909,7 +909,8 @@ pub fn register_key(
     let (path, text) = read_root(root)?;
     let parsed = ReviewRoot::parse(&text).map_err(|e| e.to_string())?;
     let key = kf.reviewer_key();
-    let founder = parsed.code_review.as_ref().and_then(|c| c.founder.clone());
+    // GitHub #1248: `founders = [...]` as well as `founder`.
+    let declared = parsed.code_review.as_ref().map(|c| c.declared_founders()).unwrap_or_default();
     let (new, what) = match parsed.reviewer(&kf.reviewer) {
         Some(r) => {
             let first = r.keys.is_empty();
@@ -921,14 +922,13 @@ pub fn register_key(
                 },
             )
         }
-        None if parsed.reviewers.is_empty()
-            && founder.as_ref().is_none_or(|f| *f == kf.reviewer) =>
-        {
-            let t = match founder {
+        None if parsed.reviewers.is_empty() && (declared.is_empty() || declared.contains(&kf.reviewer)) => {
+            let t = if declared.is_empty() {
+                declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?
+            } else {
                 // Named already (by "Index fresh" from the keystore, or by
                 // hand): only the founding reviewer entry is added.
-                Some(_) => text.clone(),
-                None => declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?,
+                text.clone()
             };
             let r = founding_reviewer(&kf.reviewer, name, key, date);
             (

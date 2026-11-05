@@ -54,6 +54,15 @@
 //!   entry order never matters. It must be a listed maintainer with no
 //!   admission; a missing or unknown founder is a [`FounderProblem`] and
 //!   nothing is trusted. Its first key is trusted on first use.
+//!   **GitHub #1248 (2026-11-05):** ~~the~~ founders are a list
+//!   (`founders = [...]`; the old `founder` reads as a one-person list),
+//!   each checked and trusted on first use as above; later founders are
+//!   added and retired by signed `[[code_review.founder_change]]` entries,
+//!   or elected by a maintainer ballot when no founder has an active key,
+//!   or, as the unsigned last resort, added by a reviewed commit. A retired
+//!   founder keeps founder standing for everything dated before the
+//!   retirement. The rules are [`super::founders`]'s; the standing is
+//!   [`Registry::lineage`] and [`Registry::is_founder_on`].
 //! - **Admission.** Every other reviewer's first key needs an `admitted`
 //!   event signed by an admitted maintainer's trusted key (dated the
 //!   reviewer's `admitted`; the maintainer must not be revoked by then).
@@ -147,6 +156,7 @@ use super::super::root::{
     Role, RosterEvent, RosterEventKind,
 };
 use super::super::scope::in_scope;
+use super::founders::{self, BallotTrust, FounderChangeProblem, Lineage, VoteProblem};
 use super::{
     decode_public, event_signed_bytes, is_date, key_event_bytes, revocation_bytes, roster_event_bytes,
     verify_bytes, CryptoError, UnverifiedReason, ALG,
@@ -462,6 +472,9 @@ pub struct ReviewerTrust {
     /// The **admitted** scope; the one in force is [`Self::scope_at`].
     pub scope: Vec<String>,
     pub admission: Admission,
+    /// The reviewer's `admitted` date as written (GitHub #1248: whether
+    /// they were admitted by a ballot's opening date).
+    pub admitted: Option<String>,
     pub keys: Vec<KeyTrust>,
     pub revocation: Option<RevocationTrust>,
     /// The verified roster events about this reviewer, in list order
@@ -578,6 +591,21 @@ impl ReviewerTrust {
         mark
     }
 
+    /// Whether the reviewer can sign anything on `date` (GitHub #1248):
+    /// admitted (a founder from the start, anyone else from their
+    /// `admitted` date), not revoked by then, and a trusted key active
+    /// then.
+    pub fn active_on(&self, date: &str) -> bool {
+        let admitted = match &self.admission {
+            Admission::Founder => true,
+            Admission::Admitted { .. } => self.admitted.as_deref().is_none_or(|d| d <= date),
+            Admission::NotAdmitted(_) => false,
+        };
+        admitted
+            && self.revocation.as_ref().is_none_or(|v| v.cutoff(date).is_none())
+            && self.keys.iter().any(|k| k.status.is_trusted() && k.inactive_at(date).is_none())
+    }
+
     /// The key with this id.
     pub fn key(&self, id: &str) -> Option<&KeyTrust> {
         self.keys.iter().find(|k| k.id == id)
@@ -604,6 +632,22 @@ pub enum Warning {
     RevocationUnverified { reviewer: String, problem: RevocationProblem },
     /// Roster event `index` has no effect (GitHub #1019).
     RosterEvent { index: usize, reviewer: String, problem: RosterProblem },
+    /// GitHub #1248: a declared founder (after the first problem, which is
+    /// [`Warning::NoFounder`] when no declared founder passes) that fails
+    /// the founder checks: not a founder.
+    FounderListed(FounderProblem),
+    /// GitHub #1248: `[[code_review.founder_change]]` entry `index` has no
+    /// effect.
+    FounderChange { index: usize, founder: String, problem: FounderChangeProblem },
+    /// GitHub #1248: a founder made by the unsigned last resort, shown
+    /// forever: "trust root replaced by repository commit".
+    TrustRootReplacedByCommit { founder: String, date: String, reviewed_in: Option<String> },
+    /// GitHub #1248: every founder ballot, shown from the moment it is in
+    /// the file (open, elected, void or without a result).
+    FounderBallot(BallotTrust),
+    /// GitHub #1248: `[[code_review.founder_vote]]` entry `index` does not
+    /// count.
+    FounderVote { index: usize, voter: String, problem: VoteProblem },
 }
 
 /// Why a lifecycle event cannot be appended ([`retire_key`],
@@ -672,10 +716,19 @@ pub fn retire_key(k: &mut ReviewerKey, date: &str) -> Result<(), LifecycleError>
 /// The judged registry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Registry {
+    /// The first declared founder that passes the founder checks (or, when
+    /// none does, why the first one fails). ~~The founder~~ Since GitHub
+    /// #1248 there may be several, and they change over time:
+    /// [`Self::lineage`] and [`Self::is_founder_on`] are the rule.
     pub founder: Result<String, FounderProblem>,
     pub reviewers: Vec<ReviewerTrust>,
     /// Roster events with no effect, and why (GitHub #1019).
     pub roster_problems: Vec<(usize, String, RosterProblem)>,
+    /// GitHub #1248: every declared founder that fails the founder checks.
+    pub declared_problems: Vec<FounderProblem>,
+    /// GitHub #1248: the founders over time, the ballots and the lineage
+    /// fingerprint ([`super::founders`]).
+    pub lineage: Lineage,
 }
 
 impl Registry {
@@ -685,33 +738,47 @@ impl Registry {
         let mut root = root.clone();
         let conflicts = root.migrate_key_history();
         let root = &root;
-        let founder = founder_of(root);
-        let founder_idx = founder.as_ref().ok().and_then(|id| root.reviewers.iter().position(|r| &r.id == id));
+        let declared = root.code_review.as_ref().map(|c| c.declared_founders()).unwrap_or_default();
+        let checked: Vec<Result<usize, FounderProblem>> = declared.iter().map(|id| check_founder(root, id)).collect();
+        let initial: Vec<usize> = checked.iter().filter_map(|c| c.as_ref().ok().copied()).collect();
+        let founder = match (initial.first(), checked.first()) {
+            (Some(&i), _) => Ok(root.reviewers[i].id.clone()),
+            (None, Some(Err(p))) => Err(p.clone()),
+            _ => Err(FounderProblem::NotDeclared),
+        };
+        let declared_problems: Vec<FounderProblem> = checked.into_iter().filter_map(Result::err).collect();
         // GitHub #1249: which new retirements have no effect depends on who
         // could sign them, which depends on which keys are retired. Start
         // with every retirement in effect, drop the ones that do not
         // verify, and judge again until the set settles (bounded; the last
-        // round stands, as in the trust fixed point).
+        // round stands, as in the trust fixed point). GitHub #1248: the
+        // founders trusted on first use (the declared ones, plus a founder
+        // by the unsigned last resort who has no admission) settle in the
+        // same loop.
         let mut ignored: BTreeSet<(usize, usize, usize)> = BTreeSet::new();
+        let mut tofu: BTreeSet<usize> = initial.iter().copied().collect();
         let mut rounds = 0usize;
         loop {
             rounds += 1;
-            let (mut state, roster_problems) = judge(root, &conflicts, founder_idx, &ignored);
-            let verdicts = retirement_verdicts(root, &state, founder_idx);
+            let (mut state, roster_problems) = judge(root, &conflicts, &tofu, &ignored);
+            let lineage = founders::replay(root, &state, &declared, &initial);
+            let verdicts = retirement_verdicts(root, &state, &lineage);
             let next: BTreeSet<(usize, usize, usize)> = verdicts
                 .iter()
                 .filter(|(_, v)| matches!(v, Err(HistoryProblem::RetirementNoEffect { .. })))
                 .map(|(at, _)| *at)
                 .collect();
-            if next == ignored || rounds >= 6 {
+            let next_tofu: BTreeSet<usize> = initial.iter().chain(&lineage.first_use).copied().collect();
+            if (next == ignored && next_tofu == tofu) || rounds >= 8 {
                 for ((i, j, _), v) in verdicts {
                     if let Err(p) = v {
                         state[i].keys[j].history.push(p);
                     }
                 }
-                return Registry { founder, reviewers: state, roster_problems };
+                return Registry { founder, reviewers: state, roster_problems, declared_problems, lineage };
             }
             ignored = next;
+            tofu = next_tofu;
         }
     }
 
@@ -720,11 +787,67 @@ impl Registry {
         self.reviewers.iter().find(|r| r.id == id)
     }
 
+    /// Whether `id` has founder standing on `date` (GitHub #1248): a
+    /// retired founder keeps it for everything dated before the retirement.
+    pub fn is_founder_on(&self, id: &str, date: &str) -> bool {
+        self.lineage.standings.iter().any(|s| s.id == id && s.covers(date))
+    }
+
+    /// Whether `id` can act as a founder on `date`: founder standing then,
+    /// a maintainer then, admitted, not revoked, with a trusted key active
+    /// then ([`ReviewerTrust::active_on`]).
+    pub fn founder_can_act(&self, id: &str, date: &str) -> bool {
+        self.is_founder_on(id, date)
+            && self.reviewer(id).is_some_and(|r| r.role_at(date) == Role::Maintainer && r.active_on(date))
+    }
+
+    /// A founder who can act on `date`, if any (a ballot is refused then).
+    pub fn active_founder_on(&self, date: &str) -> Option<&str> {
+        self.lineage
+            .standings
+            .iter()
+            .find(|s| self.founder_can_act(&s.id, date))
+            .map(|s| s.id.as_str())
+    }
+
+    /// The founders in standing now (not retired), in order, each once.
+    pub fn current_founders(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for s in self.lineage.current() {
+            if !out.contains(&s.id) {
+                out.push(s.id.clone());
+            }
+        }
+        out
+    }
+
     /// Every problem and every reset, for the loud display.
     pub fn warnings(&self) -> Vec<Warning> {
         let mut out = Vec::new();
         if let Err(p) = &self.founder {
             out.push(Warning::NoFounder(p.clone()));
+        }
+        let skip = usize::from(self.founder.is_err());
+        for p in self.declared_problems.iter().skip(skip) {
+            out.push(Warning::FounderListed(p.clone()));
+        }
+        for s in &self.lineage.standings {
+            if let founders::FounderOrigin::RepositoryCommit { reviewed_in, .. } = &s.origin {
+                out.push(Warning::TrustRootReplacedByCommit {
+                    founder: s.id.clone(),
+                    date: s.from.clone().unwrap_or_default(),
+                    reviewed_in: reviewed_in.clone(),
+                });
+            }
+        }
+        for (index, founder, problem) in &self.lineage.change_problems {
+            out.push(Warning::FounderChange { index: *index, founder: founder.clone(), problem: problem.clone() });
+        }
+        for b in &self.lineage.ballots {
+            out.push(Warning::FounderBallot(b.clone()));
+        }
+        for (index, voter, problem) in &self.lineage.vote_problems {
+            out.push(Warning::FounderVote { index: *index, voter: voter.clone(), problem: problem.clone() });
         }
         for r in &self.reviewers {
             if let Admission::NotAdmitted(p) = &r.admission {
@@ -770,7 +893,7 @@ impl Registry {
 fn judge(
     root: &ReviewRoot,
     conflicts: &[LegacyConflict],
-    founder_idx: Option<usize>,
+    tofu: &BTreeSet<usize>,
     ignored: &BTreeSet<(usize, usize, usize)>,
 ) -> (Vec<ReviewerTrust>, Vec<(usize, String, RosterProblem)>) {
     let mut state: Vec<ReviewerTrust> = root
@@ -782,6 +905,7 @@ fn judge(
             role: r.role,
             scope: r.scope.clone(),
             admission: Admission::NotAdmitted(AdmissionProblem::Unadmitted),
+            admitted: r.admitted.clone(),
             keys: r
                 .keys
                 .iter()
@@ -830,7 +954,7 @@ fn judge(
         roster_problems = problems;
         for i in 0..state.len() {
             if !state[i].is_admitted() {
-                let res = if founder_idx == Some(i) {
+                let res = if tofu.contains(&i) {
                     Ok(Admission::Founder)
                 } else {
                     try_admit(root, &state, i)
@@ -848,7 +972,7 @@ fn judge(
                     continue;
                 }
                 let res = if state[i].is_admitted() {
-                    try_key(root, &state, i, j, founder_idx == Some(i))
+                    try_key(root, &state, i, j, tofu.contains(&i))
                 } else {
                     Err(KeyProblem::ReviewerNotAdmitted)
                 };
@@ -871,7 +995,7 @@ fn judge(
     for (i, r) in root.reviewers.iter().enumerate() {
         for (j, k) in r.keys.iter().enumerate() {
             for (index, ev) in k.history.iter().enumerate() {
-                if let Some(Err(problem)) = check_event(root, &state, i, j, ev, founder_idx == Some(i)) {
+                if let Some(Err(problem)) = check_event(root, &state, i, j, ev, tofu.contains(&i)) {
                     found.push((i, j, HistoryProblem::BadEventSignature { index, event: ev.event, problem }));
                 }
             }
@@ -905,7 +1029,7 @@ pub fn retirement_is_legacy(date: &str) -> bool {
 fn retirement_verdicts(
     root: &ReviewRoot,
     state: &[ReviewerTrust],
-    founder_idx: Option<usize>,
+    lineage: &Lineage,
 ) -> Vec<((usize, usize, usize), Result<(), HistoryProblem>)> {
     let mut out = Vec::new();
     for (i, r) in root.reviewers.iter().enumerate() {
@@ -914,7 +1038,7 @@ fn retirement_verdicts(
                 if e.event != KeyEventKind::Retired {
                     continue;
                 }
-                let signed = check_retirement(root, state, i, j, e, founder_idx);
+                let signed = check_retirement(root, state, i, j, e, lineage);
                 let v = match (retirement_is_legacy(&e.date), signed) {
                     (_, Ok(_)) => Ok(()),
                     (true, Err(SignerProblem::Unsigned)) => Err(HistoryProblem::UnsignedRetirementLegacy { index }),
@@ -929,15 +1053,16 @@ fn retirement_verdicts(
 }
 
 /// Who signed retirement `e` of key `j` of reviewer `i`: the key's owner
-/// (any trusted key of theirs, the retiring one included), the founder, or
-/// a maintainer, active and not revoked on its date (GitHub #1249).
+/// (any trusted key of theirs, the retiring one included), a founder in
+/// standing on its date (GitHub #1248), or a maintainer, active and not
+/// revoked on its date (GitHub #1249).
 fn check_retirement(
     root: &ReviewRoot,
     state: &[ReviewerTrust],
     i: usize,
     j: usize,
     e: &KeyEvent,
-    founder_idx: Option<usize>,
+    lineage: &Lineage,
 ) -> Result<(String, String), SignerProblem> {
     let (Some(sg), Some(sig)) = (&e.signer, &e.signature) else {
         return Err(SignerProblem::Unsigned);
@@ -945,7 +1070,8 @@ fn check_retirement(
     let r = &root.reviewers[i];
     let msg = key_event_bytes(&r.id, &r.keys[j], e, "", None);
     let mut c = maintainers(state, None, &e.date);
-    for x in std::iter::once(i).chain(founder_idx) {
+    let founders = lineage.founders_on(&e.date).filter_map(|s| state.iter().position(|r| r.id == s.id));
+    for x in std::iter::once(i).chain(founders) {
         if !c.contains(&x) {
             c.push(x);
         }
@@ -959,13 +1085,12 @@ fn check_retirement(
     find_signer(&st, &c, sg, sig, &msg, Some(&e.date), &e.date)
 }
 
-fn founder_of(root: &ReviewRoot) -> Result<String, FounderProblem> {
-    let id = root
-        .code_review
-        .as_ref()
-        .and_then(|c| c.founder.as_deref())
-        .ok_or(FounderProblem::NotDeclared)?;
-    let f = root.reviewer(id).ok_or_else(|| FounderProblem::Unknown(id.to_string()))?;
+/// The founder checks on one declared founder (#762; GitHub #1248 applies
+/// them to each of the list): a listed maintainer with no admission. `Ok`:
+/// its position in the root.
+fn check_founder(root: &ReviewRoot, id: &str) -> Result<usize, FounderProblem> {
+    let pos = root.reviewers.iter().position(|r| r.id == id).ok_or_else(|| FounderProblem::Unknown(id.to_string()))?;
+    let f = &root.reviewers[pos];
     if f.role != Role::Maintainer {
         return Err(FounderProblem::NotMaintainer(id.to_string()));
     }
@@ -976,7 +1101,7 @@ fn founder_of(root: &ReviewRoot) -> Result<String, FounderProblem> {
     if f.admitted_by.is_some() || admitted_event {
         return Err(FounderProblem::HasAdmission(id.to_string()));
     }
-    Ok(id.to_string())
+    Ok(pos)
 }
 
 /// A key whose problem no signature can fix.

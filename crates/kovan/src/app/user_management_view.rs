@@ -84,6 +84,7 @@ pub(crate) fn show(ui: &mut egui::Ui, p: &mut UserPanel, keys: Option<&mut KeyPa
                 }
                 roster(ui, p);
                 ui.separator();
+                founders_section(ui, p);
                 key_pathways(ui, p);
                 // The Organisations & IV&V sections (#1211: no window).
                 super::organisations_view::sections(ui, p);
@@ -127,6 +128,84 @@ fn signing_key(ui: &mut egui::Ui, p: &mut UserPanel) {
     });
     let unlocked = p.unlocked();
     key_window::passphrase_row(ui, unlocked, &mut p.passphrase);
+}
+
+/// "Founders & lineage" (GitHub #1248): the lineage fingerprint, the
+/// founders now and the retired ones, the ballots, and the signed founder
+/// actions. One collapsing section in the column (mobile-first). GUI
+/// drawing code (exempt; the content is `founders::lineage_view` and the
+/// preconditions `UserPanel::problems`, both tested).
+fn founders_section(ui: &mut egui::Ui, p: &mut UserPanel) {
+    let Some(lin) = p.roster().map(|r| r.lineage.clone()) else { return };
+    egui::CollapsingHeader::new(RichText::new(format!("Founders & lineage \u{b7} {} founder{}", lin.founder_ids.len(), if lin.founder_ids.len() == 1 { "" } else { "s" })).strong())
+        .id_salt("users-founders")
+        .default_open(false)
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Lineage fingerprint");
+                ui.monospace(&lin.fingerprint);
+            });
+            ui.weak("Derived from the first founders and every signed founder change; it changes only when the founders do.");
+            ui.label(RichText::new("Founders").strong());
+            for (line, id) in lin.founders.iter().zip(&lin.founder_ids) {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(line);
+                    action_button(ui, p, UserAction::RetireFounder { founder: id.clone() });
+                });
+            }
+            if !lin.retired.is_empty() {
+                ui.label(RichText::new("Retired founders (listed permanently)").strong());
+                for l in &lin.retired {
+                    ui.weak(l);
+                }
+            }
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Add founder");
+                let pick = &mut p.founder_forms.add;
+                egui::ComboBox::from_id_salt("users-add-founder")
+                    .selected_text(if pick.is_empty() { "choose a maintainer".to_string() } else { pick.clone() })
+                    .show_ui(ui, |ui| {
+                        for id in &lin.addable {
+                            ui.selectable_value(pick, id.clone(), id);
+                        }
+                    });
+                let a = UserAction::AddFounder { reviewer: p.founder_forms.add.clone() };
+                action_button(ui, p, a);
+            });
+            ui.separator();
+            ui.label(RichText::new("Maintainer ballot (only when no founder has an active key)").strong());
+            match &lin.active_founder {
+                Some(f) => {
+                    ui.weak(format!("Founder {f} has an active key today, so a ballot is refused."));
+                }
+                None => {
+                    ui.colored_label(ui.visuals().warn_fg_color, "No founder has an active key today: the maintainers may elect one.");
+                }
+            }
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Ballot id");
+                ui.add(egui::TextEdit::singleline(&mut p.founder_forms.ballot_id).hint_text("ballot-<today>"));
+                let a = UserAction::OpenBallot { id: p.founder_forms.ballot_id.clone() };
+                action_button(ui, p, a);
+            });
+            for b in &lin.ballots {
+                ui.label(&b.line);
+                if b.open {
+                    ui.horizontal_wrapped(|ui| {
+                        let pick = &mut p.founder_forms.candidate;
+                        egui::ComboBox::from_id_salt(("users-vote", &b.id))
+                            .selected_text(if pick.is_empty() { "choose a candidate".to_string() } else { pick.clone() })
+                            .show_ui(ui, |ui| {
+                                for id in &b.electorate {
+                                    ui.selectable_value(pick, id.clone(), id);
+                                }
+                            });
+                        let a = UserAction::Vote { ballot: b.id.clone(), candidate: p.founder_forms.candidate.clone() };
+                        action_button(ui, p, a);
+                    });
+                }
+            }
+        });
 }
 
 /// The two key pathways (GitHub #1211; ~~founder-only~~ any maintainer
