@@ -148,3 +148,11 @@ Every other test stayed under 60 s even in the oversubscribed run. Re-measure
 before gating anything; a test that crosses 5 minutes on the machine you
 measure on goes behind `#[cfg_attr(not(feature = "long-tests"), ignore =
 "<runtime> on <date>/<host>; long-tests")]`, and nothing else about it changes.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

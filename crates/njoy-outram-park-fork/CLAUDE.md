@@ -1414,3 +1414,11 @@ Three things worth carrying forward:
 `Kerma` (H1-H5 plus the partial H6 above) stays as the reduced-order model;
 `run()` still returns `NotPorted` because no module has the deck runner that
 binds unit numbers to tapes (task tracked as the deck reader).
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".
