@@ -22,12 +22,12 @@ pub const COIL_CFD_URL: &str = "../foam-studio/?shape=coil";
 /// Where the V&V record lives, for the panel's link.
 pub const VV_URL: &str = "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/tampines/verification_and_validation/helical_coil_otsg_gh1157.md";
 
-const BG: Color32 = Color32::from_rgb(14, 16, 20);
-const C_WATER: Color32 = Color32::from_rgb(110, 180, 255);
-const C_HOT: Color32 = Color32::from_rgb(255, 140, 80);
-const C_WALL: Color32 = Color32::from_rgb(220, 220, 120);
-const C_QUAL: Color32 = Color32::from_rgb(150, 230, 170);
-const C_PRES: Color32 = Color32::from_rgb(200, 160, 255);
+/// Plot and label colours from the theme (`bugis::Ink`): water, hot side,
+/// inner wall, quality, pressure, q''/CHF. (The coil itself is coloured by
+/// the physics colour maps in [`node_colour`], which stay as they are.)
+fn hues(ink: &bugis::Ink) -> [Color32; 6] {
+    [ink.accent(0), ink.accent(1), ink.accent(4), ink.accent(2), ink.accent(3), ink.accent(6)]
+}
 
 /// What the coil is coloured by.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -412,7 +412,8 @@ impl HelicalApp {
     fn canvas(&mut self, ui: &mut egui::Ui) {
         let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         let full = resp.rect;
-        painter.rect_filled(full, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(full, 0.0, ink.bg);
         let wide = full.width() > full.height() * 1.1;
         let (coil, plots) = if wide {
             let split = full.left() + full.width() * 0.42;
@@ -459,15 +460,15 @@ impl HelicalApp {
             y += 18.0;
         };
         match &self.solve {
-            Some(s) if s.error.is_some() => line(format!("refused: {}", s.error.as_deref().unwrap_or("")), Color32::from_rgb(255, 120, 120)),
+            Some(s) if s.error.is_some() => line(format!("refused: {}", s.error.as_deref().unwrap_or("")), ink.error),
             Some(s) if !s.converged() => line(
                 format!("solving… shooting march {}", s.last.as_ref().map_or(0, |l| l.iteration)),
-                Color32::from_rgb(220, 220, 160),
+                ink.warn,
             ),
             _ => {}
         }
         if let Some(e) = &self.link_error {
-            line(e.clone(), Color32::from_rgb(255, 120, 120));
+            line(e.clone(), ink.error);
         }
         if let Some((_, s)) = &self.shown {
             let n = s.profile.len() - 1;
@@ -478,10 +479,10 @@ impl HelicalApp {
                     s.profile.t_water[n] - 273.15,
                     s.dp_total() / 1e3
                 ),
-                Color32::from_rgb(210, 214, 222),
+                ink.text,
             );
         }
-        line("research & education only".into(), Color32::GRAY);
+        line("research & education only".into(), ink.muted);
         draw_plots(&painter, plots, self.shown.as_ref());
         if let Some(z) = zoom_buttons(ui, coil) {
             apply_zoom(&mut self.view, coil, z);
@@ -507,10 +508,11 @@ fn draw_flow_labels(p: &egui::Painter, rect: Rect, view: &View, params: &Params)
     let r = params.coil_diameter_m * 50.0;
     let font = egui::FontId::proportional(12.0);
     let at = |x: f64, y: f64| view.to_screen(rect, x, y);
-    p.text(at(r, 0.0) + Vec2::new(10.0, 0.0), egui::Align2::LEFT_CENTER, format!("water in (rises) {:.0} °C", params.feed_temperature_k - 273.15), font.clone(), C_WATER);
-    p.text(at(r, h) + Vec2::new(10.0, 0.0), egui::Align2::LEFT_CENTER, "steam out", font.clone(), C_WATER);
-    p.text(at(-r, h) + Vec2::new(-10.0, 0.0), egui::Align2::RIGHT_CENTER, format!("hot in (falls) {:.0} °C", params.hot_inlet_k - 273.15), font.clone(), C_HOT);
-    p.text(at(-r, 0.0) + Vec2::new(-10.0, 0.0), egui::Align2::RIGHT_CENTER, "hot out", font, C_HOT);
+    let [c_water, c_hot, ..] = hues(&bugis::Ink::of_ctx(p.ctx()));
+    p.text(at(r, 0.0) + Vec2::new(10.0, 0.0), egui::Align2::LEFT_CENTER, format!("water in (rises) {:.0} °C", params.feed_temperature_k - 273.15), font.clone(), c_water);
+    p.text(at(r, h) + Vec2::new(10.0, 0.0), egui::Align2::LEFT_CENTER, "steam out", font.clone(), c_water);
+    p.text(at(-r, h) + Vec2::new(-10.0, 0.0), egui::Align2::RIGHT_CENTER, format!("hot in (falls) {:.0} °C", params.hot_inlet_k - 273.15), font.clone(), c_hot);
+    p.text(at(-r, 0.0) + Vec2::new(-10.0, 0.0), egui::Align2::RIGHT_CENTER, "hot out", font, c_hot);
 }
 
 /// The colour scale. GUI drawing (exempt).
@@ -533,6 +535,7 @@ fn draw_legend(p: &egui::Painter, rect: Rect, mode: Colour, params: &Params) {
         );
     }
     let font = egui::FontId::proportional(11.0);
+    let muted = bugis::Ink::of_ctx(p.ctx()).muted;
     let (lo, hi) = match mode {
         Colour::Quality => ("x ≤ 0".to_string(), "x ≥ 1".to_string()),
         _ => (
@@ -540,18 +543,19 @@ fn draw_legend(p: &egui::Painter, rect: Rect, mode: Colour, params: &Params) {
             format!("{:.0} °C", params.hot_inlet_k - 273.15),
         ),
     };
-    p.text(Pos2::new(x + w + 4.0, y1), egui::Align2::LEFT_BOTTOM, lo, font.clone(), Color32::GRAY);
-    p.text(Pos2::new(x + w + 4.0, y1 - h), egui::Align2::LEFT_TOP, hi, font.clone(), Color32::GRAY);
-    p.text(Pos2::new(x, y1 - h - 4.0), egui::Align2::LEFT_BOTTOM, mode.label(), font, Color32::GRAY);
+    p.text(Pos2::new(x + w + 4.0, y1), egui::Align2::LEFT_BOTTOM, lo, font.clone(), muted);
+    p.text(Pos2::new(x + w + 4.0, y1 - h), egui::Align2::LEFT_TOP, hi, font.clone(), muted);
+    p.text(Pos2::new(x, y1 - h - 4.0), egui::Align2::LEFT_BOTTOM, mode.label(), font, muted);
 }
 
 /// One hand-drawn line plot. GUI drawing (exempt).
 #[allow(clippy::too_many_arguments)]
 fn plot(p: &egui::Painter, r: Rect, title: &str, xs: &[f64], series: &[(&[f64], Color32, &str)], lo: f64, hi: f64, unit: &str, marker: Option<f64>) {
-    p.rect_filled(r, 4.0, Color32::from_rgb(20, 23, 30));
-    p.rect_stroke(r, 4.0, Stroke::new(1.0, Color32::from_rgb(60, 66, 80)), StrokeKind::Inside);
+    let ink = bugis::Ink::of_ctx(p.ctx());
+    p.rect_filled(r, 4.0, ink.card);
+    p.rect_stroke(r, 4.0, Stroke::new(1.0, ink.border), StrokeKind::Inside);
     let font = egui::FontId::proportional(11.0);
-    p.text(r.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(12.0), Color32::WHITE);
+    p.text(r.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(12.0), ink.text);
     let inner = Rect::from_min_max(r.min + Vec2::new(44.0, 34.0), r.max - Vec2::new(8.0, 16.0));
     if xs.len() < 2 || !(hi > lo) || inner.height() < 10.0 {
         return;
@@ -563,16 +567,16 @@ fn plot(p: &egui::Painter, r: Rect, title: &str, xs: &[f64], series: &[(&[f64], 
             inner.bottom() - ((y - lo) / (hi - lo)).clamp(-0.05, 1.05) as f32 * inner.height(),
         )
     };
-    p.text(Pos2::new(inner.left() - 4.0, inner.top()), egui::Align2::RIGHT_TOP, format!("{hi:.4}").trim_end_matches('0').trim_end_matches('.').to_string(), font.clone(), Color32::GRAY);
-    p.text(Pos2::new(inner.left() - 4.0, inner.bottom()), egui::Align2::RIGHT_BOTTOM, format!("{lo:.4}").trim_end_matches('0').trim_end_matches('.').to_string(), font.clone(), Color32::GRAY);
-    p.text(Pos2::new(inner.left() - 4.0, inner.center().y), egui::Align2::RIGHT_CENTER, unit, font.clone(), Color32::GRAY);
-    p.text(Pos2::new(inner.right(), r.bottom() - 2.0), egui::Align2::RIGHT_BOTTOM, format!("tube length {x_max:.1} m"), font.clone(), Color32::GRAY);
-    p.text(Pos2::new(inner.left(), r.bottom() - 2.0), egui::Align2::LEFT_BOTTOM, "0", font.clone(), Color32::GRAY);
+    p.text(Pos2::new(inner.left() - 4.0, inner.top()), egui::Align2::RIGHT_TOP, format!("{hi:.4}").trim_end_matches('0').trim_end_matches('.').to_string(), font.clone(), ink.muted);
+    p.text(Pos2::new(inner.left() - 4.0, inner.bottom()), egui::Align2::RIGHT_BOTTOM, format!("{lo:.4}").trim_end_matches('0').trim_end_matches('.').to_string(), font.clone(), ink.muted);
+    p.text(Pos2::new(inner.left() - 4.0, inner.center().y), egui::Align2::RIGHT_CENTER, unit, font.clone(), ink.muted);
+    p.text(Pos2::new(inner.right(), r.bottom() - 2.0), egui::Align2::RIGHT_BOTTOM, format!("tube length {x_max:.1} m"), font.clone(), ink.muted);
+    p.text(Pos2::new(inner.left(), r.bottom() - 2.0), egui::Align2::LEFT_BOTTOM, "0", font.clone(), ink.muted);
     if let Some(m) = marker {
         if m.is_finite() {
             let (a, b) = (at(m, lo), at(m, hi));
-            p.line_segment([a, b], Stroke::new(1.0, Color32::from_rgb(255, 90, 90)));
-            p.text(b + Vec2::new(3.0, 2.0), egui::Align2::LEFT_TOP, "dryout", font.clone(), Color32::from_rgb(255, 90, 90));
+            p.line_segment([a, b], Stroke::new(1.0, ink.error));
+            p.text(b + Vec2::new(3.0, 2.0), egui::Align2::LEFT_TOP, "dryout", font.clone(), ink.error);
         }
     }
     let mut lx = inner.left() + 4.0;
@@ -598,6 +602,7 @@ fn draw_plots(p: &egui::Painter, rect: Rect, shown: Option<&(Params, Snapshot)>)
         return;
     };
     let pr = &s.profile;
+    let [c_water, c_hot, c_wall, c_qual, c_pres, c_chf] = hues(&bugis::Ink::of_ctx(p.ctx()));
     let gap = 6.0;
     let h = (rect.height() - 2.0 * gap) / 3.0;
     let row = |k: f32| Rect::from_min_size(rect.min + Vec2::new(0.0, k * (h + gap)), Vec2::new(rect.width(), h));
@@ -605,11 +610,11 @@ fn draw_plots(p: &egui::Painter, rect: Rect, shown: Option<&(Params, Snapshot)>)
     let (tw, th, twall) = (c(&pr.t_water), c(&pr.t_hot), c(&pr.t_wall));
     let t_lo = params.feed_temperature_k - 273.15;
     let t_hi = th.iter().chain(&twall).fold(params.hot_inlet_k - 273.15, |a, &b| a.max(b));
-    plot(p, row(0.0), "temperatures along the tube", &pr.s, &[(&th, C_HOT, "hot side"), (&twall, C_WALL, "inner wall"), (&tw, C_WATER, "water")], t_lo.floor(), t_hi.ceil(), "°C", Some(s.dryout_s));
+    plot(p, row(0.0), "temperatures along the tube", &pr.s, &[(&th, c_hot, "hot side"), (&twall, c_wall, "inner wall"), (&tw, c_water, "water")], t_lo.floor(), t_hi.ceil(), "°C", Some(s.dryout_s));
     let x_lo = pr.quality.iter().fold(0.0f64, |a, &b| a.min(b)).floor().max(-1.0);
     let x_hi = pr.quality.iter().fold(1.0f64, |a, &b| a.max(b)).ceil();
     let chf: Vec<f64> = pr.chf_ratio.clone();
-    plot(p, row(1.0), "equilibrium quality, and q''/q''_CHF while boiling", &pr.s, &[(&pr.quality, C_QUAL, "x_eq"), (&chf, Color32::from_rgb(255, 120, 160), "q''/CHF")], x_lo, x_hi, "-", Some(s.dryout_s));
+    plot(p, row(1.0), "equilibrium quality, and q''/q''_CHF while boiling", &pr.s, &[(&pr.quality, c_qual, "x_eq"), (&chf, c_chf, "q''/CHF")], x_lo, x_hi, "-", Some(s.dryout_s));
     let pmpa: Vec<f64> = pr.pressure.iter().map(|v| v / 1e6).collect();
     let (plo, phi) = pmpa.iter().fold((f64::MAX, f64::MIN), |(a, b), &v| (a.min(v), b.max(v)));
     let pad = ((phi - plo) * 0.08).max(1e-4);
@@ -618,7 +623,7 @@ fn draw_plots(p: &egui::Painter, rect: Rect, shown: Option<&(Params, Snapshot)>)
         row(2.0),
         &format!("pressure: Δp {:.1} kPa (friction {:.1}, gravity {:.1}, accel. {:.1})", s.dp_total() / 1e3, s.dp_friction / 1e3, s.dp_gravity / 1e3, s.dp_acceleration / 1e3),
         &pr.s,
-        &[(&pmpa, C_PRES, "p")],
+        &[(&pmpa, c_pres, "p")],
         plo - pad,
         phi + pad,
         "MPa",

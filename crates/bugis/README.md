@@ -18,6 +18,8 @@ let mut theme = bugis::Theme::default(); // Gruvbox Dark
 theme.apply(ctx);                        // once, at start-up
 bugis::selector(ui, &mut theme);         // in the side panel; applies on change
 let series = theme.accent(0);            // a plot colour that follows the theme
+let ink = bugis::Ink::of_ui(ui);         // drawn chrome: bg, card, border, grid,
+painter.rect_filled(rect, 0.0, ink.bg);  //   text, muted, warn, error, ok, backing
 ```
 
 Since 2026-11-02 it is also **the workspace's central GUI crate**
@@ -31,7 +33,7 @@ paths so no call site changes.
 | Feature | Adds | Moved from | needs `std` |
 |---|---|---|---|
 | (none) | `Rgb`, `gruvbox`, `colour_maps`: the `no_std` + `alloc` core | | no |
-| `egui` (default) | `Theme`, `selector`, `palette`, `gruvbox_visuals`, `colour_maps::color32` (the maps as `egui::Color32`) | `kovan` (visuals); engine `color_maps/` (wrappers) | no |
+| `egui` (default) | `Theme`, `selector`, `Ink`, `palette`, `gruvbox_visuals`, `colour_maps::color32` (the maps as `egui::Color32`) | `kovan` (visuals); engine `color_maps/` (wrappers) | no |
 | `std` | turns off `no_std` (implied by everything below) | | yes |
 | `animation` | `animation`: tracer, pebble-handling and control-rod-drive kinematics; uom only, egui-free, builds for Android | engine `animation/` | yes |
 | `ascii` | `ascii`: 2-D schematic geometry on a character grid | engine `ascii/` | yes |
@@ -66,9 +68,17 @@ here: the wasm32 build of `web_demo` (disk-limited session).
 The visuals were moved here from `kovan`'s `src/app/theme.rs`; `kovan` and the
 `tampines-steam-tables` GUI now call this crate instead of carrying copies.
 
-Not done: the simulators' hard-coded drawing colours (plot series, schematics)
+~~Not done: the simulators' hard-coded drawing colours (plot series, schematics)
 are not all routed through `Theme::accent`; only the egui chrome follows the
-theme everywhere.
+theme everywhere.~~ **UPDATED 2026-11-05:** `Ink` (theme-derived colours for
+what a GUI draws itself) landed, and the ten `dhoby-ghaut` web demos and the
+`web_demo` framework (`view::scale_bar`, `field::colour_bar`, `residual`,
+`loading`) draw their chrome and plot series from it
+(`crates/dhoby-ghaut/verification_and_validation/gruvbox_web_demos/`).
+Physics data encodings (material palettes, colour maps, energy scales) stay
+fixed on purpose. Not re-checked: the other egui simulators' drawing colours
+(the engine's, `kovan`'s). Gruvbox Light's `warn_fg_color` is the faded yellow
+since 2026-11-05 (the bright one was unreadable on `light0_hard`).
 
 ## Bookkeeping status
 

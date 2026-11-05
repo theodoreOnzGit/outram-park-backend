@@ -111,13 +111,13 @@ impl McRung for Jemima {
         let o = view.to_screen(rect, 0.0, 0.0);
         painter.circle_filled(o, model::R_OUT as f32 * s, REFLECTOR);
         painter.circle_filled(o, model::R_CORE as f32 * s, CORE);
-        painter.circle_stroke(o, model::R_OUT as f32 * s, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)));
+        painter.circle_stroke(o, model::R_OUT as f32 * s, Stroke::new(1.5, bugis::Ink::of_ctx(painter.ctx()).accent(3)));
         painter.text(
             o + Vec2::new(0.0, -(model::R_OUT as f32) * s - 6.0),
             egui::Align2::CENTER_BOTTOM,
             format!("core r = {} cm · natural-U reflector to r = {} cm · vacuum outside (leaks)", model::R_CORE, model::R_OUT),
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(190, 170, 230),
+            bugis::Ink::of_ctx(painter.ctx()).accent(3),
         );
     }
     fn notes() -> &'static [&'static str] {

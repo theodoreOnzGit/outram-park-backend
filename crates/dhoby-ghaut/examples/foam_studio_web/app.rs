@@ -22,7 +22,6 @@ use egui::{Color32, Pos2, Rect, RichText, Sense, Stroke, Vec2};
 
 type FLink = Link<Request, Event>;
 
-const BG: Color32 = Color32::from_rgb(14, 16, 20);
 /// Steps per request, at most: a request stays well under a second.
 const MAX_CHUNK: usize = 8;
 
@@ -472,7 +471,7 @@ impl FoamApp {
                             "2 layers run; on this mesh they do not bring the pipe closer to Hagen–Poiseuille than a finer bare mesh (the V&V record, gh:#1202)."
                         })
                             .small()
-                            .color(Color32::from_rgb(250, 189, 47)),
+                            .color(ui.visuals().warn_fg_color),
                     );
                 }
                 let est = c.estimated_cells(radius, length);
@@ -527,10 +526,10 @@ impl FoamApp {
             ui.label(format!("{} cells · max non-orthogonality {:.1}° · max skewness {:.2}", m.n_cells, m.max_non_ortho_deg, m.max_skewness));
             ui.label(RichText::new(format!("meshed in {:.2} s{}", m.mesh_s, if self.dirty { " · settings changed since" } else { "" })).small());
             if !m.notes.is_empty() {
-                ui.label(RichText::new(format!("mesher: {}", m.notes)).small().color(Color32::from_rgb(250, 189, 47)));
+                ui.label(RichText::new(format!("mesher: {}", m.notes)).small().color(ui.visuals().warn_fg_color));
             }
             if m.n_cells as f64 > 1.05 * DEFAULT_CELLS as f64 {
-                ui.label(RichText::new("Over 20k cells: a batch run of about a minute; the progress bar shows how far.").color(Color32::from_rgb(250, 189, 47)));
+                ui.label(RichText::new("Over 20k cells: a batch run of about a minute; the progress bar shows how far.").color(ui.visuals().warn_fg_color));
             }
         }
         ui.separator();
@@ -582,7 +581,7 @@ impl FoamApp {
         ui.separator();
         ui.label(RichText::new(&self.status).small());
         if let Some(e) = &self.link_error {
-            ui.colored_label(Color32::LIGHT_RED, e);
+            ui.colored_label(ui.visuals().error_fg_color, e);
         }
         ui.separator();
         ui.label(
@@ -609,9 +608,10 @@ impl FoamApp {
         let resp = ui.interact(rect, ui.id().with("viewport"), Sense::click_and_drag());
         self.cam.handle_input(ui, &resp, self.pan_mode);
         let painter = ui.painter().with_clip_rect(rect);
-        painter.rect_filled(rect, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(rect, 0.0, ink.bg);
         let Some(me) = &self.mesh else {
-            painter.text(rect.center(), egui::Align2::CENTER_CENTER, &self.status, egui::FontId::proportional(16.0), Color32::GRAY);
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER, &self.status, egui::FontId::proportional(16.0), ink.muted);
             return;
         };
         let cam = self.cam;
@@ -641,12 +641,12 @@ impl FoamApp {
         } else {
             // Before a run: the slices as outlines of the cells cut.
             for sec in [&me.axial, &me.cross] {
-                outline(&painter, &cam, rect, sec, Color32::from_gray(70));
+                outline(&painter, &cam, rect, sec, ink.border);
             }
         }
         if self.show_mesh {
             let n = me.edges.len() / 7;
-            let colours = [Color32::from_rgb(142, 192, 124), Color32::from_rgb(251, 73, 52), Color32::from_rgba_unmultiplied(131, 165, 152, 90)];
+            let colours = [ink.accent(5), ink.accent(6), ink.accent(0).gamma_multiply(0.35)];
             for e in 0..n {
                 let k = &me.edges[7 * e..7 * e + 7];
                 let a = cam.project(rect, [k[0], k[1], k[2]].map(f64::from));
@@ -659,12 +659,12 @@ impl FoamApp {
         // The probe.
         let pc = probe_point(&self.design, &me.cross);
         if let Some(p) = cam.project(rect, pc) {
-            painter.circle_stroke(p, 6.0, Stroke::new(2.0, Color32::WHITE));
+            painter.circle_stroke(p, 6.0, Stroke::new(2.0, ink.text));
         }
         // Axes triad, bottom left.
         let o = Pos2::new(rect.left() + 40.0, rect.bottom() - 40.0);
         let (r, u, _) = cam.basis();
-        for (i, (name, col)) in [("x", Color32::from_rgb(251, 73, 52)), ("y", Color32::from_rgb(184, 187, 38)), ("z", Color32::from_rgb(131, 165, 152))].iter().enumerate() {
+        for (i, (name, col)) in [("x", ink.accent(6)), ("y", ink.accent(5)), ("z", ink.accent(0))].iter().enumerate() {
             let tip = o + Vec2::new(r[i] as f32, -(u[i] as f32)) * 26.0;
             painter.line_segment([o, tip], Stroke::new(2.0, *col));
             painter.text(tip, egui::Align2::CENTER_CENTER, *name, egui::FontId::proportional(12.0), *col);
@@ -679,21 +679,21 @@ impl FoamApp {
             field::colour_bar(&painter, bar, &s, label, 12.0);
         }
         let legend = if self.is_exchanger() { "green inlets · red outlets · blue walls and interfaces" } else { "green inlet · red outlet · blue walls" };
-        painter.text(Pos2::new(rect.left() + 80.0, rect.bottom() - 12.0), egui::Align2::LEFT_BOTTOM, legend, egui::FontId::proportional(12.0), Color32::GRAY);
+        painter.text(Pos2::new(rect.left() + 80.0, rect.bottom() - 12.0), egui::Align2::LEFT_BOTTOM, legend, egui::FontId::proportional(12.0), ink.muted);
         // Batch progress.
         if self.running && me.n_cells as f64 > 1.05 * DEFAULT_CELLS as f64 && (self.mode == Mode::Steady || self.is_exchanger()) {
             let b = Rect::from_min_size(Pos2::new(rect.left() + 16.0, rect.top() + 140.0), Vec2::new((rect.width() - 32.0).min(320.0), 18.0));
-            painter.rect_filled(b, 4.0, Color32::from_gray(40));
+            painter.rect_filled(b, 4.0, ink.grid);
             let f = Rect::from_min_size(b.min, Vec2::new(b.width() * self.batch_frac as f32, b.height()));
-            painter.rect_filled(f, 4.0, Color32::from_rgb(131, 165, 152));
-            painter.text(b.center(), egui::Align2::CENTER_CENTER, format!("batch run {:.0} %", 100.0 * self.batch_frac), egui::FontId::proportional(12.0), Color32::WHITE);
+            painter.rect_filled(f, 4.0, ink.accent(0));
+            painter.text(b.center(), egui::Align2::CENTER_CENTER, format!("batch run {:.0} %", 100.0 * self.batch_frac), egui::FontId::proportional(12.0), ink.text);
         }
         // Meshing in the worker (an unstructured mesh takes seconds): say so on
         // the main view, where it shows with the panel folded.
         if self.meshing {
             let b = Rect::from_min_size(Pos2::new(rect.left() + 16.0, rect.top() + 110.0), Vec2::new((rect.width() - 32.0).min(320.0), 24.0));
-            painter.rect_filled(b, 4.0, Color32::from_rgba_unmultiplied(40, 40, 40, 220));
-            painter.text(b.center(), egui::Align2::CENTER_CENTER, "meshing in the background…", egui::FontId::proportional(13.0), Color32::WHITE);
+            painter.rect_filled(b, 4.0, ink.card);
+            painter.text(b.center(), egui::Align2::CENTER_CENTER, "meshing in the background…", egui::FontId::proportional(13.0), ink.text);
         }
         if let Some(z) = bugis::web_demo::view::zoom_buttons(ui, rect) {
             match z {
@@ -762,16 +762,17 @@ impl FoamApp {
     /// diameters long) on the right, cell outlines from the engine's
     /// sections. GUI drawing (exempt).
     fn mesh_picture(&self, painter: &egui::Painter, rect: Rect) {
-        painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        painter.rect_filled(rect, 4.0, ink.backing);
         let f = egui::FontId::proportional(11.0);
         let (Some(me), Shape::Cylinder { radius, centre, length }) = (&self.mesh, self.design.shape) else {
-            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "mesh: mesh a cylinder", f, Color32::GRAY);
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "mesh: mesh a cylinder", f, ink.muted);
             return;
         };
         let inner = rect.shrink(6.0);
         let half = Rect::from_min_size(inner.min, Vec2::new(0.5 * inner.width() - 3.0, inner.height() - 14.0));
         let right = Rect::from_min_size(Pos2::new(inner.center().x + 3.0, inner.top()), half.size());
-        let stroke = Stroke::new(0.6, Color32::from_gray(180));
+        let stroke = Stroke::new(0.6, ink.muted);
         // Cross-section: in-plane (x, y) about the pipe centre.
         let k = 0.5 * half.width().min(half.height()) / radius as f32;
         for p in &me.cross.polygons {
@@ -799,14 +800,15 @@ impl FoamApp {
             egui::Align2::CENTER_BOTTOM,
             format!("cross-section · axial slice from the inlet (down), {:.0} mm · {} cells", span * 1e3, me.n_cells),
             f,
-            Color32::GRAY,
+            ink.muted,
         );
     }
 
     /// The exchanger's terminal temperatures, heats and effectiveness against
     /// ε-NTU at the solved local UA. GUI drawing (exempt).
     fn exchanger_numbers(&self, painter: &egui::Painter, rect: Rect) {
-        painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        painter.rect_filled(rect, 4.0, ink.backing);
         let f = egui::FontId::proportional(12.0);
         let lines: Vec<String> = match &self.last {
             Some(p) if p.phase == 1 => {
@@ -826,7 +828,7 @@ impl FoamApp {
         // clear below it); the last lines go first on a short phone dock.
         let rows = (((rect.height() - 8.0) / 18.0).floor().max(1.0)) as usize;
         for (i, l) in lines.iter().take(rows).enumerate() {
-            painter.text(rect.left_top() + Vec2::new(8.0, 8.0 + 18.0 * i as f32), egui::Align2::LEFT_TOP, l, f.clone(), Color32::from_gray(220));
+            painter.text(rect.left_top() + Vec2::new(8.0, 8.0 + 18.0 * i as f32), egui::Align2::LEFT_TOP, l, f.clone(), ink.text);
         }
     }
 
@@ -835,10 +837,11 @@ impl FoamApp {
     /// velocity (u_n, u_b), and the friction factor against Mishra & Gupta.
     /// GUI drawing (exempt); the numbers come from the tested engine.
     fn dean_view(&self, painter: &egui::Painter, rect: Rect) {
-        painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        painter.rect_filled(rect, 4.0, ink.backing);
         let f = egui::FontId::proportional(11.0);
         let (Some(me), Some(p), Shape::Coil { tube_radius, .. }) = (&self.mesh, &self.last, self.design.shape) else {
-            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Dean cross-section: run the coil", f, Color32::GRAY);
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Dean cross-section: run the coil", f, ink.muted);
             return;
         };
         let sec = &me.cross;
@@ -868,14 +871,15 @@ impl FoamApp {
                 continue;
             }
             let b = a + d;
+            // On the Batlow field: fixed white, as the caption says.
             let st = Stroke::new(1.2, Color32::WHITE);
             painter.line_segment([a, b], st);
             let h = d.normalized() * 3.5;
             painter.line_segment([b, b - h + Vec2::new(-h.y, h.x) * 0.6], st);
             painter.line_segment([b, b - h - Vec2::new(-h.y, h.x) * 0.6], st);
         }
-        painter.text(Pos2::new(pic.left(), rect.top() + 4.0), egui::Align2::LEFT_TOP, "< coil axis (inner side)", f.clone(), Color32::GRAY);
-        painter.text(Pos2::new(pic.right(), rect.top() + 4.0), egui::Align2::RIGHT_TOP, "outer wall >", f.clone(), Color32::GRAY);
+        painter.text(Pos2::new(pic.left(), rect.top() + 4.0), egui::Align2::LEFT_TOP, "< coil axis (inner side)", f.clone(), ink.muted);
+        painter.text(Pos2::new(pic.right(), rect.top() + 4.0), egui::Align2::RIGHT_TOP, "outer wall >", f.clone(), ink.muted);
         let bar = Rect::from_min_size(Pos2::new(rect.left() + 8.0, rect.bottom() - 26.0), Vec2::new((pic.width()).min(200.0), 14.0));
         field::colour_bar(painter, bar, &scale, "u_axial/U", 10.0);
         let cn = &p.coil;
@@ -897,7 +901,7 @@ impl FoamApp {
                 if text_w == 0.0 && i > 3 || y > rect.bottom() - 12.0 {
                     break;
                 }
-                painter.text(Pos2::new(x0, y), egui::Align2::LEFT_TOP, l, f.clone(), Color32::from_gray(220));
+                painter.text(Pos2::new(x0, y), egui::Align2::LEFT_TOP, l, f.clone(), ink.text);
             }
         }
     }
@@ -905,42 +909,43 @@ impl FoamApp {
     /// u_axial / U against r / R at the slice, with Hagen–Poiseuille's
     /// 2 (1 − r²/R²). GUI drawing (exempt).
     fn profile(&self, painter: &egui::Painter, rect: Rect) {
-        painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(20, 22, 26, 220));
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        painter.rect_filled(rect, 4.0, ink.backing);
         let (Some(me), Some(p), Shape::Cylinder { radius, centre, .. }) = (&self.mesh, &self.last, self.design.shape) else {
-            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "profile: run a pipe", egui::FontId::proportional(11.0), Color32::GRAY);
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "profile: run a pipe", egui::FontId::proportional(11.0), ink.muted);
             return;
         };
         let plot = Rect::from_min_max(rect.min + Vec2::new(30.0, 6.0), rect.max - Vec2::new(6.0, 26.0));
-        painter.rect_stroke(plot, 0.0, Stroke::new(1.0, Color32::from_gray(90)), egui::StrokeKind::Inside);
+        painter.rect_stroke(plot, 0.0, Stroke::new(1.0, ink.border), egui::StrokeKind::Inside);
         let to = |r: f64, u: f64| Pos2::new(plot.left() + (r as f32) * plot.width(), plot.bottom() - (u / 2.2) as f32 * plot.height());
         let line: Vec<Pos2> = (0..=40).map(|k| k as f64 / 40.0).map(|r| to(r, 2.0 * (1.0 - r * r))).collect();
-        painter.add(egui::Shape::line(line, Stroke::new(1.5, Color32::from_rgb(254, 128, 25))));
+        painter.add(egui::Shape::line(line, Stroke::new(1.5, ink.accent(1))));
         if me.cross.polygons.len() == p.cross_ua.len() {
             for (poly, u) in me.cross.polygons.iter().zip(&p.cross_ua) {
                 let n = poly.len().max(1) as f64;
                 let (cx, cy) = poly.iter().fold((0.0, 0.0), |a, q| (a.0 + f64::from(q[0]) / n, a.1 + f64::from(q[1]) / n));
                 let r = ((cx - centre[0]).powi(2) + (cy - centre[1]).powi(2)).sqrt() / radius;
-                painter.circle_filled(to(r.min(1.0), f64::from(*u) / U_IN), 1.6, Color32::from_rgb(131, 165, 152));
+                painter.circle_filled(to(r.min(1.0), f64::from(*u) / U_IN), 1.6, ink.accent(0));
             }
         }
         // The binned profile (gh:#1202): cell centres near the slice, binned
         // in r (`laminar_pipe::radial_profile_binned`); works on either mesh.
         let bins: Vec<Pos2> = p.profile.chunks(2).map(|q| to(f64::from(q[0]).min(1.0), f64::from(q[1]))).collect();
         if bins.len() >= 2 {
-            painter.add(egui::Shape::line(bins.clone(), Stroke::new(1.5, Color32::WHITE)));
+            painter.add(egui::Shape::line(bins.clone(), Stroke::new(1.5, ink.text)));
         }
         for b in bins {
-            painter.circle_filled(b, 3.0, Color32::WHITE);
+            painter.circle_filled(b, 3.0, ink.text);
         }
         let f = egui::FontId::proportional(11.0);
-        painter.text(Pos2::new(plot.left() - 3.0, plot.top()), egui::Align2::RIGHT_TOP, "2.2", f.clone(), Color32::GRAY);
-        painter.text(Pos2::new(plot.left() - 3.0, plot.bottom()), egui::Align2::RIGHT_BOTTOM, "0", f.clone(), Color32::GRAY);
+        painter.text(Pos2::new(plot.left() - 3.0, plot.top()), egui::Align2::RIGHT_TOP, "2.2", f.clone(), ink.muted);
+        painter.text(Pos2::new(plot.left() - 3.0, plot.bottom()), egui::Align2::RIGHT_BOTTOM, "0", f.clone(), ink.muted);
         painter.text(
             Pos2::new(plot.center().x, rect.bottom() - 2.0),
             egui::Align2::CENTER_BOTTOM,
-            "u_axial/U vs r/R · dots: cells cut by the slice · white: cell centres binned in r · orange: Hagen–Poiseuille",
+            "u_axial/U vs r/R · dots: cells cut by the slice · line: cell centres binned in r · orange: Hagen–Poiseuille",
             f,
-            Color32::GRAY,
+            ink.muted,
         );
     }
 }
@@ -1002,7 +1007,7 @@ impl eframe::App for FoamApp {
             let split = self.dock.split(full);
             self.viewport(ui, split.main);
             if let Some(body) = split.body {
-                ui.painter().rect_filled(body, 0.0, BG);
+                ui.painter().rect_filled(body, 0.0, ui.visuals().extreme_bg_color);
                 self.dock_body(ui, body);
             }
             let _ = self.dock.toggle(ui, &split);

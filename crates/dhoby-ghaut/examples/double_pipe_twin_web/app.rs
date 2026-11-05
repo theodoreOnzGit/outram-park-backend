@@ -31,14 +31,38 @@ pub const FILTER_URL: &str = "https://github.com/theodoreOnzGit/outram-park-back
 /// The CFD itself, live, in Foam Studio on the same site.
 pub const CFD_URL: &str = "../foam-studio/?shape=exchanger";
 
-const BG: Color32 = Color32::from_rgb(14, 16, 20);
-const C_UNCAL: Color32 = Color32::from_rgb(130, 170, 255);
-const C_POST: Color32 = Color32::from_rgb(255, 165, 80);
-const C_KOH: Color32 = Color32::from_rgb(110, 220, 140);
-const C_MFK: Color32 = Color32::from_rgb(200, 150, 255);
-const C_CFD: Color32 = Color32::from_rgb(255, 255, 255);
-const C_AXIS: Color32 = Color32::from_rgb(90, 96, 110);
-const C_TEXT: Color32 = Color32::from_rgb(210, 214, 222);
+/// The plot's colours, from the theme (`bugis::Ink`): series as accents,
+/// the CFD points and text in the text colour, axes in the border colour.
+#[derive(Clone, Copy)]
+struct Hues {
+    uncal: Color32,
+    post: Color32,
+    koh: Color32,
+    mfk: Color32,
+    cfd: Color32,
+    axis: Color32,
+    text: Color32,
+}
+
+impl Hues {
+    fn of(ink: &bugis::Ink) -> Self {
+        Self {
+            uncal: ink.accent(0),
+            post: ink.accent(1),
+            koh: ink.accent(5),
+            mfk: ink.accent(3),
+            cfd: ink.text,
+            axis: ink.border,
+            text: ink.text,
+        }
+    }
+}
+
+// The δ heat map (`delta_colour`) is a data colour map with a dark middle in
+// both themes, so the marks drawn ON it (|δ| > 2 sd dots, values, CFD rings,
+// the operating-point cross) keep fixed light colours.
+const ON_MAP_CFD: Color32 = Color32::WHITE;
+const ON_MAP_HELD_OUT: Color32 = Color32::from_rgb(110, 220, 140);
 
 /// Which picture the main view shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -374,7 +398,9 @@ pub fn readout(
     s: &Slider,
     live: Option<&Slice>,
     model: Model,
+    ink: &bugis::Ink,
 ) -> Vec<(String, Color32)> {
+    let h = Hues::of(ink);
     let (uncal, cal, cfd) = model.layers();
     let mut out = Vec::new();
     let node = a.at(s.i_rh(), s.i_rc, s.i_k, s.i_l);
@@ -382,7 +408,7 @@ pub fn readout(
         if uncal {
             out.push((
                 format!("1-D uncalibrated (live): UA {:.4} W/K", p.nominal),
-                C_UNCAL,
+                h.uncal,
             ));
         }
         if cal {
@@ -391,7 +417,7 @@ pub fn readout(
                     "1-D at posterior-mean θ, no δ (live): {:.4} W/K, θ-only 95 % [{:.4}, {:.4}]",
                     p.post_mean, p.theta_lo, p.theta_hi
                 ),
-                C_POST,
+                h.post,
             ));
         }
     }
@@ -401,7 +427,7 @@ pub fn readout(
                 "KOH η+δ at node Re_hot {:.1} (committed): {:.4} W/K, 95 % [{:.4}, {:.4}]",
                 node.x[0], node.koh_median, node.koh_lower95, node.koh_upper95
             ),
-            C_KOH,
+            h.koh,
         ));
     }
     if cfd {
@@ -414,12 +440,12 @@ pub fn readout(
                     if p.training { "training" } else { "held out" },
                     p.ua
                 ),
-                C_CFD,
+                h.cfd,
             )),
             None => out.push((
                 "CFD: no design point at this node (the CFD exists only at the 44 points)"
                     .to_string(),
-                Color32::GRAY,
+                ink.muted,
             )),
         }
     }
@@ -660,7 +686,9 @@ impl TwinApp {
     fn canvas(&mut self, ui: &mut egui::Ui) {
         let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
         let full = resp.rect;
-        painter.rect_filled(full, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        let h = Hues::of(&ink);
+        painter.rect_filled(full, 0.0, ink.bg);
         // Tabs under the 52 px button row, then the twin's toggle.
         let tab_w = ((full.width() - 16.0 - 18.0) / 4.0).min(150.0);
         // With the panel open on a phone the main view is a sliver: the
@@ -712,7 +740,7 @@ impl TwinApp {
         let text = egui::FontId::proportional(12.5);
         let mut lines: Vec<(String, Color32)> = Vec::new();
         if let Some(e) = self.link_error.as_ref().or(self.error.as_ref()) {
-            lines.push((e.clone(), Color32::from_rgb(255, 120, 120)));
+            lines.push((e.clone(), ink.error));
         }
         let artefacts = match &self.artefacts {
             Ok(a) => a,
@@ -722,7 +750,7 @@ impl TwinApp {
                     egui::Align2::LEFT_TOP,
                     format!("artefacts did not load: {e}"),
                     text,
-                    Color32::RED,
+                    ink.error,
                 );
                 self.panel.reopen_button(ui, full);
                 return;
@@ -735,23 +763,23 @@ impl TwinApp {
                 } else {
                     "updating…".to_string()
                 },
-                Color32::from_rgb(220, 220, 160),
+                ink.warn,
             ));
         }
         match self.show {
-            Show::Twin => lines.extend(readout(artefacts, &self.slider, self.live.as_ref(), self.model)),
-            Show::Delta => lines.push(("δ(x): ln UA_CFD ≈ η(x, θ) + δ(x), δ's posterior mean (committed). Dot: |δ| > 2 sd. δ partly absorbs θ (not identified apart).".into(), C_TEXT)),
-            Show::Sweep => lines.push(("Co-kriging (MFK, 375 TUAS + 36 CFD) mean ± 2σ, beside KOH's 95 % and the CFD (committed).".into(), C_TEXT)),
+            Show::Twin => lines.extend(readout(artefacts, &self.slider, self.live.as_ref(), self.model, &ink)),
+            Show::Delta => lines.push(("δ(x): ln UA_CFD ≈ η(x, θ) + δ(x), δ's posterior mean (committed). Dot: |δ| > 2 sd. δ partly absorbs θ (not identified apart).".into(), h.text)),
+            Show::Sweep => lines.push(("Co-kriging (MFK, 375 TUAS + 36 CFD) mean ± 2σ, beside KOH's 95 % and the CFD (committed).".into(), h.text)),
             Show::Filter => {
                 let (ba, bb) = (artefacts::mean_after_burn_in(&artefacts.trace_pa, |s| s.estimate - s.truth), artefacts::mean_after_burn_in(&artefacts.trace_pb, |s| s.estimate - s.truth));
                 let (na, nb) = (artefacts::mean_after_burn_in(&artefacts.trace_pa, |s| s.nis), artefacts::mean_after_burn_in(&artefacts.trace_pb, |s| s.nis));
                 let (ea, eb) = (artefacts::mean_after_burn_in(&artefacts.trace_pa, |s| s.nees), artefacts::mean_after_burn_in(&artefacts.trace_pb, |s| s.nees));
-                lines.push((format!("P-A closures known: r_f bias {:+.1e}, NIS {na:.2}, NEES {ea:.2}", ba), C_KOH));
-                lines.push((format!("P-B textbook closures: bias {:+.1e}, NIS {nb:.2} (looks healthy), NEES {eb:.0}", bb), Color32::from_rgb(255, 120, 120)));
-                lines.push(("⚠ P-B is confidently wrong: the innovations look fine while r_f is off by its own size.".into(), Color32::from_rgb(255, 200, 90)));
+                lines.push((format!("P-A closures known: r_f bias {:+.1e}, NIS {na:.2}, NEES {ea:.2}", ba), h.koh));
+                lines.push((format!("P-B textbook closures: bias {:+.1e}, NIS {nb:.2} (looks healthy), NEES {eb:.0}", bb), ink.error));
+                lines.push(("⚠ P-B is confidently wrong: the innovations look fine while r_f is off by its own size.".into(), ink.warn));
             }
         }
-        lines.push(("research, education and V&V only".into(), Color32::GRAY));
+        lines.push(("research, education and V&V only".into(), ink.muted));
         if !roomy {
             lines.clear();
         }
@@ -770,7 +798,7 @@ impl TwinApp {
             let presp = ui.interact(data, ui.id().with("plot"), Sense::click_and_drag());
             self.view.handle_input(ui, &presp);
             let p = painter.with_clip_rect(plot);
-            p.rect_stroke(plot, 4.0, Stroke::new(1.0, C_AXIS), StrokeKind::Inside);
+            p.rect_stroke(plot, 4.0, Stroke::new(1.0, h.axis), StrokeKind::Inside);
             match self.show {
                 Show::Twin => draw_twin(
                     &p,
@@ -830,36 +858,38 @@ fn axes(
     y_ticks: &[f64],
 ) {
     let font = egui::FontId::proportional(11.0);
+    let ink = bugis::Ink::of_ctx(p.ctx());
+    let h = Hues::of(&ink);
     let s = |x: f64, y: f64| {
         let w = f.w(x, y);
         view.to_screen(rect, w[0], w[1])
     };
     let (x0, x1, y0, y1) = (f.x[0], f.x[1], f.y[0], f.y[1]);
-    p.line_segment([s(x0, y0), s(x1, y0)], Stroke::new(1.0, C_AXIS));
-    p.line_segment([s(x0, y0), s(x0, y1)], Stroke::new(1.0, C_AXIS));
+    p.line_segment([s(x0, y0), s(x1, y0)], Stroke::new(1.0, h.axis));
+    p.line_segment([s(x0, y0), s(x0, y1)], Stroke::new(1.0, h.axis));
     for &t in x_ticks {
         let a = s(t, y0);
-        p.line_segment([a, a + Vec2::new(0.0, 4.0)], Stroke::new(1.0, C_AXIS));
+        p.line_segment([a, a + Vec2::new(0.0, 4.0)], Stroke::new(1.0, h.axis));
         p.text(
             a + Vec2::new(0.0, 5.0),
             egui::Align2::CENTER_TOP,
             trim(t),
             font.clone(),
-            Color32::GRAY,
+            ink.muted,
         );
     }
     for &t in y_ticks {
         let a = s(x0, t);
         p.line_segment(
             [a, s(x1, t)],
-            Stroke::new(0.5, Color32::from_rgb(34, 38, 46)),
+            Stroke::new(0.5, ink.grid),
         );
         p.text(
             a - Vec2::new(4.0, 0.0),
             egui::Align2::RIGHT_CENTER,
             trim(t),
             font.clone(),
-            Color32::GRAY,
+            ink.muted,
         );
     }
     p.text(
@@ -867,14 +897,14 @@ fn axes(
         egui::Align2::RIGHT_TOP,
         x_label,
         font.clone(),
-        Color32::GRAY,
+        ink.muted,
     );
     p.text(
         s(x0, y1) + Vec2::new(4.0, 2.0),
         egui::Align2::LEFT_TOP,
         y_label,
         font,
-        Color32::GRAY,
+        ink.muted,
     );
 }
 
@@ -922,6 +952,8 @@ fn draw_twin(
     sweep: bool,
 ) {
     let rows = slice_rows(a, s);
+    let ink = bugis::Ink::of_ctx(p.ctx());
+    let h = Hues::of(&ink);
     let cfd = a.cfd_on_slice(s.i_rc, s.i_k, s.i_l);
     let (uncal, cal, show_cfd) = model.layers();
     let empty: Vec<Point> = Vec::new();
@@ -975,11 +1007,11 @@ fn draw_twin(
                     )
                 })
                 .collect::<Vec<_>>(),
-            Color32::from_rgba_unmultiplied(200, 150, 255, 50),
+            h.mfk.gamma_multiply(0.2),
         );
         p.add(Shape::line(
             rows.iter().map(|r| to(r.x[0], r.mfk_mean)).collect(),
-            Stroke::new(2.0, C_MFK),
+            Stroke::new(2.0, h.mfk),
         ));
     }
     if cal || sweep {
@@ -989,14 +1021,14 @@ fn draw_twin(
                 .iter()
                 .map(|r| (to(r.x[0], r.koh_lower95), to(r.x[0], r.koh_upper95)))
                 .collect::<Vec<_>>(),
-            Color32::from_rgba_unmultiplied(110, 220, 140, if sweep { 30 } else { 55 }),
+            h.koh.gamma_multiply(if sweep { 0.12 } else { 0.22 }),
         );
         p.add(Shape::line(
             rows.iter().map(|r| to(r.x[0], r.koh_median)).collect(),
-            Stroke::new(2.0, C_KOH),
+            Stroke::new(2.0, h.koh),
         ));
         for r in &rows {
-            p.circle_filled(to(r.x[0], r.koh_median), 2.5, C_KOH);
+            p.circle_filled(to(r.x[0], r.koh_median), 2.5, h.koh);
         }
     }
     if cal && !sweep && !sw.is_empty() {
@@ -1005,31 +1037,31 @@ fn draw_twin(
             &sw.iter()
                 .map(|q| (to(q.re_hot, q.theta_lo), to(q.re_hot, q.theta_hi)))
                 .collect::<Vec<_>>(),
-            Color32::from_rgba_unmultiplied(255, 165, 80, 35),
+            h.post.gamma_multiply(0.14),
         );
         let pts: Vec<Pos2> = sw.iter().map(|q| to(q.re_hot, q.post_mean)).collect();
-        p.extend(Shape::dashed_line(&pts, Stroke::new(2.0, C_POST), 7.0, 5.0));
+        p.extend(Shape::dashed_line(&pts, Stroke::new(2.0, h.post), 7.0, 5.0));
     }
     if (uncal || sweep) && !sw.is_empty() {
         p.add(Shape::line(
             sw.iter().map(|q| to(q.re_hot, q.nominal)).collect(),
-            Stroke::new(2.0, C_UNCAL),
+            Stroke::new(2.0, h.uncal),
         ));
     }
     if show_cfd {
         for c in &cfd {
             let at = to(c.x[0], c.ua);
             if c.training {
-                p.circle_filled(at, 5.0, C_CFD);
+                p.circle_filled(at, 5.0, h.cfd);
             } else {
-                p.circle_stroke(at, 5.5, Stroke::new(2.0, C_CFD));
+                p.circle_stroke(at, 5.5, Stroke::new(2.0, h.cfd));
             }
             p.text(
                 at + Vec2::new(7.0, -7.0),
                 egui::Align2::LEFT_BOTTOM,
                 &c.id,
                 egui::FontId::proportional(11.0),
-                C_CFD,
+                h.cfd,
             );
         }
     }
@@ -1037,29 +1069,29 @@ fn draw_twin(
     let (top, bot) = (to(s.re_hot, f.y[1]), to(s.re_hot, f.y[0]));
     p.line_segment(
         [top, bot],
-        Stroke::new(1.0, Color32::from_rgb(220, 220, 160)),
+        Stroke::new(1.0, ink.accent(4)),
     );
     if let Some(l) = live {
         if uncal || sweep {
-            p.circle_filled(to(l.point.re_hot, l.point.nominal), 4.0, C_UNCAL);
+            p.circle_filled(to(l.point.re_hot, l.point.nominal), 4.0, h.uncal);
         }
         if cal && !sweep {
-            p.circle_filled(to(l.point.re_hot, l.point.post_mean), 4.0, C_POST);
+            p.circle_filled(to(l.point.re_hot, l.point.post_mean), 4.0, h.post);
         }
     }
     // Legend.
     let mut items: Vec<(&str, Color32)> = Vec::new();
     if uncal || sweep {
-        items.push(("1-D uncalibrated (live)", C_UNCAL));
+        items.push(("1-D uncalibrated (live)", h.uncal));
     }
     if cal && !sweep {
-        items.push(("1-D at mean θ, no δ (live), θ-only 95 %", C_POST));
+        items.push(("1-D at mean θ, no δ (live), θ-only 95 %", h.post));
     }
     if cal || sweep {
-        items.push(("KOH η+δ median, 95 % (committed)", C_KOH));
+        items.push(("KOH η+δ median, 95 % (committed)", h.koh));
     }
     if sweep {
-        items.push(("MFK mean ± 2σ (committed)", C_MFK));
+        items.push(("MFK mean ± 2σ (committed)", h.mfk));
     }
     if show_cfd {
         items.push((
@@ -1068,7 +1100,7 @@ fn draw_twin(
             } else {
                 "CFD: filled = training, ring = held out"
             },
-            C_CFD,
+            h.cfd,
         ));
     }
     legend(p, rect, &items);
@@ -1131,6 +1163,7 @@ fn draw_delta(
         view.to_screen(data, w[0], w[1])
     };
     let span = 0.1;
+    let muted = bugis::Ink::of_ctx(p.ctx()).muted;
     for i in 0..N_RE {
         for j in 0..N_RE {
             let r = a.at(i, j, s.i_k, s.i_l);
@@ -1157,7 +1190,7 @@ fn draw_delta(
         p.circle_stroke(
             to(c.x[0], c.x[1]),
             7.0,
-            Stroke::new(2.0, if c.training { C_CFD } else { C_KOH }),
+            Stroke::new(2.0, if c.training { ON_MAP_CFD } else { ON_MAP_HELD_OUT }),
         );
     }
     let op = to(s.re_hot, rc[s.i_rc]);
@@ -1177,7 +1210,7 @@ fn draw_delta(
             egui::Align2::CENTER_TOP,
             trim(x),
             font.clone(),
-            Color32::GRAY,
+            muted,
         );
     }
     for y in [5.0, 15.0, 45.0] {
@@ -1186,7 +1219,7 @@ fn draw_delta(
             egui::Align2::RIGHT_CENTER,
             trim(y),
             font.clone(),
-            Color32::GRAY,
+            muted,
         );
     }
     p.text(
@@ -1194,7 +1227,7 @@ fn draw_delta(
         egui::Align2::RIGHT_TOP,
         "Re_hot",
         font.clone(),
-        Color32::GRAY,
+        muted,
     );
     p.text(
         rect.left_top() + Vec2::new(8.0, 4.0),
@@ -1204,7 +1237,7 @@ fn draw_delta(
             K_LEVELS[s.i_k], L_LEVELS[s.i_l]
         ),
         font.clone(),
-        Color32::GRAY,
+        muted,
     );
     // Colour bar.
     let bar = Rect::from_min_size(
@@ -1229,21 +1262,21 @@ fn draw_delta(
         egui::Align2::RIGHT_TOP,
         format!("+{span}"),
         font.clone(),
-        Color32::GRAY,
+        muted,
     );
     p.text(
         bar.left_bottom() - Vec2::new(2.0, 0.0),
         egui::Align2::RIGHT_BOTTOM,
         format!("−{span}"),
         font.clone(),
-        Color32::GRAY,
+        muted,
     );
     p.text(
         bar.center_top() - Vec2::new(0.0, 4.0),
         egui::Align2::RIGHT_BOTTOM,
         "δ on ln UA",
         font,
-        Color32::GRAY,
+        muted,
     );
 }
 
@@ -1251,6 +1284,8 @@ fn draw_delta(
 /// (exempt; the traces are parsed and checked in [`crate::artefacts`]).
 fn draw_filter(p: &egui::Painter, rect: Rect, data: Rect, view: &mut View, a: &Artefacts) {
     let scale = 1e4;
+    let ink = bugis::Ink::of_ctx(p.ctx());
+    let h = Hues::of(&ink);
     let ys = a.trace_pa.iter().chain(&a.trace_pb).flat_map(|s| {
         [
             s.truth * scale,
@@ -1302,30 +1337,30 @@ fn draw_filter(p: &egui::Painter, rect: Rect, data: Rect, view: &mut View, a: &A
     };
     draw(
         &a.trace_pa,
-        C_KOH,
-        Color32::from_rgba_unmultiplied(110, 220, 140, 40),
+        h.koh,
+        h.koh.gamma_multiply(0.16),
     );
     draw(
         &a.trace_pb,
-        Color32::from_rgb(255, 110, 110),
-        Color32::from_rgba_unmultiplied(255, 110, 110, 40),
+        ink.accent(6),
+        ink.accent(6).gamma_multiply(0.16),
     );
     p.add(Shape::line(
         a.trace_pa
             .iter()
             .map(|s| to(s.step as f64, s.truth * scale))
             .collect(),
-        Stroke::new(2.0, Color32::WHITE),
+        Stroke::new(2.0, ink.text),
     ));
     legend(
         p,
         rect,
         &[
-            ("synthetic truth r_f(k)", Color32::WHITE),
-            ("UKF, P-A closures known, ± 2σ", C_KOH),
+            ("synthetic truth r_f(k)", ink.text),
+            ("UKF, P-A closures known, ± 2σ", h.koh),
             (
                 "UKF, P-B textbook closures, ± 2σ",
-                Color32::from_rgb(255, 110, 110),
+                ink.accent(6),
             ),
         ],
     );
@@ -1467,6 +1502,7 @@ mod tests {
     fn readout_and_slices_come_from_the_artefacts() {
         let a = Artefacts::load().expect("artefacts");
         let s = Slider::default();
+        let ink = bugis::Ink::of(&bugis::Theme::default().visuals());
         let rows = slice_rows(&a, &s);
         assert_eq!(rows.len(), N_RE);
         assert!(rows.windows(2).all(|w| w[1].x[0] > w[0].x[0]));
@@ -1475,17 +1511,20 @@ mod tests {
         let live = crate::engine::Engine::default()
             .slice(1, s.operating())
             .unwrap();
-        let all = readout(&a, &s, Some(&live), Model::All);
+        let all = readout(&a, &s, Some(&live), Model::All, &ink);
         assert_eq!(all.len(), 4);
+        // Colours come from the theme (bugis), not hardcoded RGB.
+        assert_eq!(all[0].1, ink.accent(0));
+        assert_eq!(all[3].1, ink.text);
         assert!(
             all[0].0.contains("live") && all[2].0.contains("committed") && all[3].0.contains("H7")
         );
         assert!(all[2].0.contains(&format!("{:.4}", rows[4].koh_median)));
         let off = Slider { re_hot: 13.0, ..s };
-        let cfd = readout(&a, &off, None, Model::Cfd);
+        let cfd = readout(&a, &off, None, Model::Cfd, &ink);
         assert_eq!(cfd.len(), 1);
         assert!(cfd[0].0.contains("no design point"));
-        assert_eq!(readout(&a, &s, None, Model::Uncalibrated).len(), 1);
+        assert_eq!(readout(&a, &s, None, Model::Uncalibrated, &ink).len(), 1);
         assert!(theta_line(&a).contains("θ_h 1.186") && theta_line(&a).contains("200 thinned"));
     }
 }

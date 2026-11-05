@@ -183,11 +183,14 @@ use crate::anim::Anim;
 use egui::{Color32, Pos2, Rect, Stroke, StrokeKind, Vec2};
 use outram_mc_libs::physics::track_output::TrackEvent;
 
-pub fn colour(c: Channel) -> Color32 {
+/// A channel's curve colour, from the theme (`bugis::Ink`): capture red,
+/// fission yellow, scatter blue. (The neutron's own marker keeps the energy
+/// colour scale of the tracks, `anim::energy_colour`.)
+pub fn colour(c: Channel, ink: &bugis::Ink) -> Color32 {
     match c {
-        Channel::Capture => Color32::from_rgb(255, 120, 90),
-        Channel::Fission => Color32::from_rgb(255, 205, 80),
-        Channel::Scatter => Color32::from_rgb(110, 200, 255),
+        Channel::Capture => ink.accent(6),
+        Channel::Fission => ink.accent(4),
+        Channel::Scatter => ink.accent(0),
     }
 }
 
@@ -251,12 +254,13 @@ pub fn staircase(trace: &[f64], progress: f64) -> Vec<(f64, f64)> {
 /// arithmetic is [`staircase`], [`at`], [`strip_split`] and [`caption`],
 /// which are.
 pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bool], marker: Option<Marker>, text: f32) {
-    painter.rect_filled(rect, 4.0, Color32::from_rgb(18, 21, 28));
-    painter.rect_stroke(rect, 4.0, Stroke::new(1.0, Color32::from_rgb(60, 66, 80)), StrokeKind::Inside);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.rect_filled(rect, 4.0, ink.card);
+    painter.rect_stroke(rect, 4.0, Stroke::new(1.0, ink.border), StrokeKind::Inside);
     let f = egui::FontId::proportional(text);
     let small = egui::FontId::proportional((text * 0.85).max(8.0));
-    let grey = Color32::from_rgb(170, 176, 190);
-    painter.text(rect.left_top() + Vec2::new(8.0, 5.0), egui::Align2::LEFT_TOP, "σ(E), barns (log–log)", f.clone(), Color32::WHITE);
+    let grey = ink.muted;
+    painter.text(rect.left_top() + Vec2::new(8.0, 5.0), egui::Align2::LEFT_TOP, "σ(E), barns (log–log)", f.clone(), ink.text);
     let visible: Vec<&XsCurve> = curves.iter().zip(shown).filter(|(_, s)| **s).map(|(c, _)| c).collect();
     // y range from the shown curves, whole decades, at most 9 of them.
     let (mut y0, mut y1) = (f64::INFINITY, f64::NEG_INFINITY);
@@ -291,7 +295,7 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
         let fy = ((s.r_log10() - y0) / (y1 - y0)) as f32;
         Pos2::new(xe(e), plot.bottom() - fy.clamp(-0.02, 1.02) * plot.height())
     };
-    let grid = Color32::from_rgb(40, 45, 56);
+    let grid = ink.grid;
     let step = if area.width() < 260.0 { 4 } else { 2 };
     for d in (x0.ceil() as i32..=x1.floor() as i32).filter(|d| d.rem_euclid(step) == 0) {
         let x = xe(10f64.r_powi(d));
@@ -313,12 +317,12 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
     for c in &visible {
         let pts: Vec<Pos2> = c.points.iter().map(|q| p(q[0] as f64, q[1] as f64)).collect();
         if pts.len() > 1 {
-            clip.add(egui::Shape::line(pts, Stroke::new(1.3, colour(c.channel))));
+            clip.add(egui::Shape::line(pts, Stroke::new(1.3, colour(c.channel, &ink))));
         }
     }
     // The collision strip: frame, its caption, and the staircase so far.
     if let Some(sr) = strip {
-        painter.rect_stroke(sr, 0.0, Stroke::new(1.0, Color32::from_rgb(52, 58, 72)), StrokeKind::Inside);
+        painter.rect_stroke(sr, 0.0, Stroke::new(1.0, ink.border), StrokeKind::Inside);
         painter.text(Pos2::new(sr.left() - 3.0, sr.top()), egui::Align2::RIGHT_TOP, "0", small.clone(), grey);
         if let Some(m) = marker.as_ref().filter(|m| !m.trace.is_empty()) {
             let n = m.trace.len() as f64;
@@ -339,10 +343,10 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
             let e = m.energy_ev;
             let col = crate::anim::energy_colour(e, 255);
             painter.line_segment([Pos2::new(xe(e), area.top()), Pos2::new(xe(e), area.bottom())], Stroke::new(1.0, col.gamma_multiply(0.6)));
-            let mut dots: Vec<(Pos2, Color32)> = visible.iter().filter_map(|c| Some((p(e, at(c, e)?), colour(c.channel)))).collect();
+            let mut dots: Vec<(Pos2, Color32)> = visible.iter().filter_map(|c| Some((p(e, at(c, e)?), colour(c.channel, &ink)))).collect();
             if let Some(sr) = strip.filter(|_| !m.trace.is_empty()) {
                 let y = sr.top() + (m.progress / m.trace.len() as f64).clamp(0.0, 1.0) as f32 * sr.height();
-                dots.push((Pos2::new(xe(e), y), Color32::WHITE));
+                dots.push((Pos2::new(xe(e), y), ink.text));
             }
             for (q, ring) in dots {
                 match m.ended {
@@ -352,7 +356,7 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
                     }
                     Some(_) => {
                         let d = 5.0;
-                        let st = Stroke::new(2.0, Color32::from_rgb(255, 90, 90));
+                        let st = Stroke::new(2.0, ink.error);
                         painter.line_segment([q - Vec2::splat(d), q + Vec2::splat(d)], st);
                         painter.line_segment([q + Vec2::new(-d, d), q + Vec2::new(d, -d)], st);
                     }
@@ -370,8 +374,8 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
     let mut y = area.bottom() + text * 1.6 + 6.0;
     for c in &visible {
         let a = Pos2::new(rect.left() + 10.0, y + text * 0.55);
-        painter.line_segment([a, a + Vec2::new(18.0, 0.0)], Stroke::new(2.0, colour(c.channel)));
-        painter.text(a + Vec2::new(24.0, 0.0), egui::Align2::LEFT_CENTER, &c.label, small.clone(), Color32::from_rgb(210, 216, 226));
+        painter.line_segment([a, a + Vec2::new(18.0, 0.0)], Stroke::new(2.0, colour(c.channel, &ink)));
+        painter.text(a + Vec2::new(24.0, 0.0), egui::Align2::LEFT_CENTER, &c.label, small.clone(), ink.text);
         y += text * 1.3;
     }
     if let Some(c) = caption(curves) {

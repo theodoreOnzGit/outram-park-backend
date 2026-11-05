@@ -126,6 +126,78 @@ impl Theme {
     }
 }
 
+/// Theme-derived colours for what a GUI DRAWS itself (a demo's main view,
+/// a hand-painted plot, status lines over a picture), so a painter never
+/// hardcodes RGB and Dark/Light switch every drawn view the same way.
+///
+/// Read from the [`egui::Visuals`] the ui is using (background, text, warn,
+/// error) and from the theme's [`crate::gruvbox::Roles`] (cards, borders,
+/// muted text, success). Physics data encodings (material palettes, colour
+/// maps) are NOT chrome and do not belong here.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Ink {
+    /// Which theme the visuals are.
+    pub theme: Theme,
+    /// Main-view background (`extreme_bg_color`: `dark0_hard` / `light0_hard`).
+    pub bg: Color32,
+    /// A card or inset plot drawn on the main view (`dark0` / `light0`).
+    pub card: Color32,
+    /// Card outlines and axes (`dark2` / `light2`).
+    pub border: Color32,
+    /// Faint grid lines (`dark1` / `light1`).
+    pub grid: Color32,
+    /// Ordinary text (the visuals' text colour).
+    pub text: Color32,
+    /// Secondary text: tick labels, captions (`light4` / `dark4`).
+    pub muted: Color32,
+    /// Warnings (`warn_fg_color`).
+    pub warn: Color32,
+    /// Errors (`error_fg_color`).
+    pub error: Color32,
+    /// Success / "converged" (`Roles::success`).
+    pub ok: Color32,
+    /// Translucent backing behind a label drawn over a picture.
+    pub backing: Color32,
+}
+
+impl Ink {
+    /// The ink for these visuals.
+    pub fn of(visuals: &egui::Visuals) -> Self {
+        let theme = Theme::current(visuals);
+        let r = crate::gruvbox::Roles::of(theme.is_dark());
+        let bg = visuals.extreme_bg_color;
+        Self {
+            theme,
+            bg,
+            card: r.canvas.into(),
+            border: r.border.into(),
+            grid: r.border_subtle.into(),
+            text: visuals.text_color(),
+            muted: r.text_muted.into(),
+            warn: visuals.warn_fg_color,
+            error: visuals.error_fg_color,
+            ok: r.success.into(),
+            backing: Color32::from_rgba_unmultiplied(bg.r(), bg.g(), bg.b(), 215),
+        }
+    }
+
+    /// The ink of the theme this ui draws with.
+    pub fn of_ui(ui: &egui::Ui) -> Self {
+        Self::of(ui.visuals())
+    }
+
+    /// The ink of the context's current theme (for a painter-only helper:
+    /// `Ink::of_ctx(painter.ctx())`).
+    pub fn of_ctx(ctx: &egui::Context) -> Self {
+        Self::of(&ctx.global_style().visuals)
+    }
+
+    /// [`Theme::accent`] of this ink's theme: plot series, drawn geometry.
+    pub fn accent(&self, i: usize) -> Color32 {
+        self.theme.accent(i)
+    }
+}
+
 /// A Dark/Light selector; applies the theme to the context when it changes.
 /// Returns whether it changed.
 pub fn selector(ui: &mut egui::Ui, theme: &mut Theme) -> bool {
@@ -156,7 +228,9 @@ pub fn gruvbox_visuals(dark: bool) -> egui::Visuals {
     let (bg0, bg1, bg2, bg3, fg, accent, warn) = if dark {
         (DARK0_HARD, DARK1, DARK2, DARK3, LIGHT1, BRIGHT_BLUE, BRIGHT_YELLOW)
     } else {
-        (LIGHT0_HARD, LIGHT1, LIGHT2, LIGHT3, LIGHT_FG, NEUTRAL_BLUE, BRIGHT_YELLOW)
+        // Faded yellow on light (2026-11-05): bright yellow on `light0_hard`
+        // is about 1.6:1 and could not be read; faded is `Roles::warning`.
+        (LIGHT0_HARD, LIGHT1, LIGHT2, LIGHT3, LIGHT_FG, NEUTRAL_BLUE, FADED_YELLOW)
     };
 
     visuals.panel_fill = bg0;
@@ -225,6 +299,34 @@ mod tests {
         assert_eq!(ctx.global_style().visuals.panel_fill, DARK0_HARD);
         // The other slot is Gruvbox too: a system theme flip stays Gruvbox.
         assert_eq!(ctx.style_of(egui::Theme::Light).visuals.panel_fill, LIGHT0_HARD);
+    }
+
+    /// The ink follows the theme: background, text, warn and error are the
+    /// visuals' own, and every chrome colour differs between Dark and Light.
+    /// Light's warning is the faded yellow (bright yellow is unreadable on
+    /// `light0_hard`).
+    #[test]
+    fn ink_follows_the_theme() {
+        let d = Ink::of(&Theme::GruvboxDark.visuals());
+        let l = Ink::of(&Theme::GruvboxLight.visuals());
+        assert_eq!(d.theme, Theme::GruvboxDark);
+        assert_eq!(l.theme, Theme::GruvboxLight);
+        assert_eq!(d.bg, DARK0_HARD);
+        assert_eq!(l.bg, LIGHT0_HARD);
+        assert_eq!(d.text, LIGHT1);
+        assert_eq!(l.text, LIGHT_FG);
+        assert_eq!(l.warn, FADED_YELLOW);
+        assert_eq!(d.warn, BRIGHT_YELLOW);
+        assert_eq!(d.error, BRIGHT_RED);
+        assert_eq!(l.error, FADED_RED);
+        for (a, b) in [(d.card, l.card), (d.border, l.border), (d.grid, l.grid), (d.muted, l.muted), (d.ok, l.ok), (d.backing, l.backing)] {
+            assert_ne!(a, b);
+        }
+        assert_eq!(d.accent(1), Theme::GruvboxDark.accent(1));
+        let ctx = egui::Context::default();
+        Theme::GruvboxLight.apply(&ctx);
+        assert_eq!(Ink::of_ctx(&ctx), l);
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| assert_eq!(Ink::of_ui(ui), l));
     }
 
     /// Accents differ between the themes and cycle with period 7.
