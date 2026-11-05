@@ -641,6 +641,20 @@ impl UnlockedKey {
         self.sign_event(owner, k, kind, date, "", None)
     }
 
+    /// Retire `owner`'s key `k` from `date`, **signed** (GitHub #1249):
+    /// appends a `retired` event signed by this key over
+    /// [`key_event_bytes`]. It counts only if this key is the owner's, a
+    /// founder's or a maintainer's, trusted and active on `date` (checked
+    /// by the registry, not here); an unsigned retirement dated from
+    /// [`super::registry::SIGNED_KEY_RETIREMENT_FROM`] has no effect.
+    /// Refuses a bad or backwards date. It does not refuse a key whose
+    /// history already holds an open retirement: that one may be an
+    /// unsigned retirement with no effect, and only the registry knows
+    /// (the caller checks `KeyTrust::is_retired`).
+    pub fn retire_key(&self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> {
+        self.sign_event(owner, k, KeyEventKind::Retired, date, "", None)
+    }
+
     /// This key as the `signer` of a registry statement.
     fn as_signer(&self) -> KeySigner {
         KeySigner { reviewer: Some(self.reviewer.clone()), key: self.key.clone() }

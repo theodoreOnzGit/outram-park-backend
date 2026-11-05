@@ -4,9 +4,10 @@
 //! writing) is [`crate::stamping::user_management`]'s, tested in
 //! `stamping/user_management_tests.rs`; "My keys on this machine" is the
 //! #1020 Signing-key panel's own body (`super::key_window::body`). Since
-//! GitHub #1211 the tab also holds the two founder-only key pathways
-//! (validate a key; issue a validated keyfile) and the Organisations &
-//! IV&V sections (`super::organisations_view::sections`), which replaced
+//! GitHub #1211 the tab also holds the two ~~founder-only~~ key pathways
+//! (validate a key; issue a validated keyfile; open to any maintainer since
+//! GitHub #1249) and the Organisations & IV&V sections
+//! (`super::organisations_view::sections`, founder-only), which replaced
 //! that separate window.
 //!
 //! **Mobile-first.** One scrolling column; every row wraps; the sections
@@ -128,12 +129,13 @@ fn signing_key(ui: &mut egui::Ui, p: &mut UserPanel) {
     key_window::passphrase_row(ui, unlocked, &mut p.passphrase);
 }
 
-/// The two founder-only key pathways (GitHub #1211): (a) validate a
-/// reviewer's own key (the Admit on their page), (b) issue a validated
-/// keyfile to hand over. GUI drawing code (exempt; the checks and the job
-/// are `UserPanel::{issue_problems, submit_issue}`, tested).
+/// The two key pathways (GitHub #1211; ~~founder-only~~ any maintainer
+/// since #1249): (a) validate a reviewer's own key (the Admit on their
+/// page), (b) issue a validated keyfile to hand over. GUI drawing code
+/// (exempt; the checks and the job are `UserPanel::{issue_problems,
+/// submit_issue}`, tested).
 fn key_pathways(ui: &mut egui::Ui, p: &mut UserPanel) {
-    let founder = p.is_founder();
+    let maintainer = p.is_maintainer();
     let awaiting: Vec<String> = p
         .roster()
         .map(|ro| {
@@ -144,16 +146,16 @@ fn key_pathways(ui: &mut egui::Ui, p: &mut UserPanel) {
                 .collect()
         })
         .unwrap_or_default();
-    egui::CollapsingHeader::new(RichText::new(format!("Validate a key (founder) \u{b7} {} awaiting", awaiting.len())).strong())
+    egui::CollapsingHeader::new(RichText::new(format!("Validate a key (maintainer) \u{b7} {} awaiting", awaiting.len())).strong())
         .id_salt("users-validate")
-        .default_open(founder && !awaiting.is_empty())
+        .default_open(maintainer && !awaiting.is_empty())
         .show(ui, |ui| {
             ui.weak(
-                "A person generates their own key from a Stamp and registers it; the founder \
-                 validates it by admitting them (signed). Open their page and press Admit.",
+                "A person generates their own key from a Stamp and registers it; a founder or \
+                 maintainer validates it by admitting them (signed). Open their page and press Admit.",
             );
-            if !founder {
-                ui.weak("Only the founder validates keys: act as the founder's key above.");
+            if !maintainer {
+                ui.weak("Only a founder or an admitted maintainer validates keys: act as such a key above.");
             }
             for id in awaiting {
                 if ui.link(format!("{id} \u{2014} awaiting admission")).clicked() {
@@ -161,7 +163,7 @@ fn key_pathways(ui: &mut egui::Ui, p: &mut UserPanel) {
                 }
             }
         });
-    egui::CollapsingHeader::new(RichText::new("Issue a validated keyfile (founder)").strong())
+    egui::CollapsingHeader::new(RichText::new("Issue a validated keyfile (maintainer)").strong())
         .id_salt("users-issue")
         .default_open(false)
         .show(ui, |ui| {
@@ -373,7 +375,7 @@ fn reviewer_page(ui: &mut egui::Ui, p: &mut UserPanel, r: &ReviewerRow) {
     }
     if r.admitted.starts_with("not admitted") {
         ui.group(|ui| {
-            ui.label(RichText::new("Validate their key: admit (founder only, #1211)").strong());
+            ui.label(RichText::new("Validate their key: admit (a founder or maintainer, #1249)").strong());
             ui.horizontal_wrapped(|ui| {
                 ui.label("Role");
                 if ui.radio(p.admit.role == Role::Reviewer && !p.admit.novice, "Reviewer").clicked() {

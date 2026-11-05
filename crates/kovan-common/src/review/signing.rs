@@ -20,7 +20,7 @@
 //!   session::KeySession holds it: one unlock per session, auto-lock (#1020)
 //!   Keystore::export / import: the same encrypted key file on each machine (#1020)
 //!   UnlockedKey::sign_review ──> [review.signature] ──> verify_review(entry, &Registry)
-//!   UnlockedKey::endorse/admit/revoke/unretire ──> kovan_root.toml ──> Registry::build
+//!   UnlockedKey::endorse/admit/revoke/unretire/retire_key ──> kovan_root.toml ──> Registry::build
 //! ```
 //!
 //! `kovan-cli` has no signing command; `keystore` does not exist on wasm.
@@ -169,6 +169,10 @@ mod ivv_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/roster_tests.rs"]
 mod roster_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/retirement_tests.rs"]
+mod retirement_tests;
 
 use registry::{KeyStatus, Registry};
 

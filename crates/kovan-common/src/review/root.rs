@@ -520,7 +520,12 @@ pub enum KeyEventKind {
     Reset,
     /// The reviewer's admission by a maintainer; only on the first key.
     Admitted,
-    /// Retired from `date` (unsigned: retiring only takes trust away).
+    /// Retired from `date`. ~~Unsigned: retiring only takes trust away.~~
+    /// **CORRECTED 2026-11-05 (GitHub #1249):** from
+    /// `registry::SIGNED_KEY_RETIREMENT_FROM` it counts only when signed by
+    /// the key's owner, a founder or a maintainer (the event's existing
+    /// optional `signer` and `signature`, so no schema change); an older
+    /// unsigned one still counts, flagged.
     Retired,
     /// Back from `date`; signed by **the key itself** (possession proof).
     Unretired,

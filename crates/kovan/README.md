@@ -758,19 +758,25 @@ Every action signs with the session key, and the passphrase is asked only
 while it is locked:
 
 - **Admit** (validate a reviewer's own key): as Reviewer, Novice reviewer or
-  Maintainer. ~~Any admitted maintainer~~ **Since 2026-11-04 (GitHub
-  #1211) the founder only**; admissions signed earlier by another
+  Maintainer. ~~Any admitted maintainer~~ ~~**Since 2026-11-04 (GitHub
+  #1211) the founder only**~~ **CORRECTED 2026-11-05 (GitHub #1249): a
+  founder or any admitted maintainer**; admissions signed earlier by any
   maintainer still count.
-- **Issue a validated keyfile** (founder only, #1211): generate a key for
-  another person, admit it in the same write, and save it encrypted under a
-  passphrase the founder types (save picker), to hand over; it imports with
-  "Import a key".
+- **Issue a validated keyfile** (~~founder only, #1211~~ a founder or any
+  admitted maintainer, #1249): generate a key for another person, admit it
+  in the same write, and save it encrypted under a passphrase the signer
+  types (save picker), to hand over; it imports with "Import a key".
 - **Organisations & IV&V** (#1211, formerly a separate window): the
   founder signs or retires organisation records (retire appends a signed
   `[[code_review.organisation_retirement]]`; the record stays listed,
   marked retired, and no longer counts); a reviewer signs their separation
   attestation.
 - **Key actions:** endorse, retire, un-retire, revoke or mark compromised.
+  ~~Retire is unsigned~~ **Since 2026-11-05 (GitHub #1249) retire is
+  signed** by the key's owner, a founder or a maintainer. From
+  `SIGNED_KEY_RETIREMENT_FROM` (2026-11-06) an unsigned retirement has no
+  effect and shows as a warning; an older unsigned one keeps counting and
+  is flagged forever.
 - **Revoke** a reviewer.
 - **Change standing**, as signed `[[code_review.roster_event]]` entries
   (`kovan-roster-event-v1`): edit scope, make maintainer or step down, hand
@@ -784,9 +790,12 @@ reviewer"** until a trusted reviewer or a maintainer also stamps the
 function. The rules are in `kovan_common::review::signing::registry`'s module
 doc.
 
-**After a founder hands over and steps down,** nobody can admit or sign
+~~**After a founder hands over and steps down,** nobody can admit or sign
 organisation records from kovan (#1211 makes them founder-only, and the
-founder signs as a maintainer) until founder succession (GitHub #1022).
+founder signs as a maintainer) until founder succession (GitHub #1022).~~
+**CORRECTED 2026-11-05 (GitHub #1249):** any maintainer admits, so a
+handover no longer stops admissions; organisation records stay
+founder-only.
 
 **If no maintainer is available,** there is no bypass of the signatures. The
 repository owners' route is a reviewed commit declaring a new founder. That

@@ -475,8 +475,9 @@ fn event_block(ev: &KeyEvent) -> String {
 /// end of that key's section; every existing byte is kept. Refused for an
 /// unknown or duplicated key, and for a key whose history is still in the
 /// v1 legacy fields ([`AppendError::LegacyKey`]). The caller signs `ev`
-/// first (`UnlockedKey::{endorse, unretire, revoke_key}`) or makes an
-/// unsigned one ([`super::signing::registry::retire_key`]).
+/// first (`UnlockedKey::{endorse, unretire, revoke_key, retire_key}`)
+/// ~~or makes an unsigned one ([`super::signing::registry::retire_key`])~~
+/// (GitHub #1249: an unsigned retirement from 2026-11-06 has no effect).
 pub fn append_key_event(
     existing: &str,
     reviewer: &str,

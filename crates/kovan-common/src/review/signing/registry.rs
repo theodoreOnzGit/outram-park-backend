@@ -67,6 +67,17 @@
 //!   `unretired` event, which must be signed by **the key itself** (the
 //!   possession proof: only someone who unlocked its encrypted file can make
 //!   it). Retire, un-retire, retire, un-retire works; every gap stays void.
+//!   ~~A `retired` event is unsigned and always honoured (it only takes
+//!   trust away).~~ **CORRECTED 2026-11-05 (GitHub #1249):** an unsigned
+//!   retirement let anyone who can edit `kovan_root.toml` switch off
+//!   someone else's key. A retirement dated on or after
+//!   [`SIGNED_KEY_RETIREMENT_FROM`] counts only when it is signed (over
+//!   [`super::key_event_bytes`]) by the key's owner (any of their trusted
+//!   keys, the retiring key included), a founder, or a maintainer, each
+//!   active on its date; otherwise it has **no effect** and is a
+//!   [`HistoryProblem::RetirementNoEffect`] warning. One dated before it
+//!   (or undated, from a v1 `retired` field) keeps counting as before, and
+//!   when unsigned is flagged forever ([`HistoryProblem::UnsignedRetirementLegacy`]).
 //! - **Key revocation.** A `revoked` or `compromised` event voids the key
 //!   from its date, permanently. It is honoured even if unsigned or badly
 //!   signed (it only takes trust away) and listed as a warning; it is
@@ -127,17 +138,29 @@
 //!   and a maintainer is never a novice. The staleness engine then needs a
 //!   second, trusted sign-off ([`crate::review::engine`]).
 
+use std::collections::BTreeSet;
+
 use ed25519_dalek::VerifyingKey;
 
 use super::super::root::{
-    KeyEvent, KeyEventKind, KeySigner, ReviewRoot, Reviewer, ReviewerKey, Revocation, Role,
-    RosterEvent, RosterEventKind,
+    KeyEvent, KeyEventKind, KeySigner, LegacyConflict, ReviewRoot, Reviewer, ReviewerKey, Revocation,
+    Role, RosterEvent, RosterEventKind,
 };
 use super::super::scope::in_scope;
 use super::{
-    decode_public, event_signed_bytes, is_date, revocation_bytes, roster_event_bytes, verify_bytes,
-    CryptoError, UnverifiedReason, ALG,
+    decode_public, event_signed_bytes, is_date, key_event_bytes, revocation_bytes, roster_event_bytes,
+    verify_bytes, CryptoError, UnverifiedReason, ALG,
 };
+
+/// From this date a key retirement counts only when signed (GitHub #1249,
+/// maintainer 2026-11-05: "New retirements count only if signed by the
+/// key's owner, a founder or a maintainer"; "Old unsigned retirements keep
+/// counting, flagged"). The day after the direction, so a retirement the
+/// running kovan wrote unsigned on the day it was given still counts
+/// (flagged). An unsigned retirement backdated before it also still counts:
+/// it is flagged forever as [`HistoryProblem::UnsignedRetirementLegacy`],
+/// and git shows when it was written (Leak Before Break).
+pub const SIGNED_KEY_RETIREMENT_FROM: &str = "2026-11-06";
 
 /// Why the registry has no founding maintainer (then nothing is trusted).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -256,8 +279,11 @@ pub enum HistoryProblem {
     MissingCreated,
     /// A second `created` entry.
     CreatedNotFirst { index: usize },
-    /// A date is not `YYYY-MM-DD` (a malformed retirement or revocation
-    /// voids the key from the start).
+    /// A date is not `YYYY-MM-DD` (a malformed revocation voids the key
+    /// from the start; ~~so does a malformed retirement~~ **CORRECTED
+    /// 2026-11-05, GitHub #1249:** a retirement does only when undated, the
+    /// v1 form; any other malformed date is not an old retirement, so it
+    /// must be signed, and kovan cannot sign one).
     BadDate { index: usize, date: String },
     /// A date earlier than the entry before it.
     OutOfOrder { index: usize },
@@ -274,6 +300,15 @@ pub enum HistoryProblem {
     /// The key has both a history and v1 legacy fields: the history is used
     /// and the legacy fields are ignored.
     LegacyFieldsIgnored,
+    /// GitHub #1249: an **unsigned** retirement dated before
+    /// [`SIGNED_KEY_RETIREMENT_FROM`] (or undated, from v1). It still
+    /// counts, as it always did, and is shown forever.
+    UnsignedRetirementLegacy { index: usize },
+    /// GitHub #1249: a retirement dated on or after
+    /// [`SIGNED_KEY_RETIREMENT_FROM`] that is unsigned, or not signed by the
+    /// key's owner, a founder or a maintainer active on its date: it has
+    /// **no effect** (the key stays active).
+    RetirementNoEffect { index: usize, problem: SignerProblem },
 }
 
 /// Why a key was void for a while.
@@ -618,8 +653,13 @@ pub fn check_append_date(k: &ReviewerKey, date: &str) -> Result<(), LifecycleErr
     Ok(())
 }
 
-/// Append a `retired` event (unsigned: retiring only takes trust away; no
-/// private key needed, so a lost key can be retired).
+/// Append an **unsigned** `retired` event. ~~Unsigned: retiring only takes
+/// trust away; no private key needed, so a lost key can be retired.~~
+/// **CORRECTED 2026-11-05 (GitHub #1249):** an unsigned retirement dated on
+/// or after [`SIGNED_KEY_RETIREMENT_FROM`] has no effect; kovan signs
+/// retirements with `keystore::UnlockedKey::retire_key` (by the owner, a
+/// founder or a maintainer, so a lost key is still retired by someone
+/// else). This stays for v1-era histories and tests.
 pub fn retire_key(k: &mut ReviewerKey, date: &str) -> Result<(), LifecycleError> {
     check_append_date(k, date)?;
     if open_retirement(k).is_some() {
@@ -646,113 +686,33 @@ impl Registry {
         let conflicts = root.migrate_key_history();
         let root = &root;
         let founder = founder_of(root);
-        let mut state: Vec<ReviewerTrust> = root
-            .reviewers
-            .iter()
-            .map(|r| ReviewerTrust {
-                id: r.id.clone(),
-                role: r.role,
-                scope: r.scope.clone(),
-                admission: Admission::NotAdmitted(AdmissionProblem::Unadmitted),
-                keys: r.keys.iter().enumerate().map(|(j, k)| initial_key(r, j, k)).collect(),
-                revocation: r.revoked.as_ref().map(|rv| RevocationTrust {
-                    date: rv.date.clone(),
-                    compromised_from: rv.compromised_from.clone(),
-                    by: rv.by.clone(),
-                    signed: Err(RevocationProblem::Signer(SignerProblem::Unsigned)),
-                }),
-                changes: Vec::new(),
-            })
-            .collect();
-        for c in &conflicts {
-            if let Some(k) = state
-                .iter_mut()
-                .find(|r| r.id == c.reviewer)
-                .and_then(|r| r.keys.iter_mut().find(|k| k.id == c.key))
-            {
-                k.history.push(HistoryProblem::LegacyFieldsIgnored);
-            }
-        }
-        let founder_idx = founder.as_ref().ok().and_then(|id| state.iter().position(|r| &r.id == id));
-        let events = root.code_review.as_ref().map_or(&[][..], |c| c.roster_events.as_slice());
-        let mut roster_problems: Vec<(usize, String, RosterProblem)>;
-        // A role change can take authority away, so the fixed point is not
-        // monotone in general; it is bounded (a well-formed history settles
-        // in a few rounds), and the last round's result stands.
+        let founder_idx = founder.as_ref().ok().and_then(|id| root.reviewers.iter().position(|r| &r.id == id));
+        // GitHub #1249: which new retirements have no effect depends on who
+        // could sign them, which depends on which keys are retired. Start
+        // with every retirement in effect, drop the ones that do not
+        // verify, and judge again until the set settles (bounded; the last
+        // round stands, as in the trust fixed point).
+        let mut ignored: BTreeSet<(usize, usize, usize)> = BTreeSet::new();
         let mut rounds = 0usize;
-        let cap = 8 + 2 * (state.len() + events.len());
         loop {
             rounds += 1;
-            let mut changed = false;
-            let (changes, problems) = replay_roster(events, &state);
-            for (r, c) in state.iter_mut().zip(changes) {
-                if r.changes != c {
-                    r.changes = c;
-                    changed = true;
-                }
-            }
-            roster_problems = problems;
-            for i in 0..state.len() {
-                if !state[i].is_admitted() {
-                    let res = if founder_idx == Some(i) {
-                        Ok(Admission::Founder)
-                    } else {
-                        try_admit(root, &state, i)
-                    };
-                    state[i].admission = match res {
-                        Ok(a) => {
-                            changed = true;
-                            a
-                        }
-                        Err(p) => Admission::NotAdmitted(p),
-                    };
-                }
-                for j in 0..state[i].keys.len() {
-                    if state[i].keys[j].status.is_trusted() || key_is_final(&state[i].keys[j]) {
-                        continue;
-                    }
-                    let res = if state[i].is_admitted() {
-                        try_key(root, &state, i, j, founder_idx == Some(i))
-                    } else {
-                        Err(KeyProblem::ReviewerNotAdmitted)
-                    };
-                    state[i].keys[j].status = match res {
-                        Ok(s) => {
-                            changed = true;
-                            s
-                        }
-                        Err(p) => KeyStatus::Untrusted(p),
-                    };
-                }
-            }
-            if !changed || rounds >= cap {
-                break;
-            }
-        }
-        // Every signed event on its own, so a tampered entry shows even
-        // when another one already made the key trusted.
-        let mut found = Vec::new();
-        for (i, r) in root.reviewers.iter().enumerate() {
-            for (j, k) in r.keys.iter().enumerate() {
-                for (index, ev) in k.history.iter().enumerate() {
-                    if let Some(Err(problem)) = check_event(root, &state, i, j, ev, founder_idx == Some(i)) {
-                        found.push((i, j, HistoryProblem::BadEventSignature { index, event: ev.event, problem }));
+            let (mut state, roster_problems) = judge(root, &conflicts, founder_idx, &ignored);
+            let verdicts = retirement_verdicts(root, &state, founder_idx);
+            let next: BTreeSet<(usize, usize, usize)> = verdicts
+                .iter()
+                .filter(|(_, v)| matches!(v, Err(HistoryProblem::RetirementNoEffect { .. })))
+                .map(|(at, _)| *at)
+                .collect();
+            if next == ignored || rounds >= 6 {
+                for ((i, j, _), v) in verdicts {
+                    if let Err(p) = v {
+                        state[i].keys[j].history.push(p);
                     }
                 }
+                return Registry { founder, reviewers: state, roster_problems };
             }
+            ignored = next;
         }
-        for (i, j, p) in found {
-            state[i].keys[j].history.push(p);
-        }
-        for i in 0..state.len() {
-            if let Some(rv) = &root.reviewers[i].revoked {
-                let signed = check_revocation(&state, i, rv);
-                if let Some(t) = state[i].revocation.as_mut() {
-                    t.signed = signed;
-                }
-            }
-        }
-        Registry { founder, reviewers: state, roster_problems }
     }
 
     /// The reviewer registered under `id`.
@@ -804,6 +764,201 @@ impl Registry {
     }
 }
 
+/// One judgement of every reviewer and key, with the retirements in
+/// `ignored` (reviewer, key, history index) left out of the void windows
+/// ([`Registry::build`]).
+fn judge(
+    root: &ReviewRoot,
+    conflicts: &[LegacyConflict],
+    founder_idx: Option<usize>,
+    ignored: &BTreeSet<(usize, usize, usize)>,
+) -> (Vec<ReviewerTrust>, Vec<(usize, String, RosterProblem)>) {
+    let mut state: Vec<ReviewerTrust> = root
+        .reviewers
+        .iter()
+        .enumerate()
+        .map(|(i, r)| ReviewerTrust {
+            id: r.id.clone(),
+            role: r.role,
+            scope: r.scope.clone(),
+            admission: Admission::NotAdmitted(AdmissionProblem::Unadmitted),
+            keys: r
+                .keys
+                .iter()
+                .enumerate()
+                .map(|(j, k)| {
+                    let skip: BTreeSet<usize> =
+                        ignored.iter().filter(|(a, b, _)| (*a, *b) == (i, j)).map(|(_, _, e)| *e).collect();
+                    initial_key(r, j, k, &skip)
+                })
+                .collect(),
+            revocation: r.revoked.as_ref().map(|rv| RevocationTrust {
+                date: rv.date.clone(),
+                compromised_from: rv.compromised_from.clone(),
+                by: rv.by.clone(),
+                signed: Err(RevocationProblem::Signer(SignerProblem::Unsigned)),
+            }),
+            changes: Vec::new(),
+        })
+        .collect();
+    for c in conflicts {
+        if let Some(k) = state
+            .iter_mut()
+            .find(|r| r.id == c.reviewer)
+            .and_then(|r| r.keys.iter_mut().find(|k| k.id == c.key))
+        {
+            k.history.push(HistoryProblem::LegacyFieldsIgnored);
+        }
+    }
+    let events = root.code_review.as_ref().map_or(&[][..], |c| c.roster_events.as_slice());
+    let mut roster_problems: Vec<(usize, String, RosterProblem)>;
+    // A role change can take authority away, so the fixed point is not
+    // monotone in general; it is bounded (a well-formed history settles
+    // in a few rounds), and the last round's result stands.
+    let mut rounds = 0usize;
+    let cap = 8 + 2 * (state.len() + events.len());
+    loop {
+        rounds += 1;
+        let mut changed = false;
+        let (changes, problems) = replay_roster(events, &state);
+        for (r, c) in state.iter_mut().zip(changes) {
+            if r.changes != c {
+                r.changes = c;
+                changed = true;
+            }
+        }
+        roster_problems = problems;
+        for i in 0..state.len() {
+            if !state[i].is_admitted() {
+                let res = if founder_idx == Some(i) {
+                    Ok(Admission::Founder)
+                } else {
+                    try_admit(root, &state, i)
+                };
+                state[i].admission = match res {
+                    Ok(a) => {
+                        changed = true;
+                        a
+                    }
+                    Err(p) => Admission::NotAdmitted(p),
+                };
+            }
+            for j in 0..state[i].keys.len() {
+                if state[i].keys[j].status.is_trusted() || key_is_final(&state[i].keys[j]) {
+                    continue;
+                }
+                let res = if state[i].is_admitted() {
+                    try_key(root, &state, i, j, founder_idx == Some(i))
+                } else {
+                    Err(KeyProblem::ReviewerNotAdmitted)
+                };
+                state[i].keys[j].status = match res {
+                    Ok(s) => {
+                        changed = true;
+                        s
+                    }
+                    Err(p) => KeyStatus::Untrusted(p),
+                };
+            }
+        }
+        if !changed || rounds >= cap {
+            break;
+        }
+    }
+    // Every signed event on its own, so a tampered entry shows even
+    // when another one already made the key trusted.
+    let mut found = Vec::new();
+    for (i, r) in root.reviewers.iter().enumerate() {
+        for (j, k) in r.keys.iter().enumerate() {
+            for (index, ev) in k.history.iter().enumerate() {
+                if let Some(Err(problem)) = check_event(root, &state, i, j, ev, founder_idx == Some(i)) {
+                    found.push((i, j, HistoryProblem::BadEventSignature { index, event: ev.event, problem }));
+                }
+            }
+        }
+    }
+    for (i, j, p) in found {
+        state[i].keys[j].history.push(p);
+    }
+    for i in 0..state.len() {
+        if let Some(rv) = &root.reviewers[i].revoked {
+            let signed = check_revocation(&state, i, rv);
+            if let Some(t) = state[i].revocation.as_mut() {
+                t.signed = signed;
+            }
+        }
+    }
+    (state, roster_problems)
+}
+
+/// Whether a retirement dated `date` is from before signed retirements
+/// ([`SIGNED_KEY_RETIREMENT_FROM`]): a date before it, or the empty date a
+/// v1 `retired` field migrates to.
+pub fn retirement_is_legacy(date: &str) -> bool {
+    date.is_empty() || (is_date(date) && date < SIGNED_KEY_RETIREMENT_FROM)
+}
+
+/// The verdict on every `retired` event (GitHub #1249; module doc), keyed
+/// by (reviewer, key, history index): `Ok` when it counts with nothing to
+/// show, else the history problem to show (a
+/// [`HistoryProblem::RetirementNoEffect`] is the one that does not count).
+fn retirement_verdicts(
+    root: &ReviewRoot,
+    state: &[ReviewerTrust],
+    founder_idx: Option<usize>,
+) -> Vec<((usize, usize, usize), Result<(), HistoryProblem>)> {
+    let mut out = Vec::new();
+    for (i, r) in root.reviewers.iter().enumerate() {
+        for (j, k) in r.keys.iter().enumerate() {
+            for (index, e) in k.history.iter().enumerate() {
+                if e.event != KeyEventKind::Retired {
+                    continue;
+                }
+                let signed = check_retirement(root, state, i, j, e, founder_idx);
+                let v = match (retirement_is_legacy(&e.date), signed) {
+                    (_, Ok(_)) => Ok(()),
+                    (true, Err(SignerProblem::Unsigned)) => Err(HistoryProblem::UnsignedRetirementLegacy { index }),
+                    (true, Err(problem)) => Err(HistoryProblem::BadEventSignature { index, event: e.event, problem }),
+                    (false, Err(problem)) => Err(HistoryProblem::RetirementNoEffect { index, problem }),
+                };
+                out.push(((i, j, index), v));
+            }
+        }
+    }
+    out
+}
+
+/// Who signed retirement `e` of key `j` of reviewer `i`: the key's owner
+/// (any trusted key of theirs, the retiring one included), the founder, or
+/// a maintainer, active and not revoked on its date (GitHub #1249).
+fn check_retirement(
+    root: &ReviewRoot,
+    state: &[ReviewerTrust],
+    i: usize,
+    j: usize,
+    e: &KeyEvent,
+    founder_idx: Option<usize>,
+) -> Result<(String, String), SignerProblem> {
+    let (Some(sg), Some(sig)) = (&e.signer, &e.signature) else {
+        return Err(SignerProblem::Unsigned);
+    };
+    let r = &root.reviewers[i];
+    let msg = key_event_bytes(&r.id, &r.keys[j], e, "", None);
+    let mut c = maintainers(state, None, &e.date);
+    for x in std::iter::once(i).chain(founder_idx) {
+        if !c.contains(&x) {
+            c.push(x);
+        }
+    }
+    // The retiring key signs its own retirement while still active: its
+    // own window does not count against it.
+    let mut st = state.to_vec();
+    st[i].keys[j]
+        .windows
+        .retain(|w| !(w.kind == InactiveKind::Retired && w.from.as_deref() == Some(e.date.as_str())));
+    find_signer(&st, &c, sg, sig, &msg, Some(&e.date), &e.date)
+}
+
 fn founder_of(root: &ReviewRoot) -> Result<String, FounderProblem> {
     let id = root
         .code_review
@@ -837,7 +992,7 @@ fn key_is_final(k: &KeyTrust) -> bool {
     )
 }
 
-fn initial_key(r: &Reviewer, j: usize, k: &ReviewerKey) -> KeyTrust {
+fn initial_key(r: &Reviewer, j: usize, k: &ReviewerKey, skip: &BTreeSet<usize>) -> KeyTrust {
     let public = decode_public(&k.public);
     let status = if k.alg != ALG {
         KeyStatus::Untrusted(KeyProblem::UnsupportedAlgorithm(k.alg.clone()))
@@ -850,7 +1005,7 @@ fn initial_key(r: &Reviewer, j: usize, k: &ReviewerKey) -> KeyTrust {
     } else {
         KeyStatus::Untrusted(KeyProblem::ReviewerNotAdmitted)
     };
-    let (windows, history) = replay(r, j, k, public.as_ref().ok());
+    let (windows, history) = replay(r, j, k, public.as_ref().ok(), skip);
     KeyTrust {
         id: k.id.clone(),
         reset: k.history.iter().any(|e| e.event == KeyEventKind::Reset),
@@ -863,12 +1018,15 @@ fn initial_key(r: &Reviewer, j: usize, k: &ReviewerKey) -> KeyTrust {
 
 /// Replay the history for the void windows and the structural problems.
 /// `unretired` is verified here (it is signed by the key itself, so it needs
-/// no trust from anyone else).
+/// no trust from anyone else). The `retired` entries at the indices in
+/// `skip` have no effect (GitHub #1249), and neither has the `unretired`
+/// that ends one.
 fn replay(
     r: &Reviewer,
     j: usize,
     k: &ReviewerKey,
     public: Option<&VerifyingKey>,
+    skip: &BTreeSet<usize>,
 ) -> (Vec<Window>, Vec<HistoryProblem>) {
     let mut windows = Vec::new();
     let mut problems = Vec::new();
@@ -877,6 +1035,7 @@ fn replay(
     }
     let mut prev: Option<&str> = None;
     let mut open: Option<Option<String>> = None;
+    let mut skipped_open = false;
     for (index, e) in k.history.iter().enumerate() {
         if index > 0 && e.event == KeyEventKind::Created {
             problems.push(HistoryProblem::CreatedNotFirst { index });
@@ -897,7 +1056,10 @@ fn replay(
             prev = Some(&e.date);
         }
         match e.event {
+            KeyEventKind::Retired if skip.contains(&index) => skipped_open = open.is_none(),
+            KeyEventKind::Unretired if open.is_none() && skipped_open => skipped_open = false,
             KeyEventKind::Retired => {
+                skipped_open = false;
                 if open.is_some() {
                     problems.push(HistoryProblem::RetiredWhileRetired { index });
                 } else {

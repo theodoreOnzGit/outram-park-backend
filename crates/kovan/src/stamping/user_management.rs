@@ -20,7 +20,9 @@
 //! **Nothing here invents a trust rule.** Every status is read from the
 //! #762 [`Registry`]; every action is a registry signature
 //! (`UnlockedKey::{admit, endorse, unretire, revoke, revoke_key,
-//! sign_roster_event}`, or the unsigned [`retire_key`]) written by the
+//! sign_roster_event, retire_key}`; ~~or the unsigned `registry::retire_key`~~
+//! **CORRECTED 2026-11-05 (GitHub #1249):** a key retirement is signed too,
+//! by the key's owner, a founder or a maintainer) written by the
 //! `kovan_common::review::root_append` text appenders, which keep every
 //! byte and read the result back.
 //!
@@ -51,15 +53,17 @@
 //! are signed by the **founder** only; the separation attestation by the
 //! reviewer alone.
 //!
-//! **The two key pathways, founder-only (#1211):** (a) *validate an
-//! existing key*: [`UserAction::Admit`], the existing admission flow, now
-//! refused unless the signing key is the founder's ([`founder_signer`]);
-//! (b) *issue a validated keyfile*: [`issue::issue_keyfile`] generates a key
-//! pair for another person, admits it in the same write and saves it
-//! encrypted under a passphrase the founder types, to hand over. ~~Any
-//! admitted maintainer admits~~ **CORRECTED 2026-11-04**: kovan writes new
-//! admissions founder-signed only; an admission already signed by another
-//! maintainer still verifies and counts (the registry is unchanged).
+//! **The two key pathways (#1211):** (a) *validate an existing key*:
+//! [`UserAction::Admit`], the existing admission flow; (b) *issue a
+//! validated keyfile*: [`issue::issue_keyfile`] generates a key pair for
+//! another person, admits it in the same write and saves it encrypted under
+//! a passphrase the signer types, to hand over. ~~Any admitted maintainer
+//! admits~~ **CORRECTED 2026-11-04**: kovan writes new admissions
+//! founder-signed only. ~~Founder-only~~ **CORRECTED AGAIN 2026-11-05
+//! (GitHub #1249, maintainer: "founder and other maintainers should be able
+//! to validate reviewers"):** both pathways are open to any admitted
+//! maintainer (a founder is one), [`maintainer_signer`]. Organisation
+//! records and their retirements stay founder-only ([`founder_signer`]).
 //!
 //! **No lag** (root `CLAUDE.md`, HARD RULE): loading (git facts, the
 //! engine) and acting (the KDF, signing, the write) run on [`Worker`]s;
@@ -75,7 +79,7 @@ use kovan_common::review::scope::in_scope;
 use kovan_common::review::signed_at::{date_of, now_local};
 use kovan_common::review::signing::keystore::{fingerprint, Keystore, UnlockedKey};
 use kovan_common::review::signing::registry::{
-    retire_key, Admission, AdmissionProblem, FounderProblem, HistoryProblem, InactiveKind, KeyProblem,
+    Admission, AdmissionProblem, FounderProblem, HistoryProblem, InactiveKind, KeyProblem,
     KeyStatus, KeyTrust, Registry, ReviewerTrust, RosterChange, RosterProblem, SignerProblem, Warning,
 };
 use kovan_common::review::signing::session::{with_session_key, SharedKeySession};
@@ -183,6 +187,13 @@ fn admission_problem_text(p: &AdmissionProblem) -> String {
 
 fn history_problem_text(p: &HistoryProblem) -> String {
     match p {
+        HistoryProblem::UnsignedRetirementLegacy { index } => {
+            format!("entry {index}: unsigned retirement from before signed retirements (still counts; shown forever)")
+        }
+        HistoryProblem::RetirementNoEffect { index, problem } => format!(
+            "entry {index}: retirement has NO effect (the key stays active): {}; it needs the owner's, a founder's or a maintainer's signature",
+            signer_text(problem)
+        ),
         HistoryProblem::MissingCreated => "history does not start with `created`".into(),
         HistoryProblem::CreatedNotFirst { index } => format!("entry {index}: a second `created`"),
         HistoryProblem::BadDate { index, date } => format!("entry {index}: bad date {date:?}"),
@@ -592,7 +603,7 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
     }
 }
 
-/// What the tab can sign (or, for retirement, write unsigned).
+/// What the tab can sign (~~or, for retirement, write unsigned~~ every action is signed since GitHub #1249).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserAction {
     /// Admit a registered reviewer with a role (and scope, for a
@@ -601,7 +612,8 @@ pub enum UserAction {
     Admit { reviewer: String, role: Role, scope: Vec<String>, novice: bool },
     /// Endorse a reviewer's new key with another of their own trusted keys.
     Endorse { reviewer: String, key: String },
-    /// Retire a key (unsigned: it only takes trust away).
+    /// Retire a key, signed by its owner, a founder or a maintainer
+    /// (GitHub #1249; ~~unsigned: it only takes trust away~~).
     RetireKey { reviewer: String, key: String },
     /// Un-retire a key: signed by that very key.
     UnretireKey { reviewer: String, key: String },
@@ -720,8 +732,9 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
                 need(Err("A maintainer is never a novice.".into()));
             }
             // ~~maintainer_signer~~ (GitHub #1211): validating a key is the
-            // founder's alone.
-            need(founder_signer(&registry, signer, date));
+            // founder's alone. ~~founder_signer~~ CORRECTED 2026-11-05
+            // (GitHub #1249): any admitted maintainer validates a key.
+            need(maintainer_signer(&registry, signer, date));
             match target_of(reviewer) {
                 None => need(Err(format!("{reviewer} is not registered: they register their key from a Stamp first."))),
                 Some(t) => {
@@ -755,9 +768,15 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
             }
         }
         UserAction::RetireKey { reviewer, key } => {
-            if signer.0 != reviewer {
+            // Signed (GitHub #1249): the owner with any trusted, active key
+            // of theirs, or a founder or maintainer.
+            if signer.0 == reviewer {
+                if let Some(r) = target_of(reviewer) {
+                    need(own_key_active(r, signer.1, date));
+                }
+            } else {
                 need(maintainer_signer(&registry, signer, date).map_err(|_| {
-                    format!("Only {reviewer} or an admitted maintainer retires this key.")
+                    format!("Only {reviewer}, a founder or an admitted maintainer retires this key.")
                 }));
             }
             match key_of(reviewer, key) {
@@ -957,9 +976,9 @@ pub fn apply_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &
         }
         UserAction::RetireKey { reviewer, key: kid } => {
             let mut k = stored_key(reviewer, kid)?;
-            retire_key(&mut k, date).map_err(|e| err(&e))?;
+            key.retire_key(reviewer, &mut k, date).map_err(|e| err(&e))?;
             let t = append_key_event(&text, reviewer, kid, k.history.last().ok_or("no event")?).map_err(|e| err(&e))?;
-            (t, format!("Retired {reviewer}'s key {kid} from {date} (unsigned: retiring only takes trust away)."))
+            (t, format!("Retired {reviewer}'s key {kid} from {date}, signed with your key {}.", key.key_id()))
         }
         UserAction::UnretireKey { reviewer, key: kid } => {
             let mut k = stored_key(reviewer, kid)?;
@@ -1337,6 +1356,22 @@ impl UserPanel {
         }
     }
 
+    /// Whether the signing key is an admitted maintainer's now, a founder
+    /// included (GitHub #1249: who validates keys and issues keyfiles); the
+    /// action's own check ([`maintainer_signer`]) is the rule, this only
+    /// opens the sections.
+    pub fn is_maintainer(&self) -> bool {
+        match (self.roster(), self.key()) {
+            (Some(ro), Some(k)) => {
+                k.registered
+                    && ro.reviewer(&k.reviewer).is_some_and(|r| {
+                        r.role == Role::Maintainer && !r.admitted.starts_with("not admitted")
+                    })
+            }
+            _ => false,
+        }
+    }
+
     /// Start the attestation form from what the root records for the
     /// signing reviewer ([`prefill_attestation`]); fields already typed are
     /// kept.
@@ -1378,9 +1413,9 @@ impl UserPanel {
     }
 
     /// What stops "Issue keyfile" now (empty: the button is enabled): the
-    /// form's own checks, the founder-only and registry checks
-    /// ([`issue::issue_problems`]) and the founder's passphrase while the
-    /// session is locked.
+    /// form's own checks, the maintainer-only (GitHub #1249; ~~founder-only~~)
+    /// and registry checks ([`issue::issue_problems`]) and the signer's
+    /// passphrase while the session is locked.
     pub fn issue_problems(&self) -> Vec<String> {
         let Some(Ok(l)) = &self.data else {
             return vec!["Still reading kovan_root.toml.".into()];
@@ -1392,7 +1427,7 @@ impl UserPanel {
             p.push("This key is not registered in kovan_root.toml.".into());
         }
         if self.passphrase.is_empty() && !self.unlocked() {
-            p.push("Type your own (the founder's) passphrase (asked once per session).".into());
+            p.push("Type your own (the signing maintainer's) passphrase (asked once per session).".into());
         }
         p
     }
