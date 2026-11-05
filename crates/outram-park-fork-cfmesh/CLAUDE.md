@@ -108,3 +108,11 @@ written in both crates (this one builds dependency-free); change one, change
 the other. Comparison and recommendation: the gh:#1240 section of
 `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 Changing the default needs the maintainer.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

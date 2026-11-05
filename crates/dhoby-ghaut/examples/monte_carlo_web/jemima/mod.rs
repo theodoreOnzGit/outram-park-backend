@@ -24,7 +24,7 @@ use outram_mc_libs::material::material::Material;
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::vv::jemima as model;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Jemima;
 
 /// The three tapes, `(label shown while loading, file)`, in
@@ -147,7 +147,7 @@ impl McRung for Jemima {
         crate::keff::five_route_reference(
             "jemima",
             "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-10-15, at 093d8590cf",
-            crate::route1_label!("32 seeds x 5000 x [40+120]"),
+            crate::keff::ROUTE1_LABEL_32X5000,
             5000.0 * 120.0,
             ("ICSBEP IEU-MET-FAST-002 benchmark k, as tabulated by Mosteller (LA-UR-10-06230) and van der Marck (2006)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )

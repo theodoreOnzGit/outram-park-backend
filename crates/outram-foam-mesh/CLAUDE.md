@@ -67,3 +67,11 @@ class's rules). `outram-park-fork-cfmesh` calls it (`DualKind::CellCentre`)
 on tetrahedral meshes, and keeps its own copy of the sector walk for its
 median dual: change both together. This crate must not depend on
 `outram-park-fork-cfmesh` (that crate depends on this one, optionally).
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

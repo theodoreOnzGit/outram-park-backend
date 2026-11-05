@@ -68,3 +68,11 @@ against `openmc --plot`
 `render_material_slice` draws a material-coloured slice with a legend and cm
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+Maintainer direction: macros make code harder to read and review. Do not
+write new `macro_rules!` or proc macros in this crate; use functions,
+generics, enums and plain `match` arms. Using std and dependency macros
+(`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
+writing macros".

@@ -59,7 +59,7 @@ use crate::linalg::{Matrix, QrDecomposition};
 // trait method, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
-use crate::zip::zip_flat;
+use crate::zip::zip2;
 
 /// `GSL_DBL_EPSILON` (`gsl_machine.h:17`). Identical to [`f64::EPSILON`];
 /// spelled out so the port reads against upstream.
@@ -508,7 +508,7 @@ impl ChebSeries {
         g.push(0.0);
         let mut sum = 0.0;
         let mut fac = 1.0;
-        for (i, (&c_lo, &c_hi)) in (1..).zip(zip_flat!(self.c.iter(), self.c.iter().skip(2))) {
+        for (i, (&c_lo, &c_hi)) in (1..).zip(zip2(self.c.iter(), self.c.iter().skip(2))) {
             let g_i = con * (c_lo - c_hi) / (i as f64);
             sum += fac * g_i;
             fac = -fac;
@@ -645,7 +645,7 @@ impl ChebSeries {
         // rest of the crate evaluates with -- see `cheb_slice::basis_into`.
         let mut design = Matrix::zeros(m, n_coeff)?;
         let mut row = vec![0.0_f64; n_coeff];
-        for (i, (&x, &y)) in zip_flat!(xs.iter(), ys.iter()).enumerate() {
+        for (i, (&x, &y)) in zip2(xs.iter(), ys.iter()).enumerate() {
             if !(x >= a && x <= b) || !y.is_finite() {
                 // Also catches NaN, which compares false against everything.
                 return Err(PetirError::Domain);

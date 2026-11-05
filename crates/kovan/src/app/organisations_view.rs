@@ -76,15 +76,16 @@ pub(crate) fn sections(ui: &mut egui::Ui, p: &mut UserPanel) {
         .show(ui, |ui| {
             ui.label(
                 "Rung 5 is independent V&V by an organisation technically and managerially \
-                 separate from the developing one (NUREG/BR-0167 \u{a7}3.1). The founder signs \
+                 separate from the developing one (NUREG/BR-0167 \u{a7}3.1). A founder signs \
                  which organisation develops the code and which each reviewer belongs to; the \
                  independent reviewer signs that the two are separate, naming a public GitHub \
                  issue as the audit record. Kovan checks the link's form only: it never fetches \
                  it. Removal is retire: the record stays, marked retired.",
             );
-            ui.weak(match &overview.founder {
-                Some(f) => format!("Founder: {f}"),
-                None => "No founder is declared: no organisation record can be signed.".into(),
+            ui.weak(if overview.founders.is_empty() {
+                "No founder is in standing: no organisation record can be signed.".to_string()
+            } else {
+                format!("Founders (any one signs): {}", overview.founders.join(", "))
             });
             if !overview.warnings.is_empty() {
                 ui.colored_label(

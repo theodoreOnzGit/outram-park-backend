@@ -567,21 +567,10 @@ pub struct KeffRun {
     pub diagnostics: Vec<(MCDiagnostic, MCDiagnosticResult)>,
 }
 
-/// The first result of variant `$v`, or the "not requested" error.
-macro_rules! first_result {
-    ($self:ident, $v:ident, $how:expr) => {
-        $self
-            .diagnostics
-            .iter()
-            .find_map(|(_, r)| match r {
-                MCDiagnosticResult::$v(x) => Some(x),
-                _ => None,
-            })
-            .ok_or(DiagnosticError::NotRequested {
-                variant: stringify!($v),
-                how: $how,
-            })
-    };
+/// The "not requested" error for diagnostic `variant`, with the hint `how`
+/// on how to ask for it.
+fn not_requested(variant: &'static str, how: &'static str) -> DiagnosticError {
+    DiagnosticError::NotRequested { variant, how }
 }
 
 impl KeffRun {
@@ -595,11 +584,16 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn six_factors(&self) -> Result<&SixFactors, DiagnosticError> {
-        first_result!(
-            self,
-            SixFactors,
-            "Diagnostics::default(), or MCDiagnostic::six_factors(..)"
-        )
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::SixFactors(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested(
+                "SixFactors",
+                "Diagnostics::default(), or MCDiagnostic::six_factors(..)",
+            ))
     }
 
     /// The six factors split at exactly these edges.
@@ -651,11 +645,16 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn run_health(&self) -> Result<&RunHealth, DiagnosticError> {
-        first_result!(
-            self,
-            RunHealth,
-            "Diagnostics::default(), or MCDiagnostic::run_health()"
-        )
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::RunHealth(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested(
+                "RunHealth",
+                "Diagnostics::default(), or MCDiagnostic::run_health()",
+            ))
     }
 
     /// The neutron balance (the first requested).
@@ -663,11 +662,16 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn neutron_balance(&self) -> Result<&NeutronBalance, DiagnosticError> {
-        first_result!(
-            self,
-            NeutronBalance,
-            "Diagnostics::default(), or MCDiagnostic::neutron_balance(..)"
-        )
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::NeutronBalance(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested(
+                "NeutronBalance",
+                "Diagnostics::default(), or MCDiagnostic::neutron_balance(..)",
+            ))
     }
 
     /// EALF.
@@ -675,11 +679,16 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn ealf(&self) -> Result<&Ealf, DiagnosticError> {
-        first_result!(
-            self,
-            Ealf,
-            "Diagnostics::default(), or MCDiagnostic::ealf()"
-        )
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::Ealf(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested(
+                "Ealf",
+                "Diagnostics::default(), or MCDiagnostic::ealf()",
+            ))
     }
 
     /// Leakage (the first requested).
@@ -687,11 +696,16 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn leakage(&self) -> Result<&Leakage, DiagnosticError> {
-        first_result!(
-            self,
-            Leakage,
-            "Diagnostics::default(), or MCDiagnostic::leakage(..)"
-        )
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::Leakage(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested(
+                "Leakage",
+                "Diagnostics::default(), or MCDiagnostic::leakage(..)",
+            ))
     }
 
     /// Kinetics (β_eff, Λ by IFP).
@@ -699,11 +713,16 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn kinetics(&self) -> Result<&Kinetics, DiagnosticError> {
-        first_result!(
-            self,
-            Kinetics,
-            "Diagnostics::reactor_physics(), or MCDiagnostic::kinetics(..)"
-        )
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::Kinetics(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested(
+                "Kinetics",
+                "Diagnostics::reactor_physics(), or MCDiagnostic::kinetics(..)",
+            ))
     }
 
     /// The fission map (the first requested).
@@ -711,7 +730,16 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn fission_map(&self) -> Result<&MeshMap, DiagnosticError> {
-        first_result!(self, FissionMap, "Diagnostics::reactor_physics()")
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::FissionMap(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested(
+                "FissionMap",
+                "Diagnostics::reactor_physics()",
+            ))
     }
 
     /// The flux map (the first requested).
@@ -719,7 +747,13 @@ impl KeffRun {
     /// # Errors
     /// Not requested.
     pub fn flux_map(&self) -> Result<&MeshMap, DiagnosticError> {
-        first_result!(self, FluxMap, "Diagnostics::reactor_physics()")
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::FluxMap(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(not_requested("FluxMap", "Diagnostics::reactor_physics()"))
     }
 }
 

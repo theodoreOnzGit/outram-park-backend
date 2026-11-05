@@ -358,9 +358,12 @@ python3 -m http.server -d crates/dhoby-ghaut/web/monte_carlo/dist 8000
 Both are written down once, in this crate's
 [`CLAUDE.md`](CLAUDE.md#web-demos-how-a-new-track-app-and-a-new-rung-plug-in).
 In short: a **Monte Carlo rung** is a directory
-`examples/monte_carlo_web/<rung>/` implementing `rungs::McRung`, plus two
+`examples/monte_carlo_web/<rung>/` implementing `rungs::McRung`, plus ~~two
 lines in `main.rs` (a plain `mod <rung>;`, never declared by the macro, and
-its entry in the `rung_table!`), plus its lesson page; a **new track's
+its entry in the `rung_table!`)~~ **CHANGED 2026-11-05:** a plain `mod <rung>;`
+line in `main.rs` and, in `examples/monte_carlo_web/table.rs` (the
+`rung_table!` macro is gone), one enum variant and one `match` arm per
+dispatch method, plus its lesson page; a **new track's
 demo** is a new example built on the library's `dhoby_ghaut::web_demo`
 (main view and zoom buttons, folding panel, worker/thread plumbing, loading
 card, rung table and lesson links), whose module docs walk through it.

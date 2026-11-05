@@ -46,7 +46,7 @@ use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::vv::jemima;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Natu;
 
 /// Half-length of the bar along x, cm.

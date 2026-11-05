@@ -70,43 +70,91 @@ pub trait Reducible: MpiPrimitive {
     fn combine(op: ReduceOp, a: Self, b: Self) -> Self;
 }
 
-macro_rules! impl_reducible {
-    ($ty:ty) => {
-        impl Reducible for $ty {
-            fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
-                match op {
-                    ReduceOp::Sum => a + b,
-                    ReduceOp::Product => a * b,
-                    ReduceOp::Max => {
-                        if a > b {
-                            a
-                        } else {
-                            b
-                        }
-                    }
-                    ReduceOp::Min => {
-                        if a < b {
-                            a
-                        } else {
-                            b
-                        }
-                    }
-                }
+/// Shared reduction body for every numeric primitive (same arithmetic the
+/// per-type impls below delegate to, so overflow behaviour is unchanged).
+fn combine_ordered<T>(op: ReduceOp, a: T, b: T) -> T
+where
+    T: PartialOrd + core::ops::Add<Output = T> + core::ops::Mul<Output = T>,
+{
+    match op {
+        ReduceOp::Sum => a + b,
+        ReduceOp::Product => a * b,
+        ReduceOp::Max => {
+            if a > b {
+                a
+            } else {
+                b
             }
         }
-    };
+        ReduceOp::Min => {
+            if a < b {
+                a
+            } else {
+                b
+            }
+        }
+    }
 }
 
-impl_reducible!(i8);
-impl_reducible!(i16);
-impl_reducible!(i32);
-impl_reducible!(i64);
-impl_reducible!(u8);
-impl_reducible!(u16);
-impl_reducible!(u32);
-impl_reducible!(u64);
-impl_reducible!(f32);
-impl_reducible!(f64);
+impl Reducible for i8 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for i16 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for i32 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for i64 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u8 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u16 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u32 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u64 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for f32 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for f64 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
 
 impl Communicator {
     /// Validate a `root` rank against the communicator size.

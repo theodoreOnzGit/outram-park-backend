@@ -56,7 +56,7 @@ use super::super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::super::root::{
     ReviewRoot, DevelopingOrganisation, ReviewerOrganisation, SeparationAttestation,
     KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey, RosterEvent,
-    OrganisationRetirement,
+    OrganisationRetirement, FounderBallot, FounderChange, FounderVote,
 };
 use super::super::signed_at::{now_local, parse_rfc3339};
 use super::super::types::{reviewer_id_kind, FieldError};
@@ -64,7 +64,7 @@ use super::registry::{check_append_date, open_retirement, LifecycleError};
 use super::super::ivv::{parse_audit_record, AuditRecordProblem};
 use super::{
     developing_organisation_bytes, reviewer_organisation_bytes, separation_attestation_bytes,
-    organisation_retirement_bytes, architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
+    organisation_retirement_bytes, founder_ballot_bytes, founder_change_bytes, founder_vote_bytes, architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
     revocation_bytes, roster_event_bytes, signed_bytes, Signature, ALG,
 };
 
@@ -639,6 +639,68 @@ impl UnlockedKey {
     ) -> Result<(), SignError> {
         let kind = if compromised { KeyEventKind::Compromised } else { KeyEventKind::Revoked };
         self.sign_event(owner, k, kind, date, "", None)
+    }
+
+    /// Retire `owner`'s key `k` from `date`, **signed** (GitHub #1249):
+    /// appends a `retired` event signed by this key over
+    /// [`key_event_bytes`]. It counts only if this key is the owner's, a
+    /// founder's or a maintainer's, trusted and active on `date` (checked
+    /// by the registry, not here); an unsigned retirement dated from
+    /// [`super::registry::SIGNED_KEY_RETIREMENT_FROM`] has no effect.
+    /// Refuses a bad or backwards date. It does not refuse a key whose
+    /// history already holds an open retirement: that one may be an
+    /// unsigned retirement with no effect, and only the registry knows
+    /// (the caller checks `KeyTrust::is_retired`).
+    pub fn retire_key(&self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> {
+        self.sign_event(owner, k, KeyEventKind::Retired, date, "", None)
+    }
+
+    /// Sign a `[[code_review.founder_change]]` (GitHub #1248): sets
+    /// `signer` to this key and `signature` over [`founder_change_bytes`].
+    /// It counts only if this key's reviewer is a founder in standing just
+    /// before it, trusted and active on `e.date` (checked by the registry).
+    /// Refuses a malformed date.
+    pub fn sign_founder_change(&self, e: &mut FounderChange) -> Result<(), SignError> {
+        if !is_date(&e.date) {
+            return Err(SignError::BadDate(e.date.clone()));
+        }
+        e.signer = Some(self.as_signer());
+        e.signature = Some(self.sign(&founder_change_bytes(e)));
+        Ok(())
+    }
+
+    /// Open a `[[code_review.founder_ballot]]` (GitHub #1248): sets
+    /// `signer` and `signature` over [`founder_ballot_bytes`]. It counts
+    /// only if this key's reviewer is a maintainer with an active key on
+    /// `b.opened` and no founder has one (checked by the registry).
+    /// Refuses a malformed date and an empty id.
+    pub fn sign_founder_ballot(&self, b: &mut FounderBallot) -> Result<(), SignError> {
+        if !is_date(&b.opened) {
+            return Err(SignError::BadDate(b.opened.clone()));
+        }
+        if b.id.trim().is_empty() {
+            return Err(SignError::Missing("the ballot id"));
+        }
+        b.signer = Some(self.as_signer());
+        b.signature = Some(self.sign(&founder_ballot_bytes(b)));
+        Ok(())
+    }
+
+    /// Vote in `ballot` (GitHub #1248): sets `v.signer` and `v.signature`
+    /// over [`founder_vote_bytes`], bound to the ballot's signature.
+    /// Refuses a malformed date, a vote naming another ballot, and an
+    /// unsigned ballot (a vote in it could never count).
+    pub fn sign_founder_vote(&self, v: &mut FounderVote, ballot: &FounderBallot) -> Result<(), SignError> {
+        if !is_date(&v.date) {
+            return Err(SignError::BadDate(v.date.clone()));
+        }
+        if v.ballot != ballot.id {
+            return Err(SignError::Missing("the ballot this vote names"));
+        }
+        let bs = ballot.signature.as_deref().ok_or(SignError::Missing("the ballot's signature"))?;
+        v.signer = Some(self.as_signer());
+        v.signature = Some(self.sign(&founder_vote_bytes(v, bs)));
+        Ok(())
     }
 
     /// This key as the `signer` of a registry statement.

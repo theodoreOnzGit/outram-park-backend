@@ -175,6 +175,7 @@ pub fn fresh_root_text(
             developing_organisation: Vec::new(),
             roster_events: Vec::new(),
             organisation_retirements: Vec::new(),
+            ..Default::default()
         }),
         reviewers: Vec::new(),
         deleted_crates: Vec::new(),

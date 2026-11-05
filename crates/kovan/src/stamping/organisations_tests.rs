@@ -255,7 +255,8 @@ fn ivv_end_to_end_signs_records_stamps_and_judges() {
     // The founder's records, through the library. ~~"not a maintainer"~~
     // (#1211): only the founder signs them.
     let refused = add_developing_organisation(r.path(), &vk, DEV, None, &today()).unwrap_err();
-    assert!(refused.contains("not the founder"), "{refused}");
+    // GitHub #1248: ~~"not the founder"~~ "not a founder".
+    assert!(refused.contains("is not a founder"), "{refused}");
     add_developing_organisation(r.path(), &mk, DEV, None, &today()).unwrap();
     add_reviewer_organisation(r.path(), &mk, V, IVV, &today()).unwrap();
     assert!(r.read(ROOT_FILE).starts_with("# The workspace root"));
@@ -285,7 +286,7 @@ fn ivv_end_to_end_signs_records_stamps_and_judges() {
         .any(|e| e.contains("GitHub issue")));
     p.orgs.dev_name = "Another".into();
     let dev_problems = p.problems(&p.developing_action());
-    assert!(dev_problems.iter().any(|e| e.contains("Only the founder (github:")), "{dev_problems:?}");
+    assert!(dev_problems.iter().any(|e| e.contains("Only a founder (github:")), "{dev_problems:?}");
     assert!(!p.submit(p.attestation_action()));
     p.orgs.attestation.audit_record = URL.into();
     p.passphrase = "wrong passphrase".into();
@@ -612,7 +613,8 @@ fn register_second_maintainer(r: &Repo, store: &std::path::Path, mk: &UnlockedKe
 ///    panel), naming the founder;
 /// 2. the pre-#1211 record **still counts** (rung 5's developing
 ///    organisation in force is it, signature by `github:mai`), no warning,
-///    and the overview marks it: "not the founder: still counts";
+///    and the overview marks it: ~~"not the founder: still counts"~~
+///    "not a founder on <date>: still counts" (GitHub #1248);
 /// 3. retiring it is refused for `github:mai` and allowed for the founder;
 ///    after it, the record is still listed, marked retired "by github:… ✔",
 ///    offers no Retire button, no longer counts (nothing in force), a
@@ -636,8 +638,9 @@ fn founder_only_records_retire_and_old_non_founder_records_still_count() {
 
     // 1. New writes: founder only.
     let refused = add_developing_organisation(r.path(), &m2, DEV, None, &today()).unwrap_err();
-    assert!(refused.contains(&format!("Only the founder ({BY})")) && refused.contains("github:mai is not the founder"), "{refused}");
-    assert!(add_reviewer_organisation(r.path(), &m2, V, IVV, &today()).unwrap_err().contains("not the founder"));
+    // GitHub #1248: ~~"Only the founder"~~ any current founder.
+    assert!(refused.contains(&format!("Only a founder ({BY})")) && refused.contains("github:mai is not a founder"), "{refused}");
+    assert!(add_reviewer_organisation(r.path(), &m2, V, IVV, &today()).unwrap_err().contains("not a founder"));
 
     // 2. A record as kovan wrote it before #1211, by a non-founder maintainer.
     let mut old = DevelopingOrganisation { krate: None, name: DEV.into(), date: today(), signer: None, signature: None };
@@ -654,7 +657,8 @@ fn founder_only_records_retire_and_old_non_founder_records_still_count() {
     let o = overview(r.path()).unwrap();
     assert!(o.warnings.is_empty(), "{:?}", o.warnings);
     let note = o.developing[0].note.clone().unwrap();
-    assert!(note.contains("github:mai, not the founder: still counts"), "{note}");
+    // ~~"not the founder"~~ GitHub #1248: not a founder on its date.
+    assert!(note.contains("github:mai, not a founder on") && note.contains("still counts"), "{note}");
     let target = o.developing[0].retire.clone().expect("signed, not retired: retirable");
 
     // 3. Retire, through the panel.
@@ -663,7 +667,7 @@ fn founder_only_records_retire_and_old_non_founder_records_still_count() {
     let retire = UserAction::RetireOrganisation(target.clone());
     p.chosen = p.keys.iter().position(|k| k.reviewer == "github:mai").unwrap();
     p.passphrase = PASS.into();
-    assert!(p.problems(&retire).iter().any(|e| e.contains("Only the founder")), "{:?}", p.problems(&retire));
+    assert!(p.problems(&retire).iter().any(|e| e.contains("Only a founder")), "{:?}", p.problems(&retire));
     assert!(!p.submit(retire.clone()));
     p.chosen = p.keys.iter().position(|k| k.reviewer == BY).unwrap();
     assert_eq!(p.problems(&retire), Vec::<String>::new());
@@ -689,7 +693,7 @@ fn founder_only_records_retire_and_old_non_founder_records_still_count() {
         record: e.signature.unwrap(),
         name: IVV.into(),
     };
-    assert!(retire_organisation(r.path(), &m2, &rev, &today()).unwrap_err().contains("not the founder"));
+    assert!(retire_organisation(r.path(), &m2, &rev, &today()).unwrap_err().contains("not a founder"));
     retire_organisation(r.path(), &mk, &rev, &today()).unwrap();
     let root = ReviewRoot::parse(&r.read(ROOT_FILE)).unwrap();
     let reg = Registry::build(&root);
