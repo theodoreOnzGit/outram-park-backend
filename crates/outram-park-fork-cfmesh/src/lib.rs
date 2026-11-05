@@ -292,6 +292,7 @@ pub mod surface_engine;
 pub mod surface_mapper;
 pub mod surface_optimizer;
 pub mod tet;
+pub mod topology;
 pub mod volume_mesh;
 
 /// Bridge to the real `outram-foam-basic-lib` `PolyMesh` (feature
