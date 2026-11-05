@@ -50,7 +50,13 @@
 //! The prism stack of each wall face is 1:1 with that face; adjacent stacks
 //! share their side faces automatically (matched by [`from_cell_faces`]). The
 //! operation is a **repartition** of the same region, so it preserves the mesh
-//! volume exactly.
+//! volume ~~exactly~~. **CORRECTED 2026-11-05 (gh:#1270):** exactly when every
+//! patch a layer ends on is planar. A border point slides along the other
+//! patch's averaged normal plane; where that patch is not planar (the
+//! default dual's pipe ends spread 0.47 mm along the axis at h 5 mm), the
+//! end surface moves and the volume changes: −4.7e-7 relative on the
+//! Foam Studio pipe, one layer (cfMesh's route: +2.5e-7, all of it in the
+//! end patches; `boundary_layers::tests::diagnose_cfmesh_layer_on_the_foam_studio_pipe`).
 //!
 //! # v1 scope
 //!
@@ -292,7 +298,9 @@ pub(crate) enum LayerVertex {
 ///   pipe wall meets its inlet) moves along the sum of its layer faces' area
 ///   vectors with the component along the non-layer faces' unit normal
 ///   removed, so it **stays in the non-layer patch's plane** and that patch is
-///   only re-partitioned, never moved; its thickness is capped at 0.9 × its
+///   only re-partitioned, never moved (**CORRECTED 2026-11-05, gh:#1270:**
+///   when that patch is planar; on a non-planar one the point leaves its
+///   surface, see the module documentation); its thickness is capped at 0.9 × its
 ///   distance to the edge opposite it in each adjacent non-layer face
 ///   (upstream's "limit distances");
 /// - a point that touches **two** non-layer patches moves along the boundary

@@ -28,13 +28,13 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 | Status | Upstream lines | Share | Rows |
 |---|---:|---:|---:|
-| ported | ~~3,349~~ ~~11,115~~ 17,537 | ~~2.6 %~~ ~~8.6 %~~ 13.5 % | ~~6~~ ~~12~~ 21 |
+| ported | ~~3,349~~ ~~11,115~~ ~~17,537~~ 18,526 | ~~2.6 %~~ ~~8.6 %~~ ~~13.5 %~~ 14.3 % | ~~6~~ ~~12~~ ~~21~~ 22 |
 | partial | ~~54,119~~ ~~48,890~~ 47,494 | ~~41.7 %~~ ~~37.7 %~~ 36.6 % | ~~27~~ ~~25~~ 23 |
-| not ported | ~~49,628~~ ~~47,091~~ 42,065 | ~~38.3 %~~ ~~36.3 %~~ 32.4 % | ~~80~~ ~~76~~ 69 |
+| not ported | ~~49,628~~ ~~47,091~~ ~~42,065~~ 41,076 | ~~38.3 %~~ ~~36.3 %~~ ~~32.4 %~~ 31.7 % | ~~80~~ ~~76~~ ~~69~~ 68 |
 | not applicable | 22,642 | 17.5 % | 25 |
 | **total** | **129,738** | 100 % | 138 |
 
-**Updated 2026-11-05** after gh:#1255, #1256, #1260 and #1261, and again after gh:#1267/#1268 (these two tables count those items only; the octree track's gh:#1264–#1266 rows are updated in §2) (the struck-through numbers are the audit's; §5 has what moved). The `partial` lines overstate what is ported. They count each partly-ported unit whole: for example, the 4,441 lines of `polyMeshGenChecks` for 9 of its 34 function definitions.
+**Updated 2026-11-05** after gh:#1255, #1256, #1260 and #1261, and again after gh:#1267/#1268 and gh:#1270/#1271 (these two tables count those items only; the octree track's gh:#1264–#1266 rows are updated in §2) (the struck-through numbers are the audit's; §5 has what moved). The `partial` lines overstate what is ported. They count each partly-ported unit whole: for example, the 4,441 lines of `polyMeshGenChecks` for 9 of its 34 function definitions.
 
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
@@ -45,7 +45,7 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | E. Volume optimiser | ~~1,141~~ 3,599 | ~~5,244~~ 4,456 | ~~2,404~~ 734 | 798 |
 | F. Surface optimiser | 0 | 0 | 2,811 | 522 |
 | G. Surface tools | ~~2,208~~ 3,347 | 4,082 | ~~10,962~~ 9,823 | 969 |
-| H. Boundary layers | 0 | 9,395 | 3,261 | 0 |
+| H. Boundary layers | ~~0~~ 989 | 9,395 | ~~3,261~~ 2,272 | 0 |
 | I. Topology repair | ~~0~~ 5,283 | ~~1,396~~ 0 | ~~3,887~~ 0 | 0 |
 | J. triSurface tools, helper classes | ~~0~~ 425 | 0 | ~~7,639~~ 7,214 | 233 |
 | K. Anisotropic meshing | 0 | 0 | 2,559 | 0 |
@@ -186,9 +186,9 @@ _Subtotal: 18221 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `boundaryLayers/boundaryLayers` | 4229 | partial | `layers::layer_setup`, `layers::add_boundary_layers_adaptive_on_patches` | Ported: the per-patch border rules (slide in a non-layer patch's plane, along the edge between two, refuse >3 patches). Differs: the crate shrinks the wall points by a requested profile; upstream creates new vertices at half the local edge length and splits later (§2). Missing: `boundaryLayersCreateVertices`, `boundaryLayerCells`, `checkTopologyOfBndFaces`, `addWrapperLayer`. |
-| `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::build_layered_variable`, step 3 of `boundary_layer_optimisation` | Only "split each hair by the grading" on a one-cell layer. Missing: per-patch `nLayers` / `thicknessRatio` / `maxFirstLayerThickness`, `allowDiscontinuity`, the topological split of arbitrary layer cells (`refineBoundaryLayersCells`, `Faces`), `activateSpecialMode`, `pointsInBndLayer`. |
-| `boundaryLayers/detectBoundaryLayers` | 989 | not ported | — (layer columns known from construction) | Needed only for a mesh whose layers this crate did not build. |
+| `boundaryLayers/boundaryLayers` | 4229 | partial | `layers::layer_setup`, `layers::add_boundary_layers_adaptive_on_patches`; **`layers::boundary_layers::boundary_layers_add_layer` (2026-11-05, gh:#1270)** | Ported: the per-patch border rules; ~~missing `boundaryLayersCreateVertices`, `boundaryLayerCells`~~ **CORRECTED 2026-11-05 (gh:#1270):** the one-group creation route (`findPatchVertices`, `createNewVertex`, `createNewVertices(boolList)`, `createNewFacesAndCells`) is ported beside the crate's shrink. Missing: `findPatchesToBeTreatedTogether`, the patch-wise route (`createNewVertices(labelList)`, `createLayerCells`, `boundaryLayerCells.C`), `checkTopologyOfBndFaces`, `addWrapperLayer`, 2D, MPI. |
+| `boundaryLayers/refineBoundaryLayers` | 5166 | partial | `layers::refine_boundary_layers::refine_boundary_layers` (2026-11-05, gh:#1271); `layers::build_layered_variable` | ~~Only "split each hair by the grading"~~ **CORRECTED 2026-11-05 (gh:#1271):** the settings (global and per-patch `nLayers`, `thicknessRatio`, `maxFirstLayerThickness`, `allowDiscontinuity`), `analyseLayers` and `generateNewVertices` are ported, with the split of prism layer cells. Missing: `refineEdgeHexCell`, `refineCornerHexCell` and the general `refineBoundaryLayersFaces`/`Cells` (refused as `NotPorted`), `activateSpecialMode`, `pointsInBndLayer`, 2D, MPI. |
+| `boundaryLayers/detectBoundaryLayers` | 989 | ported (2026-11-05, gh:#1271) | `layers::refine_boundary_layers::detect_boundary_layers` | ~~not ported~~ Serial. |
 | `boundaryLayers/extrudeLayer` | 1915 | not ported | — |  |
 | `boundaryLayers/triangulateNonPlanarBaseFaces` | 357 | not ported | — |  |
 
@@ -744,3 +744,39 @@ decomposed.
 `checkInvalidConnectionsForVerticesCells` appends one copy of the point
 per group and relabels from the second copy on, so the first copy is
 never used.
+
+### Items 16 and 17 (gh:#1270, #1271), 2026-11-05
+
+New opt-in routes `layers::boundary_layers` and `layers::refine_boundary_layers`. No default
+changes; the four pins pass. They reuse `layer_setup` and `build_layered_variable` (through
+`build_layered_variable_with_columns`, the same code path), with no second copy of the column
+geometry. Results and methodology are in the gh:#1270 and gh:#1271 sections of
+`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+
+- **Item 16 (gh:#1270):** `boundary_layers_add_layer`, `BoundaryLayersControls`,
+  `LayerPoint`, `BoundaryLayersOutcome`.
+  - **Box:** every prediction held. One cell per wall face; columns 0.5 h, or 0.9 h/√2 at the
+    8 corners; the ends re-partitioned, not moved.
+  - **Pipe differential against `BackOffOnly`:** at every `PATCHNODE` the ratio is exactly
+    the crate's back-off factor (0.36), to 1e-15. cfMesh's unchecked layer inverts 56 cells
+    on the short pipe and 304 on the Foam Studio pipe.
+  - **Miss:** the volume moves by 2.5e-7 and −4.7e-7 on the Foam Studio pipe. It is located
+    in the non-planar end patches (0.47 mm spread on the default dual). The `layers` docs'
+    "preserves the mesh volume exactly" is corrected.
+- **Item 17 (gh:#1271):** `detect_boundary_layers` (ported whole) and
+  `refine_boundary_layers` (settings, `analyseLayers`, `generateNewVertices`, and the prism
+  split).
+  - **Split points against `build_layered_variable`:** within 4.6e-15 of the column length,
+    and 97 % bit for bit.
+  - **Detect:** finds exactly the layer cells.
+  - **Misses, recorded:**
+    - the inverted cells come from the input;
+    - the tolerance of the first-layer cap is 3e-12, from cancellation;
+    - the box forms 3 groups, not 1, and refines rather than being refused.
+- **Not ported:** the patch-wise `boundaryLayers` route; `refineEdgeHexCell` and
+  `refineCornerHexCell` (refused as `NotPorted`); the special mode.
+
+**Upstream quirks ported as written:**
+- `createNewVertex` sets `dist = 0.9 dst` when `dst < dist`;
+- a two-patch corner moves half the edge whatever `blHeightFactor` is;
+- `nDistinctLayers` counts groups emptied by the patch clearing.

@@ -331,6 +331,9 @@ pub(crate) mod tests {
     ///   neighbour is a patch vertex, so the distance comes only from the
     ///   cap 0.9 x h/sqrt(2) = 0.15910 (the segment between the corner's
     ///   two inlet neighbours).
+    ///
+    /// Result (2026-11-05): every prediction held (48 `PATCHNODE`, 32
+    /// `EDGENODE`; `inlet`/`outlet` points at x = 0 / 1 bit for bit).
     #[test]
     fn cfmesh_layer_on_a_carved_box_by_hand() {
         let h = 0.25;
@@ -378,6 +381,12 @@ pub(crate) mod tests {
     ///   24 of the 36 flat points (y or z = 0.25, 0.75); the 12 on a wall's
     ///   mid-line (0.5) keep the flat normal by symmetry in both;
     /// - neither has an inverted cell.
+    ///
+    /// Result (2026-11-05): every prediction held. Lengths equal at 72
+    /// points, the 8 corners 0.159 against 0.125, directions differing at
+    /// 24 flat points; 128 cells each, volume 1 (1e-15), the crate's first
+    /// try; max non-orthogonality 23.9° (cfMesh) and 21.7°, skewness 1.28
+    /// and 1.37.
     #[test]
     fn cfmesh_layer_against_back_off_on_the_box() {
         let m = named_box(0.25);
@@ -476,7 +485,21 @@ pub(crate) mod tests {
             rim_b.1 * 1e3,
             rim_b.2 * 1e3
         );
-        assert!(((l.total_volume() - v0) / v0).abs() < 1e-12);
+        // Planarity of the end patches: the spread of their points along
+        // the axis, before and after (a re-partitioned face that is not
+        // planar changes the centroid-fan volume).
+        for (name, m) in [("bare", bare), ("cfMesh", &l), ("back-off", &b)] {
+            for end in ["inlet", "outlet"] {
+                let zs: Vec<f64> = patch_faces(m, end).iter().flat_map(|&f| m.faces[f].iter().map(|&v| m.points[v].z)).collect();
+                let (lo, hi) = zs.iter().fold((f64::MAX, f64::MIN), |(a, c), &z| (a.min(z), c.max(z)));
+                let dv: f64 = (0..m.face_count()).filter(|&f| m.neighbour[f].is_none()).map(|f| m.face_centroid(f).dot(m.face_area_vector(f))).sum::<f64>() / 3.0;
+                println!("  {name} {end}: z spread {:.3e} m ({} faces); volume {dv:.12e}", hi - lo, patch_faces(m, end).len());
+            }
+        }
+        let wall_v = |m: &VolumeMesh, pname: &str| -> f64 { patch_faces(m, pname).iter().map(|&f| m.face_centroid(f).dot(m.face_area_vector(f))).sum::<f64>() / 3.0 };
+        for pname in ["walls", "inlet", "outlet"] {
+            println!("  patch {pname}: Σ c·S/3 bare {:.12e}, cfMesh {:.12e}, back-off {:.12e}", wall_v(bare, pname), wall_v(&l, pname), wall_v(&b, pname));
+        }
         (l.cell_count(), b.cell_count(), bare.cell_count() + n_wall, ob.iterations, rmin, rmax, 0.6f64.powi(ob.iterations.max(1) as i32 - 1))
     }
 
@@ -496,10 +519,26 @@ pub(crate) mod tests {
     ///   cap; the crate: 0.5 x its shortest wall edge, then the cap);
     /// - cfMesh has no quality check: its skewness may exceed the crate's
     ///   limit (4), and it may have inverted cells; both are recorded.
+    ///
+    /// Results (2026-11-05): 605 bare cells, 1 420 wall faces, 1 456 wall
+    /// points (72 on the rim). Both give 2 025 cells and conserve the
+    /// volume (2e-16, 4e-16). The crate backed off twice (3 tries): its
+    /// `PATCHNODE` columns are cfMesh's x 0.36 = 0.6² at every point, to
+    /// 1e-15 (held). First layer min/mean/max: cfMesh 0.002/0.609/1.179 mm,
+    /// back-off 0.001/0.220/0.424 mm; rim cfMesh 0.002/0.432/1.044 mm,
+    /// back-off 0.001/0.164/0.340 mm (they differ, as predicted). cfMesh:
+    /// **56 inverted cells**, 716 non-positive face pyramids, max
+    /// non-orthogonality 106.9°, skewness 51.3, min determinant 0.014; the
+    /// back-off: 0, 0, 80.9°, 0.92, 0.076. Upstream's layer of half the
+    /// local edge, along the unsmoothed point normal, folds cells of the
+    /// curved dual wall; upstream repairs that later (`meshOptimizer`,
+    /// `boundaryLayerOptimisation`), and this route does not.
     #[test]
     fn cfmesh_layer_against_back_off_on_the_pipe() {
         let bare = bare_pipe(0.06, 0.006);
         let (cc, bc, want, tries, rmin, rmax, scale) = pipe_differential(&bare, "pipe L 60 mm h 6 mm");
+        let (l, _) = boundary_layers_add_layer(&bare, &["walls"], &BoundaryLayersControls::default()).unwrap();
+        assert!(((l.total_volume() - bare.total_volume()) / bare.total_volume()).abs() < 1e-12);
         assert_eq!(cc, want);
         if bc == want {
             assert!((rmin - scale).abs() < 1e-12 && (rmax - scale).abs() < 1e-12, "{rmin} {rmax} {scale} ({tries} tries)");
@@ -508,6 +547,19 @@ pub(crate) mod tests {
 
     /// Diagnostic (gh:#1270), `--ignored`: the same differential on the
     /// Foam Studio pipe (R 10 mm, L 200 mm, 48 facets, h 5 mm, bare).
+    ///
+    /// Results (2026-11-05): 3 113 bare cells, 7 632 wall faces, 7 688 wall
+    /// points (112 on the rim); both 10 745 cells. Volume: cfMesh +2.45e-7,
+    /// back-off −4.72e-7 relative, **not** conserved to 1e-12. Located: the
+    /// wall patch's Σ c·S/3 is bit for bit the bare one; all of the change
+    /// is in `inlet` and `outlet`, whose points spread 0.47 mm along the
+    /// axis on this dual (they are not planar), so sliding the rim points
+    /// in their averaged plane moves the end surfaces (the `layers` module
+    /// docs are corrected). The crate backed off twice (`PATCHNODE` ratio
+    /// 0.36 at every point, 1e-15). First layer min/mean/max: cfMesh
+    /// 0.032/0.491/0.857 mm, back-off 0.011/0.176/0.309 mm. cfMesh: 304
+    /// inverted cells, 3 964 non-positive pyramids, non-orthogonality
+    /// 102.5°, skewness 8.42; back-off: 0, 0, 78.6°, 1.01.
     #[test]
     #[ignore]
     fn diagnose_cfmesh_layer_on_the_foam_studio_pipe() {

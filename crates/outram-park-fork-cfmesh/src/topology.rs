@@ -1675,7 +1675,7 @@ pub fn check_and_fix_irregular_connections(w: &mut TopoMesh) -> IrregularConnect
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::cartesian::cartesian_box;
     use crate::carve::carve_box;

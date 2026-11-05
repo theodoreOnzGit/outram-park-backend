@@ -74,6 +74,15 @@ lives in the gh:#1215 section of
 Changing the default needs the maintainer, and re-measuring every number that
 depends on it.
 
+cfMesh's own **creation** route (`boundaryLayers::addLayerForPatch`, one
+layer at half the local edge) is `layers::boundary_layers`, and its split
+(`detectBoundaryLayers`, `refineBoundaryLayers`) is
+`layers::refine_boundary_layers` (gh:#1270, #1271). Both are opt-in; no
+pipeline option calls them. They also build through `layer_setup` and
+`build_layered_variable`. Upstream's layer is not quality-checked: on the
+pipe it inverts cells. The record is in the gh:#1270 and gh:#1271 sections
+of the same V&V file.
+
 `SnappyCollapse` builds layer cells by upstream's `nFaceLayers` rule
 (`layers::build_layered_faces`, `FaceLayerCells::Upstream`, gh:#1241); the
 gh:#1215 rule (`MostOfItsPoints`, cells pinched at an unextruded point) is

@@ -63,8 +63,8 @@
 //! `refineBoundaryLayersFaces.C` in general):** this port splits **prism
 //! layer cells** (one base face, its hairs all with the same count) and
 //! inserts the split points into every other face holding a hair. A cell
-//! that is a layer cell for two base faces (upstream's `refineEdgeHexCell`,
-//! `refineCornerHexCell`, as at the edge of a hexahedral box) or whose
+//! that is a layer cell for two base faces whose hairs both carry more than
+//! one layer (upstream's `refineEdgeHexCell`, `refineCornerHexCell`) or whose
 //! hairs carry different counts is refused with
 //! [`RefineError::NotPorted`]. `activateSpecialMode`, `pointsInBndLayer`,
 //! the cell subset, the 2D mode and the MPI branches are not ported.
@@ -601,6 +601,10 @@ mod tests {
     /// polyhedra, which are not prisms, so the whole patch is cleared);
     /// one hair per wall point, from the point's boundary copy (at its old
     /// position, bit for bit) to the moved point, of the column's length.
+    ///
+    /// Result (2026-11-05): as predicted (1 420 layer cells, 1 456 hairs,
+    /// only `walls` in a layer). The group count is 51, of which 50 are
+    /// empty (`diagnose_layer_groups_on_the_pipe`).
     #[test]
     fn detect_finds_exactly_the_cfmesh_layer() {
         let (_, l, o) = layered_pipe();
@@ -620,6 +624,53 @@ mod tests {
         }
     }
 
+    /// Diagnostic (gh:#1271): why the pipe's one wall gives many layer
+    /// groups. For each pair of wall faces across a boundary edge in
+    /// different groups: do their owners differ, and share a face?
+    /// Result (2026-11-05): 51 groups; one holds all 1 420 wall faces and
+    /// the other 50 are empty. They were numbered by `groupMarking` for
+    /// inlet/outlet faces whose owners pass the selector, before the patch
+    /// clearing emptied them; upstream's `nFirstLayers_` is taken at the same
+    /// point, so the count is upstream's. No edge joins two groups.
+    #[test]
+    fn diagnose_layer_groups_on_the_pipe() {
+        let (_, l, _) = layered_pipe();
+        let d = detect_boundary_layers(&l);
+        let engine = SurfaceEngine::new(&l);
+        let cf = cell_faces(&l);
+        let (mut same_owner, mut no_shared, mut shared) = (0, 0, 0);
+        for e in 0..engine.edges.len() {
+            let ef = &engine.edge_faces[e];
+            if ef.len() != 2 {
+                continue;
+            }
+            let (a, b) = (ef[0], ef[1]);
+            if d.layer_at_bnd_face[a].is_none() || d.layer_at_bnd_face[b].is_none() || d.layer_at_bnd_face[a] == d.layer_at_bnd_face[b] {
+                continue;
+            }
+            let (oa, ob) = (engine.face_owners[a], engine.face_owners[b]);
+            if oa == ob {
+                same_owner += 1;
+            } else if cf[oa].iter().any(|f| cf[ob].contains(f)) {
+                shared += 1;
+            } else {
+                no_shared += 1;
+                if no_shared <= 3 {
+                    let ring = &engine.face_rings[a];
+                    println!("  edge {:?}: owners {oa} ({} faces) and {ob} ({} faces) share no face; face a ring {:?}", engine.edges[e], cf[oa].len(), cf[ob].len(), ring);
+                }
+            }
+        }
+        let mut sizes = vec![0usize; d.n_layers];
+        for g in d.layer_at_bnd_face.iter().flatten() {
+            sizes[*g] += 1;
+        }
+        sizes.sort_unstable();
+        println!("{} groups, sizes {:?}; edges between groups: same owner {same_owner}, owners sharing a face {shared}, sharing none {no_shared}", d.n_layers, sizes);
+        assert_eq!((same_owner, shared, no_shared), (0, 0, 0));
+        assert_eq!(sizes.iter().filter(|&&n| n > 0).count(), 1);
+    }
+
     /// V&V (gh:#1271, 17a) — differential: the split points of
     /// `refineBoundaryLayers` against `build_layered_variable` for the same
     /// columns. Methodology: the layered L 60 mm pipe split into 3 layers
@@ -634,6 +685,14 @@ mod tests {
     ///   length (upstream: `t1 (1 − r^j)/(1 − r)` along the hair, the
     ///   builder: `L d_j / d_n` along the column, equal analytically), and
     ///   not every one bit for bit (different operation order).
+    ///
+    /// Results (2026-11-05): 2 025 -> 4 865 cells (1 420 split), volume
+    /// unchanged (1e-12), closed, every face named; split points within
+    /// 1e-12 of the column length (held), not all bit for bit (held).
+    /// **Miss:** 56 inverted cells, not 0. They are the input's: item 16's
+    /// cfMesh layer on this pipe has 56 inverted cells already (gh:#1270
+    /// differential, written after this prediction), and the split does
+    /// not change them. The assertion is now "as many as the input".
     #[test]
     fn split_points_match_build_layered_variable() {
         let (bare, l, o) = layered_pipe();
@@ -643,7 +702,7 @@ mod tests {
         assert_eq!(r.cell_count(), l.cell_count() + 2 * n_wall);
         assert_eq!(rep.n_cells_split, n_wall);
         assert!(((r.total_volume() - l.total_volume()) / l.total_volume()).abs() < 1e-12);
-        assert_eq!(check_quality(&r).n_negative_volume_cells, 0);
+        assert_eq!(check_quality(&r).n_negative_volume_cells, check_quality(&l).n_negative_volume_cells);
         assert!(r.patches.iter().all(|p| p.name != "unassigned"), "{:?}", r.patches);
 
         let wall_pts: BTreeSet<usize> = o.points.iter().map(|p| p.point).collect();
@@ -677,6 +736,13 @@ mod tests {
     /// 0.1 x the shortest column. Predicted before the first run: on every
     /// hair the first layer is the cap and the second 1.2 x the cap (to
     /// 1e-12 relative), and the third takes the rest of the column.
+    ///
+    /// Result (2026-11-05): **miss on the tolerance only.** The first two
+    /// layers equal the cap and 1.2 x the cap to 3e-12 relative, not 1e-12:
+    /// the cap is 1.6e-7 m and the points sit about 1e-2 m from the origin,
+    /// so a difference of two positions carries ~1e-18 m of round-off
+    /// (1e-11 of the layer). The check is now absolute, 1e-14 x the pipe
+    /// length (6e-16 m), the scale of the coordinates.
     #[test]
     fn max_first_layer_thickness_caps_the_first_layer() {
         let (_, l, o) = layered_pipe();
@@ -685,28 +751,74 @@ mod tests {
         r.validate().unwrap();
         for h in &rep.hair_points {
             let (t1, t2) = (h[1].sub(h[0]).length(), h[2].sub(h[1]).length());
-            assert!((t1 - cap).abs() < 1e-12 * cap && (t2 - 1.2 * cap).abs() < 1e-12 * cap, "{t1} {t2} {cap}");
+            let tol = 1e-14 * 0.06;
+            assert!((t1 - cap).abs() < tol && (t2 - 1.2 * cap).abs() < tol, "{t1} {t2} {cap}");
             assert!(h[3].sub(h[2]).length() > t2);
         }
     }
 
-    /// V&V (gh:#1271) — a cartesian box's layer is refused, as this port
-    /// says. cfMesh's layer on the carved unit box (h 0.25): every boundary
+    /// V&V (gh:#1271) — cfMesh's layer on a cartesian box, refined. cfMesh's layer on the carved unit box (h 0.25): every boundary
     /// cell is a hexahedron, so `detectBoundaryLayers` counts the `inlet`
     /// and `outlet` patches as layers too, in the same group as `walls`;
     /// with 3 layers on `walls` the group takes 3, and the prism at the rim
     /// is a layer cell for both its wall face and its inlet side face
     /// (upstream's `refineEdgeHexCell`). Predicted before the first run:
     /// all three patches in a layer, one group; `NotPorted`.
+    ///
+    /// Result (2026-11-05): **both missed.** Three groups, one per patch:
+    /// `meshBndLayerNeighbourOperator` joins two layer faces only across a
+    /// boundary edge whose two faces have *different* owners that share a
+    /// face; a wall face and the inlet side face of the same rim prism
+    /// have the same owner, and that is the only place the patches meet.
+    /// So `walls` alone takes 3 layers and `inlet`/`outlet` keep 1. The rim
+    /// prism is still a layer cell for its inlet side face, but that
+    /// face's hairs (wall edges along x) carry one layer: the count skips
+    /// the boundary faces that hold the hair, and both wall faces there
+    /// hold it. Nothing needs a two-direction split; the walls refine:
+    /// 256 cells, 64 split, volume 1 (1e-12), closed.
     #[test]
-    fn cartesian_box_layer_is_refused() {
+    fn cartesian_box_layer_refines_the_walls_only() {
         let (l, _) = boundary_layers_add_layer(&named_box(0.25), &["walls"], &BoundaryLayersControls::default()).unwrap();
         let d = detect_boundary_layers(&l);
         println!("box: {} groups, patches {:?}", d.n_layers, d.layer_at_patch);
-        assert_eq!(d.n_layers, 1);
-        assert!(d.layer_at_patch.iter().all(|g| g == &vec![0]));
-        let e = refine_boundary_layers(&l, &walls(3, None, None)).unwrap_err();
-        println!("{e:?}");
-        assert!(matches!(e, RefineError::NotPorted(_)));
+        assert_eq!(d.n_layers, 3);
+        assert_eq!(d.layer_at_patch.iter().map(|g| g.len()).collect::<Vec<_>>(), vec![1, 1, 1]);
+        let (r, rep) = refine_boundary_layers(&l, &walls(3, None, None)).unwrap();
+        println!("refined: {} cells, {} split, volume {:.15}", r.cell_count(), rep.n_cells_split, r.total_volume());
+        assert_eq!((r.cell_count(), rep.n_cells_split), (256, 64));
+        assert!((r.total_volume() - 1.0).abs() < 1e-12);
+        r.validate().unwrap();
+    }
+
+    /// Images (gh:#1270, #1271), `--ignored`: drawn from the assembled
+    /// meshes into `verification_and_validation/boundary_layers_gh1270/`.
+    /// Box (h 0.25): y-z cut at x = 0.375 after cfMesh's layer and after
+    /// the 3-layer refinement (ratio 1.2). Pipe (L 60 mm, h 6 mm): x-y cut
+    /// at mid-length (whole and a wall zoom) and x-z rim zoom at the inlet
+    /// (cut at y = 0.1 mm; the x-y cut at z = 31.7 mm, off the 6 mm grid planes) for cfMesh's layer, the crate's back-off layer
+    /// and cfMesh's layer refined into 3; faces of inverted cells orange.
+    #[test]
+    #[ignore]
+    fn draw_layer_images() {
+        use crate::topology::tests::write_slice_png;
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/boundary_layers_gh1270");
+        let none = |_f: usize| None;
+        let (bl, _) = boundary_layers_add_layer(&named_box(0.25), &["walls"], &BoundaryLayersControls::default()).unwrap();
+        let (br, _) = refine_boundary_layers(&bl, &walls(3, Some(1.2), None)).unwrap();
+        let bw = [-0.05, 1.05, -0.05, 1.05];
+        write_slice_png(&bl, 0, 0.375, bw, &[], &none, "box h 0.25: cfMesh boundaryLayers, walls on y/z sides", &dir.join("box_cfmesh_layer_yz.png"));
+        write_slice_png(&br, 0, 0.375, bw, &[], &none, "box: cfMesh layer refined into 3 (ratio 1.2)", &dir.join("box_refined_3_yz.png"));
+        let (bare, l, _) = layered_pipe();
+        let (b, _) = super::super::add_boundary_layers_back_off(&bare, &["walls"], 1, 1.0, 1.0);
+        let (r, _) = refine_boundary_layers(&l, &walls(3, Some(1.2), None)).unwrap();
+        for (name, m) in [("bare", &bare), ("cfmesh_layer", &l), ("backoff_layer", &b), ("cfmesh_refined_3", &r)] {
+            let (vols, _) = crate::checks::cell_geometry(m);
+            let inv = |f: usize| (vols[m.owner[f]] <= 0.0 || m.neighbour[f].is_some_and(|n| vols[n] <= 0.0)).then_some([255u8, 127, 14]);
+            let n_inv = vols.iter().filter(|&&v| v <= 0.0).count();
+            let t = format!("pipe R 10 mm L 60 mm h 6 mm, {name}: {} cells, {n_inv} inverted (orange)", m.cell_count());
+            write_slice_png(m, 2, 0.0317, [-0.0108, 0.0108, -0.0108, 0.0108], &[(0.0, 0.0, 0.01)], &inv, &t, &dir.join(format!("pipe_{name}_xy.png")));
+            write_slice_png(m, 2, 0.0317, [0.0065, 0.0105, -0.002, 0.002], &[(0.0, 0.0, 0.01)], &inv, &t, &dir.join(format!("pipe_{name}_xy_wall.png")));
+            write_slice_png(m, 1, 1e-4, [0.0065, 0.0105, -0.0005, 0.0035], &[], &inv, &t, &dir.join(format!("pipe_{name}_xz_rim.png")));
+        }
     }
 }
