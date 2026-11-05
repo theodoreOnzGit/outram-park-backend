@@ -270,6 +270,16 @@ moves the sources through gh:#1279's `anisotropic`
 `source_edge_mesh_geometry`); ~~the generators do not read it~~ the
 generators read it too since gh:#1279's remainder (next section).
 
+`MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
+read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and
+`checkForGluedMesh`; with a dict that sets none of them they are `new` and
+`cartesian_mesh_extractor` (tested field for field). The octree edges are
+`MeshOctreeAddressing::edge_addressing` (equal to the extracted mesh's
+edges). Upstream's proximity criterion needs the parts to be separate
+within `1.732 h`: a channel closed at its sides within that range is never
+refined. Record, the misses and the images:
+`verification_and_validation/octree_remainders_gh1278/`.
+
 ## `anisotropicSources` in the four generators (gh:#1279 remainder, 2026-11-05)
 
 `cartesian_mesh`, `tet_mesh`, `p_mesh` and `cartesian_2d_mesh` apply
@@ -294,16 +304,6 @@ pre-wiring fingerprints
 **do not move that pin.**
 
 Record and images: `verification_and_validation/anisotropic_gh1279/`.
-
-`MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
-read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and
-`checkForGluedMesh`; with a dict that sets none of them they are `new` and
-`cartesian_mesh_extractor` (tested field for field). The octree edges are
-`MeshOctreeAddressing::edge_addressing` (equal to the extracted mesh's
-edges). Upstream's proximity criterion needs the parts to be separate
-within `1.732 h`: a channel closed at its sides within that range is never
-refined. Record, the misses and the images:
-`verification_and_validation/octree_remainders_gh1278/`.
 
 ## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
 
