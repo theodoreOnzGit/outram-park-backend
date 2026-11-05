@@ -2417,4 +2417,130 @@ mod tests {
             assert_eq!(mesh_fingerprint(&m), pin, "{kind:?} {fp:?} moved");
         }
     }
+
+    /// Feature edges of `m`'s boundary (edges between two boundary faces in
+    /// different patches), the number at each boundary point, and the
+    /// boundary faces cfMesh's `correctEdgesBetweenPatches::patchCorrection`
+    /// would decompose: a face with two consecutive feature edges meeting
+    /// at an edge point (a point with exactly two feature edges,
+    /// `meshSurfacePartitioner`'s rule).
+    fn patch_correction_candidates(m: &VolumeMesh) -> (usize, Vec<usize>) {
+        let patch_of = |f: usize| m.patches.iter().position(|q| f >= q.start_face && f < q.start_face + q.n_faces);
+        let mut edge_faces: std::collections::BTreeMap<(usize, usize), Vec<usize>> = Default::default();
+        for f in 0..m.face_count() {
+            if m.neighbour[f].is_none() {
+                let ring = &m.faces[f];
+                for i in 0..ring.len() {
+                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                    edge_faces.entry((a.min(b), a.max(b))).or_default().push(f);
+                }
+            }
+        }
+        let feature: std::collections::BTreeSet<(usize, usize)> =
+            edge_faces.iter().filter(|(_, fs)| fs.len() == 2 && patch_of(fs[0]) != patch_of(fs[1])).map(|(&e, _)| e).collect();
+        let mut n_at: std::collections::BTreeMap<usize, usize> = Default::default();
+        for &(a, b) in &feature {
+            *n_at.entry(a).or_default() += 1;
+            *n_at.entry(b).or_default() += 1;
+        }
+        let is_f = |a: usize, b: usize| feature.contains(&(a.min(b), a.max(b)));
+        let mut faces = Vec::new();
+        for f in 0..m.face_count() {
+            if m.neighbour[f].is_none() {
+                let ring = &m.faces[f];
+                let k = ring.len();
+                if (0..k).any(|i| n_at.get(&ring[i]) == Some(&2) && is_f(ring[i], ring[(i + 1) % k]) && is_f(ring[(i + k - 1) % k], ring[i])) {
+                    faces.push(f);
+                }
+            }
+        }
+        (feature.len(), faces)
+    }
+
+    /// Diagnostic (gh:#1241 item 1), `--ignored`: where the `Corners` rim's
+    /// inlet area goes. For each h and each per-point kind with `Corners`,
+    /// the inlet patch with and without the feature-edge capture: face
+    /// count, Σ|S_f| and |Σ S_f·ẑ| against πR², the inlet points' radius and
+    /// off-plane distance, the feature edges, and the boundary faces cfMesh's
+    /// `correctEdgesBetweenPatches::patchCorrection` would decompose.
+    #[test]
+    #[ignore]
+    fn diagnose_corners_rim() {
+        let (r, l) = (0.01, 0.2);
+        let (p, t, regions) = pipe_surface(r, l, 48);
+        let section = PI * r * r;
+        let hs: Vec<f64> = std::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        for h in hs {
+            for kind in [DualKind::MedianPerPoint, DualKind::CellCentre] {
+                for fe in [false, true] {
+                    let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: FeaturePointRule::Corners, feature_edges: fe, ..Default::default() };
+                    let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+                    let inlet = patch_faces(&m, "inlet");
+                    let a_abs: f64 = inlet.iter().map(|&f| m.face_area_vector(f).length()).sum();
+                    let a_z: f64 = inlet.iter().map(|&f| m.face_area_vector(f).z).sum::<f64>().abs();
+                    let pts: std::collections::BTreeSet<usize> = inlet.iter().flat_map(|&f| m.faces[f].iter().copied()).collect();
+                    let rad = |v: usize| (m.points[v].x.powi(2) + m.points[v].y.powi(2)).sqrt();
+                    let rmax = pts.iter().map(|&v| rad(v)).fold(0.0, f64::max);
+                    let zmax = pts.iter().map(|&v| m.points[v].z.abs()).fold(0.0, f64::max);
+                    let n_off = pts.iter().filter(|&&v| m.points[v].z.abs() > 1e-9).count();
+                    let (n_feat, cand) = patch_correction_candidates(&m);
+                    let cand_in: usize = cand.iter().filter(|&&f| inlet.contains(&f)).count();
+                    let wall = patch_faces(&m, "walls");
+                    // Wall faces touching z = 0 and their projected area on the inlet plane.
+                    let wall_low: Vec<usize> = wall.iter().copied().filter(|&f| m.face_centroid(f).z < 0.5 * h).collect();
+                    let wall_low_z: f64 = wall_low.iter().map(|&f| m.face_area_vector(f).z).sum();
+                    println!(
+                        "h {:.0} {kind:?} capture {fe}: V/piR2L {:.5}; inlet {} faces, sum|S|/piR2 {:.5}, |sum Sz|/piR2 {:.5}; inlet pts {} (off plane {n_off}, max |z| {:.3} mm), max r {:.4} mm; \
+                         feature edges {n_feat}; patchCorrection candidates {} ({cand_in} inlet); wall faces near inlet {} with sum Sz/piR2 {:.5}; notes {:?}",
+                        h * 1e3, m.total_volume() / (section * l), inlet.len(), a_abs / section, a_z / section, pts.len(), zmax * 1e3, rmax * 1e3,
+                        cand.len(), wall_low.len(), wall_low_z / section, rep.stage_notes
+                    );
+                    {
+                        // The inlet's rim: inlet-face edges not shared with another inlet face.
+                        let mut cnt: std::collections::BTreeMap<(usize, usize), usize> = Default::default();
+                        for &f in &inlet {
+                            let ring = &m.faces[f];
+                            for i in 0..ring.len() {
+                                let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                                *cnt.entry((a.min(b), a.max(b))).or_default() += 1;
+                            }
+                        }
+                        let rim: Vec<(usize, usize)> = cnt.iter().filter(|(_, &c)| c == 1).map(|(&e, _)| e).collect();
+                        let rim_pts: std::collections::BTreeSet<usize> = rim.iter().flat_map(|&(a, b)| [a, b]).collect();
+                        let shoelace: f64 = rim.iter().map(|&(a, b)| 0.5 * (m.points[a].x * m.points[b].y - m.points[b].x * m.points[a].y)).sum::<f64>().abs();
+                        let rs: Vec<f64> = rim_pts.iter().map(|&v| rad(v)).collect();
+                        let rmean = rs.iter().sum::<f64>() / rs.len() as f64;
+                        let rmin = rs.iter().cloned().fold(f64::MAX, f64::min);
+                        let near_corner = rim_pts.iter().filter(|&&v| {
+                            let a = m.points[v].y.atan2(m.points[v].x).rem_euclid(2.0 * PI / 48.0);
+                            a.min(2.0 * PI / 48.0 - a) < 1e-3
+                        }).count();
+                        // shoelace of rim edges, unordered: only valid when the rim is one loop.
+                        println!(
+                            "    rim: {} edges, {} points (at a 48-gon corner {near_corner}), r mean {:.4} min {:.4} mm; |sum over rim edges of the cross product|/2 /piR2 {:.5} (48-gon {:.5})",
+                            rim.len(), rim_pts.len(), rmean * 1e3, rmin * 1e3, shoelace / section, 48.0 * (2.0 * PI / 48.0).sin() / (2.0 * PI)
+                        );
+                    }
+                    if std::env::var("CFMESH_VERBOSE").is_ok() && fe && kind == DualKind::MedianPerPoint {
+                        let desc = |f: usize| -> String {
+                            let s = m.face_area_vector(f);
+                            let pts: Vec<String> = m.faces[f].iter().map(|&v| format!("({:.2},{:.2})", rad(v) * 1e3, m.points[v].z * 1e3)).collect();
+                            format!("face {f} {} n {} |S| {:.3} mm2 nz {:.2} cand {} pts(r,z mm) {}", if inlet.contains(&f) { "inlet" } else if wall.contains(&f) { "walls" } else { "other" }, m.faces[f].len(), s.length() * 1e6, s.z / s.length(), cand.contains(&f), pts.join(" "))
+                        };
+                        for &f in &wall_low {
+                            let s = m.face_area_vector(f);
+                            if s.z / s.length() < -0.3 || cand.contains(&f) {
+                                println!("  {}", desc(f));
+                            }
+                        }
+                        for &f in &cand {
+                            if inlet.contains(&f) {
+                                println!("  {}", desc(f));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
