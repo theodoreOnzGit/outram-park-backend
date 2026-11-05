@@ -93,17 +93,21 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
             ),
         )
     })?;
-    // rustdoc names its JSON after the crate, which uses underscores where the
-    // package name may use hyphens.
-    let snake = package.replace('-', "_");
-
     ensure_nightly()?;
     ensure_rustdoc_md()?;
+
+    // Cargo supplies the library target's name: a package can override it with
+    // [lib] name, as kovan does (gh:#779). It also supplies the target directory.
+    let metadata =
+        crate::code_map::run_cargo_metadata(workspace_root, false).map_err(io::Error::other)?;
+    let json = rustdoc_json_path(&metadata, &package)?;
 
     let mut doc = Command::new("cargo");
     doc.args([
         "+nightly",
         "doc",
+        "--release",
+        "--lib",
         "-p",
         &package,
         "--no-deps",
@@ -125,10 +129,6 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
         )));
     }
 
-    let json = workspace_root
-        .join("target")
-        .join("doc")
-        .join(format!("{snake}.json"));
     if !json.is_file() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -179,6 +179,69 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
     }
 
     Ok(out_path)
+}
+
+/// The Cargo metadata fields needed to locate a library's rustdoc JSON.
+#[derive(serde::Deserialize)]
+struct DocMetadata {
+    packages: Vec<DocPackage>,
+    target_directory: PathBuf,
+}
+
+/// A package and the targets Cargo discovered for it.
+#[derive(serde::Deserialize)]
+struct DocPackage {
+    name: String,
+    targets: Vec<DocTarget>,
+}
+
+/// A target's actual crate name and kinds, independent of its package name.
+#[derive(serde::Deserialize)]
+struct DocTarget {
+    name: String,
+    kind: Vec<String>,
+}
+
+/// Resolve the library JSON from Cargo metadata, never from a package-name guess.
+/// Library kinds match the existing call-graph reader in `call_graph::members`.
+fn rustdoc_json_path(metadata: &str, package: &str) -> io::Result<PathBuf> {
+    let metadata: DocMetadata = serde_json::from_str(metadata).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("invalid cargo metadata: {e}"),
+        )
+    })?;
+    let member = metadata
+        .packages
+        .iter()
+        .find(|p| p.name == package)
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("package {package} not found in cargo metadata"),
+            )
+        })?;
+    let library = member
+        .targets
+        .iter()
+        .find(|t| {
+            t.kind.iter().any(|kind| {
+                matches!(
+                    kind.as_str(),
+                    "lib" | "rlib" | "cdylib" | "staticlib" | "dylib" | "proc-macro"
+                )
+            })
+        })
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("package {package} has no library target to document"),
+            )
+        })?;
+    Ok(metadata
+        .target_directory
+        .join("doc")
+        .join(format!("{}.json", library.name)))
 }
 
 /// Read `[package] name` from a manifest without a TOML parser.
@@ -370,6 +433,146 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A dependency-free workspace whose directory, package and library names
+    /// can differ, as they do for kovan (gh:#779).
+    fn doc_workspace(lib_manifest: &str) -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/example-directory\"]\nresolver = \"2\"\n",
+        )
+        .unwrap();
+        let crate_path = tmp.path().join("crates/example-directory");
+        std::fs::create_dir_all(crate_path.join("src")).unwrap();
+        std::fs::write(
+            crate_path.join("Cargo.toml"),
+            format!(
+                "[package]\nname = \"example-package\"\nversion = \"0.1.0\"\nedition = \"2024\"\n{lib_manifest}"
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            crate_path.join("src/lib.rs"),
+            "/// The fixture's public answer.\npub fn answer() -> u8 { 42 }\n",
+        )
+        .unwrap();
+        tmp
+    }
+
+    /// Run the real rustdoc -> rustdoc-md pipeline on a renamed library. The
+    /// old package-derived JSON path fails after rustdoc creates example_core.json.
+    #[test]
+    #[ignore = "requires nightly Rust and rustdoc-md; run explicitly with --ignored"]
+    fn generates_docs_for_a_library_named_differently_from_its_package() {
+        let tmp = doc_workspace("\n[lib]\nname = \"example_core\"\n");
+        let path = generate(tmp.path(), "example-directory", false).unwrap();
+        assert_eq!(
+            path,
+            tmp.path()
+                .join("crates/example-directory/docs/example-directory-api.md")
+        );
+        let markdown = std::fs::read_to_string(path).unwrap();
+        assert!(markdown.contains("answer"), "{markdown}");
+        assert!(
+            markdown.contains("The fixture's public answer."),
+            "{markdown}"
+        );
+    }
+
+    /// The same pipeline must still work when Cargo infers the library name
+    /// from a hyphenated package, with no explicit [lib] section.
+    #[test]
+    #[ignore = "requires nightly Rust and rustdoc-md; run explicitly with --ignored"]
+    fn generates_docs_for_a_default_library_name() {
+        let tmp = doc_workspace("");
+        let path = generate(tmp.path(), "example-directory", false).unwrap();
+        let markdown = std::fs::read_to_string(path).unwrap();
+        assert!(markdown.contains("answer"), "{markdown}");
+        assert!(
+            markdown.contains("The fixture's public answer."),
+            "{markdown}"
+        );
+    }
+
+    #[test]
+    fn real_cargo_metadata_resolves_custom_and_default_library_names() {
+        for (manifest, filename) in [
+            ("\n[lib]\nname = \"example_core\"\n", "example_core.json"),
+            ("", "example_package.json"),
+        ] {
+            let tmp = doc_workspace(manifest);
+            let metadata = crate::code_map::run_cargo_metadata(tmp.path(), true).unwrap();
+            let path = rustdoc_json_path(&metadata, "example-package").unwrap();
+            assert_eq!(path.file_name().unwrap(), filename);
+            assert_eq!(path.parent().unwrap().file_name().unwrap(), "doc");
+        }
+    }
+
+    #[test]
+    fn json_path_uses_the_library_target_and_cargos_target_directory() {
+        let tmp = tempfile::tempdir().unwrap();
+        let target = tmp.path().join("custom-build-output");
+        let metadata = serde_json::json!({
+            "target_directory": target,
+            "packages": [{
+                "name": "another-package",
+                "targets": [{"name": "another_core", "kind": ["lib"]}]
+            }, {
+                "name": "example-package",
+                "targets": [
+                    {"name": "example-package", "kind": ["bin"]},
+                    {"name": "example_core", "kind": ["lib"]}
+                ]
+            }]
+        });
+        assert_eq!(
+            rustdoc_json_path(&metadata.to_string(), "example-package").unwrap(),
+            target.join("doc/example_core.json")
+        );
+    }
+
+    #[test]
+    fn json_path_accepts_the_default_name_and_every_library_kind() {
+        for kind in ["lib", "rlib", "cdylib", "staticlib", "dylib", "proc-macro"] {
+            let metadata = serde_json::json!({
+                "target_directory": "target",
+                "packages": [{
+                    "name": "example-package",
+                    "targets": [{"name": "example_package", "kind": [kind]}]
+                }]
+            });
+            assert_eq!(
+                rustdoc_json_path(&metadata.to_string(), "example-package").unwrap(),
+                Path::new("target").join("doc/example_package.json"),
+                "{kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn json_path_reports_missing_packages_and_binary_only_packages() {
+        let metadata = serde_json::json!({
+            "target_directory": "target",
+            "packages": [{
+                "name": "example-package",
+                "targets": [{"name": "example-package", "kind": ["bin"]}]
+            }]
+        });
+        let json = metadata.to_string();
+        let missing = rustdoc_json_path(&json, "missing-package").unwrap_err();
+        assert_eq!(missing.kind(), io::ErrorKind::NotFound);
+        assert!(missing.to_string().contains("missing-package"));
+        let binary = rustdoc_json_path(&json, "example-package").unwrap_err();
+        assert_eq!(binary.kind(), io::ErrorKind::InvalidInput);
+        assert!(binary.to_string().contains("no library target"));
+    }
+
+    #[test]
+    fn json_path_reports_malformed_metadata() {
+        let error = rustdoc_json_path("not JSON", "example-package").unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
 
     #[test]
     fn package_name_is_read_from_the_package_section_only() {
