@@ -46,11 +46,22 @@
 //! | `boundaryLayerRefinement` | `refineBoundaryLayers`, `pointsInBndLayer`, `untangleBoundaryLayer`, only with a `boundaryLayers` dict | ~~nothing to do~~ with the dict, `cartesian_mesh`'s `ref_boundary_layers` (gh:#1270 remainder) |
 //! | (always) | `renumberMesh`, `renameBoundaryPatches` | [`crate::renumber_mesh`], [`crate::rename_boundary_patches`] (ported) |
 //!
-//! Every gap is a line in [`TetMeshReport::notes`]. `anisotropicSources`
+//! Every gap is a line in [`TetMeshReport::notes`]. ~~`anisotropicSources`
 //! (`projectSurfaceAfterBackScaling`, the geometry modification) and the
 //! surface's feature-edge patches (`triSurfacePatchManipulator`) are not
 //! supported: the surface carries no feature edges and the `MeshDict` no
-//! anisotropic sources.
+//! anisotropic sources.~~ **UPDATED 2026-11-05 (gh:#1279 remainder):**
+//! [`MeshDict::anisotropic_sources`] is applied as upstream in both
+//! generators: the octree on the modified surface
+//! ([`crate::anisotropic::modified_surface_points`]), every step up to the
+//! revert against it; at the end of `meshOptimisation`'s
+//! `optimiseFinalMesh`, `revertGeometryModification`, then
+//! `projectSurfaceAfterBackScaling` ([`crate::anisotropic::revert_and_project`],
+//! `optimiseFinalMesh` again on the original surface). A run stopped
+//! before `meshOptimisation` returns the mesh in the modified space, as
+//! upstream. Record: `verification_and_validation/anisotropic_gh1279/`.
+//! The surface's feature-edge patches (`triSurfacePatchManipulator`) are
+//! still not supported: the surface carries no feature edges.
 
 use crate::math::Vec3;
 use crate::mesh_octree::{MeshOctree, TriSurf};
@@ -211,6 +222,9 @@ pub struct TetMeshReport {
     pub n_layer_cells: usize,
     /// `refineBoundaryLayers` refused (this port's `NotPorted`).
     pub refine_error: Option<String>,
+    /// With `anisotropicSources`: the revert and the projection of
+    /// `projectSurfaceAfterBackScaling` (gh:#1279 remainder).
+    pub back_scaling: Option<crate::anisotropic::BackScalingReport>,
 }
 
 /// The surface region of every boundary face of `m`, from its patch name
@@ -273,6 +287,37 @@ pub fn create_octree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Surf
     o
 }
 
+/// `tetMeshGenerator::optimiseFinalMesh` / `voronoiMeshGenerator::
+/// optimiseFinalMesh` without the revert (the caller does that, gh:#1279
+/// remainder), against the surface `(points, tris)`: `pMesh` runs
+/// `meshSurfaceOptimizer::optimizeSurface` first, `tetMesh`
+/// `meshOptimizer::optimizeSurface(octree)`; then `optimizeMeshFV`,
+/// `optimizeLowQualityFaces`, `untangleMeshFV` (`optimizeBoundaryLayer(false)`
+/// acts only with `optimiseLayer`, off). Returns the report line.
+fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool) -> Result<String, String> {
+    let given = face_regions(m, reg);
+    if kind == Template::Voronoi {
+        // meshSurfaceOptimizer::optimizeSurface on its own
+        optimise_mesh_surface(m, points, tris, reg, &given);
+    }
+    let mut opt = MeshOptimizer::new(m);
+    if enforce_geometry_constraints {
+        opt.set_enforce_constraints("badPoints");
+    }
+    if kind == Template::Tet {
+        // meshOptimizer::optimizeSurface(octree)
+        crate::mesh_optimizer::optimize_surface(m, points, tris, reg, &given);
+    }
+    let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
+    let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    let r2 = opt.optimize_low_quality_faces(m, 10);
+    let r3 = opt.untangle_mesh_fv(m, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    Ok(format!(
+        "optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer(false): acts only with optimiseLayer (off, upstream default)",
+        r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
+    ))
+}
+
 /// The `generateMesh` both generators share; `kind` picks the template and
 /// the few steps where `voronoiMeshGenerator` differs.
 pub(crate) fn run_generator(
@@ -289,7 +334,13 @@ pub(crate) fn run_generator(
     if opts.dict.max_cell_size <= 0.0 {
         return Err(format!("maxCellSize must be > 0 (got {})", opts.dict.max_cell_size));
     }
-    let o = create_octree(points, tris, regions, &opts.dict);
+    // the constructor: with anisotropicSources the octree is built on the
+    // modified surface (surfaceMeshGeometryModification), and every step
+    // up to the revert works against it
+    let mod_points = crate::anisotropic::modified_surface_points(points, opts.dict.anisotropic_sources.as_ref());
+    let mut mod_active = mod_points.is_some();
+    let spts: &[Vec3] = mod_points.as_deref().unwrap_or(points);
+    let o = create_octree(spts, tris, regions, &opts.dict);
     // without named regions the surface is one patch
     let single = SurfaceRegions::single("defaultFaces", tris.len());
     let reg = regions.unwrap_or(&single);
@@ -313,7 +364,11 @@ pub(crate) fn run_generator(
         premap_mean_distance: None,
         n_layer_cells: 0,
         refine_error: None,
+        back_scaling: None,
     };
+    if mod_active {
+        rep.notes.push("constructor: anisotropicSources: surfaceMeshGeometryModification, the octree on the modified surface".into());
+    }
     let mut mesh: Option<VolumeMesh> = None;
     let mut types: Vec<String> = Vec::new();
     // generateMesh's order (both generators)
@@ -391,12 +446,12 @@ pub(crate) fn run_generator(
                 if kind == Template::Voronoi {
                     // meshSurfaceMapper::preMapVertices() (pMesh only;
                     // gh:#1274 remainder, was skipped)
-                    let pr = crate::premap_vertices::pre_map_vertices(m, &o, points, tris, reg, 3);
+                    let pr = crate::premap_vertices::pre_map_vertices(m, &o, spts, tris, reg, 3);
                     rep.premap_mean_distance = Some(pr.mean_distance);
                     rep.notes.push(format!("surfaceProjection: preMapVertices (mean distance {:.3e} -> {:.3e})", pr.mean_distance.0, pr.mean_distance.1));
                 }
                 // mapVerticesOntoSurface, then untangleSurface
-                let (mm, u) = map_mesh_to_surface(m, points, tris, reg);
+                let (mm, u) = map_mesh_to_surface(m, spts, tris, reg);
                 *m = mm;
                 rep.n_inverted_after_projection = u.n_inverted_last;
                 rep.notes.push(format!("surfaceProjection: mapVerticesOntoSurface + untangleSurface: inverted points {} -> {}", u.n_inverted_first, u.n_inverted_last));
@@ -421,7 +476,7 @@ pub(crate) fn run_generator(
             }
             WorkflowStep::PatchAssignment => match regions {
                 Some(r) => {
-                    *m = assign_patches_by_region(m, points, tris, r)?;
+                    *m = assign_patches_by_region(m, spts, tris, r)?;
                     types = vec!["patch".to_string(); m.patches.len()];
                     rep.notes.push("patchAssignment: PatchAssignment::NearestTriangle (ablation of edgeExtractor): nearest-triangle patches (patches::assign_patches_by_region)".into());
                 }
@@ -434,7 +489,7 @@ pub(crate) fn run_generator(
                     // (correctEdgesBetweenPatches), then remapBoundaryPoints
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
-                    *m = map_vertices_onto_surface_patches_given(&corrected, points, tris, r, &given);
+                    *m = map_vertices_onto_surface_patches_given(&corrected, spts, tris, r, &given);
                     types = vec!["patch".to_string(); m.patches.len()];
                     rep.notes.push(format!(
                         "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
@@ -445,7 +500,7 @@ pub(crate) fn run_generator(
                     // createFundamentalSheetsJFS, smoothMeshSurface,
                     // remapBoundaryPoints (gh:#1281)
                     let old_types: Vec<(String, String)> = m.patches.iter().map(|p| p.name.clone()).zip(types.iter().cloned()).collect();
-                    let (fr, g) = crate::mesh_surface_edge_extractor_fun::mesh_surface_edge_extractor_fun(m, points, tris, r, &given, opts.fun_sheets, false);
+                    let (fr, g) = crate::mesh_surface_edge_extractor_fun::mesh_surface_edge_extractor_fun(m, spts, tris, r, &given, opts.fun_sheets, false);
                     given = g;
                     // The sheets rebuild the patches; each keeps its type by name.
                     types = m.patches.iter().map(|p| old_types.iter().find(|(n, _)| *n == p.name).map_or("patch".to_string(), |(_, t)| t.clone())).collect();
@@ -468,10 +523,10 @@ pub(crate) fn run_generator(
                     ));
                 }
                 // optimiseMeshSurface (pMesh untangles once more after it)
-                let u = optimise_mesh_surface(m, points, tris, reg, &given);
+                let u = optimise_mesh_surface(m, spts, tris, reg, &given);
                 let mut last = u.n_inverted_last;
                 if kind == Template::Voronoi {
-                    let (mm, u2) = untangle_again(m, points, tris, reg, &given);
+                    let (mm, u2) = untangle_again(m, spts, tris, reg, &given);
                     *m = mm;
                     last = u2.n_inverted_last;
                 }
@@ -490,27 +545,22 @@ pub(crate) fn run_generator(
                 }
             },
             WorkflowStep::MeshOptimisation => {
-                let given = face_regions(m, reg);
-                if kind == Template::Voronoi {
-                    // meshSurfaceOptimizer::optimizeSurface on its own
-                    optimise_mesh_surface(m, points, tris, reg, &given);
+                // optimiseFinalMesh on the octree's surface (the modified
+                // one with anisotropicSources)
+                let line = generator_optimise_final_mesh(kind, m, spts, tris, reg, opts.enforce_geometry_constraints)?;
+                rep.notes.push(format!("meshOptimisation: {line}"));
+                // its end: revertGeometryModification while modSurfacePtr_
+                // is set, then projectSurfaceAfterBackScaling
+                if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
+                    mod_active = false;
+                    let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
+                    let line2 = generator_optimise_final_mesh(kind, m, points, tris, reg, opts.enforce_geometry_constraints)?;
+                    rep.back_scaling = Some(b);
+                    rep.notes.push(format!(
+                        "meshOptimisation: revertGeometryModification ({} points); projectSurfaceAfterBackScaling: mapVerticesOntoSurface on the original surface (largest move {:.3e}), optimiseFinalMesh again: {line2}",
+                        b.n_points_reverted, b.max_projection_move
+                    ));
                 }
-                let mut opt = MeshOptimizer::new(m);
-                if opts.enforce_geometry_constraints {
-                    opt.set_enforce_constraints("badPoints");
-                }
-                if kind == Template::Tet {
-                    // meshOptimizer::optimizeSurface(octree)
-                    crate::mesh_optimizer::optimize_surface(m, points, tris, reg, &given);
-                }
-                let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
-                let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
-                let r2 = opt.optimize_low_quality_faces(m, 10);
-                let r3 = opt.untangle_mesh_fv(m, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
-                rep.notes.push(format!(
-                    "meshOptimisation: optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer(false): acts only with optimiseLayer (off, upstream default)",
-                    r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
-                ));
             }
             WorkflowStep::BoundaryLayerRefinement => match &opts.boundary_layers {
                 None => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),

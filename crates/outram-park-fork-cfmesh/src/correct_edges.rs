@@ -348,7 +348,10 @@ mod tests {
         println!("correct_edges pin {got:?}");
         assert_eq!(got, CORRECT_EDGES_PIN);
     }
-    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 714198749002929189);
+    /// gh:#1285: its input is the pipeline's output, now in the
+    /// upper-triangular face order; the counts did not move, the hash did
+    /// (~~714198749002929189~~).
+    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 7179125119703641544);
 
     /// V&V (gh:#1241) — `patchCorrection` by hand. One unit cube, its top
     /// face in patch 1 and the rest in patch 0: the top's four edges are

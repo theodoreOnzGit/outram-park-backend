@@ -1764,7 +1764,7 @@ pub(crate) mod render_gh1259 {
     }
 
     /// An 8-bit RGB PNG with stored (uncompressed) deflate blocks.
-    fn write_png(path: &std::path::Path, w: usize, h: usize, rgb: &[u8]) {
+    pub(crate) fn write_png(path: &std::path::Path, w: usize, h: usize, rgb: &[u8]) {
         let mut raw = Vec::with_capacity(h * (3 * w + 1));
         for y in 0..h {
             raw.push(0u8);

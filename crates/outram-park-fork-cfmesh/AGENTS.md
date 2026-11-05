@@ -156,7 +156,12 @@ the surface only through `optimiseBoundaryVolumeOptimizer(true)`'s tangent
 constraint and calls no mapper afterwards. All three switches are off by
 default, and
 `final_mesh::tests::foam_studio_default_mesh_keeps_its_fingerprint` pins
-Foam Studio's default mesh.
+~~Foam Studio's default mesh~~ Foam Studio's pre-gh:#1298 default mesh
+(**UPDATED 2026-11-05, gh:#1298:** Foam Studio now turns all three on
+itself, with `CellCentre` + `Corners` and `CfMeshOptimise`
+(`engine::CfMeshRoute::UpstreamNoLaplace`); this crate's
+`TetDualOptions::default()` is unchanged, so its pins and the other
+consumers keep the old pipeline).
 
 Use the projection only with `untangle_surface`. On the `revert_tangled`
 capture it re-maps the points that capture left off the surface on
@@ -267,7 +272,8 @@ upstream's place; each is **off unless the `MeshDict` asks**
 `subset_cell_size`, `local_refinement_subsets`). `MeshDict::anisotropic_sources`
 moves the sources through gh:#1279's `anisotropic`
 (`mesh_octree_creator::source_surface_geometry` /
-`source_edge_mesh_geometry`); the generators do not read it.
+`source_edge_mesh_geometry`); ~~the generators do not read it~~ the
+generators read it too since gh:#1279's remainder (next section).
 
 `MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
 read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and
@@ -278,6 +284,31 @@ edges). Upstream's proximity criterion needs the parts to be separate
 within `1.732 h`: a channel closed at its sides within that range is never
 refined. Record, the misses and the images:
 `verification_and_validation/octree_remainders_gh1278/`.
+
+## `anisotropicSources` in the four generators (gh:#1279 remainder, 2026-11-05)
+
+`cartesian_mesh`, `tet_mesh`, `p_mesh` and `cartesian_2d_mesh` apply
+`MeshDict::anisotropic_sources` where upstream's generators do:
+
+- **Constructor.** The octree is built on the modified surface
+  (`anisotropic::modified_surface_points`). Every step up to the revert
+  maps, extracts and optimises against that surface.
+- **3D generators.** At the end of `meshOptimisation`'s first
+  `optimiseFinalMesh` they revert, then run
+  `projectSurfaceAfterBackScaling` (`anisotropic::revert_and_project`,
+  then `optimiseFinalMesh` again on the original surface).
+- **2D generator.** The revert is at the end of `boundaryLayerGeneration`,
+  followed by a new quadtree on the original surface
+  (`cartesian_2d_mesh::refined_quadtree`), `remapBoundaryPoints` and
+  `optimiseMeshSurface`.
+
+A run stopped before the revert returns the mesh in the modified space,
+as upstream does. Without sources, all four outputs are pinned to their
+pre-wiring fingerprints
+(`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`):
+**do not move that pin.**
+
+Record and images: `verification_and_validation/anisotropic_gh1279/`.
 
 ## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
 
@@ -298,6 +329,20 @@ are not ported; the report says so at each step.~~ **UPDATED 2026-11-05
 `refine_boundary_layers_2d`) and called where upstream calls them; the
 layer is patch-wise. Record:
 `verification_and_validation/cartesian_2d_mesh_gh1275/`.
+
+## Every mesh leaves in OpenFOAM's upper-triangular face order (gh:#1285, 2026-11-05)
+
+`renumber_mesh::upper_triangular` (steps 2–3 of upstream's `renumberMesh`
+with the cell labels kept) is the **last step** of the tet-dual pipeline
+(`pipeline::run_pipeline`) and of `cartesian::cartesian_box`. One final
+step, not one per builder: every stage rebuilds its mesh from cell face
+lists, so an order set inside a stage does not survive the next. A new
+public route that returns a `VolumeMesh` ends with it too
+(`poly_mesh_gen_checks::check_upper_triangular` must pass). The four
+upstream workflows end with the full `renumberMesh` (cell walk too). The
+geometry is unchanged by it (`upper_triangular_order_moves_no_geometry`);
+fingerprints that hash face order moved once. Record:
+`verification_and_validation/upper_triangular_gh1285/`.
 
 ## Avoid writing macros (workspace rule, 2026-11-05)
 

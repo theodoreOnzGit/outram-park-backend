@@ -11,18 +11,37 @@
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const fs = require('fs');
 
+// gh:#1298 changed the unstructured default (cell-centre dual, corners,
+// cfMesh optimise, upstream's sequence). The cases recorded before it name
+// the old choices in full (LEGACY), so they still reproduce their rows.
+const LEGACY = 'route=legacy&dual=corner&fp=edges&layerq=backoff';
 const CASES = [
   { name: 'structured_desktop', q: 'autostart=1', vp: [1280, 900] },
-  { name: 'dual_h5_0layers_desktop', q: 'mesh=unstructured&h=5&layers=0&autostart=1', vp: [1280, 900] },
-  { name: 'dual_h5_1layer_desktop', q: 'mesh=unstructured&h=5&layers=1&autostart=1', vp: [1280, 900] },
-  { name: 'dual_h5_2layers_desktop', q: 'mesh=unstructured&h=5&layers=2&autostart=1', vp: [1280, 900] },
-  { name: 'dual_h5_2layers_phone', q: 'mesh=unstructured&h=5&layers=2&autostart=1', vp: [390, 844] },
+  { name: 'dual_h5_0layers_desktop', q: `mesh=unstructured&h=5&layers=0&${LEGACY}&autostart=1`, vp: [1280, 900] },
+  { name: 'dual_h5_1layer_desktop', q: `mesh=unstructured&h=5&layers=1&${LEGACY}&autostart=1`, vp: [1280, 900] },
+  { name: 'dual_h5_2layers_desktop', q: `mesh=unstructured&h=5&layers=2&${LEGACY}&autostart=1`, vp: [1280, 900] },
+  { name: 'dual_h5_2layers_phone', q: `mesh=unstructured&h=5&layers=2&${LEGACY}&autostart=1`, vp: [390, 844] },
   // gh:#1240 browser controls: upstream polyDualMesh wall faces (cell-centre
   // dual, corners only), with the back-off and with cfMesh's optimiser.
-  { name: 'centre_corners_h5_2layers_desktop', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&autostart=1', vp: [1280, 900] },
-  { name: 'centre_corners_h5_2layers_phone', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&autostart=1', vp: [390, 844] },
-  { name: 'centre_corners_h5_3layers_cfmesh_desktop', q: 'mesh=unstructured&h=5&layers=3&dual=centre&fp=corners&layerq=cfmesh&autostart=1', vp: [1280, 900] },
+  { name: 'centre_corners_h5_2layers_desktop', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&layerq=backoff&route=legacy&autostart=1', vp: [1280, 900] },
+  { name: 'centre_corners_h5_2layers_phone', q: 'mesh=unstructured&h=5&layers=2&dual=centre&fp=corners&layerq=backoff&route=legacy&autostart=1', vp: [390, 844] },
+  { name: 'centre_corners_h5_3layers_cfmesh_desktop', q: 'mesh=unstructured&h=5&layers=3&dual=centre&fp=corners&layerq=cfmesh&route=legacy&autostart=1', vp: [1280, 900] },
+  // gh:#1298: the new mesher bare at h 4 mm (the default until the
+  // maintainer's gh:#1298 decision; since then reached by h=4&layers=0),
+  // desktop and phone, and its 3-layer case at h 5 mm; the old default as
+  // the ablation.
+  { name: 'default_gh1298_desktop', q: 'mesh=unstructured&h=4&layers=0&autostart=1', vp: [1280, 900] },
+  { name: 'default_gh1298_phone', q: 'mesh=unstructured&h=4&layers=0&autostart=1', vp: [390, 844] },
+  { name: 'default_gh1298_h5_3layers_desktop', q: 'mesh=unstructured&h=5&layers=3&autostart=1', vp: [1280, 900] },
+  { name: 'default_gh1298_h5_3layers_phone', q: 'mesh=unstructured&h=5&layers=3&autostart=1', vp: [390, 844] },
+  // gh:#1298, maintainer decision: the default is h 5 mm with 3 layers,
+  // loaded with no size in the URL, desktop and phone.
+  { name: 'default_h5_3layers_desktop', q: 'mesh=unstructured&autostart=1', vp: [1280, 900] },
+  { name: 'default_h5_3layers_phone', q: 'mesh=unstructured&autostart=1', vp: [390, 844] },
+  { name: 'legacy_default_desktop', q: `mesh=unstructured&${LEGACY}&autostart=1`, vp: [1280, 900] },
 ];
+// BROWSER_CASES=name1,name2 runs only those (all when unset).
+const ONLY = process.env.BROWSER_CASES ? process.env.BROWSER_CASES.split(',') : null;
 const TIMEOUT_MS = 25 * 60 * 1000;
 
 (async () => {
@@ -30,8 +49,9 @@ const TIMEOUT_MS = 25 * 60 * 1000;
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-gl=swiftshader', '--ignore-gpu-blocklist'] });
   const log = [];
-  const say = (s) => { console.log(s); log.push(s); fs.writeFileSync(`${out}/browser_check.txt`, log.join('\n') + '\n'); };
-  for (const c of CASES) {
+  const logName = process.env.BROWSER_LOG || 'browser_check.txt';
+  const say = (s) => { console.log(s); log.push(s); fs.writeFileSync(`${out}/${logName}`, log.join('\n') + '\n'); };
+  for (const c of CASES.filter((c) => !ONLY || ONLY.includes(c.name))) {
     const ctx = await browser.newContext({ viewport: { width: c.vp[0], height: c.vp[1] } });
     const page = await ctx.newPage();
     const errors = [];
