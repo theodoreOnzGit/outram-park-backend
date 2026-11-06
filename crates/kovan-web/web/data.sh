@@ -14,6 +14,8 @@
 #
 #   crates/kovan-web/web/data.sh <out-data-dir> [<api-dir>]
 #   crates/kovan-web/web/data.sh --check         # the determinism check
+#   crates/kovan-web/web/data.sh --api-lists <out-data-dir> <api-dir>
+#                       # only api/<crate>.json, for a rustdoc built elsewhere
 #
 # BACKEND (#772, maintainer 2026-10-07): KOVAN_CALL_GRAPH_BACKEND=scip (the
 # default) or lsp. With scip, `rust-analyzer scip` indexes the whole
@@ -55,6 +57,30 @@
 set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
+# The rustdoc pages that exist, per crate (relative to the api/ folder), into
+# <out>/api/<crate>.json. rustdoc names a crate's folder with '_' for '-';
+# files are written under the package name, read from each member's own
+# Cargo.toml. Needs no kovan-cli and no rust-analyzer, so
+# `data.sh --api-lists <out-data-dir> <api-dir>` can run it alone, after the
+# call graph and the rustdoc were built on different runners (gh:#1305).
+write_api_lists() {
+  local out="$1" api="$2" m pkg name
+  mkdir -p "$out/api"
+  for m in crates/*/Cargo.toml; do
+    pkg="$(awk '/^\[package\]/{p=1;next} /^\[/{p=0} p && /^name[[:space:]]*=/{
+          gsub(/^name[[:space:]]*=[[:space:]]*"/,""); gsub(/".*$/,""); print; exit}' "$m")"
+    name="${pkg//-/_}"
+    [[ -n "$pkg" && -f "$api/$name/index.html" ]] || continue
+    (cd "$api" && find "$name" -name '*.html' | LC_ALL=C sort) \
+      | sed 's/.*/"&"/' | paste -sd, - | sed 's/^/[/; s/$/]/' > "$out/api/$pkg.json"
+  done
+}
+
+if [[ "${1:-}" == "--api-lists" ]]; then
+  write_api_lists "$(realpath -m "${2:?usage: data.sh --api-lists <out-data-dir> <api-dir>}")" "$(realpath -m "${3:?usage: data.sh --api-lists <out-data-dir> <api-dir>}")"
+  echo "data.sh: wrote $2/api/*.json"
+  exit 0
+fi
 JOBS="${PAGES_JOBS:-3}"
 CACHE="${KOVAN_INDEX_CACHE:-$root/target/kovan-index}"
 BUDGET="${KOVAN_INDEX_BUDGET:-0}"
@@ -246,16 +272,7 @@ printf '{"commit":"%s","repo":"%s","call_graph":{"backend":"%s","rust_analyzer":
   "$(json_list "${stale[@]}")" "$(json_list "${missing[@]}")" > "$out/build.json"
 
 # The rustdoc pages that exist, per crate (relative to the api/ folder).
-# rustdoc names a crate's folder with '_' for '-'; files are written under
-# the package name, read from each member's own Cargo.toml.
 if [[ -n "$api" && -d "$api" ]]; then
-  for m in crates/*/Cargo.toml; do
-    pkg="$(awk '/^\[package\]/{p=1;next} /^\[/{p=0} p && /^name[[:space:]]*=/{
-          gsub(/^name[[:space:]]*=[[:space:]]*"/,""); gsub(/".*$/,""); print; exit}' "$m")"
-    name="${pkg//-/_}"
-    [[ -n "$pkg" && -f "$api/$name/index.html" ]] || continue
-    (cd "$api" && find "$name" -name '*.html' | LC_ALL=C sort) \
-      | sed 's/.*/"&"/' | paste -sd, - | sed 's/^/[/; s/$/]/' > "$out/api/$pkg.json"
-  done
+  write_api_lists "$out" "$api"
 fi
 echo "data.sh: wrote $out ($(du -sh "$out" | cut -f1))"

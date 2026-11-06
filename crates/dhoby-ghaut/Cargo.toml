@@ -269,6 +269,11 @@ path = "examples/mesh_studio/main.rs"
 # WebGL2 where WebGPU is missing. Coverage is unchanged.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 eframe = { workspace = true }
+# helical_sg_web's march (`tampines::components::helical_coil_otsg`) in the
+# browser. Natively tampines is a normal dependency (the studios), but that
+# section is off on wasm32; dropping the dev-dependency on 2026-11-05
+# (a2be2b83f) broke the Pages build of this demo.
+tampines = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }

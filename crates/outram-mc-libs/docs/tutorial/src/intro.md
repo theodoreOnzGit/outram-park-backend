@@ -4,8 +4,9 @@
 > safety decisions or emergency response. See
 > [`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md).
 
-> **This site always tracks the `develop` branch.** It is rebuilt on every
-> push, and every code link points at the exact commit it was built from,
+> **This site always tracks the `develop` branch.** It is rebuilt when
+> `develop` is merged into `web-deploy` (~~on every push~~ **CHANGED 2026-11-06**,
+> gh:#1306), and every code link points at the exact commit it was built from,
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@)
 > (@@BUILD_DATE@@).
 
