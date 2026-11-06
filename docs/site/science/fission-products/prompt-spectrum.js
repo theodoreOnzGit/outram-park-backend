@@ -13,10 +13,16 @@
   var D = function () { return window.SPECTRUM_DATA; };
   var E_LO = 1e-5, E_HI = 2e7;
 
-  // The generated row nearest e (in log energy).
-  function nearest(P, e) {
-    var best = P.grid[0], bd = Infinity;
-    P.grid.forEach(function (g) { var d = Math.abs(Math.log(g.e / e)); if (d < bd) { bd = d; best = g; } });
+  // The generated rows this page shows for a parent: none below the energy
+  // at which it can fission (FPEnergy.lowest, gh:#1307; U-238 from 500 keV).
+  function rows(name) {
+    var lo = FE.lowest(name) * (1 - 1e-9);
+    return D()[name].grid.filter(function (g) { return g.e >= lo; });
+  }
+  // The shown row nearest e (in log energy).
+  function nearest(name, e) {
+    var grid = rows(name), best = grid[0], bd = Infinity;
+    grid.forEach(function (g) { var d = Math.abs(Math.log(g.e / e)); if (d < bd) { bd = d; best = g; } });
     return best;
   }
   function mev(x) { return (x / 1e6).toFixed(3) + " MeV"; }
@@ -24,7 +30,7 @@
   function spectrum(root) {
     var st = { parent: "U-235", view: "spectrum", logy: false, row: null, showSampled: true, showExact: true };
     function P() { return D()[st.parent]; }
-    st.row = nearest(P(), FE.clamp(FE.initial(0.0253), E_LO, E_HI));
+    st.row = nearest(st.parent, FE.clamp(FE.initial(0.0253), E_LO, E_HI));
 
     var frame = new L.Frame(root, {
       reset: function () {},
@@ -79,16 +85,17 @@
           // Linear in incident energy, 0 to 20 MeV: below 1 MeV nothing moves.
           var lx = function (e) { return x0 + Math.min(e / E_HI, 1) * pw; };
           var lo = Infinity, hi = 0;
-          Pp.grid.forEach(function (g) { lo = Math.min(lo, g.mode); hi = Math.max(hi, g.mean); });
+          var G = rows(st.parent);
+          G.forEach(function (g) { lo = Math.min(lo, g.mode); hi = Math.max(hi, g.mean); });
           lo = Math.max(lo * 0.8, 0); hi *= 1.08;
           var Yy = function (v) { return y0 + ph * (1 - (v - lo) / (hi - lo)); };
           ctx.strokeStyle = mut; ctx.lineWidth = 1; ctx.strokeRect(x0, y0, pw, ph);
           [["mean", fg], ["mode", acc]].forEach(function (s) {
             ctx.strokeStyle = s[1]; ctx.lineWidth = 2; ctx.beginPath();
-            Pp.grid.forEach(function (g, i) { if (i) ctx.lineTo(lx(g.e), Yy(g[s[0]])); else ctx.moveTo(lx(g.e), Yy(g[s[0]])); });
+            G.forEach(function (g, i) { if (i) ctx.lineTo(lx(g.e), Yy(g[s[0]])); else ctx.moveTo(lx(g.e), Yy(g[s[0]])); });
             ctx.stroke();
             ctx.fillStyle = s[1];
-            Pp.grid.forEach(function (g) { if (g.tab) { ctx.beginPath(); ctx.arc(lx(g.e), Yy(g[s[0]]), 3, 0, 2 * Math.PI); ctx.fill(); } });
+            G.forEach(function (g) { if (g.tab) { ctx.beginPath(); ctx.arc(lx(g.e), Yy(g[s[0]]), 3, 0, 2 * Math.PI); ctx.fill(); } });
           });
           ctx.fillStyle = mut;
           for (var dd = 0; dd <= 20; dd += 5) ctx.fillText(dd + "", lx(dd * 1e6) - 4, y0 + ph + 14);
@@ -101,7 +108,7 @@
         // The incident-energy strip: the evaluation's tabulated energies and the current one.
         var sy = h - 44, sx = function (e) { return x0 + (Math.log10(e) - Math.log10(E_LO)) / (Math.log10(E_HI) - Math.log10(E_LO)) * pw; };
         ctx.strokeStyle = mut; ctx.beginPath(); ctx.moveTo(x0, sy); ctx.lineTo(x0 + pw, sy); ctx.stroke();
-        Pp.incident.forEach(function (e) { if (e >= E_LO && e <= E_HI) { ctx.beginPath(); ctx.moveTo(sx(e), sy - 6); ctx.lineTo(sx(e), sy + 6); ctx.stroke(); } });
+        Pp.incident.forEach(function (e) { if (e >= Math.max(E_LO, FE.lowest(st.parent)) && e <= E_HI) { ctx.beginPath(); ctx.moveTo(sx(e), sy - 6); ctx.lineTo(sx(e), sy + 6); ctx.stroke(); } });
         ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(sx(R.e), sy, 5, 0, 2 * Math.PI); ctx.fill();
         ctx.fillStyle = mut; ctx.fillText("incident energy, log; ticks: tabulated", x0, sy + 20);
         var where = R.tab ? "a tabulated energy: one evaluated table, used as it is"
@@ -109,18 +116,18 @@
         return st.parent + ", neutron at " + FE.label(R.e) + " (" + where + "). Mean " + mev(R.mean) + " (sampled " + mev(R.sum / R.n) + "), most probable " + mev(R.mode) + ".";
       },
       panel: function (body, redraw) {
-        L.buttons(body, "Parent nucleus", Object.keys(D()).map(function (k) { return [k, k + " + n"]; }), st.parent, function (v) { st.parent = v; st.row = nearest(P(), st.row.e); sync(); redraw(); });
+        L.buttons(body, "Parent nucleus", Object.keys(D()).map(function (k) { return [k, k + " + n"]; }), st.parent, function (v) { st.parent = v; st.row = nearest(st.parent, st.row.e); sync(); redraw(); });
         L.buttons(body, "Show", [["spectrum", "Spectrum"], ["mean", "Mean vs energy"]], st.view, function (v) { st.view = v; redraw(); });
         var out = el("span", { "class": "w-val" }), g = el("label", { "class": "w-group" });
         g.append(el("span", { "class": "w-label" }, "Incident neutron energy (same as lesson 2)"), out);
         var s = el("input", { type: "range", min: 0, max: FE.STEPS, step: 1 });
         g.append(s); body.append(g);
         function sync() { s.value = FE.toPos(st.row.e, E_LO, E_HI); out.textContent = FE.label(st.row.e) + (st.row.tab ? " (tabulated)" : ""); link.href = "split-atoms.html?e=" + st.row.e; }
-        s.oninput = function () { st.row = nearest(P(), FE.toEnergy(+s.value, E_LO, E_HI)); FE.remember(st.row.e); sync(); redraw(); };
+        s.oninput = function () { st.row = nearest(st.parent, FE.toEnergy(+s.value, E_LO, E_HI)); FE.remember(st.row.e); sync(); redraw(); };
         var row = el("div", { "class": "w-row" });
         [[0.0253, "thermal"], [5e5, "500 keV"], [2e6, "2 MeV"], [1.4e7, "14 MeV"]].forEach(function (q) {
           var b = el("button", { type: "button", "class": "w-opt" }, q[1]);
-          b.onclick = function () { st.row = nearest(P(), q[0]); FE.remember(st.row.e); sync(); redraw(); };
+          b.onclick = function () { st.row = nearest(st.parent, q[0]); FE.remember(st.row.e); sync(); redraw(); };
           row.append(b);
         });
         body.append(el("span", { "class": "w-label" }, "Jump to"), row);
@@ -128,7 +135,7 @@
         L.toggle(body, "Exact law (line)", st.showExact, function (v) { st.showExact = v; redraw(); });
         L.toggle(body, "Logarithmic density axis", st.logy, function (v) { st.logy = v; redraw(); });
         var link = el("a", { href: "split-atoms.html" }, "← The fission products at this energy (lesson 2)");
-        body.append(el("p", { "class": "w-note" }, "The slider snaps to the energies the generator sampled: six per decade plus every tabulated one. Zoom in to see low outgoing energies."), link);
+        body.append(el("p", { "class": "w-note" }, "The slider snaps to the energies the generator sampled: six per decade plus every tabulated one. Zoom in to see low outgoing energies. U-238 starts at 500 keV: it is not fissile, and a slower neutron is captured, not split."), link);
         sync();
       }
     });
@@ -140,7 +147,7 @@
     var body = node.querySelector("tbody"), Dd = D();
     Object.keys(Dd).forEach(function (name) {
       Dd[name].grid.forEach(function (g) {
-        if (!g.tab) return;
+        if (!g.tab || g.e < FE.lowest(name) * (1 - 1e-9)) return;
         var tr = el("tr");
         tr.append(el("td", { "data-label": "Parent" }, name), el("td", { "data-label": "Incident energy" }, FE.label(g.e)),
           el("td", { "data-label": "Mean E′" }, mev(g.mean)), el("td", { "data-label": "Sampled mean" }, mev(g.sum / g.n)), el("td", { "data-label": "Most probable E′" }, mev(g.mode)));
