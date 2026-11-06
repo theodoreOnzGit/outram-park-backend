@@ -25,6 +25,7 @@ test_ids = [
     "crates/outram-mc-libs/src/pebble_beds/htr10/tests.rs::the_graphite_boron_matches_mits_atom_ppm_table",
     "crates/outram-mc-libs/src/pebble_beds/htr10/tests.rs::the_kernel_boron_is_quoted_relative_to_uranium_not_uo2",
     "crates/outram-mc-libs/src/pebble_beds/htr10/tests.rs::the_material_table_is_seven_entries_in_pebble_order",
+    "crates/outram-mc-libs/src/pebble_beds/htr10/tests.rs::the_stored_packing_fraction_is_what_the_geometry_implies",
     "crates/outram-mc-libs/src/pebble_beds/htr10/tests.rs::the_tabulated_heavy_metal_loading_closes_to_a_milligram",
     "crates/outram-mc-libs/src/vv/ugraphite.rs::homogenised_cell_has_the_requested_ratio",
     "crates/outram-mc-libs/src/vv/ugraphite.rs::pebble_inventory_matches_the_specification",
@@ -93,8 +94,8 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#22",
-    "#24",
+    "#23",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -127,8 +128,8 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#22",
-    "#24",
+    "#23",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -311,8 +312,8 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#22",
-    "#24",
+    "#23",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -344,8 +345,8 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#22",
-    "#24",
+    "#23",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -376,7 +377,7 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#24",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -407,7 +408,7 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#24",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -438,7 +439,7 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#24",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -469,8 +470,8 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#23",
     "#24",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -1275,8 +1276,8 @@ reached_by = [
     "#19",
     "#20",
     "#21",
-    "#22",
-    "#24",
+    "#23",
+    "#25",
 ]
 
 [[module."mod.rs".function]]
@@ -1674,3 +1675,36 @@ uses = [
     "fn:c0f5c74f0c583678",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+failed = []

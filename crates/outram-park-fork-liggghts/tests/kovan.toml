@@ -2,6 +2,31 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-liggghts"
 dir = "crates/outram-park-fork-liggghts/tests"
+test_ids = [
+    "crates/outram-park-fork-liggghts/tests/angle_of_repose.rs::lifting_cylinder_heap_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/compute_backend_equivalence.rs::parallel_is_bit_identical_below_the_brute_force_threshold",
+    "crates/outram-park-fork-liggghts/tests/compute_backend_equivalence.rs::parallel_is_bit_identical_to_serial_with_history",
+    "crates/outram-park-fork-liggghts/tests/compute_backend_equivalence.rs::parallel_is_bit_identical_to_serial_without_history",
+    "crates/outram-park-fork-liggghts/tests/compute_backend_equivalence.rs::the_same_backend_twice_gives_the_same_answer",
+    "crates/outram-park-fork-liggghts/tests/htr10_conus_cross_code.rs::conus_slump_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/htr10_pebble_bed.rs::htr10_full_core_settles_and_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/htr10_pebble_bed.rs::htr10_geometry_matches_the_published_design_point",
+    "crates/outram-park-fork-liggghts/tests/htr10_rdf.rs::cpu_backends_agree_exactly",
+    "crates/outram-park-fork-liggghts/tests/htr10_rdf.rs::gpu_backend_matches_cpu_within_f32_binning",
+    "crates/outram-park-fork-liggghts/tests/htr10_rdf.rs::radial_distribution_of_every_htr10_bed",
+    "crates/outram-park-fork-liggghts/tests/htr10_recirculation.rs::slow_recirculation_through_the_discharge_system",
+    "crates/outram-park-fork-liggghts/tests/legacy_path_cross_code.rs::stateless_path_matches_liggghts_no_history",
+    "crates/outram-park-fork-liggghts/tests/liggghts_cross_code.rs::headon_hertz_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/liggghts_cross_code.rs::headon_hooke_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/liggghts_cross_code.rs::oblique_friction_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/liggghts_cross_code.rs::rolling_cdt_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/liggghts_cross_code.rs::wall_bounce_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/pebble_bed_bulk.rs::bulk_packing_matches_liggghts",
+    "crates/outram-park-fork-liggghts/tests/pebble_bed_porosity.rs::axial_porosity_has_floor_layering_a_bulk_and_a_free_surface",
+    "crates/outram-park-fork-liggghts/tests/pebble_bed_porosity.rs::porosity_map_matches_the_committed_profile",
+    "crates/outram-park-fork-liggghts/tests/pebble_bed_porosity.rs::radial_porosity_is_the_oscillatory_near_wall_profile",
+    "crates/outram-park-fork-liggghts/tests/pebble_bed_porosity.rs::the_zbs_wall_placeholder_has_the_wrong_shape",
+]
 
 [module."angle_of_repose.rs"]
 path = "test:angle_of_repose"
@@ -2113,3 +2138,34 @@ callees = [
 ]
 uses = ["fn:572163f569103e80"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+failed = []

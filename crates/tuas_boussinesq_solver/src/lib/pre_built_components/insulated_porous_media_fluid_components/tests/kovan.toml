@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::assert_if_hydraulic_diameter_of_heater_v1_is_correct",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::check_if_number_of_nodes_is_correct",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation_arr",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::test_to_assert_if_conductance_from_insulation_to_ambient_is_correct",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/steady_state_validation.rs::steady_state_test_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/transient_validation.rs::transient_test_stepdown_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/transient_validation.rs::transient_test_stepup_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation",
+]
 
 [module."mod.rs"]
 path = "crate::pre_built_components::insulated_porous_media_fluid_components::tests"
@@ -334,3 +345,20 @@ uses = [
     "fn:de020efa1d48c9ac",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

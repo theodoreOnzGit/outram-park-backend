@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/tests"
+test_ids = [
+    "crates/tampines-steam-tables/tests/boundary_273_15_repro.rs::does_lambda_ph_eqm_work_in_region_5",
+    "crates/tampines-steam-tables/tests/boundary_273_15_repro.rs::does_the_ps_flash_reach_region_5_and_does_the_checked_facade",
+    "crates/tampines-steam-tables/tests/boundary_273_15_repro.rs::ph_to_t_inverse_undershoots_the_273_15_floor",
+    "crates/tampines-steam-tables/tests/boundary_273_15_repro.rs::the_checked_ph_facade_still_refuses_region_5_and_the_2273_k_ceiling_panics",
+    "crates/tampines-steam-tables/tests/edwards_blowdown.rs::edwards_obrien_pipe_blowdown_600ms",
+    "crates/tampines-steam-tables/tests/heated_tube_never_undercuts_its_feedwater.rs::the_default_scheme_never_undercuts_the_feedwater",
+    "crates/tampines-steam-tables/tests/heated_tube_never_undercuts_its_feedwater.rs::the_linear_ablation_reproduces_the_walk_toward_the_floor",
+    "crates/tampines-steam-tables/tests/wasm_smoke.rs::edwards_blowdown_advances_under_wasm",
+    "crates/tampines-steam-tables/tests/wasm_smoke.rs::steam_property_flash_works_under_wasm",
+]
 
 [module."boundary_273_15_repro.rs"]
 path = "test:boundary_273_15_repro"
@@ -785,3 +796,20 @@ callees = [
     "fn:a779f5c01a87511a",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

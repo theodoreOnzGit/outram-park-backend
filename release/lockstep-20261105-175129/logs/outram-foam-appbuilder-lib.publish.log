@@ -1,0 +1,20 @@
+    Updating crates.io index
+   Packaging outram-foam-appbuilder-lib v0.1.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-appbuilder-lib)
+warning: ignoring test `tutorial_pimple_foam_cavity` as `tutorials/pimple_foam_cavity.rs` is not included in the published package
+warning: ignoring test `tutorial_rho_central_foam_shock_tube` as `tutorials/rho_central_foam_shock_tube.rs` is not included in the published package
+warning: ignoring test `tutorial_rho_pimple_foam_aerofoil_naca0012` as `tutorials/rho_pimple_foam_aerofoil_naca0012.rs` is not included in the published package
+    Updating crates.io index
+    Packaged 587 files, 41.4MiB (8.7MiB compressed)
+   Verifying outram-foam-appbuilder-lib v0.1.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-appbuilder-lib)
+ Downloading crates ...
+  Downloaded outram-foam-multiphase v0.0.5
+  Downloaded outram-foam-turbulence-lib v0.1.5
+   Compiling outram-foam-turbulence-lib v0.1.5
+   Compiling outram-foam-multiphase v0.0.5
+   Compiling outram-foam-appbuilder-lib v0.1.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-foam-appbuilder-lib-0.1.7)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.78s
+   Uploading outram-foam-appbuilder-lib v0.1.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-appbuilder-lib)
+    Uploaded outram-foam-appbuilder-lib v0.1.7 to registry `crates-io`
+note: waiting for outram-foam-appbuilder-lib v0.1.7 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-appbuilder-lib v0.1.7 at registry `crates-io`

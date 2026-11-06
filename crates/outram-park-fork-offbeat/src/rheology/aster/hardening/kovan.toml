@@ -2,6 +2,14 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/hardening"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/hardening/tests.rs::each_variant_reproduces_its_closed_form",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/hardening/tests.rs::every_slope_is_the_derivative_of_its_value",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/hardening/tests.rs::the_aster_power_curve_is_linearised_below_the_upstream_cutoff",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/hardening/tests.rs::the_slope_guard_keeps_singular_curves_finite_at_the_origin",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/hardening/tests.rs::the_two_power_law_families_are_genuinely_different",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/hardening/tests.rs::unphysical_parameters_are_refused",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::hardening::tests"
@@ -143,3 +151,17 @@ uses = [
     "fn:ccb95a4489b65e60",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []

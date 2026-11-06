@@ -74,6 +74,7 @@ test_ids = [
     "crates/kovan/src/commands/api_docs.rs::a_missing_crate_directory_is_reported_before_anything_is_spawned",
     "crates/kovan/src/commands/api_docs.rs::package_name_is_read_from_the_package_section_only",
     "crates/kovan/src/commands/api_docs.rs::scope_existing_looks_for_the_crate_named_mirror",
+    "crates/kovan/src/commands/api_docs.rs::the_elided_lifetime_workaround_is_idempotent",
     "crates/kovan/src/commands/call_graph.rs::crate_list_parses",
     "crates/kovan/src/commands/call_graph.rs::functions_of_a_file",
     "crates/kovan/src/commands/call_graph.rs::item_start_includes_docs_and_attributes",
@@ -698,8 +699,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -723,8 +724,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -747,8 +748,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -772,8 +773,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -794,8 +795,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -822,8 +823,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -844,10 +845,10 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#72",
     "#73",
-    "#118",
-    "#121",
+    "#74",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -868,9 +869,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#72",
-    "#118",
-    "#121",
+    "#73",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -893,8 +894,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -953,8 +954,8 @@ callees = [
 uses = ["fn:a62d8596a9fe217e"]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1030,8 +1031,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1059,8 +1060,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1113,8 +1114,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1139,8 +1140,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1212,8 +1213,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1235,8 +1236,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1259,8 +1260,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1281,8 +1282,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1308,8 +1309,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1345,8 +1346,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1373,8 +1374,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1396,8 +1397,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1431,9 +1432,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#72",
-    "#118",
-    "#121",
+    "#73",
+    "#119",
+    "#122",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1512,7 +1513,7 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#124",
+    "#125",
 ]
 
 [[module."call_graph.rs".function]]
@@ -1580,7 +1581,7 @@ lines = [
 ]
 hash = "sha256:aaebac557775ce939558682bd30cb5f60413a684995270c89fa828ed8963b268"
 doc_hash = "sha256:bb4d12b050c512f409d05e3512dc9ee30a783dbd504d9bf095066d39535f216a"
-reached_by = ["#71"]
+reached_by = ["#72"]
 
 [[module."call_graph.rs".function]]
 id = "fn:80ecc8bc9fc7c07a"
@@ -1670,8 +1671,8 @@ lines = [
 hash = "sha256:8301356527c05d5deeeb094bd89b2f3c8258e65671e95bd36d40fb5ccf558a20"
 doc_hash = "sha256:7b395f6f736b70cfe239d4dc6a46782d68047647b3b9bd8adaa5ef90134958b7"
 reached_by = [
-    "#74",
     "#75",
+    "#76",
 ]
 
 [[module."ci.rs".function]]
@@ -1687,8 +1688,8 @@ lines = [
 hash = "sha256:9656aa142e18fe9980af6faad533d42063c2c2bb3b520d737825ab43badbf558"
 doc_hash = "sha256:aa906d8c51ee026a849c53593087124e45eae70f68a14bff8e0512b4bfe97cb9"
 reached_by = [
-    "#74",
     "#75",
+    "#76",
 ]
 
 [[module."ci.rs".function]]
@@ -1708,8 +1709,8 @@ uses = [
     "fn:bb94858db642d4fe",
 ]
 reached_by = [
-    "#74",
     "#75",
+    "#76",
 ]
 
 [[module."ci.rs".function]]
@@ -1770,7 +1771,7 @@ lines = [
 ]
 hash = "sha256:6724f6f6dca4d9c21fb19794ae9d0d4935cfff7ae4cbdc4f3bd8faed356cd26b"
 doc_hash = "sha256:7dfc7db445f0b2a633d18300cdec1ca0f71d0a3379b605b3291080d69e46283e"
-reached_by = ["#76"]
+reached_by = ["#77"]
 
 [[module."ci.rs".function]]
 id = "fn:1c0b560771cc43c0"
@@ -1805,8 +1806,8 @@ uses = [
     "fn:bb94858db642d4fe",
 ]
 reached_by = [
-    "#74",
     "#75",
+    "#76",
 ]
 
 [[module."ci.rs".function]]
@@ -1820,8 +1821,8 @@ lines = [
 hash = "sha256:340ac9f3f2250e5a01acd103fefa47c00fefcdcba1005fd113cbb9f2e27cf2e9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#74",
     "#75",
+    "#76",
 ]
 
 [[module."ci.rs".function]]
@@ -2064,8 +2065,8 @@ lines = [
 hash = "sha256:80c3b63876a1b844f274fe8e6ae70eceacc0fc6c4cb62bb965127521d54fc1df"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#77",
-    "#79",
+    "#78",
+    "#80",
 ]
 
 [[module."gen.rs".function]]
@@ -2095,7 +2096,7 @@ lines = [
 ]
 hash = "sha256:e41f38fbb673a4b84bad243c3fe97548bb608bfe0cb0f12eab5d7a18402f59f1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#78"]
+reached_by = ["#79"]
 
 [[module."gen.rs".function]]
 id = "fn:896dfa5fe9afc4e0"
@@ -2283,8 +2284,8 @@ hash = "sha256:798e5121594bb7322774e999a22506eda5c7bfa77282d2c582d9d117d12ddb94"
 doc_hash = "sha256:95a4aca108e4d6ba385d29c915ea052ab2bcdcc05f4d379b6b23db7407d9fa66"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2301,8 +2302,8 @@ hash = "sha256:1c50b414ad061fff6969ae08e2b6c0a9872ea75d496fa7a868cf54ebbf058425"
 doc_hash = "sha256:20955905c322a689d10020497c4ebad362494d3e11871a1410b554117f33e838"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2343,8 +2344,8 @@ hash = "sha256:50774b70a8f4e75dd026e0a37fad132c4357a1406f5e11f64d4f93ba24d014f4"
 doc_hash = "sha256:cb45cab4ae889aa7afe14a6ee0c3b1d11bddee3b1eda32e91cf7c6d6d44abb37"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2359,8 +2360,8 @@ hash = "sha256:299f444c8979cb94e3b4072f21e1f343e963db0ceffd21827ca3875ababad868"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2375,8 +2376,8 @@ hash = "sha256:fc3076f9e395783581c762bc6c25abd06a6de0b5563ebbb34cd2e6eb714d2db2"
 doc_hash = "sha256:e74b55224c481757fb0b023d4d628103e7c7ed8acf3c3f79f77b8e6a50a66041"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2397,8 +2398,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2413,8 +2414,8 @@ hash = "sha256:c68ced5d68e7428f19f016af7c8af8a2df62c52448a5c489460f4e10688b6f10"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2430,8 +2431,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 uses = ["fn:98edc5ab7f178536"]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2452,8 +2453,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2473,8 +2474,8 @@ callees = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2495,8 +2496,8 @@ callees = [
 uses = ["fn:321b1194bd3385b9"]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2517,8 +2518,8 @@ callees = [
 uses = ["fn:0a1d45ef13493b92"]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2539,8 +2540,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2568,8 +2569,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2595,8 +2596,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2628,8 +2629,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2644,8 +2645,8 @@ hash = "sha256:5fdc73f615f222a32b16535cfe600455192e410fc877f73bc39a74d946dc7962"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2662,8 +2663,8 @@ hash = "sha256:56ce146ce4d94d7badbebeb639bf1cb5a8f1b18d3c4be3e3bc718fd3602b0810"
 doc_hash = "sha256:ff766e360e4c13d8325d84ed10d0da3c368d765db0ed8f652d9497a42104fa49"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2686,8 +2687,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2706,8 +2707,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2734,8 +2735,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2806,8 +2807,8 @@ reached_by = [
     "#58",
     "#59",
     "#60",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2824,12 +2825,12 @@ hash = "sha256:d6f9a50d73ac89d55a39cb3f1f2e676e6b18bd051f0a68b702ee9a6431e89304"
 doc_hash = "sha256:569de15379c1ce22e8c2296db5822266823069e9a85b7b62655ba6d1e3ffcab2"
 reached_by = [
     "#3",
-    "#116",
     "#117",
     "#118",
     "#119",
     "#120",
     "#121",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2848,9 +2849,9 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
     "#119",
-    "#121",
+    "#120",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2870,12 +2871,12 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#116",
     "#117",
     "#118",
     "#119",
     "#120",
     "#121",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2897,9 +2898,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
     "#119",
-    "#121",
+    "#120",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -2985,8 +2986,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -3006,8 +3007,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -3030,9 +3031,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
     "#119",
-    "#121",
+    "#120",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -3047,8 +3048,8 @@ hash = "sha256:448292de8ee094fda629d14ef1244c9904de86d37e903c64542b8620bce5617c"
 doc_hash = "sha256:b286dcb6b5f21e9e829f291d4b3b8336cd241eac4460c3ae3086510c1504aed3"
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -3075,8 +3076,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -3097,8 +3098,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -3125,8 +3126,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."index.rs".function]]
@@ -3172,8 +3173,8 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [module."index_control.rs"]
@@ -3199,9 +3200,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#83",
-    "#118",
-    "#121",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3218,9 +3219,9 @@ hash = "sha256:2a8621d210768d512510403afbfcbcf741a170a032a788cb37f01cfd47cf1b8c"
 doc_hash = "sha256:2ee423ebb0fdec1f86840d76a19f7a324198a0b29b6734a24dc6f5a7fb38d2c6"
 reached_by = [
     "#3",
-    "#80",
-    "#118",
-    "#121",
+    "#81",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3298,10 +3299,10 @@ reached_by = [
     "#59",
     "#60",
     "#61",
-    "#80",
-    "#83",
-    "#118",
-    "#121",
+    "#81",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3380,10 +3381,10 @@ reached_by = [
     "#59",
     "#60",
     "#61",
-    "#80",
-    "#83",
-    "#118",
-    "#121",
+    "#81",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3406,10 +3407,10 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#80",
-    "#83",
-    "#118",
-    "#121",
+    "#81",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3430,7 +3431,7 @@ reached_by = [
     "#7",
     "#8",
     "#9",
-    "#80",
+    "#81",
 ]
 
 [[module."index_control.rs".function]]
@@ -3455,9 +3456,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#83",
-    "#118",
-    "#121",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3479,10 +3480,10 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#80",
-    "#83",
-    "#118",
-    "#121",
+    "#81",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3504,9 +3505,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#83",
-    "#118",
-    "#121",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3531,7 +3532,7 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#83",
+    "#84",
 ]
 
 [[module."index_control.rs".function]]
@@ -3547,8 +3548,8 @@ doc_hash = "sha256:a85b8d964aabb59b90b6aafb521a4b7bdbe366697ade225952b80f6475d40
 uses = ["fn:a62d8596a9fe217e"]
 reached_by = [
     "#3",
-    "#80",
-    "#83",
+    "#81",
+    "#84",
 ]
 
 [[module."index_control.rs".function]]
@@ -3570,10 +3571,10 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#80",
-    "#83",
-    "#118",
-    "#121",
+    "#81",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3599,9 +3600,9 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#83",
-    "#118",
-    "#121",
+    "#84",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3616,9 +3617,9 @@ hash = "sha256:6a683f9a7deabadff772892326977a27cb34b53713433d2a8165ed24a1e98348"
 doc_hash = "sha256:a88d85b1ab74e3bdc994faddaca483b2dc9074d7f9183d70cd5cc765c74b1fd6"
 reached_by = [
     "#3",
-    "#81",
-    "#118",
-    "#121",
+    "#82",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3634,9 +3635,9 @@ doc_hash = "sha256:1426697761ec817de76cbbbcf292e23805ed587236c85d7149f0bc13ca23f
 uses = ["fn:2d66668d4abad211"]
 reached_by = [
     "#3",
-    "#80",
-    "#118",
-    "#121",
+    "#81",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3661,9 +3662,9 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#80",
-    "#118",
-    "#121",
+    "#81",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3678,9 +3679,9 @@ hash = "sha256:87ef935abcb09805256ab5cfb9124173bea66e363de8b6df2bd9602ce2dcbad5"
 doc_hash = "sha256:b8435e2caee23224720e3be181a153bf67b4636278f6454fc8dd775206d02e82"
 reached_by = [
     "#3",
-    "#80",
-    "#118",
-    "#121",
+    "#81",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3695,10 +3696,10 @@ hash = "sha256:41291eba48acd13a8941faf37f8b1d110b95106d2c02b4bfa7944924715104f5"
 doc_hash = "sha256:cf096c801afc402bc4a82fcc6f74b05c0a1230a7e08c73f77df29480bf374cb3"
 reached_by = [
     "#3",
-    "#80",
-    "#82",
-    "#118",
-    "#121",
+    "#81",
+    "#83",
+    "#119",
+    "#122",
 ]
 
 [[module."index_control.rs".function]]
@@ -3979,8 +3980,8 @@ hash = "sha256:894259f3a0fbe4711a261069fcddd15a5f45116cb1efbc78a3a55dc817a63d46"
 doc_hash = "sha256:fd4616052d457bda3f30d71d974dbe23b692611416087be946bd0d81ad055132"
 uses = ["fn:b07b8e5717934b35"]
 reached_by = [
-    "#84",
     "#85",
+    "#86",
 ]
 
 [[module."lit.rs".function]]
@@ -4065,8 +4066,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."lsp_daemon.rs".function]]
@@ -4089,8 +4090,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."lsp_daemon.rs".function]]
@@ -4114,8 +4115,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."lsp_daemon.rs".function]]
@@ -4160,8 +4161,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."lsp_daemon.rs".function]]
@@ -4191,8 +4192,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."lsp_daemon.rs".function]]
@@ -4229,8 +4230,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."lsp_daemon.rs".function]]
@@ -4255,8 +4256,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."lsp_daemon.rs".function]]
@@ -4418,7 +4419,7 @@ lines = [
 ]
 hash = "sha256:f2b725d40bea235eaa2fea148be1674d89732b2948028aa195b74d97687941f6"
 doc_hash = "sha256:cfc4ea4da3b036f9983d95267e14d060513c71166f0c3e17e77c5d6712e82b7e"
-reached_by = ["#86"]
+reached_by = ["#87"]
 
 [[module."mod.rs".function]]
 id = "fn:68c5c20ed3689a3f"
@@ -4448,8 +4449,8 @@ lines = [
 hash = "sha256:93e4167367e4a683e98bb4bb2358dab9213fbc275b74ad4fee5299d7f771a943"
 doc_hash = "sha256:f05f32a8c8e60549245decc9c6e1cfec82add1b40419d6b3f750ec4f5c60f7ba"
 reached_by = [
-    "#87",
     "#88",
+    "#89",
 ]
 
 [[module."mod.rs".function]]
@@ -4478,7 +4479,7 @@ lines = [
 hash = "sha256:e3a5768e48345dfc305ef88d509d3b7d4e51856687bfbe0e8e916e66fa542cda"
 doc_hash = "sha256:eb84fe7e6db8e17359453e07a3d99d1031ecdb237316814df6a80ebcbef178a1"
 uses = ["fn:5b0bfd62cfd8cd35"]
-reached_by = ["#88"]
+reached_by = ["#89"]
 
 [[module."mod.rs".function]]
 id = "fn:792494961051c155"
@@ -4602,8 +4603,8 @@ lines = [
 hash = "sha256:b6b70a347dba83587675d35eab6789bcb24f9a07825bb2127cc7efb854cd38f9"
 doc_hash = "sha256:ba85bc221f915f9a96d4450d90460939c00ead484c637268dcb81f5f779c189f"
 reached_by = [
-    "#89",
     "#90",
+    "#91",
 ]
 
 [[module."references.rs".function]]
@@ -4633,8 +4634,8 @@ uses = [
     "fn:cea887b4f3fb2def",
 ]
 reached_by = [
-    "#89",
     "#90",
+    "#91",
 ]
 
 [[module."references.rs".function]]
@@ -4650,8 +4651,8 @@ lines = [
 hash = "sha256:75149c7d67b930d4adb05a6950f095908dbaae52044ef891363911b582152256"
 doc_hash = "sha256:3fba8609359fc5334938e5d3072d5c1b4be3b617251357bf806824634c1c3cc8"
 reached_by = [
-    "#89",
     "#90",
+    "#91",
 ]
 
 [[module."references.rs".function]]
@@ -4674,8 +4675,8 @@ uses = [
     "fn:cea887b4f3fb2def",
 ]
 reached_by = [
-    "#89",
     "#90",
+    "#91",
 ]
 
 [[module."references.rs".function]]
@@ -4689,8 +4690,8 @@ lines = [
 hash = "sha256:ac24f7baf0a92995d2348067ad76784176305dc4a33879c57a0183e0ec6f3c21"
 doc_hash = "sha256:b37191a8c1de4b29626cdb4a54286335da5206355fa46c217b3104d0fe839386"
 reached_by = [
-    "#89",
     "#90",
+    "#91",
 ]
 
 [[module."references.rs".function]]
@@ -4771,8 +4772,8 @@ callees = [
     "fn:f2b80e2a25d94e5c",
 ]
 reached_by = [
-    "#122",
     "#123",
+    "#124",
 ]
 
 [[module."review_ivv.rs".function]]
@@ -4884,8 +4885,8 @@ reached_by = [
     "#8",
     "#9",
     "#61",
-    "#118",
-    "#121",
+    "#119",
+    "#122",
 ]
 
 [[module."semq.rs".function]]
@@ -4900,7 +4901,7 @@ lines = [
 ]
 hash = "sha256:55f77b82d55295ec1727de4347df50c9b9471223482dde78456fac7b0950579f"
 doc_hash = "sha256:85efb71169eae549b9a734f8962754df98af1c493dca1936d5553ebd673824d6"
-reached_by = ["#92"]
+reached_by = ["#93"]
 
 [[module."semq.rs".function]]
 id = "fn:65d4a4a965ff11ba"
@@ -4913,7 +4914,7 @@ lines = [
 hash = "sha256:8cb4764e83a0d47b60beae2123181547b9671491d91e8c8dd199a7da15981a28"
 doc_hash = "sha256:888c20b5b6fef166be1ffd864c5e70e61b98e3b7731115268aed9ac3364b24d8"
 uses = ["fn:e18d519e317f137e"]
-reached_by = ["#92"]
+reached_by = ["#93"]
 
 [[module."semq.rs".function]]
 id = "fn:4c6b7b3fffaab0bb"
@@ -4926,8 +4927,8 @@ lines = [
 hash = "sha256:c54db7a10ae84f9931423c6b571b46d3aff4bb8b71ae87cdb9fd00ae37d1434e"
 doc_hash = "sha256:9aab4ce4f650740a479ace4d4aa5f640357b14caa192d9c8de3b60855f4ba8e0"
 reached_by = [
-    "#91",
-    "#93",
+    "#92",
+    "#94",
 ]
 
 [[module."semq.rs".function]]
@@ -4941,7 +4942,7 @@ lines = [
 hash = "sha256:23dc3dfb873a5ecff797bc51f4422d062c02284f2abc2a7645f5a4dfad85747f"
 doc_hash = "sha256:e12621765ff5b5ac6a98c99968109b4336fb4171aefc30664526355435932cbf"
 callees = ["fn:4c6b7b3fffaab0bb"]
-reached_by = ["#91"]
+reached_by = ["#92"]
 
 [[module."semq.rs".function]]
 id = "fn:96e759d1dd61bf45"
@@ -5067,10 +5068,10 @@ lines = [
 hash = "sha256:3c0c076b6abaf3ec8eb8f5a1a4a5d2d9b51a103d33c30edd3cd79f6d6dad122d"
 doc_hash = "sha256:2f6cb811bec79f6b8b7806f09cd6eb8e9caea58be9e8732687c0e9a5e498b680"
 reached_by = [
-    "#99",
     "#100",
     "#101",
     "#102",
+    "#103",
 ]
 
 [[module."setup.rs".function]]
@@ -5087,10 +5088,10 @@ hash = "sha256:1dc4e17977d6572be1146b054b5fd98f6c8b99412795da375569e0ce4955201a"
 doc_hash = "sha256:8c584f3c2e03d132e57afe62184e7c11b0f0e77d0dd1611482b92832a80e45cc"
 uses = ["fn:323336111aa39875"]
 reached_by = [
-    "#99",
     "#100",
     "#101",
     "#102",
+    "#103",
 ]
 
 [[module."setup.rs".function]]
@@ -5106,11 +5107,11 @@ lines = [
 hash = "sha256:4a90ae3886e6b696f151a23cb0e64b9a3f2c3c6b42347a0a85e1de98d75fbf9a"
 doc_hash = "sha256:8def2570241d191630cdd421714f325d17b6dcf86901cf7c26e351742d66f799"
 reached_by = [
-    "#94",
     "#95",
     "#96",
     "#97",
     "#98",
+    "#99",
 ]
 
 [[module."setup.rs".function]]
@@ -5125,11 +5126,11 @@ hash = "sha256:cc9c82838c2ef632fbc6872139a62251a752152846b47c64b78635e71a9d1e57"
 doc_hash = "sha256:6032fc8deb4eda38f19ac4cc7f24d5bb3a60779424b5bbc922a256fd3b7b6069"
 uses = ["fn:7de204c065e4fb34"]
 reached_by = [
-    "#94",
     "#95",
     "#96",
     "#97",
     "#98",
+    "#99",
 ]
 physical_interface = true
 
@@ -5353,7 +5354,7 @@ lines = [
 ]
 hash = "sha256:495f0bac8082dad40d0b8dc6f7a26e404075164b8824bcf9ace07563d7b6061d"
 doc_hash = "sha256:0c420e5434ee79c3736d152d6680814eb2c2985d3079919455e90caa44c3e5db"
-reached_by = ["#103"]
+reached_by = ["#104"]
 
 [[module."skill_gen.rs".function]]
 id = "fn:10944c2704880b1a"
@@ -5367,7 +5368,7 @@ lines = [
 ]
 hash = "sha256:68bd6b379eb9c235773c492bba187806fdbd827a7b9112999037cd5829fa3eb5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#103"]
+reached_by = ["#104"]
 
 [[module."skill_gen.rs".function]]
 id = "fn:69170b413c1b2205"
@@ -5381,7 +5382,7 @@ hash = "sha256:678ce2aaad620643a485818f8fb04e6d31376d48f2d2f9e8552e8dc4ebcf176d"
 doc_hash = "sha256:d727b4642b817a818a3529f8619441ba2492c6b76aa449bb78de561d2d882071"
 callees = ["fn:b1d25c740da2b0bc"]
 uses = ["fn:f26c34409a05ac96"]
-reached_by = ["#103"]
+reached_by = ["#104"]
 
 [[module."skill_gen.rs".function]]
 id = "fn:b1d25c740da2b0bc"
@@ -5394,7 +5395,7 @@ lines = [
 hash = "sha256:23e5083658e8e08c6dd6e1127a169243ce1f9d25436a9f9e9df91d636ab32141"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 uses = ["fn:10944c2704880b1a"]
-reached_by = ["#103"]
+reached_by = ["#104"]
 
 [[module."skill_gen.rs".function]]
 id = "fn:cbdbe8bbbcd19f33"
@@ -5481,8 +5482,8 @@ lines = [
 hash = "sha256:b05885e2de475f2deaeaf72bcad921366b0eaa7cfb321427487fe9085b009f01"
 doc_hash = "sha256:d3cfe18dd9d40cf88cb67978ad457f1fb35cb05980947f9766b85eb3bdd99df0"
 reached_by = [
-    "#104",
     "#105",
+    "#106",
 ]
 
 [[module."symbols.rs".function]]
@@ -5674,10 +5675,10 @@ lines = [
 hash = "sha256:bc2eb254cd8da60f705b398c3a9c903b823a168cfa9ea85cb04038ad50f260c3"
 doc_hash = "sha256:a718af772cbdc229827ea9ce98114d9a2edb8103096c61ba1748ba4f6214191b"
 reached_by = [
-    "#106",
     "#107",
     "#108",
-    "#112",
+    "#109",
+    "#113",
 ]
 
 [[module."workspace.rs".function]]
@@ -5693,11 +5694,11 @@ lines = [
 hash = "sha256:0e2f10ff13d1461e763cc0553211c7f96fbd0d95d5bb661344ed31b3c0276ea3"
 doc_hash = "sha256:a8de2e9399bbdd1802f57c3efbb424f6096bc57b1cb85ffc2ad80c508c9ff29e"
 reached_by = [
-    "#106",
     "#107",
     "#108",
-    "#110",
-    "#112",
+    "#109",
+    "#111",
+    "#113",
 ]
 
 [[module."workspace.rs".function]]
@@ -5711,12 +5712,12 @@ lines = [
 hash = "sha256:7fc7b51802c114525d80b29350e50bb12781bfed3119c1e81638211dcbbd6e5a"
 doc_hash = "sha256:8369b39f48878783b37bcdc9d04a7372efd6c0f964de9682171c5ade7e2ce8e0"
 reached_by = [
-    "#106",
     "#107",
     "#108",
     "#109",
-    "#111",
+    "#110",
     "#112",
+    "#113",
 ]
 
 [[module."workspace.rs".function]]
@@ -5731,10 +5732,10 @@ hash = "sha256:fbe8a6ebacb0c348772e369bcbc3b35898873b98378b557304e24d6946749e63"
 doc_hash = "sha256:e629dfadea606243774e939db553cabfc49e47f0b9772242367888a8450b85b5"
 callees = ["fn:80189dd7bb91ead6"]
 reached_by = [
-    "#106",
     "#107",
     "#108",
-    "#112",
+    "#109",
+    "#113",
 ]
 
 [[module."workspace.rs".function]]
@@ -5752,10 +5753,10 @@ uses = [
     "fn:c5d1f604a98bea30",
 ]
 reached_by = [
-    "#106",
     "#107",
     "#108",
-    "#112",
+    "#109",
+    "#113",
 ]
 
 [[module."workspace.rs".function]]
@@ -5774,8 +5775,8 @@ callees = [
     "fn:80189dd7bb91ead6",
 ]
 reached_by = [
-    "#106",
-    "#108",
+    "#107",
+    "#109",
 ]
 
 [[module."workspace.rs".function]]
@@ -5810,8 +5811,8 @@ callees = [
     "fn:80189dd7bb91ead6",
 ]
 reached_by = [
-    "#107",
-    "#112",
+    "#108",
+    "#113",
 ]
 
 [[module."workspace.rs".function]]
@@ -6241,7 +6242,7 @@ uses = [
     "fn:208bdcd6bb956739",
     "fn:bfcbcbff795af588",
 ]
-reached_by = ["#113"]
+reached_by = ["#114"]
 
 [[module."zotero_lookup.rs".function]]
 id = "fn:d1482aae6e39e551"
@@ -6359,7 +6360,7 @@ lines = [
 ]
 hash = "sha256:1e1476d95546abb42a111b86eb2fea0d2d0ed2a4b8b6ab21e33b85bf110559be"
 doc_hash = "sha256:e044e3fa42737cbba659cd861ad7ddfc52b774b17b0478a39d962d9cc59371af"
-reached_by = ["#115"]
+reached_by = ["#116"]
 
 [[module."zotero_lookup.rs".function]]
 id = "fn:5948864713331240"
@@ -6372,7 +6373,7 @@ lines = [
 hash = "sha256:c5ffc50ce1946d866fafbaea9fb4fd598d81b3f328b484a0bd0c7f9f029a052d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8d86f651c6644c1e"]
-reached_by = ["#115"]
+reached_by = ["#116"]
 
 [[module."zotero_lookup.rs".function]]
 id = "fn:5ec9c0fc6528250c"
@@ -6385,7 +6386,7 @@ lines = [
 hash = "sha256:fe2414160ab9350d16fada1db0165cfdad781f4ed69ee072edb72db8b76be839"
 doc_hash = "sha256:92af87720bec269b771546afbc186c895462b09af2179b1f124b1cc6a3fcb701"
 uses = ["fn:b07b8e5717934b35"]
-reached_by = ["#114"]
+reached_by = ["#115"]
 
 [[module."zotero_lookup.rs".function]]
 id = "fn:223c8c0f0a11b9b6"
@@ -6440,3 +6441,135 @@ callees = [
     "fn:d69702b84de81c7a",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+]
+failed = []

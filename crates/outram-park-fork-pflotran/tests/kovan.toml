@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-pflotran"
 dir = "crates/outram-park-fork-pflotran/tests"
+test_ids = [
+    "crates/outram-park-fork-pflotran/tests/integration.rs::flow_mode_run_matches_direct_simulation",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::infiltration_column_runs_and_is_physically_sensible",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::output_writers_produce_wellformed_csv_and_vtk",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::richards_transport_coupling_advects_a_tracer",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::th_coupling_advects_a_thermal_front",
+    "crates/outram-park-fork-pflotran/tests/regression.rs::transient_column_matches_frozen_baseline",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::hydrostatic_column_matches_analytical_gravity",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::mms_saturated_operator_is_second_order",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::saturated_linear_profile_is_exact",
+]
 
 [module."integration.rs"]
 path = "test:integration"
@@ -391,3 +402,20 @@ callees = [
     "fn:844b325f0e33039c",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

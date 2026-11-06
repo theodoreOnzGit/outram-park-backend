@@ -2,7 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "kovan-codegen"
 dir = "crates/kovan-codegen/src/patterns"
-test_ids = ["crates/kovan-codegen/src/patterns/mod.rs::generate_is_deterministic"]
+test_ids = [
+    "crates/kovan-codegen/src/patterns/mod.rs::generate_is_deterministic",
+    "crates/kovan-codegen/src/patterns/mod.rs::relative_change_is_scale_free_and_zero_safe",
+    "crates/kovan-codegen/src/patterns/mod.rs::rms_norm_of_known_vector",
+    "crates/kovan-codegen/src/patterns/mod.rs::under_relaxation_blends_correctly",
+]
 
 [module."mod.rs"]
 path = "crate::patterns"
@@ -83,3 +88,15 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = ["fn:dec66bde2139c91d"]
 uses = ["fn:a573be49e9a16e63"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

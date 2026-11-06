@@ -2,6 +2,39 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/math/differentiate"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_bad_lane_never_contaminates_the_all_or_nothing_accessor",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_denormal_point_still_gets_a_usable_step",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_failing_column_names_the_variable_that_failed",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_jacobian_that_cannot_be_differenced_is_counted_and_reaches_the_solver_as_nan",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_non_square_function_is_rejected_rather_than_padded",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_step_far_below_the_optimum_is_worse_not_better",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_step_that_rounds_away_reports_degenerate_rather_than_a_wrong_number",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_symmetric_stencil_straddles_a_pole_without_noticing",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::accuracy_floor_at_the_default_step",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::backend_reduction_never_reports_gpu_and_respects_the_size_floors",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::column_parallel_jacobian_is_bitwise_identical_to_the_serial_one",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::derivative_at_exactly_zero_is_correct_not_nan",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::derivative_batch_is_bitwise_identical_across_backends",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::empty_and_malformed_batches_are_empty_not_panics",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::epsilon_root_constants_match_their_definitions",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::evaluation_counts_match_the_documented_cost",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::jacobian_batch_is_bitwise_identical_across_backends",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::non_finite_evaluations_are_reported_not_swallowed",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::observed_convergence_order_matches_theory",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::ode_jacobian_captures_explicit_dependence_on_the_independent_variable",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::ode_jacobian_reproduces_van_der_pols_hand_coded_one",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::ode_jacobian_resizes_wrongly_sized_output_buffers",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::quadratic_system_jacobian_matches_the_analytic_one",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::rosenbrock23_integrates_a_stiff_system_that_has_no_hand_coded_jacobian",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::rosenbrock23_integrates_the_stiff_pair_with_a_numerical_jacobian",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::step_rule_is_relative_where_x_is_large_and_absolute_where_it_is_not",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::stiff_pair_jacobian_matches_the_analytic_one_across_a_1000_to_1_entry_spread",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::the_single_jacobian_form_agrees_with_a_one_lane_batch_bit_for_bit",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::the_single_point_form_agrees_with_a_one_element_batch_bit_for_bit",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::the_wrapper_forwards_n_eqns_and_derivatives_verbatim",
+    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::trigonometric_system_jacobian_matches_the_analytic_one",
+]
 
 [module."tests.rs"]
 path = "crate::math::differentiate::tests"
@@ -1158,3 +1191,42 @@ uses = [
     "fn:e8114fa375ccf4d3",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+]
+failed = []

@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::a_mostly_solid_cell_gains_a_large_positive_diagonal_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::a_zero_timestep_contributes_nothing_instead_of_dividing_by_zero",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::freezing_puts_a_negative_latent_heat_source_in_the_enthalpy_equation",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::fully_fluid_cells_feel_exactly_no_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::heating_above_the_liquidus_decays_the_solid_fraction",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::omitting_advance_time_inflates_the_latent_heat_rate",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::one_correct_from_zero_gives_exactly_the_relaxation_coefficient",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::repeated_correct_converges_geometrically_to_the_table_value",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::solid_fraction_is_capped_by_the_vof_phase_fraction",
+]
 
 [module."tests.rs"]
 path = "crate::fv_options::vof_solidification_melting::tests"
@@ -348,3 +359,20 @@ uses = [
     "fn:9dd548ce1414d4a9",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

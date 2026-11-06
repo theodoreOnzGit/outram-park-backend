@@ -6,6 +6,8 @@ test_ids = [
     "crates/outram-blender/src/unstructured/convert/cfmesh.rs::cube_tet_dual_reaches_the_neutral_mesh",
     "crates/outram-blender/src/unstructured/convert/fem.rs::box_tet4_round_trip",
     "crates/outram-blender/src/unstructured/convert/fem.rs::quarter_annulus_area_is_below_the_arc",
+    "crates/outram-blender/src/unstructured/convert/foam.rs::one_d_column_matches_create_one_d_mesh",
+    "crates/outram-blender/src/unstructured/convert/foam.rs::poly_mesh_round_trip",
 ]
 
 [module."block_mesh.rs"]
@@ -421,3 +423,16 @@ reached_by = [
     "#1",
     "#2",
 ]
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+failed = []

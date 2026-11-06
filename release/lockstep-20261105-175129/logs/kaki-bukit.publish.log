@@ -1,0 +1,13 @@
+    Updating crates.io index
+   Packaging kaki-bukit v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/kaki-bukit)
+    Updating crates.io index
+    Packaged 59 files, 1.4MiB (369.2KiB compressed)
+   Verifying kaki-bukit v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/kaki-bukit)
+   Compiling petir v0.0.4
+   Compiling kaki-bukit v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/kaki-bukit-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.63s
+   Uploading kaki-bukit v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/kaki-bukit)
+    Uploaded kaki-bukit v0.0.3 to registry `crates-io`
+note: waiting for kaki-bukit v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published kaki-bukit v0.0.3 at registry `crates-io`

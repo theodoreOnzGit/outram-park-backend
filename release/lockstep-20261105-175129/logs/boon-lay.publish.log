@@ -1,0 +1,42 @@
+    Updating crates.io index
+   Packaging boon-lay v0.2.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/boon-lay)
+warning: ignoring example `boon_lay_decay_simulator` as `examples/boon_lay_decay_simulator/main.rs` is not included in the published package
+warning: ignoring example `first_passage_realtime` as `examples/first_passage_realtime.rs` is not included in the published package
+warning: ignoring example `layer_diffusion_table` as `examples/layer_diffusion_table.rs` is not included in the published package
+warning: ignoring example `rustbca_cascades` as `examples/rustbca_cascades.rs` is not included in the published package
+warning: ignoring example `triso_cell_slice` as `examples/triso_cell_slice.rs` is not included in the published package
+warning: ignoring example `triso_simulator` as `examples/triso_simulator/main.rs` is not included in the published package
+warning: ignoring test `mhtgr_stoyer_workflow` as `tests/mhtgr_stoyer_workflow.rs` is not included in the published package
+warning: ignoring test `triso_atops_booth_vs_crp6` as `tests/triso_atops_booth_vs_crp6.rs` is not included in the published package
+warning: ignoring test `triso_atops_code_to_code` as `tests/triso_atops_code_to_code.rs` is not included in the published package
+warning: ignoring test `triso_atops_fork_verification` as `tests/triso_atops_fork_verification.rs` is not included in the published package
+warning: ignoring test `triso_atops_upstream_run_file` as `tests/triso_atops_upstream_run_file.rs` is not included in the published package
+warning: ignoring test `wasm_fallback` as `tests/wasm_fallback.rs` is not included in the published package
+    Updating crates.io index
+warning: package `async-executor v1.14.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `clipboard-win v5.4.1` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 145 files, 1.8MiB (466.2KiB compressed)
+   Verifying boon-lay v0.2.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/boon-lay)
+ Downloading crates ...
+warning: spurious network error (3 tries remaining): failed to get successful HTTP response from `https://static.crates.io/crates/outram-mc-libs/0.0.7/download` (146.75.46.137), got 500
+body:
+error sending request: Connection timeout to backend us-west-1
+  Downloaded outram-mc-libs v0.0.7
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.154
+   Compiling anyhow v1.0.104
+   Compiling outram-mc-libs v0.0.7
+   Compiling boon-lay v0.2.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/boon-lay-0.2.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.76s
+   Uploading boon-lay v0.2.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/boon-lay)
+    Uploaded boon-lay v0.2.2 to registry `crates-io`
+note: waiting for boon-lay v0.2.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published boon-lay v0.2.2 at registry `crates-io`

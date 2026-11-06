@@ -9,6 +9,10 @@ test_ids = [
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released_at_t_zero",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released_zero_radius_panics",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_cs_release_1200c_200h",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_cs_release_1600c_200h",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b.rs::test_cs_release_1200c_200h",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b.rs::test_cs_release_1600c_200h",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
     "crates/boon-lay/tests/triso_atops_booth_vs_crp6.rs::crp6_case1_booth_equals_the_crank_series",
@@ -427,10 +431,6 @@ reached_by = [
     "#3",
     "#4",
     "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
     "#10",
     "#11",
     "#12",
@@ -439,6 +439,10 @@ reached_by = [
     "#15",
     "#16",
     "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
 ]
 physical_interface = true
 
@@ -551,3 +555,24 @@ callees = [
 ]
 uses = ["fn:359972b9e99804c1"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+failed = []

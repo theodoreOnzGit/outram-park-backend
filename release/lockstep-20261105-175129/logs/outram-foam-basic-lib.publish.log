@@ -1,0 +1,15 @@
+    Updating crates.io index
+   Packaging outram-foam-basic-lib v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-basic-lib)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 251 files, 5.9MiB (1.3MiB compressed)
+   Verifying outram-foam-basic-lib v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-basic-lib)
+   Compiling outram-foam-basic-lib v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-foam-basic-lib-0.1.8)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.12s
+   Uploading outram-foam-basic-lib v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-basic-lib)
+    Uploaded outram-foam-basic-lib v0.1.8 to registry `crates-io`
+note: waiting for outram-foam-basic-lib v0.1.8 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-basic-lib v0.1.8 at registry `crates-io`

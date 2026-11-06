@@ -2,6 +2,18 @@ schema_version = 1
 kind = "code_folder"
 crate = "kovan-metrics"
 dir = "crates/kovan-metrics/tests"
+test_ids = [
+    "crates/kovan-metrics/tests/kloc_parity.rs::the_fixture_csvs_are_crlf_terminated",
+    "crates/kovan-metrics/tests/kloc_parity.rs::the_fixture_records_the_published_figures",
+    "crates/kovan-metrics/tests/kloc_parity.rs::the_parity_fixture_is_present_and_complete",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::duplicate_and_missing_keys_are_skipped",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::hand_built_library_counts",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::hand_built_library_import",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::item_json_imports_every_regular_type",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::journal_article_losses_match_the_documented_field_map",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::markdown_is_deterministic_and_escaped",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::webpage_item_type_is_altered",
+]
 
 [module."kloc_parity.rs"]
 path = "test:kloc_parity"
@@ -280,3 +292,21 @@ callees = [
 ]
 uses = ["fn:b5ca786997fb77e4"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+failed = []

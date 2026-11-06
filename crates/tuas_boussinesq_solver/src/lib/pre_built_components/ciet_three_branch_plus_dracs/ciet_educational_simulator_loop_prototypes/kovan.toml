@@ -2,6 +2,16 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
+]
 
 [module."mod.rs"]
 path = "crate::pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes"
@@ -373,3 +383,19 @@ uses = [
     "fn:f811c4c8869b08b0",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

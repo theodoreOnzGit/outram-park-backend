@@ -2,6 +2,14 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain/tests.rs::principal_stretches_are_recovered",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain/tests.rs::pure_dilatation_matches_the_closed_form",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain/tests.rs::the_undeformed_state_is_stress_free",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain/tests.rs::the_wrapped_stress_is_objective",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain/tests.rs::the_wrapper_reduces_to_the_bare_law_at_small_strain",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain/tests.rs::uniaxial_stretch_matches_the_closed_form",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::log_strain::tests"
@@ -228,3 +236,17 @@ uses = [
     "fn:7a05aabc9b2c5609",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []
