@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::review::id::mint_fn_id;
+use crate::review::root::Role;
 use crate::review::index::{FunctionIndex, ItemKind, ModuleIndex};
 use crate::review::review_md::{
     Entry, EntryMeta, NeedsFixBody, NeedsFixEntry, ParsedEntry, ReviewBody, Unreadable,
@@ -70,6 +71,7 @@ pub(super) fn folder(krate: &str, dir: &str, files: &[(&str, Vec<FunctionIndex>)
         passed: vec!["t::ok".into(), "t::ok2".into()],
         failed: vec!["t::bad".into()],
         edited: vec!["t::edited".into()],
+        targets: Vec::new(),
     });
     idx
 }
@@ -202,6 +204,7 @@ pub(super) fn git_for(rs: &[&FolderReviews]) -> GitFacts {
                     }),
                     tests_at_review: None,
                     reviewed_commit_time: None,
+                    carried_forward: None,
                 },
             );
         }
@@ -223,6 +226,7 @@ pub(super) fn eval(
     for i in idx {
         for (_, f) in i.functions() {
             g.hashes_at_test_run.entry(f.id.clone()).or_insert_with(|| f.hash.clone());
+            g.hashes_at_targeted_run.entry(f.id.clone()).or_insert_with(|| f.hash.clone());
         }
     }
     evaluate(revs, idx, rt, &g, concepts, policy)
@@ -388,6 +392,79 @@ fn d6_crate_delete_history_in_root() {
     );
 }
 
+/// GitHub #1106, tentative stamps: in the chain f -> g -> h, a stamp on f
+/// and g with h unstamped leaves both tentative (the wait carries up
+/// through g), no rung counted, each naming its own callee; stamping h
+/// makes all three valid with no re-stamp. A needs-fix or stale callee holds
+/// its caller the same way.
+#[test]
+fn a_stamp_is_tentative_until_everything_underneath_is_valid() {
+    let g = "crates/x/src/a.rs::g";
+    let hh = "crates/x/src/a.rs::h";
+    let idx = [folder(
+        "x",
+        D,
+        &[("a.rs", vec![fun(F, 'a', &[g], &[]), fun(g, 'b', &[hh], &[]), fun(hh, 'c', &[], &[])])],
+    )];
+    let f_rev = review(F, M, 'a', &[(g, 'b')]);
+    let g_rev = review(g, M, 'b', &[(hh, 'c')]);
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone(), g_rev.clone()])], &idx);
+    assert_eq!(kind(&ev, hh), StateKind::New);
+    assert_eq!(ev.functions[&fid(g)].state, StampState::Tentative { waiting_on: vec![fid(hh)] });
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+    assert_eq!(ev.functions[&fid(F)].rung, None);
+    assert!(ev.functions[&fid(F)].reviews.iter().all(|r| r.state.kind() == StateKind::Tentative));
+    assert!(!StateKind::Tentative.counts() && StateKind::Tentative.review_holds());
+    assert_eq!(ev.functions[&fid(F)].blocked_by, vec![fid(g)]);
+
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone(), g_rev.clone(), review(hh, M, 'c', &[])])], &idx);
+    for p in [F, g, hh] {
+        assert_eq!(kind(&ev, p), StateKind::Valid, "{p}");
+    }
+    assert!(ev.functions[&fid(F)].rung.is_some());
+
+    // h stamped but changed since: stale, so g and f wait again.
+    let changed = [folder(
+        "x",
+        D,
+        &[("a.rs", vec![fun(F, 'a', &[g], &[]), fun(g, 'b', &[hh], &[]), fun(hh, 'z', &[], &[])])],
+    )];
+    let ev = run(&[reviews_in("x", D, vec![f_rev, review(hh, M, 'c', &[])])], &changed);
+    assert_eq!(kind(&ev, hh), StateKind::DirectlyStale);
+    assert_eq!(kind(&ev, g), StateKind::New);
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+}
+
+/// GitHub #1106, recursion: f and g call each other. With only f stamped,
+/// f is tentative waiting on its partner g (a cycle of tentative stamps
+/// would otherwise wait on itself); with both stamped, both are valid.
+/// A group whose member calls an unstamped h waits on h.
+#[test]
+fn a_recursion_group_becomes_valid_together() {
+    let g = "crates/x/src/a.rs::g";
+    let hh = "crates/x/src/a.rs::h";
+    let idx = |g_calls: &[&str]| {
+        [folder(
+            "x",
+            D,
+            &[("a.rs", vec![fun(F, 'a', &[g], &[]), fun(g, 'b', g_calls, &[]), fun(hh, 'c', &[], &[])])],
+        )]
+    };
+    let f_rev = review(F, M, 'a', &[(g, 'b')]);
+    let g_rev = |calls_h: bool| {
+        let callees: Vec<(&str, char)> = if calls_h { vec![(F, 'a'), (hh, 'c')] } else { vec![(F, 'a')] };
+        review(g, M, 'b', &callees)
+    };
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone()])], &idx(&[F]));
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+    let ev = run(&[reviews_in("x", D, vec![f_rev.clone(), g_rev(false)])], &idx(&[F]));
+    assert_eq!(kind(&ev, F), StateKind::Valid);
+    assert_eq!(kind(&ev, g), StateKind::Valid);
+    let ev = run(&[reviews_in("x", D, vec![f_rev, g_rev(true)])], &idx(&[F, hh]));
+    assert_eq!(ev.functions[&fid(g)].state, StampState::Tentative { waiting_on: vec![fid(hh)] });
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(g)] });
+}
+
 /// D6 callee changed: the caller always needs a re-confirm, even with every
 /// reaching test passing (necessary, not sufficient); a failing reaching
 /// test blocks the re-confirm.
@@ -453,6 +530,80 @@ fn d6_cargo_lock_change_pending_until_full_pass() {
     assert_eq!(kind(&ev_at('2', &["t::ok"], &changed), F), StateKind::PendingWorkspaceTest);
 }
 
+/// #1048: a `Cargo.lock` change outside the crate's dependency closure.
+/// Methodology: the review and the run at lock 1, the tree at lock 2; the
+/// per-crate fingerprints of both locks set by hand. Pass: crate `x`'s
+/// fingerprint equal in both → valid with no new run; different → pending
+/// a workspace test; lock 1's fingerprints unknown (git no longer holds
+/// it) → pending, the whole-lock rule as before.
+#[test]
+fn d6_lock_change_outside_the_crate_keeps_the_stamp() {
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let refs: Vec<&FolderReviews> = revs.iter().collect();
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok"])])])];
+    let fps = |x: &str| BTreeMap::from([("x".to_string(), x.to_string()), ("gui".to_string(), "g".to_string())]);
+    let at = |old: Option<&str>, new: &str| {
+        let mut g = git_for(&refs);
+        g.cargo_lock = h('2');
+        g.lock_fingerprints.insert(h('2'), fps(new));
+        if let Some(o) = old {
+            g.lock_fingerprints.insert(h('1'), fps(o));
+        }
+        kind(&eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked), F)
+    };
+    assert_eq!(at(Some("same"), "same"), StateKind::Valid);
+    assert_eq!(at(Some("old"), "new"), StateKind::PendingWorkspaceTest);
+    assert_eq!(at(None, "same"), StateKind::PendingWorkspaceTest);
+}
+
+/// GitHub #1052: a targeted run of the pending stamps' reaching tests at
+/// the new lock clears a pending stamp only when it targeted every reaching
+/// test, none failed and the function is unchanged since the run; a
+/// failure makes it inherited stale, as a full run's does. The full run's
+/// `[test_run]` (at the old lock) is left as it was.
+#[test]
+fn targeted_run_clears_pending_only_when_it_covers_every_reaching_test() {
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let refs: Vec<&FolderReviews> = revs.iter().collect();
+    let mut g = git_for(&refs);
+    g.cargo_lock = h('2');
+    let ev_with = |reach: &[&str], targets: &[&str], passed: &[&str], failed: &[&str], lock: char, g: &GitFacts| {
+        let mut idx = folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], reach)])]);
+        let v = |s: &[&str]| s.iter().map(|t| t.to_string()).collect::<Vec<_>>();
+        idx.targeted_run = Some(TestRun {
+            commit: SHA.into(),
+            cargo_lock: h(lock),
+            suite: Suite::Targeted,
+            passed: v(passed),
+            failed: v(failed),
+            edited: Vec::new(),
+            targets: v(targets),
+        });
+        eval(&revs, &[idx], &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
+    };
+    let both = ["t::a", "t::b"];
+    assert_eq!(kind(&ev_with(&both, &both, &both, &[], '2', &g), F), StateKind::Valid);
+    // One reaching test not targeted: the run cannot speak for F.
+    assert_eq!(
+        kind(&ev_with(&both, &["t::a"], &["t::a"], &[], '2', &g), F),
+        StateKind::PendingWorkspaceTest
+    );
+    // Taken at another Cargo.lock.
+    assert_eq!(kind(&ev_with(&both, &both, &both, &[], '1', &g), F), StateKind::PendingWorkspaceTest);
+    // No reaching test: only a full run clears it.
+    assert_eq!(kind(&ev_with(&[], &both, &both, &[], '2', &g), F), StateKind::PendingWorkspaceTest);
+    // Targeted but none ran.
+    assert_eq!(kind(&ev_with(&both, &both, &[], &[], '2', &g), F), StateKind::PendingWorkspaceTest);
+    let failing = ev_with(&both, &both, &["t::a"], &["t::b"], '2', &g);
+    assert!(matches!(
+        &failing.functions[&fid(F)].state,
+        StampState::InheritedStale { cause: InheritedCause::LockTestFailed, blocked: true, .. }
+    ));
+    let mut changed = g.clone();
+    changed.hashes_at_targeted_run.insert(fid(F), h('z'));
+    assert_eq!(kind(&ev_with(&both, &both, &both, &[], '2', &changed), F), StateKind::PendingWorkspaceTest);
+}
+
 /// D6 time-bound stamps: the hash recomputed at the certified commit must
 /// match, and the stamp must arrive after it; an agent-trailer commit never
 /// counts.
@@ -496,6 +647,67 @@ fn d6_time_bound_stamps() {
     assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::NotCommitted));
     let ev = eval(&revs, &idx, &root(), &GitFacts::default(), &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::NoGitFacts));
+}
+
+/// Methodology (GitHub #838, #1018): the time-bound fixture's good facts,
+/// then the facts a squash leaves (the stamp arrived in the squash commit,
+/// not after the certified commit, the squash message carrying the agent
+/// trailer), with and without a carry-forward to a commit in history; and
+/// the code changed with the anchor lost and no carry-forward.
+///
+/// Pass: carried forward, the stamp is valid even though it did not arrive
+/// after the original commit and the squash message has the trailer, and
+/// the review reports its hops and the #783 timing as not checkable
+/// (squashed) when the original commit's time is unknown, checked when it
+/// is; a trailer on a commit that is not a hop's (a rebased stamp commit)
+/// still makes it unverified; without the record it is unverified, not in
+/// history; with the code changed it is directly stale.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn carried_forward_stamps_are_judged_at_their_new_key() {
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let refs: Vec<&FolderReviews> = revs.iter().collect();
+    let key = ReviewKey { function: fid(F), by: M.into() };
+    let run = |facts: StampFacts, now: char| {
+        let idx = [folder("x", D, &[("a.rs", vec![fun(F, now, &[], &[])])])];
+        let mut g = git_for(&refs);
+        g.stamps.insert(key.clone(), facts);
+        let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+        ev.functions[&fid(F)].clone()
+    };
+    let mut squashed = git_for(&refs).stamps[&key].clone();
+    let s1 = "5".repeat(40);
+    {
+        let a = squashed.added_in.as_mut().unwrap();
+        a.commit = s1.clone();
+        a.after_certified = false;
+        a.agent_trailer = true;
+    }
+    squashed.reviewed_commit_time = None;
+    let mut carried = squashed.clone();
+    carried.carried_forward = Some(CarriedForward {
+        key: s1.clone(),
+        path: "x/a.rs::f".into(),
+        hops: vec![("c".repeat(40), s1.clone())],
+        stamp_arrived_in_hop: true,
+    });
+    let fr = run(carried.clone(), 'a');
+    assert_eq!(fr.state, StampState::Valid);
+    assert_eq!(fr.reviews[0].carried_forward.as_ref().map(|c| c.key.as_str()), Some(s1.as_str()));
+    assert_eq!(fr.reviews[0].reviewed_commit_timing, ReviewedCommitTiming::NotCheckableSquashed);
+    let mut timed = carried.clone();
+    timed.reviewed_commit_time = Some(1);
+    assert_eq!(run(timed, 'a').reviews[0].reviewed_commit_timing, ReviewedCommitTiming::Checked);
+
+    let mut rebased = carried.clone();
+    rebased.carried_forward.as_mut().unwrap().stamp_arrived_in_hop = false;
+    assert_eq!(run(rebased, 'a').state, StampState::Unverified(UnverifiedReason::AgentTrailer));
+
+    let mut lost = squashed;
+    lost.added_in.as_mut().unwrap().certified_in_history = false;
+    assert_eq!(run(lost.clone(), 'a').state, StampState::Unverified(UnverifiedReason::CertifiedCommitNotInHistory));
+    assert_eq!(run(lost, 'b').state.kind(), StateKind::DirectlyStale);
 }
 
 /// Concern beats approval: an open needs-fix blocks a validly reviewed
@@ -1110,7 +1322,7 @@ fn enforced_signatures_map_onto_states() {
     let (rf, rk) = keystore::generate(R, "r1", "2026-10-07", pass).unwrap();
     let mut rt = root();
     rt.reviewers.retain(|r| r.id == M || r.id == R);
-    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![], developing_organisation: vec![] });
+    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![], developing_organisation: vec![], roster_events: vec![], organisation_retirements: vec![], ..Default::default() });
     rt.reviewers[0].keys = vec![mf.reviewer_key()];
     rt.reviewers[1].keys = vec![rf.reviewer_key()];
     rt.reviewers[1].admitted = Some("2026-10-07".into());
@@ -1197,8 +1409,9 @@ fn implausible_signed_at_is_flagged_and_does_not_void() {
 
 /// Methodology (#843): a function `f` that uses a struct `T` (its index
 /// entry lists `T` under `uses`). (1) A review of `f` written before types
-/// were indexed (it records no callee): it stays valid, `T` unreviewed is
-/// listed as blocking a new stamp, and `T` changing does not touch it. (2)
+/// were indexed (it records no callee): ~~it stays valid~~ it is tentative
+/// while `T` is unreviewed (GitHub #1106, 2026-11-01), `T` is listed as
+/// blocking, and `T` changing does not make it stale. (2)
 /// A review of `f` that recorded `T`'s hash, `T` reviewed and unchanged:
 /// valid, nothing blocks. (3) The same with `T`'s hash changed (its
 /// definition or a method): `T` is directly stale and `f` needs a
@@ -1226,7 +1439,9 @@ fn a_used_type_blocks_bottom_up_and_its_change_asks_for_reconfirm() {
     let old = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     for hash in ['b', 'c'] {
         let ev = run(&old, &idx(hash));
-        assert_eq!(kind(&ev, F), StateKind::Valid);
+        // ~~valid~~ since 2026-11-01 (GitHub #1106) tentative: the unstamped
+        // `T` underneath holds it.
+        assert_eq!(ev.functions[&fid(F)].state, StampState::Tentative { waiting_on: vec![fid(t)] });
         assert_eq!(kind(&ev, t), StateKind::New);
         assert_eq!(ev.functions[&fid(F)].blocked_by, vec![fid(t)]);
     }

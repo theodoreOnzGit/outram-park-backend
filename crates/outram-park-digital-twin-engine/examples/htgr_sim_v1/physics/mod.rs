@@ -37,12 +37,12 @@
 //!
 //! | Subsystem | Nodes | Consequence |
 //! |---|---|---|
-//! | Pebble bed | **1** volume, **2** temperatures (solid + helium, LTNE) | no axial or radial temperature profile, no peak fuel temperature |
-//! | Helium circuit | **1** (two boundary temperatures) | no gradient through the bed, no natural circulation |
+//! | Pebble bed | **1** volume, **2** temperatures (solid + helium, LTNE) | no axial or radial temperature profile, ~~no peak fuel temperature~~ **CORRECTED 2026-11-03** -- a core-average peak kernel temperature since 2026-09-22 (`PebbleBedPorousMediaNode::peak_kernel_temperature`), but no power peaking factor |
+//! | Helium circuit | ~~**1** (two boundary temperatures)~~ **5** enthalpy CVs + the resolved SG (**CORRECTED 2026-11-03**, per [`primary_loop`]'s nodalisation table: changed 2026-09-29, fifth CV 2026-10-01) | no gradient through the bed, no natural circulation |
 //! | Steam generator | **8 x 3** (helium / tube metal / water, counter-flow) | resolved zones and a real metal lag; 8 nodes is coarse |
 //! | Secondary water/steam, outside the SG | **1** | fixed steam pressure, no drum or inventory dynamics |
 //! | Neutronics | **1** (point kinetics) | no spatial flux shape, no rod-position-dependent worth |
-//! | Reflector, barrel, cavity | **2** (reflector, RPV) | ~~the HTR-10 passive decay-heat path is absent entirely~~ **CORRECTED 2026-09-17** -- a lumped bed -> reflector -> RPV -> RCCS chain now exists ([`decay_heat_removal`]) and is stepped every plant step; barrel, carbon brick and cavity are folded into those two nodes, and the `UA` values are placeholders |
+//! | Reflector, barrel, cavity | **2** (reflector, RPV) | ~~the HTR-10 passive decay-heat path is absent entirely~~ **CORRECTED 2026-09-17** -- a lumped bed -> reflector -> RPV -> RCCS chain now exists ([`decay_heat_removal`]) and is stepped every plant step; barrel, carbon brick and cavity are folded into those two nodes, ~~and the `UA` values are placeholders~~ **CORRECTED 2026-11-03** -- the legs are derived from geometry and material data, and the two nodes are unknowns of the bed's own implicit step (since 2026-09-29, gh:#395; see [`decay_heat_removal`]) |
 //!
 //! **The steam generator is the exception, as of 2026-08-12**, and it is the
 //! only part of this plant that is not one control volume. See
@@ -1194,7 +1194,7 @@ impl PlantEnergyLedger {
 /// *Start-up caveat.* From the opening state the first 0.4 s is a prompt
 /// excursion (precursors start empty, +7 $ bank): the peak kernel reaches
 /// **2334 K at t = 0.4 s** (measured 2026-10-19). The running maximum
-/// therefore reads that on a fresh start until **Reset peak** is pressed.
+/// therefore reads that on a fresh start until **Reset max** (Diagnostics tab) is pressed.
 ///
 /// `NaN` in either field means "nothing recorded yet" (no step has resolved a
 /// kernel); it is never replaced by a substitute temperature.
@@ -1229,7 +1229,7 @@ impl PeakFuelRecord {
         }
     }
 
-    /// Reset the maximum to the CURRENT value (the **Reset peak** button). If
+    /// Reset the maximum to the CURRENT value (the **Reset max** (Diagnostics tab) button). If
     /// the current value is not finite the record becomes empty rather than
     /// holding a stale maximum.
     pub fn reset_to(&mut self, current_k: f64, time_s: f64) {
@@ -1420,7 +1420,7 @@ impl HtgrPlant {
         self.peak_fuel
     }
 
-    /// **Reset peak**: restart the running maximum from the current value.
+    /// **Reset max** (Diagnostics tab): restart the running maximum from the current value.
     pub fn reset_peak_fuel_to_current(&mut self) {
         let (t, now) = (self.peak_kernel_k(), self.sim_time.get::<second>());
         self.peak_fuel.reset_to(t, now);
@@ -5436,8 +5436,11 @@ mod tests {
     /// and runs the transient from there.
     ///
     /// **Still not a validation.** One lumped bed node, no natural circulation
-    /// (which the real test established once the baffle closed), no xenon, no
-    /// reflector/barrel/cavity path. Reported for comparison, not gated.
+    /// (which the real test established once the baffle closed), no xenon, ~~no
+    /// reflector/barrel/cavity path~~ (**CORRECTED 2026-11-03**: the passive
+    /// bed -> reflector -> RPV -> RCCS path, `HtgrPlant::decay_heat_path`, is
+    /// solved inside every plant step, so it acts in this transient; barrel
+    /// and cavity are folded into its two nodes). Reported for comparison, not gated.
     ///
     /// **Results: printed by this test.**
     #[test]
@@ -6196,7 +6199,7 @@ mod tests {
     }
 
     /// On a live plant the record follows every step, is monotone between
-    /// resets, is never below the current kernel temperature, and Reset peak
+    /// resets, is never below the current kernel temperature, and Reset max
     /// restarts it from the current value (gh:#964).
     #[test]
     fn the_plant_tracks_the_peak_fuel_maximum_and_resets_it() {

@@ -1,16 +1,20 @@
-# Step 13 — The brute-force model: CFD for every species
+# Step 14 — The serious route: CFD plus coefficients for every species (not built here)
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**The question this page answers.** [Step 12](./12-escape-and-removal.md)
+**The question this page answers.** [Step 13](./12-escape-and-removal.md)
 described removal with a few first-order rates. *If we refused to assume
 those rates and computed the transport directly, what would we have to solve,
 and why is that too expensive to do for every case we care about?*
 
-This is the model with the **fewest assumptions** for the circuit. It is also
-the reference against which the cheap model of [Step 14](./14-triso-atops.md)
-is a simplification, so we need its shape clearly.
+This is the model with the **fewest assumptions** for the circuit, and it is
+what a serious analysis does: CFD for the flow, one transport equation per
+species group, and measured coefficients for sorption, deposition and dust.
+**This workspace does not have it** (section 3 says exactly what exists). It
+is also the reference against which the cheap model of
+[Step 15](./14-triso-atops.md) is a simplification, so we need its shape
+clearly.
 
 ## 1. What it would have to solve
 
@@ -29,7 +33,7 @@ plus an energy equation and a turbulence closure. The term $\mathbf{f}_{bed}$
 is the drag of the packed bed on the gas.
 
 **2. One transport equation per species group.** For each nuclide, or each
-chemical group of nuclides, the equation of Step 11:
+chemical group of nuclides, the equation of Step 12:
 
 $$\frac{\partial (\rho Y_s)}{\partial t} + \nabla \cdot (\rho \mathbf{u} Y_s) = \nabla \cdot (\rho D_s \nabla Y_s) + S_s - \lambda_s \rho Y_s + \sum_p \lambda_p \rho Y_p - R_s$$
 
@@ -55,7 +59,7 @@ its place.
 deposits feeds the energy equation.
 
 **6. In an accident, all of this changes in time.** The blowdown of
-[Step 15](./15-dlofc.md) is a fast compressible transient: pressure falls,
+[Step 16](./15-dlofc.md) is a fast compressible transient: pressure falls,
 gas accelerates, surfaces see high shear, and the flow may reverse.
 
 ## 2. Why it is cumbersome
@@ -100,6 +104,18 @@ finite-volume operators and a k-omega SST turbulence closure in
 I did not find a nuclide-group transport solver for a primary circuit, with
 sorption and dust, assembled from them. It is **not built**.
 
+**Checked 2026-10-21** (grep of `crates/outram-foam-*/src` for species,
+scalar and mass-fraction transport, and of `crates/tampines/src` for fission
+products): the nearest relative is the delayed-neutron precursor equation of
+the GeN-Foam port, an advection-diffusion-decay balance
+$\lambda_k C_k + \nabla \cdot (\phi C_k) - \nabla \cdot (D_C \nabla C_k) = S_k$
+on a finite-volume mesh
+([`precursor_drift`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/mod.rs)).
+It shows the operators can carry a decaying passive scalar. It is not a
+fission-product model: it has no nuclide chains, no wall sorption, no dust
+and no circuit network. The fission-product numbers in this workspace's
+plant model come from the lumped pools of the next step, not from CFD.
+
 ## 4. Hence cheaper models
 
 Each simplification below throws away detail and keeps something. What
@@ -114,7 +130,7 @@ it keeps must be said, because that is the model's whole claim:
 | Compressible blowdown | A fraction vented by gas expansion |
 
 The result is a short list of ordinary differential equations. That is
-[Step 14](./14-triso-atops.md).
+[Step 15](./14-triso-atops.md).
 
 ## Why each simplification is allowed
 
@@ -135,6 +151,8 @@ The result is a short list of ordinary differential equations. That is
 
 ## Next question
 
-What does the cheap model look like, who built it, and how far can its
-numbers be trusted for a reactor it was not built for?
-[Step 14](./14-triso-atops.md).
+The serious route is not available here, and would cost about ten days per
+case even if it were. What is the next best thing? Lumped fission-product
+transport in the style of TRISO-ATOPS, which is what this workspace uses:
+what does it look like, who built it, and how far can its numbers be trusted
+for a reactor it was not built for? [Step 15](./14-triso-atops.md).

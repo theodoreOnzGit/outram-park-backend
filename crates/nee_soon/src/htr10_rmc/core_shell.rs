@@ -39,8 +39,9 @@ use super::core_model::{
     TRISO_MATRIX_UNIVERSE, TRISO_PARTICLE_UNIVERSE,
 };
 use super::reflector_geometry::{
-    build_reflector, ReflectorFrame, ReflectorMaterials, ReflectorOptions, Rgn,
+    build_reflector, Fig410Box, ReflectorFrame, ReflectorMaterials, ReflectorOptions, Rgn,
 };
+use super::zones::{region_of_box, ReflectorRegion};
 
 /// Inside half-space of surface `i`.
 pub(crate) fn ins(i: usize) -> RegionToken {
@@ -159,9 +160,12 @@ pub(super) struct CoreShell {
     pub conus_floor: f64,
     pub cavity_top: f64,
     zone_map: bool,
+    /// Place the temperature-zone slots (gh:#1138), from the design.
+    temperature_zones: bool,
     withdrawn_rods: bool,
-    /// `z_T` \[cm\] of the rods' lower end (gh:#580).
-    rod_lower_end_zt_cm: f64,
+    /// `z_T` \[cm\] of each rod's lower end (gh:#580; one per rod since
+    /// 2026-10-23, gh:#1025).
+    rod_lower_ends_zt_cm: [f64; super::control_rod::N_CONTROL_RODS],
     /// Whole particles the TRISO lattice holds per fuel zone.
     triso_particles: usize,
     triso_lattice: RectLattice,
@@ -189,7 +193,7 @@ impl CoreShell {
             panic!("HTR-10 design refused: {e}");
         }
         let r_fuel_zone = design.fuel_zone_radius_cm;
-        let rod_lower_end_zt_cm = design.rod_lower_end_zt_cm();
+        let rod_lower_ends_zt_cm = design.rod_lower_ends_zt_cm();
         let CoreFrame {
             bed_radius,
             bed_half_height,
@@ -368,8 +372,13 @@ impl CoreShell {
         // - OUTRAM_HTR10_NO_WITHDRAWN_RODS=1: the rod channels are empty.
         let zone_map = std::env::var("OUTRAM_HTR10_NO_ZONE_MAP").is_err();
         let withdrawn_rods = std::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_err();
+        let temperature_zones = design.temperature_zones;
+        // Zone 0 lies between the cone and r = 90 cm, below the bed: the
+        // bottom reflector when temperature zones are on (gh:#1138).
         let zone_material = move |z: usize| {
-            if zone_map {
+            if temperature_zones {
+                mat::for_zone_zoned(z, ReflectorRegion::Bottom.index(), zone_map)
+            } else if zone_map {
                 mat::for_zone_mc(z)
             } else {
                 mat::for_zone_uniform(z)
@@ -486,12 +495,19 @@ impl CoreShell {
             conus_floor,
             cavity_top,
             zone_map,
+            temperature_zones,
             withdrawn_rods,
-            rod_lower_end_zt_cm,
+            rod_lower_ends_zt_cm,
             triso_particles: n_particles,
             triso_lattice,
             reflector_built: false,
         }
+    }
+
+    /// Whole TRISO particles a fuel zone holds (the lattice's count; a random
+    /// packing holds the same, gh:#1243).
+    pub(super) fn triso_particles(&self) -> usize {
+        self.triso_particles
     }
 
     /// Append the explicit reflector (no-op without one). Call once, after
@@ -501,16 +517,21 @@ impl CoreShell {
         self.reflector_built = true;
         let zone_map = self.zone_map;
         let withdrawn_rods = self.withdrawn_rods;
-        let rod_lower_end_zt_cm = self.rod_lower_end_zt_cm;
+        let rod_lower_ends_zt_cm = self.rod_lower_ends_zt_cm;
         let refl_top = self.frame.refl_top;
         let has_refl = self.frame.has_refl;
         let (surfaces, cells, universes) =
             (&mut self.surfaces, &mut self.cells, &mut self.universes);
-        let zone_material = move |z: usize| {
-            if zone_map {
-                mat::for_zone_mc(z)
+        let temperature_zones = self.temperature_zones;
+        // Each Fig. 4.10 box by its zone, and with temperature zones
+        // (gh:#1138) its region's copy of that composition.
+        let zone_material = move |b: &Fig410Box| {
+            if temperature_zones {
+                mat::for_zone_zoned(b.zone, region_of_box(b).index(), zone_map)
+            } else if zone_map {
+                mat::for_zone_mc(b.zone)
             } else {
-                mat::for_zone_uniform(z)
+                mat::for_zone_uniform(b.zone)
             }
         };
         // THE REFLECTOR, explicit: every boring at its own position in solid
@@ -525,7 +546,7 @@ impl CoreShell {
                 ReflectorFrame { refl_top },
                 ReflectorOptions {
                     withdrawn_rods,
-                    rod_lower_end_zt_cm,
+                    rod_lower_ends_zt_cm,
                 },
                 ReflectorMaterials {
                     helium: mat::HELIUM,
@@ -548,6 +569,7 @@ impl CoreShell {
         lat_pitch: f64,
         lat_height: f64,
         bed: PebbleBed,
+        extra_lattices: Vec<RectLattice>,
     ) -> AssembledCore {
         assert!(self.reflector_built, "call add_reflector before finish");
         let Self {
@@ -559,7 +581,7 @@ impl CoreShell {
             cavity_top,
             triso_lattice,
             triso_particles,
-            rod_lower_end_zt_cm,
+            rod_lower_ends_zt_cm,
             withdrawn_rods,
             ..
         } = self;
@@ -575,7 +597,12 @@ impl CoreShell {
             surfaces,
             cells,
             universes,
-            lattices: vec![Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)],
+            // Lattice 0 the bed, 1 the TRISO lattice, then any random TRISO
+            // packings' tracking lattices (gh:#1243), 2 onward.
+            lattices: [Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)]
+                .into_iter()
+                .chain(extra_lattices.into_iter().map(Lattice::Rect))
+                .collect(),
             root_universe: 0,
         };
         let (c, u) = (geometry.cells.len(), geometry.universes.len());
@@ -594,7 +621,10 @@ impl CoreShell {
             refl_bottom,
             bed: Some(bed),
             triso_particles: Some(triso_particles),
-            rod_lower_end_zt_cm: (has_refl && withdrawn_rods).then_some(rod_lower_end_zt_cm),
+            rod_lower_end_zt_cm: (has_refl && withdrawn_rods)
+                .then_some(rod_lower_ends_zt_cm[0])
+                .filter(|z| rod_lower_ends_zt_cm.iter().all(|w| w.to_bits() == z.to_bits())),
+            rod_lower_ends_zt_cm: (has_refl && withdrawn_rods).then_some(rod_lower_ends_zt_cm),
         }
     }
 }

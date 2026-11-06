@@ -1,0 +1,18 @@
+    Updating crates.io index
+   Packaging outram-park-fork-liggghts v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-liggghts)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 64 files, 1.8MiB (514.7KiB compressed)
+   Verifying outram-park-fork-liggghts v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-liggghts)
+ Downloading crates ...
+  Downloaded raffles v0.0.4
+   Compiling raffles v0.0.4
+   Compiling outram-park-fork-liggghts v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-park-fork-liggghts-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.79s
+   Uploading outram-park-fork-liggghts v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-liggghts)
+    Uploaded outram-park-fork-liggghts v0.0.3 to registry `crates-io`
+note: waiting for outram-park-fork-liggghts v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-liggghts v0.0.3 at registry `crates-io`

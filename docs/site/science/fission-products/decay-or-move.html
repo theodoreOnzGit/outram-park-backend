@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Decay or move?</title>
-<meta name="description" content="Fission products, lesson 7: a stopped fission product can decay or diffuse. It is a race between its half-life and how far it diffuses in that time, and how fast it diffuses follows the Arrhenius law.">
+<meta name="description" content="Fission products, lesson 8: a stopped fission product can decay or diffuse. It is a race between its half-life and how far it diffuses in that time, and how fast it diffuses follows the Arrhenius law.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="cascade-data.js" defer></script>
@@ -13,7 +13,7 @@
 <script src="fragment-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 2, lesson 7 (page D; maintainer design
+<!-- Fission products, chapter 2, lesson 8 (page D; maintainer design
      2026-10-20). Diffusion coefficients: TRISO-ATOPS's NP-MHTGR
      correlations through boon-lay's public diffusion_coefficient; half-lives:
      boon-lay's DecayLibrary; kernel radius: TrisoSpec::HTR10_LI2014. All in
@@ -51,7 +51,7 @@
 <details class="optional">
 <summary>Learn more advanced stuff</summary>
 <h3>Where &radic;(6Dt) comes from</h3>
-<p>For a random walk in three dimensions, the mean squared distance from the start grows as 6<i>Dt</i>. Lesson 9 builds this from single hops.</p>
+<p>For a random walk in three dimensions, the mean squared distance from the start grows as 6<i>Dt</i>. Lesson 10 builds this from single hops.</p>
 <h3>What the correlations are, and where they stop</h3>
 <p>The NP-MHTGR correlations in TRISO-ATOPS are stated for roughly 700&ndash;2400 &deg;C. Below their limits some are <b>clamped</b> (held at their value there): in the kernel, Cs and Sr below 700&nbsp;&deg;C, read from boon-lay&rsquo;s code and found again by the lesson generator from the function&rsquo;s own output. Kr, Xe, I, Te and Se are <b>extrapolated</b> instead. Kr and Xe share one correlation, which switches form at 1500&nbsp;&deg;C in this code; another boon-lay path switches at 700&nbsp;&deg;C for Kr, and which is right is open (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/974">gh:#974</a>), so neither is presented as settled here.</p>
 <h3>Booth and release</h3>

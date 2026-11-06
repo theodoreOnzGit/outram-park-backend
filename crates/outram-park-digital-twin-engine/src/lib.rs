@@ -53,6 +53,11 @@
 //! label/value placeholder because `nee_soon` exposes no instrumentation
 //! readout type to wrap yet.
 //!
+//! **MOVED 2026-11-02 (gh:#1112):** [`animation`], [`ascii`], [`color_maps`],
+//! [`app_scaffold`] and the widget library in [`components`] (all but
+//! [`components::excursion`]) now live in `bugis`, the workspace's central
+//! GUI crate, and are re-exported here at their old paths.
+//!
 //! Per `RESPONSIBLE_USE.md`, everything here is **untrusted draft material
 //! until human-reviewed** — see the crate README's bookkeeping-status block for
 //! the maintainer sign-off state. The example simulators are **offline
@@ -69,7 +74,12 @@
 // in `Cargo.toml`. On Android the library reduces to `animation`, which keeps
 // `cargo check --target aarch64-linux-android` clean (see workspace CLAUDE.md
 // Android-portability rule). Desktop builds are unchanged.
-pub mod animation;
+//
+// MOVED 2026-11-02 (gh:#1112): `animation` now lives, byte for byte, in
+// `bugis::animation` (feature `animation`); this re-export keeps every
+// `outram_park_digital_twin_engine::animation::…` path working. The kovan
+// review records stay in `src/animation/`.
+pub use bugis::animation;
 // `ciet_opcua` is the CIET Educational Simulator v2 half of the OPC-UA
 // interface -- plant state, node map, identity strings -- shared by the two CIET
 // v2 binaries. It is deliberately GUI-free and physics-free, and like
@@ -98,20 +108,38 @@ pub mod opcua_core;
 // on Android with no target gate. NOT VALIDATED -- its tests reproduce
 // published numbers; they do not validate a simulator.
 pub mod htr10;
+/// High-fidelity → low-fidelity model mapping (epic gh:#1177): closure
+/// extraction from CFD into 1-D models. Infrastructure; the physics is
+/// the models' own crates'.
+pub mod multifidelity;
 #[cfg(not(target_os = "android"))]
-/// Render 2-D schematic geometry to a character grid, so a diagram can be
-/// checked by a test or an agent instead of only by eye. See the module docs.
 /// Convenience re-exports: `use outram_park_digital_twin_engine::prelude::*;`
 pub mod prelude;
 
-pub mod ascii;
+// (2026-11-02: the `ascii` doc line that sat above `prelude` here, and so
+// documented `prelude`, moved down to the item it describes.)
+/// Render 2-D schematic geometry to a character grid, so a diagram can be
+/// checked by a test or an agent instead of only by eye. See the module docs.
+///
+/// MOVED 2026-11-02 (gh:#1112): `ascii` now lives, byte for byte, in
+/// `bugis::ascii` (feature `ascii`); this re-export keeps the old paths. The
+/// kovan review records stay in `src/ascii/`.
+pub use bugis::ascii;
 
 /// Drive a simulator with no GUI, no window and no thread -- required of every
 /// egui simulator in this workspace. See the module docs and gh #150.
 pub mod headless;
 
-pub mod app_scaffold;
+// MOVED 2026-11-02 (gh:#1112): `app_scaffold` now lives in
+// `bugis::app_scaffold` (feature `app_scaffold`); this re-export keeps the old
+// paths. Ungated, as the module was (see the Android note in CLAUDE.md, gh
+// #239). The kovan review records stay in `src/app_scaffold/`.
+pub use bugis::app_scaffold;
+// MOVED 2026-11-02 (gh:#1112): the `Color32` colour-map wrappers now live in
+// `bugis::colour_maps::color32`, with the widget library that calls them; this
+// re-export keeps `color_maps::…` paths. The kovan review records stay in
+// `src/color_maps/`.
 #[cfg(not(target_os = "android"))]
-pub mod color_maps;
+pub use bugis::colour_maps::color32 as color_maps;
 #[cfg(not(target_os = "android"))]
 pub mod components;

@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-cli"
 dir = "crates/outram-foam-cli/tests"
+test_ids = [
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_agreement_and_the_convergence_order_survive_refinement",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_agree_through_a_transient_elastic_response",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary",
+    "crates/outram-foam-cli/tests/mesh_tools.rs::block_mesh_cavity_roundtrip",
+    "crates/outram-foam-cli/tests/mesh_tools.rs::ideas_unv_to_foam_single_hex",
+    "crates/outram-foam-cli/tests/mesh_tools.rs::poly_dual_mesh_box_roundtrip",
+    "crates/outram-foam-cli/tests/solvers.rs::rho_central_foam_end_to_end",
+    "crates/outram-foam-cli/tests/solvers.rs::stubbed_solvers_fail_honestly",
+]
 
 [module."mechanics_code_to_code.rs"]
 path = "test:mechanics_code_to_code"
@@ -719,3 +730,20 @@ doc_hash = "sha256:3b0b507ec6d301b787239c47d774962d60c80817df882dd0482701b5a2dd4
 callees = ["fn:66c88be690df74da"]
 uses = ["fn:346762ab6ea4bef1"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

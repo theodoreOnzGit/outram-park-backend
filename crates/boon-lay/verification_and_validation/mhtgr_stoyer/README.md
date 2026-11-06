@@ -27,6 +27,8 @@ for Gas-Cooled Reactors*, Nuclear Technology (2026), section III.
 | `table14_case_b_accident_release_ci.csv` | Table 14 | 23 / 24 | Case B releases, final as printed |
 | `upstream_case_{a,b}.csv` | computed | -- | upstream TRISO-ATOPS at de374c8 on these inputs, unrounded |
 | `upstream_case_{a,b}_diagnostic_kplate_7p5e-4.csv` | computed | -- | the same with k_plate = 7.5e-4 1/s (diagnostic, see below) |
+| `table19_complete_failure_release_fraction.csv` | Tables 16, 19; s.III.C | 24-25 / 25-26; 21 / 22 | gh:#1015: the eight complete-failure release fractions compared, and their inventories; read 2026-10-22 from the text layer and checked against the rendered pages |
+| `atops2026paper_reproduction_2026-10-22.txt` | computed | -- | gh:#1015: the `atops2026paper` / upstream sensitivity run (ratios ours/paper), see `docs/triso-atops-2026-paper-reproduction.md` |
 
 ## Extraction
 

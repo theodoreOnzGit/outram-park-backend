@@ -64,7 +64,11 @@ fn discover_lists_source_files_under_root() {
         "source",
     ]);
     assert!(out.status.success(), "{}", stderr(&out));
-    assert!(stdout(&out).trim_end().ends_with("src/lib.rs"));
+    // Paths are printed in the platform's own form (`src\lib.rs` on
+    // Windows), so compare components, not text.
+    let text = stdout(&out);
+    let last = text.trim_end().lines().last().unwrap_or("");
+    assert!(std::path::Path::new(last).ends_with("src/lib.rs"), "{text}");
 }
 
 #[test]

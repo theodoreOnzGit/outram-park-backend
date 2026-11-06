@@ -1,0 +1,223 @@
+# kovan nightly tests: `kovan-cli test --pending-stamps` on `develop` (the
+# reaching tests of every stamp pending a workspace test), its result
+# committed into the `kovan.toml` files, then the Pages site republished. Maintainer request, 2026-10-29: "every day or so, at 12am
+# Singapore time, the kovan-cli test and webpage publish should be run so
+# that stamps don't show as (awaiting workspace tests) on kovan web".
+#
+# WHY IT EXISTS. A stamp whose function is otherwise valid shows as
+# "pending workspace test" (`StateKind::PendingWorkspaceTest`,
+# kovan-common/src/review/state.rs) until a FULL workspace run at the current
+# `Cargo.lock` is recorded in the committed `kovan.toml` `[test_run]` tables
+# (`full_run_at_current_lock`, kovan-common/src/review/engine.rs). Only
+# `kovan-cli test` writes that record, and nothing ran it on a schedule, so
+# every `Cargo.lock` change left the site's stamps pending until someone ran
+# the multi-hour suite by hand.
+#
+# WHY TARGETED, NOT THE FULL SUITE (maintainer, 2026-10-29, GitHub #1052).
+# The full suite (about 2.5 h locally) may not fit in a GitHub runner's 6 h
+# job cap. A targeted run (`[targeted_run]`, Suite::Targeted) also clears a
+# pending stamp, but only when it ran EVERY reaching test of the function at
+# the current `Cargo.lock`, none failed, and the function is unchanged since
+# (`targeted_verdict`, kovan-common/src/review/engine.rs). A stamp on a
+# function no test reaches is not cleared by it; only a full run does that.
+# Tests that reach no pending stamp are not run here.
+#
+# ── What it runs ─────────────────────────────────────────────────────────────
+#
+# 1. `kovan-cli test --pending-stamps` on `develop`'s tip: it evaluates the
+#    stamps, collects the reaching tests of those pending a workspace test,
+#    and runs `cargo test --lib --tests --release --no-fail-fast` over the
+#    packages holding them, filtered by their names (a superset of the
+#    targets). It refuses a dirty tree, so nothing is edited before it runs,
+#    and runs nothing when no stamp is pending. A clean run is written into
+#    every code folder's `kovan.toml` (`[targeted_run]`: commit, Cargo.lock
+#    hash, targets, passed and failed tests; `[test_run]` is untouched); the
+#    raw record is uploaded as an artifact either way.
+# 2. The changed `kovan.toml` files are committed by github-actions[bot],
+#    rebased onto whatever landed on `develop` during the run, and merged
+#    into `develop` through a pull request the job opens and merges itself
+#    (since 2026-11-05; see "How the record reaches develop" below). If the
+#    rebase conflicts the job fails and nothing is pushed; the artifact keeps
+#    the record.
+# 3. `pages.yml` is dispatched on `develop`. A merge made with the workflow's
+#    own token does not start other workflows, so step 2 would not
+#    republish the site on its own; a `workflow_dispatch` does.
+#
+# Failing tests do not stop steps 2 and 3: they are part of the record (a
+# failing reaching test blocks its stamp), and the job is marked failed at
+# the end so the failures are not missed.
+#
+# ── How the record reaches develop: a pull request it merges itself ──────────
+#
+# ~~The `develop` ruleset requires a pull request, and github-actions[bot] is
+# not on its bypass list. Until "GitHub Actions" is added as a bypass actor
+# of "protection for develop", step 2's push is rejected.~~ **CHANGED
+# 2026-11-05 (maintainer chose this route):** "GitHub Actions" cannot be a
+# bypass actor on a repository owned by a personal account, so step 2 does
+# not push to `develop`. It pushes the record to a branch
+# `kovan-nightly-record/<run id>`, opens a pull request into `develop` and
+# merges it with the workflow's own token. The ruleset needs a pull request
+# with 0 approvals, so this stays within it, and every nightly record leaves
+# a pull request behind as its audit trail. It needs the repository setting
+# "Allow GitHub Actions to create and approve pull requests" (Settings →
+# Actions → General), enabled by the maintainer on 2026-11-05. If the merge
+# is refused (e.g. by the ruleset's extra-approval rule for unattributed
+# changes), the job fails and says so, the pull request stays open for the
+# maintainer to merge, and the site is not republished.
+#
+# ── When it runs ─────────────────────────────────────────────────────────────
+#
+# 16:00 UTC = 00:00 in Singapore, daily. `schedule` and `workflow_dispatch`
+# use the copy of this file on `main` (the default branch), so the schedule
+# starts only once this file is on `main`; it then tests `develop`. Before
+# that, push a tree to a `ci-kovan-nightly/**` branch to run this file from
+# the pushed ref (it still tests, commits to and publishes `develop`):
+#
+#     git push -f origin develop:ci-kovan-nightly/develop
+#
+# RUNTIME IS NOT YET MEASURED on a GitHub runner; it depends on how many
+# stamps are pending and which packages their reaching tests live in. The
+# runner's job limit is 6 h. Replace this paragraph with measured times
+# after the first runs.
+#
+# RELEASE MODE, as everywhere in this workspace.
+
+name: kovan nightly tests
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - "ci-kovan-nightly/**"
+
+permissions:
+  contents: write # push the kovan.toml record to its own branch
+  pull-requests: write # open and merge the record's pull request into develop
+  actions: write # dispatch pages.yml
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+  KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+
+# One run at a time; a second start waits rather than cancelling a run that
+# may be hours in.
+concurrency:
+  group: kovan-nightly-tests
+  cancel-in-progress: false
+
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          # Full history: the stamp checks ask git about the commits each
+          # stamp and the recorded run certify.
+          fetch-depth: 0
+          # reference-data/ace (ACE tables) and the literature corpus: the
+          # long tests read them.
+          submodules: recursive
+
+      # The workspace's pinned toolchain, with rust-analyzer: kovan's SCIP and
+      # call-graph tests look for it on PATH, and rustup's automatic install
+      # of the pin does not include it (kovan-daily.yml, run 39684921124).
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          components: rust-analyzer
+
+      - name: Toolchain and rust-analyzer versions
+        run: |
+          rustc --version
+          rust-analyzer --version
+
+      # A release build of the whole workspace with its tests does not fit in
+      # the runner's free disk by default.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      # BLAS for outram-foam-basic-lib's matrix_bench (root CLAUDE.md).
+      - name: System BLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: kovan-nightly-tests
+          cache-on-failure: true
+
+      - name: Build kovan-cli
+        run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli
+
+      - name: Run kovan-cli test --pending-stamps
+        id: test
+        run: |
+          set +e
+          start=$(date +%s)
+          target/release/kovan-cli test --pending-stamps
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          mins=$(( ($(date +%s) - start) / 60 ))
+          echo "kovan-cli test exited $code after $mins min" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload the raw test record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kovan-test-evidence-${{ github.run_id }}
+          path: target/kovan/test_evidence_last.toml
+          if-no-files-found: warn
+
+      - name: Commit the record and merge it into develop by pull request
+        id: push
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tested=$(git rev-parse --short HEAD)
+          if git diff --quiet -- ':(glob)**/kovan.toml'; then
+            echo "No kovan.toml changed: the run was not counted (see the log above)." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- ':(glob)**/kovan.toml'
+          git commit -q -m "kovan nightly: record the pending stamps' reaching tests at $tested" \
+            -m "kovan-cli test --pending-stamps on develop $tested, written into each folder's kovan.toml [targeted_run] (.github/workflows/kovan-nightly-tests.yml, run ${{ github.run_id }}; GitHub #1052)."
+          git fetch -q origin develop
+          if ! git rebase origin/develop; then
+            git rebase --abort
+            echo "::error title=kovan nightly::rebasing the record onto develop conflicted; nothing pushed (the artifact keeps the record)"
+            exit 1
+          fi
+          # Not under ci-kovan-nightly/**, which would start this workflow.
+          branch="kovan-nightly-record/${{ github.run_id }}"
+          git push -q origin "HEAD:refs/heads/$branch"
+          url=$(gh pr create --repo "${{ github.repository }}" --base develop --head "$branch" \
+            --title "kovan nightly: pending stamps' reaching tests at $tested" \
+            --body "Written by \`.github/workflows/kovan-nightly-tests.yml\` (run ${{ github.run_id }}; GitHub #1052): \`kovan-cli test --pending-stamps\` on develop $tested, recorded in each folder's \`kovan.toml\` \`[targeted_run]\`. Only \`kovan.toml\` files change.")
+          if ! gh pr merge "$url" --merge --delete-branch; then
+            echo "::error title=kovan nightly::could not merge $url into develop; it is left open for the maintainer (see this file's header)"
+            exit 1
+          fi
+          echo "Merged the record into develop: $url" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Republish Pages from develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref develop
+
+      - name: Fail the job if tests failed
+        if: steps.test.outputs.code != '0'
+        run: |
+          echo "::error title=kovan nightly::kovan-cli test exited ${{ steps.test.outputs.code }}; the record above lists the failures"
+          exit 1

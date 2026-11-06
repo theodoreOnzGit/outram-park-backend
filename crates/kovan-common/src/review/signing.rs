@@ -17,8 +17,10 @@
 //!   ───────────────────────────              ────────────────────────────────────────
 //!   keystore::generate ──> KeyFile (argon2id + AES-256-GCM, kovan config dir)
 //!   KeyFile::unlock(passphrase) ──> UnlockedKey (memory only, while the app is open)
+//!   session::KeySession holds it: one unlock per session, auto-lock (#1020)
+//!   Keystore::export / import: the same encrypted key file on each machine (#1020)
 //!   UnlockedKey::sign_review ──> [review.signature] ──> verify_review(entry, &Registry)
-//!   UnlockedKey::endorse/admit/revoke/unretire ──> kovan_root.toml ──> Registry::build
+//!   UnlockedKey::endorse/admit/revoke/unretire/retire_key ──> kovan_root.toml ──> Registry::build
 //! ```
 //!
 //! `kovan-cli` has no signing command; `keystore` does not exist on wasm.
@@ -33,7 +35,9 @@
 //! 3. a stamp `date` before the reviewer's revocation, and before the
 //!    compromise date of a compromised one; outside the key's retired window;
 //! 4. for a `reviewer` (not a `maintainer`), every path it certifies inside
-//!    its `scope` globs ([`super::scope`]).
+//!    its `scope` globs ([`super::scope`]), both as in force on the stamp's
+//!    date (the admitted role and scope, then the roster events dated on or
+//!    before it, GitHub #1019).
 //!
 //! **Time-bound stamps (#739 D6):** `commit` and `hash` are signed fields.
 //! Checking that the function's hash *at that commit* is `hash`, and that the
@@ -118,7 +122,14 @@
 //! [`reviewer_organisation_bytes`] (`kovan-reviewer-organisation-v1`,
 //! maintainer-signed) and [`separation_attestation_bytes`]
 //! (`kovan-separation-attestation-v1`, signed by the independent reviewer
-//! alone).
+//! alone). GitHub #1019 adds [`roster_event_bytes`]
+//! (`kovan-roster-event-v1`, maintainer-signed): a change of a reviewer's
+//! role or scope, a novice mark or a promotion, after the admission, which
+//! is never re-signed. GitHub #1248 adds [`founder_change_bytes`]
+//! (`kovan-founder-change-v1`, signed by a founder), [`founder_ballot_bytes`]
+//! (`kovan-founder-ballot-v1`) and [`founder_vote_bytes`]
+//! (`kovan-founder-vote-v1`, bound to the ballot's signature), both signed
+//! by a maintainer; the rules are in [`founders`].
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
@@ -127,15 +138,24 @@ use serde::{Deserialize, Serialize};
 
 use super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::root::{
-    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, Revocation, Reviewer, ReviewerKey,
-    ReviewerOrganisation, Role, SeparationAttestation,
+    DevelopingOrganisation, FounderBallot, FounderChange, FounderVote, KeyEvent, KeyEventKind, KeySigner,
+    OrganisationRetirement, Revocation, Reviewer, ReviewerKey, ReviewerOrganisation, Role, RosterEvent,
+    SeparationAttestation,
 };
-use super::scope::in_scope;
 
 pub mod registry;
 
+pub mod founders;
+
 #[cfg(not(target_arch = "wasm32"))]
 pub mod keystore;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod session;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/session_tests.rs"]
+mod session_tests;
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/tests.rs"]
@@ -152,6 +172,18 @@ mod signed_at_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/ivv_tests.rs"]
 mod ivv_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/roster_tests.rs"]
+mod roster_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/retirement_tests.rs"]
+mod retirement_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/founders_tests.rs"]
+mod founders_tests;
 
 use registry::{KeyStatus, Registry};
 
@@ -281,6 +313,59 @@ pub fn separation_attestation_bytes(reviewer: &str, a: &SeparationAttestation) -
     line(&mut s, "audit_record", &[a.audit_record.as_deref().unwrap_or("")]);
     line(&mut s, "key", &[a.key.as_deref().unwrap_or("")]);
     line(&mut s, "statement", &[SEPARATION_STATEMENT]);
+    s.into_bytes()
+}
+
+/// The bytes ~~the founder~~ a founder (GitHub #1248) signs to retire an organisation record (GitHub
+/// #1211): the list, the reviewer (`""` for a developing organisation),
+/// the retired record's signature, the date and the signer. Its own first
+/// line, so no other statement's signature can be replayed as one.
+pub fn organisation_retirement_bytes(r: &OrganisationRetirement) -> Vec<u8> {
+    let mut s = String::from("kovan-organisation-retirement-v1\n");
+    line(&mut s, "list", &[r.list.as_str()]);
+    line(&mut s, "reviewer", &[r.reviewer.as_deref().unwrap_or("")]);
+    line(&mut s, "record", &[&r.record]);
+    line(&mut s, "date", &[&r.date]);
+    signer_line(&mut s, r.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes a founder signs to add or retire a founder (GitHub #1248):
+/// the event, the founder, the date, `reviewed_in` (`""` when absent) and
+/// the signer. Its own first line, so no other statement's signature can be
+/// replayed as one; the event is signed, so an add cannot be replayed as a
+/// retirement.
+pub fn founder_change_bytes(e: &FounderChange) -> Vec<u8> {
+    let mut s = String::from("kovan-founder-change-v1\n");
+    line(&mut s, "event", &[e.event.as_str()]);
+    line(&mut s, "founder", &[&e.founder]);
+    line(&mut s, "date", &[&e.date]);
+    line(&mut s, "reviewed_in", &[e.reviewed_in.as_deref().unwrap_or("")]);
+    signer_line(&mut s, e.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes a maintainer signs to open a founder ballot (GitHub #1248):
+/// its id, its opening date and the signer.
+pub fn founder_ballot_bytes(b: &FounderBallot) -> Vec<u8> {
+    let mut s = String::from("kovan-founder-ballot-v1\n");
+    line(&mut s, "id", &[&b.id]);
+    line(&mut s, "opened", &[&b.opened]);
+    signer_line(&mut s, b.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes a maintainer signs to vote in a founder ballot (GitHub
+/// #1248): the ballot id **and the ballot's own signature**
+/// (`ballot_signature`, `""` if it has none), so a vote is bound to that
+/// one ballot; the candidate, the date and the signer.
+pub fn founder_vote_bytes(v: &FounderVote, ballot_signature: &str) -> Vec<u8> {
+    let mut s = String::from("kovan-founder-vote-v1\n");
+    line(&mut s, "ballot", &[&v.ballot]);
+    line(&mut s, "ballot_signature", &[ballot_signature]);
+    line(&mut s, "candidate", &[&v.candidate]);
+    line(&mut s, "date", &[&v.date]);
+    signer_line(&mut s, v.signer.as_ref());
     s.into_bytes()
 }
 
@@ -451,7 +536,25 @@ pub fn event_signed_bytes(
     key_event_bytes(owner, k, ev, retired_on, admission)
 }
 
-fn role_str(r: Role) -> &'static str {
+/// The bytes a maintainer signs for a `[[code_review.roster_event]]`
+/// (GitHub #1019): the reviewer, the event kind, its date, the new role
+/// (`""` when none), every scope glob in order, and the signer. Its own
+/// header, so no other statement's signature can be replayed as one; the
+/// kind is signed, so a novice mark cannot be replayed as a promotion.
+pub fn roster_event_bytes(e: &RosterEvent) -> Vec<u8> {
+    let mut s = String::from("kovan-roster-event-v1\n");
+    line(&mut s, "reviewer", &[&e.reviewer]);
+    line(&mut s, "event", &[e.event.as_str()]);
+    line(&mut s, "date", &[&e.date]);
+    line(&mut s, "role", &[e.role.map(role_str).unwrap_or("")]);
+    for g in &e.scope {
+        line(&mut s, "scope", &[g]);
+    }
+    signer_line(&mut s, e.signer.as_ref());
+    s.into_bytes()
+}
+
+pub(crate) fn role_str(r: Role) -> &'static str {
     match r {
         Role::Maintainer => "maintainer",
         Role::Reviewer => "reviewer",
@@ -684,11 +787,13 @@ fn check_stamp(
     if let Some(why) = key.inactive_at(date) {
         return Err(why);
     }
-    if reviewer.role == Role::Reviewer {
-        if paths.is_empty() {
+    // The role and scope in force on the stamp's date (GitHub #1019: a
+    // later roster event never changes an old stamp's verdict).
+    if reviewer.role_at(date) == Role::Reviewer || !reviewer.changes.is_empty() {
+        if paths.is_empty() && !reviewer.maintainer_on(date) {
             return Err(U::OutsideScope { reviewer: by.to_string(), path: String::new() });
         }
-        if let Some(p) = paths.iter().find(|p| !in_scope(&reviewer.scope, p)) {
+        if let Some(p) = paths.iter().find(|p| !reviewer.may_stamp(date, p)) {
             return Err(U::OutsideScope { reviewer: by.to_string(), path: p.to_string() });
         }
     }

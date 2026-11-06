@@ -59,8 +59,20 @@ pub struct Made {
 /// is above 0, then ACER with PURR and HEATR as chosen. The same calls as
 /// `ace_blocks_vs_reference.rs`, which reproduces NJOY2016's tables word for
 /// word on U-234, U-235 and U-238.
-pub fn build_ace(endf: &[u8], g: AceGen) -> Result<Made, String> {
-    let tape = Tape::read(std::io::Cursor::new(endf)).map_err(|e| format!("not a readable ENDF tape: {e}"))?;
+///
+/// **Shares the demos' nuclear-data cache** (maintainer 2026-10-26: "all demo
+/// simulations share the same cache"; gh:#818, #923): RECONR at 0 K, the slow
+/// stage, is read from `store` when any demo in this browser already made it
+/// for the same tape, and saved there when it is made here, under the key
+/// every demo uses ([`crate::processed_cache::reconstruction_key`]: the
+/// covariance-stripped tape's SHA-256, the MAT, the tolerance). The tape is
+/// processed covariance-stripped, as every demo processes it; RECONR, BROADR,
+/// PURR, HEATR and ACER read no covariance file, which
+/// `tests::the_cached_route_makes_the_same_table` pins. The note says where
+/// RECONR came from.
+pub fn build_ace(endf: &[u8], g: AceGen, store: &mut crate::processed_cache::DataStore) -> Result<Made, String> {
+    let stripped = crate::tapes::strip_covariances(endf);
+    let tape = Tape::read(std::io::Cursor::new(&stripped)).map_err(|e| format!("not a readable ENDF tape: {e}"))?;
     let mut settings = CrossSectionSettings::default();
     if !g.purr {
         settings = settings.without_purr();
@@ -68,7 +80,19 @@ pub fn build_ace(endf: &[u8], g: AceGen) -> Result<Made, String> {
     if !g.heatr {
         settings = settings.without_heatr();
     }
-    let xs = process::cross_sections(&tape, Temperature::new::<kelvin>(g.temp_k), &settings).map_err(|e| e.to_string())?;
+    let mat = process::single_material(&tape).map_err(|e| e.to_string())?;
+    let sha = store.begin_tape(&stripped);
+    let recon = store.reconstruction(&sha, &tape, mat, settings.reconr_tolerance, "ENDF tape")?;
+    let source = store
+        .take_stages()
+        .into_iter()
+        .map(|(_, src)| match src {
+            dhoby_ghaut::web_demo::data_cache::Source::Processed => "RECONR processed now; kept in this browser for every demo".to_string(),
+            cached => format!("RECONR read {}", cached.describe()),
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    let xs = process::cross_sections_at(&recon, Temperature::new::<kelvin>(g.temp_k), &settings).map_err(|e| e.to_string())?;
     let ace = xs.to_ace().map_err(|e| format!("ACER: {e}"))?;
     let text = ace.to_type1_text().map_err(|e| e.to_string())?;
     let mut modules = vec!["RECONR (tolerance 0.001)".to_string()];
@@ -84,11 +108,14 @@ pub fn build_ace(endf: &[u8], g: AceGen) -> Result<Made, String> {
     }
     modules.push("ACER".into());
     let zaid = ace.zaid.trim().to_string();
-    let lines = vec![
+    let mut lines = vec![
         format!("{zaid}: MAT {}, {} XSS words", xs.mat, ace.xss.len()),
         format!("deck: {}", modules.join(" -> ")),
         format!("{:.1} MB of Type-1 text", text.len() as f64 / 1e6),
     ];
+    if !source.is_empty() {
+        lines.push(source);
+    }
     Ok(Made { name: format!("{zaid}.ace"), bytes: text.into_bytes(), lines })
 }
 
@@ -327,18 +354,44 @@ mod tests {
     #[test]
     fn the_ace_generator_makes_a_readable_table_the_comparator_judges() {
         let h2 = tape("n-001_H_002-ENDF8.0.endf");
-        let warm = build_ace(&h2, AceGen::default()).expect("build H-2 at 293.6 K");
+        let warm = build_ace(&h2, AceGen::default(), &mut crate::processed_cache::DataStore::default()).expect("build H-2 at 293.6 K");
         assert_eq!(warm.name, "1002.00c.ace");
         let line2 = std::str::from_utf8(&warm.bytes).unwrap().lines().nth(1).unwrap().to_string();
         assert!(line2.ends_with("mat 128"), "NJOY's material tag, the ENDF MAT: {line2}");
         assert!(warm.lines.iter().any(|l| l.contains("BROADR (293.6 K)") && l.contains("HEATR")), "{:?}", warm.lines);
         let same = compare_files(&warm.bytes, "a", &warm.bytes, "b").unwrap();
         assert!(same.iter().any(|l| l.contains("identical in every compared word")), "{same:?}");
-        let cold = build_ace(&h2, AceGen { temp_k: 0.0, ..AceGen::default() }).expect("build H-2 at 0 K");
+        let cold = build_ace(&h2, AceGen { temp_k: 0.0, ..AceGen::default() }, &mut crate::processed_cache::DataStore::default()).expect("build H-2 at 0 K");
         let diff = compare_files(&warm.bytes, "warm", &cold.bytes, "cold").unwrap();
         assert!(diff.iter().any(|l| l.starts_with("kT (MeV)") && l.contains("DIFFERENT")), "{diff:?}");
         assert!(diff.iter().any(|l| l.starts_with("VERDICT") && l.contains("differ")), "{diff:?}");
         assert!(diff.iter().any(|l| l.trim_start().starts_with("ESZ word")), "the first differing ESZ words are listed: {diff:?}");
+    }
+
+    /// **Methodology.** H-2 at 293.6 K through the shared cache: once into a
+    /// browser-style store (processed, its RECONR stage saved), then into a
+    /// fresh store offered only that saved stage; and once straight through
+    /// `process::cross_sections` on the UNSTRIPPED tape, the route before
+    /// 2026-10-26. **Result (2026-10-26):** the second build reads RECONR from
+    /// the cache, and all three tables are the same bytes.
+    #[test]
+    fn the_cached_route_makes_the_same_table() {
+        use crate::processed_cache::DataStore;
+        let h2 = tape("n-001_H_002-ENDF8.0.endf");
+        let mut first = DataStore::browser().keeping_stages(RECONR_TOL);
+        let a = build_ace(&h2, AceGen::default(), &mut first).expect("processed");
+        assert!(a.lines.iter().any(|l| l.contains("processed now")), "{:?}", a.lines);
+        let saved = first.take_fresh();
+        assert!(saved.iter().any(|r| r.key.contains("|rc0|")), "the RECONR stage is saved for every demo");
+        let mut second = DataStore::browser().keeping_stages(RECONR_TOL);
+        second.offer(saved);
+        let b = build_ace(&h2, AceGen::default(), &mut second).expect("from the cache");
+        assert!(b.lines.iter().any(|l| l.contains("RECONR read")), "{:?}", b.lines);
+        assert!(a.bytes == b.bytes, "cached RECONR, same table");
+        let tape = Tape::read(std::io::Cursor::new(&h2)).unwrap();
+        let xs = process::cross_sections(&tape, Temperature::new::<kelvin>(293.6), &CrossSectionSettings::default()).unwrap();
+        let old = xs.to_ace().unwrap().to_type1_text().unwrap();
+        assert!(old.as_bytes() == a.bytes.as_slice(), "stripping the covariances changes no word of the table");
     }
 
     /// **Methodology.** The thermal generator on ENDF/B-VIII.0 Al-27's

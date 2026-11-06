@@ -93,6 +93,7 @@ pub const SCRAM_INSERTION_TIME_S: f64 = 2.0;
 ///
 /// Enum rather than a string so every consumer must handle each case, per the
 /// workspace's enum-dispatch rule.
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TripReason {
     /// Reactor power exceeded [`HIGH_FLUX_TRIP_FRACTION`] of nominal. This is

@@ -210,13 +210,14 @@ pub(crate) fn founder_key(r: &Repo, store: &Path) -> UnlockedKey {
 }
 
 /// Methodology: on the fixture (module doc), register a founder key, stamp
+/// `leaf` (since 2026-11-01: else `twice` is tentative, #1106), then
 /// `twice` (draft at HEAD, sign, write `review.md`, commit) and build the
 /// states with signatures enforced. Then edit `leaf` (twice's callee) and
 /// commit, then edit `twice`'s own body and commit, re-judging each time.
 /// Pass: valid at rung 3 with a permalink; inherited stale after the
 /// callee edit; directly stale after its own edit; never valid again
-/// without a new stamp. `leaf` and `other`, never stamped, are absent (the
-/// web shows them unreviewed).
+/// without a new stamp. `other`, never stamped, is absent (the web shows it
+/// unreviewed).
 ///
 /// Also: `write_split` (the `--split-dir` data) carries the stamp.
 ///
@@ -226,8 +227,10 @@ fn stamp_is_valid_then_goes_stale_on_edit() {
     let r = Repo::new();
     let store = tempfile::tempdir().unwrap();
     let key = founder_key(&r, store.path());
+    // `leaf` first: a stamp over an unstamped callee reads tentative (#1106).
+    r.stamp(&key, "leaf", "");
     let w = r.stamp(&key, "twice", "Checked against the doc.");
-    assert!(!w.replaced && w.review_md == r.path().join(DIR).join(REVIEW_MD));
+    assert!(w.review_md == r.path().join(DIR).join(REVIEW_MD));
 
     let s = r.state("twice").expect("twice has a state");
     assert_eq!(
@@ -242,7 +245,7 @@ fn stamp_is_valid_then_goes_stale_on_edit() {
         "{}",
         s.permalink
     );
-    assert!(r.state("leaf").is_none() && r.state("other").is_none());
+    assert!(r.state("other").is_none());
 
     // `kovan-cli call-graph --split-dir` (web-kovan's data) carries the
     // same review.md state (maintainer, 2026-10-10: switched from the
@@ -279,7 +282,8 @@ fn stamp_is_valid_then_goes_stale_on_edit() {
 /// `twice` twice by the same reviewer. Pass: the second write replaces the
 /// first (one standing review per reviewer per function, #764), the
 /// unreadable entry survives byte for byte through both writes, and the
-/// function is still valid. Also: an unsigned review is refused, a draft
+/// function's stamp still stands (tentative since 2026-11-01, #1106: its
+/// callee `leaf` is unstamped). Also: an unsigned review is refused, a draft
 /// on an uncommitted edit is refused, a needs-fix on `other` shows
 /// "needs fix", a stamp committed with the agent attribution trailer is
 /// unverified, and registering a second reviewer and a second key gives
@@ -305,7 +309,8 @@ fn restamp_replaces_keeps_unreadable_and_registration_keeps_comments() {
     );
     assert!(md.contains("Second.") && !md.contains("First."));
     assert_eq!(parse_review_md(&md).reviews().count(), 1);
-    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid));
+    // ~~Valid~~ tentative since 2026-11-01: `leaf` is unstamped (#1106).
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Tentative));
 
     // Refusals.
     let req = StampRequest {
@@ -457,17 +462,22 @@ pub(crate) fn clean_record() -> BTreeMap<String, String> {
 /// rust-analyzer, as the fixture's one call does). Then review bottom-up.
 ///
 /// Pass: both items are in `kovan.toml` with their shape, and the struct's
-/// entry hashes as the struct at HEAD does. `twice` cannot be stamped
+/// entry hashes as the struct at HEAD does. ~~`twice` cannot be stamped
 /// while the struct it uses has no valid review (the refusal names it),
-/// even after its callee `leaf` is stamped. The struct is asked the record
+/// even after its callee `leaf` is stamped.~~ **CORRECTED 2026-11-01**
+/// (GitHub #1106): `twice` can be stamped first; its context names what is
+/// unstamped underneath (`leaf` and the struct, then the struct alone), the
+/// stamp reads tentative, and it turns valid by itself, with no re-stamp,
+/// once the struct is stamped. The struct is asked the record
 /// questions and the constant the named-number ones; function answers on
 /// the struct are refused; each stamps valid at rung 3 with its own
 /// answers. `twice` then stamps, and its signed entry records the struct's
 /// hash beside `leaf`'s. Editing the struct's **method** makes the struct
 /// "changed since review" and `twice` "a callee changed"; the constant is
-/// untouched. Quick stamp (re-confirm) of `twice` is then refused until the
-/// struct is reviewed again, after which it names the struct as what
-/// changed and makes `twice` valid at rung 3 without the wizard (#857).
+/// untouched. Quick stamp (re-confirm) of `twice` is ~~then refused until
+/// the struct is reviewed again~~ allowed at once (#1106); once the struct
+/// is reviewed again it names the struct as what changed and makes `twice`
+/// valid at rung 3 without the wizard (#857).
 ///
 /// Result (2026-10-13): passes.
 #[test]
@@ -498,8 +508,7 @@ fn types_and_constants_are_reviewed_bottom_up() {
     r.write(&toml, &idx.to_toml().unwrap());
     r.commit("record that twice uses Fractions");
     let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
-    let mut cache = states::FileCache::new();
-    let at_head = states::fn_at(&mut cache, r.path(), &head, LIB, "Fractions").unwrap();
+    let at_head = states::fn_at(&mut super::git_batch::GitBatch::new(r.path()), &head, LIB, "Fractions").unwrap();
     assert_eq!(at_head.hashes.hash, entry(&idx, "Fractions").hash);
 
     let stamp_with = |qual: &str, checklist: BTreeMap<String, String>| -> Result<WrittenEntry, String> {
@@ -510,12 +519,15 @@ fn types_and_constants_are_reviewed_bottom_up() {
         r.commit(&format!("stamp {qual}"));
         Ok(w)
     };
-    // Bottom-up: the callee first, then the struct, then the user.
-    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
-    assert!(e.contains("bottom-up"), "{e}");
+    // Tentative stamps (#1106): `twice` may be stamped before what it
+    // calls and uses; the context names what is still unstamped.
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap();
+    assert_eq!(ctx.tentative_on, ["Fractions", "leaf"]);
     r.stamp(&key, "leaf", "");
-    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
-    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap();
+    assert_eq!(ctx.tentative_on, ["Fractions"]);
+    stamp_with("twice", clean()).unwrap();
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::Tentative);
 
     let ctx = prepare_stamp(r.path(), &format!("{LIB}::Fractions"), BY).unwrap();
     assert_eq!(ctx.applicability.shape, Some(ItemShape::Struct));
@@ -526,6 +538,8 @@ fn types_and_constants_are_reviewed_bottom_up() {
     stamp_with("Fractions", clean_record()).unwrap();
     assert_eq!(r.state("Fractions").unwrap().kind(), StateKind::Valid);
     assert_eq!(r.state("Fractions").unwrap().rung, 3);
+    // Everything underneath `twice` is valid now: so is its stamp, unchanged.
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::Valid);
 
     let ctx = prepare_stamp(r.path(), &format!("{LIB}::K_B"), BY).unwrap();
     assert_eq!(ctx.applicability.shape, Some(ItemShape::Const));
@@ -553,8 +567,7 @@ fn types_and_constants_are_reviewed_bottom_up() {
     // while the record itself has no valid review (bottom-up), then the
     // re-confirm names the record, and signing it makes `twice` valid again
     // with the record's new hash and the same answers.
-    let e = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
-    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+    assert!(reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).is_ok());
     stamp_with("Fractions", clean_record()).unwrap();
     assert_eq!(r.state("twice").unwrap().kind(), StateKind::InheritedStale);
     let rc = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap();
@@ -638,4 +651,27 @@ fn the_cache_gives_what_a_full_load_gives() {
     assert_eq!(same_as_full("a file deleted"), 1);
     ws_cache::forget(r.path());
     assert_eq!(same_as_full("forgotten"), 2);
+}
+
+/// Methodology: one `Cargo.lock` with LF and with CRLF line endings (a
+/// Linux and a Windows `core.autocrlf` checkout of one commit), written to
+/// two folders. Pass: both hash alike through [`cargo_lock_hash`], the LF
+/// form hashes exactly as the plain SHA-256 of its bytes (recorded stamps
+/// stay valid), a different lock hashes differently, and a non-UTF-8 lock
+/// still hashes (raw).
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn the_cargo_lock_hash_ignores_crlf_line_endings() {
+    let unix = "version = 4\n\n[[package]]\nname = \"a\"\n";
+    let windows = unix.replace('\n', "\r\n");
+    let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    std::fs::write(a.path().join("Cargo.lock"), unix).unwrap();
+    std::fs::write(b.path().join("Cargo.lock"), &windows).unwrap();
+    let ha = cargo_lock_hash(a.path()).unwrap();
+    assert_eq!(Some(ha.clone()), cargo_lock_hash(b.path()));
+    assert_eq!(ha, sha256_tagged(unix.as_bytes()));
+    assert_ne!(ha, lock_bytes_hash(b"version = 3\n"));
+    assert_eq!(lock_bytes_hash(&[0xff, b'\r', b'\n']), sha256_tagged(&[0xff, b'\r', b'\n']));
+    assert_eq!(cargo_lock_hash(&a.path().join("missing")), None);
 }

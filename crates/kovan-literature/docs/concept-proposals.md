@@ -7,7 +7,7 @@
 ## Counts
 
 - **L3 concepts: 309** (219 from the NRC/ORNL text, `nrc`; 90 needed by outram-park and named only implicitly, `outram-park`).
-- **L4 seed tags: 192** across 39 crates.
+- **L4 seed tags: 192** across 40 crates.
 
 | Crate | Seed tags |
 |---|---|
@@ -15,9 +15,10 @@
 | `bishan` | 1 |
 | `boon-lay` | 8 |
 | `buangkok` | 6 |
+| `bugis` | 2 |
 | `changi` | 7 |
 | `chem-eng-real-time-process-control-simulator` | 1 |
-| `dhoby-ghaut` | 2 |
+| `dhoby-ghaut` | 1 |
 | `dover` | 1 |
 | `farrer-park` | 3 |
 | `kaki-bukit` | 1 |
@@ -33,7 +34,7 @@
 | `outram-foam-multiphase` | 3 |
 | `outram-foam-turbulence-lib` | 2 |
 | `outram-mc-libs` | 27 |
-| `outram-park-digital-twin-engine` | 2 |
+| `outram-park-digital-twin-engine` | 1 |
 | `outram-park-fork-cfmesh` | 1 |
 | `outram-park-fork-coolprop` | 2 |
 | `outram-park-fork-dwsim-libs` | 7 |
@@ -1089,9 +1090,9 @@
   - sources: `iaea-ng-g-3.1-rev1` 3.10
   - why: the maintainer's scope note for issue 10: outreach and education; dhoby-ghaut's web-demo framework and workbench.
   - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/dhoby-ghaut/src/web_demo/mod.rs`: Web-demo framework. The track-independent half of every browser tutorial demo. (new work)
+    - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/bugis/src/web_demo/mod.rs`: Web-demo framework. The track-independent half of every browser tutorial demo. (new work)
     - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/dhoby-ghaut/src/workbench/mod.rs`: Guided simulation workbench. The wizard that walks a learner through a high-fidelity simulation. (new work)
-    - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/outram-park-digital-twin-engine/src/app_scaffold/mod.rs`: Digital-twin engine: offline educational plant simulators. The egui simulator framework behind htgr_sim_v1, fhr_sim_v2 and distillation_sim_v1: offline demonstrations only (RESPONSIBLE_USE.md). (new work)
+    - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/bugis/src/app_scaffold/mod.rs`: Digital-twin engine: offline educational plant simulators. The egui simulator framework behind htgr_sim_v1, fhr_sim_v2 and distillation_sim_v1: offline demonstrations only (RESPONSIBLE_USE.md). (new work)
     - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/outram-park-digital-twin-engine/src/htr10/mod.rs`: Digital-twin engine: HTR-10 plant model. The HTR-10 plant model the htgr_sim_v1 simulator runs: offline, educational. (new work)
 - [ ] **Nuclear history and lessons learned (TMI, Chernobyl, Fukushima)** · `nuclear-history-and-lessons-learned` · origin `nrc`
   - sources: `10cfr50` § 50.34 Contents of applications; technical information, (f) Additional TMI-related requirements; `wash-1400` Executive Summary and Main Report

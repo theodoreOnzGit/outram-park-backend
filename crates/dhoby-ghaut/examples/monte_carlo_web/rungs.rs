@@ -6,22 +6,27 @@
 //! A rung is a directory `examples/monte_carlo_web/<rung>/` whose `mod.rs`
 //! defines a marker type implementing [`McRung`] (its [`RungInfo`], tapes,
 //! picture, notes, and the [`RungBuilder`] / [`LoadedRung`] that process the
-//! data and run the neutrons), plus **one line** in the `rung_table!`
-//! invocation in `main.rs`:
+//! data and run the neutrons), plus its `mod` line in `main.rs` and, in
+//! [`crate::table`], one variant and one `match` arm in each dispatch method:
 //!
 //! ```text
-//! rung_table! {
-//!     godiva: Godiva,
-//!     triso: Triso,
-//!     ugraphite: Ugraphite,   // <- the new rung's module and marker type
-//! }
+//! // main.rs
+//! mod ugraphite;              // <- declared plainly
+//!
+//! // table.rs: the `Rung` variant, its entry in `ALL`, and one arm in each of
+//! // `Rung`'s methods, `Builder`'s and `Loaded`'s
+//! Rung::Ugraphite => &<crate::ugraphite::Ugraphite as McRung>::INFO,
 //! ```
 //!
-//! The macro declares the module and generates the `Rung` enum, its URL
-//! names, and the enum dispatch (`Builder`, `Loaded`) that the engine and the
-//! app use, so no other file changes. (Enums, not trait objects: the
-//! workspace's Rust rules.) `godiva/` is the worked example of a rung with a
-//! Run k_eff mode, `triso/` of one without.
+//! ~~Two lines in `main.rs`: the `mod` declaration and an entry in the
+//! `rung_table!` invocation, which generated the `Rung` enum, its URL names
+//! and the `Builder` / `Loaded` dispatch.~~ **CHANGED 2026-11-05 (gh:#1252,
+//! #1253, maintainer: "refactor out the custom macros"):** `rung_table!` is
+//! gone; `table.rs` writes the enum and every dispatch method out by hand, one
+//! arm per rung, in ladder order, so a reviewer, rust-analyzer and kovan see
+//! each one. A rung left out of an arm is a compile error naming the `match`.
+//! (Enums, not trait objects: the workspace's Rust rules.) `godiva/` is the
+//! worked example of a rung with a Run k_eff mode, `triso/` of one without.
 //!
 //! Two optional pieces any rung can add (gh:#549), with no change outside its
 //! directory: a **small `k_inf` case** at a parameter the reader picks
@@ -281,181 +286,6 @@ pub trait McRung {
     fn recorded_tracks() -> Option<&'static [u8]> {
         None
     }
-}
-
-/// Generates, from a list `module: Marker`, the `mod` declarations, the
-/// `Rung` enum with its dispatch to each marker's [`McRung`] methods, and the
-/// `Builder` / `Loaded` enums the engine holds. See the module docs.
-#[macro_export]
-macro_rules! rung_table {
-    ($($m:ident : $t:ident),+ $(,)?) => {
-        $( #[cfg(not(target_os = "android"))] mod $m; )+
-
-        #[cfg(not(target_os = "android"))]
-        pub mod table {
-            #![allow(dead_code)]
-            use $crate::rungs::{McRung, RungBuilder, LoadedRung, RungInfo};
-            use $crate::engine::Tier;
-            use $crate::history::History;
-            use $crate::keff::{Generation, KeffConfig, KinfCase, KinfGeneration, Reference};
-            use $crate::xs::XsCurve;
-            use $crate::raster::{RasterInfo, RasterReq};
-            use $crate::sweep::RecordedSweep;
-
-            /// The rungs, in ladder order (the order of `rung_table!`).
-            #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-            pub enum Rung { $( $t, )+ }
-
-            pub const ALL: &[Rung] = &[ $( Rung::$t, )+ ];
-
-            impl dhoby_ghaut::web_demo::lesson::Rung for Rung {
-                fn all() -> &'static [Self] { ALL }
-                fn name(self) -> &'static str { self.info().name }
-                fn title(self) -> &'static str { self.info().title }
-                fn lesson(self) -> &'static str { self.info().lesson }
-            }
-
-            impl Rung {
-                pub fn info(self) -> &'static RungInfo {
-                    match self { $( Rung::$t => &<$crate::$m::$t as McRung>::INFO, )+ }
-                }
-                pub fn jobs(self) -> &'static [(&'static str, &'static str)] {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::jobs(), )+ }
-                }
-                pub fn tier(self, requested: Tier) -> Tier {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::tier(requested), )+ }
-                }
-                pub fn job_weights(self, tier: Tier) -> Vec<f64> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::job_weights(tier), )+ }
-                }
-                pub fn half_extent(self) -> f64 {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::half_extent(), )+ }
-                }
-                pub fn draw(self, painter: &egui::Painter, rect: egui::Rect, view: &dhoby_ghaut::web_demo::view::View) {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::draw(painter, rect, view), )+ }
-                }
-                pub fn notes(self) -> &'static [&'static str] {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::notes(), )+ }
-                }
-                pub fn run_default(self) -> Option<KeffConfig> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::run_default(), )+ }
-                }
-                pub fn watch_generations(self) -> Option<KeffConfig> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::watch_generations(), )+ }
-                }
-                pub fn reference(self) -> Option<Reference> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::reference(), )+ }
-                }
-                pub fn loading_note(self, tier: Tier) -> Option<&'static str> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::loading_note(tier), )+ }
-                }
-                pub fn legend(self, ui: &mut egui::Ui) {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::legend(ui), )+ }
-                }
-                pub fn jobs_for(self, tier: Tier) -> &'static [(&'static str, &'static str)] {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::jobs_for(tier), )+ }
-                }
-                pub fn has_tracks(self) -> bool {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::has_tracks(), )+ }
-                }
-                pub fn raster_info(self) -> Option<RasterInfo> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::raster_info(), )+ }
-                }
-                pub fn sweep(self) -> Option<RecordedSweep> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::sweep(), )+ }
-                }
-                pub fn recorded_tracks(self) -> Option<&'static [u8]> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::recorded_tracks(), )+ }
-                }
-                pub fn has_core_pool(self) -> bool {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::core_pool(), )+ }
-                }
-                pub fn run_pool_mb(self) -> Option<f64> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::run_pool_mb(), )+ }
-                }
-                pub fn kinf_pool_mb(self) -> Option<f64> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_pool_mb(), )+ }
-                }
-                pub fn kinf_case(self) -> Option<KinfCase> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_case(), )+ }
-                }
-                pub fn beds(self) -> bool {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::beds(), )+ }
-                }
-                pub fn walk_demo(self) -> Option<$crate::walkdemo::WalkKind> {
-                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::walk_demo(), )+ }
-                }
-                pub fn has_run(self) -> bool {
-                    self.run_default().is_some()
-                }
-                /// [`RungBuilder::prime`] for this rung's job `index`.
-                pub fn prime(self, requested: Tier, index: usize, bytes: &[u8], store: &mut $crate::processed_cache::DataStore) -> Result<(), String> {
-                    let tier = self.tier(requested);
-                    match self { $( Rung::$t => <<$crate::$m::$t as McRung>::Builder as RungBuilder>::prime(tier, index, bytes, store), )+ }
-                }
-                pub fn builder(self, requested: Tier) -> Builder {
-                    let tier = self.tier(requested);
-                    match self { $( Rung::$t => Builder::$t(<<$crate::$m::$t as McRung>::Builder as RungBuilder>::new(tier)), )+ }
-                }
-            }
-
-            /// A rung's data processing in progress.
-            #[allow(clippy::large_enum_variant)]
-            pub enum Builder { $( $t(<$crate::$m::$t as McRung>::Builder), )+ }
-
-            impl Builder {
-                pub fn step(&mut self, bytes: &[u8], store: &mut $crate::processed_cache::DataStore) -> Result<(), String> {
-                    match self { $( Builder::$t(b) => RungBuilder::step(b, bytes, store), )+ }
-                }
-                pub fn finish(self) -> Result<Loaded, String> {
-                    Ok(match self { $( Builder::$t(b) => Loaded::$t(RungBuilder::finish(b)?), )+ })
-                }
-            }
-
-            /// A rung with its data processed.
-            #[allow(clippy::large_enum_variant)]
-            pub enum Loaded { $( $t(<<$crate::$m::$t as McRung>::Builder as RungBuilder>::Loaded), )+ }
-
-            impl Loaded {
-                pub fn run_next(&mut self) -> History {
-                    match self { $( Loaded::$t(l) => l.run_next(), )+ }
-                }
-                pub fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {
-                    match self { $( Loaded::$t(l) => l.keff_start(cfg), )+ }
-                }
-                pub fn keff_step(&mut self) -> Option<Generation> {
-                    match self { $( Loaded::$t(l) => l.keff_step(), )+ }
-                }
-                pub fn keff_finished(&self) -> bool {
-                    match self { $( Loaded::$t(l) => l.keff_finished(), )+ }
-                }
-                pub fn kinf_start(&mut self, param: f64, cfg: KeffConfig) -> Result<(), String> {
-                    match self { $( Loaded::$t(l) => l.kinf_start(param, cfg), )+ }
-                }
-                pub fn kinf_step(&mut self) -> Option<KinfGeneration> {
-                    match self { $( Loaded::$t(l) => l.kinf_step(), )+ }
-                }
-                pub fn xs_curves(&self) -> Vec<XsCurve> {
-                    match self { $( Loaded::$t(l) => l.xs_curves(), )+ }
-                }
-                pub fn raster(&mut self, req: &RasterReq) -> Result<Vec<u8>, String> {
-                    match self { $( Loaded::$t(l) => l.raster(req), )+ }
-                }
-                pub fn walk(&mut self, msg: &[f64]) -> Result<Vec<f64>, String> {
-                    match self { $( Loaded::$t(l) => l.walk(msg), )+ }
-                }
-                pub fn pool_source(&mut self, cfg: KeffConfig) -> Option<Result<$crate::rungs::PoolSource, String>> {
-                    match self { $( Loaded::$t(l) => l.pool_source(cfg), )+ }
-                }
-                pub fn pool_chunk(&mut self, cfg: KeffConfig, chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
-                    match self { $( Loaded::$t(l) => l.pool_chunk(cfg, chunk), )+ }
-                }
-                pub fn pool_arm(&mut self, param: f64) -> Result<(), String> {
-                    match self { $( Loaded::$t(l) => l.pool_arm(param), )+ }
-                }
-            }
-        }
-    };
 }
 
 /// What the app opens on: `?rung=…&mode=…` in the browser, `--rung …

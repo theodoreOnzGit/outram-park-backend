@@ -58,6 +58,8 @@
 //!
 //! # AI agents never stamp
 //!
+//! Agents write **unsigned justifications** instead ([`justify`], GitHub
+//! #1019, `kovan-cli review justify`), which never count as review.
 //! Nothing here signs. [`write_review`] refuses an unsigned review, and a
 //! signature needs a key unlocked by its human owner's passphrase.
 
@@ -82,12 +84,21 @@ use kovan_common::review::types::ChangeAuthorship;
 use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, ReviewWizard};
 
 pub mod git;
+mod git_batch;
+mod message_store;
+mod hash_store;
 
 pub mod authorship;
+pub mod carry_forward;
 pub mod commit_push;
 /// Concept links, the finder, formulas and concept areas (#770, #810).
 pub mod concepts;
 pub mod flow;
+/// Agent justifications, unsigned (GitHub #1019).
+pub mod justify;
+/// The "Signing key" window: lock state, auto-lock, export and import
+/// (GitHub #1020).
+pub mod key_panel;
 pub mod new_code;
 /// Organisations and separation attestations (GitHub #810).
 pub mod organisations;
@@ -95,6 +106,8 @@ pub mod queue;
 pub mod recent;
 /// Re-confirming an inherited-stale review (#770, #740).
 pub mod reanchor;
+pub mod refresh;
+pub mod user_management;
 pub mod reanchor_flow;
 pub mod reconfirm;
 pub mod relocate;
@@ -103,8 +116,8 @@ mod states;
 pub mod ws_cache;
 
 pub use states::{
-    evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
-    WorkspaceEvaluation,
+    crates_needing_test, evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
+    stamp_states_timed, RefreshTimings, WorkspaceEvaluation,
 };
 
 /// `review.md`.
@@ -188,10 +201,40 @@ fn rust_files(root: &Path, dir: &str) -> BTreeMap<String, String> {
 /// `kovan_root.toml`. `Err` only when `kovan_root.toml` exists and does not
 /// parse (the registry cannot be built then).
 pub fn load_workspace(root: &Path) -> Result<Workspace, String> {
+    load_workspace_timed(root).map(|(ws, _)| ws)
+}
+
+/// How long a [`load_workspace`] took, by phase (GitHub #1018).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LoadPhases {
+    /// The walk, the `review.md` reads and the cache checks.
+    pub cache_check: std::time::Duration,
+    /// Refreshing the folders the cache could not reuse.
+    pub folder_refresh: std::time::Duration,
+    /// How many folders were refreshed.
+    pub folders_refreshed: usize,
+    /// Copying the workspace cache in and storing it back
+    /// ([`ws_cache::take`], [`ws_cache::put`]; GitHub #1023, the part of a
+    /// load the two phases above leave out).
+    pub cache_copy: std::time::Duration,
+}
+
+/// [`load_workspace`], with its phases timed.
+pub fn load_workspace_timed(root: &Path) -> Result<(Workspace, LoadPhases), String> {
+    let clock = std::time::Instant::now();
     let mut cache = ws_cache::take(root);
+    let copied = clock.elapsed();
     let ws = load_workspace_with(root, &mut cache);
+    let mut phases = LoadPhases {
+        cache_check: cache.phases.0,
+        folder_refresh: cache.phases.1,
+        folders_refreshed: cache.refreshed_last,
+        cache_copy: copied,
+    };
+    let clock = std::time::Instant::now();
     ws_cache::put(root, cache);
-    ws
+    phases.cache_copy += clock.elapsed();
+    ws.map(|w| (w, phases))
 }
 
 /// [`load_workspace`] computing everything, the cache neither read nor
@@ -204,6 +247,7 @@ pub fn load_workspace_uncached(root: &Path) -> Result<Workspace, String> {
 /// are unchanged is taken from it ([`ws_cache`]); everything else is read
 /// and refreshed, and stored back.
 fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<Workspace, String> {
+    let started = std::time::Instant::now();
     let head = git::rev_parse(root, "HEAD").unwrap_or_default();
     let now = std::time::SystemTime::now();
     // One walk for both file kinds.
@@ -268,6 +312,7 @@ fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<W
         .map(|(d, p, _)| (d.as_str(), p.as_path()))
         .collect();
     cache.refreshed_last = todo.len();
+    let checked = std::time::Instant::now();
     let threads = std::thread::available_parallelism()
         .map_or(1, |n| n.get().saturating_sub(2))
         .max(1);
@@ -314,6 +359,7 @@ fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<W
             .flat_map(|h| h.join().expect("a folder refresh does not panic"))
             .collect()
     });
+    cache.phases = (checked - started, checked.elapsed());
     let mut indexes = Vec::new();
     let mut kept = BTreeMap::new();
     for (dir, _, slot) in dirs {
@@ -370,11 +416,25 @@ pub fn call_graph_id(idx: &FolderIndex, file: &str, f: &FunctionIndex) -> String
 }
 
 /// `sha256:` of `<root>/Cargo.lock`, as `kovan-cli test` records it; `None`
-/// when there is no lock file.
+/// when there is no lock file. See [`lock_bytes_hash`] for line endings.
 pub fn cargo_lock_hash(root: &Path) -> Option<String> {
     std::fs::read(root.join("Cargo.lock"))
         .ok()
-        .map(|b| sha256_tagged(&b))
+        .map(|b| lock_bytes_hash(&b))
+}
+
+/// `sha256:` of a `Cargo.lock`'s bytes with every CRLF pair read as LF, as
+/// source files are hashed ([`kovan_common::code_index::links::text_hash`]).
+/// A Windows checkout with `core.autocrlf = true` holds the committed lock
+/// with CRLF; hashing it raw made every review stamped on Linux read
+/// "pending workspace test" there (kovan CI, Windows runner, 2026-10-22).
+/// A lock with no CRLF hashes exactly as before, so recorded stamps and
+/// test runs stay valid.
+pub fn lock_bytes_hash(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => kovan_common::code_index::links::text_hash(text),
+        Err(_) => sha256_tagged(bytes),
+    }
 }
 
 /// What the reviewer chose in the dialog.
@@ -428,8 +488,7 @@ fn locate<'w>(
             "{path} has changes not committed: a stamp certifies HEAD, commit first"
         ));
     }
-    let mut cache = states::FileCache::new();
-    let at_head = states::fn_at(&mut cache, root, &ws.head, &path, &f.qual).map(|h| h.hashes.hash);
+    let at_head = states::fn_at(&mut git_batch::GitBatch::new(root), &ws.head, &path, &f.qual).map(|h| h.hashes.hash);
     if at_head.as_deref() != Some(f.hash.as_str()) {
         return Err(format!(
             "{path}::{}: the index hash is not the function's hash at HEAD",
@@ -473,6 +532,11 @@ pub struct StampContext {
     /// the wizard opened. Signing refuses when the drafted hash differs
     /// (the code changed while it was being reviewed).
     pub hash: String,
+    /// Added 2026-11-01 (GitHub #1106): the names of the callees (and types
+    /// and constants used) without a valid stamp. Empty: the stamp will be
+    /// valid. Otherwise it is written all the same and reads tentative
+    /// until everything underneath is valid; the dialog says so.
+    pub tentative_on: Vec<String>,
     /// Added 2026-10-10 (#770, #760 q11): the starting no-concept reason,
     /// this reviewer's previous one, else "upstream control flow / solver
     /// structure" for a confirmed port
@@ -502,7 +566,7 @@ fn applicability_for(
 ) -> (Applicability, Vec<String>) {
     let folder = ws.reviews.get(&idx.dir);
     let mut msgs = states::MessageCache::new();
-    let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs);
+    let tests = states::tests_at(&mut git_batch::GitBatch::new(root), &ws.head, &idx.dir, &f.id, &mut msgs);
     let applicability = Applicability {
         is_port: folder
             .and_then(|m| m.doc.upstream())
@@ -524,9 +588,14 @@ fn applicability_for(
 /// [`draft_stamp`] refuses before the answers matter (no commit, not
 /// indexed, uncommitted changes in its file, index hash not the hash at
 /// `HEAD`, index entry out of date, a callee with no hash), with the same
-/// messages, and (added 2026-10-10, #740: "bottom-up is an enforced rule")
-/// while a workspace callee has no valid stamp
-/// ([`review_mode::blockers_of`]; a recursion partner never blocks).
+/// messages. ~~and (added 2026-10-10, #740: "bottom-up is an enforced
+/// rule") while a workspace callee has no standing stamp (valid or pending
+/// a workspace test, corrected 2026-10-29)~~ **CORRECTED
+/// 2026-11-01** (GitHub #1106, maintainer: "stamp functions without
+/// reviewing the underlying functions"): a callee without a valid stamp no
+/// longer refuses the stamp; it is listed in
+/// [`StampContext::tentative_on`], and the stamp reads tentative until
+/// everything underneath is valid ([`review_mode::blockers_of`]).
 /// Reads git and runs the staleness engine; call it off the UI thread.
 pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampContext, String> {
     let ws = load_workspace(root)?;
@@ -540,15 +609,12 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         return Err(DraftError::MissingCalleeHash(c.clone()).to_string());
     }
     let snap = review_mode::Snapshot::load(root)?;
-    let blocked = review_mode::blockers_of(&snap, &f.id);
-    if !blocked.is_empty() {
-        let names: Vec<&str> = blocked.iter().map(|(_, n)| n.as_str()).collect();
-        return Err(format!(
-            "bottom-up: {path} calls {} without a valid stamp; review {} first",
-            names.join(", "),
-            if names.len() == 1 { "it" } else { "them" }
-        ));
-    }
+    let mut tentative_on: Vec<String> = review_mode::blockers_of(&snap, &f.id)
+        .into_iter()
+        .map(|(_, n)| n)
+        .collect();
+    // By name, so the dialog's list does not follow the ids' order.
+    tentative_on.sort();
     let folder = ws.reviews.get(&idx.dir);
     let (applicability, messages) = applicability_for(root, &ws, idx, f);
     let previous = folder.and_then(|m| {
@@ -608,6 +674,7 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
             .map(|s| s.comments)
             .unwrap_or_default(),
         hash: f.hash.clone(),
+        tentative_on,
         no_concept: review_mode::prefill::no_concept_prefill(
             previous.and_then(|r| r.review.no_concept.as_deref()),
             applicability.is_port,
@@ -652,7 +719,7 @@ pub(crate) fn draft_stamp_loaded(
     });
     let now = now_local();
     let mut msgs = states::MessageCache::new();
-    let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs)
+    let tests = states::tests_at(&mut git_batch::GitBatch::new(root), &ws.head, &idx.dir, &f.id, &mut msgs)
         .map(|t| t.authorship())
         .unwrap_or_default();
     // The reviewed change's authorship, from the commit trailers (#771,
@@ -826,8 +893,8 @@ fn read_root(root: &Path) -> Result<(PathBuf, String), String> {
 /// Register the key in `kf` in `<root>/kovan_root.toml` (appended text,
 /// comments kept: [`kovan_common::review::root_append`]). Trust on first
 /// use is given only to the first reviewer of a root with no reviewer and
-/// either no founder or `[code_review] founder` already naming this
-/// reviewer (what "Index fresh" writes when the keystore holds one
+/// either no founder or `[code_review] founder` (or, GitHub #1248,
+/// `founders`) already naming this reviewer (what "Index fresh" writes when the keystore holds one
 /// identity; added 2026-10-10 for the stamp dialog, #770). Any other root
 /// registers the reviewer as awaiting admission (conservative: a root
 /// whose founder is someone else trusts this reviewer only once a
@@ -842,7 +909,8 @@ pub fn register_key(
     let (path, text) = read_root(root)?;
     let parsed = ReviewRoot::parse(&text).map_err(|e| e.to_string())?;
     let key = kf.reviewer_key();
-    let founder = parsed.code_review.as_ref().and_then(|c| c.founder.clone());
+    // GitHub #1248: `founders = [...]` as well as `founder`.
+    let declared = parsed.code_review.as_ref().map(|c| c.declared_founders()).unwrap_or_default();
     let (new, what) = match parsed.reviewer(&kf.reviewer) {
         Some(r) => {
             let first = r.keys.is_empty();
@@ -854,14 +922,13 @@ pub fn register_key(
                 },
             )
         }
-        None if parsed.reviewers.is_empty()
-            && founder.as_ref().is_none_or(|f| *f == kf.reviewer) =>
-        {
-            let t = match founder {
+        None if parsed.reviewers.is_empty() && (declared.is_empty() || declared.contains(&kf.reviewer)) => {
+            let t = if declared.is_empty() {
+                declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?
+            } else {
                 // Named already (by "Index fresh" from the keystore, or by
                 // hand): only the founding reviewer entry is added.
-                Some(_) => text.clone(),
-                None => declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?,
+                text.clone()
             };
             let r = founding_reviewer(&kf.reviewer, name, key, date);
             (

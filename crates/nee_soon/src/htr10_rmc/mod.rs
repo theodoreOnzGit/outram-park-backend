@@ -269,6 +269,8 @@ pub mod data_jobs;
 pub mod materials;
 pub mod plots;
 pub mod keff_vs_height;
+pub mod zones;
+pub mod parametric;
 
 /// The paper's single RMC `k_eff` curve against fuel-loading height, Tables 3
 /// and 4 (`(height_cm, k_eff)`).

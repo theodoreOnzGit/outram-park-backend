@@ -14804,7 +14804,7 @@ than a steady 10 ms, and a mean alone hides that entirely.
 # Honest limits of this measurement
 
 - It measures **the `update` body only** -- not egui's tessellation, not the
-  `wgpu`/`glow` paint, not present/swap. A frame can be slow in ways this
+  `wgpu` paint, not present/swap. A frame can be slow in ways this
   number cannot see. It bounds the application's contribution from above; it
   does not account for the whole frame.
 - `frame_interval_ms` is egui's *smoothed* `stable_dt`, chosen so the label

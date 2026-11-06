@@ -107,6 +107,9 @@ pub(super) fn root_with_founder(founder: Option<&str>, reviewers: Vec<Reviewer>)
             founder: founder.map(str::to_string),
             rust_analyzer_used: vec![],
             developing_organisation: vec![],
+            roster_events: Vec::new(),
+            organisation_retirements: Vec::new(),
+            ..Default::default()
         }),
         reviewers,
         deleted_crates: vec![],

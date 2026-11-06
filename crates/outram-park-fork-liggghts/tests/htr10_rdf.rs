@@ -95,9 +95,14 @@ const D: f64 = 0.06;
 const R_CORE: f64 = 0.90;
 
 fn data_path(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts")
-        .join(name)
+    // This port's own settled bed lives beside the examples, not in
+    // reference-data/ and not on crates.io (gh:#1008, 2026-10-21).
+    let dir = if name == "htr10_settled_ours.csv" {
+        "examples/data"
+    } else {
+        "../../reference-data/liggghts"
+    };
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
 }
 
 fn load_positions(name: &str) -> Option<Vec<Vec3>> {

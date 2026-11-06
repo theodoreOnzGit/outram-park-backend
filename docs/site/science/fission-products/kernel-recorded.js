@@ -1,4 +1,4 @@
-// Cited and pending values for the chapter "TRISO kernel" (lessons 10-28),
+// Cited and pending values for the chapter "TRISO kernel" (lessons 12-30),
 // in ONE place. Hand-edited, not generated: each entry names its source and
 // where in it; `src: null` means "source pending" and the page says so.
 // Checked by check-fission.js.

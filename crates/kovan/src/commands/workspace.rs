@@ -141,12 +141,28 @@ pub fn resolve(explicit: Option<&Path>) -> io::Result<(PathBuf, String)> {
 ///
 /// Skipped when `CI` is set: a CI runner has no use for the PDF corpus, and
 /// fetching it there would cost every job the download.
+///
+/// While it downloads, one updating progress line is printed on stderr
+/// when stderr is a terminal (GitHub issue #1016,
+/// [`crate::corpus_repos::run_reporting`]); piped or headless, nothing.
 pub fn fetch_literature(root: &Path) {
     if std::env::var_os("CI").is_some() {
         return;
     }
-    use crate::corpus_repos::{ensure_workspace_corpus, RepoState, WORKSPACE_CORPUS_PATH};
-    match ensure_workspace_corpus(root) {
+    use crate::corpus_repos::{
+        ensure_workspace_corpus, run_reporting, DownloadProgress, RepoState,
+        WORKSPACE_CORPUS_PATH,
+    };
+    use std::io::IsTerminal;
+    let progress = DownloadProgress::new();
+    let terminal = std::io::stderr().is_terminal().then(std::io::stderr);
+    let result = run_reporting(
+        &progress,
+        terminal,
+        std::time::Duration::from_millis(200),
+        || ensure_workspace_corpus(root, &progress),
+    );
+    match result {
         Ok(Some(RepoState::Cloned)) => {
             eprintln!("literature: fetched the {WORKSPACE_CORPUS_PATH} submodule (it was empty)");
         }
@@ -364,14 +380,33 @@ mod tests {
         // an output directory this function only resolves, never creates), and
         // `canonicalize` errors on a missing path. Falling back to `root` keeps
         // the assertion meaningful on any platform where canonicalisation fails.
+        //
+        // Canonicalise `dir`'s parent too (it is the workspace root, which
+        // exists): on Windows `current_dir()` keeps the 8.3 short form the
+        // runner's TEMP holds (`C:\Users\RUNNER~1\...`) while canonicalising
+        // `root` expands it (`C:\Users\runneradmin\...`), the same folder
+        // spelled two ways (kovan CI, Windows runner, 2026-10-22).
         let root_canonical = dunce::canonicalize(&root).unwrap_or_else(|_| root.clone());
-        assert!(
-            dir.starts_with(&root_canonical),
+        let parent = dir.parent().unwrap();
+        let parent_canonical = dunce::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+        assert_eq!(
+            parent_canonical,
+            root_canonical,
             "got {}, expected it under {}",
             dir.display(),
             root_canonical.display()
         );
         assert!(how.contains("workspace"));
+    }
+
+    /// #1016: the literature fetch, now run under a progress reporter, does
+    /// nothing in a folder that does not mount the literature (and nothing
+    /// at all under `CI`), and never panics.
+    #[test]
+    fn fetching_literature_outside_a_workspace_does_nothing() {
+        let tmp = tempfile::tempdir().unwrap();
+        fetch_literature(tmp.path());
+        assert_eq!(std::fs::read_dir(tmp.path()).unwrap().count(), 0);
     }
 
     #[test]

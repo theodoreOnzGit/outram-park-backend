@@ -150,12 +150,22 @@ const SETTLE_STEPS: usize = 8_000;
 /// (V&V § 4.9). Twelve batches is enough to exercise every code path several
 /// times over, and keeps the gate inside the workspace's middle runtime tier
 /// rather than pushing an ordinary `cargo test` past an hour.
+///
+/// **Measured 2026-10-27:** 3919 s (65.3 min) for this test alone, release,
+/// on an otherwise idle 4-core cloud container. So on that hardware it does
+/// not stay under the hour, and under a parallel `cargo test --workspace` it
+/// ran past 2 h. Not re-checked on the maintainer's machine.
 const BATCHES: usize = 12;
 
 fn data_path(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts")
-        .join(name)
+    // This port's own settled bed lives beside the examples, not in
+    // reference-data/ and not on crates.io (gh:#1008, 2026-10-21).
+    let dir = if name == "htr10_settled_ours.csv" {
+        "examples/data"
+    } else {
+        "../../reference-data/liggghts"
+    };
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
 }
 
 fn load_positions(name: &str) -> Option<Vec<Vec3>> {
@@ -343,12 +353,12 @@ const PLACE_CLEARANCE: f64 = 1.0e-4;
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
-    ignore = "long test: 27 554 pebbles, pre-settle plus 28 recirculation batches. \
+    ignore = "long test: 27 554 pebbles, pre-settle plus 12 recirculation batches (BATCHES; was mis-stated as 28). \
               Runs by default; skipped under --no-default-features"
 )]
 fn slow_recirculation_through_the_discharge_system() {
     let Some(init) = load_positions("htr10_settled_ours.csv") else {
-        eprintln!("skipping: reference-data/liggghts/htr10_settled_ours.csv not present");
+        eprintln!("skipping: crates/outram-park-fork-liggghts/examples/data/htr10_settled_ours.csv not present");
         return;
     };
     let stl = match std::fs::read_to_string(data_path("htr10_discharge.stl")) {

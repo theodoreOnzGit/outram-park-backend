@@ -57,23 +57,30 @@
 //! ## Why this is implemented here and not consumed from TUAS
 //!
 //! [`tuas_boussinesq_solver`] carries a `WakaoData` Nusselt correlation, and
-//! it would be the natural thing to reuse. **It must not be used**: its
-//! implementation computes
+//! it would be the natural thing to reuse. ~~**It must not be used**: its
+//! implementation computes~~
 //!
 //! ```text
-//! Nu = 2 + 1.1 * Re^0.333 * Pr^0.6        (TUAS -- exponents transposed)
+//! Nu = 2 + 1.1 * Re^0.333 * Pr^0.6        (TUAS before 2026-08-11 -- exponents transposed)
 //! ```
 //!
-//! — the Reynolds and Prandtl exponents are swapped relative to the published
-//! correlation. This is not a rounding difference. At `Re = 1000`, `Pr = 0.71`
+//! ~~— the Reynolds and Prandtl exponents are swapped relative to the published
+//! correlation.~~ **CORRECTED 2026-11-03** — that was TUAS's form *before*
+//! 2026-08-11. TUAS fixed it that day (`op-4542`): `WakaoData::get` in
+//! `tuas_boussinesq_solver/.../nusselt_number_correlations/input_structs.rs`
+//! now uses `prandtl_power = 1/3`, `reynolds_power = 0.6`, the published
+//! form (verified by reading the source on 2026-11-03). The rest of this
+//! paragraph describes the pre-fix defect. This is not a rounding difference. At `Re = 1000`, `Pr = 0.71`
 //! (representative of helium in an HTR-10 bed) the two forms differ by a
 //! factor of about 5.8; see
 //! `tests::divergence_from_the_tuas_wakao_implementation` for the measured
 //! numbers. The defect is tracked in this workspace's issue tracker as
 //! **`op-4542`**; TUAS is not modified from here, so this module implements
-//! the correct form independently. **Do not "unify" the two until `op-4542`
+//! the correct form independently. ~~**Do not "unify" the two until `op-4542`
 //! is closed** — unification in the wrong direction would silently import the
-//! defect.
+//! defect.~~ **CORRECTED 2026-11-03** — `op-4542` was fixed in TUAS on
+//! 2026-08-11, so that precondition no longer blocks unification; whether to
+//! unify is a separate decision not made here.
 //!
 //! ## Status
 //!
@@ -332,24 +339,19 @@ mod tests {
     use uom::si::velocity::meter_per_second;
 
     /// Asserts that `measured` matches `expected` to within `max_relative`
-    /// relative error. See the identical macro in [`super::super::triso`] for
+    /// relative error. See the identical helper in [`super::super::triso`] for
     /// why `tampines` does not use the `approx` crate here.
-    macro_rules! assert_relative_eq {
-        ($expected:expr, $measured:expr, max_relative = $tolerance:expr) => {{
-            let expected: f64 = $expected;
-            let measured: f64 = $measured;
-            let relative_error = if expected == 0.0 {
-                measured.abs()
-            } else {
-                ((measured - expected) / expected).abs()
-            };
-            assert!(
-                relative_error < $tolerance,
-                "expected {expected}, measured {measured}, relative error \
-                 {relative_error:e} exceeds {}",
-                $tolerance
-            );
-        }};
+    fn assert_relative_eq(expected: f64, measured: f64, max_relative: f64) {
+        let relative_error = if expected == 0.0 {
+            measured.abs()
+        } else {
+            ((measured - expected) / expected).abs()
+        };
+        assert!(
+            relative_error < max_relative,
+            "expected {expected}, measured {measured}, relative error \
+             {relative_error:e} exceeds {max_relative}"
+        );
     }
 
     /// V&V test: the Nusselt number tends to the exact stagnant-sphere limit
@@ -451,7 +453,7 @@ mod tests {
             .unwrap()
             .get::<ratio>();
         println!("Re = 1000, Pr = 0.71: Nu measured {measured_nusselt}, hand {hand_nusselt}");
-        assert_relative_eq!(hand_nusselt, measured_nusselt, max_relative = 1e-12);
+        assert_relative_eq(hand_nusselt, measured_nusselt, 1e-12);
 
         let hand_coefficient = hand_nusselt * 0.30 / 0.06;
         let measured_coefficient = bed
@@ -459,7 +461,7 @@ mod tests {
             .unwrap()
             .get::<watt_per_square_meter_kelvin>();
         println!("h measured {measured_coefficient} W/(m^2 K), hand {hand_coefficient} W/(m^2 K)");
-        assert_relative_eq!(hand_coefficient, measured_coefficient, max_relative = 1e-12);
+        assert_relative_eq(hand_coefficient, measured_coefficient, 1e-12);
 
         assert!(bed.is_within_validity_range(reynolds));
         assert!(!bed.is_within_validity_range(Ratio::new::<ratio>(10.0)));
@@ -500,7 +502,7 @@ mod tests {
         let hand_area = 6.0 * (1.0 - 0.39) / 0.06;
         let measured_area = bed.specific_surface_area().get::<per_meter>();
         println!("a_v measured {measured_area} 1/m, hand {hand_area} 1/m");
-        assert_relative_eq!(hand_area, measured_area, max_relative = 1e-12);
+        assert_relative_eq(hand_area, measured_area, 1e-12);
 
         // independent route: count the pebbles in a cubic metre of bed
         let pebble_radius: f64 = 0.03;
@@ -512,7 +514,7 @@ mod tests {
             "first principles: {pebbles_per_cubic_metre} pebbles per m^3 at \
              {pebble_volume} m^3 each, total surface {surface_per_cubic_metre} m^2/m^3"
         );
-        assert_relative_eq!(surface_per_cubic_metre, measured_area, max_relative = 1e-12);
+        assert_relative_eq(surface_per_cubic_metre, measured_area, 1e-12);
 
         // volumetric coefficient equals h * a_v
         let reynolds = Ratio::new::<ratio>(1000.0);
@@ -530,20 +532,28 @@ mod tests {
             "h = {coefficient} W/(m^2 K), a_v = {measured_area} 1/m, h a_v = \
              {volumetric} W/(m^3 K)"
         );
-        assert_relative_eq!(
+        assert_relative_eq(
             coefficient * measured_area,
             volumetric,
-            max_relative = 1e-12
+            1e-12
         );
     }
 
     /// V&V test (defect documentation): how far this module's Wakao
-    /// implementation diverges from TUAS's, which has the exponents
-    /// transposed.
+    /// implementation diverges from TUAS's, which ~~has~~ **had, before
+    /// 2026-08-11,** the exponents transposed.
+    ///
+    /// **CORRECTED 2026-11-03:** TUAS's `WakaoData::get` now computes the
+    /// published form (`prandtl_power = 1/3`, `reynolds_power = 0.6`, read in
+    /// `input_structs.rs` on 2026-11-03). This test never calls TUAS: it
+    /// hand-codes the *old* transposed expression, so it measures the size
+    /// of the historical defect and cannot notice whether TUAS is fixed or
+    /// regresses. TUAS's own regression guard lives in its
+    /// `nusselt_number_correlations/tests.rs`.
     ///
     /// **Methodology:** TUAS's `WakaoData`
     /// (`crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/nusselt_number_correlations/input_structs.rs`,
-    /// around line 152) computes `Nu = 2 + 1.1 Re^0.333 Pr^0.6`, transposing
+    /// around line 152) ~~computes~~ **computed before 2026-08-11** `Nu = 2 + 1.1 Re^0.333 Pr^0.6`, transposing
     /// the Reynolds and Prandtl exponents of the published
     /// `Nu = 2 + 1.1 Pr^(1/3) Re^0.6`. TUAS is read-only from this crate and
     /// is **not** called here; the transposed expression is recomputed inside
@@ -569,7 +579,8 @@ mod tests {
     /// the particle-to-fluid heat transfer coefficient by a factor of about
     /// 2.9 to 9.5 across the correlation's validity range, which would show up
     /// as a spuriously large
-    /// pebble-to-gas temperature difference. This is tracked as **`op-4542`**;
+    /// pebble-to-gas temperature difference. This is tracked as **`op-4542`**
+    /// (**fixed in TUAS 2026-08-11**; see the correction above);
     /// this test exists to keep the measured size of the defect on record
     /// until it is fixed upstream, and to fail loudly if anyone "unifies" the
     /// two implementations in the wrong direction.
@@ -615,7 +626,7 @@ mod tests {
             .unwrap()
             .get::<ratio>();
         println!("Re = Pr = 1: both forms give {unity}");
-        assert_relative_eq!(3.1, unity, max_relative = 1e-12);
+        assert_relative_eq(3.1, unity, 1e-12);
     }
 
     /// V&V test: the Reynolds number uses the superficial velocity, and
@@ -657,7 +668,7 @@ mod tests {
             .reynolds_number(velocity, density, viscosity)
             .get::<ratio>();
         println!("Re measured {measured_reynolds}, hand {hand_reynolds}");
-        assert_relative_eq!(hand_reynolds, measured_reynolds, max_relative = 1e-12);
+        assert_relative_eq(hand_reynolds, measured_reynolds, 1e-12);
 
         let interstitial = Velocity::new::<meter_per_second>(2.0 / 0.39);
         let inflated = bed
@@ -669,7 +680,7 @@ mod tests {
              ({inflation:.4} times too high, inflating Nu by {:.4})",
             inflation.r_powf(0.6)
         );
-        assert_relative_eq!(1.0 / 0.39, inflation, max_relative = 1e-12);
+        assert_relative_eq(1.0 / 0.39, inflation, 1e-12);
 
         // invalid inputs
         let prandtl = Ratio::new::<ratio>(0.71);

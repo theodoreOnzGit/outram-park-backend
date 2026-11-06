@@ -673,7 +673,12 @@ fn hem_water_double_rarefaction_matches_the_semi_analytical_plateaus() {
         },
         HemNumerics::default(),
     )
-    .unwrap();
+    .unwrap()
+    // The semi-analytical solution is inviscid. Since gh:#1061, wall friction
+    // is on by default with IF97, and here it moved the plateau speed from
+    // −0.05 % to −0.79 % of `u_b` (2026-11-01); the reference describes the
+    // frictionless problem, so the instrument ablates friction.
+    .without_wall_friction();
     pipe.set_boundary(PipeEnd::Inlet, HemBoundary::Transmissive)
         .unwrap();
     pipe.set_boundary(PipeEnd::Outlet, HemBoundary::Transmissive)

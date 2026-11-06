@@ -49,6 +49,11 @@ workspace's NJOY port (RECONR, BROADR; tolerance 1e-3). Thermal laws:
 graphite 30 % porous (tape), C-in-SiC and Si-in-SiC (tape), U-in-UO2,
 O-in-UO2, Fe-56 and Al-27 metal (LEAPR from the ENDF/B-VIII.0 decks).
 
+**Changed 2026-11-03 (gh:#1137):** the loader's default is now LEAPR for
+graphite and SiC too, at the run's temperature. So the results below
+(measured with the tapes) are now the `OUTRAM_HTR10_TAPE_LAWS=1` ablation,
+not the default model. Re-measuring them is gh:#1145.
+
 **Departures from R1** (each stated in the module docs): natural boron
 (B-11 added) in every impurity; natural carbon; each carbon's own thermal
 law (SiC, B4C, graphite); the 30 % porous graphite law (R1's libraries are

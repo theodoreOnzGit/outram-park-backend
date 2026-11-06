@@ -63,7 +63,7 @@ use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
 
 fn main() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts/htr10_settled_ours.csv");
+        .join("examples/data/htr10_settled_ours.csv");
     let text = std::fs::read_to_string(&path).expect("settled bed");
     let mut rows: Vec<(usize, Vec3)> = text
         .lines()

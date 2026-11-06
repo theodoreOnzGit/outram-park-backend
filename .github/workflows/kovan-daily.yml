@@ -26,17 +26,22 @@
 #   CLAUDE.md: never call a crate wasm-ready on the strength of it).
 # - Android and iOS, left out at the maintainer's direction.
 #
-# EXPECTED RED ON ARRIVAL: on 2026-10-10 six kovan lib tests and two
+# ~~EXPECTED RED ON ARRIVAL: on 2026-10-10 six kovan lib tests and two
 # kovan-common tests failed on the maintainer's Windows laptop (#820). They
-# are not excluded here; a red Windows leg is that record until each is fixed.
+# are not excluded here; a red Windows leg is that record until each is fixed.~~
+# CORRECTED 2026-10-22: run 39765547640 (develop 58f04af6a) passed on all
+# three OSes, Windows included, with every kovan, kovan-common and kovan-web
+# lib and integration test green. Nothing is excluded; a red leg is a finding.
 #
 # ── When it runs ─────────────────────────────────────────────────────────────
 #
 # `schedule` and `workflow_dispatch` fire only for a workflow file on the
-# DEFAULT branch (`main`). `main` has no `.github/workflows/` (checked
-# 2026-10-11), so THE DAILY RUN DOES NOT START until this file is on `main`.
-# Until then, start it by pushing a tree to a `ci-kovan/**` branch, which
-# runs this file from the pushed ref:
+# DEFAULT branch (`main`). ~~`main` has no `.github/workflows/` (checked
+# 2026-10-11), so THE DAILY RUN DOES NOT START until this file is on `main`.~~
+# CORRECTED 2026-10-29: this file is on `main` since 2026-10-21 and the
+# schedule runs (scheduled runs 9-11, 2026-10-26 to 28). To run this file
+# from another ref, push a tree to a `ci-kovan/**` branch, which runs this
+# file from the pushed ref:
 #
 #     git push -f origin develop:ci-kovan/develop
 #
@@ -62,6 +67,13 @@ env:
   CARGO_NET_RETRY: 2
   RUST_BACKTRACE: short
   KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+  # Maintainer direction, 2026-10-22: "let ci's pin the latest". This
+  # workflow runs the latest stable toolchain and its rust-analyzer
+  # (installed below), overriding the repository's rust-toolchain.toml pin.
+  # Before this, rustup obeyed the 1.99.1 pin, which had no rust-analyzer
+  # on a fresh runner, and every rust-analyzer test failed on all three OSes
+  # (run 39684921124, 2026-10-21).
+  RUSTUP_TOOLCHAIN: stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -84,11 +96,21 @@ jobs:
           # A scheduled run starts from `main` (the default branch) and tests
           # `develop`; a push or a dispatch tests the ref it was started on.
           ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+          # Full history (maintainer, 2026-10-22, gh:#1024): the review-state
+          # refresh timed below asks git about each stamp's commits, and a
+          # shallow clone would hide that cost.
+          fetch-depth: 0
 
       # rust-analyzer: the SCIP and call-graph tests look for it on PATH.
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rust-analyzer
+
+      - name: Toolchain and rust-analyzer versions
+        shell: bash
+        run: |
+          rustc --version
+          rust-analyzer --version
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -102,6 +124,21 @@ jobs:
       # --no-fail-fast: a failing test binary must not hide the ones after it.
       # The first run (2026-10-11) stopped at kovan's lib tests on Windows, so
       # no integration test ran there.
+      # Review-state refresh timing on this checkout, cold then warm, per OS
+      # (maintainer, 2026-10-22, gh:#1023/#1024: compare Windows with Linux
+      # and macOS on the same runner class). Prints each phase and the git
+      # processes by kind; the lines go to the run's summary page. These are
+      # GitHub runners, not the maintainer's machine.
+      - name: Review-state refresh timing (cold and warm)
+        shell: bash
+        env:
+          KOVAN_REFRESH_TIMING_ROOT: ${{ github.workspace }}
+        run: |
+          echo "### Refresh timing on ${{ matrix.os }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cargo test --release -p "$KOVAN_PKG" --lib refresh_phases_are_timed_cold_and_warm -- --nocapture 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Test kovan, kovan-common and kovan-web
         shell: bash
         run: cargo test --release --no-fail-fast -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests

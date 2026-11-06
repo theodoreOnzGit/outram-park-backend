@@ -26,6 +26,7 @@
 
 use super::tests::{eval, fid, folder, fun, git_for, review, reviews_in, D, F, M, R};
 use super::*;
+use crate::review::root::Role;
 use crate::review::ivv::{
     AttestationProblem, AuditRecordProblem, OrganisationProblem, OrganisationScope, RecordList,
     RecordProblem, Rung5Miss, VvCaseProblem, AUDIT_RECORD_LABEL,
@@ -765,7 +766,9 @@ fn views_of_misses_and_the_queue() {
     let reg_rows: Vec<_> = q.iter().filter(|r| r.function.is_none()).collect();
     assert_eq!(reg_rows.len(), 1, "{q:?}");
     assert_eq!(reg_rows[0].reason, v.warnings[0]);
-    assert!(reg_rows[0].action.contains("maintainer"));
+    // ~~"maintainer"~~ (GitHub #1211, 2026-11-04): kovan writes new
+    // organisation records signed by the founder only.
+    assert!(reg_rows[0].action.contains("founder"), "{}", reg_rows[0].action);
 
     // (3) Unsigned, or no audit record: not offered.
     let mut s = setup();

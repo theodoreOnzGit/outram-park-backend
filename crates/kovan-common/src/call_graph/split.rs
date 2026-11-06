@@ -213,6 +213,16 @@ pub struct SearchIndex {
     pub crates: Vec<String>,
     pub modules: Vec<SearchModule>,
     pub functions: Vec<SearchFn>,
+    /// Indices into `modules` of test code: an integration-test target's
+    /// files and `#[cfg(test)]` modules (GitHub #1164, maintainer
+    /// 2026-11-03: a reviewer could not find the test that reproduces a
+    /// paper). Additive: a `search.json` written before has none, and its
+    /// test code is not in it at all.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub test_modules: Vec<usize>,
+    /// Indices into `functions` of test functions (#1164, as above).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub test_functions: Vec<usize>,
 }
 
 /// `(crate index, file, module path)`; the path is `""` for a target root.
@@ -220,22 +230,41 @@ pub struct SearchIndex {
 pub struct SearchModule(pub usize, pub String, pub String);
 
 /// `(module index, id after "<file>::", line)`: the function id is
-/// `"{file}::{suffix}"`. Test functions are left out. Since schema 4 (#843)
-/// a module's types and constants follow its functions.
+/// `"{file}::{suffix}"`. ~~Test functions are left out.~~ Since #1164
+/// (2026-11-03) test functions are in, listed in
+/// [`SearchIndex::test_functions`]. Since schema 4 (#843) a module's types
+/// and constants follow its functions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SearchFn(pub usize, pub String, pub u32);
 
 impl SearchIndex {
-    /// Build from the whole document (test modules and functions left out).
+    /// Build from the whole document: ~~test modules and functions left
+    /// out~~ every target's modules and functions, the integration-test
+    /// targets' too, with test code marked (#1164).
     pub fn build(doc: &CallGraphDoc) -> SearchIndex {
-        let mut ix = SearchIndex { schema: SPLIT_SCHEMA, crates: Vec::new(), modules: Vec::new(), functions: Vec::new() };
+        let mut ix = SearchIndex {
+            schema: SPLIT_SCHEMA,
+            crates: Vec::new(),
+            modules: Vec::new(),
+            functions: Vec::new(),
+            test_modules: Vec::new(),
+            test_functions: Vec::new(),
+        };
         for (ci, c) in doc.crates.iter().enumerate() {
             ix.crates.push(c.name.clone());
-            for t in &c.targets {
-                for m in t.modules.iter().filter(|m| !m.test) {
+            let targets = c.targets.iter().map(|t| (t, false)).chain(c.tests.iter().map(|t| (t, true)));
+            for (t, test_target) in targets {
+                for m in &t.modules {
                     let mi = ix.modules.len();
+                    let test_module = test_target || m.test;
+                    if test_module {
+                        ix.test_modules.push(mi);
+                    }
                     ix.modules.push(SearchModule(ci, m.file.clone(), m.path.clone()));
-                    for f in m.functions.iter().chain(m.items.iter()).filter(|f| !f.test) {
+                    for f in m.functions.iter().chain(m.items.iter()) {
+                        if test_module || f.test {
+                            ix.test_functions.push(ix.functions.len());
+                        }
                         let suffix = f.id.strip_prefix(&format!("{}::", m.file)).unwrap_or(&f.id).to_string();
                         ix.functions.push(SearchFn(mi, suffix, f.line));
                     }
@@ -421,5 +450,42 @@ mod tests {
         assert!(search.functions.iter().any(|f| f.1 == "Ball" && search.modules[f.0].1 == file));
         let text = to_json(&parts[0]);
         assert_eq!(serde_json::from_str::<CrateSlice>(&text).unwrap(), parts[0]);
+    }
+
+    /// Methodology (#1164): give the fixture's `app` an integration-test
+    /// target (one module, one test function) and mark one library
+    /// function as test code. Pass: all are in the search index and marked
+    /// as tests, the ordinary functions are not; a `search.json` written
+    /// before #1164 (no test lists) still reads, with nothing marked; one
+    /// with no test code writes neither key, so its form is unchanged.
+    ///
+    /// Result (2026-11-03): passes.
+    #[test]
+    fn test_code_is_searchable_and_marked() {
+        let (mut crates, calls, outside) = fixture();
+        let plain = SearchIndex::build(&CallGraphDoc::assemble(crates.clone(), calls.clone(), outside.clone(), 0));
+        let plain_json = to_json(&plain);
+        assert!(!plain_json.contains("test_modules") && !plain_json.contains("test_functions"));
+        let app = crates.iter_mut().find(|c| c.name == "app").unwrap();
+        app.targets[0].modules[0].functions[0].test = true;
+        let lib_test = app.targets[0].modules[0].functions[0].id.clone();
+        let mut it = app.targets[0].clone();
+        it.kind = super::super::TargetKind::Test;
+        it.modules.truncate(1);
+        let m = &mut it.modules[0];
+        m.file = "crates/app/tests/paper.rs".into();
+        m.path = String::new();
+        m.functions.truncate(1);
+        m.functions[0].id = "crates/app/tests/paper.rs::reproduces_the_paper".into();
+        m.functions[0].test = true;
+        app.tests.push(it);
+        let ix = SearchIndex::build(&CallGraphDoc::assemble(crates, calls, outside, 0));
+        let id = |i: usize| format!("{}::{}", ix.modules[ix.functions[i].0].1, ix.functions[i].1);
+        let tests: Vec<String> = ix.test_functions.iter().map(|&i| id(i)).collect();
+        assert_eq!(tests, [lib_test, "crates/app/tests/paper.rs::reproduces_the_paper".to_string()]);
+        assert_eq!(ix.test_modules.iter().map(|&i| ix.modules[i].1.as_str()).collect::<Vec<_>>(), ["crates/app/tests/paper.rs"]);
+        assert_eq!(ix.functions.len(), plain.functions.len() + 1);
+        let old: SearchIndex = serde_json::from_str(&plain_json).unwrap();
+        assert!(old.test_modules.is_empty() && old.test_functions.is_empty());
     }
 }

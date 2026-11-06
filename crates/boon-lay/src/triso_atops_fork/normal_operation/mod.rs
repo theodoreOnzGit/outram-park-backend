@@ -68,12 +68,13 @@ use uom::si::f64::{Frequency, Length, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;
 
 use crate::triso_atops_fork::activities::{
-    base_activities, circulating, clean_up, curies_from_becquerels, plate_out, release_rate,
-    FailureFractions,
+    base_activities_for, circulating, clean_up, curies_from_becquerels, plate_out,
+    release_rate_for, FailureFractions,
 };
-use crate::triso_atops_fork::diffusion::diffusion_coefficient;
+use crate::triso_atops_fork::diffusion::diffusion_coefficient_for;
 use crate::triso_atops_fork::nuclide_model::ElementGroup;
-use crate::triso_atops_fork::release_models::rb_fail;
+use crate::triso_atops_fork::release_models::rb_fail_for;
+use crate::triso_atops_fork::variant::TrisoAtopsVariant;
 use crate::triso_atops_fork::{Activity, DecayConstant, TrisoAtopsNuclide};
 
 /// Reactor-level constants shared by every node in a normal-operation run.
@@ -100,6 +101,83 @@ pub struct PlantConstants {
     /// Fuel irradiation time `t_irad` used for release/birth and diffusion
     /// ([`Time`], `s`).
     pub irradiation_time: Time,
+    /// Which model runs (gh:#1015): [`TrisoAtopsVariant::Upstream`], the
+    /// ported upstream code bit for bit, or
+    /// [`TrisoAtopsVariant::ATOPS2026PAPER`], the published paper's equations
+    /// (Stoyer, Raichart & Petti 2026, doi:10.1080/00295450.2026.2671624).
+    /// ~~Set it explicitly; `TrisoAtopsVariant::default()` is `Upstream`.~~
+    /// **CORRECTED 2026-10-22 (gh:#1015):** build with [`PlantConstants::new`],
+    /// which sets `Upstream`, and opt into the paper with
+    /// [`PlantConstants::with_variant`]; a struct literal still has to name it.
+    pub variant: TrisoAtopsVariant,
+}
+
+impl PlantConstants {
+    /// The plant constants of an upstream run, with
+    /// [`TrisoAtopsVariant::Upstream`], the ported code bit for bit.
+    ///
+    /// The arguments are upstream's `constants` keys, in the field order
+    /// above. Choose the paper's model with [`PlantConstants::with_variant`].
+    /// `PlantConstants` has no `Default` (there are no default plant
+    /// constants); this constructor is the default only of `variant`, the
+    /// same as `TrisoAtopsVariant::default()`.
+    ///
+    /// Added for gh:#1015, maintainer decision 2026-10-22 on the API question
+    /// the new `variant` field raised: "give it a constructor", so callers
+    /// never name `variant` unless they want the paper option.
+    ///
+    /// ```
+    /// use boon_lay::triso_atops_fork::normal_operation::PlantConstants;
+    /// use boon_lay::triso_atops_fork::variant::TrisoAtopsVariant;
+    /// use uom::si::f64::{Frequency, Length, Time};
+    /// use uom::si::{frequency::hertz, length::meter, time::second};
+    /// let yr = 365.0 * 86400.0;
+    /// let plant = PlantConstants::new(
+    ///     Frequency::new::<hertz>(7.5e-4),
+    ///     Frequency::new::<hertz>(8.77e-5),
+    ///     Length::new::<meter>(4.5e-3),
+    ///     Length::new::<meter>(1.0e-5),
+    ///     Length::new::<meter>(3.5e-5),
+    ///     Length::new::<meter>(2.13e-4),
+    ///     Time::new::<second>(40.0 * yr),
+    ///     Time::new::<second>(3.0 * yr),
+    /// );
+    /// assert_eq!(plant.variant, TrisoAtopsVariant::Upstream);
+    /// let paper = plant.with_variant(TrisoAtopsVariant::ATOPS2026PAPER);
+    /// assert_eq!(paper.variant.id(), "atops2026paper");
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    #[must_use]
+    pub const fn new(
+        k_plate: Frequency,
+        k_clean: Frequency,
+        graphite_thickness: Length,
+        grain_size: Length,
+        sic_thickness: Length,
+        kernel_radius: Length,
+        run_time: Time,
+        irradiation_time: Time,
+    ) -> Self {
+        Self {
+            k_plate,
+            k_clean,
+            graphite_thickness,
+            grain_size,
+            sic_thickness,
+            kernel_radius,
+            run_time,
+            irradiation_time,
+            variant: TrisoAtopsVariant::Upstream,
+        }
+    }
+
+    /// The same constants under another model variant (gh:#1015), e.g.
+    /// [`TrisoAtopsVariant::ATOPS2026PAPER`].
+    #[must_use]
+    pub const fn with_variant(mut self, variant: TrisoAtopsVariant) -> Self {
+        self.variant = variant;
+        self
+    }
 }
 
 /// The local temperature state of a single reactor node.
@@ -263,13 +341,15 @@ pub fn normal_operation_node(
 ) -> NodalActivities {
     let z = nuclide.z;
     let lam = nuclide.decay_constant();
-    let group = nuclide.element_group();
+    let v = plant.variant;
+    let group = nuclide.element_group_for(v);
 
     // 1. Diffusion coefficients at this node's temperatures.
-    let diff = diffusion_coefficient(z, node.core_temperature, node.graphite_temperature);
+    let diff = diffusion_coefficient_for(v, z, node.core_temperature, node.graphite_temperature);
 
     // 2. Release-to-birth-at-failure ratio.
-    let rb = rb_fail(
+    let rb = rb_fail_for(
+        v,
         z,
         short_lived,
         lam,
@@ -282,18 +362,21 @@ pub fn normal_operation_node(
     );
 
     // 3. Release rate R from the fuel.
-    let r = release_rate(
+    let r = release_rate_for(
+        v,
         rb,
         group,
         fractions,
         inventory,
         short_lived,
         plant.irradiation_time,
+        plant.run_time,
         lam,
     );
 
     // 4. Coolant source rate S and graphite hold-up G.
-    let sg = base_activities(
+    let sg = base_activities_for(
+        v,
         group,
         lam,
         plant.irradiation_time,
@@ -376,7 +459,26 @@ mod tests {
 
     fn plant() -> PlantConstants {
         let yr = 3.155_76e7;
-        PlantConstants {
+        PlantConstants::new(
+            Frequency::new::<hertz>(7.5e-4),
+            Frequency::new::<hertz>(8.77e-5),
+            Length::new::<meter>(0.0045),
+            Length::new::<meter>(1e-5),
+            Length::new::<meter>(3.5e-5),
+            Length::new::<meter>(0.000213),
+            Time::new::<second>(40.0 * yr),
+            Time::new::<second>(3.0 * yr),
+        )
+    }
+
+    /// gh:#1015: `PlantConstants::new` keeps the default model, `Upstream`,
+    /// and puts each argument in its field (against a struct literal, kept
+    /// here deliberately as the reference); `with_variant` changes only
+    /// `variant`. A node computed from either is bit for bit the same.
+    #[test]
+    fn constructor_is_upstream_and_matches_the_literal() {
+        let yr = 3.155_76e7;
+        let literal = PlantConstants {
             k_plate: Frequency::new::<hertz>(7.5e-4),
             k_clean: Frequency::new::<hertz>(8.77e-5),
             graphite_thickness: Length::new::<meter>(0.0045),
@@ -385,7 +487,32 @@ mod tests {
             kernel_radius: Length::new::<meter>(0.000213),
             run_time: Time::new::<second>(40.0 * yr),
             irradiation_time: Time::new::<second>(3.0 * yr),
-        }
+            variant: TrisoAtopsVariant::Upstream,
+        };
+        let built = plant();
+        assert_eq!(built.variant, TrisoAtopsVariant::Upstream);
+        assert_eq!(built.variant, TrisoAtopsVariant::default());
+        assert_eq!(format!("{built:?}"), format!("{literal:?}"));
+        let paper = built.with_variant(TrisoAtopsVariant::ATOPS2026PAPER);
+        assert_eq!(paper.variant, TrisoAtopsVariant::ATOPS2026PAPER);
+        assert_eq!(
+            format!("{:?}", paper.with_variant(TrisoAtopsVariant::Upstream)),
+            format!("{literal:?}")
+        );
+        let cs = find_nuclide("Cs-137").unwrap();
+        let run = |p| {
+            normal_operation_node(
+                &cs,
+                false,
+                becquerels_from_curies(44.5),
+                FRACTIONS,
+                p,
+                node_900c(),
+                false,
+                ParentPools::none(),
+            )
+        };
+        assert_eq!(run(built), run(literal));
     }
 
     fn node_900c() -> NodeState {

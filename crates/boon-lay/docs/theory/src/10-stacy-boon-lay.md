@@ -1,4 +1,4 @@
-# Step 10 — After FRESCO and PANAMA: STACY in HCP, and what boon-lay aims for
+# Step 11 — boon-lay's aim: after PANAMA and FRESCO, STACY in HCP, and one tool for both
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
@@ -7,10 +7,11 @@
 (the PANAMA line) were built as separate tools. *Who put them together, and
 what is this crate trying to do about it?*
 
-**The question from the previous step.** [Step 9](./09-panama.md) gave a
-failure fraction from a temperature history. [Steps 5 to 7](./05-random-walk.md)
-gave release from a particle. A reactor needs both at once, for every
-nuclide, inside one calculation.
+**The question from the previous step.** [Step 7](./09-panama.md) gave a
+failure fraction from a temperature history. [Steps 8 and 9](./05-random-walk.md)
+gave release from a particle, and [Step 10](./07-ray-equations.md) placed
+boon-lay's own diffusion route between the walk and the mesh. A reactor needs
+failure and release at once, for every nuclide, inside one calculation.
 
 ## Credit: STACY in HCP
 
@@ -23,11 +24,11 @@ about it, so the rest is left open on purpose:
 
 | Item | Status |
 |---|---|
-| Authors and institution of STACY | [citation needed: maintainer to supply] |
-| Dates and versions of STACY | [citation needed: maintainer to supply] |
-| What "HCP" stands for | [citation needed: maintainer to supply] |
+| Authors and institution of STACY | ~~[citation needed: maintainer to supply]~~ **Partly sourced 2026-10-21:** Fang et al. (2021, p. 1) write that "the uniform and integrated code package STACY (Source Term Analysis Code System) was developed by Allelein et al.", citing Allelein, Kasselmann, Xhonneux and Herber, *Progress on the development of a fully integrated HTR code package*, Nuclear Engineering and Design 251 (2012) 400–406 (not in the corpus, not read). Institution of STACY: [citation needed]. The corpus does not give STACY's institution. It does say the related HTR Code Package (HCP, next row but one) was developed at Forschungszentrum Jülich (FZJ) and RWTH Aachen (Choo and Xiao 2023, p. 2), but no source here says STACY itself was built there |
+| Dates and versions of STACY | ~~[citation needed: maintainer to supply]~~ Fang et al. (2021, p. 1): developed "in 2010". Versions: [citation needed] |
+| What "HCP" stands for | ~~[citation needed: maintainer to supply]~~ **Sourced 2026-10-21:** HCP is the **HTR Code Package** ("HTR code package (HCP)" in the title of Kasselmann et al. 2018, as Choo and Xiao cite it). Choo and Xiao (2023, abstract and p. 2) describe it as "a highly-integrated coupling backbone that integrates multiple physics modules", developed at FZJ and RWTH Aachen, for steady-state and transient simulation of pebble-bed reactors. The cited paper is Kasselmann, Xhonneux, Tantillo, Trabadela, Lambertz and Allelein, *Verification of the HTR code package (HCP) as a comprehensive HTR steady state and transient safety analysis framework*, Nuclear Engineering and Design 329 (2018) 167–176 (not in the corpus, not read). Choo and Xiao name its TRISHA spectrum code and Multi-Group TINTE modules and **never mention STACY**, so that STACY is a module of HCP is the maintainer's framing and is **not** confirmed by the corpus |
 | What STACY computes and how (models, features) | [citation needed: maintainer to supply] |
-| How STACY relates to FRESCO and PANAMA in detail | [citation needed: maintainer to supply] |
+| How STACY relates to FRESCO and PANAMA in detail | Fang et al. (2021, p. 1): STACY was built "based on the FRESCO-II code and other codes (FRESCO-I, PANAMA, SPATRA, and so on)". Detail beyond that: [citation needed] |
 
 The only trace in the repo is one line in the literature catalogue. The entry
 for Xhonneux, Druska, Struth and Allelein (2014), *Calculation of the Fission
@@ -46,8 +47,8 @@ The FRESCO line, as the repo has it: Fang, Li, Cao, Liu and Fang (2021),
 Gas-Cooled Reactor Fuel Elements Using a Modified FRESCO II Numerical
 Model*, Science and Technology of Nuclear Installations 2021, 6627789,
 [doi:10.1155/2021/6627789](https://doi.org/10.1155/2021/6627789) (open
-access, CC BY; in the repo's open corpus). Step 6 treats it. The PANAMA line
-is the 1990 report of Step 9.
+access, CC BY; in the repo's open corpus). Step 9 treats it. Independently, IAEA-TECDOC-978 (1997, chapter 3, p. 57) describes FRESCO as "the pebble version of the KFA diffusion model", "widely used" for metallic fission-product release from a spherical fuel element, and says it includes recoil and inventory build-up. The PANAMA line
+is the 1990 report of Step 7.
 
 ## What boon-lay tries to achieve
 
@@ -58,11 +59,11 @@ One crate that carries, for a TRISO particle in an HTGR or FHR:
 2. **Transport**, both ways of computing it:
    - **Lagrangian**: atoms that walk through the layers and decay on the way
      ([`lagrangian_decay_simulator`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator),
-     Step 5);
+     Step 8);
    - **Eulerian**: the aggregate closed forms of the TRISO-ATOPS fork
      ([`triso_atops_fork`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork),
-     Steps 6 and 7).
-3. **Failure**: boon-lay fuel failure, from the PANAMA-I formulas (Step 9).
+     Steps 9 and 10).
+3. **Failure**: boon-lay fuel failure, from the PANAMA-I formulas (Step 7).
 4. **The hand-off to the source term**: activity in the coolant, on the circuit
    walls, and leaving the core in an accident, then on to the offsite chain.
    See the tutorial rungs
@@ -135,7 +136,7 @@ An honest list, from the crate's own limitations page and CLAUDE.md:
   crate's `CLAUDE.md` was corrected on 2026-10-18 to say so). Elements other
   than Ag, Cs, Sr and Kr fall back to silver (gh:#541).
 - **A first-principles stress model.** There is no finite-element particle
-  model in `farrer-park` today ([Step 8](./08-pressure-stress.md)). The PyC
+  model in `farrer-park` today ([Step 6](./08-pressure-stress.md)). The PyC
   creep and swelling are not in the failure chain.
 - **An oxidation-failure model.** Failures in air are added by hand
   downstream; the mechanistic chain is gh:#441.
@@ -153,7 +154,7 @@ An honest list, from the crate's own limitations page and CLAUDE.md:
 |---|---|---|
 | Transmutation not modelled in transit with real data | (d) | Per-nuclide cross sections and flux maps are not wired in. Size of the effect on release is **open**: no estimate exists in the repo |
 | One `(n,gamma)` channel only | (d) | As above |
-| Building and filters not credited at the hand-off | (c) | Errs high on release (Step 16) |
+| Building and filters not credited at the hand-off | (c) | Errs high on release (Step 17) |
 
 ## What we assumed
 
@@ -166,7 +167,10 @@ An honest list, from the crate's own limitations page and CLAUDE.md:
 
 ## Next question
 
-This is the last step of the book. The open question is the first one in the
-list above: what does the particle's inventory become on its way out, once
-neutrons are allowed to act on it? Start again from
-[Step 1](./01-generation.md), with the transmutation channel in mind.
+~~This is the last step of the book.~~ **CORRECTED 2026-10-21:** this is the
+last step *inside the particle*; the book continues outside it. Two questions
+remain. The open one is the first in the list above: what does the particle's
+inventory become on its way out, once neutrons are allowed to act on it? For
+that, start again from [Step 1](./01-generation.md), with the transmutation
+channel in mind. The next one is where the released atoms go:
+[Step 12, into the coolant](./11-into-the-coolant.md).

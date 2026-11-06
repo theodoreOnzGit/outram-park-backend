@@ -32,6 +32,7 @@
 //! |---|---|---|---|
 //! | [`porous_drag`] | [`PorousDrag`] — the isotropic `Kd` drag-coefficient assembly from the wall-friction closure | `physicsModels/dragModels/FSDragFactor` | **Ported + V&V** |
 //! | [`one_phase`] | [`OnePhaseSolver`] — porous `UEqn`/`pEqn`/`EEqn` driver | `solvers/onePhase/**` | **Ported + V&V** (constant-property slice; see its docs) |
+//! | [`two_phase`] | [`TwoPhaseSolver`] — two-fluid alpha/U/p_rgh/EEqns driver with boiling | `solvers/twoPhase/**` | **Ported, implicitUpwind alpha only** (MULES not ported); V&V `verification_and_validation/genfoam_two_phase/` |
 //!
 //! ## Dispatch: no trait objects
 //!
@@ -45,12 +46,14 @@
 
 pub mod one_phase;
 pub mod porous_drag;
+pub mod two_phase;
 
 #[cfg(test)]
 mod tests;
 
-pub use one_phase::OnePhaseSolver;
+pub use one_phase::{OnePhaseSolver, PorousConductivity};
 pub use porous_drag::PorousDrag;
+pub use two_phase::{TwoPhaseCase, TwoPhaseSolver};
 
 use crate::error::AppBuilderError;
 
@@ -65,6 +68,9 @@ pub enum ThermalHydraulicsSolver {
     /// Single-fluid + one stationary structure porous Eulerian solver
     /// (`solvers/onePhase`).
     OnePhase(OnePhaseSolver),
+    /// Two-fluid + structure solver with phase change (`solvers/twoPhase`),
+    /// added 2026-11-04 (gh:#1218).
+    TwoPhase(TwoPhaseSolver),
 }
 
 impl ThermalHydraulicsSolver {
@@ -74,10 +80,14 @@ impl ThermalHydraulicsSolver {
     pub fn step(&mut self, dt: f64) -> Result<(), AppBuilderError> {
         match self {
             Self::OnePhase(s) => s.step(dt),
+            Self::TwoPhase(s) => {
+                s.dt = dt;
+                s.step().map(|_| ())
+            }
         }
     }
 }
 
 // TODO(genfoam): port solvers/onePhaseLegacy (bead op-p6p.7.11 follow-up) and
-// solvers/twoPhase MULES alpha transport + two-phase pEqn (bead op-p6p.7.12),
-// each adding a variant to `ThermalHydraulicsSolver`.
+// the MULES alpha solver of solvers/twoPhase (gh:#1216 child issue); the
+// twoPhase driver itself is `two_phase` (gh:#1218).

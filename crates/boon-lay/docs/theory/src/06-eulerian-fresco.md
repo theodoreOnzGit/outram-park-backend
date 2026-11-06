@@ -1,10 +1,10 @@
-# Step 6 — The aggregate view: Eulerian diffusion, Booth and FRESCO
+# Step 9 — Normal diffusion, FRESCO-style: the aggregate view, Booth and FRESCO
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 >
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**Back:** [Step 5, one atom at a time](./05-random-walk.md).
+**Back:** [Step 8, one atom at a time](./05-random-walk.md).
 **The question that led here:** the random walk is honest but noisy,
 with error $\propto 1/\sqrt N$. If we only want the *average* release,
 can we skip the individual atoms?
@@ -33,11 +33,11 @@ Where $D$ is uniform in a layer this is the form FRESCO's paper writes
 
 Each layer (kernel, buffer, IPyC, SiC, OPyC) has its own $D$. At each
 interface, flux is continuous. Whether concentration is continuous, or
-jumps by a partition ratio, is a modelling choice; the walk of step 5
+jumps by a partition ratio, is a modelling choice; the walk of step 8
 used a ratio $K$, default 1.
 
 This is the **same physics** as the random walk. The walk is a Monte
-Carlo solution of this equation (step 5, section 1). Here we solve it
+Carlo solution of this equation (step 8, section 1). Here we solve it
 directly, so there is no statistical noise, only discretisation error.
 
 **Cost.** A mesh in $r$, a time loop, and a linear solve each step.
@@ -120,20 +120,27 @@ underestimated interlayer transport rates.
 Cs-138 "can be more than 1%", while its Table 4 ratios differ from 1 by
 at most 0.5%. Both are the paper's words; the table is the data.
 
-> **[citation needed: maintainer to supply]** FRESCO-II's origin
-> as the paper gives it is Krohn and Finken, Jül-Spez-212, 1983, but
-> its development history, its place in later code packages and its
-> validation record are **not** taken from this repository's sources
-> and are not described here.
+> ~~**[citation needed: maintainer to supply]**~~ **Partly sourced
+> 2026-10-21.** FRESCO-II's origin as the paper gives it is Krohn and Finken,
+> Jül-Spez-212, 1983. IAEA-TECDOC-1645 (IAEA, Vienna, 2010, reference 156)
+> lists the same report as Krohn, H. et al., *FRESCO II: Ein Rechenprogramm
+> zur Berechnung der Spaltproduktfreisetzung aus kugelförmigen HTR
+> Brennelementen in Bestrahlungs- und Ausheizexperimenten*, Jül-Spez-212,
+> Forschungszentrum Jülich, June 1983. IAEA-TECDOC-978 (1997, chapter 3, p. 57)
+> calls FRESCO "the pebble version of the KFA diffusion model", widely used for
+> metallic fission-product release from a spherical element. Its place in
+> later code packages beyond what Fang et al. state (step 11), and its
+> validation record, are still **not** described here. Both IAEA reports are
+> proprietary-folder sources.
 
 ### Where boon-lay stands against it
 
 boon-lay does **not** contain a FRESCO-style multilayer transient
 solver. A finite-volume solve of multi-layer diffusion with decay and
-source (section 1 above) is what FRESCO does, and what step 5's random
+source (section 1 above) is what FRESCO does, and what step 8's random
 walk reproduces in the large-crowd limit. The nearest thing in the crate is the closed-form
 Crank series used as the *reference* in the CRP-6 Case 1 check
-(step 5, section 5). Anyone wanting a FRESCO-like run needs to build one.
+(step 8, section 5). Anyone wanting a FRESCO-like run needs to build one.
 
 ---
 
@@ -218,7 +225,7 @@ The ladder, in one table:
 
 | Model | Assumes | Gives | Fails when |
 |---|---|---|---|
-| Random walk (step 5) | Brownian atoms | histories, noisy | cost $\propto N$ |
+| Random walk (step 8) | Brownian atoms | histories, noisy | cost $\propto N$ |
 | Multilayer transient FV (FRESCO-type) | Fick per layer | $C(r,t)$ | mesh too coarse |
 | Booth sphere | one region controls | $M_t/M_\infty$ | a layer is the bottleneck |
 | Steady state | equilibrium | $\langle R/B\rangle$ | transients |
@@ -257,7 +264,7 @@ Two caveats the records carry:
 
 The Booth sphere and the random walk meet on the single uniform sphere:
 the walk reproduced Crank to 0.0006 at 1200 °C
-([step 5](./05-random-walk.md#5-does-the-crowd-give-the-right-answer)).
+([step 8](./05-random-walk.md#5-does-the-crowd-give-the-right-answer)).
 That agreement is what lets the two models be called complements. It
 says nothing about multilayer cases, where no quantitative record
 exists yet.
@@ -276,5 +283,6 @@ exists yet.
   unsourced and flagged.
 
 **Next question:** the random walk is faithful and noisy; the Booth
-family is cheap and coarse. Is there a way to use both? That is
-[step 7, Ray's equations](./07-ray-equations.md).
+family is cheap and coarse. Is there a way to use both? That is where
+boon-lay's own contribution starts:
+[step 10, Ray's equations](./07-ray-equations.md).

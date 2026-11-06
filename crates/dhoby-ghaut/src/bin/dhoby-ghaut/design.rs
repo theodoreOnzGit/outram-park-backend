@@ -118,22 +118,23 @@ pub fn plan(r: &Recipe) -> BuildPlan {
         ));
     }
 
-    // Step 5: the rods move together.
-    d.rod_insertion = r.monte_carlo.rod_insertion.clamp(0.0, 1.0);
-    if differs(d.rod_insertion, r.monte_carlo.rod_insertion) {
+    // Step 5: the rods move together (the workbench's recipe has one bank
+    // insertion; the design can move each rod since gh:#1025).
+    let bank = r.monte_carlo.rod_insertion.clamp(0.0, 1.0);
+    d = d.with_bank(bank);
+    if differs(bank, r.monte_carlo.rod_insertion) {
         nb.push(format!(
             "Rod insertion {:.3} is outside [0, 1]; {:.3} is built.",
-            r.monte_carlo.rod_insertion, d.rod_insertion
+            r.monte_carlo.rod_insertion, bank
         ));
     }
     if let Err(e) = d.check() {
         nb.push(format!("The builder refuses this design ({e}); the record's design is built instead."));
-        let rods = d.rod_insertion;
         d = Htr10CoreDesign {
-            rod_insertion: rods,
             fuel_ball_fraction: d.fuel_ball_fraction,
             ..Htr10CoreDesign::default()
-        };
+        }
+        .with_bank(bank);
     }
     BuildPlan { design: d, not_built: nb }
 }
@@ -226,7 +227,7 @@ mod tests {
         t.enrichment = 0.20;
         let p = plan(&r);
         assert!((p.design.fuel_ball_fraction - 0.40).abs() < 1e-12);
-        assert!((p.design.rod_insertion - 0.5).abs() < 1e-12);
+        assert_eq!(p.design.bank_insertion(), Some(0.5));
         assert!((p.design.fuel_zone_radius_cm - 2.4).abs() < 1e-12);
         assert!((p.design.triso_radii_cm[0] - 0.03).abs() < 1e-12);
         assert_eq!(p.design.particles_per_pebble, 9000);

@@ -135,7 +135,7 @@
 //! integrated steps each.
 //!
 //! This test writes its own settled state to
-//! `reference-data/liggghts/htr10_settled_ours.csv` so that comparison can be
+//! `crates/outram-park-fork-liggghts/examples/data/htr10_settled_ours.csv` so that comparison can be
 //! redone without a 45-minute re-run.
 //!
 //! ## Runtime
@@ -178,9 +178,14 @@ const DT: f64 = 3.5e-5;
 const SETTLE_STEPS: usize = 50_000;
 
 fn data_path(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts")
-        .join(name)
+    // This port's own settled bed lives beside the examples, not in
+    // reference-data/ and not on crates.io (gh:#1008, 2026-10-21).
+    let dir = if name == "htr10_settled_ours.csv" {
+        "examples/data"
+    } else {
+        "../../reference-data/liggghts"
+    };
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
 }
 
 fn load_state(name: &str) -> Option<Vec<(Vec3, Vec3)>> {
@@ -238,7 +243,7 @@ fn max_overlap(ps: &[Particle], pairs: &[(usize, usize)]) -> f64 {
 }
 
 
-/// Write this port's own settled state to `reference-data/liggghts/` in the
+/// Write this port's own settled state to `examples/data/` (gh:#1008) in the
 /// same CSV layout as the LIGGGHTS dumps (`id,x,y,z,vx,vy,vz`, `%.17g`), so a
 /// reader can diff the two codes' beds without paying for a 40-minute run.
 ///
@@ -263,7 +268,7 @@ fn write_our_state(name: &str, ps: &[Particle]) {
         );
     }
     match std::fs::write(data_path(name), out) {
-        Ok(()) => eprintln!("wrote our settled state to reference-data/liggghts/{name}"),
+        Ok(()) => eprintln!("wrote our settled state to {}", data_path(name).display()),
         Err(e) => eprintln!("warning: could not write {name}: {e}"),
     }
 }

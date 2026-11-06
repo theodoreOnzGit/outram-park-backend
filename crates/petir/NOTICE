@@ -135,6 +135,19 @@ COPYRIGHT HOLDERS
                            Gerard Jungman)
       -> src/linalg/octave.rs (Matrix::mul, Norm::One; 2026-10-20, gh:#993)
 
+    GSL ode-initval2/modnewton1.c
+                           Copyright (C) 2008, 2009, 2010 Tuomo Keskitalo
+    GSL ode-initval2/rk1imp.c, ode-initval2/rksubs.c
+                           Copyright (C) 2009, 2010 Tuomo Keskitalo
+    GSL ode-initval2/cstd.c (std_control_errlevel)
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Gerard Jungman, Brian Gough
+      -> src/ode/implicit.rs (ported 2026-11-01, gh:#1065, read at the
+         commit above; BDF2 coefficients from OpenFOAM, see below)
+    GSL multiroots/fdjac.c Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Brian Gough
+      -> src/multiroots.rs (ported 2026-11-01, gh:#1065/#1066)
+
   GNU Octave (not GSL): scripts/linear-algebra/expm.m, Octave 11.3.0,
   sha256 3f97a52a9c9ef91340d72f80438577fadc53438db7e6b6b914ddc6b65bef7345,
   Copyright (C) 2008-2026 The Octave Project Developers, GPL-3.0-or-later
@@ -355,6 +368,52 @@ reproduced in the file header.
   BSD-3-Clause is permissive and GPL-3.0-compatible; the flow is ONE-WAY.
   The non-endorsement clause binds: do not use the Clawpack name to promote
   this crate.
+
+================================================================================
+DERIVED WORK — OpenFOAM (backward/BDF2 time-scheme coefficients)
+================================================================================
+
+`src/ode/implicit.rs` takes the variable-step second-order backward
+coefficients (`coefft`, `coefft00`, `coefft0`) and the Euler start of
+`backwardDdtScheme` (gh:#1065, 2026-11-01). GSL has no fixed-order BDF2.
+
+  Project    : OpenFOAM-dev
+  Upstream   : https://github.com/OpenFOAM/OpenFOAM-dev
+  File       : src/finiteVolume/finiteVolume/ddtSchemes/backwardDdtScheme/
+               backwardDdtScheme.C
+  Commit     : 198dd0e1083f89b1613636ddda82e5bf7eac6e69 (master, read 2026-11-01)
+  Licence    : GPL-3.0-or-later (verified from the file header)
+
+      Copyright (C) 2011-2026 OpenFOAM Foundation
+
+================================================================================
+DERIVED WORK — PETSc (matrix-free J*v and SNES convergence test)
+================================================================================
+
+`src/newton_krylov/mffd.rs` ports `MatMult_MFFD` (src/mat/impls/mffd/mffd.c)
+and the Walker-Pernice differencing parameter `MatMFFDCompute_WP`
+(src/mat/impls/mffd/wp.c); `src/newton_krylov/mod.rs` ports the absolute,
+relative and step-length tests of `SNESConvergedDefault`
+(src/snes/interface/snesut.c). gh:#1066, 2026-11-01. The full BSD-2-Clause
+notice is reproduced in `mffd.rs`.
+
+  Project    : PETSc
+  Upstream   : https://gitlab.com/petsc/petsc (read from the GitHub mirror
+               https://github.com/petsc/petsc)
+  Commit     : e413143d55b0811f9b914603d9694184c0392685 (main, read 2026-11-01)
+  Licence    : BSD-2-Clause (LICENSE read from the same commit)
+
+      Copyright (c) 1991-2025, UChicago Argonne, LLC and the PETSc
+      Developers and Contributors. All rights reserved.
+
+  BSD-2-Clause is permissive and GPL-3.0-compatible; the flow is ONE-WAY.
+
+  Also in `src/newton_krylov/`, from THIS workspace (GPL-3.0, OUTRAM PARK
+  contributors), ported line by line at commit
+  69f3f242a483b44335a35a5584538dd7df64e035: `gmres_op` and the operator
+  contracts from crates/outram-foam-basic-lib/src/linear_operator.rs, and the
+  Newton driver and Armijo line search from
+  crates/outram-park-fork-pflotran/src/solver/mod.rs.
 
 ================================================================================
 DERIVED WORK — Reference-LAPACK (DGEBAL, DGEBAK) and reference BLAS (DNRM2, IDAMAX)
@@ -775,6 +834,73 @@ notice and the copyright lines of the files it was ported from.
   MIT is permissive and compatible with this crate's licence; the flow is
   ONE-WAY. `ziggurat_tables.rs` is a verbatim data lift; the rest is ported
   with the deviations listed in each file (none changes an output).
+
+================================================================================
+DERIVED WORK — Upstream: EGSnrc (National Research Council Canada)
+================================================================================
+
+Ported from EGSnrc's egs++ class library (and, for RANLUX, its Mortran
+sources) at the direction recorded on GitHub issue #1289 (2026-11-05). Each ported file names its upstream files and
+carries their copyright lines in its header.
+
+  Project    : EGSnrc
+  Upstream   : https://github.com/nrc-cnrc/EGSnrc
+  Commit     : bd49a47aae3938f49f4100b8e018091861408b19 (2026-09-28)
+  Licence    : GNU Affero General Public License, version 3 or (at your
+               option) any later version (AGPL-3.0-or-later)
+
+  src/rng/alias_table.rs  <- HEN_HOUSE/egs++/egs_alias_table.h, .cpp
+                             (EGS_AliasTable, EGS_SimpleAliasTable) and the
+                             constants `epsilon`, `loopMax` of
+                             HEN_HOUSE/egs++/egs_functions.h
+    Copyright  : "Copyright (C) 2015 National Research Council Canada"
+                 (egs_alias_table.h and .cpp)
+    Author     : Iwan Kawrakow, 2005
+    Contributors (as the headers list them): Ernesto Mainegra-Hing,
+                 Marc Chamberland (.h); Ernesto Mainegra-Hing, Frederic
+                 Tessier, Blake Walters, Reid Townson (.cpp)
+
+  src/interp_egs.rs       <- HEN_HOUSE/egs++/egs_interpolator.h, .cpp
+                             (EGS_Interpolator) and `loopMax` from
+                             HEN_HOUSE/egs++/egs_functions.h
+    Copyright  : "Copyright (C) 2015 National Research Council Canada"
+    Author     : Iwan Kawrakow, 2005
+    Contributors (as the headers list them): Ernesto Mainegra-Hing,
+                 Reid Townson
+
+  src/rng/ranmar.rs       <- HEN_HOUSE/egs++/egs_rndm.h, .cpp
+                             (RANMAR: EGS_Ranmar, base EGS_RandomGenerator)
+  src/rng/ranlux.rs       <- HEN_HOUSE/src/ranlux.mortran, ranlux.macros
+                             (RANLUX; egs++ has none)
+    Copyright  : "Copyright (C) 2015 National Research Council Canada"
+               (all four files).
+               egs_rndm.h: Author Iwan Kawrakow, 2005; Contributors Reid
+               Townson. egs_rndm.cpp: Author Iwan Kawrakow, 2005;
+               Contributors Hubert Ho, Reid Townson. ranlux.mortran and
+               ranlux.macros: Authors Iwan Kawrakow, 2000, Dave Rogers, 2000;
+               "Parts of the EGS code that originate from SLAC are
+               distributed by NRC under the terms of the AGPL 3.0 licence,
+               in agreement with SLAC."
+
+  Original algorithms, as upstream credits them:
+    RANMAR — "the Zaman & Marsaglia ranmar generator" (egs_rndm.cpp):
+      G. Marsaglia, A. Zaman and W. W. Tsang, Statistics & Probability
+      Letters 9 (1990) 35-39.
+    RANLUX — "Subtract-and-borrow random number generator proposed by
+      Marsaglia and Zaman, implemented by F. James with the name RCARRY in
+      1991, and later improved by Martin Luescher in 1993 to produce 'Luxury
+      Pseudorandom Numbers'. Fortran 77 coded by F. James, 1993."
+      (ranlux.mortran): M. Luscher, Computer Physics Communications 79, 100
+      (1994); F. James, Computer Physics Communications 79, 111 (1994).
+
+  The ported files are AGPL-3.0-only, exercising the "or later" option by
+  choosing version 3; the crate already conveys as an AGPL-3.0-only combined
+  work (gh:#973). The flow is ONE-WAY. Verified bit-identical against
+  upstream compiled and run: verification_and_validation/egsnrc_alias_table/,
+  verification_and_validation/egsnrc_interpolator/ and
+  verification_and_validation/egsnrc_rndm/ (getGaussian: see its README).
+  Deviations from upstream are listed in each file (none changes an output wherever
+  upstream's behaviour is defined).
 
 ================================================================================
 NOT AFFILIATED

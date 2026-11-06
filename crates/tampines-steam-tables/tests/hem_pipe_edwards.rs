@@ -58,6 +58,14 @@
 //! exactly as `tests/edwards_blowdown.rs` records them; this file does not
 //! change them. Full record:
 //! `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
+//!
+//! **Note 2026-11-02 (gh:#1111):** the printed "peak break flow" is the
+//! maximum over 1-ms samples. Since the subcooled critical-flow change it is
+//! 81.5 kg/s (was 48.9). That figure is a single sample at t = 0.043 s: one
+//! break evaluation of liquid recompressed to 5.03 MPa when the break cell's
+//! void collapsed. The sustained break flow is ≈ 45–48 kg/s and is the number
+//! to quote. Plateau 367.6 → 363.8 psia, RMSE 42.8 → 42.7 psia (release, same
+//! tree, only the solver swapped). See §7 and §12 ("Tracing") of that record.
 
 use petir::mathf::RealMath;
 mod common;

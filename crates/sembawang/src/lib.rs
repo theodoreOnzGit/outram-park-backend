@@ -10,7 +10,11 @@
 //! - **Its own physics:** the fission-product source term (implemented, on
 //!   `boon-lay`'s TRISO-ATOPS fork) and severe-accident progression: melt
 //!   behaviour, relocation, vessel failure, molten-core–concrete interaction,
-//!   hydrogen and aerosol release (**not implemented**).
+//!   hydrogen and aerosol release (~~**not implemented**~~ **CORRECTED 2026-10-29 (gh:#1033)**:
+//!   a reduced, lumped model for ONE plant, Fukushima Daiichi Unit 1, in
+//!   [`bwr_mark1`]: core heat-up, Zr-steam oxidation and hydrogen,
+//!   relocation, a lower-head failure criterion, and containment
+//!   pressurisation. MCCI and aerosols are not implemented).
 //! - **What it orchestrates:** [`changi`] for dispersion and deposition (wired
 //!   in, see [`chain`]), `redhill` for ground transport (a placeholder, not
 //!   wired), and `raffles` for uncertainty propagation (GitHub #238, not yet
@@ -47,11 +51,25 @@
 //! transient* — diffusion through the kernel and coating layers, and
 //! breakthrough of the SiC.
 //!
-//! **What does not exist: severe-accident progression**, which is the rest of
+//! ~~**What does not exist: severe-accident progression**, which is the rest of
 //! the crate's name and the larger half. There is no melt behaviour, no
 //! relocation, no vessel failure, no molten-core-concrete interaction, no
 //! hydrogen, and no aerosol physics. The temperature transient this crate
-//! consumes is **prescribed by the caller**; nothing here computes it.
+//! consumes is **prescribed by the caller**; nothing here computes it.~~
+//! **CORRECTED 2026-10-29 (gh:#1033)** (maintainer: "Physics libraries go to sembawang"):
+//! **a reduced progression model exists for one plant.** [`bwr_mark1`] is
+//! Fukushima Daiichi Unit 1 (BWR/3, Mark I) after the scram: vessel, core
+//! heat-up with Zr-steam oxidation and hydrogen, relocation, a lower-head
+//! failure criterion, and the drywell, wetwell and reactor building. It was
+//! the `dhoby-ghaut` `fukushima_web` demo's own physics until it moved here.
+//! It is lumped (a few nodes), an AI draft, uncalibrated, and **outside the
+//! BSAF Unit 1 bands**: the lower head fails about 2 h early and in-vessel
+//! hydrogen is about 3x low ([`bwr_mark1::compare`], gh:#1028). Still absent
+//! everywhere in the crate: molten-core-concrete interaction, aerosol
+//! physics, fission-product transport in the plant, and any MELCOR-class
+//! control-volume engine. The TRISO release path still takes a
+//! **caller-prescribed** temperature transient; [`bwr_mark1`] does not feed
+//! it.
 //!
 //! So: cite this crate for a TRISO release calculation under a temperature
 //! history you supplied, and (since 2026-09-21) for carrying that release
@@ -60,6 +78,9 @@
 //!
 //! > cite this crate for a TRISO release calculation under a temperature
 //! > history you supplied. Do **not** cite it for accident progression.
+//!
+//! (2026-10-29: [`bwr_mark1`] may be cited as a reduced, unvalidated Unit 1
+//! model, with its BSAF disagreement; not as a severe-accident code.)
 //!
 //! The name was already reserved in `docs/ecosystem-naming.md` and
 //! `GOVERNANCE.md`; this crate makes the reservation visible in the workspace
@@ -95,7 +116,9 @@
 //! `uom`-typed and code-to-code verified. That is what made the source-term
 //! half tractable.
 //!
-//! It still has **no engine for progression**. Severe-accident progression
+//! It still has **no ~~engine for progression~~ general engine for
+//! progression** (**CORRECTED 2026-10-29 (gh:#1033)**: [`bwr_mark1`] is a reduced
+//! single-plant model, not an engine). General severe-accident progression
 //! would need a MELCOR-class port, which is scoped in `docs/melcor-scoping.md`
 //! and has not been begun. Treat that scoping document as a statement of
 //! intent, not of progress.
@@ -147,6 +170,7 @@ pub mod accident;
 /// AP1000 severe-accident plume-centreline TED digitised from Dadda et al.
 /// (2024) Fig. 7: a published comparison curve for `htgr_sim_v1` (#473).
 pub mod ap1000_ted;
+pub mod bwr_mark1;
 pub mod chain;
 pub mod error;
 /// The HTR-10 depressurised-loss-of-forced-cooling case: PANAMA-I failure

@@ -115,12 +115,13 @@ pub fn default_path(kind: RepoKind, name: &str) -> PathBuf {
 
 /// A name for a repository from its remote URL: the last path segment
 /// without `.git` (`https://host/me/my-code.git` -> `my-code`), with any
-/// character a name may not hold replaced by `-`.
+/// character a name may not hold replaced by `-`. A Windows folder path
+/// (`C:\work\my-code.git`) splits on `\` too.
 pub fn name_from_remote(remote: &str) -> String {
     let last = remote
         .trim()
-        .trim_end_matches('/')
-        .rsplit(['/', ':'])
+        .trim_end_matches(['/', '\\'])
+        .rsplit(['/', '\\', ':'])
         .next()
         .unwrap_or("");
     last.strip_suffix(".git")
@@ -529,6 +530,13 @@ mod tests {
         assert_eq!(name_from_remote("git@github.com:me/my_code.git"), "my_code");
         assert_eq!(name_from_remote("https://host/me/papers/"), "papers");
         assert_eq!(name_from_remote("/tmp/some repo.git"), "some-repo");
+        // A Windows folder path (kovan CI, Windows runner, 2026-10-22: the
+        // whole path came back as the name).
+        assert_eq!(
+            name_from_remote(r"C:\Users\RUNNER~1\AppData\Local\Temp\x\no-such-remote.git"),
+            "no-such-remote"
+        );
+        assert_eq!(name_from_remote(r"D:\code\papers\"), "papers");
         assert_eq!(default_path(RepoKind::Code, "x"), Path::new("code/x"));
         assert_eq!(default_path(RepoKind::OpenCorpus, "x"), Path::new("literature/x"));
     }

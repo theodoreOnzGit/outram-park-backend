@@ -1,0 +1,16 @@
+running 1 test
+| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |
+| REF-1X | 296 s | -348 pcm @ 3000 s | 7426 s | 8338 s | 20.3 % @ 8530 s | 109 kW | 0.092 kg/s |
+test htr10_th_transient::tests_rz::rz_lofc_geometric_mesh_study has been running for over 60 seconds
+| REF-2X | 294 s | -465 pcm @ 3635 s | 8246 s | 9082 s | 23.4 % @ 9260 s | 145 kW | 0.097 kg/s |
+| REF-4X | 292 s | -530 pcm @ 3865 s | 8571 s | 9375 s | 25.0 % @ 9550 s | 134 kW | 0.101 kg/s |
+cells 1452 / 5808 / 23232
+re-criticality s: 7426.0000 / 8246.0000 / 8571.0000; observed order 1.34; Richardson 8784.3838
+mean P last 30 min kW: 108.5111 / 145.2855 / 134.3513; not monotone: no order
+RCCS+heads at 3 h kW: 102.2766 / 104.3880 / 104.7390; observed order 2.59; Richardson 104.8091
+min rho pcm: -347.8877 / -465.4462 / -529.7338; observed order 0.87; Richardson -607.3162
+moderator at 3600 s C: 590.2173 / 587.2550 / 584.9377; observed order 0.35; Richardson 576.6127
+P(100 s)/P0: 0.1704 / 0.1699 / 0.1690; observed order -0.67; Richardson 0.1714
+test htr10_th_transient::tests_rz::rz_lofc_geometric_mesh_study ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 3437.40s
+EXIT 0

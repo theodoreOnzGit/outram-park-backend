@@ -47,7 +47,9 @@ and a wide screen is a defect, not a missing nicety.
    view, so it shows with the panel folded.
 
 **Reference implementation (since 2026-10-04): the library module
-`dhoby_ghaut::web_demo`** (`crates/dhoby-ghaut/src/web_demo/`): `view::View`
+`dhoby_ghaut::web_demo`** (~~`crates/dhoby-ghaut/src/web_demo/`~~
+`crates/bugis/src/web_demo/` since 2026-11-02, gh:#1112: it is
+`bugis::web_demo`, re-exported at the old path): `view::View`
 (`zoom_about`, `fit`), `view::zoom_buttons`, `panel::Panel` (folding, "«
 Hide", "Controls »"), `loading::Loading`. **Build on it rather than writing a
 second version**; `crates/dhoby-ghaut/CLAUDE.md` says how a new track's demo

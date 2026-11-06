@@ -9,7 +9,18 @@
 > to the TRISO-ATOPS model, such as plate-out and purification rates per
 > transport group or per element (gh:#583), live in
 > `boon_lay::triso_atops_extensions`, which calls this port unchanged and is
-> labelled NOT a port. This module stays a faithful fork of upstream.
+> labelled NOT a port. ~~This module stays a faithful fork of upstream.~~
+> **CORRECTED 2026-10-22 (gh:#1015, maintainer decision "(b) list it as
+> atops2026paper option"):** the module also carries one opt-in model variant,
+> `TrisoAtopsVariant::Atops2026Paper`, the published paper's equations
+> (`variant.rs`, labelled NOT a port). The default, `TrisoAtopsVariant::Upstream`,
+> is still the faithful fork, bit for bit: every existing code-to-code test runs
+> it unchanged, and `Atops2026Paper(PaperReadings::UPSTREAM_CODE)` is pinned
+> equal to it. See "Model variant: `atops2026paper`" below. The rule this
+> follows, set 2026-10-22 (maintainer: "i'm okay with ports starting faithful,
+> and making reasoned deviations"): a port starts faithful; each deviation is
+> explicit, documented with its reason and source, and keeps the upstream
+> behaviour available as the pinned default (`crates/boon-lay/CLAUDE.md`).
 
 `boon_lay::triso_atops_fork` is a Rust **fork of Idaho National Laboratory's
 TRISO-ATOPS** (TRISO Analysis TOol for Predictive Source terms). It provides the
@@ -78,6 +89,7 @@ MIT is GPLv3-compatible, so porting MIT-licensed TRISO-ATOPS into ~~GPL-3.0~~ **
 | `run_functions.py` — `nuclide_sort` | `triso_atops_fork::run_selection::sort_parents_before_daughters` | **Ported** (2026-09-21) — does what upstream *intends*; upstream's own version is a no-op (~~defect 7~~ **defect 6** below; CORRECTED 2026-09-30 (#449)). |
 | `run_functions.py` — `create_log`, `count_errors`, `trisoatops`; `trisoatops.py` — `main` | — | **Deliberately not ported** — Python `logging` setup, an error counter that `Result` replaces, a version banner, and an argparse shell. See "What is deliberately not ported". |
 | `trisoatops_gui.py` (1432 LOC) | — | **Excluded (GUI, out of scope)** |
+| — (the published paper, not upstream code) | `triso_atops_fork::variant` (`TrisoAtopsVariant`, `PaperReadings`, the converged series) and the `*_for` functions beside each ported one | **NOT a port** (gh:#1015, 2026-10-22). Opt-in; `Upstream` is the default |
 
 ### What is deliberately not ported
 
@@ -403,3 +415,65 @@ green under `cargo test -p boon-lay --lib --tests --release`.
 **Not claimed:** *validation* of a full reactor source term against measured
 release data — that needs a public benchmark case ~~(and the still-scaffolded
 accident/JSON driver, op-b4a.2.3)~~ (**CORRECTED 2026-09-30 (#449):** the driver is ported).
+
+## Model variant: `atops2026paper` (gh:#1015, 2026-10-22)
+
+**What it is.** The upstream code and the paper that describes it, Stoyer,
+Raichart & Petti (2026), *Nuclear Technology*, published online 17 August 2026,
+doi:10.1080/00295450.2026.2671624, differ in ten places. The maintainer chose
+to offer the paper as an explicit, named option, with the code as the default.
+
+**How to select it.** Set `PlantConstants::variant` to
+`TrisoAtopsVariant::ATOPS2026PAPER` (id `"atops2026paper"`,
+`TrisoAtopsVariant::from_id`) for normal operation. For the accident path,
+pass the variant to `release_fraction_transient_for`,
+`integrate_diffusion_over_time_for` and `release_activity_for`. Use
+`ParentDecayPolicy::ShortLivedParentOnly`, the paper's reading of parent
+coupling. `TrisoAtopsVariant::default()` is `Upstream`. ~~Every
+`PlantConstants` literal in the workspace now names its variant.~~
+**CORRECTED 2026-10-22 (gh:#1015, maintainer: "give it a constructor"):**
+`PlantConstants::new(k_plate, k_clean, a_graph, a_grain, a_SiC, r, run_time,
+t_irrad)` sets `Upstream`, and `.with_variant(TrisoAtopsVariant::ATOPS2026PAPER)`
+selects the paper. The workspace's callers use the constructor; one unit test
+keeps a struct literal as the constructor's reference. A worked tutorial of the
+paper reproduction, with the test's source pulled in, is the deep-dive page
+`docs/lessons/src/atops2026-paper.md`.
+
+**What it changes.** These are the ten items in the `variant` module docs:
+
+- (a) the Booth radius: RMS of kernel radius and grain size, 150.8 µm, against
+  upstream's 65.3 µm;
+- (b) the same radius in the accident Eq. (19);
+- (c) yttrium in the Sr group;
+- (d) every diffusion law clamped below its range;
+- (e) every infinite series summed to convergence;
+- (f) "other" metals on Booth with `D = 1e-19`;
+- (g) Pd with silver's accident laws;
+- (h) long-lived volatiles on Eq. (6c);
+- (i) the birth rate on `t_run time`;
+- (j) the accident inventory as Eqs. (22)/(23)/(28) print it.
+
+Each item is a field of `PaperReadings`, so each can be set to the code's
+reading on its own.
+
+**Verification.** Each item is checked against a value computed from the
+paper's equation. These unit tests live in `variant`, `diffusion`,
+`release_models`, `nuclide_model` and `accident`. The converged series match
+200 000-term direct sums to 5.9e-15. The default is pinned unchanged: every
+pre-existing test, including the code-to-code suites against upstream
+de374c8, passes untouched, and
+`paper_variant_with_upstream_readings_is_upstream_bit_for_bit` holds exactly
+on both MHTGR cases.
+
+**Against the paper's own printed releases.** See
+[`triso-atops-2026-paper-reproduction.md`](triso-atops-2026-paper-reproduction.md),
+the ranked-candidate sensitivity analysis. In short, the paper's printed
+results were produced by the code, not by the paper's equations as written.
+The as-written variant therefore does not reproduce them, and `Upstream`
+does.
+
+**Not changed**, because the paper does not specify them differently: the
+venting trapezoid (and its dropped half first step, Eqs. (26)-(27)), the
+`1e8` attenuation cap, the Eq. (6a) constants, and the 20 % and 4 % screens.
+`triso_atops_extensions::normal_operation_node_with_rates` stays
+upstream-only.

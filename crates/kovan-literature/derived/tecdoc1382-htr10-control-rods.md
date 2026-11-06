@@ -10,9 +10,11 @@ represent any other position.~~ **CORRECTED 2026-10-01 (gh:#428):** since
 PR #327 the core model's borings are explicit channels, and the ten rods are
 explicit B4C, steel sleeves and iron joints from this specification
 (`crates/nee_soon/src/htr10_rmc/reflector_geometry.rs`, rod universe;
-dimensions in `control_rod.rs`). The smeared band is no longer placed. The rods
+dimensions in `control_rod.rs`). The smeared band is no longer placed. ~~The rods
 are still fixed at the withdrawn position (lower end 119.2 cm), so no other
-position is represented yet.
+position is represented yet.~~ **CORRECTED 2026-10-23 (gh:#1025):** since
+2026-10-05 (gh:#580) the rods move over the whole travel, and since 2026-10-23
+each rod has its own position (`core_design::Htr10CoreDesign::rod_insertions`).
 
 **All dimensions are recorded in the units the source uses** (mm for the rod
 internals, cm for axial coordinates and channel radius). No conversion has been
@@ -166,9 +168,14 @@ Worth values, as listed in Table 4-9 (original benchmark) and Table 4-15
 
 ## 5. What this record does NOT establish
 
-- **No model has been run against any of these numbers.** They are targets, not
+- ~~**No model has been run against any of these numbers.** They are targets, not
   results. (Re-checked 2026-10-01: no rod-worth result was found in `nee_soon`
-  or in the `outram-mc-libs` HTR-10 V&V record.)
+  or in the `outram-mc-libs` HTR-10 V&V record.)~~ **CORRECTED 2026-10-23
+  (gh:#1025):** the bank (B41) and rod-3 "S3" comparisons are in
+  `crates/dhoby-ghaut/verification_and_validation/htr10_rod_curve/`. Positions
+  re-read from the PDF 2026-10-23: the B42 worth columns in Tables 4-9 and 4-15
+  (printed pp. 248, 250) are printed in INCREASING position order, 230.318 first
+  and 394.200 last, which confirms the § 4 inference below.
 - ~~The homogenised band currently in `core_model.rs` is a *withdrawn-rod* model.
   Worth cannot be computed from it at all until absorber material exists.~~
   **CORRECTED 2026-10-01:** the absorber exists. The rods are explicit B4C

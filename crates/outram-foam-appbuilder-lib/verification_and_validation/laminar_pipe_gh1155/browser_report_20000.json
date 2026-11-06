@@ -1,0 +1,68 @@
+{
+ "phone": {
+  "title": "Foam Studio · 20480 cells · step 34 · 261 ms/step · steady",
+  "meshed_s": 0.969,
+  "solving_s": 0.969,
+  "steady_s": 14.611,
+  "wall_to_steady_s": 13.6,
+  "frames_while_solving_ms": {
+   "n": 322,
+   "median": 16.7,
+   "p95": 100.1,
+   "max": 450
+  },
+  "frames_after_ms": {
+   "n": 279,
+   "median": 16.7,
+   "p95": 16.7,
+   "max": 50
+  },
+  "input_round_ms": [
+   188,
+   390,
+   875,
+   891,
+   800,
+   677
+  ],
+  "errors": [
+   "warning: No available adapters.",
+   "warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "info: [eframe::web::web_runner] eframe-0.36.2/src/web/web_runner.rs:94: event handlers installed.",
+   "warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend"
+  ]
+ },
+ "desktop": {
+  "title": "Foam Studio · 20480 cells · step 34 · 188 ms/step · steady",
+  "meshed_s": 0.656,
+  "solving_s": 0.914,
+  "steady_s": 14.063,
+  "wall_to_steady_s": 13.1,
+  "frames_while_solving_ms": {
+   "n": 525,
+   "median": 16.7,
+   "p95": 66.8,
+   "max": 200
+  },
+  "frames_after_ms": {
+   "n": 228,
+   "median": 16.7,
+   "p95": 16.7,
+   "max": 16.8
+  },
+  "input_round_ms": [
+   235,
+   544,
+   583,
+   548,
+   570,
+   449
+  ],
+  "errors": [
+   "warning: No available adapters.",
+   "warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "info: [eframe::web::web_runner] eframe-0.36.2/src/web/web_runner.rs:94: event handlers installed.",
+   "warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend"
+  ]
+ }
+}

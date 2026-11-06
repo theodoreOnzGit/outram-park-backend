@@ -4,9 +4,14 @@
 //! [`tuas_boussinesq_solver`] (used by [`crate::single_phase`]'s lumped
 //! pipe/component model) and the thermal-conductivity/viscosity transport
 //! functions from [`outram_park_fork_coolprop`] (used by
-//! [`crate::compressible`]'s finite-volume model). This module adds no new
-//! correlations -- see each backend crate's own documentation for the
-//! correlations' physics and validated ranges.
+//! [`crate::compressible`]'s finite-volume model). ~~This module adds no new
+//! correlations~~ **CORRECTED 2026-11-01 (GitHub #1063):** it now also holds
+//! [`relap5_htc`], the RELAP5 geometry-101/110 single-phase wall
+//! heat-transfer selection, which adds the Seban–Shimazaki, Inayatov and
+//! Kazimi–Carelli forms (its Dittus–Boelter and Churchill–Chu legs come
+//! from `tuas_boussinesq_solver`). See each backend crate's own
+//! documentation for the re-exported correlations' physics and validated
+//! ranges.
 
 /// Dispatches which Nusselt-number correlation a single-phase pipe/component
 /// segment uses (Gnielinski, Dittus-Boelter-derived, Wakao, CIET-specific,
@@ -34,3 +39,22 @@ pub use outram_park_fork_coolprop::conductivity;
 /// [`outram_park_fork_coolprop::Fluid`] (48 of 137 fluids have one).
 /// Re-exported from `outram-park-fork-coolprop`.
 pub use outram_park_fork_coolprop::FluidTransport;
+
+/// RELAP5 geometry-101/110 single-phase wall heat-transfer selection
+/// (laminar / Dittus–Boelter / Churchill–Chu maximum; Seban–Shimazaki and
+/// Kazimi–Carelli liquid-metal forms; Inayatov bundle multiplier). GitHub
+/// #1063.
+pub mod relap5_htc;
+
+/// Dittus–Boelter inputs and the heating/cooling selector, re-exported
+/// from `tuas_boussinesq_solver` (the `NusseltCorrelation::DittusBoelter`
+/// variant's data).
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::{
+    DittusBoelterData, FluidHeatingDirection,
+};
+
+/// Churchill–Chu vertical-plate free convection, with the Grashof and
+/// Rayleigh numbers, re-exported from `tuas_boussinesq_solver`.
+pub use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::{
+    churchill_chu_vertical_plate_nusselt, grashof_number, rayleigh_number, ChurchillChuData,
+};

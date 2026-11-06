@@ -18,6 +18,12 @@ secondary loop.
 > stated). Anything that could not be checked is marked **Not re-checked**
 > with the reason.
 >
+> **Partial correction, 2026-11-03.** The 2026-08-12 stamp is a record of when
+> the tables were last read, not evidence they hold now. On 2026-11-03 only the
+> rows on the reflector/cavity path, the ZBS heat path, the pebble-bed
+> consumers and the GeN-Foam pebble port were re-checked and corrected in
+> place; the rest of the document is **Not re-checked** since 2026-08-12.
+>
 > **Two exceptions to the re-verification, stated plainly:**
 >
 > 1. **Validation source identifiers remain deliberately unverified** — see
@@ -81,6 +87,16 @@ simulator — retarget `htgr_sim_v1` from prismatic to HTR-10", 20 items),
 created 2026-08-10 and carrying the maintainer decision of 2026-08-11 that
 `htgr_sim_v1` *is* the HTR-10 simulator. The `op-wqk.9.*` children predate it
 and are stale — see [Bead accuracy](#bead-accuracy--three-of-four-children-are-stale).
+
+**Thermal-hydraulic inputs (added 2026-11-03, gh:#1147).** The cited input
+sheet for the HTR-10 TH model is
+[`htr10-th-benchmark.md`](./htr10-th-benchmark.md), with CSVs in
+[`htr10-th-data/`](./htr10-th-data/). It covers:
+
+- the IAEA-TECDOC-1694 (CRP-5) R-Z geometry and material correlations;
+- the 22 FPIC thermocouples with every participant's result;
+- the LOFC and CRW transient initial states, reactivity and kinetics;
+- the source conflicts and the named sensitivity cases.
 
 ## 1. Framing correction — read this first
 
@@ -289,19 +305,19 @@ The original citation `:50` in this document was wrong: line 50 is a `println!`.
 | Gap | Size | Notes |
 |---|---|---|
 | Ergun or KTA-form packed-bed pressure drop | ~~Small to write~~ **DONE (KTA)** | ~~Nothing exists~~ **`outram-park-digital-twin-engine/src/htr10/kta.rs` implements the KTA 3102.3 packed-bed friction correlation, tested, and it is WIRED into `examples/htgr_sim_v1`. Gold-gated against the Virtual Test Bed worked example: 3493.17 Pa/m vs 3493 Pa/m, +0.005%.** TUAS's own Ergun variant is still unimplemented — that gap is real but local to TUAS |
-| **Pebble-bed effective radial conductivity** | ~~Medium~~ **EXISTS, not in a heat path** | ~~Literally zero code in the workspace~~ **`outram-park-digital-twin-engine/src/htr10/zbs.rs` implements Zehner-Bauer-Schluender, tested.** It is deliberately NOT in `htgr_sim_v1`'s heat path: one lumped bed control volume has no internal gradient for a conductivity to act on. Quantified 2026-08-12 — `k_eff(748.15 K) = 20.195 W/(m K)`, giving 11.74 kW of axial conduction, **0.117% of the 10 MW convective duty**. Negligible under forced flow; it becomes the entire heat path under LOFC, a regime that model cannot enter |
+| **Pebble-bed effective radial conductivity** | ~~Medium~~ **EXISTS, ~~not in a heat path~~ in the passive heat path (CORRECTED 2026-11-03)** | ~~Literally zero code in the workspace~~ ~~**`outram-park-digital-twin-engine/src/htr10/zbs.rs` implements Zehner-Bauer-Schluender, tested.**~~ **CORRECTED 2026-11-03** — `dt-engine/src/htr10/zbs.rs` is an 18-point VTB *table* of ZBS values with an interpolant, not an implementation (its header lists "an analytic ZBS implementation" under "Does NOT belong here"); the analytic ZBS is `tampines/src/pebble_bed/zbs.rs`. Since 2026-09-17 the VTB table IS in `htgr_sim_v1`'s heat path, as leg 1's `lambda_0` in `examples/htgr_sim_v1/physics/decay_heat_removal.rs` (`zbs_effective_conductivity`); the tampines `ZbsBed` is deliberately not substituted (gh:#362). The 2026-08-12 statement follows, kept for history: ~~It is deliberately NOT in `htgr_sim_v1`'s heat path: one lumped bed control volume has no internal gradient for a conductivity to act on.~~ Quantified 2026-08-12 — `k_eff(748.15 K) = 20.195 W/(m K)`, giving 11.74 kW of axial conduction, **0.117% of the 10 MW convective duty**. Negligible under forced flow; it becomes the entire heat path under LOFC, ~~a regime that model cannot enter~~ which the passive path now lets the model enter |
 | **Graphite properties** — matrix and reflector grades, conductivity as a function of temperature and fast-neutron dose | ~~Medium~~ **EXISTS — CORRECTED 2026-08-12** | ~~The solid database holds only copper, stainless, fibreglass, aerogel, FeCrAl and a generic heating element. No graphite anywhere~~ **False.** `crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs` — **887 lines, 6 tests** — implements **both** grades the row asked for: `SolidMaterial::NuclearGraphiteMatrixA3` (HTR-10 / HTR-PM pebble matrix, enum arm at `mod.rs:74`) and `SolidMaterial::NuclearGraphiteIG110` (reflector grade, `:82`), with a shared Butland & Maddison cp table, per-grade conductivity, and an **optional fast-neutron-fluence damage factor** (`nuclear_graphite_fluence_damage_factor`, `:196`). Densities 1730 and 1770 kg/m^3. Transcribed from the vendored CC-BY-4.0 Virtual Test Bed decks with per-function deck-file and line citations. **Caveat, stated by the module itself:** "None of these correlations has been checked against HTR-10 measurements by the maintainer" |
 | Gas arm in the TUAS material enum | Small–Medium | `Material` is solid-or-liquid only, so the whole TUAS prebuilt component library cannot be used for a helium loop. **Re-verified 2026-08-12 — still true, unchanged.** `pub enum Material` at `crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/mod.rs:14-19` has exactly two arms, `Solid(SolidMaterial)` and `Liquid(LiquidMaterial)`. Note the graphite row above lands in the **solid** arm, so it does not relieve this gap. **However, the gap has been routed around rather than closed:** `crates/tampines/src/gas_phase/` (**2,848 lines**) now provides a helium arm outside TUAS entirely — `properties.rs` (658 lines), `pipe.rs` (902), `circulator.rs` (445) and `kta_bed.rs` (734 lines, 8 tests). So a helium loop is buildable today; what remains blocked is specifically **TUAS's prebuilt component library** |
-| Radial pebble conduction, fuel zone to surface | ~~Medium~~ **EXISTS — CORRECTED 2026-08-12** | ~~GeN-Foam's pebble routine was deliberately not ported; the app-builder crate says so explicitly~~ **The GeN-Foam half is still true** (`crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs:31-34` and `structure/mod.rs:56` confirm the higher-fidelity radial pin/pebble models were not ported) — **but the gap is closed elsewhere.** `crates/tampines/src/pebble_bed/pebble.rs` — **1,237 lines, 8 tests** — implements two-zone spherical radial conduction: a fuelled zone with volumetric generation inside an unfuelled graphite shell, on the HTR-10 6.0 cm sphere / 5.0 cm fuelled zone geometry, with the double heterogeneity kept **explicit** rather than smeared. Its fuelled-zone conductivity is fed by `pebble_bed/triso.rs` (1,502 lines, 8 tests, five-region TRISO series resistance) |
-| **Reflector, barrel and cavity-cooling decay-heat path** | Medium–Large | This is the HTR-10 passive safety case. No model. **Re-verified 2026-08-12 — still true, and now the largest gap on this slate.** Evidence: a case-insensitive `grep` over every crate's `src/` for `cavity cool`, `reactor cavity`, `RCCS` and `vessel cooling` returns **zero** hits. `core barrel` appears only as a *dimension* in unrelated components (`tuas .../gfhr_pipe_tests/components.rs:31`, `tampines/src/gas_phase/kta_bed.rs:176`) and `reflector` only as a **neutronics** node (`bedok`'s NEACRP axial reflector planes) — nothing transports heat out through the reflector, barrel and cavity |
+| Radial pebble conduction, fuel zone to surface | ~~Medium~~ **EXISTS — CORRECTED 2026-08-12** | ~~GeN-Foam's pebble routine was deliberately not ported; the app-builder crate says so explicitly~~ ~~**The GeN-Foam half is still true** (`crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs:31-34` and `structure/mod.rs:56` confirm the higher-fidelity radial pin/pebble models were not ported)~~ **CORRECTED 2026-11-03** — no longer true for the pebble: `structure/nuclear_steady_state_pebble/` ports GeN-Foam's `nuclearSteadyStatePebble`, checked against an upstream run by `tests/genfoam_gfhr_pebble_vs_upstream.rs`; it is not wired as a `PowerModel` variant (the `power_model.rs` note is corrected in the same change) — **but the gap is closed elsewhere.** `crates/tampines/src/pebble_bed/pebble.rs` — **1,237 lines, 8 tests** — implements two-zone spherical radial conduction: a fuelled zone with volumetric generation inside an unfuelled graphite shell, on the HTR-10 6.0 cm sphere / 5.0 cm fuelled zone geometry, with the double heterogeneity kept **explicit** rather than smeared. Its fuelled-zone conductivity is fed by `pebble_bed/triso.rs` (1,502 lines, 8 tests, five-region TRISO series resistance) |
+| **Reflector, barrel and cavity-cooling decay-heat path** | ~~Medium–Large~~ **EXISTS — CORRECTED 2026-11-03** | **CORRECTED 2026-11-03** — modelled since 2026-09-17 in `crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs`: bed → reflector → RPV → RCCS, five derived legs, reflector and RPV solved implicitly with the bed since 2026-09-29 (gh:#395); barrel and cavity are folded into its two nodes, not separate bodies. Not validated. The 2026-08-12 entry follows, kept for history: ~~This is the HTR-10 passive safety case. No model. **Re-verified 2026-08-12 — still true, and now the largest gap on this slate.** Evidence: a case-insensitive `grep` over every crate's `src/` for `cavity cool`, `reactor cavity`, `RCCS` and `vessel cooling` returns **zero** hits. `core barrel` appears only as a *dimension* in unrelated components (`tuas .../gfhr_pipe_tests/components.rs:31`, `tampines/src/gas_phase/kta_bed.rs:176`) and `reflector` only as a **neutronics** node (`bedok`'s NEACRP axial reflector planes) — nothing transports heat out through the reflector, barrel and cavity~~ |
 | Multi-pass pebble flow and recirculation | Medium | DEM primitives exist but are unvalidated. **Re-verified 2026-08-12 — still true.** `crates/outram-park-fork-liggghts` has the contact/rolling/thermal primitives; no recirculation or multi-pass burnup-zone model exists |
-| Helical-coil once-through SG, three-zone moving boundary | Medium | **Re-verified, details corrected 2026-08-12 — still true.** The LMTD and NTU algebra does exist, in `crates/outram-park-fork-dwsim-libs/src/heat_exchanger/` (`lmtd.rs`, `ntu_effectiveness.rs`, `f_correction.rs`). The zone tracking and helical correlations do not: `grep -i helical` over that crate returns **zero** hits. The only `Helical` in the workspace is a **geometry/visual archetype**, `SteamGeneratorKind::HelicalCoil` at `crates/outram-park-digital-twin-engine/src/components/steam_generator.rs:124` — a drawn 2.5 m / 11.3 m vessel, not a thermal model |
+| Helical-coil once-through SG, three-zone moving boundary | Medium | **Re-verified, details corrected 2026-08-12 — still true.** The LMTD and NTU algebra does exist, in `crates/outram-park-fork-dwsim-libs/src/heat_exchanger/` (`lmtd.rs`, `ntu_effectiveness.rs`, `f_correction.rs`). The zone tracking and helical correlations do not: `grep -i helical` over that crate returns **zero** hits. The only `Helical` in the workspace is a **geometry/visual archetype**, `SteamGeneratorKind::HelicalCoil` at ~~`crates/outram-park-digital-twin-engine/src/components/steam_generator.rs:124`~~ `crates/bugis/src/components/steam_generator.rs:124` (moved 2026-11-02, gh:#1112; line numbers not re-checked) — a drawn 2.5 m / 11.3 m vessel, not a thermal model |
 | SG inventory giving sliding steam pressure | Medium | The real remaining content of bead `op-wqk.9.3`. **Re-verified 2026-08-12 — still true**; `htgr_sim_v1`'s secondary loop header states the same at `secondary_loop.rs:20-25` |
 | **Graphite/moderator temperature feedback as a separate channel** | ~~Small–Medium~~ **EXISTS — CORRECTED 2026-08-12** | ~~Central to HTR-10 loss-of-flow behaviour. Only lumped fuel feedback exists~~ **False.** `crates/tampines/src/pebble_bed/feedback.rs` — **995 lines, 6 tests** — carries the graphite moderator temperature as an independent state with its own thermal inertia and its own reactivity coefficient, deliberately *not* folded into Doppler, with the physical argument for the separation written out in the module header. Tests include `graphite_thermal_time_constant_is_long`, `thermal_time_constant_emerges_from_the_integrated_ode` and `the_lumped_balance_conserves_energy` |
 | ~~Trustworthy decay heat~~ **WITHDRAWN — CORRECTED 2026-08-12** | — | ~~See the flagged defect above~~ The premise of this row was the "self-flagged as suspect" claim, which is false — see the SCAFFOLD list. `decay_heat.rs` is now a cited 23-group ANS-1978 fit with 7 tests. **This is not a claim that it is validated**: it is verified-not-validated. ~~It is still not wired into `htgr_sim_v1`~~ **CORRECTED 2026-09-17 — it IS wired**: `htgr_sim_v1/physics/kinetics.rs` holds `pub decay: DecayHeat`, seeds it with `new_at_equilibrium`, and applies it per substep via `apply_decay_heat` |
 | Wall-friction or porous-drag source in the compressible pipe solver | Medium | **Re-verified, details corrected 2026-08-12 — still true.** The solver is the vendored `rhoPimpleFoam` under `crates/outram-park-fork-coolprop/src/openfoam_algorithms/`, not a module called "compressible". Its momentum equation (`rhoPimpleFoam/mod.rs:984-1019`) assembles only `ddt` + ~~the deferred KNP dissipation~~ + the pressure gradient (the KNP hybrid term was removed 2026-10-16, gh:#914; line numbers not re-checked); there is no wall-shear or Darcy source. `rhoPimpleFoam/lateral_coupling.rs:12` records a `DimensionlessDarcyLossCorrelations` port as future work |
 | ~~Nuclear data for a from-first-principles criticality calculation~~ **NO LONGER TRUE — CORRECTED 2026-09-17** | — | ~~`reference-data/endf/` holds only a README~~ **`reference-data/endf/` now holds 39 ENDF/B-VIII.0 tapes** (H-1, H-2, He-4, Li-6, Li-7, C, O-16, U-235, U-238 and others), and `outram-mc-libs`' `endf-pebble-cases` feature reconstructs ~13 nuclides from them. The 2026-08-12 re-verification is superseded. What remains a gap is not the *data* but the HTR-10 **core model** that would consume it — see the R-Z geometry and packing rows |
-| **Pebble-bed closures now exist as a coherent stack — recorded here so the gap table is not read as a to-do list** | — | **Added 2026-08-12.** `crates/tampines/src/pebble_bed/` is **5,656 lines with 34 tests, all passing** (`cargo test --release -p tampines --lib pebble_bed`, 34 passed / 0 failed, run 2026-08-12): `triso.rs` (level 1), `pebble.rs` (level 2), `cht.rs` (level 3, Wakao-Funazkri bed-to-helium), `zbs.rs` (effective bed conductivity), `feedback.rs` (graphite channel). **It is not consumed by any other crate** — no simulator is wired to it, so none of this is validated against HTR-10. Bead `op-jyyp.17`, which tracks exactly this work, is still open and appears stale. **There are now three KTA implementations in the workspace** — `dt-engine/src/htr10/kta.rs` (250 lines), `tampines/src/gas_phase/kta_bed.rs` (734 lines, 8 tests) — and **two** ZBS implementations. That duplication is worth a maintainer decision. **Also flagged:** `tampines/src/gas_phase/kta_bed.rs:13` claims Wakao particle-to-fluid heat transfer "is still unimplemented anywhere in the workspace", which is false — `tampines/src/pebble_bed/cht.rs` and TUAS's `WakaoData` both implement it. That is an in-code doc defect, reported not fixed |
+| **Pebble-bed closures now exist as a coherent stack — recorded here so the gap table is not read as a to-do list** | — | **Added 2026-08-12.** `crates/tampines/src/pebble_bed/` is **5,656 lines with 34 tests, all passing** (`cargo test --release -p tampines --lib pebble_bed`, 34 passed / 0 failed, run 2026-08-12): `triso.rs` (level 1), `pebble.rs` (level 2), `cht.rs` (level 3, Wakao-Funazkri bed-to-helium), `zbs.rs` (effective bed conductivity), `feedback.rs` (graphite channel). ~~**It is not consumed by any other crate** — no simulator is wired to it, so none of this is validated against HTR-10.~~ **CORRECTED 2026-11-03** — it now has consumers: `htgr_sim_v1` (`reactor_model/one_node.rs` imports `tampines::pebble_bed::pebble`; `bounding_air_ingress.rs` and `fission_product_release.rs` use `TrisoParticle::htr10`/`Pebble::htr10`), `dhoby-ghaut` (`src/bin/dhoby-ghaut/porous_core.rs` uses `PackedBedConvection`, `Pebble`, `KtaBed`) and `sembawang` (`src/htr10.rs`, `src/lwr_comparison.rs`). `feedback.rs` still has no code consumer (only a doc citation in `htgr_sim_v1/physics/kinetics.rs`). None of it is validated against HTR-10. Bead `op-jyyp.17`, which tracks exactly this work, is still open and appears stale. **There are now three KTA implementations in the workspace** — `dt-engine/src/htr10/kta.rs` (250 lines), `tampines/src/gas_phase/kta_bed.rs` (734 lines, 8 tests) — and **two** ZBS ~~implementations~~ sources (**CORRECTED 2026-11-03**: `dt-engine/src/htr10/zbs.rs` is a VTB table, not an implementation). That duplication is worth a maintainer decision. **Also flagged:** `tampines/src/gas_phase/kta_bed.rs:13` claims Wakao particle-to-fluid heat transfer "is still unimplemented anywhere in the workspace", which is false — `tampines/src/pebble_bed/cht.rs` and TUAS's `WakaoData` both implement it. That is an in-code doc defect, ~~reported not fixed~~ **fixed 2026-11-03** (struck through in place) |
 
 ### Bead accuracy — three of four children are stale
 
@@ -379,9 +395,22 @@ cited source for the KTA and ZBS gold values and for the nuclear-graphite
 correlations recorded above, and `docs/reactor-scoping/vtb-findings.md` catalogues
 what they contain.
 
-**Still true:** `reference-data/endf/` contains only a `README.md`. Input decks
+~~**Still true:** `reference-data/endf/` contains only a `README.md`. Input decks
 and benchmark specifications are not evaluated nuclear data, and the
-criticality-calculation gap in the MISSING table stands.
+criticality-calculation gap in the MISSING table stands.~~ **CORRECTED
+2026-11-03** — false. `ls reference-data/endf/` on 2026-11-03 lists **83
+`.endf` tapes** besides the README (the root `CLAUDE.md` already records this
+claim as wrong). Whether the criticality-calculation gap in the MISSING table
+still stands was **not re-checked** in this pass.
+
+**Added 2026-11-03 (gh:#1147).** The "follow-on IAEA programme" row above is
+now identified and read: it is **IAEA-TECDOC-1694 (2013), CRP-5**. Its HTR-10
+chapter carries the FPIC steady-state thermocouple benchmark and the LOFC and
+CRW without-scram transients. Its numbers are transcribed with citations in
+[`htr10-th-benchmark.md`](./htr10-th-benchmark.md). That document is in the
+maintainer's private literature repository; it is not redistributable. The
+safety-test traces are figures only, as the table predicted. The other rows of
+the table stay unverified.
 
 ## 5. Recommended sequencing
 
@@ -400,8 +429,10 @@ criticality-calculation gap in the MISSING table stands.
    exists with 6 passing tests and no consumer. The advice stands in the form:
    do not attempt a loss-of-flow transient until that channel is *connected*.
 4. The reflector and cavity-cooling path is what makes HTR-10 interesting. Budget
-   for it rather than deferring it indefinitely. **Re-verified 2026-08-12 — still
-   unbuilt, and now the largest single gap on this slate.**
+   for it rather than deferring it indefinitely. ~~**Re-verified 2026-08-12 — still
+   unbuilt, and now the largest single gap on this slate.**~~ **CORRECTED
+   2026-11-03** — built since 2026-09-17:
+   `htgr_sim_v1/physics/decay_heat_removal.rs` (not validated).
 
 ## 6. Proposed work breakdown
 
@@ -415,10 +446,10 @@ read as a live to-do list without the column.
 | Refresh the stale `op-wqk.9.*` children | Bookkeeping against current reality | **Outstanding** — unchanged since 2026-07-15 | — |
 | Graphite properties in the solid database | Matrix and reflector grades, conductivity versus temperature and dose | **DONE** — `nuclear_graphite.rs`, both grades, T- and fluence-dependent, 6 tests. Not maintainer-checked against HTR-10 measurements | — |
 | Ergun / KTA packed-bed pressure drop | Implement and wire into the friction path | **DONE (KTA)** — implemented, wired, gold-gated at +0.005% | — |
-| Pebble-bed effective radial conductivity | Solid, gas, contact and radiation contributions | **DONE, twice** — `dt-engine/src/htr10/zbs.rs` (195 lines, 3 tests) and `tampines/src/pebble_bed/zbs.rs` (1,112 lines, 7 tests). Neither is in a heat path | Graphite properties |
+| Pebble-bed effective radial conductivity | Solid, gas, contact and radiation contributions | **DONE, twice** — `dt-engine/src/htr10/zbs.rs` (195 lines, 3 tests) and `tampines/src/pebble_bed/zbs.rs` (1,112 lines, 7 tests). ~~Neither is in a heat path~~ **CORRECTED 2026-11-03** — the dt-engine one is a VTB table, not an implementation, and has been leg 1 of `htgr_sim_v1`'s passive path (`decay_heat_removal.rs`) since 2026-09-17; the tampines one is not in a heat path | Graphite properties |
 | Gas arm in the TUAS material enum | Unlocks the prebuilt component library for helium | **Outstanding** — `Material` still has exactly two arms, `Solid` and `Liquid` | — |
-| Radial pebble conduction | Fuel zone to pebble surface | **DONE** — `tampines/src/pebble_bed/pebble.rs`, 1,237 lines, 8 tests. No consumer | Graphite properties |
-| Reflector, barrel and cavity cooling path | The passive decay-heat route | **Outstanding** — no model found | Bed conductivity |
+| Radial pebble conduction | Fuel zone to pebble surface | **DONE** — `tampines/src/pebble_bed/pebble.rs`, 1,237 lines, 8 tests. ~~No consumer~~ **CORRECTED 2026-11-03** — consumed by `htgr_sim_v1`'s `one_node.rs`, `dhoby-ghaut` and `sembawang` | Graphite properties |
+| Reflector, barrel and cavity cooling path | The passive decay-heat route | ~~**Outstanding** — no model found~~ **CORRECTED 2026-11-03: DONE, not validated** — `htgr_sim_v1/physics/decay_heat_removal.rs` (since 2026-09-17; implicit with the bed since 2026-09-29) | Bed conductivity |
 | Graphite temperature feedback channel | Separate from fuel feedback | **DONE** — `tampines/src/pebble_bed/feedback.rs`, 995 lines, 6 tests. No consumer | — |
 | ~~Fix or replace decay heat~~ | ~~Currently self-flagged as suspect~~ | **Superseded** — the premise was false; `decay_heat.rs` is a cited 23-group ANS-1978 fit with 7 tests. The remaining task is **wiring it into `htgr_sim_v1`**, plus maintainer V&V | — |
 | Fix the self-referential TRISO release test | Correctness defect in `crates/boon-lay` | **Outstanding** — bead `op-jyyp.10`, Todo. Present in **two** files | — |
@@ -444,8 +475,11 @@ read as a live to-do list without the column.
    citation corrected and the **second, duplicate** occurrence added.
 4. **New, 2026-08-12: should `crates/tampines/src/pebble_bed/` be wired into
    `htgr_sim_v1`?** 5,656 lines and 34 passing tests of pebble-bed closures now
-   exist with **no consumer**. Until something calls them they cannot be
+   exist with ~~**no consumer**~~ (**CORRECTED 2026-11-03**: they now have
+   consumers — `htgr_sim_v1`, `dhoby-ghaut`, `sembawang`; see the closures row
+   in the MISSING table; `feedback.rs` still has none). Until something calls them they cannot be
    validated, and the simulator keeps its one lumped bed control volume. The
-   engine also has a second, independent ZBS implementation in
+   engine also has a ~~second, independent ZBS implementation~~ **(CORRECTED
+   2026-11-03: a VTB-tabulated set of ZBS values, not an implementation)** in
    `src/htr10/zbs.rs` — two ZBS models in one workspace is a duplication worth a
    decision.

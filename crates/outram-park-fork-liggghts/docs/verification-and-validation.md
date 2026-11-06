@@ -419,7 +419,7 @@ changed on every run and so did the last bits of every force.
 | 3 | `2.81519841188432977e-2` |
 
 Differing in the 13th significant figure after 200 steps, in a system that is
-chaotic over 50 000. The committed `htr10_settled_ours.csv` could therefore
+chaotic over 50 000. The committed `htr10_settled_ours.csv` (~~`reference-data/liggghts/`~~ **MOVED 2026-10-21 (gh:#1008)** `examples/data/`, not packaged to crates.io) could therefore
 **not** be regenerated exactly, and the single 2.91e-2 m outlier in the
 per-particle cross-code comparison (§ 4.7, 49 % of a pebble diameter against a
 median of 61 µm) is consistent with this mechanism. Bead `op-t3l.9`.
@@ -761,7 +761,7 @@ defect, as a bulk quantity should be.
 **The `61 um` per-particle median is NOT re-measured and should be treated as
 provisional.** It is the one number in the table whose exposure the principle
 predicts, and re-running the test **regenerated
-`reference-data/liggghts/htr10_settled_ours.csv`** — so a per-particle
+~~`reference-data/liggghts/htr10_settled_ours.csv`~~ **MOVED 2026-10-21 (gh:#1008)** `crates/outram-park-fork-liggghts/examples/data/htr10_settled_ours.csv`** — so a per-particle
 comparison now runs against a different, and for the first time
 *reproducible*, bed. Re-measuring it is follow-up work; see the bead.
 

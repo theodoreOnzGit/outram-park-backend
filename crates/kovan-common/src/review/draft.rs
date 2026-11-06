@@ -55,7 +55,8 @@ use crate::artifact::relation::RelationRecord;
 use super::id::is_fn_id;
 use super::index::FunctionIndex;
 use super::review_md::{
-    validate_review, EntryMeta, FixStatus, NeedsFixBody, NeedsFixEntry, ReviewBody, ReviewEntry,
+    validate_justification, validate_review, EntryMeta, FixStatus, JustificationBody,
+    JustificationEntry, NeedsFixBody, NeedsFixEntry, ReviewBody, ReviewEntry, Verdict,
 };
 use super::types::{check_commit, check_hash, check_text, ChangeAuthorship, FieldError};
 use super::wizard::{stamp_gate, Applicability, GateReason, TestAuthorship};
@@ -171,6 +172,12 @@ pub fn review_heading(qual: &str, by: &str) -> String {
 /// The `#` heading of a needs-fix entry: `Needs fix: <qual> (<reviewer>)`.
 pub fn needs_fix_heading(qual: &str, by: &str) -> String {
     format!("Needs fix: {qual} ({by})")
+}
+
+/// The `#` heading of an agent justification: `Justification (agent-drafted,
+/// unsigned): <qual> (<agent>)` (GitHub #1019).
+pub fn justification_heading(qual: &str, by: &str) -> String {
+    format!("Justification (agent-drafted, unsigned): {qual} ({by})")
 }
 
 /// Draft the unsigned review entry (module doc).
@@ -293,6 +300,58 @@ pub fn draft_needs_fix(
             highlights: Vec::new(),
         },
     })
+}
+
+/// Draft an **agent-drafted, unsigned** justification of `function` as it
+/// is at `commit` (its index hash), by the agent `by` (`agent:<name>`;
+/// GitHub #1019). `previous` is this agent's earlier justification of the
+/// function, whose `[kovan] id` and `created` are kept (a re-justification
+/// replaces it, as a re-review does). Nothing here signs: the entry type has
+/// no signature field.
+#[allow(clippy::too_many_arguments)]
+pub fn draft_justification(
+    function: &FunctionIndex,
+    file: &str,
+    by: &str,
+    date: &str,
+    now: &str,
+    commit: &str,
+    verdict: Verdict,
+    evidence: &[String],
+    previous: Option<&EntryMeta>,
+) -> Result<JustificationEntry, DraftError> {
+    if !is_fn_id(&function.id) {
+        return Err(DraftError::NotAFunctionId(function.id.clone()));
+    }
+    let (id, created) = match previous {
+        Some(p) => (p.id.clone(), p.created.clone()),
+        None => {
+            let base = review_entry_id(&function.name, by, &function.id);
+            (format!("justification{}", base.trim_start_matches("review")), now.to_string())
+        }
+    };
+    let entry = JustificationEntry {
+        kovan: EntryMeta {
+            id,
+            kind: "justification".into(),
+            origin: Some("agent".into()),
+            created,
+            modified: now.into(),
+            target: Some(function.id.clone()),
+        },
+        justification: JustificationBody {
+            path: Some(format!("{file}::{}", function.qual)),
+            by: by.into(),
+            agent_drafted: true,
+            verdict,
+            date: date.into(),
+            commit: commit.into(),
+            hash: function.hash.clone(),
+            evidence: evidence.iter().map(|e| e.trim().to_string()).collect(),
+        },
+    };
+    validate_justification(&entry).map_err(DraftError::Field)?;
+    Ok(entry)
 }
 
 #[cfg(test)]

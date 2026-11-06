@@ -1,10 +1,10 @@
 [package]
 name = "sembawang"
-version = "0.0.1"
+version = "0.0.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "SEMBAWANG — severe accident and source term, and orchestrator of the offsite chain (source term -> CHANGI dispersion and deposition). TRISO release implemented via boon-lay; accident progression not yet. No dose. Research, education and V&V only."
+description = "SEMBAWANG — severe accident and source term, and orchestrator of the offsite chain (source term -> CHANGI dispersion and deposition). TRISO release implemented via boon-lay; accident progression only as a reduced Fukushima Daiichi Unit 1 model (bwr_mark1), unvalidated. No dose. Research, education and V&V only."
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
@@ -37,6 +37,14 @@ backronym = "Severe-accident Evolution and Melt Behaviour Analysis Workbench for
 # there was anything to depend on would assert an undecided architecture --
 # that reasoning held, and these three are added because there is now code
 # that calls into them, not ahead of it.
+# Tests over 5 minutes are gated behind `long-tests`, on by default (root
+# CLAUDE.md, docs/claude-md/long-tests-and-ci.md). Added 2026-11-02 with the
+# switch to the containment network (gh:#1099), whose 26-30 h plant runs take
+# about 20 min each.
+[features]
+default = ["long-tests"]
+long-tests = []
+
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
@@ -61,17 +69,40 @@ buangkok  = { workspace = true }
 # outram-mc-libs must never depend on this crate. Default features only
 # (`long-tests` gates its own slow tests and costs a dependent nothing).
 outram-mc-libs = { workspace = true }
+# The Fukushima Daiichi Unit 1 plant model (`bwr_mark1`, gh:#1033, moved from
+# dhoby-ghaut's `fukushima_web` example 2026-10-29): IAPWS-IF97 for the
+# vessel, the pool and the coolant properties; teh-o-prke's decay heat; and
+# OFFBEAT's MATPRO UO2 and Zircaloy heat capacities (gh:#1038), reused rather
+# than re-entered. All three are pure Rust, wasm in-scope and build for
+# aarch64-linux-android (checked 2026-10-29). No cycle: none depends on this
+# crate (`cargo tree -p <each> -e normal`, 2026-10-29).
+tampines-steam-tables    = { workspace = true }
+# The thermal-hydraulic framework (maintainer direction, 2026-11-01):
+# a severe-accident code like MELCOR does thermal hydraulics and much more,
+# so sembawang (severe accidents, orchestration) depends on tampines (thermal
+# hydraulics) as a normal dependency, never the reverse. ~~Examples and tests
+# ONLY~~ (it was a dev-dependency before 2026-11-01, for the HTR-10 pebble and
+# TRISO dimensions in `tampines::pebble_bed` and, since gh:#1075,
+# tests/wet_well_vs_tampines.rs). No cycle: tampines has no sembawang edge of
+# any kind.
+tampines = { workspace = true }
+teh-o-prke               = { workspace = true }
+outram-park-fork-offbeat = { workspace = true }
+# bwr_mark1's decay heat by radionuclide class (gh:#1041): ENDF/B-VIII decay
+# data and fission yields, the same crates outram-mc-libs already depends on
+# (so nothing new enters the tree; both on uom 0.38).
+openmc-endf-8-depletion-lib-a = { workspace = true }
+openmc-endf-8-depletion-lib-b = { workspace = true }
+fission-yields-data           = { workspace = true }
+# bwr_mark1's lower-head wall (gh:#1034): Type 304L stainless steel
+# properties to 1700 K (Kim, ANL-75-55, public), reused from tuas's solid
+# database. Stainless steel is MELCOR's default lower-head layer material
+# (MELCOR 2.2 Vol. 2, COR §6.1). Light (petir, uom, ndarray, csv, approx,
+# thiserror), wasm in-scope, already built by dhoby-ghaut; no cycle.
+tuas_boussinesq_solver = { workspace = true }
 uom       = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 # Reads boon-lay's upstream code-to-code probes (tests/nuclide_names_code_to_code.rs).
 serde_json = { workspace = true }
-# Examples and tests ONLY. The published HTR-10 pebble and TRISO particle
-# dimensions live in `tampines::pebble_bed` (IAEA-TECDOC-1382 part 2
-# Table 4-17) and must not be copied into this crate, so the HTR-10 case reads
-# them from there. Kept out of `[dependencies]` deliberately: the library takes
-# geometry as an argument (`htr10::Htr10Geometry`), so a consumer of the
-# library pays nothing for this. `tampines` already depends on `boon-lay`, so
-# the edge sembawang -> tampines introduces no cycle.
-tampines = { workspace = true }

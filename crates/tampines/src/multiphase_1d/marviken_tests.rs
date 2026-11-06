@@ -50,6 +50,14 @@
 //! | 23 | 3 K | 29 | **8.9 %** | **+2.8 %** | 19.7 % | 0 / 29 | **VALIDATED** |
 //! | 24 | 33 K | 40 | **11.4 %** | **-9.7 %** | 28.8 % | 6 / 40 | **NOT VALIDATED** — characterisation only |
 //!
+//! **Re-measured 2026-11-01 (gh:#1061)**, after the Blasius wall friction was
+//! replaced by the shared RELAP5 four-region factor (laminar continued below
+//! `Re = 64`, smooth pipe). Test 23 is unchanged at the precision above.
+//! Test 24: signed −9.7 → **−9.8 %**, max \|dev\| 28.8 → **28.9 %**, mean
+//! \|dev\| 11.4 % and 6/40 outside unchanged; interior maxima 1 → **3/40**;
+//! worst steadiness 0.1256 → **0.1498** (gate 0.20). Predicted: every gated
+//! metric within 1 % (held).
+//!
 //! Against the quoted bare-HEM baseline (10.1 % / -10.1 % / 28.2 % on test 23;
 //! 9.0 % / -1.8 % / 26.5 % on test 24): **drift flux clearly wins test 23 and
 //! slightly loses test 24.**
@@ -1380,9 +1388,10 @@ fn marviken_test_24_drift_flux_critical_mass_flux() {
         diagnostics.worst_plateau_spread
     );
     assert_eq!(
-        diagnostics.n_interior_maxima, 1,
-        "measured 1/40 interior maxima on 2026-08-11 (at 4.306 MPa, by 0.3 %); 39 of 40 \
-         maxima sit at the containment back pressure"
+        diagnostics.n_interior_maxima, 3,
+        "measured 3/40 interior maxima on 2026-11-01, after the four-region wall \
+         friction (gh:#1061); 1/40 on 2026-08-11 with Blasius (at 4.306 MPa, by 0.3 %); \
+         the rest sit at the containment back pressure"
     );
 
     // ── the aggregate criterion IS met ──────────────────────────────────────

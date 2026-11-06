@@ -65,6 +65,10 @@ fn pair(branch: &str) -> Option<Pair> {
         );
         g(c, &["config", "user.name", "t"]);
         g(c, &["config", "user.email", "t@t"]);
+        // The worktree holds the committed bytes on every platform: these
+        // tests are about merges, and Git for Windows' system
+        // `core.autocrlf = true` would check `mine\n` out as `mine\r\n`.
+        g(c, &["config", "core.autocrlf", "false"]);
     }
     Some(Pair {
         _tmp: tmp,

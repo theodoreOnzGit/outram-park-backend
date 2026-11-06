@@ -1,0 +1,334 @@
+   Compiling ndarray v0.17.2
+   Compiling serde-xml-rs v0.8.2
+   Compiling fs2 v0.4.3
+   Compiling raffles v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/raffles)
+   Compiling zopfli v0.8.4
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling outram-park-fork-liggghts v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-liggghts)
+   Compiling env_filter v2.0.0
+   Compiling env_logger v0.11.11
+   Compiling outram-foam-basic-lib v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-basic-lib)
+   Compiling hdf5-pure v0.20.1
+   Compiling outram-foam-mesh v0.1.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-mesh)
+   Compiling outram-park-fork-cfmesh v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-cfmesh)
+   Compiling farrer-park v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/farrer-park)
+   Compiling njoy-outram-park-fork v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/njoy-outram-park-fork)
+   Compiling outram-blender v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-blender)
+   Compiling tampines-steam-tables v0.3.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling outram-mc-libs v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-mc-libs)
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling outram-foam-turbulence-lib v0.1.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-turbulence-lib)
+   Compiling outram-foam-multiphase v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-multiphase)
+   Compiling zip v2.6.1
+   Compiling chem-eng-real-time-process-control-simulator v0.2.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/chem-eng-real-time-process-control-simulator)
+   Compiling outram-park-fork-dwsim-libs v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-dwsim-libs)
+   Compiling outram-foam-appbuilder-lib v0.1.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-appbuilder-lib)
+   Compiling boon-lay v0.2.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/boon-lay)
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling outram-park-fork-coolprop v0.1.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-coolprop)
+   Compiling tuas_boussinesq_solver v0.1.9 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tuas_boussinesq_solver)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+   Compiling teh-o-prke v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/teh-o-prke)
+   Compiling knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/kovan)
+warning: unused import: `crate::index::PaperEntry`
+   --> crates/kovan/src/mindmap.rs:100:5
+    |
+100 | use crate::index::PaperEntry;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling egui_plot v0.37.0
+   Compiling bugis v0.0.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bugis)
+   Compiling tampines v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines)
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/two_fluid.rs:316:5
+    |
+316 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/drift_flux.rs:101:5
+    |
+101 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `PICKER_RESULTS` is never used
+  --> crates/kovan/src/collection_picker.rs:28:18
+   |
+28 | pub(crate) const PICKER_RESULTS: usize = 8;
+   |                  ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `rank` is never used
+  --> crates/kovan/src/collection_picker.rs:38:15
+   |
+38 | pub(crate) fn rank<'a>(
+   |               ^^^^
+
+warning: function `would_create` is never used
+  --> crates/kovan/src/collection_picker.rs:68:15
+   |
+68 | pub(crate) fn would_create(index: &KnowledgeIndex, kind: EntityKind, query: &str) -> bool {
+   |               ^^^^^^^^^^^^
+
+warning: constant `CENTRE_FONT_SCALE` is never used
+    --> crates/kovan/src/mindmap.rs:1003:7
+     |
+1003 | const CENTRE_FONT_SCALE: f64 = 1.35;
+     |       ^^^^^^^^^^^^^^^^^
+
+   Compiling changi v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/changi)
+   Compiling nee_soon v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/nee_soon)
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+   Compiling dhoby-ghaut v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/dhoby-ghaut)
+warning: `tampines` (lib) generated 2 warnings
+   Compiling buangkok v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/buangkok)
+warning: `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` (lib) generated 5 warnings (run `cargo fix --lib -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` to apply 1 suggestion)
+warning: unused import: `ScoreType`
+  --> crates/dhoby-ghaut/src/bin/dhoby-ghaut/mgxs_run.rs:67:36
+   |
+67 | use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+   |                                    ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `dhoby-ghaut` (bin "dhoby-ghaut" test) generated 1 warning (1 duplicate)
+warning: `dhoby-ghaut` (bin "dhoby-ghaut") generated 1 warning (run `cargo fix --bin "dhoby-ghaut" -p dhoby-ghaut` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 4m 23s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/dhoby_ghaut-8c33ca60599c1c3a)
+
+running 28 tests
+test tests::the_expansion_is_spelled_out ... ok
+test workbench::catalogue::tests::every_reactor_key_round_trips_and_every_generation_has_a_type ... ok
+test workbench::catalogue::tests::only_the_htgr_pebble_bed_is_offered_as_buildable ... ok
+test workbench::meshes::tests::mapping_follows_upstream_semantics ... ok
+test workbench::exports::tests::the_report_is_read_back_by_kovan ... ok
+test workbench::mgxs::tests::ln_t_interpolation_hits_the_mean_at_the_geometric_mean ... ok
+test workbench::multiphysics::tests::an_older_recipe_has_no_step_9 ... ok
+test workbench::multiphysics::tests::neutronics_inputs_say_what_is_missing ... ok
+test workbench::multiphysics::tests::step_9_round_trips_through_kovan_markdown ... ok
+test workbench::reactivity_map::tests::a_map_round_trips_through_plain_toml ... ok
+test workbench::reactivity_map::tests::a_two_axis_map_recovers_a_bilinear_law ... ok
+test workbench::reactivity_map::tests::an_exact_sqrt_t_law_is_recovered ... ok
+test workbench::reactivity_map::tests::the_held_out_error_separates_an_adequate_order_from_an_inadequate_one ... ok
+test workbench::reactivity_map::tests::the_map_refuses_to_extrapolate ... ok
+test workbench::reactivity_map::tests::the_planner_puts_lobatto_nodes_in_the_fitting_variable_and_skips_runs_made ... ok
+test workbench::reactivity_map::tests::too_few_runs_or_one_state_is_refused ... ok
+test workbench::recipe::tests::a_missing_section_or_a_foreign_format_is_refused ... ok
+test workbench::meshes::tests::splitting_the_bed_keeps_every_region_consistent ... ok
+test workbench::recipe::tests::a_recipe_round_trips_through_kovan_markdown ... ok
+test workbench::recipe::tests::a_recipe_without_step_6_reads_as_multiphysics ... ok
+test workbench::recipe::tests::an_older_recipe_without_a_bed_source_reads_as_the_lattice ... ok
+test workbench::recipe::tests::kovan_reads_every_section_as_a_note_artifact ... ok
+test workbench::recipe::tests::rfc3339_formats_known_instants ... ok
+test workbench::steps::tests::every_step_is_built ... ok
+test workbench::steps::tests::steps_are_numbered_zero_to_eleven_with_the_gate_between_four_and_five ... ok
+test workbench::steps::tests::unimplemented_steps_name_their_issue ... ok
+test workbench::meshes::tests::the_parts_tile_the_model ... ok
+test workbench::exports::tests::write_all_writes_files_that_load_back ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/bin/dhoby-ghaut/main.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/dhoby_ghaut-6c49747a3b75ee65)
+
+running 23 tests
+test design::tests::the_preset_is_fully_represented_by_the_default_design ... ok
+test design::tests::edits_reach_the_design_or_are_listed_as_not_built ... ok
+test design::tests::a_refused_design_falls_back_to_the_record_and_says_so ... ok
+test engine::tests::log_edges_span_the_range_with_the_asked_density ... ok
+test literature::tests::citekeys_resolve_to_pdfs_in_the_open_corpus ... ok
+test engine::tests::the_default_plan_needs_tapes_that_exist ... ok
+test mp_headless::tests::a_saved_recipe_carries_step_9_and_still_loads ... ok
+test headless_map::tests::the_headless_map_export_on_synthetic_runs ... ok
+test mp_headless::tests::exit_temperature_matches_an_independent_cp_balance ... ok
+test porous_core::tests::bare_cylinder_peak_to_mean_is_the_textbook_value ... ok
+test porous_core::tests::bessel_series_matches_tables ... ok
+test preset::tests::the_htr10_preset_round_trips_and_states_its_gaps ... ok
+test results::tests::the_console_averages_only_active_generations ... ok
+test engine::tests::an_extracted_library_is_scanned_and_matched_by_identity ... ok
+test spatial::tests::bare_cylinder_k_on_the_neutronics_mesh_matches_the_analytic_value ... ok
+test spatial_draw::tests::colour_map_end_points ... ok
+test style::tests::the_saved_scale_is_read_back ... ok
+test style::tests::the_type_scale_rises_monotonically_from_tiny_to_title ... ok
+test spatial::tests::the_coupled_loop_conserves_power_across_the_maps_and_converges ... ok
+test tests::the_headless_geometry_matches_the_committed_fixture ... ok
+test mp_headless::tests::htr10_case_converges_with_equal_ring_pressure_drops ... ok
+test mp_headless::tests::the_headless_multiphysics_summary_matches_the_committed_fixture ... ok
+test tests::the_headless_meshes_hold_what_the_hand_off_promises ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 44.27s
+
+     Running tests/gpu_csg_parity.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/gpu_csg_parity-d2fa88928e8a8074)
+
+running 2 tests
+test dem_bed_views_gpu_match_cpu has been running for over 60 seconds
+test htr10_views_gpu_match_cpu has been running for over 60 seconds
+test htr10_views_gpu_match_cpu ... ok
+test dem_bed_views_gpu_match_cpu ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2300.75s
+
+     Running tests/lesson_barriers.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_barriers-1cd7c3bfac9b53a4)
+
+running 6 tests
+test every_filled_coefficient_can_be_called_and_the_gaps_are_refused ... ok
+test exact_mean_exit_time ... ok
+test pressure_stress_and_weibull ... ok
+test thinning_and_decomposition ... ok
+test the_walker_probe_stays_inside ... ok
+test accident_history_and_release ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/lesson_breathing.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_breathing-4ef23032ac8a83f2)
+
+running 2 tests
+test release_present_from_the_start_vents_exactly_one_minus_t0_over_t ... ok
+test well_mixed_matches_the_formula_and_stays_below_the_product ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/lesson_chemistry_handoff.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_chemistry_handoff-61e9d9fe8c56eb59)
+
+running 5 tests
+test air_law_flags_and_crossover ... ok
+test chem::recorded::tests::the_recorded_numbers_hang_together ... ok
+test hydrolysis_flags_and_clamp_pressure ... ok
+test steam_law_and_box ... ok
+test the_source_term_is_the_record ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lesson_decay_walk.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_decay_walk-de79e8abbab142aa)
+
+running 4 tests
+test a_gaussian_step_jumps_layers_and_wos_does_not ... ok
+test release_against_crank ... ok
+test decay_library_and_branches ... ok
+test sampled_futures_follow_the_simulator_and_cram ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+     Running tests/lesson_diffusion_arc.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_diffusion_arc-35b1115da01c49fb)
+
+running 3 tests
+test one_sphere_three_ways_agree ... ok
+test exact_profile_limits_and_fv_profile ... ok
+test particle_setups_and_atops_formulas ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/lesson_fission_cascades.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_fission_cascades-08510f5da99ae10a)
+
+running 6 tests
+test diffusion_series_from_boon_lay ... ok
+test kinematics_hand_cases ... ok
+test rounding_and_q_intervals ... ok
+test nudat_masses_read ... ok
+test endf_text_readers ... ok
+test decay_chains_from_boon_lay ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running tests/lesson_triso_atops.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_triso_atops-1c493caaa9e6b544)
+
+running 5 tests
+test constants_groups_and_clamps ... ok
+test small_helpers ... ok
+test normal_operation_is_linear_in_the_fractions ... ok
+test release_models ... ok
+test venting_only_while_heating ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/lesson_triso_kernel.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/lesson_triso_kernel-436c96ac2920f3e5)
+
+running 5 tests
+test booth_limits ... ok
+test kernel_conduction ... ok
+test the_codes_lumping ... ok
+test monte_carlo_against_booth ... ok
+test half_lives ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+

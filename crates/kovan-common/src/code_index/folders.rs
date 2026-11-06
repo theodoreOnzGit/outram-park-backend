@@ -394,6 +394,9 @@ pub fn build(input: &BuildInput) -> Built {
     report.skipped_items.sort();
     for (dir, fi) in &mut folders {
         fi.test_run = input.test_runs.get(dir).cloned();
+        // The targeted run (GitHub #1052) is carried from the previous
+        // index as it was, like `[test_run]`.
+        fi.targeted_run = input.previous.get(dir).and_then(|p| p.targeted_run.clone());
         let md = if dir.is_empty() {
             "review.md".to_string()
         } else {

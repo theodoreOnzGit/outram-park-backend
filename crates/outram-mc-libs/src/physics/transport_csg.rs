@@ -1362,6 +1362,117 @@ pub(crate) struct HistoryOutcome {
     pub leak_infinity: u64,
 }
 
+/// Record one phase-space state on the current track, if capturing (GitHub
+/// #271), and report it to the step observer (gh:#784).
+///
+/// `None` for `tracks` records nothing and costs a single `Option` check.
+/// Neither recording nor observing draws a random number, so a run with them
+/// on gives the same eigenvalue bit for bit as one without.
+#[allow(clippy::too_many_arguments)]
+fn record_track_state<O: FnMut(TraceEvent)>(
+    tracks: &mut Option<&mut TrackRecorder>,
+    observe: &mut O,
+    r: Position,
+    u: Direction,
+    e: f64,
+    time_s: f64,
+    w: f64,
+    event: TrackEvent,
+    cell: usize,
+    material: Option<usize>,
+) {
+    let state = TrackState {
+        r,
+        u,
+        energy: e,
+        time: time_s,
+        weight: w,
+        cell,
+        material,
+        event,
+    };
+    if let Some(t) = tracks.as_deref_mut() {
+        t.record(state);
+    }
+    observe(TraceEvent::State(state));
+}
+
+/// One weight-window checkpoint. Upstream has two,
+/// `weight_window_checkpoint_surface` and `weight_window_checkpoint_collision`;
+/// both call the same routine, so this is written once and called at both
+/// places.
+///
+/// Returns `true` when the game kills the particle, so the caller can end the
+/// history with the control flow its call site needs. A rouletted particle is
+/// not a leak and not an absorption; it is an estimator decision, and scoring
+/// it anywhere would double-count the weight the survivors already carry.
+/// On `Survived` / `Split` the weight `w` is updated in place; a split pushes
+/// `copies - 1` daughters onto `stack`.
+#[allow(clippy::too_many_arguments)]
+fn weight_window_checkpoint(
+    vr: &VarianceReduction,
+    r: Position,
+    u: Direction,
+    e: f64,
+    w: &mut f64,
+    ww_state: &mut WindowState,
+    seed: &mut u64,
+    my_group: Option<usize>,
+    time_s: f64,
+    stack: &mut Vec<(Site, f64, Option<u64>, WindowState, f64)>,
+) -> bool {
+    /// Jump-ahead distance between a weight-window split child's stream and
+    /// its parent's. `DEFAULT_STRIDE` is the per-particle stride the crate
+    /// already uses to separate history streams (`rng::lcg::init_seed`), so a
+    /// split child is as independent of its parent as two source particles
+    /// are of each other.
+    const SPLIT_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
+    if let Some(ww) = vr.weight_windows.as_ref() {
+        if let Some(window) = ww.look_up(r, e) {
+            match apply_window(window, ww_state, *w, seed) {
+                WindowOutcome::Unchanged => {}
+                WindowOutcome::Killed => return true,
+                WindowOutcome::Survived { weight } => *w = weight,
+                WindowOutcome::Split { copies, weight } => {
+                    // `copies - 1` new particles, each on its own
+                    // jumped-ahead stream; this one carries the
+                    // last share. Total weight is conserved
+                    // exactly - pinned by
+                    // `splitting_conserves_total_weight`.
+                    let mut child_seed = *seed;
+                    for _ in 1..copies {
+                        child_seed = crate::rng::lcg::future_seed(SPLIT_STRIDE, child_seed);
+                        stack.push((
+                            Site {
+                                r,
+                                u,
+                                e,
+                                delayed_group: my_group,
+                                parent_lifetime_s: 0.0,
+                            },
+                            weight,
+                            Some(child_seed),
+                            // `apply` has already charged this
+                            // split to `n_split`; the daughters
+                            // inherit that count and the parent's
+                            // birth anchors, so the cascade is
+                            // bounded and the window they see is
+                            // the window the parent saw.
+                            *ww_state,
+                            // A split daughter is the SAME particle
+                            // continuing, so its clock is the
+                            // parent's reading, not zero.
+                            time_s,
+                        ));
+                    }
+                    *w = weight;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// One history of the CSG k-eigenvalue kernel, with an explicit
 /// variance-reduction configuration. (The analog-only `transport_history`
 /// wrapper was removed 2026-09-30, GitHub #461: its one caller, the parallel
@@ -1530,12 +1641,6 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     let mut neg_from_lattice: u64 = 0;
     let mut neg_from_surface: u64 = 0;
     const NUDGE: f64 = 1.0e-9;
-    /// Jump-ahead distance between a weight-window split child's stream and
-    /// its parent's. `DEFAULT_STRIDE` is the per-particle stride the crate
-    /// already uses to separate history streams (`rng::lcg::init_seed`), so a
-    /// split child is as independent of its parent as two source particles
-    /// are of each other.
-    const SPLIT_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
     /// Jump-ahead distance for the delayed-group sub-stream. A different
     /// multiple of the per-particle stride from `SPLIT_STRIDE`, so a split
     /// child's stream and the delayed-group stream of the same history cannot
@@ -1654,93 +1759,6 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
             }
         }
 
-        /// Record one phase-space state on the current track, if capturing.
-        ///
-        /// A macro rather than a closure because the state is assembled from
-        /// locals the closure would have to borrow mutably alongside the
-        /// recorder.
-        macro_rules! track {
-            ($event:expr, $cell:expr, $material:expr) => {{
-                let state = TrackState {
-                    r,
-                    u,
-                    energy: e,
-                    time: time_s,
-                    weight: w,
-                    cell: $cell,
-                    material: $material,
-                    event: $event,
-                };
-                if let Some(t) = tracks.as_deref_mut() {
-                    t.record(state);
-                }
-                observe(TraceEvent::State(state));
-            }};
-        }
-
-        /// One weight-window checkpoint. Upstream has two,
-        /// `weight_window_checkpoint_surface` and
-        /// `weight_window_checkpoint_collision`; both call the same routine,
-        /// so this is written once and invoked at both places.
-        ///
-        /// `$kill` is what to do when the game kills the particle — the two
-        /// call sites sit at different points in the loop and need different
-        /// control flow.
-        macro_rules! weight_window_checkpoint {
-            ($kill:expr) => {
-                if let Some(ww) = vr.weight_windows.as_ref() {
-                    if let Some(window) = ww.look_up(r, e) {
-                        match apply_window(window, &mut ww_state, w, seed) {
-                            WindowOutcome::Unchanged => {}
-                            WindowOutcome::Killed => {
-                                // A rouletted particle is not a leak and not an
-                                // absorption; it is an estimator decision, and
-                                // scoring it anywhere would double-count the
-                                // weight the survivors already carry.
-                                $kill
-                            }
-                            WindowOutcome::Survived { weight } => w = weight,
-                            WindowOutcome::Split { copies, weight } => {
-                                // `copies - 1` new particles, each on its own
-                                // jumped-ahead stream; this one carries the
-                                // last share. Total weight is conserved
-                                // exactly - pinned by
-                                // `splitting_conserves_total_weight`.
-                                let mut child_seed = *seed;
-                                for _ in 1..copies {
-                                    child_seed =
-                                        crate::rng::lcg::future_seed(SPLIT_STRIDE, child_seed);
-                                    stack.push((
-                                        Site {
-                                            r,
-                                            u,
-                                            e,
-                                            delayed_group: my_group,
-                                            parent_lifetime_s: 0.0,
-                                        },
-                                        weight,
-                                        Some(child_seed),
-                                        // `apply` has already charged this
-                                        // split to `n_split`; the daughters
-                                        // inherit that count and the parent's
-                                        // birth anchors, so the cascade is
-                                        // bounded and the window they see is
-                                        // the window the parent saw.
-                                        ww_state,
-                                        // A split daughter is the SAME particle
-                                        // continuing, so its clock is the
-                                        // parent's reading, not zero.
-                                        time_s,
-                                    ));
-                                }
-                                w = weight;
-                            }
-                        }
-                    }
-                }
-            };
-        }
-
         'history: loop {
             events += 1;
             if events > MAX_EVENTS {
@@ -1755,7 +1773,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     x.leak(e, w);
                 }
                 ends.record_leak();
-                track!(TrackEvent::Lost, usize::MAX, None);
+                record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             }
             // Locate: which cell/material are we in?
@@ -1768,7 +1786,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     x.leak(e, w);
                 }
                 ends.record_leak();
-                track!(TrackEvent::Lost, usize::MAX, None);
+                record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             };
             let leaf = *path.leaf();
@@ -2107,7 +2125,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     if w < cutoff {
                         w = russian_roulette(w, survive, seed);
                         if w == 0.0 {
-                            track!(TrackEvent::Rouletted, cell_idx, Some(m));
+                            record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, Some(m));
                             break 'history;
                         }
                     }
@@ -2182,11 +2200,11 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         });
                     }
                     ends.record_fission_end(e);
-                    track!(TrackEvent::Fission, cell_idx, Some(m));
+                    record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Fission, cell_idx, Some(m));
                     break 'history; // fission absorbs the incident neutron
                 } else if xi < x.absorption {
                     ends.record_capture();
-                    track!(TrackEvent::Absorption, cell_idx, Some(m));
+                    record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Absorption, cell_idx, Some(m));
                     break 'history; // capture
                 } else if xi < x.absorption + x.inelastic {
                     let (e2, u2) = match nuc.sample_inelastic(e, seed) {
@@ -2559,15 +2577,26 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     e = e2;
                     u = u2;
                 }
-                track!(TrackEvent::Scatter, cell_idx, Some(m));
+                record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Scatter, cell_idx, Some(m));
                 // `weight_window_checkpoint_collision` — AFTER the outgoing
                 // energy is set, because the window is resolved in energy and
                 // the particle's importance is that of where it is going, not
                 // where it came from.
-                weight_window_checkpoint!({
-                    track!(TrackEvent::Rouletted, cell_idx, Some(m));
+                if weight_window_checkpoint(
+                    vr,
+                    r,
+                    u,
+                    e,
+                    &mut w,
+                    &mut ww_state,
+                    seed,
+                    my_group,
+                    time_s,
+                    &mut stack,
+                ) {
+                    record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, Some(m));
                     break 'history;
-                });
+                }
             } else {
                 // ── Boundary crossing ──────────────────────────────────────
                 path_cm += d_bound.distance;
@@ -2615,7 +2644,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 x.leak(e, w);
                             }
                             ends.record_leak();
-                            track!(TrackEvent::Leak, cell_idx, path.material);
+                            record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Leak, cell_idx, path.material);
                             break 'history;
                         }
                         r = crossed.r;
@@ -2624,7 +2653,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         // so the next `locate` cannot re-select the cell it just
                         // left (GitHub #168 — see `Geometry::cross_surface`).
                         on_surface = crossed.on_surface;
-                        track!(TrackEvent::SurfaceCrossing, cell_idx, path.material);
+                        record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::SurfaceCrossing, cell_idx, path.material);
                         // `surf_source_` with NO boundary condition: record
                         // AFTER the crossing. The far-side state is what a
                         // replayed particle must start from.
@@ -2640,10 +2669,21 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                             }
                         }
                         // `weight_window_checkpoint_surface`.
-                        weight_window_checkpoint!({
-                            track!(TrackEvent::Rouletted, cell_idx, path.material);
+                        if weight_window_checkpoint(
+                            vr,
+                            r,
+                            u,
+                            e,
+                            &mut w,
+                            &mut ww_state,
+                            seed,
+                            my_group,
+                            time_s,
+                            &mut stack,
+                        ) {
+                            record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, path.material);
                             break 'history;
-                        });
+                        }
                     }
                     Crossing::Lattice => {
                         r = stream(r, u, NUDGE); // step into the next tile, re-locate
@@ -2657,7 +2697,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                             x.leak(e, w);
                         }
                         ends.record_leak();
-                        track!(TrackEvent::Leak, cell_idx, path.material);
+                        record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Leak, cell_idx, path.material);
                         break 'history;
                     }
                 }

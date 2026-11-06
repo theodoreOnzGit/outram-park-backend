@@ -1,0 +1,52 @@
+2026-10-23T11:21:22Z
+HTR-10 k_eff vs control-rod position (gh:#1025): rod 3 alone, nine withdrawn
+  2000 x [20 + 250], seed 20260917, 4 threads, 2 case(s) to run, 0 already in /tmp/claude-0/-home-user-outram-park-backend/6576d53b-079b-534d-83ec-90a54264f820/scratchpad/wt-rods/crates/dhoby-ghaut/verification_and_validation/htr10_rod_curve/single_s3_n12.csv
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  U_UO2    LEAPR 15.9s
+  O_UO2    LEAPR 25.3s
+  graphite S(a,b): tsl-reactor-graphite-30P.endf (MAT 32)
+  U235   161.7s
+  U238   126.6s
+  O16    4.9s
+  C12    1.3s
+  C12    1.4s
+  Si28   2.2s
+  B10    211.9ms
+  C12    1.3s
+  Si29   2.0s
+  Si30   1.6s
+  B11    1.5s
+  C13    224.6ms
+  C13    222.9ms
+  C13    302.0ms
+  He3    79.7ms
+  He4    46.5ms
+  Fe54   12.8s
+  Fe56   14.2s
+  Fe57   9.6s
+  Fe58   9.0s
+  Cr50   3.9s
+  Cr52   3.5s
+  Cr53   3.5s
+  Cr54   2.2s
+  Ni58   6.4s
+  Ni60   6.0s
+  Ni61   2.7s
+  Ni62   4.1s
+  Ni64   2.3s
+  Mn55   12.8s
+  Ti46   877.9ms
+  Ti47   436.8ms
+  Ti48   930.6ms
+  Ti49   530.8ms
+  Ti50   331.0ms
+  Si28   2.0s
+  Si29   2.1s
+  Si30   1.6s
+  data, materials and bed majorant: 544.7 s (38 nuclides)
+  case N = 12, z_T = 171.2 cm (insertion 0.189091): 43479 cells, rods at z_T Some([119.2, 119.2, 171.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2])
+  -> k = 0.98974 +/- 0.00167  (540000 histories, 0 lost, entropy 5.512 -> 5.462 bits, 3506 s)
+  case N = 12, z_T = 394.2 cm (insertion 1.000000): 43487 cells, rods at z_T Some([119.2, 119.2, 394.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2])
+2026-10-23T12:39:52Z STOPPED by hand during case 2 (S3 at 394.2): no per-cycle trace recorded; entropy convergence to be checked first (coordinator heartbeat). Case 1 kept in single_s3_n12.csv pending that check.

@@ -45,10 +45,11 @@ separate rendering model that must be kept in sync by hand.
 
 | Module | Status |
 |---|---|
-| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples. |
+| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples, and Crameri's Scientific colour maps. **Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`**, where the maps and tables now live byte for byte. |
 | `components/` | **Real wrappers.** Ten visual process objects, each composing its `tampines` (or `nee_soon`) physics counterpart. `instrumentation` is a deliberate visual-only label/value placeholder — `nee_soon` exposes no instrumentation-readout type to wrap yet. |
 | `animation/` | **Real.** Flow-tracer kinematics: `TracerTrain`, `residence_time_from_flow`, and the `FlowTracer`/`TravelTime` trait contracts. |
 | `app_scaffold/` | **Real.** `Arc<Mutex<_>>` physics-thread + panel-dispatch pattern, plus the thread-panic "please restart" modal. |
+| `multifidelity/` | **AI draft, rung 1 of gh:#1177 (gh:#1178).** `double_pipe`: runs the double-pipe conjugate-heat-transfer CFD (`outram-foam-appbuilder-lib`) and the TUAS 1-D shell-and-tube exchanger (one tube) at the same design points, reads Nusselt and friction closures off the CFD, and interpolates them. The committed dataset and the rung-3 interface (`one_d::evaluate(&x, &θ)`) are documented in the module. Infrastructure: no correlation of its own. V&V record: `verification_and_validation/hf_lf_double_pipe_gh1178.md`. |
 
 ### Flow tracers
 
@@ -244,6 +245,21 @@ which the desktop thread and `examples/ciet_web` both call. Build with
 ```bash
 cargo run --release --example ciet_web -- --headless 600 10 8   # CSV trace, 8 kW
 crates/outram-park-digital-twin-engine/web/ciet/build.sh        # the browser demo
+```
+
+### Two more browser demos, moved from `dhoby-ghaut` (2026-11-05)
+
+`fukushima_web` (the Fukushima Daiichi Unit 1 station blackout, plant model
+`sembawang::bwr_mark1`, published password-gated at `demos/fukushima/`) and
+`double_pipe_twin_web` (the double-pipe high-to-low-fidelity twin, gh:#1182,
+`demos/double-pipe-twin/`, record
+[`verification_and_validation/double_pipe_twin_web_gh1182/`](verification_and_validation/double_pipe_twin_web_gh1182/README.md))
+moved here with their `web/` pages (maintainer, 2026-11-05: "if web examples live in dhoby ghaut, and this causes the dependency cycle, let the web examples deploy from digital twin engine instead"). Both are
+built on `bugis::web_demo`; the published URLs are unchanged.
+
+```bash
+crates/outram-park-digital-twin-engine/web/fukushima/build.sh
+crates/outram-park-digital-twin-engine/web/double_pipe_twin/build.sh
 ```
 
 Documentation:

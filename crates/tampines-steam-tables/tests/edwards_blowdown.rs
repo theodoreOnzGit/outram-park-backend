@@ -128,6 +128,26 @@
 //! **125.3 → 98.2 lbm/s**; drained-cell holds 0 → 0. Under van Leer the case
 //! went from a failure at ≈ 0.12 s to a full 600 ms pass (358.3 / 19.9 psia).
 //!
+//! **Moved 2026-11-02 (gh:#1111): the break's subcooled critical-flow solver
+//! changed** to a forward-consistent stagnation and a continuous global
+//! maximum, with the `x < 0.03` / `DEEP_SUBCOOLING_RATIO` switches removed.
+//! Re-measured on row 1 (Linear, all defaults), before vs after on the same
+//! tree with only the three solver files swapped, release:
+//! - break-flow peak 98.2 → **101.0 lbm/s**;
+//! - GS-1 plateau 360.5 → **364.0 psia**;
+//! - GS-1 RMSE 17.2 → **20.5 psia** (worse);
+//! - GS-1 `p @ t_end` 14.2 → 13.7 psia;
+//! - bound events 0 → 0, holds 0 → 0.
+//!
+//! The test still passes. The other rows were not re-run. Quote the new
+//! row-1 numbers. See `hem_pipe_vs_exact_riemann_and_edwards.md` §12.
+//! **Traced (same day):** the RMSE rise is entirely the t = 0.020 s point.
+//! Without it, the 15-point RMSE is 17.65 → 17.60 psia. That point follows
+//! from the 1 ms disc opening, where the old solver clipped the break flux to
+//! 15 610 kg/(m² s) for liquid 0.3–3.3 MPa above `p_sat`; the new solver
+//! gives the continuous Bernoulli value (e.g. 47 430 at 3.87 MPa). See §12,
+//! "Tracing".
+//!
 //! **The predictions, scored:**
 //!
 //! - *A1 adaptive Δt — plateau barely changes:* **right** (360.2 vs 360.5),

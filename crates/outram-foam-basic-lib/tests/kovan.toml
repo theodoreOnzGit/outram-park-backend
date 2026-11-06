@@ -2,6 +2,26 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/tests"
+test_ids = [
+    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_dispatch_floors_are_enforced",
+    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_gpu_degrades_and_does_not_lie",
+    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_parity_serial_vs_cpu_multi",
+    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_parity_serial_vs_gpu",
+    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_thread_count_invariance",
+    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::machine_load_report",
+    "crates/outram-foam-basic-lib/tests/io_roundtrip.rs::dict_roundtrip",
+    "crates/outram-foam-basic-lib/tests/io_roundtrip.rs::field_scalar_roundtrip",
+    "crates/outram-foam-basic-lib/tests/io_roundtrip.rs::field_vector_roundtrip",
+    "crates/outram-foam-basic-lib/tests/io_roundtrip.rs::poly_mesh_roundtrip",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::krylov_beats_gauss_seidel_on_convection_diffusion",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::krylov_matches_dense_lu_on_convection_diffusion",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::solve_krylov_dispatch_matches_the_named_entry_points",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::warm_started_krylov_costs_fewer_iterations",
+    "crates/outram-foam-basic-lib/tests/nnc261_solve.rs::nnc261_lu_roundtrip",
+    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::corrected_laplacian_recovers_a_linear_field_on_a_wavy_mesh",
+    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::least_squares_gradient_is_exact_for_a_linear_field_on_a_wavy_mesh",
+    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::limited_scheme_is_monotone_between_orthogonal_and_corrected",
+]
 
 [module."hybrid_parity.rs"]
 path = "test:hybrid_parity"
@@ -1969,3 +1989,29 @@ uses = [
     "fn:f354cdd32c8e9ebe",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+failed = []

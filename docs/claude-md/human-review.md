@@ -49,7 +49,10 @@ reviewer key, whoever asks. ~~never run `kovan-cli stamp` or
 `review_stamps::stamp_function`, and never pass `--i-am-the-reviewer`;
 agents may run `kovan-cli stamps-check` and `stamps-levels`~~ (removed
 2026-10-10, #825). Agents may run `kovan-cli review ivv`, and must report a
-stale stamp their change causes rather than work around it. Stamping is done
+stale stamp their change causes rather than work around it. Agents may
+record why a function looks right or wrong with `kovan-cli review justify`
+(GitHub #1019): an unsigned, agent-drafted entry that never counts as
+review. Stamping is done
 by the maintainer in desktop kovan (#740).
 
 ## What none of this replaces

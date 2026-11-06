@@ -63,7 +63,10 @@ use crate::interfaces::functional_programming::ph_flash_eqm::{
     ph_flash_region, t_ph_eqm, v_ph_eqm, w_ph_eqm_hem, x_ph_flash,
 };
 use crate::interfaces::functional_programming::pt_flash_eqm::{h_tp_eqm_single_phase, FwdEqnRegion};
-use crate::region_2_vapour::v_tp_2;
+use crate::region_2_vapour::{h_tp_2, u_tp_2, v_tp_2, w_tp_2};
+use crate::region_1_subcooled_liquid::{cp_tp_1, h_tp_1, s_tp_1, u_tp_1, v_tp_1, w_tp_1};
+use crate::dynamic_viscosity::mu_rho_t_eqm;
+use uom::si::f64::DynamicViscosity;
 use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
 use crate::steam_turbine_equations::converging_diverging_nozzles::choked_flow::get_critical_pressure_and_mass_flux_multiphase_ph;
 
@@ -97,6 +100,85 @@ fn steam_err(context: &str, e: SteamTablesError) -> HemError {
 }
 
 impl Iapws97Hem {
+    /// Isentropic enthalpy drop `h0 − h(p_b, s0)` [J/kg] and exit density
+    /// `ρ(p_b, s0)` [kg/m³] for a Region 1 (subcooled liquid) stagnation state
+    /// whose isentrope is **still liquid at the back pressure** (no flashing
+    /// before `p_b`). `Ok(None)` when that does not hold (stagnation not
+    /// Region 1, or the exit is at or below saturation, or above 623.15 K);
+    /// the caller then takes the general `(p, s)` route.
+    ///
+    /// **Forward equations only** (gh:#1102). The general route subtracts two
+    /// enthalpies that each pass through an IF97 backward equation
+    /// (`s0 = s(p0, T_ph(p0, h0))`, `h_b = h(p_b, T_ps(p_b, s0))`); their
+    /// consistency error is tens of J/kg in cold liquid, the same size as
+    /// `∫v dp ≈ v Δp` at a sub-bar Δp, so `h0 − h_b` came out negative
+    /// (2.31 → 1.50 bar at 300 K: −6.8 J/kg against ≈ +81 J/kg) or ~45 % low
+    /// (3 → 1 bar: 113 against ≈ 200 J/kg). Here the stagnation temperature
+    /// `T0 = T_ph(p0, h0)` defines the state, and `h0`, `s0`, `h_b`, `ρ_b` all
+    /// come from the Region 1 Gibbs equation, with `T_b` solved by Newton on
+    /// `s_1(T, p_b) = s0` (`∂s/∂T|_p = c_p/T`). The drop is then the exact
+    /// integral of `v dp` along the IF97 isentrope, positive and continuous
+    /// down to `Δp → 0`, and tends to the incompressible Bernoulli
+    /// `Δh = v Δp`. ~~The cost is that the stagnation enthalpy used is
+    /// `h_1(T0, p0)`, which differs from the given `h0` by the backward
+    /// `T(p, h)` consistency error (IF97: |ΔT| ≤ 25 mK).~~ **CORRECTED
+    /// 2026-11-02 (gh:#1111):** `T0` is now refined by Newton on the forward
+    /// equation, `h_1(T0, p0) = h0`
+    /// (`choked_flow::basic_multiphase_equations::t_ph_region_1_forward`), so
+    /// the given `h0` is kept to round-off. The subcooled critical solver uses
+    /// the same `T0`, so the choked and unchoked branches meet at `p*`.
+    ///
+    /// # Errors
+    ///
+    /// [`HemError::EquationOfState`] if the Newton iteration does not converge
+    /// to `|ΔT| ≤ 1e-12 T` in 50 steps; never replaced by a default.
+    fn liquid_isentropic_drop(
+        p0: Pressure,
+        h0: AvailableEnergy,
+        pb: Pressure,
+    ) -> Result<Option<(f64, f64)>, HemError> {
+        const T_REGION_1_MAX_K: f64 = 623.15;
+        let Some(t0) = crate::steam_turbine_equations::converging_diverging_nozzles::choked_flow::basic_multiphase_equations::t_ph_region_1_forward(p0, h0) else {
+            return Ok(None);
+        };
+        if t0.get::<kelvin>() > T_REGION_1_MAX_K {
+            return Ok(None);
+        }
+        let s0 = s_tp_1(t0, p0);
+        let h0_fwd = h_tp_1(t0, p0).get::<joule_per_kilogram>();
+        let mut t = t0.get::<kelvin>();
+        let mut converged = false;
+        for _ in 0..50 {
+            let tk = ThermodynamicTemperature::new::<kelvin>(t);
+            let ds = (s_tp_1(tk, pb) - s0).value;
+            let dt = ds * t / cp_tp_1(tk, pb).value;
+            t -= dt;
+            if dt.abs() <= 1e-12 * t {
+                converged = true;
+                break;
+            }
+        }
+        if !converged {
+            return Err(HemError::EquationOfState {
+                cell: None,
+                detail: format!(
+                    "IF97 liquid isentrope from p0 = {} Pa, T0 = {} K to p_b = {} Pa: \
+                     Newton on s(T, p_b) = s0 did not converge in 50 steps (last T = {t} K)",
+                    p0.get::<pascal>(),
+                    t0.get::<kelvin>(),
+                    pb.get::<pascal>()
+                ),
+            });
+        }
+        let tb = ThermodynamicTemperature::new::<kelvin>(t);
+        if !(273.15..=T_REGION_1_MAX_K).contains(&t) || pb <= sat_pressure_4(tb) {
+            return Ok(None);
+        }
+        let dh = h0_fwd - h_tp_1(tb, pb).get::<joule_per_kilogram>();
+        let rho_b = v_tp_1(tb, pb).get::<cubic_meter_per_kilogram>().recip();
+        Ok(Some((dh, rho_b)))
+    }
+
     /// Lower pressure bound of the `(p,h)` domain, `p_sat(273.15 K)`, Pa.
     fn p_min_pa() -> f64 {
         sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(273.15)).get::<pascal>()
@@ -136,6 +218,55 @@ impl Iapws97Hem {
 impl HemEquationOfState for Iapws97Hem {
     fn name(&self) -> &'static str {
         "IAPWS-IF97"
+    }
+
+    /// IAPWS viscosity at `(T, ρ)` for a single-phase state. Inside the dome,
+    /// RELAP-7's HEM mixture rule (§3.3.2, Eq 222), `μ = (1 − α)μ_f + αμ_g`,
+    /// with the saturated phases' viscosities at `T_sat` and their IF97
+    /// region-1 and region-2 densities at `p` (gh:#1061).
+    /// The saturated phases at `T_sat(p)` from the IF97 region-1 and region-2
+    /// equations (valid at saturation up to 623.15 K, `p ≤ 16.529 MPa`; above
+    /// it `None`). Each phase carries its own single-phase sound speed, since
+    /// a separated stream is a pure phase, not the equilibrium mixture.
+    fn saturated_phases(&self, state: &HemThermoState) -> Option<(HemThermoState, HemThermoState)> {
+        state.quality?;
+        let p = state.pressure;
+        if p.get::<pascal>() > 16.529e6 {
+            return None;
+        }
+        let t = sat_temp_4(p);
+        let phase = |v: SpecificVolume, h: AvailableEnergy, u: AvailableEnergy, c: Velocity, alpha: f64| HemThermoState {
+            pressure: p,
+            temperature: t,
+            density: MassDensity::new::<kilogram_per_cubic_meter>(v.get::<cubic_meter_per_kilogram>().recip()),
+            specific_internal_energy: u,
+            specific_enthalpy: h,
+            equilibrium_sound_speed: c,
+            quality: None,
+            void_fraction: Ratio::new::<ratio>(alpha),
+        };
+        Some((
+            phase(v_tp_1(t, p), h_tp_1(t, p), u_tp_1(t, p), w_tp_1(t, p), 0.0),
+            phase(v_tp_2(t, p), h_tp_2(t, p), u_tp_2(t, p), w_tp_2(t, p), 1.0),
+        ))
+    }
+
+    fn dynamic_viscosity(&self, state: &HemThermoState) -> Option<DynamicViscosity> {
+        let t = state.temperature;
+        match state.quality {
+            None => Some(mu_rho_t_eqm(t, state.density)),
+            Some(_) => {
+                let p = state.pressure;
+                let rho_f = MassDensity::new::<kilogram_per_cubic_meter>(
+                    1.0 / v_tp_1(t, p).get::<cubic_meter_per_kilogram>(),
+                );
+                let rho_g = MassDensity::new::<kilogram_per_cubic_meter>(
+                    1.0 / v_tp_2(t, p).get::<cubic_meter_per_kilogram>(),
+                );
+                let alpha = state.void_fraction.get::<ratio>();
+                Some(mu_rho_t_eqm(t, rho_f) * (1.0 - alpha) + mu_rho_t_eqm(t, rho_g) * alpha)
+            }
+        }
     }
 
     fn state_rho_e(
@@ -251,7 +382,13 @@ impl HemEquationOfState for Iapws97Hem {
     ///   [`get_critical_pressure_and_mass_flux_multiphase_ph`]. If
     ///   `p* > back_pressure` the break is choked at `G*`.
     /// - If not choked, the subcritical isentropic nozzle flux to the back
-    ///   pressure, `G = ρ(p_b, s0)·√(2(h0 − h(p_b, s0)))`.
+    ///   pressure, `G = ρ(p_b, s0)·√(2(h0 − h(p_b, s0)))`. When the stagnation
+    ///   state is subcooled liquid and the isentrope is still liquid at `p_b`
+    ///   (no flashing before the back pressure), `h0 − h(p_b, s0)` and
+    ///   `ρ(p_b, s0)` come from the Region 1 forward equations
+    ///   (`liquid_isentropic_drop`), which tends to the incompressible
+    ///   Bernoulli `G = √(2ρΔp)` as `Δp → 0` (gh:#1102). Otherwise they come
+    ///   from the `(p, s)` flashes.
     ///
     /// **Panics** if the critical-flow dispatcher fails to bracket its own
     /// root ("unable to find bracket for critical mass flux root finding");
@@ -282,6 +419,16 @@ impl HemEquationOfState for Iapws97Hem {
             return Ok(BreakFlow {
                 mass_flux: g_crit,
                 choked: true,
+            });
+        }
+        if let Some((dh, rho_b)) =
+            Self::liquid_isentropic_drop(stagnation_pressure, stagnation_enthalpy, back_pressure)?
+        {
+            return Ok(BreakFlow {
+                mass_flux: MassFlux::new::<kilogram_per_square_meter_second>(
+                    rho_b * (2.0 * dh).sqrt(),
+                ),
+                choked: false,
             });
         }
         let s0 = try_s_ph_eqm(stagnation_pressure, stagnation_enthalpy)

@@ -46,6 +46,15 @@
 //!
 //! This module is GUI-free and, like [`crate::animation`], builds on
 //! Android/Termux. Do not add `egui`/`eframe` imports here.
+//!
+//! **CORRECTED 2026-11-03** -- `animation` now lives in `bugis::animation`
+//! (moved 2026-11-02, gh:#1112) and is only re-exported here. This module is
+//! still GUI-free (checked: no `egui`/`eframe` use under `src/htr10/`), but
+//! the *crate's* Android check fails for unrelated `app_scaffold` reasons
+//! (gh:#239; see the crate `CLAUDE.md`), so "builds on Android" holds for
+//! this module's source only, not for the crate. **Not re-checked** on
+//! Android: the `aarch64-linux-android` target is not installed in the
+//! session that made this note.
 
 pub mod design;
 pub mod kta;

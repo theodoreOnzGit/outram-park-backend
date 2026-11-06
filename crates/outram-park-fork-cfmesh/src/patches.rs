@@ -69,6 +69,8 @@
 //! Pure Rust, no dependencies, Android-safe.
 
 use crate::math::Vec3;
+use crate::mesh_octree::MeshOctree;
+pub use crate::mesh_octree_queries::SurfaceSearch;
 use crate::snap::closest_point_on_surface;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 
@@ -255,6 +257,22 @@ pub fn assign_patches_by_region(
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
 ) -> Result<VolumeMesh, String> {
+    assign_patches_by_region_with(mesh, points, tris, regions, SurfaceSearch::BruteForce)
+}
+
+/// [`assign_patches_by_region`] with the nearest-triangle search chosen by
+/// `search` (gh:#1263). [`SurfaceSearch::BruteForce`] is the default route
+/// above; [`SurfaceSearch::Octree`] builds cfMesh's surface octree
+/// ([`crate::mesh_octree`]) and asks it with the exact stopping rule and the
+/// same projection and tie rule, so the result is bit-identical (pinned by
+/// `nearest_triangle_routes_agree`).
+pub fn assign_patches_by_region_with(
+    mesh: &VolumeMesh,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    search: SurfaceSearch,
+) -> Result<VolumeMesh, String> {
     regions.validate(tris.len())?;
     if tris.is_empty() {
         return Err("cannot assign patches against a surface with no triangles".into());
@@ -268,12 +286,19 @@ pub fn assign_patches_by_region(
 
     // Bucket every boundary face by the region of its nearest input triangle.
     let mut buckets: Vec<Vec<usize>> = vec![Vec::new(); regions.region_count()];
+    let octree = match search {
+        SurfaceSearch::BruteForce => None,
+        SurfaceSearch::Octree => Some(MeshOctree::for_nearest_queries(points, tris)),
+    };
     for f in 0..mesh.face_count() {
         if mesh.neighbour[f].is_some() {
             continue;
         }
         let c = mesh.face_centroid(f);
-        let t = nearest_triangle(c, points, tris);
+        let t = match &octree {
+            None => nearest_triangle(c, points, tris),
+            Some(o) => o.closest_point_exact(c).1,
+        };
         buckets[regions.region_of_tri[t]].push(f);
     }
 
@@ -305,7 +330,7 @@ pub fn assign_patches_by_region(
 /// Index of the surface triangle closest to `p`, by exact point-to-triangle
 /// distance. Triangles whose bounding box is already further than the current
 /// best are rejected without the full distance evaluation.
-fn nearest_triangle(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> usize {
+pub(crate) fn nearest_triangle(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> usize {
     let mut best = 0usize;
     let mut best_d2 = f64::MAX;
     for (i, t) in tris.iter().enumerate() {
@@ -342,6 +367,56 @@ mod tests {
     use super::*;
     use crate::carve::carve_box;
     use crate::shapes::box_surface;
+
+    /// V&V (gh:#1263): the opt-in octree route of the nearest-triangle and
+    /// closest-point searches is **bit-identical** to the brute force on the
+    /// same mesh. Methodology: the 48-sided pipe (R 10 mm, L 60 mm, regions
+    /// inlet / outlet / walls) carved at 2 mm, snapped, and its boundary
+    /// faces assigned to patches, once per route; and the sphere R 3 (24 x 48)
+    /// carved at 0.5 m and snapped. Prediction: every point coordinate and
+    /// every face, owner, neighbour and patch equal (the octree route uses the
+    /// same projection and tie rule, with the exact stopping rule). Result
+    /// (2026-11-05): equal, as asserted.
+    #[test]
+    fn nearest_triangle_routes_agree() {
+        use crate::snap::{snap_to_surface, snap_to_surface_with};
+        let (p, t) = crate::shapes::cylinder_surface(Vec3::ZERO, 0.01, 0.06, 48);
+        let labels: Vec<&str> = t
+            .iter()
+            .map(|tri| {
+                let z = [p[tri[0]].z, p[tri[1]].z, p[tri[2]].z];
+                let flat = (z[0] - z[1]).abs() < 1e-12 && (z[1] - z[2]).abs() < 1e-12;
+                match (flat, z[0] < 0.03) {
+                    (true, true) => "inlet",
+                    (true, false) => "outlet",
+                    _ => "walls",
+                }
+            })
+            .collect();
+        let regions = SurfaceRegions::from_labels(&labels);
+        let carved = carve_box(&p, &t, 0.002);
+        let a = snap_to_surface(&carved, &p, &t);
+        let b = snap_to_surface_with(&carved, &p, &t, SurfaceSearch::Octree);
+        assert!(same_mesh(&a, &b), "snapped pipe");
+        let pa = assign_patches_by_region(&a, &p, &t, &regions).unwrap();
+        let pb = assign_patches_by_region_with(&a, &p, &t, &regions, SurfaceSearch::Octree).unwrap();
+        assert!(same_mesh(&pa, &pb), "patched pipe");
+        assert_eq!(pa.patches.len(), 3);
+        let (sp, st) = crate::shapes::sphere_surface(Vec3::ZERO, 3.0, 24, 48);
+        let c = carve_box(&sp, &st, 0.5);
+        assert!(same_mesh(&snap_to_surface(&c, &sp, &st), &snap_to_surface_with(&c, &sp, &st, SurfaceSearch::Octree)), "sphere");
+    }
+
+    /// Bitwise equality of two meshes (points by bits, topology, patches).
+    fn same_mesh(a: &VolumeMesh, b: &VolumeMesh) -> bool {
+        let bits = |m: &VolumeMesh| m.points.iter().map(|p| [p.x.to_bits(), p.y.to_bits(), p.z.to_bits()]).collect::<Vec<_>>();
+        bits(a) == bits(b)
+            && a.faces == b.faces
+            && a.owner == b.owner
+            && a.neighbour == b.neighbour
+            && a.n_cells == b.n_cells
+            && a.patches == b.patches
+    }
 
     /// The 12 triangles [`box_surface`] emits, in order, are two per face in the
     /// order `-Z, +Z, -Y, +Y, +X, -X`. Label `-X` as `inlet`, `+X` as `outlet`

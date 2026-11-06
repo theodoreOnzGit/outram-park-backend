@@ -74,15 +74,23 @@ things TAMPINES has that the CoolProp fork does not (as of 2026-07-10):
   curves** — 20+ active tests per file across the in-dome / subcooled /
   superheated / generic-dispatcher / backward-throat files
   (critical-pressure relative tolerance 0.005–0.05 by curve, mass-flux
-  log10 tolerance 0.05). **Marviken is now gated, with a split result**: the
+  log10 tolerance 0.05). **Update 2026-11-02 (gh:#1111): Marviken tests 23
+  and 24 are both validated gates.** The subcooled critical solver now takes
+  the continuous global maximum of `G` on a forward-consistent stagnation
+  state. Test 24 is at mean 10.4 % with 1 named miss of 40 (3193.6 kPa,
+  −25.6 %). Test 23 is at mean 13.9 % with 5 named misses of 29, the
+  scattered top of the envelope, −25.5 to −31.5 %. The named misses are
+  excluded from the per-point band, not covered by widening it. Moody 0.50 /
+  h = 2.2549 (err 0.120) is a named known miss. The paragraph below is the
+  2026-08-11 record. ~~**Marviken is now gated, with a split result**~~: the
   NUREG/CR-2671 test-23/24 data in `marviken_tests.rs` runs as six active
   tests (no `#[ignore]`, ~1.4 s). Against the 500 mm / `L/D` = 0.3 nozzle,
   the HEM dispatcher **validates on test 23** (3 K subcooling: mean
   deviation 12.6 %, worst 23.1 %, inside the justified $\pm 25\%$
   experimental band) but **fails on test 24** (33 K subcooling: mean
   $-48.5\%$, worst $-70.2\%$), so it is kept as an honest characterisation
-  and **the crate must not be called Marviken-validated for subcooled
-  stagnation states**. The bare HEM maximum-mass-flux criterion, evaluated
+  and ~~**the crate must not be called Marviken-validated for subcooled
+  stagnation states**~~ (superseded 2026-11-02, above). The bare HEM maximum-mass-flux criterion, evaluated
   in the same file from the public `(p,s)` flashes, reproduces *both* tests
   to a mean of 9–10 % — so the test-24 deficit is a branch-selection defect
   in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`, **not** an
@@ -134,9 +142,10 @@ reviewed by a human.
 
 # FHR Educational Simulator 
 
-**`fhr_sim_v2` moved to the `tampines` crate**
-(`crates/tampines/examples/fhr_sim_v2/`) -- run it from there with
-`cargo run --release -p tampines --example fhr_sim_v2`. It now runs its
+**`fhr_sim_v2` moved to the ~~`tampines`~~ `nee_soon` crate**
+(~~`crates/tampines/examples/fhr_sim_v2/`~~ `crates/nee_soon/examples/fhr_sim_v2/`;
+**CORRECTED 2026-11-05**, moved again (maintainer, 2026-11-05: "nee_soon depends on tampines, never the reverse")) -- run it from there with
+`cargo run --release -p nee_soon --example fhr_sim_v2`. It now runs its
 reactor kinetics through `teh-o-prke`'s Nordheim-Fuchs exact timestepper
 (10 ms timestep) instead of the numerical six-group PRKE solver this crate
 used to host. `fhr_sim_v1` remains in this crate (`examples/fhr_sim_v1/`).
@@ -194,7 +203,7 @@ a Fluoride Salt Cooled High Temperature Reactor (FHR) educational
 simulator. The secondary loop just runs at steady state (no transient 
 calculations for simplicity.
 ```bash
-cargo run --release -p tampines --example fhr_sim_v2
+cargo run --release -p nee_soon --example fhr_sim_v2
 ```
 
 ### Running the test suite
@@ -253,7 +262,7 @@ windows defender blocks the fhr_sim_v2 from being run. In those cases,
 it's better to use windows subsystem for linux (WSL), then run:
 
 ```bash
-cargo run --release -p tampines --example fhr_sim_v2
+cargo run --release -p nee_soon --example fhr_sim_v2
 ```
 
 **No system BLAS is required** (corrected 2026-08-11). This section used to tell
@@ -441,7 +450,9 @@ the transient array solver. Its outcome is split and is written up in the module
 doc of `marviken_tests.rs`: HEM validates against test 23 (3 K subcooling, mean
 deviation 12.6 %) and **fails** against test 24 (33 K subcooling, mean
 $-48.5\%$), with the deficit traced to a solver branch choice rather than to the
-equilibrium assumption. The full solver in appbuilder then consumes the *same*
+equilibrium assumption. **Update 2026-11-02 (gh:#1111):** with that branch
+removed, test 24 validates (mean 10.4 %) and test 23 still does (mean 13.9 %),
+each with named known misses; see `marviken_tests.rs`. The full solver in appbuilder then consumes the *same*
 tables one layer up.
 
 **Current choice (what was actually built, verified against `Cargo.toml`

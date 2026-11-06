@@ -82,9 +82,11 @@ whole core height (predicted before the run: strongly negative, of order
 
 **What this is not.** Not a comparison with the HTR-10 measured rod worth
 (TECDOC-1382's control-rod problems); the model's open −2726 pcm residual at
-the critical loading (gh:#333) is unresolved, and the one-rod problems are not
-representable (the rods move together). Re-measure with record statistics
-before quoting.
+the critical loading (gh:#333) is unresolved, and ~~the one-rod problems are not
+representable (the rods move together)~~ **CORRECTED 2026-10-23 (gh:#1025):**
+each rod can now be moved alone (`Htr10CoreDesign::rod_insertions`); the
+rod-worth comparisons are in `../htr10_rod_curve/`. Re-measure with record
+statistics before quoting.
 
 ## Same run, tapes from an extracted library (gh:#581)
 

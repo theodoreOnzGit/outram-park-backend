@@ -1,6 +1,12 @@
 # Scoping: a MELCOR-class severe-accident capability in OUTRAM PARK
 
-**Status:** scoping only — no code, no beads filed yet.
+~~**Status:** scoping only — no code, no beads filed yet.~~
+**Status, CORRECTED 2026-10-29 (gh:#1033):** no MELCOR-class code exists yet,
+and none of the phases below has begun. One **reduced** single-plant model now
+exists in the home crate: `sembawang::bwr_mark1`, Fukushima Daiichi Unit 1. It
+is lumped, with no CV/FL network and no COR state machine. It moved there from
+the `dhoby-ghaut` demo. Work is tracked in GitHub issues under epic #1028, not
+beads; the gap list is `docs/fukushima-melcor-gap-plan.md`.
 **Date:** 2026-08-04.
 **Question asked:** if we wanted to re-create MELCOR inside OUTRAM PARK, what
 are we missing, and what GPLv3-compatible libraries could be ported in?
@@ -35,13 +41,26 @@ and not open source. Obtaining it for translation would breach both its
 distribution terms and `RESEARCH_INTEGRITY_AND_PROVENANCE.md`.
 
 **MELCOR's reference manuals are public**, and that is the legitimate route.
-The unlimited-release SAND reports are on the NRC ADAMS public library:
+~~The unlimited-release SAND reports are on the NRC ADAMS public library:~~
+**CORRECTED 2026-10-29**: the SAND reports are *readable* on the NRC ADAMS
+public library, but they are **not marked unlimited release**. Vol. 1
+(SAND2017-0455 O, ML17040A429) and the 2023 Vol. 2 (SAND2023-10994 O,
+ML23116A100) were checked: neither has a public-release marking or a
+copyright or licence statement, and both are Sandia contractor reports, not
+NRC NUREG publications. So reading and citing them is fine, but they have no
+redistribution basis. Both are kept in the **private** literature repository
+(`propreitrary-literature-theodore`, `reports/`, commit 98298ab), as
+NUREG/CR-7041 and 7289 are, and never in the public `reactor-literature`.
+Clean-room re-implementation citing them is unaffected. The reports:
 
 - *MELCOR Computer Code Manuals Vol. 2: Reference Manual*, SAND2017-0876 O —
   [ML17040A420](https://www.nrc.gov/docs/ML1704/ML17040A420.pdf)
 - *Vol. 1: Primer and Users' Guide*, SAND2017-0455 O —
   [ML17040A429](https://www.nrc.gov/docs/ML1704/ML17040A429.pdf)
 - Later revisions (SAND2021-0726 O, ML21042B319/ML21042B324) likewise public.
+- *Vol. 2: Reference Manual, Version 2.2 r2023.0*, SAND2023-10994 O —
+  [ML23116A100](https://www.nrc.gov/docs/ML2311/ML23116A100.pdf) (added
+  2026-10-29; held privately, see above).
 
 The same holds for the codes MELCOR absorbed: **CORCON-Mod3** (MCCI),
 **VANESA** (MCCI aerosol release), **CONTAIN 2.0**, **SPARC-90** (pool
@@ -209,7 +228,7 @@ highest-uncertainty item (COR) is attempted only once its foundations are real.
 
 | Phase | Content | Depends on | Notes |
 |---|---|---|---|
-| **0** | Architecture decision: a new lumped-parameter crate (working name `outram-park-severe-accident`), deliberately **not** mesh-based, alongside `tampines` | — | Consumes `tampines-steam-tables` + `coolprop` for EOS, `tuas` for CV/FL primitives, `teh-o-prke` for kinetics. |
+| **0** | ~~Architecture decision: a new lumped-parameter crate (working name `outram-park-severe-accident`)~~ **DONE — CORRECTED 2026-10-27 (gh:#1028): the crate exists as [`crates/sembawang`](../crates/sembawang)** (*Severe-accident Evolution and Melt Behaviour Analysis Workbench*), confirmed by the maintainer as the home for this work. Since 2026-10-29 it also holds `bwr_mark1`, a reduced Fukushima Unit 1 model; that model is not Phase 1. Deliberately **not** mesh-based, alongside `tampines`. | — | Consumes `tampines-steam-tables` + `coolprop` for EOS, `tuas` for CV/FL primitives, `teh-o-prke` for kinetics. |
 | **1** | **CVH / FL / HS core** — two-phase multi-component CV EOS, flow-path network momentum solver, heat structures with NCG-degraded condensation | 0 | **The big one.** Roughly TUAS-sized on its own. Everything downstream is blocked on §3.1. |
 | **2** | **DCH + RN inventory & release** — fix `decay_heat.rs`, add ANS-5.1, wire ONIX inventory, CORSOR-Booth release from public correlations | 1 | Cheapest real capability; `boon-lay` already carries Lagrangian FP transport. |
 | **3** | **Aerosol + pool scrubbing** — port AeroSolved's sectional/moment methods, adapt to lumped CVs; SPARC-90 from documentation; iodine chemistry via PHREEQC-style aqueous model | 2 | Verify against PartMC. |

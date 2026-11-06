@@ -2,6 +2,27 @@ schema_version = 1
 kind = "code_folder"
 crate = "deck-based-open-source-visualisation-engine-for-reactors-dover"
 dir = "crates/dover/tests"
+test_ids = [
+    "crates/dover/tests/smr_cstr.rs::a_deck_round_trips_through_toml",
+    "crates/dover/tests/smr_cstr.rs::a_sweep_expands_to_its_endpoints",
+    "crates/dover/tests/smr_cstr.rs::conversion_falls_with_pressure_at_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::conversion_rises_with_steam_to_carbon_at_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::conversion_rises_with_temperature",
+    "crates/dover/tests/smr_cstr.rs::every_atom_balances",
+    "crates/dover/tests/smr_cstr.rs::invalid_decks_are_rejected_with_a_reason",
+    "crates/dover/tests/smr_cstr.rs::long_residence_time_approaches_thermodynamic_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::mole_count_change_is_two_for_reforming_and_zero_for_the_shift",
+    "crates/dover/tests/smr_cstr.rs::pressure_raises_conversion_in_the_kinetically_limited_regime",
+    "crates/dover/tests/smr_cstr.rs::reaction_enthalpies_match_the_textbook_values",
+    "crates/dover/tests/smr_cstr.rs::reverse_rate_is_thermodynamically_consistent",
+    "crates/dover/tests/smr_cstr.rs::shift_kinetics_only_set_the_approach_rate",
+    "crates/dover/tests/smr_cstr.rs::the_base_case_is_endothermic_and_makes_hydrogen",
+    "crates/dover/tests/smr_cstr.rs::the_bundled_decks_parse_and_run",
+    "crates/dover/tests/smr_cstr.rs::the_committed_fixtures_still_reproduce",
+    "crates/dover/tests/smr_cstr.rs::the_headless_run_is_deterministic",
+    "crates/dover/tests/smr_cstr.rs::the_overall_reaction_is_the_sum_of_the_two",
+    "crates/dover/tests/smr_cstr.rs::unknown_keys_are_rejected_rather_than_ignored",
+]
 
 [module."smr_cstr.rs"]
 path = "test:smr_cstr"
@@ -359,3 +380,30 @@ hash = "sha256:514b786341fb67b085ea17c7df35071c118f75a9e87fe27e1f9d41e2a5434589"
 doc_hash = "sha256:e218e2a3b5ff1d6b31ca491748c7c148141d9d375449c4a723960974dcfebb2c"
 callees = ["fn:de371805f0225295"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+failed = []

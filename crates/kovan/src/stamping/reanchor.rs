@@ -47,6 +47,14 @@
 //!   changes;
 //! - the previous answers no longer pass the review wizard.
 //!
+//! **Since 2026-10-22 (#838, #1018)** a review whose code changed is not
+//! offered here at all: with its anchor gone and its code changed, the
+//! engine shows it as directly stale. And a review whose code is unchanged
+//! usually needs no re-anchor either: `kovan-cli review carry-forward`
+//! writes an unsigned, verifiable record that moves its key to the squash
+//! or rebased commit ([`super::carry_forward`]), with no new signature. A
+//! re-anchor is still the way to put a fresh signature on `HEAD`.
+//!
 //! The whole module is refused in a **shallow clone**: there the commit is
 //! missing because history was not fetched, and the remedy is a full fetch,
 //! never a new signature.
@@ -414,14 +422,19 @@ mod tests {
     ///
     /// Pass: after the squash all three are unverified with the
     /// not-in-history reason (never `NotAfterCertifiedCommit`); the module
-    /// lists `leaf` and `twice` as ready and refuses `other` (its code
-    /// changed); a reviewer with no review there, and a module with nothing
+    /// lists `leaf` and `twice` as ready; ~~and refuses `other` (its code
+    /// changed)~~ **CORRECTED 2026-10-22** (#838, #1018): `other`, whose
+    /// anchor is gone and whose code changed, is now directly stale (no
+    /// carry-forward can exist for it), so it is not offered for re-anchor
+    /// at all; a reviewer with no review there, and a module with nothing
     /// to re-anchor, are refused; after signing, `leaf` and `twice` are
     /// valid at rung 3 again with their checklist and comments carried
     /// over and each review replaced (not appended), `other` stays
-    /// unverified, and a second prepare lists only `other`.
+    /// ~~unverified~~ directly stale, and a second prepare finds ~~only
+    /// `other`~~ nothing to re-anchor.
     ///
-    /// Result (2026-10-12): passes.
+    /// Result (2026-10-12): passes. Re-run 2026-10-22 with the corrected
+    /// expectations: passes.
     #[test]
     fn a_squashed_module_is_reanchored_in_one_sign_off() {
         let r = Repo::new();
@@ -462,9 +475,8 @@ mod tests {
         let m = prepare_reanchor_module(r.path(), LIB, BY).unwrap();
         let ready: Vec<&str> = m.ready.iter().map(|i| i.path.as_str()).collect();
         assert_eq!(ready, [format!("{LIB}::leaf"), format!("{LIB}::twice")]);
-        assert_eq!(m.refused.len(), 1, "{:?}", m.refused);
-        assert_eq!(m.refused[0].0, format!("{LIB}::other"));
-        assert!(m.refused[0].1.contains("code changed"), "{}", m.refused[0].1);
+        assert!(m.refused.is_empty(), "{:?}", m.refused);
+        assert_eq!(r.state("other").unwrap().state, Some(StateKind::DirectlyStale));
 
         let rep = sign_reanchor_module(r.path(), &m, &key).unwrap();
         assert_eq!(rep.done, [format!("{LIB}::leaf"), format!("{LIB}::twice")]);
@@ -493,9 +505,9 @@ mod tests {
             let s = r.state(q).unwrap();
             assert_eq!((s.state, s.rung), (Some(StateKind::Valid), 3), "{q}: {}", s.reason);
         }
-        assert_eq!(r.state("other").unwrap().state, Some(StateKind::Unverified));
-        let again = prepare_reanchor_module(r.path(), LIB, BY).unwrap();
-        assert!(again.ready.is_empty() && again.refused.len() == 1, "{again:?}");
+        assert_eq!(r.state("other").unwrap().state, Some(StateKind::DirectlyStale));
+        let again = prepare_reanchor_module(r.path(), LIB, BY).unwrap_err();
+        assert!(again.contains("nothing to re-anchor"), "{again}");
     }
 
     /// Methodology: stamp `leaf` on the fixture, then clone the repository

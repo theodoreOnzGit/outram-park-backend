@@ -200,6 +200,9 @@ impl NdEngine {
     /// uses no cached product, or its tape is not held.
     pub fn cache_keys(&self, r: &Request) -> Vec<String> {
         use crate::processed_cache::{reconstruction_key, urr_key};
+        if let Request::MakeAce { .. } = r {
+            return self.file_cache_keys(r);
+        }
         let Ok(sha) = self.tape_sha(U238) else { return Vec::new() };
         let Ok((_, mat)) = self.tape(U238) else { return Vec::new() };
         match *r {
@@ -215,6 +218,19 @@ impl NdEngine {
             }
             _ => Vec::new(),
         }
+    }
+
+    /// The cache keys a request on the user's own file may read: the ACE
+    /// generator's RECONR stage, keyed by the covariance-stripped file, as
+    /// every demo keys it. Empty when no file is chosen or it does not read.
+    fn file_cache_keys(&self, r: &Request) -> Vec<String> {
+        let Request::MakeAce { .. } = r else { return Vec::new() };
+        let Ok((_, bytes)) = self.file(SLOT_ENDF) else { return Vec::new() };
+        let stripped = crate::tapes::strip_covariances(bytes);
+        let Ok(tape) = Tape::read(std::io::Cursor::new(&stripped)) else { return Vec::new() };
+        let Ok(mat) = njoy_outram_park_fork::process::single_material(&tape) else { return Vec::new() };
+        let sha = dhoby_ghaut::web_demo::data_cache::sha256_hex(&stripped);
+        vec![crate::processed_cache::reconstruction_key(&sha, mat, crate::acetools::RECONR_TOL)]
     }
 
     /// RECONR at 0 K of U-238 at `tol`, through the shared store, and where
@@ -271,7 +287,12 @@ impl NdEngine {
                 return;
             }
             Request::MakeAce { job, temp_k, purr, heatr } => {
-                let r = self.file(SLOT_ENDF).and_then(|(_, b)| crate::acetools::build_ace(b, crate::acetools::AceGen { temp_k, purr, heatr }));
+                // Through the shared store: RECONR another demo made is read
+                // back, and the one made here is kept for every demo.
+                let r = match self.files.get(SLOT_ENDF as usize) {
+                    Some(Some((_, b))) => crate::acetools::build_ace(b, crate::acetools::AceGen { temp_k, purr, heatr }, &mut self.store),
+                    _ => Err(self.file(SLOT_ENDF).err().unwrap_or_default()),
+                };
                 post(made(job, r, now() - t0));
                 return;
             }

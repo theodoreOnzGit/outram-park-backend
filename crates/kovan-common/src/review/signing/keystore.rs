@@ -30,6 +30,17 @@
 //! ([`UnlockedKey::endorse`], [`UnlockedKey::admit`],
 //! [`UnlockedKey::revoke`], [`UnlockedKey::unretire`]); what each one
 //! signs is in [`super`].
+//!
+//! **One unlock per session, one key across machines (GitHub #1020).** The
+//! desktop app keeps the [`UnlockedKey`] in a [`super::session::KeySession`]
+//! (memory only, auto-locked after inactivity), so the passphrase is asked
+//! once rather than at every signing. A key moves between machines as its
+//! encrypted file: [`Keystore::export`] copies the `.kovankey` file
+//! verbatim, and [`Keystore::import`] checks it (format, the header bound
+//! in as AAD, the reviewer id, and that `kovan_root.toml` already lists its
+//! public key) and installs it, refusing to overwrite a different key. The
+//! same key on both machines means nothing new to endorse; compare
+//! [`KeyFile::fingerprint`] on both sides.
 
 use std::path::{Path, PathBuf};
 
@@ -38,12 +49,14 @@ use aes_gcm::{Aes256Gcm, Nonce};
 use argon2::{Algorithm, Argon2, Params, Version};
 use ed25519_dalek::{Signer as _, SigningKey};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
 use super::super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::super::root::{
-    DevelopingOrganisation, ReviewerOrganisation, SeparationAttestation,
-    KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey,
+    ReviewRoot, DevelopingOrganisation, ReviewerOrganisation, SeparationAttestation,
+    KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey, RosterEvent,
+    OrganisationRetirement, FounderBallot, FounderChange, FounderVote,
 };
 use super::super::signed_at::{now_local, parse_rfc3339};
 use super::super::types::{reviewer_id_kind, FieldError};
@@ -51,8 +64,8 @@ use super::registry::{check_append_date, open_retirement, LifecycleError};
 use super::super::ivv::{parse_audit_record, AuditRecordProblem};
 use super::{
     developing_organisation_bytes, reviewer_organisation_bytes, separation_attestation_bytes,
-    architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
-    revocation_bytes, signed_bytes, Signature, ALG,
+    organisation_retirement_bytes, founder_ballot_bytes, founder_change_bytes, founder_vote_bytes, architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
+    revocation_bytes, roster_event_bytes, signed_bytes, Signature, ALG,
 };
 
 /// `format` of a key file.
@@ -106,6 +119,16 @@ pub enum KeystoreError {
     AlreadyExists(PathBuf),
     /// The file holds another reviewer's or key's key than the one asked for.
     WrongFile { path: PathBuf },
+    /// The session holds no unlocked key for this file and no passphrase
+    /// was given (auto-locked, or "Lock now"; GitHub #1020).
+    Locked,
+    /// [`Keystore::import`]: `kovan_root.toml` lists no key `key` of
+    /// `reviewer` with this public key, so the file is not a key this
+    /// workspace already trusts.
+    NotRegistered { reviewer: String, key: String, fingerprint: String },
+    /// [`Keystore::import`]: the keystore already holds a **different** key
+    /// under this file name; nothing is overwritten.
+    Clash { path: PathBuf },
 }
 
 impl std::fmt::Display for KeystoreError {
@@ -127,6 +150,19 @@ impl std::fmt::Display for KeystoreError {
             Self::NoConfigDir => write!(f, "no config folder for kovan on this platform"),
             Self::AlreadyExists(p) => write!(f, "{} already exists", p.display()),
             Self::WrongFile { path } => write!(f, "{} holds a different key", path.display()),
+            Self::Locked => write!(f, "your key is locked: type your passphrase to unlock it"),
+            Self::NotRegistered { reviewer, key, fingerprint } => write!(
+                f,
+                "key {key} of {reviewer} (fingerprint {fingerprint}) is not in this workspace's \
+                 kovan_root.toml, so it was not imported: pull the branch that registered it, or \
+                 register it on the machine where it was made"
+            ),
+            Self::Clash { path } => write!(
+                f,
+                "{} already holds a different key with the same file name; nothing was \
+                 overwritten (kovan never replaces a key file)",
+                path.display()
+            ),
         }
     }
 }
@@ -234,6 +270,25 @@ fn random<const N: usize>() -> Result<Zeroizing<[u8; N]>, KeystoreError> {
     let mut b = Zeroizing::new([0u8; N]);
     getrandom::fill(b.as_mut()).map_err(|e| KeystoreError::Random(e.to_string()))?;
     Ok(b)
+}
+
+/// A public key's fingerprint, for a person to compare by eye on two
+/// machines: `SHA256:` and the unpadded base64 of the SHA-256 of the raw
+/// 32-byte ed25519 public key (GitHub #1020). Not an OpenSSH fingerprint
+/// (that hashes the SSH wire encoding).
+fn fingerprint_of(public: &[u8; 32]) -> String {
+    let digest = Sha256::digest(public);
+    format!(
+        "SHA256:{}",
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD_NO_PAD, digest)
+    )
+}
+
+/// [`fingerprint_of`] a base64 public key, as `[[reviewer.key]] public`
+/// and the key file's `public` hold it.
+pub fn fingerprint(public_b64: &str) -> Result<String, KeystoreError> {
+    let raw = decode_fixed::<32>("public", public_b64).map_err(|_| KeystoreError::BadField("public".into()))?;
+    Ok(fingerprint_of(&raw))
 }
 
 fn derive(passphrase: &str, kdf: &KdfParams) -> Result<Zeroizing<[u8; 32]>, KeystoreError> {
@@ -371,6 +426,11 @@ impl KeyFile {
         Ok(UnlockedKey { reviewer: self.reviewer.clone(), key: self.key.clone(), signing })
     }
 
+    /// The public key's fingerprint ([`fingerprint`]).
+    pub fn fingerprint(&self) -> Result<String, KeystoreError> {
+        fingerprint(&self.public)
+    }
+
     /// The `[[reviewer.key]]` entry for this key (no endorsement yet).
     pub fn reviewer_key(&self) -> ReviewerKey {
         ReviewerKey {
@@ -395,6 +455,17 @@ impl KeyFile {
     /// Read a key file's TOML text.
     pub fn from_toml(text: &str) -> Result<KeyFile, KeystoreError> {
         toml::from_str(text).map_err(|e| KeystoreError::Parse { path: None, message: e.to_string() })
+    }
+
+    /// Write this (encrypted) key file to a **new** file at `dest`,
+    /// owner-only on unix, as [`Keystore::save`] and [`Keystore::export`]
+    /// do (GitHub #1211: a keyfile the founder issues to hand over). It
+    /// holds nothing secret in the clear; an existing `dest` is
+    /// [`KeystoreError::AlreadyExists`], never overwritten. The file imports
+    /// with [`Keystore::import`].
+    pub fn write_new_to(&self, dest: &Path) -> Result<(), KeystoreError> {
+        check_key_id(&self.key)?;
+        write_new(dest, &self.to_toml()?)
     }
 }
 
@@ -430,6 +501,18 @@ impl UnlockedKey {
     /// The base64 public key.
     pub fn public_b64(&self) -> String {
         encode_b64(self.signing.verifying_key().as_bytes())
+    }
+
+    /// The public key's fingerprint ([`fingerprint`]).
+    pub fn fingerprint(&self) -> String {
+        fingerprint_of(self.signing.verifying_key().as_bytes())
+    }
+
+    /// The secret seed, for the test that scans a config dir for plaintext
+    /// key material (GitHub #1020). Tests only.
+    #[cfg(test)]
+    pub(crate) fn seed_for_tests(&self) -> [u8; 32] {
+        self.signing.to_bytes()
     }
 
     fn sign(&self, msg: &[u8]) -> String {
@@ -558,6 +641,68 @@ impl UnlockedKey {
         self.sign_event(owner, k, kind, date, "", None)
     }
 
+    /// Retire `owner`'s key `k` from `date`, **signed** (GitHub #1249):
+    /// appends a `retired` event signed by this key over
+    /// [`key_event_bytes`]. It counts only if this key is the owner's, a
+    /// founder's or a maintainer's, trusted and active on `date` (checked
+    /// by the registry, not here); an unsigned retirement dated from
+    /// [`super::registry::SIGNED_KEY_RETIREMENT_FROM`] has no effect.
+    /// Refuses a bad or backwards date. It does not refuse a key whose
+    /// history already holds an open retirement: that one may be an
+    /// unsigned retirement with no effect, and only the registry knows
+    /// (the caller checks `KeyTrust::is_retired`).
+    pub fn retire_key(&self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> {
+        self.sign_event(owner, k, KeyEventKind::Retired, date, "", None)
+    }
+
+    /// Sign a `[[code_review.founder_change]]` (GitHub #1248): sets
+    /// `signer` to this key and `signature` over [`founder_change_bytes`].
+    /// It counts only if this key's reviewer is a founder in standing just
+    /// before it, trusted and active on `e.date` (checked by the registry).
+    /// Refuses a malformed date.
+    pub fn sign_founder_change(&self, e: &mut FounderChange) -> Result<(), SignError> {
+        if !is_date(&e.date) {
+            return Err(SignError::BadDate(e.date.clone()));
+        }
+        e.signer = Some(self.as_signer());
+        e.signature = Some(self.sign(&founder_change_bytes(e)));
+        Ok(())
+    }
+
+    /// Open a `[[code_review.founder_ballot]]` (GitHub #1248): sets
+    /// `signer` and `signature` over [`founder_ballot_bytes`]. It counts
+    /// only if this key's reviewer is a maintainer with an active key on
+    /// `b.opened` and no founder has one (checked by the registry).
+    /// Refuses a malformed date and an empty id.
+    pub fn sign_founder_ballot(&self, b: &mut FounderBallot) -> Result<(), SignError> {
+        if !is_date(&b.opened) {
+            return Err(SignError::BadDate(b.opened.clone()));
+        }
+        if b.id.trim().is_empty() {
+            return Err(SignError::Missing("the ballot id"));
+        }
+        b.signer = Some(self.as_signer());
+        b.signature = Some(self.sign(&founder_ballot_bytes(b)));
+        Ok(())
+    }
+
+    /// Vote in `ballot` (GitHub #1248): sets `v.signer` and `v.signature`
+    /// over [`founder_vote_bytes`], bound to the ballot's signature.
+    /// Refuses a malformed date, a vote naming another ballot, and an
+    /// unsigned ballot (a vote in it could never count).
+    pub fn sign_founder_vote(&self, v: &mut FounderVote, ballot: &FounderBallot) -> Result<(), SignError> {
+        if !is_date(&v.date) {
+            return Err(SignError::BadDate(v.date.clone()));
+        }
+        if v.ballot != ballot.id {
+            return Err(SignError::Missing("the ballot this vote names"));
+        }
+        let bs = ballot.signature.as_deref().ok_or(SignError::Missing("the ballot's signature"))?;
+        v.signer = Some(self.as_signer());
+        v.signature = Some(self.sign(&founder_vote_bytes(v, bs)));
+        Ok(())
+    }
+
     /// This key as the `signer` of a registry statement.
     fn as_signer(&self) -> KeySigner {
         KeySigner { reviewer: Some(self.reviewer.clone()), key: self.key.clone() }
@@ -588,6 +733,24 @@ impl UnlockedKey {
         Ok(())
     }
 
+    /// Sign a `[[code_review.organisation_retirement]]` (GitHub #1211):
+    /// sets `signer` to this key and `signature` over
+    /// [`organisation_retirement_bytes`]. It counts only if this key is the
+    /// founder's, trusted and active at `r.date`, while the founder is a
+    /// maintainer (checked by [`crate::review::ivv`], not here). Refuses a
+    /// malformed date and an empty record.
+    pub fn sign_organisation_retirement(&self, r: &mut OrganisationRetirement) -> Result<(), SignError> {
+        if !is_date(&r.date) {
+            return Err(SignError::BadDate(r.date.clone()));
+        }
+        if r.record.is_empty() {
+            return Err(SignError::Missing("the retired record's signature"));
+        }
+        r.signer = Some(self.as_signer());
+        r.signature = Some(self.sign(&organisation_retirement_bytes(r)));
+        Ok(())
+    }
+
     /// Sign a separation attestation as **this key's own reviewer**, alone
     /// (GitHub #809): sets `key` and `signature` over
     /// [`separation_attestation_bytes`], which carries the fixed
@@ -601,6 +764,24 @@ impl UnlockedKey {
         parse_audit_record(url).map_err(SignError::BadAuditRecord)?;
         a.key = Some(self.key.clone());
         a.signature = Some(self.sign(&separation_attestation_bytes(&self.reviewer, a)));
+        Ok(())
+    }
+
+    /// Sign a `[[code_review.roster_event]]` (GitHub #1019): sets `signer`
+    /// to this key and `signature` over [`roster_event_bytes`]. It counts
+    /// only if this key's reviewer is an admitted maintainer just before
+    /// the event and the key is trusted and active at `e.date` (checked by
+    /// the registry, not here). Refuses a malformed date and a `role`
+    /// event without a role.
+    pub fn sign_roster_event(&self, e: &mut RosterEvent) -> Result<(), SignError> {
+        if !is_date(&e.date) {
+            return Err(SignError::BadDate(e.date.clone()));
+        }
+        if e.event == super::super::root::RosterEventKind::Role && e.role.is_none() {
+            return Err(SignError::Missing("the new role"));
+        }
+        e.signer = Some(self.as_signer());
+        e.signature = Some(self.sign(&roster_event_bytes(e)));
         Ok(())
     }
 
@@ -654,29 +835,101 @@ impl Keystore {
     /// Write a new key file (owner-only permissions on unix). Never
     /// overwrites: an existing file is [`KeystoreError::AlreadyExists`].
     pub fn save(&self, file: &KeyFile) -> Result<PathBuf, KeystoreError> {
-        use std::io::Write as _;
         check_key_id(&file.key)?;
-        let io = |path: &Path, e: std::io::Error| KeystoreError::Io {
-            path: path.to_path_buf(),
-            message: e.to_string(),
-        };
-        std::fs::create_dir_all(&self.dir).map_err(|e| io(&self.dir, e))?;
+        create_dir(&self.dir)?;
         let path = self.path_for(&file.reviewer, &file.key);
-        let text = file.to_toml()?;
-        let mut opts = std::fs::OpenOptions::new();
-        opts.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt as _;
-            opts.mode(0o600);
-        }
-        let mut f = opts.open(&path).map_err(|e| match e.kind() {
-            std::io::ErrorKind::AlreadyExists => KeystoreError::AlreadyExists(path.clone()),
-            _ => io(&path, e),
-        })?;
-        f.write_all(text.as_bytes()).map_err(|e| io(&path, e))?;
-        f.sync_all().map_err(|e| io(&path, e))?;
+        write_new(&path, &file.to_toml()?)?;
         Ok(path)
+    }
+
+    /// **Export** `reviewer`'s key `key` (GitHub #1020): copy its
+    /// `.kovankey` file, byte for byte, to `dest`. The file stays encrypted
+    /// under the same passphrase; kovan sends it nowhere, the user moves it.
+    /// Refuses an existing `dest` ([`KeystoreError::AlreadyExists`]) and a
+    /// key file that does not parse or names another key.
+    pub fn export(&self, reviewer: &str, key: &str, dest: &Path) -> Result<ExportedKey, KeystoreError> {
+        let file = self.load(reviewer, key)?;
+        let src = self.path_for(reviewer, key);
+        let text = std::fs::read_to_string(&src)
+            .map_err(|e| KeystoreError::Io { path: src.clone(), message: e.to_string() })?;
+        write_new(dest, &text)?;
+        Ok(ExportedKey {
+            path: dest.to_path_buf(),
+            reviewer: file.reviewer.clone(),
+            key: file.key.clone(),
+            fingerprint: file.fingerprint()?,
+        })
+    }
+
+    /// **Import** an exported key file at `source` into this keystore
+    /// (GitHub #1020). Checks, in order: it is a key file of
+    /// [`KEY_FILE_FORMAT`]; the reviewer id and key id are acceptable;
+    /// `root` (the workspace's `kovan_root.toml`) lists key `key` of that
+    /// reviewer with this public key ([`KeystoreError::NotRegistered`]
+    /// otherwise: an import never adds trust); and it decrypts with
+    /// `passphrase`, which also proves the header, bound in as AAD, is
+    /// unaltered ([`KeystoreError::WrongPassphrase`] otherwise). Then the
+    /// file is written verbatim, mode 0600, under its usual name.
+    ///
+    /// A file of that name holding the **same** key is left alone
+    /// (`already_present`); one holding a different key is
+    /// [`KeystoreError::Clash`], and nothing is overwritten. Returns the
+    /// unlocked key too, which the app may hold for the session.
+    pub fn import(
+        &self,
+        source: &Path,
+        passphrase: &str,
+        root: &ReviewRoot,
+    ) -> Result<(ImportedKey, UnlockedKey), KeystoreError> {
+        let text = std::fs::read_to_string(source)
+            .map_err(|e| KeystoreError::Io { path: source.to_path_buf(), message: e.to_string() })?;
+        let file = KeyFile::from_toml(&text).map_err(|e| match e {
+            KeystoreError::Parse { message, .. } => {
+                KeystoreError::Parse { path: Some(source.to_path_buf()), message }
+            }
+            other => other,
+        })?;
+        if file.format != KEY_FILE_FORMAT {
+            return Err(KeystoreError::Unsupported(format!("format {}", file.format)));
+        }
+        reviewer_id_kind(&file.reviewer).map_err(KeystoreError::Field)?;
+        check_key_id(&file.key)?;
+        let fingerprint = file.fingerprint()?;
+        let listed = root
+            .reviewer(&file.reviewer)
+            .is_some_and(|r| r.keys.iter().any(|k| k.id == file.key && k.public == file.public));
+        if !listed {
+            return Err(KeystoreError::NotRegistered {
+                reviewer: file.reviewer.clone(),
+                key: file.key.clone(),
+                fingerprint,
+            });
+        }
+        let unlocked = file.unlock(passphrase)?;
+        let path = self.path_for(&file.reviewer, &file.key);
+        let already_present = match read_key_file(&path) {
+            Ok(existing) if existing.public == file.public => true,
+            Ok(_) => return Err(KeystoreError::Clash { path }),
+            Err(KeystoreError::Io { .. }) if !path.exists() => false,
+            // A file of that name that is not a key file is not ours to replace.
+            Err(KeystoreError::Parse { .. }) => return Err(KeystoreError::Clash { path }),
+            Err(e) => return Err(e),
+        };
+        if !already_present {
+            create_dir(&self.dir)?;
+            write_new(&path, &text).map_err(|e| match e {
+                KeystoreError::AlreadyExists(path) => KeystoreError::Clash { path },
+                other => other,
+            })?;
+        }
+        let imported = ImportedKey {
+            path,
+            reviewer: file.reviewer.clone(),
+            key: file.key.clone(),
+            fingerprint,
+            already_present,
+        };
+        Ok((imported, unlocked))
     }
 
     /// Read `reviewer`'s key `key` (still encrypted).
@@ -708,6 +961,51 @@ impl Keystore {
         paths.sort();
         paths.iter().map(|p| read_key_file(p)).collect()
     }
+}
+
+/// What [`Keystore::export`] wrote.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportedKey {
+    pub path: PathBuf,
+    pub reviewer: String,
+    pub key: String,
+    pub fingerprint: String,
+}
+
+/// What [`Keystore::import`] installed (or found already there).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedKey {
+    /// Where the key file lives in this keystore.
+    pub path: PathBuf,
+    pub reviewer: String,
+    pub key: String,
+    pub fingerprint: String,
+    /// The same key was already installed; nothing was written.
+    pub already_present: bool,
+}
+
+fn create_dir(dir: &Path) -> Result<(), KeystoreError> {
+    std::fs::create_dir_all(dir).map_err(|e| KeystoreError::Io { path: dir.to_path_buf(), message: e.to_string() })
+}
+
+/// Write `text` to a new file at `path` (owner-only on unix); an existing
+/// file is [`KeystoreError::AlreadyExists`], never overwritten.
+fn write_new(path: &Path, text: &str) -> Result<(), KeystoreError> {
+    use std::io::Write as _;
+    let io = |e: std::io::Error| KeystoreError::Io { path: path.to_path_buf(), message: e.to_string() };
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        opts.mode(0o600);
+    }
+    let mut f = opts.open(path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => KeystoreError::AlreadyExists(path.to_path_buf()),
+        _ => io(e),
+    })?;
+    f.write_all(text.as_bytes()).map_err(io)?;
+    f.sync_all().map_err(io)
 }
 
 fn read_key_file(path: &Path) -> Result<KeyFile, KeystoreError> {

@@ -1,0 +1,116 @@
+[package]
+name = "bugis"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license = "AGPL-3.0-only"
+description = "BUGIS (Browser-based User Graphics Interaction System) — colour theming for the OUTRAM PARK GUIs, no_std + alloc: the Gruvbox palette and roles, temperature and Crameri colour maps, and (feature egui) the shared Gruvbox Dark/Light egui theme and selector; the workspace's central GUI crate, with tracer animation, ASCII schematics, the egui widget art, the app scaffold and the web-demo framework behind std features; standalone, depending on no workspace crate but PETIR."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+exclude = ["docs"]
+
+# Where this crate sits in kovan's code map (see bishan's Cargo.toml for the
+# keys). A utility: no topic fidelity.
+[package.metadata.kovan]
+row = 0
+topic = "utility"
+maturity = 1
+backronym = "Browser-based User Graphics Interaction System"
+
+# no_std + alloc core (maintainer, 2026-11-02). PETIR for the exact floor and
+# round the colour maps use (petir is no_std). egui is the
+# optional GUI half, on by default; never eframe, so no crate pulls a
+# windowing stack through this one.
+#
+# The central GUI crate (gh:#1112, maintainer 2026-11-02): modules moved from
+# outram-park-digital-twin-engine and dhoby-ghaut come in behind their own
+# features. Every one of them needs `std`; the crate is `no_std` exactly when
+# the `std` feature is off (`#![cfg_attr(not(feature = "std"), no_std)]`), so
+# the moved files compile byte for byte with the std prelude they were written
+# against, and `--no-default-features` is still the pure no_std + alloc core.
+[features]
+default = ["egui"]
+egui = ["dep:egui"]
+# Turns off `no_std`. Implied by every moved module's feature.
+std = []
+# Tracer and pebble/control-rod kinematics (moved from the engine's
+# `animation/`): uom only, egui-free, builds for Android.
+animation = ["std", "dep:uom"]
+# 2-D schematic geometry rendered to a character grid (moved from the
+# engine's `ascii/`): std only.
+ascii = ["std"]
+# The app scaffold (moved from the engine's `app_scaffold/`): `SharedState`,
+# monitored physics threads, crash modal, CSV display and logging, frame
+# metrics, plot history, real-time pacing.
+app_scaffold = ["std", "egui", "dep:uom", "dep:csv", "dep:web-time", "dep:thiserror"]
+# The web-demo framework (moved from dhoby-ghaut's `web_demo/`): main view
+# and zoom buttons, folding panel, docks, the worker/thread link, loading,
+# lessons, platform, worker pool, nuclear-data cache. The wasm-bindgen family
+# it needs exists only in the wasm32 table below, so on native targets those
+# entries are no-ops, exactly as dhoby-ghaut gated them.
+web_demo = [
+    "std",
+    "egui",
+    "dep:sha2",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:js-sys",
+    "dep:web-sys",
+]
+# ~~One feature per physics crate the widget library reads (maintainer,
+# 2026-11-02: "Integrate them, I'm ok with dependencies"). Each is std and
+# optional, so the no_std core and the plain `egui` feature stay physics-free.~~
+# CORRECTED 2026-11-05 (maintainers: "bugis should be standalone"; "widget art
+# can live in bugis, the combination of logic and art can live inside the
+# digital twin engine"): the `tampines`, `tampines-steam-tables`,
+# `outram-park-fork-dwsim-libs` and `nee_soon` features and dependencies are
+# gone, and so is the `tuas_boussinesq_solver` dev-dependency. `cargo publish`
+# resolves optional and dev dependencies too, and those crates dev-depend on
+# bugis for their GUI examples' theme, so each was a dependency cycle in the
+# lockstep release (`scripts/release-lockstep.sh`). The widgets that read
+# physics state (`PipeVisual`, `CondenserVisual`, ...) moved to
+# `outram_park_digital_twin_engine::components` and draw through the art types
+# here (`PipeArt`, `CondenserArt`, ...).
+#
+# The widget art (from the engine's `components/`): one `egui::Widget` per
+# process object, drawn from plain numbers. ~~It needs every physics feature
+# above~~ (no longer, 2026-11-05).
+widgets = ["std", "egui", "animation", "dep:uom"]
+
+[dependencies]
+petir = { workspace = true }
+egui = { workspace = true, optional = true }
+# Dimensioned quantities for the moved GUI modules (feature `animation` and
+# up). The workspace entry is `default-features = false`, so this adds no std
+# requirement of its own.
+uom = { workspace = true, optional = true }
+# `app_scaffold::csv_logging` / `csv_display` write real CSV (was an engine
+# dependency, bead op-wqk.22.2). Pure Rust.
+csv = { workspace = true, optional = true }
+# `app_scaffold`'s frame timer and CSV logger need a clock that exists in a
+# browser (see the root Cargo.toml's note on `web-time`).
+web-time = { workspace = true, optional = true }
+# `app_scaffold::csv_logging::CsvLoggerError` derives `thiserror::Error`.
+thiserror = { workspace = true, optional = true }
+# `web_demo::data_cache` (gh:#818): SHA-256 of tapes (the cache key) and of
+# cached products (corruption check). Pure Rust, every target.
+sha2 = { workspace = true, optional = true }
+
+# `web_demo`'s Web Worker, IndexedDB, file and canvas plumbing: wasm32 only,
+# the same target gating and web-sys features dhoby-ghaut used.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true, features = [
+    "Window", "Document", "Location", "History", "Response",
+    "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
+    "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
+    # `platform::keep_canvas_at_device_pixels` (gh:#556).
+    "Element", "HtmlCanvasElement", "NodeList", "DomRect",
+    # `files`: the browser's file chooser and downloads (gh:#863).
+    "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "FileList", "File",
+    "Blob", "BlobPropertyBag", "Url",
+] }

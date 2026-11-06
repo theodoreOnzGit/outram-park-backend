@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test9",
+]
 
 [module."mod.rs"]
 path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration"
@@ -182,3 +193,20 @@ uses = [
     "fn:ebf3ac43832118cf",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

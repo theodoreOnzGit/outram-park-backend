@@ -2,6 +2,21 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/fv_options/solidification_melting"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::a_zone_selection_leaves_unselected_cells_untouched",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::buoyancy_pushes_a_superheated_cell_against_gravity",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::darcy_drag_increases_monotonically_as_the_cell_freezes",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::darcy_drag_saturates_at_minus_cu_over_q_when_fully_solid",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::darcy_drag_vanishes_in_a_fully_liquid_cell",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::effective_liquidus_holds_flat_at_the_solidus_below_the_eutectic_fraction",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::effective_liquidus_spans_solidus_to_liquidus_with_no_eutectic_offset",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::latent_heat_vanishes_when_the_liquid_fraction_is_unchanged",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::melting_removes_energy_from_the_equation",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::momentum_diagonal_gains_the_drag_rather_than_losing_it",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::temperature_and_enthalpy_forms_differ_by_exactly_the_specific_heat",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::the_liquid_fraction_stays_in_bounds_over_a_heating_and_cooling_cycle",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::update_runs_at_most_once_per_timestep",
+]
 
 [module."tests.rs"]
 path = "crate::fv_options::solidification_melting::tests"
@@ -513,3 +528,24 @@ callees = [
     "fn:f6199107c0514590",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+failed = []

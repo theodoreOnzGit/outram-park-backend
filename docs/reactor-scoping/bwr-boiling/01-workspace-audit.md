@@ -38,7 +38,7 @@ Status, from `crates/outram-foam-multiphase/README.md:30-50`: every stage is a "
 
 ### 1b. `crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures` (port of GeN-Foam)
 Module status (`closures/mod.rs`): "All six families are implemented … **unit-tested, not system-validated** — none has been exercised inside a converged multiphysics run."
-**The two-phase GeN-Foam solver driver is not ported.** `genfoam/thermal_hydraulics/solver/mod.rs:64-82`: `ThermalHydraulicsSolver` has only `OnePhase`, with a TODO for bead `op-p6p.7.12` (twoPhase MULES + pEqn).
+~~**The two-phase GeN-Foam solver driver is not ported.**~~ **CORRECTED 2026-11-04 (gh:#1218):** `genfoam/thermal_hydraulics/solver/two_phase/` now ports `twoPhase` (implicitUpwind alpha; MULES not ported) and runs upstream's `1D_boiling`. The original finding, kept: `genfoam/thermal_hydraulics/solver/mod.rs:64-82`: `ThermalHydraulicsSolver` has only `OnePhase`, with a TODO for bead `op-p6p.7.12` (twoPhase MULES + pEqn).
 
 | Model | Where | Notes |
 |---|---|---|
@@ -57,7 +57,7 @@ Module status (`closures/mod.rs`): "All six families are implemented … **unit-
 - What it is: code-to-code verification of the **single-phase `ReynoldsPower` wall friction only**, against a run of upstream GeN-Foam `652b3da` / OpenFOAM v2506 on `1D_PSBT_SC` case `PhaseII_Ex1_01_5215`.
 - The upstream run reproduced the tutorial's `alpha.vapour = 0.123835`, T = 620.178.
 - Result: 836 single-phase cells, worst deviation 6.15e-6. The 334 two-phase cells are a negative control (0.53).
-- **The port cannot compute PSBT void**, because it has no two-phase driver.
+- **The port cannot compute PSBT void**, ~~because it has no two-phase driver~~ (**CORRECTED 2026-11-04**: it has one now, gh:#1218, but not PSBT's `multiRegimeBoilingTRACE`, `twoParameters` regime map or `byRegime` closures).
 - **The boiling, multiplier and Bestion closures that PSBT names are not checked against that run.**
 
 ### 1c. `crates/tampines` — 1-D system-code two-phase

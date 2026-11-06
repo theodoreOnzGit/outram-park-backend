@@ -29,7 +29,9 @@ type DtLink = Link<Request, Event>;
 /// The lesson's delta-tracking step, from `demos/delta-tracking/`.
 const LESSON: &str = "../../tutorials/monte-carlo/triso.html#4-delta-woodcock-tracking";
 
-const BG: Color32 = Color32::from_rgb(14, 16, 20);
+// Material colours of the TRISO picture (a physics encoding, the same in
+// both themes) and the track / mark colours drawn ON that picture: these
+// stay fixed so they read against the materials, whatever the theme.
 const HELIUM: Color32 = Color32::from_rgb(24, 28, 36);
 const MATERIAL_COLOURS: [Color32; 7] = [
     Color32::from_rgb(214, 120, 46),  // UO2 kernel
@@ -43,8 +45,6 @@ const MATERIAL_COLOURS: [Color32; 7] = [
 const SURFACE_COLOUR: Color32 = Color32::from_rgb(255, 176, 64);
 const DELTA_COLOUR: Color32 = Color32::from_rgb(90, 200, 255);
 const LOW_COLOUR: Color32 = Color32::from_rgb(235, 110, 220);
-const TEXT: Color32 = Color32::from_rgb(214, 218, 226);
-const DIM: Color32 = Color32::from_rgb(150, 156, 170);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Screen {
@@ -72,6 +72,9 @@ struct ManyPredictions {
 }
 
 pub struct App {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<DtLink>,
     phase: Phase,
     screen: Screen,
@@ -105,7 +108,9 @@ pub struct App {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<DtLink, String> = {
             let ctx = cc.egui_ctx.clone();
@@ -145,6 +150,7 @@ impl App {
         let mut view = View::new(model::half_pitch());
         view.scale = 1.0;
         let mut app = Self {
+            theme: bugis::Theme::default(),
             link: None,
             phase: Phase::Loading(Loading::new(job_labels(), job_weights())),
             screen: if query_value(&q, "mode") == Some("many") { Screen::Many } else { Screen::Step },
@@ -378,7 +384,11 @@ impl eframe::App for App {
         }
         self.title_now(&ctx);
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Delta vs surface", |ui| self.side_panel(ui));
+        panel.show(ui, "Delta vs surface", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
@@ -403,14 +413,14 @@ fn predict_ui(ui: &mut egui::Ui, p: &mut Predict, answer: Option<String>) {
                         "Choose before you look: the answer appears once you have.",
                     )
                     .small()
-                    .color(DIM),
+                    .color(ui.visuals().weak_text_color()),
                 );
             }
             (Some(_), None) => {
                 ui.label(
                     egui::RichText::new("Now step on to see.")
                         .small()
-                        .color(DIM),
+                        .color(ui.visuals().weak_text_color()),
                 );
             }
             (Some(_), Some(a)) => {
@@ -451,7 +461,7 @@ impl App {
                 return;
             }
             Phase::Failed(e) => {
-                ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
+                ui.colored_label(ui.visuals().error_fg_color, format!("Failed: {e}"));
                 return;
             }
             Phase::Ready => {}
@@ -480,7 +490,7 @@ impl App {
                      collisions are lost. Watch for ⚠ sites; the code itself prints nothing.",
                 )
                 .small()
-                .color(LOW_COLOUR),
+                .color(ui.visuals().warn_fg_color),
             );
         }
         ui.separator();
@@ -632,7 +642,7 @@ impl App {
             ui.label(
                 egui::RichText::new("Each generation of each method is one request to the worker, in turn, so all of them stream.")
                     .small()
-                    .color(DIM),
+                    .color(ui.visuals().weak_text_color()),
             );
         });
         let run = self.run.as_ref();
@@ -677,7 +687,7 @@ impl App {
         {
             predict_ui(ui, &mut self.many_predict.low, ans_low);
         } else {
-            ui.label(egui::RichText::new("Tick “Majorant too low” before Run to add a third run on a majorant scaled down.").small().color(DIM));
+            ui.label(egui::RichText::new("Tick “Majorant too low” before Run to add a third run on a majorant scaled down.").small().color(ui.visuals().weak_text_color()));
         }
     }
 
@@ -801,7 +811,8 @@ impl App {
     fn main_view(&mut self, ui: &mut egui::Ui) {
         let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
         let full = resp.rect;
-        painter.rect_filled(full, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(full, 0.0, ink.bg);
         match &self.phase {
             Phase::Loading(l) => {
                 l.card(&painter, full, "Processing nuclear data…", Some("The Monte Carlo demo's tapes, processed here in a worker; then the majorant is built."));
@@ -812,7 +823,7 @@ impl App {
                     egui::Align2::CENTER_CENTER,
                     format!("Failed: {e}"),
                     egui::FontId::proportional(15.0),
-                    Color32::from_rgb(255, 110, 110),
+                    ink.error,
                 );
             }
             Phase::Ready => match self.screen {
@@ -856,7 +867,7 @@ impl App {
                 egui::Align2::CENTER_CENTER,
                 "Tracing the neutron…",
                 egui::FontId::proportional(15.0),
-                TEXT,
+                ui.visuals().text_color(),
             );
             return;
         };
@@ -922,6 +933,7 @@ impl App {
         let s = self.text_zoom;
         let f = |px: f32| egui::FontId::proportional(px * s);
         let inner = full.shrink2(Vec2::new(14.0, 0.0));
+        let ink = bugis::Ink::of_ui(ui);
         let mut y = full.top() + 56.0;
         let mut line = |text: String, px: f32, c: Color32, painter: &egui::Painter| {
             let g = painter.layout(text, f(px), c, inner.width());
@@ -932,7 +944,7 @@ impl App {
             line(
                 "Run many: k∞ of the cell by both methods.".into(),
                 17.0,
-                TEXT,
+                ink.text,
                 painter,
             );
             line(
@@ -940,7 +952,7 @@ impl App {
                  Make your predictions first."
                     .into(),
                 14.0,
-                DIM,
+                ink.muted,
                 painter,
             );
             return;
@@ -958,12 +970,12 @@ impl App {
                 run.cfg.n_particles, run.cfg.n_inactive, run.cfg.n_active, run.cfg.seed
             ),
             15.0,
-            TEXT,
+            ink.text,
             painter,
         );
         for (i, &m) in run.methods.iter().enumerate() {
             let t = &run.tallies[i];
-            let c = method_colour(m);
+            let c = method_colour(m, &ink);
             let k = t.k.map_or(
                 "k∞ waiting for the active generations".into(),
                 |(k, e)| format!("k∞ = {k:.5} ± {e:.5}"),
@@ -1004,7 +1016,7 @@ impl App {
                     ph(t.counts.majorant_violations)
                 ),
             };
-            line(detail, 13.0, DIM, painter);
+            line(detail, 13.0, ink.muted, painter);
         }
         for (a, label) in [
             (Method::Delta, "delta − surface"),
@@ -1014,7 +1026,7 @@ impl App {
                 line(
                     format!("{label}: {dk:+.0} ± {sig:.0} pcm ({z:+.2} σ)"),
                     15.0,
-                    method_colour(a),
+                    method_colour(a, &ink),
                     painter,
                 );
             }
@@ -1037,11 +1049,13 @@ enum Which {
     Delta = 1,
 }
 
-fn method_colour(m: Method) -> Color32 {
+/// A method's colour in text and plots: a theme accent (`bugis::Ink`).
+/// Tracks drawn on the TRISO picture keep the fixed `*_COLOUR`s instead.
+fn method_colour(m: Method, ink: &bugis::Ink) -> Color32 {
     match m {
-        Method::Surface => SURFACE_COLOUR,
-        Method::Delta => DELTA_COLOUR,
-        Method::DeltaLow => LOW_COLOUR,
+        Method::Surface => ink.accent(1),
+        Method::Delta => ink.accent(0),
+        Method::DeltaLow => ink.accent(3),
     }
 }
 
@@ -1091,11 +1105,17 @@ fn draw_pane(
     centres: &[(f64, f64)],
     cell_surfaces: &[Vec<usize>],
 ) {
+    let ink = bugis::Ink::of_ctx(full_painter.ctx());
     let accent = match which {
+        Which::Surface => method_colour(Method::Surface, &ink),
+        Which::Delta => method_colour(Method::Delta, &ink),
+    };
+    // The marker of the neutron itself sits on the picture: fixed colours.
+    let marker = match which {
         Which::Surface => SURFACE_COLOUR,
         Which::Delta => DELTA_COLOUR,
     };
-    full_painter.rect_filled(rect, 6.0, Color32::from_rgb(20, 23, 29));
+    full_painter.rect_filled(rect, 6.0, ink.card);
     full_painter.rect_stroke(
         rect,
         6.0,
@@ -1234,7 +1254,7 @@ fn draw_pane(
         }
         _ => {}
     }
-    painter.circle_filled(here, 4.5, accent);
+    painter.circle_filled(here, 4.5, marker);
     painter.circle_stroke(here, 6.5, Stroke::new(1.0, Color32::BLACK));
     scale_bar(&painter, geo, view);
 
@@ -1276,7 +1296,7 @@ fn draw_pane(
         egui::Align2::LEFT_TOP,
         counters,
         egui::FontId::proportional(12.0),
-        TEXT,
+        ink.text,
     );
 
     // Footer: what the current step did.
@@ -1297,16 +1317,16 @@ fn draw_pane(
             Vec2::new(90.0, 12.0),
         );
         let ratio = (site.sigma_t / site.majorant).clamp(0.0, 1.0) as f32;
-        full_painter.rect_filled(bar, 3.0, Color32::from_rgb(45, 50, 62));
+        full_painter.rect_filled(bar, 3.0, ink.grid);
         let mut fill = bar;
         fill.set_width(bar.width() * ratio);
         full_painter.rect_filled(
             fill,
             3.0,
             if site.violates_majorant() {
-                LOW_COLOUR
+                ink.warn
             } else {
-                Color32::from_rgb(90, 170, 110)
+                ink.ok
             },
         );
         if let Some(x) = xi {
@@ -1316,7 +1336,7 @@ fn draw_pane(
                     Pos2::new(tx, bar.top() - 3.0),
                     Pos2::new(tx, bar.bottom() + 3.0),
                 ],
-                Stroke::new(2.0, Color32::WHITE),
+                Stroke::new(2.0, ink.text),
             );
         }
         full_painter.text(
@@ -1328,12 +1348,12 @@ fn draw_pane(
                 "ξ ≥ Σt/Σmaj: virtual"
             },
             egui::FontId::proportional(10.0),
-            DIM,
+            ink.muted,
         );
         w -= 100.0;
     }
-    let g = full_painter.layout(text, egui::FontId::proportional(12.0), TEXT, w.max(60.0));
-    full_painter.galley(foot.left_top(), g, TEXT);
+    let g = full_painter.layout(text, egui::FontId::proportional(12.0), ink.text, w.max(60.0));
+    full_painter.galley(foot.left_top(), g, ink.text);
     if pane.trace.dropped > 0 && pane.finished() {
         full_painter.text(
             foot.left_bottom(),
@@ -1343,7 +1363,7 @@ fn draw_pane(
                 pane.trace.dropped
             ),
             egui::FontId::proportional(10.0),
-            DIM,
+            ink.muted,
         );
     }
 }
@@ -1448,7 +1468,8 @@ fn draw_cell(painter: &egui::Painter, rect: Rect, view: &View, centres: &[(f64, 
 
 /// Each method's running k∞ mean (± σ) against generation.
 fn draw_k_plot(painter: &egui::Painter, rect: Rect, run: &ManyRun, s: f32) {
-    painter.rect_filled(rect, 4.0, Color32::from_rgb(20, 23, 29));
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.rect_filled(rect, 4.0, ink.card);
     let pts: Vec<(usize, f64, f64)> = run
         .k_trace
         .iter()
@@ -1461,7 +1482,7 @@ fn draw_k_plot(painter: &egui::Painter, rect: Rect, run: &ManyRun, s: f32) {
             egui::Align2::CENTER_CENTER,
             "k∞ appears with the first active generation",
             egui::FontId::proportional(13.0 * s),
-            DIM,
+            ink.muted,
         );
         return;
     }
@@ -1488,11 +1509,11 @@ fn draw_k_plot(painter: &egui::Painter, rect: Rect, run: &ManyRun, s: f32) {
             egui::Align2::LEFT_CENTER,
             format!("{k:.3}"),
             egui::FontId::proportional(10.0 * s),
-            DIM,
+            ink.muted,
         );
         painter.line_segment(
             [Pos2::new(inner.left(), p.y), Pos2::new(inner.right(), p.y)],
-            Stroke::new(0.5, Color32::from_rgb(50, 55, 66)),
+            Stroke::new(0.5, ink.grid),
         );
     }
     painter.text(
@@ -1500,10 +1521,10 @@ fn draw_k_plot(painter: &egui::Painter, rect: Rect, run: &ManyRun, s: f32) {
         egui::Align2::CENTER_BOTTOM,
         "generation (running mean of the active ones, ± 1 σ)",
         egui::FontId::proportional(10.0 * s),
-        DIM,
+        ink.muted,
     );
     for (i, &m) in run.methods.iter().enumerate() {
-        let c = method_colour(m);
+        let c = method_colour(m, &ink);
         let series: Vec<(usize, f64, f64)> = run.k_trace[i]
             .iter()
             .filter_map(|&(g, _, mm)| mm.map(|(k, e)| (g, k, e)))

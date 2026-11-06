@@ -32,7 +32,7 @@
 //! (`sn_grad`), linear face interpolation (`interpolate`) and flux assembly
 //! (`flux`, `buoyancy_flux`), least-squares velocity reconstruction
 //! (`reconstruct`), the Rhie–Chow time-derivative flux correction
-//! (`ddt_corr`), MUSCL / TVD limited face reconstruction
+//! (`ddt_corr`, Euler; `ddt_corr_backward`, BDF2), MUSCL / TVD limited face reconstruction
 //! (`reconstruct_pos_neg`, `Limiter`), and the EOS-free
 //! Kurganov–Noelle–Petrova central-upwind face flux (`central_upwind`). Field values carry raw
 //! `f64` / `Vector3` / `Tensor` element data (no `uom`), consistent with the
@@ -51,14 +51,14 @@ mod muscl;
 mod reconstruct;
 mod sn_grad;
 
-pub use ddt_corr::ddt_corr;
+pub use ddt_corr::{ddt_corr, ddt_corr_backward, BackwardDdtCoeffs};
 pub use div::{div, div_flux, div_vec};
 pub use div_tensor::{div_symm_tensor, div_tensor};
 pub use flux::{buoyancy_flux, flux};
 pub use grad::grad;
 pub use grad_least_squares::grad_least_squares;
 pub use grad_vec::grad_vec;
-pub use interpolate::interpolate;
+pub use interpolate::{interpolate, linear_weight};
 pub use muscl::{reconstruct_pos_neg, Limiter};
 pub use reconstruct::reconstruct;
 pub use sn_grad::sn_grad;

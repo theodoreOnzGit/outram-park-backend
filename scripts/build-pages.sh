@@ -29,6 +29,8 @@ cp docs/site/science/transport/*.html docs/site/science/transport/*.js "$OUT/sci
 # The Fission products track (2026-10-20); check-fission.js is a node check, not
 # a page, but is copied like the other tracks' checks.
 cp docs/site/science/fission-products/*.html docs/site/science/fission-products/*.js "$OUT/science/fission-products/"
+# The particle slices and the concept map's stylesheet (gh:#1207).
+cp docs/site/science/fission-products/*.svg docs/site/science/fission-products/*.css "$OUT/science/fission-products/"
 cp docs/site/demos/index.html "$OUT/demos/"
 bash scripts/build-search-index.sh "$OUT"
 
@@ -38,6 +40,13 @@ bash scripts/build-search-index.sh "$OUT"
 node docs/site/science/neutronics/check-physics.js
 node docs/site/science/transport/check-transport.js
 node docs/site/science/fission-products/check-fission.js
+# gh:#1207 / #1209: the lessons folded in from the TRISO-ATOPS mdBook, the
+# concept map and walks, the diffusion arc and breathing.
+node docs/site/science/fission-products/check-decaywalk.js
+node docs/site/science/fission-products/check-chemhand.js
+node docs/site/science/fission-products/check-concepts.js
+node docs/site/science/fission-products/check-diffarc.js
+node docs/site/science/fission-products/check-breathing.js
 
 # The code map (gh:#734): every crate placed by its [package.metadata.kovan]
 # tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
@@ -167,12 +176,32 @@ while read -r name dir; do
   [[ -z "$name" || "$name" == \#* ]] && continue
   mdbook build "$dir" -d "$PWD/$OUT/tutorials/$name"
 done < docs/site/tutorials.txt
-# mdBook (0.5) publishes `additional-css`/`additional-js` under hashed names
-# (anim/boonlay-anim-6e39ad35.css), but the theory book's 15-dlofc.md reuses
-# the TRISO tutorial's animation by its plain name. Publish the plain names
-# too, so that link holds whatever the hash is. Its absence failed every
-# Pages build from 2026-10-19 (broken-link check).
-cp crates/boon-lay/docs/tutorial/anim/boonlay-anim.{css,js} "$OUT/tutorials/triso-atops/anim/"
+# ~~The theory book's 15-dlofc.md reused the TRISO tutorial's animation by its
+# plain name, so it was copied here.~~ Since 2026-11-04 (gh:#1207) the
+# animation lives in the theory book's own src/anim/, which mdBook copies.
+
+# The TRISO-ATOPS tutorial mdBook was folded into the Fission products science
+# lessons (gh:#1207, maintainer direction 2026-11-04). Its URLs stay valid: each
+# old page redirects to the lesson that now carries its content.
+mkdir -p "$OUT/tutorials/triso-atops"
+while read -r old new; do
+  printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
+    "<meta http-equiv=\"refresh\" content=\"0; url=../../$new\"><title>Moved</title></head>" \
+    "<body><p>This lesson moved to <a href=\"../../$new\">the Fission products lessons</a>.</p></body></html>" \
+    > "$OUT/tutorials/triso-atops/$old"
+  [[ "$new" == science/index.html* ]] || [[ -f "docs/site/${new%%#*}" ]] || { echo "TRISO-ATOPS redirect target missing: $new" >&2; exit 1; }
+done <<'REDIRECTS'
+index.html science/index.html#fission-products
+intro.html science/index.html#fission-products
+triso.html science/fission-products/barriers-why.html
+decay.html science/fission-products/decay-clock.html
+walk.html science/fission-products/walk-on-spheres.html
+layers.html science/fission-products/barriers-migration.html
+failure.html science/fission-products/failure-accident.html
+chemistry.html science/fission-products/chem-air.html
+coolant.html science/fission-products/atops-coolant.html
+handoff.html science/fission-products/atops-source-term.html
+REDIRECTS
 
 # Browser demos (gh:#519, #521): ONE Monte Carlo demo with a rung table
 # (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs): wasm build, its JS
@@ -194,6 +223,29 @@ bash crates/dhoby-ghaut/web/triso_atops/build.sh "$OUT/demos/triso-atops"
 # The DEM pour demo (gh:#787): HTR-10 pebbles poured and settled in the
 # browser by the LIGGGHTS port; the full-size gh:#216 bed is compiled in.
 bash crates/dhoby-ghaut/web/dem/build.sh "$OUT/demos/dem"
+# The helical-coil steam generator demo (gh:#1157): tampines' 1-D helical-coil
+# once-through steam generator march (IF97 water, coil and boiling closures)
+# in a Web Worker, one shooting march per message; no data files.
+bash crates/dhoby-ghaut/web/helical_sg/build.sh "$OUT/demos/helical-sg"
+for f in index.html worker.js helical_sg_web.js helical_sg_web_bg.wasm; do
+  [[ -f "$OUT/demos/helical-sg/$f" ]] || { echo "missing demos/helical-sg/$f" >&2; exit 1; }
+done
+# The double-pipe high-fidelity -> low-fidelity twin (gh:#1182): the TUAS
+# 1-D double pipe evaluated live in a Web Worker, beside the committed
+# Kennedy-O'Hagan, co-kriging, CFD and filtering artefacts compiled into the
+# wasm; no data files. Built from the digital-twin engine since 2026-11-05
+# (moved from dhoby-ghaut to break a dependency cycle); same URL.
+bash crates/outram-park-digital-twin-engine/web/double_pipe_twin/build.sh "$OUT/demos/double-pipe-twin"
+for f in index.html worker.js double_pipe_twin_web.js double_pipe_twin_web_bg.wasm; do
+  [[ -f "$OUT/demos/double-pipe-twin/$f" ]] || { echo "missing demos/double-pipe-twin/$f" >&2; exit 1; }
+done
+# Foam Studio (gh:#1155): a pipe or duct meshed (O-grid / box blockMesh) and
+# solved by the pimpleFoam port in a Web Worker, one chunk of time steps per
+# message; no data files.
+bash crates/dhoby-ghaut/web/foam_studio/build.sh "$OUT/demos/foam-studio"
+for f in index.html worker.js foam_studio_web.js foam_studio_web_bg.wasm; do
+  [[ -f "$OUT/demos/foam-studio/$f" ]] || { echo "missing demos/foam-studio/$f" >&2; exit 1; }
+done
 # Delta vs surface tracking, step by step (gh:#784): reads the Monte Carlo
 # demo's tapes from ../monte-carlo/data/, so it is built after that one.
 bash crates/dhoby-ghaut/web/delta_tracking/build.sh "$OUT/demos/delta-tracking"
@@ -206,6 +258,26 @@ done
 bash crates/outram-park-digital-twin-engine/web/ciet/build.sh "$OUT/demos/ciet"
 for f in index.html app.js plant-worker.js flow-worker.js ciet_web.js ciet_web_bg.wasm; do
   [[ -f "$OUT/demos/ciet/$f" ]] || { echo "missing demos/ciet/$f" >&2; exit 1; }
+done
+# The HTGR simulator in the browser (gh:#986): htgr_sim_v1's own widgets as
+# wasm, the plant on a Web Worker. PASSWORD-GATED by web/gate.js, which is a
+# sign and not a lock -- everything published here is readable by anyone who
+# loads it, and gate.js says so. ~~Not linked from any index page, so the only
+# way in is to be given the URL~~ CHANGED 2026-10-27 (maintainer: "Can I have
+# the demos on the demos page"): listed under Plant simulators on demos/;
+# `noindex` still keeps it out of search.
+bash crates/outram-park-digital-twin-engine/web/htgr/build.sh "$OUT/demos/htgr"
+for f in index.html htgr_worker.js gate.js htgr_sim_v1.js htgr_sim_v1_bg.wasm; do
+  [[ -f "$OUT/demos/htgr/$f" ]] || { echo "missing demos/htgr/$f" >&2; exit 1; }
+done
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986), moved here
+# from the outram-park repository on 2026-10-27: ~~dhoby-ghaut's~~ the
+# digital-twin engine's (since 2026-11-05) fukushima_web example, the plant on
+# three Web Workers. Gated and listed exactly like the HTGR demo above, by the
+# same gate.js. Same URL as before the move.
+bash crates/outram-park-digital-twin-engine/web/fukushima/build.sh "$OUT/demos/fukushima"
+for f in index.html fukushima_worker.js gate.js fukushima_web.js fukushima_web_bg.wasm; do
+  [[ -f "$OUT/demos/fukushima/$f" ]] || { echo "missing demos/fukushima/$f" >&2; exit 1; }
 done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
@@ -297,6 +369,19 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   science/fission-products/kernel-{polycrystal,chemistry,grain-growth,pores,in-out,lumping,booth-grain,many-spheres,two-scales,rb}.html \
   science/fission-products/kernel-{recoil,knockout,sweeping,precursors,bursts,burnup-oxygen,conductivity,hbs,swelling}.html \
   science/fission-products/{kernel-data,kernel-recorded,kernel-physics,kernel-worker,kernel-story}.js \
+  science/fission-products/barriers-{why,migration,sic,whole}.html \
+  science/fission-products/failure-{vessel,weibull,thinning,accident,release,leaves-out}.html \
+  science/fission-products/{barrier-data,failure-data,barrier-recorded,barrier-physics,barrier-worker,barrier-story,plot-kit}.js \
+  science/fission-products/atops-{big-picture,groups,diffusion,release-models,normal-operation,coolant,accident,simplifications}.html \
+  science/fission-products/{atops-data,atops-physics,atops-story}.js \
+  science/fission-products/{decay-clock,walk-on-spheres,chem-air,chem-steam,atops-source-term}.html \
+  science/fission-products/{decaywalk-data,decaywalk-story,chemhand-data,chemhand-story}.js \
+  science/fission-products/{diffusion-three-ways,atops-conservative,atops-breathing}.html \
+  science/fission-products/{diffarc-data,diffarc-story,breathing-data,breathing-story}.js \
+  science/fission-products/{atops-concepts,atops-walk-cs137,atops-walk-accident,atops-walk-silver}.html \
+  science/fission-products/{atops-concepts-data,atops-concepts,atops-walk-numbers,atops-walk-recorded}.js \
+  science/fission-products/atops-concepts.css \
+  science/fission-products/{triso-htr10-slice,triso-crp6-slice}.svg \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \
@@ -308,6 +393,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html \
   tutorials/monte-carlo/ugraphite.html tutorials/monte-carlo/lumped.html \
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
+  demos/htgr/index.html demos/htgr/htgr_sim_v1_bg.wasm \
+  demos/fukushima/index.html demos/fukushima/fukushima_web_bg.wasm \
   api/sembawang/index.html \
   deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
   demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm \

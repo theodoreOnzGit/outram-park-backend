@@ -93,7 +93,10 @@ pub use coolant_activity::{
     circulating, circulating_steadystate, clean_up, clean_up_steadystate, plate_out,
     plate_out_steadystate,
 };
-pub use source_terms::{base_activities, release_rate, FailureFractions, SourceAndGraphite};
+pub use source_terms::{
+    base_activities, base_activities_for, release_rate, release_rate_for, FailureFractions,
+    SourceAndGraphite,
+};
 
 /// Radioactivity (activity) of a decaying species, SI unit becquerel (`Bq`).
 ///

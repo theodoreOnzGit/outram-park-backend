@@ -127,7 +127,7 @@ use super::core_model::{
     mat, AssembledCore, HTR10_BOTTOM_REFLECTOR_CM, HTR10_CONUS_HEIGHT_CM, HTR10_CORE_CAVITY_CM,
     HTR10_CORE_RADIUS_CM, HTR10_DISCHARGE_TUBE_RADIUS_CM, TILE_DUMMY_BALL_CELL_ID,
     TILE_FUEL_SHELL_CELL_ID, TILE_FUEL_ZONE_CELL_ID, TILE_HELIUM_CELL_ID, TILE_SITE_STRIDE,
-    TILE_VARIANTS_MAX,
+    TILE_VARIANTS_MAX, TRISO_PARTICLE_UNIVERSE,
 };
 use super::core_design::Htr10CoreDesign;
 use super::core_shell::{ins, out, CoreFrame, CoreShell};
@@ -655,6 +655,8 @@ pub fn assemble_explicit_triso_from_centres_with(
     design: &Htr10CoreDesign,
 ) -> AssembledCore {
     let r_fz = design.fuel_zone_radius_cm;
+    // The graphite balls' slot (gh:#1138; `mat::GRAPHITE` without zones).
+    let moderator_slot = design.moderator_ball_slot();
     assert_eq!(centres.len(), is_fuel.len(), "one fuel flag per centre");
     assert!(!centres.is_empty(), "no pebbles");
     let r = PEBBLE_RADIUS_CM;
@@ -698,6 +700,59 @@ pub fn assemble_explicit_triso_from_centres_with(
     let mut surfaces = std::mem::take(&mut sh.surfaces);
     let mut cells = std::mem::take(&mut sh.cells);
     let mut universes = std::mem::take(&mut sh.universes);
+
+    // Random TRISO packings (gh:#1243): each one exactly the lattice's
+    // particle count, wrapped in a tracking lattice (geometry lattices 2..).
+    let mut random_lattices: Vec<outram_mc_libs::geometry::lattice::RectLattice> = Vec::new();
+    if let super::core_design::TrisoPacking::Random { realisations, seed } = design.triso_packing {
+        let r_part = design.triso_radii_cm[4];
+        let n = sh.triso_particles();
+        const TILES: usize = 10;
+        let pitch = 2.0 * r_fz / TILES as f64;
+        for k in 0..realisations {
+            let centres = outram_mc_libs::dh_universe::pack_count_in_ball(
+                r_part,
+                r_fz,
+                n,
+                seed.wrapping_add(k as u64),
+            )
+            .unwrap_or_else(|e| panic!("random TRISO packing {k}: {e}"));
+            let out = outram_mc_libs::pebble_beds::triso_lattice::create_triso_lattice(
+                &centres,
+                r_part,
+                TRISO_PARTICLE_UNIVERSE,
+                Position::new(-r_fz, -r_fz, -r_fz),
+                [pitch; 3],
+                [TILES; 3],
+                mat::GRAPHITE,
+                293.6,
+                outram_mc_libs::pebble_beds::triso_lattice::TrisoLatticeBase {
+                    surface: surfaces.len(),
+                    cell: cells.len(),
+                    universe: universes.len(),
+                },
+                RANDOM_TRISO_LATTICE_ID + k as i32,
+            );
+            surfaces.extend(out.surfaces);
+            cells.extend(out.cells);
+            universes.extend(out.universes);
+            random_lattices.push(out.lattice);
+        }
+    }
+    let n_random = random_lattices.len();
+    // Each fuel ball's ordinal among the fuel balls: a ball cut across tiles
+    // has a piece in each, and every piece must take the same packing.
+    let fuel_ordinal: Vec<usize> = bed
+        .fuel
+        .iter()
+        .scan(0usize, |k, &f| {
+            let o = *k;
+            if f {
+                *k += 1;
+            }
+            Some(o)
+        })
+        .collect();
 
     // Empty tiles and the lattice `outer`: all helium. Two cells, because an
     // empty region would be all space and one sphere's inside/outside covers
@@ -791,10 +846,13 @@ pub fn assemble_explicit_triso_from_centres_with(
                 let fz = surfaces.len();
                 surfaces.push(sphere(lc, r_fz));
                 idx.push(cells.len());
+                // The record's lattice (1), or random packing (fuel ball
+                // ordinal mod K) for every piece of this ball (2..).
+                let lattice = if n_random == 0 { 1 } else { 2 + fuel_ordinal[i] % n_random };
                 cells.push(Cell::fill(
                     TILE_FUEL_ZONE_CELL_ID + id,
                     vec![ins(fz)],
-                    CellFill::Lattice(1),
+                    CellFill::Lattice(lattice),
                     Position::new(lc[0], lc[1], lc[2]),
                 ));
                 idx.push(cells.len());
@@ -809,7 +867,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                 cells.push(Cell::material(
                     TILE_DUMMY_BALL_CELL_ID + id,
                     clip(Rgn::ins(pb)).0,
-                    mat::GRAPHITE,
+                    moderator_slot,
                     293.6,
                 ));
             }
@@ -869,8 +927,12 @@ pub fn assemble_explicit_triso_from_centres_with(
         lat_pitch,
         lat_height,
         PebbleBed::Explicit(bed),
+        random_lattices,
     )
 }
+
+/// Id of the first random TRISO packing's tracking lattice (gh:#1243).
+pub const RANDOM_TRISO_LATTICE_ID: i32 = 100;
 
 /// Why a DEM bed could not be read or cut ([`read_dem_centres_csv`],
 /// [`trim_to_core_balls`]).

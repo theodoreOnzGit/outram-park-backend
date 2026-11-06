@@ -239,6 +239,9 @@ kovan-cli code-map --format svg -o code_map.svg
 kovan-cli code-map --format json -o code_map.json
 kovan-cli call-graph --crates outram-park-digital-twin-engine,boon-lay -o call_graph.json
 kovan-cli review ivv
+kovan-cli review carry-forward --from refs/pull/12/head
+kovan-cli review justify crates/x/src/lib.rs::f --verdict ok --evidence "kovan-cli test: 3 passed"
+kovan-cli review justifications f
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -568,9 +571,13 @@ stale), with the folder's `review.md` on the right: only this function's
 entries are editable, and only their comments. Line numbers select lines
 for a highlight (an annotation entry anchored with Hypothesis selectors);
 Upstream opens the ported-from file in the browser; Quick fix edits the
-function's own lines in kvim. Stamp is refused while a callee lacks a valid
-stamp (bottom-up is enforced) and when the code changed while it was
-reviewed. Save keeps what was written to `review.md`; Cancel puts it back
+function's own lines in kvim. ~~Stamp is refused while a callee lacks a valid
+stamp (bottom-up is enforced)~~ **CORRECTED 2026-11-01** (GitHub #1106,
+tentative stamps): Stamp is allowed while a callee lacks a valid stamp; the
+stamp reads **tentative: waiting on stamps underneath** and turns valid by
+itself, with no re-stamp, once everything underneath it (transitively) is
+valid; a recursion group turns valid together. It does not count until
+then. Stamp is refused when the code changed while it was reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
@@ -585,7 +592,8 @@ Right-click a function whose stamp is stale only because something it
 calls or uses changed (a function, a type or a constant) and choose
 **Quick stamp**: it shows what changed there and renews the stamp with the
 same answers, without the wizard. It is refused while a reaching test
-fails or while the changed item has no valid review of its own.
+fails; ~~or while the changed item has no valid review of its own~~ (since
+2026-11-01, #1106, it is then allowed and reads tentative).
 **No language server is started**: colours come from the `kopitiam-syntax`
 line lexer and completion from the cached index (`kovan.toml`), so
 completion knows names in this workspace, nearest first, but not types:
@@ -617,8 +625,9 @@ in another file. **Added 2026-10-13 (step 2):** the index run reads from
 rust-analyzer's SCIP index which workspace types and constants each
 function names and writes them as `uses` in `kovan.toml` (and in the map
 data, where a type unfolds to the functions that use it). The bottom-up
-rule covers them: a function cannot be stamped until the types it uses have
-a valid review, and a new stamp records their hashes, so a later change to
+rule covers them: ~~a function cannot be stamped until~~ a function's stamp
+is tentative until (#1106, 2026-11-01) the types it uses have a valid
+review, and a new stamp records their hashes, so a later change to
 a type asks for a re-confirm of its users. A review written before this
 keeps its state. A type's `reached_by` lists the tests that use it.
 **Added 2026-10-13 (step 3):** types and constants are stamped through the
@@ -679,8 +688,31 @@ code, doc comment, callees and `Cargo.lock` are unchanged, and signs them
 all again at `HEAD` with one passphrase entry, checklists carried over; a
 function that changed is listed with the reason and needs Stamp. Commit
 the result after the squash (`src/stamping/reanchor.rs`,
-`src/stamping/reanchor_flow.rs`). **Do not squash or rebase a branch that
-holds stamps unless you mean to re-anchor them.**
+`src/stamping/reanchor_flow.rs`). ~~**Do not squash or rebase a branch that
+holds stamps unless you mean to re-anchor them.**~~ **CORRECTED 2026-10-22**
+(#838, #1018): a squash, merge, rebase or cherry-pick no longer needs a
+re-anchor when the code is unchanged. `kovan-cli review carry-forward`
+writes an unsigned carry-forward record that anyone can re-check, and the
+stamp's key moves to the new commit with its signature untouched (see
+"`review carry-forward`" below). A stamp whose anchor is gone and whose code
+changed shows as changed since review, not unverified.
+
+Added 2026-10-22 (#1020): **the signing key is unlocked once per
+session.** The first signing (a stamp, a re-confirm, a re-anchor, an
+organisation record or an attestation) asks for the passphrase; kovan then
+keeps the unlocked key in memory, never on disk, and later signings ask for
+nothing. It locks after 30 minutes without signing (set in the Code Review
+tab's **Signing key…** window, saved in kovan's config folder), on
+**Lock now** (the strip shows the lock state), and when kovan closes. The
+same window **exports** your key, a byte-for-byte copy of its encrypted
+`.kovankey` file, to a file you choose, and **imports** one on another
+machine: it checks the file's header against its encryption with your
+passphrase, accepts only a key the workspace's `kovan_root.toml` already
+lists, and never overwrites a different key file. Both sides show the key's
+`SHA256:` fingerprint, so you can check it is the same key; there is nothing
+new to endorse. kovan sends the file nowhere: carrying it is yours
+(`kovan_common::review::signing::session`, `Keystore::export`/`import`,
+`src/stamping/key_panel.rs`).
 
 Added 2026-10-10 (#770): an inherited-stale function (only callees
 changed) offers **Re-confirm**: the dialog shows each changed callee's
@@ -709,6 +741,144 @@ reopening it (`src/stamping/review_mode/watch.rs`).
 - One standing review per function and reviewer: a re-review replaces it in
   place, and the earlier one lives only in git history.
 
+### Code Review ▸ User management: reviewers, keys, agents (GitHub #1019)
+
+A tab in Code Review, beside the code map, listing every reviewer and key
+in `kovan_root.toml` and every agent that wrote a justification.
+
+- **The list:** each reviewer's role, scope, keys and status, with a warnings
+  strip (`Registry::warnings`).
+- **One reviewer's page:** who admitted them and when; their standing
+  history; each key's fingerprint and replayed history; their stamps and
+  coverage.
+- **Agents** (`agent:…`) are listed apart and never count as review.
+- **My keys on this machine:** the Signing-key panel (#1020), drawn inline.
+
+Every action signs with the session key, and the passphrase is asked only
+while it is locked:
+
+- **Admit** (validate a reviewer's own key): as Reviewer, Novice reviewer or
+  Maintainer. ~~Any admitted maintainer~~ ~~**Since 2026-11-04 (GitHub
+  #1211) the founder only**~~ **CORRECTED 2026-11-05 (GitHub #1249): a
+  founder or any admitted maintainer**; admissions signed earlier by any
+  maintainer still count.
+- **Issue a validated keyfile** (~~founder only, #1211~~ a founder or any
+  admitted maintainer, #1249): generate a key for another person, admit it
+  in the same write, and save it encrypted under a passphrase the signer
+  types (save picker), to hand over; it imports with "Import a key".
+- **Organisations & IV&V** (#1211, formerly a separate window): the
+  founder signs or retires organisation records (retire appends a signed
+  `[[code_review.organisation_retirement]]`; the record stays listed,
+  marked retired, and no longer counts); a reviewer signs their separation
+  attestation.
+- **Key actions:** endorse, retire, un-retire, revoke or mark compromised.
+  ~~Retire is unsigned~~ **Since 2026-11-05 (GitHub #1249) retire is
+  signed** by the key's owner, a founder or a maintainer. From
+  `SIGNED_KEY_RETIREMENT_FROM` (2026-11-06) an unsigned retirement has no
+  effect and shows as a warning; an older unsigned one keeps counting and
+  is flagged forever.
+- **Revoke** a reviewer.
+- **Change standing**, as signed `[[code_review.roster_event]]` entries
+  (`kovan-roster-event-v1`): edit scope, make maintainer or step down, hand
+  over maintainer (optionally stepping down), mark novice, promote to
+  trusted.
+
+The admission is never rewritten. A stamp is judged by the role and scope in
+force on its own date, so a later change never alters an old stamp's
+verdict. A novice's stamp alone shows **"1 of 2: awaiting a trusted
+reviewer"** until a trusted reviewer or a maintainer also stamps the
+function. The rules are in `kovan_common::review::signing::registry`'s module
+doc.
+
+~~**After a founder hands over and steps down,** nobody can admit or sign
+organisation records from kovan (#1211 makes them founder-only, and the
+founder signs as a maintainer) until founder succession (GitHub #1022).~~
+**CORRECTED 2026-11-05 (GitHub #1249):** any maintainer admits, so a
+handover no longer stops admissions; organisation records stay
+founder-only.
+
+~~**If no maintainer is available,** there is no bypass of the signatures. The
+repository owners' route is a reviewed commit declaring a new founder. That
+re-roots trust today; a founder-succession record that keeps the old chain
+valid is GitHub #1022.~~ **CORRECTED 2026-11-05 (GitHub #1248):**
+
+- **Founders are a list** (`[code_review] founders = [...]`; the old
+  `founder = "…"` reads as a one-person list). Any current founder signs
+  organisation records.
+- **Founders & lineage** (a section of User management): a founder adds
+  another founder or retires one (themselves included), each a signed
+  `[[code_review.founder_change]]`. A retired founder keeps founder standing
+  for everything dated before the retirement, so the old chain still
+  verifies. The section shows the founders, the retired founders and the
+  **lineage fingerprint** (SHA-256 of the first founders and every founder
+  change that took effect; derived, no new file).
+- **No founder with an active key?** The maintainers with an active key on
+  the opening day elect one (`[[code_review.founder_ballot]]`,
+  `[[code_review.founder_vote]]`): more than half of them; with a single
+  maintainer only after 14 days; ballots run 30 days, and at the close the
+  earliest-admitted voter's candidate wins if it is one of the two leading.
+  A ballot is refused or void while any founder has an active key, and
+  every ballot shows in the warnings strip.
+- **Nobody at all with an active key?** Only then does an unsigned
+  `[[code_review.founder_change]]` made by a reviewed commit count, shown
+  forever as "trust root replaced by repository commit".
+- Forks, recognising other lineages and the recognised-lineages table are
+  deferred (GitHub #1248, "Scope split").
+
+### `review justify` / `review justifications` — agents' unsigned justifications (`stamping::justify`, GitHub #1019)
+
+`kovan-cli review justify <function> --verdict ok|not-ok|unsure --evidence
+"<text>" [--evidence …] [--by agent:<name>] [--workspace <dir>]` writes an
+AI agent's justification of one function, why it looks correct or not and
+the evidence, into the function's folder `review.md`. `<function>` is its
+`fn:` id or `file.rs::Type::name`; `--by` defaults to `agent:claude` and
+must be an `agent:` id (a human reviewer id is refused). The entry:
+
+````markdown
+# Justification (agent-drafted, unsigned): twice (agent:claude)
+
+```toml
+[kovan]
+id = "justification-twice-claude-3f2a9c0d"
+kind = "justification"
+origin = "agent"
+created = "2026-10-22T10:00:00+08:00"
+modified = "2026-10-22T10:00:00+08:00"
+target = "fn:3f2a9c0d1e4b5a67"
+
+[justification]
+path = "crates/demo/src/lib.rs::twice"
+by = "agent:claude"
+agent_drafted = true
+verdict = "ok"
+date = "2026-10-22"
+commit = "<HEAD, 40 hex>"
+hash = "sha256:<the function's hash at HEAD>"
+evidence = ["kovan-cli test: 3 passed"]
+```
+
+## Agent-drafted, unsigned
+…it never counts towards "reviewed", alone or as a second sign-off…
+## Verdict: ok
+## Evidence
+- kovan-cli test: 3 passed
+````
+
+It is **never signed**: kovan-cli has no key, no keystore and no signing
+command, and the entry type has no signature field. The staleness engine
+ignores the kind, so it never makes a function reviewed, never blocks it
+and is never a second sign-off; a human may cite it when signing their own
+stamp in desktop kovan. One standing justification per agent per function:
+a second call replaces the first, which lives on in git history. The
+function's file must be committed (the entry records `HEAD` and the hash
+there). It is its own kind rather than an unsigned `needs_fix`, because an
+open needs-fix blocks its function and is a human's
+(`kovan_common::review::review_md`, "Why `justification` is its own kind").
+
+`kovan-cli review justifications [<function>]` lists them, read-only, each
+labelled agent-drafted and unsigned, with whether the function's code
+changed since, and any unreadable justification with the parser's reason.
+
 ### `review ivv` — rung 5, independent V&V, per function (`commands::review_ivv`, GitHub #810)
 
 `kovan-cli review ivv [<function>] [--workspace <dir>]` prints, from
@@ -721,9 +891,13 @@ rows of the need-you queue. It is read-only: kovan-cli has no signing
 command. The same summary is drawn in the review bar of kovan-web and of
 desktop kovan's Code Review tab.
 
-Signing happens in desktop kovan. The Code Review tab's **Organisations &
+Signing happens in desktop kovan. ~~The Code Review tab's **Organisations &
 IV&V** window lets a maintainer sign developing-organisation and
-reviewer-organisation records, and an independent reviewer sign a separation
+reviewer-organisation records~~ **CORRECTED 2026-11-04** (GitHub #1211):
+the **Organisations & IV&V** sections of Code Review ▸ User management let
+~~the **founder**~~ **any founder** (GitHub #1248) sign, and retire, developing-organisation and
+reviewer-organisation records (records signed earlier by another
+maintainer still count, and are marked so), and an independent reviewer sign a separation
 attestation naming a GitHub issue as its audit record. The stamp dialog lets
 the reviewer pick which of their own signed attestations a review relies on
 (none by default). Every record is appended to `kovan_root.toml` as text,
@@ -735,6 +909,29 @@ concepts its reviews link with an `implements` relation, chosen in the stamp
 dialog's concept finder (a qualification covers a concept at its node or
 any ancestor). A function whose reviews link no concept still shows "the
 function has no known concept area" and cannot reach rung 5.
+
+### `review carry-forward` — stamps survive squash, merge, rebase and cherry-pick (`stamping::carry_forward`, GitHub #838, #1018)
+
+`kovan-cli review carry-forward [--from <ref>] [--to <ref>] [--workspace <dir>]`
+is run after reviewed code reaches a branch (by CI on a push to `develop` or
+`main`, or by hand). For every signed stamp whose commit is not in the
+history of `--to` (default `HEAD`), it hashes the function at `--to`; when
+that equals the signed `hash`, it writes an **unsigned** record `{stamp,
+target, path, hash, from, to}` to `kovan_carry_forward/<to>.toml` at the
+workspace root, and the stamp's key moves to `to`. The signed stamp is never
+edited. A function that changed gets no record and goes stale. A regular
+merge keeps the original commit in history and writes nothing. Commit the
+file afterwards. `--from <ref>` (the review branch, or `refs/pull/<n>/head`)
+limits the run to stamps from there and fetches it when missing, which also
+brings the original commits back for the signing-time check (#783); without
+them that check reads "not checkable (squashed)". Each hop of review branch
+→ `develop` → `main` is its own record.
+
+`kovan-cli review carry-forward --check` re-verifies every record with no
+key and exits non-zero when one does not verify: a record whose hash is not
+the signed one, which names another function, or whose function at `to`
+hashes otherwise is rejected and carries nothing. The record format and
+why one file per `to` commit is in `kovan_common::review::carry_forward`.
 
 ### `site-index` — full-text search of the built Pages site (`site_search`, GitHub #876 item 8)
 
@@ -1067,6 +1264,15 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance
   ([morhetz/gruvbox](https://github.com/morhetz/gruvbox)).
+- **Bookmarks** (top bar → "Bookmarks", beside Setup; GitHub #1210) —
+  "Bookmark this page" keeps the current page (view, concept, paper), the
+  open paper's PDF at the page in view, or the function selected in the
+  Code Review; a fuzzy-find box ranks them by name and target; each can be
+  renamed and deleted, and a click jumps there as a Back/Forward step.
+  Kept in the Kovan folder as `bookmarks/<user>.toml`, one file per user:
+  the reviewer id of the first key in kovan's keystore, else
+  `login:<OS login>`. A file that cannot be read is reported and left as
+  it is. See `src/bookmarks.rs`.
 
 Still open on the `op-9c2e` epic and not implemented: the bibliography
 management window, the "kovan folder" project format (`kovan.toml`), and

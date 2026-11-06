@@ -2,6 +2,25 @@ schema_version = 1
 kind = "code_folder"
 crate = "kovan-common"
 dir = "crates/kovan-common/tests"
+test_ids = [
+    "crates/kovan-common/tests/kovan_document_schema_compat.rs::document_with_zotero_item_round_trips",
+    "crates/kovan-common/tests/kovan_document_schema_compat.rs::pre_port_json_loads_and_reserialises_identically",
+    "crates/kovan-common/tests/kovan_document_schema_compat.rs::pre_port_toml_loads_and_reserialises_identically",
+    "crates/kovan-common/tests/review_schema_compat.rs::every_committed_review_fixture_loads",
+    "crates/kovan-common/tests/review_schema_compat.rs::old_files_write_back_unchanged",
+    "crates/kovan-common/tests/review_schema_compat.rs::placeholder_checklist_keys_load_but_the_wizard_refuses_them",
+    "crates/kovan-common/tests/zotero_port.rs::child_items_and_collections",
+    "crates/kovan-common/tests/zotero_port.rs::csl_export_import_export_is_stable",
+    "crates/kovan-common/tests/zotero_port.rs::csl_legacy_short_title_key",
+    "crates/kovan-common/tests/zotero_port.rs::item_json_round_trips_and_validates",
+    "crates/kovan-common/tests/zotero_port.rs::item_json_to_csl_matches_csl_fixture",
+    "crates/kovan-common/tests/zotero_port.rs::kovan_to_zotero_to_kovan",
+    "crates/kovan-common/tests/zotero_port.rs::numeric_fields_become_strings",
+    "crates/kovan-common/tests/zotero_port.rs::round_trip_is_lossless_without_citation_key_and_with_a_stored_file",
+    "crates/kovan-common/tests/zotero_port.rs::schema_tables_match_schema_json",
+    "crates/kovan-common/tests/zotero_port.rs::zotero_to_kovan_field_map",
+    "crates/kovan-common/tests/zotero_port.rs::zotero_to_kovan_to_zotero_is_lossless",
+]
 
 [module."kovan_document_schema_compat.rs"]
 path = "test:kovan_document_schema_compat"
@@ -567,3 +586,28 @@ uses = [
     "fn:d4ea0d49816f0858",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+failed = []

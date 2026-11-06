@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests"
+test_ids = ["crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mod.rs::ciet_heater_v2_speedup_using_fluid_array_solid_column_hte"]
 
 [module."mod.rs"]
 path = "crate::pre_built_components::heat_transfer_entities::tests"
@@ -138,3 +139,10 @@ uses = [
 ]
 test = true
 physical_interface = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = ["#0"]
+failed = []

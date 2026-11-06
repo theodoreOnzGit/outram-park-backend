@@ -318,6 +318,41 @@ pub struct PolyMesh {
 }
 
 impl PolyMesh {
+    /// Several region meshes side by side as one `PolyMesh`, for drawing a
+    /// multi-region case (gh:#1156): nothing is merged or connected, the
+    /// regions' cells are numbered in order (region `k`'s cell `c` becomes
+    /// `c + Σ_{j<k} n_cells_j`), every internal face comes first, then each
+    /// region's patches, renamed `"<region>/<patch>"`. A solver never sees
+    /// this mesh; each region keeps its own.
+    pub fn concatenate(parts: &[(&str, &PolyMesh)]) -> PolyMesh {
+        let mut points = Vec::new();
+        let mut internal = Vec::new();
+        let mut boundary: Vec<(String, outram_foam_basic_lib::mesh::PatchKind, Vec<MeshFace>)> = Vec::new();
+        let (mut p0, mut c0) = (0, 0);
+        for (name, m) in parts {
+            let shift = |f: &MeshFace| MeshFace {
+                verts: f.verts.iter().map(|v| v + p0).collect(),
+                owner: f.owner + c0,
+                neighbour: f.neighbour.map(|n| n + c0),
+            };
+            points.extend_from_slice(&m.points);
+            internal.extend(m.faces[..m.n_internal_faces].iter().map(shift));
+            for p in &m.patches {
+                boundary.push((format!("{name}/{}", p.name), p.kind, m.faces[p.start..p.start + p.size].iter().map(shift).collect()));
+            }
+            p0 += m.points.len();
+            c0 += m.n_cells;
+        }
+        let n_internal_faces = internal.len();
+        let mut faces = internal;
+        let mut patches = Vec::new();
+        for (name, kind, fs) in boundary {
+            patches.push(BoundaryPatch::new(name, faces.len(), fs.len(), kind));
+            faces.extend(fs);
+        }
+        PolyMesh { points, faces, n_internal_faces, n_cells: c0, patches }
+    }
+
     /// Number of points.
     pub fn n_points(&self) -> usize {
         self.points.len()
@@ -433,6 +468,21 @@ impl PolyMesh {
             n_internal_faces: self.n_internal_faces,
             n_cells: self.n_cells,
             patches: self.patches.clone(),
+        }
+    }
+
+    /// The inverse of [`PolyMesh::to_foam_poly_mesh`]: take an
+    /// `outram-foam-basic-lib` polyMesh (read from disk, or converted from
+    /// another mesher, e.g. the cfMesh port through `outram_blender`'s neutral
+    /// mesh, gh:#1202) as this crate's `PolyMesh`, so the section cutter and
+    /// [`PolyMesh::to_fv_mesh`] work on it. A pure re-packing, like its inverse.
+    pub fn from_foam_poly_mesh(m: &outram_foam_basic_lib::io::PolyMesh) -> PolyMesh {
+        PolyMesh {
+            points: m.points.clone(),
+            faces: m.faces.iter().map(|f| MeshFace { verts: f.verts.clone(), owner: f.owner, neighbour: f.neighbour }).collect(),
+            n_internal_faces: m.n_internal_faces,
+            n_cells: m.n_cells,
+            patches: m.patches.clone(),
         }
     }
 
@@ -1691,6 +1741,17 @@ fn patch_kind_from_str(t: &str) -> PatchKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `from_foam_poly_mesh` inverts `to_foam_poly_mesh` exactly (gh:#1202).
+    #[test]
+    fn foam_poly_mesh_round_trip_is_exact() {
+        let m = block_mesh(&multigrading_cube_dict(5)).unwrap();
+        let back = PolyMesh::from_foam_poly_mesh(&m.to_foam_poly_mesh());
+        assert_eq!(back.points, m.points);
+        assert_eq!((back.n_cells, back.n_internal_faces, back.faces.len()), (m.n_cells, m.n_internal_faces, m.faces.len()));
+        assert!(back.faces.iter().zip(&m.faces).all(|(a, b)| a.verts == b.verts && a.owner == b.owner && a.neighbour == b.neighbour));
+        assert_eq!(back.patches, m.patches);
+    }
 
     /// A unit-cube `blockMeshDict` (`[0,1]^3`, `convertToMeters 1`) whose
     /// x-direction uses the multi-grading list `((0.2 0.3 4)(0.6 0.4 3)(0.2 0.3

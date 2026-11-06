@@ -174,3 +174,59 @@ fn claims_come_from_review_md_entries_of_their_own_folder() {
     );
     assert_eq!(claims[1].hash.as_deref(), Some(h('d').as_str()));
 }
+
+/// Methodology (GitHub #1019): an agent justification names its function
+/// like a needs-fix does, so it claims that function's id by path with the
+/// hash it was written at, keeping the id stable when `kovan.toml` is lost;
+/// one whose path is in another folder is ignored.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn justifications_claim_their_function() {
+    let j = |id: &str, path: &str| {
+        format!(
+            "# J\n\n```toml\n[kovan]\nid = \"j-{id}\"\nkind = \"justification\"\norigin = \"agent\"\ncreated = \"2026-10-22\"\nmodified = \"2026-10-22\"\ntarget = \"{id}\"\n\n[justification]\npath = \"{path}\"\nby = \"agent:claude\"\nagent_drafted = true\nverdict = \"ok\"\ndate = \"2026-10-22\"\ncommit = \"{C}\"\nhash = \"{}\"\nevidence = [\"tests pass\"]\n```\n\n",
+            h('e')
+        )
+    };
+    let md = format!(
+        "{}{}",
+        j("fn:00000000000000aa", "crates/x/src/a.rs::g"),
+        j("fn:00000000000000bb", "crates/y/src/q.rs::q")
+    );
+    let doc = parse_review_md(&md);
+    assert!(doc.unreadable.is_empty(), "{:?}", doc.unreadable);
+    let claims = claims_from_review_md("crates/x/src/review.md", &doc);
+    assert_eq!(claims.len(), 1, "{claims:?}");
+    assert_eq!(claims[0].id, "fn:00000000000000aa");
+    assert_eq!(claims[0].path.as_deref(), Some("crates/x/src/a.rs::g"));
+    assert_eq!(claims[0].hash.as_deref(), Some(h('e').as_str()));
+}
+
+/// GitHub #1144. Methodology: the boon-lay case reduced. Two functions
+/// share a body hash: `src/a.rs::sum` (this folder, previous id `fn:fb`,
+/// named only as a review's callee key) and another folder's function
+/// (id `fn:30`, claimed by its own path and as a callee key). A per-folder
+/// refresh sees only `sum`. Pass: `sum` keeps `fn:fb` and `fn:30` is left
+/// unmatched; once `sum` is edited, the old rule applies (its prior id is
+/// not kept, nothing claims it by hash, it is minted).
+#[test]
+fn a_hash_only_claim_keeps_the_previous_path_over_a_twin_elsewhere() {
+    let fns = vec![loc("crates/x/src/a.rs::sum", 1, 5, 's')];
+    let claims = vec![
+        claim("fn:30", Some("crates/y/src/b.rs::twin"), Some('s')),
+        claim("fn:30", None, Some('s')),
+        claim("fn:fb", None, Some('s')),
+    ];
+    let priors = vec![Prior {
+        id: "fn:fb".into(),
+        path_id: "crates/x/src/a.rs::sum".into(),
+        hash: h('s'),
+    }];
+    let a = assign_ids(&fns, &claims, &priors, C);
+    assert_eq!(a.ids["crates/x/src/a.rs::sum"], "fn:fb");
+    assert!(a.unmatched.iter().any(|u| u.id == "fn:30"));
+    let edited = vec![loc("crates/x/src/a.rs::sum", 1, 6, 'e')];
+    let a = assign_ids(&edited, &claims, &priors, C);
+    assert_eq!(a.ids["crates/x/src/a.rs::sum"], mint_fn_id("crates/x/src/a.rs::sum", &h('e'), C));
+}

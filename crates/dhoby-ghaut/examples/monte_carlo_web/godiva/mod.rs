@@ -14,7 +14,7 @@ use crate::rungs::{McRung, RungBuilder, RungInfo};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Rect, Stroke, Vec2};
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Godiva;
 
 /// The recorded tracks the page ships (`--bake-tracks godiva`, gh:#859).
@@ -45,7 +45,7 @@ pub const REFERENCE: Reference = Reference {
 /// five-route study (OpenMC on NJOY2016's data), read from the committed
 /// campaign summary.
 pub fn reference_with_code() -> Reference {
-    Reference { code: crate::keff::route1_reference("godiva", crate::route1_label!("32 seeds x 5000 x [40+120]")), ..REFERENCE }
+    Reference { code: crate::keff::route1_reference("godiva", crate::keff::ROUTE1_LABEL_32X5000), ..REFERENCE }
 }
 
 impl McRung for Godiva {
@@ -83,13 +83,13 @@ impl McRung for Godiva {
         let r = model::RADIUS_CM;
         let o = view.to_screen(rect, 0.0, 0.0);
         painter.circle_filled(o, (r * view.scale) as f32, Color32::from_rgb(70, 64, 58));
-        painter.circle_stroke(o, (r * view.scale) as f32, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)));
+        painter.circle_stroke(o, (r * view.scale) as f32, Stroke::new(1.5, bugis::Ink::of_ctx(painter.ctx()).accent(3)));
         painter.text(
             o + Vec2::new(0.0, -(r * view.scale) as f32 - 6.0),
             egui::Align2::CENTER_BOTTOM,
             format!("HEU metal sphere, r = {r} cm · vacuum outside (leaks)"),
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(190, 170, 230),
+            bugis::Ink::of_ctx(painter.ctx()).accent(3),
         );
     }
     fn notes() -> &'static [&'static str] {

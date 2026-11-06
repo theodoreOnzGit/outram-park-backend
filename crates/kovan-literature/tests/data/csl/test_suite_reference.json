@@ -5,7 +5,7 @@
   "test_suite": "citation-style-language/test-suite 6eefc5b07c6969ab8999e48542acbcc131cba864, processor-tests/humans",
   "runner": "juris-m/citeproc-test-runner 1.1.116 (b1e72d5cb1363b7f4abbe1f6546c9e2c443db726), replicated in scripts/csl-testsuite-reference.cjs",
   "locales": "citation-style-language/locales 6b0cb4689127a69852f48608b6d1a879900f418b (the submodule citeproc-js pins)",
-  "node": "v26.12.0",
+  "node": "v22.22.0",
   "fixtures": 845,
   "citeproc_js_fails": 16,
   "citeproc_js_threw": 0,

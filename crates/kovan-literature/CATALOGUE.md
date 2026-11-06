@@ -589,6 +589,96 @@ Catalogued 2026-09-30; the copy is in the private repository as `2002iaeatecdoc9
 - *Good for:* Chapter 5, water and air ingress. §5.4 has the JAERI burning tests (Table 5-6), KORA (Table 5-7, the same data as Kugeler 2017 Table 9), Nabielek's air-ingress failure model (Eqs. 5-9 to 5-11, two-mechanism constants) and the SiC active/passive oxidation discussion. Eq. 5-2 is the kernel-hydrolysis burst already in `boon_lay::chemistry::kernel_hydrolysis`. Transcribed in **`derived/tecdoc978-air-oxidation-particle-failure.md`**.
 - *Used by:* `boon_lay::chemistry::kernel_hydrolysis`; #435, #441, #443.
 
+**`nea2021bsaf7525`** — OECD Nuclear Energy Agency (2021). *Benchmark Study of
+the Accident at the Fukushima Daiichi Nuclear Power Plant (BSAF Project) —
+Phase II: Summary Report.* NEA No. 7525, 68 pp. Operating agent: Institute of
+Applied Energy (IAE), Japan. Supplied by the maintainer and catalogued
+2026-10-27; the copy is in the private repository as
+`reports/nea-7525-bsaf-fukushima-daiichi-summary-report.pdf`.
+- *Tier rationale:* **proprietary.** The copyright page permits copying "for
+  your own use" and "excerpts … provided that suitable acknowledgement of the
+  OECD as source and copyright owner is given", but directs "all requests for
+  public or commercial use and translation rights" to `neapub@oecd-nea.org`.
+  Redistribution in a public repository is public use; permission has not been
+  sought. The PDF and its extracted full text therefore stay private.
+- *Good for:* the **validation target for OUTRAM PARK's Fukushima Daiichi
+  accident simulator** (#1028, `crates/sembawang`). Fourteen organisations,
+  eight severe-accident codes (MELCOR, ASTEC, MAAP, SAMPSON, SOCRAT, THALES,
+  TOLBIAC, plus GRS and WSPEEDI inverse analyses), units 1–3, out to 500 hours.
+  Carries per-participant RPV lower-head failure times and modes, debris mass
+  in the pedestal, RCS/PCV leak paths and timings, integral Cs-137 releases,
+  and the measured RPV/PCV pressure and CAMS dose-rate histories the codes were
+  judged against.
+- *Does NOT contain:* the per-participant time-history data behind its figures
+  (hydrogen mass, concrete erosion, release fractions and release rates are
+  published only as plots), nor the detail of the full Phase II report it
+  condenses.
+- *Citation caution:* code-to-code spread, not measurement. Only the plant
+  measurements and the two inverse source-term reconstructions
+  (GRS 13.1 PBq, WSPEEDI 14.5 PBq Cs-137 for three units) can validate
+  anything; the report itself judges the predicted MCCI progression
+  "overestimated and unrealistic" against plant inspection.
+- *Derived dataset (2):* **`derived/nea7525-bsaf-cs137-release-rates/`** — the
+  per-participant Cs-137 release-rate histories digitised from Figures 5.1–5.4
+  (21 series, 10 403 points) with `kovan-cli digitise`, plus the pipeline and a
+  per-series quality grading. Verified by integrating each curve against
+  Table 5.1: median ratio 0.93, 17 of 21 within a factor of two. Committed
+  (coordinates are facts); the figure rasters are not.
+- *Derived dataset (3):* **`derived/nea7525-bsaf-unit1-figures/`** — unit 1
+  curves digitised 2026-10-29 from Figures 2.1 (RPV and drywell pressure,
+  **with the measured points**), 2.2 (in-vessel H2), 2.3b (water injection) and
+  2.5 (Xe and I released from fuel): 52 code series plus the two measured
+  series, 21 303 points, with the pipeline, tick calibration (residuals
+  ≤ 1.1 px), checks against Tables 2.1/2.2 and the text, and a per-series
+  grade. **Extended the same day** with Figure 2.3a (drywell pressure 0–500 h,
+  nine codes **plus the measured envelope**) and Figure 2.6 A–D (Cs and I
+  deposited on D/W structures and dissolved in S/C water, nine codes each):
+  now 100 series, 41 568 points, calibration residuals ≤ 1.17 px (Fig 2.6 from
+  its gridlines), with cross-figure checks against Figs 2.1b, 2.3b and 2.5b. It corrected several eye-read values in the bands file. Committed
+  (coordinates are facts); the figure rasters and overlays stay private.
+- *Derived dataset:* **`derived/nea7525-bsaf-fukushima-daiichi-bands.md`** —
+  every numeric table transcribed cell-for-cell, the figure bands read by eye
+  and marked as such, the modelling gaps the study names, and a tiering of
+  which quantities can actually validate a model. Committed (facts and
+  numbers, with acknowledgement) though the PDF it came from is not.
+- *Used by:* #1028.
+
+**`sandia2023melcorvol2`** — Humphries, L. L. et al. (Sandia National
+Laboratories) (2023). *MELCOR Computer Code Manuals, Vol. 2: Reference Manual,
+Version 2.2 r2023.0.* SAND2023-10994 O, 1041 pp; NRC ADAMS ML23116A100.
+Supplied by the maintainer and catalogued 2026-10-29; the copy is in the
+private repository as
+`reports/sand2023-10994-melcor-vol2-reference-manual-2.2-r2023.0.pdf`.
+
+**`sandia2017melcorvol1`** — Sandia National Laboratories (2017). *MELCOR
+Computer Code Manuals, Vol. 1: Primer and Users' Guide, Version 2.2.9541.*
+SAND2017-0455 O, 1170 pp; NRC ADAMS ML17040A429. Supplied and catalogued
+2026-10-29; private repository,
+`reports/sand2017-0455-melcor-vol1-primer-users-guide-2.2.9541.pdf`.
+
+- *Tier rationale (both):* **proprietary.** The maintainer checked the front
+  matter (cover through abstract) and searched the full text when ingesting
+  them (private repository commit `98298ab`). There is no public-release or
+  unlimited-distribution marking, and no copyright or licence statement.
+  They are Sandia contractor reports, not NRC NUREG publications, so the
+  U.S.-Government-work ground does not apply, and ADAMS hosting is no
+  redistribution basis. ~~Expected **public** (plan
+  `docs/fukushima-melcor-gap-plan.md` L1, L2)~~: that expectation was wrong.
+  The PDFs and their extracted text stay private. Facts, equations, numbers
+  and model descriptions in our own words, with citation, may be published.
+- *Good for:* the public description of every MELCOR package (CVH, FL, HS,
+  COR, CAV, BUR, RN, DCH, NCG): the models, their equations and their
+  default values. That is what the clean-room Fukushima Unit 1 model
+  (`sembawang::bwr_mark1`, #1028) is checked against. **Manuals only: no
+  MELCOR source is held or used** (MELCOR is distributed under an NDA).
+- *Does NOT contain:* plant input decks, nor any Fukushima-specific
+  nodalisation.
+- *Derived record:* **`derived/melcor-2.2-manuals-digest.md`**, the digest by
+  plan item, written in our own words with citations.
+- *Used by:* #1028 (and items F3–F12), `bwr_mark1::params` (the
+  Urbanic-Heidrick constants, checked 2026-10-29 against Vol. 2 COR
+  Table 2-6).
+
 ## Proprietary tier — theses (`proprietary/theses/`)
 
 > **2026-09-22:** these three, and `zhu2014thermal` (NC State MS thesis, "©

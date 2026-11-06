@@ -45,7 +45,9 @@ if [[ "$(uname -s)" == Linux ]]; then ulimit -v 12582912 || true; fi
 
 echo "running $(( ${#tests[@]} / 2 )) test files, leaving out ${#skips[@]} named tests"
 set +e
-cargo test --release -p njoy-outram-park-fork "${tests[@]}" -- --exact "${skip_args[@]}" --nocapture 2>&1 | tee "$log"
+# --no-fail-fast: one failing test file must not stop the rest (maintainer,
+# 2026-10-29: the merge-to-main tests run with no fail-fast).
+cargo test --release --no-fail-fast -p njoy-outram-park-fork "${tests[@]}" -- --exact "${skip_args[@]}" --nocapture 2>&1 | tee "$log"
 status=${PIPESTATUS[0]}
 set -e
 [[ $status -eq 0 ]] || { echo "tests failed (exit $status)" >&2; exit "$status"; }

@@ -1,6 +1,6 @@
 [package]
 name = "boon-lay"
-version = "0.2.1"
+version = "0.2.2"
 edition.workspace = true
 license.workspace = true
 description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
@@ -113,6 +113,7 @@ csv             = { workspace = true }
 # scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 egui            = { workspace = true }
+bugis           = { workspace = true }
 eframe          = { workspace = true }
 egui_plot       = { workspace = true }
 egui_extras     = { workspace = true }

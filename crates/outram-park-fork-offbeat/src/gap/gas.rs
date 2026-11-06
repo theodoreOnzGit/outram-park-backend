@@ -58,7 +58,24 @@
 //! ```
 //!
 //! with `x` mole fractions and `M` molar masses. Upstream (`gapFRAPCON::kappa`)
-//! attributes this to the FRAPCON-4.0 manual. Its one structural property worth
+//! attributes this to the FRAPCON-4.0 manual. MATPRO (NUREG/CR-6150 §12.1.1,
+//! subcode GTHCON) uses the same rule.
+//!
+//! **On the `(M_i + M_j)²` denominator (gh:#1070).** The RELAP-7 Theory Manual
+//! (INL/EXT-14-31366, §4.2.3), which cites MATPRO §12.1.1 for this rule,
+//! prints Eq 233 with `(M_i − M_j)²` in the denominator. That was checked on
+//! the rendered PDF on 2026-11-01, not only on extracted text: the PDF really
+//! does print a minus. This port keeps OFFBEAT's `(M_i + M_j)²`, for three
+//! reasons: it is the published Brokaw/Lindsay–Bromley form; with a minus the
+//! factor collapses to `(M_i − 0.142 M_j)/(M_i − M_j)`, which is singular for
+//! two species of equal molar mass; and on the RELAP-7 He/Kr/Xe composition
+//! the minus form gives 0.00647 W/m/K at 300 K, barely above pure xenon
+//! (0.00593), against 0.01039 with the plus. The same page of the manual also
+//! departs from the standard form in Eq 232 (`ψ_ij x_i` where the sum needs
+//! `ψ_ij x_j`) and Eq 234 (`2^(2/3)` where the form has `2^(3/2)`, and the
+//! `1 +` placed inside the square root), so Eq 233's minus reads as one of
+//! several typesetting slips. **Not re-checked against MATPRO's own text**,
+//! which was not available to this session. Its one structural property worth
 //! knowing: **it reduces exactly to `k_i` at `x_i = 1`**, because the inner sum
 //! is then empty and the term is `k_i · 1 / 1`. That exactness is asserted in
 //! the tests.
@@ -194,6 +211,55 @@ impl GapGasSpecies {
         }
     }
 
+    /// Coefficients `(A, B)` of the **MATPRO** pure-gas conductivity fit
+    /// `k = A · T^B` \[W/m/K, T in K\], or `None` where this port has no
+    /// MATPRO fit for the species.
+    ///
+    /// | Species | A | B |
+    /// |---|---|---|
+    /// | He | 2.639e-3 | 0.7085 |
+    /// | Kr | 8.247e-5 | 0.8363 |
+    /// | Xe | 4.351e-5 | 0.8616 |
+    ///
+    /// Neon, argon and radon return `None`: the cited source gives only these
+    /// three (MATPRO itself has more gases; they were not available to this
+    /// session and are not invented here).
+    ///
+    /// # Valid range
+    ///
+    /// 300–3000 K, the range over which the RELAP-7 manual tabulates the
+    /// mixture from these fits.
+    ///
+    /// # Source
+    ///
+    /// MATPRO, NUREG/CR-6150, §12.1.1 (GTHCON); constants as reproduced in the
+    /// RELAP-7 Theory Manual (INL/EXT-14-31366) §4.2.3. Hand-checked values:
+    /// unit test `matpro_pure_gas_fits_match_hand_values`.
+    #[must_use]
+    pub const fn matpro_conductivity_coefficients(self) -> Option<(f64, f64)> {
+        match self {
+            Self::Helium => Some((2.639e-3, 0.7085)),
+            Self::Krypton => Some((8.247e-5, 0.8363)),
+            Self::Xenon => Some((4.351e-5, 0.8616)),
+            Self::Neon | Self::Argon | Self::Radon => None,
+        }
+    }
+
+    /// Coefficients `(A, B)` from the chosen [`GasConductivityFit`], or `None`
+    /// where that set has no fit for this species. `Frapcon` always returns
+    /// `Some` (including the neon/radon placeholders — see
+    /// [`Self::has_placeholder_conductivity`]).
+    #[must_use]
+    pub const fn conductivity_coefficients_for(
+        self,
+        fit: GasConductivityFit,
+    ) -> Option<(f64, f64)> {
+        match fit {
+            GasConductivityFit::Frapcon => Some(self.conductivity_coefficients()),
+            GasConductivityFit::Matpro => self.matpro_conductivity_coefficients(),
+        }
+    }
+
     /// Whether this species' upstream conductivity coefficients are the
     /// placeholder `(1.0, 1.0)` rather than a real fit.
     ///
@@ -231,6 +297,25 @@ impl GapGasSpecies {
         let (a, b) = self.conductivity_coefficients();
         a * t.r_powf(b)
     }
+}
+
+/// Which set of pure-gas conductivity fits `k = A·T^B` to use.
+///
+/// [`Frapcon`](Self::Frapcon) is OFFBEAT's default and what every existing
+/// method in this module uses; nothing about it changes. [`Matpro`](Self::Matpro)
+/// is the MATPRO set the RELAP-7 heat-structure properties use (gh:#1070).
+/// Only the coefficients differ; the mixing rule is the same.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GasConductivityFit {
+    /// Upstream `gapFRAPCON`'s default `conductivity_A` / `conductivity_B`
+    /// tables — [`GapGasSpecies::conductivity_coefficients`]. The default.
+    #[default]
+    Frapcon,
+    /// MATPRO (NUREG/CR-6150 §12.1.1) fits for helium, krypton and xenon, as
+    /// reproduced in the RELAP-7 Theory Manual §4.2.3 —
+    /// [`GapGasSpecies::matpro_conductivity_coefficients`]. **Only those three
+    /// species have a fit**; a mixture holding any other species is refused.
+    Matpro,
 }
 
 /// Upper temperature \[K\] at which upstream freezes the accommodation-coefficient
@@ -352,6 +437,45 @@ impl GapGasMixture {
         })
     }
 
+    /// Build from **mole** fractions \[-\] and a total mass \[kg\].
+    ///
+    /// Converts to mass fractions `Y_i ∝ x_i · M_i` and defers to
+    /// [`Self::from_mass_fractions`], so the stored mole fractions are the
+    /// given ones normalised (to round-off). Not an upstream constructor:
+    /// added because compositions such as the RELAP-7 gap gas are published by
+    /// mole.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_mass_fractions`]: a negative or non-finite fraction, a
+    /// zero sum, or a negative or non-finite mass.
+    ///
+    /// ```
+    /// use outram_park_fork_offbeat::gap::{GapGasMixture, GapGasSpecies};
+    ///
+    /// let mut x = [0.0; 6];
+    /// x[GapGasSpecies::Helium.index()] = 0.5;
+    /// x[GapGasSpecies::Xenon.index()] = 0.5;
+    /// let mix = GapGasMixture::from_mole_fractions(x, 1.0e-3).unwrap();
+    /// assert!((mix.mole_fraction(GapGasSpecies::Xenon) - 0.5).abs() < 1e-15);
+    /// ```
+    pub fn from_mole_fractions(mole_fractions: [f64; N_SPECIES], mass: f64) -> Result<Self> {
+        let mut y = [0.0; N_SPECIES];
+        for i in 0..N_SPECIES {
+            let x = mole_fractions[i];
+            if !x.is_finite() || x < 0.0 {
+                return Err(OffbeatError::Unphysical {
+                    quantity: GapGasSpecies::ALL[i].symbol(),
+                    value: x,
+                    unit: "-",
+                    reason: "gas mole fraction must be finite and non-negative",
+                });
+            }
+            y[i] = x * GapGasSpecies::ALL[i].molar_mass();
+        }
+        Self::from_mass_fractions(y, mass)
+    }
+
     /// A pure single-species gas of the given `mass` \[kg\].
     ///
     /// The beginning-of-life state of an LWR rod is
@@ -446,6 +570,27 @@ impl GapGasMixture {
         p / (r * t)
     }
 
+    /// Specific heat capacity at constant pressure \[J/(kg·K)\] of the mixture
+    /// as an ideal monatomic gas: `c_p = (5/2) · R_mix`, with `R_mix` from
+    /// [`Self::specific_gas_constant`].
+    ///
+    /// Exact for an ideal gas of the six noble gases here, all monatomic
+    /// (`c_p = 5R/2` per mole, no rotational or vibrational modes), and
+    /// independent of temperature. Not an OFFBEAT upstream quantity: added for
+    /// the RELAP-7 heat-structure set (gh:#1070), whose manual (§4.2.3) derives
+    /// its gap-gas `c_p` from the perfect-gas relation the same way. On the
+    /// RELAP-7 composition (He/Kr/Xe = 0.1066/0.1340/0.7594 by mole) this gives
+    /// 186.649 J/(kg·K) against the manual's 186.65.
+    ///
+    /// # Assumptions
+    ///
+    /// Ideal gas; real-gas corrections at a few MPa are below 1 % for helium
+    /// and somewhat larger for xenon-rich gas, and are not applied.
+    #[must_use]
+    pub fn specific_heat_capacity(&self) -> f64 {
+        2.5 * self.specific_gas_constant()
+    }
+
     /// Mixture thermal conductivity \[W/m/K\] at temperature `t` \[K\] —
     /// upstream's `gapFRAPCON::kappa(T)`.
     ///
@@ -481,7 +626,67 @@ impl GapGasMixture {
         for (ki, species) in k.iter_mut().zip(GapGasSpecies::ALL) {
             *ki = species.conductivity(t);
         }
+        self.mix_conductivities(&k)
+    }
 
+    /// Mixture conductivity \[W/m/K\] at `t` \[K\] from a chosen set of
+    /// pure-gas fits, through the same mixing rule as [`Self::conductivity`].
+    ///
+    /// `conductivity_with_fit(GasConductivityFit::Frapcon, t)` equals
+    /// [`Self::conductivity_checked`]`(t)` bit-for-bit.
+    /// `GasConductivityFit::Matpro` is the RELAP-7 heat-structure choice.
+    ///
+    /// # Errors
+    ///
+    /// - [`OffbeatError::Unphysical`] for a non-positive or non-finite `t`.
+    /// - [`OffbeatError::NotImplemented`] if a species with a non-zero mole
+    ///   fraction has no fit in the chosen set (neon, argon or radon under
+    ///   `Matpro`), or has the placeholder fit (neon or radon under
+    ///   `Frapcon`).
+    ///
+    /// ```
+    /// use outram_park_fork_offbeat::gap::{GapGasMixture, GapGasSpecies};
+    /// use outram_park_fork_offbeat::gap::gas::GasConductivityFit;
+    ///
+    /// let he = GapGasMixture::pure(GapGasSpecies::Helium, 1.0e-4).unwrap();
+    /// let k = he.conductivity_with_fit(GasConductivityFit::Matpro, 1000.0).unwrap();
+    /// assert!((k - 2.639e-3 * 1000f64.powf(0.7085)).abs() < 1e-12);
+    /// ```
+    pub fn conductivity_with_fit(&self, fit: GasConductivityFit, t: f64) -> Result<f64> {
+        if fit == GasConductivityFit::Frapcon {
+            return self.conductivity_checked(t);
+        }
+        if !(t > 0.0) || !t.is_finite() {
+            return Err(OffbeatError::Unphysical {
+                quantity: "gap gas temperature",
+                value: t,
+                unit: "K",
+                reason: "must be finite and strictly positive",
+            });
+        }
+        let mut k = [0.0; N_SPECIES];
+        for (ki, species) in k.iter_mut().zip(GapGasSpecies::ALL) {
+            match species.conductivity_coefficients_for(fit) {
+                Some((a, b)) => *ki = a * t.r_powf(b),
+                None if self.mole_fraction(species) > 0.0 => {
+                    return Err(OffbeatError::NotImplemented(
+                        "MATPRO gap gas conductivity for a mixture containing neon, \
+                         argon or radon (only He, Kr and Xe MATPRO fits are carried)",
+                    ));
+                }
+                // Absent species: never read by the mixing rule.
+                None => *ki = 0.0,
+            }
+        }
+        Ok(self.mix_conductivities(&k))
+    }
+
+    /// The Lindsay–Bromley/Wassiljewa mixing rule over given pure-gas
+    /// conductivities `k` \[W/m/K\], indexed by [`GapGasSpecies::index`].
+    /// Species with zero mole fraction are skipped, so their `k` is never
+    /// read. Shared by [`Self::conductivity`] and
+    /// [`Self::conductivity_with_fit`].
+    fn mix_conductivities(&self, k: &[f64; N_SPECIES]) -> f64 {
         let mut k_mix = 0.0;
         // Index-based double loop, mirroring upstream's `forAll(species_, ...)`
         // pair: the inner loop needs `k[j]` for arbitrary `j`, and the `i == j`
@@ -991,5 +1196,119 @@ mod tests {
         let mut bad = [0.0; N_SPECIES];
         bad[GapGasSpecies::Xenon.index()] = -1.0;
         assert!(mix.add_released_gas(bad).is_err());
+    }
+
+    /// RELAP-7 gap-gas composition (§4.2.3): He/Kr/Xe = 0.1066/0.1340/0.7594
+    /// by mole.
+    fn relap7_mixture() -> GapGasMixture {
+        let mut x = [0.0; N_SPECIES];
+        x[GapGasSpecies::Helium.index()] = 0.1066;
+        x[GapGasSpecies::Krypton.index()] = 0.1340;
+        x[GapGasSpecies::Xenon.index()] = 0.7594;
+        GapGasMixture::from_mole_fractions(x, 1.0e-4).unwrap()
+    }
+
+    /// **Verification against hand values of the published fits** (gh:#1070).
+    ///
+    /// *Methodology.* The MATPRO pure-gas fits (NUREG/CR-6150 §12.1.1, as
+    /// reproduced in RELAP-7 Theory Manual §4.2.3) `k = A T^B` are evaluated
+    /// by hand in double precision (Python `**`, 2026-11-01):
+    /// He `2.639e-3 * 300^0.7085 = 0.150134257`, `* 1000^0.7085 = 0.352321698`;
+    /// Kr `8.247e-5 * 300^0.8363 = 9.72551258e-3`;
+    /// Xe `4.351e-5 * 300^0.8616 = 5.92757089e-3`, `* 1000^0.8616 = 1.67258841e-2`.
+    /// Pass criterion: `< 1e-12` relative, through the pure-gas mixture path
+    /// (which must reduce exactly to `k_i`).
+    ///
+    /// *Result* (2026-11-01): all agree. For comparison the FRAPCON fits give
+    /// He 0.14909 and Xe 0.0064425 W/m/K at 300 K — MATPRO is 0.7 % higher
+    /// for helium and 8.0 % lower for xenon at 300 K, so the choice is not
+    /// cosmetic.
+    #[test]
+    fn matpro_pure_gas_fits_match_hand_values() {
+        let cases = [
+            (GapGasSpecies::Helium, 300.0, 0.150_134_257_055_189_57),
+            (GapGasSpecies::Helium, 1000.0, 0.352_321_697_885_509_9),
+            (GapGasSpecies::Krypton, 300.0, 9.725_512_578_517_583e-3),
+            (GapGasSpecies::Xenon, 300.0, 5.927_570_887_140_366e-3),
+            (GapGasSpecies::Xenon, 1000.0, 1.672_588_410_865_923_8e-2),
+        ];
+        for (species, t, hand) in cases {
+            let mix = GapGasMixture::pure(species, 1.0e-4).unwrap();
+            let k = mix.conductivity_with_fit(GasConductivityFit::Matpro, t).unwrap();
+            assert!(((k - hand) / hand).abs() < 1e-12, "{} at {t} K: {k}", species.symbol());
+        }
+        assert_eq!(GapGasSpecies::Argon.matpro_conductivity_coefficients(), None);
+        assert_eq!(
+            GapGasSpecies::Xenon.conductivity_coefficients_for(GasConductivityFit::Frapcon),
+            Some(GapGasSpecies::Xenon.conductivity_coefficients())
+        );
+        assert_eq!(GasConductivityFit::default(), GasConductivityFit::Frapcon);
+    }
+
+    /// **Verification against hand values, plus a check on the RELAP-7
+    /// manual's stated gap-gas numbers** (gh:#1070).
+    ///
+    /// *Methodology.* The RELAP-7 composition (He/Kr/Xe = 0.1066/0.1340/0.7594
+    /// by mole) with the MATPRO fits, through this module's mixing rule
+    /// (`(M_i + M_j)²` form). Hand values from an independent Python
+    /// implementation of the same rule (2026-11-01), W/m/K:
+    /// `k_mix(300) = 0.0103922505`, `k_mix(1000) = 0.0283825480`,
+    /// `k_mix(2000) = 0.0505903864`. The minus form printed in the manual's
+    /// Eq 233 gives 0.0064665, 0.0174171 and 0.0307851 instead (not used;
+    /// see the module doc). Density and `c_p` against the manual's §4.2.3
+    /// statements: `M_mix = 111.365 g/mol`, so at 4.1 MPa and 300 K
+    /// `rho = p M/(R T) = 183.053 kg/m³` (manual: 183.06) and
+    /// `c_p = 2.5 R / M = 186.649 J/(kg K)` (manual: 186.65).
+    /// Pass criteria: `< 1e-10` relative on `k_mix`; `< 0.01` absolute on
+    /// `rho` and `c_p` against the manual's rounded figures.
+    ///
+    /// *Result* (2026-11-01): all pass. The 0.007 kg/m³ density gap is the
+    /// manual's rounding and gas constant, not a physics difference.
+    /// Interpretation: the port reproduces the published fits and the
+    /// manual's derived gap-gas density and heat capacity; the mixture
+    /// conductivity is not stated as a number in the manual, so it is checked
+    /// against the hand calculation only.
+    #[test]
+    fn relap7_gap_gas_mixture_matches_hand_values() {
+        let mix = relap7_mixture();
+        for (t, hand) in [
+            (300.0, 0.010_392_250_534_062_232),
+            (1000.0, 0.028_382_547_970_259_835),
+            (2000.0, 0.050_590_386_374_433_4),
+        ] {
+            let k = mix.conductivity_with_fit(GasConductivityFit::Matpro, t).unwrap();
+            assert!(((k - hand) / hand).abs() < 1e-10, "{t} K: {k}");
+        }
+        assert!((mix.density(4.1e6, 300.0) - 183.06).abs() < 0.01);
+        assert!((mix.density(4.1e6, 300.0) - 183.053_280_904_974_86).abs() < 1e-6);
+        assert!((mix.specific_heat_capacity() - 186.65).abs() < 0.01);
+        assert!((mix.specific_heat_capacity() - 186.648_753_290_595_15).abs() < 1e-6);
+        // Frapcon path through the new method is the old checked method.
+        assert_eq!(
+            mix.conductivity_with_fit(GasConductivityFit::Frapcon, 800.0).unwrap(),
+            mix.conductivity_checked(800.0).unwrap()
+        );
+    }
+
+    /// Self-consistency check — the MATPRO set refuses species it has no fit
+    /// for, and pure helium's `c_p` is the textbook `5R/(2 M_He)`
+    /// (5193.16 J/(kg K); the commonly tabulated helium value is 5193).
+    #[test]
+    fn matpro_fit_refuses_unfitted_species_and_cp_is_monatomic() {
+        let ar = GapGasMixture::pure(GapGasSpecies::Argon, 1.0e-4).unwrap();
+        assert!(matches!(
+            ar.conductivity_with_fit(GasConductivityFit::Matpro, 600.0),
+            Err(OffbeatError::NotImplemented(_))
+        ));
+        assert!(relap7_mixture()
+            .conductivity_with_fit(GasConductivityFit::Matpro, -5.0)
+            .is_err());
+        let he = GapGasMixture::pure(GapGasSpecies::Helium, 1.0e-4).unwrap();
+        let cp = he.specific_heat_capacity();
+        assert!((cp - 2.5 * GAS_CONSTANT / 4.0026e-3).abs() < 1e-9);
+        assert!((cp - 5193.16).abs() < 0.01, "{cp}");
+        let mut bad = [0.0; N_SPECIES];
+        bad[GapGasSpecies::Helium.index()] = f64::NAN;
+        assert!(GapGasMixture::from_mole_fractions(bad, 1.0).is_err());
     }
 }

@@ -37,7 +37,15 @@ use uom::si::ratio::ratio;
 
 use super::Activity;
 use crate::triso_atops_fork::nuclide_model::ElementGroup;
-use crate::triso_atops_fork::release_models::steady_state::attenuation_factor;
+use crate::triso_atops_fork::release_models::steady_state::{
+    attenuation_factor, ATTENUATION_FACTOR_CAP,
+};
+use crate::triso_atops_fork::variant::{
+    attenuation_factor_converged, BirthRateTime, SeriesEvaluation, TrisoAtopsVariant,
+};
+use uom::si::diffusion_coefficient::square_meter_per_second;
+use uom::si::length::meter;
+use uom::si::time::second;
 use crate::triso_atops_fork::{DecayConstant, ReleaseFraction};
 
 /// Fixed graphite attenuation factor assigned to non-metal "other" nuclides.
@@ -262,6 +270,86 @@ pub fn base_activities(
                 graphite_activity,
             }
         }
+    }
+}
+
+/// [`release_rate`] under a model [`TrisoAtopsVariant`] (gh:#1015).
+///
+/// Upstream readings call [`release_rate`] with `irradiation_time`, as the
+/// port does. Under [`BirthRateTime::RunTime`] the long-lived birth rate uses
+/// `1 − exp(−λ t_run time)`, as Eqs. (4b) and (4d) print it (pp. 4-5 of
+/// Stoyer, Raichart & Petti 2026, doi:10.1080/00295450.2026.2671624).
+/// Yttrium's failure-fraction set follows its group under the variant.
+#[must_use]
+#[allow(clippy::too_many_arguments)]
+pub fn release_rate_for(
+    variant: TrisoAtopsVariant,
+    rb_fail: ReleaseFraction,
+    element_group: ElementGroup,
+    fractions: FailureFractions,
+    inventory: Activity,
+    short_lived: bool,
+    irradiation_time: Time,
+    run_time: Time,
+    decay_constant: DecayConstant,
+) -> f64 {
+    let time = match variant.readings().birth_rate_time {
+        BirthRateTime::IrradiationTime => irradiation_time,
+        BirthRateTime::RunTime => run_time,
+    };
+    release_rate(
+        rb_fail,
+        element_group,
+        fractions,
+        inventory,
+        short_lived,
+        time,
+        decay_constant,
+    )
+}
+
+/// [`base_activities`] under a model [`TrisoAtopsVariant`] (gh:#1015).
+///
+/// Identical except that, under [`SeriesEvaluation::Converged`], the
+/// attenuation factor of Eq. (8) (p. 10) is summed to convergence
+/// ([`attenuation_factor_converged`], same `1e8` cap) instead of upstream's
+/// 250 odd terms.
+#[must_use]
+pub fn base_activities_for(
+    variant: TrisoAtopsVariant,
+    element_group: ElementGroup,
+    decay_constant: DecayConstant,
+    time: Time,
+    graphite_thickness: Length,
+    graphite_diffusion_coefficient: DiffusionCoefficient,
+    release_rate: f64,
+) -> SourceAndGraphite {
+    let converged = variant.readings().series == SeriesEvaluation::Converged;
+    if !converged
+        || !matches!(
+            element_group,
+            ElementGroup::SpecialMetal | ElementGroup::Silver
+        )
+    {
+        return base_activities(
+            element_group,
+            decay_constant,
+            time,
+            graphite_thickness,
+            graphite_diffusion_coefficient,
+            release_rate,
+        );
+    }
+    let a = graphite_thickness.get::<meter>();
+    let tau = graphite_diffusion_coefficient.get::<square_meter_per_second>()
+        * time.get::<second>()
+        / (a * a);
+    let af = attenuation_factor_converged(tau, ATTENUATION_FACTOR_CAP);
+    let lam = decay_constant.get::<hertz>();
+    let lt = (decay_constant * time).get::<ratio>();
+    SourceAndGraphite {
+        source_rate: release_rate / af,
+        graphite_activity: release_rate * (1.0 - 1.0 / af) * (1.0 - (-lt).r_exp()) / lam,
     }
 }
 

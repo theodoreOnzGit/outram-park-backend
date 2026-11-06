@@ -207,8 +207,11 @@ the argument for doing them.
 
 - **No published-benchmark comparison.** Nothing here is validation.
 - **Six modules are ported from GSL but exercise only part of its surface** —
-  ~~QAGS and~~ (QAGS ported 2026-09-28) the infinite-range and weighted quadrature variants, implicit and
-  stiff ODE methods, Akima/Steffen/periodic splines, general-degree complex
+  ~~QAGS and~~ (QAGS ported 2026-09-28) the infinite-range and weighted quadrature variants, ~~implicit and
+  stiff ODE methods~~ GSL's adaptive stiff ODE steppers (`msbdf`, `bsimp`,
+  `rk2imp`/`rk4imp`; **CORRECTED 2026-11-01**: fixed-grid backward Euler and
+  BDF2 now exist in `ode::implicit`, gh:#1065, V&V in
+  `verification_and_validation/implicit_ode_and_jfnk.md`), Akima/Steffen/periodic splines, general-degree complex
   polynomial roots, and rank-deficient (column-pivoted) least squares are all
   absent. Each is tracked as an issue rather than stubbed.
 - **Adaptive Chebyshev degree selection** is absent because GSL does not have

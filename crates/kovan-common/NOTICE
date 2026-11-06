@@ -15,7 +15,12 @@ AGPL code cannot go into a GPL-3.0-only crate, so the libraries that receive
 it must be AGPL; the maintainer chose to make the whole family AGPL rather
 than confine the port to one crate.
 
-Copyright: the maintainer holds the copyright of this crate's code. It was
+Copyright: ~~the maintainer holds the copyright of this crate's code.~~
+CORRECTED 2026-11-05 (maintainer: the project now has open-source
+contributors, and copyright belongs to them too): Theodore Ong and the
+OUTRAM PARK backend contributors hold the copyright of this crate's code;
+each contributor keeps the copyright in their own contributions (root
+NOTICE). It was
 checked for third-party code before the relicense (2026-10-07): none. ~~The
 one "ported" module in the family's libraries, kovan-common's `fuzzy`, is
 ported from the njoy TUI in this same workspace, same copyright holder.~~

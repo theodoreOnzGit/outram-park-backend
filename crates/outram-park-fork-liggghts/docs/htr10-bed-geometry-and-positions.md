@@ -90,7 +90,7 @@ precision.
 |---|---|---|---|
 | `htr10_init.csv` | LIGGGHTS | flat floor | post-insertion, before settling |
 | `htr10_settled.csv` | LIGGGHTS | flat floor | settled — the **common starting point** for everything below |
-| `htr10_settled_ours.csv` | this port | flat floor | settled independently from the same start |
+| `htr10_settled_ours.csv` | this port | flat floor | settled independently from the same start; ~~in `reference-data/liggghts/`~~ **MOVED 2026-10-21 (gh:#1008)** to `crates/outram-park-fork-liggghts/examples/data/` |
 | `htr10_conus_t{2000,6000,12000,20000}_liggghts.csv` | LIGGGHTS | conus | slump trajectory checkpoints |
 | `htr10_conus_settled_liggghts.csv` | LIGGGHTS | conus | final slumped state |
 | `htr10_conus_presettled_<label>.csv` | this port | conus | slumped and settled, at one friction setting |

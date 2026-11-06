@@ -82,28 +82,27 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
 
     let is_delim = |c: u8| matches!(c, b'(' | b')' | b'{' | b'}' | b';' | b'[' | b']');
 
-    macro_rules! flush_word {
-        () => {
-            if !word.is_empty() {
-                tokens.push(Token {
-                    text: std::mem::take(&mut word),
-                    glued: word_glued,
-                    quoted: false,
-                });
-            }
-        };
+    // Emits the pending word (if any) as an unquoted token.
+    fn flush_word(word: &mut String, word_glued: bool, tokens: &mut Vec<Token>) {
+        if !word.is_empty() {
+            tokens.push(Token {
+                text: std::mem::take(word),
+                glued: word_glued,
+                quoted: false,
+            });
+        }
     }
 
     while i < n {
         let c = bytes[i];
         if i + 1 < n && c == b'/' && bytes[i + 1] == b'/' {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             while i < n && bytes[i] != b'\n' {
                 i += 1;
             }
             pending_ws = true;
         } else if i + 1 < n && c == b'/' && bytes[i + 1] == b'*' {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             i += 2;
             while i + 1 < n && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
                 i += 1;
@@ -111,7 +110,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             i += 2;
             pending_ws = true;
         } else if c == b'"' {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             i += 1;
             let mut s = String::new();
             while i < n && bytes[i] != b'"' {
@@ -126,7 +125,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             });
             pending_ws = false;
         } else if is_delim(c) {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             tokens.push(Token {
                 text: (c as char).to_string(),
                 glued: !pending_ws,
@@ -135,7 +134,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             pending_ws = false;
             i += 1;
         } else if (c as char).is_whitespace() {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             pending_ws = true;
             i += 1;
         } else {
@@ -147,7 +146,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             i += 1;
         }
     }
-    flush_word!();
+    flush_word(&mut word, word_glued, &mut tokens);
     tokens
 }
 

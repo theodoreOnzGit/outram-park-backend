@@ -1,12 +1,15 @@
-# Step 5 — One atom at a time: the random walk
+# Step 8 — One atom at a time: the random walk
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 >
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**Back:** [Step 4, silicon carbide](./04-sic.md).
-**The question that led here:** steps 2 to 4 said that atoms
-diffuse, and that each layer has its own diffusion coefficient $D$.
+**Back:** [Step 7, PANAMA fuel failure](./09-panama.md), and before it
+[Step 4, silicon carbide](./04-sic.md).
+**The question that led here:** steps 6 and 7 reduced the particle to a
+pressure vessel that either holds or fails. An intact particle still lets
+some fission products out by normal diffusion, and steps 2 to 4 said that
+atoms diffuse, and that each layer has its own diffusion coefficient $D$.
 *How do we actually compute where the atoms end up?*
 
 **This page answers:** what is the model with the fewest assumptions,
@@ -41,13 +44,13 @@ $\partial C/\partial t = D\nabla^2 C$ says. So the equation is not an
 extra assumption. It is what the random walk becomes for a large crowd.
 
 This is why the random walk is the "fewest assumptions" model, and why
-the Eulerian models of [step 6](./06-eulerian-fresco.md) can be read as
+the Eulerian models of [step 9](./06-eulerian-fresco.md) can be read as
 its large-crowd limit.
 
 ### The cost, honestly
 
 Following every real jump is hopeless: of order $10^{9}$ jumps per
-second per atom ([walk rung](../../tutorials/triso-atops/walk.html), step 1).
+second per atom ([*Walking on spheres*](../../science/fission-products/walk-on-spheres.html)).
 So we **jump straight to the end of an interval**.
 
 The crate's first engine did exactly that: one Gaussian step per time
@@ -108,7 +111,7 @@ Where to look: the walker, with its walk to a surface, is
 the exit-time sampler is
 [`sample_first_passage_time`](../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs::sample_first_passage_time).
 The full walkthrough, with the sampling code, is in the
-[walk rung](../../tutorials/triso-atops/walk.html), step 3.
+[*Walking on spheres*](../../science/fission-products/walk-on-spheres.html).
 
 **What judgement makes it acceptable.** Inside each hop sphere the
 medium must really be uniform, with one $D$. That holds for concentric
@@ -152,7 +155,7 @@ $D_{\text{SiC}}/D_{\text{PyC}}$. With the Arrhenius factors, that ratio
 is 1/13 to 1/4100 over Cs, Sr, Ag and Kr at 1000 to 1600 °C (Cs: 1/120
 at 1000 °C, 1/440 at 1600 °C), measured with
 `examples/layer_diffusion_table.rs`
-([walk rung](../../tutorials/triso-atops/walk.html) and
+([*Walking on spheres*](../../science/fission-products/walk-on-spheres.html) and
 [interface record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/verification_and_validation/interface_uniform_equilibrium_density.md)).
 
 ---
@@ -225,7 +228,7 @@ is then comparable to $p$ itself.
 
 **The trade.** The Eulerian view gives a smooth answer with no noise but
 needs a mesh and, to be cheap, strong assumptions. The random walk
-gives a noisy answer with almost no assumptions. Step 6 takes the other
+gives a noisy answer with almost no assumptions. Step 9 takes the other
 road.
 
 ---
@@ -243,6 +246,6 @@ road.
 
 **Next question:** the random walk is noisy and costs $1/\sqrt N$. If we
 only want the *average* behaviour, can we solve for the concentration
-directly? [Step 6, the aggregate view](./06-eulerian-fresco.md).
-Then [step 7](./07-ray-equations.md) says how this crate sits between the
+directly? [Step 9, the aggregate view](./06-eulerian-fresco.md).
+Then [step 10](./07-ray-equations.md) says how this crate sits between the
 two.

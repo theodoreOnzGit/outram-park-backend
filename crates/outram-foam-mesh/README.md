@@ -62,6 +62,8 @@ cells, meshed volume 59.8594 m^3 against the analytic box-minus-sphere
 | `driver` | (the `snappyHexMesh` app) | **Start here** — surface + controls -> `PolyMesh`, phases picked by enum |
 | `mesh_quality` | `checkMesh` | Non-orthogonality (max/mean), skewness, aspect ratio, inverted-cell count for *any* `polyMesh` |
 | `block_mesh` | `blockMesh` | Structured hex meshing from a `blockMeshDict`, incl. multi-grading and full per-edge `edgeGrading` |
+| `block_primitives` | (blockMeshDict generators) | A pipe as an O-grid (`PipeOGrid`, every wall vertex on the circle, no arc edges needed) and a box as one block (`BoxBlock`), with caller-named patches; built by `block_mesh` (gh:#1155). Since gh:#1156 also an `Annulus` on the O-grid's vertex angles and a `DoublePipe` (tube O-grid, tube-wall ring, annulus ring, meeting face to face for conjugate heat transfer); `PolyMesh::concatenate` puts region meshes side by side for drawing. Since gh:#1157 a `HelicalPipe`: the pipe O-grid swept along a helix on a rotation-minimising (untwisted) frame, with the centreline, Frenet frame, curvature, torsion and `locate` (a point's arc position and Frenet offsets) |
+| `section` | (for drawing) | Axis-aligned plane sections of every cell (`plane_section`) and the boundary wireframe (`boundary_edges`) of a `PolyMesh` |
 | `snappy_hex_mesh` | `snappyHexMesh` | Split-hex meshing around STL surfaces (castellate → snap → layers) |
 | `ideas_unv_to_foam` | `ideasUnvToFoam` | Import an I-DEAS `.unv` mesh into `polyMesh` |
 | `poly_dual_mesh` | `polyDualMesh` | Polyhedral dual-mesh construction |
@@ -110,6 +112,12 @@ OpenFOAM-dev C++, with upstream `File.C:line` provenance in the module docs).
   - **dualisation does not create non-orthogonality** — the dual of a uniform
     hex block measures exactly 0 deg and 0 skewness, so a polyhedral dual that
     measures 80 deg+ inherited that from its primal, not from the dual step.
+    ~~(hex blocks only)~~ **Since gh:#1240 (2026-11-04)** `poly_dual_mesh` also
+    runs on tetrahedral meshes (through `outram-park-fork-cfmesh`'s
+    `DualKind::CellCentre`): on the cfMesh pipe at h 5 mm its internal
+    non-orthogonality is 16.7° mean, 47.7° max, and its boundary follows
+    upstream (one face per point per feature-bounded sector, patch seams are
+    features, `FeaturePoints` rule). Not compared against an OpenFOAM run.
 
 **Unit-tested ≠ validated.** These are AI-assisted translations checked against
 the upstream source and analytical geometry, not yet validated against OpenFOAM

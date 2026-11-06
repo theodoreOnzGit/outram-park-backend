@@ -213,16 +213,16 @@ fn activity_units_ci_bq_and_lambda_n() {
 #[test]
 fn normal_operation_node_i131_via_prelude() {
     let yr = 3.155_76e7;
-    let plant = PlantConstants {
-        k_plate: DecayConstant::new::<hertz>(7.5e-4),
-        k_clean: DecayConstant::new::<hertz>(8.77e-5),
-        graphite_thickness: Length::new::<meter>(0.0045),
-        grain_size: Length::new::<meter>(1e-5),
-        sic_thickness: Length::new::<meter>(3.5e-5),
-        kernel_radius: Length::new::<meter>(0.000213),
-        run_time: Time::new::<second>(40.0 * yr),
-        irradiation_time: Time::new::<second>(3.0 * yr),
-    };
+    let plant = PlantConstants::new(
+        DecayConstant::new::<hertz>(7.5e-4),
+        DecayConstant::new::<hertz>(8.77e-5),
+        Length::new::<meter>(0.0045),
+        Length::new::<meter>(1e-5),
+        Length::new::<meter>(3.5e-5),
+        Length::new::<meter>(0.000213),
+        Time::new::<second>(40.0 * yr),
+        Time::new::<second>(3.0 * yr),
+    );
     let node = NodeState {
         core_temperature: ThermodynamicTemperature::new::<degree_celsius>(900.0),
         graphite_temperature: ThermodynamicTemperature::new::<degree_celsius>(900.0),

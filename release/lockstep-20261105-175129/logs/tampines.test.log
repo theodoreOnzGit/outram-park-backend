@@ -1,0 +1,542 @@
+    Blocking waiting for file lock on build directory
+   Compiling naga-types v30.0.1
+   Compiling gpu-allocator v0.28.0
+   Compiling serde v1.0.229
+   Compiling regex-automata v0.4.18
+   Compiling wgpu-types v30.0.1
+   Compiling naga v30.0.1
+   Compiling serde-xml-rs v0.8.2
+   Compiling crossterm v0.28.1
+   Compiling ratatui v0.29.0
+   Compiling hdf5-pure v0.20.1
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling regex v1.13.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling wgpu v30.0.1
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling zopfli v0.8.4
+   Compiling njoy-outram-park-fork v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/njoy-outram-park-fork)
+   Compiling csv v1.4.0
+   Compiling outram-park-fork-liggghts v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-liggghts)
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling env_filter v2.0.0
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling serde_json v1.0.154
+   Compiling outram-mc-libs v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-mc-libs)
+   Compiling env_logger v0.11.11
+   Compiling zip v2.6.1
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling outram-foam-turbulence-lib v0.1.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-turbulence-lib)
+   Compiling outram-foam-multiphase v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-multiphase)
+   Compiling outram-foam-appbuilder-lib v0.1.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-appbuilder-lib)
+   Compiling boon-lay v0.2.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/boon-lay)
+   Compiling outram-park-fork-dwsim-libs v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-dwsim-libs)
+   Compiling tuas_boussinesq_solver v0.1.9 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tuas_boussinesq_solver)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling chem-eng-real-time-process-control-simulator v0.2.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/chem-eng-real-time-process-control-simulator)
+   Compiling farrer-park v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/farrer-park)
+   Compiling outram-park-fork-coolprop v0.1.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-coolprop)
+   Compiling tampines v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines)
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/drift_flux.rs:101:5
+    |
+101 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/two_fluid.rs:316:5
+    |
+316 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/two_fluid.rs:316:5
+    |
+316 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/drift_flux.rs:101:5
+    |
+101 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `tampines` (lib) generated 2 warnings
+warning: unused import: `structure_surface_mixture`
+  --> crates/tampines/tests/ncg_transport_properties.rs:12:66
+   |
+12 | use tampines::components::wall_condensation::{structure_surface, structure_surface_mixture, Atmosphere, GasMixtureAtmosphere};
+   |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines` (test "ncg_transport_properties") generated 1 warning (run `cargo fix --test "ncg_transport_properties" -p tampines` to apply 1 suggestion)
+warning: `tampines` (lib test) generated 2 warnings (run `cargo fix --lib -p tampines --tests` to apply 2 suggestions)
+    Finished `release` profile [optimized] target(s) in 3m 58s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/tampines-3e85f30478be905b)
+
+running 216 tests
+test components::helical_coil_otsg::correlations::tests::chen_edelstein_matches_the_ht_library ... ok
+test components::helical_coil_otsg::correlations::tests::coil_friction_tends_to_the_straight_tube ... ok
+test components::helical_coil_otsg::correlations::tests::coil_nusselt_is_continuous_at_both_ends_of_the_blend ... ok
+test components::helical_coil_otsg::correlations::tests::forster_zuber_matches_the_ht_library ... ok
+test components::helical_coil_otsg::correlations::tests::lockhart_martinelli_matches_the_fluids_library ... ok
+test components::helical_coil_otsg::correlations::tests::schmidt_critical_reynolds_matches_the_fluids_library ... ok
+test components::helical_coil_otsg::tests::correct_physics_is_the_default ... ok
+test components::helical_coil_otsg::tests::geometry_is_derived_and_validated ... ok
+test components::helical_coil_otsg::tests::an_exhausted_pressure_is_an_error ... ok
+test components::helical_coil_otsg::tests::shooting_steps_one_march_at_a_time ... ok
+test components::helical_coil_otsg::tests::illustrative_case_solves_closes_and_orders_its_regimes ... ok
+test components::helical_coil_otsg::tests::single_phase_straight_tube_limit_correlations ... ok
+test components::helical_coil_otsg::tests::the_region_query_sees_the_assembled_helix ... ok
+test components::helical_coil_sg_standalone::tests::how_far_the_implicit_coupling_raises_the_stable_substep ... ignored, 248 s measured -- over the 1-minute budget (maintainer direction 2026-09-27). It runs 10 exchanger sweeps. Its answer is recorded in the doc comment; run with --ignored to re-measure.
+test components::helical_coil_sg_standalone::tests::odd_even_roughness_separates_a_checkerboard_from_a_ramp ... ok
+test components::helical_coil_otsg::tests::single_phase_march_tends_to_the_straight_limit ... ok
+test components::helical_coil_otsg::tests::axial_grid_convergence ... ok
+test components::helical_coil_sg_standalone::tests::the_substep_is_not_what_walks_the_cold_side_down ... ignored, 244 s measured -- over the 1-minute test budget (maintainer direction, 2026-09-27). It marches 400 s of exchanger time at two substeps. Run with --ignored when the substep question is reopened; its answer is recorded in the doc comment above.
+test components::wall_condensation::tests::a_cold_wall_convects_and_condenses ... ok
+test components::wall_condensation::tests::nitrogen_properties_match_a_hand_value ... ok
+test components::helical_coil_otsg::tests::ablations_close_and_move_the_answer_the_right_way ... ok
+test cv_network::tests::a_failed_newton_step_falls_back_and_commits_nothing ... ok
+test cv_network::tests::a_closed_gas_network_conserves_and_equalises ... ok
+test cv_network::tests::a_round_off_toggle_converges_by_newton ... ok
+test cv_network::tests::a_straddling_junction_moves_both_phases ... ok
+test components::helical_coil_sg_standalone::tests::the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep has been running for over 60 seconds
+test components::helical_coil_sg_standalone::tests::the_standalone_harness_is_deterministic has been running for over 60 seconds
+test cv_network::tests::a_manometer_oscillates_at_the_hand_frequency has been running for over 60 seconds
+test cv_network::tests::a_vacuum_breaker_holds_its_opening_difference ... ok
+test cv_network::tests::a_vent_to_a_boundary_closes_and_loose_coupling_conserves ... ok
+test cv_network::tests::a_manometer_oscillates_at_the_hand_frequency ... ok
+test cv_network::tests::external_sources_sinks_heats_and_a_valve_close ... ok
+test cv_network::tests::gas_flux_keeps_each_species_on_its_own_energy_reference ... ok
+test cv_network::tests::a_volume_drains_dry_inside_a_network ... ok
+test cv_network::tests::iterate_switches_are_default_and_the_ablation_is_the_old_network ... ok
+test components::helical_coil_sg_standalone::tests::the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep ... ok
+test cv_network::tests::the_newton_steps_scalar_solve_brackets_its_root ... ok
+test cv_network::tests::time_order_on_a_smooth_case ... ok
+test cv_network::tests::volume_reports_and_pool_heat_at_an_elevation ... ok
+test fem1d::eigen::tests::a_singular_matrix_is_refused ... ok
+test fem1d::eigen::tests::eigensystem_satisfies_the_jacobian_of_eq_290 ... ok
+test fem1d::eigen::tests::sign_matrix_matches_eqs_293_to_298_and_survives_rest ... ok
+test fem1d::pipe::tests::area_slope_is_the_derivative_of_the_profile ... ok
+test fem1d::pipe::tests::diaphragm_node_and_one_step_per_stabilisation ... ok
+test fem1d::pipe::tests::mass_solves_and_initial_condition_checks ... ok
+test fem1d::tests::finite_volume_is_the_default_and_both_build ... ok
+test flow_path::tests::check_valve_and_vacuum_breaker ... ok
+test flow_path::tests::gas_and_liquid_choking ... ok
+test flow_path::tests::gravity_and_phase_selection ... ok
+test flow_path::tests::inertia_steady_loss_and_first_order_transient ... ok
+test flow_path::tests::transient_second_order_is_a_tanh_addition_identity ... ok
+test gas_phase::circulator::tests::invalid_inputs_are_rejected ... ok
+test gas_phase::circulator::tests::lower_efficiency_means_more_work_and_more_heating ... ok
+test gas_phase::circulator::tests::measure_htr10_circulator ... ok
+test gas_phase::circulator::tests::pressure_rise_and_pressure_ratio_duties_agree ... ok
+test gas_phase::circulator::tests::unit_efficiency_is_exactly_isentropic ... ok
+test gas_phase::kta_bed::tests::friction_factor_has_the_right_asymptotes ... ok
+test gas_phase::kta_bed::tests::htr10_core_pressure_drop_is_a_small_fraction_of_system_pressure ... ok
+test gas_phase::kta_bed::tests::kta_friction_factor_reproduces_vtb_gold_value ... ok
+test gas_phase::kta_bed::tests::kta_pressure_gradient_reproduces_vtb_gold_values ... ok
+test gas_phase::kta_bed::tests::measure_htr10_core_pressure_drop ... ok
+test gas_phase::kta_bed::tests::out_of_range_inputs_are_rejected ... ok
+test gas_phase::kta_bed::tests::vtb_mass_flow_reynolds_inconsistency_is_reproduced ... ok
+test gas_phase::pipe::tests::acceleration_term_changes_sign_with_heating ... ok
+test gas_phase::pipe::tests::churchill_agrees_with_colebrook_white_in_the_turbulent_region ... ok
+test gas_phase::pipe::tests::churchill_reaches_the_fully_rough_asymptote ... ok
+test gas_phase::pipe::tests::churchill_reduces_to_laminar_64_over_re ... ok
+test gas_phase::pipe::tests::energy_balance_closes_on_enthalpy ... ok
+test gas_phase::pipe::tests::gnielinski_and_dittus_boelter_agree_within_correlation_spread ... ok
+test gas_phase::pipe::tests::htr10_hot_duct_is_deeply_subsonic ... ok
+test gas_phase::pipe::tests::invalid_inputs_are_rejected ... ok
+test gas_phase::pipe::tests::measure_htr10_hot_duct ... ok
+test gas_phase::pipe::tests::wall_temperature_boundary_never_overshoots ... ok
+test gas_phase::properties::tests::cp_matches_the_htr10_anchor_and_the_ideal_monatomic_value ... ok
+test gas_phase::properties::tests::density_ratio_across_the_core_rules_out_boussinesq ... ok
+test gas_phase::properties::tests::density_reproduces_coolprop_htr10_anchor_states ... ok
+test gas_phase::properties::tests::measure_htr10_states ... ok
+test gas_phase::properties::tests::out_of_envelope_states_are_rejected ... ok
+test gas_phase::properties::tests::prandtl_stays_in_the_monatomic_band_across_the_core ... ok
+test gas_phase::properties::tests::state_ph_inverts_state_pt ... ok
+test gas_phase::properties::tests::transport_properties_match_the_cited_nist_literature_values ... ok
+test heat_transfer::relap5_htc::tests::inayatov_multiplier_clips ... ok
+test heat_transfer::relap5_htc::tests::invalid_inputs_are_rejected ... ok
+test heat_transfer::relap5_htc::tests::kazimi_carelli_matches_hand_calculation_and_clips ... ok
+test heat_transfer::relap5_htc::tests::pipe_selects_free_convection_at_low_re_high_gr ... ok
+test heat_transfer::relap5_htc::tests::pipe_switches_laminar_to_turbulent_at_the_crossover ... ok
+test heat_transfer::relap5_htc::tests::pipe_switches_to_liquid_metal_below_prandtl_0_1 ... ok
+test heat_transfer::relap5_htc::tests::rod_bundle_applies_inayatov_and_liquid_metal_forms_with_clipping ... ok
+test heat_transfer::relap5_htc::tests::seban_shimazaki_matches_hand_calculation ... ok
+test heat_transfer::relap5_htc::tests::wall_heat_transfer_forms_groups_and_h ... ok
+test htr10_primary_loop::tests::bypass_splits ... ok
+test htr10_primary_loop::tests::data_copies_match_the_input_sheet ... ok
+test htr10_primary_loop::tests::draw_the_lumped_core_layout ... ok
+test htr10_primary_loop::tests::lumped_core_steady_state_balances_energy ... ok
+test htr10_primary_loop::tests::power_map_zone_fractions ... ok
+test htr10_primary_loop::tests::tabulated_series_interpolates_and_holds ... ok
+test multiphase_1d::area_tests::a_closed_varying_area_pipe_conserves_mass_in_both_solvers ... ok
+test components::helical_coil_sg_standalone::tests::the_standalone_harness_is_deterministic ... ok
+test multiphase_1d::area_tests::a_uniform_area_profile_is_bit_identical_to_the_constant_section ... ok
+test multiphase_1d::boundary_tests::a_constant_time_dependent_boundary_equals_the_static_one ... ok
+test multiphase_1d::boundary_tests::a_velocity_inlet_delivers_exactly_the_prescribed_mass_and_energy ... ok
+test multiphase_1d::area_tests::a_smooth_nozzle_matches_the_quasi_one_d_steady_analytic ... ok
+test multiphase_1d::edwards_tests::edwards_drift_flux_explore ... ignored, exploration harness, asserts nothing; run explicitly with EDF_* set
+test cv_network::tests::large_implicit_steps_are_stable_and_first_order has been running for over 60 seconds
+test cv_network::tests::newton_path_flows_on_a_mark_i_stand_in has been running for over 60 seconds
+test multiphase_1d::boundary_tests::pressure_boundaries_drive_a_heated_channel_that_balances_its_energy ... ok
+test multiphase_1d::edwards_tests::edwards_drift_flux_slip_and_tau_sensitivity ... ignored, long-running sensitivity sweep (measured 132.20 s on 2026-08-11); run explicitly
+test multiphase_1d::edwards_tests::two_fluid_constructs_on_the_edwards_geometry ... ok
+test multiphase_1d::entropy::tests::every_interfacial_closure_produces_non_negative_entropy_over_a_sweep ... ok
+test multiphase_1d::interfacial::tests::a_stale_conduction_set_is_refused ... ok
+test multiphase_1d::interfacial::tests::constructor_refuses_a_pair_from_the_same_resistance_side ... ok
+test multiphase_1d::interfacial::tests::constructor_refuses_unusable_geometry_and_floors ... ok
+test multiphase_1d::interfacial::tests::droplet_topology_exchanges_which_conductivity_closes_which_side ... ok
+test multiphase_1d::interfacial::tests::finite_slip_drag_is_antisymmetric_and_opposes_the_slip ... ok
+test multiphase_1d::interfacial::tests::latent_heat_guard_fires_only_next_to_the_critical_point ... ok
+test multiphase_1d::interfacial::tests::mass_transfer_sign_flips_between_superheated_vapour_and_subcooled_liquid ... ok
+test multiphase_1d::interfacial::tests::mass_transfer_vanishes_when_both_phases_sit_on_the_saturation_line ... ok
+test multiphase_1d::interfacial::tests::out_of_range_and_non_finite_states_are_refused_not_clipped ... ok
+test multiphase_1d::interfacial::tests::reference_properties_at_seven_megapascal ... ok
+test multiphase_1d::interfacial::tests::regime_map_area_matches_the_reused_closed_forms_and_blends_across_the_gap ... ok
+test multiphase_1d::interfacial::tests::regime_map_is_bit_identical_to_the_fixed_diameter_set_in_the_bubbly_window ... ok
+test multiphase_1d::interfacial::tests::the_regime_map_refuses_a_droplet_set_and_a_bad_hydraulic_diameter ... ok
+test multiphase_1d::interfacial::tests::the_self_evaluating_entry_point_matches_the_cached_one ... ok
+test multiphase_1d::interfacial::tests::the_uom_boundary_agrees_with_the_raw_si_boundary ... ok
+test multiphase_1d::interfacial::tests::two_resistance_pair_reads_one_conductivity_from_each_side ... ok
+test multiphase_1d::interfacial::tests::zero_slip_drag_recovers_the_stokes_closed_form ... ok
+test multiphase_1d::marviken_tests::marviken_drift_flux_explore ... ignored, exploration harness, asserts nothing; run explicitly with MRV_* set
+test multiphase_1d::edwards_tests::edwards_drift_flux_gs1_pressure_history ... ok
+test cv_network::tests::large_implicit_steps_are_stable_and_first_order ... ok
+test multiphase_1d::seven_equation::tests::a_closed_tube_conserves_phase_masses_species_and_total_energy ... ok
+test multiphase_1d::seven_equation::tests::a_fluid_at_rest_in_a_variable_area_duct_stays_at_rest ... ok
+test multiphase_1d::seven_equation::tests::a_noncondensable_pulse_rides_the_gas_in_the_seven_equation_model ... ok
+test multiphase_1d::seven_equation::tests::a_two_phase_shock_tube_reproduces_both_exact_riemann_solutions ... ok
+test multiphase_1d::seven_equation::tests::defaults_are_physics_on_and_each_ablation_is_explicit ... ok
+test multiphase_1d::seven_equation::tests::edwards_gs1_in_the_hem_limit ... ok
+test multiphase_1d::seven_equation::tests::edwards_prediction_basis_saturation_pressures ... ok
+test multiphase_1d::seven_equation::tests::ransom_water_faucet_matches_the_analytic_void_profile ... ok
+test multiphase_1d::seven_equation::tests::relaxation_conserves_energy_produces_entropy_and_reaches_equilibrium ... ok
+test multiphase_1d::seven_equation::tests::relaxing_pressure_alone_leaves_complex_characteristics ... ok
+test multiphase_1d::seven_equation::tests::stiffened_gas_helpers_are_consistent ... ok
+test multiphase_1d::marviken_tests::marviken_test_23_drift_flux_critical_mass_flux has been running for over 60 seconds
+test multiphase_1d::marviken_tests::marviken_test_24_drift_flux_critical_mass_flux has been running for over 60 seconds
+test multiphase_1d::seven_equation::tests::the_instantaneously_relaxed_model_carries_sound_at_wood_speed ... ok
+test multiphase_1d::seven_equation::tests::the_relaxed_pressure_quadratic_satisfies_the_volume_constraint ... ok
+test multiphase_1d::seven_equation::tests::the_water_air_interface_shock_tube_is_refused_by_cell_centred_p_int ... ok
+test multiphase_1d::seven_equation::tests::two_fluid_on_edwards_for_comparison ... ok
+test multiphase_1d::seven_equation::tests::uniform_pressure_and_velocity_survive_a_void_discontinuity ... ok
+test multiphase_1d::species_tests::a_noncondensable_pulse_advects_with_the_gas_velocity ... ok
+test multiphase_1d::species_tests::noncondensable_mass_is_conserved_to_round_off_in_a_closed_pipe ... ok
+test multiphase_1d::species_tests::the_entropy_inventory_does_not_fall_in_a_closed_adiabatic_pipe ... ok
+test multiphase_1d::species_tests::the_species_setters_refuse_bad_input ... ok
+test multiphase_1d::tests::reservoir_inlet_reaches_the_bernoulli_limit_in_subcooled_water ... ok
+test multiphase_1d::tests::the_compressibility_jumps_across_the_saturation_line ... ok
+test multiphase_1d::tests::the_pipe_geometry_is_exact ... ok
+test multiphase_1d::tests::thomas_refuses_a_singular_or_malformed_system ... ok
+test multiphase_1d::tests::thomas_solves_the_discrete_laplacian_exactly ... ok
+test multiphase_1d::two_fluid_tests::a_closed_pipe_conserves_mixture_mass_to_machine_precision ... ok
+test multiphase_1d::two_fluid_tests::a_collapsing_vapour_phase_does_not_blow_up_the_enthalpy_it_leaves_behind ... ok
+test multiphase_1d::two_fluid_tests::a_two_phase_blowdown_marches_without_refusing ... ok
+test multiphase_1d::two_fluid_tests::a_uniform_saturated_state_at_rest_stays_at_rest ... ok
+test multiphase_1d::two_fluid_tests::a_vanishing_phase_leaves_the_present_phase_uncoupled ... ok
+test multiphase_1d::two_fluid_tests::all_three_ablations_reproduce_the_pre_1060_march_bit_for_bit ... ok
+test multiphase_1d::marviken_tests::marviken_test_23_drift_flux_critical_mass_flux ... ok
+test multiphase_1d::two_fluid_tests::interface_work_matches_the_closed_forms_and_dissipates_the_drag ... ok
+test multiphase_1d::two_fluid_tests::each_1060_term_ablated_one_at_a_time_on_the_demonstrator_blowdown ... ok
+test multiphase_1d::two_fluid_tests::interfacial_momentum_coupling_is_antisymmetric_outside_the_taper_band ... ok
+test multiphase_1d::two_fluid_tests::interfacial_exchange_moves_energy_between_the_phases_and_creates_none ... ok
+test multiphase_1d::two_fluid_tests::residual_alpha_flooring_keeps_the_block_invertible_as_a_phase_vanishes ... ok
+test multiphase_1d::two_fluid_tests::region_4_safe_pressure_removes_the_upstream_classifier_panic ... ok
+test multiphase_1d::two_fluid_tests::strong_coupling_drives_the_phase_velocities_together_as_one_over_k_d ... ok
+test multiphase_1d::two_fluid_tests::the_1060_physics_is_on_by_default_and_each_ablation_is_explicit ... ok
+test multiphase_1d::two_fluid_tests::six_equation_march_refuses_where_a_phase_cannot_shed_its_expansion_work ... ok
+test multiphase_1d::two_fluid_tests::the_coupling_block_refuses_malformed_inputs ... ok
+test multiphase_1d::two_fluid_tests::the_solver_refuses_inputs_it_cannot_represent ... ok
+test multiphase_1d::two_fluid_tests::the_two_solvers_disagree_in_the_single_phase_limit_and_the_compliance_ratio_explains_it ... ok
+test multiphase_1d::two_fluid_tests::thermal_non_equilibrium_relaxes_monotonically_and_never_overshoots ... ok
+test multiphase_1d::two_fluid_tests::virtual_mass_coefficient_matches_the_transcribed_upstream_form ... ok
+test multiphase_1d::two_fluid_tests::virtual_mass_enters_the_block_and_switches_off_exactly_at_zero_cvm ... ok
+test multiphase_1d::wall_heat::tests::heat_flux_and_wall_temperature_split_by_the_linear_contact_partition ... ok
+test multiphase_1d::wall_heat::tests::the_relap5_variant_uses_the_dispatcher_on_each_phase ... ok
+test multiphase_1d::wall_heat_tests::a_closed_heated_drift_flux_pipe_gains_exactly_the_wall_heat ... ok
+test multiphase_1d::wall_heat_tests::a_closed_heated_two_fluid_pipe_gains_exactly_the_wall_heat ... ok
+test multiphase_1d::wall_heat_tests::a_heated_two_phase_channel_matches_the_hand_energy_balance ... ok
+test multiphase_1d::wall_heat_tests::the_relap5_wall_reaches_both_solvers_and_heats_the_fluid ... ok
+test pebble_bed::cht::tests::divergence_from_the_tuas_wakao_implementation ... ok
+test pebble_bed::cht::tests::nusselt_and_coefficient_at_a_stated_operating_point ... ok
+test pebble_bed::cht::tests::nusselt_tends_to_two_in_the_stagnant_limit ... ok
+test pebble_bed::cht::tests::reynolds_uses_the_superficial_velocity_and_inputs_are_checked ... ok
+test pebble_bed::cht::tests::specific_surface_area_and_volumetric_coefficient ... ok
+test pebble_bed::feedback::tests::graphite_thermal_time_constant_is_long ... ok
+test pebble_bed::feedback::tests::invalid_inputs_are_rejected_and_a_failed_step_does_not_clamp ... ok
+test pebble_bed::feedback::tests::published_isothermal_coefficients_are_transcribed_correctly ... ok
+test pebble_bed::feedback::tests::reactivity_is_zero_at_reference_and_linear_in_the_excursion ... ok
+test pebble_bed::feedback::tests::the_lumped_balance_conserves_energy ... ok
+test pebble_bed::feedback::tests::thermal_time_constant_emerges_from_the_integrated_ode ... ok
+test pebble_bed::pebble::tests::degenerate_pebble_collapses_to_the_analytic_sphere ... ok
+test pebble_bed::pebble::tests::dispersion_models_respect_the_wiener_bounds ... ok
+test pebble_bed::pebble::tests::fuelled_zone_conductivity_is_below_the_matrix_value ... ok
+test pebble_bed::pebble::tests::htr10_particle_count_follows_from_the_heavy_metal_loading ... ok
+test pebble_bed::pebble::tests::htr10_pebble_steady_state_at_core_average_power ... ok
+test pebble_bed::pebble::tests::htr10_pebble_volume_average_at_core_average_power ... ok
+test pebble_bed::pebble::tests::htr10_triso_volume_fraction_is_dilute ... ok
+test pebble_bed::pebble::tests::invalid_pebble_geometry_is_rejected ... ok
+test pebble_bed::pebble::tests::the_high_temperature_window_is_identical_below_2000_k_and_resolves_above ... ok
+test pebble_bed::pebble::tests::volume_average_reduces_to_the_uniform_sphere_result ... ok
+test pebble_bed::pebble::tests::zero_power_gives_a_uniform_pebble ... ok
+test pebble_bed::triso::tests::effective_conductivity_sits_between_the_wiener_bounds ... ok
+test pebble_bed::triso::tests::geometry_round_trips_through_boon_lay ... ok
+test pebble_bed::triso::tests::htr10_geometry_matches_the_iaea_table ... ok
+test pebble_bed::triso::tests::htr10_particle_steady_state_at_nominal_power ... ok
+test pebble_bed::triso::tests::invalid_geometry_is_rejected ... ok
+test pebble_bed::triso::tests::layer_conductivities_match_the_vtb_deck_expressions ... ok
+test pebble_bed::triso::tests::uniform_conductivity_collapses_to_the_analytic_sphere ... ok
+test pebble_bed::triso::tests::zero_power_gives_a_uniform_particle_temperature ... ok
+test subchannel::tests::identical_channels_have_no_crossflow_and_match_the_hand_pressure_drop ... ok
+test subchannel::tests::mixing_is_on_by_default_and_its_ablation_leaves_the_channels_unmixed ... ok
+test subchannel::tests::three_channel_bundle_conserves_energy_and_mass ... ok
+test subchannel::tests::turbulent_mixing_decays_the_temperature_difference_at_the_analytic_rate ... ok
+test subchannel::tests::unequal_inlet_flow_redistributes_by_crossflow_at_the_linear_rate ... ok
+test subchannel::tests::unusable_problems_are_refused ... ok
+test multiphase_1d::two_fluid_tests::the_answer_moves_with_c_vm_and_the_sensitivity_is_reported ... ok
+test cv_network::tests::newton_path_flows_on_a_mark_i_stand_in ... ok
+test multiphase_1d::marviken_tests::marviken_test_24_drift_flux_critical_mass_flux ... ok
+
+test result: ok. 211 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 835.53s
+
+     Running tests/control_volume.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/control_volume-6891fe5fa2a63169)
+
+running 10 tests
+test non_prismatic_level_against_the_hand_table ... ok
+test correct_physics_is_the_default ... ok
+test a_port_outflow_splits_by_its_liquid_fraction ... ok
+test swollen_level_by_hand_and_the_draw_it_decides ... ok
+test rain_out_ends_saturated_and_conserves ... ok
+test s1_species_sources_and_sinks_conserve ... ok
+test the_wet_well_is_a_special_case ... ok
+test the_wet_well_is_a_special_case_at_both_defaults ... ok
+test closure_over_a_transient_with_injection_gas_drain_and_vent ... ok
+test wet_well_round_off_amplification_gh1118 ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.89s
+
+     Running tests/control_volume_flash.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/control_volume_flash-c2eaab69fed03291)
+
+running 2 tests
+test f1_a_depressurised_saturated_pool_flashes_without_a_burst ... ok
+test f1_the_flash_converges_with_the_step ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+     Running tests/control_volume_layers.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/control_volume_layers-f9443f2a9698dbd7)
+
+running 9 tests
+test l10_pool_heat_at_an_elevation ... ok
+test l4_unstable_layers_mix_by_density ... ok
+test l3_stable_column_conducts_as_the_analytic_slab ... ok
+test l2_eight_layers_conserve_and_stay_mixed_when_heated_from_below ... ok
+test l7_dry_out_by_evaporation_and_heat_and_refill_by_rain ... ok
+test l5_hot_inflow_at_the_top_stratifies ... ok
+test l6_drain_dry_and_refill_conserves ... ok
+test l1_one_layer_is_bit_identical_to_the_single_region_volume ... ok
+test l9_the_surface_exchange_converges_with_layer_count ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.74s
+
+     Running tests/fem1d_vs_fv.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/fem1d_vs_fv-3f235d07be8118a2)
+
+running 6 tests
+test fem_rest_state_and_wall_conservation_in_the_nozzle ... ok
+test sod_fv_against_fem_stabilisations ... ok
+test shocked_nozzle_fv_against_fem ... ok
+test edwards_fv_against_fem has been running for over 60 seconds
+test if97_double_rarefaction_fv_against_fem has been running for over 60 seconds
+test subsonic_nozzle_fv_against_fem has been running for over 60 seconds
+test edwards_fv_against_fem ... ok
+test subsonic_nozzle_fv_against_fem ... ok
+test if97_double_rarefaction_fv_against_fem ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 328.08s
+
+     Running tests/genfoam_gfhr_pebble_conduction.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/genfoam_gfhr_pebble_conduction-487a72c9355c57dc)
+
+running 2 tests
+test the_shell_conductance_matches_upstreams_lumped_structure_formula ... ok
+test gfhr_reference_fuel_temperature_is_consistent_with_upstream_pebble_data ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/heat_structure.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/heat_structure-8266117c7d6abeef)
+
+running 5 tests
+test a_fuel_rod_reaches_the_hand_steady_state ... ok
+test a_slab_cools_as_the_fourier_series_says ... ok
+test a_core_channel_conserves_energy ... ok
+test a_heated_channel_carries_away_the_wall_power ... ok
+test a_wall_heat_exchanger_matches_epsilon_ntu ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.51s
+
+     Running tests/hem_coolprop.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/hem_coolprop-833e673367cd9a6e)
+
+running 4 tests
+test coolprop_refuses_compressed_liquid_water_instead_of_returning_a_wrong_root ... ok
+test the_reexported_pipe_is_the_steam_tables_pipe ... ok
+test coolprop_rho_e_closure_works_inside_the_dome ... ok
+test coolprop_and_if97_agree_on_a_single_phase_water_shock_tube has been running for over 60 seconds
+test coolprop_and_if97_agree_on_a_single_phase_water_shock_tube ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 140.49s
+
+     Running tests/hem_reduced_eos_dispatch.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/hem_reduced_eos_dispatch-12661ed65f4ded9e)
+
+running 2 tests
+test every_reduced_closure_dispatches_bit_identically ... ok
+test a_shock_tube_through_the_enum_matches_the_concrete_closure ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/ncg_transport_properties.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/ncg_transport_properties-366c1633f66cdab8)
+
+running 4 tests
+test h2_and_air_change_the_pool_surface_as_predicted ... ok
+test new_gases_against_handbook_values ... ok
+test pool_exchange_with_nitrogen_only_is_bit_for_bit ... ok
+test three_gas_atmosphere_is_bit_for_bit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/pcice.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/pcice-3a41996370238381)
+
+running 6 tests
+test defaults_are_pinned_and_inputs_validated ... ok
+test variable_area_duct_at_rest_stays_at_rest ... ok
+test sod_matches_the_exact_riemann_solution_and_hem_pipe ... ok
+test low_mach_advection_runs_at_acoustic_courant_far_above_one ... ok
+test water_shock_tube_on_if97_agrees_with_hem_pipe ... ok
+test closed_tube_conserves_mass_and_energy ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.20s
+
+     Running tests/reactor_power_source.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/reactor_power_source-3dcfa8b1ac70c497)
+
+running 2 tests
+test the_distributed_power_sums_to_the_total ... ok
+test a_decay_heat_transient_heats_a_channel_by_the_energy_balance ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/wall_condensation.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/wall_condensation-1073bb8181dd431a)
+
+running 4 tests
+test the_gas_loses_what_the_wall_gains_plus_the_condensate_carries ... ok
+test with_no_steam_the_wall_sees_melcors_natural_convection_by_hand ... ok
+test the_ablations_do_what_they_say ... ok
+test condensation_is_limited_to_ninety_percent_of_the_steam_in_a_step ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/wasm_smoke.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/wasm_smoke-c5809c25ea3f96b2)
+
+running 2 tests
+test helium_properties_evaluate_under_wasm ... ok
+test helium_steam_generator_builds_and_advances_under_wasm ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests/wet_well.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/wet_well-659d8e55fa165379)
+
+running 10 tests
+test every_mechanism_is_on_by_default ... ok
+test bad_input_is_refused ... ok
+test n2_fits_are_melcor_ncg_bit_for_bit ... ok
+test near_saturation_part_of_the_steam_passes_through ... ok
+test the_level_rises_by_the_condensed_mass_over_rho_a ... ok
+test the_relap7_mode_follows_eq_390_in_closed_form ... ok
+test the_vacuum_breaker_opens_only_beyond_its_set_point_and_only_one_way ... ok
+test four_pass_ablation_is_the_old_wet_well_bit_for_bit ... ok
+test atmosphere_fold_is_bit_for_bit ... ok
+test mass_and_energy_close_during_a_condensation_transient ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+

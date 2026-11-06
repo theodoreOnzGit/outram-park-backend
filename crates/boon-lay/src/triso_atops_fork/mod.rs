@@ -41,6 +41,7 @@
 //! | [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). ~~The JSON run-file driver + accident case are **not ported** — no code exists for either (bead op-b4a.2.3).~~ **CORRECTED 2026-09-30** — both are ported; see the two rows below. |
 //! | [`accident`](crate::triso_atops_fork::accident) | Depressurisation-accident release: the **pieces** of `trisoatops.py::accident_case` (~~porting `accident_case`~~ **CORRECTED 2026-09-30 (#449):** there is no single `accident_case` function; callers compose it, #447): the diffusion integral over the transient, the release of what is left in kernel and graphite scaled by the vented-coolant fraction, plus **all circulating activity and an `x_liftoff` share of the plate-out** (the primary-circuit retention is the plate-out that is not lifted off). No building, dust or helium-purification-system term. **A depressurisation model:** activity leaves only by venting while the core heats, and there is **no ingress (flow-through) transport** (#446); see the module docs. |
 //! | [`run_file`](crate::triso_atops_fork::run_file) | The JSON run file: parsing, validation and unit attachment. |
+//! | [`variant`](crate::triso_atops_fork::variant) | **NOT a port** (gh:#1015, 2026-10-22). [`TrisoAtopsVariant`](crate::triso_atops_fork::variant::TrisoAtopsVariant) selects the upstream code (default, bit for bit) or `atops2026paper`, the equations as printed in Stoyer, Raichart & Petti (2026), *Nuclear Technology*, doi:10.1080/00295450.2026.2671624. It is the `variant` field of `PlantConstants` and an argument of the `*_for` functions. The paper's printed results come from the code, not from its equations as written; see `docs/triso-atops-2026-paper-reproduction.md`. |
 //!
 //! ## Derivation, step by step
 //!
@@ -60,7 +61,9 @@
 //!    chemical group. The group partition is
 //!    [`ElementGroup`](crate::triso_atops_fork::nuclide_model::ElementGroup); the
 //!    special-metal sphere radius `a_booth = √(2·a_grain·r)` is formed in
-//!    [`rb_fail`](crate::triso_atops_fork::release_models::rb_fail).
+//!    [`rb_fail`](crate::triso_atops_fork::release_models::rb_fail) (upstream;
+//!    the `atops2026paper` variant uses the paper's `√((r² + a_grain²)/2)`,
+//!    gh:#1015).
 //! 3. **Effective coefficient.** Everything depends on `D` and `a` only through
 //!    `D' = D/a²` (units s⁻¹). `D` follows an Arrhenius law
 //!    `D(T) = D0·exp(−Q/RT)`, implemented in
@@ -151,5 +154,9 @@ pub mod accident;
 /// The JSON run file: parsing, validation and unit attachment.
 pub mod run_file;
 
+/// Model variant: the upstream code (default) or the 2026 paper as written (gh:#1015).
+pub mod variant;
+
 pub use activities::Activity;
 pub use nuclide_model::{ElementGroup, TrisoAtopsNuclide};
+pub use variant::TrisoAtopsVariant;

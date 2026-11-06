@@ -5,7 +5,8 @@
 //! The pool passes the choice around as one number, the "bed code" (the
 //! `layers` field of [`super::CoreReq`] and [`super::AssemblyReport`], and
 //! the slice's raster parameter): N = 10..=20 is the lattice at N layers,
-//! [`DEM_BED`] (0) is the random bed.
+//! [`DEM_BED`] (0) is the random bed, [`USER_POUR`] (1) the reader's own
+//! pour (gh:#1244), which each worker holds once the page has sent it.
 //!
 //! **The random bed** is the #216 friction study's pour at µ = 0.1, µ_r = 0
 //! (`reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv`, the same
@@ -22,13 +23,64 @@
 //! quantised bake), so a worker and the slice builder have it without a
 //! download.
 
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, AssembledCore};
-use nee_soon::htr10_rmc::explicit_bed::{assemble_explicit_triso_from_centres, paper_fuel_assignment};
+use nee_soon::htr10_rmc::control_rod::N_CONTROL_RODS;
+use nee_soon::htr10_rmc::core_design::Htr10CoreDesign;
+use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, assemble_explicit_triso_with, AssembledCore};
+use nee_soon::htr10_rmc::explicit_bed::{assemble_explicit_triso_from_centres_with, paper_fuel_assignment};
 use uom::si::f64::Length;
 use uom::si::length::meter;
 
 /// The bed code of the DEM random bed.
 pub const DEM_BED: usize = 0;
+/// The bed code of the reader's own pour (gh:#1244, [`super::pour`]): the
+/// bed last handed to this worker by [`set_poured`].
+pub const USER_POUR: usize = 1;
+
+/// Whether a bed code is one of the explicit (DEM) beds.
+pub fn is_dem(code: usize) -> bool {
+    code == DEM_BED || code == USER_POUR
+}
+
+/// The reader's pour this worker builds [`USER_POUR`] on. One per worker
+/// (each Web Worker has its own; natively the pool's threads share it, and
+/// the page sends every one the same bed).
+static POURED: std::sync::RwLock<Option<std::sync::Arc<super::pour::PouredBed>>> = std::sync::RwLock::new(None);
+
+/// Hand this worker the reader's pour.
+pub fn set_poured(b: super::pour::PouredBed) {
+    if let Ok(mut g) = POURED.write() {
+        *g = Some(std::sync::Arc::new(b));
+    }
+}
+
+/// The reader's pour, if one has been handed over.
+pub fn poured() -> Option<std::sync::Arc<super::pour::PouredBed>> {
+    POURED.read().ok().and_then(|g| g.clone())
+}
+
+/// The version of the pour [`USER_POUR`] means here (0: none yet).
+pub fn poured_version() -> u32 {
+    poured().map_or(0, |b| b.version)
+}
+
+/// The centres and fuel flags of an explicit bed code.
+///
+/// # Errors
+/// Not an explicit bed, the baked pour cannot be read, or no pour has been
+/// handed over.
+pub fn explicit_bed(code: usize) -> Result<(Vec<[Length; 3]>, Vec<bool>), String> {
+    match code {
+        DEM_BED => {
+            let c = dem_centres()?;
+            let fuel = paper_fuel_assignment(&c);
+            Ok((c, fuel))
+        }
+        USER_POUR => poured()
+            .map(|b| (b.centres.clone(), b.is_fuel.clone()))
+            .ok_or_else(|| "no pour has been made yet: pour a bed first".to_string()),
+        _ => Err(format!("bed code {code} is not a DEM bed")),
+    }
+}
 /// Core pebbles (centred above the floor) the random bed is cut to: the
 /// lattice's count at N = 12 (`run_e8_N12.log`, "16681 balls").
 pub const DEM_CORE_BALLS: usize = 16_681;
@@ -73,28 +125,83 @@ pub fn dem_centres() -> Result<Vec<[Length; 3]>, String> {
     Ok(below.iter().map(|c| c.map(Length::new::<meter>)).collect())
 }
 
-/// The core for a bed code.
+/// The core for a bed code, rods withdrawn (the record's state).
 pub fn build_core(code: usize) -> Result<AssembledCore, String> {
-    if code == DEM_BED {
-        let c = dem_centres()?;
-        let fuel = paper_fuel_assignment(&c);
-        Ok(assemble_explicit_triso_from_centres(
-            &c,
-            &fuel,
-            super::RINGS,
-            0,
-        ))
-    } else {
+    build_core_with(code, &WITHDRAWN)
+}
+
+/// Number of control rods (`nee_soon`'s).
+pub const N_RODS: usize = N_CONTROL_RODS;
+
+/// Every rod withdrawn: the record's state and the default.
+pub const WITHDRAWN: [f64; N_CONTROL_RODS] = [0.0; N_CONTROL_RODS];
+
+/// The core for a bed code with each control rod at its own insertion
+/// (`rods[i]` in `[0, 1]`, rod `i` as `Htr10CoreDesign::rod_insertions`
+/// numbers them; gh:#1025). With [`WITHDRAWN`] it is [`build_core`]'s core
+/// exactly, since `Htr10CoreDesign::default()` is the record's design.
+///
+/// # Errors
+/// An insertion outside `[0, 1]`, or the DEM pour cannot be read.
+pub fn build_core_with(code: usize, rods: &[f64; N_CONTROL_RODS]) -> Result<AssembledCore, String> {
+    let mut design = Htr10CoreDesign::default();
+    design.rod_insertions = *rods;
+    design.check()?;
+    if is_dem(code) {
+        let (c, fuel) = explicit_bed(code)?;
+        // The DEM beds packs its TRISO at random (gh:#1243), as the worker
+        // pool's `ParametricStudy` builds it, so the picture is the core run.
+        design.triso_packing = nee_soon::htr10_rmc::core_design::TrisoPacking::DEM_DEFAULT;
+        Ok(assemble_explicit_triso_from_centres_with(&c, &fuel, super::RINGS, 0, &design))
+    } else if rods == &WITHDRAWN {
         Ok(assemble_explicit_triso(super::RINGS, code.clamp(10, 20), 0))
+    } else {
+        Ok(assemble_explicit_triso_with(super::RINGS, code.clamp(10, 20), 0, &design))
     }
 }
 
-/// What the bed code means, for the page.
-pub fn label(code: usize) -> String {
+/// Core pebbles (centred above the bed floor, `PebbleBed::core_balls`) of
+/// the lattice the core view builds, `assemble_explicit_triso(14, N, 0)`, for
+/// N = 10 ..= 20. Quoted so the page can show the count without building the
+/// bed; pinned to the model by `the_pebble_counts_are_the_beds`.
+pub const LATTICE_CORE_BALLS: [usize; 11] = [14_021, 15_351, 16_681, 18_011, 19_341, 20_671, 22_001, 23_331, 24_661, 25_991, 27_321];
+
+/// The core pebbles of a bed code: the DEM bed's, or the lattice's at N.
+pub fn core_pebbles(code: usize) -> Option<usize> {
     if code == DEM_BED {
-        format!("DEM random bed ({DEM_CORE_BALLS} core pebbles, as the lattice at N = 12)")
+        Some(DEM_CORE_BALLS)
+    } else if code == USER_POUR {
+        poured().map(|b| b.core_balls())
     } else {
-        format!("Şeker lattice, N = {code}")
+        code.checked_sub(10).and_then(|i| LATTICE_CORE_BALLS.get(i)).copied()
+    }
+}
+
+/// A count with thin-space thousands, as the page prints it (16 681).
+pub fn grouped(n: usize) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            out.push(' ');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// What the bed code means, for the page: the bed and its core pebbles.
+pub fn label(code: usize) -> String {
+    let pebbles = core_pebbles(code).map_or(String::new(), |n| format!(" · {} pebbles", grouped(n)));
+    if code == DEM_BED {
+        format!("DEM random bed{pebbles} (as the lattice at N = 12)")
+    } else if code == USER_POUR {
+        match poured() {
+            Some(b) => format!("your DEM pour #{}{pebbles}, {:.0} % fuel", b.version, 100.0 * b.fuel_fraction),
+            None => "your DEM pour (not poured yet)".to_string(),
+        }
+    } else {
+        format!("Şeker lattice, N = {code}{pebbles}")
     }
 }
 
@@ -151,6 +258,65 @@ pub fn render_review(dir: &std::path::Path) -> Result<(), String> {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// The page's pebble counts are the beds the workers build (2026-10-26,
+    /// the main view shows them), and the label carries them.
+    #[test]
+    fn the_pebble_counts_are_the_beds() {
+        let built: Vec<usize> = (10..=20)
+            .map(|n| assemble_explicit_triso(super::super::RINGS, n, 0).bed.as_ref().and_then(|b| b.core_balls()).expect("Şeker bed reports its balls"))
+            .collect();
+        println!("core balls N = 10..=20: {built:?}");
+        assert_eq!(built.as_slice(), LATTICE_CORE_BALLS.as_slice());
+        assert_eq!(LATTICE_CORE_BALLS[2], DEM_CORE_BALLS, "the DEM bed is cut to the lattice at N = 12");
+        assert_eq!(label(12), "Şeker lattice, N = 12 · 16 681 pebbles");
+        assert_eq!(grouped(999), "999");
+        assert_eq!(grouped(1000), "1 000");
+        assert_eq!(core_pebbles(9), None);
+    }
+
+    /// The reader's pour (gh:#1244): once handed over, the bed code builds
+    /// it exactly as the baked bed builds the same balls, and the label and
+    /// count follow it. (The only test that sets this worker's pour.)
+    #[test]
+    fn a_handed_over_pour_builds_as_the_baked_bed() {
+        let c = dem_centres().expect("centres");
+        let fuel = paper_fuel_assignment(&c);
+        let b = super::super::pour::PouredBed { centres: c, is_fuel: fuel, version: 4, cut: 0, fuel_fraction: 0.57 };
+        // Through the worker's message, as the page sends it.
+        let req = super::super::CoreReq::pour_bed(&b);
+        let mut w = super::super::CoreWorker::default();
+        super::super::serve_native(&mut w, req, &mut |_| {});
+        assert_eq!(poured_version(), 4);
+        assert_eq!(core_pebbles(USER_POUR), Some(DEM_CORE_BALLS));
+        assert!(label(USER_POUR).contains("#4"), "{}", label(USER_POUR));
+        let mine = build_core(USER_POUR).expect("pour core");
+        let baked = build_core(DEM_BED).expect("baked core");
+        assert_eq!(mine.cells, baked.cells);
+        assert_eq!(mine.geometry.lattices.len(), baked.geometry.lattices.len());
+        match super::super::study(USER_POUR, &WITHDRAWN, &nee_soon::htr10_rmc::zones::ZoneTemperatures::record()).expect("study").bed {
+            nee_soon::htr10_rmc::parametric::StudyBed::Explicit { centres, .. } => assert_eq!(centres.len(), b.centres.len()),
+            other => panic!("{other:?}"),
+        }
+        assert!(explicit_bed(12).is_err());
+        // The pour itself goes through the same worker (dem_web's engine).
+        let mut got = 0;
+        let start = super::super::pour::engine::Request::Start { id: 1, n: 3_000, seed: 1 };
+        super::super::serve_native(&mut w, super::super::CoreReq::Pour(start), &mut |e| {
+            if matches!(e, crate::engine::Event::Core(super::super::CoreEv::Pour(super::super::pour::engine::Event::Progress(_)))) {
+                got += 1;
+            }
+        });
+        assert_eq!(got, 1);
+        // The review images of a poured core, drawn from the same CSV
+        // (here the baked pour; `--render-pour` on a fresh one).
+        let dir = std::env::temp_dir().join("htr10_render_pour_test");
+        let text = super::super::pour::render_review(DEM_CSV, 0.57, &dir).expect("images");
+        assert!(text.contains("core pebbles"), "{text}");
+        for f in ["pour_core_xz.png", "pour_bed_xz.png", "pour_bed_xy.png", "pour_fuel_pebble_xy.png"] {
+            assert!(dir.join(f).metadata().is_ok_and(|m| m.len() > 1000), "{f}");
+        }
+    }
 
     /// The random bed is cut to the lattice's core count, keeps its conus and
     /// tube, builds, and puts fuel in the bed; the lattice codes build the

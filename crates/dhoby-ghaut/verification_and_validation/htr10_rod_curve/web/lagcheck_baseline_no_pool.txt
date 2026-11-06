@@ -1,0 +1,6 @@
+7 s: frames n=23 median=116.8 ms p95=183.4 max=483.3; title after drag (149 ms): HTR-10: pebbles, TRISO, kernels · control rods · all ten at 68 % (lower end z_T 306.2 cm)
+13 s: frames n=19 median=166.6 ms p95=200.1 max=200.1; title after drag (237 ms): HTR-10: pebbles, TRISO, kernels · control rods · all ten at 100 % (lower end z_T 394.2 cm)
+20 s: frames n=20 median=150.0 ms p95=216.6 max=216.6; title after drag (184 ms): HTR-10: pebbles, TRISO, kernels · control rods · all ten at 68 % (lower end z_T 306.2 cm)
+26 s: frames n=16 median=200.0 ms p95=233.4 max=233.4; title after drag (137 ms): HTR-10: pebbles, TRISO, kernels · control rods · all ten at 100 % (lower end z_T 394.2 cm)
+33 s: frames n=18 median=166.7 ms p95=283.3 max=283.3; title after drag (176 ms): HTR-10: pebbles, TRISO, kernels · control rods · all ten at 68 % (lower end z_T 306.2 cm)
+40 s: frames n=18 median=183.4 ms p95=266.6 max=266.6; title after drag (131 ms): HTR-10: pebbles, TRISO, kernels · control rods · all ten at 100 % (lower end z_T 394.2 cm)

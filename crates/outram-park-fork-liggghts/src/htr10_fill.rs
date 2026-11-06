@@ -402,44 +402,13 @@ impl Htr10Fill {
 
     /// `(pebbles above the conus inlet, their mean KE over a one-radius drop)`.
     fn ke_ratio_core(&self) -> (usize, f64) {
-        let (mut ke, mut n) = (0.0, 0usize);
-        for p in self.sys.particles() {
-            if p.position.z > 0.0 {
-                ke += 0.5 * p.mass * p.velocity.norm_squared();
-                n += 1;
-            }
-        }
-        (n, if n == 0 { f64::INFINITY } else { ke / n as f64 / e_drop() })
+        ke_ratio_of(self.sys.particles().iter().map(|p| (p.position, p.velocity, p.mass)))
     }
 
     /// Where the fill is now, without stepping.
     #[must_use]
     pub fn progress(&self) -> FillProgress {
-        let centres = self.centres();
-        let (n, ke_ratio_core) = self.ke_ratio_core();
-        // Settled only once the bed has reached the core and come to rest; a
-        // fill still falling through the barrel has n = 0 at the start.
-        // ~~`n > 0 && steps > 0 && KE < target`~~ **CORRECTED 2026-10-07
-        // (gh:#787):** the pebbles start AT REST, so after a short first chunk
-        // (the browser demo's 20 steps) the KE is still below the target and
-        // the pour read as settled before it had fallen. The KE must first
-        // have risen above the target (the pour moved), then fallen below it.
-        // Chunks of 500 or more steps (every earlier caller) always saw the
-        // fall first, so no recorded result changes.
-        let settled = n > 0
-            && self.steps > 0
-            && self.peak_ke_ratio >= self.settings.settle_target
-            && ke_ratio_core < self.settings.settle_target;
-        FillProgress {
-            steps: self.steps,
-            time: Time::new::<second>(self.steps as f64 * self.settings.dt.get::<second>()),
-            ke_ratio_core,
-            phi_whole_core: whole_core_fraction(&centres),
-            surface_height: Length::new::<meter>(surface_height_m(&centres).unwrap_or(0.0)),
-            n_in_core: n,
-            settled,
-            gave_up: !settled && self.steps >= self.settings.max_steps,
-        }
+        progress_of(&self.settings, self.steps, self.peak_ke_ratio, &self.centres(), self.ke_ratio_core())
     }
 
     /// Pebble centres \[m\], in insertion order.
@@ -453,6 +422,180 @@ impl Htr10Fill {
     #[must_use]
     pub fn system(&self) -> &GranularSystem {
         &self.sys
+    }
+}
+
+/// **The same pour on the GPU** (gh:#1250): [`Htr10Fill`]'s set-up, stepped
+/// by [`crate::gpu::dem::GpuDem`], reported by the same instruments (the
+/// state is read back after every [`Self::advance`]). Not bit-identical to
+/// the CPU pour (`gpu::dem`'s trust model); the CPU pour stays the default
+/// and the reference.
+#[cfg(not(target_os = "android"))]
+pub struct Htr10GpuFill {
+    dem: crate::gpu::dem::GpuDem,
+    settings: Htr10FillSettings,
+    steps: usize,
+    peak_ke_ratio: f64,
+    states: Vec<crate::gpu::dem::GpuState>,
+    mass: f64,
+}
+
+#[cfg(not(target_os = "android"))]
+impl Htr10GpuFill {
+    /// [`Self::new`] without blocking (the browser's way): `ctx` from
+    /// `gpu::probe_async`.
+    ///
+    /// # Errors
+    /// A setting the CPU pour refuses, or one the GPU path does not hold.
+    pub async fn new_async(settings: Htr10FillSettings, ctx: crate::gpu::GpuContext) -> Result<Self, String> {
+        let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
+        // A browser reports a shader or pipeline it rejects only through an
+        // error scope (the dispatches are then silently dropped and nothing
+        // moves), so the set-up is checked here and refused with the reason.
+        let scope = ctx.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let dem = crate::gpu::dem::GpuDem::new(ctx, cpu.system())?;
+        if let Some(e) = scope.pop().await {
+            return Err(format!("the browser rejected the GPU kernels: {e}"));
+        }
+        let states = dem.states_async().await;
+        Ok(Self { dem, settings, steps: 0, peak_ke_ratio: 0.0, states, mass: pebble_mass() })
+    }
+
+    /// [`Self::advance`] without blocking.
+    pub async fn advance_async(&mut self, n: usize) -> FillProgress {
+        let n = n.min(self.settings.max_steps.saturating_sub(self.steps));
+        if n > 0 {
+            self.dem.run(n as u64);
+            self.steps += n;
+            self.states = self.dem.states_async().await;
+            self.after_advance();
+        }
+        self.progress()
+    }
+
+    fn after_advance(&mut self) {
+        let now = self.ke_ratio_core().1;
+        if now.is_finite() {
+            self.peak_ke_ratio = self.peak_ke_ratio.max(now);
+        }
+    }
+
+    /// Table overflows since the start, without blocking.
+    pub async fn errors_async(&self) -> crate::gpu::dem::GpuErrors {
+        self.dem.errors_async().await
+    }
+
+    /// The settings it was built with.
+    #[must_use]
+    pub fn settings(&self) -> Htr10FillSettings {
+        self.settings
+    }
+
+    /// Seed the pour exactly as [`Htr10Fill::new`] does and upload it to the
+    /// GPU.
+    ///
+    /// # Errors
+    /// No GPU adapter, or a setting the CPU pour refuses.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new(settings: Htr10FillSettings) -> Result<Self, String> {
+        let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
+        let ctx = crate::gpu::probe().ok_or("no GPU adapter")?;
+        let dem = crate::gpu::dem::GpuDem::new(ctx, cpu.system())?;
+        let states = dem.states();
+        Ok(Self { dem, settings, steps: 0, peak_ke_ratio: 0.0, states, mass: pebble_mass() })
+    }
+
+    /// Step `n` more times (fewer if `max_steps` is reached) and report.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn advance(&mut self, n: usize) -> FillProgress {
+        let n = n.min(self.settings.max_steps.saturating_sub(self.steps));
+        if n > 0 {
+            self.dem.run(n as u64);
+            self.steps += n;
+            self.states = self.dem.states();
+            self.after_advance();
+        }
+        self.progress()
+    }
+
+    fn ke_ratio_core(&self) -> (usize, f64) {
+        ke_ratio_of(self.states.iter().map(|s| (s.position, s.velocity, self.mass)))
+    }
+
+    /// Where the fill is now, without stepping.
+    #[must_use]
+    pub fn progress(&self) -> FillProgress {
+        progress_of(&self.settings, self.steps, self.peak_ke_ratio, &self.centres(), self.ke_ratio_core())
+    }
+
+    /// Pebble centres \[m\], in insertion order.
+    #[must_use]
+    pub fn centres(&self) -> Vec<Vec3> {
+        self.states.iter().map(|s| s.position).collect()
+    }
+
+    /// The state read back after the last advance.
+    #[must_use]
+    pub fn states(&self) -> &[crate::gpu::dem::GpuState] {
+        &self.states
+    }
+
+    /// Table overflows since the start (must be zero for a trusted run).
+    #[must_use]
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn errors(&self) -> crate::gpu::dem::GpuErrors {
+        self.dem.errors()
+    }
+
+    /// The adapter it runs on.
+    #[must_use]
+    pub fn adapter(&self) -> String {
+        let i = self.dem.adapter();
+        format!("{} ({:?}, {:?})", i.name, i.backend, i.device_type)
+    }
+}
+
+/// `(pebbles above the conus inlet, their mean KE over a one-radius drop)`
+/// of `(position, velocity, mass)` triples: the settle measure both
+/// backends report.
+fn ke_ratio_of(bodies: impl Iterator<Item = (Vec3, Vec3, f64)>) -> (usize, f64) {
+    let (mut ke, mut n) = (0.0, 0usize);
+    for (x, v, m) in bodies {
+        if x.z > 0.0 {
+            ke += 0.5 * m * v.norm_squared();
+            n += 1;
+        }
+    }
+    (n, if n == 0 { f64::INFINITY } else { ke / n as f64 / e_drop() })
+}
+
+/// The report of a fill at `steps`, from its centres and `(n, ke ratio)`.
+fn progress_of(settings: &Htr10FillSettings, steps: usize, peak_ke_ratio: f64, centres: &[Vec3], ke: (usize, f64)) -> FillProgress {
+    {
+        let (n, ke_ratio_core) = ke;
+        // Settled only once the bed has reached the core and come to rest; a
+        // fill still falling through the barrel has n = 0 at the start.
+        // ~~`n > 0 && steps > 0 && KE < target`~~ **CORRECTED 2026-10-07
+        // (gh:#787):** the pebbles start AT REST, so after a short first chunk
+        // (the browser demo's 20 steps) the KE is still below the target and
+        // the pour read as settled before it had fallen. The KE must first
+        // have risen above the target (the pour moved), then fallen below it.
+        // Chunks of 500 or more steps (every earlier caller) always saw the
+        // fall first, so no recorded result changes.
+        let settled = n > 0
+            && steps > 0
+            && peak_ke_ratio >= settings.settle_target
+            && ke_ratio_core < settings.settle_target;
+        FillProgress {
+            steps,
+            time: Time::new::<second>(steps as f64 * settings.dt.get::<second>()),
+            ke_ratio_core,
+            phi_whole_core: whole_core_fraction(centres),
+            surface_height: Length::new::<meter>(surface_height_m(centres).unwrap_or(0.0)),
+            n_in_core: n,
+            settled,
+            gave_up: !settled && steps >= settings.max_steps,
+        }
     }
 }
 

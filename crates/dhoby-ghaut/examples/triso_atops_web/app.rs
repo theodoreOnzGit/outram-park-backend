@@ -13,24 +13,29 @@ use crate::rungs::Rung;
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
 use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::panel::Panel;
-use dhoby_ghaut::web_demo::platform::{now_s, set_query, set_title};
+use dhoby_ghaut::web_demo::platform::{now_s, query_value, set_query, set_title};
 use dhoby_ghaut::web_demo::view::{apply_zoom, zoom_buttons, View, Zoom};
 use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 
 type TLink = Link<Request, Event>;
 
-/// Series colours: blue, orange, green, purple, grey, brown.
-const PALETTE: [Color32; 6] = [
-    Color32::from_rgb(110, 170, 255),
-    Color32::from_rgb(255, 170, 80),
-    Color32::from_rgb(120, 220, 140),
-    Color32::from_rgb(200, 140, 255),
-    Color32::from_rgb(200, 200, 200),
-    Color32::from_rgb(220, 150, 120),
-];
+/// Series colour `k` from the theme (`bugis::Ink`): blue, orange, green,
+/// purple, grey, red (the order the engine's series ask for).
+fn series_colour(ink: &bugis::Ink, k: u8) -> Color32 {
+    match k % 6 {
+        0 => ink.accent(0),
+        1 => ink.accent(1),
+        2 => ink.accent(5),
+        3 => ink.accent(3),
+        4 => ink.muted,
+        _ => ink.accent(6),
+    }
+}
 
 /// Region colours and names, in `TrisoRegion` order (the colours of
 /// boon-lay's `triso_cell_slice` images, OPyC lightened for a dark page).
+/// A physics encoding shared with the review images: the same in both
+/// themes, as are the atoms drawn on the particle ([`SPECIES`]).
 const REGIONS: [(Color32, &str); 6] = [
     (Color32::from_rgb(192, 57, 43), "kernel (UO2)"),
     (Color32::from_rgb(217, 195, 140), "buffer (porous C)"),
@@ -151,6 +156,9 @@ fn worker_url() -> String {
 }
 
 pub struct TrisoApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<TLink>,
     error: Option<String>,
     rung: Rung,
@@ -170,6 +178,10 @@ pub struct TrisoApp {
     plot_text: f32,
     title: String,
     tapped: Option<String>,
+    /// A nuclide named by the deep link's `pick=`, resolved against the
+    /// release frame's names when the first one arrives (they are the
+    /// engine's, not known before).
+    pending_pick: Option<String>,
 }
 
 fn bits(x: f64) -> u64 {
@@ -178,7 +190,9 @@ fn bits(x: f64) -> u64 {
 
 impl TrisoApp {
     pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<TLink, String> = {
             let ctx = cc.egui_ctx.clone();
@@ -198,6 +212,7 @@ impl TrisoApp {
             Err(e) => (None, Some(e)),
         };
         Self {
+            theme: bugis::Theme::default(),
             link,
             error,
             rung,
@@ -216,7 +231,16 @@ impl TrisoApp {
             plot_text: 13.0,
             title: String::new(),
             tapped: None,
+            pending_pick: None,
         }
+        .with_deep_link(&deep_link(&dhoby_ghaut::web_demo::platform::query_pairs()))
+    }
+
+    /// Apply a parsed deep link to the opening controls (GUI glue around
+    /// [`apply_deep_link`], which the tests reach).
+    fn with_deep_link(mut self, d: &DeepLink) -> Self {
+        apply_deep_link(&mut self.c, &mut self.pending_pick, d);
+        self
     }
 
     fn set_rung(&mut self, r: Rung) {
@@ -369,6 +393,14 @@ impl TrisoApp {
                     if self.rung == Rung::Walk && f.dots.is_empty() && f.radii.is_empty() {
                         self.check = Some(f);
                     } else {
+                        if self.rung == Rung::Release {
+                            if let Some(name) = self.pending_pick.take() {
+                                let (n, _) = release_dims(&f);
+                                if let Some(p) = resolve_pick_name(&f.names[..n.min(f.names.len())], &name) {
+                                    self.c.release_pick = p;
+                                }
+                            }
+                        }
                         self.frame = Some(f);
                     }
                 }
@@ -523,7 +555,7 @@ impl TrisoApp {
                 ));
                 if let Some(f) = f {
                     for n in &f.names {
-                        ui.label(egui::RichText::new(n).color(Color32::from_rgb(255, 190, 120)));
+                        ui.label(egui::RichText::new(n).color(ui.visuals().warn_fg_color));
                     }
                 }
                 ui.label("The buffer's 1e-8 m²/s is the code's stand-in for porous carbon, not a measured value. Fluence is zero (Jiang et al. 2023 correlations, as the walker calls them).");
@@ -677,7 +709,8 @@ impl TrisoApp {
         let (resp, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
         let rect = resp.rect;
-        painter.rect_filled(rect, 0.0, Color32::from_rgb(14, 16, 20));
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(rect, 0.0, ink.bg);
         if self.rung.is_particle() {
             // The particle in the upper part, a small plot below it.
             let inset_h = if self.rung == Rung::Triso { 0.0 } else { (rect.height() * 0.32).max(150.0) };
@@ -691,7 +724,7 @@ impl TrisoApp {
             self.draw_particle(&painter, top);
             if inset_h > 0.0 {
                 let inset = Rect::from_min_max(Pos2::new(rect.left(), top.bottom()), rect.max);
-                painter.rect_filled(inset, 0.0, Color32::from_rgb(20, 23, 28));
+                painter.rect_filled(inset, 0.0, ink.card);
                 let (series, spec) = match self.rung {
                     Rung::Walk if self.check.is_some() => (
                         &self.check.as_ref().unwrap().series,
@@ -761,7 +794,7 @@ impl TrisoApp {
                 egui::Align2::CENTER_CENTER,
                 e,
                 egui::FontId::proportional(14.0),
-                Color32::from_rgb(255, 130, 130),
+                ink.error,
             );
         } else if self.frame.is_none() && self.rung != Rung::SourceTerm {
             painter.text(
@@ -773,7 +806,7 @@ impl TrisoApp {
                     "Computing in the background…"
                 },
                 egui::FontId::proportional(15.0),
-                Color32::LIGHT_GRAY,
+                ink.text,
             );
         }
         self.panel.reopen_button(ui, rect);
@@ -868,6 +901,7 @@ impl TrisoApp {
 
     fn draw_particle(&self, painter: &egui::Painter, rect: Rect) {
         let painter = painter.with_clip_rect(rect);
+        let ink = bugis::Ink::of_ctx(painter.ctx());
         let v = &self.view;
         let Some(f) = &self.frame else { return };
         if self.rung == Rung::Triso && !f.regions.is_empty() {
@@ -895,18 +929,18 @@ impl TrisoApp {
             let mut y = rect.top() + BUTTON_ROW + 4.0;
             for (c, name) in REGIONS.iter().take(5) {
                 painter.rect_filled(Rect::from_min_size(Pos2::new(rect.left() + 12.0, y), Vec2::splat(12.0)), 2.0, *c);
-                painter.text(Pos2::new(rect.left() + 30.0, y + 6.0), egui::Align2::LEFT_CENTER, *name, egui::FontId::proportional(13.0), Color32::LIGHT_GRAY);
+                painter.text(Pos2::new(rect.left() + 30.0, y + 6.0), egui::Align2::LEFT_CENTER, *name, egui::FontId::proportional(13.0), ink.text);
                 y += 18.0;
             }
             if let Some(t) = &self.tapped {
-                painter.text(Pos2::new(rect.left() + 12.0, y + 8.0), egui::Align2::LEFT_TOP, format!("tapped: {t}"), egui::FontId::proportional(13.0), Color32::WHITE);
+                painter.text(Pos2::new(rect.left() + 12.0, y + 8.0), egui::Align2::LEFT_TOP, format!("tapped: {t}"), egui::FontId::proportional(13.0), ink.text);
             }
             painter.text(
                 Pos2::new(rect.left() + 12.0, rect.bottom() - 34.0),
                 egui::Align2::LEFT_BOTTOM,
                 format!("{}, z = 0 slice, {n} × {n} region lookups", GEOMETRIES[self.c.geometry as usize].0),
                 egui::FontId::proportional(12.0),
-                Color32::LIGHT_GRAY,
+                ink.text,
             );
         } else {
             // Layer outlines, then the atoms.
@@ -929,7 +963,7 @@ impl TrisoApp {
                 for (k, name) in f.names.iter().enumerate() {
                     let count = f.tags.iter().filter(|t| **t as usize == k).count();
                     painter.circle_filled(Pos2::new(rect.left() + 18.0, y + 6.0), 5.0, SPECIES[k % SPECIES.len()]);
-                    painter.text(Pos2::new(rect.left() + 30.0, y + 6.0), egui::Align2::LEFT_CENTER, format!("{name}: {count}"), egui::FontId::proportional(13.0), Color32::LIGHT_GRAY);
+                    painter.text(Pos2::new(rect.left() + 30.0, y + 6.0), egui::Align2::LEFT_CENTER, format!("{name}: {count}"), egui::FontId::proportional(13.0), ink.text);
                     y += 18.0;
                 }
             }
@@ -978,13 +1012,14 @@ fn micrometre_scale_bar(painter: &egui::Painter, rect: Rect, view: &View) {
     let x0 = rect.left() + 16.0;
     let y0 = rect.bottom() - 12.0;
     let x1 = x0 + (bar * view.scale) as f32;
-    painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, Color32::WHITE));
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, ink.text));
     painter.text(
         Pos2::new(x1 + 6.0, y0),
         egui::Align2::LEFT_CENTER,
         format!("{bar} µm"),
         egui::FontId::proportional(12.0),
-        Color32::WHITE,
+        ink.text,
     );
 }
 
@@ -1015,11 +1050,12 @@ fn draw_population(painter: &egui::Painter, rect: Rect, tags: &[f64], text: f32)
     let x0 = rect.center().x - cell * side as f32 / 2.0;
     let y0 = rect.top() + 4.0;
     let mut counts = [0usize; 3];
+    let ink = bugis::Ink::of_ctx(painter.ctx());
     for (i, t) in tags.iter().enumerate() {
         let k = (*t as usize).min(2);
         counts[k] += 1;
         let c = Pos2::new(x0 + (i % side) as f32 * cell + cell / 2.0, y0 + (i / side) as f32 * cell + cell / 2.0);
-        let colour = [Color32::from_rgb(46, 134, 193), Color32::from_rgb(255, 170, 80), Color32::from_rgb(200, 140, 255)][k];
+        let colour = [REGIONS[3].0, ink.accent(1), ink.accent(3)][k];
         painter.circle_filled(c, cell * 0.42, colour);
         if k == 0 {
             painter.circle_filled(c, cell * 0.2, Color32::from_rgb(192, 57, 43));
@@ -1030,7 +1066,7 @@ fn draw_population(painter: &egui::Painter, rect: Rect, tags: &[f64], text: f32)
         egui::Align2::LEFT_TOP,
         format!("{} intact · {} burst (pressure vessel) · {} SiC decomposed", counts[0], counts[1], counts[2]),
         egui::FontId::proportional((text * 0.9).max(9.0)),
-        Color32::LIGHT_GRAY,
+        ink.text,
     );
 }
 
@@ -1040,15 +1076,113 @@ const PICK_ALL: u8 = 0;
 const PICK_GROUP: u8 = 1;
 const PICK_ONE: u8 = 10;
 
-/// Colours of TRISO-ATOPS's transport groups, in [`GROUPS`] order: the dots
-/// of the diagram.
-const GROUP_COLOURS: [Color32; 5] = [
-    Color32::from_rgb(110, 210, 255),
-    Color32::from_rgb(205, 140, 255),
-    Color32::from_rgb(255, 170, 80),
-    Color32::from_rgb(235, 235, 245),
-    Color32::from_rgb(140, 230, 140),
-];
+/// Colour of TRISO-ATOPS's transport group `g`, in [`GROUPS`] order: the
+/// dots of the diagram, from the theme (`bugis::Ink`).
+fn group_colour(ink: &bugis::Ink, g: usize) -> Color32 {
+    [ink.accent(0), ink.accent(3), ink.accent(1), ink.text, ink.accent(5)][g.min(4)]
+}
+
+/// The query keys the demo reads (gh:#1207, the ATOPS concept walks' deep
+/// links): `rung` (the rung table), and for the failure and release rungs
+/// `hold` (°C), `hours` (h) and `now` (h), and for the release rung `pick`
+/// (`all`, a group word of [`PICK_GROUP_WORDS`], or a nuclide name) and
+/// `leak` (`on`/`off`). `docs/site/science/fission-products/check-concepts.js`
+/// reads this list and fails if a walk page links a key that is not in it.
+pub const DEEP_LINK_KEYS: [&str; 6] = ["rung", "pick", "hold", "hours", "now", "leak"];
+
+/// The `pick=` words for the transport groups, in [`GROUPS`] order (a
+/// trailing `s` is accepted too). Also read by `check-concepts.js`.
+pub const PICK_GROUP_WORDS: [&str; 5] = ["noble", "halogen", "metal", "silver", "other"];
+
+/// What `pick=` asked for.
+#[derive(Clone, Debug, PartialEq)]
+enum PickQuery {
+    /// A release pick known without the frame (`all`, or a group).
+    Fixed(u8),
+    /// A nuclide name (lower case), resolved when the release frame arrives.
+    Name(String),
+}
+
+/// The opening state a URL asks for, e.g.
+/// `?rung=release&pick=Cs-137&hold=1600&now=100&leak=off`. Every field is
+/// optional; a value that does not parse or lies outside its control's range
+/// is dropped, never an error (the link still opens the rung).
+#[derive(Clone, Debug, Default, PartialEq)]
+struct DeepLink {
+    pick: Option<PickQuery>,
+    hold_c: Option<f64>,
+    hours: Option<f64>,
+    now_h: Option<f64>,
+    leak: Option<bool>,
+}
+
+/// A finite number in `[lo, hi]`, else nothing.
+fn in_range(v: Option<&str>, lo: f64, hi: f64) -> Option<f64> {
+    v?.trim().parse::<f64>().ok().filter(|x| x.is_finite() && *x >= lo && *x <= hi)
+}
+
+/// Parse the deep-link keys of a query. The ranges are the sliders' own:
+/// hold 1200-2500 °C, hours 10-1000 h, now 0-1000 h (clamped to the hold
+/// length when applied).
+fn deep_link(q: &[(String, String)]) -> DeepLink {
+    let pick = query_value(q, "pick").and_then(|v| {
+        let w = v.trim().to_ascii_lowercase();
+        if w.is_empty() {
+            None
+        } else if w == "all" {
+            Some(PickQuery::Fixed(PICK_ALL))
+        } else if let Some(g) = PICK_GROUP_WORDS.iter().position(|g| w == *g || w == format!("{g}s")) {
+            Some(PickQuery::Fixed(PICK_GROUP + g as u8))
+        } else {
+            Some(PickQuery::Name(w))
+        }
+    });
+    let leak = query_value(q, "leak").and_then(|v| match v.trim().to_ascii_lowercase().as_str() {
+        "on" | "1" | "true" => Some(true),
+        "off" | "0" | "false" => Some(false),
+        _ => None,
+    });
+    DeepLink {
+        pick,
+        hold_c: in_range(query_value(q, "hold"), 1200.0, 2500.0),
+        hours: in_range(query_value(q, "hours"), 10.0, 1000.0),
+        now_h: in_range(query_value(q, "now"), 0.0, 1000.0),
+        leak,
+    }
+}
+
+/// Write a deep link into the controls (and the pending nuclide name). A
+/// cursor (`now`) pauses the animation, so the page opens on that hour.
+fn apply_deep_link(c: &mut Controls, pending: &mut Option<String>, d: &DeepLink) {
+    if let Some(h) = d.hold_c {
+        c.hold_c = h;
+    }
+    if let Some(h) = d.hours {
+        c.hours = h;
+        c.cursor_h = c.cursor_h.min(h);
+    }
+    if let Some(t) = d.now_h {
+        c.cursor_h = t.min(c.hours);
+        c.playing = false;
+    }
+    if let Some(l) = d.leak {
+        c.leak_on = l;
+    }
+    match &d.pick {
+        Some(PickQuery::Fixed(p)) => c.release_pick = *p,
+        Some(PickQuery::Name(n)) => *pending = Some(n.clone()),
+        None => {}
+    }
+}
+
+/// The release pick of the nuclide called `name` among the frame's modelled
+/// `names`, matched without case or hyphens (`cs137` finds `Cs-137`).
+fn resolve_pick_name(names: &[String], name: &str) -> Option<u8> {
+    let norm = |s: &str| s.to_ascii_lowercase().replace('-', "");
+    let want = norm(name);
+    let i = names.iter().position(|n| norm(n) == want)?;
+    u8::try_from(i).ok().and_then(|i| i.checked_add(PICK_ONE))
+}
 
 /// The nuclides (frame indices) a pick selects.
 fn selected_nuclides(f: &Frame, pick: u8) -> Vec<usize> {
@@ -1201,23 +1335,24 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
 
     let font = egui::FontId::proportional(text);
     let small = egui::FontId::proportional((text * 0.82).max(8.0));
-    painter.rect_filled(rect, 0.0, Color32::from_rgb(18, 21, 26));
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.rect_filled(rect, 0.0, ink.card);
     painter.text(
         rect.left_top() + Vec2::new(12.0, 8.0),
         egui::Align2::LEFT_TOP,
         format!("{} in the primary circuit at {now_h:.0} h of the hold", pick_label(f, pick)),
         font.clone(),
-        Color32::WHITE,
+        ink.text,
     );
     // Group legend, the groups present.
     let mut x = rect.left() + 12.0;
     let ly = rect.top() + 14.0 + text * 1.5;
     for g in 0..5 {
         if nucs.iter().any(|&i| f.tags[i] as usize == g) {
-            painter.circle_filled(Pos2::new(x + 5.0, ly), 4.5, GROUP_COLOURS[g]);
-            let gl = painter.layout_no_wrap(GROUPS[g].to_string(), small.clone(), Color32::LIGHT_GRAY);
+            painter.circle_filled(Pos2::new(x + 5.0, ly), 4.5, group_colour(&ink, g));
+            let gl = painter.layout_no_wrap(GROUPS[g].to_string(), small.clone(), ink.text);
             let w = gl.size().x;
-            painter.galley(Pos2::new(x + 13.0, ly - gl.size().y / 2.0), gl, Color32::LIGHT_GRAY);
+            painter.galley(Pos2::new(x + 13.0, ly - gl.size().y / 2.0), gl, ink.text);
             x += w + 26.0;
         }
     }
@@ -1225,7 +1360,7 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
     let note = painter.layout(
         "Dots: colour = transport group, number = share of the flow. Box fill: activity, 8 decades. Arrow width: the flow, 6 decades (log). Rising dots: decay. Dot speed is not physical. The particle is HTR-10's, drawn cracked; in TRISO-ATOPS its coatings hold no pool (they act only through <R/B>). G is TRISO-ATOPS's quasi-steady hold-up at the current temperature, not carried through time.".into(),
         small.clone(),
-        Color32::GRAY,
+        ink.muted,
         rect.width() - 24.0,
     );
     let note_h = note.size().y;
@@ -1264,8 +1399,8 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
     };
     let bw = if wide { (body.width() * 0.17).min(210.0) } else { (body.width() * 0.31).min(200.0) };
     let half = Vec2::new(bw / 2.0, if wide { (text * 2.4).max(26.0) } else { (text * 1.8).max(22.0) });
-    let colours = [Color32::from_rgb(192, 57, 43), PALETTE[0], PALETTE[5], PALETTE[2], PALETTE[3]];
-    let graphite_colour = Color32::from_rgb(150, 155, 165);
+    let colours = [REGIONS[0].0, series_colour(&ink, 0), series_colour(&ink, 5), series_colour(&ink, 2), series_colour(&ink, 3)];
+    let graphite_colour = ink.muted;
     let sic_colour = REGIONS[3].0;
 
     // Arrows first, so the boxes sit on top of their ends. `along`: where on
@@ -1274,7 +1409,7 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
         let (a, b) = (box_edge(from, half, to), box_edge(to, half, from));
         let w = norm(v);
         if v <= 0.0 {
-            painter.extend(egui::Shape::dashed_line(&[a, b], Stroke::new(1.0, Color32::from_gray(80)), 6.0, 5.0));
+            painter.extend(egui::Shape::dashed_line(&[a, b], Stroke::new(1.0, ink.border), 6.0, 5.0));
         } else {
             painter.line_segment([a, b], Stroke::new(1.5 + 5.0 * w, colour.gamma_multiply(0.35)));
             let dir = (b - a).normalized();
@@ -1289,17 +1424,17 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
             let n = groups.len().max(1);
             for (k, g) in groups.iter().enumerate() {
                 let s = ((t * 0.35 + phase + k as f64 / n as f64) % 1.0) as f32;
-                painter.circle_filled(a + (b - a) * s, 2.2 + 1.3 * w, GROUP_COLOURS[*g]);
+                painter.circle_filled(a + (b - a) * s, 2.2 + 1.3 * w, group_colour(&ink, *g));
             }
         }
         if label.is_empty() {
             return;
         }
         let mid = a + (b - a) * along;
-        let g = painter.layout(label, small.clone(), if v > 0.0 { Color32::LIGHT_GRAY } else { Color32::GRAY }, bw);
+        let g = painter.layout(label, small.clone(), if v > 0.0 { ink.text } else { ink.muted }, bw);
         let r = Rect::from_center_size(mid + Vec2::new(0.0, -10.0), g.size()).expand(2.0);
-        painter.rect_filled(r, 3.0, Color32::from_rgba_unmultiplied(18, 21, 26, 220));
-        painter.galley(r.min + Vec2::splat(2.0), g, Color32::WHITE);
+        painter.rect_filled(r, 3.0, ink.backing);
+        painter.galley(r.min + Vec2::splat(2.0), g, ink.text);
     };
     let per_s = |v: f64| format!("{v:.2e} /s");
     let side = if wide { 0.5 } else { 0.7 };
@@ -1339,7 +1474,7 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
             let s = ((t * 0.25 + phase + k as f64 / dots as f64) % 1.0) as f32;
             let x = c.x + half.x * (0.85 - 0.4 * k as f32 / dots as f32);
             let p = Pos2::new(x, c.y - half.y - 4.0 - s * 22.0);
-            painter.circle_filled(p, 2.0, Color32::from_white_alpha(((1.0 - s) * 200.0) as u8));
+            painter.circle_filled(p, 2.0, ink.text.gamma_multiply(0.8 * (1.0 - s)));
         }
     };
     decay(graphite, g_bq, 0.8);
@@ -1371,7 +1506,7 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
         let s = ((t * 0.3 + k as f64 / n as f64) % 1.0) as f32;
         let a = crack_angle + ((k as f32 * 2.399).r_sin()) * 0.2;
         let u = Vec2::new(a.r_cos(), a.r_sin());
-        painter.circle_filled(particle + u * (radii[0] * 0.3 + s * (rm - radii[0] * 0.3)), 2.0, GROUP_COLOURS[*g]);
+        painter.circle_filled(particle + u * (radii[0] * 0.3 + s * (rm - radii[0] * 0.3)), 2.0, group_colour(&ink, *g));
     }
     // Leader lines: a dot on each layer, a thin line to its box.
     let leader = |on: Pos2, to: Pos2, colour: Color32| {
@@ -1389,42 +1524,43 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
     let top_bq = pools_bq.iter().cloned().fold(0.0f64, f64::max).max(1e-300).r_log10();
     let boxed = |c: Pos2, colour: Color32, name: &str, value: String, gauge: Option<f64>| {
         let r = Rect::from_center_size(c, half * 2.0);
-        painter.rect_filled(r, 6.0, Color32::from_rgb(28, 32, 40));
+        painter.rect_filled(r, 6.0, ink.card);
         if let Some(bq) = gauge {
             let g = if bq > 0.0 { ((bq.r_log10() - (top_bq - 8.0)) / 8.0).clamp(0.0, 1.0) as f32 } else { 0.0 };
             let fill = Rect::from_min_max(Pos2::new(r.left(), r.bottom() - r.height() * g), r.max);
             painter.rect_filled(fill, 6.0, colour.gamma_multiply(0.35));
         }
         painter.rect_stroke(r, 6.0, Stroke::new(1.5, colour), egui::StrokeKind::Inside);
-        painter.text(c - Vec2::new(0.0, text * 0.6), egui::Align2::CENTER_CENTER, name, font.clone(), Color32::WHITE);
-        painter.text(c + Vec2::new(0.0, text * 0.75), egui::Align2::CENTER_CENTER, value, small.clone(), Color32::LIGHT_GRAY);
+        painter.text(c - Vec2::new(0.0, text * 0.6), egui::Align2::CENTER_CENTER, name, font.clone(), ink.text);
+        painter.text(c + Vec2::new(0.0, text * 0.75), egui::Align2::CENTER_CENTER, value, small.clone(), ink.text);
     };
     boxed(kernel, colours[0], "kernels", format!("core {inventory:.2e} Bq"), None);
     // The coatings hold no pool in TRISO-ATOPS: a dashed box, R passes through.
     let cr = Rect::from_center_size(coatings, half * 2.0);
-    painter.rect_filled(cr, 6.0, Color32::from_rgb(22, 25, 31));
+    painter.rect_filled(cr, 6.0, ink.card);
     painter.extend(egui::Shape::dashed_line(
         &[cr.left_top(), cr.right_top(), cr.right_bottom(), cr.left_bottom(), cr.left_top()],
         Stroke::new(1.2, sic_colour),
         6.0,
         4.0,
     ));
-    painter.text(coatings - Vec2::new(0.0, text * 0.6), egui::Align2::CENTER_CENTER, "coatings", font.clone(), Color32::WHITE);
+    painter.text(coatings - Vec2::new(0.0, text * 0.6), egui::Align2::CENTER_CENTER, "coatings", font.clone(), ink.text);
     let coatings_value = if wide { "no pool: pass-through".to_string() } else { format!("no pool · R {q_r:.1e}/s") };
-    painter.text(coatings + Vec2::new(0.0, text * 0.75), egui::Align2::CENTER_CENTER, coatings_value, small.clone(), Color32::LIGHT_GRAY);
+    painter.text(coatings + Vec2::new(0.0, text * 0.75), egui::Align2::CENTER_CENTER, coatings_value, small.clone(), ink.text);
     boxed(graphite, graphite_colour, "matrix graphite (G)", format!("{g_bq:.2e} Bq"), Some(g_bq));
     boxed(he, colours[1], "circulating helium", format!("{c_bq:.2e} Bq"), Some(c_bq));
     boxed(plate, colours[2], "plated out", format!("{p_bq:.2e} Bq"), Some(p_bq));
     boxed(hps, colours[3], "purification (HPS)", format!("{h_bq:.2e} Bq"), Some(h_bq));
     boxed(leak, colours[4], "left the circuit", format!("{leaked:.2e} atoms"), None);
 
-    painter.galley(Pos2::new(rect.left() + 12.0, rect.bottom() - 4.0 - note.size().y), note, Color32::GRAY);
+    painter.galley(Pos2::new(rect.left() + 12.0, rect.bottom() - 4.0 - note.size().y), note, ink.muted);
 }
 
 /// Rung 8: the recorded release, one bar per nuclide (log scale).
 fn draw_source_term(painter: &egui::Painter, rect: Rect, text: f32) {
     let font = egui::FontId::proportional(text);
-    painter.text(rect.left_top() + Vec2::new(12.0, 14.0), egui::Align2::LEFT_TOP, "Released over 96 h, Bq (recorded, bounding)", font.clone(), Color32::WHITE);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.text(rect.left_top() + Vec2::new(12.0, 14.0), egui::Align2::LEFT_TOP, "Released over 96 h, Bq (recorded, bounding)", font.clone(), ink.text);
     let rows = crate::recorded::RELEASE;
     let top = rect.top() + 60.0;
     let h = ((rect.height() - 140.0) / rows.len() as f32).clamp(20.0, 48.0);
@@ -1433,20 +1569,20 @@ fn draw_source_term(painter: &egui::Painter, rect: Rect, text: f32) {
     let (lo, hi) = (10.0f64, 13.0f64);
     for (i, (n, bq, core)) in rows.iter().enumerate() {
         let y = top + i as f32 * h;
-        painter.text(Pos2::new(rect.left() + 12.0, y + h / 2.0), egui::Align2::LEFT_CENTER, *n, font.clone(), Color32::LIGHT_GRAY);
+        painter.text(Pos2::new(rect.left() + 12.0, y + h / 2.0), egui::Align2::LEFT_CENTER, *n, font.clone(), ink.text);
         let frac = ((bq.r_log10() - lo) / (hi - lo)).clamp(0.02, 1.0) as f32;
         let bar = Rect::from_min_size(Pos2::new(rect.left() + label_w, y + h * 0.15), Vec2::new(w * frac, h * 0.7));
-        painter.rect_filled(bar, 2.0, PALETTE[0]);
+        painter.rect_filled(bar, 2.0, series_colour(&ink, 0));
         let label = painter.layout_no_wrap(
             format!("{bq:.2e}  ({:.0e} of core)", bq / core),
             egui::FontId::proportional((text * 0.85).max(9.0)),
-            Color32::BLACK,
+            ink.bg,
         );
-        // Inside the bar when it fits, after it (in white) when not.
+        // Inside the bar (page colour) when it fits, after it when not.
         let (at, colour) = if label.size().x + 12.0 < bar.width() {
-            (Pos2::new(bar.left() + 6.0, bar.center().y - label.size().y / 2.0), Color32::BLACK)
+            (Pos2::new(bar.left() + 6.0, bar.center().y - label.size().y / 2.0), ink.bg)
         } else {
-            (Pos2::new(bar.right() + 6.0, bar.center().y - label.size().y / 2.0), Color32::LIGHT_GRAY)
+            (Pos2::new(bar.right() + 6.0, bar.center().y - label.size().y / 2.0), ink.text)
         };
         painter.galley_with_override_text_color(at, label, colour);
     }
@@ -1456,7 +1592,7 @@ fn draw_source_term(painter: &egui::Painter, rect: Rect, text: f32) {
         egui::Align2::LEFT_TOP,
         format!("Total {:.3e} Bq. Bar length: log scale, 1e10 to 1e13 Bq.", crate::recorded::RELEASE_TOTAL_BQ),
         egui::FontId::proportional((text * 0.85).max(9.0)),
-        Color32::GRAY,
+        ink.muted,
     );
 }
 
@@ -1466,6 +1602,7 @@ fn draw_source_term(painter: &egui::Painter, rect: Rect, text: f32) {
 fn draw_panels(painter: &egui::Painter, rect: Rect, series: &[Series], specs: &[Spec], text: f32) {
     let small = egui::FontId::proportional((text * 0.85).max(8.0));
     let font = egui::FontId::proportional(text);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
     // The legend: one line per label, measured first so the plots fit above.
     let mut seen: Vec<(&str, u8, u8)> = Vec::new();
     let legend: Vec<_> = series
@@ -1479,7 +1616,7 @@ fn draw_panels(painter: &egui::Painter, rect: Rect, series: &[Series], specs: &[
             new
         })
         .map(|s| {
-            let colour = PALETTE[(s.colour as usize) % PALETTE.len()];
+            let colour = series_colour(&ink, s.colour as u8);
             let style = ["solid", "dotted", "dashed", "markers"][(s.style as usize).min(3)];
             painter.layout(format!("{style}: {}", s.label), small.clone(), colour, rect.width() - 24.0)
         })
@@ -1496,13 +1633,14 @@ fn draw_panels(painter: &egui::Painter, rect: Rect, series: &[Series], specs: &[
     let mut y = rect.top() + plots_h + 4.0;
     for g in legend {
         let h = g.size().y;
-        painter.galley(Pos2::new(rect.left() + 12.0, y), g, Color32::WHITE);
+        painter.galley(Pos2::new(rect.left() + 12.0, y), g, ink.text);
         y += h + 3.0;
     }
 }
 
 fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec, font: &egui::FontId, small: &egui::FontId) {
-    painter.text(rect.left_top() + Vec2::new(12.0, 8.0), egui::Align2::LEFT_TOP, spec.title, font.clone(), Color32::WHITE);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.text(rect.left_top() + Vec2::new(12.0, 8.0), egui::Align2::LEFT_TOP, spec.title, font.clone(), ink.text);
     let plot = Rect::from_min_max(
         rect.left_top() + Vec2::new(font.size * 4.2, 32.0 + font.size),
         rect.right_bottom() - Vec2::new(16.0, font.size * 2.4),
@@ -1525,7 +1663,7 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
         }
     }
     if !(x0 < x1) {
-        painter.text(plot.center(), egui::Align2::CENTER_CENTER, "nothing to plot (all zero)", small.clone(), Color32::GRAY);
+        painter.text(plot.center(), egui::Align2::CENTER_CENTER, "nothing to plot (all zero)", small.clone(), ink.muted);
         return;
     }
     if spec.ylog {
@@ -1547,7 +1685,7 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
             plot.bottom() - ((ty(y).max(y0) - y0) / (y1 - y0)) as f32 * plot.height(),
         )
     };
-    painter.rect_stroke(plot, 0.0, Stroke::new(1.0, Color32::from_gray(90)), egui::StrokeKind::Inside);
+    painter.rect_stroke(plot, 0.0, Stroke::new(1.0, ink.border), egui::StrokeKind::Inside);
     // Y grid.
     let yticks: Vec<f64> = if spec.ylog {
         let step = (((y1 - y0) / 6.0).ceil()).max(1.0) as i32;
@@ -1557,9 +1695,9 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
     };
     for t in yticks {
         let py = plot.bottom() - ((t - y0) / (y1 - y0)) as f32 * plot.height();
-        painter.line_segment([Pos2::new(plot.left(), py), Pos2::new(plot.right(), py)], Stroke::new(0.5, Color32::from_gray(50)));
+        painter.line_segment([Pos2::new(plot.left(), py), Pos2::new(plot.right(), py)], Stroke::new(0.5, ink.grid));
         let label = if spec.ylog { format!("1e{t}") } else { short(t) };
-        painter.text(Pos2::new(plot.left() - 4.0, py), egui::Align2::RIGHT_CENTER, label, small.clone(), Color32::GRAY);
+        painter.text(Pos2::new(plot.left() - 4.0, py), egui::Align2::RIGHT_CENTER, label, small.clone(), ink.muted);
     }
     let xticks: Vec<f64> = if spec.xlog {
         ((x0.ceil() as i32)..=(x1.floor() as i32)).map(|d| d as f64).collect()
@@ -1568,12 +1706,12 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
     };
     for t in xticks {
         let px = plot.left() + ((t - x0) / (x1 - x0)) as f32 * plot.width();
-        painter.line_segment([Pos2::new(px, plot.top()), Pos2::new(px, plot.bottom())], Stroke::new(0.5, Color32::from_gray(50)));
+        painter.line_segment([Pos2::new(px, plot.top()), Pos2::new(px, plot.bottom())], Stroke::new(0.5, ink.grid));
         let label = if spec.xlog { format!("1e{t}") } else { short(t) };
-        painter.text(Pos2::new(px, plot.bottom() + 3.0), egui::Align2::CENTER_TOP, label, small.clone(), Color32::GRAY);
+        painter.text(Pos2::new(px, plot.bottom() + 3.0), egui::Align2::CENTER_TOP, label, small.clone(), ink.muted);
     }
-    painter.text(Pos2::new(plot.right(), plot.bottom() + 3.0 + small.size * 1.2), egui::Align2::RIGHT_TOP, spec.xlabel, small.clone(), Color32::GRAY);
-    painter.text(Pos2::new(plot.left(), plot.top() - 3.0), egui::Align2::LEFT_BOTTOM, spec.ylabel, small.clone(), Color32::GRAY);
+    painter.text(Pos2::new(plot.right(), plot.bottom() + 3.0 + small.size * 1.2), egui::Align2::RIGHT_TOP, spec.xlabel, small.clone(), ink.muted);
+    painter.text(Pos2::new(plot.left(), plot.top() - 3.0), egui::Align2::LEFT_BOTTOM, spec.ylabel, small.clone(), ink.muted);
     let clip = painter.with_clip_rect(plot.expand(4.0));
     for s in series {
         // A point below the lowest decade is left out, not pinned to the
@@ -1585,7 +1723,7 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
             .filter(|(x, y)| ok(**x, **y) && ty(**y) >= y0)
             .map(|(x, y)| to(*x, *y))
             .collect();
-        let colour = PALETTE[(s.colour as usize) % PALETTE.len()];
+        let colour = series_colour(&ink, s.colour as u8);
         match s.style {
             0 => {
                 clip.add(egui::Shape::line(line, Stroke::new(3.0, colour)));
@@ -1603,7 +1741,7 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
         if ok(cx, if spec.ylog { 10f64.r_powf(y1) } else { y1 }) {
             let px = to(cx, if spec.ylog { 10f64.r_powf(y0) } else { y0 }).x;
             if px >= plot.left() && px <= plot.right() {
-                painter.line_segment([Pos2::new(px, plot.top()), Pos2::new(px, plot.bottom())], Stroke::new(1.0, Color32::from_rgb(255, 230, 120)));
+                painter.line_segment([Pos2::new(px, plot.top()), Pos2::new(px, plot.bottom())], Stroke::new(1.0, ink.accent(4)));
             }
         }
     }
@@ -1658,10 +1796,97 @@ impl eframe::App for TrisoApp {
             self.title = title;
         }
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "TRISO-ATOPS", |ui| self.side_panel(ui));
+        panel.show(ui, "TRISO-ATOPS", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| self.canvas(ui));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn q(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    }
+
+    /// The deep links of the ATOPS concept walks (gh:#1207) open the state
+    /// they name. Methodology: parse fixed queries and apply them to the
+    /// default controls. A nuclide pick waits for the frame; a group or
+    /// `all` is set at once; `now` pauses the cursor at that hour, clamped to
+    /// the hold; `leak` switches the leak. Result (2026-11-04): as asserted.
+    #[test]
+    fn deep_links_set_the_opening_state() {
+        let d = deep_link(&q(&[("rung", "release"), ("pick", "Cs-137"), ("hold", "1600"), ("now", "100"), ("leak", "off")]));
+        assert_eq!(d.pick, Some(PickQuery::Name("cs-137".into())));
+        let (mut c, mut pending) = (Controls::default(), None);
+        apply_deep_link(&mut c, &mut pending, &d);
+        assert_eq!(c.hold_c, 1600.0);
+        assert_eq!(c.cursor_h, 100.0);
+        assert!(!c.playing);
+        assert!(!c.leak_on);
+        assert_eq!(pending.as_deref(), Some("cs-137"));
+        assert_eq!(c.release_pick, PICK_ALL);
+
+        let d = deep_link(&q(&[("pick", "silver"), ("hours", "200"), ("now", "900")]));
+        let (mut c, mut pending) = (Controls::default(), None);
+        apply_deep_link(&mut c, &mut pending, &d);
+        assert_eq!(c.release_pick, PICK_GROUP + 3);
+        assert_eq!(c.hours, 200.0);
+        assert_eq!(c.cursor_h, 200.0, "now is clamped to the hold length");
+        assert!(pending.is_none());
+        assert_eq!(deep_link(&q(&[("pick", "halogens")])).pick, Some(PickQuery::Fixed(PICK_GROUP + 1)));
+        assert_eq!(deep_link(&q(&[("pick", "ALL")])).pick, Some(PickQuery::Fixed(PICK_ALL)));
+        assert_eq!(deep_link(&q(&[("leak", "on")])).leak, Some(true));
+    }
+
+    /// Unknown keys and bad or out-of-range values are ignored: the controls
+    /// stay at their defaults and nothing panics.
+    #[test]
+    fn bad_deep_link_values_are_ignored() {
+        let d = deep_link(&q(&[
+            ("hold", "hot"),
+            ("hours", "5"),
+            ("now", "-3"),
+            ("leak", "maybe"),
+            ("pick", ""),
+            ("colour", "red"),
+        ]));
+        assert_eq!(d, DeepLink::default());
+        assert_eq!(deep_link(&q(&[("hold", "9000")])).hold_c, None);
+        assert_eq!(deep_link(&q(&[("hold", "NaN")])).hold_c, None);
+        assert_eq!(deep_link(&q(&[("hold", "inf")])).hold_c, None);
+        let (mut c, mut pending) = (Controls::default(), None);
+        apply_deep_link(&mut c, &mut pending, &d);
+        assert!(c == Controls::default());
+        assert!(pending.is_none());
+    }
+
+    /// A nuclide name resolves against the frame's names without case or
+    /// hyphens; a name the frame does not carry resolves to nothing (the
+    /// pick stays at `all`).
+    #[test]
+    fn pick_names_resolve_against_the_frame() {
+        let names: Vec<String> = ["Kr-88", "Cs-137", "Ag-110m"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(resolve_pick_name(&names, "cs-137"), Some(PICK_ONE + 1));
+        assert_eq!(resolve_pick_name(&names, "AG110M"), Some(PICK_ONE + 2));
+        assert_eq!(resolve_pick_name(&names, "Xe-999"), None);
+    }
+
+    /// The group words cover the engine's groups one for one, and the key
+    /// list has no duplicates.
+    #[test]
+    fn deep_link_word_lists_are_consistent() {
+        assert_eq!(PICK_GROUP_WORDS.len(), GROUPS.len());
+        let mut k = DEEP_LINK_KEYS.to_vec();
+        k.sort_unstable();
+        k.dedup();
+        assert_eq!(k.len(), DEEP_LINK_KEYS.len());
     }
 }

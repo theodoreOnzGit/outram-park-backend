@@ -3,13 +3,24 @@
 //! beside the record, at whatever statistics the reader sets (~~low-statistics~~:
 //! the recorded settings are one tap away, gh:#876 item 5).
 //!
+//! **One tab for the core since 2026-10-25** (maintainer: "change the number
+//! of stacks and control rod position under the same tab"): the side panel
+//! sets the bed's N (10–20, or the DEM bed) and the ten control rods
+//! ([`CoreScreen::panel`]), then runs k_eff; the bottom dock shows that run's
+//! k and Shannon entropy with the shared plots of `crate::keffplot`, the same
+//! as every rung's Run mode ([`CoreScreen::keff_body`],
+//! [`CoreScreen::keff_buttons`]); the right dock holds the top and rod views
+//! and the reference graphs (`crate::htr10::rods::RodsView`). A run starts
+//! on the reader's rods: if the workers' core holds other rods, Start
+//! rebuilds it first ([`CoreScreen::start_run_here`]).
+//!
 //! It opens on **recorded** tracks (baked natively by [`super::bake`] from the
 //! same model, code and seed, and labelled so), which play at once. "Run live
 //! in this browser" starts the worker pool ([`super::pool`]); once the data
 //! are processed, the tracks come from the run itself: the first
 //! [`super::TRACED_PER_GENERATION`] histories of every generation.
 
-use super::pool::{CorePool, GenSummary, Note, PoolPhase, PoolState, RestartKind, RunOrigin, RunState};
+use super::pool::{CorePool, Note, PoolPhase, PoolState, RestartKind, RunOrigin, RunState};
 use super::{DEFAULT_RUN, RECORD_RUN, RECORD_SEED};
 use crate::anim::{animated_speed, draw_track, energy_bar, fmt_speed, legend_markers, Anim};
 use crate::history::History;
@@ -17,10 +28,14 @@ use crate::keff::{clamp_to_caps, eta_line, plan_line, KeffConfig, MAX_GENERATION
 use crate::raster::{Preset, RasterInfo, Slicer};
 use dhoby_ghaut::web_demo::platform::now_s;
 use dhoby_ghaut::web_demo::pool::{plan, Device, Plan};
-use egui::{Color32, Pos2, Rect, Stroke, Vec2};
+use egui::{Color32, Pos2, Rect, Vec2};
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::physics::track_output::{Track, TrackEvent, TrackState};
 use std::collections::VecDeque;
+use nee_soon::htr10_rmc::zones::{max_temperature, min_temperature, triso_limit, Htr10Zone, ZoneTemperatures};
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::degree_celsius;
 
 /// A core run's time left on this device, from its generations' measured
 /// wall times (the pool's, so every worker counts); `None` before the first.
@@ -241,6 +256,27 @@ static FORCED_WORKERS: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock:
 
 /// `?bed=dem` as the page was opened: start on the DEM random bed.
 static FORCED_DEM: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+static FORCED_POUR: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+/// `&engine=gpu` with `?pour=N`: pour on the GPU (gh:#1250).
+static FORCED_POUR_GPU: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// `?pour=N` (gh:#1244): pour N pebbles on arrival and use the bed once it
+/// settles; the pool waits for it. How an unattended browser check drives
+/// the pour end to end.
+pub fn forced_pour_gpu() -> bool {
+    *FORCED_POUR_GPU.get_or_init(|| {
+        let q = dhoby_ghaut::web_demo::platform::query_pairs();
+        dhoby_ghaut::web_demo::platform::query_value(&q, "engine") == Some("gpu")
+    })
+}
+
+/// `?pour=N`: see [`forced_pour_gpu`] for `&engine=gpu`.
+pub fn forced_pour() -> Option<usize> {
+    *FORCED_POUR.get_or_init(|| {
+        let q = dhoby_ghaut::web_demo::platform::query_pairs();
+        dhoby_ghaut::web_demo::platform::query_value(&q, "pour").and_then(|v| v.parse().ok())
+    })
+}
 
 /// Whether the page was opened with `?bed=dem`.
 pub fn forced_dem() -> bool {
@@ -254,6 +290,8 @@ pub fn forced_dem() -> bool {
 /// once at start-up.
 pub fn remember_query() -> Option<usize> {
     let _ = forced_dem();
+    let _ = forced_pour();
+    let _ = forced_pour_gpu();
     *FORCED_WORKERS.get_or_init(|| {
         let q = dhoby_ghaut::web_demo::platform::query_pairs();
         dhoby_ghaut::web_demo::platform::query_value(&q, "workers").and_then(|v| v.parse().ok())
@@ -284,6 +322,112 @@ pub struct CoreScreen {
     pub speed: f64,
     autostart: bool,
     pub error: Option<String>,
+    /// The control rods the reader has set (gh:#1025; the "Control rods"
+    /// view's sliders). The pool's core follows them between runs.
+    pub rods: crate::htr10::rods::RodControls,
+    /// When the rods were last changed (the pool rebuilds once they rest).
+    pub rods_changed_s: f64,
+    /// A live run or worth curve over rod settings, in progress.
+    pub sweep: Option<crate::htr10::rods::LiveSweep>,
+    /// What the sweep is doing, for the page.
+    pub sweep_status: String,
+    /// Every finished live result, with the curve it belongs to.
+    pub live_results: Vec<(Option<crate::htr10::rods::Family>, crate::htr10::rods::LiveResult)>,
+    /// The eight zone temperatures the pool processes and builds at
+    /// (gh:#1142): the record's 27 °C until the reader applies others.
+    pub temps: ZoneTemperatures,
+    /// The sliders' values, °C, in `Htr10Zone::ALL` order: applied with
+    /// "Apply", which restarts the pool at them.
+    pub temps_c: [f64; 8],
+    /// Whether the sliders move together.
+    pub temps_linked: bool,
+    /// The reader's own DEM pour (gh:#1244).
+    pub pour: super::pour::PourUi,
+}
+
+/// `t` in °C.
+pub fn celsius(t: ThermodynamicTemperature) -> f64 {
+    t.get::<degree_celsius>()
+}
+
+/// **The temperatures to apply**, if the sliders (°C) differ from the
+/// applied ones and every value is in range; `Err` names a value out of
+/// range (gh:#1142).
+pub fn temperatures_to_apply(applied: &ZoneTemperatures, sliders_c: &[f64; 8]) -> Result<Option<ZoneTemperatures>, String> {
+    let mut want = *applied;
+    for (z, &c) in Htr10Zone::ALL.into_iter().zip(sliders_c) {
+        // A slider that reads the applied value keeps it to the bit (27 °C
+        // round-tripped through °C is not always 300.15 K exactly, and a
+        // last-bit difference is another processing key).
+        if (c - celsius(applied.get(z))).abs() >= 1e-9 {
+            want.set(z, ThermodynamicTemperature::new::<degree_celsius>(c));
+        }
+    }
+    want.check()?;
+    let same = Htr10Zone::ALL.into_iter().all(|z| (celsius(want.get(z)) - celsius(applied.get(z))).abs() < 1e-9);
+    Ok((!same).then_some(want))
+}
+
+/// **Zone temperatures from a page URL** (gh:#1142): `?temps=fuel:900,coolant:500`
+/// (°C; the zone keys `fuel`, `moderator`, `coolant`, `top`, `side`,
+/// `bottom`, `rods`, `bricks`, and `all` for every zone, applied first).
+/// A setting that does not parse or is out of range leaves the record's
+/// temperatures.
+pub fn temperatures_from_query(query: &[(String, String)]) -> ZoneTemperatures {
+    let rec = ZoneTemperatures::record();
+    let Some(v) = query.iter().find(|(k, _)| k == "temps").map(|(_, v)| v.as_str()) else {
+        return rec;
+    };
+    let mut t = rec;
+    let mut items: Vec<(&str, &str)> = Vec::new();
+    for item in v.split(',') {
+        let Some(kv) = item.trim().split_once(':') else { return rec };
+        items.push(kv);
+    }
+    items.sort_by_key(|(k, _)| *k != "all");
+    for (k, c) in items {
+        let Ok(c) = c.trim().parse::<f64>() else { return rec };
+        let at = ThermodynamicTemperature::new::<degree_celsius>(c);
+        match (k.trim(), Htr10Zone::from_key(k.trim())) {
+            ("all", _) => t = ZoneTemperatures::uniform(at),
+            (_, Some(z)) => t.set(z, at),
+            _ => return rec,
+        }
+    }
+    if t.check().is_ok() { t } else { rec }
+}
+
+/// The warning shown above 1600 °C (the TRISO fuel limit), or `None`.
+pub fn triso_warning(sliders_c: &[f64; 8]) -> Option<String> {
+    let lim = celsius(triso_limit());
+    let hot: Vec<&str> = Htr10Zone::ALL
+        .into_iter()
+        .zip(sliders_c)
+        .filter(|(_, &c)| c > lim)
+        .map(|(z, _)| z.label())
+        .collect();
+    (!hot.is_empty()).then(|| {
+        format!(
+            "⚠ Above {lim:.0} °C, the TRISO fuel limit: {}. The data are processed there all the same (up to {:.0} °C); the model has no fuel failure.",
+            hot.join(", "),
+            celsius(max_temperature())
+        )
+    })
+}
+
+/// How long the rods must rest before the pool rebuilds its core with them,
+/// s (a rebuild costs every worker a geometry build).
+pub const RODS_SETTLE_S: f64 = 1.5;
+
+/// Whether the pool should rebuild with the reader's rods now: the data
+/// are ready, no run or sweep is going, the rods differ from the pool's and
+/// have rested [`RODS_SETTLE_S`].
+pub fn rods_resync_due(s: &PoolState, want: &[f64; 10], sweeping: bool, changed_s: f64, now: f64) -> bool {
+    !sweeping
+        && s.phase == PoolPhase::Ready
+        && !s.run.as_ref().is_some_and(RunState::going)
+        && want.map(f64::to_bits) != s.rods.map(f64::to_bits)
+        && now - changed_s >= RODS_SETTLE_S
 }
 
 impl CoreScreen {
@@ -326,6 +470,22 @@ impl CoreScreen {
             speed,
             autostart,
             error: None,
+            rods: Default::default(),
+            rods_changed_s: 0.0,
+            sweep: None,
+            sweep_status: String::new(),
+            live_results: Vec::new(),
+            temps: ZoneTemperatures::record(),
+            temps_c: Htr10Zone::ALL.map(|z| celsius(ZoneTemperatures::record().get(z))),
+            temps_linked: false,
+            pour: match forced_pour() {
+                Some(n) => {
+                    let mut p = super::pour::PourUi::auto(n);
+                    p.gpu = forced_pour_gpu();
+                    p
+                }
+                None => super::pour::PourUi::default(),
+            },
         }
     }
 
@@ -349,10 +509,16 @@ impl CoreScreen {
         t
     }
 
+    /// The rods the pool's core is built with (the reader's, before a pool
+    /// exists): what the core view draws and runs.
+    pub fn pool_rods(&self) -> [f64; 10] {
+        self.pool.as_ref().map_or(self.rods.rods, |p| p.state.rods)
+    }
+
     /// Start the workers.
     pub fn start_pool(&mut self, ctx: &egui::Context) {
         if self.pool.is_none() {
-            match CorePool::start(ctx, self.plan.clone(), self.layers as usize) {
+            match CorePool::start(ctx, self.plan.clone(), self.layers as usize, &self.temps) {
                 Ok(p) => self.pool = Some(p),
                 Err(e) => self.error = Some(e),
             }
@@ -373,9 +539,19 @@ impl CoreScreen {
 
     /// Each frame: the pool's events, the next track, autostart.
     pub fn pump(&mut self, ctx: &egui::Context) {
-        if self.autostart && self.pool.is_none() {
+        // `?pour=N`: pour, then use the bed once it settles; the pool waits.
+        if self.pour.auto {
+            if !self.pour.started() {
+                self.pour.start(dhoby_ghaut::web_demo::platform::now_s());
+            } else if self.pour.finished() && self.pour.bed.is_none() {
+                self.use_pour();
+            }
+        }
+        let waiting_for_pour = self.pour.auto && self.pour.bed.is_none();
+        if self.autostart && self.pool.is_none() && !waiting_for_pour {
             self.start_pool(ctx);
         }
+        let mut autostart_now = false;
         if let Some(p) = self.pool.as_mut() {
             for n in p.pump() {
                 match n {
@@ -395,11 +571,35 @@ impl CoreScreen {
                     Note::RunDone => {}
                 }
             }
-            if self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() {
-                let _ = p.state.start_run(self.cfg, now_s());
+            // Autostart goes through the same door as the Start button, so
+            // it too runs on the reader's rods (a URL may set them).
+            autostart_now = self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() && self.sweep.is_none();
+            // Rods (gh:#1025): a sweep drives the pool itself; otherwise the
+            // pool's core follows the reader's rods once they rest.
+            if let Some(sw) = self.sweep.as_mut() {
+                use crate::htr10::rods::SweepStep;
+                let step = sw.step(&mut p.state, now_s());
+                self.sweep_status = match &step {
+                    SweepStep::Waiting(w) => format!("waiting: {w}"),
+                    SweepStep::Running { i, n } => format!("running position {} of {n}", i + 1),
+                    SweepStep::Done => "done".into(),
+                    SweepStep::Failed(e) => format!("stopped: {e}"),
+                };
+                if sw.done() {
+                    let fam = sw.family;
+                    for r in sw.results.drain(..) {
+                        self.live_results.push((fam, r));
+                    }
+                    self.sweep = None;
+                }
+            } else if rods_resync_due(&p.state, &self.rods.rods, false, self.rods_changed_s, now_s()) {
+                let _ = p.state.set_rods(self.rods.rods);
             }
             // A pool failure is shown once, by the pool's status line.
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
+        }
+        if autostart_now {
+            self.start_run_here();
         }
         // The next neutron.
         if self.current.as_ref().is_none_or(Anim::finished) && self.playing {
@@ -413,6 +613,7 @@ impl CoreScreen {
                 self.queue.pop_front()
             } else if !self.recorded.is_empty()
                 && (self.layers as usize) == super::super::LADDER_N as usize
+                && self.pool_rods() == super::random_bed::WITHDRAWN
             {
                 let h = self.recorded[self.next_recorded % self.recorded.len()].clone();
                 self.next_recorded += 1;
@@ -439,7 +640,14 @@ impl CoreScreen {
         >,
     ) {
         self.slicer.view.handle_input(ui, resp);
+        // The reader's pour, while it is being poured or not yet used: the
+        // pebbles themselves, not the core (gh:#1244).
+        if self.pour.shown && self.pour.last.is_some() && (self.pour.running() || self.layers as usize != super::random_bed::USER_POUR) {
+            draw_pour(painter, rect, &self.slicer.view, self.pour.last.as_ref().map_or(&[][..], |s| &s.centres[..]), ui.visuals());
+            return;
+        }
         self.slicer.param = self.layers;
+        self.slicer.rods = self.pool_rods();
         if let (Some(req), Some(l)) = (self.slicer.pump(rect), link) {
             l.send(crate::engine::Request::Raster(req));
         }
@@ -467,159 +675,692 @@ impl CoreScreen {
             draw_track(painter, to_screen, &a.hist, upto, 255, true, None);
             ui.ctx().request_repaint();
         }
-        // Status on the main view (it shows with the panel folded).
-        let mut lines: Vec<(String, Color32)> = Vec::new();
-        let label = if self.live {
-            "LIVE: neutrons of the k_eff run in this tab's workers"
-        } else {
-            "RECORDED: tracks baked natively from the same model, code and seed (2026-10-07)"
-        };
-        lines.push((
-            label.into(),
-            if self.live {
-                Color32::from_rgb(130, 230, 140)
-            } else {
-                Color32::from_rgb(250, 200, 80)
-            },
-        ));
-        if let Some(p) = &self.pool {
-            lines.extend(status_lines(p));
-        }
-        if let Some(e) = &self.error {
-            lines.push((format!("FAILED: {e}"), Color32::from_rgb(255, 110, 110)));
-        }
-        let mut y = rect.top() + 52.0;
-        for (t, c) in lines {
-            let g = painter.layout(
-                t,
-                egui::FontId::proportional(12.5),
-                c,
-                (rect.width() - 24.0).max(100.0),
-            );
-            let bg = Rect::from_min_size(
-                Pos2::new(rect.left() + 8.0, y - 2.0),
-                g.size() + Vec2::new(8.0, 4.0),
-            );
-            painter.rect_filled(bg, 4.0, Color32::from_rgba_unmultiplied(14, 16, 20, 200));
+        // On the picture, only what it shows (maintainer 2026-10-26: "except
+        // for the number of pebbles in the core and control rod state, all
+        // text should be in the bottom panel"): the bed with its pebbles, and
+        // the rods the drawn core holds. The run's status, the pool's and any
+        // failure are in the bottom panel (`Self::status`).
+        let mut y = rect.top() + if rect.width() < 560.0 { 108.0 } else { 52.0 };
+        for t in self.picture_lines() {
+            let ink = bugis::Ink::of_ui(ui);
+            let c = ink.text;
+            let g = painter.layout(t, egui::FontId::proportional(12.5), c, (rect.width() - 24.0).max(100.0));
+            let bg = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y - 2.0), g.size() + Vec2::new(8.0, 4.0));
+            painter.rect_filled(bg, 4.0, ink.backing);
             let h = g.size().y;
             painter.galley(Pos2::new(rect.left() + 12.0, y), g, c);
             y += h + 6.0;
         }
-        // The restart buttons on the main view too, so they show with the
-        // panel folded on a phone (gh:#817; the mobile-first rule's status
-        // on the main view).
-        let w = (rect.width() - 24.0).clamp(120.0, 340.0);
-        let mut reprocess = false;
-        if let Some(p) = self.pool.as_mut() {
-            if restart_wanted(&p.state) {
-                for (kind, label) in restart_labels(&p.state) {
-                    let b = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y), Vec2::new(w, 36.0));
-                    if ui.put(b, egui::Button::new(label)).clicked() {
-                        restart(&mut p.state, kind);
-                    }
-                    y += 42.0;
-                }
-            } else if matches!(p.state.phase, PoolPhase::Failed(_)) {
-                let b = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y), Vec2::new(w, 36.0));
-                reprocess = ui.put(b, egui::Button::new("⟳ Reprocess the data (new workers)")).clicked();
-            }
+    }
+
+    /// The two lines the picture keeps: the bed drawn (with its core
+    /// pebbles) and the rods of the core drawn.
+    pub fn picture_lines(&self) -> [String; 2] {
+        [
+            format!("Bed: {}", super::random_bed::label(self.layers as usize)),
+            format!("Control rods: {}", crate::htr10::rods::summary(&self.pool_rods())),
+        ]
+    }
+
+    /// Everything the run says, for the bottom panel's text pane: whose
+    /// neutrons the picture shows, the pool (data, workers, failures), the
+    /// run's last generation and its time left. The picture's own two lines
+    /// ([`Self::picture_lines`]) are not repeated.
+    pub fn status(&self) -> Vec<(String, Color32)> {
+        let mut lines: Vec<(String, Color32)> = vec![if self.live {
+            ("LIVE: the picture shows neutrons of the k_eff run in this tab's workers".into(), crate::keffplot::LIVE)
+        } else {
+            ("RECORDED: the picture shows tracks baked natively (2026-10-07) from the record's model: 27 °C everywhere, graphite and SiC laws from the tapes".into(), crate::keffplot::AMBER)
+        }];
+        if let Some(p) = &self.pool {
+            lines.extend(status_lines(p).into_iter().filter(|(t, _)| !t.starts_with("Bed: ") && !t.starts_with("Control rods: ")));
         }
-        if reprocess {
-            self.reprocess(ui.ctx());
+        if let Some(e) = &self.error {
+            lines.push((format!("FAILED: {e}"), crate::keffplot::RED));
         }
-        // The k plot along the bottom once a run has generations.
-        if let Some(run) = self.pool.as_ref().and_then(|p| p.state.run.as_ref()) {
-            if !run.gens.is_empty() {
-                let h = (rect.height() * 0.24).clamp(80.0, 170.0);
-                let plot = Rect::from_min_max(
-                    Pos2::new(rect.left() + 12.0, rect.bottom() - h - 96.0),
-                    Pos2::new(rect.right() - 12.0, rect.bottom() - 96.0),
-                );
-                let dem = self.layers as usize == super::random_bed::DEM_BED;
-                // On the random bed the lattice's N = 12 record is the like-for-like
-                // ball count, labelled as the lattice's.
-                let n = if dem { super::super::LADDER_N as usize } else { self.layers as usize };
-                draw_k(
-                    painter,
-                    plot,
-                    &run.gens,
-                    run.cfg,
-                    record_row(n),
-                    if dem { "lattice recorded" } else { "recorded" },
-                );
+        if self.sweep.is_some() {
+            lines.push((format!("Worth-curve sweep: {}", self.sweep_status), crate::keffplot::STATUS));
+        }
+        lines
+    }
+
+    /// The run's console: one row per generation, as the side panel's table
+    /// (`gen  k  H  mean ± σ  wall`).
+    pub fn console(&self) -> Vec<String> {
+        let Some(run) = self.pool.as_ref().and_then(|p| p.state.run.as_ref()) else { return Vec::new() };
+        let mut v = vec![format!("{} ({})", run.describe(), crate::keff::settings_line(&run.cfg)), " gen   k        H      mean ± σ             wall".to_string()];
+        v.extend(run.gens.iter().map(|g| {
+            let mean = g.gen.k_mean.map_or(String::new(), |(m, e)| format!("  {m:.5} ± {e:.5}"));
+            let h = g.gen.entropy.map_or("      ".to_string(), |h| format!("  {h:.3}"));
+            format!("{:>4}  {:.5}{h}{mean}  {:.1} s", g.gen.index + 1, g.gen.k, g.wall_s)
+        }));
+        v
+    }
+
+    /// Whether a run or a sweep is going (the bed and the rods the pool
+    /// holds cannot change under it).
+    pub fn busy(&self) -> bool {
+        self.sweep.is_some() || self.pool.as_ref().and_then(|p| p.state.run.as_ref()).is_some_and(RunState::going)
+    }
+
+    /// Start k_eff at the reader's setting: straight away when the pool's
+    /// core already holds the reader's rods, else as a one-position sweep,
+    /// which rebuilds the core with them first (a run never starts on rods
+    /// the reader has moved away from).
+    pub fn start_run_here(&mut self) {
+        let Some(p) = self.pool.as_mut() else { return };
+        if p.state.rods.map(f64::to_bits) == self.rods.rods.map(f64::to_bits) {
+            if let Err(e) = p.state.start_run(self.cfg, now_s()) {
+                log::warn!("htr10 core: start refused: {e}");
             }
+        } else {
+            self.sweep = Some(crate::htr10::rods::LiveSweep::one(self.rods.rods, self.cfg));
         }
     }
 
-    /// The side panel.
-    pub fn panel(&mut self, ui: &mut egui::Ui) {
-        ui.label("Neutrons in the whole HTR-10 core: reflector, rods, cavity, the pebble bed, and inside each fuel pebble the TRISO particles. Zoom in (+) on the bed to see the pebbles and particles the neutrons cross.");
-        ui.horizontal(|ui| {
-            if ui
-                .button(if self.playing {
-                    "⏸ Pause"
-                } else {
-                    "▶ Play"
-                })
-                .clicked()
-            {
-                self.playing = !self.playing;
-            }
-            if ui.button("Next neutron").clicked() {
-                if let Some(a) = self.current.as_mut() {
-                    a.shown_cm = a.total();
+    /// **The eight zone temperatures** (gh:#1142): a slider each, 20 to
+    /// 1800 °C in 1 °C steps, "Same for all", a warning above 1600 °C, and Apply, which
+    /// restarts the pool at the new temperatures (each zone's nuclides and
+    /// laws processed exactly there; what is unchanged loads from this
+    /// browser's cache). Fixed while a run or sweep is going. GUI code
+    /// (exempt); its decisions are [`temperatures_to_apply`] and
+    /// [`triso_warning`], tested.
+    fn temperatures_ui(&mut self, ui: &mut egui::Ui) {
+        let busy = self.busy();
+        let (lo, hi) = (celsius(min_temperature()), celsius(max_temperature()));
+        ui.add_enabled_ui(!busy, |ui| {
+            ui.checkbox(&mut self.temps_linked, "Same for all zones");
+            let mut moved: Option<f64> = None;
+            for (i, z) in Htr10Zone::ALL.into_iter().enumerate() {
+                let r = ui.add(
+                    // 1 °C steps: the record's 27 °C (300.15 K) is on the
+                    // grid; with 5 °C steps from 20 the slider snapped it to
+                    // 25 the moment it was touched (gh:#1142).
+                    egui::Slider::new(&mut self.temps_c[i], lo..=hi)
+                        .step_by(1.0)
+                        .fixed_decimals(0)
+                        .suffix(" °C")
+                        .text(z.label()),
+                );
+                if r.changed() {
+                    moved = Some(self.temps_c[i]);
                 }
             }
+            if let (true, Some(c)) = (self.temps_linked, moved) {
+                self.temps_c = [c; 8];
+            }
+            if ui.button("Reset: every zone at 27 °C (the record's)").clicked() {
+                self.temps_c = Htr10Zone::ALL.map(|z| celsius(ZoneTemperatures::record().get(z)));
+            }
         });
-        ui.add(
-            egui::Slider::new(&mut self.speed, 0.0001..=20_000.0)
-                .logarithmic(true)
-                .text("speed at 1 eV (cm/s)")
-                .custom_formatter(|v, _| fmt_speed(v)),
-        );
-        ui.weak(format!("= {} at 0.0253 eV (thermal). v is proportional to √E: a fission neutron crosses the core in a moment, a thermal one crawls.", fmt_speed(animated_speed(0.0253, self.speed))));
-        legend_markers(ui, true);
-        energy_bar(ui);
+        if let Some(w) = triso_warning(&self.temps_c) {
+            ui.colored_label(ui.visuals().error_fg_color, w);
+        }
+        match temperatures_to_apply(&self.temps, &self.temps_c) {
+            Err(e) => {
+                ui.colored_label(ui.visuals().error_fg_color, e);
+            }
+            Ok(None) => {
+                ui.weak("The core is built at these temperatures.");
+            }
+            Ok(Some(want)) => {
+                ui.colored_label(
+                    ui.visuals().warn_fg_color,
+                    "Not applied yet. Apply reprocesses each changed zone's nuclides (RECONR, BROADR, HEATR, PURR) and thermal laws (LEAPR) at its temperature: minutes for the fuel, seconds for most; zones you did not change load from this browser's cache.",
+                );
+                let label = if self.pool.is_some() { "Apply: restart the pool at these temperatures" } else { "Apply (the pool starts at these temperatures)" };
+                if ui.add_enabled(!busy, egui::Button::new(label).min_size(Vec2::new(0.0, 36.0))).clicked() {
+                    self.temps = want;
+                    if self.pool.is_some() {
+                        let ctx = ui.ctx().clone();
+                        self.reprocess(&ctx);
+                    }
+                }
+            }
+        }
+        ui.weak("Every bound thermal law is made by LEAPR at its zone's temperature, so at 27 °C everywhere the model differs from the record's (graphite and SiC read from the tapes at 296 K) by that law alone.");
+    }
+
+    /// The bed: the record's lattice at N layers (10–20), or the DEM bed.
+    /// Free before the pool starts (it starts at this N); between runs the
+    /// workers rebuild the core when it changes.
+    fn bed_ui(&mut self, ui: &mut egui::Ui) {
+        let busy = self.busy();
+        let dem_code = super::random_bed::DEM_BED as f64;
+        let pour_code = super::random_bed::USER_POUR as f64;
+        let mut want = self.layers;
+        let shown = self.pour.shown;
+        ui.add_enabled_ui(!busy, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Bed:");
+                let lattice = self.layers != dem_code && self.layers != pour_code;
+                if ui.selectable_label(lattice && !shown, "Şeker lattice (the record's)").clicked() {
+                    self.pour.shown = false;
+                    if !lattice {
+                        want = super::super::LADDER_N;
+                    }
+                }
+                if ui.selectable_label(self.layers == dem_code && !shown, "DEM random bed (baked)").clicked() {
+                    self.pour.shown = false;
+                    want = dem_code;
+                }
+                if ui.selectable_label(shown, "DEM pour (yours)").clicked() {
+                    self.pour.shown = true;
+                    if self.pour.bed.is_some() {
+                        want = pour_code;
+                    }
+                }
+            });
+            if self.pour.shown {
+                // The pour's own controls follow, outside this disabled scope.
+            } else if want == dem_code {
+                ui.weak(super::random_bed::label(super::random_bed::DEM_BED));
+            } else {
+                let mut n = want;
+                ui.add(egui::Slider::new(&mut n, 10.0..=20.0).step_by(1.0).fixed_decimals(0).text("layers N (stacks)"));
+                want = n;
+                ui.weak(format!("Bed height 9.798 N + 6 = {:.3} cm (Şeker & Çolak 2003's rows; N = 12 is the critical loading).", 9.798 * want + 6.0));
+            }
+        });
+        if busy {
+            ui.weak("Fixed while a run or sweep is going.");
+        }
+        if want != self.layers {
+            match self.pool.as_mut() {
+                None => self.layers = want,
+                Some(p) => {
+                    if p.state.set_layers(want as usize).is_ok() {
+                        self.layers = want;
+                    }
+                }
+            }
+        }
+        if self.pour.shown {
+            self.pour_ui(ui, busy);
+        } else if self.layers as usize == super::random_bed::DEM_BED {
+            ui.colored_label(ui.visuals().warn_fg_color, DEM_CAVEAT);
+            ui.label(dem_record_line());
+        }
+    }
+
+    /// The reader's pour (gh:#1244): pebbles, fuel fraction, seed; Pour,
+    /// Pause/Resume; "Use this bed", which hands it to every worker and
+    /// rebuilds the core on it. GUI drawing (the test rule's exception); its
+    /// decisions are `PourUi`'s and `PoolState::use_pour`, which are tested.
+    fn pour_ui(&mut self, ui: &mut egui::Ui, busy: bool) {
+        let now = dhoby_ghaut::web_demo::platform::now_s();
+        let max = super::pour::max_pebbles() as f64;
+        let running = self.pour.running();
+        ui.add_enabled_ui(!running, |ui| {
+            ui.add(
+                egui::Slider::new(&mut self.pour.n, super::pour::MIN_PEBBLES as f64..=max)
+                    .step_by(100.0)
+                    .fixed_decimals(0)
+                    .text("pebbles to pour"),
+            );
+            ui.weak(format!(
+                "Starts at {} (the first-criticality loading's {} core pebbles plus the conus and tube's 2 457). Up to {} pebbles: the conus and tube plus a core filled at φ {} to {:.1} cm, 95 % of the {:.3} cm cavity. Any pebble that still stands above that line is removed when the bed is used.",
+                super::random_bed::grouped(super::pour::DEFAULT_PEBBLES),
+                super::random_bed::grouped(super::pour::RECORD_CORE_PEBBLES),
+                super::random_bed::grouped(max as usize),
+                super::pour::FRESH_POUR_PHI,
+                super::pour::HEIGHT_LIMIT_CM,
+                nee_soon::htr10_rmc::core_model::HTR10_CORE_CAVITY_CM
+            ));
+            ui.horizontal(|ui| {
+                ui.label("seed");
+                ui.add(egui::DragValue::new(&mut self.pour.seed).range(1..=1_000_000));
+            });
+        });
+        // gh:#1250 (maintainer, 2026-11-05): the pour stays on the CPU, so the
+        // page says how long it takes before the reader starts one.
+        // gh:#1250: a second engine for the same pour, and the time each took.
+        ui.add_enabled_ui(!running, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Engine:");
+                ui.selectable_value(&mut self.pour.gpu, false, "CPU (one thread)");
+                ui.selectable_value(&mut self.pour.gpu, true, "GPU (WebGPU)");
+            });
+        });
+        let n = self.pour.n.round() as usize;
+        if self.pour.gpu {
+            ui.label("GPU: the same LIGGGHTS-port physics as WGSL compute shaders (outram-park-fork-liggghts gpu::dem), in f32 with double-f32 overlaps. Not bit-identical to the CPU; it is checked against CPU pours on packing fraction and g(r). Its speed depends on your device: the table below shows what each pour took.");
+        } else {
+            ui.label(format!(
+                "A pour of {} takes {} in a browser (one thread; measured: 4 000 in 4 min, 8 000 in 6 min, 30 687 in 17.5 min on a 4-core machine). The page stays usable while it pours; the baked bed above is ready now.",
+                super::random_bed::grouped(n),
+                super::pour::minutes(super::pour::expected_pour_s(n))
+            ));
+        }
+        let mut f = 100.0 * self.pour.fuel;
+        ui.add(egui::Slider::new(&mut f, 0.0..=100.0).step_by(1.0).fixed_decimals(0).suffix(" %").text("fuel pebbles (rest moderator)"));
+        self.pour.fuel = f / 100.0;
+        let ratio = if self.pour.fuel < 1.0 { format!("{:.2}", self.pour.fuel / (1.0 - self.pour.fuel)) } else { "∞".into() };
+        ui.weak(format!(
+            "Fuel : moderator = {ratio} : 1 above the floor (the record is 57 : 43); the conus and tube hold moderator balls only, as the paper's rule says."
+        ));
+        ui.horizontal_wrapped(|ui| {
+            let verb = if self.pour.last.is_some() { "Pour again" } else { "Pour" };
+            let label = if self.pour.gpu {
+                format!("{verb} on the GPU")
+            } else {
+                format!("{verb} ({})", super::pour::minutes(super::pour::expected_pour_s(self.pour.n.round() as usize)))
+            };
+            if ui.button(label).clicked() {
+                self.pour.start(now);
+            }
+            if self.pour.last.is_some() && !self.pour.finished() {
+                let label = if self.pour.paused { "Resume" } else { "Pause" };
+                if ui.button(label).clicked() {
+                    let p = !self.pour.paused;
+                    self.pour.set_paused(p);
+                }
+            }
+            let usable = self.pour.last.is_some() && !running && !busy;
+            if ui.add_enabled(usable, egui::Button::new("Use this bed for k_eff")).clicked() {
+                self.use_pour();
+            }
+        });
+        for l in self.pour.lines(now) {
+            ui.label(l);
+        }
+        if let Some(s) = &self.pour.last {
+            if !s.settled && !running {
+                ui.colored_label(ui.visuals().warn_fg_color, "This pour has not settled: a bed used now is a snapshot of falling pebbles.");
+            }
+        }
+        if let Some(e) = &self.pour.error {
+            ui.colored_label(ui.visuals().error_fg_color, e);
+        }
+        if let Some(b) = &self.pour.bed {
+            ui.label(super::pour::describe(b));
+        }
+        if !self.pour.timings.is_empty() {
+            egui::CollapsingHeader::new("Timings: CPU against GPU (this device)").default_open(true).show(ui, |ui| {
+                for t in &self.pour.timings {
+                    ui.label(t.line());
+                }
+                ui.weak("Pour the same count on each engine to compare; a different count or seed is a different pour.");
+            });
+        }
+        // Post-pour diagnostics (maintainer 2026-11-05): packing fractions and g(r).
+        if self.pour.last.is_some() && !running && self.pour.diagnostics.is_none() && !self.pour.finished() && ui.button("Measure this pour (φ, g(r))").clicked() {
+            self.pour.measure();
+        }
+        if let Some(d) = &self.pour.diagnostics {
+            egui::CollapsingHeader::new("Pour diagnostics: packing fraction and g(r)").default_open(true).show(ui, |ui| {
+                for l in d.lines() {
+                    ui.label(l);
+                }
+                if !d.g.is_empty() {
+                    rdf_plot(ui, d);
+                }
+            });
+        } else if self.pour.finished() {
+            ui.weak("Measuring the pour (φ, g(r)) in the worker…");
+        }
+        ui.weak("The pour is the LIGGGHTS port's (µ 0.1, E 5e8 Pa, dt 35 µs) on one thread in this page's worker; a full core takes tens of minutes in a browser. The core is then built as the baked DEM bed is, TRISO packed at random.");
+        if running {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+        }
+    }
+
+    /// Make the bed from the pour and hand it over: to this page (labels,
+    /// the slice's worker) and, between runs, to every pool worker; before
+    /// the pool starts, it starts on it.
+    fn use_pour(&mut self) {
+        let b = match self.pour.make_bed() {
+            Ok(b) => b,
+            Err(e) => {
+                self.pour.error = Some(e);
+                return;
+            }
+        };
+        log::info!("htr10 core: pour used as the bed: {}", super::pour::describe(&b));
+        super::random_bed::set_poured(b.clone());
+        // The page's own worker draws the slice: it needs the bed too.
+        self.pour.queue(super::CoreReq::pour_bed(&b));
+        let code = super::random_bed::USER_POUR;
+        match self.pool.as_mut() {
+            None => self.layers = code as f64,
+            Some(p) => match p.state.use_pour(&b) {
+                Ok(()) => self.layers = code as f64,
+                Err(e) => self.pour.error = Some(format!("the bed is kept for later: {e}")),
+            },
+        }
+    }
+
+    /// The pour's requests for the page's own worker (the app sends them).
+    pub fn take_pour_out(&mut self) -> Vec<super::CoreReq> {
+        self.pour.take_out()
+    }
+
+    /// The side panel: the core (bed N and control rods) and its run in one
+    /// place (maintainer 2026-10-25: "change the number of stacks and control
+    /// rod position under the same tab"), then the worth-curve sweeps and the
+    /// neutron animation. `curves` are the recorded rod curves.
+    pub fn panel(&mut self, ui: &mut egui::Ui, curves: &[crate::htr10::rods::RecordedCurve]) {
+        ui.label("The whole HTR-10 core: reflector, rods, cavity, the pebble bed and, inside each fuel pebble, the TRISO particles. Set the bed and the rods here, run k_eff, and read k and entropy in the bottom panel; the top and rod views and the recorded curves are in Views.");
         ui.separator();
-        ui.strong("Live in this browser");
+        ui.strong("The core: layers and control rods");
+        self.bed_ui(ui);
+        ui.add_space(4.0);
+        ui.add_enabled_ui(!self.busy(), |ui| {
+            if crate::htr10::rods::controls_ui(ui, &mut self.rods) {
+                self.rods_changed_s = now_s();
+            }
+        });
+        egui::CollapsingHeader::new("Zone temperatures").default_open(true).show(ui, |ui| {
+            self.temperatures_ui(ui);
+        });
+        let built = self.pool_rods();
+        if self.pool.is_some() && built.map(f64::to_bits) != self.rods.rods.map(f64::to_bits) {
+            ui.colored_label(
+                ui.visuals().warn_fg_color,
+                format!("The workers' core still has: {}. It is rebuilt with yours once they rest, or when you start a run.", crate::htr10::rods::summary(&built)),
+            );
+        }
+        egui::CollapsingHeader::new("Recorded k_eff at this setting (native runs)").default_open(true).show(ui, |ui| {
+            if !self.temps.is_uniform() || (celsius(self.temps.get(Htr10Zone::FuelPebble)) - 27.0).abs() > 1e-9 {
+                ui.colored_label(ui.visuals().warn_fg_color, "Every record below is at 27 °C in every zone: it is not a reference for these temperatures.");
+            }
+            if self.rods.rods == [0.0; 10] && !super::random_bed::is_dem(self.layers as usize) {
+                if let Some((k, s, rmc)) = record_row(self.layers as usize) {
+                    ui.label(format!("Every rod withdrawn, N = {}: {k:.6} ± {s:.6} (10 000 × [5 + 135], 2026-10-07); RMC (Li, Yu & Wei 2014) at equal ball count {rmc:.6}.", self.layers as usize));
+                }
+            }
+            crate::htr10::rods::recorded_ui(ui, curves, &self.rods.rods);
+            ui.weak("The rod curves are recorded at N = 12 only.");
+        });
+        ui.separator();
+        ui.strong("Run k_eff (the whole core)");
         let ctx = ui.ctx().clone();
+        let mut start = false;
         match self.pool.as_mut() {
             None => {
                 ui.label(format!(
-                    "Processes all 38 nuclides of the recorded model (31 ENDF/B-VIII.0 tapes, 5 thermal laws, about 35 MB to download) in a pool of Web Workers, each nuclide once, then runs k_eff of the whole core at the statistics you set (up to the recorded 10 000 × [5 + 135] and beyond). Pool: {}.",
+                    "Processes every nuclide of the model at each zone temperature it is needed at ({} jobs at these temperatures: ENDF/B-VIII.0 tapes, about 35 MB to download, and thermal laws by LEAPR) in a pool of Web Workers, each once, then runs k_eff of the whole core at the statistics you set (up to the recorded 10 000 × [5 + 135] and beyond). Pool: {}.",
+                    super::jobs_at(&self.temps).map_or(0, |j| j.len()),
                     self.plan.reason
                 ));
                 if self.forced.is_none() {
                     ui.weak("Add ?workers=N to the address to choose the pool size.");
                 }
-                if ui
-                    .button(format!("▶ Run live ({} workers)", self.plan.workers))
-                    .clicked()
-                {
+                if ui.add(egui::Button::new(format!("▶ Start the worker pool ({} workers)", self.plan.workers)).min_size(Vec2::new(0.0, 36.0))).clicked() {
                     self.start_pool(&ctx);
                 }
             }
-            Some(p) => {
-                if let Some(PoolAction::Reprocess) = pool_panel(ui, p, &mut self.cfg, &mut self.layers) {
-                    self.reprocess(&ctx);
-                }
-            }
+            Some(p) => match pool_panel(ui, p, &mut self.cfg, self.layers) {
+                Some(PoolAction::Reprocess) => self.reprocess(&ctx),
+                Some(PoolAction::Start) => start = true,
+                None => {}
+            },
         }
+        if start {
+            self.start_run_here();
+        }
+        egui::CollapsingHeader::new("Worth curves: a sweep of runs over rod positions").default_open(self.sweep.is_some()).show(ui, |ui| {
+            crate::htr10::rods::sweeps_ui(ui, self);
+        });
         ui.separator();
-        egui::CollapsingHeader::new("The whole-core view: what it is, and is not")
-            .default_open(false)
-            .show(ui, |ui| {
-                for l in NOTES {
-                    ui.label(format!("• {l}"));
+        egui::CollapsingHeader::new("Neutrons on the main view").default_open(false).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button(if self.playing { "⏸ Pause" } else { "▶ Play" }).clicked() {
+                    self.playing = !self.playing;
+                }
+                if ui.button("Next neutron").clicked() {
+                    if let Some(a) = self.current.as_mut() {
+                        a.shown_cm = a.total();
+                    }
                 }
             });
+            ui.add(egui::Slider::new(&mut self.speed, 0.0001..=20_000.0).logarithmic(true).text("speed at 1 eV (cm/s)").custom_formatter(|v, _| fmt_speed(v)));
+            ui.weak(format!("= {} at 0.0253 eV (thermal). v is proportional to √E: a fission neutron crosses the core in a moment, a thermal one crawls. Zoom in (+) on the bed to see the pebbles and particles the neutrons cross.", fmt_speed(animated_speed(0.0253, self.speed))));
+            legend_markers(ui, true);
+            energy_bar(ui);
+        });
+        egui::CollapsingHeader::new("The whole-core view: what it is, and is not").default_open(false).show(ui, |ui| {
+            for l in NOTES {
+                ui.label(format!("• {l}"));
+            }
+        });
+    }
+
+    /// The bottom dock's buttons, in its header beside the toggle: start
+    /// the pool, then Run / Pause / Resume and Stop, so the core runs from
+    /// the main view with every panel folded. GUI code (exempt); Start's
+    /// decision is [`Self::start_run_here`]'s.
+    pub fn keff_buttons(&mut self, ui: &mut egui::Ui, row: Rect) {
+        let h = row.height().min(44.0);
+        let narrow = row.width() < 300.0;
+        let button = |ui: &mut egui::Ui, r: Rect, label: String| ui.put(r, egui::Button::new(egui::RichText::new(label).size(15.0))).clicked();
+        let note = |t: String, c: Color32| (t, c);
+        let grey = bugis::Ink::of_ui(ui).muted;
+        let mut text: Option<(String, Color32)> = None;
+        let bw = row.width().min(330.0);
+        let one = Rect::from_min_size(row.min, Vec2::new(bw, h));
+        let Some(p) = self.pool.as_mut() else {
+            let label = if narrow { "▶ Start pool".to_string() } else { format!("▶ Start the worker pool ({} workers)", self.plan.workers) };
+            if button(ui, one, label) {
+                self.start_pool(ui.ctx());
+            }
+            return;
+        };
+        let s = &mut p.state;
+        // After a failure, its remedies take the Run button's place (gh:#817;
+        // they were on the picture until 2026-10-26).
+        if matches!(s.phase, PoolPhase::Failed(_)) {
+            if button(ui, one, if narrow { "⟳ Reprocess".into() } else { "⟳ Reprocess the data (new workers)".into() }) {
+                self.reprocess(ui.ctx());
+            }
+            return;
+        }
+        if restart_wanted(s) {
+            let half = Vec2::new(((row.width() - 6.0) / 2.0).min(260.0), h);
+            for (i, (kind, label)) in restart_labels(s).into_iter().enumerate() {
+                let label = if narrow { label.split(" (").next().unwrap_or(&label).to_string() } else { label };
+                if button(ui, Rect::from_min_size(row.min + Vec2::new(i as f32 * (half.x + 6.0), 0.0), half), label) {
+                    restart(s, kind);
+                }
+            }
+            return;
+        }
+        if s.phase != PoolPhase::Ready {
+            text = Some(note(format!("Preparing the data: {:.0} %", 100.0 * s.progress()), grey));
+        }
+        if text.is_none() {
+            let run = s.run.as_ref();
+            let going = run.is_some_and(RunState::going);
+            if self.sweep.is_some() && !going {
+                text = Some(note(format!("Rebuilding the core: {}", self.sweep_status), grey));
+            } else if going {
+                let r = run.expect("going");
+                let (done, total) = (r.gens.len(), r.cfg.n_inactive + r.cfg.n_active);
+                let paused = r.paused;
+                let stop_w = 76.0;
+                let main_w = (row.width() - stop_w).clamp(60.0, 330.0);
+                let label = match (paused, narrow) {
+                    (true, _) => "▶ Resume".to_string(),
+                    (false, true) => format!("⏸ {done}/{total}"),
+                    (false, false) => format!("⏸ Pause · gen {done}/{total}"),
+                };
+                if button(ui, Rect::from_min_size(row.min, Vec2::new(main_w, h)), label) {
+                    s.set_paused(!paused);
+                }
+                if button(ui, Rect::from_min_size(row.min + Vec2::new(main_w + 6.0, 0.0), Vec2::new(stop_w - 6.0, h)), "■ Stop".into()) {
+                    s.stop_run();
+                }
+                return;
+            } else {
+                let label = if narrow { "▶ Run k_eff".to_string() } else { format!("▶ Run k_eff ({})", crate::keff::settings_line(&self.cfg)) };
+                if button(ui, one, label) {
+                    self.start_run_here();
+                }
+                return;
+            }
+        }
+        if let Some((t, c)) = text {
+            ui.painter().text(Pos2::new(row.left() + 4.0, row.center().y), egui::Align2::LEFT_CENTER, t, egui::FontId::proportional(13.0), c);
+        }
+    }
+
+    /// The bottom dock's body: this run's k and entropy (the shared plots,
+    /// `crate::keffplot`) against what is recorded for the core it runs: the
+    /// record and RMC at its N with every rod out, the recorded rod curve at
+    /// its rods, else nothing. A line above says the run's mean against them.
+    pub fn keff_body(&self, ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, text: f32, curves: &[crate::htr10::rods::RecordedCurve]) {
+        use crate::keffplot::{self, GenPoint, RefLine, RunShape};
+        let rect = rect.shrink2(Vec2::new(8.0, 4.0));
+        let run = self.pool.as_ref().and_then(|p| p.state.run.as_ref());
+        let cfg = run.map_or(self.cfg, |r| r.cfg);
+        let pts: Vec<GenPoint> = run.map(|r| r.gens.iter().map(|g| GenPoint::from(&g.gen)).collect()).unwrap_or_default();
+        let shape = RunShape { n_inactive: cfg.n_inactive, total: cfg.n_inactive + cfg.n_active };
+        // What the run ran (the pool may have been rebuilt since), else what
+        // the next run will: its references follow that.
+        let (built, layers) = run.map_or((self.pool_rods(), self.layers as usize), |r| (r.rods, r.layers));
+        let dem = layers == super::random_bed::DEM_BED;
+        // The reader's pour has no recorded reference (`record_row(0)` is none).
+        let n = if dem { super::super::LADDER_N as usize } else if layers == super::random_bed::USER_POUR { 0 } else { layers };
+        let mut refs = Vec::new();
+        if built == super::random_bed::WITHDRAWN {
+            if let Some((k, s, rmc)) = record_row(n) {
+                refs.push(RefLine { label: format!("RMC {rmc:.4}"), k: rmc, sigma: None, colour: keffplot::REFERENCE_COLOUR });
+                let what = if dem { "lattice recorded, N = 12" } else { "recorded" };
+                refs.push(RefLine { label: format!("{what} {k:.4} ± {s:.4}"), k, sigma: Some(s), colour: keffplot::RECORD_COLOUR });
+            }
+        } else if n == super::super::LADDER_N as usize {
+            match crate::htr10::rods::lookup(curves, &built) {
+                crate::htr10::rods::Lookup::Exact { point, .. } => refs.push(RefLine { label: format!("recorded at these rods {:.4} ± {:.4}", point.k, point.sigma), k: point.k, sigma: Some(point.sigma), colour: keffplot::RECORD_COLOUR }),
+                crate::htr10::rods::Lookup::Interpolated { k, .. } => refs.push(RefLine { label: format!("recorded curve, interpolated {k:.4}"), k, sigma: None, colour: keffplot::RECORD_COLOUR }),
+                crate::htr10::rods::Lookup::None(_) => {}
+            }
+        }
+        // One line: what is running and the mean against the first reference.
+        let mean = pts.last().and_then(|g| g.k_mean);
+        let line = match (run, mean) {
+            // The bed and the rods are on the picture; the strip says only
+            // what the run is (it must fit two lines on a phone).
+            (None, _) => format!("No run yet. Next: {}", crate::keff::settings_line(&self.cfg)),
+            (Some(_), None) => "Inactive generations: the source is settling; k is not averaged yet".to_string(),
+            (Some(_), Some((m, e))) => {
+                let mut l = format!("k = {m:.5} ± {e:.5}");
+                if let Some(r) = refs.iter().find(|r| r.sigma.is_some()) {
+                    let d = (m - r.k) * 1e5;
+                    let sd = (e * e + r.sigma.unwrap_or(0.0).powi(2)).sqrt() * 1e5;
+                    l.push_str(&format!(" · you − recorded = {d:+.0} ± {sd:.0} pcm"));
+                }
+                l
+            }
+        };
+        // Laid out as every k_eff run's bottom panel (`keffplot::body_layout`):
+        // plots, the text pane (status and console) and the one-line strip.
+        let (plots, pane, strip) = keffplot::body_layout(rect);
+        keffplot::draw_strip(painter, strip, line, bugis::Ink::of_ui(ui).text, text);
+        let ceiling = run.and_then(RunState::entropy_bins).map(|b| (b as f64).r_log2());
+        keffplot::draw_pair(painter, plots, &pts, shape, &refs, ceiling, (text * 0.92).max(9.0));
+        keffplot::draw_text_pane(ui, painter, pane, &self.status(), &self.console(), "", (text * 0.9).max(9.0), "core-console");
     }
 }
 
 /// What the view says about the pool, one line each.
+/// **The pour as it falls** (gh:#1244), side-on in the core view's frame:
+/// the pebbles cut by the plane `y = 0` (each a disc of its cut radius), the
+/// vessel wall (`htr10_fill::wall_radius_at`), the floor and the 95 % line.
+/// The DEM frame's floor is drawn where the built core would put it at the
+/// pour's height (`z_core = z_DEM − h/2`, `h` the top of the highest pebble,
+/// the explicit bed's frame). GUI drawing, not reached by a test (the test
+/// rule's exception).
+fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::view::View, centres_m: &[f32], visuals: &egui::Visuals) {
+    use outram_park_fork_liggghts::htr10_fill::{wall_radius_at, VALVE_Z_M};
+    let theme = bugis::Theme::current(visuals);
+    let r = super::pour::R_CM;
+    painter.rect_filled(rect, 0.0, visuals.extreme_bg_color);
+    let top = centres_m.chunks_exact(3).map(|c| 100.0 * f64::from(c[2]) + r).fold(2.0 * r, f64::max);
+    let shift = 0.5 * top.min(super::pour::HEIGHT_LIMIT_CM);
+    let at = |x: f64, z: f64| view.to_screen(rect, x, z - shift);
+    // The wall, from the valve to the cavity top.
+    let wall = egui::Stroke::new(1.5, theme.accent(4));
+    let z_hi = nee_soon::htr10_rmc::core_model::HTR10_CORE_CAVITY_CM;
+    let n = 120;
+    for side in [-1.0, 1.0] {
+        let pts: Vec<Pos2> = (0..=n)
+            .map(|i| {
+                let z = 100.0 * VALVE_Z_M + (z_hi - 100.0 * VALVE_Z_M) * i as f64 / n as f64;
+                at(side * 100.0 * wall_radius_at(z / 100.0), z)
+            })
+            .collect();
+        painter.add(egui::Shape::line(pts, wall));
+    }
+    let line = |z: f64, c: Color32| {
+        painter.line_segment([at(-90.0, z), at(90.0, z)], egui::Stroke::new(1.0, c));
+    };
+    line(0.0, visuals.weak_text_color());
+    line(super::pour::HEIGHT_LIMIT_CM, visuals.error_fg_color);
+    line(z_hi, theme.accent(4));
+    let scale = (at(1.0, 0.0).x - at(0.0, 0.0).x).abs();
+    for c in centres_m.chunks_exact(3) {
+        let (x, y, z) = (100.0 * f64::from(c[0]), 100.0 * f64::from(c[1]), 100.0 * f64::from(c[2]));
+        if y.abs() >= r {
+            continue;
+        }
+        let rr = (r * r - y * y).sqrt() * f64::from(scale);
+        let col = if z > 0.0 { visuals.text_color() } else { visuals.weak_text_color() };
+        painter.circle_filled(at(x, z), rr.max(1.0) as f32, col);
+    }
+    painter.text(
+        at(92.0, super::pour::HEIGHT_LIMIT_CM),
+        egui::Align2::LEFT_CENTER,
+        "95 %",
+        egui::FontId::proportional(12.0),
+        visuals.error_fg_color,
+    );
+}
+
+/// **The pour's g(r)**, with the reference random bed's points
+/// ([`super::pour::REFERENCE_G`]) marked, √2 d (where a crystal would peak),
+/// √3 d and 2 d as guides, and g = 1. Colours from the Gruvbox theme
+/// (bugis). GUI drawing, not reached by a test (the test rule's exception);
+/// its numbers are `pour::diagnostics`, which is.
+fn rdf_plot(ui: &mut egui::Ui, d: &super::pour::PourDiagnostics) {
+    let theme = bugis::Theme::current(ui.visuals());
+    let fg = ui.visuals().text_color();
+    let faint = ui.visuals().weak_text_color();
+    let w = ui.available_width().max(160.0);
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(w, 170.0), egui::Sense::hover());
+    let p = ui.painter_at(rect);
+    p.rect_filled(rect, 4.0, ui.visuals().extreme_bg_color);
+    let plot = Rect::from_min_max(rect.min + Vec2::new(34.0, 8.0), rect.max - Vec2::new(8.0, 22.0));
+    let x_max = d.r_max_d.max(1.0);
+    // Log-free linear axis, clipped at 6 so the second shell reads; the
+    // contact peak's height is in the line above.
+    let y_max = 6.0;
+    let at = |x: f64, y: f64| Pos2::new(plot.left() + (x / x_max) as f32 * plot.width(), plot.bottom() - (y.min(y_max) / y_max) as f32 * plot.height());
+    for (x, label) in [(1.0, "d"), (2f64.sqrt(), "√2"), (3f64.sqrt(), "√3"), (2.0, "2d")] {
+        if x <= x_max {
+            p.line_segment([at(x, 0.0), at(x, y_max)], egui::Stroke::new(0.5, faint));
+            p.text(at(x, 0.0) + Vec2::new(0.0, 3.0), egui::Align2::CENTER_TOP, label, egui::FontId::proportional(10.0), faint);
+        }
+    }
+    p.line_segment([at(0.0, 1.0), at(x_max, 1.0)], egui::Stroke::new(0.5, faint));
+    for y in [0.0, 1.0, 2.0, 4.0, 6.0] {
+        p.text(Pos2::new(plot.left() - 4.0, at(0.0, y).y), egui::Align2::RIGHT_CENTER, format!("{y}"), egui::FontId::proportional(10.0), faint);
+    }
+    let pts: Vec<Pos2> = d.r_over_d.iter().zip(&d.g).filter(|(_, g)| g.is_finite()).map(|(&x, &g)| at(x, g)).collect();
+    p.add(egui::Shape::line(pts, egui::Stroke::new(1.5, theme.accent(0))));
+    let [g2, g3, g4, _] = super::pour::REFERENCE_G;
+    for (x, g) in [(2f64.sqrt(), g2), (3f64.sqrt(), g3), (2.0, g4)] {
+        if x <= x_max {
+            p.circle_stroke(at(x, g), 3.5, egui::Stroke::new(1.5, theme.accent(1)));
+        }
+    }
+    p.text(plot.right_top(), egui::Align2::RIGHT_TOP, "g(r): yours (line), reference bed (circles)", egui::FontId::proportional(10.5), fg);
+    p.text(Pos2::new(plot.center().x, rect.bottom() - 2.0), egui::Align2::CENTER_BOTTOM, "r / d", egui::FontId::proportional(10.0), faint);
+}
+
 fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
     let s = &p.state;
-    let white = Color32::from_rgb(220, 226, 236);
+    // Named colours: `keffplot::themed` gives each its theme colour when drawn.
+    let white = crate::keffplot::STATUS;
     let mut v = Vec::new();
     let el = now_s() - s.started_s;
     match &s.phase {
@@ -663,11 +1404,13 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
             // Where the data came from (gh:#818, Leak Before Break).
             v.push((format!("Nuclear data: {}", s.data_source()), white));
             v.push((format!("Bed: {}", super::random_bed::label(s.layers)), white));
+            // gh:#1025: what the workers' core holds (set in "Control rods").
+            v.push((format!("Control rods: {}", crate::htr10::rods::summary(&s.rods)), white));
             if s.layers == super::random_bed::DEM_BED {
-                v.push((DEM_CAVEAT.to_string(), Color32::from_rgb(250, 200, 80)));
+                v.push((DEM_CAVEAT.to_string(), crate::keffplot::AMBER));
                 v.push((dem_record_line(), white));
             }
-            let amber = Color32::from_rgb(250, 200, 80);
+            let amber = crate::keffplot::AMBER;
             if s.live_workers() < s.workers {
                 v.push((dead_line(s), amber));
             }
@@ -677,7 +1420,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                     v.push((format!("This is {}.", run.describe()), amber));
                 }
                 if let Some(e) = &run.failed {
-                    v.push((format!("⚠ {e}"), Color32::from_rgb(255, 110, 110)));
+                    v.push((format!("⚠ {e}"), crate::keffplot::RED));
                 }
                 match run.gens.last() {
                     None if run.failed.is_some() => {}
@@ -705,7 +1448,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
         }
         PoolPhase::Failed(e) => v.push((
             format!("⚠ {e}"),
-            Color32::from_rgb(255, 110, 110),
+            crate::keffplot::RED,
         )),
     }
     v
@@ -752,6 +1495,9 @@ fn restart_wanted(s: &PoolState) -> bool {
 pub enum PoolAction {
     /// Stop every worker and process the data again (no worker left).
     Reprocess,
+    /// Run k_eff at the reader's setting ([`CoreScreen::start_run_here`]:
+    /// the rods may need a rebuild first).
+    Start,
 }
 
 /// The pool's part of the side panel. GUI drawing, not reached by a test
@@ -761,12 +1507,12 @@ fn pool_panel(
     ui: &mut egui::Ui,
     p: &mut CorePool,
     cfg: &mut KeffConfig,
-    layers: &mut f64,
+    layers: f64,
 ) -> Option<PoolAction> {
     let s = &mut p.state;
     ui.label(format!("Pool: {}", p.plan.reason));
-    let red = Color32::from_rgb(255, 110, 110);
-    let amber = Color32::from_rgb(250, 200, 80);
+    let red = ui.visuals().error_fg_color;
+    let amber = ui.visuals().warn_fg_color;
     if let PoolPhase::Failed(e) = &s.phase {
         ui.colored_label(red, e);
         if ui
@@ -846,36 +1592,6 @@ fn pool_panel(
     // sampled: a second Start in that window queued generation 0 twice. A
     // failed run is not going (gh:#817).
     let running = s.run.as_ref().is_some_and(|r| r.going());
-    ui.add_enabled_ui(!running, |ui| {
-        // The bed (gh:#786, #787): the record's lattice at N layers, or the
-        // DEM random bed cut to the lattice's ball count at N = 12.
-        let dem_code = super::random_bed::DEM_BED as f64;
-        let mut want = *layers;
-        ui.horizontal_wrapped(|ui| {
-            ui.label("Bed:");
-            if ui.selectable_label(*layers != dem_code, "Şeker lattice (the record's)").clicked() && *layers == dem_code {
-                want = super::super::LADDER_N;
-            }
-            if ui.selectable_label(*layers == dem_code, "DEM random bed").clicked() {
-                want = dem_code;
-            }
-        });
-        if want == dem_code {
-            ui.weak(super::random_bed::label(super::random_bed::DEM_BED));
-        } else {
-            let mut n = want;
-            ui.add(egui::Slider::new(&mut n, 10.0..=20.0).step_by(1.0).fixed_decimals(0).text("layers N"));
-            want = n;
-        }
-        if want != *layers && s.set_layers(want as usize).is_ok() {
-            *layers = want;
-        }
-    });
-    if *layers as usize == super::random_bed::DEM_BED {
-        ui.colored_label(Color32::from_rgb(250, 200, 80), DEM_CAVEAT);
-        ui.label(dem_record_line());
-    }
-    ui.strong("Run k_eff (the whole core)");
     // Held to the demo's caps (keff::MAX_PARTICLES, MAX_GENERATIONS in all;
     // 2026-10-15, were 20 000 and 50 + 200 here).
     egui::Grid::new("core_cfg").num_columns(2).show(ui, |ui| {
@@ -912,9 +1628,10 @@ fn pool_panel(
     let page = dhoby_ghaut::web_demo::platform::page_url();
     crate::keff::settings_link_row(ui, &crate::keff::settings_link(&page, "htr10", "watch", Some("core"), cfg));
     ui.weak(crate::keff::POOL_TIP);
+    let mut action = None;
     ui.horizontal(|ui| {
         if !running && ui.button("▶ Start").clicked() {
-            let _ = s.start_run(*cfg, now_s());
+            action = Some(PoolAction::Start);
         }
         if let Some(r) = s.run.as_ref().filter(|_| running) {
             let paused = r.paused;
@@ -974,9 +1691,10 @@ fn pool_panel(
                 1e3 * g.busy_s / g.gen.counts.histories.max(1) as f64
             ));
         }
-        let dem = *layers as usize == super::random_bed::DEM_BED;
-        if let (true, Some((m, e)), Some((rk, rs, _))) = (
+        let dem = layers as usize == super::random_bed::DEM_BED;
+        if let (true, true, Some((m, e)), Some((rk, rs, _))) = (
             dem,
+            s.rods == super::random_bed::WITHDRAWN,
             run.it.as_ref().and_then(|it| it.k_mean()),
             record_row(super::super::LADDER_N as usize),
         ) {
@@ -988,10 +1706,11 @@ fn pool_panel(
                 (e * e + rs * rs).sqrt() * 1e5
             ));
         }
-        if let (false, Some((m, e)), Some((rk, rs, rmc))) = (
+        if let (false, true, Some((m, e)), Some((rk, rs, rmc))) = (
             dem,
+            s.rods == super::random_bed::WITHDRAWN,
             run.it.as_ref().and_then(|it| it.k_mean()),
-            record_row(*layers as usize),
+            record_row(layers as usize),
         ) {
             ui.label(format!("This run: {m:.5} ± {e:.5}"));
             ui.label(format!("Recorded (10 000 × [5 + 135], 2026-10-07): {rk:.6} ± {rs:.6}; you − record = {:+.0} ± {:.0} pcm", (m - rk) * 1e5, (e * e + rs * rs).sqrt() * 1e5));
@@ -999,102 +1718,14 @@ fn pool_panel(
             ui.weak("Your ± is the spread of this run's active generations, a within-run σ that understates the true one.");
         }
     }
-    None
-}
-
-/// k by generation, the running mean, the record and RMC.
-fn draw_k(
-    painter: &egui::Painter,
-    rect: Rect,
-    gens: &[GenSummary],
-    cfg: KeffConfig,
-    record: Option<(f64, f64, f64)>,
-    record_label: &str,
-) {
-    painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(14, 16, 20, 215));
-    let total = (cfg.n_inactive + cfg.n_active).max(2) as f64;
-    let mut ks: Vec<f64> = gens.iter().map(|g| g.gen.k).collect();
-    if let Some((k, _, rmc)) = record {
-        ks.extend([k, rmc]);
-    }
-    let lo = ks.iter().copied().fold(f64::INFINITY, f64::min) - 0.01;
-    let hi = ks.iter().copied().fold(f64::NEG_INFINITY, f64::max) + 0.01;
-    let p = |i: f64, k: f64| {
-        Pos2::new(
-            rect.left() + 8.0 + (rect.width() - 16.0) * (i / (total - 1.0)) as f32,
-            rect.bottom() - 6.0 - (rect.height() - 22.0) * ((k - lo) / (hi - lo)) as f32,
-        )
-    };
-    // RMC labelled at the left end, the record at the right: they are close.
-    let hline = |k: f64, c: Color32, label: &str, right: bool| {
-        painter.line_segment([p(0.0, k), p(total - 1.0, k)], Stroke::new(1.5, c));
-        let (at, align) = if right {
-            (
-                p(total - 1.0, k) + Vec2::new(-2.0, 2.0),
-                egui::Align2::RIGHT_TOP,
-            )
-        } else {
-            (p(0.0, k) + Vec2::new(2.0, -2.0), egui::Align2::LEFT_BOTTOM)
-        };
-        painter.text(at, align, label, egui::FontId::proportional(10.5), c);
-    };
-    if let Some((k, _, rmc)) = record {
-        hline(
-            rmc,
-            Color32::from_rgb(235, 235, 235),
-            &format!("RMC {rmc:.4}"),
-            false,
-        );
-        hline(
-            k,
-            Color32::from_rgb(120, 170, 255),
-            &format!("{record_label} {k:.4}"),
-            true,
-        );
-    }
-    let x0 = p(cfg.n_inactive as f64 - 0.5, lo).x;
-    painter.line_segment(
-        [Pos2::new(x0, rect.top()), Pos2::new(x0, rect.bottom())],
-        Stroke::new(1.0, Color32::from_gray(90)),
-    );
-    for w in gens.windows(2) {
-        painter.line_segment(
-            [
-                p(w[0].gen.index as f64, w[0].gen.k),
-                p(w[1].gen.index as f64, w[1].gen.k),
-            ],
-            Stroke::new(1.0, Color32::from_rgb(160, 160, 170)),
-        );
-    }
-    for g in gens {
-        painter.circle_filled(
-            p(g.gen.index as f64, g.gen.k),
-            2.5,
-            Color32::from_rgb(160, 160, 170),
-        );
-        if let Some((m, e)) = g.gen.k_mean {
-            let c = Color32::from_rgb(255, 200, 80);
-            painter.line_segment(
-                [p(g.gen.index as f64, m - e), p(g.gen.index as f64, m + e)],
-                Stroke::new(1.0, c),
-            );
-            painter.circle_filled(p(g.gen.index as f64, m), 2.0, c);
-        }
-    }
-    painter.text(
-        rect.left_top() + Vec2::new(8.0, 4.0),
-        egui::Align2::LEFT_TOP,
-        "k by generation (grey), running mean ± σ (amber)",
-        egui::FontId::proportional(11.0),
-        Color32::from_gray(200),
-    );
+    action
 }
 
 /// "What this is, and is not".
 pub const NOTES: &[&str] = &[
     "The model is the one the recorded k-vs-height runs used: nee_soon's assemble_explicit_triso(14, N, 0), the material set of the record, and every nuclide of Htr10DataConfig::default() (ENDF/B-VIII.0 at 300.15 K, tolerance 0.001, URR and DBRC on, every bound thermal law, real Ni/Fe rod steel). Nothing is re-modelled for the browser.",
     "Delta tracking in the bed, surface tracking in the reflector, as the recorded runs; the power iteration is the record's (run_keff_csg_par), split by generation over the workers. The answer does not depend on the number of workers, bit for bit.",
-    "The recorded tracks the view opens on were baked natively from the same model, code and seed; the browser's own run can differ from them in the last bits (its maths library is not the platform's), and then in the histories.",
+    "The recorded tracks the view opens on were baked natively (2026-10-07) from the record's model: every zone at 27 °C, graphite and SiC laws from the tapes. Since gh:#1142 the live run's model makes every law by LEAPR at its zone's temperature, so its histories differ from the recorded ones even at 27 °C; the browser's own run also differs in the last bits (its maths library is not the platform's).",
     "A live run of 1000 neutrons per generation has a σ of several hundred pcm, against about 100 pcm for the record's 1.35 million active histories. It shows the core is near critical at N = 12; it does not test the record.",
     "Pebbles on Şeker & Çolak (2003)'s regular lattice, not the reactor's random bed; no k exists here for a random (DEM) bed.",
     "Education and research only. Not for reactor operation, licensing or safety decisions.",
@@ -1104,6 +1735,85 @@ pub const NOTES: &[&str] = &[
 mod tests {
     use super::*;
     use crate::htr10::core::{AssemblyReport, CoreEv};
+
+    /// **The temperature sliders** (gh:#1142): unchanged sliders apply
+    /// nothing; a moved one gives the new temperatures (°C to K exactly); a
+    /// value outside 20..=1800 °C is refused by name; the TRISO warning
+    /// names the zones above 1600 °C only; and the screen starts its pool
+    /// at the applied temperatures, whose jobs grow when zones differ.
+    #[test]
+    fn the_temperature_sliders_apply_check_and_warn() {
+        let rec = ZoneTemperatures::record();
+        let same = Htr10Zone::ALL.map(|z| celsius(rec.get(z)));
+        assert_eq!(temperatures_to_apply(&rec, &same).expect("in range"), None);
+        let mut s = same;
+        s[0] = 900.0;
+        s[2] = 500.0;
+        let want = temperatures_to_apply(&rec, &s).expect("in range").expect("changed");
+        assert!((want.kelvin(Htr10Zone::FuelPebble) - 1173.15).abs() < 1e-9);
+        assert!((want.kelvin(Htr10Zone::Coolant) - 773.15).abs() < 1e-9);
+        assert_eq!(want.kelvin(Htr10Zone::SideReflector).to_bits(), rec.kelvin(Htr10Zone::SideReflector).to_bits());
+        // A slider snapped to a whole 27 °C keeps the record's 300.15 K to
+        // the bit, and the record's 27 °C is a whole slider step.
+        let mut snapped = s;
+        snapped[3] = 27.0;
+        let w = temperatures_to_apply(&rec, &snapped).expect("in range").expect("changed");
+        assert_eq!(w.kelvin(Htr10Zone::TopReflector).to_bits(), rec.kelvin(Htr10Zone::TopReflector).to_bits());
+        assert!((celsius(rec.get(Htr10Zone::FuelPebble)) - 27.0).abs() < 1e-9);
+        s[7] = 1850.0;
+        assert!(temperatures_to_apply(&rec, &s).unwrap_err().contains("Boronated bricks"));
+        assert_eq!(triso_warning(&same), None);
+        let mut hot = same;
+        hot[0] = 1650.0;
+        hot[1] = 1600.0;
+        let w = triso_warning(&hot).expect("warned");
+        assert!(w.contains("Fuel pebbles") && !w.contains("Moderator pebbles"), "{w}");
+        assert!(super::super::jobs_at(&want).expect("jobs").len() > super::super::jobs().expect("jobs").len());
+        let info = crate::table::Rung::Htr10.raster_info().expect("raster");
+        let screen = CoreScreen::new(info, 1.0, false);
+        assert_eq!(screen.temps, rec);
+        assert_eq!(screen.temps_c, same);
+        // The URL: `all` first whatever its place, then each zone; anything
+        // unreadable or out of range leaves the record's.
+        let q = |v: &str| vec![("temps".to_string(), v.to_string())];
+        let t = temperatures_from_query(&q("fuel:900,all:600"));
+        assert!((t.kelvin(Htr10Zone::FuelPebble) - 1173.15).abs() < 1e-9);
+        assert!((t.kelvin(Htr10Zone::BoronatedBricks) - 873.15).abs() < 1e-9);
+        for bad in ["fuel:hot", "core:900", "fuel:1900", "fuel900"] {
+            assert_eq!(temperatures_from_query(&q(bad)), rec, "{bad}");
+        }
+        assert_eq!(temperatures_from_query(&[]), rec);
+    }
+
+    /// The picture keeps only the bed (with its pebbles) and the rods; every
+    /// other line is the bottom panel's, and it does not repeat those two
+    /// (maintainer 2026-10-26).
+    #[test]
+    fn the_picture_keeps_only_the_bed_and_the_rods() {
+        let info = crate::table::Rung::Htr10.raster_info().expect("raster");
+        let mut screen = CoreScreen::new(info, 1.0, false);
+        assert_eq!(screen.picture_lines(), ["Bed: Şeker lattice, N = 12 · 16 681 pebbles".to_string(), "Control rods: all ten withdrawn (the record's state)".to_string()]);
+        let status = screen.status();
+        assert!(status[0].0.starts_with("RECORDED"), "{status:?}");
+        assert!(status.iter().all(|(t, _)| !t.starts_with("Bed: ") && !t.starts_with("Control rods: ")));
+        assert!(screen.console().is_empty(), "no run, no console");
+        screen.layers = 20.0;
+        assert!(screen.picture_lines()[0].ends_with("27 321 pebbles"));
+    }
+
+    /// The pool follows the reader's rods only between runs, once they
+    /// rest, and never while a sweep drives it (gh:#1025).
+    #[test]
+    fn the_pool_follows_the_rods_once_they_rest() {
+        let mut s = PoolState::new(1, Vec::new(), Vec::new(), 12, 0.0);
+        let want = [0.5; 10];
+        assert!(!rods_resync_due(&s, &want, false, 0.0, 10.0), "data not ready");
+        s.phase = PoolPhase::Ready;
+        assert!(rods_resync_due(&s, &want, false, 0.0, 10.0));
+        assert!(!rods_resync_due(&s, &want, false, 9.5, 10.0), "still moving");
+        assert!(!rods_resync_due(&s, &want, true, 0.0, 10.0), "a sweep drives the pool");
+        assert!(!rods_resync_due(&s, &s.rods.clone(), false, 0.0, 10.0), "already there");
+    }
 
     /// After a failed run the screen offers both restarts (on the live
     /// workers, and on one), says which workers stopped, and draws the
@@ -1115,7 +1825,7 @@ mod tests {
             workers: 3,
             reason: "test".into(),
         };
-        let mut p = CorePool::start(&ctx, plan, 12).expect("pool");
+        let mut p = CorePool::start(&ctx, plan, 12, &ZoneTemperatures::record()).expect("pool");
         // Data ready without processing anything (the protocol is scripted).
         let n = p.state.labels.len();
         for j in 0..n {

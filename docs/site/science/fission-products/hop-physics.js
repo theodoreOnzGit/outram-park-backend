@@ -1,4 +1,4 @@
-// Fission products, lessons 8-9 (how an atom hops; atoms swapping): the
+// Fission products, lessons 9-10 (how an atom hops; atoms swapping): the
 // kinetic Monte Carlo behind the demos, shared by hop-worker.js (the pages
 // run it there, never on the UI thread), the pages' small calculations and
 // check-fission.js (node). Pure functions, no DOM.

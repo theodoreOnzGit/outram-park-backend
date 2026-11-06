@@ -283,6 +283,7 @@ fn output_is_deterministic_and_reviewed_ids_survive_losing_the_cache() {
         passed: vec![format!("{IT_RS}::it_leaf")],
         failed: Vec::new(),
         edited: Vec::new(),
+        targets: Vec::new(),
     };
     with_review.test_runs.insert("crates/kern/tests".into(), run.clone());
     let reviewed = build(&with_review);

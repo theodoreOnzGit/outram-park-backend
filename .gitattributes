@@ -3,3 +3,15 @@
 # checkout turned LF into CRLF and broke two byte-exact ACE tests on the CI
 # Windows runner (gh #862, 2026-10-14).
 reference-data/** -text
+
+# kovan's schema-compatibility and signing fixtures are pinned byte for byte
+# (a stored file must load and write back unchanged; a signature covers exact
+# bytes), so git must never convert their line endings either. Git for
+# Windows' `core.autocrlf = true` turned them CRLF and failed eight tests on
+# the CI Windows runner (2026-10-22). The kovan schema page is in the list
+# because `schema_743.rs` round-trips the examples it shows.
+crates/kovan/tests/fixtures/** -text
+crates/kovan-common/tests/data/** -text
+crates/kovan-common/tests/fixtures/** -text
+crates/kovan-common/src/review/signing/fixtures/** -text
+docs/site/kovan-schema/index.html -text

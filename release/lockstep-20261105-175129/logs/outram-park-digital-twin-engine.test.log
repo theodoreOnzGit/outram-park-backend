@@ -1,0 +1,531 @@
+   Compiling bytemuck v1.25.2
+   Compiling parking_lot_core v0.9.12
+   Compiling naga-types v30.0.1
+   Compiling uuid v1.28.0
+   Compiling parking_lot v0.12.5
+   Compiling wgpu-types v30.0.1
+   Compiling naga v30.0.1
+   Compiling const-oid v0.9.6
+   Compiling ndarray v0.17.2
+   Compiling wayland-backend v0.3.17
+   Compiling digest v0.10.7
+   Compiling getrandom v0.2.17
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling wayland-client v0.31.15
+   Compiling futures-sink v0.3.34
+   Compiling zerovec v0.11.8
+   Compiling zvariant_utils v4.2.0
+   Compiling sha2 v0.10.9
+   Compiling libc v0.2.191
+   Compiling zvariant v5.15.1
+   Compiling wayland-protocols v0.32.13
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling wgpu v30.0.1
+   Compiling petir v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/petir)
+   Compiling outram-foam-basic-lib v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-basic-lib)
+   Compiling pem-rfc7468 v0.7.0
+   Compiling accesskit v0.24.1
+   Compiling kurbo v0.13.1
+   Compiling zbus_names v4.3.5
+   Compiling tinystr v0.8.4
+   Compiling rand_core v0.6.4
+   Compiling font-types v0.12.7
+   Compiling color v0.3.3
+   Compiling getrandom v0.4.3
+   Compiling der_derive v0.7.3
+   Compiling litemap v0.8.3
+   Compiling cfg-if v1.0.5
+   Compiling flagset v0.4.7
+   Compiling writeable v0.6.4
+   Compiling der v0.7.10
+   Compiling icu_locale_core v2.3.0
+   Compiling peniko v0.6.1
+   Compiling read-fonts v0.41.0
+   Compiling ahash v0.8.12
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling futures-channel v0.3.34
+   Compiling icu_collections v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling convert_case v0.11.0
+   Compiling vello_common v0.1.0
+   Compiling icu_provider v2.3.1
+   Compiling spki v0.7.3
+   Compiling zbus_xml v5.2.1
+   Compiling emath v0.36.2
+   Compiling base64 v0.22.1
+   Compiling chrono v0.4.45
+   Compiling wayland-csd-frame v0.3.0
+   Compiling wayland-cursor v0.31.14
+   Compiling async-opcua-macros v0.19.0
+   Compiling zbus v5.19.0
+   Compiling rand_chacha v0.3.1
+   Compiling skrifa v0.44.0
+   Compiling harfrust v0.12.0
+   Compiling ecolor v0.36.2
+   Compiling zbus-lockstep v0.5.2
+   Compiling vello_cpu v0.1.0
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling socket2 v0.6.5
+   Compiling percent-encoding-rfc3986 v0.1.3
+   Compiling num-bigint-dig v0.8.6
+   Compiling epaint v0.36.2
+   Compiling async-opcua-types v0.19.0
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling atspi-common v0.13.0
+   Compiling crossterm v0.28.1
+   Compiling cipher v0.4.4
+   Compiling rand v0.8.8
+   Compiling pkcs8 v0.10.2
+   Compiling signature v2.2.0
+   Compiling lazy_static v1.5.1
+   Compiling sha1 v0.10.7
+   Compiling num-iter v0.1.46
+   Compiling ratatui v0.29.0
+   Compiling egui v0.36.2
+   Compiling pkcs1 v0.7.5
+   Compiling calloop-wayland-source v0.3.0
+   Compiling idna_adapter v1.2.2
+   Compiling hdf5-pure v0.20.1
+   Compiling tokio-macros v2.7.2
+   Compiling raffles v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/raffles)
+   Compiling njoy-outram-park-fork v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/njoy-outram-park-fork)
+   Compiling ring v0.17.14
+   Compiling tokio v1.54.0
+   Compiling idna v1.1.0
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling rsa v0.9.10
+   Compiling heapless v0.7.17
+   Compiling x509-cert v0.2.5
+   Compiling atspi-proxies v0.13.0
+   Compiling aes v0.8.4
+   Compiling cbc v0.1.2
+   Compiling tampines-steam-tables v0.3.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+   Compiling outram-park-fork-liggghts v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-liggghts)
+   Compiling outram-blender v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-blender)
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling accesskit_consumer v0.36.0
+   Compiling wayland-protocols-plasma v0.3.12
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling env_filter v2.0.0
+   Compiling hmac v0.12.1
+   Compiling gethostname v0.5.0
+   Compiling unsafe-libyaml v0.2.11
+   Compiling tiny-skia-path v0.11.4
+   Compiling winit v0.30.13
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling async-opcua-crypto v0.19.0
+   Compiling calloop-wayland-source v0.4.1
+   Compiling url v2.5.8
+   Compiling env_logger v0.11.11
+   Compiling accesskit_atspi_common v0.18.1
+   Compiling outram-mc-libs v0.0.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-mc-libs)
+   Compiling image v0.25.10
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling atspi v0.29.0
+   Compiling tokio-util v0.7.20
+   Compiling rustls-webpki v0.103.15
+   Compiling async-opcua-nodes v0.19.0
+   Compiling chem-eng-real-time-process-control-simulator v0.2.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/chem-eng-real-time-process-control-simulator)
+   Compiling futures-executor v0.3.34
+   Compiling outram-foam-multiphase v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-multiphase)
+   Compiling outram-foam-turbulence-lib v0.1.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-turbulence-lib)
+   Compiling wayland-protocols-misc v0.3.12
+   Compiling wayland-protocols-experimental v20250721.0.1
+   Compiling hash32 v0.2.1
+   Compiling kurbo v0.11.3
+   Compiling pin-project-internal v1.1.13
+   Compiling svgtypes v0.15.3
+   Compiling pin-project v1.1.13
+   Compiling smithay-client-toolkit v0.20.0
+   Compiling outram-foam-appbuilder-lib v0.1.7 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-appbuilder-lib)
+   Compiling futures v0.3.34
+   Compiling rustls v0.23.46
+   Compiling boon-lay v0.2.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/boon-lay)
+   Compiling outram-park-fork-dwsim-libs v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-dwsim-libs)
+   Compiling async-opcua-core v0.19.0
+   Compiling accesskit_unix v0.21.1
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling tuas_boussinesq_solver v0.1.9 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tuas_boussinesq_solver)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+   Compiling farrer-park v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/farrer-park)
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling outram-park-fork-coolprop v0.1.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-coolprop)
+   Compiling cobs v0.3.0
+   Compiling neli-proc-macros v0.2.2
+   Compiling usvg v0.45.1
+   Compiling ureq v3.4.2
+   Compiling postcard v1.1.3
+   Compiling tampines v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines)
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/two_fluid.rs:316:5
+    |
+316 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/drift_flux.rs:101:5
+    |
+101 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+   Compiling accesskit_winit v0.32.2
+   Compiling smithay-clipboard v0.7.3
+   Compiling tracing-futures v0.2.5
+   Compiling tiny-skia v0.11.4
+   Compiling teh-o-prke v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/teh-o-prke)
+   Compiling async-opcua-core-namespace v0.19.0
+   Compiling arboard v3.7.0
+   Compiling rgb v0.8.53
+   Compiling neli v0.7.4
+   Compiling resvg v0.45.1
+   Compiling egui-winit v0.36.2
+   Compiling egui-wgpu v0.36.2
+warning: `tampines` (lib) generated 2 warnings
+   Compiling ehttp v0.7.1
+   Compiling async-opcua-client v0.19.0
+   Compiling async-opcua-server v0.19.0
+   Compiling socket-pktinfo v0.4.1
+   Compiling flume v0.12.0
+   Compiling if-addrs v0.15.0
+   Compiling eframe v0.36.2
+   Compiling async-opcua v0.19.0
+   Compiling mdns-sd v0.20.3
+   Compiling egui_extras v0.36.2
+   Compiling local-ip-address v0.6.13
+   Compiling nee_soon v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/nee_soon)
+   Compiling bugis v0.0.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bugis)
+   Compiling egui_plot v0.37.0
+   Compiling outram-foam-mesh v0.1.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-mesh)
+   Compiling changi v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/changi)
+   Compiling buangkok v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/buangkok)
+   Compiling outram-park-digital-twin-engine v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-digital-twin-engine)
+   Compiling outram-park-fork-offbeat v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-offbeat)
+   Compiling sembawang v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/sembawang)
+   Compiling bishan v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bishan)
+    Finished `release` profile [optimized] target(s) in 13m 04s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/outram_park_digital_twin_engine-6d470a12f3b23a73)
+
+running 123 tests
+test ciet_opcua::node_map::tests::browse_names_are_single_segments ... ok
+test ciet_opcua::node_map::tests::every_control_clamps_out_of_range_writes ... ok
+test ciet_opcua::node_map::tests::every_switch_round_trips ... ok
+test ciet_opcua::node_map::tests::nan_writes_are_ignored ... ok
+test ciet_opcua::node_map::tests::node_identifiers_are_unique ... ok
+test ciet_opcua::pki_paths::tests::pki_path_ends_in_the_platform_components ... ok
+test ciet_opcua::server::tests::default_config_binds_all_interfaces_on_the_standard_port ... ok
+test ciet_opcua::simulator::tests::ciet_nodes_reproduce_the_node_map ... ok
+test ciet_opcua::simulator::tests::the_ciet_profile_is_internally_consistent ... ok
+test ciet_opcua::simulator::tests::writes_are_recorded_as_requests_and_clamped_on_apply ... ok
+test ciet_opcua::state::tests::control_setters_clamp_to_documented_envelopes ... ok
+test ciet_opcua::state::tests::frequency_response_signal_matches_closed_form ... ok
+test ciet_opcua::pki_paths::tests::description_names_the_directory_and_the_missing_security ... ok
+test ciet_opcua::user_controls::tests::a_stale_full_struct_overwrite_cannot_lose_a_request ... ok
+test ciet_opcua::user_controls::tests::applying_enforces_the_envelope ... ok
+test ciet_opcua::user_controls::tests::every_request_reaches_plant_state ... ok
+test ciet_opcua::user_controls::tests::later_request_supersedes_earlier_within_a_timestep ... ok
+test ciet_opcua::user_controls::tests::requests_are_consumed_exactly_once ... ok
+test ciet_opcua::user_controls::tests::slot_counts_match_the_node_map ... ok
+test components::condenser::tests::the_scalar_path_and_builders_reach_the_art ... ok
+test components::condenser::tests::the_physics_path_draws_unpainted_with_its_pressure ... ok
+test components::excursion::tests::a_healthy_reactor_is_not_annotated ... ok
+test components::excursion::tests::alphas_saturate_instead_of_wrapping ... ok
+test components::excursion::tests::no_release_is_drawn_where_retention_is_demonstrated ... ok
+test components::excursion::tests::no_stage_describes_an_explosion ... ok
+test components::excursion::tests::the_banner_pulse_is_bounded_and_deterministic ... ok
+test components::excursion::tests::the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure ... ok
+test components::excursion::tests::the_intensity_is_zero_within_the_limit_and_escalates_on_nonsense ... ok
+test components::excursion::tests::the_overlay_reports_the_numbers_behind_it ... ok
+test components::excursion::tests::the_phase_comes_from_the_application_clock_and_does_not_reverse ... ok
+test components::excursion::tests::the_release_marks_drift_outward_and_settle ... ok
+test components::excursion::tests::the_release_scatter_is_deterministic ... ok
+test components::excursion::tests::the_species_are_named_in_the_order_the_heating_tests_report ... ok
+test components::excursion::tests::the_stage_escalates_only_at_the_documented_threshold ... ok
+test components::heat_exchanger::tests::the_arrangement_round_trips_through_the_physics_enum ... ok
+test components::heat_exchanger::tests::the_end_brackets_are_the_two_ends_of_the_log_mean ... ok
+test components::cooling_tower::tests::the_physics_path_draws_no_plume_and_no_approach ... ok
+test components::cooling_tower::tests::the_air_states_come_from_the_coolprop_psychrometrics ... ok
+test components::heat_exchanger::tests::the_physics_path_draws_its_arrangement_but_paints_no_temperature ... ok
+test components::pipe::tests::length_is_proportional_to_run_length ... ok
+test components::heat_exchanger::tests::the_scalar_path_and_builders_reach_the_art ... ok
+test components::pipe::tests::the_art_carries_the_pipes_cells_and_draws ... ok
+test components::pipe::tests::thickness_is_proportional_to_cross_sectional_area ... ok
+test components::pipe_component::tests::non_positive_timestep_is_rejected ... ok
+test components::pipe_component::tests::residence_time_is_length_over_velocity ... ok
+test components::pipe_component::tests::stagnant_run_places_no_mark ... ok
+test components::pipe_component::tests::stepping_advances_the_backend ... ok
+test components::pipe_component::tests::tracer_phase_persists_across_steps ... ok
+test components::pump::tests::wrapping_a_tampines_pump_invents_no_state ... ok
+test components::reactor_archetype::kinetics_tests::delayed_fractions_are_near_the_u235_value ... ok
+test components::reactor_archetype::kinetics_tests::every_archetype_builds_a_valid_kinetics_model ... ok
+test components::reactor_archetype::kinetics_tests::graphite_moderated_cases_are_slower_than_light_water_cases ... ok
+test components::reactor_archetype::kinetics_tests::heat_capacity_scales_with_thermal_power ... ok
+test components::reactor_archetype::kinetics_tests::the_fast_reactor_has_a_far_shorter_generation_time ... ok
+test components::pump::tests::the_scalar_path_and_builders_reach_the_art ... ok
+test components::reactor_vessel::tests::fuel_temperature_drives_the_fill_hotness ... ok
+test components::steam_generator::tests::the_physics_constructor_starts_isothermal_until_told_otherwise ... ok
+test components::steam_generator::tests::the_physics_path_reads_the_live_secondary_temperature ... ok
+test components::turbine::tests::fresh_preset_starts_at_rest ... ok
+test components::turbine::tests::generator_variant_reports_no_casing_temperature ... ok
+test components::turbine::tests::rotor_angle_is_omega_times_time ... ok
+test components::steam_generator::tests::the_scalar_path_reaches_the_art_and_draws ... ok
+test components::turbine::tests::the_scalar_path_and_builders_reach_the_art ... ok
+test headless::tests::csv_has_a_header_and_one_row_per_sample ... ok
+test headless::tests::determinism_helper_passes_for_a_deterministic_model ... ok
+test components::valve::tests::the_valve_opening_comes_from_the_physics ... ok
+test headless::tests::samples_at_the_requested_interval_and_always_the_last_step ... ok
+test headless::tests::tick_advances_exactly_once_per_call ... ok
+test htr10::design::tests::core_volume_closes_against_cited_diameter_and_height ... ok
+test htr10::design::tests::fuel_temperature_limits_are_distinct_and_margin_is_positive ... ok
+test htr10::design::tests::operating_point_energy_balance_closes_against_coolprop_helium_cp ... ok
+test htr10::design::tests::pebble_count_and_filling_fraction_reproduce_core_volume ... ok
+test htr10::design::tests::porosity_is_one_minus_filling_fraction ... ok
+test htr10::design::tests::secondary_steam_energy_balance_closes_against_if97 ... ok
+test htr10::kta::tests::kta_friction_factor_reproduces_vtb_worked_example ... ok
+test htr10::kta::tests::kta_pressure_gradient_reproduces_vtb_worked_example ... ok
+test htr10::kta::tests::reynolds_from_tutorial_mass_flow_documents_source_inconsistency ... ok
+test htr10::neutronics::tests::deviated_benchmark_differs_from_original_in_exactly_three_stated_ways ... ok
+test htr10::neutronics::tests::every_published_value_carries_a_correctly_tiered_source ... ok
+test htr10::neutronics::tests::full_core_b2_loading_is_consistent_across_sources_and_geometry ... ok
+test htr10::neutronics::tests::heavy_metal_loading_closes_from_kernel_geometry ... ok
+test htr10::neutronics::tests::homogenisation_biases_are_ordered_and_bounded ... ok
+test htr10::neutronics::tests::interpolation_reproduces_the_four_published_b1_critical_heights ... ok
+test htr10::neutronics::tests::measured_ball_count_follows_from_loading_height ... ok
+test htr10::neutronics::tests::measured_loading_matches_the_57_to_43_design_ratio ... ok
+test htr10::neutronics::tests::original_to_deviated_shift_agrees_between_two_independent_sources ... ok
+test htr10::neutronics::tests::published_predictions_are_within_one_percent_of_the_measurement ... ok
+test htr10::neutronics::tests::triso_layer_stack_and_packing_fraction_are_consistent ... ok
+test htr10::zbs::tests::interpolant_clamps_outside_tabulated_range ... ok
+test htr10::zbs::tests::interpolant_returns_all_tabulated_nodes_exactly ... ok
+test htr10::zbs::tests::interpolant_is_monotonic_between_endpoints ... ok
+test multifidelity::double_pipe::cfd::tests::closure_conversion_and_meshes ... ok
+test multifidelity::double_pipe::closure::tests::closures_from_cfd_reproduce_the_pressure_drop_through_tuas_law ... ok
+test multifidelity::double_pipe::cokriging::tests::full_factorial_orders_re_hot_slowest_and_length_fastest ... ok
+test multifidelity::double_pipe::closure::tests::the_table_is_exact_on_a_log_multilinear_closure_and_refuses_held_out_points ... ok
+test components::cooling_tower::tests::the_scalar_path_and_builders_reach_the_art ... ok
+test multifidelity::double_pipe::dataset::tests::output_round_trips_and_bad_csv_is_refused ... ok
+test multifidelity::double_pipe::design::tests::the_design_is_44_points_with_8_held_out_inside_the_training_hull ... ok
+test components::physics_feeds_the_art::a_crude_plant_snapshot_drives_the_widget ... ok
+test multifidelity::double_pipe::fidelity::tests::polynomial_surrogate_of_the_cfd_held_out_report ... ok
+test multifidelity::double_pipe::fidelity::tests::the_committed_dataset_keeps_its_split_and_provenance ... ok
+test multifidelity::double_pipe::fidelity::tests::the_parameter_space_holds_nominal_theta ... ok
+test multifidelity::double_pipe::filtering::tests::construction_pieces ... ok
+test multifidelity::double_pipe::filtering::tests::pilot_four_experiments_three_filters ... ok
+test multifidelity::double_pipe::cokriging::tests::mfk_on_the_double_pipe_held_out_report has been running for over 60 seconds
+test multifidelity::double_pipe::cokriging::tests::sweep_is_predict_at_every_point_in_order has been running for over 60 seconds
+test multifidelity::double_pipe::fidelity::tests::corrected_model_at_nominal_theta_is_one_d_bit_for_bit has been running for over 60 seconds
+test multifidelity::double_pipe::koh::tests::koh_calibration_of_the_double_pipe has been running for over 60 seconds
+test multifidelity::double_pipe::fidelity::tests::corrected_model_at_nominal_theta_is_one_d_bit_for_bit ... ok
+test multifidelity::double_pipe::koh::tests::the_ua_pair_and_spec_are_consistent ... ok
+test multifidelity::double_pipe::lf_grid::tests::the_committed_low_fidelity_grid_regenerates ... ok
+test multifidelity::double_pipe::cokriging::tests::sweep_is_predict_at_every_point_in_order ... ok
+test multifidelity::double_pipe::one_d::tests::nominal_theta_is_tuas_own_correlation_path ... ok
+test multifidelity::double_pipe::one_d::tests::march_free_ua_is_the_marched_ua ... ok
+test multifidelity::double_pipe::openda::tests::pilot_b_dud_against_the_koh_posterior ... ok
+test multifidelity::double_pipe::tests::inputs_and_fixed_geometry ... ok
+test opcua_core::discovery::tests::instance_name_is_stripped_from_the_dns_sd_fullname ... ok
+test opcua_core::discovery::tests::instance_names_are_sanitised_to_dns_safe_labels ... ok
+test opcua_core::discovery::tests::mdns_service_type_is_a_valid_dns_sd_type ... ok
+test opcua_core::pki::tests::instance_tags_cannot_escape_the_pki_directory ... ok
+test opcua_core::pki::tests::the_per_user_root_is_the_documented_directory ... ok
+test opcua_core::server::tests::for_simulator_binds_all_interfaces_on_the_profile_port ... ok
+test opcua_core::server::tests::is_loopback_only_recognises_every_loopback_form ... ok
+test opcua_core::server::tests::primary_url_prefers_a_reachable_address ... ok
+test multifidelity::double_pipe::openda::tests::pilot_a_openda_enkf_beside_filterpy_enkf ... ok
+test multifidelity::double_pipe::koh::tests::koh_calibration_of_the_double_pipe ... ok
+test multifidelity::double_pipe::cokriging::tests::mfk_on_the_double_pipe_held_out_report ... ok
+
+test result: ok. 123 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1734.30s
+
+     Running unittests src/bin/ciet_educational_simulator_v2/main.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/ciet_educational_simulator_v2-0d04c35a2000bc6f)
+
+running 5 tests
+test cli::tests::empty_command_line_gives_documented_defaults ... ok
+test cli::tests::bad_command_lines_are_rejected ... ok
+test cli::tests::every_flag_is_honoured ... ok
+test ciet_simulator_v2::app::panels_and_pages::full_simulation::stepper::tests::flows_solved_from_snapshots_are_the_flows_solved_in_the_step ... ok
+test ciet_simulator_v2::app::panels_and_pages::full_simulation::stepper::tests::the_stepper_is_deterministic_and_inline_equals_threaded ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.86s
+
+     Running unittests src/bin/ciet_v2_opcua_client/main.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/ciet_v2_opcua_client-b6d830ec94dae9da)
+
+running 37 tests
+test browse::tests::discovery_status_distinguishes_early_listening_from_nothing_found ... ok
+test browse::tests::the_empty_list_grace_period_allows_several_browse_reads ... ok
+test drafts::tests::server_side_clamping_is_displayed_as_clamping ... ok
+test drafts::tests::an_overridden_set_point_is_flagged_rather_than_accepted ... ok
+test drafts::tests::the_readback_tolerance_absorbs_an_f32_round_trip_only ... ok
+test drafts::tests::slider_values_fall_back_within_the_documented_range ... ok
+test endpoint::tests::a_non_ciet_server_is_reported_with_its_actual_namespaces ... ok
+test endpoint::tests::abbreviated_addresses_normalise_to_the_canonical_url ... ok
+test endpoint::tests::an_explicit_path_is_not_replaced_by_the_default ... ok
+test endpoint::tests::malformed_addresses_are_rejected_with_a_specific_reason ... ok
+test endpoint::tests::namespace_index_follows_the_servers_array_not_a_hard_coded_two ... ok
+test endpoint::tests::normalisation_is_idempotent ... ok
+test endpoint::tests::the_hotspot_advice_is_attached_to_the_timeout_case_only ... ok
+test endpoint::tests::the_three_failure_modes_a_user_must_distinguish_are_classified_apart ... ok
+test nodes::tests::every_published_variable_round_trips_through_the_index ... ok
+test nodes::tests::lookups_are_namespace_scoped_and_string_only ... ok
+test shared_state::tests::commands_are_delivered_exactly_once ... ok
+test shared_state::tests::failed_writes_are_retained_and_flagged ... ok
+test shared_state::tests::the_four_connection_states_are_reported_distinctly ... ok
+test shared_state::tests::trend_abscissa_is_simulated_time_and_requires_it_to_be_known ... ok
+test shared_state::tests::unread_nodes_are_absent_rather_than_zero ... ok
+test ui::controls_panel::tests::an_unread_switch_is_not_displayed_as_off ... ok
+test ui::controls_panel::tests::every_writable_node_has_a_usable_slider_range ... ok
+test shared_state::tests::trends_are_bounded_and_reject_non_finite_points ... ok
+test ui::discovery_panel::tests::a_discovered_endpoint_url_is_already_canonical ... ok
+test ui::discovery_panel::tests::the_panel_action_distinguishes_connect_from_disconnect ... ok
+test ui::outputs_panel::tests::every_signal_is_grouped_exactly_once ... ok
+test ui::outputs_panel::tests::group_headings_are_present_and_distinct ... ok
+test ui::outputs_panel::tests::group_units_are_uniform_and_precision_suits_the_magnitudes ... ok
+test ui::tests::reading_colour_distinguishes_unread_good_and_bad ... ok
+test ui::tests::real_readings_format_with_value_unit_and_sign ... ok
+test ui::tests::unread_values_format_as_a_bare_placeholder ... ok
+test ui::trends_panel::tests::the_two_plots_partition_the_trended_signals ... ok
+test values::tests::numeric_extraction_accepts_number_variants_only ... ok
+test values::tests::wrongly_typed_values_are_dropped_not_coerced ... ok
+test worker::tests::connection_transitions_clear_stale_readings ... ok
+test worker::tests::writes_without_a_session_are_logged_as_failures ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ci_smoke/main.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/ci_smoke-efa3c4b7955867bd)
+
+running 2 tests
+test edwards::edwards_drift_flux_gs1_pressure_history ... ok
+test godiva::godiva_keff_high_tier_local_endf has been running for over 60 seconds
+test godiva::godiva_keff_high_tier_local_endf ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 289.46s
+
+     Running tests/ciet_v2_headless_remote_control.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/ciet_v2_headless_remote_control-2a652555c79b12a4)
+
+running 1 test
+test a_remote_client_can_drive_the_ciet_loop ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.09s
+
+     Running tests/ciet_v2_opcua_roundtrip.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/ciet_v2_opcua_roundtrip-6712baaef53ba621)
+
+running 1 test
+test opcua_interface_round_trips_controls_and_outputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.16s
+
+     Running tests/hf_lf_double_pipe_gh1178.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/hf_lf_double_pipe_gh1178-f7b769b93efe6567)
+
+running 4 tests
+test predictions_that_held_still_hold_on_the_committed_record ... ok
+test coarse_grid_plumbing ... ok
+test the_committed_dataset_regenerates_bit_for_bit ... FAILED
+test the_held_out_one_d_runs_regenerate_the_record ... ok
+
+failures:
+
+---- the_committed_dataset_regenerates_bit_for_bit stdout ----
+
+thread 'the_committed_dataset_regenerates_bit_for_bit' (3888359) panicked at crates/outram-park-digital-twin-engine/tests/hf_lf_double_pipe_gh1178.rs:61:5:
+assertion `left == right` failed
+  left: "T33,training,90,45,1,0.1,0.0000007068583470577034,0.0000011309733552923255,0.6805770651527272,28.324367611704407,0.2003539162379882,339.99107043845356,306.25722909679627,0.35578728093432577,0.4139148497027619,7.287986924249394,7.876886163950745,28.324367656644778,0.6769865967499255,2.827433388230816,4.523893421169303,7.227946802654787,7.811994554239316,13.737531708408222,22.271370935247674,0.20121594510581686,3990,1520,3800,38,18,69"
+ right: "T33,training,90,45,1,0.1,0.0000007068583470577034,0.0000011309733552923255,0.6805446435270672,28.323243856198363,0.20034596729382761,339.99146765513893,306.25697950492685,0.3557721772971279,0.413914880604219,7.287264850886096,7.876948861126928,28.323243901183503,0.6769544657275086,2.827433388230816,4.523893421169303,7.227230677898833,7.812056734901662,13.736170632184127,22.27154820733696,0.20120793744070348,3990,1520,3800,38,18,69"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    the_committed_dataset_regenerates_bit_for_bit
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 43.17s
+
+error: test failed, to rerun pass `-p outram-park-digital-twin-engine --test hf_lf_double_pipe_gh1178`
+     Running tests/wgpu_only_renderer.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/wgpu_only_renderer-6387ac5ec063831e)
+
+running 2 tests
+test the_workspace_eframe_is_on_wgpu ... ok
+test no_crate_selects_glow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+error: 1 target failed:
+    `-p outram-park-digital-twin-engine --test hf_lf_double_pipe_gh1178`

@@ -85,11 +85,24 @@
 /// Driving a solver from an OpenFOAM case directory: read the case, build the
 /// solver's initial state, march the time loop, write the fields back.
 pub mod case_runner;
+/// Ready-made flow cases (boundary conditions + diagnostics) shared by V&V
+/// tests and demos, e.g. [`cases::laminar_pipe`].
+pub mod cases;
 
 pub mod error;
 /// GeN-Foam reactor-multiphysics port (neutronics + TH + thermo-mechanics).
 /// See `docs/genfoam-port-plan.md` for the module map and translation order.
 pub mod genfoam;
+/// Pebble-bed HTGR closures (original work, not a GeN-Foam port): bed
+/// effective conductivity (Breitbach default, ZBS comparison), KTA 3102.2 heat
+/// transfer, KTA 3102.3 pressure drop, and the IAEA-TECDOC-1694 HTR-10 solid
+/// conductivities. See [`htgr_closures`].
+pub mod htgr_closures;
+/// The HTR-10 R-Z solid conduction and radiation model (original work,
+/// gh:#1149 part B): the TECDOC-1694 44-region THERMIX-style model built from
+/// the cited input sheet on the solid conduction field, with the
+/// [`htgr_closures`] properties. See [`htr10_rz`].
+pub mod htr10_rz;
 /// OpenFOAM case input/output — polyMesh and field readers, typed
 /// `controlDict`/`fvSchemes`/`fvSolution`, and (unimplemented) field writers.
 pub mod io;

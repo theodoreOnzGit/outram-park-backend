@@ -8,27 +8,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DEM pour demo · OUTRAM PARK</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1014; color: #d8dce4;
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1d2021; color: #ebdbb2;
                font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   #dem_canvas { display: block; width: 100%; height: 100%; outline: none; }
   #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
              text-align: center; padding: 24px; }
   #loading .box { max-width: 34em; }
   #loading .spin { width: 28px; height: 28px; margin: 0 auto 16px; border-radius: 50%;
-                   border: 3px solid #3a4150; border-top-color: #7aa7ff; animation: s 0.9s linear infinite; }
+                   border: 3px solid #504945; border-top-color: #83a598; animation: s 0.9s linear infinite; }
   @keyframes s { to { transform: rotate(360deg); } }
-  noscript, .err { color: #ff8a8a; }
-  #loading a, #refs a { color: #7aa7ff; }
+  noscript, .err { color: #fb4934; }
+  #loading a, #refs a { color: #83a598; }
   /* References (gh:#789): a collapsed button fixed in the corner, so the full-page main view is
      untouched; opened, the list scrolls inside a box that never exceeds the screen width. */
   #refs { position: fixed; right: 8px; bottom: 8px; z-index: 10; max-width: calc(100vw - 16px); font-size: 13px; }
   #refs summary { cursor: pointer; width: max-content; margin-left: auto; padding: 6px 10px;
-                  background: #1b1f27; border: 1px solid #3a4150; border-radius: 6px; }
+                  background: #282828; border: 1px solid #504945; border-radius: 6px; }
   #refs .refs-body { width: min(36em, calc(100vw - 16px)); max-height: 55vh; overflow: auto; margin-top: 4px;
-                     padding: 2px 12px; background: #14171d; border: 1px solid #3a4150; border-radius: 6px;
+                     padding: 2px 12px; background: #1d2021; border: 1px solid #504945; border-radius: 6px;
                      overflow-wrap: anywhere; }
   #refs h2 { font-size: 14px; margin: 8px 0; }
   #refs p.csl-entry { margin: 0 0 8px; }
+  /* Gruvbox Light when the app is (bugis sets data-theme on <html>, 2026-11-05). */
+  :root[data-theme="light"] body { background: #f9f5d7; color: #3c3836; }
+  :root[data-theme="light"] #refs summary { background: #fbf1c7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs .refs-body { background: #f9f5d7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs a, :root[data-theme="light"] #loading a { color: #076678; }
 </style>
 </head>
 <body>

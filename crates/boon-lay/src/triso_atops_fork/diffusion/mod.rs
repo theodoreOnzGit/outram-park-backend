@@ -39,6 +39,16 @@
 //! Te, Se and the Ag/Pd kernel are **extrapolated**, as upstream's code does
 //! (the function's own doc, corrected under #449, already says so).
 //!
+//! **The paper variant clamps every law (gh:#1015, 2026-10-22).** The paper,
+//! Stoyer, Raichart & Petti (2026), doi:10.1080/00295450.2026.2671624, says
+//! "the nearest temperature in the range is used" below a law's range
+//! (pp. 8-9). Under [`TrisoAtopsVariant::ATOPS2026PAPER`],
+//! [`diffusion_coefficient_for`] and [`diffusion_coefficient_sic_ag_for`] add
+//! the kernel Kr law (Kr, Xe, I, Te, Se) and the SiC Ag law, both at 700 °C,
+//! to upstream's clamps. Pd takes the SiC Ag law, so the Ag/Pd kernel law is
+//! unused there. [`diffusion_coefficient`] itself, the upstream default, is
+//! unchanged and still extrapolates.
+//!
 //! ## Units
 //!
 //! Temperatures are [`ThermodynamicTemperature`]; internally each correlation
@@ -54,6 +64,10 @@ use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{Area, DiffusionCoefficient, ThermodynamicTemperature, Time};
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 use uom::si::time::second;
+
+use crate::triso_atops_fork::variant::{
+    LowTemperatureLaw, PaperReadings, TrisoAtopsVariant, YttriumGroup,
+};
 
 /// Molar gas constant `R` used by the TRISO-ATOPS correlations, in J/(mol·K).
 ///
@@ -206,6 +220,65 @@ pub fn diffusion_coefficient_sic_ag(
     DiffusionCoefficient::new::<square_meter_per_second>(arrhenius_term(3.6e-9, 215.0, tk))
 }
 
+/// Kernel and graphite diffusion coefficients under a model
+/// [`TrisoAtopsVariant`] (gh:#1015).
+///
+/// [`TrisoAtopsVariant::Upstream`], or any variant whose readings keep
+/// [`LowTemperatureLaw::UpstreamPartialClamp`] and
+/// [`YttriumGroup::UpstreamOther`], is exactly [`diffusion_coefficient`].
+/// Under the paper's readings:
+///
+/// - **(d) every law is clamped from below** at the lower end of its Table 5
+///   range ("the nearest temperature in the range is used to avoid
+///   extrapolation", pp. 8-9 of Stoyer, Raichart & Petti 2026,
+///   doi:10.1080/00295450.2026.2671624). This adds the kernel Kr law, used for
+///   Kr, Xe, I, Te and Se (p. 9), at 700 °C. Graphite `D` for these volatiles
+///   equals the clamped kernel `D`, as upstream sets it; it is never used,
+///   because volatiles have no graphite hold-up (p. 9).
+/// - **(c) yttrium (`Z = 39`) takes strontium's laws** (p. 9).
+///
+/// No upper clamp: the paper names only the lower bound.
+#[must_use]
+pub fn diffusion_coefficient_for(
+    variant: TrisoAtopsVariant,
+    z: u32,
+    kernel_temperature: ThermodynamicTemperature,
+    graphite_temperature: ThermodynamicTemperature,
+) -> KernelGraphiteDiffusion {
+    let r = variant.readings();
+    let z = if z == 39 && r.yttrium == YttriumGroup::StrontiumGroup {
+        38
+    } else {
+        z
+    };
+    match (r.low_temperature, z) {
+        (LowTemperatureLaw::NearestInRange, 36 | 52 | 53 | 54 | 34) => {
+            let t_kernel_c = kernel_temperature.get::<degree_celsius>().max(700.0);
+            let t = ThermodynamicTemperature::new::<degree_celsius>(t_kernel_c);
+            diffusion_coefficient(z, t, t)
+        }
+        _ => diffusion_coefficient(z, kernel_temperature, graphite_temperature),
+    }
+}
+
+/// Silver-in-SiC diffusion coefficient under a model [`TrisoAtopsVariant`].
+///
+/// Upstream's law is not clamped. Under the paper's (d), the temperature is
+/// clamped from below at 700 °C, the bottom of the Table 5 SiC range (p. 8).
+#[must_use]
+pub fn diffusion_coefficient_sic_ag_for(
+    variant: TrisoAtopsVariant,
+    sic_temperature: ThermodynamicTemperature,
+) -> DiffusionCoefficient {
+    match variant.readings().low_temperature {
+        LowTemperatureLaw::NearestInRange => {
+            let t_c = sic_temperature.get::<degree_celsius>().max(700.0);
+            diffusion_coefficient_sic_ag(ThermodynamicTemperature::new::<degree_celsius>(t_c))
+        }
+        LowTemperatureLaw::UpstreamPartialClamp => diffusion_coefficient_sic_ag(sic_temperature),
+    }
+}
+
 /// Which material's diffusion coefficient to integrate over time.
 ///
 /// Ports the `diffusion_type ∈ {'kernel', 'graphite'}` argument of the Python
@@ -287,6 +360,65 @@ pub fn integrate_diffusion_over_time(
     out
 }
 
+/// [`integrate_diffusion_over_time`] under a model [`TrisoAtopsVariant`]
+/// (gh:#1015).
+///
+/// [`TrisoAtopsVariant::Upstream`] (and any readings equal to
+/// [`crate::triso_atops_fork::variant::PaperReadings::UPSTREAM_CODE`]) calls
+/// [`integrate_diffusion_over_time`] itself. Otherwise the same trapezoid
+/// rule, with the same `D = 0` baseline at `t = 0`, runs on
+/// [`diffusion_coefficient_for`] and [`diffusion_coefficient_sic_ag_for`];
+/// and under the paper's item (g) palladium (`Z = 46`) takes the SiC silver
+/// law in the kernel, as silver does (Table 1, p. 6; Eq. (18), p. 11).
+///
+/// # Panics
+/// Panics if `times` and `temperatures` differ in length.
+#[must_use]
+pub fn integrate_diffusion_over_time_for(
+    variant: TrisoAtopsVariant,
+    z: u32,
+    times: &[Time],
+    temperatures: &[ThermodynamicTemperature],
+    material: DiffusionMaterial,
+) -> Vec<Area> {
+    let readings = variant.readings();
+    if readings == PaperReadings::UPSTREAM_CODE {
+        return integrate_diffusion_over_time(z, times, temperatures, material);
+    }
+    assert_eq!(
+        times.len(),
+        temperatures.len(),
+        "times and temperatures must have equal length"
+    );
+    let silver_law = z == 47 || (z == 46 && readings.palladium_as_silver());
+    let mut out = Vec::with_capacity(times.len());
+    let mut running = 0.0_f64;
+    let mut prev_d = 0.0_f64;
+    let mut prev_t = 0.0_f64;
+    for (&time, &temperature) in times.iter().zip(temperatures.iter()) {
+        let d = match material {
+            DiffusionMaterial::Kernel if silver_law => {
+                diffusion_coefficient_sic_ag_for(variant, temperature)
+                    .get::<square_meter_per_second>()
+            }
+            DiffusionMaterial::Kernel => diffusion_coefficient_for(variant, z, temperature, temperature)
+                .kernel
+                .get::<square_meter_per_second>(),
+            DiffusionMaterial::Graphite => {
+                diffusion_coefficient_for(variant, z, temperature, temperature)
+                    .graphite
+                    .get::<square_meter_per_second>()
+            }
+        };
+        let t_s = time.get::<second>();
+        running += 0.5 * (d + prev_d) * (t_s - prev_t);
+        out.push(Area::new::<square_meter>(running));
+        prev_d = d;
+        prev_t = t_s;
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -358,6 +490,87 @@ mod tests {
         let d = diffusion_coefficient(40, t, t);
         assert_eq!(d.kernel.get::<square_meter_per_second>(), 1e-19);
         assert_eq!(d.graphite.get::<square_meter_per_second>(), 1e-19);
+    }
+
+    /// gh:#1015 (d) and (c), checked against the paper's Table 5 laws.
+    ///
+    /// Methodology: at 400 °C (below every kernel range), the paper variant
+    /// must give Kr's law evaluated at 700 °C, hand-computed as
+    /// `1.3e-12·exp(−126000/(973.15·8.31447))`; upstream must extrapolate
+    /// (a smaller `D`). Yttrium under the paper must equal strontium's `D` at
+    /// the same temperatures. The SiC silver law must be clamped at 700 °C
+    /// under the paper only. Pass: equality to 1e-12 relative.
+    ///
+    /// Prediction (written before the run): `D` higher below range under the
+    /// paper; at 400 °C the Kr ratio paper/upstream is
+    /// `exp(126000/8.31447·(1/673.15 − 1/973.15)) ≈ 1.0e3`.
+    /// Result (2026-10-22): the test prints the ratio.
+    #[test]
+    fn paper_clamps_every_law_and_moves_yttrium() {
+        let paper = TrisoAtopsVariant::ATOPS2026PAPER;
+        let cold = ThermodynamicTemperature::new::<degree_celsius>(400.0);
+        let up = diffusion_coefficient_for(TrisoAtopsVariant::Upstream, 36, cold, cold).kernel;
+        assert_eq!(up, diffusion_coefficient(36, cold, cold).kernel);
+        let pap = diffusion_coefficient_for(paper, 36, cold, cold)
+            .kernel
+            .get::<square_meter_per_second>();
+        let hand = 1.3e-12 * (-126000.0_f64 / (973.15 * 8.31447)).r_exp();
+        assert_relative_eq!(pap, hand, max_relative = 1e-12);
+        let ratio = pap / up.get::<square_meter_per_second>();
+        println!("Kr kernel D at 400 degC, paper / upstream = {ratio:.4e}");
+        assert!(ratio > 1.0);
+
+        let hot = ThermodynamicTemperature::new::<degree_celsius>(1100.0);
+        for t in [cold, hot] {
+            assert_eq!(
+                diffusion_coefficient_for(paper, 39, t, t),
+                diffusion_coefficient(38, t, t)
+            );
+        }
+        assert_eq!(
+            diffusion_coefficient_for(TrisoAtopsVariant::Upstream, 39, hot, hot).kernel,
+            DiffusionCoefficient::new::<square_meter_per_second>(1e-19)
+        );
+
+        let sic_cold = diffusion_coefficient_sic_ag_for(paper, cold);
+        let sic_700 =
+            diffusion_coefficient_sic_ag(ThermodynamicTemperature::new::<degree_celsius>(700.0));
+        assert_relative_eq!(
+            sic_cold.get::<square_meter_per_second>(),
+            sic_700.get::<square_meter_per_second>(),
+            max_relative = 1e-12
+        );
+        assert_eq!(
+            diffusion_coefficient_sic_ag_for(TrisoAtopsVariant::Upstream, cold),
+            diffusion_coefficient_sic_ag(cold)
+        );
+    }
+
+    /// The variant integral under upstream readings is the ported integral,
+    /// bit for bit; under the paper, Pd integrates the SiC silver law.
+    #[test]
+    fn variant_integral_reduces_to_upstream() {
+        let times: Vec<Time> = [0.0, 3600.0, 7200.0]
+            .iter()
+            .map(|t| Time::new::<second>(*t))
+            .collect();
+        let temps: Vec<ThermodynamicTemperature> = [900.0, 1200.0, 1500.0]
+            .iter()
+            .map(|t| ThermodynamicTemperature::new::<degree_celsius>(*t))
+            .collect();
+        for z in [36, 38, 46, 47, 55] {
+            for m in [DiffusionMaterial::Kernel, DiffusionMaterial::Graphite] {
+                assert_eq!(
+                    integrate_diffusion_over_time_for(TrisoAtopsVariant::Upstream, z, &times, &temps, m),
+                    integrate_diffusion_over_time(z, &times, &temps, m)
+                );
+            }
+        }
+        let paper = TrisoAtopsVariant::ATOPS2026PAPER;
+        assert_eq!(
+            integrate_diffusion_over_time_for(paper, 46, &times, &temps, DiffusionMaterial::Kernel),
+            integrate_diffusion_over_time(47, &times, &temps, DiffusionMaterial::Kernel)
+        );
     }
 
     /// Constant-temperature integral reduces to `D·t`.

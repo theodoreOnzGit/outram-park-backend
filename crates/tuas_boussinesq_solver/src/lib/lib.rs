@@ -86,16 +86,6 @@ extern crate uom;
 /// though to be honest, it is not too different in implementation compared
 /// to conduction
 
-/// `c!(a, b, ...)` builds a `Vec<f64>`. It replaces the `peroxide` macro of
-/// the same name (`peroxide-0.41.2/src/macros/r_macro.rs`, comma form), which
-/// TUAS's property tables were written with, so those tables read unchanged
-/// after `peroxide` was removed (gh:#989).
-macro_rules! c {
-    ( $( $x:expr ),* $(,)? ) => {
-        vec![ $( $x as f64 ),* ]
-    };
-}
-
 /// provides error types for tuas_boussinesq_solver
 pub mod tuas_lib_error;
 

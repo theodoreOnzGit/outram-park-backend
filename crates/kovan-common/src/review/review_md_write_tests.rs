@@ -8,7 +8,7 @@ use super::*;
 use crate::review::draft::{draft_needs_fix, draft_review, DraftInput};
 use crate::review::id::mint_fn_id;
 use crate::review::index::{FunctionIndex, ItemKind};
-use crate::review::review_md::FixStatus;
+use crate::review::review_md::{EntryMeta, FixStatus, JustificationEntry};
 use crate::review::wizard::TestAuthorship;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -160,4 +160,85 @@ fn needs_fix_appends_then_resolves_in_place() {
     assert!(WriteError::NotReadBack("x".into())
         .to_string()
         .contains("nothing written"));
+}
+
+/// Methodology (GitHub #1019): an agent justification is appended beside a
+/// review, an unreadable entry and a note; a second justification by the
+/// same agent replaces it; one by another agent is appended. Pass: every
+/// earlier byte is kept on append; the file reads back with the review,
+/// the unreadable entry and two justifications; the written block has the
+/// agent-drafted heading and body, the verdict and every evidence item,
+/// and no `signature` anywhere; the review is unchanged.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn justification_appends_replaces_per_agent_and_is_never_signed() {
+    use crate::review::draft::draft_justification;
+    use crate::review::review_md::Verdict;
+    let f = func("twice");
+    let a = draft(&f, "github:a", "2026-10-10T10:00:00+08:00");
+    let md = upsert_review(&format!("{BROKEN}\n{NOTE}"), &a, "Looked.").unwrap().text;
+    let j = |by: &str, verdict: Verdict, ev: &[&str], prev: Option<&EntryMeta>| {
+        let ev: Vec<String> = ev.iter().map(|s| s.to_string()).collect();
+        draft_justification(&f, FILE, by, "2026-10-22", "2026-10-22T10:00:00+08:00", SHA, verdict, &ev, prev)
+            .unwrap()
+    };
+    let j1 = j("agent:claude", Verdict::NotOk, &["upstream broadr.f90 L120 clamps at thnmax; we do not"], None);
+    let w = upsert_justification(&md, &j1).unwrap();
+    assert!(!w.replaced && w.text.starts_with(&md));
+    assert!(w.text.contains("# Justification (agent-drafted, unsigned): twice (agent:claude)"));
+    assert!(w.text.contains("never counts towards \"reviewed\""), "{}", w.text);
+    assert!(w.text.contains("## Verdict: not_ok") && w.text.contains("- upstream broadr.f90 L120"));
+    assert!(!w.text.contains("signature"), "{}", w.text);
+
+    let j2 = j("agent:claude", Verdict::Ok, &["fixed in HEAD", "test_thnmax passes"], Some(&j1.kovan));
+    let w = upsert_justification(&w.text, &j2).unwrap();
+    assert!(w.replaced && !w.text.contains("clamps at thnmax"));
+    let other = j("agent:other", Verdict::Unsure, &["no test reaches it"], None);
+    let w = upsert_justification(&w.text, &other).unwrap();
+    assert!(!w.replaced);
+
+    let doc = parse_review_md(&w.text);
+    assert_eq!(doc.unreadable.len(), 1);
+    assert_eq!(doc.reviews().collect::<Vec<_>>(), [&a]);
+    let js: Vec<&JustificationEntry> = doc.justifications().collect();
+    assert_eq!(js, [&j2, &other]);
+    assert!(justification_body(&j2).contains("- test_thnmax passes"));
+}
+
+/// Methodology (GitHub #1019): reading hand-made justification entries.
+/// Pass: a `signature` table added by hand under `[justification]` is an
+/// unknown key, ignored (the parsed entry has no signature to verify and
+/// re-renders without it); a justification by a human id or with
+/// `agent_drafted = false` is unreadable, and its function and author are
+/// still read for the queue.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn hand_made_justifications_read_as_unsigned_or_unreadable() {
+    use crate::review::draft::draft_justification;
+    use crate::review::review_md::Verdict;
+    let f = func("twice");
+    let j = draft_justification(
+        &f, FILE, "agent:claude", "2026-10-22", "now", SHA, Verdict::Ok, &["tests pass".to_string()], None,
+    )
+    .unwrap();
+    let toml = Entry::Justification(j.clone()).to_toml().unwrap();
+    let signed = format!("{toml}\n[justification.signature]\nkey = \"k1\"\nsig = \"AAAA\"\n");
+    let md = crate::artifact::render_block(1, "J", &signed, "");
+    let doc = parse_review_md(&md);
+    assert_eq!(doc.justifications().collect::<Vec<_>>(), [&j], "{:?}", doc.unreadable);
+    assert!(!Entry::Justification(j.clone()).to_toml().unwrap().contains("signature"));
+
+    for bad in [
+        toml.replace("by = \"agent:claude\"", "by = \"github:someone\""),
+        toml.replace("agent_drafted = true", "agent_drafted = false"),
+    ] {
+        let doc = parse_review_md(&crate::artifact::render_block(1, "J", &bad, ""));
+        assert_eq!(doc.justifications().count(), 0);
+        let u = &doc.unreadable[0];
+        assert_eq!(u.kind.as_deref(), Some("justification"));
+        assert_eq!(u.function.as_deref(), Some(f.id.as_str()));
+        assert!(u.by.is_some());
+    }
 }

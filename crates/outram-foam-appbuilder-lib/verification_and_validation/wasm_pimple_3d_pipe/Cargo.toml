@@ -1,0 +1,25 @@
+# Not a workspace member: it declares its own empty [workspace] so that a
+# cdylib for wasm32-unknown-unknown can be built without touching the root
+# workspace (the pattern of ../wasm_worker_timing). Copy the root Cargo.lock
+# beside this file first so the versions match the workspace. See README.md.
+[package]
+name = "foam_wasm_pipe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+outram-foam-appbuilder-lib = { path = "../.." }
+outram-foam-basic-lib = { path = "../../../outram-foam-basic-lib" }
+outram-foam-mesh = { path = "../../../outram-foam-mesh" }
+outram-park-fork-cfmesh = { path = "../../../outram-park-fork-cfmesh" }
+# gpu off: the meshing bridge and the plotter need no wgpu.
+outram-blender = { path = "../../../outram-blender", default-features = false, features = ["foam-mesh", "foam-export", "block-mesh"] }
+
+[profile.release]
+overflow-checks = true
+
+[workspace]

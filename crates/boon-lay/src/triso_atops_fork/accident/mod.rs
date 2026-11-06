@@ -55,6 +55,7 @@
 //! emergency planning, emergency response or licensing. See the crate docs.
 
 use super::nuclide_model::ElementGroup;
+use super::variant::{AccidentInventory, SilverAccidentInventory, TrisoAtopsVariant};
 use uom::si::f64::{Pressure, ThermodynamicTemperature, Time};
 use uom::si::pressure::kilopascal;
 use uom::si::thermodynamic_temperature::degree_celsius;
@@ -293,6 +294,108 @@ pub fn release_activity(
                     - node.circulating_activity
                     - clean_up
             }
+        }
+    };
+    release_fraction * activities
+}
+
+/// [`release_activity`] under a model [`TrisoAtopsVariant`] (gh:#1015).
+///
+/// [`AccidentInventory::UpstreamUnnormalised`] (and so
+/// [`TrisoAtopsVariant::Upstream`]) calls [`release_activity`] itself, unless
+/// [`SilverAccidentInventory::FailedParticles`] is selected. Under
+/// [`AccidentInventory::NormalisedPlateOut`] the kernel inventory is the
+/// paper's Eqs. (22), (23) and (28) (pp. 12-13 of Stoyer, Raichart & Petti
+/// 2026, doi:10.1080/00295450.2026.2671624), with no branch:
+///
+/// `F·f_normal − G − C − (t_irrad / t_run time)·(P + HPS) + F·f_accident`,
+///
+/// where for noble gases and halogens `f_normal = f_HM + f_inc` and
+/// `f_accident = f_inc-accident` (Eq. 22), for metals all four normal and
+/// both accident fractions (Eq. 23), and `HPS` enters only when `clean`
+/// (Eq. 28). Silver takes all particles (`f = 1`, Eq. (5b), p. 5) under
+/// [`SilverAccidentInventory::AllParticles`], Eq. (23)'s fractions under
+/// [`SilverAccidentInventory::FailedParticles`]. The graphite path is
+/// unchanged (Eq. 24). Palladium is in the silver group either way here, so
+/// `upstream_cadmium_typo` only matters for upstream readings.
+#[must_use]
+#[allow(clippy::too_many_arguments)]
+pub fn release_activity_for(
+    variant: TrisoAtopsVariant,
+    group: ElementGroup,
+    fractions: AccidentFractions,
+    node: NormalOperationNode,
+    release_fraction: f64,
+    clean: bool,
+    material: ReleaseMaterial,
+    upstream_cadmium_typo: bool,
+    z: u32,
+    irradiation_time: Time,
+    run_time: Time,
+) -> f64 {
+    let r = variant.readings();
+    if r.accident_inventory == AccidentInventory::UpstreamUnnormalised
+        && r.silver_accident_inventory == SilverAccidentInventory::AllParticles
+    {
+        return release_activity(
+            group,
+            fractions,
+            node,
+            release_fraction,
+            clean,
+            material,
+            upstream_cadmium_typo,
+            z,
+        );
+    }
+    let all_particles = matches!(group, ElementGroup::Silver)
+        && r.silver_accident_inventory == SilverAccidentInventory::AllParticles;
+    if r.accident_inventory == AccidentInventory::UpstreamUnnormalised {
+        // Upstream's formula with only the silver fraction changed.
+        if matches!(material, ReleaseMaterial::Kernel) && matches!(group, ElementGroup::Silver) {
+            return release_activity(
+                ElementGroup::SpecialMetal,
+                fractions,
+                node,
+                release_fraction,
+                clean,
+                material,
+                false,
+                z,
+            );
+        }
+        return release_activity(
+            group,
+            fractions,
+            node,
+            release_fraction,
+            clean,
+            material,
+            upstream_cadmium_typo,
+            z,
+        );
+    }
+    let activities = match material {
+        ReleaseMaterial::Graphite => node.graphite_activity,
+        ReleaseMaterial::Kernel => {
+            let volatile = matches!(group, ElementGroup::NobleGas | ElementGroup::Halogen);
+            let (f_normal, f_accident) = if all_particles {
+                (1.0, 0.0)
+            } else if volatile {
+                (
+                    fractions.heavy_metal + fractions.incremental,
+                    fractions.incremental_accident,
+                )
+            } else {
+                (fractions.normal_operation_sum(), fractions.accident_sum())
+            };
+            let norm = irradiation_time.get::<second>() / run_time.get::<second>();
+            let hps = if clean { node.clean_up_activity } else { 0.0 };
+            node.kernel_inventory_atoms * f_normal
+                - node.graphite_activity
+                - node.circulating_activity
+                - norm * (node.plate_out_activity + hps)
+                + node.kernel_inventory_atoms * f_accident
         }
     };
     release_fraction * activities
@@ -585,6 +688,56 @@ mod tests {
             incremental_accident: 5e-5,
             incremental_sic_accident: 7e-5,
         }
+    }
+
+    /// gh:#1015 (j): the paper's accident inventory, Eqs. (22)/(23)/(28).
+    ///
+    /// Methodology: one node with hand-chosen pools (atoms). Paper: plate-out
+    /// and HPS scaled by `t_irrad/t_run = 3/40`, accident fractions added, no
+    /// branch. Hand values computed in the test from the printed equations.
+    /// Upstream: [`release_activity`] itself. Prediction: the paper's
+    /// inventory is larger (less plate-out subtracted). Result (2026-10-22):
+    /// pass.
+    #[test]
+    fn paper_accident_inventory_follows_eqs_22_23_28() {
+        let yr = 365.0 * 86400.0;
+        let (ti, tr) = (Time::new::<second>(3.0 * yr), Time::new::<second>(40.0 * yr));
+        let f = fractions();
+        let node = NormalOperationNode {
+            kernel_inventory_atoms: 1e15,
+            graphite_activity: 1e9,
+            circulating_activity: 1e6,
+            plate_out_activity: 4e10,
+            clean_up_activity: 2e8,
+            ..Default::default()
+        };
+        let paper = TrisoAtopsVariant::ATOPS2026PAPER;
+        let norm = 3.0 / 40.0;
+        // Eq. (23), metal.
+        let got = release_activity_for(
+            paper, ElementGroup::SpecialMetal, f, node, 0.5, false, ReleaseMaterial::Kernel, false, 55, ti, tr,
+        );
+        let hand = 0.5
+            * (1e15 * f.normal_operation_sum() - 1e9 - 1e6 - norm * 4e10 + 1e15 * f.accident_sum());
+        assert!(((got - hand) / hand).abs() < 1e-14, "{got:e} {hand:e}");
+        // Eq. (28), volatile with the HPS.
+        let got_v = release_activity_for(
+            paper, ElementGroup::Halogen, f, node, 0.5, true, ReleaseMaterial::Kernel, false, 53, ti, tr,
+        );
+        let hand_v = 0.5
+            * (1e15 * (f.heavy_metal + f.incremental) - 1e9 - 1e6 - norm * (4e10 + 2e8)
+                + 1e15 * f.incremental_accident);
+        assert!(((got_v - hand_v) / hand_v).abs() < 1e-14);
+        // Upstream is the ported function, and smaller here.
+        let up = release_activity_for(
+            TrisoAtopsVariant::Upstream, ElementGroup::SpecialMetal, f, node, 0.5, false,
+            ReleaseMaterial::Kernel, false, 55, ti, tr,
+        );
+        assert_eq!(
+            up,
+            release_activity(ElementGroup::SpecialMetal, f, node, 0.5, false, ReleaseMaterial::Kernel, false, 55)
+        );
+        assert!(got > up);
     }
 
     #[test]

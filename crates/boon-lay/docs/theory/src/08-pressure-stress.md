@@ -1,21 +1,27 @@
-# Step 8 — Gas, pressure and stress from first principles
+# Step 6 — Simplify the particle to a pressure vessel: gas, pressure and stress
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**The question this page answers.** Steps 1 to 7 followed atoms *out* of the
-particle. Some stay in. The noble gases (Kr, Xe) do not bond to anything, and
-oxygen freed by fission leaves as CO. *How much pressure do they build, and
-what does that pressure do to the layers?*
+**The question this page answers.** Steps 1 to 4 followed atoms from birth
+through the layers. Some stay in. The noble gases (Kr, Xe) do not bond to
+anything, and oxygen freed by fission leaves as CO. *How much pressure do
+they build, and what does that pressure do to the layers?*
 
-**The question from the previous step.** [Step 7](./07-ray-equations.md)
-told us how much of each nuclide gets out. The rest is the inventory that is
-still inside, and the gas part of it is what loads the shell.
+**The question from the previous step.** [Step 5](./05a-high-fidelity-fem.md)
+described the high-fidelity way: a BISON-style finite-element fuel
+performance model that resolves creep, swelling, cracking and asphericity,
+and which this workspace does not have. It ended by asking for the simplest
+model that still captures failure. The first simplification is to treat the
+particle as a **pressure vessel**: gas inside, a shell that carries the load,
+and a stress to compare against a strength. How much gas gets out of the
+kernel to load that vessel is a diffusion question, which
+[Steps 8 to 10](./05-random-walk.md) take up after the failure model.
 
 This page starts from the model with the **fewest assumptions**, which is
 also the most expensive: a finite-element model of the whole particle. It
 then states what that model needs and what the workspace has today. The next
-page, [Step 9](./09-panama.md), makes the cheap simplification.
+page, [Step 7](./09-panama.md), makes the cheap simplification.
 
 ## 1. What accumulates, and where
 
@@ -26,7 +32,7 @@ Three things are involved.
   ([`STABLE_FISSION_GAS_YIELD`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/pressure.rs)).
 - **Gas atoms that leave the kernel.** Only the part that gets out of the
   kernel reaches the buffer. That is the release problem of
-  [Steps 5 to 7](./05-random-walk.md), seen from the inside. In the failure
+  [Steps 8 to 10](./05-random-walk.md), seen from the inside. In the failure
   code it is a number $F_d$ from a Booth-type closed form
   ([`booth.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs)).
 - **CO.** Fission frees oxygen from the oxide kernel. Some of it meets carbon
@@ -87,7 +93,7 @@ model choice, not a measured fact.
 
 **Temperature acts twice.** $T$ appears directly in $p \propto T$. It also
 changes $F_d$, because hotter kernels release more gas. This is why the
-HTR-10 table in [Step 9](./09-panama.md) shows hoop stress rising by about
+HTR-10 table in [Step 7](./09-panama.md) shows hoop stress rising by about
 12 times from 776 C to 1600 C, far more than the ratio of absolute
 temperatures (1873 K / 1049 K is about 1.8).
 
@@ -126,7 +132,7 @@ A real particle is not a static vessel with a fixed pressure on the inside.
 - **Layers can debond or crack.** A gap between layers changes the load path,
   and a cracked PyC layer sends its load to the SiC.
 - **The SiC is anisotropic and brittle.** Its strength is a distribution, not
-  a number, which is the subject of Step 9.
+  a number, which is the subject of Step 7.
 
 ## 5. The first-principles model: a finite-element particle
 
@@ -203,14 +209,14 @@ This is a list of requirements read from the table above. It is not a plan.
    the laws are new.
 4. **Contact or a debonding model** between layers, which the crate lacks.
 5. **Internal pressure from Eq (3)** applied as a load that changes with time,
-   closing the loop with $F_d$ from the diffusion calculation of Steps 5 to 7.
-6. **A failure criterion** on the SiC stress, which is where Step 9's Weibull
+   closing the loop with $F_d$ from the diffusion calculation of Steps 8 to 10.
+6. **A failure criterion** on the SiC stress, which is where Step 7's Weibull
    law would plug in.
 7. **Verification** against closed-form shell solutions first, then against
    published particle results.
 
 Until then, the only particle-scale stress in this workspace is the thin-shell
-formula of [Step 9](./09-panama.md).
+formula of [Step 7](./09-panama.md).
 
 ## Why each simplification is allowed
 
@@ -221,7 +227,7 @@ formula of [Step 9](./09-panama.md).
 | Ideal-gas law | (d), and **open** | The repo has no real-gas equation of state or data. The size of the error is not estimated here, so it is not called negligible |
 | Free volume is 50 % of the buffer | (d) | The value is the report's, taken as printed |
 | Single temperature over the free volume | **Open** | No estimate of temperature variation across the buffer in the repo |
-| FEM replaced by a thin shell (Step 9) | (b), partly | Per-particle FEM times the number of particles in a core is too costly to run by default (about $2 \times 10^{8}$ particles for HTR-10, from the repo's counts above). Its accuracy against FEM is **not measured**, as `farrer-park` has no TRISO model |
+| FEM replaced by a thin shell (Step 7) | (b), partly | Per-particle FEM times the number of particles in a core is too costly to run by default (about $2 \times 10^{8}$ particles for HTR-10, from the repo's counts above). Its accuracy against FEM is **not measured**, as `farrer-park` has no TRISO model |
 | PyC creep and swelling omitted from the failure chain | (d) | The laws and parameters are not in the repo |
 
 ## What we assumed
@@ -236,5 +242,5 @@ formula of [Step 9](./09-panama.md).
 ## Next question
 
 A finite-element solve for every particle in a core is too much. What can be
-dropped, and what does dropping it cost? [Step 9](./09-panama.md) tells how
+dropped, and what does dropping it cost? [Step 7](./09-panama.md) tells how
 PANAMA made the choice, and how we made it in `boon-lay fuel failure`.

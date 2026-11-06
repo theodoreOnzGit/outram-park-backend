@@ -1,9 +1,9 @@
-# Step 12 — Escape and removal: purification, leak, plate-out and lift-off
+# Step 13 — Escape and removal: purification, leak, plate-out and lift-off
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**The question this page answers.** [Step 11](./11-into-the-coolant.md) put
+**The question this page answers.** [Step 12](./11-into-the-coolant.md) put
 fission products into the coolant. *By what routes do they leave it, how do
 different chemistries take different routes, and where does what stays behind
 end up?*
@@ -50,7 +50,7 @@ activity back. Decay acts on everything and is not repeated in the table.
 Each is a first-order process with a constant rate in the model. The
 equations and the pools are in
 [`coolant.md`](../triso-atops/coolant.html)
-and in [Step 14](./14-triso-atops.md).
+and in [Step 15](./14-triso-atops.md).
 
 ### Leak
 
@@ -64,7 +64,7 @@ $$k_{leak} = \frac{0.01}{86400\ \text{s}} \approx 1.157 \times 10^{-7}\ \text{s}
 ([`fission_product_results`: `HTR10_PRIMARY_LEAK_PER_S`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs)).
 That is the "1 % leak assumption". It is a **bound as specified**, an upper
 limit on a design allowance, not a measured leak rate. The distinction is the
-subject of [Step 16](./16-building-and-bounds.md).
+subject of [Step 17](./16-building-and-bounds.md).
 
 Upstream TRISO-ATOPS has no leak sink; `live_pools.rs` adds one, and a test
 reproduces the upstream closed forms when `k_leak` is zero
@@ -115,7 +115,7 @@ The last term is lift-off. The value of $x_{liftoff}$ for the HTR-10 stage is
 Table 3**; no HTR-10 value is in the repo's corpus. Liu & Cao (2002) instead
 assume desorption of 2.4 times the coolant activity, for iodine and metals
 (section 4.1.1.2, after INTERATOM 1989, as cited in the code comment).
-**CORRECTED 2026-10-18** (Step 20 review): the two live in different code
+**CORRECTED 2026-10-18** (Step 21 review): the two live in different code
 paths. The 0.05 sits in `sembawang::htr10::plant_parameters` (the accident
 comparison). The digital twin's live plant instead applies
 `depressurisation_lift_off`: desorption of 2.4 times the circulating pool for
@@ -127,7 +127,7 @@ for one process.
 
 Gas that is purified is held in a trap. Atoms that plate out stay on the
 surfaces for as long as they live, so long-lived metals build up over years of
-operation. The pools picture in [Step 15](./15-dlofc.md) shows plate-out
+operation. The pools picture in [Step 16](./15-dlofc.md) shows plate-out
 growing towards a steady value, and the repo's tests show plate-out as a large
 pool relative to the circulating one: in the worked end-to-end example in
 [`triso-atops-fork.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/docs/triso-atops-fork.md)
@@ -145,7 +145,7 @@ no model here that quantifies it [citation needed: maintainer to supply].
 
 | Simplification | Kind | Justification |
 |---|---|---|
-| First-order, constant-rate removal | (b) and (d) | Surface-resolved sorption is costly (Step 13) and its data are missing. Not shown negligible: **open** |
+| First-order, constant-rate removal | (b) and (d) | Surface-resolved sorption is costly (Step 14) and its data are missing. Not shown negligible: **open** |
 | Loop as one volume, no position | (b) | A 3D circuit model is impractical for the cases of interest. Error is **open** |
 | Leak 1 % per day | (c) | A design allowance, errs high only if actual leakage is below it |
 | Purification efficiency 99 % and 90 % | (c) per source, **but** direction needs checking | Higher efficiency lowers circuit inventory, so the direction depends on the quantity |
@@ -163,4 +163,4 @@ no model here that quantifies it [citation needed: maintainer to supply].
 ## Next question
 
 All this was a cheap, lumped description. What would it take to compute the
-transport instead of assuming it? [Step 13](./13-brute-force-cfd.md).
+transport instead of assuming it? [Step 14](./13-brute-force-cfd.md).

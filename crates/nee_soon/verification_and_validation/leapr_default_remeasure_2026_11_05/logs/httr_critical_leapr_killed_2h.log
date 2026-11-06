@@ -1,0 +1,64 @@
+HTTR start-up core, CRITICAL state
+  rods (bottom above fuel bottom, cm): RodPositions { c: 177.5, r1: 177.5, r2: 177.5, r3: 404.9 }
+  graphite S(a,b) Reactor30P, thermal Bound, tracking Delta, impurity B-11 true
+  library: ENDF/B-VIII.0 for every nuclide
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  S(a,b): graphite tsl-reactor-graphite-30P.endf (MAT 32) on graphite carbon; C-in-SiC and Si-in-SiC on the SiC; U-in-UO2 on U-234/235/238 and O-in-UO2 on O-16 (LEAPR); Fe metal on Fe-56 and Al metal on Al-27 (LEAPR); everything else free gas
+  U_UO2    LEAPR 13.1s
+  O_UO2    LEAPR 22.0s
+  c_Graphite LEAPR 33.5s
+  c_SiC      LEAPR 30.0s
+  Si_SiC     LEAPR 15.1s
+  Al_metal LEAPR 8.6s
+  Fe_metal LEAPR 10.1s
+  U234   22.1s
+  U235   135.1s
+  U238   97.0s
+  O16    4.1s
+  O17    64.7ms
+  C12    1.1s
+  C13    217.7ms
+  C12    1.1s
+  C13    220.3ms
+  C12    1.1s
+  C13    217.8ms
+  B10    181.7ms
+  B11    1.2s
+  Si28   1.7s
+  Si29   1.7s
+  Si30   1.4s
+  Si28   1.7s
+  Si29   1.7s
+  Si30   1.4s
+  He3    67.7ms
+  He4    39.4ms
+  Al27   2.2s
+  P31    976.9ms
+  S32    382.7ms
+  S33    137.8ms
+  S34    86.6ms
+  S36    52.8ms
+  Ti46   740.5ms
+  Ti47   359.4ms
+  Ti48   755.2ms
+  Ti49   412.4ms
+  Ti50   283.5ms
+  Cr50   3.1s
+  Cr52   2.8s
+  Cr53   2.7s
+  Cr54   1.7s
+  Mn55   10.9s
+  Fe54   9.9s
+  Fe56   12.2s
+  Fe57   7.9s
+  Fe58   7.6s
+  Ni58   5.1s
+  Ni60   4.3s
+  Ni61   2.1s
+  Ni62   3.1s
+  Ni64   1.7s
+  Cu63   4.1s
+  Cu65   3.6s
+  nuclear data processed in 494.8 s
+  geometry: 667 cells, 94 universes, 115 lattices; 4770 fuel rods x 181818 particles
+  compact majorant: 278068 nodes (410.0 s)

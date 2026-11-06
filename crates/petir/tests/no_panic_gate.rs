@@ -596,7 +596,7 @@ fn no_subscript_in_the_crate_can_fail_at_runtime() {
         offences.is_empty(),
         "PETIR must contain no subscript that can fail at run time -- reach for \
          get/get_mut, first/last, split_first/split_last, a slice pattern, or a \
-         `zip_flat!` (crate::zip) instead, and return a petir::Result where the \
+         `zip2` ... `zip8` (crate::zip) instead, and return a petir::Result where the \
          case is genuinely reachable.\n\
          The one exception is a literal index into a `const` array of literal \
          length, which rustc checks at compile time; a literal index into a Vec \

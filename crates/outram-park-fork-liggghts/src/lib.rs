@@ -106,7 +106,7 @@ pub mod contact;
 pub mod coupling;
 #[cfg(feature = "gnn")]
 pub mod gnn_bridge;
-#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+#[cfg(not(target_os = "android"))]
 pub mod gpu;
 pub mod granular;
 pub mod granular_system;

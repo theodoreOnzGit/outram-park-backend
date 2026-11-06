@@ -100,7 +100,7 @@ round-trip.
   error. Their own doc comments note the underlying algebra already exists in
   `crates/outram-park-fork-dwsim-libs` — this is wiring, not derivation.
 - **Engine heat-exchanger widget is wired to a stub.**
-  `crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs:29`
+  ~~`crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs:29`~~ `crates/bugis/src/components/heat_exchanger.rs:29` (moved 2026-11-02, gh:#1112; line numbers not re-checked)
   draws a fixed-colour rectangle and its doc comment says it has no fluid state
   to colour by.
 - The low-Peclet axial-conduction correction that sodium actually depends on is

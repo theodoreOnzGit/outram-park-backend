@@ -77,6 +77,8 @@
 //! | [`driver`] | already a `PolyMesh` — [`GeneratedMesh::write_case`] |
 
 pub mod block_mesh;
+pub mod block_primitives;
+pub mod section;
 pub mod driver;
 pub mod ideas_unv_to_foam;
 pub mod mesh_quality;

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<!-- __BUILD__ is the commit, written by build.sh: every file URL carries it,
+     so each deploy is fetched fresh and the page, its wasm and its worker
+     always come from the same build. -->
+<html lang="en" data-build="__BUILD__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helical-coil steam generator · OUTRAM PARK</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1d2021; color: #ebdbb2;
+               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #helical_sg_canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+  #loading .spin { width: 28px; height: 28px; margin: 0 auto 16px; border-radius: 50%;
+                   border: 3px solid #504945; border-top-color: #83a598; animation: s 0.9s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  noscript, .err { color: #fb4934; }
+  #loading a, #refs a { color: #83a598; }
+  /* References: a collapsed button fixed in the corner, so the full-page main view is untouched;
+     opened, the list scrolls inside a box that never exceeds the screen width. */
+  #refs { position: fixed; right: 8px; bottom: 8px; z-index: 10; max-width: calc(100vw - 16px); font-size: 13px; }
+  #refs summary { cursor: pointer; width: max-content; margin-left: auto; padding: 6px 10px;
+                  background: #282828; border: 1px solid #504945; border-radius: 6px; }
+  #refs .refs-body { width: min(36em, calc(100vw - 16px)); max-height: 55vh; overflow: auto; margin-top: 4px;
+                     padding: 2px 12px; background: #1d2021; border: 1px solid #504945; border-radius: 6px;
+                     overflow-wrap: anywhere; }
+  #refs h2 { font-size: 14px; margin: 8px 0; }
+  #refs p { margin: 0 0 8px; padding-left: 2em; text-indent: -2em; }
+  /* Gruvbox Light when the app is (bugis sets data-theme on <html>, 2026-11-05). */
+  :root[data-theme="light"] body { background: #f9f5d7; color: #3c3836; }
+  :root[data-theme="light"] #refs summary { background: #fbf1c7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs .refs-body { background: #f9f5d7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs a, :root[data-theme="light"] #loading a { color: #076678; }
+</style>
+</head>
+<body>
+<canvas id="helical_sg_canvas"></canvas>
+<div id="loading">
+  <div class="box">
+    <div class="spin"></div>
+    <p><strong>Loading the WebAssembly module…</strong></p>
+    <p>One tube of a helical-coil once-through steam generator: water climbs the coil from subcooled liquid,
+      through boiling and dryout, to superheated steam, heated by a hot fluid falling past in counterflow.
+      Solved live in a background worker in this tab by OUTRAM PARK's tampines 1-D march with IAPWS-IF97 water and steam.</p>
+    <p>Research, education and V&amp;V only. Not for reactor operation, licensing, safety decisions or emergency response.</p>
+    <noscript>This demo needs JavaScript and WebAssembly.</noscript>
+  </div>
+</div>
+<details id="refs">
+  <summary>References</summary>
+  <div class="refs-body">
+    <h2>Correlations used (each cited with its source in the code)</h2>
+    <p>Biasi, L., Clerici, G. C., Garribba, S., Sala, R., &amp; Tozzi, A. (1967). Studies on burnout — part 3: a new correlation for round ducts and uniform heating and its comparison with world data. <i>Energia Nucleare</i>, 14(9), 530–536. As cited by the reused outram-foam-multiphase closure; not re-checked.</p>
+    <p>Chen, J. C. (1966). Correlation for boiling heat transfer to saturated fluids in convective flow. <i>Industrial &amp; Engineering Chemistry Process Design and Development</i>, 5(3), 322–329. https://doi.org/10.1021/i260019a023</p>
+    <p>Chisholm, D. (1967). A theoretical basis for the Lockhart–Martinelli correlation for two-phase flow. <i>International Journal of Heat and Mass Transfer</i>, 10(12), 1767–1778. https://doi.org/10.1016/0017-9310(67)90047-6</p>
+    <p>Dougall, R. S., &amp; Rohsenow, W. M. (1963). <i>Film boiling on the inside of vertical tubes with upward flow of the fluid at low qualities</i> (MIT Heat Transfer Laboratory Report No. 9079-26). As cited by the reused outram-foam-multiphase closure; not re-checked against the report.</p>
+    <p>Edelstein, S., Pérez, A. J., &amp; Chen, J. C. (1984). Analytic representation of convective boiling functions. <i>AIChE Journal</i>, 30(5), 840–841. https://doi.org/10.1002/aic.690300528</p>
+    <p>Forster, H. K., &amp; Zuber, N. (1955). Dynamics of vapor bubbles and boiling heat transfer. <i>AIChE Journal</i>, 1(4), 531–535. https://doi.org/10.1002/aic.690010425</p>
+    <p>Gnielinski, V. (1986). Heat transfer and pressure drop in helically coiled tubes. In <i>Proceedings of the 8th International Heat Transfer Conference</i> (Vol. 6, pp. 2847–2854). Hemisphere.</p>
+    <p>Lockhart, R. W., &amp; Martinelli, R. C. (1949). Proposed correlation of data for isothermal two-phase, two-component flow in pipes. <i>Chemical Engineering Progress</i>, 45(1), 39–48.</p>
+    <p>Mishra, P., &amp; Gupta, S. N. (1979). Momentum transfer in curved pipes. 1. Newtonian fluids. <i>Industrial &amp; Engineering Chemistry Process Design and Development</i>, 18(1), 130–137. https://doi.org/10.1021/i260069a017</p>
+    <p>Schmidt, E. F. (1967). Wärmeübergang und Druckverlust in Rohrschlangen. <i>Chemie Ingenieur Technik</i>, 39(13), 781–789. https://doi.org/10.1002/cite.330391302</p>
+    <p>Verification and validation record (method, predictions, results and what is not validated):
+      <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/tampines/verification_and_validation/helical_coil_otsg_gh1157.md">helical_coil_otsg_gh1157.md</a>.</p>
+  </div>
+</details>
+<script type="module">
+  import init from "./helical_sg_web.js?v=__BUILD__";
+  init({ module_or_path: "./helical_sg_web_bg.wasm?v=__BUILD__" }).catch((e) => {
+    const el = document.getElementById("loading");
+    if (el) el.innerHTML = '<p class="err">Could not start: ' + String(e) + "</p>";
+    console.error(e);
+  });
+</script>
+</body>
+</html>

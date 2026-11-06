@@ -28,6 +28,8 @@
 //! **Result (2026-10-06, rust-analyzer 1.98.0):** passes, including the
 //! schema-2 checks.
 
+mod support;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -131,7 +133,7 @@ fn write(root: &Path, rel: &str, text: &str) {
 
 #[test]
 fn call_graph_against_a_real_rust_analyzer() {
-    if which::which("rust-analyzer").is_err() {
+    if !support::rust_analyzer_runs() {
         eprintln!("SKIPPED: rust-analyzer is not on PATH (rustup component add rust-analyzer)");
         return;
     }

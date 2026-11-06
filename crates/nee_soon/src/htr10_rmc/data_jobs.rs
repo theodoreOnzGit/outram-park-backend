@@ -32,9 +32,13 @@ use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::processed::ProcessedEvaluation;
 use outram_mc_libs::material::thermal::ThermalScattering;
+use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
-use super::data::{Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, Tape, ThermalLaw, Uo2Laws};
+use super::data::{
+    Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, Tape, ThermalLaw,
+    Uo2Laws,
+};
 
 /// RECONR and BROADR tolerance of every slot, as the loader (NJOY's 1e-3).
 pub const TOLERANCE: f64 = 1.0e-3;
@@ -73,6 +77,7 @@ impl ProcessingJob {
     pub fn tape(&self, cfg: &Htr10DataConfig) -> Result<Option<Tape>, Htr10DataError> {
         Ok(match self {
             Self::Tape { tape, .. } => Some(*tape),
+            Self::Law(l) if leapr_material(*l, cfg).is_some() => None,
             Self::Law(ThermalLaw::Graphite { file, .. }) => Some(Tape::endf(file)),
             Self::Law(ThermalLaw::CInSiC) => Some(Tape::endf("tsl-CinSiC.endf")),
             Self::Law(ThermalLaw::SiInSiC) => Some(Tape::endf("tsl-SiinSiC.endf")),
@@ -87,6 +92,49 @@ impl ProcessingJob {
                 }
             },
         })
+    }
+}
+
+/// **A job at a temperature** (gh:#1138): what one zone temperature needs
+/// of a tape or a law.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TemperedJob {
+    /// The tape or law.
+    pub job: ProcessingJob,
+    /// The temperature it is processed (or the law generated) at.
+    pub temperature: ThermodynamicTemperature,
+}
+
+impl TemperedJob {
+    /// `"U235 @ 900.00 K"`.
+    #[must_use]
+    pub fn label(&self) -> String {
+        format!("{} @ {:.2} K", self.job.label(), self.temperature.get::<kelvin>())
+    }
+
+    /// The temperature, K.
+    #[must_use]
+    pub fn kelvin(&self) -> f64 {
+        self.temperature.get::<kelvin>()
+    }
+}
+
+/// The LEAPR deck a law is generated from under `cfg`, or `None` when it is
+/// read from a tape. The UO2 and metal laws are always LEAPR's (as the
+/// loader); graphite and SiC are under
+/// [`super::data::ThermalLawSource::Leapr`] (the default), except the VII.0 graphite tape, which has no deck.
+#[must_use]
+pub fn leapr_material(law: ThermalLaw, cfg: &Htr10DataConfig) -> Option<SabMaterial> {
+    match law {
+        ThermalLaw::Graphite { .. } | ThermalLaw::CInSiC | ThermalLaw::SiInSiC => {
+            cfg.thermal_laws.leapr_deck(law)
+        }
+        ThermalLaw::IronMetal => Some(SabMaterial::IronMetal),
+        ThermalLaw::AluminumMetal => Some(SabMaterial::AluminumMetal),
+        ThermalLaw::UInUO2 => matches!(cfg.uo2_laws, Uo2Laws::GeneratedFromLeapr)
+            .then_some(SabMaterial::UInUO2),
+        ThermalLaw::OInUO2 => matches!(cfg.uo2_laws, Uo2Laws::GeneratedFromLeapr)
+            .then_some(SabMaterial::OInUO2),
     }
 }
 
@@ -141,20 +189,51 @@ impl Htr10NuclideLayout {
     /// them), then every distinct tape (in slot order).
     #[must_use]
     pub fn processing_jobs(&self) -> Vec<ProcessingJob> {
-        let mut jobs: Vec<ProcessingJob> = Vec::new();
-        for law in self.slots.iter().filter_map(|s| s.thermal) {
-            if !jobs.contains(&ProcessingJob::Law(law)) {
-                jobs.push(ProcessingJob::Law(law));
+        let t = ThermodynamicTemperature::new::<kelvin>(0.0);
+        let entries: Vec<(usize, f64)> = (0..self.slots.len()).map(|k| (k, 0.0)).collect();
+        self.tempered_jobs(&entries)
+            .into_iter()
+            .inspect(|j| debug_assert_eq!(j.temperature, t))
+            .map(|j| j.job)
+            .collect()
+    }
+
+    /// **The jobs of a nuclide array at several temperatures** (gh:#1138):
+    /// `entries` are `(slot, temperature K)` pairs, one per nuclide of the
+    /// array (`zones::split_by_temperature`). Every distinct (law,
+    /// temperature) in first-use order, then every distinct (tape,
+    /// temperature) in entry order. With every entry at one temperature this
+    /// is [`Self::processing_jobs`], in the same order.
+    ///
+    /// # Panics
+    /// If an entry's slot is not in the layout.
+    #[must_use]
+    pub fn tempered_jobs(&self, entries: &[(usize, f64)]) -> Vec<TemperedJob> {
+        let at = |t: f64| ThermodynamicTemperature::new::<kelvin>(t);
+        let mut jobs: Vec<TemperedJob> = Vec::new();
+        for &(k, t) in entries {
+            if let Some(law) = self.slots[k].thermal {
+                let j = TemperedJob {
+                    job: ProcessingJob::Law(law),
+                    temperature: at(t),
+                };
+                if !jobs.contains(&j) {
+                    jobs.push(j);
+                }
             }
         }
-        for s in &self.slots {
-            if !jobs
-                .iter()
-                .any(|j| matches!(j, ProcessingJob::Tape { tape, .. } if *tape == s.tape))
-            {
-                jobs.push(ProcessingJob::Tape {
-                    tape: s.tape,
-                    name: s.name,
+        for &(k, t) in entries {
+            let s = &self.slots[k];
+            if !jobs.iter().any(|j| {
+                matches!(j.job, ProcessingJob::Tape { tape, .. } if tape == s.tape)
+                    && j.temperature == at(t)
+            }) {
+                jobs.push(TemperedJob {
+                    job: ProcessingJob::Tape {
+                        tape: s.tape,
+                        name: s.name,
+                    },
+                    temperature: at(t),
                 });
             }
         }
@@ -181,7 +260,21 @@ pub fn process_job(
     cfg: &Htr10DataConfig,
     tape: Option<&EndfTape>,
 ) -> Result<JobProduct, Htr10DataError> {
-    let t_k = cfg.temperature.get::<kelvin>();
+    process_job_at(job, cfg, tape, cfg.temperature)
+}
+
+/// [`process_job`] at `temperature` instead of `cfg.temperature` (gh:#1138):
+/// a [`TemperedJob`]'s processing.
+///
+/// # Errors
+/// As [`process_job`].
+pub fn process_job_at(
+    job: &ProcessingJob,
+    cfg: &Htr10DataConfig,
+    tape: Option<&EndfTape>,
+    temperature: ThermodynamicTemperature,
+) -> Result<JobProduct, Htr10DataError> {
+    let t_k = temperature.get::<kelvin>();
     let what = job.label();
     let fail =
         |e: njoy_outram_park_fork::NjoyError| Htr10DataError::InvalidConfig(format!("{what}: {e}"));
@@ -197,6 +290,20 @@ pub fn process_job(
                 Nuclide::process_evaluation(t, mat_of(t, &what)?, t_k, TOLERANCE, TOLERANCE)
                     .map_err(fail)?,
             )
+        }
+        // A LEAPR law under `ThermalLawSource::Leapr` (the default since
+        // 2026-11-03; gh:#1138), at the
+        // requested temperature exactly, with the loader's labels.
+        ProcessingJob::Law(law @ (ThermalLaw::Graphite { .. } | ThermalLaw::CInSiC | ThermalLaw::SiInSiC))
+            if leapr_material(*law, cfg).is_some() =>
+        {
+            let material = leapr_material(*law, cfg).expect("checked");
+            let name = match law {
+                ThermalLaw::Graphite { .. } => "c_Graphite",
+                ThermalLaw::CInSiC => "c_SiC",
+                _ => "Si_SiC",
+            };
+            JobProduct::Law(ThermalScattering::from_leapr(material, t_k, name).map_err(fail)?)
         }
         // The loader's labels: `c_Graphite`, `c_SiC`, `Si_SiC`, `U_UO2`, `O_UO2`.
         ProcessingJob::Law(law) => JobProduct::Law(match law {
@@ -242,31 +349,63 @@ pub fn assemble_slots(
     cfg: &Htr10DataConfig,
     layout: &Htr10NuclideLayout,
     jobs: &[ProcessingJob],
+    product: impl FnMut(usize) -> Result<JobProduct, Htr10DataError>,
+    read_tape: impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>,
+) -> Result<Vec<Nuclide>, Htr10DataError> {
+    let t_k = cfg.temperature.get::<kelvin>();
+    let entries: Vec<(usize, f64)> = (0..layout.slots.len()).map(|k| (k, t_k)).collect();
+    let jobs: Vec<TemperedJob> = jobs
+        .iter()
+        .map(|j| TemperedJob {
+            job: j.clone(),
+            temperature: cfg.temperature,
+        })
+        .collect();
+    assemble_entries(layout, &entries, &jobs, product, read_tape)
+}
+
+/// **Build a nuclide array at several temperatures** (gh:#1138): nuclide `i`
+/// is slot `entries[i].0` of `layout` at `entries[i].1` K, from the products
+/// of `jobs` ([`Htr10NuclideLayout::tempered_jobs`] of the same entries).
+/// As [`assemble_slots`] otherwise, which is this with every entry at
+/// `cfg.temperature`: the laws first, then one tape's product at a time,
+/// each tape read once per temperature.
+///
+/// # Errors
+///
+/// A product missing or of the wrong kind, a tape that fails to read, or a
+/// nuclide that fails to assemble.
+pub fn assemble_entries(
+    layout: &Htr10NuclideLayout,
+    entries: &[(usize, f64)],
+    jobs: &[TemperedJob],
     mut product: impl FnMut(usize) -> Result<JobProduct, Htr10DataError>,
     mut read_tape: impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>,
 ) -> Result<Vec<Nuclide>, Htr10DataError> {
-    let t_k = cfg.temperature.get::<kelvin>();
-    let mut laws: Vec<(ThermalLaw, ThermalScattering)> = Vec::new();
+    let mut laws: Vec<(ThermalLaw, u64, ThermalScattering)> = Vec::new();
     for (i, job) in jobs.iter().enumerate() {
-        if let ProcessingJob::Law(l) = job {
+        if let ProcessingJob::Law(l) = job.job {
             match product(i)? {
-                JobProduct::Law(t) => laws.push((*l, t)),
+                JobProduct::Law(t) => laws.push((l, job.kelvin().to_bits(), t)),
                 JobProduct::Nuclide(_) => {
                     return Err(Htr10DataError::InvalidConfig(format!(
                         "{}: not a law",
-                        l.label()
+                        job.label()
                     )))
                 }
             }
         }
     }
-    let mut built: Vec<Option<Nuclide>> = (0..layout.slots.len()).map(|_| None).collect();
+    let mut built: Vec<Option<Nuclide>> = (0..entries.len()).map(|_| None).collect();
     for (i, job) in jobs.iter().enumerate() {
-        let ProcessingJob::Tape { tape, .. } = job else {
+        let ProcessingJob::Tape { tape, .. } = job.job else {
             continue;
         };
-        let users: Vec<usize> = (0..layout.slots.len())
-            .filter(|&k| layout.slots[k].tape == *tape)
+        let t_k = job.kelvin();
+        let users: Vec<usize> = (0..entries.len())
+            .filter(|&k| {
+                layout.slots[entries[k].0].tape == tape && entries[k].1.to_bits() == t_k.to_bits()
+            })
             .collect();
         if users.is_empty() {
             continue;
@@ -274,21 +413,27 @@ pub fn assemble_slots(
         let JobProduct::Nuclide(processed) = product(i)? else {
             return Err(Htr10DataError::InvalidConfig(format!(
                 "{}: not a processed tape",
-                tape.file
+                job.label()
             )));
         };
-        let t = read_tape(tape)?;
+        let t = read_tape(&tape)?;
         let mat = mat_of(&t, tape.file)?;
         for k in users {
-            let s = &layout.slots[k];
+            let s = &layout.slots[entries[k].0];
             let n = Nuclide::from_processed(&t, mat, s.name, t_k, processed.clone())
                 .map_err(|e| Htr10DataError::InvalidConfig(format!("{}: {e}", s.name)))?;
             built[k] = Some(match s.thermal {
                 Some(l) => {
-                    let law = laws.iter().find(|(m, _)| *m == l).ok_or_else(|| {
-                        Htr10DataError::InvalidConfig(format!("no product for {}", l.label()))
-                    })?;
-                    n.with_thermal_scattering(law.1.clone())
+                    let law = laws
+                        .iter()
+                        .find(|(m, tb, _)| *m == l && *tb == t_k.to_bits())
+                        .ok_or_else(|| {
+                            Htr10DataError::InvalidConfig(format!(
+                                "no product for {} at {t_k:.2} K",
+                                l.label()
+                            ))
+                        })?;
+                    n.with_thermal_scattering(law.2.clone())
                 }
                 None => n,
             });
@@ -300,8 +445,8 @@ pub fn assemble_slots(
         .map(|(k, n)| {
             n.ok_or_else(|| {
                 Htr10DataError::InvalidConfig(format!(
-                    "slot {k} ({}) has no job",
-                    layout.slots[k].name
+                    "nuclide {k} ({} at {:.2} K) has no job",
+                    layout.slots[entries[k].0].name, entries[k].1
                 ))
             })
         })
@@ -352,14 +497,20 @@ mod tests {
         assert!(jobs[..first_tape]
             .iter()
             .all(|j| matches!(j, ProcessingJob::Law(_))));
+        // Since 2026-11-03 every one of the five laws is LEAPR's by default
+        // (no tape); under the tape ablation only the two UO2 laws are.
         let cfg = Htr10DataConfig::default();
-        assert!(
+        let leapr = |cfg: &Htr10DataConfig| {
             jobs.iter()
-                .filter(|j| j.tape(&cfg).expect("tape").is_none())
+                .filter(|j| j.tape(cfg).expect("tape").is_none())
                 .count()
-                == 2,
-            "two LEAPR laws"
-        );
+        };
+        assert_eq!(leapr(&cfg), 5, "five LEAPR laws by default");
+        let tapes = Htr10DataConfig {
+            thermal_laws: super::super::data::ThermalLawSource::Tapes,
+            ..Htr10DataConfig::default()
+        };
+        assert_eq!(leapr(&tapes), 2, "two LEAPR laws under the tape ablation");
         assert!(jobs
             .iter()
             .any(|j| matches!(j.tape(&cfg), Ok(Some(t)) if t.dir == DataDir::AceSubmoduleEndfB8)));

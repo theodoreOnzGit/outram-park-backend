@@ -77,7 +77,10 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid, SourceBox};
-use uom::si::f64::{Power, Time};
+use uom::si::f64::{Power, Ratio, TemperatureInterval, Time, Volume};
+use uom::si::ratio::ratio;
+use uom::si::temperature_interval;
+use uom::si::volume::cubic_meter;
 use uom::si::power::watt;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
@@ -112,18 +115,34 @@ pub enum DirectCouplingError {
 }
 
 /// Convergence criteria for the outer Picard loop.
+///
+/// ~~`temperature_k: f64`, `k_eff: f64`~~ **CHANGED 2026-11-03 (gh:#1186):**
+/// dimensioned (`uom`), as every public quantity of this crate must be.
 #[derive(Debug, Clone, Copy)]
 pub struct Convergence {
     /// Stop when the fuel temperature moves less than this between outer
-    /// iterations \[K\].
-    pub temperature_k: f64,
-    /// Stop when `k_eff` moves less than this between outer iterations.
+    /// iterations (a temperature *difference*; positive).
+    pub temperature: TemperatureInterval,
+    /// Stop when `k_eff` moves less than this between outer iterations
+    /// (dimensionless; positive).
     ///
     /// Setting this below the Monte Carlo statistical uncertainty is asking the
     /// loop to converge on noise; it will burn iterations and stop on chance.
-    pub k_eff: f64,
+    pub k_eff: Ratio,
     /// Maximum outer iterations before giving up.
     pub max_iterations: usize,
+}
+
+impl Convergence {
+    /// Criteria of `temperature` (K) and `k_eff`, capped at `max_iterations`.
+    #[must_use]
+    pub fn new(temperature: TemperatureInterval, k_eff: Ratio, max_iterations: usize) -> Self {
+        Self {
+            temperature,
+            k_eff,
+            max_iterations,
+        }
+    }
 }
 
 impl Default for Convergence {
@@ -133,8 +152,8 @@ impl Default for Convergence {
     /// practical particle counts, for the reason given on [`Self::k_eff`].
     fn default() -> Self {
         Self {
-            temperature_k: 1.0,
-            k_eff: 1.0e-3,
+            temperature: TemperatureInterval::new::<temperature_interval::kelvin>(1.0),
+            k_eff: Ratio::new::<ratio>(1.0e-3),
             max_iterations: 20,
         }
     }
@@ -216,7 +235,9 @@ impl McGenFoamDirect {
     /// see the module note on power normalisation for why it is stated rather
     /// than derived. `thermal` is GeN-Foam's own lumped node, constructed by the
     /// caller so its heat capacity, conductance and sink temperature are
-    /// explicit rather than guessed here.
+    /// explicit rather than guessed here. `region_volume` is the heated
+    /// volume the power is spread over (positive; ~~`region_volume_m3: f64`~~
+    /// a `uom` volume since 2026-11-03, gh:#1186).
     #[must_use]
     pub fn new(
         geometry: Geometry,
@@ -225,9 +246,9 @@ impl McGenFoamDirect {
         source: SourceBox,
         thermal: LumpedThermal,
         power: Power,
-        region_volume_m3: f64,
+        region_volume: Volume,
     ) -> Self {
-        let mesh = lumped_cell_mesh(region_volume_m3);
+        let mesh = lumped_cell_mesh(region_volume.get::<cubic_meter>());
         let mut region = CouplingRegion::new("core", Arc::clone(&mesh));
         let zero = |name: &str, mesh: &Arc<outram_foam_basic_lib::prelude::FvMesh>| {
             let boundary = mesh
@@ -409,7 +430,9 @@ impl McGenFoamDirect {
                 temperature_after_k: t_after,
             });
 
-            if last_dt_k < criteria.temperature_k && dk < criteria.k_eff {
+            if last_dt_k < criteria.temperature.get::<temperature_interval::kelvin>()
+                && dk < criteria.k_eff.get::<ratio>()
+            {
                 let last = *history.last().expect("just pushed");
                 return Ok(CoupledSteadyState {
                     temperature_k: t_after,
@@ -423,9 +446,9 @@ impl McGenFoamDirect {
         Err(DirectCouplingError::NotConverged {
             iterations: criteria.max_iterations,
             last_dt_k,
-            tol_k: criteria.temperature_k,
+            tol_k: criteria.temperature.get::<temperature_interval::kelvin>(),
             last_dk,
-            tol_k_eff: criteria.k_eff,
+            tol_k_eff: criteria.k_eff.get::<ratio>(),
         })
     }
 }

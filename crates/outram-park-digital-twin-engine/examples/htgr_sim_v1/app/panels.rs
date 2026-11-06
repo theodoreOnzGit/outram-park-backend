@@ -164,26 +164,71 @@ pub enum PlotsSidePanel {
 
 /// The heading of the peak-fuel indicator. The wording is the honest scope:
 /// the kernel of a **core-average** pebble, not the core hot spot.
-pub(crate) const PEAK_FUEL_LABEL: &str = "Peak fuel (kernel of a core-average pebble)";
+pub(crate) const PEAK_FUEL_LABEL: &str = "Peak fuel, live (kernel of a core-average pebble)";
 
 /// The hover text of the peak-fuel indicator (gh:#964).
-pub(crate) const PEAK_FUEL_HOVER: &str = "The running maximum, since the plant was built or \
-     Reset peak was pressed, of the centre of the hottest UO2 kernel in a CORE-AVERAGE \
-     pebble. This is NOT the core hot spot: the bed is one node with no axial or radial \
-     power shape, so a real hot-spot pebble runs hotter. At a rated 10 MW point this model \
-     reads about 168 K BELOW Gao & Shi (2002) Table 2's 918.7 degC maximum fuel \
-     temperature (physics::PeakFuelRecord). A shape function is tracked in #965. \
-     From the opening state it includes the first-second start-up excursion (about \
-     2334 K); press Reset peak to drop it.";
+///
+/// ~~"The running maximum, since the plant was built or Reset peak was
+/// pressed, ..."~~ **CHANGED 2026-10-21 (maintainer):** the indicator shows
+/// the LIVE value, updated every physics step, with no reset button. A running maximum latched the first-second start-up excursion
+/// (about 2334 K) and looked frozen until reset. The maximum, with its reset
+/// button, moved to the Diagnostics tab ([`MAX_FUEL_LABEL`]).
+pub(crate) const PEAK_FUEL_HOVER: &str = "The current temperature, updated live with the \
+     simulation, of the centre of the hottest UO2 kernel in a CORE-AVERAGE pebble. This \
+     is NOT the core hot spot: the bed is one node with no axial or radial power shape, \
+     so a real hot-spot pebble runs hotter. At a rated 10 MW point this model reads about \
+     168 K BELOW Gao & Shi (2002) Table 2's 918.7 degC maximum fuel temperature \
+     (physics::PeakFuelRecord). A shape function is tracked in #965.";
 
-/// The indicator's value text: the running maximum in the display unit and
-/// the plant time it was reached, or "not resolved by this tier" when the
-/// record is empty (`NAN`) -- never a substitute temperature.
-pub(crate) fn peak_fuel_text(unit: LegendUnit, peak_k: f64, time_s: f64) -> String {
-    if peak_k.is_finite() {
+/// The indicator's value text: the live kernel temperature in the display
+/// unit, or "not resolved by this tier" when it is `NAN` -- never a
+/// substitute temperature.
+pub(crate) fn peak_fuel_text(unit: LegendUnit, kernel_k: f64) -> String {
+    if kernel_k.is_finite() {
+        kelvin_scalar_display(unit, kernel_k, 1)
+    } else {
+        "not resolved by this tier".to_string()
+    }
+}
+
+/// Draw the live peak-fuel indicator on the main (Schematic) page. GUI
+/// drawing code, exempt from a reaching test (egui paint cannot be driven
+/// here); it wraps the tested [`peak_fuel_text`].
+fn draw_peak_fuel_indicator(ui: &mut Ui, snapshot: &HtgrSnapshot, display_unit: LegendUnit) {
+    ui.label(egui::RichText::new(PEAK_FUEL_LABEL).strong())
+        .on_hover_text(PEAK_FUEL_HOVER);
+    ui.label(
+        egui::RichText::new(peak_fuel_text(
+            display_unit,
+            snapshot.peak_kernel_temperature_k,
+        ))
+        .size(28.0)
+        .strong()
+        .color(egui::Color32::from_rgb(220, 120, 40)),
+    )
+    .on_hover_text(PEAK_FUEL_HOVER);
+}
+
+/// The heading of the maximum-fuel indicator on the Diagnostics tab.
+pub(crate) const MAX_FUEL_LABEL: &str =
+    "Maximum fuel temperature experienced (kernel of a core-average pebble)";
+
+/// The hover text of the maximum-fuel indicator (gh:#964; moved from the main
+/// page to Diagnostics on 2026-10-21, maintainer).
+pub(crate) const MAX_FUEL_HOVER: &str = "The running maximum, since the plant was built or \
+     Reset max was pressed, of the live peak-fuel value on the main page: the centre of \
+     the hottest UO2 kernel in a CORE-AVERAGE pebble, NOT the core hot spot (see #965). \
+     From the opening state it includes the first-second start-up excursion (about \
+     2334 K); press Reset max to drop it.";
+
+/// The maximum indicator's value text: the running maximum in the display
+/// unit and the plant time it was reached, or "not resolved by this tier"
+/// when the record is empty (`NAN`) -- never a substitute temperature.
+pub(crate) fn max_fuel_text(unit: LegendUnit, max_k: f64, time_s: f64) -> String {
+    if max_k.is_finite() {
         format!(
             "{} at t = {:.1} s",
-            kelvin_scalar_display(unit, peak_k, 1),
+            kelvin_scalar_display(unit, max_k, 1),
             time_s
         )
     } else {
@@ -191,31 +236,30 @@ pub(crate) fn peak_fuel_text(unit: LegendUnit, peak_k: f64, time_s: f64) -> Stri
     }
 }
 
-/// Draw the peak-fuel indicator and its **Reset peak** button on the main
-/// (Schematic) page. GUI drawing code, exempt from a reaching test (egui paint
-/// cannot be driven here); it wraps the tested [`peak_fuel_text`]. The button
+/// Draw the maximum-fuel indicator and its **Reset max** button on the
+/// Diagnostics tab. GUI drawing code, exempt from a reaching test (egui paint
+/// cannot be driven here); it wraps the tested [`max_fuel_text`]. The button
 /// only raises a request flag, which the physics thread consumes.
-fn draw_peak_fuel_indicator(
+fn draw_max_fuel_indicator(
     ui: &mut Ui,
     physics: &SharedState<HtgrSnapshot>,
     snapshot: &HtgrSnapshot,
     display_unit: LegendUnit,
 ) {
-    ui.label(egui::RichText::new(PEAK_FUEL_LABEL).strong())
-        .on_hover_text(PEAK_FUEL_HOVER);
+    ui.label(egui::RichText::new(MAX_FUEL_LABEL).strong())
+        .on_hover_text(MAX_FUEL_HOVER);
     ui.label(
-        egui::RichText::new(peak_fuel_text(
+        egui::RichText::new(max_fuel_text(
             display_unit,
             snapshot.peak_kernel_max_k,
             snapshot.peak_kernel_max_time_s,
         ))
-        .size(28.0)
-        .strong()
-        .color(egui::Color32::from_rgb(220, 120, 40)),
+        .size(20.0)
+        .strong(),
     )
-    .on_hover_text(PEAK_FUEL_HOVER);
+    .on_hover_text(MAX_FUEL_HOVER);
     if ui
-        .button("Reset peak")
+        .button("Reset max")
         .on_hover_text("Restart the recorded maximum from the current value.")
         .clicked()
     {
@@ -236,6 +280,49 @@ fn draw_peak_fuel_indicator(
 /// (kopi-beans `op-qpgw`). It is taken by `&mut` because the toggle that sets
 /// it is drawn here; it is written back into [`crate::app::HtgrSimApp`], never
 /// into `physics`. See [`temperature_display`].
+/// The real-time indicator's two lines and whether real time is reachable,
+/// as the CIET educational simulator's browser demo words them (2026-10-27,
+/// maintainer: "put the realtime indicator like the ciet educational
+/// simulator in the side panel"). Line 1: the plant clock's measured rate and,
+/// past the pacer's tolerance, how far behind wall clock it is. Line 2: how
+/// long a tick's work takes against its 0.1 s of plant time, and what rate
+/// that would allow. `None` for line 2 before the first tick is measured.
+pub(crate) fn real_time_lines(s: &HtgrSnapshot) -> (String, Option<(String, bool)>) {
+    let mut first = match s.real_time_ratio {
+        Some(r) if s.fast_forward_enabled => format!("Fast forward: running at {r:.2}× real time"),
+        Some(r) => format!("Running at {r:.2}× real time"),
+        None => "Real time: measuring…".to_string(),
+    };
+    if s.behind_real_time {
+        first.push_str(&format!(" · behind the clock by {:.1} s", s.real_time_deficit_s));
+    }
+    let second = (s.tick_compute_s.is_finite() && s.tick_compute_s > 0.0 && s.tick_simulated_s > 0.0).then(|| {
+        let capacity = s.tick_simulated_s / s.tick_compute_s;
+        let ms = 1000.0 * s.tick_compute_s;
+        let per = 1000.0 * s.tick_simulated_s;
+        if capacity >= 1.0 {
+            (format!("{ms:.1} ms per {per:.0} ms step: real time reachable ({capacity:.1}×)"), true)
+        } else {
+            (format!("{ms:.1} ms per {per:.0} ms step: slower than real time ({capacity:.2}×)"), false)
+        }
+    });
+    (first, second)
+}
+
+/// The real-time indicator at the top of the controls.
+fn draw_real_time_indicator(ui: &mut Ui, snapshot: &HtgrSnapshot) {
+    let (first, second) = real_time_lines(snapshot);
+    ui.label(egui::RichText::new(first).strong());
+    if let Some((text, reachable)) = second {
+        let colour = if reachable { egui::Color32::from_rgb(60, 170, 90) } else { egui::Color32::from_rgb(220, 80, 60) };
+        ui.colored_label(colour, text).on_hover_text(
+            "How long one tick of the plant model takes to compute, against the plant time it \
+             advances. Under 1x the model cannot keep up with the wall clock on this device, and \
+             the plant clock falls behind.",
+        );
+    }
+}
+
 pub fn draw_controls(
     ui: &mut Ui,
     physics: &SharedState<HtgrSnapshot>,
@@ -243,6 +330,7 @@ pub fn draw_controls(
     display_unit: &mut LegendUnit,
 ) {
     ui.heading("Controls");
+    draw_real_time_indicator(ui, snapshot);
     ui.separator();
 
     // Trip banner first: if the reactor has scrammed, that is the single most
@@ -310,13 +398,8 @@ pub fn draw_controls(
     {
         physics.update(|s| s.fast_forward_enabled = fast_forward);
     }
-    if fast_forward {
-        let ratio_text = match snapshot.real_time_ratio {
-            Some(ratio) => format!("achieved {ratio:.2}x real time"),
-            None => "measuring...".to_string(),
-        };
-        ui.colored_label(egui::Color32::from_rgb(80, 160, 220), ratio_text);
-    }
+    // The achieved rate under fast forward is the real-time indicator's
+    // first line, at the top of the panel (2026-10-27).
     ui.separator();
 
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;
@@ -735,11 +818,29 @@ fn compass_point(bearing_deg: f64) -> &'static str {
 /// temperature on screen (display only -- see [`temperature_display`]).
 pub fn draw_schematic_panel(
     ui: &mut Ui,
-    physics: &SharedState<HtgrSnapshot>,
     snapshot: &HtgrSnapshot,
     tracers: &SchematicTracers,
     display_unit: LegendUnit,
 ) {
+    // On a phone (2026-10-27, maintainer: the plant "shld take most of the
+    // screen real estate"): only the peak-fuel readout, on one line, above
+    // the plant. The top bar already says "offline demonstration, not
+    // validated", and the plant's zoom buttons sit over the drawing.
+    if ui.available_width() < 700.0 {
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new("Peak fuel, live").strong())
+                .on_hover_text(PEAK_FUEL_HOVER);
+            ui.label(
+                egui::RichText::new(peak_fuel_text(display_unit, snapshot.peak_kernel_temperature_k))
+                    .size(18.0)
+                    .strong()
+                    .color(egui::Color32::from_rgb(220, 120, 40)),
+            )
+            .on_hover_text(PEAK_FUEL_HOVER);
+        });
+        draw_plant_v1_1(ui, snapshot, tracers);
+        return;
+    }
     // The version title, drawn large and first so it is always on screen.
     ui.label(
         egui::RichText::new("HTGR Simulator v1.1")
@@ -753,12 +854,14 @@ pub fn draw_schematic_panel(
     // egui's built-in whole-window zoom (Options::zoom_with_keyboard,
     // default on) -- not schematic-specific, but this heading is the first
     // thing a reader sees, so it is the natural place to mention it.
+    // A keyboard tip, so only where there is likely to be a keyboard (the
+    // phone layout above leaves it out).
     ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
     ui.separator();
     // The headline readout (gh:#964, maintainer 2026-10-19: on the MAIN page,
     // the screen the simulator opens on, no tab switch needed).
     egui::Frame::group(ui.style()).show(ui, |ui| {
-        draw_peak_fuel_indicator(ui, physics, snapshot, display_unit);
+        draw_peak_fuel_indicator(ui, snapshot, display_unit);
     });
     ui.separator();
     // v1.1 replaced the v1 schematic (2026-09-22). The shared plant drawing
@@ -767,7 +870,6 @@ pub fn draw_schematic_panel(
     // The central panel already scrolls; the plant scales itself to fit it.
     draw_plant_v1_1(ui, snapshot, tracers);
 }
-
 
 /// Time-history plots panel body.
 ///
@@ -910,8 +1012,17 @@ fn in_display_unit(samples: &[[f64; 2]], display_unit: LegendUnit) -> Vec<[f64; 
 /// `display_unit` selects the unit every temperature row is written in
 /// (display only -- see [`temperature_display`]). Every row carries its unit
 /// symbol, so the toggle changes the label as well as the number.
-pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: LegendUnit) {
+pub fn draw_diagnostics_panel(
+    ui: &mut Ui,
+    physics: &SharedState<HtgrSnapshot>,
+    s: &HtgrSnapshot,
+    display_unit: LegendUnit,
+) {
     ui.heading("Numeric diagnostics");
+    ui.separator();
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        draw_max_fuel_indicator(ui, physics, s, display_unit);
+    });
     ui.separator();
 
     egui::Grid::new("htgr_diagnostics_grid")
@@ -1159,6 +1270,31 @@ fn draw_reactivity_budget(ui: &mut egui::Ui, snapshot: &HtgrSnapshot) {
 mod tests {
     use super::*;
 
+    /// The real-time indicator reads the pacer's numbers as the CIET demo
+    /// words them: measuring before the first tick, the measured rate after,
+    /// the deficit only when behind, and reachable vs slower from the tick's
+    /// compute time against its plant time.
+    #[test]
+    fn the_real_time_indicator_says_whether_real_time_is_reachable() {
+        let mut s = HtgrSnapshot::default();
+        assert_eq!(real_time_lines(&s), ("Real time: measuring…".to_string(), None));
+
+        s.real_time_ratio = Some(0.999);
+        s.tick_compute_s = 0.012;
+        s.tick_simulated_s = 0.1;
+        let (first, second) = real_time_lines(&s);
+        assert_eq!(first, "Running at 1.00× real time");
+        assert_eq!(second, Some(("12.0 ms per 100 ms step: real time reachable (8.3×)".to_string(), true)));
+
+        s.real_time_ratio = Some(0.62);
+        s.behind_real_time = true;
+        s.real_time_deficit_s = 4.25;
+        s.tick_compute_s = 0.16;
+        let (first, second) = real_time_lines(&s);
+        assert_eq!(first, "Running at 0.62× real time · behind the clock by 4.2 s");
+        assert_eq!(second, Some(("160.0 ms per 100 ms step: slower than real time (0.62×)".to_string(), false)));
+    }
+
     /// V&V: **the display-unit toggle changes only the presentation**, and the
     /// number it presents is the `uom` conversion rather than a hand-rolled one.
     ///
@@ -1320,17 +1456,22 @@ mod tests {
                 "{deg} is not on a sector boundary"
             );
         }
-        assert!((deg - 0.0).abs() < 1e-9, "clockwise full turn ended at {deg}");
+        assert!(
+            (deg - 0.0).abs() < 1e-9,
+            "clockwise full turn ended at {deg}"
+        );
 
         for _ in 0..crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS {
             deg = (deg - SECTOR).rem_euclid(360.0);
         }
-        assert!((deg - 0.0).abs() < 1e-9, "anticlockwise full turn ended at {deg}");
+        assert!(
+            (deg - 0.0).abs() < 1e-9,
+            "anticlockwise full turn ended at {deg}"
+        );
     }
 
-
-    /// The peak-fuel indicator's text (gh:#964): the running maximum in the
-    /// display unit with its time, and an explicit "not resolved" for `NAN`
+    /// The peak-fuel indicator's text (gh:#964): the live kernel temperature
+    /// in the display unit, and an explicit "not resolved" for `NAN`
     /// -- never a substitute temperature. The label says "core-average" and
     /// the hover text says it is not the hot spot and points at #965.
     /// (`draw_peak_fuel_indicator` itself is GUI drawing code: no test can
@@ -1338,16 +1479,26 @@ mod tests {
     #[test]
     fn the_peak_fuel_indicator_text_is_honest() {
         use super::{peak_fuel_text, PEAK_FUEL_HOVER, PEAK_FUEL_LABEL};
-        let t = peak_fuel_text(LegendUnit::Kelvin, 1150.0, 12.34);
-        assert!(t.contains("1150") && t.contains("12.3 s"), "{t}");
-        let c = peak_fuel_text(LegendUnit::Celsius, 1150.0, 0.0);
+        let t = peak_fuel_text(LegendUnit::Kelvin, 1150.0);
+        assert!(t.contains("1150"), "{t}");
+        let c = peak_fuel_text(LegendUnit::Celsius, 1150.0);
         assert!(c.contains("876.9"), "{c}");
         assert_eq!(
-            peak_fuel_text(LegendUnit::Kelvin, f64::NAN, f64::NAN),
+            peak_fuel_text(LegendUnit::Kelvin, f64::NAN),
             "not resolved by this tier"
         );
         assert!(PEAK_FUEL_LABEL.contains("core-average pebble"));
         assert!(PEAK_FUEL_HOVER.contains("NOT the core hot spot"));
         assert!(PEAK_FUEL_HOVER.contains("#965"));
+        assert!(PEAK_FUEL_LABEL.contains("live") && PEAK_FUEL_HOVER.contains("live"));
+        // The running maximum, now on the Diagnostics tab.
+        let m = super::max_fuel_text(LegendUnit::Kelvin, 1150.0, 12.34);
+        assert!(m.contains("1150") && m.contains("12.3 s"), "{m}");
+        assert_eq!(
+            super::max_fuel_text(LegendUnit::Kelvin, f64::NAN, f64::NAN),
+            "not resolved by this tier"
+        );
+        assert!(super::MAX_FUEL_LABEL.contains("core-average pebble"));
+        assert!(super::MAX_FUEL_HOVER.contains("#965"));
     }
 }

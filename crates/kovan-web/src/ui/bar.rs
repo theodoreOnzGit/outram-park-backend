@@ -15,10 +15,13 @@
 //! to list the callees.
 //!
 //! Added 2026-10-10 (#770, decided by the main session): in
-//! [`Mode::Desktop`] Stamp is **disabled while the function is blocked
-//! bottom-up** (a callee without a valid stamp), with the blocking callees
-//! named on hover ([`stamp_blocked_reason`]), as desktop review mode does.
-//! Needs fix stays enabled: a concern can always be raised.
+//! [`Mode::Desktop`] Stamp ~~is **disabled while the function is blocked
+//! bottom-up** (a callee without a standing stamp: valid, or pending only
+//! a workspace test)~~ **CORRECTED 2026-11-01**
+//! (GitHub #1106) stays enabled: a stamp over unstamped callees is written
+//! and reads tentative until they are valid, and the callees are named on
+//! hover ([`stamp_blocked_reason`]), as desktop review mode does. Needs fix
+//! stays enabled: a concern can always be raised.
 
 use egui::{Color32, RichText};
 
@@ -33,7 +36,8 @@ pub struct BarInfo {
     pub id: String,
     pub review: Review,
     pub maturity: Option<u8>,
-    /// Callees without a valid stamp, each with its state.
+    /// Callees without a standing stamp ([`crate::model::Review::holds`]),
+    /// each with its state.
     pub blocked: Vec<(String, Review)>,
     /// All workspace callees (blocked or not).
     pub callees: usize,
@@ -44,6 +48,9 @@ pub struct BarInfo {
     pub tests: Vec<(String, u32)>,
     pub tests_total: usize,
     pub examples: Vec<(String, u32)>,
+    /// When the function is a `#[test]`: its libtest name, for "Run this
+    /// test" (GitHub #1165, desktop only).
+    pub test_name: Option<String>,
 }
 
 /// What the reader did in the bar.
@@ -56,6 +63,9 @@ pub enum BarAction {
     /// Desktop only: becomes [`super::HostRequest::NeedsFix`].
     NeedsFix,
     ViewSource,
+    /// Desktop only, a test only (#1165): becomes
+    /// [`super::HostRequest::RunTest`].
+    RunTest,
 }
 
 /// The colour of a state's tone ([`Tone`], shared by every view).
@@ -64,14 +74,15 @@ pub fn tone_colour(t: Tone) -> Color32 {
         Tone::Neutral => Color32::from_rgb(150, 156, 168),
         Tone::Good => Color32::from_rgb(90, 190, 110),
         Tone::Attention => Color32::from_rgb(235, 160, 60),
+        Tone::Waiting => Color32::from_rgb(90, 150, 220),
         Tone::Blocked => Color32::from_rgb(220, 80, 80),
     }
 }
 
 /// The stamp state's colour, shared with the cards. An unreviewed function
 /// is red, not the neutral grey of its state's tone, so what still needs a
-/// review stands out at a glance (maintainer, 2026-10-12); valid stays green
-/// and stale states amber.
+/// review stands out at a glance (maintainer, 2026-10-12); valid stays green,
+/// stale states amber, and pending a workspace test blue (2026-10-29).
 pub fn review_colour(r: &Review) -> Color32 {
     match r {
         Review::Unreviewed => tone_colour(Tone::Blocked),
@@ -93,15 +104,21 @@ pub fn review_text(r: &Review) -> String {
     }
 }
 
-/// Why Stamp is disabled for the function `info` shows: `Some(reason)`
-/// while it is blocked bottom-up (callees loaded, at least one without a
-/// valid stamp), naming them; `None` otherwise.
+/// ~~Why Stamp is disabled~~ **CORRECTED 2026-11-01** (GitHub #1106,
+/// tentative stamps): Stamp is never disabled for callees any more. This is
+/// the note on its hover: `Some(note)` while something underneath has no
+/// valid stamp (callees loaded), naming it, since the stamp will then read
+/// tentative until they are; `None` otherwise.
 pub fn stamp_blocked_reason(info: &BarInfo) -> Option<String> {
     if info.loading || info.blocked.is_empty() {
         return None;
     }
     let names: Vec<String> = info.blocked.iter().map(|(id, _)| crate::model::short_name(id).to_string()).collect();
-    Some(format!("Bottom-up: review {} first (no valid stamp)", names.join(", ")))
+    Some(format!(
+        "Tentative: the stamp will count only once {} {} a valid stamp",
+        names.join(", "),
+        if names.len() == 1 { "has" } else { "have" }
+    ))
 }
 
 /// The bar. `expanded` is the reader's toggle (kept by the caller).
@@ -133,14 +150,23 @@ pub fn review_bar(ui: &mut egui::Ui, mode: Mode, info: &BarInfo, expanded: &mut 
         if ui.button("Source").clicked() {
             action = Some(BarAction::ViewSource);
         }
+        if mode.can_run_tests() && info.test_name.is_some() {
+            let run = ui.button("Run this test").on_hover_text(
+                "Run only this test in release, with its printed output (kovan-cli test, \
+                 recorded as a partial run: it never counts as test evidence).",
+            );
+            if run.clicked() {
+                action = Some(BarAction::RunTest);
+            }
+        }
         let can = mode.can_stamp();
         let why = "stamping is desktop-only";
         let bottom_up = stamp_blocked_reason(info);
-        let stamp = ui.add_enabled(can && bottom_up.is_none(), egui::Button::new("Stamp"));
+        let stamp = ui.add_enabled(can, egui::Button::new("Stamp"));
         let fix = ui.add_enabled(can, egui::Button::new("Needs fix"));
         if can {
             let stamp = match &bottom_up {
-                Some(r) => stamp.on_disabled_hover_text(r),
+                Some(r) => stamp.on_hover_text(r),
                 None => stamp,
             };
             if stamp.clicked() {
@@ -210,12 +236,14 @@ mod tests {
             tests: Vec::new(),
             tests_total: 0,
             examples: Vec::new(),
+            test_name: None,
         }
     }
 
-    /// Methodology (#770, decided by the main session 2026-10-10): Stamp is
-    /// disabled while the function is blocked bottom-up, the reason naming
-    /// the callees; not while the callees are still loading or none blocks.
+    /// Methodology (#770, decided by the main session 2026-10-10; changed
+    /// 2026-11-01, GitHub #1106): while something underneath has no valid
+    /// stamp, Stamp's hover says the stamp will be tentative, naming the
+    /// callees; no note while the callees are still loading or none blocks.
     /// The bar draws headless in both modes, blocked or not, without a
     /// panic.
     ///
@@ -228,10 +256,26 @@ mod tests {
         assert_ne!(review_colour(&Review::Unreviewed), tone_colour(Tone::Neutral));
     }
 
+    /// A function pending only a workspace test is blue, never the amber of
+    /// "needs a person" (maintainer, 2026-10-29): no state the ⚑ queue
+    /// holds is drawn blue, and pending is the only blue state.
+    #[test]
+    fn pending_a_workspace_test_is_not_amber() {
+        use kovan_common::review::state::StateKind;
+        let blue = tone_colour(Tone::Waiting);
+        assert_ne!(blue, tone_colour(Tone::Attention));
+        assert_eq!(tone_colour(StateKind::PendingWorkspaceTest.tone()), blue);
+        for k in StateKind::ALL {
+            let is_blue = tone_colour(k.tone()) == blue;
+            assert_eq!(is_blue, k == StateKind::PendingWorkspaceTest, "{k:?}");
+            assert!(!(k.needs_person() && is_blue), "{k:?}");
+        }
+    }
+
     #[test]
     fn stamp_is_disabled_while_blocked_bottom_up() {
         let r = stamp_blocked_reason(&info(&["leaf", "other"], false)).unwrap();
-        assert!(r.contains("Bottom-up") && r.contains("leaf, other"), "{r}");
+        assert!(r.contains("Tentative") && r.contains("leaf, other"), "{r}");
         assert_eq!(stamp_blocked_reason(&info(&["leaf"], true)), None, "loading");
         assert_eq!(stamp_blocked_reason(&info(&[], false)), None);
         let ctx = egui::Context::default();

@@ -22,6 +22,8 @@
 //! **Result (2026-10-04, rust-analyzer 1.98.0, one core):** passes; the
 //! first query includes indexing the temp crate and std (tens of seconds).
 
+mod support;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -75,7 +77,7 @@ pub fn entry() -> f64 {
 
 #[test]
 fn code_walk_against_a_real_rust_analyzer() {
-    if which::which("rust-analyzer").is_err() {
+    if !support::rust_analyzer_runs() {
         eprintln!("SKIPPED: rust-analyzer is not on PATH (rustup component add rust-analyzer)");
         return;
     }

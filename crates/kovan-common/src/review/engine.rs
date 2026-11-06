@@ -22,7 +22,21 @@
 //!    the function's hash recomputed **at that certified commit** must equal
 //!    the recorded hash (time-bound stamps). The reviewer must be registered
 //!    in `kovan_root.toml`, and the stamp dated before any revocation (or
-//!    compromise). With [`SignaturePolicy::Enforce`] the signature must
+//!    compromise).
+//!    **Carried forward** (GitHub #838, #1018; [`CarriedForward`]): when a
+//!    squash, merge, rebase or cherry-pick took the certified commit out of
+//!    `HEAD`'s history and verified carry-forward records
+//!    ([`super::carry_forward`]) lead to a commit in it, that commit is the
+//!    stamp's **effective key**: the caller gives the history and hash
+//!    facts for it. The "added after the certified commit" rule is not
+//!    applied (the rewrite destroyed that order by construction, and the
+//!    signature names the original commit, which existed before signing);
+//!    the agent-trailer rule is not applied when the stamp arrived in a
+//!    hop's own commit (a squash message concatenates every commit's, so it
+//!    says nothing about who stamped; agents cannot sign). The signed
+//!    fields are untouched. A stamp whose certified commit is gone with no
+//!    record, and whose code changed since, is **directly stale**: no
+//!    record can exist for it and it needs a full review. With [`SignaturePolicy::Enforce`] the signature must
 //!    verify against the registry (#762): a scope refusal there is **outside
 //!    scope**, a revocation or compromise is unverified with that reason,
 //!    anything else unverified with the signature's reason.
@@ -53,6 +67,17 @@
 //! review state ([`AGGREGATE_ORDER`]), else **new**. An unreadable entry is
 //! no review: it only shows as **review unreadable** when nothing else
 //! stands.
+//!
+//! **Novice reviewers need a second sign-off** (GitHub #1019, maintainer
+//! 2026-10-22: "for some novice reviewers. People need to earn their
+//! trust"). A valid stamp by a reviewer marked novice for the function's
+//! file on the stamp's date ([`Registry`]'s roster events,
+//! `ReviewerTrust::novice_at`) counts only beside a valid stamp by a
+//! trusted reviewer or a maintainer; alone it is
+//! [`StampState::AwaitingTrustedReviewer`] ("1 of 2: awaiting a trusted
+//! reviewer"), first in [`AGGREGATE_ORDER`]. Everyone is trusted until
+//! marked, so with no novice mark nothing changes. An agent justification
+//! is never a sign-off ([`super::review_md`]).
 //!
 //! **Rungs.** A stamp's rung is **derived, never chosen** (maintainer,
 //! #769, 2026-10-07; [`crate::review::wizard::derived_rung`]): 4 when the
@@ -132,8 +157,7 @@ use super::evidence::verdict::{reach_verdict, ReachVerdict};
 use super::index::{FolderIndex, FunctionIndex, Suite, TestRun};
 use super::ivv::{judge_function, record_warnings, IndependentVv, RecordList, RecordWarning, Rung5Miss, VvCaseProblem};
 use super::review_md::{DeletedFunction, FixStatus, ReviewDocument, ReviewEntry};
-use super::root::{ReviewRoot, Role};
-use super::scope::in_scope;
+use super::root::ReviewRoot;
 use super::signed_at::{plausibility, SignedAtProblem};
 use super::signing::registry::Registry;
 use super::signing::{verify_review, SignatureCheck, UnverifiedReason as SigReason};
@@ -193,6 +217,44 @@ pub struct StampFacts {
     /// git facts as of that commit; `None` when not computed (then git's
     /// view is unknown: rung 3, and no new-test flags).
     pub tests_at_review: Option<TestsAtReview>,
+    /// Set when verified carry-forward records moved the stamp's key to a
+    /// commit in `HEAD`'s history (GitHub #838, #1018). Then
+    /// `added_in.certified_in_history` and `hash_at_commit` are about the
+    /// effective key, while `reviewed_commit_time` stays the **original**
+    /// commit's (`None` when it is not in this clone: the #783 check is
+    /// then not checkable, never judged against the new commit's time).
+    pub carried_forward: Option<CarriedForward>,
+}
+
+/// A stamp carried forward to a new key (GitHub #838, #1018;
+/// [`super::carry_forward`]). Facts, built by the caller from verified
+/// records.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CarriedForward {
+    /// The effective key: the last verified hop's `to`.
+    pub key: String,
+    /// Where the function is at the key (`file.rs::qual`), from the last
+    /// hop: where its hash, tests and permalink are read.
+    pub path: String,
+    /// Each verified hop, `(from, to)`, in order.
+    pub hops: Vec<(String, String)>,
+    /// The commit that added the stamp on this branch is one of the hops'
+    /// `to` (a squash folded the stamp in): its message says nothing about
+    /// who stamped.
+    pub stamp_arrived_in_hop: bool,
+}
+
+/// Whether the #783 "signed before the reviewed commit" check could be run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReviewedCommitTiming {
+    /// The reviewed commit's time was known and checked.
+    Checked,
+    /// Not looked up (no git facts, or an unreadable entry).
+    #[default]
+    NotLookedUp,
+    /// The stamp was carried forward and its original commit is not in
+    /// this clone: not checkable (squashed), neither passed nor failed.
+    NotCheckableSquashed,
 }
 
 /// The tests reaching a function at its review commit (maintainer on #765,
@@ -243,11 +305,18 @@ pub struct GitFacts {
     pub head: String,
     /// `sha256:` hash of the current `Cargo.lock`.
     pub cargo_lock: String,
+    /// Added 2026-10-29 (#1048): lock hash -> crate -> dependency
+    /// fingerprint ([`super::lock_scope::crate_fingerprints`]), for the
+    /// current lock and each lock a review or test run recorded whose text
+    /// git still holds. A lock missing here compares whole-file, as before.
+    pub lock_fingerprints: BTreeMap<String, BTreeMap<String, String>>,
     /// Function id -> its hash at the `[test_run]` commit (#766: "the engine
     /// still checks that the function hash is unchanged since the evidence
     /// commit"). A function missing here is treated as changed: the run
     /// does not speak for it.
     pub hashes_at_test_run: BTreeMap<String, String>,
+    /// The same at the `[targeted_run]` commit (GitHub #1052).
+    pub hashes_at_targeted_run: BTreeMap<String, String>,
     pub stamps: BTreeMap<ReviewKey, StampFacts>,
     /// Function id -> the reviewer ids of the people who wrote its code.
     pub code_authors: BTreeMap<String, BTreeSet<String>>,
@@ -417,6 +486,18 @@ pub enum StampState {
     /// The entry reads but contradicts what can be derived: shown, never
     /// counted (Leak Before Break).
     Invalid(InvalidReason),
+    /// A stamp that would be valid, by `novice`, a reviewer marked novice
+    /// for this function on the stamp's date, with no valid stamp by a
+    /// trusted reviewer or a maintainer beside it (GitHub #1019): "1 of 2,
+    /// awaiting a trusted reviewer". Not counted until one stamps it.
+    AwaitingTrustedReviewer { novice: String },
+    /// A stamp that would be valid on a function something underneath
+    /// which does not count yet (GitHub #1106): "tentative: waiting on
+    /// stamps underneath". `waiting_on` are the function's own callees (or
+    /// types and constants used) that do not count, and the members of its
+    /// recursion group that do not. It becomes valid by itself once
+    /// everything underneath counts.
+    Tentative { waiting_on: Vec<String> },
 }
 
 /// Why a readable review is invalid.
@@ -498,13 +579,17 @@ impl StampState {
             Self::Unreadable { .. } => StateKind::Unreadable,
             Self::PendingWorkspaceTest { .. } => StateKind::PendingWorkspaceTest,
             Self::Invalid(_) => StateKind::Invalid,
+            Self::AwaitingTrustedReviewer { .. } => StateKind::AwaitingTrustedReviewer,
+            Self::Tentative { .. } => StateKind::Tentative,
         }
     }
 }
 
 /// When no review is valid, the function shows the first of these its
 /// reviews have.
-pub const AGGREGATE_ORDER: [StateKind; 11] = [
+pub const AGGREGATE_ORDER: [StateKind; 13] = [
+    StateKind::Tentative,
+    StateKind::AwaitingTrustedReviewer,
     StateKind::DirectlyStale,
     StateKind::InheritedStale,
     StateKind::Moved,
@@ -553,6 +638,13 @@ pub struct ReviewReport {
     /// 2026-10-14), each `"<question> = <answer as written>"`: the review is
     /// capped at rung 3 and flagged.
     pub waived: Vec<String>,
+    /// The stamp's carry-forward, when its key moved (GitHub #838, #1018).
+    pub carried_forward: Option<CarriedForward>,
+    /// Whether #783's reviewed-commit timing check ran (GitHub #1018).
+    pub reviewed_commit_timing: ReviewedCommitTiming,
+    /// The reviewer was marked novice for this function on the stamp's
+    /// date (GitHub #1019); set on stamps that would be valid.
+    pub novice: bool,
 }
 
 /// One function, judged.
@@ -683,6 +775,10 @@ pub fn history_append_only(previous: &ReviewRoot, current: &ReviewRoot) -> Vec<H
         r.code_review.as_ref().map(|c| c.developing_organisation.clone()).unwrap_or_default()
     };
     records_append_only(&devs(previous), &devs(current), || RecordList::DevelopingOrganisation, &mut out);
+    let roster = |r: &ReviewRoot| r.code_review.as_ref().map(|c| c.roster_events.clone()).unwrap_or_default();
+    records_append_only(&roster(previous), &roster(current), || RecordList::RosterEvent, &mut out);
+    let retired = |r: &ReviewRoot| r.code_review.as_ref().map(|c| c.organisation_retirements.clone()).unwrap_or_default();
+    records_append_only(&retired(previous), &retired(current), || RecordList::OrganisationRetirement, &mut out);
     for pr in &previous.reviewers {
         let Some(cr) = current.reviewer(&pr.id) else {
             out.push(HistoryWarning::ReviewerRemoved { reviewer: pr.id.clone() });
@@ -755,13 +851,32 @@ impl Current<'_> {
 /// The reaching-test verdict of `f` from its folder's `test_run`: #766's
 /// [`reach_verdict`], unless a run exists and `f`'s hash at the run's commit
 /// is not its hash now.
-pub fn test_verdict(f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> TestVerdict {
-    let v = reach_verdict(&f.reached_by, run, &git.cargo_lock);
+///
+/// A run at another lock speaks for `krate` when its dependency closure is
+/// the same in both (#1048, [`same_deps`]).
+pub fn test_verdict(krate: &str, f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> TestVerdict {
+    let current = match run {
+        Some(r) if same_deps(krate, &r.cargo_lock, git) => r.cargo_lock.as_str(),
+        _ => git.cargo_lock.as_str(),
+    };
+    let v = reach_verdict(&f.reached_by, run, current);
     match v {
         ReachVerdict::NoReachingTests | ReachVerdict::Pending(_) => TestVerdict::Reach(v),
         _ if !unchanged_since_run(f, git) => TestVerdict::ChangedSinceRun,
         _ => TestVerdict::Reach(v),
     }
+}
+
+/// Whether `krate` resolves the same dependencies at the `recorded` lock as
+/// at the current one (#1048): the same lock, or both locks' fingerprints
+/// known and `krate`'s equal. Anything unknown is "not the same", so this
+/// only ever relaxes a pending state that is provably unneeded.
+pub fn same_deps(krate: &str, recorded: &str, git: &GitFacts) -> bool {
+    if recorded == git.cargo_lock {
+        return true;
+    }
+    let fp = |lock: &str| git.lock_fingerprints.get(lock).and_then(|m| m.get(krate));
+    matches!((fp(recorded), fp(&git.cargo_lock)), (Some(a), Some(b)) if a == b)
 }
 
 fn unchanged_since_run(f: &FunctionIndex, git: &GitFacts) -> bool {
@@ -819,10 +934,12 @@ fn authenticity_git(r: &ReviewEntry, git: &GitFacts, registry: &Registry) -> Opt
     if !added.certified_in_history {
         return Some(UnverifiedReason::CertifiedCommitNotInHistory);
     }
-    if added.agent_trailer {
+    // Carried forward (#838, #1018; module doc, rule 2).
+    let carried = facts.carried_forward.as_ref();
+    if added.agent_trailer && !carried.is_some_and(|c| c.stamp_arrived_in_hop) {
         return Some(UnverifiedReason::AgentTrailer);
     }
-    if !added.after_certified {
+    if !added.after_certified && carried.is_none() {
         return Some(UnverifiedReason::NotAfterCertifiedCommit);
     }
     if facts.hash_at_commit.as_deref() != Some(b.hash.as_str()) {
@@ -898,6 +1015,9 @@ pub fn evaluate(
                 vv_case: Vec::new(),
                 separation_attestation: b.separation_attestation.clone(),
                 signed_at: b.signed_at.clone(),
+                carried_forward: None,
+                reviewed_commit_timing: ReviewedCommitTiming::NotLookedUp,
+                novice: false,
             };
             let is_port = fr.doc.upstream().is_some_and(|u| u.is_port);
             // 1. Find the function.
@@ -943,6 +1063,12 @@ pub fn evaluate(
                 candidates.iter().filter_map(|c| current.get(c.as_str())).collect()
             };
             let stamp_facts = git.stamps.get(&ReviewKey { function: fid.clone(), by: b.by.clone() });
+            report.carried_forward = stamp_facts.and_then(|f| f.carried_forward.clone());
+            report.reviewed_commit_timing = match stamp_facts {
+                Some(f) if f.reviewed_commit_time.is_some() => ReviewedCommitTiming::Checked,
+                Some(f) if f.carried_forward.is_some() => ReviewedCommitTiming::NotCheckableSquashed,
+                _ => ReviewedCommitTiming::NotLookedUp,
+            };
             let at_review = stamp_facts.and_then(|f| f.tests_at_review.as_ref());
             report.vv_case = super::ivv::vv_case_problems(
                 &b.checklist,
@@ -957,7 +1083,7 @@ pub fn evaluate(
             );
             for t in targets {
                 let here = t.location();
-                let tests = test_verdict(t.f, t.index.test_run.as_ref(), git);
+                let tests = test_verdict(&t.index.krate, t.f, t.index.test_run.as_ref(), git);
                 let mut rep = report.clone();
                 rep.state = judge(r, t, &here, &candidates, matched, tests, &current, git, &registry, policy, is_port);
                 if !candidates.is_empty() {
@@ -1031,6 +1157,9 @@ pub fn evaluate(
                     signed_at: None,
                     rung4_axes_unrecorded: false,
                     waived: Vec::new(),
+                    carried_forward: None,
+                    reviewed_commit_timing: ReviewedCommitTiming::NotLookedUp,
+                    novice: false,
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -1082,6 +1211,7 @@ pub fn evaluate(
     for (id, cur) in &current {
         let mut reviews = per_fn.remove(*id).unwrap_or_default();
         reviews.sort_by(|a, b| (&a.by, &a.artifact).cmp(&(&b.by, &b.artifact)));
+        second_sign_off(&mut reviews, &registry, &cur.location().file);
         let no_authors = BTreeSet::new();
         let authors = git.code_authors.get(*id).unwrap_or(&no_authors);
         let ivv = judge_function(id, &cur.index.krate, &reviews, authors, root, &registry, concepts, policy);
@@ -1127,6 +1257,7 @@ pub fn evaluate(
             },
         );
     }
+    tentative_stamps(&mut ev.functions, &current);
     // Bottom-up: callees whose state does not count.
     let counts: BTreeMap<String, bool> = ev
         .functions
@@ -1223,13 +1354,23 @@ fn judge(
     let b = &r.review;
     // 2. Authenticity.
     match authenticity(r, git, registry, policy) {
+        // #838, #1018: the anchor is gone with no carry-forward and the code
+        // changed since: no record can exist for it and a re-anchor would be
+        // refused, so it is what it is, changed since the review.
+        Some(Denial::Unverified(UnverifiedReason::CertifiedCommitNotInHistory)) if cur.f.hash != b.hash => {
+            return StampState::DirectlyStale(StaleWhy::CodeChanged {
+                reviewed: b.hash.clone(),
+                now: cur.f.hash.clone(),
+            })
+        }
         Some(Denial::Unverified(why)) => return StampState::Unverified(why),
         Some(Denial::OutsideScope) => return StampState::OutsideScope,
         None => {}
     }
     // 3. Scope, on the actual location (the registry's role and scope).
+    // (As in force on the stamp's date, GitHub #1019.)
     if let Some(rv) = registry.reviewer(&b.by) {
-        if rv.role == Role::Reviewer && !in_scope(&rv.scope, &here.file) {
+        if !rv.may_stamp(&b.date, &here.file) {
             return StampState::OutsideScope;
         }
     }
@@ -1317,23 +1458,35 @@ fn judge(
     if cur.f.doc_hash != b.doc_hash {
         return StampState::DocChanged;
     }
-    // 8. Cargo.lock.
+    // 8. Cargo.lock: only a change in this crate's dependency closure
+    // (#1048).
     if let Some(lock) = &b.cargo_lock {
-        if *lock != git.cargo_lock {
+        if !same_deps(&cur.index.krate, lock, git) {
             return match tests {
                 TestVerdict::Reach(ReachVerdict::Failed { .. }) => StampState::InheritedStale {
                     cause: InheritedCause::LockTestFailed,
                     tests,
                     blocked: true,
                 },
-                _ if full_run_at_current_lock(cur.index.test_run.as_ref(), git)
+                _ if full_run_at_current_lock(&cur.index.krate, cur.index.test_run.as_ref(), git)
                     && unchanged_since_run(cur.f, git) =>
                 {
                     StampState::Valid
                 }
-                _ => StampState::PendingWorkspaceTest {
-                    reviewed_lock: lock.clone(),
-                    current_lock: git.cargo_lock.clone(),
+                // A targeted run of the pending stamps' reaching tests
+                // (GitHub #1052) speaks for the function only when it ran
+                // every one of them.
+                _ => match targeted_verdict(&cur.index.krate, cur.f, cur.index.targeted_run.as_ref(), git) {
+                    Some(ReachVerdict::Passed { .. }) => StampState::Valid,
+                    Some(v @ ReachVerdict::Failed { .. }) => StampState::InheritedStale {
+                        cause: InheritedCause::LockTestFailed,
+                        tests: TestVerdict::Reach(v),
+                        blocked: true,
+                    },
+                    _ => StampState::PendingWorkspaceTest {
+                        reviewed_lock: lock.clone(),
+                        current_lock: git.cargo_lock.clone(),
+                    },
                 },
             };
         }
@@ -1341,8 +1494,191 @@ fn judge(
     StampState::Valid
 }
 
-fn full_run_at_current_lock(run: Option<&TestRun>, git: &GitFacts) -> bool {
-    run.is_some_and(|r| r.suite == Suite::Full && r.cargo_lock == git.cargo_lock)
+/// The novice rule (GitHub #1019; maintainer: "People need to earn their
+/// trust"): mark each would-be-valid stamp whose reviewer was a novice for
+/// `file` on its date; when no valid stamp is by a trusted reviewer or a
+/// maintainer, each novice stamp becomes
+/// [`StampState::AwaitingTrustedReviewer`]. With a trusted one beside it
+/// the novice's stamp stays valid (co-signed). No novice mark anywhere:
+/// nothing changes.
+fn second_sign_off(reviews: &mut [ReviewReport], registry: &Registry, file: &str) {
+    for r in reviews.iter_mut().filter(|r| r.state.kind() == StateKind::Valid) {
+        let date = r.date.clone().unwrap_or_default();
+        r.novice = registry.reviewer(&r.by).is_some_and(|t| t.novice_at(&date, file));
+    }
+    let trusted = reviews.iter().any(|r| r.state.kind() == StateKind::Valid && !r.novice);
+    if trusted {
+        return;
+    }
+    for r in reviews.iter_mut().filter(|r| r.novice && r.state.kind() == StateKind::Valid) {
+        r.state = StampState::AwaitingTrustedReviewer { novice: r.by.clone() };
+    }
+}
+
+/// Tentative stamps (GitHub #1106, maintainer 2026-11-01: "stamps don't
+/// become valid until everything underneath is stamped"). Over the
+/// workspace's dependency graph (callees, and the types and constants used,
+/// [`FunctionIndex::depends_on`]; ids not in the workspace are ignored),
+/// one recursion group (strongly connected component) at a time, callees'
+/// groups first: a group counts when every member is valid and every
+/// dependency outside the group is settled: valid, or pending only a
+/// workspace test (a pending callee does not hold its caller, maintainer
+/// 2026-10-29, as in the review bar's `Review::holds`). A tentative one is
+/// not settled. Each valid member of a group that
+/// does not becomes [`StampState::Tentative`], with its rung cleared, and
+/// so do its valid reviews. A callee left tentative does not count, so the
+/// wait carries up to every caller.
+fn tentative_stamps(functions: &mut BTreeMap<String, FunctionReport>, current: &BTreeMap<&str, Current>) {
+    let deps: BTreeMap<&str, Vec<&str>> = current
+        .iter()
+        .map(|(id, cur)| {
+            let mut d: Vec<&str> = cur
+                .f
+                .depends_on()
+                .map(String::as_str)
+                .filter(|c| c != id && current.contains_key(c))
+                .collect();
+            d.sort();
+            d.dedup();
+            (*id, d)
+        })
+        .collect();
+    let mut counts: BTreeMap<String, bool> = functions
+        .iter()
+        .map(|(k, v)| {
+            let kind = v.state.kind();
+            (k.clone(), kind.counts() || kind == StateKind::PendingWorkspaceTest)
+        })
+        .collect();
+    let counted = |counts: &BTreeMap<String, bool>, id: &str| counts.get(id).copied().unwrap_or(false);
+    for group in recursion_groups(&deps) {
+        let members: BTreeSet<&str> = group.iter().copied().collect();
+        let waiting: Vec<(&str, Vec<String>)> = group
+            .iter()
+            .map(|m| {
+                let mut w: Vec<String> = deps[m]
+                    .iter()
+                    .filter(|d| !counted(&counts, d))
+                    .map(|d| d.to_string())
+                    .collect();
+                // A partner short of valid holds the whole group.
+                w.extend(
+                    members
+                        .iter()
+                        .filter(|p| *p != m && !deps[m].contains(p) && !counted(&counts, p))
+                        .map(|p| p.to_string()),
+                );
+                w.sort();
+                (*m, w)
+            })
+            .collect();
+        let held: Vec<String> = waiting
+            .iter()
+            .filter(|(m, w)| !w.is_empty() || !counted(&counts, m))
+            .map(|(m, _)| m.to_string())
+            .collect();
+        if held.is_empty() {
+            continue;
+        }
+        for (m, mut w) in waiting {
+            // Only a valid stamp becomes tentative; a pending one stays as
+            // it is.
+            if !functions.get(m).is_some_and(|f| f.state.kind().counts()) {
+                counts.insert(m.to_string(), false);
+                continue;
+            }
+            // Nothing of its own: it waits on the partners that are held.
+            if w.is_empty() {
+                w = held.iter().filter(|p| p.as_str() != m).cloned().collect();
+            }
+            let state = StampState::Tentative { waiting_on: w };
+            if let Some(f) = functions.get_mut(m) {
+                for r in f.reviews.iter_mut().filter(|r| r.state.kind().counts()) {
+                    r.state = state.clone();
+                }
+                f.state = state;
+                f.rung = None;
+            }
+            counts.insert(m.to_string(), false);
+        }
+    }
+}
+
+/// The strongly connected components of `deps` (Tarjan's algorithm, run
+/// iteratively), each a recursion group, in an order where every group
+/// comes after the groups it depends on.
+fn recursion_groups<'a>(deps: &BTreeMap<&'a str, Vec<&'a str>>) -> Vec<Vec<&'a str>> {
+    let mut index: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut low: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut on_stack: BTreeSet<&str> = BTreeSet::new();
+    let mut stack: Vec<&str> = Vec::new();
+    let mut groups = Vec::new();
+    let mut next = 0;
+    for &root in deps.keys() {
+        if index.contains_key(root) {
+            continue;
+        }
+        // (node, position of the next dependency to visit)
+        let mut work: Vec<(&str, usize)> = vec![(root, 0)];
+        index.insert(root, next);
+        low.insert(root, next);
+        next += 1;
+        stack.push(root);
+        on_stack.insert(root);
+        while let Some((v, i)) = work.pop() {
+            let ds = &deps[v];
+            if let Some(&w) = ds.get(i) {
+                work.push((v, i + 1));
+                if !index.contains_key(w) {
+                    index.insert(w, next);
+                    low.insert(w, next);
+                    next += 1;
+                    stack.push(w);
+                    on_stack.insert(w);
+                    work.push((w, 0));
+                } else if on_stack.contains(w) {
+                    let lw = index[w].min(low[v]);
+                    low.insert(v, lw);
+                }
+                continue;
+            }
+            if low[v] == index[v] {
+                let mut g = Vec::new();
+                while let Some(w) = stack.pop() {
+                    on_stack.remove(w);
+                    g.push(w);
+                    if w == v {
+                        break;
+                    }
+                }
+                g.sort();
+                groups.push(g);
+            }
+            if let Some(&(parent, _)) = work.last() {
+                let lp = low[parent].min(low[v]);
+                low.insert(parent, lp);
+            }
+        }
+    }
+    groups
+}
+
+fn full_run_at_current_lock(krate: &str, run: Option<&TestRun>, git: &GitFacts) -> bool {
+    run.is_some_and(|r| r.suite == Suite::Full && same_deps(krate, &r.cargo_lock, git))
+}
+
+/// What a `[targeted_run]` (GitHub #1052) says about `f`, or `None` when
+/// it cannot speak for it: no such run, not targeted, another `Cargo.lock`,
+/// no reaching test, a reaching test not among its targets, or `f` changed
+/// since the run's commit. Otherwise [`reach_verdict`] over that run.
+///
+/// "Another `Cargo.lock`" is per crate, as for `[test_run]` (#1048,
+/// [`same_deps`]): a run at a lock where `krate`'s dependencies are the same.
+pub fn targeted_verdict(krate: &str, f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> Option<ReachVerdict> {
+    let run = run.filter(|r| r.suite == Suite::Targeted && same_deps(krate, &r.cargo_lock, git))?;
+    let covered = !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t));
+    let unchanged = git.hashes_at_targeted_run.get(&f.id) == Some(&f.hash);
+    (covered && unchanged).then(|| reach_verdict(&f.reached_by, Some(run), &run.cargo_lock))
 }
 
 fn aggregate(reviews: &[ReviewReport]) -> StampState {
